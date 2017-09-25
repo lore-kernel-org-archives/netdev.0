@@ -1,114 +1,296 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Patch net-next v2] net_sched: use idr to allocate bpf filter
- handles
-Date: Mon, 25 Sep 2017 23:16:52 +0200
-Message-ID: <59C97244.30301@iogearbox.net>
-References: <20170925171351.4956-1-xiyou.wangcong@gmail.com>
+From: Richard Weinberger <richard@sigma-star.at>
+Subject: WARNING: kernel stack frame pointer at ffff880156a5fea0 in bash:2103 has bad value 00007ffec7d87e50
+Date: Mon, 25 Sep 2017 23:23:31 +0200
+Message-ID: <2656822.vqnppgTvlm@blindfold>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chris Mi <chrism@mellanox.com>, Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49828 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932182AbdIYVQz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 17:16:55 -0400
-In-Reply-To: <20170925171351.4956-1-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ast@kernel.org, daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/25/2017 07:13 PM, Cong Wang wrote:
-> Instead of calling cls_bpf_get() in a loop to find
-> a unused handle, just switch to idr API to allocate
-> new handles.
->
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Chris Mi <chrism@mellanox.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-[...]
-> @@ -476,21 +462,30 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
->   		}
->   	}
->
-> -	if (handle == 0)
-> -		prog->handle = cls_bpf_grab_new_handle(tp, head);
-> -	else
-> +	if (handle == 0) {
-> +		ret = idr_alloc_ext(&head->handle_idr, prog, &idr_index,
-> +				    1, 0x7FFFFFFF, GFP_KERNEL);
-> +		if (ret)
-> +			goto errout;
-> +		prog->handle = idr_index;
-> +	} else {
-> +		if (!oldprog) {
-> +			ret = idr_alloc_ext(&head->handle_idr, prog, &idr_index,
-> +					    handle, handle + 1, GFP_KERNEL);
-> +			if (ret)
-> +				goto errout;
-> +		}
->   		prog->handle = handle;
-> -	if (prog->handle == 0) {
-> -		ret = -EINVAL;
-> -		goto errout;
->   	}
->
->   	ret = cls_bpf_set_parms(net, tp, prog, base, tb, tca[TCA_RATE], ovr);
->   	if (ret < 0)
-> -		goto errout;
-> +		goto errout_idr;
->
->   	ret = cls_bpf_offload(tp, prog, oldprog);
->   	if (ret) {
-> +		if (!oldprog)
-> +			idr_remove_ext(&head->handle_idr, prog->handle);
+Hi!
 
-Shouldn't we also call idr_remove_ext() when there was an
-oldprog, but we didn't care about reusing the same handle,
-so it was handle == 0 initially?
+While playing with bcc's opensnoop tool on Linux 4.14-rc2 I managed to trigger 
+this splat:
 
-There's this condition in the code before above idr allocations,
-I think also in other classifiers:
+[  297.629773] WARNING: kernel stack frame pointer at ffff880156a5fea0 in 
+bash:2103 has bad value 00007ffec7d87e50
+[  297.629777] unwind stack type:0 next_sp:          (null) mask:0x6 
+graph_idx:0
+[  297.629783] ffff88015b207ae0: ffff88015b207b68 (0xffff88015b207b68)
+[  297.629790] ffff88015b207ae8: ffffffffb163c00e (__save_stack_trace+0x6e/
+0xd0)
+[  297.629792] ffff88015b207af0: 0000000000000000 ...
+[  297.629795] ffff88015b207af8: ffff880156a58000 (0xffff880156a58000)
+[  297.629799] ffff88015b207b00: ffff880156a60000 (0xffff880156a60000)
+[  297.629800] ffff88015b207b08: 0000000000000000 ...
+[  297.629803] ffff88015b207b10: 0000000000000006 (0x6)
+[  297.629806] ffff88015b207b18: ffff880151b02700 (0xffff880151b02700)
+[  297.629809] ffff88015b207b20: 0000010100000000 (0x10100000000)
+[  297.629812] ffff88015b207b28: ffff880156a5fea0 (0xffff880156a5fea0)
+[  297.629815] ffff88015b207b30: ffff88015b207ae0 (0xffff88015b207ae0)
+[  297.629818] ffff88015b207b38: ffffffffc0050282 (0xffffffffc0050282)
+[  297.629819] ffff88015b207b40: 0000000000000000 ...
+[  297.629822] ffff88015b207b48: 0000000001000000 (0x1000000)
+[  297.629825] ffff88015b207b50: ffff880157b98280 (0xffff880157b98280)
+[  297.629828] ffff88015b207b58: ffff880157b98380 (0xffff880157b98380)
+[  297.629831] ffff88015b207b60: ffff88015ad2b500 (0xffff88015ad2b500)
+[  297.629834] ffff88015b207b68: ffff88015b207b78 (0xffff88015b207b78)
+[  297.629838] ffff88015b207b70: ffffffffb163c086 (save_stack_trace+0x16/0x20)
+[  297.629841] ffff88015b207b78: ffff88015b207da8 (0xffff88015b207da8)
+[  297.629847] ffff88015b207b80: ffffffffb18a8ed6 (save_stack+0x46/0xd0)
+[  297.629850] ffff88015b207b88: 000000400000000c (0x400000000c)
+[  297.629852] ffff88015b207b90: ffff88015b207ba0 (0xffff88015b207ba0)
+[  297.629855] ffff88015b207b98: ffff880100000000 (0xffff880100000000)
+[  297.629859] ffff88015b207ba0: ffffffffb163c086 (save_stack_trace+0x16/0x20)
+[  297.629864] ffff88015b207ba8: ffffffffb18a8ed6 (save_stack+0x46/0xd0)
+[  297.629868] ffff88015b207bb0: ffffffffb18a9752 (kasan_slab_free+0x72/0xc0)
+[  297.629873] ffff88015b207bb8: ffffffffb18a5e90 (kmem_cache_free+0x70/0x190)
+[  297.629879] ffff88015b207bc0: ffffffffb18b7e94 (file_free_rcu+0x34/0x40)
+[  297.629886] ffff88015b207bc8: ffffffffb172580c (rcu_process_callbacks
++0x2dc/0xcd0)
+[  297.629892] ffff88015b207bd0: ffffffffb2646cbc (__do_softirq+0x12c/0x343)
+[  297.629897] ffff88015b207bd8: ffffffffb1692304 (irq_exit+0xe4/0xf0)
+[  297.629902] ffff88015b207be0: ffffffffb2646446 (smp_apic_timer_interrupt
++0x86/0x1a0)
+[  297.629907] ffff88015b207be8: ffffffffb26452f3 (apic_timer_interrupt
++0x93/0xa0)
+[  297.629913] ffff88015b207bf0: ffffffffb1667417 (optimized_callback
++0x67/0x100)
+[  297.629916] ffff88015b207bf8: ffffffffc0050282 (0xffffffffc0050282)
+[  297.629918] ffff88015b207c00: 0000000000000000 ...
+[  297.629921] ffff88015b207c08: ffff88015a77e24c (0xffff88015a77e24c)
+[  297.629924] ffff88015b207c10: ffff88015b207c38 (0xffff88015b207c38)
+[  297.629927] ffff88015b207c18: ffff88015b207c38 (0xffff88015b207c38)
+[  297.629929] ffff88015b207c20: 0000000000000086 (0x86)
+[  297.629932] ffff88015b207c28: ffff88015a77db00 (0xffff88015a77db00)
+[  297.629935] ffff88015b207c30: 1ffff1002b640f91 (0x1ffff1002b640f91)
+[  297.629938] ffff88015b207c38: ffff88015b207d10 (0xffff88015b207d10)
+[  297.629945] ffff88015b207c40: ffffffffb16c9f60 (try_to_wake_up+0xb0/0x710)
+[  297.629947] ffff88015b207c48: 0000000000000000 ...
+[  297.629952] ffff88015b207c50: ffffffffb2dfd3c0 (machine_ops+0x40/0x40)
+[  297.629954] ffff88015b207c58: ffff88015a77df94 (0xffff88015a77df94)
+[  297.629957] ffff88015b207c60: 0000000000023540 (0x23540)
+[  297.629960] ffff88015b207c68: ffff88015b215c38 (0xffff88015b215c38)
+[  297.629963] ffff88015b207c70: ffff88015b200000 (0xffff88015b200000)
+[  297.629965] ffff88015b207c78: 0000000000000086 (0x86)
+[  297.629968] ffff88015b207c80: 0000000100000000 (0x100000000)
+[  297.629971] ffff88015b207c88: 0000000041b58ab3 (0x41b58ab3)
+[  297.629975] ffff88015b207c90: ffffffffb2d919f2 (.LC2+0x6e0e/0x83b5)
+[  297.629981] ffff88015b207c98: ffffffffb16c9eb0 (migrate_swap_stop
++0x2e0/0x2e0)
+[  297.629986] ffff88015b207ca0: ffffffffb16d0f73 (account_entity_dequeue
++0x73/0x110)
+[  297.629989] ffff88015b207ca8: 0000000000100000 (0x100000)
+[  297.629992] ffff88015b207cb0: ffff88015b2235a0 (0xffff88015b2235a0)
+[  297.629994] ffff88015b207cb8: ffff88015061e280 (0xffff88015061e280)
+[  297.629997] ffff88015b207cc0: ffff88015b207ce8 (0xffff88015b207ce8)
+[  297.630003] ffff88015b207cc8: ffffffffb16c87ed (sched_avg_update+0x2d/0x90)
+[  297.630005] ffff88015b207cd0: 0000000000000005 (0x5)
+[  297.630008] ffff88015b207cd8: ffff88015b223570 (0xffff88015b223570)
+[  297.630010] ffff88015b207ce0: 00000000000000dd (0xdd)
+[  297.630013] ffff88015b207ce8: ffff88015a017ea0 (0xffff88015a017ea0)
+[  297.630021] ffff88015b207cf0: ffffffffb30b7128 (rcu_sched_state
++0x928/0xaa0)
+[  297.630024] ffff88015b207cf8: ffff880151b02700 (0xffff880151b02700)
+[  297.630026] ffff88015b207d00: 0000000000000001 (0x1)
+[  297.630031] ffff88015b207d08: ffffffffb30b6800 (rcu_bh_varname+0x60/0x60)
+[  297.630034] ffff88015b207d10: ffff88015b207d20 (0xffff88015b207d20)
+[  297.630040] ffff88015b207d18: ffffffffb16ca5d0 (wake_up_process+0x10/0x20)
+[  297.630043] ffff88015b207d20: ffff88015b207d48 (0xffff88015b207d48)
+[  297.630045] ffff88015b207d28: ffff88015b207d48 (0xffff88015b207d48)
+[  297.630048] ffff88015b207d30: 0000000000000202 (0x202)
+[  297.630053] ffff88015b207d38: ffffffffb30b7120 (rcu_sched_state
++0x920/0xaa0)
+[  297.630056] ffff88015b207d40: 0000000000000202 (0x202)
+[  297.630059] ffff88015b207d48: ffff88015b207d68 (0xffff88015b207d68)
+[  297.630063] ffff88015b207d50: ffffffffb16ee225 (swake_up+0x25/0x30)
+[  297.630069] ffff88015b207d58: ffffffffb30b6800 (rcu_bh_varname+0x60/0x60)
+[  297.630072] ffff88015b207d60: ffff88015a77db00 (0xffff88015a77db00)
+[  297.630074] ffff88015b207d68: ffff88015b207d90 (0xffff88015b207d90)
+[  297.630079] ffff88015b207d70: ffffffffb1720016 (rcu_gp_kthread_wake
++0x56/0x60)
+[  297.630082] ffff88015b207d78: 0000000000000002 (0x2)
+[  297.630087] ffff88015b207d80: ffffffffb30b7138 (rcu_sched_state
++0x938/0xaa0)
+[  297.630092] ffff88015b207d88: ffffffffb30b6800 (rcu_bh_varname+0x60/0x60)
+[  297.630095] ffff88015b207d90: ffff88015b207e18 (0xffff88015b207e18)
+[  297.630099] ffff88015b207d98: ffffffffb1720521 (rcu_report_qs_rnp
++0x2f1/0x310)
+[  297.630102] ffff88015b207da0: ffff88015ad2b500 (0xffff88015ad2b500)
+[  297.630105] ffff88015b207da8: ffff88015b207dd0 (0xffff88015b207dd0)
+[  297.630110] ffff88015b207db0: ffffffffb18a9752 (kasan_slab_free+0x72/0xc0)
+[  297.630113] ffff88015b207db8: ffff880157b98280 (0xffff880157b98280)
+[  297.630116] ffff88015b207dc0: ffffea00055ee600 (0xffffea00055ee600)
+[  297.630121] ffff88015b207dc8: ffffffffb18b7e94 (file_free_rcu+0x34/0x40)
+[  297.630124] ffff88015b207dd0: ffff88015b207e00 (0xffff88015b207e00)
+[  297.630128] ffff88015b207dd8: ffffffffb18a5e90 (kmem_cache_free+0x70/0x190)
+[  297.630131] ffff88015b207de0: ffff880157b98280 (0xffff880157b98280)
+[  297.630135] ffff88015b207de8: ffffffffb18b7e60 (get_max_files+0x10/0x10)
+[  297.630141] ffff88015b207df0: ffffffffb30b72a0 (rcu_sched_state
++0xaa0/0xaa0)
+[  297.630143] ffff88015b207df8: 000000000000000f (0xf)
+[  297.630146] ffff88015b207e00: ffff88015b207e18 (0xffff88015b207e18)
+[  297.630150] ffff88015b207e08: ffffffffb18b7e94 (file_free_rcu+0x34/0x40)
+[  297.630153] ffff88015b207e10: ffff880157b98280 (0xffff880157b98280)
+[  297.630156] ffff88015b207e18: ffff88015b207f30 (0xffff88015b207f30)
+[  297.630161] ffff88015b207e20: ffffffffb172580c (rcu_process_callbacks
++0x2dc/0xcd0)
+[  297.630164] ffff88015b207e28: ffff88015b21b000 (0xffff88015b21b000)
+[  297.630167] ffff88015b207e30: ffff88015b21b070 (0xffff88015b21b070)
+[  297.630170] ffff88015b207e38: 1ffff1002b640fd5 (0x1ffff1002b640fd5)
+[  297.630173] ffff88015b207e40: ffff880151b02700 (0xffff880151b02700)
+[  297.630176] ffff88015b207e48: ffff88015b224200 (0xffff88015b224200)
+[  297.630178] ffff88015b207e50: ffff88015b224280 (0xffff88015b224280)
+[  297.630181] ffff88015b207e58: ffff88015b2242b0 (0xffff88015b2242b0)
+[  297.630184] ffff88015b207e60: ffff88015b207f08 (0xffff88015b207f08)
+[  297.630187] ffff88015b207e68: ffff880151b0274c (0xffff880151b0274c)
+[  297.630190] ffff88015b207e70: ffff880151b02700 (0xffff880151b02700)
+[  297.630195] ffff88015b207e78: ffffffffb30b7258 (rcu_sched_state
++0xa58/0xaa0)
+[  297.630198] ffff88015b207e80: ffff880157b98288 (0xffff880157b98288)
+[  297.630203] ffff88015b207e88: ffffffffb30b6800 (rcu_bh_varname+0x60/0x60)
+[  297.630206] ffff88015b207e90: ffff88015b224238 (0xffff88015b224238)
+[  297.630209] ffff88015b207e98: ffff88015b207ec8 (0xffff88015b207ec8)
+[  297.630211] ffff88015b207ea0: 000000000000000a (0xa)
+[  297.630214] ffff88015b207ea8: 0000000041b58ab3 (0x41b58ab3)
+[  297.630218] ffff88015b207eb0: ffffffffb2d944f5 (.LC0+0x155c/0xa3a6)
+[  297.630223] ffff88015b207eb8: ffffffffb1725530 (note_gp_changes+0xe0/0xe0)
+[  297.630226] ffff88015b207ec0: ffff88015b215740 (0xffff88015b215740)
+[  297.630229] ffff88015b207ec8: ffff880157b983c0 (0xffff880157b983c0)
+[  297.630231] ffff88015b207ed0: ffff88014ac19eb0 (0xffff88014ac19eb0)
+[  297.630234] ffff88015b207ed8: ffffffffffffffff (0xffffffffffffffff)
+[  297.630236] ffff88015b207ee0: 0000000000000000 ...
+[  297.630239] ffff88015b207ee8: 0000004552dda1c0 (0x4552dda1c0)
+[  297.630240] ffff88015b207ef0: 0000000000000000 ...
+[  297.630243] ffff88015b207ef8: ffff88015b207f20 (0xffff88015b207f20)
+[  297.630249] ffff88015b207f00: ffffffffb174a0a8 (tick_program_event
++0x48/0x80)
+[  297.630252] ffff88015b207f08: 0000000000000009 (0x9)
+[  297.630259] ffff88015b207f10: ffffffffb3009148 (softirq_vec+0x48/0x80)
+[  297.630261] ffff88015b207f18: 0000000000000009 (0x9)
+[  297.630263] ffff88015b207f20: 0000000000000008 (0x8)
+[  297.630265] ffff88015b207f28: 0000000000000009 (0x9)
+[  297.630268] ffff88015b207f30: ffff88015b207fa8 (0xffff88015b207fa8)
+[  297.630273] ffff88015b207f38: ffffffffb2646cbc (__do_softirq+0x12c/0x343)
+[  297.630276] ffff88015b207f40: 0000000a00404100 (0xa00404100)
+[  297.630279] ffff88015b207f48: ffff880151b02700 (0xffff880151b02700)
+[  297.630282] ffff88015b207f50: 00000000fffff730 (0xfffff730)
+[  297.630284] ffff88015b207f58: 0000000000000009 (0x9)
+[  297.630286] ffff88015b207f60: 0000000000000040 (0x40)
+[  297.630289] ffff88015b207f68: 000001005b21c294 (0x1005b21c294)
+[  297.630294] ffff88015b207f70: ffffffffb3009110 (softirq_vec+0x10/0x80)
+[  297.630297] ffff88015b207f78: 0000008000000008 (0x8000000008)
+[  297.630300] ffff88015b207f80: ffff88015a77ce00 (0xffff88015a77ce00)
+[  297.630303] ffff88015b207f88: ffff88015b215840 (0xffff88015b215840)
+[  297.630304] ffff88015b207f90: 0000000000000000 ...
+[  297.630307] ffff88015b207f98: ffff880156a5feb0 (0xffff880156a5feb0)
+[  297.630311] ffff88015b207fa0: ffffffffb18b23b1 (SyS_open+0x1/0x20)
+[  297.630314] ffff88015b207fa8: ffff88015b207fc0 (0xffff88015b207fc0)
+[  297.630318] ffff88015b207fb0: ffffffffb1692304 (irq_exit+0xe4/0xf0)
+[  297.630321] ffff88015b207fb8: ffff88015b215740 (0xffff88015b215740)
+[  297.630324] ffff88015b207fc0: ffff88015b207fe8 (0xffff88015b207fe8)
+[  297.630329] ffff88015b207fc8: ffffffffb2646446 (smp_apic_timer_interrupt
++0x86/0x1a0)
+[  297.630332] ffff88015b207fd0: ffff88015104d500 (0xffff88015104d500)
+[  297.630335] ffff88015b207fd8: ffff88015b215840 (0xffff88015b215840)
+[  297.630338] ffff88015b207fe0: 0000000000000246 (0x246)
+[  297.630341] ffff88015b207fe8: ffff880156a5fdc9 (0xffff880156a5fdc9)
+[  297.630345] ffff88015b207ff0: ffffffffb26452f3 (apic_timer_interrupt
++0x93/0xa0)
+[  297.630348] ffff88015b207ff8: ffff880156a5fdc8 (0xffff880156a5fdc8)
+[  297.630352] ffff880156a5fdc8: ffffffffb18b23b1 (SyS_open+0x1/0x20)
+[  297.630355] ffff880156a5fdd0: ffff880156a5feb0 (0xffff880156a5feb0)
+[  297.630357] ffff880156a5fdd8: 0000000000000246 (0x246)
+[  297.630360] ffff880156a5fde0: ffff88015b215840 (0xffff88015b215840)
+[  297.630363] ffff880156a5fde8: ffff880156a5fea0 (0xffff880156a5fea0)
+[  297.630366] ffff880156a5fdf0: ffff88015104d500 (0xffff88015104d500)
+[  297.630369] ffff880156a5fdf8: fffff52000140c08 (0xfffff52000140c08)
+[  297.630372] ffff880156a5fe00: ffffc90000a0603f (0xffffc90000a0603f)
+[  297.630375] ffff880156a5fe08: fffff52000140c07 (0xfffff52000140c07)
+[  297.630378] ffff880156a5fe10: fffff52000140c08 (0xfffff52000140c08)
+[  297.630379] ffff880156a5fe18: 0000000000000000 ...
+[  297.630385] ffff880156a5fe20: ffffffffb178d9eb (opt_pre_handler+0x6b/0x80)
+[  297.630388] ffff880156a5fe28: dffffc0000000000 (0xdffffc0000000000)
+[  297.630391] ffff880156a5fe30: dffffc0000000000 (0xdffffc0000000000)
+[  297.630393] ffff880156a5fe38: 0000000000000246 (0x246)
+[  297.630396] ffff880156a5fe40: ffffffffffffff10 (0xffffffffffffff10)
+[  297.630401] ffff880156a5fe48: ffffffffb1667417 (optimized_callback
++0x67/0x100)
+[  297.630404] ffff880156a5fe50: 0000000000000010 (0x10)
+[  297.630406] ffff880156a5fe58: 0000000000000246 (0x246)
+[  297.630409] ffff880156a5fe60: ffff880156a5fe78 (0xffff880156a5fe78)
+[  297.630412] ffff880156a5fe68: 0000000000000018 (0x18)
+[  297.630414] ffff880156a5fe70: 0000000000000246 (0x246)
+[  297.630417] ffff880156a5fe78: 00000000026aed08 (0x26aed08)
+[  297.630419] ffff880156a5fe80: 0000000000000005 (0x5)
+[  297.630421] ffff880156a5fe88: 0000000000000003 (0x3)
+[  297.630423] ffff880156a5fe90: 0000000000000000 ...
+[  297.630425] ffff880156a5fe98: 00000000025d1568 (0x25d1568)
+[  297.630428] ffff880156a5fea0: 00007ffec7d87e50 (0x7ffec7d87e50)
+[  297.630431] ffff880156a5fea8: ffffffffc0050282 (0xffffffffc0050282)
+[  297.630433] ffff880156a5feb0: 00000000025d1568 (0x25d1568)
+[  297.630435] ffff880156a5feb8: 0000000000000000 ...
+[  297.630437] ffff880156a5fec0: 0000000000000003 (0x3)
+[  297.630440] ffff880156a5fec8: 0000000000000005 (0x5)
+[  297.630442] ffff880156a5fed0: 00007ffec7d87e50 (0x7ffec7d87e50)
+[  297.630445] ffff880156a5fed8: 00000000026aed08 (0x26aed08)
+[  297.630448] ffff880156a5fee0: ffff880151b02700 (0xffff880151b02700)
+[  297.630450] ffff880156a5fee8: 0000000002675e00 (0x2675e00)
+[  297.630453] ffff880156a5fef0: 0000000000000001 (0x1)
+[  297.630455] ffff880156a5fef8: 0000000000000002 (0x2)
+[  297.630457] ffff880156a5ff00: 0000000000000002 (0x2)
+[  297.630460] ffff880156a5ff08: 0000000002675e00 (0x2675e00)
+[  297.630462] ffff880156a5ff10: 0000000000000180 (0x180)
+[  297.630464] ffff880156a5ff18: 0000000000000000 ...
+[  297.630466] ffff880156a5ff20: 000000000272a008 (0x272a008)
+[  297.630469] ffff880156a5ff28: ffffffffffffffff (0xffffffffffffffff)
+[  297.630473] ffff880156a5ff30: ffffffffb18b23b1 (SyS_open+0x1/0x20)
+[  297.630475] ffff880156a5ff38: 0000000000000010 (0x10)
+[  297.630478] ffff880156a5ff40: 0000000000000293 (0x293)
+[  297.630481] ffff880156a5ff48: ffff880156a5ff50 (0xffff880156a5ff50)
+[  297.630485] ffff880156a5ff50: ffffffffb1665770 (copy_oldmem_page+0x90/0x90)
+[  297.630488] ffff880156a5ff58: 00000000025d1b28 (0x25d1b28)
+[  297.630489] ffff880156a5ff60: 0000000000000000 ...
+[  297.630492] ffff880156a5ff68: 0000000000000003 (0x3)
+[  297.630494] ffff880156a5ff70: 0000000000000005 (0x5)
+[  297.630497] ffff880156a5ff78: 00007ffec7d87e50 (0x7ffec7d87e50)
+[  297.630499] ffff880156a5ff80: 00000000026aed08 (0x26aed08)
+[  297.630502] ffff880156a5ff88: 0000000000000246 (0x246)
+[  297.630504] ffff880156a5ff90: 0000000002675e00 (0x2675e00)
+[  297.630506] ffff880156a5ff98: 0000000000000001 (0x1)
+[  297.630509] ffff880156a5ffa0: 0000000000000002 (0x2)
+[  297.630511] ffff880156a5ffa8: ffffffffffffffda (0xffffffffffffffda)
+[  297.630514] ffff880156a5ffb0: 00007f3d3f7be4e0 (0x7f3d3f7be4e0)
+[  297.630517] ffff880156a5ffb8: 0000000000000180 (0x180)
+[  297.630518] ffff880156a5ffc0: 0000000000000000 ...
+[  297.630521] ffff880156a5ffc8: 000000000272a008 (0x272a008)
+[  297.630523] ffff880156a5ffd0: 0000000000000002 (0x2)
+[  297.630526] ffff880156a5ffd8: 00007f3d3f7be4e0 (0x7f3d3f7be4e0)
+[  297.630528] ffff880156a5ffe0: 0000000000000033 (0x33)
+[  297.630530] ffff880156a5ffe8: 0000000000000246 (0x246)
+[  297.630533] ffff880156a5fff0: 00007ffec7d87db8 (0x7ffec7d87db8)
+[  297.630535] ffff880156a5fff8: 000000000000002b (0x2b)
 
-         if (oldprog) {
-                 if (handle && oldprog->handle != handle) {
-                         ret = -EINVAL;
-                         goto errout;
-                 }
-         }
+opensnoop(pythong) itself blocks too:
 
->   		__cls_bpf_delete_prog(prog);
->   		return ret;
->   	}
-> @@ -499,6 +494,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
->   		prog->gen_flags |= TCA_CLS_FLAGS_NOT_IN_HW;
->
->   	if (oldprog) {
-> +		idr_replace_ext(&head->handle_idr, prog, handle);
+root@test:~# cat /proc/2075/stack
+[<ffffffffb79a0a07>] ring_buffer_wait+0x167/0x2e0
+[<ffffffffb79a34e7>] wait_on_pipe+0x77/0x80
+[<ffffffffb79aa7a1>] tracing_wait_pipe.isra.69+0x51/0xf0
+[<ffffffffb79abdf9>] tracing_read_pipe+0x1c9/0x500
+[<ffffffffb7ab5e62>] __vfs_read+0xd2/0x370
+[<ffffffffb7ab61b7>] vfs_read+0xb7/0x1a0
+[<ffffffffb7ab6bd0>] SyS_read+0xa0/0x120
+[<ffffffffb8843c37>] entry_SYSCALL_64_fastpath+0x1a/0xa5
+[<ffffffffffffffff>] 0xffffffffffffffff
 
-And here, we should probably use prog->handle for the above
-mentioned case as well, no?
+Thanks,
+//richard
 
-Would be great if all this (and e.g. the fact that we use idr itself)
-could optionally be hidden behind some handle generator api given
-we could reuse that api also for cls_basic and cls_u32. Could also
-be followed-up perhaps.
-
->   		list_replace_rcu(&oldprog->link, &prog->link);
->   		tcf_unbind_filter(tp, &oldprog->res);
->   		call_rcu(&oldprog->rcu, cls_bpf_delete_prog_rcu);
-> @@ -509,6 +505,9 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
->   	*arg = prog;
->   	return 0;
->
-> +errout_idr:
-> +	if (!oldprog)
-> +		idr_remove_ext(&head->handle_idr, prog->handle);
-
-(Likewise as the failing cls_bpf_offload().)
-
->   errout:
->   	tcf_exts_destroy(&prog->exts);
->   	kfree(prog);
->
+-- 
+sigma star gmbh - Eduard-Bodem-Gasse 6 - 6020 Innsbruck - Austria
+ATU66964118 - FN 374287y
