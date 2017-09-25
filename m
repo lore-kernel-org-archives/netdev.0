@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v2 03/16] thunderbolt: Move enum tb_cfg_pkg_type to thunderbolt.h
-Date: Mon, 25 Sep 2017 14:07:25 +0300
-Message-ID: <20170925110738.68382-4-mika.westerberg@linux.intel.com>
+Subject: [PATCH v2 05/16] thunderbolt: Move tb_switch_phy_port_from_link() to thunderbolt.h
+Date: Mon, 25 Sep 2017 14:07:27 +0300
+Message-ID: <20170925110738.68382-6-mika.westerberg@linux.intel.com>
 References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,90 +19,76 @@ In-Reply-To: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These will be needed by Thunderbolt services when sending and receiving
-XDomain control messages. While there change TB_CFG_PKG_PREPARE_TO_SLEEP
-value to be decimal in order to be consistent with other members.
+A Thunderbolt service might need to find the physical port from a link
+the cable is connected to. For instance networking driver uses this
+information to generate MAC address according the Apple ThunderboltIP
+protocol.
+
+Move this function to thunderbolt.h and rename it to
+tb_phy_port_from_link() to reflect the fact that it does not take switch
+as parameter.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/ctl.h     |  1 +
- drivers/thunderbolt/tb_msgs.h | 17 -----------------
- include/linux/thunderbolt.h   | 17 +++++++++++++++++
- 3 files changed, 18 insertions(+), 17 deletions(-)
+ drivers/thunderbolt/icm.c   | 2 +-
+ drivers/thunderbolt/tb.h    | 7 -------
+ include/linux/thunderbolt.h | 7 +++++++
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/thunderbolt/ctl.h b/drivers/thunderbolt/ctl.h
-index 36fd28b1c1c5..d0f21e1e0b8b 100644
---- a/drivers/thunderbolt/ctl.h
-+++ b/drivers/thunderbolt/ctl.h
-@@ -8,6 +8,7 @@
- #define _TB_CFG
+diff --git a/drivers/thunderbolt/icm.c b/drivers/thunderbolt/icm.c
+index 53250fc057e1..8c22b91ed040 100644
+--- a/drivers/thunderbolt/icm.c
++++ b/drivers/thunderbolt/icm.c
+@@ -89,7 +89,7 @@ static inline struct tb *icm_to_tb(struct icm *icm)
  
- #include <linux/kref.h>
-+#include <linux/thunderbolt.h>
+ static inline u8 phy_port_from_route(u64 route, u8 depth)
+ {
+-	return tb_switch_phy_port_from_link(route >> ((depth - 1) * 8));
++	return tb_phy_port_from_link(route >> ((depth - 1) * 8));
+ }
  
- #include "nhi.h"
- #include "tb_msgs.h"
-diff --git a/drivers/thunderbolt/tb_msgs.h b/drivers/thunderbolt/tb_msgs.h
-index de6441e4a060..fe3039b05da6 100644
---- a/drivers/thunderbolt/tb_msgs.h
-+++ b/drivers/thunderbolt/tb_msgs.h
-@@ -15,23 +15,6 @@
- #include <linux/types.h>
- #include <linux/uuid.h>
+ static inline u8 dual_link_from_link(u8 link)
+diff --git a/drivers/thunderbolt/tb.h b/drivers/thunderbolt/tb.h
+index 2fefe76621ca..ea21d927bd09 100644
+--- a/drivers/thunderbolt/tb.h
++++ b/drivers/thunderbolt/tb.h
+@@ -40,8 +40,6 @@ struct tb_switch_nvm {
+ };
  
--enum tb_cfg_pkg_type {
--	TB_CFG_PKG_READ = 1,
--	TB_CFG_PKG_WRITE = 2,
--	TB_CFG_PKG_ERROR = 3,
--	TB_CFG_PKG_NOTIFY_ACK = 4,
--	TB_CFG_PKG_EVENT = 5,
--	TB_CFG_PKG_XDOMAIN_REQ = 6,
--	TB_CFG_PKG_XDOMAIN_RESP = 7,
--	TB_CFG_PKG_OVERRIDE = 8,
--	TB_CFG_PKG_RESET = 9,
--	TB_CFG_PKG_ICM_EVENT = 10,
--	TB_CFG_PKG_ICM_CMD = 11,
--	TB_CFG_PKG_ICM_RESP = 12,
--	TB_CFG_PKG_PREPARE_TO_SLEEP = 0xd,
+ #define TB_SWITCH_KEY_SIZE		32
+-/* Each physical port contains 2 links on modern controllers */
+-#define TB_SWITCH_LINKS_PER_PHY_PORT	2
+ 
+ /**
+  * struct tb_switch - a thunderbolt switch
+@@ -367,11 +365,6 @@ struct tb_switch *tb_switch_find_by_link_depth(struct tb *tb, u8 link,
+ 					       u8 depth);
+ struct tb_switch *tb_switch_find_by_uuid(struct tb *tb, const uuid_t *uuid);
+ 
+-static inline unsigned int tb_switch_phy_port_from_link(unsigned int link)
+-{
+-	return (link - 1) / TB_SWITCH_LINKS_PER_PHY_PORT;
+-}
 -
--};
--
- enum tb_cfg_space {
- 	TB_CFG_HOPS = 0,
- 	TB_CFG_PORT = 1,
+ static inline void tb_switch_put(struct tb_switch *sw)
+ {
+ 	put_device(&sw->dev);
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index 96561c1265ae..b512b1e2b4f2 100644
+index 910b1bf92112..43b8d1e09341 100644
 --- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -1,6 +1,7 @@
- /*
-  * Thunderbolt service API
-  *
-+ * Copyright (C) 2014 Andreas Noever <andreas.noever@gmail.com>
-  * Copyright (C) 2017, Intel Corporation
-  * Authors: Michael Jamet <michael.jamet@intel.com>
-  *          Mika Westerberg <mika.westerberg@linux.intel.com>
-@@ -16,6 +17,22 @@
- #include <linux/list.h>
- #include <linux/uuid.h>
+@@ -78,6 +78,13 @@ struct tb {
  
-+enum tb_cfg_pkg_type {
-+	TB_CFG_PKG_READ = 1,
-+	TB_CFG_PKG_WRITE = 2,
-+	TB_CFG_PKG_ERROR = 3,
-+	TB_CFG_PKG_NOTIFY_ACK = 4,
-+	TB_CFG_PKG_EVENT = 5,
-+	TB_CFG_PKG_XDOMAIN_REQ = 6,
-+	TB_CFG_PKG_XDOMAIN_RESP = 7,
-+	TB_CFG_PKG_OVERRIDE = 8,
-+	TB_CFG_PKG_RESET = 9,
-+	TB_CFG_PKG_ICM_EVENT = 10,
-+	TB_CFG_PKG_ICM_CMD = 11,
-+	TB_CFG_PKG_ICM_RESP = 12,
-+	TB_CFG_PKG_PREPARE_TO_SLEEP = 13,
-+};
+ extern struct bus_type tb_bus_type;
+ 
++#define TB_LINKS_PER_PHY_PORT	2
++
++static inline unsigned int tb_phy_port_from_link(unsigned int link)
++{
++	return (link - 1) / TB_LINKS_PER_PHY_PORT;
++}
 +
  /**
   * struct tb_property_dir - XDomain property directory
