@@ -1,68 +1,80 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
-Date: Mon, 25 Sep 2017 22:42:22 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1709252216410.2418@nanos>
-References: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com> <20170908.101657.2131282706895004921.davem@davemloft.net> <1504891402.32080.5.camel@infradead.org> <20170908.102645.1086537961399780085.davem@davemloft.net>
- <20170908185521.GA12340@u40b0340c692b58f6553c.ant.amazon.com> <1504897909.15310.89.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.DEB.2.20.1709161131200.2105@nanos> <20170920224816.GA73561@amazon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Eduardo Valentin <eduval@amazon.com>,
-        David Miller <davem@davemloft.net>, dwmw2@infradead.org,
-        shuah@kernel.org, richardcochran@gmail.com,
-        xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, anchalag@amazon.com, dwmw@amazon.com
-To: Vallish Vaidyeshwara <vallish@amazon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170920224816.GA73561@amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Manning <mmanning@brocade.com>
+Subject: [PATCH net-next] net: ipv6: send NS for DAD when link operationally up
+Date: Mon, 25 Sep 2017 22:01:36 +0100
+Message-ID: <1506373296-24977-1-git-send-email-mmanning@brocade.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [144.49.130.148] ([144.49.130.148]:61287 "EHLO
+        mail.eng.vyatta.net" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S964935AbdIYVCO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 17:02:14 -0400
+Received: from BRA-F155P12.brocade.com (unknown [10.252.53.4])
+        by mail.eng.vyatta.net (Postfix) with ESMTPA id 875D63606DC
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 14:02:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Sep 2017, Vallish Vaidyeshwara wrote:
-> On Sat, Sep 16, 2017 at 11:47:56AM +0200, Thomas Gleixner wrote:
-> > > So if we need to replace all 'legacy' timers to high resolution timer,
-> > > because some application was _relying_ on jiffies being kind of precise,
-> > > maybe it is better to revert the change done on legacy timers.
-> > 
-> > Which would be a major step back in terms of timer performance and system
-> > disturbance caused by massive recascading operations.
-> > 
-> > > Or continue the migration and make them use high res internally.
-> > > 
-> > > select() and poll() are the standard way to have precise timeouts,
-> > > it is silly we have to maintain a timeout handling in the datagram fast
-> > > path.
-> > 
-> > A few years ago we switched select/poll over to use hrtimers because the
-> > wheel timers were too inaccurate for some operations, so it feels
-> > consequent to switch the timeout in the datagram rcv path over as well. I
-> > agree that the whole timeout magic there feels silly, but unfortunately
-> > it's a documented property of sockets.
-> > 
-> 
-> Thanks for your comments. This patch has been NACK'ed by David Miller. Is
-> there any other approach to solve this problem with out application code
-> being recompiled?
+The NS for DAD are sent on admin up as long as a valid qdisc is found.
+A race condition exists by which these packets will not egress the
+interface if the operational state of the lower device is not yet up.
+The solution is to delay DAD until the link is operationally up
+according to RFC2863. Rather than only doing this, follow the existing
+code checks by deferring IPv6 device initialization altogether. The fix
+allows DAD on devices like tunnels that are controlled by userspace
+control plane. The fix has no impact on regular deployments, but means
+that there is no IPv6 connectivity until the port has been opened in
+the case of port-based network access control, which should be
+desirable.
 
-We have only three options here:
+Signed-off-by: Mike Manning <mmanning@brocade.com>
+---
+ net/ipv6/addrconf.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-   1) Do a massive revert of the timer wheel changes and lose all the
-      benefits of that rework.
-
-   2) Make that timer list -> hrtimer change in the datagram code
-
-   3) Ignore it
-
-#1 Would be pretty ironic as networking would take the biggest penalty of
-   the revert.
-
-#2 Is IMO the proper solution as it cures a user space visible regression,
-   though the patch itself could be made way simpler
-
-#3 Shrug
-
-Dave, Eric?
-
-Thanks,
-
-	tglx
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index c2e2a78..dffbf3b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -303,10 +303,10 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.disable_policy		= 0,
+ };
+ 
+-/* Check if a valid qdisc is available */
+-static inline bool addrconf_qdisc_ok(const struct net_device *dev)
++/* Check if link is ready: is it up and is a valid qdisc available */
++static inline bool addrconf_link_ready(const struct net_device *dev)
+ {
+-	return !qdisc_tx_is_noop(dev);
++	return netif_oper_up(dev) && !qdisc_tx_is_noop(dev);
+ }
+ 
+ static void addrconf_del_rs_timer(struct inet6_dev *idev)
+@@ -451,7 +451,7 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
+ 
+ 	ndev->token = in6addr_any;
+ 
+-	if (netif_running(dev) && addrconf_qdisc_ok(dev))
++	if (netif_running(dev) && addrconf_link_ready(dev))
+ 		ndev->if_flags |= IF_READY;
+ 
+ 	ipv6_mc_init_dev(ndev);
+@@ -3393,7 +3393,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 			/* restore routes for permanent addresses */
+ 			addrconf_permanent_addr(dev);
+ 
+-			if (!addrconf_qdisc_ok(dev)) {
++			if (!addrconf_link_ready(dev)) {
+ 				/* device is not ready yet. */
+ 				pr_info("ADDRCONF(NETDEV_UP): %s: link is not ready\n",
+ 					dev->name);
+@@ -3408,7 +3408,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 				run_pending = 1;
+ 			}
+ 		} else if (event == NETDEV_CHANGE) {
+-			if (!addrconf_qdisc_ok(dev)) {
++			if (!addrconf_link_ready(dev)) {
+ 				/* device is still not ready. */
+ 				break;
+ 			}
+-- 
+2.1.4
