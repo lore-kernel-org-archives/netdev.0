@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v2 12/16] thunderbolt: Use spinlock in NHI serialization
-Date: Mon, 25 Sep 2017 14:07:34 +0300
-Message-ID: <20170925110738.68382-13-mika.westerberg@linux.intel.com>
+Subject: [PATCH v2 15/16] thunderbolt: Allocate ring HopID automatically if requested
+Date: Mon, 25 Sep 2017 14:07:37 +0300
+Message-ID: <20170925110738.68382-16-mika.westerberg@linux.intel.com>
 References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,207 +19,139 @@ In-Reply-To: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is needed because ring polling functionality can be called from
-atomic contexts when networking and other high-speed traffic is
-transferred over a Thunderbolt cable.
+Thunderbolt services should not care which HopID (ring) they use for
+sending and receiving packets over the high-speed DMA path, so make
+tb_ring_alloc_rx() and tb_ring_alloc_tx() accept negative HopID. This
+means that the NHI will allocate next available HopID for the caller
+automatically.
+
+These HopIDs will be allocated from the range which is not reserved for
+the Thunderbolt protocol (8 .. hop_count - 1).
+
+The allocated HopID can be retrieved from ring->hop field after the ring
+has been allocated successfully if needed.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/nhi.c   | 75 +++++++++++++++++++++++++--------------------
- include/linux/thunderbolt.h |  2 +-
- 2 files changed, 42 insertions(+), 35 deletions(-)
+ drivers/thunderbolt/nhi.c | 78 ++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 60 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
-index d1ad37c6eccf..cf1397afa72f 100644
+index 5bc3f77cc1f3..b9e3980aa4fc 100644
 --- a/drivers/thunderbolt/nhi.c
 +++ b/drivers/thunderbolt/nhi.c
-@@ -327,21 +327,9 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- 	if (transmit && hop == RING_E2E_UNUSED_HOPID)
- 		return NULL;
+@@ -26,6 +26,8 @@
+  * use this ring for anything else.
+  */
+ #define RING_E2E_UNUSED_HOPID	2
++/* HopIDs 0-7 are reserved by the Thunderbolt protocol */
++#define RING_FIRST_USABLE_HOPID	8
  
--	mutex_lock(&nhi->lock);
+ /*
+  * Minimal number of vectors when we use MSI-X. Two for control channel
+@@ -411,6 +413,62 @@ static void ring_release_msix(struct tb_ring *ring)
+ 	ring->irq = 0;
+ }
+ 
++static int nhi_alloc_hop(struct tb_nhi *nhi, struct tb_ring *ring)
++{
++	int ret = 0;
++
++	spin_lock_irq(&nhi->lock);
++
++	if (ring->hop < 0) {
++		unsigned int i;
++
++		/*
++		 * Automatically allocate HopID from the non-reserved
++		 * range 8 .. hop_count - 1.
++		 */
++		for (i = RING_FIRST_USABLE_HOPID; i < nhi->hop_count; i++) {
++			if (ring->is_tx) {
++				if (!nhi->tx_rings[i]) {
++					ring->hop = i;
++					break;
++				}
++			} else {
++				if (!nhi->rx_rings[i]) {
++					ring->hop = i;
++					break;
++				}
++			}
++		}
++	}
++
++	if (ring->hop < 0 || ring->hop >= nhi->hop_count) {
++		dev_warn(&nhi->pdev->dev, "invalid hop: %d\n", ring->hop);
++		ret = -EINVAL;
++		goto err_unlock;
++	}
++	if (ring->is_tx && nhi->tx_rings[ring->hop]) {
++		dev_warn(&nhi->pdev->dev, "TX hop %d already allocated\n",
++			 ring->hop);
++		ret = -EBUSY;
++		goto err_unlock;
++	} else if (!ring->is_tx && nhi->rx_rings[ring->hop]) {
++		dev_warn(&nhi->pdev->dev, "RX hop %d already allocated\n",
++			 ring->hop);
++		ret = -EBUSY;
++		goto err_unlock;
++	}
++
++	if (ring->is_tx)
++		nhi->tx_rings[ring->hop] = ring;
++	else
++		nhi->rx_rings[ring->hop] = ring;
++
++err_unlock:
++	spin_unlock_irq(&nhi->lock);
++
++	return ret;
++}
++
+ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 				     bool transmit, unsigned int flags,
+ 				     u16 sof_mask, u16 eof_mask,
+@@ -456,28 +514,12 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
+ 		goto err_free_descs;
+ 
+-	spin_lock_irq(&nhi->lock);
 -	if (hop >= nhi->hop_count) {
 -		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
--		goto err;
++	if (nhi_alloc_hop(nhi, ring))
+ 		goto err_release_msix;
 -	}
 -	if (transmit && nhi->tx_rings[hop]) {
 -		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
--		goto err;
+-		goto err_release_msix;
 -	} else if (!transmit && nhi->rx_rings[hop]) {
 -		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
--		goto err;
+-		goto err_release_msix;
 -	}
- 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
- 	if (!ring)
--		goto err;
-+		return NULL;
+-	if (transmit)
+-		nhi->tx_rings[hop] = ring;
+-	else
+-		nhi->rx_rings[hop] = ring;
+-	spin_unlock_irq(&nhi->lock);
  
- 	spin_lock_init(&ring->lock);
- 	INIT_LIST_HEAD(&ring->queue);
-@@ -359,25 +347,45 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- 	ring->tail = 0;
- 	ring->running = false;
- 
--	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
--		goto err;
--
- 	ring->descriptors = dma_alloc_coherent(&ring->nhi->pdev->dev,
- 			size * sizeof(*ring->descriptors),
- 			&ring->descriptors_dma, GFP_KERNEL | __GFP_ZERO);
- 	if (!ring->descriptors)
--		goto err;
-+		goto err_free_ring;
- 
-+	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
-+		goto err_free_descs;
-+
-+	spin_lock_irq(&nhi->lock);
-+	if (hop >= nhi->hop_count) {
-+		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
-+		goto err_release_msix;
-+	}
-+	if (transmit && nhi->tx_rings[hop]) {
-+		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
-+		goto err_release_msix;
-+	} else if (!transmit && nhi->rx_rings[hop]) {
-+		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
-+		goto err_release_msix;
-+	}
- 	if (transmit)
- 		nhi->tx_rings[hop] = ring;
- 	else
- 		nhi->rx_rings[hop] = ring;
--	mutex_unlock(&nhi->lock);
-+	spin_unlock_irq(&nhi->lock);
-+
  	return ring;
  
--err:
-+err_release_msix:
-+	spin_unlock_irq(&nhi->lock);
-+	ring_release_msix(ring);
-+err_free_descs:
-+	dma_free_coherent(&ring->nhi->pdev->dev,
-+			  ring->size * sizeof(*ring->descriptors),
-+			  ring->descriptors, ring->descriptors_dma);
-+err_free_ring:
- 	kfree(ring);
--	mutex_unlock(&nhi->lock);
-+
- 	return NULL;
- }
- 
-@@ -421,8 +429,8 @@ void tb_ring_start(struct tb_ring *ring)
- 	u16 frame_size;
- 	u32 flags;
- 
--	mutex_lock(&ring->nhi->lock);
--	spin_lock_irq(&ring->lock);
-+	spin_lock_irq(&ring->nhi->lock);
-+	spin_lock(&ring->lock);
- 	if (ring->nhi->going_away)
- 		goto err;
- 	if (ring->running) {
-@@ -469,8 +477,8 @@ void tb_ring_start(struct tb_ring *ring)
- 	ring_interrupt_active(ring, true);
- 	ring->running = true;
- err:
--	spin_unlock_irq(&ring->lock);
--	mutex_unlock(&ring->nhi->lock);
-+	spin_unlock(&ring->lock);
-+	spin_unlock_irq(&ring->nhi->lock);
- }
- EXPORT_SYMBOL_GPL(tb_ring_start);
- 
-@@ -489,8 +497,8 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
-  */
- void tb_ring_stop(struct tb_ring *ring)
- {
--	mutex_lock(&ring->nhi->lock);
--	spin_lock_irq(&ring->lock);
-+	spin_lock_irq(&ring->nhi->lock);
-+	spin_lock(&ring->lock);
- 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
- 		 RING_TYPE(ring), ring->hop);
- 	if (ring->nhi->going_away)
-@@ -511,8 +519,8 @@ void tb_ring_stop(struct tb_ring *ring)
- 	ring->running = false;
- 
- err:
--	spin_unlock_irq(&ring->lock);
--	mutex_unlock(&ring->nhi->lock);
-+	spin_unlock(&ring->lock);
-+	spin_unlock_irq(&ring->nhi->lock);
- 
- 	/*
- 	 * schedule ring->work to invoke callbacks on all remaining frames.
-@@ -534,7 +542,7 @@ EXPORT_SYMBOL_GPL(tb_ring_stop);
-  */
- void tb_ring_free(struct tb_ring *ring)
- {
--	mutex_lock(&ring->nhi->lock);
-+	spin_lock_irq(&ring->nhi->lock);
- 	/*
- 	 * Dissociate the ring from the NHI. This also ensures that
- 	 * nhi_interrupt_work cannot reschedule ring->work.
-@@ -564,7 +572,7 @@ void tb_ring_free(struct tb_ring *ring)
- 		 RING_TYPE(ring),
- 		 ring->hop);
- 
--	mutex_unlock(&ring->nhi->lock);
-+	spin_unlock_irq(&ring->nhi->lock);
- 	/**
- 	 * ring->work can no longer be scheduled (it is scheduled only
- 	 * by nhi_interrupt_work, ring_stop and ring_msix). Wait for it
-@@ -639,7 +647,7 @@ static void nhi_interrupt_work(struct work_struct *work)
- 	int type = 0; /* current interrupt type 0: TX, 1: RX, 2: RX overflow */
- 	struct tb_ring *ring;
- 
--	mutex_lock(&nhi->lock);
-+	spin_lock_irq(&nhi->lock);
- 
- 	/*
- 	 * Starting at REG_RING_NOTIFY_BASE there are three status bitfields
-@@ -677,7 +685,7 @@ static void nhi_interrupt_work(struct work_struct *work)
- 		/* we do not check ring->running, this is done in ring->work */
- 		schedule_work(&ring->work);
- 	}
--	mutex_unlock(&nhi->lock);
-+	spin_unlock_irq(&nhi->lock);
- }
- 
- static irqreturn_t nhi_msi(int irq, void *data)
-@@ -766,7 +774,6 @@ static void nhi_shutdown(struct tb_nhi *nhi)
- 		devm_free_irq(&nhi->pdev->dev, nhi->pdev->irq, nhi);
- 		flush_work(&nhi->interrupt_work);
- 	}
--	mutex_destroy(&nhi->lock);
- 	ida_destroy(&nhi->msix_ida);
- }
- 
-@@ -855,7 +862,7 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 		return res;
- 	}
- 
--	mutex_init(&nhi->lock);
-+	spin_lock_init(&nhi->lock);
- 
- 	pci_set_master(pdev);
- 
-diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index cf9e42db780f..d59e3f9a35c4 100644
---- a/include/linux/thunderbolt.h
-+++ b/include/linux/thunderbolt.h
-@@ -415,7 +415,7 @@ static inline struct tb_xdomain *tb_service_parent(struct tb_service *svc)
-  * @hop_count: Number of rings (end point hops) supported by NHI.
-  */
- struct tb_nhi {
--	struct mutex lock;
-+	spinlock_t lock;
- 	struct pci_dev *pdev;
- 	void __iomem *iobase;
- 	struct tb_ring **tx_rings;
+ err_release_msix:
+-	spin_unlock_irq(&nhi->lock);
+ 	ring_release_msix(ring);
+ err_free_descs:
+ 	dma_free_coherent(&ring->nhi->pdev->dev,
+@@ -506,7 +548,7 @@ EXPORT_SYMBOL_GPL(tb_ring_alloc_tx);
+ /**
+  * tb_ring_alloc_rx() - Allocate DMA ring for receive
+  * @nhi: Pointer to the NHI the ring is to be allocated
+- * @hop: HopID (ring) to allocate
++ * @hop: HopID (ring) to allocate. Pass %-1 for automatic allocation.
+  * @size: Number of entries in the ring
+  * @flags: Flags for the ring
+  * @sof_mask: Mask of PDF values that start a frame
 -- 
 2.14.1
