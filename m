@@ -1,172 +1,128 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/10] mlxsw: spectrum_dpipe: Add initial support for the router adjacency table
-Date: Mon, 25 Sep 2017 10:32:26 +0200
-Message-ID: <20170925083230.1193-7-jiri@resnulli.us>
+Subject: [patch net-next 10/10] mlxsw: spectrum_dpipe: Add support for controlling nexthop counters
+Date: Mon, 25 Sep 2017 10:32:30 +0200
+Message-ID: <20170925083230.1193-11-jiri@resnulli.us>
 References: <20170925083230.1193-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36511 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934132AbdIYIch (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 04:32:37 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r136so6475082wmf.3
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 01:32:36 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33890 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934150AbdIYIck (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 04:32:40 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i131so6489916wma.1
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 01:32:39 -0700 (PDT)
 In-Reply-To: <20170925083230.1193-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Add initial support for router adjacency table. The table does lookup
-based on the nexthop-group index and the local nexthop offset. After
-locating the nexthop entry it sets the destination MAC address and the
-egress RIF.
+Add support for controlling nexthop counters via dpipe.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 100 ++++++++++++++++++++-
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |   1 +
- 2 files changed, 100 insertions(+), 1 deletion(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 24 ++++++++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 12 +++++------
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  6 ++++++
+ 3 files changed, 36 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-index 9253273..ca16f89 100644
+index e6755a9..a056f23 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-@@ -841,6 +841,97 @@ static void mlxsw_sp_dpipe_host6_table_fini(struct mlxsw_sp *mlxsw_sp)
- 				       MLXSW_SP_DPIPE_TABLE_NAME_HOST6);
+@@ -1132,6 +1132,29 @@ mlxsw_sp_dpipe_table_adj_entries_dump(void *priv, bool counters_enabled,
+ 	return err;
  }
  
-+static int mlxsw_sp_dpipe_table_adj_matches_dump(void *priv,
-+						 struct sk_buff *skb)
-+{
-+	struct devlink_dpipe_match match = {0};
-+	int err;
-+
-+	match.type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
-+	match.header = &mlxsw_sp_dpipe_header_metadata;
-+	match.field_id = MLXSW_SP_DPIPE_FIELD_METADATA_ADJ_INDEX;
-+
-+	err = devlink_dpipe_match_put(skb, &match);
-+	if (err)
-+		return err;
-+
-+	match.type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
-+	match.header = &mlxsw_sp_dpipe_header_metadata;
-+	match.field_id = MLXSW_SP_DPIPE_FIELD_METADATA_ADJ_HASH_INDEX;
-+
-+	return devlink_dpipe_match_put(skb, &match);
-+}
-+
-+static int mlxsw_sp_dpipe_table_adj_actions_dump(void *priv,
-+						 struct sk_buff *skb)
-+{
-+	struct devlink_dpipe_action action = {0};
-+	int err;
-+
-+	action.type = DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY;
-+	action.header = &devlink_dpipe_header_ethernet;
-+	action.field_id = DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC;
-+
-+	err = devlink_dpipe_action_put(skb, &action);
-+	if (err)
-+		return err;
-+
-+	action.type = DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY;
-+	action.header = &mlxsw_sp_dpipe_header_metadata;
-+	action.field_id = MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT;
-+
-+	return devlink_dpipe_action_put(skb, &action);
-+}
-+
-+static u64 mlxsw_sp_dpipe_table_adj_size(struct mlxsw_sp *mlxsw_sp)
-+{
-+	struct mlxsw_sp_nexthop *nh;
-+	u64 size = 0;
-+
-+	mlxsw_sp_nexthop_for_each(nh, mlxsw_sp->router)
-+		if (mlxsw_sp_nexthop_offload(nh) &&
-+		    !mlxsw_sp_nexthop_group_has_ipip(nh))
-+			size++;
-+	return size;
-+}
-+
-+static u64
-+mlxsw_sp_dpipe_table_adj_size_get(void *priv)
++static int mlxsw_sp_dpipe_table_adj_counters_update(void *priv, bool enable)
 +{
 +	struct mlxsw_sp *mlxsw_sp = priv;
-+	u64 size;
++	struct mlxsw_sp_nexthop *nh;
++	u32 adj_hash_index = 0;
++	u32 adj_index = 0;
 +
-+	rtnl_lock();
-+	size = mlxsw_sp_dpipe_table_adj_size(mlxsw_sp);
-+	rtnl_unlock();
++	mlxsw_sp_nexthop_for_each(nh, mlxsw_sp->router) {
++		if (!mlxsw_sp_nexthop_offload(nh) ||
++		    mlxsw_sp_nexthop_group_has_ipip(nh))
++			continue;
 +
-+	return size;
-+}
-+
-+static struct devlink_dpipe_table_ops mlxsw_sp_dpipe_table_adj_ops = {
-+	.matches_dump = mlxsw_sp_dpipe_table_adj_matches_dump,
-+	.actions_dump = mlxsw_sp_dpipe_table_adj_actions_dump,
-+	.size_get = mlxsw_sp_dpipe_table_adj_size_get,
-+};
-+
-+static int mlxsw_sp_dpipe_adj_table_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
-+
-+	return devlink_dpipe_table_register(devlink,
-+					    MLXSW_SP_DPIPE_TABLE_NAME_ADJ,
-+					    &mlxsw_sp_dpipe_table_adj_ops,
-+					    mlxsw_sp, false);
-+}
-+
-+static void mlxsw_sp_dpipe_adj_table_fini(struct mlxsw_sp *mlxsw_sp)
-+{
-+	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
-+
-+	devlink_dpipe_table_unregister(devlink,
-+				       MLXSW_SP_DPIPE_TABLE_NAME_ADJ);
-+}
-+
- int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp)
- {
- 	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
-@@ -861,8 +952,14 @@ int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp)
- 	err = mlxsw_sp_dpipe_host6_table_init(mlxsw_sp);
- 	if (err)
- 		goto err_host6_table_init;
--	return 0;
- 
-+	err = mlxsw_sp_dpipe_adj_table_init(mlxsw_sp);
-+	if (err)
-+		goto err_adj_table_init;
-+
++		mlxsw_sp_nexthop_indexes(nh, &adj_index, &adj_hash_index);
++		if (enable)
++			mlxsw_sp_nexthop_counter_alloc(mlxsw_sp, nh);
++		else
++			mlxsw_sp_nexthop_counter_free(mlxsw_sp, nh);
++		mlxsw_sp_nexthop_update(mlxsw_sp,
++					adj_index + adj_hash_index, nh);
++	}
 +	return 0;
-+err_adj_table_init:
-+	mlxsw_sp_dpipe_host6_table_fini(mlxsw_sp);
- err_host6_table_init:
- 	mlxsw_sp_dpipe_host4_table_fini(mlxsw_sp);
- err_host4_table_init:
-@@ -876,6 +973,7 @@ void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp)
++}
++
+ static u64
+ mlxsw_sp_dpipe_table_adj_size_get(void *priv)
  {
- 	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
+@@ -1149,6 +1172,7 @@ static struct devlink_dpipe_table_ops mlxsw_sp_dpipe_table_adj_ops = {
+ 	.matches_dump = mlxsw_sp_dpipe_table_adj_matches_dump,
+ 	.actions_dump = mlxsw_sp_dpipe_table_adj_actions_dump,
+ 	.entries_dump = mlxsw_sp_dpipe_table_adj_entries_dump,
++	.counters_set_update = mlxsw_sp_dpipe_table_adj_counters_update,
+ 	.size_get = mlxsw_sp_dpipe_table_adj_size_get,
+ };
  
-+	mlxsw_sp_dpipe_adj_table_fini(mlxsw_sp);
- 	mlxsw_sp_dpipe_host6_table_fini(mlxsw_sp);
- 	mlxsw_sp_dpipe_host4_table_fini(mlxsw_sp);
- 	mlxsw_sp_dpipe_erif_table_fini(mlxsw_sp);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
-index 283fde4..815d543 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
-@@ -56,5 +56,6 @@ static inline void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp)
- #define MLXSW_SP_DPIPE_TABLE_NAME_ERIF "mlxsw_erif"
- #define MLXSW_SP_DPIPE_TABLE_NAME_HOST4 "mlxsw_host4"
- #define MLXSW_SP_DPIPE_TABLE_NAME_HOST6 "mlxsw_host6"
-+#define MLXSW_SP_DPIPE_TABLE_NAME_ADJ "mlxsw_adj"
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 2400fff..ef4b86b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -2085,8 +2085,8 @@ struct mlxsw_sp_nexthop_group {
+ #define nh_rif	nexthops[0].rif
+ };
  
- #endif /* _MLXSW_PIPELINE_H_*/
+-static void mlxsw_sp_nexthop_counter_alloc(struct mlxsw_sp *mlxsw_sp,
+-					   struct mlxsw_sp_nexthop *nh)
++void mlxsw_sp_nexthop_counter_alloc(struct mlxsw_sp *mlxsw_sp,
++				    struct mlxsw_sp_nexthop *nh)
+ {
+ 	struct devlink *devlink;
+ 
+@@ -2101,8 +2101,8 @@ static void mlxsw_sp_nexthop_counter_alloc(struct mlxsw_sp *mlxsw_sp,
+ 	nh->counter_valid = true;
+ }
+ 
+-static void mlxsw_sp_nexthop_counter_free(struct mlxsw_sp *mlxsw_sp,
+-					  struct mlxsw_sp_nexthop *nh)
++void mlxsw_sp_nexthop_counter_free(struct mlxsw_sp *mlxsw_sp,
++				   struct mlxsw_sp_nexthop *nh)
+ {
+ 	if (!nh->counter_valid)
+ 		return;
+@@ -2448,8 +2448,8 @@ static int mlxsw_sp_adj_index_mass_update(struct mlxsw_sp *mlxsw_sp,
+ 	return 0;
+ }
+ 
+-static int mlxsw_sp_nexthop_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
+-				   struct mlxsw_sp_nexthop *nh)
++int mlxsw_sp_nexthop_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
++			    struct mlxsw_sp_nexthop *nh)
+ {
+ 	struct mlxsw_sp_neigh_entry *neigh_entry = nh->neigh_entry;
+ 	char ratr_pl[MLXSW_REG_RATR_LEN];
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
+index a6e8659..3d44918 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
+@@ -122,5 +122,11 @@ bool mlxsw_sp_nexthop_group_has_ipip(struct mlxsw_sp_nexthop *nh);
+ 	     nh = mlxsw_sp_nexthop_next(router, nh))
+ int mlxsw_sp_nexthop_counter_get(struct mlxsw_sp *mlxsw_sp,
+ 				 struct mlxsw_sp_nexthop *nh, u64 *p_counter);
++int mlxsw_sp_nexthop_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
++			    struct mlxsw_sp_nexthop *nh);
++void mlxsw_sp_nexthop_counter_alloc(struct mlxsw_sp *mlxsw_sp,
++				    struct mlxsw_sp_nexthop *nh);
++void mlxsw_sp_nexthop_counter_free(struct mlxsw_sp *mlxsw_sp,
++				   struct mlxsw_sp_nexthop *nh);
+ 
+ #endif /* _MLXSW_ROUTER_H_*/
 -- 
 2.9.5
