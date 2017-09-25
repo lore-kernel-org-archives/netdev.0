@@ -1,79 +1,66 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
-Date: Mon, 25 Sep 2017 20:50:28 +0200
-Message-ID: <59C94FF4.8070900@iogearbox.net>
-References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net> <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Patch net-next v2] net_sched: use idr to allocate u32 filter
+ handles
+Date: Mon, 25 Sep 2017 21:00:31 +0200
+Message-ID: <20170925190031.GB1936@nanopsycho.orion>
+References: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-        john.fastabend@gmail.com, peter.waskiewicz.jr@intel.com,
-        jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        mchan@broadcom.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Chris Mi <chrism@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60882 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754157AbdIYSui (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 14:50:38 -0400
-In-Reply-To: <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:49809 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933306AbdIYTAd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 15:00:33 -0400
+Received: by mail-wm0-f65.google.com with SMTP id r74so530435wme.4
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 12:00:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/25/2017 08:10 PM, Andy Gospodarek wrote:
+Mon, Sep 25, 2017 at 07:13:51PM CEST, xiyou.wangcong@gmail.com wrote:
+>Instead of calling u32_lookup_ht() in a loop to find
+>a unused handle, just switch to idr API to allocate
+>new handles. u32 filters are special as the handle
+>could contain a hash table id and a key id, so we
+>need two IDR to allocate each of them.
+>
+>Cc: Chris Mi <chrism@mellanox.com>
+>Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>---
+
 [...]
-> First, thanks for this detailed description.  It was helpful to read
-> along with the patches.
->
-> My only concern about this area being generic is that you are now in a
-> state where any bpf program must know about all the bpf programs in the
-> receive pipeline before it can properly parse what is stored in the
-> meta-data and add it to an skb (or perform any other action).
-> Especially if each program adds it's own meta-data along the way.
->
-> Maybe this isn't a big concern based on the number of users of this
-> today, but it just starts to seem like a concern as there are these
-> hints being passed between layers that are challenging to track due to a
-> lack of a standard format for passing data between.
 
-Btw, we do have similar kind of programmable scratch buffer also today
-wrt skb cb[] that you can program from tc side, the perf ring buffer,
-which doesn't have any fixed layout for the slots, or a per-cpu map
-where you can transfer data between tail calls for example, then tail
-calls themselves that need to coordinate, or simply mangling of packets
-itself if you will, but more below to your use case ...
+>@@ -311,19 +313,19 @@ static void *u32_get(struct tcf_proto *tp, u32 handle)
+> 	return u32_lookup_key(ht, handle);
+> }
+> 
+>-static u32 gen_new_htid(struct tc_u_common *tp_c)
+>+static u32 gen_new_htid(struct tc_u_common *tp_c, struct tc_u_hnode *ptr)
+> {
+>-	int i = 0x800;
+>+	unsigned long idr_index;
+>+	int err;
+> 
+>-	/* hgenerator only used inside rtnl lock it is safe to increment
+>+	/* This is only used inside rtnl lock it is safe to increment
+> 	 * without read _copy_ update semantics
+> 	 */
+>-	do {
+>-		if (++tp_c->hgenerator == 0x7FF)
+>-			tp_c->hgenerator = 1;
+>-	} while (--i > 0 && u32_lookup_ht(tp_c, (tp_c->hgenerator|0x800)<<20));
+>-
+>-	return i > 0 ? (tp_c->hgenerator|0x800)<<20 : 0;
+>+	err = idr_alloc_ext(&tp_c->handle_idr, ptr, &idr_index,
+>+			    1, 0x7FF, GFP_KERNEL);
 
-> The main reason I bring this up is that Michael and I had discussed and
-> designed a way for drivers to communicate between each other that rx
-> resources could be freed after a tx completion on an XDP_REDIRECT
-> action.  Much like this code, it involved adding an new element to
-> struct xdp_md that could point to the important information.  Now that
-> there is a generic way to handle this, it would seem nice to be able to
-> leverage it, but I'm not sure how reliable this meta-data area would be
-> without the ability to mark it in some manner.
->
-> For additional background, the minimum amount of data needed in the case
-> Michael and I were discussing was really 2 words.  One to serve as a
-> pointer to an rx_ring structure and one to have a counter to the rx
-> producer entry.  This data could be acessed by the driver processing the
-> tx completions and callback to the driver that received the frame off the wire
-> to perform any needed processing.  (For those curious this would also require a
-> new callback/netdev op to act on this data stored in the XDP buffer.)
+Interesting, any idea why this is not 0x7FFFFFFF as well?
 
-What you describe above doesn't seem to be fitting to the use-case of
-this set, meaning the area here is fully programmable out of the BPF
-program, the infrastructure you're describing is some sort of means of
-communication between drivers for the XDP_REDIRECT, and should be
-outside of the control of the BPF program to mangle.
+I wonder if we could have 0x7FFFFFFF magic defined somewhere.
 
-You could probably reuse the base infra here and make a part of that
-inaccessible for the program with some sort of a fixed layout, but I
-haven't seen your code yet to be able to fully judge. Intention here
-is to allow for programmability within the BPF prog in a generic way,
-such that based on the use-case it can be populated in specific ways
-and propagated to the skb w/o having to define a fixed layout and
-bloat xdp_buff all the way to an skb while still retaining all the
-flexibility.
-
-Thanks,
-Daniel
+Otherwise, "patchset" looks good. Thank you for taking care of this!
