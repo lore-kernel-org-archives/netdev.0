@@ -1,61 +1,139 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next RFC 2/5] vhost: introduce helper to prefetch desc
- index
-Date: Mon, 25 Sep 2017 10:04:13 +0800
-Message-ID: <33bdcceb-9f12-e5e9-4b4d-6d619e17a206@redhat.com>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <1506067355-5771-3-git-send-email-jasowang@redhat.com>
- <20170922090257.GB9243@stefanha-x1.localdomain>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next] sch_netem: faster rb tree removal
+Date: Sun, 24 Sep 2017 20:05:30 -0600
+Message-ID: <aa146e80-4cfd-888f-f6d2-bf4ec0eb7373@gmail.com>
+References: <1506190048.29839.206.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b175f7ab-12b6-061a-4233-ba53641ef99b@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kvm@vger.kernel.org
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922090257.GB9243@stefanha-x1.localdomain>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35620 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752969AbdIYCFc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 22:05:32 -0400
+Received: by mail-pf0-f194.google.com with SMTP id i23so3006195pfi.2
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 19:05:31 -0700 (PDT)
+In-Reply-To: <b175f7ab-12b6-061a-4233-ba53641ef99b@gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 9/24/17 7:57 PM, David Ahern wrote:
+> On 9/23/17 12:07 PM, Eric Dumazet wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> While running TCP tests involving netem storing millions of packets,
+>> I had the idea to speed up tfifo_reset() and did experiments.
+>>
+>> I tried the rbtree_postorder_for_each_entry_safe() method that is
+>> used in skb_rbtree_purge() but discovered it was slower than the
+>> current tfifo_reset() method.
+>>
+>> I measured time taken to release skbs with three occupation levels :
+>> 10^4, 10^5 and 10^6 skbs with three methods :
+>>
+>> 1) (current 'naive' method)
+>>
+>> 	while ((p = rb_first(&q->t_root))) {
+>> 		struct sk_buff *skb = netem_rb_to_skb(p);
+>>  
+>> 		rb_erase(p, &q->t_root);
+>> 		rtnl_kfree_skbs(skb, skb);
+>> 	}
+>>
+>> 2) Use rb_next() instead of rb_first() in the loop :
+>>
+>> 	p = rb_first(&q->t_root);
+>> 	while (p) {
+>> 		struct sk_buff *skb = netem_rb_to_skb(p);
+>>
+>> 		p = rb_next(p);
+>> 		rb_erase(&skb->rbnode, &q->t_root);
+>> 		rtnl_kfree_skbs(skb, skb);
+>> 	}
+>>
+>> 3) "optimized" method using rbtree_postorder_for_each_entry_safe()
+>>
+>> 	struct sk_buff *skb, *next;
+>>
+>> 	rbtree_postorder_for_each_entry_safe(skb, next,
+>> 					     &q->t_root, rbnode) {
+>>                rtnl_kfree_skbs(skb, skb);
+>> 	}
+>> 	q->t_root = RB_ROOT;
+>>
+>> Results :
+>>
+>> method_1:while (rb_first()) rb_erase() 10000 skbs in 690378 ns (69 ns per skb)
+>> method_2:rb_first; while (p) { p = rb_next(p); ...}  10000 skbs in 541846 ns (54 ns per skb)
+>> method_3:rbtree_postorder_for_each_entry_safe() 10000 skbs in 868307 ns (86 ns per skb)
+>>
+>> method_1:while (rb_first()) rb_erase() 99996 skbs in 7804021 ns (78 ns per skb)
+>> method_2:rb_first; while (p) { p = rb_next(p); ...}  100000 skbs in 5942456 ns (59 ns per skb)
+>> method_3:rbtree_postorder_for_each_entry_safe() 100000 skbs in 11584940 ns (115 ns per skb)
+>>
+>> method_1:while (rb_first()) rb_erase() 1000000 skbs in 108577838 ns (108 ns per skb)
+>> method_2:rb_first; while (p) { p = rb_next(p); ...}  1000000 skbs in 82619635 ns (82 ns per skb)
+>> method_3:rbtree_postorder_for_each_entry_safe() 1000000 skbs in 127328743 ns (127 ns per skb)
+>>
+>> Method 2) is simply faster, probably because it maintains a smaller
+>> working size set.
+>>
+>> Note that this is the method we use in tcp_ofo_queue() already.
+>>
+>> I will also change skb_rbtree_purge() in a second patch.
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> ---
+>>  net/sched/sch_netem.c |    7 ++++---
+>>  1 file changed, 4 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+>> index 063a4bdb9ee6f26b01387959e8f6ccd15ec16191..5a4f1008029068372019a965186e7a3c0a18aac3 100644
+>> --- a/net/sched/sch_netem.c
+>> +++ b/net/sched/sch_netem.c
+>> @@ -361,12 +361,13 @@ static psched_time_t packet_len_2_sched_time(unsigned int len, struct netem_sche
+>>  static void tfifo_reset(struct Qdisc *sch)
+>>  {
+>>  	struct netem_sched_data *q = qdisc_priv(sch);
+>> -	struct rb_node *p;
+>> +	struct rb_node *p = rb_first(&q->t_root);
+>>  
+>> -	while ((p = rb_first(&q->t_root))) {
+>> +	while (p) {
+>>  		struct sk_buff *skb = netem_rb_to_skb(p);
+>>  
+>> -		rb_erase(p, &q->t_root);
+>> +		p = rb_next(p);
+>> +		rb_erase(&skb->rbnode, &q->t_root);
+>>  		rtnl_kfree_skbs(skb, skb);
+>>  	}
+>>  }
+>>
+>>
+> 
+> Hi Eric:
+> 
+> I'm guessing the cost is in the rb_first and rb_next computations. Did
+> you consider something like this:
+> 
+>         struct rb_root *root
+>         struct rb_node **p = &root->rb_node;
+> 
+>         while (*p != NULL) {
+>                 struct foobar *fb;
+> 
+>                 fb = container_of(*p, struct foobar, rb_node);
+>                 // fb processing
+		  rb_erase(&nh->rb_node, root);
 
+>                 p = &root->rb_node;
+>         }
+> 
 
-On 2017年09月22日 17:02, Stefan Hajnoczi wrote:
-> On Fri, Sep 22, 2017 at 04:02:32PM +0800, Jason Wang wrote:
->> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->> index f87ec75..8424166d 100644
->> --- a/drivers/vhost/vhost.c
->> +++ b/drivers/vhost/vhost.c
->> @@ -2437,6 +2437,61 @@ struct vhost_msg_node *vhost_dequeue_msg(struct vhost_dev *dev,
->>   }
->>   EXPORT_SYMBOL_GPL(vhost_dequeue_msg);
->>   
->> +int vhost_prefetch_desc_indices(struct vhost_virtqueue *vq,
->> +				struct vring_used_elem *heads,
->> +				u16 num, bool used_update)
-> Missing doc comment.
-
-Will fix this.
-
->
->> +{
->> +	int ret, ret2;
->> +	u16 last_avail_idx, last_used_idx, total, copied;
->> +	__virtio16 avail_idx;
->> +	struct vring_used_elem __user *used;
->> +	int i;
-> The following variable names are a little confusing:
->
-> last_avail_idx vs vq->last_avail_idx.  last_avail_idx is a wrapped
-> avail->ring[] index, vq->last_avail_idx is a free-running counter.  The
-> same for last_used_idx vs vq->last_used_idx.
->
-> num argument vs vq->num.  The argument could be called nheads instead to
-> make it clear that this is heads[] and not the virtqueue size.
->
-> Not a bug but it took me a while to figure out what was going on.
-
-I admit the name is confusing. Let me try better ones in V2.
-
-Thanks
+Oops, dropped the rb_erase in my consolidating the code to this snippet.
