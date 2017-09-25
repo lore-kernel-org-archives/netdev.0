@@ -1,76 +1,57 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next] sch_netem: faster rb tree removal
-Date: Mon, 25 Sep 2017 10:14:23 -0600
-Message-ID: <ce328dfd-0b54-883a-36a8-91ec344f86ad@gmail.com>
-References: <1506190048.29839.206.camel@edumazet-glaptop3.roam.corp.google.com>
- <b175f7ab-12b6-061a-4233-ba53641ef99b@gmail.com>
- <aa146e80-4cfd-888f-f6d2-bf4ec0eb7373@gmail.com>
- <1506317240.6617.5.camel@edumazet-glaptop3.roam.corp.google.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH,v3,net-next 1/2] tun: enable NAPI for TUN/TAP driver
+Date: Mon, 25 Sep 2017 09:23:48 -0700
+Message-ID: <CAF2d9ji-aKqmT4Cdcs4E=YtdAe4GP+J5yp-G-x=s9L6D-nn_rA@mail.gmail.com>
+References: <20170922204915.7889-1-peterpenkov96@gmail.com> <20170922204915.7889-2-peterpenkov96@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: linux-netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem Bruijn <willemb@google.com>,
+        David Miller <davem@davemloft.net>,
+        Petar Bozhidarov Penkov <ppenkov@stanford.edu>
+To: Petar Penkov <peterpenkov96@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:49367 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934227AbdIYQO0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 12:14:26 -0400
-Received: by mail-pg0-f44.google.com with SMTP id m30so4233011pgn.6
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 09:14:26 -0700 (PDT)
-In-Reply-To: <1506317240.6617.5.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-yw0-f170.google.com ([209.85.161.170]:44843 "EHLO
+        mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752558AbdIYQYK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 12:24:10 -0400
+Received: by mail-yw0-f170.google.com with SMTP id r85so5101741ywg.1
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 09:24:10 -0700 (PDT)
+In-Reply-To: <20170922204915.7889-2-peterpenkov96@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/24/17 11:27 PM, Eric Dumazet wrote:
-> On Sun, 2017-09-24 at 20:05 -0600, David Ahern wrote:
->> On 9/24/17 7:57 PM, David Ahern wrote:
-> 
->>> Hi Eric:
->>>
->>> I'm guessing the cost is in the rb_first and rb_next computations. Did
->>> you consider something like this:
->>>
->>>         struct rb_root *root
->>>         struct rb_node **p = &root->rb_node;
->>>
->>>         while (*p != NULL) {
->>>                 struct foobar *fb;
->>>
->>>                 fb = container_of(*p, struct foobar, rb_node);
->>>                 // fb processing
->> 		  rb_erase(&nh->rb_node, root);
->>
->>>                 p = &root->rb_node;
->>>         }
->>>
->>
->> Oops, dropped the rb_erase in my consolidating the code to this snippet.
-> 
-> Hi David
-> 
-> This gives about same numbers than method_1
-> 
-> I tried with 10^7 skbs in the tree :
-> 
-> Your suggestion takes 66ns per skb, while the one I chose takes 37ns per
-> skb.
+On Fri, Sep 22, 2017 at 1:49 PM, Petar Penkov <peterpenkov96@gmail.com> wrote:
+> Changes TUN driver to use napi_gro_receive() upon receiving packets
+> rather than netif_rx_ni(). Adds flag IFF_NAPI that enables these
+> changes and operation is not affected if the flag is disabled.  SKBs
+> are constructed upon packet arrival and are queued to be processed
+> later.
+>
+> The new path was evaluated with a benchmark with the following setup:
+> Open two tap devices and a receiver thread that reads in a loop for
+> each device. Start one sender thread and pin all threads to different
+> CPUs. Send 1M minimum UDP packets to each device and measure sending
+> time for each of the sending methods:
+>         napi_gro_receive():     4.90s
+>         netif_rx_ni():          4.90s
+>         netif_receive_skb():    7.20s
+>
+> Signed-off-by: Petar Penkov <peterpenkov96@gmail.com>
 
-Thanks for the test.
+Thank you Petar.
 
-I made a simple program this morning and ran it under perf. With the
-above suggestion the rb_erase has a high cost because it always deletes
-the root node. Your method 1 has a high cost on rb_first which is
-expected given its definition and it is run on each removal. Both
-options increase in time with the number of entries in the tree.
+Acked-by: Mahesh Bandewar <maheshb@google.com>
 
-Your method 2 is fairly constant from 10,000 entries to 10M entries
-which makes sense: a one time cost at finding rb_first and then always
-removing a bottom node so rb_erase is light.
-
-As for the change:
-
-Acked-by: David Ahern <dsahern@gmail.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Mahesh Bandewar <maheshb@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: davem@davemloft.net
+> Cc: ppenkov@stanford.edu
+> ---
+>  drivers/net/tun.c           | 133 +++++++++++++++++++++++++++++++++++++++-----
+>  include/uapi/linux/if_tun.h |   1 +
+>  2 files changed, 119 insertions(+), 15 deletions(-)
+>
