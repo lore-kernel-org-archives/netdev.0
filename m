@@ -1,86 +1,346 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
-Date: Mon, 25 Sep 2017 12:23:34 +0200
-Message-ID: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 3/7] nfp: compile flower vxlan tunnel set actions
+Date: Mon, 25 Sep 2017 12:23:37 +0200
+Message-ID: <1506335021-32024-4-git-send-email-simon.horman@netronome.com>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        John Hurley <john.hurley@netronome.com>,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:47749 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932909AbdIYKYA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 06:24:00 -0400
-Received: by mail-wm0-f54.google.com with SMTP id r136so17960944wmf.2
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 03:23:59 -0700 (PDT)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:47785 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934151AbdIYKYE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 06:24:04 -0400
+Received: by mail-wm0-f50.google.com with SMTP id r136so17961525wmf.2
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 03:24:03 -0700 (PDT)
+In-Reply-To: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
+From: John Hurley <john.hurley@netronome.com>
 
-John says:
+Compile set tunnel actions for tc flower. Only support VXLAN and ensure a
+tunnel destination port of 4789 is used.
 
-This patch set allows offloading of TC flower match and set tunnel fields
-to the NFP. The initial focus is on VXLAN traffic. Due to the current
-state of the NFP firmware, only VXLAN traffic on well known port 4789 is
-handled. The match and action fields must explicity set this value to be
-supported. Tunnel end point information is also offloaded to the NFP for
-both encapsulation and decapsulation. The NFP expects 3 separate data sets
-to be supplied.
+Signed-off-by: John Hurley <john.hurley@netronome.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 169 ++++++++++++++++++---
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  31 +++-
+ 2 files changed, 179 insertions(+), 21 deletions(-)
 
-For decapsulation, 2 separate lists exist; a list of MAC addresses
-referenced by an index comprised of the port number, and a list of IP
-addresses. These IP addresses are not connected to a MAC or port. The MAC
-addresses can be written as a block or one at a time (because they have an
-index, previous values can be overwritten) while the IP addresses are
-always written as a list of all the available IPs. Because the MAC address
-used as a tunnel end point may be associated with a physical port or may
-be a virtual netdev like an OVS bridge, we do not know which addresses
-should be offloaded. For this reason, all MAC addresses of active netdevs
-are offloaded to the NFP. A notifier checks for changes to any currently
-offloaded MACs or any new netdevs that may occur. For IP addresses, the
-tunnel end point used in the rules is known as the destination IP address
-must be specified in the flower classifier rule. When a new IP address
-appears in a rule, the IP address is offloaded. The IP is removed from the
-offloaded list when all rules matching on that IP are deleted.
-
-For encapsulation, a next hop table is updated on the NFP that contains
-the source/dest IPs, MACs and egress port. These are written individually
-when requested. If the NFP tries to encapsulate a packet but does not know
-the next hop, then is sends a request to the host. The host carries out a
-route lookup and populates the given entry on the NFP table. A notifier
-also exists to check for any links changing or going down in the kernel
-next hop table. If an offloaded next hop entry is removed from the kernel
-then it is also removed on the NFP.
-
-The NFP periodically sends a message to the host telling it which tunnel
-ports have packets egressing the system. The host uses this information to
-update the used value in the neighbour entry. This means that, rather than
-expire when it times out, the kernel will send an ARP to check if the link
-is still live. From an NFP perspective, this means that valid entries will
-not be removed from its next hop table.
-
-John Hurley (7):
-  nfp: add helper to get flower cmsg length
-  nfp: compile flower vxlan tunnel metadata match fields
-  nfp: compile flower vxlan tunnel set actions
-  nfp: offload flower vxlan endpoint MAC addresses
-  nfp: offload vxlan IPv4 endpoints of flower rules
-  nfp: flower vxlan neighbour offload
-  nfp: flower vxlan neighbour keep-alive
-
- drivers/net/ethernet/netronome/nfp/Makefile        |   3 +-
- drivers/net/ethernet/netronome/nfp/flower/action.c | 169 ++++-
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  16 +-
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  87 ++-
- drivers/net/ethernet/netronome/nfp/flower/main.c   |  13 +
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  35 +
- drivers/net/ethernet/netronome/nfp/flower/match.c  |  75 +-
- .../net/ethernet/netronome/nfp/flower/metadata.c   |   2 +-
- .../net/ethernet/netronome/nfp/flower/offload.c    |  74 +-
- .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 811 +++++++++++++++++++++
- 10 files changed, 1243 insertions(+), 42 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/action.c b/drivers/net/ethernet/netronome/nfp/flower/action.c
+index db9750695dc7..38f3835ae176 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/action.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/action.c
+@@ -37,6 +37,7 @@
+ #include <net/tc_act/tc_gact.h>
+ #include <net/tc_act/tc_mirred.h>
+ #include <net/tc_act/tc_vlan.h>
++#include <net/tc_act/tc_tunnel_key.h>
+ 
+ #include "cmsg.h"
+ #include "main.h"
+@@ -80,14 +81,27 @@ nfp_fl_push_vlan(struct nfp_fl_push_vlan *push_vlan,
+ 	push_vlan->vlan_tci = cpu_to_be16(tmp_push_vlan_tci);
+ }
+ 
++static bool nfp_fl_netdev_is_tunnel_type(struct net_device *out_dev,
++					 enum nfp_flower_tun_type tun_type)
++{
++	if (!out_dev->rtnl_link_ops)
++		return false;
++
++	if (!strcmp(out_dev->rtnl_link_ops->kind, "vxlan"))
++		return tun_type == NFP_FL_TUNNEL_VXLAN;
++
++	return false;
++}
++
+ static int
+ nfp_fl_output(struct nfp_fl_output *output, const struct tc_action *action,
+ 	      struct nfp_fl_payload *nfp_flow, bool last,
+-	      struct net_device *in_dev)
++	      struct net_device *in_dev, enum nfp_flower_tun_type tun_type,
++	      int *tun_out_cnt)
+ {
+ 	size_t act_size = sizeof(struct nfp_fl_output);
++	u16 tmp_output_op, tmp_flags;
+ 	struct net_device *out_dev;
+-	u16 tmp_output_op;
+ 	int ifindex;
+ 
+ 	/* Set action opcode to output action. */
+@@ -97,25 +111,114 @@ nfp_fl_output(struct nfp_fl_output *output, const struct tc_action *action,
+ 
+ 	output->a_op = cpu_to_be16(tmp_output_op);
+ 
+-	/* Set action output parameters. */
+-	output->flags = cpu_to_be16(last ? NFP_FL_OUT_FLAGS_LAST : 0);
+-
+ 	ifindex = tcf_mirred_ifindex(action);
+ 	out_dev = __dev_get_by_index(dev_net(in_dev), ifindex);
+ 	if (!out_dev)
+ 		return -EOPNOTSUPP;
+ 
+-	/* Only offload egress ports are on the same device as the ingress
+-	 * port.
++	tmp_flags = last ? NFP_FL_OUT_FLAGS_LAST : 0;
++
++	if (tun_type) {
++		/* Verify the egress netdev matches the tunnel type. */
++		if (!nfp_fl_netdev_is_tunnel_type(out_dev, tun_type))
++			return -EOPNOTSUPP;
++
++		if (*tun_out_cnt)
++			return -EOPNOTSUPP;
++		(*tun_out_cnt)++;
++
++		output->flags = cpu_to_be16(tmp_flags |
++					    NFP_FL_OUT_FLAGS_USE_TUN);
++		output->port = cpu_to_be32(NFP_FL_PORT_TYPE_TUN | tun_type);
++	} else {
++		/* Set action output parameters. */
++		output->flags = cpu_to_be16(tmp_flags);
++
++		/* Only offload if egress ports are on the same device as the
++		 * ingress port.
++		 */
++		if (!switchdev_port_same_parent_id(in_dev, out_dev))
++			return -EOPNOTSUPP;
++
++		output->port = cpu_to_be32(nfp_repr_get_port_id(out_dev));
++		if (!output->port)
++			return -EOPNOTSUPP;
++	}
++	nfp_flow->meta.shortcut = output->port;
++
++	return 0;
++}
++
++static bool nfp_fl_supported_tun_port(const struct tc_action *action)
++{
++	struct ip_tunnel_info *tun = tcf_tunnel_info(action);
++
++	return tun->key.tp_dst == htons(NFP_FL_VXLAN_PORT);
++}
++
++static struct nfp_fl_pre_tunnel *nfp_fl_pre_tunnel(char *act_data, int act_len)
++{
++	size_t act_size = sizeof(struct nfp_fl_pre_tunnel);
++	struct nfp_fl_pre_tunnel *pre_tun_act;
++	u16 tmp_pre_tun_op;
++
++	/* Pre_tunnel action must be first on action list.
++	 * If other actions already exist they need pushed forward.
+ 	 */
+-	if (!switchdev_port_same_parent_id(in_dev, out_dev))
+-		return -EOPNOTSUPP;
++	if (act_len)
++		memmove(act_data + act_size, act_data, act_len);
++
++	pre_tun_act = (struct nfp_fl_pre_tunnel *)act_data;
++
++	memset(pre_tun_act, 0, act_size);
++
++	tmp_pre_tun_op =
++		FIELD_PREP(NFP_FL_ACT_LEN_LW, act_size >> NFP_FL_LW_SIZ) |
++		FIELD_PREP(NFP_FL_ACT_JMP_ID, NFP_FL_ACTION_OPCODE_PRE_TUNNEL);
++
++	pre_tun_act->a_op = cpu_to_be16(tmp_pre_tun_op);
+ 
+-	output->port = cpu_to_be32(nfp_repr_get_port_id(out_dev));
+-	if (!output->port)
++	return pre_tun_act;
++}
++
++static int
++nfp_fl_set_vxlan(struct nfp_fl_set_vxlan *set_vxlan,
++		 const struct tc_action *action,
++		 struct nfp_fl_pre_tunnel *pre_tun)
++{
++	struct ip_tunnel_info *vxlan = tcf_tunnel_info(action);
++	size_t act_size = sizeof(struct nfp_fl_set_vxlan);
++	u32 tmp_set_vxlan_type_index = 0;
++	u16 tmp_set_vxlan_op;
++	/* Currently support one pre-tunnel so index is always 0. */
++	int pretun_idx = 0;
++
++	if (vxlan->options_len) {
++		/* Do not support options e.g. vxlan gpe. */
+ 		return -EOPNOTSUPP;
++	}
+ 
+-	nfp_flow->meta.shortcut = output->port;
++	tmp_set_vxlan_op =
++		FIELD_PREP(NFP_FL_ACT_LEN_LW, act_size >> NFP_FL_LW_SIZ) |
++		FIELD_PREP(NFP_FL_ACT_JMP_ID,
++			   NFP_FL_ACTION_OPCODE_SET_IPV4_TUNNEL);
++
++	set_vxlan->a_op = cpu_to_be16(tmp_set_vxlan_op);
++
++	/* Set tunnel type and pre-tunnel index. */
++	tmp_set_vxlan_type_index |=
++		FIELD_PREP(NFP_FL_IPV4_TUNNEL_TYPE, NFP_FL_TUNNEL_VXLAN) |
++		FIELD_PREP(NFP_FL_IPV4_PRE_TUN_INDEX, pretun_idx);
++
++	set_vxlan->tun_type_index = cpu_to_be32(tmp_set_vxlan_type_index);
++
++	set_vxlan->tun_id = vxlan->key.tun_id;
++	set_vxlan->tun_flags = vxlan->key.tun_flags;
++	set_vxlan->ipv4_ttl = vxlan->key.ttl;
++	set_vxlan->ipv4_tos = vxlan->key.tos;
++
++	/* Complete pre_tunnel action. */
++	pre_tun->ipv4_dst = vxlan->key.u.ipv4.dst;
+ 
+ 	return 0;
+ }
+@@ -123,8 +226,11 @@ nfp_fl_output(struct nfp_fl_output *output, const struct tc_action *action,
+ static int
+ nfp_flower_loop_action(const struct tc_action *a,
+ 		       struct nfp_fl_payload *nfp_fl, int *a_len,
+-		       struct net_device *netdev)
++		       struct net_device *netdev,
++		       enum nfp_flower_tun_type *tun_type, int *tun_out_cnt)
+ {
++	struct nfp_fl_pre_tunnel *pre_tun;
++	struct nfp_fl_set_vxlan *s_vxl;
+ 	struct nfp_fl_push_vlan *psh_v;
+ 	struct nfp_fl_pop_vlan *pop_v;
+ 	struct nfp_fl_output *output;
+@@ -137,7 +243,8 @@ nfp_flower_loop_action(const struct tc_action *a,
+ 			return -EOPNOTSUPP;
+ 
+ 		output = (struct nfp_fl_output *)&nfp_fl->action_data[*a_len];
+-		err = nfp_fl_output(output, a, nfp_fl, true, netdev);
++		err = nfp_fl_output(output, a, nfp_fl, true, netdev, *tun_type,
++				    tun_out_cnt);
+ 		if (err)
+ 			return err;
+ 
+@@ -147,7 +254,8 @@ nfp_flower_loop_action(const struct tc_action *a,
+ 			return -EOPNOTSUPP;
+ 
+ 		output = (struct nfp_fl_output *)&nfp_fl->action_data[*a_len];
+-		err = nfp_fl_output(output, a, nfp_fl, false, netdev);
++		err = nfp_fl_output(output, a, nfp_fl, false, netdev, *tun_type,
++				    tun_out_cnt);
+ 		if (err)
+ 			return err;
+ 
+@@ -170,6 +278,29 @@ nfp_flower_loop_action(const struct tc_action *a,
+ 
+ 		nfp_fl_push_vlan(psh_v, a);
+ 		*a_len += sizeof(struct nfp_fl_push_vlan);
++	} else if (is_tcf_tunnel_set(a) && nfp_fl_supported_tun_port(a)) {
++		/* Pre-tunnel action is required for tunnel encap.
++		 * This checks for next hop entries on NFP.
++		 * If none, the packet falls back before applying other actions.
++		 */
++		if (*a_len + sizeof(struct nfp_fl_pre_tunnel) +
++		    sizeof(struct nfp_fl_set_vxlan) > NFP_FL_MAX_A_SIZ)
++			return -EOPNOTSUPP;
++
++		*tun_type = NFP_FL_TUNNEL_VXLAN;
++		pre_tun = nfp_fl_pre_tunnel(nfp_fl->action_data, *a_len);
++		nfp_fl->meta.shortcut = cpu_to_be32(NFP_FL_SC_ACT_NULL);
++		*a_len += sizeof(struct nfp_fl_pre_tunnel);
++
++		s_vxl = (struct nfp_fl_set_vxlan *)&nfp_fl->action_data[*a_len];
++		err = nfp_fl_set_vxlan(s_vxl, a, pre_tun);
++		if (err)
++			return err;
++
++		*a_len += sizeof(struct nfp_fl_set_vxlan);
++	} else if (is_tcf_tunnel_release(a)) {
++		/* Tunnel decap is handled by default so accept action. */
++		return 0;
+ 	} else {
+ 		/* Currently we do not handle any other actions. */
+ 		return -EOPNOTSUPP;
+@@ -182,18 +313,22 @@ int nfp_flower_compile_action(struct tc_cls_flower_offload *flow,
+ 			      struct net_device *netdev,
+ 			      struct nfp_fl_payload *nfp_flow)
+ {
+-	int act_len, act_cnt, err;
++	int act_len, act_cnt, err, tun_out_cnt;
++	enum nfp_flower_tun_type tun_type;
+ 	const struct tc_action *a;
+ 	LIST_HEAD(actions);
+ 
+ 	memset(nfp_flow->action_data, 0, NFP_FL_MAX_A_SIZ);
+ 	nfp_flow->meta.act_len = 0;
++	tun_type = NFP_FL_TUNNEL_NONE;
+ 	act_len = 0;
+ 	act_cnt = 0;
++	tun_out_cnt = 0;
+ 
+ 	tcf_exts_to_list(flow->exts, &actions);
+ 	list_for_each_entry(a, &actions, list) {
+-		err = nfp_flower_loop_action(a, nfp_flow, &act_len, netdev);
++		err = nfp_flower_loop_action(a, nfp_flow, &act_len, netdev,
++					     &tun_type, &tun_out_cnt);
+ 		if (err)
+ 			return err;
+ 		act_cnt++;
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+index af9165b3b652..ff42ce8a1e9c 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+@@ -67,10 +67,12 @@
+ #define NFP_FL_LW_SIZ			2
+ 
+ /* Action opcodes */
+-#define NFP_FL_ACTION_OPCODE_OUTPUT	0
+-#define NFP_FL_ACTION_OPCODE_PUSH_VLAN	1
+-#define NFP_FL_ACTION_OPCODE_POP_VLAN	2
+-#define NFP_FL_ACTION_OPCODE_NUM	32
++#define NFP_FL_ACTION_OPCODE_OUTPUT		0
++#define NFP_FL_ACTION_OPCODE_PUSH_VLAN		1
++#define NFP_FL_ACTION_OPCODE_POP_VLAN		2
++#define NFP_FL_ACTION_OPCODE_SET_IPV4_TUNNEL	6
++#define NFP_FL_ACTION_OPCODE_PRE_TUNNEL		17
++#define NFP_FL_ACTION_OPCODE_NUM		32
+ 
+ #define NFP_FL_ACT_JMP_ID		GENMASK(15, 8)
+ #define NFP_FL_ACT_LEN_LW		GENMASK(7, 0)
+@@ -85,6 +87,8 @@
+ 
+ /* Tunnel ports */
+ #define NFP_FL_PORT_TYPE_TUN		0x50000000
++#define NFP_FL_IPV4_TUNNEL_TYPE		GENMASK(7, 4)
++#define NFP_FL_IPV4_PRE_TUN_INDEX	GENMASK(2, 0)
+ 
+ enum nfp_flower_tun_type {
+ 	NFP_FL_TUNNEL_NONE =	0,
+@@ -123,6 +127,25 @@ struct nfp_flower_meta_one {
+ 	u16 reserved;
+ };
+ 
++struct nfp_fl_pre_tunnel {
++	__be16 a_op;
++	__be16 reserved;
++	__be32 ipv4_dst;
++	/* reserved for use with IPv6 addresses */
++	__be32 extra[3];
++};
++
++struct nfp_fl_set_vxlan {
++	__be16 a_op;
++	__be16 reserved;
++	__be64 tun_id;
++	__be32 tun_type_index;
++	__be16 tun_flags;
++	u8 ipv4_ttl;
++	u8 ipv4_tos;
++	__be32 extra[2];
++} __packed;
++
+ /* Metadata with L2 (1W/4B)
+  * ----------------------------------------------------------------
+  *    3                   2                   1
 -- 
 2.1.4
