@@ -1,87 +1,60 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [patch net-next v2 05/12] net: ipmr: Add MFC offload indication
-Date: Mon, 25 Sep 2017 14:21:21 +0300
-Message-ID: <64f2c129-5957-5ee0-07f3-e92f62942ec2@mellanox.com>
-References: <20170924172212.10096-1-jiri@resnulli.us>
- <20170924172212.10096-6-jiri@resnulli.us>
- <7d9433b4-50c9-3ac0-4eef-c8f847897e8c@cumulusnetworks.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net v2] sctp: Fix a big endian bug in sctp_diag_dump()
+Date: Mon, 25 Sep 2017 07:23:00 -0400
+Message-ID: <20170925112259.GB3425@hmswarspite.think-freely.org>
+References: <CADvbK_dCT6Z6JwD+VtjNg6UUkQneU2OLeme9JVqrXjnJJ63cGg@mail.gmail.com>
+ <20170925101926.db4f6x4hblh7tcvo@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        andrew@lunn.ch
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0080.outbound.protection.outlook.com ([104.47.2.80]:24400
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S935154AbdIYLVa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 25 Sep 2017 07:21:30 -0400
-In-Reply-To: <7d9433b4-50c9-3ac0-4eef-c8f847897e8c@cumulusnetworks.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34141 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933200AbdIYLXP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 07:23:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170925101926.db4f6x4hblh7tcvo@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/25/2017 12:36 PM, Nikolay Aleksandrov wrote:
-> On 24/09/17 20:22, Jiri Pirko wrote:
->> From: Yotam Gigi <yotamg@mellanox.com>
->>
->> Allow drivers, registered to the fib notification chain indicate whether a
->> multicast MFC route is offloaded or not, similarly to unicast routes. The
->> indication of whether a route is offloaded is done using the mfc_flags
->> field on an mfc_cache struct, and the information is sent to the userspace
->> via the RTNetlink interface only.
->>
->> Currently, MFC routes are either offloaded or not, thus there is no need to
->> add per-VIF offload indication.
->>
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->> v1->v2:
->>  - Add comment for the MFC_OFFLOAD flag
->> ---
->>  include/linux/mroute.h | 2 ++
->>  net/ipv4/ipmr.c        | 3 +++
->>  2 files changed, 5 insertions(+)
->>
->> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
->> index 54c5cb8..5566580 100644
->> --- a/include/linux/mroute.h
->> +++ b/include/linux/mroute.h
->> @@ -90,9 +90,11 @@ struct mr_table {
->>  
->>  /* mfc_flags:
->>   * MFC_STATIC - the entry was added statically (not by a routing daemon)
->> + * MFC_OFFLOAD - the entry was offloaded to the hardware
->>   */
->>  enum {
->>  	MFC_STATIC = BIT(0),
->> +	MFC_OFFLOAD = BIT(1),
->>  };
->>  
->>  struct mfc_cache_cmp_arg {
->> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
->> index ba71bc4..2a795d2 100644
->> --- a/net/ipv4/ipmr.c
->> +++ b/net/ipv4/ipmr.c
->> @@ -2268,6 +2268,9 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
->>  	    nla_put_u32(skb, RTA_IIF, mrt->vif_table[c->mfc_parent].dev->ifindex) < 0)
->>  		return -EMSGSIZE;
->>  
->> +	if (c->mfc_flags & MFC_OFFLOAD)
->> +		rtm->rtm_flags |= RTNH_F_OFFLOAD;
->> +
->>  	if (!(mp_attr = nla_nest_start(skb, RTA_MULTIPATH)))
->>  		return -EMSGSIZE;
->>  
->>
-> Thanks!
-
-Thank you for reviewing :)
-
->
-> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
->
+On Mon, Sep 25, 2017 at 01:19:26PM +0300, Dan Carpenter wrote:
+> The sctp_for_each_transport() function takes an pointer to int.  The
+> cb->args[] array holds longs so it's only using the high 32 bits.  It
+> works on little endian system but will break on big endian 64 bit
+> machines.
+> 
+> Fixes: d25adbeb0cdb ("sctp: fix an use-after-free issue in sctp_sock_dump")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2: The v1 patch changed the function to take a long pointer, but v2
+>     just changes the caller.
+> 
+> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+> index 22ed01a76b19..a72a7d925d46 100644
+> --- a/net/sctp/sctp_diag.c
+> +++ b/net/sctp/sctp_diag.c
+> @@ -463,6 +463,7 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>  		.r = r,
+>  		.net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN),
+>  	};
+> +	int pos = cb->args[2];
+>  
+>  	/* eps hashtable dumps
+>  	 * args:
+> @@ -493,7 +494,8 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>  		goto done;
+>  
+>  	sctp_for_each_transport(sctp_sock_filter, sctp_sock_dump,
+> -				net, (int *)&cb->args[2], &commp);
+> +				net, &pos, &commp);
+> +	cb->args[2] = pos;
+>  
+>  done:
+>  	cb->args[1] = cb->args[4];
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
