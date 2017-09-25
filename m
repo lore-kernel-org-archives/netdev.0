@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v2 02/16] thunderbolt: Add support for XDomain properties
-Date: Mon, 25 Sep 2017 14:07:24 +0300
-Message-ID: <20170925110738.68382-3-mika.westerberg@linux.intel.com>
+Subject: [PATCH v2 12/16] thunderbolt: Use spinlock in NHI serialization
+Date: Mon, 25 Sep 2017 14:07:34 +0300
+Message-ID: <20170925110738.68382-13-mika.westerberg@linux.intel.com>
 References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -14,829 +14,212 @@ Cc: Andreas Noever <andreas.noever@gmail.com>,
         linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:41611 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934927AbdIYLHv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 25 Sep 2017 07:07:51 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thunderbolt XDomain discovery protocol uses directories which contain
-properties and other directories to exchange information about what
-capabilities the remote host supports. This also includes identification
-information like device ID and name.
+This is needed because ring polling functionality can be called from
+atomic contexts when networking and other high-speed traffic is
+transferred over a Thunderbolt cable.
 
-This adds support for parsing and formatting these properties and
-establishes an API drivers can use in addition to the core Thunderbolt
-driver. This API is exposed in a new header: include/linux/thunderbolt.h.
-
-This code is based on the work done by Amir Levy and Michael Jamet.
-
-Signed-off-by: Michael Jamet <michael.jamet@intel.com>
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- MAINTAINERS                    |   1 +
- drivers/thunderbolt/Makefile   |   2 +-
- drivers/thunderbolt/property.c | 670 +++++++++++++++++++++++++++++++++++++++++
- include/linux/thunderbolt.h    |  89 ++++++
- 4 files changed, 761 insertions(+), 1 deletion(-)
- create mode 100644 drivers/thunderbolt/property.c
- create mode 100644 include/linux/thunderbolt.h
+ drivers/thunderbolt/nhi.c   | 75 +++++++++++++++++++++++++--------------------
+ include/linux/thunderbolt.h |  2 +-
+ 2 files changed, 42 insertions(+), 35 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 6671f375f7fc..c1c90d962012 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -13278,6 +13278,7 @@ M:	Mika Westerberg <mika.westerberg@linux.intel.com>
- M:	Yehezkel Bernat <yehezkel.bernat@intel.com>
- S:	Maintained
- F:	drivers/thunderbolt/
-+F:	include/linux/thunderbolt.h
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index d1ad37c6eccf..cf1397afa72f 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -327,21 +327,9 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	if (transmit && hop == RING_E2E_UNUSED_HOPID)
+ 		return NULL;
  
- THUNDERX GPIO DRIVER
- M:	David Daney <david.daney@cavium.com>
-diff --git a/drivers/thunderbolt/Makefile b/drivers/thunderbolt/Makefile
-index 4900febc6c8a..7afd21f5383a 100644
---- a/drivers/thunderbolt/Makefile
-+++ b/drivers/thunderbolt/Makefile
-@@ -1,3 +1,3 @@
- obj-${CONFIG_THUNDERBOLT} := thunderbolt.o
- thunderbolt-objs := nhi.o ctl.o tb.o switch.o cap.o path.o tunnel_pci.o eeprom.o
--thunderbolt-objs += domain.o dma_port.o icm.o
-+thunderbolt-objs += domain.o dma_port.o icm.o property.o
-diff --git a/drivers/thunderbolt/property.c b/drivers/thunderbolt/property.c
-new file mode 100644
-index 000000000000..55a8aa32b1d6
---- /dev/null
-+++ b/drivers/thunderbolt/property.c
-@@ -0,0 +1,670 @@
-+/*
-+ * Thunderbolt XDomain property support
-+ *
-+ * Copyright (C) 2017, Intel Corporation
-+ * Authors: Michael Jamet <michael.jamet@intel.com>
-+ *          Mika Westerberg <mika.westerberg@linux.intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#include <linux/err.h>
-+#include <linux/slab.h>
-+#include <linux/string.h>
-+#include <linux/uuid.h>
-+#include <linux/thunderbolt.h>
-+
-+struct tb_property_entry {
-+	u32 key_hi;
-+	u32 key_lo;
-+	u16 length;
-+	u8 reserved;
-+	u8 type;
-+	u32 value;
-+} __packed;
-+
-+struct tb_property_rootdir_entry {
-+	u32 magic;
-+	u32 length;
-+	struct tb_property_entry entries[];
-+} __packed;
-+
-+struct tb_property_dir_entry {
-+	u32 uuid[4];
-+	struct tb_property_entry entries[];
-+} __packed;
-+
-+#define TB_PROPERTY_ROOTDIR_MAGIC	0x55584401
-+
-+static struct tb_property_dir *__tb_property_parse_dir(const u32 *block,
-+	size_t block_len, unsigned int dir_offset, size_t dir_len,
-+	bool is_root);
-+
-+static inline void parse_dwdata(void *dst, const void *src, size_t dwords)
-+{
-+	be32_to_cpu_array(dst, src, dwords);
-+}
-+
-+static inline void format_dwdata(void *dst, const void *src, size_t dwords)
-+{
-+	cpu_to_be32_array(dst, src, dwords);
-+}
-+
-+static bool tb_property_entry_valid(const struct tb_property_entry *entry,
-+				  size_t block_len)
-+{
-+	switch (entry->type) {
-+	case TB_PROPERTY_TYPE_DIRECTORY:
-+	case TB_PROPERTY_TYPE_DATA:
-+	case TB_PROPERTY_TYPE_TEXT:
-+		if (entry->length > block_len)
-+			return false;
-+		if (entry->value + entry->length > block_len)
-+			return false;
-+		break;
-+
-+	case TB_PROPERTY_TYPE_VALUE:
-+		if (entry->length != 1)
-+			return false;
-+		break;
-+	}
-+
-+	return true;
-+}
-+
-+static bool tb_property_key_valid(const char *key)
-+{
-+	return key && strlen(key) <= TB_PROPERTY_KEY_SIZE;
-+}
-+
-+static struct tb_property *
-+tb_property_alloc(const char *key, enum tb_property_type type)
-+{
-+	struct tb_property *property;
-+
-+	property = kzalloc(sizeof(*property), GFP_KERNEL);
-+	if (!property)
+-	mutex_lock(&nhi->lock);
+-	if (hop >= nhi->hop_count) {
+-		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
+-		goto err;
+-	}
+-	if (transmit && nhi->tx_rings[hop]) {
+-		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
+-		goto err;
+-	} else if (!transmit && nhi->rx_rings[hop]) {
+-		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
+-		goto err;
+-	}
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+ 	if (!ring)
+-		goto err;
 +		return NULL;
+ 
+ 	spin_lock_init(&ring->lock);
+ 	INIT_LIST_HEAD(&ring->queue);
+@@ -359,25 +347,45 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	ring->tail = 0;
+ 	ring->running = false;
+ 
+-	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
+-		goto err;
+-
+ 	ring->descriptors = dma_alloc_coherent(&ring->nhi->pdev->dev,
+ 			size * sizeof(*ring->descriptors),
+ 			&ring->descriptors_dma, GFP_KERNEL | __GFP_ZERO);
+ 	if (!ring->descriptors)
+-		goto err;
++		goto err_free_ring;
+ 
++	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
++		goto err_free_descs;
 +
-+	strcpy(property->key, key);
-+	property->type = type;
-+	INIT_LIST_HEAD(&property->list);
-+
-+	return property;
-+}
-+
-+static struct tb_property *tb_property_parse(const u32 *block, size_t block_len,
-+					const struct tb_property_entry *entry)
-+{
-+	char key[TB_PROPERTY_KEY_SIZE + 1];
-+	struct tb_property *property;
-+	struct tb_property_dir *dir;
-+
-+	if (!tb_property_entry_valid(entry, block_len))
-+		return NULL;
-+
-+	parse_dwdata(key, entry, 2);
-+	key[TB_PROPERTY_KEY_SIZE] = '\0';
-+
-+	property = tb_property_alloc(key, entry->type);
-+	if (!property)
-+		return NULL;
-+
-+	property->length = entry->length;
-+
-+	switch (property->type) {
-+	case TB_PROPERTY_TYPE_DIRECTORY:
-+		dir = __tb_property_parse_dir(block, block_len, entry->value,
-+					      entry->length, false);
-+		if (!dir) {
-+			kfree(property);
-+			return NULL;
-+		}
-+		property->value.dir = dir;
-+		break;
-+
-+	case TB_PROPERTY_TYPE_DATA:
-+		property->value.data = kcalloc(property->length, sizeof(u32),
-+					       GFP_KERNEL);
-+		if (!property->value.data) {
-+			kfree(property);
-+			return NULL;
-+		}
-+		parse_dwdata(property->value.data, block + entry->value,
-+			     entry->length);
-+		break;
-+
-+	case TB_PROPERTY_TYPE_TEXT:
-+		property->value.text = kcalloc(property->length, sizeof(u32),
-+					       GFP_KERNEL);
-+		if (!property->value.text) {
-+			kfree(property);
-+			return NULL;
-+		}
-+		parse_dwdata(property->value.text, block + entry->value,
-+			     entry->length);
-+		/* Force null termination */
-+		property->value.text[property->length * 4 - 1] = '\0';
-+		break;
-+
-+	case TB_PROPERTY_TYPE_VALUE:
-+		property->value.immediate = entry->value;
-+		break;
-+
-+	default:
-+		property->type = TB_PROPERTY_TYPE_UNKNOWN;
-+		break;
++	spin_lock_irq(&nhi->lock);
++	if (hop >= nhi->hop_count) {
++		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
++		goto err_release_msix;
 +	}
-+
-+	return property;
-+}
-+
-+static struct tb_property_dir *__tb_property_parse_dir(const u32 *block,
-+	size_t block_len, unsigned int dir_offset, size_t dir_len, bool is_root)
-+{
-+	const struct tb_property_entry *entries;
-+	size_t i, content_len, nentries;
-+	unsigned int content_offset;
-+	struct tb_property_dir *dir;
-+
-+	dir = kzalloc(sizeof(*dir), GFP_KERNEL);
-+	if (!dir)
-+		return NULL;
-+
-+	if (is_root) {
-+		content_offset = dir_offset + 2;
-+		content_len = dir_len;
-+	} else {
-+		dir->uuid = kmemdup(&block[dir_offset], sizeof(*dir->uuid),
-+				    GFP_KERNEL);
-+		content_offset = dir_offset + 4;
-+		content_len = dir_len - 4; /* Length includes UUID */
++	if (transmit && nhi->tx_rings[hop]) {
++		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
++		goto err_release_msix;
++	} else if (!transmit && nhi->rx_rings[hop]) {
++		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
++		goto err_release_msix;
 +	}
-+
-+	entries = (const struct tb_property_entry *)&block[content_offset];
-+	nentries = content_len / (sizeof(*entries) / 4);
-+
-+	INIT_LIST_HEAD(&dir->properties);
-+
-+	for (i = 0; i < nentries; i++) {
-+		struct tb_property *property;
-+
-+		property = tb_property_parse(block, block_len, &entries[i]);
-+		if (!property) {
-+			tb_property_free_dir(dir);
-+			return NULL;
-+		}
-+
-+		list_add_tail(&property->list, &dir->properties);
-+	}
-+
-+	return dir;
-+}
-+
-+/**
-+ * tb_property_parse_dir() - Parses properties from given property block
-+ * @block: Property block to parse
-+ * @block_len: Number of dword elements in the property block
-+ *
-+ * This function parses the XDomain properties data block into format that
-+ * can be traversed using the helper functions provided by this module.
-+ * Upon success returns the parsed directory. In case of error returns
-+ * %NULL. The resulting &struct tb_property_dir needs to be released by
-+ * calling tb_property_free_dir() when not needed anymore.
-+ *
-+ * The @block is expected to be root directory.
-+ */
-+struct tb_property_dir *tb_property_parse_dir(const u32 *block,
-+					      size_t block_len)
-+{
-+	const struct tb_property_rootdir_entry *rootdir =
-+		(const struct tb_property_rootdir_entry *)block;
-+
-+	if (rootdir->magic != TB_PROPERTY_ROOTDIR_MAGIC)
-+		return NULL;
-+	if (rootdir->length > block_len)
-+		return NULL;
-+
-+	return __tb_property_parse_dir(block, block_len, 0, rootdir->length,
-+				       true);
-+}
-+
-+/**
-+ * tb_property_create_dir() - Creates new property directory
-+ * @uuid: UUID used to identify the particular directory
-+ *
-+ * Creates new, empty property directory. If @uuid is %NULL then the
-+ * directory is assumed to be root directory.
-+ */
-+struct tb_property_dir *tb_property_create_dir(const uuid_t *uuid)
-+{
-+	struct tb_property_dir *dir;
-+
-+	dir = kzalloc(sizeof(*dir), GFP_KERNEL);
-+	if (!dir)
-+		return NULL;
-+
-+	INIT_LIST_HEAD(&dir->properties);
-+	if (uuid) {
-+		dir->uuid = kmemdup(uuid, sizeof(*dir->uuid), GFP_KERNEL);
-+		if (!dir->uuid) {
-+			kfree(dir);
-+			return NULL;
-+		}
-+	}
-+
-+	return dir;
-+}
-+EXPORT_SYMBOL_GPL(tb_property_create_dir);
-+
-+static void tb_property_free(struct tb_property *property)
-+{
-+	switch (property->type) {
-+	case TB_PROPERTY_TYPE_DIRECTORY:
-+		tb_property_free_dir(property->value.dir);
-+		break;
-+
-+	case TB_PROPERTY_TYPE_DATA:
-+		kfree(property->value.data);
-+		break;
-+
-+	case TB_PROPERTY_TYPE_TEXT:
-+		kfree(property->value.text);
-+		break;
-+
-+	default:
-+		break;
-+	}
-+
-+	kfree(property);
-+}
-+
-+/**
-+ * tb_property_free_dir() - Release memory allocated for property directory
-+ * @dir: Directory to release
-+ *
-+ * This will release all the memory the directory occupies including all
-+ * descendants. It is OK to pass %NULL @dir, then the function does
-+ * nothing.
-+ */
-+void tb_property_free_dir(struct tb_property_dir *dir)
-+{
-+	struct tb_property *property, *tmp;
-+
-+	if (!dir)
-+		return;
-+
-+	list_for_each_entry_safe(property, tmp, &dir->properties, list) {
-+		list_del(&property->list);
-+		tb_property_free(property);
-+	}
-+	kfree(dir->uuid);
-+	kfree(dir);
-+}
-+EXPORT_SYMBOL_GPL(tb_property_free_dir);
-+
-+static size_t tb_property_dir_length(const struct tb_property_dir *dir,
-+				     bool recurse, size_t *data_len)
-+{
-+	const struct tb_property *property;
-+	size_t len = 0;
-+
-+	if (dir->uuid)
-+		len += sizeof(*dir->uuid) / 4;
-+	else
-+		len += sizeof(struct tb_property_rootdir_entry) / 4;
-+
-+	list_for_each_entry(property, &dir->properties, list) {
-+		len += sizeof(struct tb_property_entry) / 4;
-+
-+		switch (property->type) {
-+		case TB_PROPERTY_TYPE_DIRECTORY:
-+			if (recurse) {
-+				len += tb_property_dir_length(
-+					property->value.dir, recurse, data_len);
-+			}
-+			/* Reserve dword padding after each directory */
-+			if (data_len)
-+				*data_len += 1;
-+			break;
-+
-+		case TB_PROPERTY_TYPE_DATA:
-+		case TB_PROPERTY_TYPE_TEXT:
-+			if (data_len)
-+				*data_len += property->length;
-+			break;
-+
-+		default:
-+			break;
-+		}
-+	}
-+
-+	return len;
-+}
-+
-+static ssize_t __tb_property_format_dir(const struct tb_property_dir *dir,
-+	u32 *block, unsigned int start_offset, size_t block_len)
-+{
-+	unsigned int data_offset, dir_end;
-+	const struct tb_property *property;
-+	struct tb_property_entry *entry;
-+	size_t dir_len, data_len = 0;
-+	int ret;
-+
-+	/*
-+	 * The structure of property block looks like following. Leaf
-+	 * data/text is included right after the directory and each
-+	 * directory follows each other (even nested ones).
-+	 *
-+	 * +----------+ <-- start_offset
-+	 * |  header  | <-- root directory header
-+	 * +----------+ ---
-+	 * |  entry 0 | -^--------------------.
-+	 * +----------+  |                    |
-+	 * |  entry 1 | -|--------------------|--.
-+	 * +----------+  |                    |  |
-+	 * |  entry 2 | -|-----------------.  |  |
-+	 * +----------+  |                 |  |  |
-+	 * :          :  |  dir_len        |  |  |
-+	 * .          .  |                 |  |  |
-+	 * :          :  |                 |  |  |
-+	 * +----------+  |                 |  |  |
-+	 * |  entry n |  v                 |  |  |
-+	 * +----------+ <-- data_offset    |  |  |
-+	 * |  data 0  | <------------------|--'  |
-+	 * +----------+                    |     |
-+	 * |  data 1  | <------------------|-----'
-+	 * +----------+                    |
-+	 * | 00000000 | padding            |
-+	 * +----------+ <-- dir_end <------'
-+	 * |   UUID   | <-- directory UUID (child directory)
-+	 * +----------+
-+	 * |  entry 0 |
-+	 * +----------+
-+	 * |  entry 1 |
-+	 * +----------+
-+	 * :          :
-+	 * .          .
-+	 * :          :
-+	 * +----------+
-+	 * |  entry n |
-+	 * +----------+
-+	 * |  data 0  |
-+	 * +----------+
-+	 *
-+	 * We use dir_end to hold pointer to the end of the directory. It
-+	 * will increase as we add directories and each directory should be
-+	 * added starting from previous dir_end.
-+	 */
-+	dir_len = tb_property_dir_length(dir, false, &data_len);
-+	data_offset = start_offset + dir_len;
-+	dir_end = start_offset + data_len + dir_len;
-+
-+	if (data_offset > dir_end)
-+		return -EINVAL;
-+	if (dir_end > block_len)
-+		return -EINVAL;
-+
-+	/* Write headers first */
-+	if (dir->uuid) {
-+		struct tb_property_dir_entry *pe;
-+
-+		pe = (struct tb_property_dir_entry *)&block[start_offset];
-+		memcpy(pe->uuid, dir->uuid, sizeof(pe->uuid));
-+		entry = pe->entries;
-+	} else {
-+		struct tb_property_rootdir_entry *re;
-+
-+		re = (struct tb_property_rootdir_entry *)&block[start_offset];
-+		re->magic = TB_PROPERTY_ROOTDIR_MAGIC;
-+		re->length = dir_len - sizeof(*re) / 4;
-+		entry = re->entries;
-+	}
-+
-+	list_for_each_entry(property, &dir->properties, list) {
-+		const struct tb_property_dir *child;
-+
-+		format_dwdata(entry, property->key, 2);
-+		entry->type = property->type;
-+
-+		switch (property->type) {
-+		case TB_PROPERTY_TYPE_DIRECTORY:
-+			child = property->value.dir;
-+			ret = __tb_property_format_dir(child, block, dir_end,
-+						       block_len);
-+			if (ret < 0)
-+				return ret;
-+			entry->length = tb_property_dir_length(child, false,
-+							       NULL);
-+			entry->value = dir_end;
-+			dir_end = ret;
-+			break;
-+
-+		case TB_PROPERTY_TYPE_DATA:
-+			format_dwdata(&block[data_offset], property->value.data,
-+				      property->length);
-+			entry->length = property->length;
-+			entry->value = data_offset;
-+			data_offset += entry->length;
-+			break;
-+
-+		case TB_PROPERTY_TYPE_TEXT:
-+			format_dwdata(&block[data_offset], property->value.text,
-+				      property->length);
-+			entry->length = property->length;
-+			entry->value = data_offset;
-+			data_offset += entry->length;
-+			break;
-+
-+		case TB_PROPERTY_TYPE_VALUE:
-+			entry->length = property->length;
-+			entry->value = property->value.immediate;
-+			break;
-+
-+		default:
-+			break;
-+		}
-+
-+		entry++;
-+	}
-+
-+	return dir_end;
-+}
-+
-+/**
-+ * tb_property_format_dir() - Formats directory to the packed XDomain format
-+ * @dir: Directory to format
-+ * @block: Property block where the packed data is placed
-+ * @block_len: Length of the property block
-+ *
-+ * This function formats the directory to the packed format that can be
-+ * then send over the thunderbolt fabric to receiving host. Returns %0 in
-+ * case of success and negative errno on faulure. Passing %NULL in @block
-+ * returns number of entries the block takes.
-+ */
-+ssize_t tb_property_format_dir(const struct tb_property_dir *dir, u32 *block,
-+			       size_t block_len)
-+{
-+	ssize_t ret;
-+
-+	if (!block) {
-+		size_t dir_len, data_len = 0;
-+
-+		dir_len = tb_property_dir_length(dir, true, &data_len);
-+		return dir_len + data_len;
-+	}
-+
-+	ret = __tb_property_format_dir(dir, block, 0, block_len);
-+	return ret < 0 ? ret : 0;
-+}
-+
-+/**
-+ * tb_property_add_immediate() - Add immediate property to directory
-+ * @parent: Directory to add the property
-+ * @key: Key for the property
-+ * @value: Immediate value to store with the property
-+ */
-+int tb_property_add_immediate(struct tb_property_dir *parent, const char *key,
-+			      u32 value)
-+{
-+	struct tb_property *property;
-+
-+	if (!tb_property_key_valid(key))
-+		return -EINVAL;
-+
-+	property = tb_property_alloc(key, TB_PROPERTY_TYPE_VALUE);
-+	if (!property)
-+		return -ENOMEM;
-+
-+	property->length = 1;
-+	property->value.immediate = value;
-+
-+	list_add_tail(&property->list, &parent->properties);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tb_property_add_immediate);
-+
-+/**
-+ * tb_property_add_data() - Adds arbitrary data property to directory
-+ * @parent: Directory to add the property
-+ * @key: Key for the property
-+ * @buf: Data buffer to add
-+ * @buflen: Number of bytes in the data buffer
-+ *
-+ * Function takes a copy of @buf and adds it to the directory.
-+ */
-+int tb_property_add_data(struct tb_property_dir *parent, const char *key,
-+			 const void *buf, size_t buflen)
-+{
-+	/* Need to pad to dword boundary */
-+	size_t size = round_up(buflen, 4);
-+	struct tb_property *property;
-+
-+	if (!tb_property_key_valid(key))
-+		return -EINVAL;
-+
-+	property = tb_property_alloc(key, TB_PROPERTY_TYPE_DATA);
-+	if (!property)
-+		return -ENOMEM;
-+
-+	property->length = size / 4;
-+	property->value.data = kzalloc(size, GFP_KERNEL);
-+	memcpy(property->value.data, buf, buflen);
-+
-+	list_add_tail(&property->list, &parent->properties);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tb_property_add_data);
-+
-+/**
-+ * tb_property_add_text() - Adds string property to directory
-+ * @parent: Directory to add the property
-+ * @key: Key for the property
-+ * @text: String to add
-+ *
-+ * Function takes a copy of @text and adds it to the directory.
-+ */
-+int tb_property_add_text(struct tb_property_dir *parent, const char *key,
-+			 const char *text)
-+{
-+	/* Need to pad to dword boundary */
-+	size_t size = round_up(strlen(text) + 1, 4);
-+	struct tb_property *property;
-+
-+	if (!tb_property_key_valid(key))
-+		return -EINVAL;
-+
-+	property = tb_property_alloc(key, TB_PROPERTY_TYPE_TEXT);
-+	if (!property)
-+		return -ENOMEM;
-+
-+	property->length = size / 4;
-+	property->value.data = kzalloc(size, GFP_KERNEL);
-+	strcpy(property->value.text, text);
-+
-+	list_add_tail(&property->list, &parent->properties);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tb_property_add_text);
-+
-+/**
-+ * tb_property_add_dir() - Adds a directory to the parent directory
-+ * @parent: Directory to add the property
-+ * @key: Key for the property
-+ * @dir: Directory to add
-+ */
-+int tb_property_add_dir(struct tb_property_dir *parent, const char *key,
-+			struct tb_property_dir *dir)
-+{
-+	struct tb_property *property;
-+
-+	if (!tb_property_key_valid(key))
-+		return -EINVAL;
-+
-+	property = tb_property_alloc(key, TB_PROPERTY_TYPE_DIRECTORY);
-+	if (!property)
-+		return -ENOMEM;
-+
-+	property->value.dir = dir;
-+
-+	list_add_tail(&property->list, &parent->properties);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(tb_property_add_dir);
-+
-+/**
-+ * tb_property_remove() - Removes property from a parent directory
-+ * @property: Property to remove
-+ *
-+ * Note memory for @property is released as well so it is not allowed to
-+ * touch the object after call to this function.
-+ */
-+void tb_property_remove(struct tb_property *property)
-+{
-+	list_del(&property->list);
-+	kfree(property);
-+}
-+EXPORT_SYMBOL_GPL(tb_property_remove);
-+
-+/**
-+ * tb_property_find() - Find a property from a directory
-+ * @dir: Directory where the property is searched
-+ * @key: Key to look for
-+ * @type: Type of the property
-+ *
-+ * Finds and returns property from the given directory. Does not recurse
-+ * into sub-directories. Returns %NULL if the property was not found.
-+ */
-+struct tb_property *tb_property_find(struct tb_property_dir *dir,
-+	const char *key, enum tb_property_type type)
-+{
-+	struct tb_property *property;
-+
-+	list_for_each_entry(property, &dir->properties, list) {
-+		if (property->type == type && !strcmp(property->key, key))
-+			return property;
-+	}
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL_GPL(tb_property_find);
-+
-+/**
-+ * tb_property_get_next() - Get next property from directory
-+ * @dir: Directory holding properties
-+ * @prev: Previous property in the directory (%NULL returns the first)
-+ */
-+struct tb_property *tb_property_get_next(struct tb_property_dir *dir,
-+					 struct tb_property *prev)
-+{
-+	if (prev) {
-+		if (list_is_last(&prev->list, &dir->properties))
-+			return NULL;
-+		return list_next_entry(prev, list);
-+	}
-+	return list_first_entry_or_null(&dir->properties, struct tb_property,
-+					list);
-+}
-+EXPORT_SYMBOL_GPL(tb_property_get_next);
+ 	if (transmit)
+ 		nhi->tx_rings[hop] = ring;
+ 	else
+ 		nhi->rx_rings[hop] = ring;
+-	mutex_unlock(&nhi->lock);
++	spin_unlock_irq(&nhi->lock);
++
+ 	return ring;
+ 
+-err:
++err_release_msix:
++	spin_unlock_irq(&nhi->lock);
++	ring_release_msix(ring);
++err_free_descs:
++	dma_free_coherent(&ring->nhi->pdev->dev,
++			  ring->size * sizeof(*ring->descriptors),
++			  ring->descriptors, ring->descriptors_dma);
++err_free_ring:
+ 	kfree(ring);
+-	mutex_unlock(&nhi->lock);
++
+ 	return NULL;
+ }
+ 
+@@ -421,8 +429,8 @@ void tb_ring_start(struct tb_ring *ring)
+ 	u16 frame_size;
+ 	u32 flags;
+ 
+-	mutex_lock(&ring->nhi->lock);
+-	spin_lock_irq(&ring->lock);
++	spin_lock_irq(&ring->nhi->lock);
++	spin_lock(&ring->lock);
+ 	if (ring->nhi->going_away)
+ 		goto err;
+ 	if (ring->running) {
+@@ -469,8 +477,8 @@ void tb_ring_start(struct tb_ring *ring)
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+ err:
+-	spin_unlock_irq(&ring->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock(&ring->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_start);
+ 
+@@ -489,8 +497,8 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
+  */
+ void tb_ring_stop(struct tb_ring *ring)
+ {
+-	mutex_lock(&ring->nhi->lock);
+-	spin_lock_irq(&ring->lock);
++	spin_lock_irq(&ring->nhi->lock);
++	spin_lock(&ring->lock);
+ 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
+ 	if (ring->nhi->going_away)
+@@ -511,8 +519,8 @@ void tb_ring_stop(struct tb_ring *ring)
+ 	ring->running = false;
+ 
+ err:
+-	spin_unlock_irq(&ring->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock(&ring->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ 
+ 	/*
+ 	 * schedule ring->work to invoke callbacks on all remaining frames.
+@@ -534,7 +542,7 @@ EXPORT_SYMBOL_GPL(tb_ring_stop);
+  */
+ void tb_ring_free(struct tb_ring *ring)
+ {
+-	mutex_lock(&ring->nhi->lock);
++	spin_lock_irq(&ring->nhi->lock);
+ 	/*
+ 	 * Dissociate the ring from the NHI. This also ensures that
+ 	 * nhi_interrupt_work cannot reschedule ring->work.
+@@ -564,7 +572,7 @@ void tb_ring_free(struct tb_ring *ring)
+ 		 RING_TYPE(ring),
+ 		 ring->hop);
+ 
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ 	/**
+ 	 * ring->work can no longer be scheduled (it is scheduled only
+ 	 * by nhi_interrupt_work, ring_stop and ring_msix). Wait for it
+@@ -639,7 +647,7 @@ static void nhi_interrupt_work(struct work_struct *work)
+ 	int type = 0; /* current interrupt type 0: TX, 1: RX, 2: RX overflow */
+ 	struct tb_ring *ring;
+ 
+-	mutex_lock(&nhi->lock);
++	spin_lock_irq(&nhi->lock);
+ 
+ 	/*
+ 	 * Starting at REG_RING_NOTIFY_BASE there are three status bitfields
+@@ -677,7 +685,7 @@ static void nhi_interrupt_work(struct work_struct *work)
+ 		/* we do not check ring->running, this is done in ring->work */
+ 		schedule_work(&ring->work);
+ 	}
+-	mutex_unlock(&nhi->lock);
++	spin_unlock_irq(&nhi->lock);
+ }
+ 
+ static irqreturn_t nhi_msi(int irq, void *data)
+@@ -766,7 +774,6 @@ static void nhi_shutdown(struct tb_nhi *nhi)
+ 		devm_free_irq(&nhi->pdev->dev, nhi->pdev->irq, nhi);
+ 		flush_work(&nhi->interrupt_work);
+ 	}
+-	mutex_destroy(&nhi->lock);
+ 	ida_destroy(&nhi->msix_ida);
+ }
+ 
+@@ -855,7 +862,7 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		return res;
+ 	}
+ 
+-	mutex_init(&nhi->lock);
++	spin_lock_init(&nhi->lock);
+ 
+ 	pci_set_master(pdev);
+ 
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-new file mode 100644
-index 000000000000..96561c1265ae
---- /dev/null
+index cf9e42db780f..d59e3f9a35c4 100644
+--- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -0,0 +1,89 @@
-+/*
-+ * Thunderbolt service API
-+ *
-+ * Copyright (C) 2017, Intel Corporation
-+ * Authors: Michael Jamet <michael.jamet@intel.com>
-+ *          Mika Westerberg <mika.westerberg@linux.intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#ifndef THUNDERBOLT_H_
-+#define THUNDERBOLT_H_
-+
-+#include <linux/list.h>
-+#include <linux/uuid.h>
-+
-+/**
-+ * struct tb_property_dir - XDomain property directory
-+ * @uuid: Directory UUID or %NULL if root directory
-+ * @properties: List of properties in this directory
-+ *
-+ * User needs to provide serialization if needed.
-+ */
-+struct tb_property_dir {
-+	const uuid_t *uuid;
-+	struct list_head properties;
-+};
-+
-+enum tb_property_type {
-+	TB_PROPERTY_TYPE_UNKNOWN = 0x00,
-+	TB_PROPERTY_TYPE_DIRECTORY = 0x44,
-+	TB_PROPERTY_TYPE_DATA = 0x64,
-+	TB_PROPERTY_TYPE_TEXT = 0x74,
-+	TB_PROPERTY_TYPE_VALUE = 0x76,
-+};
-+
-+#define TB_PROPERTY_KEY_SIZE	8
-+
-+/**
-+ * struct tb_property - XDomain property
-+ * @list: Used to link properties together in a directory
-+ * @key: Key for the property (always terminated).
-+ * @type: Type of the property
-+ * @length: Length of the property data in dwords
-+ * @value: Property value
-+ *
-+ * Users use @type to determine which field in @value is filled.
-+ */
-+struct tb_property {
-+	struct list_head list;
-+	char key[TB_PROPERTY_KEY_SIZE + 1];
-+	enum tb_property_type type;
-+	size_t length;
-+	union {
-+		struct tb_property_dir *dir;
-+		u8 *data;
-+		char *text;
-+		u32 immediate;
-+	} value;
-+};
-+
-+struct tb_property_dir *tb_property_parse_dir(const u32 *block,
-+					      size_t block_len);
-+ssize_t tb_property_format_dir(const struct tb_property_dir *dir, u32 *block,
-+			       size_t block_len);
-+struct tb_property_dir *tb_property_create_dir(const uuid_t *uuid);
-+void tb_property_free_dir(struct tb_property_dir *dir);
-+int tb_property_add_immediate(struct tb_property_dir *parent, const char *key,
-+			      u32 value);
-+int tb_property_add_data(struct tb_property_dir *parent, const char *key,
-+			 const void *buf, size_t buflen);
-+int tb_property_add_text(struct tb_property_dir *parent, const char *key,
-+			 const char *text);
-+int tb_property_add_dir(struct tb_property_dir *parent, const char *key,
-+			struct tb_property_dir *dir);
-+void tb_property_remove(struct tb_property *tb_property);
-+struct tb_property *tb_property_find(struct tb_property_dir *dir,
-+			const char *key, enum tb_property_type type);
-+struct tb_property *tb_property_get_next(struct tb_property_dir *dir,
-+					 struct tb_property *prev);
-+
-+#define tb_property_for_each(dir, property)			\
-+	for (property = tb_property_get_next(dir, NULL);	\
-+	     property;						\
-+	     property = tb_property_get_next(dir, property))
-+
-+#endif /* THUNDERBOLT_H_ */
+@@ -415,7 +415,7 @@ static inline struct tb_xdomain *tb_service_parent(struct tb_service *svc)
+  * @hop_count: Number of rings (end point hops) supported by NHI.
+  */
+ struct tb_nhi {
+-	struct mutex lock;
++	spinlock_t lock;
+ 	struct pci_dev *pdev;
+ 	void __iomem *iobase;
+ 	struct tb_ring **tx_rings;
 -- 
 2.14.1
