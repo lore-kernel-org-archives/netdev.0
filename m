@@ -1,47 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] inetpeer: fix RCU lookup() again
-Date: Mon, 25 Sep 2017 08:40:02 -0700
-Message-ID: <1506354002.6617.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: Re: [PATCH net-next v5 1/4] bpf: add helper bpf_perf_event_read_value
+ for perf event array map
+Date: Mon, 25 Sep 2017 08:41:04 -0700
+Message-ID: <56191a53-33cf-c1b3-e482-9d575bafb0ef@fb.com>
+References: <20170920060935.1102268-1-yhs@fb.com>
+ <20170920060935.1102268-2-yhs@fb.com>
+ <20170920172651.zx4nfmj2lpgxzubq@hirez.programming.kicks-ass.net>
+ <20170920.160707.932591498085219317.davem@davemloft.net>
+ <b9753171-8e70-92f2-9852-8d3a33f2c07c@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <rostedt@goodmis.org>, <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>,
+        David Miller <davem@davemloft.net>, <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:37118 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933656AbdIYPkE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 11:40:04 -0400
-Received: by mail-pg0-f65.google.com with SMTP id v5so5053330pgn.4
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 08:40:04 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41884 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S933349AbdIYPmM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 11:42:12 -0400
+In-Reply-To: <b9753171-8e70-92f2-9852-8d3a33f2c07c@fb.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-My prior fix was not complete, as we were dereferencing a pointer
-three times per node, not twice as I initially thought.
 
-Fixes: 4cc5b44b29a9 ("inetpeer: fix RCU lookup()")
-Fixes: b145425f269a ("inetpeer: remove AVL implementation in favor of RB tree")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/inetpeer.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 9/21/17 8:15 AM, Alexei Starovoitov wrote:
+> On 9/20/17 4:07 PM, David Miller wrote:
+>> From: Peter Zijlstra <peterz@infradead.org>
+>> Date: Wed, 20 Sep 2017 19:26:51 +0200
+>>
+>>> Dave, could we have this in a topic tree of sorts, because I have a
+>>> pending series to rework all the timekeeping and it might be nice to not
+>>> have sfr run into all sorts of conflicts.
+>>
+>> If you want to merge it into your tree that's fine.
+>>
+>> But it means that any further development done on top of this
+>> work will need to go via you as well.
+> 
+> can we merge this set of patches into both net-next and tip ?
+> We did such tricks in the past to avoid merge conflicts and
+> everything went fine during merge window.
 
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index e7eb590c86ce2b33654c17c61619de74ff07bfd1..b20c8ac640811e1b4c5416134181dd77675db878 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -128,9 +128,9 @@ static struct inet_peer *lookup(const struct inetpeer_addr *daddr,
- 			break;
- 		}
- 		if (cmp == -1)
--			pp = &(*pp)->rb_left;
-+			pp = &next->rb_left;
- 		else
--			pp = &(*pp)->rb_right;
-+			pp = &next->rb_right;
- 	}
- 	*parent_p = parent;
- 	*pp_p = pp;
+Hi, Peter,
+
+Any suggestion for merging this patch? Alexei's idea sounds
+reasonable?
+
+Thanks,
+
+Yonghong
