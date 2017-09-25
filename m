@@ -1,276 +1,124 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v2] net_sched: use idr to allocate u32 filter handles
-Date: Mon, 25 Sep 2017 10:13:51 -0700
-Message-ID: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Chris Mi <chrism@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net] ipv6: remove incorrect WARN_ON() in fib6_del()
+Date: Mon, 25 Sep 2017 10:35:22 -0700
+Message-ID: <20170925173522.99892-1-tracywwnj@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33175 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934861AbdIYROD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 13:14:03 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h4so3854299pfk.0
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 10:14:03 -0700 (PDT)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:45040 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934132AbdIYRfr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 13:35:47 -0400
+Received: by mail-pg0-f51.google.com with SMTP id j16so4374198pga.1
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 10:35:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of calling u32_lookup_ht() in a loop to find
-a unused handle, just switch to idr API to allocate
-new handles. u32 filters are special as the handle
-could contain a hash table id and a key id, so we
-need two IDR to allocate each of them.
+From: Wei Wang <weiwan@google.com>
 
-Cc: Chris Mi <chrism@mellanox.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+fib6_del() generates WARN_ON() when rt->dst.obsolete > 0. This does not
+make sense because it is possible that the route passed in is already
+deleted by some other thread and rt->dst.obsolete is set to
+DST_OBSOLETE_DEAD.
+So this commit deletes this WARN_ON() and also remove the
+"#ifdef RT6_DEBUG >= 2" condition so that if the route is already
+obsolete, we return right at the beginning of fib6_del().
+
+Syzkaller hit this WARN_ON() in the following call trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ panic+0x1e4/0x417 kernel/panic.c:180
+ __warn+0x1c4/0x1d9 kernel/panic.c:541
+ report_bug+0x211/0x2d0 lib/bug.c:183
+ fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:190
+ do_trap_no_signal arch/x86/kernel/traps.c:224 [inline]
+ do_trap+0x260/0x390 arch/x86/kernel/traps.c:273
+ do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:310
+ do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:323
+ invalid_op+0x1e/0x30 arch/x86/entry/entry_64.S:846
+RIP: 0010:fib6_del+0x947/0xca0 net/ipv6/ip6_fib.c:1477
+RSP: 0018:ffff8801db2074d8 EFLAGS: 00010206
+RAX: ffff8801d1500080 RBX: ffff8801d01638c0 RCX: 0000000000000000
+RDX: 0000000000000100 RSI: ffff8801db207650 RDI: ffff8801d0163924
+RBP: ffff8801db2075f0 R08: ffffffff86df5f98 R09: 0000000000000002
+R10: ffff8801db2074b8 R11: 1ffff1003a2a026b R12: dffffc0000000000
+R13: ffff8801db207650 R14: ffff8801a0748180 R15: 1ffff1003b640ea5
+ __ip6_del_rt+0xc7/0x120 net/ipv6/route.c:2136
+ ip6_del_rt+0x132/0x1a0 net/ipv6/route.c:2149
+ ip6_link_failure+0x244/0x380 net/ipv6/route.c:1359
+ dst_link_failure include/net/dst.h:454 [inline]
+ ndisc_error_report+0xae/0x180 net/ipv6/ndisc.c:682
+ neigh_invalidate+0x225/0x530 net/core/neighbour.c:883
+ neigh_timer_handler+0x883/0xca0 net/core/neighbour.c:969
+ call_timer_fn+0x233/0x830 kernel/time/timer.c:1268
+ expire_timers kernel/time/timer.c:1307 [inline]
+ __run_timers+0x7fd/0xb90 kernel/time/timer.c:1601
+ run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
+ __do_softirq+0x2f5/0xba3 kernel/softirq.c:284
+ invoke_softirq kernel/softirq.c:364 [inline]
+ irq_exit+0x1cc/0x200 kernel/softirq.c:405
+ exiting_irq arch/x86/include/asm/apic.h:638 [inline]
+ smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:1044
+ apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:702
+RIP: 0010:arch_local_irq_enable arch/x86/include/asm/paravirt.h:824 [inline]
+RIP: 0010:__raw_spin_unlock_irq include/linux/spinlock_api_smp.h:168 [inline]
+RIP: 0010:_raw_spin_unlock_irq+0x56/0x70 kernel/locking/spinlock.c:199
+RSP: 0018:ffff8801d0407040 EFLAGS: 00000286 ORIG_RAX: ffffffffffffff10
+RAX: dffffc0000000000 RBX: ffff8801db225780 RCX: 0000000000000000
+RDX: 1ffffffff0b59433 RSI: 0000000000000001 RDI: ffffffff85aca198
+RBP: ffff8801d0407048 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801c6820400
+R13: 1ffff1003a080e11 R14: ffff8801d1500080 R15: ffff8801d1500080
+ </IRQ>
+ finish_lock_switch kernel/sched/sched.h:1334 [inline]
+ finish_task_switch+0x1d3/0x740 kernel/sched/core.c:2638
+ context_switch kernel/sched/core.c:2774 [inline]
+ __schedule+0x8f0/0x2070 kernel/sched/core.c:3332
+ schedule+0x108/0x440 kernel/sched/core.c:3391
+ schedule_hrtimeout_range_clock+0x23e/0x810 kernel/time/hrtimer.c:1708
+ schedule_hrtimeout_range+0x2a/0x40 kernel/time/hrtimer.c:1753
+ poll_schedule_timeout+0x10f/0x1f0 fs/select.c:242
+ do_select+0x11ea/0x1710 fs/select.c:581
+ core_sys_select+0x480/0x960 fs/select.c:655
+ do_pselect fs/select.c:732 [inline]
+ SYSC_pselect6 fs/select.c:773 [inline]
+ SyS_pselect6+0x54a/0x650 fs/select.c:758
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x45f181
+RSP: 002b:00007f91306e1db0 EFLAGS: 00000246 ORIG_RAX: 000000000000010e
+RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 000000000045f181
+RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
+RBP: 0000000000000086 R08: 00007f91306e1db0 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000246 R12: 00007ffdd9621670
+R13: 00007f91306e29c0 R14: 00007f9130eac040 R15: 0000000000000003
+
+Note: there is no Fixes tag because this bug was introduced long ago.
+
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- net/sched/cls_u32.c | 108 ++++++++++++++++++++++++++++++++--------------------
- 1 file changed, 67 insertions(+), 41 deletions(-)
+ net/ipv6/ip6_fib.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 10b8d851fc6b..094d224411a9 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -46,6 +46,7 @@
- #include <net/act_api.h>
- #include <net/pkt_cls.h>
- #include <linux/netdevice.h>
-+#include <linux/idr.h>
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index e5308d7cbd75..693bcd7ef6d2 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1592,13 +1592,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
+ 	struct net *net = info->nl_net;
+ 	struct rt6_info **rtp;
  
- struct tc_u_knode {
- 	struct tc_u_knode __rcu	*next;
-@@ -82,6 +83,7 @@ struct tc_u_hnode {
- 	struct tc_u_common	*tp_c;
- 	int			refcnt;
- 	unsigned int		divisor;
-+	struct idr		handle_idr;
- 	struct rcu_head		rcu;
- 	/* The 'ht' field MUST be the last field in structure to allow for
- 	 * more entries allocated at end of structure.
-@@ -93,7 +95,7 @@ struct tc_u_common {
- 	struct tc_u_hnode __rcu	*hlist;
- 	struct Qdisc		*q;
- 	int			refcnt;
--	u32			hgenerator;
-+	struct idr		handle_idr;
- 	struct hlist_node	hnode;
- 	struct rcu_head		rcu;
- };
-@@ -311,19 +313,19 @@ static void *u32_get(struct tcf_proto *tp, u32 handle)
- 	return u32_lookup_key(ht, handle);
- }
+-#if RT6_DEBUG >= 2
+-	if (rt->dst.obsolete > 0) {
+-		WARN_ON(fn);
+-		return -ENOENT;
+-	}
+-#endif
+-	if (!fn || rt == net->ipv6.ip6_null_entry)
++	if (!fn || rt->dst.obsolete > 0 || rt == net->ipv6.ip6_null_entry)
+ 		return -ENOENT;
  
--static u32 gen_new_htid(struct tc_u_common *tp_c)
-+static u32 gen_new_htid(struct tc_u_common *tp_c, struct tc_u_hnode *ptr)
- {
--	int i = 0x800;
-+	unsigned long idr_index;
-+	int err;
- 
--	/* hgenerator only used inside rtnl lock it is safe to increment
-+	/* This is only used inside rtnl lock it is safe to increment
- 	 * without read _copy_ update semantics
- 	 */
--	do {
--		if (++tp_c->hgenerator == 0x7FF)
--			tp_c->hgenerator = 1;
--	} while (--i > 0 && u32_lookup_ht(tp_c, (tp_c->hgenerator|0x800)<<20));
--
--	return i > 0 ? (tp_c->hgenerator|0x800)<<20 : 0;
-+	err = idr_alloc_ext(&tp_c->handle_idr, ptr, &idr_index,
-+			    1, 0x7FF, GFP_KERNEL);
-+	if (err)
-+		return 0;
-+	return (u32)(idr_index | 0x800) << 20;
- }
- 
- static struct hlist_head *tc_u_common_hash;
-@@ -366,8 +368,9 @@ static int u32_init(struct tcf_proto *tp)
- 		return -ENOBUFS;
- 
- 	root_ht->refcnt++;
--	root_ht->handle = tp_c ? gen_new_htid(tp_c) : 0x80000000;
-+	root_ht->handle = tp_c ? gen_new_htid(tp_c, root_ht) : 0x80000000;
- 	root_ht->prio = tp->prio;
-+	idr_init(&root_ht->handle_idr);
- 
- 	if (tp_c == NULL) {
- 		tp_c = kzalloc(sizeof(*tp_c), GFP_KERNEL);
-@@ -377,6 +380,7 @@ static int u32_init(struct tcf_proto *tp)
- 		}
- 		tp_c->q = tp->q;
- 		INIT_HLIST_NODE(&tp_c->hnode);
-+		idr_init(&tp_c->handle_idr);
- 
- 		h = tc_u_hash(tp);
- 		hlist_add_head(&tp_c->hnode, &tc_u_common_hash[h]);
-@@ -565,6 +569,7 @@ static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- 					 rtnl_dereference(n->next));
- 			tcf_unbind_filter(tp, &n->res);
- 			u32_remove_hw_knode(tp, n->handle);
-+			idr_remove_ext(&ht->handle_idr, n->handle);
- 			call_rcu(&n->rcu, u32_delete_key_freepf_rcu);
- 		}
- 	}
-@@ -586,6 +591,8 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
- 	     hn = &phn->next, phn = rtnl_dereference(*hn)) {
- 		if (phn == ht) {
- 			u32_clear_hw_hnode(tp, ht);
-+			idr_destroy(&ht->handle_idr);
-+			idr_remove_ext(&tp_c->handle_idr, ht->handle);
- 			RCU_INIT_POINTER(*hn, ht->next);
- 			kfree_rcu(ht, rcu);
- 			return 0;
-@@ -633,6 +640,7 @@ static void u32_destroy(struct tcf_proto *tp)
- 			kfree_rcu(ht, rcu);
- 		}
- 
-+		idr_destroy(&tp_c->handle_idr);
- 		kfree(tp_c);
- 	}
- 
-@@ -701,27 +709,21 @@ static int u32_delete(struct tcf_proto *tp, void *arg, bool *last)
- 	return ret;
- }
- 
--#define NR_U32_NODE (1<<12)
--static u32 gen_new_kid(struct tc_u_hnode *ht, u32 handle)
-+static u32 gen_new_kid(struct tc_u_hnode *ht, u32 htid)
- {
--	struct tc_u_knode *n;
--	unsigned long i;
--	unsigned long *bitmap = kzalloc(BITS_TO_LONGS(NR_U32_NODE) * sizeof(unsigned long),
--					GFP_KERNEL);
--	if (!bitmap)
--		return handle | 0xFFF;
--
--	for (n = rtnl_dereference(ht->ht[TC_U32_HASH(handle)]);
--	     n;
--	     n = rtnl_dereference(n->next))
--		set_bit(TC_U32_NODE(n->handle), bitmap);
--
--	i = find_next_zero_bit(bitmap, NR_U32_NODE, 0x800);
--	if (i >= NR_U32_NODE)
--		i = find_next_zero_bit(bitmap, NR_U32_NODE, 1);
-+	unsigned long idr_index;
-+	u32 start = htid | 0x800;
-+	u32 max = htid | 0xFFF;
-+	u32 min = htid;
-+
-+	if (idr_alloc_ext(&ht->handle_idr, NULL, &idr_index,
-+			  start, max + 1, GFP_KERNEL)) {
-+		if (idr_alloc_ext(&ht->handle_idr, NULL, &idr_index,
-+				  min + 1, max + 1, GFP_KERNEL))
-+			return max;
-+	}
- 
--	kfree(bitmap);
--	return handle | (i >= NR_U32_NODE ? 0xFFF : i);
-+	return (u32)idr_index;
- }
- 
- static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
-@@ -806,6 +808,7 @@ static void u32_replace_knode(struct tcf_proto *tp, struct tc_u_common *tp_c,
- 		if (pins->handle == n->handle)
- 			break;
- 
-+	idr_replace_ext(&ht->handle_idr, n, n->handle);
- 	RCU_INIT_POINTER(n->next, pins->next);
- 	rcu_assign_pointer(*ins, n);
- }
-@@ -937,22 +940,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 			return -EINVAL;
- 		if (TC_U32_KEY(handle))
- 			return -EINVAL;
--		if (handle == 0) {
--			handle = gen_new_htid(tp->data);
--			if (handle == 0)
--				return -ENOMEM;
--		}
- 		ht = kzalloc(sizeof(*ht) + divisor*sizeof(void *), GFP_KERNEL);
- 		if (ht == NULL)
- 			return -ENOBUFS;
-+		if (handle == 0) {
-+			handle = gen_new_htid(tp->data, ht);
-+			if (handle == 0) {
-+				kfree(ht);
-+				return -ENOMEM;
-+			}
-+		} else {
-+			err = idr_alloc_ext(&tp_c->handle_idr, ht, NULL,
-+					    handle, handle + 1, GFP_KERNEL);
-+			if (err) {
-+				kfree(ht);
-+				return err;
-+			}
-+		}
- 		ht->tp_c = tp_c;
- 		ht->refcnt = 1;
- 		ht->divisor = divisor;
- 		ht->handle = handle;
- 		ht->prio = tp->prio;
-+		idr_init(&ht->handle_idr);
- 
- 		err = u32_replace_hw_hnode(tp, ht, flags);
- 		if (err) {
-+			idr_remove_ext(&tp_c->handle_idr, handle);
- 			kfree(ht);
- 			return err;
- 		}
-@@ -986,24 +1000,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- 		if (TC_U32_HTID(handle) && TC_U32_HTID(handle^htid))
- 			return -EINVAL;
- 		handle = htid | TC_U32_NODE(handle);
-+		err = idr_alloc_ext(&ht->handle_idr, NULL, NULL,
-+				    handle, handle + 1,
-+				    GFP_KERNEL);
-+		if (err)
-+			return err;
- 	} else
- 		handle = gen_new_kid(ht, htid);
- 
--	if (tb[TCA_U32_SEL] == NULL)
--		return -EINVAL;
-+	if (tb[TCA_U32_SEL] == NULL) {
-+		err = -EINVAL;
-+		goto erridr;
-+	}
- 
- 	s = nla_data(tb[TCA_U32_SEL]);
- 
- 	n = kzalloc(sizeof(*n) + s->nkeys*sizeof(struct tc_u32_key), GFP_KERNEL);
--	if (n == NULL)
--		return -ENOBUFS;
-+	if (n == NULL) {
-+		err = -ENOBUFS;
-+		goto erridr;
-+	}
- 
- #ifdef CONFIG_CLS_U32_PERF
- 	size = sizeof(struct tc_u32_pcnt) + s->nkeys * sizeof(u64);
- 	n->pf = __alloc_percpu(size, __alignof__(struct tc_u32_pcnt));
- 	if (!n->pf) {
--		kfree(n);
--		return -ENOBUFS;
-+		err = -ENOBUFS;
-+		goto errfree;
- 	}
- #endif
- 
-@@ -1066,9 +1089,12 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
- errout:
- 	tcf_exts_destroy(&n->exts);
- #ifdef CONFIG_CLS_U32_PERF
-+errfree:
- 	free_percpu(n->pf);
- #endif
- 	kfree(n);
-+erridr:
-+	idr_remove_ext(&ht->handle_idr, handle);
- 	return err;
- }
- 
+ 	WARN_ON(!(fn->fn_flags & RTN_RTINFO));
 -- 
-2.13.0
+2.14.1.821.g8fa685d3b7-goog
