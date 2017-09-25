@@ -1,343 +1,169 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [patch net-next v2 03/12] ipmr: Add FIB notification access
- functions
-Date: Mon, 25 Sep 2017 14:32:37 +0800
-Message-ID: <fb08799d-f1ae-6ee7-c65f-f949e60bf07d@huawei.com>
-References: <20170924172212.10096-1-jiri@resnulli.us>
- <20170924172212.10096-4-jiri@resnulli.us>
- <fbf5db3b-a324-eed2-e6b8-b4b89e11f3c3@huawei.com>
- <54bef87c-8b7a-2512-3763-bac3469db421@mellanox.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Mon, 25 Sep 2017 08:57:40 +0200
+Message-ID: <20170925065740.GB1899@nanopsycho>
+References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
+ <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
+ <20170922125541.GA2005@nanopsycho.orion>
+ <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
+ <20170922160322.GB2005@nanopsycho.orion>
+ <fdd8d8af-6d74-143a-adfa-502bd94a90d9@huawei.com>
+ <20170924113724.GA2029@nanopsycho>
+ <290b0679-bfc2-c23c-00ee-43768c1c2327@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <idosch@mellanox.com>, <mlxsw@mellanox.com>,
-        <nikolay@cumulusnetworks.com>, <andrew@lunn.ch>
-To: Yotam Gigi <yotamg@mellanox.com>, Jiri Pirko <jiri@resnulli.us>,
-        <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:6567 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932135AbdIYGcu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 02:32:50 -0400
-In-Reply-To: <54bef87c-8b7a-2512-3763-bac3469db421@mellanox.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "xuwei (O)" <xuwei5@hisilicon.com>,
+        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        John Garry <john.garry@huawei.com>,
+        Linuxarm <linuxarm@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Yunsheng Lin <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <290b0679-bfc2-c23c-00ee-43768c1c2327@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, Yotam
+Mon, Sep 25, 2017 at 02:45:08AM CEST, linyunsheng@huawei.com wrote:
+>Hi, Jiri
+>
+>On 2017/9/24 19:37, Jiri Pirko wrote:
+>> Sat, Sep 23, 2017 at 02:47:20AM CEST, linyunsheng@huawei.com wrote:
+>>> Hi, Jiri
+>>>
+>>> On 2017/9/23 0:03, Jiri Pirko wrote:
+>>>> Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
+>>>>> Hi, Jiri
+>>>>>
+>>>>>>> - if (!tc) {
+>>>>>>> + if (if_running) {
+>>>>>>> + (void)hns3_nic_net_stop(netdev);
+>>>>>>> + msleep(100);
+>>>>>>> + }
+>>>>>>> +
+>>>>>>> + ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
+>>>>>>> + kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
+>>>>>
+>>>>>> This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
+>>>>>> Why are you mixing this together? prio->tc mapping >can be done
+>>>>>> directly in dcbnl
+>>>>>
+>>>>> Here is what we do in dcb_ops->setup_tc:
+>>>>> Firstly, if current tc num is different from the tc num
+>>>>> that user provide, then we setup the queues for each
+>>>>> tc.
+>>>>>
+>>>>> Secondly, we tell hardware the pri to tc mapping that
+>>>>> the stack is using. In rx direction, our hardware need
+>>>>> that mapping to put different packet into different tc'
+>>>>> queues according to the priority of the packet, then
+>>>>> rss decides which specific queue in the tc should the
+>>>>> packet goto.
+>>>>>
+>>>>> By mixing, I suppose you meant why we need the
+>>>>> pri to tc infomation?
+>>>>
+>>>> by mixing, I mean what I wrote. You are calling dcb_ops callback from
+>>>> ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
+>>>> subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
+>>>> all?
+>>>
+>>> When using lldptool, dcbnl is involved.
+>>>
+>>> But when using tc qdisc, dcbbl is not involved, below is the a few key
+>>> call graph in the kernel when tc qdisc cmd is executed.
+>>>
+>>> cmd:
+>>> tc qdisc add dev eth0 root handle 1:0 mqprio num_tc 4 map 1 2 3 3 1 3 1 1 hw 1
+>>>
+>>> call graph:
+>>> rtnetlink_rcv_msg -> tc_modify_qdisc -> qdisc_create -> mqprio_init ->
+>>> hns3_nic_setup_tc
+>>>
+>>> When hns3_nic_setup_tc is called, we need to know how many tc num and
+>>> prio_tc mapping from the tc_mqprio_qopt which is provided in the paramter
+>>> in the ndo_setup_tc function, and dcb_ops is the our hardware specific
+>>> method to setup the tc related parameter to the hardware, so this is why
+>>> we call dcb_ops callback in ndo_setup_tc callback.
+>>>
+>>> I hope this will answer your question, thanks for your time.
+>> 
+>> Okay. I understand that you have a usecase for mqprio mapping offload
+>> without lldptool being involved. Ok. I believe it is wrong to call dcb_ops
+>> from tc callback. You should have a generic layer inside the driver and
+>> call it from both dcb_ops and tc callbacks.
+>
+>Actually, dcb_ops is our generic layer inside the driver.
+>Below is high level architecture:
+>
+>       [ tc qdisc ]	       [ lldpad ]
+>             |                     |
+>             |                     |
+>             |                     |
+>       [ hns3_enet ]        [ hns3_dcbnl ]
+>             \                    /
+>                \              /
+>                   \        /
+>                 [ hclge_dcb ]
+>                   /      \
+>                /            \
+>             /                  \
+>     [ hclgc_main ]        [ hclge_tm ]
+>
+>hns3_enet.c implements the ndo_setup_tc callback.
+>hns3_dcbnl.c implements the dcbnl_rtnl_ops for stack's DCBNL system.
+>hclge_dcb implements the dcb_ops.
+>So we already have a generic layer that tc and dcbnl all call from.
+>
+>> 
+>> Also, what happens If I run lldptool concurrently with mqprio? Who wins
+>> and is going to configure the mapping?
+>
+>Both lldptool and tc qdisc cmd use rtnl interface provided by stack, so
+>they are both protected by rtnl_lock, so we do not have to do the locking
+>in the driver.
 
-On 2017/9/25 13:38, Yotam Gigi wrote:
-> On 09/25/2017 04:19 AM, Yunsheng Lin wrote:
->> Hi, Jiri
->>
->> On 2017/9/25 1:22, Jiri Pirko wrote:
->>> From: Yotam Gigi <yotamg@mellanox.com>
->>>
->>> Make the ipmr module register as a FIB notifier. To do that, implement both
->>> the ipmr_seq_read and ipmr_dump ops.
->>>
->>> The ipmr_seq_read op returns a sequence counter that is incremented on
->>> every notification related operation done by the ipmr. To implement that,
->>> add a sequence counter in the netns_ipv4 struct and increment it whenever a
->>> new MFC route or VIF are added or deleted. The sequence operations are
->>> protected by the RTNL lock.
->>>
->>> The ipmr_dump iterates the list of MFC routes and the list of VIF entries
->>> and sends notifications about them. The entries dump is done under RCU
->>> where the VIF dump uses the mrt_lock too, as the vif->dev field can change
->>> under RCU.
->>>
->>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>> ---
->>> v1->v2:
->>>  - Take the mrt_lock when dumping VIF entries.
->>> ---
->>>  include/linux/mroute.h   |  15 ++++++
->>>  include/net/netns/ipv4.h |   3 ++
->>>  net/ipv4/ipmr.c          | 137 ++++++++++++++++++++++++++++++++++++++++++++++-
->>>  3 files changed, 153 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
->>> index 10028f2..54c5cb8 100644
->>> --- a/include/linux/mroute.h
->>> +++ b/include/linux/mroute.h
->>> @@ -5,6 +5,7 @@
->>>  #include <linux/pim.h>
->>>  #include <linux/rhashtable.h>
->>>  #include <net/sock.h>
->>> +#include <net/fib_notifier.h>
->>>  #include <uapi/linux/mroute.h>
->>>  
->>>  #ifdef CONFIG_IP_MROUTE
->>> @@ -58,6 +59,14 @@ struct vif_device {
->>>  	int		link;			/* Physical interface index	*/
->>>  };
->>>  
->>> +struct vif_entry_notifier_info {
->>> +	struct fib_notifier_info info;
->>> +	struct net_device *dev;
->>> +	vifi_t vif_index;
->>> +	unsigned short vif_flags;
->>> +	u32 tb_id;
->>> +};
->>> +
->>>  #define VIFF_STATIC 0x8000
->>>  
->>>  #define VIF_EXISTS(_mrt, _idx) ((_mrt)->vif_table[_idx].dev != NULL)
->>> @@ -146,6 +155,12 @@ struct mfc_cache {
->>>  	struct rcu_head	rcu;
->>>  };
->>>  
->>> +struct mfc_entry_notifier_info {
->>> +	struct fib_notifier_info info;
->>> +	struct mfc_cache *mfc;
->>> +	u32 tb_id;
->>> +};
->>> +
->>>  struct rtmsg;
->>>  int ipmr_get_route(struct net *net, struct sk_buff *skb,
->>>  		   __be32 saddr, __be32 daddr,
->>> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
->>> index 8387f09..abc84d9 100644
->>> --- a/include/net/netns/ipv4.h
->>> +++ b/include/net/netns/ipv4.h
->>> @@ -163,6 +163,9 @@ struct netns_ipv4 {
->>>  	struct fib_notifier_ops	*notifier_ops;
->>>  	unsigned int	fib_seq;	/* protected by rtnl_mutex */
->>>  
->>> +	struct fib_notifier_ops	*ipmr_notifier_ops;
->> Can we add a const here?
-> 
-> It cannot be const as it get initialized it in ipmr_notifier_init.
-> 
->>
->>> +	unsigned int	ipmr_seq;	/* protected by rtnl_mutex */
->>> +
->>>  	atomic_t	rt_genid;
->>>  };
->>>  #endif
->>> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
->>> index 86dc5f9..49879c3 100644
->>> --- a/net/ipv4/ipmr.c
->>> +++ b/net/ipv4/ipmr.c
->>> @@ -264,6 +264,16 @@ static void __net_exit ipmr_rules_exit(struct net *net)
->>>  	fib_rules_unregister(net->ipv4.mr_rules_ops);
->>>  	rtnl_unlock();
->>>  }
->>> +
->>> +static int ipmr_rules_dump(struct net *net, struct notifier_block *nb)
->>> +{
->>> +	return fib_rules_dump(net, nb, RTNL_FAMILY_IPMR);
->>> +}
->>> +
->>> +static unsigned int ipmr_rules_seq_read(struct net *net)
->>> +{
->>> +	return fib_rules_seq_read(net, RTNL_FAMILY_IPMR);
->>> +}
->>>  #else
->>>  #define ipmr_for_each_table(mrt, net) \
->>>  	for (mrt = net->ipv4.mrt; mrt; mrt = NULL)
->>> @@ -298,6 +308,16 @@ static void __net_exit ipmr_rules_exit(struct net *net)
->>>  	net->ipv4.mrt = NULL;
->>>  	rtnl_unlock();
->>>  }
->>> +
->>> +static int ipmr_rules_dump(struct net *net, struct notifier_block *nb)
->>> +{
->>> +	return 0;
->>> +}
->>> +
->>> +static unsigned int ipmr_rules_seq_read(struct net *net)
->>> +{
->>> +	return 0;
->>> +}
->>>  #endif
->>>  
->>>  static inline int ipmr_hash_cmp(struct rhashtable_compare_arg *arg,
->>> @@ -587,6 +607,43 @@ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
->>>  }
->>>  #endif
->>>  
->>> +static int call_ipmr_vif_entry_notifier(struct notifier_block *nb,
->>> +					struct net *net,
->>> +					enum fib_event_type event_type,
->>> +					struct vif_device *vif,
->>> +					vifi_t vif_index, u32 tb_id)
->>> +{
->>> +	struct vif_entry_notifier_info info = {
->>> +		.info = {
->>> +			.family = RTNL_FAMILY_IPMR,
->>> +			.net = net,
->>> +		},
->>> +		.dev = vif->dev,
->>> +		.vif_index = vif_index,
->>> +		.vif_flags = vif->flags,
->>> +		.tb_id = tb_id,
->>> +	};
->> We only use info.info which is fib_notifier_info, the
->> vif_entry_notifier_info seems to be not needed, why not just
->> use fib_notifier_info?
-> 
-> No, that's not true.
-> 
-> The driver gets the notification with a pointer to a fib_notifier_info struct,
-> and according to the type field uses container_of to get to the parent struct,
-> which in this case is vif_entry_notifier_info. All the fields here are needed.
-> You can see this code in patch 10.
-> 
-> By the way, this function is completely symmetric to fib4 (which is in
-> fib_trie.c +88) and fib6 (which is in ip6_fib +336) notify functions, who uses
-> the exact same process.
+I was not asking about locking, which is obvious, I was asking about the
+behaviour. Like for example:
+If I use tc to configure some mapping, later on I run lldptool and change
+the mapping. Does the tc dump show the updated values or the original
+ones?
 
-Thanks for clarifying, I am not familar with ipmr, so only checking
-coding style.
-
-
-> 
->>
->>> +
->>> +	return call_fib_notifier(nb, net, event_type, &info.info);
->>> +}
->>> +
->>> +static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
->>> +					struct net *net,
->>> +					enum fib_event_type event_type,
->>> +					struct mfc_cache *mfc, u32 tb_id)
->>> +{
->>> +	struct mfc_entry_notifier_info info = {
->>> +		.info = {
->>> +			.family = RTNL_FAMILY_IPMR,
->>> +			.net = net,
->>> +		},
->>> +		.mfc = mfc,
->>> +		.tb_id = tb_id
->>> +	};
->>> +
->> As above.
-> 
-> 
-> As above.
-> 
-> 
->>
->>> +	return call_fib_notifier(nb, net, event_type, &info.info);
->>> +}
->>> +
->>>  /**
->>>   *	vif_delete - Delete a VIF entry
->>>   *	@notify: Set to 1, if the caller is a notifier_call
->>> @@ -3050,14 +3107,87 @@ static const struct net_protocol pim_protocol = {
->>>  };
->>>  #endif
->>>  
->>> +static unsigned int ipmr_seq_read(struct net *net)
->>> +{
->>> +	ASSERT_RTNL();
->>> +
->>> +	return net->ipv4.ipmr_seq + ipmr_rules_seq_read(net);
->>> +}
->>> +
->>> +static int ipmr_dump(struct net *net, struct notifier_block *nb)
->>> +{
->>> +	struct mr_table *mrt;
->>> +	int err;
->>> +
->>> +	err = ipmr_rules_dump(net, nb);
->>> +	if (err)
->>> +		return err;
->>> +
->>> +	ipmr_for_each_table(mrt, net) {
->>> +		struct vif_device *v = &mrt->vif_table[0];
->>> +		struct mfc_cache *mfc;
->>> +		int vifi;
->>> +
->>> +		/* Notifiy on table VIF entries */
->>> +		read_lock(&mrt_lock);
->>> +		for (vifi = 0; vifi < mrt->maxvif; vifi++, v++) {
->>> +			if (!v->dev)
->>> +				continue;
->>> +
->>> +			call_ipmr_vif_entry_notifier(nb, net, FIB_EVENT_VIF_ADD,
->>> +						     v, vifi, mrt->id);
->>> +		}
->>> +		read_unlock(&mrt_lock);
->>> +
->>> +		/* Notify on table MFC entries */
->>> +		list_for_each_entry_rcu(mfc, &mrt->mfc_cache_list, list)
->>> +			call_ipmr_mfc_entry_notifier(nb, net,
->>> +						     FIB_EVENT_ENTRY_ADD, mfc,
->>> +						     mrt->id);
->>> +	}
->>> +
->>> +	return 0;
->>> +}
->>> +
->>> +static const struct fib_notifier_ops ipmr_notifier_ops_template = {
->>> +	.family		= RTNL_FAMILY_IPMR,
->>> +	.fib_seq_read	= ipmr_seq_read,
->>> +	.fib_dump	= ipmr_dump,
->>> +	.owner		= THIS_MODULE,
->>> +};
->>> +
->>> +int __net_init ipmr_notifier_init(struct net *net)
->>> +{
->>> +	struct fib_notifier_ops *ops;
->>> +
->>> +	net->ipv4.ipmr_seq = 0;
->>> +
->>> +	ops = fib_notifier_ops_register(&ipmr_notifier_ops_template, net);
->>> +	if (IS_ERR(ops))
->>> +		return PTR_ERR(ops);
->>> +	net->ipv4.ipmr_notifier_ops = ops;
->>> +
->>> +	return 0;
->>> +}
->>> +
->>> +static void __net_exit ipmr_notifier_exit(struct net *net)
->>> +{
->>> +	fib_notifier_ops_unregister(net->ipv4.ipmr_notifier_ops);
->>> +	net->ipv4.ipmr_notifier_ops = NULL;
->>> +}
->>> +
->>>  /* Setup for IP multicast routing */
->>>  static int __net_init ipmr_net_init(struct net *net)
->>>  {
->>>  	int err;
->>>  
->>> +	err = ipmr_notifier_init(net);
->>> +	if (err)
->>> +		goto ipmr_notifier_fail;
->>> +
->>>  	err = ipmr_rules_init(net);
->>>  	if (err < 0)
->>> -		goto fail;
->>> +		goto ipmr_rules_fail;
->>>  
->>>  #ifdef CONFIG_PROC_FS
->>>  	err = -ENOMEM;
->>> @@ -3074,7 +3204,9 @@ static int __net_init ipmr_net_init(struct net *net)
->>>  proc_vif_fail:
->>>  	ipmr_rules_exit(net);
->>>  #endif
->>> -fail:
->>> +ipmr_rules_fail:
->>> +	ipmr_notifier_exit(net);
->>> +ipmr_notifier_fail:
->>>  	return err;
->>>  }
->>>  
->>> @@ -3084,6 +3216,7 @@ static void __net_exit ipmr_net_exit(struct net *net)
->>>  	remove_proc_entry("ip_mr_cache", net->proc_net);
->>>  	remove_proc_entry("ip_mr_vif", net->proc_net);
->>>  #endif
->>> +	ipmr_notifier_exit(net);
->>>  	ipmr_rules_exit(net);
->>>  }
->>>  
+>
+>The locking is in rtnetlink_rcv_msg:
+>
+>	rtnl_lock();
+>	handlers = rtnl_dereference(rtnl_msg_handlers[family]);
+>	if (handlers) {
+>		doit = READ_ONCE(handlers[type].doit);
+>		if (doit)
+>			err = doit(skb, nlh, extack);
+>	}
+>	rtnl_unlock();
+>
+>Thanks.
+>
+>> 
+>> 
 >>>
-> 
-> 
-> .
-> 
+>>>>
+>>>>
+>>>>
+>>>>> I hope I did not misunderstand your question, thanks
+>>>>> for your time reviewing.
+>>>>
+>>>> .
+>>>>
+>>>
+>> 
+>> .
+>> 
+>
