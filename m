@@ -1,57 +1,151 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH] lib: fix multiple strlcpy definition
-Date: Tue, 26 Sep 2017 19:27:45 +0300
-Message-ID: <20170926162745.kxl3m42hfprhqhd3@tarshish>
-References: <7f5fee59e46bfd3b4acf8ed9a8fbd8c7b4f1cd70.1506424129.git.baruch@tkos.co.il>
- <20170926155524.GA26610@orbyte.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:50072 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966562AbdIZQ1u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 12:27:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20170926155524.GA26610@orbyte.nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Artem Savkov <asavkov@redhat.com>
+Subject: [PATCH v3] ebtables: fix race condition in frame_filter_net_init()
+Date: Tue, 26 Sep 2017 18:35:45 +0200
+Message-ID: <20170926163545.3668-1-asavkov@redhat.com>
+References: <20170926153923.30094-1-asavkov@redhat.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        Artem Savkov <asavkov@redhat.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170926153923.30094-1-asavkov@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Phil,
+It is possible for ebt_in_hook to be triggered before ebt_table is assigned
+resulting in a NULL-pointer dereference. Make sure hooks are
+registered as the last step.
 
-On Tue, Sep 26, 2017 at 05:55:24PM +0200, Phil Sutter wrote:
-> On Tue, Sep 26, 2017 at 02:08:49PM +0300, Baruch Siach wrote:
-> [...]
-> > diff --git a/configure b/configure
-> > index 7be8fb113cc9..787b2e061af9 100755
-> > --- a/configure
-> > +++ b/configure
-> > @@ -326,6 +326,27 @@ EOF
-> >      rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
-> >  }
-> >  
-> > +check_strlcpy()
-> > +{
-> > +    cat >$TMPDIR/strtest.c <<EOF
-> > +#include <string.h>
-> > +int main(int argc, char **argv) {
-> > +	char dst[10];
-> > +	strlcpy("test", dst, sizeof(dst));
-> 
-> You swapped source and destination here. It's not important for the
-> given use-case, but the resulting binary should segfault.
+v3: restore errorneously removed ops == NULL case check
 
-Will fix that in v2.
+Fixes: aee12a0a3727 ebtables: remove nf_hook_register usage
+Signed-off-by: Artem Savkov <asavkov@redhat.com>
+---
+ include/linux/netfilter_bridge/ebtables.h |  7 ++++---
+ net/bridge/netfilter/ebtable_broute.c     |  4 ++--
+ net/bridge/netfilter/ebtable_filter.c     |  4 ++--
+ net/bridge/netfilter/ebtable_nat.c        |  4 ++--
+ net/bridge/netfilter/ebtables.c           | 17 +++++++++--------
+ 5 files changed, 19 insertions(+), 17 deletions(-)
 
-> Apart from that, LGTM!
-
-Thanks. I'll take this as an ack.
-
-baruch
-
+diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
+index 2c2a5514b0df..528b24c78308 100644
+--- a/include/linux/netfilter_bridge/ebtables.h
++++ b/include/linux/netfilter_bridge/ebtables.h
+@@ -108,9 +108,10 @@ struct ebt_table {
+ 
+ #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
+ 		     ~(__alignof__(struct _xt_align)-1))
+-extern struct ebt_table *ebt_register_table(struct net *net,
+-					    const struct ebt_table *table,
+-					    const struct nf_hook_ops *);
++extern int ebt_register_table(struct net *net,
++			      const struct ebt_table *table,
++			      const struct nf_hook_ops *ops,
++			      struct ebt_table **res);
+ extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
+ 				 const struct nf_hook_ops *);
+ extern unsigned int ebt_do_table(struct sk_buff *skb,
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+index 2585b100ebbb..276b60262981 100644
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -65,8 +65,8 @@ static int ebt_broute(struct sk_buff *skb)
+ 
+ static int __net_init broute_net_init(struct net *net)
+ {
+-	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
+-	return PTR_ERR_OR_ZERO(net->xt.broute_table);
++	return ebt_register_table(net, &broute_table, NULL,
++				  &net->xt.broute_table);
+ }
+ 
+ static void __net_exit broute_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index 45a00dbdbcad..c41da5fac84f 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
+ 
+ static int __net_init frame_filter_net_init(struct net *net)
+ {
+-	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
++	return ebt_register_table(net, &frame_filter, ebt_ops_filter,
++				  &net->xt.frame_filter);
+ }
+ 
+ static void __net_exit frame_filter_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index 57cd5bb154e7..08df7406ecb3 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
+ 
+ static int __net_init frame_nat_net_init(struct net *net)
+ {
+-	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
++	return ebt_register_table(net, &frame_nat, ebt_ops_nat,
++				  &net->xt.frame_nat);
+ }
+ 
+ static void __net_exit frame_nat_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 83951f978445..3b3dcf719e07 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1169,9 +1169,8 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
+ 	kfree(table);
+ }
+ 
+-struct ebt_table *
+-ebt_register_table(struct net *net, const struct ebt_table *input_table,
+-		   const struct nf_hook_ops *ops)
++int ebt_register_table(struct net *net, const struct ebt_table *input_table,
++		       const struct nf_hook_ops *ops, struct ebt_table **res)
+ {
+ 	struct ebt_table_info *newinfo;
+ 	struct ebt_table *t, *table;
+@@ -1183,7 +1182,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ 	    repl->entries == NULL || repl->entries_size == 0 ||
+ 	    repl->counters != NULL || input_table->private != NULL) {
+ 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
+-		return ERR_PTR(-EINVAL);
++		return -EINVAL;
+ 	}
+ 
+ 	/* Don't add one table to multiple lists. */
+@@ -1252,16 +1251,18 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
+ 	mutex_unlock(&ebt_mutex);
+ 
++	WRITE_ONCE(*res, table);
++
+ 	if (!ops)
+-		return table;
++		return 0;
+ 
+ 	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
+ 	if (ret) {
+ 		__ebt_unregister_table(net, table);
+-		return ERR_PTR(ret);
++		*res = NULL;
+ 	}
+ 
+-	return table;
++	return ret;
+ free_unlock:
+ 	mutex_unlock(&ebt_mutex);
+ free_chainstack:
+@@ -1276,7 +1277,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ free_table:
+ 	kfree(table);
+ out:
+-	return ERR_PTR(ret);
++	return ret;
+ }
+ 
+ void ebt_unregister_table(struct net *net, struct ebt_table *table,
 -- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.52.368.4656, http://www.tkos.co.il -
+2.13.5
