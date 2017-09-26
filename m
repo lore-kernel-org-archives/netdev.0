@@ -1,158 +1,109 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: usb/net/lan78xx: use-after-free in lan78xx_write_reg
-Date: Tue, 26 Sep 2017 14:04:19 +0200
-Message-ID: <CAAeHK+wfnGkTpiRiLusfR22XRF-bjSXnqFGwo2avjt33mSh2mg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Woojung Huh <woojung.huh@microchip.com>,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
-        netdev <netdev@vger.kernel.org>,
-        USB list <linux-usb@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: [PATCH] vti: fix use after free in vti_tunnel_xmit/vti6_tnl_xmit
+Date: Tue, 26 Sep 2017 15:14:29 +0300
+Message-ID: <1506428069-4716-1-git-send-email-alexey.kodanev@oracle.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:52568 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968489AbdIZMEV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:04:21 -0400
-Received: by mail-oi0-f49.google.com with SMTP id p126so11478445oih.9
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 05:04:21 -0700 (PDT)
+Received: from aserp1040.oracle.com ([141.146.126.69]:28762 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965484AbdIZMGi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:06:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+When running LTP IPsec tests, KASan might report:
 
-I've got the following report while fuzzing the kernel with syzkaller.
-
-On commit e19b205be43d11bff638cad4487008c48d21c103 (4.14-rc2).
-
-==================================================================
-BUG: KASAN: use-after-free in lan78xx_write_reg.isra.21+0x1a8/0x1b0
-Read of size 8 at addr ffff8800683e2c40 by task kworker/0:3/2551
-
-CPU: 0 PID: 2551 Comm: kworker/0:3 Not tainted
-4.14.0-rc2-42613-g1488251d1a98 #256
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Workqueue: events lan78xx_deferred_multicast_write
+BUG: KASAN: use-after-free in vti_tunnel_xmit+0xeee/0xff0 [ip_vti]
+Read of size 4 at addr ffff880dc6ad1980 by task swapper/0/0
+...
 Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x292/0x395 lib/dump_stack.c:52
- print_address_description+0x78/0x280 mm/kasan/report.c:252
- kasan_report_error mm/kasan/report.c:351
- kasan_report+0x23d/0x350 mm/kasan/report.c:409
- __asan_report_load8_noabort+0x19/0x20 mm/kasan/report.c:430
- lan78xx_write_reg.isra.21+0x1a8/0x1b0 drivers/net/usb/lan78xx.c:458
- lan78xx_deferred_multicast_write+0x10d/0x1a0 drivers/net/usb/lan78xx.c:1042
- process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
- worker_thread+0x221/0x1850 kernel/workqueue.c:2253
- kthread+0x3a1/0x470 kernel/kthread.c:231
- ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+  <IRQ>
+  dump_stack+0x63/0x89
+  print_address_description+0x7c/0x290
+  kasan_report+0x28d/0x370
+  ? vti_tunnel_xmit+0xeee/0xff0 [ip_vti]
+  __asan_report_load4_noabort+0x19/0x20
+  vti_tunnel_xmit+0xeee/0xff0 [ip_vti]
+  ? vti_init_net+0x190/0x190 [ip_vti]
+  ? save_stack_trace+0x1b/0x20
+  ? save_stack+0x46/0xd0
+  dev_hard_start_xmit+0x147/0x510
+  ? icmp_echo.part.24+0x1f0/0x210
+  __dev_queue_xmit+0x1394/0x1c60
+...
+Freed by task 0:
+  save_stack_trace+0x1b/0x20
+  save_stack+0x46/0xd0
+  kasan_slab_free+0x70/0xc0
+  kmem_cache_free+0x81/0x1e0
+  kfree_skbmem+0xb1/0xe0
+  kfree_skb+0x75/0x170
+  kfree_skb_list+0x3e/0x60
+  __dev_queue_xmit+0x1298/0x1c60
+  dev_queue_xmit+0x10/0x20
+  neigh_resolve_output+0x3a8/0x740
+  ip_finish_output2+0x5c0/0xe70
+  ip_finish_output+0x4ba/0x680
+  ip_output+0x1c1/0x3a0
+  xfrm_output_resume+0xc65/0x13d0
+  xfrm_output+0x1e4/0x380
+  xfrm4_output_finish+0x5c/0x70
 
-Allocated by task 24:
- save_stack_trace+0x1b/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:447
- set_track mm/kasan/kasan.c:459
- kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
- __kmalloc_node+0x192/0x480 mm/slub.c:3827
- kmalloc_node ./include/linux/slab.h:535
- kvmalloc_node+0x69/0xd0 mm/util.c:397
- kvmalloc ./include/linux/mm.h:529
- kvzalloc ./include/linux/mm.h:537
- alloc_netdev_mqs+0x173/0xea0 net/core/dev.c:8023
- alloc_etherdev_mqs+0x38/0x40 net/ethernet/eth.c:391
- lan78xx_probe+0x13a/0x2f10 drivers/net/usb/lan78xx.c:3542
- usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
- really_probe drivers/base/dd.c:413
- driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
- __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
- bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
- __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
- device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
- bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
- device_add+0xd0b/0x1660 drivers/base/core.c:1835
- usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
- generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
- usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
- really_probe drivers/base/dd.c:413
- driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
- __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
- bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
- __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
- device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
- bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
- device_add+0xd0b/0x1660 drivers/base/core.c:1835
- usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
- hub_port_connect drivers/usb/core/hub.c:4903
- hub_port_connect_change drivers/usb/core/hub.c:5009
- port_event drivers/usb/core/hub.c:5115
- hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
- process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
- worker_thread+0x221/0x1850 kernel/workqueue.c:2253
- kthread+0x3a1/0x470 kernel/kthread.c:231
- ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+Can be fixed if we get skb->len before dst_output().
 
-Freed by task 24:
- save_stack_trace+0x1b/0x20 arch/x86/kernel/stacktrace.c:59
- save_stack+0x43/0xd0 mm/kasan/kasan.c:447
- set_track mm/kasan/kasan.c:459
- kasan_slab_free+0x72/0xc0 mm/kasan/kasan.c:524
- slab_free_hook mm/slub.c:1390
- slab_free_freelist_hook mm/slub.c:1412
- slab_free mm/slub.c:2988
- kfree+0xf6/0x2f0 mm/slub.c:3919
- kvfree+0x3b/0x60 mm/util.c:416
- netdev_freemem net/core/dev.c:7975
- free_netdev+0x304/0x3c0 net/core/dev.c:8137
- lan78xx_probe+0x20cc/0x2f10 drivers/net/usb/lan78xx.c:3645
- usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
- really_probe drivers/base/dd.c:413
- driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
- __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
- bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
- __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
- device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
- bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
- device_add+0xd0b/0x1660 drivers/base/core.c:1835
- usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
- generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
- usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
- really_probe drivers/base/dd.c:413
- driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
- __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
- bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
- __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
- device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
- bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
- device_add+0xd0b/0x1660 drivers/base/core.c:1835
- usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
- hub_port_connect drivers/usb/core/hub.c:4903
- hub_port_connect_change drivers/usb/core/hub.c:5009
- port_event drivers/usb/core/hub.c:5115
- hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
- process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
- worker_thread+0x221/0x1850 kernel/workqueue.c:2253
- kthread+0x3a1/0x470 kernel/kthread.c:231
- ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+Fixes: b9959fd3b0fa ("vti: switch to new ip tunnel code")
+Fixes: 22e1b23dafa8 ("vti6: Support inter address family tunneling.")
+Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+---
+ net/ipv4/ip_vti.c  |    3 ++-
+ net/ipv6/ip6_vti.c |    3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-The buggy address belongs to the object at ffff8800683e2100
- which belongs to the cache kmalloc-8192 of size 8192
-The buggy address is located 2880 bytes inside of
- 8192-byte region [ffff8800683e2100, ffff8800683e4100)
-The buggy address belongs to the page:
-page:ffffea0001a0f800 count:1 mapcount:0 mapping:          (null)
-index:0x0 compound_mapcount: 0
-flags: 0x100000000008100(slab|head)
-raw: 0100000000008100 0000000000000000 0000000000000000 0000000100030003
-raw: ffffea00018fe800 0000000200000002 ffff88006c402a80 0000000000000000
-page dumped because: kasan: bad access detected
-
-Memory state around the buggy address:
- ffff8800683e2b00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff8800683e2b80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->ffff8800683e2c00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-                                           ^
- ffff8800683e2c80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
- ffff8800683e2d00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
-==================================================================
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 5ed63d2..89453cf 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -168,6 +168,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	struct ip_tunnel_parm *parms = &tunnel->parms;
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *tdev;	/* Device to other host */
++	int pkt_len = skb->len;
+ 	int err;
+ 	int mtu;
+ 
+@@ -229,7 +230,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	err = dst_output(tunnel->net, skb->sk, skb);
+ 	if (net_xmit_eval(err) == 0)
+-		err = skb->len;
++		err = pkt_len;
+ 	iptunnel_xmit_stats(dev, err);
+ 	return NETDEV_TX_OK;
+ 
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 79444a4..bcdc2d5 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -445,6 +445,7 @@ static bool vti6_state_check(const struct xfrm_state *x,
+ 	struct dst_entry *dst = skb_dst(skb);
+ 	struct net_device *tdev;
+ 	struct xfrm_state *x;
++	int pkt_len = skb->len;
+ 	int err = -1;
+ 	int mtu;
+ 
+@@ -502,7 +503,7 @@ static bool vti6_state_check(const struct xfrm_state *x,
+ 		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+ 
+ 		u64_stats_update_begin(&tstats->syncp);
+-		tstats->tx_bytes += skb->len;
++		tstats->tx_bytes += pkt_len;
+ 		tstats->tx_packets++;
+ 		u64_stats_update_end(&tstats->syncp);
+ 	} else {
+-- 
+1.7.1
