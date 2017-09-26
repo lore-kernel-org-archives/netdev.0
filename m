@@ -1,57 +1,73 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net] ipv6: remove incorrect WARN_ON() in fib6_del()
-Date: Mon, 25 Sep 2017 17:56:18 -0700
-Message-ID: <20170926005618.z4ymlry7jl47nkjm@kafai-mbp.dhcp.thefacebook.com>
-References: <20170925173522.99892-1-tracywwnj@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Wei Wang <weiwan@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58764 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S965341AbdIZA4Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 20:56:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170925173522.99892-1-tracywwnj@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Grundler <grundler@chromium.org>
+Subject: [PATCH V2] r8152:  add Linksys USB3GIGV1 id
+Date: Mon, 25 Sep 2017 18:09:25 -0700
+Message-ID: <20170926010925.114436-1-grundler@chromium.org>
+Cc: linux-usb <linux-usb@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+        Grant Grundler <grundler@chromium.org>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2017 at 05:35:22PM +0000, Wei Wang wrote:
-> From: Wei Wang <weiwan@google.com>
-> 
-> fib6_del() generates WARN_ON() when rt->dst.obsolete > 0. This does not
-> make sense because it is possible that the route passed in is already
-> deleted by some other thread and rt->dst.obsolete is set to
-> DST_OBSOLETE_DEAD.
-> So this commit deletes this WARN_ON() and also remove the
-> "#ifdef RT6_DEBUG >= 2" condition so that if the route is already
-> obsolete, we return right at the beginning of fib6_del().
-> 
-> 
-> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-> index e5308d7cbd75..693bcd7ef6d2 100644
-> --- a/net/ipv6/ip6_fib.c
-> +++ b/net/ipv6/ip6_fib.c
-> @@ -1592,13 +1592,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
->  	struct net *net = info->nl_net;
->  	struct rt6_info **rtp;
->  
-> -#if RT6_DEBUG >= 2
-> -	if (rt->dst.obsolete > 0) {
-> -		WARN_ON(fn);
-fn should have already been set to NULL if it is removed
-from the fib6 tree?
+This linksys dongle by default comes up in cdc_ether mode.
+This patch allows r8152 to claim the device:
+   Bus 002 Device 002: ID 13b1:0041 Linksys
 
-> -		return -ENOENT;
-> -	}
-> -#endif
-> -	if (!fn || rt == net->ipv6.ip6_null_entry)
-> +	if (!fn || rt->dst.obsolete > 0 || rt == net->ipv6.ip6_null_entry)
->  		return -ENOENT;
->  
->  	WARN_ON(!(fn->fn_flags & RTN_RTINFO));
-> -- 
-> 2.14.1.821.g8fa685d3b7-goog
-> 
+Signed-off-by: Grant Grundler <grundler@chromium.org>
+---
+ drivers/net/usb/cdc_ether.c | 8 ++++++++
+ drivers/net/usb/r8152.c     | 2 ++
+ 2 files changed, 10 insertions(+)
+
+V2: add LINKSYS_VENDOR_ID to cdc_ether blacklist
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 8ab281b478f2..fa5c2e7aff1a 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -546,6 +546,7 @@ static const struct driver_info wwan_info = {
+ #define DELL_VENDOR_ID		0x413C
+ #define REALTEK_VENDOR_ID	0x0bda
+ #define SAMSUNG_VENDOR_ID	0x04e8
++#define LINKSYS_VENDOR_ID	0x13b1
+ #define LENOVO_VENDOR_ID	0x17ef
+ #define NVIDIA_VENDOR_ID	0x0955
+ #define HP_VENDOR_ID		0x03f0
+@@ -737,6 +738,13 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++/* Linksys USB3GIGV1 Ethernet Adapter */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(LINKSYS_VENDOR_ID, 0x0041, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
+ /* ThinkPad USB-C Dock (based on Realtek RTL8153) */
+ {
+ 	USB_DEVICE_AND_INTERFACE_INFO(LENOVO_VENDOR_ID, 0x3062, USB_CLASS_COMM,
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ceb78e2ea4f0..941ece08ba78 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -613,6 +613,7 @@ enum rtl8152_flags {
+ #define VENDOR_ID_MICROSOFT		0x045e
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
++#define VENDOR_ID_LINKSYS		0x13b1
+ #define VENDOR_ID_NVIDIA		0x0955
+ 
+ #define MCU_TYPE_PLA			0x0100
+@@ -5316,6 +5317,7 @@ static const struct usb_device_id rtl8152_table[] = {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x720c)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7214)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_LINKSYS, 0x0041)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_NVIDIA,  0x09ff)},
+ 	{}
+ };
+-- 
+2.14.1.821.g8fa685d3b7-goog
