@@ -1,53 +1,69 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
-Date: Tue, 26 Sep 2017 16:31:35 +0200
-Message-ID: <20170926163135.36d14a72@griffin>
-References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
-        <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
-        <20170925170451.GD18763@vergenet.net>
-        <20170926121509.50a32571@griffin>
-        <CAJ3xEMjEAhzC5=S7-dx8RiS=E7gYBBrtWY=9Cvqj-K3kyT9o3A@mail.gmail.com>
-        <20170926145143.28bf52bd@griffin>
-        <CAJ3xEMjOkF7vKHY=+q1dHXGdsyEXFPUa6dsGD_-M3+TX=DNouA@mail.gmail.com>
+From: Artem Savkov <asavkov@redhat.com>
+Subject: Re: [PATCH] ebtables: fix race condition in frame_filter_net_init()
+Date: Tue, 26 Sep 2017 16:34:11 +0200
+Message-ID: <20170926143411.ztr5g5wjtiu47fil@shodan.usersys.redhat.com>
+References: <20170926122938.11603-1-asavkov@redhat.com>
+ <20170926124211.GA14971@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35406 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39052 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935644AbdIZObk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 10:31:40 -0400
-In-Reply-To: <CAJ3xEMjOkF7vKHY=+q1dHXGdsyEXFPUa6dsGD_-M3+TX=DNouA@mail.gmail.com>
+        id S936599AbdIZOeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 10:34:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20170926124211.GA14971@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Sep 2017 17:17:02 +0300, Or Gerlitz wrote:
-> maybe before/instead you call it a bug,
+On Tue, Sep 26, 2017 at 02:42:11PM +0200, Florian Westphal wrote:
+> Artem Savkov <asavkov@redhat.com> wrote:
+> > It is possible for ebt_in_hook to be triggered before ebt_table is assigned
+> > resulting in a NULL-pointer dereference. Make sure hooks are
+> > registered as the last step.
+> 
+> Right, thanks for the patch.
+> 
+> > --- a/net/bridge/netfilter/ebtable_broute.c
+> > +++ b/net/bridge/netfilter/ebtable_broute.c
+> > @@ -65,7 +65,7 @@ static int ebt_broute(struct sk_buff *skb)
+> >  
+> >  static int __net_init broute_net_init(struct net *net)
+> >  {
+> > -	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
+> > +	net->xt.broute_table = ebt_register_table(net, &broute_table);
+> 
+> I wonder if it makes more sense to model this like the iptables version,
+> i.e. pass net->xt.table_name as last arg to ebt_register_table ...
+> 
+> > +int ebt_register_hooks(struct net *net, struct ebt_table *table,
+> > +		      const struct nf_hook_ops *ops)
+> > +{
+> > +	int ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
+> > +
+> > +	if (ret)
+> > +		__ebt_unregister_table(net, table);
+> > +
+> > +	return ret;
+> > +}
+> 
+> ... because this looks strange (unregister of table/not-so-obvious error
+> unwinding ...)
+> 
+> > @@ -1252,15 +1262,6 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+> >  	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
+> >  	mutex_unlock(&ebt_mutex);
+> 
+> ... here one could then assign the net->xt.table_X pointer, and then do
+> the hook registration right after.
+> 
+> However i have no strong opinion here.
 
-But it is a bug. When offloaded, the rules must not behave differently.
-That's the fundamental thing about offloading. Here, the rules behave
-differently when offloaded and when not. That's a bug.
+Agreed, that does look better and requires less changes. I'll send a v2.
 
-> take a look on the design there and maybe
-> tell us how to possibly do that otherwise?
-
-I don't know the design. It's the responsibility of those who implement
-the offloading to do it in the way that it's consistent with the
-software path. That has always been the case.
-
-This needs to be fixed. If it can't be fixed, the feature needs to be
-reverted. It's not that Linux has to make use of every single offload
-supported by hardware. If the offloading cannot be fit into how Linux
-works, then the offload can't be supported. There are in fact many
-precedents.
-
- Jiri
+-- 
+Regards,
+  Artem
