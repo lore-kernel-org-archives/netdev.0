@@ -1,62 +1,64 @@
-From: John Hurley <john.hurley@netronome.com>
-Subject: Re: [PATCH net-next 7/7] nfp: flower vxlan neighbour keep-alive
-Date: Tue, 26 Sep 2017 10:37:53 +0100
-Message-ID: <CAK+XE=nfndmKbgz174CEKzfBHbf7nTBX9CUb47MPBnDssJJ0fA@mail.gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
+Date: Tue, 26 Sep 2017 12:15:09 +0200
+Message-ID: <20170926121509.50a32571@griffin>
 References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
- <1506335021-32024-8-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgK-hqB-uRM4aom1gMsXxpx_o2uSpSj5_dFsT13-oDGAQ@mail.gmail.com> <CAK+XE=mVKbAqYwSYvLb0y48O9D-Oq+B_bks7c9iwjsm0j7oYvw@mail.gmail.com>
+        <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
+        <20170925170451.GD18763@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Simon Horman <simon.horman@netronome.com>,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
         David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>,
         Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
+        Paolo Abeni <pabeni@redhat.com>, Eli Cohen <eli@mellanox.com>,
+        Paul Blakey <paulb@mellanox.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:44986 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965142AbdIZJhz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 05:37:55 -0400
-Received: by mail-wm0-f43.google.com with SMTP id m127so14764573wmm.1
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 02:37:54 -0700 (PDT)
-In-Reply-To: <CAK+XE=mVKbAqYwSYvLb0y48O9D-Oq+B_bks7c9iwjsm0j7oYvw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:52670 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935308AbdIZKPN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 06:15:13 -0400
+In-Reply-To: <20170925170451.GD18763@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ Reposting in plantext only]
+On Mon, 25 Sep 2017 19:04:53 +0200, Simon Horman wrote:
+> The MAC addresses are extracted from the netdevs already loaded in the
+> kernel and are monitored for any changes. The IP addresses are slightly
+> different in that they are extracted from the rules themselves. We make the
+> assumption that, if a packet is decapsulated at the end point and a match
+> is attempted on the IP address,
 
+You lost me here, I'm afraid. What do you mean by "match"?
 
+> that this IP address should be recognised
+> in the kernel. That being the case, the same traffic pattern should be
+> witnessed if the skip_hw flag is applied.
 
-On Mon, Sep 25, 2017 at 7:32 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->
-> On Mon, Sep 25, 2017 at 1:23 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > From: John Hurley <john.hurley@netronome.com>
-> >
-> > Periodically receive messages containing the destination IPs of tunnels
-> > that have recently forwarded traffic. Update the neighbour entries 'used'
-> > value for these IPs next hop.
->
-> Are you proactively sending keep alive messages from the driver or the
-> fw? what's wrong with the probes sent by the kernel NUD subsystem?
->
+Just to be really sure that this works correctly, can you confirm that
+this will match the packet:
 
-Hi Or,
+ip link add vxlan0 type vxlan dstport 4789 dev eth0 external
+ip link set dev vxlan0 up
+tc qdisc add dev vxlan0 ingress
+ethtool -K eth0 hw-tc-offload on
+tc filter add dev vxlan0 protocol ip parent ffff: flower enc_key_id 102 \
+   enc_dst_port 4789 src_ip 3.4.5.6 skip_sw action [...]
 
-The messages are sent from the FW to the driver. They indicate which
-offloaded tunnels are currently active.
+while this one will NOT match:
 
->
-> In our driver we also update the used value for neighs of offloaded
-> tunnels, we do it based on flow counters for the offloaded tunnels
-> which is an evidence for activity. Any reason for you not to apply a
-> similar practice?
+ip link add vxlan0 type vxlan dstport 4789 dev eth0 external
+ip link set dev vxlan0 up
+tc qdisc add dev eth0 ingress
+ethtool -K eth0 hw-tc-offload on
+tc filter add dev eth0 protocol ip parent ffff: flower enc_key_id 102 \
+   enc_dst_port 4789 src_ip 3.4.5.6 skip_sw action [...]
 
+We found that with mlx5, the second one actually matches, too. Which is
+a very serious bug. (Adding Paolo who found this. And adding a few more
+Mellanox guys to be aware of the bug.)
 
-Yes, this would provide the same outcome. Because our firmware already
-offered these messages, we chose to support this approach.
-
->
->
-> Or.
+ Jiri
