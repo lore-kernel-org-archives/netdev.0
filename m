@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v2 net-next 04/10] net: hns3: Add support for port shaper setting in TM module
-Date: Tue, 26 Sep 2017 10:25:12 +0800
-Message-ID: <1506392718-50463-5-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v2 net-next 03/10] net: hns3: Add support for PFC setting in TM module
+Date: Tue, 26 Sep 2017 10:25:11 +0800
+Message-ID: <1506392718-50463-4-git-send-email-linyunsheng@huawei.com>
 References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,84 +12,126 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:6572 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966310AbdIZCZs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 22:25:48 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch add a tm_port_shaper cmd and set port shaper
-to HCLGE_ETHER_MAX_RATE on TM initialization process.
+This patch add a pfc_pause_en cmd, and use it to configure
+PFC option according to fc_mode in hdev->tm_info.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 32 ++++++++++++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  4 +++
- 2 files changed, 36 insertions(+)
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 68 ++++++++++++++++++++--
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  5 ++
+ 2 files changed, 68 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-index 0b4b5d9..f79cebd 100644
+index 73a75d7..0b4b5d9 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-@@ -301,6 +301,34 @@ static int hclge_tm_pg_shapping_cfg(struct hclge_dev *hdev,
+@@ -124,6 +124,20 @@ static int hclge_mac_pause_en_cfg(struct hclge_dev *hdev, bool tx, bool rx)
  	return hclge_cmd_send(&hdev->hw, &desc, 1);
  }
  
-+static int hclge_tm_port_shaper_cfg(struct hclge_dev *hdev)
++static int hclge_pfc_pause_en_cfg(struct hclge_dev *hdev, u8 tx_rx_bitmap,
++				  u8 pfc_bitmap)
 +{
-+	struct hclge_port_shapping_cmd *shap_cfg_cmd;
 +	struct hclge_desc desc;
-+	u32 shapping_para = 0;
-+	u8 ir_u, ir_b, ir_s;
-+	int ret;
++	struct hclge_pfc_en_cmd *pfc = (struct hclge_pfc_en_cmd *)&desc.data;
 +
-+	ret = hclge_shaper_para_calc(HCLGE_ETHER_MAX_RATE,
-+				     HCLGE_SHAPER_LVL_PORT,
-+				     &ir_b, &ir_u, &ir_s);
-+	if (ret)
-+		return ret;
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CFG_PFC_PAUSE_EN, false);
 +
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PORT_SHAPPING, false);
-+	shap_cfg_cmd = (struct hclge_port_shapping_cmd *)desc.data;
-+
-+	hclge_tm_set_field(shapping_para, IR_B, ir_b);
-+	hclge_tm_set_field(shapping_para, IR_U, ir_u);
-+	hclge_tm_set_field(shapping_para, IR_S, ir_s);
-+	hclge_tm_set_field(shapping_para, BS_B, HCLGE_SHAPER_BS_U_DEF);
-+	hclge_tm_set_field(shapping_para, BS_S, HCLGE_SHAPER_BS_S_DEF);
-+
-+	shap_cfg_cmd->port_shapping_para = cpu_to_le32(shapping_para);
++	pfc->tx_rx_en_bitmap = tx_rx_bitmap;
++	pfc->pri_en_bitmap = pfc_bitmap;
 +
 +	return hclge_cmd_send(&hdev->hw, &desc, 1);
 +}
 +
- static int hclge_tm_pri_shapping_cfg(struct hclge_dev *hdev,
- 				     enum hclge_shap_bucket bucket, u8 pri_id,
- 				     u8 ir_b, u8 ir_u, u8 ir_s,
-@@ -864,6 +892,10 @@ static int hclge_tm_shaper_cfg(struct hclge_dev *hdev)
+ static int hclge_fill_pri_array(struct hclge_dev *hdev, u8 *pri, u8 pri_id)
  {
- 	int ret;
+ 	u8 tc;
+@@ -969,20 +983,64 @@ static int hclge_tm_schd_setup_hw(struct hclge_dev *hdev)
+ 	return hclge_tm_schd_mode_hw(hdev);
+ }
  
-+	ret = hclge_tm_port_shaper_cfg(hdev);
-+	if (ret)
-+		return ret;
++static int hclge_pfc_setup_hw(struct hclge_dev *hdev)
++{
++	u8 enable_bitmap = 0;
 +
- 	ret = hclge_tm_pg_shaper_cfg(hdev);
- 	if (ret)
- 		return ret;
++	if (hdev->tm_info.fc_mode == HCLGE_FC_PFC)
++		enable_bitmap = HCLGE_TX_MAC_PAUSE_EN_MSK |
++				HCLGE_RX_MAC_PAUSE_EN_MSK;
++
++	return hclge_pfc_pause_en_cfg(hdev, enable_bitmap,
++				      hdev->tm_info.hw_pfc_map);
++}
++
++static int hclge_mac_pause_setup_hw(struct hclge_dev *hdev)
++{
++	bool tx_en, rx_en;
++
++	switch (hdev->tm_info.fc_mode) {
++	case HCLGE_FC_NONE:
++		tx_en = false;
++		rx_en = false;
++		break;
++	case HCLGE_FC_RX_PAUSE:
++		tx_en = false;
++		rx_en = true;
++		break;
++	case HCLGE_FC_TX_PAUSE:
++		tx_en = true;
++		rx_en = false;
++		break;
++	case HCLGE_FC_FULL:
++		tx_en = true;
++		rx_en = true;
++		break;
++	default:
++		tx_en = true;
++		rx_en = true;
++	}
++
++	return hclge_mac_pause_en_cfg(hdev, tx_en, rx_en);
++}
++
+ int hclge_pause_setup_hw(struct hclge_dev *hdev)
+ {
+-	bool en = hdev->tm_info.fc_mode != HCLGE_FC_PFC;
+ 	int ret;
+ 	u8 i;
+ 
+-	ret = hclge_mac_pause_en_cfg(hdev, en, en);
+-	if (ret)
+-		return ret;
++	if (hdev->tm_info.fc_mode != HCLGE_FC_PFC)
++		return hclge_mac_pause_setup_hw(hdev);
+ 
+-	/* Only DCB-supported dev supports qset back pressure setting */
++	/* Only DCB-supported dev supports qset back pressure and pfc cmd */
+ 	if (!hnae3_dev_dcb_supported(hdev))
+ 		return 0;
+ 
++	/* When MAC is GE Mode, hdev does not support pfc setting */
++	ret = hclge_pfc_setup_hw(hdev);
++	if (ret)
++		dev_warn(&hdev->pdev->dev, "set pfc pause failed:%d\n", ret);
++
+ 	for (i = 0; i < hdev->tm_info.num_tc; i++) {
+ 		ret = hclge_tm_qs_bp_cfg(hdev, i);
+ 		if (ret)
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-index 8ecd83c..19a01e4 100644
+index 85158b0..8ecd83c 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-@@ -99,6 +99,10 @@ struct hclge_pfc_en_cmd {
- 	u8 pri_en_bitmap;
+@@ -94,6 +94,11 @@ struct hclge_bp_to_qs_map_cmd {
+ 	u32 rsvd1;
  };
  
-+struct hclge_port_shapping_cmd {
-+	__le32 port_shapping_para;
++struct hclge_pfc_en_cmd {
++	u8 tx_rx_en_bitmap;
++	u8 pri_en_bitmap;
 +};
 +
  #define hclge_tm_set_field(dest, string, val) \
