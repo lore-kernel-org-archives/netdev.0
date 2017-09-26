@@ -1,91 +1,39 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when
- interacting with network stack
-Date: Tue, 26 Sep 2017 15:33:27 +0800
-Message-ID: <7716ff26-92fe-165e-8b5e-147914608032@huawei.com>
-References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
- <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
- <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] r8152: add Linksys USB3GIGV1 id
+Date: Tue, 26 Sep 2017 09:35:15 +0200
+Message-ID: <20170926073515.GB8108@kroah.com>
+References: <20170922190604.108155-1-grundler@chromium.org>
+ <1506351074.7827.13.camel@suse.com>
+ <CANEJEGtM+gFC9Ofmp=UmGn5pKys9NRbsC6+ks_VqaLKWkEBS8A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
-        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "john.garry@huawei.com" <john.garry@huawei.com>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>,
-        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Yuval Mintz <yuvalm@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Neukum <oneukum@suse.com>,
+        Hayes Wang <hayeswang@realtek.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-usb <linux-usb@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Grant Grundler <grundler@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <CANEJEGtM+gFC9Ofmp=UmGn5pKys9NRbsC6+ks_VqaLKWkEBS8A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Yuval
+On Mon, Sep 25, 2017 at 01:17:32PM -0700, Grant Grundler wrote:
+> Correct. r8152 happens to claim the device before cdc_ether does - I
+> thought because cdc_ether is a class driver and only gets picked up
+> after vendor specific drivers are probed.  Is that correct?
 
-On 2017/9/26 14:43, Yuval Mintz wrote:
->> When using tc qdisc to configure DCB parameter, dcb_ops->setup_tc
->> is used to tell hclge_dcb module to do the setup.
-> 
-> While this might be a step in the right direction, this causes an inconsistency
-> in user experience - Some [well, most] vendors didn't allow the mqprio
-> priority mapping to affect DCB, instead relying on the dcbnl functionality
-> to control that configuration.
-> 
-> A couple of options to consider:
->   - Perhaps said logic shouldn't be contained inside the driver but rather
->      in mqprio logic itself. I.e., rely on DCBNL functionality [if available] from
->      within mqprio and try changing the configuration. 
->   - Add a new TC_MQPRIO_HW_OFFLOAD_ value to explicitly reflect user
->      request to allow this configuration to affect DCB.
-> 
->> When using lldptool to configure DCB parameter, hclge_dcb module
->> call the client_ops->setup_tc to tell network stack which queue
->> and priority is using for specific tc.
-> 
-> You're basically bypassing the mqprio logic.
-> Since you're configuring the prio->queue mapping from DCB flow,
-> you'll get an mqprio-like behavior [meaning a transmitted packet
-> would reach a transmission queue associated with its priority] even
-> if device wasn't grated with an mqprio qdisc.
-> Why should your user even use mqprio? What benefit does he get from it?
-> 
-> ...
-> 
->> +static int hns3_nic_set_real_num_queue(struct net_device *netdev)
->> +{
->> +	struct hns3_nic_priv *priv = netdev_priv(netdev);
->> +	struct hnae3_handle *h = priv->ae_handle;
->> +	struct hnae3_knic_private_info *kinfo = &h->kinfo;
->> +	unsigned int queue_size = kinfo->rss_size * kinfo->num_tc;
->> +	int ret;
->> +
->> +	ret = netif_set_real_num_tx_queues(netdev, queue_size);
->> +	if (ret) {
->> +		netdev_err(netdev,
->> +			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
->> +			   ret);
->> +		return ret;
->> +	}
->> +
->> +	ret = netif_set_real_num_rx_queues(netdev, queue_size);
-> 
-> I don't think you're changing the driver behavior, but why are you setting
-> the real number of rx queues based on the number of TCs?
-> Do you actually open (TC x RSS) Rx queues?
+Nope, there is not "priority" scheme of binding some drivers to devices
+instead of others at all in Linux.  The whole scheme is "first in the
+list", and has always been that way.
 
-Yes, our hardware can do the rss based on TC.
+And yes, people have talked about changing this for decades now, but no
+one has come up with any working patch, for the obvious reasons[1].
 
-Sorry for almost forget to answer this question.
-Thanks for your time reviewing again.
+thanks,
 
-> 
-> .
-> 
+greg k-h
+
+[1] exercise is left for the reader :)
