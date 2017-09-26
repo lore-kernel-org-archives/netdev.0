@@ -1,63 +1,63 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net] packet: in packet_do_bind, test fanout with bind_lock held
-Date: Tue, 26 Sep 2017 12:19:37 -0400
-Message-ID: <20170926161937.60597-1-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net] packet: only test po->has_vnet_hdr once in packet_snd
+Date: Tue, 26 Sep 2017 12:20:17 -0400
+Message-ID: <20170926162017.60750-1-willemdebruijn.kernel@gmail.com>
 Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35274 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934771AbdIZQTk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 12:19:40 -0400
-Received: by mail-qk0-f195.google.com with SMTP id o77so7143343qke.2
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 09:19:40 -0700 (PDT)
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:32880 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964791AbdIZQUU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 12:20:20 -0400
+Received: by mail-qt0-f195.google.com with SMTP id b1so7359263qtc.0
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 09:20:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-Once a socket has po->fanout set, it remains a member of the group
-until it is destroyed. The prot_hook must be constant and identical
-across sockets in the group.
+Packet socket option po->has_vnet_hdr can be updated concurrently with
+other operations if no ring is attached.
 
-If fanout_add races with packet_do_bind between the test of po->fanout
-and taking the lock, the bind call may make type or dev inconsistent
-with that of the fanout group.
+Do not test the option twice in packet_snd, as the value may change in
+between calls. A race on setsockopt disable may cause a packet > mtu
+to be sent without having GSO options set.
 
-Hold po->bind_lock when testing po->fanout to avoid this race.
-
-I had to introduce artificial delay (local_bh_enable) to actually
-observe the race.
-
-Fixes: dc99f600698d ("packet: Add fanout support.")
+Fixes: bfd5f4a3d605 ("packet: Add GSO/csum offload support.")
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 Reviewed-by: Eric Dumazet <edumazet@google.com>
 ---
- net/packet/af_packet.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/packet/af_packet.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1da0851f51f2..bec01a3daf5b 100644
+index d288f52c53f7..1da0851f51f2 100644
 --- a/net/packet/af_packet.c
 +++ b/net/packet/af_packet.c
-@@ -3071,13 +3071,15 @@ static int packet_do_bind(struct sock *sk, const char *name, int ifindex,
- 	int ret = 0;
- 	bool unlisted = false;
+@@ -2840,6 +2840,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	struct virtio_net_hdr vnet_hdr = { 0 };
+ 	int offset = 0;
+ 	struct packet_sock *po = pkt_sk(sk);
++	bool has_vnet_hdr = false;
+ 	int hlen, tlen, linear;
+ 	int extra_len = 0;
  
--	if (po->fanout)
--		return -EINVAL;
--
- 	lock_sock(sk);
- 	spin_lock(&po->bind_lock);
- 	rcu_read_lock();
+@@ -2883,6 +2884,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 		err = packet_snd_vnet_parse(msg, &len, &vnet_hdr);
+ 		if (err)
+ 			goto out_unlock;
++		has_vnet_hdr = true;
+ 	}
  
-+	if (po->fanout) {
-+		ret = -EINVAL;
-+		goto out_unlock;
-+	}
-+
- 	if (name) {
- 		dev = dev_get_by_name_rcu(sock_net(sk), name);
- 		if (!dev) {
+ 	if (unlikely(sock_flag(sk, SOCK_NOFCS))) {
+@@ -2941,7 +2943,7 @@ static int packet_snd(struct socket *sock, struct msghdr *msg, size_t len)
+ 	skb->priority = sk->sk_priority;
+ 	skb->mark = sockc.mark;
+ 
+-	if (po->has_vnet_hdr) {
++	if (has_vnet_hdr) {
+ 		err = virtio_net_hdr_to_skb(skb, &vnet_hdr, vio_le());
+ 		if (err)
+ 			goto out_free;
 -- 
 2.14.1.821.g8fa685d3b7-goog
