@@ -1,109 +1,97 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] lib: fix multiple strlcpy definition
-Date: Tue, 26 Sep 2017 14:08:49 +0300
-Message-ID: <7f5fee59e46bfd3b4acf8ed9a8fbd8c7b4f1cd70.1506424129.git.baruch@tkos.co.il>
-Cc: netdev@vger.kernel.org, Baruch Siach <baruch@tkos.co.il>,
-        Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH v2 net-next 0/7] net: speedup netns create/delete time
+Date: Tue, 26 Sep 2017 14:21:08 +0300
+Message-ID: <8edb310a-562d-bff1-0482-64314833e722@mellanox.com>
+References: <20170919232709.14690-1-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Majd Dibbiny <majd@mellanox.com>,
+        Yonatan Cohen <yonatanc@mellanox.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: Eric Dumazet <edumazet@google.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:50031 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S937058AbdIZLJo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 07:09:44 -0400
+Received: from mail-db5eur01on0067.outbound.protection.outlook.com ([104.47.2.67]:22422
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1030323AbdIZLVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 07:21:15 -0400
+In-Reply-To: <20170919232709.14690-1-edumazet@google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some C libraries, like uClibc and musl, provide BSD compatible
-strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
-and strlcat when the C library provides them.
 
-This fixes the following static link error with uClibc-ng:
+On 20/09/2017 2:27 AM, Eric Dumazet wrote:
+> When rate of netns creation/deletion is high enough,
+> we observe softlockups in cleanup_net() caused by huge list
+> of netns and way too many rcu_barrier() calls.
+> 
+> This patch series does some optimizations in kobject,
+> and add batching to tunnels so that netns dismantles are
+> less costly.
+> 
+> IPv6 addrlabels also get a per netns list, and tcp_metrics
+> also benefit from batch flushing.
+> 
+> This gives me one order of magnitude gain.
+> (~50 ms -> ~5 ms for one netns create/delete pair)
+> 
+...
+> 
+> Eric Dumazet (7):
+>    kobject: add kobject_uevent_net_broadcast()
+>    kobject: copy env blob in one go
+>    kobject: factorize skb setup in kobject_uevent_net_broadcast()
+>    ipv6: addrlabel: per netns list
+>    tcp: batch tcp_net_metrics_exit
+>    ipv6: speedup ipv6 tunnels dismantle
+>    ipv4: speedup ipv6 tunnels dismantle
+> 
+>   include/net/ip_tunnels.h |  3 +-
+>   include/net/netns/ipv6.h |  5 +++
+>   lib/kobject_uevent.c     | 94 ++++++++++++++++++++++++++----------------------
+>   net/ipv4/ip_gre.c        | 22 +++++-------
+>   net/ipv4/ip_tunnel.c     | 12 +++++--
+>   net/ipv4/ip_vti.c        |  7 ++--
+>   net/ipv4/ipip.c          |  7 ++--
+>   net/ipv4/tcp_metrics.c   | 14 +++++---
+>   net/ipv6/addrlabel.c     | 81 ++++++++++++++++-------------------------
+>   net/ipv6/ip6_gre.c       |  8 +++--
+>   net/ipv6/ip6_tunnel.c    | 20 ++++++-----
+>   net/ipv6/ip6_vti.c       | 23 +++++++-----
+>   net/ipv6/sit.c           |  9 +++--
+>   13 files changed, 157 insertions(+), 148 deletions(-)
+> 
 
-.../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
-strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
-../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
-collect2: error: ld returned 1 exit status
+Hi Eric,
 
-Cc: Phil Sutter <phil@nwl.cc>
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- configure    | 24 ++++++++++++++++++++++++
- lib/Makefile |  4 ++++
- lib/utils.c  |  2 ++
- 3 files changed, 30 insertions(+)
+We see a regression introduced in this series, specifically in the 
+patches touching lib/kobject_uevent.c.
+We tried to figure out what is wrong there, but couldn't point it out.
 
-diff --git a/configure b/configure
-index 7be8fb113cc9..787b2e061af9 100755
---- a/configure
-+++ b/configure
-@@ -326,6 +326,27 @@ EOF
-     rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
- }
- 
-+check_strlcpy()
-+{
-+    cat >$TMPDIR/strtest.c <<EOF
-+#include <string.h>
-+int main(int argc, char **argv) {
-+	char dst[10];
-+	strlcpy("test", dst, sizeof(dst));
-+	return 0;
-+}
-+EOF
-+    $CC -I$INCLUDE -o $TMPDIR/strtest $TMPDIR/strtest.c >/dev/null 2>&1
-+    if [ $? -eq 0 ]
-+    then
-+	echo "no"
-+    else
-+	echo "NEED_STRLCPY:=y" >>$CONFIG
-+	echo "yes"
-+    fi
-+    rm -f $TMPDIR/strtest.c $TMPDIR/strtest
-+}
-+
- quiet_config()
- {
- 	cat <<EOF
-@@ -397,6 +418,9 @@ check_mnl
- echo -n "Berkeley DB: "
- check_berkeley_db
- 
-+echo -n "need for strlcpy: "
-+check_strlcpy
-+
- echo
- echo -n "docs:"
- check_docs
-diff --git a/lib/Makefile b/lib/Makefile
-index 0fbdf4c31f50..132ad00c3335 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -1,5 +1,9 @@
- include ../config.mk
- 
-+ifeq ($(NEED_STRLCPY),y)
-+	CFLAGS += -DNEED_STRLCPY
-+endif
-+
- CFLAGS += -fPIC
- 
- UTILOBJ = utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o \
-diff --git a/lib/utils.c b/lib/utils.c
-index bbd3cbc46a0e..240e7426a810 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -1231,6 +1231,7 @@ int get_real_family(int rtm_type, int rtm_family)
- 	return rtm_family;
- }
- 
-+#ifdef NEED_STRLCPY
- size_t strlcpy(char *dst, const char *src, size_t size)
- {
- 	size_t srclen = strlen(src);
-@@ -1253,3 +1254,4 @@ size_t strlcat(char *dst, const char *src, size_t size)
- 
- 	return dlen + strlcpy(dst + dlen, src, size - dlen);
- }
-+#endif
--- 
-2.14.1
+Bug is that mlx4 driver restart fails, because mlx4_core is still in use.
+According to module dependencies, both mlx4_en and mlx4_ib should have 
+been unloaded at this point
+Please see log below.
+
+This looks to be some kind of a race, as the repro is not deterministic.
+Probably the en/ib modules are now mistakenly reloaded.
+
+Any idea what could this be?
+
+Regards,
+Tariq
+
+
+[root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
+Unloading HCA driver:                                      [  OK  ]
+[root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd start
+Loading HCA driver and Access Layer:                       [  OK  ]
+[root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
+Unloading mlx4_core                                        [FAILED]
+rmmod: ERROR: Module mlx4_core is in use
