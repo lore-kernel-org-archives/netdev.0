@@ -1,44 +1,97 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
-Date: Tue, 26 Sep 2017 12:49:14 +0200
-Message-ID: <20170926124914.60101ca1@griffin>
-References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
-        <20170925201439.08460295@griffin>
-        <20170926045538.GA5896@localhost.localdomain>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Tue, 26 Sep 2017 18:49:14 +0800
+Message-ID: <3fe662df-a216-4966-863c-d98555ef3ed2@huawei.com>
+References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
+ <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
+ <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "e@erig.me" <e@erig.me>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Pravin Shelar <pshelar@ovn.org>
-To: "Yang, Yi" <yi.y.yang@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35732 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967914AbdIZKtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 06:49:19 -0400
-In-Reply-To: <20170926045538.GA5896@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Yuval Mintz <yuvalm@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Sep 2017 12:55:39 +0800, Yang, Yi wrote:
-> After push_nsh, the packet won't be recirculated to flow pipeline, so
-> key->eth.type must be set explicitly here, but for pop_nsh, the packet
-> will be recirculated to flow pipeline, it will be reparsed, so
-> key->eth.type will be set in packet parse function, we needn't handle it
-> in pop_nsh.
+Hi, Yuval
 
-This seems to be a very different approach than what we currently have.
-Looking at the code, the requirement after "destructive" actions such
-as pushing or popping headers is to recirculate.
+On 2017/9/26 14:43, Yuval Mintz wrote:
+>> When using tc qdisc to configure DCB parameter, dcb_ops->setup_tc
+>> is used to tell hclge_dcb module to do the setup.
+> 
+> While this might be a step in the right direction, this causes an inconsistency
+> in user experience - Some [well, most] vendors didn't allow the mqprio
+> priority mapping to affect DCB, instead relying on the dcbnl functionality
+> to control that configuration.
+> 
+> A couple of options to consider:
+>   - Perhaps said logic shouldn't be contained inside the driver but rather
+>      in mqprio logic itself. I.e., rely on DCBNL functionality [if available] from
+>      within mqprio and try changing the configuration. 
 
-Setting key->eth.type to satisfy conditions in the output path without
-updating the rest of the key looks very hacky and fragile to me. There
-might be other conditions and dependencies that are not obvious.
-I don't think the code was written with such code path in mind.
+In net/dcb/dcbnl.c
+dcbnl_ieee_set already call dcbnl_ieee_notify to notify the user space
+configuration has changed, does this dcbnl_ieee_notify function do the
+job for us? I am not sure if lldpad has registered for this notifition.
 
-I'd like to hear what Pravin thinks about this.
+As you suggested below, can we add a new TC_MQPRIO_HW_OFFLOAD_ value to
+reflect that the configuration is needed to be changed by dcbnl_ieee_set
+(perhaps some other function) in dcbnl?
+Do you think it is feasible?
 
- Jiri
+
+>   - Add a new TC_MQPRIO_HW_OFFLOAD_ value to explicitly reflect user
+>      request to allow this configuration to affect DCB.
+> 
+>> When using lldptool to configure DCB parameter, hclge_dcb module
+>> call the client_ops->setup_tc to tell network stack which queue
+>> and priority is using for specific tc.
+> 
+> You're basically bypassing the mqprio logic.
+> Since you're configuring the prio->queue mapping from DCB flow,
+> you'll get an mqprio-like behavior [meaning a transmitted packet
+> would reach a transmission queue associated with its priority] even
+> if device wasn't grated with an mqprio qdisc.
+> Why should your user even use mqprio? What benefit does he get from it?
+> 
+> ...
+> 
+>> +static int hns3_nic_set_real_num_queue(struct net_device *netdev)
+>> +{
+>> +	struct hns3_nic_priv *priv = netdev_priv(netdev);
+>> +	struct hnae3_handle *h = priv->ae_handle;
+>> +	struct hnae3_knic_private_info *kinfo = &h->kinfo;
+>> +	unsigned int queue_size = kinfo->rss_size * kinfo->num_tc;
+>> +	int ret;
+>> +
+>> +	ret = netif_set_real_num_tx_queues(netdev, queue_size);
+>> +	if (ret) {
+>> +		netdev_err(netdev,
+>> +			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
+>> +			   ret);
+>> +		return ret;
+>> +	}
+>> +
+>> +	ret = netif_set_real_num_rx_queues(netdev, queue_size);
+> 
+> I don't think you're changing the driver behavior, but why are you setting
+> the real number of rx queues based on the number of TCs?
+> Do you actually open (TC x RSS) Rx queues?
+> 
+> .
+> 
