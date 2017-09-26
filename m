@@ -1,60 +1,52 @@
-From: Wei Wang <weiwan@google.com>
-Subject: Re: [PATCH net] ipv6: remove incorrect WARN_ON() in fib6_del()
-Date: Mon, 25 Sep 2017 22:52:38 -0700
-Message-ID: <CAEA6p_Du641cbcvr5JVXbLMh0T9fAauWDcXqNmrNoJkddMVCBA@mail.gmail.com>
-References: <20170925173522.99892-1-tracywwnj@gmail.com> <20170926005618.z4ymlry7jl47nkjm@kafai-mbp.dhcp.thefacebook.com>
- <CAEA6p_CvtmNaYcgSSyFNEbip1ckKwLjJH3PJTOqym0hCt-x2uw@mail.gmail.com>
- <20170926020720.gnvfz6xch4frf2dy@kafai-mbp> <CANn89iJWo8U=csnZNh+QHh7Sf8+Gaig56-HU9BbZbGeeFs5g3w@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v4 4/9] em28xx: fix em28xx_dvb_init for KASAN
+Date: Mon, 25 Sep 2017 23:32:08 -0700
+Message-ID: <CAK8P3a1zxjMsQTBPijCo8FJjEU5aRVTr7n_NZ1YM2UnDPKoRLw@mail.gmail.com>
+References: <20170922212930.620249-1-arnd@arndb.de> <20170922212930.620249-5-arnd@arndb.de>
+ <063D6719AE5E284EB5DD2968C1650D6DD007F521@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Martin KaFai Lau <kafai@fb.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f173.google.com ([209.85.217.173]:51449 "EHLO
-        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753956AbdIZFwk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 01:52:40 -0400
-Received: by mail-ua0-f173.google.com with SMTP id 72so5766795uas.8
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 22:52:40 -0700 (PDT)
-In-Reply-To: <CANn89iJWo8U=csnZNh+QHh7Sf8+Gaig56-HU9BbZbGeeFs5g3w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrey Ryabinin <aryabinin@virtuozzo.com>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kees Cook <keescook@chromium.org>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-wireles
+To: David Laight <David.Laight@aculab.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD007F521@AcuExch.aculab.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2017 at 7:23 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Mon, Sep 25, 2017 at 7:07 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+On Mon, Sep 25, 2017 at 7:41 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Arnd Bergmann
+>> Sent: 22 September 2017 22:29
+> ...
+>> It seems that this is triggered in part by using strlcpy(), which the
+>> compiler doesn't recognize as copying at most 'len' bytes, since strlcpy
+>> is not part of the C standard.
 >
->> I am probably still missing something.
->>
->> Considering the del operation should be under the writer lock,
->> if rt->rt6i_node should be NULL (for rt that has already been
->> removed from fib6), why this WARN_ON() is triggered?
->>
->> An example may help.
->>
+> Neither is strncpy().
 >
-> Look at the stack trace, you'll find the answers...
->
-> ip6_link_failure() -> ip6_del_rt()
->
-> Note that rt might have been deleted from the _tree_ already.
+> It'll almost certainly be a marker in a header file somewhere,
+> so it should be possibly to teach it about other functions.
 
-Had a brief talk with Martin.
-He has a valid point.
-The current WARN_ON() code is as follows:
-#if RT6_DEBUG >= 2
-       if (rt->dst.obsolete > 0) {
-               WARN_ON(fn);
-               return -ENOENT;
-       }
-#endif
+I'm currently travelling and haven't investigated in detail, but from
+taking a closer look here, I found that the hardened 'strlcpy()'
+in include/linux/string.h triggers it. There is also a hardened
+(much shorted) 'strncpy()' that doesn't trigger it in the same file,
+and having only the extern declaration of strncpy also doesn't.
 
-The WARN_ON() only triggers when fn is not NULL. (I missed it before.)
-In theory, fib6_del() calls fib6_del_route() which should set
-rt->rt6i_node to NULL and rt->dst.obsolete to DST_OBSOLETE_DEAD within
-the same write_lock session.
-If those 2 values are inconsistent, it indicates something is wrong.
-Will need more time to root cause the issue.
-
-Please ignore this patch. Sorry about the confusion.
+        Arnd
