@@ -1,99 +1,51 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next v4 2/4] rtnetlink: add helpers to dump vf information
-Date: Tue, 26 Sep 2017 13:58:41 +0200
-Message-ID: <20170926115843.12013-3-fw@strlen.de>
+Subject: [PATCH net-next v4 4/4] rtnetlink: rtnl_have_link_slave_info doesn't need rtnl
+Date: Tue, 26 Sep 2017 13:58:43 +0200
+Message-ID: <20170926115843.12013-5-fw@strlen.de>
 References: <20170926115843.12013-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58790 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58794 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S936361AbdIZL6d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 07:58:33 -0400
+        by vger.kernel.org with ESMTP id S964827AbdIZL6j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 07:58:39 -0400
 In-Reply-To: <20170926115843.12013-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-similar to earlier patches, split out more parts of this function to
-better see what is happening and where we assume rtnl is locked.
+it can be switched to rcu.
 
 Reviewed-by: David Ahern <dsahern@gmail.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
  No changes in v4.
 
- net/core/rtnetlink.c | 50 +++++++++++++++++++++++++++++++-------------------
- 1 file changed, 31 insertions(+), 19 deletions(-)
+ net/core/rtnetlink.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index c801212ee40e..d504e78cd01f 100644
+index d524609c587c..e6955da0d58d 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -1211,6 +1211,36 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
- 	return -EMSGSIZE;
+@@ -522,11 +522,15 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev,
+ static bool rtnl_have_link_slave_info(const struct net_device *dev)
+ {
+ 	struct net_device *master_dev;
++	bool ret = false;
+ 
+-	master_dev = netdev_master_upper_dev_get((struct net_device *) dev);
++	rcu_read_lock();
++
++	master_dev = netdev_master_upper_dev_get_rcu((struct net_device *)dev);
+ 	if (master_dev && master_dev->rtnl_link_ops)
+-		return true;
+-	return false;
++		ret = true;
++	rcu_read_unlock();
++	return ret;
  }
  
-+static noinline_for_stack int rtnl_fill_vf(struct sk_buff *skb,
-+					   struct net_device *dev,
-+					   u32 ext_filter_mask)
-+{
-+	struct nlattr *vfinfo;
-+	int i, num_vfs;
-+
-+	if (!dev->dev.parent || ((ext_filter_mask & RTEXT_FILTER_VF) == 0))
-+		return 0;
-+
-+	num_vfs = dev_num_vf(dev->dev.parent);
-+	if (nla_put_u32(skb, IFLA_NUM_VF, num_vfs))
-+		return -EMSGSIZE;
-+
-+	if (!dev->netdev_ops->ndo_get_vf_config)
-+		return 0;
-+
-+	vfinfo = nla_nest_start(skb, IFLA_VFINFO_LIST);
-+	if (!vfinfo)
-+		return -EMSGSIZE;
-+
-+	for (i = 0; i < num_vfs; i++) {
-+		if (rtnl_fill_vfinfo(skb, dev, i, vfinfo))
-+			return -EMSGSIZE;
-+	}
-+
-+	nla_nest_end(skb, vfinfo);
-+	return 0;
-+}
-+
- static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct rtnl_link_ifmap map;
-@@ -1407,27 +1437,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_fill_stats(skb, dev))
- 		goto nla_put_failure;
- 
--	if (dev->dev.parent && (ext_filter_mask & RTEXT_FILTER_VF) &&
--	    nla_put_u32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent)))
-+	if (rtnl_fill_vf(skb, dev, ext_filter_mask))
- 		goto nla_put_failure;
- 
--	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent &&
--	    ext_filter_mask & RTEXT_FILTER_VF) {
--		int i;
--		struct nlattr *vfinfo;
--		int num_vfs = dev_num_vf(dev->dev.parent);
--
--		vfinfo = nla_nest_start(skb, IFLA_VFINFO_LIST);
--		if (!vfinfo)
--			goto nla_put_failure;
--		for (i = 0; i < num_vfs; i++) {
--			if (rtnl_fill_vfinfo(skb, dev, i, vfinfo))
--				goto nla_put_failure;
--		}
--
--		nla_nest_end(skb, vfinfo);
--	}
--
- 	if (rtnl_port_fill(skb, dev, ext_filter_mask))
- 		goto nla_put_failure;
- 
+ static int rtnl_link_slave_info_fill(struct sk_buff *skb,
 -- 
 2.13.5
