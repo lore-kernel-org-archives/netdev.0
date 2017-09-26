@@ -1,78 +1,160 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH v2 net-next 1/2] bpf/verifier: improve disassembly of BPF_END
- instructions
-Date: Tue, 26 Sep 2017 16:35:13 +0100
-Message-ID: <b0a84ccf-8842-876c-ec82-b4b1da3d6efa@solarflare.com>
-References: <52270348-67f1-4e7a-cd2f-9d611ae94064@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>,
-        <alexei.starovoitov@gmail.com>, <ys114321@gmail.com>
-To: <davem@davemloft.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 1/2] tools: rename tools/net directory to tools/bpf
+Date: Tue, 26 Sep 2017 08:35:21 -0700
+Message-ID: <20170926153522.31500-2-jakub.kicinski@netronome.com>
+References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
+Cc: daniel@iogearbox.net, alexei.starovoitov@gmail.com,
+        davem@davemloft.net, hannes@stressinduktion.org, dsahern@gmail.com,
+        oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:33410 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1031415AbdIZPf0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:35:26 -0400
-In-Reply-To: <52270348-67f1-4e7a-cd2f-9d611ae94064@solarflare.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:52811 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031425AbdIZPfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:35:37 -0400
+Received: by mail-pf0-f178.google.com with SMTP id p87so5709144pfj.9
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 08:35:37 -0700 (PDT)
+In-Reply-To: <20170926153522.31500-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-print_bpf_insn() was treating all BPF_ALU[64] the same, but BPF_END has a
- different structure: it has a size in insn->imm (even if it's BPF_X) and
- uses the BPF_SRC (X or K) to indicate which endianness to use.  So it
- needs different code to print it.
+We currently only have BPF tools in the tools/net directory.
+We are about to add more BPF tools there, not necessarily
+networking related, rename the directory and related Makefile
+targets to bpf.
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
+Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- kernel/bpf/verifier.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+ MAINTAINERS                         |  3 +--
+ tools/Makefile                      | 14 +++++++-------
+ tools/{net => bpf}/Makefile         |  0
+ tools/{net => bpf}/bpf_asm.c        |  0
+ tools/{net => bpf}/bpf_dbg.c        |  0
+ tools/{net => bpf}/bpf_exp.l        |  0
+ tools/{net => bpf}/bpf_exp.y        |  0
+ tools/{net => bpf}/bpf_jit_disasm.c |  0
+ 8 files changed, 8 insertions(+), 9 deletions(-)
+ rename tools/{net => bpf}/Makefile (100%)
+ rename tools/{net => bpf}/bpf_asm.c (100%)
+ rename tools/{net => bpf}/bpf_dbg.c (100%)
+ rename tools/{net => bpf}/bpf_exp.l (100%)
+ rename tools/{net => bpf}/bpf_exp.y (100%)
+ rename tools/{net => bpf}/bpf_jit_disasm.c (100%)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 799b245..3aaa3262 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -325,26 +325,40 @@ static const char *const bpf_jmp_string[16] = {
- 	[BPF_EXIT >> 4] = "exit",
- };
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 6671f375f7fc..2f79b94a41ec 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2725,7 +2725,7 @@ F:	net/core/filter.c
+ F:	net/sched/act_bpf.c
+ F:	net/sched/cls_bpf.c
+ F:	samples/bpf/
+-F:	tools/net/bpf*
++F:	tools/bpf/
+ F:	tools/testing/selftests/bpf/
  
-+static void print_bpf_end_insn(const struct bpf_verifier_env *env,
-+			       const struct bpf_insn *insn)
-+{
-+	verbose("(%02x) r%d = %s%d r%d\n", insn->code, insn->dst_reg,
-+		BPF_SRC(insn->code) == BPF_TO_BE ? "be" : "le",
-+		insn->imm, insn->dst_reg);
-+}
-+
- static void print_bpf_insn(const struct bpf_verifier_env *env,
- 			   const struct bpf_insn *insn)
- {
- 	u8 class = BPF_CLASS(insn->code);
+ BROADCOM B44 10/100 ETHERNET DRIVER
+@@ -9416,7 +9416,6 @@ F:	include/uapi/linux/in.h
+ F:	include/uapi/linux/net.h
+ F:	include/uapi/linux/netdevice.h
+ F:	include/uapi/linux/net_namespace.h
+-F:	tools/net/
+ F:	tools/testing/selftests/net/
+ F:	lib/random32.c
  
- 	if (class == BPF_ALU || class == BPF_ALU64) {
--		if (BPF_SRC(insn->code) == BPF_X)
-+		if (BPF_OP(insn->code) == BPF_END) {
-+			if (class == BPF_ALU64)
-+				verbose("BUG_alu64_%02x\n", insn->code);
-+			else
-+				print_bpf_end_insn(env, insn);
-+		} else if (BPF_SRC(insn->code) == BPF_X) {
- 			verbose("(%02x) %sr%d %s %sr%d\n",
- 				insn->code, class == BPF_ALU ? "(u32) " : "",
- 				insn->dst_reg,
- 				bpf_alu_string[BPF_OP(insn->code) >> 4],
- 				class == BPF_ALU ? "(u32) " : "",
- 				insn->src_reg);
--		else
-+		} else {
- 			verbose("(%02x) %sr%d %s %s%d\n",
- 				insn->code, class == BPF_ALU ? "(u32) " : "",
- 				insn->dst_reg,
- 				bpf_alu_string[BPF_OP(insn->code) >> 4],
- 				class == BPF_ALU ? "(u32) " : "",
- 				insn->imm);
-+		}
- 	} else if (class == BPF_STX) {
- 		if (BPF_MODE(insn->code) == BPF_MEM)
- 			verbose("(%02x) *(%s *)(r%d %+d) = r%d\n",
+diff --git a/tools/Makefile b/tools/Makefile
+index 9dfede37c8ff..df6fcb293fbc 100644
+--- a/tools/Makefile
++++ b/tools/Makefile
+@@ -19,7 +19,7 @@ include scripts/Makefile.include
+ 	@echo '  kvm_stat               - top-like utility for displaying kvm statistics'
+ 	@echo '  leds                   - LEDs  tools'
+ 	@echo '  liblockdep             - user-space wrapper for kernel locking-validator'
+-	@echo '  net                    - misc networking tools'
++	@echo '  bpf                    - misc BPF tools'
+ 	@echo '  perf                   - Linux performance measurement and analysis tool'
+ 	@echo '  selftests              - various kernel selftests'
+ 	@echo '  spi                    - spi tools'
+@@ -57,7 +57,7 @@ acpi: FORCE
+ cpupower: FORCE
+ 	$(call descend,power/$@)
+ 
+-cgroup firewire hv guest spi usb virtio vm net iio gpio objtool leds: FORCE
++cgroup firewire hv guest spi usb virtio vm bpf iio gpio objtool leds: FORCE
+ 	$(call descend,$@)
+ 
+ liblockdep: FORCE
+@@ -91,7 +91,7 @@ kvm_stat: FORCE
+ 
+ all: acpi cgroup cpupower gpio hv firewire liblockdep \
+ 		perf selftests spi turbostat usb \
+-		virtio vm net x86_energy_perf_policy \
++		virtio vm bpf x86_energy_perf_policy \
+ 		tmon freefall iio objtool kvm_stat
+ 
+ acpi_install:
+@@ -100,7 +100,7 @@ all: acpi cgroup cpupower gpio hv firewire liblockdep \
+ cpupower_install:
+ 	$(call descend,power/$(@:_install=),install)
+ 
+-cgroup_install firewire_install gpio_install hv_install iio_install perf_install spi_install usb_install virtio_install vm_install net_install objtool_install:
++cgroup_install firewire_install gpio_install hv_install iio_install perf_install spi_install usb_install virtio_install vm_install bpf_install objtool_install:
+ 	$(call descend,$(@:_install=),install)
+ 
+ liblockdep_install:
+@@ -124,7 +124,7 @@ all: acpi cgroup cpupower gpio hv firewire liblockdep \
+ install: acpi_install cgroup_install cpupower_install gpio_install \
+ 		hv_install firewire_install iio_install liblockdep_install \
+ 		perf_install selftests_install turbostat_install usb_install \
+-		virtio_install vm_install net_install x86_energy_perf_policy_install \
++		virtio_install vm_install bpf_install x86_energy_perf_policy_install \
+ 		tmon_install freefall_install objtool_install kvm_stat_install
+ 
+ acpi_clean:
+@@ -133,7 +133,7 @@ install: acpi_install cgroup_install cpupower_install gpio_install \
+ cpupower_clean:
+ 	$(call descend,power/cpupower,clean)
+ 
+-cgroup_clean hv_clean firewire_clean spi_clean usb_clean virtio_clean vm_clean net_clean iio_clean gpio_clean objtool_clean leds_clean:
++cgroup_clean hv_clean firewire_clean spi_clean usb_clean virtio_clean vm_clean bpf_clean iio_clean gpio_clean objtool_clean leds_clean:
+ 	$(call descend,$(@:_clean=),clean)
+ 
+ liblockdep_clean:
+@@ -169,7 +169,7 @@ install: acpi_install cgroup_install cpupower_install gpio_install \
+ 
+ clean: acpi_clean cgroup_clean cpupower_clean hv_clean firewire_clean \
+ 		perf_clean selftests_clean turbostat_clean spi_clean usb_clean virtio_clean \
+-		vm_clean net_clean iio_clean x86_energy_perf_policy_clean tmon_clean \
++		vm_clean bpf_clean iio_clean x86_energy_perf_policy_clean tmon_clean \
+ 		freefall_clean build_clean libbpf_clean libsubcmd_clean liblockdep_clean \
+ 		gpio_clean objtool_clean leds_clean
+ 
+diff --git a/tools/net/Makefile b/tools/bpf/Makefile
+similarity index 100%
+rename from tools/net/Makefile
+rename to tools/bpf/Makefile
+diff --git a/tools/net/bpf_asm.c b/tools/bpf/bpf_asm.c
+similarity index 100%
+rename from tools/net/bpf_asm.c
+rename to tools/bpf/bpf_asm.c
+diff --git a/tools/net/bpf_dbg.c b/tools/bpf/bpf_dbg.c
+similarity index 100%
+rename from tools/net/bpf_dbg.c
+rename to tools/bpf/bpf_dbg.c
+diff --git a/tools/net/bpf_exp.l b/tools/bpf/bpf_exp.l
+similarity index 100%
+rename from tools/net/bpf_exp.l
+rename to tools/bpf/bpf_exp.l
+diff --git a/tools/net/bpf_exp.y b/tools/bpf/bpf_exp.y
+similarity index 100%
+rename from tools/net/bpf_exp.y
+rename to tools/bpf/bpf_exp.y
+diff --git a/tools/net/bpf_jit_disasm.c b/tools/bpf/bpf_jit_disasm.c
+similarity index 100%
+rename from tools/net/bpf_jit_disasm.c
+rename to tools/bpf/bpf_jit_disasm.c
+-- 
+2.14.1
