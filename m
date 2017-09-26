@@ -1,55 +1,44 @@
-From: Ed Blake <ed.blake@sondrel.com>
-Subject: [PATCH] net: stmmac: dwmac4: Re-enable MAC Rx before powering down
-Date: Tue, 26 Sep 2017 11:44:53 +0100
-Message-ID: <1506422693-26144-1-git-send-email-ed.blake@sondrel.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
+Date: Tue, 26 Sep 2017 12:49:14 +0200
+Message-ID: <20170926124914.60101ca1@griffin>
+References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
+        <20170925201439.08460295@griffin>
+        <20170926045538.GA5896@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, Ed Blake <ed.blake@sondrel.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dev@openvswitch.org" <dev@openvswitch.org>,
+        "e@erig.me" <e@erig.me>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Pravin Shelar <pshelar@ovn.org>
+To: "Yang, Yi" <yi.y.yang@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0079.outbound.protection.outlook.com ([104.47.2.79]:11460
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S965157AbdIZKpF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 06:45:05 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:35732 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S967914AbdIZKtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 06:49:19 -0400
+In-Reply-To: <20170926045538.GA5896@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Re-enable the MAC receiver by setting CONFIG_RE before powering down,
-as instructed in section 6.3.5.1 of [1].  Without this the MAC fails
-to receive WoL packets and never wakes up.
+On Tue, 26 Sep 2017 12:55:39 +0800, Yang, Yi wrote:
+> After push_nsh, the packet won't be recirculated to flow pipeline, so
+> key->eth.type must be set explicitly here, but for pop_nsh, the packet
+> will be recirculated to flow pipeline, it will be reparsed, so
+> key->eth.type will be set in packet parse function, we needn't handle it
+> in pop_nsh.
 
-[1] DWC Ethernet QoS Databook 4.10a October 2014
+This seems to be a very different approach than what we currently have.
+Looking at the code, the requirement after "destructive" actions such
+as pushing or popping headers is to recirculate.
 
-Signed-off-by: Ed Blake <ed.blake@sondrel.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+Setting key->eth.type to satisfy conditions in the output path without
+updating the rest of the key looks very hacky and fragile to me. There
+might be other conditions and dependencies that are not obvious.
+I don't think the code was written with such code path in mind.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index c4407e8..2f7d7ec 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -296,6 +296,7 @@ static void dwmac4_pmt(struct mac_device_info *hw, unsigned long mode)
- {
- 	void __iomem *ioaddr = hw->pcsr;
- 	unsigned int pmt = 0;
-+	u32 config;
- 
- 	if (mode & WAKE_MAGIC) {
- 		pr_debug("GMAC: WOL Magic frame\n");
-@@ -306,6 +307,12 @@ static void dwmac4_pmt(struct mac_device_info *hw, unsigned long mode)
- 		pmt |= power_down | global_unicast | wake_up_frame_en;
- 	}
- 
-+	if (pmt) {
-+		/* The receiver must be enabled for WOL before powering down */
-+		config = readl(ioaddr + GMAC_CONFIG);
-+		config |= GMAC_CONFIG_RE;
-+		writel(config, ioaddr + GMAC_CONFIG);
-+	}
- 	writel(pmt, ioaddr + GMAC_PMT);
- }
- 
--- 
-1.9.1
+I'd like to hear what Pravin thinks about this.
+
+ Jiri
