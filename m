@@ -1,43 +1,109 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next v10] openvswitch: enable NSH support
-Date: Tue, 26 Sep 2017 13:05:34 +0200
-Message-ID: <20170926130534.170270e3@griffin>
-References: <1506401236-5716-1-git-send-email-yi.y.yang@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e@erig.me, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1506401236-5716-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] lib: fix multiple strlcpy definition
+Date: Tue, 26 Sep 2017 14:08:49 +0300
+Message-ID: <7f5fee59e46bfd3b4acf8ed9a8fbd8c7b4f1cd70.1506424129.git.baruch@tkos.co.il>
+Cc: netdev@vger.kernel.org, Baruch Siach <baruch@tkos.co.il>,
+        Phil Sutter <phil@nwl.cc>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:50031 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S937058AbdIZLJo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 07:09:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Sep 2017 12:47:16 +0800, Yi Yang wrote:
-> +	return ((ret != 0) ? false : true);
+Some C libraries, like uClibc and musl, provide BSD compatible
+strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
+and strlcat when the C library provides them.
 
-I'm not going to review this version but this caught my eye - I pointed
-out this silly construct in my review of v9. I can understand that
-working late in the night and rewriting the code back and forth, one
-could end up with such construct and overlook it at the final
-self-review before submission. Happens to everyone.
+This fixes the following static link error with uClibc-ng:
 
-But leaving this after a review pointed it out means you're not paying
-enough attention to your work. Even the fact that you sent v10 so
-shortly after v9 means you did not spend the needed time on reflecting
-on the review and that you did not properly test the new version. And
-I told you exactly this before.
+.../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
+strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
+../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
+collect2: error: ld returned 1 exit status
 
-Honestly, I'm starting to be tired with reviewing your patch again and
-again and pointing out silly mistakes like this one and repeating basic
-things to you again and again.
+Cc: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+---
+ configure    | 24 ++++++++++++++++++++++++
+ lib/Makefile |  4 ++++
+ lib/utils.c  |  2 ++
+ 3 files changed, 30 insertions(+)
 
- Jiri
+diff --git a/configure b/configure
+index 7be8fb113cc9..787b2e061af9 100755
+--- a/configure
++++ b/configure
+@@ -326,6 +326,27 @@ EOF
+     rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
+ }
+ 
++check_strlcpy()
++{
++    cat >$TMPDIR/strtest.c <<EOF
++#include <string.h>
++int main(int argc, char **argv) {
++	char dst[10];
++	strlcpy("test", dst, sizeof(dst));
++	return 0;
++}
++EOF
++    $CC -I$INCLUDE -o $TMPDIR/strtest $TMPDIR/strtest.c >/dev/null 2>&1
++    if [ $? -eq 0 ]
++    then
++	echo "no"
++    else
++	echo "NEED_STRLCPY:=y" >>$CONFIG
++	echo "yes"
++    fi
++    rm -f $TMPDIR/strtest.c $TMPDIR/strtest
++}
++
+ quiet_config()
+ {
+ 	cat <<EOF
+@@ -397,6 +418,9 @@ check_mnl
+ echo -n "Berkeley DB: "
+ check_berkeley_db
+ 
++echo -n "need for strlcpy: "
++check_strlcpy
++
+ echo
+ echo -n "docs:"
+ check_docs
+diff --git a/lib/Makefile b/lib/Makefile
+index 0fbdf4c31f50..132ad00c3335 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -1,5 +1,9 @@
+ include ../config.mk
+ 
++ifeq ($(NEED_STRLCPY),y)
++	CFLAGS += -DNEED_STRLCPY
++endif
++
+ CFLAGS += -fPIC
+ 
+ UTILOBJ = utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o \
+diff --git a/lib/utils.c b/lib/utils.c
+index bbd3cbc46a0e..240e7426a810 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -1231,6 +1231,7 @@ int get_real_family(int rtm_type, int rtm_family)
+ 	return rtm_family;
+ }
+ 
++#ifdef NEED_STRLCPY
+ size_t strlcpy(char *dst, const char *src, size_t size)
+ {
+ 	size_t srclen = strlen(src);
+@@ -1253,3 +1254,4 @@ size_t strlcat(char *dst, const char *src, size_t size)
+ 
+ 	return dlen + strlcpy(dst + dlen, src, size - dlen);
+ }
++#endif
+-- 
+2.14.1
