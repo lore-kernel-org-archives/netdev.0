@@ -1,104 +1,74 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH net-next] net-next/hinic: Set Rxq irq to specific cpu for NUMA
-Date: Wed, 27 Sep 2017 01:57:50 +0800
-Message-ID: <1506448670-51213-1-git-send-email-aviad.krawczyk@huawei.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: lock mutex when freeing IRQs
+Date: Tue, 26 Sep 2017 20:01:36 +0200
+Message-ID: <20170926180136.GD3325@lunn.ch>
+References: <20170926174837.15999-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        Aviad Krawczyk <aviad.krawczyk@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([185.16.172.187]:56664 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965237AbdIZSBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 14:01:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20170926174837.15999-1-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Set Rxq irq to specific cpu for allocating and receiving the skb from
-the same node.
+On Tue, Sep 26, 2017 at 01:48:37PM -0400, Vivien Didelot wrote:
+> mv88e6xxx_g2_irq_free locks the registers mutex, but not
+> mv88e6xxx_g1_irq_free, which results in a stack trace from
+> assert_reg_lock when unloading the mv88e6xxx module. Fix this.
+> 
+> Fixes: 3460a5770ce9 ("net: dsa: mv88e6xxx: Mask g1 interrupts and free interrupt")
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index c6678aa9b4ef..b4359e4e5165 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> @@ -338,9 +338,11 @@ static void mv88e6xxx_g1_irq_free(struct mv88e6xxx_chip *chip)
+>  	int irq, virq;
+>  	u16 mask;
+>  
+> +	mutex_lock(&chip->reg_lock);
+>  	mv88e6xxx_g1_read(chip, MV88E6XXX_G1_CTL1, &mask);
+>  	mask |= GENMASK(chip->g1_irq.nirqs, 0);
+>  	mv88e6xxx_g1_write(chip, MV88E6XXX_G1_CTL1, mask);
+> +	mutex_unlock(&chip->reg_lock);
+>  
+>  	free_irq(chip->irq, chip);
+>  
 
-Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
----
- drivers/net/ethernet/huawei/hinic/hinic_rx.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+Hi Vivien
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_rx.c b/drivers/net/ethernet/huawei/hinic/hinic_rx.c
-index 1d4f712..e2e5cdc 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_rx.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_rx.c
-@@ -26,6 +26,7 @@
- #include <linux/skbuff.h>
- #include <linux/dma-mapping.h>
- #include <linux/prefetch.h>
-+#include <linux/cpumask.h>
- #include <asm/barrier.h>
- 
- #include "hinic_common.h"
-@@ -171,11 +172,10 @@ static int rx_alloc_pkts(struct hinic_rxq *rxq)
- 	struct hinic_sge sge;
- 	dma_addr_t dma_addr;
- 	struct sk_buff *skb;
--	int i, alloc_more;
- 	u16 prod_idx;
-+	int i;
- 
- 	free_wqebbs = hinic_get_rq_free_wqebbs(rxq->rq);
--	alloc_more = 0;
- 
- 	/* Limit the allocation chunks */
- 	if (free_wqebbs > nic_dev->rx_weight)
-@@ -185,7 +185,6 @@ static int rx_alloc_pkts(struct hinic_rxq *rxq)
- 		skb = rx_alloc_skb(rxq, &dma_addr);
- 		if (!skb) {
- 			netdev_err(rxq->netdev, "Failed to alloc Rx skb\n");
--			alloc_more = 1;
- 			goto skb_out;
- 		}
- 
-@@ -195,7 +194,6 @@ static int rx_alloc_pkts(struct hinic_rxq *rxq)
- 					  &prod_idx);
- 		if (!rq_wqe) {
- 			rx_free_skb(rxq, skb, dma_addr);
--			alloc_more = 1;
- 			goto skb_out;
- 		}
- 
-@@ -211,9 +209,7 @@ static int rx_alloc_pkts(struct hinic_rxq *rxq)
- 		hinic_rq_update(rxq->rq, prod_idx);
- 	}
- 
--	if (alloc_more)
--		tasklet_schedule(&rxq->rx_task);
--
-+	tasklet_schedule(&rxq->rx_task);
- 	return i;
- }
- 
-@@ -357,7 +353,7 @@ static int rxq_recv(struct hinic_rxq *rxq, int budget)
- 	}
- 
- 	if (pkts)
--		tasklet_schedule(&rxq->rx_task); /* hinic_rx_alloc_pkts */
-+		tasklet_schedule(&rxq->rx_task); /* rx_alloc_pkts */
- 
- 	u64_stats_update_begin(&rxq->rxq_stats.syncp);
- 	rxq->rxq_stats.pkts += pkts;
-@@ -417,6 +413,8 @@ static int rx_request_irq(struct hinic_rxq *rxq)
- 	struct hinic_dev *nic_dev = netdev_priv(rxq->netdev);
- 	struct hinic_hwdev *hwdev = nic_dev->hwdev;
- 	struct hinic_rq *rq = rxq->rq;
-+	struct hinic_qp *qp;
-+	struct cpumask mask;
- 	int err;
- 
- 	rx_add_napi(rxq);
-@@ -432,7 +430,9 @@ static int rx_request_irq(struct hinic_rxq *rxq)
- 		return err;
- 	}
- 
--	return 0;
-+	qp = container_of(rq, struct hinic_qp, rq);
-+	cpumask_set_cpu(qp->q_id % num_online_cpus(), &mask);
-+	return irq_set_affinity_hint(rq->irq, &mask);
- }
- 
- static void rx_free_irq(struct hinic_rxq *rxq)
--- 
-1.9.1
+static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+{
+
+...
+
+out_g1_irq:
+	if (chip->irq > 0) {
+		mutex_lock(&chip->reg_lock);
+		mv88e6xxx_g1_irq_free(chip);
+		mutex_unlock(&chip->reg_lock);
+	}
+
+It looks like this will deadlock?
+
+In general, i tried to keep the mutex out of the interrupt code.  That
+is not totally possible, the IRQ thread handler needs it. But
+otherwise, the IRQ code assumes it is called with the mutex taken.
+
+So i think it is better to hold the mutex in mv88e6xxx_remove() when
+calling mv88e6xxx_g1_irq_free().
+
+   Andrew
