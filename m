@@ -1,86 +1,106 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
-Date: Tue, 26 Sep 2017 16:50:10 +0200
-Message-ID: <1506437410.2643.17.camel@redhat.com>
-References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
-         <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
-         <20170925170451.GD18763@vergenet.net> <20170926121509.50a32571@griffin>
-         <CAJ3xEMjEAhzC5=S7-dx8RiS=E7gYBBrtWY=9Cvqj-K3kyT9o3A@mail.gmail.com>
-         <20170926145143.28bf52bd@griffin>
-         <CAJ3xEMjOkF7vKHY=+q1dHXGdsyEXFPUa6dsGD_-M3+TX=DNouA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>, Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50796 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967571AbdIZOuQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 10:50:16 -0400
-In-Reply-To: <CAJ3xEMjOkF7vKHY=+q1dHXGdsyEXFPUa6dsGD_-M3+TX=DNouA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Potapenko <glider@google.com>
+Subject: [PATCH] tun: bail out from tun_get_user() if the skb is empty
+Date: Tue, 26 Sep 2017 16:53:59 +0200
+Message-ID: <20170926145359.28344-1-glider@google.com>
+Cc: dvyukov@google.com, syzkaller@googlegroups.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, edumazet@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-09-26 at 17:17 +0300, Or Gerlitz wrote:
-> On Tue, Sep 26, 2017 at 3:51 PM, Jiri Benc <jbenc@redhat.com> wrote:
-> > On Tue, 26 Sep 2017 15:41:37 +0300, Or Gerlitz wrote:
-> > > Please note that the way the rule is being set to the HW driver is by delegation
-> > > done in flower, see these commits (specifically "Add offload support
-> > > using egress Hardware device")
-> > 
-> > It's very well possible the bug is somewhere in net/sched.
-> 
-> maybe before/instead you call it a bug, take a look on the design
-> there and maybe
-> tell us how to possibly do that otherwise?
+KMSAN (https://github.com/google/kmsan) reported accessing uninitialized
+skb->data[0] in the case the skb is empty (i.e. skb->len is 0):
 
-The problem, AFAICT, is in the API between flower and NIC implementing
-the offload, because in the above example the kernel will call the
-offload hook with exactly the same arguments with the 'bad' rule and
-the 'good' one - but the 'bad' rule should never match any packets.
+================================================
+BUG: KMSAN: use of uninitialized memory in tun_get_user+0x19ba/0x3770
+CPU: 0 PID: 3051 Comm: probe Not tainted 4.13.0+ #3140
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Call Trace:
+...
+ __msan_warning_32+0x66/0xb0 mm/kmsan/kmsan_instr.c:477
+ tun_get_user+0x19ba/0x3770 drivers/net/tun.c:1301
+ tun_chr_write_iter+0x19f/0x300 drivers/net/tun.c:1365
+ call_write_iter ./include/linux/fs.h:1743
+ new_sync_write fs/read_write.c:457
+ __vfs_write+0x6c3/0x7f0 fs/read_write.c:470
+ vfs_write+0x3e4/0x770 fs/read_write.c:518
+ SYSC_write+0x12f/0x2b0 fs/read_write.c:565
+ SyS_write+0x55/0x80 fs/read_write.c:557
+ do_syscall_64+0x242/0x330 arch/x86/entry/common.c:284
+ entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:245
+...
+origin:
+...
+ kmsan_poison_shadow+0x6e/0xc0 mm/kmsan/kmsan.c:211
+ slab_alloc_node mm/slub.c:2732
+ __kmalloc_node_track_caller+0x351/0x370 mm/slub.c:4351
+ __kmalloc_reserve net/core/skbuff.c:138
+ __alloc_skb+0x26a/0x810 net/core/skbuff.c:231
+ alloc_skb ./include/linux/skbuff.h:903
+ alloc_skb_with_frags+0x1d7/0xc80 net/core/skbuff.c:4756
+ sock_alloc_send_pskb+0xabf/0xfe0 net/core/sock.c:2037
+ tun_alloc_skb drivers/net/tun.c:1144
+ tun_get_user+0x9a8/0x3770 drivers/net/tun.c:1274
+ tun_chr_write_iter+0x19f/0x300 drivers/net/tun.c:1365
+ call_write_iter ./include/linux/fs.h:1743
+ new_sync_write fs/read_write.c:457
+ __vfs_write+0x6c3/0x7f0 fs/read_write.c:470
+ vfs_write+0x3e4/0x770 fs/read_write.c:518
+ SYSC_write+0x12f/0x2b0 fs/read_write.c:565
+ SyS_write+0x55/0x80 fs/read_write.c:557
+ do_syscall_64+0x242/0x330 arch/x86/entry/common.c:284
+ return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:245
+================================================
 
-I think that can be fixed changing the flower code to invoke the
-offload hook for filters with tunnel-based match only if the device
-specified in such match has the appropriate type, e.g. given that
-currently only vxlan is supported with something like the code below
-(very rough and untested, just to give the idea):
+Make sure tun_get_user() doesn't touch skb->data[0] unless there is
+actual data.
 
-Cheers,
+C reproducer below:
+==========================
+    // autogenerated by syzkaller (http://github.com/google/syzkaller)
 
-Paolo
+    #define _GNU_SOURCE
 
+    #include <fcntl.h>
+    #include <linux/if_tun.h>
+    #include <netinet/ip.h>
+    #include <net/if.h>
+    #include <string.h>
+    #include <sys/ioctl.h>
+
+    int main()
+    {
+      int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_IP);
+      int tun_fd = open("/dev/net/tun", O_RDWR);
+      struct ifreq req;
+      memset(&req, 0, sizeof(struct ifreq));
+      strcpy((char*)&req.ifr_name, "gre0");
+      req.ifr_flags = IFF_UP | IFF_MULTICAST;
+      ioctl(tun_fd, TUNSETIFF, &req);
+      ioctl(sock, SIOCSIFFLAGS, "gre0");
+      write(tun_fd, "hi", 0);
+      return 0;
+    }
+==========================
+
+Signed-off-by: Alexander Potapenko <glider@google.com>
 ---
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index d230cb4c8094..ff8476e56d4e 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -243,10 +243,11 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
-                                struct fl_flow_key *mask,
-                                struct cls_fl_filter *f)
- {
--       struct net_device *dev = tp->q->dev_queue->dev;
-+       struct net_device *ingress_dev, *dev = tp->q->dev_queue->dev;
-        struct tc_cls_flower_offload cls_flower = {};
-        int err;
- 
-+       ingress_dev = dev;
-        if (!tc_can_offload(dev)) {
-                if (tcf_exts_get_dev(dev, &f->exts, &f->hw_dev) ||
-                    (f->hw_dev && !tc_can_offload(f->hw_dev))) {
-@@ -259,6 +260,12 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
-                f->hw_dev = dev;
-        }
- 
-+       if ((dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ENC_KEYID) ||
-+            dissector_uses_key(f->dissector, FLOW_DISSECTOR_KEY_ENC_PORTS) ||
-+             // ... list all the others tunnel based keys ...
-+             ) && strcmp(ingress_dev->rtnl_link_ops->kind, "vxlan"))
-+               return tc_skip_sw(f->flags) ? -EINVAL : 0;
-+
+ drivers/net/tun.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 3c9985f29950..25d96f54a729 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1496,6 +1496,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case IFF_TUN:
+ 		if (tun->flags & IFF_NO_PI) {
++			if (!skb->len)
++				return -EINVAL;
+ 			switch (skb->data[0] & 0xf0) {
+ 			case 0x40:
+ 				pi.proto = htons(ETH_P_IP);
+-- 
+2.14.1.821.g8fa685d3b7-goog
