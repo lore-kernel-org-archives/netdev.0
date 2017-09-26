@@ -1,74 +1,60 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [PATCH][next] ieee802154: atusb: make two structures static,
- fixes warnings
-Date: Tue, 26 Sep 2017 15:45:09 +0200
-Message-ID: <44e984b7-7d41-2c96-30cc-f4b84dd1aa3d@osg.samsung.com>
-References: <20170926131836.15171-1-colin.king@canonical.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next RFC 0/5] batched tx processing in vhost_net
+Date: Tue, 26 Sep 2017 16:45:54 +0300
+Message-ID: <20170926164055-mutt-send-email-mst@kernel.org>
+References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Alexander Aring <alex.aring@gmail.com>,
-        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170926131836.15171-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, Sep 22, 2017 at 04:02:30PM +0800, Jason Wang wrote:
+> Hi:
+> 
+> This series tries to implement basic tx batched processing. This is
+> done by prefetching descriptor indices and update used ring in a
+> batch. This intends to speed up used ring updating and improve the
+> cache utilization.
 
-On 09/26/2017 03:18 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The arrays atusb_chip_data and hulusb_chip_data are local to the source
-> and do not need to be in global scope, so make them static. Also
-> remove unnecessary forward declaration of atusb_chip_data.
-> 
-> Cleans up sparse warnings:
-> symbol 'atusb_chip_data' was not declared. Should it be static?
-> symbol 'hulusb_chip_data' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ieee802154/atusb.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
-> index 115fa3f37a86..8b0718de568f 100644
-> --- a/drivers/net/ieee802154/atusb.c
-> +++ b/drivers/net/ieee802154/atusb.c
-> @@ -45,8 +45,6 @@
->  #define ATUSB_ALLOC_DELAY_MS	100	/* delay after failed allocation */
->  #define ATUSB_TX_TIMEOUT_MS	200	/* on the air timeout */
->  
-> -struct atusb_chip_data;
-> -
->  struct atusb {
->  	struct ieee802154_hw *hw;
->  	struct usb_device *usb_dev;
-> @@ -767,14 +765,14 @@ atusb_set_promiscuous_mode(struct ieee802154_hw *hw, const bool on)
->  	return 0;
->  }
->  
-> -struct atusb_chip_data atusb_chip_data = {
-> +static struct atusb_chip_data atusb_chip_data = {
->  	.t_channel_switch = 1,
->  	.rssi_base_val = -91,
->  	.set_txpower = atusb_set_txpower,
->  	.set_channel = atusb_set_channel,
->  };
->  
-> -struct atusb_chip_data hulusb_chip_data = {
-> +static struct atusb_chip_data hulusb_chip_data = {
->  	.t_channel_switch = 11,
->  	.rssi_base_val = -100,
->  	.set_txpower = hulusb_set_txpower,
-> 
+Interesting, thanks for the patches. So IIUC most of the gain is really
+overcoming some of the shortcomings of virtio 1.0 wrt cache utilization?
 
-This patch has been applied to the wpan-next tree and will be
-part of the next pull request to net-next. Thanks!
+Which is fair enough (1.0 is already deployed) but I would like to avoid
+making 1.1 support harder, and this patchset does this unfortunately,
+see comments on individual patches. I'm sure it can be addressed though.
 
-regards
-Stefan Schmidt
+> Test shows about ~22% improvement in tx pss.
+
+Is this with or without tx napi in guest?
+
+> Please review.
+> 
+> Jason Wang (5):
+>   vhost: split out ring head fetching logic
+>   vhost: introduce helper to prefetch desc index
+>   vhost: introduce vhost_add_used_idx()
+>   vhost_net: rename VHOST_RX_BATCH to VHOST_NET_BATCH
+>   vhost_net: basic tx virtqueue batched processing
+> 
+>  drivers/vhost/net.c   | 221 ++++++++++++++++++++++++++++----------------------
+>  drivers/vhost/vhost.c | 165 +++++++++++++++++++++++++++++++------
+>  drivers/vhost/vhost.h |   9 ++
+>  3 files changed, 270 insertions(+), 125 deletions(-)
+> 
+> -- 
+> 2.7.4
