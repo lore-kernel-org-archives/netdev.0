@@ -1,33 +1,106 @@
-From: AceLan Kao <acelan.kao@canonical.com>
-Subject: Re: [PATCH 2/6] ath9k: add a quirk to set use_msi automatically
-Date: Tue, 26 Sep 2017 15:26:51 +0800
-Message-ID: <CAFv23Qm9kZLSqJ_BP1D7mWCxekq0nt3S8onT1ckH-AoHDBUDzw@mail.gmail.com>
-References: <1506408099-18488-1-git-send-email-acelan.kao@canonical.com>
- <1506408099-18488-2-git-send-email-acelan.kao@canonical.com> <20170926064456.GA28611@infradead.org>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Tue, 26 Sep 2017 15:29:03 +0800
+Message-ID: <f51575b6-b8dc-2f70-2662-48d70b572565@huawei.com>
+References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
+ <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
+ <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Yuval Mintz <yuvalm@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926064456.GA28611@infradead.org>
+In-Reply-To: <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ath9k is an old driver for old chips, and they work fine with legacy INTx.
-But some new platforms are using it, so I think we should list those
-new platforms which blocks INTx in the driver.
+Hi, Yuval
 
-BTW, new chips use ath10k driver.
+On 2017/9/26 14:43, Yuval Mintz wrote:
+>> When using tc qdisc to configure DCB parameter, dcb_ops->setup_tc
+>> is used to tell hclge_dcb module to do the setup.
+> 
+> While this might be a step in the right direction, this causes an inconsistency
+> in user experience - Some [well, most] vendors didn't allow the mqprio
+> priority mapping to affect DCB, instead relying on the dcbnl functionality
+> to control that configuration.
+> 
+> A couple of options to consider:
+>   - Perhaps said logic shouldn't be contained inside the driver but rather
+>      in mqprio logic itself. I.e., rely on DCBNL functionality [if available] from
+>      within mqprio and try changing the configuration. 
+>   - Add a new TC_MQPRIO_HW_OFFLOAD_ value to explicitly reflect user
+>      request to allow this configuration to affect DCB.
+> 
+>> When using lldptool to configure DCB parameter, hclge_dcb module
+>> call the client_ops->setup_tc to tell network stack which queue
+>> and priority is using for specific tc.
+> 
+> You're basically bypassing the mqprio logic.
+> Since you're configuring the prio->queue mapping from DCB flow,
+> you'll get an mqprio-like behavior [meaning a transmitted packet
+> would reach a transmission queue associated with its priority] even
+> if device wasn't grated with an mqprio qdisc.
+> Why should your user even use mqprio? What benefit does he get from it?
 
-2017-09-26 14:44 GMT+08:00 Christoph Hellwig <hch@infradead.org>:
-> On Tue, Sep 26, 2017 at 02:41:35PM +0800, AceLan Kao wrote:
->> Some platform(BIOS) blocks legacy interrupts (INTx), and only allows MSI
->> for WLAN device. So adding a quirk to list those machines and set
->> use_msi automatically.
->> Adding Dell Inspiron 24-3460 to the quirk.
->
-> Huh?  Using MSI should be the default, and skipping MSI should be
-> a quirk if needed at all (usually it should be autodetected)
+
+When adding mqprio and lldptool support, I was thinking user can use
+tc qdisc or lldptool to do the configuration, giving user two option to
+setup the DCB.
+
+If user is only tc qdisc or lldptool, I think there is no problem here.
+
+when user is using tc qdisc and lldptool, As you explained above, When
+tc qdisc changes the configuration, there should be a way to notify dcbnl,
+so that the dcbnl can response correctly(like tell the peer it's configuration
+has changed).
+
+I will try to find if there is a way to do notify the dcbnl when using tc qdisc
+to setup the configuration.
+If there is not a way to do it now, then I will drop the mqprio in this patch, and
+will address this problem if there is need for the tc qdisc.
+
+Please let me know if I was misunderstood.
+And thanks for your time reviewing.
+
+> 
+> ...
+> 
+>> +static int hns3_nic_set_real_num_queue(struct net_device *netdev)
+>> +{
+>> +	struct hns3_nic_priv *priv = netdev_priv(netdev);
+>> +	struct hnae3_handle *h = priv->ae_handle;
+>> +	struct hnae3_knic_private_info *kinfo = &h->kinfo;
+>> +	unsigned int queue_size = kinfo->rss_size * kinfo->num_tc;
+>> +	int ret;
+>> +
+>> +	ret = netif_set_real_num_tx_queues(netdev, queue_size);
+>> +	if (ret) {
+>> +		netdev_err(netdev,
+>> +			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
+>> +			   ret);
+>> +		return ret;
+>> +	}
+>> +
+>> +	ret = netif_set_real_num_rx_queues(netdev, queue_size);
+> 
+> I don't think you're changing the driver behavior, but why are you setting
+> the real number of rx queues based on the number of TCs?
+> Do you actually open (TC x RSS) Rx queues?
+> 
+> .
+> 
