@@ -1,37 +1,63 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next] ldmvsw: Remove redundant unlikely()
-Date: Tue, 26 Sep 2017 15:14:15 +0200
-Message-ID: <20170926131415.8649-1-tklauser@distanz.ch>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Shannon Nelson <shannon.nelson@oracle.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:51040 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967312AbdIZNOS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 09:14:18 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][next] ieee802154: atusb: make two structures static, fixes warnings
+Date: Tue, 26 Sep 2017 14:18:36 +0100
+Message-ID: <20170926131836.15171-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stefan Schmidt <stefan@osg.samsung.com>,
+        Alexander Aring <alex.aring@gmail.com>,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IS_ERR() already implies unlikely(), so it can be omitted.
+From: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+The arrays atusb_chip_data and hulusb_chip_data are local to the source
+and do not need to be in global scope, so make them static. Also
+remove unnecessary forward declaration of atusb_chip_data.
+
+Cleans up sparse warnings:
+symbol 'atusb_chip_data' was not declared. Should it be static?
+symbol 'hulusb_chip_data' was not declared. Should it be static?
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/sun/ldmvsw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ieee802154/atusb.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
-index 5b56c24b6ed2..5feeaa9f0a9e 100644
---- a/drivers/net/ethernet/sun/ldmvsw.c
-+++ b/drivers/net/ethernet/sun/ldmvsw.c
-@@ -307,7 +307,7 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+diff --git a/drivers/net/ieee802154/atusb.c b/drivers/net/ieee802154/atusb.c
+index 115fa3f37a86..8b0718de568f 100644
+--- a/drivers/net/ieee802154/atusb.c
++++ b/drivers/net/ieee802154/atusb.c
+@@ -45,8 +45,6 @@
+ #define ATUSB_ALLOC_DELAY_MS	100	/* delay after failed allocation */
+ #define ATUSB_TX_TIMEOUT_MS	200	/* on the air timeout */
  
- 	/* Get (or create) the vnet associated with this port */
- 	vp = vsw_get_vnet(hp, vdev->mp, &handle);
--	if (unlikely(IS_ERR(vp))) {
-+	if (IS_ERR(vp)) {
- 		err = PTR_ERR(vp);
- 		pr_err("Failed to get vnet for vsw-port\n");
- 		mdesc_release(hp);
+-struct atusb_chip_data;
+-
+ struct atusb {
+ 	struct ieee802154_hw *hw;
+ 	struct usb_device *usb_dev;
+@@ -767,14 +765,14 @@ atusb_set_promiscuous_mode(struct ieee802154_hw *hw, const bool on)
+ 	return 0;
+ }
+ 
+-struct atusb_chip_data atusb_chip_data = {
++static struct atusb_chip_data atusb_chip_data = {
+ 	.t_channel_switch = 1,
+ 	.rssi_base_val = -91,
+ 	.set_txpower = atusb_set_txpower,
+ 	.set_channel = atusb_set_channel,
+ };
+ 
+-struct atusb_chip_data hulusb_chip_data = {
++static struct atusb_chip_data hulusb_chip_data = {
+ 	.t_channel_switch = 11,
+ 	.rssi_base_val = -100,
+ 	.set_txpower = hulusb_set_txpower,
 -- 
-2.13.0
+2.14.1
+
