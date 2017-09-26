@@ -1,53 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 2/3] ipv4: Namespaceify tcp_fastopen_key knob
-Date: Tue, 26 Sep 2017 11:18:51 -0700 (PDT)
-Message-ID: <20170926.111851.1172660559080066162.davem@davemloft.net>
-References: <1506088124-12650-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <20170925.162445.234890912211240693.davem@davemloft.net>
-        <F9EA5C4F-2306-4BC5-923A-3AB1D8F50FF1@cmss.chinamobile.com>
+Subject: Re: [PATCH v2 net-next 0/4] qed: iWARP fixes and enhancements
+Date: Tue, 26 Sep 2017 11:22:19 -0700 (PDT)
+Message-ID: <20170926.112219.189095905256832710.davem@davemloft.net>
+References: <1506244185-2129-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
-        lucab@debian.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F9EA5C4F-2306-4BC5-923A-3AB1D8F50FF1@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leon@kernel.org,
+        linux-rdma@vger.kernel.org, dledford@redhat.com,
+        Ariel.Elior@cavium.com
+To: Michal.Kalderon@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33966 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966343AbdIZSWU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 14:22:20 -0400
+In-Reply-To: <1506244185-2129-1-git-send-email-Michal.Kalderon@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTog5Lil5rW35Y+MIDx5YW5oYWlzaHVhbmdAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
-OiBUdWUsIDI2IFNlcCAyMDE3IDA5OjI1OjUxICswODAwDQoNCj4+IE9uIDIwMTflubQ55pyIMjbm
-l6UsIGF0IOS4iuWNiDc6MjQsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3Jv
-dGU6DQo+PiANCj4+IEZyb206IEhhaXNodWFuZyBZYW4gPHlhbmhhaXNodWFuZ0BjbXNzLmNoaW5h
-bW9iaWxlLmNvbT4NCj4+IERhdGU6IEZyaSwgMjIgU2VwIDIwMTcgMjE6NDg6NDMgKzA4MDANCj4+
-IA0KPj4+IEBAIC05LDEzICs5LDE4IEBADQo+Pj4gI2luY2x1ZGUgPG5ldC9pbmV0cGVlci5oPg0K
-Pj4+ICNpbmNsdWRlIDxuZXQvdGNwLmg+DQo+Pj4gDQo+Pj4gLXN0cnVjdCB0Y3BfZmFzdG9wZW5f
-Y29udGV4dCBfX3JjdSAqdGNwX2Zhc3RvcGVuX2N0eDsNCj4+PiAtDQo+Pj4gLXN0YXRpYyBERUZJ
-TkVfU1BJTkxPQ0sodGNwX2Zhc3RvcGVuX2N0eF9sb2NrKTsNCj4+PiAtDQo+Pj4gLXZvaWQgdGNw
-X2Zhc3RvcGVuX2luaXRfa2V5X29uY2UoYm9vbCBwdWJsaXNoKQ0KPj4+ICt2b2lkIHRjcF9mYXN0
-b3Blbl9pbml0X2tleV9vbmNlKHN0cnVjdCBuZXQgKm5ldCkNCj4+IA0KPj4gV2h5IGRpZCB5b3Ug
-cmVtb3ZlIHRoZSAncHVibGlzaCcgbG9naWMgZnJvbSB0aGlzIGZ1bmN0aW9uPw0KPj4gDQo+IA0K
-PiBJIHRoaW5rIHRoaXMgbG9naWMgaXMgbm90IG5lY2Vzc2FyeSBub3csIGluIHByb2NfdGNwX2Zh
-c3RvcGVuX2tleSwgSSBoYXZlIHJlbW92ZWQgDQo+IHRjcF9mYXN0b3Blbl9pbml0X2tleV9vbmNl
-KGZhbHNlKSB3aGVyZSB0aGUg4oCYcHVibGlzaOKAmSBpcyBmYWxzZToNCj4gDQo+IC0JCS8qIEdl
-bmVyYXRlIGEgZHVtbXkgc2VjcmV0IGJ1dCBkb24ndCBwdWJsaXNoIGl0LiBUaGlzDQo+IC0JCSAq
-IGlzIG5lZWRlZCBzbyB3ZSBkb24ndCByZWdlbmVyYXRlIGEgbmV3IGtleSBvbiB0aGUNCj4gLQkJ
-ICogZmlyc3QgaW52b2NhdGlvbiBvZiB0Y3BfZmFzdG9wZW5fY29va2llX2dlbg0KPiAtCQkgKi8N
-Cj4gLQkJdGNwX2Zhc3RvcGVuX2luaXRfa2V5X29uY2UoZmFsc2UpOw0KPiAtCQl0Y3BfZmFzdG9w
-ZW5fcmVzZXRfY2lwaGVyKHVzZXJfa2V5LCBUQ1BfRkFTVE9QRU5fS0VZX0xFTkdUSCk7DQo+ICsJ
-CXRjcF9mYXN0b3Blbl9yZXNldF9jaXBoZXIobmV0LCB1c2VyX2tleSwgVENQX0ZBU1RPUEVOX0tF
-WV9MRU5HVEgpOw0KPiANCj4gSXQgc2FpZCB3ZSBkb24ndCByZWdlbmVyYXRlIGEgbmV3IGtleSBv
-biBmaXJzdCBpbnZvY2F0aW9uIG9mIHRjcF9mYXN0b3Blbl9jb29raWVfZ2VuLCANCj4gYnV0IGlu
-IHRjcF9mYXN0b3Blbl9jb29raWVfZ2Vu77yMaXQgZGlkbuKAmXQgIGNhbGwgdGNwX2Zhc3RvcGVu
-X2luaXRfa2V5X29uY2Ugc2luY2UNCj4gZnJvbSBjb21taXQgZGZlYTJhYTY1NDI0MyAodGNwOiBE
-byBub3QgY2FsbCB0Y3BfZmFzdG9wZW5fcmVzZXRfY2lwaGVyIGZyb20gaW50ZXJydXB0IGNvbnRl
-eHQp77yaDQo+IA0KPiBBbmQgaW4gb3RoZXIgcGxhY2VzIHdoZXJlIGNhbGwgdGNwX2Zhc3RvcGVu
-X2luaXRfa2V5X29uY2UsIHRoZSDigJhwdWJsaXNo4oCZIGlzIGFsd2F5cyB0cnVlOg0KDQpPaywg
-dGhpcyBzaW1wbGlmaWNhdGlvbiBzZWVtcyBsZWdpdGltYXRlLg0KDQpCdXQgaXQgaXMgdW5yZWxh
-dGVkIHRvIHRoaXMgbmFtZXNwYWNpZmljYXRpb24uICBTbyBpdCBzaG91bGQgYmUgaW4gYSBzZXBh
-cmF0ZSBwYXRjaCwNCmFuZCBzaG91bGQgYmUgZG9jdW1lbnRlZCB3ZWxsIGluIHRoZSBjb21taXQg
-bWVzc2FnZSB1c2luZyB0aGUgZ3JlYXQgZXhwbGFuYXRpb24geW91DQpnYXZlIHRvIG1lIGFib3Zl
-Lg0KDQpQbGVhc2UgcmVzcGluIHRoaXMgc2VyaWVzLCB3aXRoIHRoaXMgcGF0Y2ggIzIgc3BsaXQg
-dXAgaW50byB0d28gY2hhbmdlcy4NCg0KVGhhbmsgeW91Lg0K
+From: Michal Kalderon <Michal.Kalderon@cavium.com>
+Date: Sun, 24 Sep 2017 12:09:41 +0300
+
+> This patch series includes several fixes and enhancements
+> related to iWARP.
+> 
+> Patch #1 is actually the last of the initial iWARP submission.
+> It has been delayed until now as I wanted to make sure that qedr
+> supports iWARP prior to enabling iWARP device detection.
+> 
+> iWARP changes in RDMA tree have been accepted and targeted at
+> kernel 4.15, therefore, all iWARP fixes for this cycle are
+> submitted to net-next.
+> 
+> Changes from v1->v2 
+>   - Added "Fixes:" tag to commit message of patch #3
+> 
+> Signed-off by: Michal.Kalderon@cavium.com
+> Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
+
+Series applied, thanks Michal.
