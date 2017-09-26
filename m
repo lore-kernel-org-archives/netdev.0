@@ -1,60 +1,51 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: speedup netns create/delete time
-Date: Tue, 26 Sep 2017 05:51:16 -0700
-Message-ID: <CANn89i+LE6He_E3VHwUTpLAVW+uUGo+FPs_zg1bs4P3CVcCL6Q@mail.gmail.com>
-References: <20170919232709.14690-1-edumazet@google.com> <8edb310a-562d-bff1-0482-64314833e722@mellanox.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
+Date: Tue, 26 Sep 2017 14:51:43 +0200
+Message-ID: <20170926145143.28bf52bd@griffin>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+        <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
+        <20170925170451.GD18763@vergenet.net>
+        <20170926121509.50a32571@griffin>
+        <CAJ3xEMjEAhzC5=S7-dx8RiS=E7gYBBrtWY=9Cvqj-K3kyT9o3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Majd Dibbiny <majd@mellanox.com>,
-        Yonatan Cohen <yonatanc@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>
-To: Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f181.google.com ([209.85.161.181]:55059 "EHLO
-        mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966144AbdIZMvS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:51:18 -0400
-Received: by mail-yw0-f181.google.com with SMTP id w9so6965036ywi.11
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 05:51:17 -0700 (PDT)
-In-Reply-To: <8edb310a-562d-bff1-0482-64314833e722@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43114 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966144AbdIZMvs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 08:51:48 -0400
+In-Reply-To: <CAJ3xEMjEAhzC5=S7-dx8RiS=E7gYBBrtWY=9Cvqj-K3kyT9o3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 26, 2017 at 4:21 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->
->
-> Hi Eric,
->
-> We see a regression introduced in this series, specifically in the patches
-> touching lib/kobject_uevent.c.
-> We tried to figure out what is wrong there, but couldn't point it out.
->
-> Bug is that mlx4 driver restart fails, because mlx4_core is still in use.
-> According to module dependencies, both mlx4_en and mlx4_ib should have been
-> unloaded at this point
-> Please see log below.
->
-> This looks to be some kind of a race, as the repro is not deterministic.
-> Probably the en/ib modules are now mistakenly reloaded.
->
-> Any idea what could this be?
->
-> Regards,
-> Tariq
->
->
-> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
-> Unloading HCA driver:                                      [  OK  ]
-> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd start
-> Loading HCA driver and Access Layer:                       [  OK  ]
-> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
-> Unloading mlx4_core                                        [FAILED]
-> rmmod: ERROR: Module mlx4_core is in use
+On Tue, 26 Sep 2017 15:41:37 +0300, Or Gerlitz wrote:
+> Please note that the way the rule is being set to the HW driver is by delegation
+> done in flower, see these commits (specifically "Add offload support
+> using egress Hardware device")
 
-I have absolutely no idea. Please bisect.
+It's very well possible the bug is somewhere in net/sched.
 
-Are you really using netns in the first place ?
+> What is the bug in your view?
+
+If you replace skip_sw with skip_hw, the rules have to work
+identically. In software, decapsulated packets appear on the vxlan0
+interface, not on the eth0 interface. As the consequence, the second
+example must not match on such packets. Those packets do not appear on
+eth0 with software only path. eth0 sees encapsulated packets only. It's
+vxlan0 that sees decapsulated packets with attached dst_metadata and
+that's the only interface where the flower filter in the example can
+match.
+
+Hardware offloaded path must behave identically to the software path.
+
+ Jiri
