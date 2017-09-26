@@ -1,100 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH 6/6] net: dsa: mv88e6xxx: Forward broadcast frames to cpu and dsa ports
-Date: Wed, 27 Sep 2017 00:26:04 +0200
-Message-ID: <1506464764-12699-8-git-send-email-andrew@lunn.ch>
-References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/2] bpf/verifier: improve disassembly of
+ BPF_END instructions
+Date: Tue, 26 Sep 2017 15:33:46 -0700
+Message-ID: <20170926223344.3ey6w2qrejrqzqpv@ast-mbp>
+References: <52270348-67f1-4e7a-cd2f-9d611ae94064@solarflare.com>
+ <b0a84ccf-8842-876c-ec82-b4b1da3d6efa@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, daniel@iogearbox.net,
+        ys114321@gmail.com
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:57035 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1031067AbdIZW3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 18:29:12 -0400
-In-Reply-To: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:37845 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031134AbdIZWdt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 18:33:49 -0400
+Received: by mail-pf0-f194.google.com with SMTP id e69so5536011pfg.4
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 15:33:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <b0a84ccf-8842-876c-ec82-b4b1da3d6efa@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, the switch does not flood broadcast frames. Instead the
-broadcast address is unknown in the ATU, so the frame gets forwarded
-out the cpu port. The software bridge then floods it back to the
-individual switch ports which are members of the bridge.
+On Tue, Sep 26, 2017 at 04:35:13PM +0100, Edward Cree wrote:
+> print_bpf_insn() was treating all BPF_ALU[64] the same, but BPF_END has a
+>  different structure: it has a size in insn->imm (even if it's BPF_X) and
+>  uses the BPF_SRC (X or K) to indicate which endianness to use.  So it
+>  needs different code to print it.
+> 
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Add an ATU entry in the switch so that it floods broadcast frames out
-ports, rather than have the software bridge do it. Also, send a copy
-out the cpu port and any dsa ports. Rely on the port vectors to
-prevent broadcast frames leaking between bridges, and separated ports.
-
-Additionally, when a VLAN is added, a new FID is allocated.  This
-represents a new table of ATU entries. Broadcast entry is added to the
-new FID.
-
-With offload_fwd_mark being set, the software bridge will not flood
-the frames it receives back to the switch.
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 34 +++++++++++++++++++++++++++++++++-
- 1 file changed, 33 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 9fbe1f02b9ce..908bb867df3b 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1235,6 +1235,30 @@ static int mv88e6xxx_port_db_load_purge(struct mv88e6xxx_chip *chip, int port,
- 	return mv88e6xxx_g1_atu_loadpurge(chip, vlan.fid, &entry);
- }
- 
-+static int mv88e6xxx_port_add_broadcast(struct mv88e6xxx_chip *chip, int port,
-+					u16 vid)
-+{
-+	const char broadcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-+
-+	return mv88e6xxx_port_db_load_purge(
-+		chip, port, broadcast, vid,
-+		MV88E6XXX_G1_ATU_DATA_STATE_MC_STATIC);
-+}
-+
-+static int mv88e6xxx_broadcast_setup(struct mv88e6xxx_chip *chip, u16 vid)
-+{
-+	int port;
-+	int err;
-+
-+	for (port = 0; port < mv88e6xxx_num_ports(chip); ++port) {
-+		err = mv88e6xxx_port_add_broadcast(chip, port, vid);
-+		if (err)
-+			return err;
-+	}
-+
-+	return 0;
-+}
-+
- static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
- 				    u16 vid, u8 member)
- {
-@@ -1247,7 +1271,11 @@ static int _mv88e6xxx_port_vlan_add(struct mv88e6xxx_chip *chip, int port,
- 
- 	vlan.member[port] = member;
- 
--	return mv88e6xxx_vtu_loadpurge(chip, &vlan);
-+	err = mv88e6xxx_vtu_loadpurge(chip, &vlan);
-+	if (err)
-+		return err;
-+
-+	return mv88e6xxx_broadcast_setup(chip, vid);
- }
- 
- static void mv88e6xxx_port_vlan_add(struct dsa_switch *ds, int port,
-@@ -2025,6 +2053,10 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 	if (err)
- 		goto unlock;
- 
-+	err = mv88e6xxx_broadcast_setup(chip, 0);
-+	if (err)
-+		goto unlock;
-+
- 	err = mv88e6xxx_pot_setup(chip);
- 	if (err)
- 		goto unlock;
--- 
-2.14.1
+well, it's an improvement over what we have today, so
+Acked-by: Alexei Starovoitov <ast@kernel.org>
