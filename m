@@ -1,145 +1,85 @@
-From: Artem Savkov <asavkov@redhat.com>
-Subject: [PATCH] ebtables: fix race condition in frame_filter_net_init()
-Date: Tue, 26 Sep 2017 14:29:38 +0200
-Message-ID: <20170926122938.11603-1-asavkov@redhat.com>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        Artem Savkov <asavkov@redhat.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
+Date: Tue, 26 Sep 2017 15:41:37 +0300
+Message-ID: <CAJ3xEMjEAhzC5=S7-dx8RiS=E7gYBBrtWY=9Cvqj-K3kyT9o3A@mail.gmail.com>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
+ <20170925170451.GD18763@vergenet.net> <20170926121509.50a32571@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34891 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936631AbdIZMlj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:41:39 -0400
+Received: by mail-oi0-f68.google.com with SMTP id r20so6040817oie.2
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 05:41:38 -0700 (PDT)
+In-Reply-To: <20170926121509.50a32571@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is possible for ebt_in_hook to be triggered before ebt_table is assigned
-resulting in a NULL-pointer dereference. Make sure hooks are
-registered as the last step.
+On Tue, Sep 26, 2017 at 1:15 PM, Jiri Benc <jbenc@redhat.com> wrote:
+> On Mon, 25 Sep 2017 19:04:53 +0200, Simon Horman wrote:
+>> The MAC addresses are extracted from the netdevs already loaded in the
+>> kernel and are monitored for any changes. The IP addresses are slightly
+>> different in that they are extracted from the rules themselves. We make the
+>> assumption that, if a packet is decapsulated at the end point and a match
+>> is attempted on the IP address,
+>
+> You lost me here, I'm afraid. What do you mean by "match"?
+>
+>> that this IP address should be recognised
+>> in the kernel. That being the case, the same traffic pattern should be
+>> witnessed if the skip_hw flag is applied.
+>
+> Just to be really sure that this works correctly, can you confirm that
+> this will match the packet:
+>
+> ip link add vxlan0 type vxlan dstport 4789 dev eth0 external
+> ip link set dev vxlan0 up
+> tc qdisc add dev vxlan0 ingress
+> ethtool -K eth0 hw-tc-offload on
+> tc filter add dev vxlan0 protocol ip parent ffff: flower enc_key_id 102 \
+>    enc_dst_port 4789 src_ip 3.4.5.6 skip_sw action [...]
+>
+> while this one will NOT match:
 
-Fixes: aee12a0a3727 ebtables: remove nf_hook_register usage
-Signed-off-by: Artem Savkov <asavkov@redhat.com>
----
- include/linux/netfilter_bridge/ebtables.h |  5 +++--
- net/bridge/netfilter/ebtable_broute.c     |  2 +-
- net/bridge/netfilter/ebtable_filter.c     |  8 ++++++--
- net/bridge/netfilter/ebtable_nat.c        |  8 ++++++--
- net/bridge/netfilter/ebtables.c           | 24 +++++++++++++-----------
- 5 files changed, 29 insertions(+), 18 deletions(-)
+what do you exactly mean by "will not match"
 
-diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
-index 2c2a5514b0df..7d68f5ba6ded 100644
---- a/include/linux/netfilter_bridge/ebtables.h
-+++ b/include/linux/netfilter_bridge/ebtables.h
-@@ -109,8 +109,9 @@ struct ebt_table {
- #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
- 		     ~(__alignof__(struct _xt_align)-1))
- extern struct ebt_table *ebt_register_table(struct net *net,
--					    const struct ebt_table *table,
--					    const struct nf_hook_ops *);
-+					    const struct ebt_table *table);
-+extern int ebt_register_hooks(struct net *net, struct ebt_table *table,
-+				 const struct nf_hook_ops *ops);
- extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
- 				 const struct nf_hook_ops *);
- extern unsigned int ebt_do_table(struct sk_buff *skb,
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index 2585b100ebbb..b41017409aa5 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -65,7 +65,7 @@ static int ebt_broute(struct sk_buff *skb)
- 
- static int __net_init broute_net_init(struct net *net)
- {
--	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
-+	net->xt.broute_table = ebt_register_table(net, &broute_table);
- 	return PTR_ERR_OR_ZERO(net->xt.broute_table);
- }
- 
-diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
-index 45a00dbdbcad..ca04582b374e 100644
---- a/net/bridge/netfilter/ebtable_filter.c
-+++ b/net/bridge/netfilter/ebtable_filter.c
-@@ -93,8 +93,12 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
- 
- static int __net_init frame_filter_net_init(struct net *net)
- {
--	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
--	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
-+	net->xt.frame_filter = ebt_register_table(net, &frame_filter);
-+
-+	if (IS_ERR(net->xt.frame_filter))
-+		return PTR_ERR(net->xt.frame_filter);
-+
-+	return ebt_register_hooks(net, net->xt.frame_filter, ebt_ops_filter);
- }
- 
- static void __net_exit frame_filter_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index 57cd5bb154e7..f4a2ff93be34 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -93,8 +93,12 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
- 
- static int __net_init frame_nat_net_init(struct net *net)
- {
--	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
--	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
-+	net->xt.frame_nat = ebt_register_table(net, &frame_nat);
-+
-+	if (IS_ERR(net->xt.frame_nat))
-+		return PTR_ERR(net->xt.frame_nat);
-+
-+	return ebt_register_hooks(net, net->xt.frame_nat, ebt_ops_nat);
- }
- 
- static void __net_exit frame_nat_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 83951f978445..e72120ac426e 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1169,9 +1169,19 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
- 	kfree(table);
- }
- 
-+int ebt_register_hooks(struct net *net, struct ebt_table *table,
-+		      const struct nf_hook_ops *ops)
-+{
-+	int ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
-+
-+	if (ret)
-+		__ebt_unregister_table(net, table);
-+
-+	return ret;
-+}
-+
- struct ebt_table *
--ebt_register_table(struct net *net, const struct ebt_table *input_table,
--		   const struct nf_hook_ops *ops)
-+ebt_register_table(struct net *net, const struct ebt_table *input_table)
- {
- 	struct ebt_table_info *newinfo;
- 	struct ebt_table *t, *table;
-@@ -1252,15 +1262,6 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
- 	mutex_unlock(&ebt_mutex);
- 
--	if (!ops)
--		return table;
--
--	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
--	if (ret) {
--		__ebt_unregister_table(net, table);
--		return ERR_PTR(ret);
--	}
--
- 	return table;
- free_unlock:
- 	mutex_unlock(&ebt_mutex);
-@@ -2456,6 +2457,7 @@ static void __exit ebtables_fini(void)
- 	printk(KERN_INFO "Ebtables v2.0 unregistered\n");
- }
- 
-+EXPORT_SYMBOL(ebt_register_hooks);
- EXPORT_SYMBOL(ebt_register_table);
- EXPORT_SYMBOL(ebt_unregister_table);
- EXPORT_SYMBOL(ebt_do_table);
--- 
-2.13.5
+> ip link add vxlan0 type vxlan dstport 4789 dev eth0 external
+> ip link set dev vxlan0 up
+> tc qdisc add dev eth0 ingress
+> ethtool -K eth0 hw-tc-offload on
+> tc filter add dev eth0 protocol ip parent ffff: flower enc_key_id 102 \
+>    enc_dst_port 4789 src_ip 3.4.5.6 skip_sw action [...]
+
+Please note that the way the rule is being set to the HW driver is by delegation
+done in flower, see these commits (specifically "Add offload support
+using egress Hardware device")
+
+a6e1693 net/sched: cls_flower: Set the filter Hardware device for all use-cases
+7091d8c net/sched: cls_flower: Add offload support using egress Hardware device
+255cb30 net/sched: act_mirred: Add new tc_action_ops get_dev()
+
+Since the egress port is not HW port netdev but rather SW virtual tunnel netdev
+we have some logic in the kernel to delegate the rule programming to
+HW via the HW netdev
+
+OKay? if not, please elaborate
+
+> We found that with mlx5, the second one actually matches, too. Which is
+> a very serious bug. (Adding Paolo who found this. And adding a few more
+> Mellanox guys to be aware of the bug.)
+
+What is the bug in your view?
+
+Or.
