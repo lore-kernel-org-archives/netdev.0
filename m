@@ -1,32 +1,28 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v10] openvswitch: enable NSH support
-Date: Tue, 26 Sep 2017 12:50:21 +0200
-Message-ID: <20170926125021.01ef2ae1@griffin>
-References: <1506401236-5716-1-git-send-email-yi.y.yang@intel.com>
+From: UDO JOHN <patelias01@gmail.com>
+Subject: IMPORTANT,
+Date: Tue, 26 Sep 2017 03:53:49 -0700
+Message-ID: <CAKo0OL161pSpf-yKgruy39Og8pwWXmPe1bSgasbGE_s8aDi0ww@mail.gmail.com>
+Reply-To: udo.john@iiiha.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, e@erig.me,
-        davem@davemloft.net
-To: Yi Yang <yi.y.yang@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37450 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934183AbdIZKuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 06:50:25 -0400
-In-Reply-To: <1506401236-5716-1-git-send-email-yi.y.yang@intel.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35239 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934183AbdIZKxu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 06:53:50 -0400
+Received: by mail-wm0-f65.google.com with SMTP id e64so9043507wmi.2
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 03:53:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Sep 2017 12:47:16 +0800, Yi Yang wrote:
-> v9->v10
->  - Change struct ovs_key_nsh to
->        struct ovs_nsh_key_base base;
->        __be32 context[NSH_MD1_CONTEXT_SIZE];
->  - Fix new comments for v9
+Dear Beloved Friend,
 
-NAK, we haven't finished the discussion for v9 yet. It's not
-appropriate to send a new version until there's a conclusion (or at
-least until the discussion dies).
+Sorry if this email came to you as a surprise,I am Dr.Udoukwu Johnson
+and we are looking for a company or individual from your region to
+help us receive investment fund and safekeeping. I will send you full
+details As soon As I hear from you. For fast respond Please write me
+through this Email: udo.john@iiiha.net
 
- Jiri
+Yours Faithfully,
+Dr.Udoukwu Johnson.
