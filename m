@@ -1,56 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH,v3,net-next 0/2] Improve code coverage of syzkaller
-Date: Mon, 25 Sep 2017 20:16:31 -0700 (PDT)
-Message-ID: <20170925.201631.612115793478960027.davem@davemloft.net>
-References: <20170922204915.7889-1-peterpenkov96@gmail.com>
+Subject: Re: [PATCH v4 7/9] rocker: fix rocker_tlv_put_* functions for KASAN
+Date: Mon, 25 Sep 2017 20:19:44 -0700 (PDT)
+Message-ID: <20170925.201944.383866196624108211.davem@davemloft.net>
+References: <20170922212930.620249-1-arnd@arndb.de>
+        <20170922212930.620249-8-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, maheshb@google.com,
-        willemb@google.com, ppenkov@stanford.edu
-To: peterpenkov96@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40138 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934832AbdIZDQe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 23:16:34 -0400
-In-Reply-To: <20170922204915.7889-1-peterpenkov96@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jiri@resnulli.us, mchehab@kernel.org, arend.vanspriel@broadcom.com,
+        kvalo@codeaurora.org, aryabinin@virtuozzo.com, glider@google.com,
+        dvyukov@google.com, yamada.masahiro@socionext.com, mmarek@suse.com,
+        akpm@linux-foundation.org, keescook@chromium.org,
+        geert@linux-m68k.org, gregkh@linuxfoundation.org,
+        linux-media@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com,
+        brcm80211-dev-list@cypress.com, kasan-dev@googlegroups.com,
+        linux-kbuild@vger.kernel.org, jakub@gcc.gnu.org,
+        marxin@gcc.gnu.org, stable@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20170922212930.620249-8-arnd@arndb.de>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Petar Penkov <peterpenkov96@gmail.com>
-Date: Fri, 22 Sep 2017 13:49:13 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 22 Sep 2017 23:29:18 +0200
 
-> This patch series is intended to improve code coverage of syzkaller on
-> the early receive path, specifically including flow dissector, GRO,
-> and GRO with frags parts of the networking stack. Syzkaller exercises
-> the stack through the TUN driver and this is therefore where changes
-> reside. Current coverage through netif_receive_skb() is limited as it
-> does not touch on any of the aforementioned code paths. Furthermore,
-> for full coverage, it is necessary to have more flexibility over the
-> linear and non-linear data of the skbs.
+> Inlining these functions creates lots of stack variables that each take
+> 64 bytes when KASAN is enabled, leading to this warning about potential
+> stack overflow:
 > 
-> The following patches address this by providing the user(syzkaller)
-> with the ability to send via napi_gro_receive() and napi_gro_frags().
-> Additionally, syzkaller can specify how many fragments there are and
-> how much data per fragment there is. This is done by exploiting the
-> convenient structure of iovecs. Finally, this patch series adds
-> support for exercising the flow dissector during fuzzing.
+> drivers/net/ethernet/rocker/rocker_ofdpa.c: In function 'ofdpa_cmd_flow_tbl_add':
+> drivers/net/ethernet/rocker/rocker_ofdpa.c:621:1: error: the frame size of 2752 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
 > 
-> The code path including napi_gro_receive() can be enabled via the
-> IFF_NAPI flag.  The remainder of the changes in this patch series give
-> the user significantly more control over packets entering the kernel.
-> To avoid potential security vulnerabilities, hide the ability to send
-> custom skbs and the flow dissector code paths behind a
-> capable(CAP_NET_ADMIN) check to require special user privileges.
+> gcc-8 can now consolidate the stack slots itself, but on older versions
+> we get the same behavior by using a temporary variable that holds a
+> copy of the inline function argument.
 > 
-> Changes since v2 based on feedback from Willem de Bruijn and Mahesh
-> Bandewar:
-> 
-> Patch 1/ No changes.
-> Patch 2/ Check if the preconditions for IFF_NAPI_FRAGS (IFF_NAPI and
-> 	 IFF_TAP) are met before opening/attaching rather than after.
-> 	 If they are not, change the behavior from discarding the
-> 	 flag to rejecting the command with EINVAL.
+> Cc: stable@vger.kernel.org
+> Link: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81715
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Series applied, thank you.
+Applied.
