@@ -1,107 +1,152 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: [RESEND] Re: usb/net/p54: trying to register non-static key in p54_unregister_leds
-Date: Tue, 26 Sep 2017 17:06:31 +0200
-Message-ID: <CAAeHK+zsRJcUVDUASBLBb9QyT9BgTevEe4SKkWPMqRKCMXbS8A@mail.gmail.com>
-References: <CAAeHK+xPoNn7i5xOzEqHX6tfDpmpb1rd0hcAxZpTHKi6B8xzsw@mail.gmail.com>
- <1505937307.3026.20.camel@sipsolutions.net> <CAAeHK+wWRZuCDNhoZJ0ACDhiNQw8tVRp2HW0j1EDH0HOe523xA@mail.gmail.com>
- <2589427.Vd4nrgaY4N@debian64>
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH] tun: bail out from tun_get_user() if the skb is empty
+Date: Tue, 26 Sep 2017 17:06:43 +0200
+Message-ID: <CAG_fn=U3sBpQV3uOfTB=mHBhE+w28qFokUA8YP3V=7O8C7v0oA@mail.gmail.com>
+References: <20170926145359.28344-1-glider@google.com> <CANn89i+0uj=N2aWc6wUq4EK1jHmEVoxw0UcCPiFoggGTea++Dw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
         Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
         syzkaller <syzkaller@googlegroups.com>,
-        Stephen Boyd <sboyd@codeaurora.org>, Tejun Heo <tj@kernel.org>,
-        Yong Zhang <yong.zhang0@gmail.com>
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:52285 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031204AbdIZPGc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:06:32 -0400
-Received: by mail-oi0-f43.google.com with SMTP id p126so12312518oih.9
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 08:06:32 -0700 (PDT)
-In-Reply-To: <2589427.Vd4nrgaY4N@debian64>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89i+0uj=N2aWc6wUq4EK1jHmEVoxw0UcCPiFoggGTea++Dw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 23, 2017 at 9:37 PM, 'Christian Lamparter' via syzkaller
+On Tue, Sep 26, 2017 at 5:02 PM, 'Eric Dumazet' via syzkaller
 <syzkaller@googlegroups.com> wrote:
-> This got rejected by gmail once. Let's see if it works now.
+> On Tue, Sep 26, 2017 at 7:53 AM, Alexander Potapenko <glider@google.com> =
+wrote:
+>> KMSAN (https://github.com/google/kmsan) reported accessing uninitialized
+>> skb->data[0] in the case the skb is empty (i.e. skb->len is 0):
+>>
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>> BUG: KMSAN: use of uninitialized memory in tun_get_user+0x19ba/0x3770
+>> CPU: 0 PID: 3051 Comm: probe Not tainted 4.13.0+ #3140
+>> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/=
+2011
+>> Call Trace:
+>> ...
+>>  __msan_warning_32+0x66/0xb0 mm/kmsan/kmsan_instr.c:477
+>>  tun_get_user+0x19ba/0x3770 drivers/net/tun.c:1301
+>>  tun_chr_write_iter+0x19f/0x300 drivers/net/tun.c:1365
+>>  call_write_iter ./include/linux/fs.h:1743
+>>  new_sync_write fs/read_write.c:457
+>>  __vfs_write+0x6c3/0x7f0 fs/read_write.c:470
+>>  vfs_write+0x3e4/0x770 fs/read_write.c:518
+>>  SYSC_write+0x12f/0x2b0 fs/read_write.c:565
+>>  SyS_write+0x55/0x80 fs/read_write.c:557
+>>  do_syscall_64+0x242/0x330 arch/x86/entry/common.c:284
+>>  entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:245
+>> ...
+>> origin:
+>> ...
+>>  kmsan_poison_shadow+0x6e/0xc0 mm/kmsan/kmsan.c:211
+>>  slab_alloc_node mm/slub.c:2732
+>>  __kmalloc_node_track_caller+0x351/0x370 mm/slub.c:4351
+>>  __kmalloc_reserve net/core/skbuff.c:138
+>>  __alloc_skb+0x26a/0x810 net/core/skbuff.c:231
+>>  alloc_skb ./include/linux/skbuff.h:903
+>>  alloc_skb_with_frags+0x1d7/0xc80 net/core/skbuff.c:4756
+>>  sock_alloc_send_pskb+0xabf/0xfe0 net/core/sock.c:2037
+>>  tun_alloc_skb drivers/net/tun.c:1144
+>>  tun_get_user+0x9a8/0x3770 drivers/net/tun.c:1274
+>>  tun_chr_write_iter+0x19f/0x300 drivers/net/tun.c:1365
+>>  call_write_iter ./include/linux/fs.h:1743
+>>  new_sync_write fs/read_write.c:457
+>>  __vfs_write+0x6c3/0x7f0 fs/read_write.c:470
+>>  vfs_write+0x3e4/0x770 fs/read_write.c:518
+>>  SYSC_write+0x12f/0x2b0 fs/read_write.c:565
+>>  SyS_write+0x55/0x80 fs/read_write.c:557
+>>  do_syscall_64+0x242/0x330 arch/x86/entry/common.c:284
+>>  return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:245
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>>
+>> Make sure tun_get_user() doesn't touch skb->data[0] unless there is
+>> actual data.
+>>
+>> C reproducer below:
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D
+>>     // autogenerated by syzkaller (http://github.com/google/syzkaller)
+>>
+>>     #define _GNU_SOURCE
+>>
+>>     #include <fcntl.h>
+>>     #include <linux/if_tun.h>
+>>     #include <netinet/ip.h>
+>>     #include <net/if.h>
+>>     #include <string.h>
+>>     #include <sys/ioctl.h>
+>>
+>>     int main()
+>>     {
+>>       int sock =3D socket(PF_INET, SOCK_STREAM, IPPROTO_IP);
+>>       int tun_fd =3D open("/dev/net/tun", O_RDWR);
+>>       struct ifreq req;
+>>       memset(&req, 0, sizeof(struct ifreq));
+>>       strcpy((char*)&req.ifr_name, "gre0");
+>>       req.ifr_flags =3D IFF_UP | IFF_MULTICAST;
+>>       ioctl(tun_fd, TUNSETIFF, &req);
+>>       ioctl(sock, SIOCSIFFLAGS, "gre0");
+>>       write(tun_fd, "hi", 0);
+>>       return 0;
+>>     }
+>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D
+>>
+>> Signed-off-by: Alexander Potapenko <glider@google.com>
+>> ---
+>>  drivers/net/tun.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 3c9985f29950..25d96f54a729 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1496,6 +1496,8 @@ static ssize_t tun_get_user(struct tun_struct *tun=
+, struct tun_file *tfile,
+>>         switch (tun->flags & TUN_TYPE_MASK) {
+>>         case IFF_TUN:
+>>                 if (tun->flags & IFF_NO_PI) {
+>> +                       if (!skb->len)
+>> +                               return -EINVAL;
+>>                         switch (skb->data[0] & 0xf0) {
+>>                         case 0x40:
+>>                                 pi.proto =3D htons(ETH_P_IP);
+>> --
+>> 2.14.1.821.g8fa685d3b7-goog
+>>
 >
-> On Thursday, September 21, 2017 8:22:45 PM CEST Andrey Konovalov wrote:
->> On Wed, Sep 20, 2017 at 9:55 PM, Johannes Berg
->> <johannes@sipsolutions.net> wrote:
->> > On Wed, 2017-09-20 at 21:27 +0200, Christian Lamparter wrote:
->> >
->> >> It seems this is caused as a result of:
->> >>     -> lock_map_acquire(&work->lockdep_map);
->> >>           lock_map_release(&work->lockdep_map);
->> >>
->> >>     in flush_work() [0]
->> >
->> > Agree.
->> >
->> >> This was added by:
->> >>
->> >>       commit 0976dfc1d0cd80a4e9dfaf87bd8744612bde475a
->> >>       Author: Stephen Boyd <sboyd@codeaurora.org>
->> >>       Date:   Fri Apr 20 17:28:50 2012 -0700
->> >>
->> >>       workqueue: Catch more locking problems with flush_work()
->> >
->> > Yes, but that doesn't matter.
->> >
->> >> Looking at the Stephen's patch, it's clear that it was made
->> >> with "static DECLARE_WORK(work, my_work)" in mind. However
->> >> p54's led_work is "per-device", hence it is stored in the
->> >> devices context p54_common, which is dynamically allocated.
->> >> So, maybe revert Stephen's patch?
->> >
->> > I disagree - as the lockdep warning says:
->> >
->> >> > INFO: trying to register non-static key.
->> >> > the code is fine but needs lockdep annotation.
->> >> > turning off the locking correctness validator.
->> >
->> > What it needs is to actually correctly go through initializing the work
->> > at least once.
->> >
->> > Without more information, I can't really say what's going on, but I
->> > assume that something is failing and p54_unregister_leds() is getting
->> > invoked without p54_init_leds() having been invoked, so essentially
->> > it's trying to flush a work that was never initialized?
->> >
->> > INIT_DELAYED_WORK() does, after all, initialize the lockdep map
->> > properly via __INIT_WORK().
+> Good catch, but...
 >
-> Ok, thanks. This does indeed explain it.
->
-> But this also begs the question: Is this really working then?
-> From what I can tell, if CONFIG_LOCKDEP is not set then there's no BUG
-> no WARN, no other splat or any other odd system behaviour. Does
-> [cancel | flush]_[delayed_]work[_sync] really "just work" by *accident*,
-> as long the delayed_work | work_struct is zeroed out?
-> And should it work in the future as well?
->
->> Since I'm able to reproduce this, please let me know if you need me to
->> collect some debug traces to help with the triage.
->
-> Do you want to take a shot at making a patch too? At a quick glance, it
-> should be enough to move the [#ifdef CONFIG_P54_LEDS ... #endif] block
-> in p54_unregister_common() into the if (priv->registered) { block
-> (preferably before the ieee80211_unregister_hw(dev).
-
-Just mailed a patch.
-
->
-> Regards,
-> Christian
->
+> You are replacing an harmless read by a memory leak, which is far more
+> problematic :/
+Ah, you're right, I should have done kfree_skb() and incremented the
+stats. That's also rx_dropped, correct?
 > --
-> You received this message because you are subscribed to the Google Groups "syzkaller" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
+> You received this message because you are subscribed to the Google Groups=
+ "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an=
+ email to syzkaller+unsubscribe@googlegroups.com.
 > For more options, visit https://groups.google.com/d/optout.
+
+
+
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
