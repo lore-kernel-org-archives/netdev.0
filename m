@@ -1,73 +1,41 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next 2/2] tools: bpf: add bpftool
-Date: Wed, 27 Sep 2017 00:02:08 +0100
-Message-ID: <20170927000208.4396dfb7@cakuba>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 0/2] tools: add bpftool
+Date: Tue, 26 Sep 2017 17:32:31 -0600
+Message-ID: <5522855a-937f-b2cb-4c74-3448d1680b10@gmail.com>
 References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
-        <20170926153522.31500-3-jakub.kicinski@netronome.com>
-        <20170926222405.nq23enzudbjklczb@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, davem@davemloft.net,
-        hannes@stressinduktion.org, dsahern@gmail.com,
+Cc: daniel@iogearbox.net, alexei.starovoitov@gmail.com,
+        davem@davemloft.net, hannes@stressinduktion.org,
         oss-drivers@netronome.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:44183 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964903AbdIZXCZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 19:02:25 -0400
-Received: by mail-wr0-f175.google.com with SMTP id v109so14396487wrc.1
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 16:02:25 -0700 (PDT)
-In-Reply-To: <20170926222405.nq23enzudbjklczb@ast-mbp>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:38021 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030560AbdIZXce (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 19:32:34 -0400
+Received: by mail-pg0-f66.google.com with SMTP id m30so7597672pgn.5
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 16:32:33 -0700 (PDT)
+In-Reply-To: <20170926153522.31500-1-jakub.kicinski@netronome.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Sep 2017 15:24:06 -0700, Alexei Starovoitov wrote:
-> On Tue, Sep 26, 2017 at 08:35:22AM -0700, Jakub Kicinski wrote:
-> > Add a simple tool for querying and updating BPF objects on the system.
-> > 
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> > Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> > ---
-> >  tools/bpf/Makefile             |  18 +-
-> >  tools/bpf/bpftool/Makefile     |  80 +++++
-> >  tools/bpf/bpftool/common.c     | 214 ++++++++++++
-> >  tools/bpf/bpftool/jit_disasm.c |  83 +++++
-> >  tools/bpf/bpftool/main.c       | 212 ++++++++++++
-> >  tools/bpf/bpftool/main.h       |  99 ++++++
-> >  tools/bpf/bpftool/map.c        | 742 +++++++++++++++++++++++++++++++++++++++++
-> >  tools/bpf/bpftool/prog.c       | 392 ++++++++++++++++++++++
-> >  8 files changed, 1837 insertions(+), 3 deletions(-)  
-> ...
-> > +static int do_help(int argc, char **argv)
-> > +{
-> > +	fprintf(stderr,
-> > +		"Usage: %s %s show   [MAP]\n"
-> > +		"       %s %s dump    MAP\n"
-> > +		"       %s %s update  MAP  key BYTES value VALUE [UPDATE_FLAGS]\n"
-> > +		"       %s %s lookup  MAP  key BYTES\n"
-> > +		"       %s %s getnext MAP [key BYTES]\n"
-> > +		"       %s %s delete  MAP  key BYTES\n"
-> > +		"       %s %s pin     MAP  FILE\n"
-> > +		"       %s %s help\n"
-> > +		"\n"
-> > +		"       MAP := { id MAP_ID | pinned FILE }\n"
-> > +		"       " HELP_SPEC_PROGRAM "\n"
-> > +		"       VALUE := { BYTES | MAP | PROG }\n"
-> > +		"       UPDATE_FLAGS := { any | exist | noexist }\n"
-> > +		"",  
+On 9/26/17 9:35 AM, Jakub Kicinski wrote:
+> I'm looking for a home for bpftool, Daniel suggested that 
+> tools/net could be a good place, since there are only BPF
+> utilities there already.
 > 
-> overall looks good to me, but still difficult to grasp how to use it.
-> Can you add README with example usage and expected output?
+> The tool should be complete for simple use cases and we
+> will continue extending it as we go along.  E.g. providing
+> disassembly of loaded programs directly using LLVM library
+> and JSON output are high on the priority list.
 
-I have a README on GitHub, but I was thinking about perhaps writing a
-proper man page?  Do you prefer one over the other?
+I have found this to be a very useful tool. Thanks for working on it.
+Moving it into the kernel will make it easier to build since it relies
+on libbpf and other files from the kernel tree.
 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-
-Thanks!
-
-> You also realize that you're signing up maintaining this tool, right? ;)
-
-Yes :)
+One change I have made locally is to link against libbpf.a. That way I
+only need to copy one file to a system to use it.
