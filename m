@@ -1,24 +1,89 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] p54: don't unregister leds when they are inited
-Date: Tue, 26 Sep 2017 17:08:36 +0200
-Message-ID: <1506438516.22427.21.camel@sipsolutions.net>
-References: <384966f3a79915b4617d808c40e63072aa8b868d.1506438160.git.andreyknvl@google.com>
-         (sfid-20170926_170718_298486_4DFAC802)
+From: John Hurley <john.hurley@netronome.com>
+Subject: Re: [PATCH net-next 2/7] nfp: compile flower vxlan tunnel metadata
+ match fields
+Date: Tue, 26 Sep 2017 16:11:02 +0100
+Message-ID: <CAK+XE=kBG9761tN6uC3ziiqP-jrAjLJ_3J7M-cyfKvTqHVBk7A@mail.gmail.com>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+ <1506335021-32024-3-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMgs2d7dcktHfvx_iry8tBy8XK8n6E5W7J0pYPer9Xz_Kg@mail.gmail.com>
+ <CAK+XE=nSHn6FGTi0kcqi+mcaV3Lo8QANpqQ4z6uNcWE+M3Gngw@mail.gmail.com> <CAJ3xEMgmC+4V+Yr9PeO1wJ=ACBoPMTrasd7Joyx--F9PjV1yvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        Christian Lamparter <chunkeey@googlemail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <384966f3a79915b4617d808c40e63072aa8b868d.1506438160.git.andreyknvl@google.com> (sfid-20170926_170718_298486_4DFAC802)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:49923 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934122AbdIZPLE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:11:04 -0400
+Received: by mail-wm0-f42.google.com with SMTP id r74so8982957wme.4
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 08:11:04 -0700 (PDT)
+In-Reply-To: <CAJ3xEMgmC+4V+Yr9PeO1wJ=ACBoPMTrasd7Joyx--F9PjV1yvg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Subject should say *not* initialized?
+On Tue, Sep 26, 2017 at 3:12 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Tue, Sep 26, 2017 at 4:58 PM, John Hurley <john.hurley@netronome.com> wrote:
+>> On Mon, Sep 25, 2017 at 7:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Mon, Sep 25, 2017 at 1:23 PM, Simon Horman
+>>> <simon.horman@netronome.com> wrote:
+>>>> From: John Hurley <john.hurley@netronome.com>
+>>>>
+>>>> Compile ovs-tc flower vxlan metadata match fields for offloading. Only
+>>>
+>>> anything in the npf kernel bits has direct relation to ovs? what?
+>>>
+>>
+>> Sorry, this is a typo  and should refer to TC.
+>>
+>>>> +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+>>>> @@ -52,8 +52,25 @@
+>>>>          BIT(FLOW_DISSECTOR_KEY_PORTS) | \
+>>>>          BIT(FLOW_DISSECTOR_KEY_ETH_ADDRS) | \
+>>>>          BIT(FLOW_DISSECTOR_KEY_VLAN) | \
+>>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_KEYID) | \
+>>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) | \
+>>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) | \
+>>>
+>>> this series takes care of IPv6 tunnels too?
+>>
+>> IPv6 is not included in this set.
+>> The reason the IPv6 bit is included here is to account for behavior we
+>> have noticed in TC flower.
+>> If, for example, I add a filter with the following match fields:
+>> 'protocol ip flower enc_src_ip 10.0.0.1 enc_dst_ip 10.0.0.2
+>> enc_dst_port 4789 enc_key_id 123'
+>> The 'used_keys' value in the dissector marks both IPv4 and IPv6 encap
+>> addresses as 'used'.
+>> I am not sure if this is a bug in TC or that we are expected to check
+>> the enc_control fields to determine if IPv4 or v6 addresses are used.
+>
+> you should have your code to check enc_control->addr_type to be
+> FLOW_DISSECTOR_KEY_IPV4_ADDRS or IPV6_ADDRS
+>
+>
+>> Including the IPv6 used_keys bit in our whitelist approach allows us
+>> to accept legitimate IPv4 tunnel rules in these situations.
+>
+> mmm can please take a look on fl_init_dissector() and tell me if you
+> see why FLOW_DISSECTOR_KEY_IPV6_ADDRS is set for ipv4 tunnels,
+> I am not sure.
 
-johannes
+
+The fl_init_dissector uses the FL_KEY_SET_IF_MASKED macro to set an
+array of keys which are then translated to the used_keys values.
+The FL_KEY_SET_IF_MASKED takes a 'struct fl_flow_key' as input and
+checks if any mask bits are set in a particular field - if so it
+eventually marks it as used.
+In struct fl_flow_key, the encap ipv4 and ipv6 addresses are
+represented as a union of the 2.
+Therefore, if we have masked bits set for IPv4, they are also being
+set for the IPv6 field.
+
+
+>
+>> If it is found to be IPv6 when the rule is parsed, it will be rejected here.
