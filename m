@@ -1,93 +1,145 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when
- interacting with network stack
-Date: Tue, 26 Sep 2017 12:29:02 +0000
-Message-ID: <AM0PR0502MB3683FFF227DA3D136AA63987BF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
- <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
- <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <3fe662df-a216-4966-863c-d98555ef3ed2@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
-        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "john.garry@huawei.com" <john.garry@huawei.com>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>,
-        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Yunsheng Lin <linyunsheng@huawei.com>
+From: Artem Savkov <asavkov@redhat.com>
+Subject: [PATCH] ebtables: fix race condition in frame_filter_net_init()
+Date: Tue, 26 Sep 2017 14:29:38 +0200
+Message-ID: <20170926122938.11603-1-asavkov@redhat.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        Artem Savkov <asavkov@redhat.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3fe662df-a216-4966-863c-d98555ef3ed2@huawei.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBIaSwgWXV2YWwNCj4gDQo+IE9uIDIwMTcvOS8yNiAxNDo0MywgWXV2YWwgTWludHogd3JvdGU6
-DQo+ID4+IFdoZW4gdXNpbmcgdGMgcWRpc2MgdG8gY29uZmlndXJlIERDQiBwYXJhbWV0ZXIsIGRj
-Yl9vcHMtPnNldHVwX3RjDQo+ID4+IGlzIHVzZWQgdG8gdGVsbCBoY2xnZV9kY2IgbW9kdWxlIHRv
-IGRvIHRoZSBzZXR1cC4NCj4gPg0KPiA+IFdoaWxlIHRoaXMgbWlnaHQgYmUgYSBzdGVwIGluIHRo
-ZSByaWdodCBkaXJlY3Rpb24sIHRoaXMgY2F1c2VzIGFuIGluY29uc2lzdGVuY3kNCj4gPiBpbiB1
-c2VyIGV4cGVyaWVuY2UgLSBTb21lIFt3ZWxsLCBtb3N0XSB2ZW5kb3JzIGRpZG4ndCBhbGxvdyB0
-aGUgbXFwcmlvDQo+ID4gcHJpb3JpdHkgbWFwcGluZyB0byBhZmZlY3QgRENCLCBpbnN0ZWFkIHJl
-bHlpbmcgb24gdGhlIGRjYm5sIGZ1bmN0aW9uYWxpdHkNCj4gPiB0byBjb250cm9sIHRoYXQgY29u
-ZmlndXJhdGlvbi4NCj4gPg0KPiA+IEEgY291cGxlIG9mIG9wdGlvbnMgdG8gY29uc2lkZXI6DQo+
-ID4gICAtIFBlcmhhcHMgc2FpZCBsb2dpYyBzaG91bGRuJ3QgYmUgY29udGFpbmVkIGluc2lkZSB0
-aGUgZHJpdmVyIGJ1dCByYXRoZXINCj4gPiAgICAgIGluIG1xcHJpbyBsb2dpYyBpdHNlbGYuIEku
-ZS4sIHJlbHkgb24gRENCTkwgZnVuY3Rpb25hbGl0eSBbaWYgYXZhaWxhYmxlXSBmcm9tDQo+ID4g
-ICAgICB3aXRoaW4gbXFwcmlvIGFuZCB0cnkgY2hhbmdpbmcgdGhlIGNvbmZpZ3VyYXRpb24uDQo+
-IA0KPiBJbiBuZXQvZGNiL2RjYm5sLmMNCj4gZGNibmxfaWVlZV9zZXQgYWxyZWFkeSBjYWxsIGRj
-Ym5sX2llZWVfbm90aWZ5IHRvIG5vdGlmeSB0aGUgdXNlciBzcGFjZQ0KPiBjb25maWd1cmF0aW9u
-IGhhcyBjaGFuZ2VkLCBkb2VzIHRoaXMgZGNibmxfaWVlZV9ub3RpZnkgZnVuY3Rpb24gZG8gdGhl
-DQo+IGpvYiBmb3IgdXM/IEkgYW0gbm90IHN1cmUgaWYgbGxkcGFkIGhhcyByZWdpc3RlcmVkIGZv
-ciB0aGlzIG5vdGlmaXRpb24uDQoNCk5vdCB0aGF0IGZhbWlsaWFyIHdpdGggdGhlIGRjYm5sIGNh
-bGxzOyBTaG91bGRuJ3QgZGNibmxfc2V0YWxsIGJlIGNhbGxlZCB0bw0KbWFrZSB0aGUgY29uZmln
-dXJhdGlvbiBhcHBseSBbb3IgaXMgdGhhdCBvbmx5IGZvciBpZWVlXT8NClJlZ2FyZGxlc3MsIGRv
-bid0IGtub3cgaWYgaXQgbWFrZXMgc2Vuc2UgdG8gYXNzdW1lIHVzZXItYXBwbGljYXRpb24gd291
-bGQNCmZpeCB0aGUgcWRpc2MgY29uZmlndXJhdGlvbiBieSBub3RpZmljYXRpb24gd2hpbGUgZGNi
-bmwgbG9naWMgaW4ga2VybmVsIGNvdWxkIGhhdmUNCmRvbmUgdGhhdCBpbnN0ZWFkLg0KDQo+IEFz
-IHlvdSBzdWdnZXN0ZWQgYmVsb3csIGNhbiB3ZSBhZGQgYSBuZXcgVENfTVFQUklPX0hXX09GRkxP
-QURfDQo+IHZhbHVlIHRvDQo+IHJlZmxlY3QgdGhhdCB0aGUgY29uZmlndXJhdGlvbiBpcyBuZWVk
-ZWQgdG8gYmUgY2hhbmdlZCBieSBkY2JubF9pZWVlX3NldA0KPiAocGVyaGFwcyBzb21lIG90aGVy
-IGZ1bmN0aW9uKSBpbiBkY2JubD8NCj4gRG8geW91IHRoaW5rIGl0IGlzIGZlYXNpYmxlPw0KDQpF
-aXRoZXIgSSdtIG1pc2VhZGluZyB5b3VyIGFuc3dlciBvciB3ZSB0aGluayBvZiBpdCBmcm9tIDIg
-b3Bwb3NpdGUgZW5kLg0KSSB3YXMgdGhpbmtpbmcgdGhhdCB0aGUgbmV3IG9mZmxvYWRlZCBmbGFn
-IHdvdWxkIGluZGljYXRlIHRvIHRoZSB1bmRlcmx5aW5nDQpkcml2ZXIgdGhhdCBpdCdzIGV4cGVj
-dGVkIHRvIG9mZmxvYWQgdGhlIHByaW8gbWFwcGluZyBbYXMgcGFydCBvZiBEQ0JdLg0KSWYgdGhl
-IGRyaXZlciB3b3VsZCBiZSBpbmNhcGFibGUgb2YgdGhhdCBpdCB3b3VsZCByZWZ1c2UgdGhlIG9m
-ZmxvYWQuDQpVc2VyIHdvdWxkIHRoZW4gaGF2ZSB0byBleHBsaWNpdGx5IHJlcXVlc3QgdGhhdCB0
-aGUgcWRpc2Mgb2ZmbG9hZC4NCg0KPiANCj4gDQo+ID4gICAtIEFkZCBhIG5ldyBUQ19NUVBSSU9f
-SFdfT0ZGTE9BRF8gdmFsdWUgdG8gZXhwbGljaXRseSByZWZsZWN0IHVzZXINCj4gPiAgICAgIHJl
-cXVlc3QgdG8gYWxsb3cgdGhpcyBjb25maWd1cmF0aW9uIHRvIGFmZmVjdCBEQ0IuDQo+ID4NCj4g
-Pj4gV2hlbiB1c2luZyBsbGRwdG9vbCB0byBjb25maWd1cmUgRENCIHBhcmFtZXRlciwgaGNsZ2Vf
-ZGNiIG1vZHVsZQ0KPiA+PiBjYWxsIHRoZSBjbGllbnRfb3BzLT5zZXR1cF90YyB0byB0ZWxsIG5l
-dHdvcmsgc3RhY2sgd2hpY2ggcXVldWUNCj4gPj4gYW5kIHByaW9yaXR5IGlzIHVzaW5nIGZvciBz
-cGVjaWZpYyB0Yy4NCj4gPg0KPiA+IFlvdSdyZSBiYXNpY2FsbHkgYnlwYXNzaW5nIHRoZSBtcXBy
-aW8gbG9naWMuDQo+ID4gU2luY2UgeW91J3JlIGNvbmZpZ3VyaW5nIHRoZSBwcmlvLT5xdWV1ZSBt
-YXBwaW5nIGZyb20gRENCIGZsb3csDQo+ID4geW91J2xsIGdldCBhbiBtcXByaW8tbGlrZSBiZWhh
-dmlvciBbbWVhbmluZyBhIHRyYW5zbWl0dGVkIHBhY2tldA0KPiA+IHdvdWxkIHJlYWNoIGEgdHJh
-bnNtaXNzaW9uIHF1ZXVlIGFzc29jaWF0ZWQgd2l0aCBpdHMgcHJpb3JpdHldIGV2ZW4NCj4gPiBp
-ZiBkZXZpY2Ugd2Fzbid0IGdyYXRlZCB3aXRoIGFuIG1xcHJpbyBxZGlzYy4NCj4gPiBXaHkgc2hv
-dWxkIHlvdXIgdXNlciBldmVuIHVzZSBtcXByaW8/IFdoYXQgYmVuZWZpdCBkb2VzIGhlIGdldCBm
-cm9tIGl0Pw0KPiA+DQo+ID4gLi4uDQo+ID4NCj4gPj4gK3N0YXRpYyBpbnQgaG5zM19uaWNfc2V0
-X3JlYWxfbnVtX3F1ZXVlKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpDQo+ID4+ICt7DQo+ID4+
-ICsJc3RydWN0IGhuczNfbmljX3ByaXYgKnByaXYgPSBuZXRkZXZfcHJpdihuZXRkZXYpOw0KPiA+
-PiArCXN0cnVjdCBobmFlM19oYW5kbGUgKmggPSBwcml2LT5hZV9oYW5kbGU7DQo+ID4+ICsJc3Ry
-dWN0IGhuYWUzX2tuaWNfcHJpdmF0ZV9pbmZvICpraW5mbyA9ICZoLT5raW5mbzsNCj4gPj4gKwl1
-bnNpZ25lZCBpbnQgcXVldWVfc2l6ZSA9IGtpbmZvLT5yc3Nfc2l6ZSAqIGtpbmZvLT5udW1fdGM7
-DQo+ID4+ICsJaW50IHJldDsNCj4gPj4gKw0KPiA+PiArCXJldCA9IG5ldGlmX3NldF9yZWFsX251
-bV90eF9xdWV1ZXMobmV0ZGV2LCBxdWV1ZV9zaXplKTsNCj4gPj4gKwlpZiAocmV0KSB7DQo+ID4+
-ICsJCW5ldGRldl9lcnIobmV0ZGV2LA0KPiA+PiArCQkJICAgIm5ldGlmX3NldF9yZWFsX251bV90
-eF9xdWV1ZXMgZmFpbCwgcmV0PSVkIVxuIiwNCj4gPj4gKwkJCSAgIHJldCk7DQo+ID4+ICsJCXJl
-dHVybiByZXQ7DQo+ID4+ICsJfQ0KPiA+PiArDQo+ID4+ICsJcmV0ID0gbmV0aWZfc2V0X3JlYWxf
-bnVtX3J4X3F1ZXVlcyhuZXRkZXYsIHF1ZXVlX3NpemUpOw0KPiA+DQo+ID4gSSBkb24ndCB0aGlu
-ayB5b3UncmUgY2hhbmdpbmcgdGhlIGRyaXZlciBiZWhhdmlvciwgYnV0IHdoeSBhcmUgeW91IHNl
-dHRpbmcNCj4gPiB0aGUgcmVhbCBudW1iZXIgb2YgcnggcXVldWVzIGJhc2VkIG9uIHRoZSBudW1i
-ZXIgb2YgVENzPw0KPiA+IERvIHlvdSBhY3R1YWxseSBvcGVuIChUQyB4IFJTUykgUnggcXVldWVz
-Pw0KPiA+DQo+ID4gLg0KPiA+DQoNCg==
+It is possible for ebt_in_hook to be triggered before ebt_table is assigned
+resulting in a NULL-pointer dereference. Make sure hooks are
+registered as the last step.
+
+Fixes: aee12a0a3727 ebtables: remove nf_hook_register usage
+Signed-off-by: Artem Savkov <asavkov@redhat.com>
+---
+ include/linux/netfilter_bridge/ebtables.h |  5 +++--
+ net/bridge/netfilter/ebtable_broute.c     |  2 +-
+ net/bridge/netfilter/ebtable_filter.c     |  8 ++++++--
+ net/bridge/netfilter/ebtable_nat.c        |  8 ++++++--
+ net/bridge/netfilter/ebtables.c           | 24 +++++++++++++-----------
+ 5 files changed, 29 insertions(+), 18 deletions(-)
+
+diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
+index 2c2a5514b0df..7d68f5ba6ded 100644
+--- a/include/linux/netfilter_bridge/ebtables.h
++++ b/include/linux/netfilter_bridge/ebtables.h
+@@ -109,8 +109,9 @@ struct ebt_table {
+ #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
+ 		     ~(__alignof__(struct _xt_align)-1))
+ extern struct ebt_table *ebt_register_table(struct net *net,
+-					    const struct ebt_table *table,
+-					    const struct nf_hook_ops *);
++					    const struct ebt_table *table);
++extern int ebt_register_hooks(struct net *net, struct ebt_table *table,
++				 const struct nf_hook_ops *ops);
+ extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
+ 				 const struct nf_hook_ops *);
+ extern unsigned int ebt_do_table(struct sk_buff *skb,
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+index 2585b100ebbb..b41017409aa5 100644
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -65,7 +65,7 @@ static int ebt_broute(struct sk_buff *skb)
+ 
+ static int __net_init broute_net_init(struct net *net)
+ {
+-	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
++	net->xt.broute_table = ebt_register_table(net, &broute_table);
+ 	return PTR_ERR_OR_ZERO(net->xt.broute_table);
+ }
+ 
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index 45a00dbdbcad..ca04582b374e 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -93,8 +93,12 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
+ 
+ static int __net_init frame_filter_net_init(struct net *net)
+ {
+-	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
++	net->xt.frame_filter = ebt_register_table(net, &frame_filter);
++
++	if (IS_ERR(net->xt.frame_filter))
++		return PTR_ERR(net->xt.frame_filter);
++
++	return ebt_register_hooks(net, net->xt.frame_filter, ebt_ops_filter);
+ }
+ 
+ static void __net_exit frame_filter_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index 57cd5bb154e7..f4a2ff93be34 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -93,8 +93,12 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
+ 
+ static int __net_init frame_nat_net_init(struct net *net)
+ {
+-	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
++	net->xt.frame_nat = ebt_register_table(net, &frame_nat);
++
++	if (IS_ERR(net->xt.frame_nat))
++		return PTR_ERR(net->xt.frame_nat);
++
++	return ebt_register_hooks(net, net->xt.frame_nat, ebt_ops_nat);
+ }
+ 
+ static void __net_exit frame_nat_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 83951f978445..e72120ac426e 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1169,9 +1169,19 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
+ 	kfree(table);
+ }
+ 
++int ebt_register_hooks(struct net *net, struct ebt_table *table,
++		      const struct nf_hook_ops *ops)
++{
++	int ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
++
++	if (ret)
++		__ebt_unregister_table(net, table);
++
++	return ret;
++}
++
+ struct ebt_table *
+-ebt_register_table(struct net *net, const struct ebt_table *input_table,
+-		   const struct nf_hook_ops *ops)
++ebt_register_table(struct net *net, const struct ebt_table *input_table)
+ {
+ 	struct ebt_table_info *newinfo;
+ 	struct ebt_table *t, *table;
+@@ -1252,15 +1262,6 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
+ 	mutex_unlock(&ebt_mutex);
+ 
+-	if (!ops)
+-		return table;
+-
+-	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
+-	if (ret) {
+-		__ebt_unregister_table(net, table);
+-		return ERR_PTR(ret);
+-	}
+-
+ 	return table;
+ free_unlock:
+ 	mutex_unlock(&ebt_mutex);
+@@ -2456,6 +2457,7 @@ static void __exit ebtables_fini(void)
+ 	printk(KERN_INFO "Ebtables v2.0 unregistered\n");
+ }
+ 
++EXPORT_SYMBOL(ebt_register_hooks);
+ EXPORT_SYMBOL(ebt_register_table);
+ EXPORT_SYMBOL(ebt_unregister_table);
+ EXPORT_SYMBOL(ebt_do_table);
+-- 
+2.13.5
