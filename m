@@ -1,40 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: stmmac: Meet alignment requirements for DMA
-Date: Tue, 26 Sep 2017 14:23:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0081391@AcuExch.aculab.com>
-References: <1506078833-14002-1-git-send-email-matt.redfearn@imgtec.com>
- <20170922.182639.272534775457081015.davem@davemloft.net>
- <587dc9a8-b974-e222-95b4-93c2a8f2aba2@imgtec.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
+Date: Tue, 26 Sep 2017 16:31:35 +0200
+Message-ID: <20170926163135.36d14a72@griffin>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+        <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
+        <20170925170451.GD18763@vergenet.net>
+        <20170926121509.50a32571@griffin>
+        <CAJ3xEMjEAhzC5=S7-dx8RiS=E7gYBBrtWY=9Cvqj-K3kyT9o3A@mail.gmail.com>
+        <20170926145143.28bf52bd@griffin>
+        <CAJ3xEMjOkF7vKHY=+q1dHXGdsyEXFPUa6dsGD_-M3+TX=DNouA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
-        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Linux MIPS Mailing List <linux-mips@linux-mips.org>,
-        Paul Burton <paul.burton@imgtec.com>,
-        "James Hogan" <james.hogan@imgtec.com>
-To: 'Matt Redfearn' <matt.redfearn@imgtec.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <587dc9a8-b974-e222-95b4-93c2a8f2aba2@imgtec.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35406 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935644AbdIZObk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 10:31:40 -0400
+In-Reply-To: <CAJ3xEMjOkF7vKHY=+q1dHXGdsyEXFPUa6dsGD_-M3+TX=DNouA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTWF0dCBSZWRmZWFybg0KPiBTZW50OiAyNiBTZXB0ZW1iZXIgMjAxNyAxNDo1OA0KLi4u
-DQo+ID4gQXMgbG9uZyBhcyB5b3UgdXNlIHRoZSBkbWFfe21hcCx1bmFtcH1fc2luZ2xlKCkgYW5k
-IHN5bmMgdG8vZnJvbQ0KPiA+IGRlaXZjZSBpbnRlcmZhY2VzIHByb3Blcmx5LCB0aGUgY2FjaGVs
-aW5lIGlzc3VlcyB3aWxsIGJlIGhhbmRsZWQgcHJvcGVybHkNCj4gPiBhbmQgdGhlIGNwdSBhbmQg
-dGhlIGRldmljZSB3aWxsIHNlZSBwcm9wZXIgdXB0b2RhdGUgbWVtb3J5IGNvbnRlbnRzLg0KPiAN
-Cj4gSSBpbnRlcnByZXQgdGhlIERNQSBBUEkgZG9jdW1lbnQgKGFuZCB0aGUgTUlQUyBhcmNoIGRt
-YSBjb2RlIG9wZXJhdGVzDQo+IHRoaXMgd2F5KSBhcyBzdGF0aW5nIHRoYXQgdGhlIGRyaXZlciBt
-dXN0IGVuc3VyZSB0aGF0IGJ1ZmZlcnMgcGFzc2VkIHRvDQo+IGl0IGFyZSBjYWNoZWxpbmUgYWxp
-Z25lZCwgYW5kIGNhY2hlbGluZSBzaXplZCwgdG8gcHJldmVudCBjYWNoZQ0KPiBtYW5hZ2VtZW50
-IHRocm93aW5nIGF3YXkgYWRqYWNlbnQgZGF0YSBpbiB0aGUgc2FtZSBjYWNoZWxpbmUuDQoNClRo
-ZSBpbXBvcnRhbnQgdGhpbmcgaXMgdGhhdCB0aGUgZHJpdmVyIG11c3Qgbm90IGRpcnR5IGFueSBj
-YWNoZSBsaW5lcw0KdGhhdCBhcmUgbWFwcGVkIGZvciBETUEgKGZyb20gdGhlIGRldmljZSkuDQoN
-ClR5cGljYWxseSB0aGlzIGlzIG5vdCBhIHByb2JsZW0gYmVjYXVzZSB0aGUgZHJpdmVyIGRvZXNu
-J3QgbG9vaw0KYXQgc2tiIChldGMpIHRoYXQgY29udGFpbiByZWNlaXZlIGJ1ZmZlcnMgb25jZSB0
-aGUgZG1hIGlzIHNldHVwLg0KDQoJRGF2aWQNCg0KDQo=
+On Tue, 26 Sep 2017 17:17:02 +0300, Or Gerlitz wrote:
+> maybe before/instead you call it a bug,
+
+But it is a bug. When offloaded, the rules must not behave differently.
+That's the fundamental thing about offloading. Here, the rules behave
+differently when offloaded and when not. That's a bug.
+
+> take a look on the design there and maybe
+> tell us how to possibly do that otherwise?
+
+I don't know the design. It's the responsibility of those who implement
+the offloading to do it in the way that it's consistent with the
+software path. That has always been the case.
+
+This needs to be fixed. If it can't be fixed, the feature needs to be
+reverted. It's not that Linux has to make use of every single offload
+supported by hardware. If the offloading cannot be fit into how Linux
+works, then the offload can't be supported. There are in fact many
+precedents.
+
+ Jiri
