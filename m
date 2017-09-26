@@ -1,81 +1,86 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH v2 net-next 0/7] net: speedup netns create/delete time
-Date: Tue, 26 Sep 2017 18:04:24 +0300
-Message-ID: <266d30e7-5164-48e8-b802-56bb93558823@mellanox.com>
-References: <20170919232709.14690-1-edumazet@google.com>
- <8edb310a-562d-bff1-0482-64314833e722@mellanox.com>
- <CANn89i+LE6He_E3VHwUTpLAVW+uUGo+FPs_zg1bs4P3CVcCL6Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Majd Dibbiny <majd@mellanox.com>,
-        Yonatan Cohen <yonatanc@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>
-To: Eric Dumazet <edumazet@google.com>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0055.outbound.protection.outlook.com ([104.47.2.55]:13131
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S967121AbdIZPEh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 11:04:37 -0400
-In-Reply-To: <CANn89i+LE6He_E3VHwUTpLAVW+uUGo+FPs_zg1bs4P3CVcCL6Q@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: [PATCH] p54: don't unregister leds when they are inited
+Date: Tue, 26 Sep 2017 17:05:39 +0200
+Message-ID: <384966f3a79915b4617d808c40e63072aa8b868d.1506438160.git.andreyknvl@google.com>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Christian Lamparter <chunkeey@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+ieee80211_register_hw() in p54_register_common() may fail and leds won't
+get initialized. Currently p54_unregister_common() doesn't check that and
+always calls p54_unregister_leds(). The fix is to check priv->registered
+flag before calling p54_unregister_leds().
 
+Found by syzkaller.
 
-On 26/09/2017 3:51 PM, Eric Dumazet wrote:
-> On Tue, Sep 26, 2017 at 4:21 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
->>
->> Hi Eric,
->>
->> We see a regression introduced in this series, specifically in the patches
->> touching lib/kobject_uevent.c.
->> We tried to figure out what is wrong there, but couldn't point it out.
->>
->> Bug is that mlx4 driver restart fails, because mlx4_core is still in use.
->> According to module dependencies, both mlx4_en and mlx4_ib should have been
->> unloaded at this point
->> Please see log below.
->>
->> This looks to be some kind of a race, as the repro is not deterministic.
->> Probably the en/ib modules are now mistakenly reloaded.
->>
->> Any idea what could this be?
->>
->> Regards,
->> Tariq
->>
->>
->> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
->> Unloading HCA driver:                                      [  OK  ]
->> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd start
->> Loading HCA driver and Access Layer:                       [  OK  ]
->> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
->> Unloading mlx4_core                                        [FAILED]
->> rmmod: ERROR: Module mlx4_core is in use
-> I have absolutely no idea. Please bisect.
-We previously saw a similar issue, that was reported in mailing list.
-Dmitry Torokhov suggested the following fix:
-https://lkml.org/lkml/2017/9/12/523
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+CPU: 1 PID: 1404 Comm: kworker/1:1 Not tainted
+4.14.0-rc1-42251-gebb2c2437d80-dirty #205
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Workqueue: usb_hub_wq hub_event
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x292/0x395 lib/dump_stack.c:52
+ register_lock_class+0x6c4/0x1a00 kernel/locking/lockdep.c:769
+ __lock_acquire+0x27e/0x4550 kernel/locking/lockdep.c:3385
+ lock_acquire+0x259/0x620 kernel/locking/lockdep.c:4002
+ flush_work+0xf0/0x8c0 kernel/workqueue.c:2886
+ __cancel_work_timer+0x51d/0x870 kernel/workqueue.c:2961
+ cancel_delayed_work_sync+0x1f/0x30 kernel/workqueue.c:3081
+ p54_unregister_leds+0x6c/0xc0 drivers/net/wireless/intersil/p54/led.c:160
+ p54_unregister_common+0x3d/0xb0 drivers/net/wireless/intersil/p54/main.c:856
+ p54u_disconnect+0x86/0x120 drivers/net/wireless/intersil/p54/p54usb.c:1073
+ usb_unbind_interface+0x21c/0xa90 drivers/usb/core/driver.c:423
+ __device_release_driver drivers/base/dd.c:861
+ device_release_driver_internal+0x4f4/0x5c0 drivers/base/dd.c:893
+ device_release_driver+0x1e/0x30 drivers/base/dd.c:918
+ bus_remove_device+0x2f4/0x4b0 drivers/base/bus.c:565
+ device_del+0x5c4/0xab0 drivers/base/core.c:1985
+ usb_disable_device+0x1e9/0x680 drivers/usb/core/message.c:1170
+ usb_disconnect+0x260/0x7a0 drivers/usb/core/hub.c:2124
+ hub_port_connect drivers/usb/core/hub.c:4754
+ hub_port_connect_change drivers/usb/core/hub.c:5009
+ port_event drivers/usb/core/hub.c:5115
+ hub_event+0x1318/0x3740 drivers/usb/core/hub.c:5195
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ process_scheduled_works kernel/workqueue.c:2179
+ worker_thread+0xb2b/0x1850 kernel/workqueue.c:2255
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
 
-And indeed, it solved the issue.
+Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+---
+ drivers/net/wireless/intersil/p54/main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-We kept the suggested patch in our internal branch, and rebased.
-Issue appeared again once your series was accepted.
-
-By bisecting, we see that the issue re-appears in this patch:
-4a336a23d619 kobject: copy env blob in one go
-
->
-> Are you really using netns in the first place ?
-No. But seems like it still affects the modules load/unload.
-
-Regards,
-Tariq
+diff --git a/drivers/net/wireless/intersil/p54/main.c b/drivers/net/wireless/intersil/p54/main.c
+index d5a3bf91a03e..ab6d39e12069 100644
+--- a/drivers/net/wireless/intersil/p54/main.c
++++ b/drivers/net/wireless/intersil/p54/main.c
+@@ -852,12 +852,11 @@ void p54_unregister_common(struct ieee80211_hw *dev)
+ {
+ 	struct p54_common *priv = dev->priv;
+ 
+-#ifdef CONFIG_P54_LEDS
+-	p54_unregister_leds(priv);
+-#endif /* CONFIG_P54_LEDS */
+-
+ 	if (priv->registered) {
+ 		priv->registered = false;
++#ifdef CONFIG_P54_LEDS
++		p54_unregister_leds(priv);
++#endif /* CONFIG_P54_LEDS */
+ 		ieee80211_unregister_hw(dev);
+ 	}
+ 
+-- 
+2.14.1.821.g8fa685d3b7-goog
