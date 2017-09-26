@@ -1,151 +1,152 @@
-From: Artem Savkov <asavkov@redhat.com>
-Subject: [PATCH v3] ebtables: fix race condition in frame_filter_net_init()
-Date: Tue, 26 Sep 2017 18:35:45 +0200
-Message-ID: <20170926163545.3668-1-asavkov@redhat.com>
-References: <20170926153923.30094-1-asavkov@redhat.com>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        Artem Savkov <asavkov@redhat.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926153923.30094-1-asavkov@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v2 1/3] ip{6,}tunnel: Avoid copying user-supplied interface name around
+Date: Tue, 26 Sep 2017 18:35:46 +0200
+Message-ID: <20170926163548.24347-2-phil@nwl.cc>
+References: <20170926163548.24347-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58106 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934771AbdIZQgF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 12:36:05 -0400
+In-Reply-To: <20170926163548.24347-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is possible for ebt_in_hook to be triggered before ebt_table is assigned
-resulting in a NULL-pointer dereference. Make sure hooks are
-registered as the last step.
+In both files' parse_args() functions as well as in iptunnel's do_prl()
+and do_6rd() functions, a user-supplied 'dev' parameter is uselessly
+copied into a temporary buffer before passing it to ll_name_to_index()
+or copying into a struct ifreq.  Avoid this by just caching the argv
+pointer value until the later lookup/strcpy.
 
-v3: restore errorneously removed ops == NULL case check
-
-Fixes: aee12a0a3727 ebtables: remove nf_hook_register usage
-Signed-off-by: Artem Savkov <asavkov@redhat.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- include/linux/netfilter_bridge/ebtables.h |  7 ++++---
- net/bridge/netfilter/ebtable_broute.c     |  4 ++--
- net/bridge/netfilter/ebtable_filter.c     |  4 ++--
- net/bridge/netfilter/ebtable_nat.c        |  4 ++--
- net/bridge/netfilter/ebtables.c           | 17 +++++++++--------
- 5 files changed, 19 insertions(+), 17 deletions(-)
+ ip/ip6tunnel.c |  6 +++---
+ ip/iptunnel.c  | 22 +++++++++-------------
+ 2 files changed, 12 insertions(+), 16 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
-index 2c2a5514b0df..528b24c78308 100644
---- a/include/linux/netfilter_bridge/ebtables.h
-+++ b/include/linux/netfilter_bridge/ebtables.h
-@@ -108,9 +108,10 @@ struct ebt_table {
- 
- #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
- 		     ~(__alignof__(struct _xt_align)-1))
--extern struct ebt_table *ebt_register_table(struct net *net,
--					    const struct ebt_table *table,
--					    const struct nf_hook_ops *);
-+extern int ebt_register_table(struct net *net,
-+			      const struct ebt_table *table,
-+			      const struct nf_hook_ops *ops,
-+			      struct ebt_table **res);
- extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
- 				 const struct nf_hook_ops *);
- extern unsigned int ebt_do_table(struct sk_buff *skb,
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index 2585b100ebbb..276b60262981 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -65,8 +65,8 @@ static int ebt_broute(struct sk_buff *skb)
- 
- static int __net_init broute_net_init(struct net *net)
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index b4a7def144226..c12d700e74189 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -136,7 +136,7 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
+ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
  {
--	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
--	return PTR_ERR_OR_ZERO(net->xt.broute_table);
-+	return ebt_register_table(net, &broute_table, NULL,
-+				  &net->xt.broute_table);
- }
+ 	int count = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
  
- static void __net_exit broute_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
-index 45a00dbdbcad..c41da5fac84f 100644
---- a/net/bridge/netfilter/ebtable_filter.c
-+++ b/net/bridge/netfilter/ebtable_filter.c
-@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
- 
- static int __net_init frame_filter_net_init(struct net *net)
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "mode") == 0) {
+@@ -180,7 +180,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
+ 			memcpy(&p->laddr, &laddr.data, sizeof(p->laddr));
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ - 1);
++			medium = *argv;
+ 		} else if (strcmp(*argv, "encaplimit") == 0) {
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "none") == 0) {
+@@ -285,7 +285,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
+ 		count++;
+ 		argc--; argv++;
+ 	}
+-	if (medium[0]) {
++	if (medium) {
+ 		p->link = ll_name_to_index(medium);
+ 		if (p->link == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", medium);
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index 105d0f5576f1a..0acfd0793d3cd 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -60,7 +60,7 @@ static void set_tunnel_proto(struct ip_tunnel_parm *p, int proto)
+ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
  {
--	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
--	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
-+	return ebt_register_table(net, &frame_filter, ebt_ops_filter,
-+				  &net->xt.frame_filter);
- }
+ 	int count = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
+ 	int isatap = 0;
  
- static void __net_exit frame_filter_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index 57cd5bb154e7..08df7406ecb3 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
- 
- static int __net_init frame_nat_net_init(struct net *net)
- {
--	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
--	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
-+	return ebt_register_table(net, &frame_nat, ebt_ops_nat,
-+				  &net->xt.frame_nat);
- }
- 
- static void __net_exit frame_nat_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 83951f978445..3b3dcf719e07 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1169,9 +1169,8 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
- 	kfree(table);
- }
- 
--struct ebt_table *
--ebt_register_table(struct net *net, const struct ebt_table *input_table,
--		   const struct nf_hook_ops *ops)
-+int ebt_register_table(struct net *net, const struct ebt_table *input_table,
-+		       const struct nf_hook_ops *ops, struct ebt_table **res)
- {
- 	struct ebt_table_info *newinfo;
- 	struct ebt_table *t, *table;
-@@ -1183,7 +1182,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	    repl->entries == NULL || repl->entries_size == 0 ||
- 	    repl->counters != NULL || input_table->private != NULL) {
- 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
--		return ERR_PTR(-EINVAL);
-+		return -EINVAL;
+ 	memset(p, 0, sizeof(*p));
+@@ -139,7 +139,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ 				p->iph.saddr = htonl(INADDR_ANY);
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ - 1);
++			medium = *argv;
+ 		} else if (strcmp(*argv, "ttl") == 0 ||
+ 			   strcmp(*argv, "hoplimit") == 0 ||
+ 			   strcmp(*argv, "hlim") == 0) {
+@@ -216,7 +216,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ 		}
  	}
  
- 	/* Don't add one table to multiple lists. */
-@@ -1252,16 +1251,18 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
- 	mutex_unlock(&ebt_mutex);
+-	if (medium[0]) {
++	if (medium) {
+ 		p->link = ll_name_to_index(medium);
+ 		if (p->link == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", medium);
+@@ -465,9 +465,8 @@ static int do_prl(int argc, char **argv)
+ {
+ 	struct ip_tunnel_prl p = {};
+ 	int count = 0;
+-	int devname = 0;
+ 	int cmd = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
  
-+	WRITE_ONCE(*res, table);
-+
- 	if (!ops)
--		return table;
-+		return 0;
- 
- 	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
- 	if (ret) {
- 		__ebt_unregister_table(net, table);
--		return ERR_PTR(ret);
-+		*res = NULL;
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "prl-default") == 0) {
+@@ -488,8 +487,7 @@ static int do_prl(int argc, char **argv)
+ 			count++;
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ-1);
+-			devname++;
++			medium = *argv;
+ 		} else {
+ 			fprintf(stderr,
+ 				"Invalid PRL parameter \"%s\"\n", *argv);
+@@ -502,7 +500,7 @@ static int do_prl(int argc, char **argv)
+ 		}
+ 		argc--; argv++;
  	}
+-	if (devname == 0) {
++	if (!medium) {
+ 		fprintf(stderr, "Must specify device\n");
+ 		exit(-1);
+ 	}
+@@ -513,9 +511,8 @@ static int do_prl(int argc, char **argv)
+ static int do_6rd(int argc, char **argv)
+ {
+ 	struct ip_tunnel_6rd ip6rd = {};
+-	int devname = 0;
+ 	int cmd = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
+ 	inet_prefix prefix;
  
--	return table;
-+	return ret;
- free_unlock:
- 	mutex_unlock(&ebt_mutex);
- free_chainstack:
-@@ -1276,7 +1277,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- free_table:
- 	kfree(table);
- out:
--	return ERR_PTR(ret);
-+	return ret;
- }
- 
- void ebt_unregister_table(struct net *net, struct ebt_table *table,
+ 	while (argc > 0) {
+@@ -537,8 +534,7 @@ static int do_6rd(int argc, char **argv)
+ 			cmd = SIOCDEL6RD;
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ-1);
+-			devname++;
++			medium = *argv;
+ 		} else {
+ 			fprintf(stderr,
+ 				"Invalid 6RD parameter \"%s\"\n", *argv);
+@@ -546,7 +542,7 @@ static int do_6rd(int argc, char **argv)
+ 		}
+ 		argc--; argv++;
+ 	}
+-	if (devname == 0) {
++	if (!medium) {
+ 		fprintf(stderr, "Must specify device\n");
+ 		exit(-1);
+ 	}
 -- 
-2.13.5
+2.13.1
