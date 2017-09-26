@@ -1,61 +1,53 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH net-next] net-next/hinic: Fix a case of Tx Queue is Stopped forever
-Date: Wed, 27 Sep 2017 02:11:33 +0800
-Message-ID: <1506449493-83395-1-git-send-email-aviad.krawczyk@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 2/3] ipv4: Namespaceify tcp_fastopen_key knob
+Date: Tue, 26 Sep 2017 11:18:51 -0700 (PDT)
+Message-ID: <20170926.111851.1172660559080066162.davem@davemloft.net>
+References: <1506088124-12650-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+        <20170925.162445.234890912211240693.davem@davemloft.net>
+        <F9EA5C4F-2306-4BC5-923A-3AB1D8F50FF1@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        Aviad Krawczyk <aviad.krawczyk@huawei.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
+        lucab@debian.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F9EA5C4F-2306-4BC5-923A-3AB1D8F50FF1@cmss.chinamobile.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix the following scenario:
-1. tx_free_poll is running on cpu X
-2. xmit function is running on cpu Y and fails to get sq wqe
-3. tx_free_poll frees wqes on cpu X and checks the queue is not stopped
-4. xmit function stops the queue after failed to get sq wqe
-5. The queue is stopped forever
-
-Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
----
- drivers/net/ethernet/huawei/hinic/hinic_tx.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_tx.c b/drivers/net/ethernet/huawei/hinic/hinic_tx.c
-index abe3e38..9128858 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_tx.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_tx.c
-@@ -212,10 +212,19 @@ netdev_tx_t hinic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 
- 	sq_wqe = hinic_sq_get_wqe(txq->sq, wqe_size, &prod_idx);
- 	if (!sq_wqe) {
--		tx_unmap_skb(nic_dev, skb, txq->sges);
--
- 		netif_stop_subqueue(netdev, qp->q_id);
- 
-+		/* Check for the case free_tx_poll is called in another cpu
-+		 * and we stopped the subqueue after free_tx_poll check.
-+		 */
-+		sq_wqe = hinic_sq_get_wqe(txq->sq, wqe_size, &prod_idx);
-+		if (sq_wqe) {
-+			netif_wake_subqueue(nic_dev->netdev, qp->q_id);
-+			goto process_sq_wqe;
-+		}
-+
-+		tx_unmap_skb(nic_dev, skb, txq->sges);
-+
- 		u64_stats_update_begin(&txq->txq_stats.syncp);
- 		txq->txq_stats.tx_busy++;
- 		u64_stats_update_end(&txq->txq_stats.syncp);
-@@ -223,6 +232,7 @@ netdev_tx_t hinic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		goto flush_skbs;
- 	}
- 
-+process_sq_wqe:
- 	hinic_sq_prepare_wqe(txq->sq, prod_idx, sq_wqe, txq->sges, nr_sges);
- 
- 	hinic_sq_write_wqe(txq->sq, prod_idx, sq_wqe, skb, wqe_size);
--- 
-1.9.1
+RnJvbTog5Lil5rW35Y+MIDx5YW5oYWlzaHVhbmdAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
+OiBUdWUsIDI2IFNlcCAyMDE3IDA5OjI1OjUxICswODAwDQoNCj4+IE9uIDIwMTflubQ55pyIMjbm
+l6UsIGF0IOS4iuWNiDc6MjQsIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3Jv
+dGU6DQo+PiANCj4+IEZyb206IEhhaXNodWFuZyBZYW4gPHlhbmhhaXNodWFuZ0BjbXNzLmNoaW5h
+bW9iaWxlLmNvbT4NCj4+IERhdGU6IEZyaSwgMjIgU2VwIDIwMTcgMjE6NDg6NDMgKzA4MDANCj4+
+IA0KPj4+IEBAIC05LDEzICs5LDE4IEBADQo+Pj4gI2luY2x1ZGUgPG5ldC9pbmV0cGVlci5oPg0K
+Pj4+ICNpbmNsdWRlIDxuZXQvdGNwLmg+DQo+Pj4gDQo+Pj4gLXN0cnVjdCB0Y3BfZmFzdG9wZW5f
+Y29udGV4dCBfX3JjdSAqdGNwX2Zhc3RvcGVuX2N0eDsNCj4+PiAtDQo+Pj4gLXN0YXRpYyBERUZJ
+TkVfU1BJTkxPQ0sodGNwX2Zhc3RvcGVuX2N0eF9sb2NrKTsNCj4+PiAtDQo+Pj4gLXZvaWQgdGNw
+X2Zhc3RvcGVuX2luaXRfa2V5X29uY2UoYm9vbCBwdWJsaXNoKQ0KPj4+ICt2b2lkIHRjcF9mYXN0
+b3Blbl9pbml0X2tleV9vbmNlKHN0cnVjdCBuZXQgKm5ldCkNCj4+IA0KPj4gV2h5IGRpZCB5b3Ug
+cmVtb3ZlIHRoZSAncHVibGlzaCcgbG9naWMgZnJvbSB0aGlzIGZ1bmN0aW9uPw0KPj4gDQo+IA0K
+PiBJIHRoaW5rIHRoaXMgbG9naWMgaXMgbm90IG5lY2Vzc2FyeSBub3csIGluIHByb2NfdGNwX2Zh
+c3RvcGVuX2tleSwgSSBoYXZlIHJlbW92ZWQgDQo+IHRjcF9mYXN0b3Blbl9pbml0X2tleV9vbmNl
+KGZhbHNlKSB3aGVyZSB0aGUg4oCYcHVibGlzaOKAmSBpcyBmYWxzZToNCj4gDQo+IC0JCS8qIEdl
+bmVyYXRlIGEgZHVtbXkgc2VjcmV0IGJ1dCBkb24ndCBwdWJsaXNoIGl0LiBUaGlzDQo+IC0JCSAq
+IGlzIG5lZWRlZCBzbyB3ZSBkb24ndCByZWdlbmVyYXRlIGEgbmV3IGtleSBvbiB0aGUNCj4gLQkJ
+ICogZmlyc3QgaW52b2NhdGlvbiBvZiB0Y3BfZmFzdG9wZW5fY29va2llX2dlbg0KPiAtCQkgKi8N
+Cj4gLQkJdGNwX2Zhc3RvcGVuX2luaXRfa2V5X29uY2UoZmFsc2UpOw0KPiAtCQl0Y3BfZmFzdG9w
+ZW5fcmVzZXRfY2lwaGVyKHVzZXJfa2V5LCBUQ1BfRkFTVE9QRU5fS0VZX0xFTkdUSCk7DQo+ICsJ
+CXRjcF9mYXN0b3Blbl9yZXNldF9jaXBoZXIobmV0LCB1c2VyX2tleSwgVENQX0ZBU1RPUEVOX0tF
+WV9MRU5HVEgpOw0KPiANCj4gSXQgc2FpZCB3ZSBkb24ndCByZWdlbmVyYXRlIGEgbmV3IGtleSBv
+biBmaXJzdCBpbnZvY2F0aW9uIG9mIHRjcF9mYXN0b3Blbl9jb29raWVfZ2VuLCANCj4gYnV0IGlu
+IHRjcF9mYXN0b3Blbl9jb29raWVfZ2Vu77yMaXQgZGlkbuKAmXQgIGNhbGwgdGNwX2Zhc3RvcGVu
+X2luaXRfa2V5X29uY2Ugc2luY2UNCj4gZnJvbSBjb21taXQgZGZlYTJhYTY1NDI0MyAodGNwOiBE
+byBub3QgY2FsbCB0Y3BfZmFzdG9wZW5fcmVzZXRfY2lwaGVyIGZyb20gaW50ZXJydXB0IGNvbnRl
+eHQp77yaDQo+IA0KPiBBbmQgaW4gb3RoZXIgcGxhY2VzIHdoZXJlIGNhbGwgdGNwX2Zhc3RvcGVu
+X2luaXRfa2V5X29uY2UsIHRoZSDigJhwdWJsaXNo4oCZIGlzIGFsd2F5cyB0cnVlOg0KDQpPaywg
+dGhpcyBzaW1wbGlmaWNhdGlvbiBzZWVtcyBsZWdpdGltYXRlLg0KDQpCdXQgaXQgaXMgdW5yZWxh
+dGVkIHRvIHRoaXMgbmFtZXNwYWNpZmljYXRpb24uICBTbyBpdCBzaG91bGQgYmUgaW4gYSBzZXBh
+cmF0ZSBwYXRjaCwNCmFuZCBzaG91bGQgYmUgZG9jdW1lbnRlZCB3ZWxsIGluIHRoZSBjb21taXQg
+bWVzc2FnZSB1c2luZyB0aGUgZ3JlYXQgZXhwbGFuYXRpb24geW91DQpnYXZlIHRvIG1lIGFib3Zl
+Lg0KDQpQbGVhc2UgcmVzcGluIHRoaXMgc2VyaWVzLCB3aXRoIHRoaXMgcGF0Y2ggIzIgc3BsaXQg
+dXAgaW50byB0d28gY2hhbmdlcy4NCg0KVGhhbmsgeW91Lg0K
