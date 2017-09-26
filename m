@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v2 net-next 07/10] net: hns3: Add hclge_dcb module for the support of DCB feature
-Date: Tue, 26 Sep 2017 10:25:15 +0800
-Message-ID: <1506392718-50463-8-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v2 net-next 01/10] net: hns3: Support for dynamically assigning tx buffer to TC
+Date: Tue, 26 Sep 2017 10:25:09 +0800
+Message-ID: <1506392718-50463-2-git-send-email-linyunsheng@huawei.com>
 References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,544 +17,169 @@ In-Reply-To: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The hclge_dcb module calls the interface from hclge_main/tm
-and provide interface for the dcb netlink interface.
-
-This patch also update Makefiles required to build the DCB
-supported code in HNS3 Ethernet driver and update the existing
-Kconfig file in the hisilicon folder.
+This patch add support of dynamically assigning tx buffer to
+TC when the TC is enabled.
+It will save buffer for rx direction to avoid packet loss.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/Kconfig             |   9 +
- drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  20 ++
- .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   2 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c | 327 +++++++++++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h |  21 ++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    |  25 +-
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |   3 +
- 7 files changed, 401 insertions(+), 6 deletions(-)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h
+V2:
+	Fix for not defining variables in local loop.
 
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-index 91c7bdb..9d7cb03 100644
---- a/drivers/net/ethernet/hisilicon/Kconfig
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -103,4 +103,13 @@ config HNS3_ENET
- 	  family of SoCs. This module depends upon HNAE3 driver to access the HNAE3
- 	  devices and their associated operations.
- 
-+config HNS3_DCB
-+	bool "Hisilicon HNS3 Data Center Bridge Support"
-+	default n
-+	depends on HNS3 && HNS3_HCLGE && DCB
-+	---help---
-+	  Say Y here if you want to use Data Center Bridging (DCB) in the HNS3 driver.
-+
-+	  If unsure, say N.
-+
- endif # NET_VENDOR_HISILICON
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-index 1a01cad..5a6fa53 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-@@ -28,6 +28,7 @@
-  */
- 
- #include <linux/acpi.h>
-+#include <linux/dcbnl.h>
- #include <linux/delay.h>
- #include <linux/device.h>
- #include <linux/module.h>
-@@ -131,6 +132,7 @@ struct hnae3_client_ops {
- 	int (*init_instance)(struct hnae3_handle *handle);
- 	void (*uninit_instance)(struct hnae3_handle *handle, bool reset);
- 	void (*link_status_change)(struct hnae3_handle *handle, bool state);
-+	int (*setup_tc)(struct hnae3_handle *handle, u8 tc);
+V1:
+	Initial submit.
+---
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  1 +
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 64 ++++++++++++++++++----
+ 2 files changed, 55 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+index 758cf39..a81c6cb 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+@@ -311,6 +311,7 @@ struct hclge_tc_thrd {
+ struct hclge_priv_buf {
+ 	struct hclge_waterline wl;	/* Waterline for low and high*/
+ 	u32 buf_size;	/* TC private buffer size */
++	u32 tx_buf_size;
+ 	u32 enable;	/* Enable TC private buffer or not */
  };
  
- #define HNAE3_CLIENT_NAME_LENGTH 16
-@@ -363,6 +365,23 @@ struct hnae3_ae_ops {
- 				  u16 vlan, u8 qos, __be16 proto);
- };
- 
-+struct hnae3_dcb_ops {
-+	/* IEEE 802.1Qaz std */
-+	int (*ieee_getets)(struct hnae3_handle *, struct ieee_ets *);
-+	int (*ieee_setets)(struct hnae3_handle *, struct ieee_ets *);
-+	int (*ieee_getpfc)(struct hnae3_handle *, struct ieee_pfc *);
-+	int (*ieee_setpfc)(struct hnae3_handle *, struct ieee_pfc *);
-+
-+	/* DCBX configuration */
-+	u8   (*getdcbx)(struct hnae3_handle *);
-+	u8   (*setdcbx)(struct hnae3_handle *, u8);
-+
-+	/* TC setup */
-+	int (*setup_tc)(struct hnae3_handle *, u8, u8 *);
-+
-+	int (*map_update)(struct hnae3_handle *);
-+};
-+
- struct hnae3_ae_algo {
- 	const struct hnae3_ae_ops *ops;
- 	struct list_head node;
-@@ -394,6 +413,7 @@ struct hnae3_knic_private_info {
- 
- 	u16 num_tqps;		  /* total number of TQPs in this handle */
- 	struct hnae3_queue **tqp;  /* array base of all TQPs in this instance */
-+	const struct hnae3_dcb_ops *dcb_ops;
- };
- 
- struct hnae3_roce_private_info {
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-index 162e8a42..7023dc87 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-@@ -7,5 +7,7 @@ ccflags-y := -Idrivers/net/ethernet/hisilicon/hns3
- obj-$(CONFIG_HNS3_HCLGE) += hclge.o
- hclge-objs = hclge_main.o hclge_cmd.o hclge_mdio.o hclge_tm.o
- 
-+hclge-$(CONFIG_HNS3_DCB) += hclge_dcb.o
-+
- obj-$(CONFIG_HNS3_ENET) += hns3.o
- hns3-objs = hns3_enet.o hns3_ethtool.o
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
-new file mode 100644
-index 0000000..178333b
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
-@@ -0,0 +1,327 @@
-+/*
-+ * Copyright (c) 2016-2017 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include "hclge_main.h"
-+#include "hclge_tm.h"
-+#include "hnae3.h"
-+
-+#define BW_PERCENT	100
-+
-+static int hclge_ieee_ets_to_tm_info(struct hclge_dev *hdev,
-+				     struct ieee_ets *ets)
-+{
-+	u8 i;
-+
-+	for (i = 0; i < HNAE3_MAX_TC; i++) {
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			hdev->tm_info.tc_info[i].tc_sch_mode =
-+				HCLGE_SCH_MODE_SP;
-+			hdev->tm_info.pg_info[0].tc_dwrr[i] = 0;
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			hdev->tm_info.tc_info[i].tc_sch_mode =
-+				HCLGE_SCH_MODE_DWRR;
-+			hdev->tm_info.pg_info[0].tc_dwrr[i] =
-+				ets->tc_tx_bw[i];
-+			break;
-+		default:
-+			/* Hardware only supports SP (strict priority)
-+			 * or ETS (enhanced transmission selection)
-+			 * algorithms, if we receive some other value
-+			 * from dcbnl, then throw an error.
-+			 */
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return hclge_tm_prio_tc_info_update(hdev, ets->prio_tc);
-+}
-+
-+static void hclge_tm_info_to_ieee_ets(struct hclge_dev *hdev,
-+				      struct ieee_ets *ets)
-+{
-+	u32 i;
-+
-+	memset(ets, 0, sizeof(*ets));
-+	ets->willing = 1;
-+	ets->ets_cap = hdev->tc_max;
-+
-+	for (i = 0; i < HNAE3_MAX_TC; i++) {
-+		ets->prio_tc[i] = hdev->tm_info.prio_tc[i];
-+		ets->tc_tx_bw[i] = hdev->tm_info.pg_info[0].tc_dwrr[i];
-+
-+		if (hdev->tm_info.tc_info[i].tc_sch_mode ==
-+		    HCLGE_SCH_MODE_SP)
-+			ets->tc_tsa[i] = IEEE_8021QAZ_TSA_STRICT;
-+		else
-+			ets->tc_tsa[i] = IEEE_8021QAZ_TSA_ETS;
-+	}
-+}
-+
-+/* IEEE std */
-+static int hclge_ieee_getets(struct hnae3_handle *h, struct ieee_ets *ets)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+
-+	hclge_tm_info_to_ieee_ets(hdev, ets);
-+
-+	return 0;
-+}
-+
-+static int hclge_ets_validate(struct hclge_dev *hdev, struct ieee_ets *ets,
-+			      u8 *tc, bool *changed)
-+{
-+	u32 total_ets_bw = 0;
-+	u8 max_tc = 0;
-+	u8 i;
-+
-+	for (i = 0; i < HNAE3_MAX_TC; i++) {
-+		if (ets->prio_tc[i] >= hdev->tc_max ||
-+		    i >= hdev->tc_max)
-+			return -EINVAL;
-+
-+		if (ets->prio_tc[i] != hdev->tm_info.prio_tc[i])
-+			*changed = true;
-+
-+		if (ets->prio_tc[i] > max_tc)
-+			max_tc = ets->prio_tc[i];
-+
-+		switch (ets->tc_tsa[i]) {
-+		case IEEE_8021QAZ_TSA_STRICT:
-+			if (hdev->tm_info.tc_info[i].tc_sch_mode !=
-+				HCLGE_SCH_MODE_SP)
-+				*changed = true;
-+			break;
-+		case IEEE_8021QAZ_TSA_ETS:
-+			if (hdev->tm_info.tc_info[i].tc_sch_mode !=
-+				HCLGE_SCH_MODE_DWRR)
-+				*changed = true;
-+
-+			total_ets_bw += ets->tc_tx_bw[i];
-+		break;
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+
-+	if (total_ets_bw != BW_PERCENT)
-+		return -EINVAL;
-+
-+	*tc = max_tc + 1;
-+	if (*tc != hdev->tm_info.num_tc)
-+		*changed = true;
-+
-+	return 0;
-+}
-+
-+static int hclge_map_update(struct hnae3_handle *h)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+	int ret;
-+
-+	ret = hclge_tm_map_cfg(hdev);
-+	if (ret)
-+		return ret;
-+
-+	ret = hclge_tm_schd_mode_hw(hdev);
-+	if (ret)
-+		return ret;
-+
-+	ret = hclge_pause_setup_hw(hdev);
-+	if (ret)
-+		return ret;
-+
-+	ret = hclge_buffer_alloc(hdev);
-+	if (ret)
-+		return ret;
-+
-+	return hclge_rss_init_hw(hdev);
-+}
-+
-+static int hclge_client_setup_tc(struct hclge_dev *hdev)
-+{
-+	struct hclge_vport *vport = hdev->vport;
-+	struct hnae3_client *client;
-+	struct hnae3_handle *handle;
-+	int ret;
-+	u32 i;
-+
-+	for (i = 0; i < hdev->num_vmdq_vport + 1; i++) {
-+		handle = &vport[i].nic;
-+		client = handle->client;
-+
-+		if (!client || !client->ops || !client->ops->setup_tc)
-+			continue;
-+
-+		ret = client->ops->setup_tc(handle, hdev->tm_info.num_tc);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_ieee_setets(struct hnae3_handle *h, struct ieee_ets *ets)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+	bool map_changed = false;
-+	u8 num_tc = 0;
-+	int ret;
-+
-+	if (!(hdev->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
-+		return -EINVAL;
-+
-+	ret = hclge_ets_validate(hdev, ets, &num_tc, &map_changed);
-+	if (ret)
-+		return ret;
-+
-+	hclge_tm_schd_info_update(hdev, num_tc);
-+
-+	ret = hclge_ieee_ets_to_tm_info(hdev, ets);
-+	if (ret)
-+		return ret;
-+
-+	if (map_changed) {
-+		ret = hclge_client_setup_tc(hdev);
-+		if (ret)
-+			return ret;
-+	}
-+
-+	return hclge_tm_dwrr_cfg(hdev);
-+}
-+
-+static int hclge_ieee_getpfc(struct hnae3_handle *h, struct ieee_pfc *pfc)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+	u8 i, j, pfc_map, *prio_tc;
-+
-+	memset(pfc, 0, sizeof(*pfc));
-+	pfc->pfc_cap = hdev->pfc_max;
-+	prio_tc = hdev->tm_info.prio_tc;
-+	pfc_map = hdev->tm_info.hw_pfc_map;
-+
-+	/* Pfc setting is based on TC */
-+	for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+		for (j = 0; j < HNAE3_MAX_USER_PRIO; j++) {
-+			if ((prio_tc[j] == i) && (pfc_map & BIT(i)))
-+				pfc->pfc_en |= BIT(j);
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int hclge_ieee_setpfc(struct hnae3_handle *h, struct ieee_pfc *pfc)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+	u8 i, j, pfc_map, *prio_tc;
-+
-+	if (!(hdev->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
-+		return -EINVAL;
-+
-+	prio_tc = hdev->tm_info.prio_tc;
-+	pfc_map = 0;
-+
-+	for (i = 0; i < hdev->tm_info.num_tc; i++) {
-+		for (j = 0; j < HNAE3_MAX_USER_PRIO; j++) {
-+			if ((prio_tc[j] == i) && (pfc->pfc_en & BIT(j))) {
-+				pfc_map |= BIT(i);
-+				break;
-+			}
-+		}
-+	}
-+
-+	if (pfc_map == hdev->tm_info.hw_pfc_map)
-+		return 0;
-+
-+	hdev->tm_info.hw_pfc_map = pfc_map;
-+
-+	return hclge_pause_setup_hw(hdev);
-+}
-+
-+/* DCBX configuration */
-+static u8 hclge_getdcbx(struct hnae3_handle *h)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+
-+	return hdev->dcbx_cap;
-+}
-+
-+static u8 hclge_setdcbx(struct hnae3_handle *h, u8 mode)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+
-+	/* No support for LLD_MANAGED modes or CEE */
-+	if ((mode & DCB_CAP_DCBX_LLD_MANAGED) ||
-+	    (mode & DCB_CAP_DCBX_VER_CEE) ||
-+	    !(mode & DCB_CAP_DCBX_HOST))
-+		return 1;
-+
-+	hdev->dcbx_cap = mode;
-+
-+	return 0;
-+}
-+
-+static int hclge_setup_tc(struct hnae3_handle *h, u8 tc, u8 *prio_tc)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(h);
-+	struct hclge_dev *hdev = vport->back;
-+	int ret;
-+
-+	if (tc > hdev->tc_max) {
-+		dev_err(&hdev->pdev->dev,
-+			"setup tc failed, tc(%u) > tc_max(%u)\n",
-+			tc, hdev->tc_max);
-+		return -EINVAL;
-+	}
-+
-+	hclge_tm_schd_info_update(hdev, tc);
-+
-+	ret = hclge_tm_prio_tc_info_update(hdev, prio_tc);
-+	if (ret)
-+		return ret;
-+
-+	return hclge_tm_init_hw(hdev);
-+}
-+
-+static const struct hnae3_dcb_ops hns3_dcb_ops = {
-+	.ieee_getets	= hclge_ieee_getets,
-+	.ieee_setets	= hclge_ieee_setets,
-+	.ieee_getpfc	= hclge_ieee_getpfc,
-+	.ieee_setpfc	= hclge_ieee_setpfc,
-+	.getdcbx	= hclge_getdcbx,
-+	.setdcbx	= hclge_setdcbx,
-+	.setup_tc	= hclge_setup_tc,
-+	.map_update	= hclge_map_update,
-+};
-+
-+void hclge_dcb_ops_set(struct hclge_dev *hdev)
-+{
-+	struct hclge_vport *vport = hdev->vport;
-+	struct hnae3_knic_private_info *kinfo;
-+
-+	/* Hdev does not support DCB or vport is
-+	 * not a pf, then dcb_ops is not set.
-+	 */
-+	if (!hnae3_dev_dcb_supported(hdev) ||
-+	    vport->vport_id != 0)
-+		return;
-+
-+	kinfo = &vport->nic.kinfo;
-+	kinfo->dcb_ops = &hns3_dcb_ops;
-+	hdev->dcbx_cap = DCB_CAP_DCBX_VER_IEEE | DCB_CAP_DCBX_HOST;
-+}
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h
-new file mode 100644
-index 0000000..7d808ee
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h
-@@ -0,0 +1,21 @@
-+/*
-+ * Copyright (c) 2016~2017 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef __HCLGE_DCB_H__
-+#define __HCLGE_DCB_H__
-+
-+#include "hclge_main.h"
-+
-+#ifdef CONFIG_HNS3_DCB
-+void hclge_dcb_ops_set(struct hclge_dev *hdev);
-+#else
-+static inline void hclge_dcb_ops_set(struct hclge_dev *hdev) {}
-+#endif
-+
-+#endif /* __HCLGE_DCB_H__ */
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index ca7e3bc..d53a66a 100644
+index d27618b..02da3d5 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -19,6 +19,7 @@
- #include <linux/platform_device.h>
+@@ -1324,7 +1324,7 @@ static int hclge_alloc_vport(struct hclge_dev *hdev)
+ 	return 0;
+ }
  
- #include "hclge_cmd.h"
-+#include "hclge_dcb.h"
- #include "hclge_main.h"
- #include "hclge_mdio.h"
- #include "hclge_tm.h"
-@@ -1057,7 +1058,7 @@ static int hclge_configure(struct hclge_dev *hdev)
- 	hdev->hw.mac.phy_addr = cfg.phy_addr;
- 	hdev->num_desc = cfg.tqp_desc_num;
- 	hdev->tm_info.num_pg = 1;
--	hdev->tm_info.num_tc = cfg.tc_num;
-+	hdev->tc_max = cfg.tc_num;
- 	hdev->tm_info.hw_pfc_map = 0;
+-static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
++static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
+ {
+ /* TX buffer size is unit by 128 byte */
+ #define HCLGE_BUF_SIZE_UNIT_SHIFT	7
+@@ -1337,10 +1337,13 @@ static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
+ 	req = (struct hclge_tx_buff_alloc *)desc.data;
  
- 	ret = hclge_parse_speed(cfg.default_speed, &hdev->hw.mac.speed);
-@@ -1066,15 +1067,25 @@ static int hclge_configure(struct hclge_dev *hdev)
- 		return ret;
- 	}
+ 	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TX_BUFF_ALLOC, 0);
+-	for (i = 0; i < HCLGE_TC_NUM; i++)
++	for (i = 0; i < HCLGE_TC_NUM; i++) {
++		u32 buf_size = hdev->priv_buf[i].tx_buf_size;
++
+ 		req->tx_pkt_buff[i] =
+ 			cpu_to_le16((buf_size >> HCLGE_BUF_SIZE_UNIT_SHIFT) |
+ 				     HCLGE_BUF_SIZE_UPDATE_EN_MSK);
++	}
  
--	if ((hdev->tm_info.num_tc > HNAE3_MAX_TC) ||
--	    (hdev->tm_info.num_tc < 1)) {
-+	if ((hdev->tc_max > HNAE3_MAX_TC) ||
-+	    (hdev->tc_max < 1)) {
- 		dev_warn(&hdev->pdev->dev, "TC num = %d.\n",
--			 hdev->tm_info.num_tc);
--		hdev->tm_info.num_tc = 1;
-+			 hdev->tc_max);
-+		hdev->tc_max = 1;
- 	}
+ 	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+ 	if (ret) {
+@@ -1352,9 +1355,9 @@ static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
+ 	return 0;
+ }
  
-+	/* Dev does not support DCB */
-+	if (!hnae3_dev_dcb_supported(hdev)) {
-+		hdev->tc_max = 1;
-+		hdev->pfc_max = 0;
-+	} else {
-+		hdev->pfc_max = hdev->tc_max;
+-static int hclge_tx_buffer_alloc(struct hclge_dev *hdev, u32 buf_size)
++static int hclge_tx_buffer_alloc(struct hclge_dev *hdev)
+ {
+-	int ret = hclge_cmd_alloc_tx_buff(hdev, buf_size);
++	int ret = hclge_cmd_alloc_tx_buff(hdev);
+ 
+ 	if (ret) {
+ 		dev_err(&hdev->pdev->dev,
+@@ -1433,6 +1436,16 @@ static u32 hclge_get_rx_priv_buff_alloced(struct hclge_dev *hdev)
+ 	return rx_priv;
+ }
+ 
++static u32 hclge_get_tx_buff_alloced(struct hclge_dev *hdev)
++{
++	u32 i, total_tx_size = 0;
++
++	for (i = 0; i < HCLGE_MAX_TC_NUM; i++)
++		total_tx_size += hdev->priv_buf[i].tx_buf_size;
++
++	return total_tx_size;
++}
++
+ static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev, u32 rx_all)
+ {
+ 	u32 shared_buf_min, shared_buf_tc, shared_std;
+@@ -1477,18 +1490,43 @@ static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev, u32 rx_all)
+ 	return true;
+ }
+ 
++static int hclge_tx_buffer_calc(struct hclge_dev *hdev)
++{
++	u32 i, total_size;
++
++	total_size = hdev->pkt_buf_size;
++
++	/* alloc tx buffer for all enabled tc */
++	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
++		struct hclge_priv_buf *priv = &hdev->priv_buf[i];
++
++		if (total_size < HCLGE_DEFAULT_TX_BUF)
++			return -ENOMEM;
++
++		if (hdev->hw_tc_map & BIT(i))
++			priv->tx_buf_size = HCLGE_DEFAULT_TX_BUF;
++		else
++			priv->tx_buf_size = 0;
++
++		total_size -= priv->tx_buf_size;
 +	}
 +
-+	hdev->tm_info.num_tc = hdev->tc_max;
++	return 0;
++}
 +
- 	/* Currently not support uncontiuous tc */
--	for (i = 0; i < cfg.tc_num; i++)
-+	for (i = 0; i < hdev->tm_info.num_tc; i++)
- 		hnae_set_bit(hdev->hw_tc_map, i, 1);
+ /* hclge_rx_buffer_calc: calculate the rx private buffer size for all TCs
+  * @hdev: pointer to struct hclge_dev
+- * @tx_size: the allocated tx buffer for all TCs
+  * @return: 0: calculate sucessful, negative: fail
+  */
+-int hclge_rx_buffer_calc(struct hclge_dev *hdev, u32 tx_size)
++int hclge_rx_buffer_calc(struct hclge_dev *hdev)
+ {
+-	u32 rx_all = hdev->pkt_buf_size - tx_size;
++	u32 rx_all = hdev->pkt_buf_size;
+ 	int no_pfc_priv_num, pfc_priv_num;
+ 	struct hclge_priv_buf *priv;
+ 	int i;
  
- 	if (!hdev->num_vmdq_vport && !hdev->num_req_vfs)
-@@ -4237,6 +4248,8 @@ static int hclge_init_ae_dev(struct hnae3_ae_dev *ae_dev)
++	rx_all -= hclge_get_tx_buff_alloced(hdev);
++
+ 	/* When DCB is not supported, rx private
+ 	 * buffer is not allocated.
+ 	 */
+@@ -1771,7 +1809,6 @@ static int hclge_common_wl_config(struct hclge_dev *hdev)
+ 
+ int hclge_buffer_alloc(struct hclge_dev *hdev)
+ {
+-	u32 tx_buf_size = HCLGE_DEFAULT_TX_BUF;
+ 	int ret;
+ 
+ 	hdev->priv_buf = devm_kmalloc_array(&hdev->pdev->dev, HCLGE_MAX_TC_NUM,
+@@ -1780,14 +1817,21 @@ int hclge_buffer_alloc(struct hclge_dev *hdev)
+ 	if (!hdev->priv_buf)
+ 		return -ENOMEM;
+ 
+-	ret = hclge_tx_buffer_alloc(hdev, tx_buf_size);
++	ret = hclge_tx_buffer_calc(hdev);
++	if (ret) {
++		dev_err(&hdev->pdev->dev,
++			"could not calc tx buffer size for all TCs %d\n", ret);
++		return ret;
++	}
++
++	ret = hclge_tx_buffer_alloc(hdev);
+ 	if (ret) {
+ 		dev_err(&hdev->pdev->dev,
+ 			"could not alloc tx buffers %d\n", ret);
  		return ret;
  	}
  
-+	hclge_dcb_ops_set(hdev);
-+
- 	setup_timer(&hdev->service_timer, hclge_service_timer,
- 		    (unsigned long)hdev);
- 	INIT_WORK(&hdev->service_task, hclge_service_task);
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-index 394b587..7c66c00 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-@@ -421,8 +421,11 @@ struct hclge_dev {
- #define HCLGE_FLAG_TC_BASE_SCH_MODE		1
- #define HCLGE_FLAG_VNET_BASE_SCH_MODE		2
- 	u8 tx_sch_mode;
-+	u8 tc_max;
-+	u8 pfc_max;
- 
- 	u8 default_up;
-+	u8 dcbx_cap;
- 	struct hclge_tm_info tm_info;
- 
- 	u16 num_msi;
+-	ret = hclge_rx_buffer_calc(hdev, tx_buf_size);
++	ret = hclge_rx_buffer_calc(hdev);
+ 	if (ret) {
+ 		dev_err(&hdev->pdev->dev,
+ 			"could not calc rx priv buffer size for all TCs %d\n",
 -- 
 1.9.1
