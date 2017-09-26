@@ -1,99 +1,89 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH v2 2/2] ip_tunnel: add mpls over gre encapsulation
-Date: Tue, 26 Sep 2017 12:31:17 -0700
-Message-ID: <CAJieiUi2vezQjZKomJo-YWi+bd=fTgSS4YVxVcWdDyfetR5RFg@mail.gmail.com>
-References: <cover.1506416988.git.amine.kherbouche@6wind.com>
- <c40295d24ec5207f5be695a2f888bfa840e2ef2c.1506416988.git.amine.kherbouche@6wind.com>
- <CAJieiUhJCgrykvLNEFaABg6MXKR=FhgbK=bCZF0_QrYFaeG2tw@mail.gmail.com> <9f0675b0-cbda-9053-250f-19f3f837b124@6wind.com>
+From: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Subject: Re: [PATCH v4 9/9] kasan: rework Kconfig settings
+Date: Tue, 26 Sep 2017 22:36:38 +0300
+Message-ID: <aeb9c144-10a6-53c2-89ba-cc7864f254e1@virtuozzo.com>
+References: <20170922212930.620249-1-arnd@arndb.de>
+ <20170922212930.620249-10-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, xeb@mail.ru,
-        David Lamparter <equinox@diac24.net>
-To: Amine Kherbouche <amine.kherbouche@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f173.google.com ([209.85.217.173]:45565 "EHLO
-        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1030327AbdIZTbS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 15:31:18 -0400
-Received: by mail-ua0-f173.google.com with SMTP id c27so7148308uah.2
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 12:31:18 -0700 (PDT)
-In-Reply-To: <9f0675b0-cbda-9053-250f-19f3f837b124@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kees Cook <keescook@chromium.org>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-media@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com,
+        brcm80211-dev-list@cypress.com, kasan-dev@googlegroups.com,
+        linux-kbuild@vger.kernel.org, Jakub Jelinek <jakub@gcc.gnu.org>,
+        =?UTF-8?Q?Martin_Li=c5=a1ka?= <marxin@gcc.gnu.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20170922212930.620249-10-arnd@arndb.de>
+Content-Language: en-US
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 26, 2017 at 10:58 AM, Amine Kherbouche
-<amine.kherbouche@6wind.com> wrote:
-> Hi Roopa,
->
-> Thanks for the feedback, I have just one question:
->
->
-> On 09/26/2017 05:15 PM, Roopa Prabhu wrote:
->>>
->>> +static int ipgre_tunnel_encap_add_mpls_ops(void)
->>> > +{
->>> > +       int ret = -1;
->>> > +
->>> > +#if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
->>> > +       ret = ip_tunnel_encap_add_ops(&mpls_iptun_ops,
->>> > TUNNEL_ENCAP_MPLS);
->>> > +#endif
->>> > +
->>> > +       return ret;
->>> > +}
->>> > +
->>> > +static void ipgre_tunnel_encap_del_mpls_ops(void)
->>> > +{
->>> > +#if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
->>> > +       ip_tunnel_encap_del_ops(&mpls_iptun_ops, TUNNEL_ENCAP_MPLS);
->>> > +#endif
->>> > +}
->>> > +
->>> >  static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
->>> >                        struct nlmsghdr *nlh, struct net *net, u32
->>> > portid,
->>> >                        unsigned int nlm_flags);
->>> > @@ -2486,6 +2521,10 @@ static int __init mpls_init(void)
->>> >                       0);
->>> >         rtnl_register(PF_MPLS, RTM_GETNETCONF,
->>> > mpls_netconf_get_devconf,
->>> >                       mpls_netconf_dump_devconf, 0);
->>> > +       err = ipgre_tunnel_encap_add_mpls_ops();
->>> > +       if (err)
->>> > +               pr_err("Can't add mpls over gre tunnel ops\n");
->>> > +
->>
->> This will throw an error  if CONFIG_NET_IP_TUNNEL is not enabled.
->> Can you pls put the CONFIG_NET_IP_TUNNEL around
->> ipgre_tunnel_encap_add_mpls_ops ?
->
->
-> You want the CONFIG_NET_IP_TUNNEL definition around the declaration of the
-> function or when it's called ? or both ? (I can adjust the code for any
-> case).
+On 09/23/2017 12:29 AM, Arnd Bergmann wrote:
+> We get a lot of very large stack frames using gcc-7.0.1 with the default
+> -fsanitize-address-use-after-scope --param asan-stack=1 options, which
+> can easily cause an overflow of the kernel stack, e.g.
+> 
+> drivers/gpu/drm/i915/gvt/handlers.c:2407:1: error: the frame size of 31216 bytes is larger than 2048 bytes
+> drivers/net/wireless/ralink/rt2x00/rt2800lib.c:5650:1: error: the frame size of 23632 bytes is larger than 2048 bytes
+> drivers/scsi/fnic/fnic_trace.c:451:1: error: the frame size of 5152 bytes is larger than 2048 bytes
+> fs/btrfs/relocation.c:1202:1: error: the frame size of 4256 bytes is larger than 2048 bytes
+> fs/fscache/stats.c:287:1: error: the frame size of 6552 bytes is larger than 2048 bytes
+> lib/atomic64_test.c:250:1: error: the frame size of 12616 bytes is larger than 2048 bytes
+> mm/vmscan.c:1367:1: error: the frame size of 5080 bytes is larger than 2048 bytes
+> net/wireless/nl80211.c:1905:1: error: the frame size of 4232 bytes is larger than 2048 bytes
+> 
+> To reduce this risk, -fsanitize-address-use-after-scope is now split
+> out into a separate CONFIG_KASAN_EXTRA Kconfig option, leading to stack
+> frames that are smaller than 2 kilobytes most of the time on x86_64. An
+> earlier version of this patch also prevented combining KASAN_EXTRA with
+> KASAN_INLINE, but that is no longer necessary with gcc-7.0.1.
+> 
+> A lot of warnings with KASAN_EXTRA go away if we disable KMEMCHECK,
+> as -fsanitize-address-use-after-scope seems to understand the builtin
+> memcpy, but adds checking code around an extern memcpy call. I had to work
+> around a circular dependency, as DEBUG_SLAB/SLUB depended on !KMEMCHECK,
+> while KASAN did it the other way round. Now we handle both the same way
+> and make KASAN and KMEMCHECK mutually exclusive.
+> 
+> All patches to get the frame size below 2048 bytes with CONFIG_KASAN=y
+> and CONFIG_KASAN_EXTRA=n have been submitted along with this patch, so
+> we can bring back that default now. KASAN_EXTRA=y still causes lots of
+> warnings but now defaults to !COMPILE_TEST to disable it in allmodconfig,
+> and it remains disabled in all other defconfigs since it is a new option.
+> I arbitrarily raise the warning limit for KASAN_EXTRA to 3072 to reduce
+> the noise, but an allmodconfig kernel still has around 50 warnings
+> on gcc-7.
+> 
+> I experimented a bit more with smaller stack frames and have another
+> follow-up series that reduces the warning limit for 64-bit architectures
+> to 1280 bytes (without CONFIG_KASAN).
+> 
+> With earlier versions of this patch series, I also had patches to
+> address the warnings we get with KASAN and/or KASAN_EXTRA, using a
+> "noinline_if_stackbloat" annotation. That annotation now got replaced with
+> a gcc-8 bugfix (see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81715)
+> and a workaround for older compilers, which means that KASAN_EXTRA is
+> now just as bad as before and will lead to an instant stack overflow in
+> a few extreme cases.
+> 
+> This reverts parts of commit commit 3f181b4 ("lib/Kconfig.debug: disable
+> -Wframe-larger-than warnings with KASAN=y").
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-around the declaration like below....,
-
-#if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
-static int ipgre_tunnel_encap_add_mpls_ops(void)
-{
-      return ip_tunnel_encap_add_ops(&mpls_iptun_ops,
-                                                            TUNNEL_ENCAP_MPLS);
-}
-
-static void ipgre_tunnel_encap_del_mpls_ops(void)
-{
-      ip_tunnel_encap_del_ops(&mpls_iptun_ops, TUNNEL_ENCAP_MPLS);
-}
-#else
-static int ipgre_tunnel_encap_add_mpls_ops(void)
-{
-      return 0
-}
-
-static void ipgre_tunnel_encap_del_mpls_ops(void)
-{
-}
-#endif
-
-thanks.
+Acked-by: Andrey Ryabinin <aryabinin@virtuozzo.com>
