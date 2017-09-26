@@ -1,52 +1,44 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 3/6] net: dsa: mv88e6xxx: Fixed port netdev check for VLANs
-Date: Wed, 27 Sep 2017 00:26:00 +0200
-Message-ID: <1506464764-12699-4-git-send-email-andrew@lunn.ch>
+Subject: [PATCH net-next 4/6] net: dsa: mv88e6xxx: Print offending port when vlan check fails
+Date: Wed, 27 Sep 2017 00:26:01 +0200
+Message-ID: <1506464764-12699-5-git-send-email-andrew@lunn.ch>
 References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:57002 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([185.16.172.187]:57006 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967343AbdIZW00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 18:26:26 -0400
+        id S967343AbdIZW0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 26 Sep 2017 18:26:41 -0400
 In-Reply-To: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Having the same VLAN on multiple bridges is currently unsupported as
-an offload. mv88e6xxx_port_check_hw_vlan() is used to ensure that a
-VLAN is not on multiple bridges when adding a VLAN range to a port. It
-loops the ports and checks to see if there are ports in a different
-bridge with the same VLAN.
-
-While walking all switch ports, the code was checking if the new port
-has a netdev attached to it. If not, skip checking the port being
-walked. This seems like a typ0. If the new port does not have a
-netdev, how has a VLAN been added to it in the first place, requiring
-this check be performed at all? More likely, we should be checking if
-the port being walked has a netdev. Without it having a netdev, it
-cannot have a VLAN on it, so there is no need to check further for
-that particular port.
+When testing if a VLAN is one more than one bridge, we print an error
+message that the VLAN is already in use somewhere else. Print both the
+new port which would like the VLAN, and the port which already has it,
+to aid debugging.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index c6678aa9b4ef..884f0507cf48 100644
+index 884f0507cf48..8a4756490a5a 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1120,7 +1120,7 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
- 			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
+@@ -1134,8 +1134,8 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+ 			if (!ds->ports[i].bridge_dev)
  				continue;
  
--			if (!ds->ports[port].netdev)
-+			if (!ds->ports[i].netdev)
- 				continue;
- 
- 			if (vlan.member[i] ==
+-			dev_err(ds->dev, "p%d: hw VLAN %d already used by %s\n",
+-				port, vlan.vid,
++			dev_err(ds->dev, "p%d: hw VLAN %d already used by port %d in %s\n",
++				port, vlan.vid, i,
+ 				netdev_name(ds->ports[i].bridge_dev));
+ 			err = -EOPNOTSUPP;
+ 			goto unlock;
 -- 
 2.14.1
