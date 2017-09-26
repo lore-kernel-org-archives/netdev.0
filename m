@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hv_netvsc: Fix the real number of queues of
- non-vRSS cases
-Date: Mon, 25 Sep 2017 20:21:27 -0700 (PDT)
-Message-ID: <20170925.202127.705641100210802806.davem@davemloft.net>
-References: <20170922223138.28348-1-haiyangz@exchange.microsoft.com>
+Subject: Re: [PATCH net-next v3 0/2] net: dsa: port enabling
+Date: Mon, 25 Sep 2017 20:23:48 -0700 (PDT)
+Message-ID: <20170925.202348.427280980077958763.davem@davemloft.net>
+References: <20170922230156.19521-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922223138.28348-1-haiyangz@exchange.microsoft.com>
+In-Reply-To: <20170922230156.19521-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Date: Fri, 22 Sep 2017 15:31:38 -0700
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 22 Sep 2017 19:01:54 -0400
 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
+> This patchset makes slave open and close symmetrical and provides
+> helpers for enabling or disabling a given DSA port.
 > 
-> For older hosts without multi-channel (vRSS) support, and some error
-> cases, we still need to set the real number of queues to one.
-> This patch adds this missing setting.
+> Changes in v3:
+>   - save the phy_device change for a future patchset
 > 
-> Fixes: 8195b1396ec8 ("hv_netvsc: fix deadlock on hotplug")
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Changes in v2:
+>   - do not remove the phy argument from port enable/disable
 
-Applied.
+Series applied.
