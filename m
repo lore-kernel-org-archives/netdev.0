@@ -1,52 +1,99 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 0/5] batched tx processing in vhost_net
-Date: Tue, 26 Sep 2017 22:26:40 +0300
-Message-ID: <20170926222528-mutt-send-email-mst@kernel.org>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH v2 2/2] ip_tunnel: add mpls over gre encapsulation
+Date: Tue, 26 Sep 2017 12:31:17 -0700
+Message-ID: <CAJieiUi2vezQjZKomJo-YWi+bd=fTgSS4YVxVcWdDyfetR5RFg@mail.gmail.com>
+References: <cover.1506416988.git.amine.kherbouche@6wind.com>
+ <c40295d24ec5207f5be695a2f888bfa840e2ef2c.1506416988.git.amine.kherbouche@6wind.com>
+ <CAJieiUhJCgrykvLNEFaABg6MXKR=FhgbK=bCZF0_QrYFaeG2tw@mail.gmail.com> <9f0675b0-cbda-9053-250f-19f3f837b124@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, xeb@mail.ru,
+        David Lamparter <equinox@diac24.net>
+To: Amine Kherbouche <amine.kherbouche@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f173.google.com ([209.85.217.173]:45565 "EHLO
+        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030327AbdIZTbS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 15:31:18 -0400
+Received: by mail-ua0-f173.google.com with SMTP id c27so7148308uah.2
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 12:31:18 -0700 (PDT)
+In-Reply-To: <9f0675b0-cbda-9053-250f-19f3f837b124@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 22, 2017 at 04:02:30PM +0800, Jason Wang wrote:
-> Hi:
-> 
-> This series tries to implement basic tx batched processing. This is
-> done by prefetching descriptor indices and update used ring in a
-> batch. This intends to speed up used ring updating and improve the
-> cache utilization. Test shows about ~22% improvement in tx pss.
+On Tue, Sep 26, 2017 at 10:58 AM, Amine Kherbouche
+<amine.kherbouche@6wind.com> wrote:
+> Hi Roopa,
+>
+> Thanks for the feedback, I have just one question:
+>
+>
+> On 09/26/2017 05:15 PM, Roopa Prabhu wrote:
+>>>
+>>> +static int ipgre_tunnel_encap_add_mpls_ops(void)
+>>> > +{
+>>> > +       int ret = -1;
+>>> > +
+>>> > +#if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
+>>> > +       ret = ip_tunnel_encap_add_ops(&mpls_iptun_ops,
+>>> > TUNNEL_ENCAP_MPLS);
+>>> > +#endif
+>>> > +
+>>> > +       return ret;
+>>> > +}
+>>> > +
+>>> > +static void ipgre_tunnel_encap_del_mpls_ops(void)
+>>> > +{
+>>> > +#if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
+>>> > +       ip_tunnel_encap_del_ops(&mpls_iptun_ops, TUNNEL_ENCAP_MPLS);
+>>> > +#endif
+>>> > +}
+>>> > +
+>>> >  static void rtmsg_lfib(int event, u32 label, struct mpls_route *rt,
+>>> >                        struct nlmsghdr *nlh, struct net *net, u32
+>>> > portid,
+>>> >                        unsigned int nlm_flags);
+>>> > @@ -2486,6 +2521,10 @@ static int __init mpls_init(void)
+>>> >                       0);
+>>> >         rtnl_register(PF_MPLS, RTM_GETNETCONF,
+>>> > mpls_netconf_get_devconf,
+>>> >                       mpls_netconf_dump_devconf, 0);
+>>> > +       err = ipgre_tunnel_encap_add_mpls_ops();
+>>> > +       if (err)
+>>> > +               pr_err("Can't add mpls over gre tunnel ops\n");
+>>> > +
+>>
+>> This will throw an error  if CONFIG_NET_IP_TUNNEL is not enabled.
+>> Can you pls put the CONFIG_NET_IP_TUNNEL around
+>> ipgre_tunnel_encap_add_mpls_ops ?
+>
+>
+> You want the CONFIG_NET_IP_TUNNEL definition around the declaration of the
+> function or when it's called ? or both ? (I can adjust the code for any
+> case).
 
+around the declaration like below....,
 
+#if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
+static int ipgre_tunnel_encap_add_mpls_ops(void)
+{
+      return ip_tunnel_encap_add_ops(&mpls_iptun_ops,
+                                                            TUNNEL_ENCAP_MPLS);
+}
 
+static void ipgre_tunnel_encap_del_mpls_ops(void)
+{
+      ip_tunnel_encap_del_ops(&mpls_iptun_ops, TUNNEL_ENCAP_MPLS);
+}
+#else
+static int ipgre_tunnel_encap_add_mpls_ops(void)
+{
+      return 0
+}
 
-> Please review.
-> 
-> Jason Wang (5):
->   vhost: split out ring head fetching logic
->   vhost: introduce helper to prefetch desc index
->   vhost: introduce vhost_add_used_idx()
+static void ipgre_tunnel_encap_del_mpls_ops(void)
+{
+}
+#endif
 
-Please squash these new APIs into where they are used.
-This split-up just makes review harder for me as
-I can't figure out how the new APIs are used.
-
-
->   vhost_net: rename VHOST_RX_BATCH to VHOST_NET_BATCH
-
-This is ok as a separate patch.
-
->   vhost_net: basic tx virtqueue batched processing
-> 
->  drivers/vhost/net.c   | 221 ++++++++++++++++++++++++++++----------------------
->  drivers/vhost/vhost.c | 165 +++++++++++++++++++++++++++++++------
->  drivers/vhost/vhost.h |   9 ++
->  3 files changed, 270 insertions(+), 125 deletions(-)
-> 
-> -- 
-> 2.7.4
+thanks.
