@@ -1,37 +1,86 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next v2] net_sched: use idr to allocate u32 filter
- handles
-Date: Tue, 26 Sep 2017 07:36:01 +0200
-Message-ID: <20170926053601.GA1948@nanopsycho.orion>
-References: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
- <20170925190031.GB1936@nanopsycho.orion>
- <CAM_iQpVDhtznNc8ef1HArX-T0_EDiXyF2p6ze57zvv1AHcrK8w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next v4] selftests: rtnetlink.sh: add rudimentary vrf test
+Date: Tue, 26 Sep 2017 07:40:42 +0200
+Message-ID: <20170926054042.2750-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:49909 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965008AbdIZFgD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 01:36:03 -0400
-Received: by mail-wm0-f53.google.com with SMTP id r74so3682296wme.4
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 22:36:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpVDhtznNc8ef1HArX-T0_EDiXyF2p6ze57zvv1AHcrK8w@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:57348 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S965051AbdIZFk2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 01:40:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 26, 2017 at 01:13:46AM CEST, xiyou.wangcong@gmail.com wrote:
->On Mon, Sep 25, 2017 at 12:00 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Interesting, any idea why this is not 0x7FFFFFFF as well?
->>
->> I wonder if we could have 0x7FFFFFFF magic defined somewhere.
->
->I have no idea, it just exists for a rather long time. Probably too late
->to change, or at least requires a separate patch to change it.
+Acked-by: David Ahern <dsahern@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ Changes since v1: indent all lines with tabs, not spaces
 
-Sure, not saying that you have to do it in this patch. I just wonder if
-we could unify this.
+ detaching this from the series, I want to avoid needless v5.
+
+ tools/testing/selftests/net/rtnetlink.sh | 42 ++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
+index 4b48de565cae..a048f7a5f94c 100755
+--- a/tools/testing/selftests/net/rtnetlink.sh
++++ b/tools/testing/selftests/net/rtnetlink.sh
+@@ -291,6 +291,47 @@ kci_test_ifalias()
+ 	echo "PASS: set ifalias $namewant for $devdummy"
+ }
+ 
++kci_test_vrf()
++{
++	vrfname="test-vrf"
++	ret=0
++
++	ip link show type vrf 2>/dev/null
++	if [ $? -ne 0 ]; then
++		echo "SKIP: vrf: iproute2 too old"
++		return 0
++	fi
++
++	ip link add "$vrfname" type vrf table 10
++	check_err $?
++	if [ $ret -ne 0 ];then
++		echo "FAIL: can't add vrf interface, skipping test"
++		return 0
++	fi
++
++	ip -br link show type vrf | grep -q "$vrfname"
++	check_err $?
++	if [ $ret -ne 0 ];then
++		echo "FAIL: created vrf device not found"
++		return 1
++	fi
++
++	ip link set dev "$vrfname" up
++	check_err $?
++
++	ip link set dev "$devdummy" master "$vrfname"
++	check_err $?
++	ip link del dev "$vrfname"
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: vrf"
++		return 1
++	fi
++
++	echo "PASS: vrf"
++}
++
+ kci_test_rtnl()
+ {
+ 	kci_add_dummy
+@@ -306,6 +347,7 @@ kci_test_rtnl()
+ 	kci_test_bridge
+ 	kci_test_addrlabel
+ 	kci_test_ifalias
++	kci_test_vrf
+ 
+ 	kci_del_dummy
+ }
+-- 
+2.13.5
