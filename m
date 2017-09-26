@@ -1,83 +1,56 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v2 net-next 00/10] Add support for DCB feature in hns3 driver
-Date: Tue, 26 Sep 2017 10:25:08 +0800
-Message-ID: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH,v3,net-next 0/2] Improve code coverage of syzkaller
+Date: Mon, 25 Sep 2017 20:16:31 -0700 (PDT)
+Message-ID: <20170925.201631.612115793478960027.davem@davemloft.net>
+References: <20170922204915.7889-1-peterpenkov96@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, maheshb@google.com,
+        willemb@google.com, ppenkov@stanford.edu
+To: peterpenkov96@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40138 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934832AbdIZDQe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 23:16:34 -0400
+In-Reply-To: <20170922204915.7889-1-peterpenkov96@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The patchset contains some enhancement related to DCB before
-adding support for DCB feature.
+From: Petar Penkov <peterpenkov96@gmail.com>
+Date: Fri, 22 Sep 2017 13:49:13 -0700
 
-This patchset depends on the following patchset:
-https://patchwork.ozlabs.org/cover/815646/
-https://patchwork.ozlabs.org/cover/816145/
+> This patch series is intended to improve code coverage of syzkaller on
+> the early receive path, specifically including flow dissector, GRO,
+> and GRO with frags parts of the networking stack. Syzkaller exercises
+> the stack through the TUN driver and this is therefore where changes
+> reside. Current coverage through netif_receive_skb() is limited as it
+> does not touch on any of the aforementioned code paths. Furthermore,
+> for full coverage, it is necessary to have more flexibility over the
+> linear and non-linear data of the skbs.
+> 
+> The following patches address this by providing the user(syzkaller)
+> with the ability to send via napi_gro_receive() and napi_gro_frags().
+> Additionally, syzkaller can specify how many fragments there are and
+> how much data per fragment there is. This is done by exploiting the
+> convenient structure of iovecs. Finally, this patch series adds
+> support for exercising the flow dissector during fuzzing.
+> 
+> The code path including napi_gro_receive() can be enabled via the
+> IFF_NAPI flag.  The remainder of the changes in this patch series give
+> the user significantly more control over packets entering the kernel.
+> To avoid potential security vulnerabilities, hide the ability to send
+> custom skbs and the flow dissector code paths behind a
+> capable(CAP_NET_ADMIN) check to require special user privileges.
+> 
+> Changes since v2 based on feedback from Willem de Bruijn and Mahesh
+> Bandewar:
+> 
+> Patch 1/ No changes.
+> Patch 2/ Check if the preconditions for IFF_NAPI_FRAGS (IFF_NAPI and
+> 	 IFF_TAP) are met before opening/attaching rather than after.
+> 	 If they are not, change the behavior from discarding the
+> 	 flag to rejecting the command with EINVAL.
 
-High Level Architecture:
-
-       [ tc qdisc ]	       [ lldpad ]
-             |                     |
-             |                     |
-             |                     |
-       [ hns3_enet ]        [ hns3_dcbnl ]
-             \                    /
-                \              /
-                   \        /
-                 [ hclge_dcb ]
-                   /      \
-                /            \
-             /                  \
-     [ hclge_main ]        [ hclge_tm ]
-
-Current patch-set support following functionality:
-1. Use of tc qdisc to configure the tc num and prio_tc_map.
-2. Use of lldptool to configure the tc schedule mode, tc
-   bandwidth(if schedule mode is ETS), prio_tc_map and
-   PFC parameter.
-
----
-V2: Fix for not defining variables in local loop.
-
-V1: Initial Submit.
-
-Yunsheng Lin (10):
-  net: hns3: Support for dynamically assigning tx buffer to TC
-  net: hns3: Add support for dynamically buffer reallocation
-  net: hns3: Add support for PFC setting in TM module
-  net: hns3: Add support for port shaper setting in TM module
-  net: hns3: Add tc-based TM support for sriov enabled port
-  net: hns3: Add some interface for the support of DCB feature
-  net: hns3: Add hclge_dcb module for the support of DCB feature
-  net: hns3: Add dcb netlink interface for the support of DCB feature
-  net: hns3: Setting for fc_mode and dcb enable flag in TM module
-  net: hns3: Add mqprio support when interacting with network stack
-
- drivers/net/ethernet/hisilicon/Kconfig             |   9 +
- drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  20 ++
- .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   4 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |   6 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c | 327 +++++++++++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h |  21 ++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 214 +++++++++-----
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |   8 +-
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 231 +++++++++++++--
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  15 +
- .../ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c    | 106 +++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 137 +++++++--
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |   7 +
- 13 files changed, 977 insertions(+), 128 deletions(-)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
-
--- 
-1.9.1
+Series applied, thank you.
