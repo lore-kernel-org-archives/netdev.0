@@ -1,148 +1,102 @@
-From: Artem Savkov <asavkov@redhat.com>
-Subject: [PATCH v2] ebtables: fix race condition in frame_filter_net_init()
-Date: Tue, 26 Sep 2017 17:39:23 +0200
-Message-ID: <20170926153923.30094-1-asavkov@redhat.com>
-References: <20170926124211.GA14971@breakpoint.cc>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        Artem Savkov <asavkov@redhat.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926124211.GA14971@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Hurley <john.hurley@netronome.com>
+Subject: Re: [PATCH net-next 2/7] nfp: compile flower vxlan tunnel metadata
+ match fields
+Date: Tue, 26 Sep 2017 16:39:47 +0100
+Message-ID: <CAK+XE=kx4ELO_CmcXpvs0+1nLBHWt8Tc0nO6cvNZ0xfu+JGLgw@mail.gmail.com>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+ <1506335021-32024-3-git-send-email-simon.horman@netronome.com>
+ <CAJ3xEMgs2d7dcktHfvx_iry8tBy8XK8n6E5W7J0pYPer9Xz_Kg@mail.gmail.com>
+ <CAK+XE=nSHn6FGTi0kcqi+mcaV3Lo8QANpqQ4z6uNcWE+M3Gngw@mail.gmail.com>
+ <CAJ3xEMgmC+4V+Yr9PeO1wJ=ACBoPMTrasd7Joyx--F9PjV1yvg@mail.gmail.com>
+ <CAK+XE=kBG9761tN6uC3ziiqP-jrAjLJ_3J7M-cyfKvTqHVBk7A@mail.gmail.com> <CAJ3xEMhio5+5BK3p5mq=TvA8SzAvjSJm75mN0XiChdWkW3C89g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:48882 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937342AbdIZPjt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:39:49 -0400
+Received: by mail-wm0-f44.google.com with SMTP id m127so9274778wmm.3
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 08:39:48 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhio5+5BK3p5mq=TvA8SzAvjSJm75mN0XiChdWkW3C89g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-It is possible for ebt_in_hook to be triggered before ebt_table is assigned
-resulting in a NULL-pointer dereference. Make sure hooks are
-registered as the last step.
+On Tue, Sep 26, 2017 at 4:33 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Tue, Sep 26, 2017 at 6:11 PM, John Hurley <john.hurley@netronome.com> wrote:
+>> On Tue, Sep 26, 2017 at 3:12 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>> On Tue, Sep 26, 2017 at 4:58 PM, John Hurley <john.hurley@netronome.com> wrote:
+>>>> On Mon, Sep 25, 2017 at 7:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>> On Mon, Sep 25, 2017 at 1:23 PM, Simon Horman
+>>>>> <simon.horman@netronome.com> wrote:
+>>>>>> From: John Hurley <john.hurley@netronome.com>
+>>>>>>
+>>>>>> Compile ovs-tc flower vxlan metadata match fields for offloading. Only
+>>>>>
+>>>>> anything in the npf kernel bits has direct relation to ovs? what?
+>>>>>
+>>>>
+>>>> Sorry, this is a typo  and should refer to TC.
+>>>>
+>>>>>> +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+>>>>>> @@ -52,8 +52,25 @@
+>>>>>>          BIT(FLOW_DISSECTOR_KEY_PORTS) | \
+>>>>>>          BIT(FLOW_DISSECTOR_KEY_ETH_ADDRS) | \
+>>>>>>          BIT(FLOW_DISSECTOR_KEY_VLAN) | \
+>>>>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_KEYID) | \
+>>>>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) | \
+>>>>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) | \
+>>>>>
+>>>>> this series takes care of IPv6 tunnels too?
+>>>>
+>>>> IPv6 is not included in this set.
+>>>> The reason the IPv6 bit is included here is to account for behavior we
+>>>> have noticed in TC flower.
+>>>> If, for example, I add a filter with the following match fields:
+>>>> 'protocol ip flower enc_src_ip 10.0.0.1 enc_dst_ip 10.0.0.2
+>>>> enc_dst_port 4789 enc_key_id 123'
+>>>> The 'used_keys' value in the dissector marks both IPv4 and IPv6 encap
+>>>> addresses as 'used'.
+>>>> I am not sure if this is a bug in TC or that we are expected to check
+>>>> the enc_control fields to determine if IPv4 or v6 addresses are used.
+>>>
+>>> you should have your code to check enc_control->addr_type to be
+>>> FLOW_DISSECTOR_KEY_IPV4_ADDRS or IPV6_ADDRS
+>>>
+>>>
+>>>> Including the IPv6 used_keys bit in our whitelist approach allows us
+>>>> to accept legitimate IPv4 tunnel rules in these situations.
+>>>
+>>> mmm can please take a look on fl_init_dissector() and tell me if you
+>>> see why FLOW_DISSECTOR_KEY_IPV6_ADDRS is set for ipv4 tunnels,
+>>> I am not sure.
+>>
+>>
+>> The fl_init_dissector uses the FL_KEY_SET_IF_MASKED macro to set an
+>> array of keys which are then translated to the used_keys values.
+>> The FL_KEY_SET_IF_MASKED takes a 'struct fl_flow_key' as input and
+>> checks if any mask bits are set in a particular field - if so it
+>> eventually marks it as used.
+>> In struct fl_flow_key, the encap ipv4 and ipv6 addresses are
+>> represented as a union of the 2.
+>> Therefore, if we have masked bits set for IPv4, they are also being
+>> set for the IPv6 field.
+>
+> I see, do you consider it a bug?
 
-Fixes: aee12a0a3727 ebtables: remove nf_hook_register usage
-Signed-off-by: Artem Savkov <asavkov@redhat.com>
----
- include/linux/netfilter_bridge/ebtables.h |  7 ++++---
- net/bridge/netfilter/ebtable_broute.c     |  4 ++--
- net/bridge/netfilter/ebtable_filter.c     |  4 ++--
- net/bridge/netfilter/ebtable_nat.c        |  4 ++--
- net/bridge/netfilter/ebtables.c           | 17 ++++++++---------
- 5 files changed, 18 insertions(+), 18 deletions(-)
+The code seems to insist that, if either IPv4 or IPv6 is in use then a
+control encap key is also used:
 
-diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
-index 2c2a5514b0df..528b24c78308 100644
---- a/include/linux/netfilter_bridge/ebtables.h
-+++ b/include/linux/netfilter_bridge/ebtables.h
-@@ -108,9 +108,10 @@ struct ebt_table {
- 
- #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
- 		     ~(__alignof__(struct _xt_align)-1))
--extern struct ebt_table *ebt_register_table(struct net *net,
--					    const struct ebt_table *table,
--					    const struct nf_hook_ops *);
-+extern int ebt_register_table(struct net *net,
-+			      const struct ebt_table *table,
-+			      const struct nf_hook_ops *ops,
-+			      struct ebt_table **res);
- extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
- 				 const struct nf_hook_ops *);
- extern unsigned int ebt_do_table(struct sk_buff *skb,
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index 2585b100ebbb..276b60262981 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -65,8 +65,8 @@ static int ebt_broute(struct sk_buff *skb)
- 
- static int __net_init broute_net_init(struct net *net)
- {
--	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
--	return PTR_ERR_OR_ZERO(net->xt.broute_table);
-+	return ebt_register_table(net, &broute_table, NULL,
-+				  &net->xt.broute_table);
- }
- 
- static void __net_exit broute_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
-index 45a00dbdbcad..c41da5fac84f 100644
---- a/net/bridge/netfilter/ebtable_filter.c
-+++ b/net/bridge/netfilter/ebtable_filter.c
-@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
- 
- static int __net_init frame_filter_net_init(struct net *net)
- {
--	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
--	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
-+	return ebt_register_table(net, &frame_filter, ebt_ops_filter,
-+				  &net->xt.frame_filter);
- }
- 
- static void __net_exit frame_filter_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index 57cd5bb154e7..08df7406ecb3 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
- 
- static int __net_init frame_nat_net_init(struct net *net)
- {
--	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
--	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
-+	return ebt_register_table(net, &frame_nat, ebt_ops_nat,
-+				  &net->xt.frame_nat);
- }
- 
- static void __net_exit frame_nat_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 83951f978445..aa81afe81f23 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1169,9 +1169,8 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
- 	kfree(table);
- }
- 
--struct ebt_table *
--ebt_register_table(struct net *net, const struct ebt_table *input_table,
--		   const struct nf_hook_ops *ops)
-+int ebt_register_table(struct net *net, const struct ebt_table *input_table,
-+		       const struct nf_hook_ops *ops, struct ebt_table **res)
- {
- 	struct ebt_table_info *newinfo;
- 	struct ebt_table *t, *table;
-@@ -1183,7 +1182,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	    repl->entries == NULL || repl->entries_size == 0 ||
- 	    repl->counters != NULL || input_table->private != NULL) {
- 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
--		return ERR_PTR(-EINVAL);
-+		return -EINVAL;
- 	}
- 
- 	/* Don't add one table to multiple lists. */
-@@ -1252,16 +1251,16 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
- 	mutex_unlock(&ebt_mutex);
- 
--	if (!ops)
--		return table;
-+	WRITE_ONCE(*res, table);
- 
- 	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
- 	if (ret) {
- 		__ebt_unregister_table(net, table);
--		return ERR_PTR(ret);
-+		*res = NULL;
-+		return ret;
- 	}
- 
--	return table;
-+	return 0;
- free_unlock:
- 	mutex_unlock(&ebt_mutex);
- free_chainstack:
-@@ -1276,7 +1275,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- free_table:
- 	kfree(table);
- out:
--	return ERR_PTR(ret);
-+	return ret;
- }
- 
- void ebt_unregister_table(struct net *net, struct ebt_table *table,
--- 
-2.13.5
+if (FL_KEY_IS_MASKED(&mask->key, enc_ipv4) ||
+   FL_KEY_IS_MASKED(&mask->key, enc_ipv6))
+FL_KEY_SET(keys, cnt, FLOW_DISSECTOR_KEY_ENC_CONTROL,
+  enc_control);
+
+Therefore, I think it should be ok to use this to determine the IP
+type in use by the tunnel.
