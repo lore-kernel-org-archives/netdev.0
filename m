@@ -1,67 +1,81 @@
-From: Wei Wang <weiwan@google.com>
-Subject: Re: [PATCH net] ipv6: remove incorrect WARN_ON() in fib6_del()
-Date: Mon, 25 Sep 2017 18:16:05 -0700
-Message-ID: <CAEA6p_CvtmNaYcgSSyFNEbip1ckKwLjJH3PJTOqym0hCt-x2uw@mail.gmail.com>
-References: <20170925173522.99892-1-tracywwnj@gmail.com> <20170926005618.z4ymlry7jl47nkjm@kafai-mbp.dhcp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Martin KaFai Lau <kafai@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f169.google.com ([209.85.217.169]:52579 "EHLO
-        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965435AbdIZBQJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 21:16:09 -0400
-Received: by mail-ua0-f169.google.com with SMTP id n38so5487716uai.9
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 18:16:09 -0700 (PDT)
-In-Reply-To: <20170926005618.z4ymlry7jl47nkjm@kafai-mbp.dhcp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Mon, Sep 25, 2017 at 5:56 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> On Mon, Sep 25, 2017 at 05:35:22PM +0000, Wei Wang wrote:
->> From: Wei Wang <weiwan@google.com>
->>
->> fib6_del() generates WARN_ON() when rt->dst.obsolete > 0. This does not
->> make sense because it is possible that the route passed in is already
->> deleted by some other thread and rt->dst.obsolete is set to
->> DST_OBSOLETE_DEAD.
->> So this commit deletes this WARN_ON() and also remove the
->> "#ifdef RT6_DEBUG >= 2" condition so that if the route is already
->> obsolete, we return right at the beginning of fib6_del().
->>
->>
->> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
->> index e5308d7cbd75..693bcd7ef6d2 100644
->> --- a/net/ipv6/ip6_fib.c
->> +++ b/net/ipv6/ip6_fib.c
->> @@ -1592,13 +1592,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
->>       struct net *net = info->nl_net;
->>       struct rt6_info **rtp;
->>
->> -#if RT6_DEBUG >= 2
->> -     if (rt->dst.obsolete > 0) {
->> -             WARN_ON(fn);
-> fn should have already been set to NULL if it is removed
-> from the fib6 tree?
->
-
-That is true. rt->rt6i_node (fn) should already be marked as NULL.
-That means the check on rt->dst.obsolete is redundant.
-I will remove it in v2.
-Thanks Martin.
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v4 2/3] ipv4: Namespaceify tcp_fastopen_key knob
+Date: Tue, 26 Sep 2017 09:25:51 +0800
+Message-ID: <F9EA5C4F-2306-4BC5-923A-3AB1D8F50FF1@cmss.chinamobile.com>
+References: <1506088124-12650-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <1506088124-12650-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <20170925.162445.234890912211240693.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 8BIT
+Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
+        lucab@debian.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170925.162445.234890912211240693.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
->> -             return -ENOENT;
->> -     }
->> -#endif
->> -     if (!fn || rt == net->ipv6.ip6_null_entry)
->> +     if (!fn || rt->dst.obsolete > 0 || rt == net->ipv6.ip6_null_entry)
->>               return -ENOENT;
->>
->>       WARN_ON(!(fn->fn_flags & RTN_RTINFO));
->> --
->> 2.14.1.821.g8fa685d3b7-goog
->>
+
+> On 2017年9月26日, at 上午7:24, David Miller <davem@davemloft.net> wrote:
+> 
+> From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Date: Fri, 22 Sep 2017 21:48:43 +0800
+> 
+>> @@ -9,13 +9,18 @@
+>> #include <net/inetpeer.h>
+>> #include <net/tcp.h>
+>> 
+>> -struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+>> -
+>> -static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
+>> -
+>> -void tcp_fastopen_init_key_once(bool publish)
+>> +void tcp_fastopen_init_key_once(struct net *net)
+> 
+> Why did you remove the 'publish' logic from this function?
+> 
+
+I think this logic is not necessary now, in proc_tcp_fastopen_key, I have removed 
+tcp_fastopen_init_key_once(false) where the ‘publish’ is false:
+
+-		/* Generate a dummy secret but don't publish it. This
+-		 * is needed so we don't regenerate a new key on the
+-		 * first invocation of tcp_fastopen_cookie_gen
+-		 */
+-		tcp_fastopen_init_key_once(false);
+-		tcp_fastopen_reset_cipher(user_key, TCP_FASTOPEN_KEY_LENGTH);
++		tcp_fastopen_reset_cipher(net, user_key, TCP_FASTOPEN_KEY_LENGTH);
+
+It said we don't regenerate a new key on first invocation of tcp_fastopen_cookie_gen, 
+but in tcp_fastopen_cookie_gen，it didn’t  call tcp_fastopen_init_key_once since
+from commit dfea2aa654243 (tcp: Do not call tcp_fastopen_reset_cipher from interrupt context)：
+
+And in other places where call tcp_fastopen_init_key_once, the ‘publish’ is always true:
+
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -222,7 +222,7 @@ int inet_listen(struct socket *sock, int backlog)
+		    (tcp_fastopen & TFO_SERVER_ENABLE) &&
+		    !inet_csk(sk)->icsk_accept_queue.fastopenq.max_qlen) {
+			fastopen_queue_tune(sk, backlog);
+-			tcp_fastopen_init_key_once(true);
++			tcp_fastopen_init_key_once(sock_net(sk));
+		}
+
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2749,7 +2749,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+	case TCP_FASTOPEN:
+		if (val >= 0 && ((1 << sk->sk_state) & (TCPF_CLOSE |
+		    TCPF_LISTEN))) {
+-			tcp_fastopen_init_key_once(true);
++			tcp_fastopen_init_key_once(net);
+
+			fastopen_queue_tune(sk, val);
+		} else {
+
+
+So I deleted ‘publish’ logic to ensure it was always true.
