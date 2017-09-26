@@ -1,75 +1,59 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [RFC PATCH 11/11] udp: dst lookup in early demux for unconnected sockets
-Date: Tue, 26 Sep 2017 22:18:53 +0200
-Message-ID: <accc6eb9b572f7f595deaca91a0c8f95a5144916.1506114055.git.pabeni@redhat.com>
-References: <cover.1506114055.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53394 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935846AbdIZUTJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 16:19:09 -0400
-In-Reply-To: <cover.1506114055.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
+Date: Tue, 26 Sep 2017 13:33:09 -0700 (PDT)
+Message-ID: <20170926.133309.1916643567158187651.davem@davemloft.net>
+References: <587dc9a8-b974-e222-95b4-93c2a8f2aba2@imgtec.com>
+        <20170926.103400.1009342814128022820.davem@davemloft.net>
+        <71740323.RRBhnhefTi@np-p-burton>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: matt.redfearn@imgtec.com, netdev@vger.kernel.org,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        james.hogan@imgtec.com
+To: paul.burton@imgtec.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <71740323.RRBhnhefTi@np-p-burton>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that all the helper are in place we can leverage them to
-fetch the appropriate destination for unconnected sockets,
-looking up the ifaddr cache if not local bind are not allowed.
+From: Paul Burton <paul.burton@imgtec.com>
+Date: Tue, 26 Sep 2017 11:48:19 -0700
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c | 10 ++++++++--
- net/ipv6/udp.c |  9 ++++++++-
- 2 files changed, 16 insertions(+), 3 deletions(-)
+>> The device writes into only the bytes it was given access to, which
+>> starts at the DMA address.
+> 
+> OK - still fine but *only* if we don't write to anything that happens to be 
+> part of the cache lines that are only partially covered by the DMA mapping & 
+> make them dirty. If we do then any writeback of those lines will clobber data 
+> the device wrote, and any invalidation of them will discard data the CPU 
+> wrote.
+> 
+> How would you have us ensure that such writes don't occur?
+> 
+> This really does not feel to me like something to leave up to drivers without 
+> any means of checking or enforcing correctness. The requirement to align DMA 
+> mappings at cache-line boundaries, as outlined in Documentation/DMA-API.txt, 
+> allows this to be enforced. If you want to ignore this requirement then there 
+> is no clear way to verify that we aren't writing to cache lines involved in a 
+> DMA transfer whilst the transfer is occurring, and no sane way to handle those 
+> cache lines if we do.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b7202a15f360..87d48101efe2 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2259,9 +2259,15 @@ int udp_v4_early_demux(struct sk_buff *skb)
- 		return 0;
- 
- 	skb_set_noref_sk(skb, sk);
--	if (udp_use_rx_dst_cache(sk, skb))
-+	if (udp_use_rx_dst_cache(sk, skb)) {
- 		udp_set_skb_rx_dst(sk, skb, 0);
--	return 0;
-+		return 0;
-+	}
-+
-+	if (net->ipv4.sysctl_ip_nonlocal_bind)
-+		return 0;
-+
-+	return ip_route_try_local_rcu(net, skb, iph);
- }
- 
- int udp_rcv(struct sk_buff *skb)
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 67d340679c3a..360d54bc2359 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -935,8 +935,15 @@ static void udp_v6_early_demux(struct sk_buff *skb)
- 		return;
- 
- 	skb_set_noref_sk(skb, sk);
--	if (udp6_use_rx_dst_cache(sk))
-+	if (udp6_use_rx_dst_cache(sk)) {
- 		udp_set_skb_rx_dst(sk, skb, inet6_sk(sk)->rx_dst_cookie);
-+		return;
-+	}
-+
-+	if (net->ipv6.sysctl.ip_nonlocal_bind)
-+		return;
-+
-+	ip6_route_try_local_rcu_bh(net, skb);
- }
- 
- static __inline__ int udpv6_rcv(struct sk_buff *skb)
--- 
-2.13.5
+The memory immediately before skb->data and immediately after
+skb->data+skb->len will not be accessed.  This is guaranteed.
+
+I will request something exactly one more time to give you the benfit
+of the doubt that you want to show me why this is _really_ a problem
+and not a problem only in theory.
+
+Please show me an exact sequence, with current code, in a current driver
+that uses the DMA API properly, where corruption really can occur.
+
+The new restriction is absolutely not reasonable for this use case.
+It it furthermore impractical to require the 200+ drivers the use this
+technique to allocate and map networking buffers to abide by this new
+rule.  Many platforms with even worse cache problems that MIPS handle
+this just fine.
+
+Thank you.
