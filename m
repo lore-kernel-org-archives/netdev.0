@@ -1,29 +1,37 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 4/5] net: dsa: use phy_ethtool_set_link_ksettings
-Date: Tue, 26 Sep 2017 15:05:53 -0700
-Message-ID: <9f302124-0ddd-c9ad-a7cb-e454f45c9b56@gmail.com>
-References: <20170926211535.21273-1-vivien.didelot@savoirfairelinux.com>
- <20170926211535.21273-5-vivien.didelot@savoirfairelinux.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 1/2] tools: rename tools/net directory to
+ tools/bpf
+Date: Tue, 26 Sep 2017 15:19:00 -0700
+Message-ID: <20170926221858.y3dl733ydjfnpptq@ast-mbp>
+References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
+ <20170926153522.31500-2-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926211535.21273-5-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, davem@davemloft.net,
+        hannes@stressinduktion.org, dsahern@gmail.com,
+        oss-drivers@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:43738 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967632AbdIZWTF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 18:19:05 -0400
+Received: by mail-pf0-f182.google.com with SMTP id y29so6227536pff.0
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 15:19:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170926153522.31500-2-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/26/2017 02:15 PM, Vivien Didelot wrote:
-> Use phy_ethtool_set_link_ksettings now that dsa_slave_set_link_ksettings
-> does exactly the same.
+On Tue, Sep 26, 2017 at 08:35:21AM -0700, Jakub Kicinski wrote:
+> We currently only have BPF tools in the tools/net directory.
+> We are about to add more BPF tools there, not necessarily
+> networking related, rename the directory and related Makefile
+> targets to bpf.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+makes sense.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
