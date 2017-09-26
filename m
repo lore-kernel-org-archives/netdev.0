@@ -1,101 +1,40 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net v3] l2tp: fix race condition in l2tp_tunnel_delete
-Date: Tue, 26 Sep 2017 16:16:43 +0200
-Message-ID: <d6011f741f7ea38a61006b9f2cde8e544b4d206b.1506432922.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-        Guillaume Nault <g.nault@alphalink.fr>,
-        Xin Long <lucien.xin@gmail.com>,
-        Tom Parkin <tparkin@katalix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60114 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965228AbdIZORV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 10:17:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: stmmac: Meet alignment requirements for DMA
+Date: Tue, 26 Sep 2017 14:23:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0081391@AcuExch.aculab.com>
+References: <1506078833-14002-1-git-send-email-matt.redfearn@imgtec.com>
+ <20170922.182639.272534775457081015.davem@davemloft.net>
+ <587dc9a8-b974-e222-95b4-93c2a8f2aba2@imgtec.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "alexandre.torgue@st.com" <alexandre.torgue@st.com>,
+        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+        Paul Burton <paul.burton@imgtec.com>,
+        "James Hogan" <james.hogan@imgtec.com>
+To: 'Matt Redfearn' <matt.redfearn@imgtec.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <587dc9a8-b974-e222-95b4-93c2a8f2aba2@imgtec.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If we try to delete the same tunnel twice, the first delete operation
-does a lookup (l2tp_tunnel_get), finds the tunnel, calls
-l2tp_tunnel_delete, which queues it for deletion by
-l2tp_tunnel_del_work.
-
-The second delete operation also finds the tunnel and calls
-l2tp_tunnel_delete. If the workqueue has already fired and started
-running l2tp_tunnel_del_work, then l2tp_tunnel_delete will queue the
-same tunnel a second time, and try to free the socket again.
-
-Add a dead flag to prevent firing the workqueue twice. Then we can
-remove the check of queue_work's result that was meant to prevent that
-race but doesn't.
-
-Reproducer:
-
-    ip l2tp add tunnel tunnel_id 3000 peer_tunnel_id 4000 local 192.168.0.2 remote 192.168.0.1 encap udp udp_sport 5000 udp_dport 6000
-    ip l2tp add session name l2tp1 tunnel_id 3000 session_id 1000 peer_session_id 2000
-    ip link set l2tp1 up
-    ip l2tp del tunnel tunnel_id 3000
-    ip l2tp del tunnel tunnel_id 3000
-
-Fixes: f8ccac0e4493 ("l2tp: put tunnel socket release on a workqueue")
-Reported-by: Jianlin Shi <jishi@redhat.com>
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
-v3: only prevent double deletion, drop checks during lookups
-
-v2: as Tom Parkin explained, we can't remove the tunnel from the
-    per-net list from netlink. v2 uses only a dead flag, and adds
-    corresponding checks during lookups
-
- net/l2tp/l2tp_core.c | 10 ++++------
- net/l2tp/l2tp_core.h |  5 ++++-
- 2 files changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index d8c2a89a76e1..02d61101b108 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1688,14 +1688,12 @@ EXPORT_SYMBOL_GPL(l2tp_tunnel_create);
- 
- /* This function is used by the netlink TUNNEL_DELETE command.
-  */
--int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
-+void l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
- {
--	l2tp_tunnel_inc_refcount(tunnel);
--	if (false == queue_work(l2tp_wq, &tunnel->del_work)) {
--		l2tp_tunnel_dec_refcount(tunnel);
--		return 1;
-+	if (!test_and_set_bit(0, &tunnel->dead)) {
-+		l2tp_tunnel_inc_refcount(tunnel);
-+		queue_work(l2tp_wq, &tunnel->del_work);
- 	}
--	return 0;
- }
- EXPORT_SYMBOL_GPL(l2tp_tunnel_delete);
- 
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 70a12df40a5f..67c79d9b5c6c 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -161,6 +161,9 @@ struct l2tp_tunnel_cfg {
- 
- struct l2tp_tunnel {
- 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
-+
-+	unsigned long		dead;
-+
- 	struct rcu_head rcu;
- 	rwlock_t		hlist_lock;	/* protect session_hlist */
- 	bool			acpt_newsess;	/* Indicates whether this
-@@ -255,7 +258,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
- 		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
- 		       struct l2tp_tunnel **tunnelp);
- void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
--int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
-+void l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
- struct l2tp_session *l2tp_session_create(int priv_size,
- 					 struct l2tp_tunnel *tunnel,
- 					 u32 session_id, u32 peer_session_id,
--- 
-2.14.1
+RnJvbTogTWF0dCBSZWRmZWFybg0KPiBTZW50OiAyNiBTZXB0ZW1iZXIgMjAxNyAxNDo1OA0KLi4u
+DQo+ID4gQXMgbG9uZyBhcyB5b3UgdXNlIHRoZSBkbWFfe21hcCx1bmFtcH1fc2luZ2xlKCkgYW5k
+IHN5bmMgdG8vZnJvbQ0KPiA+IGRlaXZjZSBpbnRlcmZhY2VzIHByb3Blcmx5LCB0aGUgY2FjaGVs
+aW5lIGlzc3VlcyB3aWxsIGJlIGhhbmRsZWQgcHJvcGVybHkNCj4gPiBhbmQgdGhlIGNwdSBhbmQg
+dGhlIGRldmljZSB3aWxsIHNlZSBwcm9wZXIgdXB0b2RhdGUgbWVtb3J5IGNvbnRlbnRzLg0KPiAN
+Cj4gSSBpbnRlcnByZXQgdGhlIERNQSBBUEkgZG9jdW1lbnQgKGFuZCB0aGUgTUlQUyBhcmNoIGRt
+YSBjb2RlIG9wZXJhdGVzDQo+IHRoaXMgd2F5KSBhcyBzdGF0aW5nIHRoYXQgdGhlIGRyaXZlciBt
+dXN0IGVuc3VyZSB0aGF0IGJ1ZmZlcnMgcGFzc2VkIHRvDQo+IGl0IGFyZSBjYWNoZWxpbmUgYWxp
+Z25lZCwgYW5kIGNhY2hlbGluZSBzaXplZCwgdG8gcHJldmVudCBjYWNoZQ0KPiBtYW5hZ2VtZW50
+IHRocm93aW5nIGF3YXkgYWRqYWNlbnQgZGF0YSBpbiB0aGUgc2FtZSBjYWNoZWxpbmUuDQoNClRo
+ZSBpbXBvcnRhbnQgdGhpbmcgaXMgdGhhdCB0aGUgZHJpdmVyIG11c3Qgbm90IGRpcnR5IGFueSBj
+YWNoZSBsaW5lcw0KdGhhdCBhcmUgbWFwcGVkIGZvciBETUEgKGZyb20gdGhlIGRldmljZSkuDQoN
+ClR5cGljYWxseSB0aGlzIGlzIG5vdCBhIHByb2JsZW0gYmVjYXVzZSB0aGUgZHJpdmVyIGRvZXNu
+J3QgbG9vaw0KYXQgc2tiIChldGMpIHRoYXQgY29udGFpbiByZWNlaXZlIGJ1ZmZlcnMgb25jZSB0
+aGUgZG1hIGlzIHNldHVwLg0KDQoJRGF2aWQNCg0KDQo=
