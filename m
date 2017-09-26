@@ -1,89 +1,97 @@
-From: John Hurley <john.hurley@netronome.com>
-Subject: Re: [PATCH net-next 2/7] nfp: compile flower vxlan tunnel metadata
- match fields
-Date: Tue, 26 Sep 2017 16:11:02 +0100
-Message-ID: <CAK+XE=kBG9761tN6uC3ziiqP-jrAjLJ_3J7M-cyfKvTqHVBk7A@mail.gmail.com>
-References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
- <1506335021-32024-3-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgs2d7dcktHfvx_iry8tBy8XK8n6E5W7J0pYPer9Xz_Kg@mail.gmail.com>
- <CAK+XE=nSHn6FGTi0kcqi+mcaV3Lo8QANpqQ4z6uNcWE+M3Gngw@mail.gmail.com> <CAJ3xEMgmC+4V+Yr9PeO1wJ=ACBoPMTrasd7Joyx--F9PjV1yvg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: [PATCH v2] p54: don't unregister leds when they are not initialized
+Date: Tue, 26 Sep 2017 17:11:33 +0200
+Message-ID: <17c60ebcc8ce7f20de41a55087d24dfdfca09c67.1506438620.git.andreyknvl@google.com>
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Christian Lamparter <chunkeey@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:49923 "EHLO
-        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934122AbdIZPLE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:11:04 -0400
-Received: by mail-wm0-f42.google.com with SMTP id r74so8982957wme.4
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 08:11:04 -0700 (PDT)
-In-Reply-To: <CAJ3xEMgmC+4V+Yr9PeO1wJ=ACBoPMTrasd7Joyx--F9PjV1yvg@mail.gmail.com>
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:49243 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965858AbdIZPLi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 11:11:38 -0400
+Received: by mail-wr0-f176.google.com with SMTP id u96so13513506wrb.6
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 08:11:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 26, 2017 at 3:12 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Tue, Sep 26, 2017 at 4:58 PM, John Hurley <john.hurley@netronome.com> wrote:
->> On Mon, Sep 25, 2017 at 7:35 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>> On Mon, Sep 25, 2017 at 1:23 PM, Simon Horman
->>> <simon.horman@netronome.com> wrote:
->>>> From: John Hurley <john.hurley@netronome.com>
->>>>
->>>> Compile ovs-tc flower vxlan metadata match fields for offloading. Only
->>>
->>> anything in the npf kernel bits has direct relation to ovs? what?
->>>
->>
->> Sorry, this is a typo  and should refer to TC.
->>
->>>> +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
->>>> @@ -52,8 +52,25 @@
->>>>          BIT(FLOW_DISSECTOR_KEY_PORTS) | \
->>>>          BIT(FLOW_DISSECTOR_KEY_ETH_ADDRS) | \
->>>>          BIT(FLOW_DISSECTOR_KEY_VLAN) | \
->>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_KEYID) | \
->>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) | \
->>>> +        BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) | \
->>>
->>> this series takes care of IPv6 tunnels too?
->>
->> IPv6 is not included in this set.
->> The reason the IPv6 bit is included here is to account for behavior we
->> have noticed in TC flower.
->> If, for example, I add a filter with the following match fields:
->> 'protocol ip flower enc_src_ip 10.0.0.1 enc_dst_ip 10.0.0.2
->> enc_dst_port 4789 enc_key_id 123'
->> The 'used_keys' value in the dissector marks both IPv4 and IPv6 encap
->> addresses as 'used'.
->> I am not sure if this is a bug in TC or that we are expected to check
->> the enc_control fields to determine if IPv4 or v6 addresses are used.
->
-> you should have your code to check enc_control->addr_type to be
-> FLOW_DISSECTOR_KEY_IPV4_ADDRS or IPV6_ADDRS
->
->
->> Including the IPv6 used_keys bit in our whitelist approach allows us
->> to accept legitimate IPv4 tunnel rules in these situations.
->
-> mmm can please take a look on fl_init_dissector() and tell me if you
-> see why FLOW_DISSECTOR_KEY_IPV6_ADDRS is set for ipv4 tunnels,
-> I am not sure.
+ieee80211_register_hw() in p54_register_common() may fail and leds won't
+get initialized. Currently p54_unregister_common() doesn't check that and
+always calls p54_unregister_leds(). The fix is to check priv->registered
+flag before calling p54_unregister_leds().
 
+Found by syzkaller.
 
-The fl_init_dissector uses the FL_KEY_SET_IF_MASKED macro to set an
-array of keys which are then translated to the used_keys values.
-The FL_KEY_SET_IF_MASKED takes a 'struct fl_flow_key' as input and
-checks if any mask bits are set in a particular field - if so it
-eventually marks it as used.
-In struct fl_flow_key, the encap ipv4 and ipv6 addresses are
-represented as a union of the 2.
-Therefore, if we have masked bits set for IPv4, they are also being
-set for the IPv6 field.
+INFO: trying to register non-static key.
+the code is fine but needs lockdep annotation.
+turning off the locking correctness validator.
+CPU: 1 PID: 1404 Comm: kworker/1:1 Not tainted
+4.14.0-rc1-42251-gebb2c2437d80-dirty #205
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Workqueue: usb_hub_wq hub_event
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x292/0x395 lib/dump_stack.c:52
+ register_lock_class+0x6c4/0x1a00 kernel/locking/lockdep.c:769
+ __lock_acquire+0x27e/0x4550 kernel/locking/lockdep.c:3385
+ lock_acquire+0x259/0x620 kernel/locking/lockdep.c:4002
+ flush_work+0xf0/0x8c0 kernel/workqueue.c:2886
+ __cancel_work_timer+0x51d/0x870 kernel/workqueue.c:2961
+ cancel_delayed_work_sync+0x1f/0x30 kernel/workqueue.c:3081
+ p54_unregister_leds+0x6c/0xc0 drivers/net/wireless/intersil/p54/led.c:160
+ p54_unregister_common+0x3d/0xb0 drivers/net/wireless/intersil/p54/main.c:856
+ p54u_disconnect+0x86/0x120 drivers/net/wireless/intersil/p54/p54usb.c:1073
+ usb_unbind_interface+0x21c/0xa90 drivers/usb/core/driver.c:423
+ __device_release_driver drivers/base/dd.c:861
+ device_release_driver_internal+0x4f4/0x5c0 drivers/base/dd.c:893
+ device_release_driver+0x1e/0x30 drivers/base/dd.c:918
+ bus_remove_device+0x2f4/0x4b0 drivers/base/bus.c:565
+ device_del+0x5c4/0xab0 drivers/base/core.c:1985
+ usb_disable_device+0x1e9/0x680 drivers/usb/core/message.c:1170
+ usb_disconnect+0x260/0x7a0 drivers/usb/core/hub.c:2124
+ hub_port_connect drivers/usb/core/hub.c:4754
+ hub_port_connect_change drivers/usb/core/hub.c:5009
+ port_event drivers/usb/core/hub.c:5115
+ hub_event+0x1318/0x3740 drivers/usb/core/hub.c:5195
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ process_scheduled_works kernel/workqueue.c:2179
+ worker_thread+0xb2b/0x1850 kernel/workqueue.c:2255
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
 
+Signed-off-by: Andrey Konovalov <andreyknvl@google.com>
+---
 
->
->> If it is found to be IPv6 when the rule is parsed, it will be rejected here.
+changes in v2:
+- fixed typo in patch subject
+
+---
+ drivers/net/wireless/intersil/p54/main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/intersil/p54/main.c b/drivers/net/wireless/intersil/p54/main.c
+index d5a3bf91a03e..ab6d39e12069 100644
+--- a/drivers/net/wireless/intersil/p54/main.c
++++ b/drivers/net/wireless/intersil/p54/main.c
+@@ -852,12 +852,11 @@ void p54_unregister_common(struct ieee80211_hw *dev)
+ {
+ 	struct p54_common *priv = dev->priv;
+ 
+-#ifdef CONFIG_P54_LEDS
+-	p54_unregister_leds(priv);
+-#endif /* CONFIG_P54_LEDS */
+-
+ 	if (priv->registered) {
+ 		priv->registered = false;
++#ifdef CONFIG_P54_LEDS
++		p54_unregister_leds(priv);
++#endif /* CONFIG_P54_LEDS */
+ 		ieee80211_unregister_hw(dev);
+ 	}
+ 
+-- 
+2.14.1.821.g8fa685d3b7-goog
