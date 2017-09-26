@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when interacting with network stack
-Date: Tue, 26 Sep 2017 10:25:18 +0800
-Message-ID: <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v2 net-next 08/10] net: hns3: Add dcb netlink interface for the support of DCB feature
+Date: Tue, 26 Sep 2017 10:25:16 +0800
+Message-ID: <1506392718-50463-9-git-send-email-linyunsheng@huawei.com>
 References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,225 +17,170 @@ In-Reply-To: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using tc qdisc to configure DCB parameter, dcb_ops->setup_tc
-is used to tell hclge_dcb module to do the setup.
-When using lldptool to configure DCB parameter, hclge_dcb module
-call the client_ops->setup_tc to tell network stack which queue
-and priority is using for specific tc.
+This patch add dcb netlink interface by calling the interface from
+hclge_dcb module.
+
+This patch also update Makefile in order to build hns3_dcbnl module.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 135 +++++++++++++++++----
- 1 file changed, 111 insertions(+), 24 deletions(-)
+ .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   2 +
+ .../ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c    | 106 +++++++++++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |   2 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |   7 ++
+ 4 files changed, 117 insertions(+)
+ create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-index 11dab26..31fcda4 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-@@ -196,6 +196,32 @@ static void hns3_vector_gl_rl_init(struct hns3_enet_tqp_vector *tqp_vector)
- 	tqp_vector->tx_group.flow_level = HNS3_FLOW_LOW;
- }
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+index 7023dc87..d2b20d0 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
+@@ -11,3 +11,5 @@ hclge-$(CONFIG_HNS3_DCB) += hclge_dcb.o
  
-+static int hns3_nic_set_real_num_queue(struct net_device *netdev)
+ obj-$(CONFIG_HNS3_ENET) += hns3.o
+ hns3-objs = hns3_enet.o hns3_ethtool.o
++
++hns3-$(CONFIG_HNS3_DCB) += hns3_dcbnl.o
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
+new file mode 100644
+index 0000000..9832172
+--- /dev/null
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
+@@ -0,0 +1,106 @@
++/*
++ * Copyright (c) 2016-2017 Hisilicon Limited.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++#include "hnae3.h"
++#include "hns3_enet.h"
++
++static
++int hns3_dcbnl_ieee_getets(struct net_device *ndev, struct ieee_ets *ets)
 +{
-+	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
 +	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_knic_private_info *kinfo = &h->kinfo;
-+	unsigned int queue_size = kinfo->rss_size * kinfo->num_tc;
-+	int ret;
 +
-+	ret = netif_set_real_num_tx_queues(netdev, queue_size);
-+	if (ret) {
-+		netdev_err(netdev,
-+			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
-+			   ret);
-+		return ret;
-+	}
++	if (h->kinfo.dcb_ops->ieee_getets)
++		return h->kinfo.dcb_ops->ieee_getets(h, ets);
 +
-+	ret = netif_set_real_num_rx_queues(netdev, queue_size);
-+	if (ret) {
-+		netdev_err(netdev,
-+			   "netif_set_real_num_rx_queues fail, ret=%d!\n", ret);
-+		return ret;
-+	}
++	return -EOPNOTSUPP;
++}
++
++static
++int hns3_dcbnl_ieee_setets(struct net_device *ndev, struct ieee_ets *ets)
++{
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->kinfo.dcb_ops->ieee_setets)
++		return h->kinfo.dcb_ops->ieee_setets(h, ets);
++
++	return -EOPNOTSUPP;
++}
++
++static
++int hns3_dcbnl_ieee_getpfc(struct net_device *ndev, struct ieee_pfc *pfc)
++{
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->kinfo.dcb_ops->ieee_getpfc)
++		return h->kinfo.dcb_ops->ieee_getpfc(h, pfc);
++
++	return -EOPNOTSUPP;
++}
++
++static
++int hns3_dcbnl_ieee_setpfc(struct net_device *ndev, struct ieee_pfc *pfc)
++{
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->kinfo.dcb_ops->ieee_setpfc)
++		return h->kinfo.dcb_ops->ieee_setpfc(h, pfc);
++
++	return -EOPNOTSUPP;
++}
++
++/* DCBX configuration */
++static u8 hns3_dcbnl_getdcbx(struct net_device *ndev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
++	struct hnae3_handle *h = priv->ae_handle;
++
++	if (h->kinfo.dcb_ops->getdcbx)
++		return h->kinfo.dcb_ops->getdcbx(h);
 +
 +	return 0;
 +}
 +
- static int hns3_nic_net_up(struct net_device *netdev)
- {
- 	struct hns3_nic_priv *priv = netdev_priv(netdev);
-@@ -232,26 +258,13 @@ static int hns3_nic_net_up(struct net_device *netdev)
- 
- static int hns3_nic_net_open(struct net_device *netdev)
- {
--	struct hns3_nic_priv *priv = netdev_priv(netdev);
--	struct hnae3_handle *h = priv->ae_handle;
- 	int ret;
- 
- 	netif_carrier_off(netdev);
- 
--	ret = netif_set_real_num_tx_queues(netdev, h->kinfo.num_tqps);
--	if (ret) {
--		netdev_err(netdev,
--			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
--			   ret);
--		return ret;
--	}
--
--	ret = netif_set_real_num_rx_queues(netdev, h->kinfo.num_tqps);
--	if (ret) {
--		netdev_err(netdev,
--			   "netif_set_real_num_rx_queues fail, ret=%d!\n", ret);
-+	ret = hns3_nic_set_real_num_queue(netdev);
-+	if (ret)
- 		return ret;
--	}
- 
- 	ret = hns3_nic_net_up(netdev);
- 	if (ret) {
-@@ -1193,32 +1206,40 @@ static void hns3_nic_udp_tunnel_del(struct net_device *netdev,
- 	}
- }
- 
--static int hns3_setup_tc(struct net_device *netdev, u8 tc)
-+static int hns3_setup_tc(struct net_device *netdev, u8 tc, u8 *prio_tc)
- {
- 	struct hns3_nic_priv *priv = netdev_priv(netdev);
- 	struct hnae3_handle *h = priv->ae_handle;
- 	struct hnae3_knic_private_info *kinfo = &h->kinfo;
-+	bool if_running = netif_running(netdev);
- 	unsigned int i;
- 	int ret;
- 
- 	if (tc > HNAE3_MAX_TC)
- 		return -EINVAL;
- 
--	if (kinfo->num_tc == tc)
--		return 0;
--
- 	if (!netdev)
- 		return -EINVAL;
- 
--	if (!tc) {
-+	if (if_running) {
-+		(void)hns3_nic_net_stop(netdev);
-+		msleep(100);
-+	}
-+
-+	ret = (kinfo->dcb_ops && kinfo->dcb_ops->setup_tc) ?
-+		kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : -EOPNOTSUPP;
-+	if (ret)
-+		goto err_out;
-+
-+	if (tc <= 1) {
- 		netdev_reset_tc(netdev);
--		return 0;
-+		goto out;
- 	}
- 
- 	/* Set num_tc for netdev */
- 	ret = netdev_set_num_tc(netdev, tc);
- 	if (ret)
--		return ret;
-+		goto err_out;
- 
- 	/* Set per TC queues for the VSI */
- 	for (i = 0; i < HNAE3_MAX_TC; i++) {
-@@ -1229,7 +1250,14 @@ static int hns3_setup_tc(struct net_device *netdev, u8 tc)
- 					    kinfo->tc_info[i].tqp_offset);
- 	}
- 
--	return 0;
-+out:
-+	ret = hns3_nic_set_real_num_queue(netdev);
-+
-+err_out:
-+	if (if_running)
-+		(void)hns3_nic_net_open(netdev);
-+
-+	return ret;
- }
- 
- static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
-@@ -1240,7 +1268,7 @@ static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	if (type != TC_SETUP_MQPRIO)
- 		return -EOPNOTSUPP;
- 
--	return hns3_setup_tc(dev, mqprio->num_tc);
-+	return hns3_setup_tc(dev, mqprio->num_tc, mqprio->prio_tc_map);
- }
- 
- static int hns3_vlan_rx_add_vid(struct net_device *netdev,
-@@ -2848,10 +2876,69 @@ static void hns3_link_status_change(struct hnae3_handle *handle, bool linkup)
- 	}
- }
- 
-+static int hns3_client_setup_tc(struct hnae3_handle *handle, u8 tc)
++/* return 0 if successful, otherwise fail */
++static u8 hns3_dcbnl_setdcbx(struct net_device *ndev, u8 mode)
 +{
-+	struct hnae3_knic_private_info *kinfo = &handle->kinfo;
-+	struct net_device *ndev = kinfo->netdev;
-+	bool if_running = netif_running(ndev);
-+	int ret;
-+	u8 i;
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
++	struct hnae3_handle *h = priv->ae_handle;
 +
-+	if (tc > HNAE3_MAX_TC)
-+		return -EINVAL;
++	if (h->kinfo.dcb_ops->setdcbx)
++		return h->kinfo.dcb_ops->setdcbx(h, mode);
 +
-+	if (!ndev)
-+		return -ENODEV;
-+
-+	ret = netdev_set_num_tc(ndev, tc);
-+	if (ret)
-+		return ret;
-+
-+	if (if_running) {
-+		(void)hns3_nic_net_stop(ndev);
-+		msleep(100);
-+	}
-+
-+	ret = (kinfo->dcb_ops && kinfo->dcb_ops->map_update) ?
-+		kinfo->dcb_ops->map_update(handle) : -EOPNOTSUPP;
-+	if (ret)
-+		goto err_out;
-+
-+	if (tc <= 1) {
-+		netdev_reset_tc(ndev);
-+		goto out;
-+	}
-+
-+	for (i = 0; i < HNAE3_MAX_TC; i++) {
-+		struct hnae3_tc_info *tc_info = &kinfo->tc_info[i];
-+
-+		if (tc_info->enable)
-+			netdev_set_tc_queue(ndev,
-+					    tc_info->tc,
-+					    tc_info->tqp_count,
-+					    tc_info->tqp_offset);
-+	}
-+
-+	for (i = 0; i < HNAE3_MAX_USER_PRIO; i++) {
-+		netdev_set_prio_tc_map(ndev, i,
-+				       kinfo->prio_tc[i]);
-+	}
-+
-+out:
-+	ret = hns3_nic_set_real_num_queue(ndev);
-+
-+err_out:
-+	if (if_running)
-+		(void)hns3_nic_net_open(ndev);
-+
-+	return ret;
++	return 1;
 +}
 +
- const struct hnae3_client_ops client_ops = {
- 	.init_instance = hns3_client_init,
- 	.uninit_instance = hns3_client_uninit,
- 	.link_status_change = hns3_link_status_change,
-+	.setup_tc = hns3_client_setup_tc,
- };
++static const struct dcbnl_rtnl_ops hns3_dcbnl_ops = {
++	.ieee_getets	= hns3_dcbnl_ieee_getets,
++	.ieee_setets	= hns3_dcbnl_ieee_setets,
++	.ieee_getpfc	= hns3_dcbnl_ieee_getpfc,
++	.ieee_setpfc	= hns3_dcbnl_ieee_setpfc,
++	.getdcbx	= hns3_dcbnl_getdcbx,
++	.setdcbx	= hns3_dcbnl_setdcbx,
++};
++
++/* hclge_dcbnl_setup - DCBNL setup
++ * @handle: the corresponding vport handle
++ * Set up DCBNL
++ */
++void hns3_dcbnl_setup(struct hnae3_handle *handle)
++{
++	struct net_device *dev = handle->kinfo.netdev;
++
++	if (!handle->kinfo.dcb_ops)
++		return;
++
++	dev->dcbnl_ops = &hns3_dcbnl_ops;
++}
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index 35369e1..11dab26 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -2790,6 +2790,8 @@ static int hns3_client_init(struct hnae3_handle *handle)
+ 		goto out_reg_netdev_fail;
+ 	}
  
- /* hns3_init_module - Driver registration routine
++	hns3_dcbnl_setup(handle);
++
+ 	/* MTU range: (ETH_MIN_MTU(kernel default) - 9706) */
+ 	netdev->max_mtu = HNS3_MAX_MTU - (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+index 7e87461..481eada 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+@@ -590,4 +590,11 @@ static inline void hns3_write_reg(void __iomem *base, u32 reg, u32 value)
+ void hns3_ethtool_set_ops(struct net_device *netdev);
+ 
+ int hns3_clean_tx_ring(struct hns3_enet_ring *ring, int budget);
++
++#ifdef CONFIG_HNS3_DCB
++void hns3_dcbnl_setup(struct hnae3_handle *handle);
++#else
++static inline void hns3_dcbnl_setup(struct hnae3_handle *handle) {}
++#endif
++
+ #endif
 -- 
 1.9.1
