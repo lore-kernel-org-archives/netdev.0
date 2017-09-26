@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v2 net-next 01/10] net: hns3: Support for dynamically assigning tx buffer to TC
-Date: Tue, 26 Sep 2017 10:25:09 +0800
-Message-ID: <1506392718-50463-2-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v2 net-next 05/10] net: hns3: Add tc-based TM support for sriov enabled port
+Date: Tue, 26 Sep 2017 10:25:13 +0800
+Message-ID: <1506392718-50463-6-git-send-email-linyunsheng@huawei.com>
 References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,169 +17,129 @@ In-Reply-To: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch add support of dynamically assigning tx buffer to
-TC when the TC is enabled.
-It will save buffer for rx direction to avoid packet loss.
+When sriov is enabled and TM is in tc-based mode, vf's TM
+parameters is not set in TM initialization process.
+This patch add the tc_based TM support for sriov enabled
+using the information in vport struct.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
-V2:
-	Fix for not defining variables in local loop.
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 49 ++++++++++++++--------
+ 1 file changed, 31 insertions(+), 18 deletions(-)
 
-V1:
-	Initial submit.
----
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  1 +
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 64 ++++++++++++++++++----
- 2 files changed, 55 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-index 758cf39..a81c6cb 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-@@ -311,6 +311,7 @@ struct hclge_tc_thrd {
- struct hclge_priv_buf {
- 	struct hclge_waterline wl;	/* Waterline for low and high*/
- 	u32 buf_size;	/* TC private buffer size */
-+	u32 tx_buf_size;
- 	u32 enable;	/* Enable TC private buffer or not */
- };
- 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index d27618b..02da3d5 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -1324,7 +1324,7 @@ static int hclge_alloc_vport(struct hclge_dev *hdev)
- 	return 0;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+index f79cebd..ea94d23 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+@@ -388,13 +388,13 @@ static int hclge_tm_pri_schd_mode_cfg(struct hclge_dev *hdev, u8 pri_id)
+ 	return hclge_cmd_send(&hdev->hw, &desc, 1);
  }
  
--static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
-+static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
+-static int hclge_tm_qs_schd_mode_cfg(struct hclge_dev *hdev, u16 qs_id)
++static int hclge_tm_qs_schd_mode_cfg(struct hclge_dev *hdev, u16 qs_id, u8 mode)
  {
- /* TX buffer size is unit by 128 byte */
- #define HCLGE_BUF_SIZE_UNIT_SHIFT	7
-@@ -1337,10 +1337,13 @@ static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
- 	req = (struct hclge_tx_buff_alloc *)desc.data;
+ 	struct hclge_desc desc;
  
- 	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TX_BUFF_ALLOC, 0);
--	for (i = 0; i < HCLGE_TC_NUM; i++)
-+	for (i = 0; i < HCLGE_TC_NUM; i++) {
-+		u32 buf_size = hdev->priv_buf[i].tx_buf_size;
-+
- 		req->tx_pkt_buff[i] =
- 			cpu_to_le16((buf_size >> HCLGE_BUF_SIZE_UNIT_SHIFT) |
- 				     HCLGE_BUF_SIZE_UPDATE_EN_MSK);
-+	}
+ 	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_SCH_MODE_CFG, false);
  
- 	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
- 	if (ret) {
-@@ -1352,9 +1355,9 @@ static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
- 	return 0;
- }
- 
--static int hclge_tx_buffer_alloc(struct hclge_dev *hdev, u32 buf_size)
-+static int hclge_tx_buffer_alloc(struct hclge_dev *hdev)
+-	if (hdev->tm_info.tc_info[qs_id].tc_sch_mode == HCLGE_SCH_MODE_DWRR)
++	if (mode == HCLGE_SCH_MODE_DWRR)
+ 		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
+ 	else
+ 		desc.data[1] = 0;
+@@ -638,17 +638,18 @@ static int hclge_tm_pri_q_qs_cfg(struct hclge_dev *hdev)
  {
--	int ret = hclge_cmd_alloc_tx_buff(hdev, buf_size);
-+	int ret = hclge_cmd_alloc_tx_buff(hdev);
- 
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
-@@ -1433,6 +1436,16 @@ static u32 hclge_get_rx_priv_buff_alloced(struct hclge_dev *hdev)
- 	return rx_priv;
- }
- 
-+static u32 hclge_get_tx_buff_alloced(struct hclge_dev *hdev)
-+{
-+	u32 i, total_tx_size = 0;
-+
-+	for (i = 0; i < HCLGE_MAX_TC_NUM; i++)
-+		total_tx_size += hdev->priv_buf[i].tx_buf_size;
-+
-+	return total_tx_size;
-+}
-+
- static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev, u32 rx_all)
- {
- 	u32 shared_buf_min, shared_buf_tc, shared_std;
-@@ -1477,18 +1490,43 @@ static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev, u32 rx_all)
- 	return true;
- }
- 
-+static int hclge_tx_buffer_calc(struct hclge_dev *hdev)
-+{
-+	u32 i, total_size;
-+
-+	total_size = hdev->pkt_buf_size;
-+
-+	/* alloc tx buffer for all enabled tc */
-+	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
-+		struct hclge_priv_buf *priv = &hdev->priv_buf[i];
-+
-+		if (total_size < HCLGE_DEFAULT_TX_BUF)
-+			return -ENOMEM;
-+
-+		if (hdev->hw_tc_map & BIT(i))
-+			priv->tx_buf_size = HCLGE_DEFAULT_TX_BUF;
-+		else
-+			priv->tx_buf_size = 0;
-+
-+		total_size -= priv->tx_buf_size;
-+	}
-+
-+	return 0;
-+}
-+
- /* hclge_rx_buffer_calc: calculate the rx private buffer size for all TCs
-  * @hdev: pointer to struct hclge_dev
-- * @tx_size: the allocated tx buffer for all TCs
-  * @return: 0: calculate sucessful, negative: fail
-  */
--int hclge_rx_buffer_calc(struct hclge_dev *hdev, u32 tx_size)
-+int hclge_rx_buffer_calc(struct hclge_dev *hdev)
- {
--	u32 rx_all = hdev->pkt_buf_size - tx_size;
-+	u32 rx_all = hdev->pkt_buf_size;
- 	int no_pfc_priv_num, pfc_priv_num;
- 	struct hclge_priv_buf *priv;
- 	int i;
- 
-+	rx_all -= hclge_get_tx_buff_alloced(hdev);
-+
- 	/* When DCB is not supported, rx private
- 	 * buffer is not allocated.
- 	 */
-@@ -1771,7 +1809,6 @@ static int hclge_common_wl_config(struct hclge_dev *hdev)
- 
- int hclge_buffer_alloc(struct hclge_dev *hdev)
- {
--	u32 tx_buf_size = HCLGE_DEFAULT_TX_BUF;
+ 	struct hclge_vport *vport = hdev->vport;
  	int ret;
+-	u32 i;
++	u32 i, k;
  
- 	hdev->priv_buf = devm_kmalloc_array(&hdev->pdev->dev, HCLGE_MAX_TC_NUM,
-@@ -1780,14 +1817,21 @@ int hclge_buffer_alloc(struct hclge_dev *hdev)
- 	if (!hdev->priv_buf)
- 		return -ENOMEM;
+ 	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
+ 		/* Cfg qs -> pri mapping, one by one mapping */
+-		for (i = 0; i < hdev->tm_info.num_tc; i++) {
+-			ret = hclge_tm_qs_to_pri_map_cfg(hdev, i, i);
+-			if (ret)
+-				return ret;
+-		}
++		for (k = 0; k < hdev->num_alloc_vport; k++)
++			for (i = 0; i < hdev->tm_info.num_tc; i++) {
++				ret = hclge_tm_qs_to_pri_map_cfg(
++					hdev, vport[k].qs_offset + i, i);
++				if (ret)
++					return ret;
++			}
+ 	} else if (hdev->tx_sch_mode == HCLGE_FLAG_VNET_BASE_SCH_MODE) {
+-		int k;
+ 		/* Cfg qs -> pri mapping,  qs = tc, pri = vf, 8 qs -> 1 pri */
+ 		for (k = 0; k < hdev->num_alloc_vport; k++)
+ 			for (i = 0; i < HNAE3_MAX_TC; i++) {
+@@ -797,10 +798,11 @@ static int hclge_tm_pri_shaper_cfg(struct hclge_dev *hdev)
  
--	ret = hclge_tx_buffer_alloc(hdev, tx_buf_size);
-+	ret = hclge_tx_buffer_calc(hdev);
-+	if (ret) {
-+		dev_err(&hdev->pdev->dev,
-+			"could not calc tx buffer size for all TCs %d\n", ret);
-+		return ret;
-+	}
-+
-+	ret = hclge_tx_buffer_alloc(hdev);
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
- 			"could not alloc tx buffers %d\n", ret);
- 		return ret;
+ static int hclge_tm_pri_tc_base_dwrr_cfg(struct hclge_dev *hdev)
+ {
++	struct hclge_vport *vport = hdev->vport;
+ 	struct hclge_pg_info *pg_info;
+ 	u8 dwrr;
+ 	int ret;
+-	u32 i;
++	u32 i, k;
+ 
+ 	for (i = 0; i < hdev->tm_info.num_tc; i++) {
+ 		pg_info =
+@@ -811,9 +813,13 @@ static int hclge_tm_pri_tc_base_dwrr_cfg(struct hclge_dev *hdev)
+ 		if (ret)
+ 			return ret;
+ 
+-		ret = hclge_tm_qs_weight_cfg(hdev, i, dwrr);
+-		if (ret)
+-			return ret;
++		for (k = 0; k < hdev->num_alloc_vport; k++) {
++			ret = hclge_tm_qs_weight_cfg(
++				hdev, vport[k].qs_offset + i,
++				vport[k].dwrr);
++			if (ret)
++				return ret;
++		}
  	}
  
--	ret = hclge_rx_buffer_calc(hdev, tx_buf_size);
-+	ret = hclge_rx_buffer_calc(hdev);
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
- 			"could not calc rx priv buffer size for all TCs %d\n",
+ 	return 0;
+@@ -944,7 +950,10 @@ static int hclge_tm_schd_mode_vnet_base_cfg(struct hclge_vport *vport)
+ 		return ret;
+ 
+ 	for (i = 0; i < kinfo->num_tc; i++) {
+-		ret = hclge_tm_qs_schd_mode_cfg(hdev, vport->qs_offset + i);
++		u8 sch_mode = hdev->tm_info.tc_info[i].tc_sch_mode;
++
++		ret = hclge_tm_qs_schd_mode_cfg(hdev, vport->qs_offset + i,
++						sch_mode);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -956,7 +965,7 @@ static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
+ {
+ 	struct hclge_vport *vport = hdev->vport;
+ 	int ret;
+-	u8 i;
++	u8 i, k;
+ 
+ 	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
+ 		for (i = 0; i < hdev->tm_info.num_tc; i++) {
+@@ -964,9 +973,13 @@ static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
+ 			if (ret)
+ 				return ret;
+ 
+-			ret = hclge_tm_qs_schd_mode_cfg(hdev, i);
+-			if (ret)
+-				return ret;
++			for (k = 0; k < hdev->num_alloc_vport; k++) {
++				ret = hclge_tm_qs_schd_mode_cfg(
++					hdev, vport[k].qs_offset + i,
++					HCLGE_SCH_MODE_DWRR);
++				if (ret)
++					return ret;
++			}
+ 		}
+ 	} else {
+ 		for (i = 0; i < hdev->num_alloc_vport; i++) {
 -- 
 1.9.1
