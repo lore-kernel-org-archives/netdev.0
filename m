@@ -1,8 +1,8 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
 Subject: Re: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when
  interacting with network stack
-Date: Tue, 26 Sep 2017 15:29:03 +0800
-Message-ID: <f51575b6-b8dc-2f70-2662-48d70b572565@huawei.com>
+Date: Tue, 26 Sep 2017 15:33:27 +0800
+Message-ID: <7716ff26-92fe-165e-8b5e-147914608032@huawei.com>
 References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
  <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
  <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
@@ -56,27 +56,6 @@ On 2017/9/26 14:43, Yuval Mintz wrote:
 > would reach a transmission queue associated with its priority] even
 > if device wasn't grated with an mqprio qdisc.
 > Why should your user even use mqprio? What benefit does he get from it?
-
-
-When adding mqprio and lldptool support, I was thinking user can use
-tc qdisc or lldptool to do the configuration, giving user two option to
-setup the DCB.
-
-If user is only tc qdisc or lldptool, I think there is no problem here.
-
-when user is using tc qdisc and lldptool, As you explained above, When
-tc qdisc changes the configuration, there should be a way to notify dcbnl,
-so that the dcbnl can response correctly(like tell the peer it's configuration
-has changed).
-
-I will try to find if there is a way to do notify the dcbnl when using tc qdisc
-to setup the configuration.
-If there is not a way to do it now, then I will drop the mqprio in this patch, and
-will address this problem if there is need for the tc qdisc.
-
-Please let me know if I was misunderstood.
-And thanks for your time reviewing.
-
 > 
 > ...
 > 
@@ -101,6 +80,12 @@ And thanks for your time reviewing.
 > I don't think you're changing the driver behavior, but why are you setting
 > the real number of rx queues based on the number of TCs?
 > Do you actually open (TC x RSS) Rx queues?
+
+Yes, our hardware can do the rss based on TC.
+
+Sorry for almost forget to answer this question.
+Thanks for your time reviewing again.
+
 > 
 > .
 > 
