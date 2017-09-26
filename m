@@ -1,59 +1,60 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] ebtables: fix race condition in frame_filter_net_init()
-Date: Tue, 26 Sep 2017 14:42:11 +0200
-Message-ID: <20170926124211.GA14971@breakpoint.cc>
-References: <20170926122938.11603-1-asavkov@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 0/7] net: speedup netns create/delete time
+Date: Tue, 26 Sep 2017 05:51:16 -0700
+Message-ID: <CANn89i+LE6He_E3VHwUTpLAVW+uUGo+FPs_zg1bs4P3CVcCL6Q@mail.gmail.com>
+References: <20170919232709.14690-1-edumazet@google.com> <8edb310a-562d-bff1-0482-64314833e722@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org
-To: Artem Savkov <asavkov@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170926122938.11603-1-asavkov@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Majd Dibbiny <majd@mellanox.com>,
+        Yonatan Cohen <yonatanc@mellanox.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:55059 "EHLO
+        mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966144AbdIZMvS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:51:18 -0400
+Received: by mail-yw0-f181.google.com with SMTP id w9so6965036ywi.11
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 05:51:17 -0700 (PDT)
+In-Reply-To: <8edb310a-562d-bff1-0482-64314833e722@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Artem Savkov <asavkov@redhat.com> wrote:
-> It is possible for ebt_in_hook to be triggered before ebt_table is assigned
-> resulting in a NULL-pointer dereference. Make sure hooks are
-> registered as the last step.
+On Tue, Sep 26, 2017 at 4:21 AM, Tariq Toukan <tariqt@mellanox.com> wrote:
+>
+>
+> Hi Eric,
+>
+> We see a regression introduced in this series, specifically in the patches
+> touching lib/kobject_uevent.c.
+> We tried to figure out what is wrong there, but couldn't point it out.
+>
+> Bug is that mlx4 driver restart fails, because mlx4_core is still in use.
+> According to module dependencies, both mlx4_en and mlx4_ib should have been
+> unloaded at this point
+> Please see log below.
+>
+> This looks to be some kind of a race, as the repro is not deterministic.
+> Probably the en/ib modules are now mistakenly reloaded.
+>
+> Any idea what could this be?
+>
+> Regards,
+> Tariq
+>
+>
+> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
+> Unloading HCA driver:                                      [  OK  ]
+> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd start
+> Loading HCA driver and Access Layer:                       [  OK  ]
+> [root@reg-l-vrt-41016-009 ~]# /etc/init.d/openibd stop
+> Unloading mlx4_core                                        [FAILED]
+> rmmod: ERROR: Module mlx4_core is in use
 
-Right, thanks for the patch.
+I have absolutely no idea. Please bisect.
 
-> --- a/net/bridge/netfilter/ebtable_broute.c
-> +++ b/net/bridge/netfilter/ebtable_broute.c
-> @@ -65,7 +65,7 @@ static int ebt_broute(struct sk_buff *skb)
->  
->  static int __net_init broute_net_init(struct net *net)
->  {
-> -	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
-> +	net->xt.broute_table = ebt_register_table(net, &broute_table);
-
-I wonder if it makes more sense to model this like the iptables version,
-i.e. pass net->xt.table_name as last arg to ebt_register_table ...
-
-> +int ebt_register_hooks(struct net *net, struct ebt_table *table,
-> +		      const struct nf_hook_ops *ops)
-> +{
-> +	int ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
-> +
-> +	if (ret)
-> +		__ebt_unregister_table(net, table);
-> +
-> +	return ret;
-> +}
-
-... because this looks strange (unregister of table/not-so-obvious error
-unwinding ...)
-
-> @@ -1252,15 +1262,6 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
->  	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
->  	mutex_unlock(&ebt_mutex);
-
-... here one could then assign the net->xt.table_X pointer, and then do
-the hook registration right after.
-
-However i have no strong opinion here.
+Are you really using netns in the first place ?
