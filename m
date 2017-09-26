@@ -1,38 +1,33 @@
-From: Eric Garver <e@erig.me>
-Subject: Re: [ovs-dev] [PATCH net-next v9] openvswitch: enable NSH support
-Date: Tue, 26 Sep 2017 16:59:36 -0400
-Message-ID: <20170926205936.GE1786@dev-rhel7>
-References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
- <20170925192842.GD1786@dev-rhel7>
- <20170926050215.GB5896@localhost.localdomain>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/2] tools: rename tools/net directory to tools/bpf
+Date: Tue, 26 Sep 2017 23:04:45 +0200
+Message-ID: <59CAC0ED.3000208@iogearbox.net>
+References: <20170926153522.31500-1-jakub.kicinski@netronome.com> <20170926153522.31500-2-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jbenc@redhat.com" <jbenc@redhat.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: "Yang, Yi" <yi.y.yang@intel.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, davem@davemloft.net,
+        hannes@stressinduktion.org, dsahern@gmail.com,
+        oss-drivers@netronome.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53562 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1030665AbdIZU7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 16:59:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20170926050215.GB5896@localhost.localdomain>
+Received: from www62.your-server.de ([213.133.104.62]:51833 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032101AbdIZVEr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 17:04:47 -0400
+In-Reply-To: <20170926153522.31500-2-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 26, 2017 at 01:02:15PM +0800, Yang, Yi wrote:
-> On Tue, Sep 26, 2017 at 03:28:42AM +0800, Eric Garver wrote:
-> > On Mon, Sep 25, 2017 at 10:16:09PM +0800, Yi Yang wrote:
-> > > +
-> > > +	length = nsh_hdr_len(nsh_hdr);
-> > > +	skb_pull(skb, length);
-> > 
-> > Do you need to verify you can actually pull length bytes? I don't see
-> > any guarantee.
-> 
-> I have added skb length check in pop_nsh, so that can verify this.
+On 09/26/2017 05:35 PM, Jakub Kicinski wrote:
+> We currently only have BPF tools in the tools/net directory.
+> We are about to add more BPF tools there, not necessarily
+> networking related, rename the directory and related Makefile
+> targets to bpf.
+>
+> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
 
-That doesn't help other code that may call skb_pop_nsh(). skb_vlan_pop()
-calls skb_ensure_writable() which seems like the right thing to do.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
