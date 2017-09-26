@@ -1,58 +1,59 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 7/7] nfp: flower vxlan neighbour keep-alive
-Date: Tue, 26 Sep 2017 15:44:44 +0300
-Message-ID: <CAJ3xEMjswVRq8D7nnxDaT2FtKZKq88BW0PCjrgEetTUdjzbmHw@mail.gmail.com>
-References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
- <1506335021-32024-8-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgK-hqB-uRM4aom1gMsXxpx_o2uSpSj5_dFsT13-oDGAQ@mail.gmail.com>
- <CAK+XE=mVKbAqYwSYvLb0y48O9D-Oq+B_bks7c9iwjsm0j7oYvw@mail.gmail.com> <CAK+XE=nfndmKbgz174CEKzfBHbf7nTBX9CUb47MPBnDssJJ0fA@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] ebtables: fix race condition in frame_filter_net_init()
+Date: Tue, 26 Sep 2017 14:42:11 +0200
+Message-ID: <20170926124211.GA14971@breakpoint.cc>
+References: <20170926122938.11603-1-asavkov@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: John Hurley <john.hurley@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:45782 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936444AbdIZMop (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:44:45 -0400
-Received: by mail-oi0-f48.google.com with SMTP id z73so11656902oia.2
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 05:44:45 -0700 (PDT)
-In-Reply-To: <CAK+XE=nfndmKbgz174CEKzfBHbf7nTBX9CUb47MPBnDssJJ0fA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org
+To: Artem Savkov <asavkov@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170926122938.11603-1-asavkov@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 26, 2017 at 12:37 PM, John Hurley <john.hurley@netronome.com> wrote:
-> [ Reposting in plantext only]
-> On Mon, Sep 25, 2017 at 7:32 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>
->> On Mon, Sep 25, 2017 at 1:23 PM, Simon Horman
->> <simon.horman@netronome.com> wrote:
->> > From: John Hurley <john.hurley@netronome.com>
->> >
->> > Periodically receive messages containing the destination IPs of tunnels
->> > that have recently forwarded traffic. Update the neighbour entries 'used'
->> > value for these IPs next hop.
->>
->> Are you proactively sending keep alive messages from the driver or the
->> fw? what's wrong with the probes sent by the kernel NUD subsystem?
+Artem Savkov <asavkov@redhat.com> wrote:
+> It is possible for ebt_in_hook to be triggered before ebt_table is assigned
+> resulting in a NULL-pointer dereference. Make sure hooks are
+> registered as the last step.
 
-> The messages are sent from the FW to the driver. They indicate which
-> offloaded tunnels are currently active.
+Right, thanks for the patch.
 
-Do you support flow counters for offloaded TC rules? do you support last-use?
+> --- a/net/bridge/netfilter/ebtable_broute.c
+> +++ b/net/bridge/netfilter/ebtable_broute.c
+> @@ -65,7 +65,7 @@ static int ebt_broute(struct sk_buff *skb)
+>  
+>  static int __net_init broute_net_init(struct net *net)
+>  {
+> -	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
+> +	net->xt.broute_table = ebt_register_table(net, &broute_table);
 
-If Y && Y and you cache someone the prev counter value, you can use
-this for the "used" feedback. I don't see why add keep-alive and not piggy back
-on the flow counters logic.
+I wonder if it makes more sense to model this like the iptables version,
+i.e. pass net->xt.table_name as last arg to ebt_register_table ...
 
->> In our driver we also update the used value for neighs of offloaded
->> tunnels, we do it based on flow counters for the offloaded tunnels
->> which is an evidence for activity. Any reason for you not to apply a
->> similar practice?
+> +int ebt_register_hooks(struct net *net, struct ebt_table *table,
+> +		      const struct nf_hook_ops *ops)
+> +{
+> +	int ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
+> +
+> +	if (ret)
+> +		__ebt_unregister_table(net, table);
+> +
+> +	return ret;
+> +}
 
-> Yes, this would provide the same outcome. Because our firmware already
-> offered these messages, we chose to support this approach.
+... because this looks strange (unregister of table/not-so-obvious error
+unwinding ...)
+
+> @@ -1252,15 +1262,6 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+>  	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
+>  	mutex_unlock(&ebt_mutex);
+
+... here one could then assign the net->xt.table_X pointer, and then do
+the hook registration right after.
+
+However i have no strong opinion here.
