@@ -1,109 +1,35 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH] vti: fix use after free in vti_tunnel_xmit/vti6_tnl_xmit
-Date: Tue, 26 Sep 2017 15:14:29 +0300
-Message-ID: <1506428069-4716-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] Implement full-functionality option for ECN
+ encapsulation in tunnel
+Date: Tue, 26 Sep 2017 14:07:24 +0200
+Message-ID: <20170926120724.GA1782@salvia>
+References: <1487165636-10157-1-git-send-email-vfedorenko@yandex-team.ru>
+ <alpine.LFD.2.11.1702152235410.1942@ja.home.ssi.bg>
+ <392771506413394@webcorp01h.yandex-team.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Wensong Zhang <wensong@linux-vs.org>,
+        Simon Horman <horms@verge.net.au>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>
+To: Vadim Fedorenko <vfedorenko@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:28762 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965484AbdIZMGi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:06:38 -0400
+Received: from ganesha.gnumonks.org ([213.95.27.120]:53492 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968527AbdIZMHd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:07:33 -0400
+Content-Disposition: inline
+In-Reply-To: <392771506413394@webcorp01h.yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When running LTP IPsec tests, KASan might report:
+On Tue, Sep 26, 2017 at 11:09:54AM +0300, Vadim Fedorenko wrote:
+> Hello,
+>   this patch seems to be lost somewhere in upstream. Please, merge it
 
-BUG: KASAN: use-after-free in vti_tunnel_xmit+0xeee/0xff0 [ip_vti]
-Read of size 4 at addr ffff880dc6ad1980 by task swapper/0/0
-...
-Call Trace:
-  <IRQ>
-  dump_stack+0x63/0x89
-  print_address_description+0x7c/0x290
-  kasan_report+0x28d/0x370
-  ? vti_tunnel_xmit+0xeee/0xff0 [ip_vti]
-  __asan_report_load4_noabort+0x19/0x20
-  vti_tunnel_xmit+0xeee/0xff0 [ip_vti]
-  ? vti_init_net+0x190/0x190 [ip_vti]
-  ? save_stack_trace+0x1b/0x20
-  ? save_stack+0x46/0xd0
-  dev_hard_start_xmit+0x147/0x510
-  ? icmp_echo.part.24+0x1f0/0x210
-  __dev_queue_xmit+0x1394/0x1c60
-...
-Freed by task 0:
-  save_stack_trace+0x1b/0x20
-  save_stack+0x46/0xd0
-  kasan_slab_free+0x70/0xc0
-  kmem_cache_free+0x81/0x1e0
-  kfree_skbmem+0xb1/0xe0
-  kfree_skb+0x75/0x170
-  kfree_skb_list+0x3e/0x60
-  __dev_queue_xmit+0x1298/0x1c60
-  dev_queue_xmit+0x10/0x20
-  neigh_resolve_output+0x3a8/0x740
-  ip_finish_output2+0x5c0/0xe70
-  ip_finish_output+0x4ba/0x680
-  ip_output+0x1c1/0x3a0
-  xfrm_output_resume+0xc65/0x13d0
-  xfrm_output+0x1e4/0x380
-  xfrm4_output_finish+0x5c/0x70
+Applied to nf.git.
 
-Can be fixed if we get skb->len before dst_output().
-
-Fixes: b9959fd3b0fa ("vti: switch to new ip tunnel code")
-Fixes: 22e1b23dafa8 ("vti6: Support inter address family tunneling.")
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- net/ipv4/ip_vti.c  |    3 ++-
- net/ipv6/ip6_vti.c |    3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 5ed63d2..89453cf 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -168,6 +168,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 	struct ip_tunnel_parm *parms = &tunnel->parms;
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *tdev;	/* Device to other host */
-+	int pkt_len = skb->len;
- 	int err;
- 	int mtu;
- 
-@@ -229,7 +230,7 @@ static netdev_tx_t vti_xmit(struct sk_buff *skb, struct net_device *dev,
- 
- 	err = dst_output(tunnel->net, skb->sk, skb);
- 	if (net_xmit_eval(err) == 0)
--		err = skb->len;
-+		err = pkt_len;
- 	iptunnel_xmit_stats(dev, err);
- 	return NETDEV_TX_OK;
- 
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 79444a4..bcdc2d5 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -445,6 +445,7 @@ static bool vti6_state_check(const struct xfrm_state *x,
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *tdev;
- 	struct xfrm_state *x;
-+	int pkt_len = skb->len;
- 	int err = -1;
- 	int mtu;
- 
-@@ -502,7 +503,7 @@ static bool vti6_state_check(const struct xfrm_state *x,
- 		struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
- 
- 		u64_stats_update_begin(&tstats->syncp);
--		tstats->tx_bytes += skb->len;
-+		tstats->tx_bytes += pkt_len;
- 		tstats->tx_packets++;
- 		u64_stats_update_end(&tstats->syncp);
- 	} else {
--- 
-1.7.1
+Thanks.
