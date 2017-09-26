@@ -1,77 +1,158 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Latest kernel net-next - 4.14-rc1+ / WARNING: CPU: 16 PID: 0 at
- net/sched/sch_hfsc.c:1385 hfsc_dequeue+0x241/0x269
-Date: Tue, 26 Sep 2017 14:00:55 +0200
-Message-ID: <00115c1c-6296-bc76-8ac2-5160aa870596@itcare.pl>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: usb/net/lan78xx: use-after-free in lan78xx_write_reg
+Date: Tue, 26 Sep 2017 14:04:19 +0200
+Message-ID: <CAAeHK+wfnGkTpiRiLusfR22XRF-bjSXnqFGwo2avjt33mSh2mg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Woojung Huh <woojung.huh@microchip.com>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        netdev <netdev@vger.kernel.org>,
+        USB list <linux-usb@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp11.iq.pl ([86.111.242.220]:55370 "EHLO smtp11.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934961AbdIZMDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 26 Sep 2017 08:03:00 -0400
-Received: from [192.168.2.200] (unknown [185.78.72.19])
-        (Authenticated sender: pstaszewski@itcare.pl)
-        by smtp.iq.pl (Postfix) with ESMTPSA id 3y1fjH1CHnz3xR6
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 14:02:59 +0200 (CEST)
-Content-Language: pl
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:52568 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968489AbdIZMEV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 08:04:21 -0400
+Received: by mail-oi0-f49.google.com with SMTP id p126so11478445oih.9
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 05:04:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[50102.787542] ------------[ cut here ]------------
-[50102.787545] WARNING: CPU: 16 PID: 0 at net/sched/sch_hfsc.c:1385 
-hfsc_dequeue+0x241/0x269
-[50102.787545] Modules linked in: ipmi_si x86_pkg_temp_thermal
-[50102.787547] CPU: 16 PID: 0 Comm: swapper/16 Tainted: G W       
-4.14.0-rc1+ #10
-[50102.787548] task: ffff88046d440000 task.stack: ffffc900032e0000
-[50102.787549] RIP: 0010:hfsc_dequeue+0x241/0x269
-[50102.787550] RSP: 0018:ffff88046fc83eb0 EFLAGS: 00010246
-[50102.787551] RAX: 0000000000000000 RBX: ffff880456309948 RCX: 
-0000000000000018
-[50102.787551] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
-ffff880456309c40
-[50102.787552] RBP: ffff88046fc83ed8 R08: 000000000001c000 R09: 
-0000000000000100
-[50102.787553] R10: ffff88046fc83e98 R11: 0000000000000003 R12: 
-ffff880456309800
-[50102.787553] R13: 000000b6459156dd R14: 0000000000000001 R15: 
-ffff880456309c40
-[50102.787554] FS:  0000000000000000(0000) GS:ffff88046fc80000(0000) 
-knlGS:0000000000000000
-[50102.787555] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[50102.787556] CR2: 00007fc764f21090 CR3: 000000085844a000 CR4: 
-00000000001606e0
-[50102.787556] Call Trace:
-[50102.787557]  <IRQ>
-[50102.787558]  __qdisc_run+0xed/0x293
-[50102.787560]  net_tx_action+0xeb/0x18b
-[50102.787562]  __do_softirq+0xe4/0x23a
-[50102.787564]  irq_exit+0x4d/0x5b
-[50102.787565]  smp_apic_timer_interrupt+0xc0/0xfa
-[50102.787566]  apic_timer_interrupt+0x90/0xa0
-[50102.787566]  </IRQ>
-[50102.787568] RIP: 0010:cpuidle_enter_state+0x134/0x189
-[50102.787569] RSP: 0018:ffffc900032e3ea0 EFLAGS: 00000246 ORIG_RAX: 
-ffffffffffffff10
-[50102.787570] RAX: 00002d9176d7d9f4 RBX: 0000000000000002 RCX: 
-000000000000001f
-[50102.787570] RDX: 0000000000000000 RSI: 0000000000000010 RDI: 
-0000000000000000
-[50102.787571] RBP: ffffc900032e3ed0 R08: 00000000ffffffd8 R09: 
-0000000000000003
-[50102.787572] R10: ffffc900032e3e70 R11: ffff88046fc98e50 R12: 
-ffff88046c234400
-[50102.787572] R13: 00002d9176d7d9f4 R14: 0000000000000002 R15: 
-00002d9176d6e845
-[50102.787575]  cpuidle_enter+0x12/0x14
-[50102.787576]  do_idle+0x113/0x16b
-[50102.787578]  cpu_startup_entry+0x1a/0x1f
-[50102.787580]  start_secondary+0xea/0xed
-[50102.787581]  secondary_startup_64+0xa5/0xa5
-[50102.787582] Code: f6 48 3d 90 00 00 00 74 04 48 8b 70 70 49 8b 84 24 
-68 02 00 00 48 85 c0 74 0c 48 39 f0 72 24 48 85 f6 75 09 eb 1d 48 85 f6 
-75 02 <0f> ff 49 8d bc 24 48 04 00 00 48 c1 e6 06 e8 a9 62 ff ff e9 eb
-[50102.787602] ---[ end trace 8558fb6f1ca3beb2 ]---
+Hi!
+
+I've got the following report while fuzzing the kernel with syzkaller.
+
+On commit e19b205be43d11bff638cad4487008c48d21c103 (4.14-rc2).
+
+==================================================================
+BUG: KASAN: use-after-free in lan78xx_write_reg.isra.21+0x1a8/0x1b0
+Read of size 8 at addr ffff8800683e2c40 by task kworker/0:3/2551
+
+CPU: 0 PID: 2551 Comm: kworker/0:3 Not tainted
+4.14.0-rc2-42613-g1488251d1a98 #256
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Workqueue: events lan78xx_deferred_multicast_write
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x292/0x395 lib/dump_stack.c:52
+ print_address_description+0x78/0x280 mm/kasan/report.c:252
+ kasan_report_error mm/kasan/report.c:351
+ kasan_report+0x23d/0x350 mm/kasan/report.c:409
+ __asan_report_load8_noabort+0x19/0x20 mm/kasan/report.c:430
+ lan78xx_write_reg.isra.21+0x1a8/0x1b0 drivers/net/usb/lan78xx.c:458
+ lan78xx_deferred_multicast_write+0x10d/0x1a0 drivers/net/usb/lan78xx.c:1042
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ worker_thread+0x221/0x1850 kernel/workqueue.c:2253
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+
+Allocated by task 24:
+ save_stack_trace+0x1b/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459
+ kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
+ __kmalloc_node+0x192/0x480 mm/slub.c:3827
+ kmalloc_node ./include/linux/slab.h:535
+ kvmalloc_node+0x69/0xd0 mm/util.c:397
+ kvmalloc ./include/linux/mm.h:529
+ kvzalloc ./include/linux/mm.h:537
+ alloc_netdev_mqs+0x173/0xea0 net/core/dev.c:8023
+ alloc_etherdev_mqs+0x38/0x40 net/ethernet/eth.c:391
+ lan78xx_probe+0x13a/0x2f10 drivers/net/usb/lan78xx.c:3542
+ usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
+ generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
+ usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
+ hub_port_connect drivers/usb/core/hub.c:4903
+ hub_port_connect_change drivers/usb/core/hub.c:5009
+ port_event drivers/usb/core/hub.c:5115
+ hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ worker_thread+0x221/0x1850 kernel/workqueue.c:2253
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+
+Freed by task 24:
+ save_stack_trace+0x1b/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459
+ kasan_slab_free+0x72/0xc0 mm/kasan/kasan.c:524
+ slab_free_hook mm/slub.c:1390
+ slab_free_freelist_hook mm/slub.c:1412
+ slab_free mm/slub.c:2988
+ kfree+0xf6/0x2f0 mm/slub.c:3919
+ kvfree+0x3b/0x60 mm/util.c:416
+ netdev_freemem net/core/dev.c:7975
+ free_netdev+0x304/0x3c0 net/core/dev.c:8137
+ lan78xx_probe+0x20cc/0x2f10 drivers/net/usb/lan78xx.c:3645
+ usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
+ generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
+ usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
+ hub_port_connect drivers/usb/core/hub.c:4903
+ hub_port_connect_change drivers/usb/core/hub.c:5009
+ port_event drivers/usb/core/hub.c:5115
+ hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ worker_thread+0x221/0x1850 kernel/workqueue.c:2253
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+
+The buggy address belongs to the object at ffff8800683e2100
+ which belongs to the cache kmalloc-8192 of size 8192
+The buggy address is located 2880 bytes inside of
+ 8192-byte region [ffff8800683e2100, ffff8800683e4100)
+The buggy address belongs to the page:
+page:ffffea0001a0f800 count:1 mapcount:0 mapping:          (null)
+index:0x0 compound_mapcount: 0
+flags: 0x100000000008100(slab|head)
+raw: 0100000000008100 0000000000000000 0000000000000000 0000000100030003
+raw: ffffea00018fe800 0000000200000002 ffff88006c402a80 0000000000000000
+page dumped because: kasan: bad access detected
+
+Memory state around the buggy address:
+ ffff8800683e2b00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff8800683e2b80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff8800683e2c00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                                           ^
+ ffff8800683e2c80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff8800683e2d00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
