@@ -1,41 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/4] net:ethernet:aquantia: Atlantic driver
- bugfixes und improvements
-Date: Tue, 26 Sep 2017 13:39:33 -0700 (PDT)
-Message-ID: <20170926.133933.1810326808404786359.davem@davemloft.net>
-References: <cover.1506324091.git.igor.russkikh@aquantia.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 0/6] BPF metadata for direct access
+Date: Tue, 26 Sep 2017 22:44:00 +0200
+Message-ID: <59CABC10.3030703@iogearbox.net>
+References: <cover.1506297988.git.daniel@iogearbox.net> <20170926.133732.1980264928194037130.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, darcari@redhat.com,
-        pavel.belous@aquantia.com, Nadezhda.Krupnina@aquantia.com,
-        simon.edelhaus@aquantia.com
-To: igor.russkikh@aquantia.com
+Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37598 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964856AbdIZUje (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 16:39:34 -0400
-In-Reply-To: <cover.1506324091.git.igor.russkikh@aquantia.com>
+Received: from www62.your-server.de ([213.133.104.62]:47352 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935503AbdIZUoE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 16:44:04 -0400
+In-Reply-To: <20170926.133732.1980264928194037130.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Russkikh <igor.russkikh@aquantia.com>
-Date: Mon, 25 Sep 2017 10:48:46 +0300
+On 09/26/2017 10:37 PM, David Miller wrote:
+> From: Daniel Borkmann <daniel@iogearbox.net>
+> Date: Mon, 25 Sep 2017 02:25:49 +0200
+>
+>> This work enables generic transfer of metadata from XDP into skb,
+>> meaning the packet has a flexible and programmable room for meta
+>> data, which can later be used by BPF to set various skb members
+>> when passing up the stack. For details, please see second patch.
+>> Support has been implemented and tested with two drivers, and
+>> should be straight forward to add to other drivers as well which
+>> properly support head adjustment already.
+>
+> Series applied, thanks.
+>
+> We're accumulating features again and leaving some drivers behind,
+> let's not allow this to get out of hand for XDP_REDIRECT and this
+> stuff.
 
-> This series contains bugfixes for aQuantia Atlantic driver.
-> 
-> Changes in v2:
-> Review comments applied:
-> - min_mtu set removed
-> - extra mtu range check is removed
-> - err codes handling improved
-
-I'll apply this series but simply "aquantia: " is a sufficient subsystem
-prefix all by itself so I have edited your Subject lines to use this
-before applying.
-
-Even if multiple subsystem tags were appropriate here, they should be
-separated by spaces like "net: ethernet: ...".
-
-Thanks.
+Thanks, I'll see to get it implemented for further drivers as well.
