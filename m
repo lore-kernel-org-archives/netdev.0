@@ -1,102 +1,59 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v6 06/11] ARM: dts: sunxi: h3/h5: represent
- the mdio switch used by sun8i-h3-emac
-Date: Wed, 27 Sep 2017 12:16:22 +0200
-Message-ID: <20170927101622.v7odmreccwh7ldg2@flea>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
- <20170927073414.17361-7-clabbe.montjoie@gmail.com>
-Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+Subject: Re: tg3 pxe weirdness
+Date: Wed, 27 Sep 2017 16:01:10 +0530
+Message-ID: <CAMet4B4979pADZqK+6--jTFqUOF95X6FKF3Rhf9PKE-C9qOj4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cn4zez4ijobb7pzg"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDSJBYGBRIMBBAPVVXHAKGQE7JSPJII-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Content-Disposition: inline
-In-Reply-To: <20170927073414.17361-7-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
-
-
---cn4zez4ijobb7pzg
 Content-Type: text/plain; charset="UTF-8"
-Content-Disposition: inline
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Berend De Schouwer <berend.de.schouwer@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:53532 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751521AbdI0KbL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 06:31:11 -0400
+Received: by mail-qk0-f173.google.com with SMTP id w63so2053070qkd.10
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 03:31:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 07:34:09AM +0000, Corentin Labbe wrote:
-> Since dwmac-sun8i could use either an integrated PHY or an external PHY
-> (which could be at same MDIO address), we need to represent this selection
-> by a MDIO switch.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 31 +++++++++++++++++++++++++------
->  1 file changed, 25 insertions(+), 6 deletions(-)
-> 
-> diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> index 3b7d953429a6..a8e9b8f378ba 100644
-> --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> @@ -422,14 +422,33 @@
->  			#size-cells = <0>;
->  			status = "disabled";
->  
-> -			mdio: mdio {
-> +			mdio0: mdio {
->  				#address-cells = <1>;
->  				#size-cells = <0>;
-> -				int_mii_phy: ethernet-phy@1 {
-> -					compatible = "ethernet-phy-ieee802.3-c22";
-> -					reg = <1>;
-> -					clocks = <&ccu CLK_BUS_EPHY>;
-> -					resets = <&ccu RST_BUS_EPHY>;
-> +				compatible = "snps,dwmac-mdio";
-> +
-> +				mdio-mux {
-> +					compatible = "mdio-mux";
-> +					#address-cells = <1>;
-> +					#size-cells = <0>;
+On Wed, Sep 27, 2017 at 3:35 PM, Berend De Schouwer
+<berend.de.schouwer@gmail.com> wrote:
+> On Mon, 2017-09-25 at 15:11 +0530, Siva Reddy Kallam wrote:
+>> On Fri, Sep 22, 2017 at 9:04 PM, Berend De Schouwer
+>> <berend.de.schouwer@gmail.com> wrote:
+>> > On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
+>> > >
+>> > >
+>> > > Can you please share below details?
+>> > > 1) Model and Manufacturer of the system
+>> > > 2) Linux distro/kernel used?
+>> >
+>> > 4.13.3 gets a little further, but after some more data is
+>> > transferred
+>> > the tg3 driver still crashes.  This is unfortunately before I've
+>> > got a
+>> > writeable filesystem.
+>> >
+>> > The last line is:
+>> > tg3 0000:01:00.0: tg3_stop_block timed out, ofs=4c00 enable_bit=2
+>> >
+>> > I've got some ideas to get the full dmesg.
+>> >
+>> > As with the other kernels it works OK on 1Gbps, but not slower
+>> > switches.
+>>
+>> I am suspecting with link aware mode, the clock speed could be slow
+>> and boot code does not
+>> complete within the expected time with lower link speeds. So,
+>> Providing a patch to override clock.
+>> Can you please try with attached debug patch and provide us the
+>> feedback with 100M link?
+>> If it solves this issue, we will work on proper changes.
+>
+> This does work on 4.13.3 and PXE for me.
+>
+> I've tested on 1 Gbps, 100 Mbps and 10 Mbps.  I've done some
+> preliminary testing (eg. large file copies.)
 
-Newline
-
-> +					/* Only one MDIO is usable at the time */
-> +					internal_mdio: mdio@1 {
-> +						reg = <1>;
-> +						#address-cells = <1>;
-> +						#size-cells = <0>;
-
-Newline
-
-> +						int_mii_phy: ethernet-phy@1 {
-> +							compatible = "ethernet-phy-ieee802.3-c22";
-> +							reg = <1>;
-> +							clocks = <&ccu CLK_BUS_EPHY>;
-> +							resets = <&ccu RST_BUS_EPHY>;
-> +							phy-is-integrated;
-> +						};
-> +					};
-
-Newline
-
-> +					mdio: mdio@2 {
-
-This is quite confusing. Why not call the label external_mdio?
-
-Thanks
-
--- 
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---cn4zez4ijobb7pzg--
+Good. We will work on required changes and upstream proper patch after
+sanity test with multiple speeds.
