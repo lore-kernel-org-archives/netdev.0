@@ -1,81 +1,101 @@
-From: Paul Burton <paul.burton@imgtec.com>
-Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
-Date: Tue, 26 Sep 2017 21:30:56 -0700
-Message-ID: <2520219.WSsBr6LeCR@np-p-burton>
-References: <71740323.RRBhnhefTi@np-p-burton> <1752163.uYYNevmZpH@np-p-burton> <20170926.195244.506518182147628099.davem@davemloft.net>
+From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: [PATCH] net-ipv6: add support for sockopt(SOL_IPV6, IPV6_FREEBIND)
+Date: Tue, 26 Sep 2017 21:32:42 -0700
+Message-ID: <20170927043242.151591-1-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart3088073.UpTNVJzPrf";
-        micalg=pgp-sha256; protocol="application/pgp-signature"
-Cc: <matt.redfearn@imgtec.com>, <netdev@vger.kernel.org>,
-        <alexandre.torgue@st.com>, <peppe.cavallaro@st.com>,
-        <linux-kernel@vger.kernel.org>, <linux-mips@linux-mips.org>,
-        <james.hogan@imgtec.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926.195244.506518182147628099.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35248 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965486AbdI0EdA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 00:33:00 -0400
+Received: by mail-pg0-f68.google.com with SMTP id j16so8004798pga.2
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 21:33:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3088073.UpTNVJzPrf
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
+From: Maciej Żenczykowski <maze@google.com>
 
-Hi David,
+So far we've been relying on sockopt(SOL_IP, IP_FREEBIND) being usable
+even on IPv6 sockets.
 
-On Tuesday, 26 September 2017 19:52:44 PDT David Miller wrote:
-> From: Paul Burton <paul.burton@imgtec.com>
-> Date: Tue, 26 Sep 2017 14:30:33 -0700
-> 
-> > I'd suggest that at a minimum if you're unwilling to obey the API as
-> > described in Documentation/DMA-API.txt then it would be beneficial
-> > if you could propose a change to it such that it works for you, and
-> > perhaps we can extend the API & its documentation to allow your
-> > usage whilst also allowing us to catch broken uses.
-> 
-> The networking driver code works fine as is.
-> 
-> I also didn't write that ill-advised documentation in the DMA docs,
-> nor the non-merged new MIPS assertion.
-> 
-> So I'm trying to figure out on what basis I am required to do
-> anything.
-> 
-> Thank you.
+However, it turns out it is perfectly reasonable to want to set freebind
+on an AF_INET6 SOCK_RAW socket - but there is no way to set any SOL_IP
+socket option on such a socket (they're all blindly errored out).
 
-Nobody said you wrote the documentation, but you do maintain code which 
-disobeys the documented DMA API & now you're being an ass about it 
-unnecessarily.
+One use case for this is to allow spoofing src ip on a raw socket
+via sendmsg cmsg.
 
-Nobody said that you are required to do anything, I suggested that it would be 
-beneficial if you were to suggest a change to the documented DMA API such that 
-it allows your usage where it currently does not. If you don't want to have 
-any input into that, and you actually think that your current approach of 
-ignoring the documented API is the best path forwards, then we're probably 
-done here & I'll be making a note to avoid yourself & anything under net/ to 
-whatever extent is possible...
+Tested:
+  built, and booted
+  # python
+  >>> import socket
+  >>> SOL_IP = socket.SOL_IP
+  >>> SOL_IPV6 = socket.IPPROTO_IPV6
+  >>> IP_FREEBIND = 15
+  >>> IPV6_FREEBIND = 78
+  >>> s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, 0)
+  >>> s.getsockopt(SOL_IP, IP_FREEBIND)
+  0
+  >>> s.getsockopt(SOL_IPV6, IPV6_FREEBIND)
+  0
+  >>> s.setsockopt(SOL_IPV6, IPV6_FREEBIND, 1)
+  >>> s.getsockopt(SOL_IP, IP_FREEBIND)
+  1
+  >>> s.getsockopt(SOL_IPV6, IPV6_FREEBIND)
+  1
 
-Thanks,
-    Paul
---nextPart3088073.UpTNVJzPrf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-Content-Transfer-Encoding: 7Bit
+Signed-off-by: Maciej Żenczykowski <maze@google.com>
+---
+ include/uapi/linux/in6.h |  1 +
+ net/ipv6/ipv6_sockglue.c | 12 ++++++++++++
+ 2 files changed, 13 insertions(+)
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEELIGR03D5+Fg+69wPgiDZ+mk8HGUFAlnLKYAACgkQgiDZ+mk8
-HGVJyxAAnRY6g4+bYlyRldy6IOLa/u30RVY+Cp+SEm8FU+SL9DWSTIlLwvo5Yeyy
-1lPTtdkL0ZSNj8jB4sgaP6JscdC8+FpxXsS4vqy1K2j/XSoZjAWVAZrN7GkOZH2w
-wM5AbjzcBOIkd2cWkLG4O22qkbkOolfbV1XSUros7fKZXeuHfatGs7sutRolD7iy
-/KgEmF24RCYeMxp/XtolnSQcNfDWzfaNxdtm8To1j6srJ5HMTAS7goQ9sNXgQ32S
-tzzHUTGXimKJdwQw3DfO4mavyN9zeW7CIvsdRtW3cQn4bxfxrW/9UUpR3ow8urav
-lYrgXQa7kCCIuXX4vNK7qeYs/7V+LtjAzEp0p7NX3b5GOHu0CZxnsDQZ9u2Jf32F
-3YicmJSVOB2Q/AC4RmWZ4agdHWKOU8TiuFtzItqx7GjimQG8Uaj5BjjeqRJ/CFbu
-UzeLa8wVBShjAF1CmgNwsLKMle/kQpzBjxgFWl8rtDBAVTME+yH54SIAyXRDeqlX
-3H/3UhzVc65lFGAJ/bA+GVzGUhfQRrRgwKhIefUY8P6hEq+MP//ZXDZuElwTSmvY
-n3CnW86H8EjwL37qKgcd6hSYRTMqiMEWn/SD6ykbcYprG+IEybTv/GAymXGo1+cR
-EDsJHGll7Qc0IcCNc1Y+DIH3aoqIabqILlwvX9trH1zUoAX816M=
-=vqEP
------END PGP SIGNATURE-----
-
---nextPart3088073.UpTNVJzPrf--
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index 46444f8fbee4..4f8f3eb0699f 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -284,6 +284,7 @@ struct in6_flowlabel_req {
+ #define IPV6_TRANSPARENT        75
+ #define IPV6_UNICAST_IF         76
+ #define IPV6_RECVFRAGSIZE	77
++#define IPV6_FREEBIND		78
+ 
+ /*
+  * Multicast Routing:
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index a5e466d4e093..b9404feabd78 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -377,6 +377,14 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		retv = 0;
+ 		break;
+ 
++	case IPV6_FREEBIND:
++		if (optlen < sizeof(int))
++			goto e_inval;
++		/* we also don't have a separate freebind bit for IPV6 */
++		inet_sk(sk)->freebind = valbool;
++		retv = 0;
++		break;
++
+ 	case IPV6_RECVORIGDSTADDR:
+ 		if (optlen < sizeof(int))
+ 			goto e_inval;
+@@ -1214,6 +1222,10 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 		val = inet_sk(sk)->transparent;
+ 		break;
+ 
++	case IPV6_FREEBIND:
++		val = inet_sk(sk)->freebind;
++		break;
++
+ 	case IPV6_RECVORIGDSTADDR:
+ 		val = np->rxopt.bits.rxorigdstaddr;
+ 		break;
+-- 
+2.14.1.992.g2c7b836f3a-goog
