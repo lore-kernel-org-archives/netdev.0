@@ -1,87 +1,87 @@
-From: Lee Duncan <lduncan@suse.com>
-Subject: Re: [PATCH 2/2] uapi: add a compatibility layer between linux/uio.h and glibc
-Date: Wed, 27 Sep 2017 09:46:02 -0700
-Message-ID: <20170927164602.2914-1-lduncan@suse.com>
-References: <20170221201914.GA28360@altlinux.org>
-Cc: "Dmitry V. Levin" <ldv@altlinux.org>,
-        "David Miller" <davem@davemloft.net>, Lee Duncan <lduncan@suse.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20170221201914.GA28360@altlinux.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] ipv6: do lazy dst->__use update when per cpu dst is available
+Date: Wed, 27 Sep 2017 19:14:31 +0200
+Message-ID: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Wei Wang <weiwan@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60951 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750752AbdI0RPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 27 Sep 2017 13:15:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping? I never saw any response to this.
+When a host is under high ipv6 load, the updates of the ingress
+route '__use' field are a source of relevant contention: such
+field is updated for each packet and several cores can access
+concurrently the dst, even if percpu dst entries are available
+and used.
 
-On Wed, 22 Feb 2017 05:29:47 +0300, Dmitry V Levin wrote:
-> Do not define struct iovec in linux/uio.h when <sys/uio.h> or <fcntl.h>
-> is already included and provides these definitions.
-> 
-> This fixes the following compilation error when <sys/uio.h> or <fcntl.h>
-> is included before <linux/uio.h>:
-> 
-> /usr/include/linux/uio.h:16:8: error: redefinition of 'struct iovec'
-> 
-> Signed-off-by: Dmitry V. Levin <ldv@...linux.org>
-> ---
->  include/uapi/linux/libc-compat.h | 10 ++++++++++
->  include/uapi/linux/uio.h         |  3 +++
->  2 files changed, 13 insertions(+)
-> 
-> diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
-> index 481e3b1..9b88586 100644
-> --- a/include/uapi/linux/libc-compat.h
-> +++ b/include/uapi/linux/libc-compat.h
-> @@ -205,6 +205,13 @@
->  #define __UAPI_DEF_TIMEZONE		1
->  #endif
->  
-> +/* Coordinate with glibc bits/uio.h header. */
-> +#if defined(_SYS_UIO_H) || defined(_FCNTL_H)
-> +#define __UAPI_DEF_IOVEC		0
-> +#else
-> +#define __UAPI_DEF_IOVEC		1
-> +#endif
-> +
->  /* Definitions for xattr.h */
->  #if defined(_SYS_XATTR_H)
->  #define __UAPI_DEF_XATTR		0
-> @@ -261,6 +268,9 @@
->  #define __UAPI_DEF_TIMEVAL			1
->  #define __UAPI_DEF_TIMEZONE			1
->  
-> +/* Definitions for uio.h */
-> +#define __UAPI_DEF_IOVEC		1
-> +
->  /* Definitions for xattr.h */
->  #define __UAPI_DEF_XATTR		1
->  
-> diff --git a/include/uapi/linux/uio.h b/include/uapi/linux/uio.h
-> index 2731d56..e6e12cf 100644
-> --- a/include/uapi/linux/uio.h
-> +++ b/include/uapi/linux/uio.h
-> @@ -9,15 +9,18 @@
->  #ifndef _UAPI__LINUX_UIO_H
->  #define _UAPI__LINUX_UIO_H
->  
-> +#include <linux/libc-compat.h>
->  #include <linux/compiler.h>
->  #include <linux/types.h>
->  
->  
-> +#if __UAPI_DEF_IOVEC
->  struct iovec
->  {
->  	void __user *iov_base;	/* BSD uses caddr_t (1003.1g requires void *) */
->  	__kernel_size_t iov_len; /* Must be size_t (1003.1g) */
->  };
-> +#endif /* __UAPI_DEF_IOVEC */
->  
->  /*
->   *	UIO_MAXIOV shall be at least 16 1003.1g (5.4.1.1)
-> -- 
-> ldv
+The __use value is just a rough indication of the dst usage: is
+already updated concurrently from multiple CPUs without any lock,
+so we can decrease the contention leveraging the percpu dst to perform
+__use bulk updates: if a per cpu dst entry is found, we account on
+such entry and we flush the percpu counter once per jiffy.
 
+Performace gain under UDP flood is as follows:
+
+nr RX queues	before		after		delta
+		kpps		kpps		(%)
+2		2316		2688		16
+3		3033		3605		18
+4		3963		4328		9
+5		4379		5253		19
+6		5137		6000		16
+
+Performance gain under TCP syn flood should be measurable as well.
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv6/route.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 26cc9f483b6d..e69f304de950 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1170,12 +1170,24 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 
+ 		struct rt6_info *pcpu_rt;
+ 
+-		rt->dst.lastuse = jiffies;
+-		rt->dst.__use++;
+ 		pcpu_rt = rt6_get_pcpu_route(rt);
+ 
+ 		if (pcpu_rt) {
++			unsigned long ts;
++
+ 			read_unlock_bh(&table->tb6_lock);
++
++			/* do lazy updates of rt->dst->__use, at most once
++			 * per jiffy, to avoid contention on such cacheline.
++			 */
++			ts = jiffies;
++			pcpu_rt->dst.__use++;
++			if (pcpu_rt->dst.lastuse != ts) {
++				rt->dst.__use += pcpu_rt->dst.__use;
++				rt->dst.lastuse = ts;
++				pcpu_rt->dst.__use = 0;
++				pcpu_rt->dst.lastuse = ts;
++			}
+ 		} else {
+ 			/* We have to do the read_unlock first
+ 			 * because rt6_make_pcpu_route() may trigger
+@@ -1185,6 +1197,8 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 			read_unlock_bh(&table->tb6_lock);
+ 			pcpu_rt = rt6_make_pcpu_route(rt);
+ 			dst_release(&rt->dst);
++			rt->dst.lastuse = jiffies;
++			rt->dst.__use++;
+ 		}
+ 
+ 		trace_fib6_table_lookup(net, pcpu_rt, table->tb6_id, fl6);
 -- 
-Lee Duncan
-SUSE Labs
+2.13.5
