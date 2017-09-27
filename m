@@ -1,93 +1,123 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
-Date: Wed, 27 Sep 2017 06:35:40 -0700
-Message-ID: <645e7a39-c172-5882-5dd9-f038430114d1@gmail.com>
-References: <cover.1506297988.git.daniel@iogearbox.net>
- <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
- <20170926211342.0c8e72b0@redhat.com> <59CAB17D.5090204@iogearbox.net>
- <20170927112604.1284f536@redhat.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH v2 net-next 2/2] net/sched: allow flower to match tunnel
+ options
+Date: Wed, 27 Sep 2017 15:37:33 +0200
+Message-ID: <20170927133731.GA14183@vergenet.net>
+References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+ <1506500194-17637-3-git-send-email-simon.horman@netronome.com>
+ <20170927091005.GB1944@nanopsycho.orion>
+ <20170927092732.GC25449@vergenet.net>
+ <20170927110822.GD1944@nanopsycho.orion>
+ <20170927125205.GA30000@vergenet.net>
+ <20170927125603.GH1944@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33173 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752895AbdI0Nfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 09:35:54 -0400
-Received: by mail-pf0-f193.google.com with SMTP id h4so6858016pfk.0
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 06:35:54 -0700 (PDT)
-In-Reply-To: <20170927112604.1284f536@redhat.com>
-Content-Language: en-US
+Received: from mail-wr0-f174.google.com ([209.85.128.174]:50075 "EHLO
+        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752734AbdI0Nhj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 09:37:39 -0400
+Received: by mail-wr0-f174.google.com with SMTP id h16so2297666wrf.6
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 06:37:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170927125603.GH1944@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/27/2017 02:26 AM, Jesper Dangaard Brouer wrote:
-> On Tue, 26 Sep 2017 21:58:53 +0200
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
+On Wed, Sep 27, 2017 at 02:56:03PM +0200, Jiri Pirko wrote:
+> Wed, Sep 27, 2017 at 02:52:06PM CEST, simon.horman@netronome.com wrote:
+> >On Wed, Sep 27, 2017 at 01:08:22PM +0200, Jiri Pirko wrote:
+> >> Wed, Sep 27, 2017 at 11:27:33AM CEST, simon.horman@netronome.com wrote:
+> >> >On Wed, Sep 27, 2017 at 11:10:05AM +0200, Jiri Pirko wrote:
+> >> >> Wed, Sep 27, 2017 at 10:16:34AM CEST, simon.horman@netronome.com wrote:
+> >
+> >...
+> >
+> >> >> > enum flow_dissector_key_id {
+> >> >> > 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
+> >> >> > 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
+> >> >> >@@ -205,6 +217,7 @@ enum flow_dissector_key_id {
+> >> >> > 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
+> >> >> > 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
+> >> >> > 	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
+> >> >> >+	FLOW_DISSECTOR_KEY_ENC_OPTS, /* struct flow_dissector_key_enc_opts */
+> >> >> 
+> >> >> I don't see the actual dissection implementation. Where is it?
+> >> >> Did you test the patchset?
+> >> >
+> >> >Yes, I did test it. But it is also possible something went astray along the
+> >> >way and I will retest.
+> >> >
+> >> >I think that the code you are looking for is in
+> >> >fl_classify() in this patch.
+> >> 
+> >> The dissection should be done in the flow_dissector. That's the whole
+> >> point in having it generic. You should move it there.
+> >
+> >Coming back to this after lunch, I believe what I have done in this patch
+> >is consistent with handling of other enc fields, which are set in
+> >fl_classify() rather than the dissector. In particular the ip_tunnel_info,
+> >which is used by this patch, is already used in fl_classify().
 > 
->> On 09/26/2017 09:13 PM, Jesper Dangaard Brouer wrote:
->> [...]
->>> I'm currently implementing a cpumap type, that transfers raw XDP frames
->>> to another CPU, and the SKB is allocated on the remote CPU.  (It
->>> actually works extremely well).  
->>
->> Meaning you let all the XDP_PASS packets get processed on a
->> different CPU, so you can reserve the whole CPU just for
->> prefiltering, right? 
-> 
-> Yes, exactly.  Except I use the XDP_REDIRECT action to steer packets.
-> The trick is using the map-flush point, to transfer packets in bulk to
-> the remote CPU (single call IPC is too slow), but at the same time
-> flush single packets if NAPI didn't see a bulk.
-> 
->> Do you have some numbers to share at this point, just curious when
->> you mention it works extremely well.
-> 
-> Sure... I've done a lot of benchmarking on this patchset ;-)
-> I have a benchmark program called xdp_redirect_cpu [1][2], that collect
-> stats via tracepoints (atm I'm limiting bulking 8 packets, and have
-> tracepoints at bulk spots, to amortize tracepoint cost 25ns/8=3.125ns)
-> 
->  [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_kern.c
->  [2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_user.c
-> 
-> Here I'm installing a DDoS program that drops UDP port 9 (pktgen
-> packets) on RX CPU=0.  I'm forcing my netperf to hit the same CPU, that
-> the 11.9Mpps DDoS attack is hitting.
-> 
-> Running XDP/eBPF prog_num:4
-> XDP-cpumap      CPU:to  pps            drop-pps    extra-info
-> XDP-RX          0       12,030,471     11,966,982  0          
-> XDP-RX          total   12,030,471     11,966,982 
-> cpumap-enqueue    0:2   63,488         0           0          
-> cpumap-enqueue  sum:2   63,488         0           0          
-> cpumap_kthread  2       63,488         0           3          time_exceed
-> cpumap_kthread  total   63,488         0           0          
-> redirect_err    total   0              0          
-> 
-> $ netperf -H 172.16.0.2 -t TCP_CRR  -l 10 -D1 -T5,5 -- -r 1024,1024
-> Local /Remote
-> Socket Size   Request  Resp.   Elapsed  Trans.
-> Send   Recv   Size     Size    Time     Rate         
-> bytes  Bytes  bytes    bytes   secs.    per sec   
-> 
-> 16384  87380  1024     1024    10.00    12735.97   
-> 16384  87380 
-> 
-> The netperf TCP_CRR performance is the same, without XDP loaded.
-> 
+> That means the current code is wrong. The dissection should be done in
+> flow_dissector, not in fl_classify.
 
-Just curious could you also try this with RPS enabled (or does this have
-RPS enabled). RPS should effectively do the same thing but higher in the
-stack. I'm curious what the delta would be. Might be another interesting
-case and fairly easy to setup if you already have the above scripts.
+Would an better approach be to move the fl_classify() below into, say,
+skb_flow_dissect_tunnel_info() and call that from fl_classify().
 
-Thanks,
-John
+The reason I suggest this rather than moving the code into
+__skb_flow_dissect() is that currently flower assumes that tunnel_info
+is used if present. While I assume other users of () assume tunnel_info
+is not used even if present.
 
-[...]
+> >Without this patch I see:
+> >
+> >
+> >static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+> >                       struct tcf_result *res)
+> >{
+> >        ...
+> >        struct ip_tunnel_info *info;
+> >
+> >        ...
+> >
+> >        info = skb_tunnel_info(skb);
+> >        if (info) {
+> >                struct ip_tunnel_key *key = &info->key;
+> >
+> >                switch (ip_tunnel_info_af(info)) {
+> >                case AF_INET:
+> >                        skb_key.enc_control.addr_type =
+> >                                FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+> >                        skb_key.enc_ipv4.src = key->u.ipv4.src;
+> >                        skb_key.enc_ipv4.dst = key->u.ipv4.dst;
+> >                        break;
+> >                case AF_INET6:
+> >                        skb_key.enc_control.addr_type =
+> >                                FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+> >                        skb_key.enc_ipv6.src = key->u.ipv6.src;
+> >                        skb_key.enc_ipv6.dst = key->u.ipv6.dst;
+> >                        break;
+> >                }
+> >
+> >                skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
+> >                skb_key.enc_tp.src = key->tp_src;
+> >                skb_key.enc_tp.dst = key->tp_dst;
+> >        }
+> >
+> >	...
+> >}
+> >
+> >This patch adds the following inside the if() clause above:
+> >
+> >	if (info->options_len) {
+> >		skb_key.enc_opts.len = info->options_len;
+> >		ip_tunnel_info_opts_get(skb_key.enc_opts.data, info);
+> >	}
+> >
+> >
