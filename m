@@ -1,88 +1,108 @@
-From: Markus Heiser <markus.heiser@darmarit.de>
-Subject: Re: [PATCH net-next 2/2] tools: bpf: add bpftool
-Date: Wed, 27 Sep 2017 13:49:58 +0200
-Message-ID: <C92884FB-9948-4CCF-9B58-7811691F6574@darmarit.de>
-References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
- <20170926153522.31500-3-jakub.kicinski@netronome.com>
- <20170926222405.nq23enzudbjklczb@ast-mbp> <20170927000208.4396dfb7@cakuba>
- <20170927124511.650870bc@redhat.com> <20170927035742.5c9ee8c3@cakuba>
- <20170927131906.286b1e25@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH v2 net-next 2/2] net/sched: allow flower to match tunnel
+ options
+Date: Wed, 27 Sep 2017 13:54:14 +0200
+Message-ID: <20170927115412.GA16020@vergenet.net>
+References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+ <1506500194-17637-3-git-send-email-simon.horman@netronome.com>
+ <20170927091005.GB1944@nanopsycho.orion>
+ <20170927092732.GC25449@vergenet.net>
+ <20170927110822.GD1944@nanopsycho.orion>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        netdev@vger.kernel.org, daniel@iogearbox.net, davem@davemloft.net,
-        hannes@stressinduktion.org, dsahern@gmail.com,
-        oss-drivers@netronome.com,
-        Linux Doc Mailing List <linux-doc@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Jonathan Corbet <corbet@lwn.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170927131906.286b1e25@redhat.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f181.google.com ([209.85.220.181]:54611 "EHLO
+        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750854AbdI0LyX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 07:54:23 -0400
+Received: by mail-qk0-f181.google.com with SMTP id d70so12953091qkc.11
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 04:54:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170927110822.GD1944@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> Am 27.09.2017 um 13:19 schrieb Jesper Dangaard Brouer <brouer@redhat.com>:
-[...]
->>> I would prefer adding a README.rst file, in RST-format, as the rest of
->>> the kernel documentation is moving in that direction[1] (your github
->>> version is in README.md format).  A man page will always be
->>> out-of-sync, and even out-of-sync on different distros.
->>> 
->>> See[1]: https://www.kernel.org/doc/html/latest/
->>> 
->>> And then I would find some place in Documentation/admin-guide/ and
->>> include the README.rst file, so it shows up at [1].
->>> 
->>> RST have an include method like:
->>> 
->>> .. include:: ../../tools/bpf/bpftool/README.rst  
->> 
->> Can the docs in new format be rendered into a man page?  Call me old
->> fashioned but I think we should provide some form of a man page.. :)
+On Wed, Sep 27, 2017 at 01:08:22PM +0200, Jiri Pirko wrote:
+> Wed, Sep 27, 2017 at 11:27:33AM CEST, simon.horman@netronome.com wrote:
+> >On Wed, Sep 27, 2017 at 11:10:05AM +0200, Jiri Pirko wrote:
+> >> Wed, Sep 27, 2017 at 10:16:34AM CEST, simon.horman@netronome.com wrote:
+> >> >Allow matching on options in tunnel headers.
+> >> >This makes use of existing tunnel metadata support.
+> >> >
+> >> >Options are a bytestring of up to 256 bytes.
+> >> >Tunnel implementations may support less or more options,
+> >> >or no options at all.
+> >> >
+> >> >e.g.
+> >> > # ip link add name geneve0 type geneve dstport 0 external
+> >> > # tc qdisc add dev geneve0 ingress
+> >> > # tc filter add dev geneve0 protocol ip parent ffff: \
+> >> >     flower \
+> >> >       enc_src_ip 10.0.99.192 \
+> >> >       enc_dst_ip 10.0.99.193 \
+> >> >       enc_key_id 11 \
+> >> >       enc_opts 0102800100800020/fffffffffffffff0 \
+> >> >       ip_proto udp \
+> >> >       action mirred egress redirect dev eth1
+> >> >
+> >> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> >> >Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> >> >
+> >> >---
+> >> >v2
+> >> >* Correct example which was incorrectly described setting rather
+> >> >  than matching tunnel options
+> >> >---
+> >> > include/net/flow_dissector.h | 13 +++++++++++++
+> >> > include/uapi/linux/pkt_cls.h |  3 +++
+> >> > net/sched/cls_flower.c       | 35 ++++++++++++++++++++++++++++++++++-
+> >> > 3 files changed, 50 insertions(+), 1 deletion(-)
+> >> >
+> >> >diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+> >> >index fc3dce730a6b..43f98bf0b349 100644
+> >> >--- a/include/net/flow_dissector.h
+> >> >+++ b/include/net/flow_dissector.h
+> >> >@@ -183,6 +183,18 @@ struct flow_dissector_key_ip {
+> >> > 	__u8	ttl;
+> >> > };
+> >> > 
+> >> >+/**
+> >> >+ * struct flow_dissector_key_enc_opts:
+> >> >+ * @data: data
+> >> >+ * @len: len
+> >> >+ */
+> >> >+struct flow_dissector_key_enc_opts {
+> >> >+	u8 data[256];	/* Using IP_TUNNEL_OPTS_MAX is desired here
+> >> >+			 * but seems difficult to #include
+> >> >+			 */
+> >> >+	u8 len;
+> >> >+};
+> >> >+
+> >> > enum flow_dissector_key_id {
+> >> > 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
+> >> > 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
+> >> >@@ -205,6 +217,7 @@ enum flow_dissector_key_id {
+> >> > 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
+> >> > 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
+> >> > 	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
+> >> >+	FLOW_DISSECTOR_KEY_ENC_OPTS, /* struct flow_dissector_key_enc_opts */
+> >> 
+> >> I don't see the actual dissection implementation. Where is it?
+> >> Did you test the patchset?
+> >
+> >Yes, I did test it. But it is also possible something went astray along the
+> >way and I will retest.
+> >
+> >I think that the code you are looking for is in
+> >fl_classify() in this patch.
 > 
-> Yes, simply create the man page like:
+> The dissection should be done in the flow_dissector. That's the whole
+> point in having it generic. You should move it there.
 > 
-> rst2man README.rst README.man
-> You can add this to your local makefile.
 
-Hm ... this will work only for simple reST files.
-
-FYI: Sphinx is build up on top of docutils extending the reST markup. Tools
-like rst2man are from docutils and do not cover the markup extensions
-from Sphinx. Since Sphinx has its own builder for man pages, generating
-man pages is not the problem ...
-
-> The standard sphinx build can also generate man-pages, but it have been
-> removed from the kernel makefile targets:
-> 
-> Documentation targets:
-> Linux kernel internal documentation in different formats from ReST:
-> htmldocs        - HTML
-> latexdocs       - LaTeX
-> pdfdocs         - PDF
-> epubdocs        - EPUB
-> xmldocs         - XML
-> linkcheckdocs   - check for broken external links (will connect to external hosts)
-> cleandocs       - clean all generated files
-
-The reason why we have no man page target is, that we have not yet
-evaluated a concept, how we can manage the 'build man pages' task in
-the kernel build.
-
-Beside what you find in the kernel-source tree I'am working on such
-a concept (adapted man page builder for the Kernel) [1].
-
-IMO: Even if we merge the builder from [1] or implement something different,
-we have to touch the current kernel-doc parser. I guess that and the absence
-of a handy concept is the reason why we are dangling with a 'man' target.
-
-Anyway, these are my estimations, it might be better if we hear what
-Jon think about a man page builder (concept).
-
-[1] https://return42.github.io/linuxdoc/linuxdoc-howto/man-pages.html
-
--- Markus --
-
+Thanks, will do.
