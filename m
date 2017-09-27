@@ -1,49 +1,80 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: Re: [PATCH v2 16/16] net: Add support for networking over
- Thunderbolt cable
-Date: Wed, 27 Sep 2017 20:27:02 +0300
-Message-ID: <20170927172702.GE4630@lahna.fi.intel.com>
-References: <20170925110738.68382-17-mika.westerberg@linux.intel.com>
- <20170926.214721.734746621809140934.davem@davemloft.net>
- <20170927134238.GC4630@lahna.fi.intel.com>
- <20170927.092709.1826177647592316221.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
-        michael.jamet@intel.com, yehezkel.bernat@intel.com,
-        amir.jer.levy@intel.com, Mario.Limonciello@dell.com,
-        lukas@wunner.de, andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Grant Grundler <grundler@chromium.org>
+Subject: [PATCH V3] r8152:  add Linksys USB3GIGV1 id
+Date: Wed, 27 Sep 2017 10:28:02 -0700
+Message-ID: <20170927172802.80654-1-grundler@chromium.org>
+Cc: linux-usb <linux-usb@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+        Grant Grundler <grundler@chromium.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+        Oliver Neukum <oneukum@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170927.092709.1826177647592316221.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 09:27:09AM -0700, David Miller wrote:
-> From: Mika Westerberg <mika.westerberg@linux.intel.com>
-> Date: Wed, 27 Sep 2017 16:42:38 +0300
-> 
-> > Using build_skb() then would require to allocate larger buffer, that
-> > includes NET_SKB_PAD + SKB_DATA_ALIGN(skb_shared_info) and that exceeds
-> > page size. Is this something supported by build_skb()? It was not clear
-> > to me based on the code and other users of build_skb() but I may be
-> > missing something.
-> 
-> You need NET_SKB_PAD before and SKB_DATA_ALIGN(skb_shared_info) afterwards.
-> An order 1 page, if that's what you need, should work just fine.
+This linksys dongle by default comes up in cdc_ether mode.
+This patch allows r8152 to claim the device:
+   Bus 002 Device 002: ID 13b1:0041 Linksys
 
-I mean in order to fit a single ThunderboltIP frame, I would need to
-allocate NET_SKB_PAD+4096+SKB_DATA_ALIGN(skb_shared_info) size buffer.
-Is that still fine for build_skb()? Also can I use that with
-skb_add_rx_frag() which seem to take single page?
+Signed-off-by: Grant Grundler <grundler@chromium.org>
+---
+ drivers/net/usb/cdc_ether.c | 10 ++++++++++
+ drivers/net/usb/r8152.c     |  2 ++
+ 2 files changed, 12 insertions(+)
 
-ThunderboltIP protocol basically takes advantage of TSO/LRO but it
-actually does not do any segmentation. Instead it just splits the 64kB
-large package into smaller 4k frames (which each include 12 byte header)
-and pushes those over the Thunderbolt medium. The receiver side then
-does the opposite.
+V3: for backwards compat, add #ifdef CONFIG_USB_RTL8152 around
+    the cdc_ether blacklist entry so the cdc_ether driver can
+    still claim the device if r8152 driver isn't configured.
 
-Thanks and sorry for dummy questions. I'm just not too familiar with
-the networking subsystem (yet).
+V2: add LINKSYS_VENDOR_ID to cdc_ether blacklist
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 8ab281b478f2..446dcc0f1f70 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -546,6 +546,7 @@ static const struct driver_info wwan_info = {
+ #define DELL_VENDOR_ID		0x413C
+ #define REALTEK_VENDOR_ID	0x0bda
+ #define SAMSUNG_VENDOR_ID	0x04e8
++#define LINKSYS_VENDOR_ID	0x13b1
+ #define LENOVO_VENDOR_ID	0x17ef
+ #define NVIDIA_VENDOR_ID	0x0955
+ #define HP_VENDOR_ID		0x03f0
+@@ -737,6 +738,15 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++#ifdef CONFIG_USB_RTL8152
++/* Linksys USB3GIGV1 Ethernet Adapter */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(LINKSYS_VENDOR_ID, 0x0041, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++#endif
++
+ /* ThinkPad USB-C Dock (based on Realtek RTL8153) */
+ {
+ 	USB_DEVICE_AND_INTERFACE_INFO(LENOVO_VENDOR_ID, 0x3062, USB_CLASS_COMM,
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ceb78e2ea4f0..941ece08ba78 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -613,6 +613,7 @@ enum rtl8152_flags {
+ #define VENDOR_ID_MICROSOFT		0x045e
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
++#define VENDOR_ID_LINKSYS		0x13b1
+ #define VENDOR_ID_NVIDIA		0x0955
+ 
+ #define MCU_TYPE_PLA			0x0100
+@@ -5316,6 +5317,7 @@ static const struct usb_device_id rtl8152_table[] = {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x720c)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7214)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_LINKSYS, 0x0041)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_NVIDIA,  0x09ff)},
+ 	{}
+ };
+-- 
+2.14.2.822.g60be5d43e6-goog
