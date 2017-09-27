@@ -1,62 +1,87 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net v2] net: dsa: mv88e6xxx: lock mutex when freeing IRQs
-Date: Wed, 27 Sep 2017 16:40:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00829F0@AcuExch.aculab.com>
-References: <20170926185721.12187-1-vivien.didelot@savoirfairelinux.com>
- <063D6719AE5E284EB5DD2968C1650D6DD00822B6@AcuExch.aculab.com>
- <20170927130711.GD13516@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: 'Andrew Lunn' <andrew@lunn.ch>
+From: Lee Duncan <lduncan@suse.com>
+Subject: Re: [PATCH 2/2] uapi: add a compatibility layer between linux/uio.h and glibc
+Date: Wed, 27 Sep 2017 09:46:02 -0700
+Message-ID: <20170927164602.2914-1-lduncan@suse.com>
+References: <20170221201914.GA28360@altlinux.org>
+Cc: "Dmitry V. Levin" <ldv@altlinux.org>,
+        "David Miller" <davem@davemloft.net>, Lee Duncan <lduncan@suse.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927130711.GD13516@lunn.ch>
-Content-Language: en-US
+In-reply-to: <20170221201914.GA28360@altlinux.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Lunn
-> Sent: 27 September 2017 14:07
-> To: David Laight
-> On Wed, Sep 27, 2017 at 09:06:01AM +0000, David Laight wrote:
-> > From: Vivien Didelot
-> > > Sent: 26 September 2017 19:57
-> > > mv88e6xxx_g2_irq_free locks the registers mutex, but not
-> > > mv88e6xxx_g1_irq_free, which results in a stack trace from
-> > > assert_reg_lock when unloading the mv88e6xxx module. Fix this.
-> > >
-> > > Fixes: 3460a5770ce9 ("net: dsa: mv88e6xxx: Mask g1 interrupts and free interrupt")
-> > > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> > > ---
-> > >  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
-> > >  1 file changed, 2 insertions(+)
-> > >
-> > > diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-> > > index c6678aa9b4ef..e7ff7483d2fb 100644
-> > > --- a/drivers/net/dsa/mv88e6xxx/chip.c
-> > > +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-> > > @@ -3947,7 +3947,9 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
-> > >  	if (chip->irq > 0) {
-> > >  		if (chip->info->g2_irqs > 0)
-> > >  			mv88e6xxx_g2_irq_free(chip);
-> > > +		mutex_lock(&chip->reg_lock);
-> > >  		mv88e6xxx_g1_irq_free(chip);
-> > > +		mutex_unlock(&chip->reg_lock);
-> >
-> > Isn't the irq_free code likely to have to sleep waiting for any
-> > ISR to complete??
-> 
-> Hi David
-> 
-> Possibly. But this is a mutex, not a spinlock. So sleeping is O.K.
-> Or am i missing something?
+Ping? I never saw any response to this.
 
-Looks like I was missing some coffee :-)
+On Wed, 22 Feb 2017 05:29:47 +0300, Dmitry V Levin wrote:
+> Do not define struct iovec in linux/uio.h when <sys/uio.h> or <fcntl.h>
+> is already included and provides these definitions.
+> 
+> This fixes the following compilation error when <sys/uio.h> or <fcntl.h>
+> is included before <linux/uio.h>:
+> 
+> /usr/include/linux/uio.h:16:8: error: redefinition of 'struct iovec'
+> 
+> Signed-off-by: Dmitry V. Levin <ldv@...linux.org>
+> ---
+>  include/uapi/linux/libc-compat.h | 10 ++++++++++
+>  include/uapi/linux/uio.h         |  3 +++
+>  2 files changed, 13 insertions(+)
+> 
+> diff --git a/include/uapi/linux/libc-compat.h b/include/uapi/linux/libc-compat.h
+> index 481e3b1..9b88586 100644
+> --- a/include/uapi/linux/libc-compat.h
+> +++ b/include/uapi/linux/libc-compat.h
+> @@ -205,6 +205,13 @@
+>  #define __UAPI_DEF_TIMEZONE		1
+>  #endif
+>  
+> +/* Coordinate with glibc bits/uio.h header. */
+> +#if defined(_SYS_UIO_H) || defined(_FCNTL_H)
+> +#define __UAPI_DEF_IOVEC		0
+> +#else
+> +#define __UAPI_DEF_IOVEC		1
+> +#endif
+> +
+>  /* Definitions for xattr.h */
+>  #if defined(_SYS_XATTR_H)
+>  #define __UAPI_DEF_XATTR		0
+> @@ -261,6 +268,9 @@
+>  #define __UAPI_DEF_TIMEVAL			1
+>  #define __UAPI_DEF_TIMEZONE			1
+>  
+> +/* Definitions for uio.h */
+> +#define __UAPI_DEF_IOVEC		1
+> +
+>  /* Definitions for xattr.h */
+>  #define __UAPI_DEF_XATTR		1
+>  
+> diff --git a/include/uapi/linux/uio.h b/include/uapi/linux/uio.h
+> index 2731d56..e6e12cf 100644
+> --- a/include/uapi/linux/uio.h
+> +++ b/include/uapi/linux/uio.h
+> @@ -9,15 +9,18 @@
+>  #ifndef _UAPI__LINUX_UIO_H
+>  #define _UAPI__LINUX_UIO_H
+>  
+> +#include <linux/libc-compat.h>
+>  #include <linux/compiler.h>
+>  #include <linux/types.h>
+>  
+>  
+> +#if __UAPI_DEF_IOVEC
+>  struct iovec
+>  {
+>  	void __user *iov_base;	/* BSD uses caddr_t (1003.1g requires void *) */
+>  	__kernel_size_t iov_len; /* Must be size_t (1003.1g) */
+>  };
+> +#endif /* __UAPI_DEF_IOVEC */
+>  
+>  /*
+>   *	UIO_MAXIOV shall be at least 16 1003.1g (5.4.1.1)
+> -- 
+> ldv
 
-	David
+-- 
+Lee Duncan
+SUSE Labs
