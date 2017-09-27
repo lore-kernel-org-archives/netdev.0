@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v3 net-next 09/10] net: hns3: Setting for fc_mode and dcb enable flag in TM module
-Date: Wed, 27 Sep 2017 09:45:31 +0800
-Message-ID: <1506476732-128130-10-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v3 net-next 05/10] net: hns3: Add tc-based TM support for sriov enabled port
+Date: Wed, 27 Sep 2017 09:45:27 +0800
+Message-ID: <1506476732-128130-6-git-send-email-linyunsheng@huawei.com>
 References: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,89 +12,134 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:7037 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033094AbdI0BqG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 21:46:06 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After the DCB feature is supported, fc_mode and dcb enable flag
-must be set according to the DCB parameter.
+When sriov is enabled and TM is in tc-based mode, vf's TM
+parameters is not set in TM initialization process.
+This patch add the tc_based TM support for sriov enabled
+using the information in vport struct.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 34 +++++++++++++++++++---
- 1 file changed, 30 insertions(+), 4 deletions(-)
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 49 ++++++++++++++--------
+ 1 file changed, 31 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-index 8295684..359ee67 100644
+index f79cebd..ea94d23 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-@@ -486,7 +486,11 @@ static void hclge_tm_tc_info_init(struct hclge_dev *hdev)
- 		hdev->tm_info.prio_tc[i] =
- 			(i >= hdev->tm_info.num_tc) ? 0 : i;
- 
--	hdev->flag &= ~HCLGE_FLAG_DCB_ENABLE;
-+	/* DCB is enabled if we have more than 1 TC */
-+	if (hdev->tm_info.num_tc > 1)
-+		hdev->flag |= HCLGE_FLAG_DCB_ENABLE;
-+	else
-+		hdev->flag &= ~HCLGE_FLAG_DCB_ENABLE;
+@@ -388,13 +388,13 @@ static int hclge_tm_pri_schd_mode_cfg(struct hclge_dev *hdev, u8 pri_id)
+ 	return hclge_cmd_send(&hdev->hw, &desc, 1);
  }
  
- static void hclge_tm_pg_info_init(struct hclge_dev *hdev)
-@@ -512,6 +516,24 @@ static void hclge_tm_pg_info_init(struct hclge_dev *hdev)
- 	}
- }
- 
-+static void hclge_pfc_info_init(struct hclge_dev *hdev)
-+{
-+	if (!(hdev->flag & HCLGE_FLAG_DCB_ENABLE)) {
-+		if (hdev->fc_mode_last_time == HCLGE_FC_PFC)
-+			dev_warn(&hdev->pdev->dev,
-+				 "DCB is disable, but last mode is FC_PFC\n");
-+
-+		hdev->tm_info.fc_mode = hdev->fc_mode_last_time;
-+	} else if (hdev->tm_info.fc_mode != HCLGE_FC_PFC) {
-+		/* fc_mode_last_time record the last fc_mode when
-+		 * DCB is enabled, so that fc_mode can be set to
-+		 * the correct value when DCB is disabled.
-+		 */
-+		hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
-+		hdev->tm_info.fc_mode = HCLGE_FC_PFC;
-+	}
-+}
-+
- static int hclge_tm_schd_info_init(struct hclge_dev *hdev)
+-static int hclge_tm_qs_schd_mode_cfg(struct hclge_dev *hdev, u16 qs_id)
++static int hclge_tm_qs_schd_mode_cfg(struct hclge_dev *hdev, u16 qs_id, u8 mode)
  {
- 	if ((hdev->tx_sch_mode != HCLGE_FLAG_TC_BASE_SCH_MODE) &&
-@@ -524,8 +546,7 @@ static int hclge_tm_schd_info_init(struct hclge_dev *hdev)
+ 	struct hclge_desc desc;
  
- 	hclge_tm_vport_info_update(hdev);
+ 	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_QS_SCH_MODE_CFG, false);
  
--	hdev->tm_info.fc_mode = HCLGE_FC_NONE;
--	hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
-+	hclge_pfc_info_init(hdev);
+-	if (hdev->tm_info.tc_info[qs_id].tc_sch_mode == HCLGE_SCH_MODE_DWRR)
++	if (mode == HCLGE_SCH_MODE_DWRR)
+ 		desc.data[1] = cpu_to_le32(HCLGE_TM_TX_SCHD_DWRR_MSK);
+ 	else
+ 		desc.data[1] = 0;
+@@ -638,17 +638,18 @@ static int hclge_tm_pri_q_qs_cfg(struct hclge_dev *hdev)
+ {
+ 	struct hclge_vport *vport = hdev->vport;
+ 	int ret;
+-	u32 i;
++	u32 i, k;
+ 
+ 	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
+ 		/* Cfg qs -> pri mapping, one by one mapping */
+-		for (i = 0; i < hdev->tm_info.num_tc; i++) {
+-			ret = hclge_tm_qs_to_pri_map_cfg(hdev, i, i);
+-			if (ret)
+-				return ret;
+-		}
++		for (k = 0; k < hdev->num_alloc_vport; k++)
++			for (i = 0; i < hdev->tm_info.num_tc; i++) {
++				ret = hclge_tm_qs_to_pri_map_cfg(
++					hdev, vport[k].qs_offset + i, i);
++				if (ret)
++					return ret;
++			}
+ 	} else if (hdev->tx_sch_mode == HCLGE_FLAG_VNET_BASE_SCH_MODE) {
+-		int k;
+ 		/* Cfg qs -> pri mapping,  qs = tc, pri = vf, 8 qs -> 1 pri */
+ 		for (k = 0; k < hdev->num_alloc_vport; k++)
+ 			for (i = 0; i < HNAE3_MAX_TC; i++) {
+@@ -797,10 +798,11 @@ static int hclge_tm_pri_shaper_cfg(struct hclge_dev *hdev)
+ 
+ static int hclge_tm_pri_tc_base_dwrr_cfg(struct hclge_dev *hdev)
+ {
++	struct hclge_vport *vport = hdev->vport;
+ 	struct hclge_pg_info *pg_info;
+ 	u8 dwrr;
+ 	int ret;
+-	u32 i;
++	u32 i, k;
+ 
+ 	for (i = 0; i < hdev->tm_info.num_tc; i++) {
+ 		pg_info =
+@@ -811,9 +813,13 @@ static int hclge_tm_pri_tc_base_dwrr_cfg(struct hclge_dev *hdev)
+ 		if (ret)
+ 			return ret;
+ 
+-		ret = hclge_tm_qs_weight_cfg(hdev, i, dwrr);
+-		if (ret)
+-			return ret;
++		for (k = 0; k < hdev->num_alloc_vport; k++) {
++			ret = hclge_tm_qs_weight_cfg(
++				hdev, vport[k].qs_offset + i,
++				vport[k].dwrr);
++			if (ret)
++				return ret;
++		}
+ 	}
  
  	return 0;
- }
-@@ -1158,8 +1179,13 @@ int hclge_tm_init_hw(struct hclge_dev *hdev)
- 
- int hclge_tm_schd_init(struct hclge_dev *hdev)
- {
--	int ret = hclge_tm_schd_info_init(hdev);
-+	int ret;
-+
-+	/* fc_mode is HCLGE_FC_FULL on reset */
-+	hdev->tm_info.fc_mode = HCLGE_FC_FULL;
-+	hdev->fc_mode_last_time = hdev->tm_info.fc_mode;
- 
-+	ret = hclge_tm_schd_info_init(hdev);
- 	if (ret)
+@@ -944,7 +950,10 @@ static int hclge_tm_schd_mode_vnet_base_cfg(struct hclge_vport *vport)
  		return ret;
  
+ 	for (i = 0; i < kinfo->num_tc; i++) {
+-		ret = hclge_tm_qs_schd_mode_cfg(hdev, vport->qs_offset + i);
++		u8 sch_mode = hdev->tm_info.tc_info[i].tc_sch_mode;
++
++		ret = hclge_tm_qs_schd_mode_cfg(hdev, vport->qs_offset + i,
++						sch_mode);
+ 		if (ret)
+ 			return ret;
+ 	}
+@@ -956,7 +965,7 @@ static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
+ {
+ 	struct hclge_vport *vport = hdev->vport;
+ 	int ret;
+-	u8 i;
++	u8 i, k;
+ 
+ 	if (hdev->tx_sch_mode == HCLGE_FLAG_TC_BASE_SCH_MODE) {
+ 		for (i = 0; i < hdev->tm_info.num_tc; i++) {
+@@ -964,9 +973,13 @@ static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
+ 			if (ret)
+ 				return ret;
+ 
+-			ret = hclge_tm_qs_schd_mode_cfg(hdev, i);
+-			if (ret)
+-				return ret;
++			for (k = 0; k < hdev->num_alloc_vport; k++) {
++				ret = hclge_tm_qs_schd_mode_cfg(
++					hdev, vport[k].qs_offset + i,
++					HCLGE_SCH_MODE_DWRR);
++				if (ret)
++					return ret;
++			}
+ 		}
+ 	} else {
+ 		for (i = 0; i < hdev->num_alloc_vport; i++) {
 -- 
 1.9.1
