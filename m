@@ -1,44 +1,48 @@
-From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
-Subject: Re: [PATCH V2] r8152: add Linksys USB3GIGV1 id
-Date: Wed, 27 Sep 2017 09:15:56 +0200
-Message-ID: <1506496556.28482.3.camel@suse.com>
-References: <20170926010925.114436-1-grundler@chromium.org>
-         <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q@mail.gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
+Date: Wed, 27 Sep 2017 09:27:59 +0200
+Message-ID: <20170927072758.GB19034@vergenet.net>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+ <20170926.212903.454497939014837374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Doug Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:49478 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751471AbdI0H2C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 03:28:02 -0400
+Received: by mail-wr0-f180.google.com with SMTP id h16so700740wrf.6
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 00:28:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170926.212903.454497939014837374.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag, den 26.09.2017, 08:19 -0700 schrieb Doug Anderson:
+On Tue, Sep 26, 2017 at 09:29:03PM -0700, David Miller wrote:
+> From: Simon Horman <simon.horman@netronome.com>
+> Date: Mon, 25 Sep 2017 12:23:34 +0200
 > 
-> I know that for at least some of the adapters in the CDC Ethernet
-> blacklist it was claimed that the CDC Ethernet support in the adapter
-> was kinda broken anyway so the blacklist made sense.  ...but for the
-> Linksys Gigabit adapter the CDC Ethernet driver seems to work OK, it's
-> just not quite as full featured / efficient as the R8152 driver.
+> > From: Simon Horman <simon.horman@netronome.com>
+> > 
+> > John says:
+> > 
+> > This patch set allows offloading of TC flower match and set tunnel fields
+> > to the NFP. The initial focus is on VXLAN traffic. Due to the current
+> > state of the NFP firmware, only VXLAN traffic on well known port 4789 is
+> > handled. The match and action fields must explicity set this value to be
+> > supported. Tunnel end point information is also offloaded to the NFP for
+> > both encapsulation and decapsulation. The NFP expects 3 separate data sets
+> > to be supplied.
+>  ...
 > 
-> Is that not a concern?  I guess you could tell people in this
-> situation that they simply need to enable the R8152 driver to get
-> continued support for their Ethernet adapter?
+> Series applied, thanks.
+> 
+> I see there is some discussion about ipv6 flow dissector key handling
+> and ND keepalives, but those should be addressable in follow-on changes.
 
-Hi,
+Thanks Dave,
 
-yes, it is a valid concern. An #ifdef will be needed.
-
-	Regards
-		Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll make sure that discussion is brought to a satisfactory conclusion.
