@@ -1,71 +1,55 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/6] net: dsa: {e}dsa: set offload_fwd_mark on
- received packets
-Date: Wed, 27 Sep 2017 22:11:20 +0200
-Message-ID: <20170927201120.GG12394@lunn.ch>
+Subject: Re: [PATCH net-next 6/6] net: dsa: mv88e6xxx: Flood broadcast frames
+ in hardware
+Date: Wed, 27 Sep 2017 22:18:10 +0200
+Message-ID: <20170927201810.GH12394@lunn.ch>
 References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
- <1506464764-12699-3-git-send-email-andrew@lunn.ch>
- <1c4ba973-91c0-ae81-1c4b-d0281f5c7517@gmail.com>
+ <1506464764-12699-7-git-send-email-andrew@lunn.ch>
+ <8737786lua.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <9733da02-0b69-33f0-de8a-63bc5cae6bb4@gmail.com>
+ <20170927184636.GD12394@lunn.ch>
+ <8760c4t0df.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <465be6d8-67d0-d176-1252-abb222bf0528@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:58557 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([185.16.172.187]:58563 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751136AbdI0ULY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Sep 2017 16:11:24 -0400
+        id S1751938AbdI0USO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 27 Sep 2017 16:18:14 -0400
 Content-Disposition: inline
-In-Reply-To: <1c4ba973-91c0-ae81-1c4b-d0281f5c7517@gmail.com>
+In-Reply-To: <465be6d8-67d0-d176-1252-abb222bf0528@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 12:46:35PM -0700, Florian Fainelli wrote:
-> On 09/26/2017 03:25 PM, Andrew Lunn wrote:
-> > The software bridge needs to know if a packet has already been bridged
-> > by hardware offload to ports in the same hardware offload, in order
-> > that it does not re-flood them, causing duplicates. This is
-> > particularly true for broadcast and multicast traffic which the host
-> > has requested.
+On Wed, Sep 27, 2017 at 12:33:29PM -0700, Florian Fainelli wrote:
+> On 09/27/2017 12:19 PM, Vivien Didelot wrote:
+> > Hi Andrew, Florian,
 > > 
-> > By setting offload_fwd_mark in the skb the bridge will only flood to
-> > ports in other offloads and other netifs. Set this flag in the DSA and
-> > EDSA tag driver.
+> > Andrew Lunn <andrew@lunn.ch> writes:
+> > 
+> >> It took me a while to make this work with CONFIG_BRIDGE_VLAN_FILTERING
+> >> enabled. Any change to enable hardware flooding needs careful testing
+> >> for lots of different configurations. This is another reason i don't
+> >> want to do it at the DSA level, until we have a good understanding
+> >> what it means in each individual driver.
+> > 
+> > Then if we are worried about how broadcast flooding is handled on
+> > different switches, we can provide a new .flood_broadcast(ds, vid)
+> > switch operation for the drivers to implement.
 > 
-> Is not there some kind of forwarding code/reason code being provided in
-> the EDSA/DSA tag that tell you why this packet was sent to the CPU in
-> the first place?
+> We don't really have a good visibility on the number of switches
+> requiring special configuration for broadcast addresses nor how this
+> would have to happen so it would be a tad difficult to define an
+> appropriate API with a single user.
 
-Hi Florian
+Yes, i agree with this. We should wait before adding a generic
+solution. I want to wait until a few drivers do whatever is needed for
+hardware broadcast. We can then see what is common, and what is
+different, find an API to suit and do some refactoring.
 
-There are some codes, but nothing specific to broadcast, or ATU
-misses. I'm also trying to keep the code generic so it could be a
-template for other drivers. Many of the tagging schemes don't provide
-a reason code. So i want that any frame that comes from the switch has
-no need to go back to the switch. KISS.
- 
-> What is the impact on non-broadcast traffic, e.g: multicast and unicast?
-
-The bridge uses this flag when flooding. unicast traffic from the
-switch should not need flooding. Either it is known in the switch and
-hence won't be forwarded to the host, or it is unknown in the switch,
-so it probably is on some other interface.
-
-My testing with multicast has not shown issues. The switch pushes down
-mdb entries, which causes frames to be replicated out ports. So again,
-there should not be a need to pass the frame back to the switch. But
-it is possible i missed a corner case or two...
- 
-> Nit: I don't really have a solution on how to order patches, but until
-> the next 4 patches get in, I suppose we temporarily have broadcast
-> flooding by the bridge "broken"? Ordering in the opposite way would
-> probably result in an equally bad situation so...
-
-Yes, it is an issue. I could put this patch last. We then get
-duplication of broadcast...
-
-Which is the lesser of two evils?
-
-      Andrew
+	   Andrew
