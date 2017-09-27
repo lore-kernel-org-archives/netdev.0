@@ -1,108 +1,236 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH v2 net-next 2/2] net/sched: allow flower to match tunnel
- options
-Date: Wed, 27 Sep 2017 13:54:14 +0200
-Message-ID: <20170927115412.GA16020@vergenet.net>
-References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
- <1506500194-17637-3-git-send-email-simon.horman@netronome.com>
- <20170927091005.GB1944@nanopsycho.orion>
- <20170927092732.GC25449@vergenet.net>
- <20170927110822.GD1944@nanopsycho.orion>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: [RFT] lan78xx: FIX use-after-free in lan78xx_write_reg
+Date: Wed, 27 Sep 2017 14:06:19 +0200
+Message-ID: <CAAeHK+y1pc98H4xcVC79yBdfAD3212VxUYzjvFGx9bumwvH_KQ@mail.gmail.com>
+References: <d7710b468c6c1b9cf3b3fe2fc986118a2cd2639a.1506510873.git.arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:54611 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750854AbdI0LyX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 07:54:23 -0400
-Received: by mail-qk0-f181.google.com with SMTP id d70so12953091qkc.11
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 04:54:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170927110822.GD1944@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Woojung Huh <woojung.huh@microchip.com>,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        netdev <netdev@vger.kernel.org>,
+        Kostya Serebryany <kcc@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>, Nisar.Sayed@microchip.com,
+        USB list <linux-usb@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d7710b468c6c1b9cf3b3fe2fc986118a2cd2639a.1506510873.git.arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 01:08:22PM +0200, Jiri Pirko wrote:
-> Wed, Sep 27, 2017 at 11:27:33AM CEST, simon.horman@netronome.com wrote:
-> >On Wed, Sep 27, 2017 at 11:10:05AM +0200, Jiri Pirko wrote:
-> >> Wed, Sep 27, 2017 at 10:16:34AM CEST, simon.horman@netronome.com wrote:
-> >> >Allow matching on options in tunnel headers.
-> >> >This makes use of existing tunnel metadata support.
-> >> >
-> >> >Options are a bytestring of up to 256 bytes.
-> >> >Tunnel implementations may support less or more options,
-> >> >or no options at all.
-> >> >
-> >> >e.g.
-> >> > # ip link add name geneve0 type geneve dstport 0 external
-> >> > # tc qdisc add dev geneve0 ingress
-> >> > # tc filter add dev geneve0 protocol ip parent ffff: \
-> >> >     flower \
-> >> >       enc_src_ip 10.0.99.192 \
-> >> >       enc_dst_ip 10.0.99.193 \
-> >> >       enc_key_id 11 \
-> >> >       enc_opts 0102800100800020/fffffffffffffff0 \
-> >> >       ip_proto udp \
-> >> >       action mirred egress redirect dev eth1
-> >> >
-> >> >Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> >> >Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> >> >
-> >> >---
-> >> >v2
-> >> >* Correct example which was incorrectly described setting rather
-> >> >  than matching tunnel options
-> >> >---
-> >> > include/net/flow_dissector.h | 13 +++++++++++++
-> >> > include/uapi/linux/pkt_cls.h |  3 +++
-> >> > net/sched/cls_flower.c       | 35 ++++++++++++++++++++++++++++++++++-
-> >> > 3 files changed, 50 insertions(+), 1 deletion(-)
-> >> >
-> >> >diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-> >> >index fc3dce730a6b..43f98bf0b349 100644
-> >> >--- a/include/net/flow_dissector.h
-> >> >+++ b/include/net/flow_dissector.h
-> >> >@@ -183,6 +183,18 @@ struct flow_dissector_key_ip {
-> >> > 	__u8	ttl;
-> >> > };
-> >> > 
-> >> >+/**
-> >> >+ * struct flow_dissector_key_enc_opts:
-> >> >+ * @data: data
-> >> >+ * @len: len
-> >> >+ */
-> >> >+struct flow_dissector_key_enc_opts {
-> >> >+	u8 data[256];	/* Using IP_TUNNEL_OPTS_MAX is desired here
-> >> >+			 * but seems difficult to #include
-> >> >+			 */
-> >> >+	u8 len;
-> >> >+};
-> >> >+
-> >> > enum flow_dissector_key_id {
-> >> > 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
-> >> > 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
-> >> >@@ -205,6 +217,7 @@ enum flow_dissector_key_id {
-> >> > 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
-> >> > 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
-> >> > 	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
-> >> >+	FLOW_DISSECTOR_KEY_ENC_OPTS, /* struct flow_dissector_key_enc_opts */
-> >> 
-> >> I don't see the actual dissection implementation. Where is it?
-> >> Did you test the patchset?
-> >
-> >Yes, I did test it. But it is also possible something went astray along the
-> >way and I will retest.
-> >
-> >I think that the code you are looking for is in
-> >fl_classify() in this patch.
-> 
-> The dissection should be done in the flow_dissector. That's the whole
-> point in having it generic. You should move it there.
-> 
+On Wed, Sep 27, 2017 at 1:18 PM, Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
+> We are not releasing 'buf' memory on failure or disconnect a device.
+>
+> Adding 'u8 *buf' as part of 'lan78xx_net' structure to make proper
+> handle for 'buf'.
+> Now releasing 'buf' memory on failure. It's allocate first in
+> lan78xx_probe() and it should be freed last in lan78xx_disconnect().
+>
+> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 
-Thanks, will do.
+Hi Arvind,
+
+I've tried your patch and still see a crash.
+
+Thanks!
+
+lan78xx 1-1:90.0 (unnamed net_device) (uninitialized): can't register MDIO bus
+lan78xx: probe of 1-1:90.0 failed with error -5
+usb 1-1: USB disconnect, device number 2
+==================================================================
+BUG: KASAN: use-after-free in lan78xx_write_reg.isra.21+0x1a8/0x1b0
+Read of size 8 at addr ffff880063dfac40 by task kworker/1:1/1152
+
+CPU: 1 PID: 1152 Comm: kworker/1:1 Not tainted
+4.14.0-rc2-42660-g24b7bd59eec0-dirty #274
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+Workqueue: events lan78xx_deferred_multicast_write
+Call Trace:
+ __dump_stack lib/dump_stack.c:16
+ dump_stack+0x292/0x395 lib/dump_stack.c:52
+ print_address_description+0x78/0x280 mm/kasan/report.c:252
+ kasan_report_error mm/kasan/report.c:351
+ kasan_report+0x23d/0x350 mm/kasan/report.c:409
+ __asan_report_load8_noabort+0x19/0x20 mm/kasan/report.c:430
+ lan78xx_write_reg.isra.21+0x1a8/0x1b0 drivers/net/usb/lan78xx.c:459
+ lan78xx_deferred_multicast_write+0x10d/0x1a0 drivers/net/usb/lan78xx.c:1043
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ worker_thread+0x221/0x1850 kernel/workqueue.c:2253
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+
+Allocated by task 1848:
+ save_stack_trace+0x1b/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459
+ kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
+ __kmalloc_node+0x192/0x480 mm/slub.c:3827
+ kmalloc_node ./include/linux/slab.h:535
+ kvmalloc_node+0x69/0xd0 mm/util.c:397
+ kvmalloc ./include/linux/mm.h:529
+ kvzalloc ./include/linux/mm.h:537
+ alloc_netdev_mqs+0x173/0xea0 net/core/dev.c:8023
+ alloc_etherdev_mqs+0x38/0x40 net/ethernet/eth.c:391
+ lan78xx_probe+0x13a/0x3020 drivers/net/usb/lan78xx.c:3545
+ usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
+ generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
+ usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
+ hub_port_connect drivers/usb/core/hub.c:4903
+ hub_port_connect_change drivers/usb/core/hub.c:5009
+ port_event drivers/usb/core/hub.c:5115
+ hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ worker_thread+0x221/0x1850 kernel/workqueue.c:2253
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+
+Freed by task 1848:
+ save_stack_trace+0x1b/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459
+ kasan_slab_free+0x72/0xc0 mm/kasan/kasan.c:524
+ slab_free_hook mm/slub.c:1390
+ slab_free_freelist_hook mm/slub.c:1412
+ slab_free mm/slub.c:2988
+ kfree+0xf6/0x2f0 mm/slub.c:3919
+ kvfree+0x3b/0x60 mm/util.c:416
+ netdev_freemem net/core/dev.c:7975
+ free_netdev+0x304/0x3c0 net/core/dev.c:8137
+ lan78xx_probe+0x21a4/0x3020 drivers/net/usb/lan78xx.c:3649
+ usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
+ generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
+ usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
+ really_probe drivers/base/dd.c:413
+ driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
+ __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
+ bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
+ __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
+ device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
+ bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
+ device_add+0xd0b/0x1660 drivers/base/core.c:1835
+ usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
+ hub_port_connect drivers/usb/core/hub.c:4903
+ hub_port_connect_change drivers/usb/core/hub.c:5009
+ port_event drivers/usb/core/hub.c:5115
+ hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
+ process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
+ worker_thread+0x221/0x1850 kernel/workqueue.c:2253
+ kthread+0x3a1/0x470 kernel/kthread.c:231
+ ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+
+The buggy address belongs to the object at ffff880063dfa100
+ which belongs to the cache kmalloc-8192 of size 8192
+The buggy address is located 2880 bytes inside of
+ 8192-byte region [ffff880063dfa100, ffff880063dfc100)
+The buggy address belongs to the page:
+page:ffffea00018f7e00 count:1 mapcount:0 mapping:          (null)
+index:0x0 compound_mapcount: 0
+flags: 0x100000000008100(slab|head)
+raw: 0100000000008100 0000000000000000 0000000000000000 0000000100030003
+raw: ffffea0001afd800 0000000300000003 ffff88006c402a80 0000000000000000
+page dumped because: kasan: bad access detected
+
+Memory state around the buggy address:
+ ffff880063dfab00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880063dfab80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff880063dfac00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+                                           ^
+ ffff880063dfac80: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff880063dfad00: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+==================================================================
+
+> ---
+>  drivers/net/usb/lan78xx.c | 14 +++++++++-----
+>  1 file changed, 9 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index b99a7fb..e653982 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+> @@ -402,6 +402,7 @@ struct lan78xx_net {
+>         struct statstage        stats;
+>
+>         struct irq_domain_data  domain_data;
+> +       u8 *buf;
+>  };
+>
+>  /* define external phy id */
+> @@ -3470,6 +3471,9 @@ static void lan78xx_disconnect(struct usb_interface *intf)
+>
+>         usb_scuttle_anchored_urbs(&dev->deferred);
+>
+> +       kfree(dev->buf);
+> +       dev->buf = NULL;
+> +
+>         lan78xx_unbind(dev, intf);
+>
+>         usb_kill_urb(dev->urb_intr);
+> @@ -3520,7 +3524,6 @@ static int lan78xx_probe(struct usb_interface *intf,
+>         int ret;
+>         unsigned maxp;
+>         unsigned period;
+> -       u8 *buf = NULL;
+>
+>         udev = interface_to_usbdev(intf);
+>         udev = usb_get_dev(udev);
+> @@ -3588,16 +3591,15 @@ static int lan78xx_probe(struct usb_interface *intf,
+>         period = dev->ep_intr->desc.bInterval;
+>
+>         maxp = usb_maxpacket(dev->udev, dev->pipe_intr, 0);
+> -       buf = kmalloc(maxp, GFP_KERNEL);
+> -       if (buf) {
+> +       dev->buf = kmalloc(maxp, GFP_KERNEL);
+> +       if (dev->buf) {
+>                 dev->urb_intr = usb_alloc_urb(0, GFP_KERNEL);
+>                 if (!dev->urb_intr) {
+>                         ret = -ENOMEM;
+> -                       kfree(buf);
+>                         goto out3;
+>                 } else {
+>                         usb_fill_int_urb(dev->urb_intr, dev->udev,
+> -                                        dev->pipe_intr, buf, maxp,
+> +                                        dev->pipe_intr, dev->buf, maxp,
+>                                          intr_complete, dev, period);
+>                 }
+>         }
+> @@ -3626,6 +3628,8 @@ static int lan78xx_probe(struct usb_interface *intf,
+>         return 0;
+>
+>  out3:
+> +       kfree(dev->buf);
+> +       dev->buf = NULL;
+>         lan78xx_unbind(dev, intf);
+>  out2:
+>         free_netdev(netdev);
+> --
+> 1.9.1
+>
