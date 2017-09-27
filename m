@@ -1,116 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v2 net-next 2/2] net/sched: allow flower to match tunnel
- options
-Date: Wed, 27 Sep 2017 14:56:03 +0200
-Message-ID: <20170927125603.GH1944@nanopsycho.orion>
-References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
- <1506500194-17637-3-git-send-email-simon.horman@netronome.com>
- <20170927091005.GB1944@nanopsycho.orion>
- <20170927092732.GC25449@vergenet.net>
- <20170927110822.GD1944@nanopsycho.orion>
- <20170927125205.GA30000@vergenet.net>
+From: Alexander Potapenko <glider@google.com>
+Subject: Re: [PATCH v2] tun: bail out from tun_get_user() if the skb is empty
+Date: Wed, 27 Sep 2017 14:58:07 +0200
+Message-ID: <CAG_fn=U8Yjxo2LDC3WenGQUOQZwftd3-j4V8Zz5vSMWobx7Bdw@mail.gmail.com>
+References: <20170927121649.90557-1-glider@google.com> <1506516168.6617.38.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1506516344.6617.39.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:48578 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752104AbdI0M4G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 08:56:06 -0400
-Received: by mail-wm0-f68.google.com with SMTP id m127so17916484wmm.3
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 05:56:05 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170927125205.GA30000@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Dmitriy Vyukov <dvyukov@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Networking <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506516344.6617.39.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Sep 27, 2017 at 02:52:06PM CEST, simon.horman@netronome.com wrote:
->On Wed, Sep 27, 2017 at 01:08:22PM +0200, Jiri Pirko wrote:
->> Wed, Sep 27, 2017 at 11:27:33AM CEST, simon.horman@netronome.com wrote:
->> >On Wed, Sep 27, 2017 at 11:10:05AM +0200, Jiri Pirko wrote:
->> >> Wed, Sep 27, 2017 at 10:16:34AM CEST, simon.horman@netronome.com wrote:
+On Wed, Sep 27, 2017 at 2:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrot=
+e:
+> On Wed, 2017-09-27 at 05:42 -0700, Eric Dumazet wrote:
 >
->...
+>> Or something cleaner to avoid copy/paste and focus on proper
+>> skb->data[0] access and meaning.
+By the way I'm wondering if this is the only place where skb->data is
+being accessed.
+Isn't eth_type_trans() under IFF_TAP also touching it? Then we need to
+check the size earlier.
+>> Thanks.
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 3c9985f299503ea65dad7eb3b47e2ab3bef87800..8ddb840687c1bdb24e418261=
+2abc9e362624c3e9 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -1496,11 +1496,13 @@ static ssize_t tun_get_user(struct tun_struct *t=
+un, struct tun_file *tfile,
+>>       switch (tun->flags & TUN_TYPE_MASK) {
+>>       case IFF_TUN:
+>>               if (tun->flags & IFF_NO_PI) {
+>> -                     switch (skb->data[0] & 0xf0) {
+>> -                     case 0x40:
+>> +                     u8 ip_proto =3D skb->len ? (skb->data[0] >> 4) : 0=
+;
 >
->> >> > enum flow_dissector_key_id {
->> >> > 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
->> >> > 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
->> >> >@@ -205,6 +217,7 @@ enum flow_dissector_key_id {
->> >> > 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
->> >> > 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
->> >> > 	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
->> >> >+	FLOW_DISSECTOR_KEY_ENC_OPTS, /* struct flow_dissector_key_enc_opts */
->> >> 
->> >> I don't see the actual dissection implementation. Where is it?
->> >> Did you test the patchset?
->> >
->> >Yes, I did test it. But it is also possible something went astray along the
->> >way and I will retest.
->> >
->> >I think that the code you are looking for is in
->> >fl_classify() in this patch.
->> 
->> The dissection should be done in the flow_dissector. That's the whole
->> point in having it generic. You should move it there.
+> And name this variable ip_version ;)
 >
->Coming back to this after lunch, I believe what I have done in this patch
->is consistent with handling of other enc fields, which are set in
->fl_classify() rather than the dissector. In particular the ip_tunnel_info,
->which is used by this patch, is already used in fl_classify().
-
-That means the current code is wrong. The dissection should be done in
-flow_dissector, not in fl_classify.
+>
+>
 
 
 
->
->Without this patch I see:
->
->
->static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->                       struct tcf_result *res)
->{
->        ...
->        struct ip_tunnel_info *info;
->
->        ...
->
->        info = skb_tunnel_info(skb);
->        if (info) {
->                struct ip_tunnel_key *key = &info->key;
->
->                switch (ip_tunnel_info_af(info)) {
->                case AF_INET:
->                        skb_key.enc_control.addr_type =
->                                FLOW_DISSECTOR_KEY_IPV4_ADDRS;
->                        skb_key.enc_ipv4.src = key->u.ipv4.src;
->                        skb_key.enc_ipv4.dst = key->u.ipv4.dst;
->                        break;
->                case AF_INET6:
->                        skb_key.enc_control.addr_type =
->                                FLOW_DISSECTOR_KEY_IPV6_ADDRS;
->                        skb_key.enc_ipv6.src = key->u.ipv6.src;
->                        skb_key.enc_ipv6.dst = key->u.ipv6.dst;
->                        break;
->                }
->
->                skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
->                skb_key.enc_tp.src = key->tp_src;
->                skb_key.enc_tp.dst = key->tp_dst;
->        }
->
->	...
->}
->
->This patch adds the following inside the if() clause above:
->
->	if (info->options_len) {
->		skb_key.enc_opts.len = info->options_len;
->		ip_tunnel_info_opts_get(skb_key.enc_opts.data, info);
->	}
->
->
+--=20
+Alexander Potapenko
+Software Engineer
+
+Google Germany GmbH
+Erika-Mann-Stra=C3=9Fe, 33
+80636 M=C3=BCnchen
+
+Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
+Registergericht und -nummer: Hamburg, HRB 86891
+Sitz der Gesellschaft: Hamburg
