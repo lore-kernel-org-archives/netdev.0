@@ -1,129 +1,111 @@
 From: Alexander Potapenko <glider@google.com>
-Subject: [bug][tipc] Too short struct tipc_subscr passed to tipc_subscrb_rcv_cb()
-Date: Wed, 27 Sep 2017 14:15:39 +0200
-Message-ID: <CAG_fn=WegzttX52Jq8n52dOxHww8Prgdwnh5_D9kfWVy-nQTTQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="94eb2c0d1b3e123aca055a2ac035"
-Cc: Networking <netdev@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: David Miller <davem@davemloft.net>, ying.xue@windriver.com,
-        jon.maloy@ericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f180.google.com ([209.85.217.180]:54021 "EHLO
-        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750854AbdI0MPm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 08:15:42 -0400
-Received: by mail-ua0-f180.google.com with SMTP id t36so8312620uah.10
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 05:15:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH v2] tun: bail out from tun_get_user() if the skb is empty
+Date: Wed, 27 Sep 2017 14:16:49 +0200
+Message-ID: <20170927121649.90557-1-glider@google.com>
+Cc: dvyukov@google.com, syzkaller@googlegroups.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, edumazet@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---94eb2c0d1b3e123aca055a2ac035
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+KMSAN (https://github.com/google/kmsan) reported accessing uninitialized
+skb->data[0] in the case the skb is empty (i.e. skb->len is 0):
 
-Hi all,
-
-I've spotted the following bug in TIPC server code while fuzzing it
-with KMSAN and syzkaller:
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-BUG: KMSAN: use of uninitialized memory in tipc_subscrb_rcv_cb+0x14a/0xc20
-CPU: 2 PID: 29 Comm: kworker/u8:1 Not tainted 4.13.0+ #3150
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/201=
-1
-Workqueue: tipc_rcv tipc_recv_work
+================================================
+BUG: KMSAN: use of uninitialized memory in tun_get_user+0x19ba/0x3770
+CPU: 0 PID: 3051 Comm: probe Not tainted 4.13.0+ #3140
+Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
 Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x172/0x1c0 lib/dump_stack.c:52
- kmsan_report+0x145/0x3d0 mm/kmsan/kmsan.c:943
+...
  __msan_warning_32+0x66/0xb0 mm/kmsan/kmsan_instr.c:477
- htohl net/tipc/subscr.c:66
- tipc_subscrb_rcv_cb+0x14a/0xc20 net/tipc/subscr.c:333
- tipc_receive_from_sock+0x369/0x540 net/tipc/server.c:273
- tipc_recv_work+0xbe/0x1c0 net/tipc/server.c:546
- process_one_work+0xf9e/0x1ad0 kernel/workqueue.c:2097
- worker_thread+0xefd/0x2090 kernel/workqueue.c:2231
- kthread+0x499/0x620 kernel/kthread.c:232
- ret_from_fork+0x22/0x30 arch/x86/entry/entry_64.S:425
+ tun_get_user+0x19ba/0x3770 drivers/net/tun.c:1301
+ tun_chr_write_iter+0x19f/0x300 drivers/net/tun.c:1365
+ call_write_iter ./include/linux/fs.h:1743
+ new_sync_write fs/read_write.c:457
+ __vfs_write+0x6c3/0x7f0 fs/read_write.c:470
+ vfs_write+0x3e4/0x770 fs/read_write.c:518
+ SYSC_write+0x12f/0x2b0 fs/read_write.c:565
+ SyS_write+0x55/0x80 fs/read_write.c:557
+ do_syscall_64+0x242/0x330 arch/x86/entry/common.c:284
+ entry_SYSCALL64_slow_path+0x25/0x25 arch/x86/entry/entry_64.S:245
+...
 origin:
- save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
- kmsan_save_stack_with_flags mm/kmsan/kmsan.c:302
- kmsan_internal_poison_shadow+0xb3/0x1b0 mm/kmsan/kmsan.c:198
- kmsan_kmalloc+0x80/0xe0 mm/kmsan/kmsan.c:337
- kmem_cache_alloc+0x1e2/0x220 mm/slub.c:2756
- tipc_receive_from_sock+0xff/0x540 net/tipc/server.c:257
- tipc_recv_work+0xbe/0x1c0 net/tipc/server.c:546
- process_one_work+0xf9e/0x1ad0 kernel/workqueue.c:2097
- worker_thread+0xefd/0x2090 kernel/workqueue.c:2231
- kthread+0x499/0x620 kernel/kthread.c:232
- ret_from_fork+0x22/0x30 arch/x86/entry/entry_64.S:425
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-(see the reproducer attached).
+...
+ kmsan_poison_shadow+0x6e/0xc0 mm/kmsan/kmsan.c:211
+ slab_alloc_node mm/slub.c:2732
+ __kmalloc_node_track_caller+0x351/0x370 mm/slub.c:4351
+ __kmalloc_reserve net/core/skbuff.c:138
+ __alloc_skb+0x26a/0x810 net/core/skbuff.c:231
+ alloc_skb ./include/linux/skbuff.h:903
+ alloc_skb_with_frags+0x1d7/0xc80 net/core/skbuff.c:4756
+ sock_alloc_send_pskb+0xabf/0xfe0 net/core/sock.c:2037
+ tun_alloc_skb drivers/net/tun.c:1144
+ tun_get_user+0x9a8/0x3770 drivers/net/tun.c:1274
+ tun_chr_write_iter+0x19f/0x300 drivers/net/tun.c:1365
+ call_write_iter ./include/linux/fs.h:1743
+ new_sync_write fs/read_write.c:457
+ __vfs_write+0x6c3/0x7f0 fs/read_write.c:470
+ vfs_write+0x3e4/0x770 fs/read_write.c:518
+ SYSC_write+0x12f/0x2b0 fs/read_write.c:565
+ SyS_write+0x55/0x80 fs/read_write.c:557
+ do_syscall_64+0x242/0x330 arch/x86/entry/common.c:284
+ return_from_SYSCALL_64+0x0/0x6a arch/x86/entry/entry_64.S:245
+================================================
 
-Here the user sends 16 bytes via sendmsg(), which the kernel attempts
-to treat as a struct tipc_subscr. Because the actual size of a struct
-is bigger, we end up touching uninitialized fields.
+Make sure tun_get_user() doesn't touch skb->data[0] unless there is
+actual data.
 
-What is the best way to fix this?
+C reproducer below:
+==========================
+    // autogenerated by syzkaller (http://github.com/google/syzkaller)
 
-I think it's too late to check for |len| in tipc_subscrb_rcv_cb()
-(http://elixir.free-electrons.com/linux/latest/source/net/tipc/subscr.c#L32=
-0),
-because we'll probably need to call tipc_subscrp_cancel(s, subscriber)
-in order to cancel the subscription, which is a bad idea since |s| is
-invalid.
-We could check that ret >=3D sizeof(struct tipc_subscr) in
-tipc_receive_from_sock()
-(http://elixir.free-electrons.com/linux/v4.8/source/net/tipc/server.c#L273)=
-,
-but this function is agnostic to the type of the data received by the
-callback, so we'd better not hardcode the size there.
-Shall we add an integer field (or yet another callback) to tipc_server, may=
-be?
+    #define _GNU_SOURCE
 
-On a related note, something is wrong with the
-tipc_receive_from_sock()'s return value.
-First, the user appears to receive a positive value (16 in our case)
-regardless of what tipc_receive_from_sock() returns.
-Second, the branch at
-http://elixir.free-electrons.com/linux/v4.8/source/net/tipc/server.c#L288
-is never taken.
+    #include <fcntl.h>
+    #include <linux/if_tun.h>
+    #include <netinet/ip.h>
+    #include <net/if.h>
+    #include <string.h>
+    #include <sys/ioctl.h>
 
-WBR,
+    int main()
+    {
+      int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_IP);
+      int tun_fd = open("/dev/net/tun", O_RDWR);
+      struct ifreq req;
+      memset(&req, 0, sizeof(struct ifreq));
+      strcpy((char*)&req.ifr_name, "gre0");
+      req.ifr_flags = IFF_UP | IFF_MULTICAST;
+      ioctl(tun_fd, TUNSETIFF, &req);
+      ioctl(sock, SIOCSIFFLAGS, "gre0");
+      write(tun_fd, "hi", 0);
+      return 0;
+    }
+==========================
 
-Alexander Potapenko
-Software Engineer
+Signed-off-by: Alexander Potapenko <glider@google.com>
+---
+v2: free the skb
+---
+ drivers/net/tun.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
-
---94eb2c0d1b3e123aca055a2ac035
-Content-Type: text/x-csrc; charset="US-ASCII"; name="tipc_subscrb_rcv_cb-kmsan.c"
-Content-Disposition: attachment; filename="tipc_subscrb_rcv_cb-kmsan.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j82z54uw0
-
-Ly8gYXV0b2dlbmVyYXRlZCBieSBzeXprYWxsZXIgKGh0dHA6Ly9naXRodWIuY29tL2dvb2dsZS9z
-eXprYWxsZXIpCgojaW5jbHVkZSA8YXJwYS9pbmV0Lmg+CiNpbmNsdWRlIDxsaW51eC90aXBjLmg+
-CiNpbmNsdWRlIDxzdHJpbmcuaD4KCmludCBtYWluKCkKewogIGludCBzb2NrID0gc29ja2V0KEFG
-X1RJUEMsIFNPQ0tfU0VRUEFDS0VULCAwKTsKICBzdHJ1Y3Qgc29ja2FkZHJfdGlwYyBhZGRyOwog
-IG1lbXNldCgmYWRkciwgMCwgc2l6ZW9mKGFkZHIpKTsKICBhZGRyLmZhbWlseSA9IEFGX1RJUEM7
-CiAgYWRkci5hZGRydHlwZSA9IFRJUENfQUREUl9OQU1FOwogIGFkZHIuYWRkci5uYW1lLm5hbWUu
-dHlwZSA9IDE7CiAgYWRkci5hZGRyLm5hbWUubmFtZS5pbnN0YW5jZSA9IDE7CiAgc3RydWN0IHRp
-cGNfc3Vic2NyIHN1YnNjcjsKICBtZW1zZXQoJnN1YnNjciwgMCwgc2l6ZW9mKHN1YnNjcikpOwog
-IHN0cnVjdCBpb3ZlYyBpb3Y7CiAgaW92Lmlvdl9iYXNlID0gJnN1YnNjcjsKICBpb3YuaW92X2xl
-biA9IHNpemVvZihzdWJzY3IpIC0gMTI7CiAgc3RydWN0IG1zZ2hkciBoZHI7CiAgbWVtc2V0KCZo
-ZHIsIDAsIHNpemVvZihoZHIpKTsKICBoZHIubXNnX25hbWUgPSAmYWRkcjsKICBoZHIubXNnX25h
-bWVsZW4gPSBzaXplb2YoYWRkcik7CiAgaGRyLm1zZ19pb3YgPSAmaW92OwogIGhkci5tc2dfaW92
-bGVuID0gMTsKICBzZW5kbXNnKHNvY2ssICZoZHIsIDApOwogIHJldHVybiAwOwp9Cg==
---94eb2c0d1b3e123aca055a2ac035--
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 3c9985f29950..0d60fd4ada9e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1496,6 +1496,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case IFF_TUN:
+ 		if (tun->flags & IFF_NO_PI) {
++			if (!skb->len) {
++				this_cpu_inc(tun->pcpu_stats->rx_dropped);
++				kfree_skb(skb);
++				return -EINVAL;
++			}
+ 			switch (skb->data[0] & 0xf0) {
+ 			case 0x40:
+ 				pi.proto = htons(ETH_P_IP);
+-- 
+2.14.1.821.g8fa685d3b7-goog
