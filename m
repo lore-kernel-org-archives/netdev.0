@@ -1,32 +1,49 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] xfrm: don't call xfrm_policy_cache_flush under
- xfrm_state_lock
-Date: Wed, 27 Sep 2017 14:31:03 +0200
-Message-ID: <20170927123103.GB14971@breakpoint.cc>
-References: <20170927122537.14235-1-asavkov@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Artem Savkov <asavkov@redhat.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH] netlink: do not proceed if dump's start() errs
+Date: Wed, 27 Sep 2017 14:39:15 +0200
+Message-ID: <20170927123915.5779-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, stable@vger.kernel.org
+To: davem@davemloft.net, johannes.berg@intel.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170927122537.14235-1-asavkov@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Artem Savkov <asavkov@redhat.com> wrote:
-> I might be wrong but it doesn't look like xfrm_state_lock is required
-> for xfrm_policy_cache_flush and calling it under this lock triggers both
-> "sleeping function called from invalid context" and "possible circular
-> locking dependency detected" warnings on flush.
-> 
-> Fixes: ec30d78c14a8 xfrm: add xdst pcpu cache
-> Signed-off-by: Artem Savkov <asavkov@redhat.com>
+Drivers that use the start method for netlink dumping rely on dumpit not
+being called if start fails. For example, ila_xlat.c allocates memory
+and assigns it to cb->args[0] in its start() function. It might fail to
+do that and return -ENOMEM instead. However, even when returning an
+error, dumpit will be called, which, in the example above, quickly
+dereferences the memory in cb->args[0], which will OOPS the kernel. This
+is but one example of how this goes wrong.
 
-You're right, its not needed (and wrong).
+Since start() has always been a function with an int return type, it
+therefore makes sense to use it properly, rather than ignoring it. This
+patch thus returns early and does not call dumpit() when start() fails.
 
-Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: stable@vger.kernel.org
+---
+ net/netlink/af_netlink.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 327807731b44..be179876227d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2270,8 +2270,11 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 
+ 	mutex_unlock(nlk->cb_mutex);
+ 
+-	if (cb->start)
+-		cb->start(cb);
++	if (cb->start) {
++		ret = cb->start(cb);
++		if (ret)
++			return ret;
++	}
+ 
+ 	ret = netlink_dump(sk);
+ 	sock_put(sk);
+-- 
+2.14.1
