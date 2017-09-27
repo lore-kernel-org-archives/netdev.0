@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] net: dsa: use generic slave phydev
-Date: Tue, 26 Sep 2017 20:06:51 -0700 (PDT)
-Message-ID: <20170926.200651.424252266139986002.davem@davemloft.net>
-References: <20170926211535.21273-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH 6/6] net: dsa: mv88e6xxx: Forward broadcast frames to
+ cpu and dsa ports
+Date: Tue, 26 Sep 2017 20:20:21 -0700 (PDT)
+Message-ID: <20170926.202021.1637296078204678176.davem@davemloft.net>
+References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
+        <1506464764-12699-8-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926211535.21273-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46870 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031618AbdI0DUW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 23:20:22 -0400
+In-Reply-To: <1506464764-12699-8-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Tue, 26 Sep 2017 17:15:30 -0400
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 27 Sep 2017 00:26:04 +0200
 
-> DSA currently stores a phy_device pointer in each slave private
-> structure. This requires to implement our own ethtool ksettings
-> accessors and such.
-> 
-> This patchset removes the private phy_device in favor of the one
-> provided in the net_device structure, and thus allows us to use the
-> generic phy_ethtool_* functions.
+> +
+> +	for (port = 0; port < mv88e6xxx_num_ports(chip); ++port) {
 
-Series applied, thanks Vivien.
+Just a nit pick since you are going to respin this anyways:
+
+	for (x; cond(x); x++)
+
+seems to be the canonical way to express this in the kernel, so please
+make "++port" into "port++"
+
+Thank you.
