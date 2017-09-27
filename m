@@ -1,71 +1,44 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 3/6] bpf: update bpf.h uapi header for tools
-Date: Wed, 27 Sep 2017 09:10:50 +0200
-Message-ID: <20170927091050.469a3e08@redhat.com>
-References: <cover.1506297988.git.daniel@iogearbox.net>
-        <4bdb49b4387d698443e32b8a6a85414e57ef4de0.1506297988.git.daniel@iogearbox.net>
-        <20170927090315.22070171@brouer.com>
+From: Oliver Neukum <oneukum-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCH V2] r8152: add Linksys USB3GIGV1 id
+Date: Wed, 27 Sep 2017 09:15:56 +0200
+Message-ID: <1506496556.28482.3.camel@suse.com>
+References: <20170926010925.114436-1-grundler@chromium.org>
+         <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
-        john.fastabend@gmail.com, peter.waskiewicz.jr@intel.com,
-        jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59050 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751866AbdI0HK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Sep 2017 03:10:56 -0400
-In-Reply-To: <20170927090315.22070171@brouer.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>,
+        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-usb <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Doug Anderson <dianders-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Grant Grundler <grundler-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Sep 2017 09:03:34 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-
-> On Mon, 25 Sep 2017 02:25:52 +0200
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
+Am Dienstag, den 26.09.2017, 08:19 -0700 schrieb Doug Anderson:
 > 
-> > Looks like a couple of updates missed to get carried into tools/include/uapi/,
-> > so copy the bpf.h header as usual to pull in latest updates.
-> > 
-> > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> > Acked-by: Alexei Starovoitov <ast@kernel.org>
-> > Acked-by: John Fastabend <john.fastabend@gmail.com>
-> > ---
-> >  tools/include/uapi/linux/bpf.h | 45 ++++++++++++++++++++++++++++++------------
-> >  1 file changed, 32 insertions(+), 13 deletions(-)
-> > 
-> > diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-> > index 461811e..e43491a 100644
-> > --- a/tools/include/uapi/linux/bpf.h
-> > +++ b/tools/include/uapi/linux/bpf.h
-> > @@ -143,12 +143,6 @@ enum bpf_attach_type {
-> >  
-> >  #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
-> >  
-> > -enum bpf_sockmap_flags {
-> > -	BPF_SOCKMAP_UNSPEC,
-> > -	BPF_SOCKMAP_STRPARSER,
-> > -	__MAX_BPF_SOCKMAP_FLAG
-> > -};
-> > -  
+> I know that for at least some of the adapters in the CDC Ethernet
+> blacklist it was claimed that the CDC Ethernet support in the adapter
+> was kinda broken anyway so the blacklist made sense.  ...but for the
+> Linksys Gigabit adapter the CDC Ethernet driver seems to work OK, it's
+> just not quite as full featured / efficient as the R8152 driver.
 > 
-> Why does "bpf_sockmap_flags" gets removed?
-> 
-> It got added in: commit 69e8cc134bcb ("bpf: sockmap sample program").
-> But I cannot find any users of these flags, so I guess it is okay.
+> Is that not a concern?  I guess you could tell people in this
+> situation that they simply need to enable the R8152 driver to get
+> continued support for their Ethernet adapter?
 
-Found the explanation in commit 2f857d04601 ("bpf: sockmap, remove
-STRPARSER map_flags and add multi-map support").
- https://git.kernel.org/torvalds/c/2f857d04601
+Hi,
 
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+yes, it is a valid concern. An #ifdef will be needed.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+	Regards
+		Oliver
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
