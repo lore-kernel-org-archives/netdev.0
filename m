@@ -1,92 +1,135 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v6 06/11] ARM: dts: sunxi: h3/h5: represent the mdio
- switch used by sun8i-h3-emac
-Date: Wed, 27 Sep 2017 15:47:09 +0200
-Message-ID: <20170927134709.GA14370@Red>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
- <20170927073414.17361-7-clabbe.montjoie@gmail.com>
- <20170927101622.v7odmreccwh7ldg2@flea>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v2 net-next 2/2] net/sched: allow flower to match tunnel
+ options
+Date: Wed, 27 Sep 2017 15:47:50 +0200
+Message-ID: <20170927134750.GI1944@nanopsycho.orion>
+References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+ <1506500194-17637-3-git-send-email-simon.horman@netronome.com>
+ <20170927091005.GB1944@nanopsycho.orion>
+ <20170927092732.GC25449@vergenet.net>
+ <20170927110822.GD1944@nanopsycho.orion>
+ <20170927125205.GA30000@vergenet.net>
+ <20170927125603.GH1944@nanopsycho.orion>
+ <20170927133731.GA14183@vergenet.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        frowand.list@gmail.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org, linux-sunxi@googlegroups.com
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36479 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753072AbdI0NrS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 09:47:18 -0400
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:51033 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752581AbdI0Nrw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 09:47:52 -0400
+Received: by mail-wm0-f67.google.com with SMTP id b195so18505756wmb.5
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 06:47:52 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170927101622.v7odmreccwh7ldg2@flea>
+In-Reply-To: <20170927133731.GA14183@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 12:16:22PM +0200, Maxime Ripard wrote:
-> On Wed, Sep 27, 2017 at 07:34:09AM +0000, Corentin Labbe wrote:
-> > Since dwmac-sun8i could use either an integrated PHY or an external PHY
-> > (which could be at same MDIO address), we need to represent this selection
-> > by a MDIO switch.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > ---
-> >  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 31 +++++++++++++++++++++++++------
-> >  1 file changed, 25 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> > index 3b7d953429a6..a8e9b8f378ba 100644
-> > --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> > +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-> > @@ -422,14 +422,33 @@
-> >  			#size-cells = <0>;
-> >  			status = "disabled";
-> >  
-> > -			mdio: mdio {
-> > +			mdio0: mdio {
-> >  				#address-cells = <1>;
-> >  				#size-cells = <0>;
-> > -				int_mii_phy: ethernet-phy@1 {
-> > -					compatible = "ethernet-phy-ieee802.3-c22";
-> > -					reg = <1>;
-> > -					clocks = <&ccu CLK_BUS_EPHY>;
-> > -					resets = <&ccu RST_BUS_EPHY>;
-> > +				compatible = "snps,dwmac-mdio";
-> > +
-> > +				mdio-mux {
-> > +					compatible = "mdio-mux";
-> > +					#address-cells = <1>;
-> > +					#size-cells = <0>;
-> 
-> Newline
-> 
-> > +					/* Only one MDIO is usable at the time */
-> > +					internal_mdio: mdio@1 {
-> > +						reg = <1>;
-> > +						#address-cells = <1>;
-> > +						#size-cells = <0>;
-> 
-> Newline
-> 
-> > +						int_mii_phy: ethernet-phy@1 {
-> > +							compatible = "ethernet-phy-ieee802.3-c22";
-> > +							reg = <1>;
-> > +							clocks = <&ccu CLK_BUS_EPHY>;
-> > +							resets = <&ccu RST_BUS_EPHY>;
-> > +							phy-is-integrated;
-> > +						};
-> > +					};
-> 
-> Newline
-> 
-> > +					mdio: mdio@2 {
-> 
-> This is quite confusing. Why not call the label external_mdio?
-> 
+Wed, Sep 27, 2017 at 03:37:33PM CEST, simon.horman@netronome.com wrote:
+>On Wed, Sep 27, 2017 at 02:56:03PM +0200, Jiri Pirko wrote:
+>> Wed, Sep 27, 2017 at 02:52:06PM CEST, simon.horman@netronome.com wrote:
+>> >On Wed, Sep 27, 2017 at 01:08:22PM +0200, Jiri Pirko wrote:
+>> >> Wed, Sep 27, 2017 at 11:27:33AM CEST, simon.horman@netronome.com wrote:
+>> >> >On Wed, Sep 27, 2017 at 11:10:05AM +0200, Jiri Pirko wrote:
+>> >> >> Wed, Sep 27, 2017 at 10:16:34AM CEST, simon.horman@netronome.com wrote:
+>> >
+>> >...
+>> >
+>> >> >> > enum flow_dissector_key_id {
+>> >> >> > 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
+>> >> >> > 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
+>> >> >> >@@ -205,6 +217,7 @@ enum flow_dissector_key_id {
+>> >> >> > 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
+>> >> >> > 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
+>> >> >> > 	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
+>> >> >> >+	FLOW_DISSECTOR_KEY_ENC_OPTS, /* struct flow_dissector_key_enc_opts */
+>> >> >> 
+>> >> >> I don't see the actual dissection implementation. Where is it?
+>> >> >> Did you test the patchset?
+>> >> >
+>> >> >Yes, I did test it. But it is also possible something went astray along the
+>> >> >way and I will retest.
+>> >> >
+>> >> >I think that the code you are looking for is in
+>> >> >fl_classify() in this patch.
+>> >> 
+>> >> The dissection should be done in the flow_dissector. That's the whole
+>> >> point in having it generic. You should move it there.
+>> >
+>> >Coming back to this after lunch, I believe what I have done in this patch
+>> >is consistent with handling of other enc fields, which are set in
+>> >fl_classify() rather than the dissector. In particular the ip_tunnel_info,
+>> >which is used by this patch, is already used in fl_classify().
+>> 
+>> That means the current code is wrong. The dissection should be done in
+>> flow_dissector, not in fl_classify.
+>
+>Would an better approach be to move the fl_classify() below into, say,
+>skb_flow_dissect_tunnel_info() and call that from fl_classify().
 
-I will do it. (at origin I was not changing it for limiting changes on board with external PHY, but now all DT are reverted, it will be easy)
+No. There is one flow dissection function and you just set it up in a
+way you need it. Makes no sense to me to split it up in any way.
 
-Regards
+
+>
+>The reason I suggest this rather than moving the code into
+>__skb_flow_dissect() is that currently flower assumes that tunnel_info
+>is used if present. While I assume other users of () assume tunnel_info
+>is not used even if present.
+
+__skb_flow_dissect should look at what caller wants, then check skb_tunnel_info
+only in case it is needed.
+
+
+>
+>> >Without this patch I see:
+>> >
+>> >
+>> >static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>> >                       struct tcf_result *res)
+>> >{
+>> >        ...
+>> >        struct ip_tunnel_info *info;
+>> >
+>> >        ...
+>> >
+>> >        info = skb_tunnel_info(skb);
+>> >        if (info) {
+>> >                struct ip_tunnel_key *key = &info->key;
+>> >
+>> >                switch (ip_tunnel_info_af(info)) {
+>> >                case AF_INET:
+>> >                        skb_key.enc_control.addr_type =
+>> >                                FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+>> >                        skb_key.enc_ipv4.src = key->u.ipv4.src;
+>> >                        skb_key.enc_ipv4.dst = key->u.ipv4.dst;
+>> >                        break;
+>> >                case AF_INET6:
+>> >                        skb_key.enc_control.addr_type =
+>> >                                FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+>> >                        skb_key.enc_ipv6.src = key->u.ipv6.src;
+>> >                        skb_key.enc_ipv6.dst = key->u.ipv6.dst;
+>> >                        break;
+>> >                }
+>> >
+>> >                skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
+>> >                skb_key.enc_tp.src = key->tp_src;
+>> >                skb_key.enc_tp.dst = key->tp_dst;
+>> >        }
+>> >
+>> >	...
+>> >}
+>> >
+>> >This patch adds the following inside the if() clause above:
+>> >
+>> >	if (info->options_len) {
+>> >		skb_key.enc_opts.len = info->options_len;
+>> >		ip_tunnel_info_opts_get(skb_key.enc_opts.data, info);
+>> >	}
+>> >
+>> >
