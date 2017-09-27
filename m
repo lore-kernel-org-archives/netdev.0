@@ -1,84 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 0/5] batched tx processing in vhost_net
-Date: Thu, 28 Sep 2017 01:28:54 +0300
-Message-ID: <20170928012009-mutt-send-email-mst@kernel.org>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
-	<20170926164055-mutt-send-email-mst@kernel.org>
-	<afb7cad9-d760-b4d7-ecc5-518442e061b1@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <afb7cad9-d760-b4d7-ecc5-518442e061b1@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v2] netlink: do not proceed if dump's start() errs
+Date: Thu, 28 Sep 2017 00:41:44 +0200
+Message-ID: <20170927224144.1749-1-Jason@zx2c4.com>
+References: <CAHmME9oA+dE3eOCTWweJjZGL4sog30JShoCJoWaPn4JV7h3auA@mail.gmail.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Johannes Berg <johannes@sipsolutions.net>
+To: davem@davemloft.net, johannes.berg@intel.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9oA+dE3eOCTWweJjZGL4sog30JShoCJoWaPn4JV7h3auA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBTZXAgMjcsIDIwMTcgYXQgMDg6Mjc6MzdBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDnmnIgyNuaXpSAyMTo0NSwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gT24gRnJpLCBTZXAgMjIsIDIwMTcgYXQgMDQ6MDI6MzBQTSArMDgwMCwgSmFz
-b24gV2FuZyB3cm90ZToKPiA+ID4gSGk6Cj4gPiA+IAo+ID4gPiBUaGlzIHNlcmllcyB0cmllcyB0
-byBpbXBsZW1lbnQgYmFzaWMgdHggYmF0Y2hlZCBwcm9jZXNzaW5nLiBUaGlzIGlzCj4gPiA+IGRv
-bmUgYnkgcHJlZmV0Y2hpbmcgZGVzY3JpcHRvciBpbmRpY2VzIGFuZCB1cGRhdGUgdXNlZCByaW5n
-IGluIGEKPiA+ID4gYmF0Y2guIFRoaXMgaW50ZW5kcyB0byBzcGVlZCB1cCB1c2VkIHJpbmcgdXBk
-YXRpbmcgYW5kIGltcHJvdmUgdGhlCj4gPiA+IGNhY2hlIHV0aWxpemF0aW9uLgo+ID4gSW50ZXJl
-c3RpbmcsIHRoYW5rcyBmb3IgdGhlIHBhdGNoZXMuIFNvIElJVUMgbW9zdCBvZiB0aGUgZ2FpbiBp
-cyByZWFsbHkKPiA+IG92ZXJjb21pbmcgc29tZSBvZiB0aGUgc2hvcnRjb21pbmdzIG9mIHZpcnRp
-byAxLjAgd3J0IGNhY2hlIHV0aWxpemF0aW9uPwo+IAo+IFllcy4KPiAKPiBBY3R1YWxseSwgbG9v
-a3MgbGlrZSBiYXRjaGluZyBpbiAxLjEgaXMgbm90IGFzIGVhc3kgYXMgaW4gMS4wLgo+IAo+IElu
-IDEuMCwgd2UgY291bGQgZG8gc29tZXRoaW5nIGxpa2U6Cj4gCj4gYmF0Y2ggdXBkYXRlIHVzZWQg
-cmluZyBieSB1c2VyIGNvcHlfdG9fdXNlcigpCj4gc21wX3dtYigpCj4gdXBkYXRlIHVzZWRfaWR4
-Cj4gSW4gMS4xLCB3ZSBuZWVkIG1vcmUgbWVtb3J5IGJhcnJpZXJzLCBjYW4ndCBiZW5lZml0IGZy
-b20gZmFzdCBjb3B5IGhlbHBlcnM/Cj4gCj4gZm9yICgpIHsKPiDCoMKgwqAgdXBkYXRlIGRlc2Mu
-YWRkcgo+IMKgwqDCoCBzbXBfd21iKCkKPiDCoMKgwqAgdXBkYXRlIGRlc2MuZmxhZwo+IH0KClll
-cyBidXQgc21wX3dtYiBpcyBhIE5PUCBvbiBlLmcuIHg4Ni4gV2UgY2FuIHN3aXRjaCB0byBvdGhl
-ciB0eXBlcyBvZgpiYXJyaWVycyBhcyB3ZWxsLiAgV2UgZG8gbmVlZCB0byBkbyB0aGUgdXBkYXRl
-cyBpbiBvcmRlciwgc28gd2UgbWlnaHQKbmVlZCBuZXcgQVBJcyBmb3IgdGhhdCB0byBhdm9pZCBy
-ZS1kb2luZyB0aGUgdHJhbnNsYXRpb24gYWxsIHRoZSB0aW1lLgoKSW4gMS4wIHRoZSBsYXN0IHVw
-ZGF0ZSBpcyBhIGNhY2hlIG1pc3MgYWx3YXlzLiBZb3UgbmVlZCBiYXRjaGluZyB0byBnZXQKbGVz
-cyBtaXNzZXMuIEluIDEuMSB5b3UgZG9uJ3QgaGF2ZSBpdCBzbyBmdW5kYW1lbnRhbGx5IHRoZXJl
-IGlzIGxlc3MKbmVlZCBmb3IgYmF0Y2hpbmcuIEJ1dCBiYXRjaGluZyBkb2VzIG5vdCBhbHdheXMg
-d29yay4gIERQREsgZ3V5cyAod2hpY2gKYmF0Y2ggdGhpbmdzIGFnZ3Jlc3NpdmVseSkgYWxyZWFk
-eSB0cmllZCAxLjEgYW5kIHNhdyBwZXJmb3JtYW5jZSBnYWlucwpzbyB3ZSBkbyBub3QgbmVlZCB0
-byBhcmd1ZSB0aGVvcmV0aWNhbGx5LgoKCgo+ID4gCj4gPiBXaGljaCBpcyBmYWlyIGVub3VnaCAo
-MS4wIGlzIGFscmVhZHkgZGVwbG95ZWQpIGJ1dCBJIHdvdWxkIGxpa2UgdG8gYXZvaWQKPiA+IG1h
-a2luZyAxLjEgc3VwcG9ydCBoYXJkZXIsIGFuZCB0aGlzIHBhdGNoc2V0IGRvZXMgdGhpcyB1bmZv
-cnR1bmF0ZWx5LAo+IAo+IEkgdGhpbmsgdGhlIG5ldyBBUElzIGRvIG5vdCBleHBvc2UgbW9yZSBp
-bnRlcm5hbCBkYXRhIHN0cnVjdHVyZSBvZiB2aXJ0aW8KPiB0aGFuIGJlZm9yZT8gKHZxLT5oZWFk
-cyBoYXMgYWxyZWFkeSBiZWVuIHVzZWQgYnkgdmhvc3RfbmV0IGZvciB5ZWFycykuCgpGb3Igc3Vy
-ZSB3ZSBtaWdodCBuZWVkIHRvIGNoYW5nZSB2cmluZ191c2VkX2VsZW0uCgo+IENvbnNpZGVyIHRo
-ZSBsYXlvdXQgaXMgcmUtZGVzaWduZWQgY29tcGxldGVseSwgSSBkb24ndCBzZWUgYW4gZWFzeSBt
-ZXRob2QgdG8KPiByZXVzZSBjdXJyZW50IDEuMCBBUEkgZm9yIDEuMS4KCkN1cnJlbnQgQVBJIGp1
-c3Qgc2F5cyB5b3UgZ2V0IGJ1ZmZlcnMgdGhlbiB5b3UgdXNlIHRoZW0uIEl0IGlzIG5vdCB0aWVk
-CnRvIGFjdHVhbCBzZXBhcmF0ZSB1c2VkIHJpbmcuCgoKPiA+IHNlZSBjb21tZW50cyBvbiBpbmRp
-dmlkdWFsIHBhdGNoZXMuIEknbSBzdXJlIGl0IGNhbiBiZSBhZGRyZXNzZWQgdGhvdWdoLgo+ID4g
-Cj4gPiA+IFRlc3Qgc2hvd3MgYWJvdXQgfjIyJSBpbXByb3ZlbWVudCBpbiB0eCBwc3MuCj4gPiBJ
-cyB0aGlzIHdpdGggb3Igd2l0aG91dCB0eCBuYXBpIGluIGd1ZXN0Pwo+IAo+IE1vb25HZW4gaXMg
-dXNlZCBpbiBndWVzdCBmb3IgYmV0dGVyIG51bWJlcnMuCj4gCj4gVGhhbmtzCgpOb3Qgc3VyZSBJ
-IHVuZGVyc3RhbmQuIERpZCB5b3Ugc2V0IG5hcGlfdHggdG8gdHJ1ZSBvciBmYWxzZT8KCj4gPiAK
-PiA+ID4gUGxlYXNlIHJldmlldy4KPiA+ID4gCj4gPiA+IEphc29uIFdhbmcgKDUpOgo+ID4gPiAg
-ICB2aG9zdDogc3BsaXQgb3V0IHJpbmcgaGVhZCBmZXRjaGluZyBsb2dpYwo+ID4gPiAgICB2aG9z
-dDogaW50cm9kdWNlIGhlbHBlciB0byBwcmVmZXRjaCBkZXNjIGluZGV4Cj4gPiA+ICAgIHZob3N0
-OiBpbnRyb2R1Y2Ugdmhvc3RfYWRkX3VzZWRfaWR4KCkKPiA+ID4gICAgdmhvc3RfbmV0OiByZW5h
-bWUgVkhPU1RfUlhfQkFUQ0ggdG8gVkhPU1RfTkVUX0JBVENICj4gPiA+ICAgIHZob3N0X25ldDog
-YmFzaWMgdHggdmlydHF1ZXVlIGJhdGNoZWQgcHJvY2Vzc2luZwo+ID4gPiAKPiA+ID4gICBkcml2
-ZXJzL3Zob3N0L25ldC5jICAgfCAyMjEgKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0KPiA+ID4gICBkcml2ZXJzL3Zob3N0L3Zob3N0LmMgfCAxNjUgKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLQo+ID4gPiAgIGRyaXZlcnMvdmhvc3Qv
-dmhvc3QuaCB8ICAgOSArKwo+ID4gPiAgIDMgZmlsZXMgY2hhbmdlZCwgMjcwIGluc2VydGlvbnMo
-KyksIDEyNSBkZWxldGlvbnMoLSkKPiA+ID4gCj4gPiA+IC0tIAo+ID4gPiAyLjcuNApfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
-YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
-cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
-YXRpb24=
+Drivers that use the start method for netlink dumping rely on dumpit not
+being called if start fails. For example, ila_xlat.c allocates memory
+and assigns it to cb->args[0] in its start() function. It might fail to
+do that and return -ENOMEM instead. However, even when returning an
+error, dumpit will be called, which, in the example above, quickly
+dereferences the memory in cb->args[0], which will OOPS the kernel. This
+is but one example of how this goes wrong.
+
+Since start() has always been a function with an int return type, it
+therefore makes sense to use it properly, rather than ignoring it. This
+patch thus returns early and does not call dumpit() when start() fails.
+
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+---
+ net/netlink/af_netlink.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 327807731b44..94c11cf0459d 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2270,10 +2270,13 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 
+ 	mutex_unlock(nlk->cb_mutex);
+ 
++	ret = 0;
+ 	if (cb->start)
+-		cb->start(cb);
++		ret = cb->start(cb);
++
++	if (!ret)
++		ret = netlink_dump(sk);
+ 
+-	ret = netlink_dump(sk);
+ 	sock_put(sk);
+ 
+ 	if (ret)
+-- 
+2.14.1
