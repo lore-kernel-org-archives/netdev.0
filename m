@@ -1,68 +1,57 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: tc H/W offload issue with vxlan tunnels [was: nfp: flower vxlan
- tunnel offload]
-Date: Wed, 27 Sep 2017 11:46:58 +0200
-Message-ID: <1506505618.2867.34.camel@redhat.com>
-References: <1506500975.2867.19.camel@redhat.com>
-         <20170927091700.GC1944@nanopsycho.orion>
+From: Berend De Schouwer <berend.de.schouwer@gmail.com>
+Subject: Re: tg3 pxe weirdness
+Date: Wed, 27 Sep 2017 12:05:17 +0200
+Message-ID: <1506506717.18177.136.camel@gmail.com>
+References: <CAMet4B6mZ8SyCT7W2j4OBEUDiy3ZupYKWXBFti0nXoxm51_6kg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>, Jiri Benc <jbenc@redhat.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Siva Reddy Kallam <siva.kallam@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48665 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752531AbdI0JrB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Sep 2017 05:47:01 -0400
-In-Reply-To: <20170927091700.GC1944@nanopsycho.orion>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36253 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751800AbdI0KFY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 06:05:24 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r136so11024971wmf.3
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 03:05:24 -0700 (PDT)
+In-Reply-To: <CAMet4B6mZ8SyCT7W2j4OBEUDiy3ZupYKWXBFti0nXoxm51_6kg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-09-27 at 11:17 +0200, Jiri Pirko wrote:
-> Wed, Sep 27, 2017 at 10:29:35AM CEST, pabeni@redhat.com wrote:
-> > So it looks like the H/W offload hook will still be called with the
-> > same arguments in both case, and 'bad' rule will still be pushed to the
-> > H/W as the driver itself has no way to distinct between the two
-> > scenarios.
+On Mon, 2017-09-25 at 15:11 +0530, Siva Reddy Kallam wrote:
+> On Fri, Sep 22, 2017 at 9:04 PM, Berend De Schouwer
+> <berend.de.schouwer@gmail.com> wrote:
+> > On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
+> > > 
+> > > 
+> > > Can you please share below details?
+> > > 1) Model and Manufacturer of the system
+> > > 2) Linux distro/kernel used?
+> > 
+> > 4.13.3 gets a little further, but after some more data is
+> > transferred
+> > the tg3 driver still crashes.  This is unfortunately before I've
+> > got a
+> > writeable filesystem.
+> > 
+> > The last line is:
+> > tg3 0000:01:00.0: tg3_stop_block timed out, ofs=4c00 enable_bit=2
+> > 
+> > I've got some ideas to get the full dmesg.
+> > 
+> > As with the other kernels it works OK on 1Gbps, but not slower
+> > switches.
 > 
-> Why "bad"?
+> I am suspecting with link aware mode, the clock speed could be slow
+> and boot code does not
+> complete within the expected time with lower link speeds. So,
+> Providing a patch to override clock.
+> Can you please try with attached debug patch and provide us the
+> feedback with 100M link?
+> If it solves this issue, we will work on proper changes.
 
-Such rule is coped differently by the SW and the HW data path.
+This does work on 4.13.3 and PXE for me.
 
-a rule like:
-
-tc filter add dev eth0 protocol ip parent ffff: flower \
-   enc_key_id 102 enc_dst_port 4789 src_ip 3.4.5.6 skip_hw \
-   action action mirred redirect eth0_vf_1
-
-will match 0 packets, while:
-
-tc filter add dev eth0 protocol ip parent ffff: flower \
-   enc_key_id 102 enc_dst_port 4789 src_ip 3.4.5.6 skip_sw \
-   action action mirred redirect eth0_vf_1
-
-[just flipped 'skip_sw' and 'skip_hw' ]
-will match the vxlan-tunneled packets. I understand that one of the
-design goal for the h/w offload path is being consistent with the sw
-one, but that does not hold in the above scenario.
-
-> Regarding the distinction, driver knows if user add a rule directly to
-> the eth0, or if the eth0 is egress device in the action. Those are 2
-> separete driver entrypoints - of course, talking about code with my
-> changes.
-
-ok, but than each driver should catch the scenario "rule with tunnel
-match over non tunnel device" and cope with them properly - never match
-it - why don't simply avoiding pushing such rules to the H/W ? 
-
-Cheers,
-
-Paolo
+I've tested on 1 Gbps, 100 Mbps and 10 Mbps.  I've done some
+preliminary testing (eg. large file copies.)
