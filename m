@@ -1,72 +1,59 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v6 05/11] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Wed, 27 Sep 2017 12:15:08 +0200
-Message-ID: <20170927101508.z3u32gff7kqgnmr2@flea>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
- <20170927073414.17361-6-clabbe.montjoie@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/6] net: dsa: Fix
+ SWITCHDEV_ATTR_ID_PORT_PARENT_ID
+Date: Wed, 27 Sep 2017 13:15:33 +0300
+Message-ID: <847022b2-4bf7-0fbd-abf8-3d74af215933@cogentembedded.com>
+References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
+ <1506464764-12699-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="ghm4jv4fei6qquqw"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170927073414.17361-6-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:53129 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752659AbdI0KPk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 06:15:40 -0400
+Received: by mail-wr0-f173.google.com with SMTP id c23so15538854wrg.9
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 03:15:38 -0700 (PDT)
+In-Reply-To: <1506464764-12699-2-git-send-email-andrew@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
---ghm4jv4fei6qquqw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 9/27/2017 1:25 AM, Andrew Lunn wrote:
 
-Hi,
+> SWITCHDEV_ATTR_ID_PORT_PARENT_ID is used by the software bridge when
+> determining which ports to flood a packet out. If the packet
+> originated from a switch, it assumes the switch has already flooded
+> the packet out the switches ports, so the bridge should not flood the
+> packet itself out switch ports. Ports on the same switch are expected
+> to return the same parent ID when SWITCHDEV_ATTR_ID_PORT_PARENT_ID is
+> called.
+> 
+> DSA gets this wrong with clusters of switches. As far as the software
+> bridge is concerned, the cluster is all one switch. A packet from any
+> switch in the cluster can be assumed to of been flooded as needed out
 
-On Wed, Sep 27, 2017 at 07:34:08AM +0000, Corentin Labbe wrote:
-> This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> for integrated PHY.
->=20
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+    s/of/have/?
 
-This should be squashed with patch 1.
+> all ports of the cluster, not just the switch it originated
+> from. Hence all ports of a cluster should return the same parent. The
+> old implementation did not, each switch in the cluster had its own ID.
+> 
+> Also wrong was that the ID was not unique if multiple DSA instances
+> are in operation.
+> 
+> Use the tree ID as the parent ID, which is the same for all switches
+> in a cluster and unique across switch clusters.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+> v2: Swap from MAC address to dst->tree
+[...]
 
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---ghm4jv4fei6qquqw
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJZy3osAAoJEBx+YmzsjxAgNZgP/1IQ3e9WNN4u2CngPrA8NJD9
-1oAz6wk7OJtc+s70nl24YONkSEsMNfKtc3kjSAqmBkuPAVVlOL+SVZ9Jn9BVFXM2
-72Vx9apJoFTO3mCD/bjqN5a+Z8MVQcpJdbqzfuXCSKgnDKVDCE+nGbIWy9WsXeWj
-LS+5PE6far6tjXhIR848aAgmSytT1bbjbq9ZU0uygA7mkGg5mnn2ldV4Spueq07I
-M5bxK79I6ntxjmPGjz7xGJ3Cq2celbsgXBsegg0wf+vWK1Kia9CBbGv88ZhbwDR8
-gDqsoM4YgGRGxhHCl3fg3JlVJOH9vgeTVP3rzthLtGtB68vShOnWOkiWh2t+qW7S
-6FOUQbb+1Y/V62ngZI8o28BK6/nKcD1zh/yOZHMMdLREAT7On4x04L3upDDrKK6I
-1v7abQBZbRu4ACNUQJTcl+amwsqDyUm9HdWuhCeAGHIFRaqlj/BMcyZm7c0U7Ny7
-tuGq0BCW/Zld+a/7r5E0mb7FpDWQpCmzOZkCcCkGdlLkxcy4QZs/0dKl+MKb2lIC
-5KRw/YhEV16NUQZDq6Elfv+GFjpJqjBMjCFrc8C+NL6Hbp6GKUopyttcK7FJR2en
-yKyl9UvMU6IApXAdOS4rcSWKY83D3LXKUSsGxZYY1wiZEHkBoVSuh9uFEO6v4shs
-TGZ/5qSbU7oMuFcqY9rm
-=VC6s
------END PGP SIGNATURE-----
-
---ghm4jv4fei6qquqw--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+MBR, Sergei
