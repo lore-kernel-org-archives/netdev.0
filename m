@@ -1,113 +1,105 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 2/5] vhost: introduce helper to prefetch
-	desc index
-Date: Thu, 28 Sep 2017 01:57:20 +0300
-Message-ID: <20170928012906-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH net-next RFC 3/5] vhost: introduce vhost_add_used_idx()
+Date: Thu, 28 Sep 2017 01:58:40 +0300
+Message-ID: <20170928015749-mutt-send-email-mst@kernel.org>
 References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
-	<1506067355-5771-3-git-send-email-jasowang@redhat.com>
-	<20170926221435-mutt-send-email-mst@kernel.org>
-	<17e9c3a9-7759-a674-bc00-414eabfed118@redhat.com>
+ <1506067355-5771-4-git-send-email-jasowang@redhat.com>
+ <20170926170047-mutt-send-email-mst@kernel.org>
+ <c42b7244-6d43-2ce5-46a3-ea70ec9d957f@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <17e9c3a9-7759-a674-bc00-414eabfed118@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <c42b7244-6d43-2ce5-46a3-ea70ec9d957f@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCBTZXAgMjcsIDIwMTcgYXQgMDg6MzU6NDdBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDnmnIgyN+aXpSAwMzoxOSwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gT24gRnJpLCBTZXAgMjIsIDIwMTcgYXQgMDQ6MDI6MzJQTSArMDgwMCwgSmFz
-b24gV2FuZyB3cm90ZToKPiA+ID4gVGhpcyBwYXRjaCBpbnRyb2R1Y2VzIHZob3N0X3ByZWZldGNo
-X2Rlc2NfaW5kaWNlcygpIHdoaWNoIGNvdWxkIGJhdGNoCj4gPiA+IGRlc2NyaXB0b3IgaW5kaWNl
-cyBmZXRjaGluZyBhbmQgdXNlZCByaW5nIHVwZGF0aW5nLiBUaGlzIGludGVuZHMgdG8KPiA+ID4g
-cmVkdWNlIHRoZSBjYWNoZSBtaXNzZXMgb2YgaW5kaWNlcyBmZXRjaGluZyBhbmQgdXBkYXRpbmcg
-YW5kIHJlZHVjZQo+ID4gPiBjYWNoZSBsaW5lIGJvdW5jZSB3aGVuIHZpcnRxdWV1ZSBpcyBhbG1v
-c3QgZnVsbC4gY29weV90b191c2VyKCkgd2FzCj4gPiA+IHVzZWQgaW4gb3JkZXIgdG8gYmVuZWZp
-dCBmcm9tIG1vZGVybiBjcHVzIHRoYXQgc3VwcG9ydCBmYXN0IHN0cmluZwo+ID4gPiBjb3B5LiBC
-YXRjaGVkIHZpcnRxdWV1ZSBwcm9jZXNzaW5nIHdpbGwgYmUgdGhlIGZpcnN0IHVzZXIuCj4gPiA+
-IAo+ID4gPiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+
-ID4gPiAtLS0KPiA+ID4gICBkcml2ZXJzL3Zob3N0L3Zob3N0LmMgfCA1NSArKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKPiA+ID4gICBkcml2ZXJzL3Zo
-b3N0L3Zob3N0LmggfCAgMyArKysKPiA+ID4gICAyIGZpbGVzIGNoYW5nZWQsIDU4IGluc2VydGlv
-bnMoKykKPiA+ID4gCj4gPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0L3Zob3N0LmMgYi9k
-cml2ZXJzL3Zob3N0L3Zob3N0LmMKPiA+ID4gaW5kZXggZjg3ZWM3NS4uODQyNDE2NmQgMTAwNjQ0
-Cj4gPiA+IC0tLSBhL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYwo+ID4gPiArKysgYi9kcml2ZXJzL3Zo
-b3N0L3Zob3N0LmMKPiA+ID4gQEAgLTI0MzcsNiArMjQzNyw2MSBAQCBzdHJ1Y3Qgdmhvc3RfbXNn
-X25vZGUgKnZob3N0X2RlcXVldWVfbXNnKHN0cnVjdCB2aG9zdF9kZXYgKmRldiwKPiA+ID4gICB9
-Cj4gPiA+ICAgRVhQT1JUX1NZTUJPTF9HUEwodmhvc3RfZGVxdWV1ZV9tc2cpOwo+ID4gPiAraW50
-IHZob3N0X3ByZWZldGNoX2Rlc2NfaW5kaWNlcyhzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSwK
-PiA+ID4gKwkJCQlzdHJ1Y3QgdnJpbmdfdXNlZF9lbGVtICpoZWFkcywKPiA+ID4gKwkJCQl1MTYg
-bnVtLCBib29sIHVzZWRfdXBkYXRlKQo+ID4gd2h5IGRvIHlvdSBuZWVkIHRvIGNvbWJpbmUgdXNl
-ZCB1cGRhdGUgd2l0aCBwcmVmZXRjaD8KPiAKPiBGb3IgYmV0dGVyIHBlcmZvcm1hbmNlCgoKV2h5
-IGlzIHN0aWNraW5nIGEgYnJhbmNoIGluIHRoZXJlIGJldHRlciB0aGFuIHJlcXVlc3RpbmcgdGhl
-IHVwZGF0ZQpjb25kaXRpb25hbGx5IGZyb20gdGhlIGNhbGxlcj8KCgoKPiBhbmQgSSBiZWxpZXZl
-IHdlIGRvbid0IGNhcmUgYWJvdXQgdGhlIG92ZXJoZWFkIHdoZW4KPiB3ZSBtZWV0IGVycm9ycyBp
-biB0eC4KClRoYXQncyBhIHNlcGFyYXRlIHF1ZXN0aW9uLCBJIGRvIG5vdCByZWFsbHkgdW5kZXJz
-dGFuZCBob3cKeW91IGNhbiBmZXRjaCBhIGRlc2NyaXB0b3IgYW5kIHVwZGF0ZSB0aGUgdXNlZCBy
-aW5nIGF0IHRoZSBzYW1lCnRpbWUuIFRoaXMgYWxsb3dzIHRoZSBndWVzdCB0byBvdmVyd3JpdGUg
-dGhlIGJ1ZmZlci4KSSBtaWdodCBiZSBtaXN1bmRlcnN0YW5kaW5nIHdoYXQgaXMgZ29pbmcgb24g
-aGVyZSB0aG91Z2guCgoKPiA+IAo+ID4gPiArewo+ID4gPiArCWludCByZXQsIHJldDI7Cj4gPiA+
-ICsJdTE2IGxhc3RfYXZhaWxfaWR4LCBsYXN0X3VzZWRfaWR4LCB0b3RhbCwgY29waWVkOwo+ID4g
-PiArCV9fdmlydGlvMTYgYXZhaWxfaWR4Owo+ID4gPiArCXN0cnVjdCB2cmluZ191c2VkX2VsZW0g
-X191c2VyICp1c2VkOwo+ID4gPiArCWludCBpOwo+ID4gPiArCj4gPiA+ICsJaWYgKHVubGlrZWx5
-KHZob3N0X2dldF9hdmFpbCh2cSwgYXZhaWxfaWR4LCAmdnEtPmF2YWlsLT5pZHgpKSkgewo+ID4g
-PiArCQl2cV9lcnIodnEsICJGYWlsZWQgdG8gYWNjZXNzIGF2YWlsIGlkeCBhdCAlcFxuIiwKPiA+
-ID4gKwkJICAgICAgICZ2cS0+YXZhaWwtPmlkeCk7Cj4gPiA+ICsJCXJldHVybiAtRUZBVUxUOwo+
-ID4gPiArCX0KPiA+ID4gKwlsYXN0X2F2YWlsX2lkeCA9IHZxLT5sYXN0X2F2YWlsX2lkeCAmICh2
-cS0+bnVtIC0gMSk7Cj4gPiA+ICsJdnEtPmF2YWlsX2lkeCA9IHZob3N0MTZfdG9fY3B1KHZxLCBh
-dmFpbF9pZHgpOwo+ID4gPiArCXRvdGFsID0gdnEtPmF2YWlsX2lkeCAtIHZxLT5sYXN0X2F2YWls
-X2lkeDsKPiA+ID4gKwlyZXQgPSB0b3RhbCA9IG1pbih0b3RhbCwgbnVtKTsKPiA+ID4gKwo+ID4g
-PiArCWZvciAoaSA9IDA7IGkgPCByZXQ7IGkrKykgewo+ID4gPiArCQlyZXQyID0gdmhvc3RfZ2V0
-X2F2YWlsKHZxLCBoZWFkc1tpXS5pZCwKPiA+ID4gKwkJCQkgICAgICAmdnEtPmF2YWlsLT5yaW5n
-W2xhc3RfYXZhaWxfaWR4XSk7Cj4gPiA+ICsJCWlmICh1bmxpa2VseShyZXQyKSkgewo+ID4gPiAr
-CQkJdnFfZXJyKHZxLCAiRmFpbGVkIHRvIGdldCBkZXNjcmlwdG9yc1xuIik7Cj4gPiA+ICsJCQly
-ZXR1cm4gLUVGQVVMVDsKPiA+ID4gKwkJfQo+ID4gPiArCQlsYXN0X2F2YWlsX2lkeCA9IChsYXN0
-X2F2YWlsX2lkeCArIDEpICYgKHZxLT5udW0gLSAxKTsKPiA+ID4gKwl9Cj4gPiA+ICsKPiA+ID4g
-KwlpZiAoIXVzZWRfdXBkYXRlKQo+ID4gPiArCQlyZXR1cm4gcmV0Owo+ID4gPiArCj4gPiA+ICsJ
-bGFzdF91c2VkX2lkeCA9IHZxLT5sYXN0X3VzZWRfaWR4ICYgKHZxLT5udW0gLSAxKTsKPiA+ID4g
-Kwl3aGlsZSAodG90YWwpIHsKPiA+ID4gKwkJY29waWVkID0gbWluKCh1MTYpKHZxLT5udW0gLSBs
-YXN0X3VzZWRfaWR4KSwgdG90YWwpOwo+ID4gPiArCQlyZXQyID0gdmhvc3RfY29weV90b191c2Vy
-KHZxLAo+ID4gPiArCQkJCQkgICZ2cS0+dXNlZC0+cmluZ1tsYXN0X3VzZWRfaWR4XSwKPiA+ID4g
-KwkJCQkJICAmaGVhZHNbcmV0IC0gdG90YWxdLAo+ID4gPiArCQkJCQkgIGNvcGllZCAqIHNpemVv
-ZigqdXNlZCkpOwo+ID4gPiArCj4gPiA+ICsJCWlmICh1bmxpa2VseShyZXQyKSkgewo+ID4gPiAr
-CQkJdnFfZXJyKHZxLCAiRmFpbGVkIHRvIHVwZGF0ZSB1c2VkIHJpbmchXG4iKTsKPiA+ID4gKwkJ
-CXJldHVybiAtRUZBVUxUOwo+ID4gPiArCQl9Cj4gPiA+ICsKPiA+ID4gKwkJbGFzdF91c2VkX2lk
-eCA9IDA7Cj4gPiA+ICsJCXRvdGFsIC09IGNvcGllZDsKPiA+ID4gKwl9Cj4gPiA+ICsKPiA+ID4g
-KwkvKiBPbmx5IGdldCBhdmFpbCByaW5nIGVudHJpZXMgYWZ0ZXIgdGhleSBoYXZlIGJlZW4gZXhw
-b3NlZCBieSBndWVzdC4gKi8KPiA+ID4gKwlzbXBfcm1iKCk7Cj4gPiBCYXJyaWVyIGJlZm9yZSBy
-ZXR1cm4gaXMgYSB2ZXJ5IGNvbmZ1c2luZyBBUEkuIEkgZ3Vlc3MgaXQncyBkZXNpZ25lZCB0bwo+
-ID4gYmUgdXNlZCBpbiBhIHNwZWNpZmljIHdheSB0byBtYWtlIGl0IG5lY2Vzc2FyeSAtIGJ1dCB3
-aGF0IGlzIGl0Pwo+IAo+IExvb2tzIGxpa2UgYSBhbmQgd2UgbmVlZCBkbyB0aGlzIGFmdGVyIHJl
-YWRpbmcgYXZhaWxfaWR4Lgo+IAo+IFRoYW5rcwo+IAo+ID4gCj4gPiAKPiA+ID4gKwlyZXR1cm4g
-cmV0Owo+ID4gPiArfQo+ID4gPiArRVhQT1JUX1NZTUJPTCh2aG9zdF9wcmVmZXRjaF9kZXNjX2lu
-ZGljZXMpOwo+ID4gPiAgIHN0YXRpYyBpbnQgX19pbml0IHZob3N0X2luaXQodm9pZCkKPiA+ID4g
-ICB7Cj4gPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0L3Zob3N0LmggYi9kcml2ZXJzL3Zo
-b3N0L3Zob3N0LmgKPiA+ID4gaW5kZXggMzlmZjg5Ny4uMTZjMmNiNiAxMDA2NDQKPiA+ID4gLS0t
-IGEvZHJpdmVycy92aG9zdC92aG9zdC5oCj4gPiA+ICsrKyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3Qu
-aAo+ID4gPiBAQCAtMjI4LDYgKzIyOCw5IEBAIHNzaXplX3Qgdmhvc3RfY2hyX3JlYWRfaXRlcihz
-dHJ1Y3Qgdmhvc3RfZGV2ICpkZXYsIHN0cnVjdCBpb3ZfaXRlciAqdG8sCj4gPiA+ICAgc3NpemVf
-dCB2aG9zdF9jaHJfd3JpdGVfaXRlcihzdHJ1Y3Qgdmhvc3RfZGV2ICpkZXYsCj4gPiA+ICAgCQkJ
-ICAgICBzdHJ1Y3QgaW92X2l0ZXIgKmZyb20pOwo+ID4gPiAgIGludCB2aG9zdF9pbml0X2Rldmlj
-ZV9pb3RsYihzdHJ1Y3Qgdmhvc3RfZGV2ICpkLCBib29sIGVuYWJsZWQpOwo+ID4gPiAraW50IHZo
-b3N0X3ByZWZldGNoX2Rlc2NfaW5kaWNlcyhzdHJ1Y3Qgdmhvc3RfdmlydHF1ZXVlICp2cSwKPiA+
-ID4gKwkJCQlzdHJ1Y3QgdnJpbmdfdXNlZF9lbGVtICpoZWFkcywKPiA+ID4gKwkJCQl1MTYgbnVt
-LCBib29sIHVzZWRfdXBkYXRlKTsKPiA+ID4gICAjZGVmaW5lIHZxX2Vycih2cSwgZm10LCAuLi4p
-IGRvIHsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXAo+ID4gPiAgIAkJcHJfZGVi
-dWcocHJfZm10KGZtdCksICMjX19WQV9BUkdTX18pOyAgICAgICBcCj4gPiA+IC0tIAo+ID4gPiAy
-LjcuNApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0
-dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRh
-dGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGlu
-Zm8vdmlydHVhbGl6YXRpb24=
+On Wed, Sep 27, 2017 at 08:38:24AM +0800, Jason Wang wrote:
+> 
+> 
+> On 2017年09月27日 03:13, Michael S. Tsirkin wrote:
+> > On Fri, Sep 22, 2017 at 04:02:33PM +0800, Jason Wang wrote:
+> > > This patch introduces a helper which just increase the used idx. This
+> > > will be used in pair with vhost_prefetch_desc_indices() by batching
+> > > code.
+> > > 
+> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > > ---
+> > >   drivers/vhost/vhost.c | 33 +++++++++++++++++++++++++++++++++
+> > >   drivers/vhost/vhost.h |  1 +
+> > >   2 files changed, 34 insertions(+)
+> > > 
+> > > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> > > index 8424166d..6532cda 100644
+> > > --- a/drivers/vhost/vhost.c
+> > > +++ b/drivers/vhost/vhost.c
+> > > @@ -2178,6 +2178,39 @@ int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
+> > >   }
+> > >   EXPORT_SYMBOL_GPL(vhost_add_used);
+> > > +int vhost_add_used_idx(struct vhost_virtqueue *vq, int n)
+> > > +{
+> > > +	u16 old, new;
+> > > +
+> > > +	old = vq->last_used_idx;
+> > > +	new = (vq->last_used_idx += n);
+> > > +	/* If the driver never bothers to signal in a very long while,
+> > > +	 * used index might wrap around. If that happens, invalidate
+> > > +	 * signalled_used index we stored. TODO: make sure driver
+> > > +	 * signals at least once in 2^16 and remove this.
+> > > +	 */
+> > > +	if (unlikely((u16)(new - vq->signalled_used) < (u16)(new - old)))
+> > > +		vq->signalled_used_valid = false;
+> > > +
+> > > +	/* Make sure buffer is written before we update index. */
+> > > +	smp_wmb();
+> > > +	if (vhost_put_user(vq, cpu_to_vhost16(vq, vq->last_used_idx),
+> > > +			   &vq->used->idx)) {
+> > > +		vq_err(vq, "Failed to increment used idx");
+> > > +		return -EFAULT;
+> > > +	}
+> > > +	if (unlikely(vq->log_used)) {
+> > > +		/* Log used index update. */
+> > > +		log_write(vq->log_base,
+> > > +			  vq->log_addr + offsetof(struct vring_used, idx),
+> > > +			  sizeof(vq->used->idx));
+> > > +		if (vq->log_ctx)
+> > > +			eventfd_signal(vq->log_ctx, 1);
+> > > +	}
+> > > +	return 0;
+> > > +}
+> > > +EXPORT_SYMBOL_GPL(vhost_add_used_idx);
+> > > +
+> > >   static int __vhost_add_used_n(struct vhost_virtqueue *vq,
+> > >   			    struct vring_used_elem *heads,
+> > >   			    unsigned count)
+> > > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> > > index 16c2cb6..5dd6c05 100644
+> > > --- a/drivers/vhost/vhost.h
+> > > +++ b/drivers/vhost/vhost.h
+> > > @@ -199,6 +199,7 @@ int __vhost_get_vq_desc(struct vhost_virtqueue *vq,
+> > >   void vhost_discard_vq_desc(struct vhost_virtqueue *, int n);
+> > >   int vhost_vq_init_access(struct vhost_virtqueue *);
+> > > +int vhost_add_used_idx(struct vhost_virtqueue *vq, int n);
+> > >   int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
+> > >   int vhost_add_used_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
+> > >   		     unsigned count);
+> > Please change the API to hide the fact that there's an index that needs
+> > to be updated.
+> 
+> In fact, an interesting optimization on top is just call
+> vhost_add_used_idx(vq, n) instead of n vhost_add_used_idx(vq, 1). That's the
+> reason I leave n in the API.
+> 
+> Thanks
+
+Right but you could increment some internal counter in the vq
+structure then update the used index using some api
+with a generic name, e.g.  add_used_complete or something like this.
+
+> > 
+> > > -- 
+> > > 2.7.4
