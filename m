@@ -1,131 +1,114 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH v2 net-next 10/10] net: hns3: Add mqprio support when
- interacting with network stack
-Date: Wed, 27 Sep 2017 08:51:44 +0800
-Message-ID: <7eb4e0c0-f60c-ed0d-d75f-8cd5d4bc437d@huawei.com>
-References: <1506392718-50463-1-git-send-email-linyunsheng@huawei.com>
- <1506392718-50463-11-git-send-email-linyunsheng@huawei.com>
- <AM0PR0502MB3683C922A7D87D3E1F64B93EBF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <3fe662df-a216-4966-863c-d98555ef3ed2@huawei.com>
- <AM0PR0502MB3683FFF227DA3D136AA63987BF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
-        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "john.garry@huawei.com" <john.garry@huawei.com>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>,
-        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: Yuval Mintz <yuvalm@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM0PR0502MB3683FFF227DA3D136AA63987BF7B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Paasch <cpaasch@apple.com>
+Subject: [PATCH net] net: Set sk_prot_creator when cloning sockets to the right
+ proto
+Date: Tue, 26 Sep 2017 17:38:50 -0700
+Message-ID: <20170927003850.23731-1-cpaasch@apple.com>
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-out5.apple.com ([17.151.62.27]:42268 "EHLO
+        mail-in5.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1030619AbdI0Ax6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 20:53:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Yuval
+sk->sk_prot and sk->sk_prot_creator can differ when the app uses
+IPV6_ADDRFORM (transforming an IPv6-socket to an IPv4-one).
+Which is why sk_prot_creator is there to make sure that sk_prot_free()
+does the kmem_cache_free() on the right kmem_cache slab.
 
-On 2017/9/26 20:29, Yuval Mintz wrote:
->> Hi, Yuval
->>
->> On 2017/9/26 14:43, Yuval Mintz wrote:
->>>> When using tc qdisc to configure DCB parameter, dcb_ops->setup_tc
->>>> is used to tell hclge_dcb module to do the setup.
->>>
->>> While this might be a step in the right direction, this causes an inconsistency
->>> in user experience - Some [well, most] vendors didn't allow the mqprio
->>> priority mapping to affect DCB, instead relying on the dcbnl functionality
->>> to control that configuration.
->>>
->>> A couple of options to consider:
->>>   - Perhaps said logic shouldn't be contained inside the driver but rather
->>>      in mqprio logic itself. I.e., rely on DCBNL functionality [if available] from
->>>      within mqprio and try changing the configuration.
->>
->> In net/dcb/dcbnl.c
->> dcbnl_ieee_set already call dcbnl_ieee_notify to notify the user space
->> configuration has changed, does this dcbnl_ieee_notify function do the
->> job for us? I am not sure if lldpad has registered for this notifition.
-> 
-> Not that familiar with the dcbnl calls; Shouldn't dcbnl_setall be called to
-> make the configuration apply [or is that only for ieee]?
+Now, if such a socket gets transformed back to a listening socket (using
+connect() with AF_UNSPEC) we will allocate an IPv4 tcp_sock through
+sk_clone_lock() when a new connection comes in. But sk_prot_creator will
+still point to the IPv6 kmem_cache (as everything got copied in
+sk_clone_lock()). When freeing, we will thus put this
+memory back into the IPv6 kmem_cache although it was allocated in the
+IPv4 cache. I have seen memory corruption happening because of this.
 
-dcbnl_setall is for cee to make the configuration apply.
-ieee does not have the apply operation.
+With slub-debugging and MEMCG_KMEM enabled this gives the warning
+	"cache_from_obj: Wrong slab cache. TCPv6 but object is from TCP"
 
-> Regardless, don't know if it makes sense to assume user-application would
-> fix the qdisc configuration by notification while dcbnl logic in kernel could have
-> done that instead.
-> 
->> As you suggested below, can we add a new TC_MQPRIO_HW_OFFLOAD_
->> value to
->> reflect that the configuration is needed to be changed by dcbnl_ieee_set
->> (perhaps some other function) in dcbnl?
->> Do you think it is feasible?
-> 
-> Either I'm miseading your answer or we think of it from 2 opposite end.
-> I was thinking that the new offloaded flag would indicate to the underlying
-> driver that it's expected to offload the prio mapping [as part of DCB].
-> If the driver would be incapable of that it would refuse the offload.
-> User would then have to explicitly request that the qdisc offload.
+A C-program to trigger this:
 
+void main(void)
+{
+        int fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+        int new_fd, newest_fd, client_fd;
+        struct sockaddr_in6 bind_addr;
+        struct sockaddr_in bind_addr4, client_addr1, client_addr2;
+        struct sockaddr unsp;
+        int val;
 
-Adding a new offloaded flag to indicate that mqpri is using a hardware offload
-shared by dcbnl seems a good idea.
-As I do not know how the idea go with other, I will drop the mqprio support in
-this patch, and try to add the mqprio support as you suggested in the next
-patchset.
+        memset(&bind_addr, 0, sizeof(bind_addr));
+        bind_addr.sin6_family = AF_INET6;
+        bind_addr.sin6_port = ntohs(42424);
 
-Thanks again for the lengthly reply.
+        memset(&client_addr1, 0, sizeof(client_addr1));
+        client_addr1.sin_family = AF_INET;
+        client_addr1.sin_port = ntohs(42424);
+        client_addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-> 
->>
->>
->>>   - Add a new TC_MQPRIO_HW_OFFLOAD_ value to explicitly reflect user
->>>      request to allow this configuration to affect DCB.
->>>
->>>> When using lldptool to configure DCB parameter, hclge_dcb module
->>>> call the client_ops->setup_tc to tell network stack which queue
->>>> and priority is using for specific tc.
->>>
->>> You're basically bypassing the mqprio logic.
->>> Since you're configuring the prio->queue mapping from DCB flow,
->>> you'll get an mqprio-like behavior [meaning a transmitted packet
->>> would reach a transmission queue associated with its priority] even
->>> if device wasn't grated with an mqprio qdisc.
->>> Why should your user even use mqprio? What benefit does he get from it?
->>>
->>> ...
->>>
->>>> +static int hns3_nic_set_real_num_queue(struct net_device *netdev)
->>>> +{
->>>> +	struct hns3_nic_priv *priv = netdev_priv(netdev);
->>>> +	struct hnae3_handle *h = priv->ae_handle;
->>>> +	struct hnae3_knic_private_info *kinfo = &h->kinfo;
->>>> +	unsigned int queue_size = kinfo->rss_size * kinfo->num_tc;
->>>> +	int ret;
->>>> +
->>>> +	ret = netif_set_real_num_tx_queues(netdev, queue_size);
->>>> +	if (ret) {
->>>> +		netdev_err(netdev,
->>>> +			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
->>>> +			   ret);
->>>> +		return ret;
->>>> +	}
->>>> +
->>>> +	ret = netif_set_real_num_rx_queues(netdev, queue_size);
->>>
->>> I don't think you're changing the driver behavior, but why are you setting
->>> the real number of rx queues based on the number of TCs?
->>> Do you actually open (TC x RSS) Rx queues?
->>>
->>> .
->>>
-> 
+        memset(&client_addr2, 0, sizeof(client_addr2));
+        client_addr2.sin_family = AF_INET;
+        client_addr2.sin_port = ntohs(42421);
+        client_addr2.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+        memset(&unsp, 0, sizeof(unsp));
+        unsp.sa_family = AF_UNSPEC;
+
+        bind(fd, (struct sockaddr *)&bind_addr, sizeof(bind_addr));
+
+        listen(fd, 5);
+
+        client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        connect(client_fd, (struct sockaddr *)&client_addr1, sizeof(client_addr1));
+        new_fd = accept(fd, NULL, NULL);
+        close(fd);
+
+        val = AF_INET;
+        setsockopt(new_fd, SOL_IPV6, IPV6_ADDRFORM, &val, sizeof(val));
+
+        connect(new_fd, &unsp, sizeof(unsp));
+
+        memset(&bind_addr4, 0, sizeof(bind_addr4));
+        bind_addr4.sin_family = AF_INET;
+        bind_addr4.sin_port = ntohs(42421);
+        bind(new_fd, (struct sockaddr *)&bind_addr4, sizeof(bind_addr4));
+
+        listen(new_fd, 5);
+
+        client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        connect(client_fd, (struct sockaddr *)&client_addr2, sizeof(client_addr2));
+
+        newest_fd = accept(new_fd, NULL, NULL);
+        close(new_fd);
+
+        close(client_fd);
+        close(new_fd);
+}
+
+As far as I can see, this bug has been there since the beginning of the
+git-days.
+
+Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+---
+ net/core/sock.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9b7b6bbb2a23..7d55c05f449d 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1654,6 +1654,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 
+ 		sock_copy(newsk, sk);
+ 
++		newsk->sk_prot_creator = sk->sk_prot;
++
+ 		/* SANITY */
+ 		if (likely(newsk->sk_net_refcnt))
+ 			get_net(sock_net(newsk));
+-- 
+2.14.1
