@@ -1,108 +1,115 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v4 net-next 06/12] gtp: Use goto for exceptions in gtp_udp_encap_recv funcs
-Date: Tue, 26 Sep 2017 21:57:57 -0700
-Message-ID: <20170927045803.2477-7-tom@quantonium.net>
+Subject: [PATCH v4 net-next 04/12] iptunnel: Generalize tunnel update pmtu
+Date: Tue, 26 Sep 2017 21:57:55 -0700
+Message-ID: <20170927045803.2477-5-tom@quantonium.net>
 References: <20170927045803.2477-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:47304 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161066AbdI0E6y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 00:58:54 -0400
-Received: by mail-pf0-f173.google.com with SMTP id u12so6674443pfl.4
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 21:58:54 -0700 (PDT)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:49835 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970863AbdI0E6t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 00:58:49 -0400
+Received: by mail-pg0-f51.google.com with SMTP id m30so7130803pgn.6
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 21:58:48 -0700 (PDT)
 In-Reply-To: <20170927045803.2477-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consolidate return logic to make it easier to extend.
+Add __iptunnel_update_pmtu exported function which does not take
+an iptunnel argument but instead includes the fields from the
+iptunnel structure as arguments which are needed in the function.
+
+iptunnel_update_pmtu was modified to call __iptunnel_update_pmtu.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/gtp.c | 26 +++++++++++++++++---------
- 1 file changed, 17 insertions(+), 9 deletions(-)
+ include/net/ip_tunnels.h |  4 ++++
+ net/ipv4/ip_tunnel.c     | 30 ++++++++++++++++++++----------
+ 2 files changed, 24 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f2aac5d01143..00e5ea5cb935 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -234,23 +234,27 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 	struct pdp_ctx *pctx;
- 
- 	if (!pskb_may_pull(skb, hdrlen))
--		return -1;
-+		goto drop;
- 
- 	gtp0 = (struct gtp0_header *)(skb->data + sizeof(struct udphdr));
- 
- 	if ((gtp0->flags >> 5) != GTP_V0)
--		return 1;
-+		goto pass;
- 
- 	if (gtp0->type != GTP_TPDU)
--		return 1;
-+		goto pass;
- 
- 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
- 	if (!pctx) {
- 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
--		return 1;
-+		goto pass;
- 	}
- 
- 	return gtp_rx(pctx, skb, hdrlen, gtp->role);
-+drop:
-+	return -1;
-+pass:
-+	return 1;
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 2b05ae24f4f6..be675836d35a 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -317,6 +317,10 @@ static inline struct rtable *ip_tunnel_get_route(struct net_device *dev,
+ 				     dst_cache, use_cache);
  }
  
- static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
-@@ -261,15 +265,15 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 	struct pdp_ctx *pctx;
++int __iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			   struct dst_entry *dst, __be16 df,
++			   const struct iphdr *inner_iph, int hlen, u32 daddr);
++
+ struct ip_tunnel_encap_ops {
+ 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
+ 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index c97525d8dff9..0ee84ca76e0f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -506,17 +506,16 @@ int ip_tunnel_encap_setup(struct ip_tunnel *t,
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
  
- 	if (!pskb_may_pull(skb, hdrlen))
--		return -1;
-+		goto drop;
+-static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+-			    struct rtable *rt, __be16 df,
+-			    const struct iphdr *inner_iph)
++int __iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			   struct dst_entry *dst, __be16 df,
++			   const struct iphdr *inner_iph, int hlen, u32 daddr)
+ {
+-	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	int pkt_size = skb->len - tunnel->hlen - dev->hard_header_len;
++	int pkt_size = skb->len - hlen - dev->hard_header_len;
+ 	int mtu;
  
- 	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
+ 	if (df)
+-		mtu = dst_mtu(&rt->dst) - dev->hard_header_len
+-					- sizeof(struct iphdr) - tunnel->hlen;
++		mtu = dst_mtu(dst) - dev->hard_header_len
++				   - sizeof(struct iphdr) - hlen;
+ 	else
+ 		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
  
- 	if ((gtp1->flags >> 5) != GTP_V1)
--		return 1;
-+		goto pass;
+@@ -538,8 +537,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
  
- 	if (gtp1->type != GTP_TPDU)
--		return 1;
-+		goto pass;
+ 		if (rt6 && mtu < dst_mtu(skb_dst(skb)) &&
+ 			   mtu >= IPV6_MIN_MTU) {
+-			if ((tunnel->parms.iph.daddr &&
+-			    !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
++			if ((daddr && !ipv4_is_multicast(daddr)) ||
+ 			    rt6->rt6i_dst.plen == 128) {
+ 				rt6->rt6i_flags |= RTF_MODIFIED;
+ 				dst_metric_set(skb_dst(skb), RTAX_MTU, mtu);
+@@ -555,6 +553,17 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ #endif
+ 	return 0;
+ }
++EXPORT_SYMBOL(__iptunnel_update_pmtu);
++
++static int iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++				struct rtable *rt, __be16 df,
++				const struct iphdr *inner_iph)
++{
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++
++	return __iptunnel_update_pmtu(dev, skb, &rt->dst, df, inner_iph,
++				      tunnel->hlen, tunnel->parms.iph.daddr);
++}
  
- 	/* From 29.060: "This field shall be present if and only if any one or
- 	 * more of the S, PN and E flags are set.".
-@@ -282,17 +286,21 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
- 
- 	/* Make sure the header is larger enough, including extensions. */
- 	if (!pskb_may_pull(skb, hdrlen))
--		return -1;
-+		goto drop;
- 
- 	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
- 
- 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
- 	if (!pctx) {
- 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
--		return 1;
-+		goto drop;
+ void ip_md_tunnel_xmit(struct sk_buff *skb, struct net_device *dev, u8 proto)
+ {
+@@ -739,7 +748,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		goto tx_error;
  	}
  
- 	return gtp_rx(pctx, skb, hdrlen, gtp->role);
-+drop:
-+	return -1;
-+pass:
-+	return 1;
- }
- 
- static void gtp_encap_destroy(struct sock *sk)
+-	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off, inner_iph)) {
++	if (iptunnel_update_pmtu(dev, skb, rt, tnl_params->frag_off,
++				 inner_iph)) {
+ 		ip_rt_put(rt);
+ 		goto tx_error;
+ 	}
 -- 
 2.11.0
