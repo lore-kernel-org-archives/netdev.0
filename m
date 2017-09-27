@@ -1,59 +1,86 @@
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Subject: Re: tg3 pxe weirdness
-Date: Wed, 27 Sep 2017 16:01:10 +0530
-Message-ID: <CAMet4B4979pADZqK+6--jTFqUOF95X6FKF3Rhf9PKE-C9qOj4g@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 2/2] tools: bpf: add bpftool
+Date: Wed, 27 Sep 2017 12:45:11 +0200
+Message-ID: <20170927124511.650870bc@redhat.com>
+References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
+        <20170926153522.31500-3-jakub.kicinski@netronome.com>
+        <20170926222405.nq23enzudbjklczb@ast-mbp>
+        <20170927000208.4396dfb7@cakuba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Berend De Schouwer <berend.de.schouwer@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:53532 "EHLO
-        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751521AbdI0KbL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 06:31:11 -0400
-Received: by mail-qk0-f173.google.com with SMTP id w63so2053070qkd.10
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 03:31:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        netdev@vger.kernel.org, daniel@iogearbox.net, davem@davemloft.net,
+        hannes@stressinduktion.org, dsahern@gmail.com,
+        oss-drivers@netronome.com,
+        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170927000208.4396dfb7@cakuba>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 3:35 PM, Berend De Schouwer
-<berend.de.schouwer@gmail.com> wrote:
-> On Mon, 2017-09-25 at 15:11 +0530, Siva Reddy Kallam wrote:
->> On Fri, Sep 22, 2017 at 9:04 PM, Berend De Schouwer
->> <berend.de.schouwer@gmail.com> wrote:
->> > On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
->> > >
->> > >
->> > > Can you please share below details?
->> > > 1) Model and Manufacturer of the system
->> > > 2) Linux distro/kernel used?
->> >
->> > 4.13.3 gets a little further, but after some more data is
->> > transferred
->> > the tg3 driver still crashes.  This is unfortunately before I've
->> > got a
->> > writeable filesystem.
->> >
->> > The last line is:
->> > tg3 0000:01:00.0: tg3_stop_block timed out, ofs=4c00 enable_bit=2
->> >
->> > I've got some ideas to get the full dmesg.
->> >
->> > As with the other kernels it works OK on 1Gbps, but not slower
->> > switches.
->>
->> I am suspecting with link aware mode, the clock speed could be slow
->> and boot code does not
->> complete within the expected time with lower link speeds. So,
->> Providing a patch to override clock.
->> Can you please try with attached debug patch and provide us the
->> feedback with 100M link?
->> If it solves this issue, we will work on proper changes.
->
-> This does work on 4.13.3 and PXE for me.
->
-> I've tested on 1 Gbps, 100 Mbps and 10 Mbps.  I've done some
-> preliminary testing (eg. large file copies.)
+On Wed, 27 Sep 2017 00:02:08 +0100
+Jakub Kicinski <jakub.kicinski@netronome.com> wrote:
 
-Good. We will work on required changes and upstream proper patch after
-sanity test with multiple speeds.
+> On Tue, 26 Sep 2017 15:24:06 -0700, Alexei Starovoitov wrote:
+> > On Tue, Sep 26, 2017 at 08:35:22AM -0700, Jakub Kicinski wrote:  
+> > > Add a simple tool for querying and updating BPF objects on the system.
+> > > 
+> > > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> > > Reviewed-by: Simon Horman <simon.horman@netronome.com>
+[...]
+> > >  tools/bpf/Makefile             |  18 +-
+> > >  tools/bpf/bpftool/Makefile     |  80 +++++
+> > >  tools/bpf/bpftool/common.c     | 214 ++++++++++++
+> > >  tools/bpf/bpftool/jit_disasm.c |  83 +++++
+> > >  tools/bpf/bpftool/main.c       | 212 ++++++++++++
+> > >  tools/bpf/bpftool/main.h       |  99 ++++++
+> > >  tools/bpf/bpftool/map.c        | 742 +++++++++++++++++++++++++++++++++++++++++
+> > >  tools/bpf/bpftool/prog.c       | 392 ++++++++++++++++++++++
+> > >  8 files changed, 1837 insertions(+), 3 deletions(-)    
+> > ...  
+> > > +static int do_help(int argc, char **argv)
+> > > +{
+> > > +	fprintf(stderr,
+> > > +		"Usage: %s %s show   [MAP]\n"
+> > > +		"       %s %s dump    MAP\n"
+> > > +		"       %s %s update  MAP  key BYTES value VALUE [UPDATE_FLAGS]\n"
+> > > +		"       %s %s lookup  MAP  key BYTES\n"
+> > > +		"       %s %s getnext MAP [key BYTES]\n"
+> > > +		"       %s %s delete  MAP  key BYTES\n"
+> > > +		"       %s %s pin     MAP  FILE\n"
+> > > +		"       %s %s help\n"
+> > > +		"\n"
+> > > +		"       MAP := { id MAP_ID | pinned FILE }\n"
+> > > +		"       " HELP_SPEC_PROGRAM "\n"
+> > > +		"       VALUE := { BYTES | MAP | PROG }\n"
+> > > +		"       UPDATE_FLAGS := { any | exist | noexist }\n"
+> > > +		"",    
+> > 
+> > overall looks good to me, but still difficult to grasp how to use it.
+> > Can you add README with example usage and expected output?  
+> 
+> I have a README on GitHub, but I was thinking about perhaps writing a
+> proper man page?  Do you prefer one over the other?
+
+I would prefer adding a README.rst file, in RST-format, as the rest of
+the kernel documentation is moving in that direction[1] (your github
+version is in README.md format).  A man page will always be
+out-of-sync, and even out-of-sync on different distros.
+
+ See[1]: https://www.kernel.org/doc/html/latest/
+
+And then I would find some place in Documentation/admin-guide/ and
+include the README.rst file, so it shows up at [1].
+
+RST have an include method like:
+
+.. include:: ../../tools/bpf/bpftool/README.rst
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
