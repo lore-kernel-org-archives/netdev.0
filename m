@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v3 net-next 08/10] net: hns3: Add dcb netlink interface for the support of DCB feature
-Date: Wed, 27 Sep 2017 09:45:30 +0800
-Message-ID: <1506476732-128130-9-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v3 net-next 06/10] net: hns3: Add some interface for the support of DCB feature
+Date: Wed, 27 Sep 2017 09:45:28 +0800
+Message-ID: <1506476732-128130-7-git-send-email-linyunsheng@huawei.com>
 References: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,178 +13,148 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:7035 "EHLO
+Received: from szxga05-in.huawei.com ([45.249.212.191]:7033 "EHLO
         szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033082AbdI0BqF (ORCPT
+        with ESMTP id S1033072AbdI0BqF (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 21:46:05 -0400
 In-Reply-To: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add dcb netlink interface by calling the interface from
-hclge_dcb module.
-
-This patch also update Makefile in order to build hns3_dcbnl module.
+This patch add some interface and export some interface from
+hclge_tm and hclgc_main to support the upcoming DCB feature.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   2 +
- .../ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c    | 106 +++++++++++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |   2 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |   7 ++
- 4 files changed, 117 insertions(+)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    |  3 +-
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  3 ++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 48 ++++++++++++++++++++--
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  6 +++
+ 4 files changed, 55 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-index 7023dc87..d2b20d0 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/Makefile
-@@ -11,3 +11,5 @@ hclge-$(CONFIG_HNS3_DCB) += hclge_dcb.o
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index b345070..ca7e3bc 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -30,7 +30,6 @@
+ #define HCLGE_64BIT_STATS_FIELD_OFF(f) (offsetof(struct hclge_64_bit_stats, f))
+ #define HCLGE_32BIT_STATS_FIELD_OFF(f) (offsetof(struct hclge_32_bit_stats, f))
  
- obj-$(CONFIG_HNS3_ENET) += hns3.o
- hns3-objs = hns3_enet.o hns3_ethtool.o
+-static int hclge_rss_init_hw(struct hclge_dev *hdev);
+ static int hclge_set_mta_filter_mode(struct hclge_dev *hdev,
+ 				     enum hclge_mta_dmac_sel_type mta_mac_sel,
+ 				     bool enable);
+@@ -2655,7 +2654,7 @@ static int hclge_get_tc_size(struct hnae3_handle *handle)
+ 	return hdev->rss_size_max;
+ }
+ 
+-static int hclge_rss_init_hw(struct hclge_dev *hdev)
++int hclge_rss_init_hw(struct hclge_dev *hdev)
+ {
+ 	const  u8 hfunc = HCLGE_RSS_HASH_ALGO_TOEPLITZ;
+ 	struct hclge_vport *vport = hdev->vport;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+index 4fc36f0..394b587 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+@@ -515,4 +515,7 @@ static inline int hclge_get_queue_id(struct hnae3_queue *queue)
+ int hclge_cfg_mac_speed_dup(struct hclge_dev *hdev, int speed, u8 duplex);
+ int hclge_set_vf_vlan_common(struct hclge_dev *vport, int vfid,
+ 			     bool is_kill, u16 vlan, u8 qos, __be16 proto);
 +
-+hns3-$(CONFIG_HNS3_DCB) += hns3_dcbnl.o
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
-new file mode 100644
-index 0000000..9832172
---- /dev/null
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
-@@ -0,0 +1,106 @@
-+/*
-+ * Copyright (c) 2016-2017 Hisilicon Limited.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
++int hclge_buffer_alloc(struct hclge_dev *hdev);
++int hclge_rss_init_hw(struct hclge_dev *hdev);
+ #endif
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+index ea94d23..8295684 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+@@ -883,10 +883,14 @@ static int hclge_tm_pri_dwrr_cfg(struct hclge_dev *hdev)
+ 	return 0;
+ }
+ 
+-static int hclge_tm_map_cfg(struct hclge_dev *hdev)
++int hclge_tm_map_cfg(struct hclge_dev *hdev)
+ {
+ 	int ret;
+ 
++	ret = hclge_up_to_tc_map(hdev);
++	if (ret)
++		return ret;
 +
-+#include "hnae3.h"
-+#include "hns3_enet.h"
-+
-+static
-+int hns3_dcbnl_ieee_getets(struct net_device *ndev, struct ieee_ets *ets)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (h->kinfo.dcb_ops->ieee_getets)
-+		return h->kinfo.dcb_ops->ieee_getets(h, ets);
-+
-+	return -EOPNOTSUPP;
-+}
-+
-+static
-+int hns3_dcbnl_ieee_setets(struct net_device *ndev, struct ieee_ets *ets)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (h->kinfo.dcb_ops->ieee_setets)
-+		return h->kinfo.dcb_ops->ieee_setets(h, ets);
-+
-+	return -EOPNOTSUPP;
-+}
-+
-+static
-+int hns3_dcbnl_ieee_getpfc(struct net_device *ndev, struct ieee_pfc *pfc)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (h->kinfo.dcb_ops->ieee_getpfc)
-+		return h->kinfo.dcb_ops->ieee_getpfc(h, pfc);
-+
-+	return -EOPNOTSUPP;
-+}
-+
-+static
-+int hns3_dcbnl_ieee_setpfc(struct net_device *ndev, struct ieee_pfc *pfc)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (h->kinfo.dcb_ops->ieee_setpfc)
-+		return h->kinfo.dcb_ops->ieee_setpfc(h, pfc);
-+
-+	return -EOPNOTSUPP;
-+}
-+
-+/* DCBX configuration */
-+static u8 hns3_dcbnl_getdcbx(struct net_device *ndev)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+
-+	if (h->kinfo.dcb_ops->getdcbx)
-+		return h->kinfo.dcb_ops->getdcbx(h);
-+
+ 	ret = hclge_tm_pg_to_pri_map(hdev);
+ 	if (ret)
+ 		return ret;
+@@ -994,7 +998,7 @@ static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
+ 	return 0;
+ }
+ 
+-static int hclge_tm_schd_mode_hw(struct hclge_dev *hdev)
++int hclge_tm_schd_mode_hw(struct hclge_dev *hdev)
+ {
+ 	int ret;
+ 
+@@ -1092,7 +1096,45 @@ int hclge_pause_setup_hw(struct hclge_dev *hdev)
+ 			return ret;
+ 	}
+ 
+-	return hclge_up_to_tc_map(hdev);
 +	return 0;
 +}
 +
-+/* return 0 if successful, otherwise fail */
-+static u8 hns3_dcbnl_setdcbx(struct net_device *ndev, u8 mode)
++int hclge_tm_prio_tc_info_update(struct hclge_dev *hdev, u8 *prio_tc)
 +{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
++	struct hclge_vport *vport = hdev->vport;
++	struct hnae3_knic_private_info *kinfo;
++	u32 i, k;
 +
-+	if (h->kinfo.dcb_ops->setdcbx)
-+		return h->kinfo.dcb_ops->setdcbx(h, mode);
++	for (i = 0; i < HNAE3_MAX_USER_PRIO; i++) {
++		if (prio_tc[i] >= hdev->tm_info.num_tc)
++			return -EINVAL;
++		hdev->tm_info.prio_tc[i] = prio_tc[i];
 +
-+	return 1;
++		for (k = 0;  k < hdev->num_alloc_vport; k++) {
++			kinfo = &vport[k].nic.kinfo;
++			kinfo->prio_tc[i] = prio_tc[i];
++		}
++	}
++	return 0;
 +}
 +
-+static const struct dcbnl_rtnl_ops hns3_dcbnl_ops = {
-+	.ieee_getets	= hns3_dcbnl_ieee_getets,
-+	.ieee_setets	= hns3_dcbnl_ieee_setets,
-+	.ieee_getpfc	= hns3_dcbnl_ieee_getpfc,
-+	.ieee_setpfc	= hns3_dcbnl_ieee_setpfc,
-+	.getdcbx	= hns3_dcbnl_getdcbx,
-+	.setdcbx	= hns3_dcbnl_setdcbx,
-+};
-+
-+/* hclge_dcbnl_setup - DCBNL setup
-+ * @handle: the corresponding vport handle
-+ * Set up DCBNL
-+ */
-+void hns3_dcbnl_setup(struct hnae3_handle *handle)
++void hclge_tm_schd_info_update(struct hclge_dev *hdev, u8 num_tc)
 +{
-+	struct net_device *dev = handle->kinfo.netdev;
++	u8 i, bit_map = 0;
 +
-+	if (!handle->kinfo.dcb_ops)
-+		return;
++	hdev->tm_info.num_tc = num_tc;
 +
-+	dev->dcbnl_ops = &hns3_dcbnl_ops;
-+}
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-index 35369e1..11dab26 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
-@@ -2790,6 +2790,8 @@ static int hns3_client_init(struct hnae3_handle *handle)
- 		goto out_reg_netdev_fail;
- 	}
++	for (i = 0; i < hdev->tm_info.num_tc; i++)
++		bit_map |= BIT(i);
++
++	if (!bit_map) {
++		bit_map = 1;
++		hdev->tm_info.num_tc = 1;
++	}
++
++	hdev->hw_tc_map = bit_map;
++
++	hclge_tm_schd_info_init(hdev);
+ }
  
-+	hns3_dcbnl_setup(handle);
-+
- 	/* MTU range: (ETH_MIN_MTU(kernel default) - 9706) */
- 	netdev->max_mtu = HNS3_MAX_MTU - (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
+ int hclge_tm_init_hw(struct hclge_dev *hdev)
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+index 19a01e4..bf59961 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+@@ -112,4 +112,10 @@ struct hclge_port_shapping_cmd {
  
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
-index 7e87461..481eada 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
-@@ -590,4 +590,11 @@ static inline void hns3_write_reg(void __iomem *base, u32 reg, u32 value)
- void hns3_ethtool_set_ops(struct net_device *netdev);
- 
- int hns3_clean_tx_ring(struct hns3_enet_ring *ring, int budget);
-+
-+#ifdef CONFIG_HNS3_DCB
-+void hns3_dcbnl_setup(struct hnae3_handle *handle);
-+#else
-+static inline void hns3_dcbnl_setup(struct hnae3_handle *handle) {}
-+#endif
-+
+ int hclge_tm_schd_init(struct hclge_dev *hdev);
+ int hclge_pause_setup_hw(struct hclge_dev *hdev);
++int hclge_tm_schd_mode_hw(struct hclge_dev *hdev);
++int hclge_tm_prio_tc_info_update(struct hclge_dev *hdev, u8 *prio_tc);
++void hclge_tm_schd_info_update(struct hclge_dev *hdev, u8 num_tc);
++int hclge_tm_dwrr_cfg(struct hclge_dev *hdev);
++int hclge_tm_map_cfg(struct hclge_dev *hdev);
++int hclge_tm_init_hw(struct hclge_dev *hdev);
  #endif
 -- 
 1.9.1
