@@ -1,84 +1,73 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v3 net-next 00/10] Add support for DCB feature in hns3 driver
-Date: Wed, 27 Sep 2017 09:45:22 +0800
-Message-ID: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next RFC 5/5] vhost_net: basic tx virtqueue batched
+ processing
+Date: Wed, 27 Sep 2017 10:04:18 +0800
+Message-ID: <16ea7512-d770-21ef-edb6-3ada51f08592@redhat.com>
+References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
+ <1506067355-5771-6-git-send-email-jasowang@redhat.com>
+ <20170926222223-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
-        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
-        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
-        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170926222223-mutt-send-email-mst@kernel.org>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patchset contains some enhancement related to DCB before
-adding support for DCB feature.
 
-This patchset depends on the following patchset:
-https://patchwork.ozlabs.org/cover/815646/
-https://patchwork.ozlabs.org/cover/816145/
 
-High Level Architecture:
+On 2017年09月27日 03:25, Michael S. Tsirkin wrote:
+> On Fri, Sep 22, 2017 at 04:02:35PM +0800, Jason Wang wrote:
+>> This patch implements basic batched processing of tx virtqueue by
+>> prefetching desc indices and updating used ring in a batch. For
+>> non-zerocopy case, vq->heads were used for storing the prefetched
+>> indices and updating used ring. It is also a requirement for doing
+>> more batching on top. For zerocopy case and for simplicity, batched
+>> processing were simply disabled by only fetching and processing one
+>> descriptor at a time, this could be optimized in the future.
+>>
+>> XDP_DROP (without touching skb) on tun (with Moongen in guest) with
+>> zercopy disabled:
+>>
+>> Intel(R) Xeon(R) CPU E5-2650 0 @ 2.00GHz:
+>> Before: 3.20Mpps
+>> After:  3.90Mpps (+22%)
+>>
+>> No differences were seen with zerocopy enabled.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> So where is the speedup coming from? I'd guess the ring is
+> hot in cache, it's faster to access it in one go, then
+> pass many packets to net stack. Is that right?
+>
+> Another possibility is better code cache locality.
 
-                   [ lldpad ]
-                       |
-                       |
-                       |
-                 [ hns3_dcbnl ]
-                       |
-                       |
-                       |
-                 [ hclge_dcb ]
-                   /      \
-                /            \
-             /                  \
-     [ hclge_main ]        [ hclge_tm ]
+Yes, I think the speed up comes from:
 
-Current patch-set support following functionality:
-   Use of lldptool to configure the tc schedule mode, tc
-   bandwidth(if schedule mode is ETS), prio_tc_map and
-   PFC parameter.
+- less cache misses
+- less cache line bounce when virtqueue is about to be full (guest is 
+faster than host which is the case of MoonGen)
+- less memory barriers
+- possible faster copy speed by using copy_to_user() on modern CPUs
 
----
-V3: Drop mqprio support
+>
+> So how about this patchset is refactored:
+>
+> 1. use existing APIs just first get packets then
+>     transmit them all then use them all
 
-V2: Fix for not defining variables in local loop.
+Looks like current API can not get packets first, it only support get 
+packet one by one (if you mean vhost_get_vq_desc()). And used ring 
+updating may get more misses in this case.
 
-V1: Initial Submit.
+> 2. add new APIs and move the loop into vhost core
+>     for more speedups
 
-Yunsheng Lin (10):
-  net: hns3: Support for dynamically assigning tx buffer to TC
-  net: hns3: Add support for dynamically buffer reallocation
-  net: hns3: Add support for PFC setting in TM module
-  net: hns3: Add support for port shaper setting in TM module
-  net: hns3: Add tc-based TM support for sriov enabled port
-  net: hns3: Add some interface for the support of DCB feature
-  net: hns3: Add hclge_dcb module for the support of DCB feature
-  net: hns3: Add dcb netlink interface for the support of DCB feature
-  net: hns3: Setting for fc_mode and dcb enable flag in TM module
-  net: hns3: Add DCB support when interacting with network stack
+I don't see any advantages, looks like just need some e.g callbacks in 
+this case.
 
- drivers/net/ethernet/hisilicon/Kconfig             |   9 +
- drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  17 ++
- .../net/ethernet/hisilicon/hns3/hns3pf/Makefile    |   4 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |   6 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c | 304 +++++++++++++++++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h |  21 ++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 214 ++++++++++-----
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |   8 +-
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 231 ++++++++++++++--
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  15 +
- .../ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c    | 106 +++++++
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 104 ++++++-
- .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |   7 +
- 13 files changed, 927 insertions(+), 119 deletions(-)
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.h
- create mode 100644 drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_dcbnl.c
-
--- 
-1.9.1
+Thanks
