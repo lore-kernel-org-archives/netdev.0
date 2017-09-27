@@ -1,34 +1,88 @@
-From: Richard Weinberger <richard@sigma-star.at>
-Subject: Re: WARNING: kernel stack frame pointer at ffff880156a5fea0 in bash:2103 has bad value 00007ffec7d87e50
-Date: Wed, 27 Sep 2017 08:51:22 +0200
-Message-ID: <41856500.WAzQIuoSLi@blindfold>
-References: <2656822.vqnppgTvlm@blindfold> <1598510.AHGpDp18sh@blindfold> <20170926224246.mj6cxkkelc4sanda@treble>
+From: w00273186 <wangyunjian@huawei.com>
+Subject: [PATCH net] i40e: Fix limit imprecise of the number of MAC/VLAN that can be added for VFs
+Date: Wed, 27 Sep 2017 14:58:17 +0800
+Message-ID: <1506495497-10736-1-git-send-email-wangyunjian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>, ast@kernel.org,
-        daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@kernel.org
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926224246.mj6cxkkelc4sanda@treble>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
+        <caihe@huawei.com>, Yunjian Wang <wangyunjian@huawei.com>
+To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga05-in.huawei.com ([45.249.212.191]:7040 "EHLO
+        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751730AbdI0G7i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 02:59:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 27. September 2017, 00:42:46 CEST schrieb Josh Poimboeuf:
-> > Here is another variant of the warning, it matches the attached .config:
-> I can take a look at it.  Unfortunately, for these types of issues I
-> often need the vmlinux file to be able to make sense of the unwinder
-> dump.  So if you happen to have somewhere to copy the vmlinux to, that
-> would be helpful.  Or if you give me your GCC version I can try to
-> rebuild it locally.
+From: Yunjian Wang <wangyunjian@huawei.com>
 
-There you go:
-http://git.infradead.org/~rw/bpf_splat/vmlinux.xz
+Now it don't limit the number of MAC/VLAN strictly. When there is more
+elements in the virtchnl MAC/VLAN list, it can still add successfully.
 
-Thanks,
-//richard
+Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 27 +++++++++++++---------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 4d1e670..285b96a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2065,11 +2065,6 @@ static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
+ 		dev_err(&pf->pdev->dev,
+ 			"VF attempting to override administratively set MAC address, reload the VF driver to resume normal operation\n");
+ 		ret = -EPERM;
+-	} else if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
+-		   !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
+-		dev_err(&pf->pdev->dev,
+-			"VF is not trusted, switch the VF to trusted to add more functionality\n");
+-		ret = -EPERM;
+ 	}
+ 	return ret;
+ }
+@@ -2128,6 +2123,15 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 		} else {
+ 			vf->num_mac++;
+ 		}
++
++		if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
++		    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
++			dev_err(&pf->pdev->dev,
++				"VF is not trusted, switch the VF to trusted to add more functionality\n");
++			ret = -EPERM;
++			spin_unlock_bh(&vsi->mac_filter_hash_lock);
++			goto error_param;
++		}
+ 	}
+ 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+ 
+@@ -2221,12 +2225,6 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 	i40e_status aq_ret = 0;
+ 	int i;
+ 
+-	if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
+-	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
+-		dev_err(&pf->pdev->dev,
+-			"VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
+-		goto error_param;
+-	}
+ 	if (!test_bit(I40E_VF_STATE_ACTIVE, &vf->vf_states) ||
+ 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
+ 		aq_ret = I40E_ERR_PARAM;
+@@ -2269,6 +2267,13 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 			dev_err(&pf->pdev->dev,
+ 				"Unable to add VLAN filter %d for VF %d, error %d\n",
+ 				vfl->vlan_id[i], vf->vf_id, ret);
++		if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
++		    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
++			dev_err(&pf->pdev->dev,
++				"VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
++			aq_ret = -EPERM;
++			goto error_param;
++		}
+ 	}
+ 
+ error_param:
 -- 
-sigma star gmbh - Eduard-Bodem-Gasse 6 - 6020 Innsbruck - Austria
-ATU66964118 - FN 374287y
+1.8.3.1
