@@ -1,87 +1,49 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] ipv6: do lazy dst->__use update when per cpu dst is available
-Date: Wed, 27 Sep 2017 19:14:31 +0200
-Message-ID: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Wei Wang <weiwan@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60951 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750752AbdI0RPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Sep 2017 13:15:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mika Westerberg <mika.westerberg@linux.intel.com>
+Subject: Re: [PATCH v2 16/16] net: Add support for networking over
+ Thunderbolt cable
+Date: Wed, 27 Sep 2017 20:27:02 +0300
+Message-ID: <20170927172702.GE4630@lahna.fi.intel.com>
+References: <20170925110738.68382-17-mika.westerberg@linux.intel.com>
+ <20170926.214721.734746621809140934.davem@davemloft.net>
+ <20170927134238.GC4630@lahna.fi.intel.com>
+ <20170927.092709.1826177647592316221.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
+        michael.jamet@intel.com, yehezkel.bernat@intel.com,
+        amir.jer.levy@intel.com, Mario.Limonciello@dell.com,
+        lukas@wunner.de, andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170927.092709.1826177647592316221.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When a host is under high ipv6 load, the updates of the ingress
-route '__use' field are a source of relevant contention: such
-field is updated for each packet and several cores can access
-concurrently the dst, even if percpu dst entries are available
-and used.
+On Wed, Sep 27, 2017 at 09:27:09AM -0700, David Miller wrote:
+> From: Mika Westerberg <mika.westerberg@linux.intel.com>
+> Date: Wed, 27 Sep 2017 16:42:38 +0300
+> 
+> > Using build_skb() then would require to allocate larger buffer, that
+> > includes NET_SKB_PAD + SKB_DATA_ALIGN(skb_shared_info) and that exceeds
+> > page size. Is this something supported by build_skb()? It was not clear
+> > to me based on the code and other users of build_skb() but I may be
+> > missing something.
+> 
+> You need NET_SKB_PAD before and SKB_DATA_ALIGN(skb_shared_info) afterwards.
+> An order 1 page, if that's what you need, should work just fine.
 
-The __use value is just a rough indication of the dst usage: is
-already updated concurrently from multiple CPUs without any lock,
-so we can decrease the contention leveraging the percpu dst to perform
-__use bulk updates: if a per cpu dst entry is found, we account on
-such entry and we flush the percpu counter once per jiffy.
+I mean in order to fit a single ThunderboltIP frame, I would need to
+allocate NET_SKB_PAD+4096+SKB_DATA_ALIGN(skb_shared_info) size buffer.
+Is that still fine for build_skb()? Also can I use that with
+skb_add_rx_frag() which seem to take single page?
 
-Performace gain under UDP flood is as follows:
+ThunderboltIP protocol basically takes advantage of TSO/LRO but it
+actually does not do any segmentation. Instead it just splits the 64kB
+large package into smaller 4k frames (which each include 12 byte header)
+and pushes those over the Thunderbolt medium. The receiver side then
+does the opposite.
 
-nr RX queues	before		after		delta
-		kpps		kpps		(%)
-2		2316		2688		16
-3		3033		3605		18
-4		3963		4328		9
-5		4379		5253		19
-6		5137		6000		16
-
-Performance gain under TCP syn flood should be measurable as well.
-
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv6/route.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 26cc9f483b6d..e69f304de950 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1170,12 +1170,24 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 
- 		struct rt6_info *pcpu_rt;
- 
--		rt->dst.lastuse = jiffies;
--		rt->dst.__use++;
- 		pcpu_rt = rt6_get_pcpu_route(rt);
- 
- 		if (pcpu_rt) {
-+			unsigned long ts;
-+
- 			read_unlock_bh(&table->tb6_lock);
-+
-+			/* do lazy updates of rt->dst->__use, at most once
-+			 * per jiffy, to avoid contention on such cacheline.
-+			 */
-+			ts = jiffies;
-+			pcpu_rt->dst.__use++;
-+			if (pcpu_rt->dst.lastuse != ts) {
-+				rt->dst.__use += pcpu_rt->dst.__use;
-+				rt->dst.lastuse = ts;
-+				pcpu_rt->dst.__use = 0;
-+				pcpu_rt->dst.lastuse = ts;
-+			}
- 		} else {
- 			/* We have to do the read_unlock first
- 			 * because rt6_make_pcpu_route() may trigger
-@@ -1185,6 +1197,8 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 			read_unlock_bh(&table->tb6_lock);
- 			pcpu_rt = rt6_make_pcpu_route(rt);
- 			dst_release(&rt->dst);
-+			rt->dst.lastuse = jiffies;
-+			rt->dst.__use++;
- 		}
- 
- 		trace_fib6_table_lookup(net, pcpu_rt, table->tb6_id, fl6);
--- 
-2.13.5
+Thanks and sorry for dummy questions. I'm just not too familiar with
+the networking subsystem (yet).
