@@ -1,38 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] tun: bail out from tun_get_user() if the skb is empty
-Date: Wed, 27 Sep 2017 05:45:44 -0700
-Message-ID: <1506516344.6617.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170927121649.90557-1-glider@google.com>
-         <1506516168.6617.38.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH] netlink: do not proceed if dump's start() errs
+Date: Wed, 27 Sep 2017 14:50:55 +0200
+Message-ID: <CAHmME9pUWenvkMCNkAHa6K71UDdETvriMr52sKPL38q19M3RVw@mail.gmail.com>
+References: <20170927123915.5779-1-Jason@zx2c4.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, edumazet@google.com, dvyukov@google.com,
-        syzkaller@googlegroups.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Alexander Potapenko <glider@google.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>, johannes.berg@intel.com,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506516168.6617.38.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <20170927123915.5779-1-Jason@zx2c4.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-27 at 05:42 -0700, Eric Dumazet wrote:
+On Wed, Sep 27, 2017 at 2:39 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+> -       if (cb->start)
+> -               cb->start(cb);
+> +       if (cb->start) {
+> +               ret = cb->start(cb);
+> +               if (ret)
 
-> Or something cleaner to avoid copy/paste and focus on proper
-> skb->data[0] access and meaning.
-> 
-> Thanks.
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index 3c9985f299503ea65dad7eb3b47e2ab3bef87800..8ddb840687c1bdb24e4182612abc9e362624c3e9 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -1496,11 +1496,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	switch (tun->flags & TUN_TYPE_MASK) {
->  	case IFF_TUN:
->  		if (tun->flags & IFF_NO_PI) {
-> -			switch (skb->data[0] & 0xf0) {
-> -			case 0x40:
-> +			u8 ip_proto = skb->len ? (skb->data[0] >> 4) : 0;
+I need to sock_put(sk); before returning. I'll fix this for v2, but
+will for additional comments in case anybody has some.
 
-And name this variable ip_version ;)
+> +                       return ret;
+> +       }
+>
+>         ret = netlink_dump(sk);
+>         sock_put(sk);
