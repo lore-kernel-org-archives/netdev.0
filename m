@@ -1,294 +1,158 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
-Date: Wed, 27 Sep 2017 10:32:36 -0700
-Message-ID: <20170927173233.tuqlutz6t2gwdk53@ast-mbp>
-References: <cover.1506297988.git.daniel@iogearbox.net>
- <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
- <20170926211342.0c8e72b0@redhat.com>
- <59CAB17D.5090204@iogearbox.net>
- <20170927112604.1284f536@redhat.com>
- <645e7a39-c172-5882-5dd9-f038430114d1@gmail.com>
- <20170927165457.4265bfc3@redhat.com>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: [PATCH net-next] ipv6: do lazy dst->__use update when per cpu dst
+ is available
+Date: Wed, 27 Sep 2017 10:44:35 -0700
+Message-ID: <CAEA6p_DZxGesjymubWoWx7hQjaZ7Vdchh=cdOW9tAr4F7QvzXg@mail.gmail.com>
+References: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net,
-        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34815 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750852AbdI0Rck (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 13:32:40 -0400
-Received: by mail-pg0-f65.google.com with SMTP id u18so9884133pgo.1
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 10:32:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170927165457.4265bfc3@redhat.com>
+Received: from mail-vk0-f47.google.com ([209.85.213.47]:46558 "EHLO
+        mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751408AbdI0Roi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 13:44:38 -0400
+Received: by mail-vk0-f47.google.com with SMTP id 78so7468301vkc.3
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 10:44:37 -0700 (PDT)
+In-Reply-To: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 04:54:57PM +0200, Jesper Dangaard Brouer wrote:
-> On Wed, 27 Sep 2017 06:35:40 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
-> 
-> > On 09/27/2017 02:26 AM, Jesper Dangaard Brouer wrote:
-> > > On Tue, 26 Sep 2017 21:58:53 +0200
-> > > Daniel Borkmann <daniel@iogearbox.net> wrote:
-> > >   
-> > >> On 09/26/2017 09:13 PM, Jesper Dangaard Brouer wrote:
-> > >> [...]  
-> > >>> I'm currently implementing a cpumap type, that transfers raw XDP frames
-> > >>> to another CPU, and the SKB is allocated on the remote CPU.  (It
-> > >>> actually works extremely well).    
-> > >>
-> > >> Meaning you let all the XDP_PASS packets get processed on a
-> > >> different CPU, so you can reserve the whole CPU just for
-> > >> prefiltering, right?   
-> > > 
-> > > Yes, exactly.  Except I use the XDP_REDIRECT action to steer packets.
-> > > The trick is using the map-flush point, to transfer packets in bulk to
-> > > the remote CPU (single call IPC is too slow), but at the same time
-> > > flush single packets if NAPI didn't see a bulk.
-> > >   
-> > >> Do you have some numbers to share at this point, just curious when
-> > >> you mention it works extremely well.  
-> > > 
-> > > Sure... I've done a lot of benchmarking on this patchset ;-)
-> > > I have a benchmark program called xdp_redirect_cpu [1][2], that collect
-> > > stats via tracepoints (atm I'm limiting bulking 8 packets, and have
-> > > tracepoints at bulk spots, to amortize tracepoint cost 25ns/8=3.125ns)
-> > > 
-> > >  [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_kern.c
-> > >  [2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_user.c
-> > > 
-> > > Here I'm installing a DDoS program that drops UDP port 9 (pktgen
-> > > packets) on RX CPU=0.  I'm forcing my netperf to hit the same CPU, that
-> > > the 11.9Mpps DDoS attack is hitting.
-> > > 
-> > > Running XDP/eBPF prog_num:4
-> > > XDP-cpumap      CPU:to  pps            drop-pps    extra-info
-> > > XDP-RX          0       12,030,471     11,966,982  0          
-> > > XDP-RX          total   12,030,471     11,966,982 
-> > > cpumap-enqueue    0:2   63,488         0           0          
-> > > cpumap-enqueue  sum:2   63,488         0           0          
-> > > cpumap_kthread  2       63,488         0           3          time_exceed
-> > > cpumap_kthread  total   63,488         0           0          
-> > > redirect_err    total   0              0          
-> > > 
-> > > $ netperf -H 172.16.0.2 -t TCP_CRR  -l 10 -D1 -T5,5 -- -r 1024,1024
-> > > Local /Remote
-> > > Socket Size   Request  Resp.   Elapsed  Trans.
-> > > Send   Recv   Size     Size    Time     Rate         
-> > > bytes  Bytes  bytes    bytes   secs.    per sec   
-> > > 
-> > > 16384  87380  1024     1024    10.00    12735.97   
-> > > 16384  87380 
-> > > 
-> > > The netperf TCP_CRR performance is the same, without XDP loaded.
-> > >   
-> > 
-> > Just curious could you also try this with RPS enabled (or does this have
-> > RPS enabled). RPS should effectively do the same thing but higher in the
-> > stack. I'm curious what the delta would be. Might be another interesting
-> > case and fairly easy to setup if you already have the above scripts.
-> 
-> Yes, I'm essentially competing with RSP, thus such a comparison is very
-> relevant...
-> 
-> This is only a 6 CPUs system. Allocate 2 CPUs to RPS receive and let
-> other 4 CPUS process packet.
-> 
-> Summary of RPS (Receive Packet Steering) performance:
->  * End result is 6.3 Mpps max performance
->  * netperf TCP_CRR is 1 trans/sec.
->  * Each RX-RPS CPU stall at ~3.2Mpps.
-> 
-> The full test report below with setup:
-> 
-> The mask needed::
-> 
->  perl -e 'printf "%b\n",0x3C'
->  111100
-> 
-> RPS setup::
-> 
->  sudo sh -c 'echo 32768 > /proc/sys/net/core/rps_sock_flow_entries'
-> 
->  for N in $(seq 0 5) ; do \
->    sudo sh -c "echo 8192 > /sys/class/net/ixgbe1/queues/rx-$N/rps_flow_cnt" ; \
->    sudo sh -c "echo 3c > /sys/class/net/ixgbe1/queues/rx-$N/rps_cpus" ; \
->    grep -H . /sys/class/net/ixgbe1/queues/rx-$N/rps_cpus ; \
->  done
-> 
-> Reduce RX queues to two ::
-> 
->  ethtool -L ixgbe1 combined 2
-> 
-> IRQ align to CPU numbers::
-> 
->  $ ~/setup01.sh
->  Not root, running with sudo
->   --- Disable Ethernet flow-control ---
->  rx unmodified, ignoring
->  tx unmodified, ignoring
->  no pause parameters changed, aborting
->  rx unmodified, ignoring
->  tx unmodified, ignoring
->  no pause parameters changed, aborting
->   --- Align IRQs ---
->  /proc/irq/54/ixgbe1-TxRx-0/../smp_affinity_list:0
->  /proc/irq/55/ixgbe1-TxRx-1/../smp_affinity_list:1
->  /proc/irq/56/ixgbe1/../smp_affinity_list:0-5
-> 
-> $ grep -H . /sys/class/net/ixgbe1/queues/rx-*/rps_cpus
-> /sys/class/net/ixgbe1/queues/rx-0/rps_cpus:3c
-> /sys/class/net/ixgbe1/queues/rx-1/rps_cpus:3c
-> 
-> Generator is sending: 12,715,782 tx_packets /sec
-> 
->  ./pktgen_sample04_many_flows.sh -vi ixgbe2 -m 00:1b:21:bb:9a:84 \
->     -d 172.16.0.2 -t8
-> 
-> $ nstat > /dev/null && sleep 1 && nstat
-> #kernel
-> IpInReceives                    6346544            0.0
-> IpInDelivers                    6346544            0.0
-> IpOutRequests                   1020               0.0
-> IcmpOutMsgs                     1020               0.0
-> IcmpOutDestUnreachs             1020               0.0
-> IcmpMsgOutType3                 1020               0.0
-> UdpNoPorts                      6346898            0.0
-> IpExtInOctets                   291964714          0.0
-> IpExtOutOctets                  73440              0.0
-> IpExtInNoECTPkts                6347063            0.0
-> 
-> $ mpstat -P ALL -u -I SCPU -I SUM
-> 
-> Average:     CPU    %usr   %nice    %sys   %irq   %soft  %idle
-> Average:     all    0.00    0.00    0.00   0.42   72.97  26.61
-> Average:       0    0.00    0.00    0.00   0.17   99.83   0.00
-> Average:       1    0.00    0.00    0.00   0.17   99.83   0.00
-> Average:       2    0.00    0.00    0.00   0.67   60.37  38.96
-> Average:       3    0.00    0.00    0.00   0.67   58.70  40.64
-> Average:       4    0.00    0.00    0.00   0.67   59.53  39.80
-> Average:       5    0.00    0.00    0.00   0.67   58.93  40.40
-> 
-> Average:     CPU    intr/s
-> Average:     all 152067.22
-> Average:       0  50064.73
-> Average:       1  50089.35
-> Average:       2  45095.17
-> Average:       3  44875.04
-> Average:       4  44906.32
-> Average:       5  45152.08
-> 
-> Average:     CPU     TIMER/s   NET_TX/s   NET_RX/s TASKLET/s  SCHED/s     RCU/s
-> Average:       0      609.48       0.17   49431.28      0.00     2.66     21.13
-> Average:       1      567.55       0.00   49498.00      0.00     2.66     21.13
-> Average:       2      998.34       0.00   43941.60      4.16    82.86     68.22
-> Average:       3      540.60       0.17   44140.27      0.00    85.52    108.49
-> Average:       4      537.27       0.00   44219.63      0.00    84.53     64.89
-> Average:       5      530.78       0.17   44445.59      0.00    85.02     90.52
-> 
-> From mpstat it looks like it is the RX-RPS CPUs that are the bottleneck.
-> 
-> Show adapter(s) (ixgbe1) statistics (ONLY that changed!)
-> Ethtool(ixgbe1) stat:     11109531 (   11,109,531) <= fdir_miss /sec
-> Ethtool(ixgbe1) stat:    380632356 (  380,632,356) <= rx_bytes /sec
-> Ethtool(ixgbe1) stat:    812792611 (  812,792,611) <= rx_bytes_nic /sec
-> Ethtool(ixgbe1) stat:      1753550 (    1,753,550) <= rx_missed_errors /sec
-> Ethtool(ixgbe1) stat:      4602487 (    4,602,487) <= rx_no_dma_resources /sec
-> Ethtool(ixgbe1) stat:      6343873 (    6,343,873) <= rx_packets /sec
-> Ethtool(ixgbe1) stat:     10946441 (   10,946,441) <= rx_pkts_nic /sec
-> Ethtool(ixgbe1) stat:    190287853 (  190,287,853) <= rx_queue_0_bytes /sec
-> Ethtool(ixgbe1) stat:      3171464 (    3,171,464) <= rx_queue_0_packets /sec
-> Ethtool(ixgbe1) stat:    190344503 (  190,344,503) <= rx_queue_1_bytes /sec
-> Ethtool(ixgbe1) stat:      3172408 (    3,172,408) <= rx_queue_1_packets /sec
-> 
-> Notice, each RX-CPU can only process 3.1Mpps.
-> 
-> RPS RX-CPU(0):
-> 
->  # Overhead  CPU  Symbol
->  # ........  ...  .......................................
->  #
->     11.72%  000  [k] ixgbe_poll
->     11.29%  000  [k] _raw_spin_lock
->     10.35%  000  [k] dev_gro_receive
->      8.36%  000  [k] __build_skb
->      7.35%  000  [k] __skb_get_hash
->      6.22%  000  [k] enqueue_to_backlog
->      5.89%  000  [k] __skb_flow_dissect
->      4.43%  000  [k] inet_gro_receive
->      4.19%  000  [k] ___slab_alloc
->      3.90%  000  [k] queued_spin_lock_slowpath
->      3.85%  000  [k] kmem_cache_alloc
->      3.06%  000  [k] build_skb
->      2.66%  000  [k] get_rps_cpu
->      2.57%  000  [k] napi_gro_receive
->      2.34%  000  [k] eth_type_trans
->      1.81%  000  [k] __cmpxchg_double_slab.isra.61
->      1.47%  000  [k] ixgbe_alloc_rx_buffers
->      1.43%  000  [k] get_partial_node.isra.81
->      0.84%  000  [k] swiotlb_sync_single
->      0.74%  000  [k] udp4_gro_receive
->      0.73%  000  [k] netif_receive_skb_internal
->      0.72%  000  [k] udp_gro_receive
->      0.63%  000  [k] skb_gro_reset_offset
->      0.49%  000  [k] __skb_flow_get_ports
->      0.48%  000  [k] llist_add_batch
->      0.36%  000  [k] swiotlb_sync_single_for_cpu
->      0.34%  000  [k] __slab_alloc
-> 
-> 
-> Remote RPS-CPU(3) getting packets::
-> 
->  # Overhead  CPU  Symbol
->  # ........  ...  ..............................................
->  #
->     33.02%  003  [k] poll_idle
->     10.99%  003  [k] __netif_receive_skb_core
->     10.45%  003  [k] page_frag_free
->      8.49%  003  [k] ip_rcv
->      4.19%  003  [k] fib_table_lookup
->      2.84%  003  [k] __udp4_lib_rcv
->      2.81%  003  [k] __slab_free
->      2.23%  003  [k] __udp4_lib_lookup
->      2.09%  003  [k] ip_route_input_rcu
->      2.07%  003  [k] kmem_cache_free
->      2.06%  003  [k] udp_v4_early_demux
->      1.73%  003  [k] ip_rcv_finish
+On Wed, Sep 27, 2017 at 10:14 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> When a host is under high ipv6 load, the updates of the ingress
+> route '__use' field are a source of relevant contention: such
+> field is updated for each packet and several cores can access
+> concurrently the dst, even if percpu dst entries are available
+> and used.
+>
+> The __use value is just a rough indication of the dst usage: is
+> already updated concurrently from multiple CPUs without any lock,
+> so we can decrease the contention leveraging the percpu dst to perform
+> __use bulk updates: if a per cpu dst entry is found, we account on
+> such entry and we flush the percpu counter once per jiffy.
+>
+> Performace gain under UDP flood is as follows:
+>
+> nr RX queues    before          after           delta
+>                 kpps            kpps            (%)
+> 2               2316            2688            16
+> 3               3033            3605            18
+> 4               3963            4328            9
+> 5               4379            5253            19
+> 6               5137            6000            16
+>
+> Performance gain under TCP syn flood should be measurable as well.
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  net/ipv6/route.c | 18 ++++++++++++++++--
+>  1 file changed, 16 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 26cc9f483b6d..e69f304de950 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1170,12 +1170,24 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+>
+>                 struct rt6_info *pcpu_rt;
+>
+> -               rt->dst.lastuse = jiffies;
+> -               rt->dst.__use++;
+>                 pcpu_rt = rt6_get_pcpu_route(rt);
+>
+>                 if (pcpu_rt) {
+> +                       unsigned long ts;
+> +
+>                         read_unlock_bh(&table->tb6_lock);
+> +
+> +                       /* do lazy updates of rt->dst->__use, at most once
+> +                        * per jiffy, to avoid contention on such cacheline.
+> +                        */
+> +                       ts = jiffies;
+> +                       pcpu_rt->dst.__use++;
+> +                       if (pcpu_rt->dst.lastuse != ts) {
+> +                               rt->dst.__use += pcpu_rt->dst.__use;
+> +                               rt->dst.lastuse = ts;
+> +                               pcpu_rt->dst.__use = 0;
+> +                               pcpu_rt->dst.lastuse = ts;
+> +                       }
+>                 } else {
+>                         /* We have to do the read_unlock first
+>                          * because rt6_make_pcpu_route() may trigger
+> @@ -1185,6 +1197,8 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+>                         read_unlock_bh(&table->tb6_lock);
+>                         pcpu_rt = rt6_make_pcpu_route(rt);
+>                         dst_release(&rt->dst);
+> +                       rt->dst.lastuse = jiffies;
+> +                       rt->dst.__use++;
+>                 }
+>
+>                 trace_fib6_table_lookup(net, pcpu_rt, table->tb6_id, fl6);
+> --
+> 2.13.5
+>
 
-Very interesting data.
-So above perf report compares to xdp-redirect-cpu this one:
-Perf top on a CPU(3) that have to alloc and free SKBs etc.
+Hi Paolo,
 
-# Overhead  CPU  Symbol
-# ........  ...  .......................................
-#
-    15.51%  003  [k] fib_table_lookup
-     8.91%  003  [k] cpu_map_kthread_run
-     8.04%  003  [k] build_skb
-     7.88%  003  [k] page_frag_free
-     5.13%  003  [k] kmem_cache_alloc
-     4.76%  003  [k] ip_route_input_rcu
-     4.59%  003  [k] kmem_cache_free
-     4.02%  003  [k] __udp4_lib_rcv
-     3.20%  003  [k] fib_validate_source
-     3.02%  003  [k] __netif_receive_skb_core
-     3.02%  003  [k] udp_v4_early_demux
-     2.90%  003  [k] ip_rcv
-     2.80%  003  [k] ip_rcv_finish
+Eric and I discussed about this issue recently as well :).
 
-right?
-and in RPS case the consumer cpu is 33% idle whereas in redirect-cpu
-you can load it up all the way.
-Am I interpreting all this correctly that with RPS cpu0 cannot
-distributed the packets to other cpus fast enough and that's
-a bottleneck?
-whereas in redirect-cpu you're doing early packet distribution
-before skb alloc?
-So in other words with redirect-cpu all consumer cpus are doing
-skb alloc and in RPS cpu0 is allocating skbs for all ?
-and that's where 6M->12M performance gain comes from?
+What about the following change:
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 93568bd0a352..33e1d86bcef6 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -258,14 +258,18 @@ static inline void dst_hold(struct dst_entry *dst)
+ static inline void dst_use(struct dst_entry *dst, unsigned long time)
+ {
+        dst_hold(dst);
+-       dst->__use++;
+-       dst->lastuse = time;
++       if (dst->lastuse != time) {
++               dst->__use++;
++               dst->lastuse = time;
++       }
+ }
+
+ static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
+ {
+-       dst->__use++;
+-       dst->lastuse = time;
++       if (dst->lastuse != time) {
++               dst->__use++;
++               dst->lastuse = time;
++       }
+ }
+
+ static inline struct dst_entry *dst_clone(struct dst_entry *dst)
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 26cc9f483b6d..e195f093add3 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1170,8 +1170,7 @@ struct rt6_info *ip6_pol_route(struct net *net,
+struct fib6_table *table,
+
+                struct rt6_info *pcpu_rt;
+
+-               rt->dst.lastuse = jiffies;
+-               rt->dst.__use++;
++               dst_use_noref(rt, jiffies);
+                pcpu_rt = rt6_get_pcpu_route(rt);
+
+                if (pcpu_rt) {
+
+
+This way we always only update dst->__use and dst->lastuse at most
+once per jiffy. And we don't really need to update pcpu and then do
+the copy over from pcpu_rt to rt operation.
+
+Another thing is that I don't really see any places making use of
+dst->__use. So maybe we can also get rid of this dst->__use field?
+
+Thanks.
+Wei
