@@ -1,53 +1,33 @@
-From: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: [PATCH] net-ipv6: remove unused IP6_ECN_clear() function
-Date: Tue, 26 Sep 2017 20:37:22 -0700
-Message-ID: <20170927033722.89146-1-zenczykowski@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] sctp: Fix a big endian bug in sctp_diag_dump()
+Date: Tue, 26 Sep 2017 21:17:58 -0700 (PDT)
+Message-ID: <20170926.211758.629176988425489674.davem@davemloft.net>
+References: <CADvbK_dCT6Z6JwD+VtjNg6UUkQneU2OLeme9JVqrXjnJJ63cGg@mail.gmail.com>
+        <20170925101926.db4f6x4hblh7tcvo@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34386 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965646AbdI0Dh3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 23:37:29 -0400
-Received: by mail-pg0-f68.google.com with SMTP id u18so7941463pgo.1
-        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 20:37:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevich@gmail.com, lucien.xin@gmail.com, nhorman@tuxdriver.com,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170925101926.db4f6x4hblh7tcvo@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Maciej Żenczykowski <maze@google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 25 Sep 2017 13:19:26 +0300
 
-This function is unused, and furthermore it is buggy since it suffers
-from the same issue that requires IP6_ECN_set_ce() to take a pointer
-to the skb so that it may (in case of CHECKSUM_COMPLETE) update skb->csum
+> The sctp_for_each_transport() function takes an pointer to int.  The
+> cb->args[] array holds longs so it's only using the high 32 bits.  It
+> works on little endian system but will break on big endian 64 bit
+> machines.
+> 
+> Fixes: d25adbeb0cdb ("sctp: fix an use-after-free issue in sctp_sock_dump")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2: The v1 patch changed the function to take a long pointer, but v2
+>     just changes the caller.
 
-Instead of fixing it, let's just outright remove it.
-
-Tested: builds, and 'git grep IP6_ECN_clear' comes up empty
-
-Signed-off-by: Maciej Żenczykowski <maze@google.com>
----
- include/net/inet_ecn.h | 5 -----
- 1 file changed, 5 deletions(-)
-
-diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
-index dce2d586d9ce..f5ff16d72fe6 100644
---- a/include/net/inet_ecn.h
-+++ b/include/net/inet_ecn.h
-@@ -133,11 +133,6 @@ static inline int IP6_ECN_set_ce(struct sk_buff *skb, struct ipv6hdr *iph)
- 	return 1;
- }
- 
--static inline void IP6_ECN_clear(struct ipv6hdr *iph)
--{
--	*(__be32*)iph &= ~htonl(INET_ECN_MASK << 20);
--}
--
- static inline void ipv6_copy_dscp(unsigned int dscp, struct ipv6hdr *inner)
- {
- 	dscp &= ~INET_ECN_MASK;
--- 
-2.14.1.992.g2c7b836f3a-goog
+Applied, thanks.
