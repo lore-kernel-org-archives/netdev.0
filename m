@@ -1,88 +1,61 @@
-From: w00273186 <wangyunjian@huawei.com>
-Subject: [PATCH net] i40e: Fix limit imprecise of the number of MAC/VLAN that can be added for VFs
-Date: Wed, 27 Sep 2017 14:58:17 +0800
-Message-ID: <1506495497-10736-1-git-send-email-wangyunjian@huawei.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 3/6] bpf: update bpf.h uapi header for tools
+Date: Wed, 27 Sep 2017 09:03:34 +0200
+Message-ID: <20170927090315.22070171@brouer.com>
+References: <cover.1506297988.git.daniel@iogearbox.net>
+        <4bdb49b4387d698443e32b8a6a85414e57ef4de0.1506297988.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-        <caihe@huawei.com>, Yunjian Wang <wangyunjian@huawei.com>
-To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, davem@davemloft.net,
+        alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
+        netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:7040 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751730AbdI0G7i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 02:59:38 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:48274 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751396AbdI0HDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 27 Sep 2017 03:03:41 -0400
+In-Reply-To: <4bdb49b4387d698443e32b8a6a85414e57ef4de0.1506297988.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yunjian Wang <wangyunjian@huawei.com>
+On Mon, 25 Sep 2017 02:25:52 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Now it don't limit the number of MAC/VLAN strictly. When there is more
-elements in the virtchnl MAC/VLAN list, it can still add successfully.
+> Looks like a couple of updates missed to get carried into tools/include/uapi/,
+> so copy the bpf.h header as usual to pull in latest updates.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Acked-by: John Fastabend <john.fastabend@gmail.com>
+> ---
+>  tools/include/uapi/linux/bpf.h | 45 ++++++++++++++++++++++++++++++------------
+>  1 file changed, 32 insertions(+), 13 deletions(-)
+> 
+> diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+> index 461811e..e43491a 100644
+> --- a/tools/include/uapi/linux/bpf.h
+> +++ b/tools/include/uapi/linux/bpf.h
+> @@ -143,12 +143,6 @@ enum bpf_attach_type {
+>  
+>  #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
+>  
+> -enum bpf_sockmap_flags {
+> -	BPF_SOCKMAP_UNSPEC,
+> -	BPF_SOCKMAP_STRPARSER,
+> -	__MAX_BPF_SOCKMAP_FLAG
+> -};
+> -
 
-Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 27 +++++++++++++---------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+Why does "bpf_sockmap_flags" gets removed?
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 4d1e670..285b96a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2065,11 +2065,6 @@ static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
- 		dev_err(&pf->pdev->dev,
- 			"VF attempting to override administratively set MAC address, reload the VF driver to resume normal operation\n");
- 		ret = -EPERM;
--	} else if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
--		   !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
--		dev_err(&pf->pdev->dev,
--			"VF is not trusted, switch the VF to trusted to add more functionality\n");
--		ret = -EPERM;
- 	}
- 	return ret;
- }
-@@ -2128,6 +2123,15 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		} else {
- 			vf->num_mac++;
- 		}
-+
-+		if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
-+		    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+			dev_err(&pf->pdev->dev,
-+				"VF is not trusted, switch the VF to trusted to add more functionality\n");
-+			ret = -EPERM;
-+			spin_unlock_bh(&vsi->mac_filter_hash_lock);
-+			goto error_param;
-+		}
- 	}
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
- 
-@@ -2221,12 +2225,6 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	i40e_status aq_ret = 0;
- 	int i;
- 
--	if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
--		dev_err(&pf->pdev->dev,
--			"VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
--		goto error_param;
--	}
- 	if (!test_bit(I40E_VF_STATE_ACTIVE, &vf->vf_states) ||
- 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
- 		aq_ret = I40E_ERR_PARAM;
-@@ -2269,6 +2267,13 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 			dev_err(&pf->pdev->dev,
- 				"Unable to add VLAN filter %d for VF %d, error %d\n",
- 				vfl->vlan_id[i], vf->vf_id, ret);
-+		if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
-+		    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+			dev_err(&pf->pdev->dev,
-+				"VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
-+			aq_ret = -EPERM;
-+			goto error_param;
-+		}
- 	}
- 
- error_param:
+It got added in: commit 69e8cc134bcb ("bpf: sockmap sample program").
+But I cannot find any users of these flags, so I guess it is okay.
+
 -- 
-1.8.3.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
