@@ -1,38 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
-Date: Tue, 26 Sep 2017 19:52:44 -0700 (PDT)
-Message-ID: <20170926.195244.506518182147628099.davem@davemloft.net>
-References: <71740323.RRBhnhefTi@np-p-burton>
-        <20170926.133309.1916643567158187651.davem@davemloft.net>
-        <1752163.uYYNevmZpH@np-p-burton>
+Subject: Re: [PATCH] net/ipv4: Update sk_for_each_entry_offset_rcu macro to
+ utilize rcu methods hlist_next_rcu. This fixes the warnings thrown by
+ sparse regarding net/ipv4/udp.c on line 1974.
+Date: Tue, 26 Sep 2017 20:03:39 -0700 (PDT)
+Message-ID: <20170926.200339.2029420994787006076.davem@davemloft.net>
+References: <20170927005406.5935-1-devtimhansen@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: matt.redfearn@imgtec.com, netdev@vger.kernel.org,
-        alexandre.torgue@st.com, peppe.cavallaro@st.com,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        james.hogan@imgtec.com
-To: paul.burton@imgtec.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: devtimhansen@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1752163.uYYNevmZpH@np-p-burton>
+In-Reply-To: <20170927005406.5935-1-devtimhansen@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Burton <paul.burton@imgtec.com>
-Date: Tue, 26 Sep 2017 14:30:33 -0700
+From: Tim Hansen <devtimhansen@gmail.com>
+Date: Tue, 26 Sep 2017 20:54:05 -0400
 
-> I'd suggest that at a minimum if you're unwilling to obey the API as
-> described in Documentation/DMA-API.txt then it would be beneficial
-> if you could propose a change to it such that it works for you, and
-> perhaps we can extend the API & its documentation to allow your
-> usage whilst also allowing us to catch broken uses.
+> Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
 
-The networking driver code works fine as is.
+This is a poor patch submission on many levels.
 
-I also didn't write that ill-advised documentation in the DMA docs,
-nor the non-merged new MIPS assertion.
+But the main problem, is that there is no use of
+sk_for_each_entry_offset_rcu() in any of my networking kernel trees.
 
-So I'm trying to figure out on what basis I am required to do
-anything.
+Referencing code by line number never works, you have to mention
+what version of the kernel, what tree, and where in what fucntion
+the problem is occurring.
 
-Thank you.
+Secondly, sk_for_each_entry_offset_rcu() is not meant to be used
+in _raw() contexts.  This is why it's not called
+sk_for_each_entry_offset_rcu_raw().
+
+The sparse warning is probably legitimate, and points to a bug.
+
+But nobody can tell where becuase you haven't told us what tree
+and where this happens.
