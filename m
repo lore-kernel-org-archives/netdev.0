@@ -1,100 +1,47 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next] ipv6: do lazy dst->__use update when per cpu dst
- is available
-Date: Wed, 27 Sep 2017 11:03:33 -0700
-Message-ID: <CANn89iJ0t8Vpukak3WEOA1x4M4hk-Z9hDkcSqG9+7qLsbuJQZg@mail.gmail.com>
-References: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
- <CAEA6p_DZxGesjymubWoWx7hQjaZ7Vdchh=cdOW9tAr4F7QvzXg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 16/16] net: Add support for networking over
+ Thunderbolt cable
+Date: Wed, 27 Sep 2017 11:23:17 -0700 (PDT)
+Message-ID: <20170927.112317.1120325676502363972.davem@davemloft.net>
+References: <20170927134238.GC4630@lahna.fi.intel.com>
+        <20170927.092709.1826177647592316221.davem@davemloft.net>
+        <20170927172702.GE4630@lahna.fi.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Paolo Abeni <pabeni@redhat.com>, Martin KaFai Lau <kafai@fb.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Wei Wang <weiwan@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:45422 "EHLO
-        mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751554AbdI0SDf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 14:03:35 -0400
-Received: by mail-yw0-f177.google.com with SMTP id q80so9872714ywg.2
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 11:03:35 -0700 (PDT)
-In-Reply-To: <CAEA6p_DZxGesjymubWoWx7hQjaZ7Vdchh=cdOW9tAr4F7QvzXg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
+        michael.jamet@intel.com, yehezkel.bernat@intel.com,
+        amir.jer.levy@intel.com, Mario.Limonciello@dell.com,
+        lukas@wunner.de, andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: mika.westerberg@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170927172702.GE4630@lahna.fi.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+From: Mika Westerberg <mika.westerberg@linux.intel.com>
+Date: Wed, 27 Sep 2017 20:27:02 +0300
 
->
-> Hi Paolo,
->
-> Eric and I discussed about this issue recently as well :).
->
-> What about the following change:
->
-> diff --git a/include/net/dst.h b/include/net/dst.h
-> index 93568bd0a352..33e1d86bcef6 100644
-> --- a/include/net/dst.h
-> +++ b/include/net/dst.h
-> @@ -258,14 +258,18 @@ static inline void dst_hold(struct dst_entry *dst)
->  static inline void dst_use(struct dst_entry *dst, unsigned long time)
->  {
->         dst_hold(dst);
-> -       dst->__use++;
-> -       dst->lastuse = time;
-> +       if (dst->lastuse != time) {
-> +               dst->__use++;
-> +               dst->lastuse = time;
-> +       }
->  }
->
->  static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
->  {
-> -       dst->__use++;
-> -       dst->lastuse = time;
-> +       if (dst->lastuse != time) {
-> +               dst->__use++;
-> +               dst->lastuse = time;
-> +       }
->  }
->
->  static inline struct dst_entry *dst_clone(struct dst_entry *dst)
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 26cc9f483b6d..e195f093add3 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1170,8 +1170,7 @@ struct rt6_info *ip6_pol_route(struct net *net,
-> struct fib6_table *table,
->
->                 struct rt6_info *pcpu_rt;
->
-> -               rt->dst.lastuse = jiffies;
-> -               rt->dst.__use++;
-> +               dst_use_noref(rt, jiffies);
->                 pcpu_rt = rt6_get_pcpu_route(rt);
->
->                 if (pcpu_rt) {
->
->
-> This way we always only update dst->__use and dst->lastuse at most
-> once per jiffy. And we don't really need to update pcpu and then do
-> the copy over from pcpu_rt to rt operation.
->
-> Another thing is that I don't really see any places making use of
-> dst->__use. So maybe we can also get rid of this dst->__use field?
->
-> Thanks.
-> Wei
+> On Wed, Sep 27, 2017 at 09:27:09AM -0700, David Miller wrote:
+>> From: Mika Westerberg <mika.westerberg@linux.intel.com>
+>> Date: Wed, 27 Sep 2017 16:42:38 +0300
+>> 
+>> > Using build_skb() then would require to allocate larger buffer, that
+>> > includes NET_SKB_PAD + SKB_DATA_ALIGN(skb_shared_info) and that exceeds
+>> > page size. Is this something supported by build_skb()? It was not clear
+>> > to me based on the code and other users of build_skb() but I may be
+>> > missing something.
+>> 
+>> You need NET_SKB_PAD before and SKB_DATA_ALIGN(skb_shared_info) afterwards.
+>> An order 1 page, if that's what you need, should work just fine.
+> 
+> I mean in order to fit a single ThunderboltIP frame, I would need to
+> allocate NET_SKB_PAD+4096+SKB_DATA_ALIGN(skb_shared_info) size buffer.
 
-Paolo, given we are very close to send Wei awesome work about IPv6
-routing cache,
-could we ask you to wait few days before doing the same work from your side ?
+Which would be an order 1 page or 8192 bytes.
 
-Main issue is the rwlock, and we are converting it to full RCU.
+> Is that still fine for build_skb()? Also can I use that with
+> skb_add_rx_frag() which seem to take single page?
 
-You are sending patches that are making our job very difficult IMO.
-
-We chose to mimic the change done in neighbour code years ago
-( 0ed8ddf4045fcfcac36bad753dc4046118c603ec )
-
-Thanks.
+Again, an order 1 page should work fine.
