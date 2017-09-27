@@ -1,42 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
-Date: Tue, 26 Sep 2017 21:29:03 -0700 (PDT)
-Message-ID: <20170926.212903.454497939014837374.davem@davemloft.net>
-References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
+Date: Tue, 26 Sep 2017 21:30:56 -0700
+Message-ID: <2520219.WSsBr6LeCR@np-p-burton>
+References: <71740323.RRBhnhefTi@np-p-burton> <1752163.uYYNevmZpH@np-p-burton> <20170926.195244.506518182147628099.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: simon.horman@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48324 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965486AbdI0E3E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 00:29:04 -0400
-In-Reply-To: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="nextPart3088073.UpTNVJzPrf";
+        micalg=pgp-sha256; protocol="application/pgp-signature"
+Cc: <matt.redfearn@imgtec.com>, <netdev@vger.kernel.org>,
+        <alexandre.torgue@st.com>, <peppe.cavallaro@st.com>,
+        <linux-kernel@vger.kernel.org>, <linux-mips@linux-mips.org>,
+        <james.hogan@imgtec.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170926.195244.506518182147628099.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Mon, 25 Sep 2017 12:23:34 +0200
+--nextPart3088073.UpTNVJzPrf
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-> From: Simon Horman <simon.horman@netronome.com>
+Hi David,
+
+On Tuesday, 26 September 2017 19:52:44 PDT David Miller wrote:
+> From: Paul Burton <paul.burton@imgtec.com>
+> Date: Tue, 26 Sep 2017 14:30:33 -0700
 > 
-> John says:
+> > I'd suggest that at a minimum if you're unwilling to obey the API as
+> > described in Documentation/DMA-API.txt then it would be beneficial
+> > if you could propose a change to it such that it works for you, and
+> > perhaps we can extend the API & its documentation to allow your
+> > usage whilst also allowing us to catch broken uses.
 > 
-> This patch set allows offloading of TC flower match and set tunnel fields
-> to the NFP. The initial focus is on VXLAN traffic. Due to the current
-> state of the NFP firmware, only VXLAN traffic on well known port 4789 is
-> handled. The match and action fields must explicity set this value to be
-> supported. Tunnel end point information is also offloaded to the NFP for
-> both encapsulation and decapsulation. The NFP expects 3 separate data sets
-> to be supplied.
- ...
+> The networking driver code works fine as is.
+> 
+> I also didn't write that ill-advised documentation in the DMA docs,
+> nor the non-merged new MIPS assertion.
+> 
+> So I'm trying to figure out on what basis I am required to do
+> anything.
+> 
+> Thank you.
 
-Series applied, thanks.
+Nobody said you wrote the documentation, but you do maintain code which 
+disobeys the documented DMA API & now you're being an ass about it 
+unnecessarily.
 
-I see there is some discussion about ipv6 flow dissector key handling
-and ND keepalives, but those should be addressable in follow-on changes.
+Nobody said that you are required to do anything, I suggested that it would be 
+beneficial if you were to suggest a change to the documented DMA API such that 
+it allows your usage where it currently does not. If you don't want to have 
+any input into that, and you actually think that your current approach of 
+ignoring the documented API is the best path forwards, then we're probably 
+done here & I'll be making a note to avoid yourself & anything under net/ to 
+whatever extent is possible...
 
-Thanks.
+Thanks,
+    Paul
+--nextPart3088073.UpTNVJzPrf
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEELIGR03D5+Fg+69wPgiDZ+mk8HGUFAlnLKYAACgkQgiDZ+mk8
+HGVJyxAAnRY6g4+bYlyRldy6IOLa/u30RVY+Cp+SEm8FU+SL9DWSTIlLwvo5Yeyy
+1lPTtdkL0ZSNj8jB4sgaP6JscdC8+FpxXsS4vqy1K2j/XSoZjAWVAZrN7GkOZH2w
+wM5AbjzcBOIkd2cWkLG4O22qkbkOolfbV1XSUros7fKZXeuHfatGs7sutRolD7iy
+/KgEmF24RCYeMxp/XtolnSQcNfDWzfaNxdtm8To1j6srJ5HMTAS7goQ9sNXgQ32S
+tzzHUTGXimKJdwQw3DfO4mavyN9zeW7CIvsdRtW3cQn4bxfxrW/9UUpR3ow8urav
+lYrgXQa7kCCIuXX4vNK7qeYs/7V+LtjAzEp0p7NX3b5GOHu0CZxnsDQZ9u2Jf32F
+3YicmJSVOB2Q/AC4RmWZ4agdHWKOU8TiuFtzItqx7GjimQG8Uaj5BjjeqRJ/CFbu
+UzeLa8wVBShjAF1CmgNwsLKMle/kQpzBjxgFWl8rtDBAVTME+yH54SIAyXRDeqlX
+3H/3UhzVc65lFGAJ/bA+GVzGUhfQRrRgwKhIefUY8P6hEq+MP//ZXDZuElwTSmvY
+n3CnW86H8EjwL37qKgcd6hSYRTMqiMEWn/SD6ykbcYprG+IEybTv/GAymXGo1+cR
+EDsJHGll7Qc0IcCNc1Y+DIH3aoqIabqILlwvX9trH1zUoAX816M=
+=vqEP
+-----END PGP SIGNATURE-----
+
+--nextPart3088073.UpTNVJzPrf--
