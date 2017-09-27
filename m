@@ -1,114 +1,37 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: [PATCH net] net: Set sk_prot_creator when cloning sockets to the right
- proto
-Date: Tue, 26 Sep 2017 17:38:50 -0700
-Message-ID: <20170927003850.23731-1-cpaasch@apple.com>
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out5.apple.com ([17.151.62.27]:42268 "EHLO
-        mail-in5.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1030619AbdI0Ax6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 20:53:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tim Hansen <devtimhansen@gmail.com>
+Subject: [PATCH] net/ipv4: Update sk_for_each_entry_offset_rcu macro to  utilize rcu methods hlist_next_rcu. This fixes the warnings thrown by sparse  regarding net/ipv4/udp.c on line 1974.
+Date: Tue, 26 Sep 2017 20:54:05 -0400
+Message-ID: <20170927005406.5935-1-devtimhansen@gmail.com>
+Cc: Tim Hansen <devtimhansen@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+        linux-kernel@vger.kernel.org (open list)
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-sk->sk_prot and sk->sk_prot_creator can differ when the app uses
-IPV6_ADDRFORM (transforming an IPv6-socket to an IPv4-one).
-Which is why sk_prot_creator is there to make sure that sk_prot_free()
-does the kmem_cache_free() on the right kmem_cache slab.
-
-Now, if such a socket gets transformed back to a listening socket (using
-connect() with AF_UNSPEC) we will allocate an IPv4 tcp_sock through
-sk_clone_lock() when a new connection comes in. But sk_prot_creator will
-still point to the IPv6 kmem_cache (as everything got copied in
-sk_clone_lock()). When freeing, we will thus put this
-memory back into the IPv6 kmem_cache although it was allocated in the
-IPv4 cache. I have seen memory corruption happening because of this.
-
-With slub-debugging and MEMCG_KMEM enabled this gives the warning
-	"cache_from_obj: Wrong slab cache. TCPv6 but object is from TCP"
-
-A C-program to trigger this:
-
-void main(void)
-{
-        int fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
-        int new_fd, newest_fd, client_fd;
-        struct sockaddr_in6 bind_addr;
-        struct sockaddr_in bind_addr4, client_addr1, client_addr2;
-        struct sockaddr unsp;
-        int val;
-
-        memset(&bind_addr, 0, sizeof(bind_addr));
-        bind_addr.sin6_family = AF_INET6;
-        bind_addr.sin6_port = ntohs(42424);
-
-        memset(&client_addr1, 0, sizeof(client_addr1));
-        client_addr1.sin_family = AF_INET;
-        client_addr1.sin_port = ntohs(42424);
-        client_addr1.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-        memset(&client_addr2, 0, sizeof(client_addr2));
-        client_addr2.sin_family = AF_INET;
-        client_addr2.sin_port = ntohs(42421);
-        client_addr2.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-        memset(&unsp, 0, sizeof(unsp));
-        unsp.sa_family = AF_UNSPEC;
-
-        bind(fd, (struct sockaddr *)&bind_addr, sizeof(bind_addr));
-
-        listen(fd, 5);
-
-        client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        connect(client_fd, (struct sockaddr *)&client_addr1, sizeof(client_addr1));
-        new_fd = accept(fd, NULL, NULL);
-        close(fd);
-
-        val = AF_INET;
-        setsockopt(new_fd, SOL_IPV6, IPV6_ADDRFORM, &val, sizeof(val));
-
-        connect(new_fd, &unsp, sizeof(unsp));
-
-        memset(&bind_addr4, 0, sizeof(bind_addr4));
-        bind_addr4.sin_family = AF_INET;
-        bind_addr4.sin_port = ntohs(42421);
-        bind(new_fd, (struct sockaddr *)&bind_addr4, sizeof(bind_addr4));
-
-        listen(new_fd, 5);
-
-        client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        connect(client_fd, (struct sockaddr *)&client_addr2, sizeof(client_addr2));
-
-        newest_fd = accept(new_fd, NULL, NULL);
-        close(new_fd);
-
-        close(client_fd);
-        close(new_fd);
-}
-
-As far as I can see, this bug has been there since the beginning of the
-git-days.
-
-Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
 ---
- net/core/sock.c | 2 ++
- 1 file changed, 2 insertions(+)
+ include/net/sock.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9b7b6bbb2a23..7d55c05f449d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1654,6 +1654,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+diff --git a/include/net/sock.h b/include/net/sock.h
+index aeeec62992ca..516289f6404b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -732,10 +732,10 @@ static inline void sk_add_bind_node(struct sock *sk,
+  *
+  */
+ #define sk_for_each_entry_offset_rcu(tpos, pos, head, offset)		       \
+-	for (pos = rcu_dereference((head)->first);			       \
++	for (pos = rcu_dereference_raw(hlist_next_rcu((head)->first));	       \
+ 	     pos != NULL &&						       \
+ 		({ tpos = (typeof(*tpos) *)((void *)pos - offset); 1;});       \
+-	     pos = rcu_dereference(pos->next))
++	     pos = rcu_dereference_raw(hlist_next_rcu(pos->next)))
  
- 		sock_copy(newsk, sk);
- 
-+		newsk->sk_prot_creator = sk->sk_prot;
-+
- 		/* SANITY */
- 		if (likely(newsk->sk_net_refcnt))
- 			get_net(sock_net(newsk));
+ static inline struct user_namespace *sk_user_ns(struct sock *sk)
+ {
 -- 
 2.14.1
