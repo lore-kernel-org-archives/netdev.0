@@ -1,88 +1,149 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH v2 net-next 0/2] net/sched: support tunnel options in cls_flower and act_tunnel_key
-Date: Wed, 27 Sep 2017 10:16:32 +0200
-Message-ID: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH v2 net-next 1/2] net/sched: add tunnel option support to act_tunnel_key
+Date: Wed, 27 Sep 2017 10:16:33 +0200
+Message-ID: <1506500194-17637-2-git-send-email-simon.horman@netronome.com>
+References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
         Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
         oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:54859 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751739AbdI0IQs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 04:16:48 -0400
-Received: by mail-qt0-f181.google.com with SMTP id i13so12814800qtc.11
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 01:16:48 -0700 (PDT)
+Received: from mail-qt0-f170.google.com ([209.85.216.170]:50947 "EHLO
+        mail-qt0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752028AbdI0IQv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 04:16:51 -0400
+Received: by mail-qt0-f170.google.com with SMTP id f15so12851656qtf.7
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 01:16:51 -0700 (PDT)
+In-Reply-To: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow the flower classifier to match on tunnel options and the
-tunnel key action to set them.
+Allow setting tunnel options using the act_tunnel_key action.
 
-Tunnel options are a bytestring of up to 256 bytes.
-The flower classifier matching with an optional bitwise mask.
-Tunnel implementations may support more or less options,
-or none at all.
+Options are a bitwise maskable bytestring of up to 256 bytes.
+Tunnel implementations may support less or more options,
+or no options at all.
 
+ # ip link add name geneve0 type geneve dstport 0 external
+ # tc qdisc add dev eth0 ingress
+ # tc filter add dev eth0 protocol ip parent ffff: \
+     flower indev eth0 \
+        ip_proto udp \
+        action tunnel_key \
+            set src_ip 10.0.99.192 \
+            dst_ip 10.0.99.193 \
+            dst_port 6081 \
+            id 11 \
+            opts 0102800100800022 \
+    action mirred egress redirect dev geneve0
 
-Discussion stemming from review of RFC:
-
-This feature is to be used in conjunction with tunnels in collect metadata
-(external) mode. As I understand it there are three tunnel netdevs that use
-options metadata in the kernel at this time.
-
-* Geneve
-
-  In the case of Geneve options are TLVs[1]. My reading is that in collect
-  metadata mode the kernel does not appear to do anything other than pass
-  them around as a bytestring.
-
-  [1] https://tools.ietf.org/html/draft-ietf-nvo3-geneve-05#section-3.5
-
-* VXLAN-GBP
-
-  In the case of VXLAN-GBP on RX in collect metadata mode options are used
-  to carry information parsed in vxlan_parse_gbp_hdr() from the VXLAN Group
-  Based Policy Extension[2]. On RX the options data is used to create an
-  extension (header) by vxlan_build_gbp_hdr().
-
-  [2] https://tools.ietf.org/html/draft-smith-vxlan-group-policy-03#section-2.1
-
-* ERSPAN (GRE)
-
-  In the case of ERSPAN, which is a variant of GRE, on RX in collect
-  metadata mode options are used to carry the index parsed from the ERSPAN
-  Type II feature header[3] in erspan_rcv().  The converse is true on TX
-  and is handled by erspan_fb_xmit().
-
-  [3] https://tools.ietf.org/html/draft-foschiano-erspan-03#section-4.2
-
-Users of options:
-
-* There are eBPF hooks to allow getting on and setting tunnel metadata:
-  bpf_skb_set_tunnel_opt, bpf_skb_get_tunnel_opt.
-
-* Open vSwitch is able to match and set Geneve and VXLAN-GBP options.
-
-Neither of the above appear to assume any structure for the data.
-
-
-Changes since RFC:
-* Drop RFC prefix
-* Correct changelogs and enhance cover letter.
-
-
-Simon Horman (2):
-  net/sched: add tunnel option support to act_tunnel_key
-  net/sched: allow flower to match tunnel options
-
- include/net/flow_dissector.h              | 13 ++++++++++++
- include/uapi/linux/pkt_cls.h              |  3 +++
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+v2
+* Correct example which was incorrectly described matching rather
+  than setting tunnel options
+---
  include/uapi/linux/tc_act/tc_tunnel_key.h |  1 +
- net/sched/act_tunnel_key.c                | 26 ++++++++++++++++++-----
- net/sched/cls_flower.c                    | 35 ++++++++++++++++++++++++++++++-
- 5 files changed, 72 insertions(+), 6 deletions(-)
+ net/sched/act_tunnel_key.c                | 26 +++++++++++++++++++++-----
+ 2 files changed, 22 insertions(+), 5 deletions(-)
 
+diff --git a/include/uapi/linux/tc_act/tc_tunnel_key.h b/include/uapi/linux/tc_act/tc_tunnel_key.h
+index afcd4be953e2..e0cb1121d132 100644
+--- a/include/uapi/linux/tc_act/tc_tunnel_key.h
++++ b/include/uapi/linux/tc_act/tc_tunnel_key.h
+@@ -35,6 +35,7 @@ enum {
+ 	TCA_TUNNEL_KEY_PAD,
+ 	TCA_TUNNEL_KEY_ENC_DST_PORT,	/* be16 */
+ 	TCA_TUNNEL_KEY_NO_CSUM,		/* u8 */
++	TCA_TUNNEL_KEY_ENC_OPTS,
+ 	__TCA_TUNNEL_KEY_MAX,
+ };
+ 
+diff --git a/net/sched/act_tunnel_key.c b/net/sched/act_tunnel_key.c
+index 30c96274c638..77b5890a48b9 100644
+--- a/net/sched/act_tunnel_key.c
++++ b/net/sched/act_tunnel_key.c
+@@ -66,6 +66,7 @@ static const struct nla_policy tunnel_key_policy[TCA_TUNNEL_KEY_MAX + 1] = {
+ 	[TCA_TUNNEL_KEY_ENC_KEY_ID]   = { .type = NLA_U32 },
+ 	[TCA_TUNNEL_KEY_ENC_DST_PORT] = {.type = NLA_U16},
+ 	[TCA_TUNNEL_KEY_NO_CSUM]      = { .type = NLA_U8 },
++	[TCA_TUNNEL_KEY_ENC_OPTS]     = { .type = NLA_BINARY },
+ };
+ 
+ static int tunnel_key_init(struct net *net, struct nlattr *nla,
+@@ -81,9 +82,11 @@ static int tunnel_key_init(struct net *net, struct nlattr *nla,
+ 	struct tcf_tunnel_key *t;
+ 	bool exists = false;
+ 	__be16 dst_port = 0;
++	int opts_len = 0;
+ 	__be64 key_id;
+ 	__be16 flags;
+ 	int ret = 0;
++	u8 *opts;
+ 	int err;
+ 
+ 	if (!nla)
+@@ -121,6 +124,11 @@ static int tunnel_key_init(struct net *net, struct nlattr *nla,
+ 		if (tb[TCA_TUNNEL_KEY_ENC_DST_PORT])
+ 			dst_port = nla_get_be16(tb[TCA_TUNNEL_KEY_ENC_DST_PORT]);
+ 
++		if (tb[TCA_TUNNEL_KEY_ENC_OPTS]) {
++			opts = nla_data(tb[TCA_TUNNEL_KEY_ENC_OPTS]);
++			opts_len = nla_len(tb[TCA_TUNNEL_KEY_ENC_OPTS]);
++		}
++
+ 		if (tb[TCA_TUNNEL_KEY_ENC_IPV4_SRC] &&
+ 		    tb[TCA_TUNNEL_KEY_ENC_IPV4_DST]) {
+ 			__be32 saddr;
+@@ -131,7 +139,7 @@ static int tunnel_key_init(struct net *net, struct nlattr *nla,
+ 
+ 			metadata = __ip_tun_set_dst(saddr, daddr, 0, 0,
+ 						    dst_port, flags,
+-						    key_id, 0);
++						    key_id, opts_len);
+ 		} else if (tb[TCA_TUNNEL_KEY_ENC_IPV6_SRC] &&
+ 			   tb[TCA_TUNNEL_KEY_ENC_IPV6_DST]) {
+ 			struct in6_addr saddr;
+@@ -142,9 +150,13 @@ static int tunnel_key_init(struct net *net, struct nlattr *nla,
+ 
+ 			metadata = __ipv6_tun_set_dst(&saddr, &daddr, 0, 0, dst_port,
+ 						      0, flags,
+-						      key_id, 0);
++						      key_id, opts_len);
+ 		}
+ 
++		if (opts_len)
++			ip_tunnel_info_opts_set(&metadata->u.tun_info,
++						opts, opts_len);
++
+ 		if (!metadata) {
+ 			ret = -EINVAL;
+ 			goto err_out;
+@@ -264,8 +276,9 @@ static int tunnel_key_dump(struct sk_buff *skb, struct tc_action *a,
+ 		goto nla_put_failure;
+ 
+ 	if (params->tcft_action == TCA_TUNNEL_KEY_ACT_SET) {
+-		struct ip_tunnel_key *key =
+-			&params->tcft_enc_metadata->u.tun_info.key;
++		struct ip_tunnel_info *info =
++			&params->tcft_enc_metadata->u.tun_info;
++		struct ip_tunnel_key *key = &info->key;
+ 		__be32 key_id = tunnel_id_to_key32(key->tun_id);
+ 
+ 		if (nla_put_be32(skb, TCA_TUNNEL_KEY_ENC_KEY_ID, key_id) ||
+@@ -273,7 +286,10 @@ static int tunnel_key_dump(struct sk_buff *skb, struct tc_action *a,
+ 					      &params->tcft_enc_metadata->u.tun_info) ||
+ 		    nla_put_be16(skb, TCA_TUNNEL_KEY_ENC_DST_PORT, key->tp_dst) ||
+ 		    nla_put_u8(skb, TCA_TUNNEL_KEY_NO_CSUM,
+-			       !(key->tun_flags & TUNNEL_CSUM)))
++			       !(key->tun_flags & TUNNEL_CSUM)) ||
++		    (info->options_len &&
++		     nla_put(skb, TCA_TUNNEL_KEY_ENC_OPTS, info->options_len,
++			     info + 1)))
+ 			goto nla_put_failure;
+ 	}
+ 
 -- 
 2.1.4
