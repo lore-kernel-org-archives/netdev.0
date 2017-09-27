@@ -1,47 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 16/16] net: Add support for networking over
- Thunderbolt cable
-Date: Wed, 27 Sep 2017 11:23:17 -0700 (PDT)
-Message-ID: <20170927.112317.1120325676502363972.davem@davemloft.net>
-References: <20170927134238.GC4630@lahna.fi.intel.com>
-        <20170927.092709.1826177647592316221.davem@davemloft.net>
-        <20170927172702.GE4630@lahna.fi.intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: do lazy dst->__use update when per cpu dst
+ is available
+Date: Wed, 27 Sep 2017 11:25:05 -0700
+Message-ID: <CAM_iQpUQsj+-TXs5RHExBqzui+sN+VK_YqX1tEzkjsW-N2OLzA@mail.gmail.com>
+References: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
+ <CAEA6p_DZxGesjymubWoWx7hQjaZ7Vdchh=cdOW9tAr4F7QvzXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
-        michael.jamet@intel.com, yehezkel.bernat@intel.com,
-        amir.jer.levy@intel.com, Mario.Limonciello@dell.com,
-        lukas@wunner.de, andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mika.westerberg@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927172702.GE4630@lahna.fi.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Wei Wang <weiwan@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:50145 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752141AbdI0SZ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 14:25:26 -0400
+Received: by mail-pf0-f174.google.com with SMTP id l188so7660328pfc.6
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 11:25:25 -0700 (PDT)
+In-Reply-To: <CAEA6p_DZxGesjymubWoWx7hQjaZ7Vdchh=cdOW9tAr4F7QvzXg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Date: Wed, 27 Sep 2017 20:27:02 +0300
+On Wed, Sep 27, 2017 at 10:44 AM, Wei Wang <weiwan@google.com> wrote:
+> Another thing is that I don't really see any places making use of
+> dst->__use. So maybe we can also get rid of this dst->__use field?
 
-> On Wed, Sep 27, 2017 at 09:27:09AM -0700, David Miller wrote:
->> From: Mika Westerberg <mika.westerberg@linux.intel.com>
->> Date: Wed, 27 Sep 2017 16:42:38 +0300
->> 
->> > Using build_skb() then would require to allocate larger buffer, that
->> > includes NET_SKB_PAD + SKB_DATA_ALIGN(skb_shared_info) and that exceeds
->> > page size. Is this something supported by build_skb()? It was not clear
->> > to me based on the code and other users of build_skb() but I may be
->> > missing something.
->> 
->> You need NET_SKB_PAD before and SKB_DATA_ALIGN(skb_shared_info) afterwards.
->> An order 1 page, if that's what you need, should work just fine.
-> 
-> I mean in order to fit a single ThunderboltIP frame, I would need to
-> allocate NET_SKB_PAD+4096+SKB_DATA_ALIGN(skb_shared_info) size buffer.
+It is used in rtnl_put_cacheinfo():
 
-Which would be an order 1 page or 8192 bytes.
-
-> Is that still fine for build_skb()? Also can I use that with
-> skb_add_rx_frag() which seem to take single page?
-
-Again, an order 1 page should work fine.
+        struct rta_cacheinfo ci = {
+                .rta_lastuse = jiffies_delta_to_clock_t(jiffies - dst->lastuse),
+                .rta_used = dst->__use,
+                .rta_clntref = atomic_read(&(dst->__refcnt)),
+                .rta_error = error,
+                .rta_id =  id,
+        };
