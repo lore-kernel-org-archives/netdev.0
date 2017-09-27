@@ -1,59 +1,38 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next RFC 0/5] batched tx processing in vhost_net
-Date: Wed, 27 Sep 2017 10:06:43 +0800
-Message-ID: <c7050021-4218-32ea-bf74-149f2ff2e1ea@redhat.com>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <20170926222528-mutt-send-email-mst@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
+Date: Tue, 26 Sep 2017 19:52:44 -0700 (PDT)
+Message-ID: <20170926.195244.506518182147628099.davem@davemloft.net>
+References: <71740323.RRBhnhefTi@np-p-burton>
+        <20170926.133309.1916643567158187651.davem@davemloft.net>
+        <1752163.uYYNevmZpH@np-p-burton>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: matt.redfearn@imgtec.com, netdev@vger.kernel.org,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com,
+        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
+        james.hogan@imgtec.com
+To: paul.burton@imgtec.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926222528-mutt-send-email-mst@kernel.org>
-Content-Language: en-US
+In-Reply-To: <1752163.uYYNevmZpH@np-p-burton>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Paul Burton <paul.burton@imgtec.com>
+Date: Tue, 26 Sep 2017 14:30:33 -0700
 
+> I'd suggest that at a minimum if you're unwilling to obey the API as
+> described in Documentation/DMA-API.txt then it would be beneficial
+> if you could propose a change to it such that it works for you, and
+> perhaps we can extend the API & its documentation to allow your
+> usage whilst also allowing us to catch broken uses.
 
-On 2017年09月27日 03:26, Michael S. Tsirkin wrote:
-> On Fri, Sep 22, 2017 at 04:02:30PM +0800, Jason Wang wrote:
->> Hi:
->>
->> This series tries to implement basic tx batched processing. This is
->> done by prefetching descriptor indices and update used ring in a
->> batch. This intends to speed up used ring updating and improve the
->> cache utilization. Test shows about ~22% improvement in tx pss.
->
->
->
->> Please review.
->>
->> Jason Wang (5):
->>    vhost: split out ring head fetching logic
->>    vhost: introduce helper to prefetch desc index
->>    vhost: introduce vhost_add_used_idx()
-> Please squash these new APIs into where they are used.
-> This split-up just makes review harder for me as
-> I can't figure out how the new APIs are used.
+The networking driver code works fine as is.
 
-Ok.
+I also didn't write that ill-advised documentation in the DMA docs,
+nor the non-merged new MIPS assertion.
 
-Thanks
+So I'm trying to figure out on what basis I am required to do
+anything.
 
->
->
->>    vhost_net: rename VHOST_RX_BATCH to VHOST_NET_BATCH
-> This is ok as a separate patch.
->
->>    vhost_net: basic tx virtqueue batched processing
->>
->>   drivers/vhost/net.c   | 221 ++++++++++++++++++++++++++++----------------------
->>   drivers/vhost/vhost.c | 165 +++++++++++++++++++++++++++++++------
->>   drivers/vhost/vhost.h |   9 ++
->>   3 files changed, 270 insertions(+), 125 deletions(-)
->>
->> -- 
->> 2.7.4
+Thank you.
