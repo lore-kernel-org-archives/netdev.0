@@ -1,46 +1,62 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: Re: [PATCH V2] r8152: add Linksys USB3GIGV1 id
-Date: Wed, 27 Sep 2017 09:39:28 -0700
-Message-ID: <CANEJEGtEfxR+8n3tRtsci=4Gtyhy021Z-DRvEgXPGFUqYK2u7Q@mail.gmail.com>
-References: <20170926010925.114436-1-grundler@chromium.org>
- <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q@mail.gmail.com> <1506496556.28482.3.camel@suse.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net v2] net: dsa: mv88e6xxx: lock mutex when freeing IRQs
+Date: Wed, 27 Sep 2017 16:40:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00829F0@AcuExch.aculab.com>
+References: <20170926185721.12187-1-vivien.didelot@savoirfairelinux.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD00822B6@AcuExch.aculab.com>
+ <20170927130711.GD13516@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Doug Anderson <dianders@chromium.org>,
-        Grant Grundler <grundler@chromium.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Hayes Wang <hayeswang@realtek.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-usb <linux-usb@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Oliver Neukum <oneukum@suse.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: 'Andrew Lunn' <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506496556.28482.3.camel@suse.com>
+In-Reply-To: <20170927130711.GD13516@lunn.ch>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 12:15 AM, Oliver Neukum <oneukum@suse.com> wrote:
-> Am Dienstag, den 26.09.2017, 08:19 -0700 schrieb Doug Anderson:
->>
->> I know that for at least some of the adapters in the CDC Ethernet
->> blacklist it was claimed that the CDC Ethernet support in the adapter
->> was kinda broken anyway so the blacklist made sense.  ...but for the
->> Linksys Gigabit adapter the CDC Ethernet driver seems to work OK, it's
->> just not quite as full featured / efficient as the R8152 driver.
->>
->> Is that not a concern?  I guess you could tell people in this
->> situation that they simply need to enable the R8152 driver to get
->> continued support for their Ethernet adapter?
->
-> Hi,
->
-> yes, it is a valid concern. An #ifdef will be needed.
+From: Andrew Lunn
+> Sent: 27 September 2017 14:07
+> To: David Laight
+> On Wed, Sep 27, 2017 at 09:06:01AM +0000, David Laight wrote:
+> > From: Vivien Didelot
+> > > Sent: 26 September 2017 19:57
+> > > mv88e6xxx_g2_irq_free locks the registers mutex, but not
+> > > mv88e6xxx_g1_irq_free, which results in a stack trace from
+> > > assert_reg_lock when unloading the mv88e6xxx module. Fix this.
+> > >
+> > > Fixes: 3460a5770ce9 ("net: dsa: mv88e6xxx: Mask g1 interrupts and free interrupt")
+> > > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> > > ---
+> > >  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
+> > >  1 file changed, 2 insertions(+)
+> > >
+> > > diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> > > index c6678aa9b4ef..e7ff7483d2fb 100644
+> > > --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> > > +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> > > @@ -3947,7 +3947,9 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+> > >  	if (chip->irq > 0) {
+> > >  		if (chip->info->g2_irqs > 0)
+> > >  			mv88e6xxx_g2_irq_free(chip);
+> > > +		mutex_lock(&chip->reg_lock);
+> > >  		mv88e6xxx_g1_irq_free(chip);
+> > > +		mutex_unlock(&chip->reg_lock);
+> >
+> > Isn't the irq_free code likely to have to sleep waiting for any
+> > ISR to complete??
+> 
+> Hi David
+> 
+> Possibly. But this is a mutex, not a spinlock. So sleeping is O.K.
+> Or am i missing something?
 
-Good idea - I will post V3 shortly.
+Looks like I was missing some coffee :-)
 
-I'm assuming you mean to add #ifdef CONFIG_USB_RTL8152 around the
-blacklist entry in cdc_ether driver.
-
-cheers,
-grant
+	David
