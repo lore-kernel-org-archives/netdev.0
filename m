@@ -1,57 +1,72 @@
-From: Berend De Schouwer <berend.de.schouwer@gmail.com>
-Subject: Re: tg3 pxe weirdness
-Date: Wed, 27 Sep 2017 12:05:17 +0200
-Message-ID: <1506506717.18177.136.camel@gmail.com>
-References: <CAMet4B6mZ8SyCT7W2j4OBEUDiy3ZupYKWXBFti0nXoxm51_6kg@mail.gmail.com>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v6 05/11] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Wed, 27 Sep 2017 12:15:08 +0200
+Message-ID: <20170927101508.z3u32gff7kqgnmr2@flea>
+References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
+ <20170927073414.17361-6-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36253 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751800AbdI0KFY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 06:05:24 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r136so11024971wmf.3
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 03:05:24 -0700 (PDT)
-In-Reply-To: <CAMet4B6mZ8SyCT7W2j4OBEUDiy3ZupYKWXBFti0nXoxm51_6kg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="ghm4jv4fei6qquqw"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170927073414.17361-6-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-09-25 at 15:11 +0530, Siva Reddy Kallam wrote:
-> On Fri, Sep 22, 2017 at 9:04 PM, Berend De Schouwer
-> <berend.de.schouwer@gmail.com> wrote:
-> > On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
-> > > 
-> > > 
-> > > Can you please share below details?
-> > > 1) Model and Manufacturer of the system
-> > > 2) Linux distro/kernel used?
-> > 
-> > 4.13.3 gets a little further, but after some more data is
-> > transferred
-> > the tg3 driver still crashes.  This is unfortunately before I've
-> > got a
-> > writeable filesystem.
-> > 
-> > The last line is:
-> > tg3 0000:01:00.0: tg3_stop_block timed out, ofs=4c00 enable_bit=2
-> > 
-> > I've got some ideas to get the full dmesg.
-> > 
-> > As with the other kernels it works OK on 1Gbps, but not slower
-> > switches.
-> 
-> I am suspecting with link aware mode, the clock speed could be slow
-> and boot code does not
-> complete within the expected time with lower link speeds. So,
-> Providing a patch to override clock.
-> Can you please try with attached debug patch and provide us the
-> feedback with 100M link?
-> If it solves this issue, we will work on proper changes.
 
-This does work on 4.13.3 and PXE for me.
+--ghm4jv4fei6qquqw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I've tested on 1 Gbps, 100 Mbps and 10 Mbps.  I've done some
-preliminary testing (eg. large file copies.)
+Hi,
+
+On Wed, Sep 27, 2017 at 07:34:08AM +0000, Corentin Labbe wrote:
+> This patch add documentation about the MDIO switch used on sun8i-h3-emac
+> for integrated PHY.
+>=20
+> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+This should be squashed with patch 1.
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--ghm4jv4fei6qquqw
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZy3osAAoJEBx+YmzsjxAgNZgP/1IQ3e9WNN4u2CngPrA8NJD9
+1oAz6wk7OJtc+s70nl24YONkSEsMNfKtc3kjSAqmBkuPAVVlOL+SVZ9Jn9BVFXM2
+72Vx9apJoFTO3mCD/bjqN5a+Z8MVQcpJdbqzfuXCSKgnDKVDCE+nGbIWy9WsXeWj
+LS+5PE6far6tjXhIR848aAgmSytT1bbjbq9ZU0uygA7mkGg5mnn2ldV4Spueq07I
+M5bxK79I6ntxjmPGjz7xGJ3Cq2celbsgXBsegg0wf+vWK1Kia9CBbGv88ZhbwDR8
+gDqsoM4YgGRGxhHCl3fg3JlVJOH9vgeTVP3rzthLtGtB68vShOnWOkiWh2t+qW7S
+6FOUQbb+1Y/V62ngZI8o28BK6/nKcD1zh/yOZHMMdLREAT7On4x04L3upDDrKK6I
+1v7abQBZbRu4ACNUQJTcl+amwsqDyUm9HdWuhCeAGHIFRaqlj/BMcyZm7c0U7Ny7
+tuGq0BCW/Zld+a/7r5E0mb7FpDWQpCmzOZkCcCkGdlLkxcy4QZs/0dKl+MKb2lIC
+5KRw/YhEV16NUQZDq6Elfv+GFjpJqjBMjCFrc8C+NL6Hbp6GKUopyttcK7FJR2en
+yKyl9UvMU6IApXAdOS4rcSWKY83D3LXKUSsGxZYY1wiZEHkBoVSuh9uFEO6v4shs
+TGZ/5qSbU7oMuFcqY9rm
+=VC6s
+-----END PGP SIGNATURE-----
+
+--ghm4jv4fei6qquqw--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
