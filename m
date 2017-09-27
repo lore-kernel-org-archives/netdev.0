@@ -1,45 +1,49 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] liquidio: fix format truncation warning
- reported by gcc 7.1.1
-Date: Wed, 27 Sep 2017 09:04:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008227C@AcuExch.aculab.com>
-References: <20170926184827.GA3512@felix-thinkpad.cavium.com>
+Subject: RE: [PATCH net v2] net: dsa: mv88e6xxx: lock mutex when freeing IRQs
+Date: Wed, 27 Sep 2017 09:06:01 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00822B6@AcuExch.aculab.com>
+References: <20170926185721.12187-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "raghu.vatsavayi@cavium.com" <raghu.vatsavayi@cavium.com>,
-        "derek.chickles@cavium.com" <derek.chickles@cavium.com>,
-        "satananda.burla@cavium.com" <satananda.burla@cavium.com>
-To: 'Felix Manlunas' <felix.manlunas@cavium.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:61161 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752837AbdI0JEo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 05:04:44 -0400
-In-Reply-To: <20170926184827.GA3512@felix-thinkpad.cavium.com>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170926185721.12187-1-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Felix Manlunas
-> Sent: 26 September 2017 19:48
-> gcc 7.1.1 with -Wformat-truncation reports these warnings:
+From: Vivien Didelot
+> Sent: 26 September 2017 19:57
+> mv88e6xxx_g2_irq_free locks the registers mutex, but not
+> mv88e6xxx_g1_irq_free, which results in a stack trace from
+> assert_reg_lock when unloading the mv88e6xxx module. Fix this.
 > 
-> drivers/net/ethernet/cavium/liquidio/lio_core.c: In function `octeon_setup_interrupt':
-> drivers/net/ethernet/cavium/liquidio/lio_core.c:1003:41: warning: `%u' directive output may be
-> truncated writing between 1 and 10 bytes into a region of size between 0 and 13 [-Wformat-truncation=]
->        INTRNAMSIZ, "LiquidIO%u-pf%u-rxtx-%u",
-...
-> Fix them by changing the type of the "i" local variable from int to short.
+> Fixes: 3460a5770ce9 ("net: dsa: mv88e6xxx: Mask g1 interrupts and free interrupt")
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx/chip.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+> index c6678aa9b4ef..e7ff7483d2fb 100644
+> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+> @@ -3947,7 +3947,9 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+>  	if (chip->irq > 0) {
+>  		if (chip->info->g2_irqs > 0)
+>  			mv88e6xxx_g2_irq_free(chip);
+> +		mutex_lock(&chip->reg_lock);
+>  		mv88e6xxx_g1_irq_free(chip);
+> +		mutex_unlock(&chip->reg_lock);
 
-That probably adds pointless code bloat by forcing the compiler to
-keep masking the value with 0xffff after every arithmetic operation.
-
-About the only architecture that doesn't suffer the penalty is x86.
-
-Until the compiler can correctly track the domain of values (and
-be given hints about the domains) this warning is, IMHO, OTT.
+Isn't the irq_free code likely to have to sleep waiting for any
+ISR to complete??
 
 	David
