@@ -1,105 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 3/5] vhost: introduce vhost_add_used_idx()
-Date: Thu, 28 Sep 2017 01:58:40 +0300
-Message-ID: <20170928015749-mutt-send-email-mst@kernel.org>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <1506067355-5771-4-git-send-email-jasowang@redhat.com>
- <20170926170047-mutt-send-email-mst@kernel.org>
- <c42b7244-6d43-2ce5-46a3-ea70ec9d957f@redhat.com>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Subject: Re: [next-queue PATCH 2/3] net/sched: Introduce Credit Based Shaper
+ (CBS) qdisc
+Date: Wed, 27 Sep 2017 15:57:24 -0700
+Message-ID: <4b0e1610-c9df-191d-496e-4be04c785d2f@intel.com>
+References: <20170926233916.11774-1-vinicius.gomes@intel.com>
+ <20170926233916.11774-3-vinicius.gomes@intel.com>
+ <CAM_iQpVrz+e=TYHYqaYyUWRP528GSZXx8EnN1yPhZK8eLvP4Yw@mail.gmail.com>
+ <87lgkzg7xv.fsf@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c42b7244-6d43-2ce5-46a3-ea70ec9d957f@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>, andre.guedes@intel.com,
+        ivan.briano@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, henrik@austad.us
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga06.intel.com ([134.134.136.31]:17613 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752231AbdI0XEW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 27 Sep 2017 19:04:22 -0400
+In-Reply-To: <87lgkzg7xv.fsf@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 08:38:24AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年09月27日 03:13, Michael S. Tsirkin wrote:
-> > On Fri, Sep 22, 2017 at 04:02:33PM +0800, Jason Wang wrote:
-> > > This patch introduces a helper which just increase the used idx. This
-> > > will be used in pair with vhost_prefetch_desc_indices() by batching
-> > > code.
-> > > 
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > > ---
-> > >   drivers/vhost/vhost.c | 33 +++++++++++++++++++++++++++++++++
-> > >   drivers/vhost/vhost.h |  1 +
-> > >   2 files changed, 34 insertions(+)
-> > > 
-> > > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> > > index 8424166d..6532cda 100644
-> > > --- a/drivers/vhost/vhost.c
-> > > +++ b/drivers/vhost/vhost.c
-> > > @@ -2178,6 +2178,39 @@ int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int len)
-> > >   }
-> > >   EXPORT_SYMBOL_GPL(vhost_add_used);
-> > > +int vhost_add_used_idx(struct vhost_virtqueue *vq, int n)
-> > > +{
-> > > +	u16 old, new;
-> > > +
-> > > +	old = vq->last_used_idx;
-> > > +	new = (vq->last_used_idx += n);
-> > > +	/* If the driver never bothers to signal in a very long while,
-> > > +	 * used index might wrap around. If that happens, invalidate
-> > > +	 * signalled_used index we stored. TODO: make sure driver
-> > > +	 * signals at least once in 2^16 and remove this.
-> > > +	 */
-> > > +	if (unlikely((u16)(new - vq->signalled_used) < (u16)(new - old)))
-> > > +		vq->signalled_used_valid = false;
-> > > +
-> > > +	/* Make sure buffer is written before we update index. */
-> > > +	smp_wmb();
-> > > +	if (vhost_put_user(vq, cpu_to_vhost16(vq, vq->last_used_idx),
-> > > +			   &vq->used->idx)) {
-> > > +		vq_err(vq, "Failed to increment used idx");
-> > > +		return -EFAULT;
-> > > +	}
-> > > +	if (unlikely(vq->log_used)) {
-> > > +		/* Log used index update. */
-> > > +		log_write(vq->log_base,
-> > > +			  vq->log_addr + offsetof(struct vring_used, idx),
-> > > +			  sizeof(vq->used->idx));
-> > > +		if (vq->log_ctx)
-> > > +			eventfd_signal(vq->log_ctx, 1);
-> > > +	}
-> > > +	return 0;
-> > > +}
-> > > +EXPORT_SYMBOL_GPL(vhost_add_used_idx);
-> > > +
-> > >   static int __vhost_add_used_n(struct vhost_virtqueue *vq,
-> > >   			    struct vring_used_elem *heads,
-> > >   			    unsigned count)
-> > > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> > > index 16c2cb6..5dd6c05 100644
-> > > --- a/drivers/vhost/vhost.h
-> > > +++ b/drivers/vhost/vhost.h
-> > > @@ -199,6 +199,7 @@ int __vhost_get_vq_desc(struct vhost_virtqueue *vq,
-> > >   void vhost_discard_vq_desc(struct vhost_virtqueue *, int n);
-> > >   int vhost_vq_init_access(struct vhost_virtqueue *);
-> > > +int vhost_add_used_idx(struct vhost_virtqueue *vq, int n);
-> > >   int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
-> > >   int vhost_add_used_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
-> > >   		     unsigned count);
-> > Please change the API to hide the fact that there's an index that needs
-> > to be updated.
-> 
-> In fact, an interesting optimization on top is just call
-> vhost_add_used_idx(vq, n) instead of n vhost_add_used_idx(vq, 1). That's the
-> reason I leave n in the API.
-> 
-> Thanks
+Hi,
 
-Right but you could increment some internal counter in the vq
-structure then update the used index using some api
-with a generic name, e.g.  add_used_complete or something like this.
 
-> > 
-> > > -- 
-> > > 2.7.4
+On 09/27/2017 02:14 PM, Vinicius Costa Gomes wrote:
+> Hi,
+> 
+> Cong Wang <xiyou.wangcong@gmail.com> writes:
+> 
+>> On Tue, Sep 26, 2017 at 4:39 PM, Vinicius Costa Gomes
+>> <vinicius.gomes@intel.com> wrote:
+>>> +static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
+>>> +{
+>>> +       struct cbs_sched_data *q = qdisc_priv(sch);
+>>> +       struct net_device *dev = qdisc_dev(sch);
+>>> +
+>>> +       if (!opt)
+>>> +               return -EINVAL;
+>>> +
+>>> +       /* FIXME: this means that we can only install this qdisc
+>>> +        * "under" mqprio. Do we need a more generic way to retrieve
+>>> +        * the queue, or do we pass the netdev_queue to the driver?
+>>> +        */
+>>> +       q->queue = TC_H_MIN(sch->parent) - 1 - netdev_get_num_tc(dev);
+>>> +
+>>> +       return cbs_change(sch, opt);
+>>> +}
+>>
+>> Yeah it is ugly to assume its parent is mqprio, at least you should
+>> error out if it is not the case.
+> 
+> Will add an error for this, for now.
+> 
+>>
+>> I am not sure how we can solve this elegantly, perhaps you should
+>> extend mqprio rather than add a new one?
+> 
+> Is the alternative hinted in the FIXME worse? Instead of passing the
+> index of the hardware queue to the driver we pass the pointer to a
+> netdev_queue to the driver and it "discovers" the HW queue from that.
+
+What if we keep passing the index, but calculate it from the netdev_queue
+pointer instead?
+
+i.e.:  q->queue = sch->dev_queue - netdev_get_tx_queue(dev, 0);
+
+At least it wouldn't rely on the root qdisc being of any specific type.
+
+Regards,
+Jesus
