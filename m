@@ -1,70 +1,42 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: Re: [PATCH v2 02/16] thunderbolt: Add support for XDomain properties
-Date: Wed, 27 Sep 2017 14:32:41 +0300
-Message-ID: <20170927113241.GB4630@lahna.fi.intel.com>
-References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
- <20170925110738.68382-3-mika.westerberg@linux.intel.com>
- <20170926.213354.305351416790211828.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] i40e: Fix limit imprecise of the number of MAC/VLAN
+ that can be added for VFs
+Date: Wed, 27 Sep 2017 14:33:49 +0300
+Message-ID: <fd104583-6743-9f1b-cba8-988fa1b216db@cogentembedded.com>
+References: <1506495497-10736-1-git-send-email-wangyunjian@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
-        michael.jamet@intel.com, yehezkel.bernat@intel.com,
-        amir.jer.levy@intel.com, Mario.Limonciello@dell.com,
-        lukas@wunner.de, andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170926.213354.305351416790211828.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        caihe@huawei.com
+To: w00273186 <wangyunjian@huawei.com>, davem@davemloft.net,
+        jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f174.google.com ([209.85.128.174]:51356 "EHLO
+        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752090AbdI0Ldw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 07:33:52 -0400
+Received: by mail-wr0-f174.google.com with SMTP id z39so15870611wrb.8
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 04:33:51 -0700 (PDT)
+In-Reply-To: <1506495497-10736-1-git-send-email-wangyunjian@huawei.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 26, 2017 at 09:33:54PM -0700, David Miller wrote:
-> From: Mika Westerberg <mika.westerberg@linux.intel.com>
-> Date: Mon, 25 Sep 2017 14:07:24 +0300
+Hello!
+
+On 9/27/2017 9:58 AM, w00273186 wrote:
+
+> From: Yunjian Wang <wangyunjian@huawei.com>
 > 
-> > +struct tb_property_entry {
-> > +	u32 key_hi;
-> > +	u32 key_lo;
-> > +	u16 length;
-> > +	u8 reserved;
-> > +	u8 type;
-> > +	u32 value;
-> > +} __packed;
-> > +
-> > +struct tb_property_rootdir_entry {
-> > +	u32 magic;
-> > +	u32 length;
-> > +	struct tb_property_entry entries[];
-> > +} __packed;
-> > +
-> > +struct tb_property_dir_entry {
-> > +	u32 uuid[4];
-> > +	struct tb_property_entry entries[];
-> > +} __packed;
+> Now it don't limit the number of MAC/VLAN strictly. When there is more
+
+    Doesn't.
+
+> elements in the virtchnl MAC/VLAN list, it can still add successfully.
 > 
-> There is no apparent need for __packed here, and __packed should be
-> avoided unless absolutely necessary as it pessimizes the code
-> significantly on some architectures.
-> 
-> Please remove __packed from these datastructures unless you can
-> prove it is absolutely needed and, in such case, please document
-> in a comment why that requirement exists.  Because from the layout
-> of these types, everything will be packed in just fine without
-> __packed.
+> Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
 
-I will thanks.
+[...]
 
-Just for my education, is there some rule which tells when __packed is
-to be used? For example the above structures are all 32-bit aligned but
-how about something like:
-
-struct foo {
-	u32 value1;
-	u8 value2;
-};
-
-If the on-wire format requires such structures I assume __packed
-is needed here?
-
-Thanks!
+MBR, Sergei
