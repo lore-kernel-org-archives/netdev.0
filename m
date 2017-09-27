@@ -1,204 +1,70 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 1/3] tun: abstract flow steering logic
-Date: Wed, 27 Sep 2017 16:23:55 +0800
-Message-ID: <1506500637-13881-2-git-send-email-jasowang@redhat.com>
-References: <1506500637-13881-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506500637-13881-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] tc: fix ipv6 filter selector attribute for
+ some prefix lengths
+Date: Wed, 27 Sep 2017 09:26:34 +0100
+Message-ID: <20170927092634.0870468d@shemminger-XPS-13-9360>
+References: <CAOgqDSEvuZVExji=NXq0s1Ze9pQTawQGy=OQxLxwU7b52xHNXQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: Yulia Kartseva <yulia.kartseva@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:49067 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752100AbdI0I0k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 04:26:40 -0400
+Received: by mail-wm0-f50.google.com with SMTP id m127so15283805wmm.3
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 01:26:39 -0700 (PDT)
+In-Reply-To: <CAOgqDSEvuZVExji=NXq0s1Ze9pQTawQGy=OQxLxwU7b52xHNXQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-tun now use flow caches based automatic queue steering method. This
-may not suffice all user cases. To extend it to be able to use more
-flow steering policy, this patch abstracts flow steering logic into
-tun_steering_ops, then we can declare and use different methods in
-the future.
+On Mon, 25 Sep 2017 11:12:38 -0700
+Yulia Kartseva <yulia.kartseva@gmail.com> wrote:
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 85 +++++++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 63 insertions(+), 22 deletions(-)
+> Wrong TCA_U32_SEL attribute packing if prefixLen AND 0x1f equals 0x1f.
+> These are  /31, /63, /95 and /127 prefix lengths.
+> 
+> Example:
+> # tc filter add dev eth0 protocol ipv6 parent b: prio 2307 u32 match
+> ip6 dst face:b00f::/31
+> # tc filter show dev eth0
+> filter parent b: protocol ipv6 pref 2307 u32
+> filter parent b: protocol ipv6 pref 2307 u32 fh 800: ht divisor 1
+> filter parent b: protocol ipv6 pref 2307 u32 fh 800::800 order 2048
+> key ht 800 bkt 0
+>   match faceb00f/ffffffff at 24
+> 
+> 
+> The correct match would be "faceb00e/fffffffe": don't count the last
+> bit of the 4th byte as the network prefix. With fix:
+> 
+> # tc filter show dev eth0
+> filter parent b: protocol ipv6 pref 2307 u32
+> filter parent b: protocol ipv6 pref 2307 u32 fh 800: ht divisor 1
+> filter parent b: protocol ipv6 pref 2307 u32 fh 800::800 order 2048
+> key ht 800 bkt 0
+>   match faceb00e/fffffffe at 24
+> 
+>  tc/f_u32.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/tc/f_u32.c b/tc/f_u32.c
+> index 5815be9..14b9588 100644
+> --- a/tc/f_u32.c
+> +++ b/tc/f_u32.c
+> @@ -385,8 +385,7 @@ static int parse_ip6_addr(int *argc_p, char ***argv_p,
+> 
+>   plen = addr.bitlen;
+>   for (i = 0; i < plen; i += 32) {
+> - /* if (((i + 31) & ~0x1F) <= plen) { */
+> - if (i + 31 <= plen) {
+> + if (i + 31 < plen) {
+>   res = pack_key(sel, addr.data[i / 32],
+>         0xFFFFFFFF, off + 4 * (i / 32), offmask);
+>   if (res < 0)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 2c36f6e..de83e72 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -181,6 +181,14 @@ struct tun_file {
- 	struct skb_array tx_array;
- };
- 
-+struct tun_steering_ops {
-+	u16 (*select_queue) (struct tun_struct *tun, struct sk_buff *skb);
-+	void (*xmit) (struct tun_struct *tun, struct sk_buff *skb);
-+	u32 (*pre_rx) (struct tun_struct *tun, struct sk_buff *skb);
-+	void (*post_rx) (struct tun_struct *tun, struct tun_file *tfile,
-+			 u32 data);
-+};
-+
- struct tun_flow_entry {
- 	struct hlist_node hash_link;
- 	struct rcu_head rcu;
-@@ -231,6 +239,7 @@ struct tun_struct {
- 	u32 rx_batched;
- 	struct tun_pcpu_stats __percpu *pcpu_stats;
- 	struct bpf_prog __rcu *xdp_prog;
-+	struct tun_steering_ops *steering_ops;
- };
- 
- static int tun_napi_receive(struct napi_struct *napi, int budget)
-@@ -532,10 +541,8 @@ static inline void tun_flow_save_rps_rxhash(struct tun_flow_entry *e, u32 hash)
-  * different rxq no. here. If we could not get rxhash, then we would
-  * hope the rxq no. may help here.
-  */
--static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
--			    void *accel_priv, select_queue_fallback_t fallback)
-+static u16 tun_automq_select_queue(struct tun_struct *tun, struct sk_buff *skb)
- {
--	struct tun_struct *tun = netdev_priv(dev);
- 	struct tun_flow_entry *e;
- 	u32 txq = 0;
- 	u32 numqueues = 0;
-@@ -559,9 +566,18 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
- 	}
- 
- 	rcu_read_unlock();
-+
- 	return txq;
- }
- 
-+static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb,
-+			    void *accel_priv, select_queue_fallback_t fallback)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	return tun->steering_ops->select_queue(tun, skb);
-+}
-+
- static inline bool tun_not_capable(struct tun_struct *tun)
- {
- 	const struct cred *cred = current_cred();
-@@ -931,24 +947,10 @@ static int tun_net_close(struct net_device *dev)
- 	return 0;
- }
- 
--/* Net device start xmit */
--static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
-+static void tun_automq_xmit(struct tun_struct *tun, struct sk_buff *skb)
- {
--	struct tun_struct *tun = netdev_priv(dev);
--	int txq = skb->queue_mapping;
--	struct tun_file *tfile;
--	u32 numqueues = 0;
--
--	rcu_read_lock();
--	tfile = rcu_dereference(tun->tfiles[txq]);
--	numqueues = ACCESS_ONCE(tun->numqueues);
--
--	/* Drop packet if interface is not attached */
--	if (txq >= numqueues)
--		goto drop;
--
- #ifdef CONFIG_RPS
--	if (numqueues == 1 && static_key_false(&rps_needed)) {
-+	if (ACCESS_ONCE(tun->numqueues) == 1 && static_key_false(&rps_needed)) {
- 		/* Select queue was not called for the skbuff, so we extract the
- 		 * RPS hash and save it into the flow_table here.
- 		 */
-@@ -964,6 +966,25 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- #endif
-+}
-+
-+/* Net device start xmit */
-+static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+	int txq = skb->queue_mapping;
-+	struct tun_file *tfile;
-+	u32 numqueues = 0;
-+
-+	rcu_read_lock();
-+	tfile = rcu_dereference(tun->tfiles[txq]);
-+	numqueues = ACCESS_ONCE(tun->numqueues);
-+
-+	/* Drop packet if interface is not attached */
-+	if (txq >= numqueues)
-+		goto drop;
-+
-+	tun->steering_ops->xmit(tun, skb);
- 
- 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
- 
-@@ -1527,6 +1548,17 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 	return NULL;
- }
- 
-+u32 tun_automq_pre_rx(struct tun_struct *tun, struct sk_buff *skb)
-+{
-+	return __skb_get_hash_symmetric(skb);
-+}
-+
-+void tun_automq_post_rx(struct tun_struct *tun, struct tun_file *tfile,
-+			u32 rxhash)
-+{
-+	tun_flow_update(tun, rxhash, tfile);
-+}
-+
- /* Get packet from user space buffer */
- static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			    void *msg_control, struct iov_iter *from,
-@@ -1542,7 +1574,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	int copylen;
- 	bool zerocopy = false;
- 	int err;
--	u32 rxhash;
-+	u32 data;
- 	int skb_xdp = 1;
- 	bool frags = tun_napi_frags_enabled(tun);
- 
-@@ -1728,7 +1760,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		rcu_read_unlock();
- 	}
- 
--	rxhash = __skb_get_hash_symmetric(skb);
-+	data = tun->steering_ops->pre_rx(tun, skb);
- 
- 	if (frags) {
- 		/* Exercise flow dissector code path. */
-@@ -1772,7 +1804,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	u64_stats_update_end(&stats->syncp);
- 	put_cpu_ptr(stats);
- 
--	tun_flow_update(tun, rxhash, tfile);
-+	tun->steering_ops->post_rx(tun, tfile, data);
- 	return total_len;
- }
- 
-@@ -2112,6 +2144,13 @@ static struct proto tun_proto = {
- 	.obj_size	= sizeof(struct tun_file),
- };
- 
-+static struct tun_steering_ops tun_automq_ops = {
-+	.select_queue = tun_automq_select_queue,
-+	.xmit = tun_automq_xmit,
-+	.pre_rx = tun_automq_pre_rx,
-+	.post_rx = tun_automq_post_rx,
-+};
-+
- static int tun_flags(struct tun_struct *tun)
- {
- 	return tun->flags & (TUN_FEATURES | IFF_PERSIST | IFF_TUN | IFF_TAP);
-@@ -2268,6 +2307,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			goto err_free_dev;
- 		}
- 
-+		tun->steering_ops = &tun_automq_ops;
-+
- 		spin_lock_init(&tun->lock);
- 
- 		err = security_tun_dev_alloc_security(&tun->security);
--- 
-2.7.4
+This patch looks correct, but will not apply cleanly because
+the mail system that you submitted it with is removing whitespace.
+If possible use a different client, or send as an attachment.
