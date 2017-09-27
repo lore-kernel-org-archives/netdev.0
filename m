@@ -1,106 +1,87 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH v2 net-next 2/2] net/sched: allow flower to match tunnel
- options
-Date: Wed, 27 Sep 2017 14:52:06 +0200
-Message-ID: <20170927125205.GA30000@vergenet.net>
-References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
- <1506500194-17637-3-git-send-email-simon.horman@netronome.com>
- <20170927091005.GB1944@nanopsycho.orion>
- <20170927092732.GC25449@vergenet.net>
- <20170927110822.GD1944@nanopsycho.orion>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: tc H/W offload issue with vxlan tunnels [was: nfp: flower vxlan
+ tunnel offload]
+Date: Wed, 27 Sep 2017 14:55:09 +0200
+Message-ID: <20170927125509.GG1944@nanopsycho.orion>
+References: <1506500975.2867.19.camel@redhat.com>
+ <20170927091700.GC1944@nanopsycho.orion>
+ <1506505618.2867.34.camel@redhat.com>
+ <20170927111150.GE1944@nanopsycho.orion>
+ <1506515496.6840.6.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        oss-drivers@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Or Gerlitz <gerlitz.or@gmail.com>, Jiri Benc <jbenc@redhat.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:56331 "EHLO
-        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752104AbdI0MwN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 08:52:13 -0400
-Received: by mail-qk0-f174.google.com with SMTP id g128so13126395qke.13
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 05:52:13 -0700 (PDT)
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:55260 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752131AbdI0MzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 08:55:12 -0400
+Received: by mail-wr0-f179.google.com with SMTP id g29so16282294wrg.11
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 05:55:11 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170927110822.GD1944@nanopsycho.orion>
+In-Reply-To: <1506515496.6840.6.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 01:08:22PM +0200, Jiri Pirko wrote:
-> Wed, Sep 27, 2017 at 11:27:33AM CEST, simon.horman@netronome.com wrote:
-> >On Wed, Sep 27, 2017 at 11:10:05AM +0200, Jiri Pirko wrote:
-> >> Wed, Sep 27, 2017 at 10:16:34AM CEST, simon.horman@netronome.com wrote:
+Wed, Sep 27, 2017 at 02:31:36PM CEST, pabeni@redhat.com wrote:
+>On Wed, 2017-09-27 at 13:11 +0200, Jiri Pirko wrote:
+>> Wed, Sep 27, 2017 at 11:46:58AM CEST, pabeni@redhat.com wrote:
+>> > On Wed, 2017-09-27 at 11:17 +0200, Jiri Pirko wrote:
+>> > > Wed, Sep 27, 2017 at 10:29:35AM CEST, pabeni@redhat.com wrote:
+>> > > > So it looks like the H/W offload hook will still be called with the
+>> > > > same arguments in both case, and 'bad' rule will still be pushed to the
+>> > > > H/W as the driver itself has no way to distinct between the two
+>> > > > scenarios.
+>> > > 
+>> > > Why "bad"?
+>> > 
+>> > Such rule is coped differently by the SW and the HW data path.
+>> > 
+>> > a rule like:
+>> > 
+>> > tc filter add dev eth0 protocol ip parent ffff: flower \
+>> >   enc_key_id 102 enc_dst_port 4789 src_ip 3.4.5.6 skip_hw \
+>> >   action action mirred redirect eth0_vf_1
+>> > 
+>> > will match 0 packets, while:
+>> > 
+>> > tc filter add dev eth0 protocol ip parent ffff: flower \
+>> >   enc_key_id 102 enc_dst_port 4789 src_ip 3.4.5.6 skip_sw \
+>> >   action action mirred redirect eth0_vf_1
+>> > 
+>> > [just flipped 'skip_sw' and 'skip_hw' ]
+>> > will match the vxlan-tunneled packets. I understand that one of the
+>> > design goal for the h/w offload path is being consistent with the sw
+>> > one, but that does not hold in the above scenario.
+>> 
+>> Sure, the consistency is important. Howcome "skip_hw" won't match and
+>> "skip_sw" will match? What's different?
+>
+>For the SW datapath, we need a metadata based/lwt tunnel to collect the
+>tunnel information. eth0 is not a such device and does not provide the
+>metadata. Any match on tunnel based field will fail - correctly.
 
-...
-
-> >> > enum flow_dissector_key_id {
-> >> > 	FLOW_DISSECTOR_KEY_CONTROL, /* struct flow_dissector_key_control */
-> >> > 	FLOW_DISSECTOR_KEY_BASIC, /* struct flow_dissector_key_basic */
-> >> >@@ -205,6 +217,7 @@ enum flow_dissector_key_id {
-> >> > 	FLOW_DISSECTOR_KEY_MPLS, /* struct flow_dissector_key_mpls */
-> >> > 	FLOW_DISSECTOR_KEY_TCP, /* struct flow_dissector_key_tcp */
-> >> > 	FLOW_DISSECTOR_KEY_IP, /* struct flow_dissector_key_ip */
-> >> >+	FLOW_DISSECTOR_KEY_ENC_OPTS, /* struct flow_dissector_key_enc_opts */
-> >> 
-> >> I don't see the actual dissection implementation. Where is it?
-> >> Did you test the patchset?
-> >
-> >Yes, I did test it. But it is also possible something went astray along the
-> >way and I will retest.
-> >
-> >I think that the code you are looking for is in
-> >fl_classify() in this patch.
-> 
-> The dissection should be done in the flow_dissector. That's the whole
-> point in having it generic. You should move it there.
-
-Coming back to this after lunch, I believe what I have done in this patch
-is consistent with handling of other enc fields, which are set in
-fl_classify() rather than the dissector. In particular the ip_tunnel_info,
-which is used by this patch, is already used in fl_classify().
-
-Without this patch I see:
+So where do you attach the tc filter instead of eth0? vxlan0?
 
 
-static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
-                       struct tcf_result *res)
-{
-        ...
-        struct ip_tunnel_info *info;
+>
+>When the HW datapath is used, the underlaying NIC is programmed exactly
+>as done when we replace eth0 with vxlan0. The programmed flow matches
+>vxlan encapsulated traffic.
 
-        ...
+Ok, so we should unify the behaviour with sw path and don't allow such
+mathing in hw.
 
-        info = skb_tunnel_info(skb);
-        if (info) {
-                struct ip_tunnel_key *key = &info->key;
 
-                switch (ip_tunnel_info_af(info)) {
-                case AF_INET:
-                        skb_key.enc_control.addr_type =
-                                FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-                        skb_key.enc_ipv4.src = key->u.ipv4.src;
-                        skb_key.enc_ipv4.dst = key->u.ipv4.dst;
-                        break;
-                case AF_INET6:
-                        skb_key.enc_control.addr_type =
-                                FLOW_DISSECTOR_KEY_IPV6_ADDRS;
-                        skb_key.enc_ipv6.src = key->u.ipv6.src;
-                        skb_key.enc_ipv6.dst = key->u.ipv6.dst;
-                        break;
-                }
-
-                skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
-                skb_key.enc_tp.src = key->tp_src;
-                skb_key.enc_tp.dst = key->tp_dst;
-        }
-
-	...
-}
-
-This patch adds the following inside the if() clause above:
-
-	if (info->options_len) {
-		skb_key.enc_opts.len = info->options_len;
-		ip_tunnel_info_opts_get(skb_key.enc_opts.data, info);
-	}
+>
+>Cheers,
+>
+>Paolo
