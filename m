@@ -1,33 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 16/16] net: Add support for networking over
- Thunderbolt cable
-Date: Wed, 27 Sep 2017 09:27:09 -0700 (PDT)
-Message-ID: <20170927.092709.1826177647592316221.davem@davemloft.net>
-References: <20170925110738.68382-17-mika.westerberg@linux.intel.com>
-        <20170926.214721.734746621809140934.davem@davemloft.net>
-        <20170927134238.GC4630@lahna.fi.intel.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] libbpf: use map_flags when creating maps
+Date: Wed, 27 Sep 2017 09:29:12 -0700
+Message-ID: <f7d4addc-9f6a-4ddb-b383-f255cd2f728f@fb.com>
+References: <20170927140458.44337-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, andreas.noever@gmail.com,
-        michael.jamet@intel.com, yehezkel.bernat@intel.com,
-        amir.jer.levy@intel.com, Mario.Limonciello@dell.com,
-        lukas@wunner.de, andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mika.westerberg@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927134238.GC4630@lahna.fi.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Chonggang Li <chonggangli@google.com>, <netdev@vger.kernel.org>
+To: Craig Gallek <kraigatgoog@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33011 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751692AbdI0Q3g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 12:29:36 -0400
+In-Reply-To: <20170927140458.44337-1-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Date: Wed, 27 Sep 2017 16:42:38 +0300
+On 9/27/17 7:04 AM, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
+>
+> This extends struct bpf_map_def to include a flags field.  Note that
+> this has the potential to break the validation logic in
+> bpf_object__validate_maps and bpf_object__init_maps as they use
+> sizeof(struct bpf_map_def) as a minimal allowable size of a map section.
+> Any bpf program compiled with a smaller struct bpf_map_def will fail this
+> check.
+>
+> I don't believe this will be an issue in practice as both compile-time
+> definitions of struct bpf_map_def (in samples/bpf/bpf_load.h and
+> tools/testing/selftests/bpf/bpf_helpers.h) have always been larger
+> than this newly updated version in libbpf.h.
+>
+> Signed-off-by: Craig Gallek <kraig@google.com>
+> ---
+>  tools/lib/bpf/libbpf.c | 2 +-
+>  tools/lib/bpf/libbpf.h | 1 +
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+> index 35f6dfcdc565..6bea85f260a3 100644
+> --- a/tools/lib/bpf/libbpf.c
+> +++ b/tools/lib/bpf/libbpf.c
+> @@ -874,7 +874,7 @@ bpf_object__create_maps(struct bpf_object *obj)
+>  				      def->key_size,
+>  				      def->value_size,
+>  				      def->max_entries,
+> -				      0);
+> +				      def->map_flags);
+>  		if (*pfd < 0) {
+>  			size_t j;
+>  			int err = *pfd;
+> diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+> index 7959086eb9c9..6e20003109e0 100644
+> --- a/tools/lib/bpf/libbpf.h
+> +++ b/tools/lib/bpf/libbpf.h
+> @@ -207,6 +207,7 @@ struct bpf_map_def {
+>  	unsigned int key_size;
+>  	unsigned int value_size;
+>  	unsigned int max_entries;
+> +	unsigned int map_flags;
+>  };
 
-> Using build_skb() then would require to allocate larger buffer, that
-> includes NET_SKB_PAD + SKB_DATA_ALIGN(skb_shared_info) and that exceeds
-> page size. Is this something supported by build_skb()? It was not clear
-> to me based on the code and other users of build_skb() but I may be
-> missing something.
-
-You need NET_SKB_PAD before and SKB_DATA_ALIGN(skb_shared_info) afterwards.
-An order 1 page, if that's what you need, should work just fine.
+yes it will break loading of pre-compiled .o
+Instead of breaking, let's fix the loader to do it the way
+samples/bpf/bpf_load.c does.
+See commit 156450d9d964 ("samples/bpf: make bpf_load.c code compatible 
+with ELF maps section changes")
