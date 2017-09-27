@@ -1,72 +1,74 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v6 11/11] of: mdio: Prevent
- of_mdiobus_register from scanning mdio-mux nodes
-Date: Wed, 27 Sep 2017 16:12:13 +0200
-Message-ID: <20170927141213.GF13516@lunn.ch>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
- <20170927073414.17361-12-clabbe.montjoie@gmail.com>
-Reply-To: andrew-g2DYL2Zd6BY@public.gmane.org
+From: Josh Poimboeuf <jpoimboe@redhat.com>
+Subject: Re: WARNING: kernel stack frame pointer at ffff880156a5fea0 in
+ bash:2103 has bad value 00007ffec7d87e50
+Date: Wed, 27 Sep 2017 09:14:30 -0500
+Message-ID: <20170927141430.i6awpjkyoqffof4b@treble>
+References: <2656822.vqnppgTvlm@blindfold>
+ <1598510.AHGpDp18sh@blindfold>
+ <20170926224246.mj6cxkkelc4sanda@treble>
+ <41856500.WAzQIuoSLi@blindfold>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDJNHL5JSEOBBRXDV3HAKGQEY456UHQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>, ast@kernel.org,
+        daniel@iogearbox.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mingo@kernel.org
+To: Richard Weinberger <richard@sigma-star.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170927073414.17361-12-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+In-Reply-To: <41856500.WAzQIuoSLi@blindfold>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 09:34:14AM +0200, Corentin Labbe wrote:
-> Each child node of an MDIO node is scanned as a PHY when calling
-> of_mdiobus_register() givint the following result:
-> [   18.175379] mdio_bus stmmac-0: /soc/ethernet@1c30000/mdio/mdio-mux has invalid PHY address
-> [   18.175408] mdio_bus stmmac-0: scan phy mdio-mux at address 0
-> [   18.175450] mdio_bus stmmac-0: scan phy mdio-mux at address 1
-> [...]
-> [   18.176420] mdio_bus stmmac-0: scan phy mdio-mux at address 30
-> [   18.176452] mdio_bus stmmac-0: scan phy mdio-mux at address 31
+On Wed, Sep 27, 2017 at 08:51:22AM +0200, Richard Weinberger wrote:
+> Am Mittwoch, 27. September 2017, 00:42:46 CEST schrieb Josh Poimboeuf:
+> > > Here is another variant of the warning, it matches the attached .config:
+> > I can take a look at it.  Unfortunately, for these types of issues I
+> > often need the vmlinux file to be able to make sense of the unwinder
+> > dump.  So if you happen to have somewhere to copy the vmlinux to, that
+> > would be helpful.  Or if you give me your GCC version I can try to
+> > rebuild it locally.
 > 
-> Since mdio-mux nodes are not PHY, this patch a way to to not scan
-> them.
+> There you go:
+> http://git.infradead.org/~rw/bpf_splat/vmlinux.xz
 
-Hi Corentin
+Thanks.  Can you test this fix?
 
-I still don't like this, but ...
 
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/of/of_mdio.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index d94dd8b77abd..d90ddb0d90f2 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -190,6 +190,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  	struct device_node *child;
->  	bool scanphys = false;
->  	int addr, rc;
-> +	static const struct of_device_id do_not_scan[] = {
-> +		{ .compatible = "mdio-mux" },
-> +		{}
-> +	};
-
-Please rename this to some less generic. What i don't want is other
-compatible strings added here. We want to make the exception for
-muxes, but nothing else. So something like compatible_muxes?
-
-       Andrew
+diff --git a/arch/x86/kernel/kprobes/common.h b/arch/x86/kernel/kprobes/common.h
+index db2182d63ed0..3fc0f9a794cb 100644
+--- a/arch/x86/kernel/kprobes/common.h
++++ b/arch/x86/kernel/kprobes/common.h
+@@ -3,6 +3,15 @@
+ 
+ /* Kprobes and Optprobes common header */
+ 
++#include <asm/asm.h>
++
++#ifdef CONFIG_FRAME_POINTER
++# define SAVE_RBP_STRING "	push %" _ASM_BP "\n" \
++			 "	mov  %" _ASM_SP ", %" _ASM_BP "\n"
++#else
++# define SAVE_RBP_STRING "	push %" _ASM_BP "\n"
++#endif
++
+ #ifdef CONFIG_X86_64
+ #define SAVE_REGS_STRING			\
+ 	/* Skip cs, ip, orig_ax. */		\
+@@ -17,7 +26,7 @@
+ 	"	pushq %r10\n"			\
+ 	"	pushq %r11\n"			\
+ 	"	pushq %rbx\n"			\
+-	"	pushq %rbp\n"			\
++	SAVE_RBP_STRING				\
+ 	"	pushq %r12\n"			\
+ 	"	pushq %r13\n"			\
+ 	"	pushq %r14\n"			\
+@@ -48,7 +57,7 @@
+ 	"	pushl %es\n"			\
+ 	"	pushl %ds\n"			\
+ 	"	pushl %eax\n"			\
+-	"	pushl %ebp\n"			\
++	SAVE_RBP_STRING				\
+ 	"	pushl %edi\n"			\
+ 	"	pushl %esi\n"			\
+ 	"	pushl %edx\n"			\
