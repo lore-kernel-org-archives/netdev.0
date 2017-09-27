@@ -1,62 +1,102 @@
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: Re: [next-queue PATCH 2/3] net/sched: Introduce Credit Based Shaper (CBS) qdisc
-Date: Wed, 27 Sep 2017 14:14:52 -0700
-Message-ID: <87lgkzg7xv.fsf@intel.com>
-References: <20170926233916.11774-1-vinicius.gomes@intel.com> <20170926233916.11774-3-vinicius.gomes@intel.com> <CAM_iQpVrz+e=TYHYqaYyUWRP528GSZXx8EnN1yPhZK8eLvP4Yw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>, andre.guedes@intel.com,
-        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        henrik@austad.us
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: [PATCH] rndis_host: support Novatel Verizon USB730L
+Date: Wed, 27 Sep 2017 23:31:03 +0200
+Message-ID: <20170927213103.11987-1-aleksander@aleksander.es>
+Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Aleksander Morgado <aleksander@aleksander.es>
+To: oliver@neukum.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:43876 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750829AbdI0VOx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Sep 2017 17:14:53 -0400
-In-Reply-To: <CAM_iQpVrz+e=TYHYqaYyUWRP528GSZXx8EnN1yPhZK8eLvP4Yw@mail.gmail.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:33006 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751969AbdI0VbN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 17:31:13 -0400
+Received: by mail-wr0-f195.google.com with SMTP id 97so807457wrb.0
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 14:31:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Treat the ef/04/01 interface class/subclass/protocol combination used
+by the Novatel Verizon USB730L (1410:9030) as a possible RNDIS
+interface.
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
+ T:  Bus=01 Lev=02 Prnt=02 Port=01 Cnt=02 Dev#= 17 Spd=480 MxCh= 0
+ D:  Ver= 2.00 Cls=00(>ifc ) Sub=00 Prot=00 MxPS=64 #Cfgs=  3
+ P:  Vendor=1410 ProdID=9030 Rev=03.10
+ S:  Manufacturer=Novatel Wireless
+ S:  Product=MiFi USB730L
+ S:  SerialNumber=0123456789ABCDEF
+ C:  #Ifs= 3 Cfg#= 1 Atr=80 MxPwr=500mA
+ I:  If#= 0 Alt= 0 #EPs= 1 Cls=ef(misc ) Sub=04 Prot=01 Driver=rndis_host
+ I:  If#= 1 Alt= 0 #EPs= 2 Cls=0a(data ) Sub=00 Prot=00 Driver=rndis_host
+ I:  If#= 2 Alt= 0 #EPs= 1 Cls=03(HID  ) Sub=00 Prot=00 Driver=usbhid
 
-> On Tue, Sep 26, 2017 at 4:39 PM, Vinicius Costa Gomes
-> <vinicius.gomes@intel.com> wrote:
->> +static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
->> +{
->> +       struct cbs_sched_data *q = qdisc_priv(sch);
->> +       struct net_device *dev = qdisc_dev(sch);
->> +
->> +       if (!opt)
->> +               return -EINVAL;
->> +
->> +       /* FIXME: this means that we can only install this qdisc
->> +        * "under" mqprio. Do we need a more generic way to retrieve
->> +        * the queue, or do we pass the netdev_queue to the driver?
->> +        */
->> +       q->queue = TC_H_MIN(sch->parent) - 1 - netdev_get_num_tc(dev);
->> +
->> +       return cbs_change(sch, opt);
->> +}
->
-> Yeah it is ugly to assume its parent is mqprio, at least you should
-> error out if it is not the case.
+Once the network interface is brought up, the user just needs to run a
+DHCP client to get IP address and routing setup.
 
-Will add an error for this, for now.
+As a side note, other Novatel Verizon USB730L models with the same
+vid:pid end up exposing a standard ECM interface which doesn't require
+any other kernel update to make it work.
 
->
-> I am not sure how we can solve this elegantly, perhaps you should
-> extend mqprio rather than add a new one?
+Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
+---
 
-Is the alternative hinted in the FIXME worse? Instead of passing the
-index of the hardware queue to the driver we pass the pointer to a
-netdev_queue to the driver and it "discovers" the HW queue from that.
+Hey,
 
+I'm not sure if binding this logic to a specific vid:pid (1410:9030) would be more appropriate here, or if it's ok to just bind class/subclass/protocol (as in the activesync case).
+Let me know what you think.
 
-Cheers,
+---
+ drivers/net/usb/cdc_ether.c  | 11 ++++++++++-
+ drivers/net/usb/rndis_host.c |  4 ++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 8ab281b478f2..2df0bcc6d30b 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -54,11 +54,19 @@ static int is_wireless_rndis(struct usb_interface_descriptor *desc)
+ 		desc->bInterfaceProtocol == 3);
+ }
+
++static int is_novatel_rndis(struct usb_interface_descriptor *desc)
++{
++	return (desc->bInterfaceClass == USB_CLASS_MISC &&
++		desc->bInterfaceSubClass == 4 &&
++		desc->bInterfaceProtocol == 1);
++}
++
+ #else
+
+ #define is_rndis(desc)		0
+ #define is_activesync(desc)	0
+ #define is_wireless_rndis(desc)	0
++#define is_novatel_rndis(desc)	0
+
+ #endif
+
+@@ -150,7 +158,8 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	 */
+ 	rndis = (is_rndis(&intf->cur_altsetting->desc) ||
+ 		 is_activesync(&intf->cur_altsetting->desc) ||
+-		 is_wireless_rndis(&intf->cur_altsetting->desc));
++		 is_wireless_rndis(&intf->cur_altsetting->desc) ||
++		 is_novatel_rndis(&intf->cur_altsetting->desc));
+
+ 	memset(info, 0, sizeof(*info));
+ 	info->control = intf;
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index a151f267aebb..b807c91abe1d 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -632,6 +632,10 @@ static const struct usb_device_id	products [] = {
+ 	/* RNDIS for tethering */
+ 	USB_INTERFACE_INFO(USB_CLASS_WIRELESS_CONTROLLER, 1, 3),
+ 	.driver_info = (unsigned long) &rndis_info,
++}, {
++	/* Novatel Verizon USB730L */
++	USB_INTERFACE_INFO(USB_CLASS_MISC, 4, 1),
++	.driver_info = (unsigned long) &rndis_info,
+ },
+ 	{ },		// END
+ };
