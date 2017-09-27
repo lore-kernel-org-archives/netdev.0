@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v3 net-next 02/10] net: hns3: Add support for dynamically buffer reallocation
-Date: Wed, 27 Sep 2017 09:45:24 +0800
-Message-ID: <1506476732-128130-3-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v3 net-next 04/10] net: hns3: Add support for port shaper setting in TM module
+Date: Wed, 27 Sep 2017 09:45:26 +0800
+Message-ID: <1506476732-128130-5-git-send-email-linyunsheng@huawei.com>
 References: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,489 +17,79 @@ In-Reply-To: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Current buffer allocation can only happen at init, when
-doing buffer reallocation after init, care must be taken
-care of memory which priv_buf points to.
-This patch fixes it by using a dynamic allocated temporary
-memory. Because we only do buffer reallocation at init or
-when setting up the DCB parameter, and priv_buf is only
-used at buffer allocation process, so it is ok to use a
-dynamic allocated temporary memory.
+This patch add a tm_port_shaper cmd and set port shaper
+to HCLGE_ETHER_MAX_RATE on TM initialization process.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |   5 +
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 150 +++++++++++----------
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |   2 -
- 3 files changed, 87 insertions(+), 70 deletions(-)
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 32 ++++++++++++++++++++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  4 +++
+ 2 files changed, 36 insertions(+)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-index a81c6cb..6b6d28e 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-@@ -322,6 +322,11 @@ struct hclge_shared_buf {
- 	u32 buf_size;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+index 0b4b5d9..f79cebd 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
+@@ -301,6 +301,34 @@ static int hclge_tm_pg_shapping_cfg(struct hclge_dev *hdev,
+ 	return hclge_cmd_send(&hdev->hw, &desc, 1);
+ }
+ 
++static int hclge_tm_port_shaper_cfg(struct hclge_dev *hdev)
++{
++	struct hclge_port_shapping_cmd *shap_cfg_cmd;
++	struct hclge_desc desc;
++	u32 shapping_para = 0;
++	u8 ir_u, ir_b, ir_s;
++	int ret;
++
++	ret = hclge_shaper_para_calc(HCLGE_ETHER_MAX_RATE,
++				     HCLGE_SHAPER_LVL_PORT,
++				     &ir_b, &ir_u, &ir_s);
++	if (ret)
++		return ret;
++
++	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TM_PORT_SHAPPING, false);
++	shap_cfg_cmd = (struct hclge_port_shapping_cmd *)desc.data;
++
++	hclge_tm_set_field(shapping_para, IR_B, ir_b);
++	hclge_tm_set_field(shapping_para, IR_U, ir_u);
++	hclge_tm_set_field(shapping_para, IR_S, ir_s);
++	hclge_tm_set_field(shapping_para, BS_B, HCLGE_SHAPER_BS_U_DEF);
++	hclge_tm_set_field(shapping_para, BS_S, HCLGE_SHAPER_BS_S_DEF);
++
++	shap_cfg_cmd->port_shapping_para = cpu_to_le32(shapping_para);
++
++	return hclge_cmd_send(&hdev->hw, &desc, 1);
++}
++
+ static int hclge_tm_pri_shapping_cfg(struct hclge_dev *hdev,
+ 				     enum hclge_shap_bucket bucket, u8 pri_id,
+ 				     u8 ir_b, u8 ir_u, u8 ir_s,
+@@ -864,6 +892,10 @@ static int hclge_tm_shaper_cfg(struct hclge_dev *hdev)
+ {
+ 	int ret;
+ 
++	ret = hclge_tm_port_shaper_cfg(hdev);
++	if (ret)
++		return ret;
++
+ 	ret = hclge_tm_pg_shaper_cfg(hdev);
+ 	if (ret)
+ 		return ret;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+index 8ecd83c..19a01e4 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
+@@ -99,6 +99,10 @@ struct hclge_pfc_en_cmd {
+ 	u8 pri_en_bitmap;
  };
  
-+struct hclge_pkt_buf_alloc {
-+	struct hclge_priv_buf priv_buf[HCLGE_MAX_TC_NUM];
-+	struct hclge_shared_buf s_buf;
++struct hclge_port_shapping_cmd {
++	__le32 port_shapping_para;
 +};
 +
- #define HCLGE_RX_COM_WL_EN_B	15
- struct hclge_rx_com_wl_buf {
- 	__le16 high_wl;
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index 02da3d5..b345070 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -1324,7 +1324,8 @@ static int hclge_alloc_vport(struct hclge_dev *hdev)
- 	return 0;
- }
- 
--static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
-+static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev,
-+				    struct hclge_pkt_buf_alloc *buf_alloc)
- {
- /* TX buffer size is unit by 128 byte */
- #define HCLGE_BUF_SIZE_UNIT_SHIFT	7
-@@ -1338,7 +1339,7 @@ static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
- 
- 	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TX_BUFF_ALLOC, 0);
- 	for (i = 0; i < HCLGE_TC_NUM; i++) {
--		u32 buf_size = hdev->priv_buf[i].tx_buf_size;
-+		u32 buf_size = buf_alloc->priv_buf[i].tx_buf_size;
- 
- 		req->tx_pkt_buff[i] =
- 			cpu_to_le16((buf_size >> HCLGE_BUF_SIZE_UNIT_SHIFT) |
-@@ -1355,9 +1356,10 @@ static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
- 	return 0;
- }
- 
--static int hclge_tx_buffer_alloc(struct hclge_dev *hdev)
-+static int hclge_tx_buffer_alloc(struct hclge_dev *hdev,
-+				 struct hclge_pkt_buf_alloc *buf_alloc)
- {
--	int ret = hclge_cmd_alloc_tx_buff(hdev);
-+	int ret = hclge_cmd_alloc_tx_buff(hdev, buf_alloc);
- 
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
-@@ -1390,13 +1392,14 @@ static int hclge_get_pfc_enalbe_num(struct hclge_dev *hdev)
- }
- 
- /* Get the number of pfc enabled TCs, which have private buffer */
--static int hclge_get_pfc_priv_num(struct hclge_dev *hdev)
-+static int hclge_get_pfc_priv_num(struct hclge_dev *hdev,
-+				  struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	struct hclge_priv_buf *priv;
- 	int i, cnt = 0;
- 
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 		if ((hdev->tm_info.hw_pfc_map & BIT(i)) &&
- 		    priv->enable)
- 			cnt++;
-@@ -1406,13 +1409,14 @@ static int hclge_get_pfc_priv_num(struct hclge_dev *hdev)
- }
- 
- /* Get the number of pfc disabled TCs, which have private buffer */
--static int hclge_get_no_pfc_priv_num(struct hclge_dev *hdev)
-+static int hclge_get_no_pfc_priv_num(struct hclge_dev *hdev,
-+				     struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	struct hclge_priv_buf *priv;
- 	int i, cnt = 0;
- 
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 		if (hdev->hw_tc_map & BIT(i) &&
- 		    !(hdev->tm_info.hw_pfc_map & BIT(i)) &&
- 		    priv->enable)
-@@ -1422,31 +1426,33 @@ static int hclge_get_no_pfc_priv_num(struct hclge_dev *hdev)
- 	return cnt;
- }
- 
--static u32 hclge_get_rx_priv_buff_alloced(struct hclge_dev *hdev)
-+static u32 hclge_get_rx_priv_buff_alloced(struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	struct hclge_priv_buf *priv;
- 	u32 rx_priv = 0;
- 	int i;
- 
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 		if (priv->enable)
- 			rx_priv += priv->buf_size;
- 	}
- 	return rx_priv;
- }
- 
--static u32 hclge_get_tx_buff_alloced(struct hclge_dev *hdev)
-+static u32 hclge_get_tx_buff_alloced(struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	u32 i, total_tx_size = 0;
- 
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++)
--		total_tx_size += hdev->priv_buf[i].tx_buf_size;
-+		total_tx_size += buf_alloc->priv_buf[i].tx_buf_size;
- 
- 	return total_tx_size;
- }
- 
--static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev, u32 rx_all)
-+static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev,
-+				struct hclge_pkt_buf_alloc *buf_alloc,
-+				u32 rx_all)
- {
- 	u32 shared_buf_min, shared_buf_tc, shared_std;
- 	int tc_num, pfc_enable_num;
-@@ -1467,30 +1473,31 @@ static bool  hclge_is_rx_buf_ok(struct hclge_dev *hdev, u32 rx_all)
- 			hdev->mps;
- 	shared_std = max_t(u32, shared_buf_min, shared_buf_tc);
- 
--	rx_priv = hclge_get_rx_priv_buff_alloced(hdev);
-+	rx_priv = hclge_get_rx_priv_buff_alloced(buf_alloc);
- 	if (rx_all <= rx_priv + shared_std)
- 		return false;
- 
- 	shared_buf = rx_all - rx_priv;
--	hdev->s_buf.buf_size = shared_buf;
--	hdev->s_buf.self.high = shared_buf;
--	hdev->s_buf.self.low =  2 * hdev->mps;
-+	buf_alloc->s_buf.buf_size = shared_buf;
-+	buf_alloc->s_buf.self.high = shared_buf;
-+	buf_alloc->s_buf.self.low =  2 * hdev->mps;
- 
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
- 		if ((hdev->hw_tc_map & BIT(i)) &&
- 		    (hdev->tm_info.hw_pfc_map & BIT(i))) {
--			hdev->s_buf.tc_thrd[i].low = hdev->mps;
--			hdev->s_buf.tc_thrd[i].high = 2 * hdev->mps;
-+			buf_alloc->s_buf.tc_thrd[i].low = hdev->mps;
-+			buf_alloc->s_buf.tc_thrd[i].high = 2 * hdev->mps;
- 		} else {
--			hdev->s_buf.tc_thrd[i].low = 0;
--			hdev->s_buf.tc_thrd[i].high = hdev->mps;
-+			buf_alloc->s_buf.tc_thrd[i].low = 0;
-+			buf_alloc->s_buf.tc_thrd[i].high = hdev->mps;
- 		}
- 	}
- 
- 	return true;
- }
- 
--static int hclge_tx_buffer_calc(struct hclge_dev *hdev)
-+static int hclge_tx_buffer_calc(struct hclge_dev *hdev,
-+				struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	u32 i, total_size;
- 
-@@ -1498,7 +1505,7 @@ static int hclge_tx_buffer_calc(struct hclge_dev *hdev)
- 
- 	/* alloc tx buffer for all enabled tc */
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		struct hclge_priv_buf *priv = &hdev->priv_buf[i];
-+		struct hclge_priv_buf *priv = &buf_alloc->priv_buf[i];
- 
- 		if (total_size < HCLGE_DEFAULT_TX_BUF)
- 			return -ENOMEM;
-@@ -1516,22 +1523,24 @@ static int hclge_tx_buffer_calc(struct hclge_dev *hdev)
- 
- /* hclge_rx_buffer_calc: calculate the rx private buffer size for all TCs
-  * @hdev: pointer to struct hclge_dev
-+ * @buf_alloc: pointer to buffer calculation data
-  * @return: 0: calculate sucessful, negative: fail
-  */
--int hclge_rx_buffer_calc(struct hclge_dev *hdev)
-+int hclge_rx_buffer_calc(struct hclge_dev *hdev,
-+			 struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	u32 rx_all = hdev->pkt_buf_size;
- 	int no_pfc_priv_num, pfc_priv_num;
- 	struct hclge_priv_buf *priv;
- 	int i;
- 
--	rx_all -= hclge_get_tx_buff_alloced(hdev);
-+	rx_all -= hclge_get_tx_buff_alloced(buf_alloc);
- 
- 	/* When DCB is not supported, rx private
- 	 * buffer is not allocated.
- 	 */
- 	if (!hnae3_dev_dcb_supported(hdev)) {
--		if (!hclge_is_rx_buf_ok(hdev, rx_all))
-+		if (!hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all))
- 			return -ENOMEM;
- 
- 		return 0;
-@@ -1539,7 +1548,7 @@ int hclge_rx_buffer_calc(struct hclge_dev *hdev)
- 
- 	/* step 1, try to alloc private buffer for all enabled tc */
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 		if (hdev->hw_tc_map & BIT(i)) {
- 			priv->enable = 1;
- 			if (hdev->tm_info.hw_pfc_map & BIT(i)) {
-@@ -1560,14 +1569,14 @@ int hclge_rx_buffer_calc(struct hclge_dev *hdev)
- 		}
- 	}
- 
--	if (hclge_is_rx_buf_ok(hdev, rx_all))
-+	if (hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all))
- 		return 0;
- 
- 	/* step 2, try to decrease the buffer size of
- 	 * no pfc TC's private buffer
- 	 */
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 
- 		priv->enable = 0;
- 		priv->wl.low = 0;
-@@ -1590,18 +1599,18 @@ int hclge_rx_buffer_calc(struct hclge_dev *hdev)
- 		}
- 	}
- 
--	if (hclge_is_rx_buf_ok(hdev, rx_all))
-+	if (hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all))
- 		return 0;
- 
- 	/* step 3, try to reduce the number of pfc disabled TCs,
- 	 * which have private buffer
- 	 */
- 	/* get the total no pfc enable TC number, which have private buffer */
--	no_pfc_priv_num = hclge_get_no_pfc_priv_num(hdev);
-+	no_pfc_priv_num = hclge_get_no_pfc_priv_num(hdev, buf_alloc);
- 
- 	/* let the last to be cleared first */
- 	for (i = HCLGE_MAX_TC_NUM - 1; i >= 0; i--) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 
- 		if (hdev->hw_tc_map & BIT(i) &&
- 		    !(hdev->tm_info.hw_pfc_map & BIT(i))) {
-@@ -1613,22 +1622,22 @@ int hclge_rx_buffer_calc(struct hclge_dev *hdev)
- 			no_pfc_priv_num--;
- 		}
- 
--		if (hclge_is_rx_buf_ok(hdev, rx_all) ||
-+		if (hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all) ||
- 		    no_pfc_priv_num == 0)
- 			break;
- 	}
- 
--	if (hclge_is_rx_buf_ok(hdev, rx_all))
-+	if (hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all))
- 		return 0;
- 
- 	/* step 4, try to reduce the number of pfc enabled TCs
- 	 * which have private buffer.
- 	 */
--	pfc_priv_num = hclge_get_pfc_priv_num(hdev);
-+	pfc_priv_num = hclge_get_pfc_priv_num(hdev, buf_alloc);
- 
- 	/* let the last to be cleared first */
- 	for (i = HCLGE_MAX_TC_NUM - 1; i >= 0; i--) {
--		priv = &hdev->priv_buf[i];
-+		priv = &buf_alloc->priv_buf[i];
- 
- 		if (hdev->hw_tc_map & BIT(i) &&
- 		    hdev->tm_info.hw_pfc_map & BIT(i)) {
-@@ -1640,17 +1649,18 @@ int hclge_rx_buffer_calc(struct hclge_dev *hdev)
- 			pfc_priv_num--;
- 		}
- 
--		if (hclge_is_rx_buf_ok(hdev, rx_all) ||
-+		if (hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all) ||
- 		    pfc_priv_num == 0)
- 			break;
- 	}
--	if (hclge_is_rx_buf_ok(hdev, rx_all))
-+	if (hclge_is_rx_buf_ok(hdev, buf_alloc, rx_all))
- 		return 0;
- 
- 	return -ENOMEM;
- }
- 
--static int hclge_rx_priv_buf_alloc(struct hclge_dev *hdev)
-+static int hclge_rx_priv_buf_alloc(struct hclge_dev *hdev,
-+				   struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	struct hclge_rx_priv_buff *req;
- 	struct hclge_desc desc;
-@@ -1662,7 +1672,7 @@ static int hclge_rx_priv_buf_alloc(struct hclge_dev *hdev)
- 
- 	/* Alloc private buffer TCs */
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		struct hclge_priv_buf *priv = &hdev->priv_buf[i];
-+		struct hclge_priv_buf *priv = &buf_alloc->priv_buf[i];
- 
- 		req->buf_num[i] =
- 			cpu_to_le16(priv->buf_size >> HCLGE_BUF_UNIT_S);
-@@ -1671,7 +1681,7 @@ static int hclge_rx_priv_buf_alloc(struct hclge_dev *hdev)
- 	}
- 
- 	req->shared_buf =
--		cpu_to_le16((hdev->s_buf.buf_size >> HCLGE_BUF_UNIT_S) |
-+		cpu_to_le16((buf_alloc->s_buf.buf_size >> HCLGE_BUF_UNIT_S) |
- 			    (1 << HCLGE_TC0_PRI_BUF_EN_B));
- 
- 	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
-@@ -1686,7 +1696,8 @@ static int hclge_rx_priv_buf_alloc(struct hclge_dev *hdev)
- 
- #define HCLGE_PRIV_ENABLE(a) ((a) > 0 ? 1 : 0)
- 
--static int hclge_rx_priv_wl_config(struct hclge_dev *hdev)
-+static int hclge_rx_priv_wl_config(struct hclge_dev *hdev,
-+				   struct hclge_pkt_buf_alloc *buf_alloc)
- {
- 	struct hclge_rx_priv_wl_buf *req;
- 	struct hclge_priv_buf *priv;
-@@ -1706,7 +1717,9 @@ static int hclge_rx_priv_wl_config(struct hclge_dev *hdev)
- 			desc[i].flag &= ~cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
- 
- 		for (j = 0; j < HCLGE_TC_NUM_ONE_DESC; j++) {
--			priv = &hdev->priv_buf[i * HCLGE_TC_NUM_ONE_DESC + j];
-+			u32 idx = i * HCLGE_TC_NUM_ONE_DESC + j;
-+
-+			priv = &buf_alloc->priv_buf[idx];
- 			req->tc_wl[j].high =
- 				cpu_to_le16(priv->wl.high >> HCLGE_BUF_UNIT_S);
- 			req->tc_wl[j].high |=
-@@ -1731,9 +1744,10 @@ static int hclge_rx_priv_wl_config(struct hclge_dev *hdev)
- 	return 0;
- }
- 
--static int hclge_common_thrd_config(struct hclge_dev *hdev)
-+static int hclge_common_thrd_config(struct hclge_dev *hdev,
-+				    struct hclge_pkt_buf_alloc *buf_alloc)
- {
--	struct hclge_shared_buf *s_buf = &hdev->s_buf;
-+	struct hclge_shared_buf *s_buf = &buf_alloc->s_buf;
- 	struct hclge_rx_com_thrd *req;
- 	struct hclge_desc desc[2];
- 	struct hclge_tc_thrd *tc;
-@@ -1777,9 +1791,10 @@ static int hclge_common_thrd_config(struct hclge_dev *hdev)
- 	return 0;
- }
- 
--static int hclge_common_wl_config(struct hclge_dev *hdev)
-+static int hclge_common_wl_config(struct hclge_dev *hdev,
-+				  struct hclge_pkt_buf_alloc *buf_alloc)
- {
--	struct hclge_shared_buf *buf = &hdev->s_buf;
-+	struct hclge_shared_buf *buf = &buf_alloc->s_buf;
- 	struct hclge_rx_com_wl *req;
- 	struct hclge_desc desc;
- 	int ret;
-@@ -1809,69 +1824,68 @@ static int hclge_common_wl_config(struct hclge_dev *hdev)
- 
- int hclge_buffer_alloc(struct hclge_dev *hdev)
- {
-+	struct hclge_pkt_buf_alloc *pkt_buf;
- 	int ret;
- 
--	hdev->priv_buf = devm_kmalloc_array(&hdev->pdev->dev, HCLGE_MAX_TC_NUM,
--					    sizeof(struct hclge_priv_buf),
--					    GFP_KERNEL | __GFP_ZERO);
--	if (!hdev->priv_buf)
-+	pkt_buf = kzalloc(sizeof(*pkt_buf), GFP_KERNEL);
-+	if (!pkt_buf)
- 		return -ENOMEM;
- 
--	ret = hclge_tx_buffer_calc(hdev);
-+	ret = hclge_tx_buffer_calc(hdev, pkt_buf);
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
- 			"could not calc tx buffer size for all TCs %d\n", ret);
--		return ret;
-+		goto out;
- 	}
- 
--	ret = hclge_tx_buffer_alloc(hdev);
-+	ret = hclge_tx_buffer_alloc(hdev, pkt_buf);
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
- 			"could not alloc tx buffers %d\n", ret);
--		return ret;
-+		goto out;
- 	}
- 
--	ret = hclge_rx_buffer_calc(hdev);
-+	ret = hclge_rx_buffer_calc(hdev, pkt_buf);
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev,
- 			"could not calc rx priv buffer size for all TCs %d\n",
- 			ret);
--		return ret;
-+		goto out;
- 	}
- 
--	ret = hclge_rx_priv_buf_alloc(hdev);
-+	ret = hclge_rx_priv_buf_alloc(hdev, pkt_buf);
- 	if (ret) {
- 		dev_err(&hdev->pdev->dev, "could not alloc rx priv buffer %d\n",
- 			ret);
--		return ret;
-+		goto out;
- 	}
- 
- 	if (hnae3_dev_dcb_supported(hdev)) {
--		ret = hclge_rx_priv_wl_config(hdev);
-+		ret = hclge_rx_priv_wl_config(hdev, pkt_buf);
- 		if (ret) {
- 			dev_err(&hdev->pdev->dev,
- 				"could not configure rx private waterline %d\n",
- 				ret);
--			return ret;
-+			goto out;
- 		}
- 
--		ret = hclge_common_thrd_config(hdev);
-+		ret = hclge_common_thrd_config(hdev, pkt_buf);
- 		if (ret) {
- 			dev_err(&hdev->pdev->dev,
- 				"could not configure common threshold %d\n",
- 				ret);
--			return ret;
-+			goto out;
- 		}
- 	}
- 
--	ret = hclge_common_wl_config(hdev);
--	if (ret) {
-+	ret = hclge_common_wl_config(hdev, pkt_buf);
-+	if (ret)
- 		dev_err(&hdev->pdev->dev,
- 			"could not configure common waterline %d\n", ret);
--		return ret;
--	}
- 
--	return 0;
-+out:
-+	kfree(pkt_buf);
-+	return ret;
- }
- 
- static int hclge_init_roce_base_info(struct hclge_vport *vport)
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-index 9fcfd93..4fc36f0 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-@@ -463,8 +463,6 @@ struct hclge_dev {
- 
- 	u32 pkt_buf_size; /* Total pf buf size for tx/rx */
- 	u32 mps; /* Max packet size */
--	struct hclge_priv_buf *priv_buf;
--	struct hclge_shared_buf s_buf;
- 
- 	enum hclge_mta_dmac_sel_type mta_mac_sel_type;
- 	bool enable_mta; /* Mutilcast filter enable */
+ #define hclge_tm_set_field(dest, string, val) \
+ 			hnae_set_field((dest), (HCLGE_TM_SHAP_##string##_MSK), \
+ 				       (HCLGE_TM_SHAP_##string##_LSH), val)
 -- 
 1.9.1
