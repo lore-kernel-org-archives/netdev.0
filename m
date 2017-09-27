@@ -1,80 +1,45 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: tc H/W offload issue with vxlan tunnels [was: nfp: flower vxlan
- tunnel offload]
-Date: Wed, 27 Sep 2017 10:29:35 +0200
-Message-ID: <1506500975.2867.19.camel@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] liquidio: fix format truncation warning
+ reported by gcc 7.1.1
+Date: Wed, 27 Sep 2017 09:04:35 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008227C@AcuExch.aculab.com>
+References: <20170926184827.GA3512@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>, Jiri Benc <jbenc@redhat.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        David Miller <davem@davemloft.net>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com, John Hurley <john.hurley@netronome.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "raghu.vatsavayi@cavium.com" <raghu.vatsavayi@cavium.com>,
+        "derek.chickles@cavium.com" <derek.chickles@cavium.com>,
+        "satananda.burla@cavium.com" <satananda.burla@cavium.com>
+To: 'Felix Manlunas' <felix.manlunas@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41700 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752007AbdI0I3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 27 Sep 2017 04:29:38 -0400
+Received: from smtp-out4.electric.net ([192.162.216.186]:61161 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752837AbdI0JEo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 05:04:44 -0400
+In-Reply-To: <20170926184827.GA3512@felix-thinkpad.cavium.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Felix Manlunas
+> Sent: 26 September 2017 19:48
+> gcc 7.1.1 with -Wformat-truncation reports these warnings:
+> 
+> drivers/net/ethernet/cavium/liquidio/lio_core.c: In function `octeon_setup_interrupt':
+> drivers/net/ethernet/cavium/liquidio/lio_core.c:1003:41: warning: `%u' directive output may be
+> truncated writing between 1 and 10 bytes into a region of size between 0 and 13 [-Wformat-truncation=]
+>        INTRNAMSIZ, "LiquidIO%u-pf%u-rxtx-%u",
+...
+> Fix them by changing the type of the "i" local variable from int to short.
 
-Moving to a separate theread, since I think this is more related to the
-flower core infrastructure than to the netrome patches.
+That probably adds pointless code bloat by forcing the compiler to
+keep masking the value with 0xffff after every arithmetic operation.
 
-On Wed, 2017-09-27 at 09:40 +0200, Jiri Pirko wrote:
-> This kind of hooks are giving me nightmares. The code is screwed up as
-> it is already. I'm currently working on conversion to callbacks. This
-> part is handled in:
-> https://github.com/jpirko/linux_mlxsw/commits/jiri_devel_egdevcb
+About the only architecture that doesn't suffer the penalty is x86.
 
-Thanks for the pointer.
+Until the compiler can correctly track the domain of values (and
+be given hints about the domains) this warning is, IMHO, OTT.
 
-I skimmed quickly on the code and indeed it cleans this area a lot.
-If I read it correctly the ('good') command:
-
-tc filter add dev vxlan0 protocol ip parent ffff: flower enc_key_id 102 
-   enc_dst_port 4789 src_ip 3.4.5.6 skip_sw action [...]
-
-will generate a call to:
-
-mlx5e_setup_tc(eth0, TC_SETUP_CLSFLOWER, &cls_flower) via:
-
-fl_hw_replace_filter() ->
-  tc_setup_cb_call() -> 
-    tc_exts_setup_cb_egdev_call() ->
-      tc_setup_cb_egdev_call() ->
-        tcf_action_egdev_cb_call() ->
-          mlx5e_rep_setup_tc_cb()
-
-and the 'bad' command:
-
-tc filter add dev eth0 protocol ip parent ffff: flower enc_key_id 102 \
-   enc_dst_port 4789 src_ip 3.4.5.6 skip_sw action [...]
-
-will also call:
-
-mlx5e_setup_tc(eth0, TC_SETUP_CLSFLOWER, &cls_flower) via:
-
-fl_hw_replace_filter() ->
-  ndo_setup_tc()
-
-So it looks like the H/W offload hook will still be called with the
-same arguments in both case, and 'bad' rule will still be pushed to the
-H/W as the driver itself has no way to distinct between the two
-scenarios.
-
-[ Note: I referred to the mlx hook just for convenience, should be the
-same with any driver implementing the same APIs ]
-
-Am I missing something?
-
-Thanks,
-
-Paolo
+	David
