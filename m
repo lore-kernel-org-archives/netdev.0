@@ -1,44 +1,32 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v6 07/11] arm64: dts: allwinner: add snps,dwmac-mdio compatible to emac/mdio
-Date: Wed, 27 Sep 2017 09:34:10 +0200
-Message-ID: <20170927073414.17361-8-clabbe.montjoie@gmail.com>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        linux-sunxi@googlegroups.com,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        frowand.list@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute2 net-next 1/3] update headers with CBS API
+Date: Wed, 27 Sep 2017 08:38:15 +0100
+Message-ID: <20170927083815.579f5dae@shemminger-XPS-13-9360>
+References: <20170926233958.12027-1-vinicius.gomes@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, henrik@austad.us
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:49188 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752377AbdI0HiZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 03:38:25 -0400
+Received: by mail-wm0-f43.google.com with SMTP id r74so14820006wme.4
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 00:38:24 -0700 (PDT)
+In-Reply-To: <20170926233958.12027-1-vinicius.gomes@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-stmmac bindings docs said that its mdio node must have
-compatible = "snps,dwmac-mdio";
-Since dwmac-sun8i does not have any good reasons to not doing it, all
-their MDIO node must have it.
+On Tue, 26 Sep 2017 16:39:56 -0700
+Vinicius Costa Gomes <vinicius.gomes@intel.com> wrote:
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi | 1 +
- 1 file changed, 1 insertion(+)
+> Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index 75494cd90e40..e30476f05802 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -517,6 +517,7 @@
- 			#size-cells = <0>;
- 
- 			mdio: mdio {
-+				compatible = "snps,dwmac-mdio";
- 				#address-cells = <1>;
- 				#size-cells = <0>;
- 			};
--- 
-2.13.5
+I won't apply this patch directly, instead will pick up pkt_sched.h on
+next update of net-next headers.
