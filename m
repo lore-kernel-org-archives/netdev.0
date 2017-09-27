@@ -1,29 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v3 00/12] mlxsw: Add support for offloading
- IPv4 multicast routes
-Date: Wed, 27 Sep 2017 11:33:47 -0700 (PDT)
-Message-ID: <20170927.113347.544952844859880176.davem@davemloft.net>
-References: <20170927062322.5476-1-jiri@resnulli.us>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 6/6] net: dsa: mv88e6xxx: Flood broadcast frames
+ in hardware
+Date: Wed, 27 Sep 2017 20:36:50 +0200
+Message-ID: <20170927183650.GC12394@lunn.ch>
+References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
+ <1506464764-12699-7-git-send-email-andrew@lunn.ch>
+ <8737786lua.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
-        linyunsheng@huawei.com
-To: jiri@resnulli.us
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43076 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751263AbdI0Sdz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 14:33:55 -0400
-In-Reply-To: <20170927062322.5476-1-jiri@resnulli.us>
+Received: from vps0.lunn.ch ([185.16.172.187]:58433 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751590AbdI0Sgx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 27 Sep 2017 14:36:53 -0400
+Content-Disposition: inline
+In-Reply-To: <8737786lua.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 27 Sep 2017 08:23:10 +0200
+> Adding the broadcast address to an Ethernet switch's FDB is pretty
+> generic and mv88e6xxx mustn't be the only driver doing this.
 
-> This patch-set introduces offloading of the kernel IPv4 multicast router
-> logic in the Spectrum driver.
+Actually, it is. All the others seem to do this in hardware without
+needing an FDB. Since mv88e6xxx is the only one requiring it, it has
+to be done in the mv88e6xxx driver.
 
-Series applied, thank you.
+   Andrew
