@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH v3 net-next 06/10] net: hns3: Add some interface for the support of DCB feature
-Date: Wed, 27 Sep 2017 09:45:28 +0800
-Message-ID: <1506476732-128130-7-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH v3 net-next 10/10] net: hns3: Add DCB support when interacting with network stack
+Date: Wed, 27 Sep 2017 09:45:32 +0800
+Message-ID: <1506476732-128130-11-git-send-email-linyunsheng@huawei.com>
 References: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,149 +12,161 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:7033 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033072AbdI0BqF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 26 Sep 2017 21:46:05 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1506476732-128130-1-git-send-email-linyunsheng@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch add some interface and export some interface from
-hclge_tm and hclgc_main to support the upcoming DCB feature.
+When using lldptool to configure DCB parameter, hclge_dcb module
+call the client_ops->setup_tc to tell network stack which queue
+and priority is using for specific tc.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    |  3 +-
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  3 ++
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  | 48 ++++++++++++++++++++--
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h  |  6 +++
- 4 files changed, 55 insertions(+), 5 deletions(-)
+V2:
+	Drop mqprio support.
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index b345070..ca7e3bc 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -30,7 +30,6 @@
- #define HCLGE_64BIT_STATS_FIELD_OFF(f) (offsetof(struct hclge_64_bit_stats, f))
- #define HCLGE_32BIT_STATS_FIELD_OFF(f) (offsetof(struct hclge_32_bit_stats, f))
- 
--static int hclge_rss_init_hw(struct hclge_dev *hdev);
- static int hclge_set_mta_filter_mode(struct hclge_dev *hdev,
- 				     enum hclge_mta_dmac_sel_type mta_mac_sel,
- 				     bool enable);
-@@ -2655,7 +2654,7 @@ static int hclge_get_tc_size(struct hnae3_handle *handle)
- 	return hdev->rss_size_max;
+V1:
+	Initial submit.
+---
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 102 ++++++++++++++++++---
+ 1 file changed, 87 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index 11dab26..4a0890f9 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -196,6 +196,32 @@ static void hns3_vector_gl_rl_init(struct hns3_enet_tqp_vector *tqp_vector)
+ 	tqp_vector->tx_group.flow_level = HNS3_FLOW_LOW;
  }
  
--static int hclge_rss_init_hw(struct hclge_dev *hdev)
-+int hclge_rss_init_hw(struct hclge_dev *hdev)
- {
- 	const  u8 hfunc = HCLGE_RSS_HASH_ALGO_TOEPLITZ;
- 	struct hclge_vport *vport = hdev->vport;
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-index 4fc36f0..394b587 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-@@ -515,4 +515,7 @@ static inline int hclge_get_queue_id(struct hnae3_queue *queue)
- int hclge_cfg_mac_speed_dup(struct hclge_dev *hdev, int speed, u8 duplex);
- int hclge_set_vf_vlan_common(struct hclge_dev *vport, int vfid,
- 			     bool is_kill, u16 vlan, u8 qos, __be16 proto);
++static int hns3_nic_set_real_num_queue(struct net_device *netdev)
++{
++	struct hns3_nic_priv *priv = netdev_priv(netdev);
++	struct hnae3_handle *h = priv->ae_handle;
++	struct hnae3_knic_private_info *kinfo = &h->kinfo;
++	unsigned int queue_size = kinfo->rss_size * kinfo->num_tc;
++	int ret;
 +
-+int hclge_buffer_alloc(struct hclge_dev *hdev);
-+int hclge_rss_init_hw(struct hclge_dev *hdev);
- #endif
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-index ea94d23..8295684 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-@@ -883,10 +883,14 @@ static int hclge_tm_pri_dwrr_cfg(struct hclge_dev *hdev)
- 	return 0;
- }
- 
--static int hclge_tm_map_cfg(struct hclge_dev *hdev)
-+int hclge_tm_map_cfg(struct hclge_dev *hdev)
++	ret = netif_set_real_num_tx_queues(netdev, queue_size);
++	if (ret) {
++		netdev_err(netdev,
++			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
++			   ret);
++		return ret;
++	}
++
++	ret = netif_set_real_num_rx_queues(netdev, queue_size);
++	if (ret) {
++		netdev_err(netdev,
++			   "netif_set_real_num_rx_queues fail, ret=%d!\n", ret);
++		return ret;
++	}
++
++	return 0;
++}
++
+ static int hns3_nic_net_up(struct net_device *netdev)
  {
+ 	struct hns3_nic_priv *priv = netdev_priv(netdev);
+@@ -232,26 +258,13 @@ static int hns3_nic_net_up(struct net_device *netdev)
+ 
+ static int hns3_nic_net_open(struct net_device *netdev)
+ {
+-	struct hns3_nic_priv *priv = netdev_priv(netdev);
+-	struct hnae3_handle *h = priv->ae_handle;
  	int ret;
  
-+	ret = hclge_up_to_tc_map(hdev);
+ 	netif_carrier_off(netdev);
+ 
+-	ret = netif_set_real_num_tx_queues(netdev, h->kinfo.num_tqps);
+-	if (ret) {
+-		netdev_err(netdev,
+-			   "netif_set_real_num_tx_queues fail, ret=%d!\n",
+-			   ret);
+-		return ret;
+-	}
+-
+-	ret = netif_set_real_num_rx_queues(netdev, h->kinfo.num_tqps);
+-	if (ret) {
+-		netdev_err(netdev,
+-			   "netif_set_real_num_rx_queues fail, ret=%d!\n", ret);
++	ret = hns3_nic_set_real_num_queue(netdev);
++	if (ret)
+ 		return ret;
+-	}
+ 
+ 	ret = hns3_nic_net_up(netdev);
+ 	if (ret) {
+@@ -2848,10 +2861,69 @@ static void hns3_link_status_change(struct hnae3_handle *handle, bool linkup)
+ 	}
+ }
+ 
++static int hns3_client_setup_tc(struct hnae3_handle *handle, u8 tc)
++{
++	struct hnae3_knic_private_info *kinfo = &handle->kinfo;
++	struct net_device *ndev = kinfo->netdev;
++	bool if_running = netif_running(ndev);
++	int ret;
++	u8 i;
++
++	if (tc > HNAE3_MAX_TC)
++		return -EINVAL;
++
++	if (!ndev)
++		return -ENODEV;
++
++	ret = netdev_set_num_tc(ndev, tc);
 +	if (ret)
 +		return ret;
 +
- 	ret = hclge_tm_pg_to_pri_map(hdev);
- 	if (ret)
- 		return ret;
-@@ -994,7 +998,7 @@ static int hclge_tm_lvl34_schd_mode_cfg(struct hclge_dev *hdev)
- 	return 0;
- }
- 
--static int hclge_tm_schd_mode_hw(struct hclge_dev *hdev)
-+int hclge_tm_schd_mode_hw(struct hclge_dev *hdev)
- {
- 	int ret;
- 
-@@ -1092,7 +1096,45 @@ int hclge_pause_setup_hw(struct hclge_dev *hdev)
- 			return ret;
- 	}
- 
--	return hclge_up_to_tc_map(hdev);
-+	return 0;
-+}
++	if (if_running) {
++		(void)hns3_nic_net_stop(ndev);
++		msleep(100);
++	}
 +
-+int hclge_tm_prio_tc_info_update(struct hclge_dev *hdev, u8 *prio_tc)
-+{
-+	struct hclge_vport *vport = hdev->vport;
-+	struct hnae3_knic_private_info *kinfo;
-+	u32 i, k;
++	ret = (kinfo->dcb_ops && kinfo->dcb_ops->map_update) ?
++		kinfo->dcb_ops->map_update(handle) : -EOPNOTSUPP;
++	if (ret)
++		goto err_out;
++
++	if (tc <= 1) {
++		netdev_reset_tc(ndev);
++		goto out;
++	}
++
++	for (i = 0; i < HNAE3_MAX_TC; i++) {
++		struct hnae3_tc_info *tc_info = &kinfo->tc_info[i];
++
++		if (tc_info->enable)
++			netdev_set_tc_queue(ndev,
++					    tc_info->tc,
++					    tc_info->tqp_count,
++					    tc_info->tqp_offset);
++	}
 +
 +	for (i = 0; i < HNAE3_MAX_USER_PRIO; i++) {
-+		if (prio_tc[i] >= hdev->tm_info.num_tc)
-+			return -EINVAL;
-+		hdev->tm_info.prio_tc[i] = prio_tc[i];
-+
-+		for (k = 0;  k < hdev->num_alloc_vport; k++) {
-+			kinfo = &vport[k].nic.kinfo;
-+			kinfo->prio_tc[i] = prio_tc[i];
-+		}
++		netdev_set_prio_tc_map(ndev, i,
++				       kinfo->prio_tc[i]);
 +	}
-+	return 0;
++
++out:
++	ret = hns3_nic_set_real_num_queue(ndev);
++
++err_out:
++	if (if_running)
++		(void)hns3_nic_net_open(ndev);
++
++	return ret;
 +}
 +
-+void hclge_tm_schd_info_update(struct hclge_dev *hdev, u8 num_tc)
-+{
-+	u8 i, bit_map = 0;
-+
-+	hdev->tm_info.num_tc = num_tc;
-+
-+	for (i = 0; i < hdev->tm_info.num_tc; i++)
-+		bit_map |= BIT(i);
-+
-+	if (!bit_map) {
-+		bit_map = 1;
-+		hdev->tm_info.num_tc = 1;
-+	}
-+
-+	hdev->hw_tc_map = bit_map;
-+
-+	hclge_tm_schd_info_init(hdev);
- }
+ const struct hnae3_client_ops client_ops = {
+ 	.init_instance = hns3_client_init,
+ 	.uninit_instance = hns3_client_uninit,
+ 	.link_status_change = hns3_link_status_change,
++	.setup_tc = hns3_client_setup_tc,
+ };
  
- int hclge_tm_init_hw(struct hclge_dev *hdev)
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-index 19a01e4..bf59961 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h
-@@ -112,4 +112,10 @@ struct hclge_port_shapping_cmd {
- 
- int hclge_tm_schd_init(struct hclge_dev *hdev);
- int hclge_pause_setup_hw(struct hclge_dev *hdev);
-+int hclge_tm_schd_mode_hw(struct hclge_dev *hdev);
-+int hclge_tm_prio_tc_info_update(struct hclge_dev *hdev, u8 *prio_tc);
-+void hclge_tm_schd_info_update(struct hclge_dev *hdev, u8 num_tc);
-+int hclge_tm_dwrr_cfg(struct hclge_dev *hdev);
-+int hclge_tm_map_cfg(struct hclge_dev *hdev);
-+int hclge_tm_init_hw(struct hclge_dev *hdev);
- #endif
+ /* hns3_init_module - Driver registration routine
 -- 
 1.9.1
