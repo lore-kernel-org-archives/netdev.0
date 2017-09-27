@@ -1,59 +1,102 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 1/6] net: dsa: Fix
- SWITCHDEV_ATTR_ID_PORT_PARENT_ID
-Date: Wed, 27 Sep 2017 13:15:33 +0300
-Message-ID: <847022b2-4bf7-0fbd-abf8-3d74af215933@cogentembedded.com>
-References: <1506464764-12699-1-git-send-email-andrew@lunn.ch>
- <1506464764-12699-2-git-send-email-andrew@lunn.ch>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v6 06/11] ARM: dts: sunxi: h3/h5: represent
+ the mdio switch used by sun8i-h3-emac
+Date: Wed, 27 Sep 2017 12:16:22 +0200
+Message-ID: <20170927101622.v7odmreccwh7ldg2@flea>
+References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
+ <20170927073414.17361-7-clabbe.montjoie@gmail.com>
+Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f173.google.com ([209.85.128.173]:53129 "EHLO
-        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752659AbdI0KPk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 06:15:40 -0400
-Received: by mail-wr0-f173.google.com with SMTP id c23so15538854wrg.9
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 03:15:38 -0700 (PDT)
-In-Reply-To: <1506464764-12699-2-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="cn4zez4ijobb7pzg"
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDSJBYGBRIMBBAPVVXHAKGQE7JSPJII-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Disposition: inline
+In-Reply-To: <20170927073414.17361-7-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-Hello!
 
-On 9/27/2017 1:25 AM, Andrew Lunn wrote:
+--cn4zez4ijobb7pzg
+Content-Type: text/plain; charset="UTF-8"
+Content-Disposition: inline
 
-> SWITCHDEV_ATTR_ID_PORT_PARENT_ID is used by the software bridge when
-> determining which ports to flood a packet out. If the packet
-> originated from a switch, it assumes the switch has already flooded
-> the packet out the switches ports, so the bridge should not flood the
-> packet itself out switch ports. Ports on the same switch are expected
-> to return the same parent ID when SWITCHDEV_ATTR_ID_PORT_PARENT_ID is
-> called.
+On Wed, Sep 27, 2017 at 07:34:09AM +0000, Corentin Labbe wrote:
+> Since dwmac-sun8i could use either an integrated PHY or an external PHY
+> (which could be at same MDIO address), we need to represent this selection
+> by a MDIO switch.
 > 
-> DSA gets this wrong with clusters of switches. As far as the software
-> bridge is concerned, the cluster is all one switch. A packet from any
-> switch in the cluster can be assumed to of been flooded as needed out
-
-    s/of/have/?
-
-> all ports of the cluster, not just the switch it originated
-> from. Hence all ports of a cluster should return the same parent. The
-> old implementation did not, each switch in the cluster had its own ID.
-> 
-> Also wrong was that the ID was not unique if multiple DSA instances
-> are in operation.
-> 
-> Use the tree ID as the parent ID, which is the same for all switches
-> in a cluster and unique across switch clusters.
-> 
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
-> v2: Swap from MAC address to dst->tree
-[...]
+>  arch/arm/boot/dts/sunxi-h3-h5.dtsi | 31 +++++++++++++++++++++++++------
+>  1 file changed, 25 insertions(+), 6 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> index 3b7d953429a6..a8e9b8f378ba 100644
+> --- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> +++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+> @@ -422,14 +422,33 @@
+>  			#size-cells = <0>;
+>  			status = "disabled";
+>  
+> -			mdio: mdio {
+> +			mdio0: mdio {
+>  				#address-cells = <1>;
+>  				#size-cells = <0>;
+> -				int_mii_phy: ethernet-phy@1 {
+> -					compatible = "ethernet-phy-ieee802.3-c22";
+> -					reg = <1>;
+> -					clocks = <&ccu CLK_BUS_EPHY>;
+> -					resets = <&ccu RST_BUS_EPHY>;
+> +				compatible = "snps,dwmac-mdio";
+> +
+> +				mdio-mux {
+> +					compatible = "mdio-mux";
+> +					#address-cells = <1>;
+> +					#size-cells = <0>;
 
-MBR, Sergei
+Newline
+
+> +					/* Only one MDIO is usable at the time */
+> +					internal_mdio: mdio@1 {
+> +						reg = <1>;
+> +						#address-cells = <1>;
+> +						#size-cells = <0>;
+
+Newline
+
+> +						int_mii_phy: ethernet-phy@1 {
+> +							compatible = "ethernet-phy-ieee802.3-c22";
+> +							reg = <1>;
+> +							clocks = <&ccu CLK_BUS_EPHY>;
+> +							resets = <&ccu RST_BUS_EPHY>;
+> +							phy-is-integrated;
+> +						};
+> +					};
+
+Newline
+
+> +					mdio: mdio@2 {
+
+This is quite confusing. Why not call the label external_mdio?
+
+Thanks
+
+-- 
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+--cn4zez4ijobb7pzg--
