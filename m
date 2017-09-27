@@ -1,46 +1,99 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
-Date: Tue, 26 Sep 2017 21:53:21 -0700 (PDT)
-Message-ID: <20170926.215321.424825014223425519.davem@davemloft.net>
-References: <1752163.uYYNevmZpH@np-p-burton>
-        <20170926.195244.506518182147628099.davem@davemloft.net>
-        <2520219.WSsBr6LeCR@np-p-burton>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: matt.redfearn@imgtec.com, netdev@vger.kernel.org,
-        alexandre.torgue@st.com, peppe.cavallaro@st.com,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        james.hogan@imgtec.com
-To: paul.burton@imgtec.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2520219.WSsBr6LeCR@np-p-burton>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@quantonium.net>
+Subject: [PATCH v4 net-next 00/12] gtp: Additional feature support - Part I
+Date: Tue, 26 Sep 2017 21:57:51 -0700
+Message-ID: <20170927045803.2477-1-tom@quantonium.net>
+Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
+        netdev@vger.kernel.org, rohit@quantonium.net,
+        Tom Herbert <tom@quantonium.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:45072 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967161AbdI0E6Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 00:58:16 -0400
+Received: by mail-pf0-f181.google.com with SMTP id z84so6671857pfi.2
+        for <netdev@vger.kernel.org>; Tue, 26 Sep 2017 21:58:15 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Burton <paul.burton@imgtec.com>
-Date: Tue, 26 Sep 2017 21:30:56 -0700
+This patch set builds upon the initial GTP implementation to make
+support closer to that enjoyed by other encapsulation protocols.
 
-> Nobody said that you are required to do anything, I suggested that
-> it would be beneficial if you were to suggest a change to the
-> documented DMA API such that it allows your usage where it currently
-> does not.
+The major items are:
 
-Documentation is often wrong and it is here.  What 200+ drivers
-actually do and depend upon trumps a simple text document.
+  - Experimental IPv6 support
+  - Configurable networking interfaces so that GTP kernel can be
+    used and tested without needing GSN network emulation (i.e. no user
+    space daemon needed).
+  - Addition of a dst_cache in the GTP structure and other cleanup
 
-The requirement is that the memory remains quiescent on the cpu side
-while the device messes with it.  And that this quiescence requirement
-may or may not be on a cache line basis.
+Additionally, this patch set also includes:
 
-There is absolutely no requirement that the buffers themselves are
-cache line aligned.
+  - Common functions to get a route fo for an IP tunnel
 
-In fact, receive buffers for networking are intentionally 2-byte
-aligned in order for the ipv4 headers to be naturally 32-bit aligned.
+For IPv6 support, the mobile subscriber needs to allow IPv6 addresses,
+and the remote endpoint can be IPv6.
 
-Cache line aligning receive buffers will actually make some
-architectures trap because of the bad alignment.
+For configurable interfaces, configuration is added to allow an
+alternate means to configure a GTP and device. This follows the
+typical UDP encapsulation model of specifying a listener port for
+receive, and a remote address and port for transmit.
 
-So see, this cache line alignment requirement is pure madness from
-just about any perspective whatsoever.
+Configuration is performed by iproute2/ip. I will post that
+in a subsequent patch set.
+
+Tested:
+
+Configured the matrix of IPv4/IPv6 mobile subscriber, IPv4/IPv6 remote
+peer, and GTP version 0 and 1 (eight combinations). Observed
+connectivity and functional netperf. Also, tested VXLAN for
+regression.
+
+Test using openggs with ggsn and kernel module on one side and
+emulated sgsn on the other. Observed connectivity and
+functional netperf.
+
+v2:
+  - Split the original patch to post in parts in order to make
+    review more manageable
+  - Make IPv6 support experimental with a configuration option for it
+  - Prepend hash functions with gtp
+  - Generalize iptunnel update path MTU function and call it from gtp
+    instead using custom code
+  - Split original patch cleaning up udp_recv into several for easier
+    review
+
+v3: Properly include netdev on cc
+
+v4:
+  - Move __ip6_tnl_get_route to ipv6/route.c to avoid creting dependency on ip6_tunnel
+  - Add "select GRO_CELLS" fo Kconfig for GTP
+
+
+Tom Herbert (12):
+  iptunnel: Add common functions to get a tunnel route
+  vxlan: Call common functions to get tunnel routes
+  gtp: Call common functions to get tunnel routes and add dst_cache
+  iptunnel: Generalize tunnel update pmtu
+  gtp: Change to use gro_cells
+  gtp: Use goto for exceptions in gtp_udp_encap_recv funcs
+  gtp: udp recv clean up
+  gtp: Call function to update path mtu
+  gtp: Eliminate pktinfo and add port configuration
+  gtp: Experimental encapsulation of IPv6 packets
+  gtp: Experimental support encpasulating over IPv6
+  gtp: Allow configuring GTP interface as standalone
+
+ drivers/net/Kconfig          |   13 +-
+ drivers/net/gtp.c            | 1043 ++++++++++++++++++++++++++++++------------
+ drivers/net/vxlan.c          |   84 +---
+ include/net/ip6_tunnel.h     |   33 ++
+ include/net/ip_tunnels.h     |   36 ++
+ include/uapi/linux/gtp.h     |    8 +
+ include/uapi/linux/if_link.h |    3 +
+ net/ipv4/ip_tunnel.c         |   70 ++-
+ net/ipv6/route.c             |   42 ++
+ 9 files changed, 945 insertions(+), 387 deletions(-)
+
+-- 
+2.11.0
