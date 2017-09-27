@@ -1,59 +1,57 @@
-From: Alexander Potapenko <glider@google.com>
-Subject: Re: [PATCH v2] tun: bail out from tun_get_user() if the skb is empty
-Date: Wed, 27 Sep 2017 16:31:57 +0200
-Message-ID: <CAG_fn=W-qSYHQO6aNF_tuAF_QZjmercCWY0EYfMa6Bdjn361tA@mail.gmail.com>
-References: <20170927121649.90557-1-glider@google.com> <1506516168.6617.38.camel@edumazet-glaptop3.roam.corp.google.com>
- <1506516344.6617.39.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAG_fn=U8Yjxo2LDC3WenGQUOQZwftd3-j4V8Zz5vSMWobx7Bdw@mail.gmail.com> <CANn89iKL1GzT+9Mnn2OjvPCgmvV4GMhwn5mQzi7yW8_B1wziYA@mail.gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next v3 06/12] net: mroute: Check if rule is a default
+ rule
+Date: Wed, 27 Sep 2017 17:38:28 +0300
+Message-ID: <2cb46b48-6736-e514-11ca-4119d9d768c3@cumulusnetworks.com>
+References: <20170927062322.5476-1-jiri@resnulli.us>
+ <20170927062322.5476-7-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Dmitriy Vyukov <dvyukov@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Networking <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iKL1GzT+9Mnn2OjvPCgmvV4GMhwn5mQzi7yW8_B1wziYA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, andrew@lunn.ch, linyunsheng@huawei.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f175.google.com ([209.85.128.175]:55504 "EHLO
+        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751664AbdI0Oib (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 10:38:31 -0400
+Received: by mail-wr0-f175.google.com with SMTP id l39so16882718wrl.12
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 07:38:30 -0700 (PDT)
+In-Reply-To: <20170927062322.5476-7-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 3:26 PM, 'Eric Dumazet' via syzkaller
-<syzkaller@googlegroups.com> wrote:
-> On Wed, Sep 27, 2017 at 5:58 AM, Alexander Potapenko <glider@google.com> =
-wrote:
->> On Wed, Sep 27, 2017 at 2:45 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
->>> On Wed, 2017-09-27 at 05:42 -0700, Eric Dumazet wrote:
->>>
->>>> Or something cleaner to avoid copy/paste and focus on proper
->>>> skb->data[0] access and meaning.
->> By the way I'm wondering if this is the only place where skb->data is
->> being accessed.
->> Isn't eth_type_trans() under IFF_TAP also touching it? Then we need to
->> check the size earlier.
->
-> It is already checked.
-Indeed, thanks.
-> --
-> You received this message because you are subscribed to the Google Groups=
- "syzkaller" group.
-> To unsubscribe from this group and stop receiving emails from it, send an=
- email to syzkaller+unsubscribe@googlegroups.com.
-> For more options, visit https://groups.google.com/d/optout.
+On 27/09/17 09:23, Jiri Pirko wrote:
+> From: Yotam Gigi <yotamg@mellanox.com>
+> 
+> When the ipmr starts, it adds one default FIB rule that matches all packets
+> and sends them to the DEFAULT (multicast) FIB table. A more complex rule
+> can be added by user to specify that for a specific interface, a packet
+> should be look up at either an arbitrary table or according to the l3mdev
+> of the interface.
+> 
+> For drivers willing to offload the ipmr logic into a hardware but don't
+> want to offload all the FIB rules functionality, provide a function that
+> can indicate whether the FIB rule is the default multicast rule, thus only
+> one routing table is needed.
+> 
+> This way, a driver can register to the FIB notification chain, get
+> notifications about FIB rules added and trigger some kind of an internal
+> abort mechanism when a non default rule is added by the user.
+> 
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v2->v3:
+>  - Use the already existing ifdef CONFIG_IP_MROUTE_MULTIPLE_TABLES
+> v1->v2:
+>  - Update the lastuse MFC entry field too, in addition to packets an bytes.
+> ---
+>  include/linux/mroute.h |  7 +++++++
+>  net/ipv4/ipmr.c        | 12 ++++++++++++
+>  2 files changed, 19 insertions(+)
+> 
 
-
-
---=20
-Alexander Potapenko
-Software Engineer
-
-Google Germany GmbH
-Erika-Mann-Stra=C3=9Fe, 33
-80636 M=C3=BCnchen
-
-Gesch=C3=A4ftsf=C3=BChrer: Paul Manicle, Halimah DeLaine Prado
-Registergericht und -nummer: Hamburg, HRB 86891
-Sitz der Gesellschaft: Hamburg
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
