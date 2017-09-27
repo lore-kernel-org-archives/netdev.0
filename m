@@ -1,103 +1,84 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next RFC 5/5] vhost_net: basic tx virtqueue batched
- processing
-Date: Thu, 28 Sep 2017 01:19:40 +0300
-Message-ID: <20170928011724-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH net-next RFC 0/5] batched tx processing in vhost_net
+Date: Thu, 28 Sep 2017 01:28:54 +0300
+Message-ID: <20170928012009-mutt-send-email-mst@kernel.org>
 References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <1506067355-5771-6-git-send-email-jasowang@redhat.com>
- <20170926222223-mutt-send-email-mst@kernel.org>
- <16ea7512-d770-21ef-edb6-3ada51f08592@redhat.com>
+	<20170926164055-mutt-send-email-mst@kernel.org>
+	<afb7cad9-d760-b4d7-ecc5-518442e061b1@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <16ea7512-d770-21ef-edb6-3ada51f08592@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <afb7cad9-d760-b4d7-ecc5-518442e061b1@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 10:04:18AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年09月27日 03:25, Michael S. Tsirkin wrote:
-> > On Fri, Sep 22, 2017 at 04:02:35PM +0800, Jason Wang wrote:
-> > > This patch implements basic batched processing of tx virtqueue by
-> > > prefetching desc indices and updating used ring in a batch. For
-> > > non-zerocopy case, vq->heads were used for storing the prefetched
-> > > indices and updating used ring. It is also a requirement for doing
-> > > more batching on top. For zerocopy case and for simplicity, batched
-> > > processing were simply disabled by only fetching and processing one
-> > > descriptor at a time, this could be optimized in the future.
-> > > 
-> > > XDP_DROP (without touching skb) on tun (with Moongen in guest) with
-> > > zercopy disabled:
-> > > 
-> > > Intel(R) Xeon(R) CPU E5-2650 0 @ 2.00GHz:
-> > > Before: 3.20Mpps
-> > > After:  3.90Mpps (+22%)
-> > > 
-> > > No differences were seen with zerocopy enabled.
-> > > 
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > So where is the speedup coming from? I'd guess the ring is
-> > hot in cache, it's faster to access it in one go, then
-> > pass many packets to net stack. Is that right?
-> > 
-> > Another possibility is better code cache locality.
-> 
-> Yes, I think the speed up comes from:
-> 
-> - less cache misses
-> - less cache line bounce when virtqueue is about to be full (guest is faster
-> than host which is the case of MoonGen)
-> - less memory barriers
-> - possible faster copy speed by using copy_to_user() on modern CPUs
-> 
-> > 
-> > So how about this patchset is refactored:
-> > 
-> > 1. use existing APIs just first get packets then
-> >     transmit them all then use them all
-> 
-> Looks like current API can not get packets first, it only support get packet
-> one by one (if you mean vhost_get_vq_desc()). And used ring updating may get
-> more misses in this case.
-
-Right. So if you do
-
-for (...)
-	vhost_get_vq_desc
-
-
-then later
-
-for (...)
-	vhost_add_used
-
-
-then you get most of benefits except maybe code cache misses
-and copy_to_user.
-
-
-
-
-
-
-
-> > 2. add new APIs and move the loop into vhost core
-> >     for more speedups
-> 
-> I don't see any advantages, looks like just need some e.g callbacks in this
-> case.
-> 
-> Thanks
-
-IUC callbacks pretty much destroy the code cache locality advantages,
-IP is jumping around too much.
-
-
--- 
-MST
+T24gV2VkLCBTZXAgMjcsIDIwMTcgYXQgMDg6Mjc6MzdBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
+ZToKPiAKPiAKPiBPbiAyMDE35bm0MDnmnIgyNuaXpSAyMTo0NSwgTWljaGFlbCBTLiBUc2lya2lu
+IHdyb3RlOgo+ID4gT24gRnJpLCBTZXAgMjIsIDIwMTcgYXQgMDQ6MDI6MzBQTSArMDgwMCwgSmFz
+b24gV2FuZyB3cm90ZToKPiA+ID4gSGk6Cj4gPiA+IAo+ID4gPiBUaGlzIHNlcmllcyB0cmllcyB0
+byBpbXBsZW1lbnQgYmFzaWMgdHggYmF0Y2hlZCBwcm9jZXNzaW5nLiBUaGlzIGlzCj4gPiA+IGRv
+bmUgYnkgcHJlZmV0Y2hpbmcgZGVzY3JpcHRvciBpbmRpY2VzIGFuZCB1cGRhdGUgdXNlZCByaW5n
+IGluIGEKPiA+ID4gYmF0Y2guIFRoaXMgaW50ZW5kcyB0byBzcGVlZCB1cCB1c2VkIHJpbmcgdXBk
+YXRpbmcgYW5kIGltcHJvdmUgdGhlCj4gPiA+IGNhY2hlIHV0aWxpemF0aW9uLgo+ID4gSW50ZXJl
+c3RpbmcsIHRoYW5rcyBmb3IgdGhlIHBhdGNoZXMuIFNvIElJVUMgbW9zdCBvZiB0aGUgZ2FpbiBp
+cyByZWFsbHkKPiA+IG92ZXJjb21pbmcgc29tZSBvZiB0aGUgc2hvcnRjb21pbmdzIG9mIHZpcnRp
+byAxLjAgd3J0IGNhY2hlIHV0aWxpemF0aW9uPwo+IAo+IFllcy4KPiAKPiBBY3R1YWxseSwgbG9v
+a3MgbGlrZSBiYXRjaGluZyBpbiAxLjEgaXMgbm90IGFzIGVhc3kgYXMgaW4gMS4wLgo+IAo+IElu
+IDEuMCwgd2UgY291bGQgZG8gc29tZXRoaW5nIGxpa2U6Cj4gCj4gYmF0Y2ggdXBkYXRlIHVzZWQg
+cmluZyBieSB1c2VyIGNvcHlfdG9fdXNlcigpCj4gc21wX3dtYigpCj4gdXBkYXRlIHVzZWRfaWR4
+Cj4gSW4gMS4xLCB3ZSBuZWVkIG1vcmUgbWVtb3J5IGJhcnJpZXJzLCBjYW4ndCBiZW5lZml0IGZy
+b20gZmFzdCBjb3B5IGhlbHBlcnM/Cj4gCj4gZm9yICgpIHsKPiDCoMKgwqAgdXBkYXRlIGRlc2Mu
+YWRkcgo+IMKgwqDCoCBzbXBfd21iKCkKPiDCoMKgwqAgdXBkYXRlIGRlc2MuZmxhZwo+IH0KClll
+cyBidXQgc21wX3dtYiBpcyBhIE5PUCBvbiBlLmcuIHg4Ni4gV2UgY2FuIHN3aXRjaCB0byBvdGhl
+ciB0eXBlcyBvZgpiYXJyaWVycyBhcyB3ZWxsLiAgV2UgZG8gbmVlZCB0byBkbyB0aGUgdXBkYXRl
+cyBpbiBvcmRlciwgc28gd2UgbWlnaHQKbmVlZCBuZXcgQVBJcyBmb3IgdGhhdCB0byBhdm9pZCBy
+ZS1kb2luZyB0aGUgdHJhbnNsYXRpb24gYWxsIHRoZSB0aW1lLgoKSW4gMS4wIHRoZSBsYXN0IHVw
+ZGF0ZSBpcyBhIGNhY2hlIG1pc3MgYWx3YXlzLiBZb3UgbmVlZCBiYXRjaGluZyB0byBnZXQKbGVz
+cyBtaXNzZXMuIEluIDEuMSB5b3UgZG9uJ3QgaGF2ZSBpdCBzbyBmdW5kYW1lbnRhbGx5IHRoZXJl
+IGlzIGxlc3MKbmVlZCBmb3IgYmF0Y2hpbmcuIEJ1dCBiYXRjaGluZyBkb2VzIG5vdCBhbHdheXMg
+d29yay4gIERQREsgZ3V5cyAod2hpY2gKYmF0Y2ggdGhpbmdzIGFnZ3Jlc3NpdmVseSkgYWxyZWFk
+eSB0cmllZCAxLjEgYW5kIHNhdyBwZXJmb3JtYW5jZSBnYWlucwpzbyB3ZSBkbyBub3QgbmVlZCB0
+byBhcmd1ZSB0aGVvcmV0aWNhbGx5LgoKCgo+ID4gCj4gPiBXaGljaCBpcyBmYWlyIGVub3VnaCAo
+MS4wIGlzIGFscmVhZHkgZGVwbG95ZWQpIGJ1dCBJIHdvdWxkIGxpa2UgdG8gYXZvaWQKPiA+IG1h
+a2luZyAxLjEgc3VwcG9ydCBoYXJkZXIsIGFuZCB0aGlzIHBhdGNoc2V0IGRvZXMgdGhpcyB1bmZv
+cnR1bmF0ZWx5LAo+IAo+IEkgdGhpbmsgdGhlIG5ldyBBUElzIGRvIG5vdCBleHBvc2UgbW9yZSBp
+bnRlcm5hbCBkYXRhIHN0cnVjdHVyZSBvZiB2aXJ0aW8KPiB0aGFuIGJlZm9yZT8gKHZxLT5oZWFk
+cyBoYXMgYWxyZWFkeSBiZWVuIHVzZWQgYnkgdmhvc3RfbmV0IGZvciB5ZWFycykuCgpGb3Igc3Vy
+ZSB3ZSBtaWdodCBuZWVkIHRvIGNoYW5nZSB2cmluZ191c2VkX2VsZW0uCgo+IENvbnNpZGVyIHRo
+ZSBsYXlvdXQgaXMgcmUtZGVzaWduZWQgY29tcGxldGVseSwgSSBkb24ndCBzZWUgYW4gZWFzeSBt
+ZXRob2QgdG8KPiByZXVzZSBjdXJyZW50IDEuMCBBUEkgZm9yIDEuMS4KCkN1cnJlbnQgQVBJIGp1
+c3Qgc2F5cyB5b3UgZ2V0IGJ1ZmZlcnMgdGhlbiB5b3UgdXNlIHRoZW0uIEl0IGlzIG5vdCB0aWVk
+CnRvIGFjdHVhbCBzZXBhcmF0ZSB1c2VkIHJpbmcuCgoKPiA+IHNlZSBjb21tZW50cyBvbiBpbmRp
+dmlkdWFsIHBhdGNoZXMuIEknbSBzdXJlIGl0IGNhbiBiZSBhZGRyZXNzZWQgdGhvdWdoLgo+ID4g
+Cj4gPiA+IFRlc3Qgc2hvd3MgYWJvdXQgfjIyJSBpbXByb3ZlbWVudCBpbiB0eCBwc3MuCj4gPiBJ
+cyB0aGlzIHdpdGggb3Igd2l0aG91dCB0eCBuYXBpIGluIGd1ZXN0Pwo+IAo+IE1vb25HZW4gaXMg
+dXNlZCBpbiBndWVzdCBmb3IgYmV0dGVyIG51bWJlcnMuCj4gCj4gVGhhbmtzCgpOb3Qgc3VyZSBJ
+IHVuZGVyc3RhbmQuIERpZCB5b3Ugc2V0IG5hcGlfdHggdG8gdHJ1ZSBvciBmYWxzZT8KCj4gPiAK
+PiA+ID4gUGxlYXNlIHJldmlldy4KPiA+ID4gCj4gPiA+IEphc29uIFdhbmcgKDUpOgo+ID4gPiAg
+ICB2aG9zdDogc3BsaXQgb3V0IHJpbmcgaGVhZCBmZXRjaGluZyBsb2dpYwo+ID4gPiAgICB2aG9z
+dDogaW50cm9kdWNlIGhlbHBlciB0byBwcmVmZXRjaCBkZXNjIGluZGV4Cj4gPiA+ICAgIHZob3N0
+OiBpbnRyb2R1Y2Ugdmhvc3RfYWRkX3VzZWRfaWR4KCkKPiA+ID4gICAgdmhvc3RfbmV0OiByZW5h
+bWUgVkhPU1RfUlhfQkFUQ0ggdG8gVkhPU1RfTkVUX0JBVENICj4gPiA+ICAgIHZob3N0X25ldDog
+YmFzaWMgdHggdmlydHF1ZXVlIGJhdGNoZWQgcHJvY2Vzc2luZwo+ID4gPiAKPiA+ID4gICBkcml2
+ZXJzL3Zob3N0L25ldC5jICAgfCAyMjEgKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0KPiA+ID4gICBkcml2ZXJzL3Zob3N0L3Zob3N0LmMgfCAxNjUgKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLQo+ID4gPiAgIGRyaXZlcnMvdmhvc3Qv
+dmhvc3QuaCB8ICAgOSArKwo+ID4gPiAgIDMgZmlsZXMgY2hhbmdlZCwgMjcwIGluc2VydGlvbnMo
+KyksIDEyNSBkZWxldGlvbnMoLSkKPiA+ID4gCj4gPiA+IC0tIAo+ID4gPiAyLjcuNApfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
+cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
+YXRpb24=
