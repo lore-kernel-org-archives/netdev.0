@@ -1,91 +1,54 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][net 00/11] Mellanox, mlx5 fixes 2017-09-28
-Date: Thu, 28 Sep 2017 07:41:21 +0300
-Message-ID: <20170928044132.30940-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net 01/11] net/mlx5e: IPoIB, Fix access to invalid memory address
+Date: Thu, 28 Sep 2017 07:41:22 +0300
+Message-ID: <20170928044132.30940-2-saeedm@mellanox.com>
+References: <20170928044132.30940-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Roi Dayan <roid@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54344 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54366 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750891AbdI1EmE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 00:42:04 -0400
+        with ESMTP id S1751082AbdI1EmF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 00:42:05 -0400
+In-Reply-To: <20170928044132.30940-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Roi Dayan <roid@mellanox.com>
 
-This series provides misc fixes for mlx5 dirver.
+When cleaning rdma netdevice we need to save the mdev pointer
+because priv is released when we release netdev.
 
-Please pull and let me know if there's any problem.
+This bug was found using the kernel address sanitizer (KASAN).
+use-after-free in mlx5_rdma_netdev_free+0xe3/0x100 [mlx5_core]
 
-for -stable:
-  net/mlx5e: IPoIB, Fix access to invalid memory address (Kernels >= 4.12)
+Fixes: 48935bbb7ae8 ("net/mlx5e: IPoIB, Add netdevice profile skeleton")
+Signed-off-by: Roi Dayan <roid@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
-Saeed.
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+index 85298051a3e4..145e392ab849 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
+@@ -572,12 +572,13 @@ void mlx5_rdma_netdev_free(struct net_device *netdev)
+ {
+ 	struct mlx5e_priv          *priv    = mlx5i_epriv(netdev);
+ 	const struct mlx5e_profile *profile = priv->profile;
++	struct mlx5_core_dev       *mdev    = priv->mdev;
+ 
+ 	mlx5e_detach_netdev(priv);
+ 	profile->cleanup(priv);
+ 	destroy_workqueue(priv->wq);
+ 	free_netdev(netdev);
+ 
+-	mlx5e_destroy_mdev_resources(priv->mdev);
++	mlx5e_destroy_mdev_resources(mdev);
+ }
+ EXPORT_SYMBOL(mlx5_rdma_netdev_free);
 -- 
-
-The following changes since commit c2cc187e53011c1c4931055984657da9085c763b:
-
-  sctp: Fix a big endian bug in sctp_diag_dump() (2017-09-26 21:16:29 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/saeed/linux.git tags/mlx5-fixes-2017-09-28
-
-for you to fetch changes up to 353f59f4d41e9c5798a15c5c52958f25b579a3d5:
-
-  net/mlx5: Fix wrong indentation in enable SRIOV code (2017-09-28 07:23:10 +0300)
-
-----------------------------------------------------------------
-mlx5-fixes-2017-09-28
-
-Misc. fixes for mlx5 drivers.
-
-----------------------------------------------------------------
-Gal Pressman (3):
-      net/mlx5e: Print netdev features correctly in error message
-      net/mlx5e: Don't add/remove 802.1ad rules when changing 802.1Q VLAN filter
-      net/mlx5e: Fix calculated checksum offloads counters
-
-Inbar Karmy (1):
-      net/mlx5: Fix FPGA capability location
-
-Matan Barak (1):
-      net/mlx5: Fix static checker warning on steering tracepoints code
-
-Or Gerlitz (2):
-      net/mlx5e: Disallow TC offloading of unsupported match/action combinations
-      net/mlx5: Fix wrong indentation in enable SRIOV code
-
-Paul Blakey (1):
-      net/mlx5e: Fix erroneous freeing of encap header buffer
-
-Raed Salem (1):
-      net/mlx5: Check device capability for maximum flow counters
-
-Roi Dayan (1):
-      net/mlx5e: IPoIB, Fix access to invalid memory address
-
-Vlad Buslov (1):
-      net/mlx5e: Check encap entry state when offloading tunneled flows
-
- .../mellanox/mlx5/core/diag/fs_tracepoint.h        |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 13 ++--
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  3 +
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h |  6 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    | 91 ++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h |  2 +-
- .../net/ethernet/mellanox/mlx5/core/fpga/core.c    |  3 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   |  8 ++
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  | 11 +++
- .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  |  3 +-
- drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |  2 +-
- include/linux/mlx5/device.h                        |  5 +-
- include/linux/mlx5/driver.h                        |  1 +
- include/linux/mlx5/mlx5_ifc.h                      |  3 +-
- 17 files changed, 133 insertions(+), 31 deletions(-)
+2.13.0
