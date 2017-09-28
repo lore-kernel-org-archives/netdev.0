@@ -1,35 +1,52 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next RFC 3/9] net: dsa: mv88e6xxx: add support for GPIO configuration
-Date: Thu, 28 Sep 2017 15:57:51 -0400
-Message-ID: <87k20izjcw.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com> <1506612341-18061-4-git-send-email-brandon.streiff@ni.com> <659c4254-d0b7-52dc-dd9b-3921cd2f20c0@gmail.com> <20170928180111.GF14940@lunn.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/4] dt-bindings: net: ravb: Document optional reset-gpios
+ property
+Date: Thu, 28 Sep 2017 23:07:38 +0300
+Message-ID: <fefd2be3-d47a-f035-5078-090df0fc6318@cogentembedded.com>
+References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
+ <1506614014-4398-2-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Brandon Streiff <brandon.streiff@ni.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Erik Hons <erik.hons@ni.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170928180111.GF14940@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1506614014-4398-2-git-send-email-geert+renesas@glider.be>
+Content-Language: en-MW
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Brandon,
+Hello!
 
->> Would there be any value in implementing a proper gpiochip structure
->> here such that other pieces of SW can see this GPIO controller as a
->> provider and you can reference it from e.g: Device Tree using GPIO
->> descriptors?
->
-> That would be my preference as well, or maybe a pinctrl driver.
+On 09/28/2017 06:53 PM, Geert Uytterhoeven wrote:
 
-Indeed seeing a gpio_chip or a pinctrl controller registered from a
-gpio.c or pinctrl.c file in a separate patchset would be great.
+> The optional "reset-gpios" property (part of the generic MDIO bus
+> properties) lets us describe the GPIO used for resetting the Ethernet
+> PHY.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> ---
+>   Documentation/devicetree/bindings/net/renesas,ravb.txt | 2 ++
+>   1 file changed, 2 insertions(+)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> index c902261893b913f5..4a6ec1ba32d0bf16 100644
+> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> @@ -52,6 +52,7 @@ Optional properties:
+>   			 AVB_LINK signal.
+>   - renesas,ether-link-active-low: boolean, specify when the AVB_LINK signal is
+>   				 active-low instead of normal active-high.
+> +- reset-gpios: see mdio.txt in the same directory.
 
+    Sigh, I can only repeat that was a terrible prop name choice -- when 
+applied to a MAC node... what reset does it mean? MAC?
 
-Thanks,
-
-        Vivien
+MBR, Sergei
