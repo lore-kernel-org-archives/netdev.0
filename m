@@ -1,65 +1,211 @@
-From: Doug Anderson <dianders@chromium.org>
-Subject: Re: [PATCH V2] r8152: add Linksys USB3GIGV1 id
-Date: Thu, 28 Sep 2017 16:53:35 -0700
-Message-ID: <CAD=FV=X=NGeuYhWhE95Zksmh-Q-geTChjsRXEmSkO-HmPOOm6Q@mail.gmail.com>
-References: <20170926010925.114436-1-grundler@chromium.org>
- <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q@mail.gmail.com>
- <1506496556.28482.3.camel@suse.com> <CANEJEGtEfxR+8n3tRtsci=4Gtyhy021Z-DRvEgXPGFUqYK2u7Q@mail.gmail.com>
- <EE09EDA8-B6E9-4BEB-882C-C5435EDA8E41@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Grant Grundler <grundler@chromium.org>,
-        Oliver Neukum <oneukum@suse.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Hayes Wang <hayeswang@realtek.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-usb <linux-usb@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: "Rustad, Mark D" <mark.d.rustad@intel.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: [PATCH v4 net-next 6/8] udp: flow dissector offload
+Date: Thu, 28 Sep 2017 16:52:28 -0700
+Message-ID: <20170928235230.22158-7-tom@quantonium.net>
+References: <20170928235230.22158-1-tom@quantonium.net>
+Cc: netdev@vger.kernel.org, rohit@quantonium.net,
+        Tom Herbert <tom@quantonium.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:43222 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751713AbdI1Xxh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 19:53:37 -0400
-Received: by mail-wr0-f170.google.com with SMTP id a43so5462816wrc.0
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 16:53:37 -0700 (PDT)
-In-Reply-To: <EE09EDA8-B6E9-4BEB-882C-C5435EDA8E41@intel.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:57213 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751933AbdI1XxJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 19:53:09 -0400
+Received: by mail-pg0-f42.google.com with SMTP id 7so1769980pgd.13
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 16:53:09 -0700 (PDT)
+In-Reply-To: <20170928235230.22158-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Add support to perform UDP specific flow dissection. This is
+primarily intended for dissecting encapsulated packets in UDP
+encapsulation.
 
-On Thu, Sep 28, 2017 at 3:28 PM, Rustad, Mark D <mark.d.rustad@intel.com> wrote:
->
->> On Sep 27, 2017, at 9:39 AM, Grant Grundler <grundler@chromium.org> wrote:
->>
->> On Wed, Sep 27, 2017 at 12:15 AM, Oliver Neukum <oneukum@suse.com> wrote:
->>> Am Dienstag, den 26.09.2017, 08:19 -0700 schrieb Doug Anderson:
->>>>
->>>> I know that for at least some of the adapters in the CDC Ethernet
->>>> blacklist it was claimed that the CDC Ethernet support in the adapter
->>>> was kinda broken anyway so the blacklist made sense.  ...but for the
->>>> Linksys Gigabit adapter the CDC Ethernet driver seems to work OK, it's
->>>> just not quite as full featured / efficient as the R8152 driver.
->>>>
->>>> Is that not a concern?  I guess you could tell people in this
->>>> situation that they simply need to enable the R8152 driver to get
->>>> continued support for their Ethernet adapter?
->>>
->>> Hi,
->>>
->>> yes, it is a valid concern. An #ifdef will be needed.
->>
->> Good idea - I will post V3 shortly.
->>
->> I'm assuming you mean to add #ifdef CONFIG_USB_RTL8152 around the
->> blacklist entry in cdc_ether driver.
->
-> Shouldn't that be an #if IS_ENABLED(...) test, since that seems to be the proper way to check configured drivers.
+This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
+function performs a socket lookup and calls the flow_dissect function
+if a socket is found.
 
-Yes, I had the same feedback on v3.  See my comments at
-<https://patchwork.kernel.org/patch/9974485/>.  Grant has fixed it in
-v4.  Please see <https://patchwork.kernel.org/patch/9976657/>.  :)
+Signed-off-by: Tom Herbert <tom@quantonium.net>
+---
+ include/linux/udp.h      |  8 ++++++++
+ include/net/udp.h        |  8 ++++++++
+ include/net/udp_tunnel.h |  8 ++++++++
+ net/ipv4/udp_offload.c   | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/udp_tunnel.c    |  1 +
+ net/ipv6/udp_offload.c   | 16 ++++++++++++++++
+ 6 files changed, 89 insertions(+)
 
--Doug
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index eaea63bc79bb..2e90b189ef6a 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -79,6 +79,14 @@ struct udp_sock {
+ 	int			(*gro_complete)(struct sock *sk,
+ 						struct sk_buff *skb,
+ 						int nhoff);
++	/* Flow dissector function for a UDP socket */
++	enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
++			const struct sk_buff *skb,
++			struct flow_dissector_key_control *key_control,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data,
++			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
++			int *p_hlen, unsigned int flags);
+ 
+ 	/* udp_recvmsg try to use this before splicing sk_receive_queue */
+ 	struct sk_buff_head	reader_queue ____cacheline_aligned_in_smp;
+diff --git a/include/net/udp.h b/include/net/udp.h
+index c6b1c5d8d3c9..4867f329538c 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -176,6 +176,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+ 				 struct udphdr *uh, udp_lookup_t lookup);
+ int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
+ 
++enum flow_dissect_ret udp_flow_dissect(struct sk_buff *skb,
++			udp_lookup_t lookup,
++			struct flow_dissector_key_control *key_control,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data,
++			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
++			int *p_hlen, unsigned int flags);
++
+ static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
+ {
+ 	struct udphdr *uh;
+diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+index 10cce0dd4450..b7102e0f41a9 100644
+--- a/include/net/udp_tunnel.h
++++ b/include/net/udp_tunnel.h
+@@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
+ 						     struct sk_buff *skb);
+ typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
+ 					 int nhoff);
++typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
++			const struct sk_buff *skb,
++			struct flow_dissector_key_control *key_control,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data,
++			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
++			int *p_hlen, unsigned int flags);
+ 
+ struct udp_tunnel_sock_cfg {
+ 	void *sk_user_data;     /* user data used by encap_rcv call back */
+@@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
+ 	udp_tunnel_encap_destroy_t encap_destroy;
+ 	udp_tunnel_gro_receive_t gro_receive;
+ 	udp_tunnel_gro_complete_t gro_complete;
++	udp_tunnel_flow_dissect_t flow_dissect;
+ };
+ 
+ /* Setup the given (UDP) sock to receive UDP encapsulated packets */
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index a744bb515455..fddf923ef433 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -335,11 +335,59 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+ 	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
+ }
+ 
++enum flow_dissect_ret udp_flow_dissect(struct sk_buff *skb,
++			udp_lookup_t lookup,
++			struct flow_dissector_key_control *key_control,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data,
++			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
++			int *p_hlen, unsigned int flags)
++{
++	enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
++	struct udphdr *uh, _uh;
++	struct sock *sk;
++
++	uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
++				  *p_hlen, &_uh);
++	if (!uh)
++		return FLOW_DISSECT_RET_OUT_BAD;
++
++	rcu_read_lock();
++
++	sk = (*lookup)(skb, uh->source, uh->dest);
++
++	if (sk && udp_sk(sk)->flow_dissect)
++		ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
++					       flow_dissector, target_container,
++					       data, p_proto, p_ip_proto,
++					       p_nhoff, p_hlen, flags);
++	rcu_read_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL(udp_flow_dissect);
++
++static enum flow_dissect_ret udp4_flow_dissect(struct sk_buff *skb,
++			struct flow_dissector_key_control *key_control,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data,
++			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
++			int *p_hlen, unsigned int flags)
++{
++	if (!static_key_false(&udp_encap_needed))
++		return FLOW_DISSECT_RET_CONTINUE;
++
++	return udp_flow_dissect(skb, udp4_lib_lookup_skb, key_control,
++				flow_dissector, target_container, data,
++				p_proto, p_ip_proto, p_nhoff, p_hlen, flags);
++}
++
+ static const struct net_offload udpv4_offload = {
+ 	.callbacks = {
+ 		.gso_segment = udp4_tunnel_segment,
+ 		.gro_receive  =	udp4_gro_receive,
+ 		.gro_complete =	udp4_gro_complete,
++		.flow_dissect = udp4_flow_dissect,
+ 	},
+ };
+ 
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 6539ff15e9a3..a4eec2a044d2 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -71,6 +71,7 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+ 	udp_sk(sk)->encap_destroy = cfg->encap_destroy;
+ 	udp_sk(sk)->gro_receive = cfg->gro_receive;
+ 	udp_sk(sk)->gro_complete = cfg->gro_complete;
++	udp_sk(sk)->flow_dissect = cfg->flow_dissect;
+ 
+ 	udp_tunnel_encap_enable(sock);
+ }
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 111b026e4f03..45b77f92d77d 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -80,11 +80,27 @@ static int udp6_gro_complete(struct sk_buff *skb, int nhoff)
+ 	return udp_gro_complete(skb, nhoff, udp6_lib_lookup_skb);
+ }
+ 
++static enum flow_dissect_ret udp6_flow_dissect(struct sk_buff *skb,
++			struct flow_dissector_key_control *key_control,
++			struct flow_dissector *flow_dissector,
++			void *target_container, void *data,
++			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
++			int *p_hlen, unsigned int flags)
++{
++	if (!static_key_false(&udp_encap_needed))
++		return FLOW_DISSECT_RET_CONTINUE;
++
++	return udp_flow_dissect(skb, udp6_lib_lookup_skb, key_control,
++				flow_dissector, target_container, data,
++				p_proto, p_ip_proto, p_nhoff, p_hlen, flags);
++}
++
+ static const struct net_offload udpv6_offload = {
+ 	.callbacks = {
+ 		.gso_segment	=	udp6_tunnel_segment,
+ 		.gro_receive	=	udp6_gro_receive,
+ 		.gro_complete	=	udp6_gro_complete,
++		.flow_dissect	=	udp6_flow_dissect,
+ 	},
+ };
+ 
+-- 
+2.11.0
