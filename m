@@ -1,87 +1,93 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: use idr to allocate u32 filter handles
-Date: Thu, 28 Sep 2017 15:19:05 -0700
-Message-ID: <CAM_iQpWbiA4QZb8j8fau7kMhzeLpRppEMcmB80byqTUryPheOw@mail.gmail.com>
-References: <20170921234302.26558-3-xiyou.wangcong@gmail.com> <20170928073423.GB15815@netronome.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH V2] r8152: add Linksys USB3GIGV1 id
+Date: Thu, 28 Sep 2017 22:28:04 +0000
+Message-ID: <EE09EDA8-B6E9-4BEB-882C-C5435EDA8E41@intel.com>
+References: <20170926010925.114436-1-grundler@chromium.org>
+ <CAD=FV=Uk=oPuF7LMhHPM_CTPNEa_G26R6Ce023pTNCCsyqts1Q@mail.gmail.com>
+ <1506496556.28482.3.camel@suse.com>
+ <CANEJEGtEfxR+8n3tRtsci=4Gtyhy021Z-DRvEgXPGFUqYK2u7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35453 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750805AbdI1WT0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 18:19:26 -0400
-Received: by mail-pg0-f66.google.com with SMTP id j16so3280192pga.2
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 15:19:26 -0700 (PDT)
-In-Reply-To: <20170928073423.GB15815@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed;
+        boundary="Apple-Mail=_D8B96E24-7612-4449-AA80-A0DE93A8A627";
+        protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Oliver Neukum <oneukum@suse.com>,
+        Doug Anderson <dianders@chromium.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Hayes Wang <hayeswang@realtek.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-usb <linux-usb@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Grant Grundler <grundler@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANEJEGtEfxR+8n3tRtsci=4Gtyhy021Z-DRvEgXPGFUqYK2u7Q@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2017 at 12:34 AM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> Hi Cong,
->
-> this looks like a nice enhancement to me. Did you measure any performance
-> benefit from it.  Perhaps it could be described in the changelog_ I also
-> have a more detailed question below.
-
-No, I am inspired by commit c15ab236d69d, don't measure it.
+--Apple-Mail=_D8B96E24-7612-4449-AA80-A0DE93A8A627
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
 
->
->> ---
->>  net/sched/cls_u32.c | 108 ++++++++++++++++++++++++++++++++--------------------
->>  1 file changed, 67 insertions(+), 41 deletions(-)
->>
->> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
->> index 10b8d851fc6b..316b8a791b13 100644
->> --- a/net/sched/cls_u32.c
->> +++ b/net/sched/cls_u32.c
->> @@ -46,6 +46,7 @@
->
-> ...
->
->> @@ -937,22 +940,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
->>                       return -EINVAL;
->>               if (TC_U32_KEY(handle))
->>                       return -EINVAL;
->> -             if (handle == 0) {
->> -                     handle = gen_new_htid(tp->data);
->> -                     if (handle == 0)
->> -                             return -ENOMEM;
->> -             }
->>               ht = kzalloc(sizeof(*ht) + divisor*sizeof(void *), GFP_KERNEL);
->>               if (ht == NULL)
->>                       return -ENOBUFS;
->> +             if (handle == 0) {
->> +                     handle = gen_new_htid(tp->data, ht);
->> +                     if (handle == 0) {
->> +                             kfree(ht);
->> +                             return -ENOMEM;
->> +                     }
->> +             } else {
->> +                     err = idr_alloc_ext(&tp_c->handle_idr, ht, NULL,
->> +                                         handle, handle + 1, GFP_KERNEL);
->> +                     if (err) {
->> +                             kfree(ht);
->> +                             return err;
->> +                     }
->
-> The above seems to check that handle is not already in use and mark it as
-> in use. But I don't see that logic in the code prior to this patch.
-> Am I missing something? If not perhaps this portion should be a separate
-> patch or described in the changelog.
+> On Sep 27, 2017, at 9:39 AM, Grant Grundler <grundler@chromium.org> =
+wrote:
+>=20
+> On Wed, Sep 27, 2017 at 12:15 AM, Oliver Neukum <oneukum@suse.com> =
+wrote:
+>> Am Dienstag, den 26.09.2017, 08:19 -0700 schrieb Doug Anderson:
+>>>=20
+>>> I know that for at least some of the adapters in the CDC Ethernet
+>>> blacklist it was claimed that the CDC Ethernet support in the =
+adapter
+>>> was kinda broken anyway so the blacklist made sense.  ...but for the
+>>> Linksys Gigabit adapter the CDC Ethernet driver seems to work OK, =
+it's
+>>> just not quite as full featured / efficient as the R8152 driver.
+>>>=20
+>>> Is that not a concern?  I guess you could tell people in this
+>>> situation that they simply need to enable the R8152 driver to get
+>>> continued support for their Ethernet adapter?
+>>=20
+>> Hi,
+>>=20
+>> yes, it is a valid concern. An #ifdef will be needed.
+>=20
+> Good idea - I will post V3 shortly.
+>=20
+> I'm assuming you mean to add #ifdef CONFIG_USB_RTL8152 around the
+> blacklist entry in cdc_ether driver.
 
-The logic is in upper layer, tc_ctl_tfilter(). It tries to get a
-filter by handle
-(if non-zero), and errors out if we are creating a new filter with the same
-handle.
+Shouldn't that be an #if IS_ENABLED(...) test, since that seems to be =
+the proper way to check configured drivers.
 
-At the point you quote above, 'n' is already NULL and 'handle' is non-zero,
-which means there is no existing filter has same handle, it is safe to just
-mark it as in-use.
+--
+Mark Rustad, Networking Division, Intel Corporation
 
-Thanks.
+
+--Apple-Mail=_D8B96E24-7612-4449-AA80-A0DE93A8A627
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - http://gpgtools.org
+
+iQIcBAEBCAAGBQJZzXd0AAoJEDwO/+eO4+5udm0P/2GW3yE04k3otZCX+aWdLIxS
+Nk6KN9xE1/fRcfi3gFCqR571R62fuetr7fdNR9e4Y0fqbao5u7Jd3thKQXT4Yq4O
+jSHK+yr4sx7LlHb5JxoOI+BJb0eE3R4wQT6Dvl9dZuror9Wcb4X+KCydnLpuf0gZ
+XiLx5WcWEu/goeiRW02wTHR1EEBU+QZ7P0xy1R3bb+Ej5q1MA3i5NZIkf8G6yuI5
+sXNIQTkq31mUpu4H7phPZnvSvUxYEYWoFOPLuyIE/rKIeuSVsr/Or6jpgeE3SUSU
+MPSJucAxtkQC5kOCVAICgabfPA6nItDftDVaiKKfHBYGhVAJB3z/hK9SiS5MOrtP
+aX212E2GgZVQgKcFwMZLGsvbGu364lLraXFY7QLjagGLR3ECZuQxA0edQ64vCqx3
+ZgUAhfwlhaSd/fTplVBHR2OdWkbx2z/AeAqty+FrupRfePeEYCPGKzgHkehwLpaC
+8IyriYK4uOy8qZq7wrffVfiRzvYSA8GYz22fKlf/kHT4o6uuBrmgVVFyrAkeiIKs
+xLj88onpvn6zuqlMWyotTbHZTi91pd1ROh4Jry9pAgY8XcTuHnqX5iLKywJNaiD6
+McHQh74zXfCbw2OLksVtA/pbB35Av5sLUBNfdOiWjdCy07ka912oxKJcDEQ+JsgI
+i9j0+40NYUUolfTweFB0
+=Hx2w
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_D8B96E24-7612-4449-AA80-A0DE93A8A627--
