@@ -1,120 +1,122 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] vhost_net: do not stall on zerocopy depletion
-Date: Thu, 28 Sep 2017 15:41:55 +0800
-Message-ID: <a574875f-cea7-e769-ff41-c337c9720d7a@redhat.com>
-References: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next RFC 2/5] vhost: introduce helper to prefetch desc
+ index
+Date: Thu, 28 Sep 2017 15:44:50 +0800
+Message-ID: <4450795e-7967-8427-6b41-28fe4f912e51@redhat.com>
+References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
+ <1506067355-5771-3-git-send-email-jasowang@redhat.com>
+ <CAF=yD-JC9g1gd-jsSjnLzbwAnk-LsPuj_JhF2NWf1rdxiWDwwA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mst@redhat.com, den@klaipeden.com,
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
         virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40552 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751817AbdI1HmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 28 Sep 2017 03:42:08 -0400
-In-Reply-To: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, kvm@vger.kernel.org
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAF=yD-JC9g1gd-jsSjnLzbwAnk-LsPuj_JhF2NWf1rdxiWDwwA@mail.gmail.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年09月28日 08:25, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
+On 2017年09月28日 08:47, Willem de Bruijn wrote:
+> On Fri, Sep 22, 2017 at 4:02 AM, Jason Wang <jasowang@redhat.com> wrote:
+>> This patch introduces vhost_prefetch_desc_indices() which could batch
+>> descriptor indices fetching and used ring updating. This intends to
+>> reduce the cache misses of indices fetching and updating and reduce
+>> cache line bounce when virtqueue is almost full. copy_to_user() was
+>> used in order to benefit from modern cpus that support fast string
+>> copy. Batched virtqueue processing will be the first user.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>   drivers/vhost/vhost.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>>   drivers/vhost/vhost.h |  3 +++
+>>   2 files changed, 58 insertions(+)
+>>
+>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+>> index f87ec75..8424166d 100644
+>> --- a/drivers/vhost/vhost.c
+>> +++ b/drivers/vhost/vhost.c
+>> @@ -2437,6 +2437,61 @@ struct vhost_msg_node *vhost_dequeue_msg(struct vhost_dev *dev,
+>>   }
+>>   EXPORT_SYMBOL_GPL(vhost_dequeue_msg);
+>>
+>> +int vhost_prefetch_desc_indices(struct vhost_virtqueue *vq,
+>> +                               struct vring_used_elem *heads,
+>> +                               u16 num, bool used_update)
+>> +{
+>> +       int ret, ret2;
+>> +       u16 last_avail_idx, last_used_idx, total, copied;
+>> +       __virtio16 avail_idx;
+>> +       struct vring_used_elem __user *used;
+>> +       int i;
+>> +
+>> +       if (unlikely(vhost_get_avail(vq, avail_idx, &vq->avail->idx))) {
+>> +               vq_err(vq, "Failed to access avail idx at %p\n",
+>> +                      &vq->avail->idx);
+>> +               return -EFAULT;
+>> +       }
+>> +       last_avail_idx = vq->last_avail_idx & (vq->num - 1);
+>> +       vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
+>> +       total = vq->avail_idx - vq->last_avail_idx;
+>> +       ret = total = min(total, num);
+>> +
+>> +       for (i = 0; i < ret; i++) {
+>> +               ret2 = vhost_get_avail(vq, heads[i].id,
+>> +                                     &vq->avail->ring[last_avail_idx]);
+>> +               if (unlikely(ret2)) {
+>> +                       vq_err(vq, "Failed to get descriptors\n");
+>> +                       return -EFAULT;
+>> +               }
+>> +               last_avail_idx = (last_avail_idx + 1) & (vq->num - 1);
+>> +       }
+> This is understandably very similar to the existing logic in vhost_get_vq_desc.
+> Can that be extracted to a helper to avoid code duplication?
 >
-> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
-> When reached, transmission stalls. Stalls cause latency, as well as
-> head-of-line blocking of other flows that do not use zerocopy.
->
-> Instead of stalling, revert to copy-based transmission.
->
-> Tested by sending two udp flows from guest to host, one with payload
-> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
-> large flow is redirected to a netem instance with 1MBps rate limit
-> and deep 1000 entry queue.
->
->    modprobe ifb
->    ip link set dev ifb0 up
->    tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
->
->    tc qdisc add dev tap0 ingress
->    tc filter add dev tap0 parent ffff: protocol ip \
->        u32 match ip dport 8000 0xffff \
->        action mirred egress redirect dev ifb0
->
-> Before the delay, both flows process around 80K pps. With the delay,
-> before this patch, both process around 400. After this patch, the
-> large flow is still rate limited, while the small reverts to its
-> original rate. See also discussion in the first link, below.
->
-> The limit in vhost_exceeds_maxpend must be carefully chosen. When
-> vq->num >> 1, the flows remain correlated. This value happens to
-> correspond to VHOST_MAX_PENDING for vq->num == 256.
+> Perhaps one helper to update vq->avail_idx and return num, and
+> another to call vhost_get_avail one or more times.
 
-Have you tested e.g vq->num = 512 or 1024?
+Yes it can.
 
->   Allow smaller
-> fractions and ensure correctness also for much smaller values of
-> vq->num, by testing the min() of both explicitly. See also the
-> discussion in the second link below.
 >
-> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
-> Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->   drivers/vhost/net.c | 14 ++++----------
->   1 file changed, 4 insertions(+), 10 deletions(-)
+>> +
+>> +       if (!used_update)
+>> +               return ret;
+>> +
+>> +       last_used_idx = vq->last_used_idx & (vq->num - 1);
+>> +       while (total) {
+>> +               copied = min((u16)(vq->num - last_used_idx), total);
+>> +               ret2 = vhost_copy_to_user(vq,
+>> +                                         &vq->used->ring[last_used_idx],
+>> +                                         &heads[ret - total],
+>> +                                         copied * sizeof(*used));
+>> +
+>> +               if (unlikely(ret2)) {
+>> +                       vq_err(vq, "Failed to update used ring!\n");
+>> +                       return -EFAULT;
+>> +               }
+>> +
+>> +               last_used_idx = 0;
+>> +               total -= copied;
+>> +       }
+> This second part seems unrelated and could be a separate function?
+
+Yes.
+
 >
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 58585ec8699e..50758602ae9d 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -436,8 +436,8 @@ static bool vhost_exceeds_maxpend(struct vhost_net *net)
->   	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
->   	struct vhost_virtqueue *vq = &nvq->vq;
->   
-> -	return (nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV
-> -		== nvq->done_idx;
-> +	return (nvq->upend_idx + UIO_MAXIOV - nvq->done_idx) % UIO_MAXIOV >
-> +	       min(VHOST_MAX_PEND, vq->num >> 2);
->   }
->   
->   /* Expects to be always run from workqueue - which acts as
-> @@ -480,12 +480,6 @@ static void handle_tx(struct vhost_net *net)
->   		if (zcopy)
->   			vhost_zerocopy_signal_used(net, vq);
->   
-> -		/* If more outstanding DMAs, queue the work.
-> -		 * Handle upend_idx wrap around
-> -		 */
-> -		if (unlikely(vhost_exceeds_maxpend(net)))
-> -			break;
-> -
->   		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
->   						ARRAY_SIZE(vq->iov),
->   						&out, &in);
-> @@ -509,6 +503,7 @@ static void handle_tx(struct vhost_net *net)
->   		len = iov_length(vq->iov, out);
->   		iov_iter_init(&msg.msg_iter, WRITE, vq->iov, out, len);
->   		iov_iter_advance(&msg.msg_iter, hdr_size);
-> +
+> Also, no need for ret2 and double assignment "ret = total =" if not
+> modifying total
+> in the the second loop:
+>
+>    for (i = 0; i < total; ) {
+>      ...
+>      i += copied;
+>    }
 
-Looks unnecessary. Other looks good.
+Right, will do this in V2.
 
->   		/* Sanity check */
->   		if (!msg_data_left(&msg)) {
->   			vq_err(vq, "Unexpected header len for TX: "
-> @@ -519,8 +514,7 @@ static void handle_tx(struct vhost_net *net)
->   		len = msg_data_left(&msg);
->   
->   		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
-> -				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
-> -				      nvq->done_idx
-> +				   && !vhost_exceeds_maxpend(net)
->   				   && vhost_net_tx_select_zcopy(net);
->   
->   		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+Thanks
