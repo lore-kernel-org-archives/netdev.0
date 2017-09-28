@@ -1,65 +1,42 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next] bonding: speed/duplex update at NETDEV_UP event
-Date: Wed, 27 Sep 2017 18:03:49 -0700
-Message-ID: <20170928010349.8988-1-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Mahesh Bandewar <maheshb@google.com>
-To: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>
+From: wangyunjian <wangyunjian@huawei.com>
+Subject: RE: [PATCH net] i40e: Fix limit imprecise of the number of MAC/VLAN
+ that can be added for VFs
+Date: Thu, 28 Sep 2017 01:32:31 +0000
+Message-ID: <34EFBCA9F01B0748BEB6B629CE643AE60C64A993@dggemm513-mbx.china.huawei.com>
+References: <1506495497-10736-1-git-send-email-wangyunjian@huawei.com>
+ <fd104583-6743-9f1b-cba8-988fa1b216db@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        caihe <caihe@huawei.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35081 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752520AbdI1BDz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 21:03:55 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i23so18433pfi.2
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 18:03:55 -0700 (PDT)
+Received: from szxga03-in.huawei.com ([45.249.212.189]:12896 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751946AbdI1Bcv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 21:32:51 -0400
+In-Reply-To: <fd104583-6743-9f1b-cba8-988fa1b216db@cogentembedded.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
-
-Some NIC drivers don't have correct speed/duplex settings at the
-time they send NETDEV_UP notification and that messes up the
-bonding state. Especially 802.3ad mode which is very sensitive
-to these settings. In the current implementation we invoke
-bond_update_speed_duplex() when we receive NETDEV_UP, however,
-ignore the return value. If the values we get are invalid
-(UNKNOWN), then slave gets removed from the aggregator with
-speed and duplex set to UNKNOWN while link is still marked as UP.
-
-This patch fixes this scenario. Also 802.3ad mode is sensitive to
-these conditions while other modes are not, so making sure that it
-doesn't change the behavior for other modes.
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/bonding/bond_main.c | 11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b7313c1d9dcd..177be373966b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3076,7 +3076,16 @@ static int bond_slave_netdev_event(unsigned long event,
- 		break;
- 	case NETDEV_UP:
- 	case NETDEV_CHANGE:
--		bond_update_speed_duplex(slave);
-+		/* For 802.3ad mode only:
-+		 * Getting invalid Speed/Duplex values here will put slave
-+		 * in weird state. So mark it as link-down for the time
-+		 * being and let link-monitoring (miimon) set it right when
-+		 * correct speeds/duplex are available.
-+		 */
-+		if (bond_update_speed_duplex(slave) &&
-+		    BOND_MODE(bond) == BOND_MODE_8023AD)
-+			slave->link = BOND_LINK_DOWN;
-+
- 		if (BOND_MODE(bond) == BOND_MODE_8023AD)
- 			bond_3ad_adapter_speed_duplex_changed(slave);
- 		/* Fallthrough */
--- 
-2.14.2.822.g60be5d43e6-goog
+VGhhbmtzLCBJIHdpbGwgc2VuZCB0aGUgdjIgbGF0ZXIuDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNz
+YWdlLS0tLS0NCj4gRnJvbTogU2VyZ2VpIFNodHlseW92IFttYWlsdG86c2VyZ2VpLnNodHlseW92
+QGNvZ2VudGVtYmVkZGVkLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBTZXB0ZW1iZXIgMjcsIDIw
+MTcgNzozNCBQTQ0KPiBUbzogd2FuZ3l1bmppYW4gPHdhbmd5dW5qaWFuQGh1YXdlaS5jb20+OyBk
+YXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20NCj4gQ2M6
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3Jn
+OyBjYWloZQ0KPiA8Y2FpaGVAaHVhd2VpLmNvbT4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXRd
+IGk0MGU6IEZpeCBsaW1pdCBpbXByZWNpc2Ugb2YgdGhlIG51bWJlciBvZg0KPiBNQUMvVkxBTiB0
+aGF0IGNhbiBiZSBhZGRlZCBmb3IgVkZzDQo+IA0KPiBIZWxsbyENCj4gDQo+IE9uIDkvMjcvMjAx
+NyA5OjU4IEFNLCB3MDAyNzMxODYgd3JvdGU6DQo+IA0KPiA+IEZyb206IFl1bmppYW4gV2FuZyA8
+d2FuZ3l1bmppYW5AaHVhd2VpLmNvbT4NCj4gPg0KPiA+IE5vdyBpdCBkb24ndCBsaW1pdCB0aGUg
+bnVtYmVyIG9mIE1BQy9WTEFOIHN0cmljdGx5LiBXaGVuIHRoZXJlIGlzIG1vcmUNCj4gDQo+ICAg
+ICBEb2Vzbid0Lg0KPiANCj4gPiBlbGVtZW50cyBpbiB0aGUgdmlydGNobmwgTUFDL1ZMQU4gbGlz
+dCwgaXQgY2FuIHN0aWxsIGFkZCBzdWNjZXNzZnVsbHkuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5
+OiBZdW5qaWFuIFdhbmcgPHdhbmd5dW5qaWFuQGh1YXdlaS5jb20+DQo+IA0KPiBbLi4uXQ0KPiAN
+Cj4gTUJSLCBTZXJnZWkNCg==
