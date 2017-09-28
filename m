@@ -1,93 +1,107 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: Re: [PATCH V3] r8152: add Linksys USB3GIGV1 id
-Date: Wed, 27 Sep 2017 17:07:05 -0700
-Message-ID: <CANEJEGvK94v_SV9xWmDaiA4CZOiroKZVhfCH4vydF6_Su2_PyA@mail.gmail.com>
-References: <20170927172802.80654-1-grundler@chromium.org> <CAD=FV=U-zMEQ8=_96SMENmcBywG0hSrDvebXUxGGbAur_2T-4g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Grant Grundler <grundler@chromium.org>,
-        Hayes Wang <hayeswang@realtek.com>,
-        Oliver Neukum <oneukum@suse.com>,
-        linux-usb <linux-usb@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Doug Anderson <dianders@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAD=FV=U-zMEQ8=_96SMENmcBywG0hSrDvebXUxGGbAur_2T-4g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next] vhost_net: do not stall on zerocopy depletion
+Date: Wed, 27 Sep 2017 20:25:56 -0400
+Message-ID: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, mst@redhat.com, jasowang@redhat.com,
+        den@klaipeden.com, virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:51793 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752402AbdI1A04 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 20:26:56 -0400
+Received: by mail-qk0-f173.google.com with SMTP id 18so3998366qkt.8
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 17:26:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Doug!
+From: Willem de Bruijn <willemb@google.com>
 
-On Wed, Sep 27, 2017 at 4:47 PM, Doug Anderson <dianders@chromium.org> wrote:
-> Hi,
->
-> On Wed, Sep 27, 2017 at 10:28 AM, Grant Grundler <grundler@chromium.org> wrote:
->> This linksys dongle by default comes up in cdc_ether mode.
->> This patch allows r8152 to claim the device:
->>    Bus 002 Device 002: ID 13b1:0041 Linksys
->>
->> Signed-off-by: Grant Grundler <grundler@chromium.org>
->> ---
->>  drivers/net/usb/cdc_ether.c | 10 ++++++++++
->>  drivers/net/usb/r8152.c     |  2 ++
->>  2 files changed, 12 insertions(+)
->>
->> V3: for backwards compat, add #ifdef CONFIG_USB_RTL8152 around
->>     the cdc_ether blacklist entry so the cdc_ether driver can
->>     still claim the device if r8152 driver isn't configured.
->>
->> V2: add LINKSYS_VENDOR_ID to cdc_ether blacklist
->>
->> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
->> index 8ab281b478f2..446dcc0f1f70 100644
->> --- a/drivers/net/usb/cdc_ether.c
->> +++ b/drivers/net/usb/cdc_ether.c
->> @@ -546,6 +546,7 @@ static const struct driver_info wwan_info = {
->>  #define DELL_VENDOR_ID         0x413C
->>  #define REALTEK_VENDOR_ID      0x0bda
->>  #define SAMSUNG_VENDOR_ID      0x04e8
->> +#define LINKSYS_VENDOR_ID      0x13b1
->>  #define LENOVO_VENDOR_ID       0x17ef
->
-> Slight nit that "LI" sorts after "LE".  You got it right in the other case...
+Vhost-net has a hard limit on the number of zerocopy skbs in flight.
+When reached, transmission stalls. Stalls cause latency, as well as
+head-of-line blocking of other flows that do not use zerocopy.
 
-The list isn't sorted by any rational thing I can see.  I managed to
-check my OCD reaction to sort the list numerically. :)
+Instead of stalling, revert to copy-based transmission.
 
->>  #define NVIDIA_VENDOR_ID       0x0955
->>  #define HP_VENDOR_ID           0x03f0
->> @@ -737,6 +738,15 @@ static const struct usb_device_id  products[] = {
->>         .driver_info = 0,
->>  },
->>
->> +#ifdef CONFIG_USB_RTL8152
->> +/* Linksys USB3GIGV1 Ethernet Adapter */
->> +{
->> +       USB_DEVICE_AND_INTERFACE_INFO(LINKSYS_VENDOR_ID, 0x0041, USB_CLASS_COMM,
->> +                       USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
->> +       .driver_info = 0,
->> +},
->> +#endif
->
-> I believe you want to use IS_ENABLED(), don't you?
+Tested by sending two udp flows from guest to host, one with payload
+of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
+large flow is redirected to a netem instance with 1MBps rate limit
+and deep 1000 entry queue.
 
-Ah yes - I wasn't aware IS_ENABLED existed.  Will respin V4 with this
-if there isn't any other feedback.
+  modprobe ifb
+  ip link set dev ifb0 up
+  tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
 
+  tc qdisc add dev tap0 ingress
+  tc filter add dev tap0 parent ffff: protocol ip \
+      u32 match ip dport 8000 0xffff \
+      action mirred egress redirect dev ifb0
 
-> There's still a weird esoteric side case where kernel modules don't
-> all need to be included in the filesystem just because they were built
-> at the same time.  ...but IMHO that seems like enough of a nit that we
-> can probably ignore it unless someone has a better idea.
+Before the delay, both flows process around 80K pps. With the delay,
+before this patch, both process around 400. After this patch, the
+large flow is still rate limited, while the small reverts to its
+original rate. See also discussion in the first link, below.
 
-I think that would require a run time check. I'm perfectly willing to
-ignore that case. :)
+The limit in vhost_exceeds_maxpend must be carefully chosen. When
+vq->num >> 1, the flows remain correlated. This value happens to
+correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
+fractions and ensure correctness also for much smaller values of
+vq->num, by testing the min() of both explicitly. See also the
+discussion in the second link below.
 
-thanks!
-grant
+Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
+Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ drivers/vhost/net.c | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
->
->
-> -Doug
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 58585ec8699e..50758602ae9d 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -436,8 +436,8 @@ static bool vhost_exceeds_maxpend(struct vhost_net *net)
+ 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
+ 	struct vhost_virtqueue *vq = &nvq->vq;
+ 
+-	return (nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV
+-		== nvq->done_idx;
++	return (nvq->upend_idx + UIO_MAXIOV - nvq->done_idx) % UIO_MAXIOV >
++	       min(VHOST_MAX_PEND, vq->num >> 2);
+ }
+ 
+ /* Expects to be always run from workqueue - which acts as
+@@ -480,12 +480,6 @@ static void handle_tx(struct vhost_net *net)
+ 		if (zcopy)
+ 			vhost_zerocopy_signal_used(net, vq);
+ 
+-		/* If more outstanding DMAs, queue the work.
+-		 * Handle upend_idx wrap around
+-		 */
+-		if (unlikely(vhost_exceeds_maxpend(net)))
+-			break;
+-
+ 		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
+ 						ARRAY_SIZE(vq->iov),
+ 						&out, &in);
+@@ -509,6 +503,7 @@ static void handle_tx(struct vhost_net *net)
+ 		len = iov_length(vq->iov, out);
+ 		iov_iter_init(&msg.msg_iter, WRITE, vq->iov, out, len);
+ 		iov_iter_advance(&msg.msg_iter, hdr_size);
++
+ 		/* Sanity check */
+ 		if (!msg_data_left(&msg)) {
+ 			vq_err(vq, "Unexpected header len for TX: "
+@@ -519,8 +514,7 @@ static void handle_tx(struct vhost_net *net)
+ 		len = msg_data_left(&msg);
+ 
+ 		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+-				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
+-				      nvq->done_idx
++				   && !vhost_exceeds_maxpend(net)
+ 				   && vhost_net_tx_select_zcopy(net);
+ 
+ 		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+-- 
+2.14.2.822.g60be5d43e6-goog
