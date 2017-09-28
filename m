@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 4/4] ipv4: Namespaceify
- tcp_fastopen_blackhole_timeout knob
-Date: Thu, 28 Sep 2017 10:48:01 -0700 (PDT)
-Message-ID: <20170928.104801.364432233895912663.davem@davemloft.net>
-References: <1506483343-11544-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <1506483343-11544-4-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] net-ipv6: remove unused IP6_ECN_clear() function
+Date: Thu, 28 Sep 2017 10:48:57 -0700 (PDT)
+Message-ID: <20170928.104857.2113645025730852044.davem@davemloft.net>
+References: <20170927033722.89146-1-zenczykowski@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
-        lucab@debian.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506483343-11544-4-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8BIT
+Cc: maze@google.com, netdev@vger.kernel.org
+To: zenczykowski@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50818 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751970AbdI1Rs5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 13:48:57 -0400
+In-Reply-To: <20170927033722.89146-1-zenczykowski@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Wed, 27 Sep 2017 11:35:43 +0800
+From: Maciej ¯enczykowski <zenczykowski@gmail.com>
+Date: Tue, 26 Sep 2017 20:37:22 -0700
 
-> Different namespace application might require different time period in
-> second to disable Fastopen on active TCP sockets.
+> From: Maciej ¯enczykowski <maze@google.com>
 > 
-> Tested:
-> Simulate following similar situation that the server's data gets dropped
-> after 3WHS.
-> C ---- syn-data ---> S
-> C <--- syn/ack ----- S
-> C ---- ack --------> S
-> S (accept & write)
-> C?  X <- data ------ S
-> 	[retry and timeout]
+> This function is unused, and furthermore it is buggy since it suffers
+> from the same issue that requires IP6_ECN_set_ce() to take a pointer
+> to the skb so that it may (in case of CHECKSUM_COMPLETE) update skb->csum
 > 
-> And then print netstat of TCPFastOpenBlackhole, the counter increased as
-> expected when the firewall blackhole issue is detected and active TFO is
-> disabled.
-> # cat /proc/net/netstat | awk '{print $91}'
-> TCPFastOpenBlackhole
-> 1
+> Instead of fixing it, let's just outright remove it.
 > 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Tested: builds, and 'git grep IP6_ECN_clear' comes up empty
+> 
+> Signed-off-by: Maciej ¯enczykowski <maze@google.com>
 
-Applied.
+Applied to net-next.
