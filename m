@@ -1,52 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/4] dt-bindings: net: ravb: Document optional reset-gpios
- property
-Date: Thu, 28 Sep 2017 23:07:38 +0300
-Message-ID: <fefd2be3-d47a-f035-5078-090df0fc6318@cogentembedded.com>
-References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
- <1506614014-4398-2-git-send-email-geert+renesas@glider.be>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1506614014-4398-2-git-send-email-geert+renesas@glider.be>
-Content-Language: en-MW
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net-next 00/10] Introduce SCTP Stream Schedulers
+Date: Thu, 28 Sep 2017 17:25:13 -0300
+Message-ID: <cover.1506536044.git.marcelo.leitner@gmail.com>
+Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>,
+        David Laight <David.Laight@ACULAB.COM>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:48729 "EHLO
+        mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750880AbdI1UZh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 16:25:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+This patchset introduces the SCTP Stream Schedulers are defined by
+https://tools.ietf.org/html/draft-ietf-tsvwg-sctp-ndata-13
 
-On 09/28/2017 06:53 PM, Geert Uytterhoeven wrote:
+It provides 3 schedulers at the moment: FCFS, Priority and Round Robin.
+The other 3, Round Robin per packet, Fair Capacity and Weighted Fair
+Capacity will be added later. More specifically, WFQ is required by
+WebRTC Datachannels.
 
-> The optional "reset-gpios" property (part of the generic MDIO bus
-> properties) lets us describe the GPIO used for resetting the Ethernet
-> PHY.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> ---
->   Documentation/devicetree/bindings/net/renesas,ravb.txt | 2 ++
->   1 file changed, 2 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> index c902261893b913f5..4a6ec1ba32d0bf16 100644
-> --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> @@ -52,6 +52,7 @@ Optional properties:
->   			 AVB_LINK signal.
->   - renesas,ether-link-active-low: boolean, specify when the AVB_LINK signal is
->   				 active-low instead of normal active-high.
-> +- reset-gpios: see mdio.txt in the same directory.
+The draft also defines the idata chunk, allowing a usermsg to be
+interrupted by another piece of idata from another stream. This patchset
+*doesn't* include it. It will be posted later by Xin Long.  Its
+integration with this patchset is very simple and it basically only
+requires a tweak in sctp_sched_dequeue_done(), to ignore datamsg
+boundaries.
 
-    Sigh, I can only repeat that was a terrible prop name choice -- when 
-applied to a MAC node... what reset does it mean? MAC?
+The first 5 patches are a preparation for the next ones. The most
+relevant patches are the 4th and 6th ones. More details are available on
+each patch.
 
-MBR, Sergei
+Marcelo Ricardo Leitner (10):
+  sctp: silence warns on sctp_stream_init allocations
+  sctp: factor out stream->out allocation
+  sctp: factor out stream->in allocation
+  sctp: introduce struct sctp_stream_out_ext
+  sctp: introduce sctp_chunk_stream_no
+  sctp: introduce stream scheduler foundations
+  sctp: add sockopt to get/set stream scheduler
+  sctp: add sockopt to get/set stream scheduler parameters
+  sctp: introduce priority based stream scheduler
+  sctp: introduce round robin stream scheduler
+
+ include/net/sctp/stream_sched.h |  72 +++++++++
+ include/net/sctp/structs.h      |  63 +++++++-
+ include/uapi/linux/sctp.h       |  16 ++
+ net/sctp/Makefile               |   3 +-
+ net/sctp/chunk.c                |   6 +-
+ net/sctp/outqueue.c             |  63 ++++----
+ net/sctp/sm_sideeffect.c        |   3 +
+ net/sctp/socket.c               | 179 ++++++++++++++++++++-
+ net/sctp/stream.c               | 196 +++++++++++++++++++----
+ net/sctp/stream_sched.c         | 275 +++++++++++++++++++++++++++++++
+ net/sctp/stream_sched_prio.c    | 347 ++++++++++++++++++++++++++++++++++++++++
+ net/sctp/stream_sched_rr.c      | 201 +++++++++++++++++++++++
+ 12 files changed, 1347 insertions(+), 77 deletions(-)
+ create mode 100644 include/net/sctp/stream_sched.h
+ create mode 100644 net/sctp/stream_sched.c
+ create mode 100644 net/sctp/stream_sched_prio.c
+ create mode 100644 net/sctp/stream_sched_rr.c
+
+-- 
+2.13.5
