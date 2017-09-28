@@ -1,40 +1,51 @@
-From: Doug Anderson <dianders@chromium.org>
-Subject: Re: [PATCH V3] r8152: add Linksys USB3GIGV1 id
-Date: Thu, 28 Sep 2017 08:11:07 -0700
-Message-ID: <CAD=FV=Wmmw9gsqRXe5Mt4LfNzXWW4=AXpDsBJH7jROLOkmKpLw@mail.gmail.com>
-References: <20170927172802.80654-1-grundler@chromium.org> <CAD=FV=U-zMEQ8=_96SMENmcBywG0hSrDvebXUxGGbAur_2T-4g@mail.gmail.com>
- <CANEJEGvK94v_SV9xWmDaiA4CZOiroKZVhfCH4vydF6_Su2_PyA@mail.gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH net] l2tp: fix l2tp_eth module loading
+Date: Thu, 28 Sep 2017 17:14:10 +0200
+Message-ID: <20170928151410.jmsvdcdr6h3xlffg@alphalink.fr>
+References: <a7d351fd5948fc69ef17da3c170cd7c152f899c4.1506606179.git.g.nault@alphalink.fr>
+ <20170928141728.GA3107@jackdaw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Hayes Wang <hayeswang@realtek.com>,
-        Oliver Neukum <oneukum@suse.com>,
-        linux-usb <linux-usb@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Grant Grundler <grundler@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANEJEGvK94v_SV9xWmDaiA4CZOiroKZVhfCH4vydF6_Su2_PyA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
+To: Tom Parkin <tparkin@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:51523 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751464AbdI1POS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 11:14:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20170928141728.GA3107@jackdaw>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Sep 28, 2017 at 03:17:28PM +0100, Tom Parkin wrote:
+> On Thu, Sep 28, 2017 at 03:44:38PM +0200, Guillaume Nault wrote:
+> > The l2tp_eth module crashes if its netlink callbacks are run when the
+> > pernet data aren't initialised.
+> > 
+> > We should normally register_pernet_device() before the genl callbacks.
+> > However, the pernet data only maintain a list of l2tpeth interfaces,
+> > and this list is never used. So let's just drop pernet handling
+> > instead.
+> > 
+> > Fixes: d9e31d17ceba ("l2tp: Add L2TP ethernet pseudowire support")
+> > Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> 
+> Whoops.  I think this was intended to clear up the devices in the net
+> namespace,
+Yes, that's what I thought too. That's what virtual devices are
+supposed to do and think I'll eventually implement this at a later
+time.
 
-On Wed, Sep 27, 2017 at 5:07 PM, Grant Grundler <grundler@chromium.org> wrote:
->>>  #define DELL_VENDOR_ID         0x413C
->>>  #define REALTEK_VENDOR_ID      0x0bda
->>>  #define SAMSUNG_VENDOR_ID      0x04e8
->>> +#define LINKSYS_VENDOR_ID      0x13b1
->>>  #define LENOVO_VENDOR_ID       0x17ef
->>
->> Slight nit that "LI" sorts after "LE".  You got it right in the other case...
->
-> The list isn't sorted by any rational thing I can see.  I managed to
-> check my OCD reaction to sort the list numerically. :)
+> but since l2tp_core.c already deletes tunnels on namespace
+> exit I don't think it's necessary for l2tp_eth.c to do anything more.
+> 
+Well, removing l2tpeth devices is just a side effect of closing the
+tunnel. But the tunnel may be in a different namespace than the device,
+in case the later was moved after creation. In this case, the l2tpeth
+interface isn't deleted when its namespace is destroyed. It's moved
+to the initial namespace instead (because, for now, l2tpeth devices
+don't implement ->rtnl_link_ops).
 
-Whoops, you're right.  It seems to be in a random order.  I just saw
-LE, LI, and N sorted properly and jumped to a conclusion.  In any
-case, if it's all the same to you it'd be nice if you were consistent
-between LENOVO/LINKSYS in the two files.  :-P
-
--Doug
+These are shortcomings I'd like to fix, but there are more important
+issues to tackle first.
