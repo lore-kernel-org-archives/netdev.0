@@ -1,130 +1,106 @@
-From: Amine Kherbouche <amine.kherbouche@6wind.com>
-Subject: [PATCH v4 0/2] Introduce MPLS over GRE
-Date: Thu, 28 Sep 2017 11:34:18 +0200
-Message-ID: <cover.1506590878.git.amine.kherbouche@6wind.com>
-Cc: amine.kherbouche@6wind.com, equinox@diac24.net
-To: netdev@vger.kernel.org, xeb@mail.ru, roopa@cumulusnetworks.com
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] ipv6: do lazy dst->__use update when per cpu
+ dst is available
+Date: Thu, 28 Sep 2017 12:34:12 +0200
+Message-ID: <1506594852.2711.33.camel@redhat.com>
+References: <9d32116e61596b0de6a584b6cf05cae3ce7abb56.1506532145.git.pabeni@redhat.com>
+         <CAEA6p_DZxGesjymubWoWx7hQjaZ7Vdchh=cdOW9tAr4F7QvzXg@mail.gmail.com>
+         <CANn89iJ0t8Vpukak3WEOA1x4M4hk-Z9hDkcSqG9+7qLsbuJQZg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Martin KaFai Lau <kafai@fb.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <edumazet@google.com>, Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:56041 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750891AbdI1Jej (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 05:34:39 -0400
-Received: by mail-wm0-f51.google.com with SMTP id u138so957100wmu.4
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 02:34:39 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:36676 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752580AbdI1KeP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 06:34:15 -0400
+In-Reply-To: <CANn89iJ0t8Vpukak3WEOA1x4M4hk-Z9hDkcSqG9+7qLsbuJQZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series introduces the MPLS over GRE encapsulation (RFC 4023).
+On Wed, 2017-09-27 at 11:03 -0700, Eric Dumazet wrote:
+> > > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > 
+> > Hi Paolo,
+> > 
+> > Eric and I discussed about this issue recently as well :).
+> > 
+> > What about the following change:
+> > 
+> > diff --git a/include/net/dst.h b/include/net/dst.h
+> > index 93568bd0a352..33e1d86bcef6 100644
+> > --- a/include/net/dst.h
+> > +++ b/include/net/dst.h
+> > @@ -258,14 +258,18 @@ static inline void dst_hold(struct dst_entry *dst)
+> >  static inline void dst_use(struct dst_entry *dst, unsigned long time)
+> >  {
+> >         dst_hold(dst);
+> > -       dst->__use++;
+> > -       dst->lastuse = time;
+> > +       if (dst->lastuse != time) {
+> > +               dst->__use++;
+> > +               dst->lastuse = time;
+> > +       }
+> >  }
+> > 
+> >  static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
+> >  {
+> > -       dst->__use++;
+> > -       dst->lastuse = time;
+> > +       if (dst->lastuse != time) {
+> > +               dst->__use++;
+> > +               dst->lastuse = time;
+> > +       }
+> >  }
+> > 
+> >  static inline struct dst_entry *dst_clone(struct dst_entry *dst)
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index 26cc9f483b6d..e195f093add3 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -1170,8 +1170,7 @@ struct rt6_info *ip6_pol_route(struct net *net,
+> > struct fib6_table *table,
+> > 
+> >                 struct rt6_info *pcpu_rt;
+> > 
+> > -               rt->dst.lastuse = jiffies;
+> > -               rt->dst.__use++;
+> > +               dst_use_noref(rt, jiffies);
+> >                 pcpu_rt = rt6_get_pcpu_route(rt);
+> > 
+> >                 if (pcpu_rt) {
+> > 
+> > 
+> > This way we always only update dst->__use and dst->lastuse at most
+> > once per jiffy. And we don't really need to update pcpu and then do
+> > the copy over from pcpu_rt to rt operation.
+> > 
+> > Another thing is that I don't really see any places making use of
+> > dst->__use. So maybe we can also get rid of this dst->__use field?
+> > 
+> > Thanks.
+> > Wei
+> 
+> Paolo, given we are very close to send Wei awesome work about IPv6
+> routing cache,
+> could we ask you to wait few days before doing the same work from your side ?
 
-Various applications of MPLS make use of label stacks with multiple
-entries.  In some cases, it is possible to replace the top label of
-the stack with an IP-based encapsulation, thereby, it is possible for
-two LSRs that are adjacent on an LSP to be separated by an IP network,
-even if that IP network does not provide MPLS.
+Ok, no problem - thanks instead. I'll wait for it. 
 
-Changes in v4:
-  - Bring back mpls_forward() function exportation patch.
-  - Move back mpls_gre_rcv() to gre module file and wrap it under
-    ifdef.
+> Main issue is the rwlock, and we are converting it to full RCU.
+> 
+> You are sending patches that are making our job very difficult IMO.
 
-Changes in v3:
-  - remove mpls_forward() function exportation patch.
-  - wrap efficiently mpls iptunnel add/del functions and dependent
-    function/structure.
-  - move mpls_gre_rcv to af_mpls.c file and export it.
-  - remove unnecessary functions.
- 
-Changes in v2:
-  - wrap ip tunnel functions under ifdef in mpls file.
-  - fix indentation.
-  - check return code.
+On my side I have only another small change in this area, I'll
+eventually try to rebase it later, if still relevant.
 
-An example of configuration:
+Or I can share it now, if you are interested.
 
+Cheers,
 
-         node1                LER1                       LER2                node2
-        +-----+             +------+                   +------+             +-----+
-        |     |             |      |                   |      |             |     |
-        |     |             |      |p3  GRE tunnel   p4|      |             |     |
-        |     |p1         p2|      +-------------------+      |p5         p6|     |
-        |     +-------------+      +-------------------+      +------------+|     |
-        |     |10.100.0.0/24|      |                   |      |10.200.0.0/24|     |
-        |     |fd00:100::/64|      |  10.125.0.0/24    |      |fd00:200::/64|     |
-        |     |             |      |  fd00:125::/64    |      |             |     |
-        |     |             |      |                   |      |             |     |
-        |     |             |      |                   |      |             |     |
-        |     |             |      |                   |      |             |     |
-        |     |             |      |                   |      |             |     |
-        +-----+             +------+                   +------+             +-----+
-
-
-		###	node1	###
-
-ip link set p1 up
-ip addr add 10.100.0.1/24 dev p1
-
-		###	LER1	###
-
-ip link set p2 up
-ip addr add 10.100.0.2/24 dev p2
-
-ip link set p3 up
-ip addr add 10.125.0.1/24 dev p3
-
-modprobe mpls_router
-sysctl -w net.mpls.conf.p2.input=1
-sysctl -w net.mpls.conf.p3.input=1
-sysctl -w net.mpls.platform_labels=1000
-
-ip link add gre1 type gre ttl 64 local 10.125.0.1 remote 10.125.0.2 dev p3
-ip link set dev gre1 up
-
-ip -M route add 111 as 222 dev gre1
-ip -M route add 555 as 666 via inet 10.100.0.1 dev p2
-
-		###	LER2	###
-
-ip link set p5 up
-ip addr add 10.200.0.2/24 dev p5
-
-ip link set p4 up
-ip addr add 10.125.0.2/24 dev p4
-
-modprobe mpls_router
-sysctl -w net.mpls.conf.p4.input=1
-sysctl -w net.mpls.conf.p5.input=1
-sysctl -w net.mpls.platform_labels=1000
-
-ip link add gre1 type gre ttl 64 local 10.125.0.2 remote 10.125.0.1 dev p4
-ip link set dev gre1 up
-
-ip -M route add 444 as 555 dev gre1
-ip -M route add 222 as 333 via inet 10.200.0.1 dev p5
-
-		###	node2	###
-
-ip link set p6 up
-ip addr add 10.200.0.1/24 dev p6
-
-
-Now using this scapy to forge and send packets from the port p1 of node1:
-
-p = Ether(src='de:ed:01:0c:41:09', dst='de:ed:01:2f:3b:ba')
-p /= MPLS(s=1, ttl=64, label=111)/Raw(load='\xde')
-sendp(p, iface="p1", count=20, inter=0.1)
-
-Amine Kherbouche (2):
-  expose stack entry function
-  ip_tunnel: add mpls over gre encapsulation
-
- include/linux/mpls.h           |  4 ++++
- include/net/gre.h              |  1 +
- include/uapi/linux/if_tunnel.h |  1 +
- net/ipv4/gre_demux.c           | 27 +++++++++++++++++++++++++++
- net/ipv4/ip_gre.c              |  3 +++
- net/ipv6/ip6_gre.c             |  3 +++
- net/mpls/af_mpls.c             | 41 +++++++++++++++++++++++++++++++++++++++--
- 7 files changed, 78 insertions(+), 2 deletions(-)
-
--- 
-2.1.4
+Paolo
