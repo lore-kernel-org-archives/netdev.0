@@ -1,75 +1,47 @@
-From: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
-Subject: [PATCH 2/4] ravb: Add optional PHY reset during system resume
-Date: Thu, 28 Sep 2017 17:53:32 +0200
-Message-ID: <1506614014-4398-3-git-send-email-geert+renesas@glider.be>
-References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
-Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas-1zkq55x86MTxsAP9Fp7wbw@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
-To: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
-        Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1506614014-4398-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] ppp: fix __percpu annotation
+Date: Thu, 28 Sep 2017 17:57:58 +0200
+Message-ID: <1e69021734ef43406df65571b9fa97884831825d.1506613995.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gao Feng <gfree.wind@vip.163.com>,
+        Paul Mackerras <paulus@samba.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:55043 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751667AbdI1P6E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 11:58:04 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the optional "reset-gpios" property is specified in DT, the generic
-MDIO bus code takes care of resetting the PHY during device probe.
-However, the PHY may still have to be reset explicitly after system
-resume.
+Move sparse annotation right after pointer type.
 
-This allows to restore Ethernet operation after resume from s2ram on
-Salvator-XS, where the enable pin of the regulator providing PHY power
-is connected to PRESETn, and PSCI suspend powers down the SoC.
+Fixes sparse warning:
+    drivers/net/ppp/ppp_generic.c:1422:13: warning: incorrect type in initializer (different address spaces)
+    drivers/net/ppp/ppp_generic.c:1422:13:    expected void const [noderef] <asn:3>*__vpp_verify
+    drivers/net/ppp/ppp_generic.c:1422:13:    got int *<noident>
+    ...
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Fixes: e5dadc65f9e0 ("ppp: Fix false xmit recursion detect with two ppp devices")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ppp/ppp_generic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index fdf30bfa403bf416..96d1d48e302f8c9a 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -19,6 +19,7 @@
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
- #include <linux/if_vlan.h>
-+#include <linux/gpio/consumer.h>
- #include <linux/kernel.h>
- #include <linux/list.h>
- #include <linux/module.h>
-@@ -2268,6 +2269,7 @@ static int __maybe_unused ravb_resume(struct device *dev)
- {
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct ravb_private *priv = netdev_priv(ndev);
-+	struct mii_bus *bus = priv->mii_bus;
- 	int ret = 0;
- 
- 	if (priv->wol_enabled) {
-@@ -2302,6 +2304,13 @@ static int __maybe_unused ravb_resume(struct device *dev)
- 	 * reopen device if it was running before system suspended.
- 	 */
- 
-+	/* PHY reset */
-+	if (bus->reset_gpiod) {
-+		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
-+		udelay(bus->reset_delay_us);
-+		gpiod_set_value_cansleep(bus->reset_gpiod, 0);
-+	}
-+
- 	/* Set AVB config mode */
- 	ravb_set_config_mode(ndev);
- 
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index a404552555d4..c3f77e3b7819 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -120,7 +120,7 @@ struct ppp {
+ 	int		n_channels;	/* how many channels are attached 54 */
+ 	spinlock_t	rlock;		/* lock for receive side 58 */
+ 	spinlock_t	wlock;		/* lock for transmit side 5c */
+-	int		*xmit_recursion __percpu; /* xmit recursion detect */
++	int __percpu	*xmit_recursion; /* xmit recursion detect */
+ 	int		mru;		/* max receive unit 60 */
+ 	unsigned int	flags;		/* control bits 64 */
+ 	unsigned int	xstate;		/* transmit state bits 68 */
 -- 
-2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.14.2
