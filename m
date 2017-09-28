@@ -1,89 +1,71 @@
-From: w00273186 <wangyunjian@huawei.com>
-Subject: [PATCH net v2] i40e: Fix limit imprecise of the number of MAC/VLAN that can be added for VFs
-Date: Thu, 28 Sep 2017 10:01:04 +0800
-Message-ID: <1506564064-10740-1-git-send-email-wangyunjian@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <intel-wired-lan@lists.osuosl.org>,
-        <caihe@huawei.com>, Yunjian Wang <wangyunjian@huawei.com>
-To: <davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-        <sergei.shtylyov@cogentembedded.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] net: ipv4: remove fib_weight
+Date: Wed, 27 Sep 2017 19:08:00 -0700
+Message-ID: <1506564480-20374-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:7061 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751946AbdI1CBo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 22:01:44 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33114 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752239AbdI1CIS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 22:08:18 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h4so138608pfk.0
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 19:08:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yunjian Wang <wangyunjian@huawei.com>
+fib_weight in fib_info is set but not used. Remove it and the
+helpers for setting it.
 
-Now it doesn't limit the number of MAC/VLAN strictly. When there is more
-elements in the virtchnl MAC/VLAN list, it can still add successfully.
-
-Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 27 +++++++++++++---------
- 1 file changed, 16 insertions(+), 11 deletions(-)
+ include/net/ip_fib.h     | 3 ---
+ net/ipv4/fib_semantics.c | 9 ---------
+ 2 files changed, 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 4d1e670..285b96a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2065,11 +2065,6 @@ static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
- 		dev_err(&pf->pdev->dev,
- 			"VF attempting to override administratively set MAC address, reload the VF driver to resume normal operation\n");
- 		ret = -EPERM;
--	} else if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
--		   !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
--		dev_err(&pf->pdev->dev,
--			"VF is not trusted, switch the VF to trusted to add more functionality\n");
--		ret = -EPERM;
- 	}
- 	return ret;
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 1a7f7e424320..f80524396c06 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -122,9 +122,6 @@ struct fib_info {
+ #define fib_rtt fib_metrics->metrics[RTAX_RTT-1]
+ #define fib_advmss fib_metrics->metrics[RTAX_ADVMSS-1]
+ 	int			fib_nhs;
+-#ifdef CONFIG_IP_ROUTE_MULTIPATH
+-	int			fib_weight;
+-#endif
+ 	struct rcu_head		rcu;
+ 	struct fib_nh		fib_nh[0];
+ #define fib_dev		fib_nh[0].nh_dev
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 57a5d48acee8..be0874620ecc 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -601,17 +601,9 @@ static void fib_rebalance(struct fib_info *fi)
+ 		atomic_set(&nexthop_nh->nh_upper_bound, upper_bound);
+ 	} endfor_nexthops(fi);
  }
-@@ -2128,6 +2123,15 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		} else {
- 			vf->num_mac++;
- 		}
-+
-+		if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
-+		    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+			dev_err(&pf->pdev->dev,
-+				"VF is not trusted, switch the VF to trusted to add more functionality\n");
-+			ret = -EPERM;
-+			spin_unlock_bh(&vsi->mac_filter_hash_lock);
-+			goto error_param;
-+		}
- 	}
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
+-
+-static inline void fib_add_weight(struct fib_info *fi,
+-				  const struct fib_nh *nh)
+-{
+-	fi->fib_weight += nh->nh_weight;
+-}
+-
+ #else /* CONFIG_IP_ROUTE_MULTIPATH */
  
-@@ -2221,12 +2225,6 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 	i40e_status aq_ret = 0;
- 	int i;
+ #define fib_rebalance(fi) do { } while (0)
+-#define fib_add_weight(fi, nh) do { } while (0)
  
--	if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
--	    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
--		dev_err(&pf->pdev->dev,
--			"VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
--		goto error_param;
--	}
- 	if (!test_bit(I40E_VF_STATE_ACTIVE, &vf->vf_states) ||
- 	    !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
- 		aq_ret = I40E_ERR_PARAM;
-@@ -2269,6 +2267,13 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 			dev_err(&pf->pdev->dev,
- 				"Unable to add VLAN filter %d for VF %d, error %d\n",
- 				vfl->vlan_id[i], vf->vf_id, ret);
-+		if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
-+		    !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-+			dev_err(&pf->pdev->dev,
-+				"VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
-+			aq_ret = -EPERM;
-+			goto error_param;
-+		}
- 	}
+ #endif /* CONFIG_IP_ROUTE_MULTIPATH */
  
- error_param:
+@@ -1275,7 +1267,6 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
+ 
+ 	change_nexthops(fi) {
+ 		fib_info_update_nh_saddr(net, nexthop_nh);
+-		fib_add_weight(fi, nexthop_nh);
+ 	} endfor_nexthops(fi)
+ 
+ 	fib_rebalance(fi);
 -- 
-1.8.3.1
+2.1.4
