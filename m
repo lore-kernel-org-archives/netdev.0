@@ -1,128 +1,87 @@
-From: Erik Kline <ek@google.com>
-Subject: Re: [PATCH net] ipv6: fix net.ipv6.conf.all interface DAD handlers
-Date: Thu, 28 Sep 2017 13:47:27 +0900
-Message-ID: <CAAedzxp4jdzycLXrXcdbpgnMCK0LJoaTiBV4m6=giV_T+WLkwA@mail.gmail.com>
-References: <20170912154637.12996-1-mcroce@redhat.com> <20170915.141227.723470226137757556.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v6 11/11] of: mdio: Prevent of_mdiobus_register from
+ scanning mdio-mux nodes
+Date: Wed, 27 Sep 2017 21:50:46 -0700
+Message-ID: <c8697b60-294f-7cc1-8425-aa5b837fcca0@gmail.com>
+References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
+ <20170927073414.17361-12-clabbe.montjoie@gmail.com>
+ <20170927141213.GF13516@lunn.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha-256;
-        boundary="f403045f1a6034d67e055a389ced"
-Cc: mcroce@redhat.com, netdev <netdev@vger.kernel.org>,
-        linux-doc@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170915.141227.723470226137757556.davem@davemloft.net>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170927141213.GF13516-g2DYL2Zd6BY@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---f403045f1a6034d67e055a389ced
-Content-Type: text/plain; charset="UTF-8"
 
-> Erik, please review.
 
-I apologize for the delay. I see that you've already applied this, and
-it's mostly LGTM except I have one thing I'm not seeing clearly.
+On 09/27/2017 07:12 AM, Andrew Lunn wrote:
+> On Wed, Sep 27, 2017 at 09:34:14AM +0200, Corentin Labbe wrote:
+>> Each child node of an MDIO node is scanned as a PHY when calling
+>> of_mdiobus_register() givint the following result:
+>> [   18.175379] mdio_bus stmmac-0: /soc/ethernet@1c30000/mdio/mdio-mux has invalid PHY address
+>> [   18.175408] mdio_bus stmmac-0: scan phy mdio-mux at address 0
+>> [   18.175450] mdio_bus stmmac-0: scan phy mdio-mux at address 1
+>> [...]
+>> [   18.176420] mdio_bus stmmac-0: scan phy mdio-mux at address 30
+>> [   18.176452] mdio_bus stmmac-0: scan phy mdio-mux at address 31
+>>
+>> Since mdio-mux nodes are not PHY, this patch a way to to not scan
+>> them.
+> 
+> Hi Corentin
+> 
+> I still don't like this, but ...
 
-The documentation accept_dad  now claims:
+Me neither, even more so as I don't understand the reasoning behind
+putting the mux as a child node of the MDIO bus controller in the first
+place.
 
-    DAD operation and mode on a given interface will be selected according
-    to the maximum value of conf/{all,interface}/accept_dad.
+Also, you need to re-order patches such that this patch comes before the
+DTS changes.
 
-but I'm try to square this with my reading of the changes to
-addrconf_dad_begin().  I think setting all.accept_dad to 0 but
-ifname.accept_dad to non-0 still results in the short-circuit call to
-addrconf_dad_completed().
+> 
+>>
+>> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>>  drivers/of/of_mdio.c | 10 ++++++++++
+>>  1 file changed, 10 insertions(+)
+>>
+>> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+>> index d94dd8b77abd..d90ddb0d90f2 100644
+>> --- a/drivers/of/of_mdio.c
+>> +++ b/drivers/of/of_mdio.c
+>> @@ -190,6 +190,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+>>  	struct device_node *child;
+>>  	bool scanphys = false;
+>>  	int addr, rc;
+>> +	static const struct of_device_id do_not_scan[] = {
+>> +		{ .compatible = "mdio-mux" },
+>> +		{}
+>> +	};
+> 
+> Please rename this to some less generic. What i don't want is other
+> compatible strings added here. We want to make the exception for
+> muxes, but nothing else. So something like compatible_muxes?
+> 
+>        Andrew
+> 
 
-Am I just not seeing (thinking) straight?
-
---f403045f1a6034d67e055a389ced
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIIS3wYJKoZIhvcNAQcCoIIS0DCCEswCAQExDzANBglghkgBZQMEAgEFADALBgkqhkiG9w0BBwGg
-ghBFMIIEXDCCA0SgAwIBAgIOSBtqDm4P/739RPqw/wcwDQYJKoZIhvcNAQELBQAwZDELMAkGA1UE
-BhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExOjA4BgNVBAMTMUdsb2JhbFNpZ24gUGVy
-c29uYWxTaWduIFBhcnRuZXJzIENBIC0gU0hBMjU2IC0gRzIwHhcNMTYwNjE1MDAwMDAwWhcNMjEw
-NjE1MDAwMDAwWjBMMQswCQYDVQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTEiMCAG
-A1UEAxMZR2xvYmFsU2lnbiBIViBTL01JTUUgQ0EgMTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
-AQoCggEBALR23lKtjlZW/17kthzYcMHHKFgywfc4vLIjfq42NmMWbXkNUabIgS8KX4PnIFsTlD6F
-GO2fqnsTygvYPFBSMX4OCFtJXoikP2CQlEvO7WooyE94tqmqD+w0YtyP2IB5j4KvOIeNv1Gbnnes
-BIUWLFxs1ERvYDhmk+OrvW7Vd8ZfpRJj71Rb+QQsUpkyTySaqALXnyztTDp1L5d1bABJN/bJbEU3
-Hf5FLrANmognIu+Npty6GrA6p3yKELzTsilOFmYNWg7L838NS2JbFOndl+ce89gM36CW7vyhszi6
-6LqqzJL8MsmkP53GGhf11YMP9EkmawYouMDP/PwQYhIiUO0CAwEAAaOCASIwggEeMA4GA1UdDwEB
-/wQEAwIBBjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwEgYDVR0TAQH/BAgwBgEB/wIB
-ADAdBgNVHQ4EFgQUyzgSsMeZwHiSjLMhleb0JmLA4D8wHwYDVR0jBBgwFoAUJiSSix/TRK+xsBtt
-r+500ox4AAMwSwYDVR0fBEQwQjBAoD6gPIY6aHR0cDovL2NybC5nbG9iYWxzaWduLmNvbS9ncy9n
-c3BlcnNvbmFsc2lnbnB0bnJzc2hhMmcyLmNybDBMBgNVHSAERTBDMEEGCSsGAQQBoDIBKDA0MDIG
-CCsGAQUFBwIBFiZodHRwczovL3d3dy5nbG9iYWxzaWduLmNvbS9yZXBvc2l0b3J5LzANBgkqhkiG
-9w0BAQsFAAOCAQEACskdySGYIOi63wgeTmljjA5BHHN9uLuAMHotXgbYeGVrz7+DkFNgWRQ/dNse
-Qa4e+FeHWq2fu73SamhAQyLigNKZF7ZzHPUkSpSTjQqVzbyDaFHtRBAwuACuymaOWOWPePZXOH9x
-t4HPwRQuur57RKiEm1F6/YJVQ5UTkzAyPoeND/y1GzXS4kjhVuoOQX3GfXDZdwoN8jMYBZTO0H5h
-isymlIl6aot0E5KIKqosW6mhupdkS1ZZPp4WXR4frybSkLejjmkTYCTUmh9DuvKEQ1Ge7siwsWgA
-NS1Ln+uvIuObpbNaeAyMZY0U5R/OyIDaq+m9KXPYvrCZ0TCLbcKuRzCCBB4wggMGoAMCAQICCwQA
-AAAAATGJxkCyMA0GCSqGSIb3DQEBCwUAMEwxIDAeBgNVBAsTF0dsb2JhbFNpZ24gUm9vdCBDQSAt
-IFIzMRMwEQYDVQQKEwpHbG9iYWxTaWduMRMwEQYDVQQDEwpHbG9iYWxTaWduMB4XDTExMDgwMjEw
-MDAwMFoXDTI5MDMyOTEwMDAwMFowZDELMAkGA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24g
-bnYtc2ExOjA4BgNVBAMTMUdsb2JhbFNpZ24gUGVyc29uYWxTaWduIFBhcnRuZXJzIENBIC0gU0hB
-MjU2IC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCg/hRKosYAGP+P7mIdq5NB
-Kr3J0tg+8lPATlgp+F6W9CeIvnXRGUvdniO+BQnKxnX6RsC3AnE0hUUKRaM9/RDDWldYw35K+sge
-C8fWXvIbcYLXxWkXz+Hbxh0GXG61Evqux6i2sKeKvMr4s9BaN09cqJ/wF6KuP9jSyWcyY+IgL6u2
-52my5UzYhnbf7D7IcC372bfhwM92n6r5hJx3r++rQEMHXlp/G9J3fftgsD1bzS7J/uHMFpr4MXua
-eoiMLV5gdmo0sQg23j4pihyFlAkkHHn4usPJ3EePw7ewQT6BUTFyvmEB+KDoi7T4RCAZDstgfpzD
-rR/TNwrK8/FXoqnFAgMBAAGjgegwgeUwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB/wQIMAYBAf8C
-AQEwHQYDVR0OBBYEFCYkkosf00SvsbAbba/udNKMeAADMEcGA1UdIARAMD4wPAYEVR0gADA0MDIG
-CCsGAQUFBwIBFiZodHRwczovL3d3dy5nbG9iYWxzaWduLmNvbS9yZXBvc2l0b3J5LzA2BgNVHR8E
-LzAtMCugKaAnhiVodHRwOi8vY3JsLmdsb2JhbHNpZ24ubmV0L3Jvb3QtcjMuY3JsMB8GA1UdIwQY
-MBaAFI/wS3+oLkUkrk1Q+mOai97i3Ru8MA0GCSqGSIb3DQEBCwUAA4IBAQACAFVjHihZCV/IqJYt
-7Nig/xek+9g0dmv1oQNGYI1WWeqHcMAV1h7cheKNr4EOANNvJWtAkoQz+076Sqnq0Puxwymj0/+e
-oQJ8GRODG9pxlSn3kysh7f+kotX7pYX5moUa0xq3TCjjYsF3G17E27qvn8SJwDsgEImnhXVT5vb7
-qBYKadFizPzKPmwsJQDPKX58XmPxMcZ1tG77xCQEXrtABhYC3NBhu8+c5UoinLpBQC1iBnNpNwXT
-Lmd4nQdf9HCijG1e8myt78VP+QSwsaDT7LVcLT2oDPVggjhVcwljw3ePDwfGP9kNrR+lc8XrfClk
-WbrdhC2o4Ui28dtIVHd3MIIDXzCCAkegAwIBAgILBAAAAAABIVhTCKIwDQYJKoZIhvcNAQELBQAw
-TDEgMB4GA1UECxMXR2xvYmFsU2lnbiBSb290IENBIC0gUjMxEzARBgNVBAoTCkdsb2JhbFNpZ24x
-EzARBgNVBAMTCkdsb2JhbFNpZ24wHhcNMDkwMzE4MTAwMDAwWhcNMjkwMzE4MTAwMDAwWjBMMSAw
-HgYDVQQLExdHbG9iYWxTaWduIFJvb3QgQ0EgLSBSMzETMBEGA1UEChMKR2xvYmFsU2lnbjETMBEG
-A1UEAxMKR2xvYmFsU2lnbjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMwldpB5Bngi
-FvXAg7aEyiie/QV2EcWtiHL8RgJDx7KKnQRfJMsuS+FggkbhUqsMgUdwbN1k0ev1LKMPgj0MK66X
-17YUhhB5uzsTgHeMCOFJ0mpiLx9e+pZo34knlTifBtc+ycsmWQ1z3rDI6SYOgxXG71uL0gRgykmm
-KPZpO/bLyCiR5Z2KYVc3rHQU3HTgOu5yLy6c+9C7v/U9AOEGM+iCK65TpjoWc4zdQQ4gOsC0p6Hp
-sk+QLjJg6VfLuQSSaGjlOCZgdbKfd/+RFO+uIEn8rUAVSNECMWEZXriX7613t2Saer9fwRPvm2L7
-DWzgVGkWqQPabumDk3F2xmmFghcCAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQF
-MAMBAf8wHQYDVR0OBBYEFI/wS3+oLkUkrk1Q+mOai97i3Ru8MA0GCSqGSIb3DQEBCwUAA4IBAQBL
-QNvAUKr+yAzv95ZURUm7lgAJQayzE4aGKAczymvmdLm6AC2upArT9fHxD4q/c2dKg8dEe3jgr25s
-bwMpjjM5RcOO5LlXbKr8EpbsU8Yt5CRsuZRj+9xTaGdWPoO4zzUhw8lo/s7awlOqzJCK6fBdRoyV
-3XpYKBovHd7NADdBj+1EbddTKJd+82cEHhXXipa0095MJ6RMG3NzdvQXmcIfeg7jLQitChws/zyr
-VQ4PkX4268NXSb7hLi18YIvDQVETI53O9zJrlAGomecsMx86OyXShkDOOyyGeMlhLxS67ttVb9+E
-7gUJTb0o2HLO02JQZR7rkpeDMdmztcpHWD9fMIIEXDCCA0SgAwIBAgIMKdwhX41Y35wFUjGFMA0G
-CSqGSIb3DQEBCwUAMEwxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9iYWxTaWduIG52LXNhMSIw
-IAYDVQQDExlHbG9iYWxTaWduIEhWIFMvTUlNRSBDQSAxMB4XDTE3MDkxODA2MzcwOVoXDTE4MDMx
-NzA2MzcwOVowHjEcMBoGCSqGSIb3DQEJAQwNZWtAZ29vZ2xlLmNvbTCCASIwDQYJKoZIhvcNAQEB
-BQADggEPADCCAQoCggEBAJy2TTLrLwR7RcglT55abZwzTLAQuVmbauaGZ7ISDwVYV8cPqfsX3aXc
-919y4IdiY46RCm9gCcadSC5BIXHema75b6Go1xUnPOqqEItlA9D5h/5wnNhuYPL+oENW+qzlPIJn
-YuaY9+dkw9H89qAB72Ym3bCx3Uf3xMDsAxSZ1Ry9SZxZnjtlfN9kkKWXPeMLmb5PAaLfpL2Uy1P8
-txlZzqpzH1sXjHlW1iuP76DxS7/9p+W3yTZTRW1f2q1UpvIGwb8M6rVwdZ4xGT7xsNtuq3piCwe/
-zw8Vl36a+fiMl42R+DvRfmTKQ3fM9r8Kn7Ea7XtDPJxi7NObD5R+WNGOC5ECAwEAAaOCAWowggFm
-MBgGA1UdEQQRMA+BDWVrQGdvb2dsZS5jb20wUAYIKwYBBQUHAQEERDBCMEAGCCsGAQUFBzAChjRo
-dHRwOi8vc2VjdXJlLmdsb2JhbHNpZ24uY29tL2NhY2VydC9nc2h2c21pbWVjYTEuY3J0MB0GA1Ud
-DgQWBBTmP2l2sEQr/BnAyZ6R5p7YEJL/7TAfBgNVHSMEGDAWgBTLOBKwx5nAeJKMsyGV5vQmYsDg
-PzBMBgNVHSAERTBDMEEGCSsGAQQBoDIBKDA0MDIGCCsGAQUFBwIBFiZodHRwczovL3d3dy5nbG9i
-YWxzaWduLmNvbS9yZXBvc2l0b3J5LzA7BgNVHR8ENDAyMDCgLqAshipodHRwOi8vY3JsLmdsb2Jh
-bHNpZ24uY29tL2dzaHZzbWltZWNhMS5jcmwwDgYDVR0PAQH/BAQDAgWgMB0GA1UdJQQWMBQGCCsG
-AQUFBwMCBggrBgEFBQcDBDANBgkqhkiG9w0BAQsFAAOCAQEADid0ytXB29OM7HLEeo9Ogp3a1JkP
-J1V8J82GEmP3ADxjwMJe2gPJ6jKRcpv/wS8s7/e2llbFIJlMrDIP6IEcDYnUfHLBINVCcl9D8AiB
-T7kNEz6O637UG/RdFCP9/C+Vh1kB1NfYNclTKlHj8Hzn7VlhUktCL3hbJkLA5+L5lOLMibTieryO
-trFBU3qzQo4G/2LtdmRJIp3B9bcL0KE/XQ2MJQIAAFN0YFkG8qs8gie1LbygrV5csjAjpH+KY4O/
-f66H+gc3e+bG1vQtoq9Iu/IpM1Zy0F+P9/zOu8REfB7FrH6WT+sBUy7SUdN1FakV/clOL426MxnS
-kkWJA9H3tTGCAl4wggJaAgEBMFwwTDELMAkGA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24g
-bnYtc2ExIjAgBgNVBAMTGUdsb2JhbFNpZ24gSFYgUy9NSU1FIENBIDECDCncIV+NWN+cBVIxhTAN
-BglghkgBZQMEAgEFAKCB1DAvBgkqhkiG9w0BCQQxIgQgckRlXOEGKARfvYtJgGnhp3Gf4RgkIDwr
-ivpc8AQQKwIwGAYJKoZIhvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTcwOTI4
-MDQ0NzQ4WjBpBgkqhkiG9w0BCQ8xXDBaMAsGCWCGSAFlAwQBKjALBglghkgBZQMEARYwCwYJYIZI
-AWUDBAECMAoGCCqGSIb3DQMHMAsGCSqGSIb3DQEBCjALBgkqhkiG9w0BAQcwCwYJYIZIAWUDBAIB
-MA0GCSqGSIb3DQEBAQUABIIBAHqoru7Dt1X1r89xzUyVtgZJN+e92/T+9pHONvoeLpAXQs6jq1B6
-5X+W3mzfBZnGiklIFPFXzSWdIr81Xiryb0rAtTsv7NaBF3SsP6f/eYSURnbjj1PYX5pVSj6dTGxl
-Ks6IWCPhRZdiPGHJJYq/ugDdP0lSMPmdHeixIsTsToB8h1O182aa6vn+d6pDZZpUlOTr9TGDVCQq
-8bIwaeBbMv6OsOKU0nL/zMp0CDHytWovIVVJrbijMvBoLN1q4DDEsJ9Hbul/Q7YzRrCXDQ53dmM2
-BlxUZaSI9aftJ/OX/B3Rdsq35QXNSfc5SJdBJS/ff/qs9xYBZtIMxegxk5mkOVA=
---f403045f1a6034d67e055a389ced--
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
