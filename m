@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2] net_sched: use idr to allocate u32 filter
- handles
-Date: Thu, 28 Sep 2017 09:44:14 -0700 (PDT)
-Message-ID: <20170928.094414.1459303908421305365.davem@davemloft.net>
-References: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
+Subject: Re: [patch net] net: dsa: mv88e6xxx: Allow dsa and cpu ports in
+ multiple vlans
+Date: Thu, 28 Sep 2017 09:45:49 -0700 (PDT)
+Message-ID: <20170928.094549.274076394145598600.davem@davemloft.net>
+References: <1506375140-2853-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrism@mellanox.com, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48608 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48652 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751968AbdI1QoO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 12:44:14 -0400
-In-Reply-To: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
+        with ESMTP id S1750942AbdI1Qpu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 12:45:50 -0400
+In-Reply-To: <1506375140-2853-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 25 Sep 2017 10:13:51 -0700
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Mon, 25 Sep 2017 23:32:20 +0200
 
-> Instead of calling u32_lookup_ht() in a loop to find
-> a unused handle, just switch to idr API to allocate
-> new handles. u32 filters are special as the handle
-> could contain a hash table id and a key id, so we
-> need two IDR to allocate each of them.
+> Ports with the same VLAN must all be in the same bridge. However the
+> CPU and DSA ports need to be in multiple VLANs spread over multiple
+> bridges. So exclude them when performing this test.
 > 
-> Cc: Chris Mi <chrism@mellanox.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Fixes: b2f81d304cee ("net: dsa: add CPU and DSA ports as VLAN members")
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Applied.
+Applied and queued up for -stable, thanks.
