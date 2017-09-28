@@ -1,76 +1,66 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH net] net: mvpp2: Fix clock resource by adding an optional bus clock
-Date: Thu, 28 Sep 2017 17:52:19 +0200
-Message-ID: <87shf6hlcc.fsf@free-electrons.com>
-References: <20170928153923.29003-1-gregory.clement@free-electrons.com>
-        <20170928174654.630cfefd@windsurf.lan>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        Omri Itach <omrii@marvell.com>, linux-kernel@vger.kernel.org,
-        Nadav Haklai <nadavh@marvell.com>,
-        Shadi Ammouri <shadi@marvell.com>,
-        Igal Liberman <igall@marvell.com>,
-        =?utf-8?Q?Miqu=C3=A8l?= Raynal <miquel.raynal@free-electrons.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170928174654.630cfefd@windsurf.lan> (Thomas Petazzoni's
-        message of "Thu, 28 Sep 2017 17:46:54 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH 0/4] ravb: Add PHY reset support
+Date: Thu, 28 Sep 2017 17:53:30 +0200
+Message-ID: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org,
+        Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Thomas,
- 
- On jeu., sept. 28 2017, Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
+	Hi all,
 
->>  	/* List of pointers to port structures */
->>  	struct mvpp2_port **port_list;
->> @@ -7963,6 +7964,16 @@ static int mvpp2_probe(struct platform_device *pdev)
->>  		err = clk_prepare_enable(priv->mg_clk);
->>  		if (err < 0)
->>  			goto err_gop_clk;
->> +
->> +		priv->axi_clk = devm_clk_get(&pdev->dev, "axi_clk");
->> +		if (IS_ERR(priv->axi_clk)) {
->> +			err = PTR_ERR(priv->axi_clk);
->> +			priv->axi_clk = NULL;
->
-> You should handle -EPROBE_DEFER here. Indeed, if we have -EPROBE_DEFER,
-> we shouldn't treat it as "the clock doesn't exist, so let's skip it and
-> continue", but rather as "the clock exists, but isn't ready to use yet,
-> let's try later".
+This patch series adds optional PHY reset support during EthernetAVB driver
+probe and system resume on the Renesas Salvator-X/XS development boards.
 
-You're totally right, I will send a v2 (I will also fix the other issue
-you spotted).
+The rationale behind this is twofold:
+  1. On Salvator-XS, the enable pin of the regulator providing PHY power
+     is connected to PRESETn, and PSCI powers down the SoC during system
+     suspend.  Hence a PHY reset is needed to restore network functionality
+     after resume.
+  2. Linux should not rely on the boot loader having reset the PHY, but
+     should reset the PHY during driver probe.
 
-Thanks,
+The first two patches are destined for David's net-next tree. They update
+the EthernetAVB DT bindings, and add support for resetting the PHY during
+system resume.
 
-Gregory
+The last two patches are destined for Simon's renesas tree.  They add
+properties to describe the EthernetAVB PHY reset topology to the common
+Salvator-X/XS and ULCB DTS files.
 
->
-> Thanks!
->
-> Thomas
-> -- 
-> Thomas Petazzoni, CTO, Free Electrons
-> Embedded Linux and Kernel engineering
-> http://free-electrons.com
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Thanks!
+
+Geert Uytterhoeven (4):
+  dt-bindings: net: ravb: Document optional reset-gpios property
+  ravb: Add optional PHY reset during system resume
+  arm64: dts: renesas: salvator-common: Add EthernetAVB PHY reset
+  arm64: dts: renesas: ulcb: Add EthernetAVB PHY reset
+
+ Documentation/devicetree/bindings/net/renesas,ravb.txt | 2 ++
+ arch/arm64/boot/dts/renesas/salvator-common.dtsi       | 1 +
+ arch/arm64/boot/dts/renesas/ulcb.dtsi                  | 1 +
+ drivers/net/ethernet/renesas/ravb_main.c               | 9 +++++++++
+ 4 files changed, 13 insertions(+)
 
 -- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+2.7.4
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
