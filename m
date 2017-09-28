@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/7] mlxsw: Add support for partial multicast route offload
-Date: Thu, 28 Sep 2017 19:34:08 +0200
-Message-ID: <20170928173415.15551-1-jiri@resnulli.us>
+Subject: [patch net-next 4/7] mlxsw: acl: Introduce ACL trap and forward action
+Date: Thu, 28 Sep 2017 19:34:12 +0200
+Message-ID: <20170928173415.15551-5-jiri@resnulli.us>
+References: <20170928173415.15551-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
         dsa@cumulusnetworks.com, edumazet@google.com, willemb@google.com,
@@ -10,68 +11,78 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         gfree.wind@vip.163.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:37842 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752067AbdI1ReR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 13:34:17 -0400
-Received: by mail-wr0-f194.google.com with SMTP id u48so2714974wrf.4
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 10:34:17 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:53930 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752279AbdI1ReV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 13:34:21 -0400
+Received: by mail-wm0-f68.google.com with SMTP id q132so3729061wmd.2
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 10:34:20 -0700 (PDT)
+In-Reply-To: <20170928173415.15551-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Yotam says:
+Use trap/discard flex action to implement trap and forward. The action will
+later be used for multicast routing, as the multicast routing mechanism is
+done using ACL flexible actions in Spectrum hardware. Using that action, it
+will be possible to implement a trap-and-forward route.
 
-Previous patchset introduced support for offloading multicast MFC routes to
-the Spectrum hardware. As described in that patchset, no partial offloading
-is supported, i.e if a route has one output interface which is not a valid
-offloadable device (e.g. pimreg device, dummy device, management NIC), the
-route is trapped to the CPU and the forwarding is done in slow-path.
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c | 17 +++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h |  2 ++
+ 2 files changed, 19 insertions(+)
 
-Add support for partial offloading of multicast routes, by letting the
-hardware to forward the packet to all the in-hardware devices, while the
-kernel ipmr module will continue forwarding to all other interfaces.
-
-Similarly to the bridge, the kernel ipmr module will forward a marked
-packet to an interface only if the interface has a different parent ID than
-the packet's ingress interfaces.
-
-The first patch introduces the offload_mr_fwd_mark skb field, which can be
-used by offloading drivers to indicate that a packet had already gone
-through multicast forwarding in hardware, similarly to the offload_fwd_mark
-field that indicates that a packet had already gone through L2 forwarding
-in hardware.
-
-Patches 2 and 3 change the ipmr module to not forward packets that had
-already been forwarded by the hardware, i.e. packets that are marked with
-offload_mr_fwd_mark and the ingress VIF shares the same parent ID with the
-egress VIF.
-
-Patches 4, 5, 6 and 7 add the support in the mlxsw Spectrum driver for trap
-and forward routes, while marking the trapped packets with the
-offload_mr_fwd_mark.
-
-Yotam Gigi (7):
-  skbuff: Add the offload_mr_fwd_mark field
-  ipv4: ipmr: Add the parent ID field to VIF struct
-  ipv4: ipmr: Don't forward packets already forwarded by hardware
-  mlxsw: acl: Introduce ACL trap and forward action
-  mlxsw: spectrum: Add trap for multicast trap-and-forward routes
-  mlxsw: spectrum: mr_tcam: Add trap-and-forward multicast route
-  mlxsw: spectrum: mr: Support trap-and-forward routes
-
- .../mellanox/mlxsw/core_acl_flex_actions.c         | 17 ++++++++
- .../mellanox/mlxsw/core_acl_flex_actions.h         |  2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 13 ++++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c  | 17 ++++----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h  |  1 +
- .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c |  8 ++++
- drivers/net/ethernet/mellanox/mlxsw/trap.h         |  2 +
- include/linux/mroute.h                             |  2 +
- include/linux/skbuff.h                             |  1 +
- net/ipv4/ipmr.c                                    | 46 +++++++++++++++++++---
- 10 files changed, 95 insertions(+), 14 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+index bc55d0e..6a979a0 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c
+@@ -676,6 +676,7 @@ enum mlxsw_afa_trapdisc_trap_action {
+ MLXSW_ITEM32(afa, trapdisc, trap_action, 0x00, 24, 4);
+ 
+ enum mlxsw_afa_trapdisc_forward_action {
++	MLXSW_AFA_TRAPDISC_FORWARD_ACTION_FORWARD = 1,
+ 	MLXSW_AFA_TRAPDISC_FORWARD_ACTION_DISCARD = 3,
+ };
+ 
+@@ -729,6 +730,22 @@ int mlxsw_afa_block_append_trap(struct mlxsw_afa_block *block, u16 trap_id)
+ }
+ EXPORT_SYMBOL(mlxsw_afa_block_append_trap);
+ 
++int mlxsw_afa_block_append_trap_and_forward(struct mlxsw_afa_block *block,
++					    u16 trap_id)
++{
++	char *act = mlxsw_afa_block_append_action(block,
++						  MLXSW_AFA_TRAPDISC_CODE,
++						  MLXSW_AFA_TRAPDISC_SIZE);
++
++	if (!act)
++		return -ENOBUFS;
++	mlxsw_afa_trapdisc_pack(act, MLXSW_AFA_TRAPDISC_TRAP_ACTION_TRAP,
++				MLXSW_AFA_TRAPDISC_FORWARD_ACTION_FORWARD,
++				trap_id);
++	return 0;
++}
++EXPORT_SYMBOL(mlxsw_afa_block_append_trap_and_forward);
++
+ /* Forwarding Action
+  * -----------------
+  * Forwarding Action can be used to implement Policy Based Switching (PBS)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+index 06b0be4..a8d3314 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.h
+@@ -61,6 +61,8 @@ int mlxsw_afa_block_continue(struct mlxsw_afa_block *block);
+ int mlxsw_afa_block_jump(struct mlxsw_afa_block *block, u16 group_id);
+ int mlxsw_afa_block_append_drop(struct mlxsw_afa_block *block);
+ int mlxsw_afa_block_append_trap(struct mlxsw_afa_block *block, u16 trap_id);
++int mlxsw_afa_block_append_trap_and_forward(struct mlxsw_afa_block *block,
++					    u16 trap_id);
+ int mlxsw_afa_block_append_fwd(struct mlxsw_afa_block *block,
+ 			       u8 local_port, bool in_port);
+ int mlxsw_afa_block_append_vlan_modify(struct mlxsw_afa_block *block,
 -- 
 2.9.5
