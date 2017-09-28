@@ -1,56 +1,60 @@
-From: Mick Tarsel <mjtarsel@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Set state UP
-Date: Thu, 28 Sep 2017 13:53:18 -0700
-Message-ID: <1506631998-12670-1-git-send-email-mjtarsel@linux.vnet.ibm.com>
-Cc: tlfalcon@linux.vnet.ibm.com
-To: netdev@vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
+Date: Thu, 28 Sep 2017 14:22:43 -0700
+Message-ID: <bdce98b7-1d32-3cd9-1289-79807af8443f@gmail.com>
+References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
+ <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
+ <59C94FF4.8070900@iogearbox.net>
+ <20170926172140.GB60144@C02RW35GFVH8.dhcp.broadcom.net>
+ <E0D909EE5BB15A4699798539EA149D7F077E53D6@ORSMSX103.amr.corp.intel.com>
+ <CAHashqBMfXp-uYH9ANfdaNfez9f4pcrOjnbX2WAFAdBwaJAtvw@mail.gmail.com>
+ <E0D909EE5BB15A4699798539EA149D7F077E6438@ORSMSX103.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "mchan@broadcom.com" <mchan@broadcom.com>
+To: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>,
+        Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:44816 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751008AbdI1Uxv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 16:53:51 -0400
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8SKqwAB111056
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 16:53:50 -0400
-Received: from e13.ny.us.ibm.com (e13.ny.us.ibm.com [129.33.205.203])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2d95c1b24f-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 16:53:50 -0400
-Received: from localhost
-        by e13.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <mjtarsel@linux.vnet.ibm.com>;
-        Thu, 28 Sep 2017 16:53:49 -0400
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:53365 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751129AbdI1VXC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 17:23:02 -0400
+Received: by mail-pg0-f54.google.com with SMTP id j70so1607028pgc.10
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 14:23:02 -0700 (PDT)
+In-Reply-To: <E0D909EE5BB15A4699798539EA149D7F077E6438@ORSMSX103.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-State is initially reported as UNKNOWN. Before register call
-netif_carrier_off(). Once the device is opened, call netif_carrier_on() in
-order to set the state to UP.
+[...]
 
-Signed-off-by: Mick Tarsel <mjtarsel@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 2 ++
- 1 file changed, 2 insertions(+)
+> I'm pretty sure I misunderstood what you were going after with 
+> XDP_REDIRECT reserving the headroom.  Our use case (patches coming in a 
+> few weeks) will populate the headroom coming out of the driver to XDP, 
+> and then once the XDP program extracts whatever hints it wants via 
+> helpers, I fully expect that area in the headroom to get stomped by 
+> something else.  If we want to send any of that hint data up farther, 
+> we'll already have it extracted via the helpers, and the eBPF program 
+> can happily assign it to wherever in the outbound metadata area.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index cb8182f..4bc14a9 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -927,6 +927,7 @@ static int ibmvnic_open(struct net_device *netdev)
- 	}
- 
- 	rc = __ibmvnic_open(netdev);
-+	netif_carrier_on(netdev);
- 	mutex_unlock(&adapter->reset_lock);
- 
- 	return rc;
-@@ -3899,6 +3900,7 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
- 	if (rc)
- 		goto ibmvnic_init_fail;
- 
-+	netif_carrier_off(netdev);
- 	rc = register_netdev(netdev);
- 	if (rc) {
- 		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
--- 
-1.8.3.1
+In case its not obvious with the latest xdp metadata patches the outbound
+metadata can then be pushed into skb fields via a tc_cls program if needed.
+
+.John
+
+> 
+>> (There's also Jesper's series from today -- I've seen it but have not
+>> had time to fully grok all of those changes.)
+> 
+> I'm also working through my inbox to get to that series.  I have some 
+> email to catch up on...
+> 
+> Thanks Andy,
+> -PJ
+> 
