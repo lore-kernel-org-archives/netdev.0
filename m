@@ -1,70 +1,86 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [next-queue PATCH 2/3] net/sched: Introduce Credit Based Shaper
- (CBS) qdisc
-Date: Thu, 28 Sep 2017 15:34:47 -0700
-Message-ID: <CAM_iQpUUUrYeyqYK-CDAXzuKcy9FDtq_etQQvO4D4uCjV6As-w@mail.gmail.com>
-References: <20170926233916.11774-1-vinicius.gomes@intel.com>
- <20170926233916.11774-3-vinicius.gomes@intel.com> <CAM_iQpVrz+e=TYHYqaYyUWRP528GSZXx8EnN1yPhZK8eLvP4Yw@mail.gmail.com>
- <87lgkzg7xv.fsf@intel.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Fri, 29 Sep 2017 00:45:40 +0200
+Message-ID: <59CD7B94.8010103@iogearbox.net>
+References: <150660339205.2808.7084136789768233829.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>, andre.guedes@intel.com,
-        Ivan Briano <ivan.briano@intel.com>,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, Henrik Austad <henrik@austad.us>
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, edumazet@google.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36060 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750832AbdI1WfI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 18:35:08 -0400
-Received: by mail-pf0-f195.google.com with SMTP id f84so2606450pfj.3
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 15:35:07 -0700 (PDT)
-In-Reply-To: <87lgkzg7xv.fsf@intel.com>
+Received: from www62.your-server.de ([213.133.104.62]:52750 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750947AbdI1Wpr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 18:45:47 -0400
+In-Reply-To: <150660339205.2808.7084136789768233829.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 2:14 PM, Vinicius Costa Gomes
-<vinicius.gomes@intel.com> wrote:
-> Hi,
+On 09/28/2017 02:57 PM, Jesper Dangaard Brouer wrote:
+> Introducing a new way to redirect XDP frames.  Notice how no driver
+> changes are necessary given the design of XDP_REDIRECT.
 >
-> Cong Wang <xiyou.wangcong@gmail.com> writes:
+> This redirect map type is called 'cpumap', as it allows redirection
+> XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+> and start the network stack invocation on that CPU.
 >
->> On Tue, Sep 26, 2017 at 4:39 PM, Vinicius Costa Gomes
->> <vinicius.gomes@intel.com> wrote:
->>> +static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
->>> +{
->>> +       struct cbs_sched_data *q = qdisc_priv(sch);
->>> +       struct net_device *dev = qdisc_dev(sch);
->>> +
->>> +       if (!opt)
->>> +               return -EINVAL;
->>> +
->>> +       /* FIXME: this means that we can only install this qdisc
->>> +        * "under" mqprio. Do we need a more generic way to retrieve
->>> +        * the queue, or do we pass the netdev_queue to the driver?
->>> +        */
->>> +       q->queue = TC_H_MIN(sch->parent) - 1 - netdev_get_num_tc(dev);
->>> +
->>> +       return cbs_change(sch, opt);
->>> +}
->>
->> Yeah it is ugly to assume its parent is mqprio, at least you should
->> error out if it is not the case.
+> This is a scalability and isolation mechanism, that allow separating
+> the early driver network XDP layer, from the rest of the netstack, and
+> assigning dedicated CPUs for this stage.  The sysadm control/configure
+> the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+> many queues are configured via ethtool --set-channels.  Benchmarks
+> show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+> two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+> wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+> have the advantage that more packets being "bulk" available per hard
+> interrupt[1].
 >
-> Will add an error for this, for now.
+> [1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
 >
->>
->> I am not sure how we can solve this elegantly, perhaps you should
->> extend mqprio rather than add a new one?
+> Use-cases:
 >
-> Is the alternative hinted in the FIXME worse? Instead of passing the
-> index of the hardware queue to the driver we pass the pointer to a
-> netdev_queue to the driver and it "discovers" the HW queue from that.
+> 1. End-host based pre-filtering for DDoS mitigation.  This is fast
+>     enough to allow software to see and filter all packets wirespeed.
+>     Thus, no packets getting silently dropped by hardware.
+>
+> 2. Given NIC HW unevenly distributes packets across RX queue, this
+>     mechanism can be used for redistribution load across CPUs.  This
+>     usually happens when HW is unaware of a new protocol.  This
+>     resembles RPS (Receive Packet Steering), just faster, but with more
+>     responsibility placed on the BPF program for correct steering.
+>
+> 3. Auto-scaling or power saving via only activating the appropriate
+>     number of remote CPUs for handling the current load.  The cpumap
+>     tracepoints can function as a feedback loop for this purpose.
 
-Does this way solve the dependency on mqprio? If yes then it is good.
-And you have to fix it before merge, we don't have any qdisc depending
-a specific type of qdisc to be its parent.
+Interesting work, thanks! Still digesting the code a bit. I think
+it pretty much goes into the direction that Eric describes in his
+netdev paper quoted above; not on a generic level though but specific
+to XDP at least; theoretically XDP could just run transparently on
+the CPU doing the filtering, and raw buffers are handed to remote
+CPU with similar batching, but it would need some different config
+interface at minimum.
+
+Shouldn't we take the CPU(s) running XDP on the RX queues out from
+the normal process scheduler, so that we have a guarantee that user
+space or unrelated kernel tasks cannot interfere with them anymore,
+and we could then turn them into busy polling eventually (e.g. as
+long as XDP is running there and once off could put them back into
+normal scheduling domain transparently)?
+
+What about RPS/RFS in the sense that once you punt them to remote
+CPU, could we reuse application locality information so they'd end
+up on the right CPU in the first place (w/o backlog detour), or is
+the intent to rather disable it and have some own orchestration
+with relation to the CPU map?
+
+Cheers,
+Daniel
