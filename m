@@ -1,51 +1,62 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: [PATCH net] l2tp: fix l2tp_eth module loading
-Date: Thu, 28 Sep 2017 17:14:10 +0200
-Message-ID: <20170928151410.jmsvdcdr6h3xlffg@alphalink.fr>
-References: <a7d351fd5948fc69ef17da3c170cd7c152f899c4.1506606179.git.g.nault@alphalink.fr>
- <20170928141728.GA3107@jackdaw>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Thu, 28 Sep 2017 17:24:45 +0200
+Message-ID: <20170928152445.GC2482@amd>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170908091856.GB17738@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
+ <20170908215735.GF27428@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>
-To: Tom Parkin <tparkin@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:51523 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751464AbdI1POS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 11:14:18 -0400
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="vOmOzSkFvhd7u8Ms"
+Cc: andrew@lunn.ch, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170928141728.GA3107@jackdaw>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2017 at 03:17:28PM +0100, Tom Parkin wrote:
-> On Thu, Sep 28, 2017 at 03:44:38PM +0200, Guillaume Nault wrote:
-> > The l2tp_eth module crashes if its netlink callbacks are run when the
-> > pernet data aren't initialised.
-> > 
-> > We should normally register_pernet_device() before the genl callbacks.
-> > However, the pernet data only maintain a list of l2tpeth interfaces,
-> > and this list is never used. So let's just drop pernet handling
-> > instead.
-> > 
-> > Fixes: d9e31d17ceba ("l2tp: Add L2TP ethernet pseudowire support")
-> > Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> 
-> Whoops.  I think this was intended to clear up the devices in the net
-> namespace,
-Yes, that's what I thought too. That's what virtual devices are
-supposed to do and think I'll eventually implement this at a later
-time.
 
-> but since l2tp_core.c already deletes tunnels on namespace
-> exit I don't think it's necessary for l2tp_eth.c to do anything more.
-> 
-Well, removing l2tpeth devices is just a side effect of closing the
-tunnel. But the tunnel may be in a different namespace than the device,
-in case the later was moved after creation. In this case, the l2tpeth
-interface isn't deleted when its namespace is destroyed. It's moved
-to the initial namespace instead (because, for now, l2tpeth devices
-don't implement ->rtnl_link_ops).
+--vOmOzSkFvhd7u8Ms
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-These are shortcomings I'd like to fix, but there are more important
-issues to tackle first.
+> > > > Similar code will be needed by other drivers, right?
+> > >
+> > > Although KSZ8795 and KSZ8895 may use the same code, the other
+> > > chips will have different code.
+> >=20
+> > Ok, please make sure code is shared between these two.
+>=20
+> The exact function probably cannot be shared between KSZ8795
+> and KSZ8895 drivers because although the register constants look
+> the same but their exact locations are different in the 2 chips.
+
+Put the code into header as static inline and include it from both
+places?
+
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--vOmOzSkFvhd7u8Ms
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlnNFD0ACgkQMOfwapXb+vLQwgCgr6L1X8Awn3TZpBNxq7KF2fOM
+FwEAnRzLr6C0SeRvCadgZzOgSSLM1v+G
+=TX8o
+-----END PGP SIGNATURE-----
+
+--vOmOzSkFvhd7u8Ms--
