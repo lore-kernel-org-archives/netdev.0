@@ -1,7 +1,7 @@
 From: Brandon Streiff <brandon.streiff@ni.com>
-Subject: [PATCH net-next RFC 2/9] net: dsa: mv88e6xxx: expose switch time as a PTP hardware clock
-Date: Thu, 28 Sep 2017 10:25:34 -0500
-Message-ID: <1506612341-18061-3-git-send-email-brandon.streiff@ni.com>
+Subject: [PATCH net-next RFC 3/9] net: dsa: mv88e6xxx: add support for GPIO configuration
+Date: Thu, 28 Sep 2017 10:25:35 -0500
+Message-ID: <1506612341-18061-4-git-send-email-brandon.streiff@ni.com>
 References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,7 +9,7 @@ Cc: <linux-kernel@vger.kernel.org>,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "Vivien Didelot" <vivien.didelot@savoirfairelinux.com>,
         Richard Cochran <richardcochran@gmail.com>,
         Erik Hons <erik.hons@ni.com>,
         Brandon Streiff <brandon.streiff@ni.com>
@@ -19,472 +19,297 @@ In-Reply-To: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds basic support for exposing the 32-bit timestamp counter
-inside the mv88e6xxx switch code as a ptp_clock.
+The Scratch/Misc register is a windowed interface that provides access
+to the GPIO configuration. Provide a new method for configuration of
+GPIO functions.
 
 Signed-off-by: Brandon Streiff <brandon.streiff@ni.com>
 ---
- drivers/net/dsa/mv88e6xxx/Kconfig  |  10 +++
- drivers/net/dsa/mv88e6xxx/Makefile |   1 +
- drivers/net/dsa/mv88e6xxx/chip.c   |  20 +++++
- drivers/net/dsa/mv88e6xxx/chip.h   |  16 ++++
- drivers/net/dsa/mv88e6xxx/ptp.c    | 180 +++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/ptp.h    |  83 +++++++++++++++++
- 6 files changed, 310 insertions(+)
- create mode 100644 drivers/net/dsa/mv88e6xxx/ptp.c
- create mode 100644 drivers/net/dsa/mv88e6xxx/ptp.h
+ drivers/net/dsa/mv88e6xxx/chip.c    | 13 +++++++
+ drivers/net/dsa/mv88e6xxx/chip.h    |  8 +++++
+ drivers/net/dsa/mv88e6xxx/global2.c | 71 +++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/global2.h | 32 +++++++++++++++++
+ 4 files changed, 124 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/Kconfig b/drivers/net/dsa/mv88e6xxx/Kconfig
-index 1aaa7a9..ae9e7f7 100644
---- a/drivers/net/dsa/mv88e6xxx/Kconfig
-+++ b/drivers/net/dsa/mv88e6xxx/Kconfig
-@@ -18,3 +18,13 @@ config NET_DSA_MV88E6XXX_GLOBAL2
- 
- 	  It is required on most chips. If the chip you compile the support for
- 	  doesn't have such registers set, say N here. In doubt, say Y.
-+
-+config NET_DSA_MV88E6XXX_PTP
-+	bool "PTP support for Marvell 88E6xxx"
-+	default n
-+	depends on NET_DSA_MV88E6XXX_GLOBAL2
-+	imply NETWORK_PHY_TIMESTAMPING
-+	imply PTP_1588_CLOCK
-+	help
-+	  Say Y to enable PTP hardware timestamping on Marvell 88E6xxx switch
-+	  chips that support it.
-diff --git a/drivers/net/dsa/mv88e6xxx/Makefile b/drivers/net/dsa/mv88e6xxx/Makefile
-index 5cd5551..47eda30 100644
---- a/drivers/net/dsa/mv88e6xxx/Makefile
-+++ b/drivers/net/dsa/mv88e6xxx/Makefile
-@@ -6,4 +6,5 @@ mv88e6xxx-objs += global1_vtu.o
- mv88e6xxx-$(CONFIG_NET_DSA_MV88E6XXX_GLOBAL2) += global2.o
- mv88e6xxx-objs += phy.o
- mv88e6xxx-objs += port.o
-+mv88e6xxx-$(CONFIG_NET_DSA_MV88E6XXX_PTP) += ptp.o
- mv88e6xxx-objs += serdes.o
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 67efa7b..2ed37d8 100644
+index 2ed37d8..4a37b26 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -38,6 +38,7 @@
- #include "global2.h"
- #include "phy.h"
- #include "port.h"
-+#include "ptp.h"
- #include "serdes.h"
- 
- static void assert_reg_lock(struct mv88e6xxx_chip *chip)
-@@ -2033,6 +2034,13 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
- 	if (err)
- 		goto unlock;
- 
-+	/* Setup PTP Hardware Clock */
-+	if (chip->info->ptp_support) {
-+		err = mv88e6xxx_ptp_setup(chip);
-+		if (err)
-+			goto unlock;
-+	}
-+
- unlock:
- 	mutex_unlock(&chip->reg_lock);
- 
-@@ -3418,6 +3426,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6191_ops,
- 	},
- 
-@@ -3438,6 +3447,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6240_ops,
- 	},
- 
-@@ -3458,6 +3468,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6290_ops,
- 	},
- 
-@@ -3477,6 +3488,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6320_ops,
- 	},
- 
-@@ -3495,6 +3507,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.atu_move_port_mask = 0xf,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6321_ops,
- 	},
- 
-@@ -3514,6 +3527,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6341_ops,
- 	},
- 
-@@ -3574,6 +3588,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6352_ops,
- 	},
- 	[MV88E6390] = {
-@@ -3593,6 +3608,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6390_ops,
- 	},
- 	[MV88E6390X] = {
-@@ -3612,6 +3628,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.pvt = true,
- 		.multi_chip = true,
- 		.tag_protocol = DSA_TAG_PROTO_DSA,
-+		.ptp_support = true,
- 		.ops = &mv88e6390x_ops,
- 	},
- };
-@@ -3949,6 +3966,9 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
- 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
- 	struct mv88e6xxx_chip *chip = ds->priv;
- 
-+	if (chip->info->ptp_support)
-+		mv88e6xxx_ptp_free(chip);
-+
- 	mv88e6xxx_phy_destroy(chip);
- 	mv88e6xxx_unregister_switch(chip);
- 	mv88e6xxx_mdios_unregister(chip);
+@@ -3218,6 +3218,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6341",
+ 		.num_databases = 4096,
+ 		.num_ports = 6,
++		.num_gpio = 11,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3297,6 +3298,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6172",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.num_gpio = 15,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3337,6 +3339,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6176",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.num_gpio = 15,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3375,6 +3378,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6190",
+ 		.num_databases = 4096,
+ 		.num_ports = 11,	/* 10 + Z80 */
++		.num_gpio = 16,
+ 		.max_vid = 8191,
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+@@ -3395,6 +3399,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6190X",
+ 		.num_databases = 4096,
+ 		.num_ports = 11,	/* 10 + Z80 */
++		.num_gpio = 16,
+ 		.max_vid = 8191,
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+@@ -3436,6 +3441,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6240",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.num_gpio = 15,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3457,6 +3463,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6290",
+ 		.num_databases = 4096,
+ 		.num_ports = 11,	/* 10 + Z80 */
++		.num_gpio = 16,
+ 		.max_vid = 8191,
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+@@ -3478,6 +3485,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6320",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.num_gpio = 15,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3498,6 +3506,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6321",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.num_gpio = 15,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3517,6 +3526,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6341",
+ 		.num_databases = 4096,
+ 		.num_ports = 6,
++		.num_gpio = 11,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3577,6 +3587,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6352",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.num_gpio = 15,
+ 		.max_vid = 4095,
+ 		.port_base_addr = 0x10,
+ 		.global1_addr = 0x1b,
+@@ -3597,6 +3608,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6390",
+ 		.num_databases = 4096,
+ 		.num_ports = 11,	/* 10 + Z80 */
++		.num_gpio = 16,
+ 		.max_vid = 8191,
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
+@@ -3617,6 +3629,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6390X",
+ 		.num_databases = 4096,
+ 		.num_ports = 11,	/* 10 + Z80 */
++		.num_gpio = 16,
+ 		.max_vid = 8191,
+ 		.port_base_addr = 0x0,
+ 		.global1_addr = 0x1b,
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.h b/drivers/net/dsa/mv88e6xxx/chip.h
-index d99d592..648bd50 100644
+index 648bd50..5f132e2 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.h
 +++ b/drivers/net/dsa/mv88e6xxx/chip.h
-@@ -16,6 +16,8 @@
- #include <linux/irq.h>
- #include <linux/gpio/consumer.h>
- #include <linux/phy.h>
-+#include <linux/ptp_clock_kernel.h>
-+#include <linux/timecounter.h>
- #include <net/dsa.h>
+@@ -41,6 +41,8 @@
+ #define MV88E6XXX_MAX_PVT_SWITCHES	32
+ #define MV88E6XXX_MAX_PVT_PORTS		16
  
- #ifndef UINT64_MAX
-@@ -126,6 +128,9 @@ struct mv88e6xxx_info {
- 	 */
- 	u8 atu_move_port_mask;
- 	const struct mv88e6xxx_ops *ops;
++#define MV88E6XXX_MAX_GPIO	16
 +
-+	/* Supports PTP */
-+	bool ptp_support;
- };
+ enum mv88e6xxx_egress_mode {
+ 	MV88E6XXX_EGRESS_MODE_UNMODIFIED,
+ 	MV88E6XXX_EGRESS_MODE_UNTAGGED,
+@@ -107,6 +109,7 @@ struct mv88e6xxx_info {
+ 	const char *name;
+ 	unsigned int num_databases;
+ 	unsigned int num_ports;
++	unsigned int num_gpio;
+ 	unsigned int max_vid;
+ 	unsigned int port_base_addr;
+ 	unsigned int global1_addr;
+@@ -417,6 +420,11 @@ static inline u16 mv88e6xxx_port_mask(struct mv88e6xxx_chip *chip)
+ 	return GENMASK(mv88e6xxx_num_ports(chip) - 1, 0);
+ }
  
- struct mv88e6xxx_atu_entry {
-@@ -208,6 +213,17 @@ struct mv88e6xxx_chip {
- 	int irq;
- 	int device_irq;
- 	int watchdog_irq;
-+
-+	/* This cyclecounter abstracts the switch PTP time.
-+	 * reg_lock must be held for any operation that read()s.
-+	 */
-+	struct cyclecounter	tstamp_cc;
-+	struct timecounter	tstamp_tc;
-+	struct delayed_work	overflow_work;
-+	unsigned long		last_overflow_check;
-+
-+	struct ptp_clock	*ptp_clock;
-+	struct ptp_clock_info	ptp_clock_info;
- };
- 
- struct mv88e6xxx_bus_ops {
-diff --git a/drivers/net/dsa/mv88e6xxx/ptp.c b/drivers/net/dsa/mv88e6xxx/ptp.c
-new file mode 100644
-index 0000000..155f8e9
---- /dev/null
-+++ b/drivers/net/dsa/mv88e6xxx/ptp.c
-@@ -0,0 +1,180 @@
-+/*
-+ * Marvell 88E6xxx Switch PTP support
-+ *
-+ * Copyright (c) 2008 Marvell Semiconductor
-+ *
-+ * Copyright (c) 2017 National Instruments
-+ *      Erik Hons <erik.hons@ni.com>
-+ *      Brandon Streiff <brandon.streiff@ni.com>
-+ *      Dane Wagner <dane.wagner@ni.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include "chip.h"
-+#include "global2.h"
-+#include "ptp.h"
-+
-+static int mv88e6xxx_tai_read(struct mv88e6xxx_chip *chip, int addr,
-+			      u16 *data, int len)
++static inline unsigned int mv88e6xxx_num_gpio(struct mv88e6xxx_chip *chip)
 +{
-+	if (!chip->info->ops->avb_ops->tai_read)
-+		return -EOPNOTSUPP;
-+
-+	return chip->info->ops->avb_ops->tai_read(chip, addr, data, len);
++	return chip->info->num_gpio;
 +}
 +
-+static u64 mv88e6xxx_ptp_clock_read(const struct cyclecounter *cc)
+ int mv88e6xxx_read(struct mv88e6xxx_chip *chip, int addr, int reg, u16 *val);
+ int mv88e6xxx_write(struct mv88e6xxx_chip *chip, int addr, int reg, u16 val);
+ int mv88e6xxx_update(struct mv88e6xxx_chip *chip, int addr, int reg,
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.c b/drivers/net/dsa/mv88e6xxx/global2.c
+index b6d0c71..fe2c970 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.c
++++ b/drivers/net/dsa/mv88e6xxx/global2.c
+@@ -971,6 +971,77 @@ int mv88e6xxx_g2_smi_phy_write(struct mv88e6xxx_chip *chip, struct mii_bus *bus,
+ 						   val);
+ }
+ 
++/* Offset 0x1A: Scratch and Misc. Register */
++static int mv88e6xxx_g2_scratch_reg_read(struct mv88e6xxx_chip *chip,
++					 int reg, u8 *data)
 +{
-+	struct mv88e6xxx_chip *chip =
-+		container_of(cc, struct mv88e6xxx_chip, tstamp_cc);
 +	int err;
-+	u16 phc_time[2];
++	u16 value;
 +
-+	err = mv88e6xxx_tai_read(chip, MV88E6XXX_TAI_TIME_LO, phc_time,
-+				 ARRAY_SIZE(phc_time));
++	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_SCRATCH_MISC_MISC,
++				 reg << 8);
 +	if (err)
-+		return 0;
-+	else
-+		return ((u32)phc_time[1] << 16) | phc_time[0];
-+}
++		return err;
 +
-+static int mv88e6xxx_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
-+{
-+	if (scaled_ppm == 0)
-+		return 0;
++	err = mv88e6xxx_g2_read(chip, MV88E6XXX_G2_SCRATCH_MISC_MISC, &value);
++	if (err)
++		return err;
 +
-+	return -EOPNOTSUPP;
-+}
-+
-+static int mv88e6xxx_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-+{
-+	struct mv88e6xxx_chip *chip =
-+		container_of(ptp, struct mv88e6xxx_chip, ptp_clock_info);
-+
-+	mutex_lock(&chip->reg_lock);
-+	timecounter_adjtime(&chip->tstamp_tc, delta);
-+	mutex_unlock(&chip->reg_lock);
++	*data = (value & MV88E6XXX_G2_SCRATCH_MISC_DATA_MASK);
 +
 +	return 0;
 +}
 +
-+static int mv88e6xxx_ptp_gettime(struct ptp_clock_info *ptp,
-+				 struct timespec64 *ts)
++static int mv88e6xxx_g2_scratch_reg_write(struct mv88e6xxx_chip *chip,
++					  int reg, u8 data)
 +{
-+	struct mv88e6xxx_chip *chip =
-+		container_of(ptp, struct mv88e6xxx_chip, ptp_clock_info);
-+	u64 ns;
++	u16 value = (reg << 8) | data;
 +
-+	mutex_lock(&chip->reg_lock);
-+	ns = timecounter_read(&chip->tstamp_tc);
-+	chip->last_overflow_check = jiffies;
-+	mutex_unlock(&chip->reg_lock);
-+
-+	*ts = ns_to_timespec64(ns);
-+
-+	return 0;
++	return mv88e6xxx_g2_update(chip, MV88E6XXX_G2_SCRATCH_MISC_MISC, value);
 +}
 +
-+static int mv88e6xxx_ptp_settime(struct ptp_clock_info *ptp,
-+				 const struct timespec64 *ts)
-+{
-+	struct mv88e6xxx_chip *chip =
-+		container_of(ptp, struct mv88e6xxx_chip, ptp_clock_info);
-+	u64 ns;
-+
-+	ns = timespec64_to_ns(ts);
-+
-+	mutex_lock(&chip->reg_lock);
-+	timecounter_init(&chip->tstamp_tc, &chip->tstamp_cc, ns);
-+	mutex_unlock(&chip->reg_lock);
-+
-+	return 0;
-+}
-+
-+static int mv88e6xxx_ptp_enable(struct ptp_clock_info *ptp,
-+				struct ptp_clock_request *rq, int on)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int mv88e6xxx_ptp_verify(struct ptp_clock_info *ptp, unsigned int pin,
-+				enum ptp_pin_function func, unsigned int chan)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+/* The 32-bit timestamp counter overflows every ~34.3 seconds; this task
-+ * forces periodic reads so that we don't miss any wraparounds.
++/* Configures the specified pin for the specified function. This function
++ * does not unset other pins configured for the same function. If multiple
++ * pins are configured for the same function, the lower-index pin gets
++ * that function and the higher-index pin goes back to being GPIO.
 + */
-+#define MV88E6XXX_TAI_OVERFLOW_PERIOD (34 * HZ / 2)
-+static void mv88e6xxx_ptp_overflow_check(struct work_struct *work)
++int mv88e6xxx_g2_set_gpio_config(struct mv88e6xxx_chip *chip, int pin,
++				 int func, int dir)
 +{
-+	struct delayed_work *dw = to_delayed_work(work);
-+	struct mv88e6xxx_chip *chip =
-+		container_of(dw, struct mv88e6xxx_chip, overflow_work);
-+	bool timeout = time_is_before_jiffies(chip->last_overflow_check +
-+					      MV88E6XXX_TAI_OVERFLOW_PERIOD);
++	int mode_reg = MV88E6XXX_G2_SCRATCH_GPIO_MODE(pin);
++	int dir_reg = MV88E6XXX_G2_SCRATCH_GPIO_DIR(pin);
++	int err;
++	u8 val;
 +
-+	if (timeout) {
-+		mutex_lock(&chip->reg_lock);
-+		timecounter_read(&chip->tstamp_tc);
-+		chip->last_overflow_check = jiffies;
-+		mutex_unlock(&chip->reg_lock);
-+	}
++	if (pin < 0 || pin >= mv88e6xxx_num_gpio(chip))
++		return -ERANGE;
 +
-+	schedule_delayed_work(&chip->overflow_work,
-+			      MV88E6XXX_TAI_OVERFLOW_PERIOD);
++	/* Set function first */
++	err = mv88e6xxx_g2_scratch_reg_read(chip, mode_reg, &val);
++	if (err)
++		return err;
++
++	/* Zero bits in the field for this GPIO and OR in new config */
++	val &= ~MV88E6XXX_G2_SCRATCH_GPIO_MODE_MASK(pin);
++	val |= (func << MV88E6XXX_G2_SCRATCH_GPIO_MODE_OFFSET(pin));
++
++	err = mv88e6xxx_g2_scratch_reg_write(chip, mode_reg, val);
++	if (err)
++		return err;
++
++	/* Set direction */
++	err = mv88e6xxx_g2_scratch_reg_read(chip, dir_reg, &val);
++	if (err)
++		return err;
++
++	/* Zero bits in the field for this GPIO and OR in new config */
++	val &= ~MV88E6XXX_G2_SCRATCH_GPIO_DIR_MASK(pin);
++	val |= (dir << MV88E6XXX_G2_SCRATCH_GPIO_DIR_OFFSET(pin));
++
++	return mv88e6xxx_g2_scratch_reg_write(chip, dir_reg, val);
 +}
 +
-+int mv88e6xxx_ptp_setup(struct mv88e6xxx_chip *chip)
-+{
-+	/* Set up the cycle counter */
-+	memset(&chip->tstamp_cc, 0, sizeof(chip->tstamp_cc));
-+	chip->tstamp_cc.read	= mv88e6xxx_ptp_clock_read;
-+	chip->tstamp_cc.mask	= CYCLECOUNTER_MASK(32);
-+	/* Raw timestamps are in units of 8-ns clock periods. */
-+	chip->tstamp_cc.mult	= 8;
-+	chip->tstamp_cc.shift	= 0;
++/* Offset 0x1B: Watchdog Control */
+ static int mv88e6097_watchdog_action(struct mv88e6xxx_chip *chip, int irq)
+ {
+ 	u16 reg;
+diff --git a/drivers/net/dsa/mv88e6xxx/global2.h b/drivers/net/dsa/mv88e6xxx/global2.h
+index 642d2b0..f192fc6 100644
+--- a/drivers/net/dsa/mv88e6xxx/global2.h
++++ b/drivers/net/dsa/mv88e6xxx/global2.h
+@@ -242,6 +242,29 @@
+ #define MV88E6352_G2_NOEGR_POLICY	0x2000
+ #define MV88E6390_G2_LAG_ID_4		0x2000
+ 
++/* Scratch/Misc registers accessed through MV88E6XXX_G2_SCRATCH_MISC */
++#define MV88E6XXX_G2_SCRATCH_GPIO_CONFIG_LO	0x60
++#define MV88E6XXX_G2_SCRATCH_GPIO_CONFIG_HI	0x61
++#define MV88E6XXX_G2_SCRATCH_GPIO_DIR(pin)	(0x62 + ((pin) / 8))
++#define MV88E6XXX_G2_SCRATCH_GPIO_DIR_OFFSET(pin) \
++			((pin) & 0x7)
++#define MV88E6XXX_G2_SCRATCH_GPIO_DIR_MASK(pin)	\
++			(1 << MV88E6XXX_G2_SCRATCH_GPIO_DIR_OFFSET(pin))
++#define MV88E6XXX_G2_SCRATCH_GPIO_DIR_OUT	0
++#define MV88E6XXX_G2_SCRATCH_GPIO_DIR_IN	1
++#define MV88E6XXX_G2_SCRATCH_GPIO_DATA(pin)	(0x64 + ((pin) / 8))
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE(pin)	(0x68 + ((pin) / 2))
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_OFFSET(pin) \
++			((pin) & 0x1 ? 4 : 0)
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_MASK(pin) \
++			(0x7 << MV88E6XXX_G2_SCRATCH_GPIO_MODE_OFFSET(pin))
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_GPIO	0
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_TRIG	1
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_EVREQ	2
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_EXTCLK	3
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_RXCLK0	4
++#define MV88E6XXX_G2_SCRATCH_GPIO_MODE_RXCLK1	5
 +
-+	timecounter_init(&chip->tstamp_tc, &chip->tstamp_cc,
-+			 ktime_to_ns(ktime_get_real()));
+ #ifdef CONFIG_NET_DSA_MV88E6XXX_GLOBAL2
+ 
+ static inline int mv88e6xxx_g2_require(struct mv88e6xxx_chip *chip)
+@@ -270,6 +293,9 @@ int mv88e6xxx_g2_get_eeprom16(struct mv88e6xxx_chip *chip,
+ int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+ 			      struct ethtool_eeprom *eeprom, u8 *data);
+ 
++int mv88e6xxx_g2_set_gpio_config(struct mv88e6xxx_chip *chip, int pin,
++				 int func, int dir);
 +
-+	chip->last_overflow_check = jiffies;
-+
-+	INIT_DELAYED_WORK(&chip->overflow_work, mv88e6xxx_ptp_overflow_check);
-+
-+	chip->ptp_clock_info.owner = THIS_MODULE;
-+	snprintf(chip->ptp_clock_info.name, sizeof(chip->ptp_clock_info.name),
-+		 dev_name(chip->dev));
-+	chip->ptp_clock_info.max_adj	= 0;
-+
-+	chip->ptp_clock_info.adjfine	= mv88e6xxx_ptp_adjfine;
-+	chip->ptp_clock_info.adjtime	= mv88e6xxx_ptp_adjtime;
-+	chip->ptp_clock_info.gettime64	= mv88e6xxx_ptp_gettime;
-+	chip->ptp_clock_info.settime64	= mv88e6xxx_ptp_settime;
-+	chip->ptp_clock_info.enable	= mv88e6xxx_ptp_enable;
-+	chip->ptp_clock_info.verify	= mv88e6xxx_ptp_verify;
-+
-+	chip->ptp_clock = ptp_clock_register(&chip->ptp_clock_info, chip->dev);
-+	if (IS_ERR(chip->ptp_clock))
-+		return PTR_ERR(chip->ptp_clock);
-+
-+	schedule_delayed_work(&chip->overflow_work,
-+			      MV88E6XXX_TAI_OVERFLOW_PERIOD);
-+
-+	return 0;
-+}
-+
-+void mv88e6xxx_ptp_free(struct mv88e6xxx_chip *chip)
-+{
-+	if (chip->ptp_clock) {
-+		cancel_delayed_work_sync(&chip->overflow_work);
-+
-+		ptp_clock_unregister(chip->ptp_clock);
-+		chip->ptp_clock = NULL;
-+	}
-+}
-diff --git a/drivers/net/dsa/mv88e6xxx/ptp.h b/drivers/net/dsa/mv88e6xxx/ptp.h
-new file mode 100644
-index 0000000..c662953
---- /dev/null
-+++ b/drivers/net/dsa/mv88e6xxx/ptp.h
-@@ -0,0 +1,83 @@
-+/*
-+ * Marvell 88E6xxx Switch PTP support
-+ *
-+ * Copyright (c) 2008 Marvell Semiconductor
-+ *
-+ * Copyright (c) 2017 National Instruments
-+ *      Erik Hons <erik.hons@ni.com>
-+ *      Brandon Streiff <brandon.streiff@ni.com>
-+ *      Dane Wagner <dane.wagner@ni.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#ifndef _MV88E6XXX_PTP_H
-+#define _MV88E6XXX_PTP_H
-+
-+#include "chip.h"
-+
-+/* Offset 0x00: TAI Global Config */
-+#define MV88E6XXX_TAI_CFG			0x00
-+
-+/* Offset 0x01: Timestamp Clock Period (ps) */
-+#define MV88E6XXX_TAI_CLOCK_PERIOD		0x01
-+
-+/* Offset 0x02/0x03: Trigger Generation Amount */
-+#define MV88E6XXX_TAI_TRIG_GEN_AMOUNT_LO	0x02
-+#define MV88E6XXX_TAI_TRIG_GEN_AMOUNT_HI	0x03
-+
-+/* Offset 0x04: Clock Compensation */
-+#define MV88E6XXX_TAI_TRIG_CLOCK_COMP		0x04
-+
-+/* Offset 0x05: Trigger Configuration */
-+#define MV88E6XXX_TAI_TRIG_CFG			0x05
-+
-+/* Offset 0x06: Ingress Rate Limiter Clock Generation Amount */
-+#define MV88E6XXX_TAI_IRL_AMOUNT		0x06
-+
-+/* Offset 0x07: Ingress Rate Limiter Compensation */
-+#define MV88E6XXX_TAI_IRL_COMP			0x07
-+
-+/* Offset 0x08: Ingress Rate Limiter Compensation */
-+#define MV88E6XXX_TAI_IRL_COMP_PS		0x08
-+
-+/* Offset 0x09: Event Status */
-+#define MV88E6XXX_TAI_EVENT_STATUS		0x09
-+
-+/* Offset 0x0A/0x0B: Event Time */
-+#define MV88E6XXX_TAI_EVENT_TIME_LO		0x0a
-+#define MV88E6XXX_TAI_EVENT_TYPE_HI		0x0b
-+
-+/* Offset 0x0E/0x0F: PTP Global Time */
-+#define MV88E6XXX_TAI_TIME_LO			0x0e
-+#define MV88E6XXX_TAI_TIME_HI			0x0f
-+
-+/* Offset 0x10/0x11: Trig Generation Time */
-+#define MV88E6XXX_TAI_TRIG_TIME_LO		0x10
-+#define MV88E6XXX_TAI_TRIG_TIME_HI		0x11
-+
-+/* Offset 0x12: Lock Status */
-+#define MV88E6XXX_TAI_LOCK_STATUS		0x12
-+
-+#ifdef CONFIG_NET_DSA_MV88E6XXX_PTP
-+
-+int mv88e6xxx_ptp_setup(struct mv88e6xxx_chip *chip);
-+void mv88e6xxx_ptp_free(struct mv88e6xxx_chip *chip);
-+
-+#else /* !CONFIG_NET_DSA_MV88E6XXX_PTP */
-+
-+static inline int mv88e6xxx_ptp_setup(struct mv88e6xxx_chip *chip)
+ int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip, int src_dev,
+ 			   int src_port, u16 data);
+ int mv88e6xxx_g2_misc_4_bit_port(struct mv88e6xxx_chip *chip);
+@@ -361,6 +387,12 @@ static inline int mv88e6xxx_g2_set_eeprom16(struct mv88e6xxx_chip *chip,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static inline int mv88e6xxx_g2_set_gpio_config(struct mv88e6xxx_chip *chip,
++					       int pin, int func, int dir)
 +{
 +	return -EOPNOTSUPP;
 +}
 +
-+static void mv88e6xxx_ptp_free(struct mv88e6xxx_chip *chip)
-+{
-+}
-+
-+#endif /* CONFIG_NET_DSA_MV88E6XXX_PTP */
-+
-+#endif /* _MV88E6XXX_PTP_H */
+ static inline int mv88e6xxx_g2_pvt_write(struct mv88e6xxx_chip *chip,
+ 					 int src_dev, int src_port, u16 data)
+ {
 -- 
 2.1.4
