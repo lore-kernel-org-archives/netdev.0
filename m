@@ -1,223 +1,164 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next 04/10] sctp: introduce struct sctp_stream_out_ext
-Date: Thu, 28 Sep 2017 17:25:17 -0300
-Message-ID: <f7e5c4af575b8c925185c991e2e944a3fd3c84e3.1506536044.git.marcelo.leitner@gmail.com>
-References: <cover.1506536044.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Xin Long <lucien.xin@gmail.com>,
-        David Laight <David.Laight@ACULAB.COM>
-To: netdev@vger.kernel.org
+From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
+Date: Thu, 28 Sep 2017 20:52:34 +0000
+Message-ID: <E0D909EE5BB15A4699798539EA149D7F077E6438@ORSMSX103.amr.corp.intel.com>
+References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
+ <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
+ <59C94FF4.8070900@iogearbox.net>
+ <20170926172140.GB60144@C02RW35GFVH8.dhcp.broadcom.net>
+ <E0D909EE5BB15A4699798539EA149D7F077E53D6@ORSMSX103.amr.corp.intel.com>
+ <CAHashqBMfXp-uYH9ANfdaNfez9f4pcrOjnbX2WAFAdBwaJAtvw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "mchan@broadcom.com" <mchan@broadcom.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:45232 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751691AbdI1UZq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 16:25:46 -0400
-In-Reply-To: <cover.1506536044.git.marcelo.leitner@gmail.com>
+Received: from mga07.intel.com ([134.134.136.100]:6410 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751008AbdI1Uwg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 16:52:36 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the stream schedulers, sctp_stream_out will become too big to be
-allocated by kmalloc and as we need to allocate with BH disabled, we
-cannot use __vmalloc in sctp_stream_init().
+On 9/28/17 12:59 PM, Andy Gospodarek wrote:
+> On Thu, Sep 28, 2017 at 1:59 AM, Waskiewicz Jr, Peter
+> <peter.waskiewicz.jr@intel.com> wrote:
+>> On 9/26/17 10:21 AM, Andy Gospodarek wrote:
+>>> On Mon, Sep 25, 2017 at 08:50:28PM +0200, Daniel Borkmann wrote:
+>>>> On 09/25/2017 08:10 PM, Andy Gospodarek wrote:
+>>>> [...]
+>>>>> First, thanks for this detailed description.  It was helpful to read
+>>>>> along with the patches.
+>>>>>
+>>>>> My only concern about this area being generic is that you are now in a
+>>>>> state where any bpf program must know about all the bpf programs in the
+>>>>> receive pipeline before it can properly parse what is stored in the
+>>>>> meta-data and add it to an skb (or perform any other action).
+>>>>> Especially if each program adds it's own meta-data along the way.
+>>>>>
+>>>>> Maybe this isn't a big concern based on the number of users of this
+>>>>> today, but it just starts to seem like a concern as there are these
+>>>>> hints being passed between layers that are challenging to track due to a
+>>>>> lack of a standard format for passing data between.
+>>>>
+>>>> Btw, we do have similar kind of programmable scratch buffer also today
+>>>> wrt skb cb[] that you can program from tc side, the perf ring buffer,
+>>>> which doesn't have any fixed layout for the slots, or a per-cpu map
+>>>> where you can transfer data between tail calls for example, then tail
+>>>> calls themselves that need to coordinate, or simply mangling of packets
+>>>> itself if you will, but more below to your use case ...
+>>>>
+>>>>> The main reason I bring this up is that Michael and I had discussed and
+>>>>> designed a way for drivers to communicate between each other that rx
+>>>>> resources could be freed after a tx completion on an XDP_REDIRECT
+>>>>> action.  Much like this code, it involved adding an new element to
+>>>>> struct xdp_md that could point to the important information.  Now that
+>>>>> there is a generic way to handle this, it would seem nice to be able to
+>>>>> leverage it, but I'm not sure how reliable this meta-data area would be
+>>>>> without the ability to mark it in some manner.
+>>>>>
+>>>>> For additional background, the minimum amount of data needed in the case
+>>>>> Michael and I were discussing was really 2 words.  One to serve as a
+>>>>> pointer to an rx_ring structure and one to have a counter to the rx
+>>>>> producer entry.  This data could be acessed by the driver processing the
+>>>>> tx completions and callback to the driver that received the frame off the wire
+>>>>> to perform any needed processing.  (For those curious this would also require a
+>>>>> new callback/netdev op to act on this data stored in the XDP buffer.)
+>>>>
+>>>> What you describe above doesn't seem to be fitting to the use-case of
+>>>> this set, meaning the area here is fully programmable out of the BPF
+>>>> program, the infrastructure you're describing is some sort of means of
+>>>> communication between drivers for the XDP_REDIRECT, and should be
+>>>> outside of the control of the BPF program to mangle.
+>>>
+>>> OK, I understand that perspective.  I think saying this is really meant
+>>> as a BPF<->BPF communication channel for now is fine.
+>>>
+>>>> You could probably reuse the base infra here and make a part of that
+>>>> inaccessible for the program with some sort of a fixed layout, but I
+>>>> haven't seen your code yet to be able to fully judge. Intention here
+>>>> is to allow for programmability within the BPF prog in a generic way,
+>>>> such that based on the use-case it can be populated in specific ways
+>>>> and propagated to the skb w/o having to define a fixed layout and
+>>>> bloat xdp_buff all the way to an skb while still retaining all the
+>>>> flexibility.
+>>>
+>>> Some level of reuse might be proper, but I'd rather it be explicit for
+>>> my use since it's not exclusively something that will need to be used by
+>>> a BPF prog, but rather the driver.  I'll produce some patches this week
+>>> for reference.
+>>
+>> Sorry for chiming in late, I've been offline.
+>>
+>> We're looking to add some functionality from driver to XDP inside this
+>> xdp_buff->data_meta region.  We want to assign it to an opaque
+>> structure, that would be specific per driver (think of a flex descriptor
+>> coming out of the hardware).  We'd like to pass these offloaded
+>> computations into XDP programs to help accelerate them, such as packet
+>> type, where headers are located, etc.  It's similar to Jesper's RFC
+>> patches back in May when passing through the mlx Rx descriptor to XDP.
+>>
+>> This is actually what a few of us are planning to present at NetDev 2.2
+>> in November.  If you're hoping to restrict this headroom in the xdp_buff
+>> for an exclusive use case with XDP_REDIRECT, then I'd like to discuss
+>> that further.
+>>
+> 
+> No sweat, PJ, thanks for replying.  I saw the notes for your accepted
+> session and I'm looking forward to it.
+> 
+> John's suggestion earlier in the thread was actually similar to the
+> conclusion I reached when thinking about Daniel's patch a bit more.
+> (I like John's better though as it doesn't get constrained by UAPI.)
+> Since redirect actions happen at a point where no other programs will
+> run on the buffer, that space can be used for this redirect data and
+> there are no conflicts.
 
-This patch moves out the stats from sctp_stream_out to
-sctp_stream_out_ext, which will be allocated only when the application
-tries to sendmsg something on it.
+Ah, yes, John and I spoke about this at Plumber's and this is basically 
+what we came to as well.  A set of helpers that won't have to be in 
+UAPI, but they will be potentially vendor-specific to extract the 
+meta-data hints out for the XDP program to use.
 
-Just the introduction of sctp_stream_out_ext would already fix the issue
-described above by splitting the allocation in two. Moving the stats
-to it also reduces the pressure on the allocator as we will ask for less
-memory atomically when creating the socket and we will use GFP_KERNEL
-later.
+> It sounds like the idea behind your proposal includes populating some
+> data into the buffer before the XDP program is executed so that it can
+> be used by the program.  Would this data be useful later in the driver
+> or stack or are you just hoping to accelerate processing of frames in
+> the BPF program?
 
-Then, for stream schedulers, we will just use sctp_stream_out_ext.
+Right now we're thinking it would only be useful for XDP programs to 
+execute things quicker, i.e. not have to compute things that are already 
+computed by the hardware (rxhash, ptype, header locations, etc.).  I 
+don't have any plans to pass this data off elsewhere in the stack or 
+back to the driver at this point.
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- include/net/sctp/structs.h | 10 ++++++++--
- net/sctp/chunk.c           |  6 +++---
- net/sctp/outqueue.c        |  4 ++--
- net/sctp/socket.c          | 27 +++++++++++++++++++++------
- net/sctp/stream.c          | 16 ++++++++++++++++
- 5 files changed, 50 insertions(+), 13 deletions(-)
+> If the headroom needed for redirect info was only added after it was
+> clear the redirect action was needed, would this conflict with the
+> information you are trying to provide?  I had planned to add this just
+> after the action was XDP_REDIRECT was selected or at the end of the
+> driver's ndo_xdp_xmit function -- it seems like it would not conflict.
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 0477945de1a3cf5c27348e99d9a30e02c491d1de..9b2b30b3ba4dfd10c24c3e06ed80779180a06baf 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -84,6 +84,7 @@ struct sctp_ulpq;
- struct sctp_ep_common;
- struct crypto_shash;
- struct sctp_stream;
-+struct sctp_stream_out;
- 
- 
- #include <net/sctp/tsnmap.h>
-@@ -380,6 +381,7 @@ struct sctp_sender_hb_info {
- 
- int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
- 		     gfp_t gfp);
-+int sctp_stream_init_ext(struct sctp_stream *stream, __u16 sid);
- void sctp_stream_free(struct sctp_stream *stream);
- void sctp_stream_clear(struct sctp_stream *stream);
- void sctp_stream_update(struct sctp_stream *stream, struct sctp_stream *new);
-@@ -1315,11 +1317,15 @@ struct sctp_inithdr_host {
- 	__u32 initial_tsn;
- };
- 
-+struct sctp_stream_out_ext {
-+	__u64 abandoned_unsent[SCTP_PR_INDEX(MAX) + 1];
-+	__u64 abandoned_sent[SCTP_PR_INDEX(MAX) + 1];
-+};
-+
- struct sctp_stream_out {
- 	__u16	ssn;
- 	__u8	state;
--	__u64	abandoned_unsent[SCTP_PR_INDEX(MAX) + 1];
--	__u64	abandoned_sent[SCTP_PR_INDEX(MAX) + 1];
-+	struct sctp_stream_out_ext *ext;
- };
- 
- struct sctp_stream_in {
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index 3afac275ee82dbec825dd71378dffe69a53718a7..7b261afc47b9d709fdd780a93aaba874f35d79be 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -311,10 +311,10 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
- 
- 		if (chunk->sent_count) {
- 			chunk->asoc->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
--			streamout->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
-+			streamout->ext->abandoned_sent[SCTP_PR_INDEX(TTL)]++;
- 		} else {
- 			chunk->asoc->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
--			streamout->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
-+			streamout->ext->abandoned_unsent[SCTP_PR_INDEX(TTL)]++;
- 		}
- 		return 1;
- 	} else if (SCTP_PR_RTX_ENABLED(chunk->sinfo.sinfo_flags) &&
-@@ -323,7 +323,7 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
- 			&chunk->asoc->stream.out[chunk->sinfo.sinfo_stream];
- 
- 		chunk->asoc->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
--		streamout->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
-+		streamout->ext->abandoned_sent[SCTP_PR_INDEX(RTX)]++;
- 		return 1;
- 	} else if (!SCTP_PR_POLICY(chunk->sinfo.sinfo_flags) &&
- 		   chunk->msg->expires_at &&
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 2966ff400755fe93e3658e09d3bb44b9d7d19d2e..746b07b7937d8730824b9e09917d947aa7863ec6 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -366,7 +366,7 @@ static int sctp_prsctp_prune_sent(struct sctp_association *asoc,
- 		streamout = &asoc->stream.out[chk->sinfo.sinfo_stream];
- 		asoc->sent_cnt_removable--;
- 		asoc->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
--		streamout->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
-+		streamout->ext->abandoned_sent[SCTP_PR_INDEX(PRIO)]++;
- 
- 		if (!chk->tsn_gap_acked) {
- 			if (chk->transport)
-@@ -404,7 +404,7 @@ static int sctp_prsctp_prune_unsent(struct sctp_association *asoc,
- 			struct sctp_stream_out *streamout =
- 				&asoc->stream.out[chk->sinfo.sinfo_stream];
- 
--			streamout->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
-+			streamout->ext->abandoned_unsent[SCTP_PR_INDEX(PRIO)]++;
- 		}
- 
- 		msg_len -= SCTP_DATA_SNDSIZE(chk) +
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index d4730ada7f3233367be7a0e3bb10e286a25602c8..d207734326b085e60625e4333f74221481114892 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1927,6 +1927,13 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
- 		goto out_free;
- 	}
- 
-+	/* Allocate sctp_stream_out_ext if not already done */
-+	if (unlikely(!asoc->stream.out[sinfo->sinfo_stream].ext)) {
-+		err = sctp_stream_init_ext(&asoc->stream, sinfo->sinfo_stream);
-+		if (err)
-+			goto out_free;
-+	}
-+
- 	if (sctp_wspace(asoc) < msg_len)
- 		sctp_prsctp_prune(asoc, sinfo, msg_len - sctp_wspace(asoc));
- 
-@@ -6645,7 +6652,7 @@ static int sctp_getsockopt_pr_streamstatus(struct sock *sk, int len,
- 					   char __user *optval,
- 					   int __user *optlen)
- {
--	struct sctp_stream_out *streamout;
-+	struct sctp_stream_out_ext *streamoute;
- 	struct sctp_association *asoc;
- 	struct sctp_prstatus params;
- 	int retval = -EINVAL;
-@@ -6668,21 +6675,29 @@ static int sctp_getsockopt_pr_streamstatus(struct sock *sk, int len,
- 	if (!asoc || params.sprstat_sid >= asoc->stream.outcnt)
- 		goto out;
- 
--	streamout = &asoc->stream.out[params.sprstat_sid];
-+	streamoute = asoc->stream.out[params.sprstat_sid].ext;
-+	if (!streamoute) {
-+		/* Not allocated yet, means all stats are 0 */
-+		params.sprstat_abandoned_unsent = 0;
-+		params.sprstat_abandoned_sent = 0;
-+		retval = 0;
-+		goto out;
-+	}
-+
- 	if (policy == SCTP_PR_SCTP_NONE) {
- 		params.sprstat_abandoned_unsent = 0;
- 		params.sprstat_abandoned_sent = 0;
- 		for (policy = 0; policy <= SCTP_PR_INDEX(MAX); policy++) {
- 			params.sprstat_abandoned_unsent +=
--				streamout->abandoned_unsent[policy];
-+				streamoute->abandoned_unsent[policy];
- 			params.sprstat_abandoned_sent +=
--				streamout->abandoned_sent[policy];
-+				streamoute->abandoned_sent[policy];
- 		}
- 	} else {
- 		params.sprstat_abandoned_unsent =
--			streamout->abandoned_unsent[__SCTP_PR_INDEX(policy)];
-+			streamoute->abandoned_unsent[__SCTP_PR_INDEX(policy)];
- 		params.sprstat_abandoned_sent =
--			streamout->abandoned_sent[__SCTP_PR_INDEX(policy)];
-+			streamoute->abandoned_sent[__SCTP_PR_INDEX(policy)];
- 	}
- 
- 	if (put_user(len, optlen) || copy_to_user(optval, &params, len)) {
-diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index 952437d656cc71ad1c133a736c539eff9a8d80c2..055ca25bbc91bf932db8048c72a1b11cc2214942 100644
---- a/net/sctp/stream.c
-+++ b/net/sctp/stream.c
-@@ -121,8 +121,24 @@ int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
- 	return 0;
- }
- 
-+int sctp_stream_init_ext(struct sctp_stream *stream, __u16 sid)
-+{
-+	struct sctp_stream_out_ext *soute;
-+
-+	soute = kzalloc(sizeof(*soute), GFP_KERNEL);
-+	if (!soute)
-+		return -ENOMEM;
-+	stream->out[sid].ext = soute;
-+
-+	return 0;
-+}
-+
- void sctp_stream_free(struct sctp_stream *stream)
- {
-+	int i;
-+
-+	for (i = 0; i < stream->outcnt; i++)
-+		kfree(stream->out[i].ext);
- 	kfree(stream->out);
- 	kfree(stream->in);
- }
--- 
-2.13.5
+I'm pretty sure I misunderstood what you were going after with 
+XDP_REDIRECT reserving the headroom.  Our use case (patches coming in a 
+few weeks) will populate the headroom coming out of the driver to XDP, 
+and then once the XDP program extracts whatever hints it wants via 
+helpers, I fully expect that area in the headroom to get stomped by 
+something else.  If we want to send any of that hint data up farther, 
+we'll already have it extracted via the helpers, and the eBPF program 
+can happily assign it to wherever in the outbound metadata area.
+
+> (There's also Jesper's series from today -- I've seen it but have not
+> had time to fully grok all of those changes.)
+
+I'm also working through my inbox to get to that series.  I have some 
+email to catch up on...
+
+Thanks Andy,
+-PJ
