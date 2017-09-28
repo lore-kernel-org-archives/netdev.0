@@ -1,34 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] bpf/verifier: disassembly improvements
-Date: Thu, 28 Sep 2017 10:24:53 -0700 (PDT)
-Message-ID: <20170928.102453.506974154025585871.davem@davemloft.net>
-References: <52270348-67f1-4e7a-cd2f-9d611ae94064@solarflare.com>
+Subject: Re: [PATCH net] packet: in packet_do_bind, test fanout with
+ bind_lock held
+Date: Thu, 28 Sep 2017 10:25:02 -0700 (PDT)
+Message-ID: <20170928.102502.2269082759734068360.davem@davemloft.net>
+References: <20170926161937.60597-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, ys114321@gmail.com
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, willemb@google.com
+To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49856 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49864 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751339AbdI1RYy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 13:24:54 -0400
-In-Reply-To: <52270348-67f1-4e7a-cd2f-9d611ae94064@solarflare.com>
+        with ESMTP id S1751978AbdI1RZD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 13:25:03 -0400
+In-Reply-To: <20170926161937.60597-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 26 Sep 2017 16:32:15 +0100
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Date: Tue, 26 Sep 2017 12:19:37 -0400
 
-> Fix the output of print_bpf_insn() for ALU ops that don't look like
->  compound assignment (i.e. BPF_END and BPF_NEG).
+> From: Willem de Bruijn <willemb@google.com>
 > 
-> Sample output for a short test program:
-> 0: (b4) (u32) r0 = (u32) 0
-> 1: (dc) r0 = be32 r0
-> 2: (84) r0 = (u32) -r0
-> 3: (95) exit
-> processed 4 insns, stack depth 0
+> Once a socket has po->fanout set, it remains a member of the group
+> until it is destroyed. The prot_hook must be constant and identical
+> across sockets in the group.
+> 
+> If fanout_add races with packet_do_bind between the test of po->fanout
+> and taking the lock, the bind call may make type or dev inconsistent
+> with that of the fanout group.
+> 
+> Hold po->bind_lock when testing po->fanout to avoid this race.
+> 
+> I had to introduce artificial delay (local_bh_enable) to actually
+> observe the race.
+> 
+> Fixes: dc99f600698d ("packet: Add fanout support.")
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> Reviewed-by: Eric Dumazet <edumazet@google.com>
 
-Series applied.
+Applied and queued up for -stable.
