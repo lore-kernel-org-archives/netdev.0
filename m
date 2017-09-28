@@ -1,71 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] Add a driver for Renesas uPD60620 and uPD60620A PHYs
-Date: Fri, 29 Sep 2017 00:59:29 +0200
-Message-ID: <20170928225929.GC19710@lunn.ch>
-References: <AM5PR0701MB26574EBBE4E7CACC9173B345E4670@AM5PR0701MB2657.eurprd07.prod.outlook.com>
- <20170922175918.GD3470@lunn.ch>
- <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: Re: [next-queue PATCH 2/3] net/sched: Introduce Credit Based Shaper (CBS) qdisc
+Date: Thu, 28 Sep 2017 16:07:25 -0700
+Message-ID: <87ing2fmmq.fsf@intel.com>
+References: <20170926233916.11774-1-vinicius.gomes@intel.com> <20170926233916.11774-3-vinicius.gomes@intel.com> <CAM_iQpVrz+e=TYHYqaYyUWRP528GSZXx8EnN1yPhZK8eLvP4Yw@mail.gmail.com> <87lgkzg7xv.fsf@intel.com> <CAM_iQpUUUrYeyqYK-CDAXzuKcy9FDtq_etQQvO4D4uCjV6As-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Bernd Edlinger <bernd.edlinger@hotmail.de>
+Content-Type: text/plain
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>, andre.guedes@intel.com,
+        Ivan Briano <ivan.briano@intel.com>,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, Henrik Austad <henrik@austad.us>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:60542 "EHLO vps0.lunn.ch"
+Received: from mga14.intel.com ([192.55.52.115]:49864 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750821AbdI1W7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 28 Sep 2017 18:59:31 -0400
-Content-Disposition: inline
-In-Reply-To: <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
+        id S1750857AbdI1XH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 19:07:26 -0400
+In-Reply-To: <CAM_iQpUUUrYeyqYK-CDAXzuKcy9FDtq_etQQvO4D4uCjV6As-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bernd
+Hi,
 
-> >> +	if (phy_state & BMSR_ANEGCOMPLETE) {
-> > 
-> > It is worth comparing this against genphy_read_status() which is the
-> > reference implementation. You would normally check if auto negotiation
-> > is enabled, not if it has completed. If it is enabled you read the
-> > current negotiated state, even if it is not completed.
-> > 
-> 
-> Do you suggest that there are cases where auto negotiation does not
-> reach completion, and still provides a usable link status?
+Cong Wang <xiyou.wangcong@gmail.com> writes:
 
-My experience is that it often return 10/half, since everything should
-support that. And depending on what the MAC is doing, packets can
-sometime get across the link.
- 
-> I have tried to connect to link partners with fixed configuration
-> but even then the auto negotiation always competes normally.
+[...]
 
-Which is a bit odd.
+>>>
+>>> I am not sure how we can solve this elegantly, perhaps you should
+>>> extend mqprio rather than add a new one?
+>>
+>> Is the alternative hinted in the FIXME worse? Instead of passing the
+>> index of the hardware queue to the driver we pass the pointer to a
+>> netdev_queue to the driver and it "discovers" the HW queue from that.
+>
+> Does this way solve the dependency on mqprio? If yes then it is good.
+> And you have to fix it before merge, we don't have any qdisc depending
+> a specific type of qdisc to be its parent.
 
-There are a few different possibilities here.  The peer PHY driver is
-broken. Rather than doing fixed, it actually set the possible
-negotiation options to just the one setting you tried to fix it
-to. And hence the uPD60620 device negotiated fine. Or the uPD60620 is
-broken is said it negotiated, but in fact it failed.
+Yes, it does. And if we do like Jesus pointed out, we can do this on the
+CBS qdisc side, no need to change the driver.
 
-What was the result? 10/Half, or the fixed values you set the peer to?
- 
-> 
-> >From 2e101aed8466b314251972d1eaccfb43cf177078 Mon Sep 17 00:00:00 2001
-> From: Bernd Edlinger <bernd.edlinger@hotmail.de>
-> Date: Thu, 21 Sep 2017 15:46:16 +0200
-> Subject: [PATCH 2/5] Add a driver for Renesas uPD60620 and uPD60620A PHYs.
-> 
-> Signed-off-by: Bernd Edlinger <bernd.edlinger@hotmail.de>
 
-Please send this is a new patch. If we were to take this is is, all
-the comments above would end up in the commit message.
-
-> ---
-
-Under the --- you can however add comments which don't go into the
-commit log. Good practice is to list the things you changed since the
-previous version.
-
-Thanks
-	Andrew
+Cheers,
