@@ -1,48 +1,91 @@
-From: Gal Pressman <galp@mellanox.com>
-Subject: [PATCH ethtool 1/2] ethtool.8: Fix formatting of advertise bitmask
-Date: Thu, 28 Sep 2017 15:08:52 +0300
-Message-ID: <1506600533-10365-2-git-send-email-galp@mellanox.com>
-References: <1506600533-10365-1-git-send-email-galp@mellanox.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>,
-        Pavel Belous <pavel.s.belous@gmail.com>,
-        Gal Pressman <galp@mellanox.com>
-To: netdev@vger.kernel.org,
-        "John W . Linville" <linville@tuxdriver.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Thu, 28 Sep 2017 14:57:02 +0200
+Message-ID: <150660339205.2808.7084136789768233829.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53416 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751768AbdI1MJZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 08:09:25 -0400
-In-Reply-To: <1506600533-10365-1-git-send-email-galp@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53854 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751906AbdI1M5L (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 08:57:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fields should be separated with a tab instead of spaces.
-Also, remove an accidental ' character from 2500baseX Full mode.
+Introducing a new way to redirect XDP frames.  Notice how no driver
+changes are necessary given the design of XDP_REDIRECT.
 
-Fixes: 64dfc5e2f046 ("ethtool: Add support for 2500baseT/5000baseT link modes")
-Signed-off-by: Gal Pressman <galp@mellanox.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+This redirect map type is called 'cpumap', as it allows redirection
+XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+and start the network stack invocation on that CPU.
+
+This is a scalability and isolation mechanism, that allow separating
+the early driver network XDP layer, from the rest of the netstack, and
+assigning dedicated CPUs for this stage.  The sysadm control/configure
+the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+many queues are configured via ethtool --set-channels.  Benchmarks
+show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+have the advantage that more packets being "bulk" available per hard
+interrupt[1].
+
+[1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
+
+Use-cases:
+
+1. End-host based pre-filtering for DDoS mitigation.  This is fast
+   enough to allow software to see and filter all packets wirespeed.
+   Thus, no packets getting silently dropped by hardware.
+
+2. Given NIC HW unevenly distributes packets across RX queue, this
+   mechanism can be used for redistribution load across CPUs.  This
+   usually happens when HW is unaware of a new protocol.  This
+   resembles RPS (Receive Packet Steering), just faster, but with more
+   responsibility placed on the BPF program for correct steering.
+
+3. Auto-scaling or power saving via only activating the appropriate
+   number of remote CPUs for handling the current load.  The cpumap
+   tracepoints can function as a feedback loop for this purpose.
+
+Patchset based on net-next at:
+ commit 14a0d032f4ec ("Merge branch 'mlxsw-pass-gact'")
+
 ---
- ethtool.8.in | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 7224b04..de2abc8 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -590,9 +590,9 @@ lB	l	lB.
- 0x020	1000baseT Full
- 0x20000	1000baseKX Full
- 0x20000000000	1000baseX Full
--0x800000000000  2500baseT Full
--0x8000	2500baseX Full	(not supported by IEEE standards)'
--0x1000000000000  5000baseT Full
-+0x800000000000	2500baseT Full
-+0x8000	2500baseX Full	(not supported by IEEE standards)
-+0x1000000000000	5000baseT Full
- 0x1000	10000baseT Full
- 0x40000	10000baseKX4 Full
- 0x80000	10000baseKR Full
--- 
-2.7.4
+Jesper Dangaard Brouer (5):
+      bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+      bpf: XDP_REDIRECT enable use of cpumap
+      bpf: cpumap xdp_buff to skb conversion and allocation
+      bpf: cpumap add tracepoints
+      samples/bpf: add cpumap sample program xdp_redirect_cpu
+
+
+ include/linux/bpf.h                 |    7 
+ include/linux/bpf_types.h           |    1 
+ include/trace/events/xdp.h          |   80 ++++
+ include/uapi/linux/bpf.h            |    1 
+ kernel/bpf/Makefile                 |    1 
+ kernel/bpf/cpumap.c                 |  671 +++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c                |    8 
+ kernel/bpf/verifier.c               |    3 
+ net/core/filter.c                   |   65 +++
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_redirect_cpu_kern.c |  640 +++++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_cpu_user.c |  639 +++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h      |    1 
+ 13 files changed, 2109 insertions(+), 12 deletions(-)
+ create mode 100644 kernel/bpf/cpumap.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_user.c
