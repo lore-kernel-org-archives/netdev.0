@@ -1,86 +1,71 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
-Date: Fri, 29 Sep 2017 00:45:40 +0200
-Message-ID: <59CD7B94.8010103@iogearbox.net>
-References: <150660339205.2808.7084136789768233829.stgit@firesoul>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] Add a driver for Renesas uPD60620 and uPD60620A PHYs
+Date: Fri, 29 Sep 2017 00:59:29 +0200
+Message-ID: <20170928225929.GC19710@lunn.ch>
+References: <AM5PR0701MB26574EBBE4E7CACC9173B345E4670@AM5PR0701MB2657.eurprd07.prod.outlook.com>
+ <20170922175918.GD3470@lunn.ch>
+ <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, edumazet@google.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Bernd Edlinger <bernd.edlinger@hotmail.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52750 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750947AbdI1Wpr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 18:45:47 -0400
-In-Reply-To: <150660339205.2808.7084136789768233829.stgit@firesoul>
+Received: from vps0.lunn.ch ([185.16.172.187]:60542 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750821AbdI1W7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 18:59:31 -0400
+Content-Disposition: inline
+In-Reply-To: <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/28/2017 02:57 PM, Jesper Dangaard Brouer wrote:
-> Introducing a new way to redirect XDP frames.  Notice how no driver
-> changes are necessary given the design of XDP_REDIRECT.
->
-> This redirect map type is called 'cpumap', as it allows redirection
-> XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
-> and start the network stack invocation on that CPU.
->
-> This is a scalability and isolation mechanism, that allow separating
-> the early driver network XDP layer, from the rest of the netstack, and
-> assigning dedicated CPUs for this stage.  The sysadm control/configure
-> the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
-> many queues are configured via ethtool --set-channels.  Benchmarks
-> show that a single CPU can handle approx 11Mpps.  Thus, only assigning
-> two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
-> wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
-> have the advantage that more packets being "bulk" available per hard
-> interrupt[1].
->
-> [1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
->
-> Use-cases:
->
-> 1. End-host based pre-filtering for DDoS mitigation.  This is fast
->     enough to allow software to see and filter all packets wirespeed.
->     Thus, no packets getting silently dropped by hardware.
->
-> 2. Given NIC HW unevenly distributes packets across RX queue, this
->     mechanism can be used for redistribution load across CPUs.  This
->     usually happens when HW is unaware of a new protocol.  This
->     resembles RPS (Receive Packet Steering), just faster, but with more
->     responsibility placed on the BPF program for correct steering.
->
-> 3. Auto-scaling or power saving via only activating the appropriate
->     number of remote CPUs for handling the current load.  The cpumap
->     tracepoints can function as a feedback loop for this purpose.
+Hi Bernd
 
-Interesting work, thanks! Still digesting the code a bit. I think
-it pretty much goes into the direction that Eric describes in his
-netdev paper quoted above; not on a generic level though but specific
-to XDP at least; theoretically XDP could just run transparently on
-the CPU doing the filtering, and raw buffers are handed to remote
-CPU with similar batching, but it would need some different config
-interface at minimum.
+> >> +	if (phy_state & BMSR_ANEGCOMPLETE) {
+> > 
+> > It is worth comparing this against genphy_read_status() which is the
+> > reference implementation. You would normally check if auto negotiation
+> > is enabled, not if it has completed. If it is enabled you read the
+> > current negotiated state, even if it is not completed.
+> > 
+> 
+> Do you suggest that there are cases where auto negotiation does not
+> reach completion, and still provides a usable link status?
 
-Shouldn't we take the CPU(s) running XDP on the RX queues out from
-the normal process scheduler, so that we have a guarantee that user
-space or unrelated kernel tasks cannot interfere with them anymore,
-and we could then turn them into busy polling eventually (e.g. as
-long as XDP is running there and once off could put them back into
-normal scheduling domain transparently)?
+My experience is that it often return 10/half, since everything should
+support that. And depending on what the MAC is doing, packets can
+sometime get across the link.
+ 
+> I have tried to connect to link partners with fixed configuration
+> but even then the auto negotiation always competes normally.
 
-What about RPS/RFS in the sense that once you punt them to remote
-CPU, could we reuse application locality information so they'd end
-up on the right CPU in the first place (w/o backlog detour), or is
-the intent to rather disable it and have some own orchestration
-with relation to the CPU map?
+Which is a bit odd.
 
-Cheers,
-Daniel
+There are a few different possibilities here.  The peer PHY driver is
+broken. Rather than doing fixed, it actually set the possible
+negotiation options to just the one setting you tried to fix it
+to. And hence the uPD60620 device negotiated fine. Or the uPD60620 is
+broken is said it negotiated, but in fact it failed.
+
+What was the result? 10/Half, or the fixed values you set the peer to?
+ 
+> 
+> >From 2e101aed8466b314251972d1eaccfb43cf177078 Mon Sep 17 00:00:00 2001
+> From: Bernd Edlinger <bernd.edlinger@hotmail.de>
+> Date: Thu, 21 Sep 2017 15:46:16 +0200
+> Subject: [PATCH 2/5] Add a driver for Renesas uPD60620 and uPD60620A PHYs.
+> 
+> Signed-off-by: Bernd Edlinger <bernd.edlinger@hotmail.de>
+
+Please send this is a new patch. If we were to take this is is, all
+the comments above would end up in the commit message.
+
+> ---
+
+Under the --- you can however add comments which don't go into the
+commit log. Good practice is to list the things you changed since the
+previous version.
+
+Thanks
+	Andrew
