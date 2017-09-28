@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net-next/hinic: Fix a case of Tx Queue is
- Stopped forever
-Date: Thu, 28 Sep 2017 10:27:16 -0700 (PDT)
-Message-ID: <20170928.102716.1596635867248168695.davem@davemloft.net>
-References: <1506449493-83395-1-git-send-email-aviad.krawczyk@huawei.com>
+Subject: Re: [PATCH net v2] net: dsa: mv88e6xxx: lock mutex when freeing
+ IRQs
+Date: Thu, 28 Sep 2017 10:29:07 -0700 (PDT)
+Message-ID: <20170928.102907.1277678452927871516.davem@davemloft.net>
+References: <20170926185721.12187-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: aviad.krawczyk@huawei.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506449493-83395-1-git-send-email-aviad.krawczyk@huawei.com>
+In-Reply-To: <20170926185721.12187-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Date: Wed, 27 Sep 2017 02:11:33 +0800
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue, 26 Sep 2017 14:57:21 -0400
 
-> Fix the following scenario:
-> 1. tx_free_poll is running on cpu X
-> 2. xmit function is running on cpu Y and fails to get sq wqe
-> 3. tx_free_poll frees wqes on cpu X and checks the queue is not stopped
-> 4. xmit function stops the queue after failed to get sq wqe
-> 5. The queue is stopped forever
+> mv88e6xxx_g2_irq_free locks the registers mutex, but not
+> mv88e6xxx_g1_irq_free, which results in a stack trace from
+> assert_reg_lock when unloading the mv88e6xxx module. Fix this.
 > 
-> Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+> Fixes: 3460a5770ce9 ("net: dsa: mv88e6xxx: Mask g1 interrupts and free interrupt")
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied.
+Applied and queued up for -stable.
