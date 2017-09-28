@@ -1,72 +1,130 @@
 From: Amine Kherbouche <amine.kherbouche@6wind.com>
-Subject: [PATCH v4 1/2] expose stack entry function
-Date: Thu, 28 Sep 2017 11:34:19 +0200
-Message-ID: <d34f8440be3e1d735c694c6899c5a8b14e9a70ea.1506590878.git.amine.kherbouche@6wind.com>
-References: <cover.1506590878.git.amine.kherbouche@6wind.com>
+Subject: [PATCH v4 0/2] Introduce MPLS over GRE
+Date: Thu, 28 Sep 2017 11:34:18 +0200
+Message-ID: <cover.1506590878.git.amine.kherbouche@6wind.com>
 Cc: amine.kherbouche@6wind.com, equinox@diac24.net
 To: netdev@vger.kernel.org, xeb@mail.ru, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:52991 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752011AbdI1Jek (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 05:34:40 -0400
-Received: by mail-wm0-f46.google.com with SMTP id m127so986089wmm.1
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 02:34:40 -0700 (PDT)
-In-Reply-To: <cover.1506590878.git.amine.kherbouche@6wind.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:56041 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750891AbdI1Jej (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 05:34:39 -0400
+Received: by mail-wm0-f51.google.com with SMTP id u138so957100wmu.4
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 02:34:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Exporting mpls_forward() function to be able to be called from elsewhere
-such as MPLSoverGRE in the next commit.
+This series introduces the MPLS over GRE encapsulation (RFC 4023).
 
-Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- include/linux/mpls.h | 4 ++++
- net/mpls/af_mpls.c   | 5 +++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+Various applications of MPLS make use of label stacks with multiple
+entries.  In some cases, it is possible to replace the top label of
+the stack with an IP-based encapsulation, thereby, it is possible for
+two LSRs that are adjacent on an LSP to be separated by an IP network,
+even if that IP network does not provide MPLS.
 
-diff --git a/include/linux/mpls.h b/include/linux/mpls.h
-index 384fb22..b0579ab 100644
---- a/include/linux/mpls.h
-+++ b/include/linux/mpls.h
-@@ -2,10 +2,14 @@
- #define _LINUX_MPLS_H
+Changes in v4:
+  - Bring back mpls_forward() function exportation patch.
+  - Move back mpls_gre_rcv() to gre module file and wrap it under
+    ifdef.
+
+Changes in v3:
+  - remove mpls_forward() function exportation patch.
+  - wrap efficiently mpls iptunnel add/del functions and dependent
+    function/structure.
+  - move mpls_gre_rcv to af_mpls.c file and export it.
+  - remove unnecessary functions.
  
- #include <uapi/linux/mpls.h>
-+#include <linux/netdevice.h>
- 
- #define MPLS_TTL_MASK		(MPLS_LS_TTL_MASK >> MPLS_LS_TTL_SHIFT)
- #define MPLS_BOS_MASK		(MPLS_LS_S_MASK >> MPLS_LS_S_SHIFT)
- #define MPLS_TC_MASK		(MPLS_LS_TC_MASK >> MPLS_LS_TC_SHIFT)
- #define MPLS_LABEL_MASK		(MPLS_LS_LABEL_MASK >> MPLS_LS_LABEL_SHIFT)
- 
-+int mpls_forward(struct sk_buff *skb, struct net_device *dev,
-+		 struct packet_type *pt, struct net_device *orig_dev);
-+
- #endif  /* _LINUX_MPLS_H */
-diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
-index c5b9ce4..36ea2ad 100644
---- a/net/mpls/af_mpls.c
-+++ b/net/mpls/af_mpls.c
-@@ -307,8 +307,8 @@ static bool mpls_egress(struct net *net, struct mpls_route *rt,
- 	return success;
- }
- 
--static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
--			struct packet_type *pt, struct net_device *orig_dev)
-+int mpls_forward(struct sk_buff *skb, struct net_device *dev,
-+		 struct packet_type *pt, struct net_device *orig_dev)
- {
- 	struct net *net = dev_net(dev);
- 	struct mpls_shim_hdr *hdr;
-@@ -442,6 +442,7 @@ static int mpls_forward(struct sk_buff *skb, struct net_device *dev,
- 	kfree_skb(skb);
- 	return NET_RX_DROP;
- }
-+EXPORT_SYMBOL(mpls_forward);
- 
- static struct packet_type mpls_packet_type __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_MPLS_UC),
+Changes in v2:
+  - wrap ip tunnel functions under ifdef in mpls file.
+  - fix indentation.
+  - check return code.
+
+An example of configuration:
+
+
+         node1                LER1                       LER2                node2
+        +-----+             +------+                   +------+             +-----+
+        |     |             |      |                   |      |             |     |
+        |     |             |      |p3  GRE tunnel   p4|      |             |     |
+        |     |p1         p2|      +-------------------+      |p5         p6|     |
+        |     +-------------+      +-------------------+      +------------+|     |
+        |     |10.100.0.0/24|      |                   |      |10.200.0.0/24|     |
+        |     |fd00:100::/64|      |  10.125.0.0/24    |      |fd00:200::/64|     |
+        |     |             |      |  fd00:125::/64    |      |             |     |
+        |     |             |      |                   |      |             |     |
+        |     |             |      |                   |      |             |     |
+        |     |             |      |                   |      |             |     |
+        |     |             |      |                   |      |             |     |
+        +-----+             +------+                   +------+             +-----+
+
+
+		###	node1	###
+
+ip link set p1 up
+ip addr add 10.100.0.1/24 dev p1
+
+		###	LER1	###
+
+ip link set p2 up
+ip addr add 10.100.0.2/24 dev p2
+
+ip link set p3 up
+ip addr add 10.125.0.1/24 dev p3
+
+modprobe mpls_router
+sysctl -w net.mpls.conf.p2.input=1
+sysctl -w net.mpls.conf.p3.input=1
+sysctl -w net.mpls.platform_labels=1000
+
+ip link add gre1 type gre ttl 64 local 10.125.0.1 remote 10.125.0.2 dev p3
+ip link set dev gre1 up
+
+ip -M route add 111 as 222 dev gre1
+ip -M route add 555 as 666 via inet 10.100.0.1 dev p2
+
+		###	LER2	###
+
+ip link set p5 up
+ip addr add 10.200.0.2/24 dev p5
+
+ip link set p4 up
+ip addr add 10.125.0.2/24 dev p4
+
+modprobe mpls_router
+sysctl -w net.mpls.conf.p4.input=1
+sysctl -w net.mpls.conf.p5.input=1
+sysctl -w net.mpls.platform_labels=1000
+
+ip link add gre1 type gre ttl 64 local 10.125.0.2 remote 10.125.0.1 dev p4
+ip link set dev gre1 up
+
+ip -M route add 444 as 555 dev gre1
+ip -M route add 222 as 333 via inet 10.200.0.1 dev p5
+
+		###	node2	###
+
+ip link set p6 up
+ip addr add 10.200.0.1/24 dev p6
+
+
+Now using this scapy to forge and send packets from the port p1 of node1:
+
+p = Ether(src='de:ed:01:0c:41:09', dst='de:ed:01:2f:3b:ba')
+p /= MPLS(s=1, ttl=64, label=111)/Raw(load='\xde')
+sendp(p, iface="p1", count=20, inter=0.1)
+
+Amine Kherbouche (2):
+  expose stack entry function
+  ip_tunnel: add mpls over gre encapsulation
+
+ include/linux/mpls.h           |  4 ++++
+ include/net/gre.h              |  1 +
+ include/uapi/linux/if_tunnel.h |  1 +
+ net/ipv4/gre_demux.c           | 27 +++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c              |  3 +++
+ net/ipv6/ip6_gre.c             |  3 +++
+ net/mpls/af_mpls.c             | 41 +++++++++++++++++++++++++++++++++++++++--
+ 7 files changed, 78 insertions(+), 2 deletions(-)
+
 -- 
 2.1.4
