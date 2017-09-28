@@ -1,66 +1,87 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
-Date: Thu, 28 Sep 2017 11:28:38 -0700
-Message-ID: <CAOrHB_CQyokdTWeoj02RENPP5miq5Arx6goCNQ9ZPbUeTu_MeQ@mail.gmail.com>
-References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
- <20170925201439.08460295@griffin> <20170926045538.GA5896@localhost.localdomain>
- <20170926124914.60101ca1@griffin> <20170927013908.GA33716@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jiri Benc <jbenc@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "e@erig.me" <e@erig.me>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Jan Scheurich <jan.scheurich@ericsson.com>
-To: "Yang, Yi" <yi.y.yang@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:34088 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750763AbdI1S2k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 14:28:40 -0400
-Received: from mail-wr0-f181.google.com (mail-wr0-f181.google.com [209.85.128.181])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id A7EB51720A4
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 20:28:39 +0200 (CEST)
-Received: by mail-wr0-f181.google.com with SMTP id b21so4253490wrg.7
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 11:28:39 -0700 (PDT)
-In-Reply-To: <20170927013908.GA33716@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Grundler <grundler@chromium.org>
+Subject: [PATCH V4] r8152:  add Linksys USB3GIGV1 id
+Date: Thu, 28 Sep 2017 11:35:00 -0700
+Message-ID: <20170928183500.61199-1-grundler@chromium.org>
+Cc: linux-usb <linux-usb@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+        Grant Grundler <grundler@chromium.org>
+To: Hayes Wang <hayeswang@realtek.com>,
+        Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 26, 2017 at 6:39 PM, Yang, Yi <yi.y.yang@intel.com> wrote:
-> On Tue, Sep 26, 2017 at 06:49:14PM +0800, Jiri Benc wrote:
->> On Tue, 26 Sep 2017 12:55:39 +0800, Yang, Yi wrote:
->> > After push_nsh, the packet won't be recirculated to flow pipeline, so
->> > key->eth.type must be set explicitly here, but for pop_nsh, the packet
->> > will be recirculated to flow pipeline, it will be reparsed, so
->> > key->eth.type will be set in packet parse function, we needn't handle it
->> > in pop_nsh.
->>
->> This seems to be a very different approach than what we currently have.
->> Looking at the code, the requirement after "destructive" actions such
->> as pushing or popping headers is to recirculate.
->
-> This is optimization proposed by Jan Scheurich, recurculating after push_nsh
-> will impact on performance, recurculating after pop_nsh is unavoidable, So
-> also cc jan.scheurich@ericsson.com.
->
-> Actucally all the keys before push_nsh are still there after push_nsh,
-> push_nsh has updated all the nsh keys, so recirculating remains avoidable.
->
+This linksys dongle by default comes up in cdc_ether mode.
+This patch allows r8152 to claim the device:
+   Bus 002 Device 002: ID 13b1:0041 Linksys
+
+Signed-off-by: Grant Grundler <grundler@chromium.org>
+---
+ drivers/net/usb/cdc_ether.c | 10 ++++++++++
+ drivers/net/usb/r8152.c     |  2 ++
+ 2 files changed, 12 insertions(+)
+
+V4: use IS_ENABLED() to check CONFIG_USB_RTL8152 is m or y.
+    (verified by adding #error to the new code and trying to compile
+     Thanks Doug for the tip!)
+    Add LINKSYS vendor #define in same order for both drivers.
+
+V3: for backwards compat, add #ifdef CONFIG_USB_RTL8152 around
+    the cdc_ether blacklist entry so the cdc_ether driver can
+    still claim the device if r8152 driver isn't configured.
+
+V2: add LINKSYS_VENDOR_ID to cdc_ether blacklist
 
 
-We should keep existing model for this patch. Later you can submit
-optimization patch with specific use cases and performance
-improvement. So that we can evaluate code complexity and benefits.
 
->>
->> Setting key->eth.type to satisfy conditions in the output path without
->> updating the rest of the key looks very hacky and fragile to me. There
->> might be other conditions and dependencies that are not obvious.
->> I don't think the code was written with such code path in mind.
->>
->> I'd like to hear what Pravin thinks about this.
->>
->>  Jiri
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 8ab281b478f2..677a85360db1 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -547,6 +547,7 @@ static const struct driver_info wwan_info = {
+ #define REALTEK_VENDOR_ID	0x0bda
+ #define SAMSUNG_VENDOR_ID	0x04e8
+ #define LENOVO_VENDOR_ID	0x17ef
++#define LINKSYS_VENDOR_ID	0x13b1
+ #define NVIDIA_VENDOR_ID	0x0955
+ #define HP_VENDOR_ID		0x03f0
+ #define MICROSOFT_VENDOR_ID	0x045e
+@@ -737,6 +738,15 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++#if IS_ENABLED(CONFIG_USB_RTL8152)
++/* Linksys USB3GIGV1 Ethernet Adapter */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(LINKSYS_VENDOR_ID, 0x0041, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++#endif
++
+ /* ThinkPad USB-C Dock (based on Realtek RTL8153) */
+ {
+ 	USB_DEVICE_AND_INTERFACE_INFO(LENOVO_VENDOR_ID, 0x3062, USB_CLASS_COMM,
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index ceb78e2ea4f0..941ece08ba78 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -613,6 +613,7 @@ enum rtl8152_flags {
+ #define VENDOR_ID_MICROSOFT		0x045e
+ #define VENDOR_ID_SAMSUNG		0x04e8
+ #define VENDOR_ID_LENOVO		0x17ef
++#define VENDOR_ID_LINKSYS		0x13b1
+ #define VENDOR_ID_NVIDIA		0x0955
+ 
+ #define MCU_TYPE_PLA			0x0100
+@@ -5316,6 +5317,7 @@ static const struct usb_device_id rtl8152_table[] = {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x720c)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7214)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_LINKSYS, 0x0041)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_NVIDIA,  0x09ff)},
+ 	{}
+ };
+-- 
+2.14.2.822.g60be5d43e6-goog
