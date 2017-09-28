@@ -1,91 +1,109 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 0/3] support changing steering policies in tuntap
-Date: Thu, 28 Sep 2017 14:50:31 +0800
-Message-ID: <77e2149a-e2cc-cd18-039d-a202cd9f8b4c@redhat.com>
-References: <1506500637-13881-1-git-send-email-jasowang@redhat.com>
- <20170927230042-mutt-send-email-mst@kernel.org>
+Subject: Re: [PATCH net-next RFC 5/5] vhost_net: basic tx virtqueue batched
+ processing
+Date: Thu, 28 Sep 2017 15:02:48 +0800
+Message-ID: <632b9bdd-4459-8659-e491-ba125adc2038@redhat.com>
+References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
+ <1506067355-5771-6-git-send-email-jasowang@redhat.com>
+ <20170926222223-mutt-send-email-mst@kernel.org>
+ <16ea7512-d770-21ef-edb6-3ada51f08592@redhat.com>
+ <20170928011724-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kvm@vger.kernel.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927230042-mutt-send-email-mst@kernel.org>
+In-Reply-To: <20170928011724-mutt-send-email-mst@kernel.org>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年09月28日 06:13, Michael S. Tsirkin wrote:
-> On Wed, Sep 27, 2017 at 04:23:54PM +0800, Jason Wang wrote:
->> Hi all:
+On 2017年09月28日 06:19, Michael S. Tsirkin wrote:
+> On Wed, Sep 27, 2017 at 10:04:18AM +0800, Jason Wang wrote:
 >>
->> We use flow caches based flow steering policy now. This is good for
->> connection-oriented communication such as TCP but not for the others
->> e.g connectionless unidirectional workload which cares only about
->> pps. This calls the ability of supporting changing steering policies
->> in tuntap which was done by this series.
+>> On 2017年09月27日 03:25, Michael S. Tsirkin wrote:
+>>> On Fri, Sep 22, 2017 at 04:02:35PM +0800, Jason Wang wrote:
+>>>> This patch implements basic batched processing of tx virtqueue by
+>>>> prefetching desc indices and updating used ring in a batch. For
+>>>> non-zerocopy case, vq->heads were used for storing the prefetched
+>>>> indices and updating used ring. It is also a requirement for doing
+>>>> more batching on top. For zerocopy case and for simplicity, batched
+>>>> processing were simply disabled by only fetching and processing one
+>>>> descriptor at a time, this could be optimized in the future.
+>>>>
+>>>> XDP_DROP (without touching skb) on tun (with Moongen in guest) with
+>>>> zercopy disabled:
+>>>>
+>>>> Intel(R) Xeon(R) CPU E5-2650 0 @ 2.00GHz:
+>>>> Before: 3.20Mpps
+>>>> After:  3.90Mpps (+22%)
+>>>>
+>>>> No differences were seen with zerocopy enabled.
+>>>>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>> So where is the speedup coming from? I'd guess the ring is
+>>> hot in cache, it's faster to access it in one go, then
+>>> pass many packets to net stack. Is that right?
+>>>
+>>> Another possibility is better code cache locality.
+>> Yes, I think the speed up comes from:
 >>
->> Flow steering policy was abstracted into tun_steering_ops in the first
->> patch. Then new ioctls to set or query current policy were introduced,
->> and the last patch introduces a very simple policy that select txq
->> based on processor id as an example.
+>> - less cache misses
+>> - less cache line bounce when virtqueue is about to be full (guest is faster
+>> than host which is the case of MoonGen)
+>> - less memory barriers
+>> - possible faster copy speed by using copy_to_user() on modern CPUs
 >>
->> Test was done by using xdp_redirect to redirect traffic generated from
->> MoonGen that was running on a remote machine. And I see 37%
->> improvement for processor id policy compared to automatic flow
->> steering policy.
-> For sure, if you don't need to figure out the flow hash then you can
-> save a bunch of cycles.  But I don't think the cpu policy is too
-> practical outside of a benchmark.
-
-Well, the aim of the series is to add methods to change the steering 
-policy, cpu policy is an example. Actually, it may make sense for some 
-cards which guarantee that all packets belongs to a specific flow goes 
-into a specific cpu.
-
+>>> So how about this patchset is refactored:
+>>>
+>>> 1. use existing APIs just first get packets then
+>>>      transmit them all then use them all
+>> Looks like current API can not get packets first, it only support get packet
+>> one by one (if you mean vhost_get_vq_desc()). And used ring updating may get
+>> more misses in this case.
+> Right. So if you do
 >
-> Did you generate packets and just send them to tun? If so, this is not a
-> typical configuration, is it?
+> for (...)
+> 	vhost_get_vq_desc
+>
+>
+> then later
+>
+> for (...)
+> 	vhost_add_used
+>
+>
+> then you get most of benefits except maybe code cache misses
+> and copy_to_user.
+>
 
-The test was done by:
+If you mean vhost_add_used_n(), then more barriers and userspace memory 
+access as well. And you still need to cache vring_used_elem in vq->heads 
+or elsewhere. Since you do not batch reading avail ring indexes, more 
+write miss will happen if the ring is about to be full. So it looks 
+slower than what is done in this patch?
 
-- generate UDP traffic from a remote machine
-- use xdp redirection to do mac swap in guest and forward it back to the 
-remote machine
-
->   With packets coming e.g.  from a real nic
-> they might already have the hash pre-calculated, and you won't
-> see the benefit.
-
-Yes, I can switch to use this as a example policy.
+And if we want to indo more batching on top (do we want this?), we still 
+need new APIs anyway.
 
 Thanks
 
 >
->> In the future, both simple and sophisticated policy like RSS or other guest
->> driven steering policies could be done on top.
-> IMHO there should be a more practical example before adding all this
-> indirection. And it would be nice to understand why this queue selection
-> needs to be tun specific.
-
-Actually, we can use fanout policy (as pointed out) by using the API 
-introduced in this series.
-
-Thanks
-
 >
+>
+>
+>
+>>> 2. add new APIs and move the loop into vhost core
+>>>      for more speedups
+>> I don't see any advantages, looks like just need some e.g callbacks in this
+>> case.
+>>
 >> Thanks
->>
->> Jason Wang (3):
->>    tun: abstract flow steering logic
->>    tun: introduce ioctls to set and get steering policies
->>    tun: introduce cpu id based steering policy
->>
->>   drivers/net/tun.c           | 151 +++++++++++++++++++++++++++++++++++++-------
->>   include/uapi/linux/if_tun.h |   8 +++
->>   2 files changed, 136 insertions(+), 23 deletions(-)
->>
->> -- 
->> 2.7.4
+> IUC callbacks pretty much destroy the code cache locality advantages,
+> IP is jumping around too much.
+>
+>
