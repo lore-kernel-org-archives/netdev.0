@@ -1,163 +1,111 @@
-From: Andrey Ryabinin <aryabinin@virtuozzo.com>
-Subject: Re: [PATCH v4 4/9] em28xx: fix em28xx_dvb_init for KASAN
-Date: Thu, 28 Sep 2017 16:09:46 +0300
-Message-ID: <2631e8a6-03f2-69ea-d889-afd9a345e7ef@virtuozzo.com>
-References: <20170922212930.620249-1-arnd@arndb.de>
- <20170922212930.620249-5-arnd@arndb.de>
- <063D6719AE5E284EB5DD2968C1650D6DD007F521@AcuExch.aculab.com>
- <CAK8P3a1zxjMsQTBPijCo8FJjEU5aRVTr7n_NZ1YM2UnDPKoRLw@mail.gmail.com>
- <CAK8P3a37Ts5q7BvA2JWse87huyAp+=e18CUXEt8731RrBnB+Ow@mail.gmail.com>
- <e7e6418e-4340-5057-aa17-800082aca5fb@virtuozzo.com>
- <CAK8P3a2C7DBTfQZvRi-QQfrfm1GXktFcXQRmXmzpF4SCa+BADA@mail.gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [bug][tipc] Too short struct tipc_subscr passed to
+ tipc_subscrb_rcv_cb()
+Date: Thu, 28 Sep 2017 13:23:57 +0000
+Message-ID: <DB5PR0701MB1958F230F839CD73BDA3950F9A790@DB5PR0701MB1958.eurprd07.prod.outlook.com>
+References: <CAG_fn=WegzttX52Jq8n52dOxHww8Prgdwnh5_D9kfWVy-nQTTQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>,
-        Mauro Carvalho Chehab <mchehab@kernel.org>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Michal Marek <mmarek@suse.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kees Cook <keescook@chromium.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-wireless@v
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a2C7DBTfQZvRi-QQfrfm1GXktFcXQRmXmzpF4SCa+BADA@mail.gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Networking <netdev@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Alexander Potapenko <glider@google.com>,
+        David Miller <davem@davemloft.net>,
+        Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:48924 "EHLO
+        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753085AbdI1NYC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 09:24:02 -0400
+In-Reply-To: <CAG_fn=WegzttX52Jq8n52dOxHww8Prgdwnh5_D9kfWVy-nQTTQ@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/27/2017 04:26 PM, Arnd Bergmann wrote:
-> On Tue, Sep 26, 2017 at 9:49 AM, Andrey Ryabinin
-> <aryabinin@virtuozzo.com> wrote:
->>
->>
->> On 09/26/2017 09:47 AM, Arnd Bergmann wrote:
->>> On Mon, Sep 25, 2017 at 11:32 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> 
->>> +       ret = __builtin_strlen(q);
->>
->>
->> I think this is not correct. Fortified strlen called here on purpose. If sizeof q is known at compile time
->> and 'q' contains not-null fortified strlen() will panic.
-> 
-> Ok, got it.
-> 
->>>         if (size) {
->>>                 size_t len = (ret >= size) ? size - 1 : ret;
->>>                 if (__builtin_constant_p(len) && len >= p_size)
->>>
->>> The problem is apparently that the fortified strlcpy calls the fortified strlen,
->>> which in turn calls strnlen and that ends up calling the extern '__real_strnlen'
->>> that gcc cannot reduce to a constant expression for a constant input.
->>
->>
->> Per my observation, it's the code like this:
->>         if ()
->>                 fortify_panic(__func__);
->>
->>
->> somehow prevent gcc to merge several "struct i2c_board_info info;" into one stack slot.
->> With the hack bellow, stack usage reduced to ~1,6K:
-> 
-> 1.6k is also what I see with my patch, or any other approach I tried
-> that changes
-> string.h. With the split up em28xx_dvb_init() function (and without
-> changes to string.h),
-> I got down to a few hundred bytes for the largest handler.
-> 
->> ---
->>  include/linux/string.h | 4 ----
->>  1 file changed, 4 deletions(-)
->>
->> diff --git a/include/linux/string.h b/include/linux/string.h
->> index 54d21783e18d..9a96ff3ebf94 100644
->> --- a/include/linux/string.h
->> +++ b/include/linux/string.h
->> @@ -261,8 +261,6 @@ __FORTIFY_INLINE __kernel_size_t strlen(const char *p)
->>         if (p_size == (size_t)-1)
->>                 return __builtin_strlen(p);
->>         ret = strnlen(p, p_size);
->> -       if (p_size <= ret)
->> -               fortify_panic(__func__);
->>         return ret;
->>  }
->>
->> @@ -271,8 +269,6 @@ __FORTIFY_INLINE __kernel_size_t strnlen(const char *p, __kernel_size_t maxlen)
->>  {
->>         size_t p_size = __builtin_object_size(p, 0);
->>         __kernel_size_t ret = __real_strnlen(p, maxlen < p_size ? maxlen : p_size);
->> -       if (p_size <= ret && maxlen != ret)
->> -               fortify_panic(__func__);
->>         return ret;
-> 
-> I've reduced it further to this change:
-> 
-> --- a/include/linux/string.h
-> +++ b/include/linux/string.h
-> @@ -227,7 +227,7 @@ static inline const char *kbasename(const char *path)
->  #define __FORTIFY_INLINE extern __always_inline __attribute__((gnu_inline))
->  #define __RENAME(x) __asm__(#x)
-> 
-> -void fortify_panic(const char *name) __noreturn __cold;
-> +void fortify_panic(const char *name) __cold;
->  void __read_overflow(void) __compiletime_error("detected read beyond
-> size of object passed as 1st parameter");
->  void __read_overflow2(void) __compiletime_error("detected read beyond
-> size of object passed as 2nd parameter");
->  void __read_overflow3(void) __compiletime_error("detected read beyond
-> size of object passed as 3rd parameter");
-> 
-> I don't immediately see why the __noreturn changes the behavior here, any idea?
-> 
-
-
-At first I thought that this somehow might be related to __asan_handle_no_return(). GCC calls it
-before noreturn function. So I made patch to remove generation of these calls (we don't need them in the kernel anyway)
-but it didn't help. It must be something else than.
-
-
->>> Not sure if that change is the best fix, but it seems to address the problem in
->>> this driver and probably leads to better code in other places as well.
->>>
->>
->> Probably it would be better to solve this on the strlcpy side, but I haven't found the way to do this right.
->> Alternative solutions:
->>
->>  - use memcpy() instead of strlcpy(). All source strings are smaller than I2C_NAME_SIZE, so we could
->>    do something like this - memcpy(info.type, "si2168", sizeof("si2168"));
->>    Also this should be faster.
-> 
-> This would be very similar to the patch I posted at the start of this
-> thread to use strncpy(), right?
-
-Sure.
-
-> I was hoping that changing strlcpy() here could also improve other
-> users that might run into
-> the same situation, but stay below the 2048-byte stack frame limit.
-> 
->>  - Move code under different "case:" in the switch(dev->model) to the separate function should help as well.
->>    But it might be harder to backport into stables.
-> 
-> Agreed, I posted this in earlier versions of the patch series, see
-> https://patchwork.kernel.org/patch/9601025/
-> 
-> The new patch was a result of me trying to come up with a less
-> invasive version to
-> make it easier to backport, since I would like to backport the last
-> patch in the series
-> that depends on all the earlier ones.
-> 
->          Arnd
-> 
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIFBvdGFw
+ZW5rbyBbbWFpbHRvOmdsaWRlckBnb29nbGUuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIFNlcHRl
+bWJlciAyNywgMjAxNyAxNDoxNg0KPiBUbzogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQu
+bmV0PjsgWWluZyBYdWUNCj4gPHlpbmcueHVlQHdpbmRyaXZlci5jb20+OyBKb24gTWFsb3kgPGpv
+bi5tYWxveUBlcmljc3Nvbi5jb20+DQo+IENjOiBOZXR3b3JraW5nIDxuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnPjsgc3l6a2FsbGVyDQo+IDxzeXprYWxsZXJAZ29vZ2xlZ3JvdXBzLmNvbT4NCj4gU3Vi
+amVjdDogW2J1Z11bdGlwY10gVG9vIHNob3J0IHN0cnVjdCB0aXBjX3N1YnNjciBwYXNzZWQgdG8N
+Cj4gdGlwY19zdWJzY3JiX3Jjdl9jYigpDQo+IA0KPiBIaSBhbGwsDQo+IA0KPiBJJ3ZlIHNwb3R0
+ZWQgdGhlIGZvbGxvd2luZyBidWcgaW4gVElQQyBzZXJ2ZXIgY29kZSB3aGlsZSBmdXp6aW5nIGl0
+IHdpdGgNCj4gS01TQU4gYW5kIHN5emthbGxlcjoNCj4gDQo+ID09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCj4gPT09PT09PT0NCj4gQlVH
+OiBLTVNBTjogdXNlIG9mIHVuaW5pdGlhbGl6ZWQgbWVtb3J5IGluDQo+IHRpcGNfc3Vic2NyYl9y
+Y3ZfY2IrMHgxNGEvMHhjMjANCj4gQ1BVOiAyIFBJRDogMjkgQ29tbToga3dvcmtlci91ODoxIE5v
+dCB0YWludGVkIDQuMTMuMCsgIzMxNTAgSGFyZHdhcmUNCj4gbmFtZTogUUVNVSBTdGFuZGFyZCBQ
+QyAoaTQ0MEZYICsgUElJWCwgMTk5NiksIEJJT1MgQm9jaHMgMDEvMDEvMjAxMQ0KPiBXb3JrcXVl
+dWU6IHRpcGNfcmN2IHRpcGNfcmVjdl93b3JrDQo+IENhbGwgVHJhY2U6DQo+ICBfX2R1bXBfc3Rh
+Y2sgbGliL2R1bXBfc3RhY2suYzoxNg0KPiAgZHVtcF9zdGFjaysweDE3Mi8weDFjMCBsaWIvZHVt
+cF9zdGFjay5jOjUyDQo+ICBrbXNhbl9yZXBvcnQrMHgxNDUvMHgzZDAgbW0va21zYW4va21zYW4u
+Yzo5NDMNCj4gIF9fbXNhbl93YXJuaW5nXzMyKzB4NjYvMHhiMCBtbS9rbXNhbi9rbXNhbl9pbnN0
+ci5jOjQ3NyAgaHRvaGwNCj4gbmV0L3RpcGMvc3Vic2NyLmM6NjYNCj4gIHRpcGNfc3Vic2NyYl9y
+Y3ZfY2IrMHgxNGEvMHhjMjAgbmV0L3RpcGMvc3Vic2NyLmM6MzMzDQo+ICB0aXBjX3JlY2VpdmVf
+ZnJvbV9zb2NrKzB4MzY5LzB4NTQwIG5ldC90aXBjL3NlcnZlci5jOjI3Mw0KPiAgdGlwY19yZWN2
+X3dvcmsrMHhiZS8weDFjMCBuZXQvdGlwYy9zZXJ2ZXIuYzo1NDYNCj4gIHByb2Nlc3Nfb25lX3dv
+cmsrMHhmOWUvMHgxYWQwIGtlcm5lbC93b3JrcXVldWUuYzoyMDk3DQo+ICB3b3JrZXJfdGhyZWFk
+KzB4ZWZkLzB4MjA5MCBrZXJuZWwvd29ya3F1ZXVlLmM6MjIzMQ0KPiAga3RocmVhZCsweDQ5OS8w
+eDYyMCBrZXJuZWwva3RocmVhZC5jOjIzMg0KPiAgcmV0X2Zyb21fZm9yaysweDIyLzB4MzAgYXJj
+aC94ODYvZW50cnkvZW50cnlfNjQuUzo0MjUNCj4gb3JpZ2luOg0KPiAgc2F2ZV9zdGFja190cmFj
+ZSsweDE2LzB4MjAgYXJjaC94ODYva2VybmVsL3N0YWNrdHJhY2UuYzo1OQ0KPiBrbXNhbl9zYXZl
+X3N0YWNrX3dpdGhfZmxhZ3MgbW0va21zYW4va21zYW4uYzozMDINCj4gIGttc2FuX2ludGVybmFs
+X3BvaXNvbl9zaGFkb3crMHhiMy8weDFiMCBtbS9rbXNhbi9rbXNhbi5jOjE5OA0KPiAga21zYW5f
+a21hbGxvYysweDgwLzB4ZTAgbW0va21zYW4va21zYW4uYzozMzcNCj4gIGttZW1fY2FjaGVfYWxs
+b2MrMHgxZTIvMHgyMjAgbW0vc2x1Yi5jOjI3NTYNCj4gIHRpcGNfcmVjZWl2ZV9mcm9tX3NvY2sr
+MHhmZi8weDU0MCBuZXQvdGlwYy9zZXJ2ZXIuYzoyNTcNCj4gIHRpcGNfcmVjdl93b3JrKzB4YmUv
+MHgxYzAgbmV0L3RpcGMvc2VydmVyLmM6NTQ2DQo+ICBwcm9jZXNzX29uZV93b3JrKzB4ZjllLzB4
+MWFkMCBrZXJuZWwvd29ya3F1ZXVlLmM6MjA5Nw0KPiAgd29ya2VyX3RocmVhZCsweGVmZC8weDIw
+OTAga2VybmVsL3dvcmtxdWV1ZS5jOjIyMzENCj4gIGt0aHJlYWQrMHg0OTkvMHg2MjAga2VybmVs
+L2t0aHJlYWQuYzoyMzINCj4gIHJldF9mcm9tX2ZvcmsrMHgyMi8weDMwIGFyY2gveDg2L2VudHJ5
+L2VudHJ5XzY0LlM6NDI1DQo+ID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT0NCj4gPT09PT09PT0NCj4gKHNlZSB0aGUgcmVwcm9kdWNlciBh
+dHRhY2hlZCkuDQo+IA0KPiBIZXJlIHRoZSB1c2VyIHNlbmRzIDE2IGJ5dGVzIHZpYSBzZW5kbXNn
+KCksIHdoaWNoIHRoZSBrZXJuZWwgYXR0ZW1wdHMgdG8NCj4gdHJlYXQgYXMgYSBzdHJ1Y3QgdGlw
+Y19zdWJzY3IuIEJlY2F1c2UgdGhlIGFjdHVhbCBzaXplIG9mIGEgc3RydWN0IGlzIGJpZ2dlciwg
+d2UNCj4gZW5kIHVwIHRvdWNoaW5nIHVuaW5pdGlhbGl6ZWQgZmllbGRzLg0KPiANCj4gV2hhdCBp
+cyB0aGUgYmVzdCB3YXkgdG8gZml4IHRoaXM/DQo+IA0KPiBJIHRoaW5rIGl0J3MgdG9vIGxhdGUg
+dG8gY2hlY2sgZm9yIHxsZW58IGluIHRpcGNfc3Vic2NyYl9yY3ZfY2IoKQ0KPiAoaHR0cDovL2Vs
+aXhpci5mcmVlLQ0KPiBlbGVjdHJvbnMuY29tL2xpbnV4L2xhdGVzdC9zb3VyY2UvbmV0L3RpcGMv
+c3Vic2NyLmMjTDMyMCksDQo+IGJlY2F1c2Ugd2UnbGwgcHJvYmFibHkgbmVlZCB0byBjYWxsIHRp
+cGNfc3Vic2NycF9jYW5jZWwocywgc3Vic2NyaWJlcikgaW4NCj4gb3JkZXIgdG8gY2FuY2VsIHRo
+ZSBzdWJzY3JpcHRpb24sIHdoaWNoIGlzIGEgYmFkIGlkZWEgc2luY2UgfHN8IGlzIGludmFsaWQu
+DQo+IFdlIGNvdWxkIGNoZWNrIHRoYXQgcmV0ID49IHNpemVvZihzdHJ1Y3QgdGlwY19zdWJzY3Ip
+IGluDQo+IHRpcGNfcmVjZWl2ZV9mcm9tX3NvY2soKQ0KPiAoaHR0cDovL2VsaXhpci5mcmVlLWVs
+ZWN0cm9ucy5jb20vbGludXgvdjQuOC9zb3VyY2UvbmV0L3RpcGMvc2VydmVyLmMjTDI3MyksDQo+
+IGJ1dCB0aGlzIGZ1bmN0aW9uIGlzIGFnbm9zdGljIHRvIHRoZSB0eXBlIG9mIHRoZSBkYXRhIHJl
+Y2VpdmVkIGJ5IHRoZSBjYWxsYmFjaywNCj4gc28gd2UnZCBiZXR0ZXIgbm90IGhhcmRjb2RlIHRo
+ZSBzaXplIHRoZXJlLg0KDQpJIGRvbid0IHRoaW5rIHRoYXQgaXMgYSBwcm9ibGVtLiBUaGlzIHNl
+cnZlciB3YXMgYnVpbHQgdG8gYmUgbW9yZSBnZW5lcmljIHRoYW4gd2hhdA0Kd2UgcmVhbGx5IG5l
+ZWQgKG1heWJlIGJlY2F1c2Ugd2UgYWxzbyBoYWQgYSBjb25maWd1cmF0aW9uIHNlcnZlciBhdCBz
+b21lIG1vbWVudCkNCmJ1dCB5b3UgY2FuIHNhZmVseSBhc3N1bWUgdGhhdCBhbiBpbmNvbWluZyBt
+ZXNzYWdlIHNob3VsZCBoYXZlIHRoZSBzaXplIG9mIGEgDQp0aXBjX3N1YnNjciwgYW5kIG5vdGhp
+bmcgZWxzZS4NCg0KPiANCj4gT24gYSByZWxhdGVkIG5vdGUsIHNvbWV0aGluZyBpcyB3cm9uZyB3
+aXRoIHRoZSB0aXBjX3JlY2VpdmVfZnJvbV9zb2NrKCkncw0KPiByZXR1cm4gdmFsdWUuDQo+IEZp
+cnN0LCB0aGUgdXNlciBhcHBlYXJzIHRvIHJlY2VpdmUgYSBwb3NpdGl2ZSB2YWx1ZSAoMTYgaW4g
+b3VyIGNhc2UpIHJlZ2FyZGxlc3MNCj4gb2Ygd2hhdCB0aXBjX3JlY2VpdmVfZnJvbV9zb2NrKCkg
+cmV0dXJucy4NCj4gU2Vjb25kLCB0aGUgYnJhbmNoIGF0DQo+IGh0dHA6Ly9lbGl4aXIuZnJlZS1l
+bGVjdHJvbnMuY29tL2xpbnV4L3Y0Ljgvc291cmNlL25ldC90aXBjL3NlcnZlci5jI0wyODgNCj4g
+aXMgbmV2ZXIgdGFrZW4uDQoNCkkgYmVsaWV2ZSB0aGUgdGVzdCBhdCB0aGUgYmVnaW5uaW5nIG9m
+IHRoZSBsb29wDQoNCiAgIHdoaWxlICh0ZXN0X2JpdChDRl9DT05ORUNURUQsICZjb24tPmZsYWdz
+KSkgew0KICAgICAgICAgICAgICAgIGUgPSBsaXN0X2VudHJ5KGNvbi0+b3V0cXVldWUubmV4dCwg
+c3RydWN0IG91dHF1ZXVlX2VudHJ5LA0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGxp
+c3QpOw0KICAgICAgICAgICAgICAgIGlmICgoc3RydWN0IGxpc3RfaGVhZCAqKSBlID09ICZjb24t
+Pm91dHF1ZXVlKQ0KICAgICAgICAgICAgICAgICAgICAgICAgYnJlYWs7DQogICAgICAgICAgICAg
+ICAgIC4uLi4uDQoNCmlzIGluY29ycmVjdCBzb21laG93LiBJIHdhcyB0cm91Ymxlc2hvb3Rpbmcg
+dGhpcyBjb2RlIG15c2VsZiB0aGUgbGFzdCBkYXksIGFuZCBub3RlZCB0aGF0IHRoZSBsb29wIGFs
+d2F5cyBzZWVtcyB0byB0YWtlIGFuIGV4dHJhIGxvb3AgYWZ0ZXIgdGhlIHF1ZXVlIGlzIGFscmVh
+ZHkgZW1wdHksIG9mIGNvdXJzZSBhdHRlbXB0aW5nIHRvIHNlbmQgY3JhenkgdmFsdWVzLg0KDQpJ
+IG15c2VsZiBhbSBjaGFuZ2luZyB0aGlzIHRvDQoNCiAgIHdoaWxlICh0ZXN0X2JpdChDRl9DT05O
+RUNURUQsICZjb24tPmZsYWdzKSAmJiAhbGlzdF9lbXB0eSgmY29uLT5vdXRxdWV1ZSkpIHsNCiAg
+ICAgICAgICAgICAgICBlID0gbGlzdF9maXJzdF9lbnRyeShjb24tPm91dHF1ZXVlLCBzdHJ1Y3Qg
+b3V0cXVldWVfZW50cnksICAgIGxpc3QpOw0KICAgICAgICAgICAgICAgICAuLi4uLg0KDQpJIGFt
+IGFsc28gZG9pbmcgc29tZSBtb3JlIGNoYW5nZXMgdG8gdGhpcywgd2hpY2ggd2lsbCBiZSBzZW50
+IG91dCB0byB0aGUgdGlwYy1kaXNjdXNzaW9uIGxpc3QgaW4gdGhlIG5lYXIgZnV0dXJlLg0KDQpC
+Ug0KLy8vam9uDQoNCj4gDQo+IFdCUiwNCj4gDQo+IEFsZXhhbmRlciBQb3RhcGVua28NCj4gU29m
+dHdhcmUgRW5naW5lZXINCj4gDQo+IEdvb2dsZSBHZXJtYW55IEdtYkgNCj4gRXJpa2EtTWFubi1T
+dHJhw59lLCAzMw0KPiA4MDYzNiBNw7xuY2hlbg0KPiANCj4gR2VzY2jDpGZ0c2bDvGhyZXI6IFBh
+dWwgTWFuaWNsZSwgSGFsaW1haCBEZUxhaW5lIFByYWRvIFJlZ2lzdGVyZ2VyaWNodCB1bmQgLQ0K
+PiBudW1tZXI6IEhhbWJ1cmcsIEhSQiA4Njg5MSBTaXR6IGRlciBHZXNlbGxzY2hhZnQ6IEhhbWJ1
+cmcNCg==
