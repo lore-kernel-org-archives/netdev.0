@@ -1,118 +1,52 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 02/11] net/mlx5: Fix FPGA capability location
-Date: Thu, 28 Sep 2017 07:41:23 +0300
-Message-ID: <20170928044132.30940-3-saeedm@mellanox.com>
+Subject: [net 08/11] net/mlx5e: Don't add/remove 802.1ad rules when changing 802.1Q VLAN filter
+Date: Thu, 28 Sep 2017 07:41:29 +0300
+Message-ID: <20170928044132.30940-9-saeedm@mellanox.com>
 References: <20170928044132.30940-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Inbar Karmy <inbark@mellanox.com>,
+Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54346 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:54408 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750935AbdI1EmE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 00:42:04 -0400
+        with ESMTP id S1751673AbdI1EmG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 00:42:06 -0400
 In-Reply-To: <20170928044132.30940-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inbar Karmy <inbark@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Currently, FPGA capability is located in (mdev)->caps.hca_cur,
-change the location to be (mdev)->caps.fpga,
-since hca_cur is reserved for HCA device capabilities.
+Toggling of C-tag VLAN filter should not affect the "any S-tag" steering rule.
 
-Fixes: e29341fb3a5b ("net/mlx5: FPGA, Add basic support for Innova")
-Signed-off-by: Inbar Karmy <inbark@mellanox.com>
+Fixes: 8a271746a264 ("net/mlx5e: Receive s-tagged packets in promiscuous mode")
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c  | 4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h  | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c | 3 +--
- include/linux/mlx5/device.h                         | 5 ++---
- include/linux/mlx5/driver.h                         | 1 +
- 5 files changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-index e37453d838db..c0fd2212e890 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.c
-@@ -71,11 +71,11 @@ int mlx5_fpga_access_reg(struct mlx5_core_dev *dev, u8 size, u64 addr,
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index f11fd07ac4dd..850cdc980ab5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -291,7 +291,7 @@ void mlx5e_enable_vlan_filter(struct mlx5e_priv *priv)
+ 	priv->fs.vlan.filter_disabled = false;
+ 	if (priv->netdev->flags & IFF_PROMISC)
+ 		return;
+-	mlx5e_del_any_vid_rules(priv);
++	mlx5e_del_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_CTAG_VID, 0);
  }
  
--int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps)
-+int mlx5_fpga_caps(struct mlx5_core_dev *dev)
- {
- 	u32 in[MLX5_ST_SZ_DW(fpga_cap)] = {0};
- 
--	return mlx5_core_access_reg(dev, in, sizeof(in), caps,
-+	return mlx5_core_access_reg(dev, in, sizeof(in), dev->caps.fpga,
- 				    MLX5_ST_SZ_BYTES(fpga_cap),
- 				    MLX5_REG_FPGA_CAP, 0, 0);
+ void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv)
+@@ -302,7 +302,7 @@ void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv)
+ 	priv->fs.vlan.filter_disabled = true;
+ 	if (priv->netdev->flags & IFF_PROMISC)
+ 		return;
+-	mlx5e_add_any_vid_rules(priv);
++	mlx5e_add_vlan_rule(priv, MLX5E_VLAN_RULE_TYPE_ANY_CTAG_VID, 0);
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-index 94bdfd47c3f0..d05233c9b4f6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/cmd.h
-@@ -65,7 +65,7 @@ struct mlx5_fpga_qp_counters {
- 	u64 rx_total_drop;
- };
  
--int mlx5_fpga_caps(struct mlx5_core_dev *dev, u32 *caps);
-+int mlx5_fpga_caps(struct mlx5_core_dev *dev);
- int mlx5_fpga_query(struct mlx5_core_dev *dev, struct mlx5_fpga_query *query);
- int mlx5_fpga_ctrl_op(struct mlx5_core_dev *dev, u8 op);
- int mlx5_fpga_access_reg(struct mlx5_core_dev *dev, u8 size, u64 addr,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-index 9034e9960a76..dc8970346521 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/core.c
-@@ -139,8 +139,7 @@ int mlx5_fpga_device_start(struct mlx5_core_dev *mdev)
- 	if (err)
- 		goto out;
- 
--	err = mlx5_fpga_caps(fdev->mdev,
--			     fdev->mdev->caps.hca_cur[MLX5_CAP_FPGA]);
-+	err = mlx5_fpga_caps(fdev->mdev);
- 	if (err)
- 		goto out;
- 
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index eaf4ad209c8f..e32dbc4934db 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -980,7 +980,6 @@ enum mlx5_cap_type {
- 	MLX5_CAP_RESERVED,
- 	MLX5_CAP_VECTOR_CALC,
- 	MLX5_CAP_QOS,
--	MLX5_CAP_FPGA,
- 	/* NUM OF CAP Types */
- 	MLX5_CAP_NUM
- };
-@@ -1110,10 +1109,10 @@ enum mlx5_mcam_feature_groups {
- 	MLX5_GET(mcam_reg, (mdev)->caps.mcam, mng_feature_cap_mask.enhanced_features.fld)
- 
- #define MLX5_CAP_FPGA(mdev, cap) \
--	MLX5_GET(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
-+	MLX5_GET(fpga_cap, (mdev)->caps.fpga, cap)
- 
- #define MLX5_CAP64_FPGA(mdev, cap) \
--	MLX5_GET64(fpga_cap, (mdev)->caps.hca_cur[MLX5_CAP_FPGA], cap)
-+	MLX5_GET64(fpga_cap, (mdev)->caps.fpga, cap)
- 
- enum {
- 	MLX5_CMD_STAT_OK			= 0x0,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 02ff700e4f30..401c8972cc3a 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -774,6 +774,7 @@ struct mlx5_core_dev {
- 		u32 hca_max[MLX5_CAP_NUM][MLX5_UN_SZ_DW(hca_cap_union)];
- 		u32 pcam[MLX5_ST_SZ_DW(pcam_reg)];
- 		u32 mcam[MLX5_ST_SZ_DW(mcam_reg)];
-+		u32 fpga[MLX5_ST_SZ_DW(fpga_cap)];
- 	} caps;
- 	phys_addr_t		iseg_base;
- 	struct mlx5_init_seg __iomem *iseg;
+ int mlx5e_vlan_rx_add_vid(struct net_device *dev, __always_unused __be16 proto,
 -- 
 2.13.0
