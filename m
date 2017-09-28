@@ -1,87 +1,82 @@
-From: Grant Grundler <grundler@chromium.org>
-Subject: [PATCH V4] r8152:  add Linksys USB3GIGV1 id
-Date: Thu, 28 Sep 2017 11:35:00 -0700
-Message-ID: <20170928183500.61199-1-grundler@chromium.org>
-Cc: linux-usb <linux-usb@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-        Grant Grundler <grundler@chromium.org>
-To: Hayes Wang <hayeswang@realtek.com>,
-        Oliver Neukum <oneukum@suse.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Thu, 28 Sep 2017 20:40:59 +0200
+Message-ID: <20170928184059.GA2825@amd>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170907223625.GW11248@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41124D5A@CHN-SV-EXMX02.mchp-main.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="HcAYCG3uE/tztfnV"
+Cc: andrew@lunn.ch, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41124D5A@CHN-SV-EXMX02.mchp-main.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This linksys dongle by default comes up in cdc_ether mode.
-This patch allows r8152 to claim the device:
-   Bus 002 Device 002: ID 13b1:0041 Linksys
 
-Signed-off-by: Grant Grundler <grundler@chromium.org>
----
- drivers/net/usb/cdc_ether.c | 10 ++++++++++
- drivers/net/usb/r8152.c     |  2 ++
- 2 files changed, 12 insertions(+)
+--HcAYCG3uE/tztfnV
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-V4: use IS_ENABLED() to check CONFIG_USB_RTL8152 is m or y.
-    (verified by adding #error to the new code and trying to compile
-     Thanks Doug for the tip!)
-    Add LINKSYS vendor #define in same order for both drivers.
+Hi!
 
-V3: for backwards compat, add #ifdef CONFIG_USB_RTL8152 around
-    the cdc_ether blacklist entry so the cdc_ether driver can
-    still claim the device if r8152 driver isn't configured.
+On Mon 2017-09-18 20:27:13, Tristram.Ha@microchip.com wrote:
+> > > +/**
+> > > + * Some counters do not need to be read too often because they are l=
+ess
+> > likely
+> > > + * to increase much.
+> > > + */
+> >=20
+> > What does comment mean? Are you caching statistics, and updating
+> > different values at different rates?
+> >=20
+>=20
+> There are 34 counters.  In normal case using generic bus I/O or PCI to re=
+ad them
+> is very quick, but the switch is mostly accessed using SPI, or even I2C. =
+ As the SPI
+> access is very slow and cannot run in interrupt context I keep worrying r=
+eading
+> the MIB counters in a loop for 5 or more ports will prevent other critica=
+l hardware
+> access from executing soon enough.  These accesses can be getting 1588 PTP
+> timestamps and opening/closing ports.  (RSTP Conformance Test sends test =
+traffic
+> to port supposed to be closed/opened after receiving specific RSTP
+> BPDU.)
 
-V2: add LINKSYS_VENDOR_ID to cdc_ether blacklist
+Hmm. Ok, interesting.
 
+I wonder how well this is going to work if userspace actively 'does
+something' with the switch.
 
+It seems to me that even if your statistics code is careful not to do
+'a lot' of accesses at the same time, userspace can use other parts of
+the driver to do the same, and thus cause same unwanted effects...
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 8ab281b478f2..677a85360db1 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -547,6 +547,7 @@ static const struct driver_info wwan_info = {
- #define REALTEK_VENDOR_ID	0x0bda
- #define SAMSUNG_VENDOR_ID	0x04e8
- #define LENOVO_VENDOR_ID	0x17ef
-+#define LINKSYS_VENDOR_ID	0x13b1
- #define NVIDIA_VENDOR_ID	0x0955
- #define HP_VENDOR_ID		0x03f0
- #define MICROSOFT_VENDOR_ID	0x045e
-@@ -737,6 +738,15 @@ static const struct usb_device_id	products[] = {
- 	.driver_info = 0,
- },
- 
-+#if IS_ENABLED(CONFIG_USB_RTL8152)
-+/* Linksys USB3GIGV1 Ethernet Adapter */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(LINKSYS_VENDOR_ID, 0x0041, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = 0,
-+},
-+#endif
-+
- /* ThinkPad USB-C Dock (based on Realtek RTL8153) */
- {
- 	USB_DEVICE_AND_INTERFACE_INFO(LENOVO_VENDOR_ID, 0x3062, USB_CLASS_COMM,
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index ceb78e2ea4f0..941ece08ba78 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -613,6 +613,7 @@ enum rtl8152_flags {
- #define VENDOR_ID_MICROSOFT		0x045e
- #define VENDOR_ID_SAMSUNG		0x04e8
- #define VENDOR_ID_LENOVO		0x17ef
-+#define VENDOR_ID_LINKSYS		0x13b1
- #define VENDOR_ID_NVIDIA		0x0955
- 
- #define MCU_TYPE_PLA			0x0100
-@@ -5316,6 +5317,7 @@ static const struct usb_device_id rtl8152_table[] = {
- 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7205)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x720c)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7214)},
-+	{REALTEK_USB_DEVICE(VENDOR_ID_LINKSYS, 0x0041)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_NVIDIA,  0x09ff)},
- 	{}
- };
--- 
-2.14.2.822.g60be5d43e6-goog
+--HcAYCG3uE/tztfnV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlnNQjsACgkQMOfwapXb+vI92wCgl4NK+GuwHj0FnR6KTbtyJVCS
+gaYAn3L8uXsYRLut1YOsHI1hIiTergZT
+=zOqY
+-----END PGP SIGNATURE-----
+
+--HcAYCG3uE/tztfnV--
