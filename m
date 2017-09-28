@@ -1,42 +1,65 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next RFC 3/5] vhost: introduce vhost_add_used_idx()
-Date: Wed, 27 Sep 2017 20:59:53 -0400
-Message-ID: <CAF=yD-JaivP9=dKp63U3CoReGW4K=W+j4tp_kasHEoMC7rO54A@mail.gmail.com>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <1506067355-5771-4-git-send-email-jasowang@redhat.com> <20170926170047-mutt-send-email-mst@kernel.org>
- <c42b7244-6d43-2ce5-46a3-ea70ec9d957f@redhat.com> <20170928015749-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170928015749-mutt-send-email-mst@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH next] bonding: speed/duplex update at NETDEV_UP event
+Date: Wed, 27 Sep 2017 18:03:49 -0700
+Message-ID: <20170928010349.8988-1-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <mahesh@bandewar.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35081 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752520AbdI1BDz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 21:03:55 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i23so18433pfi.2
+        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 18:03:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> > > @@ -199,6 +199,7 @@ int __vhost_get_vq_desc(struct vhost_virtqueue *vq,
->> > >   void vhost_discard_vq_desc(struct vhost_virtqueue *, int n);
->> > >   int vhost_vq_init_access(struct vhost_virtqueue *);
->> > > +int vhost_add_used_idx(struct vhost_virtqueue *vq, int n);
->> > >   int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
->> > >   int vhost_add_used_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
->> > >                        unsigned count);
->> > Please change the API to hide the fact that there's an index that needs
->> > to be updated.
->>
->> In fact, an interesting optimization on top is just call
->> vhost_add_used_idx(vq, n) instead of n vhost_add_used_idx(vq, 1). That's the
->> reason I leave n in the API.
->>
->> Thanks
->
-> Right but you could increment some internal counter in the vq
-> structure then update the used index using some api
-> with a generic name, e.g.  add_used_complete or something like this.
+From: Mahesh Bandewar <maheshb@google.com>
 
-That adds a layer of information hiding. If the same variable can be
-kept close to the computation in a local variable and passed directly
-to vhost_add_used_idx_n that is easier to follow.
+Some NIC drivers don't have correct speed/duplex settings at the
+time they send NETDEV_UP notification and that messes up the
+bonding state. Especially 802.3ad mode which is very sensitive
+to these settings. In the current implementation we invoke
+bond_update_speed_duplex() when we receive NETDEV_UP, however,
+ignore the return value. If the values we get are invalid
+(UNKNOWN), then slave gets removed from the aggregator with
+speed and duplex set to UNKNOWN while link is still marked as UP.
+
+This patch fixes this scenario. Also 802.3ad mode is sensitive to
+these conditions while other modes are not, so making sure that it
+doesn't change the behavior for other modes.
+
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/bonding/bond_main.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b7313c1d9dcd..177be373966b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3076,7 +3076,16 @@ static int bond_slave_netdev_event(unsigned long event,
+ 		break;
+ 	case NETDEV_UP:
+ 	case NETDEV_CHANGE:
+-		bond_update_speed_duplex(slave);
++		/* For 802.3ad mode only:
++		 * Getting invalid Speed/Duplex values here will put slave
++		 * in weird state. So mark it as link-down for the time
++		 * being and let link-monitoring (miimon) set it right when
++		 * correct speeds/duplex are available.
++		 */
++		if (bond_update_speed_duplex(slave) &&
++		    BOND_MODE(bond) == BOND_MODE_8023AD)
++			slave->link = BOND_LINK_DOWN;
++
+ 		if (BOND_MODE(bond) == BOND_MODE_8023AD)
+ 			bond_3ad_adapter_speed_duplex_changed(slave);
+ 		/* Fallthrough */
+-- 
+2.14.2.822.g60be5d43e6-goog
