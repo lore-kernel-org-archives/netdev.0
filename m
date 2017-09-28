@@ -1,57 +1,109 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ip6_tunnel: update mtu properly for ARPHRD_ETHER tunnel device in tx path
-Date: Thu, 28 Sep 2017 13:24:07 +0800
-Message-ID: <f4105462b42f560a0aaace0be3e66129200bdf29.1506576247.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Dmitry Kozlov <xeb@mail.ru>
-To: network dev <netdev@vger.kernel.org>
+From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
+Date: Thu, 28 Sep 2017 05:59:38 +0000
+Message-ID: <E0D909EE5BB15A4699798539EA149D7F077E53D6@ORSMSX103.amr.corp.intel.com>
+References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
+ <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
+ <59C94FF4.8070900@iogearbox.net>
+ <20170926172140.GB60144@C02RW35GFVH8.dhcp.broadcom.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "mchan@broadcom.com" <mchan@broadcom.com>
+To: Andy Gospodarek <andy@greyhouse.net>,
+        Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36969 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751113AbdI1FYP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 01:24:15 -0400
-Received: by mail-pf0-f196.google.com with SMTP id e69so496748pfg.4
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 22:24:15 -0700 (PDT)
+Received: from mga02.intel.com ([134.134.136.20]:64031 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750775AbdI1F7p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 01:59:45 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now when updating mtu in tx path, it doesn't consider ARPHRD_ETHER tunnel
-device, like ip6gre_tap tunnel, for which it should also subtract ether
-header to get the correct mtu.
+On 9/26/17 10:21 AM, Andy Gospodarek wrote:
+> On Mon, Sep 25, 2017 at 08:50:28PM +0200, Daniel Borkmann wrote:
+>> On 09/25/2017 08:10 PM, Andy Gospodarek wrote:
+>> [...]
+>>> First, thanks for this detailed description.  It was helpful to read
+>>> along with the patches.
+>>>
+>>> My only concern about this area being generic is that you are now in a
+>>> state where any bpf program must know about all the bpf programs in the
+>>> receive pipeline before it can properly parse what is stored in the
+>>> meta-data and add it to an skb (or perform any other action).
+>>> Especially if each program adds it's own meta-data along the way.
+>>>
+>>> Maybe this isn't a big concern based on the number of users of this
+>>> today, but it just starts to seem like a concern as there are these
+>>> hints being passed between layers that are challenging to track due to a
+>>> lack of a standard format for passing data between.
+>>
+>> Btw, we do have similar kind of programmable scratch buffer also today
+>> wrt skb cb[] that you can program from tc side, the perf ring buffer,
+>> which doesn't have any fixed layout for the slots, or a per-cpu map
+>> where you can transfer data between tail calls for example, then tail
+>> calls themselves that need to coordinate, or simply mangling of packets
+>> itself if you will, but more below to your use case ...
+>>
+>>> The main reason I bring this up is that Michael and I had discussed and
+>>> designed a way for drivers to communicate between each other that rx
+>>> resources could be freed after a tx completion on an XDP_REDIRECT
+>>> action.  Much like this code, it involved adding an new element to
+>>> struct xdp_md that could point to the important information.  Now that
+>>> there is a generic way to handle this, it would seem nice to be able to
+>>> leverage it, but I'm not sure how reliable this meta-data area would be
+>>> without the ability to mark it in some manner.
+>>>
+>>> For additional background, the minimum amount of data needed in the case
+>>> Michael and I were discussing was really 2 words.  One to serve as a
+>>> pointer to an rx_ring structure and one to have a counter to the rx
+>>> producer entry.  This data could be acessed by the driver processing the
+>>> tx completions and callback to the driver that received the frame off the wire
+>>> to perform any needed processing.  (For those curious this would also require a
+>>> new callback/netdev op to act on this data stored in the XDP buffer.)
+>>
+>> What you describe above doesn't seem to be fitting to the use-case of
+>> this set, meaning the area here is fully programmable out of the BPF
+>> program, the infrastructure you're describing is some sort of means of
+>> communication between drivers for the XDP_REDIRECT, and should be
+>> outside of the control of the BPF program to mangle.
+> 
+> OK, I understand that perspective.  I think saying this is really meant
+> as a BPF<->BPF communication channel for now is fine.
+> 
+>> You could probably reuse the base infra here and make a part of that
+>> inaccessible for the program with some sort of a fixed layout, but I
+>> haven't seen your code yet to be able to fully judge. Intention here
+>> is to allow for programmability within the BPF prog in a generic way,
+>> such that based on the use-case it can be populated in specific ways
+>> and propagated to the skb w/o having to define a fixed layout and
+>> bloat xdp_buff all the way to an skb while still retaining all the
+>> flexibility.
+> 
+> Some level of reuse might be proper, but I'd rather it be explicit for
+> my use since it's not exclusively something that will need to be used by
+> a BPF prog, but rather the driver.  I'll produce some patches this week
+> for reference.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/ip6_tunnel.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Sorry for chiming in late, I've been offline.
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index f2f21c2..a1c2444 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1043,6 +1043,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 	struct dst_entry *dst = NULL, *ndst = NULL;
- 	struct net_device *tdev;
- 	int mtu;
-+	unsigned int eth_hlen = t->dev->type == ARPHRD_ETHER ? ETH_HLEN : 0;
- 	unsigned int psh_hlen = sizeof(struct ipv6hdr) + t->encap_hlen;
- 	unsigned int max_headroom = psh_hlen;
- 	bool use_cache = false;
-@@ -1124,7 +1125,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 				     t->parms.name);
- 		goto tx_err_dst_release;
- 	}
--	mtu = dst_mtu(dst) - psh_hlen - t->tun_hlen;
-+	mtu = dst_mtu(dst) - eth_hlen - psh_hlen - t->tun_hlen;
- 	if (encap_limit >= 0) {
- 		max_headroom += 8;
- 		mtu -= 8;
-@@ -1133,7 +1134,7 @@ int ip6_tnl_xmit(struct sk_buff *skb, struct net_device *dev, __u8 dsfield,
- 		mtu = IPV6_MIN_MTU;
- 	if (skb_dst(skb) && !t->parms.collect_md)
- 		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
--	if (skb->len - t->tun_hlen > mtu && !skb_is_gso(skb)) {
-+	if (skb->len - t->tun_hlen - eth_hlen > mtu && !skb_is_gso(skb)) {
- 		*pmtu = mtu;
- 		err = -EMSGSIZE;
- 		goto tx_err_dst_release;
--- 
-2.1.0
+We're looking to add some functionality from driver to XDP inside this 
+xdp_buff->data_meta region.  We want to assign it to an opaque 
+structure, that would be specific per driver (think of a flex descriptor 
+coming out of the hardware).  We'd like to pass these offloaded 
+computations into XDP programs to help accelerate them, such as packet 
+type, where headers are located, etc.  It's similar to Jesper's RFC 
+patches back in May when passing through the mlx Rx descriptor to XDP.
+
+This is actually what a few of us are planning to present at NetDev 2.2 
+in November.  If you're hoping to restrict this headroom in the xdp_buff 
+for an exclusive use case with XDP_REDIRECT, then I'd like to discuss 
+that further.
+
+-PJ
