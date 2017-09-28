@@ -1,11 +1,11 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next RFC 2/5] vhost: introduce helper to prefetch desc
- index
-Date: Thu, 28 Sep 2017 15:44:50 +0800
-Message-ID: <4450795e-7967-8427-6b41-28fe4f912e51@redhat.com>
+Subject: Re: [PATCH net-next RFC 5/5] vhost_net: basic tx virtqueue batched
+ processing
+Date: Thu, 28 Sep 2017 15:50:14 +0800
+Message-ID: <a0b47264-75b9-4ab5-3c78-7b08cee7995c@redhat.com>
 References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <1506067355-5771-3-git-send-email-jasowang@redhat.com>
- <CAF=yD-JC9g1gd-jsSjnLzbwAnk-LsPuj_JhF2NWf1rdxiWDwwA@mail.gmail.com>
+ <1506067355-5771-6-git-send-email-jasowang@redhat.com>
+ <CAF=yD-LuKXo93kUYS_1fhL88jGmS6LHiTzi=JpSoRucNSp3k4g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
@@ -15,108 +15,106 @@ Cc: "Michael S. Tsirkin" <mst@redhat.com>,
         LKML <linux-kernel@vger.kernel.org>, kvm@vger.kernel.org
 To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAF=yD-JC9g1gd-jsSjnLzbwAnk-LsPuj_JhF2NWf1rdxiWDwwA@mail.gmail.com>
+In-Reply-To: <CAF=yD-LuKXo93kUYS_1fhL88jGmS6LHiTzi=JpSoRucNSp3k4g@mail.gmail.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年09月28日 08:47, Willem de Bruijn wrote:
-> On Fri, Sep 22, 2017 at 4:02 AM, Jason Wang <jasowang@redhat.com> wrote:
->> This patch introduces vhost_prefetch_desc_indices() which could batch
->> descriptor indices fetching and used ring updating. This intends to
->> reduce the cache misses of indices fetching and updating and reduce
->> cache line bounce when virtqueue is almost full. copy_to_user() was
->> used in order to benefit from modern cpus that support fast string
->> copy. Batched virtqueue processing will be the first user.
+On 2017年09月28日 08:55, Willem de Bruijn wrote:
+>> @@ -461,6 +460,7 @@ static void handle_tx(struct vhost_net *net)
+>>          struct socket *sock;
+>>          struct vhost_net_ubuf_ref *uninitialized_var(ubufs);
+>>          bool zcopy, zcopy_used;
+>> +       int i, batched = VHOST_NET_BATCH;
 >>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/vhost/vhost.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++++
->>   drivers/vhost/vhost.h |  3 +++
->>   2 files changed, 58 insertions(+)
+>>          mutex_lock(&vq->mutex);
+>>          sock = vq->private_data;
+>> @@ -475,6 +475,12 @@ static void handle_tx(struct vhost_net *net)
+>>          hdr_size = nvq->vhost_hlen;
+>>          zcopy = nvq->ubufs;
 >>
->> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->> index f87ec75..8424166d 100644
->> --- a/drivers/vhost/vhost.c
->> +++ b/drivers/vhost/vhost.c
->> @@ -2437,6 +2437,61 @@ struct vhost_msg_node *vhost_dequeue_msg(struct vhost_dev *dev,
->>   }
->>   EXPORT_SYMBOL_GPL(vhost_dequeue_msg);
->>
->> +int vhost_prefetch_desc_indices(struct vhost_virtqueue *vq,
->> +                               struct vring_used_elem *heads,
->> +                               u16 num, bool used_update)
->> +{
->> +       int ret, ret2;
->> +       u16 last_avail_idx, last_used_idx, total, copied;
->> +       __virtio16 avail_idx;
->> +       struct vring_used_elem __user *used;
->> +       int i;
->> +
->> +       if (unlikely(vhost_get_avail(vq, avail_idx, &vq->avail->idx))) {
->> +               vq_err(vq, "Failed to access avail idx at %p\n",
->> +                      &vq->avail->idx);
->> +               return -EFAULT;
->> +       }
->> +       last_avail_idx = vq->last_avail_idx & (vq->num - 1);
->> +       vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
->> +       total = vq->avail_idx - vq->last_avail_idx;
->> +       ret = total = min(total, num);
->> +
->> +       for (i = 0; i < ret; i++) {
->> +               ret2 = vhost_get_avail(vq, heads[i].id,
->> +                                     &vq->avail->ring[last_avail_idx]);
->> +               if (unlikely(ret2)) {
->> +                       vq_err(vq, "Failed to get descriptors\n");
->> +                       return -EFAULT;
->> +               }
->> +               last_avail_idx = (last_avail_idx + 1) & (vq->num - 1);
->> +       }
-> This is understandably very similar to the existing logic in vhost_get_vq_desc.
-> Can that be extracted to a helper to avoid code duplication?
->
-> Perhaps one helper to update vq->avail_idx and return num, and
-> another to call vhost_get_avail one or more times.
+>> +       /* Disable zerocopy batched fetching for simplicity */
+> This special case can perhaps be avoided if we no longer block
+> on vhost_exceeds_maxpend, but revert to copying.
 
-Yes it can.
+Yes, I think so. For simplicity, I do it for data copy first. If the 
+idea is convinced, I will try to do zerocopy on top.
 
 >
->> +
->> +       if (!used_update)
->> +               return ret;
->> +
->> +       last_used_idx = vq->last_used_idx & (vq->num - 1);
->> +       while (total) {
->> +               copied = min((u16)(vq->num - last_used_idx), total);
->> +               ret2 = vhost_copy_to_user(vq,
->> +                                         &vq->used->ring[last_used_idx],
->> +                                         &heads[ret - total],
->> +                                         copied * sizeof(*used));
->> +
->> +               if (unlikely(ret2)) {
->> +                       vq_err(vq, "Failed to update used ring!\n");
->> +                       return -EFAULT;
->> +               }
->> +
->> +               last_used_idx = 0;
->> +               total -= copied;
+>> +       if (zcopy) {
+>> +               heads = &used;
+> Can this special case of batchsize 1 not use vq->heads?
+
+It doesn't in fact?
+
+>
+>> +               batched = 1;
 >> +       }
-> This second part seems unrelated and could be a separate function?
+>> +
+>>          for (;;) {
+>>                  /* Release DMAs done buffers first */
+>>                  if (zcopy)
+>> @@ -486,95 +492,114 @@ static void handle_tx(struct vhost_net *net)
+>>                  if (unlikely(vhost_exceeds_maxpend(net)))
+>>                          break;
+>> +                       /* TODO: Check specific error and bomb out
+>> +                        * unless ENOBUFS?
+>> +                        */
+>> +                       err = sock->ops->sendmsg(sock, &msg, len);
+>> +                       if (unlikely(err < 0)) {
+>> +                               if (zcopy_used) {
+>> +                                       vhost_net_ubuf_put(ubufs);
+>> +                                       nvq->upend_idx =
+>> +                                  ((unsigned)nvq->upend_idx - 1) % UIO_MAXIOV;
+>> +                               }
+>> +                               vhost_discard_vq_desc(vq, 1);
+>> +                               goto out;
+>> +                       }
+>> +                       if (err != len)
+>> +                               pr_debug("Truncated TX packet: "
+>> +                                       " len %d != %zd\n", err, len);
+>> +                       if (!zcopy) {
+>> +                               vhost_add_used_idx(vq, 1);
+>> +                               vhost_signal(&net->dev, vq);
+>> +                       } else if (!zcopy_used) {
+>> +                               vhost_add_used_and_signal(&net->dev,
+>> +                                                         vq, head, 0);
+> While batching, perhaps can also move this producer index update
+> out of the loop and using vhost_add_used_and_signal_n.
 
 Yes.
 
 >
-> Also, no need for ret2 and double assignment "ret = total =" if not
-> modifying total
-> in the the second loop:
->
->    for (i = 0; i < total; ) {
->      ...
->      i += copied;
->    }
+>> +                       } else
+>> +                               vhost_zerocopy_signal_used(net, vq);
+>> +                       vhost_net_tx_packet(net);
+>> +                       if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+>> +                               vhost_poll_queue(&vq->poll);
+>> +                               goto out;
+>>                          }
+>> -                       vhost_discard_vq_desc(vq, 1);
+>> -                       break;
+>> -               }
+>> -               if (err != len)
+>> -                       pr_debug("Truncated TX packet: "
+>> -                                " len %d != %zd\n", err, len);
+>> -               if (!zcopy_used)
+>> -                       vhost_add_used_and_signal(&net->dev, vq, head, 0);
+>> -               else
+>> -                       vhost_zerocopy_signal_used(net, vq);
+>> -               vhost_net_tx_packet(net);
+>> -               if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+>> -                       vhost_poll_queue(&vq->poll);
+>> -                       break;
+> This patch touches many lines just for indentation. If having to touch
+> these lines anyway (dirtying git blame), it may be a good time to move
+> the processing of a single descriptor code into a separate helper function.
+> And while breaking up, perhaps another helper for setting up ubuf_info.
+> If you agree, preferably in a separate noop refactor patch that precedes
+> the functional changes.
 
-Right, will do this in V2.
+Right and it looks better, will try to do this.
 
 Thanks
