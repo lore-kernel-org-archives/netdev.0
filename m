@@ -1,93 +1,97 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v3 net-next 2/8] flow_dissector: Move ETH_P_TEB processing to main switch
-Date: Thu, 28 Sep 2017 14:48:17 -0700
-Message-ID: <20170928214823.2426-2-tom@quantonium.net>
+Subject: [PATCH v3 net-next 3/8] udp: Check static key udp_encap_needed in udp_gro_receive
+Date: Thu, 28 Sep 2017 14:48:18 -0700
+Message-ID: <20170928214823.2426-3-tom@quantonium.net>
 References: <20170928214823.2426-1-tom@quantonium.net>
 Cc: netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:43992 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750977AbdI1Vsm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 17:48:42 -0400
-Received: by mail-pf0-f176.google.com with SMTP id y29so1509900pff.0
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 14:48:42 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:47874 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751042AbdI1Vsp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 17:48:45 -0400
+Received: by mail-pf0-f181.google.com with SMTP id u12so1503940pfl.4
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 14:48:45 -0700 (PDT)
 In-Reply-To: <20170928214823.2426-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support for processing TEB is currently in GRE flow dissection as a
-special case. This can be moved to be a case the main proto switch in
-__skb_flow_dissect.
+Currently, the only support for udp gro is provided by UDP encapsulation
+protocols. Since they always set udp_encap_needed we can check that in
+udp_gro_receive functions before performing a socket lookup.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- net/core/flow_dissector.c | 45 ++++++++++++++++++++++++---------------------
- 1 file changed, 24 insertions(+), 21 deletions(-)
+ include/net/udp.h      | 2 ++
+ net/ipv4/udp.c         | 4 +++-
+ net/ipv4/udp_offload.c | 7 +++++++
+ net/ipv6/udp_offload.c | 7 +++++++
+ 4 files changed, 19 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 76f5e5bc3177..c15b41f96cbe 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -282,27 +282,8 @@ __skb_flow_dissect_gre(const struct sk_buff *skb,
- 	if (hdr->flags & GRE_SEQ)
- 		offset += sizeof(((struct pptp_gre_header *) 0)->seq);
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 12dfbfe2e2d7..c6b1c5d8d3c9 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -97,6 +97,8 @@ static inline struct udp_hslot *udp_hashslot2(struct udp_table *table,
  
--	if (gre_ver == 0) {
--		if (*p_proto == htons(ETH_P_TEB)) {
--			const struct ethhdr *eth;
--			struct ethhdr _eth;
--
--			eth = __skb_header_pointer(skb, *p_nhoff + offset,
--						   sizeof(_eth),
--						   data, *p_hlen, &_eth);
--			if (!eth)
--				return FLOW_DISSECT_RET_OUT_BAD;
--			*p_proto = eth->h_proto;
--			offset += sizeof(*eth);
--
--			/* Cap headers that we access via pointers at the
--			 * end of the Ethernet header as our maximum alignment
--			 * at that point is only 2 bytes.
--			 */
--			if (NET_IP_ALIGN)
--				*p_hlen = *p_nhoff + offset;
--		}
--	} else { /* version 1, must be PPTP */
-+	/* version 1, must be PPTP */
-+	if (gre_ver == 1) {
- 		u8 _ppp_hdr[PPP_HDRLEN];
- 		u8 *ppp_hdr;
+ extern struct proto udp_prot;
  
-@@ -595,6 +576,28 @@ bool __skb_flow_dissect(struct sk_buff *skb,
++extern struct static_key udp_encap_needed;
++
+ extern atomic_long_t udp_memory_allocated;
  
- 		break;
- 	}
-+	case htons(ETH_P_TEB): {
-+		const struct ethhdr *eth;
-+		struct ethhdr _eth;
+ /* sysctl variables for udp */
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 784ced0b9150..2788843e8eb2 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1813,7 +1813,9 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	return 0;
+ }
+ 
+-static struct static_key udp_encap_needed __read_mostly;
++struct static_key udp_encap_needed __read_mostly;
++EXPORT_SYMBOL(udp_encap_needed);
 +
-+		eth = __skb_header_pointer(skb, nhoff, sizeof(_eth),
-+					   data, hlen, &_eth);
-+		if (!eth)
-+			goto out_bad;
-+
-+		proto = eth->h_proto;
-+		nhoff += sizeof(*eth);
-+
-+		/* Cap headers that we access via pointers at the
-+		 * end of the Ethernet header as our maximum alignment
-+		 * at that point is only 2 bytes.
+ void udp_encap_enable(void)
+ {
+ 	static_key_enable(&udp_encap_needed);
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 97658bfc1b58..a744bb515455 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -261,6 +261,13 @@ static struct sk_buff **udp4_gro_receive(struct sk_buff **head,
+ {
+ 	struct udphdr *uh = udp_gro_udphdr(skb);
+ 
++	if (!static_key_false(&udp_encap_needed)) {
++		/* Currently udp_gro_receive only does something if
++		 * a UDP encapsulation has been set.
 +		 */
-+		if (NET_IP_ALIGN)
-+			hlen = nhoff;
-+
-+		fdret = FLOW_DISSECT_RET_PROTO_AGAIN;
-+		break;
++		goto flush;
 +	}
- 	case htons(ETH_P_8021AD):
- 	case htons(ETH_P_8021Q): {
- 		const struct vlan_hdr *vlan;
++
+ 	if (unlikely(!uh))
+ 		goto flush;
+ 
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 455fd4e39333..111b026e4f03 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -34,6 +34,13 @@ static struct sk_buff **udp6_gro_receive(struct sk_buff **head,
+ {
+ 	struct udphdr *uh = udp_gro_udphdr(skb);
+ 
++	if (!static_key_false(&udp_encap_needed)) {
++		/* Currently udp_gro_receive only does something if
++		 * a UDP encapsulation has been set.
++		 */
++		goto flush;
++	}
++
+ 	if (unlikely(!uh))
+ 		goto flush;
+ 
 -- 
 2.11.0
