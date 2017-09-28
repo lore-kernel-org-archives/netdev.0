@@ -1,37 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] tools: bpf: add bpftool
-Date: Thu, 28 Sep 2017 08:48:38 -0700 (PDT)
-Message-ID: <20170928.084838.221261977944137338.davem@davemloft.net>
-References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
-        <20170926153522.31500-3-jakub.kicinski@netronome.com>
-        <20170928065912.00a9b6a1@cakuba>
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Subject: Re: [PATCH net] net: mvpp2: Fix clock resource by adding an optional bus clock
+Date: Thu, 28 Sep 2017 17:52:19 +0200
+Message-ID: <87shf6hlcc.fsf@free-electrons.com>
+References: <20170928153923.29003-1-gregory.clement@free-electrons.com>
+        <20170928174654.630cfefd@windsurf.lan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, hannes@stressinduktion.org,
-        dsahern@gmail.com, oss-drivers@netronome.com
-To: kubakici@wp.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47182 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751091AbdI1Psj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 11:48:39 -0400
-In-Reply-To: <20170928065912.00a9b6a1@cakuba>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+        Antoine Tenart <antoine.tenart@free-electrons.com>,
+        Omri Itach <omrii@marvell.com>, linux-kernel@vger.kernel.org,
+        Nadav Haklai <nadavh@marvell.com>,
+        Shadi Ammouri <shadi@marvell.com>,
+        Igal Liberman <igall@marvell.com>,
+        =?utf-8?Q?Miqu=C3=A8l?= Raynal <miquel.raynal@free-electrons.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170928174654.630cfefd@windsurf.lan> (Thomas Petazzoni's
+        message of "Thu, 28 Sep 2017 17:46:54 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jakub Kicinski <kubakici@wp.pl>
-Date: Thu, 28 Sep 2017 06:59:12 -0700
+Hi Thomas,
+ 
+ On jeu., sept. 28 2017, Thomas Petazzoni <thomas.petazzoni@free-electrons.com> wrote:
 
-> On Tue, 26 Sep 2017 08:35:22 -0700, Jakub Kicinski wrote:
->> Add a simple tool for querying and updating BPF objects on the system.
->> 
->> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
->> Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> 
-> Dave, I got some late review nitpicks internally which I think are
-> worth addressing.  Would you mind dropping this series?  I will post v2
-> with the cleanups and README included.
+>>  	/* List of pointers to port structures */
+>>  	struct mvpp2_port **port_list;
+>> @@ -7963,6 +7964,16 @@ static int mvpp2_probe(struct platform_device *pdev)
+>>  		err = clk_prepare_enable(priv->mg_clk);
+>>  		if (err < 0)
+>>  			goto err_gop_clk;
+>> +
+>> +		priv->axi_clk = devm_clk_get(&pdev->dev, "axi_clk");
+>> +		if (IS_ERR(priv->axi_clk)) {
+>> +			err = PTR_ERR(priv->axi_clk);
+>> +			priv->axi_clk = NULL;
+>
+> You should handle -EPROBE_DEFER here. Indeed, if we have -EPROBE_DEFER,
+> we shouldn't treat it as "the clock doesn't exist, so let's skip it and
+> continue", but rather as "the clock exists, but isn't ready to use yet,
+> let's try later".
 
-Sure.
+You're totally right, I will send a v2 (I will also fix the other issue
+you spotted).
+
+Thanks,
+
+Gregory
+
+>
+> Thanks!
+>
+> Thomas
+> -- 
+> Thomas Petazzoni, CTO, Free Electrons
+> Embedded Linux and Kernel engineering
+> http://free-electrons.com
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+-- 
+Gregory Clement, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
