@@ -1,37 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn/eicon: do integrity check on cmd->adapter ==
- a->controller early
-Date: Thu, 28 Sep 2017 09:32:20 -0700 (PDT)
-Message-ID: <20170928.093220.2223492078191370005.davem@davemloft.net>
-References: <1506266081-22895-1-git-send-email-mengxu.gatech@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next RFC 1/9] net: dsa: mv88e6xxx: add accessors for PTP/TAI registers
+Date: Thu, 28 Sep 2017 12:29:24 -0400
+Message-ID: <87o9puaisb.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com> <1506612341-18061-2-git-send-email-brandon.streiff@ni.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, meng.xu@gatech.edu,
-        sanidhya@gatech.edu, taesoo@gatech.edu
-To: mengxu.gatech@gmail.com
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Erik Hons <erik.hons@ni.com>,
+        Brandon Streiff <brandon.streiff@ni.com>
+To: Brandon Streiff <brandon.streiff@ni.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506266081-22895-1-git-send-email-mengxu.gatech@gmail.com>
+In-Reply-To: <1506612341-18061-2-git-send-email-brandon.streiff@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Meng Xu <mengxu.gatech@gmail.com>
-Date: Sun, 24 Sep 2017 11:14:41 -0400
+Hi Brandon,
 
-> +		/* do the integrity check early */
-> +		if(((diva_xdi_um_cfg_cmd_t *)data)->adapter != a->controller){
-> +			DBG_ERR(("A: A(%d) write, invalid controller=%d != %d",
-> +						((diva_xdi_um_cfg_cmd_t *)data)->adapter, a->controller));
-> +
+Brandon Streiff <brandon.streiff@ni.com> writes:
 
-DBG_ERR() has a trailing semicolon in it's definition, so if you add
-another one when you invoke it there will be two ";;".
+> +	.port_ptp_read		= mv88e6352_port_ptp_read,
+> +	.port_ptp_write		= mv88e6352_port_ptp_write,
+> +	.ptp_read		= mv88e6352_ptp_read,
+> +	.ptp_write		= mv88e6352_ptp_write,
+> +	.tai_read		= mv88e6352_tai_read,
+> +	.tai_write		= mv88e6352_tai_write,
 
-This whole code base is such a mess, I really think there is little
-to no value in trying to make minor changes here.
+> +	.port_ptp_read		= mv88e6390_port_ptp_read,
+> +	.port_ptp_write		= mv88e6390_port_ptp_write,
+> +	.ptp_read		= mv88e6390_ptp_read,
+> +	.ptp_write		= mv88e6390_ptp_write,
+> +	.tai_read		= mv88e6390_tai_read,
+> +	.tai_write		= mv88e6390_tai_write,
 
-So unless you are fixing some kind of exploitable hole, please drop
-this.
+Only nitpick: please keep the mv88e63{52,90}_g2_avb_ prefix here.
 
-Thank you.
+Otherwise thanks for respecting the code organization, very clear patch:
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+
+             Vivien
