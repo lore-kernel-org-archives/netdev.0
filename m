@@ -1,109 +1,91 @@
-From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
-Date: Thu, 28 Sep 2017 05:59:38 +0000
-Message-ID: <E0D909EE5BB15A4699798539EA149D7F077E53D6@ORSMSX103.amr.corp.intel.com>
-References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
- <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
- <59C94FF4.8070900@iogearbox.net>
- <20170926172140.GB60144@C02RW35GFVH8.dhcp.broadcom.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next 0/3] support changing steering policies in tuntap
+Date: Thu, 28 Sep 2017 14:50:31 +0800
+Message-ID: <77e2149a-e2cc-cd18-039d-a202cd9f8b4c@redhat.com>
+References: <1506500637-13881-1-git-send-email-jasowang@redhat.com>
+ <20170927230042-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "mchan@broadcom.com" <mchan@broadcom.com>
-To: Andy Gospodarek <andy@greyhouse.net>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64031 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750775AbdI1F7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 28 Sep 2017 01:59:45 -0400
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170927230042-mutt-send-email-mst@kernel.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/26/17 10:21 AM, Andy Gospodarek wrote:
-> On Mon, Sep 25, 2017 at 08:50:28PM +0200, Daniel Borkmann wrote:
->> On 09/25/2017 08:10 PM, Andy Gospodarek wrote:
->> [...]
->>> First, thanks for this detailed description.  It was helpful to read
->>> along with the patches.
->>>
->>> My only concern about this area being generic is that you are now in a
->>> state where any bpf program must know about all the bpf programs in the
->>> receive pipeline before it can properly parse what is stored in the
->>> meta-data and add it to an skb (or perform any other action).
->>> Especially if each program adds it's own meta-data along the way.
->>>
->>> Maybe this isn't a big concern based on the number of users of this
->>> today, but it just starts to seem like a concern as there are these
->>> hints being passed between layers that are challenging to track due to a
->>> lack of a standard format for passing data between.
+
+
+On 2017年09月28日 06:13, Michael S. Tsirkin wrote:
+> On Wed, Sep 27, 2017 at 04:23:54PM +0800, Jason Wang wrote:
+>> Hi all:
 >>
->> Btw, we do have similar kind of programmable scratch buffer also today
->> wrt skb cb[] that you can program from tc side, the perf ring buffer,
->> which doesn't have any fixed layout for the slots, or a per-cpu map
->> where you can transfer data between tail calls for example, then tail
->> calls themselves that need to coordinate, or simply mangling of packets
->> itself if you will, but more below to your use case ...
+>> We use flow caches based flow steering policy now. This is good for
+>> connection-oriented communication such as TCP but not for the others
+>> e.g connectionless unidirectional workload which cares only about
+>> pps. This calls the ability of supporting changing steering policies
+>> in tuntap which was done by this series.
 >>
->>> The main reason I bring this up is that Michael and I had discussed and
->>> designed a way for drivers to communicate between each other that rx
->>> resources could be freed after a tx completion on an XDP_REDIRECT
->>> action.  Much like this code, it involved adding an new element to
->>> struct xdp_md that could point to the important information.  Now that
->>> there is a generic way to handle this, it would seem nice to be able to
->>> leverage it, but I'm not sure how reliable this meta-data area would be
->>> without the ability to mark it in some manner.
->>>
->>> For additional background, the minimum amount of data needed in the case
->>> Michael and I were discussing was really 2 words.  One to serve as a
->>> pointer to an rx_ring structure and one to have a counter to the rx
->>> producer entry.  This data could be acessed by the driver processing the
->>> tx completions and callback to the driver that received the frame off the wire
->>> to perform any needed processing.  (For those curious this would also require a
->>> new callback/netdev op to act on this data stored in the XDP buffer.)
+>> Flow steering policy was abstracted into tun_steering_ops in the first
+>> patch. Then new ioctls to set or query current policy were introduced,
+>> and the last patch introduces a very simple policy that select txq
+>> based on processor id as an example.
 >>
->> What you describe above doesn't seem to be fitting to the use-case of
->> this set, meaning the area here is fully programmable out of the BPF
->> program, the infrastructure you're describing is some sort of means of
->> communication between drivers for the XDP_REDIRECT, and should be
->> outside of the control of the BPF program to mangle.
-> 
-> OK, I understand that perspective.  I think saying this is really meant
-> as a BPF<->BPF communication channel for now is fine.
-> 
->> You could probably reuse the base infra here and make a part of that
->> inaccessible for the program with some sort of a fixed layout, but I
->> haven't seen your code yet to be able to fully judge. Intention here
->> is to allow for programmability within the BPF prog in a generic way,
->> such that based on the use-case it can be populated in specific ways
->> and propagated to the skb w/o having to define a fixed layout and
->> bloat xdp_buff all the way to an skb while still retaining all the
->> flexibility.
-> 
-> Some level of reuse might be proper, but I'd rather it be explicit for
-> my use since it's not exclusively something that will need to be used by
-> a BPF prog, but rather the driver.  I'll produce some patches this week
-> for reference.
+>> Test was done by using xdp_redirect to redirect traffic generated from
+>> MoonGen that was running on a remote machine. And I see 37%
+>> improvement for processor id policy compared to automatic flow
+>> steering policy.
+> For sure, if you don't need to figure out the flow hash then you can
+> save a bunch of cycles.  But I don't think the cpu policy is too
+> practical outside of a benchmark.
 
-Sorry for chiming in late, I've been offline.
+Well, the aim of the series is to add methods to change the steering 
+policy, cpu policy is an example. Actually, it may make sense for some 
+cards which guarantee that all packets belongs to a specific flow goes 
+into a specific cpu.
 
-We're looking to add some functionality from driver to XDP inside this 
-xdp_buff->data_meta region.  We want to assign it to an opaque 
-structure, that would be specific per driver (think of a flex descriptor 
-coming out of the hardware).  We'd like to pass these offloaded 
-computations into XDP programs to help accelerate them, such as packet 
-type, where headers are located, etc.  It's similar to Jesper's RFC 
-patches back in May when passing through the mlx Rx descriptor to XDP.
+>
+> Did you generate packets and just send them to tun? If so, this is not a
+> typical configuration, is it?
 
-This is actually what a few of us are planning to present at NetDev 2.2 
-in November.  If you're hoping to restrict this headroom in the xdp_buff 
-for an exclusive use case with XDP_REDIRECT, then I'd like to discuss 
-that further.
+The test was done by:
 
--PJ
+- generate UDP traffic from a remote machine
+- use xdp redirection to do mac swap in guest and forward it back to the 
+remote machine
+
+>   With packets coming e.g.  from a real nic
+> they might already have the hash pre-calculated, and you won't
+> see the benefit.
+
+Yes, I can switch to use this as a example policy.
+
+Thanks
+
+>
+>> In the future, both simple and sophisticated policy like RSS or other guest
+>> driven steering policies could be done on top.
+> IMHO there should be a more practical example before adding all this
+> indirection. And it would be nice to understand why this queue selection
+> needs to be tun specific.
+
+Actually, we can use fanout policy (as pointed out) by using the API 
+introduced in this series.
+
+Thanks
+
+>
+>> Thanks
+>>
+>> Jason Wang (3):
+>>    tun: abstract flow steering logic
+>>    tun: introduce ioctls to set and get steering policies
+>>    tun: introduce cpu id based steering policy
+>>
+>>   drivers/net/tun.c           | 151 +++++++++++++++++++++++++++++++++++++-------
+>>   include/uapi/linux/if_tun.h |   8 +++
+>>   2 files changed, 136 insertions(+), 23 deletions(-)
+>>
+>> -- 
+>> 2.7.4
