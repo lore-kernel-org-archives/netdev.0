@@ -1,54 +1,57 @@
-From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
-Date: Thu, 28 Sep 2017 21:40:40 +0000
-Message-ID: <E0D909EE5BB15A4699798539EA149D7F077E66D3@ORSMSX103.amr.corp.intel.com>
-References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
- <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
- <59C94FF4.8070900@iogearbox.net>
- <20170926172140.GB60144@C02RW35GFVH8.dhcp.broadcom.net>
- <E0D909EE5BB15A4699798539EA149D7F077E53D6@ORSMSX103.amr.corp.intel.com>
- <CAHashqBMfXp-uYH9ANfdaNfez9f4pcrOjnbX2WAFAdBwaJAtvw@mail.gmail.com>
- <E0D909EE5BB15A4699798539EA149D7F077E6438@ORSMSX103.amr.corp.intel.com>
- <bdce98b7-1d32-3cd9-1289-79807af8443f@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] libbpf: use map_flags when creating maps
+Date: Thu, 28 Sep 2017 23:44:58 +0200
+Message-ID: <59CD6D5A.8080201@iogearbox.net>
+References: <20170927140458.44337-1-kraigatgoog@gmail.com> <f7d4addc-9f6a-4ddb-b383-f255cd2f728f@fb.com> <59CC201C.6090502@iogearbox.net> <CAEfhGiwai3fZsWPx--Axyc1n4+WRwxeFO+uLgQKbQ-8wiJqtAw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "mchan@broadcom.com" <mchan@broadcom.com>
-To: John Fastabend <john.fastabend@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Chonggang Li <chonggangli@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Craig Gallek <kraigatgoog@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:4294 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751058AbdI1Vkm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 28 Sep 2017 17:40:42 -0400
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:46934 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751667AbdI1VpE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 17:45:04 -0400
+In-Reply-To: <CAEfhGiwai3fZsWPx--Axyc1n4+WRwxeFO+uLgQKbQ-8wiJqtAw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/28/17 2:23 PM, John Fastabend wrote:
-> [...]
-> 
->> I'm pretty sure I misunderstood what you were going after with
->> XDP_REDIRECT reserving the headroom.  Our use case (patches coming in a
->> few weeks) will populate the headroom coming out of the driver to XDP,
->> and then once the XDP program extracts whatever hints it wants via
->> helpers, I fully expect that area in the headroom to get stomped by
->> something else.  If we want to send any of that hint data up farther,
->> we'll already have it extracted via the helpers, and the eBPF program
->> can happily assign it to wherever in the outbound metadata area.
-> 
-> In case its not obvious with the latest xdp metadata patches the outbound
-> metadata can then be pushed into skb fields via a tc_cls program if needed.
+On 09/28/2017 07:33 PM, Craig Gallek wrote:
+> On Wed, Sep 27, 2017 at 6:03 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 09/27/2017 06:29 PM, Alexei Starovoitov wrote:
+>>> On 9/27/17 7:04 AM, Craig Gallek wrote:
+>>>> From: Craig Gallek <kraig@google.com>
+[...]
+>>>
+>>> yes it will break loading of pre-compiled .o
+>>> Instead of breaking, let's fix the loader to do it the way
+>>> samples/bpf/bpf_load.c does.
+>>> See commit 156450d9d964 ("samples/bpf: make bpf_load.c code compatible
+>>> with ELF maps section changes")
+>>
+>> +1, iproute2 loader also does map spec fixup
+>>
+>> For libbpf it would be good also such that it reduces the diff
+>> further between the libbpf and bpf_load so that it allows move
+>> to libbpf for samples in future.
+>
+> Fair enough, I'll try to get this to work more dynamically.  I did
+> noticed that the fields of struct bpf_map_def in
+> selftests/.../bpf_helpers.h and iproute2's struct bpf_elf_map have
+> diverged. The flags field is the only thing missing from libbpf right
+> now (and they are at the same offset for both), so it won't be an
+> issue for this change, but it is going to make unifying all of these
+> things under libbpf not trivial at some point...
 
-Yes, that was what I was alluding to with "can happily assign it to 
-wherever."  The patches we're working on are driver->XDP, then anything 
-else using the latest meta-data patches would be XDP->anywhere else.  So 
-I don't think we're going to step on any toes.
-
-Thanks John,
--PJ
+Yes, iproute2 uses its own loader with own specifics related to
+iproute2. With the above I rather meant that we can reduce the
+gap between libbpf and bpf_load from the BPF samples, so that
+it would allow us to migrate samples over entirely, there was
+unfortunately never a follow-up on 156450d9d964 though, but given
+there is need to extend libbpf (I guess mostly due to lpm map
+handling ;)), we need to do a similar thing there as well to not
+break existing obj files.
