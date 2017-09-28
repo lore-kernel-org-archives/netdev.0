@@ -1,113 +1,106 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH net v2] i40e: Fix limit imprecise of the
- number of MAC/VLAN that can be added for VFs
-Date: Thu, 28 Sep 2017 08:44:04 -0700
-Message-ID: <CAKgT0UcsnLUWU8qedNrv+bhbgJ6SC9zWyc7oR9gObcYo2atN5g@mail.gmail.com>
-References: <1506564064-10740-1-git-send-email-wangyunjian@huawei.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net] net: mvpp2: Fix clock resource by adding an
+ optional bus clock
+Date: Thu, 28 Sep 2017 17:46:54 +0200
+Message-ID: <20170928174654.630cfefd@windsurf.lan>
+References: <20170928153923.29003-1-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Netdev <netdev@vger.kernel.org>, caihe@huawei.com,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: w00273186 <wangyunjian@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35004 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753297AbdI1PoF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 11:44:05 -0400
-Received: by mail-qk0-f194.google.com with SMTP id o77so1262163qke.2
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 08:44:05 -0700 (PDT)
-In-Reply-To: <1506564064-10740-1-git-send-email-wangyunjian@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Antoine Tenart <antoine.tenart@free-electrons.com>,
+        =?UTF-8?B?TWlxdcOobA==?= Raynal
+        <miquel.raynal@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Shadi Ammouri <shadi@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        Omri Itach <omrii@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Igal Liberman <igall@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170928153923.29003-1-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 7:01 PM, w00273186 <wangyunjian@huawei.com> wrote:
-> From: Yunjian Wang <wangyunjian@huawei.com>
->
-> Now it doesn't limit the number of MAC/VLAN strictly. When there is more
-> elements in the virtchnl MAC/VLAN list, it can still add successfully.
+Hello,
 
-You could still add but should you. I'm not clear from this patch
-description what this is supposed to be addressing. If you enable the
-"trust" flag for a VF via the "ip link set dev <iface> vf <vfnum>
-trust on" it can make use of any resources on the device, but without
-that there is an upper limit that is supposed to be enforced to
-prevent the VF from making use of an excessive amount of resources.
-That is what is being enforced by the code you are moving out of the
-way below.
+On Thu, 28 Sep 2017 17:39:23 +0200, Gregory CLEMENT wrote:
 
-> Signed-off-by: Yunjian Wang <wangyunjian@huawei.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 27 +++++++++++++---------
->  1 file changed, 16 insertions(+), 11 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> index 4d1e670..285b96a 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> @@ -2065,11 +2065,6 @@ static inline int i40e_check_vf_permission(struct i40e_vf *vf, u8 *macaddr)
->                 dev_err(&pf->pdev->dev,
->                         "VF attempting to override administratively set MAC address, reload the VF driver to resume normal operation\n");
->                 ret = -EPERM;
-> -       } else if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
-> -                  !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-> -               dev_err(&pf->pdev->dev,
-> -                       "VF is not trusted, switch the VF to trusted to add more functionality\n");
-> -               ret = -EPERM;
->         }
->         return ret;
->  }
-> @@ -2128,6 +2123,15 @@ static int i40e_vc_add_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
->                 } else {
->                         vf->num_mac++;
->                 }
+> diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+> index 7e2dad08a12e..49e1be6bb6ba 100644
+> --- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
+> +++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+> @@ -21,8 +21,9 @@ Required properties:
+>  	- main controller clock (for both armada-375-pp2 and armada-7k-pp2)
+>  	- GOP clock (for both armada-375-pp2 and armada-7k-pp2)
+>  	- MG clock (only for armada-7k-pp2)
+> -- clock-names: names of used clocks, must be "pp_clk", "gop_clk" and
+> -  "mg_clk" (the latter only for armada-7k-pp2).
+> +	- AXI clock (only for armada-7k-pp2)
+> +- clock-names: names of used clocks, must be "pp_clk", "gop_clk", "mg_clk"
+> +  and "axi"(the 2 latter only for armada-7k-pp2).
+
+Should be "axi_clk" not "axi", otherwise your binding documentation
+doesn't match the driver and example.
+
+Also, missing space after "axi".
+
+>  
+>  The ethernet ports are represented by subnodes. At least one port is
+>  required.
+> @@ -78,8 +79,9 @@ Example for marvell,armada-7k-pp2:
+>  cpm_ethernet: ethernet@0 {
+>  	compatible = "marvell,armada-7k-pp22";
+>  	reg = <0x0 0x100000>, <0x129000 0xb000>;
+> -	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
+> -	clock-names = "pp_clk", "gop_clk", "gp_clk";
+> +	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 9>,
+> +	<&cpm_syscon0 1 5>, <&cpm_syscon0 1 18>;
+
+Please indent the second line with one more tab.
+
+> +	clock-names = "pp_clk", "gop_clk", "gp_clk", "axi_clk";
+>  
+>  	eth0: eth0 {
+>  		interrupts = <ICU_GRP_NSR 39 IRQ_TYPE_LEVEL_HIGH>,
+> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+> index dd0ee2691c86..33b6791df2bb 100644
+> --- a/drivers/net/ethernet/marvell/mvpp2.c
+> +++ b/drivers/net/ethernet/marvell/mvpp2.c
+> @@ -792,6 +792,7 @@ struct mvpp2 {
+>  	struct clk *pp_clk;
+>  	struct clk *gop_clk;
+>  	struct clk *mg_clk;
+> +	struct clk *axi_clk;
+>  
+>  	/* List of pointers to port structures */
+>  	struct mvpp2_port **port_list;
+> @@ -7963,6 +7964,16 @@ static int mvpp2_probe(struct platform_device *pdev)
+>  		err = clk_prepare_enable(priv->mg_clk);
+>  		if (err < 0)
+>  			goto err_gop_clk;
 > +
-> +               if ((vf->num_mac >= I40E_VC_MAX_MAC_ADDR_PER_VF) &&
-> +                   !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-> +                       dev_err(&pf->pdev->dev,
-> +                               "VF is not trusted, switch the VF to trusted to add more functionality\n");
-> +                       ret = -EPERM;
-> +                       spin_unlock_bh(&vsi->mac_filter_hash_lock);
-> +                       goto error_param;
-> +               }
->         }
->         spin_unlock_bh(&vsi->mac_filter_hash_lock);
->
+> +		priv->axi_clk = devm_clk_get(&pdev->dev, "axi_clk");
+> +		if (IS_ERR(priv->axi_clk)) {
+> +			err = PTR_ERR(priv->axi_clk);
+> +			priv->axi_clk = NULL;
 
-This doesn't make any sense. You are doing the checks after you have
-already added the MAC. The only part you aren't doing is sending the
-message to the VF indicating that the request was successful.
+You should handle -EPROBE_DEFER here. Indeed, if we have -EPROBE_DEFER,
+we shouldn't treat it as "the clock doesn't exist, so let's skip it and
+continue", but rather as "the clock exists, but isn't ready to use yet,
+let's try later".
 
-> @@ -2221,12 +2225,6 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
->         i40e_status aq_ret = 0;
->         int i;
->
-> -       if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
-> -           !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-> -               dev_err(&pf->pdev->dev,
-> -                       "VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
-> -               goto error_param;
-> -       }
->         if (!test_bit(I40E_VF_STATE_ACTIVE, &vf->vf_states) ||
->             !i40e_vc_isvalid_vsi_id(vf, vsi_id)) {
->                 aq_ret = I40E_ERR_PARAM;
-> @@ -2269,6 +2267,13 @@ static int i40e_vc_add_vlan_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
->                         dev_err(&pf->pdev->dev,
->                                 "Unable to add VLAN filter %d for VF %d, error %d\n",
->                                 vfl->vlan_id[i], vf->vf_id, ret);
-> +               if ((vf->num_vlan >= I40E_VC_MAX_VLAN_PER_VF) &&
-> +                   !test_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps)) {
-> +                       dev_err(&pf->pdev->dev,
-> +                               "VF is not trusted, switch the VF to trusted to add more VLAN addresses\n");
-> +                       aq_ret = -EPERM;
-> +                       goto error_param;
-> +               }
->         }
->
->  error_param:
+Thanks!
 
-Same here. You are doing this after the call to i40e_vsi_add_vlan. The
-code makes no sense here. This bit of code is supposed to be
-preventing a VF from abusing resources if the VF is not privelaged.
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
