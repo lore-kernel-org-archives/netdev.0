@@ -1,46 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net-next 1/7] skbuff: Add the offload_mr_fwd_mark field
-Date: Thu, 28 Sep 2017 19:49:03 +0200
-Message-ID: <20170928174903.GE14940@lunn.ch>
-References: <20170928173415.15551-1-jiri@resnulli.us>
- <20170928173415.15551-2-jiri@resnulli.us>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next RFC 0/9] net: dsa: PTP timestamping for mv88e6xxx
+Date: Thu, 28 Sep 2017 10:51:00 -0700
+Message-ID: <8828c5c3-fe0f-c8d0-0a19-f173001de607@gmail.com>
+References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
+ <20170928173629.GD14940@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-        idosch@mellanox.com, mlxsw@mellanox.com,
-        nikolay@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        edumazet@google.com, willemb@google.com, johannes.berg@intel.com,
-        dcaratti@redhat.com, pabeni@redhat.com, daniel@iogearbox.net,
-        f.fainelli@gmail.com, fw@strlen.de, gfree.wind@vip.163.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:60247 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751580AbdI1RtR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 28 Sep 2017 13:49:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20170928173415.15551-2-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Erik Hons <erik.hons@ni.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Brandon Streiff <brandon.streiff@ni.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170928173629.GD14940@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2017 at 07:34:09PM +0200, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
+On 09/28/2017 10:36 AM, Andrew Lunn wrote:
+>> - Patch #3: The GPIO config support is handled in a very simple manner.
+>>   I suspect a longer term goal would be to use pinctrl here.
 > 
-> Similarly to the offload_fwd_mark field, the offload_mr_fwd_mark field is
-> used to allow partial offloading of MFC multicast routes.
+> I assume ptp already has the core code to use pinctrl and Linux
+> standard GPIOs? What does the device tree binding look like? How do
+> you specify the GPIOs to use?
+> 
+> What we want to avoid is defining an ABI now, otherwise it is going to
+> be hard to swap to pinctrl later.
+> 
+>> - Patch #6: the dsa_switch pointer and port index is plumbed from
+>>   dsa_device_ops::rcv so that we can call the correct port_rxtstamp
+>>   method. This involved instrumenting all of the *_tag_rcv functions in
+>>   a way that's kind of a kludge and that I'm not terribly happy with.
+> 
+> Yes, this is ugly. I will see if i can find a better way to do
+> this. 
 
-> The reason why the already existing "offload_fwd_mark" bit cannot be used
-> is that a switchdev driver would want to make the distinction between a
-> packet that has already gone through L2 forwarding but did not go through
-> multicast forwarding, and a packet that has already gone through both L2
-> and multicast forwarding.
-
-Hi Jiri
-
-So we are talking about l2 vs l3. So why not call this
-offload_l3_fwd_mark?
-
-Is there anything really specific to multicast here?
-
-   Thanks
-      Andrew
+See my reply in patch 6, I may be missing something, but once
+dst->rdcv() has been called, skb->dev points to the slave network device
+which already contains the switch port and switch information in
+dsa_slave_priv, so that should lift the need for asking the individual
+taggers' rcv() callback to tell us about it.
+-- 
+Florian
