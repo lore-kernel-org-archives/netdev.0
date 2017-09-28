@@ -1,74 +1,111 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next RFC 3/9] net: dsa: mv88e6xxx: add support for
- GPIO configuration
-Date: Thu, 28 Sep 2017 20:01:11 +0200
-Message-ID: <20170928180111.GF14940@lunn.ch>
-References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
- <1506612341-18061-4-git-send-email-brandon.streiff@ni.com>
- <659c4254-d0b7-52dc-dd9b-3921cd2f20c0@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brandon Streiff <brandon.streiff@ni.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Richard Cochran <richardcochran@gmail.com>,
-        Erik Hons <erik.hons@ni.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <659c4254-d0b7-52dc-dd9b-3921cd2f20c0@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH v2] lib: fix multiple strlcpy definition
+Date: Thu, 28 Sep 2017 21:02:11 +0300
+Message-ID: <6910008ec8db3f63c8120b1624a08328cd203e92.1506621731.git.baruch@tkos.co.il>
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>,
+        Baruch Siach <baruch@tkos.co.il>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:50309 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750759AbdI1SDH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 28 Sep 2017 14:03:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 28, 2017 at 10:45:03AM -0700, Florian Fainelli wrote:
-> On 09/28/2017 08:25 AM, Brandon Streiff wrote:
-> > The Scratch/Misc register is a windowed interface that provides access
-> > to the GPIO configuration. Provide a new method for configuration of
-> > GPIO functions.
-> > 
-> > Signed-off-by: Brandon Streiff <brandon.streiff@ni.com>
-> > ---
-> 
-> > +/* Offset 0x1A: Scratch and Misc. Register */
-> > +static int mv88e6xxx_g2_scratch_reg_read(struct mv88e6xxx_chip *chip,
-> > +					 int reg, u8 *data)
-> > +{
-> > +	int err;
-> > +	u16 value;
-> > +
-> > +	err = mv88e6xxx_g2_write(chip, MV88E6XXX_G2_SCRATCH_MISC_MISC,
-> > +				 reg << 8);
-> > +	if (err)
-> > +		return err;
-> > +
-> > +	err = mv88e6xxx_g2_read(chip, MV88E6XXX_G2_SCRATCH_MISC_MISC, &value);
-> > +	if (err)
-> > +		return err;
-> > +
-> > +	*data = (value & MV88E6XXX_G2_SCRATCH_MISC_DATA_MASK);
-> > +
-> > +	return 0;
-> > +}
-> 
-> With the write and read acquiring and then releasing the lock
-> immediately, is no there room for this sequence to be interrupted in the
-> middle and end-up returning inconsistent reads?
+Some C libraries, like uClibc and musl, provide BSD compatible
+strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
+and strlcat when the C library provides them.
 
-Hi Florian
+This fixes the following static link error with uClibc-ng:
 
-The general pattern in this code is that the lock chip->reg_lock is
-taken at a higher level. That protects against other threads. The
-driver tends to do that at the highest levels, at the entry points
-into the driver. I've not yet checked this code follows the pattern
-yet. However, we have a check in the low level to ensure the lock has
-been taken. So it seems likely the lock is held.
+.../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
+strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
+../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
+collect2: error: ld returned 1 exit status
+
+Acked-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+---
+v2: Fix the order of strlcpy parameters
+---
+ configure    | 24 ++++++++++++++++++++++++
+ lib/Makefile |  4 ++++
+ lib/utils.c  |  2 ++
+ 3 files changed, 30 insertions(+)
+
+diff --git a/configure b/configure
+index 7be8fb113cc9..e0982f34a992 100755
+--- a/configure
++++ b/configure
+@@ -326,6 +326,27 @@ EOF
+     rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
+ }
  
-> Would there be any value in implementing a proper gpiochip structure
-> here such that other pieces of SW can see this GPIO controller as a
-> provider and you can reference it from e.g: Device Tree using GPIO
-> descriptors?
-
-That would be my preference as well, or maybe a pinctrl driver.
-
-     Andrew
++check_strlcpy()
++{
++    cat >$TMPDIR/strtest.c <<EOF
++#include <string.h>
++int main(int argc, char **argv) {
++	char dst[10];
++	strlcpy(dst, "test", sizeof(dst));
++	return 0;
++}
++EOF
++    $CC -I$INCLUDE -o $TMPDIR/strtest $TMPDIR/strtest.c >/dev/null 2>&1
++    if [ $? -eq 0 ]
++    then
++	echo "no"
++    else
++	echo "NEED_STRLCPY:=y" >>$CONFIG
++	echo "yes"
++    fi
++    rm -f $TMPDIR/strtest.c $TMPDIR/strtest
++}
++
+ quiet_config()
+ {
+ 	cat <<EOF
+@@ -397,6 +418,9 @@ check_mnl
+ echo -n "Berkeley DB: "
+ check_berkeley_db
+ 
++echo -n "need for strlcpy: "
++check_strlcpy
++
+ echo
+ echo -n "docs:"
+ check_docs
+diff --git a/lib/Makefile b/lib/Makefile
+index 0fbdf4c31f50..132ad00c3335 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -1,5 +1,9 @@
+ include ../config.mk
+ 
++ifeq ($(NEED_STRLCPY),y)
++	CFLAGS += -DNEED_STRLCPY
++endif
++
+ CFLAGS += -fPIC
+ 
+ UTILOBJ = utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o \
+diff --git a/lib/utils.c b/lib/utils.c
+index bbd3cbc46a0e..240e7426a810 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -1231,6 +1231,7 @@ int get_real_family(int rtm_type, int rtm_family)
+ 	return rtm_family;
+ }
+ 
++#ifdef NEED_STRLCPY
+ size_t strlcpy(char *dst, const char *src, size_t size)
+ {
+ 	size_t srclen = strlen(src);
+@@ -1253,3 +1254,4 @@ size_t strlcat(char *dst, const char *src, size_t size)
+ 
+ 	return dlen + strlcpy(dst + dlen, src, size - dlen);
+ }
++#endif
+-- 
+2.14.2
