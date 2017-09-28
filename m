@@ -1,35 +1,38 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next 2/2] tools: bpf: add bpftool
-Date: Thu, 28 Sep 2017 06:59:12 -0700
-Message-ID: <20170928065912.00a9b6a1@cakuba>
-References: <20170926153522.31500-1-jakub.kicinski@netronome.com>
-        <20170926153522.31500-3-jakub.kicinski@netronome.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v4 1/2] expose stack entry function
+Date: Thu, 28 Sep 2017 16:11:54 +0200
+Message-ID: <553f7dad-3bb7-ed42-c78d-e54592f87c81@6wind.com>
+References: <cover.1506590878.git.amine.kherbouche@6wind.com>
+ <d34f8440be3e1d735c694c6899c5a8b14e9a70ea.1506590878.git.amine.kherbouche@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, hannes@stressinduktion.org,
-        dsahern@gmail.com, oss-drivers@netronome.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: equinox@diac24.net
+To: Amine Kherbouche <amine.kherbouche@6wind.com>,
+        netdev@vger.kernel.org, xeb@mail.ru, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.12]:7301 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753029AbdI1N73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 28 Sep 2017 09:59:29 -0400
-Received: from unknown (HELO cakuba) (kubakici@wp.pl@[75.53.12.129])
-          (envelope-sender <kubakici@wp.pl>)
-          by smtp.wp.pl (WP-SMTPD) with ECDHE-RSA-AES256-GCM-SHA384 encrypted SMTP
-          for <netdev@vger.kernel.org>; 28 Sep 2017 15:59:26 +0200
-In-Reply-To: <20170926153522.31500-3-jakub.kicinski@netronome.com>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:45348 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752608AbdI1OL7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 10:11:59 -0400
+Received: by mail-wm0-f45.google.com with SMTP id q124so2612027wmb.0
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 07:11:59 -0700 (PDT)
+In-Reply-To: <d34f8440be3e1d735c694c6899c5a8b14e9a70ea.1506590878.git.amine.kherbouche@6wind.com>
+Content-Language: fr
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Sep 2017 08:35:22 -0700, Jakub Kicinski wrote:
-> Add a simple tool for querying and updating BPF objects on the system.
-> 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Le 28/09/2017 à 11:34, Amine Kherbouche a écrit :
+> Exporting mpls_forward() function to be able to be called from elsewhere
+> such as MPLSoverGRE in the next commit.
 
-Dave, I got some late review nitpicks internally which I think are
-worth addressing.  Would you mind dropping this series?  I will post v2
-with the cleanups and README included.
+I'm nitpicking, but the commit title is too generic. What about something like
+'mpls: export mpls_forward()'?
+
+When parsing history, the user knows precisely what is done in the commit
+without openning it.
+
+
+Regards,
+Nicolas
