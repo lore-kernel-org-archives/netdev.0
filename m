@@ -1,117 +1,122 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v3 net-next 5/8] ip: Add callbacks to flow dissection by IP protocol
-Date: Thu, 28 Sep 2017 14:48:20 -0700
-Message-ID: <20170928214823.2426-5-tom@quantonium.net>
+Subject: [PATCH v3 net-next 7/8] fou: Support flow dissection
+Date: Thu, 28 Sep 2017 14:48:22 -0700
+Message-ID: <20170928214823.2426-7-tom@quantonium.net>
 References: <20170928214823.2426-1-tom@quantonium.net>
 Cc: netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:55069 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751710AbdI1Vst (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 17:48:49 -0400
-Received: by mail-pf0-f174.google.com with SMTP id d187so1498296pfg.11
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 14:48:49 -0700 (PDT)
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:56158 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751770AbdI1Vsy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 28 Sep 2017 17:48:54 -0400
+Received: by mail-pg0-f42.google.com with SMTP id b11so1633416pgn.12
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 14:48:54 -0700 (PDT)
 In-Reply-To: <20170928214823.2426-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Populate the proto_flow_dissect function for IPv4 and IPv6 packet
-offloads. This allows the caller to flow dissect a packet starting
-at the given IP protocol (as parsed to that point by flow dissector
-for instance).
+Populate offload flow_dissect callabck appropriately for fou and gue.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- net/ipv4/af_inet.c     | 27 +++++++++++++++++++++++++++
- net/ipv6/ip6_offload.c | 27 +++++++++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+ net/ipv4/fou.c | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 63 insertions(+)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index e31108e5ef79..18c1d884999a 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1440,6 +1440,32 @@ static struct sk_buff **ipip_gro_receive(struct sk_buff **head,
- 	return inet_gro_receive(head, skb);
+diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
+index 1540db65241a..a831dd49fb28 100644
+--- a/net/ipv4/fou.c
++++ b/net/ipv4/fou.c
+@@ -282,6 +282,20 @@ static int fou_gro_complete(struct sock *sk, struct sk_buff *skb,
+ 	return err;
  }
  
-+static enum flow_dissect_ret inet_proto_flow_dissect(struct sk_buff *skb,
-+			u8 proto,
++static enum flow_dissect_ret fou_flow_dissect(struct sock *sk,
++			const struct sk_buff *skb,
 +			struct flow_dissector_key_control *key_control,
 +			struct flow_dissector *flow_dissector,
 +			void *target_container, void *data,
 +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
 +			int *p_hlen, unsigned int flags)
 +{
-+	enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
-+	const struct net_offload *ops;
++	*p_ip_proto = fou_from_sock(sk)->protocol;
++	*p_nhoff += sizeof(struct udphdr);
 +
-+	rcu_read_lock();
-+
-+	ops = rcu_dereference(inet_offloads[proto]);
-+	if (ops && ops->callbacks.flow_dissect)
-+		ret =  ops->callbacks.flow_dissect(skb, key_control,
-+						   flow_dissector,
-+						   target_container,
-+						   data, p_proto, p_ip_proto,
-+						   p_nhoff, p_hlen, flags);
-+
-+	rcu_read_unlock();
-+
-+	return ret;
++	return FLOW_DISSECT_RET_IPPROTO_AGAIN;
 +}
 +
- #define SECONDS_PER_DAY	86400
- 
- /* inet_current_timestamp - Return IP network timestamp
-@@ -1763,6 +1789,7 @@ static int ipv4_proc_init(void);
- 
- static struct packet_offload ip_packet_offload __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_IP),
-+	.proto_flow_dissect = inet_proto_flow_dissect,
- 	.callbacks = {
- 		.gso_segment = inet_gso_segment,
- 		.gro_receive = inet_gro_receive,
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index cdb3728faca7..a33a2b40b3d6 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -339,8 +339,35 @@ static int ip4ip6_gro_complete(struct sk_buff *skb, int nhoff)
- 	return inet_gro_complete(skb, nhoff);
+ static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
+ 				      struct guehdr *guehdr, void *data,
+ 				      size_t hdrlen, struct gro_remcsum *grc,
+@@ -500,6 +514,53 @@ static int gue_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
+ 	return err;
  }
  
-+static enum flow_dissect_ret inet6_proto_flow_dissect(struct sk_buff *skb,
-+			u8 proto,
++static enum flow_dissect_ret gue_flow_dissect(struct sock *sk,
++			const struct sk_buff *skb,
 +			struct flow_dissector_key_control *key_control,
 +			struct flow_dissector *flow_dissector,
 +			void *target_container, void *data,
 +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
 +			int *p_hlen, unsigned int flags)
 +{
-+	enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
-+	const struct net_offload *ops;
++	struct guehdr *guehdr, _guehdr;
 +
-+	rcu_read_lock();
++	guehdr = __skb_header_pointer(skb, *p_nhoff + sizeof(struct udphdr),
++				      sizeof(_guehdr), data, *p_hlen, &_guehdr);
++	if (!guehdr)
++		return FLOW_DISSECT_RET_OUT_BAD;
 +
-+	ops = rcu_dereference(inet6_offloads[proto]);
-+	if (ops && ops->callbacks.flow_dissect)
-+		ret =  ops->callbacks.flow_dissect(skb, key_control,
-+						   flow_dissector,
-+						   target_container, data,
-+						   p_proto, p_ip_proto, p_nhoff,
-+						   p_hlen, flags);
++	switch (guehdr->version) {
++	case 0:
++		if (unlikely(guehdr->control))
++			return FLOW_DISSECT_RET_CONTINUE;
 +
-+	rcu_read_unlock();
++		*p_ip_proto = guehdr->proto_ctype;
++		*p_nhoff += sizeof(struct udphdr) +
++		    sizeof(*guehdr) + (guehdr->hlen << 2);
 +
-+	return ret;
++		break;
++	case 1:
++		switch (((struct iphdr *)guehdr)->version) {
++		case 4:
++			*p_ip_proto = IPPROTO_IPIP;
++			break;
++		case 6:
++			*p_ip_proto = IPPROTO_IPV6;
++			break;
++		default:
++			return FLOW_DISSECT_RET_CONTINUE;
++		}
++
++		*p_nhoff += sizeof(struct udphdr);
++
++		break;
++	default:
++		return FLOW_DISSECT_RET_CONTINUE;
++	}
++
++	return FLOW_DISSECT_RET_IPPROTO_AGAIN;
 +}
 +
- static struct packet_offload ipv6_packet_offload __read_mostly = {
- 	.type = cpu_to_be16(ETH_P_IPV6),
-+	.proto_flow_dissect = inet6_proto_flow_dissect,
- 	.callbacks = {
- 		.gso_segment = ipv6_gso_segment,
- 		.gro_receive = ipv6_gro_receive,
+ static int fou_add_to_port_list(struct net *net, struct fou *fou)
+ {
+ 	struct fou_net *fn = net_generic(net, fou_net_id);
+@@ -570,12 +631,14 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
+ 		tunnel_cfg.encap_rcv = fou_udp_recv;
+ 		tunnel_cfg.gro_receive = fou_gro_receive;
+ 		tunnel_cfg.gro_complete = fou_gro_complete;
++		tunnel_cfg.flow_dissect = fou_flow_dissect;
+ 		fou->protocol = cfg->protocol;
+ 		break;
+ 	case FOU_ENCAP_GUE:
+ 		tunnel_cfg.encap_rcv = gue_udp_recv;
+ 		tunnel_cfg.gro_receive = gue_gro_receive;
+ 		tunnel_cfg.gro_complete = gue_gro_complete;
++		tunnel_cfg.flow_dissect = gue_flow_dissect;
+ 		break;
+ 	default:
+ 		err = -EINVAL;
 -- 
 2.11.0
