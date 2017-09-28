@@ -1,76 +1,106 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] vhost_net: do not stall on zerocopy depletion
-Date: Wed, 27 Sep 2017 20:33:38 -0400
-Message-ID: <CAF=yD-LYhzuJZv89HvktOphPMnBP=tK7H=2UdUTFacc-CRA2bQ@mail.gmail.com>
-References: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next RFC 2/5] vhost: introduce helper to prefetch desc index
+Date: Wed, 27 Sep 2017 20:47:25 -0400
+Message-ID: <CAF=yD-JC9g1gd-jsSjnLzbwAnk-LsPuj_JhF2NWf1rdxiWDwwA@mail.gmail.com>
+References: <1506067355-5771-1-git-send-email-jasowang@redhat.com> <1506067355-5771-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Koichiro Den <den@klaipeden.com>,
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
         virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:51401 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752402AbdI1AeT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 27 Sep 2017 20:34:19 -0400
-Received: by mail-oi0-f51.google.com with SMTP id n82so14245785oib.8
-        for <netdev@vger.kernel.org>; Wed, 27 Sep 2017 17:34:18 -0700 (PDT)
-In-Reply-To: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, kvm@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506067355-5771-3-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 27, 2017 at 8:25 PM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> From: Willem de Bruijn <willemb@google.com>
+On Fri, Sep 22, 2017 at 4:02 AM, Jason Wang <jasowang@redhat.com> wrote:
+> This patch introduces vhost_prefetch_desc_indices() which could batch
+> descriptor indices fetching and used ring updating. This intends to
+> reduce the cache misses of indices fetching and updating and reduce
+> cache line bounce when virtqueue is almost full. copy_to_user() was
+> used in order to benefit from modern cpus that support fast string
+> copy. Batched virtqueue processing will be the first user.
 >
-> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
-> When reached, transmission stalls. Stalls cause latency, as well as
-> head-of-line blocking of other flows that do not use zerocopy.
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/vhost/vhost.c | 55 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/vhost/vhost.h |  3 +++
+>  2 files changed, 58 insertions(+)
 >
-> Instead of stalling, revert to copy-based transmission.
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index f87ec75..8424166d 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -2437,6 +2437,61 @@ struct vhost_msg_node *vhost_dequeue_msg(struct vhost_dev *dev,
+>  }
+>  EXPORT_SYMBOL_GPL(vhost_dequeue_msg);
 >
-> Tested by sending two udp flows from guest to host, one with payload
-> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
-> large flow is redirected to a netem instance with 1MBps rate limit
-> and deep 1000 entry queue.
->
->   modprobe ifb
->   ip link set dev ifb0 up
->   tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
->
->   tc qdisc add dev tap0 ingress
->   tc filter add dev tap0 parent ffff: protocol ip \
->       u32 match ip dport 8000 0xffff \
->       action mirred egress redirect dev ifb0
->
-> Before the delay, both flows process around 80K pps. With the delay,
-> before this patch, both process around 400. After this patch, the
-> large flow is still rate limited, while the small reverts to its
-> original rate. See also discussion in the first link, below.
->
-> The limit in vhost_exceeds_maxpend must be carefully chosen. When
-> vq->num >> 1, the flows remain correlated. This value happens to
-> correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
-> fractions and ensure correctness also for much smaller values of
-> vq->num, by testing the min() of both explicitly. See also the
-> discussion in the second link below.
->
-> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
+> +int vhost_prefetch_desc_indices(struct vhost_virtqueue *vq,
+> +                               struct vring_used_elem *heads,
+> +                               u16 num, bool used_update)
+> +{
+> +       int ret, ret2;
+> +       u16 last_avail_idx, last_used_idx, total, copied;
+> +       __virtio16 avail_idx;
+> +       struct vring_used_elem __user *used;
+> +       int i;
+> +
+> +       if (unlikely(vhost_get_avail(vq, avail_idx, &vq->avail->idx))) {
+> +               vq_err(vq, "Failed to access avail idx at %p\n",
+> +                      &vq->avail->idx);
+> +               return -EFAULT;
+> +       }
+> +       last_avail_idx = vq->last_avail_idx & (vq->num - 1);
+> +       vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
+> +       total = vq->avail_idx - vq->last_avail_idx;
+> +       ret = total = min(total, num);
+> +
+> +       for (i = 0; i < ret; i++) {
+> +               ret2 = vhost_get_avail(vq, heads[i].id,
+> +                                     &vq->avail->ring[last_avail_idx]);
+> +               if (unlikely(ret2)) {
+> +                       vq_err(vq, "Failed to get descriptors\n");
+> +                       return -EFAULT;
+> +               }
+> +               last_avail_idx = (last_avail_idx + 1) & (vq->num - 1);
+> +       }
 
->From the same discussion thread: it would be good to expose stats
-on the number of zerocopy skb sent and number completed without
-copy.
+This is understandably very similar to the existing logic in vhost_get_vq_desc.
+Can that be extracted to a helper to avoid code duplication?
 
-To test this patch, I also added ethtool stats to tun and extended them
-with two zerocopy counters. Then had tun override the uarg->callback
-with its own and update the counters before calling the original callback.
+Perhaps one helper to update vq->avail_idx and return num, and
+another to call vhost_get_avail one or more times.
 
-The one useful datapoint I did not get out of that is why skbs would
-revert to non-zerocopy: because of size, vhost_exceeds_maxpend
-or vhost_net_tx_select_zcopy. The simplistic implementation with an
-extra indirect function call and without percpu counters is also not
-suitable for submission as is.
+> +
+> +       if (!used_update)
+> +               return ret;
+> +
+> +       last_used_idx = vq->last_used_idx & (vq->num - 1);
+> +       while (total) {
+> +               copied = min((u16)(vq->num - last_used_idx), total);
+> +               ret2 = vhost_copy_to_user(vq,
+> +                                         &vq->used->ring[last_used_idx],
+> +                                         &heads[ret - total],
+> +                                         copied * sizeof(*used));
+> +
+> +               if (unlikely(ret2)) {
+> +                       vq_err(vq, "Failed to update used ring!\n");
+> +                       return -EFAULT;
+> +               }
+> +
+> +               last_used_idx = 0;
+> +               total -= copied;
+> +       }
+
+This second part seems unrelated and could be a separate function?
+
+Also, no need for ret2 and double assignment "ret = total =" if not
+modifying total
+in the the second loop:
+
+  for (i = 0; i < total; ) {
+    ...
+    i += copied;
+  }
