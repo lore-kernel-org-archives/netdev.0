@@ -1,60 +1,89 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 0/7] net: dsa: change dsa_ptr for a dsa_port
-Date: Fri, 29 Sep 2017 17:19:14 -0400
-Message-ID: <20170929211921.5571-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 3/7] net: dsa: use temporary dsa_device_ops variable
+Date: Fri, 29 Sep 2017 17:19:17 -0400
+Message-ID: <20170929211921.5571-4-vivien.didelot@savoirfairelinux.com>
+References: <20170929211921.5571-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:40258 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752255AbdI2VXa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 17:23:30 -0400
+In-Reply-To: <20170929211921.5571-1-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With DSA, a master net_device is physically wired to a dedicated CPU
-switch port. For interaction with the DSA layer, the struct net_device
-contains a dsa_ptr, which currently points to a dsa_switch_tree object.
+When resolving the DSA tagging protocol used by a CPU switch, use a
+temporary "tag_ops" variable to store the dsa_device_ops instead of
+using directly dst->tag_ops. This will make the future patches moving
+this pointer around easier to read.
 
-This is only valid for a switch fabric with a single CPU port. In order
-to support switch fabrics with multiple CPU ports, we first need to
-change the type of dsa_ptr to what it really is: a dsa_port object.
+There is no functional changes.
 
-This is what this patchset does. The first patches adds a
-dsa_master_get_slave helper and cleans up portions of DSA core to make
-the next patches more readable. These next patches prepare the xmit and
-receive hot paths and finally change dsa_ptr.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa2.c   | 8 +++++---
+ net/dsa/legacy.c | 8 +++++---
+ 2 files changed, 10 insertions(+), 6 deletions(-)
 
-Changes in v2:
-  - introduce dsa_master_get_slave helper to simplify patch 6
-  - keep hot path data at beginning of dsa_port for cacheline 1
-
-Vivien Didelot (7):
-  net: dsa: add master helper to look up slaves
-  net: dsa: use cpu_dp in master code
-  net: dsa: use temporary dsa_device_ops variable
-  net: dsa: add tagging ops to port
-  net: dsa: prepare master receive hot path
-  net: dsa: change dsa_ptr for a dsa_port
-  net: dsa: remove tag ops from the switch tree
-
- include/linux/netdevice.h |  4 ++--
- include/net/dsa.h         | 19 ++++++++-----------
- net/dsa/dsa.c             |  6 +++---
- net/dsa/dsa2.c            | 15 ++++++++++-----
- net/dsa/dsa_priv.h        | 27 +++++++++++++++++++++------
- net/dsa/legacy.c          | 15 ++++++++++-----
- net/dsa/master.c          | 47 ++++++++++++++++++++++-------------------------
- net/dsa/slave.c           |  3 +--
- net/dsa/tag_brcm.c        |  9 ++-------
- net/dsa/tag_dsa.c         | 18 ++----------------
- net/dsa/tag_edsa.c        | 18 ++----------------
- net/dsa/tag_ksz.c         |  9 +++------
- net/dsa/tag_lan9303.c     | 20 ++------------------
- net/dsa/tag_mtk.c         | 16 +++-------------
- net/dsa/tag_qca.c         | 17 +++--------------
- net/dsa/tag_trailer.c     |  9 +++------
- 16 files changed, 97 insertions(+), 155 deletions(-)
-
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index dcccaebde708..6a10c5c1639f 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -485,6 +485,7 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 			 struct dsa_switch_tree *dst,
+ 			 struct dsa_switch *ds)
+ {
++	const struct dsa_device_ops *tag_ops;
+ 	enum dsa_tag_protocol tag_protocol;
+ 	struct net_device *ethernet_dev;
+ 	struct device_node *ethernet;
+@@ -514,13 +515,14 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 	ds->cpu_port_mask |= BIT(index);
+ 
+ 	tag_protocol = ds->ops->get_tag_protocol(ds);
+-	dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
+-	if (IS_ERR(dst->tag_ops)) {
++	tag_ops = dsa_resolve_tag_protocol(tag_protocol);
++	if (IS_ERR(tag_ops)) {
+ 		dev_warn(ds->dev, "No tagger for this switch\n");
+ 		ds->cpu_port_mask &= ~BIT(index);
+-		return PTR_ERR(dst->tag_ops);
++		return PTR_ERR(tag_ops);
+ 	}
+ 
++	dst->tag_ops = tag_ops;
+ 	dst->rcv = dst->tag_ops->rcv;
+ 
+ 	return 0;
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index ae505d8e4417..8e849013f69d 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -144,13 +144,15 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 	 * switch.
+ 	 */
+ 	if (dst->cpu_dp->ds == ds) {
++		const struct dsa_device_ops *tag_ops;
+ 		enum dsa_tag_protocol tag_protocol;
+ 
+ 		tag_protocol = ops->get_tag_protocol(ds);
+-		dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
+-		if (IS_ERR(dst->tag_ops))
+-			return PTR_ERR(dst->tag_ops);
++		tag_ops = dsa_resolve_tag_protocol(tag_protocol);
++		if (IS_ERR(tag_ops))
++			return PTR_ERR(tag_ops);
+ 
++		dst->tag_ops = tag_ops;
+ 		dst->rcv = dst->tag_ops->rcv;
+ 	}
+ 
 -- 
 2.14.1
