@@ -1,44 +1,35 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCHv4 iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Fri, 29 Sep 2017 14:55:07 +0200
-Message-ID: <20170929125507.nkut3wtsvhq44evj@unicorn.suse.cz>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
- <1506605626-1744-2-git-send-email-haliu@redhat.com>
+From: 'Marcelo Ricardo Leitner' <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 03/10] sctp: factor out stream->in allocation
+Date: Fri, 29 Sep 2017 10:05:01 -0300
+Message-ID: <20170929130501.GA19750@localhost.localdomain>
+References: <cover.1506536044.git.marcelo.leitner@gmail.com>
+ <a2d837095740147003164fe573794c140001ec71.1506536044.git.marcelo.leitner@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0084F8E@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: Hangbin Liu <haliu@redhat.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:42034 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750977AbdI2MzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 08:55:09 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:55984 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751805AbdI2NFH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 09:05:07 -0400
 Content-Disposition: inline
-In-Reply-To: <1506605626-1744-2-git-send-email-haliu@redhat.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0084F8E@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 28, 2017 at 09:33:45PM +0800, Hangbin Liu wrote:
-> From: Hangbin Liu <liuhangbin@gmail.com>
+On Fri, Sep 29, 2017 at 10:04:15AM +0000, David Laight wrote:
+> From: Marcelo Ricardo Leitner
+> > Sent: 28 September 2017 21:25
+> > Same idea as previous patch.
 > 
-> With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size")
-> we doubled the buffer size to support more VFs. But the VFs number is
-> increasing all the time. Some customers even use more than 200 VFs now.
-> 
-> We could not double it everytime when the buffer is not enough. Let's just
-> not hard code the buffer size and malloc the correct number when running.
-> 
-> Introduce function rtnl_recvmsg() to always return a newly allocated buffer.
-> The caller need to free it after using.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  lib/libnetlink.c | 114 ++++++++++++++++++++++++++++++++++++++-----------------
->  1 file changed, 80 insertions(+), 34 deletions(-)
-> 
+> That needs a proper description.
 
-Reviewed-by: Michal Kubecek <mkubecek@suse.cz>
+Alright.
+
+  Marcelo
