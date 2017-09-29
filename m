@@ -1,151 +1,68 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 3/5] bpf: cpumap xdp_buff to skb conversion and
- allocation
-Date: Fri, 29 Sep 2017 09:46:43 +0200
-Message-ID: <20170929094643.4934f661@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [net-next PATCH 1/5] bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+Date: Fri, 29 Sep 2017 09:56:42 +0200
+Message-ID: <8737760wg5.fsf@stressinduktion.org>
 References: <150660339205.2808.7084136789768233829.stgit@firesoul>
-        <150660343811.2808.7680200486950101509.stgit@firesoul>
-        <59CD83DD.4060603@iogearbox.net>
+        <150660342793.2808.10838498581615265043.stgit@firesoul>
+        <20170929032146.vs5v454wjs4niu4k@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+Content-Type: text/plain
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+        jakub.kicinski@netronome.com,
         "Michael S. Tsirkin" <mst@redhat.com>,
         Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
         John Fastabend <john.fastabend@gmail.com>,
         peter.waskiewicz.jr@intel.com,
         Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+        Andy Gospodarek <andy@greyhouse.net>, pabeni@redhat.com,
+        edumazet@google.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50800 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751914AbdI2Hq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 03:46:57 -0400
-In-Reply-To: <59CD83DD.4060603@iogearbox.net>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:56817 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751037AbdI2H4r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 03:56:47 -0400
+In-Reply-To: <20170929032146.vs5v454wjs4niu4k@ast-mbp> (Alexei Starovoitov's
+        message of "Thu, 28 Sep 2017 20:21:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Sep 2017 01:21:01 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+[adding Paolo, Eric]
 
-> On 09/28/2017 02:57 PM, Jesper Dangaard Brouer wrote:
-> [...]
-> > +/* Convert xdp_buff to xdp_pkt */
-> > +static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
-> > +{
-> > +	struct xdp_pkt *xdp_pkt;
-> > +	int headroom;
-> > +
-> > +	/* Assure headroom is available for storing info */
-> > +	headroom = xdp->data - xdp->data_hard_start;
-> > +	if (headroom < sizeof(*xdp_pkt))
-> > +		return NULL;
-> > +
-> > +	/* Store info in top of packet */
-> > +	xdp_pkt = xdp->data_hard_start;  
-> 
-> (You'd also need to handle data_meta here if set, and for below
-> cpu_map_build_skb(), e.g. headroom is data_meta-data_hard_start.)
+Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
 
-I'll look into this.  The data_meta patchset was in-flight while I
-rebased this.
+> On Thu, Sep 28, 2017 at 02:57:08PM +0200, Jesper Dangaard Brouer wrote:
 
-> > +	xdp_pkt->data = xdp->data;
-> > +	xdp_pkt->len  = xdp->data_end - xdp->data;
-> > +	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
-> > +
-> > +	return xdp_pkt;
-> > +}
-> > +
-> > +static struct sk_buff *cpu_map_build_skb(struct bpf_cpu_map_entry *rcpu,
-> > +					 struct xdp_pkt *xdp_pkt)
-> > +{
-> > +	unsigned int frame_size;
-> > +	void *pkt_data_start;
-> > +	struct sk_buff *skb;
-> > +
-> > +	/* build_skb need to place skb_shared_info after SKB end, and
-> > +	 * also want to know the memory "truesize".  Thus, need to  
-> [...]
-> >   static int cpu_map_kthread_run(void *data)
-> >   {
-> > +	const unsigned long busy_poll_jiffies = usecs_to_jiffies(2000);
-> > +	unsigned long time_limit = jiffies + busy_poll_jiffies;
-> >   	struct bpf_cpu_map_entry *rcpu = data;
-> > +	unsigned int empty_cnt = 0;
-> >
-> >   	set_current_state(TASK_INTERRUPTIBLE);
-> >   	while (!kthread_should_stop()) {
-> > +		unsigned int processed = 0, drops = 0;
-> >   		struct xdp_pkt *xdp_pkt;
-> >
-> > -		schedule();
-> > -		/* Do work */
-> > -		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
-> > -			/* For now just "refcnt-free" */
-> > -			page_frag_free(xdp_pkt);
-> > +		/* Release CPU reschedule checks */
-> > +		if ((time_after_eq(jiffies, time_limit) || empty_cnt > 25) &&
-> > +		    __ptr_ring_empty(rcpu->queue)) {
-> > +			empty_cnt++;
-> > +			schedule();
-> > +			time_limit = jiffies + busy_poll_jiffies;
-> > +			WARN_ON(smp_processor_id() != rcpu->cpu);
-> > +		} else {
-> > +			cond_resched();
-> >   		}
-> > +
-> > +		/* Process packets in rcpu->queue */
-> > +		local_bh_disable();
-> > +		/*
-> > +		 * The bpf_cpu_map_entry is single consumer, with this
-> > +		 * kthread CPU pinned. Lockless access to ptr_ring
-> > +		 * consume side valid as no-resize allowed of queue.
-> > +		 */
-> > +		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
-> > +			struct sk_buff *skb;
-> > +			int ret;
-> > +
-> > +			/* Allow busy polling again */
-> > +			empty_cnt = 0;
-> > +
-> > +			skb = cpu_map_build_skb(rcpu, xdp_pkt);
-> > +			if (!skb) {
-> > +				page_frag_free(xdp_pkt);
-> > +				continue;
-> > +			}
-> > +
-> > +			/* Inject into network stack */
-> > +			ret = netif_receive_skb(skb);  
-> 
-> Have you looked into whether it's feasible to reuse GRO
-> engine here as well?
+[...]
 
-This is the first step. I'll work on adding the GRO-engine later. And
-it should be feasible.  There are plenty of optimizations in this area
-that can do done later ;-)
+>> +	wake_up_process(rcpu->kthread);
+>
+> In general the whole thing looks like 'threaded NAPI' that Hannes was
+> proposing some time back. I liked it back then and I like it now.
+> I don't remember what were the objections back then.
+> Something scheduler related?
+> Adding Hannes.
 
-> 
-> > +			if (ret == NET_RX_DROP)
-> > +				drops++;
-> > +
-> > +			/* Limit BH-disable period */
-> > +			if (++processed == 8)
-> > +				break;
-> > +		}
-> > +		local_bh_enable();
-> > +
-> >   		__set_current_state(TASK_INTERRUPTIBLE);
-> >   	}
-> >   	put_cpu_map_entry(rcpu);  
-> [...]
+Yes.
 
+The main objection from Eric at that time was that user space now starts
+to compete with the threaded NAPI threads depending on process
+priorities, which are under control of user space. Softirq always runs
+first to end. Networking could starve because a process with higher
+priority is runnable. At that time Eric found a way to fix the
+particular problem, which resulted in commit 4cd13c21b207e80d. Pinning
+and other control is also possible from user space, causing more complex
+tuning set ups and problems will be harder to debug.
 
+In particular after Eric's patch threaded NAPI proofed itself to be not
+useful anymore, because his patch successfully deferred work to the
+ksoftirqd more reliable thus allowing the UDP rx queue to get drained by
+user space.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+> Still curious about the questions I asked in the other thread
+> on what's causing it to be so much better than RPS
+
+My guess is that RPS uses expensive IPI to notify the remote
+softirq. The batching size on RPS depends on how many packets could get
+worked on during one softirq invocation on the source CPU until we wake
+up remote CPU(s!), if they are not constantly running.
