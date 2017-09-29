@@ -1,7 +1,7 @@
 From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH 1/2] capability: introduce sysctl for controlled user-ns capability whitelist
-Date: Fri, 29 Sep 2017 16:10:05 -0700
-Message-ID: <20170929231005.29755-1-mahesh@bandewar.net>
+Subject: [PATCH 2/2] userns: control capabilities of some user namespaces
+Date: Fri, 29 Sep 2017 16:10:08 -0700
+Message-ID: <20170929231008.29834-1-mahesh@bandewar.net>
 Cc: Netdev <netdev@vger.kernel.org>,
         Kernel-hardening <kernel-hardening@lists.openwall.com>,
         Linux API <linux-api@vger.kernel.org>,
@@ -19,158 +19,141 @@ List-Id: netdev.vger.kernel.org
 
 From: Mahesh Bandewar <maheshb@google.com>
 
-Add a sysctl variable kernel.controlled_userns_caps_whitelist. This
-takes input as capability mask expressed as two comma separated hex
-u32 words. The mask, however, is stored in kernel as kernel_cap_t type.
+With this new notion of "controlled" user-namespaces, the controlled
+user-namespaces are marked at the time of their creation while the
+capabilities of processes that belong to them are controlled using the
+global mask.
 
-Any capabilities that are not part of this mask will be controlled and
-will not be allowed to processes in controlled user-ns.
+Init-user-ns is always uncontrolled and a process that has SYS_ADMIN
+that belongs to uncontrolled user-ns can create another (child) user-
+namespace that is uncontrolled. Any other process (that either does
+not have SYS_ADMIN or belongs to a controlled user-ns) can only
+create a user-ns that is controlled.
+
+global-capability-whitelist (controlled_userns_caps_whitelist) is used
+at the capability check-time and keeps the semantics for the processes
+that belong to uncontrolled user-ns as it is. Processes that belong to
+controlled user-ns however are subjected to different checks-
+
+   (a) if the capability in question is controlled and process belongs
+       to controlled user-ns, then it's always denied.
+   (b) if the capability in question is NOT controlled then fall back
+       to the traditional check.
 
 Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- Documentation/sysctl/kernel.txt | 21 ++++++++++++++++++
- include/linux/capability.h      |  3 +++
- kernel/capability.c             | 47 +++++++++++++++++++++++++++++++++++++++++
- kernel/sysctl.c                 |  5 +++++
- 4 files changed, 76 insertions(+)
+ include/linux/capability.h     |  1 +
+ include/linux/user_namespace.h | 20 ++++++++++++++++++++
+ kernel/capability.c            |  5 +++++
+ kernel/user_namespace.c        |  3 +++
+ security/commoncap.c           |  8 ++++++++
+ 5 files changed, 37 insertions(+)
 
-diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.txt
-index 694968c7523c..a1d39dbae847 100644
---- a/Documentation/sysctl/kernel.txt
-+++ b/Documentation/sysctl/kernel.txt
-@@ -25,6 +25,7 @@ show up in /proc/sys/kernel:
- - bootloader_version	     [ X86 only ]
- - callhome		     [ S390 only ]
- - cap_last_cap
-+- controlled_userns_caps_whitelist
- - core_pattern
- - core_pipe_limit
- - core_uses_pid
-@@ -187,6 +188,26 @@ CAP_LAST_CAP from the kernel.
- 
- ==============================================================
- 
-+controlled_userns_caps_whitelist
-+
-+Capability mask that is whitelisted for "controlled" user namespaces.
-+Any capability that is missing from this mask will not be allowed to
-+any process that is attached to a controlled-userns. e.g. if CAP_NET_RAW
-+is not part of this mask, then processes running inside any controlled
-+userns's will not be allowed to perform action that needs CAP_NET_RAW
-+capability. However, processes that are attached to a parent user-ns
-+hierarchy that is *not* controlled and has CAP_NET_RAW can continue
-+performing those actions. User-namespaces are marked "controlled" at
-+the time of their creation based on the capabilities of the creator.
-+A process that does not have CAP_SYS_ADMIN will create user-namespaces
-+that are controlled.
-+
-+The value is expressed as two comma separated hex words (u32). This
-+sysctl is avaialble in init-ns and users with CAP_SYS_ADMIN in init-ns
-+are allowed to make changes.
-+
-+==============================================================
-+
- core_pattern:
- 
- core_pattern is used to specify a core dumpfile pattern name.
 diff --git a/include/linux/capability.h b/include/linux/capability.h
-index b52e278e4744..6c0b9677c03f 100644
+index 6c0b9677c03f..b8c6cac18658 100644
 --- a/include/linux/capability.h
 +++ b/include/linux/capability.h
-@@ -13,6 +13,7 @@
- #define _LINUX_CAPABILITY_H
- 
- #include <uapi/linux/capability.h>
-+#include <linux/sysctl.h>
- 
- 
- #define _KERNEL_CAPABILITY_VERSION _LINUX_CAPABILITY_VERSION_3
-@@ -247,6 +248,8 @@ extern bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns);
- 
- /* audit system wants to get cap info from files as well */
+@@ -250,6 +250,7 @@ extern bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns);
  extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
-+int proc_douserns_caps_whitelist(struct ctl_table *table, int write,
-+				 void __user *buff, size_t *lenp, loff_t *ppos);
+ int proc_douserns_caps_whitelist(struct ctl_table *table, int write,
+ 				 void __user *buff, size_t *lenp, loff_t *ppos);
++bool is_capability_controlled(int cap);
  
  extern int cap_convert_nscap(struct dentry *dentry, void **ivalue, size_t size);
  
-diff --git a/kernel/capability.c b/kernel/capability.c
-index f97fe77ceb88..62dbe3350c1b 100644
---- a/kernel/capability.c
-+++ b/kernel/capability.c
-@@ -28,6 +28,8 @@ EXPORT_SYMBOL(__cap_empty_set);
- 
- int file_caps_enabled = 1;
- 
-+kernel_cap_t controlled_userns_caps_whitelist = CAP_FULL_SET;
-+
- static int __init file_caps_disable(char *str)
- {
- 	file_caps_enabled = 0;
-@@ -506,3 +508,48 @@ bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns)
- 	rcu_read_unlock();
- 	return (ret == 0);
- }
-+
-+/* Controlled-userns capabilities routines */
-+#ifdef CONFIG_SYSCTL
-+int proc_douserns_caps_whitelist(struct ctl_table *table, int write,
-+				 void __user *buff, size_t *lenp, loff_t *ppos)
-+{
-+	DECLARE_BITMAP(caps_bitmap, CAP_LAST_CAP);
-+	struct ctl_table caps_table;
-+	char tbuf[NAME_MAX];
-+	int ret;
-+
-+	ret = bitmap_from_u32array(caps_bitmap, CAP_LAST_CAP,
-+				   controlled_userns_caps_whitelist.cap,
-+				   _KERNEL_CAPABILITY_U32S);
-+	if (ret != CAP_LAST_CAP)
-+		return -1;
-+
-+	scnprintf(tbuf, NAME_MAX, "%*pb", CAP_LAST_CAP, caps_bitmap);
-+
-+	caps_table.data = tbuf;
-+	caps_table.maxlen = NAME_MAX;
-+	caps_table.mode = table->mode;
-+	ret = proc_dostring(&caps_table, write, buff, lenp, ppos);
-+	if (ret)
-+		return ret;
-+	if (write) {
-+		kernel_cap_t tmp;
-+
-+		if (!capable(CAP_SYS_ADMIN))
-+			return -EPERM;
-+
-+		ret = bitmap_parse_user(buff, *lenp, caps_bitmap, CAP_LAST_CAP);
-+		if (ret)
-+			return ret;
-+
-+		ret = bitmap_to_u32array(tmp.cap, _KERNEL_CAPABILITY_U32S,
-+					 caps_bitmap, CAP_LAST_CAP);
-+		if (ret != CAP_LAST_CAP)
-+			return -1;
-+
-+		controlled_userns_caps_whitelist = tmp;
-+	}
-+	return 0;
-+}
-+#endif /* CONFIG_SYSCTL */
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 6648fbbb8157..9903cf0de287 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -1229,6 +1229,11 @@ static struct ctl_table kern_table[] = {
- 		.extra2		= &one,
- 	},
- #endif
-+	{
-+		.procname	= "controlled_userns_caps_whitelist",
-+		.mode		= 0644,
-+		.proc_handler	= proc_douserns_caps_whitelist,
-+	},
- 	{ }
+diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
+index c18e01252346..e890fe81b47e 100644
+--- a/include/linux/user_namespace.h
++++ b/include/linux/user_namespace.h
+@@ -22,6 +22,7 @@ struct uid_gid_map {	/* 64 bytes -- 1 cache line */
  };
  
+ #define USERNS_SETGROUPS_ALLOWED 1UL
++#define USERNS_CONTROLLED	 2UL
+ 
+ #define USERNS_INIT_FLAGS USERNS_SETGROUPS_ALLOWED
+ 
+@@ -102,6 +103,16 @@ static inline void put_user_ns(struct user_namespace *ns)
+ 		__put_user_ns(ns);
+ }
+ 
++static inline bool is_user_ns_controlled(const struct user_namespace *ns)
++{
++	return ns->flags & USERNS_CONTROLLED;
++}
++
++static inline void mark_user_ns_controlled(struct user_namespace *ns)
++{
++	ns->flags |= USERNS_CONTROLLED;
++}
++
+ struct seq_operations;
+ extern const struct seq_operations proc_uid_seq_operations;
+ extern const struct seq_operations proc_gid_seq_operations;
+@@ -160,6 +171,15 @@ static inline struct ns_common *ns_get_owner(struct ns_common *ns)
+ {
+ 	return ERR_PTR(-EPERM);
+ }
++
++static inline bool is_user_ns_controlled(const struct user_namespace *ns)
++{
++	return false;
++}
++
++static inline void mark_user_ns_controlled(struct user_namespace *ns)
++{
++}
+ #endif
+ 
+ #endif /* _LINUX_USER_H */
+diff --git a/kernel/capability.c b/kernel/capability.c
+index 62dbe3350c1b..40a38cc4ff43 100644
+--- a/kernel/capability.c
++++ b/kernel/capability.c
+@@ -510,6 +510,11 @@ bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns)
+ }
+ 
+ /* Controlled-userns capabilities routines */
++bool is_capability_controlled(int cap)
++{
++	return !cap_raised(controlled_userns_caps_whitelist, cap);
++}
++
+ #ifdef CONFIG_SYSCTL
+ int proc_douserns_caps_whitelist(struct ctl_table *table, int write,
+ 				 void __user *buff, size_t *lenp, loff_t *ppos)
+diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
+index c490f1e4313b..f393ea5108f0 100644
+--- a/kernel/user_namespace.c
++++ b/kernel/user_namespace.c
+@@ -53,6 +53,9 @@ static void set_cred_user_ns(struct cred *cred, struct user_namespace *user_ns)
+ 	cred->cap_effective = CAP_FULL_SET;
+ 	cred->cap_ambient = CAP_EMPTY_SET;
+ 	cred->cap_bset = CAP_FULL_SET;
++	if (!ns_capable(user_ns->parent, CAP_SYS_ADMIN) ||
++	    is_user_ns_controlled(user_ns->parent))
++		mark_user_ns_controlled(user_ns);
+ #ifdef CONFIG_KEYS
+ 	key_put(cred->request_key_auth);
+ 	cred->request_key_auth = NULL;
+diff --git a/security/commoncap.c b/security/commoncap.c
+index 6bf72b175b49..26f41602da10 100644
+--- a/security/commoncap.c
++++ b/security/commoncap.c
+@@ -73,6 +73,14 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
+ {
+ 	struct user_namespace *ns = targ_ns;
+ 
++	/* If the capability is controlled and user-ns that process
++	 * belongs-to is 'controlled' then return EPERM and no need
++	 * to check the user-ns hierarchy.
++	 */
++	if (is_user_ns_controlled(cred->user_ns) &&
++	    is_capability_controlled(cap))
++		return -EPERM;
++
+ 	/* See if cred has the capability in the target user namespace
+ 	 * by examining the target user namespace and all of the target
+ 	 * user namespace's parents.
 -- 
 2.14.2.822.g60be5d43e6-goog
