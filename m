@@ -1,944 +1,328 @@
-From: Yi Yang <yi.y.yang@intel.com>
-Subject: [PATCH net-next v11] openvswitch: enable NSH support
-Date: Fri, 29 Sep 2017 15:03:30 +0800
-Message-ID: <1506668610-18505-1-git-send-email-yi.y.yang@intel.com>
-Cc: dev@openvswitch.org, jbenc@redhat.com, e@erig.me,
-        davem@davemloft.net, pshelar@ovn.org, Yi Yang <yi.y.yang@intel.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
+Date: Fri, 29 Sep 2017 09:09:40 +0200
+Message-ID: <20170929090738.040231a3@redhat.com>
+References: <cover.1506297988.git.daniel@iogearbox.net>
+        <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
+        <20170926211342.0c8e72b0@redhat.com>
+        <59CAB17D.5090204@iogearbox.net>
+        <20170927112604.1284f536@redhat.com>
+        <645e7a39-c172-5882-5dd9-f038430114d1@gmail.com>
+        <20170927165457.4265bfc3@redhat.com>
+        <20170927173233.tuqlutz6t2gwdk53@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
+        netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+        brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:13931 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35346 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750929AbdI2HHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 03:07:50 -0400
+        id S1750979AbdI2HJu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 03:09:50 -0400
+In-Reply-To: <20170927173233.tuqlutz6t2gwdk53@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v10->v11
- - Fix the left three disputable comments for v9
-   but not fixed in v10.
+On Wed, 27 Sep 2017 10:32:36 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-v9->v10
- - Change struct ovs_key_nsh to
-       struct ovs_nsh_key_base base;
-       __be32 context[NSH_MD1_CONTEXT_SIZE];
- - Fix new comments for v9
+> On Wed, Sep 27, 2017 at 04:54:57PM +0200, Jesper Dangaard Brouer wrote:
+> > On Wed, 27 Sep 2017 06:35:40 -0700
+> > John Fastabend <john.fastabend@gmail.com> wrote:
+> >   
+> > > On 09/27/2017 02:26 AM, Jesper Dangaard Brouer wrote:  
+> > > > On Tue, 26 Sep 2017 21:58:53 +0200
+> > > > Daniel Borkmann <daniel@iogearbox.net> wrote:
+> > > >     
+> > > >> On 09/26/2017 09:13 PM, Jesper Dangaard Brouer wrote:
+> > > >> [...]    
+> > > >>> I'm currently implementing a cpumap type, that transfers raw XDP frames
+> > > >>> to another CPU, and the SKB is allocated on the remote CPU.  (It
+> > > >>> actually works extremely well).      
+> > > >>
+> > > >> Meaning you let all the XDP_PASS packets get processed on a
+> > > >> different CPU, so you can reserve the whole CPU just for
+> > > >> prefiltering, right?     
+> > > > 
+> > > > Yes, exactly.  Except I use the XDP_REDIRECT action to steer packets.
+> > > > The trick is using the map-flush point, to transfer packets in bulk to
+> > > > the remote CPU (single call IPC is too slow), but at the same time
+> > > > flush single packets if NAPI didn't see a bulk.
+> > > >     
+> > > >> Do you have some numbers to share at this point, just curious when
+> > > >> you mention it works extremely well.    
+> > > > 
+> > > > Sure... I've done a lot of benchmarking on this patchset ;-)
+> > > > I have a benchmark program called xdp_redirect_cpu [1][2], that collect
+> > > > stats via tracepoints (atm I'm limiting bulking 8 packets, and have
+> > > > tracepoints at bulk spots, to amortize tracepoint cost 25ns/8=3.125ns)
+> > > > 
+> > > >  [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_kern.c
+> > > >  [2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_user.c
+> > > > 
+> > > > Here I'm installing a DDoS program that drops UDP port 9 (pktgen
+> > > > packets) on RX CPU=0.  I'm forcing my netperf to hit the same CPU, that
+> > > > the 11.9Mpps DDoS attack is hitting.
+> > > > 
+> > > > Running XDP/eBPF prog_num:4
+> > > > XDP-cpumap      CPU:to  pps            drop-pps    extra-info
+> > > > XDP-RX          0       12,030,471     11,966,982  0          
+> > > > XDP-RX          total   12,030,471     11,966,982 
+> > > > cpumap-enqueue    0:2   63,488         0           0          
+> > > > cpumap-enqueue  sum:2   63,488         0           0          
+> > > > cpumap_kthread  2       63,488         0           3          time_exceed
+> > > > cpumap_kthread  total   63,488         0           0          
+> > > > redirect_err    total   0              0          
+> > > > 
+> > > > $ netperf -H 172.16.0.2 -t TCP_CRR  -l 10 -D1 -T5,5 -- -r 1024,1024
+> > > > Local /Remote
+> > > > Socket Size   Request  Resp.   Elapsed  Trans.
+> > > > Send   Recv   Size     Size    Time     Rate         
+> > > > bytes  Bytes  bytes    bytes   secs.    per sec   
+> > > > 
+> > > > 16384  87380  1024     1024    10.00    12735.97   
+> > > > 16384  87380 
+> > > > 
+> > > > The netperf TCP_CRR performance is the same, without XDP loaded.
+> > > >     
+> > > 
+> > > Just curious could you also try this with RPS enabled (or does this have
+> > > RPS enabled). RPS should effectively do the same thing but higher in the
+> > > stack. I'm curious what the delta would be. Might be another interesting
+> > > case and fairly easy to setup if you already have the above scripts.  
+> > 
+> > Yes, I'm essentially competing with RSP, thus such a comparison is very
+> > relevant...
+> > 
+> > This is only a 6 CPUs system. Allocate 2 CPUs to RPS receive and let
+> > other 4 CPUS process packet.
+> > 
+> > Summary of RPS (Receive Packet Steering) performance:
+> >  * End result is 6.3 Mpps max performance
+> >  * netperf TCP_CRR is 1 trans/sec.
+> >  * Each RX-RPS CPU stall at ~3.2Mpps.
+> > 
+> > The full test report below with setup:
+> > 
+> > The mask needed::
+> > 
+> >  perl -e 'printf "%b\n",0x3C'
+> >  111100
+> > 
+> > RPS setup::
+> > 
+> >  sudo sh -c 'echo 32768 > /proc/sys/net/core/rps_sock_flow_entries'
+> > 
+> >  for N in $(seq 0 5) ; do \
+> >    sudo sh -c "echo 8192 > /sys/class/net/ixgbe1/queues/rx-$N/rps_flow_cnt" ; \
+> >    sudo sh -c "echo 3c > /sys/class/net/ixgbe1/queues/rx-$N/rps_cpus" ; \
+> >    grep -H . /sys/class/net/ixgbe1/queues/rx-$N/rps_cpus ; \
+> >  done
+> > 
+> > Reduce RX queues to two ::
+> > 
+> >  ethtool -L ixgbe1 combined 2
+> > 
+> > IRQ align to CPU numbers::
+> > 
+> >  $ ~/setup01.sh
+> >  Not root, running with sudo
+> >   --- Disable Ethernet flow-control ---
+> >  rx unmodified, ignoring
+> >  tx unmodified, ignoring
+> >  no pause parameters changed, aborting
+> >  rx unmodified, ignoring
+> >  tx unmodified, ignoring
+> >  no pause parameters changed, aborting
+> >   --- Align IRQs ---
+> >  /proc/irq/54/ixgbe1-TxRx-0/../smp_affinity_list:0
+> >  /proc/irq/55/ixgbe1-TxRx-1/../smp_affinity_list:1
+> >  /proc/irq/56/ixgbe1/../smp_affinity_list:0-5
+> > 
+> > $ grep -H . /sys/class/net/ixgbe1/queues/rx-*/rps_cpus
+> > /sys/class/net/ixgbe1/queues/rx-0/rps_cpus:3c
+> > /sys/class/net/ixgbe1/queues/rx-1/rps_cpus:3c
+> > 
+> > Generator is sending: 12,715,782 tx_packets /sec
+> > 
+> >  ./pktgen_sample04_many_flows.sh -vi ixgbe2 -m 00:1b:21:bb:9a:84 \
+> >     -d 172.16.0.2 -t8
+> > 
+> > $ nstat > /dev/null && sleep 1 && nstat
+> > #kernel
+> > IpInReceives                    6346544            0.0
+> > IpInDelivers                    6346544            0.0
+> > IpOutRequests                   1020               0.0
+> > IcmpOutMsgs                     1020               0.0
+> > IcmpOutDestUnreachs             1020               0.0
+> > IcmpMsgOutType3                 1020               0.0
+> > UdpNoPorts                      6346898            0.0
+> > IpExtInOctets                   291964714          0.0
+> > IpExtOutOctets                  73440              0.0
+> > IpExtInNoECTPkts                6347063            0.0
+> > 
+> > $ mpstat -P ALL -u -I SCPU -I SUM
+> > 
+> > Average:     CPU    %usr   %nice    %sys   %irq   %soft  %idle
+> > Average:     all    0.00    0.00    0.00   0.42   72.97  26.61
+> > Average:       0    0.00    0.00    0.00   0.17   99.83   0.00
+> > Average:       1    0.00    0.00    0.00   0.17   99.83   0.00
+> > Average:       2    0.00    0.00    0.00   0.67   60.37  38.96
+> > Average:       3    0.00    0.00    0.00   0.67   58.70  40.64
+> > Average:       4    0.00    0.00    0.00   0.67   59.53  39.80
+> > Average:       5    0.00    0.00    0.00   0.67   58.93  40.40
+> > 
+> > Average:     CPU    intr/s
+> > Average:     all 152067.22
+> > Average:       0  50064.73
+> > Average:       1  50089.35
+> > Average:       2  45095.17
+> > Average:       3  44875.04
+> > Average:       4  44906.32
+> > Average:       5  45152.08
+> > 
+> > Average:     CPU     TIMER/s   NET_TX/s   NET_RX/s TASKLET/s  SCHED/s     RCU/s
+> > Average:       0      609.48       0.17   49431.28      0.00     2.66     21.13
+> > Average:       1      567.55       0.00   49498.00      0.00     2.66     21.13
+> > Average:       2      998.34       0.00   43941.60      4.16    82.86     68.22
+> > Average:       3      540.60       0.17   44140.27      0.00    85.52    108.49
+> > Average:       4      537.27       0.00   44219.63      0.00    84.53     64.89
+> > Average:       5      530.78       0.17   44445.59      0.00    85.02     90.52
+> > 
+> > From mpstat it looks like it is the RX-RPS CPUs that are the bottleneck.
+> > 
+> > Show adapter(s) (ixgbe1) statistics (ONLY that changed!)
+> > Ethtool(ixgbe1) stat:     11109531 (   11,109,531) <= fdir_miss /sec
+> > Ethtool(ixgbe1) stat:    380632356 (  380,632,356) <= rx_bytes /sec
+> > Ethtool(ixgbe1) stat:    812792611 (  812,792,611) <= rx_bytes_nic /sec
+> > Ethtool(ixgbe1) stat:      1753550 (    1,753,550) <= rx_missed_errors /sec
+> > Ethtool(ixgbe1) stat:      4602487 (    4,602,487) <= rx_no_dma_resources /sec
+> > Ethtool(ixgbe1) stat:      6343873 (    6,343,873) <= rx_packets /sec
+> > Ethtool(ixgbe1) stat:     10946441 (   10,946,441) <= rx_pkts_nic /sec
+> > Ethtool(ixgbe1) stat:    190287853 (  190,287,853) <= rx_queue_0_bytes /sec
+> > Ethtool(ixgbe1) stat:      3171464 (    3,171,464) <= rx_queue_0_packets /sec
+> > Ethtool(ixgbe1) stat:    190344503 (  190,344,503) <= rx_queue_1_bytes /sec
+> > Ethtool(ixgbe1) stat:      3172408 (    3,172,408) <= rx_queue_1_packets /sec
+> > 
+> > Notice, each RX-CPU can only process 3.1Mpps.
+> > 
+> > RPS RX-CPU(0):
+> > 
+> >  # Overhead  CPU  Symbol
+> >  # ........  ...  .......................................
+> >  #
+> >     11.72%  000  [k] ixgbe_poll
+> >     11.29%  000  [k] _raw_spin_lock
+> >     10.35%  000  [k] dev_gro_receive
+> >      8.36%  000  [k] __build_skb
+> >      7.35%  000  [k] __skb_get_hash
+> >      6.22%  000  [k] enqueue_to_backlog
+> >      5.89%  000  [k] __skb_flow_dissect
+> >      4.43%  000  [k] inet_gro_receive
+> >      4.19%  000  [k] ___slab_alloc
+> >      3.90%  000  [k] queued_spin_lock_slowpath
+> >      3.85%  000  [k] kmem_cache_alloc
+> >      3.06%  000  [k] build_skb
+> >      2.66%  000  [k] get_rps_cpu
+> >      2.57%  000  [k] napi_gro_receive
+> >      2.34%  000  [k] eth_type_trans
+> >      1.81%  000  [k] __cmpxchg_double_slab.isra.61
+> >      1.47%  000  [k] ixgbe_alloc_rx_buffers
+> >      1.43%  000  [k] get_partial_node.isra.81
+> >      0.84%  000  [k] swiotlb_sync_single
+> >      0.74%  000  [k] udp4_gro_receive
+> >      0.73%  000  [k] netif_receive_skb_internal
+> >      0.72%  000  [k] udp_gro_receive
+> >      0.63%  000  [k] skb_gro_reset_offset
+> >      0.49%  000  [k] __skb_flow_get_ports
+> >      0.48%  000  [k] llist_add_batch
+> >      0.36%  000  [k] swiotlb_sync_single_for_cpu
+> >      0.34%  000  [k] __slab_alloc
+> > 
+> > 
+> > Remote RPS-CPU(3) getting packets::
+> > 
+> >  # Overhead  CPU  Symbol
+> >  # ........  ...  ..............................................
+> >  #
+> >     33.02%  003  [k] poll_idle
+> >     10.99%  003  [k] __netif_receive_skb_core
+> >     10.45%  003  [k] page_frag_free
+> >      8.49%  003  [k] ip_rcv
+> >      4.19%  003  [k] fib_table_lookup
+> >      2.84%  003  [k] __udp4_lib_rcv
+> >      2.81%  003  [k] __slab_free
 
-v8->v9
- - Fix build error reported by daily intel build
-   because nsh module isn't selected by openvswitch
+Notice slow-path of SLUB
 
-v7->v8
- - Rework nested value and mask for OVS_KEY_ATTR_NSH
- - Change pop_nsh to adapt to nsh kernel module
- - Fix many issues per comments from Jiri Benc
+> >      2.23%  003  [k] __udp4_lib_lookup
+> >      2.09%  003  [k] ip_route_input_rcu
+> >      2.07%  003  [k] kmem_cache_free
+> >      2.06%  003  [k] udp_v4_early_demux
+> >      1.73%  003  [k] ip_rcv_finish  
+> 
+> Very interesting data.
 
-v6->v7
- - Remove NSH GSO patches in v6 because Jiri Benc
-   reworked it as another patch series and they have
-   been merged.
- - Change it to adapt to nsh kernel module added by NSH
-   GSO patch series
+You removed some of the more interesting part of the perf-report, that
+showed us hitting more of the SLUB slowpath for SKBs.  The slowpath
+consist of many separate function calls, thus it doesn't bubble to the
+top (the FlameGraph tool shows them easier).
 
-v5->v6
- - Fix the rest comments for v4.
- - Add NSH GSO support for VxLAN-gpe + NSH and
-   Eth + NSH.
+> So above perf report compares to xdp-redirect-cpu this one:
+> Perf top on a CPU(3) that have to alloc and free SKBs etc.
+> 
+> # Overhead  CPU  Symbol
+> # ........  ...  .......................................
+> #
+>     15.51%  003  [k] fib_table_lookup
+>      8.91%  003  [k] cpu_map_kthread_run
+>      8.04%  003  [k] build_skb
+>      7.88%  003  [k] page_frag_free
+>      5.13%  003  [k] kmem_cache_alloc
+>      4.76%  003  [k] ip_route_input_rcu
+>      4.59%  003  [k] kmem_cache_free
+>      4.02%  003  [k] __udp4_lib_rcv
+>      3.20%  003  [k] fib_validate_source
+>      3.02%  003  [k] __netif_receive_skb_core
+>      3.02%  003  [k] udp_v4_early_demux
+>      2.90%  003  [k] ip_rcv
+>      2.80%  003  [k] ip_rcv_finish
+> 
+> right?
+> and in RPS case the consumer cpu is 33% idle whereas in redirect-cpu
+> you can load it up all the way.
+> Am I interpreting all this correctly that with RPS cpu0 cannot
+> distributed the packets to other cpus fast enough and that's
+> a bottleneck?
 
-v4->v5
- - Fix many comments by Jiri Benc and Eric Garver
-   for v4.
+Yes, exactly. The work needed on the RPS cpu0 is simply too much.
 
-v3->v4
- - Add new NSH match field ttl
- - Update NSH header to the latest format
-   which will be final format and won't change
-   per its author's confirmation.
- - Fix comments for v3.
+> whereas in redirect-cpu you're doing early packet distribution
+> before skb alloc?
 
-v2->v3
- - Change OVS_KEY_ATTR_NSH to nested key to handle
-   length-fixed attributes and length-variable
-   attriubte more flexibly.
- - Remove struct ovs_action_push_nsh completely
- - Add code to handle nested attribute for SET_MASKED
- - Change PUSH_NSH to use the nested OVS_KEY_ATTR_NSH
-   to transfer NSH header data.
- - Fix comments and coding style issues by Jiri and Eric
+Yes, the main point to reducing the CPU cycles spend on the packet for
+doing early packet distribution.
 
-v1->v2
- - Change encap_nsh and decap_nsh to push_nsh and pop_nsh
- - Dynamically allocate struct ovs_action_push_nsh for
-   length-variable metadata.
+> So in other words with redirect-cpu all consumer cpus are doing
+> skb alloc and in RPS cpu0 is allocating skbs for all ?
 
-OVS master and 2.8 branch has merged NSH userspace
-patch series, this patch is to enable NSH support
-in kernel data path in order that OVS can support
-NSH in compat mode by porting this.
+Yes.
 
-Signed-off-by: Yi Yang <yi.y.yang@intel.com>
----
- include/net/nsh.h                |   3 +
- include/uapi/linux/openvswitch.h |  29 ++++
- net/nsh/nsh.c                    |  59 ++++++++
- net/openvswitch/Kconfig          |   1 +
- net/openvswitch/actions.c        | 109 ++++++++++++++
- net/openvswitch/flow.c           |  51 +++++++
- net/openvswitch/flow.h           |   7 +
- net/openvswitch/flow_netlink.c   | 317 ++++++++++++++++++++++++++++++++++++++-
- net/openvswitch/flow_netlink.h   |   5 +
- 9 files changed, 580 insertions(+), 1 deletion(-)
+> and that's where 6M->12M performance gain comes from?
 
-diff --git a/include/net/nsh.h b/include/net/nsh.h
-index a1eaea2..c03b089 100644
---- a/include/net/nsh.h
-+++ b/include/net/nsh.h
-@@ -304,4 +304,7 @@ static inline void nsh_set_flags_ttl_len(struct nshhdr *nsh, u8 flags,
- 			NSH_FLAGS_MASK | NSH_TTL_MASK | NSH_LEN_MASK);
- }
- 
-+int skb_push_nsh(struct sk_buff *skb, const struct nshhdr *nh);
-+int skb_pop_nsh(struct sk_buff *skb);
-+
- #endif /* __NET_NSH_H */
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 156ee4c..c1a785c 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -333,6 +333,7 @@ enum ovs_key_attr {
- 	OVS_KEY_ATTR_CT_LABELS,	/* 16-octet connection tracking label */
- 	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV4,   /* struct ovs_key_ct_tuple_ipv4 */
- 	OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6,   /* struct ovs_key_ct_tuple_ipv6 */
-+	OVS_KEY_ATTR_NSH,       /* Nested set of ovs_nsh_key_* */
- 
- #ifdef __KERNEL__
- 	OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ip_tunnel_info */
-@@ -491,6 +492,30 @@ struct ovs_key_ct_tuple_ipv6 {
- 	__u8   ipv6_proto;
- };
- 
-+enum ovs_nsh_key_attr {
-+	OVS_NSH_KEY_ATTR_UNSPEC,
-+	OVS_NSH_KEY_ATTR_BASE,  /* struct ovs_nsh_key_base. */
-+	OVS_NSH_KEY_ATTR_MD1,   /* struct ovs_nsh_key_md1. */
-+	OVS_NSH_KEY_ATTR_MD2,   /* variable-length octets for MD type 2. */
-+	__OVS_NSH_KEY_ATTR_MAX
-+};
-+
-+#define OVS_NSH_KEY_ATTR_MAX (__OVS_NSH_KEY_ATTR_MAX - 1)
-+
-+struct ovs_nsh_key_base {
-+	__u8 flags;
-+	__u8 ttl;
-+	__u8 mdtype;
-+	__u8 np;
-+	__be32 path_hdr;
-+};
-+
-+#define NSH_MD1_CONTEXT_SIZE 4
-+
-+struct ovs_nsh_key_md1 {
-+	__be32 context[NSH_MD1_CONTEXT_SIZE];
-+};
-+
- /**
-  * enum ovs_flow_attr - attributes for %OVS_FLOW_* commands.
-  * @OVS_FLOW_ATTR_KEY: Nested %OVS_KEY_ATTR_* attributes specifying the flow
-@@ -806,6 +831,8 @@ struct ovs_action_push_eth {
-  * packet.
-  * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the
-  * packet.
-+ * @OVS_ACTION_ATTR_PUSH_NSH: push NSH header to the packet.
-+ * @OVS_ACTION_ATTR_POP_NSH: pop the outermost NSH header off the packet.
-  *
-  * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
-  * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-@@ -835,6 +862,8 @@ enum ovs_action_attr {
- 	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
- 	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
- 	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-+	OVS_ACTION_ATTR_PUSH_NSH,     /* Nested OVS_NSH_KEY_ATTR_*. */
-+	OVS_ACTION_ATTR_POP_NSH,      /* No argument. */
- 
- 	__OVS_ACTION_ATTR_MAX,	      /* Nothing past this will be accepted
- 				       * from userspace. */
-diff --git a/net/nsh/nsh.c b/net/nsh/nsh.c
-index 58fb827..5e4f937 100644
---- a/net/nsh/nsh.c
-+++ b/net/nsh/nsh.c
-@@ -14,6 +14,65 @@
- #include <net/nsh.h>
- #include <net/tun_proto.h>
- 
-+int skb_push_nsh(struct sk_buff *skb, const struct nshhdr *src_nsh_hdr)
-+{
-+	struct nshhdr *nsh_hdr;
-+	size_t length = nsh_hdr_len(src_nsh_hdr);
-+	u8 next_proto;
-+
-+	if (skb->mac_len) {
-+		next_proto = TUN_P_ETHERNET;
-+	} else {
-+		next_proto = tun_p_from_eth_p(skb->protocol);
-+		if (!next_proto)
-+			return -EAFNOSUPPORT;
-+	}
-+
-+	/* Add the NSH header */
-+	if (skb_cow_head(skb, length) < 0)
-+		return -ENOMEM;
-+
-+	skb_push(skb, length);
-+	nsh_hdr = (struct nshhdr *)(skb->data);
-+	memcpy(nsh_hdr, src_nsh_hdr, length);
-+	nsh_hdr->np = next_proto;
-+
-+	skb->protocol = htons(ETH_P_NSH);
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_mac_len(skb);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(skb_push_nsh);
-+
-+int skb_pop_nsh(struct sk_buff *skb)
-+{
-+	int err;
-+	struct nshhdr *nsh_hdr = (struct nshhdr *)(skb->data);
-+	size_t length;
-+	__be16 inner_proto;
-+
-+	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-+				       sizeof(struct nshhdr));
-+	if (unlikely(err))
-+		return err;
-+
-+	inner_proto = tun_p_to_eth_p(nsh_hdr->np);
-+	if (!inner_proto)
-+		return -EAFNOSUPPORT;
-+
-+	length = nsh_hdr_len(nsh_hdr);
-+	skb_pull(skb, length);
-+	skb_reset_mac_header(skb);
-+	skb_reset_network_header(skb);
-+	skb_reset_mac_len(skb);
-+	skb->protocol = inner_proto;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(skb_pop_nsh);
-+
- static struct sk_buff *nsh_gso_segment(struct sk_buff *skb,
- 				       netdev_features_t features)
- {
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index ce94729..2650205 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -14,6 +14,7 @@ config OPENVSWITCH
- 	select MPLS
- 	select NET_MPLS_GSO
- 	select DST_CACHE
-+	select NET_NSH
- 	---help---
- 	  Open vSwitch is a multilayer Ethernet switch targeted at virtualized
- 	  environments.  In addition to supporting a variety of features
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index a54a556..27b579b7 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -43,6 +43,7 @@
- #include "flow.h"
- #include "conntrack.h"
- #include "vport.h"
-+#include "flow_netlink.h"
- 
- struct deferred_action {
- 	struct sk_buff *skb;
-@@ -380,6 +381,43 @@ static int push_eth(struct sk_buff *skb, struct sw_flow_key *key,
- 	return 0;
- }
- 
-+static int push_nsh(struct sk_buff *skb, struct sw_flow_key *key,
-+		    const struct nshhdr *nh)
-+{
-+	int err;
-+
-+	err = skb_push_nsh(skb, nh);
-+	if (err)
-+		return err;
-+
-+	/* safe right before invalidate_flow_key */
-+	key->mac_proto = MAC_PROTO_NONE;
-+	invalidate_flow_key(key);
-+	return 0;
-+}
-+
-+static int pop_nsh(struct sk_buff *skb, struct sw_flow_key *key)
-+{
-+	int err;
-+
-+	if (ovs_key_mac_proto(key) != MAC_PROTO_NONE ||
-+	    skb->protocol != htons(ETH_P_NSH)) {
-+		return -EINVAL;
-+	}
-+
-+	err = skb_pop_nsh(skb);
-+	if (err)
-+		return err;
-+
-+	/* safe right before invalidate_flow_key */
-+	if (skb->protocol == htons(ETH_P_TEB))
-+		key->mac_proto = MAC_PROTO_ETHERNET;
-+	else
-+		key->mac_proto = MAC_PROTO_NONE;
-+	invalidate_flow_key(key);
-+	return 0;
-+}
-+
- static void update_ip_l4_checksum(struct sk_buff *skb, struct iphdr *nh,
- 				  __be32 addr, __be32 new_addr)
- {
-@@ -602,6 +640,59 @@ static int set_ipv6(struct sk_buff *skb, struct sw_flow_key *flow_key,
- 	return 0;
- }
- 
-+static int set_nsh(struct sk_buff *skb, struct sw_flow_key *flow_key,
-+		   const struct nlattr *a)
-+{
-+	struct nshhdr *nh;
-+	int err;
-+	u8 flags;
-+	u8 ttl;
-+	int i;
-+
-+	struct ovs_key_nsh key;
-+	struct ovs_key_nsh mask;
-+
-+	err = nsh_key_from_nlattr(a, &key, &mask);
-+	if (err)
-+		return err;
-+
-+	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-+				       sizeof(struct nshhdr));
-+	if (unlikely(err))
-+		return err;
-+
-+	nh = nsh_hdr(skb);
-+
-+	flags = nsh_get_flags(nh);
-+	flags = OVS_MASKED(flags, key.base.flags, mask.base.flags);
-+	flow_key->nsh.base.flags = flags;
-+	ttl = nsh_get_ttl(nh);
-+	ttl = OVS_MASKED(ttl, key.base.ttl, mask.base.ttl);
-+	flow_key->nsh.base.ttl = ttl;
-+	nsh_set_flags_and_ttl(nh, flags, ttl);
-+	nh->path_hdr = OVS_MASKED(nh->path_hdr, key.base.path_hdr,
-+				  mask.base.path_hdr);
-+	flow_key->nsh.base.path_hdr = nh->path_hdr;
-+	switch (nh->mdtype) {
-+	case NSH_M_TYPE1:
-+		for (i = 0; i < NSH_MD1_CONTEXT_SIZE; i++) {
-+			nh->md1.context[i] =
-+			    OVS_MASKED(nh->md1.context[i], key.context[i],
-+				       mask.context[i]);
-+		}
-+		memcpy(flow_key->nsh.context, nh->md1.context,
-+		       sizeof(nh->md1.context));
-+		break;
-+	case NSH_M_TYPE2:
-+		memset(flow_key->nsh.context, 0,
-+		       sizeof(flow_key->nsh.context));
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
- /* Must follow skb_ensure_writable() since that can move the skb data. */
- static void set_tp_port(struct sk_buff *skb, __be16 *port,
- 			__be16 new_port, __sum16 *check)
-@@ -1024,6 +1115,10 @@ static int execute_masked_set_action(struct sk_buff *skb,
- 				   get_mask(a, struct ovs_key_ethernet *));
- 		break;
- 
-+	case OVS_KEY_ATTR_NSH:
-+		err = set_nsh(skb, flow_key, a);
-+		break;
-+
- 	case OVS_KEY_ATTR_IPV4:
- 		err = set_ipv4(skb, flow_key, nla_data(a),
- 			       get_mask(a, struct ovs_key_ipv4 *));
-@@ -1210,6 +1305,20 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 		case OVS_ACTION_ATTR_POP_ETH:
- 			err = pop_eth(skb, key);
- 			break;
-+
-+		case OVS_ACTION_ATTR_PUSH_NSH: {
-+			u8 buffer[NSH_HDR_MAX_LEN];
-+			struct nshhdr *nh = (struct nshhdr *)buffer;
-+
-+			nsh_hdr_from_nlattr(nla_data(a), nh,
-+					    NSH_HDR_MAX_LEN);
-+			err = push_nsh(skb, key, (const struct nshhdr *)nh);
-+			break;
-+		}
-+
-+		case OVS_ACTION_ATTR_POP_NSH:
-+			err = pop_nsh(skb, key);
-+			break;
- 		}
- 
- 		if (unlikely(err)) {
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 8c94cef..5970805 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -46,6 +46,7 @@
- #include <net/ipv6.h>
- #include <net/mpls.h>
- #include <net/ndisc.h>
-+#include <net/nsh.h>
- 
- #include "conntrack.h"
- #include "datapath.h"
-@@ -490,6 +491,52 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
- 	return 0;
- }
- 
-+static int parse_nsh(struct sk_buff *skb, struct sw_flow_key *key)
-+{
-+	struct nshhdr *nh;
-+	unsigned int nh_ofs = skb_network_offset(skb);
-+	u8 version, length;
-+	int err;
-+
-+	err = check_header(skb, nh_ofs + NSH_BASE_HDR_LEN);
-+	if (unlikely(err))
-+		return err;
-+
-+	nh = nsh_hdr(skb);
-+	version = nsh_get_ver(nh);
-+	length = nsh_hdr_len(nh);
-+
-+	if (version != 0)
-+		return -EINVAL;
-+
-+	err = check_header(skb, nh_ofs + length);
-+	if (unlikely(err))
-+		return err;
-+
-+	nh = (struct nshhdr *)skb_network_header(skb);
-+	key->nsh.base.flags = nsh_get_flags(nh);
-+	key->nsh.base.ttl = nsh_get_ttl(nh);
-+	key->nsh.base.mdtype = nh->mdtype;
-+	key->nsh.base.np = nh->np;
-+	key->nsh.base.path_hdr = nh->path_hdr;
-+	switch (key->nsh.base.mdtype) {
-+	case NSH_M_TYPE1:
-+		if (length != NSH_M_TYPE1_LEN)
-+			return -EINVAL;
-+		memcpy(key->nsh.context, nh->md1.context,
-+		       sizeof(nh->md1));
-+		break;
-+	case NSH_M_TYPE2:
-+		memset(key->nsh.context, 0,
-+		       sizeof(nh->md1));
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- /**
-  * key_extract - extracts a flow key from an Ethernet frame.
-  * @skb: sk_buff that contains the frame, with skb->data pointing to the
-@@ -735,6 +782,10 @@ static int key_extract(struct sk_buff *skb, struct sw_flow_key *key)
- 				memset(&key->tp, 0, sizeof(key->tp));
- 			}
- 		}
-+	} else if (key->eth.type == htons(ETH_P_NSH)) {
-+		error = parse_nsh(skb, key);
-+		if (error)
-+			return error;
- 	}
- 	return 0;
- }
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 1875bba..8eeae749 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -35,6 +35,7 @@
- #include <net/inet_ecn.h>
- #include <net/ip_tunnels.h>
- #include <net/dst_metadata.h>
-+#include <net/nsh.h>
- 
- struct sk_buff;
- 
-@@ -66,6 +67,11 @@ struct vlan_head {
- 	(offsetof(struct sw_flow_key, recirc_id) +	\
- 	FIELD_SIZEOF(struct sw_flow_key, recirc_id))
- 
-+struct ovs_key_nsh {
-+	struct ovs_nsh_key_base base;
-+	__be32 context[NSH_MD1_CONTEXT_SIZE];
-+};
-+
- struct sw_flow_key {
- 	u8 tun_opts[IP_TUNNEL_OPTS_MAX];
- 	u8 tun_opts_len;
-@@ -144,6 +150,7 @@ struct sw_flow_key {
- 			};
- 		} ipv6;
- 	};
-+	struct ovs_key_nsh nsh;         /* network service header */
- 	struct {
- 		/* Connection tracking fields not packed above. */
- 		struct {
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index e8eb427..77613f4 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -48,6 +48,7 @@
- #include <net/ndisc.h>
- #include <net/mpls.h>
- #include <net/vxlan.h>
-+#include <net/tun_proto.h>
- 
- #include "flow_netlink.h"
- 
-@@ -78,9 +79,11 @@ static bool actions_may_change_flow(const struct nlattr *actions)
- 		case OVS_ACTION_ATTR_HASH:
- 		case OVS_ACTION_ATTR_POP_ETH:
- 		case OVS_ACTION_ATTR_POP_MPLS:
-+		case OVS_ACTION_ATTR_POP_NSH:
- 		case OVS_ACTION_ATTR_POP_VLAN:
- 		case OVS_ACTION_ATTR_PUSH_ETH:
- 		case OVS_ACTION_ATTR_PUSH_MPLS:
-+		case OVS_ACTION_ATTR_PUSH_NSH:
- 		case OVS_ACTION_ATTR_PUSH_VLAN:
- 		case OVS_ACTION_ATTR_SAMPLE:
- 		case OVS_ACTION_ATTR_SET:
-@@ -322,12 +325,27 @@ size_t ovs_tun_key_attr_size(void)
- 		+ nla_total_size(2);   /* OVS_TUNNEL_KEY_ATTR_TP_DST */
- }
- 
-+size_t ovs_nsh_key_attr_size(void)
-+{
-+	/* Whenever adding new OVS_NSH_KEY_ FIELDS, we should consider
-+	 * updating this function.
-+	 */
-+	return  nla_total_size(NSH_BASE_HDR_LEN) /* OVS_NSH_KEY_ATTR_BASE */
-+		/* OVS_NSH_KEY_ATTR_MD1 and OVS_NSH_KEY_ATTR_MD2 are
-+		 * mutually exclusive, so the bigger one can cover
-+		 * the small one.
-+		 *
-+		 * OVS_NSH_KEY_ATTR_MD2
-+		 */
-+		+ nla_total_size(NSH_CTX_HDRS_MAX_LEN);
-+}
-+
- size_t ovs_key_attr_size(void)
- {
- 	/* Whenever adding new OVS_KEY_ FIELDS, we should consider
- 	 * updating this function.
- 	 */
--	BUILD_BUG_ON(OVS_KEY_ATTR_TUNNEL_INFO != 28);
-+	BUILD_BUG_ON(OVS_KEY_ATTR_TUNNEL_INFO != 29);
- 
- 	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
- 		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
-@@ -341,6 +359,8 @@ size_t ovs_key_attr_size(void)
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_CT_MARK */
- 		+ nla_total_size(16)  /* OVS_KEY_ATTR_CT_LABELS */
- 		+ nla_total_size(40)  /* OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6 */
-+		+ nla_total_size(0)   /* OVS_KEY_ATTR_NSH */
-+		  + ovs_nsh_key_attr_size()
- 		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
- 		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_VLAN */
-@@ -373,6 +393,13 @@ static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1]
- 	[OVS_TUNNEL_KEY_ATTR_IPV6_DST]      = { .len = sizeof(struct in6_addr) },
- };
- 
-+static const struct ovs_len_tbl
-+ovs_nsh_key_attr_lens[OVS_NSH_KEY_ATTR_MAX + 1] = {
-+	[OVS_NSH_KEY_ATTR_BASE] = { .len = sizeof(struct ovs_nsh_key_base) },
-+	[OVS_NSH_KEY_ATTR_MD1]  = { .len = sizeof(struct ovs_nsh_key_md1) },
-+	[OVS_NSH_KEY_ATTR_MD2]  = { .len = OVS_ATTR_VARIABLE },
-+};
-+
- /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
- static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
- 	[OVS_KEY_ATTR_ENCAP]	 = { .len = OVS_ATTR_NESTED },
-@@ -405,6 +432,8 @@ static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
- 		.len = sizeof(struct ovs_key_ct_tuple_ipv4) },
- 	[OVS_KEY_ATTR_CT_ORIG_TUPLE_IPV6] = {
- 		.len = sizeof(struct ovs_key_ct_tuple_ipv6) },
-+	[OVS_KEY_ATTR_NSH]       = { .len = OVS_ATTR_NESTED,
-+				     .next = ovs_nsh_key_attr_lens, },
- };
- 
- static bool check_attr_len(unsigned int attr_len, unsigned int expected_len)
-@@ -1179,6 +1208,221 @@ static int metadata_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 	return 0;
- }
- 
-+int nsh_hdr_from_nlattr(const struct nlattr *attr,
-+			struct nshhdr *nh, size_t size)
-+{
-+	struct nlattr *a;
-+	int rem;
-+	u8 flags = 0;
-+	u8 ttl = 0;
-+	int mdlen = 0;
-+
-+	/* validate_nsh has check this, so we needn't do duplicate check here
-+	 */
-+	nla_for_each_nested(a, attr, rem) {
-+		int type = nla_type(a);
-+
-+		switch (type) {
-+		case OVS_NSH_KEY_ATTR_BASE: {
-+			const struct ovs_nsh_key_base *base = nla_data(a);
-+
-+			flags = base->flags;
-+			ttl = base->ttl;
-+			nh->np = base->np;
-+			nh->mdtype = base->mdtype;
-+			nh->path_hdr = base->path_hdr;
-+			break;
-+		}
-+		case OVS_NSH_KEY_ATTR_MD1: {
-+			const struct ovs_nsh_key_md1 *md1 = nla_data(a);
-+
-+			mdlen = nla_len(a);
-+			memcpy(&nh->md1, md1, mdlen);
-+			break;
-+		}
-+		case OVS_NSH_KEY_ATTR_MD2: {
-+			const struct u8 *md2 = nla_data(a);
-+
-+			mdlen = nla_len(a);
-+			memcpy(&nh->md2, md2, mdlen);
-+			break;
-+		}
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+
-+	/* nsh header length  = NSH_BASE_HDR_LEN + mdlen */
-+	nh->ver_flags_ttl_len = 0;
-+	nsh_set_flags_ttl_len(nh, flags, ttl, NSH_BASE_HDR_LEN + mdlen);
-+
-+	return 0;
-+}
-+
-+int nsh_key_from_nlattr(const struct nlattr *attr,
-+			struct ovs_key_nsh *nsh, struct ovs_key_nsh *nsh_mask)
-+{
-+	struct nlattr *a;
-+	int rem;
-+
-+	/* validate_nsh has check this, so we needn't do duplicate check here
-+	 */
-+	nla_for_each_nested(a, attr, rem) {
-+		int type = nla_type(a);
-+
-+		switch (type) {
-+		case OVS_NSH_KEY_ATTR_BASE: {
-+			const struct ovs_nsh_key_base *base = nla_data(a);
-+			const struct ovs_nsh_key_base *base_mask = base + 1;
-+
-+			nsh->base = *base;
-+			nsh_mask->base = *base_mask;
-+			break;
-+		}
-+		case OVS_NSH_KEY_ATTR_MD1: {
-+			const struct ovs_nsh_key_md1 *md1 =
-+				(struct ovs_nsh_key_md1 *)nla_data(a);
-+			const struct ovs_nsh_key_md1 *md1_mask = md1 + 1;
-+
-+			memcpy(nsh->context, md1->context, sizeof(*md1));
-+			memcpy(nsh_mask->context, md1_mask->context,
-+			       sizeof(*md1_mask));
-+			break;
-+		}
-+		case OVS_NSH_KEY_ATTR_MD2:
-+			/* Not supported yet */
-+			return -ENOTSUPP;
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int nsh_key_put_from_nlattr(const struct nlattr *attr,
-+				   struct sw_flow_match *match, bool is_mask,
-+				   bool is_push_nsh, bool log)
-+{
-+	struct nlattr *a;
-+	int rem;
-+	bool has_base = false;
-+	bool has_md1 = false;
-+	bool has_md2 = false;
-+	u8 mdtype = 0;
-+	int mdlen = 0;
-+
-+	if (WARN_ON(is_push_nsh && is_mask))
-+		return -EINVAL;
-+
-+	nla_for_each_nested(a, attr, rem) {
-+		int type = nla_type(a);
-+		int i;
-+
-+		if (type > OVS_NSH_KEY_ATTR_MAX) {
-+			OVS_NLERR(log, "nsh attr %d is out of range max %d",
-+				  type, OVS_NSH_KEY_ATTR_MAX);
-+			return -EINVAL;
-+		}
-+
-+		if (!check_attr_len(nla_len(a),
-+				    ovs_nsh_key_attr_lens[type].len)) {
-+			OVS_NLERR(
-+			    log,
-+			    "nsh attr %d has unexpected len %d expected %d",
-+			    type,
-+			    nla_len(a),
-+			    ovs_nsh_key_attr_lens[type].len
-+			);
-+			return -EINVAL;
-+		}
-+
-+		switch (type) {
-+		case OVS_NSH_KEY_ATTR_BASE: {
-+			const struct ovs_nsh_key_base *base =
-+				(struct ovs_nsh_key_base *)nla_data(a);
-+
-+			has_base = true;
-+			mdtype = base->mdtype;
-+			SW_FLOW_KEY_PUT(match, nsh.base.flags,
-+					base->flags, is_mask);
-+			SW_FLOW_KEY_PUT(match, nsh.base.ttl,
-+					base->ttl, is_mask);
-+			SW_FLOW_KEY_PUT(match, nsh.base.mdtype,
-+					base->mdtype, is_mask);
-+			SW_FLOW_KEY_PUT(match, nsh.base.np,
-+					base->np, is_mask);
-+			SW_FLOW_KEY_PUT(match, nsh.base.path_hdr,
-+					base->path_hdr, is_mask);
-+			break;
-+		}
-+		case OVS_NSH_KEY_ATTR_MD1: {
-+			const struct ovs_nsh_key_md1 *md1 =
-+				(struct ovs_nsh_key_md1 *)nla_data(a);
-+
-+			has_md1 = true;
-+			for (i = 0; i < NSH_MD1_CONTEXT_SIZE; i++)
-+				SW_FLOW_KEY_PUT(match, nsh.context[i],
-+						md1->context[i], is_mask);
-+			break;
-+		}
-+		case OVS_NSH_KEY_ATTR_MD2:
-+			if (!is_push_nsh) /* Not supported MD type 2 yet */
-+				return -ENOTSUPP;
-+
-+			has_md2 = true;
-+			mdlen = nla_len(a);
-+			if (mdlen > NSH_CTX_HDRS_MAX_LEN || mdlen <= 0) {
-+				OVS_NLERR(
-+				    log,
-+				    "Invalid MD length %d for MD type %d",
-+				    mdlen,
-+				    mdtype
-+				);
-+				return -EINVAL;
-+			}
-+			break;
-+		default:
-+			OVS_NLERR(log, "Unknown nsh attribute %d",
-+				  type);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	if (rem > 0) {
-+		OVS_NLERR(log, "nsh attribute has %d unknown bytes.", rem);
-+		return -EINVAL;
-+	}
-+
-+	if (has_md1 && has_md2) {
-+		OVS_NLERR(
-+		    1,
-+		    "invalid nsh attribute: md1 and md2 are exclusive."
-+		);
-+		return -EINVAL;
-+	}
-+
-+	if (!is_mask) {
-+		if ((has_md1 && mdtype != NSH_M_TYPE1) ||
-+		    (has_md2 && mdtype != NSH_M_TYPE2)) {
-+			OVS_NLERR(1, "nsh attribute has unmatched MD type %d.",
-+				  mdtype);
-+			return -EINVAL;
-+		}
-+
-+		if (is_push_nsh &&
-+		    (!has_base || (!has_md1 && !has_md2))) {
-+			OVS_NLERR(
-+			    1,
-+			    "push_nsh: missing base or metadata attributes"
-+			);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 				u64 attrs, const struct nlattr **a,
- 				bool is_mask, bool log)
-@@ -1306,6 +1550,13 @@ static int ovs_key_from_nlattrs(struct net *net, struct sw_flow_match *match,
- 		attrs &= ~(1 << OVS_KEY_ATTR_ARP);
- 	}
- 
-+	if (attrs & (1 << OVS_KEY_ATTR_NSH)) {
-+		if (nsh_key_put_from_nlattr(a[OVS_KEY_ATTR_NSH], match,
-+					    is_mask, false, log) < 0)
-+			return -EINVAL;
-+		attrs &= ~(1 << OVS_KEY_ATTR_NSH);
-+	}
-+
- 	if (attrs & (1 << OVS_KEY_ATTR_MPLS)) {
- 		const struct ovs_key_mpls *mpls_key;
- 
-@@ -1622,6 +1873,34 @@ static int ovs_nla_put_vlan(struct sk_buff *skb, const struct vlan_head *vh,
- 	return 0;
- }
- 
-+static int nsh_key_to_nlattr(const struct ovs_key_nsh *nsh, bool is_mask,
-+			     struct sk_buff *skb)
-+{
-+	struct nlattr *start;
-+
-+	start = nla_nest_start(skb, OVS_KEY_ATTR_NSH);
-+	if (!start)
-+		return -EMSGSIZE;
-+
-+	if (nla_put(skb, OVS_NSH_KEY_ATTR_BASE, sizeof(nsh->base), &nsh->base))
-+		goto nla_put_failure;
-+
-+	if (is_mask || nsh->base.mdtype == NSH_M_TYPE1) {
-+		if (nla_put(skb, OVS_NSH_KEY_ATTR_MD1,
-+			    sizeof(nsh->context), nsh->context))
-+			goto nla_put_failure;
-+	}
-+
-+	/* Don't support MD type 2 yet */
-+
-+	nla_nest_end(skb, start);
-+
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
- static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
- 			     const struct sw_flow_key *output, bool is_mask,
- 			     struct sk_buff *skb)
-@@ -1750,6 +2029,9 @@ static int __ovs_nla_put_key(const struct sw_flow_key *swkey,
- 		ipv6_key->ipv6_tclass = output->ip.tos;
- 		ipv6_key->ipv6_hlimit = output->ip.ttl;
- 		ipv6_key->ipv6_frag = output->ip.frag;
-+	} else if (swkey->eth.type == htons(ETH_P_NSH)) {
-+		if (nsh_key_to_nlattr(&output->nsh, is_mask, skb))
-+			goto nla_put_failure;
- 	} else if (swkey->eth.type == htons(ETH_P_ARP) ||
- 		   swkey->eth.type == htons(ETH_P_RARP)) {
- 		struct ovs_key_arp *arp_key;
-@@ -2242,6 +2524,19 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 	return err;
- }
- 
-+static bool validate_nsh(const struct nlattr *attr, bool is_mask,
-+			 bool is_push_nsh, bool log)
-+{
-+	struct sw_flow_match match;
-+	struct sw_flow_key key;
-+	int ret = 0;
-+
-+	ovs_match_init(&match, &key, true, NULL);
-+	ret = nsh_key_put_from_nlattr(attr, &match, is_mask,
-+				      is_push_nsh, log);
-+	return !ret;
-+}
-+
- /* Return false if there are any non-masked bits set.
-  * Mask follows data immediately, before any netlink padding.
-  */
-@@ -2384,6 +2679,11 @@ static int validate_set(const struct nlattr *a,
- 
- 		break;
- 
-+	case OVS_KEY_ATTR_NSH:
-+		if (!validate_nsh(nla_data(a), masked, false, log))
-+			return -EINVAL;
-+		break;
-+
- 	default:
- 		return -EINVAL;
- 	}
-@@ -2482,6 +2782,8 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
- 			[OVS_ACTION_ATTR_TRUNC] = sizeof(struct ovs_action_trunc),
- 			[OVS_ACTION_ATTR_PUSH_ETH] = sizeof(struct ovs_action_push_eth),
- 			[OVS_ACTION_ATTR_POP_ETH] = 0,
-+			[OVS_ACTION_ATTR_PUSH_NSH] = (u32)-1,
-+			[OVS_ACTION_ATTR_POP_NSH] = 0,
- 		};
- 		const struct ovs_action_push_vlan *vlan;
- 		int type = nla_type(a);
-@@ -2636,6 +2938,19 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
- 			mac_proto = MAC_PROTO_ETHERNET;
- 			break;
- 
-+		case OVS_ACTION_ATTR_PUSH_NSH:
-+			mac_proto = MAC_PROTO_NONE;
-+			if (!validate_nsh(nla_data(a), false, true, true))
-+				return -EINVAL;
-+			break;
-+
-+		case OVS_ACTION_ATTR_POP_NSH:
-+			if (key->nsh.base.np == TUN_P_ETHERNET)
-+				mac_proto = MAC_PROTO_ETHERNET;
-+			else
-+				mac_proto = MAC_PROTO_NONE;
-+			break;
-+
- 		default:
- 			OVS_NLERR(log, "Unknown Action type %d", type);
- 			return -EINVAL;
-diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
-index 929c665..6657606 100644
---- a/net/openvswitch/flow_netlink.h
-+++ b/net/openvswitch/flow_netlink.h
-@@ -79,4 +79,9 @@ int ovs_nla_put_actions(const struct nlattr *attr,
- void ovs_nla_free_flow_actions(struct sw_flow_actions *);
- void ovs_nla_free_flow_actions_rcu(struct sw_flow_actions *);
- 
-+int nsh_key_from_nlattr(const struct nlattr *attr, struct ovs_key_nsh *nsh,
-+			struct ovs_key_nsh *nsh_mask);
-+int nsh_hdr_from_nlattr(const struct nlattr *attr, struct nshhdr *nh,
-+			size_t size);
-+
- #endif /* flow_netlink.h */
+Yes, basically.  There are many small thing that help this along.  Like
+cpumap case always hitting the SLUB fastpath.  Another big thing is
+bulking. It is sort of hidden, but the XDP_REDIRECT flush mechanism is
+implementing the RX bulking (I've been "screaming" about for the last
+couple of years! ;-))
+
 -- 
-2.5.5
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
