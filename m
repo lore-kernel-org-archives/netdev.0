@@ -1,51 +1,107 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next RFC 0/9] net: dsa: PTP timestamping for mv88e6xxx
-Date: Fri, 29 Sep 2017 05:43:23 -0400
-Message-ID: <20170929094323.cwh2ubv4odknlyot@localhost>
-References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 2/7] ipv4: ipmr: Add the parent ID field to VIF
+ struct
+Date: Fri, 29 Sep 2017 12:45:17 +0300
+Message-ID: <11d1be00-0bd4-3bcc-d63b-9419d5399602@cumulusnetworks.com>
+References: <20170928173415.15551-1-jiri@resnulli.us>
+ <20170928173415.15551-3-jiri@resnulli.us>
+ <7618b2e8-e7f9-d2c6-b13c-53aef0f50de0@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Erik Hons <erik.hons@ni.com>
-To: Brandon Streiff <brandon.streiff@ni.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, andrew@lunn.ch, dsa@cumulusnetworks.com,
+        edumazet@google.com, willemb@google.com, johannes.berg@intel.com,
+        dcaratti@redhat.com, pabeni@redhat.com, daniel@iogearbox.net,
+        f.fainelli@gmail.com, fw@strlen.de, gfree.wind@vip.163.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:55873 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750926AbdI2JpV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 05:45:21 -0400
+Received: by mail-wm0-f41.google.com with SMTP id u138so2143507wmu.4
+        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 02:45:20 -0700 (PDT)
+In-Reply-To: <7618b2e8-e7f9-d2c6-b13c-53aef0f50de0@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Brandon,
+On 29/09/17 12:29, Nikolay Aleksandrov wrote:
+> On 28/09/17 20:34, Jiri Pirko wrote:
+>> From: Yotam Gigi <yotamg@mellanox.com>
+>>
+>> In order to allow the ipmr module to do partial multicast forwarding
+>> according to the device parent ID, add the device parent ID field to the
+>> VIF struct. This way, the forwarding path can use the parent ID field
+>> without invoking switchdev calls, which requires the RTNL lock.
+>>
+>> When a new VIF is added, set the device parent ID field in it by invoking
+>> the switchdev_port_attr_get call.
+>>
+>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  include/linux/mroute.h | 2 ++
+>>  net/ipv4/ipmr.c        | 9 +++++++++
+>>  2 files changed, 11 insertions(+)
+>>
+>> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+>> index b072a84..a46577f 100644
+>> --- a/include/linux/mroute.h
+>> +++ b/include/linux/mroute.h
+>> @@ -57,6 +57,8 @@ static inline bool ipmr_rule_default(const struct fib_rule *rule)
+>>  
+>>  struct vif_device {
+>>  	struct net_device 	*dev;			/* Device we are using */
+>> +	struct netdev_phys_item_id dev_parent_id;	/* Device parent ID    */
+>> +	bool		dev_parent_id_valid;
+>>  	unsigned long	bytes_in,bytes_out;
+>>  	unsigned long	pkt_in,pkt_out;		/* Statistics 			*/
+>>  	unsigned long	rate_limit;		/* Traffic shaping (NI) 	*/
+>> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+>> index 292a8e8..4566c54 100644
+>> --- a/net/ipv4/ipmr.c
+>> +++ b/net/ipv4/ipmr.c
+>> @@ -67,6 +67,7 @@
+>>  #include <net/fib_rules.h>
+>>  #include <linux/netconf.h>
+>>  #include <net/nexthop.h>
+>> +#include <net/switchdev.h>
+>>  
+>>  struct ipmr_rule {
+>>  	struct fib_rule		common;
+>> @@ -868,6 +869,9 @@ static int vif_add(struct net *net, struct mr_table *mrt,
+>>  		   struct vifctl *vifc, int mrtsock)
+>>  {
+>>  	int vifi = vifc->vifc_vifi;
+>> +	struct switchdev_attr attr = {
+>> +		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
+>> +	};
+>>  	struct vif_device *v = &mrt->vif_table[vifi];
+>>  	struct net_device *dev;
+>>  	struct in_device *in_dev;
+>> @@ -942,6 +946,11 @@ static int vif_add(struct net *net, struct mr_table *mrt,
+>>  
+>>  	/* Fill in the VIF structures */
+>>  
+>> +	attr.orig_dev = dev;
+>> +	if (!switchdev_port_attr_get(dev, &attr)) {
+>> +		v->dev_parent_id_valid = true;
+>> +		memcpy(v->dev_parent_id.id, attr.u.ppid.id, attr.u.ppid.id_len);
+> 
+> Hmm, shouldn't you set dev_parent_id.id_len too ? It would seem netdev_phys_item_id_same()
+> uses it in the comparison and without the len it would always look like they're the same
+> because memcmp will simply return 0 with count = 0.
 
-On Thu, Sep 28, 2017 at 10:25:32AM -0500, Brandon Streiff wrote:
-> - Patch #2: We expose the switch time as a PTP clock but don't support
->   adjustment (max_adj=0).
+Also maybe we can use the non-zero id_len as a signal that it was set and drop the dev_parent_id_valid
+field altogether, it would seem there's no valid reason to have id_len == 0 and yet expect a valid
+parent_id.
 
-The driver should implement a cyclecounter/timecounter.
-
-> Our platform adjusted a systemwide oscillator
->   from userspace, so we didn't need adjustment at this layer, but other
->   PTP clock drivers support this and we probably should too.
-
-We don't currently have any way to support this kind of HW or anything
-like an external VCO.  I would like to find a way to do this, but that
-is a different kettle of fish as it might require changes in the PHC
-subsystem.  For this driver, I think we should get it merged using the
-cyclecounter/timecounter (as that will benefit lots of users) and
-worry about the external oscillator later.
- 
-> Feedback is appreciated.
-
-I happy to see this series.  I just finished porting an out-of-tree
-PHC driver for the Marvell mv88e635x, and I want to mainline it, but I
-also have a few uglies.
-
-Unfortunately I am in the middle of a move right now, and so my review
-of this series might have to wait a bit.  However, I am looking
-forward to comparing notes, and then getting this support in.
-
-Thanks,
-Richard
+> 
+>> +	}
+>>  	v->rate_limit = vifc->vifc_rate_limit;
+>>  	v->local = vifc->vifc_lcl_addr.s_addr;
+>>  	v->remote = vifc->vifc_rmt_addr.s_addr;
+>>
+> 
