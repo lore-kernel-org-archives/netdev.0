@@ -1,83 +1,44 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
- support malloc buff at run time
-Date: Fri, 29 Sep 2017 15:06:55 +0200
-Message-ID: <20170929130655.qokb6b55cozj5oor@unicorn.suse.cz>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
- <1506605626-1744-3-git-send-email-haliu@redhat.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next] net: ipmr: make function ipmr_notifier_init static
+Date: Fri, 29 Sep 2017 14:34:22 +0100
+Message-ID: <20170929133422.7846-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: Hangbin Liu <haliu@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:42993 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750877AbdI2NG5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 09:06:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1506605626-1744-3-git-send-email-haliu@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2017 at 09:33:46PM +0800, Hangbin Liu wrote:
-> From: Hangbin Liu <liuhangbin@gmail.com>
-> 
-> This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
-> iplink_get()"). After update, we will not need to double the buffer size
-> every time when VFs number increased.
-> 
-> With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
-> length parameter.
-> 
-> With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
-> answer to avoid overwrite data in nlh, because it may has more info after
-> nlh. also this will avoid nlh buffer not enough issue.
-> 
-> We need to free answer after using.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
+From: Colin Ian King <colin.king@canonical.com>
 
-Reviewed-by: Michal Kubecek <mkubecek@suse.cz>
+The function ipmr_notifier_init is local to the source and does
+not need to be in global scope, so make it static.
 
-> diff --git a/ip/link_gre.c b/ip/link_gre.c
-> index 9ea2970..35782ca 100644
-> --- a/ip/link_gre.c
-> +++ b/ip/link_gre.c
-> @@ -68,7 +68,6 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
->  	struct {
->  		struct nlmsghdr n;
->  		struct ifinfomsg i;
-> -		char buf[16384];
->  	} req = {
->  		.n.nlmsg_len = NLMSG_LENGTH(sizeof(*ifi)),
->  		.n.nlmsg_flags = NLM_F_REQUEST,
-> @@ -76,6 +75,7 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
->  		.i.ifi_family = preferred_family,
->  		.i.ifi_index = ifi->ifi_index,
->  	};
-> +	struct nlmsghdr *answer = NULL;
->  	struct rtattr *tb[IFLA_MAX + 1];
->  	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
->  	struct rtattr *greinfo[IFLA_GRE_MAX + 1];
-> @@ -100,19 +100,20 @@ static int gre_parse_opt(struct link_util *lu, int argc, char **argv,
->  	__u32 erspan_idx = 0;
->  
->  	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
-> -		if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0) {
-> +		if (rtnl_talk(&rth, &req.n, &answer) < 0) {
->  get_failed:
->  			fprintf(stderr,
->  				"Failed to get existing tunnel info.\n");
-> +			free(answer);
->  			return -1;
->  		}
+Cleans up sparse warning:
+warning: symbol 'ipmr_notifier_init' was not declared. Should it be static?
 
-Took me a moment to realize answer is still NULL if we get here via
-failed rtnl_talk() but non-NULL if we get here via "goto get_failed"
-later. Nice trick. :-)
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/ipv4/ipmr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Michal Kubecek
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 292a8e80bdfa..a844738b38bd 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -3224,7 +3224,7 @@ static const struct fib_notifier_ops ipmr_notifier_ops_template = {
+ 	.owner		= THIS_MODULE,
+ };
+ 
+-int __net_init ipmr_notifier_init(struct net *net)
++static int __net_init ipmr_notifier_init(struct net *net)
+ {
+ 	struct fib_notifier_ops *ops;
+ 
+-- 
+2.14.1
