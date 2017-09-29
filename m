@@ -1,59 +1,55 @@
-From: Hao Zhang <hao5781286@gmail.com>
-Subject: Fwd: [PATCH] net: ethernet: sfc: There is a typo, modify curent to current.
-Date: Fri, 29 Sep 2017 19:53:58 +0800
-Message-ID: <CAJeuY78Ra4AeWydF0+9ZzDFW8p6HpfXGm1seEVe=QTcWT8UBSA@mail.gmail.com>
-References: <20170929101937.GA8963@arx-kt>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Fri, 29 Sep 2017 14:12:01 +0200
+Message-ID: <20170929121201.GD19710@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170907223625.GW11248@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41124D5A@CHN-SV-EXMX02.mchp-main.com>
+ <20170928193416.GH14940@lunn.ch>
+ <063D6719AE5E284EB5DD2968C1650D6DD0084EDC@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f68.google.com ([209.85.213.68]:35505 "EHLO
-        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752463AbdI2LyA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 07:54:00 -0400
-Received: by mail-vk0-f68.google.com with SMTP id h191so260460vke.2
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 04:53:59 -0700 (PDT)
-In-Reply-To: <20170929101937.GA8963@arx-kt>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Tristram.Ha@microchip.com" <Tristram.Ha@microchip.com>,
+        "muvarov@gmail.com" <muvarov@gmail.com>,
+        "pavel@ucw.cz" <pavel@ucw.cz>,
+        "nathan.leigh.conrad@gmail.com" <nathan.leigh.conrad@gmail.com>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Woojung.Huh@microchip.com" <Woojung.Huh@microchip.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0084EDC@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resend to maintainer.
+On Fri, Sep 29, 2017 at 09:14:26AM +0000, David Laight wrote:
+> From: Andrew Lunn
+> > Sent: 28 September 2017 20:34
+> ...
+> > > There are 34 counters.  In normal case using generic bus I/O or PCI to read them
+> > > is very quick, but the switch is mostly accessed using SPI, or even I2C.  As the SPI
+> > > access is very slow.
+> > 
+> > How slow is it? The Marvell switches all use MDIO. It is probably a
+> > bit faster than I2C, but it is a lot slower than MMIO or PCI.
+> > 
+> > ethtool -S lan0 takes about 25ms.
+> 
+> Is the SPI access software bit-banged?
 
+That will depend on the board design. I've used mdio bit banging, and
+that was painfully slow for stats.
 
+But we should primarily think about average hardware. It is going to
+have hardware SPI or I2C. If statistics reading with hardware I2C is
+reasonable, i would avoid caching, and just ensure other accesses are
+permitted between individual statistic reads.
 
-Regards :)
+It also requires Microchip also post new code. They have been very
+silent for quite a while....
 
-
----------- Forwarded message ----------
-From: Hao Zhang <hao5781286@gmail.com>
-Date: 2017-09-29 18:19 GMT+08:00
-Subject: [PATCH] net: ethernet: sfc: There is a typo, modify curent to curr=
-ent.
-To: linux-net-drivers@solarflare.com, ecree@solarflare.com,
-bkenward@solarflare.com
-=E6=8A=84=E9=80=81=EF=BC=9A linux-kernel@vger.kernel.org, hao5781286@gmail.=
-com
-
-
-There is a typo, fix it by modify curent to current.
-
-Signed-off-by: Hao Zhang <hao5781286@gmail.com>
----
- drivers/net/ethernet/sfc/mcdi_pcol.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sfc/mcdi_pcol.h
-b/drivers/net/ethernet/sfc/mcdi_pcol.h
-index 91fb54f..8bfc8d4 100644
---- a/drivers/net/ethernet/sfc/mcdi_pcol.h
-+++ b/drivers/net/ethernet/sfc/mcdi_pcol.h
-@@ -11505,7 +11505,7 @@
-
- /***********************************/
- /* MC_CMD_GET_SNAPSHOT_LENGTH
-- * Obtain the curent range of allowable values for the SNAPSHOT_LENGTH
-+ * Obtain the current range of allowable values for the SNAPSHOT_LENGTH
-  * parameter to MC_CMD_INIT_RXQ.
-  */
- #define MC_CMD_GET_SNAPSHOT_LENGTH 0x101
+	  Andrew
