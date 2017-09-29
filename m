@@ -1,44 +1,34 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 2/8] net: dsa: directly fetch switch in lan9303_rcv
-Date: Fri, 29 Sep 2017 15:04:56 -0400
-Message-ID: <87lgkxl413.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com> <20170929183635.8122-3-vivien.didelot@savoirfairelinux.com> <e1fcff41-6ee7-e125-c7eb-98f6ba00a62d@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 3/8] net: dsa: use cpu_dp in master code
+Date: Fri, 29 Sep 2017 12:10:56 -0700
+Message-ID: <e15809d8-9178-ce4b-df44-b3693f9d4a55@gmail.com>
+References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
+ <20170929183635.8122-4-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e1fcff41-6ee7-e125-c7eb-98f6ba00a62d@gmail.com>
+In-Reply-To: <20170929183635.8122-4-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
+On 09/29/2017 11:36 AM, Vivien Didelot wrote:
+> Make it clear that the master device is linked to a CPU port by using
+> "cpu_dp" for the dsa_port variable in master.c instead of "port", then
+> use a "port" variable to describe the port index, as usually seen in
+> other places of DSA core.
+> 
+> This will make the future patch touching dsa_ptr more readable. There is
+> no functional changes.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
-
->> @@ -72,11 +72,10 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
->>  {
->>  	u16 *lan9303_tag;
->>  	struct dsa_switch_tree *dst = dev->dsa_ptr;
->> -	struct dsa_switch *ds;
->> +	struct dsa_port *cpu_dp = dst->cpu_dp;
->> +	struct dsa_switch *ds = cpu_dp->ds;
->>  	unsigned int source_port;
->>  
->> -	ds = dst->ds[0];
->> -
->>  	if (unlikely(!ds)) {
->>  		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing DSA switch device\n");
->>  		return NULL;
->
-> Similarly to the patch before, you can probably drop this test, I don't
-> actually see how we could trigger it.
-
-Good catch, I'll respin after eventually more reviews.
-
-
-Thanks,
-
-        Vivien
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+-- 
+Florian
