@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] net/sched: support tunnel options in
- cls_flower and act_tunnel_key
-Date: Fri, 29 Sep 2017 05:54:23 +0100 (WEST)
-Message-ID: <20170929.055423.108055524887949393.davem@davemloft.net>
-References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: [PATCH net-next] net: bridge: add per-port group_fwd_mask with
+ less restrictions
+Date: Fri, 29 Sep 2017 06:04:18 +0100 (WEST)
+Message-ID: <20170929.060418.1634372835635805803.davem@davemloft.net>
+References: <1506517964-17479-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: simon.horman@netronome.com
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        bridge@lists.linux-foundation.org, stephen@networkplumber.org
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45032 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45280 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751224AbdI2Kvo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 06:51:44 -0400
-In-Reply-To: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+        with ESMTP id S1751830AbdI2LAc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 07:00:32 -0400
+In-Reply-To: <1506517964-17479-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Wed, 27 Sep 2017 10:16:32 +0200
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Wed, 27 Sep 2017 16:12:44 +0300
 
-> Users of options:
+> We need to be able to transparently forward most link-local frames via
+> tunnels (e.g. vxlan, qinq). Currently the bridge's group_fwd_mask has a
+> mask which restricts the forwarding of STP and LACP, but we need to be able
+> to forward these over tunnels and control that forwarding on a per-port
+> basis thus add a new per-port group_fwd_mask option which only disallows
+> mac pause frames to be forwarded (they're always dropped anyway).
+> The patch does not change the current default situation - all of the others
+> are still restricted unless configured for forwarding.
+> We have successfully tested this patch with LACP and STP forwarding over
+> VxLAN and qinq tunnels.
 > 
-> * There are eBPF hooks to allow getting on and setting tunnel metadata:
->   bpf_skb_set_tunnel_opt, bpf_skb_get_tunnel_opt.
-> 
-> * Open vSwitch is able to match and set Geneve and VXLAN-GBP options.
-> 
-> Neither of the above appear to assume any structure for the data.
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-I really worry about this.
-
-These metadata option blobs are internal kernel datastructure which we
-could change at any point in time.  They are not exported to
-userspace as a UAPI.
-
-It's kinda OK for eBPF programs to access this stuff since they are
-expected to cope with changes to internal data-structures.
-
-But for anything user facing, this really doesn't work.
+Applied, thanks.
