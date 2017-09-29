@@ -1,93 +1,159 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH next] bonding: speed/duplex update at NETDEV_UP event
-Date: Fri, 29 Sep 2017 15:02:16 -0700
-Message-ID: <CAF2d9jiy0bGQ8cOKMA6jc5Z5d_cOLYkWi1poMuiwSxVwsv1=+g@mail.gmail.com>
-References: <20170928010349.8988-1-mahesh@bandewar.net> <20170929130819.74879e99@xeon-e3>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: bridge: add per-port
+ group_fwd_mask with less restrictions
+Date: Sat, 30 Sep 2017 01:11:08 +0300
+Message-ID: <5dd9e4e8-466d-47dc-1257-09823ba783b9@cumulusnetworks.com>
+References: <1506517964-17479-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20170929081420.3b069170@xeon-e3>
+	<e9a70870-9b6b-0ec4-de1e-d41da80fd10f@cumulusnetworks.com>
+	<20170929145103.1e30f73c@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Mahesh Bandewar <mahesh@bandewar.net>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org
 To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:44848 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752478AbdI2WCj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 18:02:39 -0400
-Received: by mail-wm0-f45.google.com with SMTP id m127so1390441wmm.1
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 15:02:38 -0700 (PDT)
-In-Reply-To: <20170929130819.74879e99@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170929145103.1e30f73c@xeon-e3>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 29, 2017 at 1:08 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Wed, 27 Sep 2017 18:03:49 -0700
-> Mahesh Bandewar <mahesh@bandewar.net> wrote:
->
->> From: Mahesh Bandewar <maheshb@google.com>
+On 30/09/17 00:51, Stephen Hemminger wrote:
+> On Sat, 30 Sep 2017 00:01:24 +0300
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+> 
+>> On 29/09/17 18:14, Stephen Hemminger wrote:
+>>> On Wed, 27 Sep 2017 16:12:44 +0300
+>>> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+>>>   
+>>>> We need to be able to transparently forward most link-local frames via
+>>>> tunnels (e.g. vxlan, qinq). Currently the bridge's group_fwd_mask has a
+>>>> mask which restricts the forwarding of STP and LACP, but we need to be able
+>>>> to forward these over tunnels and control that forwarding on a per-port
+>>>> basis thus add a new per-port group_fwd_mask option which only disallows
+>>>> mac pause frames to be forwarded (they're always dropped anyway).
+>>>> The patch does not change the current default situation - all of the others
+>>>> are still restricted unless configured for forwarding.
+>>>> We have successfully tested this patch with LACP and STP forwarding over
+>>>> VxLAN and qinq tunnels.
+>>>>
+>>>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>  
+>>>
+>>> LACP is fine, but STP must not be forwarded if STP in user or kernel
+>>> mode is enabled.
+>>>
+>>> Please update this patch or revert it.
+>>>   
 >>
->> Some NIC drivers don't have correct speed/duplex settings at the
->> time they send NETDEV_UP notification and that messes up the
->> bonding state. Especially 802.3ad mode which is very sensitive
->> to these settings. In the current implementation we invoke
->> bond_update_speed_duplex() when we receive NETDEV_UP, however,
->> ignore the return value. If the values we get are invalid
->> (UNKNOWN), then slave gets removed from the aggregator with
->> speed and duplex set to UNKNOWN while link is still marked as UP.
+>> The default has not changed, STP is still _not_ forwarded. It can be only if explicitly
+>> requested by the user and that means the port might be participating in STP but not
+>> the bridge's STP, that is explicitly forward all STP frames from that port.
+>> I don't think we have to change anything.
 >>
->> This patch fixes this scenario. Also 802.3ad mode is sensitive to
->> these conditions while other modes are not, so making sure that it
->> doesn't change the behavior for other modes.
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
->> ---
->>  drivers/net/bonding/bond_main.c | 11 ++++++++++-
->>  1 file changed, 10 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index b7313c1d9dcd..177be373966b 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -3076,7 +3076,16 @@ static int bond_slave_netdev_event(unsigned long event,
->>               break;
->>       case NETDEV_UP:
->>       case NETDEV_CHANGE:
->> -             bond_update_speed_duplex(slave);
->> +             /* For 802.3ad mode only:
->> +              * Getting invalid Speed/Duplex values here will put slave
->> +              * in weird state. So mark it as link-down for the time
->> +              * being and let link-monitoring (miimon) set it right when
->> +              * correct speeds/duplex are available.
->> +              */
->> +             if (bond_update_speed_duplex(slave) &&
->> +                 BOND_MODE(bond) == BOND_MODE_8023AD)
->> +                     slave->link = BOND_LINK_DOWN;
->> +
->>               if (BOND_MODE(bond) == BOND_MODE_8023AD)
->>                       bond_3ad_adapter_speed_duplex_changed(slave);
->>               /* Fallthrough */
->
-> Then fix the drivers. Trying to workaround it here isn't helping.
->
-This is not a workaround. It avoids bonding state being weird.
+> 
+> You need to fail if user does something stupid. And DNR.
+> 
 
-> The problem is that miimon is not required.  Bonding can be purely
-> event driven.
->
-really? Here is a code-snippet from bonding itself -
+I get the motivation, but it does not have to be stupid. It may be 802.1q in q, not 802.1ad
+where STP is already forwarded by default, or it may be that the port is participating
+in a different STP. Wouldn't be enough to warn the user that STP forwarding was enabled
+for that port, instead of forcing it off and having it only for 802.1ad ?
+Later when we upstream 802.1Q in q patches we'll have to work around that anyway.
 
-        /* reset values for 802.3ad/TLB/ALB */
-        if (!bond_mode_uses_arp(bond_mode)) {
-                if (!miimon) {
-                        pr_warn("Warning: miimon must be specified,
-otherwise bonding will not detect link failure, speed and duplex which
-are essential for 802.3ad operation\n");
-                        pr_warn("Forcing miimon to 100msec\n");
-                        miimon = BOND_DEFAULT_MIIMON;
-                }
-        }
+> From 16c42db4852234c13288922c1bffbf7650e08434 Mon Sep 17 00:00:00 2001
+> From: Stephen Hemminger <sthemmin@microsoft.com>
+> Date: Fri, 29 Sep 2017 14:48:17 -0700
+> Subject: [PATCH] bridge: check for attempt to forward STP PDU's with STP
+>  enabled
+> 
+> Move validation into set function and do not allow
+> configuring forwarding of STP packets if STP is enabled.
+> 
+> Fixes: 5af48b59f35c ("net: bridge: add per-port group_fwd_mask with less restrictions")
+
+What if the user requested explicitly to forward these frames from that port ?
+
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> ---
+>  net/bridge/br_if.c       | 13 +++++++++++++
+>  net/bridge/br_netlink.c  |  6 +++---
+>  net/bridge/br_private.h  |  1 +
+>  net/bridge/br_sysfs_if.c |  6 +-----
+>  4 files changed, 18 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index f3aef22931ab..a30e12f76266 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -654,3 +654,16 @@ void br_port_flags_change(struct net_bridge_port *p, unsigned long mask)
+>  	if (mask & BR_AUTO_MASK)
+>  		nbp_update_port_count(br);
+>  }
+> +
+> +int br_set_group_fwd_mask(struct net_bridge_port *p, u16 fwd_mask)
+> +{
+> +	if (fwd_mask & BR_GROUPFWD_MACPAUSE)
+> +		return -EINVAL;
+> +
+> +	if ((fwd_mask & BR_GROUPFWD_STP) &&
+> +	    (p->br->stp_enabled != BR_NO_STP))
+> +		return -EINVAL;
+> +
+> +	p->group_fwd_mask = fwd_mask;
+> +	return 0;
+> +}
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index dea88a255d26..7b16819ecb59 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -780,9 +780,9 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>  	if (tb[IFLA_BRPORT_GROUP_FWD_MASK]) {
+>  		u16 fwd_mask = nla_get_u16(tb[IFLA_BRPORT_GROUP_FWD_MASK]);
+>  
+> -		if (fwd_mask & BR_GROUPFWD_MACPAUSE)
+> -			return -EINVAL;
+> -		p->group_fwd_mask = fwd_mask;
+> +		err = br_set_group_fwd_mask(p, fwd_mask);
+> +		if (err)
+> +			return err;
+>  	}
+>  
+>  	br_port_flags_change(p, old_flags ^ p->flags);
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 020c709a017f..734933bebb08 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -573,6 +573,7 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
+>  					netdev_features_t features);
+>  void br_port_flags_change(struct net_bridge_port *port, unsigned long mask);
+>  void br_manage_promisc(struct net_bridge *br);
+> +int br_set_group_fwd_mask(struct net_bridge_port *p, u16 mask);
+>  
+>  /* br_input.c */
+>  int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb);
+> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+> index 9110d5e56085..f5871be10b24 100644
+> --- a/net/bridge/br_sysfs_if.c
+> +++ b/net/bridge/br_sysfs_if.c
+> @@ -173,11 +173,7 @@ static ssize_t show_group_fwd_mask(struct net_bridge_port *p, char *buf)
+>  static int store_group_fwd_mask(struct net_bridge_port *p,
+>  				unsigned long v)
+>  {
+> -	if (v & BR_GROUPFWD_MACPAUSE)
+> -		return -EINVAL;
+> -	p->group_fwd_mask = v;
+> -
+> -	return 0;
+> +	return br_set_group_fwd_mask(p, v);
+>  }
+>  static BRPORT_ATTR(group_fwd_mask, S_IRUGO | S_IWUSR, show_group_fwd_mask,
+>  		   store_group_fwd_mask);
+> 
