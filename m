@@ -1,107 +1,65 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next 2/7] ipv4: ipmr: Add the parent ID field to VIF
- struct
-Date: Fri, 29 Sep 2017 12:45:17 +0300
-Message-ID: <11d1be00-0bd4-3bcc-d63b-9419d5399602@cumulusnetworks.com>
-References: <20170928173415.15551-1-jiri@resnulli.us>
- <20170928173415.15551-3-jiri@resnulli.us>
- <7618b2e8-e7f9-d2c6-b13c-53aef0f50de0@cumulusnetworks.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next PATCH 3/5] bpf: cpumap xdp_buff to skb conversion and
+ allocation
+Date: Fri, 29 Sep 2017 17:49:23 +0800
+Message-ID: <1c37f945-0e2f-1eec-fe88-a740815026d3@redhat.com>
+References: <150660339205.2808.7084136789768233829.stgit@firesoul>
+ <150660343811.2808.7680200486950101509.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, andrew@lunn.ch, dsa@cumulusnetworks.com,
-        edumazet@google.com, willemb@google.com, johannes.berg@intel.com,
-        dcaratti@redhat.com, pabeni@redhat.com, daniel@iogearbox.net,
-        f.fainelli@gmail.com, fw@strlen.de, gfree.wind@vip.163.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:55873 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750926AbdI2JpV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 05:45:21 -0400
-Received: by mail-wm0-f41.google.com with SMTP id u138so2143507wmu.4
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 02:45:20 -0700 (PDT)
-In-Reply-To: <7618b2e8-e7f9-d2c6-b13c-53aef0f50de0@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48194 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750926AbdI2Jtp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 05:49:45 -0400
+In-Reply-To: <150660343811.2808.7680200486950101509.stgit@firesoul>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29/09/17 12:29, Nikolay Aleksandrov wrote:
-> On 28/09/17 20:34, Jiri Pirko wrote:
->> From: Yotam Gigi <yotamg@mellanox.com>
->>
->> In order to allow the ipmr module to do partial multicast forwarding
->> according to the device parent ID, add the device parent ID field to the
->> VIF struct. This way, the forwarding path can use the parent ID field
->> without invoking switchdev calls, which requires the RTNL lock.
->>
->> When a new VIF is added, set the device parent ID field in it by invoking
->> the switchdev_port_attr_get call.
->>
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/linux/mroute.h | 2 ++
->>  net/ipv4/ipmr.c        | 9 +++++++++
->>  2 files changed, 11 insertions(+)
->>
->> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
->> index b072a84..a46577f 100644
->> --- a/include/linux/mroute.h
->> +++ b/include/linux/mroute.h
->> @@ -57,6 +57,8 @@ static inline bool ipmr_rule_default(const struct fib_rule *rule)
->>  
->>  struct vif_device {
->>  	struct net_device 	*dev;			/* Device we are using */
->> +	struct netdev_phys_item_id dev_parent_id;	/* Device parent ID    */
->> +	bool		dev_parent_id_valid;
->>  	unsigned long	bytes_in,bytes_out;
->>  	unsigned long	pkt_in,pkt_out;		/* Statistics 			*/
->>  	unsigned long	rate_limit;		/* Traffic shaping (NI) 	*/
->> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
->> index 292a8e8..4566c54 100644
->> --- a/net/ipv4/ipmr.c
->> +++ b/net/ipv4/ipmr.c
->> @@ -67,6 +67,7 @@
->>  #include <net/fib_rules.h>
->>  #include <linux/netconf.h>
->>  #include <net/nexthop.h>
->> +#include <net/switchdev.h>
->>  
->>  struct ipmr_rule {
->>  	struct fib_rule		common;
->> @@ -868,6 +869,9 @@ static int vif_add(struct net *net, struct mr_table *mrt,
->>  		   struct vifctl *vifc, int mrtsock)
->>  {
->>  	int vifi = vifc->vifc_vifi;
->> +	struct switchdev_attr attr = {
->> +		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
->> +	};
->>  	struct vif_device *v = &mrt->vif_table[vifi];
->>  	struct net_device *dev;
->>  	struct in_device *in_dev;
->> @@ -942,6 +946,11 @@ static int vif_add(struct net *net, struct mr_table *mrt,
->>  
->>  	/* Fill in the VIF structures */
->>  
->> +	attr.orig_dev = dev;
->> +	if (!switchdev_port_attr_get(dev, &attr)) {
->> +		v->dev_parent_id_valid = true;
->> +		memcpy(v->dev_parent_id.id, attr.u.ppid.id, attr.u.ppid.id_len);
-> 
-> Hmm, shouldn't you set dev_parent_id.id_len too ? It would seem netdev_phys_item_id_same()
-> uses it in the comparison and without the len it would always look like they're the same
-> because memcmp will simply return 0 with count = 0.
 
-Also maybe we can use the non-zero id_len as a signal that it was set and drop the dev_parent_id_valid
-field altogether, it would seem there's no valid reason to have id_len == 0 and yet expect a valid
-parent_id.
 
-> 
->> +	}
->>  	v->rate_limit = vifc->vifc_rate_limit;
->>  	v->local = vifc->vifc_lcl_addr.s_addr;
->>  	v->remote = vifc->vifc_rmt_addr.s_addr;
->>
-> 
+On 2017年09月28日 20:57, Jesper Dangaard Brouer wrote:
+> +};
+> +
+> +/* Convert xdp_buff to xdp_pkt */
+> +static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
+> +{
+> +	struct xdp_pkt *xdp_pkt;
+> +	int headroom;
+> +
+> +	/* Assure headroom is available for storing info */
+> +	headroom = xdp->data - xdp->data_hard_start;
+> +	if (headroom < sizeof(*xdp_pkt))
+> +		return NULL;
+
+Hi Jesper:
+
+Do you consider this as a trick or a long term solution? Is it better to 
+store XDP in a circular buffer? (I'm asking since I meet similar issue 
+when doing xdp_xmit for tun).
+
+> +
+> +	/* Store info in top of packet */
+> +	xdp_pkt = xdp->data_hard_start;
+> +
+> +	xdp_pkt->data = xdp->data;
+> +	xdp_pkt->len  = xdp->data_end - xdp->data;
+> +	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
+> +
+
+Is wmb() needed here?
+
+> +	return xdp_pkt;
+> +}
+
+Thanks
