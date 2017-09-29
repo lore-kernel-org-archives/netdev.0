@@ -1,99 +1,55 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next 2/7] ipv4: ipmr: Add the parent ID field to VIF
- struct
-Date: Fri, 29 Sep 2017 12:29:05 +0300
-Message-ID: <7618b2e8-e7f9-d2c6-b13c-53aef0f50de0@cumulusnetworks.com>
-References: <20170928173415.15551-1-jiri@resnulli.us>
- <20170928173415.15551-3-jiri@resnulli.us>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [net-next PATCH 1/5] bpf: introduce new bpf cpu map type
+ BPF_MAP_TYPE_CPUMAP
+Date: Fri, 29 Sep 2017 11:37:37 +0200
+Message-ID: <1506677857.2478.5.camel@redhat.com>
+References: <150660339205.2808.7084136789768233829.stgit@firesoul>
+         <150660342793.2808.10838498581615265043.stgit@firesoul>
+         <20170929032146.vs5v454wjs4niu4k@ast-mbp>
+         <8737760wg5.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, andrew@lunn.ch, dsa@cumulusnetworks.com,
-        edumazet@google.com, willemb@google.com, johannes.berg@intel.com,
-        dcaratti@redhat.com, pabeni@redhat.com, daniel@iogearbox.net,
-        f.fainelli@gmail.com, fw@strlen.de, gfree.wind@vip.163.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+        jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>, edumazet@google.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:55387 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751874AbdI2J3J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 05:29:09 -0400
-Received: by mail-wm0-f46.google.com with SMTP id u138so2059026wmu.4
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 02:29:09 -0700 (PDT)
-In-Reply-To: <20170928173415.15551-3-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:39856 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750847AbdI2Jhp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 05:37:45 -0400
+In-Reply-To: <8737760wg5.fsf@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28/09/17 20:34, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
+On Fri, 2017-09-29 at 09:56 +0200, Hannes Frederic Sowa wrote:
+> [adding Paolo, Eric]
 > 
-> In order to allow the ipmr module to do partial multicast forwarding
-> according to the device parent ID, add the device parent ID field to the
-> VIF struct. This way, the forwarding path can use the parent ID field
-> without invoking switchdev calls, which requires the RTNL lock.
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
 > 
-> When a new VIF is added, set the device parent ID field in it by invoking
-> the switchdev_port_attr_get call.
+> > On Thu, Sep 28, 2017 at 02:57:08PM +0200, Jesper Dangaard Brouer wrote:
 > 
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/linux/mroute.h | 2 ++
->  net/ipv4/ipmr.c        | 9 +++++++++
->  2 files changed, 11 insertions(+)
+> [...]
 > 
-> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-> index b072a84..a46577f 100644
-> --- a/include/linux/mroute.h
-> +++ b/include/linux/mroute.h
-> @@ -57,6 +57,8 @@ static inline bool ipmr_rule_default(const struct fib_rule *rule)
->  
->  struct vif_device {
->  	struct net_device 	*dev;			/* Device we are using */
-> +	struct netdev_phys_item_id dev_parent_id;	/* Device parent ID    */
-> +	bool		dev_parent_id_valid;
->  	unsigned long	bytes_in,bytes_out;
->  	unsigned long	pkt_in,pkt_out;		/* Statistics 			*/
->  	unsigned long	rate_limit;		/* Traffic shaping (NI) 	*/
-> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-> index 292a8e8..4566c54 100644
-> --- a/net/ipv4/ipmr.c
-> +++ b/net/ipv4/ipmr.c
-> @@ -67,6 +67,7 @@
->  #include <net/fib_rules.h>
->  #include <linux/netconf.h>
->  #include <net/nexthop.h>
-> +#include <net/switchdev.h>
->  
->  struct ipmr_rule {
->  	struct fib_rule		common;
-> @@ -868,6 +869,9 @@ static int vif_add(struct net *net, struct mr_table *mrt,
->  		   struct vifctl *vifc, int mrtsock)
->  {
->  	int vifi = vifc->vifc_vifi;
-> +	struct switchdev_attr attr = {
-> +		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
-> +	};
->  	struct vif_device *v = &mrt->vif_table[vifi];
->  	struct net_device *dev;
->  	struct in_device *in_dev;
-> @@ -942,6 +946,11 @@ static int vif_add(struct net *net, struct mr_table *mrt,
->  
->  	/* Fill in the VIF structures */
->  
-> +	attr.orig_dev = dev;
-> +	if (!switchdev_port_attr_get(dev, &attr)) {
-> +		v->dev_parent_id_valid = true;
-> +		memcpy(v->dev_parent_id.id, attr.u.ppid.id, attr.u.ppid.id_len);
+> > > +	wake_up_process(rcpu->kthread);
+> > 
+> > In general the whole thing looks like 'threaded NAPI' that Hannes was
+> > proposing some time back. I liked it back then and I like it now.
+> > I don't remember what were the objections back then.
+> > Something scheduler related?
+> > Adding Hannes.
 
-Hmm, shouldn't you set dev_parent_id.id_len too ? It would seem netdev_phys_item_id_same()
-uses it in the comparison and without the len it would always look like they're the same
-because memcmp will simply return 0 with count = 0.
+Beyond the added scheduling complexity, the threaded NAPI
+implementation proposed some time ago also possibly introduced OoO
+packet delivery, because the NAPI threads were left unbound to any CPU.
 
-> +	}
->  	v->rate_limit = vifc->vifc_rate_limit;
->  	v->local = vifc->vifc_lcl_addr.s_addr;
->  	v->remote = vifc->vifc_rmt_addr.s_addr;
-> 
+Cheers,
+
+Paolo
