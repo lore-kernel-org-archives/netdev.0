@@ -1,43 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] net: bridge: add per-port group_fwd_mask with
- less restrictions
-Date: Fri, 29 Sep 2017 08:14:20 -0700
-Message-ID: <20170929081420.3b069170@xeon-e3>
-References: <1506517964-17479-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Brandon Streiff <brandon.streiff@ni.com>
+Subject: RE: [PATCH net-next RFC 2/9] net: dsa: mv88e6xxx: expose switch time
+ as a PTP hardware clock
+Date: Fri, 29 Sep 2017 15:17:02 +0000
+Message-ID: <CO2PR04MB218426561C8915B89947A79E9F7E0@CO2PR04MB2184.namprd04.prod.outlook.com>
+References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
+ <1506612341-18061-3-git-send-email-brandon.streiff@ni.com>
+ <20170928170329.GC14940@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        bridge@lists.linux-foundation.org
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:57160 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752326AbdI2PO3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 11:14:29 -0400
-Received: by mail-pf0-f176.google.com with SMTP id g65so865526pfe.13
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 08:14:29 -0700 (PDT)
-In-Reply-To: <1506517964-17479-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Erik Hons <erik.hons@ni.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170928170329.GC14940@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Sep 2017 16:12:44 +0300
-Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Thursday, September 28, 2017 12:03 PM
+>=20
+> > +	bool timeout =3D time_is_before_jiffies(chip->last_overflow_check +
+> > +					      MV88E6XXX_TAI_OVERFLOW_PERIOD);
+> > +
+> > +	if (timeout) {
+>=20
+> Why do you need this timeout? Do you think the kernel will call this
+> more often than required?
+>=20
+> Also, if it did call this function early, you skip the read, and
+> reschedule. There is then a danger the next read is after the
+> wraparound.....
 
-> We need to be able to transparently forward most link-local frames via
-> tunnels (e.g. vxlan, qinq). Currently the bridge's group_fwd_mask has a
-> mask which restricts the forwarding of STP and LACP, but we need to be able
-> to forward these over tunnels and control that forwarding on a per-port
-> basis thus add a new per-port group_fwd_mask option which only disallows
-> mac pause frames to be forwarded (they're always dropped anyway).
-> The patch does not change the current default situation - all of the others
-> are still restricted unless configured for forwarding.
-> We have successfully tested this patch with LACP and STP forwarding over
-> VxLAN and qinq tunnels.
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+That was, conceptually, a copy-paste from ixgbe_ptp.c as I was looking for =
+how to implement the overflow accounting; that driver has a similar time_is=
+_before_jiffies check in ixgbe_ptp_overflow_check.
+=20
+Although now that I'm looking it over again, I'm also not certain of the ne=
+ed. Even if we're called more frequently than we expect, that doesn't seem =
+to be harmful with regard to timekeeping. Hmm.
 
-LACP is fine, but STP must not be forwarded if STP in user or kernel
-mode is enabled.
-
-Please update this patch or revert it.
+-- brandon
