@@ -1,52 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
-Date: Fri, 29 Sep 2017 22:39:26 +0200
-Message-ID: <20170929203926.GD17713@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
- <20170907223625.GW11248@lunn.ch>
- <93AF473E2DA327428DE3D46B72B1E9FD41124D5A@CHN-SV-EXMX02.mchp-main.com>
- <20170928193416.GH14940@lunn.ch>
- <063D6719AE5E284EB5DD2968C1650D6DD0084EDC@AcuExch.aculab.com>
- <20170929121201.GD19710@lunn.ch>
- <93AF473E2DA327428DE3D46B72B1E9FD4112CB89@CHN-SV-EXMX02.mchp-main.com>
- <20170929185316.GB17713@lunn.ch>
- <93AF473E2DA327428DE3D46B72B1E9FD4112CC1D@CHN-SV-EXMX02.mchp-main.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: bridge: add per-port group_fwd_mask with
+ less restrictions
+Date: Sat, 30 Sep 2017 00:01:24 +0300
+Message-ID: <e9a70870-9b6b-0ec4-de1e-d41da80fd10f@cumulusnetworks.com>
+References: <1506517964-17479-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20170929081420.3b069170@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David.Laight@ACULAB.COM, muvarov@gmail.com, pavel@ucw.cz,
-        nathan.leigh.conrad@gmail.com, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD4112CC1D@CHN-SV-EXMX02.mchp-main.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:53512 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752003AbdI2VB1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 17:01:27 -0400
+Received: by mail-wm0-f49.google.com with SMTP id q132so1599348wmd.2
+        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 14:01:27 -0700 (PDT)
+In-Reply-To: <20170929081420.3b069170@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 29, 2017 at 07:19:17PM +0000, Tristram.Ha@microchip.com wrote:
-> > > My concern is if a task is already running with SPI access to a lot
-> > > of registers like reading the 32 MIB counters in every port of the
-> > > switch, another register access has to wait until they are finished.
-> > 
-> > Why does it have to wait? Looking at the code in
-> > ksz_get_ethtool_stats(), you don't take any mutex which will prevent
-> > others from using the SPI bus. All there is is a mutex which prevents
-> > two sets of ksz_get_ethtool_stats() at the same time.
-> > 
-> > So a PTP read could happen in parallel, and will not be blocked by MIB
-> > reads. They should get interleaved access to the SPI bus.
-> > 
+On 29/09/17 18:14, Stephen Hemminger wrote:
+> On Wed, 27 Sep 2017 16:12:44 +0300
+> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 > 
-> The MIB counters are read in the background.  For multiple CPU cores 2
-> tasks may run in the same time allowing SPI access one after another.
-> For single core I am not sure an SPI access like coming from an interrupt
-> routine can jump ahead from one in a background task.
+>> We need to be able to transparently forward most link-local frames via
+>> tunnels (e.g. vxlan, qinq). Currently the bridge's group_fwd_mask has a
+>> mask which restricts the forwarding of STP and LACP, but we need to be able
+>> to forward these over tunnels and control that forwarding on a per-port
+>> basis thus add a new per-port group_fwd_mask option which only disallows
+>> mac pause frames to be forwarded (they're always dropped anyway).
+>> The patch does not change the current default situation - all of the others
+>> are still restricted unless configured for forwarding.
+>> We have successfully tested this patch with LACP and STP forwarding over
+>> VxLAN and qinq tunnels.
+>>
+>> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> 
+> LACP is fine, but STP must not be forwarded if STP in user or kernel
+> mode is enabled.
+> 
+> Please update this patch or revert it.
+> 
 
-The SPI subsystem has a mutex per controller. When starting a
-transfer, it takes the mutex and release it once the transfer has
-completed. There is also a reschedule point at the end of a
-transfer. So even on your single core CPU, there can be multi tasking
-going on.
-
-      Andrew
+The default has not changed, STP is still _not_ forwarded. It can be only if explicitly
+requested by the user and that means the port might be participating in STP but not
+the bridge's STP, that is explicitly forward all STP frames from that port.
+I don't think we have to change anything.
