@@ -1,57 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2] lib: fix multiple strlcpy definition
-Date: Fri, 29 Sep 2017 11:58:58 -0700
-Message-ID: <20170929115858.275217b8@xeon-e3>
-References: <6910008ec8db3f63c8120b1624a08328cd203e92.1506621731.git.baruch@tkos.co.il>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/8] net: dsa: directly fetch switch in
+ lan9303_rcv
+Date: Fri, 29 Sep 2017 12:02:01 -0700
+Message-ID: <e1fcff41-6ee7-e125-c7eb-98f6ba00a62d@gmail.com>
+References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
+ <20170929183635.8122-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Baruch Siach <baruch@tkos.co.il>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:52968 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752294AbdI2S7G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 14:59:06 -0400
-Received: by mail-pf0-f178.google.com with SMTP id p87so251562pfj.9
-        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 11:59:06 -0700 (PDT)
-In-Reply-To: <6910008ec8db3f63c8120b1624a08328cd203e92.1506621731.git.baruch@tkos.co.il>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35287 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752294AbdI2TCG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 15:02:06 -0400
+In-Reply-To: <20170929183635.8122-3-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 28 Sep 2017 21:02:11 +0300
-Baruch Siach <baruch@tkos.co.il> wrote:
-
-> Some C libraries, like uClibc and musl, provide BSD compatible
-> strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
-> and strlcat when the C library provides them.
+On 09/29/2017 11:36 AM, Vivien Didelot wrote:
+> In a single-chip switch fabric, there is no need to fetch the dsa_switch
+> structure from the tree, directly use the CPU port's "ds" member.
 > 
-> This fixes the following static link error with uClibc-ng:
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  net/dsa/tag_lan9303.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
 > 
-> .../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
-> strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
-> ../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
-> collect2: error: ld returned 1 exit status
-> 
-> Acked-by: Phil Sutter <phil@nwl.cc>
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-
-This is OK because it doesn't impact normal glibc too much.
-
-
-> diff --git a/lib/Makefile b/lib/Makefile
-> index 0fbdf4c31f50..132ad00c3335 100644
-> --- a/lib/Makefile
-> +++ b/lib/Makefile
-> @@ -1,5 +1,9 @@
->  include ../config.mk
+> diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
+> index 0b9826105e42..f0b51acf36ac 100644
+> --- a/net/dsa/tag_lan9303.c
+> +++ b/net/dsa/tag_lan9303.c
+> @@ -72,11 +72,10 @@ static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
+>  {
+>  	u16 *lan9303_tag;
+>  	struct dsa_switch_tree *dst = dev->dsa_ptr;
+> -	struct dsa_switch *ds;
+> +	struct dsa_port *cpu_dp = dst->cpu_dp;
+> +	struct dsa_switch *ds = cpu_dp->ds;
+>  	unsigned int source_port;
 >  
-> +ifeq ($(NEED_STRLCPY),y)
-> +	CFLAGS += -DNEED_STRLCPY
-> +endif
-> +
->
+> -	ds = dst->ds[0];
+> -
+>  	if (unlikely(!ds)) {
+>  		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing DSA switch device\n");
+>  		return NULL;
 
-I just removed all the conditional CFLAGS out of subdirectory Makefiles
-and moved them into the generated config.mk. Please do that for this
-as well and resubmit.
+Similarly to the patch before, you can probably drop this test, I don't
+actually see how we could trigger it.
+-- 
+Florian
