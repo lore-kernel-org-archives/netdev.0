@@ -1,68 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: netlink backwards compatibility in userspace tools
-Date: Fri, 29 Sep 2017 08:21:11 -0700
-Message-ID: <20170929082111.50e0c972@xeon-e3>
-References: <CAHmME9oixZtPVdH24KJQ9NaTuf_ECAOoHwQhuA+Fy-BX+F_3dw@mail.gmail.com>
+From: Brandon Streiff <brandon.streiff@ni.com>
+Subject: RE: [PATCH net-next RFC 3/9] net: dsa: mv88e6xxx: add support for
+ GPIO configuration
+Date: Fri, 29 Sep 2017 15:30:08 +0000
+Message-ID: <CO2PR04MB2184CC589E0ED269A34279959F7E0@CO2PR04MB2184.namprd04.prod.outlook.com>
+References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
+ <1506612341-18061-4-git-send-email-brandon.streiff@ni.com>
+ <659c4254-d0b7-52dc-dd9b-3921cd2f20c0@gmail.com>
+ <20170928180111.GF14940@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Daniel Kahn Gillmor <dkg@fifthhorseman.net>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Richard Cochran <richardcochran@gmail.com>,
+        Erik Hons <erik.hons@ni.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9oixZtPVdH24KJQ9NaTuf_ECAOoHwQhuA+Fy-BX+F_3dw@mail.gmail.com>
+In-Reply-To: <20170928180111.GF14940@lunn.ch>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Sep 2017 12:22:42 +0200
-"Jason A. Donenfeld" <Jason@zx2c4.com> wrote:
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Thursday, September 28, 2017 1:01 PM
+>
+> > With the write and read acquiring and then releasing the lock
+> > immediately, is no there room for this sequence to be interrupted in th=
+e
+> > middle and end-up returning inconsistent reads?
+>=20
+> The general pattern in this code is that the lock chip->reg_lock is
+> taken at a higher level. That protects against other threads. The
+> driver tends to do that at the highest levels, at the entry points
+> into the driver. I've not yet checked this code follows the pattern
+> yet. However, we have a check in the low level to ensure the lock has
+> been taken. So it seems likely the lock is held.
 
-> Hi guys,
-> 
-> One handy aspect of Netlink is that it's backwards compatible. This
-> means that you can run old userspace utilities on new kernels, even if
-> the new kernel supports new features and netlink attributes. The wire
-> format is stable enough that the data marshaled can be extended
-> without breaking compat. Neat.
-> 
-> I was wondering, though, what you think the best stance is toward
-> these old userspace utilities. What should they do if the kernel sends
-> it netlink attributes that it does not recognize? At the moment, I'm
-> doing something like this:
-> 
-> static void warn_unrecognized(void)
-> {
->     static bool once = false;
->     if (once)
->         return;
->     once = true;
->     fprintf(stderr,
->         "Warning: this program received from your kernel one or more\n"
->         "attributes that it did not recognize. It is possible that\n"
->         "this version of wg(8) is older than your kernel. You may\n"
->         "want to update this program.\n");
-> }
-> 
-> This seems like a somewhat sensible warning, but then I wonder about
-> distributions like Debian, which has a long stable life cycle, so it
-> frequently has very old tools (ancient iproute2 for example). Then,
-> VPS providers have these Debian images run on top of newer kernels.
-> People in this situation would undoubtedly see the above warning a lot
-> and not be able to do anything about it. Not horrible, but a bit
-> annoying. Is this an okay annoyance? Or is it advised to just have no
-> warning at all? One idea would be to put it behind an environment
-> variable flag, but I don't like too many nobs.
-> 
-> I'm generally wondering about attitudes toward this kind of userspace
-> program behavior in response to newer kernels.
-> 
-> Thanks,
-> Jason
+Yes, the expectation here is that an upper layer takes the reg_lock. All th=
+e functions in ptp.c that call this function do that. If they did not, then=
+ assert_reg_lock() gets very angry. :)
 
-I can not see a reason that such a warning is required.
-Old utilities should just work fine, they just won't show or allow
-setting attributes they don't understand.
-
-Any netlink attributes that the tools do not recognize should just
-be ignored.
+Perhaps using __must_hold() and similar annotations would also help documen=
+t the requirements, but we don't seem to use those in this driver today.
+=20
+-- brandon
