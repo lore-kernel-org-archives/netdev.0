@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/8] net: dsa: change dsa_ptr for a dsa_port
-Date: Fri, 29 Sep 2017 14:36:27 -0400
-Message-ID: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 6/8] net: dsa: prepare master receive hot path
+Date: Fri, 29 Sep 2017 14:36:33 -0400
+Message-ID: <20170929183635.8122-7-vivien.didelot@savoirfairelinux.com>
+References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,48 +10,68 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With DSA, a master net_device is physically wired to a dedicated CPU
-switch port. For interaction with the DSA layer, the struct net_device
-contains a dsa_ptr, which currently points to a dsa_switch_tree object.
+In preparation to make DSA master devices point to their corresponding
+CPU port instead of the whole tree, add copies of dst and rcv in the
+dsa_port structure so that we keep fast access in the receive hot path.
 
-This is only valid for a switch fabric with a single CPU port. In order
-to support switch fabrics with multiple CPU ports, we first need to
-change the type of dsa_ptr to what it really is: a dsa_port object.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ include/net/dsa.h | 5 +++++
+ net/dsa/dsa2.c    | 4 ++++
+ net/dsa/legacy.c  | 4 ++++
+ 3 files changed, 13 insertions(+)
 
-This is what this patchset does. The first 4 patches cleans up portions
-of DSA core to make the next patches more readable. These next patches
-prepare the xmit and receive hot paths and finally change dsa_ptr.
-
-Vivien Didelot (8):
-  net: dsa: directly fetch switch in mtk_tag_rcv
-  net: dsa: directly fetch switch in lan9303_rcv
-  net: dsa: use cpu_dp in master code
-  net: dsa: use temporary dsa_device_ops variable
-  net: dsa: add tagging ops to port
-  net: dsa: prepare master receive hot path
-  net: dsa: change dsa_ptr for a dsa_port
-  net: dsa: remove tag ops from the switch tree
-
- include/linux/netdevice.h |  4 ++--
- include/net/dsa.h         | 19 ++++++++-----------
- net/dsa/dsa.c             |  6 +++---
- net/dsa/dsa2.c            | 15 ++++++++++-----
- net/dsa/dsa_priv.h        |  7 +------
- net/dsa/legacy.c          | 15 ++++++++++-----
- net/dsa/master.c          | 47 ++++++++++++++++++++++-------------------------
- net/dsa/slave.c           |  3 +--
- net/dsa/tag_brcm.c        |  3 +--
- net/dsa/tag_dsa.c         |  3 ++-
- net/dsa/tag_edsa.c        |  3 ++-
- net/dsa/tag_ksz.c         |  3 +--
- net/dsa/tag_lan9303.c     |  6 ++----
- net/dsa/tag_mtk.c         | 12 ++----------
- net/dsa/tag_qca.c         |  3 +--
- net/dsa/tag_trailer.c     |  3 +--
- 16 files changed, 69 insertions(+), 83 deletions(-)
-
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 6cd36dcb65e1..75dc4024f5a8 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -192,6 +192,11 @@ struct dsa_port {
+ 
+ 	/* CPU port tagging operations used by master or slave devices */
+ 	const struct dsa_device_ops *tag_ops;
++
++	/* Copies for faster access in master receive hot path */
++	struct dsa_switch_tree *dst;
++	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
++			       struct packet_type *pt);
+ };
+ 
+ struct dsa_switch {
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 9eac4726dc0c..b71e3bb478e4 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -524,7 +524,11 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 
+ 	dst->cpu_dp->tag_ops = tag_ops;
+ 	dst->tag_ops = tag_ops;
++
++	/* Make a few copies for faster access in master receive hot path */
++	dst->cpu_dp->rcv = dst->cpu_dp->tag_ops->rcv;
+ 	dst->rcv = dst->tag_ops->rcv;
++	dst->cpu_dp->dst = dst;
+ 
+ 	return 0;
+ }
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index 4d374541815a..96c7e3f8b8bb 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -154,7 +154,11 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 
+ 		dst->cpu_dp->tag_ops = tag_ops;
+ 		dst->tag_ops = tag_ops;
++
++		/* Few copies for faster access in master receive hot path */
++		dst->cpu_dp->rcv = dst->cpu_dp->tag_ops->rcv;
+ 		dst->rcv = dst->tag_ops->rcv;
++		dst->cpu_dp->dst = dst;
+ 	}
+ 
+ 	memcpy(ds->rtable, cd->rtable, sizeof(ds->rtable));
 -- 
 2.14.1
