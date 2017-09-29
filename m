@@ -1,328 +1,86 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
-Date: Fri, 29 Sep 2017 09:09:40 +0200
-Message-ID: <20170929090738.040231a3@redhat.com>
-References: <cover.1506297988.git.daniel@iogearbox.net>
-        <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
-        <20170926211342.0c8e72b0@redhat.com>
-        <59CAB17D.5090204@iogearbox.net>
-        <20170927112604.1284f536@redhat.com>
-        <645e7a39-c172-5882-5dd9-f038430114d1@gmail.com>
-        <20170927165457.4265bfc3@redhat.com>
-        <20170927173233.tuqlutz6t2gwdk53@ast-mbp>
+From: Jan Scheurich <jan.scheurich@ericsson.com>
+Subject: RE: [PATCH net-next v9] openvswitch: enable NSH support
+Date: Fri, 29 Sep 2017 07:10:52 +0000
+Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7881A337@ESESSMB107.ericsson.se>
+References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
+ <20170925201439.08460295@griffin>
+ <20170926045538.GA5896@localhost.localdomain>
+ <20170926124914.60101ca1@griffin>
+ <20170927013908.GA33716@localhost.localdomain>
+ <CAOrHB_CQyokdTWeoj02RENPP5miq5Arx6goCNQ9ZPbUeTu_MeQ@mail.gmail.com>
+ <20170929064058.GA16145@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
-        netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-        brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jiri Benc <jbenc@redhat.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dev@openvswitch.org" <dev@openvswitch.org>,
+        "e@erig.me" <e@erig.me>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: "Yang, Yi" <yi.y.yang@intel.com>, Pravin Shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35346 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750979AbdI2HJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 03:09:50 -0400
-In-Reply-To: <20170927173233.tuqlutz6t2gwdk53@ast-mbp>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:55408 "EHLO
+        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750847AbdI2HKy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 03:10:54 -0400
+In-Reply-To: <20170929064058.GA16145@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 27 Sep 2017 10:32:36 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-
-> On Wed, Sep 27, 2017 at 04:54:57PM +0200, Jesper Dangaard Brouer wrote:
-> > On Wed, 27 Sep 2017 06:35:40 -0700
-> > John Fastabend <john.fastabend@gmail.com> wrote:
-> >   
-> > > On 09/27/2017 02:26 AM, Jesper Dangaard Brouer wrote:  
-> > > > On Tue, 26 Sep 2017 21:58:53 +0200
-> > > > Daniel Borkmann <daniel@iogearbox.net> wrote:
-> > > >     
-> > > >> On 09/26/2017 09:13 PM, Jesper Dangaard Brouer wrote:
-> > > >> [...]    
-> > > >>> I'm currently implementing a cpumap type, that transfers raw XDP frames
-> > > >>> to another CPU, and the SKB is allocated on the remote CPU.  (It
-> > > >>> actually works extremely well).      
-> > > >>
-> > > >> Meaning you let all the XDP_PASS packets get processed on a
-> > > >> different CPU, so you can reserve the whole CPU just for
-> > > >> prefiltering, right?     
-> > > > 
-> > > > Yes, exactly.  Except I use the XDP_REDIRECT action to steer packets.
-> > > > The trick is using the map-flush point, to transfer packets in bulk to
-> > > > the remote CPU (single call IPC is too slow), but at the same time
-> > > > flush single packets if NAPI didn't see a bulk.
-> > > >     
-> > > >> Do you have some numbers to share at this point, just curious when
-> > > >> you mention it works extremely well.    
-> > > > 
-> > > > Sure... I've done a lot of benchmarking on this patchset ;-)
-> > > > I have a benchmark program called xdp_redirect_cpu [1][2], that collect
-> > > > stats via tracepoints (atm I'm limiting bulking 8 packets, and have
-> > > > tracepoints at bulk spots, to amortize tracepoint cost 25ns/8=3.125ns)
-> > > > 
-> > > >  [1] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_kern.c
-> > > >  [2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_user.c
-> > > > 
-> > > > Here I'm installing a DDoS program that drops UDP port 9 (pktgen
-> > > > packets) on RX CPU=0.  I'm forcing my netperf to hit the same CPU, that
-> > > > the 11.9Mpps DDoS attack is hitting.
-> > > > 
-> > > > Running XDP/eBPF prog_num:4
-> > > > XDP-cpumap      CPU:to  pps            drop-pps    extra-info
-> > > > XDP-RX          0       12,030,471     11,966,982  0          
-> > > > XDP-RX          total   12,030,471     11,966,982 
-> > > > cpumap-enqueue    0:2   63,488         0           0          
-> > > > cpumap-enqueue  sum:2   63,488         0           0          
-> > > > cpumap_kthread  2       63,488         0           3          time_exceed
-> > > > cpumap_kthread  total   63,488         0           0          
-> > > > redirect_err    total   0              0          
-> > > > 
-> > > > $ netperf -H 172.16.0.2 -t TCP_CRR  -l 10 -D1 -T5,5 -- -r 1024,1024
-> > > > Local /Remote
-> > > > Socket Size   Request  Resp.   Elapsed  Trans.
-> > > > Send   Recv   Size     Size    Time     Rate         
-> > > > bytes  Bytes  bytes    bytes   secs.    per sec   
-> > > > 
-> > > > 16384  87380  1024     1024    10.00    12735.97   
-> > > > 16384  87380 
-> > > > 
-> > > > The netperf TCP_CRR performance is the same, without XDP loaded.
-> > > >     
-> > > 
-> > > Just curious could you also try this with RPS enabled (or does this have
-> > > RPS enabled). RPS should effectively do the same thing but higher in the
-> > > stack. I'm curious what the delta would be. Might be another interesting
-> > > case and fairly easy to setup if you already have the above scripts.  
-> > 
-> > Yes, I'm essentially competing with RSP, thus such a comparison is very
-> > relevant...
-> > 
-> > This is only a 6 CPUs system. Allocate 2 CPUs to RPS receive and let
-> > other 4 CPUS process packet.
-> > 
-> > Summary of RPS (Receive Packet Steering) performance:
-> >  * End result is 6.3 Mpps max performance
-> >  * netperf TCP_CRR is 1 trans/sec.
-> >  * Each RX-RPS CPU stall at ~3.2Mpps.
-> > 
-> > The full test report below with setup:
-> > 
-> > The mask needed::
-> > 
-> >  perl -e 'printf "%b\n",0x3C'
-> >  111100
-> > 
-> > RPS setup::
-> > 
-> >  sudo sh -c 'echo 32768 > /proc/sys/net/core/rps_sock_flow_entries'
-> > 
-> >  for N in $(seq 0 5) ; do \
-> >    sudo sh -c "echo 8192 > /sys/class/net/ixgbe1/queues/rx-$N/rps_flow_cnt" ; \
-> >    sudo sh -c "echo 3c > /sys/class/net/ixgbe1/queues/rx-$N/rps_cpus" ; \
-> >    grep -H . /sys/class/net/ixgbe1/queues/rx-$N/rps_cpus ; \
-> >  done
-> > 
-> > Reduce RX queues to two ::
-> > 
-> >  ethtool -L ixgbe1 combined 2
-> > 
-> > IRQ align to CPU numbers::
-> > 
-> >  $ ~/setup01.sh
-> >  Not root, running with sudo
-> >   --- Disable Ethernet flow-control ---
-> >  rx unmodified, ignoring
-> >  tx unmodified, ignoring
-> >  no pause parameters changed, aborting
-> >  rx unmodified, ignoring
-> >  tx unmodified, ignoring
-> >  no pause parameters changed, aborting
-> >   --- Align IRQs ---
-> >  /proc/irq/54/ixgbe1-TxRx-0/../smp_affinity_list:0
-> >  /proc/irq/55/ixgbe1-TxRx-1/../smp_affinity_list:1
-> >  /proc/irq/56/ixgbe1/../smp_affinity_list:0-5
-> > 
-> > $ grep -H . /sys/class/net/ixgbe1/queues/rx-*/rps_cpus
-> > /sys/class/net/ixgbe1/queues/rx-0/rps_cpus:3c
-> > /sys/class/net/ixgbe1/queues/rx-1/rps_cpus:3c
-> > 
-> > Generator is sending: 12,715,782 tx_packets /sec
-> > 
-> >  ./pktgen_sample04_many_flows.sh -vi ixgbe2 -m 00:1b:21:bb:9a:84 \
-> >     -d 172.16.0.2 -t8
-> > 
-> > $ nstat > /dev/null && sleep 1 && nstat
-> > #kernel
-> > IpInReceives                    6346544            0.0
-> > IpInDelivers                    6346544            0.0
-> > IpOutRequests                   1020               0.0
-> > IcmpOutMsgs                     1020               0.0
-> > IcmpOutDestUnreachs             1020               0.0
-> > IcmpMsgOutType3                 1020               0.0
-> > UdpNoPorts                      6346898            0.0
-> > IpExtInOctets                   291964714          0.0
-> > IpExtOutOctets                  73440              0.0
-> > IpExtInNoECTPkts                6347063            0.0
-> > 
-> > $ mpstat -P ALL -u -I SCPU -I SUM
-> > 
-> > Average:     CPU    %usr   %nice    %sys   %irq   %soft  %idle
-> > Average:     all    0.00    0.00    0.00   0.42   72.97  26.61
-> > Average:       0    0.00    0.00    0.00   0.17   99.83   0.00
-> > Average:       1    0.00    0.00    0.00   0.17   99.83   0.00
-> > Average:       2    0.00    0.00    0.00   0.67   60.37  38.96
-> > Average:       3    0.00    0.00    0.00   0.67   58.70  40.64
-> > Average:       4    0.00    0.00    0.00   0.67   59.53  39.80
-> > Average:       5    0.00    0.00    0.00   0.67   58.93  40.40
-> > 
-> > Average:     CPU    intr/s
-> > Average:     all 152067.22
-> > Average:       0  50064.73
-> > Average:       1  50089.35
-> > Average:       2  45095.17
-> > Average:       3  44875.04
-> > Average:       4  44906.32
-> > Average:       5  45152.08
-> > 
-> > Average:     CPU     TIMER/s   NET_TX/s   NET_RX/s TASKLET/s  SCHED/s     RCU/s
-> > Average:       0      609.48       0.17   49431.28      0.00     2.66     21.13
-> > Average:       1      567.55       0.00   49498.00      0.00     2.66     21.13
-> > Average:       2      998.34       0.00   43941.60      4.16    82.86     68.22
-> > Average:       3      540.60       0.17   44140.27      0.00    85.52    108.49
-> > Average:       4      537.27       0.00   44219.63      0.00    84.53     64.89
-> > Average:       5      530.78       0.17   44445.59      0.00    85.02     90.52
-> > 
-> > From mpstat it looks like it is the RX-RPS CPUs that are the bottleneck.
-> > 
-> > Show adapter(s) (ixgbe1) statistics (ONLY that changed!)
-> > Ethtool(ixgbe1) stat:     11109531 (   11,109,531) <= fdir_miss /sec
-> > Ethtool(ixgbe1) stat:    380632356 (  380,632,356) <= rx_bytes /sec
-> > Ethtool(ixgbe1) stat:    812792611 (  812,792,611) <= rx_bytes_nic /sec
-> > Ethtool(ixgbe1) stat:      1753550 (    1,753,550) <= rx_missed_errors /sec
-> > Ethtool(ixgbe1) stat:      4602487 (    4,602,487) <= rx_no_dma_resources /sec
-> > Ethtool(ixgbe1) stat:      6343873 (    6,343,873) <= rx_packets /sec
-> > Ethtool(ixgbe1) stat:     10946441 (   10,946,441) <= rx_pkts_nic /sec
-> > Ethtool(ixgbe1) stat:    190287853 (  190,287,853) <= rx_queue_0_bytes /sec
-> > Ethtool(ixgbe1) stat:      3171464 (    3,171,464) <= rx_queue_0_packets /sec
-> > Ethtool(ixgbe1) stat:    190344503 (  190,344,503) <= rx_queue_1_bytes /sec
-> > Ethtool(ixgbe1) stat:      3172408 (    3,172,408) <= rx_queue_1_packets /sec
-> > 
-> > Notice, each RX-CPU can only process 3.1Mpps.
-> > 
-> > RPS RX-CPU(0):
-> > 
-> >  # Overhead  CPU  Symbol
-> >  # ........  ...  .......................................
-> >  #
-> >     11.72%  000  [k] ixgbe_poll
-> >     11.29%  000  [k] _raw_spin_lock
-> >     10.35%  000  [k] dev_gro_receive
-> >      8.36%  000  [k] __build_skb
-> >      7.35%  000  [k] __skb_get_hash
-> >      6.22%  000  [k] enqueue_to_backlog
-> >      5.89%  000  [k] __skb_flow_dissect
-> >      4.43%  000  [k] inet_gro_receive
-> >      4.19%  000  [k] ___slab_alloc
-> >      3.90%  000  [k] queued_spin_lock_slowpath
-> >      3.85%  000  [k] kmem_cache_alloc
-> >      3.06%  000  [k] build_skb
-> >      2.66%  000  [k] get_rps_cpu
-> >      2.57%  000  [k] napi_gro_receive
-> >      2.34%  000  [k] eth_type_trans
-> >      1.81%  000  [k] __cmpxchg_double_slab.isra.61
-> >      1.47%  000  [k] ixgbe_alloc_rx_buffers
-> >      1.43%  000  [k] get_partial_node.isra.81
-> >      0.84%  000  [k] swiotlb_sync_single
-> >      0.74%  000  [k] udp4_gro_receive
-> >      0.73%  000  [k] netif_receive_skb_internal
-> >      0.72%  000  [k] udp_gro_receive
-> >      0.63%  000  [k] skb_gro_reset_offset
-> >      0.49%  000  [k] __skb_flow_get_ports
-> >      0.48%  000  [k] llist_add_batch
-> >      0.36%  000  [k] swiotlb_sync_single_for_cpu
-> >      0.34%  000  [k] __slab_alloc
-> > 
-> > 
-> > Remote RPS-CPU(3) getting packets::
-> > 
-> >  # Overhead  CPU  Symbol
-> >  # ........  ...  ..............................................
-> >  #
-> >     33.02%  003  [k] poll_idle
-> >     10.99%  003  [k] __netif_receive_skb_core
-> >     10.45%  003  [k] page_frag_free
-> >      8.49%  003  [k] ip_rcv
-> >      4.19%  003  [k] fib_table_lookup
-> >      2.84%  003  [k] __udp4_lib_rcv
-> >      2.81%  003  [k] __slab_free
-
-Notice slow-path of SLUB
-
-> >      2.23%  003  [k] __udp4_lib_lookup
-> >      2.09%  003  [k] ip_route_input_rcu
-> >      2.07%  003  [k] kmem_cache_free
-> >      2.06%  003  [k] udp_v4_early_demux
-> >      1.73%  003  [k] ip_rcv_finish  
+> From: Yang, Yi [mailto:yi.y.yang@intel.com]
+> Sent: Friday, 29 September, 2017 08:41
+> To: Pravin Shelar <pshelar@ovn.org>
+> Cc: Jiri Benc <jbenc@redhat.com>; netdev@vger.kernel.org; dev@openvswitch.org; e@erig.me; davem@davemloft.net; Jan Scheurich
+> <jan.scheurich@ericsson.com>
+> Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
 > 
-> Very interesting data.
-
-You removed some of the more interesting part of the perf-report, that
-showed us hitting more of the SLUB slowpath for SKBs.  The slowpath
-consist of many separate function calls, thus it doesn't bubble to the
-top (the FlameGraph tool shows them easier).
-
-> So above perf report compares to xdp-redirect-cpu this one:
-> Perf top on a CPU(3) that have to alloc and free SKBs etc.
+> On Fri, Sep 29, 2017 at 02:28:38AM +0800, Pravin Shelar wrote:
+> > On Tue, Sep 26, 2017 at 6:39 PM, Yang, Yi <yi.y.yang@intel.com> wrote:
+> > > On Tue, Sep 26, 2017 at 06:49:14PM +0800, Jiri Benc wrote:
+> > >> On Tue, 26 Sep 2017 12:55:39 +0800, Yang, Yi wrote:
+> > >> > After push_nsh, the packet won't be recirculated to flow pipeline, so
+> > >> > key->eth.type must be set explicitly here, but for pop_nsh, the packet
+> > >> > will be recirculated to flow pipeline, it will be reparsed, so
+> > >> > key->eth.type will be set in packet parse function, we needn't handle it
+> > >> > in pop_nsh.
+> > >>
+> > >> This seems to be a very different approach than what we currently have.
+> > >> Looking at the code, the requirement after "destructive" actions such
+> > >> as pushing or popping headers is to recirculate.
+> > >
+> > > This is optimization proposed by Jan Scheurich, recurculating after push_nsh
+> > > will impact on performance, recurculating after pop_nsh is unavoidable, So
+> > > also cc jan.scheurich@ericsson.com.
+> > >
+> > > Actucally all the keys before push_nsh are still there after push_nsh,
+> > > push_nsh has updated all the nsh keys, so recirculating remains avoidable.
+> > >
+> >
+> >
+> > We should keep existing model for this patch. Later you can submit
+> > optimization patch with specific use cases and performance
+> > improvement. So that we can evaluate code complexity and benefits.
 > 
-> # Overhead  CPU  Symbol
-> # ........  ...  .......................................
-> #
->     15.51%  003  [k] fib_table_lookup
->      8.91%  003  [k] cpu_map_kthread_run
->      8.04%  003  [k] build_skb
->      7.88%  003  [k] page_frag_free
->      5.13%  003  [k] kmem_cache_alloc
->      4.76%  003  [k] ip_route_input_rcu
->      4.59%  003  [k] kmem_cache_free
->      4.02%  003  [k] __udp4_lib_rcv
->      3.20%  003  [k] fib_validate_source
->      3.02%  003  [k] __netif_receive_skb_core
->      3.02%  003  [k] udp_v4_early_demux
->      2.90%  003  [k] ip_rcv
->      2.80%  003  [k] ip_rcv_finish
+> Ok, I'll remove the below line in push_nsh and send out v11, thanks.
 > 
-> right?
-> and in RPS case the consumer cpu is 33% idle whereas in redirect-cpu
-> you can load it up all the way.
-> Am I interpreting all this correctly that with RPS cpu0 cannot
-> distributed the packets to other cpus fast enough and that's
-> a bottleneck?
+> 	key->eth.type = htons(ETH_P_NSH);
 
-Yes, exactly. The work needed on the RPS cpu0 is simply too much.
+The optimization Yi refers to only affects the slow path translation. 
 
-> whereas in redirect-cpu you're doing early packet distribution
-> before skb alloc?
+OVS 2.8 does not immediately trigger an immediate recirculation after translating 
+encap(nsh,...). There is no need to do so as the flow key of the resulting packet 
+can be determined from the encap() action and its properties. Translation 
+continues with the rewritten flow key and subsequent OpenFlow actions will 
+typically set the new fields in the new NSH header. The push_nsh datapath action 
+(including all NSH header fields) is only generated at the next commit, e.g. for 
+output, cloning, recirculation, encap/decap or another destructive change of 
+the flow key.
 
-Yes, the main point to reducing the CPU cycles spend on the packet for
-doing early packet distribution.
+The implementation of push_nsh in the user-space datapath does not update
+the miniflow (key) of the packet, only the packet data and some metadata. 
+If the packet needs to be looked up again the slow path triggers recirculation
+to re-parse the packet. There should be no need for the datapath push_nsh 
+action to try to update the flow key.
 
-> So in other words with redirect-cpu all consumer cpus are doing
-> skb alloc and in RPS cpu0 is allocating skbs for all ?
-
-Yes.
-
-> and that's where 6M->12M performance gain comes from?
-
-Yes, basically.  There are many small thing that help this along.  Like
-cpumap case always hitting the SLUB fastpath.  Another big thing is
-bulking. It is sort of hidden, but the XDP_REDIRECT flush mechanism is
-implementing the RX bulking (I've been "screaming" about for the last
-couple of years! ;-))
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+BR, Jan
