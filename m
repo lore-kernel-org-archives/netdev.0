@@ -1,50 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v4 net-next 0/8] flow_dissector: Protocol specific flow dissector offload
-Date: Fri, 29 Sep 2017 09:58:28 +0200
-Message-ID: <87y3oyylzv.fsf@stressinduktion.org>
-References: <20170928235230.22158-1-tom@quantonium.net>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/1] tipc: use only positive error codes in messages
+Date: Fri, 29 Sep 2017 10:02:54 +0200
+Message-ID: <1506672174-26962-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org, rohit@quantonium.net
-To: Tom Herbert <tom@quantonium.net>
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+        <jon.maloy@ericsson.com>, <maloy@donjonn.com>,
+        <ying.xue@windriver.com>, <parthasarathy.bhuvaragan@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:33131 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750907AbdI2H6b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 03:58:31 -0400
-In-Reply-To: <20170928235230.22158-1-tom@quantonium.net> (Tom Herbert's
-        message of "Thu, 28 Sep 2017 16:52:22 -0700")
+Received: from sesbmg23.ericsson.net ([193.180.251.37]:56852 "EHLO
+        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751236AbdI2IC7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 04:02:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@quantonium.net> writes:
+In commit e3a77561e7d32 ("tipc: split up function tipc_msg_eval()"),
+we have updated the function tipc_msg_lookup_dest() to set the error
+codes to negative values at destination lookup failures. Thus when
+the function sets the error code to -TIPC_ERR_NO_NAME, its inserted
+into the 4 bit error field of the message header as 0xf instead of
+TIPC_ERR_NO_NAME (1). The value 0xf is an unknown error code.
 
-> This patch set adds a new offload type to perform flow dissection for
-> specific protocols (either by EtherType or by IP protocol). This is
-> primary useful to crack open UDP encapsulations (like VXLAN, GUE) for
-> the purposes of parsing the encapsulated packet.
->
-> Items in this patch set:
-> - Create new protocol case in __skb_dissect for ETH_P_TEB. This is based
->   on the code in the GRE dissect function and the special handling in
->   GRE can now be removed (it sets protocol to ETH_P_TEB and returns so
->   goto proto_again is done)
-> - Add infrastructure for protocol specific flow dissection offload
-> - Add infrastructure to perform UDP flow dissection. Uses same model of
->   GRO where a flow_dissect callback can be associated with a UDP
->   socket
-> - Use the infrastructure to support flow dissection of VXLAN and GUE
->
-> Tested:
->
-> Forced RPS to call flow dissection for VXLAN, FOU, and GUE. Observed
-> that inner packet was being properly dissected.
+In this commit, we set only positive error code.
 
-I have the feeling that this patch series changes the behavior of flower
-and thus causes uAPI problems.
+Fixes: e3a77561e7d32 ("tipc: split up function tipc_msg_eval()")
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/msg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-flower seems to use the flow dissector results for parsing the inner
-packets. In case of vxlan in vxlan encapsulation, which seems to become
-more common (sigh!) you let part of the flow specification match on the
-most inner header, while the flower ingress filter might want to match
-inside the first encapsulation only.
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 6ef379f004ac..121e59a1d0e7 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -551,7 +551,7 @@ bool tipc_msg_lookup_dest(struct net *net, struct sk_buff *skb, int *err)
+ 		return false;
+ 	if (msg_errcode(msg))
+ 		return false;
+-	*err = -TIPC_ERR_NO_NAME;
++	*err = TIPC_ERR_NO_NAME;
+ 	if (skb_linearize(skb))
+ 		return false;
+ 	msg = buf_msg(skb);
+-- 
+2.1.4
