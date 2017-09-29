@@ -1,35 +1,43 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: Re: [PATCH net] ipv6: fix net.ipv6.conf.all interface DAD handlers
-Date: Fri, 29 Sep 2017 12:47:09 +0200
-Message-ID: <CAGnkfhx0v8XULWBQ2eWOPf_=wsVTmiABJ8O_FBrf7ckzP+HRZQ@mail.gmail.com>
-References: <20170912154637.12996-1-mcroce@redhat.com> <20170915.141227.723470226137757556.davem@davemloft.net>
- <CAAedzxp4jdzycLXrXcdbpgnMCK0LJoaTiBV4m6=giV_T+WLkwA@mail.gmail.com> <CAAedzxrLurc=oGy64ePO30j3QQ_sL5kJCEz+RnTk3LMSn_yvyQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/2] net/sched: support tunnel options in
+ cls_flower and act_tunnel_key
+Date: Fri, 29 Sep 2017 05:54:23 +0100 (WEST)
+Message-ID: <20170929.055423.108055524887949393.davem@davemloft.net>
+References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, linux-doc@vger.kernel.org
-To: Erik Kline <ek@google.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CAAedzxrLurc=oGy64ePO30j3QQ_sL5kJCEz+RnTk3LMSn_yvyQ@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@mellanox.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: simon.horman@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45032 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751224AbdI2Kvo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 06:51:44 -0400
+In-Reply-To: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 28, 2017 at 1:22 PM, Erik Kline <ek@google.com> wrote:
-> Upon further reflection, doesn't the whole premise of this change
-> means that it's no longer possible to selectively disable these
-> features if they are set on "all"?  Or are we saying that this mode is
-> only support with "default" enable + "ifname" disable?
+From: Simon Horman <simon.horman@netronome.com>
+Date: Wed, 27 Sep 2017 10:16:32 +0200
 
-Hi Erik, thanks for the review.
-Yes the behaviour seems wrong when writing all.accept_dad respect what
-the documentation says.
+> Users of options:
+> 
+> * There are eBPF hooks to allow getting on and setting tunnel metadata:
+>   bpf_skb_set_tunnel_opt, bpf_skb_get_tunnel_opt.
+> 
+> * Open vSwitch is able to match and set Geneve and VXLAN-GBP options.
+> 
+> Neither of the above appear to assume any structure for the data.
 
-BTW the previous behaviour was not defined, I put them in OR because
-that's what other handlers do, eg. send_redirects.
-If you think that it's better to put them in AND we can change the
-documentation accordingly.
-What do you think?
+I really worry about this.
 
--- 
-Matteo Croce
-per aspera ad upstream
+These metadata option blobs are internal kernel datastructure which we
+could change at any point in time.  They are not exported to
+userspace as a UAPI.
+
+It's kinda OK for eBPF programs to access this stuff since they are
+expected to cope with changes to internal data-structures.
+
+But for anything user facing, this really doesn't work.
