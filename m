@@ -1,97 +1,145 @@
-From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
-Date: Fri, 29 Sep 2017 15:15:54 +0800
-Message-ID: <20170929071553.GA19053@localhost.localdomain>
-References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
-	<20170925201439.08460295@griffin>
-	<20170926045538.GA5896@localhost.localdomain>
-	<20170926124914.60101ca1@griffin>
-	<20170927013908.GA33716@localhost.localdomain>
-	<CAOrHB_CQyokdTWeoj02RENPP5miq5Arx6goCNQ9ZPbUeTu_MeQ@mail.gmail.com>
-	<20170929064058.GA16145@localhost.localdomain>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7881A337@ESESSMB107.ericsson.se>
+From: <kelley@colfaxcommunitynetwork.org>
+Subject: (unknown)
+Date: Fri, 29 Sep 2017 07:26:58 -0000
+Message-ID: <150667001829.12042.5697304691937763314@speedy.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7881A337-hqolJogE5njKJFWPz4pdheaU1rCVNFv4@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="40098069241.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 201-180-103-102.speedy.com.ar ([201.180.103.102]:33090 "HELO
+        speedy.com.ar" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+        with SMTP id S1751874AbdI2H1E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 03:27:04 -0400
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 29, 2017 at 07:10:52AM +0000, Jan Scheurich wrote:
-> > From: Yang, Yi [mailto:yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org]
-> > Sent: Friday, 29 September, 2017 08:41
-> > To: Pravin Shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-> > Cc: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org; e@erig.me; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Jan Scheurich
-> > <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
-> > Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
-> > 
-> > On Fri, Sep 29, 2017 at 02:28:38AM +0800, Pravin Shelar wrote:
-> > > On Tue, Sep 26, 2017 at 6:39 PM, Yang, Yi <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> wrote:
-> > > > On Tue, Sep 26, 2017 at 06:49:14PM +0800, Jiri Benc wrote:
-> > > >> On Tue, 26 Sep 2017 12:55:39 +0800, Yang, Yi wrote:
-> > > >> > After push_nsh, the packet won't be recirculated to flow pipeline, so
-> > > >> > key->eth.type must be set explicitly here, but for pop_nsh, the packet
-> > > >> > will be recirculated to flow pipeline, it will be reparsed, so
-> > > >> > key->eth.type will be set in packet parse function, we needn't handle it
-> > > >> > in pop_nsh.
-> > > >>
-> > > >> This seems to be a very different approach than what we currently have.
-> > > >> Looking at the code, the requirement after "destructive" actions such
-> > > >> as pushing or popping headers is to recirculate.
-> > > >
-> > > > This is optimization proposed by Jan Scheurich, recurculating after push_nsh
-> > > > will impact on performance, recurculating after pop_nsh is unavoidable, So
-> > > > also cc jan.scheurich-IzeFyvvaP7oU04JRNCRQjg@public.gmane.org
-> > > >
-> > > > Actucally all the keys before push_nsh are still there after push_nsh,
-> > > > push_nsh has updated all the nsh keys, so recirculating remains avoidable.
-> > > >
-> > >
-> > >
-> > > We should keep existing model for this patch. Later you can submit
-> > > optimization patch with specific use cases and performance
-> > > improvement. So that we can evaluate code complexity and benefits.
-> > 
-> > Ok, I'll remove the below line in push_nsh and send out v11, thanks.
-> > 
-> > 	key->eth.type = htons(ETH_P_NSH);
-> 
-> The optimization Yi refers to only affects the slow path translation. 
-> 
-> OVS 2.8 does not immediately trigger an immediate recirculation after translating 
-> encap(nsh,...). There is no need to do so as the flow key of the resulting packet 
-> can be determined from the encap() action and its properties. Translation 
-> continues with the rewritten flow key and subsequent OpenFlow actions will 
-> typically set the new fields in the new NSH header. The push_nsh datapath action 
-> (including all NSH header fields) is only generated at the next commit, e.g. for 
-> output, cloning, recirculation, encap/decap or another destructive change of 
-> the flow key.
-> 
-> The implementation of push_nsh in the user-space datapath does not update
-> the miniflow (key) of the packet, only the packet data and some metadata. 
-> If the packet needs to be looked up again the slow path triggers recirculation
-> to re-parse the packet. There should be no need for the datapath push_nsh 
-> action to try to update the flow key.
-
-Thanks Jan for clarification, it can still work after removing that
-line, our flows didn't match it after push_nsh, it is output to
-VxLAN-gpe port after push_nsh, I'm not sure if we can match dl_type and NSH
-fields if we don't output and don't recirculate.
-
-> 
-> BR, Jan
+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
+0wFQSwUGAAAAAAEAAQBbAAAAtRsAAAAA
