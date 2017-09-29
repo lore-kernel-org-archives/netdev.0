@@ -1,58 +1,91 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: RE: [RESEND PATCH 2/6] staging: fsl-dpaa2/ethsw: Add Freescale DPAA2 Ethernet Switch driver
-Date: Fri, 29 Sep 2017 09:11:18 -0700
-Message-ID: <A4C4732A-CC1F-4707-89F8-E7284F022DB0@gmail.com>
-References: <1505825158-8192-1-git-send-email-razvan.stefanescu@nxp.com> <1505825158-8192-3-git-send-email-razvan.stefanescu@nxp.com> <DB5PR04MB12400025DF190790B4792B50EA7E0@DB5PR04MB1240.eurprd04.prod.outlook.com> <AM3PR04MB0743F62497ED0CB445F51524E67E0@AM3PR04MB0743.eurprd04.prod.outlook.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next V2 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Fri, 29 Sep 2017 18:34:07 +0200
+Message-ID: <150670281423.23765.8984643281418950330.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "agraf@suse.de" <agraf@suse.de>, "arnd@arndb.de" <arnd@arndb.de>,
-        Alexandru Marginean <alexandru.marginean@nxp.com>,
-        Ruxandra Ioana Radulescu <ruxandra.radulescu@nxp.com>,
-        Laurentiu Tudor <laurentiu.tudor@nxp.com>,
-        "stuyoder@gmail.com" <stuyoder@gmail.com>
-To: Razvan Stefanescu <razvan.stefanescu@nxp.com>,
-        Bogdan Purcareata <bogdan.purcareata@nxp.com>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM3PR04MB0743F62497ED0CB445F51524E67E0@AM3PR04MB0743.eurprd04.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51868 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752159AbdI2QeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 12:34:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On September 29, 2017 6:59:18 AM PDT, Razvan Stefanescu <razvan=2Estefanesc=
-u@nxp=2Ecom> wrote:
->
->
->> -----Original Message-----
->> From: Bogdan Purcareata
->> Sent: Friday, September 29, 2017 16:36
->> To: Razvan Stefanescu <razvan=2Estefanescu@nxp=2Ecom>;
->> gregkh@linuxfoundation=2Eorg
->> Cc: devel@driverdev=2Eosuosl=2Eorg; linux-kernel@vger=2Ekernel=2Eorg;
->> netdev@vger=2Ekernel=2Eorg; agraf@suse=2Ede; arnd@arndb=2Ede; Alexandru
->Marginean
->> <alexandru=2Emarginean@nxp=2Ecom>; Ruxandra Ioana Radulescu
->> <ruxandra=2Eradulescu@nxp=2Ecom>; Laurentiu Tudor
-><laurentiu=2Etudor@nxp=2Ecom>;
->> stuyoder@gmail=2Ecom
->> Subject: RE: [RESEND PATCH 2/6] staging: fsl-dpaa2/ethsw: Add
->Freescale DPAA2
->> Ethernet Switch driver
->>=20
->> > Introduce the DPAA2 Ethernet Switch driver, which manages Datapath
->Switch
->> > (DPSW) objects discovered on the MC bus=2E
->> >
->> > Suggested-by: Alexandru Marginean <alexandru=2Emarginean@nxp=2Ecom>
->> > Signed-off-by: Razvan Stefanescu <razvan=2Estefanescu@nxp=2Ecom>
+Introducing a new way to redirect XDP frames.  Notice how no driver
+changes are necessary given the design of XDP_REDIRECT.
 
-This looks pretty good for a new switchdev driver, is there a reason you c=
-an't target drivers/net/ethernet instead of staging? Is it because the MC b=
-us code is still in staging (AFAICT)?
+This redirect map type is called 'cpumap', as it allows redirection
+XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+and start the network stack invocation on that CPU.
 
---=20
-Florian
+This is a scalability and isolation mechanism, that allow separating
+the early driver network XDP layer, from the rest of the netstack, and
+assigning dedicated CPUs for this stage.  The sysadm control/configure
+the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+many queues are configured via ethtool --set-channels.  Benchmarks
+show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+have the advantage that more packets being "bulk" available per hard
+interrupt[1].
+
+[1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
+
+Use-cases:
+
+1. End-host based pre-filtering for DDoS mitigation.  This is fast
+   enough to allow software to see and filter all packets wirespeed.
+   Thus, no packets getting silently dropped by hardware.
+
+2. Given NIC HW unevenly distributes packets across RX queue, this
+   mechanism can be used for redistribution load across CPUs.  This
+   usually happens when HW is unaware of a new protocol.  This
+   resembles RPS (Receive Packet Steering), just faster, but with more
+   responsibility placed on the BPF program for correct steering.
+
+3. Auto-scaling or power saving via only activating the appropriate
+   number of remote CPUs for handling the current load.  The cpumap
+   tracepoints can function as a feedback loop for this purpose.
+
+Patchset based on net-next at:
+ commit 14a0d032f4ec ("Merge branch 'mlxsw-pass-gact'")
+
+---
+
+Jesper Dangaard Brouer (5):
+      bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+      bpf: XDP_REDIRECT enable use of cpumap
+      bpf: cpumap xdp_buff to skb conversion and allocation
+      bpf: cpumap add tracepoints
+      samples/bpf: add cpumap sample program xdp_redirect_cpu
+
+
+ include/linux/bpf.h                 |    7 
+ include/linux/bpf_types.h           |    1 
+ include/trace/events/xdp.h          |   80 ++++
+ include/uapi/linux/bpf.h            |    1 
+ kernel/bpf/Makefile                 |    1 
+ kernel/bpf/cpumap.c                 |  686 +++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c                |    8 
+ kernel/bpf/verifier.c               |    3 
+ net/core/filter.c                   |   65 +++
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_redirect_cpu_kern.c |  640 +++++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_cpu_user.c |  639 +++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h      |    1 
+ 13 files changed, 2124 insertions(+), 12 deletions(-)
+ create mode 100644 kernel/bpf/cpumap.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_user.c
