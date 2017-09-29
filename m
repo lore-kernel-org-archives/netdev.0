@@ -1,68 +1,57 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH RFC 3/5] Add KSZ8795 switch driver
-Date: Fri, 29 Sep 2017 18:56:31 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD4112CBF0@CHN-SV-EXMX02.mchp-main.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
- <20170907223625.GW11248@lunn.ch>
- <93AF473E2DA327428DE3D46B72B1E9FD41124D5A@CHN-SV-EXMX02.mchp-main.com>
- <20170928184059.GA2825@amd>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2] lib: fix multiple strlcpy definition
+Date: Fri, 29 Sep 2017 11:58:58 -0700
+Message-ID: <20170929115858.275217b8@xeon-e3>
+References: <6910008ec8db3f63c8120b1624a08328cd203e92.1506621731.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <muvarov@gmail.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <Woojung.Huh@microchip.com>
-To: <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170928184059.GA2825@amd>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:52968 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752294AbdI2S7G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 14:59:06 -0400
+Received: by mail-pf0-f178.google.com with SMTP id p87so251562pfj.9
+        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 11:59:06 -0700 (PDT)
+In-Reply-To: <6910008ec8db3f63c8120b1624a08328cd203e92.1506621731.git.baruch@tkos.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Mon 2017-09-18 20:27:13, Tristram.Ha@microchip.com wrote:
-> > > > +/**
-> > > > + * Some counters do not need to be read too often because they are
-> less
-> > > likely
-> > > > + * to increase much.
-> > > > + */
-> > >
-> > > What does comment mean? Are you caching statistics, and updating
-> > > different values at different rates?
-> > >
-> >
-> > There are 34 counters.  In normal case using generic bus I/O or PCI to read
-> them
-> > is very quick, but the switch is mostly accessed using SPI, or even I2C.  As
-> the SPI
-> > access is very slow and cannot run in interrupt context I keep worrying
-> reading
-> > the MIB counters in a loop for 5 or more ports will prevent other critical
-> hardware
-> > access from executing soon enough.  These accesses can be getting 1588
-> PTP
-> > timestamps and opening/closing ports.  (RSTP Conformance Test sends test
-> traffic
-> > to port supposed to be closed/opened after receiving specific RSTP
-> > BPDU.)
-> 
-> Hmm. Ok, interesting.
-> 
-> I wonder how well this is going to work if userspace actively 'does
-> something' with the switch.
-> 
-> It seems to me that even if your statistics code is careful not to do
-> 'a lot' of accesses at the same time, userspace can use other parts of
-> the driver to do the same, and thus cause same unwanted effects...
+On Thu, 28 Sep 2017 21:02:11 +0300
+Baruch Siach <baruch@tkos.co.il> wrote:
 
-If the user calls "ethtool -S" in a tight loop the system will waste a lot of
-CPU time, but this is more like a user error.
-Another solution is not to schedule to read the MIB counters in that
-function call.  I think I was doing a favor to update the MIB counters
-sooner as the user probably wants to find out what is wrong with the
-switch by reading the MIB counters and checking them several times.
-For system tracking like SNMP I think it is likely a separate mechanism
-is used to gather those information.  If I am wrong that function definitely
-needs to be modified.
+> Some C libraries, like uClibc and musl, provide BSD compatible
+> strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
+> and strlcat when the C library provides them.
+> 
+> This fixes the following static link error with uClibc-ng:
+> 
+> .../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
+> strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
+> ../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
+> collect2: error: ld returned 1 exit status
+> 
+> Acked-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+
+This is OK because it doesn't impact normal glibc too much.
+
+
+> diff --git a/lib/Makefile b/lib/Makefile
+> index 0fbdf4c31f50..132ad00c3335 100644
+> --- a/lib/Makefile
+> +++ b/lib/Makefile
+> @@ -1,5 +1,9 @@
+>  include ../config.mk
+>  
+> +ifeq ($(NEED_STRLCPY),y)
+> +	CFLAGS += -DNEED_STRLCPY
+> +endif
+> +
+>
+
+I just removed all the conditional CFLAGS out of subdirectory Makefiles
+and moved them into the generated config.mk. Please do that for this
+as well and resubmit.
