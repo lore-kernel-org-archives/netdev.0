@@ -1,144 +1,76 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next V2 PATCH 1/5] bpf: introduce new bpf cpu map type
- BPF_MAP_TYPE_CPUMAP
-Date: Fri, 29 Sep 2017 21:58:48 +0200
-Message-ID: <20170929215848.46ca5257@redhat.com>
-References: <150670281423.23765.8984643281418950330.stgit@firesoul>
-        <150670285218.23765.2480801081343646072.stgit@firesoul>
-        <20170929114154.4b5d5918@cakuba>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH next] bonding: speed/duplex update at NETDEV_UP event
+Date: Fri, 29 Sep 2017 13:08:19 -0700
+Message-ID: <20170929130819.74879e99@xeon-e3>
+References: <20170928010349.8988-1-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <maheshb@google.com>
+To: Mahesh Bandewar <mahesh@bandewar.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52362 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752006AbdI2T65 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 15:58:57 -0400
-In-Reply-To: <20170929114154.4b5d5918@cakuba>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:47474 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752208AbdI2UI1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 16:08:27 -0400
+Received: by mail-pg0-f48.google.com with SMTP id d8so347979pgt.4
+        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 13:08:27 -0700 (PDT)
+In-Reply-To: <20170928010349.8988-1-mahesh@bandewar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 29 Sep 2017 11:41:54 -0700
-Jakub Kicinski <kubakici@wp.pl> wrote:
+On Wed, 27 Sep 2017 18:03:49 -0700
+Mahesh Bandewar <mahesh@bandewar.net> wrote:
 
-> On Fri, 29 Sep 2017 18:34:12 +0200, Jesper Dangaard Brouer wrote:
-> > The 'cpumap' is primary used as a backend map for XDP BPF helper
-> > call bpf_redirect_map() and XDP_REDIRECT action, like 'devmap'.
-> > 
-> > This patch implement the main part of the map.  It is not connected to
-> > the XDP redirect system yet, and no SKB allocation are done yet.
-> > 
-> > The main concern in this patch is to ensure the datapath can run
-> > without any locking.  This adds complexity to the setup and tear-down
-> > procedure, which assumptions are extra carefully documented in the
-> > code comments.
-> > 
-> > V2: make sure array isn't larger than num possible CPUs
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> From: Mahesh Bandewar <maheshb@google.com>
 > 
-> Few trivial nitpicks, hope you don't mind :)
+> Some NIC drivers don't have correct speed/duplex settings at the
+> time they send NETDEV_UP notification and that messes up the
+> bonding state. Especially 802.3ad mode which is very sensitive
+> to these settings. In the current implementation we invoke
+> bond_update_speed_duplex() when we receive NETDEV_UP, however,
+> ignore the return value. If the values we get are invalid
+> (UNKNOWN), then slave gets removed from the aggregator with
+> speed and duplex set to UNKNOWN while link is still marked as UP.
 > 
-> > @@ -0,0 +1,555 @@
-> > +/* bpf/cpumap.c
-> > + *
-> > + * Copyright (c) 2017 Jesper Dangaard Brouer, Red Hat Inc.
-> > + * Released under terms in GPL version 2.  See COPYING.
-> > + */
-> > +
-> > +/* The 'cpumap' is primary used as a backend map for XDP BPF helper
-> > + * call bpf_redirect_map() and XDP_REDIRECT action, like 'devmap'.
-> > + *
-> > + * Unlike devmap which redirect XDP frames out another NIC device,
-> > + * this map type redirect raw XDP frames to another CPU.  The remote
-> > + * CPU will do SKB-allocation and call the normal network stack.
-> > + *
-> > + * This is a scalability and isolation mechanism, that allow
-> > + * separating the early driver network XDP layer, from the rest of the
-> > + * netstack, and assigning dedicated CPUs for this stage.  This
-> > + * basically allows for 10G wirespeed pre-filtering via bpf.
-> > + */
-> > +#include <linux/bpf.h>
-> > +#include <linux/filter.h>
-> > +#include <linux/ptr_ring.h>
-> > +
-> > +#include <linux/sched.h>
-> > +#include <linux/workqueue.h>
-> > +#include <linux/kthread.h>
-> > +
-> > +/*
-> > + * General idea: XDP packets getting XDP redirected to another CPU,
-> > + * will maximum be stored/queued for one driver ->poll() call.  It is
-> > + * guaranteed that setting flush bit and flush operation happen on
-> > + * same CPU.  Thus, cpu_map_flush operation can deduct via this_cpu_ptr()
-> > + * which queue in bpf_cpu_map_entry contains packets.
-> > + */
-> > +
-> > +#define CPU_MAP_BULK_SIZE 8  /* 8 == one cacheline on 64-bit archs */
-> > +struct xdp_bulk_queue {
-> > +	void *q[CPU_MAP_BULK_SIZE];
-> > +	unsigned int count;
-> > +};  
+> This patch fixes this scenario. Also 802.3ad mode is sensitive to
+> these conditions while other modes are not, so making sure that it
+> doesn't change the behavior for other modes.
 > 
-> Out of curiosity - would it make sense to make sure the entire struct
-> fits into a cache line?  The comment seems to indicate that the array is
-> sized to fit a cache line, but then there is also the count member...
-
-Nope, it does not make sense to align the struct itself for a cacheline.
-The idea is that when I bulk enqueue transfer (from this percpu mem)
-into the shared queue (ptr_ring), then I dirty a cacheline, thus I
-might as well fill up the cacheline.
-
-
-> > +/*
-> > + * After xchg pointer to bpf_cpu_map_entry, use the call_rcu() to  
-> ...
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
 > 
-> There is a mix for networking and non-networking style comments in this
-> file, is this intentional?
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index b7313c1d9dcd..177be373966b 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -3076,7 +3076,16 @@ static int bond_slave_netdev_event(unsigned long event,
+>  		break;
+>  	case NETDEV_UP:
+>  	case NETDEV_CHANGE:
+> -		bond_update_speed_duplex(slave);
+> +		/* For 802.3ad mode only:
+> +		 * Getting invalid Speed/Duplex values here will put slave
+> +		 * in weird state. So mark it as link-down for the time
+> +		 * being and let link-monitoring (miimon) set it right when
+> +		 * correct speeds/duplex are available.
+> +		 */
+> +		if (bond_update_speed_duplex(slave) &&
+> +		    BOND_MODE(bond) == BOND_MODE_8023AD)
+> +			slave->link = BOND_LINK_DOWN;
+> +
+>  		if (BOND_MODE(bond) == BOND_MODE_8023AD)
+>  			bond_3ad_adapter_speed_duplex_changed(slave);
+>  		/* Fallthrough */
 
-No
- 
-> > +const struct bpf_map_ops cpu_map_ops = {
-> > +	.map_alloc		= cpu_map_alloc,
-> > +	.map_free		= cpu_map_free,
-> > +	.map_delete_elem	= cpu_map_delete_elem,
-> > +	.map_update_elem	= cpu_map_update_elem,
-> > +	.map_lookup_elem	= cpu_map_lookup_elem,
-> > +	.map_get_next_key	= cpu_map_get_next_key,
-> > +};
-> > +
-> > +  
-> 
-> Extra new line.
+Then fix the drivers. Trying to workaround it here isn't helping.
 
-Sorry
-
-> > +/* Runs under RCU-read-side, plus in softirq under NAPI protection.
-> > + * Thus, safe percpu variable access.
-> > + */
-> > +static int bq_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_pkt *xdp_pkt)
-> > +{
-> > +	struct xdp_bulk_queue *bq = this_cpu_ptr(rcpu->bulkq);
-> > +
-> > +	if (unlikely(bq->count == CPU_MAP_BULK_SIZE)) {
-> > +		bq_flush_to_queue(rcpu, bq);
-> > +	}  
-> 
-> Curly brackets not needed.
-
-Sorry
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+The problem is that miimon is not required.  Bonding can be purely
+event driven.
