@@ -1,73 +1,80 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Thu, 28 Sep 2017 19:07:40 -0700
-Message-ID: <1b5cc29c-2ca2-a962-bd56-042f074fa7c4@gmail.com>
-References: <20170929113635.3337c026@canb.auug.org.au>
+From: Xiang Gao <qasdfgtyuiop@gmail.com>
+Subject: Re: [lkp-robot] [mac80211] 31e9170bde: hwsim.sta_dynamic_down_up.fail
+Date: Thu, 28 Sep 2017 22:21:21 -0400
+Message-ID: <CAMtaSwQHT0pP+YRx2WSL2kyZ__iJzrkF4jCrLBVzTjO40u4EgQ@mail.gmail.com>
+References: <20170924054015.8958-1-qasdfgtyuiop@gmail.com> <20170928080614.GZ17200@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170929113635.3337c026@canb.auug.org.au>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        linux-crypto@vger.kernel.org,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org, lkp@01.org
+To: kernel test robot <xiaolong.ye@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170928080614.GZ17200@yexl-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le 09/28/17 à 18:36, Stephen Rothwell a écrit :
-> Hi all,
-> 
-> After merging the net-next tree, today's linux-next build (arm
-> multi_v7_defconfig) failed like this:
-> 
-> net/dsa/slave.c: In function 'dsa_slave_create':
-> net/dsa/slave.c:1191:18: error: 'struct dsa_slave_priv' has no member named 'phy'
->   phy_disconnect(p->phy);
->                   ^
-> 
-> Caused by commit
-> 
->   0115dcd1787d ("net: dsa: use slave device phydev")
-> 
-> Interacting with commit
-> 
->   e804441cfe0b ("net: dsa: Fix network device registration order")
-> 
-> from the net tree.
-> 
-> I applied the following merge fix patch (which I am not sure about):
-
-Your resolution looks fine to me, thanks Stephen!
-
-> 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 29 Sep 2017 11:28:45 +1000
-> Subject: [PATCH] net: dsa: merge fix patch for removal of phy
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  net/dsa/slave.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 8869954485db..9191c929c6c8 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -1188,7 +1188,7 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
->  	return 0;
->  
->  out_phy:
-> -	phy_disconnect(p->phy);
-> +	phy_disconnect(slave_dev->phydev);
->  	if (of_phy_is_fixed_link(p->dp->dn))
->  		of_phy_deregister_fixed_link(p->dp->dn);
->  out_free:
-> 
+Thanks, I will look into it.
+Xiang Gao
 
 
--- 
-Florian
+2017-09-28 4:06 GMT-04:00 kernel test robot <xiaolong.ye@intel.com>:
+>
+> FYI, we noticed the following commit:
+>
+> commit: 31e9170bdeb6ebe66426337b4e2b9924683a412b ("mac80211: aead api to reduce redundancy")
+> url: https://github.com/0day-ci/linux/commits/Xiang-Gao/mac80211-aead-api-to-reduce-redundancy/20170926-053110
+> base: https://git.kernel.org/cgit/linux/kernel/git/jberg/mac80211-next.git master
+>
+> in testcase: hwsim
+> with following parameters:
+>
+>         group: hwsim-10
+>
+>
+>
+> on test machine: qemu-system-x86_64 -enable-kvm -cpu host -smp 2 -m 2G
+>
+> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
+>
+>
+> 2017-09-27 16:04:27     ./run-tests.py sta_dynamic_down_up
+> DEV: wlan0: 02:00:00:00:00:00
+> DEV: wlan1: 02:00:00:00:01:00
+> DEV: wlan2: 02:00:00:00:02:00
+> APDEV: wlan3
+> APDEV: wlan4
+> START sta_dynamic_down_up 1/1
+> Test: Dynamically added wpa_supplicant interface down/up
+> Starting AP wlan3
+> Create a dynamic wpa_supplicant interface and connect
+> Connect STA wlan5 to AP
+> dev1->dev2 unicast data delivery failed
+> Traceback (most recent call last):
+>   File "./run-tests.py", line 453, in main
+>     t(dev, apdev)
+>   File "/lkp/benchmarks/hwsim/tests/hwsim/test_sta_dynamic.py", line 122, in test_sta_dynamic_down_up
+>     hwsim_utils.test_connectivity(wpas, hapd)
+>   File "/lkp/benchmarks/hwsim/tests/hwsim/hwsim_utils.py", line 165, in test_connectivity
+>     raise Exception(last_err)
+> Exception: dev1->dev2 unicast data delivery failed
+> FAIL sta_dynamic_down_up 5.397413 2017-09-27 16:04:32.540689
+> passed 0 test case(s)
+> skipped 0 test case(s)
+> failed tests: sta_dynamic_down_up
+>
+>
+>
+> To reproduce:
+>
+>         git clone https://github.com/intel/lkp-tests.git
+>         cd lkp-tests
+>         bin/lkp qemu -k <bzImage> job-script  # job-script is attached in this email
+>
+>
+>
+> Thanks,
+> Xiaolong
