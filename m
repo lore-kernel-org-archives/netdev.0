@@ -1,94 +1,132 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [Patch net-next] net_sched: use idr to allocate u32 filter
- handles
-Date: Fri, 29 Sep 2017 08:46:01 +0200
-Message-ID: <20170929064559.GA7342@netronome.com>
-References: <20170921234302.26558-3-xiyou.wangcong@gmail.com>
- <20170928073423.GB15815@netronome.com>
- <CAM_iQpWbiA4QZb8j8fau7kMhzeLpRppEMcmB80byqTUryPheOw@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Fri, 29 Sep 2017 08:53:13 +0200
+Message-ID: <20170929085313.4ff4815b@redhat.com>
+References: <150660339205.2808.7084136789768233829.stgit@firesoul>
+        <59CD7B94.8010103@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, edumazet@google.com,
+        brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:44497 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750782AbdI2GqF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 02:46:05 -0400
-Received: by mail-wr0-f175.google.com with SMTP id v109so683279wrc.1
-        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 23:46:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpWbiA4QZb8j8fau7kMhzeLpRppEMcmB80byqTUryPheOw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58100 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751219AbdI2GxY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 02:53:24 -0400
+In-Reply-To: <59CD7B94.8010103@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 28, 2017 at 03:19:05PM -0700, Cong Wang wrote:
-> On Thu, Sep 28, 2017 at 12:34 AM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > Hi Cong,
+On Fri, 29 Sep 2017 00:45:40 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
+
+> On 09/28/2017 02:57 PM, Jesper Dangaard Brouer wrote:
+> > Introducing a new way to redirect XDP frames.  Notice how no driver
+> > changes are necessary given the design of XDP_REDIRECT.
 > >
-> > this looks like a nice enhancement to me. Did you measure any performance
-> > benefit from it.  Perhaps it could be described in the changelog_ I also
-> > have a more detailed question below.
+> > This redirect map type is called 'cpumap', as it allows redirection
+> > XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+> > and start the network stack invocation on that CPU.
+> >
+> > This is a scalability and isolation mechanism, that allow separating
+> > the early driver network XDP layer, from the rest of the netstack, and
+> > assigning dedicated CPUs for this stage.  The sysadm control/configure
+> > the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+> > many queues are configured via ethtool --set-channels.  Benchmarks
+> > show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+> > two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+> > wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+> > have the advantage that more packets being "bulk" available per hard
+> > interrupt[1].
+> >
+> > [1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
+> >
+> > Use-cases:
+> >
+> > 1. End-host based pre-filtering for DDoS mitigation.  This is fast
+> >     enough to allow software to see and filter all packets wirespeed.
+> >     Thus, no packets getting silently dropped by hardware.
+> >
+> > 2. Given NIC HW unevenly distributes packets across RX queue, this
+> >     mechanism can be used for redistribution load across CPUs.  This
+> >     usually happens when HW is unaware of a new protocol.  This
+> >     resembles RPS (Receive Packet Steering), just faster, but with more
+> >     responsibility placed on the BPF program for correct steering.
+> >
+> > 3. Auto-scaling or power saving via only activating the appropriate
+> >     number of remote CPUs for handling the current load.  The cpumap
+> >     tracepoints can function as a feedback loop for this purpose.  
 > 
-> No, I am inspired by commit c15ab236d69d, don't measure it.
+> Interesting work, thanks! Still digesting the code a bit. I think
+> it pretty much goes into the direction that Eric describes in his
+> netdev paper quoted above; not on a generic level though but specific
+> to XDP at least; theoretically XDP could just run transparently on
+> the CPU doing the filtering, and raw buffers are handed to remote
+> CPU with similar batching, but it would need some different config
+> interface at minimum.
 
-Perhaps it would be nice to note that in the changelog.
+Good that you noticed this is (implicit) implementing RX bulking, which
+is where much of the performance gain originates from.
 
-> >> ---
-> >>  net/sched/cls_u32.c | 108 ++++++++++++++++++++++++++++++++--------------------
-> >>  1 file changed, 67 insertions(+), 41 deletions(-)
-> >>
-> >> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-> >> index 10b8d851fc6b..316b8a791b13 100644
-> >> --- a/net/sched/cls_u32.c
-> >> +++ b/net/sched/cls_u32.c
-> >> @@ -46,6 +46,7 @@
-> >
-> > ...
-> >
-> >> @@ -937,22 +940,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
-> >>                       return -EINVAL;
-> >>               if (TC_U32_KEY(handle))
-> >>                       return -EINVAL;
-> >> -             if (handle == 0) {
-> >> -                     handle = gen_new_htid(tp->data);
-> >> -                     if (handle == 0)
-> >> -                             return -ENOMEM;
-> >> -             }
-> >>               ht = kzalloc(sizeof(*ht) + divisor*sizeof(void *), GFP_KERNEL);
-> >>               if (ht == NULL)
-> >>                       return -ENOBUFS;
-> >> +             if (handle == 0) {
-> >> +                     handle = gen_new_htid(tp->data, ht);
-> >> +                     if (handle == 0) {
-> >> +                             kfree(ht);
-> >> +                             return -ENOMEM;
-> >> +                     }
-> >> +             } else {
-> >> +                     err = idr_alloc_ext(&tp_c->handle_idr, ht, NULL,
-> >> +                                         handle, handle + 1, GFP_KERNEL);
-> >> +                     if (err) {
-> >> +                             kfree(ht);
-> >> +                             return err;
-> >> +                     }
-> >
-> > The above seems to check that handle is not already in use and mark it as
-> > in use. But I don't see that logic in the code prior to this patch.
-> > Am I missing something? If not perhaps this portion should be a separate
-> > patch or described in the changelog.
-> 
-> The logic is in upper layer, tc_ctl_tfilter(). It tries to get a
-> filter by handle
-> (if non-zero), and errors out if we are creating a new filter with the same
-> handle.
-> 
-> At the point you quote above, 'n' is already NULL and 'handle' is non-zero,
-> which means there is no existing filter has same handle, it is safe to just
-> mark it as in-use.
+It is true, I am inspired by Eric's paper (I love it). Do notice that
+this is not blocking or interfering with Erics/others continued work in
+this area.  This implementation just show that the section "break the
+pipe!" idea works very well for XDP. 
 
-Thanks for the clarification, that seems fine to me.
+More on config knobs below.
+ 
+> Shouldn't we take the CPU(s) running XDP on the RX queues out from
+> the normal process scheduler, so that we have a guarantee that user
+> space or unrelated kernel tasks cannot interfere with them anymore,
+> and we could then turn them into busy polling eventually (e.g. as
+> long as XDP is running there and once off could put them back into
+> normal scheduling domain transparently)?
 
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+We should be careful not to invent networking config knobs that belongs
+to other parts of the kernel, like the scheduler.  We already have
+ability to control where IRQ's land via procfs smp_affinity.  And if
+you want to avoid CPU isolation, we can use the boot cmdline
+"isolcpus" (hint like DPDK recommend/use for zero-loss configs).  It is
+the userspace tool (or sysadm) loading the XDP program, who is
+responsible for having configures the CPU smp_affinity alignment.
+
+Making NAPI busy-poll is out of scope for this patchset. Someone
+should work on this separately.  It would just help/improve this kind
+of scheme.
+
+I actually think it would be more relevant to add/put the "remote" CPUs
+in the 'cpumap' into a separate scheduler group.  To implement stuff
+like auto-scaling and power-saving.
+
+
+> What about RPS/RFS in the sense that once you punt them to remote
+> CPU, could we reuse application locality information so they'd end
+> up on the right CPU in the first place (w/o backlog detour), or is
+> the intent to rather disable it and have some own orchestration
+> with relation to the CPU map?
+
+An advanced bpf orchestration could basically implement what you
+describe, combined with a userspace side tool that taskset/pin
+applications.  To know when a task can move between CPUs, you use the
+tracepoints to see when the CPU queue is empty (hint, time_limit=true
+and processed=0).
+
+For now, I'm not targeting such advanced use-cases.  My main target is
+a customer that have double tagged VLANS, and ixgbe cannot RSS
+distribute these, thus they all end-up on queue 0.  And as I
+demonstrated (in another email) RPS is too slow to fix this.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
