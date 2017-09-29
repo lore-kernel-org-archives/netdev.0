@@ -1,112 +1,55 @@
-From: Simon Xiao <sixiao@microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: report stop_queue and wake_queue
-Date: Fri, 29 Sep 2017 11:39:46 -0700
-Message-ID: <20170929183946.18364-1-sixiao@microsoft.com>
-Cc: Simon Xiao <sixiao@microsoft.com>
-To: netdev@vger.kernel.org, davem@davemloft.net, kys@microsoft.com,
-        haiyangz@microsoft.com, sthemmin@microsoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a2nlsmtp01-03.prod.iad2.secureserver.net ([198.71.225.37]:38234
-        "EHLO a2nlsmtp01-03.prod.iad2.secureserver.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752468AbdI2Sku (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 14:40:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/8] net: dsa: directly fetch switch in mtk_tag_rcv
+Date: Fri, 29 Sep 2017 14:36:28 -0400
+Message-ID: <20170929183635.8122-2-vivien.didelot@savoirfairelinux.com>
+References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Report the numbers of events for stop_queue and wake_queue in
-ethtool stats.
+In a single-chip switch fabric, there is no need to fetch the dsa_switch
+structure from the tree, directly use the CPU port's "ds" member.
 
-Example:
-ethtool -S eth0
-NIC statistics:
-	...
-	stop_queue: 7
-	wake_queue: 7
-	...
-
-Signed-off-by: Simon Xiao <sixiao@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/hyperv/hyperv_net.h |  2 ++
- drivers/net/hyperv/netvsc.c     | 12 ++++++++++--
- drivers/net/hyperv/netvsc_drv.c |  2 ++
- 3 files changed, 14 insertions(+), 2 deletions(-)
+ net/dsa/tag_mtk.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 5176be7..6f550e1 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -686,6 +686,8 @@ struct netvsc_ethtool_stats {
- 	unsigned long tx_busy;
- 	unsigned long tx_send_full;
- 	unsigned long rx_comp_busy;
-+	unsigned long stop_queue;
-+	unsigned long wake_queue;
- };
- 
- struct netvsc_vf_pcpu_stats {
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index b0d323e..6e51949 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -609,6 +609,7 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
+index ec8ee5f43255..ef0364b82241 100644
+--- a/net/dsa/tag_mtk.c
++++ b/net/dsa/tag_mtk.c
+@@ -47,7 +47,8 @@ static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 				   struct packet_type *pt)
  {
- 	struct sk_buff *skb = (struct sk_buff *)(unsigned long)desc->trans_id;
- 	struct net_device *ndev = hv_get_drvdata(device);
-+	struct net_device_context *ndev_ctx = netdev_priv(ndev);
- 	struct vmbus_channel *channel = device->channel;
- 	u16 q_idx = 0;
- 	int queue_sends;
-@@ -643,8 +644,10 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+-	struct dsa_switch *ds;
++	struct dsa_port *cpu_dp = dst->cpu_dp;
++	struct dsa_switch *ds = cpu_dp->ds;
+ 	int port;
+ 	__be16 *phdr, hdr;
  
- 	if (netif_tx_queue_stopped(netdev_get_tx_queue(ndev, q_idx)) &&
- 	    (hv_ringbuf_avail_percent(&channel->outbound) > RING_AVAIL_PERCENT_HIWATER ||
--	     queue_sends < 1))
-+	     queue_sends < 1)) {
- 		netif_tx_wake_queue(netdev_get_tx_queue(ndev, q_idx));
-+		ndev_ctx->eth_stats.wake_queue++;
-+	}
- }
+@@ -68,14 +69,6 @@ static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		skb->data - ETH_HLEN - MTK_HDR_LEN,
+ 		2 * ETH_ALEN);
  
- static void netvsc_send_completion(struct netvsc_device *net_device,
-@@ -749,6 +752,7 @@ static inline int netvsc_send_pkt(
- 		&net_device->chan_table[packet->q_idx];
- 	struct vmbus_channel *out_channel = nvchan->channel;
- 	struct net_device *ndev = hv_get_drvdata(device);
-+	struct net_device_context *ndev_ctx = netdev_priv(ndev);
- 	struct netdev_queue *txq = netdev_get_tx_queue(ndev, packet->q_idx);
- 	u64 req_id;
- 	int ret;
-@@ -789,12 +793,16 @@ static inline int netvsc_send_pkt(
- 	if (ret == 0) {
- 		atomic_inc_return(&nvchan->queue_sends);
- 
--		if (ring_avail < RING_AVAIL_PERCENT_LOWATER)
-+		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
- 			netif_tx_stop_queue(txq);
-+			ndev_ctx->eth_stats.stop_queue++;
-+		}
- 	} else if (ret == -EAGAIN) {
- 		netif_tx_stop_queue(txq);
-+		ndev_ctx->eth_stats.stop_queue++;
- 		if (atomic_read(&nvchan->queue_sends) < 1) {
- 			netif_tx_wake_queue(txq);
-+			ndev_ctx->eth_stats.wake_queue++;
- 			ret = -ENOSPC;
- 		}
- 	} else {
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index e9d54c9..f300ae6 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1126,6 +1126,8 @@ static const struct {
- 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
- 	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },
- 	{ "rx_comp_busy", offsetof(struct netvsc_ethtool_stats, rx_comp_busy) },
-+	{ "stop_queue", offsetof(struct netvsc_ethtool_stats, stop_queue) },
-+	{ "wake_queue", offsetof(struct netvsc_ethtool_stats, wake_queue) },
- }, vf_stats[] = {
- 	{ "vf_rx_packets", offsetof(struct netvsc_vf_pcpu_stats, rx_packets) },
- 	{ "vf_rx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, rx_bytes) },
+-	/* This protocol doesn't support cascading multiple
+-	 * switches so it's safe to assume the switch is first
+-	 * in the tree.
+-	 */
+-	ds = dst->ds[0];
+-	if (!ds)
+-		return NULL;
+-
+ 	/* Get source port information */
+ 	port = (hdr & MTK_HDR_RECV_SOURCE_PORT_MASK);
+ 	if (!ds->ports[port].netdev)
 -- 
-2.7.4
+2.14.1
