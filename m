@@ -1,33 +1,32 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH][net-next] net_sched: remove redundant assignment to ret
-Date: Fri, 29 Sep 2017 10:35:20 -0700
-Message-ID: <CAM_iQpUEKK4jJo9aPLExudGXub4j_Mz8Jv+Lu+wJTGj3Zk7Jmw@mail.gmail.com>
-References: <20170929140116.8642-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 0/8] flow_dissector: Protocol specific flow
+ dissector offload
+Date: Fri, 29 Sep 2017 18:42:45 +0100 (WEST)
+Message-ID: <20170929.184245.412578447363431176.davem@davemloft.net>
+References: <20170928235230.22158-1-tom@quantonium.net>
+        <87y3oyylzv.fsf@stressinduktion.org>
+        <CALx6S37J-Uv11TJuNFj4et==NFZj9W0v9s_c-Qowqcs--Kx_VQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        LKML <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170929140116.8642-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, tom@quantonium.net,
+        netdev@vger.kernel.org, rohit@quantonium.net
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54600 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752501AbdI2Rmv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 13:42:51 -0400
+In-Reply-To: <CALx6S37J-Uv11TJuNFj4et==NFZj9W0v9s_c-Qowqcs--Kx_VQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 29, 2017 at 7:01 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> The assignment of -EINVAL to variable ret is redundant as it
-> is being overwritten on the following error exit paths or
-> to the return value from the following call to basic_set_parms.
-> Fix this up by removing it. Cleans up clang warning message:
->
-> net/sched/cls_basic.c:185:2: warning: Value stored to 'err' is never read
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+From: Tom Herbert <tom@herbertland.com>
+Date: Fri, 29 Sep 2017 08:48:55 -0700
 
-Fixes: 1d8134fea2eb ("net_sched: use idr to allocate basic filter handles")
+> The flow_dissector interface is not a uAPI.
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+That's not true, insofar as cls_flower.c uses the flow_dissector
+therefore if you change the flow_dissector in certain ways then
+cls_flower.c might have it's behavior changed and that is in fact UAPI
+facing.
