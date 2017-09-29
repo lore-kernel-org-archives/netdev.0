@@ -1,135 +1,112 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/8] net: dsa: use cpu_dp in master code
-Date: Fri, 29 Sep 2017 14:36:30 -0400
-Message-ID: <20170929183635.8122-4-vivien.didelot@savoirfairelinux.com>
-References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Xiao <sixiao@microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: report stop_queue and wake_queue
+Date: Fri, 29 Sep 2017 11:39:46 -0700
+Message-ID: <20170929183946.18364-1-sixiao@microsoft.com>
+Cc: Simon Xiao <sixiao@microsoft.com>
+To: netdev@vger.kernel.org, davem@davemloft.net, kys@microsoft.com,
+        haiyangz@microsoft.com, sthemmin@microsoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a2nlsmtp01-03.prod.iad2.secureserver.net ([198.71.225.37]:38234
+        "EHLO a2nlsmtp01-03.prod.iad2.secureserver.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752468AbdI2Sku (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 14:40:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make it clear that the master device is linked to a CPU port by using
-"cpu_dp" for the dsa_port variable in master.c instead of "port", then
-use a "port" variable to describe the port index, as usually seen in
-other places of DSA core.
+Report the numbers of events for stop_queue and wake_queue in
+ethtool stats.
 
-This will make the future patch touching dsa_ptr more readable. There is
-no functional changes.
+Example:
+ethtool -S eth0
+NIC statistics:
+	...
+	stop_queue: 7
+	wake_queue: 7
+	...
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Simon Xiao <sixiao@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- net/dsa/master.c | 42 ++++++++++++++++++++++--------------------
- 1 file changed, 22 insertions(+), 20 deletions(-)
+ drivers/net/hyperv/hyperv_net.h |  2 ++
+ drivers/net/hyperv/netvsc.c     | 12 ++++++++++--
+ drivers/net/hyperv/netvsc_drv.c |  2 ++
+ 3 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/net/dsa/master.c b/net/dsa/master.c
-index 5e5147ec5a44..ef15d35f1574 100644
---- a/net/dsa/master.c
-+++ b/net/dsa/master.c
-@@ -17,9 +17,10 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
- 					 uint64_t *data)
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 5176be7..6f550e1 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -686,6 +686,8 @@ struct netvsc_ethtool_stats {
+ 	unsigned long tx_busy;
+ 	unsigned long tx_send_full;
+ 	unsigned long rx_comp_busy;
++	unsigned long stop_queue;
++	unsigned long wake_queue;
+ };
+ 
+ struct netvsc_vf_pcpu_stats {
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index b0d323e..6e51949 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -609,6 +609,7 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_port *port = dst->cpu_dp;
--	struct dsa_switch *ds = port->ds;
--	const struct ethtool_ops *ops = port->orig_ethtool_ops;
-+	struct dsa_port *cpu_dp = dst->cpu_dp;
-+	const struct ethtool_ops *ops = cpu_dp->orig_ethtool_ops;
-+	struct dsa_switch *ds = cpu_dp->ds;
-+	int port = cpu_dp->index;
- 	int count = 0;
+ 	struct sk_buff *skb = (struct sk_buff *)(unsigned long)desc->trans_id;
+ 	struct net_device *ndev = hv_get_drvdata(device);
++	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+ 	struct vmbus_channel *channel = device->channel;
+ 	u16 q_idx = 0;
+ 	int queue_sends;
+@@ -643,8 +644,10 @@ static void netvsc_send_tx_complete(struct netvsc_device *net_device,
  
- 	if (ops && ops->get_sset_count && ops->get_ethtool_stats) {
-@@ -28,15 +29,15 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
- 	}
- 
- 	if (ds->ops->get_ethtool_stats)
--		ds->ops->get_ethtool_stats(ds, port->index, data + count);
-+		ds->ops->get_ethtool_stats(ds, port, data + count);
+ 	if (netif_tx_queue_stopped(netdev_get_tx_queue(ndev, q_idx)) &&
+ 	    (hv_ringbuf_avail_percent(&channel->outbound) > RING_AVAIL_PERCENT_HIWATER ||
+-	     queue_sends < 1))
++	     queue_sends < 1)) {
+ 		netif_tx_wake_queue(netdev_get_tx_queue(ndev, q_idx));
++		ndev_ctx->eth_stats.wake_queue++;
++	}
  }
  
- static int dsa_master_get_sset_count(struct net_device *dev, int sset)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_port *port = dst->cpu_dp;
--	struct dsa_switch *ds = port->ds;
--	const struct ethtool_ops *ops = port->orig_ethtool_ops;
-+	struct dsa_port *cpu_dp = dst->cpu_dp;
-+	const struct ethtool_ops *ops = cpu_dp->orig_ethtool_ops;
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	int count = 0;
+ static void netvsc_send_completion(struct netvsc_device *net_device,
+@@ -749,6 +752,7 @@ static inline int netvsc_send_pkt(
+ 		&net_device->chan_table[packet->q_idx];
+ 	struct vmbus_channel *out_channel = nvchan->channel;
+ 	struct net_device *ndev = hv_get_drvdata(device);
++	struct net_device_context *ndev_ctx = netdev_priv(ndev);
+ 	struct netdev_queue *txq = netdev_get_tx_queue(ndev, packet->q_idx);
+ 	u64 req_id;
+ 	int ret;
+@@ -789,12 +793,16 @@ static inline int netvsc_send_pkt(
+ 	if (ret == 0) {
+ 		atomic_inc_return(&nvchan->queue_sends);
  
- 	if (ops && ops->get_sset_count)
-@@ -52,16 +53,17 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
- 				   uint8_t *data)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_port *port = dst->cpu_dp;
--	struct dsa_switch *ds = port->ds;
--	const struct ethtool_ops *ops = port->orig_ethtool_ops;
-+	struct dsa_port *cpu_dp = dst->cpu_dp;
-+	const struct ethtool_ops *ops = cpu_dp->orig_ethtool_ops;
-+	struct dsa_switch *ds = cpu_dp->ds;
-+	int port = cpu_dp->index;
- 	int len = ETH_GSTRING_LEN;
- 	int mcount = 0, count;
- 	unsigned int i;
- 	uint8_t pfx[4];
- 	uint8_t *ndata;
- 
--	snprintf(pfx, sizeof(pfx), "p%.2d", port->index);
-+	snprintf(pfx, sizeof(pfx), "p%.2d", port);
- 	/* We do not want to be NULL-terminated, since this is a prefix */
- 	pfx[sizeof(pfx) - 1] = '_';
- 
-@@ -76,7 +78,7 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
- 		 * the output after to prepend our CPU port prefix we
- 		 * constructed earlier
- 		 */
--		ds->ops->get_strings(ds, port->index, ndata);
-+		ds->ops->get_strings(ds, port, ndata);
- 		count = ds->ops->get_sset_count(ds);
- 		for (i = 0; i < count; i++) {
- 			memmove(ndata + (i * len + sizeof(pfx)),
-@@ -89,17 +91,17 @@ static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
- int dsa_master_ethtool_setup(struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_port *port = dst->cpu_dp;
--	struct dsa_switch *ds = port->ds;
-+	struct dsa_port *cpu_dp = dst->cpu_dp;
-+	struct dsa_switch *ds = cpu_dp->ds;
- 	struct ethtool_ops *ops;
- 
- 	ops = devm_kzalloc(ds->dev, sizeof(*ops), GFP_KERNEL);
- 	if (!ops)
- 		return -ENOMEM;
- 
--	port->orig_ethtool_ops = dev->ethtool_ops;
--	if (port->orig_ethtool_ops)
--		memcpy(ops, port->orig_ethtool_ops, sizeof(*ops));
-+	cpu_dp->orig_ethtool_ops = dev->ethtool_ops;
-+	if (cpu_dp->orig_ethtool_ops)
-+		memcpy(ops, cpu_dp->orig_ethtool_ops, sizeof(*ops));
- 
- 	ops->get_sset_count = dsa_master_get_sset_count;
- 	ops->get_ethtool_stats = dsa_master_get_ethtool_stats;
-@@ -113,8 +115,8 @@ int dsa_master_ethtool_setup(struct net_device *dev)
- void dsa_master_ethtool_restore(struct net_device *dev)
- {
- 	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_port *port = dst->cpu_dp;
-+	struct dsa_port *cpu_dp = dst->cpu_dp;
- 
--	dev->ethtool_ops = port->orig_ethtool_ops;
--	port->orig_ethtool_ops = NULL;
-+	dev->ethtool_ops = cpu_dp->orig_ethtool_ops;
-+	cpu_dp->orig_ethtool_ops = NULL;
- }
+-		if (ring_avail < RING_AVAIL_PERCENT_LOWATER)
++		if (ring_avail < RING_AVAIL_PERCENT_LOWATER) {
+ 			netif_tx_stop_queue(txq);
++			ndev_ctx->eth_stats.stop_queue++;
++		}
+ 	} else if (ret == -EAGAIN) {
+ 		netif_tx_stop_queue(txq);
++		ndev_ctx->eth_stats.stop_queue++;
+ 		if (atomic_read(&nvchan->queue_sends) < 1) {
+ 			netif_tx_wake_queue(txq);
++			ndev_ctx->eth_stats.wake_queue++;
+ 			ret = -ENOSPC;
+ 		}
+ 	} else {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index e9d54c9..f300ae6 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1126,6 +1126,8 @@ static const struct {
+ 	{ "tx_busy",	  offsetof(struct netvsc_ethtool_stats, tx_busy) },
+ 	{ "tx_send_full", offsetof(struct netvsc_ethtool_stats, tx_send_full) },
+ 	{ "rx_comp_busy", offsetof(struct netvsc_ethtool_stats, rx_comp_busy) },
++	{ "stop_queue", offsetof(struct netvsc_ethtool_stats, stop_queue) },
++	{ "wake_queue", offsetof(struct netvsc_ethtool_stats, wake_queue) },
+ }, vf_stats[] = {
+ 	{ "vf_rx_packets", offsetof(struct netvsc_vf_pcpu_stats, rx_packets) },
+ 	{ "vf_rx_bytes",   offsetof(struct netvsc_vf_pcpu_stats, rx_bytes) },
 -- 
-2.14.1
+2.7.4
