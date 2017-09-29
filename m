@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 8/8] net: dsa: remove tag ops from the switch tree
-Date: Fri, 29 Sep 2017 14:36:35 -0400
-Message-ID: <20170929183635.8122-9-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 5/8] net: dsa: add tagging ops to port
+Date: Fri, 29 Sep 2017 14:36:32 -0400
+Message-ID: <20170929183635.8122-6-vivien.didelot@savoirfairelinux.com>
 References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,76 +14,92 @@ In-Reply-To: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that the dsa_ptr is a dsa_port instance, there is no need to keep
-the tag operations in the dsa_switch_tree structure. Remove it.
+The DSA tagging protocol operations are specific to each CPU port,
+thus the dsa_device_ops pointer belongs to the dsa_port structure.
+
+>From now on assign a slave's xmit copy from its CPU port tagging
+operations. This will ease the future support for multiple CPU ports.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h | 11 -----------
- net/dsa/dsa2.c    |  2 --
- net/dsa/legacy.c  |  2 --
- 3 files changed, 15 deletions(-)
+ include/net/dsa.h  | 3 +++
+ net/dsa/dsa2.c     | 1 +
+ net/dsa/dsa_priv.h | 2 +-
+ net/dsa/legacy.c   | 1 +
+ net/dsa/slave.c    | 3 +--
+ 5 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 75dc4024f5a8..bf1006f7c0aa 100644
+index 8dee216a5a9b..6cd36dcb65e1 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -130,11 +130,6 @@ struct dsa_switch_tree {
+@@ -189,6 +189,9 @@ struct dsa_port {
+ 	 * Original copy of the master netdev ethtool_ops
  	 */
- 	struct dsa_platform_data	*pd;
- 
--	/* Copy of tag_ops->rcv for faster access in hot path */
--	struct sk_buff *	(*rcv)(struct sk_buff *skb,
--				       struct net_device *dev,
--				       struct packet_type *pt);
--
- 	/*
- 	 * The switch port to which the CPU is attached.
- 	 */
-@@ -144,12 +139,6 @@ struct dsa_switch_tree {
- 	 * Data for the individual switch chips.
- 	 */
- 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
--
--	/*
--	 * Tagging protocol operations for adding and removing an
--	 * encapsulation tag.
--	 */
--	const struct dsa_device_ops *tag_ops;
+ 	const struct ethtool_ops *orig_ethtool_ops;
++
++	/* CPU port tagging operations used by master or slave devices */
++	const struct dsa_device_ops *tag_ops;
  };
  
- /* TC matchall action types, only mirroring for now */
+ struct dsa_switch {
 diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 62302558f38c..54ed054777bd 100644
+index 6a10c5c1639f..9eac4726dc0c 100644
 --- a/net/dsa/dsa2.c
 +++ b/net/dsa/dsa2.c
-@@ -523,11 +523,9 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+@@ -522,6 +522,7 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
+ 		return PTR_ERR(tag_ops);
  	}
  
- 	dst->cpu_dp->tag_ops = tag_ops;
--	dst->tag_ops = tag_ops;
++	dst->cpu_dp->tag_ops = tag_ops;
+ 	dst->tag_ops = tag_ops;
+ 	dst->rcv = dst->tag_ops->rcv;
  
- 	/* Make a few copies for faster access in master receive hot path */
- 	dst->cpu_dp->rcv = dst->cpu_dp->tag_ops->rcv;
--	dst->rcv = dst->tag_ops->rcv;
- 	dst->cpu_dp->dst = dst;
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index eccc62776283..6dbed23ffe83 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -66,7 +66,7 @@ struct dsa_notifier_vlan_info {
+ };
  
- 	return 0;
+ struct dsa_slave_priv {
+-	/* Copy of dp->ds->dst->tag_ops->xmit for faster access in hot path */
++	/* Copy of CPU port xmit for faster access in slave transmit hot path */
+ 	struct sk_buff *	(*xmit)(struct sk_buff *skb,
+ 					struct net_device *dev);
+ 
 diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 71917505a5cc..19ff6e0a21dc 100644
+index 8e849013f69d..4d374541815a 100644
 --- a/net/dsa/legacy.c
 +++ b/net/dsa/legacy.c
-@@ -153,11 +153,9 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+@@ -152,6 +152,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 		if (IS_ERR(tag_ops))
  			return PTR_ERR(tag_ops);
  
- 		dst->cpu_dp->tag_ops = tag_ops;
--		dst->tag_ops = tag_ops;
- 
- 		/* Few copies for faster access in master receive hot path */
- 		dst->cpu_dp->rcv = dst->cpu_dp->tag_ops->rcv;
--		dst->rcv = dst->tag_ops->rcv;
- 		dst->cpu_dp->dst = dst;
++		dst->cpu_dp->tag_ops = tag_ops;
+ 		dst->tag_ops = tag_ops;
+ 		dst->rcv = dst->tag_ops->rcv;
  	}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index bf8800de13c1..4b634db05cee 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1117,7 +1117,6 @@ int dsa_slave_resume(struct net_device *slave_dev)
+ int dsa_slave_create(struct dsa_port *port, const char *name)
+ {
+ 	struct dsa_switch *ds = port->ds;
+-	struct dsa_switch_tree *dst = ds->dst;
+ 	struct net_device *master;
+ 	struct net_device *slave_dev;
+ 	struct dsa_slave_priv *p;
+@@ -1162,7 +1161,7 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
+ 	}
+ 	p->dp = port;
+ 	INIT_LIST_HEAD(&p->mall_tc_list);
+-	p->xmit = dst->tag_ops->xmit;
++	p->xmit = cpu_dp->tag_ops->xmit;
  
+ 	p->old_pause = -1;
+ 	p->old_link = -1;
 -- 
 2.14.1
