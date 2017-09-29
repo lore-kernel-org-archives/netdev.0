@@ -1,9 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 5/8] net: dsa: add tagging ops to port
-Date: Fri, 29 Sep 2017 12:24:42 -0700
-Message-ID: <642468a1-2083-3b00-63ab-934e54499e4c@gmail.com>
+Subject: Re: [PATCH net-next 0/8] net: dsa: change dsa_ptr for a dsa_port
+Date: Fri, 29 Sep 2017 12:26:07 -0700
+Message-ID: <03cef84e-546d-d8c2-85fb-afc697ced2cb@gmail.com>
 References: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
- <20170929183635.8122-6-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -13,45 +12,58 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170929183635.8122-6-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170929183635.8122-1-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 09/29/2017 11:36 AM, Vivien Didelot wrote:
-> The DSA tagging protocol operations are specific to each CPU port,
-> thus the dsa_device_ops pointer belongs to the dsa_port structure.
+> With DSA, a master net_device is physically wired to a dedicated CPU
+> switch port. For interaction with the DSA layer, the struct net_device
+> contains a dsa_ptr, which currently points to a dsa_switch_tree object.
 > 
-> From now on assign a slave's xmit copy from its CPU port tagging
-> operations. This will ease the future support for multiple CPU ports.
+> This is only valid for a switch fabric with a single CPU port. In order
+> to support switch fabrics with multiple CPU ports, we first need to
+> change the type of dsa_ptr to what it really is: a dsa_port object.
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  include/net/dsa.h  | 3 +++
->  net/dsa/dsa2.c     | 1 +
->  net/dsa/dsa_priv.h | 2 +-
->  net/dsa/legacy.c   | 1 +
->  net/dsa/slave.c    | 3 +--
->  5 files changed, 7 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 8dee216a5a9b..6cd36dcb65e1 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -189,6 +189,9 @@ struct dsa_port {
->  	 * Original copy of the master netdev ethtool_ops
->  	 */
->  	const struct ethtool_ops *orig_ethtool_ops;
-> +
-> +	/* CPU port tagging operations used by master or slave devices */
-> +	const struct dsa_device_ops *tag_ops;
+> This is what this patchset does. The first 4 patches cleans up portions
+> of DSA core to make the next patches more readable. These next patches
+> prepare the xmit and receive hot paths and finally change dsa_ptr.
 
-You might actually want to move this up in the dsa_port structure in
-order to keep being in the first cacheline (you can use pahole -C
-dsa_port vmlinux).
+This looks nice and clean, as mentioned in patch 5, there may be room
+for organizing the structure a bit more efficiently such that everything
+still fits within the first cacheline .
 
-dsa_switch_tree is currently a 56 bytes structure, thus fitting in a 64b
-cache line, but dsa_port is 80bytes, and the hot-path are in the second
-cacheline, so less efficient.
+> 
+> Vivien Didelot (8):
+>   net: dsa: directly fetch switch in mtk_tag_rcv
+>   net: dsa: directly fetch switch in lan9303_rcv
+>   net: dsa: use cpu_dp in master code
+>   net: dsa: use temporary dsa_device_ops variable
+>   net: dsa: add tagging ops to port
+>   net: dsa: prepare master receive hot path
+>   net: dsa: change dsa_ptr for a dsa_port
+>   net: dsa: remove tag ops from the switch tree
+> 
+>  include/linux/netdevice.h |  4 ++--
+>  include/net/dsa.h         | 19 ++++++++-----------
+>  net/dsa/dsa.c             |  6 +++---
+>  net/dsa/dsa2.c            | 15 ++++++++++-----
+>  net/dsa/dsa_priv.h        |  7 +------
+>  net/dsa/legacy.c          | 15 ++++++++++-----
+>  net/dsa/master.c          | 47 ++++++++++++++++++++++-------------------------
+>  net/dsa/slave.c           |  3 +--
+>  net/dsa/tag_brcm.c        |  3 +--
+>  net/dsa/tag_dsa.c         |  3 ++-
+>  net/dsa/tag_edsa.c        |  3 ++-
+>  net/dsa/tag_ksz.c         |  3 +--
+>  net/dsa/tag_lan9303.c     |  6 ++----
+>  net/dsa/tag_mtk.c         | 12 ++----------
+>  net/dsa/tag_qca.c         |  3 +--
+>  net/dsa/tag_trailer.c     |  3 +--
+>  16 files changed, 69 insertions(+), 83 deletions(-)
+> 
+
+
 -- 
 Florian
