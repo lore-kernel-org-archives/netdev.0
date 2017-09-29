@@ -1,62 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 0/3] support changing steering policies in tuntap
-Date: Fri, 29 Sep 2017 17:41:40 +0800
-Message-ID: <fa7740de-9d7f-04ab-1b62-9ba52c5707a2@redhat.com>
-References: <1506500637-13881-1-git-send-email-jasowang@redhat.com>
- <20170927230042-mutt-send-email-mst@kernel.org>
- <CAF=yD-J8hERZdwq8FJ2rtnCnZ2b7s=CAVLtPk4CS7e=RQH3sLQ@mail.gmail.com>
- <26f01b12-396e-6319-0eed-c987930e0ed9@redhat.com>
- <CAF=yD-KuDZK0-YUfYde=dk_6M6fgj_opuiK2VTfCKDM_=MqDcw@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next RFC 0/9] net: dsa: PTP timestamping for mv88e6xxx
+Date: Fri, 29 Sep 2017 05:43:23 -0400
+Message-ID: <20170929094323.cwh2ubv4odknlyot@localhost>
+References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Erik Hons <erik.hons@ni.com>
+To: Brandon Streiff <brandon.streiff@ni.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAF=yD-KuDZK0-YUfYde=dk_6M6fgj_opuiK2VTfCKDM_=MqDcw@mail.gmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Brandon,
 
+On Thu, Sep 28, 2017 at 10:25:32AM -0500, Brandon Streiff wrote:
+> - Patch #2: We expose the switch time as a PTP clock but don't support
+>   adjustment (max_adj=0).
 
-On 2017年09月29日 00:09, Willem de Bruijn wrote:
-> On Thu, Sep 28, 2017 at 3:23 AM, Jason Wang <jasowang@redhat.com> wrote:
->>
->> On 2017年09月28日 07:25, Willem de Bruijn wrote:
->>>>> In the future, both simple and sophisticated policy like RSS or other
->>>>> guest
->>>>> driven steering policies could be done on top.
->>>> IMHO there should be a more practical example before adding all this
->>>> indirection. And it would be nice to understand why this queue selection
->>>> needs to be tun specific.
->>> I was thinking the same and this reminds me of the various strategies
->>> implemented in packet fanout. tun_cpu_select_queue is analogous to
->>> fanout_demux_cpu though it is tun-specific in that it requires
->>> tun->numqueues.
->>
->> Right, the main idea is to introduce a way to change flow steering policy
->> for tun. I think fanout policy could be implemented through the API
->> introduced in this series. (Current flow caches based automatic steering
->> method is tun specific).
->>
->>> Fanout accrued various strategies until it gained an eBPF variant. Just
->>> supporting BPF is probably sufficient here, too.
->>
->> Technically yes, but for tun, it also serve for virt. We probably still need
->> some hard coded policy which could be changed by guest until we can accept
->> an BPF program from guest I think?
-> When would a guest choose the policy? As long as this is under control
-> of a host user, possibly unprivileged, allowing BPF here is moot, as any
-> user can run socket filter BPF already. Programming from the guest is
-> indeed different. I don't fully understand that use case.
+The driver should implement a cyclecounter/timecounter.
 
-The problem is userspace (qemu) know little about what kind of workloads 
-will be done by guest, so we need guest controllable method here since 
-it knows the best steering policy. Rethink about this, instead of 
-passing eBPF from guest, qemu can have some pre-defined sets of polices. 
-I will change the cpu id based to eBPF based in V2.
+> Our platform adjusted a systemwide oscillator
+>   from userspace, so we didn't need adjustment at this layer, but other
+>   PTP clock drivers support this and we probably should too.
 
-Thanks
+We don't currently have any way to support this kind of HW or anything
+like an external VCO.  I would like to find a way to do this, but that
+is a different kettle of fish as it might require changes in the PHC
+subsystem.  For this driver, I think we should get it merged using the
+cyclecounter/timecounter (as that will benefit lots of users) and
+worry about the external oscillator later.
+ 
+> Feedback is appreciated.
+
+I happy to see this series.  I just finished porting an out-of-tree
+PHC driver for the Marvell mv88e635x, and I want to mainline it, but I
+also have a few uglies.
+
+Unfortunately I am in the middle of a move right now, and so my review
+of this series might have to wait a bit.  However, I am looking
+forward to comparing notes, and then getting this support in.
+
+Thanks,
+Richard
