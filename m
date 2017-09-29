@@ -1,70 +1,94 @@
-From: "Yang, Yi" <yi.y.yang@intel.com>
-Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
-Date: Fri, 29 Sep 2017 14:40:59 +0800
-Message-ID: <20170929064058.GA16145@localhost.localdomain>
-References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
- <20170925201439.08460295@griffin>
- <20170926045538.GA5896@localhost.localdomain>
- <20170926124914.60101ca1@griffin>
- <20170927013908.GA33716@localhost.localdomain>
- <CAOrHB_CQyokdTWeoj02RENPP5miq5Arx6goCNQ9ZPbUeTu_MeQ@mail.gmail.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [Patch net-next] net_sched: use idr to allocate u32 filter
+ handles
+Date: Fri, 29 Sep 2017 08:46:01 +0200
+Message-ID: <20170929064559.GA7342@netronome.com>
+References: <20170921234302.26558-3-xiyou.wangcong@gmail.com>
+ <20170928073423.GB15815@netronome.com>
+ <CAM_iQpWbiA4QZb8j8fau7kMhzeLpRppEMcmB80byqTUryPheOw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Benc <jbenc@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "e@erig.me" <e@erig.me>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Jan Scheurich <jan.scheurich@ericsson.com>
-To: Pravin Shelar <pshelar@ovn.org>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Chris Mi <chrism@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:47478 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751071AbdI2GpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 02:45:16 -0400
+Received: from mail-wr0-f175.google.com ([209.85.128.175]:44497 "EHLO
+        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750782AbdI2GqF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 29 Sep 2017 02:46:05 -0400
+Received: by mail-wr0-f175.google.com with SMTP id v109so683279wrc.1
+        for <netdev@vger.kernel.org>; Thu, 28 Sep 2017 23:46:04 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAOrHB_CQyokdTWeoj02RENPP5miq5Arx6goCNQ9ZPbUeTu_MeQ@mail.gmail.com>
+In-Reply-To: <CAM_iQpWbiA4QZb8j8fau7kMhzeLpRppEMcmB80byqTUryPheOw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 29, 2017 at 02:28:38AM +0800, Pravin Shelar wrote:
-> On Tue, Sep 26, 2017 at 6:39 PM, Yang, Yi <yi.y.yang@intel.com> wrote:
-> > On Tue, Sep 26, 2017 at 06:49:14PM +0800, Jiri Benc wrote:
-> >> On Tue, 26 Sep 2017 12:55:39 +0800, Yang, Yi wrote:
-> >> > After push_nsh, the packet won't be recirculated to flow pipeline, so
-> >> > key->eth.type must be set explicitly here, but for pop_nsh, the packet
-> >> > will be recirculated to flow pipeline, it will be reparsed, so
-> >> > key->eth.type will be set in packet parse function, we needn't handle it
-> >> > in pop_nsh.
-> >>
-> >> This seems to be a very different approach than what we currently have.
-> >> Looking at the code, the requirement after "destructive" actions such
-> >> as pushing or popping headers is to recirculate.
+On Thu, Sep 28, 2017 at 03:19:05PM -0700, Cong Wang wrote:
+> On Thu, Sep 28, 2017 at 12:34 AM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > Hi Cong,
 > >
-> > This is optimization proposed by Jan Scheurich, recurculating after push_nsh
-> > will impact on performance, recurculating after pop_nsh is unavoidable, So
-> > also cc jan.scheurich@ericsson.com.
+> > this looks like a nice enhancement to me. Did you measure any performance
+> > benefit from it.  Perhaps it could be described in the changelog_ I also
+> > have a more detailed question below.
+> 
+> No, I am inspired by commit c15ab236d69d, don't measure it.
+
+Perhaps it would be nice to note that in the changelog.
+
+> >> ---
+> >>  net/sched/cls_u32.c | 108 ++++++++++++++++++++++++++++++++--------------------
+> >>  1 file changed, 67 insertions(+), 41 deletions(-)
+> >>
+> >> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+> >> index 10b8d851fc6b..316b8a791b13 100644
+> >> --- a/net/sched/cls_u32.c
+> >> +++ b/net/sched/cls_u32.c
+> >> @@ -46,6 +46,7 @@
 > >
-> > Actucally all the keys before push_nsh are still there after push_nsh,
-> > push_nsh has updated all the nsh keys, so recirculating remains avoidable.
+> > ...
 > >
+> >> @@ -937,22 +940,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+> >>                       return -EINVAL;
+> >>               if (TC_U32_KEY(handle))
+> >>                       return -EINVAL;
+> >> -             if (handle == 0) {
+> >> -                     handle = gen_new_htid(tp->data);
+> >> -                     if (handle == 0)
+> >> -                             return -ENOMEM;
+> >> -             }
+> >>               ht = kzalloc(sizeof(*ht) + divisor*sizeof(void *), GFP_KERNEL);
+> >>               if (ht == NULL)
+> >>                       return -ENOBUFS;
+> >> +             if (handle == 0) {
+> >> +                     handle = gen_new_htid(tp->data, ht);
+> >> +                     if (handle == 0) {
+> >> +                             kfree(ht);
+> >> +                             return -ENOMEM;
+> >> +                     }
+> >> +             } else {
+> >> +                     err = idr_alloc_ext(&tp_c->handle_idr, ht, NULL,
+> >> +                                         handle, handle + 1, GFP_KERNEL);
+> >> +                     if (err) {
+> >> +                             kfree(ht);
+> >> +                             return err;
+> >> +                     }
+> >
+> > The above seems to check that handle is not already in use and mark it as
+> > in use. But I don't see that logic in the code prior to this patch.
+> > Am I missing something? If not perhaps this portion should be a separate
+> > patch or described in the changelog.
 > 
+> The logic is in upper layer, tc_ctl_tfilter(). It tries to get a
+> filter by handle
+> (if non-zero), and errors out if we are creating a new filter with the same
+> handle.
 > 
-> We should keep existing model for this patch. Later you can submit
-> optimization patch with specific use cases and performance
-> improvement. So that we can evaluate code complexity and benefits.
+> At the point you quote above, 'n' is already NULL and 'handle' is non-zero,
+> which means there is no existing filter has same handle, it is safe to just
+> mark it as in-use.
 
-Ok, I'll remove the below line in push_nsh and send out v11, thanks.
+Thanks for the clarification, that seems fine to me.
 
-	key->eth.type = htons(ETH_P_NSH);
-
-> 
-> >>
-> >> Setting key->eth.type to satisfy conditions in the output path without
-> >> updating the rest of the key looks very hacky and fragile to me. There
-> >> might be other conditions and dependencies that are not obvious.
-> >> I don't think the code was written with such code path in mind.
-> >>
-> >> I'd like to hear what Pravin thinks about this.
-> >>
-> >>  Jiri
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
