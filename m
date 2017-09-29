@@ -1,67 +1,151 @@
-From: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next v9] openvswitch: enable NSH support
-Date: Fri, 29 Sep 2017 07:27:11 +0000
-Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7881A37D@ESESSMB107.ericsson.se>
-References: <1506348969-6233-1-git-send-email-yi.y.yang@intel.com>
-	<20170925201439.08460295@griffin>
-	<20170926045538.GA5896@localhost.localdomain>
-	<20170926124914.60101ca1@griffin>
-	<20170927013908.GA33716@localhost.localdomain>
-	<CAOrHB_CQyokdTWeoj02RENPP5miq5Arx6goCNQ9ZPbUeTu_MeQ@mail.gmail.com>
-	<20170929064058.GA16145@localhost.localdomain>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7881A337@ESESSMB107.ericsson.se>
-	<20170929071553.GA19053@localhost.localdomain>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 3/5] bpf: cpumap xdp_buff to skb conversion and
+ allocation
+Date: Fri, 29 Sep 2017 09:46:43 +0200
+Message-ID: <20170929094643.4934f661@redhat.com>
+References: <150660339205.2808.7084136789768233829.stgit@firesoul>
+        <150660343811.2808.7680200486950101509.stgit@firesoul>
+        <59CD83DD.4060603@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170929071553.GA19053-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50800 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751914AbdI2Hq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 03:46:57 -0400
+In-Reply-To: <59CD83DD.4060603@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > The optimization Yi refers to only affects the slow path translation.
-> >
-> > OVS 2.8 does not immediately trigger an immediate recirculation after translating
-> > encap(nsh,...). There is no need to do so as the flow key of the resulting packet
-> > can be determined from the encap() action and its properties. Translation
-> > continues with the rewritten flow key and subsequent OpenFlow actions will
-> > typically set the new fields in the new NSH header. The push_nsh datapath action
-> > (including all NSH header fields) is only generated at the next commit, e.g. for
-> > output, cloning, recirculation, encap/decap or another destructive change of
-> > the flow key.
-> >
-> > The implementation of push_nsh in the user-space datapath does not update
-> > the miniflow (key) of the packet, only the packet data and some metadata.
-> > If the packet needs to be looked up again the slow path triggers recirculation
-> > to re-parse the packet. There should be no need for the datapath push_nsh
-> > action to try to update the flow key.
+On Fri, 29 Sep 2017 01:21:01 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
+
+> On 09/28/2017 02:57 PM, Jesper Dangaard Brouer wrote:
+> [...]
+> > +/* Convert xdp_buff to xdp_pkt */
+> > +static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
+> > +{
+> > +	struct xdp_pkt *xdp_pkt;
+> > +	int headroom;
+> > +
+> > +	/* Assure headroom is available for storing info */
+> > +	headroom = xdp->data - xdp->data_hard_start;
+> > +	if (headroom < sizeof(*xdp_pkt))
+> > +		return NULL;
+> > +
+> > +	/* Store info in top of packet */
+> > +	xdp_pkt = xdp->data_hard_start;  
 > 
-> Thanks Jan for clarification, it can still work after removing that
-> line, our flows didn't match it after push_nsh, it is output to
-> VxLAN-gpe port after push_nsh, I'm not sure if we can match dl_type and NSH
-> fields if we don't output and don't recirculate.
+> (You'd also need to handle data_meta here if set, and for below
+> cpu_map_build_skb(), e.g. headroom is data_meta-data_hard_start.)
 
-No worries, a packet cannot be matched again in the datapath unless it is 
-recirculated. And recirculation today always implies re-parsing. 
+I'll look into this.  The data_meta patchset was in-flight while I
+rebased this.
 
-In the future we want to look into possibilities to optimize performance of 
-recirculation, for example by skipping the parsing stage if it is unnecessary.
-For that we may need to invalidate the flow key in packet metadata when
-the packet is modified without corresponding update of the key itself. But that
-is music of the future.
+> > +	xdp_pkt->data = xdp->data;
+> > +	xdp_pkt->len  = xdp->data_end - xdp->data;
+> > +	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
+> > +
+> > +	return xdp_pkt;
+> > +}
+> > +
+> > +static struct sk_buff *cpu_map_build_skb(struct bpf_cpu_map_entry *rcpu,
+> > +					 struct xdp_pkt *xdp_pkt)
+> > +{
+> > +	unsigned int frame_size;
+> > +	void *pkt_data_start;
+> > +	struct sk_buff *skb;
+> > +
+> > +	/* build_skb need to place skb_shared_info after SKB end, and
+> > +	 * also want to know the memory "truesize".  Thus, need to  
+> [...]
+> >   static int cpu_map_kthread_run(void *data)
+> >   {
+> > +	const unsigned long busy_poll_jiffies = usecs_to_jiffies(2000);
+> > +	unsigned long time_limit = jiffies + busy_poll_jiffies;
+> >   	struct bpf_cpu_map_entry *rcpu = data;
+> > +	unsigned int empty_cnt = 0;
+> >
+> >   	set_current_state(TASK_INTERRUPTIBLE);
+> >   	while (!kthread_should_stop()) {
+> > +		unsigned int processed = 0, drops = 0;
+> >   		struct xdp_pkt *xdp_pkt;
+> >
+> > -		schedule();
+> > -		/* Do work */
+> > -		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
+> > -			/* For now just "refcnt-free" */
+> > -			page_frag_free(xdp_pkt);
+> > +		/* Release CPU reschedule checks */
+> > +		if ((time_after_eq(jiffies, time_limit) || empty_cnt > 25) &&
+> > +		    __ptr_ring_empty(rcpu->queue)) {
+> > +			empty_cnt++;
+> > +			schedule();
+> > +			time_limit = jiffies + busy_poll_jiffies;
+> > +			WARN_ON(smp_processor_id() != rcpu->cpu);
+> > +		} else {
+> > +			cond_resched();
+> >   		}
+> > +
+> > +		/* Process packets in rcpu->queue */
+> > +		local_bh_disable();
+> > +		/*
+> > +		 * The bpf_cpu_map_entry is single consumer, with this
+> > +		 * kthread CPU pinned. Lockless access to ptr_ring
+> > +		 * consume side valid as no-resize allowed of queue.
+> > +		 */
+> > +		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
+> > +			struct sk_buff *skb;
+> > +			int ret;
+> > +
+> > +			/* Allow busy polling again */
+> > +			empty_cnt = 0;
+> > +
+> > +			skb = cpu_map_build_skb(rcpu, xdp_pkt);
+> > +			if (!skb) {
+> > +				page_frag_free(xdp_pkt);
+> > +				continue;
+> > +			}
+> > +
+> > +			/* Inject into network stack */
+> > +			ret = netif_receive_skb(skb);  
+> 
+> Have you looked into whether it's feasible to reuse GRO
+> engine here as well?
 
-/Jan
+This is the first step. I'll work on adding the GRO-engine later. And
+it should be feasible.  There are plenty of optimizations in this area
+that can do done later ;-)
+
+> 
+> > +			if (ret == NET_RX_DROP)
+> > +				drops++;
+> > +
+> > +			/* Limit BH-disable period */
+> > +			if (++processed == 8)
+> > +				break;
+> > +		}
+> > +		local_bh_enable();
+> > +
+> >   		__set_current_state(TASK_INTERRUPTIBLE);
+> >   	}
+> >   	put_cpu_map_entry(rcpu);  
+> [...]
+
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
