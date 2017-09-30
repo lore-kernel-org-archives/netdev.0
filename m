@@ -1,110 +1,116 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: refactor FW version checking
-Date: Fri, 29 Sep 2017 17:45:07 -0700
-Message-ID: <20170930004507.20072-16-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40evf: fix ring to vector mapping
+Date: Fri, 29 Sep 2017 17:45:05 -0700
+Message-ID: <20170930004507.20072-14-jeffrey.t.kirsher@intel.com>
 References: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([134.134.136.65]:23279 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752572AbdI3Apv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 20:45:51 -0400
+        id S1752657AbdI3Apu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 20:45:50 -0400
 In-Reply-To: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-The i40e driver now supports two different devices with two different
-firmware versions. So be smart about how we handle these. Move the FW
-version macros to the appropriate header file, and add a convenience
-macro that checks the version based on the device. Then use this macro
-to check whether or not the driver can use the new link info API.
+The current implementation for mapping queues to vectors is broken
+because it attempts to map each Tx and Rx ring to its own vector,
+however we use combined queues so we should actually be mapping the
+Tx/Rx rings together on one vector.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Also in the current implementation, in the case where we have more
+queues than vectors, we attempt to group the queues together into
+'chunks' and map each 'chunk' of queues to a vector.  Chunking them
+together would be more ideal if, and only if, we only had RSS because of
+the way the hashing algorithm works but in the case of a future patch
+that enables VF ADq, round robin assignment is better and still works
+with RSS.
+
+This patch resolves both those issues and simplifies the code needed to
+accomplish this.  Instead of treating the case where we have more queues
+than vectors as special, if we notice our vector index is greater than
+vectors, reset the vector index to zero and continue mapping.  This
+should ensure that in both cases, whether we have enough vectors for
+each queue or not, the queues get appropriately mapped.
+
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 10 +++++++++-
- drivers/net/ethernet/intel/i40e/i40e_common.c       |  6 ++++--
- drivers/net/ethernet/intel/i40e/i40e_main.c         |  2 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 10 +++++++++-
- 4 files changed, 23 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 48 ++++++-------------------
+ 1 file changed, 10 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 5d5f422cbae5..e2a9ec80a623 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -34,7 +34,15 @@
-  */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 80ade6510279..69ef6c1d5364 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -432,52 +432,24 @@ i40evf_map_vector_to_txq(struct i40evf_adapter *adapter, int v_idx, int t_idx)
+  **/
+ static int i40evf_map_rings_to_vectors(struct i40evf_adapter *adapter)
+ {
++	int rings_remaining = adapter->num_active_queues;
++	int ridx = 0, vidx = 0;
+ 	int q_vectors;
+-	int v_start = 0;
+-	int rxr_idx = 0, txr_idx = 0;
+-	int rxr_remaining = adapter->num_active_queues;
+-	int txr_remaining = adapter->num_active_queues;
+-	int i, j;
+-	int rqpv, tqpv;
+ 	int err = 0;
  
- #define I40E_FW_API_VERSION_MAJOR	0x0001
--#define I40E_FW_API_VERSION_MINOR	0x0005
-+#define I40E_FW_API_VERSION_MINOR_X722	0x0005
-+#define I40E_FW_API_VERSION_MINOR_X710	0x0007
-+
-+#define I40E_FW_MINOR_VERSION(_h) ((_h)->mac.type == I40E_MAC_XL710 ? \
-+					I40E_FW_API_VERSION_MINOR_X710 : \
-+					I40E_FW_API_VERSION_MINOR_X722)
-+
-+/* API version 1.7 implements additional link and PHY-specific APIs  */
-+#define I40E_MINOR_VER_GET_LINK_INFO_XL710 0x0007
+ 	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
  
- struct i40e_aq_desc {
- 	__le16 flags;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 111426ba5fbc..7346d8850c8e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1593,8 +1593,10 @@ i40e_status i40e_aq_get_phy_capabilities(struct i40e_hw *hw,
- 		status = I40E_ERR_UNKNOWN_PHY;
+-	/* The ideal configuration...
+-	 * We have enough vectors to map one per queue.
+-	 */
+-	if (q_vectors >= (rxr_remaining * 2)) {
+-		for (; rxr_idx < rxr_remaining; v_start++, rxr_idx++)
+-			i40evf_map_vector_to_rxq(adapter, v_start, rxr_idx);
++	for (; ridx < rings_remaining; ridx++) {
++		i40evf_map_vector_to_rxq(adapter, vidx, ridx);
++		i40evf_map_vector_to_txq(adapter, vidx, ridx);
  
- 	if (report_init) {
--		hw->phy.phy_types = le32_to_cpu(abilities->phy_type);
--		hw->phy.phy_types |= ((u64)abilities->phy_type_ext << 32);
-+		if (hw->mac.type ==  I40E_MAC_XL710 &&
-+		    hw->aq.api_maj_ver == I40E_FW_API_VERSION_MAJOR &&
-+		    hw->aq.api_min_ver >= I40E_MINOR_VER_GET_LINK_INFO_XL710)
-+			status = i40e_aq_get_link_info(hw, true, NULL, NULL);
+-		for (; txr_idx < txr_remaining; v_start++, txr_idx++)
+-			i40evf_map_vector_to_txq(adapter, v_start, txr_idx);
+-		goto out;
+-	}
+-
+-	/* If we don't have enough vectors for a 1-to-1
+-	 * mapping, we'll have to group them so there are
+-	 * multiple queues per vector.
+-	 * Re-adjusting *qpv takes care of the remainder.
+-	 */
+-	for (i = v_start; i < q_vectors; i++) {
+-		rqpv = DIV_ROUND_UP(rxr_remaining, q_vectors - i);
+-		for (j = 0; j < rqpv; j++) {
+-			i40evf_map_vector_to_rxq(adapter, i, rxr_idx);
+-			rxr_idx++;
+-			rxr_remaining--;
+-		}
+-	}
+-	for (i = v_start; i < q_vectors; i++) {
+-		tqpv = DIV_ROUND_UP(txr_remaining, q_vectors - i);
+-		for (j = 0; j < tqpv; j++) {
+-			i40evf_map_vector_to_txq(adapter, i, txr_idx);
+-			txr_idx++;
+-			txr_remaining--;
+-		}
++		/* In the case where we have more queues than vectors, continue
++		 * round-robin on vectors until all queues are mapped.
++		 */
++		if (++vidx >= q_vectors)
++			vidx = 0;
  	}
  
- 	return status;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 8a44793d5390..47f71d7c3ae0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11434,7 +11434,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		 i40e_nvm_version_str(hw));
+-out:
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_MAP_VECTORS;
  
- 	if (hw->aq.api_maj_ver == I40E_FW_API_VERSION_MAJOR &&
--	    hw->aq.api_min_ver > I40E_FW_API_VERSION_MINOR)
-+	    hw->aq.api_min_ver > I40E_FW_MINOR_VERSION(hw))
- 		dev_info(&pdev->dev,
- 			 "The driver for the device detected a newer version of the NVM image than expected. Please install the most recent version of the network driver.\n");
- 	else if (hw->aq.api_maj_ver == 1 && hw->aq.api_min_ver < 4)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 83e63e55c4b4..f9f48d1900b0 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -34,7 +34,15 @@
-  */
- 
- #define I40E_FW_API_VERSION_MAJOR	0x0001
--#define I40E_FW_API_VERSION_MINOR	0x0005
-+#define I40E_FW_API_VERSION_MINOR_X722	0x0005
-+#define I40E_FW_API_VERSION_MINOR_X710	0x0007
-+
-+#define I40E_FW_MINOR_VERSION(_h) ((_h)->mac.type == I40E_MAC_XL710 ? \
-+					I40E_FW_API_VERSION_MINOR_X710 : \
-+					I40E_FW_API_VERSION_MINOR_X722)
-+
-+/* API version 1.7 implements additional link and PHY-specific APIs  */
-+#define I40E_MINOR_VER_GET_LINK_INFO_XL710 0x0007
- 
- struct i40e_aq_desc {
- 	__le16 flags;
+ 	return err;
 -- 
 2.14.1
