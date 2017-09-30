@@ -1,78 +1,46 @@
-From: Hangbin Liu <haliu@redhat.com>
-Subject: Re: [PATCHv4 iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Sat, 30 Sep 2017 21:54:56 +0800
-Message-ID: <20170930135455.GW1754@leo.usersys.redhat.com>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
- <1506605626-1744-2-git-send-email-haliu@redhat.com>
- <20170929105440.7edaec1f@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netlink: do not proceed if dump's start() errs
+Date: Sat, 30 Sep 2017 16:14:17 +0100 (WEST)
+Message-ID: <20170930.161417.1015672612881547421.davem@davemloft.net>
+References: <CAHmME9oA+dE3eOCTWweJjZGL4sog30JShoCJoWaPn4JV7h3auA@mail.gmail.com>
+        <20170927224144.1749-1-Jason@zx2c4.com>
+        <1506754570.3568.3.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44384 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751028AbdI3NzC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 30 Sep 2017 09:55:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20170929105440.7edaec1f@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Jason@zx2c4.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506754570.3568.3.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
-On Fri, Sep 29, 2017 at 10:54:40AM -0700, Stephen Hemminger wrote:
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Sat, 30 Sep 2017 08:56:10 +0200
+
+> On Thu, 2017-09-28 at 00:41 +0200, Jason A. Donenfeld wrote:
+>> Drivers that use the start method for netlink dumping rely on dumpit
+>> not
+>> being called if start fails. For example, ila_xlat.c allocates memory
+>> and assigns it to cb->args[0] in its start() function. It might fail
+>> to
+>> do that and return -ENOMEM instead. However, even when returning an
+>> error, dumpit will be called, which, in the example above, quickly
+>> dereferences the memory in cb->args[0], which will OOPS the kernel.
+>> This
+>> is but one example of how this goes wrong.
+>> 
+>> Since start() has always been a function with an int return type, it
+>> therefore makes sense to use it properly, rather than ignoring it.
+>> This
+>> patch thus returns early and does not call dumpit() when start()
+>> fails.
+>> 
+>> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
 > 
-> Doubling the number of system calls per message is not going to make
-> users with 5,000,000 routes or 1000 vlans, or 10,000 tunnels happy.
-> Please rethink this.
+> Reviewed-by: Johannes Berg <johannes@sipsolutions.net>
+ ...
+> Either way, perhaps it's worth sending this to stable for that reason.
 
-I tried to add 2500 vlans and 70,000 routes. Then show the result. The
-time looks reasonable.
-
-# ip link show | wc -l
-5024
-
-# time ip link show > /dev/null
-
-real    0m0.218s
-user    0m0.007s
-sys     0m0.210s
-
-# time iproute2/ip/ip link show > /dev/null
-
-real    0m0.221s
-user    0m0.008s
-sys     0m0.212s
-
-# time ip addr show > /dev/null
-
-real    0m0.299s
-user    0m0.094s
-sys     0m0.205s
-
-# time iproute2/ip/ip addr show > /dev/null
-
-real    0m0.302s
-user    0m0.099s
-sys     0m0.202s
-
-# ip -6 route show | wc -l
-704458
-
-# time ip -6 route show > /dev/null
-
-real    0m5.400s
-user    0m0.947s
-sys     0m4.453s
-
-# time iproute2/ip/ip -6 route show > /dev/null
-
-real    0m5.404s
-user    0m1.070s
-sys     0m4.333s
-
-
-Thanks
-Hangbin
+Agreed, applied and queued up for -stable, thanks.
