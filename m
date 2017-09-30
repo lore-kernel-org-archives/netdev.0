@@ -1,96 +1,67 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/4] ravb: Add optional PHY reset during system resume
-Date: Sat, 30 Sep 2017 23:23:42 +0300
-Message-ID: <47456e34-2c2f-ec19-fcda-e3132a8037b3@cogentembedded.com>
-References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
- <1506614014-4398-3-git-send-email-geert+renesas@glider.be>
- <406f7aff-e386-31f3-39d3-17523443c265@gmail.com>
- <CAMuHMdWOAnT3xONPfU8pJi9fbAgtWL2GyRbooAxrfGDb=bsB_A@mail.gmail.com>
- <1a474c45-29ea-82fa-1ab0-0febfdc38bcb@gmail.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH v2] lib: fix multiple strlcpy definition
+Date: Sat, 30 Sep 2017 23:29:41 +0300
+Message-ID: <20170930202941.7fzp436mcuccy2d4@tarshish>
+References: <6910008ec8db3f63c8120b1624a08328cd203e92.1506621731.git.baruch@tkos.co.il>
+ <20170929115858.275217b8@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1a474c45-29ea-82fa-1ab0-0febfdc38bcb@gmail.com>
-Content-Language: en-MW
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:50415 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751251AbdI3U3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 30 Sep 2017 16:29:46 -0400
+Content-Disposition: inline
+In-Reply-To: <20170929115858.275217b8@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hi Stephen,
 
-On 09/28/2017 10:21 PM, Florian Fainelli wrote:
-
->>>> If the optional "reset-gpios" property is specified in DT, the generic
->>>> MDIO bus code takes care of resetting the PHY during device probe.
->>>> However, the PHY may still have to be reset explicitly after system
->>>> resume.
->>>>
->>>> This allows to restore Ethernet operation after resume from s2ram on
->>>> Salvator-XS, where the enable pin of the regulator providing PHY power
->>>> is connected to PRESETn, and PSCI suspend powers down the SoC.
->>>>
->>>> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
->>>> ---
->>>>   drivers/net/ethernet/renesas/ravb_main.c | 9 +++++++++
->>>>   1 file changed, 9 insertions(+)
->>>>
->>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
->>>> index fdf30bfa403bf416..96d1d48e302f8c9a 100644
->>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
->>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-[...]
->>>> @@ -2302,6 +2304,13 @@ static int __maybe_unused ravb_resume(struct device *dev)
->>>>         * reopen device if it was running before system suspended.
->>>>         */
->>>>
->>>> +     /* PHY reset */
->>>> +     if (bus->reset_gpiod) {
->>>> +             gpiod_set_value_cansleep(bus->reset_gpiod, 1);
->>>> +             udelay(bus->reset_delay_us);
->>>> +             gpiod_set_value_cansleep(bus->reset_gpiod, 0);
->>>> +     }
->>>
->>> This is a clever hack, but unfortunately this is also misusing the MDIO
->>> bus reset line into a PHY reset line. As commented in patch 3, if this
->>> reset line is tied to the PHY, then this should be a PHY property and
->>
->> OK.
->>
->>> you cannot (ab)use the MDIO bus GPIO reset logic anymore...
->>
->> And then I should add reset-gpios support to drivers/net/phy/micrel.c?
->> Or is there already generic code to handle per-PHY reset? I couldn't find it.
+On Fri, Sep 29, 2017 at 11:58:58AM -0700, Stephen Hemminger wrote:
+> On Thu, 28 Sep 2017 21:02:11 +0300
+> Baruch Siach <baruch@tkos.co.il> wrote:
 > 
-> There is not such a thing unfortunately, but it would presumably be
+> > Some C libraries, like uClibc and musl, provide BSD compatible
+> > strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
+> > and strlcat when the C library provides them.
+> > 
+> > This fixes the following static link error with uClibc-ng:
+> > 
+> > .../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
+> > strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
+> > ../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
+> > collect2: error: ld returned 1 exit status
+> > 
+> > Acked-by: Phil Sutter <phil@nwl.cc>
+> > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> 
+> This is OK because it doesn't impact normal glibc too much.
+> 
+> > diff --git a/lib/Makefile b/lib/Makefile
+> > index 0fbdf4c31f50..132ad00c3335 100644
+> > --- a/lib/Makefile
+> > +++ b/lib/Makefile
+> > @@ -1,5 +1,9 @@
+> >  include ../config.mk
+> >  
+> > +ifeq ($(NEED_STRLCPY),y)
+> > +	CFLAGS += -DNEED_STRLCPY
+> > +endif
+> > +
+> 
+> I just removed all the conditional CFLAGS out of subdirectory Makefiles
+> and moved them into the generated config.mk. Please do that for this
+> as well and resubmit.
 
-    It's strange you don't remember about my (abandoned) patches to handle 
-per=PHY reset GPIOs -- perhaps it's time to unearth them. Here they are:
+What code do you refer to? I don't see that as of current master 
+(e4139268ba96).
 
-http://patchwork.ozlabs.org/patch/616495/
-http://patchwork.ozlabs.org/patch/616501/
+baruch
 
-    I had v3 in the works before abandoning this series -- it doesn't apply now.
-
-> called within drivers/net/phy/mdio_bus.c during bus->reset() time
-> because you need the PHY reset to be deasserted before you can
-> successfully read/write from the PHY, and if you can't read/write from
-> the PHY, the MDIO bus layer cannot read the PHY ID, and therefore cannot
-> match a PHY device with its driver, so things don't work.
-
-    I did this a bit differently...
-
-[...]
-
-MBR, Sergei
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.52.368.4656, http://www.tkos.co.il -
