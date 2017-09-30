@@ -1,134 +1,167 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH v2 2/2] net: phonet: mark phonet_protocol as const
-Date: Sat, 30 Sep 2017 17:40:48 +0800
-Message-ID: <1506764448-6915-1-git-send-email-xiaolou4617@gmail.com>
-Cc: netdev@vger.kernel.org, courmisch@gmail.com,
-        Lin Zhang <xiaolou4617@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35026 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751160AbdI3Jky (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 05:40:54 -0400
-Received: by mail-pg0-f65.google.com with SMTP id j16so1349194pga.2
-        for <netdev@vger.kernel.org>; Sat, 30 Sep 2017 02:40:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Wu <david.wu@rock-chips.com>
+Subject: [PATCH] net: stmmac: dwmac-rk: Add RK3128 GMAC support
+Date: Sat, 30 Sep 2017 17:47:23 +0800
+Message-ID: <1506764843-24681-1-git-send-email-david.wu@rock-chips.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        huangtao@rock-chips.com, netdev@vger.kernel.org,
+        linux-rockchip@lists.infradead.org, linux-kernel@vger.kernel.org,
+        David Wu <david.wu@rock-chips.com>
+To: davem@davemloft.net, heiko@sntech.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The phonet_protocol structs don't need to be written by anyone and
-so can be marked as const.
+Add constants and callback functions for the dwmac on rk3128 soc.
+As can be seen, the base structure is the same, only registers
+and the bits in them moved slightly.
 
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+Signed-off-by: David Wu <david.wu@rock-chips.com>
 ---
-changelog:
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     | 112 +++++++++++++++++++++
+ 2 files changed, 113 insertions(+)
 
-v1 -> v2:
-	* remove __read_mostly tag
----
- include/net/phonet/phonet.h |  6 ++++--
- net/phonet/af_phonet.c      | 15 ++++++++-------
- net/phonet/datagram.c       |  2 +-
- net/phonet/pep.c            |  2 +-
- 4 files changed, 14 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index 039cc29..51e1a2a 100644
---- a/include/net/phonet/phonet.h
-+++ b/include/net/phonet/phonet.h
-@@ -108,8 +108,10 @@ struct phonet_protocol {
- 	int			sock_type;
- };
+diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+index 6af8eed..9c16ee2 100644
+--- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
++++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+@@ -4,6 +4,7 @@ The device node has following properties.
  
--int phonet_proto_register(unsigned int protocol, struct phonet_protocol *pp);
--void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp);
-+int phonet_proto_register(unsigned int protocol,
-+		const struct phonet_protocol *pp);
-+void phonet_proto_unregister(unsigned int protocol,
-+		const struct phonet_protocol *pp);
+ Required properties:
+  - compatible: should be "rockchip,<name>-gamc"
++   "rockchip,rk3128-gmac": found on RK312x SoCs
+    "rockchip,rk3228-gmac": found on RK322x SoCs
+    "rockchip,rk3288-gmac": found on RK3288 SoCs
+    "rockchip,rk3328-gmac": found on RK3328 SoCs
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 99823f5..13133b3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -83,6 +83,117 @@ struct rk_priv_data {
+ 	(((tx) ? soc##_GMAC_TXCLK_DLY_ENABLE : soc##_GMAC_TXCLK_DLY_DISABLE) | \
+ 	 ((rx) ? soc##_GMAC_RXCLK_DLY_ENABLE : soc##_GMAC_RXCLK_DLY_DISABLE))
  
- int phonet_sysctl_init(void);
- void phonet_sysctl_exit(void);
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index b12142e..63b9870 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -35,11 +35,11 @@
- #include <net/phonet/pn_dev.h>
++#define RK3128_GRF_MAC_CON0	0x0168
++#define RK3128_GRF_MAC_CON1	0x016c
++
++/* RK3128_GRF_MAC_CON0 */
++#define RK3128_GMAC_TXCLK_DLY_ENABLE   GRF_BIT(14)
++#define RK3128_GMAC_TXCLK_DLY_DISABLE  GRF_CLR_BIT(14)
++#define RK3128_GMAC_RXCLK_DLY_ENABLE   GRF_BIT(15)
++#define RK3128_GMAC_RXCLK_DLY_DISABLE  GRF_CLR_BIT(15)
++#define RK3128_GMAC_CLK_RX_DL_CFG(val) HIWORD_UPDATE(val, 0x7F, 7)
++#define RK3128_GMAC_CLK_TX_DL_CFG(val) HIWORD_UPDATE(val, 0x7F, 0)
++
++/* RK3128_GRF_MAC_CON1 */
++#define RK3128_GMAC_PHY_INTF_SEL_RGMII	\
++		(GRF_BIT(6) | GRF_CLR_BIT(7) | GRF_CLR_BIT(8))
++#define RK3128_GMAC_PHY_INTF_SEL_RMII	\
++		(GRF_CLR_BIT(6) | GRF_CLR_BIT(7) | GRF_BIT(8))
++#define RK3128_GMAC_FLOW_CTRL          GRF_BIT(9)
++#define RK3128_GMAC_FLOW_CTRL_CLR      GRF_CLR_BIT(9)
++#define RK3128_GMAC_SPEED_10M          GRF_CLR_BIT(10)
++#define RK3128_GMAC_SPEED_100M         GRF_BIT(10)
++#define RK3128_GMAC_RMII_CLK_25M       GRF_BIT(11)
++#define RK3128_GMAC_RMII_CLK_2_5M      GRF_CLR_BIT(11)
++#define RK3128_GMAC_CLK_125M           (GRF_CLR_BIT(12) | GRF_CLR_BIT(13))
++#define RK3128_GMAC_CLK_25M            (GRF_BIT(12) | GRF_BIT(13))
++#define RK3128_GMAC_CLK_2_5M           (GRF_CLR_BIT(12) | GRF_BIT(13))
++#define RK3128_GMAC_RMII_MODE          GRF_BIT(14)
++#define RK3128_GMAC_RMII_MODE_CLR      GRF_CLR_BIT(14)
++
++static void rk3128_set_to_rgmii(struct rk_priv_data *bsp_priv,
++				int tx_delay, int rx_delay)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++		     RK3128_GMAC_PHY_INTF_SEL_RGMII |
++		     RK3128_GMAC_RMII_MODE_CLR);
++	regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON0,
++		     DELAY_ENABLE(RK3128, tx_delay, rx_delay) |
++		     RK3128_GMAC_CLK_RX_DL_CFG(rx_delay) |
++		     RK3128_GMAC_CLK_TX_DL_CFG(tx_delay));
++}
++
++static void rk3128_set_to_rmii(struct rk_priv_data *bsp_priv)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++		     RK3128_GMAC_PHY_INTF_SEL_RMII | RK3128_GMAC_RMII_MODE);
++}
++
++static void rk3128_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	if (speed == 10)
++		regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++			     RK3128_GMAC_CLK_2_5M);
++	else if (speed == 100)
++		regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++			     RK3128_GMAC_CLK_25M);
++	else if (speed == 1000)
++		regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++			     RK3128_GMAC_CLK_125M);
++	else
++		dev_err(dev, "unknown speed value for RGMII! speed=%d", speed);
++}
++
++static void rk3128_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	if (speed == 10) {
++		regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++			     RK3128_GMAC_RMII_CLK_2_5M |
++			     RK3128_GMAC_SPEED_10M);
++	} else if (speed == 100) {
++		regmap_write(bsp_priv->grf, RK3128_GRF_MAC_CON1,
++			     RK3128_GMAC_RMII_CLK_25M |
++			     RK3128_GMAC_SPEED_100M);
++	} else {
++		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
++	}
++}
++
++static const struct rk_gmac_ops rk3128_ops = {
++	.set_to_rgmii = rk3128_set_to_rgmii,
++	.set_to_rmii = rk3128_set_to_rmii,
++	.set_rgmii_speed = rk3128_set_rgmii_speed,
++	.set_rmii_speed = rk3128_set_rmii_speed,
++};
++
+ #define RK3228_GRF_MAC_CON0	0x0900
+ #define RK3228_GRF_MAC_CON1	0x0904
  
- /* Transport protocol registration */
--static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
-+static const struct phonet_protocol *proto_tab[PHONET_NPROTO];
+@@ -1313,6 +1424,7 @@ static int rk_gmac_resume(struct device *dev)
+ static SIMPLE_DEV_PM_OPS(rk_gmac_pm_ops, rk_gmac_suspend, rk_gmac_resume);
  
--static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
-+static const struct phonet_protocol *phonet_proto_get(unsigned int protocol)
- {
--	struct phonet_protocol *pp;
-+	const struct phonet_protocol *pp;
- 
- 	if (protocol >= PHONET_NPROTO)
- 		return NULL;
-@@ -53,7 +53,7 @@ static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
- 	return pp;
- }
- 
--static inline void phonet_proto_put(struct phonet_protocol *pp)
-+static inline void phonet_proto_put(const struct phonet_protocol *pp)
- {
- 	module_put(pp->prot->owner);
- }
-@@ -65,7 +65,7 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
- {
- 	struct sock *sk;
- 	struct pn_sock *pn;
--	struct phonet_protocol *pnp;
-+	const struct phonet_protocol *pnp;
- 	int err;
- 
- 	if (!capable(CAP_SYS_ADMIN))
-@@ -470,7 +470,7 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
- static DEFINE_MUTEX(proto_tab_lock);
- 
- int __init_or_module phonet_proto_register(unsigned int protocol,
--						struct phonet_protocol *pp)
-+				const struct phonet_protocol *pp)
- {
- 	int err = 0;
- 
-@@ -492,7 +492,8 @@ int __init_or_module phonet_proto_register(unsigned int protocol,
- }
- EXPORT_SYMBOL(phonet_proto_register);
- 
--void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp)
-+void phonet_proto_unregister(unsigned int protocol,
-+			const struct phonet_protocol *pp)
- {
- 	mutex_lock(&proto_tab_lock);
- 	BUG_ON(proto_tab[protocol] != pp);
-diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
-index 5e71043..b44fb90 100644
---- a/net/phonet/datagram.c
-+++ b/net/phonet/datagram.c
-@@ -195,7 +195,7 @@ static int pn_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- 	.name		= "PHONET",
- };
- 
--static struct phonet_protocol pn_dgram_proto = {
-+static const struct phonet_protocol pn_dgram_proto = {
- 	.ops		= &phonet_dgram_ops,
- 	.prot		= &pn_proto,
- 	.sock_type	= SOCK_DGRAM,
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index e815379..9fc76b1 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -1351,7 +1351,7 @@ static void pep_sock_unhash(struct sock *sk)
- 	.name		= "PNPIPE",
- };
- 
--static struct phonet_protocol pep_pn_proto = {
-+static const struct phonet_protocol pep_pn_proto = {
- 	.ops		= &phonet_stream_ops,
- 	.prot		= &pep_proto,
- 	.sock_type	= SOCK_SEQPACKET,
+ static const struct of_device_id rk_gmac_dwmac_match[] = {
++	{ .compatible = "rockchip,rk3128-gmac", .data = &rk3128_ops },
+ 	{ .compatible = "rockchip,rk3228-gmac", .data = &rk3228_ops },
+ 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
+ 	{ .compatible = "rockchip,rk3328-gmac", .data = &rk3328_ops },
 -- 
-1.8.3.1
+1.9.1
