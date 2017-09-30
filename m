@@ -1,56 +1,62 @@
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v2 3/5] net/sched: Introduce the user API for the CBS shaper
-Date: Fri, 29 Sep 2017 17:26:55 -0700
-Message-ID: <20170930002657.15291-4-vinicius.gomes@intel.com>
-References: <20170930002657.15291-1-vinicius.gomes@intel.com>
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, jiri@resnulli.us, andre.guedes@intel.com,
-        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:50320 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752592AbdI3A13 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 20:27:29 -0400
-In-Reply-To: <20170930002657.15291-1-vinicius.gomes@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH] net: hns3: fix null pointer dereference before null check
+Date: Sat, 30 Sep 2017 08:43:34 +0800
+Message-ID: <b8f17467-71f6-688c-a18e-64c1e6dc0b89@huawei.com>
+References: <20170929195123.4189-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>,
+        Yisen Zhuang <yisen.zhuang@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170929195123.4189-1-colin.king@canonical.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Export the API necessary for configuring the CBS shaper (implemented
-in the next patch) via the tc tool.
+Hi, Colin
 
-Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
----
- include/uapi/linux/pkt_sched.h | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+On 2017/9/30 3:51, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> pointer ndev is being dereferenced with the call to netif_running
+> before it is being null checked.  Re-order the code to only dereference
+> ndev after it has been null checked.
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 099bf5528fed..27c849c053cf 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -871,4 +871,21 @@ struct tc_pie_xstats {
- 	__u32 maxq;             /* maximum queue size */
- 	__u32 ecn_mark;         /* packets marked with ecn*/
- };
-+
-+/* CBS */
-+struct tc_cbs_qopt {
-+	__s32 hicredit;
-+	__s32 locredit;
-+	__s32 idleslope;
-+	__s32 sendslope;
-+};
-+
-+enum {
-+	TCA_CBS_UNSPEC,
-+	TCA_CBS_PARMS,
-+	__TCA_CBS_MAX,
-+};
-+
-+#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
-+
- #endif
--- 
-2.14.2
+Thanks for fixing it.
+
+> 
+> Detected by CoverityScan, CID#1457206 ("Dereference before null check")
+> 
+> Fixes: 9df8f79a4d29 ("net: hns3: Add DCB support when interacting with network stack")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+> index 4a0890f98b70..c31506514e5d 100644
+> --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+> +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+> @@ -2865,7 +2865,7 @@ static int hns3_client_setup_tc(struct hnae3_handle *handle, u8 tc)
+>  {
+>  	struct hnae3_knic_private_info *kinfo = &handle->kinfo;
+>  	struct net_device *ndev = kinfo->netdev;
+> -	bool if_running = netif_running(ndev);
+> +	bool if_running;
+>  	int ret;
+>  	u8 i;
+>  
+> @@ -2875,6 +2875,8 @@ static int hns3_client_setup_tc(struct hnae3_handle *handle, u8 tc)
+>  	if (!ndev)
+>  		return -ENODEV;
+>  
+> +	if_running = netif_running(ndev);
+> +
+>  	ret = netdev_set_num_tc(ndev, tc);
+>  	if (ret)
+>  		return ret;
+> 
