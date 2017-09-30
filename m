@@ -1,83 +1,96 @@
-From: Richard Weinberger <richard@sigma-star.at>
-Subject: Re: WARNING: kernel stack frame pointer at ffff880156a5fea0 in bash:2103 has bad value 00007ffec7d87e50
-Date: Sat, 30 Sep 2017 22:01:56 +0200
-Message-ID: <3328361.HTSf9WV6P2@blindfold>
-References: <2656822.vqnppgTvlm@blindfold> <41856500.WAzQIuoSLi@blindfold> <20170927141430.i6awpjkyoqffof4b@treble>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/4] ravb: Add optional PHY reset during system resume
+Date: Sat, 30 Sep 2017 23:23:42 +0300
+Message-ID: <47456e34-2c2f-ec19-fcda-e3132a8037b3@cogentembedded.com>
+References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
+ <1506614014-4398-3-git-send-email-geert+renesas@glider.be>
+ <406f7aff-e386-31f3-39d3-17523443c265@gmail.com>
+ <CAMuHMdWOAnT3xONPfU8pJi9fbAgtWL2GyRbooAxrfGDb=bsB_A@mail.gmail.com>
+ <1a474c45-29ea-82fa-1ab0-0febfdc38bcb@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>, ast@kernel.org,
-        daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mingo@kernel.org
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927141430.i6awpjkyoqffof4b@treble>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1a474c45-29ea-82fa-1ab0-0febfdc38bcb@gmail.com>
+Content-Language: en-MW
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Josh,
+Hello!
 
-Am Mittwoch, 27. September 2017, 16:14:30 CEST schrieb Josh Poimboeuf:
-> On Wed, Sep 27, 2017 at 08:51:22AM +0200, Richard Weinberger wrote:
-> > Am Mittwoch, 27. September 2017, 00:42:46 CEST schrieb Josh Poimboeuf:
-> > > > Here is another variant of the warning, it matches the attached 
-.config:
-> > > I can take a look at it.  Unfortunately, for these types of issues I
-> > > often need the vmlinux file to be able to make sense of the unwinder
-> > > dump.  So if you happen to have somewhere to copy the vmlinux to, that
-> > > would be helpful.  Or if you give me your GCC version I can try to
-> > > rebuild it locally.
-> > 
-> > There you go:
-> > http://git.infradead.org/~rw/bpf_splat/vmlinux.xz
-> 
-> Thanks.  Can you test this fix?
-> 
-> 
-> diff --git a/arch/x86/kernel/kprobes/common.h
-> b/arch/x86/kernel/kprobes/common.h index db2182d63ed0..3fc0f9a794cb 100644
-> --- a/arch/x86/kernel/kprobes/common.h
-> +++ b/arch/x86/kernel/kprobes/common.h
-> @@ -3,6 +3,15 @@
-> 
->  /* Kprobes and Optprobes common header */
-> 
-> +#include <asm/asm.h>
-> +
-> +#ifdef CONFIG_FRAME_POINTER
-> +# define SAVE_RBP_STRING "	push %" _ASM_BP "\n" \
-> +			 "	mov  %" _ASM_SP ", %" _ASM_BP "\n"
-> +#else
-> +# define SAVE_RBP_STRING "	push %" _ASM_BP "\n"
-> +#endif
-> +
->  #ifdef CONFIG_X86_64
->  #define SAVE_REGS_STRING			\
->  	/* Skip cs, ip, orig_ax. */		\
-> @@ -17,7 +26,7 @@
->  	"	pushq %r10\n"			\
->  	"	pushq %r11\n"			\
->  	"	pushq %rbx\n"			\
-> -	"	pushq %rbp\n"			\
-> +	SAVE_RBP_STRING				\
->  	"	pushq %r12\n"			\
->  	"	pushq %r13\n"			\
->  	"	pushq %r14\n"			\
-> @@ -48,7 +57,7 @@
->  	"	pushl %es\n"			\
->  	"	pushl %ds\n"			\
->  	"	pushl %eax\n"			\
-> -	"	pushl %ebp\n"			\
-> +	SAVE_RBP_STRING				\
->  	"	pushl %edi\n"			\
->  	"	pushl %esi\n"			\
->  	"	pushl %edx\n"			\
+On 09/28/2017 10:21 PM, Florian Fainelli wrote:
 
-This fixes the issue for me!
+>>>> If the optional "reset-gpios" property is specified in DT, the generic
+>>>> MDIO bus code takes care of resetting the PHY during device probe.
+>>>> However, the PHY may still have to be reset explicitly after system
+>>>> resume.
+>>>>
+>>>> This allows to restore Ethernet operation after resume from s2ram on
+>>>> Salvator-XS, where the enable pin of the regulator providing PHY power
+>>>> is connected to PRESETn, and PSCI suspend powers down the SoC.
+>>>>
+>>>> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>>>> ---
+>>>>   drivers/net/ethernet/renesas/ravb_main.c | 9 +++++++++
+>>>>   1 file changed, 9 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+>>>> index fdf30bfa403bf416..96d1d48e302f8c9a 100644
+>>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+[...]
+>>>> @@ -2302,6 +2304,13 @@ static int __maybe_unused ravb_resume(struct device *dev)
+>>>>         * reopen device if it was running before system suspended.
+>>>>         */
+>>>>
+>>>> +     /* PHY reset */
+>>>> +     if (bus->reset_gpiod) {
+>>>> +             gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+>>>> +             udelay(bus->reset_delay_us);
+>>>> +             gpiod_set_value_cansleep(bus->reset_gpiod, 0);
+>>>> +     }
+>>>
+>>> This is a clever hack, but unfortunately this is also misusing the MDIO
+>>> bus reset line into a PHY reset line. As commented in patch 3, if this
+>>> reset line is tied to the PHY, then this should be a PHY property and
+>>
+>> OK.
+>>
+>>> you cannot (ab)use the MDIO bus GPIO reset logic anymore...
+>>
+>> And then I should add reset-gpios support to drivers/net/phy/micrel.c?
+>> Or is there already generic code to handle per-PHY reset? I couldn't find it.
+> 
+> There is not such a thing unfortunately, but it would presumably be
 
-Thanks,
-//richard
+    It's strange you don't remember about my (abandoned) patches to handle 
+per=PHY reset GPIOs -- perhaps it's time to unearth them. Here they are:
 
--- 
-sigma star gmbh - Eduard-Bodem-Gasse 6 - 6020 Innsbruck - Austria
-ATU66964118 - FN 374287y
+http://patchwork.ozlabs.org/patch/616495/
+http://patchwork.ozlabs.org/patch/616501/
+
+    I had v3 in the works before abandoning this series -- it doesn't apply now.
+
+> called within drivers/net/phy/mdio_bus.c during bus->reset() time
+> because you need the PHY reset to be deasserted before you can
+> successfully read/write from the PHY, and if you can't read/write from
+> the PHY, the MDIO bus layer cannot read the PHY ID, and therefore cannot
+> match a PHY device with its driver, so things don't work.
+
+    I did this a bit differently...
+
+[...]
+
+MBR, Sergei
