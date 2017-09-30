@@ -1,52 +1,39 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH] net: hns3: Fix an error handling path in
- 'hclge_rss_init_hw()'
-Date: Sat, 30 Sep 2017 14:10:31 +0800
-Message-ID: <ab4512d9-ba6c-d57a-55b0-8d4a32672d6e@huawei.com>
-References: <20170930053434.4558-1-christophe.jaillet@wanadoo.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netlink: do not proceed if dump's start() errs
+Date: Sat, 30 Sep 2017 07:27:37 +0100 (WEST)
+Message-ID: <20170930.072737.128573396497381459.davem@davemloft.net>
+References: <CAHmME9oA+dE3eOCTWweJjZGL4sog30JShoCJoWaPn4JV7h3auA@mail.gmail.com>
+        <20170927224144.1749-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
-        <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
-        <davem@davemloft.net>, <lipeng321@huawei.com>,
-        <colin.king@canonical.com>, <arnd@arndb.de>
+Cc: johannes.berg@intel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, johannes@sipsolutions.net
+To: Jason@zx2c4.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170930053434.4558-1-christophe.jaillet@wanadoo.fr>
-Content-Language: en-US
+In-Reply-To: <20170927224144.1749-1-Jason@zx2c4.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Christophe
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Thu, 28 Sep 2017 00:41:44 +0200
 
-On 2017/9/30 13:34, Christophe JAILLET wrote:
-> If this sanity check fails, we must free 'rss_indir'. Otherwise there is a
-> memory leak.
-> 'goto err' as done in the other error handling paths to fix it.
+> Drivers that use the start method for netlink dumping rely on dumpit not
+> being called if start fails. For example, ila_xlat.c allocates memory
+> and assigns it to cb->args[0] in its start() function. It might fail to
+> do that and return -ENOMEM instead. However, even when returning an
+> error, dumpit will be called, which, in the example above, quickly
+> dereferences the memory in cb->args[0], which will OOPS the kernel. This
+> is but one example of how this goes wrong.
+> 
+> Since start() has always been a function with an int return type, it
+> therefore makes sense to use it properly, rather than ignoring it. This
+> patch thus returns early and does not call dumpit() when start() fails.
+> 
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Cc: Johannes Berg <johannes@sipsolutions.net>
 
-Thanks for fixing.
+Johannes, this looks straightforward to me, but please would you give
+it a quick review?
 
-> 
-> Fixes: 46a3df9f9718 ("net: hns3: Fix for setting rss_size incorrectly")
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
->  drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-> index e0685e630afe..c1cdbfd83bdb 100644
-> --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-> +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-> @@ -2652,7 +2652,8 @@ static int hclge_rss_init_hw(struct hclge_dev *hdev)
->  		dev_err(&hdev->pdev->dev,
->  			"Configure rss tc size failed, invalid TC_SIZE = %d\n",
->  			rss_size);
-> -		return -EINVAL;
-> +		ret = -EINVAL;
-> +		goto err;
->  	}
->  
->  	roundup_size = roundup_pow_of_two(rss_size);
-> 
+Thank you.
