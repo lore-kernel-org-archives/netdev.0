@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] netlink: do not proceed if dump's start() errs
-Date: Sat, 30 Sep 2017 07:27:37 +0100 (WEST)
-Message-ID: <20170930.072737.128573396497381459.davem@davemloft.net>
-References: <CAHmME9oA+dE3eOCTWweJjZGL4sog30JShoCJoWaPn4JV7h3auA@mail.gmail.com>
-        <20170927224144.1749-1-Jason@zx2c4.com>
+From: "Sergey K." <simkergey@gmail.com>
+Subject: tc-ipt v0.2: Extension does not know id 1504083504
+Date: Sat, 30 Sep 2017 12:34:39 +0600
+Message-ID: <CAGv8E+wkpsZL8SMzx+oXei6245RU+SacrBcUN7p2RtXcaBCafw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: johannes.berg@intel.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, johannes@sipsolutions.net
-To: Jason@zx2c4.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170927224144.1749-1-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:52923 "EHLO
+        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750724AbdI3Gek (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 02:34:40 -0400
+Received: by mail-it0-f51.google.com with SMTP id c195so2143152itb.1
+        for <netdev@vger.kernel.org>; Fri, 29 Sep 2017 23:34:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Thu, 28 Sep 2017 00:41:44 +0200
+Hello.
 
-> Drivers that use the start method for netlink dumping rely on dumpit not
-> being called if start fails. For example, ila_xlat.c allocates memory
-> and assigns it to cb->args[0] in its start() function. It might fail to
-> do that and return -ENOMEM instead. However, even when returning an
-> error, dumpit will be called, which, in the example above, quickly
-> dereferences the memory in cb->args[0], which will OOPS the kernel. This
-> is but one example of how this goes wrong.
-> 
-> Since start() has always been a function with an int return type, it
-> therefore makes sense to use it properly, rather than ignoring it. This
-> patch thus returns early and does not call dumpit() when start() fails.
-> 
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> Cc: Johannes Berg <johannes@sipsolutions.net>
+I have to apply this patch
 
-Johannes, this looks straightforward to me, but please would you give
-it a quick review?
+https://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git/commit/?h=v4.10.0&id=97a02cabefb2e2dcfe27f89943709afa84be5525
 
-Thank you.
+to my version of iproute2.
+But now I have a new information message, when I'm using construction like this:
+
+tc filter add dev eth0 parent ffff: u32 match u32 0 0 action xt -j
+MARK --set-mark 0
+
+message text:
+tc-ipt v0.2: Extension does not know id 1504083504
+
+
+I'm using Debian Stretch, kernel 4.9.0-3-amd64, iptables 1.6.0 and
+patched iproute 4.9.0
+
+How to solve?
