@@ -1,102 +1,245 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: simplify member variable accesses
-Date: Fri, 29 Sep 2017 17:44:56 -0700
-Message-ID: <20170930004507.20072-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] i40e: Enable VF to negotiate number of allocated queues
+Date: Fri, 29 Sep 2017 17:45:06 -0700
+Message-ID: <20170930004507.20072-15-jeffrey.t.kirsher@intel.com>
 References: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
-Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:57175 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:34215 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752672AbdI3Apw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 29 Sep 2017 20:45:52 -0400
+        id S1752668AbdI3Apv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 20:45:51 -0400
 In-Reply-To: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-This commit replaces usage of vsi->back in i40e_print_link_message()
-(which is actually a PF pointer) with temp variable.
+Currently the PF allocates a default number of queues for each VF and
+cannot be changed.  This patch enables the VF to request a different
+number of queues allocated to it.  This patch also adds a new virtchnl
+op and capability flag to facilitate this negotiation.
 
-Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+After the PF receives a request message, it will set a requested number
+of queues for that VF.  Then when the VF resets, its VSI will get a new
+number of queues allocated to it.
+
+This is a best effort request and since we only allocate a guaranteed
+default number, if the VF tries to ask for more than the guaranteed
+number, there may not be enough in HW to accommodate it unless other
+queues for other VFs are freed. It should also be noted decreasing the
+number queues allocated to a VF to below the default will NOT enable the
+allocation of more than 32 VFs per PF and will not free queues guaranteed
+to each VF by default.
+
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 21 +++++++++++----------
- 1 file changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 75 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  1 +
+ include/linux/avf/virtchnl.h                       | 20 ++++++
+ 4 files changed, 97 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2e8fe6186b38..3c650917b54f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5346,13 +5346,14 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
- void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
- {
- 	enum i40e_aq_link_speed new_speed;
-+	struct i40e_pf *pf = vsi->back;
- 	char *speed = "Unknown";
- 	char *fc = "Unknown";
- 	char *fec = "";
- 	char *req_fec = "";
- 	char *an = "";
- 
--	new_speed = vsi->back->hw.phy.link_info.link_speed;
-+	new_speed = pf->hw.phy.link_info.link_speed;
- 
- 	if ((vsi->current_isup == isup) && (vsi->current_speed == new_speed))
- 		return;
-@@ -5366,13 +5367,13 @@ void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
- 	/* Warn user if link speed on NPAR enabled partition is not at
- 	 * least 10GB
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index b7a539cdca00..439c63cb2a0c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -77,6 +77,7 @@
+ #define i40e_default_queues_per_vmdq(pf) \
+ 		(((pf)->hw_features & I40E_HW_RSS_AQ_CAPABLE) ? 4 : 1)
+ #define I40E_DEFAULT_QUEUES_PER_VF	4
++#define I40E_MAX_VF_QUEUES		16
+ #define I40E_DEFAULT_QUEUES_PER_TC	1 /* should be a power of 2 */
+ #define i40e_pf_get_max_q_per_tc(pf) \
+ 		(((pf)->hw_features & I40E_HW_128_QP_RSS_CAPABLE) ? 128 : 64)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 4d1e670f490e..a75396c157d9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -815,6 +815,14 @@ static void i40e_free_vf_res(struct i40e_vf *vf)
  	 */
--	if (vsi->back->hw.func_caps.npar_enable &&
--	    (vsi->back->hw.phy.link_info.link_speed == I40E_LINK_SPEED_1GB ||
--	     vsi->back->hw.phy.link_info.link_speed == I40E_LINK_SPEED_100MB))
-+	if (pf->hw.func_caps.npar_enable &&
-+	    (pf->hw.phy.link_info.link_speed == I40E_LINK_SPEED_1GB ||
-+	     pf->hw.phy.link_info.link_speed == I40E_LINK_SPEED_100MB))
- 		netdev_warn(vsi->netdev,
- 			    "The partition detected link speed that is less than 10Gbps\n");
+ 	clear_bit(I40E_VF_STATE_INIT, &vf->vf_states);
  
--	switch (vsi->back->hw.phy.link_info.link_speed) {
-+	switch (pf->hw.phy.link_info.link_speed) {
- 	case I40E_LINK_SPEED_40GB:
- 		speed = "40 G";
- 		break;
-@@ -5395,7 +5396,7 @@ void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
- 		break;
++	/* It's possible the VF had requeuested more queues than the default so
++	 * do the accounting here when we're about to free them.
++	 */
++	if (vf->num_queue_pairs > I40E_DEFAULT_QUEUES_PER_VF) {
++		pf->queues_left += vf->num_queue_pairs -
++				   I40E_DEFAULT_QUEUES_PER_VF;
++	}
++
+ 	/* free vsi & disconnect it from the parent uplink */
+ 	if (vf->lan_vsi_idx) {
+ 		i40e_vsi_release(pf->vsi[vf->lan_vsi_idx]);
+@@ -868,12 +876,27 @@ static int i40e_alloc_vf_res(struct i40e_vf *vf)
+ 	int total_queue_pairs = 0;
+ 	int ret;
+ 
++	if (vf->num_req_queues &&
++	    vf->num_req_queues <= pf->queues_left + I40E_DEFAULT_QUEUES_PER_VF)
++		pf->num_vf_qps = vf->num_req_queues;
++	else
++		pf->num_vf_qps = I40E_DEFAULT_QUEUES_PER_VF;
++
+ 	/* allocate hw vsi context & associated resources */
+ 	ret = i40e_alloc_vsi_res(vf, I40E_VSI_SRIOV);
+ 	if (ret)
+ 		goto error_alloc;
+ 	total_queue_pairs += pf->vsi[vf->lan_vsi_idx]->alloc_queue_pairs;
+ 
++	/* We account for each VF to get a default number of queue pairs.  If
++	 * the VF has now requested more, we need to account for that to make
++	 * certain we never request more queues than we actually have left in
++	 * HW.
++	 */
++	if (total_queue_pairs > I40E_DEFAULT_QUEUES_PER_VF)
++		pf->queues_left -=
++			total_queue_pairs - I40E_DEFAULT_QUEUES_PER_VF;
++
+ 	if (vf->trusted)
+ 		set_bit(I40E_VIRTCHNL_VF_CAP_PRIVILEGE, &vf->vf_caps);
+ 	else
+@@ -1579,6 +1602,9 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
+ 					VIRTCHNL_VF_OFFLOAD_WB_ON_ITR;
  	}
  
--	switch (vsi->back->hw.fc.current_mode) {
-+	switch (pf->hw.fc.current_mode) {
- 	case I40E_FC_FULL:
- 		fc = "RX/TX";
++	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_REQ_QUEUES)
++		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_REQ_QUEUES;
++
+ 	vfres->num_vsis = num_vsis;
+ 	vfres->num_queue_pairs = vf->num_queue_pairs;
+ 	vfres->max_vectors = pf->hw.func_caps.num_msix_vectors_vf;
+@@ -1986,6 +2012,52 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
+ 				       aq_ret);
+ }
+ 
++/**
++ * i40e_vc_request_queues_msg
++ * @vf: pointer to the VF info
++ * @msg: pointer to the msg buffer
++ * @msglen: msg length
++ *
++ * VFs get a default number of queues but can use this message to request a
++ * different number.  Will respond with either the number requested or the
++ * maximum we can support.
++ **/
++static int i40e_vc_request_queues_msg(struct i40e_vf *vf, u8 *msg, int msglen)
++{
++	struct virtchnl_vf_res_request *vfres =
++		(struct virtchnl_vf_res_request *)msg;
++	int req_pairs = vfres->num_queue_pairs;
++	int cur_pairs = vf->num_queue_pairs;
++	struct i40e_pf *pf = vf->pf;
++
++	if (!test_bit(I40E_VF_STATE_ACTIVE, &vf->vf_states))
++		return -EINVAL;
++
++	if (req_pairs <= 0) {
++		dev_err(&pf->pdev->dev,
++			"VF %d tried to request %d queues.  Ignoring.\n",
++			vf->vf_id, req_pairs);
++	} else if (req_pairs > I40E_MAX_VF_QUEUES) {
++		dev_err(&pf->pdev->dev,
++			"VF %d tried to request more than %d queues.\n",
++			vf->vf_id,
++			I40E_MAX_VF_QUEUES);
++		vfres->num_queue_pairs = I40E_MAX_VF_QUEUES;
++	} else if (req_pairs - cur_pairs > pf->queues_left) {
++		dev_warn(&pf->pdev->dev,
++			 "VF %d requested %d more queues, but only %d left.\n",
++			 vf->vf_id,
++			 req_pairs - cur_pairs,
++			 pf->queues_left);
++		vfres->num_queue_pairs = pf->queues_left + cur_pairs;
++	} else {
++		vf->num_req_queues = req_pairs;
++	}
++
++	return i40e_vc_send_msg_to_vf(vf, VIRTCHNL_OP_REQUEST_QUEUES, 0,
++				      (u8 *)vfres, sizeof(vfres));
++}
++
+ /**
+  * i40e_vc_get_stats_msg
+  * @vf: pointer to the VF info
+@@ -2708,6 +2780,9 @@ int i40e_vc_process_vf_msg(struct i40e_pf *pf, s16 vf_id, u32 v_opcode,
+ 	case VIRTCHNL_OP_DISABLE_VLAN_STRIPPING:
+ 		ret = i40e_vc_disable_vlan_stripping(vf, msg, msglen);
  		break;
-@@ -5410,18 +5411,18 @@ void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
++	case VIRTCHNL_OP_REQUEST_QUEUES:
++		ret = i40e_vc_request_queues_msg(vf, msg, msglen);
++		break;
+ 
+ 	case VIRTCHNL_OP_UNKNOWN:
+ 	default:
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 1f4b0c504368..5111d05d5f2f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -97,6 +97,7 @@ struct i40e_vf {
+ 	u16 lan_vsi_id;		/* ID as used by firmware */
+ 
+ 	u8 num_queue_pairs;	/* num of qps assigned to VF vsis */
++	u8 num_req_queues;	/* num of requested qps */
+ 	u64 num_mdd_events;	/* num of mdd events detected */
+ 	/* num of continuous malformed or invalid msgs detected */
+ 	u64 num_invalid_msgs;
+diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
+index 2b038442c352..60e5d90cb18a 100644
+--- a/include/linux/avf/virtchnl.h
++++ b/include/linux/avf/virtchnl.h
+@@ -135,6 +135,7 @@ enum virtchnl_ops {
+ 	VIRTCHNL_OP_SET_RSS_HENA = 26,
+ 	VIRTCHNL_OP_ENABLE_VLAN_STRIPPING = 27,
+ 	VIRTCHNL_OP_DISABLE_VLAN_STRIPPING = 28,
++	VIRTCHNL_OP_REQUEST_QUEUES = 29,
+ };
+ 
+ /* This macro is used to generate a compilation error if a structure
+@@ -235,6 +236,7 @@ VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_vsi_resource);
+ #define VIRTCHNL_VF_OFFLOAD_RSS_AQ		0x00000008
+ #define VIRTCHNL_VF_OFFLOAD_RSS_REG		0x00000010
+ #define VIRTCHNL_VF_OFFLOAD_WB_ON_ITR		0x00000020
++#define VIRTCHNL_VF_OFFLOAD_REQ_QUEUES		0x00000040
+ #define VIRTCHNL_VF_OFFLOAD_VLAN		0x00010000
+ #define VIRTCHNL_VF_OFFLOAD_RX_POLLING		0x00020000
+ #define VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2	0x00040000
+@@ -325,6 +327,21 @@ struct virtchnl_vsi_queue_config_info {
+ 	struct virtchnl_queue_pair_info qpair[1];
+ };
+ 
++/* VIRTCHNL_OP_REQUEST_QUEUES
++ * VF sends this message to request the PF to allocate additional queues to
++ * this VF.  Each VF gets a guaranteed number of queues on init but asking for
++ * additional queues must be negotiated.  This is a best effort request as it
++ * is possible the PF does not have enough queues left to support the request.
++ * If the PF cannot support the number requested it will respond with the
++ * maximum number it is able to support; otherwise it will respond with the
++ * number requested.
++ */
++
++/* VF resource request */
++struct virtchnl_vf_res_request {
++	u16 num_queue_pairs;
++};
++
+ VIRTCHNL_CHECK_STRUCT_LEN(72, virtchnl_vsi_queue_config_info);
+ 
+ /* VIRTCHNL_OP_CONFIG_IRQ_MAP
+@@ -691,6 +708,9 @@ virtchnl_vc_validate_vf_msg(struct virtchnl_version_info *ver, u32 v_opcode,
+ 	case VIRTCHNL_OP_ENABLE_VLAN_STRIPPING:
+ 	case VIRTCHNL_OP_DISABLE_VLAN_STRIPPING:
  		break;
- 	}
- 
--	if (vsi->back->hw.phy.link_info.link_speed == I40E_LINK_SPEED_25GB) {
-+	if (pf->hw.phy.link_info.link_speed == I40E_LINK_SPEED_25GB) {
- 		req_fec = ", Requested FEC: None";
- 		fec = ", FEC: None";
- 		an = ", Autoneg: False";
- 
--		if (vsi->back->hw.phy.link_info.an_info & I40E_AQ_AN_COMPLETED)
-+		if (pf->hw.phy.link_info.an_info & I40E_AQ_AN_COMPLETED)
- 			an = ", Autoneg: True";
- 
--		if (vsi->back->hw.phy.link_info.fec_info &
-+		if (pf->hw.phy.link_info.fec_info &
- 		    I40E_AQ_CONFIG_FEC_KR_ENA)
- 			fec = ", FEC: CL74 FC-FEC/BASE-R";
--		else if (vsi->back->hw.phy.link_info.fec_info &
-+		else if (pf->hw.phy.link_info.fec_info &
- 			 I40E_AQ_CONFIG_FEC_RS_ENA)
- 			fec = ", FEC: CL108 RS-FEC";
- 
++	case VIRTCHNL_OP_REQUEST_QUEUES:
++		valid_len = sizeof(struct virtchnl_vf_res_request);
++		break;
+ 	/* These are always errors coming from the VF. */
+ 	case VIRTCHNL_OP_EVENT:
+ 	case VIRTCHNL_OP_UNKNOWN:
 -- 
 2.14.1
