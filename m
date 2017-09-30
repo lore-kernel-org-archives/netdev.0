@@ -1,159 +1,341 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH 2/2] userns: control capabilities of some user namespaces
-Date: Fri, 29 Sep 2017 16:10:08 -0700
-Message-ID: <20170929231008.29834-1-mahesh@bandewar.net>
-Cc: Netdev <netdev@vger.kernel.org>,
-        Kernel-hardening <kernel-hardening@lists.openwall.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        Kees Cook <keescook@chromium.org>,
-        Serge Hallyn <serge@hallyn.com>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        Mahesh Bandewar <maheshb@google.com>
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v2 4/5] net/sched: Introduce Credit Based Shaper (CBS) qdisc
+Date: Fri, 29 Sep 2017 17:26:56 -0700
+Message-ID: <20170930002657.15291-5-vinicius.gomes@intel.com>
+References: <20170930002657.15291-1-vinicius.gomes@intel.com>
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, jiri@resnulli.us, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:36897 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752597AbdI3A13 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 29 Sep 2017 20:27:29 -0400
+In-Reply-To: <20170930002657.15291-1-vinicius.gomes@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+This queueing discipline implements the shaper algorithm defined by
+the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
 
-With this new notion of "controlled" user-namespaces, the controlled
-user-namespaces are marked at the time of their creation while the
-capabilities of processes that belong to them are controlled using the
-global mask.
+It's primary usage is to apply some bandwidth reservation to user
+defined traffic classes, which are mapped to different queues via the
+mqprio qdisc.
 
-Init-user-ns is always uncontrolled and a process that has SYS_ADMIN
-that belongs to uncontrolled user-ns can create another (child) user-
-namespace that is uncontrolled. Any other process (that either does
-not have SYS_ADMIN or belongs to a controlled user-ns) can only
-create a user-ns that is controlled.
+Initially, it only supports offloading the traffic shaping work to
+supporting controllers.
 
-global-capability-whitelist (controlled_userns_caps_whitelist) is used
-at the capability check-time and keeps the semantics for the processes
-that belong to uncontrolled user-ns as it is. Processes that belong to
-controlled user-ns however are subjected to different checks-
+Later, when a software implementation is added, the current dependency
+on being installed "under" mqprio can be lifted.
 
-   (a) if the capability in question is controlled and process belongs
-       to controlled user-ns, then it's always denied.
-   (b) if the capability in question is NOT controlled then fall back
-       to the traditional check.
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 ---
- include/linux/capability.h     |  1 +
- include/linux/user_namespace.h | 20 ++++++++++++++++++++
- kernel/capability.c            |  5 +++++
- kernel/user_namespace.c        |  3 +++
- security/commoncap.c           |  8 ++++++++
- 5 files changed, 37 insertions(+)
+ include/linux/netdevice.h |   1 +
+ include/net/pkt_sched.h   |   9 ++
+ net/sched/Kconfig         |  11 +++
+ net/sched/Makefile        |   1 +
+ net/sched/sch_cbs.c       | 225 ++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 247 insertions(+)
+ create mode 100644 net/sched/sch_cbs.c
 
-diff --git a/include/linux/capability.h b/include/linux/capability.h
-index 6c0b9677c03f..b8c6cac18658 100644
---- a/include/linux/capability.h
-+++ b/include/linux/capability.h
-@@ -250,6 +250,7 @@ extern bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns);
- extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
- int proc_douserns_caps_whitelist(struct ctl_table *table, int write,
- 				 void __user *buff, size_t *lenp, loff_t *ppos);
-+bool is_capability_controlled(int cap);
- 
- extern int cap_convert_nscap(struct dentry *dentry, void **ivalue, size_t size);
- 
-diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index c18e01252346..e890fe81b47e 100644
---- a/include/linux/user_namespace.h
-+++ b/include/linux/user_namespace.h
-@@ -22,6 +22,7 @@ struct uid_gid_map {	/* 64 bytes -- 1 cache line */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f535779d9dc1..5d6fb06fd80f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -775,6 +775,7 @@ enum tc_setup_type {
+ 	TC_SETUP_CLSFLOWER,
+ 	TC_SETUP_CLSMATCHALL,
+ 	TC_SETUP_CLSBPF,
++	TC_SETUP_CBS,
  };
  
- #define USERNS_SETGROUPS_ALLOWED 1UL
-+#define USERNS_CONTROLLED	 2UL
- 
- #define USERNS_INIT_FLAGS USERNS_SETGROUPS_ALLOWED
- 
-@@ -102,6 +103,16 @@ static inline void put_user_ns(struct user_namespace *ns)
- 		__put_user_ns(ns);
+ /* These structures hold the attributes of xdp state that are being passed
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 259bc191ba59..7c597b050b36 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -146,4 +146,13 @@ static inline bool is_classid_clsact_egress(u32 classid)
+ 	       TC_H_MIN(classid) == TC_H_MIN(TC_H_MIN_EGRESS);
  }
  
-+static inline bool is_user_ns_controlled(const struct user_namespace *ns)
-+{
-+	return ns->flags & USERNS_CONTROLLED;
-+}
++struct tc_cbs_qopt_offload {
++	u8 enable;
++	s32 queue;
++	s32 hicredit;
++	s32 locredit;
++	s32 idleslope;
++	s32 sendslope;
++};
 +
-+static inline void mark_user_ns_controlled(struct user_namespace *ns)
-+{
-+	ns->flags |= USERNS_CONTROLLED;
-+}
-+
- struct seq_operations;
- extern const struct seq_operations proc_uid_seq_operations;
- extern const struct seq_operations proc_gid_seq_operations;
-@@ -160,6 +171,15 @@ static inline struct ns_common *ns_get_owner(struct ns_common *ns)
- {
- 	return ERR_PTR(-EPERM);
- }
-+
-+static inline bool is_user_ns_controlled(const struct user_namespace *ns)
-+{
-+	return false;
-+}
-+
-+static inline void mark_user_ns_controlled(struct user_namespace *ns)
-+{
-+}
  #endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index e70ed26485a2..c03d86a7775e 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -172,6 +172,17 @@ config NET_SCH_TBF
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_tbf.
  
- #endif /* _LINUX_USER_H */
-diff --git a/kernel/capability.c b/kernel/capability.c
-index 62dbe3350c1b..40a38cc4ff43 100644
---- a/kernel/capability.c
-+++ b/kernel/capability.c
-@@ -510,6 +510,11 @@ bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns)
- }
++config NET_SCH_CBS
++	tristate "Credit Based Shaper (CBS)"
++	---help---
++	  Say Y here if you want to use the Credit Based Shaper (CBS) packet
++	  scheduling algorithm.
++
++	  See the top of <file:net/sched/sch_cbs.c> for more details.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called sch_cbs.
++
+ config NET_SCH_GRED
+ 	tristate "Generic Random Early Detection (GRED)"
+ 	---help---
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 7b915d226de7..80c8f92d162d 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -52,6 +52,7 @@ obj-$(CONFIG_NET_SCH_FQ_CODEL)	+= sch_fq_codel.o
+ obj-$(CONFIG_NET_SCH_FQ)	+= sch_fq.o
+ obj-$(CONFIG_NET_SCH_HHF)	+= sch_hhf.o
+ obj-$(CONFIG_NET_SCH_PIE)	+= sch_pie.o
++obj-$(CONFIG_NET_SCH_CBS)	+= sch_cbs.o
  
- /* Controlled-userns capabilities routines */
-+bool is_capability_controlled(int cap)
+ obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
+ obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
+diff --git a/net/sched/sch_cbs.c b/net/sched/sch_cbs.c
+new file mode 100644
+index 000000000000..3e0fb0b92160
+--- /dev/null
++++ b/net/sched/sch_cbs.c
+@@ -0,0 +1,225 @@
++/*
++ * net/sched/sch_cbs.c	Credit Based Shaper
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Vinicius Costa Gomes <vinicius.gomes@intel.com>
++ *
++ */
++
++/* Credit Based Shaper (CBS)
++   =========================
++
++   This is a simple rate-limiting shaper aimed at TSN applications on
++   systems with known traffic workloads.
++
++   Its algorithm is defined by the IEEE 802.1Q-2014 Specification,
++   Section 8.6.8.2, and explained in more detail in the Annex L of the
++   same specification.
++
++   There are four tunables to be considered:
++
++	'idleslope': Idleslope is the rate of credits that is
++	accumulated (in kilobits per second) when there is at least
++	one packet waiting for transmission. Packets are transmitted
++	when the current value of credits is equal or greater than
++	zero. When there is no packet to be transmitted the amount of
++	credits is set to zero. This is the main tunable of the CBS
++	algorithm.
++
++	'sendslope':
++	Sendslope is the rate of credits that is depleted (it should be a
++	negative number of kilobits per second) when a transmission is
++	ocurring. It can be calculated as follows, (IEEE 802.1Q-2014 Section
++	8.6.8.2 item g):
++
++	sendslope = idleslope - port_transmit_rate
++
++	'hicredit': Hicredit defines the maximum amount of credits (in
++	bytes) that can be accumulated. Hicredit depends on the
++	characteristics of interfering traffic,
++	'max_interference_size' is the maximum size of any burst of
++	traffic that can delay the transmission of a frame that is
++	available for transmission for this traffic class, (IEEE
++	802.1Q-2014 Annex L, Equation L-3):
++
++	hicredit = max_interference_size * (idleslope / port_transmit_rate)
++
++	'locredit': Locredit is the minimum amount of credits that can
++	be reached. It is a function of the traffic flowing through
++	this qdisc (IEEE 802.1Q-2014 Annex L, Equation L-2):
++
++	locredit = max_frame_size * (sendslope / port_transmit_rate)
++*/
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <net/netlink.h>
++#include <net/sch_generic.h>
++#include <net/pkt_sched.h>
++
++struct cbs_sched_data {
++	s32 queue;
++	s32 locredit;
++	s32 hicredit;
++	s32 sendslope;
++	s32 idleslope;
++};
++
++static int cbs_enqueue(struct sk_buff *skb, struct Qdisc *sch,
++		       struct sk_buff **to_free)
 +{
-+	return !cap_raised(controlled_userns_caps_whitelist, cap);
++	return qdisc_enqueue_tail(skb, sch);
 +}
 +
- #ifdef CONFIG_SYSCTL
- int proc_douserns_caps_whitelist(struct ctl_table *table, int write,
- 				 void __user *buff, size_t *lenp, loff_t *ppos)
-diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index c490f1e4313b..f393ea5108f0 100644
---- a/kernel/user_namespace.c
-+++ b/kernel/user_namespace.c
-@@ -53,6 +53,9 @@ static void set_cred_user_ns(struct cred *cred, struct user_namespace *user_ns)
- 	cred->cap_effective = CAP_FULL_SET;
- 	cred->cap_ambient = CAP_EMPTY_SET;
- 	cred->cap_bset = CAP_FULL_SET;
-+	if (!ns_capable(user_ns->parent, CAP_SYS_ADMIN) ||
-+	    is_user_ns_controlled(user_ns->parent))
-+		mark_user_ns_controlled(user_ns);
- #ifdef CONFIG_KEYS
- 	key_put(cred->request_key_auth);
- 	cred->request_key_auth = NULL;
-diff --git a/security/commoncap.c b/security/commoncap.c
-index 6bf72b175b49..26f41602da10 100644
---- a/security/commoncap.c
-+++ b/security/commoncap.c
-@@ -73,6 +73,14 @@ int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
- {
- 	struct user_namespace *ns = targ_ns;
- 
-+	/* If the capability is controlled and user-ns that process
-+	 * belongs-to is 'controlled' then return EPERM and no need
-+	 * to check the user-ns hierarchy.
-+	 */
-+	if (is_user_ns_controlled(cred->user_ns) &&
-+	    is_capability_controlled(cap))
-+		return -EPERM;
++static const struct nla_policy cbs_policy[TCA_CBS_MAX + 1] = {
++	[TCA_CBS_PARMS]	= { .len = sizeof(struct tc_cbs_qopt) },
++};
 +
- 	/* See if cred has the capability in the target user namespace
- 	 * by examining the target user namespace and all of the target
- 	 * user namespace's parents.
++static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct tc_cbs_qopt_offload cbs = { };
++	struct nlattr *tb[TCA_CBS_MAX + 1];
++	const struct net_device_ops *ops;
++	struct tc_cbs_qopt *qopt;
++	struct net_device *dev;
++	int err;
++
++	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
++	if (err < 0)
++		return err;
++
++	err = -EINVAL;
++	if (!tb[TCA_CBS_PARMS])
++		goto done;
++
++	qopt = nla_data(tb[TCA_CBS_PARMS]);
++
++	dev = qdisc_dev(sch);
++	ops = dev->netdev_ops;
++
++	cbs.queue = q->queue;
++	cbs.enable = 1;
++	cbs.hicredit = qopt->hicredit;
++	cbs.locredit = qopt->locredit;
++	cbs.idleslope = qopt->idleslope;
++	cbs.sendslope = qopt->sendslope;
++
++	err = -EOPNOTSUPP;
++	if (!ops->ndo_setup_tc)
++		goto done;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		goto done;
++
++	q->hicredit = cbs.hicredit;
++	q->locredit = cbs.locredit;
++	q->idleslope = cbs.idleslope;
++	q->sendslope = cbs.sendslope;
++
++done:
++	return err;
++}
++
++static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
++
++	if (!opt)
++		return -EINVAL;
++
++	q->queue = sch->dev_queue - netdev_get_tx_queue(dev, 0);
++
++	return cbs_change(sch, opt);
++}
++
++static void cbs_destroy(struct Qdisc *sch)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct tc_cbs_qopt_offload cbs = { };
++	const struct net_device_ops *ops;
++	struct net_device *dev;
++	int err;
++
++	q->hicredit = 0;
++	q->locredit = 0;
++	q->idleslope = 0;
++	q->sendslope = 0;
++
++	dev = qdisc_dev(sch);
++	ops = dev->netdev_ops;
++
++	if (!ops->ndo_setup_tc)
++		return;
++
++	cbs.queue = q->queue;
++	cbs.enable = 0;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		pr_warn("Couldn't reset queue %d to default values\n",
++			cbs.queue);
++}
++
++static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct nlattr *nest;
++	struct tc_cbs_qopt opt;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (!nest)
++		goto nla_put_failure;
++
++	opt.hicredit = q->hicredit;
++	opt.locredit = q->locredit;
++	opt.sendslope = q->sendslope;
++	opt.idleslope = q->idleslope;
++
++	if (nla_put(skb, TCA_CBS_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	return nla_nest_end(skb, nest);
++
++nla_put_failure:
++	nla_nest_cancel(skb, nest);
++	return -1;
++}
++
++static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
++	.next		=	NULL,
++	.id		=	"cbs",
++	.priv_size	=	sizeof(struct cbs_sched_data),
++	.enqueue	=	cbs_enqueue,
++	.dequeue	=	qdisc_dequeue_head,
++	.peek		=	qdisc_peek_dequeued,
++	.init		=	cbs_init,
++	.reset		=	qdisc_reset_queue,
++	.destroy	=	cbs_destroy,
++	.change		=	cbs_change,
++	.dump		=	cbs_dump,
++	.owner		=	THIS_MODULE,
++};
++
++static int __init cbs_module_init(void)
++{
++	return register_qdisc(&cbs_qdisc_ops);
++}
++
++static void __exit cbs_module_exit(void)
++{
++	unregister_qdisc(&cbs_qdisc_ops);
++}
++module_init(cbs_module_init)
++module_exit(cbs_module_exit)
++MODULE_LICENSE("GPL");
 -- 
-2.14.2.822.g60be5d43e6-goog
+2.14.2
