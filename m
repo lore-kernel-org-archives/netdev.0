@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
- Updates 2017-09-29
-Date: Sun, 01 Oct 2017 03:39:33 +0100 (WEST)
-Message-ID: <20171001.033933.2262930684280329838.davem@davemloft.net>
-References: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net] ip_gre: ipgre_tap device should keep dst
+Date: Sun, 01 Oct 2017 03:54:47 +0100 (WEST)
+Message-ID: <20171001.035447.305390891895301594.davem@davemloft.net>
+References: <af0a18f43bc27a26ca1f3bce3730edcb312c9f76.1506576211.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, xeb@mail.ru
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33704 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33868 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750844AbdJACjm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 22:39:42 -0400
-In-Reply-To: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
+        with ESMTP id S1750844AbdJACyt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 22:54:49 -0400
+In-Reply-To: <af0a18f43bc27a26ca1f3bce3730edcb312c9f76.1506576211.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 29 Sep 2017 17:44:52 -0700
+From: Xin Long <lucien.xin@gmail.com>
+Date: Thu, 28 Sep 2017 13:23:31 +0800
 
-> This series contains updates to i40e and i40evf only.
+> Without keeping dst, the tunnel will not update any mtu/pmtu info,
+> since it does not have a dst on the skb.
+> 
+> Reproducer:
+>   client(ipgre_tap1 - eth1) <-----> (eth1 - ipgre_tap1)server
+> 
+> After reducing eth1's mtu on client, then perforamnce became 0.
+> 
+> This patch is to netif_keep_dst in gre_tap_init, as ipgre does.
+> 
+> Reported-by: Jianlin Shi <jishi@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Pulled, thanks a lot Jeff.
+Applied and queued up for -stable.
