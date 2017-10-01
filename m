@@ -1,58 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] samples/bpf: fix warnings in xdp_monitor_user
-Date: Sun,  1 Oct 2017 14:07:34 -0700
-Message-ID: <20171001210734.27010-1-sthemmin@microsoft.com>
+From: "Tobin C. Harding" <me@tobin.cc>
+Subject: Re: [PATCH 00/18] use ARRAY_SIZE macro
+Date: Mon, 2 Oct 2017 09:01:31 +1100
+Message-ID: <20171001220131.GA11812@eros>
+References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: ast@kernel.org, daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:48109 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750993AbdJAVHo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 17:07:44 -0400
-Received: by mail-pg0-f43.google.com with SMTP id d8so2052368pgt.4
-        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 14:07:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alsa-devel@alsa-project.org, nouveau@lists.freedesktop.org,
+        dri-devel@lists.freedesktop.org, dm-devel@redhat.com,
+        brcm80211-dev-list@cypress.com, devel@driverdev.osuosl.org,
+        linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
+        amd-gfx@lists.freedesktop.org,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        linux-acpi@vger.kernel.org, linux-video@atrey.karlin.mff.cuni.cz,
+        intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org,
+        intel-gfx@lists.freedesktop.org, ecryptfs@vger.kernel.org,
+        linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
+        openipmi-developer@lists.sourceforge.net,
+        intel-gvt-dev@lists.freedesktop.org, devel@acpica.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+        linux-kernel
+To: =?iso-8859-1?B?Suly6W15?= Lefaure <jeremy.lefaure@lse.epita.fr>
+Return-path: <ecryptfs-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
+Sender: ecryptfs-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make local functions static to fix
+On Sun, Oct 01, 2017 at 03:30:38PM -0400, J�r�my Lefaure wrote:
+> Hi everyone,
+> Using ARRAY_SIZE improves the code readability. I used coccinelle (I
+> made a change to the array_size.cocci file [1]) to find several places
+> where ARRAY_SIZE could be used instead of other macros or sizeof
+> division.
+> 
+> I tried to divide the changes into a patch per subsystem (excepted for
+> staging). If one of the patch should be split into several patches, let
+> me know.
+> 
+> In order to reduce the size of the To: and Cc: lines, each patch of the
+> series is sent only to the maintainers and lists concerned by the patch.
+> This cover letter is sent to every list concerned by this series.
 
-  HOSTCC  samples/bpf/xdp_monitor_user.o
-samples/bpf/xdp_monitor_user.c:64:7: warning: no previous prototype for ‘gettime’ [-Wmissing-prototypes]
- __u64 gettime(void)
-       ^~~~~~~
-samples/bpf/xdp_monitor_user.c:209:6: warning: no previous prototype for ‘print_bpf_prog_info’ [-Wmissing-prototypes]
- void print_bpf_prog_info(void)
-      ^~~~~~~~~~~~~~~~~~~
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
----
- samples/bpf/xdp_monitor_user.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Why don't you just send individual patches for each subsystem? I'm not a maintainer but I don't see
+how any one person is going to be able to apply this whole series, it is making it hard for
+maintainers if they have to pick patches out from among the series (if indeed any will bother
+doing that).
 
-diff --git a/samples/bpf/xdp_monitor_user.c b/samples/bpf/xdp_monitor_user.c
-index b51b4f5e3257..c5ab8b776973 100644
---- a/samples/bpf/xdp_monitor_user.c
-+++ b/samples/bpf/xdp_monitor_user.c
-@@ -61,7 +61,7 @@ static void usage(char *argv[])
- }
- 
- #define NANOSEC_PER_SEC 1000000000 /* 10^9 */
--__u64 gettime(void)
-+static __u64 gettime(void)
- {
- 	struct timespec t;
- 	int res;
-@@ -206,7 +206,7 @@ static void stats_poll(int interval, bool err_only)
- 	}
- }
- 
--void print_bpf_prog_info(void)
-+static void print_bpf_prog_info(void)
- {
- 	int i;
- 
--- 
-2.11.0
+I get that this will be more work for you but AFAIK we are optimizing for maintainers.
+
+Good luck,
+Tobin.
