@@ -1,8 +1,9 @@
 From: Michael Witten <mfwitten@gmail.com>
-Subject: [PATCH net 0/3] net: TCP/IP: A few minor cleanups
-Date: Sun, 01 Oct 2017 22:19:02 -0000
-Message-ID: <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
+Subject: [PATCH net 1/3] net: __sock_cmsg_send(): Remove unused parameter `msg'
+Date: Sun, 01 Oct 2017 22:19:09 -0000
+Message-ID: <4556542c58034fcaa3bdc5697ba247e9-mfwitten@gmail.com>
 References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
+            <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
         Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
@@ -10,38 +11,18 @@ To: "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
+In-Reply-To: <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following patch series is an ad hoc "cleanup" that I made
-while perusing the code (I'm not well versed in this code, so I
-would not be surprised if there were objections to the changes):
-
-  [1] net: __sock_cmsg_send(): Remove unused parameter `msg'
-  [2] net: inet_recvmsg(): Remove unnecessary bitwise operation
-  [3] net: skb_queue_purge(): lock/unlock the queue only once
-
-Each patch will be sent as an individual reply to this email;
-the total diff is appended below for your convenience.
-
-You may also fetch these patches from GitHub:
-
-  git checkout --detach 5969d1bb3082b41eba8fd2c826559abe38ccb6df
-  git pull https://github.com/mfwitten/linux.git net/tcp-ip/01-cleanup/02
-
-Overall:
-
-  include/net/sock.h     |  2 +-
-  net/core/skbuff.c      | 26 ++++++++++++++++++--------
-  net/core/sock.c        |  4 ++--
-  net/ipv4/af_inet.c     |  2 +-
-  net/ipv4/ip_sockglue.c |  2 +-
-  net/ipv6/datagram.c    |  2 +-
-  6 files changed, 24 insertions(+), 14 deletions(-)
-
-Sincerly,
-Michael Witten
+Date: Thu, 7 Sep 2017 03:21:38 +0000
+Signed-off-by: Michael Witten <mfwitten@gmail.com>
+---
+ include/net/sock.h     | 2 +-
+ net/core/sock.c        | 4 ++--
+ net/ipv4/ip_sockglue.c | 2 +-
+ net/ipv6/datagram.c    | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/include/net/sock.h b/include/net/sock.h
 index 03a362568357..83373d7148a9 100644
@@ -104,59 +85,5 @@ index a1f918713006..1d1926a4cbe2 100644
  			if (err)
  				return err;
  			continue;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index e31108e5ef79..2dbed042a412 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -791,7 +791,7 @@ int inet_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
- 	sock_rps_record_flow(sk);
- 
- 	err = sk->sk_prot->recvmsg(sk, msg, size, flags & MSG_DONTWAIT,
--				   flags & ~MSG_DONTWAIT, &addr_len);
-+				   flags, &addr_len);
- 	if (err >= 0)
- 		msg->msg_namelen = addr_len;
- 	return err;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 68065d7d383f..bd26b0bde784 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2825,18 +2825,28 @@
- EXPORT_SYMBOL(skb_dequeue_tail);
- 
- /**
-- *	skb_queue_purge - empty a list
-- *	@list: list to empty
-+ *	skb_queue_purge - empty a queue
-+ *	@q: the queue to empty
-  *
-- *	Delete all buffers on an &sk_buff list. Each buffer is removed from
-- *	the list and one reference dropped. This function takes the list
-- *	lock and is atomic with respect to other list locking functions.
-+ *	Dequeue and free each socket buffer that is in @q.
-+ *
-+ *	This function is atomic with respect to other queue-locking functions.
-  */
--void skb_queue_purge(struct sk_buff_head *list)
-+void skb_queue_purge(struct sk_buff_head *q)
- {
--	struct sk_buff *skb;
--	while ((skb = skb_dequeue(list)) != NULL)
-+	unsigned long flags;
-+	struct sk_buff *skb, *next, *head = (struct sk_buff *)q;
-+
-+	spin_lock_irqsave(&q->lock, flags);
-+	skb = q->next;
-+	__skb_queue_head_init(q);
-+	spin_unlock_irqrestore(&q->lock, flags);
-+
-+	while (skb != head) {
-+		next = skb->next;
- 		kfree_skb(skb);
-+		skb = next;
-+	}
- }
- EXPORT_SYMBOL(skb_queue_purge);
- 
 -- 
 2.14.1
