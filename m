@@ -1,80 +1,58 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [BUG] bpf is broken in net-next
-Date: Sun, 1 Oct 2017 14:02:30 -0700
-Message-ID: <20171001140230.6a494b48@xeon-e3>
+Subject: [PATCH net-next] samples/bpf: fix warnings in xdp_monitor_user
+Date: Sun,  1 Oct 2017 14:07:34 -0700
+Message-ID: <20171001210734.27010-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: ast@kernel.org, daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:48849 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750993AbdJAVCi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 17:02:38 -0400
-Received: by mail-pg0-f50.google.com with SMTP id v78so260536pgb.5
-        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 14:02:38 -0700 (PDT)
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:48109 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750993AbdJAVHo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 17:07:44 -0400
+Received: by mail-pg0-f43.google.com with SMTP id d8so2052368pgt.4
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 14:07:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent regression in net-next building bpf.c in samples/bpf now broken.
+Make local functions static to fix
 
-$ make samples/bpf/
+  HOSTCC  samples/bpf/xdp_monitor_user.o
+samples/bpf/xdp_monitor_user.c:64:7: warning: no previous prototype for ‘gettime’ [-Wmissing-prototypes]
+ __u64 gettime(void)
+       ^~~~~~~
+samples/bpf/xdp_monitor_user.c:209:6: warning: no previous prototype for ‘print_bpf_prog_info’ [-Wmissing-prototypes]
+ void print_bpf_prog_info(void)
+      ^~~~~~~~~~~~~~~~~~~
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+---
+ samples/bpf/xdp_monitor_user.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
-  HOSTCC  samples/bpf/../../tools/lib/bpf/bpf.o
-samples/bpf/../../tools/lib/bpf/bpf.c: In function =E2=80=98bpf_create_map_=
-node=E2=80=99:
-samples/bpf/../../tools/lib/bpf/bpf.c:76:13: error: =E2=80=98union bpf_attr=
-=E2=80=99 has no member named =E2=80=98map_name=E2=80=99; did you mean =E2=
-=80=98map_type=E2=80=99?
-  memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-             ^
-samples/bpf/../../tools/lib/bpf/bpf.c:76:44: error: =E2=80=98BPF_OBJ_NAME_L=
-EN=E2=80=99 undeclared (first use in this function)
-  memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-                                            ^
-samples/bpf/../../tools/lib/bpf/bpf.c:49:27: note: in definition of macro =
-=E2=80=98min=E2=80=99
- #define min(x, y) ((x) < (y) ? (x) : (y))
-                           ^
-samples/bpf/../../tools/lib/bpf/bpf.c:76:44: note: each undeclared identifi=
-er is reported only once for each function it appears in
-  memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-                                            ^
-samples/bpf/../../tools/lib/bpf/bpf.c:49:27: note: in definition of macro =
-=E2=80=98min=E2=80=99
- #define min(x, y) ((x) < (y) ? (x) : (y))
-                           ^
-samples/bpf/../../tools/lib/bpf/bpf.c: In function =E2=80=98bpf_create_map_=
-in_map_node=E2=80=99:
-samples/bpf/../../tools/lib/bpf/bpf.c:116:13: error: =E2=80=98union bpf_att=
-r=E2=80=99 has no member named =E2=80=98map_name=E2=80=99; did you mean =E2=
-=80=98map_type=E2=80=99?
-  memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-             ^
-samples/bpf/../../tools/lib/bpf/bpf.c:116:44: error: =E2=80=98BPF_OBJ_NAME_=
-LEN=E2=80=99 undeclared (first use in this function)
-  memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-                                            ^
-samples/bpf/../../tools/lib/bpf/bpf.c:49:27: note: in definition of macro =
-=E2=80=98min=E2=80=99
- #define min(x, y) ((x) < (y) ? (x) : (y))
-                           ^
-samples/bpf/../../tools/lib/bpf/bpf.c: In function =E2=80=98bpf_load_progra=
-m_name=E2=80=99:
-samples/bpf/../../tools/lib/bpf/bpf.c:154:13: error: =E2=80=98union bpf_att=
-r=E2=80=99 has no member named =E2=80=98prog_name=E2=80=99; did you mean =
-=E2=80=98prog_type=E2=80=99?
-  memcpy(attr.prog_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-             ^
-samples/bpf/../../tools/lib/bpf/bpf.c:154:45: error: =E2=80=98BPF_OBJ_NAME_=
-LEN=E2=80=99 undeclared (first use in this function)
-  memcpy(attr.prog_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-                                             ^
-samples/bpf/../../tools/lib/bpf/bpf.c:49:27: note: in definition of macro =
-=E2=80=98min=E2=80=99
- #define min(x, y) ((x) < (y) ? (x) : (y))
-                           ^
-scripts/Makefile.host:118: recipe for target 'samples/bpf/../../tools/lib/b=
-pf/bpf.o' failed
+diff --git a/samples/bpf/xdp_monitor_user.c b/samples/bpf/xdp_monitor_user.c
+index b51b4f5e3257..c5ab8b776973 100644
+--- a/samples/bpf/xdp_monitor_user.c
++++ b/samples/bpf/xdp_monitor_user.c
+@@ -61,7 +61,7 @@ static void usage(char *argv[])
+ }
+ 
+ #define NANOSEC_PER_SEC 1000000000 /* 10^9 */
+-__u64 gettime(void)
++static __u64 gettime(void)
+ {
+ 	struct timespec t;
+ 	int res;
+@@ -206,7 +206,7 @@ static void stats_poll(int interval, bool err_only)
+ 	}
+ }
+ 
+-void print_bpf_prog_info(void)
++static void print_bpf_prog_info(void)
+ {
+ 	int i;
+ 
+-- 
+2.11.0
