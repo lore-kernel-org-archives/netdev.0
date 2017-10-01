@@ -1,7 +1,7 @@
 From: Michael Witten <mfwitten@gmail.com>
-Subject: [PATCH net 1/3] net: __sock_cmsg_send(): Remove unused parameter `msg'
-Date: Sun, 01 Oct 2017 22:19:09 -0000
-Message-ID: <4556542c58034fcaa3bdc5697ba247e9-mfwitten@gmail.com>
+Subject: [PATCH net 2/3] net: inet_recvmsg(): Remove unnecessary bitwise operation
+Date: Sun, 01 Oct 2017 22:19:14 -0000
+Message-ID: <b03bf542933d4dbcb76427f7f4c724e5-mfwitten@gmail.com>
 References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
             <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
@@ -15,75 +15,32 @@ In-Reply-To: <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Date: Thu, 7 Sep 2017 03:21:38 +0000
+Date: Fri, 8 Sep 2017 00:47:49 +0000
+The flag `MSG_DONTWAIT' is handled by passing an argument through
+the dedicated parameter `nonblock' of the function `tcp_recvmsg()'.
+
+Presumably because `MSG_DONTWAIT' is handled so explicitly, it is
+unset in the collection of flags that are passed to `tcp_recvmsg()';
+yet, this unsetting appears to be unnecessary, and so this commit
+removes the bitwise operation that performs the unsetting.
+
 Signed-off-by: Michael Witten <mfwitten@gmail.com>
 ---
- include/net/sock.h     | 2 +-
- net/core/sock.c        | 4 ++--
- net/ipv4/ip_sockglue.c | 2 +-
- net/ipv6/datagram.c    | 2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+ net/ipv4/af_inet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 03a362568357..83373d7148a9 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1562,7 +1562,7 @@ struct sockcm_cookie {
- 	u16 tsflags;
- };
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index e31108e5ef79..2dbed042a412 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -791,7 +791,7 @@ int inet_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
+ 	sock_rps_record_flow(sk);
  
--int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
-+int __sock_cmsg_send(struct sock *sk, struct cmsghdr *cmsg,
- 		     struct sockcm_cookie *sockc);
- int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
- 		   struct sockcm_cookie *sockc);
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9b7b6bbb2a23..425e03fe1c56 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2091,7 +2091,7 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
- }
- EXPORT_SYMBOL(sock_alloc_send_skb);
- 
--int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
-+int __sock_cmsg_send(struct sock *sk, struct cmsghdr *cmsg,
- 		     struct sockcm_cookie *sockc)
- {
- 	u32 tsflags;
-@@ -2137,7 +2137,7 @@ int sock_cmsg_send(struct sock *sk, struct msghdr *msg,
- 			return -EINVAL;
- 		if (cmsg->cmsg_level != SOL_SOCKET)
- 			continue;
--		ret = __sock_cmsg_send(sk, msg, cmsg, sockc);
-+		ret = __sock_cmsg_send(sk, cmsg, sockc);
- 		if (ret)
- 			return ret;
- 	}
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index e558e4f9597b..c79b7822b0b9 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -263,7 +263,7 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
- 		}
- #endif
- 		if (cmsg->cmsg_level == SOL_SOCKET) {
--			err = __sock_cmsg_send(sk, msg, cmsg, &ipc->sockc);
-+			err = __sock_cmsg_send(sk, cmsg, &ipc->sockc);
- 			if (err)
- 				return err;
- 			continue;
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index a1f918713006..1d1926a4cbe2 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -756,7 +756,7 @@ int ip6_datagram_send_ctl(struct net *net, struct sock *sk,
- 		}
- 
- 		if (cmsg->cmsg_level == SOL_SOCKET) {
--			err = __sock_cmsg_send(sk, msg, cmsg, sockc);
-+			err = __sock_cmsg_send(sk, cmsg, sockc);
- 			if (err)
- 				return err;
- 			continue;
+ 	err = sk->sk_prot->recvmsg(sk, msg, size, flags & MSG_DONTWAIT,
+-				   flags & ~MSG_DONTWAIT, &addr_len);
++				   flags, &addr_len);
+ 	if (err >= 0)
+ 		msg->msg_namelen = addr_len;
+ 	return err;
 -- 
 2.14.1
