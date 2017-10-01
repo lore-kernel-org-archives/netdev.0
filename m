@@ -1,49 +1,42 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 2/2] atm: Improve a size determination in adummy_init()
-Date: Sun, 1 Oct 2017 21:50:33 +0200
-Message-ID: <80b86793-c590-7755-df8b-1d9394929120@users.sourceforge.net>
-References: <8fe2ca8a-e1f7-d492-db69-c52b66143ac6@users.sourceforge.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 iproute2] tc: fix ipv6 filter selector attribute for
+ some prefix lengths
+Date: Sun, 1 Oct 2017 13:42:47 -0700
+Message-ID: <20171001134247.59cc2e28@xeon-e3>
+References: <20170927092634.0870468d@shemminger-XPS-13-9360>
+        <20171001031840.1252538-1-hex@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Chas Williams <3chas3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8fe2ca8a-e1f7-d492-db69-c52b66143ac6@users.sourceforge.net>
-Content-Language: en-GB
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <yulia.kartseva@gmail.com>
+To: Yulia Kartseva <hex@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:48375 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751755AbdJAUmz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 16:42:55 -0400
+Received: by mail-pf0-f174.google.com with SMTP id n24so1994555pfk.5
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 13:42:55 -0700 (PDT)
+In-Reply-To: <20171001031840.1252538-1-hex@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 1 Oct 2017 21:35:18 +0200
+On Sat, 30 Sep 2017 20:18:40 -0700
+Yulia Kartseva <hex@fb.com> wrote:
 
-Replace the specification of a data structure by a pointer dereference
-as the parameter for the operator "sizeof" to make the corresponding size
-determination a bit safer according to the Linux coding style convention.
+> Wrong TCA_U32_SEL attribute packing if prefixLen AND 0x1f equals 0x1f.
+> These are  /31, /63, /95 and /127 prefix lengths.
+> 
+> Example:
+> ip6 dst face:b00f::/31
+> filter parent b: protocol ipv6 pref 2307 u32
+> filter parent b: protocol ipv6 pref 2307 u32 fh 800: ht divisor 1
+> filter parent b: protocol ipv6 pref 2307 u32 fh 800::800 order 2048
+> key ht 800 bkt 0
+>   match faceb00f/ffffffff at 24
+> 
+> v2: previous patch was made with a wrong repo
+> 
+> Signed-off-by: Yulia Kartseva <hex@fb.com>
 
-This issue was detected by using the Coccinelle software.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- drivers/atm/adummy.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/atm/adummy.c b/drivers/atm/adummy.c
-index 94b73ddfb731..1ef2d8ee8d67 100644
---- a/drivers/atm/adummy.c
-+++ b/drivers/atm/adummy.c
-@@ -146,9 +146,7 @@ static int __init adummy_init(void)
- 	int err = 0;
- 
- 	printk(KERN_ERR "adummy: version %s\n", DRV_VERSION);
--
--	adummy_dev = kzalloc(sizeof(struct adummy_dev),
--						   GFP_KERNEL);
-+	adummy_dev = kzalloc(sizeof(*adummy_dev), GFP_KERNEL);
- 	if (!adummy_dev) {
- 		err = -ENOMEM;
- 		goto out;
--- 
-2.14.2
+That came through correctly. Applied.
