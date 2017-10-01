@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ppp: fix __percpu annotation
-Date: Sun, 01 Oct 2017 03:58:30 +0100 (WEST)
-Message-ID: <20171001.035830.1241812496925979772.davem@davemloft.net>
-References: <1e69021734ef43406df65571b9fa97884831825d.1506613995.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH net-next] Revert "net: dsa: bcm_sf2: Defer port
+ enabling to calling port_enable"
+Date: Sun, 01 Oct 2017 04:02:50 +0100 (WEST)
+Message-ID: <20171001.040250.1687037732691944138.davem@davemloft.net>
+References: <20170928181906.3156-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gfree.wind@vip.163.com, paulus@samba.org
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33952 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdJAC6c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 22:58:32 -0400
-In-Reply-To: <1e69021734ef43406df65571b9fa97884831825d.1506613995.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170928181906.3156-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Thu, 28 Sep 2017 17:57:58 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 28 Sep 2017 11:19:06 -0700
 
-> Move sparse annotation right after pointer type.
+> This reverts commit e85ec74ace29 ("net: dsa: bcm_sf2: Defer port
+> enabling to calling port_enable") because this now makes an unbind
+> followed by a bind to fail connecting to the ingrated PHY.
 > 
-> Fixes sparse warning:
->     drivers/net/ppp/ppp_generic.c:1422:13: warning: incorrect type in initializer (different address spaces)
->     drivers/net/ppp/ppp_generic.c:1422:13:    expected void const [noderef] <asn:3>*__vpp_verify
->     drivers/net/ppp/ppp_generic.c:1422:13:    got int *<noident>
->     ...
+> What this patch missed is that we need the PHY to be enabled with
+> bcm_sf2_gphy_enable_set() before probing it on the MDIO bus. This is
+> correctly done in the ops->setup() function, but by the time
+> ops->port_enable() runs, this is too late. Upon unbind we would power
+> down the PHY, and so when we would bind again, the PHY would be left
+> powered off.
 > 
-> Fixes: e5dadc65f9e0 ("ppp: Fix false xmit recursion detect with two ppp devices")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> Fixes: e85ec74ace29 ("net: dsa: bcm_sf2: Defer port enabling to calling port_enable")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied, thank you.
+Applied.
