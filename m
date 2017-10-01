@@ -1,71 +1,34 @@
-From: Fengguang Wu <lkp@intel.com>
-Subject: Re: [kbuild-all] [PATCH net-next] vhost_net: do not stall on
- zerocopy depletion
-Date: Sun, 1 Oct 2017 11:26:55 +0800
-Message-ID: <20171001032655.7tuk6qcrd2awtwbe@wfg-t540p.sh.intel.com>
-References: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
- <201710010753.KeY9a5xF%fengguang.wu@intel.com>
- <20171001062018-mutt-send-email-mst@kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 0/3] support changing steering policies in tuntap
+Date: Sun, 1 Oct 2017 06:28:04 +0300
+Message-ID: <20171001062520-mutt-send-email-mst@kernel.org>
+References: <1506500637-13881-1-git-send-email-jasowang@redhat.com>
+ <20170927230042-mutt-send-email-mst@kernel.org>
+ <CAF=yD-J8hERZdwq8FJ2rtnCnZ2b7s=CAVLtPk4CS7e=RQH3sLQ@mail.gmail.com>
+ <26f01b12-396e-6319-0eed-c987930e0ed9@redhat.com>
+ <CAF=yD-KuDZK0-YUfYde=dk_6M6fgj_opuiK2VTfCKDM_=MqDcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        netdev@vger.kernel.org, jasowang@redhat.com,
-        Willem de Bruijn <willemb@google.com>, den@klaipeden.com,
-        virtualization@lists.linux-foundation.org, kbuild-all@01.org,
-        davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:1568 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750730AbdJAD06 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 30 Sep 2017 23:26:58 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171001062018-mutt-send-email-mst@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAF=yD-KuDZK0-YUfYde=dk_6M6fgj_opuiK2VTfCKDM_=MqDcw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 01, 2017 at 06:20:49AM +0300, Michael S. Tsirkin wrote:
->On Sun, Oct 01, 2017 at 08:09:30AM +0800, kbuild test robot wrote:
->> Hi Willem,
->>
->> [auto build test WARNING on net-next/master]
->>
->> url:    https://github.com/0day-ci/linux/commits/Willem-de-Bruijn/vhost_net-do-not-stall-on-zerocopy-depletion/20171001-054709
->> reproduce:
->>         # apt-get install sparse
->>         make ARCH=x86_64 allmodconfig
->>         make C=1 CF=-D__CHECK_ENDIAN__
->
->BTW __CHECK_ENDIAN__ is the default now, I think you can drop it from
->your scripts.
+On Thu, Sep 28, 2017 at 12:09:05PM -0400, Willem de Bruijn wrote:
+> Programming from the guest is
+> indeed different. I don't fully understand that use case.
 
-Good tip, thank you! However since we're testing old kernels, too,
-we'll need to keep it for probably 1-3 more years.
+Generally programming host BPF from guest is a clear win - think DOS
+protection. Guest runs logic to detect dos attacks, then passes the
+program to host.  Afterwards, host does not need to enter guest if
+there's a DOS attack. Saves a ton of cycles.
 
-Thanks,
-Fengguang
+The difficulty is making it work well, e.g. how do we handle maps?
 
->>
->> sparse warnings: (new ones prefixed by >>)
->>
->>
->> vim +440 drivers/vhost/net.c
->>
->>    433	
->>    434	static bool vhost_exceeds_maxpend(struct vhost_net *net)
->>    435	{
->>    436		struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
->>    437		struct vhost_virtqueue *vq = &nvq->vq;
->>    438	
->>    439		return (nvq->upend_idx + UIO_MAXIOV - nvq->done_idx) % UIO_MAXIOV >
->>  > 440		       min(VHOST_MAX_PEND, vq->num >> 2);
->>    441	}
->>    442	
->>
->> ---
->> 0-DAY kernel test infrastructure                Open Source Technology Center
->> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
->_______________________________________________
->kbuild-all mailing list
->kbuild-all@lists.01.org
->https://lists.01.org/mailman/listinfo/kbuild-all
+-- 
+MST
