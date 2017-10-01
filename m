@@ -1,35 +1,27 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [next-queue PATCH v2 3/5] net/sched: Introduce the user API for
- the CBS shaper
-Date: Sat, 30 Sep 2017 17:24:11 -0700
-Message-ID: <CAM_iQpWGHE7hgwEZDO+oRGgWdrdYYofnHfuQq3fMOO-yFj7NSw@mail.gmail.com>
-References: <20170930002657.15291-1-vinicius.gomes@intel.com> <20170930002657.15291-4-vinicius.gomes@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-09-29
+Date: Sun, 01 Oct 2017 03:39:33 +0100 (WEST)
+Message-ID: <20171001.033933.2262930684280329838.davem@davemloft.net>
+References: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>, andre.guedes@intel.com,
-        Ivan Briano <ivan.briano@intel.com>,
-        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        Henrik Austad <henrik@austad.us>, levipearson@gmail.com,
-        rodney.cummings@ni.com
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:43511 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750988AbdJAAYc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 20:24:32 -0400
-Received: by mail-pf0-f179.google.com with SMTP id y29so1390603pff.0
-        for <netdev@vger.kernel.org>; Sat, 30 Sep 2017 17:24:32 -0700 (PDT)
-In-Reply-To: <20170930002657.15291-4-vinicius.gomes@intel.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33704 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750844AbdJACjm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 22:39:42 -0400
+In-Reply-To: <20170930004507.20072-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 29, 2017 at 5:26 PM, Vinicius Costa Gomes
-<vinicius.gomes@intel.com> wrote:
-> Export the API necessary for configuring the CBS shaper (implemented
-> in the next patch) via the tc tool.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 29 Sep 2017 17:44:52 -0700
 
-This one can be folded into patch 4/5.
+> This series contains updates to i40e and i40evf only.
+
+Pulled, thanks a lot Jeff.
