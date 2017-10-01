@@ -1,33 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net: ipv4: remove fib_info arg to fib_check_nh
-Date: Sun, 1 Oct 2017 13:44:32 +0300
-Message-ID: <b7495ada-9a22-075c-65bb-dc20cb893ddf@cogentembedded.com>
-References: <1506570119-17088-1-git-send-email-dsahern@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org
+From: Jonas Gorski <jonas.gorski@gmail.com>
+Subject: [PATCH 0/6] bcm63xx_enet: small fixes and cleanups
+Date: Sun,  1 Oct 2017 13:02:14 +0200
+Message-ID: <20171001110220.27668-1-jonas.gorski@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        bcm-kernel-feedback-list@broadcom.com
+To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.or
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:54359 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751021AbdJAKog (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 06:44:36 -0400
-Received: by mail-lf0-f47.google.com with SMTP id d10so978346lfg.11
-        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 03:44:35 -0700 (PDT)
-In-Reply-To: <1506570119-17088-1-git-send-email-dsahern@gmail.com>
-Content-Language: en-US
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:37402 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750983AbdJALCM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 07:02:12 -0400
+Received: by mail-wm0-f67.google.com with SMTP id f4so1870251wmh.4
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 04:02:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+This patch set fixes a few theoretical issues and cleans up the code a
+bit. It also adds a bit more managed function usage to simplify clock
+and iomem usage.
 
-On 9/28/2017 6:41 AM, David Ahern wrote:
+Based on net-next.
 
-> fib_check_nh does not use the fib_info arg; remove t.
+Jonas Gorski (6):
+  bcm63xx_enet: correct clock usage
+  bcm63xx_enet: do not write to random DMA channel on BCM6345
+  bcm63xx_enet: do not rely on probe order
+  bcm63xx_enet: use managed functions for clock/ioremap
+  bcm63xx_enet: drop unneeded NULL phy_clk check
+  bcm63xx_enet: remove unneeded include
 
-    s/t/it/. :-)
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 78 ++++++++++------------------
+ drivers/net/ethernet/broadcom/bcm63xx_enet.h |  1 -
+ 2 files changed, 28 insertions(+), 51 deletions(-)
 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-[...]
-
-MBR, Sergei
+-- 
+2.13.2
