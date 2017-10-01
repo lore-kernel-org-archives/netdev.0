@@ -1,66 +1,64 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [PATCH][next] mlxsw: spectrum: fix uninitialized value in err
-Date: Sun, 1 Oct 2017 19:42:34 +0300
-Message-ID: <7f67b7bf-3cdf-c5e0-8075-549b91f930ab@mellanox.com>
-References: <20171001162735.8091-1-colin.king@canonical.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+Date: Sun, 1 Oct 2017 10:21:10 -0700
+Message-ID: <20171001102110.24184f1b@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20171001162735.8091-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 10/01/2017 07:27 PM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> In the unlikely event that mfc->mfc_un.res.ttls[i] is 255 for all
-> values of i from 0 to MAXIVS-1, the err is not set at all and hence
-> has a garbage value on the error return at the end of the function,
-> so initialize it to 0.  Also, the error return check on err and goto
-> to err: inside the for loop makes it impossible for err to be zero
-> at the end of the for loop, so we can remove the redundant err check
-> at the end of the loop.
->
-> Detected by CoverityScan CID#1457207 ("Unitialized scalar value")
-
-Thanks for that!
-
-Reviewed-by: Yotam Gigi <yotamg@mellanox.com>
+Cc: netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:50463 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751093AbdJARVS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 13:21:18 -0400
+Received: by mail-pg0-f54.google.com with SMTP id p5so1923409pgn.7
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 10:21:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
->
-> Fixes: c011ec1bbfd6 ("mlxsw: spectrum: Add the multicast routing offloading logic")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
-> index 09120259a45d..4aaf6ca1be7c 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
-> @@ -349,7 +349,7 @@ mlxsw_sp_mr_route4_create(struct mlxsw_sp_mr_table *mr_table,
->  {
->  	struct mlxsw_sp_mr_route_vif_entry *rve, *tmp;
->  	struct mlxsw_sp_mr_route *mr_route;
-> -	int err;
-> +	int err = 0;
->  	int i;
->  
->  	/* Allocate and init a new route and fill it with parameters */
-> @@ -376,8 +376,6 @@ mlxsw_sp_mr_route4_create(struct mlxsw_sp_mr_table *mr_table,
->  		}
->  	}
->  	mlxsw_sp_mr_route_ivif_link(mr_route, &mr_table->vifs[mfc->mfc_parent]);
-> -	if (err)
-> -		goto err;
->  
->  	mr_route->route_action = mlxsw_sp_mr_route_action(mr_route);
->  	return mr_route;
 
+Begin forwarded message:
+
+Date: Sun, 01 Oct 2017 16:22:33 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=197099
+
+            Bug ID: 197099
+           Summary: Kernel panic in interrupt [l2tp_ppp]
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.8.13-1.el6.elrepo.x86_64
+          Hardware: x86-64
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: stephen@networkplumber.org
+          Reporter: svimik@gmail.com
+        Regression: No
+
+Created attachment 258685
+  --> https://bugzilla.kernel.org/attachment.cgi?id=258685&action=edit  
+stacktrace screenshot
+
+Hello!
+
+Getting kernel panics on multiple servers. Since it mentions l2tp_core,
+l2tp_ppp and ppp_generic, I decided to report it to Networking (correct me if
+I'm wrong).
+
+Unfortunately I'm still struggling with making kdump work, so the trace
+screenshot is all I have at this moment. The only hope is that this stacktrace
+means something to the guys that wrote the code.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
