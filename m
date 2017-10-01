@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] net_sched: remove redundant assignment to ret
-Date: Sun, 01 Oct 2017 04:08:28 +0100 (WEST)
-Message-ID: <20171001.040828.1047378292144214219.davem@davemloft.net>
-References: <20170929140116.8642-1-colin.king@canonical.com>
+Subject: Re: [PATCH net-next] bpf: Fix compiler warning on info.map_ids for
+ 32bit platform
+Date: Sun, 01 Oct 2017 04:11:04 +0100 (WEST)
+Message-ID: <20171001.041104.435845954802680756.davem@davemloft.net>
+References: <20170929175217.437830-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170929140116.8642-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        kernel-team@fb.com
+To: kafai@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34216 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750730AbdJADLG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 23:11:06 -0400
+In-Reply-To: <20170929175217.437830-1-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri, 29 Sep 2017 15:01:16 +0100
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Fri, 29 Sep 2017 10:52:17 -0700
 
-> From: Colin Ian King <colin.king@canonical.com>
+> This patch uses u64_to_user_ptr() to cast info.map_ids to a userspace ptr.
+> It also tags the user_map_ids with '__user' for sparse check.
 > 
-> The assignment of -EINVAL to variable ret is redundant as it
-> is being overwritten on the following error exit paths or
-> to the return value from the following call to basic_set_parms.
-> Fix this up by removing it. Cleans up clang warning message:
-> 
-> net/sched/cls_basic.c:185:2: warning: Value stored to 'err' is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Fixes: cb4d2b3f03d8 ("bpf: Add name, load_time, uid and map_ids to bpf_prog_info")
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
 Applied.
