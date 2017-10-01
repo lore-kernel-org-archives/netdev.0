@@ -1,105 +1,80 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [patch net-next 2/7] ipv4: ipmr: Add the parent ID field to VIF
- struct
-Date: Sun, 1 Oct 2017 09:33:48 +0300
-Message-ID: <0dd2bcc2-281d-8a63-6f53-2b3df27461d6@mellanox.com>
-References: <20170928173415.15551-1-jiri@resnulli.us>
- <20170928173415.15551-3-jiri@resnulli.us>
- <29b9104c-6ada-0c9a-ce84-df104fa0afba@cumulusnetworks.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Sun, 1 Oct 2017 09:21:51 +0200
+Message-ID: <20171001072151.GA14600@amd>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170908091856.GB17738@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
+ <20170908215735.GF27428@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
+ <20170928152445.GC2482@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD4112CBC8@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        andrew@lunn.ch, dsa@cumulusnetworks.com, edumazet@google.com,
-        willemb@google.com, johannes.berg@intel.com, dcaratti@redhat.com,
-        pabeni@redhat.com, daniel@iogearbox.net, f.fainelli@gmail.com,
-        fw@strlen.de, gfree.wind@vip.163.com
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="FCuugMFkClbJLl1L"
+Cc: andrew@lunn.ch, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0040.outbound.protection.outlook.com ([104.47.2.40]:43520
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750869AbdJAGeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 1 Oct 2017 02:34:03 -0400
-In-Reply-To: <29b9104c-6ada-0c9a-ce84-df104fa0afba@cumulusnetworks.com>
-Content-Language: en-US
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:41533 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750849AbdJAHVy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 03:21:54 -0400
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD4112CBC8@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/29/2017 12:50 PM, Nikolay Aleksandrov wrote:
-> On 28/09/17 20:34, Jiri Pirko wrote:
->> From: Yotam Gigi <yotamg@mellanox.com>
->>
->> In order to allow the ipmr module to do partial multicast forwarding
->> according to the device parent ID, add the device parent ID field to the
->> VIF struct. This way, the forwarding path can use the parent ID field
->> without invoking switchdev calls, which requires the RTNL lock.
->>
->> When a new VIF is added, set the device parent ID field in it by invoking
->> the switchdev_port_attr_get call.
->>
->> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
->> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/linux/mroute.h | 2 ++
->>  net/ipv4/ipmr.c        | 9 +++++++++
->>  2 files changed, 11 insertions(+)
->>
->> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
->> index b072a84..a46577f 100644
->> --- a/include/linux/mroute.h
->> +++ b/include/linux/mroute.h
->> @@ -57,6 +57,8 @@ static inline bool ipmr_rule_default(const struct fib_rule *rule)
->>  
->>  struct vif_device {
->>  	struct net_device 	*dev;			/* Device we are using */
->> +	struct netdev_phys_item_id dev_parent_id;	/* Device parent ID    */
->> +	bool		dev_parent_id_valid;
->>  	unsigned long	bytes_in,bytes_out;
->>  	unsigned long	pkt_in,pkt_out;		/* Statistics 			*/
->>  	unsigned long	rate_limit;		/* Traffic shaping (NI) 	*/
->> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
->> index 292a8e8..4566c54 100644
->> --- a/net/ipv4/ipmr.c
->> +++ b/net/ipv4/ipmr.c
->> @@ -67,6 +67,7 @@
->>  #include <net/fib_rules.h>
->>  #include <linux/netconf.h>
->>  #include <net/nexthop.h>
->> +#include <net/switchdev.h>
->>  
->>  struct ipmr_rule {
->>  	struct fib_rule		common;
->> @@ -868,6 +869,9 @@ static int vif_add(struct net *net, struct mr_table *mrt,
->>  		   struct vifctl *vifc, int mrtsock)
->>  {
->>  	int vifi = vifc->vifc_vifi;
->> +	struct switchdev_attr attr = {
->> +		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
->> +	};
->>  	struct vif_device *v = &mrt->vif_table[vifi];
->>  	struct net_device *dev;
->>  	struct in_device *in_dev;
->> @@ -942,6 +946,11 @@ static int vif_add(struct net *net, struct mr_table *mrt,
->>  
->>  	/* Fill in the VIF structures */
->>  
->> +	attr.orig_dev = dev;
->> +	if (!switchdev_port_attr_get(dev, &attr)) {
->> +		v->dev_parent_id_valid = true;
->> +		memcpy(v->dev_parent_id.id, attr.u.ppid.id, attr.u.ppid.id_len);
->> +	}
->>  	v->rate_limit = vifc->vifc_rate_limit;
->>  	v->local = vifc->vifc_lcl_addr.s_addr;
->>  	v->remote = vifc->vifc_rmt_addr.s_addr;
->>
-> One more thing - what happens on vif delete, then add with the same vif index of another
-> device that doesn't have a parent id ? I think the vif will be stuck with its parent_id
-> when it gets set.
->
 
-Right. I will set the len to 0 if the device has no parent.
+--FCuugMFkClbJLl1L
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks!
+On Fri 2017-09-29 18:45:19, Tristram.Ha@microchip.com wrote:
+> > > > > > Similar code will be needed by other drivers, right?
+> > > > >
+> > > > > Although KSZ8795 and KSZ8895 may use the same code, the other
+> > > > > chips will have different code.
+> > > >
+> > > > Ok, please make sure code is shared between these two.
+> > >
+> > > The exact function probably cannot be shared between KSZ8795
+> > > and KSZ8895 drivers because although the register constants look
+> > > the same but their exact locations are different in the 2 chips.
+> >=20
+> > Put the code into header as static inline and include it from both
+> > places?
+>=20
+> Although KSZ8795 and KSZ8895 share the same code when simulating
+> the PHY register access, even though the exact registers are not the
+> same, this code needs a little modification for another chip.  It also lo=
+oks
+> too large to put in a header.
+
+I believe putting it into a header is prefferable to having two (or
+three) copies of the code. If it needs small changes, you can
+introduce if () ..., gcc can probably optimize it out.
+
+Thanks,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--FCuugMFkClbJLl1L
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlnQl48ACgkQMOfwapXb+vKpcgCbBHROx49BRx6wegoec7Y1NW23
+TNMAnA5E9a6zyIs7P11+Xod4xIXBWKjS
+=Ak3X
+-----END PGP SIGNATURE-----
+
+--FCuugMFkClbJLl1L--
