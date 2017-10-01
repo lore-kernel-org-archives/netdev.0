@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hns3: fix null pointer dereference before null
- check
-Date: Sun, 01 Oct 2017 04:13:06 +0100 (WEST)
-Message-ID: <20171001.041306.1619218334938501775.davem@davemloft.net>
-References: <20170929195123.4189-1-colin.king@canonical.com>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: change dsa_ptr for a dsa_port
+Date: Sun, 01 Oct 2017 04:15:25 +0100 (WEST)
+Message-ID: <20171001.041525.1993590077484803835.davem@davemloft.net>
+References: <20170929211921.5571-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170929195123.4189-1-colin.king@canonical.com>
+In-Reply-To: <20170929211921.5571-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin King <colin.king@canonical.com>
-Date: Fri, 29 Sep 2017 20:51:23 +0100
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri, 29 Sep 2017 17:19:14 -0400
 
-> From: Colin Ian King <colin.king@canonical.com>
+> With DSA, a master net_device is physically wired to a dedicated CPU
+> switch port. For interaction with the DSA layer, the struct net_device
+> contains a dsa_ptr, which currently points to a dsa_switch_tree object.
 > 
-> pointer ndev is being dereferenced with the call to netif_running
-> before it is being null checked.  Re-order the code to only dereference
-> ndev after it has been null checked.
+> This is only valid for a switch fabric with a single CPU port. In order
+> to support switch fabrics with multiple CPU ports, we first need to
+> change the type of dsa_ptr to what it really is: a dsa_port object.
 > 
-> Detected by CoverityScan, CID#1457206 ("Dereference before null check")
+> This is what this patchset does. The first patches adds a
+> dsa_master_get_slave helper and cleans up portions of DSA core to make
+> the next patches more readable. These next patches prepare the xmit and
+> receive hot paths and finally change dsa_ptr.
 > 
-> Fixes: 9df8f79a4d29 ("net: hns3: Add DCB support when interacting with network stack")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Changes in v2:
+>   - introduce dsa_master_get_slave helper to simplify patch 6
+>   - keep hot path data at beginning of dsa_port for cacheline 1
 
-Applied.
+Series applied, thank you.
