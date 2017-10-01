@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Revert "net: dsa: bcm_sf2: Defer port
- enabling to calling port_enable"
-Date: Sun, 01 Oct 2017 04:02:50 +0100 (WEST)
-Message-ID: <20171001.040250.1687037732691944138.davem@davemloft.net>
-References: <20170928181906.3156-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] ibmvnic: Set state UP
+Date: Sun, 01 Oct 2017 04:03:00 +0100 (WEST)
+Message-ID: <20171001.040300.1049787845412586313.davem@davemloft.net>
+References: <1506631998-12670-1-git-send-email-mjtarsel@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170928181906.3156-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com
+To: mjtarsel@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34046 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751036AbdJADDB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 30 Sep 2017 23:03:01 -0400
+In-Reply-To: <1506631998-12670-1-git-send-email-mjtarsel@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 28 Sep 2017 11:19:06 -0700
+From: Mick Tarsel <mjtarsel@linux.vnet.ibm.com>
+Date: Thu, 28 Sep 2017 13:53:18 -0700
 
-> This reverts commit e85ec74ace29 ("net: dsa: bcm_sf2: Defer port
-> enabling to calling port_enable") because this now makes an unbind
-> followed by a bind to fail connecting to the ingrated PHY.
+> State is initially reported as UNKNOWN. Before register call
+> netif_carrier_off(). Once the device is opened, call netif_carrier_on() in
+> order to set the state to UP.
 > 
-> What this patch missed is that we need the PHY to be enabled with
-> bcm_sf2_gphy_enable_set() before probing it on the MDIO bus. This is
-> correctly done in the ops->setup() function, but by the time
-> ops->port_enable() runs, this is too late. Upon unbind we would power
-> down the PHY, and so when we would bind again, the PHY would be left
-> powered off.
-> 
-> Fixes: e85ec74ace29 ("net: dsa: bcm_sf2: Defer port enabling to calling port_enable")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Mick Tarsel <mjtarsel@linux.vnet.ibm.com>
 
 Applied.
