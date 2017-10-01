@@ -1,49 +1,76 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 4/4] ip_gre: erspan device should keep dst
-Date: Sun,  1 Oct 2017 22:00:56 +0800
-Message-ID: <c6fb2477718ad64f7c2d9a3704550a6cbcdbb87a.1506866059.git.lucien.xin@gmail.com>
-References: <cover.1506866059.git.lucien.xin@gmail.com>
- <ef4c0ca4a1f0b6ae6eabda22fd9f55d0173fa862.1506866059.git.lucien.xin@gmail.com>
- <54a772dbf163eacd65d846054a63f8f7a87e318b.1506866059.git.lucien.xin@gmail.com>
- <dcf4c8a2af505c0e29dfa4b70215560f6ad591ca.1506866059.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Dmitry Kozlov <xeb@mail.ru>,
-        William Tu <u9012063@gmail.com>
-To: network dev <netdev@vger.kernel.org>
+From: "Sergey K." <simkergey@gmail.com>
+Subject: Re: tc-ipt v0.2: Extension does not know id 1504083504
+Date: Sun, 1 Oct 2017 20:25:39 +0600
+Message-ID: <CAGv8E+x_4mkFrKaoJgh8dnh6ZyN7oSHRCpT6GQZKFRECOn8EtQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org, bugfood-ml@fatooh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33948 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751021AbdJAOBi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 10:01:38 -0400
-Received: by mail-pg0-f68.google.com with SMTP id u27so3163670pgn.1
-        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 07:01:38 -0700 (PDT)
-In-Reply-To: <dcf4c8a2af505c0e29dfa4b70215560f6ad591ca.1506866059.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1506866059.git.lucien.xin@gmail.com>
-References: <cover.1506866059.git.lucien.xin@gmail.com>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:49370 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751018AbdJAOZk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 10:25:40 -0400
+Received: by mail-io0-f172.google.com with SMTP id 21so2999601iof.6
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 07:25:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch 'ip_gre: ipgre_tap device should keep dst' fixed
-the issue ipgre_tap dev mtu couldn't be updated in tx path.
+> Funny, I just ran into this too and subscribed here to report it. The
+> error occurs during parsing of any options to the jump target; if the
+> target has no options, there is no error.
+>
+> The problem seems to be an outdated version of struct xtables_target in
+> include/xtables.h. The version in iptables has an additional member
+> "udata" that makes the offsets in the struct different for anything
+> following.
+>
+> A quick fix for this particular problem is to copy include/xtables.h from:
+> git://git.netfilter.org/iptables
+> ...into include/ in the iproute2 source, then recompile after a 'make
+> clean'.
+>
+> As for a comprehensive fix, I don't know--presumably other headers in
+> include/ may be out of date, but I don't want to just blindly send a
+> patch unless someone who knows the ramifications says it's ok. This
+> seems like it would need maintainer oversight. If there's something I
+> can do, though, let me know.
+>
+>-Corey
 
-The same fix is needed for erspan as well.
+Hi Corey.
 
-Fixes: 84e54fe0a5ea ("gre: introduce native tunnel support for ERSPAN")
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv4/ip_gre.c | 1 +
- 1 file changed, 1 insertion(+)
+I did it on your recommendation, replaced xtables.h file from my
+version of iptables 1.6.0, and replaced the file netfilter.h.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index fad0bb1..467e44d 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1254,6 +1254,7 @@ static int erspan_tunnel_init(struct net_device *dev)
- 	dev->features		|= GRE_FEATURES;
- 	dev->hw_features	|= GRE_FEATURES;
- 	dev->priv_flags		|= IFF_LIVE_ADDR_CHANGE;
-+	netif_keep_dst(dev);
- 
- 	return ip_tunnel_init(dev);
- }
--- 
-2.1.0
+Now it's works, but new construction doesn't:
+
+# tc filter add dev eth0 parent ffff: u32 match u32 0 0 action xt -j
+SET --map-set WORLD_QoS dst
+xt: unrecognized option '--map-set'
+failed to find target (null)
+
+bad action parsing
+parse_action: bad value (6:xt)!
+Illegal "action"
+
+my ipset chain:
+# ipset -L WORLD_QoS
+Name: WORLD_QoS
+Type: hash:ip
+Revision: 4
+Header: family inet hashsize 1024 maxelem 65536 skbinfo
+Size in memory: 96
+References: 1
+Members:
+
+------------------------------------------------
+
+If I will try to execute:
+
+# tc filter add dev eth0 parent ffff: u32 match u32 0 0 action xt -j SET
+
+tc-ipt v0.2: You must specify either `--add-set' or `--del-set' or `--map-set'
+
+it looks like it possible to use this construction.
+
+Is it possible?
