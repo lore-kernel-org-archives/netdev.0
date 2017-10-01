@@ -1,48 +1,31 @@
-From: Jonas Gorski <jonas.gorski@gmail.com>
-Subject: [PATCH 2/6] bcm63xx_enet: do not write to random DMA channel on BCM6345
-Date: Sun,  1 Oct 2017 13:02:16 +0200
-Message-ID: <20171001110220.27668-3-jonas.gorski@gmail.com>
-References: <20171001110220.27668-1-jonas.gorski@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        bcm-kernel-feedback-list@broadcom.com
-To: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.or
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 0/4] ip_gre: a bunch of fixes for erspan
+Date: Sun,  1 Oct 2017 22:00:52 +0800
+Message-ID: <cover.1506866059.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, Dmitry Kozlov <xeb@mail.ru>,
+        William Tu <u9012063@gmail.com>
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36723 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750983AbdJALCO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 07:02:14 -0400
-Received: by mail-wm0-f66.google.com with SMTP id 63so678488wmn.3
-        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 04:02:14 -0700 (PDT)
-In-Reply-To: <20171001110220.27668-1-jonas.gorski@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36176 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750981AbdJAOBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 10:01:05 -0400
+Received: by mail-pg0-f68.google.com with SMTP id d8so3311181pgt.3
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 07:01:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DMA controller regs actually point to DMA channel 0, so the write to
-ENETDMA_CFG_REG will actually modify a random DMA channel.
+This patchset is to fix some issues that could cause 0 or low
+performance, and even unexpected truncated packets on erspan.
 
-Since DMA controller registers do not exist on BCM6345, guard the write
-with the usual check for dma_has_sram.
+Xin Long (4):
+  ip_gre: get key from session_id correctly in erspan_rcv
+  ip_gre: check packet length and mtu correctly in erspan_xmit
+  ip_gre: set tunnel hlen properly in erspan_tunnel_init
+  ip_gre: erspan device should keep dst
 
-Signed-off-by: Jonas Gorski <jonas.gorski@gmail.com>
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/ipv4/ip_gre.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index a45ec97b5b1e..a1e1e12e187a 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1062,7 +1062,8 @@ static int bcm_enet_open(struct net_device *dev)
- 	val = enet_readl(priv, ENET_CTL_REG);
- 	val |= ENET_CTL_ENABLE_MASK;
- 	enet_writel(priv, val, ENET_CTL_REG);
--	enet_dma_writel(priv, ENETDMA_CFG_EN_MASK, ENETDMA_CFG_REG);
-+	if (priv->dma_has_sram)
-+		enet_dma_writel(priv, ENETDMA_CFG_EN_MASK, ENETDMA_CFG_REG);
- 	enet_dmac_writel(priv, priv->dma_chan_en_mask,
- 			 ENETDMAC_CHANCFG, priv->rx_chan);
- 
 -- 
-2.13.2
+2.1.0
