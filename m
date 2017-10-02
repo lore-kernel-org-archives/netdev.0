@@ -1,69 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/13] fm10k: stop spurious link down messages when Tx FIFO is full
-Date: Mon,  2 Oct 2017 08:42:27 -0700
-Message-ID: <20171002154236.84043-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/13] fm10k: Use seq_putc() in fm10k_dbg_desc_break()
+Date: Mon,  2 Oct 2017 08:42:26 -0700
+Message-ID: <20171002154236.84043-4-jeffrey.t.kirsher@intel.com>
 References: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Markus Elfring <elfring@users.sourceforge.net>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:3420 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751674AbdJBPm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751514AbdJBPm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 2 Oct 2017 11:42:59 -0400
 In-Reply-To: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Markus Elfring <elfring@users.sourceforge.net>
 
-In fm10k_get_host_state_generic, we check the mailbox tx_read() function
-to ensure that the mailbox is still open. This function also checks to
-make sure we have space to transmit another message. Unfortunately, if
-we just recently sent a bunch of messages (such as enabling hundreds of
-VLANs on a VF) this can result in a race where the watchdog task thinks
-the link went down just because we haven't had time to process all these
-messages yet.
+Two single characters should be put into a sequence.
+Thus use the corresponding function "seq_putc".
 
-Instead, lets just check whether the mailbox is still open. This ensures
-that we don't race with the Tx FIFO, and we only link down once the
-mailbox is not open.
+This issue was detected by using the Coccinelle software.
 
-This is safe, because if the FIFO fills up and we're unable to send
-a message for too long, we'll end up triggering the timeout detection
-which results in a reset. Additionally, since we still check to ensure
-the mailbox state is OPEN, we'll transition to link down whenever the
-mailbox closes as well.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_common.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.c b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-index 62a6ad9b3eed..736a9f087bc9 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
-@@ -1,5 +1,5 @@
- /* Intel(R) Ethernet Switch Host Interface Driver
-- * Copyright(c) 2013 - 2016 Intel Corporation.
-+ * Copyright(c) 2013 - 2017 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -517,8 +517,8 @@ s32 fm10k_get_host_state_generic(struct fm10k_hw *hw, bool *host_ready)
- 		goto out;
- 	}
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+index 5116fd043630..14df09e2d964 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_debugfs.c
+@@ -52,9 +52,9 @@ static void fm10k_dbg_desc_seq_stop(struct seq_file __always_unused *s,
+ static void fm10k_dbg_desc_break(struct seq_file *s, int i)
+ {
+ 	while (i--)
+-		seq_puts(s, "-");
++		seq_putc(s, '-');
  
--	/* verify Mailbox is still valid */
--	if (!mbx->ops.tx_ready(mbx, FM10K_VFMBX_MSG_MTU))
-+	/* verify Mailbox is still open */
-+	if (mbx->state != FM10K_STATE_OPEN)
- 		goto out;
+-	seq_puts(s, "\n");
++	seq_putc(s, '\n');
+ }
  
- 	/* interface cannot receive traffic without logical ports */
+ static int fm10k_dbg_tx_desc_seq_show(struct seq_file *s, void *v)
 -- 
 2.14.2
