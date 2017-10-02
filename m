@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] fm10k: prevent race condition of __FM10K_SERVICE_SCHED
-Date: Mon,  2 Oct 2017 08:42:36 -0700
-Message-ID: <20171002154236.84043-14-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/13] fm10k: add missing fall through comment
+Date: Mon,  2 Oct 2017 08:42:30 -0700
+Message-ID: <20171002154236.84043-8-jeffrey.t.kirsher@intel.com>
 References: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,104 +10,40 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:3420 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751819AbdJBPnB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 11:43:01 -0400
+        id S1751741AbdJBPnA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 11:43:00 -0400
 In-Reply-To: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Although very unlikely, it is possible that cancel_work_sync() may stop
-the service_task before it actually started. In this case, the
-__FM10K_SERVICE_SCHED bit will never be cleared. This results in the
-service task being unable to reschedule in the future. Add a helper
-function which sets the service disable bit, waits for the service task
-to stop and clears the schedule bit, thus avoiding the race condition.
-We know the schedule bit is safe to clear because the cancel_work_sync()
-guarantees the service task is not running.
+Newer versions of GCC starting with 7 now additionally warn when a case
+statement may fall through without an explicit comment mentioning it.
+Add such a comment to silence the warning, as this is expected.
 
-Add a helper function also to restart the service task, for symmetry.
-This is not strictly needed but helps the mental model of how to stop
-and start the service task.
-
-This race could only happen in fm10k_suspend/fm10k_resume as this is the
-only place where the service task is actually restarted. Thus,
-suspend/resume testing would be ideal. However, note that the chance of
-this happening is very slim as the service event is scheduled for
-immediate execution, and you would have to trigger a suspend at almost
-the exact same time as the service task was scheduled.
+Unfortunately the comment must come directly before the next case
+statement, so we put it outside the #ifdef. Otherwise, the compiler
+cannot properly detect it and thus the warning is displayed regardless.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 32 ++++++++++++++++++++++------
- 1 file changed, 25 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 41335154d6b1..9575f7c1862d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -118,6 +118,27 @@ static void fm10k_service_event_complete(struct fm10k_intfc *interface)
- 		fm10k_service_event_schedule(interface);
- }
- 
-+static void fm10k_stop_service_event(struct fm10k_intfc *interface)
-+{
-+	set_bit(__FM10K_SERVICE_DISABLE, interface->state);
-+	cancel_work_sync(&interface->service_task);
-+
-+	/* It's possible that cancel_work_sync stopped the service task from
-+	 * running before it could actually start. In this case the
-+	 * __FM10K_SERVICE_SCHED bit will never be cleared. Since we know that
-+	 * the service task cannot be running at this point, we need to clear
-+	 * the scheduled bit, as otherwise the service task may never be
-+	 * restarted.
-+	 */
-+	clear_bit(__FM10K_SERVICE_SCHED, interface->state);
-+}
-+
-+static void fm10k_start_service_event(struct fm10k_intfc *interface)
-+{
-+	clear_bit(__FM10K_SERVICE_DISABLE, interface->state);
-+	fm10k_service_event_schedule(interface);
-+}
-+
- /**
-  * fm10k_service_timer - Timer Call-back
-  * @data: pointer to interface cast into an unsigned long
-@@ -2116,8 +2137,7 @@ static void fm10k_remove(struct pci_dev *pdev)
- 
- 	del_timer_sync(&interface->service_timer);
- 
--	set_bit(__FM10K_SERVICE_DISABLE, interface->state);
--	cancel_work_sync(&interface->service_task);
-+	fm10k_stop_service_event(interface);
- 
- 	/* free netdev, this may bounce the interrupts due to setup_tc */
- 	if (netdev->reg_state == NETREG_REGISTERED)
-@@ -2155,8 +2175,7 @@ static void fm10k_prepare_suspend(struct fm10k_intfc *interface)
- 	 * stopped. We stop the watchdog task until after we resume software
- 	 * activity.
- 	 */
--	set_bit(__FM10K_SERVICE_DISABLE, interface->state);
--	cancel_work_sync(&interface->service_task);
-+	fm10k_stop_service_event(interface);
- 
- 	fm10k_prepare_for_reset(interface);
- }
-@@ -2183,9 +2202,8 @@ static int fm10k_handle_resume(struct fm10k_intfc *interface)
- 	interface->link_down_event = jiffies + (HZ);
- 	set_bit(__FM10K_LINK_DOWN, interface->state);
- 
--	/* clear the service task disable bit to allow service task to start */
--	clear_bit(__FM10K_SERVICE_DISABLE, interface->state);
--	fm10k_service_event_schedule(interface);
-+	/* restart the service task */
-+	fm10k_start_service_event(interface);
- 
- 	return err;
- }
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 9dffaba85ae6..189d52a8a605 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -876,6 +876,7 @@ static void fm10k_tx_csum(struct fm10k_ring *tx_ring,
+ 	case IPPROTO_GRE:
+ 		if (skb->encapsulation)
+ 			break;
++		/* fall through */
+ 	default:
+ 		if (unlikely(net_ratelimit())) {
+ 			dev_warn(tx_ring->dev,
 -- 
 2.14.2
