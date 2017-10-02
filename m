@@ -1,363 +1,102 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/3] bridge: suppress arp pkts on BR_NEIGH_SUPPRESS ports
-Date: Sun,  1 Oct 2017 21:36:57 -0700
-Message-ID: <1506919018-27875-3-git-send-email-roopa@cumulusnetworks.com>
-References: <1506919018-27875-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
-        stephen@networkplumber.org, bridge@lists.linux-foundation.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:51548 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751075AbdJBEhF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 00:37:05 -0400
-Received: by mail-pg0-f43.google.com with SMTP id k193so2402333pgc.8
-        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 21:37:05 -0700 (PDT)
-In-Reply-To: <1506919018-27875-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Witten <mfwitten@gmail.com>
+Subject: Re: [PATCH net 3/3] net: skb_queue_purge(): lock/unlock the queue only once
+Date: Mon, 02 Oct 2017 05:15:32 -0000
+Message-ID: <057dd5367241468691b2b9adbc38a3ba-mfwitten@gmail.com>
+References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
+            <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
+            <ccfa23a0f76c4c9ebd07fc991db2f829-mfwitten@gmail.com>
+            <20171001175909.4b9e53d8@xeon-e3>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171001175909.4b9e53d8@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Sun, 1 Oct 2017 17:59:09 -0700, Stephen Hemminger wrote:
 
-This patch avoids flooding and proxies arp packets
-for BR_NEIGH_SUPPRESS ports.
+> On Sun, 01 Oct 2017 22:19:20 -0000 Michael Witten wrote:
+>
+>> +	spin_lock_irqsave(&q->lock, flags);
+>> +	skb = q->next;
+>> +	__skb_queue_head_init(q);
+>> +	spin_unlock_irqrestore(&q->lock, flags);
+>
+> Other code manipulating lists uses splice operation and
+> a sk_buff_head temporary on the stack. That would be easier
+> to understand.
+>
+> 	struct sk_buf_head head;
+>
+> 	__skb_queue_head_init(&head);
+> 	spin_lock_irqsave(&q->lock, flags);
+> 	skb_queue_splice_init(q, &head);
+> 	spin_unlock_irqrestore(&q->lock, flags);
+>
+>
+>> +	while (skb != head) {
+>> +		next = skb->next;
+>>  		kfree_skb(skb);
+>> +		skb = next;
+>> +	}
+>
+> It would be cleaner if you could use
+> skb_queue_walk_safe rather than open coding the loop.
+>
+> 	skb_queue_walk_safe(&head, skb,  tmp)
+> 		kfree_skb(skb);
 
-Moves existing br_do_proxy_arp to br_do_proxy_suppress_arp
-to support both proxy arp and neigh suppress.
+I appreciate abstraction as much as anybody, but I do not believe
+that such abstractions would actually be an improvement here.
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/bridge/br_arp_nd_proxy.c | 186 +++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_device.c       |   8 ++
- net/bridge/br_input.c        |  63 ++-------------
- net/bridge/br_private.h      |   3 +
- 4 files changed, 202 insertions(+), 58 deletions(-)
+* Splice-initing seems more like an idiom than an abstraction;
+  at first blush, it wouldn't be clear to me what the intention
+  is.
 
-diff --git a/net/bridge/br_arp_nd_proxy.c b/net/bridge/br_arp_nd_proxy.c
-index e191bb5..5153510 100644
---- a/net/bridge/br_arp_nd_proxy.c
-+++ b/net/bridge/br_arp_nd_proxy.c
-@@ -11,6 +11,13 @@
-  */
- 
- #include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/neighbour.h>
-+#include <net/arp.h>
-+#include <linux/if_vlan.h>
-+#include <linux/inetdevice.h>
-+#include <net/addrconf.h>
- #include "br_private.h"
- 
- void br_recalculate_neigh_suppress_enabled(struct net_bridge *br)
-@@ -25,3 +32,182 @@ void br_recalculate_neigh_suppress_enabled(struct net_bridge *br)
- 		}
- 	}
- }
-+
-+static void br_arp_send(struct net_bridge_port *p, int type, int ptype,
-+			__be32 dest_ip, struct net_device *dev,
-+			__be32 src_ip, const unsigned char *dest_hw,
-+			const unsigned char *src_hw,
-+			const unsigned char *target_hw,
-+			__be16 vlan_proto, u16 vlan_tci)
-+{
-+	struct sk_buff *skb;
-+
-+	netdev_dbg(dev, "arp send dev %s dst %pI4 dst_hw %pM src %pI4 src_hw %pM\n",
-+		   dev->name, &dest_ip, dest_hw, &src_ip, src_hw);
-+
-+	if (!vlan_tci) {
-+		arp_send(type, ptype, dest_ip, dev, src_ip,
-+			 dest_hw, src_hw, target_hw);
-+		return;
-+	}
-+
-+	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
-+			 dest_hw, src_hw, target_hw);
-+	if (!skb)
-+		return;
-+
-+	if (p) {
-+		struct net_bridge_vlan_group *vg;
-+		u16 pvid;
-+
-+		vg = nbp_vlan_group_rcu(p);
-+		pvid = br_get_pvid(vg);
-+		if (pvid && pvid == vlan_tci)
-+			vlan_tci = 0;
-+	}
-+
-+	if (vlan_tci) {
-+		skb = vlan_insert_tag_set_proto(skb, vlan_proto,
-+						vlan_tci);
-+		if (!skb) {
-+			net_err_ratelimited("%s: failed to insert VLAN tag\n",
-+					    __func__);
-+			return;
-+		}
-+	}
-+
-+	arp_xmit(skb);
-+}
-+
-+static int br_chk_addr_ip(struct net_device *dev, void *data)
-+{
-+	__be32 ip = *(__be32 *)data;
-+	struct in_device *in_dev;
-+	__be32 addr = 0;
-+
-+	in_dev = __in_dev_get_rcu(dev);
-+	if (in_dev)
-+		addr = inet_confirm_addr(dev_net(dev), in_dev, 0, ip,
-+					 RT_SCOPE_HOST);
-+
-+	if (addr == ip)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static bool br_is_local_ip(struct net_device *dev, __be32 ip)
-+{
-+	if (br_chk_addr_ip(dev, &ip))
-+		return true;
-+
-+	/* check if ip is configured on upper dev */
-+	if (netdev_walk_all_upper_dev_rcu(dev, br_chk_addr_ip, &ip))
-+		return true;
-+
-+	return false;
-+}
-+
-+void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
-+			      u16 vid, struct net_bridge_port *p)
-+{
-+	struct net_device *dev = br->dev;
-+	struct net_device *vlandev = NULL;
-+	struct neighbour *n;
-+	struct arphdr *parp;
-+	u8 *arpptr, *sha;
-+	__be32 sip, tip;
-+
-+	BR_INPUT_SKB_CB(skb)->proxyarp_replied = false;
-+
-+	if ((dev->flags & IFF_NOARP) ||
-+	    !pskb_may_pull(skb, arp_hdr_len(dev)))
-+		return;
-+
-+	parp = arp_hdr(skb);
-+
-+	if (parp->ar_pro != htons(ETH_P_IP) ||
-+	    parp->ar_hln != dev->addr_len ||
-+	    parp->ar_pln != 4)
-+		return;
-+
-+	arpptr = (u8 *)parp + sizeof(struct arphdr);
-+	sha = arpptr;
-+	arpptr += dev->addr_len;	/* sha */
-+	memcpy(&sip, arpptr, sizeof(sip));
-+	arpptr += sizeof(sip);
-+	arpptr += dev->addr_len;	/* tha */
-+	memcpy(&tip, arpptr, sizeof(tip));
-+
-+	if (ipv4_is_loopback(tip) ||
-+	    ipv4_is_multicast(tip))
-+		return;
-+
-+	if (br->neigh_suppress_enabled) {
-+		if (p && (p->flags & BR_NEIGH_SUPPRESS))
-+			return;
-+		if (ipv4_is_zeronet(sip) || sip == tip) {
-+			/* prevent flooding to neigh suppress ports */
-+			BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
-+			return;
-+		}
-+	}
-+
-+	if (parp->ar_op != htons(ARPOP_REQUEST))
-+		return;
-+
-+	if (vid != 0) {
-+		vlandev = __vlan_find_dev_deep_rcu(br->dev, skb->vlan_proto,
-+						   vid);
-+		if (!vlandev)
-+			return;
-+	} else {
-+		vlandev = dev;
-+	}
-+
-+	if (br->neigh_suppress_enabled && br_is_local_ip(vlandev, tip)) {
-+		/* its our local ip, so don't proxy reply
-+		 * and don't forward to neigh suppress ports
-+		 */
-+		BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
-+		return;
-+	}
-+
-+	n = neigh_lookup(&arp_tbl, &tip, vlandev);
-+	if (n) {
-+		struct net_bridge_fdb_entry *f;
-+
-+		if (!(n->nud_state & NUD_VALID)) {
-+			neigh_release(n);
-+			return;
-+		}
-+
-+		f = br_fdb_find_rcu(br, n->ha, vid);
-+		if (f) {
-+			bool replied = false;
-+
-+			if (f->dst && ((p->flags & BR_PROXYARP) ||
-+				       (f->dst->flags & BR_PROXYARP_WIFI) ||
-+				       (f->dst->flags & BR_NEIGH_SUPPRESS))) {
-+				if (!vid)
-+					br_arp_send(p, ARPOP_REPLY, ETH_P_ARP,
-+						    sip, skb->dev, tip, sha,
-+						    n->ha, sha, 0, 0);
-+				else
-+					br_arp_send(p, ARPOP_REPLY, ETH_P_ARP,
-+						    sip, skb->dev, tip, sha,
-+						    n->ha, sha, skb->vlan_proto,
-+						    skb_vlan_tag_get(skb));
-+				replied = true;
-+			}
-+
-+			/* If we have replied or as long as we know the
-+			 * mac, indicate to arp replied
-+			 */
-+			if (replied || br->neigh_suppress_enabled)
-+				BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
-+		}
-+
-+		neigh_release(n);
-+	}
-+}
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index f6b6a92..8961c25 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -39,6 +39,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct pcpu_sw_netstats *brstats = this_cpu_ptr(br->stats);
- 	const struct nf_br_ops *nf_ops;
- 	const unsigned char *dest;
-+	struct ethhdr *eth;
- 	u16 vid = 0;
- 
- 	rcu_read_lock();
-@@ -57,11 +58,18 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	BR_INPUT_SKB_CB(skb)->brdev = dev;
- 
- 	skb_reset_mac_header(skb);
-+	eth = eth_hdr(skb);
- 	skb_pull(skb, ETH_HLEN);
- 
- 	if (!br_allowed_ingress(br, br_vlan_group_rcu(br), skb, &vid))
- 		goto out;
- 
-+	if (IS_ENABLED(CONFIG_INET) && br->neigh_suppress_enabled &&
-+	    (ntohs(eth->h_proto) == ETH_P_ARP ||
-+	     ntohs(eth->h_proto) == ETH_P_RARP)) {
-+		br_do_proxy_suppress_arp(skb, br, vid, NULL);
-+	}
-+
- 	dest = eth_hdr(skb)->h_dest;
- 	if (is_broadcast_ether_addr(dest)) {
- 		br_flood(br, skb, BR_PKT_BROADCAST, false, true);
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 7637f58..7637a23 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -71,62 +71,6 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 		       br_netif_receive_skb);
- }
- 
--static void br_do_proxy_arp(struct sk_buff *skb, struct net_bridge *br,
--			    u16 vid, struct net_bridge_port *p)
--{
--	struct net_device *dev = br->dev;
--	struct neighbour *n;
--	struct arphdr *parp;
--	u8 *arpptr, *sha;
--	__be32 sip, tip;
--
--	BR_INPUT_SKB_CB(skb)->proxyarp_replied = false;
--
--	if ((dev->flags & IFF_NOARP) ||
--	    !pskb_may_pull(skb, arp_hdr_len(dev)))
--		return;
--
--	parp = arp_hdr(skb);
--
--	if (parp->ar_pro != htons(ETH_P_IP) ||
--	    parp->ar_op != htons(ARPOP_REQUEST) ||
--	    parp->ar_hln != dev->addr_len ||
--	    parp->ar_pln != 4)
--		return;
--
--	arpptr = (u8 *)parp + sizeof(struct arphdr);
--	sha = arpptr;
--	arpptr += dev->addr_len;	/* sha */
--	memcpy(&sip, arpptr, sizeof(sip));
--	arpptr += sizeof(sip);
--	arpptr += dev->addr_len;	/* tha */
--	memcpy(&tip, arpptr, sizeof(tip));
--
--	if (ipv4_is_loopback(tip) ||
--	    ipv4_is_multicast(tip))
--		return;
--
--	n = neigh_lookup(&arp_tbl, &tip, dev);
--	if (n) {
--		struct net_bridge_fdb_entry *f;
--
--		if (!(n->nud_state & NUD_VALID)) {
--			neigh_release(n);
--			return;
--		}
--
--		f = br_fdb_find_rcu(br, n->ha, vid);
--		if (f && ((p->flags & BR_PROXYARP) ||
--			  (f->dst && (f->dst->flags & BR_PROXYARP_WIFI)))) {
--			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, skb->dev, tip,
--				 sha, n->ha, sha);
--			BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
--		}
--
--		neigh_release(n);
--	}
--}
--
- /* note: already called with rcu_read_lock */
- int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
-@@ -171,8 +115,11 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
- 
- 	BR_INPUT_SKB_CB(skb)->brdev = br->dev;
- 
--	if (IS_ENABLED(CONFIG_INET) && skb->protocol == htons(ETH_P_ARP))
--		br_do_proxy_arp(skb, br, vid, p);
-+	if (IS_ENABLED(CONFIG_INET) &&
-+	    (skb->protocol == htons(ETH_P_ARP) ||
-+	     skb->protocol == htons(ETH_P_RARP))) {
-+		br_do_proxy_suppress_arp(skb, br, vid, p);
-+	}
- 
- 	switch (pkt_type) {
- 	case BR_PKT_MULTICAST:
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 7dacd83..3006f0d 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -1131,5 +1131,8 @@ static inline void br_switchdev_frame_unmark(struct sk_buff *skb)
- }
- #endif /* CONFIG_NET_SWITCHDEV */
- 
-+/* br_arp_nd_proxy.c */
- void br_recalculate_neigh_suppress_enabled(struct net_bridge *br);
-+void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
-+			      u16 vid, struct net_bridge_port *p);
- #endif
--- 
-2.1.4
+* Such abstractions are fairly unnecessary.
+
+    * The function as written is already so short as to be
+      easily digested.
+
+    * More to the point, this function is not some generic,
+      higher-level algorithm that just happens to employ the
+      socket buffer interface; rather, it is a function that
+      implements part of that very interface, and may thus
+      twiddle the intimate bits of these data structures
+      without being accused of abusing a leaky abstraction.
+
+* Such abstractions add overhead, if only conceptually. In this
+  case, a temporary socket buffer queue allocates *3* unnecessary
+  struct members, including a whole `spinlock_t' member:
+  
+    prev
+    qlen
+    lock
+
+  It's possible that the compiler will be smart enough to leave
+  those out, but I have my suspicions that it won't, not only
+  given that the interface contract requires that the temporary
+  socket buffer queue be properly initialized before use, but
+  also because splicing into the temporary will manipulate its
+  `qlen'. Yet, why worry whether optimization happens? The whole
+  issue can simply be avoided by exploiting the intimate details
+  that are already philosophically available to us.
+
+  Similarly, the function `skb_queue_walk_safe' is nice, but it
+  loses value both because a temporary queue loses value (as just
+  described), and because it ignores the fact that legitimate
+  access to the internals of these data structures allows for
+  setting up the requested loop in advance; that is to say, the
+  two parts of the function that we are now debating can be woven
+  together more tightly than `skb_queue_walk_safe' allows.
+
+For these reasons, I stand by the way that the patch currently
+implements this function; it does exactly what is desired, no more
+or less.
+
+Sincerely,
+Michael Witten
