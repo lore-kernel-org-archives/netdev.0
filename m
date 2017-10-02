@@ -1,73 +1,91 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH RFC] flow_dissector: Add FLOW_DISSECTOR_F_FLOWER
-Date: Mon, 2 Oct 2017 09:05:10 -0700
-Message-ID: <CALx6S356v5Ogwv0G3Pnok2FkFphNbkw-cRR5MRtQRDmV2_vMXA@mail.gmail.com>
-References: <20170929191343.11318-1-tom@quantonium.net> <20171002144946.GE1941@nanopsycho.orion>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next V3 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Mon, 02 Oct 2017 18:05:14 +0200
+Message-ID: <150696027949.24152.7507025809123255386.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tom Herbert <tom@quantonium.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit Seth <rohit@quantonium.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:35392 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751061AbdJBQFM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 12:05:12 -0400
-Received: by mail-qk0-f193.google.com with SMTP id w63so2582557qkd.2
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 09:05:11 -0700 (PDT)
-In-Reply-To: <20171002144946.GE1941@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:48382 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751061AbdJBQFX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 12:05:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 2, 2017 at 7:49 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Sep 29, 2017 at 09:13:42PM CEST, tom@quantonium.net wrote:
->>This patch is RFC and would be applied after "flow_dissector:
->>Protocol specific flow dissector offload"
->>
->>In order to maitain uAPI in flower, the FLOW_DISSECTOR_F_FLOWER flag
->>is added to indicate to flow_dissector that the caller is flower.
->>As new funtionality is addes to flow_dissector that would break
->>the flower uAPI, the code can be wrapped in "if (!(flags &
->>FLOW_DISSECTOR_F_FLOWER)).
->>
->>In this patch the conditional is use around protocol specific
->>dissection (e.g. DPI into VXLAN) as well as the code that
->>enforces a depth of parsing to prevent DPI. The latter was a
->>recent patch that would introduce a parsing limit to flower that
->>did not exist before (i.e. would break uAPI).
->>
->>Signed-off-by: Tom Herbert <tom@quantonium.net>
->>---
->> include/net/flow_dissector.h |  1 +
->> net/core/flow_dissector.c    | 17 +++++++++++------
->> net/sched/cls_flow.c         |  3 ++-
->> 3 files changed, 14 insertions(+), 7 deletions(-)
->>
->>diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
->>index ad75bbfd1c9c..ca315107d147 100644
->>--- a/include/net/flow_dissector.h
->>+++ b/include/net/flow_dissector.h
->>@@ -214,6 +214,7 @@ enum flow_dissector_key_id {
->> #define FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL   BIT(2)
->> #define FLOW_DISSECTOR_F_STOP_AT_ENCAP                BIT(3)
->> #define FLOW_DISSECTOR_F_STOP_AT_L4           BIT(4)
->>+#define FLOW_DISSECTOR_F_FLOWER                       BIT(5)
->
-> I don't like flow_dissector to have any user-specific bits. Note that
-> the same dissection may be used not only from flower, but from other
-> code as well (OVS). Flow dissector should not care who the caller is.
+Introducing a new way to redirect XDP frames.  Notice how no driver
+changes are necessary given the design of XDP_REDIRECT.
 
-I agree with that, but unfortunately that's now how it works in
-reality. As pointed out flower has assumed flow_dissector semantics as
-its uAPI, so we can't change flow dissector with out considering this
-one specific caller even if all other use cases of flow dissector
-don't care.
+This redirect map type is called 'cpumap', as it allows redirection
+XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+and start the network stack invocation on that CPU.
 
-If you don't like this approach, then please suggest an alternative
-that will achieve the same effect.
+This is a scalability and isolation mechanism, that allow separating
+the early driver network XDP layer, from the rest of the netstack, and
+assigning dedicated CPUs for this stage.  The sysadm control/configure
+the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+many queues are configured via ethtool --set-channels.  Benchmarks
+show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+have the advantage that more packets being "bulk" available per hard
+interrupt[1].
 
-Thanks,
-Tom
+[1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
+
+Use-cases:
+
+1. End-host based pre-filtering for DDoS mitigation.  This is fast
+   enough to allow software to see and filter all packets wirespeed.
+   Thus, no packets getting silently dropped by hardware.
+
+2. Given NIC HW unevenly distributes packets across RX queue, this
+   mechanism can be used for redistribution load across CPUs.  This
+   usually happens when HW is unaware of a new protocol.  This
+   resembles RPS (Receive Packet Steering), just faster, but with more
+   responsibility placed on the BPF program for correct steering.
+
+3. Auto-scaling or power saving via only activating the appropriate
+   number of remote CPUs for handling the current load.  The cpumap
+   tracepoints can function as a feedback loop for this purpose.
+
+Patchset V3 based on net-next at:
+ commit 0929567a7a2d ("samples/bpf: fix warnings in xdp_monitor_user")
+
+---
+
+Jesper Dangaard Brouer (5):
+      bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+      bpf: XDP_REDIRECT enable use of cpumap
+      bpf: cpumap xdp_buff to skb conversion and allocation
+      bpf: cpumap add tracepoints
+      samples/bpf: add cpumap sample program xdp_redirect_cpu
+
+
+ include/linux/bpf.h                 |   31 ++
+ include/linux/bpf_types.h           |    1 
+ include/trace/events/xdp.h          |   80 ++++
+ include/uapi/linux/bpf.h            |    1 
+ kernel/bpf/Makefile                 |    1 
+ kernel/bpf/cpumap.c                 |  683 +++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c                |    8 
+ kernel/bpf/verifier.c               |    3 
+ net/core/filter.c                   |   64 +++
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_redirect_cpu_kern.c |  619 ++++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_cpu_user.c |  647 +++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h      |    1 
+ 13 files changed, 2130 insertions(+), 13 deletions(-)
+ create mode 100644 kernel/bpf/cpumap.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_user.c
