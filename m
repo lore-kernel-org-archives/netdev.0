@@ -1,84 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] socket, bpf: fix possible use after free
-Date: Mon, 02 Oct 2017 12:20:51 -0700
-Message-ID: <1506972051.8061.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: bfields@fieldses.org (J. Bruce Fields)
+Subject: Re: [PATCH 00/18] use ARRAY_SIZE macro
+Date: Mon, 2 Oct 2017 15:22:24 -0400
+Message-ID: <20171002192224.GD1903@fieldses.org>
+References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
+ <20171001220131.GA11812@eros>
+ <20171001205220.10b78086@blatinox-laptop.localdomain>
+ <20171002053554.GA28743@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: =?utf-8?B?SsOpcsOpbXk=?= Lefaure <jeremy.lefaure@lse.epita.fr>,
+        "Tobin C. Harding" <me@tobin.cc>, alsa-devel@alsa-project.org,
+        nouveau@lists.freedesktop.org, dri-devel@lists.freedesktop.org,
+        dm-devel@redhat.com, brcm80211-dev-list@cypress.com,
+        devel@driverdev.osuosl.org, linux-scsi@vger.kernel.org,
+        linux-rdma@vger.kernel.org, amd-gfx@lists.freedesktop.org,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        linux-acpi@vger.kernel.org, linux-video@atrey.karlin.mff.cuni.cz,
+        intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org,
+        intel-gfx@lists.freedesktop.org, ecryptfs@vger.kernel.org,
+        linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
+        openipmi-developer@lists.sourceforge.net,
+        intel-gvt-dev@lists.freedesktop.org, devel@acpica.org,
+        brcm80211-dev-list.pdl@broadcom.com, netde
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36975 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751819AbdJBTUx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 15:20:53 -0400
-Received: by mail-pf0-f194.google.com with SMTP id e69so6599267pfg.4
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 12:20:53 -0700 (PDT)
+Received: from fieldses.org ([173.255.197.46]:52398 "EHLO fieldses.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751132AbdJBTWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 15:22:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20171002053554.GA28743@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Oct 02, 2017 at 07:35:54AM +0200, Greg KH wrote:
+> On Sun, Oct 01, 2017 at 08:52:20PM -0400, Jérémy Lefaure wrote:
+> > On Mon, 2 Oct 2017 09:01:31 +1100
+> > "Tobin C. Harding" <me@tobin.cc> wrote:
+> > 
+> > > > In order to reduce the size of the To: and Cc: lines, each patch of the
+> > > > series is sent only to the maintainers and lists concerned by the patch.
+> > > > This cover letter is sent to every list concerned by this series.  
+> > > 
+> > > Why don't you just send individual patches for each subsystem? I'm not a maintainer but I don't see
+> > > how any one person is going to be able to apply this whole series, it is making it hard for
+> > > maintainers if they have to pick patches out from among the series (if indeed any will bother
+> > > doing that).
+> > Yeah, maybe it would have been better to send individual patches.
+> > 
+> > From my point of view it's a series because the patches are related (I
+> > did a git format-patch from my local branch). But for the maintainers
+> > point of view, they are individual patches.
+> 
+> And the maintainers view is what matters here, if you wish to get your
+> patches reviewed and accepted...
 
-Starting from linux-4.4, 3WHS no longer takes the listener lock.
+Mainly I'd just like to know which you're asking for.  Do you want me to
+apply this, or to ACK it so someone else can?  If it's sent as a series
+I tend to assume the latter.
 
-Since this time, we might hit a use-after-free in sk_filter_charge(),
-if the filter we got in the memcpy() of the listener content
-just happened to be replaced by a thread changing listener BPF filter.
+But in this case I'm assuming it's the former, so I'll pick up the nfsd
+one....
 
-To fix this, we need to make sure the filter refcount is not already
-zero before incrementing it again.
-
-Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/filter.c |   12 ++++++++----
- net/core/sock.c   |    5 ++++-
- 2 files changed, 12 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 82edad58d066857aeee562661098effa3b3e6961..74b8c91fb5f4461da58c73568976bc9834c4612b 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -989,10 +989,14 @@ static bool __sk_filter_charge(struct sock *sk, struct sk_filter *fp)
- 
- bool sk_filter_charge(struct sock *sk, struct sk_filter *fp)
- {
--	bool ret = __sk_filter_charge(sk, fp);
--	if (ret)
--		refcount_inc(&fp->refcnt);
--	return ret;
-+	if (!refcount_inc_not_zero(&fp->refcnt))
-+		return false;
-+
-+	if (!__sk_filter_charge(sk, fp)) {
-+		sk_filter_release(fp);
-+		return false;
-+	}
-+	return true;
- }
- 
- static struct bpf_prog *bpf_migrate_filter(struct bpf_prog *fp)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 7d55c05f449d306b43fd850a61ce8ffd44174f7f..23953b741a41fbcf4a6ffb0dd5bf05bd5266b99d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1684,13 +1684,16 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 
- 		sock_reset_flag(newsk, SOCK_DONE);
- 
--		filter = rcu_dereference_protected(newsk->sk_filter, 1);
-+		rcu_read_lock();
-+		filter = rcu_dereference(sk->sk_filter);
- 		if (filter != NULL)
- 			/* though it's an empty new sock, the charging may fail
- 			 * if sysctl_optmem_max was changed between creation of
- 			 * original socket and cloning
- 			 */
- 			is_charged = sk_filter_charge(newsk, filter);
-+		RCU_INIT_POINTER(newsk->sk_filter, filter);
-+		rcu_read_unlock();
- 
- 		if (unlikely(!is_charged || xfrm_sk_clone_policy(newsk, sk))) {
- 			/* We need to make sure that we don't uncharge the new
+--b.
