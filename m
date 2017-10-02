@@ -1,53 +1,38 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 3/3] net: skb_queue_purge(): lock/unlock the queue
- only once
-Date: Sun, 1 Oct 2017 17:59:09 -0700
-Message-ID: <20171001175909.4b9e53d8@xeon-e3>
-References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
-        <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
-        <ccfa23a0f76c4c9ebd07fc991db2f829-mfwitten@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [BUG] bpf is broken in net-next
+Date: Sun, 1 Oct 2017 18:34:25 -0700
+Message-ID: <20171002013424.tlaictbu7btc4z56@ast-mbp>
+References: <20171001140230.6a494b48@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Michael Witten <mfwitten@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ccfa23a0f76c4c9ebd07fc991db2f829-mfwitten@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:48807 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751345AbdJBBe3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Oct 2017 21:34:29 -0400
+Received: by mail-pg0-f44.google.com with SMTP id v78so445620pgb.5
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 18:34:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171001140230.6a494b48@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 01 Oct 2017 22:19:20 -0000
-Michael Witten <mfwitten@gmail.com> wrote:
+On Sun, Oct 01, 2017 at 02:02:30PM -0700, Stephen Hemminger wrote:
+> Recent regression in net-next building bpf.c in samples/bpf now broken.
+> 
+> $ make samples/bpf/
+> 
+> 
+>   HOSTCC  samples/bpf/../../tools/lib/bpf/bpf.o
+> samples/bpf/../../tools/lib/bpf/bpf.c: In function ‘bpf_create_map_node’:
+> samples/bpf/../../tools/lib/bpf/bpf.c:76:13: error: ‘union bpf_attr’ has no member named ‘map_name’; did you mean ‘map_type’?
+>   memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
+>              ^
+> samples/bpf/../../tools/lib/bpf/bpf.c:76:44: error: ‘BPF_OBJ_NAME_LEN’ undeclared (first use in this function)
+>   memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
 
-> +	spin_lock_irqsave(&q->lock, flags);
-> +	skb = q->next;
-> +	__skb_queue_head_init(q);
-> +	spin_unlock_irqrestore(&q->lock, flags);
-
-Other code manipulating lists uses splice operation and
-a sk_buff_head temporary on the stack. That would be easier
-to understand.
-
-	struct sk_buf_head head;
-
-	__skb_queue_head_init(&head);
-	spin_lock_irqsave(&q->lock, flags);
-	skb_queue_splice_init(q, &head);
-	spin_unlock_irqrestore(&q->lock, flags);
-
-
-> +	while (skb != head) {
-> +		next = skb->next;
->  		kfree_skb(skb);
-> +		skb = next;
-> +	}
-
-It would be cleaner if you could use
-skb_queue_walk_safe rather than open coding the loop.
-
-	skb_queue_walk_safe(&head, skb,  tmp)
-		kfree_skb(skb);
+everything works fine for me...
+did you do 'make headers_install' ?
