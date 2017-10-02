@@ -1,202 +1,115 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Question about "prevent dst uses after free" and WARNING in
- nf_xfrm_me_harder / refcnt / 4.13.3
-Date: Tue, 03 Oct 2017 00:33:23 +0300
-Message-ID: <5fda8b98704f6db99b83b3919407a1a8@nuclearcat.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] vhost_net: do not stall on zerocopy depletion
+Date: Mon, 2 Oct 2017 17:34:52 -0400
+Message-ID: <CAF=yD-JCRQ7sM-A6zcjmn08-OYDJXLXyW9gA7mRiP5As9snhVQ@mail.gmail.com>
+References: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
+ <20170929223710-mutt-send-email-mst@kernel.org> <CAF=yD-KotdpHs96GomMKR-BqG3Gyrvo+to0sk2=a6E5BKjgpkg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>,
+        Koichiro Den <den@klaipeden.com>,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:54078 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750936AbdJBVd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 17:33:26 -0400
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33999 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750869AbdJBVfe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 17:35:34 -0400
+Received: by mail-oi0-f65.google.com with SMTP id q133so2001648oic.1
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 14:35:34 -0700 (PDT)
+In-Reply-To: <CAF=yD-KotdpHs96GomMKR-BqG3Gyrvo+to0sk2=a6E5BKjgpkg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Sep 29, 2017 at 9:25 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Fri, Sep 29, 2017 at 3:38 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> On Wed, Sep 27, 2017 at 08:25:56PM -0400, Willem de Bruijn wrote:
+>>> From: Willem de Bruijn <willemb@google.com>
+>>>
+>>> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
+>>> When reached, transmission stalls. Stalls cause latency, as well as
+>>> head-of-line blocking of other flows that do not use zerocopy.
+>>>
+>>> Instead of stalling, revert to copy-based transmission.
+>>>
+>>> Tested by sending two udp flows from guest to host, one with payload
+>>> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
+>>> large flow is redirected to a netem instance with 1MBps rate limit
+>>> and deep 1000 entry queue.
+>>>
+>>>   modprobe ifb
+>>>   ip link set dev ifb0 up
+>>>   tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
+>>>
+>>>   tc qdisc add dev tap0 ingress
+>>>   tc filter add dev tap0 parent ffff: protocol ip \
+>>>       u32 match ip dport 8000 0xffff \
+>>>       action mirred egress redirect dev ifb0
+>>>
+>>> Before the delay, both flows process around 80K pps. With the delay,
+>>> before this patch, both process around 400. After this patch, the
+>>> large flow is still rate limited, while the small reverts to its
+>>> original rate. See also discussion in the first link, below.
+>>>
+>>> The limit in vhost_exceeds_maxpend must be carefully chosen. When
+>>> vq->num >> 1, the flows remain correlated. This value happens to
+>>> correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
+>>> fractions and ensure correctness also for much smaller values of
+>>> vq->num, by testing the min() of both explicitly. See also the
+>>> discussion in the second link below.
+>>>
+>>> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
+>>> Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
+>>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>>
+>> I'd like to see the effect on the non rate limited case though.
+>> If guest is quick won't we have lots of copies then?
+>
+> Yes, but not significantly more than without this patch.
+>
+> I ran 1, 10 and 100 flow tcp_stream throughput tests from a sender
+> in the guest to a receiver in the host.
+>
+> To answer the other benchmark question first, I did not see anything
+> noteworthy when increasing vq->num from 256 to 1024.
+>
+> With 1 and 10 flows without this patch all packets use zerocopy.
+> With the patch, less than 1% eschews zerocopy.
+>
+> With 100 flows, even without this patch, 90+% of packets are copied.
+> Some zerocopy packets from vhost_net fail this test in tun.c
+>
+>     if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
+>
+> Generating packets with up to 21 frags. I'm not sure yet why or
+> what the fraction of these packets is.
 
-I'm running now 4.13.3, is this patch required for 4.13 as well?
-(it doesnt apply cleanly, as in 4.13 tcp_prequeue use 
-skb_dst_force_safe, so i just renamed it there to skb_dst_force )
+This seems to be a mix of page alignment and compound pages.
+The iov_len is always well below the maximum, but frags exceed
+page size and can start high in the initial page.
 
-This is what i get on PPPoE BRAS on this kernel, patch applied
-(no idea if its related to patch, but just mentioning i applied it, as 
-it's not vanilla 4.13.3)
+ tun_get_user: num_pages=21 max=17 iov_len=6 len=65226
+   0: p_off=3264 len=6888
+   1: p_off=1960 len=16384
+   2: p_off=1960 len=6232
+   3: p_off=0 len=10152
+   4: p_off=1960 len=16384
+   5: p_off=1960 len=9120
 
-[ 7858.579600] ------------[ cut here ]------------
-[ 7858.579818] WARNING: CPU: 2 PID: 0 at ./include/net/dst.h:254 
-nf_xfrm_me_harder+0x61/0xec [nf_nat]
-[ 7858.580160] Modules linked in: cls_fw act_police cls_u32 sch_ingress 
-sch_htb pppoe pppox ppp_generic slhc netconsole configfs coretemp 
-nf_nat_pptp nf_nat_proto_gre nf_conntrack_pptp nf_conntrack_proto_gre 
-tun xt_REDIRECT nf_nat_redirect xt_nat xt_TCPMSS ipt_REJECT 
-nf_reject_ipv4 xt_set ts_bm xt_string xt_connmark xt_DSCP xt_mark 
-xt_tcpudp ip_set_hash_net ip_set_hash_ip ip_set nfnetlink iptable_mangle 
-iptable_filter iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 
-nf_nat nf_conntrack ip_tables x_tables 8021q garp mrp stp llc ixgbe dca
-[ 7858.581255] CPU: 2 PID: 0 Comm: swapper/2 Not tainted 
-4.13.3-build-0133 #27
-[ 7858.581456] Hardware name: HP ProLiant DL320e Gen8 v2, BIOS P80 
-04/02/2015
-[ 7858.581659] task: ffff880434e6a700 task.stack: ffffc90001904000
-[ 7858.581862] RIP: 0010:nf_xfrm_me_harder+0x61/0xec [nf_nat]
-[ 7858.582061] RSP: 0018:ffff880436483bc0 EFLAGS: 00010246
-[ 7858.582259] RAX: 0000000000000000 RBX: ffffffff822df000 RCX: 
-ffff8803ee9028ce
-[ 7858.582461] RDX: 0000000000000014 RSI: ffff88041cd82900 RDI: 
-ffff880436483bf8
-[ 7858.582661] RBP: ffff880436483c20 R08: ffffffff81e0b400 R09: 
-00000000b9160000
-[ 7858.582865] R10: ffff8803ee9028e8 R11: 0000000000000000 R12: 
-ffff880401e92100
-[ 7858.583068] R13: 0000000000000001 R14: ffffffff822df000 R15: 
-ffff88042e280078
-[ 7858.583269] FS:  0000000000000000(0000) GS:ffff880436480000(0000) 
-knlGS:0000000000000000
-[ 7858.583608] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 7858.583809] CR2: 00007f9b2886fc9c CR3: 0000000429223000 CR4: 
-00000000001406e0
-[ 7858.584013] Call Trace:
-[ 7858.584209]  <IRQ>
-[ 7858.584408]  ? nf_nat_ipv4_fn+0x12e/0x189 [nf_nat_ipv4]
-[ 7858.584605]  nf_nat_ipv4_out+0xb6/0xd3 [nf_nat_ipv4]
-[ 7858.584807]  iptable_nat_ipv4_out+0x15/0x17 [iptable_nat]
-[ 7858.585010]  nf_hook_slow+0x2a/0x9a
-[ 7858.585209]  ip_output+0x96/0xb4
-[ 7858.585410]  ? ip_fragment.constprop.5+0x7c/0x7c
-[ 7858.585610]  ip_forward_finish+0x5b/0x60
-[ 7858.585811]  ip_forward+0x36d/0x37a
-[ 7858.586010]  ? ip_frag_mem+0x11/0x11
-[ 7858.586207]  ip_rcv_finish+0x2f9/0x304
-[ 7858.586406]  ip_rcv+0x32a/0x337
-[ 7858.586604]  ? ip_local_deliver_finish+0x1bb/0x1bb
-[ 7858.586808]  __netif_receive_skb_core+0x4f0/0x847
-[ 7858.587009]  __netif_receive_skb+0x18/0x5a
-[ 7858.587208]  ? __netif_receive_skb+0x18/0x5a
-[ 7858.587407]  process_backlog+0xa4/0x127
-[ 7858.587606]  net_rx_action+0x11e/0x2d8
-[ 7858.587811]  ? sched_clock_cpu+0x15/0x9b
-[ 7858.588013]  __do_softirq+0xe7/0x23a
-[ 7858.588210]  irq_exit+0x52/0x93
-[ 7858.588408]  smp_call_function_single_interrupt+0x33/0x35
-[ 7858.588610]  call_function_single_interrupt+0x83/0x90
-[ 7858.588811] RIP: 0010:mwait_idle+0x93/0x13c
-[ 7858.589007] RSP: 0018:ffffc90001907eb0 EFLAGS: 00000246 ORIG_RAX: 
-ffffffffffffff04
-[ 7858.589347] RAX: 0000000000000000 RBX: ffff880434e6a700 RCX: 
-0000000000000000
-[ 7858.589548] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
-0000000000000000
-[ 7858.589750] RBP: ffffc90001907ec0 R08: 0000000000000000 R09: 
-0000000000000001
-[ 7858.589952] R10: ffffc90001907e58 R11: 000000000000024d R12: 
-0000000000000002
-[ 7858.590149] R13: 0000000000000000 R14: ffff880434e6a700 R15: 
-ffff880434e6a700
-[ 7858.590347]  </IRQ>
-[ 7858.590541]  arch_cpu_idle+0xf/0x11
-[ 7858.590738]  default_idle_call+0x25/0x27
-[ 7858.590938]  do_idle+0xb8/0x150
-[ 7858.591133]  cpu_startup_entry+0x1f/0x21
-[ 7858.591332]  start_secondary+0xe8/0xeb
-[ 7858.591531]  secondary_startup_64+0x9f/0x9f
-[ 7858.591729] Code: 83 7e 48 00 74 07 48 8b b6 80 01 00 00 8b 86 80 00 
-00 00 85 c0 74 14 8d 50 01 f0 0f b1 96 80 00 00 00 0f 94 c2 84 d2 75 04 
-eb e8 <0f> ff 49 8b 4c 24 18 48 8d 55 a0 45 31 c0 48 89 df e8 d9 de 95
-[ 7858.592239] ---[ end trace c089174999ff4fc3 ]---
-[ 7858.592448] dst_release: dst:ffff88041cd82900 refcnt:-1
-[ 8139.130003] igb 0000:07:00.0 eth0: igb: eth0 NIC Link is Down
-[ 8139.130309] igb 0000:07:00.0 eth0: Reset adapter
-[ 8164.431523] igb 0000:07:00.0 eth0: igb: eth0 NIC Link is Up 1000 Mbps 
-Full Duplex, Flow Control: RX/TX
-[ 9149.190518] perf: interrupt took too long (3132 > 3128), lowering 
-kernel.perf_event_max_sample_rate to 63000
-[17205.528640] ------------[ cut here ]------------
-[17205.528855] WARNING: CPU: 0 PID: 0 at ./include/net/dst.h:254 
-nf_xfrm_me_harder+0x61/0xec [nf_nat]
-[17205.529197] Modules linked in: cls_fw act_police cls_u32 sch_ingress 
-sch_htb pppoe pppox ppp_generic slhc netconsole configfs coretemp 
-nf_nat_pptp nf_nat_proto_gre nf_conntrack_pptp nf_conntrack_proto_gre 
-tun xt_REDIRECT nf_nat_redirect xt_nat xt_TCPMSS ipt_REJECT 
-nf_reject_ipv4 xt_set ts_bm xt_string xt_connmark xt_DSCP xt_mark 
-xt_tcpudp ip_set_hash_net ip_set_hash_ip ip_set nfnetlink iptable_mangle 
-iptable_filter iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 
-nf_nat nf_conntrack ip_tables x_tables 8021q garp mrp stp llc ixgbe dca
-[17205.530294] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       
-4.13.3-build-0133 #27
-[17205.530632] Hardware name: HP ProLiant DL320e Gen8 v2, BIOS P80 
-04/02/2015
-[17205.530834] task: ffffffff8220e480 task.stack: ffffffff82200000
-[17205.531033] RIP: 0010:nf_xfrm_me_harder+0x61/0xec [nf_nat]
-[17205.531232] RSP: 0018:ffff880436403bc0 EFLAGS: 00010246
-[17205.531434] RAX: 0000000000000000 RBX: ffffffff822df000 RCX: 
-ffff8803f5fba0ce
-[17205.531636] RDX: 0000000000000014 RSI: ffff8804041ae100 RDI: 
-ffff880436403bf8
-[17205.531836] RBP: ffff880436403c20 R08: ffffffff81e0b400 R09: 
-0000000033d10000
-[17205.532035] R10: ffff8803f5fba0e8 R11: 0000000000000000 R12: 
-ffff88041e7a3500
-[17205.532235] R13: 0000000000000001 R14: ffffffff822df000 R15: 
-ffff88042e280078
-[17205.532435] FS:  0000000000000000(0000) GS:ffff880436400000(0000) 
-knlGS:0000000000000000
-[17205.532775] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[17205.532974] CR2: 00007f9b2c6b52b8 CR3: 0000000429223000 CR4: 
-00000000001406f0
-[17205.533170] Call Trace:
-[17205.533361]  <IRQ>
-[17205.533555]  ? nf_nat_ipv4_fn+0x12e/0x189 [nf_nat_ipv4]
-[17205.533754]  nf_nat_ipv4_out+0xb6/0xd3 [nf_nat_ipv4]
-[17205.533953]  iptable_nat_ipv4_out+0x15/0x17 [iptable_nat]
-[17205.534151]  nf_hook_slow+0x2a/0x9a
-[17205.534344]  ip_output+0x96/0xb4
-[17205.534539]  ? ip_fragment.constprop.5+0x7c/0x7c
-[17205.534738]  ip_forward_finish+0x5b/0x60
-[17205.534939]  ip_forward+0x36d/0x37a
-[17205.535137]  ? ip_frag_mem+0x11/0x11
-[17205.535337]  ip_rcv_finish+0x2f9/0x304
-[17205.535537]  ip_rcv+0x32a/0x337
-[17205.535732]  ? ip_local_deliver_finish+0x1bb/0x1bb
-[17205.535935]  __netif_receive_skb_core+0x4f0/0x847
-[17205.536135]  __netif_receive_skb+0x18/0x5a
-[17205.536332]  ? __netif_receive_skb+0x18/0x5a
-[17205.536533]  process_backlog+0xa4/0x127
-[17205.536731]  net_rx_action+0x11e/0x2d8
-[17205.536934]  ? sched_clock_cpu+0x15/0x9b
-[17205.537134]  __do_softirq+0xe7/0x23a
-[17205.537331]  irq_exit+0x52/0x93
-[17205.537530]  smp_call_function_single_interrupt+0x33/0x35
-[17205.537730]  call_function_single_interrupt+0x83/0x90
-[17205.537934] RIP: 0010:mwait_idle+0x93/0x13c
-[17205.538131] RSP: 0018:ffffffff82203e28 EFLAGS: 00000246 ORIG_RAX: 
-ffffffffffffff04
-[17205.538469] RAX: 0000000000000000 RBX: ffffffff8220e480 RCX: 
-0000000000000000
-[17205.538668] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
-0000000000000000
-[17205.538871] RBP: ffffffff82203e38 R08: 0000000000000000 R09: 
-0000000000000001
-[17205.539071] R10: ffffffff82203dd0 R11: 000000000000002a R12: 
-0000000000000000
-[17205.539271] R13: 0000000000000000 R14: ffffffff8220e480 R15: 
-ffffffff8220e480
-[17205.539472]  </IRQ>
-[17205.539670]  arch_cpu_idle+0xf/0x11
-[17205.539869]  default_idle_call+0x25/0x27
-[17205.540068]  do_idle+0xb8/0x150
-[17205.540266]  cpu_startup_entry+0x1f/0x21
-[17205.540465]  rest_init+0xb5/0xb7
-[17205.540665]  start_kernel+0x3b0/0x3bd
-[17205.540864]  x86_64_start_reservations+0x2a/0x2c
-[17205.541063]  x86_64_start_kernel+0x16a/0x178
-[17205.541262]  secondary_startup_64+0x9f/0x9f
-[17205.541458] Code: 83 7e 48 00 74 07 48 8b b6 80 01 00 00 8b 86 80 00 
-00 00 85 c0 74 14 8d 50 01 f0 0f b1 96 80 00 00 00 0f 94 c2 84 d2 75 04 
-eb e8 <0f> ff 49 8b 4c 24 18 48 8d 55 a0 45 31 c0 48 89 df e8 d9 de 95
-[17205.541964] ---[ end trace c089174999ff4fc4 ]---
-[17205.542165] dst_release: dst:ffff8804041ae100 refcnt:-1
+> But this in turn can
+> disable zcopy_used in vhost_net_tx_select_zcopy for a
+> larger share of packets:
+>
+>         return !net->tx_flush &&
+>                 net->tx_packets / 64 >= net->tx_zcopy_err;
+>
+
+Testing iov_iter_npages() in handle_tx to inform zcopy_used allows
+skipping these without turning off zerocopy for all other packets.
+
+After implementing that, tx_zcopy_err drops to zero, but only around
+40% of packets use zerocopy.
