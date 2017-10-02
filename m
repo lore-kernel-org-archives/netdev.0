@@ -1,89 +1,106 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC net-next 1/5] net: dsa: Add infrastructure to support LAG
-Date: Mon, 2 Oct 2017 04:03:27 +0200
-Message-ID: <20171002020327.GA21593@lunn.ch>
-References: <20171001194639.8647-1-f.fainelli@gmail.com>
- <20171001194639.8647-2-f.fainelli@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] vhost_net: do not stall on zerocopy depletion
+Date: Mon, 2 Oct 2017 07:08:01 +0300
+Message-ID: <20171002070731-mutt-send-email-mst@kernel.org>
+References: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
+ <20170929223710-mutt-send-email-mst@kernel.org>
+ <CAF=yD-KotdpHs96GomMKR-BqG3Gyrvo+to0sk2=a6E5BKjgpkg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        jiri@resnulli.us, idosch@mellanox.com, Woojung.Huh@microchip.com,
-        john@phrozen.org, sean.wang@mediatek.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>,
+        Koichiro Den <den@klaipeden.com>,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:35108 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:42842 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750947AbdJBCDh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 1 Oct 2017 22:03:37 -0400
+        id S1750740AbdJBEIE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 00:08:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20171001194639.8647-2-f.fainelli@gmail.com>
+In-Reply-To: <CAF=yD-KotdpHs96GomMKR-BqG3Gyrvo+to0sk2=a6E5BKjgpkg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Oct 01, 2017 at 12:46:35PM -0700, Florian Fainelli wrote:
-> Add the necessary logic to support network device events targetting LAG events,
-> this is loosely inspired from mlxsw/spectrum.c.
+On Fri, Sep 29, 2017 at 09:25:27PM -0400, Willem de Bruijn wrote:
+> On Fri, Sep 29, 2017 at 3:38 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Wed, Sep 27, 2017 at 08:25:56PM -0400, Willem de Bruijn wrote:
+> >> From: Willem de Bruijn <willemb@google.com>
+> >>
+> >> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
+> >> When reached, transmission stalls. Stalls cause latency, as well as
+> >> head-of-line blocking of other flows that do not use zerocopy.
+> >>
+> >> Instead of stalling, revert to copy-based transmission.
+> >>
+> >> Tested by sending two udp flows from guest to host, one with payload
+> >> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
+> >> large flow is redirected to a netem instance with 1MBps rate limit
+> >> and deep 1000 entry queue.
+> >>
+> >>   modprobe ifb
+> >>   ip link set dev ifb0 up
+> >>   tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
+> >>
+> >>   tc qdisc add dev tap0 ingress
+> >>   tc filter add dev tap0 parent ffff: protocol ip \
+> >>       u32 match ip dport 8000 0xffff \
+> >>       action mirred egress redirect dev ifb0
+> >>
+> >> Before the delay, both flows process around 80K pps. With the delay,
+> >> before this patch, both process around 400. After this patch, the
+> >> large flow is still rate limited, while the small reverts to its
+> >> original rate. See also discussion in the first link, below.
+> >>
+> >> The limit in vhost_exceeds_maxpend must be carefully chosen. When
+> >> vq->num >> 1, the flows remain correlated. This value happens to
+> >> correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
+> >> fractions and ensure correctness also for much smaller values of
+> >> vq->num, by testing the min() of both explicitly. See also the
+> >> discussion in the second link below.
+> >>
+> >> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
+> >> Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
+> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> >
+> > I'd like to see the effect on the non rate limited case though.
+> > If guest is quick won't we have lots of copies then?
 > 
-> In the process we change dsa_slave_changeupper() to be more generic and be called
-> from both LAG events as well as normal bridge enslaving events paths.
+> Yes, but not significantly more than without this patch.
 > 
-> The DSA layer takes care of managing the LAG group identifiers, how many LAGs
-> may be supported by a switch, and how many members per LAG are supported by a
-> switch device. When a LAG group is identified, the port is then configured to
-> be a part of that group. When a LAG group no longer has any users, we remove it
-> and we tell the drivers whether it is safe to disable trunking altogether.
+> I ran 1, 10 and 100 flow tcp_stream throughput tests from a sender
+> in the guest to a receiver in the host.
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  include/net/dsa.h  |  25 +++++++++
->  net/dsa/dsa2.c     |  12 ++++
->  net/dsa/dsa_priv.h |   7 +++
->  net/dsa/port.c     |  92 +++++++++++++++++++++++++++++++
->  net/dsa/slave.c    | 157 +++++++++++++++++++++++++++++++++++++++++++++++++----
->  net/dsa/switch.c   |  30 ++++++++++
->  6 files changed, 312 insertions(+), 11 deletions(-)
+> To answer the other benchmark question first, I did not see anything
+> noteworthy when increasing vq->num from 256 to 1024.
 > 
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 10dceccd9ce8..247ea58add68 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -182,12 +182,20 @@ struct dsa_port {
->  	u8			stp_state;
->  	struct net_device	*bridge_dev;
->  	struct devlink_port	devlink_port;
-> +	u8			lag_id;
-> +	bool			lagged;
->  	/*
->  	 * Original copy of the master netdev ethtool_ops
->  	 */
->  	const struct ethtool_ops *orig_ethtool_ops;
->  };
->  
-> +struct dsa_lag_group {
-> +	/* Used to know when we can disable lag on the switch */
-> +	unsigned int		ref_count;
+> With 1 and 10 flows without this patch all packets use zerocopy.
+> With the patch, less than 1% eschews zerocopy.
+> 
+> With 100 flows, even without this patch, 90+% of packets are copied.
+> Some zerocopy packets from vhost_net fail this test in tun.c
+> 
+>     if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
+> 
+> Generating packets with up to 21 frags. I'm not sure yet why or
+> what the fraction of these packets is. But this in turn can
+> disable zcopy_used in vhost_net_tx_select_zcopy for a
+> larger share of packets:
+> 
+>         return !net->tx_flush &&
+>                 net->tx_packets / 64 >= net->tx_zcopy_err;
+> 
+> Because the number of copied and zerocopy packets are the
+> same before and after the patch, so are the overall throughput
+> numbers.
 
-Hi Florian
+OK, thanks!
+Are you looking into new warnings that kbuild system reported
+with this patch?
 
-In what contexts is ref_count manipulated. Normally you use would
-refcounf_t and the operations in linux/refcount.h. But if you know
-there is some other protection, e.g. rtnl, an unsigned int is O.K.
-Maybe scatter some assert_RTNL() in the code?
+Thanks,
 
-> +static bool dsa_slave_lag_check(struct net_device *dev, struct net_device *lag_dev,
-> +				struct netdev_lag_upper_info *lag_upper_info)
-> +{
-> +	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	u8 lag_id;
-> +
-> +	/* No more lag identifiers available or already in use */
-> +	if (dsa_switch_lag_get_index(p->dp->ds, lag_dev, &lag_id) != 0)
-> +		return false;
-> +
-> +	if (lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_HASH)
-> +		return false;
-
-I wounder if the driver needs to decide this? Can different hardware
-support different tx_types?
-
-	Andrew
+-- 
+MST
