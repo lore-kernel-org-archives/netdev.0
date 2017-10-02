@@ -1,57 +1,55 @@
 From: Mark Rutland <mark.rutland@arm.com>
 Subject: Re: v4.14-rc2/arm64 kernel BUG at net/core/skbuff.c:2626
-Date: Mon, 2 Oct 2017 16:01:57 +0100
-Message-ID: <20171002150156.GC21696@leverpostej>
+Date: Mon, 2 Oct 2017 16:03:50 +0100
+Message-ID: <20171002150350.GD21696@leverpostej>
 References: <20171002104947.GE20737@leverpostej>
  <CANn89i++X2rzsaHkTRayMpCED_exL8WPq12=RwD_hXsZ6cN-wQ@mail.gmail.com>
  <20171002142156.GB21696@leverpostej>
- <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
+ <1506955708.8061.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
+Cc: Eric Dumazet <edumazet@google.com>,
+        LKML <linux-kernel@vger.kernel.org>,
         netdev <netdev@vger.kernel.org>,
         linux-arm-kernel@lists.infradead.org,
         syzkaller <syzkaller@googlegroups.com>,
         "David S. Miller" <davem@davemloft.net>,
         Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
+In-Reply-To: <1506955708.8061.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 02, 2017 at 07:42:17AM -0700, Eric Dumazet wrote:
-> On Mon, Oct 2, 2017 at 7:21 AM, Mark Rutland <mark.rutland@arm.com> wrote:
-> > Just to check I've understood correctly, are you suggesting that the
-> > IPv4 code should also check the dev->mtu against a IP_MIN_MTU (which
-> > doesn't seem to exist today)?
+On Mon, Oct 02, 2017 at 07:48:28AM -0700, Eric Dumazet wrote:
+> Please try the following fool proof patch.
 > 
-> We have plenty of places this is checked.
-> 
-> For example, trying to set MTU < 68 usually removes IPv4 addresses and routes.
-> 
-> Problem is : these checks are not fool proof yet.
-> 
-> ( Only the admin was supposed to play these games )
+> This is what I had in my local tree back in August but could not
+> conclude on the syzkaller bug I was working on.
 
-Sorry, I meant that there was no constant called IP_MIN_MTU, and I was
-just looking at the sites fixed up by c780a049f9bf4423.
+Thanks, I'll give this a go shortly.
 
-I appreciate given that this requires admin privileges it's not exactly
-high priority. I didn't mean for the above to sound like some kind of
-accusation!
-
-> > Otherwise, I do spot another potential issue. The writer side (e.g. most
-> > net_device::ndo_change_mtu implementations and the __dev_set_mtu()
-> > fallback) doesn't use WRITE_ONCE().
-> 
-> It does not matter how many strange values can be observed by the reader :
-> We must be fool proof anyway from reader point of view, so the
-> WRITE_ONCE() is not strictly needed.
-
-Ok. If we expect to always check somewhere on the reader side I guess
-that makes sense.
+I'm currently minimizing the Syzkaller log so that I can trigger the
+issue more quickly (and have some confidence in a Tested-by)!
 
 Thanks,
 Mark.
+
+> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> index 681e33998e03b609fdca83a83e0fc62a3fee8c39..e51d777797a927058760a1ab7af00579f7488cb5 100644
+> --- a/net/ipv4/icmp.c
+> +++ b/net/ipv4/icmp.c
+> @@ -732,7 +732,8 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+>  		room = 576;
+>  	room -= sizeof(struct iphdr) + icmp_param.replyopts.opt.opt.optlen;
+>  	room -= sizeof(struct icmphdr);
+> -
+> +	if (room < 0)
+> +		goto ende;
+>  	icmp_param.data_len = skb_in->len - icmp_param.offset;
+>  	if (icmp_param.data_len > room)
+>  		icmp_param.data_len = room;
+> 
+> 
+> 
