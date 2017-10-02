@@ -1,232 +1,202 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 net-next] net: core: decouple ifalias get/set from rtnl lock
-Date: Mon,  2 Oct 2017 23:29:42 +0200
-Message-ID: <20171002212942.14521-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Question about "prevent dst uses after free" and WARNING in
+ nf_xfrm_me_harder / refcnt / 4.13.3
+Date: Tue, 03 Oct 2017 00:33:23 +0300
+Message-ID: <5fda8b98704f6db99b83b3919407a1a8@nuclearcat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:43810 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751084AbdJBV3Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 17:29:24 -0400
+Received: from nuclearcat.com ([144.76.183.226]:54078 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750936AbdJBVd0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 17:33:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Device alias can be set by either rtnetlink (rtnl is held) or sysfs.
+Hi,
 
-rtnetlink hold the rtnl mutex, sysfs acquires it for this purpose.
-Add an extra mutex for it and use rcu to protect concurrent accesses.
+I'm running now 4.13.3, is this patch required for 4.13 as well?
+(it doesnt apply cleanly, as in 4.13 tcp_prequeue use 
+skb_dst_force_safe, so i just renamed it there to skb_dst_force )
 
-This allows the sysfs path to not take rtnl and would later allow
-to not hold it when dumping ifalias.
+This is what i get on PPPoE BRAS on this kernel, patch applied
+(no idea if its related to patch, but just mentioning i applied it, as 
+it's not vanilla 4.13.3)
 
-Based on suggestion from Eric Dumazet.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Change since v1:
-  - don't use a sequence lock, instead use kmalloc+kfree_rcu.
-
- include/linux/netdevice.h |  8 ++++++-
- net/core/dev.c            | 58 ++++++++++++++++++++++++++++++++++++-----------
- net/core/net-sysfs.c      | 17 +++++++-------
- net/core/rtnetlink.c      | 13 +++++++++--
- 4 files changed, 71 insertions(+), 25 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e1d6ef130611..d04424cfffba 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -826,6 +826,11 @@ struct xfrmdev_ops {
- };
- #endif
- 
-+struct dev_ifalias {
-+	struct rcu_head rcuhead;
-+	char ifalias[];
-+};
-+
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -1632,7 +1637,7 @@ enum netdev_priv_flags {
- struct net_device {
- 	char			name[IFNAMSIZ];
- 	struct hlist_node	name_hlist;
--	char 			*ifalias;
-+	struct dev_ifalias	__rcu *ifalias;
- 	/*
- 	 *	I/O specific fields
- 	 *	FIXME: Merge these and struct ifmap into one
-@@ -3275,6 +3280,7 @@ void __dev_notify_flags(struct net_device *, unsigned int old_flags,
- 			unsigned int gchanges);
- int dev_change_name(struct net_device *, const char *);
- int dev_set_alias(struct net_device *, const char *, size_t);
-+int dev_get_alias(const struct net_device *, char *, size_t);
- int dev_change_net_namespace(struct net_device *, struct net *, const char *);
- int __dev_set_mtu(struct net_device *, int);
- int dev_set_mtu(struct net_device *, int);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e350c768d4b5..cadd7218a6ae 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -188,6 +188,8 @@ static struct napi_struct *napi_by_id(unsigned int napi_id);
- DEFINE_RWLOCK(dev_base_lock);
- EXPORT_SYMBOL(dev_base_lock);
- 
-+static DEFINE_MUTEX(ifalias_mutex);
-+
- /* protects napi_hash addition/deletion and napi_gen_id */
- static DEFINE_SPINLOCK(napi_hash_lock);
- 
-@@ -1265,29 +1267,59 @@ int dev_change_name(struct net_device *dev, const char *newname)
-  */
- int dev_set_alias(struct net_device *dev, const char *alias, size_t len)
- {
--	char *new_ifalias;
--
--	ASSERT_RTNL();
-+	struct dev_ifalias *new_alias, *old;
- 
- 	if (len >= IFALIASZ)
- 		return -EINVAL;
- 
--	if (!len) {
--		kfree(dev->ifalias);
--		dev->ifalias = NULL;
--		return 0;
-+	if (len) {
-+		new_alias = kmalloc(sizeof(*new_alias) + len + 1, GFP_KERNEL);
-+		if (!new_alias)
-+			return -ENOMEM;
-+	} else {
-+		new_alias = NULL;
- 	}
- 
--	new_ifalias = krealloc(dev->ifalias, len + 1, GFP_KERNEL);
--	if (!new_ifalias)
--		return -ENOMEM;
--	dev->ifalias = new_ifalias;
--	memcpy(dev->ifalias, alias, len);
--	dev->ifalias[len] = 0;
-+	mutex_lock(&ifalias_mutex);
-+
-+	old = rcu_dereference_protected(dev->ifalias,
-+					mutex_is_locked(&ifalias_mutex));
-+	if (len) {
-+		memcpy(new_alias->ifalias, alias, len);
-+		new_alias->ifalias[len] = 0;
-+	}
-+
-+	rcu_assign_pointer(dev->ifalias, new_alias);
-+	mutex_unlock(&ifalias_mutex);
-+
-+	if (old)
-+		kfree_rcu(old, rcuhead);
- 
- 	return len;
- }
- 
-+/**
-+ *	dev_get_alias - get ifalias of a device
-+ *	@dev: device
-+ *	@alias: buffer to store name of ifalias
-+ *	@len: size of buffer
-+ *
-+ *	get ifalias for a device.  Caller must make sure dev cannot go
-+ *	away,  e.g. rcu read lock or own a reference count to device.
-+ */
-+int dev_get_alias(const struct net_device *dev, char *name, size_t len)
-+{
-+	const struct dev_ifalias *alias;
-+	int ret = 0;
-+
-+	rcu_read_lock();
-+	alias = rcu_dereference(dev->ifalias);
-+	if (alias)
-+		ret = snprintf(name, len, "%s", alias->ifalias);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
- 
- /**
-  *	netdev_features_change - device changes features
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 927a6dcbad96..51d5836d8fb9 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -391,10 +391,7 @@ static ssize_t ifalias_store(struct device *dev, struct device_attribute *attr,
- 	if (len >  0 && buf[len - 1] == '\n')
- 		--count;
- 
--	if (!rtnl_trylock())
--		return restart_syscall();
- 	ret = dev_set_alias(netdev, buf, count);
--	rtnl_unlock();
- 
- 	return ret < 0 ? ret : len;
- }
-@@ -403,13 +400,12 @@ static ssize_t ifalias_show(struct device *dev,
- 			    struct device_attribute *attr, char *buf)
- {
- 	const struct net_device *netdev = to_net_dev(dev);
-+	char tmp[IFALIASZ];
- 	ssize_t ret = 0;
- 
--	if (!rtnl_trylock())
--		return restart_syscall();
--	if (netdev->ifalias)
--		ret = sprintf(buf, "%s\n", netdev->ifalias);
--	rtnl_unlock();
-+	ret = dev_get_alias(netdev, tmp, sizeof(tmp));
-+	if (ret > 0)
-+		ret = sprintf(buf, "%s\n", tmp);
- 	return ret;
- }
- static DEVICE_ATTR_RW(ifalias);
-@@ -1488,7 +1484,10 @@ static void netdev_release(struct device *d)
- 
- 	BUG_ON(dev->reg_state != NETREG_RELEASED);
- 
--	kfree(dev->ifalias);
-+	/* no need to wait for rcu grace period:
-+	 * device is dead and about to be freed.
-+	 */
-+	kfree(rcu_access_pointer(dev->ifalias));
- 	netdev_freemem(dev);
- }
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e6955da0d58d..3961f87cdc76 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1366,6 +1366,16 @@ static int nla_put_iflink(struct sk_buff *skb, const struct net_device *dev)
- 	return nla_put_u32(skb, IFLA_LINK, ifindex);
- }
- 
-+static noinline_for_stack int nla_put_ifalias(struct sk_buff *skb,
-+					      struct net_device *dev)
-+{
-+	char buf[IFALIASZ];
-+	int ret;
-+
-+	ret = dev_get_alias(dev, buf, sizeof(buf));
-+	return ret > 0 ? nla_put_string(skb, IFLA_IFALIAS, buf) : 0;
-+}
-+
- static int rtnl_fill_link_netnsid(struct sk_buff *skb,
- 				  const struct net_device *dev)
- {
-@@ -1425,8 +1435,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	    nla_put_u8(skb, IFLA_CARRIER, netif_carrier_ok(dev)) ||
- 	    (dev->qdisc &&
- 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
--	    (dev->ifalias &&
--	     nla_put_string(skb, IFLA_IFALIAS, dev->ifalias)) ||
-+	    nla_put_ifalias(skb, dev) ||
- 	    nla_put_u32(skb, IFLA_CARRIER_CHANGES,
- 			atomic_read(&dev->carrier_changes)) ||
- 	    nla_put_u8(skb, IFLA_PROTO_DOWN, dev->proto_down))
--- 
-2.13.6
+[ 7858.579600] ------------[ cut here ]------------
+[ 7858.579818] WARNING: CPU: 2 PID: 0 at ./include/net/dst.h:254 
+nf_xfrm_me_harder+0x61/0xec [nf_nat]
+[ 7858.580160] Modules linked in: cls_fw act_police cls_u32 sch_ingress 
+sch_htb pppoe pppox ppp_generic slhc netconsole configfs coretemp 
+nf_nat_pptp nf_nat_proto_gre nf_conntrack_pptp nf_conntrack_proto_gre 
+tun xt_REDIRECT nf_nat_redirect xt_nat xt_TCPMSS ipt_REJECT 
+nf_reject_ipv4 xt_set ts_bm xt_string xt_connmark xt_DSCP xt_mark 
+xt_tcpudp ip_set_hash_net ip_set_hash_ip ip_set nfnetlink iptable_mangle 
+iptable_filter iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 
+nf_nat nf_conntrack ip_tables x_tables 8021q garp mrp stp llc ixgbe dca
+[ 7858.581255] CPU: 2 PID: 0 Comm: swapper/2 Not tainted 
+4.13.3-build-0133 #27
+[ 7858.581456] Hardware name: HP ProLiant DL320e Gen8 v2, BIOS P80 
+04/02/2015
+[ 7858.581659] task: ffff880434e6a700 task.stack: ffffc90001904000
+[ 7858.581862] RIP: 0010:nf_xfrm_me_harder+0x61/0xec [nf_nat]
+[ 7858.582061] RSP: 0018:ffff880436483bc0 EFLAGS: 00010246
+[ 7858.582259] RAX: 0000000000000000 RBX: ffffffff822df000 RCX: 
+ffff8803ee9028ce
+[ 7858.582461] RDX: 0000000000000014 RSI: ffff88041cd82900 RDI: 
+ffff880436483bf8
+[ 7858.582661] RBP: ffff880436483c20 R08: ffffffff81e0b400 R09: 
+00000000b9160000
+[ 7858.582865] R10: ffff8803ee9028e8 R11: 0000000000000000 R12: 
+ffff880401e92100
+[ 7858.583068] R13: 0000000000000001 R14: ffffffff822df000 R15: 
+ffff88042e280078
+[ 7858.583269] FS:  0000000000000000(0000) GS:ffff880436480000(0000) 
+knlGS:0000000000000000
+[ 7858.583608] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[ 7858.583809] CR2: 00007f9b2886fc9c CR3: 0000000429223000 CR4: 
+00000000001406e0
+[ 7858.584013] Call Trace:
+[ 7858.584209]  <IRQ>
+[ 7858.584408]  ? nf_nat_ipv4_fn+0x12e/0x189 [nf_nat_ipv4]
+[ 7858.584605]  nf_nat_ipv4_out+0xb6/0xd3 [nf_nat_ipv4]
+[ 7858.584807]  iptable_nat_ipv4_out+0x15/0x17 [iptable_nat]
+[ 7858.585010]  nf_hook_slow+0x2a/0x9a
+[ 7858.585209]  ip_output+0x96/0xb4
+[ 7858.585410]  ? ip_fragment.constprop.5+0x7c/0x7c
+[ 7858.585610]  ip_forward_finish+0x5b/0x60
+[ 7858.585811]  ip_forward+0x36d/0x37a
+[ 7858.586010]  ? ip_frag_mem+0x11/0x11
+[ 7858.586207]  ip_rcv_finish+0x2f9/0x304
+[ 7858.586406]  ip_rcv+0x32a/0x337
+[ 7858.586604]  ? ip_local_deliver_finish+0x1bb/0x1bb
+[ 7858.586808]  __netif_receive_skb_core+0x4f0/0x847
+[ 7858.587009]  __netif_receive_skb+0x18/0x5a
+[ 7858.587208]  ? __netif_receive_skb+0x18/0x5a
+[ 7858.587407]  process_backlog+0xa4/0x127
+[ 7858.587606]  net_rx_action+0x11e/0x2d8
+[ 7858.587811]  ? sched_clock_cpu+0x15/0x9b
+[ 7858.588013]  __do_softirq+0xe7/0x23a
+[ 7858.588210]  irq_exit+0x52/0x93
+[ 7858.588408]  smp_call_function_single_interrupt+0x33/0x35
+[ 7858.588610]  call_function_single_interrupt+0x83/0x90
+[ 7858.588811] RIP: 0010:mwait_idle+0x93/0x13c
+[ 7858.589007] RSP: 0018:ffffc90001907eb0 EFLAGS: 00000246 ORIG_RAX: 
+ffffffffffffff04
+[ 7858.589347] RAX: 0000000000000000 RBX: ffff880434e6a700 RCX: 
+0000000000000000
+[ 7858.589548] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
+0000000000000000
+[ 7858.589750] RBP: ffffc90001907ec0 R08: 0000000000000000 R09: 
+0000000000000001
+[ 7858.589952] R10: ffffc90001907e58 R11: 000000000000024d R12: 
+0000000000000002
+[ 7858.590149] R13: 0000000000000000 R14: ffff880434e6a700 R15: 
+ffff880434e6a700
+[ 7858.590347]  </IRQ>
+[ 7858.590541]  arch_cpu_idle+0xf/0x11
+[ 7858.590738]  default_idle_call+0x25/0x27
+[ 7858.590938]  do_idle+0xb8/0x150
+[ 7858.591133]  cpu_startup_entry+0x1f/0x21
+[ 7858.591332]  start_secondary+0xe8/0xeb
+[ 7858.591531]  secondary_startup_64+0x9f/0x9f
+[ 7858.591729] Code: 83 7e 48 00 74 07 48 8b b6 80 01 00 00 8b 86 80 00 
+00 00 85 c0 74 14 8d 50 01 f0 0f b1 96 80 00 00 00 0f 94 c2 84 d2 75 04 
+eb e8 <0f> ff 49 8b 4c 24 18 48 8d 55 a0 45 31 c0 48 89 df e8 d9 de 95
+[ 7858.592239] ---[ end trace c089174999ff4fc3 ]---
+[ 7858.592448] dst_release: dst:ffff88041cd82900 refcnt:-1
+[ 8139.130003] igb 0000:07:00.0 eth0: igb: eth0 NIC Link is Down
+[ 8139.130309] igb 0000:07:00.0 eth0: Reset adapter
+[ 8164.431523] igb 0000:07:00.0 eth0: igb: eth0 NIC Link is Up 1000 Mbps 
+Full Duplex, Flow Control: RX/TX
+[ 9149.190518] perf: interrupt took too long (3132 > 3128), lowering 
+kernel.perf_event_max_sample_rate to 63000
+[17205.528640] ------------[ cut here ]------------
+[17205.528855] WARNING: CPU: 0 PID: 0 at ./include/net/dst.h:254 
+nf_xfrm_me_harder+0x61/0xec [nf_nat]
+[17205.529197] Modules linked in: cls_fw act_police cls_u32 sch_ingress 
+sch_htb pppoe pppox ppp_generic slhc netconsole configfs coretemp 
+nf_nat_pptp nf_nat_proto_gre nf_conntrack_pptp nf_conntrack_proto_gre 
+tun xt_REDIRECT nf_nat_redirect xt_nat xt_TCPMSS ipt_REJECT 
+nf_reject_ipv4 xt_set ts_bm xt_string xt_connmark xt_DSCP xt_mark 
+xt_tcpudp ip_set_hash_net ip_set_hash_ip ip_set nfnetlink iptable_mangle 
+iptable_filter iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 
+nf_nat nf_conntrack ip_tables x_tables 8021q garp mrp stp llc ixgbe dca
+[17205.530294] CPU: 0 PID: 0 Comm: swapper/0 Tainted: G        W       
+4.13.3-build-0133 #27
+[17205.530632] Hardware name: HP ProLiant DL320e Gen8 v2, BIOS P80 
+04/02/2015
+[17205.530834] task: ffffffff8220e480 task.stack: ffffffff82200000
+[17205.531033] RIP: 0010:nf_xfrm_me_harder+0x61/0xec [nf_nat]
+[17205.531232] RSP: 0018:ffff880436403bc0 EFLAGS: 00010246
+[17205.531434] RAX: 0000000000000000 RBX: ffffffff822df000 RCX: 
+ffff8803f5fba0ce
+[17205.531636] RDX: 0000000000000014 RSI: ffff8804041ae100 RDI: 
+ffff880436403bf8
+[17205.531836] RBP: ffff880436403c20 R08: ffffffff81e0b400 R09: 
+0000000033d10000
+[17205.532035] R10: ffff8803f5fba0e8 R11: 0000000000000000 R12: 
+ffff88041e7a3500
+[17205.532235] R13: 0000000000000001 R14: ffffffff822df000 R15: 
+ffff88042e280078
+[17205.532435] FS:  0000000000000000(0000) GS:ffff880436400000(0000) 
+knlGS:0000000000000000
+[17205.532775] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[17205.532974] CR2: 00007f9b2c6b52b8 CR3: 0000000429223000 CR4: 
+00000000001406f0
+[17205.533170] Call Trace:
+[17205.533361]  <IRQ>
+[17205.533555]  ? nf_nat_ipv4_fn+0x12e/0x189 [nf_nat_ipv4]
+[17205.533754]  nf_nat_ipv4_out+0xb6/0xd3 [nf_nat_ipv4]
+[17205.533953]  iptable_nat_ipv4_out+0x15/0x17 [iptable_nat]
+[17205.534151]  nf_hook_slow+0x2a/0x9a
+[17205.534344]  ip_output+0x96/0xb4
+[17205.534539]  ? ip_fragment.constprop.5+0x7c/0x7c
+[17205.534738]  ip_forward_finish+0x5b/0x60
+[17205.534939]  ip_forward+0x36d/0x37a
+[17205.535137]  ? ip_frag_mem+0x11/0x11
+[17205.535337]  ip_rcv_finish+0x2f9/0x304
+[17205.535537]  ip_rcv+0x32a/0x337
+[17205.535732]  ? ip_local_deliver_finish+0x1bb/0x1bb
+[17205.535935]  __netif_receive_skb_core+0x4f0/0x847
+[17205.536135]  __netif_receive_skb+0x18/0x5a
+[17205.536332]  ? __netif_receive_skb+0x18/0x5a
+[17205.536533]  process_backlog+0xa4/0x127
+[17205.536731]  net_rx_action+0x11e/0x2d8
+[17205.536934]  ? sched_clock_cpu+0x15/0x9b
+[17205.537134]  __do_softirq+0xe7/0x23a
+[17205.537331]  irq_exit+0x52/0x93
+[17205.537530]  smp_call_function_single_interrupt+0x33/0x35
+[17205.537730]  call_function_single_interrupt+0x83/0x90
+[17205.537934] RIP: 0010:mwait_idle+0x93/0x13c
+[17205.538131] RSP: 0018:ffffffff82203e28 EFLAGS: 00000246 ORIG_RAX: 
+ffffffffffffff04
+[17205.538469] RAX: 0000000000000000 RBX: ffffffff8220e480 RCX: 
+0000000000000000
+[17205.538668] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
+0000000000000000
+[17205.538871] RBP: ffffffff82203e38 R08: 0000000000000000 R09: 
+0000000000000001
+[17205.539071] R10: ffffffff82203dd0 R11: 000000000000002a R12: 
+0000000000000000
+[17205.539271] R13: 0000000000000000 R14: ffffffff8220e480 R15: 
+ffffffff8220e480
+[17205.539472]  </IRQ>
+[17205.539670]  arch_cpu_idle+0xf/0x11
+[17205.539869]  default_idle_call+0x25/0x27
+[17205.540068]  do_idle+0xb8/0x150
+[17205.540266]  cpu_startup_entry+0x1f/0x21
+[17205.540465]  rest_init+0xb5/0xb7
+[17205.540665]  start_kernel+0x3b0/0x3bd
+[17205.540864]  x86_64_start_reservations+0x2a/0x2c
+[17205.541063]  x86_64_start_kernel+0x16a/0x178
+[17205.541262]  secondary_startup_64+0x9f/0x9f
+[17205.541458] Code: 83 7e 48 00 74 07 48 8b b6 80 01 00 00 8b 86 80 00 
+00 00 85 c0 74 14 8d 50 01 f0 0f b1 96 80 00 00 00 0f 94 c2 84 d2 75 04 
+eb e8 <0f> ff 49 8b 4c 24 18 48 8d 55 a0 45 31 c0 48 89 df e8 d9 de 95
+[17205.541964] ---[ end trace c089174999ff4fc4 ]---
+[17205.542165] dst_release: dst:ffff8804041ae100 refcnt:-1
