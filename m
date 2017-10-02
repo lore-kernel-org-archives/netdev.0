@@ -1,48 +1,65 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [BUG] bpf is broken in net-next
-Date: Mon, 2 Oct 2017 07:52:30 -0700
-Message-ID: <20171002075230.60d36532@xeon-e3>
-References: <20171001140230.6a494b48@xeon-e3>
-        <20171002013424.tlaictbu7btc4z56@ast-mbp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] net: core: decouple ifalias get/set from
+ rtnl lock
+Date: Mon, 02 Oct 2017 07:53:49 -0700
+Message-ID: <1506956029.8061.8.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171002102745.3047-1-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:51560 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751067AbdJBOwi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 10:52:38 -0400
-Received: by mail-pg0-f52.google.com with SMTP id u144so393632pgb.8
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 07:52:38 -0700 (PDT)
-In-Reply-To: <20171002013424.tlaictbu7btc4z56@ast-mbp>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:37831 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751856AbdJBOxw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 10:53:52 -0400
+Received: by mail-pg0-f65.google.com with SMTP id o1so5057608pga.4
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 07:53:52 -0700 (PDT)
+In-Reply-To: <20171002102745.3047-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 1 Oct 2017 18:34:25 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+On Mon, 2017-10-02 at 12:27 +0200, Florian Westphal wrote:
+> Device alias can be set by either rtnetlink (rtnl is held) or sysfs.
+> 
+> rtnetlink hold the rtnl mutex, sysfs acquires it for this purpose.
+> Add an extra mutex for it plus a seqcount to get a consistent snapshot
+> of the alias buffer.
 
-> On Sun, Oct 01, 2017 at 02:02:30PM -0700, Stephen Hemminger wrote:
-> > Recent regression in net-next building bpf.c in samples/bpf now broken.
-> >=20
-> > $ make samples/bpf/
-> >=20
-> >=20
-> >   HOSTCC  samples/bpf/../../tools/lib/bpf/bpf.o
-> > samples/bpf/../../tools/lib/bpf/bpf.c: In function =E2=80=98bpf_create_=
-map_node=E2=80=99:
-> > samples/bpf/../../tools/lib/bpf/bpf.c:76:13: error: =E2=80=98union bpf_=
-attr=E2=80=99 has no member named =E2=80=98map_name=E2=80=99; did you mean =
-=E2=80=98map_type=E2=80=99?
-> >   memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1));
-> >              ^
-> > samples/bpf/../../tools/lib/bpf/bpf.c:76:44: error: =E2=80=98BPF_OBJ_NA=
-ME_LEN=E2=80=99 undeclared (first use in this function)
-> >   memcpy(attr.map_name, name, min(name_len, BPF_OBJ_NAME_LEN - 1)); =20
->=20
-> everything works fine for me...
-> did you do 'make headers_install' ?
->=20
 
-Yes, that was the problem. I had done make mrproper after changing branches.
+> +int dev_get_alias(const struct net_device *dev, char *alias, size_t len)
+> +{
+> +	unsigned int seq;
+> +	int ret;
+> +
+> +	for (;;) {
+> +		const char *name;
+> +
+> +		ret = 0;
+> +		rcu_read_lock();
+> +		name = rcu_dereference(dev->ifalias);
+> +		seq = raw_seqcount_begin(&ifalias_rename_seq);
+> +		if (name)
+> +			ret = snprintf(alias, len, "%s", name);
+> +		rcu_read_unlock();
+> +
+> +		if (!read_seqcount_retry(&ifalias_rename_seq, seq))
+> +			break;
+> +
+> +		cond_resched();
+> +	}
+> +
+> +	return ret;
+> +}
+
+I believe this too complex and not needed.
+
+Just use RCU : A writer is supposed to work on a private copy, and
+_then_ publish the new pointer, so that a reader can not see mangled
+string.
+
+We either copy the 'old' name or the 'new' one.
+
+A seqcount is not needed, and wont prevent you from reading the value
+right before a change anyway.
