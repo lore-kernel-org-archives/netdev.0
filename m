@@ -1,115 +1,70 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] vhost_net: do not stall on zerocopy depletion
-Date: Mon, 2 Oct 2017 17:34:52 -0400
-Message-ID: <CAF=yD-JCRQ7sM-A6zcjmn08-OYDJXLXyW9gA7mRiP5As9snhVQ@mail.gmail.com>
-References: <20170928002556.41240-1-willemdebruijn.kernel@gmail.com>
- <20170929223710-mutt-send-email-mst@kernel.org> <CAF=yD-KotdpHs96GomMKR-BqG3Gyrvo+to0sk2=a6E5BKjgpkg@mail.gmail.com>
+From: "Brady, Alan" <alan.brady@intel.com>
+Subject: RE: [net-next 11/15] i40evf: Enable VF to request an alternate
+ queue allocation
+Date: Mon, 2 Oct 2017 21:35:51 +0000
+Message-ID: <C8326AE922E1A04D91DF73B4913A8DCB2CA550D7@ORSMSX108.amr.corp.intel.com>
+References: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
+ <20171002194852.71970-12-jeffrey.t.kirsher@intel.com>
+ <AM0PR0502MB368318470E6010AB9D6C07E1BF7D0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jason Wang <jasowang@redhat.com>,
-        Koichiro Den <den@klaipeden.com>,
-        virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: Yuval Mintz <yuvalm@mellanox.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:33999 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750869AbdJBVfe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 17:35:34 -0400
-Received: by mail-oi0-f65.google.com with SMTP id q133so2001648oic.1
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 14:35:34 -0700 (PDT)
-In-Reply-To: <CAF=yD-KotdpHs96GomMKR-BqG3Gyrvo+to0sk2=a6E5BKjgpkg@mail.gmail.com>
+Received: from mga05.intel.com ([192.55.52.43]:39927 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751174AbdJBVfx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 17:35:53 -0400
+In-Reply-To: <AM0PR0502MB368318470E6010AB9D6C07E1BF7D0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 29, 2017 at 9:25 PM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Fri, Sep 29, 2017 at 3:38 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
->> On Wed, Sep 27, 2017 at 08:25:56PM -0400, Willem de Bruijn wrote:
->>> From: Willem de Bruijn <willemb@google.com>
->>>
->>> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
->>> When reached, transmission stalls. Stalls cause latency, as well as
->>> head-of-line blocking of other flows that do not use zerocopy.
->>>
->>> Instead of stalling, revert to copy-based transmission.
->>>
->>> Tested by sending two udp flows from guest to host, one with payload
->>> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
->>> large flow is redirected to a netem instance with 1MBps rate limit
->>> and deep 1000 entry queue.
->>>
->>>   modprobe ifb
->>>   ip link set dev ifb0 up
->>>   tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
->>>
->>>   tc qdisc add dev tap0 ingress
->>>   tc filter add dev tap0 parent ffff: protocol ip \
->>>       u32 match ip dport 8000 0xffff \
->>>       action mirred egress redirect dev ifb0
->>>
->>> Before the delay, both flows process around 80K pps. With the delay,
->>> before this patch, both process around 400. After this patch, the
->>> large flow is still rate limited, while the small reverts to its
->>> original rate. See also discussion in the first link, below.
->>>
->>> The limit in vhost_exceeds_maxpend must be carefully chosen. When
->>> vq->num >> 1, the flows remain correlated. This value happens to
->>> correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
->>> fractions and ensure correctness also for much smaller values of
->>> vq->num, by testing the min() of both explicitly. See also the
->>> discussion in the second link below.
->>>
->>> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
->>> Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
->>> Signed-off-by: Willem de Bruijn <willemb@google.com>
->>
->> I'd like to see the effect on the non rate limited case though.
->> If guest is quick won't we have lots of copies then?
->
-> Yes, but not significantly more than without this patch.
->
-> I ran 1, 10 and 100 flow tcp_stream throughput tests from a sender
-> in the guest to a receiver in the host.
->
-> To answer the other benchmark question first, I did not see anything
-> noteworthy when increasing vq->num from 256 to 1024.
->
-> With 1 and 10 flows without this patch all packets use zerocopy.
-> With the patch, less than 1% eschews zerocopy.
->
-> With 100 flows, even without this patch, 90+% of packets are copied.
-> Some zerocopy packets from vhost_net fail this test in tun.c
->
->     if (iov_iter_npages(&i, INT_MAX) <= MAX_SKB_FRAGS)
->
-> Generating packets with up to 21 frags. I'm not sure yet why or
-> what the fraction of these packets is.
+> -----Original Message-----
+> From: Yuval Mintz [mailto:yuvalm@mellanox.com]
+> Sent: Monday, October 2, 2017 1:51 PM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; davem@davemloft.net
+> Cc: Brady, Alan <alan.brady@intel.com>; netdev@vger.kernel.org;
+> nhorman@redhat.com; sassmann@redhat.com; jogreene@redhat.com
+> Subject: RE: [net-next 11/15] i40evf: Enable VF to request an alternate queue
+> allocation
+> 
+> > +	case VIRTCHNL_OP_REQUEST_QUEUES: {
+> > +		struct virtchnl_vf_res_request *vfres =
+> > +			(struct virtchnl_vf_res_request *)msg;
+> > +		if (vfres->num_queue_pairs == adapter->num_req_queues)
+> > {
+> > +			adapter->flags |=
+> > I40EVF_FLAG_REINIT_ITR_NEEDED;
+> > +			i40evf_schedule_reset(adapter);
+> > +		} else {
+> > +			dev_info(&adapter->pdev->dev,
+> > +				 "Requested %d queues, PF can support
+> > %d\n",
+> > +				 adapter->num_req_queues,
+> > +				 vfres->num_queue_pairs);
+> > +			adapter->num_req_queues = 0;
+> > +		}
+> > +		}
+> > +		break;
+> 
+> Something is odd about your parenthesis.
+> 
+> >  	default:
+> >  		if (adapter->current_op && (v_opcode != adapter-
+> > >current_op))
+> >  			dev_warn(&adapter->pdev->dev, "Expected
+> response %d from PF,
+> > received %d\n",
+> > --
+> > 2.14.2
 
-This seems to be a mix of page alignment and compound pages.
-The iov_len is always well below the maximum, but frags exceed
-page size and can start high in the initial page.
+I'm not sure which parentheses you are referring to.  Perhaps you mean the double curly braces?  The outer set of braces are creating a block in the case statement so we can declare a variable specific to the case statement.  The inner brace is an if/else statement block.  They are both consistent with brace usage/alignment in the rest of the file and adding a new line between them generates a GCC warning.
 
- tun_get_user: num_pages=21 max=17 iov_len=6 len=65226
-   0: p_off=3264 len=6888
-   1: p_off=1960 len=16384
-   2: p_off=1960 len=6232
-   3: p_off=0 len=10152
-   4: p_off=1960 len=16384
-   5: p_off=1960 len=9120
-
-> But this in turn can
-> disable zcopy_used in vhost_net_tx_select_zcopy for a
-> larger share of packets:
->
->         return !net->tx_flush &&
->                 net->tx_packets / 64 >= net->tx_zcopy_err;
->
-
-Testing iov_iter_npages() in handle_tx to inform zcopy_used allows
-skipping these without turning off zerocopy for all other packets.
-
-After implementing that, tx_zcopy_err drops to zero, but only around
-40% of packets use zerocopy.
+-Alan
