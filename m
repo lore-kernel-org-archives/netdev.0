@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v3 15/19] thunderbolt: Add function to retrieve DMA device for the ring
-Date: Mon,  2 Oct 2017 13:38:42 +0300
-Message-ID: <20171002103846.64602-16-mika.westerberg@linux.intel.com>
+Subject: [PATCH v3 09/19] thunderbolt: Add support for frame mode
+Date: Mon,  2 Oct 2017 13:38:36 +0300
+Message-ID: <20171002103846.64602-10-mika.westerberg@linux.intel.com>
 References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,45 +19,239 @@ In-Reply-To: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is needed when Thunderbolt service drivers need to DMA map memory
-before it is passed down to the ring.
+When high-speed DMA paths are used to transfer arbitrary data over a
+Thunderbolt link, DMA rings should be in frame mode instead of raw mode.
+The latter is used by the control channel (ring 0). In frame mode each
+data frame can hold up to 4kB payload.
 
+This patch modifies the DMA ring code to allow configuring a ring to be
+in frame mode by passing a new flag (RING_FLAG_FRAME) to the ring when
+it is allocated. In addition there might be need to enable end-to-end
+(E2E) workaround for the ring to prevent losing Rx frames in certain
+situations. We add another flag (RING_FLAG_E2E) that can be used for
+this purpose.
+
+This code is based on the work done by Amir Levy and Michael Jamet.
+
+Signed-off-by: Michael Jamet <michael.jamet@intel.com>
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- include/linux/thunderbolt.h | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ drivers/thunderbolt/ctl.c      |  3 +-
+ drivers/thunderbolt/nhi.c      | 76 ++++++++++++++++++++++++++----------------
+ drivers/thunderbolt/nhi.h      | 10 +++++-
+ drivers/thunderbolt/nhi_regs.h |  2 ++
+ 4 files changed, 61 insertions(+), 30 deletions(-)
 
-diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index 36925e3aec7c..7b69853188b1 100644
---- a/include/linux/thunderbolt.h
-+++ b/include/linux/thunderbolt.h
-@@ -19,6 +19,7 @@
- #include <linux/list.h>
- #include <linux/mutex.h>
- #include <linux/mod_devicetable.h>
-+#include <linux/pci.h>
- #include <linux/uuid.h>
- #include <linux/workqueue.h>
+diff --git a/drivers/thunderbolt/ctl.c b/drivers/thunderbolt/ctl.c
+index 46e393c5fd1d..05400b77dcd7 100644
+--- a/drivers/thunderbolt/ctl.c
++++ b/drivers/thunderbolt/ctl.c
+@@ -618,7 +618,8 @@ struct tb_ctl *tb_ctl_alloc(struct tb_nhi *nhi, event_cb cb, void *cb_data)
+ 	if (!ctl->tx)
+ 		goto err;
  
-@@ -582,4 +583,16 @@ static inline int tb_ring_tx(struct tb_ring *ring, struct ring_frame *frame)
- struct ring_frame *tb_ring_poll(struct tb_ring *ring);
- void tb_ring_poll_complete(struct tb_ring *ring);
+-	ctl->rx = ring_alloc_rx(nhi, 0, 10, RING_FLAG_NO_SUSPEND);
++	ctl->rx = ring_alloc_rx(nhi, 0, 10, RING_FLAG_NO_SUSPEND, 0xffff,
++				0xffff);
+ 	if (!ctl->rx)
+ 		goto err;
  
-+/**
-+ * tb_ring_dma_device() - Return device used for DMA mapping
-+ * @ring: Ring whose DMA device is retrieved
-+ *
-+ * Use this function when you are mapping DMA for buffers that are
-+ * passed to the ring for sending/receiving.
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index 8a7a3d0133f9..bebcad3d2c1f 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -21,6 +21,12 @@
+ 
+ #define RING_TYPE(ring) ((ring)->is_tx ? "TX ring" : "RX ring")
+ 
++/*
++ * Used to enable end-to-end workaround for missing RX packets. Do not
++ * use this ring for anything else.
 + */
-+static inline struct device *tb_ring_dma_device(struct tb_ring *ring)
-+{
-+	return &ring->nhi->pdev->dev;
-+}
++#define RING_E2E_UNUSED_HOPID	2
 +
- #endif /* THUNDERBOLT_H_ */
+ /*
+  * Minimal number of vectors when we use MSI-X. Two for control channel
+  * Rx/Tx and the rest four are for cross domain DMA paths.
+@@ -229,23 +235,6 @@ static void ring_work(struct work_struct *work)
+ 			frame->eof = ring->descriptors[ring->tail].eof;
+ 			frame->sof = ring->descriptors[ring->tail].sof;
+ 			frame->flags = ring->descriptors[ring->tail].flags;
+-			if (frame->sof != 0)
+-				dev_WARN(&ring->nhi->pdev->dev,
+-					 "%s %d got unexpected SOF: %#x\n",
+-					 RING_TYPE(ring), ring->hop,
+-					 frame->sof);
+-			/*
+-			 * known flags:
+-			 * raw not enabled, interupt not set: 0x2=0010
+-			 * raw enabled: 0xa=1010
+-			 * raw not enabled: 0xb=1011
+-			 * partial frame (>MAX_FRAME_SIZE): 0xe=1110
+-			 */
+-			if (frame->flags != 0xa)
+-				dev_WARN(&ring->nhi->pdev->dev,
+-					 "%s %d got unexpected flags: %#x\n",
+-					 RING_TYPE(ring), ring->hop,
+-					 frame->flags);
+ 		}
+ 		ring->tail = (ring->tail + 1) % ring->size;
+ 	}
+@@ -321,12 +310,17 @@ static void ring_release_msix(struct tb_ring *ring)
+ }
+ 
+ static struct tb_ring *ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+-				  bool transmit, unsigned int flags)
++				  bool transmit, unsigned int flags,
++				  u16 sof_mask, u16 eof_mask)
+ {
+ 	struct tb_ring *ring = NULL;
+ 	dev_info(&nhi->pdev->dev, "allocating %s ring %d of size %d\n",
+ 		 transmit ? "TX" : "RX", hop, size);
+ 
++	/* Tx Ring 2 is reserved for E2E workaround */
++	if (transmit && hop == RING_E2E_UNUSED_HOPID)
++		return NULL;
++
+ 	mutex_lock(&nhi->lock);
+ 	if (hop >= nhi->hop_count) {
+ 		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
+@@ -353,6 +347,8 @@ static struct tb_ring *ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	ring->is_tx = transmit;
+ 	ring->size = size;
+ 	ring->flags = flags;
++	ring->sof_mask = sof_mask;
++	ring->eof_mask = eof_mask;
+ 	ring->head = 0;
+ 	ring->tail = 0;
+ 	ring->running = false;
+@@ -384,13 +380,13 @@ static struct tb_ring *ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ struct tb_ring *ring_alloc_tx(struct tb_nhi *nhi, int hop, int size,
+ 			      unsigned int flags)
+ {
+-	return ring_alloc(nhi, hop, size, true, flags);
++	return ring_alloc(nhi, hop, size, true, flags, 0, 0);
+ }
+ 
+ struct tb_ring *ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
+-			      unsigned int flags)
++			      unsigned int flags, u16 sof_mask, u16 eof_mask)
+ {
+-	return ring_alloc(nhi, hop, size, false, flags);
++	return ring_alloc(nhi, hop, size, false, flags, sof_mask, eof_mask);
+ }
+ 
+ /**
+@@ -400,6 +396,9 @@ struct tb_ring *ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
+  */
+ void ring_start(struct tb_ring *ring)
+ {
++	u16 frame_size;
++	u32 flags;
++
+ 	mutex_lock(&ring->nhi->lock);
+ 	mutex_lock(&ring->lock);
+ 	if (ring->nhi->going_away)
+@@ -411,18 +410,39 @@ void ring_start(struct tb_ring *ring)
+ 	dev_info(&ring->nhi->pdev->dev, "starting %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
+ 
++	if (ring->flags & RING_FLAG_FRAME) {
++		/* Means 4096 */
++		frame_size = 0;
++		flags = RING_FLAG_ENABLE;
++	} else {
++		frame_size = TB_FRAME_SIZE;
++		flags = RING_FLAG_ENABLE | RING_FLAG_RAW;
++	}
++
++	if (ring->flags & RING_FLAG_E2E && !ring->is_tx) {
++		u32 hop;
++
++		/*
++		 * In order not to lose Rx packets we enable end-to-end
++		 * workaround which transfers Rx credits to an unused Tx
++		 * HopID.
++		 */
++		hop = RING_E2E_UNUSED_HOPID << REG_RX_OPTIONS_E2E_HOP_SHIFT;
++		hop &= REG_RX_OPTIONS_E2E_HOP_MASK;
++		flags |= hop | RING_FLAG_E2E_FLOW_CONTROL;
++	}
++
+ 	ring_iowrite64desc(ring, ring->descriptors_dma, 0);
+ 	if (ring->is_tx) {
+ 		ring_iowrite32desc(ring, ring->size, 12);
+ 		ring_iowrite32options(ring, 0, 4); /* time releated ? */
+-		ring_iowrite32options(ring,
+-				      RING_FLAG_ENABLE | RING_FLAG_RAW, 0);
++		ring_iowrite32options(ring, flags, 0);
+ 	} else {
+-		ring_iowrite32desc(ring,
+-				   (TB_FRAME_SIZE << 16) | ring->size, 12);
+-		ring_iowrite32options(ring, 0xffffffff, 4); /* SOF EOF mask */
+-		ring_iowrite32options(ring,
+-				      RING_FLAG_ENABLE | RING_FLAG_RAW, 0);
++		u32 sof_eof_mask = ring->sof_mask << 16 | ring->eof_mask;
++
++		ring_iowrite32desc(ring, (frame_size << 16) | ring->size, 12);
++		ring_iowrite32options(ring, sof_eof_mask, 4);
++		ring_iowrite32options(ring, flags, 0);
+ 	}
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+diff --git a/drivers/thunderbolt/nhi.h b/drivers/thunderbolt/nhi.h
+index 0e05828983db..4503ddbeccb3 100644
+--- a/drivers/thunderbolt/nhi.h
++++ b/drivers/thunderbolt/nhi.h
+@@ -56,6 +56,8 @@ struct tb_nhi {
+  * @irq: MSI-X irq number if the ring uses MSI-X. %0 otherwise.
+  * @vector: MSI-X vector number the ring uses (only set if @irq is > 0)
+  * @flags: Ring specific flags
++ * @sof_mask: Bit mask used to detect start of frame PDF
++ * @eof_mask: Bit mask used to detect end of frame PDF
+  */
+ struct tb_ring {
+ 	struct mutex lock;
+@@ -74,10 +76,16 @@ struct tb_ring {
+ 	int irq;
+ 	u8 vector;
+ 	unsigned int flags;
++	u16 sof_mask;
++	u16 eof_mask;
+ };
+ 
+ /* Leave ring interrupt enabled on suspend */
+ #define RING_FLAG_NO_SUSPEND	BIT(0)
++/* Configure the ring to be in frame mode */
++#define RING_FLAG_FRAME		BIT(1)
++/* Enable end-to-end flow control */
++#define RING_FLAG_E2E		BIT(2)
+ 
+ struct ring_frame;
+ typedef void (*ring_cb)(struct tb_ring*, struct ring_frame*, bool canceled);
+@@ -100,7 +108,7 @@ struct ring_frame {
+ struct tb_ring *ring_alloc_tx(struct tb_nhi *nhi, int hop, int size,
+ 			      unsigned int flags);
+ struct tb_ring *ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
+-			      unsigned int flags);
++			      unsigned int flags, u16 sof_mask, u16 eof_mask);
+ void ring_start(struct tb_ring *ring);
+ void ring_stop(struct tb_ring *ring);
+ void ring_free(struct tb_ring *ring);
+diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+index 46eff69b19ad..491a4c0c18fc 100644
+--- a/drivers/thunderbolt/nhi_regs.h
++++ b/drivers/thunderbolt/nhi_regs.h
+@@ -77,6 +77,8 @@ struct ring_desc {
+  * ..: unknown
+  */
+ #define REG_RX_OPTIONS_BASE	0x29800
++#define REG_RX_OPTIONS_E2E_HOP_MASK	GENMASK(22, 12)
++#define REG_RX_OPTIONS_E2E_HOP_SHIFT	12
+ 
+ /*
+  * three bitfields: tx, rx, rx overflow
 -- 
 2.14.2
