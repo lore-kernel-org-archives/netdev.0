@@ -1,58 +1,52 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [jkirsher/next-queue PATCH] ixgbe: Update adaptive ITR
- algorithm
-Date: Mon, 2 Oct 2017 14:56:03 +0200
-Message-ID: <20171002145603.32e61b6b@redhat.com>
-References: <20170925215225.15616.63705.stgit@localhost.localdomain>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC net-next 0/5] net: dsa: LAG support
+Date: Mon, 2 Oct 2017 14:59:32 +0200
+Message-ID: <20171002125932.GB4765@lunn.ch>
+References: <20171001194639.8647-1-f.fainelli@gmail.com>
+ <20171002065023.GA11832@shredder.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        john.fastabend@gmail.com, brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
+        idosch@mellanox.com, Woojung.Huh@microchip.com, john@phrozen.org,
+        sean.wang@mediatek.com
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46796 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([185.16.172.187]:35533 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751062AbdJBM4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 08:56:11 -0400
-In-Reply-To: <20170925215225.15616.63705.stgit@localhost.localdomain>
+        id S1751305AbdJBM7f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 08:59:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20171002065023.GA11832@shredder.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Sep 2017 14:55:36 -0700
-Alexander Duyck <alexander.duyck@gmail.com> wrote:
-
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> > - not sure what to do with a switch fabric, naively, if adding two ports
+> >   of two distinct switches as a LAG group, we may have to propagate that
+> >   to "dsa" cross-chip interfaces as well
 > 
-> The following change is meant to update the adaptive ITR algorithm to
-> better support the needs of the network. Specifically with this change what
-> I have done is make it so that our ITR algorithm will try to prevent either
-> starving a socket buffer for memory in the case of Tx, or overruing an Rx
-> socket buffer on receive.
+> At least in mlxsw case, enslaving switch and non-switch ports to the
+> same LAG doesn't make sense. Any traffic routed by the switch will only
+> be load-balanced between the switch ports. One way to solve that is to
+> forbid such enslavements during NETDEV_PRECHANGEUPPER in case the lower
+> devices in the adjacency list of the LAG don't belong to the same
+> switch.
 > 
-> In addition a side effect of the calculations used is that we should
-> function better with new features such as XDP which can handle small
-> packets at high rates without needing to lock us into NAPI polling mode.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
-> So I am putting this out to a wider distribution list than normal for a
-> patch like this in order to get feedback on if there are any areas I may
-> have overlooked. With this patch is should address many of the performance
-> limitations seen with pktgen and XDP in terms of workloads that the old
-> adaptive scheme wasn't handling.
+> Note that such configurations are bound to fail anyway, as the
+> non-switch ports will not have `switchdev_ops` configured and thus fail
+> during __switchdev_port_obj_add() / __switchdev_port_attr_set().
 
-Thanks a lot Alex!
+Hi Ido
 
-I've tested the patch with XDP redirect (map), and the issue I reported
-in [1] is solved with this patch.
+Here Florian is thinking about the D in DSA. Marvell switches have the
+capabilities of building a switch fabric out of multiple
+interconnected switches. To switchdev, they appear as a single switch.
+switchdev has no idea of the mapping of interfaces to switches, nor
+the routing of frames between switches. This all happens in the layers
+bellow. The hardware does support LAG members on different switches
+within the same fabric. But it requires some additional setup for the
+ports which link switches together. We have the same issues with MDB,
+where additional setup is required for group members spread over the
+switch fabric.
 
-[1] Subject: "XDP redirect measurements, gotchas and tracepoints"
- http://lkml.kernel.org/r/20170821212506.1cb0d5d6@redhat.com
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+      Andrew
