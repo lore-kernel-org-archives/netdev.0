@@ -1,57 +1,89 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v4,2/9] brcmsmac: split up wlc_phy_workarounds_nphy
-Date: Mon,  2 Oct 2017 13:55:56 +0000 (UTC)
-Message-ID: <20171002135556.82A7D60B7C@smtp.codeaurora.org>
-References: <20170922212930.620249-3-arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+Date: Mon, 02 Oct 2017 06:56:06 -0700
+Message-ID: <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171001102110.24184f1b@xeon-e3>
+         <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
-        Wright Feng <wright.feng@cypress.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Mauro Carvalho Chehab <mchehab@kernel.org>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Michal Marek <mmarek@suse.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kees Cook <keescook@chromium.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-media@vger.ke
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922212930.620249-3-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>, svimik@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:48800 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751160AbdJBN4I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 09:56:08 -0400
+Received: by mail-pg0-f46.google.com with SMTP id v78so1214840pgb.5
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 06:56:08 -0700 (PDT)
+In-Reply-To: <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
+CC svimik@gmail.com so that he is aware of this netdev thread.
 
-> The stack consumption in this driver is still relatively high, with one
-> remaining warning if the warning level is lowered to 1536 bytes:
+On Mon, 2017-10-02 at 14:32 +0100, James Chapman wrote:
+> This seems to be a NULL pointer exception caused by tunnel->sock being
+> NULL at the call to bh_lock_sock() in l2tp_xmit_skb() at
+> l2tp_core.c:1135.
 > 
-> drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_n.c:17135:1: error: the frame size of 1880 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+> tunnel->sock is set NULL in l2tp_core's tunnel socket destructor.
 > 
-> The affected function is actually a collection of three separate implementations,
-> and each of them is fairly large by itself. Splitting them up is done easily
-> and improves readability at the same time.
+> At the moment, I don't understand how this happens because
+> pppol2tp_xmit() does a sock_hold() on the tunnel socket before
+> l2tp_xmit_skb() is called. I'm still looking at this.
 > 
-> I'm leaving the original indentation to make the review easier.
+> Has this problem only recently started happening?
 > 
-> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-I'll queue this for v4.15. Depends on:
-
-c503dd38f850 brcmsmac: make some local variables 'static const' to reduce stack size
-
--- 
-https://patchwork.kernel.org/patch/9967141/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+> 
+> 
+> 
+> 
+> On 1 October 2017 at 18:21, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> >
+> >
+> > Begin forwarded message:
+> >
+> > Date: Sun, 01 Oct 2017 16:22:33 +0000
+> > From: bugzilla-daemon@bugzilla.kernel.org
+> > To: stephen@networkplumber.org
+> > Subject: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+> >
+> >
+> > https://bugzilla.kernel.org/show_bug.cgi?id=197099
+> >
+> >             Bug ID: 197099
+> >            Summary: Kernel panic in interrupt [l2tp_ppp]
+> >            Product: Networking
+> >            Version: 2.5
+> >     Kernel Version: 4.8.13-1.el6.elrepo.x86_64
+> >           Hardware: x86-64
+> >                 OS: Linux
+> >               Tree: Mainline
+> >             Status: NEW
+> >           Severity: normal
+> >           Priority: P1
+> >          Component: Other
+> >           Assignee: stephen@networkplumber.org
+> >           Reporter: svimik@gmail.com
+> >         Regression: No
+> >
+> > Created attachment 258685
+> >   --> https://bugzilla.kernel.org/attachment.cgi?id=258685&action=edit
+> > stacktrace screenshot
+> >
+> > Hello!
+> >
+> > Getting kernel panics on multiple servers. Since it mentions l2tp_core,
+> > l2tp_ppp and ppp_generic, I decided to report it to Networking (correct me if
+> > I'm wrong).
+> >
+> > Unfortunately I'm still struggling with making kdump work, so the trace
+> > screenshot is all I have at this moment. The only hope is that this stacktrace
+> > means something to the guys that wrote the code.
+> >
+> > --
+> > You are receiving this mail because:
+> > You are the assignee for the bug.
