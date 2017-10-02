@@ -1,65 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2] net: core: decouple ifalias get/set from
- rtnl lock
-Date: Mon, 02 Oct 2017 07:53:49 -0700
-Message-ID: <1506956029.8061.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171002102745.3047-1-fw@strlen.de>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net 3/3] net: skb_queue_purge(): lock/unlock the queue
+ only once
+Date: Mon, 2 Oct 2017 07:55:39 -0700
+Message-ID: <20171002075539.113a1eaa@xeon-e3>
+References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
+        <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
+        <ccfa23a0f76c4c9ebd07fc991db2f829-mfwitten@gmail.com>
+        <20171001175909.4b9e53d8@xeon-e3>
+        <057dd5367241468691b2b9adbc38a3ba-mfwitten@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:37831 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751856AbdJBOxw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 10:53:52 -0400
-Received: by mail-pg0-f65.google.com with SMTP id o1so5057608pga.4
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 07:53:52 -0700 (PDT)
-In-Reply-To: <20171002102745.3047-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Michael Witten <mfwitten@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <057dd5367241468691b2b9adbc38a3ba-mfwitten@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-10-02 at 12:27 +0200, Florian Westphal wrote:
-> Device alias can be set by either rtnetlink (rtnl is held) or sysfs.
+On Mon, 02 Oct 2017 05:15:32 -0000
+Michael Witten <mfwitten@gmail.com> wrote:
+
+> On Sun, 1 Oct 2017 17:59:09 -0700, Stephen Hemminger wrote:
 > 
-> rtnetlink hold the rtnl mutex, sysfs acquires it for this purpose.
-> Add an extra mutex for it plus a seqcount to get a consistent snapshot
-> of the alias buffer.
+> > On Sun, 01 Oct 2017 22:19:20 -0000 Michael Witten wrote:
+> >  
+> >> +	spin_lock_irqsave(&q->lock, flags);
+> >> +	skb = q->next;
+> >> +	__skb_queue_head_init(q);
+> >> +	spin_unlock_irqrestore(&q->lock, flags);  
+> >
+> > Other code manipulating lists uses splice operation and
+> > a sk_buff_head temporary on the stack. That would be easier
+> > to understand.
+> >
+> > 	struct sk_buf_head head;
+> >
+> > 	__skb_queue_head_init(&head);
+> > 	spin_lock_irqsave(&q->lock, flags);
+> > 	skb_queue_splice_init(q, &head);
+> > 	spin_unlock_irqrestore(&q->lock, flags);
+> >
+> >  
+> >> +	while (skb != head) {
+> >> +		next = skb->next;
+> >>  		kfree_skb(skb);
+> >> +		skb = next;
+> >> +	}  
+> >
+> > It would be cleaner if you could use
+> > skb_queue_walk_safe rather than open coding the loop.
+> >
+> > 	skb_queue_walk_safe(&head, skb,  tmp)
+> > 		kfree_skb(skb);  
+> 
+> I appreciate abstraction as much as anybody, but I do not believe
+> that such abstractions would actually be an improvement here.
+> 
+> * Splice-initing seems more like an idiom than an abstraction;
+>   at first blush, it wouldn't be clear to me what the intention
+>   is.
+> 
+> * Such abstractions are fairly unnecessary.
+> 
+>     * The function as written is already so short as to be
+>       easily digested.
+> 
+>     * More to the point, this function is not some generic,
+>       higher-level algorithm that just happens to employ the
+>       socket buffer interface; rather, it is a function that
+>       implements part of that very interface, and may thus
+>       twiddle the intimate bits of these data structures
+>       without being accused of abusing a leaky abstraction.
+> 
+> * Such abstractions add overhead, if only conceptually. In this
+>   case, a temporary socket buffer queue allocates *3* unnecessary
+>   struct members, including a whole `spinlock_t' member:
+>   
+>     prev
+>     qlen
+>     lock
+> 
+>   It's possible that the compiler will be smart enough to leave
+>   those out, but I have my suspicions that it won't, not only
+>   given that the interface contract requires that the temporary
+>   socket buffer queue be properly initialized before use, but
+>   also because splicing into the temporary will manipulate its
+>   `qlen'. Yet, why worry whether optimization happens? The whole
+>   issue can simply be avoided by exploiting the intimate details
+>   that are already philosophically available to us.
+> 
+>   Similarly, the function `skb_queue_walk_safe' is nice, but it
+>   loses value both because a temporary queue loses value (as just
+>   described), and because it ignores the fact that legitimate
+>   access to the internals of these data structures allows for
+>   setting up the requested loop in advance; that is to say, the
+>   two parts of the function that we are now debating can be woven
+>   together more tightly than `skb_queue_walk_safe' allows.
+> 
+> For these reasons, I stand by the way that the patch currently
+> implements this function; it does exactly what is desired, no more
+> or less.
+> 
+> Sincerely,
+> Michael Witten
 
+The point is that there was discussion in the past of replacing
+the next/prev as used in skb with more generic code from list.h.
+If the abstraction was used, then this code would just work.
 
-> +int dev_get_alias(const struct net_device *dev, char *alias, size_t len)
-> +{
-> +	unsigned int seq;
-> +	int ret;
-> +
-> +	for (;;) {
-> +		const char *name;
-> +
-> +		ret = 0;
-> +		rcu_read_lock();
-> +		name = rcu_dereference(dev->ifalias);
-> +		seq = raw_seqcount_begin(&ifalias_rename_seq);
-> +		if (name)
-> +			ret = snprintf(alias, len, "%s", name);
-> +		rcu_read_unlock();
-> +
-> +		if (!read_seqcount_retry(&ifalias_rename_seq, seq))
-> +			break;
-> +
-> +		cond_resched();
-> +	}
-> +
-> +	return ret;
-> +}
-
-I believe this too complex and not needed.
-
-Just use RCU : A writer is supposed to work on a private copy, and
-_then_ publish the new pointer, so that a reader can not see mangled
-string.
-
-We either copy the 'old' name or the 'new' one.
-
-A seqcount is not needed, and wont prevent you from reading the value
-right before a change anyway.
+The temporary skb_buff_head is on the stack, and any
+access to updating those fields like qlen are in CPU cache
+and therefore have very little impact on any peformance.
