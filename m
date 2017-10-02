@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 5/8] samples/bpf: add multi-prog cgroup test case
-Date: Mon, 2 Oct 2017 16:48:54 -0700
-Message-ID: <20171002234857.3707580-6-ast@fb.com>
+Subject: [PATCH net-next 6/8] libbpf: sync bpf.h
+Date: Mon, 2 Oct 2017 16:48:55 -0700
+Message-ID: <20171002234857.3707580-7-ast@fb.com>
 References: <20171002234857.3707580-1-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,273 +10,118 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
         <netdev@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54434 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751084AbdJBXtS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 19:49:18 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v92Nn4mU004138
-        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 16:49:17 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35882 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751131AbdJBXth (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 19:49:37 -0400
+Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v92Nm6gA026582
+        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 16:49:36 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dbw888k62-11
+        by mx0a-00082601.pphosted.com with ESMTP id 2dby88g1h6-5
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 16:49:17 -0700
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 16:49:36 -0700
 In-Reply-To: <20171002234857.3707580-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-create 5 cgroups, attach 6 progs and check that progs are executed as:
-cgrp1 (MULTI progs A, B) ->
-   cgrp2 (OVERRIDE prog C) ->
-     cgrp3 (MULTI prog D) ->
-       cgrp4 (OVERRIDE prog E) ->
-         cgrp5 (NONE prog F)
-the event in cgrp5 triggers execution of F,D,A,B in that order.
-if prog F is detached, the execution is E,D,A,B
-if prog F and D are detached, the execution is E,A,B
-if prog F, E and D are detached, the execution is C,A,B
+tools/include/uapi/linux/bpf.h got out of sync with actual kernel header.
+Update it.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/cgroup_helpers.c     |   4 +-
- samples/bpf/test_cgrp2_attach2.c | 188 +++++++++++++++++++++++++++++++++++++--
- 2 files changed, 185 insertions(+), 7 deletions(-)
+ tools/include/uapi/linux/bpf.h | 55 +++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 52 insertions(+), 3 deletions(-)
 
-diff --git a/samples/bpf/cgroup_helpers.c b/samples/bpf/cgroup_helpers.c
-index 9d1be9426401..88bdcf4b1670 100644
---- a/samples/bpf/cgroup_helpers.c
-+++ b/samples/bpf/cgroup_helpers.c
-@@ -56,7 +56,7 @@ int setup_cgroup_environment(void)
- 		return 1;
- 	}
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 6d2137b4cf38..cb2b9f95160a 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -92,6 +92,7 @@ enum bpf_cmd {
+ 	BPF_PROG_GET_FD_BY_ID,
+ 	BPF_MAP_GET_FD_BY_ID,
+ 	BPF_OBJ_GET_INFO_BY_FD,
++	BPF_PROG_QUERY,
+ };
  
--	if (mount("none", CGROUP_MOUNT_PATH, "cgroup2", 0, NULL)) {
-+	if (mount("none", CGROUP_MOUNT_PATH, "cgroup2", 0, NULL) && errno != EBUSY) {
- 		log_err("mount cgroup2");
- 		return 1;
- 	}
-@@ -163,7 +163,7 @@ int create_and_get_cgroup(char *path)
+ enum bpf_map_type {
+@@ -143,11 +144,47 @@ enum bpf_attach_type {
  
- 	format_cgroup_path(cgroup_path, path);
- 	if (mkdir(cgroup_path, 0777) && errno != EEXIST) {
--		log_err("mkdiring cgroup");
-+		log_err("mkdiring cgroup %s .. %s", path, cgroup_path);
- 		return 0;
- 	}
+ #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
  
-diff --git a/samples/bpf/test_cgrp2_attach2.c b/samples/bpf/test_cgrp2_attach2.c
-index 3049b1f26267..9a9f6836e5e9 100644
---- a/samples/bpf/test_cgrp2_attach2.c
-+++ b/samples/bpf/test_cgrp2_attach2.c
-@@ -30,7 +30,7 @@
+-/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
+- * to the given target_fd cgroup the descendent cgroup will be able to
+- * override effective bpf program that was inherited from this cgroup
++/* cgroup-bpf attach flags used in BPF_PROG_ATTACH command
++ *
++ * NONE(default): No further bpf programs allowed in the subtree.
++ *
++ * BPF_F_ALLOW_OVERRIDE: If a sub-cgroup installs some bpf program,
++ * the program in this cgroup yields to sub-cgroup program.
++ *
++ * BPF_F_ALLOW_MULTI: If a sub-cgroup installs some bpf program,
++ * that cgroup program gets run in addition to the program in this cgroup.
++ *
++ * Only one program is allowed to be attached to a cgroup with
++ * NONE or BPF_F_ALLOW_OVERRIDE flag.
++ * Attaching another program on top of NONE or BPF_F_ALLOW_OVERRIDE will
++ * release old program and attach the new one. Attach flags has to match.
++ *
++ * Multiple programs are allowed to be attached to a cgroup with
++ * BPF_F_ALLOW_MULTI flag. They are executed in FIFO order
++ * (those that were attached first, run first)
++ * The programs of sub-cgroup are executed first, then programs of
++ * this cgroup and then programs of parent cgroup.
++ * When children program makes decision (like picking TCP CA or sock bind)
++ * parent program has a chance to override it.
++ *
++ * A cgroup with MULTI or OVERRIDE flag allows any attach flags in sub-cgroups.
++ * A cgroup with NONE doesn't allow any programs in sub-cgroups.
++ * Ex1:
++ * cgrp1 (MULTI progs A, B) ->
++ *    cgrp2 (OVERRIDE prog C) ->
++ *      cgrp3 (MULTI prog D) ->
++ *        cgrp4 (OVERRIDE prog E) ->
++ *          cgrp5 (NONE prog F)
++ * the event in cgrp5 triggers execution of F,D,A,B in that order.
++ * if prog F is detached, the execution is E,D,A,B
++ * if prog F and D are detached, the execution is E,A,B
++ * if prog F, E and D are detached, the execution is C,A,B
++ *
++ * All eligible programs are executed regardless of return code from
++ * earlier programs.
+  */
+ #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
++#define BPF_F_ALLOW_MULTI	(1U << 1)
  
- #define FOO		"/foo"
- #define BAR		"/foo/bar/"
--#define PING_CMD	"ping -c1 -w1 127.0.0.1"
-+#define PING_CMD	"ping -c1 -w1 127.0.0.1 > /dev/null"
+ /* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
+  * verifier will perform strict alignment checking as if the kernel
+@@ -175,6 +212,9 @@ enum bpf_attach_type {
+ /* Specify numa node during map creation */
+ #define BPF_F_NUMA_NODE		(1U << 2)
  
- char bpf_log_buf[BPF_LOG_BUF_SIZE];
++/* flags for BPF_PROG_QUERY */
++#define BPF_F_QUERY_EFFECTIVE	(1U << 0)
++
+ #define BPF_OBJ_NAME_LEN 16U
  
-@@ -55,8 +55,7 @@ static int prog_load(int verdict)
- 	return ret;
- }
+ union bpf_attr {
+@@ -253,6 +293,15 @@ union bpf_attr {
+ 		__u32		info_len;
+ 		__aligned_u64	info;
+ 	} info;
++
++	struct { /* anonymous struct used by BPF_PROG_QUERY command */
++		__u32		target_fd;	/* container object to query */
++		__u32		attach_type;
++		__u32		query_flags;
++		__u32		attach_flags;
++		__aligned_u64	prog_ids;
++		__u32		prog_cnt;
++	} query;
+ } __attribute__((aligned(8)));
  
--
--int main(int argc, char **argv)
-+static int test_foo_bar(void)
- {
- 	int drop_prog, allow_prog, foo = 0, bar = 0, rc = 0;
- 
-@@ -189,8 +188,187 @@ int main(int argc, char **argv)
- 	close(bar);
- 	cleanup_cgroup_environment();
- 	if (!rc)
--		printf("PASS\n");
-+		printf("### override:PASS\n");
-+	else
-+		printf("### override:FAIL\n");
-+	return rc;
-+}
-+
-+static int map_fd = -1;
-+
-+static int prog_load_cnt(int verdict, int val)
-+{
-+	if (map_fd < 0)
-+		map_fd = bpf_create_map(BPF_MAP_TYPE_ARRAY, 4, 8, 1, 0);
-+	if (map_fd < 0) {
-+		printf("failed to create map '%s'\n", strerror(errno));
-+		return -1;
-+	}
-+
-+	struct bpf_insn prog[] = {
-+		BPF_MOV32_IMM(BPF_REG_0, 0),
-+		BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_0, -4), /* *(u32 *)(fp - 4) = r0 */
-+		BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
-+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4), /* r2 = fp - 4 */
-+		BPF_LD_MAP_FD(BPF_REG_1, map_fd),
-+		BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_lookup_elem),
-+		BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 2),
-+		BPF_MOV64_IMM(BPF_REG_1, val), /* r1 = 1 */
-+		BPF_RAW_INSN(BPF_STX | BPF_XADD | BPF_DW, BPF_REG_0, BPF_REG_1, 0, 0), /* xadd r0 += r1 */
-+		BPF_MOV64_IMM(BPF_REG_0, verdict), /* r0 = verdict */
-+		BPF_EXIT_INSN(),
-+	};
-+	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
-+	int ret;
-+
-+	ret = bpf_load_program(BPF_PROG_TYPE_CGROUP_SKB,
-+			       prog, insns_cnt, "GPL", 0,
-+			       bpf_log_buf, BPF_LOG_BUF_SIZE);
-+
-+	if (ret < 0) {
-+		log_err("Loading program");
-+		printf("Output from verifier:\n%s\n-------\n", bpf_log_buf);
-+		return 0;
-+	}
-+	return ret;
-+}
-+
-+
-+static int test_multiprog(void)
-+{
-+	int cg1 = 0, cg2 = 0, cg3 = 0, cg4 = 0, cg5 = 0, key = 0;
-+	int drop_prog, allow_prog[6] = {}, rc = 0;
-+	unsigned long long value;
-+	int i = 0;
-+
-+	for (i = 0; i < 6; i++) {
-+		allow_prog[i] = prog_load_cnt(1, 1 << i);
-+		if (!allow_prog[i])
-+			goto err;
-+	}
-+	drop_prog = prog_load_cnt(0, 1);
-+	if (!drop_prog)
-+		goto err;
-+
-+	if (setup_cgroup_environment())
-+		goto err;
-+
-+	cg1 = create_and_get_cgroup("/cg1");
-+	if (!cg1)
-+		goto err;
-+	cg2 = create_and_get_cgroup("/cg1/cg2");
-+	if (!cg2)
-+		goto err;
-+	cg3 = create_and_get_cgroup("/cg1/cg2/cg3");
-+	if (!cg3)
-+		goto err;
-+	cg4 = create_and_get_cgroup("/cg1/cg2/cg3/cg4");
-+	if (!cg4)
-+		goto err;
-+	cg5 = create_and_get_cgroup("/cg1/cg2/cg3/cg4/cg5");
-+	if (!cg5)
-+		goto err;
-+
-+	if (join_cgroup("/cg1/cg2/cg3/cg4/cg5"))
-+		goto err;
-+
-+	if (bpf_prog_attach(allow_prog[0], cg1, BPF_CGROUP_INET_EGRESS, 2)) {
-+		log_err("Attaching prog to cg1");
-+		goto err;
-+	}
-+	if (!bpf_prog_attach(allow_prog[0], cg1, BPF_CGROUP_INET_EGRESS, 2)) {
-+		log_err("Unexpected success attaching the same prog to cg1");
-+		goto err;
-+	}
-+	if (bpf_prog_attach(allow_prog[1], cg1, BPF_CGROUP_INET_EGRESS, 2)) {
-+		log_err("Attaching prog2 to cg1");
-+		goto err;
-+	}
-+	if (bpf_prog_attach(allow_prog[2], cg2, BPF_CGROUP_INET_EGRESS, 1)) {
-+		log_err("Attaching prog to cg2");
-+		goto err;
-+	}
-+	if (bpf_prog_attach(allow_prog[3], cg3, BPF_CGROUP_INET_EGRESS, 2)) {
-+		log_err("Attaching prog to cg3");
-+		goto err;
-+	}
-+	if (bpf_prog_attach(allow_prog[4], cg4, BPF_CGROUP_INET_EGRESS, 1)) {
-+		log_err("Attaching prog to cg4");
-+		goto err;
-+	}
-+	if (bpf_prog_attach(allow_prog[5], cg5, BPF_CGROUP_INET_EGRESS, 0)) {
-+		log_err("Attaching prog to cg5");
-+		goto err;
-+	}
-+	assert(system(PING_CMD) == 0);
-+	assert(bpf_map_lookup_elem(map_fd, &key, &value) == 0);
-+	assert(value == 1 + 2 + 8 + 32);
-+
-+	/* detach bottom program and ping again */
-+	if (bpf_prog_detach2(-1, cg5, BPF_CGROUP_INET_EGRESS)) {
-+		log_err("Detaching prog from cg5");
-+		goto err;
-+	}
-+	value = 0;
-+	assert(bpf_map_update_elem(map_fd, &key, &value, 0) == 0);
-+	assert(system(PING_CMD) == 0);
-+	assert(bpf_map_lookup_elem(map_fd, &key, &value) == 0);
-+	assert(value == 1 + 2 + 8 + 16);
-+
-+	/* detach 3rd from bottom program and ping again */
-+	errno = 0;
-+	if (!bpf_prog_detach2(0, cg3, BPF_CGROUP_INET_EGRESS)) {
-+		log_err("Unexpected success on detach from cg3");
-+		goto err;
-+	}
-+	if (bpf_prog_detach2(allow_prog[3], cg3, BPF_CGROUP_INET_EGRESS)) {
-+		log_err("Detaching from cg3");
-+		goto err;
-+	}
-+	value = 0;
-+	assert(bpf_map_update_elem(map_fd, &key, &value, 0) == 0);
-+	assert(system(PING_CMD) == 0);
-+	assert(bpf_map_lookup_elem(map_fd, &key, &value) == 0);
-+	assert(value == 1 + 2 + 16);
-+
-+	/* detach 2nd from bottom program and ping again */
-+	if (bpf_prog_detach2(-1, cg4, BPF_CGROUP_INET_EGRESS)) {
-+		log_err("Detaching prog from cg4");
-+		goto err;
-+	}
-+	value = 0;
-+	assert(bpf_map_update_elem(map_fd, &key, &value, 0) == 0);
-+	assert(system(PING_CMD) == 0);
-+	assert(bpf_map_lookup_elem(map_fd, &key, &value) == 0);
-+	assert(value == 1 + 2 + 4);
-+	goto out;
-+err:
-+	rc = 1;
-+
-+out:
-+	for (i = 0; i < 6; i++)
-+		if (allow_prog[i] > 0)
-+			close(allow_prog[i]);
-+	close(cg1);
-+	close(cg2);
-+	close(cg3);
-+	close(cg4);
-+	close(cg5);
-+	cleanup_cgroup_environment();
-+	if (!rc)
-+		printf("### multi:PASS\n");
- 	else
--		printf("FAIL\n");
-+		printf("### multi:FAIL\n");
- 	return rc;
- }
-+
-+int main(int argc, char **argv)
-+{
-+	int rc = 0;
-+
-+	rc = test_foo_bar();
-+	if (rc)
-+		return rc;
-+
-+	return test_multiprog();
-+}
+ /* BPF helper function descriptions:
 -- 
 2.9.5
