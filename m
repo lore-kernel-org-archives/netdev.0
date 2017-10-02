@@ -1,41 +1,174 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: cross namespace interface notification for tun devices
-Date: Mon, 2 Oct 2017 13:11:09 +0200
-Message-ID: <CAHmME9pAvv7ebKC-uZGPJRi9Jasgrd2tgCvS1Lji+cgM1mV2qw@mail.gmail.com>
-References: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
- <f80d9afa-0ce2-903d-9bf9-b7bb8765086b@6wind.com>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH v3 02/19] thunderbolt: Remove __packed from ICM message
+ structures
+Date: Mon, 02 Oct 2017 14:45:52 +0300
+Message-ID: <1506944752.16112.224.camel@linux.intel.com>
+References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
+         <20171002103846.64602-3-mika.westerberg@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>, Mathias <mathias@hall-andersen.dk>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:47813 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750878AbdJBLLM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 07:11:12 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id dbb2c811
-        for <netdev@vger.kernel.org>;
-        Mon, 2 Oct 2017 11:01:29 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 15d57fff (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Mon, 2 Oct 2017 11:01:28 +0000 (UTC)
-Received: by mail-oi0-f53.google.com with SMTP id w197so3819921oif.6
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 04:11:11 -0700 (PDT)
-In-Reply-To: <f80d9afa-0ce2-903d-9bf9-b7bb8765086b@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Andreas Noever <andreas.noever@gmail.com>,
+        Michael Jamet <michael.jamet@intel.com>,
+        Yehezkel Bernat <yehezkel.bernat@intel.com>,
+        Amir Levy <amir.jer.levy@intel.com>,
+        Mario.Limonciello@dell.com, Lukas Wunner <lukas@wunner.de>,
+        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Mika Westerberg <mika.westerberg@linux.intel.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171002103846.64602-3-mika.westerberg@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 2, 2017 at 11:32 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> 1. Move the process to netns B, open the netlink socket and move back the
-> process to netns A. The socket will remain in netns B and you will receive all
-> netlink messages related to netns B.
->
-> 2. Assign a nsid to netns B in netns A and use NETLINK_LISTEN_ALL_NSID on your
-> netlink socket (see iproute2).
+On Mon, 2017-10-02 at 13:38 +0300, Mika Westerberg wrote:
+> These messages are all 32-byte aligned and they should be packed 
 
-Both of these seem to rely on the process knowing where the device is
-being moved and having access to that namespace. I don't think these
-two things are a given though. Unless I'm missing something?
+Obviously 32-bit.
 
-Jason
+Other than that,
+
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+
+> without
+> the __packed attribute just fine. It also allows compiler to generate
+> better code on some architectures.
+> 
+> Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+> Reviewed-by: Michael Jamet <michael.jamet@intel.com>
+> Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
+> ---
+>  drivers/thunderbolt/tb_msgs.h | 28 ++++++++++++++--------------
+>  1 file changed, 14 insertions(+), 14 deletions(-)
+> 
+> diff --git a/drivers/thunderbolt/tb_msgs.h
+> b/drivers/thunderbolt/tb_msgs.h
+> index de6441e4a060..f3adf58a40ce 100644
+> --- a/drivers/thunderbolt/tb_msgs.h
+> +++ b/drivers/thunderbolt/tb_msgs.h
+> @@ -130,7 +130,7 @@ struct icm_pkg_header {
+>  	u8 flags;
+>  	u8 packet_id;
+>  	u8 total_packets;
+> -} __packed;
+> +};
+>  
+>  #define ICM_FLAGS_ERROR			BIT(0)
+>  #define ICM_FLAGS_NO_KEY		BIT(1)
+> @@ -139,20 +139,20 @@ struct icm_pkg_header {
+>  
+>  struct icm_pkg_driver_ready {
+>  	struct icm_pkg_header hdr;
+> -} __packed;
+> +};
+>  
+>  struct icm_pkg_driver_ready_response {
+>  	struct icm_pkg_header hdr;
+>  	u8 romver;
+>  	u8 ramver;
+>  	u16 security_level;
+> -} __packed;
+> +};
+>  
+>  /* Falcon Ridge & Alpine Ridge common messages */
+>  
+>  struct icm_fr_pkg_get_topology {
+>  	struct icm_pkg_header hdr;
+> -} __packed;
+> +};
+>  
+>  #define ICM_GET_TOPOLOGY_PACKETS	14
+>  
+> @@ -167,7 +167,7 @@ struct icm_fr_pkg_get_topology_response {
+>  	u32 reserved[2];
+>  	u32 ports[16];
+>  	u32 port_hop_info[16];
+> -} __packed;
+> +};
+>  
+>  #define ICM_SWITCH_USED			BIT(0)
+>  #define ICM_SWITCH_UPSTREAM_PORT_MASK	GENMASK(7, 1)
+> @@ -184,7 +184,7 @@ struct icm_fr_event_device_connected {
+>  	u8 connection_id;
+>  	u16 link_info;
+>  	u32 ep_name[55];
+> -} __packed;
+> +};
+>  
+>  #define ICM_LINK_INFO_LINK_MASK		0x7
+>  #define ICM_LINK_INFO_DEPTH_SHIFT	4
+> @@ -197,13 +197,13 @@ struct icm_fr_pkg_approve_device {
+>  	u8 connection_key;
+>  	u8 connection_id;
+>  	u16 reserved;
+> -} __packed;
+> +};
+>  
+>  struct icm_fr_event_device_disconnected {
+>  	struct icm_pkg_header hdr;
+>  	u16 reserved;
+>  	u16 link_info;
+> -} __packed;
+> +};
+>  
+>  struct icm_fr_pkg_add_device_key {
+>  	struct icm_pkg_header hdr;
+> @@ -212,7 +212,7 @@ struct icm_fr_pkg_add_device_key {
+>  	u8 connection_id;
+>  	u16 reserved;
+>  	u32 key[8];
+> -} __packed;
+> +};
+>  
+>  struct icm_fr_pkg_add_device_key_response {
+>  	struct icm_pkg_header hdr;
+> @@ -220,7 +220,7 @@ struct icm_fr_pkg_add_device_key_response {
+>  	u8 connection_key;
+>  	u8 connection_id;
+>  	u16 reserved;
+> -} __packed;
+> +};
+>  
+>  struct icm_fr_pkg_challenge_device {
+>  	struct icm_pkg_header hdr;
+> @@ -229,7 +229,7 @@ struct icm_fr_pkg_challenge_device {
+>  	u8 connection_id;
+>  	u16 reserved;
+>  	u32 challenge[8];
+> -} __packed;
+> +};
+>  
+>  struct icm_fr_pkg_challenge_device_response {
+>  	struct icm_pkg_header hdr;
+> @@ -239,7 +239,7 @@ struct icm_fr_pkg_challenge_device_response {
+>  	u16 reserved;
+>  	u32 challenge[8];
+>  	u32 response[8];
+> -} __packed;
+> +};
+>  
+>  /* Alpine Ridge only messages */
+>  
+> @@ -247,7 +247,7 @@ struct icm_ar_pkg_get_route {
+>  	struct icm_pkg_header hdr;
+>  	u16 reserved;
+>  	u16 link_info;
+> -} __packed;
+> +};
+>  
+>  struct icm_ar_pkg_get_route_response {
+>  	struct icm_pkg_header hdr;
+> @@ -255,6 +255,6 @@ struct icm_ar_pkg_get_route_response {
+>  	u16 link_info;
+>  	u32 route_hi;
+>  	u32 route_lo;
+> -} __packed;
+> +};
+>  
+>  #endif
+
+-- 
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
