@@ -1,60 +1,73 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [next-queue PATCH v2 2/5] net/sched: Fix accessing invalid
- dev_queue
-Date: Mon, 2 Oct 2017 08:57:06 -0700
-Message-ID: <bb111622-1a5c-2a8b-f526-c94f7b77d454@intel.com>
-References: <20170930002657.15291-1-vinicius.gomes@intel.com>
- <20170930002657.15291-3-vinicius.gomes@intel.com>
- <CAM_iQpW7YtS2=rRw814=zWcJaUOGmkWQ+NHQKPwsBF4hMQSRVg@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH RFC] flow_dissector: Add FLOW_DISSECTOR_F_FLOWER
+Date: Mon, 2 Oct 2017 09:05:10 -0700
+Message-ID: <CALx6S356v5Ogwv0G3Pnok2FkFphNbkw-cRR5MRtQRDmV2_vMXA@mail.gmail.com>
+References: <20170929191343.11318-1-tom@quantonium.net> <20171002144946.GE1941@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>, andre.guedes@intel.com,
-        Ivan Briano <ivan.briano@intel.com>, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, Henrik Austad <henrik@austad.us>,
-        levipearson@gmail.com, rodney.cummings@ni.com
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tom Herbert <tom@quantonium.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:8338 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751061AbdJBQEH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 12:04:07 -0400
-In-Reply-To: <CAM_iQpW7YtS2=rRw814=zWcJaUOGmkWQ+NHQKPwsBF4hMQSRVg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:35392 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751061AbdJBQFM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 12:05:12 -0400
+Received: by mail-qk0-f193.google.com with SMTP id w63so2582557qkd.2
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 09:05:11 -0700 (PDT)
+In-Reply-To: <20171002144946.GE1941@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On 09/30/2017 05:22 PM, Cong Wang wrote:
-> On Fri, Sep 29, 2017 at 5:26 PM, Vinicius Costa Gomes
-> <vinicius.gomes@intel.com> wrote:
->> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+On Mon, Oct 2, 2017 at 7:49 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Sep 29, 2017 at 09:13:42PM CEST, tom@quantonium.net wrote:
+>>This patch is RFC and would be applied after "flow_dissector:
+>>Protocol specific flow dissector offload"
 >>
->> In qdisc_alloc() the dev_queue pointer was used without any checks being
->> performed. If qdisc_create() gets a null dev_queue pointer, it just
->> passes it along to qdisc_alloc(), leading to a crash. That happens if a
->> root qdisc implements select_queue() and returns a null dev_queue
->> pointer for an "invalid handle", for example.
-> 
-> Does it make sense to let mqprio_select_queue() always return
-> non-NULL?
-> 
-> At least mq_select_queue() returns queue #0 as a fallback.
+>>In order to maitain uAPI in flower, the FLOW_DISSECTOR_F_FLOWER flag
+>>is added to indicate to flow_dissector that the caller is flower.
+>>As new funtionality is addes to flow_dissector that would break
+>>the flower uAPI, the code can be wrapped in "if (!(flags &
+>>FLOW_DISSECTOR_F_FLOWER)).
+>>
+>>In this patch the conditional is use around protocol specific
+>>dissection (e.g. DPI into VXLAN) as well as the code that
+>>enforces a depth of parsing to prevent DPI. The latter was a
+>>recent patch that would introduce a parsing limit to flower that
+>>did not exist before (i.e. would break uAPI).
+>>
+>>Signed-off-by: Tom Herbert <tom@quantonium.net>
+>>---
+>> include/net/flow_dissector.h |  1 +
+>> net/core/flow_dissector.c    | 17 +++++++++++------
+>> net/sched/cls_flow.c         |  3 ++-
+>> 3 files changed, 14 insertions(+), 7 deletions(-)
+>>
+>>diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
+>>index ad75bbfd1c9c..ca315107d147 100644
+>>--- a/include/net/flow_dissector.h
+>>+++ b/include/net/flow_dissector.h
+>>@@ -214,6 +214,7 @@ enum flow_dissector_key_id {
+>> #define FLOW_DISSECTOR_F_STOP_AT_FLOW_LABEL   BIT(2)
+>> #define FLOW_DISSECTOR_F_STOP_AT_ENCAP                BIT(3)
+>> #define FLOW_DISSECTOR_F_STOP_AT_L4           BIT(4)
+>>+#define FLOW_DISSECTOR_F_FLOWER                       BIT(5)
+>
+> I don't like flow_dissector to have any user-specific bits. Note that
+> the same dissection may be used not only from flower, but from other
+> code as well (OVS). Flow dissector should not care who the caller is.
 
-I had seen that, but my understanding was that for mqprio the inner qdiscs are
-always related to one of the Tx netdev_queue per design. Returning any other
-queue as a fallback seemed like going against that to me.
+I agree with that, but unfortunately that's now how it works in
+reality. As pointed out flower has assumed flow_dissector semantics as
+its uAPI, so we can't change flow dissector with out considering this
+one specific caller even if all other use cases of flow dissector
+don't care.
 
-I'd rather keep this function as the patch is proposing, thus either returning
-the correct netdev_queue for a given handle, or NULL as a way to flag that
-something was 'wrong' with it. Returning queue #0 is misleading in that sense, imo.
+If you don't like this approach, then please suggest an alternative
+that will achieve the same effect.
 
-What do you think?
-
-Regards,
-Jesus
+Thanks,
+Tom
