@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v3 14/19] thunderbolt: Add polling mode for rings
-Date: Mon,  2 Oct 2017 13:38:41 +0300
-Message-ID: <20171002103846.64602-15-mika.westerberg@linux.intel.com>
+Subject: [PATCH v3 13/19] thunderbolt: Use spinlock in NHI serialization
+Date: Mon,  2 Oct 2017 13:38:40 +0300
+Message-ID: <20171002103846.64602-14-mika.westerberg@linux.intel.com>
 References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,310 +19,208 @@ In-Reply-To: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to support things like networking over Thunderbolt cable, there
-needs to be a way to switch the ring to a mode where it can be polled
-with the interrupt masked. We implement such mode so that the caller can
-allocate a ring by passing pointer to a function that is then called
-when an interrupt is triggered. Completed frames can be fetched using
-tb_ring_poll() and the interrupt can be re-enabled when the caller is
-finished with polling by using tb_ring_poll_complete().
+This is needed because ring polling functionality can be called from
+atomic contexts when networking and other high-speed traffic is
+transferred over a Thunderbolt cable.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/thunderbolt/ctl.c   |   2 +-
- drivers/thunderbolt/nhi.c   | 126 ++++++++++++++++++++++++++++++++++++++++----
- include/linux/thunderbolt.h |  23 +++++---
- 3 files changed, 134 insertions(+), 17 deletions(-)
+ drivers/thunderbolt/nhi.c   | 75 +++++++++++++++++++++++++--------------------
+ include/linux/thunderbolt.h |  2 +-
+ 2 files changed, 42 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/thunderbolt/ctl.c b/drivers/thunderbolt/ctl.c
-index dd10789e1dbb..d079dbba2c03 100644
---- a/drivers/thunderbolt/ctl.c
-+++ b/drivers/thunderbolt/ctl.c
-@@ -619,7 +619,7 @@ struct tb_ctl *tb_ctl_alloc(struct tb_nhi *nhi, event_cb cb, void *cb_data)
- 		goto err;
- 
- 	ctl->rx = tb_ring_alloc_rx(nhi, 0, 10, RING_FLAG_NO_SUSPEND, 0xffff,
--				0xffff);
-+				0xffff, NULL, NULL);
- 	if (!ctl->rx)
- 		goto err;
- 
 diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
-index 0b3c0640048b..af0a80ddf594 100644
+index 7d1891ec3c47..0b3c0640048b 100644
 --- a/drivers/thunderbolt/nhi.c
 +++ b/drivers/thunderbolt/nhi.c
-@@ -252,7 +252,8 @@ static void ring_work(struct work_struct *work)
- 		 * Do not hold on to it.
- 		 */
- 		list_del_init(&frame->list);
--		frame->callback(ring, frame, canceled);
-+		if (frame->callback)
-+			frame->callback(ring, frame, canceled);
- 	}
- }
+@@ -327,21 +327,9 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	if (transmit && hop == RING_E2E_UNUSED_HOPID)
+ 		return NULL;
  
-@@ -273,11 +274,106 @@ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
- }
- EXPORT_SYMBOL_GPL(__tb_ring_enqueue);
+-	mutex_lock(&nhi->lock);
+-	if (hop >= nhi->hop_count) {
+-		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
+-		goto err;
+-	}
+-	if (transmit && nhi->tx_rings[hop]) {
+-		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
+-		goto err;
+-	} else if (!transmit && nhi->rx_rings[hop]) {
+-		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
+-		goto err;
+-	}
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+ 	if (!ring)
+-		goto err;
++		return NULL;
  
-+/**
-+ * tb_ring_poll() - Poll one completed frame from the ring
-+ * @ring: Ring to poll
-+ *
-+ * This function can be called when @start_poll callback of the @ring
-+ * has been called. It will read one completed frame from the ring and
-+ * return it to the caller. Returns %NULL if there is no more completed
-+ * frames.
-+ */
-+struct ring_frame *tb_ring_poll(struct tb_ring *ring)
-+{
-+	struct ring_frame *frame = NULL;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&ring->lock, flags);
-+	if (!ring->running)
-+		goto unlock;
-+	if (ring_empty(ring))
-+		goto unlock;
-+
-+	if (ring->descriptors[ring->tail].flags & RING_DESC_COMPLETED) {
-+		frame = list_first_entry(&ring->in_flight, typeof(*frame),
-+					 list);
-+		list_del_init(&frame->list);
-+
-+		if (!ring->is_tx) {
-+			frame->size = ring->descriptors[ring->tail].length;
-+			frame->eof = ring->descriptors[ring->tail].eof;
-+			frame->sof = ring->descriptors[ring->tail].sof;
-+			frame->flags = ring->descriptors[ring->tail].flags;
-+		}
-+
-+		ring->tail = (ring->tail + 1) % ring->size;
-+	}
-+
-+unlock:
-+	spin_unlock_irqrestore(&ring->lock, flags);
-+	return frame;
-+}
-+EXPORT_SYMBOL_GPL(tb_ring_poll);
-+
-+static void __ring_interrupt_mask(struct tb_ring *ring, bool mask)
-+{
-+	int idx = ring_interrupt_index(ring);
-+	int reg = REG_RING_INTERRUPT_BASE + idx / 32 * 4;
-+	int bit = idx % 32;
-+	u32 val;
-+
-+	val = ioread32(ring->nhi->iobase + reg);
-+	if (mask)
-+		val &= ~BIT(bit);
-+	else
-+		val |= BIT(bit);
-+	iowrite32(val, ring->nhi->iobase + reg);
-+}
-+
-+/* Both @nhi->lock and @ring->lock should be held */
-+static void __ring_interrupt(struct tb_ring *ring)
-+{
-+	if (!ring->running)
-+		return;
-+
-+	if (ring->start_poll) {
-+		__ring_interrupt_mask(ring, false);
-+		ring->start_poll(ring->poll_data);
-+	} else {
-+		schedule_work(&ring->work);
-+	}
-+}
-+
-+/**
-+ * tb_ring_poll_complete() - Re-start interrupt for the ring
-+ * @ring: Ring to re-start the interrupt
-+ *
-+ * This will re-start (unmask) the ring interrupt once the user is done
-+ * with polling.
-+ */
-+void tb_ring_poll_complete(struct tb_ring *ring)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&ring->nhi->lock, flags);
-+	spin_lock(&ring->lock);
-+	if (ring->start_poll)
-+		__ring_interrupt_mask(ring, false);
-+	spin_unlock(&ring->lock);
-+	spin_unlock_irqrestore(&ring->nhi->lock, flags);
-+}
-+EXPORT_SYMBOL_GPL(tb_ring_poll_complete);
-+
- static irqreturn_t ring_msix(int irq, void *data)
- {
- 	struct tb_ring *ring = data;
- 
--	schedule_work(&ring->work);
-+	spin_lock(&ring->nhi->lock);
-+	spin_lock(&ring->lock);
-+	__ring_interrupt(ring);
-+	spin_unlock(&ring->lock);
-+	spin_unlock(&ring->nhi->lock);
-+
- 	return IRQ_HANDLED;
- }
- 
-@@ -317,7 +413,9 @@ static void ring_release_msix(struct tb_ring *ring)
- 
- static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- 				     bool transmit, unsigned int flags,
--				     u16 sof_mask, u16 eof_mask)
-+				     u16 sof_mask, u16 eof_mask,
-+				     void (*start_poll)(void *),
-+				     void *poll_data)
- {
- 	struct tb_ring *ring = NULL;
- 	dev_info(&nhi->pdev->dev, "allocating %s ring %d of size %d\n",
-@@ -346,6 +444,8 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- 	ring->head = 0;
+ 	spin_lock_init(&ring->lock);
+ 	INIT_LIST_HEAD(&ring->queue);
+@@ -359,25 +347,45 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
  	ring->tail = 0;
  	ring->running = false;
-+	ring->start_poll = start_poll;
-+	ring->poll_data = poll_data;
  
+-	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
+-		goto err;
+-
  	ring->descriptors = dma_alloc_coherent(&ring->nhi->pdev->dev,
  			size * sizeof(*ring->descriptors),
-@@ -399,7 +499,7 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- struct tb_ring *tb_ring_alloc_tx(struct tb_nhi *nhi, int hop, int size,
- 				 unsigned int flags)
- {
--	return tb_ring_alloc(nhi, hop, size, true, flags, 0, 0);
-+	return tb_ring_alloc(nhi, hop, size, true, flags, 0, 0, NULL, NULL);
- }
- EXPORT_SYMBOL_GPL(tb_ring_alloc_tx);
+ 			&ring->descriptors_dma, GFP_KERNEL | __GFP_ZERO);
+ 	if (!ring->descriptors)
+-		goto err;
++		goto err_free_ring;
  
-@@ -411,11 +511,17 @@ EXPORT_SYMBOL_GPL(tb_ring_alloc_tx);
-  * @flags: Flags for the ring
-  * @sof_mask: Mask of PDF values that start a frame
-  * @eof_mask: Mask of PDF values that end a frame
-+ * @start_poll: If not %NULL the ring will call this function when an
-+ *		interrupt is triggered and masked, instead of callback
-+ *		in each Rx frame.
-+ * @poll_data: Optional data passed to @start_poll
++	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
++		goto err_free_descs;
++
++	spin_lock_irq(&nhi->lock);
++	if (hop >= nhi->hop_count) {
++		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
++		goto err_release_msix;
++	}
++	if (transmit && nhi->tx_rings[hop]) {
++		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
++		goto err_release_msix;
++	} else if (!transmit && nhi->rx_rings[hop]) {
++		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
++		goto err_release_msix;
++	}
+ 	if (transmit)
+ 		nhi->tx_rings[hop] = ring;
+ 	else
+ 		nhi->rx_rings[hop] = ring;
+-	mutex_unlock(&nhi->lock);
++	spin_unlock_irq(&nhi->lock);
++
+ 	return ring;
+ 
+-err:
++err_release_msix:
++	spin_unlock_irq(&nhi->lock);
++	ring_release_msix(ring);
++err_free_descs:
++	dma_free_coherent(&ring->nhi->pdev->dev,
++			  ring->size * sizeof(*ring->descriptors),
++			  ring->descriptors, ring->descriptors_dma);
++err_free_ring:
+ 	kfree(ring);
+-	mutex_unlock(&nhi->lock);
++
+ 	return NULL;
+ }
+ 
+@@ -421,8 +429,8 @@ void tb_ring_start(struct tb_ring *ring)
+ 	u16 frame_size;
+ 	u32 flags;
+ 
+-	mutex_lock(&ring->nhi->lock);
+-	spin_lock_irq(&ring->lock);
++	spin_lock_irq(&ring->nhi->lock);
++	spin_lock(&ring->lock);
+ 	if (ring->nhi->going_away)
+ 		goto err;
+ 	if (ring->running) {
+@@ -469,8 +477,8 @@ void tb_ring_start(struct tb_ring *ring)
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+ err:
+-	spin_unlock_irq(&ring->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock(&ring->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_start);
+ 
+@@ -489,8 +497,8 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
   */
- struct tb_ring *tb_ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
--				 unsigned int flags, u16 sof_mask, u16 eof_mask)
-+				 unsigned int flags, u16 sof_mask, u16 eof_mask,
-+				 void (*start_poll)(void *), void *poll_data)
+ void tb_ring_stop(struct tb_ring *ring)
  {
--	return tb_ring_alloc(nhi, hop, size, false, flags, sof_mask, eof_mask);
-+	return tb_ring_alloc(nhi, hop, size, false, flags, sof_mask, eof_mask,
-+			     start_poll, poll_data);
- }
- EXPORT_SYMBOL_GPL(tb_ring_alloc_rx);
+-	mutex_lock(&ring->nhi->lock);
+-	spin_lock_irq(&ring->lock);
++	spin_lock_irq(&ring->nhi->lock);
++	spin_lock(&ring->lock);
+ 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
+ 	if (ring->nhi->going_away)
+@@ -511,8 +519,8 @@ void tb_ring_stop(struct tb_ring *ring)
+ 	ring->running = false;
  
-@@ -556,6 +662,7 @@ void tb_ring_free(struct tb_ring *ring)
- 		dev_WARN(&ring->nhi->pdev->dev, "%s %d still running\n",
- 			 RING_TYPE(ring), ring->hop);
- 	}
+ err:
+-	spin_unlock_irq(&ring->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock(&ring->lock);
 +	spin_unlock_irq(&ring->nhi->lock);
  
- 	ring_release_msix(ring);
- 
-@@ -572,7 +679,6 @@ void tb_ring_free(struct tb_ring *ring)
+ 	/*
+ 	 * schedule ring->work to invoke callbacks on all remaining frames.
+@@ -534,7 +542,7 @@ EXPORT_SYMBOL_GPL(tb_ring_stop);
+  */
+ void tb_ring_free(struct tb_ring *ring)
+ {
+-	mutex_lock(&ring->nhi->lock);
++	spin_lock_irq(&ring->nhi->lock);
+ 	/*
+ 	 * Dissociate the ring from the NHI. This also ensures that
+ 	 * nhi_interrupt_work cannot reschedule ring->work.
+@@ -564,7 +572,7 @@ void tb_ring_free(struct tb_ring *ring)
  		 RING_TYPE(ring),
  		 ring->hop);
  
--	spin_unlock_irq(&ring->nhi->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock_irq(&ring->nhi->lock);
  	/**
  	 * ring->work can no longer be scheduled (it is scheduled only
  	 * by nhi_interrupt_work, ring_stop and ring_msix). Wait for it
-@@ -682,8 +788,10 @@ static void nhi_interrupt_work(struct work_struct *work)
- 				 hop);
- 			continue;
- 		}
--		/* we do not check ring->running, this is done in ring->work */
--		schedule_work(&ring->work);
-+
-+		spin_lock(&ring->lock);
-+		__ring_interrupt(ring);
-+		spin_unlock(&ring->lock);
+@@ -639,7 +647,7 @@ static void nhi_interrupt_work(struct work_struct *work)
+ 	int type = 0; /* current interrupt type 0: TX, 1: RX, 2: RX overflow */
+ 	struct tb_ring *ring;
+ 
+-	mutex_lock(&nhi->lock);
++	spin_lock_irq(&nhi->lock);
+ 
+ 	/*
+ 	 * Starting at REG_RING_NOTIFY_BASE there are three status bitfields
+@@ -677,7 +685,7 @@ static void nhi_interrupt_work(struct work_struct *work)
+ 		/* we do not check ring->running, this is done in ring->work */
+ 		schedule_work(&ring->work);
  	}
- 	spin_unlock_irq(&nhi->lock);
+-	mutex_unlock(&nhi->lock);
++	spin_unlock_irq(&nhi->lock);
  }
+ 
+ static irqreturn_t nhi_msi(int irq, void *data)
+@@ -767,7 +775,6 @@ static void nhi_shutdown(struct tb_nhi *nhi)
+ 		devm_free_irq(&nhi->pdev->dev, nhi->pdev->irq, nhi);
+ 		flush_work(&nhi->interrupt_work);
+ 	}
+-	mutex_destroy(&nhi->lock);
+ 	ida_destroy(&nhi->msix_ida);
+ }
+ 
+@@ -856,7 +863,7 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		return res;
+ 	}
+ 
+-	mutex_init(&nhi->lock);
++	spin_lock_init(&nhi->lock);
+ 
+ 	pci_set_master(pdev);
+ 
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index d59e3f9a35c4..36925e3aec7c 100644
+index cf9e42db780f..d59e3f9a35c4 100644
 --- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -446,6 +446,9 @@ struct tb_nhi {
-  * @flags: Ring specific flags
-  * @sof_mask: Bit mask used to detect start of frame PDF
-  * @eof_mask: Bit mask used to detect end of frame PDF
-+ * @start_poll: Called when ring interrupt is triggered to start
-+ *		polling. Passing %NULL keeps the ring in interrupt mode.
-+ * @poll_data: Data passed to @start_poll
+@@ -415,7 +415,7 @@ static inline struct tb_xdomain *tb_service_parent(struct tb_service *svc)
+  * @hop_count: Number of rings (end point hops) supported by NHI.
   */
- struct tb_ring {
- 	spinlock_t lock;
-@@ -466,6 +469,8 @@ struct tb_ring {
- 	unsigned int flags;
- 	u16 sof_mask;
- 	u16 eof_mask;
-+	void (*start_poll)(void *data);
-+	void *poll_data;
- };
- 
- /* Leave ring interrupt enabled on suspend */
-@@ -499,7 +504,7 @@ enum ring_desc_flags {
- /**
-  * struct ring_frame - For use with ring_rx/ring_tx
-  * @buffer_phy: DMA mapped address of the frame
-- * @callback: Callback called when the frame is finished
-+ * @callback: Callback called when the frame is finished (optional)
-  * @list: Frame is linked to a queue using this
-  * @size: Size of the frame in bytes (%0 means %4096)
-  * @flags: Flags for the frame (see &enum ring_desc_flags)
-@@ -522,8 +527,8 @@ struct ring_frame {
- struct tb_ring *tb_ring_alloc_tx(struct tb_nhi *nhi, int hop, int size,
- 				 unsigned int flags);
- struct tb_ring *tb_ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
--				 unsigned int flags, u16 sof_mask,
--				 u16 eof_mask);
-+				 unsigned int flags, u16 sof_mask, u16 eof_mask,
-+				 void (*start_poll)(void *), void *poll_data);
- void tb_ring_start(struct tb_ring *ring);
- void tb_ring_stop(struct tb_ring *ring);
- void tb_ring_free(struct tb_ring *ring);
-@@ -535,8 +540,8 @@ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame);
-  * @ring: Ring to enqueue the frame
-  * @frame: Frame to enqueue
-  *
-- * @frame->buffer, @frame->buffer_phy and @frame->callback have to be set. The
-- * buffer must contain at least %TB_FRAME_SIZE bytes.
-+ * @frame->buffer, @frame->buffer_phy have to be set. The buffer must
-+ * contain at least %TB_FRAME_SIZE bytes.
-  *
-  * @frame->callback will be invoked with @frame->size, @frame->flags,
-  * @frame->eof, @frame->sof set once the frame has been received.
-@@ -557,8 +562,8 @@ static inline int tb_ring_rx(struct tb_ring *ring, struct ring_frame *frame)
-  * @ring: Ring the enqueue the frame
-  * @frame: Frame to enqueue
-  *
-- * @frame->buffer, @frame->buffer_phy, @frame->callback, @frame->size,
-- * @frame->eof and @frame->sof have to be set.
-+ * @frame->buffer, @frame->buffer_phy, @frame->size, @frame->eof and
-+ * @frame->sof have to be set.
-  *
-  * @frame->callback will be invoked with once the frame has been transmitted.
-  *
-@@ -573,4 +578,8 @@ static inline int tb_ring_tx(struct tb_ring *ring, struct ring_frame *frame)
- 	return __tb_ring_enqueue(ring, frame);
- }
- 
-+/* Used only when the ring is in polling mode */
-+struct ring_frame *tb_ring_poll(struct tb_ring *ring);
-+void tb_ring_poll_complete(struct tb_ring *ring);
-+
- #endif /* THUNDERBOLT_H_ */
+ struct tb_nhi {
+-	struct mutex lock;
++	spinlock_t lock;
+ 	struct pci_dev *pdev;
+ 	void __iomem *iobase;
+ 	struct tb_ring **tx_rings;
 -- 
 2.14.2
