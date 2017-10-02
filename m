@@ -1,68 +1,50 @@
-From: Daniel Drake <drake@endlessm.com>
-Subject: Re: [PATCH 2/6] ath9k: add a quirk to set use_msi automatically
-Date: Mon, 2 Oct 2017 12:21:57 +0800
-Message-ID: <CAD8Lp46mdgbfCGY_i=N7FB1rMfL0KA0VFQxJESxshe4Cn6k4+Q@mail.gmail.com>
-References: <1506408099-18488-1-git-send-email-acelan.kao@canonical.com>
- <1506408099-18488-2-git-send-email-acelan.kao@canonical.com>
- <20170926064456.GA28611@infradead.org> <CAFv23Qm9kZLSqJ_BP1D7mWCxekq0nt3S8onT1ckH-AoHDBUDzw@mail.gmail.com>
- <20170926140413.GA19977@infradead.org> <878th14kde.fsf@kamboji.qca.qualcomm.com>
- <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Christoph Hellwig <hch@infradead.org>,
-        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: AceLan Kao <acelan.kao@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next 0/3] bridge: neigh msg proxy and flood suppression support
+Date: Sun,  1 Oct 2017 21:36:55 -0700
+Message-ID: <1506919018-27875-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        stephen@networkplumber.org, bridge@lists.linux-foundation.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:53857 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751075AbdJBEhD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 00:37:03 -0400
+Received: by mail-pf0-f179.google.com with SMTP id x78so2347399pff.10
+        for <netdev@vger.kernel.org>; Sun, 01 Oct 2017 21:37:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi AceLan,
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-On Thu, Sep 28, 2017 at 4:28 PM, AceLan Kao <acelan.kao@canonical.com> wrote:
-> Hi Daniel,
->
-> I've tried your patch, but it doesn't work for me.
-> Wifi can scan AP, but can't get connected.
+This series implements arp and nd suppression in the bridge
+driver for ethernet vpns. It implements rfc7432, section 10
+https://tools.ietf.org/html/rfc7432#section-10
+for ethernet VPN deployments. It is similar to the existing
+BR_ARP_PROXY flag but has a few semantic differences to conform
+to EVPN standard. In case of EVPN, it is mainly used to avoid flooding to
+tunnel ports like vxlan/mpls. Unlike the existing flags it suppresses flood
+of all neigh discovery packets (arp, nd) to tunnel ports.
 
-Can you please clarify which patch(es) you have tried?
+Roopa Prabhu (3):
+  bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd
+    flood
+  neigh arp suppress first
+  bridge: suppress nd messages from going to BR_NEIGH_SUPPRESS ports
 
-This is the base patch which adds the infrastructure to request
-specific MSI IRQ vectors:
-https://marc.info/?l=linux-wireless&m=150631274108016&w=2
+ include/linux/if_bridge.h    |   1 +
+ include/uapi/linux/if_link.h |   1 +
+ net/bridge/Makefile          |   2 +-
+ net/bridge/br_arp_nd_proxy.c | 492 +++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_device.c       |  18 ++
+ net/bridge/br_forward.c      |   3 +-
+ net/bridge/br_if.c           |   5 +
+ net/bridge/br_input.c        |  73 ++-----
+ net/bridge/br_netlink.c      |  16 +-
+ net/bridge/br_private.h      |   9 +
+ net/bridge/br_sysfs_if.c     |   2 +
+ 11 files changed, 561 insertions(+), 61 deletions(-)
+ create mode 100644 net/bridge/br_arp_nd_proxy.c
 
-This is the ath9k MSI patch which makes use of that:
-https://github.com/endlessm/linux/commit/739c7a924db8f4434a9617657
-
-If you were already able to use ath9k MSI interrupts without specific
-consideration for which MSI vector numbers were used, these are the
-possible explanations that spring to mind:
-
-1. You got lucky and it picked a vector number that is 4-aligned. You
-can check this in the "lspci -vvv" output. You'll see something like:
-Capabilities: [50] MSI: Enable+ Count=1/4 Maskable+ 64bit+
-        Address: 00000000fee0300c  Data: 4142
-The lower number is the vector number. In my example here 0x42 (66) is
-not 4-aligned so the failure condition will be hit.
-
-2. You are using interrupt remapping, which I suspect may provide a
-high likelihood of MSI interrupt vectors being 4-aligned. See if
-/proc/interrupts shows the IRQ type as IR-PCI-MSI
-Unfortunately interrupt remapping is not available here,
-https://lists.linuxfoundation.org/pipermail/iommu/2017-August/023717.html
-
-3. My assumption that all ath9k hardware corrupts the MSI vector
-number could wrong. However we've seen this on different wifi modules
-in laptops produced by different OEMs and ODMs, so it seems to be a
-somewhat widespread problem at least.
-
-4. My assumption that ath9k hardware is corrupting the MSI vector
-number could be wrong; maybe another component is to blame, could it
-be a BIOS issue? Admittedly I don't really know how I can debug the
-layers inbetween seeing the MSI Message Data value disagree with the
-vector number being handled inside do_IRQ().
-
-Daniel
+-- 
+2.1.4
