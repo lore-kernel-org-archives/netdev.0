@@ -1,89 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
-Date: Mon, 02 Oct 2017 06:56:06 -0700
-Message-ID: <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171001102110.24184f1b@xeon-e3>
-         <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: v4.14-rc2/arm64 kernel BUG at net/core/skbuff.c:2626
+Date: Mon, 2 Oct 2017 15:21:57 +0100
+Message-ID: <20171002142156.GB21696@leverpostej>
+References: <20171002104947.GE20737@leverpostej>
+ <CANn89i++X2rzsaHkTRayMpCED_exL8WPq12=RwD_hXsZ6cN-wQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>, svimik@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:48800 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751160AbdJBN4I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 09:56:08 -0400
-Received: by mail-pg0-f46.google.com with SMTP id v78so1214840pgb.5
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 06:56:08 -0700 (PDT)
-In-Reply-To: <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        linux-arm-kernel@lists.infradead.org,
+        syzkaller <syzkaller@googlegroups.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CANn89i++X2rzsaHkTRayMpCED_exL8WPq12=RwD_hXsZ6cN-wQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-CC svimik@gmail.com so that he is aware of this netdev thread.
+Hi Eric,
 
-On Mon, 2017-10-02 at 14:32 +0100, James Chapman wrote:
-> This seems to be a NULL pointer exception caused by tunnel->sock being
-> NULL at the call to bh_lock_sock() in l2tp_xmit_skb() at
-> l2tp_core.c:1135.
+On Mon, Oct 02, 2017 at 06:36:32AM -0700, Eric Dumazet wrote:
+> On Mon, Oct 2, 2017 at 3:49 AM, Mark Rutland <mark.rutland@arm.com> wrote:
+> > I hit the below splat at net/core/skbuff.c:2626 while fuzzing v4.14-rc2
+> > on arm64 with Syzkaller. This is the BUG_ON(len) at the end of
+> > skb_copy_and_csum_bits().
+
+> > kernel BUG at net/core/skbuff.c:2626!
+
+> > [<ffff200009e03214>] skb_copy_and_csum_bits+0x8dc/0xae0 net/core/skbuff.c:2626
+> > [<ffff20000a01d244>] icmp_glue_bits+0xa4/0x2a0 net/ipv4/icmp.c:357
+> > [<ffff200009f3f0d4>] __ip_append_data+0x10e4/0x20a8 net/ipv4/ip_output.c:1018
+> > [<ffff200009f41a88>] ip_append_data.part.3+0xe8/0x1a0 net/ipv4/ip_output.c:1170
+> > [<ffff200009f46e74>] ip_append_data+0xa4/0xb0 net/ipv4/ip_output.c:1173
+> > [<ffff20000a01ccc8>] icmp_push_reply+0x1b8/0x690 net/ipv4/icmp.c:375
+> > [<ffff20000a0211b0>] icmp_send+0x1070/0x1890 net/ipv4/icmp.c:741
+> > [<ffff200009f41d48>] ip_fragment.constprop.4+0x208/0x340 net/ipv4/ip_output.c:552
+> > [<ffff200009f42228>] ip_finish_output+0x3a8/0xab0 net/ipv4/ip_output.c:315
+> > [<ffff200009f468c4>] NF_HOOK_COND include/linux/netfilter.h:238 [inline]
+> > [<ffff200009f468c4>] ip_output+0x284/0x790 net/ipv4/ip_output.c:405
+> > [<ffff200009f43204>] dst_output include/net/dst.h:458 [inline]
+> > [<ffff200009f43204>] ip_local_out+0x9c/0x1b8 net/ipv4/ip_output.c:124
+> > [<ffff200009f445e8>] ip_queue_xmit+0x850/0x18e0 net/ipv4/ip_output.c:504
+> > [<ffff200009fb091c>] tcp_transmit_skb+0x107c/0x3338 net/ipv4/tcp_output.c:1123
+> > [<ffff200009fbbcc4>] __tcp_retransmit_skb+0x614/0x1d18 net/ipv4/tcp_output.c:2847
+> > [<ffff200009fbd840>] tcp_send_loss_probe+0x478/0x7d0 net/ipv4/tcp_output.c:2457
+> > [<ffff200009fc707c>] tcp_write_timer_handler+0x50c/0x7e8 net/ipv4/tcp_timer.c:557
+> > [<ffff200009fc73d0>] tcp_write_timer+0x78/0x170 net/ipv4/tcp_timer.c:579
+> > [<ffff2000082f8980>] call_timer_fn+0x1b8/0x430 kernel/time/timer.c:1281
+> > [<ffff2000082f8dcc>] expire_timers+0x1d4/0x320 kernel/time/timer.c:1320
+> > [<ffff2000082f912c>] __run_timers kernel/time/timer.c:1620 [inline]
+> > [<ffff2000082f912c>] run_timer_softirq+0x214/0x5f0 kernel/time/timer.c:1646
+> > [<ffff2000080826c0>] __do_softirq+0x350/0xc0c kernel/softirq.c:284
+> > [<ffff200008170af4>] do_softirq_own_stack include/linux/interrupt.h:498 [inline]
+> > [<ffff200008170af4>] invoke_softirq kernel/softirq.c:371 [inline]
+> > [<ffff200008170af4>] irq_exit+0x1dc/0x2f8 kernel/softirq.c:405
+> > [<ffff2000082a95bc>] __handle_domain_irq+0xdc/0x230 kernel/irq/irqdesc.c:647
+> > [<ffff2000080820ac>] handle_domain_irq include/linux/irqdesc.h:175 [inline]
+> > [<ffff2000080820ac>] gic_handle_irq+0x6c/0xe0 drivers/irqchip/irq-gic.c:367
+
+> This is most likely a bug caused by syzkaller setting a ridiculous MTU
+> on loopback device, below minimum size of ipv4 MTU.
+
+> I tried to track it in August [1], but it seems hard to find all the
+> issues with this.
 > 
-> tunnel->sock is set NULL in l2tp_core's tunnel socket destructor.
+> commit c780a049f9bf442314335372c9abc4548bfe3e44
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Wed Aug 16 11:09:12 2017 -0700
 > 
-> At the moment, I don't understand how this happens because
-> pppol2tp_xmit() does a sock_hold() on the tunnel socket before
-> l2tp_xmit_skb() is called. I'm still looking at this.
+>     ipv4: better IP_MAX_MTU enforcement
 > 
-> Has this problem only recently started happening?
+>     While working on yet another syzkaller report, I found
+>     that our IP_MAX_MTU enforcements were not properly done.
 > 
+>     gcc seems to reload dev->mtu for min(dev->mtu, IP_MAX_MTU), and
+>     final result can be bigger than IP_MAX_MTU :/
 > 
+>     This is a problem because device mtu can be changed on other cpus or
+>     threads.
 > 
-> 
-> 
-> On 1 October 2017 at 18:21, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> >
-> >
-> > Begin forwarded message:
-> >
-> > Date: Sun, 01 Oct 2017 16:22:33 +0000
-> > From: bugzilla-daemon@bugzilla.kernel.org
-> > To: stephen@networkplumber.org
-> > Subject: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
-> >
-> >
-> > https://bugzilla.kernel.org/show_bug.cgi?id=197099
-> >
-> >             Bug ID: 197099
-> >            Summary: Kernel panic in interrupt [l2tp_ppp]
-> >            Product: Networking
-> >            Version: 2.5
-> >     Kernel Version: 4.8.13-1.el6.elrepo.x86_64
-> >           Hardware: x86-64
-> >                 OS: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: normal
-> >           Priority: P1
-> >          Component: Other
-> >           Assignee: stephen@networkplumber.org
-> >           Reporter: svimik@gmail.com
-> >         Regression: No
-> >
-> > Created attachment 258685
-> >   --> https://bugzilla.kernel.org/attachment.cgi?id=258685&action=edit
-> > stacktrace screenshot
-> >
-> > Hello!
-> >
-> > Getting kernel panics on multiple servers. Since it mentions l2tp_core,
-> > l2tp_ppp and ppp_generic, I decided to report it to Networking (correct me if
-> > I'm wrong).
-> >
-> > Unfortunately I'm still struggling with making kdump work, so the trace
-> > screenshot is all I have at this moment. The only hope is that this stacktrace
-> > means something to the guys that wrote the code.
-> >
-> > --
-> > You are receiving this mail because:
-> > You are the assignee for the bug.
+>     While this patch does not fix the issue I am working on, it is
+>     probably worth addressing it.
+
+Just to check I've understood correctly, are you suggesting that the
+IPv4 code should also check the dev->mtu against a IP_MIN_MTU (which
+doesn't seem to exist today)?
+
+Otherwise, I do spot another potential issue. The writer side (e.g. most
+net_device::ndo_change_mtu implementations and the __dev_set_mtu()
+fallback) doesn't use WRITE_ONCE().
+
+IIUC, that means that the write could be torn across multiple accesses,
+and we could see dev->mtu < dev->min_mtu on the read side, even if we
+use READ_ONCE(), and sanity check the mtu value before calling
+__dev_set_mtu().
+
+Thanks,
+Mark.
