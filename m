@@ -1,58 +1,66 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: RFC iproute2 doc files
-Date: Mon, 2 Oct 2017 10:31:09 +0300
-Message-ID: <20171002073109.GK2031@mtr-leonro.local>
-References: <20170920081159.321e426b@xeon-e3>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH v2 net-next 0/2] net/sched: support tunnel options in
+ cls_flower and act_tunnel_key
+Date: Mon, 2 Oct 2017 09:50:15 +0200
+Message-ID: <20171002075013.GA22179@netronome.com>
+References: <1506500194-17637-1-git-send-email-simon.horman@netronome.com>
+ <20170929.055423.108055524887949393.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="rnP2AJ7yb1j09OW/"
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@mellanox.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:43248 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750760AbdJBHbP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 03:31:15 -0400
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:49808 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751019AbdJBHuR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 03:50:17 -0400
+Received: by mail-wm0-f51.google.com with SMTP id b189so4909780wmd.4
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 00:50:17 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170920081159.321e426b@xeon-e3>
+In-Reply-To: <20170929.055423.108055524887949393.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Sep 29, 2017 at 05:54:23AM +0100, David Miller wrote:
+> From: Simon Horman <simon.horman@netronome.com>
+> Date: Wed, 27 Sep 2017 10:16:32 +0200
+> 
+> > Users of options:
+> > 
+> > * There are eBPF hooks to allow getting on and setting tunnel metadata:
+> >   bpf_skb_set_tunnel_opt, bpf_skb_get_tunnel_opt.
+> > 
+> > * Open vSwitch is able to match and set Geneve and VXLAN-GBP options.
+> > 
+> > Neither of the above appear to assume any structure for the data.
+> 
+> I really worry about this.
+> 
+> These metadata option blobs are internal kernel datastructure which we
+> could change at any point in time.  They are not exported to
+> userspace as a UAPI.
+> 
+> It's kinda OK for eBPF programs to access this stuff since they are
+> expected to cope with changes to internal data-structures.
+> 
+> But for anything user facing, this really doesn't work.
 
---rnP2AJ7yb1j09OW/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi Dave, Hi Jiri,
 
-On Wed, Sep 20, 2017 at 08:11:59AM -0700, Stephen Hemminger wrote:
-> I noticed that the iproute man pages are up to date but the LaTex documentation
-> is very out of date. Rarely updated since the Linux 2.2 days.
->
-> Either someone needs to do a massive editing job on them, or they should just
-> be dropped. My preference would be to just drop everything in the doc/ directory.
-> The current versions are so old, they can't be helping.
+the feedback I got from Jiri is that there needs to be some exposure
+of TLVs. What I have in mind is to describe Geneve option TLVs in the
+UAPI and for the kernel - most likely cls_flower, possibly using helpers,
+to translate between that encoding and the one used internally by the kernel
+- which currently happens to be the on-the-wire format.
 
-If my vote counts, I will say to drop it.
+I believe that in order to avoid per-packet overhead and at the same time
+code complexity the TLVs should be described in-order. So matching on
+TLV-A,TLV-B,TLV-C would be a different match to TLV-C,TLV-A,TLV-B.  An
+order-independent match could be added if desired in future.
 
-Thanks
+This would mean the feature is initially restricted to Geneve but could
+be expended to offer a similar feature for other encapsulation protocols
+as the need arises.
 
---rnP2AJ7yb1j09OW/
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnR6z0ACgkQ5GN7iDZy
-WKdOgQ//f9ElqWK6w1xd9JGF8kM6GPrmjJ6mbF3zJV496rW6JIY3zXdmh/vcul1K
-t4yMR3Qftyv91ET2OTGzZTKShePg69YowQ8zuSpcTZ5mB8HCVVY41LJv3IQ549Zp
-jl9rs5wz9WZPGt605En7WczqhGZ00GUlqOtHC5DSZh5TTwXnz3COopdWZLeBXg5H
-4cfLZfyhCB+c0ALMBVM0++YJOIkrmVOpZ8U+YRCe3r6DbCjcK72z3o9bdCM3i//U
-DYj0etfmampD1qm/XVIdgx3HNVz4dRG4wY8Z/bZKKET/8U0PgilFjVNkY8FzDXRJ
-hGoVxACJySNXLLAiWqhUcpo866KSU1kWhwQKBgNjTAwuy2aDYoSwY+REy2fLKB4T
-ktbwQKXen6EDIbFh8dhqf0Rz8+9RK/LFnTCyLdOuhGSkjAvUY1R4uS8kTfhSFSBR
-lGkDdUpCkZDL1ZzlgelLji8OFivgQ1haNk1VGM4OBdAwN2Ml5NSUD/I9S/vMjaJF
-4i8s0+SCHiX8btQoTyuOOevRx7fzALiPhxUHgG+XMiB92y0QxLSqdLzFdIlIe1bW
-qSNW9Ev8s+llYilrWjbRRKgEwBTQiIybCQrKXtTefmSZhEJNssh7aliW4htPIVK8
-YR65NA/Q2BWQDhNxpewAhKtHW1odbAxMIMAMKXZeBkADG3oFWik=
-=TtAY
------END PGP SIGNATURE-----
-
---rnP2AJ7yb1j09OW/--
+Would this address your concerns?
