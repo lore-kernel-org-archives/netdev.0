@@ -1,108 +1,113 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] fm10k: move fm10k_prepare_for_reset and fm10k_handle_reset
-Date: Mon,  2 Oct 2017 08:42:35 -0700
-Message-ID: <20171002154236.84043-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/13] fm10k: prevent race condition of __FM10K_SERVICE_SCHED
+Date: Mon,  2 Oct 2017 08:42:36 -0700
+Message-ID: <20171002154236.84043-14-jeffrey.t.kirsher@intel.com>
 References: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:58698 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:3420 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751811AbdJBPnA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 11:43:00 -0400
+        id S1751819AbdJBPnB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 11:43:01 -0400
 In-Reply-To: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-A future patch needs these functions defined earlier in the file. Move
-them closer to above where they will be called.
+Although very unlikely, it is possible that cancel_work_sync() may stop
+the service_task before it actually started. In this case, the
+__FM10K_SERVICE_SCHED bit will never be cleared. This results in the
+service task being unable to reschedule in the future. Add a helper
+function which sets the service disable bit, waits for the service task
+to stop and clears the schedule bit, thus avoiding the race condition.
+We know the schedule bit is safe to clear because the cancel_work_sync()
+guarantees the service task is not running.
+
+Add a helper function also to restart the service task, for symmetry.
+This is not strictly needed but helps the mental model of how to stop
+and start the service task.
+
+This race could only happen in fm10k_suspend/fm10k_resume as this is the
+only place where the service task is actually restarted. Thus,
+suspend/resume testing would be ideal. However, note that the chance of
+this happening is very slim as the service event is scheduled for
+immediate execution, and you would have to trigger a suspend at almost
+the exact same time as the service task was scheduled.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 58 ++++++++++++++--------------
- 1 file changed, 29 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 32 ++++++++++++++++++++++------
+ 1 file changed, 25 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 6c2c4bffaedf..41335154d6b1 100644
+index 41335154d6b1..9575f7c1862d 100644
 --- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
 +++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -132,35 +132,6 @@ static void fm10k_service_timer(unsigned long data)
- 	fm10k_service_event_schedule(interface);
+@@ -118,6 +118,27 @@ static void fm10k_service_event_complete(struct fm10k_intfc *interface)
+ 		fm10k_service_event_schedule(interface);
  }
  
--static void fm10k_detach_subtask(struct fm10k_intfc *interface)
--{
--	struct net_device *netdev = interface->netdev;
--	u32 __iomem *hw_addr;
--	u32 value;
--
--	/* do nothing if device is still present or hw_addr is set */
--	if (netif_device_present(netdev) || interface->hw.hw_addr)
--		return;
--
--	/* check the real address space to see if we've recovered */
--	hw_addr = READ_ONCE(interface->uc_addr);
--	value = readl(hw_addr);
--	if (~value) {
--		interface->hw.hw_addr = interface->uc_addr;
--		netif_device_attach(netdev);
--		set_bit(FM10K_FLAG_RESET_REQUESTED, interface->flags);
--		netdev_warn(netdev, "PCIe link restored, device now attached\n");
--		return;
--	}
--
--	rtnl_lock();
--
--	if (netif_running(netdev))
--		dev_close(netdev);
--
--	rtnl_unlock();
--}
--
- static void fm10k_prepare_for_reset(struct fm10k_intfc *interface)
- {
- 	struct net_device *netdev = interface->netdev;
-@@ -270,6 +241,35 @@ static int fm10k_handle_reset(struct fm10k_intfc *interface)
- 	return err;
- }
- 
-+static void fm10k_detach_subtask(struct fm10k_intfc *interface)
++static void fm10k_stop_service_event(struct fm10k_intfc *interface)
 +{
-+	struct net_device *netdev = interface->netdev;
-+	u32 __iomem *hw_addr;
-+	u32 value;
++	set_bit(__FM10K_SERVICE_DISABLE, interface->state);
++	cancel_work_sync(&interface->service_task);
 +
-+	/* do nothing if device is still present or hw_addr is set */
-+	if (netif_device_present(netdev) || interface->hw.hw_addr)
-+		return;
-+
-+	/* check the real address space to see if we've recovered */
-+	hw_addr = READ_ONCE(interface->uc_addr);
-+	value = readl(hw_addr);
-+	if (~value) {
-+		interface->hw.hw_addr = interface->uc_addr;
-+		netif_device_attach(netdev);
-+		set_bit(FM10K_FLAG_RESET_REQUESTED, interface->flags);
-+		netdev_warn(netdev, "PCIe link restored, device now attached\n");
-+		return;
-+	}
-+
-+	rtnl_lock();
-+
-+	if (netif_running(netdev))
-+		dev_close(netdev);
-+
-+	rtnl_unlock();
++	/* It's possible that cancel_work_sync stopped the service task from
++	 * running before it could actually start. In this case the
++	 * __FM10K_SERVICE_SCHED bit will never be cleared. Since we know that
++	 * the service task cannot be running at this point, we need to clear
++	 * the scheduled bit, as otherwise the service task may never be
++	 * restarted.
++	 */
++	clear_bit(__FM10K_SERVICE_SCHED, interface->state);
 +}
 +
- static void fm10k_reinit(struct fm10k_intfc *interface)
- {
- 	int err;
++static void fm10k_start_service_event(struct fm10k_intfc *interface)
++{
++	clear_bit(__FM10K_SERVICE_DISABLE, interface->state);
++	fm10k_service_event_schedule(interface);
++}
++
+ /**
+  * fm10k_service_timer - Timer Call-back
+  * @data: pointer to interface cast into an unsigned long
+@@ -2116,8 +2137,7 @@ static void fm10k_remove(struct pci_dev *pdev)
+ 
+ 	del_timer_sync(&interface->service_timer);
+ 
+-	set_bit(__FM10K_SERVICE_DISABLE, interface->state);
+-	cancel_work_sync(&interface->service_task);
++	fm10k_stop_service_event(interface);
+ 
+ 	/* free netdev, this may bounce the interrupts due to setup_tc */
+ 	if (netdev->reg_state == NETREG_REGISTERED)
+@@ -2155,8 +2175,7 @@ static void fm10k_prepare_suspend(struct fm10k_intfc *interface)
+ 	 * stopped. We stop the watchdog task until after we resume software
+ 	 * activity.
+ 	 */
+-	set_bit(__FM10K_SERVICE_DISABLE, interface->state);
+-	cancel_work_sync(&interface->service_task);
++	fm10k_stop_service_event(interface);
+ 
+ 	fm10k_prepare_for_reset(interface);
+ }
+@@ -2183,9 +2202,8 @@ static int fm10k_handle_resume(struct fm10k_intfc *interface)
+ 	interface->link_down_event = jiffies + (HZ);
+ 	set_bit(__FM10K_LINK_DOWN, interface->state);
+ 
+-	/* clear the service task disable bit to allow service task to start */
+-	clear_bit(__FM10K_SERVICE_DISABLE, interface->state);
+-	fm10k_service_event_schedule(interface);
++	/* restart the service task */
++	fm10k_start_service_event(interface);
+ 
+ 	return err;
+ }
 -- 
 2.14.2
