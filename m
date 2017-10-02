@@ -1,62 +1,66 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next V2 PATCH 5/5] samples/bpf: add cpumap sample program
- xdp_redirect_cpu
-Date: Mon, 2 Oct 2017 12:44:10 -0700
-Message-ID: <20171002194408.3o4xoefmlkqvhzoq@ast-mbp.dhcp.thefacebook.com>
-References: <150670281423.23765.8984643281418950330.stgit@firesoul>
- <150670287254.23765.608477053861949304.stgit@firesoul>
- <20170930030607.sk2wzjxxlbhkkt7k@ast-mbp>
- <20171002140723.7667a9b4@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: limit lan queue count in large CPU count machine
+Date: Mon,  2 Oct 2017 12:48:38 -0700
+Message-ID: <20171002194852.71970-2-jeffrey.t.kirsher@intel.com>
+References: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:38011 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751062AbdJBToN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 15:44:13 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a7so6660046pfj.5
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 12:44:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171002140723.7667a9b4@redhat.com>
+Received: from mga14.intel.com ([192.55.52.115]:29126 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751062AbdJBTtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 15:49:17 -0400
+In-Reply-To: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 02, 2017 at 02:07:23PM +0200, Jesper Dangaard Brouer wrote:
-> On Fri, 29 Sep 2017 20:06:09 -0700
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> 
-> > > +/*** Trace point code ***/
-> > > +
-> > > +/* Tracepoint format: /sys/kernel/debug/tracing/events/xdp/xdp_redirect/format
-> > > + * Code in:                kernel/include/trace/events/xdp.h
-> > > + */
-> > > +struct xdp_redirect_ctx {
-> > > +	unsigned short common_type;	//	offset:0;  size:2; signed:0;
-> > > +	unsigned char common_flags;	//	offset:2;  size:1; signed:0;
-> > > +	unsigned char common_preempt_count;//	offset:3;  size:1; signed:0;
-> > > +	int common_pid;			//	offset:4;  size:4; signed:1;  
-> > 
-> > this part is not right. First 8 bytes are not accessible by bpf code.
-> > Please use __u64 pad; or similar here.
-> 
-> I've corrected this in V3.
-> 
-> Can you explain why BPF cannot access these (first 8 bytes) struct members?
+From: Shannon Nelson <shannon.nelson@oracle.com>
 
-in the very first patch adding bpf to tracepoint we allowed the access,
-but then people complained that common_* stuff is not abi and since it was
-slow to populate anyway due to local_save_flags (which is never used by
-scripts we had so far) and for pid there was a helper already, I was happy
-to get rid of it and save these 8 bytes for future use. which ended up
-being used by hidden(inaccessible) pt_regs pointer.
-Layout description is in
-commit 98b5c2c65c29 ("perf, bpf: allow bpf programs attach to tracepoints")
-The work on dynamic bits of tracepoints is still tbd.
+When a machine has more CPUs than queue pairs, e.g. 512 cores, the
+counting gets a little funky and turns off Flow Director with the
+message:
+  not enough queues for Flow Director. Flow Director feature is disabled
+
+This patch limits the number of lan queues initially allocated to
+be sure we have some left for FD and other features.
+
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 47f71d7c3ae0..387f0863f794 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -11093,6 +11093,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
+ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ {
+ 	int queues_left;
++	int q_max;
+ 
+ 	pf->num_lan_qps = 0;
+ 
+@@ -11139,10 +11140,12 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 					I40E_FLAG_DCB_ENABLED);
+ 			dev_info(&pf->pdev->dev, "not enough queues for DCB. DCB is disabled.\n");
+ 		}
+-		pf->num_lan_qps = max_t(int, pf->rss_size_max,
+-					num_online_cpus());
+-		pf->num_lan_qps = min_t(int, pf->num_lan_qps,
+-					pf->hw.func_caps.num_tx_qp);
++
++		/* limit lan qps to the smaller of qps, cpus or msix */
++		q_max = max_t(int, pf->rss_size_max, num_online_cpus());
++		q_max = min_t(int, q_max, pf->hw.func_caps.num_tx_qp);
++		q_max = min_t(int, q_max, pf->hw.func_caps.num_msix_vectors);
++		pf->num_lan_qps = q_max;
+ 
+ 		queues_left -= pf->num_lan_qps;
+ 	}
+-- 
+2.14.2
