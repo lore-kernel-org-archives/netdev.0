@@ -1,43 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] RDS: IB: Limit the scope of has_fr/has_fmr
- variables
-Date: Sun, 01 Oct 2017 22:56:55 -0700 (PDT)
-Message-ID: <20171001.225655.1261950191787562705.davem@davemloft.net>
-References: <1506734030-15205-1-git-send-email-avinash.repaka@oracle.com>
-        <20171001.225419.1632354964848604960.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: hns3: Fix an error handling path in
+ 'hclge_rss_init_hw()'
+Date: Sun, 01 Oct 2017 22:57:43 -0700 (PDT)
+Message-ID: <20171001.225743.584554872378988701.davem@davemloft.net>
+References: <20170930053434.4558-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171001.225419.1632354964848604960.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+        linyunsheng@huawei.com, lipeng321@huawei.com,
+        colin.king@canonical.com, arnd@arndb.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: christophe.jaillet@wanadoo.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170930053434.4558-1-christophe.jaillet@wanadoo.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Sun, 01 Oct 2017 22:54:19 -0700 (PDT)
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Sat, 30 Sep 2017 07:34:34 +0200
 
-> From: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Date: Fri, 29 Sep 2017 18:13:50 -0700
+> If this sanity check fails, we must free 'rss_indir'. Otherwise there is a
+> memory leak.
+> 'goto err' as done in the other error handling paths to fix it.
 > 
->> This patch fixes the scope of has_fr and has_fmr variables as they are
->> needed only in rds_ib_add_one().
->> 
->> Signed-off-by: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> 
-> Applied.
+> Fixes: 46a3df9f9718 ("net: hns3: Fix for setting rss_size incorrectly")
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-Actually, reverted, this breaks the build.
-
-net/rds/rdma_transport.c:38:10: fatal error: ib.h: No such file or directory
- #include "ib.h"
-
-Although I can't see how in the world this patch is causing such
-an error.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
