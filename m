@@ -1,63 +1,93 @@
-From: John Allen <jallen@linux.vnet.ibm.com>
-Subject: [PATCH net-next] ibmvnic: Improve output for unsupported stats
-Date: Mon, 2 Oct 2017 15:31:39 -0500
-Message-ID: <6ce14d1a-11cc-37be-e6ca-b9ec4afb01a8@linux.vnet.ibm.com>
+From: Parav Pandit <parav@mellanox.com>
+Subject: RE: [PATCH net-next 01/10] net/smc: add missing dev_put
+Date: Mon, 2 Oct 2017 20:36:29 +0000
+Message-ID: <VI1PR0502MB30089D06B9C95D682E21511BD17D0@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
+ <20170920115813.63745-2-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
+        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:45460 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751084AbdJBUbp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 16:31:45 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v92KTRiY100904
-        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 16:31:44 -0400
-Received: from e33.co.us.ibm.com (e33.co.us.ibm.com [32.97.110.151])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2dbt1qppty-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 16:31:44 -0400
-Received: from localhost
-        by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
-        Mon, 2 Oct 2017 14:31:43 -0600
+Received: from mail-eopbgr20067.outbound.protection.outlook.com ([40.107.2.67]:55383
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751158AbdJBUgc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 16:36:32 -0400
+In-Reply-To: <20170920115813.63745-2-ubraun@linux.vnet.ibm.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The vnic server can report -1 in the event that a given statistic is not
-supported. Currently, the -1 value is implicitly cast to an unsigned
-integer and appears through the ethtool -S output as a very large number.
-This patch improves this behavior by reporting 0 in the event that a
-given statistic is not supported.
+Hi Ursula, Dave, Hans,
 
-Signed-off-by: John Allen <jallen@linux.vnet.ibm.com>
----
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index cb8182f..b8ad2db 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1862,6 +1862,7 @@ static void ibmvnic_get_ethtool_stats(struct net_device *dev,
- {
- 	struct ibmvnic_adapter *adapter = netdev_priv(dev);
- 	union ibmvnic_crq crq;
-+	u64 stat;
- 	int i, j;
+> -----Original Message-----
+> From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-
+> owner@vger.kernel.org] On Behalf Of Ursula Braun
+> Sent: Wednesday, September 20, 2017 6:58 AM
+> To: davem@davemloft.net
+> Cc: netdev@vger.kernel.org; linux-rdma@vger.kernel.org; linux-
+> s390@vger.kernel.org; jwi@linux.vnet.ibm.com; schwidefsky@de.ibm.com;
+> heiko.carstens@de.ibm.com; raspl@linux.vnet.ibm.com;
+> ubraun@linux.vnet.ibm.com
+> Subject: [PATCH net-next 01/10] net/smc: add missing dev_put
+>=20
+> From: Hans Wippel <hwippel@linux.vnet.ibm.com>
+>=20
+> In the infiniband part, SMC currently uses get_netdev which calls dev_hol=
+d on
+> the returned net device. However, the SMC code never calls dev_put on tha=
+t net
+> device resulting in a wrong reference count.
+>=20
+> This patch adds a dev_put after the usage of the net device to fix the is=
+sue.
+>=20
+> Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
+> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> ---
+>  net/smc/smc_ib.c | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c index
+> 547e0e113b17..0b5852299158 100644
+> --- a/net/smc/smc_ib.c
+> +++ b/net/smc/smc_ib.c
+> @@ -380,6 +380,7 @@ static int smc_ib_fill_gid_and_mac(struct smc_ib_devi=
+ce
+> *smcibdev, u8 ibport)
+>  	ndev =3D smcibdev->ibdev->get_netdev(smcibdev->ibdev, ibport);
+>  	if (ndev) {
+>  		memcpy(&smcibdev->mac, ndev->dev_addr, ETH_ALEN);
+> +		dev_put(ndev);
 
- 	memset(&crq, 0, sizeof(crq));
-@@ -1876,9 +1877,11 @@ static void ibmvnic_get_ethtool_stats(struct net_device *dev,
- 	ibmvnic_send_crq(adapter, &crq);
- 	wait_for_completion(&adapter->stats_done);
+I am sorry for providing late comments. smc_ib_fill_gid_and_mac() is not co=
+ded correctly.
+Few fixes are needed.
+1. ULP such as SMC should not open code/deference any function pointer like=
+ get_netdev() of the IB device.
+2. Replace ib_query_gid(..., NULL)
+With
+ib_query_gid(..., gid_attr);
 
--	for (i = 0; i < ARRAY_SIZE(ibmvnic_stats); i++)
--		data[i] = be64_to_cpu(IBMVNIC_GET_STAT(adapter,
--						ibmvnic_stats[i].offset));
-+	for (i = 0; i < ARRAY_SIZE(ibmvnic_stats); i++) {
-+		stat = be64_to_cpu(IBMVNIC_GET_STAT(adapter,
-+						    ibmvnic_stats[i].offset));
-+		data[i] = stat == -1 ? 0 : stat;
-+	}
+Use gid_attr.ndev to get the MAC address.
+Do dev_put(gid_attr.ndev);
 
- 	for (j = 0; j < adapter->req_tx_queues; j++) {
- 		data[i] = adapter->tx_stats_buffers[j].packets;
+Code should look like below,
+
+struct ib_gid_attr gid_attr;
+
+rc =3D ib_query_gid(..., &gid_attr);
+if (rc || !gid_addr.ndev)
+	return -ENODEV;
+else
+	memcpy(smcibdev->mac, ndev->dev_addr, ETH_ALEN);
+dev_put(gid_addr.ndev);
