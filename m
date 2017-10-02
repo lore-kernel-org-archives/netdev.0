@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: core: decouple ifalias get/set from rtnl
- lock
-Date: Sun, 01 Oct 2017 22:46:44 -0700 (PDT)
-Message-ID: <20171001.224644.903150013683866978.davem@davemloft.net>
-References: <20170929112150.7424-1-fw@strlen.de>
+Subject: Re: [PATCH v2 net] net: mvpp2: Fix clock resource by adding an
+ optional bus clock
+Date: Sun, 01 Oct 2017 22:51:59 -0700 (PDT)
+Message-ID: <20171001.225159.2176517451167649617.davem@davemloft.net>
+References: <20170929122739.5296-1-gregory.clement@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60602 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750752AbdJBFqp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 01:46:45 -0400
-In-Reply-To: <20170929112150.7424-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com,
+        linux-arm-kernel@lists.infradead.org,
+        antoine.tenart@free-electrons.com,
+        miquel.raynal@free-electrons.com, nadavh@marvell.com,
+        shadi@marvell.com, yehuday@marvell.com, omrii@marvell.com,
+        hannah@marvell.com, igall@marvell.com, mw@semihalf.com
+To: gregory.clement@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170929122739.5296-1-gregory.clement@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Fri, 29 Sep 2017 13:21:50 +0200
+From: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Date: Fri, 29 Sep 2017 14:27:39 +0200
 
-> @@ -1488,7 +1484,7 @@ static void netdev_release(struct device *d)
->  
->  	BUG_ON(dev->reg_state != NETREG_RELEASED);
->  
-> -	kfree(dev->ifalias);
-> +	kfree(rcu_access_pointer(dev->ifalias));
->  	netdev_freemem(dev);
->  }
->  
+> On Armada 7K/8K we need to explicitly enable the bus clock. The bus clock
+> is optional because not all the SoCs need them but at least for Armada
+> 7K/8K it is actually mandatory.
+> 
+> The binding documentation is updating accordingly.
+> 
+> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 
-"kfree_rcu()" at least?
-
-If the deal is that you don't need to do and RCU free because
-netdevice objects disappear synchronously, and you can therefore prove
-that no RCU based async access can occur to dev->ifalias, then you
-need to add a comment here.
+Applied.
