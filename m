@@ -1,118 +1,69 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 3/3] net: skb_queue_purge(): lock/unlock the queue
- only once
-Date: Mon, 2 Oct 2017 07:55:39 -0700
-Message-ID: <20171002075539.113a1eaa@xeon-e3>
-References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
-        <14527e6c082e4ea282a3f833118c68df-mfwitten@gmail.com>
-        <ccfa23a0f76c4c9ebd07fc991db2f829-mfwitten@gmail.com>
-        <20171001175909.4b9e53d8@xeon-e3>
-        <057dd5367241468691b2b9adbc38a3ba-mfwitten@gmail.com>
+Subject: Re: RFC iproute2 doc files
+Date: Mon, 2 Oct 2017 07:56:44 -0700
+Message-ID: <20171002075644.10f2c4f4@xeon-e3>
+References: <20170920081159.321e426b@xeon-e3>
+        <20171002073109.GK2031@mtr-leonro.local>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/wnhYdEZkDio4KkLP3eNuKD1"; protocol="application/pgp-signature"
+Cc: netdev@vger.kernel.org
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:53852 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751528AbdJBO4r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 10:56:47 -0400
+Received: by mail-pg0-f46.google.com with SMTP id j70so3083601pgc.10
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 07:56:47 -0700 (PDT)
+In-Reply-To: <20171002073109.GK2031@mtr-leonro.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--Sig_/wnhYdEZkDio4KkLP3eNuKD1
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Michael Witten <mfwitten@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <057dd5367241468691b2b9adbc38a3ba-mfwitten@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 02 Oct 2017 05:15:32 -0000
-Michael Witten <mfwitten@gmail.com> wrote:
+On Mon, 2 Oct 2017 10:31:09 +0300
+Leon Romanovsky <leon@kernel.org> wrote:
 
-> On Sun, 1 Oct 2017 17:59:09 -0700, Stephen Hemminger wrote:
-> 
-> > On Sun, 01 Oct 2017 22:19:20 -0000 Michael Witten wrote:
-> >  
-> >> +	spin_lock_irqsave(&q->lock, flags);
-> >> +	skb = q->next;
-> >> +	__skb_queue_head_init(q);
-> >> +	spin_unlock_irqrestore(&q->lock, flags);  
+> On Wed, Sep 20, 2017 at 08:11:59AM -0700, Stephen Hemminger wrote:
+> > I noticed that the iproute man pages are up to date but the LaTex docum=
+entation
+> > is very out of date. Rarely updated since the Linux 2.2 days.
 > >
-> > Other code manipulating lists uses splice operation and
-> > a sk_buff_head temporary on the stack. That would be easier
-> > to understand.
-> >
-> > 	struct sk_buf_head head;
-> >
-> > 	__skb_queue_head_init(&head);
-> > 	spin_lock_irqsave(&q->lock, flags);
-> > 	skb_queue_splice_init(q, &head);
-> > 	spin_unlock_irqrestore(&q->lock, flags);
-> >
-> >  
-> >> +	while (skb != head) {
-> >> +		next = skb->next;
-> >>  		kfree_skb(skb);
-> >> +		skb = next;
-> >> +	}  
-> >
-> > It would be cleaner if you could use
-> > skb_queue_walk_safe rather than open coding the loop.
-> >
-> > 	skb_queue_walk_safe(&head, skb,  tmp)
-> > 		kfree_skb(skb);  
-> 
-> I appreciate abstraction as much as anybody, but I do not believe
-> that such abstractions would actually be an improvement here.
-> 
-> * Splice-initing seems more like an idiom than an abstraction;
->   at first blush, it wouldn't be clear to me what the intention
->   is.
-> 
-> * Such abstractions are fairly unnecessary.
-> 
->     * The function as written is already so short as to be
->       easily digested.
-> 
->     * More to the point, this function is not some generic,
->       higher-level algorithm that just happens to employ the
->       socket buffer interface; rather, it is a function that
->       implements part of that very interface, and may thus
->       twiddle the intimate bits of these data structures
->       without being accused of abusing a leaky abstraction.
-> 
-> * Such abstractions add overhead, if only conceptually. In this
->   case, a temporary socket buffer queue allocates *3* unnecessary
->   struct members, including a whole `spinlock_t' member:
->   
->     prev
->     qlen
->     lock
-> 
->   It's possible that the compiler will be smart enough to leave
->   those out, but I have my suspicions that it won't, not only
->   given that the interface contract requires that the temporary
->   socket buffer queue be properly initialized before use, but
->   also because splicing into the temporary will manipulate its
->   `qlen'. Yet, why worry whether optimization happens? The whole
->   issue can simply be avoided by exploiting the intimate details
->   that are already philosophically available to us.
-> 
->   Similarly, the function `skb_queue_walk_safe' is nice, but it
->   loses value both because a temporary queue loses value (as just
->   described), and because it ignores the fact that legitimate
->   access to the internals of these data structures allows for
->   setting up the requested loop in advance; that is to say, the
->   two parts of the function that we are now debating can be woven
->   together more tightly than `skb_queue_walk_safe' allows.
-> 
-> For these reasons, I stand by the way that the patch currently
-> implements this function; it does exactly what is desired, no more
-> or less.
-> 
-> Sincerely,
-> Michael Witten
+> > Either someone needs to do a massive editing job on them, or they shoul=
+d just
+> > be dropped. My preference would be to just drop everything in the doc/ =
+directory.
+> > The current versions are so old, they can't be helping. =20
+>=20
+> If my vote counts, I will say to drop it.
+>=20
+> Thanks
 
-The point is that there was discussion in the past of replacing
-the next/prev as used in skb with more generic code from list.h.
-If the abstraction was used, then this code would just work.
+They are gone now in current git repo. If anyone wants them they can
+resurrect them from git and revise them.
 
-The temporary skb_buff_head is on the stack, and any
-access to updating those fields like qlen are in CPU cache
-and therefore have very little impact on any peformance.
+--Sig_/wnhYdEZkDio4KkLP3eNuKD1
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEn2/DRbBb5+dmuDyPgKd/YJXN5H4FAlnSU6wACgkQgKd/YJXN
+5H4fFRAAhLIBMYGW8kueu22kkX3YjS/Xk1jG3XVNQxiQFbOJnnH3zxrK33UTOs6/
+R4f/vfSkyic/I39RQRmgEOJGtOaS6AZltjkUAZDgX42GOFbWd4DOhd/gv5/Lm9hI
+cd+Z6HUC81tfHhQhGU9CMu0UnDAZhZiLcpEzwtlHEvvRvoEpsk0fA1a1aHQdeBAq
++QFqiU7P9YZKydFq/KBwBtg7E0XwaEgQj/S8n8xljT/3dlz774WYcitWHlrdysxa
+zZ2gCZjabV8H4p1vnJ8eI8GaGF8osIz0yxwBYmvpo3Uc1KT4ZYmxzLIf9jwMdaZh
+lAf+kpD23aSbCeTzzPT0vBKo3eGJeTSzMBPtxV/AHpjycJljPEdJWOUoyWUnF8dS
+ZQWCHzu6l9T3KJizr191R7D4HMwH5kM7R//6XYXsyZLPyAxrAQ4LhOeZYP5BMFJr
+w5t/jW19p8aV3psYtu4RXZ+8koM8eqCKMo5yCsN6AfLQSXndSE5pbDEPTpIlxqg8
+SBs4CMwqzxhT2EhfdTdjRvxFjK52v6NgPdY6cvJQEWmaDCqXExaEtvM+4puIbRYP
+Xf8iBi/JCxboQt8Cy8ayRGiY/O7jR3uxivlzoAwxdYN38J2gruPNccEKxn0T89Zv
+Ebn6XNS/mN4CP9uH7cNSQLaUvIVibrkOZV7rIY0s+w4F+ZQbAgs=
+=u4Nm
+-----END PGP SIGNATURE-----
+
+--Sig_/wnhYdEZkDio4KkLP3eNuKD1--
