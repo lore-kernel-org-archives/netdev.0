@@ -1,7 +1,9 @@
 From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-Subject: [PATCH v2 0/6] staging: Introduce DPAA2 Ethernet Switch driver
-Date: Mon, 2 Oct 2017 11:36:14 +0300
-Message-ID: <1506933380-12641-1-git-send-email-razvan.stefanescu@nxp.com>
+Subject: [PATCH v2 4/6] staging: fsl-dpaa2/ethsw: Add maintainer for Ethernet
+ Switch driver
+Date: Mon, 2 Oct 2017 11:36:18 +0300
+Message-ID: <1506933380-12641-5-git-send-email-razvan.stefanescu@nxp.com>
+References: <1506933380-12641-1-git-send-email-razvan.stefanescu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +12,7 @@ Cc: devel@driverdev.osuosl.org, arnd@arndb.de, netdev@vger.kernel.org,
  stuyoder@gmail.com, bogdan.purcareata@nxp.com, laurentiu.tudor@nxp.com
 To: <gregkh@linuxfoundation.org>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1506933380-12641-1-git-send-email-razvan.stefanescu@nxp.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
@@ -21,54 +24,31 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-This patchset introduces the Ethernet Switch Driver for Freescale/NXP SoCs
-with DPAA2 (DataPath Acceleration Architecture v2). The driver manages
-switch objects discovered on the fsl-mc bus. A description of the driver
-can be found in the associated README file.
-
-The patchset consists of:
-* A set of libraries containing APIs for configuring and controlling
-  Management Complex (MC) switch objects
-* The DPAA2 Ethernet Switch driver
-* Patch adding ethtool support
-
-Limitations:
-* no support for control traffic to/from CPU
-* only DPSW ports can be added to a bridge
-
+Signed-off-by: Razvan Stefanescu <razvan.stefanescu@nxp.com>
+---
 Changelog:
- v2: addressed comments from Bogdan P.
+ v2:
+    - no changes
 
-Razvan Stefanescu (6):
-  staging: fsl-dpaa2/ethsw: Add APIs for DPSW object
-  staging: fsl-dpaa2/ethsw: Add Freescale DPAA2 Ethernet Switch driver
-  staging: fsl-dpaa2/ethsw: Add ethtool support
-  staging: fsl-dpaa2/ethsw: Add maintainer for Ethernet Switch driver
-  staging: fsl-dpaa2/ethsw: Add README
-  staging: fsl-dpaa2/ethsw: Add TODO
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
- MAINTAINERS                                     |    6 +
- drivers/staging/fsl-dpaa2/Kconfig               |    8 +
- drivers/staging/fsl-dpaa2/Makefile              |    1 +
- drivers/staging/fsl-dpaa2/ethsw/Makefile        |    7 +
- drivers/staging/fsl-dpaa2/ethsw/README          |  106 ++
- drivers/staging/fsl-dpaa2/ethsw/TODO            |   14 +
- drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h      |  371 ++++++
- drivers/staging/fsl-dpaa2/ethsw/dpsw.c          | 1147 +++++++++++++++++
- drivers/staging/fsl-dpaa2/ethsw/dpsw.h          |  611 +++++++++
- drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c |  207 +++
- drivers/staging/fsl-dpaa2/ethsw/ethsw.c         | 1534 +++++++++++++++++++++++
- drivers/staging/fsl-dpaa2/ethsw/ethsw.h         |   91 ++
- 12 files changed, 4103 insertions(+)
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/Makefile
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/README
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/TODO
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/dpsw.c
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/dpsw.h
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/ethsw.c
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/ethsw.h
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2281af4..cfd4f74 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4297,6 +4297,12 @@ L:	linux-kernel@vger.kernel.org
+ S:	Maintained
+ F:	drivers/staging/fsl-dpaa2/ethernet
+ 
++DPAA2 ETHERNET SWITCH DRIVER
++M:	Razvan Stefanescu <razvan.stefanescu@nxp.com>
++L:	linux-kernel@vger.kernel.org
++S:	Maintained
++F:	drivers/staging/fsl-dpaa2/ethsw
++
+ DPT_I2O SCSI RAID DRIVER
+ M:	Adaptec OEM Raid Solutions <aacraid@adaptec.com>
+ L:	linux-scsi@vger.kernel.org
 -- 
 1.9.1
