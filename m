@@ -1,159 +1,74 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40e: ensure reset occurs when disabling VF
-Date: Mon,  2 Oct 2017 12:48:47 -0700
-Message-ID: <20171002194852.71970-11-jeffrey.t.kirsher@intel.com>
-References: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [oss-drivers] Re: [PATCH net-next 2/2] flow_dissector: dissect
+ tunnel info
+Date: Mon, 2 Oct 2017 22:04:09 +0200
+Message-ID: <20171002200408.GA20877@netronome.com>
+References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
+ <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+ <CALx6S35DpMWdLVWKSoRdsfROM7=A2p9pLi7n2fMtmqwhSEh5wQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:39749 "EHLO mga05.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751514AbdJBTtT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 15:49:19 -0400
-In-Reply-To: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:53676 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750739AbdJBUEO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 16:04:14 -0400
+Received: by mail-wm0-f42.google.com with SMTP id q132so12800894wmd.2
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 13:04:13 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S35DpMWdLVWKSoRdsfROM7=A2p9pLi7n2fMtmqwhSEh5wQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+On Mon, Oct 02, 2017 at 12:36:33PM -0700, Tom Herbert wrote:
+> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> > Move dissection of tunnel info from the flower classifier to the flow
+> > dissector where all other dissection occurs.  This should not have any
+> > behavioural affect on other users of the flow dissector.
 
-It is possible although rare that we may not reset when
-i40e_vc_disable_vf() is called. This can lead to some weird
-circumstances with some values not being properly set. Modify
-i40e_reset_vf() to return a code indicating whether it reset or not.
+...
 
-Now, i40e_vc_disable_vf() can wait until a reset actually occurs. If it
-fails to free up within a reasonable time frame we'll display a warning
-message.
+> > +static void
+> > +__skb_flow_dissect_tunnel_info(const struct sk_buff *skb,
+> > +                              struct flow_dissector *flow_dissector,
+> > +                              void *target_container)
+> > +{
+> > +       struct ip_tunnel_info *info;
+> > +       struct ip_tunnel_key *key;
+> > +
+> > +       /* A quick check to see if there might be something to do. */
+> > +       if (!dissector_uses_key(flow_dissector,
+> > +                               FLOW_DISSECTOR_KEY_ENC_KEYID) &&
+> > +           !dissector_uses_key(flow_dissector,
+> > +                               FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) &&
+> > +           !dissector_uses_key(flow_dissector,
+> > +                               FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) &&
+> > +           !dissector_uses_key(flow_dissector,
+> > +                               FLOW_DISSECTOR_KEY_ENC_CONTROL) &&
+> > +           !dissector_uses_key(flow_dissector,
+> > +                               FLOW_DISSECTOR_KEY_ENC_PORTS))
+> > +               return;
+> 
+> This complex conditional is now in the path of every call to flow
+> dissector regardless of whether a classifier is enabled or tunnels
+> are. What does the assembly show in terms of number of branches? Can
+> we at least get this down to one check (might be a use case for
+> FLOW_DISSECTOR_F_FLOWER ;-) ), or even better use the static key when
+> encap or is enabled?
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 42 +++++++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  4 +--
- 2 files changed, 35 insertions(+), 11 deletions(-)
+Hi Tom,
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 94ee243f110e..7742cf3d38d9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -156,12 +156,28 @@ void i40e_vc_notify_vf_reset(struct i40e_vf *vf)
-  * i40e_vc_disable_vf
-  * @vf: pointer to the VF info
-  *
-- * Disable the VF through a SW reset
-+ * Disable the VF through a SW reset.
-  **/
- static inline void i40e_vc_disable_vf(struct i40e_vf *vf)
- {
-+	int i;
-+
- 	i40e_vc_notify_vf_reset(vf);
--	i40e_reset_vf(vf, false);
-+
-+	/* We want to ensure that an actual reset occurs initiated after this
-+	 * function was called. However, we do not want to wait forever, so
-+	 * we'll give a reasonable time and print a message if we failed to
-+	 * ensure a reset.
-+	 */
-+	for (i = 0; i < 20; i++) {
-+		if (i40e_reset_vf(vf, false))
-+			return;
-+		usleep_range(10000, 20000);
-+	}
-+
-+	dev_warn(&vf->pf->pdev->dev,
-+		 "Failed to initiate reset for VF %d after 200 milliseconds\n",
-+		 vf->vf_id);
- }
- 
- /**
-@@ -1051,9 +1067,9 @@ static void i40e_cleanup_reset_vf(struct i40e_vf *vf)
-  * @vf: pointer to the VF structure
-  * @flr: VFLR was issued or not
-  *
-- * reset the VF
-+ * Returns true if the VF is reset, false otherwise.
-  **/
--void i40e_reset_vf(struct i40e_vf *vf, bool flr)
-+bool i40e_reset_vf(struct i40e_vf *vf, bool flr)
- {
- 	struct i40e_pf *pf = vf->pf;
- 	struct i40e_hw *hw = &pf->hw;
-@@ -1061,9 +1077,11 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 	u32 reg;
- 	int i;
- 
--	/* If VFs have been disabled, there is no need to reset */
-+	/* If the VFs have been disabled, this means something else is
-+	 * resetting the VF, so we shouldn't continue.
-+	 */
- 	if (test_and_set_bit(__I40E_VF_DISABLE, pf->state))
--		return;
-+		return false;
- 
- 	i40e_trigger_vf_reset(vf, flr);
- 
-@@ -1100,6 +1118,8 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
- 
- 	i40e_flush(hw);
- 	clear_bit(__I40E_VF_DISABLE, pf->state);
-+
-+	return true;
- }
- 
- /**
-@@ -1111,8 +1131,10 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
-  * VF, then do all the waiting in one chunk, and finally finish restoring each
-  * VF after the wait. This is useful during PF routines which need to reset
-  * all VFs, as otherwise it must perform these resets in a serialized fashion.
-+ *
-+ * Returns true if any VFs were reset, and false otherwise.
-  **/
--void i40e_reset_all_vfs(struct i40e_pf *pf, bool flr)
-+bool i40e_reset_all_vfs(struct i40e_pf *pf, bool flr)
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf;
-@@ -1121,11 +1143,11 @@ void i40e_reset_all_vfs(struct i40e_pf *pf, bool flr)
- 
- 	/* If we don't have any VFs, then there is nothing to reset */
- 	if (!pf->num_alloc_vfs)
--		return;
-+		return false;
- 
- 	/* If VFs have been disabled, there is no need to reset */
- 	if (test_and_set_bit(__I40E_VF_DISABLE, pf->state))
--		return;
-+		return false;
- 
- 	/* Begin reset on all VFs at once */
- 	for (v = 0; v < pf->num_alloc_vfs; v++)
-@@ -1200,6 +1222,8 @@ void i40e_reset_all_vfs(struct i40e_pf *pf, bool flr)
- 
- 	i40e_flush(hw);
- 	clear_bit(__I40E_VF_DISABLE, pf->state);
-+
-+	return true;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 5111d05d5f2f..5ea42ad094bc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -122,8 +122,8 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs);
- int i40e_vc_process_vf_msg(struct i40e_pf *pf, s16 vf_id, u32 v_opcode,
- 			   u32 v_retval, u8 *msg, u16 msglen);
- int i40e_vc_process_vflr_event(struct i40e_pf *pf);
--void i40e_reset_vf(struct i40e_vf *vf, bool flr);
--void i40e_reset_all_vfs(struct i40e_pf *pf, bool flr);
-+bool i40e_reset_vf(struct i40e_vf *vf, bool flr);
-+bool i40e_reset_all_vfs(struct i40e_pf *pf, bool flr);
- void i40e_vc_notify_vf_reset(struct i40e_vf *vf);
- 
- /* VF configuration related iplink handlers */
--- 
-2.14.2
+it appears to me (a little to my surprise but I did check before
+posting) that the compiler turns the above into a single comparison.
+
+$ gcc --version
+gcc (Debian 4.9.2-10) 4.9.2
+Copyright (C) 2014 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
