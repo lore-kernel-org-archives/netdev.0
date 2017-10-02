@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/13] fm10k: avoid possible truncation of q_vector->name
-Date: Mon,  2 Oct 2017 08:42:29 -0700
-Message-ID: <20171002154236.84043-7-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/13] fm10k: stop spurious link down messages when Tx FIFO is full
+Date: Mon,  2 Oct 2017 08:42:27 -0700
+Message-ID: <20171002154236.84043-5-jeffrey.t.kirsher@intel.com>
 References: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -10,66 +10,60 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:3420 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751430AbdJBPm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 11:42:58 -0400
+        id S1751674AbdJBPm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 11:42:59 -0400
 In-Reply-To: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-New versions of GCC since version 7 began warning about possible
-truncation of calls to snprintf. We can fix this and avoid false
-positives. First, we should pass the full buffer size to snprintf,
-because it guarantees a NULL character as part of its passed length, so
-passing len-1 is simply wasting a byte of possible storage.
+In fm10k_get_host_state_generic, we check the mailbox tx_read() function
+to ensure that the mailbox is still open. This function also checks to
+make sure we have space to transmit another message. Unfortunately, if
+we just recently sent a bunch of messages (such as enabling hundreds of
+VLANs on a VF) this can result in a race where the watchdog task thinks
+the link went down just because we haven't had time to process all these
+messages yet.
 
-Second, if we make the ri and ti variables unsigned, the compiler is
-able to correctly reason that the value never gets larger than 256, so
-it doesn't need to warn about the full space required to print a signed
-integer.
+Instead, lets just check whether the mailbox is still open. This ensures
+that we don't race with the Tx FIFO, and we only link down once the
+mailbox is not open.
+
+This is safe, because if the FIFO fills up and we're unable to send
+a message for too long, we'll end up triggering the timeout detection
+which results in a reset. Additionally, since we still check to ensure
+the mailbox state is OPEN, we'll transition to link down whenever the
+mailbox closes as well.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_common.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 63784576ae8b..9212b3fa3b62 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -1544,7 +1544,7 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
- 	struct net_device *dev = interface->netdev;
- 	struct fm10k_hw *hw = &interface->hw;
- 	struct msix_entry *entry;
--	int ri = 0, ti = 0;
-+	unsigned int ri = 0, ti = 0;
- 	int vector, err;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_common.c b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
+index 62a6ad9b3eed..736a9f087bc9 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_common.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_common.c
+@@ -1,5 +1,5 @@
+ /* Intel(R) Ethernet Switch Host Interface Driver
+- * Copyright(c) 2013 - 2016 Intel Corporation.
++ * Copyright(c) 2013 - 2017 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -517,8 +517,8 @@ s32 fm10k_get_host_state_generic(struct fm10k_hw *hw, bool *host_ready)
+ 		goto out;
+ 	}
  
- 	entry = &interface->msix_entries[NON_Q_VECTORS(hw)];
-@@ -1554,15 +1554,15 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
+-	/* verify Mailbox is still valid */
+-	if (!mbx->ops.tx_ready(mbx, FM10K_VFMBX_MSG_MTU))
++	/* verify Mailbox is still open */
++	if (mbx->state != FM10K_STATE_OPEN)
+ 		goto out;
  
- 		/* name the vector */
- 		if (q_vector->tx.count && q_vector->rx.count) {
--			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
--				 "%s-TxRx-%d", dev->name, ri++);
-+			snprintf(q_vector->name, sizeof(q_vector->name),
-+				 "%s-TxRx-%u", dev->name, ri++);
- 			ti++;
- 		} else if (q_vector->rx.count) {
--			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
--				 "%s-rx-%d", dev->name, ri++);
-+			snprintf(q_vector->name, sizeof(q_vector->name),
-+				 "%s-rx-%u", dev->name, ri++);
- 		} else if (q_vector->tx.count) {
--			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
--				 "%s-tx-%d", dev->name, ti++);
-+			snprintf(q_vector->name, sizeof(q_vector->name),
-+				 "%s-tx-%u", dev->name, ti++);
- 		} else {
- 			/* skip this unused q_vector */
- 			continue;
+ 	/* interface cannot receive traffic without logical ports */
 -- 
 2.14.2
