@@ -1,33 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] ibmvnic: Improve output for unsupported stats
-Date: Mon, 2 Oct 2017 23:57:23 +0200
-Message-ID: <20171002215723.GN17713@lunn.ch>
-References: <6ce14d1a-11cc-37be-e6ca-b9ec4afb01a8@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-10-02
+Date: Mon, 02 Oct 2017 15:17:16 -0700 (PDT)
+Message-ID: <20171002.151716.267350430891323155.davem@davemloft.net>
+References: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: John Allen <jallen@linux.vnet.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:36258 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751888AbdJBV5Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 17:57:25 -0400
-Content-Disposition: inline
-In-Reply-To: <6ce14d1a-11cc-37be-e6ca-b9ec4afb01a8@linux.vnet.ibm.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52024 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750770AbdJBWRR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 18:17:17 -0400
+In-Reply-To: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 02, 2017 at 03:31:39PM -0500, John Allen wrote:
-> The vnic server can report -1 in the event that a given statistic is not
-> supported. Currently, the -1 value is implicitly cast to an unsigned
-> integer and appears through the ethtool -S output as a very large number.
-> This patch improves this behavior by reporting 0 in the event that a
-> given statistic is not supported.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon,  2 Oct 2017 12:48:37 -0700
 
-Hi John
+> This series contains updates to i40e and i40evf.
 
-If it does not exist, why not skip it altogether?
-ibmvnic_get_sset_count() could walk the list and count the valid ones.
-ibmvnic_get_strings() could only return the name of the valid onces.
+Pulled, thanks Jeff.
 
-      Andrew
+I saw the feedback about "odd parenthesis" in patch #11 from Yuval
+Mintz, but I simply don't see it at all.
