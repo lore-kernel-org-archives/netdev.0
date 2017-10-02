@@ -1,71 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
-Date: Mon, 02 Oct 2017 14:04:58 +0200
-Message-ID: <1506945898.25586.3.camel@sipsolutions.net>
-References: <20170926131945.3962-1-qasdfgtyuiop@gmail.com>
-         (sfid-20170926_152018_942414_806DE318)
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: cross namespace interface notification for tun devices
+Date: Mon, 2 Oct 2017 14:06:59 +0200
+Message-ID: <52f84baf-8027-d01f-8ece-db4f39a2f76f@6wind.com>
+References: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
+ <f80d9afa-0ce2-903d-9bf9-b7bb8765086b@6wind.com>
+ <CAHmME9pAvv7ebKC-uZGPJRi9Jasgrd2tgCvS1Lji+cgM1mV2qw@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Xiang Gao <qasdfgtyuiop@gmail.com>, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170926131945.3962-1-qasdfgtyuiop@gmail.com> (sfid-20170926_152018_942414_806DE318)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Netdev <netdev@vger.kernel.org>, Mathias <mathias@hall-andersen.dk>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:56119 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750978AbdJBMHD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 08:07:03 -0400
+Received: by mail-wm0-f46.google.com with SMTP id u138so10110450wmu.4
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 05:07:02 -0700 (PDT)
+In-Reply-To: <CAHmME9pAvv7ebKC-uZGPJRi9Jasgrd2tgCvS1Lji+cgM1mV2qw@mail.gmail.com>
+Content-Language: fr
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please use "v2" tag or so in the subject line, having the same patch
-again is really not helpful.
+Le 02/10/2017 à 13:11, Jason A. Donenfeld a écrit :
+> On Mon, Oct 2, 2017 at 11:32 AM, Nicolas Dichtel
+> <nicolas.dichtel@6wind.com> wrote:
+>> 1. Move the process to netns B, open the netlink socket and move back the
+>> process to netns A. The socket will remain in netns B and you will receive all
+>> netlink messages related to netns B.
+>>
+>> 2. Assign a nsid to netns B in netns A and use NETLINK_LISTEN_ALL_NSID on your
+>> netlink socket (see iproute2).
+> 
+> Both of these seem to rely on the process knowing where the device is
+> being moved and having access to that namespace. I don't think these
+> two things are a given though. Unless I'm missing something?
+I didn't understand correctly.
+Your control process cannot monitor or control an interface which is in a
+unkown/hidden netns. But x-netns interfaces are special. We already add a way to
+identify peer netns for this kind of interfaces.
+If an handler get_link_net was added to the rtnl_link_ops of the tun driver, it
+will help to identify netns A when you are in netns B. But you need the opposite.
+I already try a patch to advertise via netlink the dst netns when an interface
+moves to a new netns. I think that it is valid for x-netns interfaces.
+As soon as you can identify the dst netns, your problem is solved, right?
 
-The next should be v3, obviously.
 
-> +++ b/net/mac80211/aead_api.c
-> @@ -1,7 +1,4 @@
-> -/*
-> - * Copyright 2014-2015, Qualcomm Atheros, Inc.
-> - *
-> - * This program is free software; you can redistribute it and/or
-> modify
-> +/* This program is free software; you can redistribute it and/or
-> modify
-
-I see no reason to make this change, why remove copyright?
-
-> +++ b/net/mac80211/wpa.c
-> @@ -464,7 +464,8 @@ static int ccmp_encrypt_skb(struct
-> ieee80211_tx_data *tx, struct sk_buff *skb,
->  	pos += IEEE80211_CCMP_HDR_LEN;
->  	ccmp_special_blocks(skb, pn, b_0, aad);
->  	return ieee80211_aes_ccm_encrypt(key->u.ccmp.tfm, b_0, aad,
-> pos, len,
-> -					 skb_put(skb, mic_len),
-> mic_len);
-> +					 skb_put(skb,
-> +						 key->u.ccmp.tfm-
-> >authsize));
->  }
-
-I see no reason for the change from mic_len to authsize here?
-
-> @@ -540,10 +541,11 @@ ieee80211_crypto_ccmp_decrypt(struct
-> ieee80211_rx_data *rx,
->  			ccmp_special_blocks(skb, pn, b_0, aad);
->  
->  			if (ieee80211_aes_ccm_decrypt(
-> -				    key->u.ccmp.tfm, b_0, aad,
-> -				    skb->data + hdrlen + IEEE80211_CCMP_HDR_LEN,
-> -				    data_len,
-> -				    skb->data + skb->len - mic_len, mic_len))
-> +				key->u.ccmp.tfm, b_0, aad,
-> +				skb->data + hdrlen + IEEE80211_CCMP_HDR_LEN,
-> +				data_len,
-> +				skb->data + skb->len - key->u.ccmp.tfm->authsize
-> +			))
->  				return RX_DROP_UNUSABLE;
-
-That's a really really strange way of writing this ...
-
-Please reformat.
-
-johannes
+Nicolas
