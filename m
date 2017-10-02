@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v3 02/19] thunderbolt: Remove __packed from ICM message structures
-Date: Mon,  2 Oct 2017 13:38:29 +0300
-Message-ID: <20171002103846.64602-3-mika.westerberg@linux.intel.com>
+Subject: [PATCH v3 12/19] thunderbolt: Use spinlock in ring serialization
+Date: Mon,  2 Oct 2017 13:38:39 +0300
+Message-ID: <20171002103846.64602-13-mika.westerberg@linux.intel.com>
 References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,140 +19,139 @@ In-Reply-To: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These messages are all 32-byte aligned and they should be packed without
-the __packed attribute just fine. It also allows compiler to generate
-better code on some architectures.
+This makes it possible to enqueue frames also from atomic context which
+is needed for example, when networking packets are sent over a
+Thunderbolt cable.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
+Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/thunderbolt/tb_msgs.h | 28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
+ drivers/thunderbolt/nhi.c   | 26 ++++++++++++++------------
+ include/linux/thunderbolt.h |  2 +-
+ 2 files changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/thunderbolt/tb_msgs.h b/drivers/thunderbolt/tb_msgs.h
-index de6441e4a060..f3adf58a40ce 100644
---- a/drivers/thunderbolt/tb_msgs.h
-+++ b/drivers/thunderbolt/tb_msgs.h
-@@ -130,7 +130,7 @@ struct icm_pkg_header {
- 	u8 flags;
- 	u8 packet_id;
- 	u8 total_packets;
--} __packed;
-+};
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index e0a47f7581cb..7d1891ec3c47 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -212,8 +212,10 @@ static void ring_work(struct work_struct *work)
+ 	struct tb_ring *ring = container_of(work, typeof(*ring), work);
+ 	struct ring_frame *frame;
+ 	bool canceled = false;
++	unsigned long flags;
+ 	LIST_HEAD(done);
+-	mutex_lock(&ring->lock);
++
++	spin_lock_irqsave(&ring->lock, flags);
  
- #define ICM_FLAGS_ERROR			BIT(0)
- #define ICM_FLAGS_NO_KEY		BIT(1)
-@@ -139,20 +139,20 @@ struct icm_pkg_header {
+ 	if (!ring->running) {
+ 		/*  Move all frames to done and mark them as canceled. */
+@@ -241,7 +243,8 @@ static void ring_work(struct work_struct *work)
+ 	ring_write_descriptors(ring);
  
- struct icm_pkg_driver_ready {
- 	struct icm_pkg_header hdr;
--} __packed;
-+};
+ invoke_callback:
+-	mutex_unlock(&ring->lock); /* allow callbacks to schedule new work */
++	/* allow callbacks to schedule new work */
++	spin_unlock_irqrestore(&ring->lock, flags);
+ 	while (!list_empty(&done)) {
+ 		frame = list_first_entry(&done, typeof(*frame), list);
+ 		/*
+@@ -255,15 +258,17 @@ static void ring_work(struct work_struct *work)
  
- struct icm_pkg_driver_ready_response {
- 	struct icm_pkg_header hdr;
- 	u8 romver;
- 	u8 ramver;
- 	u16 security_level;
--} __packed;
-+};
+ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
+ {
++	unsigned long flags;
+ 	int ret = 0;
+-	mutex_lock(&ring->lock);
++
++	spin_lock_irqsave(&ring->lock, flags);
+ 	if (ring->running) {
+ 		list_add_tail(&frame->list, &ring->queue);
+ 		ring_write_descriptors(ring);
+ 	} else {
+ 		ret = -ESHUTDOWN;
+ 	}
+-	mutex_unlock(&ring->lock);
++	spin_unlock_irqrestore(&ring->lock, flags);
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(__tb_ring_enqueue);
+@@ -338,7 +343,7 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	if (!ring)
+ 		goto err;
  
- /* Falcon Ridge & Alpine Ridge common messages */
+-	mutex_init(&ring->lock);
++	spin_lock_init(&ring->lock);
+ 	INIT_LIST_HEAD(&ring->queue);
+ 	INIT_LIST_HEAD(&ring->in_flight);
+ 	INIT_WORK(&ring->work, ring_work);
+@@ -371,8 +376,6 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	return ring;
  
- struct icm_fr_pkg_get_topology {
- 	struct icm_pkg_header hdr;
--} __packed;
-+};
+ err:
+-	if (ring)
+-		mutex_destroy(&ring->lock);
+ 	kfree(ring);
+ 	mutex_unlock(&nhi->lock);
+ 	return NULL;
+@@ -419,7 +422,7 @@ void tb_ring_start(struct tb_ring *ring)
+ 	u32 flags;
  
- #define ICM_GET_TOPOLOGY_PACKETS	14
+ 	mutex_lock(&ring->nhi->lock);
+-	mutex_lock(&ring->lock);
++	spin_lock_irq(&ring->lock);
+ 	if (ring->nhi->going_away)
+ 		goto err;
+ 	if (ring->running) {
+@@ -466,7 +469,7 @@ void tb_ring_start(struct tb_ring *ring)
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+ err:
+-	mutex_unlock(&ring->lock);
++	spin_unlock_irq(&ring->lock);
+ 	mutex_unlock(&ring->nhi->lock);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_start);
+@@ -487,7 +490,7 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
+ void tb_ring_stop(struct tb_ring *ring)
+ {
+ 	mutex_lock(&ring->nhi->lock);
+-	mutex_lock(&ring->lock);
++	spin_lock_irq(&ring->lock);
+ 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
+ 	if (ring->nhi->going_away)
+@@ -508,7 +511,7 @@ void tb_ring_stop(struct tb_ring *ring)
+ 	ring->running = false;
  
-@@ -167,7 +167,7 @@ struct icm_fr_pkg_get_topology_response {
- 	u32 reserved[2];
- 	u32 ports[16];
- 	u32 port_hop_info[16];
--} __packed;
-+};
+ err:
+-	mutex_unlock(&ring->lock);
++	spin_unlock_irq(&ring->lock);
+ 	mutex_unlock(&ring->nhi->lock);
  
- #define ICM_SWITCH_USED			BIT(0)
- #define ICM_SWITCH_UPSTREAM_PORT_MASK	GENMASK(7, 1)
-@@ -184,7 +184,7 @@ struct icm_fr_event_device_connected {
- 	u8 connection_id;
- 	u16 link_info;
- 	u32 ep_name[55];
--} __packed;
-+};
- 
- #define ICM_LINK_INFO_LINK_MASK		0x7
- #define ICM_LINK_INFO_DEPTH_SHIFT	4
-@@ -197,13 +197,13 @@ struct icm_fr_pkg_approve_device {
- 	u8 connection_key;
- 	u8 connection_id;
- 	u16 reserved;
--} __packed;
-+};
- 
- struct icm_fr_event_device_disconnected {
- 	struct icm_pkg_header hdr;
- 	u16 reserved;
- 	u16 link_info;
--} __packed;
-+};
- 
- struct icm_fr_pkg_add_device_key {
- 	struct icm_pkg_header hdr;
-@@ -212,7 +212,7 @@ struct icm_fr_pkg_add_device_key {
- 	u8 connection_id;
- 	u16 reserved;
- 	u32 key[8];
--} __packed;
-+};
- 
- struct icm_fr_pkg_add_device_key_response {
- 	struct icm_pkg_header hdr;
-@@ -220,7 +220,7 @@ struct icm_fr_pkg_add_device_key_response {
- 	u8 connection_key;
- 	u8 connection_id;
- 	u16 reserved;
--} __packed;
-+};
- 
- struct icm_fr_pkg_challenge_device {
- 	struct icm_pkg_header hdr;
-@@ -229,7 +229,7 @@ struct icm_fr_pkg_challenge_device {
- 	u8 connection_id;
- 	u16 reserved;
- 	u32 challenge[8];
--} __packed;
-+};
- 
- struct icm_fr_pkg_challenge_device_response {
- 	struct icm_pkg_header hdr;
-@@ -239,7 +239,7 @@ struct icm_fr_pkg_challenge_device_response {
- 	u16 reserved;
- 	u32 challenge[8];
- 	u32 response[8];
--} __packed;
-+};
- 
- /* Alpine Ridge only messages */
- 
-@@ -247,7 +247,7 @@ struct icm_ar_pkg_get_route {
- 	struct icm_pkg_header hdr;
- 	u16 reserved;
- 	u16 link_info;
--} __packed;
-+};
- 
- struct icm_ar_pkg_get_route_response {
- 	struct icm_pkg_header hdr;
-@@ -255,6 +255,6 @@ struct icm_ar_pkg_get_route_response {
- 	u16 link_info;
- 	u32 route_hi;
- 	u32 route_lo;
--} __packed;
-+};
- 
- #endif
+ 	/*
+@@ -568,7 +571,6 @@ void tb_ring_free(struct tb_ring *ring)
+ 	 * to finish before freeing the ring.
+ 	 */
+ 	flush_work(&ring->work);
+-	mutex_destroy(&ring->lock);
+ 	kfree(ring);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_free);
+diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
+index e3b9af7be0ad..cf9e42db780f 100644
+--- a/include/linux/thunderbolt.h
++++ b/include/linux/thunderbolt.h
+@@ -448,7 +448,7 @@ struct tb_nhi {
+  * @eof_mask: Bit mask used to detect end of frame PDF
+  */
+ struct tb_ring {
+-	struct mutex lock;
++	spinlock_t lock;
+ 	struct tb_nhi *nhi;
+ 	int size;
+ 	int hop;
 -- 
 2.14.2
