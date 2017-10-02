@@ -1,55 +1,48 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] iproute: build more easily on Android
-Date: Mon, 2 Oct 2017 10:36:11 -0700
-Message-ID: <20171002103611.17ccb01f@xeon-e3>
-References: <20171002170337.42235-1-lorenzo@google.com>
+Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
+ support malloc buff at run time
+Date: Mon, 2 Oct 2017 10:37:08 -0700
+Message-ID: <20171002103708.0572704b@xeon-e3>
+References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
+        <1506605626-1744-3-git-send-email-haliu@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, enh@google.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
+        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
+To: Hangbin Liu <haliu@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:49640 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751131AbdJBRgS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 13:36:18 -0400
-Received: by mail-pf0-f175.google.com with SMTP id l188so3227557pfc.6
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 10:36:18 -0700 (PDT)
-In-Reply-To: <20171002170337.42235-1-lorenzo@google.com>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:44254 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751195AbdJBRhL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 13:37:11 -0400
+Received: by mail-pg0-f48.google.com with SMTP id b1so1824805pge.1
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 10:37:11 -0700 (PDT)
+In-Reply-To: <1506605626-1744-3-git-send-email-haliu@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  3 Oct 2017 02:03:37 +0900
-Lorenzo Colitti <lorenzo@google.com> wrote:
+On Thu, 28 Sep 2017 21:33:46 +0800
+Hangbin Liu <haliu@redhat.com> wrote:
 
-> iproute2 contains a bunch of kernel headers, including uapi ones.
-> Android's libc uses uapi headers almost directly, and uses a
-> script to fix kernel types that don't match what userspace
-> expects.
+> From: Hangbin Liu <liuhangbin@gmail.com>
 > 
-> For example: https://issuetracker.google.com/36987220 reports
-> that our struct ip_mreq_source contains "__be32 imr_multiaddr"
-> rather than "struct in_addr imr_multiaddr". The script addresses
-> this by replacing the uapi struct definition with a #include
-> <bits/ip_mreq.h> which contains the traditional userspace
-> definition.
+> This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
+> iplink_get()"). After update, we will not need to double the buffer size
+> every time when VFs number increased.
 > 
-> Unfortunately, when we compile iproute2, this definition
-> conflicts with the one in iproute2's linux/in.h.
+> With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
+> length parameter.
 > 
-> Historically we've just solved this problem by running "git rm"
-> on all the iproute2 include/linux headers that break Android's
-> libc.  However, deleting the files in this way makes it harder to
-> keep up with upstream, because every upstream change to
-> an include file causes a merge conflict with the delete.
+> With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
+> answer to avoid overwrite data in nlh, because it may has more info after
+> nlh. also this will avoid nlh buffer not enough issue.
 > 
-> This patch fixes the problem by moving the iproute2 linux headers
-> from include/linux to include/uapi/linux.
+> We need to free answer after using.
 > 
-> Tested: compiles on ubuntu trusty (glibc)
-> 
-> Signed-off-by: Elliott Hughes <enh@google.com>
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
 
-Rather than moving everything, why not make kernel headers directory
-configurable as part of the configure script setup process.
+Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
+Can only those places that need that be targeted?
