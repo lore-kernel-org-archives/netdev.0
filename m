@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v3 05/19] thunderbolt: Move thunderbolt domain structure to thunderbolt.h
-Date: Mon,  2 Oct 2017 13:38:32 +0300
-Message-ID: <20171002103846.64602-6-mika.westerberg@linux.intel.com>
+Subject: [PATCH v3 06/19] thunderbolt: Move tb_switch_phy_port_from_link() to thunderbolt.h
+Date: Mon,  2 Oct 2017 13:38:33 +0300
+Message-ID: <20171002103846.64602-7-mika.westerberg@linux.intel.com>
 References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,145 +19,77 @@ In-Reply-To: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These are needed by Thunderbolt services so move them to thunderbolt.h
-to make sure they are available outside of drivers/thunderbolt.
+A Thunderbolt service might need to find the physical port from a link
+the cable is connected to. For instance networking driver uses this
+information to generate MAC address according the Apple ThunderboltIP
+protocol.
+
+Move this function to thunderbolt.h and rename it to
+tb_phy_port_from_link() to reflect the fact that it does not take switch
+as parameter.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/thunderbolt/tb.h    | 42 ------------------------------------------
- include/linux/thunderbolt.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+), 42 deletions(-)
+ drivers/thunderbolt/icm.c   | 2 +-
+ drivers/thunderbolt/tb.h    | 7 -------
+ include/linux/thunderbolt.h | 7 +++++++
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/thunderbolt/icm.c b/drivers/thunderbolt/icm.c
+index 53250fc057e1..8c22b91ed040 100644
+--- a/drivers/thunderbolt/icm.c
++++ b/drivers/thunderbolt/icm.c
+@@ -89,7 +89,7 @@ static inline struct tb *icm_to_tb(struct icm *icm)
+ 
+ static inline u8 phy_port_from_route(u64 route, u8 depth)
+ {
+-	return tb_switch_phy_port_from_link(route >> ((depth - 1) * 8));
++	return tb_phy_port_from_link(route >> ((depth - 1) * 8));
+ }
+ 
+ static inline u8 dual_link_from_link(u8 link)
 diff --git a/drivers/thunderbolt/tb.h b/drivers/thunderbolt/tb.h
-index e0deee4f1eb0..2fefe76621ca 100644
+index 2fefe76621ca..ea21d927bd09 100644
 --- a/drivers/thunderbolt/tb.h
 +++ b/drivers/thunderbolt/tb.h
-@@ -39,20 +39,6 @@ struct tb_switch_nvm {
- 	bool authenticating;
+@@ -40,8 +40,6 @@ struct tb_switch_nvm {
  };
  
--/**
-- * enum tb_security_level - Thunderbolt security level
-- * @TB_SECURITY_NONE: No security, legacy mode
-- * @TB_SECURITY_USER: User approval required at minimum
-- * @TB_SECURITY_SECURE: One time saved key required at minimum
-- * @TB_SECURITY_DPONLY: Only tunnel Display port (and USB)
-- */
--enum tb_security_level {
--	TB_SECURITY_NONE,
--	TB_SECURITY_USER,
--	TB_SECURITY_SECURE,
--	TB_SECURITY_DPONLY,
--};
--
  #define TB_SWITCH_KEY_SIZE		32
- /* Each physical port contains 2 links on modern controllers */
- #define TB_SWITCH_LINKS_PER_PHY_PORT	2
-@@ -223,33 +209,6 @@ struct tb_cm_ops {
- 	int (*disconnect_pcie_paths)(struct tb *tb);
- };
+-/* Each physical port contains 2 links on modern controllers */
+-#define TB_SWITCH_LINKS_PER_PHY_PORT	2
  
--/**
-- * struct tb - main thunderbolt bus structure
-- * @dev: Domain device
-- * @lock: Big lock. Must be held when accessing any struct
-- *	  tb_switch / struct tb_port.
-- * @nhi: Pointer to the NHI structure
-- * @ctl: Control channel for this domain
-- * @wq: Ordered workqueue for all domain specific work
-- * @root_switch: Root switch of this domain
-- * @cm_ops: Connection manager specific operations vector
-- * @index: Linux assigned domain number
-- * @security_level: Current security level
-- * @privdata: Private connection manager specific data
-- */
--struct tb {
--	struct device dev;
--	struct mutex lock;
--	struct tb_nhi *nhi;
--	struct tb_ctl *ctl;
--	struct workqueue_struct *wq;
--	struct tb_switch *root_switch;
--	const struct tb_cm_ops *cm_ops;
--	int index;
--	enum tb_security_level security_level;
--	unsigned long privdata[0];
--};
+ /**
+  * struct tb_switch - a thunderbolt switch
+@@ -367,11 +365,6 @@ struct tb_switch *tb_switch_find_by_link_depth(struct tb *tb, u8 link,
+ 					       u8 depth);
+ struct tb_switch *tb_switch_find_by_uuid(struct tb *tb, const uuid_t *uuid);
+ 
+-static inline unsigned int tb_switch_phy_port_from_link(unsigned int link)
+-{
+-	return (link - 1) / TB_SWITCH_LINKS_PER_PHY_PORT;
+-}
 -
- static inline void *tb_priv(struct tb *tb)
+ static inline void tb_switch_put(struct tb_switch *sw)
  {
- 	return (void *)tb->privdata;
-@@ -368,7 +327,6 @@ static inline int tb_port_write(struct tb_port *port, const void *buffer,
- struct tb *icm_probe(struct tb_nhi *nhi);
- struct tb *tb_probe(struct tb_nhi *nhi);
- 
--extern struct bus_type tb_bus_type;
- extern struct device_type tb_domain_type;
- extern struct device_type tb_switch_type;
- 
+ 	put_device(&sw->dev);
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index b512b1e2b4f2..910b1bf92112 100644
+index 910b1bf92112..43b8d1e09341 100644
 --- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -14,7 +14,9 @@
- #ifndef THUNDERBOLT_H_
- #define THUNDERBOLT_H_
+@@ -78,6 +78,13 @@ struct tb {
  
-+#include <linux/device.h>
- #include <linux/list.h>
-+#include <linux/mutex.h>
- #include <linux/uuid.h>
+ extern struct bus_type tb_bus_type;
  
- enum tb_cfg_pkg_type {
-@@ -33,6 +35,49 @@ enum tb_cfg_pkg_type {
- 	TB_CFG_PKG_PREPARE_TO_SLEEP = 13,
- };
- 
-+/**
-+ * enum tb_security_level - Thunderbolt security level
-+ * @TB_SECURITY_NONE: No security, legacy mode
-+ * @TB_SECURITY_USER: User approval required at minimum
-+ * @TB_SECURITY_SECURE: One time saved key required at minimum
-+ * @TB_SECURITY_DPONLY: Only tunnel Display port (and USB)
-+ */
-+enum tb_security_level {
-+	TB_SECURITY_NONE,
-+	TB_SECURITY_USER,
-+	TB_SECURITY_SECURE,
-+	TB_SECURITY_DPONLY,
-+};
++#define TB_LINKS_PER_PHY_PORT	2
 +
-+/**
-+ * struct tb - main thunderbolt bus structure
-+ * @dev: Domain device
-+ * @lock: Big lock. Must be held when accessing any struct
-+ *	  tb_switch / struct tb_port.
-+ * @nhi: Pointer to the NHI structure
-+ * @ctl: Control channel for this domain
-+ * @wq: Ordered workqueue for all domain specific work
-+ * @root_switch: Root switch of this domain
-+ * @cm_ops: Connection manager specific operations vector
-+ * @index: Linux assigned domain number
-+ * @security_level: Current security level
-+ * @privdata: Private connection manager specific data
-+ */
-+struct tb {
-+	struct device dev;
-+	struct mutex lock;
-+	struct tb_nhi *nhi;
-+	struct tb_ctl *ctl;
-+	struct workqueue_struct *wq;
-+	struct tb_switch *root_switch;
-+	const struct tb_cm_ops *cm_ops;
-+	int index;
-+	enum tb_security_level security_level;
-+	unsigned long privdata[0];
-+};
-+
-+extern struct bus_type tb_bus_type;
++static inline unsigned int tb_phy_port_from_link(unsigned int link)
++{
++	return (link - 1) / TB_LINKS_PER_PHY_PORT;
++}
 +
  /**
   * struct tb_property_dir - XDomain property directory
