@@ -1,219 +1,109 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
-Date: Mon, 2 Oct 2017 13:37:55 -0700
-Message-ID: <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
-References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com> <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+From: Parav Pandit <parav@mellanox.com>
+Subject: RE: [PATCH net-next 01/10] net/smc: add missing dev_put
+Date: Mon, 2 Oct 2017 20:39:56 +0000
+Message-ID: <VI1PR0502MB300805E68E1191986EBFFD45D17D0@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
+ <20170920115813.63745-2-ubraun@linux.vnet.ibm.com>
+ <VI1PR0502MB30089D06B9C95D682E21511BD17D0@VI1PR0502MB3008.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
+        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>
+To: Parav Pandit <parav@mellanox.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:38121 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751204AbdJBUh5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 16:37:57 -0400
-Received: by mail-qk0-f196.google.com with SMTP id q8so4652647qkl.5
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 13:37:56 -0700 (PDT)
-In-Reply-To: <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+Received: from mail-eopbgr10073.outbound.protection.outlook.com ([40.107.1.73]:54192
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751696AbdJBUj7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 16:39:59 -0400
+In-Reply-To: <VI1PR0502MB30089D06B9C95D682E21511BD17D0@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> Move dissection of tunnel info from the flower classifier to the flow
-> dissector where all other dissection occurs.  This should not have any
-> behavioural affect on other users of the flow dissector.
->
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  net/core/flow_dissector.c | 100 ++++++++++++++++++++++++++++++++++++++++++++++
->  net/sched/cls_flower.c    |  25 ------------
->  2 files changed, 100 insertions(+), 25 deletions(-)
->
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 0a977373d003..1f5caafb4492 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -5,6 +5,7 @@
->  #include <linux/ipv6.h>
->  #include <linux/if_vlan.h>
->  #include <net/dsa.h>
-> +#include <net/dst_metadata.h>
->  #include <net/ip.h>
->  #include <net/ipv6.h>
->  #include <net/gre.h>
-> @@ -115,6 +116,102 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
->  }
->  EXPORT_SYMBOL(__skb_flow_get_ports);
->
-> +static void
-> +skb_flow_dissect_set_enc_addr_type(enum flow_dissector_key_id type,
-> +                                  struct flow_dissector *flow_dissector,
-> +                                  void *target_container)
-> +{
-> +       struct flow_dissector_key_control *ctrl;
-> +
-> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_CONTROL))
-> +               return;
-> +
-> +       ctrl = skb_flow_dissector_target(flow_dissector,
-> +                                        FLOW_DISSECTOR_KEY_ENC_CONTROL,
-> +                                        target_container);
-> +       ctrl->addr_type = type;
-> +}
-> +
-> +static void
-> +__skb_flow_dissect_tunnel_info(const struct sk_buff *skb,
-> +                              struct flow_dissector *flow_dissector,
-> +                              void *target_container)
-> +{
-> +       struct ip_tunnel_info *info;
-> +       struct ip_tunnel_key *key;
-> +
-> +       /* A quick check to see if there might be something to do. */
-> +       if (!dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_KEYID) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_CONTROL) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_PORTS))
-> +               return;
-> +
-> +       info = skb_tunnel_info(skb);
-> +       if (!info)
-> +               return;
-> +
-> +       key = &info->key;
-> +
-> +       switch (ip_tunnel_info_af(info)) {
-> +       case AF_INET:
-> +               skb_flow_dissect_set_enc_addr_type(FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-> +                                                  flow_dissector,
-> +                                                  target_container);
-> +               if (dissector_uses_key(flow_dissector,
-> +                                      FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS)) {
-> +                       struct flow_dissector_key_ipv4_addrs *ipv4;
-> +
-> +                       ipv4 = skb_flow_dissector_target(flow_dissector,
-> +                                                        FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS,
-> +                                                        target_container);
-> +                       ipv4->src = key->u.ipv4.src;
-> +                       ipv4->dst = key->u.ipv4.dst;
-> +               }
-> +               break;
-> +       case AF_INET6:
-> +               skb_flow_dissect_set_enc_addr_type(FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-> +                                                  flow_dissector,
-> +                                                  target_container);
-> +               if (dissector_uses_key(flow_dissector,
-> +                                      FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS)) {
-> +                       struct flow_dissector_key_ipv6_addrs *ipv6;
-> +
-> +                       ipv6 = skb_flow_dissector_target(flow_dissector,
-> +                                                        FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS,
-> +                                                        target_container);
-> +                       ipv6->src = key->u.ipv6.src;
-> +                       ipv6->dst = key->u.ipv6.dst;
-
-Simon,
-
-I think I'm missing something fundamental here. This code is
-populating flow dissector keys not based on the contents of the packet
-like rest of the flow dissector, but on external meta data related to
-the packet which I believe is constant during the whole flow
-dissection. Why can't this be handled by the caller? Also, if I read
-this correctly, this code could be called multiple times and it seems
-like it does the exact same thing in each call.
-
-Tom
-
-> +               }
-> +               break;
-> +       }
-> +
-> +       if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_KEYID)) {
-> +               struct flow_dissector_key_keyid *keyid;
-> +
-> +               keyid = skb_flow_dissector_target(flow_dissector,
-> +                                                 FLOW_DISSECTOR_KEY_ENC_KEYID,
-> +                                                 target_container);
-> +               keyid->keyid = tunnel_id_to_key32(key->tun_id);
-> +       }
-> +
-> +       if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_PORTS)) {
-> +               struct flow_dissector_key_ports *tp;
-> +
-> +               tp = skb_flow_dissector_target(flow_dissector,
-> +                                              FLOW_DISSECTOR_KEY_ENC_PORTS,
-> +                                              target_container);
-> +               tp->src = key->tp_src;
-> +               tp->dst = key->tp_dst;
-> +       }
-> +}
-> +
->  static enum flow_dissect_ret
->  __skb_flow_dissect_mpls(const struct sk_buff *skb,
->                         struct flow_dissector *flow_dissector,
-> @@ -478,6 +575,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->                                               FLOW_DISSECTOR_KEY_BASIC,
->                                               target_container);
->
-> +       __skb_flow_dissect_tunnel_info(skb, flow_dissector,
-> +                                      target_container);
-> +
->         if (dissector_uses_key(flow_dissector,
->                                FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
->                 struct ethhdr *eth = eth_hdr(skb);
-> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-> index d230cb4c8094..db831ac708f6 100644
-> --- a/net/sched/cls_flower.c
-> +++ b/net/sched/cls_flower.c
-> @@ -152,37 +152,12 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->         struct cls_fl_filter *f;
->         struct fl_flow_key skb_key;
->         struct fl_flow_key skb_mkey;
-> -       struct ip_tunnel_info *info;
->
->         if (!atomic_read(&head->ht.nelems))
->                 return -1;
->
->         fl_clear_masked_range(&skb_key, &head->mask);
->
-> -       info = skb_tunnel_info(skb);
-> -       if (info) {
-> -               struct ip_tunnel_key *key = &info->key;
-> -
-> -               switch (ip_tunnel_info_af(info)) {
-> -               case AF_INET:
-> -                       skb_key.enc_control.addr_type =
-> -                               FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-> -                       skb_key.enc_ipv4.src = key->u.ipv4.src;
-> -                       skb_key.enc_ipv4.dst = key->u.ipv4.dst;
-> -                       break;
-> -               case AF_INET6:
-> -                       skb_key.enc_control.addr_type =
-> -                               FLOW_DISSECTOR_KEY_IPV6_ADDRS;
-> -                       skb_key.enc_ipv6.src = key->u.ipv6.src;
-> -                       skb_key.enc_ipv6.dst = key->u.ipv6.dst;
-> -                       break;
-> -               }
-> -
-> -               skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
-> -               skb_key.enc_tp.src = key->tp_src;
-> -               skb_key.enc_tp.dst = key->tp_dst;
-> -       }
-> -
->         skb_key.indev_ifindex = skb->skb_iif;
->         /* skb_flow_dissect() does not set n_proto in case an unknown protocol,
->          * so do it rather here.
+> -----Original Message-----
+> From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-
+> owner@vger.kernel.org] On Behalf Of Parav Pandit
+> Sent: Monday, October 02, 2017 3:36 PM
+> To: Ursula Braun <ubraun@linux.vnet.ibm.com>; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; linux-rdma@vger.kernel.org; linux-
+> s390@vger.kernel.org; jwi@linux.vnet.ibm.com; schwidefsky@de.ibm.com;
+> heiko.carstens@de.ibm.com; raspl@linux.vnet.ibm.com
+> Subject: RE: [PATCH net-next 01/10] net/smc: add missing dev_put
+>=20
+> Hi Ursula, Dave, Hans,
+>=20
+> > -----Original Message-----
+> > From: linux-rdma-owner@vger.kernel.org [mailto:linux-rdma-
+> > owner@vger.kernel.org] On Behalf Of Ursula Braun
+> > Sent: Wednesday, September 20, 2017 6:58 AM
+> > To: davem@davemloft.net
+> > Cc: netdev@vger.kernel.org; linux-rdma@vger.kernel.org; linux-
+> > s390@vger.kernel.org; jwi@linux.vnet.ibm.com; schwidefsky@de.ibm.com;
+> > heiko.carstens@de.ibm.com; raspl@linux.vnet.ibm.com;
+> > ubraun@linux.vnet.ibm.com
+> > Subject: [PATCH net-next 01/10] net/smc: add missing dev_put
+> >
+> > From: Hans Wippel <hwippel@linux.vnet.ibm.com>
+> >
+> > In the infiniband part, SMC currently uses get_netdev which calls
+> > dev_hold on the returned net device. However, the SMC code never calls
+> > dev_put on that net device resulting in a wrong reference count.
+> >
+> > This patch adds a dev_put after the usage of the net device to fix the =
+issue.
+> >
+> > Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
+> > Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> > ---
+> >  net/smc/smc_ib.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> >
+> > diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c index
+> > 547e0e113b17..0b5852299158 100644
+> > --- a/net/smc/smc_ib.c
+> > +++ b/net/smc/smc_ib.c
+> > @@ -380,6 +380,7 @@ static int smc_ib_fill_gid_and_mac(struct
+> > smc_ib_device *smcibdev, u8 ibport)
+> >  	ndev =3D smcibdev->ibdev->get_netdev(smcibdev->ibdev, ibport);
+> >  	if (ndev) {
+> >  		memcpy(&smcibdev->mac, ndev->dev_addr, ETH_ALEN);
+> > +		dev_put(ndev);
+>=20
+> I am sorry for providing late comments. smc_ib_fill_gid_and_mac() is not =
+coded
+> correctly.
+> Few fixes are needed.
+> 1. ULP such as SMC should not open code/deference any function pointer li=
+ke
+> get_netdev() of the IB device.
+> 2. Replace ib_query_gid(..., NULL)
+> With
+> ib_query_gid(..., gid_attr);
+>=20
+> Use gid_attr.ndev to get the MAC address.
+> Do dev_put(gid_attr.ndev);
+>=20
+> Code should look like below,
+>=20
+> struct ib_gid_attr gid_attr;
+>=20
+> rc =3D ib_query_gid(..., &gid_attr);
+> if (rc || !gid_addr.ndev)
+> 	return -ENODEV;
+> else
+> 	memcpy(smcibdev->mac, ndev->dev_addr, ETH_ALEN);
+> dev_put(gid_addr.ndev);
 > --
-> 2.1.4
->
+
+Also,
+smc_link_determine_gid() doesn't do dev_put(gattr.ndev) in for loop.
+Please fix it as well.
