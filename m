@@ -1,43 +1,48 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 2/3] tc: flower: No need to cache indev arg
-Date: Mon,  2 Oct 2017 13:46:36 +0200
-Message-ID: <20171002114637.25703-3-phil@nwl.cc>
-References: <20171002114637.25703-1-phil@nwl.cc>
+Subject: [iproute PATCH v3 0/3] Check user supplied interface name lengths
+Date: Mon,  2 Oct 2017 13:46:34 +0200
+Message-ID: <20171002114637.25703-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:46114 "EHLO orbyte.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:46120 "EHLO orbyte.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750957AbdJBLq7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 07:46:59 -0400
-In-Reply-To: <20171002114637.25703-1-phil@nwl.cc>
+        id S1750957AbdJBLrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 07:47:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since addattrstrz() will copy the provided string into the attribute
-payload, there is no need to cache the data.
+This series adds explicit checks for user-supplied interface names to
+make sure they fit Linux's requirements.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- tc/f_flower.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+The first two patches simplify interface name parsing in some places -
+these are side-effects of working on the actual implementation provided
+in patch three.
 
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 934832e2bbe90..99e62a382dec6 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -629,11 +629,8 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
- 		} else if (matches(*argv, "skip_sw") == 0) {
- 			flags |= TCA_CLS_FLAGS_SKIP_SW;
- 		} else if (matches(*argv, "indev") == 0) {
--			char ifname[IFNAMSIZ] = {};
--
- 			NEXT_ARG();
--			strncpy(ifname, *argv, sizeof(ifname) - 1);
--			addattrstrz(n, MAX_MSG, TCA_FLOWER_INDEV, ifname);
-+			addattrstrz(n, MAX_MSG, TCA_FLOWER_INDEV, *argv);
- 		} else if (matches(*argv, "vlan_id") == 0) {
- 			__u16 vid;
- 
+Changes since v2:
+- Changed patch 3 as suggested in review.
+
+Changes since v1:
+- Patches 1 and 2 introduced.
+- Changes to patch 3 are listed in there.
+
+Phil Sutter (3):
+  ip{6,}tunnel: Avoid copying user-supplied interface name around
+  tc: flower: No need to cache indev arg
+  Check user supplied interface name lengths
+
+ include/utils.h |  2 ++
+ ip/ip6tunnel.c  |  9 +++++----
+ ip/ipl2tp.c     |  4 +++-
+ ip/iplink.c     | 31 ++++++++++++-------------------
+ ip/ipmaddr.c    |  3 ++-
+ ip/iprule.c     | 10 ++++++++--
+ ip/iptunnel.c   | 29 +++++++++++++++--------------
+ ip/iptuntap.c   |  6 ++++--
+ lib/utils.c     | 29 +++++++++++++++++++++++++++++
+ misc/arpd.c     |  3 ++-
+ tc/f_flower.c   |  7 +++----
+ 11 files changed, 85 insertions(+), 48 deletions(-)
+
 -- 
 2.13.1
