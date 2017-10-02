@@ -1,129 +1,80 @@
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 11/12] qed: Add support for MPA header being split over two tcp packets
-Date: Mon, 2 Oct 2017 11:23:57 +0300
-Message-ID: <1506932638-26268-12-git-send-email-Michal.Kalderon@cavium.com>
-References: <1506932638-26268-1-git-send-email-Michal.Kalderon@cavium.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v4 4/9] em28xx: fix em28xx_dvb_init for KASAN
+Date: Mon, 2 Oct 2017 10:33:37 +0200
+Message-ID: <CAK8P3a0WtHjvo6tOp79U4gKjLSRmVCAmjYU_xTVJfBL1Qe-hdQ@mail.gmail.com>
+References: <20170922212930.620249-1-arnd@arndb.de> <20170922212930.620249-5-arnd@arndb.de>
+ <063D6719AE5E284EB5DD2968C1650D6DD007F521@AcuExch.aculab.com>
+ <CAK8P3a1zxjMsQTBPijCo8FJjEU5aRVTr7n_NZ1YM2UnDPKoRLw@mail.gmail.com>
+ <CAK8P3a37Ts5q7BvA2JWse87huyAp+=e18CUXEt8731RrBnB+Ow@mail.gmail.com>
+ <e7e6418e-4340-5057-aa17-800082aca5fb@virtuozzo.com> <CAK8P3a2C7DBTfQZvRi-QQfrfm1GXktFcXQRmXmzpF4SCa+BADA@mail.gmail.com>
+ <2631e8a6-03f2-69ea-d889-afd9a345e7ef@virtuozzo.com> <CAK8P3a3BiPh+d4vcb4pbbOsZLegp6YGk+BU3L=71sxatTuk-GQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Ariel Elior" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1506932638-26268-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Laight <David.Laight@aculab.com>,
+        Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexander Potapenko <glider@google.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Michal Marek <mmarek@suse.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kees Cook <keescook@chromium.org>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-wireless@v
+To: Andrey Ryabinin <aryabinin@virtuozzo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a3BiPh+d4vcb4pbbOsZLegp6YGk+BU3L=71sxatTuk-GQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a special case where an MPA header is split over to tcp
-packets, in this case we need to wait for the next packet to
-get the fpdu length. We use the incomplete_bytes to mark this
-fpdu as a "special" one which requires updating the length with
-the next packet
+On Thu, Sep 28, 2017 at 4:30 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Thu, Sep 28, 2017 at 6:09 AM, Andrey Ryabinin
+> <aryabinin@virtuozzo.com> wrote:
+>> On 09/27/2017 04:26 PM, Arnd Bergmann wrote:
+>>> On Tue, Sep 26, 2017 at 9:49 AM, Andrey Ryabinin
+>>> <aryabinin@virtuozzo.com> wrote:
+>
+>>> --- a/include/linux/string.h
+>>> +++ b/include/linux/string.h
+>>> @@ -227,7 +227,7 @@ static inline const char *kbasename(const char *path)
+>>>  #define __FORTIFY_INLINE extern __always_inline __attribute__((gnu_inline))
+>>>  #define __RENAME(x) __asm__(#x)
+>>>
+>>> -void fortify_panic(const char *name) __noreturn __cold;
+>>> +void fortify_panic(const char *name) __cold;
+>>>  void __read_overflow(void) __compiletime_error("detected read beyond
+>>> size of object passed as 1st parameter");
+>>>  void __read_overflow2(void) __compiletime_error("detected read beyond
+>>> size of object passed as 2nd parameter");
+>>>  void __read_overflow3(void) __compiletime_error("detected read beyond
+>>> size of object passed as 3rd parameter");
+>>>
+>>> I don't immediately see why the __noreturn changes the behavior here, any idea?
+>>>
+>>
+>>
+>> At first I thought that this somehow might be related to __asan_handle_no_return(). GCC calls it
+>> before noreturn function. So I made patch to remove generation of these calls (we don't need them in the kernel anyway)
+>> but it didn't help. It must be something else than.
+>
+> I made a reduced test case yesterday (see http://paste.ubuntu.com/25628030/),
+> and it shows the same behavior with and without the sanitizer, it uses 128
+> bytes without the noreturn attribute and 480 bytes when its added, the sanitizer
+> adds a factor of 1.5x on top. It's possible that I did something wrong while
+> reducing, since the original driver file uses very little stack (a few hundred
+> bytes) without -fsanitize=kernel-address, but finding out what happens in
+> the reduced case may still help understand the other one.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 36 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  6 +++++
- 2 files changed, 41 insertions(+), 1 deletion(-)
+This is now GCC PR82365, see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=82365
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 8b17369..2994942 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1742,6 +1742,7 @@ enum qed_iwarp_mpa_pkt_type {
- 	QED_IWARP_MPA_PKT_UNALIGNED
- };
- 
-+#define QED_IWARP_INVALID_FPDU_LENGTH 0xffff
- #define QED_IWARP_MPA_FPDU_LENGTH_SIZE (2)
- #define QED_IWARP_MPA_CRC32_DIGEST_SIZE (4)
- 
-@@ -1774,6 +1775,15 @@ enum qed_iwarp_mpa_pkt_type {
- 		goto out;
- 	}
- 
-+	/* special case of one byte remaining...
-+	 * lower byte will be read next packet
-+	 */
-+	if (tcp_payload_len == 1) {
-+		fpdu->fpdu_length = *mpa_data << BITS_PER_BYTE;
-+		pkt_type = QED_IWARP_MPA_PKT_PARTIAL;
-+		goto out;
-+	}
-+
- 	mpa_len = ntohs(*((u16 *)(mpa_data)));
- 	fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
- 
-@@ -1802,7 +1812,9 @@ enum qed_iwarp_mpa_pkt_type {
- 	fpdu->mpa_frag = buf->data_phys_addr + pkt_data->first_mpa_offset;
- 	fpdu->mpa_frag_virt = (u8 *)(buf->data) + pkt_data->first_mpa_offset;
- 
--	if (tcp_payload_size < fpdu->fpdu_length)
-+	if (tcp_payload_size == 1)
-+		fpdu->incomplete_bytes = QED_IWARP_INVALID_FPDU_LENGTH;
-+	else if (tcp_payload_size < fpdu->fpdu_length)
- 		fpdu->incomplete_bytes = fpdu->fpdu_length - tcp_payload_size;
- 	else
- 		fpdu->incomplete_bytes = 0;	/* complete fpdu */
-@@ -1810,6 +1822,27 @@ enum qed_iwarp_mpa_pkt_type {
- 	fpdu->mpa_frag_len = fpdu->fpdu_length - fpdu->incomplete_bytes;
- }
- 
-+static void
-+qed_iwarp_update_fpdu_length(struct qed_hwfn *p_hwfn,
-+			     struct qed_iwarp_fpdu *fpdu, u8 *mpa_data)
-+{
-+	u16 mpa_len;
-+
-+	/* Update incomplete packets if needed */
-+	if (fpdu->incomplete_bytes == QED_IWARP_INVALID_FPDU_LENGTH) {
-+		/* Missing lower byte is now available */
-+		mpa_len = fpdu->fpdu_length | *mpa_data;
-+		fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
-+		fpdu->mpa_frag_len = fpdu->fpdu_length;
-+		/* one byte of hdr */
-+		fpdu->incomplete_bytes = fpdu->fpdu_length - 1;
-+		DP_VERBOSE(p_hwfn,
-+			   QED_MSG_RDMA,
-+			   "MPA_ALIGN: Partial header mpa_len=%x fpdu_length=%x incomplete_bytes=%x\n",
-+			   mpa_len, fpdu->fpdu_length, fpdu->incomplete_bytes);
-+	}
-+}
-+
- static int
- qed_iwarp_send_fpdu(struct qed_hwfn *p_hwfn,
- 		    struct qed_iwarp_fpdu *fpdu,
-@@ -1960,6 +1993,7 @@ enum qed_iwarp_mpa_pkt_type {
- 			curr_pkt->first_mpa_offset += fpdu->fpdu_length;
- 			break;
- 		case QED_IWARP_MPA_PKT_UNALIGNED:
-+			qed_iwarp_update_fpdu_length(p_hwfn, fpdu, mpa_data);
- 			rc = qed_iwarp_send_fpdu(p_hwfn, fpdu, curr_pkt, buf,
- 						 mpa_buf->tcp_payload_len,
- 						 pkt_type);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index 58db51a..c58793a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -69,6 +69,12 @@ struct qed_iwarp_ll2_mpa_buf {
- 	u8 placement_offset;
- };
- 
-+/* In some cases a fpdu will arrive with only one byte of the header, in this
-+ * case the fpdu_length will be partial (contain only higher byte and
-+ * incomplete bytes will contain the invalid value
-+ */
-+#define QED_IWARP_INVALID_INCOMPLETE_BYTES 0xffff
-+
- struct qed_iwarp_fpdu {
- 	struct qed_iwarp_ll2_buff *mpa_buf;
- 	void *mpa_frag_virt;
--- 
-1.8.3.1
+I've come up with a workaround, but I'm not sure if that is any better than the
+alternatives, will send the patch as a follow-up in a bit.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     Arnd
