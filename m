@@ -1,75 +1,51 @@
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 03/12] qed: Add ll2 option for dropping a tx packet
-Date: Mon, 2 Oct 2017 11:23:49 +0300
-Message-ID: <1506932638-26268-4-git-send-email-Michal.Kalderon@cavium.com>
+From: Michal Kalderon <Michal.Kalderon@cavium.com>
+Subject: [PATCH net-next 04/12] qed: Fix initialization of ll2 offload feature
+Date: Mon, 2 Oct 2017 11:23:50 +0300
+Message-ID: <1506932638-26268-5-git-send-email-Michal.Kalderon@cavium.com>
 References: <1506932638-26268-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Ariel Elior" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1506932638-26268-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+        <dledford@redhat.com>,
+        Michal Kalderon <Michal.Kalderon@cavium.com>,
+        "Ariel Elior" <Ariel.Elior@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0060.outbound.protection.outlook.com ([104.47.32.60]:57388
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751128AbdJBIY5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 04:24:57 -0400
+In-Reply-To: <1506932638-26268-1-git-send-email-Michal.Kalderon@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The option of sending a packet on the ll2 and dropping it exists in
-hardware and was not used until now, thus not exposed.
-The iWARP unaligned MPA flow requires this functionality for
-flushing the tx queue.
+enable_ip_cksum, enable_l4_cksum, calc_ip_len were added in
+commit stated below but not passed through to FW. This was OK
+until now as it wasn't used, but is required for the iWARP
+unaligned flow
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Fixes:7c7973b2ae27 ("qed: LL2 to use packed information for tx")
+
+Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 16 ++++++++++++++--
- include/linux/qed/qed_ll2_if.h            |  1 +
- 2 files changed, 15 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 1dd0cca..49fcfda 100644
+index 49fcfda..864132a 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -1597,8 +1597,20 @@ static void qed_ll2_prepare_tx_packet_set(struct qed_hwfn *p_hwfn,
- 	roce_flavor = (pkt->qed_roce_flavor == QED_LL2_ROCE) ? CORE_ROCE
- 							     : CORE_RROCE;
- 
--	tx_dest = (pkt->tx_dest == QED_LL2_TX_DEST_NW) ? CORE_TX_DEST_NW
--						       : CORE_TX_DEST_LB;
-+	switch (pkt->tx_dest) {
-+	case QED_LL2_TX_DEST_NW:
-+		tx_dest = CORE_TX_DEST_NW;
-+		break;
-+	case QED_LL2_TX_DEST_LB:
-+		tx_dest = CORE_TX_DEST_LB;
-+		break;
-+	case QED_LL2_TX_DEST_DROP:
-+		tx_dest = CORE_TX_DEST_DROP;
-+		break;
-+	default:
-+		tx_dest = CORE_TX_DEST_LB;
-+		break;
-+	}
- 
- 	start_bd = (struct core_tx_bd *)qed_chain_produce(p_tx_chain);
- 	start_bd->nw_vlan_or_lb_echo = cpu_to_le16(pkt->vlan);
-diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
-index 25153ff..aa7cb3b 100644
---- a/include/linux/qed/qed_ll2_if.h
-+++ b/include/linux/qed/qed_ll2_if.h
-@@ -64,6 +64,7 @@ enum qed_ll2_roce_flavor_type {
- enum qed_ll2_tx_dest {
- 	QED_LL2_TX_DEST_NW, /* Light L2 TX Destination to the Network */
- 	QED_LL2_TX_DEST_LB, /* Light L2 TX Destination to the Loopback */
-+	QED_LL2_TX_DEST_DROP, /* Light L2 Drop the TX packet */
- 	QED_LL2_TX_DEST_MAX
- };
- 
+@@ -1621,6 +1621,9 @@ static void qed_ll2_prepare_tx_packet_set(struct qed_hwfn *p_hwfn,
+ 	SET_FIELD(bd_data, CORE_TX_BD_DATA_START_BD, 0x1);
+ 	SET_FIELD(bd_data, CORE_TX_BD_DATA_NBDS, pkt->num_of_bds);
+ 	SET_FIELD(bd_data, CORE_TX_BD_DATA_ROCE_FLAV, roce_flavor);
++	SET_FIELD(bd_data, CORE_TX_BD_DATA_IP_CSUM, !!(pkt->enable_ip_cksum));
++	SET_FIELD(bd_data, CORE_TX_BD_DATA_L4_CSUM, !!(pkt->enable_l4_cksum));
++	SET_FIELD(bd_data, CORE_TX_BD_DATA_IP_LEN, !!(pkt->calc_ip_len));
+ 	start_bd->bd_data.as_bitfield = cpu_to_le16(bd_data);
+ 	DMA_REGPAIR_LE(start_bd->addr, pkt->first_frag);
+ 	start_bd->nbytes = cpu_to_le16(pkt->first_frag_len);
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
