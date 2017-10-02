@@ -1,67 +1,58 @@
-From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-Subject: RE: [RESEND PATCH 2/6] staging: fsl-dpaa2/ethsw: Add Freescale DPAA2
- Ethernet Switch driver
-Date: Mon, 2 Oct 2017 07:18:52 +0000
-Message-ID: <AM3PR04MB0743CC52EC71DC2BC7D0C2BEE67D0@AM3PR04MB0743.eurprd04.prod.outlook.com>
-References: <1505825158-8192-1-git-send-email-razvan.stefanescu@nxp.com>
- <1505825158-8192-3-git-send-email-razvan.stefanescu@nxp.com>
- <DB5PR04MB12400025DF190790B4792B50EA7E0@DB5PR04MB1240.eurprd04.prod.outlook.com>
- <AM3PR04MB0743F62497ED0CB445F51524E67E0@AM3PR04MB0743.eurprd04.prod.outlook.com>
- <A4C4732A-CC1F-4707-89F8-E7284F022DB0@gmail.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: RFC iproute2 doc files
+Date: Mon, 2 Oct 2017 10:31:09 +0300
+Message-ID: <20171002073109.GK2031@mtr-leonro.local>
+References: <20170920081159.321e426b@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "agraf@suse.de" <agraf@suse.de>, "arnd@arndb.de" <arnd@arndb.de>,
-        Alexandru Marginean <alexandru.marginean@nxp.com>,
-        Ruxandra Ioana Radulescu <ruxandra.radulescu@nxp.com>,
-        Laurentiu Tudor <laurentiu.tudor@nxp.com>,
-        "stuyoder@gmail.com" <stuyoder@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Bogdan Purcareata <bogdan.purcareata@nxp.com>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <A4C4732A-CC1F-4707-89F8-E7284F022DB0@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="rnP2AJ7yb1j09OW/"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.99]:43248 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750760AbdJBHbP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 03:31:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170920081159.321e426b@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFtt
-YWlsdG86Zi5mYWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgU2VwdGVtYmVyIDI5
-LCAyMDE3IDE5OjExDQo+IFRvOiBSYXp2YW4gU3RlZmFuZXNjdSA8cmF6dmFuLnN0ZWZhbmVzY3VA
-bnhwLmNvbT47IEJvZ2RhbiBQdXJjYXJlYXRhDQo+IDxib2dkYW4ucHVyY2FyZWF0YUBueHAuY29t
-PjsgZ3JlZ2toQGxpbnV4Zm91bmRhdGlvbi5vcmcNCj4gQ2M6IGRldmVsQGRyaXZlcmRldi5vc3Vv
-c2wub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiBuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOyBhZ3JhZkBzdXNlLmRlOyBhcm5kQGFybmRiLmRlOyBBbGV4YW5kcnUgTWFyZ2luZWFu
-DQo+IDxhbGV4YW5kcnUubWFyZ2luZWFuQG54cC5jb20+OyBSdXhhbmRyYSBJb2FuYSBSYWR1bGVz
-Y3UNCj4gPHJ1eGFuZHJhLnJhZHVsZXNjdUBueHAuY29tPjsgTGF1cmVudGl1IFR1ZG9yIDxsYXVy
-ZW50aXUudHVkb3JAbnhwLmNvbT47DQo+IHN0dXlvZGVyQGdtYWlsLmNvbQ0KPiBTdWJqZWN0OiBS
-RTogW1JFU0VORCBQQVRDSCAyLzZdIHN0YWdpbmc6IGZzbC1kcGFhMi9ldGhzdzogQWRkIEZyZWVz
-Y2FsZSBEUEFBMg0KPiBFdGhlcm5ldCBTd2l0Y2ggZHJpdmVyDQo+IA0KPiBPbiBTZXB0ZW1iZXIg
-MjksIDIwMTcgNjo1OToxOCBBTSBQRFQsIFJhenZhbiBTdGVmYW5lc2N1DQo+IDxyYXp2YW4uc3Rl
-ZmFuZXNjdUBueHAuY29tPiB3cm90ZToNCj4gPg0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tDQo+ID4+IEZyb206IEJvZ2RhbiBQdXJjYXJlYXRhDQo+ID4+IFNlbnQ6IEZyaWRh
-eSwgU2VwdGVtYmVyIDI5LCAyMDE3IDE2OjM2DQo+ID4+IFRvOiBSYXp2YW4gU3RlZmFuZXNjdSA8
-cmF6dmFuLnN0ZWZhbmVzY3VAbnhwLmNvbT47DQo+ID4+IGdyZWdraEBsaW51eGZvdW5kYXRpb24u
-b3JnDQo+ID4+IENjOiBkZXZlbEBkcml2ZXJkZXYub3N1b3NsLm9yZzsgbGludXgta2VybmVsQHZn
-ZXIua2VybmVsLm9yZzsNCj4gPj4gbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgYWdyYWZAc3VzZS5k
-ZTsgYXJuZEBhcm5kYi5kZTsgQWxleGFuZHJ1DQo+ID5NYXJnaW5lYW4NCj4gPj4gPGFsZXhhbmRy
-dS5tYXJnaW5lYW5AbnhwLmNvbT47IFJ1eGFuZHJhIElvYW5hIFJhZHVsZXNjdQ0KPiA+PiA8cnV4
-YW5kcmEucmFkdWxlc2N1QG54cC5jb20+OyBMYXVyZW50aXUgVHVkb3INCj4gPjxsYXVyZW50aXUu
-dHVkb3JAbnhwLmNvbT47DQo+ID4+IHN0dXlvZGVyQGdtYWlsLmNvbQ0KPiA+PiBTdWJqZWN0OiBS
-RTogW1JFU0VORCBQQVRDSCAyLzZdIHN0YWdpbmc6IGZzbC1kcGFhMi9ldGhzdzogQWRkDQo+ID5G
-cmVlc2NhbGUgRFBBQTINCj4gPj4gRXRoZXJuZXQgU3dpdGNoIGRyaXZlcg0KPiA+Pg0KPiA+PiA+
-IEludHJvZHVjZSB0aGUgRFBBQTIgRXRoZXJuZXQgU3dpdGNoIGRyaXZlciwgd2hpY2ggbWFuYWdl
-cyBEYXRhcGF0aA0KPiA+U3dpdGNoDQo+ID4+ID4gKERQU1cpIG9iamVjdHMgZGlzY292ZXJlZCBv
-biB0aGUgTUMgYnVzLg0KPiA+PiA+DQo+ID4+ID4gU3VnZ2VzdGVkLWJ5OiBBbGV4YW5kcnUgTWFy
-Z2luZWFuIDxhbGV4YW5kcnUubWFyZ2luZWFuQG54cC5jb20+DQo+ID4+ID4gU2lnbmVkLW9mZi1i
-eTogUmF6dmFuIFN0ZWZhbmVzY3UgPHJhenZhbi5zdGVmYW5lc2N1QG54cC5jb20+DQo+IA0KPiBU
-aGlzIGxvb2tzIHByZXR0eSBnb29kIGZvciBhIG5ldyBzd2l0Y2hkZXYgZHJpdmVyLCBpcyB0aGVy
-ZSBhIHJlYXNvbiB5b3UgY2FuJ3QNCj4gdGFyZ2V0IGRyaXZlcnMvbmV0L2V0aGVybmV0IGluc3Rl
-YWQgb2Ygc3RhZ2luZz8gSXMgaXQgYmVjYXVzZSB0aGUgTUMgYnVzIGNvZGUgaXMNCj4gc3RpbGwg
-aW4gc3RhZ2luZyAoQUZBSUNUKT8NCj4gDQpZZXMsIGRyaXZlciBkZXBlbmRzIG9uIE1DIGJ1cywg
-d2hpY2ggaXMgc3RpbGwgaW4gc3RhZ2luZy4gIEFsc28sIGNvbnRyb2wgdHJhZmZpYw0KY29kZSB3
-aWxsIHJlcXVpcmUgYWNjZXNzIHRvIERQSU8gZnVuY3Rpb25zLCB0aGF0IGFyZSBhbHNvIGluIHN0
-YWdpbmcuDQoNCkJlc3QgcmVnYXJkcywNClJhenZhbiBTLg0KPiAtLQ0KPiBGbG9yaWFuDQo=
+
+--rnP2AJ7yb1j09OW/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Sep 20, 2017 at 08:11:59AM -0700, Stephen Hemminger wrote:
+> I noticed that the iproute man pages are up to date but the LaTex documentation
+> is very out of date. Rarely updated since the Linux 2.2 days.
+>
+> Either someone needs to do a massive editing job on them, or they should just
+> be dropped. My preference would be to just drop everything in the doc/ directory.
+> The current versions are so old, they can't be helping.
+
+If my vote counts, I will say to drop it.
+
+Thanks
+
+--rnP2AJ7yb1j09OW/
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnR6z0ACgkQ5GN7iDZy
+WKdOgQ//f9ElqWK6w1xd9JGF8kM6GPrmjJ6mbF3zJV496rW6JIY3zXdmh/vcul1K
+t4yMR3Qftyv91ET2OTGzZTKShePg69YowQ8zuSpcTZ5mB8HCVVY41LJv3IQ549Zp
+jl9rs5wz9WZPGt605En7WczqhGZ00GUlqOtHC5DSZh5TTwXnz3COopdWZLeBXg5H
+4cfLZfyhCB+c0ALMBVM0++YJOIkrmVOpZ8U+YRCe3r6DbCjcK72z3o9bdCM3i//U
+DYj0etfmampD1qm/XVIdgx3HNVz4dRG4wY8Z/bZKKET/8U0PgilFjVNkY8FzDXRJ
+hGoVxACJySNXLLAiWqhUcpo866KSU1kWhwQKBgNjTAwuy2aDYoSwY+REy2fLKB4T
+ktbwQKXen6EDIbFh8dhqf0Rz8+9RK/LFnTCyLdOuhGSkjAvUY1R4uS8kTfhSFSBR
+lGkDdUpCkZDL1ZzlgelLji8OFivgQ1haNk1VGM4OBdAwN2Ml5NSUD/I9S/vMjaJF
+4i8s0+SCHiX8btQoTyuOOevRx7fzALiPhxUHgG+XMiB92y0QxLSqdLzFdIlIe1bW
+qSNW9Ev8s+llYilrWjbRRKgEwBTQiIybCQrKXtTefmSZhEJNssh7aliW4htPIVK8
+YR65NA/Q2BWQDhNxpewAhKtHW1odbAxMIMAMKXZeBkADG3oFWik=
+=TtAY
+-----END PGP SIGNATURE-----
+
+--rnP2AJ7yb1j09OW/--
