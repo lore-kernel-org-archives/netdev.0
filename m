@@ -1,174 +1,152 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH v3 02/19] thunderbolt: Remove __packed from ICM message
- structures
-Date: Mon, 02 Oct 2017 14:45:52 +0300
-Message-ID: <1506944752.16112.224.camel@linux.intel.com>
-References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
-         <20171002103846.64602-3-mika.westerberg@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Noever <andreas.noever@gmail.com>,
-        Michael Jamet <michael.jamet@intel.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        Amir Levy <amir.jer.levy@intel.com>,
-        Mario.Limonciello@dell.com, Lukas Wunner <lukas@wunner.de>,
-        Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171002103846.64602-3-mika.westerberg@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v3 1/3] ip{6,}tunnel: Avoid copying user-supplied interface name around
+Date: Mon,  2 Oct 2017 13:46:35 +0200
+Message-ID: <20171002114637.25703-2-phil@nwl.cc>
+References: <20171002114637.25703-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:46102 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751247AbdJBLqt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 07:46:49 -0400
+In-Reply-To: <20171002114637.25703-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-10-02 at 13:38 +0300, Mika Westerberg wrote:
-> These messages are all 32-byte aligned and they should be packed 
+In both files' parse_args() functions as well as in iptunnel's do_prl()
+and do_6rd() functions, a user-supplied 'dev' parameter is uselessly
+copied into a temporary buffer before passing it to ll_name_to_index()
+or copying into a struct ifreq.  Avoid this by just caching the argv
+pointer value until the later lookup/strcpy.
 
-Obviously 32-bit.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/ip6tunnel.c |  6 +++---
+ ip/iptunnel.c  | 22 +++++++++-------------
+ 2 files changed, 12 insertions(+), 16 deletions(-)
 
-Other than that,
-
-Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-
-> without
-> the __packed attribute just fine. It also allows compiler to generate
-> better code on some architectures.
-> 
-> Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> Reviewed-by: Michael Jamet <michael.jamet@intel.com>
-> Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
-> ---
->  drivers/thunderbolt/tb_msgs.h | 28 ++++++++++++++--------------
->  1 file changed, 14 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/thunderbolt/tb_msgs.h
-> b/drivers/thunderbolt/tb_msgs.h
-> index de6441e4a060..f3adf58a40ce 100644
-> --- a/drivers/thunderbolt/tb_msgs.h
-> +++ b/drivers/thunderbolt/tb_msgs.h
-> @@ -130,7 +130,7 @@ struct icm_pkg_header {
->  	u8 flags;
->  	u8 packet_id;
->  	u8 total_packets;
-> -} __packed;
-> +};
->  
->  #define ICM_FLAGS_ERROR			BIT(0)
->  #define ICM_FLAGS_NO_KEY		BIT(1)
-> @@ -139,20 +139,20 @@ struct icm_pkg_header {
->  
->  struct icm_pkg_driver_ready {
->  	struct icm_pkg_header hdr;
-> -} __packed;
-> +};
->  
->  struct icm_pkg_driver_ready_response {
->  	struct icm_pkg_header hdr;
->  	u8 romver;
->  	u8 ramver;
->  	u16 security_level;
-> -} __packed;
-> +};
->  
->  /* Falcon Ridge & Alpine Ridge common messages */
->  
->  struct icm_fr_pkg_get_topology {
->  	struct icm_pkg_header hdr;
-> -} __packed;
-> +};
->  
->  #define ICM_GET_TOPOLOGY_PACKETS	14
->  
-> @@ -167,7 +167,7 @@ struct icm_fr_pkg_get_topology_response {
->  	u32 reserved[2];
->  	u32 ports[16];
->  	u32 port_hop_info[16];
-> -} __packed;
-> +};
->  
->  #define ICM_SWITCH_USED			BIT(0)
->  #define ICM_SWITCH_UPSTREAM_PORT_MASK	GENMASK(7, 1)
-> @@ -184,7 +184,7 @@ struct icm_fr_event_device_connected {
->  	u8 connection_id;
->  	u16 link_info;
->  	u32 ep_name[55];
-> -} __packed;
-> +};
->  
->  #define ICM_LINK_INFO_LINK_MASK		0x7
->  #define ICM_LINK_INFO_DEPTH_SHIFT	4
-> @@ -197,13 +197,13 @@ struct icm_fr_pkg_approve_device {
->  	u8 connection_key;
->  	u8 connection_id;
->  	u16 reserved;
-> -} __packed;
-> +};
->  
->  struct icm_fr_event_device_disconnected {
->  	struct icm_pkg_header hdr;
->  	u16 reserved;
->  	u16 link_info;
-> -} __packed;
-> +};
->  
->  struct icm_fr_pkg_add_device_key {
->  	struct icm_pkg_header hdr;
-> @@ -212,7 +212,7 @@ struct icm_fr_pkg_add_device_key {
->  	u8 connection_id;
->  	u16 reserved;
->  	u32 key[8];
-> -} __packed;
-> +};
->  
->  struct icm_fr_pkg_add_device_key_response {
->  	struct icm_pkg_header hdr;
-> @@ -220,7 +220,7 @@ struct icm_fr_pkg_add_device_key_response {
->  	u8 connection_key;
->  	u8 connection_id;
->  	u16 reserved;
-> -} __packed;
-> +};
->  
->  struct icm_fr_pkg_challenge_device {
->  	struct icm_pkg_header hdr;
-> @@ -229,7 +229,7 @@ struct icm_fr_pkg_challenge_device {
->  	u8 connection_id;
->  	u16 reserved;
->  	u32 challenge[8];
-> -} __packed;
-> +};
->  
->  struct icm_fr_pkg_challenge_device_response {
->  	struct icm_pkg_header hdr;
-> @@ -239,7 +239,7 @@ struct icm_fr_pkg_challenge_device_response {
->  	u16 reserved;
->  	u32 challenge[8];
->  	u32 response[8];
-> -} __packed;
-> +};
->  
->  /* Alpine Ridge only messages */
->  
-> @@ -247,7 +247,7 @@ struct icm_ar_pkg_get_route {
->  	struct icm_pkg_header hdr;
->  	u16 reserved;
->  	u16 link_info;
-> -} __packed;
-> +};
->  
->  struct icm_ar_pkg_get_route_response {
->  	struct icm_pkg_header hdr;
-> @@ -255,6 +255,6 @@ struct icm_ar_pkg_get_route_response {
->  	u16 link_info;
->  	u32 route_hi;
->  	u32 route_lo;
-> -} __packed;
-> +};
->  
->  #endif
-
+diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
+index b4a7def144226..c12d700e74189 100644
+--- a/ip/ip6tunnel.c
++++ b/ip/ip6tunnel.c
+@@ -136,7 +136,7 @@ static void print_tunnel(struct ip6_tnl_parm2 *p)
+ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
+ {
+ 	int count = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "mode") == 0) {
+@@ -180,7 +180,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
+ 			memcpy(&p->laddr, &laddr.data, sizeof(p->laddr));
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ - 1);
++			medium = *argv;
+ 		} else if (strcmp(*argv, "encaplimit") == 0) {
+ 			NEXT_ARG();
+ 			if (strcmp(*argv, "none") == 0) {
+@@ -285,7 +285,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm2 *p)
+ 		count++;
+ 		argc--; argv++;
+ 	}
+-	if (medium[0]) {
++	if (medium) {
+ 		p->link = ll_name_to_index(medium);
+ 		if (p->link == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", medium);
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index 105d0f5576f1a..0acfd0793d3cd 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -60,7 +60,7 @@ static void set_tunnel_proto(struct ip_tunnel_parm *p, int proto)
+ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ {
+ 	int count = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
+ 	int isatap = 0;
+ 
+ 	memset(p, 0, sizeof(*p));
+@@ -139,7 +139,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ 				p->iph.saddr = htonl(INADDR_ANY);
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ - 1);
++			medium = *argv;
+ 		} else if (strcmp(*argv, "ttl") == 0 ||
+ 			   strcmp(*argv, "hoplimit") == 0 ||
+ 			   strcmp(*argv, "hlim") == 0) {
+@@ -216,7 +216,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ 		}
+ 	}
+ 
+-	if (medium[0]) {
++	if (medium) {
+ 		p->link = ll_name_to_index(medium);
+ 		if (p->link == 0) {
+ 			fprintf(stderr, "Cannot find device \"%s\"\n", medium);
+@@ -465,9 +465,8 @@ static int do_prl(int argc, char **argv)
+ {
+ 	struct ip_tunnel_prl p = {};
+ 	int count = 0;
+-	int devname = 0;
+ 	int cmd = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
+ 
+ 	while (argc > 0) {
+ 		if (strcmp(*argv, "prl-default") == 0) {
+@@ -488,8 +487,7 @@ static int do_prl(int argc, char **argv)
+ 			count++;
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ-1);
+-			devname++;
++			medium = *argv;
+ 		} else {
+ 			fprintf(stderr,
+ 				"Invalid PRL parameter \"%s\"\n", *argv);
+@@ -502,7 +500,7 @@ static int do_prl(int argc, char **argv)
+ 		}
+ 		argc--; argv++;
+ 	}
+-	if (devname == 0) {
++	if (!medium) {
+ 		fprintf(stderr, "Must specify device\n");
+ 		exit(-1);
+ 	}
+@@ -513,9 +511,8 @@ static int do_prl(int argc, char **argv)
+ static int do_6rd(int argc, char **argv)
+ {
+ 	struct ip_tunnel_6rd ip6rd = {};
+-	int devname = 0;
+ 	int cmd = 0;
+-	char medium[IFNAMSIZ] = {};
++	const char *medium = NULL;
+ 	inet_prefix prefix;
+ 
+ 	while (argc > 0) {
+@@ -537,8 +534,7 @@ static int do_6rd(int argc, char **argv)
+ 			cmd = SIOCDEL6RD;
+ 		} else if (strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			strncpy(medium, *argv, IFNAMSIZ-1);
+-			devname++;
++			medium = *argv;
+ 		} else {
+ 			fprintf(stderr,
+ 				"Invalid 6RD parameter \"%s\"\n", *argv);
+@@ -546,7 +542,7 @@ static int do_6rd(int argc, char **argv)
+ 		}
+ 		argc--; argv++;
+ 	}
+-	if (devname == 0) {
++	if (!medium) {
+ 		fprintf(stderr, "Must specify device\n");
+ 		exit(-1);
+ 	}
 -- 
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+2.13.1
