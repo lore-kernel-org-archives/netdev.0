@@ -1,59 +1,57 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH v3 0/3] Check user supplied interface name
- lengths
-Date: Mon, 2 Oct 2017 08:03:09 -0700
-Message-ID: <20171002080309.1d7f4099@xeon-e3>
-References: <20171002114637.25703-1-phil@nwl.cc>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: v4.14-rc2/arm64 kernel BUG at net/core/skbuff.c:2626
+Date: Mon, 2 Oct 2017 16:01:57 +0100
+Message-ID: <20171002150156.GC21696@leverpostej>
+References: <20171002104947.GE20737@leverpostej>
+ <CANn89i++X2rzsaHkTRayMpCED_exL8WPq12=RwD_hXsZ6cN-wQ@mail.gmail.com>
+ <20171002142156.GB21696@leverpostej>
+ <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:53134 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751104AbdJBPDQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 11:03:16 -0400
-Received: by mail-pg0-f47.google.com with SMTP id i195so3095315pgd.9
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 08:03:16 -0700 (PDT)
-In-Reply-To: <20171002114637.25703-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        linux-arm-kernel@lists.infradead.org,
+        syzkaller <syzkaller@googlegroups.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon,  2 Oct 2017 13:46:34 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On Mon, Oct 02, 2017 at 07:42:17AM -0700, Eric Dumazet wrote:
+> On Mon, Oct 2, 2017 at 7:21 AM, Mark Rutland <mark.rutland@arm.com> wrote:
+> > Just to check I've understood correctly, are you suggesting that the
+> > IPv4 code should also check the dev->mtu against a IP_MIN_MTU (which
+> > doesn't seem to exist today)?
+> 
+> We have plenty of places this is checked.
+> 
+> For example, trying to set MTU < 68 usually removes IPv4 addresses and routes.
+> 
+> Problem is : these checks are not fool proof yet.
+> 
+> ( Only the admin was supposed to play these games )
 
-> This series adds explicit checks for user-supplied interface names to
-> make sure they fit Linux's requirements.
-> 
-> The first two patches simplify interface name parsing in some places -
-> these are side-effects of working on the actual implementation provided
-> in patch three.
-> 
-> Changes since v2:
-> - Changed patch 3 as suggested in review.
-> 
-> Changes since v1:
-> - Patches 1 and 2 introduced.
-> - Changes to patch 3 are listed in there.
-> 
-> Phil Sutter (3):
->   ip{6,}tunnel: Avoid copying user-supplied interface name around
->   tc: flower: No need to cache indev arg
->   Check user supplied interface name lengths
-> 
->  include/utils.h |  2 ++
->  ip/ip6tunnel.c  |  9 +++++----
->  ip/ipl2tp.c     |  4 +++-
->  ip/iplink.c     | 31 ++++++++++++-------------------
->  ip/ipmaddr.c    |  3 ++-
->  ip/iprule.c     | 10 ++++++++--
->  ip/iptunnel.c   | 29 +++++++++++++++--------------
->  ip/iptuntap.c   |  6 ++++--
->  lib/utils.c     | 29 +++++++++++++++++++++++++++++
->  misc/arpd.c     |  3 ++-
->  tc/f_flower.c   |  7 +++----
->  11 files changed, 85 insertions(+), 48 deletions(-)
-> 
+Sorry, I meant that there was no constant called IP_MIN_MTU, and I was
+just looking at the sites fixed up by c780a049f9bf4423.
 
-Applied.
+I appreciate given that this requires admin privileges it's not exactly
+high priority. I didn't mean for the above to sound like some kind of
+accusation!
+
+> > Otherwise, I do spot another potential issue. The writer side (e.g. most
+> > net_device::ndo_change_mtu implementations and the __dev_set_mtu()
+> > fallback) doesn't use WRITE_ONCE().
+> 
+> It does not matter how many strange values can be observed by the reader :
+> We must be fool proof anyway from reader point of view, so the
+> WRITE_ONCE() is not strictly needed.
+
+Ok. If we expect to always check somewhere on the reader side I guess
+that makes sense.
+
+Thanks,
+Mark.
