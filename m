@@ -1,36 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] net: mvpp2: Fix clock resource by adding an
- optional bus clock
-Date: Sun, 01 Oct 2017 22:51:59 -0700 (PDT)
-Message-ID: <20171001.225159.2176517451167649617.davem@davemloft.net>
-References: <20170929122739.5296-1-gregory.clement@free-electrons.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net] RDS: IB: Limit the scope of has_fr/has_fmr
+ variables
+Date: Sun, 01 Oct 2017 22:54:19 -0700 (PDT)
+Message-ID: <20171001.225419.1632354964848604960.davem@davemloft.net>
+References: <1506734030-15205-1-git-send-email-avinash.repaka@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org,
-        antoine.tenart@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        shadi@marvell.com, yehuday@marvell.com, omrii@marvell.com,
-        hannah@marvell.com, igall@marvell.com, mw@semihalf.com
-To: gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170929122739.5296-1-gregory.clement@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1506734030-15205-1-git-send-email-avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Date: Fri, 29 Sep 2017 14:27:39 +0200
+From: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Fri, 29 Sep 2017 18:13:50 -0700
 
-> On Armada 7K/8K we need to explicitly enable the bus clock. The bus clock
-> is optional because not all the SoCs need them but at least for Armada
-> 7K/8K it is actually mandatory.
+> This patch fixes the scope of has_fr and has_fmr variables as they are
+> needed only in rds_ib_add_one().
 > 
-> The binding documentation is updating accordingly.
-> 
-> Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+> Signed-off-by: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
