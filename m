@@ -1,120 +1,174 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2017-10-02
-Date: Mon,  2 Oct 2017 12:48:37 -0700
-Message-ID: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 04/15] i40e: Fix reporting of supported link modes
+Date: Mon,  2 Oct 2017 12:48:41 -0700
+Message-ID: <20171002194852.71970-5-jeffrey.t.kirsher@intel.com>
+References: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
+Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:29126 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:8038 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751469AbdJBTtS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 15:49:18 -0400
+        id S1751505AbdJBTtT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 15:49:19 -0400
+In-Reply-To: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Filip Sadowski <filip.sadowski@intel.com>
 
-Shannon Nelson fixes an issue where when a machine has more CPUs than
-queue pairs, the counting gets a "little funky" and turns off Flow
-Director.  So to correct it, limit the number of LAN queues initially
-allocated to be sure there are some left for Flow Director and other
-features.
+This patch fixes incorrect reporting of supported link modes on some NICs.
 
-Lihong cleans up dead code by removing a condition check which cannot
-ever be true.
+Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 20 ++++++++++++++++++--
+ drivers/net/ethernet/intel/i40e/i40e_common.c       | 11 ++++++++++-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 20 ++++++++++++++++++--
+ 3 files changed, 46 insertions(+), 5 deletions(-)
 
-Christophe Jaillet fixes a potential NULL pointer dereference, which
-could happen if kzalloc() fails.
-
-Filip corrects the reporting of supported link modes, which was incorrect
-for some NICs.  Added support for 'ethtool -m' command, which displays
-information about QSFP+ modules.
-
-Mariusz adds functions to read/write the LED registers to control the
-LEDS, instead of accessing the registers directly whenever the LEDs
-need to be controlled.
-
-Jake fixes a regression where we introduced a scheduling while atomic,
-so introduce a separate helper function which will manage its own need
-for the mac_filter_hash_lock.  Also cleaned up the "PF" parameter in
-i40e_vc_disable_vf() since it is never used and is not needed.  Fixed
-a rare case where it is possible that a reset does not occur when
-i40e_vc_disable_vf() is called, so modify i40e_reset_vf() to return a
-bool to indicate whether it reset or not so that i40e_vc_disable_vf()
-can wait until a reset actually occurs.
-
-Alan adds the ability for the VF to request more or less underlying
-allocated queues from the PF.  Fixes the incorrect method for clearing
-the vf_states variable with a NULL assignment, when we should be
-using atomic bitops since we don't actually want to clear all the
-flags.  Fixed a resource leak, where the PF driver fails to inform
-clients of a VF reset because we were incorrectly checking the
-I40E_VF_STATE_PRE_ENABLE bit.
-
-Mitch converts i40evf_map_rings_to_vectors() to a void function since
-it cannot fail and allows us to clean up the checks for the function
-return value.
-
-Scott enables the driver(s) to pass traffic with VLAN tags using the
-802.1ad Ethernet protocol.
-
-The following are changes since commit 1dd236fda0c500a21c54f2140dadc488cde9265b:
-  Merge branch 'mlxsw-Fixlets'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alan Brady (3):
-  i40evf: Enable VF to request an alternate queue allocation
-  i40e: fix handling of vf_states variable
-  i40e: fix client notify of VF reset
-
-Christophe JAILLET (1):
-  i40e: Fix a potential NULL pointer dereference
-
-Filip Sadowski (2):
-  i40e: Fix reporting of supported link modes
-  i40e: Add support for 'ethtool -m'
-
-Jacob Keller (4):
-  i40e: don't hold spinlock while resetting VF
-  i40e: drop i40e_pf *pf from i40e_vc_disable_vf()
-  i40e: make use of i40e_vc_disable_vf
-  i40e: ensure reset occurs when disabling VF
-
-Lihong Yang (1):
-  i40e: remove logically dead code
-
-Mariusz Stachura (1):
-  i40e: use admin queue for setting LEDs behavior
-
-Mitch Williams (1):
-  i40e: make i40evf_map_rings_to_vectors void
-
-Scott Peterson (1):
-  i40e: Stop dropping 802.1ad tags - eth proto 0x88a8
-
-Shannon Nelson (1):
-  i40e: limit lan queue count in large CPU count machine
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  12 ++
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  55 +++++-
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 201 ++++++++++++++++++---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 154 ++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  18 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   9 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  19 ++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 102 ++++++++---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   5 +-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  55 +++++-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  69 +++++++
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h |   9 +
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  20 ++
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   4 +
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  38 +++-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  97 +++++++++-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  44 ++++-
- 17 files changed, 837 insertions(+), 74 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index e2a9ec80a623..5d0291c1337e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -1734,6 +1734,8 @@ enum i40e_aq_phy_type {
+ 	I40E_PHY_TYPE_10GBASE_CR1_CU		= 0xB,
+ 	I40E_PHY_TYPE_10GBASE_AOC		= 0xC,
+ 	I40E_PHY_TYPE_40GBASE_AOC		= 0xD,
++	I40E_PHY_TYPE_UNRECOGNIZED		= 0xE,
++	I40E_PHY_TYPE_UNSUPPORTED		= 0xF,
+ 	I40E_PHY_TYPE_100BASE_TX		= 0x11,
+ 	I40E_PHY_TYPE_1000BASE_T		= 0x12,
+ 	I40E_PHY_TYPE_10GBASE_T			= 0x13,
+@@ -1752,6 +1754,8 @@ enum i40e_aq_phy_type {
+ 	I40E_PHY_TYPE_25GBASE_CR		= 0x20,
+ 	I40E_PHY_TYPE_25GBASE_SR		= 0x21,
+ 	I40E_PHY_TYPE_25GBASE_LR		= 0x22,
++	I40E_PHY_TYPE_EMPTY			= 0xFE,
++	I40E_PHY_TYPE_DEFAULT			= 0xFF,
+ 	I40E_PHY_TYPE_MAX
+ };
+ 
+@@ -1942,19 +1946,31 @@ struct i40e_aqc_get_link_status {
+ #define I40E_AQ_25G_SERDES_UCODE_ERR	0X04
+ #define I40E_AQ_25G_NIMB_UCODE_ERR	0X05
+ 	u8	loopback; /* use defines from i40e_aqc_set_lb_mode */
++/* Since firmware API 1.7 loopback field keeps power class info as well */
++#define I40E_AQ_LOOPBACK_MASK		0x07
++#define I40E_AQ_PWR_CLASS_SHIFT_LB	6
++#define I40E_AQ_PWR_CLASS_MASK_LB	(0x03 << I40E_AQ_PWR_CLASS_SHIFT_LB)
+ 	__le16	max_frame_size;
+ 	u8	config;
+ #define I40E_AQ_CONFIG_FEC_KR_ENA	0x01
+ #define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
+ #define I40E_AQ_CONFIG_CRC_ENA		0x04
+ #define I40E_AQ_CONFIG_PACING_MASK	0x78
+-	u8	power_desc;
++	union {
++		struct {
++			u8	power_desc;
+ #define I40E_AQ_LINK_POWER_CLASS_1	0x00
+ #define I40E_AQ_LINK_POWER_CLASS_2	0x01
+ #define I40E_AQ_LINK_POWER_CLASS_3	0x02
+ #define I40E_AQ_LINK_POWER_CLASS_4	0x03
+ #define I40E_AQ_PWR_CLASS_MASK		0x03
+-	u8	reserved[4];
++			u8	reserved[4];
++		};
++		struct {
++			u8	link_type[4];
++			u8	link_type_ext;
++		};
++	};
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_get_link_status);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 7346d8850c8e..64c15f4c9d2b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1821,7 +1821,7 @@ i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
+ 	hw_link_info->fec_info = resp->config & (I40E_AQ_CONFIG_FEC_KR_ENA |
+ 						 I40E_AQ_CONFIG_FEC_RS_ENA);
+ 	hw_link_info->ext_info = resp->ext_info;
+-	hw_link_info->loopback = resp->loopback;
++	hw_link_info->loopback = resp->loopback & I40E_AQ_LOOPBACK_MASK;
+ 	hw_link_info->max_frame_size = le16_to_cpu(resp->max_frame_size);
+ 	hw_link_info->pacing = resp->config & I40E_AQ_CONFIG_PACING_MASK;
+ 
+@@ -1852,6 +1852,15 @@ i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
+ 	     hw->aq.fw_min_ver < 40)) && hw_link_info->phy_type == 0xE)
+ 		hw_link_info->phy_type = I40E_PHY_TYPE_10GBASE_SFPP_CU;
+ 
++	if (hw->aq.api_maj_ver == I40E_FW_API_VERSION_MAJOR &&
++	    hw->aq.api_min_ver >= 7) {
++		__le32 tmp;
++
++		memcpy(&tmp, resp->link_type, sizeof(tmp));
++		hw->phy.phy_types = le32_to_cpu(tmp);
++		hw->phy.phy_types |= ((u64)resp->link_type_ext << 32);
++	}
++
+ 	/* save link status information */
+ 	if (link)
+ 		*link = *hw_link_info;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index f9f48d1900b0..709d114fc305 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -1730,6 +1730,8 @@ enum i40e_aq_phy_type {
+ 	I40E_PHY_TYPE_10GBASE_CR1_CU		= 0xB,
+ 	I40E_PHY_TYPE_10GBASE_AOC		= 0xC,
+ 	I40E_PHY_TYPE_40GBASE_AOC		= 0xD,
++	I40E_PHY_TYPE_UNRECOGNIZED		= 0xE,
++	I40E_PHY_TYPE_UNSUPPORTED		= 0xF,
+ 	I40E_PHY_TYPE_100BASE_TX		= 0x11,
+ 	I40E_PHY_TYPE_1000BASE_T		= 0x12,
+ 	I40E_PHY_TYPE_10GBASE_T			= 0x13,
+@@ -1748,6 +1750,8 @@ enum i40e_aq_phy_type {
+ 	I40E_PHY_TYPE_25GBASE_CR		= 0x20,
+ 	I40E_PHY_TYPE_25GBASE_SR		= 0x21,
+ 	I40E_PHY_TYPE_25GBASE_LR		= 0x22,
++	I40E_PHY_TYPE_EMPTY			= 0xFE,
++	I40E_PHY_TYPE_DEFAULT			= 0xFF,
+ 	I40E_PHY_TYPE_MAX
+ };
+ 
+@@ -1938,19 +1942,31 @@ struct i40e_aqc_get_link_status {
+ #define I40E_AQ_25G_SERDES_UCODE_ERR	0X04
+ #define I40E_AQ_25G_NIMB_UCODE_ERR	0X05
+ 	u8	loopback; /* use defines from i40e_aqc_set_lb_mode */
++/* Since firmware API 1.7 loopback field keeps power class info as well */
++#define I40E_AQ_LOOPBACK_MASK		0x07
++#define I40E_AQ_PWR_CLASS_SHIFT_LB	6
++#define I40E_AQ_PWR_CLASS_MASK_LB	(0x03 << I40E_AQ_PWR_CLASS_SHIFT_LB)
+ 	__le16	max_frame_size;
+ 	u8	config;
+ #define I40E_AQ_CONFIG_FEC_KR_ENA	0x01
+ #define I40E_AQ_CONFIG_FEC_RS_ENA	0x02
+ #define I40E_AQ_CONFIG_CRC_ENA		0x04
+ #define I40E_AQ_CONFIG_PACING_MASK	0x78
+-	u8	power_desc;
++	union {
++		struct {
++			u8	power_desc;
+ #define I40E_AQ_LINK_POWER_CLASS_1	0x00
+ #define I40E_AQ_LINK_POWER_CLASS_2	0x01
+ #define I40E_AQ_LINK_POWER_CLASS_3	0x02
+ #define I40E_AQ_LINK_POWER_CLASS_4	0x03
+ #define I40E_AQ_PWR_CLASS_MASK		0x03
+-	u8	reserved[4];
++			u8	reserved[4];
++		};
++		struct {
++			u8	link_type[4];
++			u8	link_type_ext;
++		};
++	};
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_get_link_status);
 -- 
 2.14.2
