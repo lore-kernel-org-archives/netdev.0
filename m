@@ -1,195 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 15/15] i40e: Stop dropping 802.1ad tags - eth proto 0x88a8
-Date: Mon,  2 Oct 2017 12:48:52 -0700
-Message-ID: <20171002194852.71970-16-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: make i40evf_map_rings_to_vectors void
+Date: Mon,  2 Oct 2017 12:48:49 -0700
+Message-ID: <20171002194852.71970-13-jeffrey.t.kirsher@intel.com>
 References: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
-Cc: Scott Peterson <scott.d.peterson@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:39749 "EHLO mga05.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:36724 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751604AbdJBTtV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751638AbdJBTtV (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 2 Oct 2017 15:49:21 -0400
 In-Reply-To: <20171002194852.71970-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Peterson <scott.d.peterson@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Enable i40e to pass traffic with VLAN tags using the 802.1ad ethernet
-protocol ID (0x88a8).
+This function cannot fail, so why is it returning a value? And why are
+we checking it? Why shouldn't we just make it void? Why is this commit
+message made up of only questions?
 
-This requires NIC firmware providing version 1.7 of the API. With
-older NIC firmware 802.1ad tagged packets will continue to be dropped.
-
-No VLAN offloads nor RSS are supported for 802.1ad VLANs.
-
-Signed-off-by: Scott Peterson <scott.d.peterson@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c       |  6 ++++++
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h   | 17 ++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_common.c       |  6 +++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c         |  7 +++++++
- drivers/net/ethernet/intel/i40e/i40e_type.h         |  6 ++++++
- drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h | 17 ++++++++++++++++-
- drivers/net/ethernet/intel/i40evf/i40e_type.h       |  6 ++++++
- 7 files changed, 62 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 08f63226105a..9dcb2a961197 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -613,6 +613,12 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
- 		hw->flags |= I40E_HW_FLAG_AQ_PHY_ACCESS_CAPABLE;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 8c513ce84345..f2f1e754c2ce 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -430,12 +430,11 @@ i40evf_map_vector_to_txq(struct i40evf_adapter *adapter, int v_idx, int t_idx)
+  * group the rings as "efficiently" as possible.  You would add new
+  * mapping configurations in here.
+  **/
+-static int i40evf_map_rings_to_vectors(struct i40evf_adapter *adapter)
++static void i40evf_map_rings_to_vectors(struct i40evf_adapter *adapter)
+ {
+ 	int rings_remaining = adapter->num_active_queues;
+ 	int ridx = 0, vidx = 0;
+ 	int q_vectors;
+-	int err = 0;
+ 
+ 	q_vectors = adapter->num_msix_vectors - NONQ_VECS;
+ 
+@@ -451,8 +450,6 @@ static int i40evf_map_rings_to_vectors(struct i40evf_adapter *adapter)
  	}
  
-+	/* The ability to RX (not drop) 802.1ad frames was added in API 1.7 */
-+	if (hw->aq.api_maj_ver > 1 ||
-+	    (hw->aq.api_maj_ver == 1 &&
-+	     hw->aq.api_min_ver >= 7))
-+		hw->flags |= I40E_HW_FLAG_802_1AD_CAPABLE;
-+
- 	if (hw->aq.api_maj_ver > I40E_FW_API_VERSION_MAJOR) {
- 		ret_code = I40E_ERR_FIRMWARE_API_VERSION;
- 		goto init_adminq_free_arq;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index ed7bbe14bc6e..4c85ea9cd89a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -775,7 +775,22 @@ struct i40e_aqc_set_switch_config {
- #define I40E_AQ_SET_SWITCH_CFG_PROMISC		0x0001
- #define I40E_AQ_SET_SWITCH_CFG_L2_FILTER	0x0002
- 	__le16	valid_flags;
--	u8	reserved[12];
-+	/* The ethertype in switch_tag is dropped on ingress and used
-+	 * internally by the switch. Set this to zero for the default
-+	 * of 0x88a8 (802.1ad). Should be zero for firmware API
-+	 * versions lower than 1.7.
-+	 */
-+	__le16	switch_tag;
-+	/* The ethertypes in first_tag and second_tag are used to
-+	 * match the outer and inner VLAN tags (respectively) when HW
-+	 * double VLAN tagging is enabled via the set port parameters
-+	 * AQ command. Otherwise these are both ignored. Set them to
-+	 * zero for their defaults of 0x8100 (802.1Q). Should be zero
-+	 * for firmware API versions lower than 1.7.
-+	 */
-+	__le16	first_tag;
-+	__le16	second_tag;
-+	u8	reserved[6];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_set_switch_config);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index a4838779de5d..60542beda7ad 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2402,7 +2402,11 @@ enum i40e_status_code i40e_aq_set_switch_config(struct i40e_hw *hw,
- 					  i40e_aqc_opc_set_switch_config);
- 	scfg->flags = cpu_to_le16(flags);
- 	scfg->valid_flags = cpu_to_le16(valid_flags);
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_MAP_VECTORS;
 -
-+	if (hw->flags & I40E_HW_FLAG_802_1AD_CAPABLE) {
-+		scfg->switch_tag = cpu_to_le16(hw->switch_tag);
-+		scfg->first_tag = cpu_to_le16(hw->first_tag);
-+		scfg->second_tag = cpu_to_le16(hw->second_tag);
-+	}
- 	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
+-	return err;
+ }
  
- 	return status;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 387f0863f794..3f9e89b054ec 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11361,6 +11361,13 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->bus.bus_id = pdev->bus->number;
- 	pf->instance = pfs_found;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -1578,9 +1575,7 @@ static int i40evf_reinit_interrupt_scheme(struct i40evf_adapter *adapter)
  
-+	/* Select something other than the 802.1ad ethertype for the
-+	 * switch to use internally and drop on ingress.
-+	 */
-+	hw->switch_tag = 0xffff;
-+	hw->first_tag = ETH_P_8021AD;
-+	hw->second_tag = ETH_P_8021Q;
-+
- 	INIT_LIST_HEAD(&pf->l3_flex_pit_list);
- 	INIT_LIST_HEAD(&pf->l4_flex_pit_list);
+ 	set_bit(__I40E_VSI_DOWN, adapter->vsi.state);
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 8b0b9f826b7f..4b32b1d38a66 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -610,9 +610,15 @@ struct i40e_hw {
- 	struct i40e_dcbx_config desired_dcbx_config; /* CEE Desired Cfg */
+-	err = i40evf_map_rings_to_vectors(adapter);
+-	if (err)
+-		goto err;
++	i40evf_map_rings_to_vectors(adapter);
  
- #define I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE BIT_ULL(0)
-+#define I40E_HW_FLAG_802_1AD_CAPABLE        BIT_ULL(1)
- #define I40E_HW_FLAG_AQ_PHY_ACCESS_CAPABLE  BIT_ULL(2)
- 	u64 flags;
- 
-+	/* Used in set switch config AQ command */
-+	u16 switch_tag;
-+	u16 first_tag;
-+	u16 second_tag;
-+
- 	/* debug mask */
- 	u32 debug_mask;
- 	char err_str[16];
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index eee7ece42b39..ed5602f4bbcd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -771,7 +771,22 @@ struct i40e_aqc_set_switch_config {
- #define I40E_AQ_SET_SWITCH_CFG_PROMISC		0x0001
- #define I40E_AQ_SET_SWITCH_CFG_L2_FILTER	0x0002
- 	__le16	valid_flags;
--	u8	reserved[12];
-+	/* The ethertype in switch_tag is dropped on ingress and used
-+	 * internally by the switch. Set this to zero for the default
-+	 * of 0x88a8 (802.1ad). Should be zero for firmware API
-+	 * versions lower than 1.7.
-+	 */
-+	__le16	switch_tag;
-+	/* The ethertypes in first_tag and second_tag are used to
-+	 * match the outer and inner VLAN tags (respectively) when HW
-+	 * double VLAN tagging is enabled via the set port parameters
-+	 * AQ command. Otherwise these are both ignored. Set them to
-+	 * zero for their defaults of 0x8100 (802.1Q). Should be zero
-+	 * for firmware API versions lower than 1.7.
-+	 */
-+	__le16	first_tag;
-+	__le16	second_tag;
-+	u8	reserved[6];
- };
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_set_switch_config);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 48eacf5e73e4..9364b67fff9c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -568,6 +568,7 @@ struct i40e_hw {
- 	/* LLDP/DCBX Status */
- 	u16 dcbx_status;
- 
-+#define I40E_HW_FLAG_802_1AD_CAPABLE        BIT_ULL(1)
- #define I40E_HW_FLAG_AQ_PHY_ACCESS_CAPABLE  BIT_ULL(2)
- 
- 	/* DCBX info */
-@@ -575,6 +576,11 @@ struct i40e_hw {
- 	struct i40e_dcbx_config remote_dcbx_config; /* Peer Cfg */
- 	struct i40e_dcbx_config desired_dcbx_config; /* CEE Desired Cfg */
- 
-+	/* Used in set switch config AQ command */
-+	u16 switch_tag;
-+	u16 first_tag;
-+	u16 second_tag;
-+
- 	/* debug mask */
- 	u32 debug_mask;
- 	char err_str[16];
+ 	if (RSS_AQ(adapter))
+ 		adapter->aq_required |= I40EVF_FLAG_AQ_CONFIGURE_RSS;
 -- 
 2.14.2
