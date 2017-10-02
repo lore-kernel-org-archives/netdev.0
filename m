@@ -1,40 +1,41 @@
-From: Mauro Carvalho Chehab <mchehab@s-opensource.com>
-Subject: Re: [PATCH 00/18] use ARRAY_SIZE macro
-Date: Mon, 2 Oct 2017 13:37:34 -0300
-Message-ID: <20171002133734.6ac10ded@recife.lan>
-References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
-        <20171001220131.GA11812@eros>
-        <20171001205220.10b78086@blatinox-laptop.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "Tobin C. Harding" <me@tobin.cc>, alsa-devel@alsa-project.org,
-        nouveau@lists.freedesktop.org, dri-devel@lists.freedesktop.org,
-        dm-devel@redhat.com, brcm80211-dev-list@cypress.com,
-        devel@driverdev.osuosl.org, linux-scsi@vger.kernel.org,
-        linux-rdma@vger.kernel.org, amd-gfx@lists.freedesktop.org,
-        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-        linux-acpi@vger.kernel.org, linux-video@atrey.karlin.mff.cuni.cz,
-        intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org,
-        intel-gfx@lists.freedesktop.org, ecryptfs@vger.kernel.org,
-        linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
-        openipmi-developer@lists.sourceforge.net,
-        intel-gvt-dev@lists.freedesktop.org, devel@acpica.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-wireless@vge
-To: =?UTF-8?B?SsOpcsOpbXk=?= Lefaure <jeremy.lefaure@lse.epita.fr>
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <20171001205220.10b78086@blatinox-laptop.localdomain>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next v2 0/2] libbpf: support more map options
+Date: Mon,  2 Oct 2017 12:41:27 -0400
+Message-ID: <20171002164129.47986-1-kraigatgoog@gmail.com>
+Cc: Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:52103 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751061AbdJBQlb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 12:41:31 -0400
+Received: by mail-qt0-f182.google.com with SMTP id q4so8015919qtq.8
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 09:41:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Sun, 1 Oct 2017 20:52:20 -0400
-Jérémy Lefaure <jeremy.lefaure@lse.epita.fr> escreveu:
+From: Craig Gallek <kraig@google.com>
 
-> Anyway, I can tell to each maintainer that they can apply the patches
-> they're concerned about and next time I may send individual patches.
+The functional change to this series is the ability to use flags when
+creating maps from object files loaded by libbpf.  In order to do this,
+the first patch updates the library to handle map definitions that
+differ in size from libbpf's struct bpf_map_def.
 
-In the case of media, we'll handle it as if they were individual ones.
+For object files with a larger map definition, libbpf will continue to load
+if the unknown fields are all zero, otherwise the map is rejected.  If the
+map definition in the object file is smaller than expected, libbpf will use
+zero as a default value in the missing fields.
 
-Thanks,
-Mauro
+Craig Gallek (2):
+  libbpf: parse maps sections of varying size
+  libbpf: use map_flags when creating maps
+
+ tools/lib/bpf/libbpf.c | 56 ++++++++++++++++++++++++++++++++++++++++++--------
+ tools/lib/bpf/libbpf.h |  1 +
+ 2 files changed, 48 insertions(+), 9 deletions(-)
+
+-- 
+2.14.2.822.g60be5d43e6-goog
