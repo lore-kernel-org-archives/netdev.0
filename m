@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] fm10k: ensure we process SM mbx when processing VF mbx
-Date: Mon,  2 Oct 2017 08:42:24 -0700
-Message-ID: <20171002154236.84043-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] fm10k: avoid possible truncation of q_vector->name
+Date: Mon,  2 Oct 2017 08:42:29 -0700
+Message-ID: <20171002154236.84043-7-jeffrey.t.kirsher@intel.com>
 References: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24370 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:3420 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751420AbdJBPm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751430AbdJBPm6 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 2 Oct 2017 11:42:58 -0400
 In-Reply-To: <20171002154236.84043-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,36 +18,58 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-When we process VF mailboxes, the driver is likely going to also queue
-up messages to the switch manager. This process merely queues up the
-FIFO, but doesn't actually begin the transmission process. Because we
-hold the mailbox lock during this VF processing, the PF<->SM mailbox is
-not getting processed at this time. Ensure that we actually process the
-PF<->SM mailbox in between each PF<->VF mailbox.
+New versions of GCC since version 7 began warning about possible
+truncation of calls to snprintf. We can fix this and avoid false
+positives. First, we should pass the full buffer size to snprintf,
+because it guarantees a NULL character as part of its passed length, so
+passing len-1 is simply wasting a byte of possible storage.
 
-This should ensure prompt transmission of the messages queued up after
-each VF message is received and handled.
+Second, if we make the ri and ti variables unsigned, the compiler is
+able to correctly reason that the value never gets larger than 256, so
+it doesn't need to warn about the full space required to print a signed
+integer.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-index 5f4dac0d36ef..2ec49116fe91 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-@@ -126,6 +126,9 @@ s32 fm10k_iov_mbx(struct fm10k_intfc *interface)
- 		struct fm10k_mbx_info *mbx = &vf_info->mbx;
- 		u16 glort = vf_info->glort;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 63784576ae8b..9212b3fa3b62 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -1544,7 +1544,7 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
+ 	struct net_device *dev = interface->netdev;
+ 	struct fm10k_hw *hw = &interface->hw;
+ 	struct msix_entry *entry;
+-	int ri = 0, ti = 0;
++	unsigned int ri = 0, ti = 0;
+ 	int vector, err;
  
-+		/* process the SM mailbox first to drain outgoing messages */
-+		hw->mbx.ops.process(hw, &hw->mbx);
-+
- 		/* verify port mapping is valid, if not reset port */
- 		if (vf_info->vf_flags && !fm10k_glort_valid_pf(hw, glort))
- 			hw->iov.ops.reset_lport(hw, vf_info);
+ 	entry = &interface->msix_entries[NON_Q_VECTORS(hw)];
+@@ -1554,15 +1554,15 @@ int fm10k_qv_request_irq(struct fm10k_intfc *interface)
+ 
+ 		/* name the vector */
+ 		if (q_vector->tx.count && q_vector->rx.count) {
+-			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
+-				 "%s-TxRx-%d", dev->name, ri++);
++			snprintf(q_vector->name, sizeof(q_vector->name),
++				 "%s-TxRx-%u", dev->name, ri++);
+ 			ti++;
+ 		} else if (q_vector->rx.count) {
+-			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
+-				 "%s-rx-%d", dev->name, ri++);
++			snprintf(q_vector->name, sizeof(q_vector->name),
++				 "%s-rx-%u", dev->name, ri++);
+ 		} else if (q_vector->tx.count) {
+-			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
+-				 "%s-tx-%d", dev->name, ti++);
++			snprintf(q_vector->name, sizeof(q_vector->name),
++				 "%s-tx-%u", dev->name, ti++);
+ 		} else {
+ 			/* skip this unused q_vector */
+ 			continue;
 -- 
 2.14.2
