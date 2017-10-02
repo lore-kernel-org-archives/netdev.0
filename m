@@ -1,48 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
- support malloc buff at run time
-Date: Mon, 2 Oct 2017 10:37:08 -0700
-Message-ID: <20171002103708.0572704b@xeon-e3>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
-        <1506605626-1744-3-git-send-email-haliu@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 01/12] qed: Add ll2 option to limit the number
+ of bds per packet
+Date: Mon, 02 Oct 2017 10:56:01 -0700 (PDT)
+Message-ID: <20171002.105601.1655145601306767130.davem@davemloft.net>
+References: <1506932638-26268-1-git-send-email-Michal.Kalderon@cavium.com>
+        <1506932638-26268-2-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-        Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>
-To: Hangbin Liu <haliu@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:44254 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751195AbdJBRhL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 13:37:11 -0400
-Received: by mail-pg0-f48.google.com with SMTP id b1so1824805pge.1
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 10:37:11 -0700 (PDT)
-In-Reply-To: <1506605626-1744-3-git-send-email-haliu@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
+To: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1506932638-26268-2-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Sep 2017 21:33:46 +0800
-Hangbin Liu <haliu@redhat.com> wrote:
+From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Date: Mon, 2 Oct 2017 11:23:47 +0300
 
-> From: Hangbin Liu <liuhangbin@gmail.com>
-> 
-> This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
-> iplink_get()"). After update, we will not need to double the buffer size
-> every time when VFs number increased.
-> 
-> With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
-> length parameter.
-> 
-> With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
-> answer to avoid overwrite data in nlh, because it may has more info after
-> nlh. also this will avoid nlh buffer not enough issue.
-> 
-> We need to free answer after using.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
+> +		p_pkt = (void *)((u8 *)p_tx->descq_array + desc_size * i);
 
-Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
-Can only those places that need that be targeted?
+Hmmm... this is definitely a red flag.
+
+> @@ -63,17 +63,14 @@ struct qed_ll2_rx_packet {
+>  struct qed_ll2_tx_packet {
+>  	struct list_head list_entry;
+>  	u16 bd_used;
+> -	u16 vlan;
+> -	u16 l4_hdr_offset_w;
+> -	u8 bd_flags;
+>  	bool notify_fw;
+>  	void *cookie;
+> -
+> +	/* Flexible Array of bds_set determined by max_bds_per_packet */
+>  	struct {
+>  		struct core_tx_bd *txq_bd;
+>  		dma_addr_t tx_frag;
+>  		u16 frag_len;
+> -	} bds_set[ETH_TX_MAX_BDS_PER_NON_LSO_PACKET];
+> +	} bds_set[1];
+>  };
+
+If you do this then you have to make the ->descq_array a void pointer
+or something.
+
+Otherwise someone will try to access it as an array and it will
+explode because the elements of the array are of a variable size.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
