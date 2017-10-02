@@ -1,41 +1,214 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] socket, bpf: fix possible use after free
-Date: Mon, 2 Oct 2017 12:35:08 -0700
-Message-ID: <20171002193506.lx6sfr3hejdzarsl@ast-mbp.dhcp.thefacebook.com>
-References: <1506972051.8061.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
+Date: Mon, 2 Oct 2017 12:36:33 -0700
+Message-ID: <CALx6S35DpMWdLVWKSoRdsfROM7=A2p9pLi7n2fMtmqwhSEh5wQ@mail.gmail.com>
+References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com> <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:37474 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751291AbdJBTfM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 15:35:12 -0400
-Received: by mail-pg0-f67.google.com with SMTP id o1so5782099pga.4
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 12:35:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1506972051.8061.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:50068 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751354AbdJBTgf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 15:36:35 -0400
+Received: by mail-qt0-f193.google.com with SMTP id o3so8966183qte.6
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 12:36:34 -0700 (PDT)
+In-Reply-To: <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 02, 2017 at 12:20:51PM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Starting from linux-4.4, 3WHS no longer takes the listener lock.
-> 
-> Since this time, we might hit a use-after-free in sk_filter_charge(),
-> if the filter we got in the memcpy() of the listener content
-> just happened to be replaced by a thread changing listener BPF filter.
-> 
-> To fix this, we need to make sure the filter refcount is not already
-> zero before incrementing it again.
-> 
-> Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> Move dissection of tunnel info from the flower classifier to the flow
+> dissector where all other dissection occurs.  This should not have any
+> behavioural affect on other users of the flow dissector.
+>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+>  net/core/flow_dissector.c | 100 ++++++++++++++++++++++++++++++++++++++++++++++
+>  net/sched/cls_flower.c    |  25 ------------
+>  2 files changed, 100 insertions(+), 25 deletions(-)
+>
+> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+> index 0a977373d003..1f5caafb4492 100644
+> --- a/net/core/flow_dissector.c
+> +++ b/net/core/flow_dissector.c
+> @@ -5,6 +5,7 @@
+>  #include <linux/ipv6.h>
+>  #include <linux/if_vlan.h>
+>  #include <net/dsa.h>
+> +#include <net/dst_metadata.h>
+>  #include <net/ip.h>
+>  #include <net/ipv6.h>
+>  #include <net/gre.h>
+> @@ -115,6 +116,102 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
+>  }
+>  EXPORT_SYMBOL(__skb_flow_get_ports);
+>
+> +static void
+> +skb_flow_dissect_set_enc_addr_type(enum flow_dissector_key_id type,
+> +                                  struct flow_dissector *flow_dissector,
+> +                                  void *target_container)
+> +{
+> +       struct flow_dissector_key_control *ctrl;
+> +
+> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_CONTROL))
+> +               return;
+> +
+> +       ctrl = skb_flow_dissector_target(flow_dissector,
+> +                                        FLOW_DISSECTOR_KEY_ENC_CONTROL,
+> +                                        target_container);
+> +       ctrl->addr_type = type;
+> +}
+> +
+> +static void
+> +__skb_flow_dissect_tunnel_info(const struct sk_buff *skb,
+> +                              struct flow_dissector *flow_dissector,
+> +                              void *target_container)
+> +{
+> +       struct ip_tunnel_info *info;
+> +       struct ip_tunnel_key *key;
+> +
+> +       /* A quick check to see if there might be something to do. */
+> +       if (!dissector_uses_key(flow_dissector,
+> +                               FLOW_DISSECTOR_KEY_ENC_KEYID) &&
+> +           !dissector_uses_key(flow_dissector,
+> +                               FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) &&
+> +           !dissector_uses_key(flow_dissector,
+> +                               FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) &&
+> +           !dissector_uses_key(flow_dissector,
+> +                               FLOW_DISSECTOR_KEY_ENC_CONTROL) &&
+> +           !dissector_uses_key(flow_dissector,
+> +                               FLOW_DISSECTOR_KEY_ENC_PORTS))
+> +               return;
 
-Thanks for the fix!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+This complex conditional is now in the path of every call to flow
+dissector regardless of whether a classifier is enabled or tunnels
+are. What does the assembly show in terms of number of branches? Can
+we at least get this down to one check (might be a use case for
+FLOW_DISSECTOR_F_FLOWER ;-) ), or even better use the static key when
+encap or is enabled?
+
+> +
+> +       info = skb_tunnel_info(skb);
+> +       if (!info)
+> +               return;
+> +
+> +       key = &info->key;
+> +
+> +       switch (ip_tunnel_info_af(info)) {
+> +       case AF_INET:
+> +               skb_flow_dissect_set_enc_addr_type(FLOW_DISSECTOR_KEY_IPV4_ADDRS,
+> +                                                  flow_dissector,
+> +                                                  target_container);
+> +               if (dissector_uses_key(flow_dissector,
+> +                                      FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS)) {
+> +                       struct flow_dissector_key_ipv4_addrs *ipv4;
+> +
+> +                       ipv4 = skb_flow_dissector_target(flow_dissector,
+> +                                                        FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS,
+> +                                                        target_container);
+> +                       ipv4->src = key->u.ipv4.src;
+> +                       ipv4->dst = key->u.ipv4.dst;
+> +               }
+> +               break;
+> +       case AF_INET6:
+> +               skb_flow_dissect_set_enc_addr_type(FLOW_DISSECTOR_KEY_IPV6_ADDRS,
+> +                                                  flow_dissector,
+> +                                                  target_container);
+> +               if (dissector_uses_key(flow_dissector,
+> +                                      FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS)) {
+> +                       struct flow_dissector_key_ipv6_addrs *ipv6;
+> +
+> +                       ipv6 = skb_flow_dissector_target(flow_dissector,
+> +                                                        FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS,
+> +                                                        target_container);
+> +                       ipv6->src = key->u.ipv6.src;
+> +                       ipv6->dst = key->u.ipv6.dst;
+> +               }
+> +               break;
+> +       }
+> +
+> +       if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_KEYID)) {
+> +               struct flow_dissector_key_keyid *keyid;
+> +
+> +               keyid = skb_flow_dissector_target(flow_dissector,
+> +                                                 FLOW_DISSECTOR_KEY_ENC_KEYID,
+> +                                                 target_container);
+> +               keyid->keyid = tunnel_id_to_key32(key->tun_id);
+> +       }
+> +
+> +       if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_PORTS)) {
+> +               struct flow_dissector_key_ports *tp;
+> +
+> +               tp = skb_flow_dissector_target(flow_dissector,
+> +                                              FLOW_DISSECTOR_KEY_ENC_PORTS,
+> +                                              target_container);
+> +               tp->src = key->tp_src;
+> +               tp->dst = key->tp_dst;
+> +       }
+> +}
+> +
+>  static enum flow_dissect_ret
+>  __skb_flow_dissect_mpls(const struct sk_buff *skb,
+>                         struct flow_dissector *flow_dissector,
+> @@ -478,6 +575,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>                                               FLOW_DISSECTOR_KEY_BASIC,
+>                                               target_container);
+>
+> +       __skb_flow_dissect_tunnel_info(skb, flow_dissector,
+> +                                      target_container);
+> +
+>         if (dissector_uses_key(flow_dissector,
+>                                FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
+>                 struct ethhdr *eth = eth_hdr(skb);
+> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+> index d230cb4c8094..db831ac708f6 100644
+> --- a/net/sched/cls_flower.c
+> +++ b/net/sched/cls_flower.c
+> @@ -152,37 +152,12 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+>         struct cls_fl_filter *f;
+>         struct fl_flow_key skb_key;
+>         struct fl_flow_key skb_mkey;
+> -       struct ip_tunnel_info *info;
+>
+>         if (!atomic_read(&head->ht.nelems))
+>                 return -1;
+>
+>         fl_clear_masked_range(&skb_key, &head->mask);
+>
+> -       info = skb_tunnel_info(skb);
+> -       if (info) {
+> -               struct ip_tunnel_key *key = &info->key;
+> -
+> -               switch (ip_tunnel_info_af(info)) {
+> -               case AF_INET:
+> -                       skb_key.enc_control.addr_type =
+> -                               FLOW_DISSECTOR_KEY_IPV4_ADDRS;
+> -                       skb_key.enc_ipv4.src = key->u.ipv4.src;
+> -                       skb_key.enc_ipv4.dst = key->u.ipv4.dst;
+> -                       break;
+> -               case AF_INET6:
+> -                       skb_key.enc_control.addr_type =
+> -                               FLOW_DISSECTOR_KEY_IPV6_ADDRS;
+> -                       skb_key.enc_ipv6.src = key->u.ipv6.src;
+> -                       skb_key.enc_ipv6.dst = key->u.ipv6.dst;
+> -                       break;
+> -               }
+> -
+> -               skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
+> -               skb_key.enc_tp.src = key->tp_src;
+> -               skb_key.enc_tp.dst = key->tp_dst;
+> -       }
+> -
+>         skb_key.indev_ifindex = skb->skb_iif;
+>         /* skb_flow_dissect() does not set n_proto in case an unknown protocol,
+>          * so do it rather here.
+> --
+> 2.1.4
+>
