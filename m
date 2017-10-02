@@ -1,137 +1,83 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] selftests: rtnetlink.sh: add vxlan and fou test cases
-Date: Mon,  2 Oct 2017 12:05:29 +0200
-Message-ID: <20171002100529.602-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 2/2] mlxsw: spectrum_router: Track RIF of IPIP next hops
+Date: Mon,  2 Oct 2017 12:14:57 +0200
+Message-ID: <20171002101457.1462-3-jiri@resnulli.us>
+References: <20171002101457.1462-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53514 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750949AbdJBKFP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 06:05:15 -0400
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:33091 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750949AbdJBKPB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 06:15:01 -0400
+Received: by mail-wr0-f193.google.com with SMTP id z96so2166066wrb.0
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 03:15:00 -0700 (PDT)
+In-Reply-To: <20171002101457.1462-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fou test lifted from ip-fou man page.
+From: Petr Machata <petrm@mellanox.com>
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+When considering whether to set RTNH_F_OFFLOAD flag on an IPv6 route,
+mlxsw_sp_fib6_entry_offload_set() looks up the mlxsw_sp_nexthop
+corresponding to a given route, and decides based on whether the next
+hop's offloaded flag was set. When looking for the matching next hop, it
+also takes into account the device of the route, which must match next
+hop's RIF.
+
+IPIP next hops however hitherto didn't set the RIF. As a result, IPv6
+routes forwarding traffic to IP-in-IP netdevices are never marked as
+offloaded, even when they actually are.
+
+Thus track RIF of IPIP next hops the same way as that of ETHERNET next
+hops.
+
+Fixes: 8f28a3097645 ("mlxsw: spectrum_router: Support IPv6 overlay encap")
+Signed-off-by: Petr Machata <petrm@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- tools/testing/selftests/net/rtnetlink.sh | 96 ++++++++++++++++++++++++++++++++
- 1 file changed, 96 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
-index a048f7a5f94c..62c87da92770 100755
---- a/tools/testing/selftests/net/rtnetlink.sh
-+++ b/tools/testing/selftests/net/rtnetlink.sh
-@@ -332,6 +332,101 @@ kci_test_vrf()
- 	echo "PASS: vrf"
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 3917b4d..032089e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -2723,6 +2723,7 @@ static void mlxsw_sp_nexthop_type_fini(struct mlxsw_sp *mlxsw_sp,
+ 		mlxsw_sp_nexthop_rif_fini(nh);
+ 		break;
+ 	case MLXSW_SP_NEXTHOP_TYPE_IPIP:
++		mlxsw_sp_nexthop_rif_fini(nh);
+ 		mlxsw_sp_nexthop_ipip_fini(mlxsw_sp, nh);
+ 		break;
+ 	}
+@@ -2742,7 +2743,11 @@ static int mlxsw_sp_nexthop4_type_init(struct mlxsw_sp *mlxsw_sp,
+ 	    router->ipip_ops_arr[ipipt]->can_offload(mlxsw_sp, dev,
+ 						     MLXSW_SP_L3_PROTO_IPV4)) {
+ 		nh->type = MLXSW_SP_NEXTHOP_TYPE_IPIP;
+-		return mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
++		err = mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
++		if (err)
++			return err;
++		mlxsw_sp_nexthop_rif_init(nh, &nh->ipip_entry->ol_lb->common);
++		return 0;
+ 	}
  
-+kci_test_encap_vxlan()
-+{
-+	ret=0
-+	vxlan="test-vxlan0"
-+	vlan="test-vlan0"
-+	testns="$1"
-+
-+	ip netns exec "$testns" ip link add "$vxlan" type vxlan id 42 group 239.1.1.1 \
-+		dev "$devdummy" dstport 4789 2>/dev/null
-+	if [ $? -ne 0 ]; then
-+		echo "FAIL: can't add vxlan interface, skipping test"
-+		return 0
-+	fi
-+	check_err $?
-+
-+	ip netns exec "$testns" ip addr add 10.2.11.49/24 dev "$vxlan"
-+	check_err $?
-+
-+	ip netns exec "$testns" ip link set up dev "$vxlan"
-+	check_err $?
-+
-+	ip netns exec "$testns" ip link add link "$vxlan" name "$vlan" type vlan id 1
-+	check_err $?
-+
-+	ip netns exec "$testns" ip link del "$vxlan"
-+	check_err $?
-+
-+	if [ $ret -ne 0 ]; then
-+		echo "FAIL: vxlan"
-+		return 1
-+	fi
-+	echo "PASS: vxlan"
-+}
-+
-+kci_test_encap_fou()
-+{
-+	ret=0
-+	name="test-fou"
-+	testns="$1"
-+
-+	ip fou help 2>&1 |grep -q 'Usage: ip fou'
-+	if [ $? -ne 0 ];then
-+		echo "SKIP: fou: iproute2 too old"
-+		return 1
-+	fi
-+
-+	ip netns exec "$testns" ip fou add port 7777 ipproto 47 2>/dev/null
-+	if [ $? -ne 0 ];then
-+		echo "FAIL: can't add fou port 7777, skipping test"
-+		return 1
-+	fi
-+
-+	ip netns exec "$testns" ip fou add port 8888 ipproto 4
-+	check_err $?
-+
-+	ip netns exec "$testns" ip fou del port 9999 2>/dev/null
-+	check_fail $?
-+
-+	ip netns exec "$testns" ip fou del port 7777
-+	check_err $?
-+
-+	if [ $ret -ne 0 ]; then
-+		echo "FAIL: fou"
-+		return 1
-+	fi
-+
-+	echo "PASS: fou"
-+}
-+
-+# test various encap methods, use netns to avoid unwanted interference
-+kci_test_encap()
-+{
-+	testns="testns"
-+	ret=0
-+
-+	ip netns add "$testns"
-+	if [ $? -ne 0 ]; then
-+		echo "SKIP encap tests: cannot add net namespace $testns"
-+		return 1
-+	fi
-+
-+	ip netns exec "$testns" ip link set lo up
-+	check_err $?
-+
-+	ip netns exec "$testns" ip link add name "$devdummy" type dummy
-+	check_err $?
-+	ip netns exec "$testns" ip link set "$devdummy" up
-+	check_err $?
-+
-+	kci_test_encap_vxlan "$testns"
-+	kci_test_encap_fou "$testns"
-+
-+	ip netns del "$testns"
-+}
-+
- kci_test_rtnl()
- {
- 	kci_add_dummy
-@@ -348,6 +443,7 @@ kci_test_rtnl()
- 	kci_test_addrlabel
- 	kci_test_ifalias
- 	kci_test_vrf
-+	kci_test_encap
+ 	nh->type = MLXSW_SP_NEXTHOP_TYPE_ETH;
+@@ -4009,7 +4014,11 @@ static int mlxsw_sp_nexthop6_type_init(struct mlxsw_sp *mlxsw_sp,
+ 	    router->ipip_ops_arr[ipipt]->can_offload(mlxsw_sp, dev,
+ 						     MLXSW_SP_L3_PROTO_IPV6)) {
+ 		nh->type = MLXSW_SP_NEXTHOP_TYPE_IPIP;
+-		return mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
++		err = mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
++		if (err)
++			return err;
++		mlxsw_sp_nexthop_rif_init(nh, &nh->ipip_entry->ol_lb->common);
++		return 0;
+ 	}
  
- 	kci_del_dummy
- }
+ 	nh->type = MLXSW_SP_NEXTHOP_TYPE_ETH;
 -- 
-2.13.6
+2.9.5
