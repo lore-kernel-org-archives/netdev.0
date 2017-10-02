@@ -1,60 +1,68 @@
-From: Corey Hickey <bugfood-ml@fatooh.org>
-Subject: Re: tc-ipt v0.2: Extension does not know id 1504083504
-Date: Sun, 1 Oct 2017 21:16:35 -0700
-Message-ID: <a91341e4-d50e-8745-db59-95da6e84bc33@fatooh.org>
-References: <CAGv8E+x_4mkFrKaoJgh8dnh6ZyN7oSHRCpT6GQZKFRECOn8EtQ@mail.gmail.com>
+From: Daniel Drake <drake@endlessm.com>
+Subject: Re: [PATCH 2/6] ath9k: add a quirk to set use_msi automatically
+Date: Mon, 2 Oct 2017 12:21:57 +0800
+Message-ID: <CAD8Lp46mdgbfCGY_i=N7FB1rMfL0KA0VFQxJESxshe4Cn6k4+Q@mail.gmail.com>
+References: <1506408099-18488-1-git-send-email-acelan.kao@canonical.com>
+ <1506408099-18488-2-git-send-email-acelan.kao@canonical.com>
+ <20170926064456.GA28611@infradead.org> <CAFv23Qm9kZLSqJ_BP1D7mWCxekq0nt3S8onT1ckH-AoHDBUDzw@mail.gmail.com>
+ <20170926140413.GA19977@infradead.org> <878th14kde.fsf@kamboji.qca.qualcomm.com>
+ <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "Sergey K." <simkergey@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from juniper.fatooh.org ([173.255.221.30]:53516 "EHLO
-        juniper.fatooh.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751252AbdJBEQg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 00:16:36 -0400
-In-Reply-To: <CAGv8E+x_4mkFrKaoJgh8dnh6ZyN7oSHRCpT6GQZKFRECOn8EtQ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Christoph Hellwig <hch@infradead.org>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: AceLan Kao <acelan.kao@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-10-01 07:25, Sergey K. wrote:
-> Hi Corey.
-> 
-> I did it on your recommendation, replaced xtables.h file from my
-> version of iptables 1.6.0, and replaced the file netfilter.h.
-> 
-> Now it's works, but new construction doesn't:
-> 
-> # tc filter add dev eth0 parent ffff: u32 match u32 0 0 action xt -j
-> SET --map-set WORLD_QoS dst
-> xt: unrecognized option '--map-set'
-> failed to find target (null)
+Hi AceLan,
 
-I looked into this for a bit, and it seems to be due to the SET 
-extension not supporting the x6-style options (I don't know the proper 
-name for it).
+On Thu, Sep 28, 2017 at 4:28 PM, AceLan Kao <acelan.kao@canonical.com> wrote:
+> Hi Daniel,
+>
+> I've tried your patch, but it doesn't work for me.
+> Wifi can scan AP, but can't get connected.
 
- From the iptables source:
+Can you please clarify which patch(es) you have tried?
 
-$ grep -c x6 extensions/libxt_MARK.c
-9
+This is the base patch which adds the infrastructure to request
+specific MSI IRQ vectors:
+https://marc.info/?l=linux-wireless&m=150631274108016&w=2
 
-$ grep -c x6 extensions/libxt_SET.c
-0
+This is the ath9k MSI patch which makes use of that:
+https://github.com/endlessm/linux/commit/739c7a924db8f4434a9617657
 
-I got lost in gdb for a while and didn't come up with an easy answer. 
-The options in are in the struct, just not where tc is looking.
+If you were already able to use ath9k MSI interrupts without specific
+consideration for which MSI vector numbers were used, these are the
+possible explanations that spring to mind:
 
-(gdb) print *m->extra_opts
-$3 = {name = 0x7ffff6f1dad8 "add-set", has_arg = 1, flag = 0x0, val = 49}
+1. You got lucky and it picked a vector number that is 4-aligned. You
+can check this in the "lspci -vvv" output. You'll see something like:
+Capabilities: [50] MSI: Enable+ Count=1/4 Maskable+ 64bit+
+        Address: 00000000fee0300c  Data: 4142
+The lower number is the vector number. In my example here 0x42 (66) is
+not 4-aligned so the failure condition will be hit.
 
-(gdb) print *(m->extra_opts+4)
-$7 = {name = 0x7ffff6f1db03 "map-set", has_arg = 1, flag = 0x0, val = 53}
+2. You are using interrupt remapping, which I suspect may provide a
+high likelihood of MSI interrupt vectors being 4-aligned. See if
+/proc/interrupts shows the IRQ type as IR-PCI-MSI
+Unfortunately interrupt remapping is not available here,
+https://lists.linuxfoundation.org/pipermail/iommu/2017-August/023717.html
 
+3. My assumption that all ath9k hardware corrupts the MSI vector
+number could wrong. However we've seen this on different wifi modules
+in laptops produced by different OEMs and ODMs, so it seems to be a
+somewhat widespread problem at least.
 
-I don't know if the problem is in iptables or in tc. Somebody familiar 
-with the code and its history could probably answer it easily, but I'm 
-not at all familiar with it. Sorry. Hopefully somebody else will jump in 
-and help you out.
+4. My assumption that ath9k hardware is corrupting the MSI vector
+number could be wrong; maybe another component is to blame, could it
+be a BIOS issue? Admittedly I don't really know how I can debug the
+layers inbetween seeing the MSI Message Data value disagree with the
+vector number being handled inside do_IRQ().
 
--Corey
+Daniel
