@@ -1,40 +1,83 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] rndis_host: support Novatel Verizon USB730L
-Date: Mon, 02 Oct 2017 16:17:50 -0700 (PDT)
-Message-ID: <20171002.161750.1123671129875495210.davem@davemloft.net>
-References: <20170927213103.11987-1-aleksander@aleksander.es>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: [PATCH net-next 0/8] bpf: muli prog support for cgroup-bpf
+Date: Mon, 2 Oct 2017 16:48:49 -0700
+Message-ID: <20171002234857.3707580-1-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170927213103.11987-1-aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45864 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751075AbdJBXtB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 19:49:01 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v92NmqGh027855
+        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 16:49:00 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by m0089730.ppops.net with ESMTP id 2dbwbg8jdg-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 16:49:00 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-Date: Wed, 27 Sep 2017 23:31:03 +0200
+Hi,
 
-> I'm not sure if binding this logic to a specific vid:pid (1410:9030)
-> would be more appropriate here, or if it's ok to just bind
-> class/subclass/protocol (as in the activesync case).  Let me know
-> what you think.
+cgroup-bpf use cases are getting more advanced and running only
+one program per cgroup is no longer enough. Therefore introduce
+support for attaching multiple programs per cgroup and running
+a set of effective programs.
 
-I don't have enough USB Networking knowledge to make a decision here.
+These patches introduces BPF_F_ALLOW_MULTI flag for BPF_PROG_ATTACH cmd.
+The default is still NONE and behavior of BPF_F_ALLOW_OVERRIDE flag
+is unchanged.
+The difference between three possible flags for BPF_PROG_ATTACH command:
+- NONE(default): No further bpf programs allowed in the subtree.
+- BPF_F_ALLOW_OVERRIDE: If a sub-cgroup installs some bpf program,
+  the program in this cgroup yields to sub-cgroup program.
+- BPF_F_ALLOW_MULTI: If a sub-cgroup installs some bpf program,
+  that cgroup program gets run in addition to the program in this cgroup.
 
-Some things seem confusing.  For example, if we should be matching
-USB_CLASS_MISC, subclass=4, protocol=1 for RNDIS over Ethernet, then
-we why aren't we also matching USB_CLASS_MISC, subclass=4, protocol=2
-for RNDIS over wireless and instead are matching "Remote RNDIS" in
-the form of USB_CLASS_WIRELSS, subclass=1, protocol=3?
+Most of the logic is in patch 1. Even when cgroup doesn't have
+any programs attached its set of effective program can be non-empty.
+To quickly execute them and avoid penalizing cgroups without
+any effective programs introduce 'struct bpf_prog_array'
+which has an optimization for cgroups with zero effective programs.
 
-I really don't understand any of this magic :-)
+Patch 2 introduces BPF_PROG_QUERY command for introspection
+Patch 3 makes verifier more strict for cgroup-bpf program types.
+Patch 4+ are tests.
 
-So someone more knowledgable needs to review this.
+More details in individual patches
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Alexei Starovoitov (8):
+  bpf: multi program support for cgroup+bpf
+  bpf: introduce BPF_PROG_QUERY command
+  bpf: enforce return code for cgroup-bpf programs
+  libbpf: introduce bpf_prog_detach2()
+  samples/bpf: add multi-prog cgroup test case
+  libbpf: sync bpf.h
+  libbpf: add support for BPF_PROG_QUERY
+  samples/bpf: use bpf_prog_query() interface
+
+ include/linux/bpf-cgroup.h                  |  54 ++-
+ include/linux/bpf.h                         |  35 ++
+ include/linux/filter.h                      |   2 +-
+ include/uapi/linux/bpf.h                    |  55 ++-
+ kernel/bpf/cgroup.c                         | 510 +++++++++++++++++++++-------
+ kernel/bpf/core.c                           |  64 ++++
+ kernel/bpf/syscall.c                        |  71 +++-
+ kernel/bpf/verifier.c                       |  40 +++
+ kernel/cgroup/cgroup.c                      |  38 ++-
+ samples/bpf/cgroup_helpers.c                |   4 +-
+ samples/bpf/test_cgrp2_attach2.c            | 212 +++++++++++-
+ tools/include/uapi/linux/bpf.h              |  55 ++-
+ tools/lib/bpf/bpf.c                         |  32 ++
+ tools/lib/bpf/bpf.h                         |   4 +-
+ tools/testing/selftests/bpf/test_verifier.c |  72 ++++
+ 15 files changed, 1066 insertions(+), 182 deletions(-)
+
+-- 
+2.9.5
