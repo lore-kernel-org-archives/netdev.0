@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 10/12] qed: Add support for freeing two ll2 buffers for corner cases
-Date: Mon, 2 Oct 2017 11:23:56 +0300
-Message-ID: <1506932638-26268-11-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [PATCH net-next 11/12] qed: Add support for MPA header being split over two tcp packets
+Date: Mon, 2 Oct 2017 11:23:57 +0300
+Message-ID: <1506932638-26268-12-git-send-email-Michal.Kalderon@cavium.com>
 References: <1506932638-26268-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,91 +15,111 @@ In-Reply-To: <1506932638-26268-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZ
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When posting a packet on the ll2 tx, we can provide a cookie that
-will be returned upon tx completion. This cookie is the ll2 iwarp buffer
-which is then reposted to the rx ring. Part of the unaligned mpa flow
-is determining when a buffer can be reposted. Each buffer needs to be
-sent only once as a cookie for on the tx ring. In packed fpdu case, only
-the last packet will be sent with the buffer, meaning we need to handle the
-case that a cookie can be NULL on tx complete. In addition, when a fpdu
-splits over two buffers, but there are no more fpdus on the second buffer,
-two buffers need to be provided as a cookie. To avoid changing the ll2
-interface to provide two cookies, we introduce a piggy buf pointer,
-relevant for iWARP only, that holds a pointer to a second buffer that
-needs to be released during tx completion.
+There is a special case where an MPA header is split over to tcp
+packets, in this case we need to wait for the next packet to
+get the fpdu length. We use the incomplete_bytes to mark this
+fpdu as a "special" one which requires updating the length with
+the next packet
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 25 +++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  1 +
- 2 files changed, 26 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 36 ++++++++++++++++++++++++++++-
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  6 +++++
+ 2 files changed, 41 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 83b147f..8b17369 100644
+index 8b17369..2994942 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1846,6 +1846,12 @@ enum qed_iwarp_mpa_pkt_type {
- 	/* vlan overload with enum iwarp_ll2_tx_queues */
- 	tx_pkt.vlan = IWARP_LL2_ALIGNED_TX_QUEUE;
+@@ -1742,6 +1742,7 @@ enum qed_iwarp_mpa_pkt_type {
+ 	QED_IWARP_MPA_PKT_UNALIGNED
+ };
  
-+	/* special case of unaligned packet and not packed, need to send
-+	 * both buffers as cookie to release.
++#define QED_IWARP_INVALID_FPDU_LENGTH 0xffff
+ #define QED_IWARP_MPA_FPDU_LENGTH_SIZE (2)
+ #define QED_IWARP_MPA_CRC32_DIGEST_SIZE (4)
+ 
+@@ -1774,6 +1775,15 @@ enum qed_iwarp_mpa_pkt_type {
+ 		goto out;
+ 	}
+ 
++	/* special case of one byte remaining...
++	 * lower byte will be read next packet
 +	 */
-+	if (tcp_payload_size == fpdu->incomplete_bytes)
-+		fpdu->mpa_buf->piggy_buf = buf;
-+
- 	ll2_handle = p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle;
- 
- 	/* Set first fragment to header */
-@@ -2195,9 +2201,19 @@ static void qed_iwarp_ll2_comp_tx_pkt(void *cxt, u8 connection_handle,
- 				      bool b_last_fragment, bool b_last_packet)
- {
- 	struct qed_iwarp_ll2_buff *buffer = cookie;
-+	struct qed_iwarp_ll2_buff *piggy;
- 	struct qed_hwfn *p_hwfn = cxt;
- 
-+	if (!buffer)		/* can happen in packed mpa unaligned... */
-+		return;
-+
- 	/* this was originally an rx packet, post it back */
-+	piggy = buffer->piggy_buf;
-+	if (piggy) {
-+		buffer->piggy_buf = NULL;
-+		qed_iwarp_ll2_post_rx(p_hwfn, piggy, connection_handle);
++	if (tcp_payload_len == 1) {
++		fpdu->fpdu_length = *mpa_data << BITS_PER_BYTE;
++		pkt_type = QED_IWARP_MPA_PKT_PARTIAL;
++		goto out;
 +	}
 +
- 	qed_iwarp_ll2_post_rx(p_hwfn, buffer, connection_handle);
+ 	mpa_len = ntohs(*((u16 *)(mpa_data)));
+ 	fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
  
- 	if (connection_handle == p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle)
-@@ -2216,6 +2232,15 @@ static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
- 	if (!buffer)
- 		return;
+@@ -1802,7 +1812,9 @@ enum qed_iwarp_mpa_pkt_type {
+ 	fpdu->mpa_frag = buf->data_phys_addr + pkt_data->first_mpa_offset;
+ 	fpdu->mpa_frag_virt = (u8 *)(buf->data) + pkt_data->first_mpa_offset;
  
-+	if (buffer->piggy_buf) {
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  buffer->piggy_buf->buff_size,
-+				  buffer->piggy_buf->data,
-+				  buffer->piggy_buf->data_phys_addr);
+-	if (tcp_payload_size < fpdu->fpdu_length)
++	if (tcp_payload_size == 1)
++		fpdu->incomplete_bytes = QED_IWARP_INVALID_FPDU_LENGTH;
++	else if (tcp_payload_size < fpdu->fpdu_length)
+ 		fpdu->incomplete_bytes = fpdu->fpdu_length - tcp_payload_size;
+ 	else
+ 		fpdu->incomplete_bytes = 0;	/* complete fpdu */
+@@ -1810,6 +1822,27 @@ enum qed_iwarp_mpa_pkt_type {
+ 	fpdu->mpa_frag_len = fpdu->fpdu_length - fpdu->incomplete_bytes;
+ }
+ 
++static void
++qed_iwarp_update_fpdu_length(struct qed_hwfn *p_hwfn,
++			     struct qed_iwarp_fpdu *fpdu, u8 *mpa_data)
++{
++	u16 mpa_len;
 +
-+		kfree(buffer->piggy_buf);
++	/* Update incomplete packets if needed */
++	if (fpdu->incomplete_bytes == QED_IWARP_INVALID_FPDU_LENGTH) {
++		/* Missing lower byte is now available */
++		mpa_len = fpdu->fpdu_length | *mpa_data;
++		fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
++		fpdu->mpa_frag_len = fpdu->fpdu_length;
++		/* one byte of hdr */
++		fpdu->incomplete_bytes = fpdu->fpdu_length - 1;
++		DP_VERBOSE(p_hwfn,
++			   QED_MSG_RDMA,
++			   "MPA_ALIGN: Partial header mpa_len=%x fpdu_length=%x incomplete_bytes=%x\n",
++			   mpa_len, fpdu->fpdu_length, fpdu->incomplete_bytes);
 +	}
++}
 +
- 	dma_free_coherent(&p_hwfn->cdev->pdev->dev, buffer->buff_size,
- 			  buffer->data, buffer->data_phys_addr);
- 
+ static int
+ qed_iwarp_send_fpdu(struct qed_hwfn *p_hwfn,
+ 		    struct qed_iwarp_fpdu *fpdu,
+@@ -1960,6 +1993,7 @@ enum qed_iwarp_mpa_pkt_type {
+ 			curr_pkt->first_mpa_offset += fpdu->fpdu_length;
+ 			break;
+ 		case QED_IWARP_MPA_PKT_UNALIGNED:
++			qed_iwarp_update_fpdu_length(p_hwfn, fpdu, mpa_data);
+ 			rc = qed_iwarp_send_fpdu(p_hwfn, fpdu, curr_pkt, buf,
+ 						 mpa_buf->tcp_payload_len,
+ 						 pkt_type);
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index 858755c..58db51a 100644
+index 58db51a..c58793a 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -55,6 +55,7 @@ enum qed_iwarp_qp_state {
- #define QED_IWARP_HANDLE_INVAL		(0xff)
+@@ -69,6 +69,12 @@ struct qed_iwarp_ll2_mpa_buf {
+ 	u8 placement_offset;
+ };
  
- struct qed_iwarp_ll2_buff {
-+	struct qed_iwarp_ll2_buff *piggy_buf;
- 	void *data;
- 	dma_addr_t data_phys_addr;
- 	u32 buff_size;
++/* In some cases a fpdu will arrive with only one byte of the header, in this
++ * case the fpdu_length will be partial (contain only higher byte and
++ * incomplete bytes will contain the invalid value
++ */
++#define QED_IWARP_INVALID_INCOMPLETE_BYTES 0xffff
++
+ struct qed_iwarp_fpdu {
+ 	struct qed_iwarp_ll2_buff *mpa_buf;
+ 	void *mpa_frag_virt;
 -- 
 1.8.3.1
 
