@@ -1,67 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 02/12] qed: Add ll2 ability of opening a
- secondary queue
-Date: Mon, 02 Oct 2017 10:56:38 -0700 (PDT)
-Message-ID: <20171002.105638.325840900121255738.davem@davemloft.net>
-References: <1506932638-26268-1-git-send-email-Michal.Kalderon@cavium.com>
-        <1506932638-26268-3-git-send-email-Michal.Kalderon@cavium.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 0/3] bridge: neigh msg proxy and flood
+ suppression support
+Date: Mon, 2 Oct 2017 11:02:24 -0700
+Message-ID: <20171002110224.4d789600@xeon-e3>
+References: <1506919018-27875-1-git-send-email-roopa@cumulusnetworks.com>
+        <CAJieiUim2XLMGAomb3S5AeWfYqjxV_raetedWcA_PBiaGPRHWg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-To: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1506932638-26268-3-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        bridge@lists.linux-foundation.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:43444 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751236AbdJBSCc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 14:02:32 -0400
+Received: by mail-pf0-f177.google.com with SMTP id d2so72533pfh.0
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 11:02:32 -0700 (PDT)
+In-Reply-To: <CAJieiUim2XLMGAomb3S5AeWfYqjxV_raetedWcA_PBiaGPRHWg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Date: Mon, 2 Oct 2017 11:23:48 +0300
+On Mon, 2 Oct 2017 07:49:09 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-> When more than one ll2 queue is opened ( that is not an OOO queue )
-> ll2 code does not have enough information to determine whether
-> the queue is the main one or not, so a new field is added to the
-> acquire input data to expose the control of determining whether
-> the queue is the main queue or a secondary queue.
+> On Sun, Oct 1, 2017 at 9:36 PM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> > From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> >
+> > This series implements arp and nd suppression in the bridge
+> > driver for ethernet vpns. It implements rfc7432, section 10
+> > https://tools.ietf.org/html/rfc7432#section-10
+> > for ethernet VPN deployments. It is similar to the existing
+> > BR_ARP_PROXY flag but has a few semantic differences to conform
+> > to EVPN standard. In case of EVPN, it is mainly used to avoid flooding to
+> > tunnel ports like vxlan/mpls. Unlike the existing flags it suppresses flood
+> > of all neigh discovery packets (arp, nd) to tunnel ports.
+> >
+> > Roopa Prabhu (3):
+> >   bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd
+> >     flood
+> >   neigh arp suppress first
+> >   bridge: suppress nd messages from going to BR_NEIGH_SUPPRESS ports
+> >  
 > 
-> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/ethernet/qlogic/qed/qed_ll2.c | 7 ++++++-
->  drivers/net/ethernet/qlogic/qed/qed_ll2.h | 1 +
->  include/linux/qed/qed_ll2_if.h            | 1 +
->  3 files changed, 8 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-> index 10e3a43..1dd0cca 100644
-> --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-> +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-> @@ -894,7 +894,7 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
->  	p_ramrod->drop_ttl0_flg = p_ll2_conn->input.rx_drop_ttl0_flg;
->  	p_ramrod->inner_vlan_removal_en = p_ll2_conn->input.rx_vlan_removal_en;
->  	p_ramrod->queue_id = p_ll2_conn->queue_id;
-> -	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_OOO) ? 0 : 1;
-> +	p_ramrod->main_func_queue = p_ll2_conn->main_func_queue;
->  
->  	if ((IS_MF_DEFAULT(p_hwfn) || IS_MF_SI(p_hwfn)) &&
->  	    p_ramrod->main_func_queue && (conn_type != QED_LL2_TYPE_ROCE) &&
-> @@ -1265,6 +1265,11 @@ int qed_ll2_acquire_connection(void *cxt, struct qed_ll2_acquire_data *data)
->  
->  	p_ll2_info->tx_dest = (data->input.tx_dest == QED_LL2_TX_DEST_NW) ?
->  			      CORE_TX_DEST_NW : CORE_TX_DEST_LB;
-> +	if (data->input.conn_type == QED_LL2_TYPE_OOO ||
-> +	    data->input.secondary_queue)
-> +		p_ll2_info->main_func_queue = false;
-> +	else
-> +		p_ll2_info->main_func_queue = true;
- ...
-> +	u8 main_func_queue;
+> pls ignore, shows conflict applying over recent net-next bridge
+> changes. Will rebase and submit v2.
 
-If these things are bools please use the 'bool' type.
-
-Thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ok, but the concept looks good.
