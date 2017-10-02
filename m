@@ -1,44 +1,39 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] samples/bpf: fix warnings in xdp_monitor_user
-Date: Mon, 2 Oct 2017 07:43:05 +0200
-Message-ID: <20171002074305.73024910@redhat.com>
-References: <20171001210734.27010-1-sthemmin@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: core: decouple ifalias get/set from rtnl
+ lock
+Date: Sun, 01 Oct 2017 22:46:44 -0700 (PDT)
+Message-ID: <20171001.224644.903150013683866978.davem@davemloft.net>
+References: <20170929112150.7424-1-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: brouer@redhat.com, ast@kernel.org, daniel@iogearbox.net,
-        netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49296 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750752AbdJBFnL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 01:43:11 -0400
-In-Reply-To: <20171001210734.27010-1-sthemmin@microsoft.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60602 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750752AbdJBFqp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 01:46:45 -0400
+In-Reply-To: <20170929112150.7424-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun,  1 Oct 2017 14:07:34 -0700
-Stephen Hemminger <stephen@networkplumber.org> wrote:
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 29 Sep 2017 13:21:50 +0200
 
-> Make local functions static to fix
-> 
->   HOSTCC  samples/bpf/xdp_monitor_user.o
-> samples/bpf/xdp_monitor_user.c:64:7: warning: no previous prototype for ‘gettime’ [-Wmissing-prototypes]
->  __u64 gettime(void)
->        ^~~~~~~
-> samples/bpf/xdp_monitor_user.c:209:6: warning: no previous prototype for ‘print_bpf_prog_info’ [-Wmissing-prototypes]
->  void print_bpf_prog_info(void)
->       ^~~~~~~~~~~~~~~~~~~
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> ---
->  samples/bpf/xdp_monitor_user.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> @@ -1488,7 +1484,7 @@ static void netdev_release(struct device *d)
+>  
+>  	BUG_ON(dev->reg_state != NETREG_RELEASED);
+>  
+> -	kfree(dev->ifalias);
+> +	kfree(rcu_access_pointer(dev->ifalias));
+>  	netdev_freemem(dev);
+>  }
+>  
 
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+"kfree_rcu()" at least?
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+If the deal is that you don't need to do and RCU free because
+netdevice objects disappear synchronously, and you can therefore prove
+that no RCU based async access can occur to dev->ifalias, then you
+need to add a comment here.
