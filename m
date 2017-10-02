@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v3 01/19] byteorder: Move {cpu_to_be32,be32_to_cpu}_array() from Thunderbolt to core
-Date: Mon,  2 Oct 2017 13:38:28 +0300
-Message-ID: <20171002103846.64602-2-mika.westerberg@linux.intel.com>
+Subject: [PATCH v3 08/19] thunderbolt: Configure interrupt throttling for all interrupts
+Date: Mon,  2 Oct 2017 13:38:35 +0300
+Message-ID: <20171002103846.64602-9-mika.westerberg@linux.intel.com>
 References: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,71 +19,87 @@ In-Reply-To: <20171002103846.64602-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We will be using these when communicating XDomain discovery protocol
-over Thunderbolt link but they might be useful for other drivers as
-well.
+This will keep the interrupt delivery rate reasonable. The value used
+here (128 us) is a recommendation from the hardware people.
 
-Make them available through byteorder/generic.h.
+This code is based on the work done by Amir Levy and Michael Jamet.
 
-Suggested-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Michael Jamet <michael.jamet@intel.com>
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 Reviewed-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 ---
- drivers/thunderbolt/ctl.c         | 14 --------------
- include/linux/byteorder/generic.h | 16 ++++++++++++++++
- 2 files changed, 16 insertions(+), 14 deletions(-)
+ drivers/thunderbolt/nhi.c      | 23 ++++++++++++++++++++---
+ drivers/thunderbolt/nhi_regs.h |  2 ++
+ 2 files changed, 22 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/thunderbolt/ctl.c b/drivers/thunderbolt/ctl.c
-index fb40dd0588b9..e6a4c9458c76 100644
---- a/drivers/thunderbolt/ctl.c
-+++ b/drivers/thunderbolt/ctl.c
-@@ -289,20 +289,6 @@ static void tb_cfg_print_error(struct tb_ctl *ctl,
- 	}
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index 05af126a2435..8a7a3d0133f9 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -651,6 +651,22 @@ static int nhi_suspend_noirq(struct device *dev)
+ 	return tb_domain_suspend_noirq(tb);
  }
  
--static void cpu_to_be32_array(__be32 *dst, const u32 *src, size_t len)
--{
--	int i;
--	for (i = 0; i < len; i++)
--		dst[i] = cpu_to_be32(src[i]);
--}
--
--static void be32_to_cpu_array(u32 *dst, __be32 *src, size_t len)
--{
--	int i;
--	for (i = 0; i < len; i++)
--		dst[i] = be32_to_cpu(src[i]);
--}
--
- static __be32 tb_crc(const void *data, size_t len)
++static void nhi_enable_int_throttling(struct tb_nhi *nhi)
++{
++	/* Throttling is specified in 256ns increments */
++	u32 throttle = DIV_ROUND_UP(128 * NSEC_PER_USEC, 256);
++	unsigned int i;
++
++	/*
++	 * Configure interrupt throttling for all vectors even if we
++	 * only use few.
++	 */
++	for (i = 0; i < MSIX_MAX_VECS; i++) {
++		u32 reg = REG_INT_THROTTLING_RATE + i * 4;
++		iowrite32(throttle, nhi->iobase + reg);
++	}
++}
++
+ static int nhi_resume_noirq(struct device *dev)
  {
- 	return cpu_to_be32(~__crc32c_le(~0, data, len));
-diff --git a/include/linux/byteorder/generic.h b/include/linux/byteorder/generic.h
-index 89f67c1c3160..805d16654459 100644
---- a/include/linux/byteorder/generic.h
-+++ b/include/linux/byteorder/generic.h
-@@ -170,4 +170,20 @@ static inline void be64_add_cpu(__be64 *var, u64 val)
- 	*var = cpu_to_be64(be64_to_cpu(*var) + val);
- }
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+@@ -663,6 +679,8 @@ static int nhi_resume_noirq(struct device *dev)
+ 	 */
+ 	if (!pci_device_is_present(pdev))
+ 		tb->nhi->going_away = true;
++	else
++		nhi_enable_int_throttling(tb->nhi);
  
-+static inline void cpu_to_be32_array(__be32 *dst, const u32 *src, size_t len)
-+{
-+	int i;
+ 	return tb_domain_resume_noirq(tb);
+ }
+@@ -717,6 +735,8 @@ static int nhi_init_msi(struct tb_nhi *nhi)
+ 	/* In case someone left them on. */
+ 	nhi_disable_interrupts(nhi);
+ 
++	nhi_enable_int_throttling(nhi);
 +
-+	for (i = 0; i < len; i++)
-+		dst[i] = cpu_to_be32(src[i]);
-+}
+ 	ida_init(&nhi->msix_ida);
+ 
+ 	/*
+@@ -796,9 +816,6 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	pci_set_master(pdev);
+ 
+-	/* magic value - clock related? */
+-	iowrite32(3906250 / 10000, nhi->iobase + 0x38c00);
+-
+ 	tb = icm_probe(nhi);
+ 	if (!tb)
+ 		tb = tb_probe(nhi);
+diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+index 09ed574e92ff..46eff69b19ad 100644
+--- a/drivers/thunderbolt/nhi_regs.h
++++ b/drivers/thunderbolt/nhi_regs.h
+@@ -95,6 +95,8 @@ struct ring_desc {
+ #define REG_RING_INTERRUPT_BASE	0x38200
+ #define RING_INTERRUPT_REG_COUNT(nhi) ((31 + 2 * nhi->hop_count) / 32)
+ 
++#define REG_INT_THROTTLING_RATE	0x38c00
 +
-+static inline void be32_to_cpu_array(u32 *dst, const __be32 *src, size_t len)
-+{
-+	int i;
-+
-+	for (i = 0; i < len; i++)
-+		dst[i] = be32_to_cpu(src[i]);
-+}
-+
- #endif /* _LINUX_BYTEORDER_GENERIC_H */
+ /* Interrupt Vector Allocation */
+ #define REG_INT_VEC_ALLOC_BASE	0x38c40
+ #define REG_INT_VEC_ALLOC_BITS	4
 -- 
 2.14.2
