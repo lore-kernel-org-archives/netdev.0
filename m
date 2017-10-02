@@ -1,214 +1,241 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
-Date: Mon, 2 Oct 2017 12:36:33 -0700
-Message-ID: <CALx6S35DpMWdLVWKSoRdsfROM7=A2p9pLi7n2fMtmqwhSEh5wQ@mail.gmail.com>
-References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com> <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+From: Rodney Cummings <rodney.cummings@ni.com>
+Subject: RE: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Mon, 2 Oct 2017 19:40:04 +0000
+Message-ID: <DM2PR0401MB138982C6B22DF8154A82DB39927D0@DM2PR0401MB1389.namprd04.prod.outlook.com>
+References: <DM2PR0401MB1389A950EAC6FB54D4186B9C927E0@DM2PR0401MB1389.namprd04.prod.outlook.com>
+ <CAEYbN3STY+7ZOodQLaP4MfbvwCovWsav52PXBmjHND7QOO=srg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        Henrik Austad <henrik@austad.us>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>,
+        "jesus.sanchez-palencia@intel.com" <jesus.sanchez-palencia@intel.com>,
+        "andre.guedes@intel.com" <andre.guedes@intel.com>
+To: Levi Pearson <levipearson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:50068 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751354AbdJBTgf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 15:36:35 -0400
-Received: by mail-qt0-f193.google.com with SMTP id o3so8966183qte.6
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 12:36:34 -0700 (PDT)
-In-Reply-To: <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+Received: from mx0a-00010702.pphosted.com ([148.163.156.75]:34054 "EHLO
+        mx0b-00010702.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751102AbdJBTkM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 15:40:12 -0400
+In-Reply-To: <CAEYbN3STY+7ZOodQLaP4MfbvwCovWsav52PXBmjHND7QOO=srg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> Move dissection of tunnel info from the flower classifier to the flow
-> dissector where all other dissection occurs.  This should not have any
-> behavioural affect on other users of the flow dissector.
->
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  net/core/flow_dissector.c | 100 ++++++++++++++++++++++++++++++++++++++++++++++
->  net/sched/cls_flower.c    |  25 ------------
->  2 files changed, 100 insertions(+), 25 deletions(-)
->
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 0a977373d003..1f5caafb4492 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -5,6 +5,7 @@
->  #include <linux/ipv6.h>
->  #include <linux/if_vlan.h>
->  #include <net/dsa.h>
-> +#include <net/dst_metadata.h>
->  #include <net/ip.h>
->  #include <net/ipv6.h>
->  #include <net/gre.h>
-> @@ -115,6 +116,102 @@ __be32 __skb_flow_get_ports(const struct sk_buff *skb, int thoff, u8 ip_proto,
->  }
->  EXPORT_SYMBOL(__skb_flow_get_ports);
->
-> +static void
-> +skb_flow_dissect_set_enc_addr_type(enum flow_dissector_key_id type,
-> +                                  struct flow_dissector *flow_dissector,
-> +                                  void *target_container)
-> +{
-> +       struct flow_dissector_key_control *ctrl;
-> +
-> +       if (!dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_CONTROL))
-> +               return;
-> +
-> +       ctrl = skb_flow_dissector_target(flow_dissector,
-> +                                        FLOW_DISSECTOR_KEY_ENC_CONTROL,
-> +                                        target_container);
-> +       ctrl->addr_type = type;
-> +}
-> +
-> +static void
-> +__skb_flow_dissect_tunnel_info(const struct sk_buff *skb,
-> +                              struct flow_dissector *flow_dissector,
-> +                              void *target_container)
-> +{
-> +       struct ip_tunnel_info *info;
-> +       struct ip_tunnel_key *key;
-> +
-> +       /* A quick check to see if there might be something to do. */
-> +       if (!dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_KEYID) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_CONTROL) &&
-> +           !dissector_uses_key(flow_dissector,
-> +                               FLOW_DISSECTOR_KEY_ENC_PORTS))
-> +               return;
-
-This complex conditional is now in the path of every call to flow
-dissector regardless of whether a classifier is enabled or tunnels
-are. What does the assembly show in terms of number of branches? Can
-we at least get this down to one check (might be a use case for
-FLOW_DISSECTOR_F_FLOWER ;-) ), or even better use the static key when
-encap or is enabled?
-
-> +
-> +       info = skb_tunnel_info(skb);
-> +       if (!info)
-> +               return;
-> +
-> +       key = &info->key;
-> +
-> +       switch (ip_tunnel_info_af(info)) {
-> +       case AF_INET:
-> +               skb_flow_dissect_set_enc_addr_type(FLOW_DISSECTOR_KEY_IPV4_ADDRS,
-> +                                                  flow_dissector,
-> +                                                  target_container);
-> +               if (dissector_uses_key(flow_dissector,
-> +                                      FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS)) {
-> +                       struct flow_dissector_key_ipv4_addrs *ipv4;
-> +
-> +                       ipv4 = skb_flow_dissector_target(flow_dissector,
-> +                                                        FLOW_DISSECTOR_KEY_ENC_IPV4_ADDRS,
-> +                                                        target_container);
-> +                       ipv4->src = key->u.ipv4.src;
-> +                       ipv4->dst = key->u.ipv4.dst;
-> +               }
-> +               break;
-> +       case AF_INET6:
-> +               skb_flow_dissect_set_enc_addr_type(FLOW_DISSECTOR_KEY_IPV6_ADDRS,
-> +                                                  flow_dissector,
-> +                                                  target_container);
-> +               if (dissector_uses_key(flow_dissector,
-> +                                      FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS)) {
-> +                       struct flow_dissector_key_ipv6_addrs *ipv6;
-> +
-> +                       ipv6 = skb_flow_dissector_target(flow_dissector,
-> +                                                        FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS,
-> +                                                        target_container);
-> +                       ipv6->src = key->u.ipv6.src;
-> +                       ipv6->dst = key->u.ipv6.dst;
-> +               }
-> +               break;
-> +       }
-> +
-> +       if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_KEYID)) {
-> +               struct flow_dissector_key_keyid *keyid;
-> +
-> +               keyid = skb_flow_dissector_target(flow_dissector,
-> +                                                 FLOW_DISSECTOR_KEY_ENC_KEYID,
-> +                                                 target_container);
-> +               keyid->keyid = tunnel_id_to_key32(key->tun_id);
-> +       }
-> +
-> +       if (dissector_uses_key(flow_dissector, FLOW_DISSECTOR_KEY_ENC_PORTS)) {
-> +               struct flow_dissector_key_ports *tp;
-> +
-> +               tp = skb_flow_dissector_target(flow_dissector,
-> +                                              FLOW_DISSECTOR_KEY_ENC_PORTS,
-> +                                              target_container);
-> +               tp->src = key->tp_src;
-> +               tp->dst = key->tp_dst;
-> +       }
-> +}
-> +
->  static enum flow_dissect_ret
->  __skb_flow_dissect_mpls(const struct sk_buff *skb,
->                         struct flow_dissector *flow_dissector,
-> @@ -478,6 +575,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->                                               FLOW_DISSECTOR_KEY_BASIC,
->                                               target_container);
->
-> +       __skb_flow_dissect_tunnel_info(skb, flow_dissector,
-> +                                      target_container);
-> +
->         if (dissector_uses_key(flow_dissector,
->                                FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
->                 struct ethhdr *eth = eth_hdr(skb);
-> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-> index d230cb4c8094..db831ac708f6 100644
-> --- a/net/sched/cls_flower.c
-> +++ b/net/sched/cls_flower.c
-> @@ -152,37 +152,12 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
->         struct cls_fl_filter *f;
->         struct fl_flow_key skb_key;
->         struct fl_flow_key skb_mkey;
-> -       struct ip_tunnel_info *info;
->
->         if (!atomic_read(&head->ht.nelems))
->                 return -1;
->
->         fl_clear_masked_range(&skb_key, &head->mask);
->
-> -       info = skb_tunnel_info(skb);
-> -       if (info) {
-> -               struct ip_tunnel_key *key = &info->key;
-> -
-> -               switch (ip_tunnel_info_af(info)) {
-> -               case AF_INET:
-> -                       skb_key.enc_control.addr_type =
-> -                               FLOW_DISSECTOR_KEY_IPV4_ADDRS;
-> -                       skb_key.enc_ipv4.src = key->u.ipv4.src;
-> -                       skb_key.enc_ipv4.dst = key->u.ipv4.dst;
-> -                       break;
-> -               case AF_INET6:
-> -                       skb_key.enc_control.addr_type =
-> -                               FLOW_DISSECTOR_KEY_IPV6_ADDRS;
-> -                       skb_key.enc_ipv6.src = key->u.ipv6.src;
-> -                       skb_key.enc_ipv6.dst = key->u.ipv6.dst;
-> -                       break;
-> -               }
-> -
-> -               skb_key.enc_key_id.keyid = tunnel_id_to_key32(key->tun_id);
-> -               skb_key.enc_tp.src = key->tp_src;
-> -               skb_key.enc_tp.dst = key->tp_dst;
-> -       }
-> -
->         skb_key.indev_ifindex = skb->skb_iif;
->         /* skb_flow_dissect() does not set n_proto in case an unknown protocol,
->          * so do it rather here.
-> --
-> 2.1.4
->
+VGhhbmtzIExldmksDQoNCj4gT25lIHBhcnRpY3VsYXIgZGV2aWNlIEkgYW0gd29ya2luZyB3aXRo
+IG5vdyBwcm92aWRlcyBhbGwgbmV0d29yaw0KPiBhY2Nlc3MgdGhyb3VnaCBhIERTQSBzd2l0Y2gg
+Y2hpcCB3aXRoIGhhcmR3YXJlIFFidiBzdXBwb3J0IGluIGFkZHRpb24NCj4gdG8gaGFyZHdhcmUg
+UWF2IHN1cHBvcnQuIFRoZSBTb0MgYXR0YWNoZWQgdG8gaXQgaGFzIG5vIGhhcmR3YXJlIHRpbWVk
+DQo+IGxhdW5jaCAoU09fVFhUSU1FKSBzdXBwb3J0LiBJbiB0aGlzIGNhc2UsIGFsdGhvdWdoIHRo
+ZSBwcm9wb3NlZA0KPiBpbnRlcmZhY2UgZm9yIFFidiBpcyBub3QgKnN1ZmZpY2llbnQqIHRvIG1h
+a2UgYSB3b3JraW5nIHRpbWUtYXdhcmUgZW5kDQo+IHN0YXRpb24sIGl0IGRvZXMgcHJvdmlkZSBh
+IHVzYWJsZSBidWlsZGluZyBibG9jayB0byBwcm92aWRlIG9uZS4gQXMNCj4gd2l0aCB0aGUgY3Jl
+ZGl0LWJhc2VkIHNoYXBpbmcgc3lzdGVtLCBUYWxrZXJzIG11c3QgcHJvdmlkZSBhbg0KPiBhZGRp
+dGlvbmFsIGxldmVsIG9mIHBlci1zdHJlYW0gc2hhcGluZyBhcyB3ZWxsLCBidXQgdGhpcyBpcyBs
+YXJnZWx5DQo+IChhYnNlbnQgdGhlIGppdHRlciBjYWxjdWxhdGlvbnMsIHdoaWNoIGFyZSBzb3J0
+IG9mIGEgbWlkZGxlLWxldmVsDQo+IGNvbmNlcm4pIGluZGVwZW5kZW50IG9mIHdoYXQgc29ydCBv
+ZiBoYXJkd2FyZSBvZmZsb2FkIG9mIHRoZQ0KPiBzY2hlZHVsaW5nIGlzIHByb3ZpZGVkLg0KDQpJ
+dCdzIGEgc2hhbWUgdGhhdCBzb21lb25lIGJ1aWx0IHN1Y2ggaGFyZHdhcmUuIFNwZWFraW5nIGFz
+IGEgbWFudWZhY3R1cmVyDQpvZiBkYWlzeS1jaGFpbmFibGUgcHJvZHVjdHMgZm9yIGluZHVzdHJp
+YWwvYXV0b21vdGl2ZSBhcHBsaWNhdGlvbnMsIEkNCndvdWxkbid0IHVzZSB0aGF0IGhhcmR3YXJl
+IGluIG15IHByb2R1Y3RzLiBUaGUgd2hvbGUgcG9pbnQgb2Ygc2NoZWR1bGluZw0KaXMgdG8gb2J0
+YWluIGNsb3NlLXRvLW9wdGltYWwgbmV0d29yayBkZXRlcm1pbmlzbS4gSWYgdGhlIGhhcmR3YXJl
+DQpkb2Vzbid0IHNjaGVkdWxlIHByb3Blcmx5LCB0aGUgcHJvZHVjdCBpcyBwcm9iYWJseSBiZXR0
+ZXIgb2ZmIHVzaW5nIENCUy4NCg0KSXQgd291bGQgYmUgZ3JlYXQgaWYgYWxsIG9mIHRoZSB1c2Vy
+LWxldmVsIGFwcGxpY2F0aW9uIGNvZGUgd2FzIHNjaGVkdWxlZA0KYXMgdGlnaHRseSBhcyB0aGUg
+bmV0d29yaywgYnV0IHRoZSByZWFsaXR5IGlzIHRoYXQgd2UgYXJlbid0IHRoZXJlIHlldC4NCkFs
+c28sIGV2ZW4gaWYgdGhlIGVuZC1zdGF0aW9uIGhhcyBhIHNlcGFyYXRlbHkgdGltZWQgUlQgTGlu
+dXggdGhyZWFkIGZvcg0KZWFjaCBzdHJlYW0sIHRoZSBvcmRlciBvZiB0aG9zZSB0aHJlYWRzIGNh
+biB2YXJ5LiBUaGVyZWZvcmUsIHdoZW4gdGhlIA0KZW5kLXN0YXRpb24gKFNvQykgaGFzIG1vcmUg
+dGhhbiBvbmUgdGFsa2VyLCB0aGUgZnJhbWVzIGZvciBlYWNoIHRhbGtlciANCmNhbiBiZSB3cml0
+dGVuIGludG8gdGhlIFFidiBxdWV1ZSBhdCBhbnkgdGltZSwgaW4gYW55IG9yZGVyLiANClRoZXJl
+IGlzIG5vIHNjaGVkdWxpbmcgb2YgZnJhbWVzIChpLmUuIHN0cmVhbXMpLi4uIG9ubHkgdGhlIHF1
+ZXVlLg0KDQpGcm9tIHRoZSBwZXJzcGVjdGl2ZSBvZiB0aGUgQ05DLCB0aGF0IG1lYW5zIHRoYXQg
+YSBRYnYtb25seSBlbmQtc3RhdGlvbiBpcw0Kc2xvcHB5LiBJbiBjb250cmFzdCwgYW4gZW5kLXN0
+YXRpb24gdXNpbmcgcGVyLXN0cmVhbSBzY2hlZHVsaW5nIA0KKGUuZy4gaTIxMCB3aXRoIExhdW5j
+aFRpbWUpIGlzIHByZWNpc2UsIGJlY2F1c2UgZWFjaCBmcmFtZSBoYXMgYSBrbm93biB0aW1lLg0K
+SXQncyB0cnVlIHRoYXQgUDgwMi4xUWNjIHN1cHBvcnRzIGJvdGgsIHNvIHRoZSBDTkMgbWlnaHQg
+c3VwcG9ydCBib3RoLg0KTmV2ZXJ0aGVsZXNzLCB0aGUgQ05DIGlzIGxpa2VseSB0byBjb21wdXRl
+IGEgbmV0d29yay13aWRlIHNjaGVkdWxlDQp0aGF0IG9wdGltaXplcyBmb3IgdGhlIHBlci1zdHJl
+YW0gZW5kLXN0YXRpb25zLCBhbmQgbG9jYXRlcyB0aGUgd2luZG93cw0KZm9yIHRoZSBRYnYtb25s
+eSBlbmQtc3RhdGlvbnMgaW4gYSBzbG93ZXIgaW50ZXJ2YWwuDQoNCkkgcmVhbGl6ZSB0aGF0IHdl
+IGFyZSBvbmx5IGRvaW5nIENCUyBmb3Igbm93LiBJIGd1ZXNzIG15IG1haW4gcG9pbnQgaXMgdGhh
+dA0KaWYvd2hlbiB3ZSBhZGQgc2NoZWR1bGluZywgaXQgY2Fubm90IGJlIGxpbWl0ZWQgdG8gUWJ2
+LiBQZXItc3RyZWFtIHNjaGVkdWxpbmcNCmlzIGVzc2VudGlhbCwgYmVjYXVzZSB0aGF0IGlzIHRo
+ZSBhc3N1bXB0aW9uIGZvciBtb3N0IENOQyBkZXNpZ25zIHRoYXQgDQpJJ20gYXdhcmUgb2YuDQoN
+ClJvZG5leQ0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IExldmkgUGVh
+cnNvbiBbbWFpbHRvOmxldmlwZWFyc29uQGdtYWlsLmNvbV0NCj4gU2VudDogTW9uZGF5LCBPY3Rv
+YmVyIDIsIDIwMTcgMTo0NiBQTQ0KPiBUbzogUm9kbmV5IEN1bW1pbmdzIDxyb2RuZXkuY3VtbWlu
+Z3NAbmkuY29tPg0KPiBDYzogTGludXggS2VybmVsIE5ldHdvcmsgRGV2ZWxvcGVycyA8bmV0ZGV2
+QHZnZXIua2VybmVsLm9yZz47IFZpbmljaXVzDQo+IENvc3RhIEdvbWVzIDx2aW5pY2l1cy5nb21l
+c0BpbnRlbC5jb20+OyBIZW5yaWsgQXVzdGFkIDxoZW5yaWtAYXVzdGFkLnVzPjsNCj4gcmljaGFy
+ZGNvY2hyYW5AZ21haWwuY29tOyBqZXN1cy5zYW5jaGV6LXBhbGVuY2lhQGludGVsLmNvbTsNCj4g
+YW5kcmUuZ3VlZGVzQGludGVsLmNvbQ0KPiBTdWJqZWN0OiBSZTogW1JGQyBuZXQtbmV4dCAwLzVd
+IFRTTjogQWRkIHFkaXNjLWJhc2VkIGNvbmZpZyBpbnRlcmZhY2VzIGZvcg0KPiB0cmFmZmljIHNo
+YXBlcnMNCj4gDQo+IEhpIFJvZG5leSwNCj4gDQo+IFNvbWUgYXJjaGl2ZXMgc2VlbSB0byBoYXZl
+IHRocmVhZGVkIGl0LCBidXQgSSBoYXZlIENDJ2QgdGhlDQo+IHBhcnRpY2lwYW50cyBJIHNhdyBp
+biB0aGUgb3JpZ2luYWwgZGlzY3Vzc2lvbiB0aHJlYWQgc2luY2UgdGhleSBtYXkNCj4gbm90IG90
+aGVyd2lzZSBub3RpY2UgaXQgYW1vbmdzdCB0aGUgbm9ybWFsIHRyYWZmaWMuDQo+IA0KPiBPbiBG
+cmksIFNlcCAyOSwgMjAxNyBhdCAyOjQ0IFBNLCBSb2RuZXkgQ3VtbWluZ3MgPHJvZG5leS5jdW1t
+aW5nc0BuaS5jb20+DQo+IHdyb3RlOg0KPiA+IEhpLA0KPiA+DQo+ID4gSSBhbSBwb3N0aW5nIG15
+IHJlcGx5IHRvIHRoaXMgdGhyZWFkIGFmdGVyIHN1YnNjcmliaW5nLCBzbyBJIGFwb2xvZ2l6ZQ0K
+PiA+IGlmIHRoZSBhcmNoaXZlIGhhcHBlbnMgdG8gYXR0YWNoIGl0IHRvIHRoZSB3cm9uZyB0aHJl
+YWQuDQo+ID4NCj4gPiBGaXJzdCwgSSdkIGxpa2UgdG8gc2F5IHRoYXQgSSBzdHJvbmdseSBzdXBw
+b3J0IHRoaXMgUkZDLg0KPiA+IFdlIG5lZWQgTGludXggaW50ZXJmYWNlcyBmb3IgSUVFRSA4MDIu
+MSBUU04gZmVhdHVyZXMuDQo+ID4NCj4gPiBBbHRob3VnaCBJIGhhdmVuJ3QgbG9va2VkIGluIGRl
+dGFpbCwgdGhlIHByb3Bvc2FsIGZvciBDQlMgbG9va3MgZ29vZC4NCj4gPiBNeSBxdWVzdGlvbnMv
+Y29uY2VybnMgYXJlIG1vcmUgcmVsYXRlZCB0byBmdXR1cmUgd29yaywgc3VjaCBmb3IgODAyLjFR
+YnYNCj4gPiAoc2NoZWR1bGVkIHRyYWZmaWMpLg0KPiA+DQo+ID4gMS4gUXVlc3Rpb246IEZyb20g
+YW4gODAyLjEgcGVyc3BlY3RpdmUsIGlzIHRoaXMgUkZDIGludGVuZGVkIHRvIHN1cHBvcnQNCj4g
+PiBlbmQtc3RhdGlvbiAoZS5nLiBOSUMgaW4gaG9zdCksIGJyaWRnZXMgKGkuZS4gRFNBKSwgb3Ig
+Ym90aD8NCj4gPg0KPiA+IFRoaXMgaXMgdmVyeSBpbXBvcnRhbnQgdG8gY2xhcmlmeSwgYmVjYXVz
+ZSB0aGUgdXNhZ2Ugb2YgdGhpcyBpbnRlcmZhY2UNCj4gPiB3aWxsIGJlIHZlcnkgZGlmZmVyZW50
+IGZvciBvbmUgb3IgdGhlIG90aGVyLg0KPiA+DQo+ID4gRm9yIGEgYnJpZGdlLCB0aGUgdXNlciBj
+b2RlIHR5cGljYWxseSByZXByZXNlbnRzIGEgcmVtb3RlIG1hbmFnZW1lbnQNCj4gPiBwcm90b2Nv
+bCAoZS5nLiBTTk1QLCBORVRDT05GLCBSRVNUQ09ORiksIGFuZCB0aGlzIGludGVyZmFjZSBpcw0K
+PiA+IGV4cGVjdGVkIHRvIGFsaWduIHdpdGggdGhlIHNwZWNpZmljYXRpb25zIG9mIDgwMi4xUSBj
+bGF1c2UgMTIsDQo+ID4gd2hpY2ggc2VydmVzIGFzIHRoZSBpbmZvcm1hdGlvbiBtb2RlbCBmb3Ig
+bWFuYWdlbWVudC4gSGlzdG9yaWNhbGx5LA0KPiA+IGEgc3RhbmRhcmQga2VybmVsIGludGVyZmFj
+ZSBmb3IgbWFuYWdlbWVudCBoYXNuJ3QgYmVlbiB2aWV3ZWQgYXMNCj4gPiBlc3NlbnRpYWwsIGJ1
+dCBJIHN1cHBvc2UgaXQgd291bGRuJ3QgaHVydC4NCj4gDQo+IEkgZG9uJ3QgdGhpbmsgdGhlIHBy
+b3Bvc2FsIHdhcyBtZWFudCB0byBjb3ZlciB0aGUgY2FzZSBvZiBub24tbG9jYWwNCj4gc3dpdGNo
+IGhhcmR3YXJlLCBidXQgaW4gYWRkaXRpb24gdG8gZHNhIGFuZCBzd2l0Y2hkZXYgc3dpdGNoIElD
+cw0KPiBtYW5hZ2VkIGJ5IGVtYmVkZGVkIExpbnV4LXJ1bm5pbmcgU29DcywgdGhlcmUgYXJlIFNv
+Q3Mgd2l0aCBlbWJlZGRlZA0KPiBzbWFsbCBwb3J0IGNvdW50IHN3aXRjaGVzIG9yIGV2ZW4gcGxh
+aW4gbXVsdGlwbGUgTklDcyB3aXRoIHNvZnR3YXJlDQo+IGJyaWRnaW5nLiBNYW55IG9mIHRoZXNl
+IGVtYmVkZGVkIHNtYWxsIHBvcnQgY291bnQgc3dpdGNoZXMgaGF2ZSBGUVRTUw0KPiBoYXJkd2Fy
+ZSB0aGF0IGNvdWxkIHBvdGVudGlhbGx5IGJlIGNvbmZpZ3VyZWQgYnkgdGhlIHByb3Bvc2VkIGNi
+cw0KPiBxZGlzYy4gVGhpcyBibHVycyB0aGUgbGluZSBzb21ld2hhdCBiZXR3ZWVuIHdoYXQgaXMg
+YSAiYnJpZGdlIiBhbmQNCj4gd2hhdCBpcyBhbiAiZW5kLXN0YXRpb24iIGluIDgwMi4xUSB0ZXJt
+aW5vbG9neSwgYnV0IG5ldmVydGhlbGVzcyB0aGVzZQ0KPiBkZXZpY2VzIGV4aXN0LCBzb21ldGlt
+ZXMgYWN0aW5nIGFzIGFuIGVuZHBvaW50ICsgYSByZWFsIGJyaWRnZSBhbmQNCj4gc29tZXRpbWVz
+IGFzIGp1c3QgYSBzeXN0ZW0gd2l0aCBtdWx0aXBsZSBuZXR3b3JrIGludGVyZmFjZXMuDQo+IA0K
+PiA+IEZvciBhbiBlbmQgc3RhdGlvbiwgdGhlIHVzZXIgY29kZSBjYW4gYmUgYW4gaW1wbGVtZW50
+YXRpb24gb2YgU1JQDQo+ID4gKDgwMi4xUSBjbGF1c2UgMzUpLCBvciBpdCBjYW4gYmUgYW4gYXBw
+bGljYXRpb24tc3BlY2lmaWMNCj4gPiBwcm90b2NvbCAoZS5nLiBpbmR1c3RyaWFsIGZpZWxkYnVz
+KSB0aGF0IGV4Y2hhbmdlcyBkYXRhIGFjY29yZGluZw0KPiA+IHRvIFA4MDIuMVFjYyBjbGF1c2Ug
+NDYuIEVpdGhlciB3YXksIHRoZSB0b3AtbGV2ZWwgdXNlciBpbnRlcmZhY2UNCj4gPiBpcyBkZXNp
+Z25lZCBmb3IgaW5kaXZpZHVhbCBzdHJlYW1zLCBub3QgcXVldWVzIGFuZCBzaGFwZXJzLiBUaGF0
+DQo+ID4gaW1wbGllcyBzb21lIHRyYW5zbGF0aW9uIGNvZGUgYmV0d2VlbiB0aGF0IHRvcC1sZXZl
+bCBpbnRlcmZhY2UNCj4gPiBhbmQgdGhpcyBzb3J0IG9mIGtlcm5lbCBpbnRlcmZhY2UuDQo+ID4N
+Cj4gPiBBcyBhIHNwZWNpZmljIGVuZC1zdGF0aW9uIGV4YW1wbGUsIGZvciBDQlMsIDgwMi4xUS0y
+MDE0IHN1YmNsYXVzZQ0KPiA+IDM0LjYuMSByZXF1aXJlcyAicGVyLXN0cmVhbSBxdWV1ZXMiIGlu
+IHRoZSBUYWxrZXIgZW5kLXN0YXRpb24uDQo+ID4gSSBkb24ndCBzZWUgMzQuNi4xIHJlcHJlc2Vu
+dGVkIGluIHRoZSBwcm9wb3NlZCBSRkMsIGJ1dCB0aGF0J3MNCj4gPiBva2F5Li4uIG1heWJlIHBl
+ci1zdHJlYW0gcXVldWVzIGFyZSBpbXBsZW1lbnRlZCBpbiB1c2VyIGNvZGUuDQo+ID4gTmV2ZXJ0
+aGVsZXNzLCBpZiB0aGF0IGlzIHRoZSBhc3N1bXB0aW9uLCBJIHRoaW5rIHdlIG5lZWQgdG8NCj4g
+PiBjbGFyaWZ5LCBlc3BlY2lhbGx5IGluIGV4YW1wbGVzLg0KPiANCj4gWW91J3JlIGNvcnJlY3Qg
+dGhhdCB0aGUgRlFUU1MgY3JlZGl0LWJhc2VkIHNoYXBpbmcgYWxnb3JpdGhtIHJlcXVpcmVzDQo+
+IHBlci1zdHJlYW0gc2hhcGluZyBieSBUYWxrZXIgZW5kcG9pbnRzIGFzIHdlbGwsIGJ1dCB0aGlz
+IGlzIGluDQo+IGFkZGl0aW9uIHRvIHRoZSBwZXItY2xhc3Mgc2hhcGluZyBwcm92aWRlZCBieSBt
+b3N0IGhhcmR3YXJlIHNoYXBpbmcNCj4gaW1wbGVtZW50YXRpb25zIHRoYXQgSSdtIGF3YXJlIG9m
+IGluIGVuZHBvaW50IG5ldHdvcmsgaGFyZHdhcmUuIEkNCj4gYWdyZWUgdGhhdCB3ZSBuZWVkIHRv
+IGRvY3VtZW50IHRoZSBuZWVkIHRvIHByb3ZpZGUgdGhpcywgYnV0IGl0IGNhbg0KPiBkZWZpbml0
+ZWx5IGJlIGJ1aWx0IG9uIHRvcCBvZiB0aGUgY3VycmVudCBwcm9wb3NhbC4NCj4gDQo+IEkgYmVs
+aWV2ZSB0aGUgcGVyLXN0cmVhbSBzaGFwaW5nIGNvdWxkIGJlIG1hbmFnZWQgZWl0aGVyIGJ5IGEg
+dXNlcg0KPiBzcGFjZSBhcHBsaWNhdGlvbiB0aGF0IG1hbmFnZXMgYWxsIHVzZSBvZiBhIHN0cmVh
+bWluZyB0cmFmZmljIGNsYXNzLA0KPiBvciB0aHJvdWdoIGFuIGFkZGl0aW9uYWwgcWRpc2MgbW9k
+dWxlIHRoYXQgcGVyZm9ybXMgcGVyLXN0cmVhbQ0KPiBtYW5hZ2VtZW50IG9uIHRvcCBvZiB0aGUg
+cHJvcG9zZWQgY2JzIHFkaXNjLCBlbnN1cmluZyB0aGF0IHRoZQ0KPiBmcmFtZXMtcGVyLW9ic2Vy
+dmF0aW9uIGludGVydmFsIGFzcGVjdCBvZiBlYWNoIHN0cmVhbSdzIHJlc2VydmF0aW9uIGlzDQo+
+IG9iZXllZC4gVGhpcyBiZWNvbWVzIGEgZmFpcmx5IHNpbXBsZSBxZGlzYyB0byBpbXBsZW1lbnQg
+b24gdG9wIG9mIGENCj4gcGVyLXRyYWZmaWMgY2xhc3Mgc2hhcGVyLCBhbmQgY291bGQgZXZlbiBi
+ZSBpbXBsZW1lbnRlZCB3aXRoIHRoZSBoZWxwDQo+IG9mIHRoZSB0aW1lc3RhbXAgdGhhdCB0aGUg
+U09fVFhUSU1FIHByb3Bvc2FsIGFkZHMgdG8gc2tidWZmcywgYnV0IEkNCj4gdGhpbmsga2VlcGlu
+ZyB0aGUgbGF5ZXJzIHNlcGFyYXRlIHByb3ZpZGVzIG1vcmUgZmxleGliaWxpdHkgdG8NCj4gaW1w
+bGVtZW50YXRpb25zIGFuZCBrZWVwcyBtYW5hZ2VtZW50IG9mIHZhcmlvdXMga2luZHMgb2YgaGFy
+ZHdhcmUNCj4gb2ZmbG9hZCBzdXBwb3J0IHNpbXBsZXIgYXMgd2VsbC4NCj4gDQo+ID4gMi4gU3Vn
+Z2VzdGlvbjogRG8gbm90IGFzc3VtZSB0aGF0IGEgdGltZS1hd2FyZSAoaS5lLiBzY2hlZHVsZWQp
+DQo+ID4gZW5kLXN0YXRpb24gd2lsbCBhbHdheXMgdXNlIDgwMi4xUWJ2Lg0KPiA+DQo+ID4gRm9y
+IHRob3NlIHdobyBhcmUgc3Vic2NyaWJlZCB0byB0aGUgODAyLjEgbWFpbGluZyBsaXN0LA0KPiA+
+IEknZCBzdWdnZXN0IGEgcmVhZCBvZiBkcmFmdCBQODAyLjFRY2MvRDEuNiwgc3ViY2xhdXNlIFUu
+MQ0KPiA+IG9mIEFubmV4IFUuIFN1YmNsYXVzZSBVLjEgYXNzdW1lcyB0aGF0IGJyaWRnZXMgaW4g
+dGhlIG5ldHdvcmsgdXNlDQo+ID4gODAyLjFRYnYsIGFuZCB0aGVuIGl0IHBvc2VzIHRoZSBxdWVz
+dGlvbiBvZiB3aGF0IGFuIGVuZC1zdGF0aW9uDQo+ID4gVGFsa2VyIHNob3VsZCBkby4gSWYgdGhl
+IGVuZC1zdGF0aW9uIGFsc28gdXNlcyA4MDIuMVFidiwNCj4gPiBhbmQgdGhhdCBlbmQtc3RhdGlv
+biB0cmFuc21pdHMgbXVsdGlwbGUgc3RyZWFtcywgODAyLjFRYnYgaXMNCj4gPiBhIGJhZCBpbXBs
+ZW1lbnRhdGlvbi4gVGhlIHJlYXNvbiBpcyB0aGF0IHRoZSBzY2hlZHVsaW5nDQo+ID4gKGkuZS4g
+b3JkZXIgaW4gdGltZSkgb2YgZWFjaCBzdHJlYW0gY2Fubm90IGJlIGNvbnRyb2xsZWQsIHdoaWNo
+DQo+ID4gaW4gdHVybiBtZWFucyB0aGF0IHRoZSBDTkMgKG5ldHdvcmsgbWFuYWdlcikgY2Fubm90
+IG9wdGltaXplDQo+ID4gdGhlIDgwMi4xUWJ2IHNjaGVkdWxlcyBpbiBicmlkZ2VzLiBUaGUgcHJl
+ZmVycmVkIHRlY2huaXF1ZQ0KPiA+IGlzIHRvIHVzZSAicGVyLXN0cmVhbSBzY2hlZHVsaW5nIiBp
+biBlYWNoIFRhbGtlciwgc28gdGhhdA0KPiA+IHRoZSBDTkMgY2FuIGNyZWF0ZSBhbiBvcHRpbWFs
+IHNjaGVkdWxlcyAoaS5lLiBiZXN0IGRldGVybWluaXNtKS4NCj4gPg0KPiA+IEknbSBhd2FyZSBv
+ZiBhIHNtYWxsIG51bWJlciBvZiBwcm9wcmlldGFyeSBDTkMgaW1wbGVtZW50YXRpb25zIGZvcg0K
+PiA+IDgwMi4xUWJ2IGluIGJyaWRnZXMsIGFuZCB0aGV5IGFyZSBnZW5lcmFsbHkgYXNzdW1pbmcg
+cGVyLXN0cmVhbQ0KPiA+IHNjaGVkdWxpbmcgaW4gZW5kLXN0YXRpb25zIChUYWxrZXJzKS4NCj4g
+Pg0KPiA+IFRoZSBpMjEwIE5JQydzIExhdW5jaFRpbWUgY2FuIGJlIHVzZWQgdG8gaW1wbGVtZW50
+IHBlci1zdHJlYW0NCj4gPiBzY2hlZHVsaW5nLiBJIGhhdmVuJ3QgbG9va2VkIGF0IFNPX1RYVElN
+RSBpbiBkZXRhaWwsIGJ1dCBpdCBzb3VuZHMNCj4gPiBsaWtlIHBlci1zdHJlYW0gc2NoZWR1bGlu
+Zy4gSWYgc28sIHRoZW4gd2UgYWxyZWFkeSBoYXZlIHRoZQ0KPiA+IGZ1bmRhbWVudGFsIGJ1aWxk
+aW5nIGJsb2NrcyBmb3IgYSBjb21wbGV0ZSBpbXBsZW1lbnRhdGlvbg0KPiA+IG9mIGEgdGltZS1h
+d2FyZSBlbmQtc3RhdGlvbi4NCj4gPg0KPiA+IElmIHdlIGFuc3dlciB0aGUgcHJlY2VkaW5nIHF1
+ZXN0aW9uICMxIGFzICJlbmQtc3RhdGlvbiBvbmx5IiwNCj4gPiBJIHdvdWxkIHJlY29tbWVuZCBh
+dm9pZGluZyA4MDIuMVFidiBpbiB0aGlzIGludGVyZmFjZS4gVGhlcmUNCj4gPiBpc24ndCByZWFs
+bHkgYW55dGhpbmcgd3Jvbmcgd2l0aCBpdCBwZXItc2UsIGJ1dCBpdCB3b3VsZCBsZWFkDQo+ID4g
+ZGV2ZWxvcGVycyBkb3duIHRoZSB3cm9uZyBwYXRoLg0KPiANCj4gSW4gc29tZSBzaXR1YXRpb25z
+LCBzdWNoIGFzIGRldmljZSBub2RlcyB0aGF0IGVhY2ggaW5jb3Jwb3JhdGUgYSBzbWFsbA0KPiBw
+b3J0IGNvdW50IHN3aXRjaCBmb3IgdGhlIHB1cnBvc2Ugb2YgZGFpc3ktY2hhaW5pbmcgYSBzZWdt
+ZW50IG9mIHRoZQ0KPiBuZXR3b3JrLCAiZW5kIHN0YXRpb25zIiBtdXN0IGRvIGEgbGltaXRlZCBz
+dWJzZXQgb2YgbG9jYWwgYnJpZGdlDQo+IG1hbmFnZW1lbnQgYXMgd2VsbC4gSSdtIG5vdCBzdXJl
+IGhvdyBjb21tb24gdGhpcyBpcyBnb2luZyB0byBiZSBmb3INCj4gaW5kdXN0cmlhbCBjb250cm9s
+IGFwcGxpY2F0aW9ucywgYnV0IEkga25vdyB0aGVyZSBhcmUgYXVkaW8gYW5kDQo+IGF1dG9tb3Rp
+dmUgYXBwbGljYXRpb25zIGJ1aWx0IHRoaXMgd2F5Lg0KPiANCj4gT25lIHBhcnRpY3VsYXIgZGV2
+aWNlIEkgYW0gd29ya2luZyB3aXRoIG5vdyBwcm92aWRlcyBhbGwgbmV0d29yaw0KPiBhY2Nlc3Mg
+dGhyb3VnaCBhIERTQSBzd2l0Y2ggY2hpcCB3aXRoIGhhcmR3YXJlIFFidiBzdXBwb3J0IGluIGFk
+ZHRpb24NCj4gdG8gaGFyZHdhcmUgUWF2IHN1cHBvcnQuIFRoZSBTb0MgYXR0YWNoZWQgdG8gaXQg
+aGFzIG5vIGhhcmR3YXJlIHRpbWVkDQo+IGxhdW5jaCAoU09fVFhUSU1FKSBzdXBwb3J0LiBJbiB0
+aGlzIGNhc2UsIGFsdGhvdWdoIHRoZSBwcm9wb3NlZA0KPiBpbnRlcmZhY2UgZm9yIFFidiBpcyBu
+b3QgKnN1ZmZpY2llbnQqIHRvIG1ha2UgYSB3b3JraW5nIHRpbWUtYXdhcmUgZW5kDQo+IHN0YXRp
+b24sIGl0IGRvZXMgcHJvdmlkZSBhIHVzYWJsZSBidWlsZGluZyBibG9jayB0byBwcm92aWRlIG9u
+ZS4gQXMNCj4gd2l0aCB0aGUgY3JlZGl0LWJhc2VkIHNoYXBpbmcgc3lzdGVtLCBUYWxrZXJzIG11
+c3QgcHJvdmlkZSBhbg0KPiBhZGRpdGlvbmFsIGxldmVsIG9mIHBlci1zdHJlYW0gc2hhcGluZyBh
+cyB3ZWxsLCBidXQgdGhpcyBpcyBsYXJnZWx5DQo+IChhYnNlbnQgdGhlIGppdHRlciBjYWxjdWxh
+dGlvbnMsIHdoaWNoIGFyZSBzb3J0IG9mIGEgbWlkZGxlLWxldmVsDQo+IGNvbmNlcm4pIGluZGVw
+ZW5kZW50IG9mIHdoYXQgc29ydCBvZiBoYXJkd2FyZSBvZmZsb2FkIG9mIHRoZQ0KPiBzY2hlZHVs
+aW5nIGlzIHByb3ZpZGVkLg0KPiANCj4gQm90aCBRYnYgd2luZG93cyBhbmQgdGltZWQgbGF1bmNo
+IHN1cHBvcnQgZG8gcm91Z2hseSB0aGUgc2FtZSB0aGluZzsNCj4gdGhleSAqZGVsYXkqIHRoZSBs
+YXVuY2ggb2YgYSBoYXJkd2FyZS1xdWV1ZWQgZnJhbWUgc28gaXQgY2FuIGVncmVzcyBhdA0KPiBh
+IHByZWNpc2VseSBzcGVjaWZpZWQgdGltZSwgYW5kIGF0IGxlYXN0IHdpdGggdGhlIGkyMTAgYW5k
+IFFidiwgZW5zdXJlDQo+IHRoYXQgbm8gb3RoZXIgdHJhZmZpYyB3aWxsIGJlIGluLXByb2dyZXNz
+IHdoZW4gdGhhdCB0aW1lIGFycml2ZXMuIEZvcg0KPiBlaXRoZXIgdG8gYmUgdXNlZCBlZmZlY3Rp
+dmVseSwgdGhlIGFwcGxpY2F0aW9uIHN0aWxsIGhhcyB0byBwcmVwYXJlDQo+IHRoZSBmcmFtZSBz
+bGlnaHRseSBhaGVhZC1vZi10aW1lIGFuZCB0aHVzIG11c3QgaGF2ZSB0aGUgc2FtZSBsZXZlbCBv
+Zg0KPiB0aW1lLWF3YXJlbmVzcy4gVGhpcyBpcywgYWdhaW4sIGxhcmdlbHkgaW5kZXBlbmRlbnQg
+b2Ygd2hhdCBraW5kIG9mDQo+IGhhcmR3YXJlIG9mZmxvYWRpbmcgc3VwcG9ydCBpcyBwcm92aWRl
+ZCBhbmQgaXMgYWxzbyBsYXJnZWx5DQo+IGluZGVwZW5kZW50IG9mIHRoZSBuZXR3b3JrIHN0YWNr
+IGl0c2VsZi4gTmVpdGhlciBxdWV1ZSB3aW5kb3cNCj4gbWFuYWdlbWVudCBub3IgU09fVFhUSU1F
+IGhlbHAgdGhlIGFwcGxpY2F0aW9uIHByZXNlbnQgaXRzDQo+IHRpbWUtc2Vuc2l0aXZlIHRyYWZm
+aWMgYXQgdGhlIHJpZ2h0IHRpbWU7IHRoYXQncyBhIG1hdHRlciB0byBiZSB3b3JrZWQNCj4gb3V0
+IHdpdGggdGhlIGFwcGxpY2F0aW9uIHRha2luZyBhZHZhbnRhZ2Ugb2YgUFRQIGFuZCB0aGUgT1Mg
+c2NoZWR1bGVyLg0KPiBXaGV0aGVyIHlvdSByZWx5IG9uIG1hbmFnZWQgd2luZG93cyBvciBoYXJk
+d2FyZSBsYXVuY2ggdGltZSB0byBwcm92aWRlDQo+IHRoZSBwcmVjaXNlbHkgY29ycmVjdCBhbW91
+bnQgb2YgZGVsYXkgYmV5b25kIHRoYXQgaXMgaW1tYXRlcmlhbCB0byB0aGUNCj4gYXBwbGljYXRp
+b24uIEluIHRoZSBhYnNlbmNlIG9mIFNPX1RYVElNRSBvZmZsb2FkaW5nIChvciBldmVuIHdpdGgg
+aXQsDQo+IGFuZCBpbiB0aGUgcHJlc2VuY2Ugb2Ygc3VmZmljaWVudCBPUyBzY2hlZHVsaW5nIGpp
+dHRlciksIGFuIGFkZGl0aW9uYWwNCj4gbGF5ZXIgbWF5IG5lZWQgdG8gYmUgcHJvdmlkZWQgdG8g
+ZW5zdXJlIGRpZmZlcmVudCBhcHBsaWNhdGlvbnMnIGZyYW1lcw0KPiBhcmUgcXVldWVkIGluIHRo
+ZSBjb3JyZWN0IG9yZGVyIGZvciBlZ3Jlc3MgZHVyaW5nIHRoZSB3aW5kb3cuIEFnYWluLA0KPiB0
+aGlzIGNvdWxkIGJlIGEgcHVyZWx5IHVzZXItc3BhY2UgYXBwbGljYXRpb24gbXVsdGlwbGV4ZXIg
+b3IgYQ0KPiBzZXBhcmF0ZSBxZGlzYyBtb2R1bGUuDQo+IA0KPiBJIHdob2xlaGVhcnRlZGx5IGFn
+cmVlIHdpdGggeW91IGFuZCBSaWNoYXJkIHRoYXQgd2Ugb3VnaHQgdG8NCj4gZXZlbnR1YWxseSBw
+cm92aWRlIGFwcGxpY2F0aW9uLWxldmVsIEFQSXMgdGhhdCBkb24ndCByZXF1aXJlIHVzZXJzIHRv
+DQo+IGhhdmUgZGVlcCBrbm93bGVkZ2Ugb2YgdmFyaW91cyA4MDIuMVEgaW50cmljYWNpZXMuIEJ1
+dCBJIGJlbGlldmUgdGhhdA0KPiB0aGUgaGFyZHdhcmUgb2ZmbG9hZGluZyBjYXBhYmlsaXR5IGJl
+aW5nIHByb3ZpZGVkIG5vdywgYW5kIHRoZSB2YXJpZXR5DQo+IG9mIHRoZSB3YXkgdGhpbmdzIGFy
+ZSBob29rZWQgdXAgaW4gcmVhbCBoYXJkd2FyZSwgc3VnZ2VzdHMgdGhhdCB3ZQ0KPiBvdWdodCB0
+byBhbHNvIGJ1aWxkIHRoZSBzdXBwb3J0IGZvciB0aGUgdW5kZXJseWluZyBwcm90b2NvbHMgaW4g
+bGF5ZXJzDQo+IHNvIHRoYXQgd2UgZG9uJ3QgY3JlYXRlIHVubmVjZXNzYXJ5IG1pc21hdGNoZXMg
+YmV0d2VlbiBvZmZsb2FkaW5nDQo+IGNhcGFiaWxpdHkgKHdoaWNoIGNhbiBiZSBlc3NlbnRpYWwg
+dG8gb3ZlcmFsbCBuZXR3b3JrIHBlcmZvcm1hbmNlKSBhbmQNCj4gQVBJcywgc3VjaCB0aGF0IG9u
+ZSBjb25maWd1cmF0aW9uIG9mIG9mZmxvYWQgc3VwcG9ydCBpcyBwcml2aWxlZ2VkDQo+IGFib3Zl
+IG90aGVycyBldmVuIHdoZW4gY29tcGFyYWJsZSBzY2hlZHVsaW5nIGFjY3VyYWN5IGNvdWxkIGJl
+DQo+IHByb3ZpZGVkIGJ5IGVpdGhlci4NCj4gDQo+IEluIGFueSBjYXNlLCBvbmx5IHRoZSBjYnMg
+cWRpc2MgaGFzIGJlZW4gaW5jbHVkZWQgaW4gdGhlIHBvc3QtUkZDDQo+IHBhdGNoIGNvdmVyIHBh
+Z2UgZm9yIGl0cyBsYXN0IGNvdXBsZSBvZiBpdGVyYXRpb25zLCBzbyB0aGVyZSBpcyBwbGVudHkN
+Cj4gb2YgdGltZSB0byBkaXNjdXNzIGhvdyB0aW1lLWF3YXJlIHNoYXBpbmcsIHByZWVtcHRpb24s
+IGV0Yy4gbWFuYWdlbWVudA0KPiBzaG91bGQgb2NjdXIgYmV5b25kIHRoZSBjYnMgYW5kIFNPX1RY
+VElNRSBwcm9wb3NhbHMuDQo+IA0KPiANCj4gTGV2aQ0K
