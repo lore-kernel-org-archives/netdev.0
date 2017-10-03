@@ -1,89 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 1/7] skbuff: Add the offload_mr_fwd_mark field
-Date: Tue,  3 Oct 2017 09:58:06 +0200
-Message-ID: <20171003075812.1540-2-jiri@resnulli.us>
-References: <20171003075812.1540-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
-        dsa@cumulusnetworks.com, edumazet@google.com, willemb@google.com,
-        johannes.berg@intel.com, dcaratti@redhat.com, pabeni@redhat.com,
-        daniel@iogearbox.net, f.fainelli@gmail.com, fw@strlen.de,
-        gfree.wind@vip.163.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:55127 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdJCH6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:15 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i124so14938522wmf.3
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:14 -0700 (PDT)
-In-Reply-To: <20171003075812.1540-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH 05/18] net: use ARRAY_SIZE
+Date: Tue, 3 Oct 2017 11:09:50 +0300
+Message-ID: <CAHp75Vfz=77TB3Mt_=CZUBzndwRE_XhrOFgdJ-HLUwrfg8a=kA@mail.gmail.com>
+References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
+ <20171001193101.8898-6-jeremy.lefaure@lse.epita.fr> <CAHp75VfC2e+h8GCiB-1Rbe=_z3siBBo0WfqEf3qz8yWh8Cm3RQ@mail.gmail.com>
+ <20171002212214.30d7013a@blatinox-laptop.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
+        Wright Feng <wright.feng@cypress.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <
+To: =?UTF-8?B?SsOpcsOpbXkgTGVmYXVyZQ==?= <jeremy.lefaure@lse.epita.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171002212214.30d7013a@blatinox-laptop.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+On Tue, Oct 3, 2017 at 4:22 AM, J=C3=A9r=C3=A9my Lefaure
+<jeremy.lefaure@lse.epita.fr> wrote:
+> On Mon, 2 Oct 2017 16:07:36 +0300
+> Andy Shevchenko <andy.shevchenko@gmail.com> wrote:
+>
+>> > +       {&gainctrl_lut_core0_rev0, ARRAY_SIZE(gainctrl_lut_core0_rev0)=
+, 26, 192,
+>> > +        32},
+>>
+>> For all such cases I would rather put on one line disregard checkpatch
+>> warning for better readability.
+> I agree that it would be better. I didn't know that it was possible to
+> not follow this rule for anything else than a string.
 
-Similarly to the offload_fwd_mark field, the offload_mr_fwd_mark field is
-used to allow partial offloading of MFC multicast routes.
+IMO, it increases readability quite enough to overrule checkpatch recomenda=
+tion.
 
-Switchdev drivers can offload MFC multicast routes to the hardware by
-registering to the FIB notification chain. When one of the route output
-interfaces is not offload-able, i.e. has different parent ID, the route
-cannot be fully offloaded by the hardware. Examples to non-offload-able
-devices are a management NIC, dummy device, pimreg device, etc.
-
-Similar problem exists in the bridge module, as one bridge can hold
-interfaces with different parent IDs. At the bridge, the problem is solved
-by the offload_fwd_mark skb field.
-
-Currently, when a route cannot go through full offload, the only solution
-for a switchdev driver is not to offload it at all and let the packet go
-through slow path.
-
-Using the offload_mr_fwd_mark field, a driver can indicate that a packet
-was already forwarded by hardware to all the devices with the same parent
-ID as the input device. Further patches in this patch-set are going to
-enhance ipmr to skip multicast forwarding to devices with the same parent
-ID if a packets is marked with that field.
-
-The reason why the already existing "offload_fwd_mark" bit cannot be used
-is that a switchdev driver would want to make the distinction between a
-packet that has already gone through L2 forwarding but did not go through
-multicast forwarding, and a packet that has already gone through both L2
-and multicast forwarding.
-
-For example: when a packet is ingressing from a switchport enslaved to a
-bridge, which is configured with multicast forwarding, the following
-scenarios are possible:
- - The packet can be trapped to the CPU due to exception while multicast
-   forwarding (for example, MTU error). In that case, it had already gone
-   through L2 forwarding in the hardware, thus A switchdev driver would
-   want to set the skb->offload_fwd_mark and not the
-   skb->offload_mr_fwd_mark.
- - The packet can also be trapped due to a pimreg/dummy device used as one
-   of the output interfaces. In that case, it can go through both L2 and
-   (partial) multicast forwarding inside the hardware, thus a switchdev
-   driver would want to set both the skb->offload_fwd_mark and
-   skb->offload_mr_fwd_mark.
-
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellaox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/linux/skbuff.h | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 19e64bf..ada8214 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -772,6 +772,7 @@ struct sk_buff {
- 	__u8			remcsum_offload:1;
- #ifdef CONFIG_NET_SWITCHDEV
- 	__u8			offload_fwd_mark:1;
-+	__u8			offload_mr_fwd_mark:1;
- #endif
- #ifdef CONFIG_NET_CLS_ACT
- 	__u8			tc_skip_classify:1;
--- 
-2.9.5
+--=20
+With Best Regards,
+Andy Shevchenko
