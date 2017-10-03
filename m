@@ -1,73 +1,44 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
- CONFIG_BRIDGE_VLAN_FILTERING
-Date: Tue, 3 Oct 2017 12:29:56 +0900
-Message-ID: <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
-References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next 1/8] bpf: multi program support for cgroup+bpf
+Date: Mon, 2 Oct 2017 22:00:15 -0700
+Message-ID: <f10e3c83-b73d-6f04-7c66-b01fab1f5a1a@fb.com>
+References: <20171002234857.3707580-1-ast@fb.com>
+ <20171002234857.3707580-2-ast@fb.com>
+ <71bda584-d828-7472-7655-85a454dbe297@cumulusnetworks.com>
+ <f5d34464-42a9-b51b-edc4-06c44b3c4845@fb.com>
+ <1211d4c0-b812-af08-cbd4-72eb9259ee78@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: David Ahern <dsa@cumulusnetworks.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:35801 "EHLO
-        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750708AbdJCEeB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 00:34:01 -0400
-In-Reply-To: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
-Content-Language: en-US
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58290 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750735AbdJCFAg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 01:00:36 -0400
+In-Reply-To: <1211d4c0-b812-af08-cbd4-72eb9259ee78@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/10/03 9:55, Andrew Lunn wrote:
-> With CONFIG_BRIDGE_VLAN_FILTERING enabled, but the feature not enabled
-> via /sys/class/net/brX/bridge/vlan_filtering, mdb offloaded to the
-> kernel have the wrong VID.
-> 
-> When an interface is added to the bridge, switchdev is first used to
-> notify the hardware that a port has joined a bridge. This is
-> immediately followed by the default_pvid, 1, being added to the
-> interface via another switchdev call.
-> 
-> The bridge will then perform IGMP snooping, and offload an mdb entries
-> to the switch as needed. With vlan filtering disabled, the vid is left
-> as 0. This causes the switch to put the static mdb into the wrong
-> vlan, and so frames are not forwarded by the mdb entry.
-> 
-> If vlan filtering is disable, use the default_pvid, not 0.
-> 
-> Fixes: f1fecb1d10ec ("bridge: Reflect MDB entries to hardware")
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->  net/bridge/br_vlan.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> index 233a30040c91..aa3589891797 100644
-> --- a/net/bridge/br_vlan.c
-> +++ b/net/bridge/br_vlan.c
-> @@ -492,6 +492,7 @@ bool br_allowed_ingress(const struct net_bridge *br,
->  	 */
->  	if (!br->vlan_enabled) {
->  		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
-> +		*vid = br_get_pvid(vg);
->  		return true;
->  	}
->  
+On 10/2/17 9:26 PM, David Ahern wrote:
+> On 10/2/17 9:21 PM, Alexei Starovoitov wrote:
+>>
+>> i'm not sure what you're trying to say.
+>> The first loop quoted above is inside cgroup_bpf_put()
+>> which is called when cgroup is destroyed. At this point
+>> we're detaching and prog_put all attached programs.
+>> While there is only one static_branch_inc() in __cgroup_bpf_attach()
+>> that is called every time the prog is attached to a cgroup.
+>> So what's the concern?
+>
+> just asking if cgroup_bpf_enabled_key is 0 when all programs are removed
+> -- ie., that the inc's and dec's are equal. Reviewing this patch it was
+> not clear that they are.
 
-This does not look correct.
-This will update fdb with vid which is not 0.
-Pvid can be different between each port even when vlan_filtering is
-disabled so unicast forwarding (fdb learning) will break.
-Also, fdb is visible to userspace so this can break userspace which
-expects fdb entries with 0 as well.
-
-Why does the switch driver use pvid while vlan_filtering is disabled?
-The (software) bridge does not use pvid for forwarding and use fdb/mdb
-entires with vid 0 when vlan_filtering is disabled even if pvid has been
-configured.
-
--- 
-Toshiaki Makita
+after some debugging turned out there is a typo in attach code
+that leaks prog in the case of override.
+Strangely kmemleak didn't catch it.
+Will respin.
