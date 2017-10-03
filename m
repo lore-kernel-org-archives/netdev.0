@@ -1,129 +1,156 @@
-From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH v2 net-next 11/12] qed: Add support for MPA header being split over two tcp packets
-Date: Tue, 3 Oct 2017 11:55:01 +0300
-Message-ID: <1507020902-4952-12-git-send-email-Michal.Kalderon@cavium.com>
+From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v2 net-next 07/12] qed: Add ll2 connection for processing unaligned MPA packets
+Date: Tue, 3 Oct 2017 11:54:57 +0300
+Message-ID: <1507020902-4952-8-git-send-email-Michal.Kalderon@cavium.com>
 References: <1507020902-4952-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
-        <dledford@redhat.com>,
-        Michal Kalderon <Michal.Kalderon@cavium.com>,
-        "Ariel Elior" <Ariel.Elior@cavium.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0069.outbound.protection.outlook.com ([104.47.34.69]:25601
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751201AbdJCI42 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 04:56:28 -0400
-In-Reply-To: <1507020902-4952-1-git-send-email-Michal.Kalderon@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Ariel Elior" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1507020902-4952-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There is a special case where an MPA header is split over to tcp
-packets, in this case we need to wait for the next packet to
-get the fpdu length. We use the incomplete_bytes to mark this
-fpdu as a "special" one which requires updating the length with
-the next packet
+This patch adds only the establishment and termination of the
+ll2 connection that handles unaligned MPA packets.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
+Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 36 ++++++++++++++++++++++++++++-
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  6 +++++
- 2 files changed, 41 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 65 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  1 +
+ 2 files changed, 66 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 8b17369..2994942 100644
+index 8fc9c811..f413621 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1742,6 +1742,7 @@ enum qed_iwarp_mpa_pkt_type {
- 	QED_IWARP_MPA_PKT_UNALIGNED
- };
- 
-+#define QED_IWARP_INVALID_FPDU_LENGTH 0xffff
- #define QED_IWARP_MPA_FPDU_LENGTH_SIZE (2)
- #define QED_IWARP_MPA_CRC32_DIGEST_SIZE (4)
- 
-@@ -1774,6 +1775,15 @@ enum qed_iwarp_mpa_pkt_type {
- 		goto out;
- 	}
- 
-+	/* special case of one byte remaining...
-+	 * lower byte will be read next packet
-+	 */
-+	if (tcp_payload_len == 1) {
-+		fpdu->fpdu_length = *mpa_data << BITS_PER_BYTE;
-+		pkt_type = QED_IWARP_MPA_PKT_PARTIAL;
-+		goto out;
-+	}
-+
- 	mpa_len = ntohs(*((u16 *)(mpa_data)));
- 	fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
- 
-@@ -1802,7 +1812,9 @@ enum qed_iwarp_mpa_pkt_type {
- 	fpdu->mpa_frag = buf->data_phys_addr + pkt_data->first_mpa_offset;
- 	fpdu->mpa_frag_virt = (u8 *)(buf->data) + pkt_data->first_mpa_offset;
- 
--	if (tcp_payload_size < fpdu->fpdu_length)
-+	if (tcp_payload_size == 1)
-+		fpdu->incomplete_bytes = QED_IWARP_INVALID_FPDU_LENGTH;
-+	else if (tcp_payload_size < fpdu->fpdu_length)
- 		fpdu->incomplete_bytes = fpdu->fpdu_length - tcp_payload_size;
- 	else
- 		fpdu->incomplete_bytes = 0;	/* complete fpdu */
-@@ -1810,6 +1822,27 @@ enum qed_iwarp_mpa_pkt_type {
- 	fpdu->mpa_frag_len = fpdu->fpdu_length - fpdu->incomplete_bytes;
+@@ -1713,6 +1713,19 @@ int qed_iwarp_reject(void *rdma_cxt, struct qed_iwarp_reject_in *iparams)
+ 	return 0;
  }
  
++/* fpdu can be fragmented over maximum 3 bds: header, partial mpa, unaligned */
++#define QED_IWARP_MAX_BDS_PER_FPDU 3
 +static void
-+qed_iwarp_update_fpdu_length(struct qed_hwfn *p_hwfn,
-+			     struct qed_iwarp_fpdu *fpdu, u8 *mpa_data)
++qed_iwarp_ll2_comp_mpa_pkt(void *cxt, struct qed_ll2_comp_rx_data *data)
 +{
-+	u16 mpa_len;
++	struct qed_iwarp_info *iwarp_info;
++	struct qed_hwfn *p_hwfn = cxt;
 +
-+	/* Update incomplete packets if needed */
-+	if (fpdu->incomplete_bytes == QED_IWARP_INVALID_FPDU_LENGTH) {
-+		/* Missing lower byte is now available */
-+		mpa_len = fpdu->fpdu_length | *mpa_data;
-+		fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
-+		fpdu->mpa_frag_len = fpdu->fpdu_length;
-+		/* one byte of hdr */
-+		fpdu->incomplete_bytes = fpdu->fpdu_length - 1;
-+		DP_VERBOSE(p_hwfn,
-+			   QED_MSG_RDMA,
-+			   "MPA_ALIGN: Partial header mpa_len=%x fpdu_length=%x incomplete_bytes=%x\n",
-+			   mpa_len, fpdu->fpdu_length, fpdu->incomplete_bytes);
-+	}
++	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
++	qed_iwarp_ll2_post_rx(p_hwfn, data->cookie,
++			      iwarp_info->ll2_mpa_handle);
 +}
 +
- static int
- qed_iwarp_send_fpdu(struct qed_hwfn *p_hwfn,
- 		    struct qed_iwarp_fpdu *fpdu,
-@@ -1960,6 +1993,7 @@ enum qed_iwarp_mpa_pkt_type {
- 			curr_pkt->first_mpa_offset += fpdu->fpdu_length;
- 			break;
- 		case QED_IWARP_MPA_PKT_UNALIGNED:
-+			qed_iwarp_update_fpdu_length(p_hwfn, fpdu, mpa_data);
- 			rc = qed_iwarp_send_fpdu(p_hwfn, fpdu, curr_pkt, buf,
- 						 mpa_buf->tcp_payload_len,
- 						 pkt_type);
+ static void
+ qed_iwarp_ll2_comp_syn_pkt(void *cxt, struct qed_ll2_comp_rx_data *data)
+ {
+@@ -1877,6 +1890,13 @@ static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
+ 	kfree(buffer);
+ }
+ 
++void
++qed_iwarp_ll2_slowpath(void *cxt,
++		       u8 connection_handle,
++		       u32 opaque_data_0, u32 opaque_data_1)
++{
++}
++
+ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ {
+ 	struct qed_iwarp_info *iwarp_info = &p_hwfn->p_rdma_info->iwarp;
+@@ -1902,6 +1922,16 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 		iwarp_info->ll2_ooo_handle = QED_IWARP_HANDLE_INVAL;
+ 	}
+ 
++	if (iwarp_info->ll2_mpa_handle != QED_IWARP_HANDLE_INVAL) {
++		rc = qed_ll2_terminate_connection(p_hwfn,
++						  iwarp_info->ll2_mpa_handle);
++		if (rc)
++			DP_INFO(p_hwfn, "Failed to terminate mpa connection\n");
++
++		qed_ll2_release_connection(p_hwfn, iwarp_info->ll2_mpa_handle);
++		iwarp_info->ll2_mpa_handle = QED_IWARP_HANDLE_INVAL;
++	}
++
+ 	qed_llh_remove_mac_filter(p_hwfn,
+ 				  p_ptt, p_hwfn->p_rdma_info->iwarp.mac_addr);
+ 	return rc;
+@@ -1953,12 +1983,14 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 	struct qed_iwarp_info *iwarp_info;
+ 	struct qed_ll2_acquire_data data;
+ 	struct qed_ll2_cbs cbs;
++	u32 mpa_buff_size;
+ 	u16 n_ooo_bufs;
+ 	int rc = 0;
+ 
+ 	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
+ 	iwarp_info->ll2_syn_handle = QED_IWARP_HANDLE_INVAL;
+ 	iwarp_info->ll2_ooo_handle = QED_IWARP_HANDLE_INVAL;
++	iwarp_info->ll2_mpa_handle = QED_IWARP_HANDLE_INVAL;
+ 
+ 	iwarp_info->max_mtu = params->max_mtu;
+ 
+@@ -2029,6 +2061,39 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ 	if (rc)
+ 		goto err;
+ 
++	/* Start Unaligned MPA connection */
++	cbs.rx_comp_cb = qed_iwarp_ll2_comp_mpa_pkt;
++	cbs.slowpath_cb = qed_iwarp_ll2_slowpath;
++
++	memset(&data, 0, sizeof(data));
++	data.input.conn_type = QED_LL2_TYPE_IWARP;
++	data.input.mtu = params->max_mtu;
++	/* FW requires that once a packet arrives OOO, it must have at
++	 * least 2 rx buffers available on the unaligned connection
++	 * for handling the case that it is a partial fpdu.
++	 */
++	data.input.rx_num_desc = n_ooo_bufs * 2;
++	data.input.tx_num_desc = data.input.rx_num_desc;
++	data.input.tx_max_bds_per_packet = QED_IWARP_MAX_BDS_PER_FPDU;
++	data.p_connection_handle = &iwarp_info->ll2_mpa_handle;
++	data.input.secondary_queue = true;
++	data.cbs = &cbs;
++
++	rc = qed_ll2_acquire_connection(p_hwfn, &data);
++	if (rc)
++		goto err;
++
++	rc = qed_ll2_establish_connection(p_hwfn, iwarp_info->ll2_mpa_handle);
++	if (rc)
++		goto err;
++
++	mpa_buff_size = QED_IWARP_MAX_BUF_SIZE(params->max_mtu);
++	rc = qed_iwarp_ll2_alloc_buffers(p_hwfn,
++					 data.input.rx_num_desc,
++					 mpa_buff_size,
++					 iwarp_info->ll2_mpa_handle);
++	if (rc)
++		goto err;
+ 	return rc;
+ err:
+ 	qed_iwarp_ll2_stop(p_hwfn, p_ptt);
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index 58db51a..c58793a 100644
+index 9e2bfde..9d33a1f 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -69,6 +69,12 @@ struct qed_iwarp_ll2_mpa_buf {
- 	u8 placement_offset;
- };
- 
-+/* In some cases a fpdu will arrive with only one byte of the header, in this
-+ * case the fpdu_length will be partial (contain only higher byte and
-+ * incomplete bytes will contain the invalid value
-+ */
-+#define QED_IWARP_INVALID_INCOMPLETE_BYTES 0xffff
-+
- struct qed_iwarp_fpdu {
- 	struct qed_iwarp_ll2_buff *mpa_buf;
- 	void *mpa_frag_virt;
+@@ -73,6 +73,7 @@ struct qed_iwarp_info {
+ 	u8 tcp_flags;
+ 	u8 ll2_syn_handle;
+ 	u8 ll2_ooo_handle;
++	u8 ll2_mpa_handle;
+ 	u8 peer2peer;
+ 	enum mpa_negotiation_mode mpa_rev;
+ 	enum mpa_rtr_type rtr_type;
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
