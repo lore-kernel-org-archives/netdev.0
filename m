@@ -1,43 +1,30 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next v2 1/2] libbpf: parse maps sections of varying
- size
-Date: Tue, 03 Oct 2017 16:39:39 +0200
-Message-ID: <59D3A12B.7010101@iogearbox.net>
-References: <20171002164129.47986-1-kraigatgoog@gmail.com> <20171002164129.47986-2-kraigatgoog@gmail.com> <5082193f-0b59-bc40-290f-4ef3709a1d26@fb.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/7] crypto:gf128mul: The x8_ble multiplication functions
+Date: Tue, 3 Oct 2017 14:58:12 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0088A2B@AcuExch.aculab.com>
+References: <cover.1507010612.git.harsh@chelsio.com>
+ <3e443f7a245229a2752fcf21dfed10998847e345.1507010612.git.harsh@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        Craig Gallek <kraigatgoog@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Harsh Jain' <harsh@chelsio.com>,
+        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:49326 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751460AbdJCOjr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 10:39:47 -0400
-In-Reply-To: <5082193f-0b59-bc40-290f-4ef3709a1d26@fb.com>
+Received: from smtp-out4.electric.net ([192.162.216.194]:57523 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751874AbdJCO6P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 10:58:15 -0400
+In-Reply-To: <3e443f7a245229a2752fcf21dfed10998847e345.1507010612.git.harsh@chelsio.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2017 01:07 AM, Alexei Starovoitov wrote:
-> On 10/2/17 9:41 AM, Craig Gallek wrote:
->> +    /* Assume equally sized map definitions */
->> +    map_def_sz = data->d_size / nr_maps;
->> +    if (!data->d_size || (data->d_size % nr_maps) != 0) {
->> +        pr_warning("unable to determine map definition size "
->> +               "section %s, %d maps in %zd bytes\n",
->> +               obj->path, nr_maps, data->d_size);
->> +        return -EINVAL;
->> +    }
->
-> this approach is not as flexible as done by samples/bpf/bpf_load.c
-> where it looks at every map independently by walking symtab,
-> but I guess it's ok.
+From: Harsh Jain
+> Sent: 03 October 2017 07:46
+> It multiply GF(2^128) elements in the ble format.
+> It will be used by chelsio driver to fasten gf multiplication.
+                                       ^ speed up ??
 
-Regarding different map spec structs in a single prog: unless
-we have a good use case why we would need it (and I'm not aware
-of anything in particular), I would just go with a fixed size.
-I did kind of similar sanity checks in bpf_fetch_maps_end() in
-iproute2 loader as well.
+	David
