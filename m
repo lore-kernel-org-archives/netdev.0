@@ -1,102 +1,41 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next v2 03/10] sctp: factor out stream->in allocation
-Date: Tue,  3 Oct 2017 19:20:10 -0300
-Message-ID: <4ded67d1a189d1dea9c047e76a59aad8b4de36b6.1507069005.git.marcelo.leitner@gmail.com>
-References: <cover.1507069005.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Xin Long <lucien.xin@gmail.com>,
-        David Laight <David.Laight@ACULAB.COM>
-To: netdev@vger.kernel.org
+From: Richard Sailer <richard_siegfried@systemli.org>
+Subject: [PATCH net-next 0/3] A own subdirectory for shared TCP code
+Date: Wed,  4 Oct 2017 00:22:10 +0200
+Message-ID: <20171003222213.7996-1-richard_siegfried@systemli.org>
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:44752 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751120AbdJCWUh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 18:20:37 -0400
-In-Reply-To: <cover.1507069005.git.marcelo.leitner@gmail.com>
+Received: from mail.systemli.org ([198.167.223.214]:59434 "EHLO
+        mail.systemli.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750841AbdJCW3b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 18:29:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is 1 place allocating it and another reallocating. Move such
-procedures to a common function.
+net/ipv4 currently contains around 100 source files containing the
+IP implementation and lots of other functionality (UDP, TCP, xfrm, etc.)
 
-v2: updated changelog
+# 1/3
+To make the networking source tree more self documenting and well 
+structured 1/3 moves the 30 shared TCP source files to a own 
+subdirectory of net/ipv4/.
 
-Tested-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/stream.c | 36 ++++++++++++++++++++++++++++--------
- 1 file changed, 28 insertions(+), 8 deletions(-)
+# 2/3 
+A huge part of the TCP code is congestion control algorithms.
+With the same goal as above, this moves the cc algos to a own
+subdirectory of net/ipv4/tcp/
 
-diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index 6d0e997d301f89e165367106c02e82f8a6c3a877..952437d656cc71ad1c133a736c539eff9a8d80c2 100644
---- a/net/sctp/stream.c
-+++ b/net/sctp/stream.c
-@@ -59,6 +59,31 @@ static int sctp_stream_alloc_out(struct sctp_stream *stream, __u16 outcnt,
- 	return 0;
- }
- 
-+static int sctp_stream_alloc_in(struct sctp_stream *stream, __u16 incnt,
-+				gfp_t gfp)
-+{
-+	struct sctp_stream_in *in;
-+
-+	in = kmalloc_array(incnt, sizeof(*stream->in), gfp);
-+
-+	if (!in)
-+		return -ENOMEM;
-+
-+	if (stream->in) {
-+		memcpy(in, stream->in, min(incnt, stream->incnt) *
-+				       sizeof(*in));
-+		kfree(stream->in);
-+	}
-+
-+	if (incnt > stream->incnt)
-+		memset(in + stream->incnt, 0,
-+		       (incnt - stream->incnt) * sizeof(*in));
-+
-+	stream->in = in;
-+
-+	return 0;
-+}
-+
- int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
- 		     gfp_t gfp)
- {
-@@ -84,8 +109,8 @@ int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
- 	if (!incnt)
- 		return 0;
- 
--	stream->in = kcalloc(incnt, sizeof(*stream->in), gfp);
--	if (!stream->in) {
-+	i = sctp_stream_alloc_in(stream, incnt, gfp);
-+	if (i) {
- 		kfree(stream->out);
- 		stream->out = NULL;
- 		return -ENOMEM;
-@@ -623,7 +648,6 @@ struct sctp_chunk *sctp_process_strreset_addstrm_out(
- 	struct sctp_strreset_addstrm *addstrm = param.v;
- 	struct sctp_stream *stream = &asoc->stream;
- 	__u32 result = SCTP_STRRESET_DENIED;
--	struct sctp_stream_in *streamin;
- 	__u32 request_seq, incnt;
- 	__u16 in, i;
- 
-@@ -670,13 +694,9 @@ struct sctp_chunk *sctp_process_strreset_addstrm_out(
- 	if (!in || incnt > SCTP_MAX_STREAM)
- 		goto out;
- 
--	streamin = krealloc(stream->in, incnt * sizeof(*streamin),
--			    GFP_ATOMIC);
--	if (!streamin)
-+	if (sctp_stream_alloc_in(stream, incnt, GFP_ATOMIC))
- 		goto out;
- 
--	memset(streamin + stream->incnt, 0, in * sizeof(*streamin));
--	stream->in = streamin;
- 	stream->incnt = incnt;
- 
- 	result = SCTP_STRRESET_PERFORMED;
--- 
-2.13.5
+# 3/3
+Implementation of a suggestion of valdis, to have a new directory
+net/ipv4v6_shared that contains all the code shared between
+IPv4 and IPv6. This creates net/ipv4v6_shared and moves the 
+net/ipv4/tcp directory of shared TCP code there.
+
+While every commit depends on its previous commits, it is
+also possible and sensible to only apply (1) or (1,2) , depending
+on how conservative one wants to decide regarding directory
+structure changes.
+
+[PATCH net-next 1/3] net/ipv4: Move shared tcp code to own subdirectory
+[PATCH net-next 2/3] tcp: Move cc algorithms to own subdirectory
+[PATCH net-next 3/3] Move shared tcp code to net/ipv4v6shared
