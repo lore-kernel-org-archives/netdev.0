@@ -1,51 +1,52 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
-Date: Tue, 3 Oct 2017 11:17:46 -0700
-Message-ID: <CALx6S37K3Gif=AGk48CXs9JgrcDbdpfqMZWK+0j95UHG0hvpZg@mail.gmail.com>
-References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
- <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
- <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com> <20171003094052.GA20592@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2 0/3] bridge: neigh msg proxy and flood suppression support
+Date: Tue,  3 Oct 2017 11:21:13 -0700
+Message-ID: <1507054876-16746-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        stephen@networkplumber.org, bridge@lists.linux-foundation.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:56362 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751132AbdJCSRr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 14:17:47 -0400
-Received: by mail-qt0-f195.google.com with SMTP id e19so10757204qta.13
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 11:17:47 -0700 (PDT)
-In-Reply-To: <20171003094052.GA20592@netronome.com>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:52703 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751116AbdJCSVW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 14:21:22 -0400
+Received: by mail-pg0-f51.google.com with SMTP id i195so5160814pgd.9
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 11:21:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 3, 2017 at 2:40 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> On Mon, Oct 02, 2017 at 01:37:55PM -0700, Tom Herbert wrote:
->> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
->> > Move dissection of tunnel info from the flower classifier to the flow
->> > dissector where all other dissection occurs.  This should not have any
->> > behavioural affect on other users of the flow dissector.
->
-> ...
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> I feel that we are circling back the perennial issue of flower using the
-> flow dissector in a somewhat broader/different way than many/all other
-> users of the flow dissector.
->
-Simon,
+This series implements arp and nd suppression in the bridge
+driver for ethernet vpns. It implements rfc7432, section 10
+https://tools.ietf.org/html/rfc7432#section-10
+for ethernet VPN deployments. It is similar to the existing
+BR_ARP_PROXY flag but has a few semantic differences to conform
+to EVPN standard. In case of EVPN, it is mainly used to avoid flooding to
+tunnel ports like vxlan. Unlike the existing flags it suppresses flood
+of all neigh discovery packets (arp, nd) to tunnel ports.
 
-It's more like __skb_flow_dissect is already an incredibly complex
-function and because of that it's difficult to maintain. We need to
-measure changes against that fact. For this patch, there is precisely
-one user (cls_flower.c) and it's not at all clear to me if there will
-be ever any more (e.g. for hashing we don't need tunnel info). IMO, it
-should be just as easy and less convolution for everyone to have
-flower call __skb_flow_dissect_tunnel_info directly and not call if
-from __skb_flow_dissect.
+v2 : rebase to latest + address some optimization feedback from Nikolay.
 
-Tom
+Roopa Prabhu (3):
+  bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd
+    flood
+  neigh arp suppress first
+  bridge: suppress nd messages from going to BR_NEIGH_SUPPRESS ports
+
+ include/linux/if_bridge.h    |   1 +
+ include/uapi/linux/if_link.h |   1 +
+ net/bridge/Makefile          |   2 +-
+ net/bridge/br_arp_nd_proxy.c | 492 +++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_device.c       |  18 ++
+ net/bridge/br_forward.c      |   3 +-
+ net/bridge/br_if.c           |   5 +
+ net/bridge/br_input.c        |  73 ++-----
+ net/bridge/br_netlink.c      |  16 +-
+ net/bridge/br_private.h      |   9 +
+ net/bridge/br_sysfs_if.c     |   2 +
+ 11 files changed, 561 insertions(+), 61 deletions(-)
+ create mode 100644 net/bridge/br_arp_nd_proxy.c
+
+-- 
+2.1.4
