@@ -1,15 +1,15 @@
 From: Harsh Jain <harsh@chelsio.com>
-Subject: [PATCH 1/7] crypto:chelsio: Remove unused parameter
-Date: Tue,  3 Oct 2017 12:16:24 +0530
-Message-ID: <6684d047aa37a73f4a614c47c74551e266b8cd00.1507010612.git.harsh@chelsio.com>
+Subject: [PATCH 3/7] crypto:gf128mul: The x8_ble multiplication functions
+Date: Tue,  3 Oct 2017 12:16:26 +0530
+Message-ID: <3e443f7a245229a2752fcf21dfed10998847e345.1507010612.git.harsh@chelsio.com>
 References: <cover.1507010612.git.harsh@chelsio.com>
 Cc: Harsh Jain <harsh@chelsio.com>
 To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
         netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:6440 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:53162 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751132AbdJCGqr (ORCPT
+        with ESMTP id S1751128AbdJCGqr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 02:46:47 -0400
 In-Reply-To: <cover.1507010612.git.harsh@chelsio.com>
 In-Reply-To: <cover.1507010612.git.harsh@chelsio.com>
@@ -17,156 +17,51 @@ References: <cover.1507010612.git.harsh@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove unused parameter sent to latest fw.
+It multiply GF(2^128) elements in the ble format.
+It will be used by chelsio driver to fasten gf multiplication.
 
 Signed-off-by: Harsh Jain <harsh@chelsio.com>
 ---
- drivers/crypto/chelsio/chcr_algo.c | 43 +++++++++++++++-----------------------
- drivers/crypto/chelsio/chcr_algo.h | 12 +++++------
- 2 files changed, 23 insertions(+), 32 deletions(-)
+ crypto/gf128mul.c         | 13 +++++++++++++
+ include/crypto/gf128mul.h |  2 +-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index 0e81607..bdb1014 100644
---- a/drivers/crypto/chelsio/chcr_algo.c
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -577,36 +577,27 @@ static int chcr_cipher_fallback(struct crypto_skcipher *cipher,
- static inline void create_wreq(struct chcr_context *ctx,
- 			       struct chcr_wr *chcr_req,
- 			       void *req, struct sk_buff *skb,
--			       int kctx_len, int hash_sz,
--			       int is_iv,
-+			       int hash_sz,
- 			       unsigned int sc_len,
- 			       unsigned int lcb)
- {
- 	struct uld_ctx *u_ctx = ULD_CTX(ctx);
--	int iv_loc = IV_DSGL;
- 	int qid = u_ctx->lldi.rxq_ids[ctx->rx_qidx];
--	unsigned int immdatalen = 0, nr_frags = 0;
-+	unsigned int immdatalen = 0;
- 
--	if (is_ofld_imm(skb)) {
-+	if (is_ofld_imm(skb))
- 		immdatalen = skb->data_len;
--		iv_loc = IV_IMMEDIATE;
--	} else {
--		nr_frags = skb_shinfo(skb)->nr_frags;
--	}
- 
--	chcr_req->wreq.op_to_cctx_size = FILL_WR_OP_CCTX_SIZE(immdatalen,
--				((sizeof(chcr_req->key_ctx) + kctx_len) >> 4));
-+	chcr_req->wreq.op_to_cctx_size = FILL_WR_OP_CCTX_SIZE;
- 	chcr_req->wreq.pld_size_hash_size =
--		htonl(FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE_V(sgl_lengths[nr_frags]) |
--		      FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE_V(hash_sz));
-+		htonl(FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE_V(hash_sz));
- 	chcr_req->wreq.len16_pkd =
- 		htonl(FW_CRYPTO_LOOKASIDE_WR_LEN16_V(DIV_ROUND_UP(
- 				    (calc_tx_flits_ofld(skb) * 8), 16)));
- 	chcr_req->wreq.cookie = cpu_to_be64((uintptr_t)req);
- 	chcr_req->wreq.rx_chid_to_rx_q_id =
- 		FILL_WR_RX_Q_ID(ctx->dev->rx_channel_id, qid,
--				is_iv ? iv_loc : IV_NOP, !!lcb,
--				ctx->tx_qidx);
-+				!!lcb, ctx->tx_qidx);
- 
- 	chcr_req->ulptx.cmd_dest = FILL_ULPTX_CMD_DEST(ctx->dev->tx_channel_id,
- 						       qid);
-@@ -616,7 +607,7 @@ static inline void create_wreq(struct chcr_context *ctx,
- 	chcr_req->sc_imm.cmd_more = FILL_CMD_MORE(immdatalen);
- 	chcr_req->sc_imm.len = cpu_to_be32(sizeof(struct cpl_tx_sec_pdu) +
- 				   sizeof(chcr_req->key_ctx) +
--				   kctx_len + sc_len + immdatalen);
-+				   sc_len + immdatalen);
+diff --git a/crypto/gf128mul.c b/crypto/gf128mul.c
+index dc01212..24e6019 100644
+--- a/crypto/gf128mul.c
++++ b/crypto/gf128mul.c
+@@ -156,6 +156,19 @@ static void gf128mul_x8_bbe(be128 *x)
+ 	x->b = cpu_to_be64((b << 8) ^ _tt);
  }
  
- /**
-@@ -706,8 +697,8 @@ static struct sk_buff *create_cipher_wr(struct cipher_wr_param *wrparam)
- 	write_buffer_to_skb(skb, &frags, reqctx->iv, ivsize);
- 	write_sg_to_skb(skb, &frags, wrparam->srcsg, wrparam->bytes);
- 	atomic_inc(&adap->chcr_stats.cipher_rqst);
--	create_wreq(ctx, chcr_req, &(wrparam->req->base), skb, kctx_len, 0, 1,
--			sizeof(struct cpl_rx_phys_dsgl) + phys_dsgl,
-+	create_wreq(ctx, chcr_req, &(wrparam->req->base), skb, 0,
-+			sizeof(struct cpl_rx_phys_dsgl) + phys_dsgl + kctx_len,
- 			ablkctx->ciph_mode == CHCR_SCMD_CIPHER_MODE_AES_CBC);
- 	reqctx->skb = skb;
- 	skb_get(skb);
-@@ -1417,8 +1408,8 @@ static struct sk_buff *create_hash_wr(struct ahash_request *req,
- 	if (param->sg_len != 0)
- 		write_sg_to_skb(skb, &frags, req->src, param->sg_len);
- 	atomic_inc(&adap->chcr_stats.digest_rqst);
--	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len,
--		    hash_size_in_response, 0, DUMMY_BYTES, 0);
-+	create_wreq(ctx, chcr_req, &req->base, skb, hash_size_in_response,
-+		    DUMMY_BYTES + kctx_len, 0);
- 	req_ctx->skb = skb;
- 	skb_get(skb);
- 	return skb;
-@@ -2080,8 +2071,8 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
- 	write_buffer_to_skb(skb, &frags, req->iv, ivsize);
- 	write_sg_to_skb(skb, &frags, src, req->cryptlen);
- 	atomic_inc(&adap->chcr_stats.cipher_rqst);
--	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len, size, 1,
--		   sizeof(struct cpl_rx_phys_dsgl) + dst_size, 0);
-+	create_wreq(ctx, chcr_req, &req->base, skb, size,
-+		   sizeof(struct cpl_rx_phys_dsgl) + dst_size + kctx_len, 0);
- 	reqctx->skb = skb;
- 	skb_get(skb);
- 
-@@ -2396,8 +2387,8 @@ static struct sk_buff *create_aead_ccm_wr(struct aead_request *req,
- 	skb_set_transport_header(skb, transhdr_len);
- 	frags = fill_aead_req_fields(skb, req, src, ivsize, aeadctx);
- 	atomic_inc(&adap->chcr_stats.aead_rqst);
--	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len, 0, 1,
--		    sizeof(struct cpl_rx_phys_dsgl) + dst_size, 0);
-+	create_wreq(ctx, chcr_req, &req->base, skb, 0,
-+		    sizeof(struct cpl_rx_phys_dsgl) + dst_size + kctx_len, 0);
- 	reqctx->skb = skb;
- 	skb_get(skb);
- 	return skb;
-@@ -2554,8 +2545,8 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
- 	write_buffer_to_skb(skb, &frags, reqctx->iv, ivsize);
- 	write_sg_to_skb(skb, &frags, src, req->cryptlen);
- 	atomic_inc(&adap->chcr_stats.aead_rqst);
--	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len, size, 1,
--			sizeof(struct cpl_rx_phys_dsgl) + dst_size,
-+	create_wreq(ctx, chcr_req, &req->base, skb, size,
-+			sizeof(struct cpl_rx_phys_dsgl) + dst_size + kctx_len,
- 			reqctx->verify);
- 	reqctx->skb = skb;
- 	skb_get(skb);
-diff --git a/drivers/crypto/chelsio/chcr_algo.h b/drivers/crypto/chelsio/chcr_algo.h
-index 583008d..54851ec 100644
---- a/drivers/crypto/chelsio/chcr_algo.h
-+++ b/drivers/crypto/chelsio/chcr_algo.h
-@@ -176,21 +176,21 @@
- 		      KEY_CONTEXT_SALT_PRESENT_V(1) | \
- 		      KEY_CONTEXT_CTX_LEN_V((ctx_len)))
- 
--#define FILL_WR_OP_CCTX_SIZE(len, ctx_len) \
-+#define FILL_WR_OP_CCTX_SIZE \
- 		htonl( \
- 			FW_CRYPTO_LOOKASIDE_WR_OPCODE_V( \
- 			FW_CRYPTO_LOOKASIDE_WR) | \
- 			FW_CRYPTO_LOOKASIDE_WR_COMPL_V(0) | \
--			FW_CRYPTO_LOOKASIDE_WR_IMM_LEN_V((len)) | \
--			FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC_V(1) | \
--			FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE_V((ctx_len)))
-+			FW_CRYPTO_LOOKASIDE_WR_IMM_LEN_V((0)) | \
-+			FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC_V(0) | \
-+			FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE_V(0))
- 
--#define FILL_WR_RX_Q_ID(cid, qid, wr_iv, lcb, fid) \
-+#define FILL_WR_RX_Q_ID(cid, qid, lcb, fid) \
- 		htonl( \
- 			FW_CRYPTO_LOOKASIDE_WR_RX_CHID_V((cid)) | \
- 			FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID_V((qid)) | \
- 			FW_CRYPTO_LOOKASIDE_WR_LCB_V((lcb)) | \
--			FW_CRYPTO_LOOKASIDE_WR_IV_V((wr_iv)) | \
-+			FW_CRYPTO_LOOKASIDE_WR_IV_V((IV_NOP)) | \
- 			FW_CRYPTO_LOOKASIDE_WR_FQIDX_V(fid))
- 
- #define FILL_ULPTX_CMD_DEST(cid, qid) \
++void gf128mul_x8_ble(le128 *r, const le128 *x)
++{
++	u64 a = le64_to_cpu(x->a);
++	u64 b = le64_to_cpu(x->b);
++
++	/* equivalent to gf128mul_table_be[b >> 63] (see crypto/gf128mul.c): */
++	u64 _tt = gf128mul_table_be[a >> 56];
++
++	r->a = cpu_to_le64((a << 8) | (b >> 56));
++	r->b = cpu_to_le64((b << 8) ^ _tt);
++}
++EXPORT_SYMBOL(gf128mul_x8_ble);
++
+ void gf128mul_lle(be128 *r, const be128 *b)
+ {
+ 	be128 p[8];
+diff --git a/include/crypto/gf128mul.h b/include/crypto/gf128mul.h
+index 0977fb1..fa0a63d 100644
+--- a/include/crypto/gf128mul.h
++++ b/include/crypto/gf128mul.h
+@@ -227,7 +227,7 @@ struct gf128mul_4k *gf128mul_init_4k_lle(const be128 *g);
+ struct gf128mul_4k *gf128mul_init_4k_bbe(const be128 *g);
+ void gf128mul_4k_lle(be128 *a, const struct gf128mul_4k *t);
+ void gf128mul_4k_bbe(be128 *a, const struct gf128mul_4k *t);
+-
++void gf128mul_x8_ble(le128 *r, const le128 *x);
+ static inline void gf128mul_free_4k(struct gf128mul_4k *t)
+ {
+ 	kzfree(t);
 -- 
 2.1.4
