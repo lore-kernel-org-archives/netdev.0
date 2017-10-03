@@ -1,116 +1,41 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: v4.14-rc2/arm64 kernel BUG at net/core/skbuff.c:2626
-Date: Tue, 3 Oct 2017 17:19:28 +0200
-Message-ID: <CACT4Y+Yf86hS_3u=qe0ZL208GmrfF6bp50kYcL+3D9QFBh=LZA@mail.gmail.com>
-References: <20171002104947.GE20737@leverpostej> <CANn89i++X2rzsaHkTRayMpCED_exL8WPq12=RwD_hXsZ6cN-wQ@mail.gmail.com>
- <20171002142156.GB21696@leverpostej> <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
+ CONFIG_BRIDGE_VLAN_FILTERING
+Date: Tue, 3 Oct 2017 17:30:31 +0200
+Message-ID: <20171003153031.GP17713@lunn.ch>
+References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
+ <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
+ <20171003121636.GB13548@lunn.ch>
+ <ad0d7686-298b-02c7-d8f8-b9363f4630f3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Mark Rutland <mark.rutland@arm.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        linux-arm-kernel@lists.infradead.org,
-        syzkaller <syzkaller@googlegroups.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+        David Miller <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([185.16.172.187]:37359 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752374AbdJCPai (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 11:30:38 -0400
+Content-Disposition: inline
+In-Reply-To: <ad0d7686-298b-02c7-d8f8-b9363f4630f3@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 2, 2017 at 4:42 PM, 'Eric Dumazet' via syzkaller
-<syzkaller@googlegroups.com> wrote:
-> On Mon, Oct 2, 2017 at 7:21 AM, Mark Rutland <mark.rutland@arm.com> wrote:
->> Hi Eric,
->>
->> On Mon, Oct 02, 2017 at 06:36:32AM -0700, Eric Dumazet wrote:
->>> On Mon, Oct 2, 2017 at 3:49 AM, Mark Rutland <mark.rutland@arm.com> wrote:
->>> > I hit the below splat at net/core/skbuff.c:2626 while fuzzing v4.14-rc2
->>> > on arm64 with Syzkaller. This is the BUG_ON(len) at the end of
->>> > skb_copy_and_csum_bits().
->>
->>> > kernel BUG at net/core/skbuff.c:2626!
->>
->>> > [<ffff200009e03214>] skb_copy_and_csum_bits+0x8dc/0xae0 net/core/skbuff.c:2626
->>> > [<ffff20000a01d244>] icmp_glue_bits+0xa4/0x2a0 net/ipv4/icmp.c:357
->>> > [<ffff200009f3f0d4>] __ip_append_data+0x10e4/0x20a8 net/ipv4/ip_output.c:1018
->>> > [<ffff200009f41a88>] ip_append_data.part.3+0xe8/0x1a0 net/ipv4/ip_output.c:1170
->>> > [<ffff200009f46e74>] ip_append_data+0xa4/0xb0 net/ipv4/ip_output.c:1173
->>> > [<ffff20000a01ccc8>] icmp_push_reply+0x1b8/0x690 net/ipv4/icmp.c:375
->>> > [<ffff20000a0211b0>] icmp_send+0x1070/0x1890 net/ipv4/icmp.c:741
->>> > [<ffff200009f41d48>] ip_fragment.constprop.4+0x208/0x340 net/ipv4/ip_output.c:552
->>> > [<ffff200009f42228>] ip_finish_output+0x3a8/0xab0 net/ipv4/ip_output.c:315
->>> > [<ffff200009f468c4>] NF_HOOK_COND include/linux/netfilter.h:238 [inline]
->>> > [<ffff200009f468c4>] ip_output+0x284/0x790 net/ipv4/ip_output.c:405
->>> > [<ffff200009f43204>] dst_output include/net/dst.h:458 [inline]
->>> > [<ffff200009f43204>] ip_local_out+0x9c/0x1b8 net/ipv4/ip_output.c:124
->>> > [<ffff200009f445e8>] ip_queue_xmit+0x850/0x18e0 net/ipv4/ip_output.c:504
->>> > [<ffff200009fb091c>] tcp_transmit_skb+0x107c/0x3338 net/ipv4/tcp_output.c:1123
->>> > [<ffff200009fbbcc4>] __tcp_retransmit_skb+0x614/0x1d18 net/ipv4/tcp_output.c:2847
->>> > [<ffff200009fbd840>] tcp_send_loss_probe+0x478/0x7d0 net/ipv4/tcp_output.c:2457
->>> > [<ffff200009fc707c>] tcp_write_timer_handler+0x50c/0x7e8 net/ipv4/tcp_timer.c:557
->>> > [<ffff200009fc73d0>] tcp_write_timer+0x78/0x170 net/ipv4/tcp_timer.c:579
->>> > [<ffff2000082f8980>] call_timer_fn+0x1b8/0x430 kernel/time/timer.c:1281
->>> > [<ffff2000082f8dcc>] expire_timers+0x1d4/0x320 kernel/time/timer.c:1320
->>> > [<ffff2000082f912c>] __run_timers kernel/time/timer.c:1620 [inline]
->>> > [<ffff2000082f912c>] run_timer_softirq+0x214/0x5f0 kernel/time/timer.c:1646
->>> > [<ffff2000080826c0>] __do_softirq+0x350/0xc0c kernel/softirq.c:284
->>> > [<ffff200008170af4>] do_softirq_own_stack include/linux/interrupt.h:498 [inline]
->>> > [<ffff200008170af4>] invoke_softirq kernel/softirq.c:371 [inline]
->>> > [<ffff200008170af4>] irq_exit+0x1dc/0x2f8 kernel/softirq.c:405
->>> > [<ffff2000082a95bc>] __handle_domain_irq+0xdc/0x230 kernel/irq/irqdesc.c:647
->>> > [<ffff2000080820ac>] handle_domain_irq include/linux/irqdesc.h:175 [inline]
->>> > [<ffff2000080820ac>] gic_handle_irq+0x6c/0xe0 drivers/irqchip/irq-gic.c:367
->>
->>> This is most likely a bug caused by syzkaller setting a ridiculous MTU
->>> on loopback device, below minimum size of ipv4 MTU.
->>
->>> I tried to track it in August [1], but it seems hard to find all the
->>> issues with this.
->>>
->>> commit c780a049f9bf442314335372c9abc4548bfe3e44
->>> Author: Eric Dumazet <edumazet@google.com>
->>> Date:   Wed Aug 16 11:09:12 2017 -0700
->>>
->>>     ipv4: better IP_MAX_MTU enforcement
->>>
->>>     While working on yet another syzkaller report, I found
->>>     that our IP_MAX_MTU enforcements were not properly done.
->>>
->>>     gcc seems to reload dev->mtu for min(dev->mtu, IP_MAX_MTU), and
->>>     final result can be bigger than IP_MAX_MTU :/
->>>
->>>     This is a problem because device mtu can be changed on other cpus or
->>>     threads.
->>>
->>>     While this patch does not fix the issue I am working on, it is
->>>     probably worth addressing it.
->>
->> Just to check I've understood correctly, are you suggesting that the
->> IPv4 code should also check the dev->mtu against a IP_MIN_MTU (which
->> doesn't seem to exist today)?
->
-> We have plenty of places this is checked.
->
-> For example, trying to set MTU < 68 usually removes IPv4 addresses and routes.
->
-> Problem is : these checks are not fool proof yet.
->
-> ( Only the admin was supposed to play these games )
->
->>
->> Otherwise, I do spot another potential issue. The writer side (e.g. most
->> net_device::ndo_change_mtu implementations and the __dev_set_mtu()
->> fallback) doesn't use WRITE_ONCE().
->
-> It does not matter how many strange values can be observed by the reader :
-> We must be fool proof anyway from reader point of view, so the
-> WRITE_ONCE() is not strictly needed.
+> The vlan will be effective only when vlan_filtering is enabled.
+> When vlan_filtering is disabled, vlan information is still kept in the
+> bridge and gets effective later when vlan_filtering becomes enable.
 
+O.K, so things are starting to get clearer.
 
-Note if writer stores some temporal garbage there (which C language
-perfectly allows), it does not matter what we do on reader side --
-reader won't get correct data anyway. Say mtu changes from 1000 to
-2000, but writer temporary stores 1 there, reader can observe 1 while
-it must not. Synchronization is always a game of two.
+So when vlan filtering is disabled, the hardware should just ignore
+the requests to add the vlan to the hardware?
+
+When vlan_filtering is enabled, are all the vlans in the software
+bridge again offloaded? Or do we need to remember all the vlans which
+we ignored while vlan filtering was disabled? The average switch has
+nowhere to store these disabled vlans. It can only store active vlans.
+
+      Andrew
