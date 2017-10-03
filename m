@@ -1,54 +1,117 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH 05/18] net: use ARRAY_SIZE
-Date: Tue, 3 Oct 2017 11:09:50 +0300
-Message-ID: <CAHp75Vfz=77TB3Mt_=CZUBzndwRE_XhrOFgdJ-HLUwrfg8a=kA@mail.gmail.com>
-References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
- <20171001193101.8898-6-jeremy.lefaure@lse.epita.fr> <CAHp75VfC2e+h8GCiB-1Rbe=_z3siBBo0WfqEf3qz8yWh8Cm3RQ@mail.gmail.com>
- <20171002212214.30d7013a@blatinox-laptop.localdomain>
+From: Vignesh R <vigneshr@ti.com>
+Subject: Re: [v2] cdc-ether: divorce initialisation with a filter reset and a
+ generic method
+Date: Tue, 3 Oct 2017 13:39:18 +0530
+Message-ID: <fbe82c0f-c3d5-4dd6-62a7-b8fd2ea83302@ti.com>
+References: <20170522125030.21266-1-oneukum@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
-        Wright Feng <wright.feng@cypress.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <
-To: =?UTF-8?B?SsOpcsOpbXkgTGVmYXVyZQ==?= <jeremy.lefaure@lse.epita.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171002212214.30d7013a@blatinox-laptop.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Oliver Neukum <oneukum@suse.com>, <netdev@vger.kernel.org>,
+        <bjorn@mork.no>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:17042 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751102AbdJCILY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 04:11:24 -0400
+In-Reply-To: <20170522125030.21266-1-oneukum@suse.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 3, 2017 at 4:22 AM, J=C3=A9r=C3=A9my Lefaure
-<jeremy.lefaure@lse.epita.fr> wrote:
-> On Mon, 2 Oct 2017 16:07:36 +0300
-> Andy Shevchenko <andy.shevchenko@gmail.com> wrote:
->
->> > +       {&gainctrl_lut_core0_rev0, ARRAY_SIZE(gainctrl_lut_core0_rev0)=
-, 26, 192,
->> > +        32},
->>
->> For all such cases I would rather put on one line disregard checkpatch
->> warning for better readability.
-> I agree that it would be better. I didn't know that it was possible to
-> not follow this rule for anything else than a string.
+Hi Dave,
 
-IMO, it increases readability quite enough to overrule checkpatch recomenda=
-tion.
+On Monday 22 May 2017 06:20 PM, Oliver Neukum wrote:
+> Some devices need their multicast filter reset but others are crashed by that.
+> So the methods need to be separated.
+> 
+> Signed-off-by: Oliver Neukum <oneukum@suse.com>
+> Reported-by: "Ridgway, Keith" <kridgway@harris.com>
+> ---
 
---=20
-With Best Regards,
-Andy Shevchenko
+I see this patch was merged and said to be queued for -stable, but I
+don't see this fix in any of the stable kernels. Would you please ask
+for this patch to be backported to -stable kernels?
+
+Regards
+Vignesh
+
+>  drivers/net/usb/cdc_ether.c | 31 ++++++++++++++++++++++++-------
+>  include/linux/usb/usbnet.h  |  1 +
+>  2 files changed, 25 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+> index f3ae88fdf332..8ab281b478f2 100644
+> --- a/drivers/net/usb/cdc_ether.c
+> +++ b/drivers/net/usb/cdc_ether.c
+> @@ -310,6 +310,26 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+>  		return -ENODEV;
+>  	}
+>  
+> +	return 0;
+> +
+> +bad_desc:
+> +	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
+> +	return -ENODEV;
+> +}
+> +EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
+> +
+> +
+> +/* like usbnet_generic_cdc_bind() but handles filter initialization
+> + * correctly
+> + */
+> +int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+> +{
+> +	int rv;
+> +
+> +	rv = usbnet_generic_cdc_bind(dev, intf);
+> +	if (rv < 0)
+> +		goto bail_out;
+> +
+>  	/* Some devices don't initialise properly. In particular
+>  	 * the packet filter is not reset. There are devices that
+>  	 * don't do reset all the way. So the packet filter should
+> @@ -317,13 +337,10 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	 */
+>  	usbnet_cdc_update_filter(dev);
+>  
+> -	return 0;
+> -
+> -bad_desc:
+> -	dev_info(&dev->udev->dev, "bad CDC descriptors\n");
+> -	return -ENODEV;
+> +bail_out:
+> +	return rv;
+>  }
+> -EXPORT_SYMBOL_GPL(usbnet_generic_cdc_bind);
+> +EXPORT_SYMBOL_GPL(usbnet_ether_cdc_bind);
+>  
+>  void usbnet_cdc_unbind(struct usbnet *dev, struct usb_interface *intf)
+>  {
+> @@ -417,7 +434,7 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	BUILD_BUG_ON((sizeof(((struct usbnet *)0)->data)
+>  			< sizeof(struct cdc_state)));
+>  
+> -	status = usbnet_generic_cdc_bind(dev, intf);
+> +	status = usbnet_ether_cdc_bind(dev, intf);
+>  	if (status < 0)
+>  		return status;
+>  
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index 7dffa5624ea6..97116379db5f 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -206,6 +206,7 @@ struct cdc_state {
+>  };
+>  
+>  extern int usbnet_generic_cdc_bind(struct usbnet *, struct usb_interface *);
+> +extern int usbnet_ether_cdc_bind(struct usbnet *dev, struct usb_interface *intf);
+>  extern int usbnet_cdc_bind(struct usbnet *, struct usb_interface *);
+>  extern void usbnet_cdc_unbind(struct usbnet *, struct usb_interface *);
+>  extern void usbnet_cdc_status(struct usbnet *, struct urb *);
+> 
+
+-- 
+Regards
+Vignesh
