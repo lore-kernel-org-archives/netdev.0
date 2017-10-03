@@ -1,133 +1,34 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
- CONFIG_BRIDGE_VLAN_FILTERING
-Date: Tue, 3 Oct 2017 14:16:36 +0200
-Message-ID: <20171003121636.GB13548@lunn.ch>
-References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
- <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
+Subject: Re: [PATCH] net: dsa: lan9303: make functions
+ lan9303_mdio_phy_{read|write} static
+Date: Tue, 3 Oct 2017 14:41:45 +0200
+Message-ID: <20171003124145.GE13548@lunn.ch>
+References: <20171003103918.26934-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:37058 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750879AbdJCMQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 08:16:46 -0400
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20171003103918.26934-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2017 at 12:29:56PM +0900, Toshiaki Makita wrote:
-> On 2017/10/03 9:55, Andrew Lunn wrote:
-> > With CONFIG_BRIDGE_VLAN_FILTERING enabled, but the feature not enabled
-> > via /sys/class/net/brX/bridge/vlan_filtering, mdb offloaded to the
-> > kernel have the wrong VID.
-> > 
-> > When an interface is added to the bridge, switchdev is first used to
-> > notify the hardware that a port has joined a bridge. This is
-> > immediately followed by the default_pvid, 1, being added to the
-> > interface via another switchdev call.
-> > 
-> > The bridge will then perform IGMP snooping, and offload an mdb entries
-> > to the switch as needed. With vlan filtering disabled, the vid is left
-> > as 0. This causes the switch to put the static mdb into the wrong
-> > vlan, and so frames are not forwarded by the mdb entry.
-> > 
-> > If vlan filtering is disable, use the default_pvid, not 0.
-> > 
-> > Fixes: f1fecb1d10ec ("bridge: Reflect MDB entries to hardware")
-> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-> > ---
-> >  net/bridge/br_vlan.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> > index 233a30040c91..aa3589891797 100644
-> > --- a/net/bridge/br_vlan.c
-> > +++ b/net/bridge/br_vlan.c
-> > @@ -492,6 +492,7 @@ bool br_allowed_ingress(const struct net_bridge *br,
-> >  	 */
-> >  	if (!br->vlan_enabled) {
-> >  		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
-> > +		*vid = br_get_pvid(vg);
-> >  		return true;
-> >  	}
-> >  
+On Tue, Oct 03, 2017 at 11:39:18AM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> This does not look correct.
-> This will update fdb with vid which is not 0.
-> Pvid can be different between each port even when vlan_filtering is
-> disabled so unicast forwarding (fdb learning) will break.
-> Also, fdb is visible to userspace so this can break userspace which
-> expects fdb entries with 0 as well.
+> The functions lan9303_mdio_phy_write and lan9303_mdio_phy_read are local
+> to the source and do not need to be in global scope, so make them static.
 > 
-> Why does the switch driver use pvid while vlan_filtering is disabled?
+> Cleans up sparse warnings:
+> symbol 'lan9303_mdio_phy_write' was not declared. Should it be static?
+> symbol 'lan9303_mdio_phy_read' was not declared. Should it be static?
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Hi Toshiaki
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-We get a vlan added to the port. I think it comes from a combination
-of:
-
-
-int br_vlan_init(struct net_bridge *br)
-{
-        struct net_bridge_vlan_group *vg;
-        int ret = -ENOMEM;
-
-        vg = kzalloc(sizeof(*vg), GFP_KERNEL);
-        if (!vg)
-                goto out;
-        ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
-        if (ret)
-                goto err_rhtbl;
-        ret = vlan_tunnel_init(vg);
-        if (ret)
-                goto err_tunnel_init;
-        INIT_LIST_HEAD(&vg->vlan_list);
-        br->vlan_proto = htons(ETH_P_8021Q);
-        br->default_pvid = 1;
-
-and
-
-int nbp_vlan_init(struct net_bridge_port *p)
-{
-        struct switchdev_attr attr = {
-                .orig_dev = p->br->dev,
-                .id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
-                .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
-                .u.vlan_filtering = p->br->vlan_enabled,
-        };
-        struct net_bridge_vlan_group *vg;
-        int ret = -ENOMEM;
-
-        vg = kzalloc(sizeof(struct net_bridge_vlan_group), GFP_KERNEL);
-        if (!vg)
-                goto out;
-
-        ret = switchdev_port_attr_set(p->dev, &attr);
-        if (ret && ret != -EOPNOTSUPP)
-                goto err_vlan_enabled;
-
-        ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
-        if (ret)
-                goto err_rhtbl;
-        ret = vlan_tunnel_init(vg);
-        if (ret)
-                goto err_tunnel_init;
-        INIT_LIST_HEAD(&vg->vlan_list);
-        rcu_assign_pointer(p->vlgrp, vg);
-        if (p->br->default_pvid) {
-                ret = nbp_vlan_add(p, p->br->default_pvid,
-                                   BRIDGE_VLAN_INFO_PVID |
-                                   BRIDGE_VLAN_INFO_UNTAGGED);
-
-Now, i just noticed the switchdev call above. I don't think the DSA
-layer implements SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING. It probably
-should. So what is it supposed to do with this VLAN when filtering is
-disabled?
-
-	Andrew
+    Andrew
