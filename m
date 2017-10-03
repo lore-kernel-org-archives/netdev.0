@@ -1,48 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/10] Introduce SCTP Stream Schedulers
-Date: Tue, 03 Oct 2017 16:27:50 -0700 (PDT)
-Message-ID: <20171003.162750.1603032130390868428.davem@davemloft.net>
-References: <cover.1507069005.git.marcelo.leitner@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        nhorman@tuxdriver.com, vyasevich@gmail.com, lucien.xin@gmail.com,
-        David.Laight@ACULAB.COM
-To: marcelo.leitner@gmail.com
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v3 1/4] mqprio: Implement select_queue class_ops
+Date: Tue,  3 Oct 2017 16:44:29 -0700
+Message-ID: <20171003234435.8979-2-vinicius.gomes@intel.com>
+References: <20171003234435.8979-1-vinicius.gomes@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55848 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751315AbdJCX1v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 19:27:51 -0400
-In-Reply-To: <cover.1507069005.git.marcelo.leitner@gmail.com>
+Received: from mga14.intel.com ([192.55.52.115]:10584 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751199AbdJCXpG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 19:45:06 -0400
+In-Reply-To: <20171003234435.8979-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Tue,  3 Oct 2017 19:20:07 -0300
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-> This patchset introduces the SCTP Stream Schedulers are defined by
-> https://tools.ietf.org/html/draft-ietf-tsvwg-sctp-ndata-13
-> 
-> It provides 3 schedulers at the moment: FCFS, Priority and Round Robin.
-> The other 3, Round Robin per packet, Fair Capacity and Weighted Fair
-> Capacity will be added later. More specifically, WFQ is required by
-> WebRTC Datachannels.
-> 
-> The draft also defines the idata chunk, allowing a usermsg to be
-> interrupted by another piece of idata from another stream. This patchset
-> *doesn't* include it. It will be posted later by Xin Long.  Its
-> integration with this patchset is very simple and it basically only
-> requires a tweak in sctp_sched_dequeue_done(), to ignore datamsg
-> boundaries.
-> 
-> The first 5 patches are a preparation for the next ones. The most
-> relevant patches are the 4th and 6th ones. More details are available on
-> each patch.
-> 
-> v2: changelog update on patch 3
+When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
+the netdev_queue pointer that the current child qdisc is associated
+with before creating the new qdisc.
 
-This doesn't look too scary :-)
+Currently, when using mqprio as root qdisc, the kernel will end up
+getting the queue #0 pointer from the mqprio (root qdisc), which leaves
+any new child qdisc with a possibly wrong netdev_queue pointer.
 
-Series applied, thanks!
+Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
+issue and avoid an inconsistent state when child qdiscs are replaced.
+
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+---
+ net/sched/sch_mqprio.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 6bcdfe6e7b63..9d762ca4a76c 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ 	}
+ }
+ 
++static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
++					    struct tcmsg *tcm)
++{
++	return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
++}
++
+ static const struct Qdisc_class_ops mqprio_class_ops = {
+ 	.graft		= mqprio_graft,
+ 	.leaf		= mqprio_leaf,
+@@ -403,6 +409,7 @@ static const struct Qdisc_class_ops mqprio_class_ops = {
+ 	.walk		= mqprio_walk,
+ 	.dump		= mqprio_dump_class,
+ 	.dump_stats	= mqprio_dump_class_stats,
++	.select_queue	= mqprio_select_queue,
+ };
+ 
+ static struct Qdisc_ops mqprio_qdisc_ops __read_mostly = {
+-- 
+2.14.2
