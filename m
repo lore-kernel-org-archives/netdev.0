@@ -1,69 +1,71 @@
-From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-Subject: RE: [PATCH v2 3/6] staging: fsl-dpaa2/ethsw: Add ethtool support
-Date: Tue, 3 Oct 2017 05:22:06 +0000
-Message-ID: <AM3PR04MB074387851364E6F24ECF4502E6720@AM3PR04MB0743.eurprd04.prod.outlook.com>
-References: <1506933380-12641-1-git-send-email-razvan.stefanescu@nxp.com>
- <1506933380-12641-4-git-send-email-razvan.stefanescu@nxp.com>
- <20171002153718.GJ17713@lunn.ch>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Tue, 3 Oct 2017 13:26:43 +0800
+Message-ID: <20171003052643.GB22750@gondor.apana.org.au>
+References: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
+ <CALCETrWdXjTTTywbb3duCEsLYNxkeGx7bf3SM4PYKeErCyiUNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "arnd@arndb.de" <arnd@arndb.de>,
- "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- Alexandru Marginean <alexandru.marginean@nxp.com>,
- "agraf@suse.de" <agraf@suse.de>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "stuyoder@gmail.com" <stuyoder@gmail.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Bogdan Purcareata <bogdan.purcareata@nxp.com>,
- Laurentiu Tudor <laurentiu.tudor@nxp.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20171002153718.GJ17713@lunn.ch>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Linux Crypto Mailing List <linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrWdXjTTTywbb3duCEsLYNxkeGx7bf3SM4PYKeErCyiUNQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Oct 02, 2017 at 09:18:24PM -0700, Andy Lutomirski wrote:
+> > On Oct 2, 2017, at 7:25 PM, Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org> wrote:
+> >
+> > The SCTP program may sleep under a spinlock, and the function call path is:
+> > sctp_generate_t3_rtx_event (acquire the spinlock)
+> >  sctp_do_sm
+> >    sctp_side_effects
+> >      sctp_cmd_interpreter
+> >        sctp_make_init_ack
+> >          sctp_pack_cookie
+> >            crypto_shash_setkey
+> >              shash_setkey_unaligned
+> >                kmalloc(GFP_KERNEL)
+> 
+> I'm going to go out on a limb here: why on Earth is out crypto API so
+> full of indirection that we allocate memory at all here?
 
+The crypto API operates on a one key per-tfm basis.  So normally
+tfm allocation and key setting is done once only and not done on
+the data path.
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Monday, October 02, 2017 18:37
-> To: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-> Cc: gregkh@linuxfoundation.org; devel@driverdev.osuosl.org; linux-
-> kernel@vger.kernel.org; netdev@vger.kernel.org; agraf@suse.de;
-> arnd@arndb.de; Alexandru Marginean <alexandru.marginean@nxp.com>;
-> Bogdan Purcareata <bogdan.purcareata@nxp.com>; Ruxandra Ioana Radulescu
-> <ruxandra.radulescu@nxp.com>; Laurentiu Tudor <laurentiu.tudor@nxp.com>;
-> stuyoder@gmail.com
-> Subject: Re: [PATCH v2 3/6] staging: fsl-dpaa2/ethsw: Add ethtool support
-> 
-> Hi Razvan
-> 
-> > +static void ethsw_get_drvinfo(struct net_device *netdev,
-> > +			      struct ethtool_drvinfo *drvinfo)
-> > +{
-> > +	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
-> > +	u16 version_major, version_minor;
-> > +	int err;
-> > +
-> > +	strlcpy(drvinfo->driver, KBUILD_MODNAME, sizeof(drvinfo->driver));
-> > +	strlcpy(drvinfo->version, ethsw_drv_version, sizeof(drvinfo->version));
-> 
-> Software driver versions are mostly useless. I would suggest you
-> remove this.
-> 
->        Andrew
-Thank you. I'll remove it in v3.
+I have looked at the SCTP code and it appears to fit this paradigm.
+That is, we should be able to allocate the tfm and set the key when
+the key is actually generated via get_random_bytes, rather than every
+time the key is used which is not only a waste but as you see runs
+into API issues.
 
-Best regards,
-Razvan S.
+Usually if you're invoking setkey from a non-sleeping code-path
+you're probably doing something wrong.
+
+As someone else noted recently, there is no single forum for
+reviewing code that uses the crypto API so buggy code like this
+is not surprising.
+
+> We're synchronously computing a hash of a small amount of data using
+> either HMAC-SHA1 or HMAC-SHA256 (determined at runtime) if I read it
+> right.  There's a sane way to do this that doesn't need kmalloc,
+> alloca, or fancy indirection.  And then there's crypto_shash_xyz().
+
+There are some legitimate cases where you want to use a different
+key for every hashing operation.  But so far these are uses have
+been very few so there has been no need to provide an API for them.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
