@@ -1,274 +1,243 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/9] fm10k: prepare_for_reset() when we lose PCIe Link
-Date: Tue,  3 Oct 2017 09:31:30 -0700
-Message-ID: <20171003163138.47569-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] fm10k: use the MAC/VLAN queue for VF<->PF MAC/VLAN requests
+Date: Tue,  3 Oct 2017 09:31:34 -0700
+Message-ID: <20171003163138.47569-6-jeffrey.t.kirsher@intel.com>
 References: <20171003163138.47569-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:17001 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:19640 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751184AbdJCQb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 12:31:59 -0400
+        id S1752005AbdJCQcA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 12:32:00 -0400
 In-Reply-To: <20171003163138.47569-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-If we lose PCIe link, such as when an unannounced PFLR event occurs, or
-when a device is surprise removed, we currently detach the device and
-close the netdev. This unfortunately leaves a lot of things still
-active, such as the msix_mbx_pf IRQ, and Tx/Rx resources.
+Now that we have a working MAC/VLAN queue for handling MAC/VLAN messages
+from the netdev, replace the default handler for the VF<->PF messages.
+This new handler is very similar to the default code, but uses the
+MAC/VLAN queue instead of sending the message directly. Unfortunately we
+can't easily re-use the default code, so we'll just replace the entire
+function.
 
-This can cause problems because the register reads will return
-potentially invalid values which may result in unknown driver behavior.
-
-Begin the process of resetting using fm10k_prepare_for_reset(), much in
-the same way as the suspend and resume cycle does. This will attempt to
-shutdown as much as possible, in order to prevent possible issues.
-
-A naive implementation for this has issues, because there are now
-multiple flows calling the reset logic and setting a reset bit. This
-would cause problems, because the "re-attach" routine might call
-fm10k_handle_reset() prior to the reset actually finishing. Instead,
-we'll add state bits to indicate which flow actually initiated the
-reset.
-
-For the general reset flow, we'll assume that if someone else is
-resetting that we do not need to handle it at all, so it does not need
-its own state bit. For the suspend case, we will simply issue a warning
-indicating that we are attempting to recover from this case when
-resuming.
-
-For the detached subtask, we'll simply refuse to re-attach until we've
-actually initiated a reset as part of that flow.
-
-Finally, we'll stop attempting to manage the mailbox subtask when we're
-detached, since there's nothing we can do if we don't have a PCIe
-address.
-
-Overall this produces a much cleaner shutdown and recovery cycle for
-a PCIe surprise remove event.
+This ensures that a VF requesting a large number of VLANs or MAC
+addresses does not start a reset cycle, as explained in the commit which
+introduced the message queue.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Reviewed-by: Ngai-mint Kwan <ngai-mint.kwan@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k.h     |   2 +
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 103 ++++++++++++++++++++-------
- 2 files changed, 79 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c | 132 ++++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.c  |   2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_pf.h  |   3 +-
+ 3 files changed, 133 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index 689c413b7782..ba70c58ca920 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -270,6 +270,8 @@ enum fm10k_flags_t {
- 
- enum fm10k_state_t {
- 	__FM10K_RESETTING,
-+	__FM10K_RESET_DETACHED,
-+	__FM10K_RESET_SUSPENDED,
- 	__FM10K_DOWN,
- 	__FM10K_SERVICE_SCHED,
- 	__FM10K_SERVICE_REQUEST,
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-index 9575f7c1862d..4e5e3e64beda 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
-@@ -153,7 +153,15 @@ static void fm10k_service_timer(unsigned long data)
- 	fm10k_service_event_schedule(interface);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+index 03897720bf0b..4a17cc903eed 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+@@ -35,10 +35,133 @@ static s32 fm10k_iov_msg_error(struct fm10k_hw *hw, u32 **results,
+ 	return fm10k_tlv_msg_error(hw, results, mbx);
  }
  
--static void fm10k_prepare_for_reset(struct fm10k_intfc *interface)
 +/**
-+ * fm10k_prepare_for_reset - Prepare the driver and device for a pending reset
-+ * @interface: fm10k private data structure
++ *  fm10k_iov_msg_queue_mac_vlan - Message handler for MAC/VLAN request from VF
++ *  @hw: Pointer to hardware structure
++ *  @results: Pointer array to message, results[0] is pointer to message
++ *  @mbx: Pointer to mailbox information structure
 + *
-+ * This function prepares for a device reset by shutting as much down as we
-+ * can. It does nothing and returns false if __FM10K_RESETTING was already set
-+ * prior to calling this function. It returns true if it actually did work.
-+ */
-+static bool fm10k_prepare_for_reset(struct fm10k_intfc *interface)
- {
- 	struct net_device *netdev = interface->netdev;
- 
-@@ -162,8 +170,9 @@ static void fm10k_prepare_for_reset(struct fm10k_intfc *interface)
- 	/* put off any impending NetWatchDogTimeout */
- 	netif_trans_update(netdev);
- 
--	while (test_and_set_bit(__FM10K_RESETTING, interface->state))
--		usleep_range(1000, 2000);
-+	/* Nothing to do if a reset is already in progress */
-+	if (test_and_set_bit(__FM10K_RESETTING, interface->state))
-+		return false;
- 
- 	rtnl_lock();
- 
-@@ -181,6 +190,8 @@ static void fm10k_prepare_for_reset(struct fm10k_intfc *interface)
- 	interface->last_reset = jiffies + (10 * HZ);
- 
- 	rtnl_unlock();
++ *  This function is a custom handler for MAC/VLAN requests from the VF. The
++ *  assumption is that it is acceptable to directly hand off the message from
++ *  the VF to the PF's switch manager. However, we use a MAC/VLAN message
++ *  queue to avoid overloading the mailbox when a large number of requests
++ *  come in.
++ **/
++static s32 fm10k_iov_msg_queue_mac_vlan(struct fm10k_hw *hw, u32 **results,
++					struct fm10k_mbx_info *mbx)
++{
++	struct fm10k_vf_info *vf_info = (struct fm10k_vf_info *)mbx;
++	struct fm10k_intfc *interface = hw->back;
++	u8 mac[ETH_ALEN];
++	u32 *result;
++	int err = 0;
++	bool set;
++	u16 vlan;
++	u32 vid;
 +
-+	return true;
- }
- 
- static int fm10k_handle_reset(struct fm10k_intfc *interface)
-@@ -189,6 +200,8 @@ static int fm10k_handle_reset(struct fm10k_intfc *interface)
- 	struct fm10k_hw *hw = &interface->hw;
- 	int err;
- 
-+	WARN_ON(!test_bit(__FM10K_RESETTING, interface->state));
++	/* we shouldn't be updating rules on a disabled interface */
++	if (!FM10K_VF_FLAG_ENABLED(vf_info))
++		err = FM10K_ERR_PARAM;
 +
- 	rtnl_lock();
- 
- 	pci_set_master(interface->pdev);
-@@ -267,51 +280,75 @@ static void fm10k_detach_subtask(struct fm10k_intfc *interface)
- 	struct net_device *netdev = interface->netdev;
- 	u32 __iomem *hw_addr;
- 	u32 value;
-+	int err;
- 
--	/* do nothing if device is still present or hw_addr is set */
-+	/* do nothing if netdev is still present or hw_addr is set */
- 	if (netif_device_present(netdev) || interface->hw.hw_addr)
- 		return;
- 
-+	/* We've lost the PCIe register space, and can no longer access the
-+	 * device. Shut everything except the detach subtask down and prepare
-+	 * to reset the device in case we recover. If we actually prepare for
-+	 * reset, indicate that we're detached.
-+	 */
-+	if (fm10k_prepare_for_reset(interface))
-+		set_bit(__FM10K_RESET_DETACHED, interface->state);
++	if (!err && !!results[FM10K_MAC_VLAN_MSG_VLAN]) {
++		result = results[FM10K_MAC_VLAN_MSG_VLAN];
 +
- 	/* check the real address space to see if we've recovered */
- 	hw_addr = READ_ONCE(interface->uc_addr);
- 	value = readl(hw_addr);
- 	if (~value) {
-+		/* Make sure the reset was initiated because we detached,
-+		 * otherwise we might race with a different reset flow.
++		/* record VLAN id requested */
++		err = fm10k_tlv_attr_get_u32(result, &vid);
++		if (err)
++			return err;
++
++		set = !(vid & FM10K_VLAN_CLEAR);
++		vid &= ~FM10K_VLAN_CLEAR;
++
++		/* if the length field has been set, this is a multi-bit
++		 * update request. For multi-bit requests, simply disallow
++		 * them when the pf_vid has been set. In this case, the PF
++		 * should have already cleared the VLAN_TABLE, and if we
++		 * allowed them, it could allow a rogue VF to receive traffic
++		 * on a VLAN it was not assigned. In the single-bit case, we
++		 * need to modify requests for VLAN 0 to use the default PF or
++		 * SW vid when assigned.
 +		 */
-+		if (!test_and_clear_bit(__FM10K_RESET_DETACHED,
-+					interface->state))
-+			return;
 +
-+		/* Restore the hardware address */
- 		interface->hw.hw_addr = interface->uc_addr;
++		if (vid >> 16) {
++			/* prevent multi-bit requests when PF has
++			 * administratively set the VLAN for this VF
++			 */
++			if (vf_info->pf_vid)
++				return FM10K_ERR_PARAM;
++		} else {
++			err = fm10k_iov_select_vid(vf_info, (u16)vid);
++			if (err < 0)
++				return err;
 +
-+		/* PCIe link has been restored, and the device is active
-+		 * again. Restore everything and reset the device.
-+		 */
-+		err = fm10k_handle_reset(interface);
-+		if (err) {
-+			netdev_err(netdev, "Unable to reset device: %d\n", err);
-+			interface->hw.hw_addr = NULL;
-+			return;
++			vid = err;
 +		}
 +
-+		/* Re-attach the netdev */
- 		netif_device_attach(netdev);
--		set_bit(FM10K_FLAG_RESET_REQUESTED, interface->flags);
- 		netdev_warn(netdev, "PCIe link restored, device now attached\n");
- 		return;
++		/* update VSI info for VF in regards to VLAN table */
++		err = hw->mac.ops.update_vlan(hw, vid, vf_info->vsi, set);
++	}
++
++	if (!err && !!results[FM10K_MAC_VLAN_MSG_MAC]) {
++		result = results[FM10K_MAC_VLAN_MSG_MAC];
++
++		/* record unicast MAC address requested */
++		err = fm10k_tlv_attr_get_mac_vlan(result, mac, &vlan);
++		if (err)
++			return err;
++
++		/* block attempts to set MAC for a locked device */
++		if (is_valid_ether_addr(vf_info->mac) &&
++		    !ether_addr_equal(mac, vf_info->mac))
++			return FM10K_ERR_PARAM;
++
++		set = !(vlan & FM10K_VLAN_CLEAR);
++		vlan &= ~FM10K_VLAN_CLEAR;
++
++		err = fm10k_iov_select_vid(vf_info, vlan);
++		if (err < 0)
++			return err;
++
++		vlan = (u16)err;
++
++		/* Add this request to the MAC/VLAN queue */
++		err = fm10k_queue_mac_request(interface, vf_info->glort,
++					      mac, vlan, set);
++	}
++
++	if (!err && !!results[FM10K_MAC_VLAN_MSG_MULTICAST]) {
++		result = results[FM10K_MAC_VLAN_MSG_MULTICAST];
++
++		/* record multicast MAC address requested */
++		err = fm10k_tlv_attr_get_mac_vlan(result, mac, &vlan);
++		if (err)
++			return err;
++
++		/* verify that the VF is allowed to request multicast */
++		if (!(vf_info->vf_flags & FM10K_VF_FLAG_MULTI_ENABLED))
++			return FM10K_ERR_PARAM;
++
++		set = !(vlan & FM10K_VLAN_CLEAR);
++		vlan &= ~FM10K_VLAN_CLEAR;
++
++		err = fm10k_iov_select_vid(vf_info, vlan);
++		if (err < 0)
++			return err;
++
++		vlan = (u16)err;
++
++		/* Add this request to the MAC/VLAN queue */
++		err = fm10k_queue_mac_request(interface, vf_info->glort,
++					      mac, vlan, set);
++	}
++
++	return err;
++}
++
+ static const struct fm10k_msg_data iov_mbx_data[] = {
+ 	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
+ 	FM10K_VF_MSG_MSIX_HANDLER(fm10k_iov_msg_msix_pf),
+-	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_iov_msg_mac_vlan_pf),
++	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_iov_msg_queue_mac_vlan),
+ 	FM10K_VF_MSG_LPORT_STATE_HANDLER(fm10k_iov_msg_lport_state_pf),
+ 	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_iov_msg_error),
+ };
+@@ -126,8 +249,10 @@ s32 fm10k_iov_mbx(struct fm10k_intfc *interface)
+ 		hw->mbx.ops.process(hw, &hw->mbx);
+ 
+ 		/* verify port mapping is valid, if not reset port */
+-		if (vf_info->vf_flags && !fm10k_glort_valid_pf(hw, glort))
++		if (vf_info->vf_flags && !fm10k_glort_valid_pf(hw, glort)) {
+ 			hw->iov.ops.reset_lport(hw, vf_info);
++			fm10k_clear_macvlan_queue(interface, glort, false);
++		}
+ 
+ 		/* reset VFs that have mailbox timed out */
+ 		if (!mbx->timeout) {
+@@ -190,6 +315,7 @@ void fm10k_iov_suspend(struct pci_dev *pdev)
+ 
+ 		hw->iov.ops.reset_resources(hw, vf_info);
+ 		hw->iov.ops.reset_lport(hw, vf_info);
++		fm10k_clear_macvlan_queue(interface, vf_info->glort, false);
  	}
--
--	rtnl_lock();
--
--	if (netif_running(netdev))
--		dev_close(netdev);
--
--	rtnl_unlock();
  }
  
--static void fm10k_reinit(struct fm10k_intfc *interface)
-+static void fm10k_reset_subtask(struct fm10k_intfc *interface)
+@@ -414,6 +540,8 @@ static inline void fm10k_reset_vf_info(struct fm10k_intfc *interface,
+ 	/* disable LPORT for this VF which clears switch rules */
+ 	hw->iov.ops.reset_lport(hw, vf_info);
+ 
++	fm10k_clear_macvlan_queue(interface, vf_info->glort, false);
++
+ 	/* assign new MAC+VLAN for this VF */
+ 	hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
+ 
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+index 9e4fb3a44376..425d814aed4d 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
+@@ -1186,7 +1186,7 @@ s32 fm10k_iov_msg_msix_pf(struct fm10k_hw *hw, u32 **results,
+  * Will report an error if the VLAN ID is out of range. For VID = 0, it will
+  * return either the pf_vid or sw_vid depending on which one is set.
+  */
+-static s32 fm10k_iov_select_vid(struct fm10k_vf_info *vf_info, u16 vid)
++s32 fm10k_iov_select_vid(struct fm10k_vf_info *vf_info, u16 vid)
  {
- 	int err;
+ 	if (!vid)
+ 		return vf_info->pf_vid ? vf_info->pf_vid : vf_info->sw_vid;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+index 3336d3c10760..e04d41f1a532 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
+@@ -1,5 +1,5 @@
+ /* Intel(R) Ethernet Switch Host Interface Driver
+- * Copyright(c) 2013 - 2016 Intel Corporation.
++ * Copyright(c) 2013 - 2017 Intel Corporation.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms and conditions of the GNU General Public License,
+@@ -114,6 +114,7 @@ extern const struct fm10k_tlv_attr fm10k_err_msg_attr[];
+ #define FM10K_PF_MSG_ERR_HANDLER(msg, func) \
+ 	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_##msg, fm10k_err_msg_attr, func)
  
--	fm10k_prepare_for_reset(interface);
--
--	err = fm10k_handle_reset(interface);
--	if (err)
--		dev_err(&interface->pdev->dev,
--			"fm10k_handle_reset failed: %d\n", err);
--}
--
--static void fm10k_reset_subtask(struct fm10k_intfc *interface)
--{
- 	if (!test_and_clear_bit(FM10K_FLAG_RESET_REQUESTED,
- 				interface->flags))
- 		return;
- 
-+	/* If another thread has already prepared to reset the device, we
-+	 * should not attempt to handle a reset here, since we'd race with
-+	 * that thread. This may happen if we suspend the device or if the
-+	 * PCIe link is lost. In this case, we'll just ignore the RESET
-+	 * request, as it will (eventually) be taken care of when the thread
-+	 * which actually started the reset is finished.
-+	 */
-+	if (!fm10k_prepare_for_reset(interface))
-+		return;
-+
- 	netdev_err(interface->netdev, "Reset interface\n");
- 
--	fm10k_reinit(interface);
-+	err = fm10k_handle_reset(interface);
-+	if (err)
-+		dev_err(&interface->pdev->dev,
-+			"fm10k_handle_reset failed: %d\n", err);
- }
- 
- /**
-@@ -381,6 +418,10 @@ static void fm10k_watchdog_update_host_state(struct fm10k_intfc *interface)
-  **/
- static void fm10k_mbx_subtask(struct fm10k_intfc *interface)
- {
-+	/* If we're resetting, bail out */
-+	if (test_bit(__FM10K_RESETTING, interface->state))
-+		return;
-+
- 	/* process upstream mailbox and update device state */
- 	fm10k_watchdog_update_host_state(interface);
- 
-@@ -630,9 +671,11 @@ static void fm10k_service_task(struct work_struct *work)
- 
- 	interface = container_of(work, struct fm10k_intfc, service_task);
- 
-+	/* Check whether we're detached first */
-+	fm10k_detach_subtask(interface);
-+
- 	/* tasks run even when interface is down */
- 	fm10k_mbx_subtask(interface);
--	fm10k_detach_subtask(interface);
- 	fm10k_reset_subtask(interface);
- 
- 	/* tasks only run when interface is up */
-@@ -2177,7 +2220,8 @@ static void fm10k_prepare_suspend(struct fm10k_intfc *interface)
- 	 */
- 	fm10k_stop_service_event(interface);
- 
--	fm10k_prepare_for_reset(interface);
-+	if (fm10k_prepare_for_reset(interface))
-+		set_bit(__FM10K_RESET_SUSPENDED, interface->state);
- }
- 
- static int fm10k_handle_resume(struct fm10k_intfc *interface)
-@@ -2185,6 +2229,13 @@ static int fm10k_handle_resume(struct fm10k_intfc *interface)
- 	struct fm10k_hw *hw = &interface->hw;
- 	int err;
- 
-+	/* Even if we didn't properly prepare for reset in
-+	 * fm10k_prepare_suspend, we'll attempt to resume anyways.
-+	 */
-+	if (!test_and_clear_bit(__FM10K_RESET_SUSPENDED, interface->state))
-+		dev_warn(&interface->pdev->dev,
-+			 "Device was shut down as part of suspend... Attempting to recover\n");
-+
- 	/* reset statistics starting values */
- 	hw->mac.ops.rebind_hw_stats(hw, &interface->stats);
- 
++s32 fm10k_iov_select_vid(struct fm10k_vf_info *vf_info, u16 vid);
+ s32 fm10k_iov_msg_msix_pf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
+ s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *, u32 **,
+ 			      struct fm10k_mbx_info *);
 -- 
 2.14.2
