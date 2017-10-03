@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net-next] mlxsw: spectrum: Add missing error code
- on allocation failure
-Date: Tue, 03 Oct 2017 10:27:14 -0700 (PDT)
-Message-ID: <20171003.102714.153187853698749528.davem@davemloft.net>
-References: <20171003105303.u7yrzxknddmmerol@mwanda>
-        <20171003105340.llwk5oajgrohbksu@mwanda>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH] net: phy: DP83822 initial driver submission
+Date: Tue, 3 Oct 2017 17:43:16 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B3C801@CHN-SV-EXMX02.mchp-main.com>
+References: <20171003155316.12312-1-dmurphy@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, yotamg@mellanox.com, idosch@mellanox.com,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <dmurphy@ti.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47714 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbdJCR1P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:27:15 -0400
-In-Reply-To: <20171003105340.llwk5oajgrohbksu@mwanda>
+Received: from esa5.microchip.iphmx.com ([216.71.150.166]:4697 "EHLO
+        esa5.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750767AbdJCRnS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:43:18 -0400
+In-Reply-To: <20171003155316.12312-1-dmurphy@ti.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 3 Oct 2017 13:53:41 +0300
+> +static int dp83822_suspend(struct phy_device *phydev)
+> +{
+> +	int value;
+> +
+> +	mutex_lock(&phydev->lock);
+> +
+> +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
+> MII_DP83822_WOL_CFG);
+> +	if (~value & DP83822_WOL_EN) {
+Same result, but how about " if (!(value & DP83822_WOL_EN))" ?
 
-> We accidentally return success if the kmalloc_array() call fails.
-> 
-> Fixes: 0e14c7777acb ("mlxsw: spectrum: Add the multicast routing hardware logic")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Applied.
+> +		value = phy_read(phydev, MII_BMCR);
+> +		phy_write(phydev, MII_BMCR, value | BMCR_PDOWN);
+> +	}
+> +
+> +	mutex_unlock(&phydev->lock);
+> +
+> +	return 0;
+> +}
