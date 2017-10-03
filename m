@@ -1,156 +1,64 @@
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v2 net-next 07/12] qed: Add ll2 connection for processing unaligned MPA packets
-Date: Tue, 3 Oct 2017 11:54:57 +0300
-Message-ID: <1507020902-4952-8-git-send-email-Michal.Kalderon@cavium.com>
-References: <1507020902-4952-1-git-send-email-Michal.Kalderon@cavium.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
+Date: Tue, 3 Oct 2017 11:40:53 +0200
+Message-ID: <20171003094052.GA20592@netronome.com>
+References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
+ <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+ <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Ariel Elior" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1507020902-4952-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:55829 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751207AbdJCJk4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 05:40:56 -0400
+Received: by mail-wr0-f176.google.com with SMTP id l39so5875501wrl.12
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 02:40:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds only the establishment and termination of the
-ll2 connection that handles unaligned MPA packets.
+On Mon, Oct 02, 2017 at 01:37:55PM -0700, Tom Herbert wrote:
+> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> > Move dissection of tunnel info from the flower classifier to the flow
+> > dissector where all other dissection occurs.  This should not have any
+> > behavioural affect on other users of the flow dissector.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
----
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 65 +++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  1 +
- 2 files changed, 66 insertions(+)
+...
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 8fc9c811..f413621 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1713,6 +1713,19 @@ int qed_iwarp_reject(void *rdma_cxt, struct qed_iwarp_reject_in *iparams)
- 	return 0;
- }
- 
-+/* fpdu can be fragmented over maximum 3 bds: header, partial mpa, unaligned */
-+#define QED_IWARP_MAX_BDS_PER_FPDU 3
-+static void
-+qed_iwarp_ll2_comp_mpa_pkt(void *cxt, struct qed_ll2_comp_rx_data *data)
-+{
-+	struct qed_iwarp_info *iwarp_info;
-+	struct qed_hwfn *p_hwfn = cxt;
-+
-+	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-+	qed_iwarp_ll2_post_rx(p_hwfn, data->cookie,
-+			      iwarp_info->ll2_mpa_handle);
-+}
-+
- static void
- qed_iwarp_ll2_comp_syn_pkt(void *cxt, struct qed_ll2_comp_rx_data *data)
- {
-@@ -1877,6 +1890,13 @@ static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
- 	kfree(buffer);
- }
- 
-+void
-+qed_iwarp_ll2_slowpath(void *cxt,
-+		       u8 connection_handle,
-+		       u32 opaque_data_0, u32 opaque_data_1)
-+{
-+}
-+
- static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- {
- 	struct qed_iwarp_info *iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-@@ -1902,6 +1922,16 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 		iwarp_info->ll2_ooo_handle = QED_IWARP_HANDLE_INVAL;
- 	}
- 
-+	if (iwarp_info->ll2_mpa_handle != QED_IWARP_HANDLE_INVAL) {
-+		rc = qed_ll2_terminate_connection(p_hwfn,
-+						  iwarp_info->ll2_mpa_handle);
-+		if (rc)
-+			DP_INFO(p_hwfn, "Failed to terminate mpa connection\n");
-+
-+		qed_ll2_release_connection(p_hwfn, iwarp_info->ll2_mpa_handle);
-+		iwarp_info->ll2_mpa_handle = QED_IWARP_HANDLE_INVAL;
-+	}
-+
- 	qed_llh_remove_mac_filter(p_hwfn,
- 				  p_ptt, p_hwfn->p_rdma_info->iwarp.mac_addr);
- 	return rc;
-@@ -1953,12 +1983,14 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 	struct qed_iwarp_info *iwarp_info;
- 	struct qed_ll2_acquire_data data;
- 	struct qed_ll2_cbs cbs;
-+	u32 mpa_buff_size;
- 	u16 n_ooo_bufs;
- 	int rc = 0;
- 
- 	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
- 	iwarp_info->ll2_syn_handle = QED_IWARP_HANDLE_INVAL;
- 	iwarp_info->ll2_ooo_handle = QED_IWARP_HANDLE_INVAL;
-+	iwarp_info->ll2_mpa_handle = QED_IWARP_HANDLE_INVAL;
- 
- 	iwarp_info->max_mtu = params->max_mtu;
- 
-@@ -2029,6 +2061,39 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 	if (rc)
- 		goto err;
- 
-+	/* Start Unaligned MPA connection */
-+	cbs.rx_comp_cb = qed_iwarp_ll2_comp_mpa_pkt;
-+	cbs.slowpath_cb = qed_iwarp_ll2_slowpath;
-+
-+	memset(&data, 0, sizeof(data));
-+	data.input.conn_type = QED_LL2_TYPE_IWARP;
-+	data.input.mtu = params->max_mtu;
-+	/* FW requires that once a packet arrives OOO, it must have at
-+	 * least 2 rx buffers available on the unaligned connection
-+	 * for handling the case that it is a partial fpdu.
-+	 */
-+	data.input.rx_num_desc = n_ooo_bufs * 2;
-+	data.input.tx_num_desc = data.input.rx_num_desc;
-+	data.input.tx_max_bds_per_packet = QED_IWARP_MAX_BDS_PER_FPDU;
-+	data.p_connection_handle = &iwarp_info->ll2_mpa_handle;
-+	data.input.secondary_queue = true;
-+	data.cbs = &cbs;
-+
-+	rc = qed_ll2_acquire_connection(p_hwfn, &data);
-+	if (rc)
-+		goto err;
-+
-+	rc = qed_ll2_establish_connection(p_hwfn, iwarp_info->ll2_mpa_handle);
-+	if (rc)
-+		goto err;
-+
-+	mpa_buff_size = QED_IWARP_MAX_BUF_SIZE(params->max_mtu);
-+	rc = qed_iwarp_ll2_alloc_buffers(p_hwfn,
-+					 data.input.rx_num_desc,
-+					 mpa_buff_size,
-+					 iwarp_info->ll2_mpa_handle);
-+	if (rc)
-+		goto err;
- 	return rc;
- err:
- 	qed_iwarp_ll2_stop(p_hwfn, p_ptt);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index 9e2bfde..9d33a1f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -73,6 +73,7 @@ struct qed_iwarp_info {
- 	u8 tcp_flags;
- 	u8 ll2_syn_handle;
- 	u8 ll2_ooo_handle;
-+	u8 ll2_mpa_handle;
- 	u8 peer2peer;
- 	enum mpa_negotiation_mode mpa_rev;
- 	enum mpa_rtr_type rtr_type;
--- 
-1.8.3.1
+Hi Tom,
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Simon,
+> 
+> I think I'm missing something fundamental here. This code is
+> populating flow dissector keys not based on the contents of the packet
+> like rest of the flow dissector, but on external meta data related to
+> the packet which I believe is constant during the whole flow
+> dissection.
+
+Yes, I believe that is correct on all counts.
+
+> Why can't this be handled by the caller?
+
+It certainly can be. And indeed it was before this patch. But it seems odd
+for some population of dissector keys to occur in the dissector and some
+elsewhere.
+
+I feel that we are circling back the perennial issue of flower using the
+flow dissector in a somewhat broader/different way than many/all other
+users of the flow dissector.
+
+> Also, if I read this correctly, this code could be called multiple times
+> and it seems like it does the exact same thing in each call.
+
+I'm not sure what you are getting at there. If there are flower classifiers
+for the same device at different priority levels then the dissection
+will be called multiple times and the data in question cannot have changed
+as far as I know. But this was also the case before this patch.
