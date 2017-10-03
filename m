@@ -1,39 +1,44 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH] net: phy: DP83822 initial driver submission
-Date: Tue, 3 Oct 2017 17:43:16 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B3C801@CHN-SV-EXMX02.mchp-main.com>
-References: <20171003155316.12312-1-dmurphy@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <dmurphy@ti.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH iproute2 0/3] ss: add AF_VSOCK support
+Date: Tue,  3 Oct 2017 13:57:41 -0400
+Message-ID: <20171003175744.24987-1-stefanha@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        Dexuan Cui <decui@microsoft.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa5.microchip.iphmx.com ([216.71.150.166]:4697 "EHLO
-        esa5.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750767AbdJCRnS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:43:18 -0400
-In-Reply-To: <20171003155316.12312-1-dmurphy@ti.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:35588 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751199AbdJCR5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 13:57:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +static int dp83822_suspend(struct phy_device *phydev)
-> +{
-> +	int value;
-> +
-> +	mutex_lock(&phydev->lock);
-> +
-> +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
-> MII_DP83822_WOL_CFG);
-> +	if (~value & DP83822_WOL_EN) {
-Same result, but how about " if (!(value & DP83822_WOL_EN))" ?
+This patch series adds AF_VSOCK support to ss(8).  AF_VSOCK is a host<->guest
+communications channel supported by VMware, KVM (virtio-vsock), and Hyper-V.
 
-> +		value = phy_read(phydev, MII_BMCR);
-> +		phy_write(phydev, MII_BMCR, value | BMCR_PDOWN);
-> +	}
-> +
-> +	mutex_unlock(&phydev->lock);
-> +
-> +	return 0;
-> +}
+To dump AF_VSOCK sockets:
+
+  $ ss --vsock
+
+The vsock_diag.ko kernel module for Linux was posted in "[PATCH 0/5] VSOCK: add
+sock_diag interface".  That patch series also adds the
+<linux/vm_sockets_diag.h> header file that this patch series relies on.  The
+Linux patches are also available here:
+
+  https://github.com/stefanha/linux/commits/vsock-diag
+
+Stefan Hajnoczi (3):
+  ss: allow AF_FAMILY constants >32
+  include: add <linux/vm_sockets_diag.h>
+  ss: add AF_VSOCK support
+
+ include/linux/vm_sockets_diag.h |  33 ++++++
+ misc/ss.c                       | 238 +++++++++++++++++++++++++++++++++++-----
+ man/man8/ss.8                   |   8 +-
+ 3 files changed, 249 insertions(+), 30 deletions(-)
+ create mode 100644 include/linux/vm_sockets_diag.h
+
+-- 
+2.13.6
