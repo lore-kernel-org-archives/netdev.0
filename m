@@ -1,70 +1,64 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next v2 00/10] Introduce SCTP Stream Schedulers
-Date: Tue,  3 Oct 2017 19:20:07 -0300
-Message-ID: <cover.1507069005.git.marcelo.leitner@gmail.com>
+Subject: [PATCH net-next v2 01/10] sctp: silence warns on sctp_stream_init allocations
+Date: Tue,  3 Oct 2017 19:20:08 -0300
+Message-ID: <ad39d944bbf4dd976a483cc05b8283bdf4fc67f8.1507069005.git.marcelo.leitner@gmail.com>
+References: <cover.1507069005.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>,
         Xin Long <lucien.xin@gmail.com>,
         David Laight <David.Laight@ACULAB.COM>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:50385 "EHLO
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:57289 "EHLO
         mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751090AbdJCWUb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 18:20:31 -0400
+        with ESMTP id S1751090AbdJCWUd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 18:20:33 -0400
+In-Reply-To: <cover.1507069005.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset introduces the SCTP Stream Schedulers are defined by
-https://tools.ietf.org/html/draft-ietf-tsvwg-sctp-ndata-13
+As SCTP supports up to 65535 streams, that can lead to very large
+allocations in sctp_stream_init(). As Xin Long noticed, systems with
+small amounts of memory are more prone to not have enough memory and
+dump warnings on dmesg initiated by user actions. Thus, silence them.
 
-It provides 3 schedulers at the moment: FCFS, Priority and Round Robin.
-The other 3, Round Robin per packet, Fair Capacity and Weighted Fair
-Capacity will be added later. More specifically, WFQ is required by
-WebRTC Datachannels.
+Also, if the reallocation of stream->out is not necessary, skip it and
+keep the memory we already have.
 
-The draft also defines the idata chunk, allowing a usermsg to be
-interrupted by another piece of idata from another stream. This patchset
-*doesn't* include it. It will be posted later by Xin Long.  Its
-integration with this patchset is very simple and it basically only
-requires a tweak in sctp_sched_dequeue_done(), to ignore datamsg
-boundaries.
+Reported-by: Xin Long <lucien.xin@gmail.com>
+Tested-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/stream.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-The first 5 patches are a preparation for the next ones. The most
-relevant patches are the 4th and 6th ones. More details are available on
-each patch.
-
-v2: changelog update on patch 3
-
-Marcelo Ricardo Leitner (10):
-  sctp: silence warns on sctp_stream_init allocations
-  sctp: factor out stream->out allocation
-  sctp: factor out stream->in allocation
-  sctp: introduce struct sctp_stream_out_ext
-  sctp: introduce sctp_chunk_stream_no
-  sctp: introduce stream scheduler foundations
-  sctp: add sockopt to get/set stream scheduler
-  sctp: add sockopt to get/set stream scheduler parameters
-  sctp: introduce priority based stream scheduler
-  sctp: introduce round robin stream scheduler
-
- include/net/sctp/stream_sched.h |  72 +++++++++
- include/net/sctp/structs.h      |  63 +++++++-
- include/uapi/linux/sctp.h       |  16 ++
- net/sctp/Makefile               |   3 +-
- net/sctp/chunk.c                |   6 +-
- net/sctp/outqueue.c             |  63 ++++----
- net/sctp/sm_sideeffect.c        |   3 +
- net/sctp/socket.c               | 179 ++++++++++++++++++++-
- net/sctp/stream.c               | 196 +++++++++++++++++++----
- net/sctp/stream_sched.c         | 275 +++++++++++++++++++++++++++++++
- net/sctp/stream_sched_prio.c    | 347 ++++++++++++++++++++++++++++++++++++++++
- net/sctp/stream_sched_rr.c      | 201 +++++++++++++++++++++++
- 12 files changed, 1347 insertions(+), 77 deletions(-)
- create mode 100644 include/net/sctp/stream_sched.h
- create mode 100644 net/sctp/stream_sched.c
- create mode 100644 net/sctp/stream_sched_prio.c
- create mode 100644 net/sctp/stream_sched_rr.c
-
+diff --git a/net/sctp/stream.c b/net/sctp/stream.c
+index 63ea1550371493ec8863627c7a43f46a22f4a4c9..1afa9555808390d5fc736727422d9700a3855613 100644
+--- a/net/sctp/stream.c
++++ b/net/sctp/stream.c
+@@ -40,9 +40,14 @@ int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
+ {
+ 	int i;
+ 
++	gfp |= __GFP_NOWARN;
++
+ 	/* Initial stream->out size may be very big, so free it and alloc
+-	 * a new one with new outcnt to save memory.
++	 * a new one with new outcnt to save memory if needed.
+ 	 */
++	if (outcnt == stream->outcnt)
++		goto in;
++
+ 	kfree(stream->out);
+ 
+ 	stream->out = kcalloc(outcnt, sizeof(*stream->out), gfp);
+@@ -53,6 +58,7 @@ int sctp_stream_init(struct sctp_stream *stream, __u16 outcnt, __u16 incnt,
+ 	for (i = 0; i < stream->outcnt; i++)
+ 		stream->out[i].state = SCTP_STREAM_OPEN;
+ 
++in:
+ 	if (!incnt)
+ 		return 0;
+ 
 -- 
 2.13.5
