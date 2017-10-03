@@ -1,381 +1,257 @@
-From: Dan Murphy <dmurphy@ti.com>
-Subject: [PATCH] net: phy: DP83822 initial driver submission
-Date: Tue, 3 Oct 2017 10:53:16 -0500
-Message-ID: <20171003155316.12312-1-dmurphy@ti.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 1/1] xdp: Sample xdp program implementing ip forward
+Date: Tue, 03 Oct 2017 17:54:10 +0200
+Message-ID: <59D3B2A2.4030100@iogearbox.net>
+References: <1507016225-319-1-git-send-email-Christina.Jacob@cavium.com> <1507016225-319-2-git-send-email-Christina.Jacob@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Dan Murphy <dmurphy@ti.com>
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:49336 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751201AbdJCPxa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 11:53:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        alexei.starovoitov@gmail.com
+To: cjacob <Christina.Jacob@cavium.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507016225-319-2-git-send-email-Christina.Jacob@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for the TI  DP83822 10/100Mbit ethernet phy.
+On 10/03/2017 09:37 AM, cjacob wrote:
+> Implements port to port forwarding with route table and arp table
+> lookup for ipv4 packets using bpf_redirect helper function and
+> lpm_trie  map.
+>
+> Signed-off-by: cjacob <Christina.Jacob@cavium.com>
 
-The DP83822 provides flexibility to connect to a MAC through a
-standard MII, RMII or RGMII interface.
+Thanks for the patch, just few minor comments below!
 
-Datasheet:
-http://www.ti.com/product/DP83822I/datasheet
+Note, should be full name, e.g.:
 
-Signed-off-by: Dan Murphy <dmurphy@ti.com>
----
- drivers/net/phy/Kconfig   |   5 +
- drivers/net/phy/Makefile  |   1 +
- drivers/net/phy/dp83822.c | 313 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 319 insertions(+)
- create mode 100644 drivers/net/phy/dp83822.c
+   Signed-off-by: Christina Jacob <Christina.Jacob@cavium.com>
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index cd931cf..8e78a48 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -277,6 +277,11 @@ config DAVICOM_PHY
- 	---help---
- 	  Currently supports dm9161e and dm9131
- 
-+config DP83822_PHY
-+	tristate "Texas Instruments DP83822 PHY"
-+	---help---
-+	  Supports the DP83822 PHY.
-+
- config DP83848_PHY
- 	tristate "Texas Instruments DP83848 PHY"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 416df92..df3b82b 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -55,6 +55,7 @@ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
- obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
- obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
- obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
-+obj-$(CONFIG_DP83822_PHY)	+= dp83822.o
- obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
- obj-$(CONFIG_DP83867_PHY)	+= dp83867.o
- obj-$(CONFIG_FIXED_PHY)		+= fixed_phy.o
-diff --git a/drivers/net/phy/dp83822.c b/drivers/net/phy/dp83822.c
-new file mode 100644
-index 0000000..1d77515
---- /dev/null
-+++ b/drivers/net/phy/dp83822.c
-@@ -0,0 +1,313 @@
-+/*
-+ * Driver for the Texas Instruments DP83822 PHY
-+ *
-+ * Copyright (C) 2017 Texas Instruments Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/ethtool.h>
-+#include <linux/etherdevice.h>
-+#include <linux/kernel.h>
-+#include <linux/mii.h>
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/phy.h>
-+#include <linux/netdevice.h>
-+
-+#define DP83822_PHY_ID	        0x2000a240
-+#define DP83822_DEVADDR		0x1f
-+
-+#define MII_DP83822_MISR1	0x12
-+#define MII_DP83822_MISR2	0x13
-+#define MII_DP83822_RESET_CTRL	0x1f
-+
-+#define DP83822_HW_RESET	BIT(15)
-+#define DP83822_SW_RESET	BIT(14)
-+
-+/* MISR1 bits */
-+#define DP83822_RX_ERR_HF_INT_EN	BIT(0)
-+#define DP83822_FALSE_CARRIER_HF_INT_EN	BIT(1)
-+#define DP83822_ANEG_COMPLETE_INT_EN	BIT(2)
-+#define DP83822_DUP_MODE_CHANGE_INT_EN	BIT(3)
-+#define DP83822_SPEED_CHANGED_INT_EN	BIT(4)
-+#define DP83822_LINK_STAT_INT_EN	BIT(5)
-+#define DP83822_ENERGY_DET_INT_EN	BIT(6)
-+#define DP83822_LINK_QUAL_INT_EN	BIT(7)
-+
-+/* MISR2 bits */
-+#define DP83822_JABBER_DET_INT_EN	BIT(0)
-+#define DP83822_WOL_PKT_INT_EN		BIT(1)
-+#define DP83822_SLEEP_MODE_INT_EN	BIT(2)
-+#define DP83822_MDI_XOVER_INT_EN	BIT(3)
-+#define DP83822_LB_FIFO_INT_EN		BIT(4)
-+#define DP83822_PAGE_RX_INT_EN		BIT(5)
-+#define DP83822_ANEG_ERR_INT_EN		BIT(6)
-+#define DP83822_EEE_ERROR_CHANGE_INT_EN	BIT(7)
-+
-+/* INT_STAT1 bits */
-+#define DP83822_WOL_INT_EN	BIT(4)
-+#define DP83822_WOL_INT_STAT	BIT(12)
-+
-+#define MII_DP83822_RXSOP1	0x04A5
-+#define	MII_DP83822_RXSOP2	0x04A6
-+#define	MII_DP83822_RXSOP3	0x04A7
-+
-+/* WoL Registers */
-+#define	MII_DP83822_WOL_CFG	0x04A0
-+#define	MII_DP83822_WOL_STAT	0x04A1
-+#define	MII_DP83822_WOL_DA1	0x04A2
-+#define	MII_DP83822_WOL_DA2	0x04A3
-+#define	MII_DP83822_WOL_DA3	0x04A4
-+
-+/* WoL bits */
-+#define DP83822_WOL_MAGIC_EN	BIT(1)
-+#define DP83822_WOL_SECURE_ON	BIT(5)
-+#define DP83822_WOL_EN		BIT(7)
-+#define DP83822_WOL_INDICATION_SEL BIT(8)
-+#define DP83822_WOL_CLR_INDICATION BIT(11)
-+
-+static int dp83822_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err = phy_read(phydev, MII_DP83822_MISR1);
-+
-+	if (err < 0)
-+		return err;
-+
-+	err = phy_read(phydev, MII_DP83822_MISR2);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int dp83822_set_wol(struct phy_device *phydev,
-+			   struct ethtool_wolinfo *wol)
-+{
-+	struct net_device *ndev = phydev->attached_dev;
-+	u16 value;
-+	const u8 *mac;
-+
-+	if (wol->wolopts & (WAKE_MAGIC | WAKE_MAGICSECURE)) {
-+		mac = (const u8 *)ndev->dev_addr;
-+
-+		if (!is_valid_ether_addr(mac))
-+			return -EFAULT;
-+
-+		/* MAC addresses start with byte 5, but stored in mac[0].
-+		 * 822 PHYs store bytes 4|5, 2|3, 0|1
-+		 */
-+		phy_write_mmd(phydev, DP83822_DEVADDR,
-+			      MII_DP83822_WOL_DA1, (mac[1] << 8) | mac[0]);
-+		phy_write_mmd(phydev, DP83822_DEVADDR,
-+			      MII_DP83822_WOL_DA2, (mac[3] << 8) | mac[2]);
-+		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_DA3,
-+			      (mac[5] << 8) | mac[4]);
-+
-+		value = phy_read_mmd(phydev, DP83822_DEVADDR,
-+				     MII_DP83822_WOL_CFG);
-+		if (wol->wolopts & WAKE_MAGIC)
-+			value |= DP83822_WOL_MAGIC_EN;
-+		else
-+			value &= ~DP83822_WOL_MAGIC_EN;
-+
-+		if (wol->wolopts & WAKE_MAGICSECURE) {
-+			value |= DP83822_WOL_SECURE_ON;
-+			phy_write_mmd(phydev, DP83822_DEVADDR,
-+				      MII_DP83822_RXSOP1,
-+				      (wol->sopass[1] << 8) | wol->sopass[0]);
-+			phy_write_mmd(phydev, DP83822_DEVADDR,
-+				      MII_DP83822_RXSOP2,
-+				      (wol->sopass[3] << 8) | wol->sopass[2]);
-+			phy_write_mmd(phydev, DP83822_DEVADDR,
-+				      MII_DP83822_RXSOP3,
-+				      (wol->sopass[5] << 8) | wol->sopass[4]);
-+		} else {
-+			value &= ~DP83822_WOL_SECURE_ON;
-+		}
-+
-+		value |= (DP83822_WOL_EN | DP83822_WOL_CLR_INDICATION |
-+			  DP83822_WOL_CLR_INDICATION);
-+		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
-+			      value);
-+	} else {
-+		value =
-+		    phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
-+		value &= (~DP83822_WOL_EN);
-+		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
-+			      value);
-+	}
-+
-+	return 0;
-+}
-+
-+static void dp83822_get_wol(struct phy_device *phydev,
-+			    struct ethtool_wolinfo *wol)
-+{
-+	int value;
-+
-+	wol->supported = (WAKE_MAGIC | WAKE_MAGICSECURE);
-+	wol->wolopts = 0;
-+
-+	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
-+	if (value & DP83822_WOL_MAGIC_EN)
-+		wol->wolopts |= WAKE_MAGIC;
-+
-+	if (value & DP83822_WOL_SECURE_ON)
-+		wol->wolopts |= WAKE_MAGICSECURE;
-+
-+	if (~value & DP83822_WOL_CLR_INDICATION)
-+		wol->wolopts = 0;
-+
-+	wol->sopass[0] = (phy_read_mmd(phydev,
-+				       DP83822_DEVADDR,
-+				       MII_DP83822_RXSOP1) & 0xFF);
-+	wol->sopass[1] =
-+	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP1) >> 8);
-+	wol->sopass[2] =
-+	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP2) & 0xFF);
-+	wol->sopass[3] =
-+	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP2) >> 8);
-+	wol->sopass[4] =
-+	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP3) & 0xFF);
-+	wol->sopass[5] =
-+	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP3) >> 8);
-+}
-+
-+static int dp83822_config_intr(struct phy_device *phydev)
-+{
-+	int misr_status;
-+	int err;
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
-+		misr_status = phy_read(phydev, MII_DP83822_MISR1);
-+		if (misr_status < 0)
-+			return misr_status;
-+
-+		misr_status |= (DP83822_RX_ERR_HF_INT_EN |
-+				DP83822_FALSE_CARRIER_HF_INT_EN |
-+				DP83822_ANEG_COMPLETE_INT_EN |
-+				DP83822_DUP_MODE_CHANGE_INT_EN |
-+				DP83822_SPEED_CHANGED_INT_EN |
-+				DP83822_LINK_STAT_INT_EN |
-+				DP83822_ENERGY_DET_INT_EN |
-+				DP83822_LINK_QUAL_INT_EN);
-+
-+		err = phy_write(phydev, MII_DP83822_MISR1, misr_status);
-+		if (err < 0)
-+			return err;
-+
-+		misr_status = phy_read(phydev, MII_DP83822_MISR2);
-+		if (misr_status < 0)
-+			return misr_status;
-+
-+		misr_status |= (DP83822_JABBER_DET_INT_EN |
-+				DP83822_WOL_PKT_INT_EN |
-+				DP83822_SLEEP_MODE_INT_EN |
-+				DP83822_MDI_XOVER_INT_EN |
-+				DP83822_LB_FIFO_INT_EN |
-+				DP83822_PAGE_RX_INT_EN |
-+				DP83822_ANEG_ERR_INT_EN |
-+				DP83822_EEE_ERROR_CHANGE_INT_EN);
-+
-+		err = phy_write(phydev, MII_DP83822_MISR2, misr_status);
-+	} else {
-+		err = phy_write(phydev, MII_DP83822_MISR1, 0);
-+		if (err < 0)
-+			return err;
-+
-+		err = phy_write(phydev, MII_DP83822_MISR1, 0);
-+	}
-+
-+	return err;
-+}
-+
-+static int dp83822_phy_reset(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_write(phydev, MII_DP83822_RESET_CTRL, DP83822_HW_RESET);
-+	if (err < 0)
-+		return err;
-+
-+	return 0;
-+}
-+
-+static int dp83822_suspend(struct phy_device *phydev)
-+{
-+	int value;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
-+	if (~value & DP83822_WOL_EN) {
-+		value = phy_read(phydev, MII_BMCR);
-+		phy_write(phydev, MII_BMCR, value | BMCR_PDOWN);
-+	}
-+
-+	mutex_unlock(&phydev->lock);
-+
-+	return 0;
-+}
-+
-+static int dp83822_resume(struct phy_device *phydev)
-+{
-+	int value;
-+
-+	mutex_lock(&phydev->lock);
-+
-+	value = phy_read(phydev, MII_BMCR);
-+	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
-+
-+	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
-+
-+	phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG, value |
-+		      DP83822_WOL_CLR_INDICATION);
-+
-+	mutex_unlock(&phydev->lock);
-+
-+	return 0;
-+}
-+
-+static struct phy_driver dp83822_driver[] = {
-+	{
-+	 .phy_id = DP83822_PHY_ID,
-+	 .phy_id_mask = 0xfffffff0,
-+	 .name = "TI DP83822",
-+	 .features = PHY_BASIC_FEATURES,
-+	 .flags = PHY_HAS_INTERRUPT,
-+
-+	 .config_init = genphy_config_init,
-+	 .soft_reset = dp83822_phy_reset,
-+
-+	 .get_wol = dp83822_get_wol,
-+	 .set_wol = dp83822_set_wol,
-+
-+	 /* IRQ related */
-+	 .ack_interrupt = dp83822_ack_interrupt,
-+	 .config_intr = dp83822_config_intr,
-+
-+	 .config_aneg = genphy_config_aneg,
-+	 .read_status = genphy_read_status,
-+	 .suspend = dp83822_suspend,
-+	 .resume = dp83822_resume,
-+	 },
-+};
-+module_phy_driver(dp83822_driver);
-+
-+static struct mdio_device_id __maybe_unused dp83822_tbl[] = {
-+	{ DP83822_PHY_ID, 0xfffffff0 },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(mdio, dp83822_tbl);
-+
-+MODULE_DESCRIPTION("Texas Instruments DP83822 PHY driver");
-+MODULE_AUTHOR("Dan Murphy <dmurphy@ti.com");
-+MODULE_LICENSE("GPL");
--- 
-1.9.1
+Also you From: only shows 'cjacob' as can be seen from the cover letter
+as well, so perhaps check your git settings to make that full name:
+
+   cjacob (1):
+     xdp: Sample xdp program implementing ip forward
+
+If there's one single patch, then cover letter is not needed, only
+for >1 sets.
+
+[...]
+> +#define KBUILD_MODNAME "foo"
+> +#include <uapi/linux/bpf.h>
+> +#include <linux/in.h>
+> +#include <linux/if_ether.h>
+> +#include <linux/if_packet.h>
+> +#include <linux/if_vlan.h>
+> +#include <linux/ip.h>
+> +#include <linux/ipv6.h>
+> +#include "bpf_helpers.h"
+> +#include <linux/slab.h>
+> +#include <net/ip_fib.h>
+> +
+> +struct trie_value {
+> +	__u8 prefix[4];
+> +	long value;
+> +	int gw;
+> +	int ifindex;
+> +	int metric;
+> +};
+> +
+> +union key_4 {
+> +	u32 b32[2];
+> +	u8 b8[8];
+> +};
+> +
+> +struct arp_entry {
+> +	int dst;
+> +	long mac;
+> +};
+> +
+> +struct direct_map {
+> +	long mac;
+> +	int ifindex;
+> +	struct arp_entry arp;
+> +};
+> +
+> +/* Map for trie implementation*/
+> +struct bpf_map_def SEC("maps") lpm_map = {
+> +	.type = BPF_MAP_TYPE_LPM_TRIE,
+> +	.key_size = 8,
+> +	.value_size =
+> +		sizeof(struct trie_value),
+
+(Nit: there are couple of such breaks throughout the patch, can we
+  just use single line for such cases where reasonable?)
+
+> +	.max_entries = 50,
+> +	.map_flags = BPF_F_NO_PREALLOC,
+> +};
+> +
+> +/* Map for counter*/
+> +struct bpf_map_def SEC("maps") rxcnt = {
+> +	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
+> +	.key_size = sizeof(u32),
+> +	.value_size = sizeof(long),
+> +	.max_entries = 256,
+> +};
+> +
+> +/* Map for ARP table*/
+> +struct bpf_map_def SEC("maps") arp_table = {
+> +	.type = BPF_MAP_TYPE_HASH,
+> +	.key_size = sizeof(int),
+> +	.value_size = sizeof(long),
+
+Perhaps these should be proper structs here, such that it
+becomes easier to read/handle later on lookup.
+
+> +	.max_entries = 50,
+> +};
+> +
+> +/* Map to keep the exact match entries in the route table*/
+> +struct bpf_map_def SEC("maps") exact_match = {
+> +	.type = BPF_MAP_TYPE_HASH,
+> +	.key_size = sizeof(int),
+> +	.value_size = sizeof(struct direct_map),
+> +	.max_entries = 50,
+> +};
+> +
+> +/**
+> + * Function to set source and destination mac of the packet
+> + */
+> +static inline void set_src_dst_mac(void *data, void *src, void *dst)
+> +{
+> +	unsigned short *p      = data;
+> +	unsigned short *dest   = dst;
+> +	unsigned short *source = src;
+> +
+> +	p[3] = source[0];
+> +	p[4] = source[1];
+> +	p[5] = source[2];
+> +	p[0] = dest[0];
+> +	p[1] = dest[1];
+> +	p[2] = dest[2];
+
+You could just use __builtin_memcpy() given length is
+constant anyway, so LLVM will do the inlining.
+
+> +}
+> +
+> +/**
+> + * Parse IPV4 packet to get SRC, DST IP and protocol
+> + */
+> +static inline int parse_ipv4(void *data, u64 nh_off, void *data_end,
+> +			     unsigned int *src, unsigned int *dest)
+> +{
+> +	struct iphdr *iph = data + nh_off;
+> +
+> +	if (iph + 1 > data_end)
+> +		return 0;
+> +	*src = (unsigned int)iph->saddr;
+> +	*dest = (unsigned int)iph->daddr;
+
+Why not stay with __be32 types?
+
+> +	return iph->protocol;
+> +}
+> +
+> +SEC("xdp3")
+> +int xdp_prog3(struct xdp_md *ctx)
+> +{
+> +	void *data_end = (void *)(long)ctx->data_end;
+> +	void *data = (void *)(long)ctx->data;
+> +	struct ethhdr *eth = data;
+> +	int rc = XDP_DROP, forward_to;
+> +	long *value;
+> +	struct trie_value *prefix_value;
+> +	long *dest_mac = NULL, *src_mac = NULL;
+> +	u16 h_proto;
+> +	u64 nh_off;
+> +	u32 ipproto;
+> +	union key_4 key4;
+> +
+> +	nh_off = sizeof(*eth);
+> +	if (data + nh_off > data_end)
+> +		return rc;
+> +
+> +	h_proto = eth->h_proto;
+> +
+> +	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
+> +		struct vlan_hdr *vhdr;
+> +
+> +		vhdr = data + nh_off;
+> +		nh_off += sizeof(struct vlan_hdr);
+> +		if (data + nh_off > data_end)
+> +			return rc;
+> +		h_proto = vhdr->h_vlan_encapsulated_proto;
+> +	}
+> +	if (h_proto == htons(ETH_P_ARP)) {
+> +		return XDP_PASS;
+> +	} else if (h_proto == htons(ETH_P_IP)) {
+> +		int src_ip = 0, dest_ip = 0;
+> +		struct direct_map *direct_entry;
+> +
+> +		ipproto = parse_ipv4(data, nh_off, data_end, &src_ip, &dest_ip);
+> +		direct_entry = (struct direct_map *)bpf_map_lookup_elem
+> +			(&exact_match, &dest_ip);
+> +		/*check for exact match, this would give a faster lookup*/
+> +		if (direct_entry && direct_entry->mac &&
+> +		    direct_entry->arp.mac) {
+> +			src_mac = &direct_entry->mac;
+> +			dest_mac = &direct_entry->arp.mac;
+> +			forward_to = direct_entry->ifindex;
+> +		} else {
+> +			/*Look up in the trie for lpm*/
+> +			// Key for trie
+
+Nit: please check style throughout the patch.
+
+> +			key4.b32[0] = 32;
+> +			key4.b8[4] = dest_ip % 0x100;
+> +			key4.b8[5] = (dest_ip >> 8) % 0x100;
+> +			key4.b8[6] = (dest_ip >> 16) % 0x100;
+> +			key4.b8[7] = (dest_ip >> 24) % 0x100;
+> +			prefix_value =
+> +				((struct trie_value *)bpf_map_lookup_elem
+> +				 (&lpm_map, &key4));
+
+For key, please use proper struct bpf_lpm_trie_key, see also
+usage example in tools/testing/selftests/bpf/test_lpm_map.c
+for LPM handling.
+
+> +			if (!prefix_value) {
+> +				return XDP_DROP;
+> +			} else {
+> +				src_mac = &prefix_value->value;
+> +				if (src_mac) {
+> +					dest_mac = (long *)bpf_map_lookup_elem
+> +						(&arp_table, &dest_ip);
+> +					if (!dest_mac) {
+> +						if (prefix_value->gw) {
+> +							dest_ip = *(unsigned int *)(&(prefix_value->gw));
+> +							dest_mac = (long *)bpf_map_lookup_elem
+> +								(&arp_table, &dest_ip);
+> +						} else {
+> +							return XDP_DROP;
+> +						}
+> +					}
+> +					forward_to = prefix_value->ifindex;
+> +				} else {
+> +					return XDP_DROP;
+> +				}
+> +			}
+> +		}
+> +	} else {
+> +		ipproto = 0;
+> +	}
+> +	if (src_mac && dest_mac) {
+> +		set_src_dst_mac(data, src_mac,
+> +				dest_mac);
+> +		value = bpf_map_lookup_elem
+> +			(&rxcnt, &ipproto);
+> +		if (value)
+> +			*value += 1;
+> +		return  bpf_redirect(
+> +				     forward_to,
+> +				     0);
+> +	}
+> +	return rc;
