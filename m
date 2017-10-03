@@ -1,127 +1,116 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next 6/8] libbpf: sync bpf.h
-Date: Mon, 2 Oct 2017 16:48:55 -0700
-Message-ID: <20171002234857.3707580-7-ast@fb.com>
-References: <20171002234857.3707580-1-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
-        David Ahern <dsa@cumulusnetworks.com>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: [PATCH net v1 1/2] ARM: dts: imx: let's name the ptp interrupt for the fec ethernet driver
+Date: Mon,  2 Oct 2017 17:04:41 -0700
+Message-ID: <20171003000442.31841-1-troy.kisky@boundarydevices.com>
+Cc: fabio.estevam@nxp.com, lznuaa@gmail.com,
+        Troy Kisky <troy.kisky@boundarydevices.com>
+To: shawn.guo@linaro.org, fugang.duan@nxp.com, netdev@vger.kernel.org,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35882 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751131AbdJBXth (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 19:49:37 -0400
-Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v92Nm6gA026582
-        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 16:49:36 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dby88g1h6-5
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 16:49:36 -0700
-In-Reply-To: <20171002234857.3707580-1-ast@fb.com>
+Received: from wsip-98-189-142-135.oc.oc.cox.net ([98.189.142.135]:49514 "EHLO
+        office-server2" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750869AbdJCAEu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 20:04:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tools/include/uapi/linux/bpf.h got out of sync with actual kernel header.
-Update it.
+imx7s/imx7d has the ptp interrupt newly added as well.
+This will allow the ptp interrupt to have its own interrupt routine.
 
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
- tools/include/uapi/linux/bpf.h | 55 +++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 52 insertions(+), 3 deletions(-)
+ arch/arm/boot/dts/imx6qdl.dtsi | 1 +
+ arch/arm/boot/dts/imx6sx.dtsi  | 2 ++
+ arch/arm/boot/dts/imx6ul.dtsi  | 2 ++
+ arch/arm/boot/dts/imx7d.dtsi   | 4 +++-
+ arch/arm/boot/dts/imx7s.dtsi   | 4 +++-
+ 5 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 6d2137b4cf38..cb2b9f95160a 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -92,6 +92,7 @@ enum bpf_cmd {
- 	BPF_PROG_GET_FD_BY_ID,
- 	BPF_MAP_GET_FD_BY_ID,
- 	BPF_OBJ_GET_INFO_BY_FD,
-+	BPF_PROG_QUERY,
- };
- 
- enum bpf_map_type {
-@@ -143,11 +144,47 @@ enum bpf_attach_type {
- 
- #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
- 
--/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
-- * to the given target_fd cgroup the descendent cgroup will be able to
-- * override effective bpf program that was inherited from this cgroup
-+/* cgroup-bpf attach flags used in BPF_PROG_ATTACH command
-+ *
-+ * NONE(default): No further bpf programs allowed in the subtree.
-+ *
-+ * BPF_F_ALLOW_OVERRIDE: If a sub-cgroup installs some bpf program,
-+ * the program in this cgroup yields to sub-cgroup program.
-+ *
-+ * BPF_F_ALLOW_MULTI: If a sub-cgroup installs some bpf program,
-+ * that cgroup program gets run in addition to the program in this cgroup.
-+ *
-+ * Only one program is allowed to be attached to a cgroup with
-+ * NONE or BPF_F_ALLOW_OVERRIDE flag.
-+ * Attaching another program on top of NONE or BPF_F_ALLOW_OVERRIDE will
-+ * release old program and attach the new one. Attach flags has to match.
-+ *
-+ * Multiple programs are allowed to be attached to a cgroup with
-+ * BPF_F_ALLOW_MULTI flag. They are executed in FIFO order
-+ * (those that were attached first, run first)
-+ * The programs of sub-cgroup are executed first, then programs of
-+ * this cgroup and then programs of parent cgroup.
-+ * When children program makes decision (like picking TCP CA or sock bind)
-+ * parent program has a chance to override it.
-+ *
-+ * A cgroup with MULTI or OVERRIDE flag allows any attach flags in sub-cgroups.
-+ * A cgroup with NONE doesn't allow any programs in sub-cgroups.
-+ * Ex1:
-+ * cgrp1 (MULTI progs A, B) ->
-+ *    cgrp2 (OVERRIDE prog C) ->
-+ *      cgrp3 (MULTI prog D) ->
-+ *        cgrp4 (OVERRIDE prog E) ->
-+ *          cgrp5 (NONE prog F)
-+ * the event in cgrp5 triggers execution of F,D,A,B in that order.
-+ * if prog F is detached, the execution is E,D,A,B
-+ * if prog F and D are detached, the execution is E,A,B
-+ * if prog F, E and D are detached, the execution is C,A,B
-+ *
-+ * All eligible programs are executed regardless of return code from
-+ * earlier programs.
-  */
- #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
-+#define BPF_F_ALLOW_MULTI	(1U << 1)
- 
- /* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
-  * verifier will perform strict alignment checking as if the kernel
-@@ -175,6 +212,9 @@ enum bpf_attach_type {
- /* Specify numa node during map creation */
- #define BPF_F_NUMA_NODE		(1U << 2)
- 
-+/* flags for BPF_PROG_QUERY */
-+#define BPF_F_QUERY_EFFECTIVE	(1U << 0)
-+
- #define BPF_OBJ_NAME_LEN 16U
- 
- union bpf_attr {
-@@ -253,6 +293,15 @@ union bpf_attr {
- 		__u32		info_len;
- 		__aligned_u64	info;
- 	} info;
-+
-+	struct { /* anonymous struct used by BPF_PROG_QUERY command */
-+		__u32		target_fd;	/* container object to query */
-+		__u32		attach_type;
-+		__u32		query_flags;
-+		__u32		attach_flags;
-+		__aligned_u64	prog_ids;
-+		__u32		prog_cnt;
-+	} query;
- } __attribute__((aligned(8)));
- 
- /* BPF helper function descriptions:
+diff --git a/arch/arm/boot/dts/imx6qdl.dtsi b/arch/arm/boot/dts/imx6qdl.dtsi
+index 8884b4a3cafb..d848d2bfe8e2 100644
+--- a/arch/arm/boot/dts/imx6qdl.dtsi
++++ b/arch/arm/boot/dts/imx6qdl.dtsi
+@@ -1017,6 +1017,7 @@
+ 			fec: ethernet@02188000 {
+ 				compatible = "fsl,imx6q-fec";
+ 				reg = <0x02188000 0x4000>;
++				interrupt-names = "","ptp";
+ 				interrupts-extended =
+ 					<&intc 0 118 IRQ_TYPE_LEVEL_HIGH>,
+ 					<&intc 0 119 IRQ_TYPE_LEVEL_HIGH>;
+diff --git a/arch/arm/boot/dts/imx6sx.dtsi b/arch/arm/boot/dts/imx6sx.dtsi
+index 6c7eb54be9e2..d64ae33c0b41 100644
+--- a/arch/arm/boot/dts/imx6sx.dtsi
++++ b/arch/arm/boot/dts/imx6sx.dtsi
+@@ -861,6 +861,7 @@
+ 			fec1: ethernet@02188000 {
+ 				compatible = "fsl,imx6sx-fec", "fsl,imx6q-fec";
+ 				reg = <0x02188000 0x4000>;
++				interrupt-names = "","ptp";
+ 				interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+ 					     <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+ 				clocks = <&clks IMX6SX_CLK_ENET>,
+@@ -970,6 +971,7 @@
+ 			fec2: ethernet@021b4000 {
+ 				compatible = "fsl,imx6sx-fec", "fsl,imx6q-fec";
+ 				reg = <0x021b4000 0x4000>;
++				interrupt-names = "","ptp";
+ 				interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+ 					     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
+ 				clocks = <&clks IMX6SX_CLK_ENET>,
+diff --git a/arch/arm/boot/dts/imx6ul.dtsi b/arch/arm/boot/dts/imx6ul.dtsi
+index f11a241a340d..fe093f8531b0 100644
+--- a/arch/arm/boot/dts/imx6ul.dtsi
++++ b/arch/arm/boot/dts/imx6ul.dtsi
+@@ -476,6 +476,7 @@
+ 			fec2: ethernet@020b4000 {
+ 				compatible = "fsl,imx6ul-fec", "fsl,imx6q-fec";
+ 				reg = <0x020b4000 0x4000>;
++				interrupt-names = "","ptp";
+ 				interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
+ 					     <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
+ 				clocks = <&clks IMX6UL_CLK_ENET>,
+@@ -775,6 +776,7 @@
+ 			fec1: ethernet@02188000 {
+ 				compatible = "fsl,imx6ul-fec", "fsl,imx6q-fec";
+ 				reg = <0x02188000 0x4000>;
++				interrupt-names = "","ptp";
+ 				interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+ 					     <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+ 				clocks = <&clks IMX6UL_CLK_ENET>,
+diff --git a/arch/arm/boot/dts/imx7d.dtsi b/arch/arm/boot/dts/imx7d.dtsi
+index f46814a7ea44..e8fc76483236 100644
+--- a/arch/arm/boot/dts/imx7d.dtsi
++++ b/arch/arm/boot/dts/imx7d.dtsi
+@@ -114,9 +114,11 @@
+ 	fec2: ethernet@30bf0000 {
+ 		compatible = "fsl,imx7d-fec", "fsl,imx6sx-fec";
+ 		reg = <0x30bf0000 0x10000>;
++		interrupt-names = "","","","ptp";
+ 		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+ 			<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+-			<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
++			<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
++			<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
+ 		clocks = <&clks IMX7D_ENET_AXI_ROOT_CLK>,
+ 			<&clks IMX7D_ENET_AXI_ROOT_CLK>,
+ 			<&clks IMX7D_ENET2_TIME_ROOT_CLK>,
+diff --git a/arch/arm/boot/dts/imx7s.dtsi b/arch/arm/boot/dts/imx7s.dtsi
+index 82ad26e766eb..fc1376079494 100644
+--- a/arch/arm/boot/dts/imx7s.dtsi
++++ b/arch/arm/boot/dts/imx7s.dtsi
+@@ -1007,9 +1007,11 @@
+ 			fec1: ethernet@30be0000 {
+ 				compatible = "fsl,imx7d-fec", "fsl,imx6sx-fec";
+ 				reg = <0x30be0000 0x10000>;
++				interrupt-names = "","","","ptp";
+ 				interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+ 					<GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
+-					<GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
++					<GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
++					<GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
+ 				clocks = <&clks IMX7D_ENET_AXI_ROOT_CLK>,
+ 					<&clks IMX7D_ENET_AXI_ROOT_CLK>,
+ 					<&clks IMX7D_ENET1_TIME_ROOT_CLK>,
 -- 
-2.9.5
+2.11.0
