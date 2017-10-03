@@ -1,7 +1,8 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 0/8] bpf: muli prog support for cgroup-bpf
-Date: Mon, 2 Oct 2017 22:50:20 -0700
-Message-ID: <20171003055028.1294791-1-ast@fb.com>
+Subject: [PATCH v2 net-next 8/8] samples/bpf: use bpf_prog_query() interface
+Date: Mon, 2 Oct 2017 22:50:28 -0700
+Message-ID: <20171003055028.1294791-9-ast@fb.com>
+References: <20171003055028.1294791-1-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
@@ -9,80 +10,89 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
         <netdev@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41131 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41155 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750767AbdJCFua (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 01:50:30 -0400
+        by vger.kernel.org with ESMTP id S1751059AbdJCFud (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 01:50:33 -0400
 Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v935nTgU008510
-        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 22:50:30 -0700
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v935nT4K008513
+        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 22:50:33 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dbwmpabw5-4
+        by mx0a-00082601.pphosted.com with ESMTP id 2dbwmpabw4-15
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 22:50:30 -0700
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 22:50:33 -0700
+In-Reply-To: <20171003055028.1294791-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v1->v2:
-- fixed accidentally swapped two lines which caused static_key not going to zero
-- addressed Martin's feedback and changed prog_query to be consistent
-  with verifier output: return -enospc and fill supplied buffer instead
-  of just returning -enospc when buffer is too small to fit all prog_ids
+use BPF_PROG_QUERY command to strengthen test coverage
 
-v1:
-cgroup-bpf use cases are getting more advanced and running only
-one program per cgroup is no longer enough. Therefore introduce
-support for attaching multiple programs per cgroup and running
-a set of effective programs.
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+---
+ samples/bpf/test_cgrp2_attach2.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-These patches introduces BPF_F_ALLOW_MULTI flag for BPF_PROG_ATTACH cmd.
-The default is still NONE and behavior of BPF_F_ALLOW_OVERRIDE flag
-is unchanged.
-The difference between three possible flags for BPF_PROG_ATTACH command:
-- NONE(default): No further bpf programs allowed in the subtree.
-- BPF_F_ALLOW_OVERRIDE: If a sub-cgroup installs some bpf program,
-  the program in this cgroup yields to sub-cgroup program.
-- BPF_F_ALLOW_MULTI: If a sub-cgroup installs some bpf program,
-  that cgroup program gets run in addition to the program in this cgroup.
-
-Most of the logic is in patch 1. Even when cgroup doesn't have
-any programs attached its set of effective program can be non-empty.
-To quickly execute them and avoid penalizing cgroups without
-any effective programs introduce 'struct bpf_prog_array'
-which has an optimization for cgroups with zero effective programs.
-
-Patch 2 introduces BPF_PROG_QUERY command for introspection
-Patch 3 makes verifier more strict for cgroup-bpf program types.
-Patch 4+ are tests.
-
-More details in individual patches
-
-Alexei Starovoitov (8):
-  bpf: multi program support for cgroup+bpf
-  bpf: introduce BPF_PROG_QUERY command
-  bpf: enforce return code for cgroup-bpf programs
-  libbpf: introduce bpf_prog_detach2()
-  samples/bpf: add multi-prog cgroup test case
-  libbpf: sync bpf.h
-  libbpf: add support for BPF_PROG_QUERY
-  samples/bpf: use bpf_prog_query() interface
-
- include/linux/bpf-cgroup.h                  |  54 ++-
- include/linux/bpf.h                         |  35 ++
- include/linux/filter.h                      |   2 +-
- include/uapi/linux/bpf.h                    |  55 ++-
- kernel/bpf/cgroup.c                         | 513 +++++++++++++++++++++-------
- kernel/bpf/core.c                           |  69 ++++
- kernel/bpf/syscall.c                        |  71 +++-
- kernel/bpf/verifier.c                       |  40 +++
- kernel/cgroup/cgroup.c                      |  38 ++-
- samples/bpf/cgroup_helpers.c                |   4 +-
- samples/bpf/test_cgrp2_attach2.c            | 224 +++++++++++-
- tools/include/uapi/linux/bpf.h              |  55 ++-
- tools/lib/bpf/bpf.c                         |  32 ++
- tools/lib/bpf/bpf.h                         |   4 +-
- tools/testing/selftests/bpf/test_verifier.c |  72 ++++
- 15 files changed, 1086 insertions(+), 182 deletions(-)
-
+diff --git a/samples/bpf/test_cgrp2_attach2.c b/samples/bpf/test_cgrp2_attach2.c
+index 9a9f6836e5e9..3e8232cc04a8 100644
+--- a/samples/bpf/test_cgrp2_attach2.c
++++ b/samples/bpf/test_cgrp2_attach2.c
+@@ -236,6 +236,7 @@ static int prog_load_cnt(int verdict, int val)
+ 
+ static int test_multiprog(void)
+ {
++	__u32 prog_ids[4], prog_cnt = 0, attach_flags, saved_prog_id;
+ 	int cg1 = 0, cg2 = 0, cg3 = 0, cg4 = 0, cg5 = 0, key = 0;
+ 	int drop_prog, allow_prog[6] = {}, rc = 0;
+ 	unsigned long long value;
+@@ -304,6 +305,32 @@ static int test_multiprog(void)
+ 	assert(bpf_map_lookup_elem(map_fd, &key, &value) == 0);
+ 	assert(value == 1 + 2 + 8 + 32);
+ 
++	/* query the number of effective progs in cg5 */
++	assert(bpf_prog_query(cg5, BPF_CGROUP_INET_EGRESS, BPF_F_QUERY_EFFECTIVE,
++			      NULL, NULL, &prog_cnt) == 0);
++	assert(prog_cnt == 4);
++	/* retrieve prog_ids of effective progs in cg5 */
++	assert(bpf_prog_query(cg5, BPF_CGROUP_INET_EGRESS, BPF_F_QUERY_EFFECTIVE,
++			      &attach_flags, prog_ids, &prog_cnt) == 0);
++	assert(prog_cnt == 4);
++	assert(attach_flags == 0);
++	saved_prog_id = prog_ids[0];
++	/* check enospc handling */
++	prog_ids[0] = 0;
++	prog_cnt = 2;
++	assert(bpf_prog_query(cg5, BPF_CGROUP_INET_EGRESS, BPF_F_QUERY_EFFECTIVE,
++			      &attach_flags, prog_ids, &prog_cnt) == -1 &&
++	       errno == ENOSPC);
++	assert(prog_cnt == 4);
++	/* check that prog_ids are returned even when buffer is too small */
++	assert(prog_ids[0] == saved_prog_id);
++	/* retrieve prog_id of single attached prog in cg5 */
++	prog_ids[0] = 0;
++	assert(bpf_prog_query(cg5, BPF_CGROUP_INET_EGRESS, 0,
++			      NULL, prog_ids, &prog_cnt) == 0);
++	assert(prog_cnt == 1);
++	assert(prog_ids[0] == saved_prog_id);
++
+ 	/* detach bottom program and ping again */
+ 	if (bpf_prog_detach2(-1, cg5, BPF_CGROUP_INET_EGRESS)) {
+ 		log_err("Detaching prog from cg5");
+@@ -341,6 +368,15 @@ static int test_multiprog(void)
+ 	assert(system(PING_CMD) == 0);
+ 	assert(bpf_map_lookup_elem(map_fd, &key, &value) == 0);
+ 	assert(value == 1 + 2 + 4);
++
++	prog_cnt = 4;
++	assert(bpf_prog_query(cg5, BPF_CGROUP_INET_EGRESS, BPF_F_QUERY_EFFECTIVE,
++			      &attach_flags, prog_ids, &prog_cnt) == 0);
++	assert(prog_cnt == 3);
++	assert(attach_flags == 0);
++	assert(bpf_prog_query(cg5, BPF_CGROUP_INET_EGRESS, 0,
++			      NULL, prog_ids, &prog_cnt) == 0);
++	assert(prog_cnt == 0);
+ 	goto out;
+ err:
+ 	rc = 1;
 -- 
 2.9.5
