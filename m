@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Update comment for min_mtu
-Date: Tue, 03 Oct 2017 09:56:13 -0700 (PDT)
-Message-ID: <20171003.095613.126306039855545222.davem@davemloft.net>
-References: <1507011185-7447-1-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: [v2] cdc-ether: divorce initialisation with a filter reset and
+ a generic method
+Date: Tue, 03 Oct 2017 09:59:55 -0700 (PDT)
+Message-ID: <20171003.095955.1603961040065728073.davem@davemloft.net>
+References: <20170522125030.21266-1-oneukum@suse.com>
+        <fbe82c0f-c3d5-4dd6-62a7-b8fd2ea83302@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com, arjun@chelsio.com
-To: ganeshgr@chelsio.com
+Cc: oneukum@suse.com, netdev@vger.kernel.org, bjorn@mork.no
+To: vigneshr@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46722 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46800 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751880AbdJCQ4R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 12:56:17 -0400
-In-Reply-To: <1507011185-7447-1-git-send-email-ganeshgr@chelsio.com>
+        with ESMTP id S1751761AbdJCQ74 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 12:59:56 -0400
+In-Reply-To: <fbe82c0f-c3d5-4dd6-62a7-b8fd2ea83302@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Tue,  3 Oct 2017 11:43:05 +0530
+From: Vignesh R <vigneshr@ti.com>
+Date: Tue, 3 Oct 2017 13:39:18 +0530
 
-> From: Arjun Vynipadath <arjun@chelsio.com>
+> Hi Dave,
 > 
-> We have lost a comment for minimum mtu value set for netdevice with
-> 'commit d894be57ca92 ("ethernet: use net core MTU range checking in
-> more drivers"). Updating it accordingly.
+> On Monday 22 May 2017 06:20 PM, Oliver Neukum wrote:
+>> Some devices need their multicast filter reset but others are crashed by that.
+>> So the methods need to be separated.
+>> 
+>> Signed-off-by: Oliver Neukum <oneukum@suse.com>
+>> Reported-by: "Ridgway, Keith" <kridgway@harris.com>
+>> ---
 > 
-> Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> I see this patch was merged and said to be queued for -stable, but I
+> don't see this fix in any of the stable kernels. Would you please ask
+> for this patch to be backported to -stable kernels?
 
-Applied.
+I submit networking -stable patches at a time of my own choosing.
+Usually 1 to 2 weeks after it gets applied to my tree.
+
+Please be patient.
