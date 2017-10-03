@@ -1,49 +1,49 @@
-From: =?UTF-8?B?SsOpcsOpbXk=?= Lefaure <jeremy.lefaure-tU7rkvAWjlwhT4uAktR2oQ@public.gmane.org>
+From: =?UTF-8?B?SsOpcsOpbXk=?= Lefaure <jeremy.lefaure@lse.epita.fr>
 Subject: Re: [PATCH 05/18] net: use ARRAY_SIZE
-Date: Mon, 2 Oct 2017 21:22:14 -0400
-Message-ID: <20171002212214.30d7013a@blatinox-laptop.localdomain>
+Date: Mon, 2 Oct 2017 21:23:06 -0400
+Message-ID: <20171002212306.29ca6488@blatinox-laptop.localdomain>
 References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
         <20171001193101.8898-6-jeremy.lefaure@lse.epita.fr>
-        <CAHp75VfC2e+h8GCiB-1Rbe=_z3siBBo0WfqEf3qz8yWh8Cm3RQ@mail.gmail.com>
+        <87h8vh64sq.fsf@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-Cc: Sathya Perla <sathya.perla-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Ajit Khaparde <ajit.khaparde-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Chi-Hsien Lin <chi-hsien.lin-+wT8y+m8/X5BDgjK7y7TUQ@public.gmane.org>,
-        Wright Feng <wright.feng-+wT8y+m8/X5BDgjK7y7TUQ@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-        Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-        Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <
-To: Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAHp75VfC2e+h8GCiB-1Rbe=_z3siBBo0WfqEf3qz8yWh8Cm3RQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
+        Wright Feng <wright.feng@cypress.com>,
+        Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org, linux-usb@vger.kerne
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from blatinox.fr ([51.254.120.209]:41830 "EHLO vps202351.ovh.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751421AbdJCBij (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Oct 2017 21:38:39 -0400
+In-Reply-To: <87h8vh64sq.fsf@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2 Oct 2017 16:07:36 +0300
-Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+On Mon, 02 Oct 2017 16:46:29 +0300
+Kalle Valo <kvalo@codeaurora.org> wrote:
 
-> > +       {&gainctrl_lut_core0_rev0, ARRAY_SIZE(gainctrl_lut_core0_rev0), 26, 192,
-> > +        32},  
-> 
-> For all such cases I would rather put on one line disregard checkpatch
-> warning for better readability.
-I agree that it would be better. I didn't know that it was possible to
-not follow this rule for anything else than a string.
+> We have a tree for wireless so usually it's better to submit wireless
+> changes on their own but here I assume Dave will apply this to his tree.
+> If not, please resubmit the wireless part in a separate patch.
+Ok, I note that.
 
-I am waiting for more comments and I will send a v2.
+I'll wait Dave's answer and I'll split this patch if needed.
 
 Thank you,
 Jérémy
