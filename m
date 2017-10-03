@@ -1,56 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rndis_host: support Novatel Verizon USB730L
-Date: Tue, 03 Oct 2017 14:31:31 -0700 (PDT)
-Message-ID: <20171003.143131.650875825854523184.davem@davemloft.net>
-References: <20170927213103.11987-1-aleksander@aleksander.es>
-        <20171002.161750.1123671129875495210.davem@davemloft.net>
-        <87k20cmitw.fsf@miraculix.mork.no>
+Subject: Re: [PATCH next] bonding: speed/duplex update at NETDEV_UP event
+Date: Tue, 03 Oct 2017 14:32:43 -0700 (PDT)
+Message-ID: <20171003.143243.476075670637129212.davem@davemloft.net>
+References: <20170928010349.8988-1-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: aleksander@aleksander.es, oliver@neukum.org,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
+        netdev@vger.kernel.org, maheshb@google.com
+To: mahesh@bandewar.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53562 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53586 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751117AbdJCVbk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 17:31:40 -0400
-In-Reply-To: <87k20cmitw.fsf@miraculix.mork.no>
+        with ESMTP id S1751117AbdJCVco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 17:32:44 -0400
+In-Reply-To: <20170928010349.8988-1-mahesh@bandewar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjørn Mork <bjorn@mork.no>
-Date: Tue, 03 Oct 2017 16:01:15 +0200
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Wed, 27 Sep 2017 18:03:49 -0700
 
-> We can pretty much ignore the USB-IF and any specs, since that is what
-> the vendors appear to do.  They provide device specific drivers for
-> Windows, so all they care about is that their device "works" with their
-> driver.
+> From: Mahesh Bandewar <maheshb@google.com>
 > 
-> But in Linux we prefer to create drivers for device classes whenever we
-> can, to avoid having to add every single device by ID.  So we try to
-> guess future patterns based on the devices we have observed, even when
-> there is no clear spec.  This is what Aleksander does here. He has a
-> device with a 'Cls=ef(misc ) Sub=04 Prot=01' function.  This device
-> works with the rndis_host driver. That is all we know.
+> Some NIC drivers don't have correct speed/duplex settings at the
+> time they send NETDEV_UP notification and that messes up the
+> bonding state. Especially 802.3ad mode which is very sensitive
+> to these settings. In the current implementation we invoke
+> bond_update_speed_duplex() when we receive NETDEV_UP, however,
+> ignore the return value. If the values we get are invalid
+> (UNKNOWN), then slave gets removed from the aggregator with
+> speed and duplex set to UNKNOWN while link is still marked as UP.
 > 
-> We cannot prove that a class match is correct. But it does make sense to
-> try it.  At least we know that this works for one device.
+> This patch fixes this scenario. Also 802.3ad mode is sensitive to
+> these conditions while other modes are not, so making sure that it
+> doesn't change the behavior for other modes.
 > 
-> Adding anything else, e.g. based on the table at
-> http://www.usb.org/developers/defined_class/#BaseClassEFh , is a bit
-> more risky.  We don't know if a driver will work with *any* such device
-> until we've actually seen one.
-> 
-> This is just my opinion, and probably full of bogus assumptions as
-> usual.  I was sort of hoping that some expert would speak up so I didn't
-> have to :-)
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Ok ;-)
-
-> But FWIW:
-> 
-> Reviewed-by: Bjørn Mork <bjorn@mork.no>
-
-So I'll apply this for now, thanks for your feedback.
+Applied, thanks.
