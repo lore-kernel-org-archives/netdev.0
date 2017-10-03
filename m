@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/7] ipv4: ipmr: Don't forward packets already forwarded by hardware
-Date: Tue,  3 Oct 2017 09:58:08 +0200
-Message-ID: <20171003075812.1540-4-jiri@resnulli.us>
+Subject: [patch net-next v2 7/7] mlxsw: spectrum: mr: Support trap-and-forward routes
+Date: Tue,  3 Oct 2017 09:58:12 +0200
+Message-ID: <20171003075812.1540-8-jiri@resnulli.us>
 References: <20171003075812.1540-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
@@ -11,117 +11,70 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         gfree.wind@vip.163.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36940 "EHLO
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:33000 "EHLO
         mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751197AbdJCH6S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:18 -0400
-Received: by mail-wr0-f194.google.com with SMTP id v38so2377006wrc.4
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:17 -0700 (PDT)
+        with ESMTP id S1751059AbdJCH6V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:21 -0400
+Received: by mail-wr0-f194.google.com with SMTP id z96so4082693wrb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:20 -0700 (PDT)
 In-Reply-To: <20171003075812.1540-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Change the ipmr module to not forward packets if:
- - The packet is marked with the offload_mr_fwd_mark, and
- - Both input interface and output interface share the same parent ID.
+Add the support of trap-and-forward route action in the multicast routing
+offloading logic. A route will be set to trap-and-forward action if one (or
+more) of its output interfaces is not offload-able, i.e. does not have a
+valid Spectrum RIF.
 
-This way, a packet can go through partial multicast forwarding in the
-hardware, where it will be forwarded only to the devices that share the
-same parent ID (AKA, reside inside the same hardware). The kernel will
-forward the packet to all other interfaces.
-
-To do this, add the ipmr_offload_forward helper, which per skb, ingress VIF
-and egress VIF, returns whether the forwarding was offloaded to hardware.
-The ipmr_queue_xmit frees the skb and does not forward it if the result is
-a true value.
-
-All the forwarding path code compiles out when the CONFIG_NET_SWITCHDEV is
-not set.
+This way, a route with mixed output VIFs list, which contains both
+offload-able and un-offload-able devices can go through partial offloading
+in hardware, and the rest will be done in the kernel ipmr module.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
- - Use dev_parent_id.len field instead of the dev_parent_id_valid field
----
- net/ipv4/ipmr.c | 37 ++++++++++++++++++++++++++++++++-----
- 1 file changed, 32 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 1b161ad..b3ee01b 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -1859,10 +1859,33 @@ static inline int ipmr_forward_finish(struct net *net, struct sock *sk,
- 	return dst_output(net, sk, skb);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
+index 4aaf6ca..1f84bb8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
+@@ -114,9 +114,9 @@ static bool mlxsw_sp_mr_vif_valid(const struct mlxsw_sp_mr_vif *vif)
+ 	return mlxsw_sp_mr_vif_regular(vif) && vif->dev && vif->rif;
  }
  
-+#ifdef CONFIG_NET_SWITCHDEV
-+static bool ipmr_forward_offloaded(struct sk_buff *skb, struct mr_table *mrt,
-+				   int in_vifi, int out_vifi)
-+{
-+	struct vif_device *out_vif = &mrt->vif_table[out_vifi];
-+	struct vif_device *in_vif = &mrt->vif_table[in_vifi];
-+
-+	if (!skb->offload_mr_fwd_mark)
-+		return false;
-+	if (!out_vif->dev_parent_id.id_len || !in_vif->dev_parent_id.id_len)
-+		return false;
-+	return netdev_phys_item_id_same(&out_vif->dev_parent_id,
-+					&in_vif->dev_parent_id);
-+}
-+#else
-+static bool ipmr_forward_offloaded(struct sk_buff *skb, struct mr_table *mrt,
-+				   int in_vifi, int out_vifi)
-+{
-+	return false;
-+}
-+#endif
-+
- /* Processing handlers for ipmr_forward */
- 
- static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
--			    struct sk_buff *skb, struct mfc_cache *c, int vifi)
-+			    int in_vifi, struct sk_buff *skb,
-+			    struct mfc_cache *c, int vifi)
+-static bool mlxsw_sp_mr_vif_rif_invalid(const struct mlxsw_sp_mr_vif *vif)
++static bool mlxsw_sp_mr_vif_exists(const struct mlxsw_sp_mr_vif *vif)
  {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct vif_device *vif = &mrt->vif_table[vifi];
-@@ -1883,6 +1906,9 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
- 		goto out_free;
- 	}
+-	return mlxsw_sp_mr_vif_regular(vif) && vif->dev && !vif->rif;
++	return vif->dev;
+ }
  
-+	if (ipmr_forward_offloaded(skb, mrt, in_vifi, vifi))
-+		goto out_free;
+ static bool
+@@ -182,14 +182,13 @@ mlxsw_sp_mr_route_action(const struct mlxsw_sp_mr_route *mr_route)
+ 	if (!mlxsw_sp_mr_route_valid_evifs_num(mr_route))
+ 		return MLXSW_SP_MR_ROUTE_ACTION_TRAP;
+ 
+-	/* If either one of the eVIFs is not regular (VIF of type pimreg or
+-	 * tunnel) or one of the VIFs has no matching RIF, trap the packet.
++	/* If one of the eVIFs has no RIF, trap-and-forward the route as there
++	 * is some more routing to do in software too.
+ 	 */
+-	list_for_each_entry(rve, &mr_route->evif_list, route_node) {
+-		if (!mlxsw_sp_mr_vif_regular(rve->mr_vif) ||
+-		    mlxsw_sp_mr_vif_rif_invalid(rve->mr_vif))
+-			return MLXSW_SP_MR_ROUTE_ACTION_TRAP;
+-	}
++	list_for_each_entry(rve, &mr_route->evif_list, route_node)
++		if (mlxsw_sp_mr_vif_exists(rve->mr_vif) && !rve->mr_vif->rif)
++			return MLXSW_SP_MR_ROUTE_ACTION_TRAP_AND_FORWARD;
 +
- 	if (vif->flags & VIFF_TUNNEL) {
- 		rt = ip_route_output_ports(net, &fl4, NULL,
- 					   vif->remote, vif->local,
-@@ -2060,8 +2086,8 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
- 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+ 	return MLXSW_SP_MR_ROUTE_ACTION_FORWARD;
+ }
  
- 				if (skb2)
--					ipmr_queue_xmit(net, mrt, skb2, cache,
--							psend);
-+					ipmr_queue_xmit(net, mrt, true_vifi,
-+							skb2, cache, psend);
- 			}
- 			psend = ct;
- 		}
-@@ -2072,9 +2098,10 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
- 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
- 
- 			if (skb2)
--				ipmr_queue_xmit(net, mrt, skb2, cache, psend);
-+				ipmr_queue_xmit(net, mrt, true_vifi, skb2,
-+						cache, psend);
- 		} else {
--			ipmr_queue_xmit(net, mrt, skb, cache, psend);
-+			ipmr_queue_xmit(net, mrt, true_vifi, skb, cache, psend);
- 			return;
- 		}
- 	}
 -- 
 2.9.5
