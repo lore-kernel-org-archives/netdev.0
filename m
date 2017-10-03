@@ -1,101 +1,85 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH RESEND net 2/9] net/mac89x0: Remove dead or unreachable code
-Date: Mon,  2 Oct 2017 21:07:18 -0400 (EDT)
-Message-ID: <9632fa94173b9ea7dbefec74927b12659932fff5.1506992619.git.fthain@telegraphics.com.au>
-References: <cover.1506992619.git.fthain@telegraphics.com.au>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1506992619.git.fthain@telegraphics.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next v2 3/3] tools: bpftool: add documentation
+Date: Mon, 2 Oct 2017 18:35:09 -0700
+Message-ID: <20171002183509.76b2cc65@cakuba>
+References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
+        <20171002231130.12406-4-jakub.kicinski@netronome.com>
+        <20171003005500.yh2gbnofm5ckn54x@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        oss-drivers@netronome.com,
+        David Beckett <david.beckett@netronome.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f176.google.com ([209.85.216.176]:49016 "EHLO
+        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdJCBfO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 21:35:14 -0400
+Received: by mail-qt0-f176.google.com with SMTP id d13so9714296qta.5
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 18:35:14 -0700 (PDT)
+In-Reply-To: <20171003005500.yh2gbnofm5ckn54x@ast-mbp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
----
- drivers/net/ethernet/cirrus/mac89x0.c | 36 -----------------------------------
- 1 file changed, 36 deletions(-)
+On Mon, 2 Oct 2017 17:55:02 -0700, Alexei Starovoitov wrote:
+> > +EXAMPLES
+> > +========
+> > +**# bpftool prog show**
+> > +::
+> > +
+> > +  10: xdp  name:some_prog  tag 00:5a:3d:21:23:62:0c:8b  
+> 
+> could you please remove ':' in the output to match what
+> show_fdinfo and kallsyms do ?
 
-diff --git a/drivers/net/ethernet/cirrus/mac89x0.c b/drivers/net/ethernet/cirrus/mac89x0.c
-index f910f0f386d6..8fc43c865621 100644
---- a/drivers/net/ethernet/cirrus/mac89x0.c
-+++ b/drivers/net/ethernet/cirrus/mac89x0.c
-@@ -119,10 +119,6 @@ struct net_local {
- };
- 
- /* Index to functions, as function prototypes. */
--
--#if 0
--extern void reset_chip(struct net_device *dev);
--#endif
- static int net_open(struct net_device *dev);
- static int net_send_packet(struct sk_buff *skb, struct net_device *dev);
- static irqreturn_t net_interrupt(int irq, void *dev_id);
-@@ -132,10 +128,6 @@ static int net_close(struct net_device *dev);
- static struct net_device_stats *net_get_stats(struct net_device *dev);
- static int set_mac_address(struct net_device *dev, void *addr);
- 
--
--/* Example routines you must write ;->. */
--#define tx_done(dev) 1
--
- /* For reading/writing registers ISA-style */
- static inline int
- readreg_io(struct net_device *dev, int portno)
-@@ -179,7 +171,6 @@ static const struct net_device_ops mac89x0_netdev_ops = {
- struct net_device * __init mac89x0_probe(int unit)
- {
- 	struct net_device *dev;
--	static int once_is_enough;
- 	struct net_local *lp;
- 	static unsigned version_printed;
- 	int i, slot;
-@@ -200,10 +191,6 @@ struct net_device * __init mac89x0_probe(int unit)
- 		netdev_boot_setup_check(dev);
- 	}
- 
--	if (once_is_enough)
--		goto out;
--	once_is_enough = 1;
--
- 	/* We might have to parameterize this later */
- 	slot = 0xE;
- 	/* Get out now if there's a real NuBus card in slot E */
-@@ -295,24 +282,6 @@ struct net_device * __init mac89x0_probe(int unit)
- 	return ERR_PTR(err);
- }
- 
--#if 0
--/* This is useful for something, but I don't know what yet. */
--void __init reset_chip(struct net_device *dev)
--{
--	int reset_start_time;
--
--	writereg(dev, PP_SelfCTL, readreg(dev, PP_SelfCTL) | POWER_ON_RESET);
--
--	/* wait 30 ms */
--	msleep_interruptible(30);
--
--	/* Wait until the chip is reset */
--	reset_start_time = jiffies;
--	while( (readreg(dev, PP_SelfST) & INIT_DONE) == 0 && jiffies - reset_start_time < 2)
--		;
--}
--#endif
--
- /* Open/initialize the board.  This is called (in the current kernel)
-    sometime after booting when the 'ifconfig' program is run.
- 
-@@ -414,11 +383,6 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
- 	struct net_local *lp;
- 	int ioaddr, status;
- 
--	if (dev == NULL) {
--		printk ("net_interrupt(): irq %d for unknown device.\n", irq);
--		return IRQ_NONE;
--	}
--
- 	ioaddr = dev->base_addr;
- 	lp = netdev_priv(dev);
- 
--- 
-2.13.5
+Ack.
+
+> > +	loaded_at:2024.771  uid:0  
+> 
+> may be translate that to something human readable?
+
+Oh yes, the code will print a proper date/time, I forgot to
+regenerate the doc :S
+
+> > +	xlated:528B  jited:370B  memlock:4096B  map_ids:10
+> > +
+> > +| 
+> > +| **# bpftool prog dump xlated id 10 file /tmp/t**
+> > +| **# ls -l /tmp/t**
+> > +|   -rw------- 1 root root 560 Jul 22 01:42 /tmp/t
+> > +
+> > +| 
+> > +| **# mount -t bpf none /sys/fs/bpf/**
+> > +| **# bpftool prog pin id 10 /sys/fs/bpf/prog**
+> > +| **# bpftool prog dum jited pinned /sys/fs/bpf/prog**
+> > +
+> > +::
+> > +
+> > +    push   %rbp
+> > +    mov    %rsp,%rbp
+> > +    sub    $0x228,%rsp
+> > +    sub    $0x28,%rbp
+> > +    mov    %rbx,0x0(%rbp)  
+> 
+> imo too many steps to dump disasm output.
+> Can it print it if we just say:
+> bpftool prog dump jited id 10
+> and
+> dump xlated
+
+Yes those will work.  This example kind of shows pinning and dumping at
+the some time.  Perhaps that's ill advised.
+
+> will pretty print them as verifier output as well?
+
+We tried to use LLVM as a library for this but the interface is
+painfully unstable and it's a heavy dependency.  The current thinking
+is to try to put the instruction printing code in some higher level
+library, but I would rather leave that as a follow up.
+
+> All that can be changed later. Thanks for the doc.
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+Thanks!
