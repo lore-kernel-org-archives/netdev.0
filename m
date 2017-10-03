@@ -1,46 +1,83 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC 1/2] bpf: move instruction printing into a separate file
-Date: Tue, 3 Oct 2017 13:14:54 -0700
-Message-ID: <20171003201452.elth55atpquesjjk@ast-mbp.dhcp.thefacebook.com>
-References: <59D3B456.4020209@iogearbox.net>
- <20171003175746.30145-1-jakub.kicinski@netronome.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH net-next v2 0/3] tools: add bpftool
+Date: Tue, 3 Oct 2017 17:19:42 -0300
+Message-ID: <20171003201942.GH25388@kernel.org>
+References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, dsahern@gmail.com, netdev@vger.kernel.org,
-        oss-drivers@netronome.com, david.beckett@netronome.com
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com, oss-drivers@netronome.com
 To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:50135 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751214AbdJCUO4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 16:14:56 -0400
-Received: by mail-pf0-f182.google.com with SMTP id l188so5130323pfc.6
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 13:14:56 -0700 (PDT)
+Received: from mail.kernel.org ([198.145.29.99]:37414 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750812AbdJCUTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 16:19:47 -0400
 Content-Disposition: inline
-In-Reply-To: <20171003175746.30145-1-jakub.kicinski@netronome.com>
+In-Reply-To: <20171002231130.12406-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 03, 2017 at 10:57:45AM -0700, Jakub Kicinski wrote:
-> Separate the instruction printing into a standalone source file.
-> This way sneaky code from tools/ can use it directly.
+Em Mon, Oct 02, 2017 at 04:11:27PM -0700, Jakub Kicinski escreveu:
+> Hi!
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
-> Like this?
-...
-> +static void print_bpf_end_insn(void (*verbose)(const char *, ...),
-> +			       const struct bpf_insn *insn)
-> +{
-> +	verbose("(%02x) r%d = %s%d r%d\n", insn->code, insn->dst_reg,
-> +		BPF_SRC(insn->code) == BPF_TO_BE ? "be" : "le",
-> +		insn->imm, insn->dst_reg);
-> +}
-...
-> +			print_bpf_insn(verbose, insn, env->allow_ptr_leaks);
+> This set adds bpftool to the tools/ directory.  The first 
+> patch renames tools/net to tools/bpf, the second one adds 
+> the new code, while the third adds simple documentation.
+> 
+> v2:
+>  - report names, map ids, load time, uid;
+>  - add docs/man pages;
+>  - general cleanups & fixes.
+> 
+> Thanks to David Beckett for help with docs and testing.
 
-since you're changing it please please please kill that global verbose() ugliness.
-It's been on todo list for long time.
-iirc that's the only thing that prevents us to remove global bpf_verifier_lock.
-if we don't do it as part of this change, we'd need another one in the future
-with equal amount of changed lines, so let's do it now.
+Why not call it just 'bpf'?
+
+- Arnaldo
+ 
+> Jakub Kicinski (3):
+>   tools: rename tools/net directory to tools/bpf
+>   tools: bpf: add bpftool
+>   tools: bpftool: add documentation
+> 
+>  MAINTAINERS                                      |   3 +-
+>  tools/Makefile                                   |  14 +-
+>  tools/{net => bpf}/Makefile                      |  18 +-
+>  tools/{net => bpf}/bpf_asm.c                     |   0
+>  tools/{net => bpf}/bpf_dbg.c                     |   0
+>  tools/{net => bpf}/bpf_exp.l                     |   0
+>  tools/{net => bpf}/bpf_exp.y                     |   0
+>  tools/{net => bpf}/bpf_jit_disasm.c              |   0
+>  tools/bpf/bpftool/Documentation/Makefile         |  34 ++
+>  tools/bpf/bpftool/Documentation/bpftool-map.txt  | 110 ++++
+>  tools/bpf/bpftool/Documentation/bpftool-prog.txt |  81 +++
+>  tools/bpf/bpftool/Documentation/bpftool.txt      |  34 ++
+>  tools/bpf/bpftool/Makefile                       |  86 +++
+>  tools/bpf/bpftool/common.c                       | 215 +++++++
+>  tools/bpf/bpftool/jit_disasm.c                   |  87 +++
+>  tools/bpf/bpftool/main.c                         | 212 +++++++
+>  tools/bpf/bpftool/main.h                         |  99 +++
+>  tools/bpf/bpftool/map.c                          | 744 +++++++++++++++++++++++
+>  tools/bpf/bpftool/prog.c                         | 427 +++++++++++++
+>  19 files changed, 2152 insertions(+), 12 deletions(-)
+>  rename tools/{net => bpf}/Makefile (74%)
+>  rename tools/{net => bpf}/bpf_asm.c (100%)
+>  rename tools/{net => bpf}/bpf_dbg.c (100%)
+>  rename tools/{net => bpf}/bpf_exp.l (100%)
+>  rename tools/{net => bpf}/bpf_exp.y (100%)
+>  rename tools/{net => bpf}/bpf_jit_disasm.c (100%)
+>  create mode 100644 tools/bpf/bpftool/Documentation/Makefile
+>  create mode 100644 tools/bpf/bpftool/Documentation/bpftool-map.txt
+>  create mode 100644 tools/bpf/bpftool/Documentation/bpftool-prog.txt
+>  create mode 100644 tools/bpf/bpftool/Documentation/bpftool.txt
+>  create mode 100644 tools/bpf/bpftool/Makefile
+>  create mode 100644 tools/bpf/bpftool/common.c
+>  create mode 100644 tools/bpf/bpftool/jit_disasm.c
+>  create mode 100644 tools/bpf/bpftool/main.c
+>  create mode 100644 tools/bpf/bpftool/main.h
+>  create mode 100644 tools/bpf/bpftool/map.c
+>  create mode 100644 tools/bpf/bpftool/prog.c
+> 
+> -- 
+> 2.14.1
