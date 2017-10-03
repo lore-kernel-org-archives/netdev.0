@@ -1,51 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net] net: br: Fix igmp snooping offload with CONFIG_BRIDGE_VLAN_FILTERING
-Date: Tue,  3 Oct 2017 02:55:11 +0200
-Message-ID: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next V3 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion
+ and allocation
+Date: Mon, 2 Oct 2017 18:02:46 -0700
+Message-ID: <20171003010245.f3op4t56crbjc4ke@ast-mbp>
+References: <150696027949.24152.7507025809123255386.stgit@firesoul>
+ <150696032966.24152.3096148163967111058.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:36362 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751101AbdJCAzk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Oct 2017 20:55:40 -0400
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:56948 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdJCBCt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 21:02:49 -0400
+Received: by mail-pg0-f53.google.com with SMTP id n1so3170450pgt.13
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 18:02:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <150696032966.24152.3096148163967111058.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With CONFIG_BRIDGE_VLAN_FILTERING enabled, but the feature not enabled
-via /sys/class/net/brX/bridge/vlan_filtering, mdb offloaded to the
-kernel have the wrong VID.
+On Mon, Oct 02, 2017 at 06:05:29PM +0200, Jesper Dangaard Brouer wrote:
+> +		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
+> +			struct sk_buff *skb;
+> +			int ret;
+> +
+> +			/* Allow busy polling again */
+> +			empty_cnt = 0;
+> +
+> +			skb = cpu_map_build_skb(rcpu, xdp_pkt);
+> +			if (!skb) {
+> +				page_frag_free(xdp_pkt);
+> +				continue;
+> +			}
+> +
+> +			/* Inject into network stack */
+> +			ret = netif_receive_skb(skb);
+> +			if (ret == NET_RX_DROP)
+> +				drops++;
 
-When an interface is added to the bridge, switchdev is first used to
-notify the hardware that a port has joined a bridge. This is
-immediately followed by the default_pvid, 1, being added to the
-interface via another switchdev call.
-
-The bridge will then perform IGMP snooping, and offload an mdb entries
-to the switch as needed. With vlan filtering disabled, the vid is left
-as 0. This causes the switch to put the static mdb into the wrong
-vlan, and so frames are not forwarded by the mdb entry.
-
-If vlan filtering is disable, use the default_pvid, not 0.
-
-Fixes: f1fecb1d10ec ("bridge: Reflect MDB entries to hardware")
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- net/bridge/br_vlan.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 233a30040c91..aa3589891797 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -492,6 +492,7 @@ bool br_allowed_ingress(const struct net_bridge *br,
- 	 */
- 	if (!br->vlan_enabled) {
- 		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
-+		*vid = br_get_pvid(vg);
- 		return true;
- 	}
- 
--- 
-2.14.1
+I thought the whole thing is an alternative to RPS,
+but netif_receive_skb_internal() will call into RPS logic.
+So the user has to make sure it disabled or they will
+conflict in some weird way?
+Or you're calling netif_receive_skb() to be able to call
+generic XDP on that cpu again ?
+But that prog can do cpumap redirect again?
+sort-of recursive redirect? Is it really useful?
+May be call into __netif_receive_skb_core() directly?
+not sure.
+I'm asking all these questions to make sure we think through
+these implications before it becomes an abi.
