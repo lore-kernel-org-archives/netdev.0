@@ -1,328 +1,381 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH 4/5] VSOCK: add sock_diag interface
-Date: Tue,  3 Oct 2017 11:39:42 -0400
-Message-ID: <20171003153943.23159-5-stefanha@redhat.com>
-References: <20171003153943.23159-1-stefanha@redhat.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
+From: Dan Murphy <dmurphy@ti.com>
+Subject: [PATCH] net: phy: DP83822 initial driver submission
+Date: Tue, 3 Oct 2017 10:53:16 -0500
+Message-ID: <20171003155316.12312-1-dmurphy@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Dan Murphy <dmurphy@ti.com>
+To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40176 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752583AbdJCPkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 11:40:16 -0400
-In-Reply-To: <20171003153943.23159-1-stefanha@redhat.com>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:49336 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751201AbdJCPxa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 11:53:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the sock_diag interface for querying sockets from
-userspace.  Tools like ss(8) and netstat(8) can use this interface to
-list open sockets.
+Add support for the TI  DP83822 10/100Mbit ethernet phy.
 
-The userspace ABI is defined in <linux/vm_sockets_diag.h> and includes
-netlink request and response structs.  The request can query sockets
-based on their sk_state (e.g. listening sockets only) and the response
-contains socket information fields including the local/remote addresses,
-inode number, etc.
+The DP83822 provides flexibility to connect to a MAC through a
+standard MII, RMII or RGMII interface.
 
-This patch does not dump VMCI pending sockets because I have only tested
-the virtio transport, which does not use pending sockets.  Support can
-be added later by extending vsock_diag_dump() if needed by VMCI users.
+Datasheet:
+http://www.ti.com/product/DP83822I/datasheet
 
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+Signed-off-by: Dan Murphy <dmurphy@ti.com>
 ---
- MAINTAINERS                          |   2 +
- net/vmw_vsock/Makefile               |   3 +
- include/uapi/linux/vm_sockets_diag.h |  33 +++++++
- net/vmw_vsock/diag.c                 | 186 +++++++++++++++++++++++++++++++++++
- net/vmw_vsock/Kconfig                |  10 ++
- 5 files changed, 234 insertions(+)
- create mode 100644 include/uapi/linux/vm_sockets_diag.h
- create mode 100644 net/vmw_vsock/diag.c
+ drivers/net/phy/Kconfig   |   5 +
+ drivers/net/phy/Makefile  |   1 +
+ drivers/net/phy/dp83822.c | 313 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 319 insertions(+)
+ create mode 100644 drivers/net/phy/dp83822.c
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1c3feffb1c1c..200dac93f34b 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -13975,6 +13975,8 @@ S:	Maintained
- F:	include/linux/virtio_vsock.h
- F:	include/uapi/linux/virtio_vsock.h
- F:	include/uapi/linux/vsockmon.h
-+F:	include/uapi/linux/vm_sockets_diag.h
-+F:	net/vmw_vsock/diag.c
- F:	net/vmw_vsock/af_vsock_tap.c
- F:	net/vmw_vsock/virtio_transport_common.c
- F:	net/vmw_vsock/virtio_transport.c
-diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-index 09fc2eb29dc8..e5dbf153aff0 100644
---- a/net/vmw_vsock/Makefile
-+++ b/net/vmw_vsock/Makefile
-@@ -1,10 +1,13 @@
- obj-$(CONFIG_VSOCKETS) += vsock.o
-+obj-$(CONFIG_VSOCKETS_DIAG) += vsock_diag.o
- obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
- obj-$(CONFIG_VIRTIO_VSOCKETS) += vmw_vsock_virtio_transport.o
- obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += vmw_vsock_virtio_transport_common.o
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index cd931cf..8e78a48 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -277,6 +277,11 @@ config DAVICOM_PHY
+ 	---help---
+ 	  Currently supports dm9161e and dm9131
  
- vsock-y += af_vsock.o af_vsock_tap.o vsock_addr.o
- 
-+vsock_diag-y += diag.o
++config DP83822_PHY
++	tristate "Texas Instruments DP83822 PHY"
++	---help---
++	  Supports the DP83822 PHY.
 +
- vmw_vsock_vmci_transport-y += vmci_transport.o vmci_transport_notify.o \
- 	vmci_transport_notify_qstate.o
- 
-diff --git a/include/uapi/linux/vm_sockets_diag.h b/include/uapi/linux/vm_sockets_diag.h
+ config DP83848_PHY
+ 	tristate "Texas Instruments DP83848 PHY"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 416df92..df3b82b 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -55,6 +55,7 @@ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
+ obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
+ obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+ obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
++obj-$(CONFIG_DP83822_PHY)	+= dp83822.o
+ obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
+ obj-$(CONFIG_DP83867_PHY)	+= dp83867.o
+ obj-$(CONFIG_FIXED_PHY)		+= fixed_phy.o
+diff --git a/drivers/net/phy/dp83822.c b/drivers/net/phy/dp83822.c
 new file mode 100644
-index 000000000000..14cd7dc5a187
+index 0000000..1d77515
 --- /dev/null
-+++ b/include/uapi/linux/vm_sockets_diag.h
-@@ -0,0 +1,33 @@
-+/* AF_VSOCK sock_diag(7) interface for querying open sockets */
-+
-+#ifndef _UAPI__VM_SOCKETS_DIAG_H__
-+#define _UAPI__VM_SOCKETS_DIAG_H__
-+
-+#include <linux/types.h>
-+
-+/* Request */
-+struct vsock_diag_req {
-+	__u8	sdiag_family;	/* must be AF_VSOCK */
-+	__u8	sdiag_protocol;	/* must be 0 */
-+	__u16	pad;		/* must be 0 */
-+	__u32	vdiag_states;	/* query bitmap (e.g. 1 << TCP_LISTEN) */
-+	__u32	vdiag_ino;	/* must be 0 (reserved) */
-+	__u32	vdiag_show;	/* must be 0 (reserved) */
-+	__u32	vdiag_cookie[2];
-+};
-+
-+/* Response */
-+struct vsock_diag_msg {
-+	__u8	vdiag_family;	/* AF_VSOCK */
-+	__u8	vdiag_type;	/* SOCK_STREAM or SOCK_DGRAM */
-+	__u8	vdiag_state;	/* sk_state (e.g. TCP_LISTEN) */
-+	__u8	vdiag_shutdown; /* local RCV_SHUTDOWN | SEND_SHUTDOWN */
-+	__u32   vdiag_src_cid;
-+	__u32   vdiag_src_port;
-+	__u32   vdiag_dst_cid;
-+	__u32   vdiag_dst_port;
-+	__u32	vdiag_ino;
-+	__u32	vdiag_cookie[2];
-+};
-+
-+#endif /* _UAPI__VM_SOCKETS_DIAG_H__ */
-diff --git a/net/vmw_vsock/diag.c b/net/vmw_vsock/diag.c
-new file mode 100644
-index 000000000000..13266329b56a
---- /dev/null
-+++ b/net/vmw_vsock/diag.c
-@@ -0,0 +1,186 @@
++++ b/drivers/net/phy/dp83822.c
+@@ -0,0 +1,313 @@
 +/*
-+ * vsock sock_diag(7) module
++ * Driver for the Texas Instruments DP83822 PHY
 + *
-+ * Copyright (C) 2017 Red Hat, Inc.
-+ * Author: Stefan Hajnoczi <stefanha@redhat.com>
++ * Copyright (C) 2017 Texas Instruments Inc.
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation version 2 and no later version.
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License.
 + *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
 + */
 +
++#include <linux/ethtool.h>
++#include <linux/etherdevice.h>
++#include <linux/kernel.h>
++#include <linux/mii.h>
 +#include <linux/module.h>
-+#include <linux/sock_diag.h>
-+#include <linux/vm_sockets_diag.h>
-+#include <net/af_vsock.h>
++#include <linux/of.h>
++#include <linux/phy.h>
++#include <linux/netdevice.h>
 +
-+static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
-+			u32 portid, u32 seq, u32 flags)
++#define DP83822_PHY_ID	        0x2000a240
++#define DP83822_DEVADDR		0x1f
++
++#define MII_DP83822_MISR1	0x12
++#define MII_DP83822_MISR2	0x13
++#define MII_DP83822_RESET_CTRL	0x1f
++
++#define DP83822_HW_RESET	BIT(15)
++#define DP83822_SW_RESET	BIT(14)
++
++/* MISR1 bits */
++#define DP83822_RX_ERR_HF_INT_EN	BIT(0)
++#define DP83822_FALSE_CARRIER_HF_INT_EN	BIT(1)
++#define DP83822_ANEG_COMPLETE_INT_EN	BIT(2)
++#define DP83822_DUP_MODE_CHANGE_INT_EN	BIT(3)
++#define DP83822_SPEED_CHANGED_INT_EN	BIT(4)
++#define DP83822_LINK_STAT_INT_EN	BIT(5)
++#define DP83822_ENERGY_DET_INT_EN	BIT(6)
++#define DP83822_LINK_QUAL_INT_EN	BIT(7)
++
++/* MISR2 bits */
++#define DP83822_JABBER_DET_INT_EN	BIT(0)
++#define DP83822_WOL_PKT_INT_EN		BIT(1)
++#define DP83822_SLEEP_MODE_INT_EN	BIT(2)
++#define DP83822_MDI_XOVER_INT_EN	BIT(3)
++#define DP83822_LB_FIFO_INT_EN		BIT(4)
++#define DP83822_PAGE_RX_INT_EN		BIT(5)
++#define DP83822_ANEG_ERR_INT_EN		BIT(6)
++#define DP83822_EEE_ERROR_CHANGE_INT_EN	BIT(7)
++
++/* INT_STAT1 bits */
++#define DP83822_WOL_INT_EN	BIT(4)
++#define DP83822_WOL_INT_STAT	BIT(12)
++
++#define MII_DP83822_RXSOP1	0x04A5
++#define	MII_DP83822_RXSOP2	0x04A6
++#define	MII_DP83822_RXSOP3	0x04A7
++
++/* WoL Registers */
++#define	MII_DP83822_WOL_CFG	0x04A0
++#define	MII_DP83822_WOL_STAT	0x04A1
++#define	MII_DP83822_WOL_DA1	0x04A2
++#define	MII_DP83822_WOL_DA2	0x04A3
++#define	MII_DP83822_WOL_DA3	0x04A4
++
++/* WoL bits */
++#define DP83822_WOL_MAGIC_EN	BIT(1)
++#define DP83822_WOL_SECURE_ON	BIT(5)
++#define DP83822_WOL_EN		BIT(7)
++#define DP83822_WOL_INDICATION_SEL BIT(8)
++#define DP83822_WOL_CLR_INDICATION BIT(11)
++
++static int dp83822_ack_interrupt(struct phy_device *phydev)
 +{
-+	struct nlmsghdr *nlh;
-+	struct vsock_diag_msg *rep;
-+	struct vsock_sock *vsk = vsock_sk(sk);
++	int err = phy_read(phydev, MII_DP83822_MISR1);
 +
-+	nlh = nlmsg_put(skb, portid, seq, SOCK_DIAG_BY_FAMILY, sizeof(*rep),
-+			flags);
-+	if (!nlh)
-+		return -EMSGSIZE;
++	if (err < 0)
++		return err;
 +
-+	rep = nlmsg_data(nlh);
-+	rep->vdiag_family = AF_VSOCK;
-+
-+	/* Lock order dictates that sk_lock is acquired before
-+	 * vsock_table_lock, so we cannot lock here.  Simply don't take
-+	 * sk_lock; sk is guaranteed to stay alive since vsock_table_lock is
-+	 * held.
-+	 */
-+	rep->vdiag_type = sk->sk_type;
-+	rep->vdiag_state = sk->sk_state;
-+	rep->vdiag_shutdown = sk->sk_shutdown;
-+	rep->vdiag_src_cid = vsk->local_addr.svm_cid;
-+	rep->vdiag_src_port = vsk->local_addr.svm_port;
-+	rep->vdiag_dst_cid = vsk->remote_addr.svm_cid;
-+	rep->vdiag_dst_port = vsk->remote_addr.svm_port;
-+	rep->vdiag_ino = sock_i_ino(sk);
-+
-+	sock_diag_save_cookie(sk, rep->vdiag_cookie);
++	err = phy_read(phydev, MII_DP83822_MISR2);
++	if (err < 0)
++		return err;
 +
 +	return 0;
 +}
 +
-+static int vsock_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
++static int dp83822_set_wol(struct phy_device *phydev,
++			   struct ethtool_wolinfo *wol)
 +{
-+	struct vsock_diag_req *req;
-+	unsigned int table;
-+	unsigned int bucket;
-+	unsigned int last_i;
-+	unsigned int i;
-+	struct vsock_sock *vsk;
-+	struct net *net;
++	struct net_device *ndev = phydev->attached_dev;
++	u16 value;
++	const u8 *mac;
 +
-+	req = nlmsg_data(cb->nlh);
-+	net = sock_net(skb->sk);
++	if (wol->wolopts & (WAKE_MAGIC | WAKE_MAGICSECURE)) {
++		mac = (const u8 *)ndev->dev_addr;
 +
-+	/* State saved between calls: */
-+	table = cb->args[0];
-+	bucket = cb->args[1];
-+	i = last_i = cb->args[2];
++		if (!is_valid_ether_addr(mac))
++			return -EFAULT;
 +
-+	/* TODO VMCI pending sockets? */
++		/* MAC addresses start with byte 5, but stored in mac[0].
++		 * 822 PHYs store bytes 4|5, 2|3, 0|1
++		 */
++		phy_write_mmd(phydev, DP83822_DEVADDR,
++			      MII_DP83822_WOL_DA1, (mac[1] << 8) | mac[0]);
++		phy_write_mmd(phydev, DP83822_DEVADDR,
++			      MII_DP83822_WOL_DA2, (mac[3] << 8) | mac[2]);
++		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_DA3,
++			      (mac[5] << 8) | mac[4]);
 +
-+	spin_lock_bh(&vsock_table_lock);
++		value = phy_read_mmd(phydev, DP83822_DEVADDR,
++				     MII_DP83822_WOL_CFG);
++		if (wol->wolopts & WAKE_MAGIC)
++			value |= DP83822_WOL_MAGIC_EN;
++		else
++			value &= ~DP83822_WOL_MAGIC_EN;
 +
-+	/* Bind table (locally created sockets) */
-+	if (table == 0) {
-+		while (bucket < ARRAY_SIZE(vsock_bind_table)) {
-+			struct list_head *head = &vsock_bind_table[bucket];
-+
-+			i = 0;
-+			list_for_each_entry(vsk, head, bound_table) {
-+				struct sock *sk = sk_vsock(vsk);
-+
-+				if (!net_eq(sock_net(sk), net))
-+					continue;
-+				if (i < last_i)
-+					goto next_bind;
-+				if (!(req->vdiag_states & (1 << sk->sk_state)))
-+					goto next_bind;
-+				if (sk_diag_fill(sk, skb,
-+						 NETLINK_CB(cb->skb).portid,
-+						 cb->nlh->nlmsg_seq,
-+						 NLM_F_MULTI) < 0)
-+					goto done;
-+next_bind:
-+				i++;
-+			}
-+			last_i = 0;
-+			bucket++;
++		if (wol->wolopts & WAKE_MAGICSECURE) {
++			value |= DP83822_WOL_SECURE_ON;
++			phy_write_mmd(phydev, DP83822_DEVADDR,
++				      MII_DP83822_RXSOP1,
++				      (wol->sopass[1] << 8) | wol->sopass[0]);
++			phy_write_mmd(phydev, DP83822_DEVADDR,
++				      MII_DP83822_RXSOP2,
++				      (wol->sopass[3] << 8) | wol->sopass[2]);
++			phy_write_mmd(phydev, DP83822_DEVADDR,
++				      MII_DP83822_RXSOP3,
++				      (wol->sopass[5] << 8) | wol->sopass[4]);
++		} else {
++			value &= ~DP83822_WOL_SECURE_ON;
 +		}
 +
-+		table++;
-+		bucket = 0;
++		value |= (DP83822_WOL_EN | DP83822_WOL_CLR_INDICATION |
++			  DP83822_WOL_CLR_INDICATION);
++		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
++			      value);
++	} else {
++		value =
++		    phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
++		value &= (~DP83822_WOL_EN);
++		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
++			      value);
 +	}
 +
-+	/* Connected table (accepted connections) */
-+	while (bucket < ARRAY_SIZE(vsock_connected_table)) {
-+		struct list_head *head = &vsock_connected_table[bucket];
-+
-+		i = 0;
-+		list_for_each_entry(vsk, head, connected_table) {
-+			struct sock *sk = sk_vsock(vsk);
-+
-+			/* Skip sockets we've already seen above */
-+			if (__vsock_in_bound_table(vsk))
-+				continue;
-+
-+			if (!net_eq(sock_net(sk), net))
-+				continue;
-+			if (i < last_i)
-+				goto next_connected;
-+			if (!(req->vdiag_states & (1 << sk->sk_state)))
-+				goto next_connected;
-+			if (sk_diag_fill(sk, skb,
-+					 NETLINK_CB(cb->skb).portid,
-+					 cb->nlh->nlmsg_seq,
-+					 NLM_F_MULTI) < 0)
-+				goto done;
-+next_connected:
-+			i++;
-+		}
-+		last_i = 0;
-+		bucket++;
-+	}
-+
-+done:
-+	spin_unlock_bh(&vsock_table_lock);
-+
-+	cb->args[0] = table;
-+	cb->args[1] = bucket;
-+	cb->args[2] = i;
-+
-+	return skb->len;
++	return 0;
 +}
 +
-+static int vsock_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
++static void dp83822_get_wol(struct phy_device *phydev,
++			    struct ethtool_wolinfo *wol)
 +{
-+	int hdrlen = sizeof(struct vsock_diag_req);
-+	struct net *net = sock_net(skb->sk);
++	int value;
 +
-+	if (nlmsg_len(h) < hdrlen)
-+		return -EINVAL;
++	wol->supported = (WAKE_MAGIC | WAKE_MAGICSECURE);
++	wol->wolopts = 0;
 +
-+	if (h->nlmsg_flags & NLM_F_DUMP) {
-+		struct netlink_dump_control c = {
-+			.dump = vsock_diag_dump,
-+		};
-+		return netlink_dump_start(net->diag_nlsk, skb, h, &c);
-+	}
++	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
++	if (value & DP83822_WOL_MAGIC_EN)
++		wol->wolopts |= WAKE_MAGIC;
 +
-+	return -EOPNOTSUPP;
++	if (value & DP83822_WOL_SECURE_ON)
++		wol->wolopts |= WAKE_MAGICSECURE;
++
++	if (~value & DP83822_WOL_CLR_INDICATION)
++		wol->wolopts = 0;
++
++	wol->sopass[0] = (phy_read_mmd(phydev,
++				       DP83822_DEVADDR,
++				       MII_DP83822_RXSOP1) & 0xFF);
++	wol->sopass[1] =
++	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP1) >> 8);
++	wol->sopass[2] =
++	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP2) & 0xFF);
++	wol->sopass[3] =
++	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP2) >> 8);
++	wol->sopass[4] =
++	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP3) & 0xFF);
++	wol->sopass[5] =
++	    (phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_RXSOP3) >> 8);
 +}
 +
-+static const struct sock_diag_handler vsock_diag_handler = {
-+	.family = AF_VSOCK,
-+	.dump = vsock_diag_handler_dump,
++static int dp83822_config_intr(struct phy_device *phydev)
++{
++	int misr_status;
++	int err;
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
++		misr_status = phy_read(phydev, MII_DP83822_MISR1);
++		if (misr_status < 0)
++			return misr_status;
++
++		misr_status |= (DP83822_RX_ERR_HF_INT_EN |
++				DP83822_FALSE_CARRIER_HF_INT_EN |
++				DP83822_ANEG_COMPLETE_INT_EN |
++				DP83822_DUP_MODE_CHANGE_INT_EN |
++				DP83822_SPEED_CHANGED_INT_EN |
++				DP83822_LINK_STAT_INT_EN |
++				DP83822_ENERGY_DET_INT_EN |
++				DP83822_LINK_QUAL_INT_EN);
++
++		err = phy_write(phydev, MII_DP83822_MISR1, misr_status);
++		if (err < 0)
++			return err;
++
++		misr_status = phy_read(phydev, MII_DP83822_MISR2);
++		if (misr_status < 0)
++			return misr_status;
++
++		misr_status |= (DP83822_JABBER_DET_INT_EN |
++				DP83822_WOL_PKT_INT_EN |
++				DP83822_SLEEP_MODE_INT_EN |
++				DP83822_MDI_XOVER_INT_EN |
++				DP83822_LB_FIFO_INT_EN |
++				DP83822_PAGE_RX_INT_EN |
++				DP83822_ANEG_ERR_INT_EN |
++				DP83822_EEE_ERROR_CHANGE_INT_EN);
++
++		err = phy_write(phydev, MII_DP83822_MISR2, misr_status);
++	} else {
++		err = phy_write(phydev, MII_DP83822_MISR1, 0);
++		if (err < 0)
++			return err;
++
++		err = phy_write(phydev, MII_DP83822_MISR1, 0);
++	}
++
++	return err;
++}
++
++static int dp83822_phy_reset(struct phy_device *phydev)
++{
++	int err;
++
++	err = phy_write(phydev, MII_DP83822_RESET_CTRL, DP83822_HW_RESET);
++	if (err < 0)
++		return err;
++
++	return 0;
++}
++
++static int dp83822_suspend(struct phy_device *phydev)
++{
++	int value;
++
++	mutex_lock(&phydev->lock);
++
++	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
++	if (~value & DP83822_WOL_EN) {
++		value = phy_read(phydev, MII_BMCR);
++		phy_write(phydev, MII_BMCR, value | BMCR_PDOWN);
++	}
++
++	mutex_unlock(&phydev->lock);
++
++	return 0;
++}
++
++static int dp83822_resume(struct phy_device *phydev)
++{
++	int value;
++
++	mutex_lock(&phydev->lock);
++
++	value = phy_read(phydev, MII_BMCR);
++	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
++
++	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
++
++	phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG, value |
++		      DP83822_WOL_CLR_INDICATION);
++
++	mutex_unlock(&phydev->lock);
++
++	return 0;
++}
++
++static struct phy_driver dp83822_driver[] = {
++	{
++	 .phy_id = DP83822_PHY_ID,
++	 .phy_id_mask = 0xfffffff0,
++	 .name = "TI DP83822",
++	 .features = PHY_BASIC_FEATURES,
++	 .flags = PHY_HAS_INTERRUPT,
++
++	 .config_init = genphy_config_init,
++	 .soft_reset = dp83822_phy_reset,
++
++	 .get_wol = dp83822_get_wol,
++	 .set_wol = dp83822_set_wol,
++
++	 /* IRQ related */
++	 .ack_interrupt = dp83822_ack_interrupt,
++	 .config_intr = dp83822_config_intr,
++
++	 .config_aneg = genphy_config_aneg,
++	 .read_status = genphy_read_status,
++	 .suspend = dp83822_suspend,
++	 .resume = dp83822_resume,
++	 },
 +};
++module_phy_driver(dp83822_driver);
 +
-+static int __init vsock_diag_init(void)
-+{
-+	return sock_diag_register(&vsock_diag_handler);
-+}
++static struct mdio_device_id __maybe_unused dp83822_tbl[] = {
++	{ DP83822_PHY_ID, 0xfffffff0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(mdio, dp83822_tbl);
 +
-+static void __exit vsock_diag_exit(void)
-+{
-+	sock_diag_unregister(&vsock_diag_handler);
-+}
-+
-+module_init(vsock_diag_init);
-+module_exit(vsock_diag_exit);
++MODULE_DESCRIPTION("Texas Instruments DP83822 PHY driver");
++MODULE_AUTHOR("Dan Murphy <dmurphy@ti.com");
 +MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG,
-+			       40 /* AF_VSOCK */);
-diff --git a/net/vmw_vsock/Kconfig b/net/vmw_vsock/Kconfig
-index 8831e7c42167..829cb7c8f14c 100644
---- a/net/vmw_vsock/Kconfig
-+++ b/net/vmw_vsock/Kconfig
-@@ -15,6 +15,16 @@ config VSOCKETS
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called vsock. If unsure, say N.
- 
-+config VSOCKETS_DIAG
-+	tristate "Virtual Sockets monitoring interface"
-+	depends on VSOCKETS
-+	default y
-+	help
-+	  Support for PF_VSOCK sockets monitoring interface used by the ss tool.
-+	  If unsure, say Y.
-+
-+	  Enable this module so userspace applications can query open sockets.
-+
- config VMWARE_VMCI_VSOCKETS
- 	tristate "VMware VMCI transport for Virtual Sockets"
- 	depends on VSOCKETS && VMWARE_VMCI
 -- 
-2.13.6
+1.9.1
