@@ -1,39 +1,73 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next v2 3/3] tools: bpftool: add documentation
-Date: Mon, 2 Oct 2017 21:29:08 -0700
-Message-ID: <20171003042906.24mnbsfbs3bkp2wy@ast-mbp>
-References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
- <20171002231130.12406-4-jakub.kicinski@netronome.com>
- <20171003005500.yh2gbnofm5ckn54x@ast-mbp>
- <20171002183509.76b2cc65@cakuba>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
+ CONFIG_BRIDGE_VLAN_FILTERING
+Date: Tue, 3 Oct 2017 12:29:56 +0900
+Message-ID: <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
+References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        oss-drivers@netronome.com,
-        David Beckett <david.beckett@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:52762 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750735AbdJCE3M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 00:29:12 -0400
-Received: by mail-pf0-f173.google.com with SMTP id a1so751407pfj.9
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 21:29:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171002183509.76b2cc65@cakuba>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:35801 "EHLO
+        tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750708AbdJCEeB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 00:34:01 -0400
+In-Reply-To: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 02, 2017 at 06:35:09PM -0700, Jakub Kicinski wrote:
-> > will pretty print them as verifier output as well?
+On 2017/10/03 9:55, Andrew Lunn wrote:
+> With CONFIG_BRIDGE_VLAN_FILTERING enabled, but the feature not enabled
+> via /sys/class/net/brX/bridge/vlan_filtering, mdb offloaded to the
+> kernel have the wrong VID.
 > 
-> We tried to use LLVM as a library for this but the interface is
-> painfully unstable and it's a heavy dependency.  The current thinking
-> is to try to put the instruction printing code in some higher level
-> library, but I would rather leave that as a follow up.
+> When an interface is added to the bridge, switchdev is first used to
+> notify the hardware that a port has joined a bridge. This is
+> immediately followed by the default_pvid, 1, being added to the
+> interface via another switchdev call.
+> 
+> The bridge will then perform IGMP snooping, and offload an mdb entries
+> to the switch as needed. With vlan filtering disabled, the vid is left
+> as 0. This causes the switch to put the static mdb into the wrong
+> vlan, and so frames are not forwarded by the mdb entry.
+> 
+> If vlan filtering is disable, use the default_pvid, not 0.
+> 
+> Fixes: f1fecb1d10ec ("bridge: Reflect MDB entries to hardware")
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  net/bridge/br_vlan.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> index 233a30040c91..aa3589891797 100644
+> --- a/net/bridge/br_vlan.c
+> +++ b/net/bridge/br_vlan.c
+> @@ -492,6 +492,7 @@ bool br_allowed_ingress(const struct net_bridge *br,
+>  	 */
+>  	if (!br->vlan_enabled) {
+>  		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
+> +		*vid = br_get_pvid(vg);
+>  		return true;
+>  	}
+>  
 
-follow up, of course.
-Not depending on llvm is must have for this tool.
-I think we need tiny and simple tools first.
-Since you're using gpl+bsd license for this tool I think
-it would be fine to copy-paste verifier's pretty print code into it.
+This does not look correct.
+This will update fdb with vid which is not 0.
+Pvid can be different between each port even when vlan_filtering is
+disabled so unicast forwarding (fdb learning) will break.
+Also, fdb is visible to userspace so this can break userspace which
+expects fdb entries with 0 as well.
+
+Why does the switch driver use pvid while vlan_filtering is disabled?
+The (software) bridge does not use pvid for forwarding and use fdb/mdb
+entires with vid 0 when vlan_filtering is disabled even if pvid has been
+configured.
+
+-- 
+Toshiaki Makita
