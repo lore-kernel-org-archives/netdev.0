@@ -1,49 +1,31 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
-Date: Tue, 3 Oct 2017 14:50:00 -0700
-Message-ID: <20171003145000.53683e21@cakuba>
-References: <20171003200546.165731-1-mka@chromium.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: fib_rules: Fix fib_rules_ops->compare
+ implementations to support exact match
+Date: Tue, 03 Oct 2017 14:54:18 -0700 (PDT)
+Message-ID: <20171003.145418.677435703318514230.davem@davemloft.net>
+References: <20170930085909.1103-1-shmulik@nsof.io>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Renato Golin <renato.golin@linaro.org>,
-        Manoj Gupta <manojgupta@chromium.org>,
-        Guenter Roeck <groeck@chromium.org>,
-        Doug Anderson <dianders@chromium.org>
-To: Matthias Kaehlcke <mka@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171003200546.165731-1-mka@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mateusz.bajorski@nokia.com,
+        dsa@cumulusnetworks.com, tgraf@suug.ch, shmulik.ladkani@gmail.com
+To: shmulik@nsof.io
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53884 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751247AbdJCVyU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 17:54:20 -0400
+In-Reply-To: <20170930085909.1103-1-shmulik@nsof.io>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  3 Oct 2017 13:05:46 -0700, Matthias Kaehlcke wrote:
-> nfp_eth_set_bit_config() is marked as __always_inline to allow gcc to
-> identify the 'mask' parameter as known to be constant at compile time,
-> which is required to use the FIELD_GET() macro.
-> 
-> The forced inlining does the trick for gcc, but for kernel builds with
-> clang it results in undefined symbols:
-> 
-> drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.o: In function
->   `__nfp_eth_set_aneg':
-> drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c:(.text+0x787):
->   undefined reference to `__compiletime_assert_492'
-> drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c:(.text+0x7b1):
->   undefined reference to `__compiletime_assert_496'
-> 
-> These __compiletime_assert_xyx() calls would have been optimized away if
-> the compiler had seen 'mask' as a constant.
-> 
-> Convert nfp_eth_set_bit_config() into a macro, which allows both gcc and
-> clang to identify 'mask' as a compile time constant.
-> 
-> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+From: Shmulik Ladkani <shmulik@nsof.io>
+Date: Sat, 30 Sep 2017 11:59:09 +0300
 
-:(
+> This leads to inconsistencies, depending on order of operations, e.g.:
 
-Is there no chance of fixing the constant propagation in the compiler?
+I don't see any inconsistency.  When you insert using NLM_F_EXCL the
+insertion fails if any existing rule matches or overlaps in any way
+with the keys in the new rule.
+
+Sorry I'm not going to apply this.
