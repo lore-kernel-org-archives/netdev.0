@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 6/7] mlxsw: spectrum: mr_tcam: Add trap-and-forward multicast route
-Date: Tue,  3 Oct 2017 09:58:11 +0200
-Message-ID: <20171003075812.1540-7-jiri@resnulli.us>
+Subject: [patch net-next v2 5/7] mlxsw: spectrum: Add trap for multicast trap-and-forward routes
+Date: Tue,  3 Oct 2017 09:58:10 +0200
+Message-ID: <20171003075812.1540-6-jiri@resnulli.us>
 References: <20171003075812.1540-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
@@ -11,75 +11,85 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         gfree.wind@vip.163.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36765 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751250AbdJCH6T (ORCPT
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:53145 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751106AbdJCH6T (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:19 -0400
-Received: by mail-wr0-f193.google.com with SMTP id k10so5392354wrk.3
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:19 -0700 (PDT)
+Received: by mail-wm0-f68.google.com with SMTP id k4so12822271wmc.1
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:18 -0700 (PDT)
 In-Reply-To: <20171003075812.1540-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-In addition to the current multicast route actions, which include trap
-route action and a forward route action, add the trap-and-forward multicast
-route action, and implement it in the multicast routing hardware logic.
+When a multicast route is configured with trap-and-forward action, the
+packets should be marked with skb->offload_mr_fwd_mark, in order to prevent
+the packets from being forwarded again by the kernel ipmr module.
 
-To implement that, add a trap-and-forward ACL action as the last action in
-the route flexible action set. The used trap is the ACL2 trap, which marks
-the packets with offload_mr_forward_mark, to prevent the packet from being
-forwarded again by the kernel.
-
-Note: At that stage the offloading logic does not support trap-and-forward
-multicast routes. This patch adds the support only in the hardware logic.
+Due to this, it is not possible to use the already existing multicast trap
+(MLXSW_TRAP_ID_ACL1) as the packet should be marked differently. Add the
+MLXSW_TRAP_ID_ACL2 which is for trap-and-forward multicast routes, and set
+the offload_mr_fwd_mark skb field in its handler.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h      | 1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c | 8 ++++++++
- 2 files changed, 9 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 13 +++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |  2 ++
+ 2 files changed, 15 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h
-index c851b23..5d26a12 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h
-@@ -42,6 +42,7 @@
- enum mlxsw_sp_mr_route_action {
- 	MLXSW_SP_MR_ROUTE_ACTION_FORWARD,
- 	MLXSW_SP_MR_ROUTE_ACTION_TRAP,
-+	MLXSW_SP_MR_ROUTE_ACTION_TRAP_AND_FORWARD,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index e9b9443..3adf237 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -3312,6 +3312,14 @@ static void mlxsw_sp_rx_listener_mark_func(struct sk_buff *skb, u8 local_port,
+ 	return mlxsw_sp_rx_listener_no_mark_func(skb, local_port, priv);
+ }
+ 
++static void mlxsw_sp_rx_listener_mr_mark_func(struct sk_buff *skb,
++					      u8 local_port, void *priv)
++{
++	skb->offload_mr_fwd_mark = 1;
++	skb->offload_fwd_mark = 1;
++	return mlxsw_sp_rx_listener_no_mark_func(skb, local_port, priv);
++}
++
+ static void mlxsw_sp_rx_listener_sample_func(struct sk_buff *skb, u8 local_port,
+ 					     void *priv)
+ {
+@@ -3355,6 +3363,10 @@ static void mlxsw_sp_rx_listener_sample_func(struct sk_buff *skb, u8 local_port,
+ 	MLXSW_RXL(mlxsw_sp_rx_listener_mark_func, _trap_id, _action,	\
+ 		_is_ctrl, SP_##_trap_group, DISCARD)
+ 
++#define MLXSW_SP_RXL_MR_MARK(_trap_id, _action, _trap_group, _is_ctrl)	\
++	MLXSW_RXL(mlxsw_sp_rx_listener_mr_mark_func, _trap_id, _action,	\
++		_is_ctrl, SP_##_trap_group, DISCARD)
++
+ #define MLXSW_SP_EVENTL(_func, _trap_id)		\
+ 	MLXSW_EVENTL(_func, _trap_id, SP_EVENT)
+ 
+@@ -3425,6 +3437,7 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
+ 	MLXSW_SP_RXL_MARK(IPV4_PIM, TRAP_TO_CPU, PIM, false),
+ 	MLXSW_SP_RXL_MARK(RPF, TRAP_TO_CPU, RPF, false),
+ 	MLXSW_SP_RXL_MARK(ACL1, TRAP_TO_CPU, MULTICAST, false),
++	MLXSW_SP_RXL_MR_MARK(ACL2, TRAP_TO_CPU, MULTICAST, false),
  };
  
- enum mlxsw_sp_mr_route_prio {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c
-index cda9e9a..3ffb28d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c
-@@ -253,6 +253,7 @@ mlxsw_sp_mr_tcam_afa_block_create(struct mlxsw_sp *mlxsw_sp,
- 		if (err)
- 			goto err;
- 		break;
-+	case MLXSW_SP_MR_ROUTE_ACTION_TRAP_AND_FORWARD:
- 	case MLXSW_SP_MR_ROUTE_ACTION_FORWARD:
- 		/* If we are about to append a multicast router action, commit
- 		 * the erif_list.
-@@ -266,6 +267,13 @@ mlxsw_sp_mr_tcam_afa_block_create(struct mlxsw_sp *mlxsw_sp,
- 						      erif_list->kvdl_index);
- 		if (err)
- 			goto err;
-+
-+		if (route_action == MLXSW_SP_MR_ROUTE_ACTION_TRAP_AND_FORWARD) {
-+			err = mlxsw_afa_block_append_trap_and_forward(afa_block,
-+								      MLXSW_TRAP_ID_ACL2);
-+			if (err)
-+				goto err;
-+		}
- 		break;
- 	default:
- 		err = -EINVAL;
+ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+index a981035..ec6cef8 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+@@ -93,6 +93,8 @@ enum {
+ 	MLXSW_TRAP_ID_ACL0 = 0x1C0,
+ 	/* Multicast trap used for routes with trap action */
+ 	MLXSW_TRAP_ID_ACL1 = 0x1C1,
++	/* Multicast trap used for routes with trap-and-forward action */
++	MLXSW_TRAP_ID_ACL2 = 0x1C2,
+ 
+ 	MLXSW_TRAP_ID_MAX = 0x1FF
+ };
 -- 
 2.9.5
