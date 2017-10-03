@@ -1,77 +1,54 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 1/8] bpf: multi program support for cgroup+bpf
-Date: Mon, 2 Oct 2017 20:54:57 -0700
-Message-ID: <71bda584-d828-7472-7655-85a454dbe297@cumulusnetworks.com>
-References: <20171002234857.3707580-1-ast@fb.com>
- <20171002234857.3707580-2-ast@fb.com>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Mon, 2 Oct 2017 21:18:24 -0700
+Message-ID: <CALCETrWdXjTTTywbb3duCEsLYNxkeGx7bf3SM4PYKeErCyiUNQ@mail.gmail.com>
+References: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
-        netdev@vger.kernel.org, kernel-team@fb.com
-To: Alexei Starovoitov <ast@fb.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:51935 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751784AbdJCDzI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 23:55:08 -0400
-Received: by mail-pg0-f42.google.com with SMTP id u144so1374414pgb.8
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 20:55:07 -0700 (PDT)
-In-Reply-To: <20171002234857.3707580-2-ast@fb.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Neil Horman <nhorman@tuxdriver.com>, vyasevich@gmail.com,
+        Andrew Lutomirski <luto@kernel.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org,
+        Linux Wireless List <linux-wireless@vger.kernel.org>
+To: Jia-Ju Bai <baijiaju1990@163.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/2/17 4:48 PM, Alexei Starovoitov wrote:
-> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-> index 546113430049..70f679a94804 100644
-> --- a/kernel/bpf/cgroup.c
-> +++ b/kernel/bpf/cgroup.c
-> @@ -27,129 +27,361 @@ void cgroup_bpf_put(struct cgroup *cgrp)
->  {
->  	unsigned int type;
->  
-> -	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.prog); type++) {
-> -		struct bpf_prog *prog = cgrp->bpf.prog[type];
-> -
-> -		if (prog) {
-> -			bpf_prog_put(prog);
-> +	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.progs); type++) {
-> +		struct list_head *progs = &cgrp->bpf.progs[type];
-> +		struct bpf_prog_list *pl, *tmp;
-> +
-> +		list_for_each_entry_safe(pl, tmp, progs, node) {
-> +			list_del(&pl->node);
-> +			bpf_prog_put(pl->prog);
-> +			kfree(pl);
->  			static_branch_dec(&cgroup_bpf_enabled_key);
->  		}
-> +		bpf_prog_array_free(cgrp->bpf.effective[type]);
-> +	}
-> +}
-> +
+> On Oct 2, 2017, at 7:25 PM, Jia-Ju Bai <baijiaju1990@163.com> wrote:
+>
+> The SCTP program may sleep under a spinlock, and the function call path is:
+> sctp_generate_t3_rtx_event (acquire the spinlock)
+>  sctp_do_sm
+>    sctp_side_effects
+>      sctp_cmd_interpreter
+>        sctp_make_init_ack
+>          sctp_pack_cookie
+>            crypto_shash_setkey
+>              shash_setkey_unaligned
+>                kmalloc(GFP_KERNEL)
+>
 
-...
+I'm going to go out on a limb here: why on Earth is out crypto API so
+full of indirection that we allocate memory at all here?
 
->  
-> -	if (prog)
-> -		static_branch_inc(&cgroup_bpf_enabled_key);
-> +	/* all allocations were successful. Activate all prog arrays */
-> +	css_for_each_descendant_pre(css, &cgrp->self) {
-> +		struct cgroup *desc = container_of(css, struct cgroup, self);
->  
-> +		activate_effective_progs(desc, type, desc->bpf.inactive);
-> +		desc->bpf.inactive = NULL;
-> +	}
-> +
-> +	static_branch_inc(&cgroup_bpf_enabled_key);
->  	if (old_prog) {
->  		bpf_prog_put(old_prog);
->  		static_branch_dec(&cgroup_bpf_enabled_key);
->  	}
->  	return 0;
+We're synchronously computing a hash of a small amount of data using
+either HMAC-SHA1 or HMAC-SHA256 (determined at runtime) if I read it
+right.  There's a sane way to do this that doesn't need kmalloc,
+alloca, or fancy indirection.  And then there's crypto_shash_xyz().
 
-It's not clear to me that the static_branch_inc and static_branch_dec's
-are equal since the dec is in the loop over each program in the list,
-but the inc is not in a loop.
+--Andy, who is sick of seeing stupid bugs caused by the fact that it's
+basically impossible to use the crypto API in a sane way.
+
+P.S. gnulib has:
+
+int hmac_sha256 (const void *key, size_t keylen, const void *in,
+size_t inlen, void *resbuf);
+
+An init/update/final-style API would be nice, but something like this
+would be a phenomenal improvement over what we have.
