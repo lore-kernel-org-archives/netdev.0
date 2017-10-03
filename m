@@ -1,58 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/3] A own subdirectory for shared TCP code
-Date: Tue, 03 Oct 2017 15:42:57 -0700
-Message-ID: <1507070577.8061.32.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171003222213.7996-1-richard_siegfried@systemli.org>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Tue, 3 Oct 2017 19:45:06 -0300
+Message-ID: <20171003224505.GE19750@localhost.localdomain>
+References: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
+ <CALCETrWdXjTTTywbb3duCEsLYNxkeGx7bf3SM4PYKeErCyiUNQ@mail.gmail.com>
+ <20171003052643.GB22750@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org
-To: Richard Sailer <richard_siegfried@systemli.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:37781 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750865AbdJCWnA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 18:43:00 -0400
-Received: by mail-pg0-f67.google.com with SMTP id o1so10017932pga.4
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 15:42:59 -0700 (PDT)
-In-Reply-To: <20171003222213.7996-1-richard_siegfried@systemli.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Lutomirski <luto@kernel.org>,
+        Jia-Ju Bai <baijiaju1990@163.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Neil Horman <nhorman@tuxdriver.com>, vyasevich@gmail.com,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org,
+        Linux Wireless List <linux-wireless@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171003052643.GB22750@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-10-04 at 00:22 +0200, Richard Sailer wrote:
-> net/ipv4 currently contains around 100 source files containing the
-> IP implementation and lots of other functionality (UDP, TCP, xfrm, etc.)
+On Tue, Oct 03, 2017 at 01:26:43PM +0800, Herbert Xu wrote:
+> On Mon, Oct 02, 2017 at 09:18:24PM -0700, Andy Lutomirski wrote:
+> > > On Oct 2, 2017, at 7:25 PM, Jia-Ju Bai <baijiaju1990@163.com> wrote:
+> > >
+> > > The SCTP program may sleep under a spinlock, and the function call path is:
+> > > sctp_generate_t3_rtx_event (acquire the spinlock)
+> > >  sctp_do_sm
+> > >    sctp_side_effects
+> > >      sctp_cmd_interpreter
+> > >        sctp_make_init_ack
+> > >          sctp_pack_cookie
+> > >            crypto_shash_setkey
+> > >              shash_setkey_unaligned
+> > >                kmalloc(GFP_KERNEL)
+> > 
+> > I'm going to go out on a limb here: why on Earth is out crypto API so
+> > full of indirection that we allocate memory at all here?
 > 
-> # 1/3
-> To make the networking source tree more self documenting and well 
-> structured 1/3 moves the 30 shared TCP source files to a own 
-> subdirectory of net/ipv4/.
+> The crypto API operates on a one key per-tfm basis.  So normally
+> tfm allocation and key setting is done once only and not done on
+> the data path.
 > 
-> # 2/3 
-> A huge part of the TCP code is congestion control algorithms.
-> With the same goal as above, this moves the cc algos to a own
-> subdirectory of net/ipv4/tcp/
-> 
-> # 3/3
-> Implementation of a suggestion of valdis, to have a new directory
-> net/ipv4v6_shared that contains all the code shared between
-> IPv4 and IPv6. This creates net/ipv4v6_shared and moves the 
-> net/ipv4/tcp directory of shared TCP code there.
-> 
-> While every commit depends on its previous commits, it is
-> also possible and sensible to only apply (1) or (1,2) , depending
-> on how conservative one wants to decide regarding directory
-> structure changes.
-> 
-> [PATCH net-next 1/3] net/ipv4: Move shared tcp code to own subdirectory
-> [PATCH net-next 2/3] tcp: Move cc algorithms to own subdirectory
-> [PATCH net-next 3/3] Move shared tcp code to net/ipv4v6shared
+> I have looked at the SCTP code and it appears to fit this paradigm.
+> That is, we should be able to allocate the tfm and set the key when
+> the key is actually generated via get_random_bytes, rather than every
+> time the key is used which is not only a waste but as you see runs
+> into API issues.
 
+Fair point, but
 
-NACK for the whole series.
+> 
+> Usually if you're invoking setkey from a non-sleeping code-path
+> you're probably doing something wrong.
 
-Simple reason :
+Usually but not always. There are 3 calls to that function on SCTP
+code:
+- pack a cookie, which is sent on an INIT_ACK packet to the client
+- unpack the cookie above, after it is sent back by the client on a
+  COOKIE_ECHO packet
+- send a chunk authenticated by a hash
 
-This is going to be a maintenance nightmare, for people dealing with TCP
-stack every day.
+the first two happen during softirq processing, while processing a
+packet that was received.
+
+As I explained on the other email, SCTP code is not supposed to store
+any information about the peer between the 1st and the 2nd moments
+above, to be less vulnerable to DoS attacks (it's planned so by the
+RFC), thus why it uses the cookie.
+
+The 3rd one we probably can improve, but I don't think we can do much
+about the 2 first ones from the SCTP side.
+
+Note on sctp_sf_do_5_1B_init() how sctp_make_init_ack() is explicitly
+called with GFP_ATOMIC, and also on sctp_sf_do_unexpected_init().
+Though we can't propagate that to crypto_shash_setkey.
+
+Ideas?
+
+Thanks,
+Marcelo
+
+> 
+> As someone else noted recently, there is no single forum for
+> reviewing code that uses the crypto API so buggy code like this
+> is not surprising.
+> 
+> > We're synchronously computing a hash of a small amount of data using
+> > either HMAC-SHA1 or HMAC-SHA256 (determined at runtime) if I read it
+> > right.  There's a sane way to do this that doesn't need kmalloc,
+> > alloca, or fancy indirection.  And then there's crypto_shash_xyz().
+> 
+> There are some legitimate cases where you want to use a different
+> key for every hashing operation.  But so far these are uses have
+> been very few so there has been no need to provide an API for them.
+> 
+> Cheers,
+> -- 
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
