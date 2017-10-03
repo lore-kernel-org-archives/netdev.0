@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 5/7] mlxsw: spectrum: Add trap for multicast trap-and-forward routes
-Date: Tue,  3 Oct 2017 09:58:10 +0200
-Message-ID: <20171003075812.1540-6-jiri@resnulli.us>
+Subject: [patch net-next v2 3/7] ipv4: ipmr: Don't forward packets already forwarded by hardware
+Date: Tue,  3 Oct 2017 09:58:08 +0200
+Message-ID: <20171003075812.1540-4-jiri@resnulli.us>
 References: <20171003075812.1540-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
@@ -11,85 +11,117 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         gfree.wind@vip.163.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:53145 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdJCH6T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:19 -0400
-Received: by mail-wm0-f68.google.com with SMTP id k4so12822271wmc.1
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:18 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36940 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751197AbdJCH6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:18 -0400
+Received: by mail-wr0-f194.google.com with SMTP id v38so2377006wrc.4
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:17 -0700 (PDT)
 In-Reply-To: <20171003075812.1540-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-When a multicast route is configured with trap-and-forward action, the
-packets should be marked with skb->offload_mr_fwd_mark, in order to prevent
-the packets from being forwarded again by the kernel ipmr module.
+Change the ipmr module to not forward packets if:
+ - The packet is marked with the offload_mr_fwd_mark, and
+ - Both input interface and output interface share the same parent ID.
 
-Due to this, it is not possible to use the already existing multicast trap
-(MLXSW_TRAP_ID_ACL1) as the packet should be marked differently. Add the
-MLXSW_TRAP_ID_ACL2 which is for trap-and-forward multicast routes, and set
-the offload_mr_fwd_mark skb field in its handler.
+This way, a packet can go through partial multicast forwarding in the
+hardware, where it will be forwarded only to the devices that share the
+same parent ID (AKA, reside inside the same hardware). The kernel will
+forward the packet to all other interfaces.
+
+To do this, add the ipmr_offload_forward helper, which per skb, ingress VIF
+and egress VIF, returns whether the forwarding was offloaded to hardware.
+The ipmr_queue_xmit frees the skb and does not forward it if the result is
+a true value.
+
+All the forwarding path code compiles out when the CONFIG_NET_SWITCHDEV is
+not set.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 13 +++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/trap.h     |  2 ++
- 2 files changed, 15 insertions(+)
+v1->v2:
+ - Use dev_parent_id.len field instead of the dev_parent_id_valid field
+---
+ net/ipv4/ipmr.c | 37 ++++++++++++++++++++++++++++++++-----
+ 1 file changed, 32 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e9b9443..3adf237 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -3312,6 +3312,14 @@ static void mlxsw_sp_rx_listener_mark_func(struct sk_buff *skb, u8 local_port,
- 	return mlxsw_sp_rx_listener_no_mark_func(skb, local_port, priv);
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 1b161ad..b3ee01b 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1859,10 +1859,33 @@ static inline int ipmr_forward_finish(struct net *net, struct sock *sk,
+ 	return dst_output(net, sk, skb);
  }
  
-+static void mlxsw_sp_rx_listener_mr_mark_func(struct sk_buff *skb,
-+					      u8 local_port, void *priv)
++#ifdef CONFIG_NET_SWITCHDEV
++static bool ipmr_forward_offloaded(struct sk_buff *skb, struct mr_table *mrt,
++				   int in_vifi, int out_vifi)
 +{
-+	skb->offload_mr_fwd_mark = 1;
-+	skb->offload_fwd_mark = 1;
-+	return mlxsw_sp_rx_listener_no_mark_func(skb, local_port, priv);
++	struct vif_device *out_vif = &mrt->vif_table[out_vifi];
++	struct vif_device *in_vif = &mrt->vif_table[in_vifi];
++
++	if (!skb->offload_mr_fwd_mark)
++		return false;
++	if (!out_vif->dev_parent_id.id_len || !in_vif->dev_parent_id.id_len)
++		return false;
++	return netdev_phys_item_id_same(&out_vif->dev_parent_id,
++					&in_vif->dev_parent_id);
 +}
++#else
++static bool ipmr_forward_offloaded(struct sk_buff *skb, struct mr_table *mrt,
++				   int in_vifi, int out_vifi)
++{
++	return false;
++}
++#endif
 +
- static void mlxsw_sp_rx_listener_sample_func(struct sk_buff *skb, u8 local_port,
- 					     void *priv)
+ /* Processing handlers for ipmr_forward */
+ 
+ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
+-			    struct sk_buff *skb, struct mfc_cache *c, int vifi)
++			    int in_vifi, struct sk_buff *skb,
++			    struct mfc_cache *c, int vifi)
  {
-@@ -3355,6 +3363,10 @@ static void mlxsw_sp_rx_listener_sample_func(struct sk_buff *skb, u8 local_port,
- 	MLXSW_RXL(mlxsw_sp_rx_listener_mark_func, _trap_id, _action,	\
- 		_is_ctrl, SP_##_trap_group, DISCARD)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct vif_device *vif = &mrt->vif_table[vifi];
+@@ -1883,6 +1906,9 @@ static void ipmr_queue_xmit(struct net *net, struct mr_table *mrt,
+ 		goto out_free;
+ 	}
  
-+#define MLXSW_SP_RXL_MR_MARK(_trap_id, _action, _trap_group, _is_ctrl)	\
-+	MLXSW_RXL(mlxsw_sp_rx_listener_mr_mark_func, _trap_id, _action,	\
-+		_is_ctrl, SP_##_trap_group, DISCARD)
++	if (ipmr_forward_offloaded(skb, mrt, in_vifi, vifi))
++		goto out_free;
 +
- #define MLXSW_SP_EVENTL(_func, _trap_id)		\
- 	MLXSW_EVENTL(_func, _trap_id, SP_EVENT)
+ 	if (vif->flags & VIFF_TUNNEL) {
+ 		rt = ip_route_output_ports(net, &fl4, NULL,
+ 					   vif->remote, vif->local,
+@@ -2060,8 +2086,8 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
  
-@@ -3425,6 +3437,7 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
- 	MLXSW_SP_RXL_MARK(IPV4_PIM, TRAP_TO_CPU, PIM, false),
- 	MLXSW_SP_RXL_MARK(RPF, TRAP_TO_CPU, RPF, false),
- 	MLXSW_SP_RXL_MARK(ACL1, TRAP_TO_CPU, MULTICAST, false),
-+	MLXSW_SP_RXL_MR_MARK(ACL2, TRAP_TO_CPU, MULTICAST, false),
- };
+ 				if (skb2)
+-					ipmr_queue_xmit(net, mrt, skb2, cache,
+-							psend);
++					ipmr_queue_xmit(net, mrt, true_vifi,
++							skb2, cache, psend);
+ 			}
+ 			psend = ct;
+ 		}
+@@ -2072,9 +2098,10 @@ static void ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
  
- static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-index a981035..ec6cef8 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-@@ -93,6 +93,8 @@ enum {
- 	MLXSW_TRAP_ID_ACL0 = 0x1C0,
- 	/* Multicast trap used for routes with trap action */
- 	MLXSW_TRAP_ID_ACL1 = 0x1C1,
-+	/* Multicast trap used for routes with trap-and-forward action */
-+	MLXSW_TRAP_ID_ACL2 = 0x1C2,
- 
- 	MLXSW_TRAP_ID_MAX = 0x1FF
- };
+ 			if (skb2)
+-				ipmr_queue_xmit(net, mrt, skb2, cache, psend);
++				ipmr_queue_xmit(net, mrt, true_vifi, skb2,
++						cache, psend);
+ 		} else {
+-			ipmr_queue_xmit(net, mrt, skb, cache, psend);
++			ipmr_queue_xmit(net, mrt, true_vifi, skb, cache, psend);
+ 			return;
+ 		}
+ 	}
 -- 
 2.9.5
