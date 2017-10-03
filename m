@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: dsa: mt7530: make functions mt7530_phy_write
- static
-Date: Tue, 03 Oct 2017 10:20:30 -0700 (PDT)
-Message-ID: <20171003.102030.1150001638629183371.davem@davemloft.net>
-References: <20171003104633.27151-1-colin.king@canonical.com>
+Subject: Re: [PATCH 1/2 net-next] mlxsw: spectrum: Fix check for IS_ERR()
+ instead of NULL
+Date: Tue, 03 Oct 2017 10:27:08 -0700 (PDT)
+Message-ID: <20171003.102708.974344064764110062.davem@davemloft.net>
+References: <20171003105303.u7yrzxknddmmerol@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
+Cc: jiri@mellanox.com, yotamg@mellanox.com, idosch@mellanox.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47502 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47698 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751090AbdJCRUb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:20:31 -0400
-In-Reply-To: <20171003104633.27151-1-colin.king@canonical.com>
+        with ESMTP id S1750767AbdJCR1J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:27:09 -0400
+In-Reply-To: <20171003105303.u7yrzxknddmmerol@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Tue,  3 Oct 2017 11:46:33 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 3 Oct 2017 13:53:03 +0300
 
-> From: Colin Ian King <colin.king@canonical.com>
+> mlxsw_afa_block_create() doesn't return error pointers, it returns NULL
+> on error.
 > 
-> The function mt7530_phy_write is local to the source and does not need to
-> be in global scope, so make it static.
-> 
-> Cleans up sparse warnings:
-> symbol 'mt7530_phy_write' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Fixes: 0e14c7777acb ("mlxsw: spectrum: Add the multicast routing hardware logic")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
