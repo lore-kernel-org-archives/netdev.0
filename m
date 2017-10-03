@@ -1,46 +1,79 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2] netfilter: SYNPROXY: fix process non tcp packet bug
- in {ipv4,ipv6}_synproxy_hook
-Date: Tue, 3 Oct 2017 15:32:06 +0200
-Message-ID: <20171003133206.GA19459@salvia>
-References: <1506767115-10051-1-git-send-email-xiaolou4617@gmail.com>
- <20171003132825.GA11182@salvia>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH] rndis_host: support Novatel Verizon USB730L
+Date: Tue, 03 Oct 2017 16:01:15 +0200
+Message-ID: <87k20cmitw.fsf@miraculix.mork.no>
+References: <20170927213103.11987-1-aleksander@aleksander.es>
+        <20171002.161750.1123671129875495210.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: kadlec@blackhole.kfki.hu, fw@strlen.de, davem@davemloft.net,
-        kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-To: Lin Zhang <xiaolou4617@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171003132825.GA11182@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171002.161750.1123671129875495210.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
+        Miller's message of "Mon, 02 Oct 2017 16:17:50 -0700 (PDT)")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2017 at 03:28:25PM +0200, Pablo Neira Ayuso wrote:
-> On Sat, Sep 30, 2017 at 06:25:15PM +0800, Lin Zhang wrote:
-> > In function {ipv4,ipv6}_synproxy_hook we expect a normal tcp packet,
-> > but the real server maybe reply an icmp error packet related to the 
-> > exist tcp conntrack, so we will access wrong tcp data.
-> > 
-> > For fix it, check for the protocol field and only process tcp traffic.
-> 
-> Applied, thanks.
-> 
-> I have made minor comestic changes to patch title:
-> 
-> netfilter: SYNPROXY: skip non-TCP packets from {ipv4,ipv6}_synproxy_hook
-> 
-> for the record.
+David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
 
-I have to keep this back, sorry.
+> From: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+> Date: Wed, 27 Sep 2017 23:31:03 +0200
+>
+>> I'm not sure if binding this logic to a specific vid:pid (1410:9030)
+>> would be more appropriate here, or if it's ok to just bind
+>> class/subclass/protocol (as in the activesync case).  Let me know
+>> what you think.
+>
+> I don't have enough USB Networking knowledge to make a decision here.
+>
+> Some things seem confusing.  For example, if we should be matching
+> USB_CLASS_MISC, subclass=3D4, protocol=3D1 for RNDIS over Ethernet, then
+> we why aren't we also matching USB_CLASS_MISC, subclass=3D4, protocol=3D2
+> for RNDIS over wireless and instead are matching "Remote RNDIS" in
+> the form of USB_CLASS_WIRELSS, subclass=3D1, protocol=3D3?
+>
+> I really don't understand any of this magic :-)
+>
+> So someone more knowledgable needs to review this.
 
-This has been not compiled tested.
+Let me just say that I am not qualified.  But since this needs a review,
+I am going to offer my view anyway.  FWIW, I don't think *anyone*
+understand this magic...  I certainly don't.
 
-net/ipv6/netfilter/ip6t_SYNPROXY.c: In function ‘ipv6_synproxy_hook’:
-net/ipv6/netfilter/ip6t_SYNPROXY.c:351:19: error: ‘struct ipv6hdr’ has
-no member named ‘protocol’
-      ipv6_hdr(skb)->protocol != IPPROTO_TCP)
-                   ^
+We can pretty much ignore the USB-IF and any specs, since that is what
+the vendors appear to do.  They provide device specific drivers for
+Windows, so all they care about is that their device "works" with their
+driver.
+
+But in Linux we prefer to create drivers for device classes whenever we
+can, to avoid having to add every single device by ID.  So we try to
+guess future patterns based on the devices we have observed, even when
+there is no clear spec.  This is what Aleksander does here. He has a
+device with a 'Cls=3Def(misc ) Sub=3D04 Prot=3D01' function.  This device
+works with the rndis_host driver. That is all we know.
+
+We cannot prove that a class match is correct. But it does make sense to
+try it.  At least we know that this works for one device.
+
+Adding anything else, e.g. based on the table at
+http://www.usb.org/developers/defined_class/#BaseClassEFh , is a bit
+more risky.  We don't know if a driver will work with *any* such device
+until we've actually seen one.
+
+This is just my opinion, and probably full of bogus assumptions as
+usual.  I was sort of hoping that some expert would speak up so I didn't
+have to :-)
+
+But FWIW:
+
+Reviewed-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
