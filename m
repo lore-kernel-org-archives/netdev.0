@@ -1,42 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [v2] cdc-ether: divorce initialisation with a filter reset and
- a generic method
-Date: Tue, 03 Oct 2017 09:59:55 -0700 (PDT)
-Message-ID: <20171003.095955.1603961040065728073.davem@davemloft.net>
-References: <20170522125030.21266-1-oneukum@suse.com>
-        <fbe82c0f-c3d5-4dd6-62a7-b8fd2ea83302@ti.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: oneukum@suse.com, netdev@vger.kernel.org, bjorn@mork.no
-To: vigneshr@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46800 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751761AbdJCQ74 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 12:59:56 -0400
-In-Reply-To: <fbe82c0f-c3d5-4dd6-62a7-b8fd2ea83302@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+Subject: [PATCH v3 0/2] Allwinner XR819 SDIO Wi-Fi DT binding and OPi Zero XR819 IRQ
+Date: Wed,  4 Oct 2017 00:59:42 +0800
+Message-ID: <20171003165944.13056-1-icenowy@aosc.io>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+        Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vignesh R <vigneshr@ti.com>
-Date: Tue, 3 Oct 2017 13:39:18 +0530
+The Allwinner XR819 SDIO Wi-Fi chip supports an out-of-band interrupt line,
+and the in-band interrupt is also supported.
 
-> Hi Dave,
-> 
-> On Monday 22 May 2017 06:20 PM, Oliver Neukum wrote:
->> Some devices need their multicast filter reset but others are crashed by that.
->> So the methods need to be separated.
->> 
->> Signed-off-by: Oliver Neukum <oneukum@suse.com>
->> Reported-by: "Ridgway, Keith" <kridgway@harris.com>
->> ---
-> 
-> I see this patch was merged and said to be queued for -stable, but I
-> don't see this fix in any of the stable kernels. Would you please ask
-> for this patch to be backported to -stable kernels?
+However the current out-of-tree driver uses the out-of-band interrupt by
+default.
 
-I submit networking -stable patches at a time of my own choosing.
-Usually 1 to 2 weeks after it gets applied to my tree.
+This patchset adds the device tree binding for the chip as well as the
+out-of-band interrupt, then adds the interrupt to the device tree of
+Orange Pi Zero.
 
-Please be patient.
+Icenowy Zheng (1):
+  dt-bindings: add device tree binding for Allwinner XR819 SDIO Wi-Fi
+
+Sergey Matyukevich (1):
+  ARM: sun8i: h2+: specify wifi interrupts for Orange Pi Zero
+
+ .../bindings/net/wireless/allwinner,xr819.txt      | 38 ++++++++++++++++++++++
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts  |  3 ++
+ 2 files changed, 41 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
+
+-- 
+2.13.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
