@@ -1,44 +1,69 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/8] bpf: multi program support for cgroup+bpf
-Date: Mon, 2 Oct 2017 22:00:15 -0700
-Message-ID: <f10e3c83-b73d-6f04-7c66-b01fab1f5a1a@fb.com>
-References: <20171002234857.3707580-1-ast@fb.com>
- <20171002234857.3707580-2-ast@fb.com>
- <71bda584-d828-7472-7655-85a454dbe297@cumulusnetworks.com>
- <f5d34464-42a9-b51b-edc4-06c44b3c4845@fb.com>
- <1211d4c0-b812-af08-cbd4-72eb9259ee78@cumulusnetworks.com>
+From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
+Subject: RE: [PATCH v2 3/6] staging: fsl-dpaa2/ethsw: Add ethtool support
+Date: Tue, 3 Oct 2017 05:22:06 +0000
+Message-ID: <AM3PR04MB074387851364E6F24ECF4502E6720@AM3PR04MB0743.eurprd04.prod.outlook.com>
+References: <1506933380-12641-1-git-send-email-razvan.stefanescu@nxp.com>
+ <1506933380-12641-4-git-send-email-razvan.stefanescu@nxp.com>
+ <20171002153718.GJ17713@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: David Ahern <dsa@cumulusnetworks.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58290 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750735AbdJCFAg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 01:00:36 -0400
-In-Reply-To: <1211d4c0-b812-af08-cbd4-72eb9259ee78@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ "arnd@arndb.de" <arnd@arndb.de>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ Alexandru Marginean <alexandru.marginean@nxp.com>,
+ "agraf@suse.de" <agraf@suse.de>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "stuyoder@gmail.com" <stuyoder@gmail.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Bogdan Purcareata <bogdan.purcareata@nxp.com>,
+ Laurentiu Tudor <laurentiu.tudor@nxp.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20171002153718.GJ17713@lunn.ch>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 10/2/17 9:26 PM, David Ahern wrote:
-> On 10/2/17 9:21 PM, Alexei Starovoitov wrote:
->>
->> i'm not sure what you're trying to say.
->> The first loop quoted above is inside cgroup_bpf_put()
->> which is called when cgroup is destroyed. At this point
->> we're detaching and prog_put all attached programs.
->> While there is only one static_branch_inc() in __cgroup_bpf_attach()
->> that is called every time the prog is attached to a cgroup.
->> So what's the concern?
->
-> just asking if cgroup_bpf_enabled_key is 0 when all programs are removed
-> -- ie., that the inc's and dec's are equal. Reviewing this patch it was
-> not clear that they are.
 
-after some debugging turned out there is a typo in attach code
-that leaks prog in the case of override.
-Strangely kmemleak didn't catch it.
-Will respin.
+
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Monday, October 02, 2017 18:37
+> To: Razvan Stefanescu <razvan.stefanescu@nxp.com>
+> Cc: gregkh@linuxfoundation.org; devel@driverdev.osuosl.org; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org; agraf@suse.de;
+> arnd@arndb.de; Alexandru Marginean <alexandru.marginean@nxp.com>;
+> Bogdan Purcareata <bogdan.purcareata@nxp.com>; Ruxandra Ioana Radulescu
+> <ruxandra.radulescu@nxp.com>; Laurentiu Tudor <laurentiu.tudor@nxp.com>;
+> stuyoder@gmail.com
+> Subject: Re: [PATCH v2 3/6] staging: fsl-dpaa2/ethsw: Add ethtool support
+> 
+> Hi Razvan
+> 
+> > +static void ethsw_get_drvinfo(struct net_device *netdev,
+> > +			      struct ethtool_drvinfo *drvinfo)
+> > +{
+> > +	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
+> > +	u16 version_major, version_minor;
+> > +	int err;
+> > +
+> > +	strlcpy(drvinfo->driver, KBUILD_MODNAME, sizeof(drvinfo->driver));
+> > +	strlcpy(drvinfo->version, ethsw_drv_version, sizeof(drvinfo->version));
+> 
+> Software driver versions are mostly useless. I would suggest you
+> remove this.
+> 
+>        Andrew
+Thank you. I'll remove it in v3.
+
+Best regards,
+Razvan S.
