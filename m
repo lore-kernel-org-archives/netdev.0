@@ -1,60 +1,66 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
- CONFIG_BRIDGE_VLAN_FILTERING
-Date: Tue, 3 Oct 2017 19:42:11 +0300
-Message-ID: <20171003164211.GA5177@shredder.mtl.com>
-References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
- <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
- <20171003121636.GB13548@lunn.ch>
- <ad0d7686-298b-02c7-d8f8-b9363f4630f3@gmail.com>
- <20171003153031.GP17713@lunn.ch>
- <87infwtd0b.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Tue, 3 Oct 2017 09:46:04 -0700
+Message-ID: <CALCETrVw1=XDOEf_mEN77Lpr1DZnx769RCs1w73JJ2w_9C6-Kg@mail.gmail.com>
+References: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
+ <CALCETrWdXjTTTywbb3duCEsLYNxkeGx7bf3SM4PYKeErCyiUNQ@mail.gmail.com> <20171003052643.GB22750@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Toshiaki Makita <toshiaki.makita1@gmail.com>,
-        Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andy Lutomirski <luto@kernel.org>,
+        Jia-Ju Bai <baijiaju1990@163.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Neil Horman <nhorman@tuxdriver.com>, vyasevich@gmail.com,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org,
+        Linux Wireless List <linux-wireless@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38415 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751226AbdJCQmP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 12:42:15 -0400
-Content-Disposition: inline
-In-Reply-To: <87infwtd0b.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from mail.kernel.org ([198.145.29.99]:50388 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751649AbdJCQq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 12:46:26 -0400
+Received: from mail-io0-f181.google.com (mail-io0-f181.google.com [209.85.223.181])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES128-GCM-SHA256 (128/128 bits))
+        (No client certificate requested)
+        by mail.kernel.org (Postfix) with ESMTPSA id 1E1F8218E4
+        for <netdev@vger.kernel.org>; Tue,  3 Oct 2017 16:46:26 +0000 (UTC)
+Received: by mail-io0-f181.google.com with SMTP id k101so8217676iod.0
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 09:46:26 -0700 (PDT)
+In-Reply-To: <20171003052643.GB22750@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 03, 2017 at 12:25:08PM -0400, Vivien Didelot wrote:
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> >> The vlan will be effective only when vlan_filtering is enabled.
-> >> When vlan_filtering is disabled, vlan information is still kept in the
-> >> bridge and gets effective later when vlan_filtering becomes enable.
-> >
-> > O.K, so things are starting to get clearer.
-> >
-> > So when vlan filtering is disabled, the hardware should just ignore
-> > the requests to add the vlan to the hardware?
-> >
-> > When vlan_filtering is enabled, are all the vlans in the software
-> > bridge again offloaded? Or do we need to remember all the vlans which
-> > we ignored while vlan filtering was disabled? The average switch has
-> > nowhere to store these disabled vlans. It can only store active vlans.
-> 
-> When vlan_filtering is enabled on the bridge, the bridge code does
-> propagates the default_pvid again if I recall correctly.
-> 
-> In my opinion the hardware mustn't ignore the VLAN requests, because we
-> seem to agree that vlan_filtering disabled means that the target ports
-> should not care yet about 802.1Q. So having some unused hardware VLAN
-> entries and some ports with disabled 802.1Q mode must work together.
-> 
-> That being said we still have the wrong hardware FDB populated when
-> CONFIG_BRIDGE_VLAN_FILTERING is enabled but not vlan_filtering...
+On Mon, Oct 2, 2017 at 10:26 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On Mon, Oct 02, 2017 at 09:18:24PM -0700, Andy Lutomirski wrote:
+>> > On Oct 2, 2017, at 7:25 PM, Jia-Ju Bai <baijiaju1990@163.com> wrote:
+>> >
+>> > The SCTP program may sleep under a spinlock, and the function call path is:
+>> > sctp_generate_t3_rtx_event (acquire the spinlock)
+>> >  sctp_do_sm
+>> >    sctp_side_effects
+>> >      sctp_cmd_interpreter
+>> >        sctp_make_init_ack
+>> >          sctp_pack_cookie
+>> >            crypto_shash_setkey
+>> >              shash_setkey_unaligned
+>> >                kmalloc(GFP_KERNEL)
+>>
+>> I'm going to go out on a limb here: why on Earth is out crypto API so
+>> full of indirection that we allocate memory at all here?
+>
+> The crypto API operates on a one key per-tfm basis.  So normally
+> tfm allocation and key setting is done once only and not done on
+> the data path.
+>
+> I have looked at the SCTP code and it appears to fit this paradigm.
+> That is, we should be able to allocate the tfm and set the key when
+> the key is actually generated via get_random_bytes, rather than every
+> time the key is used which is not only a waste but as you see runs
+> into API issues.
 
-The driver can make sure it's able to handle the configured
-`vlan_filtering` state during port enslavement to the bridge and also
-forbid it from being toggled once it's enslaved.
+It's a waste because it loses a pre-computation advantage.
+
+The fact that it has memory allocation issues is crypto API's fault,
+full stop.  There is no legit reason to need to allocate anything.
