@@ -1,57 +1,77 @@
-From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-Subject: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
-Date: Tue,  3 Oct 2017 10:25:22 +0800
-Message-ID: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
-        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 1/8] bpf: multi program support for cgroup+bpf
+Date: Mon, 2 Oct 2017 20:54:57 -0700
+Message-ID: <71bda584-d828-7472-7655-85a454dbe297@cumulusnetworks.com>
+References: <20171002234857.3707580-1-ast@fb.com>
+ <20171002234857.3707580-2-ast@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
+        netdev@vger.kernel.org, kernel-team@fb.com
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:51935 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751784AbdJCDzI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Oct 2017 23:55:08 -0400
+Received: by mail-pg0-f42.google.com with SMTP id u144so1374414pgb.8
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 20:55:07 -0700 (PDT)
+In-Reply-To: <20171002234857.3707580-2-ast@fb.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SCTP program may sleep under a spinlock, and the function call path is:
-sctp_generate_t3_rtx_event (acquire the spinlock)
-  sctp_do_sm
-    sctp_side_effects
-      sctp_cmd_interpreter
-        sctp_make_init_ack
-          sctp_pack_cookie
-            crypto_shash_setkey
-              shash_setkey_unaligned
-                kmalloc(GFP_KERNEL)
+On 10/2/17 4:48 PM, Alexei Starovoitov wrote:
+> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+> index 546113430049..70f679a94804 100644
+> --- a/kernel/bpf/cgroup.c
+> +++ b/kernel/bpf/cgroup.c
+> @@ -27,129 +27,361 @@ void cgroup_bpf_put(struct cgroup *cgrp)
+>  {
+>  	unsigned int type;
+>  
+> -	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.prog); type++) {
+> -		struct bpf_prog *prog = cgrp->bpf.prog[type];
+> -
+> -		if (prog) {
+> -			bpf_prog_put(prog);
+> +	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.progs); type++) {
+> +		struct list_head *progs = &cgrp->bpf.progs[type];
+> +		struct bpf_prog_list *pl, *tmp;
+> +
+> +		list_for_each_entry_safe(pl, tmp, progs, node) {
+> +			list_del(&pl->node);
+> +			bpf_prog_put(pl->prog);
+> +			kfree(pl);
+>  			static_branch_dec(&cgroup_bpf_enabled_key);
+>  		}
+> +		bpf_prog_array_free(cgrp->bpf.effective[type]);
+> +	}
+> +}
+> +
 
-For the same reason, the orinoco driver may sleep in interrupt handler, 
-and the function call path is:
-orinoco_rx_isr_tasklet
-  orinoco_rx
-    orinoco_mic
-      crypto_shash_setkey
-        shash_setkey_unaligned
-          kmalloc(GFP_KERNEL)
+...
 
-To fix it, GFP_KERNEL is replaced with GFP_ATOMIC.
-This bug is found by my static analysis tool and my code review.
+>  
+> -	if (prog)
+> -		static_branch_inc(&cgroup_bpf_enabled_key);
+> +	/* all allocations were successful. Activate all prog arrays */
+> +	css_for_each_descendant_pre(css, &cgrp->self) {
+> +		struct cgroup *desc = container_of(css, struct cgroup, self);
+>  
+> +		activate_effective_progs(desc, type, desc->bpf.inactive);
+> +		desc->bpf.inactive = NULL;
+> +	}
+> +
+> +	static_branch_inc(&cgroup_bpf_enabled_key);
+>  	if (old_prog) {
+>  		bpf_prog_put(old_prog);
+>  		static_branch_dec(&cgroup_bpf_enabled_key);
+>  	}
+>  	return 0;
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
----
- crypto/shash.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/crypto/shash.c b/crypto/shash.c
-index 5e31c8d..8fcecc6 100644
---- a/crypto/shash.c
-+++ b/crypto/shash.c
-@@ -41,7 +41,7 @@ static int shash_setkey_unaligned(struct crypto_shash *tfm, const u8 *key,
- 	int err;
- 
- 	absize = keylen + (alignmask & ~(crypto_tfm_ctx_alignment() - 1));
--	buffer = kmalloc(absize, GFP_KERNEL);
-+	buffer = kmalloc(absize, GFP_ATOMIC);
- 	if (!buffer)
- 		return -ENOMEM;
- 
--- 
-1.7.9.5
+It's not clear to me that the static_branch_inc and static_branch_dec's
+are equal since the dec is in the loop over each program in the list,
+but the inc is not in a loop.
