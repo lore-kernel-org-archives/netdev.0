@@ -1,60 +1,44 @@
-From: Icenowy Zheng <icenowy@aosc.io>
-Subject: [PATCH v3 2/2] ARM: sun8i: h2+: specify wifi interrupts for Orange Pi Zero
-Date: Wed,  4 Oct 2017 00:59:44 +0800
-Message-ID: <20171003165944.13056-3-icenowy@aosc.io>
-References: <20171003165944.13056-1-icenowy@aosc.io>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-sunxi@googlegroups.com,
-        Sergey Matyukevich <geomatsi@gmail.com>,
-        Icenowy Zheng <icenowy@aosc.io>
-To: Kalle Valo <kvalo@codeaurora.org>,
-        Rob Herring <robh+dt@kernel.org>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171003165944.13056-1-icenowy@aosc.io>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2 0/7] mlxsw: Add support for partial
+ multicast route offload
+Date: Tue, 03 Oct 2017 10:07:14 -0700 (PDT)
+Message-ID: <20171003.100714.851090545020567686.davem@davemloft.net>
+References: <20171003075812.1540-1-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
+        dsa@cumulusnetworks.com, edumazet@google.com, willemb@google.com,
+        johannes.berg@intel.com, dcaratti@redhat.com, pabeni@redhat.com,
+        daniel@iogearbox.net, f.fainelli@gmail.com, fw@strlen.de,
+        gfree.wind@vip.163.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47046 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750830AbdJCRHQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:07:16 -0400
+In-Reply-To: <20171003075812.1540-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergey Matyukevich <geomatsi@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue,  3 Oct 2017 09:58:05 +0200
 
-The Orange Pi Zero board has Allwinner XR819 SDIO wifi chip. The board
-dts file provides a node enabling mmc1 controller, and a out-of-band
-interrupt line of the chip is also connected, although the chip also
-supports in-band interrupt.
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Yotam says:
+> 
+> Previous patchset introduced support for offloading multicast MFC routes to
+> the Spectrum hardware. As described in that patchset, no partial offloading
+> is supported, i.e if a route has one output interface which is not a valid
+> offloadable device (e.g. pimreg device, dummy device, management NIC), the
+> route is trapped to the CPU and the forwarding is done in slow-path.
+> 
+> Add support for partial offloading of multicast routes, by letting the
+> hardware to forward the packet to all the in-hardware devices, while the
+> kernel ipmr module will continue forwarding to all other interfaces.
+ ...
 
-The current out-of-tree driver is hardcoded to use out-of-band interrupt
-as default, and it needs to be modified to use the in-band interrupt.
-
-This commit adds the out-of-band interrupt line into the device tree.
-
-Signed-off-by: Sergey Matyukevich <geomatsi@gmail.com>
-[Icenowy: Changed vendor prefix to allwinner and modify commit message]
-Signed-off-by: Icenowy Zheng <icenowy@aosc.io>
----
-Changes in v3 by Icenowy:
-- Change the compatible string vendor prefix to "allwinner".
-- Modify the commit message.
-Changes in v2 by Sergey:
-- Adds the compatible string.
-
- arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-index b1502df7b509..6595617204b3 100644
---- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-+++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-@@ -127,6 +127,9 @@
- 	 */
- 	xr819: sdio_wifi@1 {
- 		reg = <1>;
-+		compatible = "allwinner,xr819";
-+		interrupt-parent = <&pio>;
-+		interrupts = <6 10 IRQ_TYPE_EDGE_RISING>;
- 	};
- };
- 
--- 
-2.13.5
+Series applied, thanks.
