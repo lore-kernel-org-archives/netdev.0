@@ -1,65 +1,85 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next v2 1/2] libbpf: parse maps sections of varying
- size
-Date: Tue, 3 Oct 2017 16:11:51 +0200
-Message-ID: <20171003161151.039979f4@redhat.com>
-References: <20171002164129.47986-1-kraigatgoog@gmail.com>
-        <20171002164129.47986-2-kraigatgoog@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v2 3/3] tools: bpftool: add documentation
+Date: Tue, 03 Oct 2017 16:15:24 +0200
+Message-ID: <59D39B7C.8080205@iogearbox.net>
+References: <20171002231130.12406-1-jakub.kicinski@netronome.com>       <20171002231130.12406-4-jakub.kicinski@netronome.com>   <20171003005500.yh2gbnofm5ckn54x@ast-mbp> <20171002183509.76b2cc65@cakuba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org,
-        brouer@redhat.com, Eric Leblond <eric.leblond@gmail.com>
-To: Craig Gallek <kraigatgoog@gmail.com>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        David Beckett <david.beckett@netronome.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40498 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751557AbdJCOL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 10:11:58 -0400
-In-Reply-To: <20171002164129.47986-2-kraigatgoog@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:45248 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751950AbdJCOP0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 10:15:26 -0400
+In-Reply-To: <20171002183509.76b2cc65@cakuba>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  2 Oct 2017 12:41:28 -0400
-Craig Gallek <kraigatgoog@gmail.com> wrote:
+On 10/03/2017 03:35 AM, Jakub Kicinski wrote:
+> On Mon, 2 Oct 2017 17:55:02 -0700, Alexei Starovoitov wrote:
+>>> +EXAMPLES
+>>> +========
+>>> +**# bpftool prog show**
+>>> +::
+>>> +
+>>> +  10: xdp  name:some_prog  tag 00:5a:3d:21:23:62:0c:8b
+>>
+>> could you please remove ':' in the output to match what
+>> show_fdinfo and kallsyms do ?
 
-> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-> index 4f402dcdf372..28b300868ad7 100644
-> --- a/tools/lib/bpf/libbpf.c
-> +++ b/tools/lib/bpf/libbpf.c
-> @@ -580,7 +580,7 @@ bpf_object__init_kversion(struct bpf_object *obj,
->  }
->  
->  static int
-> -bpf_object__validate_maps(struct bpf_object *obj)
-> +bpf_object__validate_maps(struct bpf_object *obj, int map_def_sz)
->  {
->  	int i;
->  
-> @@ -595,9 +595,11 @@ bpf_object__validate_maps(struct bpf_object *obj)
->  		const struct bpf_map *a = &obj->maps[i - 1];
->  		const struct bpf_map *b = &obj->maps[i];
->  
-> -		if (b->offset - a->offset < sizeof(struct bpf_map_def)) {
-> -			pr_warning("corrupted map section in %s: map \"%s\" too small\n",
-> -				   obj->path, a->name);
-> +		if (b->offset - a->offset < map_def_sz) {
-> +			pr_warning("corrupted map section in %s: map \"%s\" too small "
-> +				   "(%zd vs %d)\n",
-> +				   obj->path, a->name, b->offset - a->offset,
-> +				   map_def_sz);
->  			return -EINVAL;
+Yep, iproute2 as well, so would be better indeed.
 
-Hmm... one more comment.  You have just coded handling of ELF
-map_def_sz which are smaller in a safe manor, but here this case will
-get rejected (in bpf_object__validate_maps).  That cannot be the right
-intend?
+> Ack.
+>
+>>> +	loaded_at:2024.771  uid:0
+>>
+>> may be translate that to something human readable?
+>
+> Oh yes, the code will print a proper date/time, I forgot to
+> regenerate the doc :S
+>
+>>> +	xlated:528B  jited:370B  memlock:4096B  map_ids:10
+>>> +
+>>> +|
+>>> +| **# bpftool prog dump xlated id 10 file /tmp/t**
+>>> +| **# ls -l /tmp/t**
+>>> +|   -rw------- 1 root root 560 Jul 22 01:42 /tmp/t
+>>> +
+>>> +|
+>>> +| **# mount -t bpf none /sys/fs/bpf/**
+>>> +| **# bpftool prog pin id 10 /sys/fs/bpf/prog**
+>>> +| **# bpftool prog dum jited pinned /sys/fs/bpf/prog**
+>>> +
+>>> +::
+>>> +
+>>> +    push   %rbp
+>>> +    mov    %rsp,%rbp
+>>> +    sub    $0x228,%rsp
+>>> +    sub    $0x28,%rbp
+>>> +    mov    %rbx,0x0(%rbp)
+>>
+>> imo too many steps to dump disasm output.
+>> Can it print it if we just say:
+>> bpftool prog dump jited id 10
+>> and
+>> dump xlated
+>
+> Yes those will work.  This example kind of shows pinning and dumping at
+> the some time.  Perhaps that's ill advised.
+>
+>> will pretty print them as verifier output as well?
+>
+> We tried to use LLVM as a library for this but the interface is
+> painfully unstable and it's a heavy dependency.  The current thinking
+> is to try to put the instruction printing code in some higher level
+> library, but I would rather leave that as a follow up.
+>
+>> All that can be changed later. Thanks for the doc.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Fine with that as well, so:
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
