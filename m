@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH v2 net-next 7/8] libbpf: add support for BPF_PROG_QUERY
-Date: Mon, 2 Oct 2017 22:50:27 -0700
-Message-ID: <20171003055028.1294791-8-ast@fb.com>
+Subject: [PATCH v2 net-next 6/8] libbpf: sync bpf.h
+Date: Mon, 2 Oct 2017 22:50:26 -0700
+Message-ID: <20171003055028.1294791-7-ast@fb.com>
 References: <20171003055028.1294791-1-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,72 +10,118 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>, Tejun Heo <tj@kernel.org>,
         <netdev@vger.kernel.org>, <kernel-team@fb.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41157 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39146 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751062AbdJCFud (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 01:50:33 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v935nTgh008510
-        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 22:50:33 -0700
+        by vger.kernel.org with ESMTP id S1750797AbdJCFub (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 01:50:31 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v935nVFG010341
+        for <netdev@vger.kernel.org>; Mon, 2 Oct 2017 22:50:31 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dbwmpabw5-17
+        by mx0a-00082601.pphosted.com with ESMTP id 2dc2sgrnbq-10
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 22:50:33 -0700
+        for <netdev@vger.kernel.org>; Mon, 02 Oct 2017 22:50:31 -0700
 In-Reply-To: <20171003055028.1294791-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-add support for BPF_PROG_QUERY command to libbpf
+tools/include/uapi/linux/bpf.h got out of sync with actual kernel header.
+Update it.
 
 Signed-off-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- tools/lib/bpf/bpf.c | 20 ++++++++++++++++++++
- tools/lib/bpf/bpf.h |  3 ++-
- 2 files changed, 22 insertions(+), 1 deletion(-)
+ tools/include/uapi/linux/bpf.h | 55 +++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 52 insertions(+), 3 deletions(-)
 
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index d4b6ba8292ee..5128677e4117 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -303,6 +303,26 @@ int bpf_prog_detach2(int prog_fd, int target_fd, enum bpf_attach_type type)
- 	return sys_bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
- }
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 6d2137b4cf38..cb2b9f95160a 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -92,6 +92,7 @@ enum bpf_cmd {
+ 	BPF_PROG_GET_FD_BY_ID,
+ 	BPF_MAP_GET_FD_BY_ID,
+ 	BPF_OBJ_GET_INFO_BY_FD,
++	BPF_PROG_QUERY,
+ };
  
-+int bpf_prog_query(int target_fd, enum bpf_attach_type type, __u32 query_flags,
-+		   __u32 *attach_flags, __u32 *prog_ids, __u32 *prog_cnt)
-+{
-+	union bpf_attr attr;
-+	int ret;
+ enum bpf_map_type {
+@@ -143,11 +144,47 @@ enum bpf_attach_type {
+ 
+ #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
+ 
+-/* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
+- * to the given target_fd cgroup the descendent cgroup will be able to
+- * override effective bpf program that was inherited from this cgroup
++/* cgroup-bpf attach flags used in BPF_PROG_ATTACH command
++ *
++ * NONE(default): No further bpf programs allowed in the subtree.
++ *
++ * BPF_F_ALLOW_OVERRIDE: If a sub-cgroup installs some bpf program,
++ * the program in this cgroup yields to sub-cgroup program.
++ *
++ * BPF_F_ALLOW_MULTI: If a sub-cgroup installs some bpf program,
++ * that cgroup program gets run in addition to the program in this cgroup.
++ *
++ * Only one program is allowed to be attached to a cgroup with
++ * NONE or BPF_F_ALLOW_OVERRIDE flag.
++ * Attaching another program on top of NONE or BPF_F_ALLOW_OVERRIDE will
++ * release old program and attach the new one. Attach flags has to match.
++ *
++ * Multiple programs are allowed to be attached to a cgroup with
++ * BPF_F_ALLOW_MULTI flag. They are executed in FIFO order
++ * (those that were attached first, run first)
++ * The programs of sub-cgroup are executed first, then programs of
++ * this cgroup and then programs of parent cgroup.
++ * When children program makes decision (like picking TCP CA or sock bind)
++ * parent program has a chance to override it.
++ *
++ * A cgroup with MULTI or OVERRIDE flag allows any attach flags in sub-cgroups.
++ * A cgroup with NONE doesn't allow any programs in sub-cgroups.
++ * Ex1:
++ * cgrp1 (MULTI progs A, B) ->
++ *    cgrp2 (OVERRIDE prog C) ->
++ *      cgrp3 (MULTI prog D) ->
++ *        cgrp4 (OVERRIDE prog E) ->
++ *          cgrp5 (NONE prog F)
++ * the event in cgrp5 triggers execution of F,D,A,B in that order.
++ * if prog F is detached, the execution is E,D,A,B
++ * if prog F and D are detached, the execution is E,A,B
++ * if prog F, E and D are detached, the execution is C,A,B
++ *
++ * All eligible programs are executed regardless of return code from
++ * earlier programs.
+  */
+ #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
++#define BPF_F_ALLOW_MULTI	(1U << 1)
+ 
+ /* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
+  * verifier will perform strict alignment checking as if the kernel
+@@ -175,6 +212,9 @@ enum bpf_attach_type {
+ /* Specify numa node during map creation */
+ #define BPF_F_NUMA_NODE		(1U << 2)
+ 
++/* flags for BPF_PROG_QUERY */
++#define BPF_F_QUERY_EFFECTIVE	(1U << 0)
 +
-+	bzero(&attr, sizeof(attr));
-+	attr.query.target_fd	= target_fd;
-+	attr.query.attach_type	= type;
-+	attr.query.query_flags	= query_flags;
-+	attr.query.prog_cnt	= *prog_cnt;
-+	attr.query.prog_ids	= ptr_to_u64(prog_ids);
+ #define BPF_OBJ_NAME_LEN 16U
+ 
+ union bpf_attr {
+@@ -253,6 +293,15 @@ union bpf_attr {
+ 		__u32		info_len;
+ 		__aligned_u64	info;
+ 	} info;
 +
-+	ret = sys_bpf(BPF_PROG_QUERY, &attr, sizeof(attr));
-+	if (attach_flags)
-+		*attach_flags = attr.query.attach_flags;
-+	*prog_cnt = attr.query.prog_cnt;
-+	return ret;
-+}
-+
- int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
- 		      void *data_out, __u32 *size_out, __u32 *retval,
- 		      __u32 *duration)
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index afd64727c9cf..6534889e2b2f 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -75,5 +75,6 @@ int bpf_map_get_next_id(__u32 start_id, __u32 *next_id);
- int bpf_prog_get_fd_by_id(__u32 id);
- int bpf_map_get_fd_by_id(__u32 id);
- int bpf_obj_get_info_by_fd(int prog_fd, void *info, __u32 *info_len);
--
-+int bpf_prog_query(int target_fd, enum bpf_attach_type type, __u32 query_flags,
-+		   __u32 *attach_flags, __u32 *prog_ids, __u32 *prog_cnt);
- #endif
++	struct { /* anonymous struct used by BPF_PROG_QUERY command */
++		__u32		target_fd;	/* container object to query */
++		__u32		attach_type;
++		__u32		query_flags;
++		__u32		attach_flags;
++		__aligned_u64	prog_ids;
++		__u32		prog_cnt;
++	} query;
+ } __attribute__((aligned(8)));
+ 
+ /* BPF helper function descriptions:
 -- 
 2.9.5
