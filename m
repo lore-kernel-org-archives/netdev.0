@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next] bonding: speed/duplex update at NETDEV_UP event
-Date: Tue, 03 Oct 2017 14:32:43 -0700 (PDT)
-Message-ID: <20171003.143243.476075670637129212.davem@davemloft.net>
-References: <20170928010349.8988-1-mahesh@bandewar.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
+Date: Tue, 3 Oct 2017 14:50:00 -0700
+Message-ID: <20171003145000.53683e21@cakuba>
+References: <20171003200546.165731-1-mka@chromium.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: j.vosburgh@gmail.com, andy@greyhouse.net, vfalico@gmail.com,
-        netdev@vger.kernel.org, maheshb@google.com
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53586 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751117AbdJCVco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 17:32:44 -0400
-In-Reply-To: <20170928010349.8988-1-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
+        oss-drivers@netronome.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Renato Golin <renato.golin@linaro.org>,
+        Manoj Gupta <manojgupta@chromium.org>,
+        Guenter Roeck <groeck@chromium.org>,
+        Doug Anderson <dianders@chromium.org>
+To: Matthias Kaehlcke <mka@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171003200546.165731-1-mka@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Wed, 27 Sep 2017 18:03:49 -0700
+On Tue,  3 Oct 2017 13:05:46 -0700, Matthias Kaehlcke wrote:
+> nfp_eth_set_bit_config() is marked as __always_inline to allow gcc to
+> identify the 'mask' parameter as known to be constant at compile time,
+> which is required to use the FIELD_GET() macro.
+> 
+> The forced inlining does the trick for gcc, but for kernel builds with
+> clang it results in undefined symbols:
+> 
+> drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.o: In function
+>   `__nfp_eth_set_aneg':
+> drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c:(.text+0x787):
+>   undefined reference to `__compiletime_assert_492'
+> drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c:(.text+0x7b1):
+>   undefined reference to `__compiletime_assert_496'
+> 
+> These __compiletime_assert_xyx() calls would have been optimized away if
+> the compiler had seen 'mask' as a constant.
+> 
+> Convert nfp_eth_set_bit_config() into a macro, which allows both gcc and
+> clang to identify 'mask' as a compile time constant.
+> 
+> Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
 
-> From: Mahesh Bandewar <maheshb@google.com>
-> 
-> Some NIC drivers don't have correct speed/duplex settings at the
-> time they send NETDEV_UP notification and that messes up the
-> bonding state. Especially 802.3ad mode which is very sensitive
-> to these settings. In the current implementation we invoke
-> bond_update_speed_duplex() when we receive NETDEV_UP, however,
-> ignore the return value. If the values we get are invalid
-> (UNKNOWN), then slave gets removed from the aggregator with
-> speed and duplex set to UNKNOWN while link is still marked as UP.
-> 
-> This patch fixes this scenario. Also 802.3ad mode is sensitive to
-> these conditions while other modes are not, so making sure that it
-> doesn't change the behavior for other modes.
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+:(
 
-Applied, thanks.
+Is there no chance of fixing the constant propagation in the compiler?
