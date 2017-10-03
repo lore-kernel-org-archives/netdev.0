@@ -1,30 +1,29 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/7] crypto:gf128mul: The x8_ble multiplication functions
-Date: Tue, 3 Oct 2017 14:58:12 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0088A2B@AcuExch.aculab.com>
-References: <cover.1507010612.git.harsh@chelsio.com>
- <3e443f7a245229a2752fcf21dfed10998847e345.1507010612.git.harsh@chelsio.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with CONFIG_BRIDGE_VLAN_FILTERING
+Date: Tue, 03 Oct 2017 10:57:36 -0400
+Message-ID: <87d1649t3z.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1506992111-25004-1-git-send-email-andrew@lunn.ch> <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp> <20171003121636.GB13548@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'Harsh Jain' <harsh@chelsio.com>,
-        "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:57523 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751874AbdJCO6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 10:58:15 -0400
-In-Reply-To: <3e443f7a245229a2752fcf21dfed10998847e345.1507010612.git.harsh@chelsio.com>
-Content-Language: en-US
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50564 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752077AbdJCO5l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 10:57:41 -0400
+In-Reply-To: <20171003121636.GB13548@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harsh Jain
-> Sent: 03 October 2017 07:46
-> It multiply GF(2^128) elements in the ble format.
-> It will be used by chelsio driver to fasten gf multiplication.
-                                       ^ speed up ??
+Andrew Lunn <andrew@lunn.ch> writes:
 
-	David
+> Now, i just noticed the switchdev call above. I don't think the DSA
+> layer implements SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING. It probably
+> should. So what is it supposed to do with this VLAN when filtering is
+> disabled?
+
+The DSA layer does implement SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING.
+Its interpretation is to enable 802.1Q mode on targeted switch ports.
+(hoping this is the correct thing to do.)
