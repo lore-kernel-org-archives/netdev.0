@@ -1,97 +1,60 @@
-From: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-Subject: [PATCH v3 1/2] dt-bindings: add device tree binding for
- Allwinner XR819 SDIO Wi-Fi
-Date: Wed,  4 Oct 2017 00:59:43 +0800
-Message-ID: <20171003165944.13056-2-icenowy@aosc.io>
+From: Icenowy Zheng <icenowy@aosc.io>
+Subject: [PATCH v3 2/2] ARM: sun8i: h2+: specify wifi interrupts for Orange Pi Zero
+Date: Wed,  4 Oct 2017 00:59:44 +0800
+Message-ID: <20171003165944.13056-3-icenowy@aosc.io>
 References: <20171003165944.13056-1-icenowy@aosc.io>
-Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <linux-sunxi+bncBDS6XAN6ZADRBNUEZ7HAKGQEEUNPOQA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20171003165944.13056-1-icenowy-h8G6r0blFSE@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-sunxi@googlegroups.com,
+        Sergey Matyukevich <geomatsi@gmail.com>,
+        Icenowy Zheng <icenowy@aosc.io>
+To: Kalle Valo <kvalo@codeaurora.org>,
+        Rob Herring <robh+dt@kernel.org>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Chen-Yu Tsai <wens@csie.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171003165944.13056-1-icenowy@aosc.io>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allwinner XR819 is a SDIO Wi-Fi chip, which has the functionality to use
-an out-of-band interrupt pin instead of SDIO in-band interrupt.
+From: Sergey Matyukevich <geomatsi@gmail.com>
 
-Add the device tree binding of this chip, in order to make it possible
-to add this interrupt pin to device trees.
+The Orange Pi Zero board has Allwinner XR819 SDIO wifi chip. The board
+dts file provides a node enabling mmc1 controller, and a out-of-band
+interrupt line of the chip is also connected, although the chip also
+supports in-band interrupt.
 
-Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+The current out-of-tree driver is hardcoded to use out-of-band interrupt
+as default, and it needs to be modified to use the in-band interrupt.
+
+This commit adds the out-of-band interrupt line into the device tree.
+
+Signed-off-by: Sergey Matyukevich <geomatsi@gmail.com>
+[Icenowy: Changed vendor prefix to allwinner and modify commit message]
+Signed-off-by: Icenowy Zheng <icenowy@aosc.io>
 ---
-Changes in v3:
-- Renames the node name.
-- Adds ACK from Rob.
-Changes in v2:
-- Removed status property in example.
-- Added required property reg.
+Changes in v3 by Icenowy:
+- Change the compatible string vendor prefix to "allwinner".
+- Modify the commit message.
+Changes in v2 by Sergey:
+- Adds the compatible string.
 
- .../bindings/net/wireless/allwinner,xr819.txt      | 38 ++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt b/Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
-new file mode 100644
-index 000000000000..7ae40441e343
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
-@@ -0,0 +1,38 @@
-+Allwinner XRadio wireless SDIO devices
-+
-+This node provides properties for controlling the XRadio wireless device. The
-+node is expected to be specified as a child node to the SDIO controller that
-+connects the device to the system.
-+
-+Required properties:
-+
-+ - reg : The SDIO function number, see "Use of function subnodes" in
-+	../../mmc/mmc.txt.
-+ - compatible : Should be "allwinner,xr819".
-+
-+Optional properties:
-+ - interrupt-parent : the phandle for the interrupt controller to which the
-+	device interrupts are connected.
-+ - interrupts : specifies attributes for the out-of-band interrupt (host-wake).
-+	When not specified the device will use in-band SDIO interrupts.
-+
-+Example:
-+
-+mmc1: mmc@01c10000 {
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&mmc1_pins_a>;
-+	vmmc-supply = <&reg_vcc_wifi>;
-+	mmc-pwrseq = <&wifi_pwrseq>;
-+	bus-width = <4>;
-+	non-removable;
-+
-+	xr819: wifi@1 {
-+		reg = <1>;
+diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+index b1502df7b509..6595617204b3 100644
+--- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
++++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+@@ -127,6 +127,9 @@
+ 	 */
+ 	xr819: sdio_wifi@1 {
+ 		reg = <1>;
 +		compatible = "allwinner,xr819";
 +		interrupt-parent = <&pio>;
 +		interrupts = <6 10 IRQ_TYPE_EDGE_RISING>;
-+	};
-+};
+ 	};
+ };
+ 
 -- 
 2.13.5
