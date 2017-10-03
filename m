@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/9] fm10k: use the MAC/VLAN queue for VF<->PF MAC/VLAN requests
-Date: Tue,  3 Oct 2017 09:31:34 -0700
-Message-ID: <20171003163138.47569-6-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/9] fm10k: introduce a message queue for MAC/VLAN messages
+Date: Tue,  3 Oct 2017 09:31:33 -0700
+Message-ID: <20171003163138.47569-5-jeffrey.t.kirsher@intel.com>
 References: <20171003163138.47569-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19640 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:17001 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752005AbdJCQcA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752001AbdJCQcA (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Oct 2017 12:32:00 -0400
 In-Reply-To: <20171003163138.47569-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,226 +18,727 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Now that we have a working MAC/VLAN queue for handling MAC/VLAN messages
-from the netdev, replace the default handler for the VF<->PF messages.
-This new handler is very similar to the default code, but uses the
-MAC/VLAN queue instead of sending the message directly. Unfortunately we
-can't easily re-use the default code, so we'll just replace the entire
-function.
+Under some circumstances, when dealing with a large number of MAC
+address or VLAN updates at once, the fm10k driver, particularly the VFs
+can overload the mailbox with too many messages at once.
 
-This ensures that a VF requesting a large number of VLANs or MAC
-addresses does not start a reset cycle, as explained in the commit which
-introduced the message queue.
+This results in a mailbox timeout, which causes the driver to initiate
+a reset. During the reset, we re-send all the same messages that
+originally caused the timeout. This results in a cycle of resets each
+triggering a future reset.
+
+To fix or avoid this, we introduce a workqueue item which monitors
+a queue of MAC and VLAN requests. These requests are queued to the end
+of the list, and we process as a FIFO periodically.
+
+Initially we only handle requests for the netdev, but we do handle
+unicast MAC addresses, multicast MAC addresses, and update VLAN
+requests.
+
+A future patch will add support to use this queue for handling MAC
+update requests from the VF<->PF mailbox.
+
+The MAC/VLAN work item will keep checking to make sure that each request
+does not overflow the mailbox and cause a timeout. If it might, then the
+work item will reschedule itself a short time later. This avoids any
+reset cycle, since we never send the message if the mailbox is not
+ready.
+
+As an alternative, we tried increasing the mailbox message FIFO, but
+this just delays the problem and results in needless memory waste on the
+system. Our new message queue is dynamically allocated so only uses as
+much memory as it needs. Additionally, it need not be contiguous like
+the Tx and Rx FIFOs.
+
+Note that this patch chose to only create a queue for MAC and VLAN
+messages, since these are the only messages sent in a large enough
+volume to cause the reset loop. Other messages are very unlikely to
+overflow the mailbox Tx FIFO so easily.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Reviewed-by: Ngai-mint Kwan <ngai-mint.kwan@intel.com>
 Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c | 132 ++++++++++++++++++++++++++-
- drivers/net/ethernet/intel/fm10k/fm10k_pf.c  |   2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_pf.h  |   3 +-
- 3 files changed, 133 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/fm10k/fm10k.h        |  39 +++++
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c | 199 ++++++++++++++++++-----
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c    | 201 ++++++++++++++++++++++++
+ 3 files changed, 397 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-index 03897720bf0b..4a17cc903eed 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
-@@ -35,10 +35,133 @@ static s32 fm10k_iov_msg_error(struct fm10k_hw *hw, u32 **results,
- 	return fm10k_tlv_msg_error(hw, results, mbx);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index 74542e9d63c7..40856bc0f3b9 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -248,6 +248,29 @@ struct fm10k_udp_port {
+ 	__be16			port;
+ };
+ 
++enum fm10k_macvlan_request_type {
++	FM10K_UC_MAC_REQUEST,
++	FM10K_MC_MAC_REQUEST,
++	FM10K_VLAN_REQUEST
++};
++
++struct fm10k_macvlan_request {
++	enum fm10k_macvlan_request_type type;
++	struct list_head list;
++	union {
++		struct fm10k_mac_request {
++			u8 addr[ETH_ALEN];
++			u16 glort;
++			u16 vid;
++		} mac;
++		struct fm10k_vlan_request {
++			u32 vid;
++			u8 vsi;
++		} vlan;
++	};
++	bool set;
++};
++
+ /* one work queue for entire driver */
+ extern struct workqueue_struct *fm10k_workqueue;
+ 
+@@ -276,6 +299,9 @@ enum fm10k_state_t {
+ 	__FM10K_SERVICE_SCHED,
+ 	__FM10K_SERVICE_REQUEST,
+ 	__FM10K_SERVICE_DISABLE,
++	__FM10K_MACVLAN_SCHED,
++	__FM10K_MACVLAN_REQUEST,
++	__FM10K_MACVLAN_DISABLE,
+ 	__FM10K_LINK_DOWN,
+ 	__FM10K_UPDATING_STATS,
+ 	/* This value must be last and determines the BITMAP size */
+@@ -368,6 +394,12 @@ struct fm10k_intfc {
+ 	struct list_head vxlan_port;
+ 	struct list_head geneve_port;
+ 
++	/* MAC/VLAN update queue */
++	struct list_head macvlan_requests;
++	struct delayed_work macvlan_task;
++	/* MAC/VLAN update queue lock */
++	spinlock_t macvlan_lock;
++
+ #ifdef CONFIG_DEBUG_FS
+ 	struct dentry *dbg_intfc;
+ #endif /* CONFIG_DEBUG_FS */
+@@ -487,6 +519,7 @@ void fm10k_up(struct fm10k_intfc *interface);
+ void fm10k_down(struct fm10k_intfc *interface);
+ void fm10k_update_stats(struct fm10k_intfc *interface);
+ void fm10k_service_event_schedule(struct fm10k_intfc *interface);
++void fm10k_macvlan_schedule(struct fm10k_intfc *interface);
+ void fm10k_update_rx_drop_en(struct fm10k_intfc *interface);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ void fm10k_netpoll(struct net_device *netdev);
+@@ -507,6 +540,12 @@ void fm10k_reset_rx_state(struct fm10k_intfc *);
+ int fm10k_setup_tc(struct net_device *dev, u8 tc);
+ int fm10k_open(struct net_device *netdev);
+ int fm10k_close(struct net_device *netdev);
++int fm10k_queue_vlan_request(struct fm10k_intfc *interface, u32 vid,
++			     u8 vsi, bool set);
++int fm10k_queue_mac_request(struct fm10k_intfc *interface, u16 glort,
++			    const unsigned char *addr, u16 vid, bool set);
++void fm10k_clear_macvlan_queue(struct fm10k_intfc *interface,
++			       u16 glort, bool vlans);
+ 
+ /* Ethtool */
+ void fm10k_set_ethtool_ops(struct net_device *dev);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 77d495fedced..81e4425f0529 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -758,11 +758,132 @@ static bool fm10k_host_mbx_ready(struct fm10k_intfc *interface)
+ 	return (hw->mac.type == fm10k_mac_vf || interface->host_ready);
  }
  
 +/**
-+ *  fm10k_iov_msg_queue_mac_vlan - Message handler for MAC/VLAN request from VF
-+ *  @hw: Pointer to hardware structure
-+ *  @results: Pointer array to message, results[0] is pointer to message
-+ *  @mbx: Pointer to mailbox information structure
++ * fm10k_queue_vlan_request - Queue a VLAN update request
++ * @interface: the fm10k interface structure
++ * @vid: the VLAN vid
++ * @vsi: VSI index number
++ * @set: whether to set or clear
 + *
-+ *  This function is a custom handler for MAC/VLAN requests from the VF. The
-+ *  assumption is that it is acceptable to directly hand off the message from
-+ *  the VF to the PF's switch manager. However, we use a MAC/VLAN message
-+ *  queue to avoid overloading the mailbox when a large number of requests
-+ *  come in.
-+ **/
-+static s32 fm10k_iov_msg_queue_mac_vlan(struct fm10k_hw *hw, u32 **results,
-+					struct fm10k_mbx_info *mbx)
++ * This function queues up a VLAN update. For VFs, this must be sent to the
++ * managing PF over the mailbox. For PFs, we'll use the same handling so that
++ * it's similar to the VF. This avoids storming the PF<->VF mailbox with too
++ * many VLAN updates during reset.
++ */
++int fm10k_queue_vlan_request(struct fm10k_intfc *interface,
++			     u32 vid, u8 vsi, bool set)
 +{
-+	struct fm10k_vf_info *vf_info = (struct fm10k_vf_info *)mbx;
-+	struct fm10k_intfc *interface = hw->back;
-+	u8 mac[ETH_ALEN];
-+	u32 *result;
-+	int err = 0;
-+	bool set;
-+	u16 vlan;
-+	u32 vid;
++	struct fm10k_macvlan_request *request;
++	unsigned long flags;
 +
-+	/* we shouldn't be updating rules on a disabled interface */
-+	if (!FM10K_VF_FLAG_ENABLED(vf_info))
-+		err = FM10K_ERR_PARAM;
++	/* This must be atomic since we may be called while the netdev
++	 * addr_list_lock is held
++	 */
++	request = kzalloc(sizeof(*request), GFP_ATOMIC);
++	if (!request)
++		return -ENOMEM;
 +
-+	if (!err && !!results[FM10K_MAC_VLAN_MSG_VLAN]) {
-+		result = results[FM10K_MAC_VLAN_MSG_VLAN];
++	request->type = FM10K_VLAN_REQUEST;
++	request->vlan.vid = vid;
++	request->vlan.vsi = vsi;
++	request->set = set;
 +
-+		/* record VLAN id requested */
-+		err = fm10k_tlv_attr_get_u32(result, &vid);
-+		if (err)
-+			return err;
++	spin_lock_irqsave(&interface->macvlan_lock, flags);
++	list_add_tail(&request->list, &interface->macvlan_requests);
++	spin_unlock_irqrestore(&interface->macvlan_lock, flags);
 +
-+		set = !(vid & FM10K_VLAN_CLEAR);
-+		vid &= ~FM10K_VLAN_CLEAR;
++	fm10k_macvlan_schedule(interface);
 +
-+		/* if the length field has been set, this is a multi-bit
-+		 * update request. For multi-bit requests, simply disallow
-+		 * them when the pf_vid has been set. In this case, the PF
-+		 * should have already cleared the VLAN_TABLE, and if we
-+		 * allowed them, it could allow a rogue VF to receive traffic
-+		 * on a VLAN it was not assigned. In the single-bit case, we
-+		 * need to modify requests for VLAN 0 to use the default PF or
-+		 * SW vid when assigned.
-+		 */
-+
-+		if (vid >> 16) {
-+			/* prevent multi-bit requests when PF has
-+			 * administratively set the VLAN for this VF
-+			 */
-+			if (vf_info->pf_vid)
-+				return FM10K_ERR_PARAM;
-+		} else {
-+			err = fm10k_iov_select_vid(vf_info, (u16)vid);
-+			if (err < 0)
-+				return err;
-+
-+			vid = err;
-+		}
-+
-+		/* update VSI info for VF in regards to VLAN table */
-+		err = hw->mac.ops.update_vlan(hw, vid, vf_info->vsi, set);
-+	}
-+
-+	if (!err && !!results[FM10K_MAC_VLAN_MSG_MAC]) {
-+		result = results[FM10K_MAC_VLAN_MSG_MAC];
-+
-+		/* record unicast MAC address requested */
-+		err = fm10k_tlv_attr_get_mac_vlan(result, mac, &vlan);
-+		if (err)
-+			return err;
-+
-+		/* block attempts to set MAC for a locked device */
-+		if (is_valid_ether_addr(vf_info->mac) &&
-+		    !ether_addr_equal(mac, vf_info->mac))
-+			return FM10K_ERR_PARAM;
-+
-+		set = !(vlan & FM10K_VLAN_CLEAR);
-+		vlan &= ~FM10K_VLAN_CLEAR;
-+
-+		err = fm10k_iov_select_vid(vf_info, vlan);
-+		if (err < 0)
-+			return err;
-+
-+		vlan = (u16)err;
-+
-+		/* Add this request to the MAC/VLAN queue */
-+		err = fm10k_queue_mac_request(interface, vf_info->glort,
-+					      mac, vlan, set);
-+	}
-+
-+	if (!err && !!results[FM10K_MAC_VLAN_MSG_MULTICAST]) {
-+		result = results[FM10K_MAC_VLAN_MSG_MULTICAST];
-+
-+		/* record multicast MAC address requested */
-+		err = fm10k_tlv_attr_get_mac_vlan(result, mac, &vlan);
-+		if (err)
-+			return err;
-+
-+		/* verify that the VF is allowed to request multicast */
-+		if (!(vf_info->vf_flags & FM10K_VF_FLAG_MULTI_ENABLED))
-+			return FM10K_ERR_PARAM;
-+
-+		set = !(vlan & FM10K_VLAN_CLEAR);
-+		vlan &= ~FM10K_VLAN_CLEAR;
-+
-+		err = fm10k_iov_select_vid(vf_info, vlan);
-+		if (err < 0)
-+			return err;
-+
-+		vlan = (u16)err;
-+
-+		/* Add this request to the MAC/VLAN queue */
-+		err = fm10k_queue_mac_request(interface, vf_info->glort,
-+					      mac, vlan, set);
-+	}
-+
-+	return err;
++	return 0;
 +}
 +
- static const struct fm10k_msg_data iov_mbx_data[] = {
- 	FM10K_TLV_MSG_TEST_HANDLER(fm10k_tlv_msg_test),
- 	FM10K_VF_MSG_MSIX_HANDLER(fm10k_iov_msg_msix_pf),
--	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_iov_msg_mac_vlan_pf),
-+	FM10K_VF_MSG_MAC_VLAN_HANDLER(fm10k_iov_msg_queue_mac_vlan),
- 	FM10K_VF_MSG_LPORT_STATE_HANDLER(fm10k_iov_msg_lport_state_pf),
- 	FM10K_TLV_MSG_ERROR_HANDLER(fm10k_iov_msg_error),
- };
-@@ -126,8 +249,10 @@ s32 fm10k_iov_mbx(struct fm10k_intfc *interface)
- 		hw->mbx.ops.process(hw, &hw->mbx);
- 
- 		/* verify port mapping is valid, if not reset port */
--		if (vf_info->vf_flags && !fm10k_glort_valid_pf(hw, glort))
-+		if (vf_info->vf_flags && !fm10k_glort_valid_pf(hw, glort)) {
- 			hw->iov.ops.reset_lport(hw, vf_info);
-+			fm10k_clear_macvlan_queue(interface, glort, false);
++/**
++ * fm10k_queue_mac_request - Queue a MAC update request
++ * @interface: the fm10k interface structure
++ * @glort: the target glort for this update
++ * @addr: the address to update
++ * @vid: the vid to update
++ * @sync: whether to add or remove
++ *
++ * This function queues up a MAC request for sending to the switch manager.
++ * A separate thread monitors the queue and sends updates to the switch
++ * manager. Return 0 on success, and negative error code on failure.
++ **/
++int fm10k_queue_mac_request(struct fm10k_intfc *interface, u16 glort,
++			    const unsigned char *addr, u16 vid, bool set)
++{
++	struct fm10k_macvlan_request *request;
++	unsigned long flags;
++
++	/* This must be atomic since we may be called while the netdev
++	 * addr_list_lock is held
++	 */
++	request = kzalloc(sizeof(*request), GFP_ATOMIC);
++	if (!request)
++		return -ENOMEM;
++
++	if (is_multicast_ether_addr(addr))
++		request->type = FM10K_MC_MAC_REQUEST;
++	else
++		request->type = FM10K_UC_MAC_REQUEST;
++
++	ether_addr_copy(request->mac.addr, addr);
++	request->mac.glort = glort;
++	request->mac.vid = vid;
++	request->set = set;
++
++	spin_lock_irqsave(&interface->macvlan_lock, flags);
++	list_add_tail(&request->list, &interface->macvlan_requests);
++	spin_unlock_irqrestore(&interface->macvlan_lock, flags);
++
++	fm10k_macvlan_schedule(interface);
++
++	return 0;
++}
++
++/**
++ * fm10k_clear_macvlan_queue - Cancel pending updates for a given glort
++ * @interface: the fm10k interface structure
++ * @glort: the target glort to clear
++ * @vlans: true to clear VLAN messages, false to ignore them
++ *
++ * Cancel any outstanding MAC/VLAN requests for a given glort. This is
++ * expected to be called when a logical port goes down.
++ **/
++void fm10k_clear_macvlan_queue(struct fm10k_intfc *interface,
++			       u16 glort, bool vlans)
++
++{
++	struct fm10k_macvlan_request *r, *tmp;
++	unsigned long flags;
++
++	spin_lock_irqsave(&interface->macvlan_lock, flags);
++
++	/* Free any outstanding MAC/VLAN requests for this interface */
++	list_for_each_entry_safe(r, tmp, &interface->macvlan_requests, list) {
++		switch (r->type) {
++		case FM10K_MC_MAC_REQUEST:
++		case FM10K_UC_MAC_REQUEST:
++			/* Don't free requests for other interfaces */
++			if (r->mac.glort != glort)
++				break;
++			/* fall through */
++		case FM10K_VLAN_REQUEST:
++			if (vlans) {
++				list_del(&r->list);
++				kfree(r);
++			}
++			break;
 +		}
++	}
++
++	spin_unlock_irqrestore(&interface->macvlan_lock, flags);
++}
++
+ static int fm10k_uc_vlan_unsync(struct net_device *netdev,
+ 				const unsigned char *uc_addr)
+ {
+ 	struct fm10k_intfc *interface = netdev_priv(netdev);
+-	struct fm10k_hw *hw = &interface->hw;
+ 	u16 glort = interface->glort;
+ 	u16 vid = interface->vid;
+ 	bool set = !!(vid / VLAN_N_VID);
+@@ -771,10 +892,7 @@ static int fm10k_uc_vlan_unsync(struct net_device *netdev,
+ 	/* drop any leading bits on the VLAN ID */
+ 	vid &= VLAN_N_VID - 1;
  
- 		/* reset VFs that have mailbox timed out */
- 		if (!mbx->timeout) {
-@@ -190,6 +315,7 @@ void fm10k_iov_suspend(struct pci_dev *pdev)
+-	if (fm10k_host_mbx_ready(interface))
+-		err = hw->mac.ops.update_uc_addr(hw, glort, uc_addr,
+-						 vid, set, 0);
+-
++	err = fm10k_queue_mac_request(interface, glort, uc_addr, vid, set);
+ 	if (err)
+ 		return err;
  
- 		hw->iov.ops.reset_resources(hw, vf_info);
- 		hw->iov.ops.reset_lport(hw, vf_info);
-+		fm10k_clear_macvlan_queue(interface, vf_info->glort, false);
+@@ -786,7 +904,6 @@ static int fm10k_mc_vlan_unsync(struct net_device *netdev,
+ 				const unsigned char *mc_addr)
+ {
+ 	struct fm10k_intfc *interface = netdev_priv(netdev);
+-	struct fm10k_hw *hw = &interface->hw;
+ 	u16 glort = interface->glort;
+ 	u16 vid = interface->vid;
+ 	bool set = !!(vid / VLAN_N_VID);
+@@ -795,9 +912,7 @@ static int fm10k_mc_vlan_unsync(struct net_device *netdev,
+ 	/* drop any leading bits on the VLAN ID */
+ 	vid &= VLAN_N_VID - 1;
+ 
+-	if (fm10k_host_mbx_ready(interface))
+-		err = hw->mac.ops.update_mc_addr(hw, glort, mc_addr, vid, set);
+-
++	err = fm10k_queue_mac_request(interface, glort, mc_addr, vid, set);
+ 	if (err)
+ 		return err;
+ 
+@@ -855,18 +970,14 @@ static int fm10k_update_vid(struct net_device *netdev, u16 vid, bool set)
+ 
+ 	/* only need to update the VLAN if not in promiscuous mode */
+ 	if (!(netdev->flags & IFF_PROMISC)) {
+-		err = hw->mac.ops.update_vlan(hw, vid, 0, set);
++		err = fm10k_queue_vlan_request(interface, vid, 0, set);
+ 		if (err)
+ 			goto err_out;
+ 	}
+ 
+-	/* update our base MAC address if host's mailbox is ready */
+-	if (fm10k_host_mbx_ready(interface))
+-		err = hw->mac.ops.update_uc_addr(hw, interface->glort,
+-						 hw->mac.addr, vid, set, 0);
+-	else
+-		err = -EHOSTDOWN;
+-
++	/* Update our base MAC address */
++	err = fm10k_queue_mac_request(interface, interface->glort,
++				      hw->mac.addr, vid, set);
+ 	if (err)
+ 		goto err_out;
+ 
+@@ -910,7 +1021,6 @@ static u16 fm10k_find_next_vlan(struct fm10k_intfc *interface, u16 vid)
+ 
+ static void fm10k_clear_unused_vlans(struct fm10k_intfc *interface)
+ {
+-	struct fm10k_hw *hw = &interface->hw;
+ 	u32 vid, prev_vid;
+ 
+ 	/* loop through and find any gaps in the table */
+@@ -922,7 +1032,7 @@ static void fm10k_clear_unused_vlans(struct fm10k_intfc *interface)
+ 
+ 		/* send request to clear multiple bits at a time */
+ 		prev_vid += (vid - prev_vid - 1) << FM10K_VLAN_LENGTH_SHIFT;
+-		hw->mac.ops.update_vlan(hw, prev_vid, 0, false);
++		fm10k_queue_vlan_request(interface, prev_vid, 0, false);
  	}
  }
  
-@@ -414,6 +540,8 @@ static inline void fm10k_reset_vf_info(struct fm10k_intfc *interface,
- 	/* disable LPORT for this VF which clears switch rules */
- 	hw->iov.ops.reset_lport(hw, vf_info);
+@@ -937,15 +1047,11 @@ static int __fm10k_uc_sync(struct net_device *dev,
+ 	if (!is_valid_ether_addr(addr))
+ 		return -EADDRNOTAVAIL;
  
-+	fm10k_clear_macvlan_queue(interface, vf_info->glort, false);
+-	/* update table with current entries if host's mailbox is ready */
+-	if (!fm10k_host_mbx_ready(interface))
+-		return -EHOSTDOWN;
+-
+ 	for (vid = hw->mac.default_vid ? fm10k_find_next_vlan(interface, 0) : 1;
+ 	     vid < VLAN_N_VID;
+ 	     vid = fm10k_find_next_vlan(interface, vid)) {
+-		err = hw->mac.ops.update_uc_addr(hw, glort, addr,
+-						 vid, sync, 0);
++		err = fm10k_queue_mac_request(interface, glort,
++					      addr, vid, sync);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -1002,15 +1108,18 @@ static int __fm10k_mc_sync(struct net_device *dev,
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 	struct fm10k_hw *hw = &interface->hw;
+ 	u16 vid, glort = interface->glort;
++	s32 err;
+ 
+-	/* update table with current entries if host's mailbox is ready */
+-	if (!fm10k_host_mbx_ready(interface))
+-		return 0;
++	if (!is_multicast_ether_addr(addr))
++		return -EADDRNOTAVAIL;
+ 
+ 	for (vid = hw->mac.default_vid ? fm10k_find_next_vlan(interface, 0) : 1;
+ 	     vid < VLAN_N_VID;
+ 	     vid = fm10k_find_next_vlan(interface, vid)) {
+-		hw->mac.ops.update_mc_addr(hw, glort, addr, vid, sync);
++		err = fm10k_queue_mac_request(interface, glort,
++					      addr, vid, sync);
++		if (err)
++			return err;
+ 	}
+ 
+ 	return 0;
+@@ -1050,7 +1159,8 @@ static void fm10k_set_rx_mode(struct net_device *dev)
+ 	if (interface->xcast_mode != xcast_mode) {
+ 		/* update VLAN table */
+ 		if (xcast_mode == FM10K_XCAST_MODE_PROMISC)
+-			hw->mac.ops.update_vlan(hw, FM10K_VLAN_ALL, 0, true);
++			fm10k_queue_vlan_request(interface, FM10K_VLAN_ALL,
++						 0, true);
+ 		if (interface->xcast_mode == FM10K_XCAST_MODE_PROMISC)
+ 			fm10k_clear_unused_vlans(interface);
+ 
+@@ -1098,22 +1208,20 @@ void fm10k_restore_rx_state(struct fm10k_intfc *interface)
+ 					       interface->glort_count, true);
+ 
+ 	/* update VLAN table */
+-	hw->mac.ops.update_vlan(hw, FM10K_VLAN_ALL, 0,
+-				xcast_mode == FM10K_XCAST_MODE_PROMISC);
++	fm10k_queue_vlan_request(interface, FM10K_VLAN_ALL, 0,
++				 xcast_mode == FM10K_XCAST_MODE_PROMISC);
+ 
+ 	/* Add filter for VLAN 0 */
+-	hw->mac.ops.update_vlan(hw, 0, 0, true);
++	fm10k_queue_vlan_request(interface, 0, 0, true);
+ 
+ 	/* update table with current entries */
+ 	for (vid = hw->mac.default_vid ? fm10k_find_next_vlan(interface, 0) : 1;
+ 	     vid < VLAN_N_VID;
+ 	     vid = fm10k_find_next_vlan(interface, vid)) {
+-		hw->mac.ops.update_vlan(hw, vid, 0, true);
++		fm10k_queue_vlan_request(interface, vid, 0, true);
+ 
+-		/* Update unicast entries if host's mailbox is ready */
+-		if (fm10k_host_mbx_ready(interface))
+-			hw->mac.ops.update_uc_addr(hw, glort, hw->mac.addr,
+-						   vid, true, 0);
++		fm10k_queue_mac_request(interface, glort,
++					hw->mac.addr, vid, true);
+ 	}
+ 
+ 	/* update xcast mode before synchronizing addresses if host's mailbox
+@@ -1140,6 +1248,13 @@ void fm10k_reset_rx_state(struct fm10k_intfc *interface)
+ 	struct net_device *netdev = interface->netdev;
+ 	struct fm10k_hw *hw = &interface->hw;
+ 
++	/* Wait for MAC/VLAN work to finish */
++	while (test_bit(__FM10K_MACVLAN_SCHED, interface->state))
++		usleep_range(1000, 2000);
 +
- 	/* assign new MAC+VLAN for this VF */
- 	hw->iov.ops.assign_default_mac_vlan(hw, vf_info);
++	/* Cancel pending MAC/VLAN requests */
++	fm10k_clear_macvlan_queue(interface, interface->glort, true);
++
+ 	fm10k_mbx_lock(interface);
  
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-index 9e4fb3a44376..425d814aed4d 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.c
-@@ -1186,7 +1186,7 @@ s32 fm10k_iov_msg_msix_pf(struct fm10k_hw *hw, u32 **results,
-  * Will report an error if the VLAN ID is out of range. For VID = 0, it will
-  * return either the pf_vid or sw_vid depending on which one is set.
-  */
--static s32 fm10k_iov_select_vid(struct fm10k_vf_info *vf_info, u16 vid)
-+s32 fm10k_iov_select_vid(struct fm10k_vf_info *vf_info, u16 vid)
+ 	/* clear the logical port state on lower device if host's mailbox is
+@@ -1374,8 +1489,8 @@ static void *fm10k_dfwd_add_station(struct net_device *dev,
+ 	if (fm10k_host_mbx_ready(interface)) {
+ 		hw->mac.ops.update_xcast_mode(hw, glort,
+ 					      FM10K_XCAST_MODE_MULTI);
+-		hw->mac.ops.update_uc_addr(hw, glort, sdev->dev_addr,
+-					   0, true, 0);
++		fm10k_queue_mac_request(interface, glort, sdev->dev_addr,
++					0, true);
+ 	}
+ 
+ 	fm10k_mbx_unlock(interface);
+@@ -1414,8 +1529,8 @@ static void fm10k_dfwd_del_station(struct net_device *dev, void *priv)
+ 	if (fm10k_host_mbx_ready(interface)) {
+ 		hw->mac.ops.update_xcast_mode(hw, glort,
+ 					      FM10K_XCAST_MODE_NONE);
+-		hw->mac.ops.update_uc_addr(hw, glort, sdev->dev_addr,
+-					   0, false, 0);
++		fm10k_queue_mac_request(interface, glort, sdev->dev_addr,
++					0, false);
+ 	}
+ 
+ 	fm10k_mbx_unlock(interface);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index aef39909e4a2..58538ce997e1 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -91,6 +91,76 @@ static int fm10k_hw_ready(struct fm10k_intfc *interface)
+ 	return FM10K_REMOVED(hw->hw_addr) ? -ENODEV : 0;
+ }
+ 
++/**
++ * fm10k_macvlan_schedule - Schedule MAC/VLAN queue task
++ * @interface: fm10k private interface structure
++ *
++ * Schedule the MAC/VLAN queue monitor task. If the MAC/VLAN task cannot be
++ * started immediately, request that it be restarted when possible.
++ */
++void fm10k_macvlan_schedule(struct fm10k_intfc *interface)
++{
++	/* Avoid processing the MAC/VLAN queue when the service task is
++	 * disabled, or when we're resetting the device.
++	 */
++	if (!test_bit(__FM10K_MACVLAN_DISABLE, interface->state) &&
++	    !test_and_set_bit(__FM10K_MACVLAN_SCHED, interface->state)) {
++		clear_bit(__FM10K_MACVLAN_REQUEST, interface->state);
++		/* We delay the actual start of execution in order to allow
++		 * multiple MAC/VLAN updates to accumulate before handling
++		 * them, and to allow some time to let the mailbox drain
++		 * between runs.
++		 */
++		queue_delayed_work(fm10k_workqueue,
++				   &interface->macvlan_task, 10);
++	} else {
++		set_bit(__FM10K_MACVLAN_REQUEST, interface->state);
++	}
++}
++
++/**
++ * fm10k_stop_macvlan_task - Stop the MAC/VLAN queue monitor
++ * @interface: fm10k private interface structure
++ *
++ * Wait until the MAC/VLAN queue task has stopped, and cancel any future
++ * requests.
++ */
++static void fm10k_stop_macvlan_task(struct fm10k_intfc *interface)
++{
++	/* Disable the MAC/VLAN work item */
++	set_bit(__FM10K_MACVLAN_DISABLE, interface->state);
++
++	/* Make sure we waited until any current invocations have stopped */
++	cancel_delayed_work_sync(&interface->macvlan_task);
++
++	/* We set the __FM10K_MACVLAN_SCHED bit when we schedule the task.
++	 * However, it may not be unset of the MAC/VLAN task never actually
++	 * got a chance to run. Since we've canceled the task here, and it
++	 * cannot be rescheuled right now, we need to ensure the scheduled bit
++	 * gets unset.
++	 */
++	clear_bit(__FM10K_MACVLAN_SCHED, interface->state);
++}
++
++/**
++ * fm10k_resume_macvlan_task - Restart the MAC/VLAN queue monitor
++ * @interface: fm10k private interface structure
++ *
++ * Clear the __FM10K_MACVLAN_DISABLE bit and, if a request occurred, schedule
++ * the MAC/VLAN work monitor.
++ */
++static void fm10k_resume_macvlan_task(struct fm10k_intfc *interface)
++{
++	/* Re-enable the MAC/VLAN work item */
++	clear_bit(__FM10K_MACVLAN_DISABLE, interface->state);
++
++	/* We might have received a MAC/VLAN request while disabled. If so,
++	 * kick off the queue now.
++	 */
++	if (test_bit(__FM10K_MACVLAN_REQUEST, interface->state))
++		fm10k_macvlan_schedule(interface);
++}
++
+ void fm10k_service_event_schedule(struct fm10k_intfc *interface)
  {
- 	if (!vid)
- 		return vf_info->pf_vid ? vf_info->pf_vid : vf_info->sw_vid;
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-index 3336d3c10760..e04d41f1a532 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k_pf.h
-@@ -1,5 +1,5 @@
- /* Intel(R) Ethernet Switch Host Interface Driver
-- * Copyright(c) 2013 - 2016 Intel Corporation.
-+ * Copyright(c) 2013 - 2017 Intel Corporation.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms and conditions of the GNU General Public License,
-@@ -114,6 +114,7 @@ extern const struct fm10k_tlv_attr fm10k_err_msg_attr[];
- #define FM10K_PF_MSG_ERR_HANDLER(msg, func) \
- 	FM10K_MSG_HANDLER(FM10K_PF_MSG_ID_##msg, fm10k_err_msg_attr, func)
+ 	if (!test_bit(__FM10K_SERVICE_DISABLE, interface->state) &&
+@@ -174,6 +244,12 @@ static bool fm10k_prepare_for_reset(struct fm10k_intfc *interface)
+ 	if (test_and_set_bit(__FM10K_RESETTING, interface->state))
+ 		return false;
  
-+s32 fm10k_iov_select_vid(struct fm10k_vf_info *vf_info, u16 vid);
- s32 fm10k_iov_msg_msix_pf(struct fm10k_hw *, u32 **, struct fm10k_mbx_info *);
- s32 fm10k_iov_msg_mac_vlan_pf(struct fm10k_hw *, u32 **,
- 			      struct fm10k_mbx_info *);
++	/* As the MAC/VLAN task will be accessing registers it must not be
++	 * running while we reset. Although the task will not be scheduled
++	 * once we start resetting it may already be running
++	 */
++	fm10k_stop_macvlan_task(interface);
++
+ 	rtnl_lock();
+ 
+ 	fm10k_iov_suspend(interface->pdev);
+@@ -258,6 +334,8 @@ static int fm10k_handle_reset(struct fm10k_intfc *interface)
+ 
+ 	rtnl_unlock();
+ 
++	fm10k_resume_macvlan_task(interface);
++
+ 	clear_bit(__FM10K_RESETTING, interface->state);
+ 
+ 	return err;
+@@ -686,6 +764,112 @@ static void fm10k_service_task(struct work_struct *work)
+ 	fm10k_service_event_complete(interface);
+ }
+ 
++/**
++ * fm10k_macvlan_task - send queued MAC/VLAN requests to switch manager
++ * @work: pointer to work_struct containing our data
++ *
++ * This work item handles sending MAC/VLAN updates to the switch manager. When
++ * the interface is up, it will attempt to queue mailbox messages to the
++ * switch manager requesting updates for MAC/VLAN pairs. If the Tx fifo of the
++ * mailbox is full, it will reschedule itself to try again in a short while.
++ * This ensures that the driver does not overload the switch mailbox with too
++ * many simultaneous requests, causing an unnecessary reset.
++ **/
++static void fm10k_macvlan_task(struct work_struct *work)
++{
++	struct fm10k_macvlan_request *item;
++	struct fm10k_intfc *interface;
++	struct delayed_work *dwork;
++	struct list_head *requests;
++	struct fm10k_hw *hw;
++	unsigned long flags;
++
++	dwork = to_delayed_work(work);
++	interface = container_of(dwork, struct fm10k_intfc, macvlan_task);
++	hw = &interface->hw;
++	requests = &interface->macvlan_requests;
++
++	do {
++		/* Pop the first item off the list */
++		spin_lock_irqsave(&interface->macvlan_lock, flags);
++		item = list_first_entry_or_null(requests,
++						struct fm10k_macvlan_request,
++						list);
++		if (item)
++			list_del_init(&item->list);
++
++		spin_unlock_irqrestore(&interface->macvlan_lock, flags);
++
++		/* We have no more items to process */
++		if (!item)
++			goto done;
++
++		fm10k_mbx_lock(interface);
++
++		/* Check that we have plenty of space to send the message. We
++		 * want to ensure that the mailbox stays low enough to avoid a
++		 * change in the host state, otherwise we may see spurious
++		 * link up / link down notifications.
++		 */
++		if (!hw->mbx.ops.tx_ready(&hw->mbx, FM10K_VFMBX_MSG_MTU + 5)) {
++			hw->mbx.ops.process(hw, &hw->mbx);
++			set_bit(__FM10K_MACVLAN_REQUEST, interface->state);
++			fm10k_mbx_unlock(interface);
++
++			/* Put the request back on the list */
++			spin_lock_irqsave(&interface->macvlan_lock, flags);
++			list_add(&item->list, requests);
++			spin_unlock_irqrestore(&interface->macvlan_lock, flags);
++			break;
++		}
++
++		switch (item->type) {
++		case FM10K_MC_MAC_REQUEST:
++			hw->mac.ops.update_mc_addr(hw,
++						   item->mac.glort,
++						   item->mac.addr,
++						   item->mac.vid,
++						   item->set);
++			break;
++		case FM10K_UC_MAC_REQUEST:
++			hw->mac.ops.update_uc_addr(hw,
++						   item->mac.glort,
++						   item->mac.addr,
++						   item->mac.vid,
++						   item->set,
++						   0);
++			break;
++		case FM10K_VLAN_REQUEST:
++			hw->mac.ops.update_vlan(hw,
++						item->vlan.vid,
++						item->vlan.vsi,
++						item->set);
++			break;
++		default:
++			break;
++		}
++
++		fm10k_mbx_unlock(interface);
++
++		/* Free the item now that we've sent the update */
++		kfree(item);
++	} while (true);
++
++done:
++	WARN_ON(!test_bit(__FM10K_MACVLAN_SCHED, interface->state));
++
++	/* flush memory to make sure state is correct */
++	smp_mb__before_atomic();
++	clear_bit(__FM10K_MACVLAN_SCHED, interface->state);
++
++	/* If a MAC/VLAN request was scheduled since we started, we should
++	 * re-schedule. However, there is no reason to re-schedule if there is
++	 * no work to do.
++	 */
++	if (test_bit(__FM10K_MACVLAN_REQUEST, interface->state))
++		fm10k_macvlan_schedule(interface);
++}
++
+ /**
+  * fm10k_configure_tx_ring - Configure Tx ring after Reset
+  * @interface: board private structure
+@@ -1918,11 +2102,15 @@ static int fm10k_sw_init(struct fm10k_intfc *interface,
+ 	INIT_LIST_HEAD(&interface->vxlan_port);
+ 	INIT_LIST_HEAD(&interface->geneve_port);
+ 
++	/* Initialize the MAC/VLAN queue */
++	INIT_LIST_HEAD(&interface->macvlan_requests);
++
+ 	netdev_rss_key_fill(rss_key, sizeof(rss_key));
+ 	memcpy(interface->rssrk, rss_key, sizeof(rss_key));
+ 
+ 	/* Initialize the mailbox lock */
+ 	spin_lock_init(&interface->mbx_lock);
++	spin_lock_init(&interface->macvlan_lock);
+ 
+ 	/* Start off interface as being down */
+ 	set_bit(__FM10K_DOWN, interface->state);
+@@ -2131,6 +2319,9 @@ static int fm10k_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		    (unsigned long)interface);
+ 	INIT_WORK(&interface->service_task, fm10k_service_task);
+ 
++	/* Setup the MAC/VLAN queue */
++	INIT_DELAYED_WORK(&interface->macvlan_task, fm10k_macvlan_task);
++
+ 	/* kick off service timer now, even when interface is down */
+ 	mod_timer(&interface->service_timer, (HZ * 2) + jiffies);
+ 
+@@ -2184,6 +2375,10 @@ static void fm10k_remove(struct pci_dev *pdev)
+ 	del_timer_sync(&interface->service_timer);
+ 
+ 	fm10k_stop_service_event(interface);
++	fm10k_stop_macvlan_task(interface);
++
++	/* Remove all pending MAC/VLAN requests */
++	fm10k_clear_macvlan_queue(interface, interface->glort, true);
+ 
+ 	/* free netdev, this may bounce the interrupts due to setup_tc */
+ 	if (netdev->reg_state == NETREG_REGISTERED)
+@@ -2220,6 +2415,9 @@ static void fm10k_prepare_suspend(struct fm10k_intfc *interface)
+ 	 * a surprise remove if the PCIe device is disabled while we're
+ 	 * stopped. We stop the watchdog task until after we resume software
+ 	 * activity.
++	 *
++	 * Note that the MAC/VLAN task will be stopped as part of preparing
++	 * for reset so we don't need to handle it here.
+ 	 */
+ 	fm10k_stop_service_event(interface);
+ 
+@@ -2259,6 +2457,9 @@ static int fm10k_handle_resume(struct fm10k_intfc *interface)
+ 	/* restart the service task */
+ 	fm10k_start_service_event(interface);
+ 
++	/* Restart the MAC/VLAN request queue in-case of outstanding events */
++	fm10k_macvlan_schedule(interface);
++
+ 	return err;
+ }
+ 
 -- 
 2.14.2
