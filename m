@@ -1,135 +1,77 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: DP83822 initial driver submission
-Date: Tue, 3 Oct 2017 11:31:05 -0700
-Message-ID: <fd7379ac-d617-1fed-45a2-6698256cf160@gmail.com>
-References: <20171003155316.12312-1-dmurphy@ti.com>
- <1847c902-8364-3c7c-f079-3d123ba1d3f1@gmail.com>
- <ccab5880-eace-503c-d325-d20867b98bd5@ti.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH v4 net-next 0/8] flow_dissector: Protocol specific flow
+ dissector offload
+Date: Tue, 3 Oct 2017 11:35:54 -0700
+Message-ID: <CAPDqMeq3er9=P9AUFKf4-FcSgthpv2hUz+WTb78DRHGEJ0TTWA@mail.gmail.com>
+References: <20170928235230.22158-1-tom@quantonium.net> <87y3oyylzv.fsf@stressinduktion.org>
+ <CALx6S37J-Uv11TJuNFj4et==NFZj9W0v9s_c-Qowqcs--Kx_VQ@mail.gmail.com>
+ <20170929.184245.412578447363431176.davem@davemloft.net> <CALx6S37DhT095fY92HWZAKQvMkqjxqq08nxJqL=wTP8JorHHDg@mail.gmail.com>
+ <20171003074632.GD1916@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dan Murphy <dmurphy@ti.com>, andrew@lunn.ch
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:52510 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750812AbdJCSbL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 14:31:11 -0400
-Received: by mail-wr0-f176.google.com with SMTP id k62so7022885wrc.9
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 11:31:10 -0700 (PDT)
-In-Reply-To: <ccab5880-eace-503c-d325-d20867b98bd5@ti.com>
-Content-Language: en-US
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:56631 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751001AbdJCSf4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 14:35:56 -0400
+Received: by mail-wm0-f44.google.com with SMTP id l68so4954831wmd.5
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 11:35:56 -0700 (PDT)
+In-Reply-To: <20171003074632.GD1916@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/03/2017 11:03 AM, Dan Murphy wrote:
-> Florian
-> 
-> Thanks for the review
-> 
-> On 10/03/2017 12:15 PM, Florian Fainelli wrote:
->>> +		} else {
->>> +			value &= ~DP83822_WOL_SECURE_ON;
->>> +		}
->>> +
->>> +		value |= (DP83822_WOL_EN | DP83822_WOL_CLR_INDICATION |
->>> +			  DP83822_WOL_CLR_INDICATION);
+On Tue, Oct 3, 2017 at 12:46 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Sep 29, 2017 at 07:59:35PM CEST, tom@herbertland.com wrote:
+>>On Fri, Sep 29, 2017 at 10:42 AM, David Miller <davem@davemloft.net> wrote:
+>>> From: Tom Herbert <tom@herbertland.com>
+>>> Date: Fri, 29 Sep 2017 08:48:55 -0700
+>>>
+>>>> The flow_dissector interface is not a uAPI.
+>>>
+>>> That's not true, insofar as cls_flower.c uses the flow_dissector
+>>> therefore if you change the flow_dissector in certain ways then
+>>> cls_flower.c might have it's behavior changed and that is in fact UAPI
+>>> facing.
 >>
->> The extra parenthesis should not be required here.
-> 
-> I did not code that in.  I had to add it after Checkpatch cribbed about it.
-> Let me know if you want me to remove it.
+>>Then I would suggest adding another flag like FLOW_DISSECTOR_F_FLOWER
+>>and when anyone puts new code into flow_dissector they can wrap it
+>>with "if !(flags & FLOW_DISSECTOR_F_FLOWER)". If the flower uAPI is
+>>subsequently update then the conditional can be removed. This way
+>>flower can support maintain its APIs, but we can still still extend
+>>and improve flow_dissector for othersuse cases.
+>
+> This is not flower-specific problem. Flow_dissector is a servant of many.
 
-Let's keep those, that does not change much.
+Besides flower, what other use cases of flow_dissector have made
+flow_dissector interface a uAPI? Any use of hashing does not do this.
+Maybe OVS does?
 
-> 
->>
->>> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
->>> +			      value);
->>> +	} else {
->>> +		value =
->>> +		    phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
->>> +		value &= (~DP83822_WOL_EN);
->>
->> Same here, parenthesis should not be needed.
-> 
-> There are three lines of code in the else.  This code all needs to be excuted in the else case.
-> I might reformat it to read better.  Lindent messed that one up.
+> As such, it is instructed what should it do. If you want to
+> change the way inner headers are parsed, you should either:
 
-sorry, I meant to write that you don't need the parenthesis around
-DP83822_WOL_EN since that is just a single bit here.
+Why would that only affect the way inner headers are parsed? Wouldn't
+we need to consider any change to flow_dissector that might affect the
+output in any way. For instance, the depth limits I added would change
+to output for someone that was parsing thirty-five layers of
+encapsulation so it it looks like that feature needs a flag. What if
+someone adds a new Ethernet protocol or a new encap protocol?
 
-[snip]
+> 1) change the callers so they are behaving the same as before
+> 2) make the flow_dissection change optional so the caller can say if he
+>    wants original or new behaviour.
 
->>> +
->>> +	mutex_unlock(&phydev->lock);
->>> +
->>> +	return 0;
->>> +}
->>> +
->>> +static int dp83822_resume(struct phy_device *phydev)
->>> +{
->>> +	int value;
->>> +
->>> +	mutex_lock(&phydev->lock);
->>> +
->>> +	value = phy_read(phydev, MII_BMCR);
->>> +	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
->>
->> And genphy_resume() here as well?
-> 
-> genphy_resume does not have WoL.
+I guess we can do that, but am concerned about the overhead this will
+generate if were adding a flag each time anyone modifies the function.
+There are performance critical use cases of flow_dissector that will
+be impacted by such changes.
 
-I should have been cleared, I meant using genphy_{suspend,resume} to
-avoid open coding the setting of the BMCR_PDOWN bit, conversely clearing
-of that bit. Because of the locking, maybe you could introduce unlocked
-versions of these two routines, or you acquire and release the lock
-outside of genphy_{suspend,resume}?
+Tom
 
-> 
->>
->>> +
->>> +	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
->>> +
->>> +	phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG, value |
->>> +		      DP83822_WOL_CLR_INDICATION);
->>> +
->>> +	mutex_unlock(&phydev->lock);
->>> +
->>> +	return 0;
->>> +}
->>> +
->>> +static struct phy_driver dp83822_driver[] = {
->>> +	{
->>> +	 .phy_id = DP83822_PHY_ID,
->>> +	 .phy_id_mask = 0xfffffff0,
->>> +	 .name = "TI DP83822",
->>> +	 .features = PHY_BASIC_FEATURES,
->>> +	 .flags = PHY_HAS_INTERRUPT,
->>> +
->>> +	 .config_init = genphy_config_init,
->>> +	 .soft_reset = dp83822_phy_reset,
->>> +
->>> +	 .get_wol = dp83822_get_wol,
->>> +	 .set_wol = dp83822_set_wol,
->>> +
->>> +	 /* IRQ related */
->>> +	 .ack_interrupt = dp83822_ack_interrupt,
->>> +	 .config_intr = dp83822_config_intr,
->>> +
->>> +	 .config_aneg = genphy_config_aneg,
->>> +	 .read_status = genphy_read_status,
->>> +	 .suspend = dp83822_suspend,
->>> +	 .resume = dp83822_resume,
->>> +	 },
->>
->> I would omit newlines between definitions of callbacks, but this is
->> really a personal preference. Unless you are planning on adding new IDs,
->> you could also avoid using an array of 1 element and just a plain
->> phy_driver structure, but that's not a big deal either.
-> 
-> Yes there is a plan to add another phy id in early 2018 to this driver.
 
-Alright then!
--- 
-Florian
+>
