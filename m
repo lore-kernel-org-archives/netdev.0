@@ -1,227 +1,133 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next] dev: advertise the new nsid when the netns iface changes
-Date: Tue,  3 Oct 2017 13:53:23 +0200
-Message-ID: <20171003115323.21388-1-nicolas.dichtel@6wind.com>
-References: <52f84baf-8027-d01f-8ece-db4f39a2f76f@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        "Jason A . Donenfeld" <Jason@zx2c4.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
+ CONFIG_BRIDGE_VLAN_FILTERING
+Date: Tue, 3 Oct 2017 14:16:36 +0200
+Message-ID: <20171003121636.GB13548@lunn.ch>
+References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
+ <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev <netdev@vger.kernel.org>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:36022 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751684AbdJCMAK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 08:00:10 -0400
-In-Reply-To: <52f84baf-8027-d01f-8ece-db4f39a2f76f@6wind.com>
+Received: from vps0.lunn.ch ([185.16.172.187]:37058 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750879AbdJCMQq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 08:16:46 -0400
+Content-Disposition: inline
+In-Reply-To: <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-x-netns interfaces are bound to two netns: the link netns and the upper
-netns. Usually, this kind of interfaces is created in the link netns and
-then moved to the upper netns. At the end, the interface is visible only
-in the upper netns. The link nsid is advertised via netlink in the upper
-netns, thus the user always knows where is the link part.
+On Tue, Oct 03, 2017 at 12:29:56PM +0900, Toshiaki Makita wrote:
+> On 2017/10/03 9:55, Andrew Lunn wrote:
+> > With CONFIG_BRIDGE_VLAN_FILTERING enabled, but the feature not enabled
+> > via /sys/class/net/brX/bridge/vlan_filtering, mdb offloaded to the
+> > kernel have the wrong VID.
+> > 
+> > When an interface is added to the bridge, switchdev is first used to
+> > notify the hardware that a port has joined a bridge. This is
+> > immediately followed by the default_pvid, 1, being added to the
+> > interface via another switchdev call.
+> > 
+> > The bridge will then perform IGMP snooping, and offload an mdb entries
+> > to the switch as needed. With vlan filtering disabled, the vid is left
+> > as 0. This causes the switch to put the static mdb into the wrong
+> > vlan, and so frames are not forwarded by the mdb entry.
+> > 
+> > If vlan filtering is disable, use the default_pvid, not 0.
+> > 
+> > Fixes: f1fecb1d10ec ("bridge: Reflect MDB entries to hardware")
+> > Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> > ---
+> >  net/bridge/br_vlan.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> > 
+> > diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> > index 233a30040c91..aa3589891797 100644
+> > --- a/net/bridge/br_vlan.c
+> > +++ b/net/bridge/br_vlan.c
+> > @@ -492,6 +492,7 @@ bool br_allowed_ingress(const struct net_bridge *br,
+> >  	 */
+> >  	if (!br->vlan_enabled) {
+> >  		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
+> > +		*vid = br_get_pvid(vg);
+> >  		return true;
+> >  	}
+> >  
+> 
+> This does not look correct.
+> This will update fdb with vid which is not 0.
+> Pvid can be different between each port even when vlan_filtering is
+> disabled so unicast forwarding (fdb learning) will break.
+> Also, fdb is visible to userspace so this can break userspace which
+> expects fdb entries with 0 as well.
+> 
+> Why does the switch driver use pvid while vlan_filtering is disabled?
 
-There is no such mechanism in the link netns. When the interface is moved
-to another netns, the user cannot "follow" it.
-This patch adds a new netlink attribute which helps to follow an interface
-which moves to another netns. When the interface is unregistered, the new
-nsid is advertised. If the interface is a x-netns interface (ie
-rtnl_link_ops->get_link_net is defined), the nsid is allocated if needed.
+Hi Toshiaki
 
-CC: Jason A. Donenfeld <Jason@zx2c4.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/linux/rtnetlink.h    |  4 +++-
- include/uapi/linux/if_link.h |  1 +
- net/core/dev.c               | 11 ++++++++---
- net/core/rtnetlink.c         | 31 ++++++++++++++++++++++---------
- 4 files changed, 34 insertions(+), 13 deletions(-)
+We get a vlan added to the port. I think it comes from a combination
+of:
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index dea59c8eec54..1251638e60d3 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -17,9 +17,11 @@ extern int rtnl_put_cacheinfo(struct sk_buff *skb, struct dst_entry *dst,
- 			      u32 id, long expires, u32 error);
- 
- void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change, gfp_t flags);
-+void rtmsg_ifinfo_newnet(int type, struct net_device *dev, unsigned int change,
-+			 gfp_t flags, int *new_nsid);
- struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
- 				       unsigned change, u32 event,
--				       gfp_t flags);
-+				       gfp_t flags, int *new_nsid);
- void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev,
- 		       gfp_t flags);
- 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index ea87bd708ee9..cd580fc0e58f 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -158,6 +158,7 @@ enum {
- 	IFLA_PAD,
- 	IFLA_XDP,
- 	IFLA_EVENT,
-+	IFLA_NEW_NETNSID,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e350c768d4b5..2341e9d64e02 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -145,6 +145,7 @@
- #include <linux/crash_dump.h>
- #include <linux/sctp.h>
- #include <net/udp_tunnel.h>
-+#include <linux/net_namespace.h>
- 
- #include "net-sysfs.h"
- 
-@@ -7178,7 +7179,7 @@ static void rollback_registered_many(struct list_head *head)
- 		if (!dev->rtnl_link_ops ||
- 		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
- 			skb = rtmsg_ifinfo_build_skb(RTM_DELLINK, dev, ~0U, 0,
--						     GFP_KERNEL);
-+						     GFP_KERNEL, NULL);
- 
- 		/*
- 		 *	Flush the unicast and multicast chains
-@@ -8265,7 +8266,7 @@ EXPORT_SYMBOL(unregister_netdev);
- 
- int dev_change_net_namespace(struct net_device *dev, struct net *net, const char *pat)
- {
--	int err;
-+	int err, new_nsid;
- 
- 	ASSERT_RTNL();
- 
-@@ -8321,7 +8322,11 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
- 	rcu_barrier();
- 	call_netdevice_notifiers(NETDEV_UNREGISTER_FINAL, dev);
--	rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
-+	if (dev->rtnl_link_ops && dev->rtnl_link_ops->get_link_net)
-+		new_nsid = peernet2id_alloc(dev_net(dev), net);
-+	else
-+		new_nsid = peernet2id(dev_net(dev), net);
-+	rtmsg_ifinfo_newnet(RTM_DELLINK, dev, ~0U, GFP_KERNEL, &new_nsid);
- 
- 	/*
- 	 *	Flush the unicast and multicast chains
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e6955da0d58d..5bec24c348bf 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -927,6 +927,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
- 	       + rtnl_xdp_size() /* IFLA_XDP */
- 	       + nla_total_size(4)  /* IFLA_EVENT */
-+	       + nla_total_size(4)  /* IFLA_NEW_NETNSID */
- 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
- 
- }
-@@ -1386,7 +1387,7 @@ static int rtnl_fill_link_netnsid(struct sk_buff *skb,
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask,
--			    u32 event)
-+			    u32 event, int *new_nsid)
- {
- 	struct ifinfomsg *ifm;
- 	struct nlmsghdr *nlh;
-@@ -1475,6 +1476,10 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_fill_link_netnsid(skb, dev))
- 		goto nla_put_failure;
- 
-+	if (new_nsid &&
-+	    nla_put_s32(skb, IFLA_NEW_NETNSID, *new_nsid) < 0)
-+		goto nla_put_failure;
-+
- 	if (!(af_spec = nla_nest_start(skb, IFLA_AF_SPEC)))
- 		goto nla_put_failure;
- 
-@@ -1704,7 +1709,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 					       NETLINK_CB(cb->skb).portid,
- 					       cb->nlh->nlmsg_seq, 0,
- 					       flags,
--					       ext_filter_mask, 0);
-+					       ext_filter_mask, 0, NULL);
- 
- 			if (err < 0) {
- 				if (likely(skb->len))
-@@ -2817,7 +2822,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		return -ENOBUFS;
- 
- 	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).portid,
--			       nlh->nlmsg_seq, 0, 0, ext_filter_mask, 0);
-+			       nlh->nlmsg_seq, 0, 0, ext_filter_mask, 0, NULL);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in if_nlmsg_size */
- 		WARN_ON(err == -EMSGSIZE);
-@@ -2902,7 +2907,7 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
- 
- struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
- 				       unsigned int change,
--				       u32 event, gfp_t flags)
-+				       u32 event, gfp_t flags, int *new_nsid)
- {
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
-@@ -2913,7 +2918,8 @@ struct sk_buff *rtmsg_ifinfo_build_skb(int type, struct net_device *dev,
- 	if (skb == NULL)
- 		goto errout;
- 
--	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0, 0, event);
-+	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0, 0, event,
-+			       new_nsid);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in if_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-@@ -2936,14 +2942,14 @@ void rtmsg_ifinfo_send(struct sk_buff *skb, struct net_device *dev, gfp_t flags)
- 
- static void rtmsg_ifinfo_event(int type, struct net_device *dev,
- 			       unsigned int change, u32 event,
--			       gfp_t flags)
-+			       gfp_t flags, int *new_nsid)
- {
- 	struct sk_buff *skb;
- 
- 	if (dev->reg_state != NETREG_REGISTERED)
- 		return;
- 
--	skb = rtmsg_ifinfo_build_skb(type, dev, change, event, flags);
-+	skb = rtmsg_ifinfo_build_skb(type, dev, change, event, flags, new_nsid);
- 	if (skb)
- 		rtmsg_ifinfo_send(skb, dev, flags);
- }
-@@ -2951,10 +2957,17 @@ static void rtmsg_ifinfo_event(int type, struct net_device *dev,
- void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
- 		  gfp_t flags)
- {
--	rtmsg_ifinfo_event(type, dev, change, rtnl_get_event(0), flags);
-+	rtmsg_ifinfo_event(type, dev, change, rtnl_get_event(0), flags, NULL);
- }
- EXPORT_SYMBOL(rtmsg_ifinfo);
- 
-+void rtmsg_ifinfo_newnet(int type, struct net_device *dev, unsigned int change,
-+			 gfp_t flags, int *new_nsid)
-+{
-+	rtmsg_ifinfo_event(type, dev, change, rtnl_get_event(0), flags,
-+			   new_nsid);
-+}
-+
- static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
- 				   struct net_device *dev,
- 				   u8 *addr, u16 vid, u32 pid, u32 seq,
-@@ -4330,7 +4343,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
- 	case NETDEV_RESEND_IGMP:
- 	case NETDEV_CHANGEINFODATA:
- 		rtmsg_ifinfo_event(RTM_NEWLINK, dev, 0, rtnl_get_event(event),
--				   GFP_KERNEL);
-+				   GFP_KERNEL, NULL);
- 		break;
- 	default:
- 		break;
--- 
-2.13.2
+
+int br_vlan_init(struct net_bridge *br)
+{
+        struct net_bridge_vlan_group *vg;
+        int ret = -ENOMEM;
+
+        vg = kzalloc(sizeof(*vg), GFP_KERNEL);
+        if (!vg)
+                goto out;
+        ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
+        if (ret)
+                goto err_rhtbl;
+        ret = vlan_tunnel_init(vg);
+        if (ret)
+                goto err_tunnel_init;
+        INIT_LIST_HEAD(&vg->vlan_list);
+        br->vlan_proto = htons(ETH_P_8021Q);
+        br->default_pvid = 1;
+
+and
+
+int nbp_vlan_init(struct net_bridge_port *p)
+{
+        struct switchdev_attr attr = {
+                .orig_dev = p->br->dev,
+                .id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+                .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
+                .u.vlan_filtering = p->br->vlan_enabled,
+        };
+        struct net_bridge_vlan_group *vg;
+        int ret = -ENOMEM;
+
+        vg = kzalloc(sizeof(struct net_bridge_vlan_group), GFP_KERNEL);
+        if (!vg)
+                goto out;
+
+        ret = switchdev_port_attr_set(p->dev, &attr);
+        if (ret && ret != -EOPNOTSUPP)
+                goto err_vlan_enabled;
+
+        ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
+        if (ret)
+                goto err_rhtbl;
+        ret = vlan_tunnel_init(vg);
+        if (ret)
+                goto err_tunnel_init;
+        INIT_LIST_HEAD(&vg->vlan_list);
+        rcu_assign_pointer(p->vlgrp, vg);
+        if (p->br->default_pvid) {
+                ret = nbp_vlan_add(p, p->br->default_pvid,
+                                   BRIDGE_VLAN_INFO_PVID |
+                                   BRIDGE_VLAN_INFO_UNTAGGED);
+
+Now, i just noticed the switchdev call above. I don't think the DSA
+layer implements SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING. It probably
+should. So what is it supposed to do with this VLAN when filtering is
+disabled?
+
+	Andrew
