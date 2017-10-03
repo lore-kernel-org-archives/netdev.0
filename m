@@ -1,221 +1,400 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [RFC 2/2] tools: bpftool: use the kernel's instruction printer
-Date: Tue,  3 Oct 2017 10:57:46 -0700
-Message-ID: <20171003175746.30145-2-jakub.kicinski@netronome.com>
-References: <59D3B456.4020209@iogearbox.net>
- <20171003175746.30145-1-jakub.kicinski@netronome.com>
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        david.beckett@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: daniel@iogearbox.net, dsahern@gmail.com,
-        alexei.starovoitov@gmail.com
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH iproute2 3/3] ss: add AF_VSOCK support
+Date: Tue,  3 Oct 2017 13:57:44 -0400
+Message-ID: <20171003175744.24987-4-stefanha@redhat.com>
+References: <20171003175744.24987-1-stefanha@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        Dexuan Cui <decui@microsoft.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:52938 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751229AbdJCR57 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 13:57:59 -0400
-Received: by mail-pg0-f52.google.com with SMTP id i195so5126217pgd.9
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 10:57:59 -0700 (PDT)
-In-Reply-To: <20171003175746.30145-1-jakub.kicinski@netronome.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56848 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751172AbdJCR6N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 13:58:13 -0400
+In-Reply-To: <20171003175744.24987-1-stefanha@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Compile the instruction printer from kernel/bpf and use it
-for disassembling "translated" eBPF code.
+The AF_VSOCK address family is a host<->guest communications channel
+supported by VMware, KVM, and Hyper-V.  Initial VMware support was
+released in Linux 3.9 in 2013 and transports for other hypervisors were
+added later.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+AF_VSOCK addresses are <u32 cid, u32 port> tuples.  The 32-bit cid
+integer is comparable to an IP address.  AF_VSOCK ports work like
+TCP/UDP ports.
+
+Both SOCK_STREAM and SOCK_DGRAM socket types are available.
+
+This patch adds AF_VSOCK support to ss(8) so that sockets can be
+observed.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 ---
- tools/bpf/bpftool/Documentation/bpftool-prog.txt | 11 +++---
- tools/bpf/bpftool/Makefile                       |  7 ++--
- tools/bpf/bpftool/main.h                         | 10 ++----
- tools/bpf/bpftool/prog.c                         | 44 +++++++++++++++++++-----
- 4 files changed, 51 insertions(+), 21 deletions(-)
+ misc/ss.c     | 184 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ man/man8/ss.8 |   8 ++-
+ 2 files changed, 188 insertions(+), 4 deletions(-)
 
-diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.txt b/tools/bpf/bpftool/Documentation/bpftool-prog.txt
-index 79791bf11e4d..7f33260f5683 100644
---- a/tools/bpf/bpftool/Documentation/bpftool-prog.txt
-+++ b/tools/bpf/bpftool/Documentation/bpftool-prog.txt
-@@ -11,7 +11,7 @@ SYNOPSIS
- ========
+diff --git a/misc/ss.c b/misc/ss.c
+index 12a31c90..164356a0 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -44,6 +44,7 @@
+ #include <linux/packet_diag.h>
+ #include <linux/netlink_diag.h>
+ #include <linux/sctp.h>
++#include <linux/vm_sockets_diag.h>
  
- |	**bpftool** prog show [*PROG*]
--|	**bpftool** prog dump xlated *PROG*  file *FILE*
-+|	**bpftool** prog dump xlated *PROG* [file *FILE*] [opcodes]
- |	**bpftool** prog dump jited  *PROG* [file *FILE*] [opcodes]
- |	**bpftool** prog pin *PROG* *FILE*
- |	**bpftool** prog help
-@@ -28,9 +28,12 @@ DESCRIPTION
- 		  Output will start with program ID followed by program type and
- 		  zero or more named attributes (depending on kernel version).
+ #define MAGIC_SEQ 123456
  
--	**bpftool prog dump xlated** *PROG*  **file** *FILE*
--		  Dump eBPF instructions of the program from the kernel to a
--		  file.
-+	**bpftool prog dump xlated** *PROG* [**file** *FILE*] [**opcodes**]
-+		  Dump eBPF instructions of the program from the kernel.
-+		  If *FILE* is specified image will be written to a file,
-+		  otherwise it will be disassembled and printed to stdout.
-+
-+		  **opcodes** controls if raw opcodes will be printed.
+@@ -126,6 +127,8 @@ enum {
+ 	PACKET_R_DB,
+ 	NETLINK_DB,
+ 	SCTP_DB,
++	VSOCK_ST_DB,
++	VSOCK_DG_DB,
+ 	MAX_DB
+ };
  
- 	**bpftool prog dump jited**  *PROG* [**file** *FILE*] [**opcodes**]
- 		  Dump jited image (host machine code) of the program.
-diff --git a/tools/bpf/bpftool/Makefile b/tools/bpf/bpftool/Makefile
-index 8705ee44664d..4f339824ca57 100644
---- a/tools/bpf/bpftool/Makefile
-+++ b/tools/bpf/bpftool/Makefile
-@@ -51,7 +51,7 @@ CC = gcc
+@@ -134,6 +137,7 @@ enum {
+ #define ALL_DB ((1<<MAX_DB)-1)
+ #define INET_L4_DBM ((1<<TCP_DB)|(1<<UDP_DB)|(1<<DCCP_DB)|(1<<SCTP_DB))
+ #define INET_DBM (INET_L4_DBM | (1<<RAW_DB))
++#define VSOCK_DBM ((1<<VSOCK_ST_DB)|(1<<VSOCK_DG_DB))
  
- CFLAGS += -O2
- CFLAGS += -W -Wall -Wextra -Wno-unused-parameter -Wshadow
--CFLAGS += -D__EXPORTED_HEADERS__ -I$(srctree)/tools/include/uapi -I$(srctree)/tools/include -I$(srctree)/tools/lib/bpf
-+CFLAGS += -D__EXPORTED_HEADERS__ -I$(srctree)/tools/include/uapi -I$(srctree)/tools/include -I$(srctree)/tools/lib/bpf -I$(srctree)/kernel/bpf/
- LIBS = -lelf -lbfd -lopcodes $(LIBBPF)
+ enum {
+ 	SS_UNKNOWN,
+@@ -222,6 +226,14 @@ static const struct filter default_dbs[MAX_DB] = {
+ 		.states   = SS_CONN,
+ 		.families = FAMILY_MASK(AF_INET) | FAMILY_MASK(AF_INET6),
+ 	},
++	[VSOCK_ST_DB] = {
++		.states   = SS_CONN,
++		.families = FAMILY_MASK(AF_VSOCK),
++	},
++	[VSOCK_DG_DB] = {
++		.states   = SS_CONN,
++		.families = FAMILY_MASK(AF_VSOCK),
++	},
+ };
  
- include $(wildcard *.d)
-@@ -59,7 +59,10 @@ include $(wildcard *.d)
- all: $(OUTPUT)bpftool
+ static const struct filter default_afs[AF_MAX] = {
+@@ -245,6 +257,10 @@ static const struct filter default_afs[AF_MAX] = {
+ 		.dbs    = (1 << NETLINK_DB),
+ 		.states = (1 << SS_CLOSE),
+ 	},
++	[AF_VSOCK] = {
++		.dbs    = VSOCK_DBM,
++		.states = SS_CONN,
++	},
+ };
  
- SRCS=$(wildcard *.c)
--OBJS=$(patsubst %.c,$(OUTPUT)%.o,$(SRCS))
-+OBJS=$(patsubst %.c,$(OUTPUT)%.o,$(SRCS)) $(OUTPUT)disasm.o
-+
-+$(OUTPUT)disasm.o: $(srctree)/kernel/bpf/disasm.c
-+	$(QUIET_CC)$(COMPILE.c) -MMD -o $@ $<
- 
- $(OUTPUT)bpftool: $(OBJS) $(LIBBPF)
- 	$(QUIET_LINK)$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
-diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 85d2d7870a58..d7dd9965f40a 100644
---- a/tools/bpf/bpftool/main.h
-+++ b/tools/bpf/bpftool/main.h
-@@ -36,11 +36,12 @@
- #ifndef __BPF_TOOL_H
- #define __BPF_TOOL_H
- 
-+/* BDF and kernel.h both define GCC_VERSION, differently */
-+#undef GCC_VERSION
- #include <stdbool.h>
- #include <stdio.h>
- #include <linux/bpf.h>
--
--#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
-+#include <linux/kernel.h>
- 
- #define err(msg...)	fprintf(stderr, "Error: " msg)
- #define warn(msg...)	fprintf(stderr, "Warning: " msg)
-@@ -48,11 +49,6 @@
- 
- #define ptr_to_u64(ptr)	((__u64)(unsigned long)(ptr))
- 
--#define min(a, b)							\
--	({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _b : _a; })
--#define max(a, b)							\
--	({ typeof(a) _a = (a); typeof(b) _b = (b); _a < _b ? _b : _a; })
--
- #define NEXT_ARG()	({ argc--; argv++; if (argc < 0) usage(); })
- #define NEXT_ARGP()	({ (*argc)--; (*argv)++; if (*argc < 0) usage(); })
- #define BAD_ARG()	({ err("what is '%s'?\n", *argv); -1; })
-diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index 421ba89ce86a..2cdc8f41809f 100644
---- a/tools/bpf/bpftool/prog.c
-+++ b/tools/bpf/bpftool/prog.c
-@@ -35,6 +35,7 @@
- 
- #include <errno.h>
- #include <fcntl.h>
-+#include <stdarg.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-@@ -46,6 +47,7 @@
- #include <bpf.h>
- 
- #include "main.h"
-+#include "disasm.h"
- 
- static const char * const prog_type_name[] = {
- 	[BPF_PROG_TYPE_UNSPEC]		= "unspec",
-@@ -297,11 +299,39 @@ static int do_show(int argc, char **argv)
- 	return 0;
+ static int do_default = 1;
+@@ -283,6 +299,8 @@ static void filter_default_dbs(struct filter *f)
+ 	filter_db_set(f, PACKET_DG_DB);
+ 	filter_db_set(f, NETLINK_DB);
+ 	filter_db_set(f, SCTP_DB);
++	filter_db_set(f, VSOCK_ST_DB);
++	filter_db_set(f, VSOCK_DG_DB);
  }
  
-+static void print_insn(const char *fmt, ...)
+ static void filter_states_set(struct filter *f, int states)
+@@ -791,6 +809,18 @@ static const char *proto_name(int protocol)
+ 	return "???";
+ }
+ 
++static const char *vsock_netid_name(int type)
 +{
-+	va_list args;
-+
-+	va_start(args, fmt);
-+	vprintf(fmt, args);
-+	va_end(args);
-+}
-+
-+static void dump_xlated(void *buf, unsigned int len, bool opcodes)
-+{
-+	struct bpf_insn *insn = buf;
-+	unsigned int i;
-+
-+	for (i = 0; i < len / sizeof(*insn); i++) {
-+		printf("% 4d: ", i);
-+		print_bpf_insn(print_insn, insn + i, true);
-+
-+		if (opcodes) {
-+			printf("       ");
-+			print_hex(insn + i, 8, " ");
-+			printf("\n");
-+		}
-+
-+		if (insn[i].code == (BPF_LD | BPF_IMM | BPF_DW))
-+			i++;
++	switch (type) {
++	case SOCK_STREAM:
++		return "v_str";
++	case SOCK_DGRAM:
++		return "v_dgr";
++	default:
++		return "???";
 +	}
 +}
 +
- static int do_dump(int argc, char **argv)
+ static void sock_state_print(struct sockstat *s)
  {
- 	struct bpf_prog_info info = {};
- 	__u32 len = sizeof(info);
--	bool can_disasm = false;
- 	unsigned int buf_size;
- 	char *filepath = NULL;
- 	bool opcodes = false;
-@@ -315,7 +345,6 @@ static int do_dump(int argc, char **argv)
- 	if (is_prefix(*argv, "jited")) {
- 		member_len = &info.jited_prog_len;
- 		member_ptr = &info.jited_prog_insns;
--		can_disasm = true;
- 	} else if (is_prefix(*argv, "xlated")) {
- 		member_len = &info.xlated_prog_len;
- 		member_ptr = &info.xlated_prog_insns;
-@@ -346,10 +375,6 @@ static int do_dump(int argc, char **argv)
- 		NEXT_ARG();
+ 	const char *sock_name;
+@@ -823,6 +853,9 @@ static void sock_state_print(struct sockstat *s)
+ 	case AF_NETLINK:
+ 		sock_name = "nl";
+ 		break;
++	case AF_VSOCK:
++		sock_name = vsock_netid_name(s->type);
++		break;
+ 	default:
+ 		sock_name = "unknown";
+ 	}
+@@ -1149,6 +1182,8 @@ static int run_ssfilter(struct ssfilter *f, struct sockstat *s)
+ 			return s->lport == 0 && s->local.data[0] == 0;
+ 		if (s->local.family == AF_NETLINK)
+ 			return s->lport < 0;
++		if (s->local.family == AF_VSOCK)
++			return s->lport > 1023;
+ 
+ 		return is_ephemeral(s->lport);
+ 	}
+@@ -1524,6 +1559,15 @@ void *parse_devcond(char *name)
+ 	return res;
+ }
+ 
++static void vsock_set_inet_prefix(inet_prefix *a, __u32 cid)
++{
++	*a = (inet_prefix){
++		.bytelen = sizeof(cid),
++		.family = AF_VSOCK,
++	};
++	memcpy(a->data, &cid, sizeof(cid));
++}
++
+ void *parse_hostcond(char *addr, bool is_port)
+ {
+ 	char *port = NULL;
+@@ -1598,6 +1642,37 @@ void *parse_hostcond(char *addr, bool is_port)
+ 		goto out;
  	}
  
--	if (!filepath && !can_disasm) {
--		err("expected 'file' got %s\n", *argv);
--		return -1;
--	}
- 	if (argc) {
- 		usage();
++	if (fam == AF_VSOCK || strncmp(addr, "vsock:", 6) == 0) {
++		__u32 cid = ~(__u32)0;
++
++		a.addr.family = AF_VSOCK;
++		if (strncmp(addr, "vsock:", 6) == 0)
++			addr += 6;
++
++		if (is_port)
++			port = addr;
++		else {
++			port = strchr(addr, ':');
++			if (port) {
++				*port = '\0';
++				port++;
++			}
++		}
++
++		if (port && strcmp(port, "*") &&
++		    get_u32((__u32 *)&a.port, port, 0))
++			return NULL;
++
++		if (addr[0] && strcmp(addr, "*")) {
++			a.addr.bitlen = 32;
++			if (get_u32(&cid, addr, 0))
++				return NULL;
++		}
++		vsock_set_inet_prefix(&a.addr, cid);
++		fam = AF_VSOCK;
++		goto out;
++	}
++
+ 	if (fam == AF_INET || !strncmp(addr, "inet:", 5)) {
+ 		fam = AF_INET;
+ 		if (!strncmp(addr, "inet:", 5))
+@@ -3674,6 +3749,88 @@ static int netlink_show(struct filter *f)
+ 	return 0;
+ }
+ 
++static bool vsock_type_skip(struct sockstat *s, struct filter *f)
++{
++	if (s->type == SOCK_STREAM && !(f->dbs & (1 << VSOCK_ST_DB)))
++		return true;
++	if (s->type == SOCK_DGRAM && !(f->dbs & (1 << VSOCK_DG_DB)))
++		return true;
++	return false;
++}
++
++static void vsock_addr_print(inet_prefix *a, __u32 port)
++{
++	char cid_str[sizeof("4294967295")];
++	char port_str[sizeof("4294967295")];
++	__u32 cid;
++
++	memcpy(&cid, a->data, sizeof(cid));
++
++	if (cid == ~(__u32)0)
++		snprintf(cid_str, sizeof(cid_str), "*");
++	else
++		snprintf(cid_str, sizeof(cid_str), "%u", cid);
++
++	if (port == ~(__u32)0)
++		snprintf(port_str, sizeof(port_str), "*");
++	else
++		snprintf(port_str, sizeof(port_str), "%u", port);
++
++	sock_addr_print(cid_str, ":", port_str, NULL);
++}
++
++static void vsock_stats_print(struct sockstat *s, struct filter *f)
++{
++	sock_state_print(s);
++
++	vsock_addr_print(&s->local, s->lport);
++	vsock_addr_print(&s->remote, s->rport);
++
++	proc_ctx_print(s);
++
++	printf("\n");
++}
++
++static int vsock_show_sock(const struct sockaddr_nl *addr,
++			   struct nlmsghdr *nlh, void *arg)
++{
++	struct filter *f = (struct filter *)arg;
++	struct vsock_diag_msg *r = NLMSG_DATA(nlh);
++	struct sockstat stat = {
++		.type = r->vdiag_type,
++		.lport = r->vdiag_src_port,
++		.rport = r->vdiag_dst_port,
++		.state = r->vdiag_state,
++		.ino = r->vdiag_ino,
++	};
++
++	vsock_set_inet_prefix(&stat.local, r->vdiag_src_cid);
++	vsock_set_inet_prefix(&stat.remote, r->vdiag_dst_cid);
++
++	if (vsock_type_skip(&stat, f))
++		return 0;
++
++	if (f->f && run_ssfilter(f->f, &stat) == 0)
++		return 0;
++
++	vsock_stats_print(&stat, f);
++
++	return 0;
++}
++
++static int vsock_show(struct filter *f)
++{
++	DIAG_REQUEST(req, struct vsock_diag_req r);
++
++	if (!filter_af_get(f, AF_VSOCK))
++		return 0;
++
++	req.r.sdiag_family = AF_VSOCK;
++	req.r.vdiag_states = f->states;
++
++	return handle_netlink_request(f, &req.nlh, sizeof(req), vsock_show_sock);
++}
++
+ struct sock_diag_msg {
+ 	__u8 sdiag_family;
+ };
+@@ -3694,6 +3851,8 @@ static int generic_show_sock(const struct sockaddr_nl *addr,
+ 		return packet_show_sock(addr, nlh, arg);
+ 	case AF_NETLINK:
+ 		return netlink_show_sock(addr, nlh, arg);
++	case AF_VSOCK:
++		return vsock_show_sock(addr, nlh, arg);
+ 	default:
  		return -1;
-@@ -409,7 +434,10 @@ static int do_dump(int argc, char **argv)
- 			goto err_free;
- 		}
- 	} else {
--		disasm_print_insn(buf, *member_len, opcodes);
-+		if (member_len == &info.jited_prog_len)
-+			disasm_print_insn(buf, *member_len, opcodes);
-+		else
-+			dump_xlated(buf, *member_len, opcodes);
  	}
+@@ -3921,14 +4080,15 @@ static void _usage(FILE *dest)
+ "   -d, --dccp          display only DCCP sockets\n"
+ "   -w, --raw           display only RAW sockets\n"
+ "   -x, --unix          display only Unix domain sockets\n"
++"       --vsock         display only vsock sockets\n"
+ "   -f, --family=FAMILY display sockets of type FAMILY\n"
+-"       FAMILY := {inet|inet6|link|unix|netlink|help}\n"
++"       FAMILY := {inet|inet6|link|unix|netlink|vsock|help}\n"
+ "\n"
+ "   -K, --kill          forcibly close sockets, display what was closed\n"
+ "   -H, --no-header     Suppress header line\n"
+ "\n"
+ "   -A, --query=QUERY, --socket=QUERY\n"
+-"       QUERY := {all|inet|tcp|udp|raw|unix|unix_dgram|unix_stream|unix_seqpacket|packet|netlink}[,QUERY]\n"
++"       QUERY := {all|inet|tcp|udp|raw|unix|unix_dgram|unix_stream|unix_seqpacket|packet|netlink|vsock_stream|vsock_dgram}[,QUERY]\n"
+ "\n"
+ "   -D, --diag=FILE     Dump raw information about TCP sockets to FILE\n"
+ "   -F, --filter=FILE   read filter information from FILE\n"
+@@ -4001,6 +4161,9 @@ static int scan_state(const char *state)
+ 	exit(-1);
+ }
  
- 	free(buf);
-@@ -430,7 +458,7 @@ static int do_help(int argc, char **argv)
- {
- 	fprintf(stderr,
- 		"Usage: %s %s show [PROG]\n"
--		"       %s %s dump xlated PROG  file FILE\n"
-+		"       %s %s dump xlated PROG [file FILE] [opcodes]\n"
- 		"       %s %s dump jited  PROG [file FILE] [opcodes]\n"
- 		"       %s %s pin   PROG FILE\n"
- 		"       %s %s help\n"
++/* Values 'v' and 'V' are already used so a non-character is used */
++#define OPT_VSOCK 256
++
+ static const struct option long_opts[] = {
+ 	{ "numeric", 0, 0, 'n' },
+ 	{ "resolve", 0, 0, 'r' },
+@@ -4017,6 +4180,7 @@ static const struct option long_opts[] = {
+ 	{ "udp", 0, 0, 'u' },
+ 	{ "raw", 0, 0, 'w' },
+ 	{ "unix", 0, 0, 'x' },
++	{ "vsock", 0, 0, OPT_VSOCK },
+ 	{ "all", 0, 0, 'a' },
+ 	{ "listening", 0, 0, 'l' },
+ 	{ "ipv4", 0, 0, '4' },
+@@ -4102,6 +4266,9 @@ int main(int argc, char *argv[])
+ 		case 'x':
+ 			filter_af_set(&current_filter, AF_UNIX);
+ 			break;
++		case OPT_VSOCK:
++			filter_af_set(&current_filter, AF_VSOCK);
++			break;
+ 		case 'a':
+ 			state_filter = SS_ALL;
+ 			break;
+@@ -4128,6 +4295,8 @@ int main(int argc, char *argv[])
+ 				filter_af_set(&current_filter, AF_UNIX);
+ 			else if (strcmp(optarg, "netlink") == 0)
+ 				filter_af_set(&current_filter, AF_NETLINK);
++			else if (strcmp(optarg, "vsock") == 0)
++				filter_af_set(&current_filter, AF_VSOCK);
+ 			else if (strcmp(optarg, "help") == 0)
+ 				help();
+ 			else {
+@@ -4193,6 +4362,15 @@ int main(int argc, char *argv[])
+ 					filter_db_set(&current_filter, PACKET_DG_DB);
+ 				} else if (strcmp(p, "netlink") == 0) {
+ 					filter_db_set(&current_filter, NETLINK_DB);
++				} else if (strcmp(p, "vsock") == 0) {
++					filter_db_set(&current_filter, VSOCK_ST_DB);
++					filter_db_set(&current_filter, VSOCK_DG_DB);
++				} else if (strcmp(p, "vsock_stream") == 0 ||
++					   strcmp(p, "v_str") == 0) {
++					filter_db_set(&current_filter, VSOCK_ST_DB);
++				} else if (strcmp(p, "vsock_dgram") == 0 ||
++					   strcmp(p, "v_dgr") == 0) {
++					filter_db_set(&current_filter, VSOCK_DG_DB);
+ 				} else {
+ 					fprintf(stderr, "ss: \"%s\" is illegal socket table id\n", p);
+ 					usage();
+@@ -4408,6 +4586,8 @@ int main(int argc, char *argv[])
+ 		dccp_show(&current_filter);
+ 	if (current_filter.dbs & (1<<SCTP_DB))
+ 		sctp_show(&current_filter);
++	if (current_filter.dbs & VSOCK_DBM)
++		vsock_show(&current_filter);
+ 
+ 	if (show_users || show_proc_ctx || show_sock_ctx)
+ 		user_ent_destroy();
+diff --git a/man/man8/ss.8 b/man/man8/ss.8
+index 3bec97f0..3af509e9 100644
+--- a/man/man8/ss.8
++++ b/man/man8/ss.8
+@@ -125,14 +125,18 @@ Display Unix domain sockets (alias for -f unix).
+ .B \-S, \-\-sctp
+ Display SCTP sockets.
+ .TP
++.B \-\-vsock
++Display vsock sockets (alias for -f vsock).
++.TP
+ .B \-f FAMILY, \-\-family=FAMILY
+ Display sockets of type FAMILY.
+-Currently the following families are supported: unix, inet, inet6, link, netlink.
++Currently the following families are supported: unix, inet, inet6, link, netlink, vsock.
+ .TP
+ .B \-A QUERY, \-\-query=QUERY, \-\-socket=QUERY
+ List of socket tables to dump, separated by commas. The following identifiers
+ are understood: all, inet, tcp, udp, raw, unix, packet, netlink, unix_dgram,
+-unix_stream, unix_seqpacket, packet_raw, packet_dgram, dccp, sctp.
++unix_stream, unix_seqpacket, packet_raw, packet_dgram, dccp, sctp,
++vsock_stream, vsock_dgram.
+ .TP
+ .B \-D FILE, \-\-diag=FILE
+ Do not display anything, just dump raw information about TCP sockets to FILE after applying filters. If FILE is - stdout is used.
 -- 
-2.14.1
+2.13.6
