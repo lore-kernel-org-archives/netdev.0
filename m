@@ -1,16 +1,27 @@
-From: Jia-Ju Bai <baijiaju1990@163.com>
-Subject: [PATCH] Fix a sleep-in-atomic bug in shash_setkey_unaligned
-Date: Tue,  3 Oct 2017 10:22:44 +0800
-Message-ID: <1506997364-26541-1-git-send-email-baijiaju1990@163.com>
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, linux-wireless@vger.kernel.org,
-        Jia-Ju Bai <baijiaju1990@163.com>
-To: davem@davemloft.net, herbert@gondor.apana.org.au,
-        nhorman@tuxdriver.com, vyasevich@gmail.com, luto@kernel.org,
-        kvalo@codeaurora.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
+From: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+Subject: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Tue,  3 Oct 2017 10:25:22 +0800
+Message-ID: <1506997522-26684-1-git-send-email-baijiaju1990@163.com>
+Cc: linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
+
+The SCTP program may sleep under a spinlock, and the function call path is:
+sctp_generate_t3_rtx_event (acquire the spinlock)
+  sctp_do_sm
+    sctp_side_effects
+      sctp_cmd_interpreter
+        sctp_make_init_ack
+          sctp_pack_cookie
+            crypto_shash_setkey
+              shash_setkey_unaligned
+                kmalloc(GFP_KERNEL)
 
 For the same reason, the orinoco driver may sleep in interrupt handler, 
 and the function call path is:
@@ -24,7 +35,7 @@ orinoco_rx_isr_tasklet
 To fix it, GFP_KERNEL is replaced with GFP_ATOMIC.
 This bug is found by my static analysis tool and my code review.
 
-Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
+Signed-off-by: Jia-Ju Bai <baijiaju1990-9Onoh4P/yGk@public.gmane.org>
 ---
  crypto/shash.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
