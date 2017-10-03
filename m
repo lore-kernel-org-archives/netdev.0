@@ -1,142 +1,116 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH net] net: br: Fix igmp snooping offload with
- CONFIG_BRIDGE_VLAN_FILTERING
-Date: Wed, 4 Oct 2017 00:03:01 +0900
-Message-ID: <ad0d7686-298b-02c7-d8f8-b9363f4630f3@gmail.com>
-References: <1506992111-25004-1-git-send-email-andrew@lunn.ch>
- <37af5488-a064-37dc-b1ce-373119ae7b05@lab.ntt.co.jp>
- <20171003121636.GB13548@lunn.ch>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: v4.14-rc2/arm64 kernel BUG at net/core/skbuff.c:2626
+Date: Tue, 3 Oct 2017 17:19:28 +0200
+Message-ID: <CACT4Y+Yf86hS_3u=qe0ZL208GmrfF6bp50kYcL+3D9QFBh=LZA@mail.gmail.com>
+References: <20171002104947.GE20737@leverpostej> <CANn89i++X2rzsaHkTRayMpCED_exL8WPq12=RwD_hXsZ6cN-wQ@mail.gmail.com>
+ <20171002142156.GB21696@leverpostej> <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-        David Miller <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:37409 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751527AbdJCPDK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 11:03:10 -0400
-Received: by mail-pf0-f195.google.com with SMTP id e69so9386539pfg.4
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 08:03:10 -0700 (PDT)
-In-Reply-To: <20171003121636.GB13548@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        linux-arm-kernel@lists.infradead.org,
+        syzkaller <syzkaller@googlegroups.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANn89i+zQG=rjHRqzsvPzjg5tqW43Lcz-BJ9spLascP9Nt5z8Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17/10/03 (火) 21:16, Andrew Lunn wrote:
-> On Tue, Oct 03, 2017 at 12:29:56PM +0900, Toshiaki Makita wrote:
->> On 2017/10/03 9:55, Andrew Lunn wrote:
->>> With CONFIG_BRIDGE_VLAN_FILTERING enabled, but the feature not enabled
->>> via /sys/class/net/brX/bridge/vlan_filtering, mdb offloaded to the
->>> kernel have the wrong VID.
->>>
->>> When an interface is added to the bridge, switchdev is first used to
->>> notify the hardware that a port has joined a bridge. This is
->>> immediately followed by the default_pvid, 1, being added to the
->>> interface via another switchdev call.
->>>
->>> The bridge will then perform IGMP snooping, and offload an mdb entries
->>> to the switch as needed. With vlan filtering disabled, the vid is left
->>> as 0. This causes the switch to put the static mdb into the wrong
->>> vlan, and so frames are not forwarded by the mdb entry.
->>>
->>> If vlan filtering is disable, use the default_pvid, not 0.
->>>
->>> Fixes: f1fecb1d10ec ("bridge: Reflect MDB entries to hardware")
->>> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
->>> ---
->>>  net/bridge/br_vlan.c | 1 +
->>>  1 file changed, 1 insertion(+)
->>>
->>> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
->>> index 233a30040c91..aa3589891797 100644
->>> --- a/net/bridge/br_vlan.c
->>> +++ b/net/bridge/br_vlan.c
->>> @@ -492,6 +492,7 @@ bool br_allowed_ingress(const struct net_bridge *br,
->>>  	 */
->>>  	if (!br->vlan_enabled) {
->>>  		BR_INPUT_SKB_CB(skb)->vlan_filtered = false;
->>> +		*vid = br_get_pvid(vg);
->>>  		return true;
->>>  	}
->>>
+On Mon, Oct 2, 2017 at 4:42 PM, 'Eric Dumazet' via syzkaller
+<syzkaller@googlegroups.com> wrote:
+> On Mon, Oct 2, 2017 at 7:21 AM, Mark Rutland <mark.rutland@arm.com> wrote:
+>> Hi Eric,
 >>
->> This does not look correct.
->> This will update fdb with vid which is not 0.
->> Pvid can be different between each port even when vlan_filtering is
->> disabled so unicast forwarding (fdb learning) will break.
->> Also, fdb is visible to userspace so this can break userspace which
->> expects fdb entries with 0 as well.
+>> On Mon, Oct 02, 2017 at 06:36:32AM -0700, Eric Dumazet wrote:
+>>> On Mon, Oct 2, 2017 at 3:49 AM, Mark Rutland <mark.rutland@arm.com> wrote:
+>>> > I hit the below splat at net/core/skbuff.c:2626 while fuzzing v4.14-rc2
+>>> > on arm64 with Syzkaller. This is the BUG_ON(len) at the end of
+>>> > skb_copy_and_csum_bits().
 >>
->> Why does the switch driver use pvid while vlan_filtering is disabled?
+>>> > kernel BUG at net/core/skbuff.c:2626!
+>>
+>>> > [<ffff200009e03214>] skb_copy_and_csum_bits+0x8dc/0xae0 net/core/skbuff.c:2626
+>>> > [<ffff20000a01d244>] icmp_glue_bits+0xa4/0x2a0 net/ipv4/icmp.c:357
+>>> > [<ffff200009f3f0d4>] __ip_append_data+0x10e4/0x20a8 net/ipv4/ip_output.c:1018
+>>> > [<ffff200009f41a88>] ip_append_data.part.3+0xe8/0x1a0 net/ipv4/ip_output.c:1170
+>>> > [<ffff200009f46e74>] ip_append_data+0xa4/0xb0 net/ipv4/ip_output.c:1173
+>>> > [<ffff20000a01ccc8>] icmp_push_reply+0x1b8/0x690 net/ipv4/icmp.c:375
+>>> > [<ffff20000a0211b0>] icmp_send+0x1070/0x1890 net/ipv4/icmp.c:741
+>>> > [<ffff200009f41d48>] ip_fragment.constprop.4+0x208/0x340 net/ipv4/ip_output.c:552
+>>> > [<ffff200009f42228>] ip_finish_output+0x3a8/0xab0 net/ipv4/ip_output.c:315
+>>> > [<ffff200009f468c4>] NF_HOOK_COND include/linux/netfilter.h:238 [inline]
+>>> > [<ffff200009f468c4>] ip_output+0x284/0x790 net/ipv4/ip_output.c:405
+>>> > [<ffff200009f43204>] dst_output include/net/dst.h:458 [inline]
+>>> > [<ffff200009f43204>] ip_local_out+0x9c/0x1b8 net/ipv4/ip_output.c:124
+>>> > [<ffff200009f445e8>] ip_queue_xmit+0x850/0x18e0 net/ipv4/ip_output.c:504
+>>> > [<ffff200009fb091c>] tcp_transmit_skb+0x107c/0x3338 net/ipv4/tcp_output.c:1123
+>>> > [<ffff200009fbbcc4>] __tcp_retransmit_skb+0x614/0x1d18 net/ipv4/tcp_output.c:2847
+>>> > [<ffff200009fbd840>] tcp_send_loss_probe+0x478/0x7d0 net/ipv4/tcp_output.c:2457
+>>> > [<ffff200009fc707c>] tcp_write_timer_handler+0x50c/0x7e8 net/ipv4/tcp_timer.c:557
+>>> > [<ffff200009fc73d0>] tcp_write_timer+0x78/0x170 net/ipv4/tcp_timer.c:579
+>>> > [<ffff2000082f8980>] call_timer_fn+0x1b8/0x430 kernel/time/timer.c:1281
+>>> > [<ffff2000082f8dcc>] expire_timers+0x1d4/0x320 kernel/time/timer.c:1320
+>>> > [<ffff2000082f912c>] __run_timers kernel/time/timer.c:1620 [inline]
+>>> > [<ffff2000082f912c>] run_timer_softirq+0x214/0x5f0 kernel/time/timer.c:1646
+>>> > [<ffff2000080826c0>] __do_softirq+0x350/0xc0c kernel/softirq.c:284
+>>> > [<ffff200008170af4>] do_softirq_own_stack include/linux/interrupt.h:498 [inline]
+>>> > [<ffff200008170af4>] invoke_softirq kernel/softirq.c:371 [inline]
+>>> > [<ffff200008170af4>] irq_exit+0x1dc/0x2f8 kernel/softirq.c:405
+>>> > [<ffff2000082a95bc>] __handle_domain_irq+0xdc/0x230 kernel/irq/irqdesc.c:647
+>>> > [<ffff2000080820ac>] handle_domain_irq include/linux/irqdesc.h:175 [inline]
+>>> > [<ffff2000080820ac>] gic_handle_irq+0x6c/0xe0 drivers/irqchip/irq-gic.c:367
+>>
+>>> This is most likely a bug caused by syzkaller setting a ridiculous MTU
+>>> on loopback device, below minimum size of ipv4 MTU.
+>>
+>>> I tried to track it in August [1], but it seems hard to find all the
+>>> issues with this.
+>>>
+>>> commit c780a049f9bf442314335372c9abc4548bfe3e44
+>>> Author: Eric Dumazet <edumazet@google.com>
+>>> Date:   Wed Aug 16 11:09:12 2017 -0700
+>>>
+>>>     ipv4: better IP_MAX_MTU enforcement
+>>>
+>>>     While working on yet another syzkaller report, I found
+>>>     that our IP_MAX_MTU enforcements were not properly done.
+>>>
+>>>     gcc seems to reload dev->mtu for min(dev->mtu, IP_MAX_MTU), and
+>>>     final result can be bigger than IP_MAX_MTU :/
+>>>
+>>>     This is a problem because device mtu can be changed on other cpus or
+>>>     threads.
+>>>
+>>>     While this patch does not fix the issue I am working on, it is
+>>>     probably worth addressing it.
+>>
+>> Just to check I've understood correctly, are you suggesting that the
+>> IPv4 code should also check the dev->mtu against a IP_MIN_MTU (which
+>> doesn't seem to exist today)?
 >
-> Hi Toshiaki
+> We have plenty of places this is checked.
 >
-> We get a vlan added to the port. I think it comes from a combination
-> of:
+> For example, trying to set MTU < 68 usually removes IPv4 addresses and routes.
 >
+> Problem is : these checks are not fool proof yet.
 >
-> int br_vlan_init(struct net_bridge *br)
-> {
->         struct net_bridge_vlan_group *vg;
->         int ret = -ENOMEM;
+> ( Only the admin was supposed to play these games )
 >
->         vg = kzalloc(sizeof(*vg), GFP_KERNEL);
->         if (!vg)
->                 goto out;
->         ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
->         if (ret)
->                 goto err_rhtbl;
->         ret = vlan_tunnel_init(vg);
->         if (ret)
->                 goto err_tunnel_init;
->         INIT_LIST_HEAD(&vg->vlan_list);
->         br->vlan_proto = htons(ETH_P_8021Q);
->         br->default_pvid = 1;
+>>
+>> Otherwise, I do spot another potential issue. The writer side (e.g. most
+>> net_device::ndo_change_mtu implementations and the __dev_set_mtu()
+>> fallback) doesn't use WRITE_ONCE().
 >
-> and
->
-> int nbp_vlan_init(struct net_bridge_port *p)
-> {
->         struct switchdev_attr attr = {
->                 .orig_dev = p->br->dev,
->                 .id = SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
->                 .flags = SWITCHDEV_F_SKIP_EOPNOTSUPP,
->                 .u.vlan_filtering = p->br->vlan_enabled,
->         };
->         struct net_bridge_vlan_group *vg;
->         int ret = -ENOMEM;
->
->         vg = kzalloc(sizeof(struct net_bridge_vlan_group), GFP_KERNEL);
->         if (!vg)
->                 goto out;
->
->         ret = switchdev_port_attr_set(p->dev, &attr);
->         if (ret && ret != -EOPNOTSUPP)
->                 goto err_vlan_enabled;
->
->         ret = rhashtable_init(&vg->vlan_hash, &br_vlan_rht_params);
->         if (ret)
->                 goto err_rhtbl;
->         ret = vlan_tunnel_init(vg);
->         if (ret)
->                 goto err_tunnel_init;
->         INIT_LIST_HEAD(&vg->vlan_list);
->         rcu_assign_pointer(p->vlgrp, vg);
->         if (p->br->default_pvid) {
->                 ret = nbp_vlan_add(p, p->br->default_pvid,
->                                    BRIDGE_VLAN_INFO_PVID |
->                                    BRIDGE_VLAN_INFO_UNTAGGED);
->
-> Now, i just noticed the switchdev call above. I don't think the DSA
-> layer implements SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING. It probably
-> should. So what is it supposed to do with this VLAN when filtering is
-> disabled?
+> It does not matter how many strange values can be observed by the reader :
+> We must be fool proof anyway from reader point of view, so the
+> WRITE_ONCE() is not strictly needed.
 
-The vlan will be effective only when vlan_filtering is enabled.
-When vlan_filtering is disabled, vlan information is still kept in the 
-bridge and gets effective later when vlan_filtering becomes enable.
 
-Toshiaki Makita
+Note if writer stores some temporal garbage there (which C language
+perfectly allows), it does not matter what we do on reader side --
+reader won't get correct data anyway. Say mtu changes from 1000 to
+2000, but writer temporary stores 1 there, reader can observe 1 while
+it must not. Synchronization is always a game of two.
