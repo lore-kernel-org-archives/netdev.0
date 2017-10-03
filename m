@@ -1,64 +1,47 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
-Date: Tue, 3 Oct 2017 11:40:53 +0200
-Message-ID: <20171003094052.GA20592@netronome.com>
-References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
- <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
- <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Tom Herbert <tom@herbertland.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] net: rtnetlink: fix info leak in RTM_GETSTATS call
+Date: Tue,  3 Oct 2017 13:20:48 +0300
+Message-ID: <1507026048-13734-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: keescook@chromium.org, dvyukov@google.com, andreyknvl@google.com,
+        kcc@google.com, roopa@cumulusnetworks.com, glider@google.com,
+        davem@davemloft.net, edumazet@google.com,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:55829 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751207AbdJCJk4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 05:40:56 -0400
-Received: by mail-wr0-f176.google.com with SMTP id l39so5875501wrl.12
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 02:40:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:49935 "EHLO
+        mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750767AbdJCKWV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 06:22:21 -0400
+Received: by mail-wm0-f42.google.com with SMTP id b189so11757538wmd.4
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 03:22:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 02, 2017 at 01:37:55PM -0700, Tom Herbert wrote:
-> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> > Move dissection of tunnel info from the flower classifier to the flow
-> > dissector where all other dissection occurs.  This should not have any
-> > behavioural affect on other users of the flow dissector.
+When RTM_GETSTATS was added the fields of its header struct were not all
+initialized when returning the result thus leaking 4 bytes of information
+to user-space per rtnl_fill_statsinfo call, so initialize them now. Thanks
+to Alexander Potapenko for the detailed report and bisection.
 
-...
+Reported-by: Alexander Potapenko <glider@google.com>
+Fixes: 10c9ead9f3c6 ("rtnetlink: add new RTM_GETSTATS message to dump link stats")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ net/core/rtnetlink.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Hi Tom,
-
-> Simon,
-> 
-> I think I'm missing something fundamental here. This code is
-> populating flow dissector keys not based on the contents of the packet
-> like rest of the flow dissector, but on external meta data related to
-> the packet which I believe is constant during the whole flow
-> dissection.
-
-Yes, I believe that is correct on all counts.
-
-> Why can't this be handled by the caller?
-
-It certainly can be. And indeed it was before this patch. But it seems odd
-for some population of dissector keys to occur in the dissector and some
-elsewhere.
-
-I feel that we are circling back the perennial issue of flower using the
-flow dissector in a somewhat broader/different way than many/all other
-users of the flow dissector.
-
-> Also, if I read this correctly, this code could be called multiple times
-> and it seems like it does the exact same thing in each call.
-
-I'm not sure what you are getting at there. If there are flower classifiers
-for the same device at different priority levels then the dissection
-will be called multiple times and the data in question cannot have changed
-as far as I know. But this was also the case before this patch.
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a78fd61da0ec..d4bcdcc68e92 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3854,6 +3854,9 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 		return -EMSGSIZE;
+ 
+ 	ifsm = nlmsg_data(nlh);
++	ifsm->family = PF_UNSPEC;
++	ifsm->pad1 = 0;
++	ifsm->pad2 = 0;
+ 	ifsm->ifindex = dev->ifindex;
+ 	ifsm->filter_mask = filter_mask;
+ 
+-- 
+2.1.4
