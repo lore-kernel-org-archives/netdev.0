@@ -1,40 +1,52 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net] net: rtnetlink: fix info leak in RTM_GETSTATS call
-Date: Tue, 3 Oct 2017 07:18:07 -0700
-Message-ID: <CAJieiUiRy8=KDNL7vj63V97cSoYdcQB3Q3hfnX+_YevVgnd3Xw@mail.gmail.com>
-References: <1507026048-13734-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next V3 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion
+ and allocation
+Date: Tue, 3 Oct 2017 16:18:46 +0200
+Message-ID: <20171003161846.4f2e2733@redhat.com>
+References: <150696027949.24152.7507025809123255386.stgit@firesoul>
+        <150696032966.24152.3096148163967111058.stgit@firesoul>
+        <20171003010245.f3op4t56crbjc4ke@ast-mbp>
+        <20171003085843.14d3491e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        keescook@chromium.org, Dmitry Vyukov <dvyukov@google.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Alexander Potapenko <glider@google.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:44172 "EHLO
-        mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751156AbdJCOSI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 10:18:08 -0400
-Received: by mail-vk0-f41.google.com with SMTP id d12so4662235vkf.1
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 07:18:08 -0700 (PDT)
-In-Reply-To: <1507026048-13734-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38524 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751156AbdJCOS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 10:18:57 -0400
+In-Reply-To: <20171003085843.14d3491e@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 3, 2017 at 3:20 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> When RTM_GETSTATS was added the fields of its header struct were not all
-> initialized when returning the result thus leaking 4 bytes of information
-> to user-space per rtnl_fill_statsinfo call, so initialize them now. Thanks
-> to Alexander Potapenko for the detailed report and bisection.
->
-> Reported-by: Alexander Potapenko <glider@google.com>
-> Fixes: 10c9ead9f3c6 ("rtnetlink: add new RTM_GETSTATS message to dump link stats")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+On Tue, 3 Oct 2017 08:58:43 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-Acked-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> > But that prog can do cpumap redirect again?
+> > sort-of recursive redirect? Is it really useful?
+> > May be call into __netif_receive_skb_core() directly?
+> > not sure.  
+> 
+> I like the idea of calling  __netif_receive_skb_core() directly.  I'll
+> send a V4 (after running my different benchmarks).
 
-Thanks Nikolay!.
+Using __netif_receive_skb_core() was straight forward/easy.
+
+But I realized I had forgotten about Generic-XDP, which I also need to
+code up.  And with Generic-XDP we cannot invoke netif_receive_skb(),
+because it would recursively invoke itself (which you actually point out
+above, thx).  I'll send a V4 out tomorrow.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
