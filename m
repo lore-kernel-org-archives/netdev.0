@@ -1,7 +1,7 @@
 From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v3 4/4] igb: Add support for CBS offload
-Date: Tue,  3 Oct 2017 16:44:33 -0700
-Message-ID: <20171003234435.8979-6-vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v2 5/5] igb: Add support for CBS offload
+Date: Tue,  3 Oct 2017 16:44:35 -0700
+Message-ID: <20171003234435.8979-8-vinicius.gomes@intel.com>
 References: <20171003234435.8979-1-vinicius.gomes@intel.com>
 Cc: Andre Guedes <andre.guedes@intel.com>, jhs@mojatatu.com,
         xiyou.wangcong@gmail.com, jiri@resnulli.us, ivan.briano@intel.com,
@@ -10,10 +10,10 @@ Cc: Andre Guedes <andre.guedes@intel.com>, jhs@mojatatu.com,
         rodney.cummings@ni.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:57671 "EHLO mga14.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:48940 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750865AbdJCXpH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 19:45:07 -0400
+        id S1751238AbdJCXpI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 19:45:08 -0400
 In-Reply-To: <20171003234435.8979-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
