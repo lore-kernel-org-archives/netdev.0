@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/7] ipv4: ipmr: Add the parent ID field to VIF struct
-Date: Tue,  3 Oct 2017 09:58:07 +0200
-Message-ID: <20171003075812.1540-3-jiri@resnulli.us>
-References: <20171003075812.1540-1-jiri@resnulli.us>
+Subject: [patch net-next v2 0/7] mlxsw: Add support for partial multicast route offload
+Date: Tue,  3 Oct 2017 09:58:05 +0200
+Message-ID: <20171003075812.1540-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch,
         dsa@cumulusnetworks.com, edumazet@google.com, willemb@google.com,
@@ -11,87 +10,68 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         gfree.wind@vip.163.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:57045 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:48262 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751059AbdJCH6Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:16 -0400
-Received: by mail-wm0-f65.google.com with SMTP id l68so1115415wmd.5
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:15 -0700 (PDT)
-In-Reply-To: <20171003075812.1540-1-jiri@resnulli.us>
+        with ESMTP id S1751059AbdJCH6O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 03:58:14 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i82so12684984wmd.3
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 00:58:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-In order to allow the ipmr module to do partial multicast forwarding
-according to the device parent ID, add the device parent ID field to the
-VIF struct. This way, the forwarding path can use the parent ID field
-without invoking switchdev calls, which requires the RTNL lock.
+Yotam says:
 
-When a new VIF is added, set the device parent ID field in it by invoking
-the switchdev_port_attr_get call.
+Previous patchset introduced support for offloading multicast MFC routes to
+the Spectrum hardware. As described in that patchset, no partial offloading
+is supported, i.e if a route has one output interface which is not a valid
+offloadable device (e.g. pimreg device, dummy device, management NIC), the
+route is trapped to the CPU and the forwarding is done in slow-path.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
-v1->v2:
- - Set the vif->dev_parent_id.len field
- - Remove the vif->dev_parent_id_valid field and use len instead
- - Set the vif->dev_parent_id to invalid if the device does not support the
-   switchdev PARENT_ID attribute
----
- include/linux/mroute.h |  1 +
- net/ipv4/ipmr.c        | 11 +++++++++++
- 2 files changed, 12 insertions(+)
+Add support for partial offloading of multicast routes, by letting the
+hardware to forward the packet to all the in-hardware devices, while the
+kernel ipmr module will continue forwarding to all other interfaces.
 
-diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-index b072a84..8242d05 100644
---- a/include/linux/mroute.h
-+++ b/include/linux/mroute.h
-@@ -57,6 +57,7 @@ static inline bool ipmr_rule_default(const struct fib_rule *rule)
- 
- struct vif_device {
- 	struct net_device 	*dev;			/* Device we are using */
-+	struct netdev_phys_item_id dev_parent_id;	/* Device parent ID    */
- 	unsigned long	bytes_in,bytes_out;
- 	unsigned long	pkt_in,pkt_out;		/* Statistics 			*/
- 	unsigned long	rate_limit;		/* Traffic shaping (NI) 	*/
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index a844738..1b161ad 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -67,6 +67,7 @@
- #include <net/fib_rules.h>
- #include <linux/netconf.h>
- #include <net/nexthop.h>
-+#include <net/switchdev.h>
- 
- struct ipmr_rule {
- 	struct fib_rule		common;
-@@ -868,6 +869,9 @@ static int vif_add(struct net *net, struct mr_table *mrt,
- 		   struct vifctl *vifc, int mrtsock)
- {
- 	int vifi = vifc->vifc_vifi;
-+	struct switchdev_attr attr = {
-+		.id = SWITCHDEV_ATTR_ID_PORT_PARENT_ID,
-+	};
- 	struct vif_device *v = &mrt->vif_table[vifi];
- 	struct net_device *dev;
- 	struct in_device *in_dev;
-@@ -942,6 +946,13 @@ static int vif_add(struct net *net, struct mr_table *mrt,
- 
- 	/* Fill in the VIF structures */
- 
-+	attr.orig_dev = dev;
-+	if (!switchdev_port_attr_get(dev, &attr)) {
-+		memcpy(v->dev_parent_id.id, attr.u.ppid.id, attr.u.ppid.id_len);
-+		v->dev_parent_id.id_len = attr.u.ppid.id_len;
-+	} else {
-+		v->dev_parent_id.id_len = 0;
-+	}
- 	v->rate_limit = vifc->vifc_rate_limit;
- 	v->local = vifc->vifc_lcl_addr.s_addr;
- 	v->remote = vifc->vifc_rmt_addr.s_addr;
+Similarly to the bridge, the kernel ipmr module will forward a marked
+packet to an interface only if the interface has a different parent ID than
+the packet's ingress interfaces.
+
+The first patch introduces the offload_mr_fwd_mark skb field, which can be
+used by offloading drivers to indicate that a packet had already gone
+through multicast forwarding in hardware, similarly to the offload_fwd_mark
+field that indicates that a packet had already gone through L2 forwarding
+in hardware.
+
+Patches 2 and 3 change the ipmr module to not forward packets that had
+already been forwarded by the hardware, i.e. packets that are marked with
+offload_mr_fwd_mark and the ingress VIF shares the same parent ID with the
+egress VIF.
+
+Patches 4, 5, 6 and 7 add the support in the mlxsw Spectrum driver for trap
+and forward routes, while marking the trapped packets with the
+offload_mr_fwd_mark.
+
+Yotam Gigi (7):
+  skbuff: Add the offload_mr_fwd_mark field
+  ipv4: ipmr: Add the parent ID field to VIF struct
+  ipv4: ipmr: Don't forward packets already forwarded by hardware
+  mlxsw: acl: Introduce ACL trap and forward action
+  mlxsw: spectrum: Add trap for multicast trap-and-forward routes
+  mlxsw: spectrum: mr_tcam: Add trap-and-forward multicast route
+  mlxsw: spectrum: mr: Support trap-and-forward routes
+
+ .../mellanox/mlxsw/core_acl_flex_actions.c         | 17 ++++++++
+ .../mellanox/mlxsw/core_acl_flex_actions.h         |  2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 13 ++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c  | 17 ++++----
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h  |  1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c |  8 ++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h         |  2 +
+ include/linux/mroute.h                             |  1 +
+ include/linux/skbuff.h                             |  1 +
+ net/ipv4/ipmr.c                                    | 48 +++++++++++++++++++---
+ 10 files changed, 96 insertions(+), 14 deletions(-)
+
 -- 
 2.9.5
