@@ -1,86 +1,98 @@
-From: Harsh Jain <harsh@chelsio.com>
-Subject: [PATCH 4/7] crypto:chelsio:Use x8_ble gf multiplication to calculate IV.
-Date: Tue,  3 Oct 2017 12:16:27 +0530
-Message-ID: <a91c26d676ee674131f8b9d90d39327680a783f9.1507010612.git.harsh@chelsio.com>
-References: <cover.1507010612.git.harsh@chelsio.com>
-Cc: Harsh Jain <harsh@chelsio.com>
-To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
-        netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next V3 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion
+ and allocation
+Date: Tue, 3 Oct 2017 08:58:43 +0200
+Message-ID: <20171003085843.14d3491e@redhat.com>
+References: <150696027949.24152.7507025809123255386.stgit@firesoul>
+        <150696032966.24152.3096148163967111058.stgit@firesoul>
+        <20171003010245.f3op4t56crbjc4ke@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:14192 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751167AbdJCGqu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 02:46:50 -0400
-In-Reply-To: <cover.1507010612.git.harsh@chelsio.com>
-In-Reply-To: <cover.1507010612.git.harsh@chelsio.com>
-References: <cover.1507010612.git.harsh@chelsio.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47442 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750820AbdJCG64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Oct 2017 02:58:56 -0400
+In-Reply-To: <20171003010245.f3op4t56crbjc4ke@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gf128mul_x8_ble() will reduce gf Multiplication iteration by 8.
+On Mon, 2 Oct 2017 18:02:46 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-Signed-off-by: Harsh Jain <harsh@chelsio.com>
----
- drivers/crypto/chelsio/chcr_algo.c   | 11 +++++++++--
- drivers/crypto/chelsio/chcr_crypto.h |  1 +
- 2 files changed, 10 insertions(+), 2 deletions(-)
+> On Mon, Oct 02, 2017 at 06:05:29PM +0200, Jesper Dangaard Brouer wrote:
+> > +		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
+> > +			struct sk_buff *skb;
+> > +			int ret;
+> > +
+> > +			/* Allow busy polling again */
+> > +			empty_cnt = 0;
+> > +
+> > +			skb = cpu_map_build_skb(rcpu, xdp_pkt);
+> > +			if (!skb) {
+> > +				page_frag_free(xdp_pkt);
+> > +				continue;
+> > +			}
+> > +
+> > +			/* Inject into network stack */
+> > +			ret = netif_receive_skb(skb);
+> > +			if (ret == NET_RX_DROP)
+> > +				drops++;  
+> 
+> I thought the whole thing is an alternative to RPS,
+> but netif_receive_skb_internal() will call into RPS logic.
+> So the user has to make sure it disabled or they will
+> conflict in some weird way?
 
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index e4bf32d..e0ab34a 100644
---- a/drivers/crypto/chelsio/chcr_algo.c
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -888,9 +888,11 @@ static int chcr_update_tweak(struct ablkcipher_request *req, u8 *iv)
- 	int ret, i;
- 	u8 *key;
- 	unsigned int keylen;
-+	int round = reqctx->last_req_len / AES_BLOCK_SIZE;
-+	int round8 = round / 8;
- 
- 	cipher = ablkctx->aes_generic;
--	memcpy(iv, req->info, AES_BLOCK_SIZE);
-+	memcpy(iv, reqctx->iv, AES_BLOCK_SIZE);
- 
- 	keylen = ablkctx->enckey_len / 2;
- 	key = ablkctx->key + keylen;
-@@ -899,7 +901,10 @@ static int chcr_update_tweak(struct ablkcipher_request *req, u8 *iv)
- 		goto out;
- 
- 	crypto_cipher_encrypt_one(cipher, iv, iv);
--	for (i = 0; i < (reqctx->processed / AES_BLOCK_SIZE); i++)
-+	for (i = 0; i < round8; i++)
-+		gf128mul_x8_ble((le128 *)iv, (le128 *)iv);
-+
-+	for (i = 0; i < (round % 8); i++)
- 		gf128mul_x_ble((le128 *)iv, (le128 *)iv);
- 
- 	crypto_cipher_decrypt_one(cipher, iv, iv);
-@@ -1040,6 +1045,7 @@ static int chcr_handle_cipher_resp(struct ablkcipher_request *req,
- 	    CRYPTO_ALG_SUB_TYPE_CTR)
- 		bytes = adjust_ctr_overflow(reqctx->iv, bytes);
- 	reqctx->processed += bytes;
-+	reqctx->last_req_len = bytes;
- 	wrparam.qid = u_ctx->lldi.rxq_ids[ctx->rx_qidx];
- 	wrparam.req = req;
- 	wrparam.bytes = bytes;
-@@ -1132,6 +1138,7 @@ static int process_cipher(struct ablkcipher_request *req,
- 		goto error;
- 	}
- 	reqctx->processed = bytes;
-+	reqctx->last_req_len = bytes;
- 	reqctx->dst = reqctx->dstsg;
- 	reqctx->op = op_type;
- 	wrparam.qid = qid;
-diff --git a/drivers/crypto/chelsio/chcr_crypto.h b/drivers/crypto/chelsio/chcr_crypto.h
-index 30af1ee..b3722b3 100644
---- a/drivers/crypto/chelsio/chcr_crypto.h
-+++ b/drivers/crypto/chelsio/chcr_crypto.h
-@@ -247,6 +247,7 @@ struct chcr_blkcipher_req_ctx {
- 	struct scatterlist *dst;
- 	struct scatterlist *newdstsg;
- 	unsigned int processed;
-+	unsigned int last_req_len;
- 	unsigned int op;
- 	short int dst_nents;
- 	u8 iv[CHCR_MAX_CRYPTO_IV_LEN];
+In this patchset, cpumap and RPS are independent, and there is nothing
+wrong with running RPS after cpumap have placed the SKB on a CPU.
+Combining the two does seem a little weird.  Especially since cpumap
+doesn't (yet) transfer the HW-rxhash, thus extra SW-rxhash work will be
+done by RPS.
+
+I like you ABI argument.  While combining RPS+cpumap is technically
+possible, there isn't a good use-case for this.  Thus, we should not
+open this possibility, as we would need to support this combination
+forever.
+
+> Or you're calling netif_receive_skb() to be able to call
+> generic XDP on that cpu again ?
+
+That should not (currently) be possible. AFAIK we (Daniel) choose to
+not allow Native and Generic XDP to be loaded on the same net_device.
+(With the same ABI argument as here)
+
+
+> But that prog can do cpumap redirect again?
+> sort-of recursive redirect? Is it really useful?
+> May be call into __netif_receive_skb_core() directly?
+> not sure.
+
+I like the idea of calling  __netif_receive_skb_core() directly.  I'll
+send a V4 (after running my different benchmarks).
+
+> I'm asking all these questions to make sure we think through
+> these implications before it becomes an abi.
+
+I fully follow your ABI argument. Thank you for bringing this up!
+
+
+Do notice, that I expect to change this code path (later), to support
+GRO. But it would be beneficial to get the HW-rxhash working first, as
+it will speedup the GRO "same_flow" check, and allow cpumap to
+distribute packets better.
+
 -- 
-2.1.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
