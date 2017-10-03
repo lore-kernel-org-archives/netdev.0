@@ -1,147 +1,59 @@
-From: <morice.diane@gmail.com>
-Subject: (unknown)
-Date: Tue, 03 Oct 2017 08:16:08 -0000
-Message-ID: <150701856873.877.1340067042061427066@vnpt.vn>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH] fsl/fman: remove of_node
+Date: Tue, 3 Oct 2017 08:49:31 +0000
+Message-ID: <AM5PR0402MB26914CBD37E3F28C17562258EC720@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <1506940297-20442-1-git-send-email-madalin.bucur@nxp.com>
+ <20171002.160445.737065995396076298.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: application/zip; name="747452.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vnpt.vn ([113.190.222.113]:36489 "HELO vnpt.vn"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751143AbdJCIQN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 04:16:13 -0400
-Content-Disposition: attachment
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171002.160445.737065995396076298.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-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
-AAAAAA==
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, October 03, 2017 2:05 AM
+> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+> Subject: Re: [PATCH] fsl/fman: remove of_node
+>=20
+> From: Madalin Bucur <madalin.bucur@nxp.com>
+> Date: Mon, 2 Oct 2017 13:31:37 +0300
+>=20
+> > The FMan MAC driver allocates a platform device for the Ethernet
+> > driver to probe on. Setting pdev->dev.of_node with the MAC node
+> > triggers the MAC driver probing of the new platform device. While
+> > this fails quickly and does not affect the functionality of the
+> > drivers, it is incorrect and must be removed. This was added to
+> > address a report that DSA code using of_find_net_device_by_node()
+> > is unable to use the DPAA interfaces. Error message seen before
+> > this fix:
+> >
+> > fsl_mac dpaa-ethernet.0: __devm_request_mem_region(mac) failed
+> > fsl_mac: probe of dpaa-ethernet.0 failed with error -16
+> >
+> > Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+>=20
+> Is the DSA issue no longer something we need to be concerned
+> about?  If not, why?  You have to explain this.
+
+My patch removes the of_node that was set to a device that was not an
+of_device, preventing duplicated probing of both the real of_device
+and the "fake" one created through this assignment.
+
+I understand that the DSA issue that triggered the initial change
+was related to DSA finding the network devices using=20
+of_find_net_device_by_node(), something that will not work for the
+DPAA case where the netdevice does not have an of_node. I do not know
+enough about DSA to come up with a solution for this problem now.
+Andrew, Florian, can you please comment on this?
+
+Thanks,
+Madalin
