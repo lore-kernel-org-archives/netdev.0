@@ -1,108 +1,80 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Wed, 4 Oct 2017 08:32:25 -0700
-Message-ID: <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
-References: <1507121766.30720.4.camel@cohaesio.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: etsec2 attached to sgmii phy
+Date: Wed, 4 Oct 2017 17:34:22 +0200
+Message-ID: <20171004153422.GC3435@lunn.ch>
+References: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de>
+ <20171004133642.GM30045@lunn.ch>
+ <alpine.DEB.2.20.1710041613320.9785@brian.int1.clnt.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?J=F6rg?= Willmann <joe@clnt.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f178.google.com ([209.85.216.178]:48389 "EHLO
-        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752248AbdJDPc1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 11:32:27 -0400
-Received: by mail-qt0-f178.google.com with SMTP id d13so19241905qta.5
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 08:32:27 -0700 (PDT)
-In-Reply-To: <1507121766.30720.4.camel@cohaesio.com>
+Received: from vps0.lunn.ch ([185.16.172.187]:39273 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752248AbdJDPeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 11:34:23 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1710041613320.9785@brian.int1.clnt.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 4, 2017 at 5:56 AM, Anders K. Pedersen | Cohaesio
-<akp@cohaesio.com> wrote:
-> Hello,
->
-> After updating one of our Linux based routers to kernel 4.13 it began
-> leaking memory quite fast (about 1 GB every half hour). To narrow we
-> tried various kernel versions and found that 4.11.12 is okay, while
-> 4.12 also leaks, so we did a bisection between 4.11 and 4.12.
->
-> The first bisection ended at
-> "[6964e53f55837b0c49ed60d36656d2e0ee4fc27b] i40e: fix handling of HW
-> ATR eviction", which fixes some flag handling that was broken by
-> 47994c119a36 "i40e: remove hw_disabled_flags in favor of using separate
-> flag bits", so I did a second bisection, where I added 6964e53f5583
-> "i40e: fix handling of HW ATR eviction" to the steps that had
-> 47994c119a36 "i40e: remove hw_disabled_flags in favor of using separate
-> flag bits" in them.
->
-> The second bisection ended at
-> "[0e626ff7ccbfc43c6cc4aeea611c40b899682382] i40e: Fix support for flow
-> director programming status", where I don't see any obvious problems,
-> so I'm hoping for some assistance.
->
-> The router is a PowerEdge R730 server (Haswell based) with three Intel
-> NICs (all using the i40e driver):
->
-> X710 quad port 10 GbE SFP+: eth0 eth1 eth2 eth3
-> X710 quad port 10 GbE SFP+: eth4 eth5 eth6 eth7
-> XL710 dual port 40 GbE QSFP+: eth8 eth9
->
-> The NICs are aggregated with LACP with the team driver:
->
-> team0: eth9 (40 GbE selected primary), and eth3, eth7 (10 GbE non-selected backups)
-> team1: eth0, eth1, eth4, eth5 (all 10 GbE selected)
->
-> team0 is used for internal networks and has one untagged and four
-> tagged VLAN interfaces, while team1 has an external uplink connection
-> without any VLANs.
->
-> The router runs an eBGP session on team1 to one of our uplinks, and
-> iBGP via team0 to our other border routers. It also runs OSPF on the
-> internal VLANs on team0. One thing I've noticed is that when OSPF is
-> not announcing a default gateway to the internal networks, so there is
-> almost no traffic coming in on team0 and out on team1, but still plenty
-> of traffic coming in on team1 and out via team0, there's no memory leak
-> (or at least it is so small that we haven't detected it). But as soon
-> as we configure OSPF to announce a default gateway to the internal
-> VLANs, so we get traffic from team0 to team1 the leaking begins.
-> Stopping the OSPF default gateway announcement again also stops the
-> leaking, but does not release already leaked memory.
->
-> So this leads to me suspect that the leaking is related to RX on team0
-> (where XL710 eth9 is normally the only active interface) or TX on team1
-> (X710 eth0, eth1, eth4, eth5). The first bad commit is related to RX
-> cleaning, which suggests RX on team0. Since we're only seeing the leak
-> for our outbound traffic, I suspect either a difference between the
-> X710 vs. XL710 NICs, or that the inbound traffic is for relatively few
-> destination addresses (only our own systems) while the outbound traffic
-> is for many different addresses on the internet. But I'm just guessing
-> here.
->
-> I've tried kmemleak, but it only found a few kB of suspected memory
-> leaks (several of which disappeared again after a while).
->
-> Below I've included more details - git bisect logs, ethtool -i, dmesg,
-> Kernel .config, and various memory related /proc files. Any help or
-> suggestions would be much appreciated, and please let me know if more
-> information is needed or there's something I should try.
->
-> Regards,
-> Anders K. Pedersen
->
+On Wed, Oct 04, 2017 at 04:19:23PM +0200, Jörg Willmann wrote:
+> On Wed, 4 Oct 2017, Andrew Lunn wrote:
+> 
+> >On Wed, Oct 04, 2017 at 07:56:53AM +0200, Jörg Willmann wrote:
+> >>Hi,
+> >>
+> >>we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352).
+> >>Currently we still use a really old linux kernel (2.6.33) successfully.
+> >>
+> >>For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI
+> >>Phy we use the following settings in the device tree:
+> >>
+> >>                        mdio@25000 {
+> >>                                   #address-cells = <0x1>;
+> >>                                   #size-cells = <0x0>;
+> >>                                   compatible = "fsl,etsec2-tbi";
+> >>                                   reg = <0x25000 0x1000 0xb1030 0x4>;
+> >
+> >Hi Joerg
+> >
+> >Is 0xb1030 0x4 fixed by the silicon? Can it be expressed as an offset from
+> >0x25000?
+> >
+> >It seems like the idea behind the patch is to hard code some
+> >things. If you can hard code the offset into get_etsec_tbipa(), i
+> >think that would be an O.K. solution to your problem.
+> >
+> >     Andrew
+> >
+> Yes, the adress 0xb1030 is fixed but it's something totally different than
+> the address range of 0x25000. 0xb0000, 0xb1000 and 0xb2000 are base
+> addresses of the eTSEC MAC (TPIPA is a register within the MAC) and 0x24000,
+> 0x25000 and 0x26000 are the base registers of the corresponding MDIO
+> controllers. So I wouldn't add a dependency between these two things.
+> >From my point of view, the implementation in the old kernel where
+> get_gfar_tbipa() got the device tree node pointer as argument was not soo
+> bad ;-)
 
-Hi Anders,
+I took a quick look at the current device tree files. They all seem to
+have the 0xb1030 0x4. So reading it inside of get_etsec_tbipa() is
+O.K.
 
-I think I see the problem and should have a patch submitted shortly to
-address it. From what I can tell it looks like the issue is that we
-weren't properly recycling the pages associated with descriptors that
-contained an Rx programming status. For now the workaround would be to
-try disabling ATR via the "ethtool --set-priv-flags" command. I should
-have a patch out in the next hour or so that you can try testing to
-verify if it addresses the issue.
+Looks like you need to modify all the get_tbipa() functions to take a
+device_node *, and this code looks like it needs to change:
 
-Thanks.
+                        /*
+                         * Add consistency check to make sure TBI is contained
+                         * within the mapped range (not because we would get a
+                         * segfault, rather to catch bugs in computing TBI
+                         * address). Print error message but continue anyway.
+                         */
+                        if ((void *)tbipa > priv->map + resource_size(&res) - 4)
+                                dev_err(&pdev->dev, "invalid register map (should be at least 0x%04zx to contain TBI address)\n",
+                                        ((void *)tbipa - priv->map) + 4);
 
-- Alex
+                        iowrite32be(be32_to_cpup(prop), tbipa);
+
+	Andrew
