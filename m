@@ -1,112 +1,33 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 net-next] ravb: RX checksum offload
-Date: Wed, 4 Oct 2017 21:53:09 +0300
-Message-ID: <58512067-ed8a-d9d1-1f29-0351c87c02b7@cogentembedded.com>
-References: <1507103667-6084-1-git-send-email-horms+renesas@verge.net.au>
+From: Richard Siegfried <richard_siegfried@systemli.org>
+Subject: Re: [PATCH net-next 0/3] A own subdirectory for shared TCP code
+Date: Wed, 4 Oct 2017 20:54:17 +0200
+Message-ID: <d7237d11-ec83-0ef6-d201-da8b99c94b88@systemli.org>
+References: <20171003222213.7996-1-richard_siegfried@systemli.org>
+ <20171003.160338.1370433279322133749.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:48839 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751066AbdJDSxN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 14:53:13 -0400
-Received: by mail-lf0-f54.google.com with SMTP id q132so14468978lfe.5
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 11:53:13 -0700 (PDT)
-In-Reply-To: <1507103667-6084-1-git-send-email-horms+renesas@verge.net.au>
-Content-Language: en-MW
+Received: from mail.systemli.org ([198.167.223.214]:46016 "EHLO
+        mail.systemli.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751066AbdJDSyU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 14:54:20 -0400
+In-Reply-To: <20171003.160338.1370433279322133749.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/04/2017 10:54 AM, Simon Horman wrote:
+On 04/10/17 01:03, David Miller wrote:
+> As someone who has to do backports regularly to -stable, there is no way
+> I am applying this.
+> 
+> Sorry.
+Okay, I see.
 
-> Add support for RX checksum offload. This is enabled by default and
-> may be disabled and re-enabled using ethtool:
-> 
->   # ethtool -K eth0 rx off
->   # ethtool -K eth0 rx on
-> 
-> The RAVB provides a simple checksumming scheme which appears to be
-> completely compatible with CHECKSUM_COMPLETE: sum of all packet data after
-> the L2 header is appended to packet data; this may be trivially read by the
-> driver and used to update the skb accordingly.
-> 
-> In terms of performance throughput is close to gigabit line-rate both with
-> and without RX checksum offload enabled. Perf output, however, appears to
-> indicate that significantly less time is spent in do_csum(). This is as
-> expected.
-> 
-> Test results with RX checksum offload enabled:
->   # /usr/bin/perf_3.16 record -o /run/perf.data -a netperf -t TCP_MAERTS -H 10.4.3.162
->   MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.4.3.162 () port 0 AF_INET : demo
->   enable_enobufs failed: getprotobyname
->   Recv   Send    Send
->   Socket Socket  Message  Elapsed
->   Size   Size    Size     Time     Throughput
->   bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->    87380  16384  16384    10.00     937.54
-> 
->   Summary of output of perf report:
->      18.28%      ksoftirqd/0  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
->      10.34%      ksoftirqd/0  [kernel.kallsyms]  [k] __pi_memcpy
->       9.83%      ksoftirqd/0  [kernel.kallsyms]  [k] ravb_poll
->       7.89%      ksoftirqd/0  [kernel.kallsyms]  [k] skb_put
->       4.01%      ksoftirqd/0  [kernel.kallsyms]  [k] dev_gro_receive
->       3.37%          netperf  [kernel.kallsyms]  [k] __arch_copy_to_user
->       3.17%          swapper  [kernel.kallsyms]  [k] arch_cpu_idle
->       2.55%          swapper  [kernel.kallsyms]  [k] tick_nohz_idle_enter
->       2.04%      ksoftirqd/0  [kernel.kallsyms]  [k] __pi___inval_dcache_area
->       2.03%          swapper  [kernel.kallsyms]  [k] _raw_spin_unlock_irq
->       1.96%      ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_skb
->       1.59%      ksoftirqd/0  [kernel.kallsyms]  [k] __slab_alloc.isra.83
-> 
-> Test results without RX checksum offload enabled:
->   # /usr/bin/perf_3.16 record -o /run/perf.data -a netperf -t TCP_MAERTS -H 10.4.3.162
->   MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.4.3.162 () port 0 AF_INET : demo
->   enable_enobufs failed: getprotobyname
->   Recv   Send    Send
->   Socket Socket  Message  Elapsed
->   Size   Size    Size     Time     Throughput
->   bytes  bytes   bytes    secs.    10^6bits/sec
-> 
->    87380  16384  16384    10.00     940.20
-> 
->   Summary of output of perf report:
->      17.10%    ksoftirqd/0  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
->      10.99%    ksoftirqd/0  [kernel.kallsyms]  [k] __pi_memcpy
->       8.87%    ksoftirqd/0  [kernel.kallsyms]  [k] ravb_poll
->       8.16%    ksoftirqd/0  [kernel.kallsyms]  [k] skb_put
->       7.42%    ksoftirqd/0  [kernel.kallsyms]  [k] do_csum
->       3.91%    ksoftirqd/0  [kernel.kallsyms]  [k] dev_gro_receive
->       2.31%        swapper  [kernel.kallsyms]  [k] arch_cpu_idle
->       2.16%    ksoftirqd/0  [kernel.kallsyms]  [k] __pi___inval_dcache_area
->       2.14%    ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_skb
->       1.93%        netperf  [kernel.kallsyms]  [k] __arch_copy_to_user
->       1.79%        swapper  [kernel.kallsyms]  [k] tick_nohz_idle_enter
->       1.63%    ksoftirqd/0  [kernel.kallsyms]  [k] __slab_alloc.isra.83
-> 
-> Above results collected on an R-Car Gen 3 Salvator-X/r8a7796 ES1.0.
-> Also tested on a R-Car Gen 3 Salvator-X/r8a7795 ES1.0.
-> 
-> By inspection this also appears to be compatible with the ravb found
-> on R-Car Gen 2 SoCs, however, this patch is currently untested on such
-> hardware.
-> 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> ---
-> v2
-> Address review of v1 by Sergei Shtylyov
-> * set features rather than oring them with (zero) existing values:
-> * Set/unset using a single call to ravb_modify()
+Is grouping files into subdirectories something generally
+unwanted/unlikely to be applied or is this specific to TCP / networking?
 
-   Already belated but still:
-
-Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-MBR, Sergei
+Because there are several other places in the source tree where I would
+like to group things.
