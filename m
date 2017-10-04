@@ -1,136 +1,46 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [Bridge] [PATCH net-next v4 2/3] bridge: suppress arp pkts on
- BR_NEIGH_SUPPRESS ports
-Date: Wed, 4 Oct 2017 16:35:27 +0900
-Message-ID: <7b8bf9e3-b34c-38c3-4935-9136f7aa2d2d@lab.ntt.co.jp>
-References: <1507093953-59929-1-git-send-email-roopa@cumulusnetworks.com>
- <1507093953-59929-3-git-send-email-roopa@cumulusnetworks.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+Date: Wed, 4 Oct 2017 08:49:51 +0100
+Message-ID: <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
+References: <20171001102110.24184f1b@xeon-e3> <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
+ <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com> <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-        bridge@lists.linux-foundation.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Guillaume Nault <g.nault@alphalink.fr>
+To: SviMik <svimik@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:44018 "EHLO
-        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750945AbdJDHgX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 03:36:23 -0400
-In-Reply-To: <1507093953-59929-3-git-send-email-roopa@cumulusnetworks.com>
-Content-Language: en-US
+Received: from mail.katalix.com ([82.103.140.233]:52454 "EHLO mail.katalix.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751120AbdJDHt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 03:49:57 -0400
+Received: from mail-pg0-f41.google.com (mail-pg0-f41.google.com [74.125.83.41])
+        (Authenticated sender: james)
+        by mail.katalix.com (Postfix) with ESMTPSA id AD5E7A881E
+        for <netdev@vger.kernel.org>; Wed,  4 Oct 2017 08:49:53 +0100 (BST)
+Received: by mail-pg0-f41.google.com with SMTP id p5so6092001pgn.7
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 00:49:53 -0700 (PDT)
+In-Reply-To: <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/10/04 14:12, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> 
-> This patch avoids flooding and proxies arp packets
-> for BR_NEIGH_SUPPRESS ports.
-> 
-> Moves existing br_do_proxy_arp to br_do_proxy_suppress_arp
-> to support both proxy arp and neigh suppress.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
-...
-> +static void br_arp_send(struct net_bridge_port *p, int type, int ptype,
+On 3 October 2017 at 08:27, James Chapman <jchapman@katalix.com> wrote:
+> On 2 October 2017 at 19:35, SviMik <svimik@gmail.com> wrote:
+>> Hi, James!
+>>
+>> No, I'm suffering from kernel panics since I started using 4.x
+>> kernels.
+> It's interesting that you are seeing l2tp issues since switching to
+> 4.x kernels. Are you able to try earlier kernels to find the latest
+> version that works? I'm curious whether things broke at v3.15.
 
-type and ptype are always the same so seems unnecessary.
+It's possible that this may be fixed by a patch that is already
+upstream and merged for v4.14. The fix is from Guillaume Nault:
 
-> +			__be32 dest_ip, struct net_device *dev,
-> +			__be32 src_ip, const unsigned char *dest_hw,
-> +			const unsigned char *src_hw,
-> +			const unsigned char *target_hw,
-> +			__be16 vlan_proto, u16 vlan_tci)
-> +{
-> +	struct sk_buff *skb;
-> +
-> +	netdev_dbg(dev, "arp send dev %s dst %pI4 dst_hw %pM src %pI4 src_hw %pM\n",
-> +		   dev->name, &dest_ip, dest_hw, &src_ip, src_hw);
-> +
-> +	if (!vlan_tci) {
-> +		arp_send(type, ptype, dest_ip, dev, src_ip,
-> +			 dest_hw, src_hw, target_hw);
+f3c66d4 l2tp: prevent creation of sessions on terminated tunnels
 
-I may be missing something, but wouldn't it send arp reply from the
-bridge device, while it should be received to the bridge device, when p
-== NULL?
+If it's possible that the L2TP server may try to create a session in a
+tunnel that is being closed, this bug would be exposed.
 
-> +		return;
-> +	}
-> +
-> +	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
-> +			 dest_hw, src_hw, target_hw);
-> +	if (!skb)
-> +		return;
-> +
-> +	if (p) {
-
-Why doesn't bridge device consider pvid?
-
-> +		struct net_bridge_vlan_group *vg;
-> +		u16 pvid;
-> +
-> +		vg = nbp_vlan_group_rcu(p);
-> +		pvid = br_get_pvid(vg);
-> +		if (pvid == vlan_tci)
-
-Need vlan_tci & VLAN_VID_MASK
-Or use skb_vlan_tag_get_id() in caller side.
-
-> +			vlan_tci = 0;
-> +	}
-> +
-> +	if (vlan_tci) {
-> +		skb = vlan_insert_tag_set_proto(skb, vlan_proto,
-> +						vlan_tci);
-
-Should be __vlan_hwaccel_put_tag()
-
-> +		if (!skb) {
-> +			net_err_ratelimited("%s: failed to insert VLAN tag\n",
-> +					    __func__);
-> +			return;
-> +		}
-> +	}
-> +
-> +	arp_xmit(skb);
-> +}
-...
-> +void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
-> +			      u16 vid, struct net_bridge_port *p)
-> +{
-...
-> +	if (br->neigh_suppress_enabled) {
-> +		if (p && (p->flags & BR_NEIGH_SUPPRESS))
-> +			return;
-> +		if (ipv4_is_zeronet(sip) || sip == tip) {
-> +			/* prevent flooding to neigh suppress ports */
-> +			BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
-> +			return;
-> +		}
-> +	}
-> +
-> +	if (parp->ar_op != htons(ARPOP_REQUEST))
-> +		return;
-> +
-> +	if (vid != 0) {
-
-vid should be 0 if untagged is set on the bridge device?
-
-> +		vlandev = __vlan_find_dev_deep_rcu(br->dev, skb->vlan_proto,
-> +						   vid);
-> +		if (!vlandev)
-> +			return;
-> +	}
-> +
-> +	if (br->neigh_suppress_enabled && br_is_local_ip(vlandev, tip)) {
-> +		/* its our local ip, so don't proxy reply
-> +		 * and don't forward to neigh suppress ports
-> +		 */
-> +		BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
-> +		return;
-> +	}
-
--- 
-Toshiaki Makita
+Guillaume's fix isn't yet pushed to stable releases. Are you able to
+try a v4.14-rc build?
