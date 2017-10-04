@@ -1,70 +1,99 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next V4 PATCH 1/5] bpf: introduce new bpf cpu map type
- BPF_MAP_TYPE_CPUMAP
-Date: Wed, 4 Oct 2017 12:02:02 -0700
-Message-ID: <20171004190201.5no5mrmkko43cvv2@ast-mbp>
-References: <150711858281.9499.7767364427831352921.stgit@firesoul>
- <150711862505.9499.15042356194495111353.stgit@firesoul>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
+Date: Wed, 4 Oct 2017 21:07:17 +0200
+Message-ID: <20171004190716.GA22135@netronome.com>
+References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
+ <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
+ <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
+ <20171003094052.GA20592@netronome.com>
+ <CALx6S37K3Gif=AGk48CXs9JgrcDbdpfqMZWK+0j95UHG0hvpZg@mail.gmail.com>
+ <20171004080856.GB6378@netronome.com>
+ <20171004081558.GE1895@nanopsycho>
+ <CALx6S36c=BUXb7-53Ym_SZYuWqmPfEqdYUwwxyM78SfBnEPL4Q@mail.gmail.com>
+ <20171004180715.GH1895@nanopsycho>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36371 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751171AbdJDTCH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 15:02:07 -0400
-Received: by mail-pf0-f196.google.com with SMTP id u12so141369pfl.3
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 12:02:07 -0700 (PDT)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:52450 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750779AbdJDTHV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 15:07:21 -0400
+Received: by mail-wm0-f48.google.com with SMTP id k4so22952064wmc.1
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 12:07:21 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <150711862505.9499.15042356194495111353.stgit@firesoul>
+In-Reply-To: <20171004180715.GH1895@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 02:03:45PM +0200, Jesper Dangaard Brouer wrote:
-> The 'cpumap' is primary used as a backend map for XDP BPF helper
-> call bpf_redirect_map() and XDP_REDIRECT action, like 'devmap'.
+On Wed, Oct 04, 2017 at 08:07:15PM +0200, Jiri Pirko wrote:
+> Wed, Oct 04, 2017 at 05:52:54PM CEST, tom@herbertland.com wrote:
+> >On Wed, Oct 4, 2017 at 1:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> >> Wed, Oct 04, 2017 at 10:08:57AM CEST, simon.horman@netronome.com wrote:
+> >>>On Tue, Oct 03, 2017 at 11:17:46AM -0700, Tom Herbert wrote:
+> >>>> On Tue, Oct 3, 2017 at 2:40 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> >>>> > On Mon, Oct 02, 2017 at 01:37:55PM -0700, Tom Herbert wrote:
+> >>>> >> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> >>>> >> > Move dissection of tunnel info from the flower classifier to the flow
+> >>>> >> > dissector where all other dissection occurs.  This should not have any
+> >>>> >> > behavioural affect on other users of the flow dissector.
+> >>>> >
+> >>>> > ...
+> >>>>
+> >>>> > I feel that we are circling back the perennial issue of flower using the
+> >>>> > flow dissector in a somewhat broader/different way than many/all other
+> >>>> > users of the flow dissector.
+> >>>> >
+> >>>> Simon,
+> >>>>
+> >>>> It's more like __skb_flow_dissect is already an incredibly complex
+> >>>> function and because of that it's difficult to maintain. We need to
+> >>>> measure changes against that fact. For this patch, there is precisely
+> >>>> one user (cls_flower.c) and it's not at all clear to me if there will
+> >>>> be ever any more (e.g. for hashing we don't need tunnel info). IMO, it
+> >>>> should be just as easy and less convolution for everyone to have
+> >>>> flower call __skb_flow_dissect_tunnel_info directly and not call if
+> >>>> from __skb_flow_dissect.
+> >>>
+> >>>Hi Tom,
+> >>>
+> >>>my original suggestion was just that, but Jiri indicated a strong preference
+> >>>for the approach taken by this patch. I think we need to widen the
+> >>>participants in this discussion.
+> >>
+> >> I like the __skb_flow_dissect to be the function to call and it will do
+> >> the job according to the configuration. I don't like to split in
+> >> multiple calls.
+> >
+> >Those are not technical arguments. As I already mentioned, I don't
+> >like it when we add stuff for the benefit of a 1% use case that
+> >negatively impacts the rest of the 99% cases which is what I believe
+> >is happening here.
 > 
-> This patch implement the main part of the map.  It is not connected to
-> the XDP redirect system yet, and no SKB allocation are done yet.
+> Yeah. I just wanted the flow dissector to stay compact. But if needed,
+> could be split. I just fear that it will become a mess that's all.
 > 
-> The main concern in this patch is to ensure the datapath can run
-> without any locking.  This adds complexity to the setup and tear-down
-> procedure, which assumptions are extra carefully documented in the
-> code comments.
 > 
-> V2:
->  - make sure array isn't larger than NR_CPUS
->  - make sure CPUs added is a valid possible CPU
+> >
+> >> Does not make sense in the most of the cases as the
+> >> dissection state would have to be carried in between calls.
+> >
+> >Please elaborate. This code is being moved into __skb_flow_dissect, so
+> >the functionality was already there. I don't see any description in
+> >this discussion that things were broken and that this patch is a
+> >necessary fix.
 > 
-> V3: fix nitpicks from Jakub Kicinski <kubakici@wp.pl>
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-...
-> +static struct bpf_map *cpu_map_alloc(union bpf_attr *attr)
-> +{
-> +	struct bpf_cpu_map *cmap;
-> +	u64 cost;
-> +	int err;
-> +
-> +	/* check sanity of attributes */
-> +	if (attr->max_entries == 0 || attr->key_size != 4 ||
-> +	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
-> +		return ERR_PTR(-EINVAL);
-> +
-> +	cmap = kzalloc(sizeof(*cmap), GFP_USER);
-> +	if (!cmap)
-> +		return ERR_PTR(-ENOMEM);
+> Yeah, you are right.
 
-just noticed that there is nothing here nor in DEVMAP/SOCKMAP
-that prevents unpriv user to create them.
-I'm not sure it was intentional for DEVMAP/SOCKMAP.
-For CPUMAP I'd suggest to restrict it to root, since it
-suppose to operate with XDP only which is root anyway.
-Note, lpm and lru maps are cap_sys_admin only already.
+Hi Tom, Hi Jiri,
+
+I'm happy to make a patch to move the call to
+__skb_flow_dissect_tunnel_info() from __skb_flow_dissect() to
+fl_classify(). It seems that approach has been agreed on above.
