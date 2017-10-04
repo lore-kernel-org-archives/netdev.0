@@ -1,80 +1,64 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
 Subject: Re: [PATCH net-next v2 1/2] libbpf: parse maps sections of varying size
-Date: Wed, 4 Oct 2017 09:58:41 -0400
-Message-ID: <CAEfhGixvCWzQ4EHWnhO_djuNPj5-r1PraMtu6Csf_GNp83PEyA@mail.gmail.com>
+Date: Wed, 4 Oct 2017 09:59:05 -0400
+Message-ID: <CAEfhGixoRM_wRy_e9reCGq69XUM1w-1kKGErCUty=gEB8DbzfA@mail.gmail.com>
 References: <20171002164129.47986-1-kraigatgoog@gmail.com> <20171002164129.47986-2-kraigatgoog@gmail.com>
- <20171003161151.039979f4@redhat.com>
+ <5082193f-0b59-bc40-290f-4ef3709a1d26@fb.com> <59D3A12B.7010101@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
         "David S . Miller" <davem@davemloft.net>,
         Chonggang Li <chonggangli@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Leblond <eric.leblond@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+        netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34913 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752236AbdJDN6q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 09:58:46 -0400
-Received: by mail-qk0-f195.google.com with SMTP id w63so6491917qkd.2
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 06:58:45 -0700 (PDT)
-Received: from mail-qk0-f177.google.com (mail-qk0-f177.google.com. [209.85.220.177])
-        by smtp.gmail.com with ESMTPSA id z22sm10099318qti.36.2017.10.04.06.58.43
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:35022 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752103AbdJDN7H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 09:59:07 -0400
+Received: by mail-qk0-f193.google.com with SMTP id w63so6492655qkd.2
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 06:59:07 -0700 (PDT)
+Received: from mail-qt0-f178.google.com (mail-qt0-f178.google.com. [209.85.216.178])
+        by smtp.gmail.com with ESMTPSA id 6sm9907514qkh.8.2017.10.04.06.59.06
         for <netdev@vger.kernel.org>
         (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 04 Oct 2017 06:58:44 -0700 (PDT)
-Received: by mail-qk0-f177.google.com with SMTP id r64so11252453qkc.1
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 06:58:43 -0700 (PDT)
-In-Reply-To: <20171003161151.039979f4@redhat.com>
+        Wed, 04 Oct 2017 06:59:06 -0700 (PDT)
+Received: by mail-qt0-f178.google.com with SMTP id o3so19316525qte.6
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 06:59:06 -0700 (PDT)
+In-Reply-To: <59D3A12B.7010101@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 3, 2017 at 10:11 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Mon,  2 Oct 2017 12:41:28 -0400
-> Craig Gallek <kraigatgoog@gmail.com> wrote:
+On Tue, Oct 3, 2017 at 10:39 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 10/03/2017 01:07 AM, Alexei Starovoitov wrote:
+>>
+>> On 10/2/17 9:41 AM, Craig Gallek wrote:
+>>>
+>>> +    /* Assume equally sized map definitions */
+>>> +    map_def_sz = data->d_size / nr_maps;
+>>> +    if (!data->d_size || (data->d_size % nr_maps) != 0) {
+>>> +        pr_warning("unable to determine map definition size "
+>>> +               "section %s, %d maps in %zd bytes\n",
+>>> +               obj->path, nr_maps, data->d_size);
+>>> +        return -EINVAL;
+>>> +    }
+>>
+>>
+>> this approach is not as flexible as done by samples/bpf/bpf_load.c
+>> where it looks at every map independently by walking symtab,
+>> but I guess it's ok.
 >
->> diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
->> index 4f402dcdf372..28b300868ad7 100644
->> --- a/tools/lib/bpf/libbpf.c
->> +++ b/tools/lib/bpf/libbpf.c
->> @@ -580,7 +580,7 @@ bpf_object__init_kversion(struct bpf_object *obj,
->>  }
->>
->>  static int
->> -bpf_object__validate_maps(struct bpf_object *obj)
->> +bpf_object__validate_maps(struct bpf_object *obj, int map_def_sz)
->>  {
->>       int i;
->>
->> @@ -595,9 +595,11 @@ bpf_object__validate_maps(struct bpf_object *obj)
->>               const struct bpf_map *a = &obj->maps[i - 1];
->>               const struct bpf_map *b = &obj->maps[i];
->>
->> -             if (b->offset - a->offset < sizeof(struct bpf_map_def)) {
->> -                     pr_warning("corrupted map section in %s: map \"%s\" too small\n",
->> -                                obj->path, a->name);
->> +             if (b->offset - a->offset < map_def_sz) {
->> +                     pr_warning("corrupted map section in %s: map \"%s\" too small "
->> +                                "(%zd vs %d)\n",
->> +                                obj->path, a->name, b->offset - a->offset,
->> +                                map_def_sz);
->>                       return -EINVAL;
 >
-> Hmm... one more comment.  You have just coded handling of ELF
-> map_def_sz which are smaller in a safe manor, but here this case will
-> get rejected (in bpf_object__validate_maps).  That cannot be the right
-> intend?
+> Regarding different map spec structs in a single prog: unless
+> we have a good use case why we would need it (and I'm not aware
+> of anything in particular), I would just go with a fixed size.
+> I did kind of similar sanity checks in bpf_fetch_maps_end() in
+> iproute2 loader as well.
 
-I think you are right, but my test program didn't catch this...
-Perhaps an off-by-one (I only used slightly smaller map_def sizes).  I
-suppose this entire function is unnecessary now.  Even the old version
-wouldn't catch the case where the last offset was out of bounds?
-
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   LinkedIn: http://www.linkedin.com/in/brouer
+Split vote?  I'm happy to try to make this work with varying sizes,
+but I agree the usefulness seems low.  It would imply building map
+sections with different definition structures and we would then need a
+way to differentiate them.  If the goal is to allow for different map
+definition structures, I don't think size alone is a sufficient
+differentiator.
