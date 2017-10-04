@@ -1,94 +1,85 @@
-From: Himanshu Jha <himanshujha199640@gmail.com>
-Subject: [PATCH] mwifiex: Use put_unaligned_le32
-Date: Wed,  4 Oct 2017 23:58:06 +0530
-Message-ID: <1507141686-5178-1-git-send-email-himanshujha199640@gmail.com>
-Cc: nishants@marvell.com, gbhat@marvell.com, huxm@marvell.com,
-        kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Himanshu Jha <himanshujha199640@gmail.com>
-To: amitkarwar@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH 0/4] net-next: security: New file mode and LSM hooks for eBPF object permission control
+Date: Wed,  4 Oct 2017 11:29:28 -0700
+Message-ID: <20171004182932.140028-1-chenbofeng.kernel@gmail.com>
+Cc: Jeffrey Vander Stoep <jeffv@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
+        linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use put_unaligned_le32 rather than using byte ordering function and
-memcpy which makes code clear.
-Also, add the header file where it is declared.
+From: Chenbo Feng <fengc@google.com>
 
-Done using Coccinelle and semantic patch used is :
+Much like files and sockets, eBPF objects are accessed, controlled, and
+shared via a file descriptor (FD). Unlike files and sockets, the
+existing mechanism for eBPF object access control is very limited.
+Currently there are two options for granting accessing to eBPF
+operations: grant access to all processes, or only CAP_SYS_ADMIN
+processes. The CAP_SYS_ADMIN-only mode is not ideal because most users
+do not have this capability and granting a user CAP_SYS_ADMIN grants too
+many other security-sensitive permissions. It also unnecessarily allows
+all CAP_SYS_ADMIN processes access to eBPF functionality. Allowing all
+processes to access to eBPF objects is also undesirable since it has
+potential to allow unprivileged processes to consume kernel memory, and
+opens up attack surface to the kernel.
 
-@ rule1 @
-identifier tmp; expression ptr,x; type T;
-@@
+Adding LSM hooks maintains the status quo for systems which do not use
+an LSM, preserving compatibility with userspace, while allowing security
+modules to choose how best to handle permissions on eBPF objects. Here
+is a possible use case for the lsm hooks with selinux module:
 
-- tmp = cpu_to_le32(x);
+The network-control daemon (netd) creates and loads an eBPF object for
+network packet filtering and analysis. It passes the object FD to an
+unprivileged network monitor app (netmonitor), which is not allowed to
+create, modify or load eBPF objects, but is allowed to read the traffic
+stats from the map.
 
-  <+... when != tmp
-- memcpy(ptr, (T)&tmp, ...);
-+ put_unaligned_le32(x,ptr);
-  ...+>
+Selinux could use these hooks to grant the following permissions:
+allow netd self:bpf_map { create read write};
+allow netmonitor netd:fd use;
+allow netmonitor netd:bpf_map read;
 
-@ depends on rule1 @
-type j; identifier tmp;
-@@
+In this patch series, A file mode is added to bpf map to store the
+accessing mode. With this file mode flags, the map can be obtained read
+only, write only or read and write. With the help of this file mode,
+several security hooks can be added to the eBPF syscall implementations
+to do permissions checks. These LSM hooks are mainly focused on checking
+the process privileges before it obtains the fd for a specific bpf
+object. No matter from a file location or from a eBPF id. Besides that,
+a general check hook is also implemented at the start of bpf syscalls so
+that each security module can have their own implementation on the reset
+of bpf object related functionalities.
 
-- j tmp;
-  ...when != tmp
+In order to store the ownership and security information about eBPF
+maps, a security field pointer is added to the struct bpf_map. And the
+last two patch set are implementation of selinux check on these hooks
+introduced, plus an additional check when eBPF object is passed between
+processes using unix socket as well as binder IPC.
 
-Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
----
- drivers/net/wireless/marvell/mwifiex/cmdevt.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/cmdevt.c b/drivers/net/wireless/marvell/mwifiex/cmdevt.c
-index 0edc5d6..e28e119 100644
---- a/drivers/net/wireless/marvell/mwifiex/cmdevt.c
-+++ b/drivers/net/wireless/marvell/mwifiex/cmdevt.c
-@@ -17,6 +17,7 @@
-  * this warranty disclaimer.
-  */
- 
-+#include <linux/unaligned/access_ok.h>
- #include "decl.h"
- #include "ioctl.h"
- #include "util.h"
-@@ -183,7 +184,6 @@ static int mwifiex_dnld_cmd_to_fw(struct mwifiex_private *priv,
- 	uint16_t cmd_code;
- 	uint16_t cmd_size;
- 	unsigned long flags;
--	__le32 tmp;
- 
- 	if (!adapter || !cmd_node)
- 		return -1;
-@@ -249,9 +249,9 @@ static int mwifiex_dnld_cmd_to_fw(struct mwifiex_private *priv,
- 	mwifiex_dbg_dump(adapter, CMD_D, "cmd buffer:", host_cmd, cmd_size);
- 
- 	if (adapter->iface_type == MWIFIEX_USB) {
--		tmp = cpu_to_le32(MWIFIEX_USB_TYPE_CMD);
- 		skb_push(cmd_node->cmd_skb, MWIFIEX_TYPE_LEN);
--		memcpy(cmd_node->cmd_skb->data, &tmp, MWIFIEX_TYPE_LEN);
-+		put_unaligned_le32(MWIFIEX_USB_TYPE_CMD,
-+				   cmd_node->cmd_skb->data);
- 		adapter->cmd_sent = true;
- 		ret = adapter->if_ops.host_to_card(adapter,
- 						   MWIFIEX_USB_EP_CMD_EVENT,
-@@ -317,7 +317,6 @@ static int mwifiex_dnld_sleep_confirm_cmd(struct mwifiex_adapter *adapter)
- 				(struct mwifiex_opt_sleep_confirm *)
- 						adapter->sleep_cfm->data;
- 	struct sk_buff *sleep_cfm_tmp;
--	__le32 tmp;
- 
- 	priv = mwifiex_get_priv(adapter, MWIFIEX_BSS_ROLE_ANY);
- 
-@@ -342,8 +341,7 @@ static int mwifiex_dnld_sleep_confirm_cmd(struct mwifiex_adapter *adapter)
- 				      + MWIFIEX_TYPE_LEN);
- 		skb_put(sleep_cfm_tmp, sizeof(struct mwifiex_opt_sleep_confirm)
- 			+ MWIFIEX_TYPE_LEN);
--		tmp = cpu_to_le32(MWIFIEX_USB_TYPE_CMD);
--		memcpy(sleep_cfm_tmp->data, &tmp, MWIFIEX_TYPE_LEN);
-+		put_unaligned_le32(MWIFIEX_USB_TYPE_CMD, sleep_cfm_tmp->data);
- 		memcpy(sleep_cfm_tmp->data + MWIFIEX_TYPE_LEN,
- 		       adapter->sleep_cfm->data,
- 		       sizeof(struct mwifiex_opt_sleep_confirm));
+Chenbo Feng (4):
+  Add file mode configuration into bpf maps
+  Add LSM hooks for bpf object related syscall
+  Add selinux check for eBPF syscall operations
+  Add addtional check for bpf object file receive
+
+ include/linux/bpf.h                 |  15 +++-
+ include/linux/lsm_hooks.h           |  54 ++++++++++++
+ include/linux/security.h            |  45 ++++++++++
+ include/uapi/linux/bpf.h            |   6 ++
+ kernel/bpf/inode.c                  |  15 ++--
+ kernel/bpf/syscall.c                | 112 +++++++++++++++++++++---
+ security/security.c                 |  32 +++++++
+ security/selinux/hooks.c            | 168 +++++++++++++++++++++++++++++++++++-
+ security/selinux/include/classmap.h |   2 +
+ security/selinux/include/objsec.h   |   4 +
+ 10 files changed, 433 insertions(+), 20 deletions(-)
+
 -- 
-2.7.4
+2.14.2.920.gcf0c67979c-goog
+
