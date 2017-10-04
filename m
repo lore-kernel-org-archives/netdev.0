@@ -1,78 +1,42 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH v2 net-next 2/2] tcp: clean up TFO server's initial tcp_rearm_rto() call
-Date: Wed,  4 Oct 2017 10:04:04 -0700
-Message-ID: <20171004170404.132419-1-tracywwnj@gmail.com>
-Cc: Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] ravb: RX checksum offload
+Date: Wed, 04 Oct 2017 10:26:34 -0700 (PDT)
+Message-ID: <20171004.102634.1443361093432796779.davem@davemloft.net>
+References: <1507103667-6084-1-git-send-email-horms+renesas@verge.net.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, magnus.damm@gmail.com,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: horms+renesas@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:44476 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751240AbdJDREJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 13:04:09 -0400
-Received: by mail-pf0-f175.google.com with SMTP id t62so5369305pfd.1
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 10:04:09 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:48262 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750779AbdJDR0g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 13:26:36 -0400
+In-Reply-To: <1507103667-6084-1-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+From: Simon Horman <horms+renesas@verge.net.au>
+Date: Wed,  4 Oct 2017 09:54:27 +0200
 
-This commit does a cleanup and moves tcp_rearm_rto() call in the TFO
-server case into a previous spot in tcp_rcv_state_process() to make
-it more compact.
-This is only a cosmetic change.
+> Add support for RX checksum offload. This is enabled by default and
+> may be disabled and re-enabled using ethtool:
+> 
+>  # ethtool -K eth0 rx off
+>  # ethtool -K eth0 rx on
+> 
+> The RAVB provides a simple checksumming scheme which appears to be
+> completely compatible with CHECKSUM_COMPLETE: sum of all packet data after
+> the L2 header is appended to packet data; this may be trivially read by the
+> driver and used to update the skb accordingly.
+> 
+> In terms of performance throughput is close to gigabit line-rate both with
+> and without RX checksum offload enabled. Perf output, however, appears to
+> indicate that significantly less time is spent in do_csum(). This is as
+> expected.
+ ...
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
-Suggested-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Neal Cardwell <ncardwell@google.com>
-Acked-by: Yuchung Cheng <ycheng@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
-no change in v2
-
- net/ipv4/tcp_input.c | 21 +++++++++------------
- 1 file changed, 9 insertions(+), 12 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bd3a35f5dbf2..c5b8d61846c2 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5911,6 +5911,15 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		if (req) {
- 			inet_csk(sk)->icsk_retransmits = 0;
- 			reqsk_fastopen_remove(sk, req, false);
-+			/* Re-arm the timer because data may have been sent out.
-+			 * This is similar to the regular data transmission case
-+			 * when new data has just been ack'ed.
-+			 *
-+			 * (TFO) - we could try to be more aggressive and
-+			 * retransmitting any data sooner based on when they
-+			 * are sent out.
-+			 */
-+			tcp_rearm_rto(sk);
- 		} else {
- 			tcp_init_transfer(sk, BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB);
- 			tp->copied_seq = tp->rcv_nxt;
-@@ -5933,18 +5942,6 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb)
- 		if (tp->rx_opt.tstamp_ok)
- 			tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
- 
--		if (req) {
--			/* Re-arm the timer because data may have been sent out.
--			 * This is similar to the regular data transmission case
--			 * when new data has just been ack'ed.
--			 *
--			 * (TFO) - we could try to be more aggressive and
--			 * retransmitting any data sooner based on when they
--			 * are sent out.
--			 */
--			tcp_rearm_rto(sk);
--		}
--
- 		if (!inet_csk(sk)->icsk_ca_ops->cong_control)
- 			tcp_update_pacing_rate(sk);
- 
--- 
-2.14.2.920.gcf0c67979c-goog
+Applied, thanks Simon.
