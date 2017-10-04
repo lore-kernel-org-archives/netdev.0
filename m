@@ -1,39 +1,41 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net-next v2 0/3] tools: add bpftool
-Date: Tue, 3 Oct 2017 17:48:22 -0700
-Message-ID: <20171003174822.214e4337@cakuba>
-References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
-        <20171003201942.GH25388@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, oss-drivers@netronome.com
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.11]:10111 "EHLO mx4.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750865AbdJDAsa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Oct 2017 20:48:30 -0400
-In-Reply-To: <20171003201942.GH25388@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Avinash Repaka <avinash.repaka@oracle.com>
+Subject: [PATCH net] RDS: IB: Initialize max_items based on underlying device attributes
+Date: Tue,  3 Oct 2017 17:50:37 -0700
+Message-ID: <1507078237-32366-1-git-send-email-avinash.repaka@oracle.com>
+Cc: Avinash Repaka <avinash.repaka@oracle.com>
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Oct 2017 17:19:42 -0300, Arnaldo Carvalho de Melo wrote:
-> Em Mon, Oct 02, 2017 at 04:11:27PM -0700, Jakub Kicinski escreveu:
-> > Hi!
-> > 
-> > This set adds bpftool to the tools/ directory.  The first 
-> > patch renames tools/net to tools/bpf, the second one adds 
-> > the new code, while the third adds simple documentation.
-> > 
-> > v2:
-> >  - report names, map ids, load time, uid;
-> >  - add docs/man pages;
-> >  - general cleanups & fixes.
-> > 
-> > Thanks to David Beckett for help with docs and testing.  
-> 
-> Why not call it just 'bpf'?
+Use max_1m_mrs/max_8k_mrs while setting max_items, as the former
+variables are set based on the underlying device attricutes.
 
-bpftool was suggested as a better name, I don't really mind either way.
+Signed-off-by: Avinash Repaka <avinash.repaka@oracle.com>
+---
+ net/rds/ib_rdma.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 9a3c54e..e678699 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -601,11 +601,11 @@ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev,
+ 	if (pool_type == RDS_IB_MR_1M_POOL) {
+ 		/* +1 allows for unaligned MRs */
+ 		pool->fmr_attr.max_pages = RDS_MR_1M_MSG_SIZE + 1;
+-		pool->max_items = RDS_MR_1M_POOL_SIZE;
++		pool->max_items = rds_ibdev->max_1m_mrs;
+ 	} else {
+ 		/* pool_type == RDS_IB_MR_8K_POOL */
+ 		pool->fmr_attr.max_pages = RDS_MR_8K_MSG_SIZE + 1;
+-		pool->max_items = RDS_MR_8K_POOL_SIZE;
++		pool->max_items = rds_ibdev->max_8k_mrs;
+ 	}
+ 
+ 	pool->max_free_pinned = pool->max_items * pool->fmr_attr.max_pages / 4;
+-- 
+2.4.11
