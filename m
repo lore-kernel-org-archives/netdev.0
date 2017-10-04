@@ -1,116 +1,54 @@
-From: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-Subject: Re: [PATCH v3 1/2] dt-bindings: add device tree binding
- for Allwinner XR819 SDIO Wi-Fi
-Date: Wed, 04 Oct 2017 18:15:11 +0800
-Message-ID: <C4895259-FCDE-4B21-BB15-8F150FC53BE3@aosc.io>
-References: <20171003165944.13056-1-icenowy@aosc.io> <20171003165944.13056-2-icenowy@aosc.io> <871smjxp46.fsf@kamboji.qca.qualcomm.com> <E46F3A20-294A-497E-AF71-C77A67AFDB8C@aosc.io> <59D4B1C8.8020105@broadcom.com> <20171004101145.kgjufpcktodppuy3@flea>
-Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+Date: Wed, 4 Oct 2017 12:33:53 +0200
+Message-ID: <20171004103353.pdzwhp6c2kd34lgm@alphalink.fr>
+References: <20171001102110.24184f1b@xeon-e3>
+ <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
+ <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
+ <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
+ <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDS6XAN6ZADRBNXJ2LHAKGQEAQXCZTA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <20171004101145.kgjufpcktodppuy3@flea>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: SviMik <svimik@gmail.com>, netdev@vger.kernel.org
+To: James Chapman <jchapman@katalix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:54088 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751335AbdJDKeA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 06:34:00 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-=E4=BA=8E 2017=E5=B9=B410=E6=9C=884=E6=97=A5 GMT+08:00 =E4=B8=8B=E5=8D=886:=
-11:45, Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> =E5=86=99=E5=88=B0:
->On Wed, Oct 04, 2017 at 10:02:48AM +0000, Arend van Spriel wrote:
->> On 10/4/2017 11:03 AM, Icenowy Zheng wrote:
->> >=20
->> >=20
->> > =E4=BA=8E 2017=E5=B9=B410=E6=9C=884=E6=97=A5 GMT+08:00 =E4=B8=8B=E5=8D=
-=885:02:17, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
->=E5=86=99=E5=88=B0:
->> > > Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org> writes:
->> > >=20
->> > > > Allwinner XR819 is a SDIO Wi-Fi chip, which has the
->functionality to
->> > > use
->> > > > an out-of-band interrupt pin instead of SDIO in-band interrupt.
->> > > >=20
->> > > > Add the device tree binding of this chip, in order to make it
->> > > possible
->> > > > to add this interrupt pin to device trees.
->> > > >=20
->> > > > Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
->> > > > Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> > > > ---
->> > > > Changes in v3:
->> > > > - Renames the node name.
->> > > > - Adds ACK from Rob.
->> > > > Changes in v2:
->> > > > - Removed status property in example.
->> > > > - Added required property reg.
->> > > >=20
->> > > >   .../bindings/net/wireless/allwinner,xr819.txt      | 38
->> > > ++++++++++++++++++++++
->> > > >   1 file changed, 38 insertions(+)
->> > > >   create mode 100644
->> > >
->Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
->> > >=20
->> > > Like I asked already last time, AFAICS there is no upstream xr819
->> > > wireless driver in drivers/net/wireless directory. Do we still
->accept
->> > > bindings like this for out-of-tree drivers?
->> >=20
->> > See esp8089.
->> >=20
->> > There's also no in-tree driver for it.
->>=20
->> The question is whether we should. The above might be a precedent,
->but it
->> may not necessarily be the way to go. The commit message for esp8089
->seems
->> to hint that there is intent to have an in-tree driver:
->>=20
->> """
->>     Note that at this point there only is an out of tree driver for
->this
->>     hardware, there is no clear timeline / path for merging this.
->Still
->>     I believe it would be good to specify the binding for this in
->tree
->>     now, so that any future migration to an in tree driver will not
->cause
->>     compatiblity issues.
->>=20
->>     Cc: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
->>     Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>     Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->> """
->>=20
->> Regardless the bindings are in principle independent of the kernel
->and just
->> describing hardware. I think there have been discussions to move the
->> bindings to their own repository, but apparently it was decided
->otherwise.
+On Wed, Oct 04, 2017 at 08:49:51AM +0100, James Chapman wrote:
+> On 3 October 2017 at 08:27, James Chapman <jchapman@katalix.com> wrote:
+> > On 2 October 2017 at 19:35, SviMik <svimik@gmail.com> wrote:
+> >> Hi, James!
+> >>
+> >> No, I'm suffering from kernel panics since I started using 4.x
+> >> kernels.
+> > It's interesting that you are seeing l2tp issues since switching to
+> > 4.x kernels. Are you able to try earlier kernels to find the latest
+> > version that works? I'm curious whether things broke at v3.15.
+> 
+> It's possible that this may be fixed by a patch that is already
+> upstream and merged for v4.14. The fix is from Guillaume Nault:
+> 
+> f3c66d4 l2tp: prevent creation of sessions on terminated tunnels
+> 
+> If it's possible that the L2TP server may try to create a session in a
+> tunnel that is being closed, this bug would be exposed.
 >
->Yeah, I guess especially how it could be merged with the cw1200 driver
->would be very relevant to that commit log.
+Yes, I think this patch is worth a try. In the case of sessions created
+on a dead tunnel, I wouldn't have expected the xmit path to even reach
+l2tp_xmit_skb() though (that's certainly possible, but the timing
+constraints look a bit hard to reach).
 
-The cw1200 driver seems to still have some legacy platform
-data. Maybe they should also be convert to DT.
-(Or maybe compatible =3D "allwinner,xr819" is enough, as
-xr819 is a specified variant of cw1200 family)
 
->
->Maxime
-
---=20
-You received this message because you are subscribed to the Google Groups "=
-linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an e=
-mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
+BTW, I started working on this issue a few days ago and came to the
+same conclusions as the ones you posted in your previous replies. Given
+that we were in line with the analysis, I've switched to the PPP bug
+reported by Beniamino (https://www.spinics.net/lists/netdev/msg458002.html).
+I'll move back to L2TP as soon as possible.
