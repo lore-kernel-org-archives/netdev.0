@@ -1,7 +1,7 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next 1/4] bpf: Add file mode configuration into bpf maps
-Date: Wed,  4 Oct 2017 11:29:29 -0700
-Message-ID: <20171004182932.140028-2-chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next 4/4] selinux: bpf: Add addtional check for bpf object file receive
+Date: Wed,  4 Oct 2017 11:29:32 -0700
+Message-ID: <20171004182932.140028-5-chenbofeng.kernel@gmail.com>
 References: <20171004182932.140028-1-chenbofeng.kernel@gmail.com>
 Cc: Jeffrey Vander Stoep <jeffv@google.com>,
         Lorenzo Colitti <lorenzo@google.com>,
@@ -10,344 +10,164 @@ Cc: Jeffrey Vander Stoep <jeffv@google.com>,
         Chenbo Feng <fengc@google.com>
 To: netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
         linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:37253 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751342AbdJDS37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 14:29:59 -0400
 In-Reply-To: <20171004182932.140028-1-chenbofeng.kernel@gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Chenbo Feng <fengc@google.com>
 
-Introduce the map read/write flags to the eBPF syscalls that returns the
-map fd. The flags is used to set up the file mode when construct a new
-file descriptor for bpf maps. To not break the backward capability, the
-f_flags is set to O_RDWR if the flag passed by syscall is 0. Otherwise
-it should be O_RDONLY or O_WRONLY. When the userspace want to modify or
-read the map content, it will check the file mode to see if it is
-allowed to make the change.
+Introduce a bpf object related check when sending and receiving files
+through unix domain socket as well as binder. It checks if the receiving
+process have privilege to read/write the bpf map or use the bpf program.
+This check is necessary because the bpf maps and programs are using a
+anonymous inode as their shared inode so the normal way of checking the
+files and sockets when passing between processes cannot work properly on
+eBPF object. This check only works when the BPF_SYSCALL is configured.
 
 Signed-off-by: Chenbo Feng <fengc@google.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf.h      |  6 ++--
- include/uapi/linux/bpf.h |  6 ++++
- kernel/bpf/inode.c       | 15 ++++++---
- kernel/bpf/syscall.c     | 80 +++++++++++++++++++++++++++++++++++++++++++-----
- 4 files changed, 92 insertions(+), 15 deletions(-)
+ include/linux/bpf.h      |  3 +++
+ kernel/bpf/syscall.c     |  4 ++--
+ security/selinux/hooks.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 61 insertions(+), 3 deletions(-)
 
 diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 252f4bc9eb25..d826be859589 100644
+index d757ea3f2228..ac8428a36d56 100644
 --- a/include/linux/bpf.h
 +++ b/include/linux/bpf.h
-@@ -273,11 +273,11 @@ void bpf_map_area_free(void *base);
+@@ -250,6 +250,9 @@ int bpf_prog_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
+ #ifdef CONFIG_BPF_SYSCALL
+ DECLARE_PER_CPU(int, bpf_prog_active);
  
- extern int sysctl_unprivileged_bpf_disabled;
- 
--int bpf_map_new_fd(struct bpf_map *map);
-+int bpf_map_new_fd(struct bpf_map *map, int flags);
- int bpf_prog_new_fd(struct bpf_prog *prog);
- 
- int bpf_obj_pin_user(u32 ufd, const char __user *pathname);
--int bpf_obj_get_user(const char __user *pathname);
-+int bpf_obj_get_user(const char __user *pathname, int flags);
- 
- int bpf_percpu_hash_copy(struct bpf_map *map, void *key, void *value);
- int bpf_percpu_array_copy(struct bpf_map *map, void *key, void *value);
-@@ -296,6 +296,8 @@ int bpf_fd_htab_map_update_elem(struct bpf_map *map, struct file *map_file,
- 				void *key, void *value, u64 map_flags);
- int bpf_fd_htab_map_lookup_elem(struct bpf_map *map, void *key, u32 *value);
- 
-+int bpf_get_file_flag(int flags);
++extern const struct file_operations bpf_map_fops;
++extern const struct file_operations bpf_prog_fops;
 +
- /* memcpy that is used with 8-byte aligned pointers, power-of-8 size and
-  * forced to use 'long' read/writes to try to atomically copy long counters.
-  * Best-effort only.  No barriers here, since it _will_ race with concurrent
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 6d2137b4cf38..e812be5946a6 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -177,6 +177,10 @@ enum bpf_attach_type {
- 
- #define BPF_OBJ_NAME_LEN 16U
- 
-+/* Flags for accessing BPF object */
-+#define BPF_F_RDONLY		(1U << 3)
-+#define BPF_F_WRONLY		(1U << 4)
-+
- union bpf_attr {
- 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
- 		__u32	map_type;	/* one of enum bpf_map_type */
-@@ -219,6 +223,7 @@ union bpf_attr {
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
- 		__aligned_u64	pathname;
- 		__u32		bpf_fd;
-+		__u32		file_flags;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
-@@ -246,6 +251,7 @@ union bpf_attr {
- 			__u32		map_id;
- 		};
- 		__u32		next_id;
-+		__u32		open_flags;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_OBJ_GET_INFO_BY_FD */
-diff --git a/kernel/bpf/inode.c b/kernel/bpf/inode.c
-index e833ed914358..7d8c6dd8dd5d 100644
---- a/kernel/bpf/inode.c
-+++ b/kernel/bpf/inode.c
-@@ -295,7 +295,7 @@ int bpf_obj_pin_user(u32 ufd, const char __user *pathname)
- }
- 
- static void *bpf_obj_do_get(const struct filename *pathname,
--			    enum bpf_type *type)
-+			    enum bpf_type *type, int flags)
- {
- 	struct inode *inode;
- 	struct path path;
-@@ -307,7 +307,7 @@ static void *bpf_obj_do_get(const struct filename *pathname,
- 		return ERR_PTR(ret);
- 
- 	inode = d_backing_inode(path.dentry);
--	ret = inode_permission(inode, MAY_WRITE);
-+	ret = inode_permission(inode, ACC_MODE(flags));
- 	if (ret)
- 		goto out;
- 
-@@ -326,18 +326,23 @@ static void *bpf_obj_do_get(const struct filename *pathname,
- 	return ERR_PTR(ret);
- }
- 
--int bpf_obj_get_user(const char __user *pathname)
-+int bpf_obj_get_user(const char __user *pathname, int flags)
- {
- 	enum bpf_type type = BPF_TYPE_UNSPEC;
- 	struct filename *pname;
- 	int ret = -ENOENT;
-+	int f_flags;
- 	void *raw;
- 
-+	f_flags = bpf_get_file_flag(flags);
-+	if (f_flags < 0)
-+		return f_flags;
-+
- 	pname = getname(pathname);
- 	if (IS_ERR(pname))
- 		return PTR_ERR(pname);
- 
--	raw = bpf_obj_do_get(pname, &type);
-+	raw = bpf_obj_do_get(pname, &type, f_flags);
- 	if (IS_ERR(raw)) {
- 		ret = PTR_ERR(raw);
- 		goto out;
-@@ -346,7 +351,7 @@ int bpf_obj_get_user(const char __user *pathname)
- 	if (type == BPF_TYPE_PROG)
- 		ret = bpf_prog_new_fd(raw);
- 	else if (type == BPF_TYPE_MAP)
--		ret = bpf_map_new_fd(raw);
-+		ret = bpf_map_new_fd(raw, f_flags);
- 	else
- 		goto out;
- 
+ #define BPF_PROG_TYPE(_id, _ops) \
+ 	extern const struct bpf_verifier_ops _ops;
+ #define BPF_MAP_TYPE(_id, _ops) \
 diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index b927da66f653..7c8a9964a41d 100644
+index 58ff769d58ab..5789a5359f0a 100644
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -294,17 +294,48 @@ static void bpf_map_show_fdinfo(struct seq_file *m, struct file *filp)
+@@ -313,7 +313,7 @@ static ssize_t bpf_dummy_write(struct file *filp, const char __user *buf,
+ 	return -EINVAL;
  }
- #endif
  
-+static ssize_t bpf_dummy_read(struct file *filp, char __user *buf, size_t siz,
-+			      loff_t *ppos)
-+{
-+	/* We need this handler such that alloc_file() enables
-+	 * f_mode with FMODE_CAN_READ.
-+	 */
-+	return -EINVAL;
-+}
-+
-+static ssize_t bpf_dummy_write(struct file *filp, const char __user *buf,
-+			       size_t siz, loff_t *ppos)
-+{
-+	/* We need this handler such that alloc_file() enables
-+	 * f_mode with FMODE_CAN_WRITE.
-+	 */
-+	return -EINVAL;
-+}
-+
- static const struct file_operations bpf_map_fops = {
+-static const struct file_operations bpf_map_fops = {
++const struct file_operations bpf_map_fops = {
  #ifdef CONFIG_PROC_FS
  	.show_fdinfo	= bpf_map_show_fdinfo,
  #endif
- 	.release	= bpf_map_release,
-+	.read		= bpf_dummy_read,
-+	.write		= bpf_dummy_write,
- };
- 
--int bpf_map_new_fd(struct bpf_map *map)
-+int bpf_map_new_fd(struct bpf_map *map, int flags)
- {
- 	return anon_inode_getfd("bpf-map", &bpf_map_fops, map,
--				O_RDWR | O_CLOEXEC);
-+				flags | O_CLOEXEC);
-+}
-+
-+int bpf_get_file_flag(int flags)
-+{
-+	if ((flags & BPF_F_RDONLY) && (flags & BPF_F_WRONLY))
-+		return -EINVAL;
-+	if (flags & BPF_F_RDONLY)
-+		return O_RDONLY;
-+	if (flags & BPF_F_WRONLY)
-+		return O_WRONLY;
-+	return O_RDWR;
+@@ -965,7 +965,7 @@ static void bpf_prog_show_fdinfo(struct seq_file *m, struct file *filp)
  }
+ #endif
  
- /* helper macro to check that unused fields 'union bpf_attr' are zero */
-@@ -345,12 +376,17 @@ static int map_create(union bpf_attr *attr)
- {
- 	int numa_node = bpf_map_attr_numa_node(attr);
- 	struct bpf_map *map;
-+	int f_flags;
- 	int err;
- 
- 	err = CHECK_ATTR(BPF_MAP_CREATE);
- 	if (err)
- 		return -EINVAL;
- 
-+	f_flags = bpf_get_file_flag(attr->map_flags);
-+	if (f_flags < 0)
-+		return f_flags;
-+
- 	if (numa_node != NUMA_NO_NODE &&
- 	    ((unsigned int)numa_node >= nr_node_ids ||
- 	     !node_online(numa_node)))
-@@ -376,7 +412,7 @@ static int map_create(union bpf_attr *attr)
- 	if (err)
- 		goto free_map;
- 
--	err = bpf_map_new_fd(map);
-+	err = bpf_map_new_fd(map, f_flags);
- 	if (err < 0) {
- 		/* failed to allocate fd.
- 		 * bpf_map_put() is needed because the above
-@@ -491,6 +527,11 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_READ)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	key = memdup_user(ukey, map->key_size);
- 	if (IS_ERR(key)) {
- 		err = PTR_ERR(key);
-@@ -571,6 +612,11 @@ static int map_update_elem(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_WRITE)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	key = memdup_user(ukey, map->key_size);
- 	if (IS_ERR(key)) {
- 		err = PTR_ERR(key);
-@@ -654,6 +700,11 @@ static int map_delete_elem(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_WRITE)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	key = memdup_user(ukey, map->key_size);
- 	if (IS_ERR(key)) {
- 		err = PTR_ERR(key);
-@@ -697,6 +748,11 @@ static int map_get_next_key(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_READ)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	if (ukey) {
- 		key = memdup_user(ukey, map->key_size);
- 		if (IS_ERR(key)) {
-@@ -903,6 +959,8 @@ static const struct file_operations bpf_prog_fops = {
+-static const struct file_operations bpf_prog_fops = {
++const struct file_operations bpf_prog_fops = {
+ #ifdef CONFIG_PROC_FS
  	.show_fdinfo	= bpf_prog_show_fdinfo,
  #endif
- 	.release	= bpf_prog_release,
-+	.read		= bpf_dummy_read,
-+	.write		= bpf_dummy_write,
- };
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 41aba4e3d57c..381474ce3216 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -1847,6 +1847,7 @@ static int file_has_perm(const struct cred *cred,
  
- int bpf_prog_new_fd(struct bpf_prog *prog)
-@@ -1112,11 +1170,11 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	return err;
- }
- 
--#define BPF_OBJ_LAST_FIELD bpf_fd
-+#define BPF_OBJ_LAST_FIELD file_flags
- 
- static int bpf_obj_pin(const union bpf_attr *attr)
- {
--	if (CHECK_ATTR(BPF_OBJ))
-+	if (CHECK_ATTR(BPF_OBJ) || attr->file_flags != 0)
- 		return -EINVAL;
- 
- 	return bpf_obj_pin_user(attr->bpf_fd, u64_to_user_ptr(attr->pathname));
-@@ -1127,7 +1185,8 @@ static int bpf_obj_get(const union bpf_attr *attr)
- 	if (CHECK_ATTR(BPF_OBJ) || attr->bpf_fd != 0)
- 		return -EINVAL;
- 
--	return bpf_obj_get_user(u64_to_user_ptr(attr->pathname));
-+	return bpf_obj_get_user(u64_to_user_ptr(attr->pathname),
-+				attr->file_flags);
- }
- 
- #ifdef CONFIG_CGROUP_BPF
-@@ -1341,12 +1400,13 @@ static int bpf_prog_get_fd_by_id(const union bpf_attr *attr)
- 	return fd;
- }
- 
--#define BPF_MAP_GET_FD_BY_ID_LAST_FIELD map_id
-+#define BPF_MAP_GET_FD_BY_ID_LAST_FIELD open_flags
- 
- static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- {
- 	struct bpf_map *map;
- 	u32 id = attr->map_id;
-+	int f_flags;
- 	int fd;
- 
- 	if (CHECK_ATTR(BPF_MAP_GET_FD_BY_ID))
-@@ -1355,6 +1415,10 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- 	if (!capable(CAP_SYS_ADMIN))
- 		return -EPERM;
- 
-+	f_flags = bpf_get_file_flag(attr->open_flags);
-+	if (f_flags < 0)
-+		return f_flags;
+ 	/* av is zero if only checking access to the descriptor. */
+ 	rc = 0;
 +
- 	spin_lock_bh(&map_idr_lock);
- 	map = idr_find(&map_idr, id);
- 	if (map)
-@@ -1366,7 +1430,7 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
+ 	if (av)
+ 		rc = inode_has_perm(cred, inode, av, &ad);
  
--	fd = bpf_map_new_fd(map);
-+	fd = bpf_map_new_fd(map, f_flags);
- 	if (fd < 0)
- 		bpf_map_put(map);
+@@ -2142,6 +2143,10 @@ static int selinux_binder_transfer_binder(struct task_struct *from,
+ 			    NULL);
+ }
  
++#ifdef CONFIG_BPF_SYSCALL
++static int bpf_fd_pass(struct file *file, u32 sid);
++#endif
++
+ static int selinux_binder_transfer_file(struct task_struct *from,
+ 					struct task_struct *to,
+ 					struct file *file)
+@@ -2165,6 +2170,12 @@ static int selinux_binder_transfer_file(struct task_struct *from,
+ 			return rc;
+ 	}
+ 
++#ifdef CONFIG_BPF_SYSCALL
++	rc = bpf_fd_pass(file, sid);
++	if (rc)
++		return rc;
++#endif
++
+ 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
+ 		return 0;
+ 
+@@ -3735,8 +3746,18 @@ static int selinux_file_send_sigiotask(struct task_struct *tsk,
+ static int selinux_file_receive(struct file *file)
+ {
+ 	const struct cred *cred = current_cred();
++	int rc;
++
++	rc = file_has_perm(cred, file, file_to_av(file));
++	if (rc)
++		goto out;
++
++#ifdef CONFIG_BPF_SYSCALL
++	rc = bpf_fd_pass(file, cred_sid(sid));
++#endif
+ 
+-	return file_has_perm(cred, file, file_to_av(file));
++out:
++	return rc;
+ }
+ 
+ static int selinux_file_open(struct file *file, const struct cred *cred)
+@@ -6288,6 +6309,40 @@ static u32 bpf_map_fmode_to_av(fmode_t fmode)
+ 	return av;
+ }
+ 
++/* This function will check the file pass through unix socket or binder to see
++ * if it is a bpf related object. And apply correspinding checks on the bpf
++ * object based on the type. The bpf maps and programs, not like other files and
++ * socket, are using a shared anonymous inode inside the kernel as their inode.
++ * So checking that inode cannot identify if the process have privilege to
++ * access the bpf object and that's why we have to add this additional check in
++ * selinux_file_receive and selinux_binder_transfer_files.
++ */
++static int bpf_fd_pass(struct file *file, u32 sid)
++{
++	struct bpf_security_struct *bpfsec;
++	u32 sid = cred_sid(cred);
++	struct bpf_prog *prog;
++	struct bpf_map *map;
++	int ret;
++
++	if (file->f_op == &bpf_map_fops) {
++		map = file->private_data;
++		bpfsec = map->security;
++		ret = avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF_MAP,
++				   bpf_map_fmode_to_av(file->f_mode), NULL);
++		if (ret)
++			return ret;
++	} else if (file->f_op == &bpf_prog_fops) {
++		prog = file->private_data;
++		bpfsec = prog->aux->security;
++		ret = avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF_PROG,
++				   BPF_PROG__USE, NULL);
++		if (ret)
++			return ret;
++	}
++	return 0;
++}
++
+ static int selinux_bpf_map(struct bpf_map *map, fmode_t fmode)
+ {
+ 	u32 sid = current_sid();
 -- 
 2.14.2.920.gcf0c67979c-goog
-
