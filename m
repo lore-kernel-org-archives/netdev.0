@@ -1,93 +1,99 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH] fsl/fman: remove of_node
-Date: Wed, 4 Oct 2017 09:59:58 +0000
-Message-ID: <AM5PR0402MB2691DAD9404B336D92F42ED9EC730@AM5PR0402MB2691.eurprd04.prod.outlook.com>
-References: <1506940297-20442-1-git-send-email-madalin.bucur@nxp.com>
- <20171002.160445.737065995396076298.davem@davemloft.net>
- <AM5PR0402MB26914CBD37E3F28C17562258EC720@AM5PR0402MB2691.eurprd04.prod.outlook.com>
- <20171003130032.GI13548@lunn.ch>
+From: "'Arend van Spriel' via linux-sunxi" <linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Subject: Re: [PATCH v3 1/2] dt-bindings: add device tree binding
+ for Allwinner XR819 SDIO Wi-Fi
+Date: Wed, 4 Oct 2017 12:02:48 +0200
+Message-ID: <59D4B1C8.8020105@broadcom.com>
+References: <20171003165944.13056-1-icenowy@aosc.io>
+ <20171003165944.13056-2-icenowy@aosc.io>
+ <871smjxp46.fsf@kamboji.qca.qualcomm.com>
+ <E46F3A20-294A-497E-AF71-C77A67AFDB8C@aosc.io>
+Reply-To: arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171003130032.GI13548@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+ Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+ Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-sunxi+bncBDRYNGWEWYDBBTHD2LHAKGQEICXCU3Y-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <E46F3A20-294A-497E-AF71-C77A67AFDB8C-h8G6r0blFSE@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Tuesday, October 03, 2017 4:01 PM
-> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-> Cc: David Miller <davem@davemloft.net>; netdev@vger.kernel.org;
-> f.fainelli@gmail.com; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH] fsl/fman: remove of_node
->=20
-> On Tue, Oct 03, 2017 at 08:49:31AM +0000, Madalin-cristian Bucur wrote:
-> > > -----Original Message-----
-> > > From: David Miller [mailto:davem@davemloft.net]
-> > > Sent: Tuesday, October 03, 2017 2:05 AM
-> > > To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-> > > Subject: Re: [PATCH] fsl/fman: remove of_node
-> > >
-> > > From: Madalin Bucur <madalin.bucur@nxp.com>
-> > > Date: Mon, 2 Oct 2017 13:31:37 +0300
-> > >
-> > > > The FMan MAC driver allocates a platform device for the Ethernet
-> > > > driver to probe on. Setting pdev->dev.of_node with the MAC node
-> > > > triggers the MAC driver probing of the new platform device. While
-> > > > this fails quickly and does not affect the functionality of the
-> > > > drivers, it is incorrect and must be removed. This was added to
-> > > > address a report that DSA code using of_find_net_device_by_node()
-> > > > is unable to use the DPAA interfaces. Error message seen before
-> > > > this fix:
-> > > >
-> > > > fsl_mac dpaa-ethernet.0: __devm_request_mem_region(mac) failed
-> > > > fsl_mac: probe of dpaa-ethernet.0 failed with error -16
-> > > >
-> > > > Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-> > >
-> > > Is the DSA issue no longer something we need to be concerned
-> > > about?  If not, why?  You have to explain this.
-> >
-> > My patch removes the of_node that was set to a device that was not an
-> > of_device, preventing duplicated probing of both the real of_device
-> > and the "fake" one created through this assignment.
-> >
-> > I understand that the DSA issue that triggered the initial change
-> > was related to DSA finding the network devices using
-> > of_find_net_device_by_node(), something that will not work for the
-> > DPAA case where the netdevice does not have an of_node. I do not know
-> > enough about DSA to come up with a solution for this problem now.
-> > Andrew, Florian, can you please comment on this?
-> >
-> > Thanks,
->=20
-> Hi Madalin
->=20
-> I guess the real fix is to throw away the platform device. But that is
-> a big change.
->=20
-> I've not looked at the code in detail. Why is the platform device
-> needed?
->=20
-> 	Andrew
+On 10/4/2017 11:03 AM, Icenowy Zheng wrote:
+>
+>
+> =E4=BA=8E 2017=E5=B9=B410=E6=9C=884=E6=97=A5 GMT+08:00 =E4=B8=8B=E5=8D=88=
+5:02:17, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> =E5=86=99=E5=88=B0:
+>> Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org> writes:
+>>
+>>> Allwinner XR819 is a SDIO Wi-Fi chip, which has the functionality to
+>> use
+>>> an out-of-band interrupt pin instead of SDIO in-band interrupt.
+>>>
+>>> Add the device tree binding of this chip, in order to make it
+>> possible
+>>> to add this interrupt pin to device trees.
+>>>
+>>> Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+>>> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>> ---
+>>> Changes in v3:
+>>> - Renames the node name.
+>>> - Adds ACK from Rob.
+>>> Changes in v2:
+>>> - Removed status property in example.
+>>> - Added required property reg.
+>>>
+>>>   .../bindings/net/wireless/allwinner,xr819.txt      | 38
+>> ++++++++++++++++++++++
+>>>   1 file changed, 38 insertions(+)
+>>>   create mode 100644
+>> Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
+>>
+>> Like I asked already last time, AFAICS there is no upstream xr819
+>> wireless driver in drivers/net/wireless directory. Do we still accept
+>> bindings like this for out-of-tree drivers?
+>
+> See esp8089.
+>
+> There's also no in-tree driver for it.
 
-There are multiple components that are aggregated by the DPAA Ethernet
-netdevice, the FMan MAC is one of them. There is no entry in the device
-tree for the Ethernet device as this is just a software construct that
-binds together multiple pieces from the DPAA FMan, QMan, BMan. The probing
-of the Ethernet driver is performed against a platform device that is creat=
-ed
-in the FMan MAC. Setting the of_node in the new platform device makes it
-look like an of_device without being one, thus the errors at the MAC driver
-probing against the platform device.
+The question is whether we should. The above might be a precedent, but=20
+it may not necessarily be the way to go. The commit message for esp8089=20
+seems to hint that there is intent to have an in-tree driver:
 
-Does DSA work for systems that do not use a device tree to boot, i.e. ACPI?
+"""
+     Note that at this point there only is an out of tree driver for this
+     hardware, there is no clear timeline / path for merging this. Still
+     I believe it would be good to specify the binding for this in tree
+     now, so that any future migration to an in tree driver will not cause
+     compatiblity issues.
 
-Madalin
+     Cc: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+     Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+     Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+"""
+
+Regardless the bindings are in principle independent of the kernel and=20
+just describing hardware. I think there have been discussions to move=20
+the bindings to their own repository, but apparently it was decided=20
+otherwise.
+
+Regards,
+Arend
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
