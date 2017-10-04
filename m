@@ -1,50 +1,76 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next v3 3/3] tools: bpftool: add documentation
-Date: Wed, 4 Oct 2017 20:36:42 +0200
-Message-ID: <20171004203642.699f5f1a@redhat.com>
-References: <20171004154032.11413-1-jakub.kicinski@netronome.com>
-        <20171004154032.11413-4-jakub.kicinski@netronome.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 5/7] net: bonding: Add extack messages for some
+ enslave failures
+Date: Wed, 4 Oct 2017 20:39:35 +0200
+Message-ID: <20171004183935.GI1895@nanopsycho>
+References: <1507093134-20406-1-git-send-email-dsahern@gmail.com>
+ <1507093134-20406-6-git-send-email-dsahern@gmail.com>
+ <20171004063828.GB1895@nanopsycho>
+ <354fae78-3b04-3807-7392-87c6a3f1b3db@gmail.com>
+ <20171004180428.GG1895@nanopsycho>
+ <1d18c43d-0604-3d38-2b68-ca3c7d1ab754@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        dsahern@gmail.com, oss-drivers@netronome.com,
-        David Beckett <david.beckett@netronome.com>,
-        "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+        andy@greyhouse.net, jiri@mellanox.com, idosch@mellanox.com,
+        davem@davemloft.net, bridge@lists.linux-foundation.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37254 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750787AbdJDSgv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 14:36:51 -0400
-In-Reply-To: <20171004154032.11413-4-jakub.kicinski@netronome.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:54290 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750787AbdJDSjh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 14:39:37 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i124so24935457wmf.3
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 11:39:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1d18c43d-0604-3d38-2b68-ca3c7d1ab754@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  4 Oct 2017 08:40:32 -0700
-Jakub Kicinski <jakub.kicinski@netronome.com> wrote:
+Wed, Oct 04, 2017 at 08:06:16PM CEST, dsahern@gmail.com wrote:
+>On 10/4/17 11:04 AM, Jiri Pirko wrote:
+>> Wed, Oct 04, 2017 at 05:35:46PM CEST, dsahern@gmail.com wrote:
+>>> On 10/3/17 11:38 PM, Jiri Pirko wrote:
+>>>> Wed, Oct 04, 2017 at 06:58:52AM CEST, dsahern@gmail.com wrote:
+>>>>> A number of bond_enslave errors are logged using the netdev_err API.
+>>>>> Return those messages to userspace via the extack facility.
+>>>>>
+>>>>> Signed-off-by: David Ahern <dsahern@gmail.com>
+>>>>> ---
+>>>>> drivers/net/bonding/bond_main.c | 12 ++++++++++++
+>>>>> 1 file changed, 12 insertions(+)
+>>>>>
+>>>>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>>>> index bc92307c2082..6688dc9154e0 100644
+>>>>> --- a/drivers/net/bonding/bond_main.c
+>>>>> +++ b/drivers/net/bonding/bond_main.c
+>>>>> @@ -1348,12 +1348,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
+>>>>>
+>>>>> 	/* already in-use? */
+>>>>> 	if (netdev_is_rx_handler_busy(slave_dev)) {
+>>>>> +		NL_SET_ERR_MSG(extack,
+>>>>> +			       "Device is in use and cannot be enslaved");
+>>>>
+>>>> Please don't do this kind of wrapping. Just let the string be on the
+>>>> same line.
+>>>>
+>>>
+>>> Ok, I will do that for bonding only since it is the existing style.
+>> 
+>> I don't believe you need to do this wrap for any code. Just don't wrap.
+>> General code stype says no wrap for strings :)
+>> 
+>
+>I do not break / wrap strings; they need to be searchable. I assumed you
+>meant this is preferred for bonding:
+>
+>NL_SET_ERR_MSG(extack, "Device is in use and cannot be enslaved");
 
-> Add documentation for bpftool.  Separate files for each subcommand.
-> Use rst format.  Documentation is compiled into man pages using
-> rst2man.
-> 
-> Signed-off-by: David Beckett <david.beckett@netronome.com>
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  tools/bpf/bpftool/Documentation/Makefile         |  34 +++++++
->  tools/bpf/bpftool/Documentation/bpftool-map.txt  | 110 +++++++++++++++++++++++
->  tools/bpf/bpftool/Documentation/bpftool-prog.txt |  79 ++++++++++++++++
->  tools/bpf/bpftool/Documentation/bpftool.txt      |  34 +++++++
+Yep.
 
-RST-format files are usually called .rst and not .txt
-
-This is useful when people happen to browse the code via github, then they get formatted nicely e.g.:
- https://github.com/torvalds/linux/blob/master/samples/bpf/README.rst
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+>
+>
+>over what I have done:
+>
+>NL_SET_ERR_MSG(extack,
+>	       "Device is in use and cannot be enslaved");
