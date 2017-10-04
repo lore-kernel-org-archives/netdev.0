@@ -1,62 +1,83 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/3] wireless: iwlwifi: use bool instead of int
-Date: Wed, 04 Oct 2017 10:55:22 -0700
-Message-ID: <1507139722.4434.12.camel@perches.com>
-References: <20171004155700.18048-1-christoph@boehmwalder.at>
-         <20171004155700.18048-2-christoph@boehmwalder.at>
-         <1507134405.4434.10.camel@perches.com> <1507135159.908.96.camel@intel.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: RE: [PATCH] netfilter: fix stringop-overflow warning with UBSAN
+Date: Wed, 4 Oct 2017 20:01:13 +0200 (CEST)
+Message-ID: <alpine.DEB.2.11.1710041956250.9636@blackhole.kfki.hu>
+References: <20170731100913.465530-1-arnd@arndb.de> <063D6719AE5E284EB5DD2968C1650D6DD0047F28@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Luciano Coelho <luciano.coelho@intel.com>,
-        Christoph =?ISO-8859-1?Q?B=F6hmwalder?=
-        <christoph@boehmwalder.at>, johannes.berg@intel.com,
-        emmanuel.grumbach@intel.com, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507135159.908.96.camel@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: 'Arnd Bergmann' <arnd@arndb.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        Aaron Conole <aconole@bytheb.org>,
+        "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+        "coreteam@netfilter.org" <coreteam@netfilter.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0047F28@AcuExch.aculab.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-10-04 at 19:39 +0300, Luciano Coelho wrote:
-> On Wed, 2017-10-04 at 09:26 -0700, Joe Perches wrote:
-[]
-> > This might be more intelligble as separate tests
+Hi,
+
+[Sorry, at holiday I just cursory watched the mailing lists.]
+
+On Tue, 1 Aug 2017, David Laight wrote:
+
+> From: Arnd Bergmann
+> > Sent: 31 July 2017 11:09
+> > Using gcc-7 with UBSAN enabled, we get this false-positive warning:
 > > 
-> > static bool is_valid_channel(u16 ch_id)
-> > {
-> > 	if (ch_id <= 14)
-> > 		return true;
+> > net/netfilter/ipset/ip_set_core.c: In function 'ip_set_sockfn_get':
+> > net/netfilter/ipset/ip_set_core.c:1998:3: error: 'strncpy' writing 32 bytes into a region of size 2
+> > overflows the destination [-Werror=stringop-overflow=]
+> >    strncpy(req_get->set.name, set ? set->name : "",
+> >    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> >     sizeof(req_get->set.name));
+> >     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 > > 
-> > 	if ((ch_id % 4 == 0) &&
-> > 	    ((ch_id >= 36 && ch_id <= 64) ||
-> > 	     (ch_id >= 100 && ch_id <= 140)))
-> > 		return true;
+> > This seems completely bogus, and I could not find a nice workaround.
+> > To work around it in a less elegant way, I change the ?: operator
+> > into an if()/else() construct.
 > > 
-> > 	if ((ch_id % 4 == 1) &&
-> > 	    (chid >= 145 && ch_id <= 165))
-> > 		return true;
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > ---
+> >  net/netfilter/ipset/ip_set_core.c | 8 ++++++--
+> >  1 file changed, 6 insertions(+), 2 deletions(-)
 > > 
-> > 	return false;
-> > }
-> > 
-> > The compiler should produce the same object code.
+> > diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+> > index e495b5e484b1..d7ebb021003b 100644
+> > --- a/net/netfilter/ipset/ip_set_core.c
+> > +++ b/net/netfilter/ipset/ip_set_core.c
+> > @@ -1995,8 +1995,12 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
+> >  		}
+> >  		nfnl_lock(NFNL_SUBSYS_IPSET);
+> >  		set = ip_set(inst, req_get->set.index);
+> > -		strncpy(req_get->set.name, ,
+> > -			IPSET_MAXNAMELEN);
+> > +		if (set)
+> > +			strncpy(req_get->set.name, set->name,
+> > +				sizeof(req_get->set.name));
+> > +		else
+> > +			memset(req_get->set.name, '\0',
+> > +			       sizeof(req_get->set.name));
 > 
-> Yeah, it may be a bit easier to read, but I don't want to start getting
-> "fixes" to working and reasonable code.  There's nothing wrong with the
-> existing function (except maybe for the int vs. boolean) so let's not
-> change it.
+> If you use strncpy() here, the compiler might optimise the code
+> back to 'how it was before'.
 > 
-> A good time to change this would be the next time someone adds yet
-> another range of valid channels here. ;)
+> Or, maybe an explicit temporary: 'const char *name = set ? set->name : "";
 
-<shrug>  Your choice.
+I think the best to go with the explicit temporary variable. The if-else 
+construct is too much for such a case.
 
-I like code I can read and understand at a glance.
-
-At case somebody needs to add channels, likely nobody
-would do the change suggested but would just add
-another test to the already odd looking block.
-
-And constants should be on the right side of the tests.
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
