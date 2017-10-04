@@ -1,48 +1,47 @@
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH iproute2 2/3] include: add <linux/vm_sockets_diag.h>
-Date: Wed, 4 Oct 2017 11:03:50 -0400
-Message-ID: <20171004150350.GB3840@stefanha-x1.localdomain>
-References: <20171003175744.24987-1-stefanha@redhat.com>
- <20171003175744.24987-3-stefanha@redhat.com>
- <20171003112455.5ebac674@xeon-e3>
+Subject: Re: [PATCH 4/5] VSOCK: add sock_diag interface
+Date: Wed, 4 Oct 2017 11:05:03 -0400
+Message-ID: <20171004150503.GC3840@stefanha-x1.localdomain>
+References: <20171003153943.23159-1-stefanha@redhat.com>
+ <20171003153943.23159-5-stefanha@redhat.com>
+ <20171003.214652.1920235341803755309.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>,
-        Dexuan Cui <decui@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, jhansen@vmware.com, decui@microsoft.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44069 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56028 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752403AbdJDPD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 11:03:56 -0400
+        id S1752310AbdJDPFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 11:05:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20171003112455.5ebac674@xeon-e3>
+In-Reply-To: <20171003.214652.1920235341803755309.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 03, 2017 at 11:24:55AM -0700, Stephen Hemminger wrote:
-> On Tue,  3 Oct 2017 13:57:43 -0400
-> Stefan Hajnoczi <stefanha@redhat.com> wrote:
+On Tue, Oct 03, 2017 at 09:46:52PM -0700, David Miller wrote:
+> From: Stefan Hajnoczi <stefanha@redhat.com>
+> Date: Tue,  3 Oct 2017 11:39:42 -0400
 > 
-> > This new Linux header file defines the sock_diag interface used by
-> > AF_VSOCK.
-> > 
-> > Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
-> > ---
-> >  include/linux/vm_sockets_diag.h | 33 +++++++++++++++++++++++++++++++++
-> >  1 file changed, 33 insertions(+)
-> >  create mode 100644 include/linux/vm_sockets_diag.h
-> > 
+> > +static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+> > +			u32 portid, u32 seq, u32 flags)
+> > +{
+> > +	struct nlmsghdr *nlh;
+> > +	struct vsock_diag_msg *rep;
+> > +	struct vsock_sock *vsk = vsock_sk(sk);
 > 
-> All header files in linux must be headers that come from 'make install_headers'
-> in kernel. I don't see vm_sockets_diag.h even in net-next.
+> Please order local variables from longest to shortest line.
+> 
+> > +static int vsock_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+> > +{
+> > +	struct vsock_diag_req *req;
+> > +	unsigned int table;
+> > +	unsigned int bucket;
+> > +	unsigned int last_i;
+> > +	unsigned int i;
+> > +	struct vsock_sock *vsk;
+> > +	struct net *net;
+> 
+> Likewise.
 
-This series depends on "[PATCH 0/5] VSOCK: add sock_diag interface".
-Once that has been merged in Linux the <linux/vm_sockets_diag.h> header
-will be available.
-
-I sent the ss(8) patch at the same time and referenced the Linux patch
-series in the cover letter so they can be reviewed/tested together.
-
-Thanks,
-Stefan
+Will fix in v2.
