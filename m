@@ -1,58 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] RDS: IB: Limit the scope of has_fr/has_fmr
- variables
-Date: Tue, 03 Oct 2017 21:06:02 -0700 (PDT)
-Message-ID: <20171003.210602.478767133793484738.davem@davemloft.net>
-References: <20171001.225655.1261950191787562705.davem@davemloft.net>
-        <1172819f-1c28-7756-4874-aa89f50c0733@oracle.com>
-        <d1f841a7-0c1d-9d20-ee33-6e260b5d84c4@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/2] libbpf: support more map options
+Date: Tue, 03 Oct 2017 21:26:45 -0700 (PDT)
+Message-ID: <20171003.212645.898173960092356152.davem@davemloft.net>
+References: <20171002164129.47986-1-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <d1f841a7-0c1d-9d20-ee33-6e260b5d84c4-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, daniel@iogearbox.net, brouer@redhat.com,
+        chonggangli@google.com, netdev@vger.kernel.org
+To: kraigatgoog@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:32812 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751047AbdJDE0q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 00:26:46 -0400
+In-Reply-To: <20171002164129.47986-1-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 3 Oct 2017 17:42:39 -0700
+From: Craig Gallek <kraigatgoog@gmail.com>
+Date: Mon,  2 Oct 2017 12:41:27 -0400
 
-> Hi Dave,
+> From: Craig Gallek <kraig@google.com>
 > 
-> On 10/2/2017 1:30 PM, Santosh Shilimkar wrote:
->> On 10/1/2017 10:56 PM, David Miller wrote:
->>> From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> [...]
+> The functional change to this series is the ability to use flags when
+> creating maps from object files loaded by libbpf.  In order to do this,
+> the first patch updates the library to handle map definitions that
+> differ in size from libbpf's struct bpf_map_def.
 > 
->>>
->>> Actually, reverted, this breaks the build.
->>>
->>> net/rds/rdma_transport.c:38:10: fatal error: ib.h: No such file or
->>> directory
->>>   #include "ib.h"
->>>
->>> Although I can't see how in the world this patch is causing such
->>> an error.
->>>
->> Weird indeed. Will sort this out with Avinash. Thanks Dave.
->> 
-> I tried few build combinations on net-next but couldn't
-> reproduce the build failure. AFAIU, the build error can only
-> happen if for some reason the ib.h file got deleted
-> accidentally. I did delete ib.h file and saw below error
-> 
->   CC [M]  net/rds/rdma_transport.o
-> net/rds/rdma_transport.c:38:16: error: ib.h: No such file or directory
-> 
-> Could it be the case for some reason the ib.h file got
-> deleted or mangled while applying the $subject patch ?
+> For object files with a larger map definition, libbpf will continue to load
+> if the unknown fields are all zero, otherwise the map is rejected.  If the
+> map definition in the object file is smaller than expected, libbpf will use
+> zero as a default value in the missing fields.
 
-Please post the patch again, I will try to sort it out.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Judging by the feedback I anticipate another spin of this series.
