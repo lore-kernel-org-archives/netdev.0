@@ -1,75 +1,47 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 08/13] timer: Remove unused static initializer macros
-Date: Wed,  4 Oct 2017 16:27:02 -0700
-Message-ID: <1507159627-127660-9-git-send-email-keescook@chromium.org>
-References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Chris Metcalf <cmetcalf@mellanox.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Harish Patil <harish.patil@cavium.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        John Stultz <john.stultz@linaro.org>,
-        Julian Wiedmann <jwi@linux.vnet.ibm.com>,
-        Kalle Valo <kvalo@qca.qualcomm.com>,
-        Lai Jiangshan <jiangshanlai@gmail.com>,
-        Len Brown <len.brown@intel.com>,
-        Manish Chopra <manish.chopra@cavium.com>,
-        Mark Gross <mark.gross@intel.com>,
-        "Martin K. Petersen" <ma
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1507159627-127660-1-git-send-email-keescook@chromium.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 4/4] selinux: bpf: Add addtional check for bpf
+ object file receive
+Date: Thu, 05 Oct 2017 01:44:35 +0200
+Message-ID: <59D57263.3080601@iogearbox.net>
+References: <20171004182932.140028-1-chenbofeng.kernel@gmail.com> <20171004182932.140028-5-chenbofeng.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeffrey Vander Stoep <jeffv@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org,
+        SELinux <Selinux@tycho.nsa.gov>,
+        linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20171004182932.140028-5-chenbofeng.kernel@gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This removes the now unused TIMER_*INITIALIZER macros:
+On 10/04/2017 08:29 PM, Chenbo Feng wrote:
+> From: Chenbo Feng <fengc@google.com>
+>
+> Introduce a bpf object related check when sending and receiving files
+> through unix domain socket as well as binder. It checks if the receiving
+> process have privilege to read/write the bpf map or use the bpf program.
+> This check is necessary because the bpf maps and programs are using a
+> anonymous inode as their shared inode so the normal way of checking the
+> files and sockets when passing between processes cannot work properly on
+> eBPF object. This check only works when the BPF_SYSCALL is configured.
 
-TIMER_INITIALIZER
-TIMER_PINNED_INITIALIZER
-TIMER_DEFERRED_INITIALIZER
-TIMER_PINNED_DEFERRED_INITIALIZER
+[...]
+> +/* This function will check the file pass through unix socket or binder to see
+> + * if it is a bpf related object. And apply correspinding checks on the bpf
+> + * object based on the type. The bpf maps and programs, not like other files and
+> + * socket, are using a shared anonymous inode inside the kernel as their inode.
+> + * So checking that inode cannot identify if the process have privilege to
+> + * access the bpf object and that's why we have to add this additional check in
+> + * selinux_file_receive and selinux_binder_transfer_files.
+> + */
+[...]
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- include/linux/timer.h | 12 ------------
- 1 file changed, 12 deletions(-)
-
-diff --git a/include/linux/timer.h b/include/linux/timer.h
-index 4f7476e4a727..a33220311361 100644
---- a/include/linux/timer.h
-+++ b/include/linux/timer.h
-@@ -73,18 +73,6 @@ struct timer_list {
- 			__FILE__ ":" __stringify(__LINE__))	\
- 	}
- 
--#define TIMER_INITIALIZER(_function, _expires, _data)		\
--	__TIMER_INITIALIZER((_function), (_expires), (_data), 0)
--
--#define TIMER_PINNED_INITIALIZER(_function, _expires, _data)	\
--	__TIMER_INITIALIZER((_function), (_expires), (_data), TIMER_PINNED)
--
--#define TIMER_DEFERRED_INITIALIZER(_function, _expires, _data)	\
--	__TIMER_INITIALIZER((_function), (_expires), (_data), TIMER_DEFERRABLE)
--
--#define TIMER_PINNED_DEFERRED_INITIALIZER(_function, _expires, _data)	\
--	__TIMER_INITIALIZER((_function), (_expires), (_data), TIMER_DEFERRABLE | TIMER_PINNED)
--
- #define DEFINE_TIMER(_name, _function, _expires, _data)		\
- 	struct timer_list _name =				\
- 		__TIMER_INITIALIZER(_function, _expires, _data, 0)
--- 
-2.7.4
+If selinux/lsm folks have some input on this one in particular, would
+be great. The issue is not really tied to bpf specifically, but to the
+use of anon-inodes wrt fd passing. Maybe some generic resolution can
+be found to tackle this ...
