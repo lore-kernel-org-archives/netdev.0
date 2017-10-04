@@ -1,53 +1,82 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 5/7] net: bonding: Add extack messages for some
- enslave failures
-Date: Wed, 4 Oct 2017 08:35:46 -0700
-Message-ID: <354fae78-3b04-3807-7392-87c6a3f1b3db@gmail.com>
-References: <1507093134-20406-1-git-send-email-dsahern@gmail.com>
- <1507093134-20406-6-git-send-email-dsahern@gmail.com>
- <20171004063828.GB1895@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-        andy@greyhouse.net, jiri@mellanox.com, idosch@mellanox.com,
-        davem@davemloft.net, bridge@lists.linux-foundation.org
-To: Jiri Pirko <jiri@resnulli.us>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v3 0/3] tools: add bpftool
+Date: Wed,  4 Oct 2017 08:40:29 -0700
+Message-ID: <20171004154032.11413-1-jakub.kicinski@netronome.com>
+Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
+        dsahern@gmail.com, oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36934 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752248AbdJDPfz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 11:35:55 -0400
-Received: by mail-pg0-f66.google.com with SMTP id o1so12279062pga.4
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 08:35:55 -0700 (PDT)
-In-Reply-To: <20171004063828.GB1895@nanopsycho>
-Content-Language: en-US
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:44564 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752409AbdJDPkv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 11:40:51 -0400
+Received: by mail-pg0-f44.google.com with SMTP id b1so5187645pge.1
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 08:40:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/3/17 11:38 PM, Jiri Pirko wrote:
-> Wed, Oct 04, 2017 at 06:58:52AM CEST, dsahern@gmail.com wrote:
->> A number of bond_enslave errors are logged using the netdev_err API.
->> Return those messages to userspace via the extack facility.
->>
->> Signed-off-by: David Ahern <dsahern@gmail.com>
->> ---
->> drivers/net/bonding/bond_main.c | 12 ++++++++++++
->> 1 file changed, 12 insertions(+)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index bc92307c2082..6688dc9154e0 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -1348,12 +1348,15 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
->>
->> 	/* already in-use? */
->> 	if (netdev_is_rx_handler_busy(slave_dev)) {
->> +		NL_SET_ERR_MSG(extack,
->> +			       "Device is in use and cannot be enslaved");
-> 
-> Please don't do this kind of wrapping. Just let the string be on the
-> same line.
-> 
+Hi!
 
-Ok, I will do that for bonding only since it is the existing style.
+This set adds bpftool to the tools/ directory.  The first 
+patch renames tools/net to tools/bpf, the second one adds 
+the new code, while the third adds simple documentation.
+
+I was holding off reposting in case the verifier instruction
+printing/lock removal patches would turn out to be an easy
+task.  They may need some more review, I will post them
+separately.
+
+
+v3:
+ - address Alexei's comments about output and docs.
+v2:
+ - report names, map ids, load time, uid;
+ - add docs/man pages;
+ - general cleanups & fixes.
+
+Jakub Kicinski (3):
+  tools: rename tools/net directory to tools/bpf
+  tools: bpf: add bpftool
+  tools: bpftool: add documentation
+
+ MAINTAINERS                                      |   3 +-
+ tools/Makefile                                   |  14 +-
+ tools/{net => bpf}/Makefile                      |  18 +-
+ tools/{net => bpf}/bpf_asm.c                     |   0
+ tools/{net => bpf}/bpf_dbg.c                     |   0
+ tools/{net => bpf}/bpf_exp.l                     |   0
+ tools/{net => bpf}/bpf_exp.y                     |   0
+ tools/{net => bpf}/bpf_jit_disasm.c              |   0
+ tools/bpf/bpftool/Documentation/Makefile         |  34 ++
+ tools/bpf/bpftool/Documentation/bpftool-map.txt  | 110 ++++
+ tools/bpf/bpftool/Documentation/bpftool-prog.txt |  79 +++
+ tools/bpf/bpftool/Documentation/bpftool.txt      |  34 ++
+ tools/bpf/bpftool/Makefile                       |  86 +++
+ tools/bpf/bpftool/common.c                       | 216 +++++++
+ tools/bpf/bpftool/jit_disasm.c                   |  87 +++
+ tools/bpf/bpftool/main.c                         | 212 +++++++
+ tools/bpf/bpftool/main.h                         |  99 +++
+ tools/bpf/bpftool/map.c                          | 744 +++++++++++++++++++++++
+ tools/bpf/bpftool/prog.c                         | 456 ++++++++++++++
+ 19 files changed, 2180 insertions(+), 12 deletions(-)
+ rename tools/{net => bpf}/Makefile (74%)
+ rename tools/{net => bpf}/bpf_asm.c (100%)
+ rename tools/{net => bpf}/bpf_dbg.c (100%)
+ rename tools/{net => bpf}/bpf_exp.l (100%)
+ rename tools/{net => bpf}/bpf_exp.y (100%)
+ rename tools/{net => bpf}/bpf_jit_disasm.c (100%)
+ create mode 100644 tools/bpf/bpftool/Documentation/Makefile
+ create mode 100644 tools/bpf/bpftool/Documentation/bpftool-map.txt
+ create mode 100644 tools/bpf/bpftool/Documentation/bpftool-prog.txt
+ create mode 100644 tools/bpf/bpftool/Documentation/bpftool.txt
+ create mode 100644 tools/bpf/bpftool/Makefile
+ create mode 100644 tools/bpf/bpftool/common.c
+ create mode 100644 tools/bpf/bpftool/jit_disasm.c
+ create mode 100644 tools/bpf/bpftool/main.c
+ create mode 100644 tools/bpf/bpftool/main.h
+ create mode 100644 tools/bpf/bpftool/map.c
+ create mode 100644 tools/bpf/bpftool/prog.c
+
+-- 
+2.14.1
