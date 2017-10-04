@@ -1,49 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/3 v2] net: phy: DP83822 initial driver submission
-Date: Thu, 5 Oct 2017 01:53:07 +0200
-Message-ID: <20171004235307.GD16612@lunn.ch>
-References: <20171004182031.13794-1-dmurphy@ti.com>
- <20171004182031.13794-2-dmurphy@ti.com>
- <9235D6609DB808459E95D78E17F2E43D40B3F9A9@CHN-SV-EXMX02.mchp-main.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: devlink dump of mlxsw_adj table triggers a panic
+Date: Wed, 4 Oct 2017 16:57:35 -0700
+Message-ID: <78e0bce8-e122-ab92-2f48-e9d278f4d2b4@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dmurphy@ti.com, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        afd@ti.com
-To: Woojung.Huh@microchip.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:39822 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751197AbdJDXxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 19:53:10 -0400
-Content-Disposition: inline
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40B3F9A9@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:49796 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751132AbdJDX5h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 19:57:37 -0400
+Received: by mail-pg0-f47.google.com with SMTP id v13so7356688pgq.6
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 16:57:37 -0700 (PDT)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 10:44:36PM +0000, Woojung.Huh@microchip.com wrote:
-> > +static int dp83822_suspend(struct phy_device *phydev)
-> > +{
-> > +	int value;
-> > +
-> > +	mutex_lock(&phydev->lock);
-> > +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
-> > MII_DP83822_WOL_CFG);
-> > +	mutex_unlock(&phydev->lock);
+The following devlink command on a 2700 triggers a panic every time.
+Kernel is net-next at 26873308b21654b6e0785b9f9e2c5414d37a4c4c
 
-> Would we need mutex to access phy_read_mmd()?
-> phy_read_mmd() has mdio_lock for indirect access.
+$ devlink  dpipe table dump pci/0000:03:00.0 name mlxsw_adj
+devlink answers: No buffer space available
+<hang>
 
-Hi Woojung
+I have seen several different stack traces and varying amounts of EMAD
+errors on console:
 
-The mdio lock is not sufficient. It protects against two mdio
-accesses. But here we need to protect against two phy operations.
-There is a danger something else tries to access the phy during
-suspend.
+[   77.453364] mlxsw_spectrum 0000:03:00.0: EMAD reg access failed
+(tid=64c24a400003688,reg_id=200b(sfn),type=query,status=0(operation
+performed))
+[   77.466568] mlxsw_spectrum 0000:03:00.0: Failed to get FDB notifications
 
-> > +	if (!(value & DP83822_WOL_EN))
-> > +		genphy_suspend(phydev);
+If it does not reproduce for you let me know and I'll grab a trace.
 
-Releasing the lock before calling genphy_suspend() is not so nice.
-Maybe add a version which assumes the lock has already been taken?
-
-      Andrew
+David
