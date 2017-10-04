@@ -1,13 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 04/13] timer: Remove init_timer_pinned() in favor of timer_setup()
-Date: Wed,  4 Oct 2017 16:26:58 -0700
-Message-ID: <1507159627-127660-5-git-send-email-keescook@chromium.org>
-References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
+Subject: [PATCH 00/13] timer: Start conversion to timer_setup()
+Date: Wed,  4 Oct 2017 16:26:54 -0700
+Message-ID: <1507159627-127660-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Chris Metcalf <cmetcalf@mellanox.com>, netdev@vger.kernel.org,
         Andrew Morton <akpm@linux-foundation.org>,
         Arnd Bergmann <arnd@arndb.de>,
         Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Chris Metcalf <cmetcalf@mellanox.com>,
         Geert Uytterhoeven <geert@linux-m68k.org>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Guenter Roeck <linux@roeck-us.net>,
@@ -21,9 +20,9 @@ Cc: Kees Cook <keescook@chromium.org>,
         Len Brown <len.brown@intel.com>,
         Manish Chopra <manish.chopra@cavium.com>,
         Mark Gross <mark.gross@intel.com>,
+        "Martin K. Petersen" <ma
 To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1507159627-127660-1-git-send-email-keescook@chromium.org>
 Sender: linux-mips-bounce@linux-mips.org
 Errors-to: linux-mips-bounce@linux-mips.org
 List-help: <mailto:ecartis@linux-mips.org?Subject=help>
@@ -35,59 +34,20 @@ List-post: <mailto:linux-mips@linux-mips.org>
 List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-This refactors the only users of init_timer_pinned() to use
-the new timer_setup() and from_timer(). Drops the definition of
-init_timer_pinned().
+Hi,
 
-Cc: Chris Metcalf <cmetcalf@mellanox.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/net/ethernet/tile/tilepro.c | 9 ++++-----
- include/linux/timer.h               | 2 --
- 2 files changed, 4 insertions(+), 7 deletions(-)
+This is the first of many timer infrastructure cleanups to simplify the
+timer API[1]. All of these patches are expected to land via the timer
+tree, so Acks (or corrections) appreciated.
 
-diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
-index 49ccee4b9aec..56d06282fbde 100644
---- a/drivers/net/ethernet/tile/tilepro.c
-+++ b/drivers/net/ethernet/tile/tilepro.c
-@@ -608,9 +608,9 @@ static void tile_net_schedule_egress_timer(struct tile_net_cpu *info)
-  * ISSUE: Maybe instead track number of expected completions, and free
-  * only that many, resetting to zero if "pending" is ever false.
-  */
--static void tile_net_handle_egress_timer(unsigned long arg)
-+static void tile_net_handle_egress_timer(struct timer_list *t)
- {
--	struct tile_net_cpu *info = (struct tile_net_cpu *)arg;
-+	struct tile_net_cpu *info = from_timer(info, t, egress_timer);
- 	struct net_device *dev = info->napi.dev;
- 
- 	/* The timer is no longer scheduled. */
-@@ -1004,9 +1004,8 @@ static void tile_net_register(void *dev_ptr)
- 		BUG();
- 
- 	/* Initialize the egress timer. */
--	init_timer_pinned(&info->egress_timer);
--	info->egress_timer.data = (long)info;
--	info->egress_timer.function = tile_net_handle_egress_timer;
-+	timer_setup(&info->egress_timer, tile_net_handle_egress_timer,
-+		    TIMER_PINNED);
- 
- 	u64_stats_init(&info->stats.syncp);
- 
-diff --git a/include/linux/timer.h b/include/linux/timer.h
-index b10c4bdc6fbd..9da903562ed4 100644
---- a/include/linux/timer.h
-+++ b/include/linux/timer.h
-@@ -128,8 +128,6 @@ static inline void init_timer_on_stack_key(struct timer_list *timer,
- 
- #define init_timer(timer)						\
- 	__init_timer((timer), 0)
--#define init_timer_pinned(timer)					\
--	__init_timer((timer), TIMER_PINNED)
- #define init_timer_deferrable(timer)					\
- 	__init_timer((timer), TIMER_DEFERRABLE)
- 
--- 
-2.7.4
+These patches refactor various users of timer API that are NOT just using
+init_timer() or setup_timer() (which is the vast majority of users,
+and are being converted separately). These changes are focused on the
+lesser-used init_timer_*(), TIMER_*INITIALIZER(), and DEFINE_TIMER()
+methods of preparing a timer.
+
+Thanks!
+
+-Kees
+
+[1] https://git.kernel.org/linus/686fef928bba6be13cabe639f154af7d72b63120
