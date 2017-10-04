@@ -1,114 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: cache skb_shinfo() in skb_try_coalesce()
-Date: Wed, 04 Oct 2017 10:48:35 -0700
-Message-ID: <1507139315.14419.5.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Subject: Re: [next-queue PATCH v3 2/4] net/sched: Fix accessing invalid
+ dev_queue
+Date: Wed, 4 Oct 2017 10:42:34 -0700
+Message-ID: <26439d1d-9fdf-cf1a-42fa-8c950fe00d15@intel.com>
+References: <20171003234435.8979-1-vinicius.gomes@intel.com>
+ <20171003234435.8979-3-vinicius.gomes@intel.com>
+ <1507088831.8061.41.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:38428 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751133AbdJDRsh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 13:48:37 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a7so12865974pfj.5
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 10:48:37 -0700 (PDT)
+Received: from mga01.intel.com ([192.55.52.88]:6033 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750951AbdJDRtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 13:49:36 -0400
+In-Reply-To: <1507088831.8061.41.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-Compiler does not really know that skb_shinfo(to|from) are constants
-in skb_try_coalesce(), lets cache their values to shrink code.
-
-We might even take care of skb_zcopy() calls later.
-
-$ size net/core/skbuff.o.before net/core/skbuff.o
-   text	   data	    bss	    dec	    hex	filename
-  40727	   1298	      0	  42025	   a429	net/core/skbuff.o.before
-  40631	   1298	      0	  41929	   a3c9	net/core/skbuff.o
+Hi,
 
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |   29 ++++++++++++++++-------------
- 1 file changed, 16 insertions(+), 13 deletions(-)
+On 10/03/2017 08:47 PM, Eric Dumazet wrote:
+> On Tue, 2017-10-03 at 16:44 -0700, Vinicius Costa Gomes wrote:
+>> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+>>
+>> In qdisc_alloc() the dev_queue pointer was used without any checks being
+>> performed. If qdisc_create() gets a null dev_queue pointer, it just
+>> passes it along to qdisc_alloc(), leading to a crash. That happens if a
+>> root qdisc implements select_queue() and returns a null dev_queue
+>> pointer for an "invalid handle", for example.
+>>
+>> One way to reproduce that is:
+>>
+>> 1) Setup mqprio
+>> $ tc qdisc replace dev enp3s0 parent root mqprio num_tc 3 \
+>>      	   map 2 2 1 0 2 2 2 2 2 2 2 2 2 2 2 2 queues 1@0 1@1 2@2 hw 0
+>>
+>> 2) Replace the first inner qdisc
+>> $ tc qdisc replace dev enp3s0 parent 8001:1 pfifo_fast
+>>
+>> This will lead to the following crash:
+> 
+> When was this bug added ?
+> 
+> If this is a consequence of your prior patch (1/4), then this must come
+> before it.
+> 
+> No need to add a stack trace for a not existing bug.
+> Instead, explain in the changelog that it is a prep work.
+> 
+> We try to not break the tree on purpose, so that future bisection will
+> not hit a point where the kernel crashes.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d98c2e3ce2bfd9549647d6914b69cecd840de480..822a90e56aea2078a11d5361a2b2595812291274 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -4767,6 +4767,7 @@ EXPORT_SYMBOL(kfree_skb_partial);
- bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 		      bool *fragstolen, int *delta_truesize)
- {
-+	struct skb_shared_info *to_shinfo, *from_shinfo;
- 	int i, delta, len = from->len;
- 
- 	*fragstolen = false;
-@@ -4781,7 +4782,9 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 		return true;
- 	}
- 
--	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-+	to_shinfo = skb_shinfo(to);
-+	from_shinfo = skb_shinfo(from);
-+	if (to_shinfo->frag_list || from_shinfo->frag_list)
- 		return false;
- 	if (skb_zcopy(to) || skb_zcopy(from))
- 		return false;
-@@ -4790,8 +4793,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 		struct page *page;
- 		unsigned int offset;
- 
--		if (skb_shinfo(to)->nr_frags +
--		    skb_shinfo(from)->nr_frags >= MAX_SKB_FRAGS)
-+		if (to_shinfo->nr_frags +
-+		    from_shinfo->nr_frags >= MAX_SKB_FRAGS)
- 			return false;
- 
- 		if (skb_head_is_locked(from))
-@@ -4802,12 +4805,12 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 		page = virt_to_head_page(from->head);
- 		offset = from->data - (unsigned char *)page_address(page);
- 
--		skb_fill_page_desc(to, skb_shinfo(to)->nr_frags,
-+		skb_fill_page_desc(to, to_shinfo->nr_frags,
- 				   page, offset, skb_headlen(from));
- 		*fragstolen = true;
- 	} else {
--		if (skb_shinfo(to)->nr_frags +
--		    skb_shinfo(from)->nr_frags > MAX_SKB_FRAGS)
-+		if (to_shinfo->nr_frags +
-+		    from_shinfo->nr_frags > MAX_SKB_FRAGS)
- 			return false;
- 
- 		delta = from->truesize - SKB_TRUESIZE(skb_end_offset(from));
-@@ -4815,19 +4818,19 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 
- 	WARN_ON_ONCE(delta < len);
- 
--	memcpy(skb_shinfo(to)->frags + skb_shinfo(to)->nr_frags,
--	       skb_shinfo(from)->frags,
--	       skb_shinfo(from)->nr_frags * sizeof(skb_frag_t));
--	skb_shinfo(to)->nr_frags += skb_shinfo(from)->nr_frags;
-+	memcpy(to_shinfo->frags + to_shinfo->nr_frags,
-+	       from_shinfo->frags,
-+	       from_shinfo->nr_frags * sizeof(skb_frag_t));
-+	to_shinfo->nr_frags += from_shinfo->nr_frags;
- 
- 	if (!skb_cloned(from))
--		skb_shinfo(from)->nr_frags = 0;
-+		from_shinfo->nr_frags = 0;
- 
- 	/* if the skb is not cloned this does nothing
- 	 * since we set nr_frags to 0.
- 	 */
--	for (i = 0; i < skb_shinfo(from)->nr_frags; i++)
--		skb_frag_ref(from, i);
-+	for (i = 0; i < from_shinfo->nr_frags; i++)
-+		__skb_frag_ref(&from_shinfo->frags[i]);
- 
- 	to->truesize += delta;
- 	to->len += len;
+Sure, that makes absolute sense. It'll be fixed in our v5 as you've suggested.
+
+
+Thanks,
+Jesus
