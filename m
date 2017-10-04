@@ -1,49 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/3] A own subdirectory for shared TCP code
-Date: Wed, 4 Oct 2017 22:27:49 +0200
-Message-ID: <20171004202749.GB13247@lunn.ch>
-References: <20171003222213.7996-1-richard_siegfried@systemli.org>
- <20171003.160338.1370433279322133749.davem@davemloft.net>
- <d7237d11-ec83-0ef6-d201-da8b99c94b88@systemli.org>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next] openvswitch: Add erspan tunnel support.
+Date: Wed, 4 Oct 2017 14:31:00 -0700
+Message-ID: <CAOrHB_DNkfnUty=QzO5d6SAyscLXBP-teE_j0RvDaJiMHqRaaw@mail.gmail.com>
+References: <1507118559-13774-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Richard Siegfried <richard_siegfried@systemli.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:39607 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751161AbdJDU1z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 16:27:55 -0400
-Content-Disposition: inline
-In-Reply-To: <d7237d11-ec83-0ef6-d201-da8b99c94b88@systemli.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:59491 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751267AbdJDVbC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 17:31:02 -0400
+Received: from mail-wm0-f53.google.com (mail-wm0-f53.google.com [74.125.82.53])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 3F5F4A80CB
+        for <netdev@vger.kernel.org>; Wed,  4 Oct 2017 23:31:01 +0200 (CEST)
+Received: by mail-wm0-f53.google.com with SMTP id k4so23575805wmc.1
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 14:31:01 -0700 (PDT)
+In-Reply-To: <1507118559-13774-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 08:54:17PM +0200, Richard Siegfried wrote:
-> On 04/10/17 01:03, David Miller wrote:
-> > As someone who has to do backports regularly to -stable, there is no way
-> > I am applying this.
-> > 
-> > Sorry.
-> Okay, I see.
-> 
-> Is grouping files into subdirectories something generally
-> unwanted/unlikely to be applied or is this specific to TCP / networking?
-> 
-> Because there are several other places in the source tree where I would
-> like to group things.
+On Wed, Oct 4, 2017 at 5:02 AM, William Tu <u9012063@gmail.com> wrote:
+> Add type II erspan vport implementation.  Since erspan protocol is
+> on top of the GRE header, the implementation is extended from the
+> existing gre implementation.
+>
+> Signed-off-by: William Tu <u9012063@gmail.com>
+> Cc: Pravin B Shelar <pshelar@ovn.org>
 
-Hi Richard
-
-It is generally unwanted.
-
-Have you tried back porting patches when the directory structure has
-changed? Files have moved around? It makes it a lot harder to
-do. Meaning patches are going to be back ported less often. Fixes
-which could be security relevant might not get back ported, etc.
-
-Kernel 4.4 is going to be supported until 2022. So moving files around
-is going to make Greg Kroah-Hartman life more difficult for the next 5
-years.
-
-	Andrew
+Why are you adding ERSPAN support to compat code. Isn't this supported
+over OVS netlink-rtnl (dpif-netlink-rtnl)?
