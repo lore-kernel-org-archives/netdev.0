@@ -1,57 +1,55 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v1] s390/qeth: use kstrtobool() in qeth_bridgeport_hostnotification_store()
-Date: Wed,  4 Oct 2017 16:38:51 +0300
-Message-ID: <20171004133851.18595-1-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: Julian Wiedmann <jwi@linux.vnet.ibm.com>,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        linux-s390@vger.kernel.org, David Miller <davem@davemloft.net>,
-        netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] rtnetlink: remove slave_validate callback
+Date: Wed,  4 Oct 2017 15:55:29 +0200
+Message-ID: <20171004135529.3967-1-fw@strlen.de>
+Cc: jiri@resnulli.us, Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:27994 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752008AbdJDNj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 09:39:27 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53244 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752105AbdJDNzM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 09:55:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sysfs enabled value is a boolean, so kstrtobool() is a better fit
-for parsing the input string since it does the range checking for us.
+no users in the tree.
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/s390/net/qeth_l2_sys.c | 13 +++++--------
- 1 file changed, 5 insertions(+), 8 deletions(-)
+ include/net/rtnetlink.h | 3 ---
+ net/core/rtnetlink.c    | 6 ------
+ 2 files changed, 9 deletions(-)
 
-diff --git a/drivers/s390/net/qeth_l2_sys.c b/drivers/s390/net/qeth_l2_sys.c
-index 4608daedb204..470a4e5f3c62 100644
---- a/drivers/s390/net/qeth_l2_sys.c
-+++ b/drivers/s390/net/qeth_l2_sys.c
-@@ -146,18 +146,15 @@ static ssize_t qeth_bridgeport_hostnotification_store(struct device *dev,
- 		struct device_attribute *attr, const char *buf, size_t count)
- {
- 	struct qeth_card *card = dev_get_drvdata(dev);
--	int rc = 0;
--	int enable;
-+	bool enable;
-+	int rc;
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 21837ca68ecc..6520993ff449 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -93,9 +93,6 @@ struct rtnl_link_ops {
  
- 	if (!card)
- 		return -EINVAL;
+ 	int			slave_maxtype;
+ 	const struct nla_policy	*slave_policy;
+-	int			(*slave_validate)(struct nlattr *tb[],
+-						  struct nlattr *data[],
+-						  struct netlink_ext_ack *extack);
+ 	int			(*slave_changelink)(struct net_device *dev,
+ 						    struct net_device *slave_dev,
+ 						    struct nlattr *tb[],
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 3961f87cdc76..b63c5759641f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2631,12 +2631,6 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 					return err;
+ 				slave_data = slave_attr;
+ 			}
+-			if (m_ops->slave_validate) {
+-				err = m_ops->slave_validate(tb, slave_data,
+-							    extack);
+-				if (err < 0)
+-					return err;
+-			}
+ 		}
  
--	if (sysfs_streq(buf, "0"))
--		enable = 0;
--	else if (sysfs_streq(buf, "1"))
--		enable = 1;
--	else
--		return -EINVAL;
-+	rc = kstrtobool(buf, &enable);
-+	if (rc)
-+		return rc;
- 
- 	mutex_lock(&card->conf_mutex);
- 
+ 		if (dev) {
 -- 
-2.14.2
+2.13.6
