@@ -1,97 +1,74 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH v4 net-next 0/8] flow_dissector: Protocol specific flow
- dissector offload
-Date: Wed, 4 Oct 2017 08:45:32 +0200
-Message-ID: <20171004064532.GD1895@nanopsycho>
-References: <20170928235230.22158-1-tom@quantonium.net>
- <87y3oyylzv.fsf@stressinduktion.org>
- <CALx6S37J-Uv11TJuNFj4et==NFZj9W0v9s_c-Qowqcs--Kx_VQ@mail.gmail.com>
- <20170929.184245.412578447363431176.davem@davemloft.net>
- <CALx6S37DhT095fY92HWZAKQvMkqjxqq08nxJqL=wTP8JorHHDg@mail.gmail.com>
- <20171003074632.GD1916@nanopsycho>
- <CAPDqMeq3er9=P9AUFKf4-FcSgthpv2hUz+WTb78DRHGEJ0TTWA@mail.gmail.com>
+From: =?ISO-8859-15?Q?J=F6rg_Willmann?= <joe@clnt.de>
+Subject: etsec2 attached to sgmii phy
+Date: Wed, 4 Oct 2017 07:56:53 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit Seth <rohit@quantonium.net>
-To: Tom Herbert <tom@quantonium.net>
+Content-Type: text/plain; format=flowed; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:54965 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdJDGpe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 02:45:34 -0400
-Received: by mail-wr0-f175.google.com with SMTP id o44so6110153wrf.11
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 23:45:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAPDqMeq3er9=P9AUFKf4-FcSgthpv2hUz+WTb78DRHGEJ0TTWA@mail.gmail.com>
+Received: from smtprelay03.ispgateway.de ([80.67.29.28]:51925 "EHLO
+        smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750797AbdJDHRu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 03:17:50 -0400
+Received: from [46.237.200.88] (helo=brian.int1.clnt.de)
+        by smtprelay03.ispgateway.de with esmtpsa (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128)
+        (Exim 4.89)
+        (envelope-from <joe@clnt.de>)
+        id 1dzcft-0006Nw-Ic
+        for netdev@vger.kernel.org; Wed, 04 Oct 2017 07:56:53 +0200
+Received: from localhost ([127.0.0.1])
+        by brian.int1.clnt.de with esmtp (Exim 4.86_2)
+        (envelope-from <joe@clnt.de>)
+        id 1dzcft-0008VZ-7f
+        for netdev@vger.kernel.org; Wed, 04 Oct 2017 07:56:53 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 03, 2017 at 08:35:54PM CEST, tom@quantonium.net wrote:
->On Tue, Oct 3, 2017 at 12:46 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Fri, Sep 29, 2017 at 07:59:35PM CEST, tom@herbertland.com wrote:
->>>On Fri, Sep 29, 2017 at 10:42 AM, David Miller <davem@davemloft.net> wrote:
->>>> From: Tom Herbert <tom@herbertland.com>
->>>> Date: Fri, 29 Sep 2017 08:48:55 -0700
->>>>
->>>>> The flow_dissector interface is not a uAPI.
->>>>
->>>> That's not true, insofar as cls_flower.c uses the flow_dissector
->>>> therefore if you change the flow_dissector in certain ways then
->>>> cls_flower.c might have it's behavior changed and that is in fact UAPI
->>>> facing.
->>>
->>>Then I would suggest adding another flag like FLOW_DISSECTOR_F_FLOWER
->>>and when anyone puts new code into flow_dissector they can wrap it
->>>with "if !(flags & FLOW_DISSECTOR_F_FLOWER)". If the flower uAPI is
->>>subsequently update then the conditional can be removed. This way
->>>flower can support maintain its APIs, but we can still still extend
->>>and improve flow_dissector for othersuse cases.
->>
->> This is not flower-specific problem. Flow_dissector is a servant of many.
->
->Besides flower, what other use cases of flow_dissector have made
->flow_dissector interface a uAPI? Any use of hashing does not do this.
->Maybe OVS does?
+Hi,
 
-It may be that currently it affects only flower. That does not mean you
-should add flower-specific quirk. All I say is this should be handled in
-a generic way, independent on the caller.
+we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352). 
+Currently we still use a really old linux kernel (2.6.33) successfully.
 
+For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI 
+Phy we use the following settings in the device tree:
 
->
->> As such, it is instructed what should it do. If you want to
->> change the way inner headers are parsed, you should either:
->
->Why would that only affect the way inner headers are parsed? Wouldn't
->we need to consider any change to flow_dissector that might affect the
->output in any way. For instance, the depth limits I added would change
->to output for someone that was parsing thirty-five layers of
->encapsulation so it it looks like that feature needs a flag. What if
->someone adds a new Ethernet protocol or a new encap protocol?
+                         mdio@25000 {
+                                    #address-cells = <0x1>;
+                                    #size-cells = <0x0>;
+                                    compatible = "fsl,etsec2-tbi";
+                                    reg = <0x25000 0x1000 0xb1030 0x4>;
 
-Sure, what I ment was any change of behaviour.
+                                    tbi-phy@11 {
+                                                reg = <0x11>;
+                                                device_type = "tbi-phy";
+                                                linux,phandle = <0x5>;
+                                                phandle = <0x5>;
+                                    };
+                         };
 
+First resource in the mdio config is the base address of the MDIO bus, the 
+second resource defines the address of TBIPA.
 
->
->> 1) change the callers so they are behaving the same as before
->> 2) make the flow_dissection change optional so the caller can say if he
->>    wants original or new behaviour.
->
->I guess we can do that, but am concerned about the overhead this will
->generate if were adding a flag each time anyone modifies the function.
->There are performance critical use cases of flow_dissector that will
->be impacted by such changes.
+Doing tests with a newer kernel (4.4.71)  I was faced with problems 
+communicating with the TBIPHY.
 
-I don't think that the overhead would be much different from what you
-proposed.
+Debugging this I found out that TBIPA is no longer parameterized correctly 
+and I found out why:
 
+In commit afae5ad78b342f401c28b0bb1adb3cd494cb125a initialization of TIBPA 
+has been changed:
 
->
->Tom
->
->
->>
+In former versions in get_gfar_tbipa(...) for compatible "etsec2-tbi" the 
+second resource of the reg entry has been used. But now only first 
+resource is mapped and get_etsec_tbipa(...) which is now
+responsible to return the proper address does not (and has no way due to 
+missing *np as function argument) do so but returns the first resource 
+(which is the base address of mdio controller).
+
+What do you think would be the correct way to solve this issue? Re-add *np 
+to the get_*_tba() functions to be able to return the proper address?
+
+Thank's for reading,
+Best regards,
+
+Joerg
