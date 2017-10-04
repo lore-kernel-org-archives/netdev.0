@@ -1,64 +1,156 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: multi producer / multi consumer lock-free queue with ptr_ring
-Date: Wed, 4 Oct 2017 19:23:18 +0300
-Message-ID: <20171004171019-mutt-send-email-mst@kernel.org>
-References: <CAHmME9qPYL-wzyX0Q7RG7Uk9kAeWbzNN5=0YrmbniUR2O3rSxA@mail.gmail.com>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH] net: phy: DP83822 initial driver submission
+Date: Wed, 4 Oct 2017 11:22:26 -0500
+Message-ID: <5d6762fc-4da9-9729-69a7-a9acf76ab2c9@ti.com>
+References: <20171003155316.12312-1-dmurphy@ti.com>
+ <1847c902-8364-3c7c-f079-3d123ba1d3f1@gmail.com>
+ <ccab5880-eace-503c-d325-d20867b98bd5@ti.com>
+ <fd7379ac-d617-1fed-45a2-6698256cf160@gmail.com>
+ <86fdd4ac-428c-16a4-2b07-fe67765c6f13@ti.com>
+ <35e1541d-1cad-8d72-300f-b9c4d0c27f11@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>,
-        Samuel Holland <samuel@sholland.org>,
-        WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHmME9qPYL-wzyX0Q7RG7Uk9kAeWbzNN5=0YrmbniUR2O3rSxA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:12225 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751148AbdJDQX7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 12:23:59 -0400
+In-Reply-To: <35e1541d-1cad-8d72-300f-b9c4d0c27f11@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 01:18:24PM +0200, Jason A. Donenfeld wrote:
-> Hey Michael,
+Florian
+
+On 10/04/2017 11:18 AM, Florian Fainelli wrote:
+> On 10/04/2017 08:41 AM, Dan Murphy wrote:
+>> Florian
+>>
+>> On 10/03/2017 01:31 PM, Florian Fainelli wrote:
+>>> On 10/03/2017 11:03 AM, Dan Murphy wrote:
+>>>> Florian
+>>>>
+>>>> Thanks for the review
+>>>>
+>>>> On 10/03/2017 12:15 PM, Florian Fainelli wrote:
+>>>>>> +		} else {
+>>>>>> +			value &= ~DP83822_WOL_SECURE_ON;
+>>>>>> +		}
+>>>>>> +
+>>>>>> +		value |= (DP83822_WOL_EN | DP83822_WOL_CLR_INDICATION |
+>>>>>> +			  DP83822_WOL_CLR_INDICATION);
+>>>>>
+>>>>> The extra parenthesis should not be required here.
+>>>>
+>>>> I did not code that in.  I had to add it after Checkpatch cribbed about it.
+>>>> Let me know if you want me to remove it.
+>>>
+>>> Let's keep those, that does not change much.
+>>>
+>>>>
+>>>>>
+>>>>>> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
+>>>>>> +			      value);
+>>>>>> +	} else {
+>>>>>> +		value =
+>>>>>> +		    phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+>>>>>> +		value &= (~DP83822_WOL_EN);
+>>>>>
+>>>>> Same here, parenthesis should not be needed.
+>>>>
+>>>> There are three lines of code in the else.  This code all needs to be excuted in the else case.
+>>>> I might reformat it to read better.  Lindent messed that one up.
+>>>
+>>> sorry, I meant to write that you don't need the parenthesis around
+>>> DP83822_WOL_EN since that is just a single bit here.
+>>>
+>>> [snip]
+>>>
+>>>>>> +
+>>>>>> +	mutex_unlock(&phydev->lock);
+>>>>>> +
+>>>>>> +	return 0;
+>>>>>> +}
+>>>>>> +
+>>>>>> +static int dp83822_resume(struct phy_device *phydev)
+>>>>>> +{
+>>>>>> +	int value;
+>>>>>> +
+>>>>>> +	mutex_lock(&phydev->lock);
+>>>>>> +
+>>>>>> +	value = phy_read(phydev, MII_BMCR);
+>>>>>> +	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
+>>>>>
+>>>>> And genphy_resume() here as well?
+>>>>
+>>>> genphy_resume does not have WoL.
+>>>
+>>> I should have been cleared, I meant using genphy_{suspend,resume} to
+>>> avoid open coding the setting of the BMCR_PDOWN bit, conversely clearing
+>>> of that bit. Because of the locking, maybe you could introduce unlocked
+>>> versions of these two routines, or you acquire and release the lock
+>>> outside of genphy_{suspend,resume}?
+>>
+>> OK I have addressed all of the open comments and will be posting v2 shortly.
+>>
+>> I do have a question on this request.
+>> Are you indicating to exclusively call genphy_(suspend/resume) from within the over ridden
+>> routine and then take care of the WoL bits in the phy specific code?
+>>
+>> Since the genphy code is duplicated here for the BMCR value that would make the most sense
+>> to me.  The genphy code is exported so I can call it explicitly then do the WoL 
 > 
-> Thanks for your work on ptr_ring.h. I'm interested in using it, but in
-> a multi-producer, multi-consumer context. I realize it's been designed
-> for a single-producer, single-consumer context, and thus uses a
-> spinlock. I'm wondering if you'd be happy to receive patches that
-> implement things in a lock-free way, in order to make the data
-> structure more broadly usable.
+> I would expect you to wrap your own calls around genphy_suspend and
+> genphy_resume, such your functions become:
 > 
-> In case you're curious, this would be used for the multi-core
-> algorithms in WireGuard.
+> static int dp83822_suspend(struct phy_device *phydev)
+> {
+> 	int value;
 > 
-> Thanks,
-> Jason
+> 	mutex_lock(&phydev->lock);
+> 	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+> 	mutex_unlock(&phydev->lock);
+> 
+> 	if (~value & DP83822_WOL_EN)
+> 		genphy_suspend(phydev);
+> }
+> 
+> static int dp83822_resume(struct phy_device *phydev)
+> {
+> 	int value;
+> 
+> 	genphy_resume(phydev);
+> 
+> 	mutex_lock(&phydev->lock);
+> 	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+> 
+> 	phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG, value |
+> 		      DP83822_WOL_CLR_INDICATION);
+> 
+> 	mutex_unlock(&phydev->lock);
+> 
+> 	return 0;
+> }
+> 
 
-Hi!
-We'll have to look at the performance and how much code is shared.
-Especially resize support might be tricky without a lock.
+Great thats exactly what I did.
 
-One interesting consideration is that currently we use spinlocks which
-are very expensive but fair when contended.
+Dan
 
-And lock-free mechanisms are very rarely fair.
+>>
+>> Dan
+>>
+>> [snip]-- 
+>> ------------------
+>> Dan Murphy
+>>
+> 
+> 
 
-Further ring isn't really fair when full in the sense that
-you might get the lock first but the result will only
-be that you see a full ring and can not add an entry.
-
-So maybe replacing (optionally?) a spinlock with just a trylock and fail
-on contention would already speed up things for multi-consumer/producer
-without the overhead and complexity of lock-free.
-
-Or tweak spin lock to poll for a bit until going slow path
-or until failure.
-
-Or even try a bit lock.
-
-I hope these ideas help.
-
-One area where we definitely could share effort is adding some
-micro-benchmarks under tools/. I currently (ab)use
-tools/virtio/ringtest.
 
 -- 
-MST
+------------------
+Dan Murphy
