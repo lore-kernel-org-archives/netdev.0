@@ -1,105 +1,136 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next v4 1/3] bridge: add new
- BR_NEIGH_SUPPRESS port flag to suppress arp and nd flood
-Date: Wed, 4 Oct 2017 16:21:35 +0900
-Message-ID: <c4a04560-07c8-7d9e-d64c-558f99cfc653@lab.ntt.co.jp>
+Subject: Re: [Bridge] [PATCH net-next v4 2/3] bridge: suppress arp pkts on
+ BR_NEIGH_SUPPRESS ports
+Date: Wed, 4 Oct 2017 16:35:27 +0900
+Message-ID: <7b8bf9e3-b34c-38c3-4935-9136f7aa2d2d@lab.ntt.co.jp>
 References: <1507093953-59929-1-git-send-email-roopa@cumulusnetworks.com>
-	<1507093953-59929-2-git-send-email-roopa@cumulusnetworks.com>
+ <1507093953-59929-3-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1507093953-59929-2-git-send-email-roopa@cumulusnetworks.com>
+        bridge@lists.linux-foundation.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:44018 "EHLO
+        tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750945AbdJDHgX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 03:36:23 -0400
+In-Reply-To: <1507093953-59929-3-git-send-email-roopa@cumulusnetworks.com>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 2017/10/04 14:12, Roopa Prabhu wrote:
 > From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> This patch adds a new bridge port flag BR_NEIGH_SUPPRESS to
-> suppress arp and nd flood on bridge ports. It implements
-> rfc7432, section 10.
-> https://tools.ietf.org/html/rfc7432#section-10
-> for ethernet VPN deployments. It is similar to the existing
-> BR_ARP_PROXY flag but has a few semantic differences to conform
-> to EVPN standard. In case of EVPN, it is mainly used to
-> avoid flooding to tunnel ports like vxlan. Unlike the existing
-> flags it suppresses flood of all neigh discovery packets
-> (arp, nd) to tunnel ports.
+> This patch avoids flooding and proxies arp packets
+> for BR_NEIGH_SUPPRESS ports.
 > 
-> This patch adds netlink and sysfs support to set this bridge port
-> flag.
+> Moves existing br_do_proxy_arp to br_do_proxy_suppress_arp
+> to support both proxy arp and neigh suppress.
 > 
 > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 > ---
 ...
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index dea88a2..d8c2706 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -138,6 +138,7 @@ static inline size_t br_port_info_size(void)
->  		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
->  		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP_WIFI */
->  		+ nla_total_size(1)	/* IFLA_BRPORT_VLAN_TUNNEL */
-> +		+ nla_total_size(1)	/* IFLA_BRPORT_NEIGH_SUPPRESS */
->  		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_ROOT_ID */
->  		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_BRIDGE_ID */
->  		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_DESIGNATED_PORT */
-> @@ -210,7 +211,9 @@ static int br_port_fill_attrs(struct sk_buff *skb,
->  	    nla_put_u8(skb, IFLA_BRPORT_CONFIG_PENDING, p->config_pending) ||
->  	    nla_put_u8(skb, IFLA_BRPORT_VLAN_TUNNEL, !!(p->flags &
->  							BR_VLAN_TUNNEL)) ||
-> -	    nla_put_u16(skb, IFLA_BRPORT_GROUP_FWD_MASK, p->group_fwd_mask))
-> +	    nla_put_u16(skb, IFLA_BRPORT_GROUP_FWD_MASK, p->group_fwd_mask) ||
-> +	    nla_put_u8(skb, IFLA_BRPORT_NEIGH_SUPPRESS, !!(p->flags &
-> +							BR_NEIGH_SUPPRESS)))
+> +static void br_arp_send(struct net_bridge_port *p, int type, int ptype,
 
-Wouldn't it be better to make the indentation like this?
+type and ptype are always the same so seems unnecessary.
 
-... !!(p->flags &
-       BR_NEIGH_SUPPRESS)))
-
->  		return -EMSGSIZE;
->  
->  	timerval = br_timer_value(&p->message_age_timer);
-> @@ -692,6 +695,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  {
->  	unsigned long old_flags = p->flags;
->  	bool br_vlan_tunnel_old = false;
-> +	int neigh_suppress_old = 0;
->  	int err;
->  
->  	err = br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
-> @@ -785,6 +789,12 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  		p->group_fwd_mask = fwd_mask;
->  	}
->  
-> +	neigh_suppress_old = (p->flags & BR_NEIGH_SUPPRESS);
-> +	br_set_port_flag(p, tb, IFLA_BRPORT_NEIGH_SUPPRESS,
-> +			 BR_NEIGH_SUPPRESS);
-> +	if (neigh_suppress_old != (p->flags & BR_NEIGH_SUPPRESS))
-> +		br_recalculate_neigh_suppress_enabled(p->br);
+> +			__be32 dest_ip, struct net_device *dev,
+> +			__be32 src_ip, const unsigned char *dest_hw,
+> +			const unsigned char *src_hw,
+> +			const unsigned char *target_hw,
+> +			__be16 vlan_proto, u16 vlan_tci)
+> +{
+> +	struct sk_buff *skb;
 > +
+> +	netdev_dbg(dev, "arp send dev %s dst %pI4 dst_hw %pM src %pI4 src_hw %pM\n",
+> +		   dev->name, &dest_ip, dest_hw, &src_ip, src_hw);
+> +
+> +	if (!vlan_tci) {
+> +		arp_send(type, ptype, dest_ip, dev, src_ip,
+> +			 dest_hw, src_hw, target_hw);
 
-You are calling br_recalculate_neigh_suppress_enabled() from within
-br_port_flags_change() immediately after this.
-I think you can just call br_set_port_flag() here.
+I may be missing something, but wouldn't it send arp reply from the
+bridge device, while it should be received to the bridge device, when p
+== NULL?
 
->  	br_port_flags_change(p, old_flags ^ p->flags);
->  	return 0;
->  }
+> +		return;
+> +	}
+> +
+> +	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
+> +			 dest_hw, src_hw, target_hw);
+> +	if (!skb)
+> +		return;
+> +
+> +	if (p) {
+
+Why doesn't bridge device consider pvid?
+
+> +		struct net_bridge_vlan_group *vg;
+> +		u16 pvid;
+> +
+> +		vg = nbp_vlan_group_rcu(p);
+> +		pvid = br_get_pvid(vg);
+> +		if (pvid == vlan_tci)
+
+Need vlan_tci & VLAN_VID_MASK
+Or use skb_vlan_tag_get_id() in caller side.
+
+> +			vlan_tci = 0;
+> +	}
+> +
+> +	if (vlan_tci) {
+> +		skb = vlan_insert_tag_set_proto(skb, vlan_proto,
+> +						vlan_tci);
+
+Should be __vlan_hwaccel_put_tag()
+
+> +		if (!skb) {
+> +			net_err_ratelimited("%s: failed to insert VLAN tag\n",
+> +					    __func__);
+> +			return;
+> +		}
+> +	}
+> +
+> +	arp_xmit(skb);
+> +}
+...
+> +void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
+> +			      u16 vid, struct net_bridge_port *p)
+> +{
+...
+> +	if (br->neigh_suppress_enabled) {
+> +		if (p && (p->flags & BR_NEIGH_SUPPRESS))
+> +			return;
+> +		if (ipv4_is_zeronet(sip) || sip == tip) {
+> +			/* prevent flooding to neigh suppress ports */
+> +			BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
+> +			return;
+> +		}
+> +	}
+> +
+> +	if (parp->ar_op != htons(ARPOP_REQUEST))
+> +		return;
+> +
+> +	if (vid != 0) {
+
+vid should be 0 if untagged is set on the bridge device?
+
+> +		vlandev = __vlan_find_dev_deep_rcu(br->dev, skb->vlan_proto,
+> +						   vid);
+> +		if (!vlandev)
+> +			return;
+> +	}
+> +
+> +	if (br->neigh_suppress_enabled && br_is_local_ip(vlandev, tip)) {
+> +		/* its our local ip, so don't proxy reply
+> +		 * and don't forward to neigh suppress ports
+> +		 */
+> +		BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
+> +		return;
+> +	}
 
 -- 
 Toshiaki Makita
