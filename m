@@ -1,63 +1,56 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [RFC] bpf: remove global verifier state
-Date: Wed, 4 Oct 2017 15:40:34 -0700
-Message-ID: <20171004224032.zofzqj7zzmrvn4gf@ast-mbp.dhcp.thefacebook.com>
-References: <20171003201452.elth55atpquesjjk@ast-mbp.dhcp.thefacebook.com>
- <20171004002025.28521-1-jakub.kicinski@netronome.com>
- <20171004025226.wutfwm6hcsj4zuph@ast-mbp>
- <1507087446.8061.37.camel@edumazet-glaptop3.roam.corp.google.com>
- <20171004034311.t3uba7vqcvahly2q@ast-mbp>
- <59D532EB.4000104@iogearbox.net>
- <20171004145744.27c08d4a@cakuba.netronome.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH 2/3 v2] net: phy: DP83822 initial driver submission
+Date: Wed, 4 Oct 2017 22:44:36 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B3F9A9@CHN-SV-EXMX02.mchp-main.com>
+References: <20171004182031.13794-1-dmurphy@ti.com>
+ <20171004182031.13794-2-dmurphy@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>, dsahern@gmail.com,
-        netdev@vger.kernel.org, oss-drivers@netronome.com,
-        david.beckett@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <afd@ti.com>
+To: <dmurphy@ti.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35182 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751182AbdJDWkh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 18:40:37 -0400
-Received: by mail-pg0-f66.google.com with SMTP id p5so12021383pgn.2
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 15:40:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171004145744.27c08d4a@cakuba.netronome.com>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:6330 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751171AbdJDWoh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 18:44:37 -0400
+In-Reply-To: <20171004182031.13794-2-dmurphy@ti.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 02:57:44PM -0700, Jakub Kicinski wrote:
-> On Wed, 04 Oct 2017 21:13:47 +0200, Daniel Borkmann wrote:
-> > On 10/04/2017 05:43 AM, Alexei Starovoitov wrote:
-> > > On Tue, Oct 03, 2017 at 08:24:06PM -0700, Eric Dumazet wrote:  
-> > >> On Tue, 2017-10-03 at 19:52 -0700, Alexei Starovoitov wrote:
-> > >>  
-> > >>> yep. looks great.
-> > >>> Please test it and submit officially :)
-> > >>> The commit aafe6ae9cee3 ("bpf: dynamically allocate digest scratch buffer")
-> > >>> fixed the other case where we were relying on the above mutex.
-> > >>> The only other spot to be adjusted is to add spin_lock/mutex or DO_ONCE() to
-> > >>> bpf_get_skb_set_tunnel_proto() to protect md_dst init.
-> > >>> imo that would be it.
-> > >>> Daniel, anything else comes to mind?  
-> > 
-> > Yes, this should be all. DO_ONCE() for the tunnel proto seems a
-> > good choice.
-> 
-> Hm.  I actually did:
-> 
-> if (!dst) {
-> 	tmp = alloc();
-> 	if (!tmp)
-> 		return;
-> 	if (cmpxchg(&dst, NULL, tmp))
-> 		free(tmp);
-> }
-> 
-> I don't like how DO_ONCE() doesn't handle errors from the init
-> function :(
+> +static int dp83822_suspend(struct phy_device *phydev)
+> +{
+> +	int value;
+> +
+> +	mutex_lock(&phydev->lock);
+> +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
+> MII_DP83822_WOL_CFG);
+> +	mutex_unlock(&phydev->lock);
+Would we need mutex to access phy_read_mmd()?
+phy_read_mmd() has mdio_lock for indirect access.
 
-yeah. good point.
-Above looks good to me.
+> +	if (!(value & DP83822_WOL_EN))
+> +		genphy_suspend(phydev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int dp83822_resume(struct phy_device *phydev)
+> +{
+> +	int value;
+> +
+> +	genphy_resume(phydev);
+> +
+> +	mutex_lock(&phydev->lock);
+> +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
+> MII_DP83822_WOL_CFG);
+> +
+> +	phy_write_mmd(phydev, DP83822_DEVADDR,
+> MII_DP83822_WOL_CFG, value |
+> +		      DP83822_WOL_CLR_INDICATION);
+> +
+> +	mutex_unlock(&phydev->lock);
+Same here.
+
+Woojung
