@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] tcp: uniform the set up of sockets after
- successful connection
-Date: Tue, 03 Oct 2017 21:28:26 -0700 (PDT)
-Message-ID: <20171003.212826.427984613713921100.davem@davemloft.net>
-References: <20171002170135.106183-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH net-next v2 0/3] tools: add bpftool
+Date: Tue, 03 Oct 2017 21:33:28 -0700 (PDT)
+Message-ID: <20171003.213328.1196846514896002498.davem@davemloft.net>
+References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com,
-        edumazet@google.com
-To: weiwan@google.com
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32852 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:33006 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751047AbdJDE21 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 00:28:27 -0400
-In-Reply-To: <20171002170135.106183-1-tracywwnj@gmail.com>
+        with ESMTP id S1750796AbdJDEd3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 00:33:29 -0400
+In-Reply-To: <20171002231130.12406-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
-Date: Mon,  2 Oct 2017 10:01:35 -0700
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Mon,  2 Oct 2017 16:11:27 -0700
 
-> @@ -456,6 +456,19 @@ void tcp_init_sock(struct sock *sk)
->  }
->  EXPORT_SYMBOL(tcp_init_sock);
->  
-> +void tcp_init_transfer(struct sock *sk, int bpf_op)
-> +{
-> +	struct inet_connection_sock *icsk = inet_csk(sk);
-> +
-> +	tcp_mtup_init(sk);
-> +	icsk->icsk_af_ops->rebuild_header(sk);
-> +	tcp_init_metrics(sk);
-> +	tcp_call_bpf(sk, bpf_op);
-> +	tcp_init_congestion_control(sk);
-> +	tcp_init_buffer_space(sk);
-> +}
-> +EXPORT_SYMBOL(tcp_init_transfer);
+> Hi!
+> 
+> This set adds bpftool to the tools/ directory.  The first 
+> patch renames tools/net to tools/bpf, the second one adds 
+> the new code, while the third adds simple documentation.
+> 
+> v2:
+>  - report names, map ids, load time, uid;
+>  - add docs/man pages;
+>  - general cleanups & fixes.
+> 
+> Thanks to David Beckett for help with docs and testing.
 
-This symbol export is unnecessary, and if it were it should
-be EXPORT_SYMBOL_GPL().
+I think, at the very least, the doc change requests deserve one more
+respin.
+
+Thanks.
