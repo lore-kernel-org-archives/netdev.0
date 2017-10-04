@@ -1,341 +1,104 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v3 3/3] tools: bpftool: add documentation
-Date: Wed,  4 Oct 2017 08:40:32 -0700
-Message-ID: <20171004154032.11413-4-jakub.kicinski@netronome.com>
-References: <20171004154032.11413-1-jakub.kicinski@netronome.com>
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        dsahern@gmail.com, oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        David Beckett <david.beckett@netronome.com>
-To: netdev@vger.kernel.org
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH] net: phy: DP83822 initial driver submission
+Date: Wed, 4 Oct 2017 10:41:42 -0500
+Message-ID: <86fdd4ac-428c-16a4-2b07-fe67765c6f13@ti.com>
+References: <20171003155316.12312-1-dmurphy@ti.com>
+ <1847c902-8364-3c7c-f079-3d123ba1d3f1@gmail.com>
+ <ccab5880-eace-503c-d325-d20867b98bd5@ti.com>
+ <fd7379ac-d617-1fed-45a2-6698256cf160@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:46747 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752533AbdJDPkz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 11:40:55 -0400
-Received: by mail-pg0-f43.google.com with SMTP id k7so1736802pga.3
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 08:40:55 -0700 (PDT)
-In-Reply-To: <20171004154032.11413-1-jakub.kicinski@netronome.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:54289 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752458AbdJDPlv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 11:41:51 -0400
+In-Reply-To: <fd7379ac-d617-1fed-45a2-6698256cf160@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add documentation for bpftool.  Separate files for each subcommand.
-Use rst format.  Documentation is compiled into man pages using
-rst2man.
+Florian
 
-Signed-off-by: David Beckett <david.beckett@netronome.com>
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- tools/bpf/bpftool/Documentation/Makefile         |  34 +++++++
- tools/bpf/bpftool/Documentation/bpftool-map.txt  | 110 +++++++++++++++++++++++
- tools/bpf/bpftool/Documentation/bpftool-prog.txt |  79 ++++++++++++++++
- tools/bpf/bpftool/Documentation/bpftool.txt      |  34 +++++++
- tools/bpf/bpftool/Makefile                       |   6 ++
- 5 files changed, 263 insertions(+)
- create mode 100644 tools/bpf/bpftool/Documentation/Makefile
- create mode 100644 tools/bpf/bpftool/Documentation/bpftool-map.txt
- create mode 100644 tools/bpf/bpftool/Documentation/bpftool-prog.txt
- create mode 100644 tools/bpf/bpftool/Documentation/bpftool.txt
+On 10/03/2017 01:31 PM, Florian Fainelli wrote:
+> On 10/03/2017 11:03 AM, Dan Murphy wrote:
+>> Florian
+>>
+>> Thanks for the review
+>>
+>> On 10/03/2017 12:15 PM, Florian Fainelli wrote:
+>>>> +		} else {
+>>>> +			value &= ~DP83822_WOL_SECURE_ON;
+>>>> +		}
+>>>> +
+>>>> +		value |= (DP83822_WOL_EN | DP83822_WOL_CLR_INDICATION |
+>>>> +			  DP83822_WOL_CLR_INDICATION);
+>>>
+>>> The extra parenthesis should not be required here.
+>>
+>> I did not code that in.  I had to add it after Checkpatch cribbed about it.
+>> Let me know if you want me to remove it.
+> 
+> Let's keep those, that does not change much.
+> 
+>>
+>>>
+>>>> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
+>>>> +			      value);
+>>>> +	} else {
+>>>> +		value =
+>>>> +		    phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+>>>> +		value &= (~DP83822_WOL_EN);
+>>>
+>>> Same here, parenthesis should not be needed.
+>>
+>> There are three lines of code in the else.  This code all needs to be excuted in the else case.
+>> I might reformat it to read better.  Lindent messed that one up.
+> 
+> sorry, I meant to write that you don't need the parenthesis around
+> DP83822_WOL_EN since that is just a single bit here.
+> 
+> [snip]
+> 
+>>>> +
+>>>> +	mutex_unlock(&phydev->lock);
+>>>> +
+>>>> +	return 0;
+>>>> +}
+>>>> +
+>>>> +static int dp83822_resume(struct phy_device *phydev)
+>>>> +{
+>>>> +	int value;
+>>>> +
+>>>> +	mutex_lock(&phydev->lock);
+>>>> +
+>>>> +	value = phy_read(phydev, MII_BMCR);
+>>>> +	phy_write(phydev, MII_BMCR, value & ~BMCR_PDOWN);
+>>>
+>>> And genphy_resume() here as well?
+>>
+>> genphy_resume does not have WoL.
+> 
+> I should have been cleared, I meant using genphy_{suspend,resume} to
+> avoid open coding the setting of the BMCR_PDOWN bit, conversely clearing
+> of that bit. Because of the locking, maybe you could introduce unlocked
+> versions of these two routines, or you acquire and release the lock
+> outside of genphy_{suspend,resume}?
 
-diff --git a/tools/bpf/bpftool/Documentation/Makefile b/tools/bpf/bpftool/Documentation/Makefile
-new file mode 100644
-index 000000000000..ebd21ab2c6df
---- /dev/null
-+++ b/tools/bpf/bpftool/Documentation/Makefile
-@@ -0,0 +1,34 @@
-+include ../../../scripts/Makefile.include
-+include ../../../scripts/utilities.mak
-+
-+INSTALL ?= install
-+RM ?= rm -f
-+
-+# Make the path relative to DESTDIR, not prefix
-+ifndef DESTDIR
-+prefix?=$(HOME)
-+endif
-+mandir ?= $(prefix)/share/man
-+man8dir = $(mandir)/man8
-+
-+MAN8_TXT = $(wildcard *.txt)
-+
-+_DOC_MAN8 = $(patsubst %.txt,%.8,$(MAN8_TXT))
-+DOC_MAN8 = $(addprefix $(OUTPUT),$(_DOC_MAN8))
-+
-+man: man8
-+man8: $(DOC_MAN8)
-+
-+$(OUTPUT)%.8: %.txt
-+	rst2man $< > $@
-+
-+clean:
-+	$(call QUIET_CLEAN, Documentation) $(RM) $(DOC_MAN8)
-+
-+install: man
-+	$(call QUIET_INSTALL, Documentation-man) \
-+		$(INSTALL) -d -m 755 $(DESTDIR)$(man8dir); \
-+		$(INSTALL) -m 644 $(DOC_MAN8) $(DESTDIR)$(man8dir);
-+
-+.PHONY: man man8 clean install
-+.DEFAULT_GOAL := man
-diff --git a/tools/bpf/bpftool/Documentation/bpftool-map.txt b/tools/bpf/bpftool/Documentation/bpftool-map.txt
-new file mode 100644
-index 000000000000..ad78a0a177aa
---- /dev/null
-+++ b/tools/bpf/bpftool/Documentation/bpftool-map.txt
-@@ -0,0 +1,110 @@
-+================
-+bpftool-map
-+================
-+-------------------------------------------------------------------------------
-+tool for inspection and simple manipulation of eBPF maps
-+-------------------------------------------------------------------------------
-+
-+:Manual section: 8
-+
-+SYNOPSIS
-+========
-+
-+	**bpftool** **map** *COMMAND*
-+
-+	*COMMANDS* :=
-+	{ show | dump | update | lookup | getnext | delete | pin | help }
-+
-+MAP COMMANDS
-+=============
-+
-+|	**bpftool** map show   [*MAP*]
-+|	**bpftool** map dump    *MAP*
-+|	**bpftool** map update  *MAP*  key *BYTES*   value *VALUE* [*UPDATE_FLAGS*]
-+|	**bpftool** map lookup  *MAP*  key *BYTES*
-+|	**bpftool** map getnext *MAP* [key *BYTES*]
-+|	**bpftool** map delete  *MAP*  key *BYTES*
-+|	**bpftool** map pin     *MAP*  *FILE*
-+|	**bpftool** map help
-+|
-+|	*MAP* := { id MAP_ID | pinned FILE }
-+|	*VALUE* := { BYTES | MAP | PROGRAM }
-+|	*UPDATE_FLAGS* := { any | exist | noexist }
-+
-+DESCRIPTION
-+===========
-+	**bpftool map show**   [*MAP*]
-+		  Show information about loaded maps.  If *MAP* is specified
-+		  show information only about given map, otherwise list all
-+		  maps currently loaded on the system.
-+
-+		  Output will start with map ID followed by map type and
-+		  zero or more named attributes (depending on kernel version).
-+
-+	**bpftool map dump**    *MAP*
-+		  Dump all entries in a given *MAP*.
-+
-+	**bpftool map update**  *MAP*  **key** *BYTES*   **value** *VALUE* [*UPDATE_FLAGS*]
-+		  Update map entry for a given *KEY*.
-+
-+		  *UPDATE_FLAGS* can be one of: **any** update existing entry
-+		  or add if doesn't exit; **exist** update only if entry already
-+		  exists; **noexist** update only if entry doesn't exist.
-+
-+	**bpftool map lookup**  *MAP*  **key** *BYTES*
-+		  Lookup **key** in the map.
-+
-+	**bpftool map getnext** *MAP* [**key** *BYTES*]
-+		  Get next key.  If *key* is not specified, get first key.
-+
-+	**bpftool map delete**  *MAP*  **key** *BYTES*
-+		  Remove entry from the map.
-+
-+	**bpftool map pin**     *MAP*  *FILE*
-+		  Pin map *MAP* as *FILE*.
-+
-+		  Note: *FILE* must be located in *bpffs* mount.
-+
-+	**bpftool map help**
-+		  Print short help message.
-+
-+EXAMPLES
-+========
-+**# bpftool map show**
-+::
-+
-+  10: hash  name some_map  flags 0x0
-+	key 4B  value 8B  max_entries 2048  memlock 167936B
-+
-+**# bpftool map update id 10 key 13 00 07 00 value 02 00 00 00 01 02 03 04**
-+
-+**# bpftool map lookup id 10 key 0 1 2 3**
-+
-+::
-+
-+  key: 00 01 02 03 value: 00 01 02 03 04 05 06 07
-+
-+
-+**# bpftool map dump id 10**
-+::
-+
-+  key: 00 01 02 03  value: 00 01 02 03 04 05 06 07
-+  key: 0d 00 07 00  value: 02 00 00 00 01 02 03 04
-+  Found 2 elements
-+
-+**# bpftool map getnext id 10 key 0 1 2 3**
-+::
-+
-+  key:
-+  00 01 02 03
-+  next key:
-+  0d 00 07 00
-+
-+|  
-+| **# mount -t bpf none /sys/fs/bpf/**
-+| **# bpftool map pin id 10 /sys/fs/bpf/map**
-+| **# bpftool map del pinned /sys/fs/bpf/map key 13 00 07 00**
-+
-+SEE ALSO
-+========
-+	**bpftool**\ (8), **bpftool-prog**\ (8)
-diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.txt b/tools/bpf/bpftool/Documentation/bpftool-prog.txt
-new file mode 100644
-index 000000000000..79791bf11e4d
---- /dev/null
-+++ b/tools/bpf/bpftool/Documentation/bpftool-prog.txt
-@@ -0,0 +1,79 @@
-+================
-+bpftool-prog
-+================
-+-------------------------------------------------------------------------------
-+tool for inspection and simple manipulation of eBPF progs
-+-------------------------------------------------------------------------------
-+
-+:Manual section: 8
-+
-+SYNOPSIS
-+========
-+
-+|	**bpftool** prog show [*PROG*]
-+|	**bpftool** prog dump xlated *PROG*  file *FILE*
-+|	**bpftool** prog dump jited  *PROG* [file *FILE*] [opcodes]
-+|	**bpftool** prog pin *PROG* *FILE*
-+|	**bpftool** prog help
-+|
-+|	*PROG* := { id *PROG_ID* | pinned *FILE* | tag *PROG_TAG* }
-+
-+DESCRIPTION
-+===========
-+	**bpftool prog show** [*PROG*]
-+		  Show information about loaded programs.  If *PROG* is
-+		  specified show information only about given program, otherwise
-+		  list all programs currently loaded on the system.
-+
-+		  Output will start with program ID followed by program type and
-+		  zero or more named attributes (depending on kernel version).
-+
-+	**bpftool prog dump xlated** *PROG*  **file** *FILE*
-+		  Dump eBPF instructions of the program from the kernel to a
-+		  file.
-+
-+	**bpftool prog dump jited**  *PROG* [**file** *FILE*] [**opcodes**]
-+		  Dump jited image (host machine code) of the program.
-+		  If *FILE* is specified image will be written to a file,
-+		  otherwise it will be disassembled and printed to stdout.
-+
-+		  **opcodes** controls if raw opcodes will be printed.
-+
-+	**bpftool prog pin** *PROG* *FILE*
-+		  Pin program *PROG* as *FILE*.
-+
-+		  Note: *FILE* must be located in *bpffs* mount.
-+
-+	**bpftool prog help**
-+		  Print short help message.
-+
-+EXAMPLES
-+========
-+**# bpftool prog show**
-+::
-+
-+  10: xdp  name some_prog  tag 00:5a:3d:21:23:62:0c:8b
-+	loaded_at Sep 29/20:11  uid 0
-+	xlated 528B  jited 370B  memlock 4096B  map_ids 10
-+
-+| 
-+| **# bpftool prog dump xlated id 10 file /tmp/t**
-+| **# ls -l /tmp/t**
-+|   -rw------- 1 root root 560 Jul 22 01:42 /tmp/t
-+
-+| 
-+| **# bpftool prog dum jited pinned /sys/fs/bpf/prog**
-+
-+::
-+
-+    push   %rbp
-+    mov    %rsp,%rbp
-+    sub    $0x228,%rsp
-+    sub    $0x28,%rbp
-+    mov    %rbx,0x0(%rbp)
-+
-+
-+
-+SEE ALSO
-+========
-+	**bpftool**\ (8), **bpftool-map**\ (8)
-diff --git a/tools/bpf/bpftool/Documentation/bpftool.txt b/tools/bpf/bpftool/Documentation/bpftool.txt
-new file mode 100644
-index 000000000000..f1df1893fb54
---- /dev/null
-+++ b/tools/bpf/bpftool/Documentation/bpftool.txt
-@@ -0,0 +1,34 @@
-+================
-+BPFTOOL
-+================
-+-------------------------------------------------------------------------------
-+tool for inspection and simple manipulation of eBPF programs and maps
-+-------------------------------------------------------------------------------
-+
-+:Manual section: 8
-+
-+SYNOPSIS
-+========
-+
-+	**bpftool** *OBJECT* { *COMMAND* | help }
-+
-+	**bpftool** batch file *FILE*
-+
-+	*OBJECT* := { **map** | **program** }
-+
-+	*MAP-COMMANDS* :=
-+	{ show | dump | update | lookup | getnext | delete | pin | help }
-+
-+	*PROG-COMMANDS* := { show | dump jited | dump xlated | pin | help }
-+
-+DESCRIPTION
-+===========
-+	*bpftool* allows for inspection and simple modification of BPF objects
-+	on the system.
-+
-+	Note that format of the output of all tools is not guaranteed to be
-+	stable and should not be depended upon.
-+
-+SEE ALSO
-+========
-+	**bpftool-map**\ (8), **bpftool-prog**\ (8)
-diff --git a/tools/bpf/bpftool/Makefile b/tools/bpf/bpftool/Makefile
-index a7151f47fb40..8705ee44664d 100644
---- a/tools/bpf/bpftool/Makefile
-+++ b/tools/bpf/bpftool/Makefile
-@@ -74,6 +74,12 @@ clean: $(LIBBPF)-clean
- install:
- 	install $(OUTPUT)bpftool $(prefix)/sbin/bpftool
- 
-+doc:
-+	$(Q)$(MAKE) -C Documentation/
-+
-+doc-install:
-+	$(Q)$(MAKE) -C Documentation/ install
-+
- FORCE:
- 
- .PHONY: all clean FORCE
--- 
-2.14.1
+OK I have addressed all of the open comments and will be posting v2 shortly.
+
+I do have a question on this request.
+Are you indicating to exclusively call genphy_(suspend/resume) from within the over ridden
+routine and then take care of the WoL bits in the phy specific code?
+
+Since the genphy code is duplicated here for the BMCR value that would make the most sense
+to me.  The genphy code is exported so I can call it explicitly then do the WoL 
+
+Dan
+
+[snip]-- 
+------------------
+Dan Murphy
