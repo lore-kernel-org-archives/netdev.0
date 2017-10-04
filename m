@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: core: fix kerneldoc comment
-Date: Wed, 04 Oct 2017 10:28:43 -0700 (PDT)
-Message-ID: <20171004.102843.1825282330008026345.davem@davemloft.net>
-References: <20171004115650.6406-1-fw@strlen.de>
+Subject: Re: [PATCH] cxgb4vf: make a couple of functions static
+Date: Wed, 04 Oct 2017 10:32:15 -0700 (PDT)
+Message-ID: <20171004.103215.1424926789610505281.davem@davemloft.net>
+References: <20171004132037.6409-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48280 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751188AbdJDR2o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 13:28:44 -0400
-In-Reply-To: <20171004115650.6406-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: leedom@chelsio.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171004132037.6409-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed,  4 Oct 2017 13:56:50 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Wed,  4 Oct 2017 14:20:37 +0100
 
-> net/core/dev.c:1306: warning: No description found for parameter 'name'
-> net/core/dev.c:1306: warning: Excess function parameter 'alias' description in 'dev_get_alias'
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Fixes: 6c5570016b97 ("net: core: decouple ifalias get/set from rtnl lock")
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> The functions t4vf_link_down_rc_str and t4vf_handle_get_port_info are
+> local to the source and do not need to be in global scope, so make
+> them static.
+> 
+> Cleans up sparse warnings:
+> symbol 't4vf_link_down_rc_str' was not declared. Should it be static?
+> symbol 't4vf_handle_get_port_info' was not declared. Should it be static?
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied.
+Applied to net-next, thanks.
