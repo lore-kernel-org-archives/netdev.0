@@ -1,536 +1,368 @@
 From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v4 4/4] igb: Add support for CBS offload
-Date: Tue,  3 Oct 2017 17:28:31 -0700
-Message-ID: <20171004002831.18371-5-vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based Shaper (CBS) qdisc
+Date: Tue,  3 Oct 2017 17:28:30 -0700
+Message-ID: <20171004002831.18371-4-vinicius.gomes@intel.com>
 References: <20171004002831.18371-1-vinicius.gomes@intel.com>
-Cc: Andre Guedes <andre.guedes@intel.com>, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, jiri@resnulli.us, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
-        rodney.cummings@ni.com
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, jiri@resnulli.us, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:61293 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750865AbdJDA3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751419AbdJDA3E (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Oct 2017 20:29:04 -0400
 In-Reply-To: <20171004002831.18371-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andre Guedes <andre.guedes@intel.com>
+This queueing discipline implements the shaper algorithm defined by
+the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
 
-This patch adds support for Credit-Based Shaper (CBS) qdisc offload
-from Traffic Control system. This support enable us to leverage the
-Forwarding and Queuing for Time-Sensitive Streams (FQTSS) features
-from Intel i210 Ethernet Controller. FQTSS is the former 802.1Qav
-standard which was merged into 802.1Q in 2014. It enables traffic
-prioritization and bandwidth reservation via the Credit-Based Shaper
-which is implemented in hardware by i210 controller.
+It's primary usage is to apply some bandwidth reservation to user
+defined traffic classes, which are mapped to different queues via the
+mqprio qdisc.
 
-The patch introduces the igb_setup_tc() function which implements the
-support for CBS qdisc hardware offload in the IGB driver. CBS offload
-is the only traffic control offload supported by the driver at the
-moment.
+Initially, it only supports offloading the traffic shaping work to
+supporting controllers.
 
-FQTSS transmission mode from i210 controller is automatically enabled
-by the IGB driver when the CBS is enabled for the first hardware
-queue. Likewise, FQTSS mode is automatically disabled when CBS is
-disabled for the last hardware queue. Changing FQTSS mode requires NIC
-reset.
+Later, when a software implementation is added, the current dependency
+on being installed "under" mqprio can be lifted.
 
-FQTSS feature is supported by i210 controller only.
-
-Signed-off-by: Andre Guedes <andre.guedes@intel.com>
+Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |  23 ++
- drivers/net/ethernet/intel/igb/e1000_regs.h    |   8 +
- drivers/net/ethernet/intel/igb/igb.h           |   6 +
- drivers/net/ethernet/intel/igb/igb_main.c      | 347 +++++++++++++++++++++++++
- 4 files changed, 384 insertions(+)
+ include/linux/netdevice.h      |   1 +
+ include/net/pkt_sched.h        |   9 ++
+ include/uapi/linux/pkt_sched.h |  17 ++++
+ net/sched/Kconfig              |  11 ++
+ net/sched/Makefile             |   1 +
+ net/sched/sch_cbs.c            | 225 +++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 264 insertions(+)
+ create mode 100644 net/sched/sch_cbs.c
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 1de82f247312..83cabff1e0ab 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -353,7 +353,18 @@
- #define E1000_RXPBS_CFG_TS_EN           0x80000000
- 
- #define I210_RXPBSIZE_DEFAULT		0x000000A2 /* RXPBSIZE default */
-+#define I210_RXPBSIZE_MASK		0x0000003F
-+#define I210_RXPBSIZE_PB_32KB		0x00000020
- #define I210_TXPBSIZE_DEFAULT		0x04000014 /* TXPBSIZE default */
-+#define I210_TXPBSIZE_MASK		0xC0FFFFFF
-+#define I210_TXPBSIZE_PB0_8KB		(8 << 0)
-+#define I210_TXPBSIZE_PB1_8KB		(8 << 6)
-+#define I210_TXPBSIZE_PB2_4KB		(4 << 12)
-+#define I210_TXPBSIZE_PB3_4KB		(4 << 18)
-+
-+#define I210_DTXMXPKTSZ_DEFAULT		0x00000098
-+
-+#define I210_SR_QUEUES_NUM		2
- 
- /* SerDes Control */
- #define E1000_SCTL_DISABLE_SERDES_LOOPBACK 0x0400
-@@ -1051,4 +1062,16 @@
- #define E1000_VLAPQF_P_VALID(_n)	(0x1 << (3 + (_n) * 4))
- #define E1000_VLAPQF_QUEUE_MASK	0x03
- 
-+/* TX Qav Control fields */
-+#define E1000_TQAVCTRL_XMIT_MODE	BIT(0)
-+#define E1000_TQAVCTRL_DATAFETCHARB	BIT(4)
-+#define E1000_TQAVCTRL_DATATRANARB	BIT(8)
-+
-+/* TX Qav Credit Control fields */
-+#define E1000_TQAVCC_IDLESLOPE_MASK	0xFFFF
-+#define E1000_TQAVCC_QUEUEMODE		BIT(31)
-+
-+/* Transmit Descriptor Control fields */
-+#define E1000_TXDCTL_PRIORITY		BIT(27)
-+
- #endif
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index 58adbf234e07..8eee081d395f 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -421,6 +421,14 @@ do { \
- 
- #define E1000_I210_FLA		0x1201C
- 
-+#define E1000_I210_DTXMXPKTSZ	0x355C
-+
-+#define E1000_I210_TXDCTL(_n)	(0x0E028 + ((_n) * 0x40))
-+
-+#define E1000_I210_TQAVCTRL	0x3570
-+#define E1000_I210_TQAVCC(_n)	(0x3004 + ((_n) * 0x40))
-+#define E1000_I210_TQAVHC(_n)	(0x300C + ((_n) * 0x40))
-+
- #define E1000_INVM_DATA_REG(_n)	(0x12120 + 4*(_n))
- #define E1000_INVM_SIZE		64 /* Number of INVM Data Registers */
- 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 06ffb2bc713e..92845692087a 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -281,6 +281,11 @@ struct igb_ring {
- 	u16 count;			/* number of desc. in the ring */
- 	u8 queue_index;			/* logical index of the ring*/
- 	u8 reg_idx;			/* physical index of the ring */
-+	bool cbs_enable;		/* indicates if CBS is enabled */
-+	s32 idleslope;			/* idleSlope in kbps */
-+	s32 sendslope;			/* sendSlope in kbps */
-+	s32 hicredit;			/* hiCredit in bytes */
-+	s32 locredit;			/* loCredit in bytes */
- 
- 	/* everything past this point are written often */
- 	u16 next_to_clean;
-@@ -621,6 +626,7 @@ struct igb_adapter {
- #define IGB_FLAG_EEE			BIT(14)
- #define IGB_FLAG_VLAN_PROMISC		BIT(15)
- #define IGB_FLAG_RX_LEGACY		BIT(16)
-+#define IGB_FLAG_FQTSS			BIT(17)
- 
- /* Media Auto Sense */
- #define IGB_MAS_ENABLE_0		0X0001
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index fd4a46b03cc8..03b8d0f4acfd 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -34,6 +34,7 @@
- #include <linux/slab.h>
- #include <net/checksum.h>
- #include <net/ip6_checksum.h>
-+#include <net/pkt_sched.h>
- #include <linux/net_tstamp.h>
- #include <linux/mii.h>
- #include <linux/ethtool.h>
-@@ -62,6 +63,17 @@
- #define BUILD 0
- #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
- __stringify(BUILD) "-k"
-+
-+enum queue_mode {
-+	QUEUE_MODE_STRICT_PRIORITY,
-+	QUEUE_MODE_STREAM_RESERVATION,
-+};
-+
-+enum tx_queue_prio {
-+	TX_QUEUE_PRIO_HIGH,
-+	TX_QUEUE_PRIO_LOW,
-+};
-+
- char igb_driver_name[] = "igb";
- char igb_driver_version[] = DRV_VERSION;
- static const char igb_driver_string[] =
-@@ -1271,6 +1283,12 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
- 		ring->count = adapter->tx_ring_count;
- 		ring->queue_index = txr_idx;
- 
-+		ring->cbs_enable = false;
-+		ring->idleslope = 0;
-+		ring->sendslope = 0;
-+		ring->hicredit = 0;
-+		ring->locredit = 0;
-+
- 		u64_stats_init(&ring->tx_syncp);
- 		u64_stats_init(&ring->tx_syncp2);
- 
-@@ -1598,6 +1616,284 @@ static void igb_get_hw_control(struct igb_adapter *adapter)
- 			ctrl_ext | E1000_CTRL_EXT_DRV_LOAD);
- }
- 
-+static void enable_fqtss(struct igb_adapter *adapter, bool enable)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+
-+	if (enable)
-+		adapter->flags |= IGB_FLAG_FQTSS;
-+	else
-+		adapter->flags &= ~IGB_FLAG_FQTSS;
-+
-+	if (netif_running(netdev))
-+		schedule_work(&adapter->reset_task);
-+}
-+
-+static bool is_fqtss_enabled(struct igb_adapter *adapter)
-+{
-+	return (adapter->flags & IGB_FLAG_FQTSS) ? true : false;
-+}
-+
-+static void set_tx_desc_fetch_prio(struct e1000_hw *hw, int queue,
-+				   enum tx_queue_prio prio)
-+{
-+	u32 val;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+	WARN_ON(queue < 0 || queue > 4);
-+
-+	val = rd32(E1000_I210_TXDCTL(queue));
-+
-+	if (prio == TX_QUEUE_PRIO_HIGH)
-+		val |= E1000_TXDCTL_PRIORITY;
-+	else
-+		val &= ~E1000_TXDCTL_PRIORITY;
-+
-+	wr32(E1000_I210_TXDCTL(queue), val);
-+}
-+
-+static void set_queue_mode(struct e1000_hw *hw, int queue, enum queue_mode mode)
-+{
-+	u32 val;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+	WARN_ON(queue < 0 || queue > 1);
-+
-+	val = rd32(E1000_I210_TQAVCC(queue));
-+
-+	if (mode == QUEUE_MODE_STREAM_RESERVATION)
-+		val |= E1000_TQAVCC_QUEUEMODE;
-+	else
-+		val &= ~E1000_TQAVCC_QUEUEMODE;
-+
-+	wr32(E1000_I210_TQAVCC(queue), val);
-+}
-+
-+/**
-+ *  igb_configure_cbs - Configure Credit-Based Shaper (CBS)
-+ *  @adapter: pointer to adapter struct
-+ *  @queue: queue number
-+ *  @enable: true = enable CBS, false = disable CBS
-+ *  @idleslope: idleSlope in kbps
-+ *  @sendslope: sendSlope in kbps
-+ *  @hicredit: hiCredit in bytes
-+ *  @locredit: loCredit in bytes
-+ *
-+ *  Configure CBS for a given hardware queue. When disabling, idleslope,
-+ *  sendslope, hicredit, locredit arguments are ignored. Returns 0 if
-+ *  success. Negative otherwise.
-+ **/
-+static void igb_configure_cbs(struct igb_adapter *adapter, int queue,
-+			      bool enable, int idleslope, int sendslope,
-+			      int hicredit, int locredit)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 tqavcc;
-+	u16 value;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+	WARN_ON(queue < 0 || queue > 1);
-+
-+	if (enable) {
-+		set_tx_desc_fetch_prio(hw, queue, TX_QUEUE_PRIO_HIGH);
-+		set_queue_mode(hw, queue, QUEUE_MODE_STREAM_RESERVATION);
-+
-+		/* According to i210 datasheet section 7.2.7.7, we should set
-+		 * the 'idleSlope' field from TQAVCC register following the
-+		 * equation:
-+		 *
-+		 * For 100 Mbps link speed:
-+		 *
-+		 *     value = BW * 0x7735 * 0.2                          (E1)
-+		 *
-+		 * For 1000Mbps link speed:
-+		 *
-+		 *     value = BW * 0x7735 * 2                            (E2)
-+		 *
-+		 * E1 and E2 can be merged into one equation as shown below.
-+		 * Note that 'link-speed' is in Mbps.
-+		 *
-+		 *     value = BW * 0x7735 * 2 * link-speed
-+		 *                           --------------               (E3)
-+		 *                                1000
-+		 *
-+		 * 'BW' is the percentage bandwidth out of full link speed
-+		 * which can be found with the following equation. Note that
-+		 * idleSlope here is the parameter from this function which
-+		 * is in kbps.
-+		 *
-+		 *     BW =     idleSlope
-+		 *          -----------------                             (E4)
-+		 *          link-speed * 1000
-+		 *
-+		 * That said, we can come up with a generic equation to
-+		 * calculate the value we should set it TQAVCC register by
-+		 * replacing 'BW' in E3 by E4. The resulting equation is:
-+		 *
-+		 * value =     idleSlope     * 0x7735 * 2 * link-speed
-+		 *         -----------------            --------------    (E5)
-+		 *         link-speed * 1000                 1000
-+		 *
-+		 * 'link-speed' is present in both sides of the fraction so
-+		 * it is canceled out. The final equation is the following:
-+		 *
-+		 *     value = idleSlope * 61034
-+		 *             -----------------                          (E6)
-+		 *                  1000000
-+		 */
-+		value = DIV_ROUND_UP_ULL(idleslope * 61034ULL, 1000000);
-+
-+		tqavcc = rd32(E1000_I210_TQAVCC(queue));
-+		tqavcc &= ~E1000_TQAVCC_IDLESLOPE_MASK;
-+		tqavcc |= value;
-+		wr32(E1000_I210_TQAVCC(queue), tqavcc);
-+
-+		wr32(E1000_I210_TQAVHC(queue), 0x80000000 + hicredit * 0x7735);
-+	} else {
-+		set_tx_desc_fetch_prio(hw, queue, TX_QUEUE_PRIO_LOW);
-+		set_queue_mode(hw, queue, QUEUE_MODE_STRICT_PRIORITY);
-+
-+		/* Set idleSlope to zero. */
-+		tqavcc = rd32(E1000_I210_TQAVCC(queue));
-+		tqavcc &= ~E1000_TQAVCC_IDLESLOPE_MASK;
-+		wr32(E1000_I210_TQAVCC(queue), tqavcc);
-+
-+		/* Set hiCredit to zero. */
-+		wr32(E1000_I210_TQAVHC(queue), 0);
-+	}
-+
-+	/* XXX: In i210 controller the sendSlope and loCredit parameters from
-+	 * CBS are not configurable by software so we don't do any 'controller
-+	 * configuration' in respect to these parameters.
-+	 */
-+
-+	netdev_dbg(netdev, "CBS %s: queue %d idleslope %d sendslope %d hiCredit %d locredit %d\n",
-+		   (enable) ? "enabled" : "disabled", queue,
-+		   idleslope, sendslope, hicredit, locredit);
-+}
-+
-+static int igb_save_cbs_params(struct igb_adapter *adapter, int queue,
-+			       bool enable, int idleslope, int sendslope,
-+			       int hicredit, int locredit)
-+{
-+	struct igb_ring *ring;
-+
-+	if (queue < 0 || queue > adapter->num_tx_queues)
-+		return -EINVAL;
-+
-+	ring = adapter->tx_ring[queue];
-+
-+	ring->cbs_enable = enable;
-+	ring->idleslope = idleslope;
-+	ring->sendslope = sendslope;
-+	ring->hicredit = hicredit;
-+	ring->locredit = locredit;
-+
-+	return 0;
-+}
-+
-+static bool is_any_cbs_enabled(struct igb_adapter *adapter)
-+{
-+	struct igb_ring *ring;
-+	int i;
-+
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		ring = adapter->tx_ring[i];
-+
-+		if (ring->cbs_enable)
-+			return true;
-+	}
-+
-+	return false;
-+}
-+
-+static void igb_setup_tx_mode(struct igb_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 val;
-+
-+	/* Only i210 controller supports changing the transmission mode. */
-+	if (hw->mac.type != e1000_i210)
-+		return;
-+
-+	if (is_fqtss_enabled(adapter)) {
-+		int i, max_queue;
-+
-+		/* Configure TQAVCTRL register: set transmit mode to 'Qav',
-+		 * set data fetch arbitration to 'round robin' and set data
-+		 * transfer arbitration to 'credit shaper algorithm.
-+		 */
-+		val = rd32(E1000_I210_TQAVCTRL);
-+		val |= E1000_TQAVCTRL_XMIT_MODE | E1000_TQAVCTRL_DATATRANARB;
-+		val &= ~E1000_TQAVCTRL_DATAFETCHARB;
-+		wr32(E1000_I210_TQAVCTRL, val);
-+
-+		/* Configure Tx and Rx packet buffers sizes as described in
-+		 * i210 datasheet section 7.2.7.7.
-+		 */
-+		val = rd32(E1000_TXPBS);
-+		val &= ~I210_TXPBSIZE_MASK;
-+		val |= I210_TXPBSIZE_PB0_8KB | I210_TXPBSIZE_PB1_8KB |
-+			I210_TXPBSIZE_PB2_4KB | I210_TXPBSIZE_PB3_4KB;
-+		wr32(E1000_TXPBS, val);
-+
-+		val = rd32(E1000_RXPBS);
-+		val &= ~I210_RXPBSIZE_MASK;
-+		val |= I210_RXPBSIZE_PB_32KB;
-+		wr32(E1000_RXPBS, val);
-+
-+		/* Section 8.12.9 states that MAX_TPKT_SIZE from DTXMXPKTSZ
-+		 * register should not exceed the buffer size programmed in
-+		 * TXPBS. The smallest buffer size programmed in TXPBS is 4kB
-+		 * so according to the datasheet we should set MAX_TPKT_SIZE to
-+		 * 4kB / 64.
-+		 *
-+		 * However, when we do so, no frame from queue 2 and 3 are
-+		 * transmitted.  It seems the MAX_TPKT_SIZE should not be great
-+		 * or _equal_ to the buffer size programmed in TXPBS. For this
-+		 * reason, we set set MAX_ TPKT_SIZE to (4kB - 1) / 64.
-+		 */
-+		val = (4096 - 1) / 64;
-+		wr32(E1000_I210_DTXMXPKTSZ, val);
-+
-+		/* Since FQTSS mode is enabled, apply any CBS configuration
-+		 * previously set. If no previous CBS configuration has been
-+		 * done, then the initial configuration is applied, which means
-+		 * CBS is disabled.
-+		 */
-+		max_queue = (adapter->num_tx_queues < I210_SR_QUEUES_NUM) ?
-+			    adapter->num_tx_queues : I210_SR_QUEUES_NUM;
-+
-+		for (i = 0; i < max_queue; i++) {
-+			struct igb_ring *ring = adapter->tx_ring[i];
-+
-+			igb_configure_cbs(adapter, i, ring->cbs_enable,
-+					  ring->idleslope, ring->sendslope,
-+					  ring->hicredit, ring->locredit);
-+		}
-+	} else {
-+		wr32(E1000_RXPBS, I210_RXPBSIZE_DEFAULT);
-+		wr32(E1000_TXPBS, I210_TXPBSIZE_DEFAULT);
-+		wr32(E1000_I210_DTXMXPKTSZ, I210_DTXMXPKTSZ_DEFAULT);
-+
-+		val = rd32(E1000_I210_TQAVCTRL);
-+		/* According to Section 8.12.21, the other flags we've set when
-+		 * enabling FQTSS are not relevant when disabling FQTSS so we
-+		 * don't set they here.
-+		 */
-+		val &= ~E1000_TQAVCTRL_XMIT_MODE;
-+		wr32(E1000_I210_TQAVCTRL, val);
-+	}
-+
-+	netdev_dbg(netdev, "FQTSS %s\n", (is_fqtss_enabled(adapter)) ?
-+		   "enabled" : "disabled");
-+}
-+
- /**
-  *  igb_configure - configure the hardware for RX and TX
-  *  @adapter: private board structure
-@@ -1609,6 +1905,7 @@ static void igb_configure(struct igb_adapter *adapter)
- 
- 	igb_get_hw_control(adapter);
- 	igb_set_rx_mode(netdev);
-+	igb_setup_tx_mode(adapter);
- 
- 	igb_restore_vlan(adapter);
- 
-@@ -2150,6 +2447,55 @@ igb_features_check(struct sk_buff *skb, struct net_device *dev,
- 	return features;
- }
- 
-+static int igb_offload_cbs(struct igb_adapter *adapter,
-+			   struct tc_cbs_qopt_offload *qopt)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	int err;
-+
-+	/* CBS offloading is only supported by i210 controller. */
-+	if (hw->mac.type != e1000_i210)
-+		return -EOPNOTSUPP;
-+
-+	/* CBS offloading is only supported by queue 0 and queue 1. */
-+	if (qopt->queue < 0 || qopt->queue > 1)
-+		return -EINVAL;
-+
-+	err = igb_save_cbs_params(adapter, qopt->queue, qopt->enable,
-+				  qopt->idleslope, qopt->sendslope,
-+				  qopt->hicredit, qopt->locredit);
-+	if (err)
-+		return err;
-+
-+	if (is_fqtss_enabled(adapter)) {
-+		igb_configure_cbs(adapter, qopt->queue, qopt->enable,
-+				  qopt->idleslope, qopt->sendslope,
-+				  qopt->hicredit, qopt->locredit);
-+
-+		if (!is_any_cbs_enabled(adapter))
-+			enable_fqtss(adapter, false);
-+
-+	} else {
-+		enable_fqtss(adapter, true);
-+	}
-+
-+	return 0;
-+}
-+
-+static int igb_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+			void *type_data)
-+{
-+	struct igb_adapter *adapter = netdev_priv(dev);
-+
-+	switch (type) {
-+	case TC_SETUP_CBS:
-+		return igb_offload_cbs(adapter, type_data);
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_open		= igb_open,
- 	.ndo_stop		= igb_close,
-@@ -2175,6 +2521,7 @@ static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_set_features	= igb_set_features,
- 	.ndo_fdb_add		= igb_ndo_fdb_add,
- 	.ndo_features_check	= igb_features_check,
-+	.ndo_setup_tc		= igb_setup_tc,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e1d6ef130611..b8798adc214f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -775,6 +775,7 @@ enum tc_setup_type {
+ 	TC_SETUP_CLSFLOWER,
+ 	TC_SETUP_CLSMATCHALL,
+ 	TC_SETUP_CLSBPF,
++	TC_SETUP_CBS,
  };
  
- /**
+ /* These structures hold the attributes of xdp state that are being passed
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 259bc191ba59..7c597b050b36 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -146,4 +146,13 @@ static inline bool is_classid_clsact_egress(u32 classid)
+ 	       TC_H_MIN(classid) == TC_H_MIN(TC_H_MIN_EGRESS);
+ }
+ 
++struct tc_cbs_qopt_offload {
++	u8 enable;
++	s32 queue;
++	s32 hicredit;
++	s32 locredit;
++	s32 idleslope;
++	s32 sendslope;
++};
++
+ #endif
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index 099bf5528fed..27c849c053cf 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -871,4 +871,21 @@ struct tc_pie_xstats {
+ 	__u32 maxq;             /* maximum queue size */
+ 	__u32 ecn_mark;         /* packets marked with ecn*/
+ };
++
++/* CBS */
++struct tc_cbs_qopt {
++	__s32 hicredit;
++	__s32 locredit;
++	__s32 idleslope;
++	__s32 sendslope;
++};
++
++enum {
++	TCA_CBS_UNSPEC,
++	TCA_CBS_PARMS,
++	__TCA_CBS_MAX,
++};
++
++#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
++
+ #endif
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index e70ed26485a2..c03d86a7775e 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -172,6 +172,17 @@ config NET_SCH_TBF
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called sch_tbf.
+ 
++config NET_SCH_CBS
++	tristate "Credit Based Shaper (CBS)"
++	---help---
++	  Say Y here if you want to use the Credit Based Shaper (CBS) packet
++	  scheduling algorithm.
++
++	  See the top of <file:net/sched/sch_cbs.c> for more details.
++
++	  To compile this code as a module, choose M here: the
++	  module will be called sch_cbs.
++
+ config NET_SCH_GRED
+ 	tristate "Generic Random Early Detection (GRED)"
+ 	---help---
+diff --git a/net/sched/Makefile b/net/sched/Makefile
+index 7b915d226de7..80c8f92d162d 100644
+--- a/net/sched/Makefile
++++ b/net/sched/Makefile
+@@ -52,6 +52,7 @@ obj-$(CONFIG_NET_SCH_FQ_CODEL)	+= sch_fq_codel.o
+ obj-$(CONFIG_NET_SCH_FQ)	+= sch_fq.o
+ obj-$(CONFIG_NET_SCH_HHF)	+= sch_hhf.o
+ obj-$(CONFIG_NET_SCH_PIE)	+= sch_pie.o
++obj-$(CONFIG_NET_SCH_CBS)	+= sch_cbs.o
+ 
+ obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
+ obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
+diff --git a/net/sched/sch_cbs.c b/net/sched/sch_cbs.c
+new file mode 100644
+index 000000000000..3e0fb0b92160
+--- /dev/null
++++ b/net/sched/sch_cbs.c
+@@ -0,0 +1,225 @@
++/*
++ * net/sched/sch_cbs.c	Credit Based Shaper
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Vinicius Costa Gomes <vinicius.gomes@intel.com>
++ *
++ */
++
++/* Credit Based Shaper (CBS)
++   =========================
++
++   This is a simple rate-limiting shaper aimed at TSN applications on
++   systems with known traffic workloads.
++
++   Its algorithm is defined by the IEEE 802.1Q-2014 Specification,
++   Section 8.6.8.2, and explained in more detail in the Annex L of the
++   same specification.
++
++   There are four tunables to be considered:
++
++	'idleslope': Idleslope is the rate of credits that is
++	accumulated (in kilobits per second) when there is at least
++	one packet waiting for transmission. Packets are transmitted
++	when the current value of credits is equal or greater than
++	zero. When there is no packet to be transmitted the amount of
++	credits is set to zero. This is the main tunable of the CBS
++	algorithm.
++
++	'sendslope':
++	Sendslope is the rate of credits that is depleted (it should be a
++	negative number of kilobits per second) when a transmission is
++	ocurring. It can be calculated as follows, (IEEE 802.1Q-2014 Section
++	8.6.8.2 item g):
++
++	sendslope = idleslope - port_transmit_rate
++
++	'hicredit': Hicredit defines the maximum amount of credits (in
++	bytes) that can be accumulated. Hicredit depends on the
++	characteristics of interfering traffic,
++	'max_interference_size' is the maximum size of any burst of
++	traffic that can delay the transmission of a frame that is
++	available for transmission for this traffic class, (IEEE
++	802.1Q-2014 Annex L, Equation L-3):
++
++	hicredit = max_interference_size * (idleslope / port_transmit_rate)
++
++	'locredit': Locredit is the minimum amount of credits that can
++	be reached. It is a function of the traffic flowing through
++	this qdisc (IEEE 802.1Q-2014 Annex L, Equation L-2):
++
++	locredit = max_frame_size * (sendslope / port_transmit_rate)
++*/
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/errno.h>
++#include <linux/skbuff.h>
++#include <net/netlink.h>
++#include <net/sch_generic.h>
++#include <net/pkt_sched.h>
++
++struct cbs_sched_data {
++	s32 queue;
++	s32 locredit;
++	s32 hicredit;
++	s32 sendslope;
++	s32 idleslope;
++};
++
++static int cbs_enqueue(struct sk_buff *skb, struct Qdisc *sch,
++		       struct sk_buff **to_free)
++{
++	return qdisc_enqueue_tail(skb, sch);
++}
++
++static const struct nla_policy cbs_policy[TCA_CBS_MAX + 1] = {
++	[TCA_CBS_PARMS]	= { .len = sizeof(struct tc_cbs_qopt) },
++};
++
++static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct tc_cbs_qopt_offload cbs = { };
++	struct nlattr *tb[TCA_CBS_MAX + 1];
++	const struct net_device_ops *ops;
++	struct tc_cbs_qopt *qopt;
++	struct net_device *dev;
++	int err;
++
++	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
++	if (err < 0)
++		return err;
++
++	err = -EINVAL;
++	if (!tb[TCA_CBS_PARMS])
++		goto done;
++
++	qopt = nla_data(tb[TCA_CBS_PARMS]);
++
++	dev = qdisc_dev(sch);
++	ops = dev->netdev_ops;
++
++	cbs.queue = q->queue;
++	cbs.enable = 1;
++	cbs.hicredit = qopt->hicredit;
++	cbs.locredit = qopt->locredit;
++	cbs.idleslope = qopt->idleslope;
++	cbs.sendslope = qopt->sendslope;
++
++	err = -EOPNOTSUPP;
++	if (!ops->ndo_setup_tc)
++		goto done;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		goto done;
++
++	q->hicredit = cbs.hicredit;
++	q->locredit = cbs.locredit;
++	q->idleslope = cbs.idleslope;
++	q->sendslope = cbs.sendslope;
++
++done:
++	return err;
++}
++
++static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
++
++	if (!opt)
++		return -EINVAL;
++
++	q->queue = sch->dev_queue - netdev_get_tx_queue(dev, 0);
++
++	return cbs_change(sch, opt);
++}
++
++static void cbs_destroy(struct Qdisc *sch)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct tc_cbs_qopt_offload cbs = { };
++	const struct net_device_ops *ops;
++	struct net_device *dev;
++	int err;
++
++	q->hicredit = 0;
++	q->locredit = 0;
++	q->idleslope = 0;
++	q->sendslope = 0;
++
++	dev = qdisc_dev(sch);
++	ops = dev->netdev_ops;
++
++	if (!ops->ndo_setup_tc)
++		return;
++
++	cbs.queue = q->queue;
++	cbs.enable = 0;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		pr_warn("Couldn't reset queue %d to default values\n",
++			cbs.queue);
++}
++
++static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
++{
++	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct nlattr *nest;
++	struct tc_cbs_qopt opt;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (!nest)
++		goto nla_put_failure;
++
++	opt.hicredit = q->hicredit;
++	opt.locredit = q->locredit;
++	opt.sendslope = q->sendslope;
++	opt.idleslope = q->idleslope;
++
++	if (nla_put(skb, TCA_CBS_PARMS, sizeof(opt), &opt))
++		goto nla_put_failure;
++
++	return nla_nest_end(skb, nest);
++
++nla_put_failure:
++	nla_nest_cancel(skb, nest);
++	return -1;
++}
++
++static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
++	.next		=	NULL,
++	.id		=	"cbs",
++	.priv_size	=	sizeof(struct cbs_sched_data),
++	.enqueue	=	cbs_enqueue,
++	.dequeue	=	qdisc_dequeue_head,
++	.peek		=	qdisc_peek_dequeued,
++	.init		=	cbs_init,
++	.reset		=	qdisc_reset_queue,
++	.destroy	=	cbs_destroy,
++	.change		=	cbs_change,
++	.dump		=	cbs_dump,
++	.owner		=	THIS_MODULE,
++};
++
++static int __init cbs_module_init(void)
++{
++	return register_qdisc(&cbs_qdisc_ops);
++}
++
++static void __exit cbs_module_exit(void)
++{
++	unregister_qdisc(&cbs_qdisc_ops);
++}
++module_init(cbs_module_init)
++module_exit(cbs_module_exit)
++MODULE_LICENSE("GPL");
 -- 
 2.14.2
