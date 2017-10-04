@@ -1,58 +1,112 @@
-From: Matthias Kaehlcke <mka@chromium.org>
-Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
-Date: Wed, 4 Oct 2017 11:49:57 -0700
-Message-ID: <20171004184957.GO173745@google.com>
-References: <20171003200546.165731-1-mka@chromium.org>
- <1507140439.4434.14.camel@perches.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 net-next] ravb: RX checksum offload
+Date: Wed, 4 Oct 2017 21:53:09 +0300
+Message-ID: <58512067-ed8a-d9d1-1f29-0351c87c02b7@cogentembedded.com>
+References: <1507103667-6084-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Renato Golin <renato.golin@linaro.org>,
-        Manoj Gupta <manojgupta@chromium.org>,
-        Guenter Roeck <groeck@chromium.org>,
-        Doug Anderson <dianders@chromium.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1507140439.4434.14.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f54.google.com ([209.85.215.54]:48839 "EHLO
+        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751066AbdJDSxN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 14:53:13 -0400
+Received: by mail-lf0-f54.google.com with SMTP id q132so14468978lfe.5
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 11:53:13 -0700 (PDT)
+In-Reply-To: <1507103667-6084-1-git-send-email-horms+renesas@verge.net.au>
+Content-Language: en-MW
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
+On 10/04/2017 10:54 AM, Simon Horman wrote:
 
-El Wed, Oct 04, 2017 at 11:07:19AM -0700 Joe Perches ha dit:
+> Add support for RX checksum offload. This is enabled by default and
+> may be disabled and re-enabled using ethtool:
+> 
+>   # ethtool -K eth0 rx off
+>   # ethtool -K eth0 rx on
+> 
+> The RAVB provides a simple checksumming scheme which appears to be
+> completely compatible with CHECKSUM_COMPLETE: sum of all packet data after
+> the L2 header is appended to packet data; this may be trivially read by the
+> driver and used to update the skb accordingly.
+> 
+> In terms of performance throughput is close to gigabit line-rate both with
+> and without RX checksum offload enabled. Perf output, however, appears to
+> indicate that significantly less time is spent in do_csum(). This is as
+> expected.
+> 
+> Test results with RX checksum offload enabled:
+>   # /usr/bin/perf_3.16 record -o /run/perf.data -a netperf -t TCP_MAERTS -H 10.4.3.162
+>   MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.4.3.162 () port 0 AF_INET : demo
+>   enable_enobufs failed: getprotobyname
+>   Recv   Send    Send
+>   Socket Socket  Message  Elapsed
+>   Size   Size    Size     Time     Throughput
+>   bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>    87380  16384  16384    10.00     937.54
+> 
+>   Summary of output of perf report:
+>      18.28%      ksoftirqd/0  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
+>      10.34%      ksoftirqd/0  [kernel.kallsyms]  [k] __pi_memcpy
+>       9.83%      ksoftirqd/0  [kernel.kallsyms]  [k] ravb_poll
+>       7.89%      ksoftirqd/0  [kernel.kallsyms]  [k] skb_put
+>       4.01%      ksoftirqd/0  [kernel.kallsyms]  [k] dev_gro_receive
+>       3.37%          netperf  [kernel.kallsyms]  [k] __arch_copy_to_user
+>       3.17%          swapper  [kernel.kallsyms]  [k] arch_cpu_idle
+>       2.55%          swapper  [kernel.kallsyms]  [k] tick_nohz_idle_enter
+>       2.04%      ksoftirqd/0  [kernel.kallsyms]  [k] __pi___inval_dcache_area
+>       2.03%          swapper  [kernel.kallsyms]  [k] _raw_spin_unlock_irq
+>       1.96%      ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_skb
+>       1.59%      ksoftirqd/0  [kernel.kallsyms]  [k] __slab_alloc.isra.83
+> 
+> Test results without RX checksum offload enabled:
+>   # /usr/bin/perf_3.16 record -o /run/perf.data -a netperf -t TCP_MAERTS -H 10.4.3.162
+>   MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.4.3.162 () port 0 AF_INET : demo
+>   enable_enobufs failed: getprotobyname
+>   Recv   Send    Send
+>   Socket Socket  Message  Elapsed
+>   Size   Size    Size     Time     Throughput
+>   bytes  bytes   bytes    secs.    10^6bits/sec
+> 
+>    87380  16384  16384    10.00     940.20
+> 
+>   Summary of output of perf report:
+>      17.10%    ksoftirqd/0  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
+>      10.99%    ksoftirqd/0  [kernel.kallsyms]  [k] __pi_memcpy
+>       8.87%    ksoftirqd/0  [kernel.kallsyms]  [k] ravb_poll
+>       8.16%    ksoftirqd/0  [kernel.kallsyms]  [k] skb_put
+>       7.42%    ksoftirqd/0  [kernel.kallsyms]  [k] do_csum
+>       3.91%    ksoftirqd/0  [kernel.kallsyms]  [k] dev_gro_receive
+>       2.31%        swapper  [kernel.kallsyms]  [k] arch_cpu_idle
+>       2.16%    ksoftirqd/0  [kernel.kallsyms]  [k] __pi___inval_dcache_area
+>       2.14%    ksoftirqd/0  [kernel.kallsyms]  [k] __netdev_alloc_skb
+>       1.93%        netperf  [kernel.kallsyms]  [k] __arch_copy_to_user
+>       1.79%        swapper  [kernel.kallsyms]  [k] tick_nohz_idle_enter
+>       1.63%    ksoftirqd/0  [kernel.kallsyms]  [k] __slab_alloc.isra.83
+> 
+> Above results collected on an R-Car Gen 3 Salvator-X/r8a7796 ES1.0.
+> Also tested on a R-Car Gen 3 Salvator-X/r8a7795 ES1.0.
+> 
+> By inspection this also appears to be compatible with the ravb found
+> on R-Car Gen 2 SoCs, however, this patch is currently untested on such
+> hardware.
+> 
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> ---
+> v2
+> Address review of v1 by Sergei Shtylyov
+> * set features rather than oring them with (zero) existing values:
+> * Set/unset using a single call to ravb_modify()
 
-> On Tue, 2017-10-03 at 13:05 -0700, Matthias Kaehlcke wrote:
-> > nfp_eth_set_bit_config() is marked as __always_inline to allow gcc to
-> > identify the 'mask' parameter as known to be constant at compile time,
-> > which is required to use the FIELD_GET() macro.
-> > 
-> > The forced inlining does the trick for gcc, but for kernel builds with
-> > clang it results in undefined symbols:
-> 
-> Can't you use local different FIELD_PREP/FIELD_GET macros
-> with a different name without the BUILD_BUG tests?
-> 
-> i.e.:
-> 
-> #define NFP_FIELD_PREP(_mask, _val)				\
-> ({								\
-> 	((typeof(_mask))(_val) << __bf_shf(_mask)) & (_mask);	\
-> })
-> 
-> #define NFP_FIELD_GET(_mask, _reg)				\
-> ({								\
-> 	(typeof(_mask))(((_reg) & (_mask)) >> __bf_shf(_mask));	\
-> })
-> 
-> Then the __always_inline can be removed from
-> nfp_eth_set_bit_config too.
+   Already belated but still:
 
-Thanks for the suggestion. This seems a viable alternative if David
-and the NFP owners can live without the extra checking provided by
-__BF_FIELD_CHECK.
+Reviewed-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+MBR, Sergei
