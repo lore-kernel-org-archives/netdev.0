@@ -1,47 +1,48 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH iproute2 1/3] ss: allow AF_FAMILY constants >32
-Date: Wed, 4 Oct 2017 15:03:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0089AB4@AcuExch.aculab.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH iproute2 2/3] include: add <linux/vm_sockets_diag.h>
+Date: Wed, 4 Oct 2017 11:03:50 -0400
+Message-ID: <20171004150350.GB3840@stefanha-x1.localdomain>
 References: <20171003175744.24987-1-stefanha@redhat.com>
- <20171003175744.24987-2-stefanha@redhat.com>
- <20171003112653.213c7cb3@xeon-e3>
- <20171004150119.GA3840@stefanha-x1.localdomain>
+ <20171003175744.24987-3-stefanha@redhat.com>
+ <20171003112455.5ebac674@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jorgen Hansen <jhansen@vmware.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>,
         Dexuan Cui <decui@microsoft.com>
-To: 'Stefan Hajnoczi' <stefanha@redhat.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.183]:51129 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752338AbdJDPDM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 11:03:12 -0400
-In-Reply-To: <20171004150119.GA3840@stefanha-x1.localdomain>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:44069 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752403AbdJDPD4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 11:03:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20171003112455.5ebac674@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi
-> Sent: 04 October 2017 16:01
-...
-> > > --- a/misc/ss.c
-> > > +++ b/misc/ss.c
-> > > @@ -170,55 +170,57 @@ enum {
-> > >  struct filter {
-> > >  	int dbs;
-> > >  	int states;
-> > > -	int families;
-> > > +	__u64 families;
-> >
-> > Since this isn't a value that is coming from kernel. It should be uint64_t
-> > rather than __u64.
+On Tue, Oct 03, 2017 at 11:24:55AM -0700, Stephen Hemminger wrote:
+> On Tue,  3 Oct 2017 13:57:43 -0400
+> Stefan Hajnoczi <stefanha@redhat.com> wrote:
 > 
-> Okay, will fix in v2.
+> > This new Linux header file defines the sock_diag interface used by
+> > AF_VSOCK.
+> > 
+> > Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> > ---
+> >  include/linux/vm_sockets_diag.h | 33 +++++++++++++++++++++++++++++++++
+> >  1 file changed, 33 insertions(+)
+> >  create mode 100644 include/linux/vm_sockets_diag.h
+> > 
+> 
+> All header files in linux must be headers that come from 'make install_headers'
+> in kernel. I don't see vm_sockets_diag.h even in net-next.
 
-But that looks like a kernel structure, not one exposed to userspace.
-So surely __u64 is correct.
+This series depends on "[PATCH 0/5] VSOCK: add sock_diag interface".
+Once that has been merged in Linux the <linux/vm_sockets_diag.h> header
+will be available.
 
-	David
+I sent the ss(8) patch at the same time and referenced the Linux patch
+series in the cover letter so they can be reviewed/tested together.
+
+Thanks,
+Stefan
