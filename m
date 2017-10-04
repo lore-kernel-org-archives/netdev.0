@@ -1,89 +1,93 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 09/13] timer: Remove users of expire and data arguments to DEFINE_TIMER
-Date: Wed,  4 Oct 2017 16:27:03 -0700
-Message-ID: <1507159627-127660-10-git-send-email-keescook@chromium.org>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH 11/13] timer: Remove expires argument from __TIMER_INITIALIZER()
+Date: Wed,  4 Oct 2017 16:27:05 -0700
+Message-ID: <1507159627-127660-12-git-send-email-keescook@chromium.org>
 References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Wim Van Sebroeck <wim@iguana.be>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        linux-mips@linux-mips.org, linux-watchdog@vger.kernel.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Chris Metcalf <cmetcalf@mellanox.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Harish Patil <harish.patil@cavium.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        John Stultz <john.stultz@linaro.org>,
-        Julian Wiedmann <jwi@linux.vnet.ibm.com>,
-        Kalle Valo <kvalo@qca.qualcomm.com>,
-        Lai Jiangshan <jiangshanlai@gmail.com>,
-        Len B
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507159627-127660-1-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+        Chris Metcalf <cmetcalf-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+        Harish Patil <harish.patil-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Julian Wiedmann <jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        Lai Jiangshan <jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Manish Chopra <manish.chopra-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Mark Gross <mark.gross-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "Martin K. Petersen" <ma
+To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1507159627-127660-1-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The expire and data arguments of DEFINE_TIMER are only used in two places
-and are ignored by the code (malta-display.c only uses mod_timer(),
-never add_timer(), so the preset expires value is ignored). Set both
-sets of arguments to zero.
+The expires field is normally initialized during the first mod_timer()
+call. It was unused by all callers, so remove it from the macro.
 
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Wim Van Sebroeck <wim@iguana.be>
-Cc: Guenter Roeck <linux@roeck-us.net>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: linux-mips@linux-mips.org
-Cc: linux-watchdog@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 ---
- arch/mips/mti-malta/malta-display.c | 6 +++---
- drivers/watchdog/alim7101_wdt.c     | 4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ include/linux/kthread.h   | 2 +-
+ include/linux/timer.h     | 5 ++---
+ include/linux/workqueue.h | 2 +-
+ 3 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/arch/mips/mti-malta/malta-display.c b/arch/mips/mti-malta/malta-display.c
-index d4f807191ecd..ac813158b9b8 100644
---- a/arch/mips/mti-malta/malta-display.c
-+++ b/arch/mips/mti-malta/malta-display.c
-@@ -36,10 +36,10 @@ void mips_display_message(const char *str)
+diff --git a/include/linux/kthread.h b/include/linux/kthread.h
+index 82e197eeac91..0d622b350d3f 100644
+--- a/include/linux/kthread.h
++++ b/include/linux/kthread.h
+@@ -117,7 +117,7 @@ struct kthread_delayed_work {
+ #define KTHREAD_DELAYED_WORK_INIT(dwork, fn) {				\
+ 	.work = KTHREAD_WORK_INIT((dwork).work, (fn)),			\
+ 	.timer = __TIMER_INITIALIZER(kthread_delayed_work_timer_fn,	\
+-				     0, (unsigned long)&(dwork),	\
++				     (unsigned long)&(dwork),		\
+ 				     TIMER_IRQSAFE),			\
  	}
- }
  
--static void scroll_display_message(unsigned long data);
--static DEFINE_TIMER(mips_scroll_timer, scroll_display_message, HZ, 0);
-+static void scroll_display_message(unsigned long unused);
-+static DEFINE_TIMER(mips_scroll_timer, scroll_display_message, 0, 0);
+diff --git a/include/linux/timer.h b/include/linux/timer.h
+index 91e5a2cc81b5..10685c33e679 100644
+--- a/include/linux/timer.h
++++ b/include/linux/timer.h
+@@ -63,10 +63,9 @@ struct timer_list {
  
--static void scroll_display_message(unsigned long data)
-+static void scroll_display_message(unsigned long unused)
- {
- 	mips_display_message(&display_string[display_count++]);
- 	if (display_count == max_display_count)
-diff --git a/drivers/watchdog/alim7101_wdt.c b/drivers/watchdog/alim7101_wdt.c
-index 665e0e7dfe1e..3c1f6ac68ea9 100644
---- a/drivers/watchdog/alim7101_wdt.c
-+++ b/drivers/watchdog/alim7101_wdt.c
-@@ -71,7 +71,7 @@ MODULE_PARM_DESC(use_gpio,
- 		"Use the gpio watchdog (required by old cobalt boards).");
+ #define TIMER_TRACE_FLAGMASK	(TIMER_MIGRATING | TIMER_DEFERRABLE | TIMER_PINNED | TIMER_IRQSAFE)
  
- static void wdt_timer_ping(unsigned long);
--static DEFINE_TIMER(timer, wdt_timer_ping, 0, 1);
-+static DEFINE_TIMER(timer, wdt_timer_ping, 0, 0);
- static unsigned long next_heartbeat;
- static unsigned long wdt_is_open;
- static char wdt_expect_close;
-@@ -87,7 +87,7 @@ MODULE_PARM_DESC(nowayout,
-  *	Whack the dog
-  */
+-#define __TIMER_INITIALIZER(_function, _expires, _data, _flags) { \
++#define __TIMER_INITIALIZER(_function, _data, _flags) {		\
+ 		.entry = { .next = TIMER_ENTRY_STATIC },	\
+ 		.function = (_function),			\
+-		.expires = (_expires),				\
+ 		.data = (_data),				\
+ 		.flags = (_flags),				\
+ 		__TIMER_LOCKDEP_MAP_INITIALIZER(		\
+@@ -75,7 +74,7 @@ struct timer_list {
  
--static void wdt_timer_ping(unsigned long data)
-+static void wdt_timer_ping(unsigned long unused)
- {
- 	/* If we got a heartbeat pulse within the WDT_US_INTERVAL
- 	 * we agree to ping the WDT
+ #define DEFINE_TIMER(_name, _function)				\
+ 	struct timer_list _name =				\
+-		__TIMER_INITIALIZER(_function, 0, 0, 0)
++		__TIMER_INITIALIZER(_function, 0, 0)
+ 
+ void init_timer_key(struct timer_list *timer, unsigned int flags,
+ 		    const char *name, struct lock_class_key *key);
+diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
+index 1c49431f3121..f4960260feaf 100644
+--- a/include/linux/workqueue.h
++++ b/include/linux/workqueue.h
+@@ -176,7 +176,7 @@ struct execute_work {
+ #define __DELAYED_WORK_INITIALIZER(n, f, tflags) {			\
+ 	.work = __WORK_INITIALIZER((n).work, (f)),			\
+ 	.timer = __TIMER_INITIALIZER(delayed_work_timer_fn,		\
+-				     0, (unsigned long)&(n),		\
++				     (unsigned long)&(n),		\
+ 				     (tflags) | TIMER_IRQSAFE),		\
+ 	}
+ 
 -- 
 2.7.4
