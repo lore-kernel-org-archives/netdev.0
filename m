@@ -1,74 +1,105 @@
-From: =?ISO-8859-15?Q?J=F6rg_Willmann?= <joe@clnt.de>
-Subject: etsec2 attached to sgmii phy
-Date: Wed, 4 Oct 2017 07:56:53 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next v4 1/3] bridge: add new
+ BR_NEIGH_SUPPRESS port flag to suppress arp and nd flood
+Date: Wed, 4 Oct 2017 16:21:35 +0900
+Message-ID: <c4a04560-07c8-7d9e-d64c-558f99cfc653@lab.ntt.co.jp>
+References: <1507093953-59929-1-git-send-email-roopa@cumulusnetworks.com>
+	<1507093953-59929-2-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay03.ispgateway.de ([80.67.29.28]:51925 "EHLO
-        smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750797AbdJDHRu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 03:17:50 -0400
-Received: from [46.237.200.88] (helo=brian.int1.clnt.de)
-        by smtprelay03.ispgateway.de with esmtpsa (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128)
-        (Exim 4.89)
-        (envelope-from <joe@clnt.de>)
-        id 1dzcft-0006Nw-Ic
-        for netdev@vger.kernel.org; Wed, 04 Oct 2017 07:56:53 +0200
-Received: from localhost ([127.0.0.1])
-        by brian.int1.clnt.de with esmtp (Exim 4.86_2)
-        (envelope-from <joe@clnt.de>)
-        id 1dzcft-0008VZ-7f
-        for netdev@vger.kernel.org; Wed, 04 Oct 2017 07:56:53 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1507093953-59929-2-git-send-email-roopa@cumulusnetworks.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 2017/10/04 14:12, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> This patch adds a new bridge port flag BR_NEIGH_SUPPRESS to
+> suppress arp and nd flood on bridge ports. It implements
+> rfc7432, section 10.
+> https://tools.ietf.org/html/rfc7432#section-10
+> for ethernet VPN deployments. It is similar to the existing
+> BR_ARP_PROXY flag but has a few semantic differences to conform
+> to EVPN standard. In case of EVPN, it is mainly used to
+> avoid flooding to tunnel ports like vxlan. Unlike the existing
+> flags it suppresses flood of all neigh discovery packets
+> (arp, nd) to tunnel ports.
+> 
+> This patch adds netlink and sysfs support to set this bridge port
+> flag.
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+...
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index dea88a2..d8c2706 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -138,6 +138,7 @@ static inline size_t br_port_info_size(void)
+>  		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
+>  		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP_WIFI */
+>  		+ nla_total_size(1)	/* IFLA_BRPORT_VLAN_TUNNEL */
+> +		+ nla_total_size(1)	/* IFLA_BRPORT_NEIGH_SUPPRESS */
+>  		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_ROOT_ID */
+>  		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_BRIDGE_ID */
+>  		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_DESIGNATED_PORT */
+> @@ -210,7 +211,9 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+>  	    nla_put_u8(skb, IFLA_BRPORT_CONFIG_PENDING, p->config_pending) ||
+>  	    nla_put_u8(skb, IFLA_BRPORT_VLAN_TUNNEL, !!(p->flags &
+>  							BR_VLAN_TUNNEL)) ||
+> -	    nla_put_u16(skb, IFLA_BRPORT_GROUP_FWD_MASK, p->group_fwd_mask))
+> +	    nla_put_u16(skb, IFLA_BRPORT_GROUP_FWD_MASK, p->group_fwd_mask) ||
+> +	    nla_put_u8(skb, IFLA_BRPORT_NEIGH_SUPPRESS, !!(p->flags &
+> +							BR_NEIGH_SUPPRESS)))
 
-we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352). 
-Currently we still use a really old linux kernel (2.6.33) successfully.
+Wouldn't it be better to make the indentation like this?
 
-For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI 
-Phy we use the following settings in the device tree:
+... !!(p->flags &
+       BR_NEIGH_SUPPRESS)))
 
-                         mdio@25000 {
-                                    #address-cells = <0x1>;
-                                    #size-cells = <0x0>;
-                                    compatible = "fsl,etsec2-tbi";
-                                    reg = <0x25000 0x1000 0xb1030 0x4>;
+>  		return -EMSGSIZE;
+>  
+>  	timerval = br_timer_value(&p->message_age_timer);
+> @@ -692,6 +695,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>  {
+>  	unsigned long old_flags = p->flags;
+>  	bool br_vlan_tunnel_old = false;
+> +	int neigh_suppress_old = 0;
+>  	int err;
+>  
+>  	err = br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+> @@ -785,6 +789,12 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>  		p->group_fwd_mask = fwd_mask;
+>  	}
+>  
+> +	neigh_suppress_old = (p->flags & BR_NEIGH_SUPPRESS);
+> +	br_set_port_flag(p, tb, IFLA_BRPORT_NEIGH_SUPPRESS,
+> +			 BR_NEIGH_SUPPRESS);
+> +	if (neigh_suppress_old != (p->flags & BR_NEIGH_SUPPRESS))
+> +		br_recalculate_neigh_suppress_enabled(p->br);
+> +
 
-                                    tbi-phy@11 {
-                                                reg = <0x11>;
-                                                device_type = "tbi-phy";
-                                                linux,phandle = <0x5>;
-                                                phandle = <0x5>;
-                                    };
-                         };
+You are calling br_recalculate_neigh_suppress_enabled() from within
+br_port_flags_change() immediately after this.
+I think you can just call br_set_port_flag() here.
 
-First resource in the mdio config is the base address of the MDIO bus, the 
-second resource defines the address of TBIPA.
+>  	br_port_flags_change(p, old_flags ^ p->flags);
+>  	return 0;
+>  }
 
-Doing tests with a newer kernel (4.4.71)  I was faced with problems 
-communicating with the TBIPHY.
-
-Debugging this I found out that TBIPA is no longer parameterized correctly 
-and I found out why:
-
-In commit afae5ad78b342f401c28b0bb1adb3cd494cb125a initialization of TIBPA 
-has been changed:
-
-In former versions in get_gfar_tbipa(...) for compatible "etsec2-tbi" the 
-second resource of the reg entry has been used. But now only first 
-resource is mapped and get_etsec_tbipa(...) which is now
-responsible to return the proper address does not (and has no way due to 
-missing *np as function argument) do so but returns the first resource 
-(which is the base address of mdio controller).
-
-What do you think would be the correct way to solve this issue? Re-add *np 
-to the get_*_tba() functions to be able to return the proper address?
-
-Thank's for reading,
-Best regards,
-
-Joerg
+-- 
+Toshiaki Makita
