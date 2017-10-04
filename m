@@ -1,28 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] fsl/fman: remove of_node
-Date: Wed, 4 Oct 2017 15:09:42 +0200
-Message-ID: <20171004130942.GL30045@lunn.ch>
-References: <1506940297-20442-1-git-send-email-madalin.bucur@nxp.com>
- <20171002.160445.737065995396076298.davem@davemloft.net>
- <AM5PR0402MB26914CBD37E3F28C17562258EC720@AM5PR0402MB2691.eurprd04.prod.outlook.com>
- <20171003130032.GI13548@lunn.ch>
- <AM5PR0402MB2691DAD9404B336D92F42ED9EC730@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] cxgb4vf: make a couple of functions static
+Date: Wed,  4 Oct 2017 14:20:37 +0100
+Message-ID: <20171004132037.6409-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AM5PR0402MB2691DAD9404B336D92F42ED9EC730@AM5PR0402MB2691.eurprd04.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Does DSA work for systems that do not use a device tree to boot, i.e. ACPI?
+From: Colin Ian King <colin.king@canonical.com>
 
-ACPI is not supported. So far, nobody has built a board using ACPI and
-Ethernet switches supported by DSA.
+The functions t4vf_link_down_rc_str and t4vf_handle_get_port_info are
+local to the source and do not need to be in global scope, so make
+them static.
 
-	 Andrew
+Cleans up sparse warnings:
+symbol 't4vf_link_down_rc_str' was not declared. Should it be static?
+symbol 't4vf_handle_get_port_info' was not declared. Should it be static?
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+index a8d94963b4d0..67aec59a14e6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
+@@ -1812,7 +1812,7 @@ int t4vf_eth_eq_free(struct adapter *adapter, unsigned int eqid)
+  *
+  *	Returns a string representation of the Link Down Reason Code.
+  */
+-const char *t4vf_link_down_rc_str(unsigned char link_down_rc)
++static const char *t4vf_link_down_rc_str(unsigned char link_down_rc)
+ {
+ 	static const char * const reason[] = {
+ 		"Link Down",
+@@ -1838,8 +1838,8 @@ const char *t4vf_link_down_rc_str(unsigned char link_down_rc)
+  *
+  *	Processes a GET_PORT_INFO FW reply message.
+  */
+-void t4vf_handle_get_port_info(struct port_info *pi,
+-			       const struct fw_port_cmd *cmd)
++static void t4vf_handle_get_port_info(struct port_info *pi,
++				      const struct fw_port_cmd *cmd)
+ {
+ 	int action = FW_PORT_CMD_ACTION_G(be32_to_cpu(cmd->action_to_len16));
+ 	struct adapter *adapter = pi->adapter;
+-- 
+2.14.1
