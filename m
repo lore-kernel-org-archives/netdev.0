@@ -1,105 +1,88 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
-Date: Wed, 4 Oct 2017 21:17:24 +0200
-Message-ID: <20171004191724.GJ1895@nanopsycho>
-References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
- <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
- <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
- <20171003094052.GA20592@netronome.com>
- <CALx6S37K3Gif=AGk48CXs9JgrcDbdpfqMZWK+0j95UHG0hvpZg@mail.gmail.com>
- <20171004080856.GB6378@netronome.com>
- <20171004081558.GE1895@nanopsycho>
- <CALx6S36c=BUXb7-53Ym_SZYuWqmPfEqdYUwwxyM78SfBnEPL4Q@mail.gmail.com>
- <20171004180715.GH1895@nanopsycho>
- <20171004190716.GA22135@netronome.com>
+From: Luciano Coelho <luciano.coelho@intel.com>
+Subject: Re: [PATCH 1/3] wireless: iwlwifi: use bool instead of int
+Date: Wed, 04 Oct 2017 22:18:51 +0300
+Message-ID: <1507144731.908.108.camel@intel.com>
+References: <20171004155700.18048-1-christoph@boehmwalder.at>
+         <20171004155700.18048-2-christoph@boehmwalder.at>
+         <1507134405.4434.10.camel@perches.com> <1507135159.908.96.camel@intel.com>
+         <1507139722.4434.12.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f174.google.com ([209.85.128.174]:49801 "EHLO
-        mail-wr0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750787AbdJDTR1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 15:17:27 -0400
-Received: by mail-wr0-f174.google.com with SMTP id p10so7537288wrc.6
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 12:17:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171004190716.GA22135@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>,
+        Christoph =?ISO-8859-1?Q?B=F6hmwalder?=
+        <christoph@boehmwalder.at>, johannes.berg@intel.com,
+        emmanuel.grumbach@intel.com, kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507139722.4434.12.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Oct 04, 2017 at 09:07:17PM CEST, simon.horman@netronome.com wrote:
->On Wed, Oct 04, 2017 at 08:07:15PM +0200, Jiri Pirko wrote:
->> Wed, Oct 04, 2017 at 05:52:54PM CEST, tom@herbertland.com wrote:
->> >On Wed, Oct 4, 2017 at 1:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> >> Wed, Oct 04, 2017 at 10:08:57AM CEST, simon.horman@netronome.com wrote:
->> >>>On Tue, Oct 03, 2017 at 11:17:46AM -0700, Tom Herbert wrote:
->> >>>> On Tue, Oct 3, 2017 at 2:40 AM, Simon Horman <simon.horman@netronome.com> wrote:
->> >>>> > On Mon, Oct 02, 2017 at 01:37:55PM -0700, Tom Herbert wrote:
->> >>>> >> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
->> >>>> >> > Move dissection of tunnel info from the flower classifier to the flow
->> >>>> >> > dissector where all other dissection occurs.  This should not have any
->> >>>> >> > behavioural affect on other users of the flow dissector.
->> >>>> >
->> >>>> > ...
->> >>>>
->> >>>> > I feel that we are circling back the perennial issue of flower using the
->> >>>> > flow dissector in a somewhat broader/different way than many/all other
->> >>>> > users of the flow dissector.
->> >>>> >
->> >>>> Simon,
->> >>>>
->> >>>> It's more like __skb_flow_dissect is already an incredibly complex
->> >>>> function and because of that it's difficult to maintain. We need to
->> >>>> measure changes against that fact. For this patch, there is precisely
->> >>>> one user (cls_flower.c) and it's not at all clear to me if there will
->> >>>> be ever any more (e.g. for hashing we don't need tunnel info). IMO, it
->> >>>> should be just as easy and less convolution for everyone to have
->> >>>> flower call __skb_flow_dissect_tunnel_info directly and not call if
->> >>>> from __skb_flow_dissect.
->> >>>
->> >>>Hi Tom,
->> >>>
->> >>>my original suggestion was just that, but Jiri indicated a strong preference
->> >>>for the approach taken by this patch. I think we need to widen the
->> >>>participants in this discussion.
->> >>
->> >> I like the __skb_flow_dissect to be the function to call and it will do
->> >> the job according to the configuration. I don't like to split in
->> >> multiple calls.
->> >
->> >Those are not technical arguments. As I already mentioned, I don't
->> >like it when we add stuff for the benefit of a 1% use case that
->> >negatively impacts the rest of the 99% cases which is what I believe
->> >is happening here.
->> 
->> Yeah. I just wanted the flow dissector to stay compact. But if needed,
->> could be split. I just fear that it will become a mess that's all.
->> 
->> 
->> >
->> >> Does not make sense in the most of the cases as the
->> >> dissection state would have to be carried in between calls.
->> >
->> >Please elaborate. This code is being moved into __skb_flow_dissect, so
->> >the functionality was already there. I don't see any description in
->> >this discussion that things were broken and that this patch is a
->> >necessary fix.
->> 
->> Yeah, you are right.
->
->Hi Tom, Hi Jiri,
->
->I'm happy to make a patch to move the call to
->__skb_flow_dissect_tunnel_info() from __skb_flow_dissect() to
->fl_classify(). It seems that approach has been agreed on above.
+On Wed, 2017-10-04 at 10:55 -0700, Joe Perches wrote:
+> On Wed, 2017-10-04 at 19:39 +0300, Luciano Coelho wrote:
+> > On Wed, 2017-10-04 at 09:26 -0700, Joe Perches wrote:
+> 
+> []
+> > > This might be more intelligble as separate tests
+> > > 
+> > > static bool is_valid_channel(u16 ch_id)
+> > > {
+> > > 	if (ch_id <= 14)
+> > > 		return true;
+> > > 
+> > > 	if ((ch_id % 4 == 0) &&
+> > > 	    ((ch_id >= 36 && ch_id <= 64) ||
+> > > 	     (ch_id >= 100 && ch_id <= 140)))
+> > > 		return true;
+> > > 
+> > > 	if ((ch_id % 4 == 1) &&
+> > > 	    (chid >= 145 && ch_id <= 165))
+> > > 		return true;
+> > > 
+> > > 	return false;
+> > > }
+> > > 
+> > > The compiler should produce the same object code.
+> > 
+> > Yeah, it may be a bit easier to read, but I don't want to start
+> > getting
+> > "fixes" to working and reasonable code.  There's nothing wrong with
+> > the
+> > existing function (except maybe for the int vs. boolean) so let's
+> > not
+> > change it.
+> > 
+> > A good time to change this would be the next time someone adds yet
+> > another range of valid channels here. ;)
+> 
+> <shrug>  Your choice.
+> 
+> I like code I can read and understand at a glance.
 
-If the consensus is that the right way is to cut-out flow dissector,
-so be it. But first, I believe it is reasonable to request to see some
-numbers that would indicate that it actually resolves anything.
+I do too, but I don't think the original is that hard to read, really. 
+Each "if" you add is already corresponding to one separate line in the
+original code...
+
+
+> At case somebody needs to add channels, likely nobody
+> would do the change suggested but would just add
+> another test to the already odd looking block.
+
+Yeah, that would most likely be the case, but if I saw that and thought
+there was a better way to write it, believe me, I would definitely
+nitpick the patch and ask the author to reorg the code so it would look
+nicer.
+
+
+> And constants should be on the right side of the tests.
+
+Sure, in a new patch, we would definitely pay attention to that.  But
+now, is it worth having one more patch go through the entire machinery
+to change a relatively clear, extremely simple function just because
+you could write it in a different way? My answer is a resounding no,
+sorry.
+
+--
+Luca.
