@@ -1,52 +1,64 @@
-From: Luciano Coelho <luciano.coelho@intel.com>
-Subject: Re: [PATCH 0/3] iwlwifi: cosmetic fixes
-Date: Wed, 04 Oct 2017 19:21:08 +0300
-Message-ID: <1507134068.908.94.camel@intel.com>
-References: <20171004155700.18048-1-christoph@boehmwalder.at>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: multi producer / multi consumer lock-free queue with ptr_ring
+Date: Wed, 4 Oct 2017 19:23:18 +0300
+Message-ID: <20171004171019-mutt-send-email-mst@kernel.org>
+References: <CAHmME9qPYL-wzyX0Q7RG7Uk9kAeWbzNN5=0YrmbniUR2O3rSxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Christoph =?ISO-8859-1?Q?B=F6hmwalder?=
-        <christoph@boehmwalder.at>, johannes.berg@intel.com,
-        emmanuel.grumbach@intel.com, kvalo@codeaurora.org
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>,
+        Samuel Holland <samuel@sholland.org>,
+        WireGuard mailing list <wireguard@lists.zx2c4.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171004155700.18048-1-christoph@boehmwalder.at>
+Content-Disposition: inline
+In-Reply-To: <CAHmME9qPYL-wzyX0Q7RG7Uk9kAeWbzNN5=0YrmbniUR2O3rSxA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-10-04 at 17:56 +0200, Christoph Böhmwalder wrote:
-> Fix several code style issues, some of which were reported by
-> checkpatch.pl.
+On Wed, Oct 04, 2017 at 01:18:24PM +0200, Jason A. Donenfeld wrote:
+> Hey Michael,
 > 
-> The changes are:
-> * One instance of an `int` variable being used in a boolean context,
-> chaned to
->   use the more appropriate `bool` type.
-> * One very minor fix, removing a newline between a function
-> definition and its
->   associated `static` keyword
-> * One fix wrapping a macro in curly braces
+> Thanks for your work on ptr_ring.h. I'm interested in using it, but in
+> a multi-producer, multi-consumer context. I realize it's been designed
+> for a single-producer, single-consumer context, and thus uses a
+> spinlock. I'm wondering if you'd be happy to receive patches that
+> implement things in a lock-free way, in order to make the data
+> structure more broadly usable.
 > 
+> In case you're curious, this would be used for the multi-core
+> algorithms in WireGuard.
 > 
-> Christoph Böhmwalder (3):
->   wireless: iwlwifi: use bool instead of int
->   wireless: iwlwifi: function definition cosmetic fix
->   wireless: iwlwifi: wrap macro into braces
-> 
->  drivers/net/wireless/intel/iwlwifi/iwl-io.c     |  2 +-
->  drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c | 16 +++++++------
-> ---
->  2 files changed, 8 insertions(+), 10 deletions(-)
+> Thanks,
+> Jason
 
-Sorry, but this kind of series just generates churn.  Especially when 2
-out of 3 patches are broken.  I applied your previous patch because it
-was really trivial, but I really don't want to encourage this kind of
-drive-by "fixes" that only cause additional work.
+Hi!
+We'll have to look at the performance and how much code is shared.
+Especially resize support might be tricky without a lock.
 
-I generally only accept this kind of changes when people are changing
-code close or related to it.
+One interesting consideration is that currently we use spinlocks which
+are very expensive but fair when contended.
 
---
-Luca.
+And lock-free mechanisms are very rarely fair.
+
+Further ring isn't really fair when full in the sense that
+you might get the lock first but the result will only
+be that you see a full ring and can not add an entry.
+
+So maybe replacing (optionally?) a spinlock with just a trylock and fail
+on contention would already speed up things for multi-consumer/producer
+without the overhead and complexity of lock-free.
+
+Or tweak spin lock to poll for a bit until going slow path
+or until failure.
+
+Or even try a bit lock.
+
+I hope these ideas help.
+
+One area where we definitely could share effort is adding some
+micro-benchmarks under tools/. I currently (ab)use
+tools/virtio/ringtest.
+
+-- 
+MST
