@@ -1,116 +1,89 @@
-From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH 13/13] workqueue: Convert callback to use from_timer()
-Date: Wed,  4 Oct 2017 16:27:07 -0700
-Message-ID: <1507159627-127660-14-git-send-email-keescook@chromium.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH 09/13] timer: Remove users of expire and data arguments to DEFINE_TIMER
+Date: Wed,  4 Oct 2017 16:27:03 -0700
+Message-ID: <1507159627-127660-10-git-send-email-keescook@chromium.org>
 References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Lai Jiangshan <jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-        Chris Metcalf <cmetcalf-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
-        Harish Patil <harish.patil-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Julian Wiedmann <jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Manish Chopra <manish.chopra-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Mark Gross <mark.gross-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1507159627-127660-1-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Kees Cook <keescook@chromium.org>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Wim Van Sebroeck <wim@iguana.be>,
+        Guenter Roeck <linux@roeck-us.net>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        linux-mips@linux-mips.org, linux-watchdog@vger.kernel.org,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Chris Metcalf <cmetcalf@mellanox.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Harish Patil <harish.patil@cavium.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>,
+        Kalle Valo <kvalo@qca.qualcomm.com>,
+        Lai Jiangshan <jiangshanlai@gmail.com>,
+        Len B
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507159627-127660-1-git-send-email-keescook@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation for unconditionally passing the struct timer_list pointer
-to all timer callbacks, switch workqueue to use from_timer() and pass the
-timer pointer explicitly.
+The expire and data arguments of DEFINE_TIMER are only used in two places
+and are ignored by the code (malta-display.c only uses mod_timer(),
+never add_timer(), so the preset expires value is ignored). Set both
+sets of arguments to zero.
 
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Cc: Lai Jiangshan <jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Wim Van Sebroeck <wim@iguana.be>
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: linux-mips@linux-mips.org
+Cc: linux-watchdog@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- include/linux/workqueue.h | 15 ++++++++-------
- kernel/workqueue.c        |  7 +++----
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ arch/mips/mti-malta/malta-display.c | 6 +++---
+ drivers/watchdog/alim7101_wdt.c     | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index f4960260feaf..f3c47a05fd06 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -17,7 +17,7 @@ struct workqueue_struct;
- 
- struct work_struct;
- typedef void (*work_func_t)(struct work_struct *work);
--void delayed_work_timer_fn(unsigned long __data);
-+void delayed_work_timer_fn(struct timer_list *t);
- 
- /*
-  * The first word is the work queue pointer and the flags rolled into
-@@ -175,8 +175,8 @@ struct execute_work {
- 
- #define __DELAYED_WORK_INITIALIZER(n, f, tflags) {			\
- 	.work = __WORK_INITIALIZER((n).work, (f)),			\
--	.timer = __TIMER_INITIALIZER(delayed_work_timer_fn,		\
--				     (unsigned long)&(n),		\
-+	.timer = __TIMER_INITIALIZER((TIMER_FUNC_TYPE)delayed_work_timer_fn,\
-+				     (TIMER_DATA_TYPE)&(n.timer),	\
- 				     (tflags) | TIMER_IRQSAFE),		\
+diff --git a/arch/mips/mti-malta/malta-display.c b/arch/mips/mti-malta/malta-display.c
+index d4f807191ecd..ac813158b9b8 100644
+--- a/arch/mips/mti-malta/malta-display.c
++++ b/arch/mips/mti-malta/malta-display.c
+@@ -36,10 +36,10 @@ void mips_display_message(const char *str)
  	}
- 
-@@ -241,8 +241,9 @@ static inline unsigned int work_static(struct work_struct *work) { return 0; }
- #define __INIT_DELAYED_WORK(_work, _func, _tflags)			\
- 	do {								\
- 		INIT_WORK(&(_work)->work, (_func));			\
--		__setup_timer(&(_work)->timer, delayed_work_timer_fn,	\
--			      (unsigned long)(_work),			\
-+		__setup_timer(&(_work)->timer,				\
-+			      (TIMER_FUNC_TYPE)delayed_work_timer_fn,	\
-+			      (TIMER_DATA_TYPE)&(_work)->timer,		\
- 			      (_tflags) | TIMER_IRQSAFE);		\
- 	} while (0)
- 
-@@ -250,8 +251,8 @@ static inline unsigned int work_static(struct work_struct *work) { return 0; }
- 	do {								\
- 		INIT_WORK_ONSTACK(&(_work)->work, (_func));		\
- 		__setup_timer_on_stack(&(_work)->timer,			\
--				       delayed_work_timer_fn,		\
--				       (unsigned long)(_work),		\
-+				       (TIMER_FUNC_TYPE)delayed_work_timer_fn,\
-+				       (TIMER_DATA_TYPE)&(_work)->timer,\
- 				       (_tflags) | TIMER_IRQSAFE);	\
- 	} while (0)
- 
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index a5361fc6215d..c77fdf6bf24f 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -1492,9 +1492,9 @@ bool queue_work_on(int cpu, struct workqueue_struct *wq,
  }
- EXPORT_SYMBOL(queue_work_on);
  
--void delayed_work_timer_fn(unsigned long __data)
-+void delayed_work_timer_fn(struct timer_list *t)
+-static void scroll_display_message(unsigned long data);
+-static DEFINE_TIMER(mips_scroll_timer, scroll_display_message, HZ, 0);
++static void scroll_display_message(unsigned long unused);
++static DEFINE_TIMER(mips_scroll_timer, scroll_display_message, 0, 0);
+ 
+-static void scroll_display_message(unsigned long data)
++static void scroll_display_message(unsigned long unused)
  {
--	struct delayed_work *dwork = (struct delayed_work *)__data;
-+	struct delayed_work *dwork = from_timer(dwork, t, timer);
+ 	mips_display_message(&display_string[display_count++]);
+ 	if (display_count == max_display_count)
+diff --git a/drivers/watchdog/alim7101_wdt.c b/drivers/watchdog/alim7101_wdt.c
+index 665e0e7dfe1e..3c1f6ac68ea9 100644
+--- a/drivers/watchdog/alim7101_wdt.c
++++ b/drivers/watchdog/alim7101_wdt.c
+@@ -71,7 +71,7 @@ MODULE_PARM_DESC(use_gpio,
+ 		"Use the gpio watchdog (required by old cobalt boards).");
  
- 	/* should have been called from irqsafe timer with irq already off */
- 	__queue_work(dwork->cpu, dwork->wq, &dwork->work);
-@@ -1508,8 +1508,7 @@ static void __queue_delayed_work(int cpu, struct workqueue_struct *wq,
- 	struct work_struct *work = &dwork->work;
+ static void wdt_timer_ping(unsigned long);
+-static DEFINE_TIMER(timer, wdt_timer_ping, 0, 1);
++static DEFINE_TIMER(timer, wdt_timer_ping, 0, 0);
+ static unsigned long next_heartbeat;
+ static unsigned long wdt_is_open;
+ static char wdt_expect_close;
+@@ -87,7 +87,7 @@ MODULE_PARM_DESC(nowayout,
+  *	Whack the dog
+  */
  
- 	WARN_ON_ONCE(!wq);
--	WARN_ON_ONCE(timer->function != delayed_work_timer_fn ||
--		     timer->data != (unsigned long)dwork);
-+	WARN_ON_ONCE(timer->function != (TIMER_FUNC_TYPE)delayed_work_timer_fn);
- 	WARN_ON_ONCE(timer_pending(timer));
- 	WARN_ON_ONCE(!list_empty(&work->entry));
- 
+-static void wdt_timer_ping(unsigned long data)
++static void wdt_timer_ping(unsigned long unused)
+ {
+ 	/* If we got a heartbeat pulse within the WDT_US_INTERVAL
+ 	 * we agree to ping the WDT
 -- 
 2.7.4
