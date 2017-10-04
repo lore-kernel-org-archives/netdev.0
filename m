@@ -1,48 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] selftests: rtnetlink: try concurrent change of
- ifalias
-Date: Wed, 04 Oct 2017 07:16:33 -0700
-Message-ID: <1507126593.14419.0.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171004115258.5878-1-fw@strlen.de>
+From: =?ISO-8859-15?Q?J=F6rg_Willmann?= <joe@clnt.de>
+Subject: Re: etsec2 attached to sgmii phy
+Date: Wed, 4 Oct 2017 16:19:23 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1710041613320.9785@brian.int1.clnt.de>
+References: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de> <20171004133642.GM30045@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; BOUNDARY="8323329-1421196961-1507126763=:9785"
 Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:37061 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752448AbdJDOQf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 10:16:35 -0400
-Received: by mail-pg0-f67.google.com with SMTP id o1so12109459pga.4
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 07:16:35 -0700 (PDT)
-In-Reply-To: <20171004115258.5878-1-fw@strlen.de>
+Received: from smtprelay07.ispgateway.de ([134.119.228.100]:8506 "EHLO
+        smtprelay07.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751176AbdJDOT1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 10:19:27 -0400
+In-Reply-To: <20171004133642.GM30045@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-04 at 13:52 +0200, Florian Westphal wrote:
-> to make sure this is serialized correctly.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  tools/testing/selftests/net/rtnetlink.sh | 8 ++++++++
->  1 file changed, 8 insertions(+)
-> 
-> diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
-> index 62c87da92770..13c29beb5769 100755
-> --- a/tools/testing/selftests/net/rtnetlink.sh
-> +++ b/tools/testing/selftests/net/rtnetlink.sh
-> @@ -278,6 +278,14 @@ kci_test_ifalias()
->  	        ip link show "$devdummy" | grep -q "alias $namewant"
->  		check_fail $?
->  
-> +		for i in $(seq 1 100); do
-> +			uuidgen > "$syspathname" &
-> +		done
-> +
-> +		for i in $(seq 1 100); do
-> +			wait
-> +		done
-> +
+--8323329-1421196961-1507126763=:9785
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: 8BIT
 
-A single wait is enough, you do not need a loop.
+On Wed, 4 Oct 2017, Andrew Lunn wrote:
+
+> On Wed, Oct 04, 2017 at 07:56:53AM +0200, Jörg Willmann wrote:
+>> Hi,
+>>
+>> we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352).
+>> Currently we still use a really old linux kernel (2.6.33) successfully.
+>>
+>> For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI
+>> Phy we use the following settings in the device tree:
+>>
+>>                         mdio@25000 {
+>>                                    #address-cells = <0x1>;
+>>                                    #size-cells = <0x0>;
+>>                                    compatible = "fsl,etsec2-tbi";
+>>                                    reg = <0x25000 0x1000 0xb1030 0x4>;
+>
+> Hi Joerg
+>
+> Is 0xb1030 0x4 fixed by the silicon? Can it be expressed as an offset from
+> 0x25000?
+>
+> It seems like the idea behind the patch is to hard code some
+> things. If you can hard code the offset into get_etsec_tbipa(), i
+> think that would be an O.K. solution to your problem.
+>
+>      Andrew
+>
+Yes, the adress 0xb1030 is fixed but it's something totally different than 
+the address range of 0x25000. 0xb0000, 0xb1000 and 0xb2000 are base 
+addresses of the eTSEC MAC (TPIPA is a register within the MAC) and 
+0x24000, 0x25000 and 0x26000 are the base registers of the corresponding 
+MDIO controllers. So I wouldn't add a dependency between these two things.
+>From my point of view, the implementation in the old kernel where 
+get_gfar_tbipa() got the device tree node pointer as argument was not soo 
+bad ;-)
+
+ 	Joerg
+--8323329-1421196961-1507126763=:9785--
