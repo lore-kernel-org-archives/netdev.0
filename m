@@ -1,68 +1,62 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [next-queue PATCH v3 2/4] net/sched: Fix accessing invalid
- dev_queue
-Date: Wed, 4 Oct 2017 10:42:34 -0700
-Message-ID: <26439d1d-9fdf-cf1a-42fa-8c950fe00d15@intel.com>
-References: <20171003234435.8979-1-vinicius.gomes@intel.com>
- <20171003234435.8979-3-vinicius.gomes@intel.com>
- <1507088831.8061.41.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/3] wireless: iwlwifi: use bool instead of int
+Date: Wed, 04 Oct 2017 10:55:22 -0700
+Message-ID: <1507139722.4434.12.camel@perches.com>
+References: <20171004155700.18048-1-christoph@boehmwalder.at>
+         <20171004155700.18048-2-christoph@boehmwalder.at>
+         <1507134405.4434.10.camel@perches.com> <1507135159.908.96.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6033 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750951AbdJDRtg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 13:49:36 -0400
-In-Reply-To: <1507088831.8061.41.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Luciano Coelho <luciano.coelho@intel.com>,
+        Christoph =?ISO-8859-1?Q?B=F6hmwalder?=
+        <christoph@boehmwalder.at>, johannes.berg@intel.com,
+        emmanuel.grumbach@intel.com, kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507135159.908.96.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-
-On 10/03/2017 08:47 PM, Eric Dumazet wrote:
-> On Tue, 2017-10-03 at 16:44 -0700, Vinicius Costa Gomes wrote:
->> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->>
->> In qdisc_alloc() the dev_queue pointer was used without any checks being
->> performed. If qdisc_create() gets a null dev_queue pointer, it just
->> passes it along to qdisc_alloc(), leading to a crash. That happens if a
->> root qdisc implements select_queue() and returns a null dev_queue
->> pointer for an "invalid handle", for example.
->>
->> One way to reproduce that is:
->>
->> 1) Setup mqprio
->> $ tc qdisc replace dev enp3s0 parent root mqprio num_tc 3 \
->>      	   map 2 2 1 0 2 2 2 2 2 2 2 2 2 2 2 2 queues 1@0 1@1 2@2 hw 0
->>
->> 2) Replace the first inner qdisc
->> $ tc qdisc replace dev enp3s0 parent 8001:1 pfifo_fast
->>
->> This will lead to the following crash:
+On Wed, 2017-10-04 at 19:39 +0300, Luciano Coelho wrote:
+> On Wed, 2017-10-04 at 09:26 -0700, Joe Perches wrote:
+[]
+> > This might be more intelligble as separate tests
+> > 
+> > static bool is_valid_channel(u16 ch_id)
+> > {
+> > 	if (ch_id <= 14)
+> > 		return true;
+> > 
+> > 	if ((ch_id % 4 == 0) &&
+> > 	    ((ch_id >= 36 && ch_id <= 64) ||
+> > 	     (ch_id >= 100 && ch_id <= 140)))
+> > 		return true;
+> > 
+> > 	if ((ch_id % 4 == 1) &&
+> > 	    (chid >= 145 && ch_id <= 165))
+> > 		return true;
+> > 
+> > 	return false;
+> > }
+> > 
+> > The compiler should produce the same object code.
 > 
-> When was this bug added ?
+> Yeah, it may be a bit easier to read, but I don't want to start getting
+> "fixes" to working and reasonable code.  There's nothing wrong with the
+> existing function (except maybe for the int vs. boolean) so let's not
+> change it.
 > 
-> If this is a consequence of your prior patch (1/4), then this must come
-> before it.
-> 
-> No need to add a stack trace for a not existing bug.
-> Instead, explain in the changelog that it is a prep work.
-> 
-> We try to not break the tree on purpose, so that future bisection will
-> not hit a point where the kernel crashes.
+> A good time to change this would be the next time someone adds yet
+> another range of valid channels here. ;)
 
-Sure, that makes absolute sense. It'll be fixed in our v5 as you've suggested.
+<shrug>  Your choice.
 
+I like code I can read and understand at a glance.
 
-Thanks,
-Jesus
+At case somebody needs to add channels, likely nobody
+would do the change suggested but would just add
+another test to the already odd looking block.
+
+And constants should be on the right side of the tests.
