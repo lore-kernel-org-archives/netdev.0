@@ -1,73 +1,45 @@
-From: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net v2] RDS: IB: Limit the scope of has_fr/has_fmr variables
-Date: Wed,  4 Oct 2017 12:10:43 -0700
-Message-ID: <1507144244-1611-1-git-send-email-avinash.repaka@oracle.com>
-Cc: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Avinash Repaka <avinash.repaka@oracle.com>
+Subject: [PATCH net v2] RDS: IB: Initialize max_items based on underlying device attributes
+Date: Wed,  4 Oct 2017 12:11:29 -0700
+Message-ID: <1507144289-1690-1-git-send-email-avinash.repaka@oracle.com>
+Cc: Avinash Repaka <avinash.repaka@oracle.com>
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the scope of has_fr and has_fmr variables as they are
-needed only in rds_ib_add_one().
+Use max_1m_mrs/max_8k_mrs while setting max_items, as the former
+variables are set based on the underlying device attributes.
 
-Signed-off-by: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-
+Signed-off-by: Avinash Repaka <avinash.repaka@oracle.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.c | 11 ++++++-----
- net/rds/ib.h |  2 --
- 2 files changed, 6 insertions(+), 7 deletions(-)
+v1->v2
+Fixed a typo in commit description
 
-diff --git a/net/rds/ib.c b/net/rds/ib.c
-index a0954ac..36dd209 100644
---- a/net/rds/ib.c
-+++ b/net/rds/ib.c
-@@ -126,6 +126,7 @@ void rds_ib_dev_put(struct rds_ib_device *rds_ibdev)
- static void rds_ib_add_one(struct ib_device *device)
- {
- 	struct rds_ib_device *rds_ibdev;
-+	bool has_fr, has_fmr;
+ net/rds/ib_rdma.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index 9a3c54e..e678699 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -601,11 +601,11 @@ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev,
+ 	if (pool_type == RDS_IB_MR_1M_POOL) {
+ 		/* +1 allows for unaligned MRs */
+ 		pool->fmr_attr.max_pages = RDS_MR_1M_MSG_SIZE + 1;
+-		pool->max_items = RDS_MR_1M_POOL_SIZE;
++		pool->max_items = rds_ibdev->max_1m_mrs;
+ 	} else {
+ 		/* pool_type == RDS_IB_MR_8K_POOL */
+ 		pool->fmr_attr.max_pages = RDS_MR_8K_MSG_SIZE + 1;
+-		pool->max_items = RDS_MR_8K_POOL_SIZE;
++		pool->max_items = rds_ibdev->max_8k_mrs;
+ 	}
  
- 	/* Only handle IB (no iWARP) devices */
- 	if (device->node_type != RDMA_NODE_IB_CA)
-@@ -143,11 +144,11 @@ static void rds_ib_add_one(struct ib_device *device)
- 	rds_ibdev->max_wrs = device->attrs.max_qp_wr;
- 	rds_ibdev->max_sge = min(device->attrs.max_sge, RDS_IB_MAX_SGE);
- 
--	rds_ibdev->has_fr = (device->attrs.device_cap_flags &
--				  IB_DEVICE_MEM_MGT_EXTENSIONS);
--	rds_ibdev->has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
--			    device->map_phys_fmr && device->unmap_fmr);
--	rds_ibdev->use_fastreg = (rds_ibdev->has_fr && !rds_ibdev->has_fmr);
-+	has_fr = (device->attrs.device_cap_flags &
-+		  IB_DEVICE_MEM_MGT_EXTENSIONS);
-+	has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
-+		   device->map_phys_fmr && device->unmap_fmr);
-+	rds_ibdev->use_fastreg = (has_fr && !has_fmr);
- 
- 	rds_ibdev->fmr_max_remaps = device->attrs.max_map_per_fmr?: 32;
- 	rds_ibdev->max_1m_mrs = device->attrs.max_mr ?
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index bf48224..6ea6a27 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -215,8 +215,6 @@ struct rds_ib_device {
- 	struct list_head	conn_list;
- 	struct ib_device	*dev;
- 	struct ib_pd		*pd;
--	bool                    has_fmr;
--	bool                    has_fr;
- 	bool                    use_fastreg;
- 
- 	unsigned int		max_mrs;
+ 	pool->max_free_pinned = pool->max_items * pool->fmr_attr.max_pages / 4;
 -- 
 2.4.11
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
