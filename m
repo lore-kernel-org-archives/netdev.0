@@ -1,45 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: etsec2 attached to sgmii phy
-Date: Wed, 4 Oct 2017 15:36:42 +0200
-Message-ID: <20171004133642.GM30045@lunn.ch>
-References: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: =?iso-8859-1?Q?J=F6rg?= Willmann <joe@clnt.de>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1] s390/qeth: use kstrtobool() in qeth_bridgeport_hostnotification_store()
+Date: Wed,  4 Oct 2017 16:38:51 +0300
+Message-ID: <20171004133851.18595-1-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Julian Wiedmann <jwi@linux.vnet.ibm.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        linux-s390@vger.kernel.org, David Miller <davem@davemloft.net>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:39155 "EHLO vps0.lunn.ch"
+Received: from mga14.intel.com ([192.55.52.115]:27994 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752167AbdJDNgo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 09:36:44 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de>
+        id S1752008AbdJDNj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 09:39:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 07:56:53AM +0200, Jörg Willmann wrote:
-> Hi,
-> 
-> we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352).
-> Currently we still use a really old linux kernel (2.6.33) successfully.
-> 
-> For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI
-> Phy we use the following settings in the device tree:
-> 
->                         mdio@25000 {
->                                    #address-cells = <0x1>;
->                                    #size-cells = <0x0>;
->                                    compatible = "fsl,etsec2-tbi";
->                                    reg = <0x25000 0x1000 0xb1030 0x4>;
+The sysfs enabled value is a boolean, so kstrtobool() is a better fit
+for parsing the input string since it does the range checking for us.
 
-Hi Joerg
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/s390/net/qeth_l2_sys.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-Is 0xb1030 0x4 fixed by the silicon? Can it be expressed as an offset from
-0x25000?
-
-It seems like the idea behind the patch is to hard code some
-things. If you can hard code the offset into get_etsec_tbipa(), i
-think that would be an O.K. solution to your problem.
-
-      Andrew
+diff --git a/drivers/s390/net/qeth_l2_sys.c b/drivers/s390/net/qeth_l2_sys.c
+index 4608daedb204..470a4e5f3c62 100644
+--- a/drivers/s390/net/qeth_l2_sys.c
++++ b/drivers/s390/net/qeth_l2_sys.c
+@@ -146,18 +146,15 @@ static ssize_t qeth_bridgeport_hostnotification_store(struct device *dev,
+ 		struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	struct qeth_card *card = dev_get_drvdata(dev);
+-	int rc = 0;
+-	int enable;
++	bool enable;
++	int rc;
+ 
+ 	if (!card)
+ 		return -EINVAL;
+ 
+-	if (sysfs_streq(buf, "0"))
+-		enable = 0;
+-	else if (sysfs_streq(buf, "1"))
+-		enable = 1;
+-	else
+-		return -EINVAL;
++	rc = kstrtobool(buf, &enable);
++	if (rc)
++		return rc;
+ 
+ 	mutex_lock(&card->conf_mutex);
+ 
+-- 
+2.14.2
