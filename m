@@ -1,58 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [next-queue PATCH v3 2/4] net/sched: Fix accessing invalid
- dev_queue
-Date: Tue, 03 Oct 2017 20:47:11 -0700
-Message-ID: <1507088831.8061.41.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171003234435.8979-1-vinicius.gomes@intel.com>
-         <20171003234435.8979-3-vinicius.gomes@intel.com>
+From: Eyal Birger <eyal.birger@gmail.com>
+Subject: Re: [PATCH net] net: fib_rules: Fix fib_rules_ops->compare
+ implementations to support exact match
+Date: Wed, 4 Oct 2017 06:58:37 +0300
+Message-ID: <CAHsH6Gstsm7smQZ3A0qxfSsWvquT4HrLmMRzGae9L2Wcm7-Bbg@mail.gmail.com>
+References: <20170930085909.1103-1-shmulik@nsof.io> <20171003.145418.677435703318514230.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Cc: shmulik@nsof.io, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mateusz.bajorski@nokia.com, dsa@cumulusnetworks.com, tgraf@suug.ch,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:53964 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751148AbdJDDrN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 23:47:13 -0400
-Received: by mail-pg0-f41.google.com with SMTP id j70so5830388pgc.10
-        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 20:47:13 -0700 (PDT)
-In-Reply-To: <20171003234435.8979-3-vinicius.gomes@intel.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36153 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751171AbdJDD6i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Oct 2017 23:58:38 -0400
+Received: by mail-oi0-f68.google.com with SMTP id p187so3793530oif.3
+        for <netdev@vger.kernel.org>; Tue, 03 Oct 2017 20:58:38 -0700 (PDT)
+In-Reply-To: <20171003.145418.677435703318514230.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-10-03 at 16:44 -0700, Vinicius Costa Gomes wrote:
-> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-> 
-> In qdisc_alloc() the dev_queue pointer was used without any checks being
-> performed. If qdisc_create() gets a null dev_queue pointer, it just
-> passes it along to qdisc_alloc(), leading to a crash. That happens if a
-> root qdisc implements select_queue() and returns a null dev_queue
-> pointer for an "invalid handle", for example.
-> 
-> One way to reproduce that is:
-> 
-> 1) Setup mqprio
-> $ tc qdisc replace dev enp3s0 parent root mqprio num_tc 3 \
->      	   map 2 2 1 0 2 2 2 2 2 2 2 2 2 2 2 2 queues 1@0 1@1 2@2 hw 0
-> 
-> 2) Replace the first inner qdisc
-> $ tc qdisc replace dev enp3s0 parent 8001:1 pfifo_fast
-> 
-> This will lead to the following crash:
+Hi David,
 
-When was this bug added ?
+On Wed, Oct 4, 2017 at 12:54 AM, David Miller <davem@davemloft.net> wrote:
+> From: Shmulik Ladkani <shmulik@nsof.io>
+> Date: Sat, 30 Sep 2017 11:59:09 +0300
+>
+>> This leads to inconsistencies, depending on order of operations, e.g.:
+>
+> I don't see any inconsistency.  When you insert using NLM_F_EXCL the
+> insertion fails if any existing rule matches or overlaps in any way
+> with the keys in the new rule.
+>
+> Sorry I'm not going to apply this.
 
-If this is a consequence of your prior patch (1/4), then this must come
-before it.
+The inconsistency we saw is that 0.0.0.0/0 is treated differently compared to
+all other subnets - for which overlaps are not disallowed - e.g. this succeeds:
 
-No need to add a stack trace for a not existing bug.
-Instead, explain in the changelog that it is a prep work.
+# ip ru add from 10.0.0.0/8 iif eth2 pref 33 table 33
+# ip ru add from 0.0.0.0/1 iif eth2 pref 33 table 33
+# ip ru add from 128.0.0.0/1 iif eth2 pref 33 table 33
 
-We try to not break the tree on purpose, so that future bisection will
-not hit a point where the kernel crashes.
+Though being functionally equivalent to adding from=0.0.0.0/0.
+
+So our understanding was that 'different subnet==different rule', similar to the
+route addition behavior with NLM_F_EXCL.
+
+Best regards,
+Eyal.
