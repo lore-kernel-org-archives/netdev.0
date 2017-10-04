@@ -1,57 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/5] VSOCK: add sock_diag interface
-Date: Wed, 04 Oct 2017 15:58:57 -0700 (PDT)
-Message-ID: <20171004.155857.1016136695967325282.davem@davemloft.net>
-References: <20171004163716.3964-1-stefanha@redhat.com>
-        <20171004163716.3964-5-stefanha@redhat.com>
+Subject: Re: [PATCH net-next v6 0/4] bpf: add two helpers to read perf
+ event enabled/running time
+Date: Wed, 04 Oct 2017 16:00:56 -0700 (PDT)
+Message-ID: <20171004.160056.801262768847050741.davem@davemloft.net>
+References: <20171002224218.3181418-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhansen@vmware.com, decui@microsoft.com
-To: stefanha@redhat.com
+Cc: peterz@infradead.org, rostedt@goodmis.org, ast@fb.com,
+        daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
+To: yhs@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54484 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:54550 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdJDW66 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 18:58:58 -0400
-In-Reply-To: <20171004163716.3964-5-stefanha@redhat.com>
+        with ESMTP id S1750951AbdJDXA5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 19:00:57 -0400
+In-Reply-To: <20171002224218.3181418-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Wed,  4 Oct 2017 12:37:15 -0400
+From: Yonghong Song <yhs@fb.com>
+Date: Mon, 2 Oct 2017 15:42:14 -0700
 
-> This patch adds the sock_diag interface for querying sockets from
-> userspace.  Tools like ss(8) and netstat(8) can use this interface to
-> list open sockets.
+> [Dave, Peter,
 > 
-> The userspace ABI is defined in <linux/vm_sockets_diag.h> and includes
-> netlink request and response structs.  The request can query sockets
-> based on their sk_state (e.g. listening sockets only) and the response
-> contains socket information fields including the local/remote addresses,
-> inode number, etc.
+>  Previous communcation shows that this patch may potentially have
+>  merge conflict with upcoming tip changes in the next merge window.
 > 
-> This patch does not dump VMCI pending sockets because I have only tested
-> the virtio transport, which does not use pending sockets.  Support can
-> be added later by extending vsock_diag_dump() if needed by VMCI users.
+>  Could you advise how this patch should proceed?
 > 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+>  Thanks!
+> ]
 
-Please post new feature patches against net-next.
-
-> diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-> index 09fc2eb29dc8..e5dbf153aff0 100644
-> --- a/net/vmw_vsock/Makefile
-> +++ b/net/vmw_vsock/Makefile
-> @@ -1,10 +1,13 @@
->  obj-$(CONFIG_VSOCKETS) += vsock.o
-> +obj-$(CONFIG_VSOCKETS_DIAG) += vsock_diag.o
->  obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
->  obj-$(CONFIG_VIRTIO_VSOCKETS) += vmw_vsock_virtio_transport.o
->  obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += vmw_vsock_virtio_transport_common.o
->  
-
-This hunk fails to apply to the net-next tree, the context looks
-different.
+Indeed, Peter how do you want to handle this?
 
 Thanks.
