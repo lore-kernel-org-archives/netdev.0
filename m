@@ -1,45 +1,51 @@
-From: Avinash Repaka <avinash.repaka@oracle.com>
-Subject: [PATCH net v2] RDS: IB: Initialize max_items based on underlying device attributes
-Date: Wed,  4 Oct 2017 12:11:29 -0700
-Message-ID: <1507144289-1690-1-git-send-email-avinash.repaka@oracle.com>
-Cc: Avinash Repaka <avinash.repaka@oracle.com>
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC] bpf: remove global verifier state
+Date: Wed, 04 Oct 2017 21:13:47 +0200
+Message-ID: <59D532EB.4000104@iogearbox.net>
+References: <20171003201452.elth55atpquesjjk@ast-mbp.dhcp.thefacebook.com> <20171004002025.28521-1-jakub.kicinski@netronome.com> <20171004025226.wutfwm6hcsj4zuph@ast-mbp> <1507087446.8061.37.camel@edumazet-glaptop3.roam.corp.google.com> <20171004034311.t3uba7vqcvahly2q@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>, dsahern@gmail.com,
+        netdev@vger.kernel.org, oss-drivers@netronome.com,
+        david.beckett@netronome.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:37836 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751169AbdJDTNu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 15:13:50 -0400
+In-Reply-To: <20171004034311.t3uba7vqcvahly2q@ast-mbp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use max_1m_mrs/max_8k_mrs while setting max_items, as the former
-variables are set based on the underlying device attributes.
+On 10/04/2017 05:43 AM, Alexei Starovoitov wrote:
+> On Tue, Oct 03, 2017 at 08:24:06PM -0700, Eric Dumazet wrote:
+>> On Tue, 2017-10-03 at 19:52 -0700, Alexei Starovoitov wrote:
+>>
+>>> yep. looks great.
+>>> Please test it and submit officially :)
+>>> The commit aafe6ae9cee3 ("bpf: dynamically allocate digest scratch buffer")
+>>> fixed the other case where we were relying on the above mutex.
+>>> The only other spot to be adjusted is to add spin_lock/mutex or DO_ONCE() to
+>>> bpf_get_skb_set_tunnel_proto() to protect md_dst init.
+>>> imo that would be it.
+>>> Daniel, anything else comes to mind?
 
-Signed-off-by: Avinash Repaka <avinash.repaka@oracle.com>
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
-v1->v2
-Fixed a typo in commit description
+Yes, this should be all. DO_ONCE() for the tunnel proto seems a
+good choice.
 
- net/rds/ib_rdma.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+>> 16 MB of log (unswappable kernel memory) per active checker.
+>>
+>> We might offer a way to oom hosts.
+>
+> right. good point!
+> we need to switch to continuous copy_to_user() after a page or so.
+> Can even do it after every vscnprintf()
+> but page at a time is probably faster.
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index 9a3c54e..e678699 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -601,11 +601,11 @@ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev,
- 	if (pool_type == RDS_IB_MR_1M_POOL) {
- 		/* +1 allows for unaligned MRs */
- 		pool->fmr_attr.max_pages = RDS_MR_1M_MSG_SIZE + 1;
--		pool->max_items = RDS_MR_1M_POOL_SIZE;
-+		pool->max_items = rds_ibdev->max_1m_mrs;
- 	} else {
- 		/* pool_type == RDS_IB_MR_8K_POOL */
- 		pool->fmr_attr.max_pages = RDS_MR_8K_MSG_SIZE + 1;
--		pool->max_items = RDS_MR_8K_POOL_SIZE;
-+		pool->max_items = rds_ibdev->max_8k_mrs;
- 	}
- 
- 	pool->max_free_pinned = pool->max_items * pool->fmr_attr.max_pages / 4;
--- 
-2.4.11
+Also worst case upper limits on verification side for holding state
+aside from the log would need to be checked in terms of how much mem
+we end up holding that is not accounted against any process (and not
+really "rate-limited" anymore once we drop the mutex).
