@@ -1,54 +1,80 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] cxgb4vf: make a couple of functions static
-Date: Wed,  4 Oct 2017 14:20:37 +0100
-Message-ID: <20171004132037.6409-1-colin.king@canonical.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH net-next 7/7] mlxsw: spectrum: Add extack messages for
+ enslave failures
+Date: Wed, 4 Oct 2017 16:24:03 +0300
+Message-ID: <20171004132403.GA14864@splinter>
+References: <1507093134-20406-1-git-send-email-dsahern@gmail.com>
+ <1507093134-20406-8-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Casey Leedom <leedom@chelsio.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+        andy@greyhouse.net, jiri@mellanox.com, idosch@mellanox.com,
+        davem@davemloft.net, bridge@lists.linux-foundation.org
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:46895 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752332AbdJDNYI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 09:24:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1507093134-20406-8-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Tue, Oct 03, 2017 at 09:58:54PM -0700, David Ahern wrote:
+> mlxsw fails device enslavement for a number of reasons. Use the extack
+> facility to return an error message to the user stating why the enslave
+> is failing.
+> 
+> Messages are prefixed with "spectrum" so users know it is a constraint
+> imposed by the hardware driver. For example:
+>     $ ip li add br0.11 link br0 type vlan id 11
+>     $ ip li set swp11 master br0
+>     Error: spectrum: Enslaving a port to a device that already has an upper device is not supported.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-The functions t4vf_link_down_rc_str and t4vf_handle_get_port_info are
-local to the source and do not need to be in global scope, so make
-them static.
+Great stuff, thanks David!
 
-Cleans up sparse warnings:
-symbol 't4vf_link_down_rc_str' was not declared. Should it be static?
-symbol 't4vf_handle_get_port_info' was not declared. Should it be static?
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Tested-by: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+See one small nit below, but I would like to patch
+mlxsw_sp_netdevice_port_vlan_event() as well, so I can take care of it
+then.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-index a8d94963b4d0..67aec59a14e6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/t4vf_hw.c
-@@ -1812,7 +1812,7 @@ int t4vf_eth_eq_free(struct adapter *adapter, unsigned int eqid)
-  *
-  *	Returns a string representation of the Link Down Reason Code.
-  */
--const char *t4vf_link_down_rc_str(unsigned char link_down_rc)
-+static const char *t4vf_link_down_rc_str(unsigned char link_down_rc)
- {
- 	static const char * const reason[] = {
- 		"Link Down",
-@@ -1838,8 +1838,8 @@ const char *t4vf_link_down_rc_str(unsigned char link_down_rc)
-  *
-  *	Processes a GET_PORT_INFO FW reply message.
-  */
--void t4vf_handle_get_port_info(struct port_info *pi,
--			       const struct fw_port_cmd *cmd)
-+static void t4vf_handle_get_port_info(struct port_info *pi,
-+				      const struct fw_port_cmd *cmd)
- {
- 	int action = FW_PORT_CMD_ACTION_G(be32_to_cpu(cmd->action_to_len16));
- 	struct adapter *adapter = pi->adapter;
--- 
-2.14.1
+> ---
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 46 ++++++++++++++++++++------
+>  1 file changed, 36 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+> index 3adf237c951a..a6cc00e4e543 100644
+> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+> @@ -4019,14 +4019,20 @@ static int mlxsw_sp_lag_index_get(struct mlxsw_sp *mlxsw_sp,
+>  static bool
+>  mlxsw_sp_master_lag_check(struct mlxsw_sp *mlxsw_sp,
+>  			  struct net_device *lag_dev,
+> -			  struct netdev_lag_upper_info *lag_upper_info)
+> +			  struct netdev_lag_upper_info *lag_upper_info,
+> +			  struct netlink_ext_ack *extack)
+>  {
+>  	u16 lag_id;
+>  
+> -	if (mlxsw_sp_lag_index_get(mlxsw_sp, lag_dev, &lag_id) != 0)
+> +	if (mlxsw_sp_lag_index_get(mlxsw_sp, lag_dev, &lag_id) != 0) {
+> +		NL_SET_ERR_MSG(extack, "spectrum: Unknown LAG device");
+
+A more accurate message would be:
+"spectrum: Exceeded number of supported LAG devices"
+
+>  		return false;
+> -	if (lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_HASH)
+> +	}
+> +	if (lag_upper_info->tx_type != NETDEV_LAG_TX_TYPE_HASH) {
+> +		NL_SET_ERR_MSG(extack,
+> +			       "spectrum: LAG device using unsupported Tx type");
+>  		return false;
+> +	}
+>  	return true;
+>  }
