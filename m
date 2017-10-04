@@ -1,20 +1,49 @@
-From: Stefan E Persson <souhalahwal@topnet.tn>
-Subject: RE
-Date: Wed, 04 Oct 2017 20:05:19 +0000
-Message-ID: <20171004200519.Horde.tHOUcJZcg7Xwo43TuF3lF27@webmail.topnet.tn>
-Reply-To: eriling.persson089@swedenmail.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/3] A own subdirectory for shared TCP code
+Date: Wed, 4 Oct 2017 22:27:49 +0200
+Message-ID: <20171004202749.GB13247@lunn.ch>
+References: <20171003222213.7996-1-richard_siegfried@systemli.org>
+ <20171003.160338.1370433279322133749.davem@davemloft.net>
+ <d7237d11-ec83-0ef6-d201-da8b99c94b88@systemli.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Richard Siegfried <richard_siegfried@systemli.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp14.topnet.tn ([41.226.22.114]:56942 "HELO smtp14.topnet.tn"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-        id S1751047AbdJDUNg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 16:13:36 -0400
-Received: from smtp22.topnet.tn (smtp22.topnet.tn [41.226.21.46]) by as20.topnet.tn with SMTP id CvXPrfGF7YWbLcHH for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 21:05:20 +0100 (CET)
+Received: from vps0.lunn.ch ([185.16.172.187]:39607 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751161AbdJDU1z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 16:27:55 -0400
 Content-Disposition: inline
+In-Reply-To: <d7237d11-ec83-0ef6-d201-da8b99c94b88@systemli.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Your email has been randonly selected for my foundation Donation reply  
-to email: eriling.persson089@swedenmail.com for more details
+On Wed, Oct 04, 2017 at 08:54:17PM +0200, Richard Siegfried wrote:
+> On 04/10/17 01:03, David Miller wrote:
+> > As someone who has to do backports regularly to -stable, there is no way
+> > I am applying this.
+> > 
+> > Sorry.
+> Okay, I see.
+> 
+> Is grouping files into subdirectories something generally
+> unwanted/unlikely to be applied or is this specific to TCP / networking?
+> 
+> Because there are several other places in the source tree where I would
+> like to group things.
+
+Hi Richard
+
+It is generally unwanted.
+
+Have you tried back porting patches when the directory structure has
+changed? Files have moved around? It makes it a lot harder to
+do. Meaning patches are going to be back ported less often. Fixes
+which could be security relevant might not get back ported, etc.
+
+Kernel 4.4 is going to be supported until 2022. So moving files around
+is going to make Greg Kroah-Hartman life more difficult for the next 5
+years.
+
+	Andrew
