@@ -1,33 +1,42 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH net-next v2 0/3] tools: add bpftool
-Date: Wed, 4 Oct 2017 08:40:33 -0300
-Message-ID: <20171004114033.GJ25388@kernel.org>
-References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
- <20171003201942.GH25388@kernel.org>
- <20171003174822.214e4337@cakuba>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, oss-drivers@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] selftests: rtnetlink: try concurrent change of ifalias
+Date: Wed,  4 Oct 2017 13:52:58 +0200
+Message-ID: <20171004115258.5878-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:42868 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751449AbdJDLkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 07:40:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20171003174822.214e4337@cakuba>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:52652 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751546AbdJDLwk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 07:52:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Oct 03, 2017 at 05:48:22PM -0700, Jakub Kicinski escreveu:
-> On Tue, 3 Oct 2017 17:19:42 -0300, Arnaldo Carvalho de Melo wrote:
-> > Why not call it just 'bpf'?
+to make sure this is serialized correctly.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ tools/testing/selftests/net/rtnetlink.sh | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
+index 62c87da92770..13c29beb5769 100755
+--- a/tools/testing/selftests/net/rtnetlink.sh
++++ b/tools/testing/selftests/net/rtnetlink.sh
+@@ -278,6 +278,14 @@ kci_test_ifalias()
+ 	        ip link show "$devdummy" | grep -q "alias $namewant"
+ 		check_fail $?
  
-> bpftool was suggested as a better name, I don't really mind either way.
-
-I just thought that 'bpf' isn't used as a command, shorter, less typing,
-but yeah, if people think having 'tool' in the tool name helps somewhat,
-so be it.
-
-- Arnaldo
++		for i in $(seq 1 100); do
++			uuidgen > "$syspathname" &
++		done
++
++		for i in $(seq 1 100); do
++			wait
++		done
++
+ 		# re-add the alias -- kernel should free mem when dummy dev is removed
+ 		ip link set dev "$devdummy" alias "$namewant"
+ 		check_err $?
+-- 
+2.13.6
