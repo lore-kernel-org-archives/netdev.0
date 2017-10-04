@@ -1,81 +1,96 @@
-From: =?ISO-8859-15?Q?J=F6rg_Willmann?= <joe@clnt.de>
-Subject: etsec2 attached to sgmii phy
-Date: Wed, 4 Oct 2017 07:50:14 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1710040742090.31757@brian.int1.clnt.de>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: Re: [PATCH RESEND net 0/9] Fixes, cleanup and modernization for some
+ legacy ethernet NIC drivers
+Date: Wed, 4 Oct 2017 17:16:04 +1100 (AEDT)
+Message-ID: <alpine.LNX.2.00.1710041542170.3@nippy.intranet>
+References: <cover.1506992619.git.fthain@telegraphics.com.au> <20171003.214121.339749620339054592.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; BOUNDARY="8323329-1480875405-1507096214=:31757"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay09.ispgateway.de ([134.119.228.117]:45304 "EHLO
-        smtprelay09.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbdJDGHj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 02:07:39 -0400
-Received: from [46.237.200.88] (helo=brian.int1.clnt.de)
-        by smtprelay09.ispgateway.de with esmtpsa (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128)
-        (Exim 4.89)
-        (envelope-from <joe@clnt.de>)
-        id 1dzcZT-00037E-1S
-        for netdev@vger.kernel.org; Wed, 04 Oct 2017 07:50:15 +0200
-Received: from localhost ([127.0.0.1])
-        by brian.int1.clnt.de with esmtp (Exim 4.86_2)
-        (envelope-from <joe@clnt.de>)
-        id 1dzcZS-0008Rh-Lx
-        for netdev@vger.kernel.org; Wed, 04 Oct 2017 07:50:14 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171003.214121.339749620339054592.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---8323329-1480875405-1507096214=:31757
-Content-Type: text/plain; format=flowed; charset=ISO-8859-7
-Content-Transfer-Encoding: 8BIT
+On Tue, 3 Oct 2017, David Miller wrote:
 
-Hi,
+> From: Finn Thain <fthain@telegraphics.com.au>
+> Date: Mon,  2 Oct 2017 21:07:17 -0400 (EDT)
+> 
+> > This patch series fixes some logging bugs and adds some missing 
+> > message severity levels.
+> > 
+> > There are also cleanup patches for dead code and some Kconfig cruft.
+> > 
+> > Custom debug message logging is converted to netif_* calls to reduce 
+> > code duplication.
+> > 
+> > All up, about 150 lines of code are eliminated.
+> > 
+> > My apologies for duplicated messages. I messed up the addressing.
+> 
+> Finn, I'm finding real bugs in this series and seriously if you cannot 
+> test these changes in some way please leave this code alone.
+> 
 
-we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352). 
-Currently we still use a really old linux kernel (2.6.33) successfully.
+Well, this series has been tested on SONIC, MACE and 8390 devices. I do 
+have 89x0 hardware but it is stored elsewhere and I can't get to it right 
+now.
 
-For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI 
-Phy we use the following settings in the device tree:
+> For example, you're removing the "once_is_enough" logic from 
+> mac89x0_probe().
+> 
+> But you can't do that.
 
-                         mdio@25000 {
-                                    #address-cells = <0x1>;
-                                    #size-cells = <0x0>;
-                                    compatible = "fsl,etsec2-tbi";
-                                    reg = <0x25000 0x1000 0xb1030 0x4>;
+I take your point. I overlooked the Space.c logic. But that's not the 
+whole story here.
 
-                                    tbi-phy@11 {
-                                                reg = <0x11>;
-                                                device_type = "tbi-phy";
-                                                linux,phandle = <0x5>;
-                                                phandle = <0x5>;
-                                    };
-                         };
+> The probe function can in fact be called multiple times, from 
+> drivers/net/Space.c It gets called in a loop iterating over different 
+> 'unit' argument values.
+> 
 
-First resource in the mdio config is the base address of the MDIO bus, the 
-second resource defines the address of TBIPA.
+Testing shows that mac8390 doesn't probe any devices unless it is modular. 
+In the CONFIG_MAC8390=m case, the mac8390_probe() call in Space.c is 
+elided by '#ifdef CONFIG_MAC8390' and the device gets probed by 
+init_module() instead. (And the binaries published in the Debian archive 
+and the mac68k project on sourceforge all use CONFIG_MAC8390=m and 
+CONFIG_MAC89x0=m.)
 
-Doing tests with a newer kernel (4.4.71)  I was faced with problems 
-communicating with the TBIPHY.
+In the CONFIG_MAC8390=y case, no device is probed (for some reason). This 
+test result suggests that the probe function is not actually called. Its 
+safe to assume that mac89x0 has the same problem as mac8390, and it 
+follows that the once_is_enough logic is redundant. At least, that was my 
+thinking when I made the change; that is, init_module() must be the only 
+caller of the probe function.
 
-Debugging this I found out that TBIPA is no longer parameterized correctly 
-and I found out why:
+BTW, mac8390 does this,
 
-In commit afae5ad78b342f401c28b0bb1adb3cd494cb125a initialization of TIBPA 
-has been changed:
+                if (slots & (1 << ndev->board->slot))
+                        continue;
 
-In former versions in get_gfar_tbipa(...) for compatible "etsec2-tbi" the 
-second resource of the reg entry has been used. But now only first resource 
-is mapped and get_etsec_tbipa(...) which is now responsible to return the 
-proper address does not (and has no way due to missing *np as function 
-argument) do so but returns the first resource (which is the base 
-address of mdio controller).
+which is equivalent to the once_is_enough test, and I went looking for 
+some way to avoid this too.
 
-What do you think would be the correct way to solve this issue? Re-add *np 
-to the get_*_tba() functions to be able to return the proper address?
+Anyway, I see now that changing the once_is_enough logic is wrong. First 
+the bug has to be found or else bus matching implemented for nubus 
+drivers.
 
-Thank¢s for reading,
-Best regards,
+> Unless you're making stylistic changes where you can prove the object 
+> code resulting is still the same, you really should not be playing with 
+> fire by trying to remove "dead code" like this in legacy drivers you 
+> cannot fully test.
+> 
 
-Joerg
+I agree, and that's why I've been careful with any code I cannot test 
+(like xtsonic) by making only changes that I can test (with macsonic).
+I should have added tested-by tags...
 
+> Thank you.
+> 
 
---8323329-1480875405-1507096214=:31757--
+Thanks for your review. I will revert the once_is_enough change, describe 
+the testing better and re-submit.
+
+-- 
