@@ -1,29 +1,33 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: multi producer / multi consumer lock-free queue with ptr_ring
-Date: Wed, 4 Oct 2017 13:18:24 +0200
-Message-ID: <CAHmME9qPYL-wzyX0Q7RG7Uk9kAeWbzNN5=0YrmbniUR2O3rSxA@mail.gmail.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH net-next v2 0/3] tools: add bpftool
+Date: Wed, 4 Oct 2017 08:40:33 -0300
+Message-ID: <20171004114033.GJ25388@kernel.org>
+References: <20171002231130.12406-1-jakub.kicinski@netronome.com>
+ <20171003201942.GH25388@kernel.org>
+ <20171003174822.214e4337@cakuba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@vger.kernel.org>,
-        Samuel Holland <samuel@sholland.org>,
-        WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+        alexei.starovoitov@gmail.com, oss-drivers@netronome.com
+To: Jakub Kicinski <kubakici@wp.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.99]:42868 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751449AbdJDLkl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 07:40:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20171003174822.214e4337@cakuba>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Michael,
+Em Tue, Oct 03, 2017 at 05:48:22PM -0700, Jakub Kicinski escreveu:
+> On Tue, 3 Oct 2017 17:19:42 -0300, Arnaldo Carvalho de Melo wrote:
+> > Why not call it just 'bpf'?
+ 
+> bpftool was suggested as a better name, I don't really mind either way.
 
-Thanks for your work on ptr_ring.h. I'm interested in using it, but in
-a multi-producer, multi-consumer context. I realize it's been designed
-for a single-producer, single-consumer context, and thus uses a
-spinlock. I'm wondering if you'd be happy to receive patches that
-implement things in a lock-free way, in order to make the data
-structure more broadly usable.
+I just thought that 'bpf' isn't used as a command, shorter, less typing,
+but yeah, if people think having 'tool' in the tool name helps somewhat,
+so be it.
 
-In case you're curious, this would be used for the multi-core
-algorithms in WireGuard.
-
-Thanks,
-Jason
+- Arnaldo
