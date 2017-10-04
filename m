@@ -1,53 +1,85 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] libbpf: parse maps sections of varying size
-Date: Wed, 4 Oct 2017 09:58:17 -0400
-Message-ID: <CAEfhGizpYSn=sQ+XvuTUzTZDqLLMg8mODE18HgM119sq3hyhnw@mail.gmail.com>
-References: <20171002164129.47986-1-kraigatgoog@gmail.com> <20171002164129.47986-2-kraigatgoog@gmail.com>
- <20171003160348.1d84548d@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Chonggang Li <chonggangli@google.com>,
-        netdev <netdev@vger.kernel.org>, Eric Leblond <eric@regit.org>,
-        "Wangnan (F)" <wangnan0@huawei.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] rtnetlink: remove __rtnl_af_unregister
+Date: Wed,  4 Oct 2017 15:58:49 +0200
+Message-ID: <20171004135849.4368-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:54814 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752065AbdJDN6V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 09:58:21 -0400
-Received: by mail-qt0-f193.google.com with SMTP id i13so19284551qtc.11
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 06:58:20 -0700 (PDT)
-Received: from mail-qk0-f170.google.com (mail-qk0-f170.google.com. [209.85.220.170])
-        by smtp.gmail.com with ESMTPSA id c52sm2858834qtc.24.2017.10.04.06.58.18
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Wed, 04 Oct 2017 06:58:19 -0700 (PDT)
-Received: by mail-qk0-f170.google.com with SMTP id n5so9258353qke.11
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 06:58:18 -0700 (PDT)
-In-Reply-To: <20171003160348.1d84548d@redhat.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53280 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752238AbdJDN6c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 09:58:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 3, 2017 at 10:03 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
->
->
-> First of all, thank you Craig for working on this.  As Alexei says, we
-> need to improve tools/lib/bpf/libbpf and move towards converting users
-> of bpf_load.c to this lib instead.
->
-> Comments inlined below.
->
->> +                     obj->maps[map_idx].def = *def;
->
-> I'm not too happy/comfortable with this way of copying the memory of
-> "def" (the type-cased struct bpf_map_def).  I guess it works, and is
-> part of the C-standard(?).
+switch the only caller to rtnl_af_unregister.
 
-I believe this is a C++-ism.  I'm not sure if it was pulled into the
-C99 standard or if it's just a gcc 'feature' now.  I kept it because
-it was in the initial code, but I'm happy to do an explicit copy for
-v3 if that looks better.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/net/rtnetlink.h |  2 --
+ net/core/rtnetlink.c    | 14 +-------------
+ net/ipv6/addrconf.c     |  4 ++--
+ 3 files changed, 3 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 6520993ff449..e3ca8e2e3103 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -151,8 +151,6 @@ struct rtnl_af_ops {
+ 	size_t			(*get_stats_af_size)(const struct net_device *dev);
+ };
+ 
+-void __rtnl_af_unregister(struct rtnl_af_ops *ops);
+-
+ void rtnl_af_register(struct rtnl_af_ops *ops);
+ void rtnl_af_unregister(struct rtnl_af_ops *ops);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index b63c5759641f..3fb1ca33cba4 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -476,25 +476,13 @@ void rtnl_af_register(struct rtnl_af_ops *ops)
+ EXPORT_SYMBOL_GPL(rtnl_af_register);
+ 
+ /**
+- * __rtnl_af_unregister - Unregister rtnl_af_ops from rtnetlink.
+- * @ops: struct rtnl_af_ops * to unregister
+- *
+- * The caller must hold the rtnl_mutex.
+- */
+-void __rtnl_af_unregister(struct rtnl_af_ops *ops)
+-{
+-	list_del(&ops->list);
+-}
+-EXPORT_SYMBOL_GPL(__rtnl_af_unregister);
+-
+-/**
+  * rtnl_af_unregister - Unregister rtnl_af_ops from rtnetlink.
+  * @ops: struct rtnl_af_ops * to unregister
+  */
+ void rtnl_af_unregister(struct rtnl_af_ops *ops)
+ {
+ 	rtnl_lock();
+-	__rtnl_af_unregister(ops);
++	list_del(&ops->list);
+ 	rtnl_unlock();
+ }
+ EXPORT_SYMBOL_GPL(rtnl_af_unregister);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f553f72d0bee..837418ff2d4b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -6618,9 +6618,9 @@ void addrconf_cleanup(void)
+ 	unregister_pernet_subsys(&addrconf_ops);
+ 	ipv6_addr_label_cleanup();
+ 
+-	rtnl_lock();
++	rtnl_af_unregister(&inet6_ops);
+ 
+-	__rtnl_af_unregister(&inet6_ops);
++	rtnl_lock();
+ 
+ 	/* clean dev list */
+ 	for_each_netdev(&init_net, dev) {
+-- 
+2.13.6
