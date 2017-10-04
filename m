@@ -1,99 +1,73 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: dissect tunnel info
-Date: Wed, 4 Oct 2017 21:07:17 +0200
-Message-ID: <20171004190716.GA22135@netronome.com>
-References: <1506933676-20121-1-git-send-email-simon.horman@netronome.com>
- <1506933676-20121-3-git-send-email-simon.horman@netronome.com>
- <CALx6S34ULzKX=Q+CSdEuXVAA12MMM1oQ=x7JEV8EmD-2qaviNA@mail.gmail.com>
- <20171003094052.GA20592@netronome.com>
- <CALx6S37K3Gif=AGk48CXs9JgrcDbdpfqMZWK+0j95UHG0hvpZg@mail.gmail.com>
- <20171004080856.GB6378@netronome.com>
- <20171004081558.GE1895@nanopsycho>
- <CALx6S36c=BUXb7-53Ym_SZYuWqmPfEqdYUwwxyM78SfBnEPL4Q@mail.gmail.com>
- <20171004180715.GH1895@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:52450 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750779AbdJDTHV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 15:07:21 -0400
-Received: by mail-wm0-f48.google.com with SMTP id k4so22952064wmc.1
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 12:07:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171004180715.GH1895@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net v2] RDS: IB: Limit the scope of has_fr/has_fmr variables
+Date: Wed,  4 Oct 2017 12:10:43 -0700
+Message-ID: <1507144244-1611-1-git-send-email-avinash.repaka@oracle.com>
+Cc: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2017 at 08:07:15PM +0200, Jiri Pirko wrote:
-> Wed, Oct 04, 2017 at 05:52:54PM CEST, tom@herbertland.com wrote:
-> >On Wed, Oct 4, 2017 at 1:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> >> Wed, Oct 04, 2017 at 10:08:57AM CEST, simon.horman@netronome.com wrote:
-> >>>On Tue, Oct 03, 2017 at 11:17:46AM -0700, Tom Herbert wrote:
-> >>>> On Tue, Oct 3, 2017 at 2:40 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> >>>> > On Mon, Oct 02, 2017 at 01:37:55PM -0700, Tom Herbert wrote:
-> >>>> >> On Mon, Oct 2, 2017 at 1:41 AM, Simon Horman <simon.horman@netronome.com> wrote:
-> >>>> >> > Move dissection of tunnel info from the flower classifier to the flow
-> >>>> >> > dissector where all other dissection occurs.  This should not have any
-> >>>> >> > behavioural affect on other users of the flow dissector.
-> >>>> >
-> >>>> > ...
-> >>>>
-> >>>> > I feel that we are circling back the perennial issue of flower using the
-> >>>> > flow dissector in a somewhat broader/different way than many/all other
-> >>>> > users of the flow dissector.
-> >>>> >
-> >>>> Simon,
-> >>>>
-> >>>> It's more like __skb_flow_dissect is already an incredibly complex
-> >>>> function and because of that it's difficult to maintain. We need to
-> >>>> measure changes against that fact. For this patch, there is precisely
-> >>>> one user (cls_flower.c) and it's not at all clear to me if there will
-> >>>> be ever any more (e.g. for hashing we don't need tunnel info). IMO, it
-> >>>> should be just as easy and less convolution for everyone to have
-> >>>> flower call __skb_flow_dissect_tunnel_info directly and not call if
-> >>>> from __skb_flow_dissect.
-> >>>
-> >>>Hi Tom,
-> >>>
-> >>>my original suggestion was just that, but Jiri indicated a strong preference
-> >>>for the approach taken by this patch. I think we need to widen the
-> >>>participants in this discussion.
-> >>
-> >> I like the __skb_flow_dissect to be the function to call and it will do
-> >> the job according to the configuration. I don't like to split in
-> >> multiple calls.
-> >
-> >Those are not technical arguments. As I already mentioned, I don't
-> >like it when we add stuff for the benefit of a 1% use case that
-> >negatively impacts the rest of the 99% cases which is what I believe
-> >is happening here.
-> 
-> Yeah. I just wanted the flow dissector to stay compact. But if needed,
-> could be split. I just fear that it will become a mess that's all.
-> 
-> 
-> >
-> >> Does not make sense in the most of the cases as the
-> >> dissection state would have to be carried in between calls.
-> >
-> >Please elaborate. This code is being moved into __skb_flow_dissect, so
-> >the functionality was already there. I don't see any description in
-> >this discussion that things were broken and that this patch is a
-> >necessary fix.
-> 
-> Yeah, you are right.
+This patch fixes the scope of has_fr and has_fmr variables as they are
+needed only in rds_ib_add_one().
 
-Hi Tom, Hi Jiri,
+Signed-off-by: Avinash Repaka <avinash.repaka-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-I'm happy to make a patch to move the call to
-__skb_flow_dissect_tunnel_info() from __skb_flow_dissect() to
-fl_classify(). It seems that approach has been agreed on above.
+---
+ net/rds/ib.c | 11 ++++++-----
+ net/rds/ib.h |  2 --
+ 2 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index a0954ac..36dd209 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -126,6 +126,7 @@ void rds_ib_dev_put(struct rds_ib_device *rds_ibdev)
+ static void rds_ib_add_one(struct ib_device *device)
+ {
+ 	struct rds_ib_device *rds_ibdev;
++	bool has_fr, has_fmr;
+ 
+ 	/* Only handle IB (no iWARP) devices */
+ 	if (device->node_type != RDMA_NODE_IB_CA)
+@@ -143,11 +144,11 @@ static void rds_ib_add_one(struct ib_device *device)
+ 	rds_ibdev->max_wrs = device->attrs.max_qp_wr;
+ 	rds_ibdev->max_sge = min(device->attrs.max_sge, RDS_IB_MAX_SGE);
+ 
+-	rds_ibdev->has_fr = (device->attrs.device_cap_flags &
+-				  IB_DEVICE_MEM_MGT_EXTENSIONS);
+-	rds_ibdev->has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
+-			    device->map_phys_fmr && device->unmap_fmr);
+-	rds_ibdev->use_fastreg = (rds_ibdev->has_fr && !rds_ibdev->has_fmr);
++	has_fr = (device->attrs.device_cap_flags &
++		  IB_DEVICE_MEM_MGT_EXTENSIONS);
++	has_fmr = (device->alloc_fmr && device->dealloc_fmr &&
++		   device->map_phys_fmr && device->unmap_fmr);
++	rds_ibdev->use_fastreg = (has_fr && !has_fmr);
+ 
+ 	rds_ibdev->fmr_max_remaps = device->attrs.max_map_per_fmr?: 32;
+ 	rds_ibdev->max_1m_mrs = device->attrs.max_mr ?
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index bf48224..6ea6a27 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -215,8 +215,6 @@ struct rds_ib_device {
+ 	struct list_head	conn_list;
+ 	struct ib_device	*dev;
+ 	struct ib_pd		*pd;
+-	bool                    has_fmr;
+-	bool                    has_fr;
+ 	bool                    use_fastreg;
+ 
+ 	unsigned int		max_mrs;
+-- 
+2.4.11
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
