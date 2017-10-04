@@ -1,43 +1,47 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath9k: make const array reg_hole_list static,
- reduces object code size
-Date: Wed, 4 Oct 2017 11:09:11 +0200
-Message-ID: <0458c03b374e494892d03dd4b6a889c9@euamsexm01e.eu.qualcomm.com>
-References: <20170919204019.30804-1-colin.king@canonical.com>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH] fsl/fman: remove of_node
+Date: Wed, 4 Oct 2017 09:53:39 +0000
+Message-ID: <AM5PR0402MB2691AA6167F9C9A68C058797EC730@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <1506940297-20442-1-git-send-email-madalin.bucur@nxp.com>
+        <20171002.160445.737065995396076298.davem@davemloft.net>
+        <AM5PR0402MB26914CBD37E3F28C17562258EC720@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+ <20171003.214357.2276688669726195045.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        <linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Colin Ian King <colin.king@canonical.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919204019.30804-1-colin.king@canonical.com>
+In-Reply-To: <20171003.214357.2276688669726195045.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Colin Ian King <colin.king@canonical.com> wrote:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, October 04, 2017 7:44 AM
+> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+> Cc: netdev@vger.kernel.org; andrew@lunn.ch; f.fainelli@gmail.com; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH] fsl/fman: remove of_node
+>=20
+> From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+> Date: Tue, 3 Oct 2017 08:49:31 +0000
+>=20
+> > My patch removes the of_node that was set to a device that was not an
+> > of_device, preventing duplicated probing of both the real of_device
+> > and the "fake" one created through this assignment.
+> >
+> > I understand that the DSA issue that triggered the initial change
+> > was related to DSA finding the network devices using
+> > of_find_net_device_by_node(), something that will not work for the
+> > DPAA case where the netdevice does not have an of_node. I do not know
+> > enough about DSA to come up with a solution for this problem now.
+> > Andrew, Florian, can you please comment on this?
+>=20
+> It sounds like you're knowingly breaking DSA.
 
-> Don't populate the read-only array reg_hole_list on the stack, instead make
-> it static.  Makes the object code smaller by over 200 bytes:
-> 
-> Before:
->    text	   data	    bss	    dec	    hex	filename
->   57518	  15248	      0	  72766	  11c3e	debug.o
-> 
-> After:
->    text	   data	    bss	    dec	    hex	filename
->   57218	  15344	      0	  72562	  11b72	debug.o
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
-
-Patch applied to ath-next branch of ath.git, thanks.
-
-eba0f28473b2 ath9k: make const array reg_hole_list static, reduces object code size
-
--- 
-https://patchwork.kernel.org/patch/9960183/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+It never worked, even with the change I'm reverting.
