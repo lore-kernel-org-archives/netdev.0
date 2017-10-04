@@ -1,46 +1,47 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH 2/5] VSOCK: export __vsock_in_bound/connected_table()
-Date: Wed, 4 Oct 2017 11:05:53 -0400
-Message-ID: <20171004150553.GE3840@stefanha-x1.localdomain>
-References: <20171003153943.23159-1-stefanha@redhat.com>
- <20171003153943.23159-3-stefanha@redhat.com>
- <20171003.214617.1472124119367144767.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH 0/1] XDP Program for Ip forward
+Date: Wed, 4 Oct 2017 17:07:55 +0200
+Message-ID: <20171004170755.4b1d8de4@redhat.com>
+References: <1507016225-319-1-git-send-email-Christina.Jacob@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhansen@vmware.com, decui@microsoft.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56720 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752403AbdJDPGA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 11:06:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20171003.214617.1472124119367144767.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: cjacob <Christina.Jacob@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507016225-319-1-git-send-email-Christina.Jacob@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 03, 2017 at 09:46:17PM -0700, David Miller wrote:
-> From: Stefan Hajnoczi <stefanha@redhat.com>
-> Date: Tue,  3 Oct 2017 11:39:40 -0400
-> 
-> > @@ -250,15 +250,17 @@ static struct sock *__vsock_find_connected_socket(struct sockaddr_vm *src,
-> >  	return NULL;
-> >  }
-> >  
-> > -static bool __vsock_in_bound_table(struct vsock_sock *vsk)
-> > +bool __vsock_in_bound_table(struct vsock_sock *vsk)
-> >  {
-> >  	return !list_empty(&vsk->bound_table);
-> >  }
-> > +EXPORT_SYMBOL_GPL(__vsock_in_bound_table);
-> >  
-> > -static bool __vsock_in_connected_table(struct vsock_sock *vsk)
-> > +bool __vsock_in_connected_table(struct vsock_sock *vsk)
-> >  {
-> >  	return !list_empty(&vsk->connected_table);
-> >  }
-> > +EXPORT_SYMBOL_GPL(__vsock_in_connected_table);
-> 
-> Maybe you can just make these inline helpers in af_vsock.h?
 
-Will fix in v2.
+First of all thank you for working on this.
+
+On Tue,  3 Oct 2017 13:07:04 +0530 cjacob <Christina.Jacob@cavium.com> wrote:
+
+> 	Usage: ./xdp3 [-S] <ifindex1...ifindexn> 
+> 
+> 	-S to choose generic xdp implementation 
+> 	  [Default is driver xdp implementation]
+> 	ifindex - the index of the interface to which 
+> 	the xdp program has to be attached.
+> 	in 4.14-rc3 kernel.
+
+I would prefer if we can name the program something more descriptive
+than "xdp3".  What about "xdp_redirect_router" or "xdp_router_ipv4" ?
+
+I would also appreciate if we can stop using ifindex'es, and instead
+use normal device ifname's.  And simply do the lookup to the ifindex in
+the program via if_nametoindex(ifname), see how in [1] and [2].
+
+When adding more ifname's you can just use the same trick as with
+multiple --cpu options like [1] and [2].
+
+[1] http://lkml.kernel.org/r/150711864538.9499.11712573036995600273.stgit@firesoul
+[2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_redirect_cpu_user.c
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
