@@ -1,93 +1,83 @@
-From: Luciano Coelho <luciano.coelho@intel.com>
-Subject: Re: [PATCH 1/3] wireless: iwlwifi: use bool instead of int
-Date: Wed, 04 Oct 2017 19:39:19 +0300
-Message-ID: <1507135159.908.96.camel@intel.com>
-References: <20171004155700.18048-1-christoph@boehmwalder.at>
-         <20171004155700.18048-2-christoph@boehmwalder.at>
-         <1507134405.4434.10.camel@perches.com>
+From: =?UTF-8?Q?J=c3=b6rg_Willmann?= <joe@clnt.de>
+Subject: Re: etsec2 attached to sgmii phy
+Date: Wed, 4 Oct 2017 18:40:00 +0200
+Message-ID: <a0213d7a-20f3-579d-cd42-f4d06c6ff64e@clnt.de>
+References: <alpine.DEB.2.20.1710040756160.31757@brian.int1.clnt.de>
+ <20171004133642.GM30045@lunn.ch>
+ <alpine.DEB.2.20.1710041613320.9785@brian.int1.clnt.de>
+ <20171004153422.GC3435@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>,
-        Christoph =?ISO-8859-1?Q?B=F6hmwalder?=
-        <christoph@boehmwalder.at>, johannes.berg@intel.com,
-        emmanuel.grumbach@intel.com, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507134405.4434.10.camel@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: timur@tabi.org
+To: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay01.ispgateway.de ([80.67.29.23]:30959 "EHLO
+        smtprelay01.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750966AbdJDQkG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 12:40:06 -0400
+In-Reply-To: <20171004153422.GC3435@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-04 at 09:26 -0700, Joe Perches wrote:
-> On Wed, 2017-10-04 at 17:56 +0200, Christoph Böhmwalder wrote:
-> > Change a usage of int in a boolean context to use the bool type
-> > instead, as it
-> > makes the intent of the function clearer and helps clarify its
-> > semantics.
-> > 
-> > Also eliminate the if/else and just return the boolean result
-> > directly,
-> > making the code more readable.
-> > 
-> > Signed-off-by: Christoph Böhmwalder <christoph@boehmwalder.at>
-> > ---
-> >  drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c | 12 +++++-------
-> >  1 file changed, 5 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c
-> > b/drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c
-> > index b7cd813ba70f..0eb815ae97e8 100644
-> > --- a/drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c
-> > +++ b/drivers/net/wireless/intel/iwlwifi/iwl-phy-db.c
-> > @@ -267,14 +267,12 @@ int iwl_phy_db_set_section(struct iwl_phy_db
-> > *phy_db,
-> >  }
-> >  IWL_EXPORT_SYMBOL(iwl_phy_db_set_section);
-> >  
-> > -static int is_valid_channel(u16 ch_id)
-> > +static bool is_valid_channel(u16 ch_id)
-> >  {
-> > -	if (ch_id <= 14 ||
-> > -	    (36 <= ch_id && ch_id <= 64 && ch_id % 4 == 0) ||
-> > -	    (100 <= ch_id && ch_id <= 140 && ch_id % 4 == 0) ||
-> > -	    (145 <= ch_id && ch_id <= 165 && ch_id % 4 == 1))
-> > -		return 1;
-> > -	return 0;
-> > +	return (ch_id <= 14 ||
-> > +	       (36 <= ch_id && ch_id <= 64 && ch_id % 4 == 0) ||
-> > +	       (100 <= ch_id && ch_id <= 140 && ch_id % 4 == 0) ||
-> > +	       (145 <= ch_id && ch_id <= 165 && ch_id % 4 == 1));
-> >  }
-> 
-> This might be more intelligble as separate tests
-> 
-> static bool is_valid_channel(u16 ch_id)
-> {
-> 	if (ch_id <= 14)
-> 		return true;
-> 
-> 	if ((ch_id % 4 == 0) &&
-> 	    ((ch_id >= 36 && ch_id <= 64) ||
-> 	     (ch_id >= 100 && ch_id <= 140)))
-> 		return true;
-> 
-> 	if ((ch_id % 4 == 1) &&
-> 	    (chid >= 145 && ch_id <= 165))
-> 		return true;
-> 
-> 	return false;
-> }
-> 
-> The compiler should produce the same object code.
-
-Yeah, it may be a bit easier to read, but I don't want to start getting
-"fixes" to working and reasonable code.  There's nothing wrong with the
-existing function (except maybe for the int vs. boolean) so let's not
-change it.
-
-A good time to change this would be the next time someone adds yet
-another range of valid channels here. ;)
-
---
-Luca.
+Am 04.10.2017 um 17:34 schrieb Andrew Lunn:
+> On Wed, Oct 04, 2017 at 04:19:23PM +0200, Jörg Willmann wrote:
+>> On Wed, 4 Oct 2017, Andrew Lunn wrote:
+>>
+>>> On Wed, Oct 04, 2017 at 07:56:53AM +0200, Jörg Willmann wrote:
+>>>> Hi,
+>>>>
+>>>> we use a QorIQ P1011 connected via SGMII to a switch (Marvell 88E6352).
+>>>> Currently we still use a really old linux kernel (2.6.33) successfully.
+>>>>
+>>>> For configuration of the MDIO Bus attached to the corresponding eTSEC/TBI
+>>>> Phy we use the following settings in the device tree:
+>>>>
+>>>>                         mdio@25000 {
+>>>>                                    #address-cells = <0x1>;
+>>>>                                    #size-cells = <0x0>;
+>>>>                                    compatible = "fsl,etsec2-tbi";
+>>>>                                    reg = <0x25000 0x1000 0xb1030 0x4>;
+>>> Hi Joerg
+>>>
+>>> Is 0xb1030 0x4 fixed by the silicon? Can it be expressed as an offset from
+>>> 0x25000?
+>>>
+>>> It seems like the idea behind the patch is to hard code some
+>>> things. If you can hard code the offset into get_etsec_tbipa(), i
+>>> think that would be an O.K. solution to your problem.
+>>>
+>>>      Andrew
+>>>
+>> Yes, the adress 0xb1030 is fixed but it's something totally different than
+>> the address range of 0x25000. 0xb0000, 0xb1000 and 0xb2000 are base
+>> addresses of the eTSEC MAC (TPIPA is a register within the MAC) and 0x24000,
+>> 0x25000 and 0x26000 are the base registers of the corresponding MDIO
+>> controllers. So I wouldn't add a dependency between these two things.
+>> >From my point of view, the implementation in the old kernel where
+>> get_gfar_tbipa() got the device tree node pointer as argument was not soo
+>> bad ;-)
+> I took a quick look at the current device tree files. They all seem to
+> have the 0xb1030 0x4. So reading it inside of get_etsec_tbipa() is
+> O.K.
+>
+> Looks like you need to modify all the get_tbipa() functions to take a
+> device_node *, and this code looks like it needs to change:
+>
+>                          /*
+>                           * Add consistency check to make sure TBI is contained
+>                           * within the mapped range (not because we would get a
+>                           * segfault, rather to catch bugs in computing TBI
+>                           * address). Print error message but continue anyway.
+>                           */
+>                          if ((void *)tbipa > priv->map + resource_size(&res) - 4)
+>                                  dev_err(&pdev->dev, "invalid register map (should be at least 0x%04zx to contain TBI address)\n",
+>                                          ((void *)tbipa - priv->map) + 4);
+>
+>                          iowrite32be(be32_to_cpup(prop), tbipa);
+>
+> 	Andrew
+>
+Yes, exactly - I already stumbled over these lines, too. Are there any 
+suggestions how to implement this the best way?
