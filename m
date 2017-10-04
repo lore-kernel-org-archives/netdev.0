@@ -1,115 +1,58 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
-Date: Wed, 4 Oct 2017 11:17:24 -0700
-Message-ID: <20171004111724.29a4d7ff@cakuba.netronome.com>
-References: <20171003200546.165731-1-mka@chromium.org>
-        <20171003145000.53683e21@cakuba>
-        <CAAMbb05G=HBQweiWqYva_9zTnQqAcwMhJ0yYBUi26T04YA4CxQ@mail.gmail.com>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: [PATCH 1/3 v2] net: phy: Remove TI DP83822 from DP83848 driver
+Date: Wed, 4 Oct 2017 13:20:29 -0500
+Message-ID: <20171004182031.13794-1-dmurphy@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Matthias Kaehlcke <mka@chromium.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Renato Golin <renato.golin@linaro.org>,
-        Guenter Roeck <groeck@chromium.org>,
-        Doug Anderson <dianders@chromium.org>
-To: Manoj Gupta <manojgupta@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAMbb05G=HBQweiWqYva_9zTnQqAcwMhJ0yYBUi26T04YA4CxQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <afd@ti.com>, Dan Murphy <dmurphy@ti.com>
+To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:59369 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750951AbdJDSUl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 14:20:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Oct 2017 10:42:42 -0700, Manoj Gupta wrote:
-> Hi Jakub,
-> 
-> I had discussed about supporting this code with some clang developers.
-> However, the consensus was this code relies on a specific GCC optimizer
-> behavior and Clang does not share the same behavior by design.
+Removing the DP83822 device from the DP83848 to
+support the TI DP83822 dedicated driver that will
+initially support WoL settings.
 
-Hm.  I find surprising that constant propagation to inlined functions
-is considered something GCC-specific rather than obvious/basic.
+Signed-off-by: Dan Murphy <dmurphy@ti.com>
+---
 
-> Note that even GCC can't compile this code at -O0.
+v2 - There was no v1 on this patch this is new.
 
-Yes, that makes me feel uncomfortable...  Could you try this?
+ drivers/net/phy/dp83848.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
--------8<-------
-
-diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-index f6f7c085f8e0..47251396fcae 100644
---- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
-@@ -469,10 +469,10 @@ int nfp_eth_set_configured(struct nfp_cpp *cpp, unsigned int idx, bool configed)
- 	return nfp_eth_config_commit_end(nsp);
- }
+diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+index 3de4fe4dda77..3966d43c5146 100644
+--- a/drivers/net/phy/dp83848.c
++++ b/drivers/net/phy/dp83848.c
+@@ -20,7 +20,6 @@
+ #define TI_DP83620_PHY_ID		0x20005ce0
+ #define NS_DP83848C_PHY_ID		0x20005c90
+ #define TLK10X_PHY_ID			0x2000a210
+-#define TI_DP83822_PHY_ID		0x2000a240
  
--/* Force inline, FIELD_* macroes require masks to be compilation-time known */
--static __always_inline int
-+static int
- nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
--		       const u64 mask, unsigned int val, const u64 ctrl_bit)
-+		       const u64 mask, const unsigned int shift,
-+		       unsigned int val, const u64 ctrl_bit)
- {
- 	union eth_table_entry *entries = nfp_nsp_config_entries(nsp);
- 	unsigned int idx = nfp_nsp_config_idx(nsp);
-@@ -489,11 +489,11 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
+ /* Registers */
+ #define DP83848_MICR			0x11 /* MII Interrupt Control Register */
+@@ -80,7 +79,6 @@ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
+ 	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
+ 	{ TI_DP83620_PHY_ID, 0xfffffff0 },
+ 	{ TLK10X_PHY_ID, 0xfffffff0 },
+-	{ TI_DP83822_PHY_ID, 0xfffffff0 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+@@ -110,7 +108,6 @@ static struct phy_driver dp83848_driver[] = {
+ 	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(TI_DP83620_PHY_ID, "TI DP83620 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
+-	DP83848_PHY_DRIVER(TI_DP83822_PHY_ID, "TI DP83822 10/100 Mbps PHY"),
+ };
+ module_phy_driver(dp83848_driver);
  
- 	/* Check if we are already in requested state */
- 	reg = le64_to_cpu(entries[idx].raw[raw_idx]);
--	if (val == FIELD_GET(mask, reg))
-+	if (val == (reg & mask) >> shift)
- 		return 0;
- 
- 	reg &= ~mask;
--	reg |= FIELD_PREP(mask, val);
-+	reg |= (val << shift) & mask;
- 	entries[idx].raw[raw_idx] = cpu_to_le64(reg);
- 
- 	entries[idx].control |= cpu_to_le64(ctrl_bit);
-@@ -503,6 +503,13 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
- 	return 0;
- }
- 
-+#define NFP_ETH_SET_BIT_CONFIG(nsp, raw_idx, mask, val, ctrl_bit)	\
-+	({								\
-+		__BF_FIELD_CHECK(mask, 0ULL, val, "NFP_ETH_SET_BIT_CONFIG: "); \
-+		nfp_eth_set_bit_config(nsp, raw_idx, mask, __bf_shf(mask), \
-+				       val, ctrl_bit);			\
-+	})
-+
- /**
-  * __nfp_eth_set_aneg() - set PHY autonegotiation control bit
-  * @nsp:	NFP NSP handle returned from nfp_eth_config_start()
-@@ -515,7 +522,7 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
-  */
- int __nfp_eth_set_aneg(struct nfp_nsp *nsp, enum nfp_eth_aneg mode)
- {
--	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_STATE,
-+	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_STATE,
- 				      NSP_ETH_STATE_ANEG, mode,
- 				      NSP_ETH_CTRL_SET_ANEG);
- }
-@@ -544,7 +551,7 @@ int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed)
- 		return -EINVAL;
- 	}
- 
--	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_STATE,
-+	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_STATE,
- 				      NSP_ETH_STATE_RATE, rate,
- 				      NSP_ETH_CTRL_SET_RATE);
- }
-@@ -561,6 +568,6 @@ int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed)
-  */
- int __nfp_eth_set_split(struct nfp_nsp *nsp, unsigned int lanes)
- {
--	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
-+	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
- 				      lanes, NSP_ETH_CTRL_SET_LANES);
- }
 -- 
-2.14.1
+2.14.0
