@@ -1,8 +1,7 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 1/7] net: Add extack to
-	netdev_notifier_info
-Date: Wed,  4 Oct 2017 17:48:45 -0700
-Message-ID: <1507164531-17732-2-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v2 net-next 2/7] net: Add extack to ndo_add_slave
+Date: Wed,  4 Oct 2017 17:48:46 -0700
+Message-ID: <1507164531-17732-3-git-send-email-dsahern@gmail.com>
 References: <1507164531-17732-1-git-send-email-dsahern@gmail.com>
 Cc: j.vosburgh@gmail.com, bridge@lists.linux-foundation.org,
 	idosch@mellanox.com, jiri@mellanox.com, vfalico@gmail.com,
@@ -21,242 +20,182 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Add netlink_ext_ack to netdev_notifier_info to allow notifier
-handlers to return errors to userspace.
-
-Clean up the initialization in dev.c such that extack is easily
-added in subsequent patches where relevant. Specifically, remove
-the init call in call_netdevice_notifiers_info and have callers
-initalize on stack when info is declared.
+Pass extack to do_set_master and down to ndo_add_slave
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/linux/netdevice.h | 10 +++++-
- net/core/dev.c            | 79 ++++++++++++++++++++++++++++-------------------
- 2 files changed, 56 insertions(+), 33 deletions(-)
+ drivers/net/bonding/bond_main.c    |  5 +++--
+ drivers/net/bonding/bond_options.c |  2 +-
+ drivers/net/team/team.c            |  3 ++-
+ drivers/net/vrf.c                  |  3 ++-
+ include/linux/netdevice.h          |  3 ++-
+ include/net/bonding.h              |  3 ++-
+ net/batman-adv/soft-interface.c    |  3 ++-
+ net/bridge/br_device.c             |  3 ++-
+ net/core/rtnetlink.c               | 10 ++++++----
+ 9 files changed, 22 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b19dc033fb36..78feb94a36db 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1328,7 +1328,8 @@ void bond_lower_state_changed(struct slave *slave)
+ }
+ 
+ /* enslave device <slave> to bond device <master> */
+-int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
++int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
++		 struct netlink_ext_ack *extack)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
+@@ -3492,7 +3493,7 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+ 	switch (cmd) {
+ 	case BOND_ENSLAVE_OLD:
+ 	case SIOCBONDENSLAVE:
+-		res = bond_enslave(bond_dev, slave_dev);
++		res = bond_enslave(bond_dev, slave_dev, NULL);
+ 		break;
+ 	case BOND_RELEASE_OLD:
+ 	case SIOCBONDRELEASE:
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 5931aa2fe997..8a9b085c2a98 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -1383,7 +1383,7 @@ static int bond_option_slaves_set(struct bonding *bond,
+ 	switch (command[0]) {
+ 	case '+':
+ 		netdev_dbg(bond->dev, "Adding slave %s\n", dev->name);
+-		ret = bond_enslave(bond->dev, dev);
++		ret = bond_enslave(bond->dev, dev, NULL);
+ 		break;
+ 
+ 	case '-':
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index ae53e899259f..4359d45aa131 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1914,7 +1914,8 @@ static int team_netpoll_setup(struct net_device *dev,
+ }
+ #endif
+ 
+-static int team_add_slave(struct net_device *dev, struct net_device *port_dev)
++static int team_add_slave(struct net_device *dev, struct net_device *port_dev,
++			  struct netlink_ext_ack *extack)
+ {
+ 	struct team *team = netdev_priv(dev);
+ 	int err;
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index cc18b7b11612..4a082ef53533 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -788,7 +788,8 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
+ 	return ret;
+ }
+ 
+-static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
++static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev,
++			 struct netlink_ext_ack *extack)
+ {
+ 	if (netif_is_l3_master(port_dev) || netif_is_l3_slave(port_dev))
+ 		return -EINVAL;
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d04424cfffba..05fcaba4b0d9 100644
+index 05fcaba4b0d9..368a5064a487 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -2309,7 +2309,8 @@ int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
- 
- struct netdev_notifier_info {
--	struct net_device *dev;
-+	struct net_device	*dev;
-+	struct netlink_ext_ack	*extack;
- };
- 
- struct netdev_notifier_change_info {
-@@ -2334,6 +2335,7 @@ static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
- 					     struct net_device *dev)
- {
- 	info->dev = dev;
-+	info->extack = NULL;
- }
- 
- static inline struct net_device *
-@@ -2342,6 +2344,12 @@ netdev_notifier_info_to_dev(const struct netdev_notifier_info *info)
- 	return info->dev;
- }
- 
-+static inline struct netlink_ext_ack *
-+netdev_notifier_info_to_extack(const struct netdev_notifier_info *info)
-+{
-+	return info->extack;
-+}
-+
- int call_netdevice_notifiers(unsigned long val, struct net_device *dev);
- 
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 454f05441546..5ad66ffac16c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -162,7 +162,6 @@ static struct list_head offload_base __read_mostly;
- 
- static int netif_rx_internal(struct sk_buff *skb);
- static int call_netdevice_notifiers_info(unsigned long val,
--					 struct net_device *dev,
- 					 struct netdev_notifier_info *info);
- static struct napi_struct *napi_by_id(unsigned int napi_id);
- 
-@@ -1338,10 +1337,11 @@ EXPORT_SYMBOL(netdev_features_change);
- void netdev_state_change(struct net_device *dev)
- {
- 	if (dev->flags & IFF_UP) {
--		struct netdev_notifier_change_info change_info;
-+		struct netdev_notifier_change_info change_info = {
-+			.info.dev = dev,
-+		};
- 
--		change_info.flags_changed = 0;
--		call_netdevice_notifiers_info(NETDEV_CHANGE, dev,
-+		call_netdevice_notifiers_info(NETDEV_CHANGE,
- 					      &change_info.info);
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
- 	}
-@@ -1562,9 +1562,10 @@ EXPORT_SYMBOL(dev_disable_lro);
- static int call_netdevice_notifier(struct notifier_block *nb, unsigned long val,
- 				   struct net_device *dev)
- {
--	struct netdev_notifier_info info;
-+	struct netdev_notifier_info info = {
-+		.dev = dev,
-+	};
- 
--	netdev_notifier_info_init(&info, dev);
- 	return nb->notifier_call(nb, val, &info);
- }
- 
-@@ -1689,11 +1690,9 @@ EXPORT_SYMBOL(unregister_netdevice_notifier);
+@@ -1246,7 +1246,8 @@ struct net_device_ops {
+ 						     u32 flow_id);
+ #endif
+ 	int			(*ndo_add_slave)(struct net_device *dev,
+-						 struct net_device *slave_dev);
++						 struct net_device *slave_dev,
++						 struct netlink_ext_ack *extack);
+ 	int			(*ndo_del_slave)(struct net_device *dev,
+ 						 struct net_device *slave_dev);
+ 	netdev_features_t	(*ndo_fix_features)(struct net_device *dev,
+diff --git a/include/net/bonding.h b/include/net/bonding.h
+index b2e68657a216..2860cc66c2bb 100644
+--- a/include/net/bonding.h
++++ b/include/net/bonding.h
+@@ -596,7 +596,8 @@ void bond_destroy_sysfs(struct bond_net *net);
+ void bond_prepare_sysfs_group(struct bonding *bond);
+ int bond_sysfs_slave_add(struct slave *slave);
+ void bond_sysfs_slave_del(struct slave *slave);
+-int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
++int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
++		 struct netlink_ext_ack *extack);
+ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
+ u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
+ int bond_set_carrier(struct bonding *bond);
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index c2c986746d0b..e7d5fbb6ad53 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -867,7 +867,8 @@ static int batadv_softif_init_late(struct net_device *dev)
+  * Return: 0 if successful or error otherwise.
   */
- 
- static int call_netdevice_notifiers_info(unsigned long val,
--					 struct net_device *dev,
- 					 struct netdev_notifier_info *info)
+ static int batadv_softif_slave_add(struct net_device *dev,
+-				   struct net_device *slave_dev)
++				   struct net_device *slave_dev,
++				   struct netlink_ext_ack *extack)
  {
- 	ASSERT_RTNL();
--	netdev_notifier_info_init(info, dev);
- 	return raw_notifier_call_chain(&netdev_chain, val, info);
+ 	struct batadv_hard_iface *hard_iface;
+ 	struct net *net = dev_net(dev);
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index f6b6a92f1c48..cb0131d70ab1 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -320,7 +320,8 @@ void br_netpoll_disable(struct net_bridge_port *p)
+ 
+ #endif
+ 
+-static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
++static int br_add_slave(struct net_device *dev, struct net_device *slave_dev,
++			struct netlink_ext_ack *extack)
+ 
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 3fb1ca33cba4..c7c5fb2894eb 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1952,7 +1952,8 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+ 	return err;
  }
  
-@@ -1708,9 +1707,11 @@ static int call_netdevice_notifiers_info(unsigned long val,
- 
- int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
+-static int do_set_master(struct net_device *dev, int ifindex)
++static int do_set_master(struct net_device *dev, int ifindex,
++			 struct netlink_ext_ack *extack)
  {
--	struct netdev_notifier_info info;
-+	struct netdev_notifier_info info = {
-+		.dev = dev,
-+	};
- 
--	return call_netdevice_notifiers_info(val, dev, &info);
-+	return call_netdevice_notifiers_info(val, &info);
- }
- EXPORT_SYMBOL(call_netdevice_notifiers);
- 
-@@ -6277,7 +6278,15 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 				   struct net_device *upper_dev, bool master,
- 				   void *upper_priv, void *upper_info)
- {
--	struct netdev_notifier_changeupper_info changeupper_info;
-+	struct netdev_notifier_changeupper_info changeupper_info = {
-+		.info = {
-+			.dev = dev,
-+		},
-+		.upper_dev = upper_dev,
-+		.master = master,
-+		.linking = true,
-+		.upper_info = upper_info,
-+	};
- 	int ret = 0;
- 
- 	ASSERT_RTNL();
-@@ -6295,12 +6304,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	if (master && netdev_master_upper_dev_get(dev))
- 		return -EBUSY;
- 
--	changeupper_info.upper_dev = upper_dev;
--	changeupper_info.master = master;
--	changeupper_info.linking = true;
--	changeupper_info.upper_info = upper_info;
--
--	ret = call_netdevice_notifiers_info(NETDEV_PRECHANGEUPPER, dev,
-+	ret = call_netdevice_notifiers_info(NETDEV_PRECHANGEUPPER,
- 					    &changeupper_info.info);
- 	ret = notifier_to_errno(ret);
- 	if (ret)
-@@ -6311,7 +6315,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
- 	if (ret)
- 		return ret;
- 
--	ret = call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
-+	ret = call_netdevice_notifiers_info(NETDEV_CHANGEUPPER,
- 					    &changeupper_info.info);
- 	ret = notifier_to_errno(ret);
- 	if (ret)
-@@ -6375,20 +6379,24 @@ EXPORT_SYMBOL(netdev_master_upper_dev_link);
- void netdev_upper_dev_unlink(struct net_device *dev,
- 			     struct net_device *upper_dev)
- {
--	struct netdev_notifier_changeupper_info changeupper_info;
-+	struct netdev_notifier_changeupper_info changeupper_info = {
-+		.info = {
-+			.dev = dev,
-+		},
-+		.upper_dev = upper_dev,
-+		.linking = false,
-+	};
- 
- 	ASSERT_RTNL();
- 
--	changeupper_info.upper_dev = upper_dev;
- 	changeupper_info.master = netdev_master_upper_dev_get(dev) == upper_dev;
--	changeupper_info.linking = false;
- 
--	call_netdevice_notifiers_info(NETDEV_PRECHANGEUPPER, dev,
-+	call_netdevice_notifiers_info(NETDEV_PRECHANGEUPPER,
- 				      &changeupper_info.info);
- 
- 	__netdev_adjacent_dev_unlink_neighbour(dev, upper_dev);
- 
--	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER, dev,
-+	call_netdevice_notifiers_info(NETDEV_CHANGEUPPER,
- 				      &changeupper_info.info);
- }
- EXPORT_SYMBOL(netdev_upper_dev_unlink);
-@@ -6404,11 +6412,13 @@ EXPORT_SYMBOL(netdev_upper_dev_unlink);
- void netdev_bonding_info_change(struct net_device *dev,
- 				struct netdev_bonding_info *bonding_info)
- {
--	struct netdev_notifier_bonding_info	info;
-+	struct netdev_notifier_bonding_info info = {
-+		.info.dev = dev,
-+	};
- 
- 	memcpy(&info.bonding_info, bonding_info,
- 	       sizeof(struct netdev_bonding_info));
--	call_netdevice_notifiers_info(NETDEV_BONDING_INFO, dev,
-+	call_netdevice_notifiers_info(NETDEV_BONDING_INFO,
- 				      &info.info);
- }
- EXPORT_SYMBOL(netdev_bonding_info_change);
-@@ -6534,11 +6544,13 @@ EXPORT_SYMBOL(dev_get_nest_level);
- void netdev_lower_state_changed(struct net_device *lower_dev,
- 				void *lower_state_info)
- {
--	struct netdev_notifier_changelowerstate_info changelowerstate_info;
-+	struct netdev_notifier_changelowerstate_info changelowerstate_info = {
-+		.info.dev = lower_dev,
-+	};
- 
- 	ASSERT_RTNL();
- 	changelowerstate_info.lower_state_info = lower_state_info;
--	call_netdevice_notifiers_info(NETDEV_CHANGELOWERSTATE, lower_dev,
-+	call_netdevice_notifiers_info(NETDEV_CHANGELOWERSTATE,
- 				      &changelowerstate_info.info);
- }
- EXPORT_SYMBOL(netdev_lower_state_changed);
-@@ -6829,11 +6841,14 @@ void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
- 
- 	if (dev->flags & IFF_UP &&
- 	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))) {
--		struct netdev_notifier_change_info change_info;
--
--		change_info.flags_changed = changes;
--		call_netdevice_notifiers_info(NETDEV_CHANGE, dev,
--					      &change_info.info);
-+		struct netdev_notifier_change_info change_info = {
-+			.info = {
-+				.dev = dev,
-+			},
-+			.flags_changed = changes,
-+		};
-+
-+		call_netdevice_notifiers_info(NETDEV_CHANGE, &change_info.info);
+ 	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
+ 	const struct net_device_ops *ops;
+@@ -1977,7 +1978,7 @@ static int do_set_master(struct net_device *dev, int ifindex)
+ 			return -EINVAL;
+ 		ops = upper_dev->netdev_ops;
+ 		if (ops->ndo_add_slave) {
+-			err = ops->ndo_add_slave(upper_dev, dev);
++			err = ops->ndo_add_slave(upper_dev, dev, extack);
+ 			if (err)
+ 				return err;
+ 		} else {
+@@ -2110,7 +2111,7 @@ static int do_setlink(const struct sk_buff *skb,
  	}
- }
  
+ 	if (tb[IFLA_MASTER]) {
+-		err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]));
++		err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]), extack);
+ 		if (err)
+ 			goto errout;
+ 		status |= DO_SETLINK_MODIFIED;
+@@ -2748,7 +2749,8 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 				goto out_unregister;
+ 		}
+ 		if (tb[IFLA_MASTER]) {
+-			err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]));
++			err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]),
++					    extack);
+ 			if (err)
+ 				goto out_unregister;
+ 		}
 -- 
 2.1.4
