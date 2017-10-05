@@ -1,28 +1,32 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: amd8111e: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:39 -0700
-Message-ID: <20171005005139.GA23458@beast>
+Subject: [PATCH] bna: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:45 -0700
+Message-ID: <20171005005145.GA23472@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+Cc: Rasesh Mody <rasesh.mody@cavium.com>,
+        Sudarsana Kalluru <sudarsana.kalluru@cavium.com>,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:55485 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752130AbdJEAvs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:51:48 -0400
+Received: by mail-pf0-f180.google.com with SMTP id g62so1527442pfk.12
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 17:51:48 -0700 (PDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Jarod Wilson <jarod@redhat.com>
-Cc: Philippe Reynes <tremyfr@gmail.com>
+Cc: Rasesh Mody <rasesh.mody@cavium.com>
+Cc: Sudarsana Kalluru <sudarsana.kalluru@cavium.com>
+Cc: Dept-GELinuxNICDev@cavium.com
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
@@ -31,36 +35,125 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/net/ethernet/amd/amd8111e.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 43 +++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 7b5df562f30f..358f7ab77c70 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -1669,9 +1669,9 @@ static int amd8111e_resume(struct pci_dev *pci_dev)
- 	return 0;
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 6e13c937d715..a843076597ec 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -1693,9 +1693,9 @@ bnad_rx_res_alloc(struct bnad *bnad, struct bna_res_info *res_info,
+ /* Timer callbacks */
+ /* a) IOC timer */
+ static void
+-bnad_ioc_timeout(unsigned long data)
++bnad_ioc_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.ioc_timer);
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1704,9 +1704,9 @@ bnad_ioc_timeout(unsigned long data)
  }
  
--static void amd8111e_config_ipg(struct net_device *dev)
-+static void amd8111e_config_ipg(struct timer_list *t)
+ static void
+-bnad_ioc_hb_check(unsigned long data)
++bnad_ioc_hb_check(struct timer_list *t)
  {
--	struct amd8111e_priv *lp = netdev_priv(dev);
-+	struct amd8111e_priv *lp = from_timer(lp, t, ipg_data.ipg_timer);
- 	struct ipg_info *ipg_data = &lp->ipg_data;
- 	void __iomem *mmio = lp->mmio;
- 	unsigned int prev_col_cnt = ipg_data->col_cnt;
-@@ -1883,9 +1883,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.hb_timer);
+ 	unsigned long flags;
  
- 	/* Initialize software ipg timer */
- 	if(lp->options & OPTION_DYN_IPG_ENABLE){
--		init_timer(&lp->ipg_data.ipg_timer);
--		lp->ipg_data.ipg_timer.data = (unsigned long) dev;
--		lp->ipg_data.ipg_timer.function = (void *)&amd8111e_config_ipg;
-+		timer_setup(&lp->ipg_data.ipg_timer, amd8111e_config_ipg, 0);
- 		lp->ipg_data.ipg_timer.expires = jiffies +
- 						 IPG_CONVERGE_JIFFIES;
- 		lp->ipg_data.ipg = DEFAULT_IPG;
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1715,9 +1715,9 @@ bnad_ioc_hb_check(unsigned long data)
+ }
+ 
+ static void
+-bnad_iocpf_timeout(unsigned long data)
++bnad_iocpf_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.iocpf_timer);
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1726,9 +1726,9 @@ bnad_iocpf_timeout(unsigned long data)
+ }
+ 
+ static void
+-bnad_iocpf_sem_timeout(unsigned long data)
++bnad_iocpf_sem_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.sem_timer);
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1748,9 +1748,9 @@ bnad_iocpf_sem_timeout(unsigned long data)
+ 
+ /* b) Dynamic Interrupt Moderation Timer */
+ static void
+-bnad_dim_timeout(unsigned long data)
++bnad_dim_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, dim_timer);
+ 	struct bnad_rx_info *rx_info;
+ 	struct bnad_rx_ctrl *rx_ctrl;
+ 	int i, j;
+@@ -1781,9 +1781,9 @@ bnad_dim_timeout(unsigned long data)
+ 
+ /* c)  Statistics Timer */
+ static void
+-bnad_stats_timeout(unsigned long data)
++bnad_stats_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, stats_timer);
+ 	unsigned long flags;
+ 
+ 	if (!netif_running(bnad->netdev) ||
+@@ -1804,8 +1804,7 @@ bnad_dim_timer_start(struct bnad *bnad)
+ {
+ 	if (bnad->cfg_flags & BNAD_CF_DIM_ENABLED &&
+ 	    !test_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags)) {
+-		setup_timer(&bnad->dim_timer, bnad_dim_timeout,
+-			    (unsigned long)bnad);
++		timer_setup(&bnad->dim_timer, bnad_dim_timeout, 0);
+ 		set_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags);
+ 		mod_timer(&bnad->dim_timer,
+ 			  jiffies + msecs_to_jiffies(BNAD_DIM_TIMER_FREQ));
+@@ -1823,8 +1822,7 @@ bnad_stats_timer_start(struct bnad *bnad)
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	if (!test_and_set_bit(BNAD_RF_STATS_TIMER_RUNNING, &bnad->run_flags)) {
+-		setup_timer(&bnad->stats_timer, bnad_stats_timeout,
+-			    (unsigned long)bnad);
++		timer_setup(&bnad->stats_timer, bnad_stats_timeout, 0);
+ 		mod_timer(&bnad->stats_timer,
+ 			  jiffies + msecs_to_jiffies(BNAD_STATS_TIMER_FREQ));
+ 	}
+@@ -3692,14 +3690,11 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 		goto res_free;
+ 
+ 	/* Set up timers */
+-	setup_timer(&bnad->bna.ioceth.ioc.ioc_timer, bnad_ioc_timeout,
+-		    (unsigned long)bnad);
+-	setup_timer(&bnad->bna.ioceth.ioc.hb_timer, bnad_ioc_hb_check,
+-		    (unsigned long)bnad);
+-	setup_timer(&bnad->bna.ioceth.ioc.iocpf_timer, bnad_iocpf_timeout,
+-		    (unsigned long)bnad);
+-	setup_timer(&bnad->bna.ioceth.ioc.sem_timer, bnad_iocpf_sem_timeout,
+-		    (unsigned long)bnad);
++	timer_setup(&bnad->bna.ioceth.ioc.ioc_timer, bnad_ioc_timeout, 0);
++	timer_setup(&bnad->bna.ioceth.ioc.hb_timer, bnad_ioc_hb_check, 0);
++	timer_setup(&bnad->bna.ioceth.ioc.iocpf_timer, bnad_iocpf_timeout, 0);
++	timer_setup(&bnad->bna.ioceth.ioc.sem_timer, bnad_iocpf_sem_timeout,
++		    0);
+ 
+ 	/*
+ 	 * Start the chip
 -- 
 2.7.4
 
