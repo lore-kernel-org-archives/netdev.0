@@ -1,16 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: vxge: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:06 -0700
-Message-ID: <20171005005106.GA23360@beast>
+Subject: [PATCH] drivers/atm/suni: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:11 -0700
+Message-ID: <20171005005111.GA23374@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jon Mason <jdmason@kudzu.us>,
-        "David S. Miller" <davem@davemloft.net>,
-        Miroslav Lichvar <mlichvar@redhat.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Eric Dumazet <edumazet@google.com>,
-        stephen hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+Cc: Chas Williams <3chas3@gmail.com>,
+        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -19,14 +15,11 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+to pass the timer pointer explicitly. Passes NULL timer when doing non-
+timer call.
 
-Cc: Jon Mason <jdmason@kudzu.us>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Miroslav Lichvar <mlichvar@redhat.com>
-Cc: Jarod Wilson <jarod@redhat.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: stephen hemminger <stephen@networkplumber.org>
+Cc: Chas Williams <3chas3@gmail.com>
+Cc: linux-atm-general@lists.sourceforge.net
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
@@ -35,73 +28,47 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/net/ethernet/neterion/vxge/vxge-main.c | 12 ++++++------
- drivers/net/ethernet/neterion/vxge/vxge-main.h |  8 +++-----
- 2 files changed, 9 insertions(+), 11 deletions(-)
+ drivers/atm/suni.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-index 50ea69d88480..5d5b9855e24e 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-@@ -2597,9 +2597,9 @@ static int vxge_add_isr(struct vxgedev *vdev)
- 	return VXGE_HW_OK;
+diff --git a/drivers/atm/suni.c b/drivers/atm/suni.c
+index b0363149b2fd..b8825f2d79e0 100644
+--- a/drivers/atm/suni.c
++++ b/drivers/atm/suni.c
+@@ -53,7 +53,7 @@ static DEFINE_SPINLOCK(sunis_lock);
+     if (atomic_read(&stats->s) < 0) atomic_set(&stats->s,INT_MAX);
+ 
+ 
+-static void suni_hz(unsigned long from_timer)
++static void suni_hz(struct timer_list *timer)
+ {
+ 	struct suni_priv *walk;
+ 	struct atm_dev *dev;
+@@ -85,7 +85,7 @@ static void suni_hz(unsigned long from_timer)
+ 		    ((GET(TACP_TCC) & 0xff) << 8) |
+ 		    ((GET(TACP_TCCM) & 7) << 16));
+ 	}
+-	if (from_timer) mod_timer(&poll_timer,jiffies+HZ);
++	if (timer) mod_timer(&poll_timer,jiffies+HZ);
  }
  
--static void vxge_poll_vp_reset(unsigned long data)
-+static void vxge_poll_vp_reset(struct timer_list *t)
- {
--	struct vxgedev *vdev = (struct vxgedev *)data;
-+	struct vxgedev *vdev = from_timer(vdev, t, vp_reset_timer);
- 	int i, j = 0;
  
- 	for (i = 0; i < vdev->no_of_vpath; i++) {
-@@ -2616,9 +2616,9 @@ static void vxge_poll_vp_reset(unsigned long data)
- 	mod_timer(&vdev->vp_reset_timer, jiffies + HZ / 2);
- }
- 
--static void vxge_poll_vp_lockup(unsigned long data)
-+static void vxge_poll_vp_lockup(struct timer_list *t)
- {
--	struct vxgedev *vdev = (struct vxgedev *)data;
-+	struct vxgedev *vdev = from_timer(vdev, t, vp_lockup_timer);
- 	enum vxge_hw_status status = VXGE_HW_OK;
- 	struct vxge_vpath *vpath;
- 	struct vxge_ring *ring;
-@@ -2858,12 +2858,12 @@ static int vxge_open(struct net_device *dev)
- 		vdev->config.rx_pause_enable);
- 
- 	if (vdev->vp_reset_timer.function == NULL)
--		vxge_os_timer(&vdev->vp_reset_timer, vxge_poll_vp_reset, vdev,
-+		vxge_os_timer(&vdev->vp_reset_timer, vxge_poll_vp_reset,
- 			      HZ / 2);
- 
- 	/* There is no need to check for RxD leak and RxD lookup on Titan1A */
- 	if (vdev->titan1 && vdev->vp_lockup_timer.function == NULL)
--		vxge_os_timer(&vdev->vp_lockup_timer, vxge_poll_vp_lockup, vdev,
-+		vxge_os_timer(&vdev->vp_lockup_timer, vxge_poll_vp_lockup,
- 			      HZ / 2);
- 
- 	set_bit(__VXGE_STATE_CARD_UP, &vdev->state);
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.h b/drivers/net/ethernet/neterion/vxge/vxge-main.h
-index 3a79d93b8445..59a57ff5e96a 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-main.h
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-main.h
-@@ -417,12 +417,10 @@ struct vxge_tx_priv {
- 	module_param(p, int, 0)
- 
- static inline
--void vxge_os_timer(struct timer_list *timer, void (*func)(unsigned long data),
--		   struct vxgedev *vdev, unsigned long timeout)
-+void vxge_os_timer(struct timer_list *timer, void (*func)(struct timer_list *),
-+		   unsigned long timeout)
- {
--	init_timer(timer);
--	timer->function = func;
--	timer->data = (unsigned long)vdev;
-+	timer_setup(timer, func, 0);
- 	mod_timer(timer, jiffies + timeout);
- }
- 
+@@ -322,13 +322,11 @@ static int suni_start(struct atm_dev *dev)
+ 		printk(KERN_WARNING "%s(itf %d): no signal\n",dev->type,
+ 		    dev->number);
+ 	PRIV(dev)->loop_mode = ATM_LM_NONE;
+-	suni_hz(0); /* clear SUNI counters */
++	suni_hz(NULL); /* clear SUNI counters */
+ 	(void) fetch_stats(dev,NULL,1); /* clear kernel counters */
+ 	if (first) {
+-		init_timer(&poll_timer);
++		timer_setup(&poll_timer, suni_hz, 0);
+ 		poll_timer.expires = jiffies+HZ;
+-		poll_timer.function = suni_hz;
+-		poll_timer.data = 1;
+ #if 0
+ printk(KERN_DEBUG "[u] p=0x%lx,n=0x%lx\n",(unsigned long) poll_timer.list.prev,
+     (unsigned long) poll_timer.list.next);
 -- 
 2.7.4
 
