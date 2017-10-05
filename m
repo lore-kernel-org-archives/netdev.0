@@ -1,7 +1,7 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [RESEND PATCH 1/7] net: qrtr: Invoke sk_error_report() after setting sk_err
-Date: Wed,  4 Oct 2017 20:50:59 -0700
-Message-ID: <20171005035105.14677-2-bjorn.andersson@linaro.org>
+Subject: [RESEND PATCH 3/7] net: qrtr: Add control packet definition to uapi
+Date: Wed,  4 Oct 2017 20:51:01 -0700
+Message-ID: <20171005035105.14677-4-bjorn.andersson@linaro.org>
 References: <20171005035105.14677-1-bjorn.andersson@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-msm@vger.kernel.org, Chris Lew <clew@codeaurora.org>
@@ -11,28 +11,82 @@ In-Reply-To: <20171005035105.14677-1-bjorn.andersson@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rather than manually waking up any context sleeping on the sock to
-signal an error we should call sk_error_report(). This has the added
-benefit that in-kernel consumers can override this notification with
-its own callback.
+The QMUX protocol specification defines structure of the special control
+packet messages being sent between handlers of the control port.
+
+Add these to the uapi header, as this structure and the associated types
+are shared between the kernel and all userspace handlers of control
+messages.
 
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- net/qrtr/qrtr.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/uapi/linux/qrtr.h | 32 ++++++++++++++++++++++++++++++++
+ net/qrtr/qrtr.c           | 12 ------------
+ 2 files changed, 32 insertions(+), 12 deletions(-)
 
+diff --git a/include/uapi/linux/qrtr.h b/include/uapi/linux/qrtr.h
+index 63e8803e4d90..179af64846e0 100644
+--- a/include/uapi/linux/qrtr.h
++++ b/include/uapi/linux/qrtr.h
+@@ -13,4 +13,36 @@ struct sockaddr_qrtr {
+ 	__u32 sq_port;
+ };
+ 
++enum qrtr_pkt_type {
++	QRTR_TYPE_DATA		= 1,
++	QRTR_TYPE_HELLO		= 2,
++	QRTR_TYPE_BYE		= 3,
++	QRTR_TYPE_NEW_SERVER	= 4,
++	QRTR_TYPE_DEL_SERVER	= 5,
++	QRTR_TYPE_DEL_CLIENT	= 6,
++	QRTR_TYPE_RESUME_TX	= 7,
++	QRTR_TYPE_EXIT          = 8,
++	QRTR_TYPE_PING          = 9,
++	QRTR_TYPE_NEW_LOOKUP	= 10,
++	QRTR_TYPE_DEL_LOOKUP	= 11,
++};
++
++struct qrtr_ctrl_pkt {
++	__le32 cmd;
++
++	union {
++		struct {
++			__le32 service;
++			__le32 instance;
++			__le32 node;
++			__le32 port;
++		} server;
++
++		struct {
++			__le32 node;
++			__le32 port;
++		} client;
++	};
++} __packed;
++
+ #endif /* _LINUX_QRTR_H */
 diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index c2f5c13550c0..7e4b49a8349e 100644
+index 15981abc042c..d85ca7170b8f 100644
 --- a/net/qrtr/qrtr.c
 +++ b/net/qrtr/qrtr.c
-@@ -541,7 +541,7 @@ static void qrtr_reset_ports(void)
+@@ -26,18 +26,6 @@
+ #define QRTR_MIN_EPH_SOCKET 0x4000
+ #define QRTR_MAX_EPH_SOCKET 0x7fff
  
- 		sock_hold(&ipc->sk);
- 		ipc->sk.sk_err = ENETRESET;
--		wake_up_interruptible(sk_sleep(&ipc->sk));
-+		ipc->sk.sk_error_report(&ipc->sk);
- 		sock_put(&ipc->sk);
- 	}
- 	mutex_unlock(&qrtr_port_lock);
+-enum qrtr_pkt_type {
+-	QRTR_TYPE_DATA		= 1,
+-	QRTR_TYPE_HELLO		= 2,
+-	QRTR_TYPE_BYE		= 3,
+-	QRTR_TYPE_NEW_SERVER	= 4,
+-	QRTR_TYPE_DEL_SERVER	= 5,
+-	QRTR_TYPE_DEL_CLIENT	= 6,
+-	QRTR_TYPE_RESUME_TX	= 7,
+-	QRTR_TYPE_EXIT		= 8,
+-	QRTR_TYPE_PING		= 9,
+-};
+-
+ /**
+  * struct qrtr_hdr - (I|R)PCrouter packet header
+  * @version: protocol version
 -- 
 2.12.0
