@@ -1,81 +1,105 @@
-From: Sebastian Reichel <sre@kernel.org>
-Subject: Re: [PATCH 05/13] timer: Remove init_timer_deferrable() in favor of
- timer_setup()
-Date: Thu, 5 Oct 2017 03:02:18 +0200
-Message-ID: <20171005010218.v3aw4d3y66jn3bbo@earth>
-References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
- <1507159627-127660-6-git-send-email-keescook@chromium.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] net: can: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:26 -0700
+Message-ID: <20171005005126.GA23416@beast>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="ioctv6qfrc7mty7c"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Harish Patil <harish.patil@cavium.com>,
-        Manish Chopra <manish.chopra@cavium.com>,
-        Kalle Valo <kvalo@qca.qualcomm.com>,
-        linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Chris Metcalf <cmetcalf@mellanox.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Guenter Roeck <linux@roeck-us.net>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        John Stultz <john.stultz@linaro.org>,
-        Julian Wiedmann <jwi@linux.vnet.ibm.com>,
-        Lai
-To: Kees Cook <keescook@chromium.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:53666 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751849AbdJEBCW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Oct 2017 21:02:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1507159627-127660-6-git-send-email-keescook@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---ioctv6qfrc7mty7c
 Content-Type: text/plain; charset=us-ascii
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-On Wed, Oct 04, 2017 at 04:26:59PM -0700, Kees Cook wrote:
-> This refactors the only users of init_timer_deferrable() to use
-> the new timer_setup() and from_timer(). Removes definition of
-> init_timer_deferrable().
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-can@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+This requires commit 686fef928bba ("timer: Prepare to change timer
+callback argument type") in v4.14-rc3, but should be otherwise
+stand-alone.
+---
+ net/can/af_can.c | 4 ++--
+ net/can/af_can.h | 2 +-
+ net/can/proc.c   | 8 ++++----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-[...]
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 88edac0f3e36..1f75e11ac35a 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -882,8 +882,8 @@ static int can_pernet_init(struct net *net)
+ 	if (IS_ENABLED(CONFIG_PROC_FS)) {
+ 		/* the statistics are updated every second (timer triggered) */
+ 		if (stats_timer) {
+-			setup_timer(&net->can.can_stattimer, can_stat_update,
+-				    (unsigned long)net);
++			timer_setup(&net->can.can_stattimer, can_stat_update,
++				    0);
+ 			mod_timer(&net->can.can_stattimer,
+ 				  round_jiffies(jiffies + HZ));
+ 		}
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index d0ef45bb2a72..eca6463c6213 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -113,6 +113,6 @@ struct s_pstats {
+ /* function prototypes for the CAN networklayer procfs (proc.c) */
+ void can_init_proc(struct net *net);
+ void can_remove_proc(struct net *net);
+-void can_stat_update(unsigned long data);
++void can_stat_update(struct timer_list *t);
+ 
+ #endif /* AF_CAN_H */
+diff --git a/net/can/proc.c b/net/can/proc.c
+index 83045f00c63c..d979b3dc49a6 100644
+--- a/net/can/proc.c
++++ b/net/can/proc.c
+@@ -115,9 +115,9 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
+ 	return rate;
+ }
+ 
+-void can_stat_update(unsigned long data)
++void can_stat_update(struct timer_list *t)
+ {
+-	struct net *net = (struct net *)data;
++	struct net *net = from_timer(net, t, can.can_stattimer);
+ 	struct s_stats *can_stats = net->can.can_stats;
+ 	unsigned long j = jiffies; /* snapshot */
+ 
+@@ -221,7 +221,7 @@ static int can_stats_proc_show(struct seq_file *m, void *v)
+ 
+ 	seq_putc(m, '\n');
+ 
+-	if (net->can.can_stattimer.function == can_stat_update) {
++	if (net->can.can_stattimer.function == (TIMER_FUNC_TYPE)can_stat_update) {
+ 		seq_printf(m, " %8ld %% total match ratio (RXMR)\n",
+ 				can_stats->total_rx_match_ratio);
+ 
+@@ -291,7 +291,7 @@ static int can_reset_stats_proc_show(struct seq_file *m, void *v)
+ 
+ 	user_reset = 1;
+ 
+-	if (net->can.can_stattimer.function == can_stat_update) {
++	if (net->can.can_stattimer.function == (TIMER_FUNC_TYPE)can_stat_update) {
+ 		seq_printf(m, "Scheduled statistic reset #%ld.\n",
+ 				can_pstats->stats_reset + 1);
+ 	} else {
+-- 
+2.7.4
 
->  drivers/hsi/clients/ssi_protocol.c           | 32 ++++++++++++++++------------
 
-Acked-by: Sebastian Reichel <sre@kernel.org>
-
--- Sebastian
-
---ioctv6qfrc7mty7c
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAlnVhJQACgkQ2O7X88g7
-+poqtw/+NVd8QRs2QuA6PAGWHUwxaYVABpFWmmT6auUlvyFDZ3dfZJID5IF3k1iT
-na5dX3a4nAKolDTmc7NOxWF7vEH/L/ONlRhfTt69PFg9oAk5KNjS1RdEx1bdxGRU
-rUBXQwOc2zi9LqxB2Hd8GQXOOhxbw0gICl4wrLCoUdkGNJs5fPpR6zVG8PGbntpq
-WWjDPDja6L+D6+pMhGADYfYj7Xtkfm0GWn3bycnHFKvFB61feCjknnH33QHR2Ayt
-O7gqcCR5aaYf6EadcVT4wR+ZRYl/7sZt102ziwKAsy2eztiOIsj4N8aRV2oR8riz
-CGwIx8ANBkrdn6OG8XFy6BfPzSZcBXqg6L/WreDPHJa2xZAzOds566XysTlDVnS2
-mmPZzXYhzdSJT5SgWxOwzPE3LH6wgG3id80kaCHFqive8gfGI6rh6Y8zQUk3umvg
-ksAklh+tTffWw6oBVT5P2GdyJUHx53Mbb3msk6NyH/G5DmGE0ikcWNcSHg8gcjVt
-KKArZaKBako7TLOE9Xklfx43wLM7GM5RtR6oDCeUfKKG8sF1PLaANmp0SnJeWP2X
-FjPA+SlOO9G/qT++PIkxsB2T6sFZrF/TNXi5exM7V6mYdTxvwJ8OVsKNMQKyxOKq
-rFI2Ntch9Trc5vcvXqlrW84i2bzA1b0jfzO1nkKoKm0XF8UHUKo=
-=6loN
------END PGP SIGNATURE-----
-
---ioctv6qfrc7mty7c--
+-- 
+Kees Cook
+Pixel Security
