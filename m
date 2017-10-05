@@ -1,14 +1,18 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: sched: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:52:16 -0700
-Message-ID: <20171005005216.GA23570@beast>
+Subject: [PATCH] netfilter: ipset: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:52:21 -0700
+Message-ID: <20171005005221.GA23584@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        simran singhal <singhalsimran0@gmail.com>,
+        Muhammad Falak R Wani <falakreyaz@gmail.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -17,12 +21,18 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. Add pointer back to Qdisc.
+to pass the timer pointer explicitly. This introduces a pointer back to the
+struct ip_set, which is used instead of the struct timer_list .data field.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Florian Westphal <fw@strlen.de>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: simran singhal <singhalsimran0@gmail.com>
+Cc: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Cc: netfilter-devel@vger.kernel.org
+Cc: coreteam@netfilter.org
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
@@ -31,119 +41,153 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- net/sched/sch_pie.c | 10 ++++++----
- net/sched/sch_red.c | 10 ++++++----
- net/sched/sch_sfq.c | 10 +++++-----
- 3 files changed, 17 insertions(+), 13 deletions(-)
+ net/netfilter/ipset/ip_set_bitmap_gen.h   | 10 +++++-----
+ net/netfilter/ipset/ip_set_bitmap_ip.c    |  2 ++
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c |  2 ++
+ net/netfilter/ipset/ip_set_bitmap_port.c  |  2 ++
+ net/netfilter/ipset/ip_set_hash_gen.h     | 12 +++++++-----
+ 5 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/net/sched/sch_pie.c b/net/sched/sch_pie.c
-index 6c2791d6102d..776c694c77c7 100644
---- a/net/sched/sch_pie.c
-+++ b/net/sched/sch_pie.c
-@@ -74,6 +74,7 @@ struct pie_sched_data {
- 	struct pie_vars vars;
- 	struct pie_stats stats;
- 	struct timer_list adapt_timer;
-+	struct Qdisc *sch;
+diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
+index 8ad2b52a0b32..5ca18f07683b 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_gen.h
++++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+@@ -37,11 +37,11 @@
+ #define get_ext(set, map, id)	((map)->extensions + ((set)->dsize * (id)))
+ 
+ static void
+-mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+ {
+ 	struct mtype *map = set->data;
+ 
+-	setup_timer(&map->gc, gc, (unsigned long)set);
++	timer_setup(&map->gc, gc, 0);
+ 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ }
+ 
+@@ -272,10 +272,10 @@ mtype_list(const struct ip_set *set,
+ }
+ 
+ static void
+-mtype_gc(unsigned long ul_set)
++mtype_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct mtype *map = set->data;
++	struct mtype *map = from_timer(map, t, gc);
++	struct ip_set *set = map->set;
+ 	void *x;
+ 	u32 id;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
+index 4783efff0bde..d8975a0b4282 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ip.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
+@@ -48,6 +48,7 @@ struct bitmap_ip {
+ 	size_t memsize;		/* members size */
+ 	u8 netmask;		/* subnet netmask */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* data extensions */
+ 		__aligned(__alignof__(u64));
  };
+@@ -232,6 +233,7 @@ init_map_ip(struct ip_set *set, struct bitmap_ip *map,
+ 	map->netmask = netmask;
+ 	set->timeout = IPSET_NO_TIMEOUT;
  
- static void pie_params_init(struct pie_params *params)
-@@ -422,10 +423,10 @@ static void calculate_probability(struct Qdisc *sch)
- 		pie_vars_init(&q->vars);
- }
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_IPV4;
  
--static void pie_timer(unsigned long arg)
-+static void pie_timer(struct timer_list *t)
- {
--	struct Qdisc *sch = (struct Qdisc *)arg;
--	struct pie_sched_data *q = qdisc_priv(sch);
-+	struct pie_sched_data *q = from_timer(q, t, adapt_timer);
-+	struct Qdisc *sch = q->sch;
- 	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
- 
- 	spin_lock(root_lock);
-@@ -446,7 +447,8 @@ static int pie_init(struct Qdisc *sch, struct nlattr *opt)
- 	pie_vars_init(&q->vars);
- 	sch->limit = q->params.limit;
- 
--	setup_timer(&q->adapt_timer, pie_timer, (unsigned long)sch);
-+	q->sch = sch;
-+	timer_setup(&q->adapt_timer, pie_timer, 0);
- 
- 	if (opt) {
- 		int err = pie_change(sch, opt);
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 93b9d70a9b28..fdfdb56aaae2 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -40,6 +40,7 @@ struct red_sched_data {
- 	u32			limit;		/* HARD maximal queue length */
- 	unsigned char		flags;
- 	struct timer_list	adapt_timer;
-+	struct Qdisc		*sch;
- 	struct red_parms	parms;
- 	struct red_vars		vars;
- 	struct red_stats	stats;
-@@ -221,10 +222,10 @@ static int red_change(struct Qdisc *sch, struct nlattr *opt)
- 	return 0;
- }
- 
--static inline void red_adaptative_timer(unsigned long arg)
-+static inline void red_adaptative_timer(struct timer_list *t)
- {
--	struct Qdisc *sch = (struct Qdisc *)arg;
--	struct red_sched_data *q = qdisc_priv(sch);
-+	struct red_sched_data *q = from_timer(q, t, adapt_timer);
-+	struct Qdisc *sch = q->sch;
- 	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
- 
- 	spin_lock(root_lock);
-@@ -238,7 +239,8 @@ static int red_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct red_sched_data *q = qdisc_priv(sch);
- 
- 	q->qdisc = &noop_qdisc;
--	setup_timer(&q->adapt_timer, red_adaptative_timer, (unsigned long)sch);
-+	q->sch = sch;
-+	timer_setup(&q->adapt_timer, red_adaptative_timer, 0);
- 	return red_change(sch, opt);
- }
- 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 74ea863b8240..42293412dc25 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -145,6 +145,7 @@ struct sfq_sched_data {
- 	int		perturb_period;
- 	unsigned int	quantum;	/* Allotment per round: MUST BE >= MTU */
- 	struct timer_list perturb_timer;
-+	struct Qdisc	*sch;
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 9a065f672d3a..4c279fbd2d5d 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -52,6 +52,7 @@ struct bitmap_ipmac {
+ 	u32 elements;		/* number of max elements in the set */
+ 	size_t memsize;		/* members size */
+ 	struct timer_list gc;	/* garbage collector */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* MAC + data extensions */
+ 		__aligned(__alignof__(u64));
  };
+@@ -307,6 +308,7 @@ init_map_ipmac(struct ip_set *set, struct bitmap_ipmac *map,
+ 	map->elements = elements;
+ 	set->timeout = IPSET_NO_TIMEOUT;
  
- /*
-@@ -604,10 +605,10 @@ static void sfq_rehash(struct Qdisc *sch)
- 	qdisc_tree_reduce_backlog(sch, dropped, drop_len);
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_IPV4;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
+index 7f0c733358a4..7f9bbd7c98b5 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_port.c
++++ b/net/netfilter/ipset/ip_set_bitmap_port.c
+@@ -40,6 +40,7 @@ struct bitmap_port {
+ 	u32 elements;		/* number of max elements in the set */
+ 	size_t memsize;		/* members size */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -214,6 +215,7 @@ init_map_port(struct ip_set *set, struct bitmap_port *map,
+ 	map->last_port = last_port;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_UNSPEC;
+ 
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 51063d9ed0f7..efffc8eabafe 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -280,6 +280,7 @@ htable_bits(u32 hashsize)
+ struct htype {
+ 	struct htable __rcu *table; /* the hash table */
+ 	struct timer_list gc;	/* garbage collection when timeout enabled */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	u32 maxelem;		/* max elements in the hash */
+ 	u32 initval;		/* random jhash init value */
+ #ifdef IP_SET_HASH_WITH_MARKMASK
+@@ -429,11 +430,11 @@ mtype_destroy(struct ip_set *set)
  }
  
--static void sfq_perturbation(unsigned long arg)
-+static void sfq_perturbation(struct timer_list *t)
+ static void
+-mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
  {
--	struct Qdisc *sch = (struct Qdisc *)arg;
--	struct sfq_sched_data *q = qdisc_priv(sch);
-+	struct sfq_sched_data *q = from_timer(q, t, perturb_timer);
-+	struct Qdisc *sch = q->sch;
- 	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
+ 	struct htype *h = set->data;
  
- 	spin_lock(root_lock);
-@@ -722,8 +723,7 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
- 	int i;
- 	int err;
+-	setup_timer(&h->gc, gc, (unsigned long)set);
++	timer_setup(&h->gc, gc, 0);
+ 	mod_timer(&h->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ 	pr_debug("gc initialized, run in every %u\n",
+ 		 IPSET_GC_PERIOD(set->timeout));
+@@ -526,10 +527,10 @@ mtype_expire(struct ip_set *set, struct htype *h)
+ }
  
--	setup_deferrable_timer(&q->perturb_timer, sfq_perturbation,
--			       (unsigned long)sch);
-+	timer_setup(&q->perturb_timer, sfq_perturbation, TIMER_DEFERRABLE);
+ static void
+-mtype_gc(unsigned long ul_set)
++mtype_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct htype *h = set->data;
++	struct htype *h = from_timer(h, t, gc);
++	struct ip_set *set = h->set;
  
- 	err = tcf_block_get(&q->block, &q->filter_list);
- 	if (err)
+ 	pr_debug("called\n");
+ 	spin_lock_bh(&set->lock);
+@@ -1314,6 +1315,7 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
+ 	t->htable_bits = hbits;
+ 	RCU_INIT_POINTER(h->table, t);
+ 
++	h->set = set;
+ 	set->data = h;
+ #ifndef IP_SET_PROTO_UNDEF
+ 	if (set->family == NFPROTO_IPV4) {
 -- 
 2.7.4
 
