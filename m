@@ -1,57 +1,25 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] rsi: fix integer overflow warning
-Date: Thu, 05 Oct 2017 05:19:07 -0700
-Message-ID: <1507205947.4434.23.camel@perches.com>
-References: <20171005120547.328687-1-arnd@arndb.de>
+From: "Capital Finance" <selectare@vscomunication.ro>
+Subject: Apply
+Date: Thu, 05 Oct 2017 05:23:44 -0700
+Message-ID: <20171005121454.598B6260479@zimbra.vscomunication.ro>
+Reply-To: capitalloan0049@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Pavani Muthyala <pavani.muthyala@redpinesignals.com>,
-        Karun Eagalapati <karun256@gmail.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, Kalle Valo <kvalo@codeaurora.org>,
-        Prameela Rani Garnepudi <prameela.j04cs@gmail.com>,
-        Amitkumar Karwar <amit.karwar@redpinesignals.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171005120547.328687-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <selectare@vscomunication.ro>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.vscomunication.ro ([86.124.134.61]:45391 "EHLO
+        zimbra.vscomunication.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751295AbdJEMhx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 08:37:53 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-10-05 at 14:05 +0200, Arnd Bergmann wrote:
-> gcc produces a harmless warning about a recently introduced
-> signed integer overflow:
-> 
-> drivers/net/wireless/rsi/rsi_91x_hal.c: In function 'rsi_prepare_mgmt_desc':
-> include/uapi/linux/swab.h:13:15: error: integer overflow in expression [-Werror=overflow]
->   (((__u16)(x) & (__u16)0x00ffU) << 8) |   \
->    ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
-> include/uapi/linux/swab.h:104:2: note: in expansion of macro '___constant_swab16'
->   ___constant_swab16(x) :   \
->   ^~~~~~~~~~~~~~~~~~
-> include/uapi/linux/byteorder/big_endian.h:34:43: note: in expansion of macro '__swab16'
->  #define __cpu_to_le16(x) ((__force __le16)__swab16((x)))
 
-[]
+   UNSECURED BUSINESS/PERSONAL LOAN BY LOAN CAPITAL FINANCE
+ - NO COLLATERAL
+ - MINIMUM DOCUMENTATION
+ - BUSINESS LOAN UP TO FIVE(5) MILLION US DOLLARS
 
-> The problem is that the 'mask' value is a signed integer that gets
-> turned into a negative number when truncated to 16 bits. Making it
-> an unsigned constant avoids this.
-
-I would expect there are more of these.
-
-Perhaps this define in include/uapi/linux/swab.h:
-
-#define __swab16(x)				\
-	(__builtin_constant_p((__u16)(x)) ?	\
-	___constant_swab16(x) :			\
-	__fswab16(x))
-
-should be
-
-#define __swab16(x)				\
-	(__builtin_c
-onstant_p((__u16)(x)) ?	\
-	___constant_swab16((__u16)(x)) :
-		\
-	__fswab16((__u16)(x)))
+   CONTACT US TODAY VIA EMAIL: financeloan04@hotmail.com
