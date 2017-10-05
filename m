@@ -1,64 +1,85 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net] net: enable interface alias removal via rtnl
-Date: Thu,  5 Oct 2017 12:19:40 +0200
-Message-ID: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Oliver Hartkopp <oliver@hartkopp.net>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next V4 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion
+ and allocation
+Date: Thu, 05 Oct 2017 12:22:43 +0200
+Message-ID: <59D607F3.6090306@iogearbox.net>
+References: <150711858281.9499.7767364427831352921.stgit@firesoul> <150711863521.9499.3702385818650624585.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:46490 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751421AbdJEKT6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:19:58 -0400
+Received: from www62.your-server.de ([213.133.104.62]:39701 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751430AbdJEKWs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:22:48 -0400
+In-Reply-To: <150711863521.9499.3702385818650624585.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
-the attribute is 1 ("\0"). However, to remove an alias, the attribute
-length must be 0 (see dev_set_alias()).
+On 10/04/2017 02:03 PM, Jesper Dangaard Brouer wrote:
+[...]
+>   static int cpu_map_kthread_run(void *data)
+>   {
+>   	struct bpf_cpu_map_entry *rcpu = data;
+>
+>   	set_current_state(TASK_INTERRUPTIBLE);
+>   	while (!kthread_should_stop()) {
+> +		unsigned int processed = 0, drops = 0;
+>   		struct xdp_pkt *xdp_pkt;
+>
+> -		schedule();
+> -		/* Do work */
+> -		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
+> -			/* For now just "refcnt-free" */
+> -			page_frag_free(xdp_pkt);
+> +		/* Release CPU reschedule checks */
+> +		if (__ptr_ring_empty(rcpu->queue)) {
+> +			schedule();
+> +		} else {
+> +			cond_resched();
+> +		}
+> +
+> +		/* Process packets in rcpu->queue */
+> +		local_bh_disable();
+> +		/*
+> +		 * The bpf_cpu_map_entry is single consumer, with this
+> +		 * kthread CPU pinned. Lockless access to ptr_ring
+> +		 * consume side valid as no-resize allowed of queue.
+> +		 */
+> +		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
+> +			struct sk_buff *skb;
+> +			int ret;
+> +
+> +			skb = cpu_map_build_skb(rcpu, xdp_pkt);
+> +			if (!skb) {
+> +				page_frag_free(xdp_pkt);
+> +				continue;
+> +			}
+> +
+> +			/* Inject into network stack */
+> +			ret = netif_receive_skb_core(skb);
 
-Let's define the type to NLA_BINARY, so that the alias can be removed.
+Don't we need to hold RCU read lock for above netif_receive_skb_core()?
 
-Example:
-$ ip l s dummy0 alias foo
-$ ip l l dev dummy0
-5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
-    alias foo
-
-Before the patch:
-$ ip l s dummy0 alias ""
-RTNETLINK answers: Numerical result out of range
-
-After the patch:
-$ ip l s dummy0 alias ""
-$ ip l l dev dummy0
-5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
-
-CC: Oliver Hartkopp <oliver@hartkopp.net>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Fixes: 96ca4a2cc145 ("net: remove ifalias on empty given alias")
-Reported-by: Julien FLoret <julien.floret@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/core/rtnetlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4bcdcc68e92..570092cee902 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1483,7 +1483,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
--	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
-+	[IFLA_IFALIAS]	        = { .type = NLA_BINARY, .len = IFALIASZ - 1 },
- 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
--- 
-2.13.2
+> +			if (ret == NET_RX_DROP)
+> +				drops++;
+> +
+> +			/* Limit BH-disable period */
+> +			if (++processed == 8)
+> +				break;
+>   		}
+> +		local_bh_enable(); /* resched point, may call do_softirq() */
+> +
+>   		__set_current_state(TASK_INTERRUPTIBLE);
+>   	}
+>   	put_cpu_map_entry(rcpu);
+> @@ -463,13 +582,6 @@ static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
