@@ -1,57 +1,95 @@
-From: Brian Norris <briannorris@chromium.org>
-Subject: Re: [PATCH] mwifiex: Use put_unaligned_le32
-Date: Thu, 5 Oct 2017 11:02:50 -0700
-Message-ID: <20171005180248.GA94139@google.com>
-References: <1507141686-5178-1-git-send-email-himanshujha199640@gmail.com>
- <874lre5a86.fsf@codeaurora.org>
- <20171005083433.GA11485@himanshu-Vostro-3559>
- <87zi963s1p.fsf@codeaurora.org>
- <20171005152233.GA6250@himanshu-Vostro-3559>
+From: Levi Pearson <levipearson@gmail.com>
+Subject: Re: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
+ Shaper (CBS) qdisc
+Date: Thu, 5 Oct 2017 12:09:32 -0600
+Message-ID: <CAEYbN3RjUXGMyxo0t88-ASNVEVQdfXkMzBbMtMHAhqWScOO=Cg@mail.gmail.com>
+References: <20171004002831.18371-1-vinicius.gomes@intel.com>
+ <20171004002831.18371-4-vinicius.gomes@intel.com> <20171004063650.GA1895@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>, amitkarwar@gmail.com,
-        nishants@marvell.com, gbhat@marvell.com, huxm@marvell.com,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Himanshu Jha <himanshujha199640@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        intel-wired-lan@lists.osuosl.org,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, andre.guedes@intel.com,
+        Ivan Briano <ivan.briano@intel.com>,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, Henrik Austad <henrik@austad.us>,
+        Rodney Cummings <rodney.cummings@ni.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:54831 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751415AbdJESCx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 14:02:53 -0400
-Received: by mail-pf0-f177.google.com with SMTP id m28so3364742pfi.11
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 11:02:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171005152233.GA6250@himanshu-Vostro-3559>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33999 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751319AbdJESJe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 14:09:34 -0400
+Received: by mail-wm0-f68.google.com with SMTP id l10so7502471wmg.1
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 11:09:34 -0700 (PDT)
+In-Reply-To: <20171004063650.GA1895@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 05, 2017 at 08:52:33PM +0530, Himanshu Jha wrote:
-> There are various instances where a function used in file say for eg
-> int func_align (void* a)
-> is used and it is defined in align.h
-> But many files don't *directly* include align.h and rather include
-> any other header which includes align.h
+On Wed, Oct 4, 2017 at 12:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-I believe the general rule is that you should included headers for all
-symbols you use, and not rely on implicit includes.
+>>+static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
+>>+      .next           =       NULL,
+>>+      .id             =       "cbs",
+>>+      .priv_size      =       sizeof(struct cbs_sched_data),
+>>+      .enqueue        =       cbs_enqueue,
+>>+      .dequeue        =       qdisc_dequeue_head,
+>>+      .peek           =       qdisc_peek_dequeued,
+>>+      .init           =       cbs_init,
+>>+      .reset          =       qdisc_reset_queue,
+>>+      .destroy        =       cbs_destroy,
+>>+      .change         =       cbs_change,
+>>+      .dump           =       cbs_dump,
+>>+      .owner          =       THIS_MODULE,
+>>+};
+>
+> I don't see a software implementation for this. Looks like you are
+> trying abuse tc subsystem to bypass kernel. Could you please explain
+> this? The golden rule is: implement in kernel, then offload.
 
-The modification to the general rule is that not all headers are
-intended to be included directly, and in such cases there's likely a
-parent header that is the more appropriate target.
+It would be a shame if this were blocked due to a missing software
+implementation. This module is analogous to (and designed to work
+with) the mqprio module; it directly configures the 802.1Qav
+(Forwarding and Queuing for Time-Sensitive Streams) functionality of
+multi-queue NICs with that capability. I'm not sure what makes it seem
+like an attempt to "bypass the kernel"; it's actually an attempt to
+get an appropriate configuration path *into* the kernel, which has
+been missing for some time.
 
-In this case, the key is CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS. It
-seems that asm-generic/unaligned.h is set up to include different
-headers, based on the expected architecture behavior.
+While it would be valuable to have a CBS software-only implementation,
+and Vinicius and colleagues have mentioned plans to implement one,
+most users will have chosen Qav-compliant NICs and will prefer to use
+the hardware capability. In fact they are often *already* using that
+capability, but configure it via non-standardized interfaces in
+out-of-tree or vendor-tree drivers. I believe it's valuable to have
+the "knobs" fit in with the mqprio qdisc and the overall tc subsystem
+rather than forcing users through various unrelated configuration
+tools, but ultimately the hooks just need to be in the network
+subsystem so the drivers can be told how the user wants to set the
+registers.
 
-I wonder if include/linux/unaligned/access_ok.h should have a safety
-check (e.g., raise an #error if
-!CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS?).
+It *might* be reasonable to add the functionality of this to mqprio
+instead of a separate module, but this is only one of many possible
+802.1Q shapers that could be selected and configured (with more being
+defined by IEEE 802.1 working groups for different use cases), and it
+seems cleaner to me to have their configuration be through separate
+modules than crammed into an already-confusing one, especially since
+mqprio has much broader applicability than CBS and it probably doesn't
+make sense to burden all mqprio users with the configuration option
+overhead.
 
-> Is compiling the file the only way to check if apppropriate header is
-> included or is there some other way to check for it.
+This meets a specific need in industry (this is widely used in
+automotive infotainment devices with broad hardware support across the
+SoCs targeted at that industry) that is not well-served by a software
+implementation of class-level shaping. As a maintainer of the OpenAvnu
+project (sponsored by Avnu, an industry alliance formed around the TSN
+standards), I will be integrating support for this as soon as it's
+available to our traffic shaping management userspace tools, which
+currently have to rely on out-of-tree drivers with custom interfaces
+or the HTB shaper which can be configured close to CBS, but with
+greatly increased overhead.
 
-I believe it's mostly manual. Implicit includes have been a problem for
-anyone who refactors header files.
 
-Brian
+Levi
