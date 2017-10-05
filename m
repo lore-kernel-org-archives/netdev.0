@@ -1,40 +1,43 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] isdn/gigaset: Convert timers to use timer_setup()
-Date: Thu, 5 Oct 2017 12:17:42 -0700
-Message-ID: <CAGXu5jKbMvCcAkYSHF9n9t2+Q+JBP+aFV6Kz0PO4KD49uDDdaA@mail.gmail.com>
-References: <20171005005212.GA23556@beast> <1507190336.2167.5.camel@tiscali.nl>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v3 1/2] libbpf: parse maps sections of varying
+ size
+Date: Thu, 05 Oct 2017 21:25:49 +0200
+Message-ID: <59D6873D.6070407@iogearbox.net>
+References: <20171005144158.14860-1-kraigatgoog@gmail.com> <20171005144158.14860-2-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Johan Hovold <johan@kernel.org>,
-        gigaset307x-common@lists.sourceforge.net,
-        Network Development <netdev@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507190336.2167.5.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org
+To: Craig Gallek <kraigatgoog@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:36685 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751459AbdJETZ4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 15:25:56 -0400
+In-Reply-To: <20171005144158.14860-2-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 5, 2017 at 12:58 AM, Paul Bolle <pebolle@tiscali.nl> wrote:
-> Hi Kees,
+On 10/05/2017 04:41 PM, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
 >
-> On Wed, 2017-10-04 at 17:52 -0700, Kees Cook wrote:
->> Also uses kzmalloc to replace open-coded field assignments to NULL and zero.
+> This library previously assumed a fixed-size map options structure.
+> Any new options were ignored.  In order to allow the options structure
+> to grow and to support parsing older programs, this patch updates
+> the maps section parsing to handle varying sizes.
 >
-> If I'm allowed to whine (chances that I'm allowed to do that are not so great
-> as Dave tends to apply gigaset patches before I even have a chance to look at
-> them properly!): I'd prefer it if that was done separately in a preceding
-> patch. Would that bother you?
+> Object files with maps sections smaller than expected will have the new
+> fields initialized to zero.  Object files which have larger than expected
+> maps sections will be rejected unless all of the unrecognized data is zero.
+>
+> This change still assumes that each map definition in the maps section
+> is the same size.
+>
+> Signed-off-by: Craig Gallek <kraig@google.com>
 
-Sure, that's fine, I'll split it and re-send.
+Thanks,
 
-Thanks!
-
--Kees
-
--- 
-Kees Cook
-Pixel Security
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
