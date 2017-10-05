@@ -1,95 +1,46 @@
-From: Levi Pearson <levipearson@gmail.com>
-Subject: Re: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Thu, 5 Oct 2017 12:09:32 -0600
-Message-ID: <CAEYbN3RjUXGMyxo0t88-ASNVEVQdfXkMzBbMtMHAhqWScOO=Cg@mail.gmail.com>
-References: <20171004002831.18371-1-vinicius.gomes@intel.com>
- <20171004002831.18371-4-vinicius.gomes@intel.com> <20171004063650.GA1895@nanopsycho>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] netfilter: ipset: Convert timers to use timer_setup()
+Date: Thu, 5 Oct 2017 11:15:40 -0700
+Message-ID: <CAGXu5jJGiLDb1afVUsj=S=tA-WO1O-aJgmxz7706iC4QK9MxZg@mail.gmail.com>
+References: <20171005005221.GA23584@beast> <alpine.DEB.2.11.1710051551460.11178@blackhole.kfki.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        intel-wired-lan@lists.osuosl.org,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>, andre.guedes@intel.com,
-        Ivan Briano <ivan.briano@intel.com>,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, Henrik Austad <henrik@austad.us>,
-        Rodney Cummings <rodney.cummings@ni.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33999 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751319AbdJESJe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 14:09:34 -0400
-Received: by mail-wm0-f68.google.com with SMTP id l10so7502471wmg.1
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 11:09:34 -0700 (PDT)
-In-Reply-To: <20171004063650.GA1895@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        simran singhal <singhalsimran0@gmail.com>,
+        Muhammad Falak R Wani <falakreyaz@gmail.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        Network Development <netdev@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.11.1710051551460.11178@blackhole.kfki.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 4, 2017 at 12:36 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-
->>+static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
->>+      .next           =       NULL,
->>+      .id             =       "cbs",
->>+      .priv_size      =       sizeof(struct cbs_sched_data),
->>+      .enqueue        =       cbs_enqueue,
->>+      .dequeue        =       qdisc_dequeue_head,
->>+      .peek           =       qdisc_peek_dequeued,
->>+      .init           =       cbs_init,
->>+      .reset          =       qdisc_reset_queue,
->>+      .destroy        =       cbs_destroy,
->>+      .change         =       cbs_change,
->>+      .dump           =       cbs_dump,
->>+      .owner          =       THIS_MODULE,
->>+};
+On Thu, Oct 5, 2017 at 6:58 AM, Jozsef Kadlecsik
+<kadlec@blackhole.kfki.hu> wrote:
+> Hi,
 >
-> I don't see a software implementation for this. Looks like you are
-> trying abuse tc subsystem to bypass kernel. Could you please explain
-> this? The golden rule is: implement in kernel, then offload.
+> On Wed, 4 Oct 2017, Kees Cook wrote:
+>
+>> In preparation for unconditionally passing the struct timer_list pointer
+>> to all timer callbacks, switch to using the new timer_setup() and
+>> from_timer() to pass the timer pointer explicitly. This introduces a
+>> pointer back to the struct ip_set, which is used instead of the struct
+>> timer_list .data field.
+>
+> Please add the same changes to net/netfilter/ipset/ip_set_list.c too, in
+> order to handle all ipset modules in a single patch. I don't see a way
+> either to avoid the introduction of the new pointer.
 
-It would be a shame if this were blocked due to a missing software
-implementation. This module is analogous to (and designed to work
-with) the mqprio module; it directly configures the 802.1Qav
-(Forwarding and Queuing for Time-Sensitive Streams) functionality of
-multi-queue NICs with that capability. I'm not sure what makes it seem
-like an attempt to "bypass the kernel"; it's actually an attempt to
-get an appropriate configuration path *into* the kernel, which has
-been missing for some time.
+Ah yes, thanks. I'll send a v2 with that included.
 
-While it would be valuable to have a CBS software-only implementation,
-and Vinicius and colleagues have mentioned plans to implement one,
-most users will have chosen Qav-compliant NICs and will prefer to use
-the hardware capability. In fact they are often *already* using that
-capability, but configure it via non-standardized interfaces in
-out-of-tree or vendor-tree drivers. I believe it's valuable to have
-the "knobs" fit in with the mqprio qdisc and the overall tc subsystem
-rather than forcing users through various unrelated configuration
-tools, but ultimately the hooks just need to be in the network
-subsystem so the drivers can be told how the user wants to set the
-registers.
+-Kees
 
-It *might* be reasonable to add the functionality of this to mqprio
-instead of a separate module, but this is only one of many possible
-802.1Q shapers that could be selected and configured (with more being
-defined by IEEE 802.1 working groups for different use cases), and it
-seems cleaner to me to have their configuration be through separate
-modules than crammed into an already-confusing one, especially since
-mqprio has much broader applicability than CBS and it probably doesn't
-make sense to burden all mqprio users with the configuration option
-overhead.
-
-This meets a specific need in industry (this is widely used in
-automotive infotainment devices with broad hardware support across the
-SoCs targeted at that industry) that is not well-served by a software
-implementation of class-level shaping. As a maintainer of the OpenAvnu
-project (sponsored by Avnu, an industry alliance formed around the TSN
-standards), I will be integrating support for this as soon as it's
-available to our traffic shaping management userspace tools, which
-currently have to rely on out-of-tree drivers with custom interfaces
-or the HTB shaper which can be configured close to CBS, but with
-greatly increased overhead.
-
-
-Levi
+-- 
+Kees Cook
+Pixel Security
