@@ -1,105 +1,41 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: can: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:26 -0700
-Message-ID: <20171005005126.GA23416@beast>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] dev: advertise the new nsid when the netns
+ iface changes
+Date: Wed, 04 Oct 2017 18:05:00 -0700 (PDT)
+Message-ID: <20171004.180500.2303647937190147725.davem@davemloft.net>
+References: <52f84baf-8027-d01f-8ece-db4f39a2f76f@6wind.com>
+        <20171003115323.21388-1-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jason@zx2c4.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57046 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751522AbdJEBFB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 21:05:01 -0400
+In-Reply-To: <20171003115323.21388-1-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue,  3 Oct 2017 13:53:23 +0200
 
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-can@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-This requires commit 686fef928bba ("timer: Prepare to change timer
-callback argument type") in v4.14-rc3, but should be otherwise
-stand-alone.
----
- net/can/af_can.c | 4 ++--
- net/can/af_can.h | 2 +-
- net/can/proc.c   | 8 ++++----
- 3 files changed, 7 insertions(+), 7 deletions(-)
+> x-netns interfaces are bound to two netns: the link netns and the upper
+> netns. Usually, this kind of interfaces is created in the link netns and
+> then moved to the upper netns. At the end, the interface is visible only
+> in the upper netns. The link nsid is advertised via netlink in the upper
+> netns, thus the user always knows where is the link part.
+> 
+> There is no such mechanism in the link netns. When the interface is moved
+> to another netns, the user cannot "follow" it.
+> This patch adds a new netlink attribute which helps to follow an interface
+> which moves to another netns. When the interface is unregistered, the new
+> nsid is advertised. If the interface is a x-netns interface (ie
+> rtnl_link_ops->get_link_net is defined), the nsid is allocated if needed.
+> 
+> CC: Jason A. Donenfeld <Jason@zx2c4.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index 88edac0f3e36..1f75e11ac35a 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -882,8 +882,8 @@ static int can_pernet_init(struct net *net)
- 	if (IS_ENABLED(CONFIG_PROC_FS)) {
- 		/* the statistics are updated every second (timer triggered) */
- 		if (stats_timer) {
--			setup_timer(&net->can.can_stattimer, can_stat_update,
--				    (unsigned long)net);
-+			timer_setup(&net->can.can_stattimer, can_stat_update,
-+				    0);
- 			mod_timer(&net->can.can_stattimer,
- 				  round_jiffies(jiffies + HZ));
- 		}
-diff --git a/net/can/af_can.h b/net/can/af_can.h
-index d0ef45bb2a72..eca6463c6213 100644
---- a/net/can/af_can.h
-+++ b/net/can/af_can.h
-@@ -113,6 +113,6 @@ struct s_pstats {
- /* function prototypes for the CAN networklayer procfs (proc.c) */
- void can_init_proc(struct net *net);
- void can_remove_proc(struct net *net);
--void can_stat_update(unsigned long data);
-+void can_stat_update(struct timer_list *t);
- 
- #endif /* AF_CAN_H */
-diff --git a/net/can/proc.c b/net/can/proc.c
-index 83045f00c63c..d979b3dc49a6 100644
---- a/net/can/proc.c
-+++ b/net/can/proc.c
-@@ -115,9 +115,9 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
- 	return rate;
- }
- 
--void can_stat_update(unsigned long data)
-+void can_stat_update(struct timer_list *t)
- {
--	struct net *net = (struct net *)data;
-+	struct net *net = from_timer(net, t, can.can_stattimer);
- 	struct s_stats *can_stats = net->can.can_stats;
- 	unsigned long j = jiffies; /* snapshot */
- 
-@@ -221,7 +221,7 @@ static int can_stats_proc_show(struct seq_file *m, void *v)
- 
- 	seq_putc(m, '\n');
- 
--	if (net->can.can_stattimer.function == can_stat_update) {
-+	if (net->can.can_stattimer.function == (TIMER_FUNC_TYPE)can_stat_update) {
- 		seq_printf(m, " %8ld %% total match ratio (RXMR)\n",
- 				can_stats->total_rx_match_ratio);
- 
-@@ -291,7 +291,7 @@ static int can_reset_stats_proc_show(struct seq_file *m, void *v)
- 
- 	user_reset = 1;
- 
--	if (net->can.can_stattimer.function == can_stat_update) {
-+	if (net->can.can_stattimer.function == (TIMER_FUNC_TYPE)can_stat_update) {
- 		seq_printf(m, "Scheduled statistic reset #%ld.\n",
- 				can_pstats->stats_reset + 1);
- 	} else {
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+Ok, applied, thanks.
