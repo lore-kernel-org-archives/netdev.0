@@ -1,52 +1,42 @@
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Subject: Re: [PATCH] ipv6: gso: fix payload length when gso_size is zero
-Date: Thu, 5 Oct 2017 11:24:15 -0700
-Message-ID: <44d05220-0bab-4dfd-09e0-8a1a37d10ce8@oracle.com>
-References: <1507223207-17557-1-git-send-email-alexey.kodanev@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
+ Shaper (CBS) qdisc
+Date: Thu, 05 Oct 2017 11:29:09 -0700 (PDT)
+Message-ID: <20171005.112909.2052593524154643514.davem@davemloft.net>
+References: <20171004002831.18371-4-vinicius.gomes@intel.com>
+        <20171004063650.GA1895@nanopsycho>
+        <CAEYbN3RjUXGMyxo0t88-ASNVEVQdfXkMzBbMtMHAhqWScOO=Cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        David Miller <davem@davemloft.net>
-To: Alexey Kodanev <alexey.kodanev@oracle.com>, netdev@vger.kernel.org
+Cc: jiri@resnulli.us, vinicius.gomes@intel.com, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, rodney.cummings@ni.com
+To: levipearson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26251 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751388AbdJESYm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 14:24:42 -0400
-In-Reply-To: <1507223207-17557-1-git-send-email-alexey.kodanev@oracle.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:47974 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751334AbdJES3L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 14:29:11 -0400
+In-Reply-To: <CAEYbN3RjUXGMyxo0t88-ASNVEVQdfXkMzBbMtMHAhqWScOO=Cg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/5/17 10:06 AM, Alexey Kodanev wrote:
-> When gso_size reset to zero for the tail segment in skb_segment(), later
-> in ipv6_gso_segment(), we will get incorrect payload_len for that segment.
-> inet_gso_segment() already has a check for gso_size before calculating
-> payload so fixing only IPv6 part.
-> 
-> The issue was found with LTP vxlan & gre tests over ixgbe NIC.
-> 
-> Fixes: 07b26c9454a2 ("gso: Support partial splitting at the frag_list pointer")
-> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
-> ---
->   net/ipv6/ip6_offload.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-> index cdb3728..4a87f94 100644
-> --- a/net/ipv6/ip6_offload.c
-> +++ b/net/ipv6/ip6_offload.c
-> @@ -105,7 +105,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
->   
->   	for (skb = segs; skb; skb = skb->next) {
->   		ipv6h = (struct ipv6hdr *)(skb_mac_header(skb) + nhoff);
-> -		if (gso_partial)
-> +		if (gso_partial && skb_is_gso(skb))
->   			payload_len = skb_shinfo(skb)->gso_size +
->   				      SKB_GSO_CB(skb)->data_offset +
->   				      skb->head - (unsigned char *)(ipv6h + 1);
-> 
+From: Levi Pearson <levipearson@gmail.com>
+Date: Thu, 5 Oct 2017 12:09:32 -0600
 
-Reviewed-by: Girish Moodalbail <girish.moodalbail@oracle.com>
+> It would be a shame if this were blocked due to a missing software
+> implementation.
+
+Quite the contrary, I think a software implementation is a minimum
+requirement for inclusion of this feature.
+
+Without a software implementation, there is no clear definition of
+what is supposed to happen, and no clear way for people to test those
+expectations unless they have the specific hardware.
+
+I completely agree with Jiri.  Hardware offload first is _not_ how
+we do things in the Linux networking.
