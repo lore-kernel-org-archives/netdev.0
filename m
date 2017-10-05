@@ -1,52 +1,43 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next 2/6] net: bridge: Notify on bridge device mrouter
- state changes
-Date: Thu, 5 Oct 2017 16:11:14 +0300
-Message-ID: <6f3808ff-5352-704d-3882-d97b9da6404c@cumulusnetworks.com>
-References: <20171005103642.1414-1-jiri@resnulli.us>
- <20171005103642.1414-3-jiri@resnulli.us>
+From: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Thu, 5 Oct 2017 21:16:31 +0800
+Message-ID: <20171005131631.GA1553@gondor.apana.org.au>
+References: <20171003052643.GB22750@gondor.apana.org.au>
+ <20171003224505.GE19750@localhost.localdomain>
+ <20171005034054.GB31996@gondor.apana.org.au>
+ <20171004.213758.2210486785503998906.davem@davemloft.net>
+ <20171005101620.GA1246@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        nogahf@mellanox.com, mlxsw@mellanox.com, ivecera@redhat.com,
-        andrew@lunn.ch, stephen@networkplumber.org, nbd@nbd.name,
-        roopa@cumulusnetworks.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:57180 "EHLO
-        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751280AbdJENLS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 09:11:18 -0400
-Received: by mail-lf0-f41.google.com with SMTP id 90so8720915lfs.13
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 06:11:17 -0700 (PDT)
-In-Reply-To: <20171005103642.1414-3-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: marcelo.leitner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, baijiaju1990-9Onoh4P/yGk@public.gmane.org,
+        nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, vyasevich-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sctp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20171005101620.GA1246-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/10/17 13:36, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
+On Thu, Oct 05, 2017 at 06:16:20PM +0800, Herbert Xu wrote:
+>
+> That was my point.  Functions like sctp_pack_cookie shouldn't be
+> setting the key in the first place.  The setkey should happen at
+> the point when the key is generated.  That's sctp_endpoint_init
+> which AFAICS only gets called in GFP_KERNEL context.
 > 
-> Add the SWITCHDEV_ATTR_ID_BRIDGE_MROUTER switchdev notification type, used
-> to indicate whether the bridge is or isn't mrouter. Notify when the bridge
-> changes its state, similarly to the already existing bridged port mrouter
-> notifications.
-> 
-> The notification uses the switchdev_attr.u.mrouter boolean flag to indicate
-> the current bridge mrouter status. Thus, it only indicates whether the
-> bridge is currently used as an mrouter or not, and does not indicate the
-> exact mrouter state of the bridge (learning, permanent, etc.).
-> 
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Reviewed-by: Nogah Frankel <nogahf@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/net/switchdev.h   |  1 +
->  net/bridge/br_multicast.c | 21 ++++++++++++++++++++-
->  2 files changed, 21 insertions(+), 1 deletion(-)
-> 
+> Or is there a code-path where sctp_endpoint_init is called in
+> softirq context?
 
-LGTM, but if we switch to using the timer state it will need some adjustment.
-Anyway for this version,
+OK, there are indeed code paths where the key is derived in softirq
+context.  Notably sctp_auth_calculate_hmac.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+So I think this patch is the correct fix and I will push it upstream
+as well as back to stable.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
