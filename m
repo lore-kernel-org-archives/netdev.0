@@ -1,54 +1,167 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH] net: ipv6: remove unused code in ipv6_find_hdr()
-Date: Fri,  6 Oct 2017 02:07:08 +0800
-Message-ID: <1507226828-51366-1-git-send-email-xiaolou4617@gmail.com>
-Cc: netdev@vger.kernel.org, Lin Zhang <xiaolou4617@gmail.com>
-To: kuznet@ms2.inr.ac.ru, davem@davemloft.net, yoshfuji@linux-ipv6.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next V4 PATCH 2/5] bpf: XDP_REDIRECT enable use of cpumap
+Date: Thu, 05 Oct 2017 12:10:13 +0200
+Message-ID: <59D60505.2040004@iogearbox.net>
+References: <150711858281.9499.7767364427831352921.stgit@firesoul> <150711863012.9499.383645968070658124.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35098 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751415AbdJEKHm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:07:42 -0400
-Received: by mail-pg0-f68.google.com with SMTP id p5so13066604pgn.2
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 03:07:42 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:37947 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751408AbdJEKKP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:10:15 -0400
+In-Reply-To: <150711863012.9499.383645968070658124.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Storing the left length of skb into 'len' actually has no effect 
-so we can remove it.
+On 10/04/2017 02:03 PM, Jesper Dangaard Brouer wrote:
+> This patch connects cpumap to the xdp_do_redirect_map infrastructure.
+>
+> Still no SKB allocation are done yet.  The XDP frames are transferred
+> to the other CPU, but they are simply refcnt decremented on the remote
+> CPU.  This served as a good benchmark for measuring the overhead of
+> remote refcnt decrement.  If driver page recycle cache is not
+> efficient then this, exposes a bottleneck in the page allocator.
+>
+> A shout-out to MST's ptr_ring, which is the secret behind is being so
+> efficient to transfer memory pointers between CPUs, without constantly
+> bouncing cache-lines between CPUs.
+>
+> V3: Handle !CONFIG_BPF_SYSCALL pointed out by kbuild test robot.
+>
+> V4: Make Generic-XDP aware of cpumap type, but don't allow redirect yet,
+>   as implementation require a separate upstream discussion.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+[...]
+> diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
+> index ae8e29352261..4926a9971f90 100644
+> --- a/kernel/bpf/cpumap.c
+> +++ b/kernel/bpf/cpumap.c
+> @@ -493,7 +493,8 @@ static int bq_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_pkt *xdp_pkt)
+>   	return 0;
+>   }
+>
+> -int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp)
+> +int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
+> +		    struct net_device *dev_rx)
+>   {
+>   	struct xdp_pkt *xdp_pkt;
+>   	int headroom;
+> @@ -505,7 +506,7 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp)
+>   	xdp_pkt = xdp->data_hard_start;
+>   	xdp_pkt->data = xdp->data;
+>   	xdp_pkt->len  = xdp->data_end - xdp->data;
+> -	xdp_pkt->headroom = headroom;
+> +	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
 
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
----
- net/ipv6/exthdrs_core.c | 3 ---
- 1 file changed, 3 deletions(-)
+(Just a note, bit confusing that first two patches add and extend
+  this, and only in the third you add the xdp->data_meta handling,
+  makes it harder to review at least.)
 
-diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-index 305e2ed..98096ea 100644
---- a/net/ipv6/exthdrs_core.c
-+++ b/net/ipv6/exthdrs_core.c
-@@ -187,7 +187,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- {
- 	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
- 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
--	unsigned int len;
- 	bool found;
- 
- 	if (fragoff)
-@@ -204,7 +203,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 		start = *offset + sizeof(struct ipv6hdr);
- 		nexthdr = ip6->nexthdr;
- 	}
--	len = skb->len - start;
- 
- 	do {
- 		struct ipv6_opt_hdr _hdr, *hp;
-@@ -273,7 +271,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 
- 		if (!found) {
- 			nexthdr = hp->nexthdr;
--			len -= hdrlen;
- 			start += hdrlen;
- 		}
- 	} while (!found);
--- 
-1.8.3.1
+[...]
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 9b6e7e84aafd..dbf2ae071108 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2521,10 +2521,36 @@ static int __bpf_tx_xdp(struct net_device *dev,
+>   	err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
+>   	if (err)
+>   		return err;
+> -	if (map)
+> +	dev->netdev_ops->ndo_xdp_flush(dev);
+> +	return 0;
+> +}
+> +
+> +static int __bpf_tx_xdp_map(struct net_device *dev_rx, void *fwd,
+> +			    struct bpf_map *map,
+> +			    struct xdp_buff *xdp,
+> +			    u32 index)
+> +{
+> +	int err;
+> +
+> +	if (map->map_type == BPF_MAP_TYPE_DEVMAP) {
+> +		struct net_device *dev = fwd;
+> +
+> +		if (!dev->netdev_ops->ndo_xdp_xmit)
+> +			return -EOPNOTSUPP;
+> +
+> +		err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
+> +		if (err)
+> +			return err;
+>   		__dev_map_insert_ctx(map, index);
+> -	else
+> -		dev->netdev_ops->ndo_xdp_flush(dev);
+> +
+> +	} else if (map->map_type == BPF_MAP_TYPE_CPUMAP) {
+> +		struct bpf_cpu_map_entry *rcpu = fwd;
+> +
+> +		err = cpu_map_enqueue(rcpu, xdp, dev_rx);
+> +		if (err)
+> +			return err;
+> +		__cpu_map_insert_ctx(map, index);
+> +	}
+>   	return 0;
+>   }
+>
+> @@ -2534,11 +2560,33 @@ void xdp_do_flush_map(void)
+>   	struct bpf_map *map = ri->map_to_flush;
+>
+>   	ri->map_to_flush = NULL;
+> -	if (map)
+> -		__dev_map_flush(map);
+> +	if (map) {
+> +		switch (map->map_type) {
+> +		case BPF_MAP_TYPE_DEVMAP:
+> +			__dev_map_flush(map);
+> +			break;
+> +		case BPF_MAP_TYPE_CPUMAP:
+> +			__cpu_map_flush(map);
+> +			break;
+> +		default:
+> +			break;
+> +		}
+> +	}
+>   }
+>   EXPORT_SYMBOL_GPL(xdp_do_flush_map);
+>
+> +static void *__xdp_map_lookup_elem(struct bpf_map *map, u32 index)
+> +{
+> +	switch (map->map_type) {
+> +	case BPF_MAP_TYPE_DEVMAP:
+> +		return __dev_map_lookup_elem(map, index);
+> +	case BPF_MAP_TYPE_CPUMAP:
+> +		return __cpu_map_lookup_elem(map, index);
+> +	default:
+> +		return NULL;
+> +	}
+
+Should we just have a callback and instead of the above use
+map->ptr_lookup_elem() (or however we name it) ... lot of it
+is pretty much the same logic as with devmap.
+
+> +}
+> +
+>   static inline bool xdp_map_invalid(const struct bpf_prog *xdp_prog,
+>   				   unsigned long aux)
+>   {
+> @@ -2551,8 +2599,8 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+>   	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+>   	unsigned long map_owner = ri->map_owner;
+>   	struct bpf_map *map = ri->map;
+> -	struct net_device *fwd = NULL;
+>   	u32 index = ri->ifindex;
+> +	void *fwd = NULL;
+>   	int err;
+>
+>   	ri->ifindex = 0;
