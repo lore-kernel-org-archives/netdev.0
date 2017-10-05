@@ -1,90 +1,145 @@
-From: Chenbo Feng <fengc@google.com>
-Subject: Re: [PATCH net-next 1/4] bpf: Add file mode configuration into bpf maps
-Date: Wed, 4 Oct 2017 16:58:05 -0700
-Message-ID: <CAMOXUJnpuvZjF7fiPXB+3ao0fopm6kS6Y9tACh8trq4PKG0RsA@mail.gmail.com>
-References: <20171004182932.140028-1-chenbofeng.kernel@gmail.com>
- <20171004182932.140028-2-chenbofeng.kernel@gmail.com> <59D56EED.1030804@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org,
-        SELinux <Selinux@tycho.nsa.gov>,
-        linux-security-module@vger.kernel.org,
-        Jeffrey Vander Stoep <jeffv@google.com>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <59D56EED.1030804@iogearbox.net>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCHv2 net-next] openvswitch: Add erspan tunnel support.
+Date: Wed,  4 Oct 2017 17:03:12 -0700
+Message-ID: <1507161792-18340-1-git-send-email-u9012063@gmail.com>
+Cc: Pravin B Shelar <pshelar@ovn.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:37933 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750951AbdJEADY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:03:24 -0400
+Received: by mail-pg0-f68.google.com with SMTP id y192so14492044pgd.5
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 17:03:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 4, 2017 at 4:29 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 10/04/2017 08:29 PM, Chenbo Feng wrote:
->>
->> From: Chenbo Feng <fengc@google.com>
->>
->> Introduce the map read/write flags to the eBPF syscalls that returns the
->> map fd. The flags is used to set up the file mode when construct a new
->> file descriptor for bpf maps. To not break the backward capability, the
->> f_flags is set to O_RDWR if the flag passed by syscall is 0. Otherwise
->> it should be O_RDONLY or O_WRONLY. When the userspace want to modify or
->> read the map content, it will check the file mode to see if it is
->> allowed to make the change.
->
-> [...]
->>
->> +int bpf_get_file_flag(int flags)
->> +{
->> +       if ((flags & BPF_F_RDONLY) && (flags & BPF_F_WRONLY))
->> +               return -EINVAL;
->> +       if (flags & BPF_F_RDONLY)
->> +               return O_RDONLY;
->> +       if (flags & BPF_F_WRONLY)
->> +               return O_WRONLY;
->> +       return O_RDWR;
->>   }
->>
->>   /* helper macro to check that unused fields 'union bpf_attr' are zero */
->> @@ -345,12 +376,17 @@ static int map_create(union bpf_attr *attr)
->>   {
->>         int numa_node = bpf_map_attr_numa_node(attr);
->>         struct bpf_map *map;
->> +       int f_flags;
->>         int err;
->>
->>         err = CHECK_ATTR(BPF_MAP_CREATE);
->>         if (err)
->>                 return -EINVAL;
->>
->> +       f_flags = bpf_get_file_flag(attr->map_flags);
->> +       if (f_flags < 0)
->> +               return f_flags;
->
->
-> Wait, I just noticed, given you add BPF_F_RDONLY/BPF_F_WRONLY
-> to attr->map_flags, and later go into find_and_alloc_map(),
-> for map alloc, which is e.g. array_map_alloc(). There, we
-> bail out with EINVAL on attr->map_flags & ~BPF_F_NUMA_NODE,
-> which is the case for both BPF_F_RDONLY/BPF_F_WRONLY ... I
-> would have expected that the entire code was tested properly;
-> what was tested exactly in the set?
->
+Add erspan netlink interface for OVS.
 
-Thanks for pointing out this, my test for the patch create the map
-with RD/WR flag which is 0.... that's why I didn't catch this. And
-bpf_obj_get do not have similar checks for map_flags.
->>         if (numa_node != NUMA_NO_NODE &&
->>             ((unsigned int)numa_node >= nr_node_ids ||
->>              !node_online(numa_node)))
->> @@ -376,7 +412,7 @@ static int map_create(union bpf_attr *attr)
->>         if (err)
->>                 goto free_map;
->>
->> -       err = bpf_map_new_fd(map);
->> +       err = bpf_map_new_fd(map, f_flags);
->>         if (err < 0) {
->>                 /* failed to allocate fd.
->>                  * bpf_map_put() is needed because the above
->> @@ -491,6 +527,11 @@ static int map_lookup_elem(union bpf_attr *attr)
->
-> [...]
+Signed-off-by: William Tu <u9012063@gmail.com>
+Cc: Pravin B Shelar <pshelar@ovn.org>
+---
+v1->v2: remove unnecessary compat code.
+---
+ include/uapi/linux/openvswitch.h |  1 +
+ net/openvswitch/flow_netlink.c   | 51 +++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 156ee4cab82e..efdbfbfd3ee2 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -359,6 +359,7 @@ enum ovs_tunnel_key_attr {
+ 	OVS_TUNNEL_KEY_ATTR_IPV6_SRC,		/* struct in6_addr src IPv6 address. */
+ 	OVS_TUNNEL_KEY_ATTR_IPV6_DST,		/* struct in6_addr dst IPv6 address. */
+ 	OVS_TUNNEL_KEY_ATTR_PAD,
++	OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS,	/* be32 ERSPAN index. */
+ 	__OVS_TUNNEL_KEY_ATTR_MAX
+ };
+ 
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index e8eb427ce6d1..fc0ca9a89b8e 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -48,6 +48,7 @@
+ #include <net/ndisc.h>
+ #include <net/mpls.h>
+ #include <net/vxlan.h>
++#include <net/erspan.h>
+ 
+ #include "flow_netlink.h"
+ 
+@@ -319,7 +320,8 @@ size_t ovs_tun_key_attr_size(void)
+ 		 * OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS and covered by it.
+ 		 */
+ 		+ nla_total_size(2)    /* OVS_TUNNEL_KEY_ATTR_TP_SRC */
+-		+ nla_total_size(2);   /* OVS_TUNNEL_KEY_ATTR_TP_DST */
++		+ nla_total_size(2)    /* OVS_TUNNEL_KEY_ATTR_TP_DST */
++		+ nla_total_size(4);   /* OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS */
+ }
+ 
+ size_t ovs_key_attr_size(void)
+@@ -371,6 +373,7 @@ static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1]
+ 						.next = ovs_vxlan_ext_key_lens },
+ 	[OVS_TUNNEL_KEY_ATTR_IPV6_SRC]      = { .len = sizeof(struct in6_addr) },
+ 	[OVS_TUNNEL_KEY_ATTR_IPV6_DST]      = { .len = sizeof(struct in6_addr) },
++	[OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS]   = { .len = sizeof(u32) },
+ };
+ 
+ /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
+@@ -593,6 +596,33 @@ static int vxlan_tun_opt_from_nlattr(const struct nlattr *attr,
+ 	return 0;
+ }
+ 
++static int erspan_tun_opt_from_nlattr(const struct nlattr *attr,
++				      struct sw_flow_match *match, bool is_mask,
++				      bool log)
++{
++	unsigned long opt_key_offset;
++	struct erspan_metadata opts;
++
++	BUILD_BUG_ON(sizeof(opts) > sizeof(match->key->tun_opts));
++
++	memset(&opts, 0, sizeof(opts));
++	opts.index = nla_get_be32(attr);
++
++	/* Index has only 20-bit */
++	if (ntohl(opts.index) & ~INDEX_MASK) {
++		OVS_NLERR(log, "ERSPAN index number %x too large.",
++			  ntohl(opts.index));
++		return -EINVAL;
++	}
++
++	SW_FLOW_KEY_PUT(match, tun_opts_len, sizeof(opts), is_mask);
++	opt_key_offset = TUN_METADATA_OFFSET(sizeof(opts));
++	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, &opts, sizeof(opts),
++				  is_mask);
++
++	return 0;
++}
++
+ static int ip_tun_from_nlattr(const struct nlattr *attr,
+ 			      struct sw_flow_match *match, bool is_mask,
+ 			      bool log)
+@@ -700,6 +730,19 @@ static int ip_tun_from_nlattr(const struct nlattr *attr,
+ 			break;
+ 		case OVS_TUNNEL_KEY_ATTR_PAD:
+ 			break;
++		case OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS:
++			if (opts_type) {
++				OVS_NLERR(log, "Multiple metadata blocks provided");
++				return -EINVAL;
++			}
++
++			err = erspan_tun_opt_from_nlattr(a, match, is_mask, log);
++			if (err)
++				return err;
++
++			tun_flags |= TUNNEL_ERSPAN_OPT;
++			opts_type = type;
++			break;
+ 		default:
+ 			OVS_NLERR(log, "Unknown IP tunnel attribute %d",
+ 				  type);
+@@ -824,6 +867,10 @@ static int __ip_tun_to_nlattr(struct sk_buff *skb,
+ 		else if (output->tun_flags & TUNNEL_VXLAN_OPT &&
+ 			 vxlan_opt_to_nlattr(skb, tun_opts, swkey_tun_opts_len))
+ 			return -EMSGSIZE;
++		else if (output->tun_flags & TUNNEL_ERSPAN_OPT &&
++			 nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS,
++				      ((struct erspan_metadata *)tun_opts)->index))
++			return -EMSGSIZE;
+ 	}
+ 
+ 	return 0;
+@@ -2195,6 +2242,8 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 			break;
+ 		case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS:
+ 			break;
++		case OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS:
++			break;
+ 		}
+ 	};
+ 
+-- 
+2.7.4
