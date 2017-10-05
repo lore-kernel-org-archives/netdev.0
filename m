@@ -1,44 +1,48 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v4 1/3] bridge: add new BR_NEIGH_SUPPRESS port
- flag to suppress arp and nd flood
-Date: Thu, 5 Oct 2017 07:31:35 -0700
-Message-ID: <CAJieiUi_3UxH8G1UUt1q8yQKsJC0YJr41M+q34xtS-ySkFAX=A@mail.gmail.com>
-References: <1507093953-59929-1-git-send-email-roopa@cumulusnetworks.com>
- <1507093953-59929-2-git-send-email-roopa@cumulusnetworks.com> <20171004.155255.2208423870631197976.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next v3 0/2] libbpf: support more map options
+Date: Thu,  5 Oct 2017 10:41:56 -0400
+Message-ID: <20171005144158.14860-1-kraigatgoog@gmail.com>
+Cc: Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f48.google.com ([209.85.213.48]:47201 "EHLO
-        mail-vk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751409AbdJEObg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 10:31:36 -0400
-Received: by mail-vk0-f48.google.com with SMTP id h63so8154352vka.4
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 07:31:36 -0700 (PDT)
-In-Reply-To: <20171004.155255.2208423870631197976.davem@davemloft.net>
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:51584 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750965AbdJEOmB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 10:42:01 -0400
+Received: by mail-qk0-f171.google.com with SMTP id 17so14887460qkq.8
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 07:42:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 4, 2017 at 3:52 PM, David Miller <davem@davemloft.net> wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Tue,  3 Oct 2017 22:12:31 -0700
->
->> BR_ARP_PROXY flag but has a few semantic differences to conform
->
-> This should be "BR_PROXYARP".
+From: Craig Gallek <kraig@google.com>
 
-ack, will fix.
+The functional change to this series is the ability to use flags when
+creating maps from object files loaded by libbpf.  In order to do this,
+the first patch updates the library to handle map definitions that
+differ in size from libbpf's struct bpf_map_def.
 
->
-> Otherwise this series looks fine to me, but I see there will be
-> a v5 respin.
+For object files with a larger map definition, libbpf will continue to load
+if the unknown fields are all zero, otherwise the map is rejected.  If the
+map definition in the object file is smaller than expected, libbpf will use
+zero as a default value in the missing fields.
 
-yes, working on v5. I am currently testing a few more cases for
-locally generated arp/nd packets with bridge as the src dev (related
-to some questions from Toshiaki).
+Craig Gallek (2):
+  libbpf: parse maps sections of varying size
+  libbpf: use map_flags when creating maps
 
-Thanks!.
+ tools/lib/bpf/libbpf.c | 72 +++++++++++++++++++++++++++++---------------------
+ tools/lib/bpf/libbpf.h |  1 +
+ 2 files changed, 43 insertions(+), 30 deletions(-)
+
+-- 
+v3:
+  - explicit memcpy instead of struct assignment.
+  - remove unnecessary bpf_object__validate_maps function
+
+v2
+  - determine bpf_map_def structure size dynamically from object file
+
+2.14.2.920.gcf0c67979c-goog
