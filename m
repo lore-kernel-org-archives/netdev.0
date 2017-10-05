@@ -1,68 +1,67 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v6 11/11] of: mdio: Prevent of_mdiobus_register from
- scanning mdio-mux nodes
-Date: Thu, 5 Oct 2017 17:09:27 -0500
-Message-ID: <20171005220927.7rabn3ftvow253xj@rob-hp-laptop>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
- <20170927073414.17361-12-clabbe.montjoie@gmail.com>
- <20170927141213.GF13516@lunn.ch>
- <c8697b60-294f-7cc1-8425-aa5b837fcca0@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH 2/3 v2] net: phy: DP83822 initial driver submission
+Date: Thu, 5 Oct 2017 22:16:25 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B415DE@CHN-SV-EXMX02.mchp-main.com>
+References: <20171004182031.13794-1-dmurphy@ti.com>
+ <20171004182031.13794-2-dmurphy@ti.com>
+ <9235D6609DB808459E95D78E17F2E43D40B3F9A9@CHN-SV-EXMX02.mchp-main.com>
+ <20171004235307.GD16612@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <c8697b60-294f-7cc1-8425-aa5b837fcca0-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <dmurphy@ti.com>, <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+        <afd@ti.com>
+To: <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:20385 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751369AbdJEWQ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 18:16:26 -0400
+In-Reply-To: <20171004235307.GD16612@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 27, 2017 at 09:50:46PM -0700, Florian Fainelli wrote:
+> > > +static int dp83822_suspend(struct phy_device *phydev)
+> > > +{
+> > > +	int value;
+> > > +
+> > > +	mutex_lock(&phydev->lock);
+> > > +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
+> > > MII_DP83822_WOL_CFG);
+> > > +	mutex_unlock(&phydev->lock);
 > 
+> > Would we need mutex to access phy_read_mmd()?
+> > phy_read_mmd() has mdio_lock for indirect access.
 > 
-> On 09/27/2017 07:12 AM, Andrew Lunn wrote:
-> > On Wed, Sep 27, 2017 at 09:34:14AM +0200, Corentin Labbe wrote:
-> >> Each child node of an MDIO node is scanned as a PHY when calling
-> >> of_mdiobus_register() givint the following result:
-> >> [   18.175379] mdio_bus stmmac-0: /soc/ethernet@1c30000/mdio/mdio-mux has invalid PHY address
-> >> [   18.175408] mdio_bus stmmac-0: scan phy mdio-mux at address 0
-> >> [   18.175450] mdio_bus stmmac-0: scan phy mdio-mux at address 1
-> >> [...]
-> >> [   18.176420] mdio_bus stmmac-0: scan phy mdio-mux at address 30
-> >> [   18.176452] mdio_bus stmmac-0: scan phy mdio-mux at address 31
-> >>
-> >> Since mdio-mux nodes are not PHY, this patch a way to to not scan
-> >> them.
-> > 
-> > Hi Corentin
-> > 
-> > I still don't like this, but ...
+> Hi Woojung
 > 
-> Me neither, even more so as I don't understand the reasoning behind
-> putting the mux as a child node of the MDIO bus controller in the first
-> place.
+> The mdio lock is not sufficient. It protects against two mdio
+> accesses. But here we need to protect against two phy operations.
+> There is a danger something else tries to access the phy during
+> suspend.
 
-If no one agrees with me, then you shouldn't just accept my answers. I'm 
-not always right.
+Hi Andrew,
 
-Looking at this some more, why can't mdio-mux-mmio be used? Then there 
-is nothing to review or discuss. If you want to extend that then make it 
-clear this is just extending/inheriting already defined bindings.
+Thanks for comment. I have question then.
+phy_read_mmd() is protected by bus->mdio_lock around mmd_indirect & mdio_read.
+While these operation, other phy_read() & phy_write() will be blocked inside
+mdiobus_read() & mdiobus_write().
 
-That being said, if we were starting over I would probably do mux 
-designs differently with DT hierarchy reflecting the mux hierarchy, but 
-that ship has sailed.
+Because this phy_read_mmd(.., DP83822_DEVADDR, MII_DP83822_WOL_CFG) is not 
+read-modify-write operation, I think phydev->lock may not be necessary.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Am I missing something?
+
+> > > +	if (!(value & DP83822_WOL_EN))
+> > > +		genphy_suspend(phydev);
+> 
+> Releasing the lock before calling genphy_suspend() is not so nice.
+> Maybe add a version which assumes the lock has already been taken?
+> 
+We can expand genphy_suspend() per setting by phy_driver->set_wol.
+When genphy_suspend() acts per wol setting, not many phy driver needs to extra work
+When WOL is enabled.
+How do you think?
+
+- Woojung
