@@ -1,48 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
-Date: Thu, 5 Oct 2017 18:16:20 +0800
-Message-ID: <20171005101620.GA1246@gondor.apana.org.au>
-References: <20171003052643.GB22750@gondor.apana.org.au>
- <20171003224505.GE19750@localhost.localdomain>
- <20171005034054.GB31996@gondor.apana.org.au>
- <20171004.213758.2210486785503998906.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: marcelo.leitner@gmail.com, luto@kernel.org, baijiaju1990@163.com,
-        nhorman@tuxdriver.com, vyasevich@gmail.com, kvalo@codeaurora.org,
-        linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net] net: enable interface alias removal via rtnl
+Date: Thu,  5 Oct 2017 12:19:40 +0200
+Message-ID: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        Oliver Hartkopp <oliver@hartkopp.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:50520 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751400AbdJEKQ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:16:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20171004.213758.2210486785503998906.davem@davemloft.net>
+Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:46490 "EHLO
+        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751421AbdJEKT6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:19:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 04, 2017 at 09:37:58PM -0700, David Miller wrote:
->
-> > I'm not talking about the code-path in question.  I'm talking
-> > about the function which generates the secret key in the first
-> > place.  AFAICS that's only called in GFP_KERNEL context.  What
-> > am I missing?
-> 
-> The setkey happens in functions like sctp_pack_cookie() and
-> sctp_unpack_cookie(), which seems to run from software interrupts.
+IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
+the attribute is 1 ("\0"). However, to remove an alias, the attribute
+length must be 0 (see dev_set_alias()).
 
-That was my point.  Functions like sctp_pack_cookie shouldn't be
-setting the key in the first place.  The setkey should happen at
-the point when the key is generated.  That's sctp_endpoint_init
-which AFAICS only gets called in GFP_KERNEL context.
+Let's define the type to NLA_BINARY, so that the alias can be removed.
 
-Or is there a code-path where sctp_endpoint_init is called in
-softirq context?
+Example:
+$ ip l s dummy0 alias foo
+$ ip l l dev dummy0
+5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
+    alias foo
 
-Cheers,
+Before the patch:
+$ ip l s dummy0 alias ""
+RTNETLINK answers: Numerical result out of range
+
+After the patch:
+$ ip l s dummy0 alias ""
+$ ip l l dev dummy0
+5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
+
+CC: Oliver Hartkopp <oliver@hartkopp.net>
+CC: Stephen Hemminger <stephen@networkplumber.org>
+Fixes: 96ca4a2cc145 ("net: remove ifalias on empty given alias")
+Reported-by: Julien FLoret <julien.floret@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/core/rtnetlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d4bcdcc68e92..570092cee902 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1483,7 +1483,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
+ 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
+ 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
+-	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
++	[IFLA_IFALIAS]	        = { .type = NLA_BINARY, .len = IFALIASZ - 1 },
+ 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
+ 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
+ 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.13.2
