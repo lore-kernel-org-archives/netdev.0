@@ -1,128 +1,86 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] atm: idt77252: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:15 -0700
-Message-ID: <20171005005115.GA23388@beast>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/4] bpf: Add file mode configuration into bpf
+ maps
+Date: Thu, 05 Oct 2017 02:51:17 +0200
+Message-ID: <59D58205.5050908@iogearbox.net>
+References: <20171004182932.140028-1-chenbofeng.kernel@gmail.com> <20171004182932.140028-2-chenbofeng.kernel@gmail.com> <59D56EED.1030804@iogearbox.net> <CAMOXUJnpuvZjF7fiPXB+3ao0fopm6kS6Y9tACh8trq4PKG0RsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chas Williams <3chas3@gmail.com>,
-        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org,
+        SELinux <Selinux@tycho.nsa.gov>,
+        linux-security-module@vger.kernel.org,
+        Jeffrey Vander Stoep <jeffv@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Chenbo Feng <fengc@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:50786 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752569AbdJEAvW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:51:22 -0400
+In-Reply-To: <CAMOXUJnpuvZjF7fiPXB+3ao0fopm6kS6Y9tACh8trq4PKG0RsA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This required adding a pointer back
-to vc_map, and adjusting the locking around removal a bit.
+On 10/05/2017 01:58 AM, Chenbo Feng wrote:
+> On Wed, Oct 4, 2017 at 4:29 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 10/04/2017 08:29 PM, Chenbo Feng wrote:
+>>> From: Chenbo Feng <fengc@google.com>
+>>>
+>>> Introduce the map read/write flags to the eBPF syscalls that returns the
+>>> map fd. The flags is used to set up the file mode when construct a new
+>>> file descriptor for bpf maps. To not break the backward capability, the
+>>> f_flags is set to O_RDWR if the flag passed by syscall is 0. Otherwise
+>>> it should be O_RDONLY or O_WRONLY. When the userspace want to modify or
+>>> read the map content, it will check the file mode to see if it is
+>>> allowed to make the change.
+>>
+>> [...]
+>>>
+>>> +int bpf_get_file_flag(int flags)
+>>> +{
+>>> +       if ((flags & BPF_F_RDONLY) && (flags & BPF_F_WRONLY))
+>>> +               return -EINVAL;
+>>> +       if (flags & BPF_F_RDONLY)
+>>> +               return O_RDONLY;
+>>> +       if (flags & BPF_F_WRONLY)
+>>> +               return O_WRONLY;
+>>> +       return O_RDWR;
+>>>    }
+>>>
+>>>    /* helper macro to check that unused fields 'union bpf_attr' are zero */
+>>> @@ -345,12 +376,17 @@ static int map_create(union bpf_attr *attr)
+>>>    {
+>>>          int numa_node = bpf_map_attr_numa_node(attr);
+>>>          struct bpf_map *map;
+>>> +       int f_flags;
+>>>          int err;
+>>>
+>>>          err = CHECK_ATTR(BPF_MAP_CREATE);
+>>>          if (err)
+>>>                  return -EINVAL;
+>>>
+>>> +       f_flags = bpf_get_file_flag(attr->map_flags);
+>>> +       if (f_flags < 0)
+>>> +               return f_flags;
+>>
+>> Wait, I just noticed, given you add BPF_F_RDONLY/BPF_F_WRONLY
+>> to attr->map_flags, and later go into find_and_alloc_map(),
+>> for map alloc, which is e.g. array_map_alloc(). There, we
+>> bail out with EINVAL on attr->map_flags & ~BPF_F_NUMA_NODE,
+>> which is the case for both BPF_F_RDONLY/BPF_F_WRONLY ... I
+>> would have expected that the entire code was tested properly;
+>> what was tested exactly in the set?
+>
+> Thanks for pointing out this, my test for the patch create the map
+> with RD/WR flag which is 0.... that's why I didn't catch this. And
+> bpf_obj_get do not have similar checks for map_flags.
 
-Cc: Chas Williams <3chas3@gmail.com>
-Cc: linux-atm-general@lists.sourceforge.net
-Cc: netdev@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-This requires commit 686fef928bba ("timer: Prepare to change timer
-callback argument type") in v4.14-rc3, but should be otherwise
-stand-alone.
----
- drivers/atm/idt77252.c | 21 ++++++++++++---------
- drivers/atm/idt77252.h |  3 +++
- 2 files changed, 15 insertions(+), 9 deletions(-)
+Ok, please make sure to extend tools/testing/selftests/bpf/test_maps.c
+regarding the two added flags, should be really straight forward to
+integrate there and it would also help tracking potential regressions
+in future as it's run by various ci bots (like 0day bot).
 
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 47f3c4ae0594..0e3b9c44c808 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -2073,21 +2073,19 @@ idt77252_rate_logindex(struct idt77252_dev *card, int pcr)
- }
- 
- static void
--idt77252_est_timer(unsigned long data)
-+idt77252_est_timer(struct timer_list *t)
- {
--	struct vc_map *vc = (struct vc_map *)data;
-+	struct rate_estimator *est = from_timer(est, t, timer);
-+	struct vc_map *vc = est->vc;
- 	struct idt77252_dev *card = vc->card;
--	struct rate_estimator *est;
- 	unsigned long flags;
- 	u32 rate, cps;
- 	u64 ncells;
- 	u8 lacr;
- 
- 	spin_lock_irqsave(&vc->lock, flags);
--	est = vc->estimator;
--	if (!est)
-+	if (!vc->estimator)
- 		goto out;
--
- 	ncells = est->cells;
- 
- 	rate = ((u32)(ncells - est->last_cells)) << (7 - est->interval);
-@@ -2126,10 +2124,11 @@ idt77252_init_est(struct vc_map *vc, int pcr)
- 	est->maxcps = pcr < 0 ? -pcr : pcr;
- 	est->cps = est->maxcps;
- 	est->avcps = est->cps << 5;
-+	est->vc = vc;
- 
- 	est->interval = 2;		/* XXX: make this configurable */
- 	est->ewma_log = 2;		/* XXX: make this configurable */
--	setup_timer(&est->timer, idt77252_est_timer, (unsigned long)vc);
-+	timer_setup(&est->timer, idt77252_est_timer, 0);
- 	mod_timer(&est->timer, jiffies + ((HZ / 4) << est->interval));
- 
- 	return est;
-@@ -2209,16 +2208,20 @@ static int
- idt77252_init_ubr(struct idt77252_dev *card, struct vc_map *vc,
- 		  struct atm_vcc *vcc, struct atm_qos *qos)
- {
-+	struct rate_estimator *est = NULL;
- 	unsigned long flags;
- 	int tcr;
- 
- 	spin_lock_irqsave(&vc->lock, flags);
- 	if (vc->estimator) {
--		del_timer(&vc->estimator->timer);
--		kfree(vc->estimator);
-+		est = vc->estimator;
- 		vc->estimator = NULL;
- 	}
- 	spin_unlock_irqrestore(&vc->lock, flags);
-+	if (est) {
-+		del_timer_sync(&est->timer);
-+		kfree(est);
-+	}
- 
- 	tcr = atm_pcr_goal(&qos->txtp);
- 	if (tcr == 0)
-diff --git a/drivers/atm/idt77252.h b/drivers/atm/idt77252.h
-index 3a82cc23a053..9339197d701c 100644
---- a/drivers/atm/idt77252.h
-+++ b/drivers/atm/idt77252.h
-@@ -184,6 +184,8 @@ struct aal1 {
- 	unsigned char		sequence;
- };
- 
-+struct vc_map;
-+
- struct rate_estimator {
- 	struct timer_list	timer;
- 	unsigned int		interval;
-@@ -193,6 +195,7 @@ struct rate_estimator {
- 	long			avcps;
- 	u32			cps;
- 	u32			maxcps;
-+	struct vc_map		*vc;
- };
- 
- struct vc_map {
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+Thanks,
+Daniel
