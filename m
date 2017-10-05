@@ -1,106 +1,95 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: ethernet: stmmac: Convert timers to use
-Date: Thu, 5 Oct 2017 07:21:25 +0200
-Message-ID: <436427d6-242f-073f-ddc6-a9c07c95414c@st.com>
-References: <20171005005057.GA23332@beast>
+From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH 10/13] timer: Remove expires and data arguments from
+ DEFINE_TIMER
+Date: Thu, 5 Oct 2017 07:28:28 +0200
+Message-ID: <20171005052828.GA14470@kroah.com>
+References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
+ <1507159627-127660-11-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, Thomas Gleixner <tglx@linutronix.de>
-To: Kees Cook <keescook@chromium.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171005005057.GA23332@beast>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+        Chris Metcalf <cmetcalf-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+        Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+        Harish Patil <harish.patil-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Julian Wiedmann <jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        Lai Jiangshan <jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Manish Chopra <manish.chopra-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Mark Gross <mark.gross-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Martin Schwidefsky
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1507159627-127660-11-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 10/5/2017 2:50 AM, Kees Cook wrote:
-> In preparation for unconditionally passing the struct timer_list pointer to
-> all timer callbacks, switch to using the new timer_setup() and from_timer()
-> to pass the timer pointer explicitly.
->
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Alexandre Torgue <alexandre.torgue@st.com>
-> Cc: netdev@vger.kernel.org
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by:  Giuseppe Cavallaro <peppe.cavallaro@st.com>
+On Wed, Oct 04, 2017 at 04:27:04PM -0700, Kees Cook wrote:
+> Drop the arguments from the macro and adjust all callers with the
+> following script:
+> 
+>   perl -pi -e 's/DEFINE_TIMER\((.*), 0, 0\);/DEFINE_TIMER($1);/g;' \
+>     $(git grep DEFINE_TIMER | cut -d: -f1 | sort -u | grep -v timer.h)
+> 
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> Acked-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> # for m68k parts
 > ---
-> This requires commit 686fef928bba ("timer: Prepare to change timer
-> callback argument type") in v4.14-rc3, but should be otherwise
-> stand-alone.
-> ---
->   drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 22 ++++++++++------------
->   1 file changed, 10 insertions(+), 12 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-> index 6a9c954492f2..8b50afcdb52d 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-> @@ -118,10 +118,9 @@ int tse_pcs_init(void __iomem *base, struct tse_pcs *pcs)
->   	return ret;
->   }
->   
-> -static void pcs_link_timer_callback(unsigned long data)
-> +static void pcs_link_timer_callback(struct tse_pcs *pcs)
->   {
->   	u16 val = 0;
-> -	struct tse_pcs *pcs = (struct tse_pcs *)data;
->   	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
->   	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
->   
-> @@ -138,12 +137,11 @@ static void pcs_link_timer_callback(unsigned long data)
->   	}
->   }
->   
-> -static void auto_nego_timer_callback(unsigned long data)
-> +static void auto_nego_timer_callback(struct tse_pcs *pcs)
->   {
->   	u16 val = 0;
->   	u16 speed = 0;
->   	u16 duplex = 0;
-> -	struct tse_pcs *pcs = (struct tse_pcs *)data;
->   	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
->   	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
->   
-> @@ -201,14 +199,14 @@ static void auto_nego_timer_callback(unsigned long data)
->   	}
->   }
->   
-> -static void aneg_link_timer_callback(unsigned long data)
-> +static void aneg_link_timer_callback(struct timer_list *t)
->   {
-> -	struct tse_pcs *pcs = (struct tse_pcs *)data;
-> +	struct tse_pcs *pcs = from_timer(pcs, t, aneg_link_timer);
->   
->   	if (pcs->autoneg == AUTONEG_ENABLE)
-> -		auto_nego_timer_callback(data);
-> +		auto_nego_timer_callback(pcs);
->   	else if (pcs->autoneg == AUTONEG_DISABLE)
-> -		pcs_link_timer_callback(data);
-> +		pcs_link_timer_callback(pcs);
->   }
->   
->   void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
-> @@ -237,8 +235,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
->   
->   		tse_pcs_reset(tse_pcs_base, pcs);
->   
-> -		setup_timer(&pcs->aneg_link_timer,
-> -			    aneg_link_timer_callback, (unsigned long)pcs);
-> +		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
-> +			    0);
->   		mod_timer(&pcs->aneg_link_timer, jiffies +
->   			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
->   	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
-> @@ -270,8 +268,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
->   
->   		tse_pcs_reset(tse_pcs_base, pcs);
->   
-> -		setup_timer(&pcs->aneg_link_timer,
-> -			    aneg_link_timer_callback, (unsigned long)pcs);
-> +		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
-> +			    0);
->   		mod_timer(&pcs->aneg_link_timer, jiffies +
->   			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
->   	}
+>  arch/arm/mach-ixp4xx/dsmg600-setup.c      | 2 +-
+>  arch/arm/mach-ixp4xx/nas100d-setup.c      | 2 +-
+>  arch/m68k/amiga/amisound.c                | 2 +-
+>  arch/m68k/mac/macboing.c                  | 2 +-
+>  arch/mips/mti-malta/malta-display.c       | 2 +-
+>  arch/parisc/kernel/pdc_cons.c             | 2 +-
+>  arch/s390/mm/cmm.c                        | 2 +-
+>  drivers/atm/idt77105.c                    | 4 ++--
+>  drivers/atm/iphase.c                      | 2 +-
+>  drivers/block/ataflop.c                   | 8 ++++----
+>  drivers/char/dtlk.c                       | 2 +-
+>  drivers/char/hangcheck-timer.c            | 2 +-
+>  drivers/char/nwbutton.c                   | 2 +-
+>  drivers/char/rtc.c                        | 2 +-
+>  drivers/input/touchscreen/s3c2410_ts.c    | 2 +-
+>  drivers/net/cris/eth_v10.c                | 6 +++---
+>  drivers/net/hamradio/yam.c                | 2 +-
+>  drivers/net/wireless/atmel/at76c50x-usb.c | 2 +-
+>  drivers/staging/speakup/main.c            | 2 +-
+>  drivers/staging/speakup/synth.c           | 2 +-
+>  drivers/tty/cyclades.c                    | 2 +-
+>  drivers/tty/isicom.c                      | 2 +-
+>  drivers/tty/moxa.c                        | 2 +-
+>  drivers/tty/rocket.c                      | 2 +-
+>  drivers/tty/vt/keyboard.c                 | 2 +-
+>  drivers/tty/vt/vt.c                       | 2 +-
+>  drivers/watchdog/alim7101_wdt.c           | 2 +-
+>  drivers/watchdog/machzwd.c                | 2 +-
+>  drivers/watchdog/mixcomwd.c               | 2 +-
+>  drivers/watchdog/sbc60xxwdt.c             | 2 +-
+>  drivers/watchdog/sc520_wdt.c              | 2 +-
+>  drivers/watchdog/via_wdt.c                | 2 +-
+>  drivers/watchdog/w83877f_wdt.c            | 2 +-
+>  drivers/xen/grant-table.c                 | 2 +-
+>  fs/pstore/platform.c                      | 2 +-
+>  include/linux/timer.h                     | 4 ++--
+>  kernel/irq/spurious.c                     | 2 +-
+>  lib/random32.c                            | 2 +-
+>  net/atm/mpc.c                             | 2 +-
+>  net/decnet/dn_route.c                     | 2 +-
+>  net/ipv6/ip6_flowlabel.c                  | 2 +-
+>  net/netrom/nr_loopback.c                  | 2 +-
+>  security/keys/gc.c                        | 2 +-
+>  sound/oss/midibuf.c                       | 2 +-
+>  sound/oss/soundcard.c                     | 2 +-
+>  sound/oss/sys_timer.c                     | 2 +-
+>  sound/oss/uart6850.c                      | 2 +-
+>  47 files changed, 54 insertions(+), 54 deletions(-)
+
+Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
