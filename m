@@ -1,240 +1,250 @@
-From: Stephen Smalley <sds@tycho.nsa.gov>
-Subject: Re: [PATCH net-next 4/4] selinux: bpf: Add addtional check for bpf
- object file receive
-Date: Thu, 05 Oct 2017 14:26:51 -0400
-Message-ID: <1507228011.27146.20.camel@tycho.nsa.gov>
-References: <20171004182932.140028-1-chenbofeng.kernel@gmail.com>
-         <20171004182932.140028-5-chenbofeng.kernel@gmail.com>
-         <1507210621.27146.7.camel@tycho.nsa.gov>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH v2] netfilter: ipset: Convert timers to use timer_setup()
+Date: Thu, 5 Oct 2017 11:21:54 -0700
+Message-ID: <20171005182154.GA21139@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Chenbo Feng <fengc@google.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Chenbo Feng <chenbofeng.kernel@gmail.com>, netdev@vger.kernel.org,
-        SELinux <Selinux@tycho.nsa.gov>,
-        linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1507210621.27146.7.camel@tycho.nsa.gov>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        simran singhal <singhalsimran0@gmail.com>,
+        Muhammad Falak R Wani <falakreyaz@gmail.com>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-10-05 at 09:37 -0400, Stephen Smalley wrote:
-> On Wed, 2017-10-04 at 11:29 -0700, Chenbo Feng wrote:
-> > From: Chenbo Feng <fengc@google.com>
-> > 
-> > Introduce a bpf object related check when sending and receiving
-> > files
-> > through unix domain socket as well as binder. It checks if the
-> > receiving
-> > process have privilege to read/write the bpf map or use the bpf
-> > program.
-> > This check is necessary because the bpf maps and programs are using
-> > a
-> > anonymous inode as their shared inode so the normal way of checking
-> > the
-> > files and sockets when passing between processes cannot work
-> > properly
-> > on
-> > eBPF object. This check only works when the BPF_SYSCALL is
-> > configured.
-> > 
-> > Signed-off-by: Chenbo Feng <fengc@google.com>
-> > ---
-> >  include/linux/bpf.h      |  3 +++
-> >  kernel/bpf/syscall.c     |  4 ++--
-> >  security/selinux/hooks.c | 57
-> > +++++++++++++++++++++++++++++++++++++++++++++++-
-> >  3 files changed, 61 insertions(+), 3 deletions(-)
-> > 
-> > diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-> > index d757ea3f2228..ac8428a36d56 100644
-> > --- a/include/linux/bpf.h
-> > +++ b/include/linux/bpf.h
-> > @@ -250,6 +250,9 @@ int bpf_prog_test_run_skb(struct bpf_prog
-> > *prog,
-> > const union bpf_attr *kattr,
-> >  #ifdef CONFIG_BPF_SYSCALL
-> >  DECLARE_PER_CPU(int, bpf_prog_active);
-> >  
-> > +extern const struct file_operations bpf_map_fops;
-> > +extern const struct file_operations bpf_prog_fops;
-> > +
-> >  #define BPF_PROG_TYPE(_id, _ops) \
-> >  	extern const struct bpf_verifier_ops _ops;
-> >  #define BPF_MAP_TYPE(_id, _ops) \
-> > diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> > index 58ff769d58ab..5789a5359f0a 100644
-> > --- a/kernel/bpf/syscall.c
-> > +++ b/kernel/bpf/syscall.c
-> > @@ -313,7 +313,7 @@ static ssize_t bpf_dummy_write(struct file
-> > *filp,
-> > const char __user *buf,
-> >  	return -EINVAL;
-> >  }
-> >  
-> > -static const struct file_operations bpf_map_fops = {
-> > +const struct file_operations bpf_map_fops = {
-> >  #ifdef CONFIG_PROC_FS
-> >  	.show_fdinfo	= bpf_map_show_fdinfo,
-> >  #endif
-> > @@ -965,7 +965,7 @@ static void bpf_prog_show_fdinfo(struct
-> > seq_file
-> > *m, struct file *filp)
-> >  }
-> >  #endif
-> >  
-> > -static const struct file_operations bpf_prog_fops = {
-> > +const struct file_operations bpf_prog_fops = {
-> >  #ifdef CONFIG_PROC_FS
-> >  	.show_fdinfo	= bpf_prog_show_fdinfo,
-> >  #endif
-> > diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-> > index 41aba4e3d57c..381474ce3216 100644
-> > --- a/security/selinux/hooks.c
-> > +++ b/security/selinux/hooks.c
-> > @@ -1847,6 +1847,7 @@ static int file_has_perm(const struct cred
-> > *cred,
-> >  
-> >  	/* av is zero if only checking access to the descriptor.
-> > */
-> >  	rc = 0;
-> > +
-> >  	if (av)
-> >  		rc = inode_has_perm(cred, inode, av, &ad);
-> >  
-> > @@ -2142,6 +2143,10 @@ static int
-> > selinux_binder_transfer_binder(struct task_struct *from,
-> >  			    NULL);
-> >  }
-> >  
-> > +#ifdef CONFIG_BPF_SYSCALL
-> > +static int bpf_fd_pass(struct file *file, u32 sid);
-> > +#endif
-> > +
-> >  static int selinux_binder_transfer_file(struct task_struct *from,
-> >  					struct task_struct *to,
-> >  					struct file *file)
-> > @@ -2165,6 +2170,12 @@ static int
-> > selinux_binder_transfer_file(struct
-> > task_struct *from,
-> >  			return rc;
-> >  	}
-> >  
-> > +#ifdef CONFIG_BPF_SYSCALL
-> > +	rc = bpf_fd_pass(file, sid);
-> > +	if (rc)
-> > +		return rc;
-> > +#endif
-> > +
-> >  	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
-> >  		return 0;
-> >  
-> > @@ -3735,8 +3746,18 @@ static int
-> > selinux_file_send_sigiotask(struct
-> > task_struct *tsk,
-> >  static int selinux_file_receive(struct file *file)
-> >  {
-> >  	const struct cred *cred = current_cred();
-> > +	int rc;
-> > +
-> > +	rc = file_has_perm(cred, file, file_to_av(file));
-> > +	if (rc)
-> > +		goto out;
-> > +
-> > +#ifdef CONFIG_BPF_SYSCALL
-> > +	rc = bpf_fd_pass(file, cred_sid(sid));
-> > +#endif
-> >  
-> > -	return file_has_perm(cred, file, file_to_av(file));
-> > +out:
-> > +	return rc;
-> >  }
-> >  
-> >  static int selinux_file_open(struct file *file, const struct cred
-> > *cred)
-> > @@ -6288,6 +6309,40 @@ static u32 bpf_map_fmode_to_av(fmode_t
-> > fmode)
-> >  	return av;
-> >  }
-> >  
-> > +/* This function will check the file pass through unix socket or
-> > binder to see
-> > + * if it is a bpf related object. And apply correspinding checks
-> > on
-> > the bpf
-> > + * object based on the type. The bpf maps and programs, not like
-> > other files and
-> > + * socket, are using a shared anonymous inode inside the kernel as
-> > their inode.
-> > + * So checking that inode cannot identify if the process have
-> > privilege to
-> > + * access the bpf object and that's why we have to add this
-> > additional check in
-> > + * selinux_file_receive and selinux_binder_transfer_files.
-> > + */
-> > +static int bpf_fd_pass(struct file *file, u32 sid)
-> > +{
-> > +	struct bpf_security_struct *bpfsec;
-> > +	u32 sid = cred_sid(cred);
-> > +	struct bpf_prog *prog;
-> > +	struct bpf_map *map;
-> > +	int ret;
-> > +
-> > +	if (file->f_op == &bpf_map_fops) {
-> > +		map = file->private_data;
-> > +		bpfsec = map->security;
-> > +		ret = avc_has_perm(sid, bpfsec->sid,
-> > SECCLASS_BPF_MAP,
-> > +				   bpf_map_fmode_to_av(file-
-> > > f_mode), NULL);
-> > 
-> > +		if (ret)
-> > +			return ret;
-> > +	} else if (file->f_op == &bpf_prog_fops) {
-> > +		prog = file->private_data;
-> > +		bpfsec = prog->aux->security;
-> > +		ret = avc_has_perm(sid, bpfsec->sid,
-> > SECCLASS_BPF_PROG,
-> > +				   BPF_PROG__USE, NULL);
-> > +		if (ret)
-> > +			return ret;
-> > +	}
-> > +	return 0;
-> > +}
-> 
-> When the struct file is allocated for the bpf map and/or prog, you
-> could call a hook at that time passing both, and note the fact that
-> it
-> is a bpf map/prog in the file_security_struct.  Then, on
-> file_receive/binder_transfer_file, you could apply the appropriate
-> checking.  Further, if we know that the file is always allocated at
-> the
-> same point as the bpf map/prog, then they should have the same SID
-> (i.e
-> fsec->sid should be the same as bpfsec->sid), so we shouldn't even
-> need
-> to dereference the bpf map/prog.  Unless I'm missing something.
-> 
-> Also, are we concerned about doing the same in
-> flush_unauthorized_files(), for inheriting descriptors across a
-> context-changing execve?  Should this checking actually go into
-> file_has_perm() itself so it is always applied on any use of the
-> struct
-> file?
-> 
-> Lastly, do we need/want these checks if sid == bpfsec->sid?  We skip
-> FD__USE in the case where sid == fsec->sid, for example.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly. This introduces a pointer back to the
+struct ip_set, which is used instead of the struct timer_list .data field.
 
-BTW, the prog use check seems slightly redundant in that we will
-already check fd use permission.  So we only really need it if you want
-to allow fd use but deny prog use.  The map read/write checks are more
-granular than fd use, so I guess we can't get rid of those.
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: simran singhal <singhalsimran0@gmail.com>
+Cc: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Cc: netfilter-devel@vger.kernel.org
+Cc: coreteam@netfilter.org
+Cc: netdev@vger.kernel.org
+Cc: Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+---
+This requires commit 686fef928bba ("timer: Prepare to change timer
+callback argument type") in v4.14-rc3, but should be otherwise
+stand-alone.
 
-> 
-> > +
-> >  static int selinux_bpf_map(struct bpf_map *map, fmode_t fmode)
-> >  {
-> >  	u32 sid = current_sid();
+v2:
+- include ip_set_list_set.c in the conversion.
+---
+ net/netfilter/ipset/ip_set_bitmap_gen.h   | 10 +++++-----
+ net/netfilter/ipset/ip_set_bitmap_ip.c    |  2 ++
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c |  2 ++
+ net/netfilter/ipset/ip_set_bitmap_port.c  |  2 ++
+ net/netfilter/ipset/ip_set_hash_gen.h     | 12 +++++++-----
+ net/netfilter/ipset/ip_set_list_set.c     | 12 +++++++-----
+ 6 files changed, 25 insertions(+), 15 deletions(-)
+
+diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
+index 8ad2b52a0b32..5ca18f07683b 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_gen.h
++++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+@@ -37,11 +37,11 @@
+ #define get_ext(set, map, id)	((map)->extensions + ((set)->dsize * (id)))
+ 
+ static void
+-mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+ {
+ 	struct mtype *map = set->data;
+ 
+-	setup_timer(&map->gc, gc, (unsigned long)set);
++	timer_setup(&map->gc, gc, 0);
+ 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ }
+ 
+@@ -272,10 +272,10 @@ mtype_list(const struct ip_set *set,
+ }
+ 
+ static void
+-mtype_gc(unsigned long ul_set)
++mtype_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct mtype *map = set->data;
++	struct mtype *map = from_timer(map, t, gc);
++	struct ip_set *set = map->set;
+ 	void *x;
+ 	u32 id;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
+index 4783efff0bde..d8975a0b4282 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ip.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
+@@ -48,6 +48,7 @@ struct bitmap_ip {
+ 	size_t memsize;		/* members size */
+ 	u8 netmask;		/* subnet netmask */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -232,6 +233,7 @@ init_map_ip(struct ip_set *set, struct bitmap_ip *map,
+ 	map->netmask = netmask;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_IPV4;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 9a065f672d3a..4c279fbd2d5d 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -52,6 +52,7 @@ struct bitmap_ipmac {
+ 	u32 elements;		/* number of max elements in the set */
+ 	size_t memsize;		/* members size */
+ 	struct timer_list gc;	/* garbage collector */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* MAC + data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -307,6 +308,7 @@ init_map_ipmac(struct ip_set *set, struct bitmap_ipmac *map,
+ 	map->elements = elements;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_IPV4;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
+index 7f0c733358a4..7f9bbd7c98b5 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_port.c
++++ b/net/netfilter/ipset/ip_set_bitmap_port.c
+@@ -40,6 +40,7 @@ struct bitmap_port {
+ 	u32 elements;		/* number of max elements in the set */
+ 	size_t memsize;		/* members size */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -214,6 +215,7 @@ init_map_port(struct ip_set *set, struct bitmap_port *map,
+ 	map->last_port = last_port;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_UNSPEC;
+ 
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 51063d9ed0f7..efffc8eabafe 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -280,6 +280,7 @@ htable_bits(u32 hashsize)
+ struct htype {
+ 	struct htable __rcu *table; /* the hash table */
+ 	struct timer_list gc;	/* garbage collection when timeout enabled */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	u32 maxelem;		/* max elements in the hash */
+ 	u32 initval;		/* random jhash init value */
+ #ifdef IP_SET_HASH_WITH_MARKMASK
+@@ -429,11 +430,11 @@ mtype_destroy(struct ip_set *set)
+ }
+ 
+ static void
+-mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+ {
+ 	struct htype *h = set->data;
+ 
+-	setup_timer(&h->gc, gc, (unsigned long)set);
++	timer_setup(&h->gc, gc, 0);
+ 	mod_timer(&h->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ 	pr_debug("gc initialized, run in every %u\n",
+ 		 IPSET_GC_PERIOD(set->timeout));
+@@ -526,10 +527,10 @@ mtype_expire(struct ip_set *set, struct htype *h)
+ }
+ 
+ static void
+-mtype_gc(unsigned long ul_set)
++mtype_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct htype *h = set->data;
++	struct htype *h = from_timer(h, t, gc);
++	struct ip_set *set = h->set;
+ 
+ 	pr_debug("called\n");
+ 	spin_lock_bh(&set->lock);
+@@ -1314,6 +1315,7 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
+ 	t->htable_bits = hbits;
+ 	RCU_INIT_POINTER(h->table, t);
+ 
++	h->set = set;
+ 	set->data = h;
+ #ifndef IP_SET_PROTO_UNDEF
+ 	if (set->family == NFPROTO_IPV4) {
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index 178d4eba013b..c9b4e05ad940 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -44,6 +44,7 @@ struct set_adt_elem {
+ struct list_set {
+ 	u32 size;		/* size of set list array */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	struct net *net;	/* namespace */
+ 	struct list_head members; /* the set members */
+ };
+@@ -571,10 +572,10 @@ static const struct ip_set_type_variant set_variant = {
+ };
+ 
+ static void
+-list_set_gc(unsigned long ul_set)
++list_set_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct list_set *map = set->data;
++	struct list_set *map = from_timer(map, t, gc);
++	struct ip_set *set = map->set;
+ 
+ 	spin_lock_bh(&set->lock);
+ 	set_cleanup_entries(set);
+@@ -585,11 +586,11 @@ list_set_gc(unsigned long ul_set)
+ }
+ 
+ static void
+-list_set_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++list_set_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+ {
+ 	struct list_set *map = set->data;
+ 
+-	setup_timer(&map->gc, gc, (unsigned long)set);
++	timer_setup(&map->gc, gc, 0);
+ 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ }
+ 
+@@ -606,6 +607,7 @@ init_list_set(struct net *net, struct ip_set *set, u32 size)
+ 
+ 	map->size = size;
+ 	map->net = net;
++	map->set = set;
+ 	INIT_LIST_HEAD(&map->members);
+ 	set->data = map;
+ 
+-- 
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
