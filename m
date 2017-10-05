@@ -1,155 +1,103 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next v3 1/2] libbpf: parse maps sections of varying size
-Date: Thu,  5 Oct 2017 10:41:57 -0400
-Message-ID: <20171005144158.14860-2-kraigatgoog@gmail.com>
-References: <20171005144158.14860-1-kraigatgoog@gmail.com>
-Cc: Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Parav Pandit <parav@mellanox.com>
+Subject: RE: [PATCH net-next 01/10] net/smc: add missing dev_put
+Date: Thu, 5 Oct 2017 14:44:52 +0000
+Message-ID: <VI1PR0502MB300821C0E577822DC66E1A83D1700@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
+ <20170920115813.63745-2-ubraun@linux.vnet.ibm.com>
+ <VI1PR0502MB30089D06B9C95D682E21511BD17D0@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+ <7961df23-1603-7853-5f3e-f31095aebba0@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
+        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
+        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
+        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
+        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:53779 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750965AbdJEOmE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 10:42:04 -0400
-Received: by mail-qt0-f175.google.com with SMTP id 47so25734519qts.10
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 07:42:03 -0700 (PDT)
-In-Reply-To: <20171005144158.14860-1-kraigatgoog@gmail.com>
+Received: from mail-db5eur01on0041.outbound.protection.outlook.com ([104.47.2.41]:27088
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751043AbdJEOo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Oct 2017 10:44:56 -0400
+In-Reply-To: <7961df23-1603-7853-5f3e-f31095aebba0@linux.vnet.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraig@google.com>
-
-This library previously assumed a fixed-size map options structure.
-Any new options were ignored.  In order to allow the options structure
-to grow and to support parsing older programs, this patch updates
-the maps section parsing to handle varying sizes.
-
-Object files with maps sections smaller than expected will have the new
-fields initialized to zero.  Object files which have larger than expected
-maps sections will be rejected unless all of the unrecognized data is zero.
-
-This change still assumes that each map definition in the maps section
-is the same size.
-
-Signed-off-by: Craig Gallek <kraig@google.com>
----
- tools/lib/bpf/libbpf.c | 70 +++++++++++++++++++++++++++++---------------------
- 1 file changed, 41 insertions(+), 29 deletions(-)
-
-diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
-index 4f402dcdf372..23152890ec60 100644
---- a/tools/lib/bpf/libbpf.c
-+++ b/tools/lib/bpf/libbpf.c
-@@ -579,31 +579,6 @@ bpf_object__init_kversion(struct bpf_object *obj,
- 	return 0;
- }
- 
--static int
--bpf_object__validate_maps(struct bpf_object *obj)
--{
--	int i;
--
--	/*
--	 * If there's only 1 map, the only error case should have been
--	 * catched in bpf_object__init_maps().
--	 */
--	if (!obj->maps || !obj->nr_maps || (obj->nr_maps == 1))
--		return 0;
--
--	for (i = 1; i < obj->nr_maps; i++) {
--		const struct bpf_map *a = &obj->maps[i - 1];
--		const struct bpf_map *b = &obj->maps[i];
--
--		if (b->offset - a->offset < sizeof(struct bpf_map_def)) {
--			pr_warning("corrupted map section in %s: map \"%s\" too small\n",
--				   obj->path, a->name);
--			return -EINVAL;
--		}
--	}
--	return 0;
--}
--
- static int compare_bpf_map(const void *_a, const void *_b)
- {
- 	const struct bpf_map *a = _a;
-@@ -615,7 +590,7 @@ static int compare_bpf_map(const void *_a, const void *_b)
- static int
- bpf_object__init_maps(struct bpf_object *obj)
- {
--	int i, map_idx, nr_maps = 0;
-+	int i, map_idx, map_def_sz, nr_maps = 0;
- 	Elf_Scn *scn;
- 	Elf_Data *data;
- 	Elf_Data *symbols = obj->efile.symbols;
-@@ -658,6 +633,15 @@ bpf_object__init_maps(struct bpf_object *obj)
- 	if (!nr_maps)
- 		return 0;
- 
-+	/* Assume equally sized map definitions */
-+	map_def_sz = data->d_size / nr_maps;
-+	if (!data->d_size || (data->d_size % nr_maps) != 0) {
-+		pr_warning("unable to determine map definition size "
-+			   "section %s, %d maps in %zd bytes\n",
-+			   obj->path, nr_maps, data->d_size);
-+		return -EINVAL;
-+	}
-+
- 	obj->maps = calloc(nr_maps, sizeof(obj->maps[0]));
- 	if (!obj->maps) {
- 		pr_warning("alloc maps for object failed\n");
-@@ -690,7 +674,7 @@ bpf_object__init_maps(struct bpf_object *obj)
- 				      obj->efile.strtabidx,
- 				      sym.st_name);
- 		obj->maps[map_idx].offset = sym.st_value;
--		if (sym.st_value + sizeof(struct bpf_map_def) > data->d_size) {
-+		if (sym.st_value + map_def_sz > data->d_size) {
- 			pr_warning("corrupted maps section in %s: last map \"%s\" too small\n",
- 				   obj->path, map_name);
- 			return -EINVAL;
-@@ -704,12 +688,40 @@ bpf_object__init_maps(struct bpf_object *obj)
- 		pr_debug("map %d is \"%s\"\n", map_idx,
- 			 obj->maps[map_idx].name);
- 		def = (struct bpf_map_def *)(data->d_buf + sym.st_value);
--		obj->maps[map_idx].def = *def;
-+		/*
-+		 * If the definition of the map in the object file fits in
-+		 * bpf_map_def, copy it.  Any extra fields in our version
-+		 * of bpf_map_def will default to zero as a result of the
-+		 * calloc above.
-+		 */
-+		if (map_def_sz <= sizeof(struct bpf_map_def)) {
-+			memcpy(&obj->maps[map_idx].def, def, map_def_sz);
-+		} else {
-+			/*
-+			 * Here the map structure being read is bigger than what
-+			 * we expect, truncate if the excess bits are all zero.
-+			 * If they are not zero, reject this map as
-+			 * incompatible.
-+			 */
-+			char *b;
-+			for (b = ((char *)def) + sizeof(struct bpf_map_def);
-+			     b < ((char *)def) + map_def_sz; b++) {
-+				if (*b != 0) {
-+					pr_warning("maps section in %s: \"%s\" "
-+						   "has unrecognized, non-zero "
-+						   "options\n",
-+						   obj->path, map_name);
-+					return -EINVAL;
-+				}
-+			}
-+			memcpy(&obj->maps[map_idx].def, def,
-+			       sizeof(struct bpf_map_def));
-+		}
- 		map_idx++;
- 	}
- 
- 	qsort(obj->maps, obj->nr_maps, sizeof(obj->maps[0]), compare_bpf_map);
--	return bpf_object__validate_maps(obj);
-+	return 0;
- }
- 
- static int bpf_object__elf_collect(struct bpf_object *obj)
--- 
-2.14.2.920.gcf0c67979c-goog
+SGkgVXJzdWxhLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFVyc3Vs
+YSBCcmF1biBbbWFpbHRvOnVicmF1bkBsaW51eC52bmV0LmlibS5jb21dDQo+IFNlbnQ6IFRodXJz
+ZGF5LCBPY3RvYmVyIDA1LCAyMDE3IDI6NTQgQU0NCj4gVG86IFBhcmF2IFBhbmRpdCA8cGFyYXZA
+bWVsbGFub3guY29tPg0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2Vy
+bmVsLm9yZzsgbGludXgtDQo+IHJkbWFAdmdlci5rZXJuZWwub3JnOyBsaW51eC1zMzkwQHZnZXIu
+a2VybmVsLm9yZzsgandpQGxpbnV4LnZuZXQuaWJtLmNvbTsNCj4gc2Nod2lkZWZza3lAZGUuaWJt
+LmNvbTsgaGVpa28uY2Fyc3RlbnNAZGUuaWJtLmNvbTsNCj4gcmFzcGxAbGludXgudm5ldC5pYm0u
+Y29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMDEvMTBdIG5ldC9zbWM6IGFkZCBt
+aXNzaW5nIGRldl9wdXQNCj4gDQo+IA0KPiANCj4gT24gMTAvMDIvMjAxNyAxMDozNiBQTSwgUGFy
+YXYgUGFuZGl0IHdyb3RlOg0KPiA+IEhpIFVyc3VsYSwgRGF2ZSwgSGFucywNCj4gPg0KPiA+PiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBsaW51eC1yZG1hLW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4LXJkbWEtDQo+ID4+IG93bmVyQHZnZXIua2VybmVs
+Lm9yZ10gT24gQmVoYWxmIE9mIFVyc3VsYSBCcmF1bg0KPiA+PiBTZW50OiBXZWRuZXNkYXksIFNl
+cHRlbWJlciAyMCwgMjAxNyA2OjU4IEFNDQo+ID4+IFRvOiBkYXZlbUBkYXZlbWxvZnQubmV0DQo+
+ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1yZG1hQHZnZXIua2VybmVsLm9y
+ZzsgbGludXgtDQo+ID4+IHMzOTBAdmdlci5rZXJuZWwub3JnOyBqd2lAbGludXgudm5ldC5pYm0u
+Y29tOyBzY2h3aWRlZnNreUBkZS5pYm0uY29tOw0KPiA+PiBoZWlrby5jYXJzdGVuc0BkZS5pYm0u
+Y29tOyByYXNwbEBsaW51eC52bmV0LmlibS5jb207DQo+ID4+IHVicmF1bkBsaW51eC52bmV0Lmli
+bS5jb20NCj4gPj4gU3ViamVjdDogW1BBVENIIG5ldC1uZXh0IDAxLzEwXSBuZXQvc21jOiBhZGQg
+bWlzc2luZyBkZXZfcHV0DQo+ID4+DQo+ID4+IEZyb206IEhhbnMgV2lwcGVsIDxod2lwcGVsQGxp
+bnV4LnZuZXQuaWJtLmNvbT4NCj4gPj4NCj4gPj4gSW4gdGhlIGluZmluaWJhbmQgcGFydCwgU01D
+IGN1cnJlbnRseSB1c2VzIGdldF9uZXRkZXYgd2hpY2ggY2FsbHMNCj4gPj4gZGV2X2hvbGQgb24g
+dGhlIHJldHVybmVkIG5ldCBkZXZpY2UuIEhvd2V2ZXIsIHRoZSBTTUMgY29kZSBuZXZlcg0KPiA+
+PiBjYWxscyBkZXZfcHV0IG9uIHRoYXQgbmV0IGRldmljZSByZXN1bHRpbmcgaW4gYSB3cm9uZyBy
+ZWZlcmVuY2UgY291bnQuDQo+ID4+DQo+ID4+IFRoaXMgcGF0Y2ggYWRkcyBhIGRldl9wdXQgYWZ0
+ZXIgdGhlIHVzYWdlIG9mIHRoZSBuZXQgZGV2aWNlIHRvIGZpeCB0aGUgaXNzdWUuDQo+ID4+DQo+
+ID4+IFNpZ25lZC1vZmYtYnk6IEhhbnMgV2lwcGVsIDxod2lwcGVsQGxpbnV4LnZuZXQuaWJtLmNv
+bT4NCj4gPj4gU2lnbmVkLW9mZi1ieTogVXJzdWxhIEJyYXVuIDx1YnJhdW5AbGludXgudm5ldC5p
+Ym0uY29tPg0KPiA+PiAtLS0NCj4gPj4gIG5ldC9zbWMvc21jX2liLmMgfCAxICsNCj4gPj4gIDEg
+ZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQ0KPiA+Pg0KPiA+PiBkaWZmIC0tZ2l0IGEvbmV0
+L3NtYy9zbWNfaWIuYyBiL25ldC9zbWMvc21jX2liLmMgaW5kZXgNCj4gPj4gNTQ3ZTBlMTEzYjE3
+Li4wYjU4NTIyOTkxNTggMTAwNjQ0DQo+ID4+IC0tLSBhL25ldC9zbWMvc21jX2liLmMNCj4gPj4g
+KysrIGIvbmV0L3NtYy9zbWNfaWIuYw0KPiA+PiBAQCAtMzgwLDYgKzM4MCw3IEBAIHN0YXRpYyBp
+bnQgc21jX2liX2ZpbGxfZ2lkX2FuZF9tYWMoc3RydWN0DQo+ID4+IHNtY19pYl9kZXZpY2UgKnNt
+Y2liZGV2LCB1OCBpYnBvcnQpDQo+ID4+ICAJbmRldiA9IHNtY2liZGV2LT5pYmRldi0+Z2V0X25l
+dGRldihzbWNpYmRldi0+aWJkZXYsIGlicG9ydCk7DQo+ID4+ICAJaWYgKG5kZXYpIHsNCj4gPj4g
+IAkJbWVtY3B5KCZzbWNpYmRldi0+bWFjLCBuZGV2LT5kZXZfYWRkciwgRVRIX0FMRU4pOw0KPiA+
+PiArCQlkZXZfcHV0KG5kZXYpOw0KPiA+DQo+ID4gSSBhbSBzb3JyeSBmb3IgcHJvdmlkaW5nIGxh
+dGUgY29tbWVudHMuIHNtY19pYl9maWxsX2dpZF9hbmRfbWFjKCkgaXMgbm90DQo+IGNvZGVkIGNv
+cnJlY3RseS4NCj4gPiBGZXcgZml4ZXMgYXJlIG5lZWRlZC4NCj4gPiAxLiBVTFAgc3VjaCBhcyBT
+TUMgc2hvdWxkIG5vdCBvcGVuIGNvZGUvZGVmZXJlbmNlIGFueSBmdW5jdGlvbiBwb2ludGVyIGxp
+a2UNCj4gZ2V0X25ldGRldigpIG9mIHRoZSBJQiBkZXZpY2UuDQo+ID4gMi4gUmVwbGFjZSBpYl9x
+dWVyeV9naWQoLi4uLCBOVUxMKQ0KPiA+IFdpdGgNCj4gPiBpYl9xdWVyeV9naWQoLi4uLCBnaWRf
+YXR0cik7DQo+ID4NCj4gPiBVc2UgZ2lkX2F0dHIubmRldiB0byBnZXQgdGhlIE1BQyBhZGRyZXNz
+Lg0KPiA+IERvIGRldl9wdXQoZ2lkX2F0dHIubmRldik7DQo+ID4NCj4gPiBDb2RlIHNob3VsZCBs
+b29rIGxpa2UgYmVsb3csDQo+ID4NCj4gPiBzdHJ1Y3QgaWJfZ2lkX2F0dHIgZ2lkX2F0dHI7DQo+
+ID4NCj4gPiByYyA9IGliX3F1ZXJ5X2dpZCguLi4sICZnaWRfYXR0cik7DQo+ID4gaWYgKHJjIHx8
+ICFnaWRfYWRkci5uZGV2KQ0KPiA+IAlyZXR1cm4gLUVOT0RFVjsNCj4gPiBlbHNlDQo+ID4gCW1l
+bWNweShzbWNpYmRldi0+bWFjLCBuZGV2LT5kZXZfYWRkciwgRVRIX0FMRU4pOw0KPiA+IGRldl9w
+dXQoZ2lkX2FkZHIubmRldik7DQo+ID4NCj4gDQo+IFRoYW5rcywgUGFyYXYhDQo+IEZvbGxvd2lu
+ZyB5b3VyIGZpeCBpZGVhcyBJIHBsYW4gdG8gY2hhbmdlIHRoZSBmdW5jdGlvbiBpbnRvIHRoaXMg
+b25lOg0KPiANCj4gc3RhdGljIGludCBzbWNfaWJfZmlsbF9naWRfYW5kX21hYyhzdHJ1Y3Qgc21j
+X2liX2RldmljZSAqc21jaWJkZXYsIHU4IGlicG9ydCkgew0KPiAgICAgICAgIHN0cnVjdCBpYl9n
+aWRfYXR0ciBnYXR0cjsNCj4gICAgICAgICBpbnQgcmM7DQo+IA0KPiAgICAgICAgIHJjID0gaWJf
+cXVlcnlfZ2lkKHNtY2liZGV2LT5pYmRldiwgaWJwb3J0LCAwLA0KPiAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICZzbWNpYmRldi0+Z2lkW2licG9ydCAtIDFdLCAmZ2F0dHIpOw0KPiAgICAgICAg
+IC8qIHRoZSBTTUMgcHJvdG9jb2wgcmVxdWlyZXMgc3BlY2lmaWNhdGlvbiBvZiB0aGUgcm9jZSBN
+QUMgYWRkcmVzczsNCj4gICAgICAgICAgKiBpZiBuZXRfZGV2aWNlIGNhbm5vdCBiZSBkZXRlcm1p
+bmVkLCBpdCBjYW4gYmUgZGVyaXZlZCBmcm9tIGdpZCAwDQo+ICAgICAgICAgICovDQo+ICAgICAg
+ICAgaWYgKHJjKQ0KPiAgICAgICAgICAgICAgICAgcmV0dXJuIHJjOw0KPiANCj4gICAgICAgICBp
+ZiAoZ2F0dHIubmRldikgew0KPiAgICAgICAgICAgICAgICAgbWVtY3B5KCZzbWNpYmRldi0+bWFj
+LCBnYXR0ci5uZGV2LT5kZXZfYWRkciwgRVRIX0FMRU4pOw0KPiAgICAgICAgICAgICAgICAgZGV2
+X3B1dChnYXR0ci5uZGV2KTsNCj4gICAgICAgICB9IGVsc2Ugew0KPiAgICAgICAgICAgICAgICAg
+bWVtY3B5KCZzbWNpYmRldi0+bWFjW2licG9ydCAtIDFdWzBdLA0KPiAgICAgICAgICAgICAgICAg
+ICAgICAgICZzbWNpYmRldi0+Z2lkW2licG9ydCAtIDFdLnJhd1s4XSwgMyk7DQo+ICAgICAgICAg
+ICAgICAgICBtZW1jcHkoJnNtY2liZGV2LT5tYWNbaWJwb3J0IC0gMV1bM10sDQo+ICAgICAgICAg
+ICAgICAgICAgICAgICAgJnNtY2liZGV2LT5naWRbaWJwb3J0IC0gMV0ucmF3WzEzXSwgMyk7DQo+
+ICAgICAgICAgICAgICAgICBzbWNpYmRldi0+bWFjW2licG9ydCAtIDFdWzBdICY9IH4weDAyOw0K
+VGhpcyBlbHNlIHBhcnQgaXMgbm90IG5lZWRlZC4gWW91IGNhbiBmYWlsIHRoZSBjYWxsIGFzIHN1
+Z2dlc3RlZCBhYm92ZSwgaW5saW5lIGJlbG93IHRvby4NCmlmIChyYyB8fCAhZ2lkX2FkZHIubmRl
+dikNCiAJcmV0dXJuIC1FTk9ERVY7DQpUaGVyZSBtdXN0IGJlIHZhbGlkIG5ldGRldiBmb3IgUm9D
+RSBnaWQuDQpSZXN0IGNvZGUgbG9va3MgZmluZS4NCg==
