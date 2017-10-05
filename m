@@ -1,14 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] inet/connection_sock: Convert timers to use
-Date: Wed, 4 Oct 2017 17:52:26 -0700
-Message-ID: <20171005005226.GA23598@beast>
+Subject: [PATCH] chelsio: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:35 -0700
+Message-ID: <20171005005135.GA23444@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, dccp@vger.kernel.org,
+        Johannes Berg <johannes.berg@intel.com>,
+        Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -21,11 +19,9 @@ all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: Eric Dumazet <edumazet@google.com>
 Cc: netdev@vger.kernel.org
-Cc: dccp@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
@@ -33,153 +29,79 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- include/net/inet_connection_sock.h |  6 +++---
- net/dccp/timer.c                   | 18 ++++++++++--------
- net/ipv4/inet_connection_sock.c    | 14 ++++++--------
- net/ipv4/tcp_timer.c               | 18 +++++++++++-------
- 4 files changed, 30 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb/sge.c | 30 +++++++++++++-----------------
+ 1 file changed, 13 insertions(+), 17 deletions(-)
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 13e4c89a8231..0358745ea059 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -169,9 +169,9 @@ enum inet_csk_ack_state_t {
- };
- 
- void inet_csk_init_xmit_timers(struct sock *sk,
--			       void (*retransmit_handler)(unsigned long),
--			       void (*delack_handler)(unsigned long),
--			       void (*keepalive_handler)(unsigned long));
-+			       void (*retransmit_handler)(struct timer_list *),
-+			       void (*delack_handler)(struct timer_list *),
-+			       void (*keepalive_handler)(struct timer_list *));
- void inet_csk_clear_xmit_timers(struct sock *sk);
- 
- static inline void inet_csk_schedule_ack(struct sock *sk)
-diff --git a/net/dccp/timer.c b/net/dccp/timer.c
-index 3a2c34027758..1e35526bf436 100644
---- a/net/dccp/timer.c
-+++ b/net/dccp/timer.c
-@@ -125,10 +125,11 @@ static void dccp_retransmit_timer(struct sock *sk)
- 		__sk_dst_reset(sk);
- }
- 
--static void dccp_write_timer(unsigned long data)
-+static void dccp_write_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
--	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_retransmit_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
- 	int event = 0;
- 
- 	bh_lock_sock(sk);
-@@ -161,19 +162,20 @@ static void dccp_write_timer(unsigned long data)
- 	sock_put(sk);
- }
- 
--static void dccp_keepalive_timer(unsigned long data)
-+static void dccp_keepalive_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
-+	struct sock *sk = from_timer(sk, t, sk_timer);
- 
- 	pr_err("dccp should not use a keepalive timer !\n");
- 	sock_put(sk);
- }
- 
- /* This is the same as tcp_delack_timer, sans prequeue & mem_reclaim stuff */
--static void dccp_delack_timer(unsigned long data)
-+static void dccp_delack_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
--	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_delack_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
- 
- 	bh_lock_sock(sk);
- 	if (sock_owned_by_user(sk)) {
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index c039c937ba90..c838988eee04 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -494,17 +494,15 @@ EXPORT_SYMBOL(inet_csk_accept);
-  * to optimize.
+diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
+index 0f13a7f7c1d3..30de26ef3da4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
+@@ -1882,10 +1882,10 @@ netdev_tx_t t1_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ /*
+  * Callback for the Tx buffer reclaim timer.  Runs with softirqs disabled.
   */
- void inet_csk_init_xmit_timers(struct sock *sk,
--			       void (*retransmit_handler)(unsigned long),
--			       void (*delack_handler)(unsigned long),
--			       void (*keepalive_handler)(unsigned long))
-+			       void (*retransmit_handler)(struct timer_list *t),
-+			       void (*delack_handler)(struct timer_list *t),
-+			       void (*keepalive_handler)(struct timer_list *t))
+-static void sge_tx_reclaim_cb(unsigned long data)
++static void sge_tx_reclaim_cb(struct timer_list *t)
  {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	int i;
+-	struct sge *sge = (struct sge *)data;
++	struct sge *sge = from_timer(sge, t, tx_reclaim_timer);
  
--	setup_timer(&icsk->icsk_retransmit_timer, retransmit_handler,
--			(unsigned long)sk);
--	setup_timer(&icsk->icsk_delack_timer, delack_handler,
--			(unsigned long)sk);
--	setup_timer(&sk->sk_timer, keepalive_handler, (unsigned long)sk);
-+	timer_setup(&icsk->icsk_retransmit_timer, retransmit_handler, 0);
-+	timer_setup(&icsk->icsk_delack_timer, delack_handler, 0);
-+	timer_setup(&sk->sk_timer, keepalive_handler, 0);
- 	icsk->icsk_pending = icsk->icsk_ack.pending = 0;
- }
- EXPORT_SYMBOL(inet_csk_init_xmit_timers);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 655dd8d7f064..d24c29f73146 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -283,15 +283,17 @@ void tcp_delack_timer_handler(struct sock *sk)
-  *
-  *  Returns: Nothing (void)
+ 	for (i = 0; i < SGE_CMDQ_N; ++i) {
+ 		struct cmdQ *q = &sge->cmdQ[i];
+@@ -1978,10 +1978,10 @@ void t1_sge_start(struct sge *sge)
+ /*
+  * Callback for the T2 ESPI 'stuck packet feature' workaorund
   */
--static void tcp_delack_timer(unsigned long data)
-+static void tcp_delack_timer(struct timer_list *t)
+-static void espibug_workaround_t204(unsigned long data)
++static void espibug_workaround_t204(struct timer_list *t)
  {
--	struct sock *sk = (struct sock *)data;
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_delack_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
+-	struct adapter *adapter = (struct adapter *)data;
+-	struct sge *sge = adapter->sge;
++	struct sge *sge = from_timer(sge, t, espibug_timer);
++	struct adapter *adapter = sge->adapter;
+ 	unsigned int nports = adapter->params.nports;
+ 	u32 seop[MAX_NPORTS];
  
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk)) {
- 		tcp_delack_timer_handler(sk);
- 	} else {
--		inet_csk(sk)->icsk_ack.blocked = 1;
-+		icsk->icsk_ack.blocked = 1;
- 		__NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOCKED);
- 		/* deleguate our work to tcp_release_cb() */
- 		if (!test_and_set_bit(TCP_DELACK_TIMER_DEFERRED, &sk->sk_tsq_flags))
-@@ -570,9 +572,11 @@ void tcp_write_timer_handler(struct sock *sk)
- 	sk_mem_reclaim(sk);
+@@ -2021,10 +2021,10 @@ static void espibug_workaround_t204(unsigned long data)
+ 	mod_timer(&sge->espibug_timer, jiffies + sge->espibug_timeout);
  }
  
--static void tcp_write_timer(unsigned long data)
-+static void tcp_write_timer(struct timer_list *t)
+-static void espibug_workaround(unsigned long data)
++static void espibug_workaround(struct timer_list *t)
  {
--	struct sock *sk = (struct sock *)data;
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_retransmit_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
+-	struct adapter *adapter = (struct adapter *)data;
+-	struct sge *sge = adapter->sge;
++	struct sge *sge = from_timer(sge, t, espibug_timer);
++	struct adapter *adapter = sge->adapter;
  
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk)) {
-@@ -607,9 +611,9 @@ void tcp_set_keepalive(struct sock *sk, int val)
- EXPORT_SYMBOL_GPL(tcp_set_keepalive);
+ 	if (netif_running(adapter->port[0].dev)) {
+ 	        struct sk_buff *skb = sge->espibug_skb[0];
+@@ -2075,19 +2075,15 @@ struct sge *t1_sge_create(struct adapter *adapter, struct sge_params *p)
+ 			goto nomem_port;
+ 	}
  
+-	init_timer(&sge->tx_reclaim_timer);
+-	sge->tx_reclaim_timer.data = (unsigned long)sge;
+-	sge->tx_reclaim_timer.function = sge_tx_reclaim_cb;
++	timer_setup(&sge->tx_reclaim_timer, sge_tx_reclaim_cb, 0);
  
--static void tcp_keepalive_timer (unsigned long data)
-+static void tcp_keepalive_timer (struct timer_list *t)
- {
--	struct sock *sk = (struct sock *) data;
-+	struct sock *sk = from_timer(sk, t, sk_timer);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 elapsed;
+ 	if (is_T2(sge->adapter)) {
+-		init_timer(&sge->espibug_timer);
++		timer_setup(&sge->espibug_timer,
++			    adapter->params.nports > 1 ? espibug_workaround_t204 : espibug_workaround,
++			    0);
+ 
+-		if (adapter->params.nports > 1) {
++		if (adapter->params.nports > 1)
+ 			tx_sched_init(sge);
+-			sge->espibug_timer.function = espibug_workaround_t204;
+-		} else
+-			sge->espibug_timer.function = espibug_workaround;
+-		sge->espibug_timer.data = (unsigned long)sge->adapter;
+ 
+ 		sge->espibug_timeout = 1;
+ 		/* for T204, every 10ms */
 -- 
 2.7.4
 
