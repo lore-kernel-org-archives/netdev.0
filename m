@@ -1,56 +1,56 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next v3 1/2] libbpf: parse maps sections of varying
- size
-Date: Thu, 5 Oct 2017 19:52:34 +0200
-Message-ID: <20171005195235.1fa3a8e4@redhat.com>
-References: <20171005144158.14860-1-kraigatgoog@gmail.com>
-        <20171005144158.14860-2-kraigatgoog@gmail.com>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH 00/18] use ARRAY_SIZE macro
+Date: Thu, 5 Oct 2017 13:57:15 -0400
+Message-ID: <20171005175715.GA19093@fieldses.org>
+References: <20171001193101.8898-1-jeremy.lefaure@lse.epita.fr>
+ <20171001220131.GA11812@eros>
+ <20171001205220.10b78086@blatinox-laptop.localdomain>
+ <20171002053554.GA28743@kroah.com>
+ <20171002192224.GD1903@fieldses.org>
+ <20171002213312.3f904290@blatinox-laptop.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: Craig Gallek <kraigatgoog@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Greg KH <greg@kroah.com>, "Tobin C. Harding" <me@tobin.cc>,
+        alsa-devel@alsa-project.org, nouveau@lists.freedesktop.org,
+        dri-devel@lists.freedesktop.org, dm-devel@redhat.com,
+        brcm80211-dev-list@cypress.com, devel@driverdev.osuosl.org,
+        linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
+        amd-gfx@lists.freedesktop.org,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        linux-acpi@vger.kernel.org, linux-video@atrey.karlin.mff.cuni.cz,
+        intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org,
+        intel-gfx@lists.freedesktop.org, ecryptfs@vger.kernel.org,
+        linux-nfs@vger.kernel.org, linux-raid@vger.kernel.org,
+        openipmi-developer@lists.sourceforge.net,
+        intel-gvt-dev@lists.freedesktop.org, devel@acpica.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
+        linux-usb@v
+To: =?utf-8?B?SsOpcsOpbXk=?= Lefaure <jeremy.lefaure@lse.epita.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34248 "EHLO mx1.redhat.com"
+Received: from fieldses.org ([173.255.197.46]:58368 "EHLO fieldses.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751335AbdJERwm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Oct 2017 13:52:42 -0400
-In-Reply-To: <20171005144158.14860-2-kraigatgoog@gmail.com>
+        id S1751286AbdJER5P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Oct 2017 13:57:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20171002213312.3f904290@blatinox-laptop.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Thu,  5 Oct 2017 10:41:57 -0400 Craig Gallek <kraigatgoog@gmail.com> wrote:
-
-> From: Craig Gallek <kraig@google.com>
+On Mon, Oct 02, 2017 at 09:33:12PM -0400, Jérémy Lefaure wrote:
+> On Mon, 2 Oct 2017 15:22:24 -0400
+> bfields@fieldses.org (J. Bruce Fields) wrote:
 > 
-> This library previously assumed a fixed-size map options structure.
-> Any new options were ignored.  In order to allow the options structure
-> to grow and to support parsing older programs, this patch updates
-> the maps section parsing to handle varying sizes.
+> > Mainly I'd just like to know which you're asking for.  Do you want me to
+> > apply this, or to ACK it so someone else can?  If it's sent as a series
+> > I tend to assume the latter.
+> > 
+> > But in this case I'm assuming it's the former, so I'll pick up the nfsd
+> > one....
+> Could you to apply the NFSD patch ("nfsd: use ARRAY_SIZE") with the
+> Reviewed-by: Jeff Layton <jlayton@redhat.com>) tag please ?
 > 
-> Object files with maps sections smaller than expected will have the new
-> fields initialized to zero.  Object files which have larger than expected
-> maps sections will be rejected unless all of the unrecognized data is zero.
-> 
-> This change still assumes that each map definition in the maps section
-> is the same size.
-> 
-> Signed-off-by: Craig Gallek <kraig@google.com>
-> ---
->  tools/lib/bpf/libbpf.c | 70 +++++++++++++++++++++++++++++---------------------
->  1 file changed, 41 insertions(+), 29 deletions(-)
+> This patch is an individual patch and it should not have been sent in a
+> series (sorry about that).
 
-Thank you for working on this! :-)
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Applying for 4.15, thanks.--b.
