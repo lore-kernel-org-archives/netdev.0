@@ -1,48 +1,59 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next v3 0/2] libbpf: support more map options
-Date: Thu,  5 Oct 2017 10:41:56 -0400
-Message-ID: <20171005144158.14860-1-kraigatgoog@gmail.com>
+Subject: [PATCH net-next v3 2/2] libbpf: use map_flags when creating maps
+Date: Thu,  5 Oct 2017 10:41:58 -0400
+Message-ID: <20171005144158.14860-3-kraigatgoog@gmail.com>
+References: <20171005144158.14860-1-kraigatgoog@gmail.com>
 Cc: Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org
 To: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
         Jesper Dangaard Brouer <brouer@redhat.com>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:51584 "EHLO
-        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750965AbdJEOmB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 10:42:01 -0400
-Received: by mail-qk0-f171.google.com with SMTP id 17so14887460qkq.8
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 07:42:01 -0700 (PDT)
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:49338 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751123AbdJEOmF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 10:42:05 -0400
+Received: by mail-qk0-f182.google.com with SMTP id s14so1671244qks.6
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 07:42:05 -0700 (PDT)
+In-Reply-To: <20171005144158.14860-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-The functional change to this series is the ability to use flags when
-creating maps from object files loaded by libbpf.  In order to do this,
-the first patch updates the library to handle map definitions that
-differ in size from libbpf's struct bpf_map_def.
+This is required to use BPF_MAP_TYPE_LPM_TRIE or any other map type
+which requires flags.
 
-For object files with a larger map definition, libbpf will continue to load
-if the unknown fields are all zero, otherwise the map is rejected.  If the
-map definition in the object file is smaller than expected, libbpf will use
-zero as a default value in the missing fields.
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+ tools/lib/bpf/libbpf.c | 2 +-
+ tools/lib/bpf/libbpf.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-Craig Gallek (2):
-  libbpf: parse maps sections of varying size
-  libbpf: use map_flags when creating maps
-
- tools/lib/bpf/libbpf.c | 72 +++++++++++++++++++++++++++++---------------------
- tools/lib/bpf/libbpf.h |  1 +
- 2 files changed, 43 insertions(+), 30 deletions(-)
-
+diff --git a/tools/lib/bpf/libbpf.c b/tools/lib/bpf/libbpf.c
+index 23152890ec60..5aa45f89da93 100644
+--- a/tools/lib/bpf/libbpf.c
++++ b/tools/lib/bpf/libbpf.c
+@@ -942,7 +942,7 @@ bpf_object__create_maps(struct bpf_object *obj)
+ 					   def->key_size,
+ 					   def->value_size,
+ 					   def->max_entries,
+-					   0);
++					   def->map_flags);
+ 		if (*pfd < 0) {
+ 			size_t j;
+ 			int err = *pfd;
+diff --git a/tools/lib/bpf/libbpf.h b/tools/lib/bpf/libbpf.h
+index 7959086eb9c9..6e20003109e0 100644
+--- a/tools/lib/bpf/libbpf.h
++++ b/tools/lib/bpf/libbpf.h
+@@ -207,6 +207,7 @@ struct bpf_map_def {
+ 	unsigned int key_size;
+ 	unsigned int value_size;
+ 	unsigned int max_entries;
++	unsigned int map_flags;
+ };
+ 
+ /*
 -- 
-v3:
-  - explicit memcpy instead of struct assignment.
-  - remove unnecessary bpf_object__validate_maps function
-
-v2
-  - determine bpf_map_def structure size dynamically from object file
-
 2.14.2.920.gcf0c67979c-goog
