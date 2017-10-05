@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net/irda-usb: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:50:01 -0700
-Message-ID: <20171005005001.GA23163@beast>
+Subject: [PATCH] net/irda/bfin_sir: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:50:06 -0700
+Message-ID: <20171005005006.GA23177@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
@@ -14,9 +14,7 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This requires adding a pointer to
-hold the timer's target URB, as there won't be a way to pass this in the
-future.
+to pass the timer pointer explicitly.
 
 Cc: Samuel Ortiz <samuel@sortiz.org>
 Cc: netdev@vger.kernel.org
@@ -27,76 +25,54 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/staging/irda/drivers/irda-usb.c | 20 ++++++--------------
- drivers/staging/irda/drivers/irda-usb.h |  1 +
- 2 files changed, 7 insertions(+), 14 deletions(-)
+ drivers/staging/irda/drivers/bfin_sir.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/staging/irda/drivers/irda-usb.c b/drivers/staging/irda/drivers/irda-usb.c
-index 723e49bc4baa..901862ec1ed0 100644
---- a/drivers/staging/irda/drivers/irda-usb.c
-+++ b/drivers/staging/irda/drivers/irda-usb.c
-@@ -117,7 +117,7 @@ static void irda_usb_close(struct irda_usb_cb *self);
- static void speed_bulk_callback(struct urb *urb);
- static void write_bulk_callback(struct urb *urb);
- static void irda_usb_receive(struct urb *urb);
--static void irda_usb_rx_defer_expired(unsigned long data);
-+static void irda_usb_rx_defer_expired(struct timer_list *t);
- static int irda_usb_net_open(struct net_device *dev);
- static int irda_usb_net_close(struct net_device *dev);
- static int irda_usb_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-@@ -846,8 +846,7 @@ static void irda_usb_receive(struct urb *urb)
- 		 * hot unplug of the dongle...
- 		 * Lowest effective timer is 10ms...
- 		 * Jean II */
--		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
--		self->rx_defer_timer.data = (unsigned long) urb;
-+		self->rx_defer_timer_urb = urb;
- 		mod_timer(&self->rx_defer_timer,
- 			  jiffies + msecs_to_jiffies(10));
+diff --git a/drivers/staging/irda/drivers/bfin_sir.c b/drivers/staging/irda/drivers/bfin_sir.c
+index 3151b580dbd6..59e409b68349 100644
+--- a/drivers/staging/irda/drivers/bfin_sir.c
++++ b/drivers/staging/irda/drivers/bfin_sir.c
+@@ -22,6 +22,8 @@ static int max_rate = 57600;
+ static int max_rate = 115200;
+ #endif
  
-@@ -953,20 +952,13 @@ static void irda_usb_receive(struct urb *urb)
-  * In case of errors, we want the USB layer to have time to recover.
-  * Now, it is time to resubmit ouur Rx URB...
-  */
--static void irda_usb_rx_defer_expired(unsigned long data)
-+static void irda_usb_rx_defer_expired(struct timer_list *t)
++static void bfin_sir_rx_dma_timeout(struct timer_list *t);
++
+ static void turnaround_delay(int mtt)
  {
--	struct urb *urb = (struct urb *) data;
-+	struct irda_usb_cb *self = from_timer(self, t, rx_defer_timer);
-+	struct urb *urb = self->rx_defer_timer_urb;
- 	struct sk_buff *skb = (struct sk_buff *) urb->context;
--	struct irda_usb_cb *self; 
--	struct irda_skb_cb *cb;
- 	struct urb *next_urb;
+ 	long ticks;
+@@ -57,7 +59,7 @@ static void bfin_sir_init_ports(struct bfin_sir_port *sp, struct platform_device
+ 	sp->clk = get_sclk();
+ #ifdef CONFIG_SIR_BFIN_DMA
+ 	sp->tx_done        = 1;
+-	init_timer(&(sp->rx_dma_timer));
++	timer_setup(&sp->rx_dma_timer, bfin_sir_rx_dma_timeout, 0);
+ #endif
+ }
  
--	/* Find ourselves */
--	cb = (struct irda_skb_cb *) skb->cb;
--	IRDA_ASSERT(cb != NULL, return;);
--	self = (struct irda_usb_cb *) cb->context;
--	IRDA_ASSERT(self != NULL, return;);
--
- 	/* Same stuff as when Rx is done, see above... */
- 	next_urb = self->idle_rx_urb;
- 	urb->context = NULL;
-@@ -1622,7 +1614,7 @@ static int irda_usb_probe(struct usb_interface *intf,
- 	self = netdev_priv(net);
- 	self->netdev = net;
- 	spin_lock_init(&self->lock);
--	init_timer(&self->rx_defer_timer);
-+	timer_setup(&self->rx_defer_timer, irda_usb_rx_defer_expired, 0);
+@@ -317,10 +319,12 @@ static void bfin_sir_dma_rx_chars(struct net_device *dev)
+ 		async_unwrap_char(dev, &self->stats, &self->rx_buff, port->rx_dma_buf.buf[i]);
+ }
  
- 	self->capability = id->driver_info;
- 	self->needspatch = ((self->capability & IUC_STIR421X) != 0);
-diff --git a/drivers/staging/irda/drivers/irda-usb.h b/drivers/staging/irda/drivers/irda-usb.h
-index 8ac389fa9348..56ee8c16c5e2 100644
---- a/drivers/staging/irda/drivers/irda-usb.h
-+++ b/drivers/staging/irda/drivers/irda-usb.h
-@@ -170,5 +170,6 @@ struct irda_usb_cb {
- 	int needspatch;        		/* device needs firmware patch */
+-void bfin_sir_rx_dma_timeout(struct net_device *dev)
++static void bfin_sir_rx_dma_timeout(struct timer_list *t)
+ {
++	struct bfin_sir_port *port = from_timer(port, t, rx_dma_timer);
++	struct net_device *dev = port->dev;
+ 	struct bfin_sir_self *self = netdev_priv(dev);
+-	struct bfin_sir_port *port = self->sir_port;
++
+ 	int x_pos, pos;
+ 	unsigned long flags;
  
- 	struct timer_list rx_defer_timer;	/* Wait for Rx error to clear */
-+	struct urb *rx_defer_timer_urb;	/* URB attached to rx_defer_timer */
- };
+@@ -405,8 +409,6 @@ static int bfin_sir_startup(struct bfin_sir_port *port, struct net_device *dev)
+ 	set_dma_start_addr(port->rx_dma_channel, (unsigned long)port->rx_dma_buf.buf);
+ 	enable_dma(port->rx_dma_channel);
+ 
+-	port->rx_dma_timer.data = (unsigned long)(dev);
+-	port->rx_dma_timer.function = (void *)bfin_sir_rx_dma_timeout;
+ 
+ #else
  
 -- 
 2.7.4
