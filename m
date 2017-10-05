@@ -1,135 +1,59 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH v3 2/2] net: phonet: mark phonet_protocol as const
-Date: Fri,  6 Oct 2017 01:40:35 +0800
-Message-ID: <1507225235-46033-1-git-send-email-xiaolou4617@gmail.com>
-Cc: netdev@vger.kernel.org, Lin Zhang <xiaolou4617@gmail.com>
-To: courmisch@gmail.co, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34894 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751278AbdJEJkw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 05:40:52 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i23so14286149pfi.2
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 02:40:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netfilter: x_tables: avoid stack-out-of-bounds read in
+ xt_copy_counters_from_user
+Date: Thu, 05 Oct 2017 02:50:07 -0700
+Message-ID: <1507197007.14419.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The phonet_protocol structs don't need to be written by anyone and
-so can be marked as const.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+syzkaller reports an out of bound read in strlcpy(), triggered
+by xt_copy_counters_from_user()
+
+Fix this by using memcpy(), then forcing a zero byte at the last position
+of the destination, as Florian did for the non COMPAT code.
+
+Fixes: d7591f0c41ce ("netfilter: x_tables: introduce and use xt_copy_counters_from_user")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
 ---
-changelog:
+ net/netfilter/x_tables.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-v1 -> v2:
-	* remove __read_mostly tag
-v2 -> v3:
-	* revert __read_mostly tag
----
- include/net/phonet/phonet.h |  6 ++++--
- net/phonet/af_phonet.c      | 15 ++++++++-------
- net/phonet/datagram.c       |  2 +-
- net/phonet/pep.c            |  2 +-
- 4 files changed, 14 insertions(+), 11 deletions(-)
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index c83a3b5e1c6c2a91b713b6681a794bd79ab3fa08..d8571f4142080a3c121fc90f0b52d81ee9df6712 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -892,7 +892,7 @@ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
+ 		if (copy_from_user(&compat_tmp, user, sizeof(compat_tmp)) != 0)
+ 			return ERR_PTR(-EFAULT);
+ 
+-		strlcpy(info->name, compat_tmp.name, sizeof(info->name));
++		memcpy(info->name, compat_tmp.name, sizeof(info->name) - 1);
+ 		info->num_counters = compat_tmp.num_counters;
+ 		user += sizeof(compat_tmp);
+ 	} else
+@@ -905,9 +905,9 @@ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
+ 		if (copy_from_user(info, user, sizeof(*info)) != 0)
+ 			return ERR_PTR(-EFAULT);
+ 
+-		info->name[sizeof(info->name) - 1] = '\0';
+ 		user += sizeof(*info);
+ 	}
++	info->name[sizeof(info->name) - 1] = '\0';
+ 
+ 	size = sizeof(struct xt_counters);
+ 	size *= info->num_counters;
 
-diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index 039cc29..51e1a2a 100644
---- a/include/net/phonet/phonet.h
-+++ b/include/net/phonet/phonet.h
-@@ -108,8 +108,10 @@ struct phonet_protocol {
- 	int			sock_type;
- };
- 
--int phonet_proto_register(unsigned int protocol, struct phonet_protocol *pp);
--void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp);
-+int phonet_proto_register(unsigned int protocol,
-+		const struct phonet_protocol *pp);
-+void phonet_proto_unregister(unsigned int protocol,
-+		const struct phonet_protocol *pp);
- 
- int phonet_sysctl_init(void);
- void phonet_sysctl_exit(void);
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index b12142e..3b0ef69 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -35,11 +35,11 @@
- #include <net/phonet/pn_dev.h>
- 
- /* Transport protocol registration */
--static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
-+static const struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
- 
--static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
-+static const struct phonet_protocol *phonet_proto_get(unsigned int protocol)
- {
--	struct phonet_protocol *pp;
-+	const struct phonet_protocol *pp;
- 
- 	if (protocol >= PHONET_NPROTO)
- 		return NULL;
-@@ -53,7 +53,7 @@ static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
- 	return pp;
- }
- 
--static inline void phonet_proto_put(struct phonet_protocol *pp)
-+static inline void phonet_proto_put(const struct phonet_protocol *pp)
- {
- 	module_put(pp->prot->owner);
- }
-@@ -65,7 +65,7 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
- {
- 	struct sock *sk;
- 	struct pn_sock *pn;
--	struct phonet_protocol *pnp;
-+	const struct phonet_protocol *pnp;
- 	int err;
- 
- 	if (!capable(CAP_SYS_ADMIN))
-@@ -470,7 +470,7 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
- static DEFINE_MUTEX(proto_tab_lock);
- 
- int __init_or_module phonet_proto_register(unsigned int protocol,
--						struct phonet_protocol *pp)
-+				const struct phonet_protocol *pp)
- {
- 	int err = 0;
- 
-@@ -492,7 +492,8 @@ int __init_or_module phonet_proto_register(unsigned int protocol,
- }
- EXPORT_SYMBOL(phonet_proto_register);
- 
--void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp)
-+void phonet_proto_unregister(unsigned int protocol,
-+			const struct phonet_protocol *pp)
- {
- 	mutex_lock(&proto_tab_lock);
- 	BUG_ON(proto_tab[protocol] != pp);
-diff --git a/net/phonet/datagram.c b/net/phonet/datagram.c
-index 5e71043..b44fb90 100644
---- a/net/phonet/datagram.c
-+++ b/net/phonet/datagram.c
-@@ -195,7 +195,7 @@ static int pn_backlog_rcv(struct sock *sk, struct sk_buff *skb)
- 	.name		= "PHONET",
- };
- 
--static struct phonet_protocol pn_dgram_proto = {
-+static const struct phonet_protocol pn_dgram_proto = {
- 	.ops		= &phonet_dgram_ops,
- 	.prot		= &pn_proto,
- 	.sock_type	= SOCK_DGRAM,
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index e815379..9fc76b1 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -1351,7 +1351,7 @@ static void pep_sock_unhash(struct sock *sk)
- 	.name		= "PNPIPE",
- };
- 
--static struct phonet_protocol pep_pn_proto = {
-+static const struct phonet_protocol pep_pn_proto = {
- 	.ops		= &phonet_stream_ops,
- 	.prot		= &pep_proto,
- 	.sock_type	= SOCK_SEQPACKET,
--- 
-1.8.3.1
+
