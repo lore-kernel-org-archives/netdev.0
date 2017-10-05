@@ -1,83 +1,54 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net] bpf: fix liveness marking
-Date: Thu, 5 Oct 2017 16:20:56 -0700
-Message-ID: <20171005232056.2234669-1-ast@fb.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/4] dt-bindings: net: ravb: Document optional
+ reset-gpios property
+Date: Thu, 5 Oct 2017 18:24:51 -0500
+Message-ID: <20171005232451.loogqlkmar6pdrdd@rob-hp-laptop>
+References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
+ <1506614014-4398-2-git-send-email-geert+renesas@glider.be>
+ <fefd2be3-d47a-f035-5078-090df0fc6318@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Edward Cree <ecree@solarflare.com>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46808 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751083AbdJEXVG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 19:21:06 -0400
-Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v95NJ1pt014062
-        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 16:21:05 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2ddv7agj83-4
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 16:21:05 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Niklas =?iso-8859-1?Q?S=F6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, devicetree@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <fefd2be3-d47a-f035-5078-090df0fc6318@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-while processing Rx = Ry instruction the verifier does
-regs[insn->dst_reg] = regs[insn->src_reg]
-which often clears write mark (when Ry doesn't have it)
-that was just set by check_reg_arg(Rx) prior to the assignment.
-That causes mark_reg_read() to keep marking Rx in this block as
-REG_LIVE_READ (since the logic incorrectly misses that it's
-screened by the write) and in many of its parents (until lucky
-write into the same Rx or beginning of the program).
-That causes is_state_visited() logic to miss many pruning opportunities.
+On Thu, Sep 28, 2017 at 11:07:38PM +0300, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 09/28/2017 06:53 PM, Geert Uytterhoeven wrote:
+> 
+> > The optional "reset-gpios" property (part of the generic MDIO bus
+> > properties) lets us describe the GPIO used for resetting the Ethernet
+> > PHY.
+> > 
+> > Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> > ---
+> >   Documentation/devicetree/bindings/net/renesas,ravb.txt | 2 ++
+> >   1 file changed, 2 insertions(+)
+> > 
+> > diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> > index c902261893b913f5..4a6ec1ba32d0bf16 100644
+> > --- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> > +++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+> > @@ -52,6 +52,7 @@ Optional properties:
+> >   			 AVB_LINK signal.
+> >   - renesas,ether-link-active-low: boolean, specify when the AVB_LINK signal is
+> >   				 active-low instead of normal active-high.
+> > +- reset-gpios: see mdio.txt in the same directory.
+> 
+>    Sigh, I can only repeat that was a terrible prop name choice -- when
+> applied to a MAC node... what reset does it mean? MAC?
 
-Furthermore mark_reg_read() logic propagates the read mark
-for BPF_REG_FP as well (though it's readonly) which causes
-harmless but unnecssary work during is_state_visited().
-Note that do_propagate_liveness() skips FP correctly,
-so do the same in mark_reg_read() as well.
-It saves 0.2 seconds for the test below
-
-program               before  after
-bpf_lb-DLB_L3.o       2604    2304
-bpf_lb-DLB_L4.o       11159   3723
-bpf_lb-DUNKNOWN.o     1116    1110
-bpf_lxc-DDROP_ALL.o   34566   28004
-bpf_lxc-DUNKNOWN.o    53267   39026
-bpf_netdev.o          17843   16943
-bpf_overlay.o         8672    7929
-time                  ~11 sec  ~4 sec
-
-Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/verifier.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index b914fbe1383e..8b8d6ba39e23 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -653,6 +653,10 @@ static void mark_reg_read(const struct bpf_verifier_state *state, u32 regno)
- {
- 	struct bpf_verifier_state *parent = state->parent;
- 
-+	if (regno == BPF_REG_FP)
-+		/* We don't need to worry about FP liveness because it's read-only */
-+		return;
-+
- 	while (parent) {
- 		/* if read wasn't screened by an earlier write ... */
- 		if (state->regs[regno].live & REG_LIVE_WRITTEN)
-@@ -2345,6 +2349,7 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 				 * copy register state to dest reg
- 				 */
- 				regs[insn->dst_reg] = regs[insn->src_reg];
-+				regs[insn->dst_reg].live |= REG_LIVE_WRITTEN;
- 			} else {
- 				/* R1 = (u32) R2 */
- 				if (is_pointer_value(env, insn->src_reg)) {
--- 
-2.9.5
+Agreed. This should be in the phy node. Or MDIO at least.
