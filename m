@@ -1,76 +1,50 @@
-From: jacopo mondi <jacopo@jmondi.org>
-Subject: Re: [PATCH 3/3] ARM: dts: gr-peach: Add ETHER pin group
-Date: Thu, 5 Oct 2017 17:42:39 +0200
-Message-ID: <20171005154239.GB19008@w540>
-References: <1507193900-23801-1-git-send-email-jacopo+renesas@jmondi.org>
- <1507193900-23801-4-git-send-email-jacopo+renesas@jmondi.org>
- <CAMuHMdWLt9EYp21YiMp7uEGWgjEO_VztbDOyvhr+RxkrAKRYYA@mail.gmail.com>
- <20171005093915.GP4037@w540>
- <20171005134339.GJ13247@lunn.ch>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next v4 0/3] tools: add bpftool
+Date: Thu, 5 Oct 2017 09:02:55 -0700
+Message-ID: <20171005090255.25eb90d1@cakuba.netronome.com>
+References: <20171005031005.15364-1-jakub.kicinski@netronome.com>
+        <20171004.214647.434421323387588461.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Chris Brandt <Chris.Brandt@renesas.com>, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, dsahern@gmail.com, oss-drivers@netronome.com,
+        brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:57988 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751525AbdJEPmo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 11:42:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20171005134339.GJ13247@lunn.ch>
+Received: from mail-qt0-f176.google.com ([209.85.216.176]:52967 "EHLO
+        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751424AbdJEQC7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 12:02:59 -0400
+Received: by mail-qt0-f176.google.com with SMTP id o52so26274611qtc.9
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 09:02:59 -0700 (PDT)
+In-Reply-To: <20171004.214647.434421323387588461.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On Wed, 04 Oct 2017 21:46:47 -0700 (PDT), David Miller wrote:
+> From: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Date: Wed,  4 Oct 2017 20:10:02 -0700
+> 
+> > Hi!
+> > 
+> > This set adds bpftool to the tools/ directory.  The first 
+> > patch renames tools/net to tools/bpf, the second one adds 
+> > the new code, while the third adds simple documentation.
+> > 
+> > v4:
+> >  - rename docs *.txt -> *.rst (Jesper).
+> > v3:
+> >  - address Alexei's comments about output and docs.
+> > v2:
+> >  - report names, map ids, load time, uid;
+> >  - add docs/man pages;
+> >  - general cleanups & fixes.  
+> 
+> Series applied, although there was some trailing whitespace I had to fix
+> up in patch #3.
 
-On Thu, Oct 05, 2017 at 03:43:39PM +0200, Andrew Lunn wrote:
-> On Thu, Oct 05, 2017 at 11:39:15AM +0200, jacopo mondi wrote:
-> > Hi Geert
-> >
-> > On Thu, Oct 05, 2017 at 11:09:40AM +0200, Geert Uytterhoeven wrote:
-> > > Hi Jacopo,
-> > >
-> > > On Thu, Oct 5, 2017 at 10:58 AM, Jacopo Mondi <jacopo+renesas@jmondi.org> wrote:
-> > > > Add pin configuration subnode for ETHER pin group and enable the interface.
-> > > >
-> > > > Signed-off-by: Jacopo Mondi <jacopo+renesas@jmondi.org>
-> > >
-> > > Reviewed-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> > >
-> > > > --- a/arch/arm/boot/dts/r7s72100-gr-peach.dts
-> > > > +++ b/arch/arm/boot/dts/r7s72100-gr-peach.dts
-> > >
-> > > > @@ -88,3 +110,19 @@
-> > > >
-> > > >         status = "okay";
-> > > >  };
-> > > > +
-> > > > +&ether {
-> > > > +       pinctrl-names = "default";
-> > > > +       pinctrl-0 = <&ether_pins>;
-> > > > +
-> > > > +       status = "okay";
-> > > > +
-> > > > +       reset-gpios = <&port4 2 GPIO_ACTIVE_LOW>;
-> > > > +       reset-delay-us = <5>;
-> > >
-> > > I'm afraid the PHY people (not CCed ;-) will want you to move these reset
-> > > properties to the phy subnode these days, despite
-> > > Documentation/devicetree/bindings/net/mdio.txt...
->
-> Hi Jocopo
->
-> So what is this reset resetting?
->
-> The MAC?
-> The PHY?
+I was under the impression that the white space was required by the RST
+format, but I double checked and the man page looks correct.
 
-The reset line goes from our SoC to LAN8710A PHY chip external reset pin.
-
-Thanks
-   j
-
->
->     Andrew
+Thank you!
