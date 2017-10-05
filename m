@@ -1,12 +1,11 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] isdn/hisax: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:50:29 -0700
-Message-ID: <20171005005029.GA23248@beast>
+Subject: [PATCH] net/hamradio/6pack: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:50:33 -0700
+Message-ID: <20171005005033.GA23262@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-        Geliang Tang <geliangtang@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: Andreas Koensgen <ajk@comnets.uni-bremen.de>,
+        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -18,9 +17,8 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: Geliang Tang <geliangtang@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Andreas Koensgen <ajk@comnets.uni-bremen.de>
+Cc: linux-hams@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
@@ -29,566 +27,87 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/isdn/hisax/amd7930_fn.c |  5 +++--
- drivers/isdn/hisax/arcofi.c     |  5 +++--
- drivers/isdn/hisax/diva.c       |  8 ++++----
- drivers/isdn/hisax/elsa.c       |  9 +++++----
- drivers/isdn/hisax/fsm.c        |  5 +++--
- drivers/isdn/hisax/hfc4s8s_l1.c |  6 +++---
- drivers/isdn/hisax/hfc_2bds0.c  |  4 ++--
- drivers/isdn/hisax/hfc_pci.c    |  9 +++++----
- drivers/isdn/hisax/hfc_sx.c     |  9 +++++----
- drivers/isdn/hisax/hfc_usb.c    | 10 ++++++----
- drivers/isdn/hisax/hfcscard.c   |  5 +++--
- drivers/isdn/hisax/icc.c        |  5 +++--
- drivers/isdn/hisax/ipacx.c      |  7 ++++---
- drivers/isdn/hisax/isac.c       |  5 +++--
- drivers/isdn/hisax/isar.c       |  9 ++++-----
- drivers/isdn/hisax/isdnl3.c     |  5 +++--
- drivers/isdn/hisax/saphir.c     |  7 +++----
- drivers/isdn/hisax/teleint.c    |  5 +++--
- drivers/isdn/hisax/w6692.c      |  6 +++---
- 19 files changed, 68 insertions(+), 56 deletions(-)
+ drivers/net/hamradio/6pack.c | 22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/isdn/hisax/amd7930_fn.c b/drivers/isdn/hisax/amd7930_fn.c
-index dcf4c2a9fcea..4c5afdbaf4da 100644
---- a/drivers/isdn/hisax/amd7930_fn.c
-+++ b/drivers/isdn/hisax/amd7930_fn.c
-@@ -686,8 +686,9 @@ DC_Close_Amd7930(struct IsdnCardState *cs) {
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 021a8ec411ab..bbc7b7808a31 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -136,9 +136,9 @@ static int encode_sixpack(unsigned char *, unsigned char *, int, unsigned char);
+  * Note that in case of DAMA operation, the data is not sent here.
+  */
  
- 
- static void
--dbusy_timer_handler(struct IsdnCardState *cs)
-+dbusy_timer_handler(struct timer_list *t)
+-static void sp_xmit_on_air(unsigned long channel)
++static void sp_xmit_on_air(struct timer_list *t)
  {
-+	struct IsdnCardState *cs = from_timer(cs, t, dbusytimer);
- 	u_long flags;
- 	struct PStack *stptr;
- 	WORD dtcr, der;
-@@ -790,5 +791,5 @@ void Amd7930_init(struct IsdnCardState *cs)
- void setup_Amd7930(struct IsdnCardState *cs)
- {
- 	INIT_WORK(&cs->tqueue, Amd7930_bh);
--	setup_timer(&cs->dbusytimer, (void *)dbusy_timer_handler, (long)cs);
-+	timer_setup(&cs->dbusytimer, dbusy_timer_handler, 0);
- }
-diff --git a/drivers/isdn/hisax/arcofi.c b/drivers/isdn/hisax/arcofi.c
-index 9826bad49e2c..881cf41d7aef 100644
---- a/drivers/isdn/hisax/arcofi.c
-+++ b/drivers/isdn/hisax/arcofi.c
-@@ -112,7 +112,8 @@ arcofi_fsm(struct IsdnCardState *cs, int event, void *data) {
- }
+-	struct sixpack *sp = (struct sixpack *) channel;
++	struct sixpack *sp = from_timer(sp, t, tx_t);
+ 	int actual, when = sp->slottime;
+ 	static unsigned char random;
  
- static void
--arcofi_timer(struct IsdnCardState *cs) {
-+arcofi_timer(struct timer_list *t) {
-+	struct IsdnCardState *cs = from_timer(cs, t, dc.isac.arcofitimer);
- 	arcofi_fsm(cs, ARCOFI_TIMEOUT, NULL);
- }
- 
-@@ -125,7 +126,7 @@ clear_arcofi(struct IsdnCardState *cs) {
- 
- void
- init_arcofi(struct IsdnCardState *cs) {
--	setup_timer(&cs->dc.isac.arcofitimer, (void *)arcofi_timer, (long)cs);
-+	timer_setup(&cs->dc.isac.arcofitimer, arcofi_timer, 0);
- 	init_waitqueue_head(&cs->dc.isac.arcofi_wait);
- 	test_and_set_bit(HW_ARCOFI, &cs->HW_Flags);
- }
-diff --git a/drivers/isdn/hisax/diva.c b/drivers/isdn/hisax/diva.c
-index 3fc94e7741ae..ea01c293810c 100644
---- a/drivers/isdn/hisax/diva.c
-+++ b/drivers/isdn/hisax/diva.c
-@@ -798,8 +798,9 @@ reset_diva(struct IsdnCardState *cs)
- #define DIVA_ASSIGN 1
- 
- static void
--diva_led_handler(struct IsdnCardState *cs)
-+diva_led_handler(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.diva.tl);
- 	int blink = 0;
- 
- 	if ((cs->subtyp == DIVA_IPAC_ISA) ||
-@@ -900,7 +901,7 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
- 	    (cs->subtyp != DIVA_IPAC_PCI) &&
- 	    (cs->subtyp != DIVA_IPACX_PCI)) {
- 		spin_lock_irqsave(&cs->lock, flags);
--		diva_led_handler(cs);
-+		diva_led_handler(&cs->hw.diva.tl);
- 		spin_unlock_irqrestore(&cs->lock, flags);
+@@ -229,7 +229,7 @@ static void sp_encaps(struct sixpack *sp, unsigned char *icp, int len)
+ 		sp->xleft = count;
+ 		sp->xhead = sp->xbuff;
+ 		sp->status2 = count;
+-		sp_xmit_on_air((unsigned long)sp);
++		sp_xmit_on_air(&sp->tx_t);
  	}
- 	return (0);
-@@ -978,8 +979,7 @@ static int setup_diva_common(struct IsdnCardState *cs)
- 		printk(KERN_INFO "Diva: IPACX Design Id: %x\n",
- 		       MemReadISAC_IPACX(cs, IPACX_ID) & 0x3F);
- 	} else { /* DIVA 2.0 */
--		setup_timer(&cs->hw.diva.tl, (void *)diva_led_handler,
--			    (long)cs);
-+		timer_setup(&cs->hw.diva.tl, diva_led_handler, 0);
- 		cs->readisac  = &ReadISAC;
- 		cs->writeisac = &WriteISAC;
- 		cs->readisacfifo  = &ReadISACfifo;
-diff --git a/drivers/isdn/hisax/elsa.c b/drivers/isdn/hisax/elsa.c
-index 03bc5d504e22..a75c63222a47 100644
---- a/drivers/isdn/hisax/elsa.c
-+++ b/drivers/isdn/hisax/elsa.c
-@@ -606,8 +606,9 @@ check_arcofi(struct IsdnCardState *cs)
- #endif /* ARCOFI_USE */
  
- static void
--elsa_led_handler(struct IsdnCardState *cs)
-+elsa_led_handler(struct timer_list *t)
+ 	return;
+@@ -500,9 +500,9 @@ static inline void tnc_set_sync_state(struct sixpack *sp, int new_tnc_state)
+ 		__tnc_set_sync_state(sp, new_tnc_state);
+ }
+ 
+-static void resync_tnc(unsigned long channel)
++static void resync_tnc(struct timer_list *t)
  {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.elsa.tl);
- 	int blink = 0;
+-	struct sixpack *sp = (struct sixpack *) channel;
++	struct sixpack *sp = from_timer(sp, t, resync_t);
+ 	static char resync_cmd = 0xe8;
  
- 	if (cs->subtyp == ELSA_PCMCIA || cs->subtyp == ELSA_PCMCIA_IPAC)
-@@ -715,7 +716,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
- 			init_modem(cs);
- 		}
- #endif
--		elsa_led_handler(cs);
-+		elsa_led_handler(&cs->hw.elsa.tl);
- 		return (ret);
- 	case (MDL_REMOVE | REQUEST):
- 		cs->hw.elsa.status &= 0;
-@@ -767,7 +768,7 @@ Elsa_card_msg(struct IsdnCardState *cs, int mt, void *arg)
- 		else
- 			cs->hw.elsa.status &= ~ELSA_BAD_PWR;
+ 	/* clear any data that might have been received */
+@@ -526,8 +526,6 @@ static void resync_tnc(unsigned long channel)
+ 	/* Start resync timer again -- the TNC might be still absent */
+ 
+ 	del_timer(&sp->resync_t);
+-	sp->resync_t.data	= (unsigned long) sp;
+-	sp->resync_t.function	= resync_tnc;
+ 	sp->resync_t.expires	= jiffies + SIXP_RESYNC_TIMEOUT;
+ 	add_timer(&sp->resync_t);
+ }
+@@ -541,8 +539,6 @@ static inline int tnc_init(struct sixpack *sp)
+ 	sp->tty->ops->write(sp->tty, &inbyte, 1);
+ 
+ 	del_timer(&sp->resync_t);
+-	sp->resync_t.data = (unsigned long) sp;
+-	sp->resync_t.function = resync_tnc;
+ 	sp->resync_t.expires = jiffies + SIXP_RESYNC_TIMEOUT;
+ 	add_timer(&sp->resync_t);
+ 
+@@ -623,11 +619,9 @@ static int sixpack_open(struct tty_struct *tty)
+ 
+ 	netif_start_queue(dev);
+ 
+-	init_timer(&sp->tx_t);
+-	sp->tx_t.function = sp_xmit_on_air;
+-	sp->tx_t.data = (unsigned long) sp;
++	timer_setup(&sp->tx_t, sp_xmit_on_air, 0);
+ 
+-	init_timer(&sp->resync_t);
++	timer_setup(&sp->resync_t, resync_tnc, 0);
+ 
+ 	spin_unlock_bh(&sp->lock);
+ 
+@@ -928,8 +922,6 @@ static void decode_prio_command(struct sixpack *sp, unsigned char cmd)
+ 
+ 	if (sp->tnc_state == TNC_IN_SYNC) {
+ 		del_timer(&sp->resync_t);
+-		sp->resync_t.data	= (unsigned long) sp;
+-		sp->resync_t.function	= resync_tnc;
+ 		sp->resync_t.expires	= jiffies + SIXP_INIT_RESYNC_TIMEOUT;
+ 		add_timer(&sp->resync_t);
  	}
--	elsa_led_handler(cs);
-+	elsa_led_handler(&cs->hw.elsa.tl);
- 	return (ret);
- }
- 
-@@ -1147,7 +1148,7 @@ static int setup_elsa_common(struct IsdnCard *card)
- 	init_arcofi(cs);
- #endif
- 	setup_isac(cs);
--	setup_timer(&cs->hw.elsa.tl, (void *)elsa_led_handler, (long)cs);
-+	timer_setup(&cs->hw.elsa.tl, elsa_led_handler, 0);
- 	/* Teste Timer */
- 	if (cs->hw.elsa.timer) {
- 		byteout(cs->hw.elsa.trig, 0xff);
-diff --git a/drivers/isdn/hisax/fsm.c b/drivers/isdn/hisax/fsm.c
-index d63266fa8cbd..86f0aef168c6 100644
---- a/drivers/isdn/hisax/fsm.c
-+++ b/drivers/isdn/hisax/fsm.c
-@@ -85,8 +85,9 @@ FsmChangeState(struct FsmInst *fi, int newstate)
- }
- 
- static void
--FsmExpireTimer(struct FsmTimer *ft)
-+FsmExpireTimer(struct timer_list *t)
- {
-+	struct FsmTimer *ft = from_timer(ft, t, tl);
- #if FSM_TIMER_DEBUG
- 	if (ft->fi->debug)
- 		ft->fi->printdebug(ft->fi, "FsmExpireTimer %lx", (long) ft);
-@@ -102,7 +103,7 @@ FsmInitTimer(struct FsmInst *fi, struct FsmTimer *ft)
- 	if (ft->fi->debug)
- 		ft->fi->printdebug(ft->fi, "FsmInitTimer %lx", (long) ft);
- #endif
--	setup_timer(&ft->tl, (void *)FsmExpireTimer, (long)ft);
-+	timer_setup(&ft->tl, FsmExpireTimer, 0);
- }
- 
- void
-diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
-index 9090cc1e1f29..e9bb8fb67ad0 100644
---- a/drivers/isdn/hisax/hfc4s8s_l1.c
-+++ b/drivers/isdn/hisax/hfc4s8s_l1.c
-@@ -591,8 +591,9 @@ bch_l2l1(struct hisax_if *ifc, int pr, void *arg)
- /* layer 1 timer function */
- /**************************/
- static void
--hfc_l1_timer(struct hfc4s8s_l1 *l1)
-+hfc_l1_timer(struct timer_list *t)
- {
-+	struct hfc4s8s_l1 *l1 = from_timer(l1, t, l1_timer);
- 	u_long flags;
- 
- 	if (!l1->enabled)
-@@ -1396,8 +1397,7 @@ setup_instance(hfc4s8s_hw *hw)
- 		l1p = hw->l1 + i;
- 		spin_lock_init(&l1p->lock);
- 		l1p->hw = hw;
--		setup_timer(&l1p->l1_timer, (void *)hfc_l1_timer,
--			    (long)(l1p));
-+		timer_setup(&l1p->l1_timer, hfc_l1_timer, 0);
- 		l1p->st_num = i;
- 		skb_queue_head_init(&l1p->d_tx_queue);
- 		l1p->d_if.ifc.priv = hw->l1 + i;
-diff --git a/drivers/isdn/hisax/hfc_2bds0.c b/drivers/isdn/hisax/hfc_2bds0.c
-index ad8597a1a07e..86b82172e992 100644
---- a/drivers/isdn/hisax/hfc_2bds0.c
-+++ b/drivers/isdn/hisax/hfc_2bds0.c
-@@ -1014,7 +1014,7 @@ setstack_hfcd(struct PStack *st, struct IsdnCardState *cs)
- }
- 
- static void
--hfc_dbusy_timer(struct IsdnCardState *cs)
-+hfc_dbusy_timer(struct timer_list *t)
- {
- }
- 
-@@ -1073,6 +1073,6 @@ set_cs_func(struct IsdnCardState *cs)
- 	cs->writeisacfifo = &dummyf;
- 	cs->BC_Read_Reg = &ReadReg;
- 	cs->BC_Write_Reg = &WriteReg;
--	setup_timer(&cs->dbusytimer, (void *)hfc_dbusy_timer, (long)cs);
-+	timer_setup(&cs->dbusytimer, hfc_dbusy_timer, 0);
- 	INIT_WORK(&cs->tqueue, hfcd_bh);
- }
-diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
-index f9ca35cc32b1..8e5b03161b2f 100644
---- a/drivers/isdn/hisax/hfc_pci.c
-+++ b/drivers/isdn/hisax/hfc_pci.c
-@@ -165,8 +165,9 @@ reset_hfcpci(struct IsdnCardState *cs)
- /* Timer function called when kernel timer expires */
- /***************************************************/
- static void
--hfcpci_Timer(struct IsdnCardState *cs)
-+hfcpci_Timer(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.hfcpci.timer);
- 	cs->hw.hfcpci.timer.expires = jiffies + 75;
- 	/* WD RESET */
- /*      WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcpci.ctmt | 0x80);
-@@ -1095,7 +1096,7 @@ hfcpci_interrupt(int intno, void *dev_id)
- /* timer callback for D-chan busy resolution. Currently no function */
- /********************************************************************/
- static void
--hfcpci_dbusy_timer(struct IsdnCardState *cs)
-+hfcpci_dbusy_timer(struct timer_list *t)
- {
- }
- 
-@@ -1582,7 +1583,7 @@ inithfcpci(struct IsdnCardState *cs)
- 	cs->bcs[1].BC_SetStack = setstack_2b;
- 	cs->bcs[0].BC_Close = close_hfcpci;
- 	cs->bcs[1].BC_Close = close_hfcpci;
--	setup_timer(&cs->dbusytimer, (void *)hfcpci_dbusy_timer, (long)cs);
-+	timer_setup(&cs->dbusytimer, hfcpci_dbusy_timer, 0);
- 	mode_hfcpci(cs->bcs, 0, 0);
- 	mode_hfcpci(cs->bcs + 1, 0, 1);
- }
-@@ -1744,7 +1745,7 @@ setup_hfcpci(struct IsdnCard *card)
- 	cs->BC_Write_Reg = NULL;
- 	cs->irq_func = &hfcpci_interrupt;
- 	cs->irq_flags |= IRQF_SHARED;
--	setup_timer(&cs->hw.hfcpci.timer, (void *)hfcpci_Timer, (long)cs);
-+	timer_setup(&cs->hw.hfcpci.timer, hfcpci_Timer, 0);
- 	cs->cardmsg = &hfcpci_card_msg;
- 	cs->auxcmd = &hfcpci_auxcmd;
- 
-diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
-index 3aef8e1a90e4..d925f579bc80 100644
---- a/drivers/isdn/hisax/hfc_sx.c
-+++ b/drivers/isdn/hisax/hfc_sx.c
-@@ -418,8 +418,9 @@ reset_hfcsx(struct IsdnCardState *cs)
- /* Timer function called when kernel timer expires */
- /***************************************************/
- static void
--hfcsx_Timer(struct IsdnCardState *cs)
-+hfcsx_Timer(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.hfcsx.timer);
- 	cs->hw.hfcsx.timer.expires = jiffies + 75;
- 	/* WD RESET */
- /*      WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcsx.ctmt | 0x80);
-@@ -860,7 +861,7 @@ hfcsx_interrupt(int intno, void *dev_id)
- /* timer callback for D-chan busy resolution. Currently no function */
- /********************************************************************/
- static void
--hfcsx_dbusy_timer(struct IsdnCardState *cs)
-+hfcsx_dbusy_timer(struct timer_list *t)
- {
- }
- 
-@@ -1495,7 +1496,7 @@ int setup_hfcsx(struct IsdnCard *card)
- 	} else
- 		return (0);	/* no valid card type */
- 
--	setup_timer(&cs->dbusytimer, (void *)hfcsx_dbusy_timer, (long)cs);
-+	timer_setup(&cs->dbusytimer, hfcsx_dbusy_timer, 0);
- 	INIT_WORK(&cs->tqueue, hfcsx_bh);
- 	cs->readisac = NULL;
- 	cs->writeisac = NULL;
-@@ -1507,7 +1508,7 @@ int setup_hfcsx(struct IsdnCard *card)
- 
- 	cs->hw.hfcsx.b_fifo_size = 0; /* fifo size still unknown */
- 	cs->hw.hfcsx.cirm = ccd_sp_irqtab[cs->irq & 0xF]; /* RAM not evaluated */
--	setup_timer(&cs->hw.hfcsx.timer, (void *)hfcsx_Timer, (long)cs);
-+	timer_setup(&cs->hw.hfcsx.timer, hfcsx_Timer, 0);
- 
- 	reset_hfcsx(cs);
- 	cs->cardmsg = &hfcsx_card_msg;
-diff --git a/drivers/isdn/hisax/hfc_usb.c b/drivers/isdn/hisax/hfc_usb.c
-index e8212185d386..97ecb3073045 100644
---- a/drivers/isdn/hisax/hfc_usb.c
-+++ b/drivers/isdn/hisax/hfc_usb.c
-@@ -343,8 +343,9 @@ handle_led(hfcusb_data *hfc, int event)
- 
- /* ISDN l1 timer T3 expires */
- static void
--l1_timer_expire_t3(hfcusb_data *hfc)
-+l1_timer_expire_t3(struct timer_list *t)
- {
-+	hfcusb_data *hfc = from_timer(hfc, t, t3_timer);
- 	hfc->d_if.ifc.l1l2(&hfc->d_if.ifc, PH_DEACTIVATE | INDICATION,
- 			   NULL);
- 
-@@ -360,8 +361,9 @@ l1_timer_expire_t3(hfcusb_data *hfc)
- 
- /* ISDN l1 timer T4 expires */
- static void
--l1_timer_expire_t4(hfcusb_data *hfc)
-+l1_timer_expire_t4(struct timer_list *t)
- {
-+	hfcusb_data *hfc = from_timer(hfc, t, t4_timer);
- 	hfc->d_if.ifc.l1l2(&hfc->d_if.ifc, PH_DEACTIVATE | INDICATION,
- 			   NULL);
- 
-@@ -1165,10 +1167,10 @@ hfc_usb_init(hfcusb_data *hfc)
- 	hfc->old_led_state = 0;
- 
- 	/* init the t3 timer */
--	setup_timer(&hfc->t3_timer, (void *)l1_timer_expire_t3, (long)hfc);
-+	timer_setup(&hfc->t3_timer, l1_timer_expire_t3, 0);
- 
- 	/* init the t4 timer */
--	setup_timer(&hfc->t4_timer, (void *)l1_timer_expire_t4, (long)hfc);
-+	timer_setup(&hfc->t4_timer, l1_timer_expire_t4, 0);
- 
- 	/* init the background machinery for control requests */
- 	hfc->ctrl_read.bRequestType = 0xc0;
-diff --git a/drivers/isdn/hisax/hfcscard.c b/drivers/isdn/hisax/hfcscard.c
-index 467287096918..380bbeda9c74 100644
---- a/drivers/isdn/hisax/hfcscard.c
-+++ b/drivers/isdn/hisax/hfcscard.c
-@@ -41,8 +41,9 @@ hfcs_interrupt(int intno, void *dev_id)
- }
- 
- static void
--hfcs_Timer(struct IsdnCardState *cs)
-+hfcs_Timer(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.hfcD.timer);
- 	cs->hw.hfcD.timer.expires = jiffies + 75;
- 	/* WD RESET */
- /*	WriteReg(cs, HFCD_DATA, HFCD_CTMT, cs->hw.hfcD.ctmt | 0x80);
-@@ -253,7 +254,7 @@ int setup_hfcs(struct IsdnCard *card)
- 		outb(0x57, cs->hw.hfcD.addr | 1);
- 	}
- 	set_cs_func(cs);
--	setup_timer(&cs->hw.hfcD.timer, (void *)hfcs_Timer, (long)cs);
-+	timer_setup(&cs->hw.hfcD.timer, hfcs_Timer, 0);
- 	cs->cardmsg = &hfcs_card_msg;
- 	cs->irq_func = &hfcs_interrupt;
- 	return (1);
-diff --git a/drivers/isdn/hisax/icc.c b/drivers/isdn/hisax/icc.c
-index 8d1804572b32..69e7d1db1b36 100644
---- a/drivers/isdn/hisax/icc.c
-+++ b/drivers/isdn/hisax/icc.c
-@@ -580,8 +580,9 @@ DC_Close_icc(struct IsdnCardState *cs) {
- }
- 
- static void
--dbusy_timer_handler(struct IsdnCardState *cs)
-+dbusy_timer_handler(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, dbusytimer);
- 	struct PStack *stptr;
- 	int	rbch, star;
- 
-@@ -676,5 +677,5 @@ clear_pending_icc_ints(struct IsdnCardState *cs)
- void setup_icc(struct IsdnCardState *cs)
- {
- 	INIT_WORK(&cs->tqueue, icc_bh);
--	setup_timer(&cs->dbusytimer, (void *)dbusy_timer_handler, (long)cs);
-+	timer_setup(&cs->dbusytimer, dbusy_timer_handler, 0);
- }
-diff --git a/drivers/isdn/hisax/ipacx.c b/drivers/isdn/hisax/ipacx.c
-index c426b4fea28a..1363c8c8b9b1 100644
---- a/drivers/isdn/hisax/ipacx.c
-+++ b/drivers/isdn/hisax/ipacx.c
-@@ -35,7 +35,7 @@
- static void ph_command(struct IsdnCardState *cs, unsigned int command);
- static inline void cic_int(struct IsdnCardState *cs);
- static void dch_l2l1(struct PStack *st, int pr, void *arg);
--static void dbusy_timer_handler(struct IsdnCardState *cs);
-+static void dbusy_timer_handler(struct timer_list *t);
- static void dch_empty_fifo(struct IsdnCardState *cs, int count);
- static void dch_fill_fifo(struct IsdnCardState *cs);
- static inline void dch_int(struct IsdnCardState *cs);
-@@ -198,8 +198,9 @@ dch_l2l1(struct PStack *st, int pr, void *arg)
- //----------------------------------------------------------
- //----------------------------------------------------------
- static void
--dbusy_timer_handler(struct IsdnCardState *cs)
-+dbusy_timer_handler(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, dbusytimer);
- 	struct PStack *st;
- 	int	rbchd, stard;
- 
-@@ -424,7 +425,7 @@ dch_init(struct IsdnCardState *cs)
- 
- 	cs->setstack_d      = dch_setstack;
- 
--	setup_timer(&cs->dbusytimer, (void *)dbusy_timer_handler, (long)cs);
-+	timer_setup(&cs->dbusytimer, dbusy_timer_handler, 0);
- 
- 	cs->writeisac(cs, IPACX_TR_CONF0, 0x00);  // clear LDD
- 	cs->writeisac(cs, IPACX_TR_CONF2, 0x00);  // enable transmitter
-diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
-index ea965f29a555..f0d056ce6755 100644
---- a/drivers/isdn/hisax/isac.c
-+++ b/drivers/isdn/hisax/isac.c
-@@ -584,8 +584,9 @@ DC_Close_isac(struct IsdnCardState *cs)
- }
- 
- static void
--dbusy_timer_handler(struct IsdnCardState *cs)
-+dbusy_timer_handler(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, dbusytimer);
- 	struct PStack *stptr;
- 	int	rbch, star;
- 
-@@ -677,5 +678,5 @@ void clear_pending_isac_ints(struct IsdnCardState *cs)
- void setup_isac(struct IsdnCardState *cs)
- {
- 	INIT_WORK(&cs->tqueue, isac_bh);
--	setup_timer(&cs->dbusytimer, (void *)dbusy_timer_handler, (long)cs);
-+	timer_setup(&cs->dbusytimer, dbusy_timer_handler, 0);
- }
-diff --git a/drivers/isdn/hisax/isar.c b/drivers/isdn/hisax/isar.c
-index 98b4b67ea337..d01ff116797b 100644
---- a/drivers/isdn/hisax/isar.c
-+++ b/drivers/isdn/hisax/isar.c
-@@ -1267,7 +1267,8 @@ isar_int_main(struct IsdnCardState *cs)
- }
- 
- static void
--ftimer_handler(struct BCState *bcs) {
-+ftimer_handler(struct timer_list *t) {
-+	struct BCState *bcs = from_timer(bcs, t, hw.isar.ftimer);
- 	if (bcs->cs->debug)
- 		debugl1(bcs->cs, "ftimer flags %04lx",
- 			bcs->Flag);
-@@ -1902,8 +1903,6 @@ void initisar(struct IsdnCardState *cs)
- 	cs->bcs[1].BC_SetStack = setstack_isar;
- 	cs->bcs[0].BC_Close = close_isarstate;
- 	cs->bcs[1].BC_Close = close_isarstate;
--	setup_timer(&cs->bcs[0].hw.isar.ftimer, (void *)ftimer_handler,
--		    (long)&cs->bcs[0]);
--	setup_timer(&cs->bcs[1].hw.isar.ftimer, (void *)ftimer_handler,
--		    (long)&cs->bcs[1]);
-+	timer_setup(&cs->bcs[0].hw.isar.ftimer, ftimer_handler, 0);
-+	timer_setup(&cs->bcs[1].hw.isar.ftimer, ftimer_handler, 0);
- }
-diff --git a/drivers/isdn/hisax/isdnl3.c b/drivers/isdn/hisax/isdnl3.c
-index 569ce52c567b..2c340271b18d 100644
---- a/drivers/isdn/hisax/isdnl3.c
-+++ b/drivers/isdn/hisax/isdnl3.c
-@@ -160,8 +160,9 @@ newl3state(struct l3_process *pc, int state)
- }
- 
- static void
--L3ExpireTimer(struct L3Timer *t)
-+L3ExpireTimer(struct timer_list *timer)
- {
-+	struct L3Timer *t = from_timer(t, timer, tl);
- 	t->pc->st->lli.l4l3(t->pc->st, t->event, t->pc);
- }
- 
-@@ -169,7 +170,7 @@ void
- L3InitTimer(struct l3_process *pc, struct L3Timer *t)
- {
- 	t->pc = pc;
--	setup_timer(&t->tl, (void *)L3ExpireTimer, (long)t);
-+	timer_setup(&t->tl, L3ExpireTimer, 0);
- }
- 
- void
-diff --git a/drivers/isdn/hisax/saphir.c b/drivers/isdn/hisax/saphir.c
-index 6b2d0eccdd56..db906cb37a3f 100644
---- a/drivers/isdn/hisax/saphir.c
-+++ b/drivers/isdn/hisax/saphir.c
-@@ -159,8 +159,9 @@ saphir_interrupt(int intno, void *dev_id)
- }
- 
- static void
--SaphirWatchDog(struct IsdnCardState *cs)
-+SaphirWatchDog(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.saphir.timer);
- 	u_long flags;
- 
- 	spin_lock_irqsave(&cs->lock, flags);
-@@ -268,9 +269,7 @@ int setup_saphir(struct IsdnCard *card)
- 	       cs->irq, cs->hw.saphir.cfg_reg);
- 
- 	setup_isac(cs);
--	cs->hw.saphir.timer.function = (void *) SaphirWatchDog;
--	cs->hw.saphir.timer.data = (long) cs;
--	init_timer(&cs->hw.saphir.timer);
-+	timer_setup(&cs->hw.saphir.timer, SaphirWatchDog, 0);
- 	cs->hw.saphir.timer.expires = jiffies + 4 * HZ;
- 	add_timer(&cs->hw.saphir.timer);
- 	if (saphir_reset(cs)) {
-diff --git a/drivers/isdn/hisax/teleint.c b/drivers/isdn/hisax/teleint.c
-index 950399f066ef..247aa33076b1 100644
---- a/drivers/isdn/hisax/teleint.c
-+++ b/drivers/isdn/hisax/teleint.c
-@@ -179,8 +179,9 @@ TeleInt_interrupt(int intno, void *dev_id)
- }
- 
- static void
--TeleInt_Timer(struct IsdnCardState *cs)
-+TeleInt_Timer(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, hw.hfc.timer);
- 	int stat = 0;
- 	u_long flags;
- 
-@@ -278,7 +279,7 @@ int setup_TeleInt(struct IsdnCard *card)
- 	cs->bcs[0].hw.hfc.send = NULL;
- 	cs->bcs[1].hw.hfc.send = NULL;
- 	cs->hw.hfc.fifosize = 7 * 1024 + 512;
--	setup_timer(&cs->hw.hfc.timer, (void *)TeleInt_Timer, (long)cs);
-+	timer_setup(&cs->hw.hfc.timer, TeleInt_Timer, 0);
- 	if (!request_region(cs->hw.hfc.addr, 2, "TeleInt isdn")) {
- 		printk(KERN_WARNING
- 		       "HiSax: TeleInt config port %x-%x already in use\n",
-diff --git a/drivers/isdn/hisax/w6692.c b/drivers/isdn/hisax/w6692.c
-index 6f6733b7c1e4..d961026ee2d3 100644
---- a/drivers/isdn/hisax/w6692.c
-+++ b/drivers/isdn/hisax/w6692.c
-@@ -684,8 +684,9 @@ DC_Close_W6692(struct IsdnCardState *cs)
- }
- 
- static void
--dbusy_timer_handler(struct IsdnCardState *cs)
-+dbusy_timer_handler(struct timer_list *t)
- {
-+	struct IsdnCardState *cs = from_timer(cs, t, dbusytimer);
- 	struct PStack *stptr;
- 	int rbch, star;
- 	u_long flags;
-@@ -904,8 +905,7 @@ static void initW6692(struct IsdnCardState *cs, int part)
- 	if (part & 1) {
- 		cs->setstack_d = setstack_W6692;
- 		cs->DC_Close = DC_Close_W6692;
--		setup_timer(&cs->dbusytimer, (void *)dbusy_timer_handler,
--			    (long)cs);
-+		timer_setup(&cs->dbusytimer, dbusy_timer_handler, 0);
- 		resetW6692(cs);
- 		ph_command(cs, W_L1CMD_RST);
- 		cs->dc.w6692.ph_state = W_L1CMD_RST;
 -- 
 2.7.4
 
