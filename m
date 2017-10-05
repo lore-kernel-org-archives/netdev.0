@@ -1,76 +1,52 @@
-From: Rodney Cummings <rodney.cummings@ni.com>
-Subject: RE: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Thu, 5 Oct 2017 18:41:48 +0000
-Message-ID: <CY1PR0401MB1536A44D0AB459BB9618664A92700@CY1PR0401MB1536.namprd04.prod.outlook.com>
-References: <20171004002831.18371-4-vinicius.gomes@intel.com>
-        <20171004063650.GA1895@nanopsycho>
-        <CAEYbN3RjUXGMyxo0t88-ASNVEVQdfXkMzBbMtMHAhqWScOO=Cg@mail.gmail.com>
- <20171005.112909.2052593524154643514.davem@davemloft.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH] ipv6: gso: fix payload length when gso_size is zero
+Date: Thu, 5 Oct 2017 18:58:00 +0000
+Message-ID: <1507229878.2098.56.camel@intel.com>
+References: <1507223207-17557-1-git-send-email-alexey.kodanev@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
-        "vinicius.gomes@intel.com" <vinicius.gomes@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "andre.guedes@intel.com" <andre.guedes@intel.com>,
-        "ivan.briano@intel.com" <ivan.briano@intel.com>,
-        "jesus.sanchez-palencia@intel.com" <jesus.sanchez-palencia@intel.com>,
-        "boon.leong.ong@intel.com" <boon.leong.ong@intel.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>,
-        "henrik@austad.us" <henrik@austad.us>
-To: David Miller <davem@davemloft.net>,
-        "levipearson@gmail.com" <levipearson@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "alexey.kodanev@oracle.com" <alexey.kodanev@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00010702.pphosted.com ([148.163.156.75]:52082 "EHLO
-        mx0b-00010702.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751432AbdJESmB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 14:42:01 -0400
-In-Reply-To: <20171005.112909.2052593524154643514.davem@davemloft.net>
+Received: from mga11.intel.com ([192.55.52.93]:4850 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751454AbdJES6C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Oct 2017 14:58:02 -0400
+In-Reply-To: <1507223207-17557-1-git-send-email-alexey.kodanev@oracle.com>
 Content-Language: en-US
+Content-ID: <B19ACD12557AAA4F9BB109E2CB5BA2C4@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The IEEE Std 802.1Q specs for credit-based shaper require precise transmit =
-decisions
-within a 125 microsecond window of time.
-
-Even with the Preempt RT patch or similar enhancements, that isn't very pra=
-ctical
-as software-only. I doubt that software would conform to the standard's
-requirements.
-
-This is analogous to memory, or CPU.
-.
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, October 5, 2017 1:29 PM
-> To: levipearson@gmail.com
-> Cc: jiri@resnulli.us; vinicius.gomes@intel.com; netdev@vger.kernel.org;
-> intel-wired-lan@lists.osuosl.org; jhs@mojatatu.com;
-> xiyou.wangcong@gmail.com; andre.guedes@intel.com; ivan.briano@intel.com;
-> jesus.sanchez-palencia@intel.com; boon.leong.ong@intel.com;
-> richardcochran@gmail.com; henrik@austad.us; Rodney Cummings
-> <rodney.cummings@ni.com>
-> Subject: Re: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
-> Shaper (CBS) qdisc
->=20
-> From: Levi Pearson <levipearson@gmail.com>
-> Date: Thu, 5 Oct 2017 12:09:32 -0600
->=20
-> > It would be a shame if this were blocked due to a missing software
-> > implementation.
->=20
-> Quite the contrary, I think a software implementation is a minimum
-> requirement for inclusion of this feature.
->=20
-> Without a software implementation, there is no clear definition of
-> what is supposed to happen, and no clear way for people to test those
-> expectations unless they have the specific hardware.
->=20
-> I completely agree with Jiri.  Hardware offload first is _not_ how
-> we do things in the Linux networking.
+T24gVGh1LCAyMDE3LTEwLTA1IGF0IDIwOjA2ICswMzAwLCBBbGV4ZXkgS29kYW5ldiB3cm90ZToN
+Cj4gV2hlbiBnc29fc2l6ZSByZXNldCB0byB6ZXJvIGZvciB0aGUgdGFpbCBzZWdtZW50IGluIHNr
+Yl9zZWdtZW50KCksIGxhdGVyDQo+IGluIGlwdjZfZ3NvX3NlZ21lbnQoKSwgd2Ugd2lsbCBnZXQg
+aW5jb3JyZWN0IHBheWxvYWRfbGVuIGZvciB0aGF0IHNlZ21lbnQuDQo+IGluZXRfZ3NvX3NlZ21l
+bnQoKSBhbHJlYWR5IGhhcyBhIGNoZWNrIGZvciBnc29fc2l6ZSBiZWZvcmUgY2FsY3VsYXRpbmcN
+Cj4gcGF5bG9hZCBzbyBmaXhpbmcgb25seSBJUHY2IHBhcnQuDQo+IA0KPiBUaGUgaXNzdWUgd2Fz
+IGZvdW5kIHdpdGggTFRQIHZ4bGFuICYgZ3JlIHRlc3RzIG92ZXIgaXhnYmUgTklDLg0KPiANCj4g
+Rml4ZXM6IDA3YjI2Yzk0NTRhMiAoImdzbzogU3VwcG9ydCBwYXJ0aWFsIHNwbGl0dGluZyBhdCB0
+aGUgZnJhZ19saXN0IHBvaW50ZXIiKQ0KPiBTaWduZWQtb2ZmLWJ5OiBBbGV4ZXkgS29kYW5ldiA8
+YWxleGV5LmtvZGFuZXZAb3JhY2xlLmNvbT4NCj4gLS0tDQo+ICBuZXQvaXB2Ni9pcDZfb2ZmbG9h
+ZC5jIHwgMiArLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9u
+KC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjYvaXA2X29mZmxvYWQuYyBiL25ldC9pcHY2
+L2lwNl9vZmZsb2FkLmMNCj4gaW5kZXggY2RiMzcyOC4uNGE4N2Y5NCAxMDA2NDQNCj4gLS0tIGEv
+bmV0L2lwdjYvaXA2X29mZmxvYWQuYw0KPiArKysgYi9uZXQvaXB2Ni9pcDZfb2ZmbG9hZC5jDQo+
+IEBAIC0xMDUsNyArMTA1LDcgQEAgc3RhdGljIHN0cnVjdCBza19idWZmICppcHY2X2dzb19zZWdt
+ZW50KHN0cnVjdCBza19idWZmICpza2IsDQo+ICANCj4gIAlmb3IgKHNrYiA9IHNlZ3M7IHNrYjsg
+c2tiID0gc2tiLT5uZXh0KSB7DQo+ICAJCWlwdjZoID0gKHN0cnVjdCBpcHY2aGRyICopKHNrYl9t
+YWNfaGVhZGVyKHNrYikgKyBuaG9mZik7DQo+IC0JCWlmIChnc29fcGFydGlhbCkNCj4gKwkJaWYg
+KGdzb19wYXJ0aWFsICYmIHNrYl9pc19nc28oc2tiKSkNCj4gIAkJCXBheWxvYWRfbGVuID0gc2ti
+X3NoaW5mbyhza2IpLT5nc29fc2l6ZSArDQo+ICAJCQkJICAgICAgU0tCX0dTT19DQihza2IpLT5k
+YXRhX29mZnNldCArDQo+ICAJCQkJICAgICAgc2tiLT5oZWFkIC0gKHVuc2lnbmVkIGNoYXIgKiko
+aXB2NmggKyAxKTsNCg0KU28gbG9va2luZyBvdmVyIHRoaXMgY2hhbmdlIGl0IGxvb2tzIGdvb2Qg
+dG8gbWUuIEknbSBqdXN0IHdvbmRlcmluZyBpZg0KeW91IGhhdmUgbG9va2VkIGF0IHRoZSBjb2Rl
+IGluIF9fc2tiX3VkcF90dW5uZWxfc2VnbWVudCBvcg0KZ3JlX2dzb19zZWdtZW50PyBJdCBzZWVt
+cyBsaWtlIGlmIHlvdSBuZWVkZWQgdGhpcyBjaGFuZ2UgaGVyZSB5b3UNCnNob3VsZCBuZWVkIHRv
+IG1ha2Ugc2ltaWxhciBjaGFuZ2VzIHRvIHRob3NlIGZ1bmN0aW9ucyBhcyB3ZWxsLiBJJ20NCndv
+bmRlcmluZyBpZiB3ZSBqdXN0IGFyZW4ndCBzZWVpbmcgaXNzdWVzIGR1ZSB0byB0aGUgc2VnbWVu
+dHMgYWxyZWFkeQ0KYmVpbmcgTVNTIHNpemVkIGJlZm9yZSBiZWluZyBoYW5kZWQgdG8gdXMgZm9y
+IHNlZ21lbnRhdGlvbi4NCg0KLSBBbGV4
