@@ -1,7 +1,7 @@
 From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v7 3/5] bpf: add a test case for helper bpf_perf_event_read_value
-Date: Thu, 5 Oct 2017 09:19:21 -0700
-Message-ID: <20171005161923.332790-4-yhs@fb.com>
+Subject: [PATCH net-next v7 4/5] bpf: add helper bpf_perf_prog_read_value
+Date: Thu, 5 Oct 2017 09:19:22 -0700
+Message-ID: <20171005161923.332790-5-yhs@fb.com>
 References: <20171005161923.332790-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,136 +9,112 @@ Cc: <kernel-team@fb.com>
 To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
         <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:46830 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751554AbdJEQT0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 12:19:26 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v95GFHWE031396
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:56200 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751402AbdJEQT1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 12:19:27 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v95GGU27016402
         for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 09:19:26 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2ddk6ahdam-11
+        by mx0b-00082601.pphosted.com with ESMTP id 2ddqfw0822-4
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 09:19:26 -0700
 In-Reply-To: <20171005161923.332790-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bpf sample program tracex6 is enhanced to use the new
-helper to read enabled/running time as well.
+This patch adds helper bpf_perf_prog_read_cvalue for perf event based bpf
+programs, to read event counter and enabled/running time.
+The enabled/running time is accumulated since the perf event open.
+
+The typical use case for perf event based bpf program is to attach itself
+to a single event. In such cases, if it is desirable to get scaling factor
+between two bpf invocations, users can can save the time values in a map,
+and use the value from the map and the current value to calculate
+the scaling factor.
 
 Signed-off-by: Yonghong Song <yhs@fb.com>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- samples/bpf/tracex6_kern.c                | 26 ++++++++++++++++++++++++++
- samples/bpf/tracex6_user.c                | 13 ++++++++++++-
- tools/include/uapi/linux/bpf.h            |  3 ++-
- tools/testing/selftests/bpf/bpf_helpers.h |  3 +++
- 4 files changed, 43 insertions(+), 2 deletions(-)
+ include/uapi/linux/bpf.h | 10 +++++++++-
+ kernel/trace/bpf_trace.c | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 1 deletion(-)
 
-diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
-index e7d1803..46c557a 100644
---- a/samples/bpf/tracex6_kern.c
-+++ b/samples/bpf/tracex6_kern.c
-@@ -15,6 +15,12 @@ struct bpf_map_def SEC("maps") values = {
- 	.value_size = sizeof(u64),
- 	.max_entries = 64,
- };
-+struct bpf_map_def SEC("maps") values2 = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(struct bpf_perf_event_value),
-+	.max_entries = 64,
-+};
- 
- SEC("kprobe/htab_map_get_next_key")
- int bpf_prog1(struct pt_regs *ctx)
-@@ -37,5 +43,25 @@ int bpf_prog1(struct pt_regs *ctx)
- 	return 0;
- }
- 
-+SEC("kprobe/htab_map_lookup_elem")
-+int bpf_prog2(struct pt_regs *ctx)
-+{
-+	u32 key = bpf_get_smp_processor_id();
-+	struct bpf_perf_event_value *val, buf;
-+	int error;
-+
-+	error = bpf_perf_event_read_value(&counters, key, &buf, sizeof(buf));
-+	if (error)
-+		return 0;
-+
-+	val = bpf_map_lookup_elem(&values2, &key);
-+	if (val)
-+		*val = buf;
-+	else
-+		bpf_map_update_elem(&values2, &key, &buf, BPF_NOEXIST);
-+
-+	return 0;
-+}
-+
- char _license[] SEC("license") = "GPL";
- u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
-index a05a99a..3341a96 100644
---- a/samples/bpf/tracex6_user.c
-+++ b/samples/bpf/tracex6_user.c
-@@ -22,6 +22,7 @@
- 
- static void check_on_cpu(int cpu, struct perf_event_attr *attr)
- {
-+	struct bpf_perf_event_value value2;
- 	int pmu_fd, error = 0;
- 	cpu_set_t set;
- 	__u64 value;
-@@ -46,8 +47,18 @@ static void check_on_cpu(int cpu, struct perf_event_attr *attr)
- 		fprintf(stderr, "Value missing for CPU %d\n", cpu);
- 		error = 1;
- 		goto on_exit;
-+	} else {
-+		fprintf(stderr, "CPU %d: %llu\n", cpu, value);
-+	}
-+	/* The above bpf_map_lookup_elem should trigger the second kprobe */
-+	if (bpf_map_lookup_elem(map_fd[2], &cpu, &value2)) {
-+		fprintf(stderr, "Value2 missing for CPU %d\n", cpu);
-+		error = 1;
-+		goto on_exit;
-+	} else {
-+		fprintf(stderr, "CPU %d: counter: %llu, enabled: %llu, running: %llu\n", cpu,
-+			value2.counter, value2.enabled, value2.running);
- 	}
--	fprintf(stderr, "CPU %d: %llu\n", cpu, value);
- 
- on_exit:
- 	assert(bpf_map_delete_elem(map_fd[0], &cpu) == 0 || error);
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index cb2b9f9..cdf6c4f 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -697,7 +697,8 @@ union bpf_attr {
- 	FN(redirect_map),		\
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 93f3d1f..5dc44d1 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -649,6 +649,13 @@ union bpf_attr {
+  *     @buf: buf to fill
+  *     @buf_size: size of the buf
+  *     Return: 0 on success or negative error code
++ *
++ * int bpf_perf_prog_read_value(ctx, buf, buf_size)
++ *     read perf prog attached perf event counter and enabled/running time
++ *     @ctx: pointer to ctx
++ *     @buf: buf to fill
++ *     @buf_size: size of the buf
++ *     Return : 0 on success or negative error code
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -706,7 +713,8 @@ union bpf_attr {
  	FN(sk_redirect_map),		\
  	FN(sock_map_update),		\
--	FN(xdp_adjust_meta),
-+	FN(xdp_adjust_meta),		\
-+	FN(perf_event_read_value),
+ 	FN(xdp_adjust_meta),		\
+-	FN(perf_event_read_value),
++	FN(perf_event_read_value),	\
++	FN(perf_prog_read_value),
  
  /* integer value in 'imm' field of BPF_CALL instruction selects which helper
   * function eBPF program intends to call
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index a56053d..c15ca83 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -72,6 +72,9 @@ static int (*bpf_sk_redirect_map)(void *map, int key, int flags) =
- static int (*bpf_sock_map_update)(void *map, void *key, void *value,
- 				  unsigned long long flags) =
- 	(void *) BPF_FUNC_sock_map_update;
-+static int (*bpf_perf_event_read_value)(void *map, unsigned long long flags,
-+					void *buf, unsigned int buf_size) =
-+	(void *) BPF_FUNC_perf_event_read_value;
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 0be86cc..04ea531 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -613,6 +613,32 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
  
- 
- /* llvm builtin functions that eBPF C program may use to
++BPF_CALL_3(bpf_perf_prog_read_value_tp, struct bpf_perf_event_data_kern *, ctx,
++	   struct bpf_perf_event_value *, buf, u32, size)
++{
++	int err = -EINVAL;
++
++	if (unlikely(size != sizeof(struct bpf_perf_event_value)))
++		goto clear;
++	err = perf_event_read_local(ctx->event, &buf->counter, &buf->enabled,
++				    &buf->running);
++	if (unlikely(err))
++		goto clear;
++	return 0;
++clear:
++	memset(buf, 0, size);
++	return err;
++}
++
++static const struct bpf_func_proto bpf_perf_prog_read_value_proto_tp = {
++         .func           = bpf_perf_prog_read_value_tp,
++         .gpl_only       = true,
++         .ret_type       = RET_INTEGER,
++         .arg1_type      = ARG_PTR_TO_CTX,
++         .arg2_type      = ARG_PTR_TO_UNINIT_MEM,
++         .arg3_type      = ARG_CONST_SIZE,
++};
++
+ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+@@ -620,6 +646,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_perf_event_output_proto_tp;
+ 	case BPF_FUNC_get_stackid:
+ 		return &bpf_get_stackid_proto_tp;
++	case BPF_FUNC_perf_prog_read_value:
++		return &bpf_perf_prog_read_value_proto_tp;
+ 	default:
+ 		return tracing_func_proto(func_id);
+ 	}
 -- 
 2.9.5
