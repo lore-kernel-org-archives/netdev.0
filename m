@@ -1,95 +1,82 @@
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH 10/13] timer: Remove expires and data arguments from
- DEFINE_TIMER
-Date: Thu, 5 Oct 2017 07:28:28 +0200
-Message-ID: <20171005052828.GA14470@kroah.com>
-References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
- <1507159627-127660-11-git-send-email-keescook@chromium.org>
+From: AceLan Kao <acelan.kao@canonical.com>
+Subject: Re: [PATCH 2/6] ath9k: add a quirk to set use_msi automatically
+Date: Thu, 5 Oct 2017 14:39:12 +0800
+Message-ID: <CAFv23QkLJ0m112Y8iAGv+6DyFT52Hqnxq5Fy=ryWTWxu8oTXdw@mail.gmail.com>
+References: <1506408099-18488-1-git-send-email-acelan.kao@canonical.com>
+ <1506408099-18488-2-git-send-email-acelan.kao@canonical.com>
+ <20170926064456.GA28611@infradead.org> <CAFv23Qm9kZLSqJ_BP1D7mWCxekq0nt3S8onT1ckH-AoHDBUDzw@mail.gmail.com>
+ <20170926140413.GA19977@infradead.org> <878th14kde.fsf@kamboji.qca.qualcomm.com>
+ <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com> <CAD8Lp46mdgbfCGY_i=N7FB1rMfL0KA0VFQxJESxshe4Cn6k4+Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-        Chris Metcalf <cmetcalf-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
-        Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
-        Harish Patil <harish.patil-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Julian Wiedmann <jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        Lai Jiangshan <jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Manish Chopra <manish.chopra-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        Mark Gross <mark.gross-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "Martin K. Petersen" <martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Martin Schwidefsky
-To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1507159627-127660-11-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Christoph Hellwig <hch@infradead.org>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Daniel Drake <drake@endlessm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAD8Lp46mdgbfCGY_i=N7FB1rMfL0KA0VFQxJESxshe4Cn6k4+Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2017 at 04:27:04PM -0700, Kees Cook wrote:
-> Drop the arguments from the macro and adjust all callers with the
-> following script:
-> 
->   perl -pi -e 's/DEFINE_TIMER\((.*), 0, 0\);/DEFINE_TIMER($1);/g;' \
->     $(git grep DEFINE_TIMER | cut -d: -f1 | sort -u | grep -v timer.h)
-> 
-> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> Acked-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> # for m68k parts
-> ---
->  arch/arm/mach-ixp4xx/dsmg600-setup.c      | 2 +-
->  arch/arm/mach-ixp4xx/nas100d-setup.c      | 2 +-
->  arch/m68k/amiga/amisound.c                | 2 +-
->  arch/m68k/mac/macboing.c                  | 2 +-
->  arch/mips/mti-malta/malta-display.c       | 2 +-
->  arch/parisc/kernel/pdc_cons.c             | 2 +-
->  arch/s390/mm/cmm.c                        | 2 +-
->  drivers/atm/idt77105.c                    | 4 ++--
->  drivers/atm/iphase.c                      | 2 +-
->  drivers/block/ataflop.c                   | 8 ++++----
->  drivers/char/dtlk.c                       | 2 +-
->  drivers/char/hangcheck-timer.c            | 2 +-
->  drivers/char/nwbutton.c                   | 2 +-
->  drivers/char/rtc.c                        | 2 +-
->  drivers/input/touchscreen/s3c2410_ts.c    | 2 +-
->  drivers/net/cris/eth_v10.c                | 6 +++---
->  drivers/net/hamradio/yam.c                | 2 +-
->  drivers/net/wireless/atmel/at76c50x-usb.c | 2 +-
->  drivers/staging/speakup/main.c            | 2 +-
->  drivers/staging/speakup/synth.c           | 2 +-
->  drivers/tty/cyclades.c                    | 2 +-
->  drivers/tty/isicom.c                      | 2 +-
->  drivers/tty/moxa.c                        | 2 +-
->  drivers/tty/rocket.c                      | 2 +-
->  drivers/tty/vt/keyboard.c                 | 2 +-
->  drivers/tty/vt/vt.c                       | 2 +-
->  drivers/watchdog/alim7101_wdt.c           | 2 +-
->  drivers/watchdog/machzwd.c                | 2 +-
->  drivers/watchdog/mixcomwd.c               | 2 +-
->  drivers/watchdog/sbc60xxwdt.c             | 2 +-
->  drivers/watchdog/sc520_wdt.c              | 2 +-
->  drivers/watchdog/via_wdt.c                | 2 +-
->  drivers/watchdog/w83877f_wdt.c            | 2 +-
->  drivers/xen/grant-table.c                 | 2 +-
->  fs/pstore/platform.c                      | 2 +-
->  include/linux/timer.h                     | 4 ++--
->  kernel/irq/spurious.c                     | 2 +-
->  lib/random32.c                            | 2 +-
->  net/atm/mpc.c                             | 2 +-
->  net/decnet/dn_route.c                     | 2 +-
->  net/ipv6/ip6_flowlabel.c                  | 2 +-
->  net/netrom/nr_loopback.c                  | 2 +-
->  security/keys/gc.c                        | 2 +-
->  sound/oss/midibuf.c                       | 2 +-
->  sound/oss/soundcard.c                     | 2 +-
->  sound/oss/sys_timer.c                     | 2 +-
->  sound/oss/uart6850.c                      | 2 +-
->  47 files changed, 54 insertions(+), 54 deletions(-)
+Hi all,
 
-Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Please drop my patches, Qualcomm is working internally and will submit
+the MSI patch by themselves.
+Thanks.
+
+Hi Daniel,
+
+I'll try your patches tomorrow.
+
+Best regards,
+AceLan Kao.
+
+2017-10-02 12:21 GMT+08:00 Daniel Drake <drake@endlessm.com>:
+> Hi AceLan,
+>
+> On Thu, Sep 28, 2017 at 4:28 PM, AceLan Kao <acelan.kao@canonical.com> wrote:
+>> Hi Daniel,
+>>
+>> I've tried your patch, but it doesn't work for me.
+>> Wifi can scan AP, but can't get connected.
+>
+> Can you please clarify which patch(es) you have tried?
+>
+> This is the base patch which adds the infrastructure to request
+> specific MSI IRQ vectors:
+> https://marc.info/?l=linux-wireless&m=150631274108016&w=2
+>
+> This is the ath9k MSI patch which makes use of that:
+> https://github.com/endlessm/linux/commit/739c7a924db8f4434a9617657
+>
+> If you were already able to use ath9k MSI interrupts without specific
+> consideration for which MSI vector numbers were used, these are the
+> possible explanations that spring to mind:
+>
+> 1. You got lucky and it picked a vector number that is 4-aligned. You
+> can check this in the "lspci -vvv" output. You'll see something like:
+> Capabilities: [50] MSI: Enable+ Count=1/4 Maskable+ 64bit+
+>         Address: 00000000fee0300c  Data: 4142
+> The lower number is the vector number. In my example here 0x42 (66) is
+> not 4-aligned so the failure condition will be hit.
+>
+> 2. You are using interrupt remapping, which I suspect may provide a
+> high likelihood of MSI interrupt vectors being 4-aligned. See if
+> /proc/interrupts shows the IRQ type as IR-PCI-MSI
+> Unfortunately interrupt remapping is not available here,
+> https://lists.linuxfoundation.org/pipermail/iommu/2017-August/023717.html
+>
+> 3. My assumption that all ath9k hardware corrupts the MSI vector
+> number could wrong. However we've seen this on different wifi modules
+> in laptops produced by different OEMs and ODMs, so it seems to be a
+> somewhat widespread problem at least.
+>
+> 4. My assumption that ath9k hardware is corrupting the MSI vector
+> number could be wrong; maybe another component is to blame, could it
+> be a BIOS issue? Admittedly I don't really know how I can debug the
+> layers inbetween seeing the MSI Message Data value disagree with the
+> vector number being handled inside do_IRQ().
+>
+> Daniel
