@@ -1,159 +1,70 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] bna: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:45 -0700
-Message-ID: <20171005005145.GA23472@beast>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH] net/mlx4_core: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:54 -0700
+Message-ID: <20171005005154.GA23500@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rasesh Mody <rasesh.mody@cavium.com>,
-        Sudarsana Kalluru <sudarsana.kalluru@cavium.com>,
-        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:55485 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752130AbdJEAvs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:51:48 -0400
-Received: by mail-pf0-f180.google.com with SMTP id g62so1527442pfk.12
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 17:51:48 -0700 (PDT)
+Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Rasesh Mody <rasesh.mody@cavium.com>
-Cc: Sudarsana Kalluru <sudarsana.kalluru@cavium.com>
-Cc: Dept-GELinuxNICDev@cavium.com
-Cc: netdev@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
 ---
 This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/net/ethernet/brocade/bna/bnad.c | 43 +++++++++++++++------------------
- 1 file changed, 19 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/catas.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index 6e13c937d715..a843076597ec 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -1693,9 +1693,9 @@ bnad_rx_res_alloc(struct bnad *bnad, struct bna_res_info *res_info,
- /* Timer callbacks */
- /* a) IOC timer */
- static void
--bnad_ioc_timeout(unsigned long data)
-+bnad_ioc_timeout(struct timer_list *t)
- {
--	struct bnad *bnad = (struct bnad *)data;
-+	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.ioc_timer);
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -1704,9 +1704,9 @@ bnad_ioc_timeout(unsigned long data)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+index 53daa6ca5d83..e2b6b0cac1ac 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/catas.c
++++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+@@ -231,10 +231,10 @@ static void dump_err_buf(struct mlx4_dev *dev)
+ 			 i, swab32(readl(priv->catas_err.map + i)));
  }
  
- static void
--bnad_ioc_hb_check(unsigned long data)
-+bnad_ioc_hb_check(struct timer_list *t)
+-static void poll_catas(unsigned long dev_ptr)
++static void poll_catas(struct timer_list *t)
  {
--	struct bnad *bnad = (struct bnad *)data;
-+	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.hb_timer);
- 	unsigned long flags;
+-	struct mlx4_dev *dev = (struct mlx4_dev *) dev_ptr;
+-	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_priv *priv = from_timer(priv, t, catas_err.timer);
++	struct mlx4_dev *dev = &priv->dev;
+ 	u32 slave_read;
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -1715,9 +1715,9 @@ bnad_ioc_hb_check(unsigned long data)
- }
+ 	if (mlx4_is_slave(dev)) {
+@@ -277,7 +277,7 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+ 	phys_addr_t addr;
  
- static void
--bnad_iocpf_timeout(unsigned long data)
-+bnad_iocpf_timeout(struct timer_list *t)
- {
--	struct bnad *bnad = (struct bnad *)data;
-+	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.iocpf_timer);
- 	unsigned long flags;
+ 	INIT_LIST_HEAD(&priv->catas_err.list);
+-	init_timer(&priv->catas_err.timer);
++	timer_setup(&priv->catas_err.timer, poll_catas, 0);
+ 	priv->catas_err.map = NULL;
  
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -1726,9 +1726,9 @@ bnad_iocpf_timeout(unsigned long data)
- }
- 
- static void
--bnad_iocpf_sem_timeout(unsigned long data)
-+bnad_iocpf_sem_timeout(struct timer_list *t)
- {
--	struct bnad *bnad = (struct bnad *)data;
-+	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.sem_timer);
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
-@@ -1748,9 +1748,9 @@ bnad_iocpf_sem_timeout(unsigned long data)
- 
- /* b) Dynamic Interrupt Moderation Timer */
- static void
--bnad_dim_timeout(unsigned long data)
-+bnad_dim_timeout(struct timer_list *t)
- {
--	struct bnad *bnad = (struct bnad *)data;
-+	struct bnad *bnad = from_timer(bnad, t, dim_timer);
- 	struct bnad_rx_info *rx_info;
- 	struct bnad_rx_ctrl *rx_ctrl;
- 	int i, j;
-@@ -1781,9 +1781,9 @@ bnad_dim_timeout(unsigned long data)
- 
- /* c)  Statistics Timer */
- static void
--bnad_stats_timeout(unsigned long data)
-+bnad_stats_timeout(struct timer_list *t)
- {
--	struct bnad *bnad = (struct bnad *)data;
-+	struct bnad *bnad = from_timer(bnad, t, stats_timer);
- 	unsigned long flags;
- 
- 	if (!netif_running(bnad->netdev) ||
-@@ -1804,8 +1804,7 @@ bnad_dim_timer_start(struct bnad *bnad)
- {
- 	if (bnad->cfg_flags & BNAD_CF_DIM_ENABLED &&
- 	    !test_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags)) {
--		setup_timer(&bnad->dim_timer, bnad_dim_timeout,
--			    (unsigned long)bnad);
-+		timer_setup(&bnad->dim_timer, bnad_dim_timeout, 0);
- 		set_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags);
- 		mod_timer(&bnad->dim_timer,
- 			  jiffies + msecs_to_jiffies(BNAD_DIM_TIMER_FREQ));
-@@ -1823,8 +1822,7 @@ bnad_stats_timer_start(struct bnad *bnad)
- 
- 	spin_lock_irqsave(&bnad->bna_lock, flags);
- 	if (!test_and_set_bit(BNAD_RF_STATS_TIMER_RUNNING, &bnad->run_flags)) {
--		setup_timer(&bnad->stats_timer, bnad_stats_timeout,
--			    (unsigned long)bnad);
-+		timer_setup(&bnad->stats_timer, bnad_stats_timeout, 0);
- 		mod_timer(&bnad->stats_timer,
- 			  jiffies + msecs_to_jiffies(BNAD_STATS_TIMER_FREQ));
+ 	if (!mlx4_is_slave(dev)) {
+@@ -293,8 +293,6 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+ 		}
  	}
-@@ -3692,14 +3690,11 @@ bnad_pci_probe(struct pci_dev *pdev,
- 		goto res_free;
  
- 	/* Set up timers */
--	setup_timer(&bnad->bna.ioceth.ioc.ioc_timer, bnad_ioc_timeout,
--		    (unsigned long)bnad);
--	setup_timer(&bnad->bna.ioceth.ioc.hb_timer, bnad_ioc_hb_check,
--		    (unsigned long)bnad);
--	setup_timer(&bnad->bna.ioceth.ioc.iocpf_timer, bnad_iocpf_timeout,
--		    (unsigned long)bnad);
--	setup_timer(&bnad->bna.ioceth.ioc.sem_timer, bnad_iocpf_sem_timeout,
--		    (unsigned long)bnad);
-+	timer_setup(&bnad->bna.ioceth.ioc.ioc_timer, bnad_ioc_timeout, 0);
-+	timer_setup(&bnad->bna.ioceth.ioc.hb_timer, bnad_ioc_hb_check, 0);
-+	timer_setup(&bnad->bna.ioceth.ioc.iocpf_timer, bnad_iocpf_timeout, 0);
-+	timer_setup(&bnad->bna.ioceth.ioc.sem_timer, bnad_iocpf_sem_timeout,
-+		    0);
- 
- 	/*
- 	 * Start the chip
+-	priv->catas_err.timer.data     = (unsigned long) dev;
+-	priv->catas_err.timer.function = poll_catas;
+ 	priv->catas_err.timer.expires  =
+ 		round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL);
+ 	add_timer(&priv->catas_err.timer);
 -- 
 2.7.4
 
@@ -161,3 +72,7 @@ index 6e13c937d715..a843076597ec 100644
 -- 
 Kees Cook
 Pixel Security
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
