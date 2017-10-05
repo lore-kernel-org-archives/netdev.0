@@ -1,73 +1,40 @@
-From: Rodney Cummings <rodney.cummings@ni.com>
-Subject: RE: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Thu, 5 Oct 2017 19:17:03 +0000
-Message-ID: <CY1PR0401MB153671C2B94D23793C78B2BE92700@CY1PR0401MB1536.namprd04.prod.outlook.com>
-References: <CAEYbN3RjUXGMyxo0t88-ASNVEVQdfXkMzBbMtMHAhqWScOO=Cg@mail.gmail.com>
-        <20171005.112909.2052593524154643514.davem@davemloft.net>
-        <CY1PR0401MB1536A44D0AB459BB9618664A92700@CY1PR0401MB1536.namprd04.prod.outlook.com>
- <20171005.120508.2267452751875787466.davem@davemloft.net>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] isdn/gigaset: Convert timers to use timer_setup()
+Date: Thu, 5 Oct 2017 12:17:42 -0700
+Message-ID: <CAGXu5jKbMvCcAkYSHF9n9t2+Q+JBP+aFV6Kz0PO4KD49uDDdaA@mail.gmail.com>
+References: <20171005005212.GA23556@beast> <1507190336.2167.5.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "levipearson@gmail.com" <levipearson@gmail.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "vinicius.gomes@intel.com" <vinicius.gomes@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "andre.guedes@intel.com" <andre.guedes@intel.com>,
-        "ivan.briano@intel.com" <ivan.briano@intel.com>,
-        "jesus.sanchez-palencia@intel.com" <jesus.sanchez-palencia@intel.com>,
-        "boon.leong.ong@intel.com" <boon.leong.ong@intel.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>,
-        "henrik@austad.us" <henrik@austad.us>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00010702.pphosted.com ([148.163.156.75]:32950 "EHLO
-        mx0b-00010702.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751823AbdJETRZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 15:17:25 -0400
-In-Reply-To: <20171005.120508.2267452751875787466.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net,
+        Network Development <netdev@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507190336.2167.5.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No excuse. If the software cannot meet the standard's requirements, it is n=
-on-conformant,
-which means it cannot be called a standard credit-based shaper.
+On Thu, Oct 5, 2017 at 12:58 AM, Paul Bolle <pebolle@tiscali.nl> wrote:
+> Hi Kees,
+>
+> On Wed, 2017-10-04 at 17:52 -0700, Kees Cook wrote:
+>> Also uses kzmalloc to replace open-coded field assignments to NULL and zero.
+>
+> If I'm allowed to whine (chances that I'm allowed to do that are not so great
+> as Dave tends to apply gigaset patches before I even have a chance to look at
+> them properly!): I'd prefer it if that was done separately in a preceding
+> patch. Would that bother you?
 
-But... I have no objection if someone wants to try software-only. I'm just =
-saying that it
-is a waste of time for me.
+Sure, that's fine, I'll split it and re-send.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, October 5, 2017 2:05 PM
-> To: Rodney Cummings <rodney.cummings@ni.com>
-> Cc: levipearson@gmail.com; jiri@resnulli.us; vinicius.gomes@intel.com;
-> netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org;
-> jhs@mojatatu.com; xiyou.wangcong@gmail.com; andre.guedes@intel.com;
-> ivan.briano@intel.com; jesus.sanchez-palencia@intel.com;
-> boon.leong.ong@intel.com; richardcochran@gmail.com; henrik@austad.us
-> Subject: Re: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based
-> Shaper (CBS) qdisc
->=20
-> From: Rodney Cummings <rodney.cummings@ni.com>
-> Date: Thu, 5 Oct 2017 18:41:48 +0000
->=20
-> > The IEEE Std 802.1Q specs for credit-based shaper require precise
-> transmit decisions
-> > within a 125 microsecond window of time.
-> >
-> > Even with the Preempt RT patch or similar enhancements, that isn't very
-> practical
-> > as software-only. I doubt that software would conform to the standard's
-> > requirements.
-> >
-> > This is analogous to memory, or CPU.
->=20
-> I feel like this is looking for an excuse to not have to at least try to
-> implement
-> the software version of CBS.
+Thanks!
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
