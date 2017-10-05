@@ -1,41 +1,43 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next v6 0/4] bpf: add two helpers to read perf event
- enabled/running time
-Date: Thu, 5 Oct 2017 10:34:37 +0200
-Message-ID: <20171005083437.v3yfluazdy5du7pi@hirez.programming.kicks-ass.net>
-References: <20171002224218.3181418-1-yhs@fb.com>
- <20171004.160056.801262768847050741.davem@davemloft.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] mwifiex: Use put_unaligned_le32
+Date: Thu, 05 Oct 2017 11:41:38 +0300
+Message-ID: <87zi963s1p.fsf@codeaurora.org>
+References: <1507141686-5178-1-git-send-email-himanshujha199640@gmail.com>
+        <874lre5a86.fsf@codeaurora.org>
+        <20171005083433.GA11485@himanshu-Vostro-3559>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: yhs@fb.com, rostedt@goodmis.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:35039 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751388AbdJEIet (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 04:34:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20171004.160056.801262768847050741.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: amitkarwar@gmail.com, nishants@marvell.com, gbhat@marvell.com,
+        huxm@marvell.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Himanshu Jha <himanshujha199640@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171005083433.GA11485@himanshu-Vostro-3559> (Himanshu Jha's
+        message of "Thu, 5 Oct 2017 14:04:33 +0530")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 04, 2017 at 04:00:56PM -0700, David Miller wrote:
-> From: Yonghong Song <yhs@fb.com>
-> Date: Mon, 2 Oct 2017 15:42:14 -0700
-> 
-> > [Dave, Peter,
-> > 
-> >  Previous communcation shows that this patch may potentially have
-> >  merge conflict with upcoming tip changes in the next merge window.
-> > 
-> >  Could you advise how this patch should proceed?
-> > 
-> >  Thanks!
-> > ]
-> 
-> Indeed, Peter how do you want to handle this?
+Himanshu Jha <himanshujha199640@gmail.com> writes:
 
-I think Alexei suggested that we merge the one patch in two branches and
-let git sort it out. I _think_ I've done something similar before and it
-worked.
+>> > --- a/drivers/net/wireless/marvell/mwifiex/cmdevt.c
+>> > +++ b/drivers/net/wireless/marvell/mwifiex/cmdevt.c
+>> > @@ -17,6 +17,7 @@
+>> >   * this warranty disclaimer.
+>> >   */
+>> >  
+>> > +#include <linux/unaligned/access_ok.h>
+>> 
+>> I don't think this is correct. Should it be asm/unaligned.h?
+>
+> Would mind explainig me as to why it is incorrect! Also, it defined in
+> both the header files but, why is asm/unaligned.h preferred ?
+
+asm/unaligned.h seems to be the toplevel header file which includes
+header files based on arch configuration. Also grepping the sources
+support that, nobody from drivers/ include access_ok.h directly.
+
+But I can't say that I fully understand how the header files work so
+please do correct me if I have mistaken.
+
+-- 
+Kalle Valo
