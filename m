@@ -1,10 +1,10 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net/irda/bfin_sir: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:50:06 -0700
-Message-ID: <20171005005006.GA23177@beast>
+Subject: [PATCH] net/ti/tlan: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:50:11 -0700
+Message-ID: <20171005005011.GA23191@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
+Cc: Samuel Chessman <chessman@tux.org>, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,7 +16,7 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: Samuel Chessman <chessman@tux.org>
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
@@ -25,54 +25,119 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/staging/irda/drivers/bfin_sir.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/ti/tlan.c | 32 +++++++++++++-------------------
+ 1 file changed, 13 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/staging/irda/drivers/bfin_sir.c b/drivers/staging/irda/drivers/bfin_sir.c
-index 3151b580dbd6..59e409b68349 100644
---- a/drivers/staging/irda/drivers/bfin_sir.c
-+++ b/drivers/staging/irda/drivers/bfin_sir.c
-@@ -22,6 +22,8 @@ static int max_rate = 57600;
- static int max_rate = 115200;
- #endif
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index c8d53d8c83ee..8f53d762fbc4 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -172,7 +172,8 @@ static u32	tlan_handle_tx_eoc(struct net_device *, u16);
+ static u32	tlan_handle_status_check(struct net_device *, u16);
+ static u32	tlan_handle_rx_eoc(struct net_device *, u16);
  
-+static void bfin_sir_rx_dma_timeout(struct timer_list *t);
-+
- static void turnaround_delay(int mtt)
+-static void	tlan_timer(unsigned long);
++static void	tlan_timer(struct timer_list *t);
++static void	tlan_phy_monitor(struct timer_list *t);
+ 
+ static void	tlan_reset_lists(struct net_device *);
+ static void	tlan_free_lists(struct net_device *);
+@@ -190,7 +191,6 @@ static void	tlan_phy_power_up(struct net_device *);
+ static void	tlan_phy_reset(struct net_device *);
+ static void	tlan_phy_start_link(struct net_device *);
+ static void	tlan_phy_finish_auto_neg(struct net_device *);
+-static void     tlan_phy_monitor(unsigned long);
+ 
+ /*
+   static int	tlan_phy_nop(struct net_device *);
+@@ -254,11 +254,10 @@ tlan_set_timer(struct net_device *dev, u32 ticks, u32 type)
+ 			spin_unlock_irqrestore(&priv->lock, flags);
+ 		return;
+ 	}
+-	priv->timer.function = tlan_timer;
++	priv->timer.function = (TIMER_FUNC_TYPE)tlan_timer;
+ 	if (!in_irq())
+ 		spin_unlock_irqrestore(&priv->lock, flags);
+ 
+-	priv->timer.data = (unsigned long) dev;
+ 	priv->timer_set_at = jiffies;
+ 	priv->timer_type = type;
+ 	mod_timer(&priv->timer, jiffies + ticks);
+@@ -926,8 +925,8 @@ static int tlan_open(struct net_device *dev)
+ 		return err;
+ 	}
+ 
+-	init_timer(&priv->timer);
+-	init_timer(&priv->media_timer);
++	timer_setup(&priv->timer, NULL, 0);
++	timer_setup(&priv->media_timer, tlan_phy_monitor, 0);
+ 
+ 	tlan_start(dev);
+ 
+@@ -1426,8 +1425,7 @@ static u32 tlan_handle_tx_eof(struct net_device *dev, u16 host_int)
+ 		tlan_dio_write8(dev->base_addr,
+ 				TLAN_LED_REG, TLAN_LED_LINK | TLAN_LED_ACT);
+ 		if (priv->timer.function == NULL) {
+-			priv->timer.function = tlan_timer;
+-			priv->timer.data = (unsigned long) dev;
++			priv->timer.function = (TIMER_FUNC_TYPE)tlan_timer;
+ 			priv->timer.expires = jiffies + TLAN_TIMER_ACT_DELAY;
+ 			priv->timer_set_at = jiffies;
+ 			priv->timer_type = TLAN_TIMER_ACTIVITY;
+@@ -1578,8 +1576,7 @@ static u32 tlan_handle_rx_eof(struct net_device *dev, u16 host_int)
+ 		tlan_dio_write8(dev->base_addr,
+ 				TLAN_LED_REG, TLAN_LED_LINK | TLAN_LED_ACT);
+ 		if (priv->timer.function == NULL)  {
+-			priv->timer.function = tlan_timer;
+-			priv->timer.data = (unsigned long) dev;
++			priv->timer.function = (TIMER_FUNC_TYPE)tlan_timer;
+ 			priv->timer.expires = jiffies + TLAN_TIMER_ACT_DELAY;
+ 			priv->timer_set_at = jiffies;
+ 			priv->timer_type = TLAN_TIMER_ACTIVITY;
+@@ -1836,10 +1833,10 @@ ThunderLAN driver timer function
+  *
+  **************************************************************/
+ 
+-static void tlan_timer(unsigned long data)
++static void tlan_timer(struct timer_list *t)
  {
- 	long ticks;
-@@ -57,7 +59,7 @@ static void bfin_sir_init_ports(struct bfin_sir_port *sp, struct platform_device
- 	sp->clk = get_sclk();
- #ifdef CONFIG_SIR_BFIN_DMA
- 	sp->tx_done        = 1;
--	init_timer(&(sp->rx_dma_timer));
-+	timer_setup(&sp->rx_dma_timer, bfin_sir_rx_dma_timeout, 0);
- #endif
- }
+-	struct net_device	*dev = (struct net_device *) data;
+-	struct tlan_priv	*priv = netdev_priv(dev);
++	struct tlan_priv	*priv = from_timer(priv, t, timer);
++	struct net_device	*dev = priv->dev;
+ 	u32		elapsed;
+ 	unsigned long	flags = 0;
  
-@@ -317,10 +319,12 @@ static void bfin_sir_dma_rx_chars(struct net_device *dev)
- 		async_unwrap_char(dev, &self->stats, &self->rx_buff, port->rx_dma_buf.buf[i]);
- }
+@@ -1872,7 +1869,6 @@ static void tlan_timer(unsigned long data)
+ 				tlan_dio_write8(dev->base_addr,
+ 						TLAN_LED_REG, TLAN_LED_LINK);
+ 			} else  {
+-				priv->timer.function = tlan_timer;
+ 				priv->timer.expires = priv->timer_set_at
+ 					+ TLAN_TIMER_ACT_DELAY;
+ 				spin_unlock_irqrestore(&priv->lock, flags);
+@@ -2317,8 +2313,6 @@ tlan_finish_reset(struct net_device *dev)
+ 			} else
+ 				netdev_info(dev, "Link active\n");
+ 			/* Enabling link beat monitoring */
+-			priv->media_timer.function = tlan_phy_monitor;
+-			priv->media_timer.data = (unsigned long) dev;
+ 			priv->media_timer.expires = jiffies + HZ;
+ 			add_timer(&priv->media_timer);
+ 		}
+@@ -2763,10 +2757,10 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
+  *
+  *******************************************************************/
  
--void bfin_sir_rx_dma_timeout(struct net_device *dev)
-+static void bfin_sir_rx_dma_timeout(struct timer_list *t)
+-static void tlan_phy_monitor(unsigned long data)
++static void tlan_phy_monitor(struct timer_list *t)
  {
-+	struct bfin_sir_port *port = from_timer(port, t, rx_dma_timer);
-+	struct net_device *dev = port->dev;
- 	struct bfin_sir_self *self = netdev_priv(dev);
--	struct bfin_sir_port *port = self->sir_port;
-+
- 	int x_pos, pos;
- 	unsigned long flags;
- 
-@@ -405,8 +409,6 @@ static int bfin_sir_startup(struct bfin_sir_port *port, struct net_device *dev)
- 	set_dma_start_addr(port->rx_dma_channel, (unsigned long)port->rx_dma_buf.buf);
- 	enable_dma(port->rx_dma_channel);
- 
--	port->rx_dma_timer.data = (unsigned long)(dev);
--	port->rx_dma_timer.function = (void *)bfin_sir_rx_dma_timeout;
- 
- #else
+-	struct net_device *dev = (struct net_device *) data;
+-	struct tlan_priv *priv = netdev_priv(dev);
++	struct tlan_priv *priv = from_timer(priv, t, media_timer);
++	struct net_device *dev = priv->dev;
+ 	u16     phy;
+ 	u16     phy_status;
  
 -- 
 2.7.4
