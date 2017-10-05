@@ -1,53 +1,96 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: [PATCH] ipv6: fix net.ipv6.conf.all.accept_dad behaviour for real
-Date: Thu,  5 Oct 2017 19:03:05 +0200
-Message-ID: <20171005170305.30065-1-mcroce@redhat.com>
-To: netdev@vger.kernel.org, Erik Kline <ek@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:51086 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751144AbdJERDJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 13:03:09 -0400
-Received: by mail-wm0-f54.google.com with SMTP id u138so3292361wmu.5
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 10:03:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] net/mac80211/mesh_plink: Convert timers to use
+Date: Thu, 5 Oct 2017 10:27:52 -0700
+Message-ID: <CAGXu5jLMWz83XiBpVUdwxaTA9fY0X_OhPZtbEBefVzj7b3_7Wg@mail.gmail.com>
+References: <20171005004952.GA23133@beast> <1507186052.2387.11.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507186052.2387.11.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 35e015e1f577 ("ipv6: fix net.ipv6.conf.all interface DAD handlers")
-was intended to affect accept_dad flag handling in such a way that
-DAD operation and mode on a given interface would be selected
-according to the maximum value of conf/{all,interface}/accept_dad.
+On Wed, Oct 4, 2017 at 11:47 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Wed, 2017-10-04 at 17:49 -0700, Kees Cook wrote:
+>> In preparation for unconditionally passing the struct timer_list
+>> pointer to all timer callbacks, switch to using the new timer_setup()
+>> and from_timer() to pass the timer pointer explicitly. This requires
+>> adding a pointer back to the sta_info since container_of() can't
+>> resolve the sta_info.
+>
+> The subject seems to be lacking something ... :-)
 
-However, addrconf_dad_begin() checks for particular cases in which we
-need to skip DAD, and this check was modified in the wrong way.
+Oh wonderful, all the subjects are cut off. *sigh* I wonder which
+piece of my workflow broke that...
 
-Namely, it was modified so that, if the accept_dad flag is 0 for the
-given interface *or* for all interfaces, DAD would be skipped.
+>> This requires commit 686fef928bba ("timer: Prepare to change timer
+>> callback argument type") in v4.14-rc3, but should be otherwise
+>> stand-alone.
+>
+> I still can't apply that because that's not in net-next right now.
 
-We have instead to skip DAD if accept_dad is 0 for the given interface
-*and* for all interfaces.
+Okay, I'll see if Dave brings that into net-next and resend after that.
 
-Fixes: 35e015e1f577 ("ipv6: fix net.ipv6.conf.all interface DAD handlers")
-Acked-by: Stefano Brivio <sbrivio@redhat.com>
-Signed-off-by: Matteo Croce <mcroce@redhat.com>
----
- net/ipv6/addrconf.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+>>  static inline void mesh_plink_timer_set(struct sta_info *sta, u32
+>> timeout)
+>>  {
+>>       sta->mesh->plink_timer.expires = jiffies +
+>> msecs_to_jiffies(timeout);
+>> -     sta->mesh->plink_timer.data = (unsigned long) sta;
+>> -     sta->mesh->plink_timer.function = mesh_plink_timer;
+>> +     sta->mesh->plink_sta = sta;
+>> +     sta->mesh->plink_timer.function =
+>> (TIMER_FUNC_TYPE)mesh_plink_timer;
+>>       sta->mesh->plink_timeout = timeout;
+>>       add_timer(&sta->mesh->plink_timer);
+>
+> Wouldn't it be better to convert this to timer_setup() now?
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 96861c702c06..4a96ebbf8eda 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3820,8 +3820,8 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- 		goto out;
- 
- 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
--	    dev_net(dev)->ipv6.devconf_all->accept_dad < 1 ||
--	    idev->cnf.accept_dad < 1 ||
-+	    (dev_net(dev)->ipv6.devconf_all->accept_dad < 1 &&
-+	     idev->cnf.accept_dad < 1) ||
- 	    !(ifp->flags&IFA_F_TENTATIVE) ||
- 	    ifp->flags & IFA_F_NODAD) {
- 		bump_id = ifp->flags & IFA_F_TENTATIVE;
+The problem is that plink_timer is used in several places, and it's
+originally initialized in net/mac80211/sta_info.c. The call to
+mesh_plink_timer_set() does an update of the function field, so it
+didn't look like it could get merged with the timer_setup(), but in
+looking again, it seems that this is the _only_ update to
+plink_timer.function, so it could probably get collapsed into the
+timer_setup() call.
+
+> That add_timer() should probably also be mod_timer() anyway?
+
+Agreed. I'd avoided making those changes in most places, but I can do it here.
+
+>> diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+>> index 69615016d5bf..5e5de9455e4e 100644
+>> --- a/net/mac80211/sta_info.c
+>> +++ b/net/mac80211/sta_info.c
+>> @@ -332,7 +332,7 @@ struct sta_info *sta_info_alloc(struct
+>> ieee80211_sub_if_data *sdata,
+>>               spin_lock_init(&sta->mesh->plink_lock);
+>>               if (ieee80211_vif_is_mesh(&sdata->vif) &&
+>>                   !sdata->u.mesh.user_mpm)
+>> -                     init_timer(&sta->mesh->plink_timer);
+>> +                     timer_setup(&sta->mesh->plink_timer, NULL,
+>> 0);
+>>               sta->mesh->nonpeer_pm = NL80211_MESH_POWER_ACTIVE;
+>>       }
+>
+> You just have to make mesh_plink_timer() non-static, put a prototype
+> into mesh.h and then you can use the proper timer_setup() here with the
+> function?
+>
+> Also, the sta->mesh->plink_sta assignment should be here I'd say, no
+> point rewriting it all the time.
+
+Sounds good. I'll get it cleaned up.
+
+-Kees
+
 -- 
-2.13.6
+Kees Cook
+Pixel Security
