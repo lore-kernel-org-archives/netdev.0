@@ -1,201 +1,84 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 2/7] net: Add extack to ndo_add_slave
-Date: Wed,  4 Oct 2017 17:48:46 -0700
-Message-ID: <1507164531-17732-3-git-send-email-dsahern@gmail.com>
-References: <1507164531-17732-1-git-send-email-dsahern@gmail.com>
-Cc: j.vosburgh@gmail.com, bridge@lists.linux-foundation.org,
-	idosch@mellanox.com, jiri@mellanox.com, vfalico@gmail.com,
-	David Ahern <dsahern@gmail.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1507164531-17732-1-git-send-email-dsahern@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] net/decnet: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:49:41 -0700
+Message-ID: <20171005004941.GA23095@beast>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pass extack to do_set_master and down to ndo_add_slave
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+Cc: linux-decnet-user@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/bonding/bond_main.c    |  5 +++--
- drivers/net/bonding/bond_options.c |  2 +-
- drivers/net/team/team.c            |  3 ++-
- drivers/net/vrf.c                  |  3 ++-
- include/linux/netdevice.h          |  3 ++-
- include/net/bonding.h              |  3 ++-
- net/batman-adv/soft-interface.c    |  3 ++-
- net/bridge/br_device.c             |  3 ++-
- net/core/rtnetlink.c               | 10 ++++++----
- 9 files changed, 22 insertions(+), 13 deletions(-)
+This requires commit 686fef928bba ("timer: Prepare to change timer
+callback argument type") in v4.14-rc3, but should be otherwise
+stand-alone.
+---
+ net/decnet/dn_dev.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b19dc033fb36..78feb94a36db 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1328,7 +1328,8 @@ void bond_lower_state_changed(struct slave *slave)
- }
+diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
+index 4d339de56862..92dbaa3f1eae 100644
+--- a/net/decnet/dn_dev.c
++++ b/net/decnet/dn_dev.c
+@@ -1038,14 +1038,14 @@ static void dn_eth_down(struct net_device *dev)
  
- /* enslave device <slave> to bond device <master> */
--int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
-+int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
-+		 struct netlink_ext_ack *extack)
+ static void dn_dev_set_timer(struct net_device *dev);
+ 
+-static void dn_dev_timer_func(unsigned long arg)
++static void dn_dev_timer_func(struct timer_list *t)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	const struct net_device_ops *slave_ops = slave_dev->netdev_ops;
-@@ -3492,7 +3493,7 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
- 	switch (cmd) {
- 	case BOND_ENSLAVE_OLD:
- 	case SIOCBONDENSLAVE:
--		res = bond_enslave(bond_dev, slave_dev);
-+		res = bond_enslave(bond_dev, slave_dev, NULL);
- 		break;
- 	case BOND_RELEASE_OLD:
- 	case SIOCBONDRELEASE:
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 5931aa2fe997..8a9b085c2a98 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -1383,7 +1383,7 @@ static int bond_option_slaves_set(struct bonding *bond,
- 	switch (command[0]) {
- 	case '+':
- 		netdev_dbg(bond->dev, "Adding slave %s\n", dev->name);
--		ret = bond_enslave(bond->dev, dev);
-+		ret = bond_enslave(bond->dev, dev, NULL);
- 		break;
+-	struct net_device *dev = (struct net_device *)arg;
+-	struct dn_dev *dn_db;
++	struct dn_dev *dn_db = from_timer(dn_db, t, timer);
++	struct net_device *dev;
+ 	struct dn_ifaddr *ifa;
  
- 	case '-':
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index ae53e899259f..4359d45aa131 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1914,7 +1914,8 @@ static int team_netpoll_setup(struct net_device *dev,
- }
- #endif
+ 	rcu_read_lock();
+-	dn_db = rcu_dereference(dev->dn_ptr);
++	dev = dn_db->dev;
+ 	if (dn_db->t3 <= dn_db->parms.t2) {
+ 		if (dn_db->parms.timer3) {
+ 			for (ifa = rcu_dereference(dn_db->ifa_list);
+@@ -1070,8 +1070,6 @@ static void dn_dev_set_timer(struct net_device *dev)
+ 	if (dn_db->parms.t2 > dn_db->parms.t3)
+ 		dn_db->parms.t2 = dn_db->parms.t3;
  
--static int team_add_slave(struct net_device *dev, struct net_device *port_dev)
-+static int team_add_slave(struct net_device *dev, struct net_device *port_dev,
-+			  struct netlink_ext_ack *extack)
- {
- 	struct team *team = netdev_priv(dev);
- 	int err;
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index cc18b7b11612..4a082ef53533 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -788,7 +788,8 @@ static int do_vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
- 	return ret;
- }
+-	dn_db->timer.data = (unsigned long)dev;
+-	dn_db->timer.function = dn_dev_timer_func;
+ 	dn_db->timer.expires = jiffies + (dn_db->parms.t2 * HZ);
  
--static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev)
-+static int vrf_add_slave(struct net_device *dev, struct net_device *port_dev,
-+			 struct netlink_ext_ack *extack)
- {
- 	if (netif_is_l3_master(port_dev) || netif_is_l3_slave(port_dev))
- 		return -EINVAL;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 05fcaba4b0d9..368a5064a487 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1246,7 +1246,8 @@ struct net_device_ops {
- 						     u32 flow_id);
- #endif
- 	int			(*ndo_add_slave)(struct net_device *dev,
--						 struct net_device *slave_dev);
-+						 struct net_device *slave_dev,
-+						 struct netlink_ext_ack *extack);
- 	int			(*ndo_del_slave)(struct net_device *dev,
- 						 struct net_device *slave_dev);
- 	netdev_features_t	(*ndo_fix_features)(struct net_device *dev,
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index b2e68657a216..2860cc66c2bb 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -596,7 +596,8 @@ void bond_destroy_sysfs(struct bond_net *net);
- void bond_prepare_sysfs_group(struct bonding *bond);
- int bond_sysfs_slave_add(struct slave *slave);
- void bond_sysfs_slave_del(struct slave *slave);
--int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev);
-+int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
-+		 struct netlink_ext_ack *extack);
- int bond_release(struct net_device *bond_dev, struct net_device *slave_dev);
- u32 bond_xmit_hash(struct bonding *bond, struct sk_buff *skb);
- int bond_set_carrier(struct bonding *bond);
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index c2c986746d0b..e7d5fbb6ad53 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -867,7 +867,8 @@ static int batadv_softif_init_late(struct net_device *dev)
-  * Return: 0 if successful or error otherwise.
-  */
- static int batadv_softif_slave_add(struct net_device *dev,
--				   struct net_device *slave_dev)
-+				   struct net_device *slave_dev,
-+				   struct netlink_ext_ack *extack)
- {
- 	struct batadv_hard_iface *hard_iface;
- 	struct net *net = dev_net(dev);
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index f6b6a92f1c48..cb0131d70ab1 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -320,7 +320,8 @@ void br_netpoll_disable(struct net_bridge_port *p)
+ 	add_timer(&dn_db->timer);
+@@ -1100,7 +1098,7 @@ static struct dn_dev *dn_dev_create(struct net_device *dev, int *err)
  
- #endif
+ 	rcu_assign_pointer(dev->dn_ptr, dn_db);
+ 	dn_db->dev = dev;
+-	init_timer(&dn_db->timer);
++	timer_setup(&dn_db->timer, dn_dev_timer_func, 0);
  
--static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
-+static int br_add_slave(struct net_device *dev, struct net_device *slave_dev,
-+			struct netlink_ext_ack *extack)
+ 	dn_db->uptime = jiffies;
  
- {
- 	struct net_bridge *br = netdev_priv(dev);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 3fb1ca33cba4..c7c5fb2894eb 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1952,7 +1952,8 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
- 	return err;
- }
- 
--static int do_set_master(struct net_device *dev, int ifindex)
-+static int do_set_master(struct net_device *dev, int ifindex,
-+			 struct netlink_ext_ack *extack)
- {
- 	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
- 	const struct net_device_ops *ops;
-@@ -1977,7 +1978,7 @@ static int do_set_master(struct net_device *dev, int ifindex)
- 			return -EINVAL;
- 		ops = upper_dev->netdev_ops;
- 		if (ops->ndo_add_slave) {
--			err = ops->ndo_add_slave(upper_dev, dev);
-+			err = ops->ndo_add_slave(upper_dev, dev, extack);
- 			if (err)
- 				return err;
- 		} else {
-@@ -2110,7 +2111,7 @@ static int do_setlink(const struct sk_buff *skb,
- 	}
- 
- 	if (tb[IFLA_MASTER]) {
--		err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]));
-+		err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]), extack);
- 		if (err)
- 			goto errout;
- 		status |= DO_SETLINK_MODIFIED;
-@@ -2748,7 +2749,8 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
- 				goto out_unregister;
- 		}
- 		if (tb[IFLA_MASTER]) {
--			err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]));
-+			err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]),
-+					    extack);
- 			if (err)
- 				goto out_unregister;
- 		}
 -- 
-2.1.4
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
