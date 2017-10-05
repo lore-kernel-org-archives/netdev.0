@@ -1,50 +1,99 @@
-From: Tim Hansen <devtimhansen@gmail.com>
-Subject: [PATCH] net/ipv6: remove unused err variable on
- icmpv6_push_pending_frames
-Date: Thu, 5 Oct 2017 15:45:32 -0400
-Message-ID: <20171005194532.GA126147@debian>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: Re: [next-queue PATCH v4 3/4] net/sched: Introduce Credit Based Shaper (CBS) qdisc
+Date: Thu, 05 Oct 2017 12:57:34 -0700
+Message-ID: <877ew9jrkh.fsf@intel.com>
+References: <20171004002831.18371-1-vinicius.gomes@intel.com> <20171004002831.18371-4-vinicius.gomes@intel.com> <20171004063650.GA1895@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        alexander.levin@one.verizon.com, devtimhansen@gmail.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:62246 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751953AbdJET5f (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Oct 2017 15:57:35 -0400
+In-Reply-To: <20171004063650.GA1895@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-int err is unused by icmpv6_push_pending_frames(), this patch returns removes the variable and returns the function with 0.
+Hi Jiri,
 
-git bisect shows this variable has been around since linux has been in git in commit 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2.  
+Jiri Pirko <jiri@resnulli.us> writes:
 
-This was found by running make coccicheck M=net/ipv6/ on linus' tree on commit 77ede3a014a32746002f7889211f0cecf4803163 (current HEAD as of this patch).
+> Wed, Oct 04, 2017 at 02:28:30AM CEST, vinicius.gomes@intel.com wrote:
+>>This queueing discipline implements the shaper algorithm defined by
+>>the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
+>>
+>>It's primary usage is to apply some bandwidth reservation to user
+>>defined traffic classes, which are mapped to different queues via the
+>>mqprio qdisc.
+>>
+>>Initially, it only supports offloading the traffic shaping work to
+>>supporting controllers.
+>>
+>>Later, when a software implementation is added, the current dependency
+>>on being installed "under" mqprio can be lifted.
+>>
+>>Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+>>Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+>>---
+>> include/linux/netdevice.h      |   1 +
+>> include/net/pkt_sched.h        |   9 ++
+>> include/uapi/linux/pkt_sched.h |  17 ++++
+>> net/sched/Kconfig              |  11 ++
+>> net/sched/Makefile             |   1 +
+>> net/sched/sch_cbs.c            | 225 +++++++++++++++++++++++++++++++++++++++++
+>> 6 files changed, 264 insertions(+)
+>> create mode 100644 net/sched/sch_cbs.c
+>>
+>>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>index e1d6ef130611..b8798adc214f 100644
+>>--- a/include/linux/netdevice.h
+>>+++ b/include/linux/netdevice.h
+>>@@ -775,6 +775,7 @@ enum tc_setup_type {
+>> 	TC_SETUP_CLSFLOWER,
+>> 	TC_SETUP_CLSMATCHALL,
+>> 	TC_SETUP_CLSBPF,
+>>+	TC_SETUP_CBS,
+>
+> Please split this into 2 patches. One will introduce the new qdisc,
+> second will add offload capabilities.
+>
 
-Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
----
- net/ipv6/icmp.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Of course.
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 5acb544..aeb49b4 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -255,7 +255,6 @@ int icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
- {
- 	struct sk_buff *skb;
- 	struct icmp6hdr *icmp6h;
--	int err = 0;
- 
- 	skb = skb_peek(&sk->sk_write_queue);
- 	if (!skb)
-@@ -288,7 +287,7 @@ int icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
- 	}
- 	ip6_push_pending_frames(sk);
- out:
--	return err;
-+	return 0;
- }
- 
- struct icmpv6_msg {
--- 
-2.1.4
+> [...]
+>
+>
+>>+static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
+>>+	.next		=	NULL,
+>>+	.id		=	"cbs",
+>>+	.priv_size	=	sizeof(struct cbs_sched_data),
+>>+	.enqueue	=	cbs_enqueue,
+>>+	.dequeue	=	qdisc_dequeue_head,
+>>+	.peek		=	qdisc_peek_dequeued,
+>>+	.init		=	cbs_init,
+>>+	.reset		=	qdisc_reset_queue,
+>>+	.destroy	=	cbs_destroy,
+>>+	.change		=	cbs_change,
+>>+	.dump		=	cbs_dump,
+>>+	.owner		=	THIS_MODULE,
+>>+};
+>
+> I don't see a software implementation for this. Looks like you are
+> trying abuse tc subsystem to bypass kernel. Could you please explain
+> this? The golden rule is: implement in kernel, then offload.
+
+The reason was that we didn't have a use case for the software
+implementation right now, it would be added in a later series.
+
+But as that was requested (and it makes sense), I will add it for the
+next version of this series (it is already written, just need to test it
+better).
+
+
+Cheers,
