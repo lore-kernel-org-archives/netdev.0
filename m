@@ -1,62 +1,68 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [net-next,v2] ip_gre: check packet length and mtu correctly in erspan tx
-Date: Thu,  5 Oct 2017 12:07:12 -0700
-Message-ID: <1507230432-56495-1-git-send-email-u9012063@gmail.com>
-Cc: Xin Long <lucien.xin@gmail.com>,
-        David Laight <David.Laight@aculab.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33181 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751369AbdJEWJF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 18:09:05 -0400
-Received: by mail-pf0-f194.google.com with SMTP id m28so15274399pfi.0
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 15:09:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v6 11/11] of: mdio: Prevent of_mdiobus_register from
+ scanning mdio-mux nodes
+Date: Thu, 5 Oct 2017 17:09:27 -0500
+Message-ID: <20171005220927.7rabn3ftvow253xj@rob-hp-laptop>
+References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
+ <20170927073414.17361-12-clabbe.montjoie@gmail.com>
+ <20170927141213.GF13516@lunn.ch>
+ <c8697b60-294f-7cc1-8425-aa5b837fcca0@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <c8697b60-294f-7cc1-8425-aa5b837fcca0-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Similarly to early patch for erspan_xmit(), the ARPHDR_ETHER device
-is the length of the whole ether packet.  So skb->len should subtract
-the dev->hard_header_len.
+On Wed, Sep 27, 2017 at 09:50:46PM -0700, Florian Fainelli wrote:
+> 
+> 
+> On 09/27/2017 07:12 AM, Andrew Lunn wrote:
+> > On Wed, Sep 27, 2017 at 09:34:14AM +0200, Corentin Labbe wrote:
+> >> Each child node of an MDIO node is scanned as a PHY when calling
+> >> of_mdiobus_register() givint the following result:
+> >> [   18.175379] mdio_bus stmmac-0: /soc/ethernet@1c30000/mdio/mdio-mux has invalid PHY address
+> >> [   18.175408] mdio_bus stmmac-0: scan phy mdio-mux at address 0
+> >> [   18.175450] mdio_bus stmmac-0: scan phy mdio-mux at address 1
+> >> [...]
+> >> [   18.176420] mdio_bus stmmac-0: scan phy mdio-mux at address 30
+> >> [   18.176452] mdio_bus stmmac-0: scan phy mdio-mux at address 31
+> >>
+> >> Since mdio-mux nodes are not PHY, this patch a way to to not scan
+> >> them.
+> > 
+> > Hi Corentin
+> > 
+> > I still don't like this, but ...
+> 
+> Me neither, even more so as I don't understand the reasoning behind
+> putting the mux as a child node of the MDIO bus controller in the first
+> place.
 
-Fixes: 1a66a836da63 ("gre: add collect_md mode to ERSPAN tunnel")
-Fixes: 84e54fe0a5ea ("gre: introduce native tunnel support for ERSPAN")
-Signed-off-by: William Tu <u9012063@gmail.com>
-Cc: Xin Long <lucien.xin@gmail.com>
-Cc: David Laight <David.Laight@aculab.com>
----
-v1->v2:
-use addition to avoid overflow
-fix pskb_trim size 
----
- net/ipv4/ip_gre.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+If no one agrees with me, then you shouldn't just accept my answers. I'm 
+not always right.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index b279c325c7f6..fb95f68d6e53 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -579,8 +579,8 @@ static void erspan_fb_xmit(struct sk_buff *skb, struct net_device *dev,
- 	if (gre_handle_offloads(skb, false))
- 		goto err_free_rt;
- 
--	if (skb->len > dev->mtu) {
--		pskb_trim(skb, dev->mtu);
-+	if (skb->len > dev->mtu + dev->hard_header_len) {
-+		pskb_trim(skb, dev->mtu + dev->hard_header_len);
- 		truncate = true;
- 	}
- 
-@@ -731,8 +731,8 @@ static netdev_tx_t erspan_xmit(struct sk_buff *skb,
- 	if (skb_cow_head(skb, dev->needed_headroom))
- 		goto free_skb;
- 
--	if (skb->len - dev->hard_header_len > dev->mtu) {
--		pskb_trim(skb, dev->mtu);
-+	if (skb->len > dev->mtu + dev->hard_header_len) {
-+		pskb_trim(skb, dev->mtu + dev->hard_header_len);
- 		truncate = true;
- 	}
- 
--- 
-2.7.4
+Looking at this some more, why can't mdio-mux-mmio be used? Then there 
+is nothing to review or discuss. If you want to extend that then make it 
+clear this is just extending/inheriting already defined bindings.
+
+That being said, if we were starting over I would probably do mux 
+designs differently with DT hierarchy reflecting the mux hierarchy, but 
+that ship has sailed.
+
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
