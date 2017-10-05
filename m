@@ -1,18 +1,19 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] netfilter: ipset: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:52:21 -0700
-Message-ID: <20171005005221.GA23584@beast>
+Subject: [PATCH] inet: frags: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:52:33 -0700
+Message-ID: <20171005005233.GA23612@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
+Cc: Alexander Aring <alex.aring@gmail.com>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        simran singhal <singhalsimran0@gmail.com>,
-        Muhammad Falak R Wani <falakreyaz@gmail.com>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>, linux-wpan@vger.kernel.org,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -21,19 +22,20 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This introduces a pointer back to the
-struct ip_set, which is used instead of the struct timer_list .data field.
+to pass the timer pointer explicitly.
 
+Cc: Alexander Aring <alex.aring@gmail.com>
+Cc: Stefan Schmidt <stefan@osg.samsung.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>
 Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Cc: Florian Westphal <fw@strlen.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: simran singhal <singhalsimran0@gmail.com>
-Cc: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Cc: linux-wpan@vger.kernel.org
+Cc: netdev@vger.kernel.org
 Cc: netfilter-devel@vger.kernel.org
 Cc: coreteam@netfilter.org
-Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
@@ -41,153 +43,129 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- net/netfilter/ipset/ip_set_bitmap_gen.h   | 10 +++++-----
- net/netfilter/ipset/ip_set_bitmap_ip.c    |  2 ++
- net/netfilter/ipset/ip_set_bitmap_ipmac.c |  2 ++
- net/netfilter/ipset/ip_set_bitmap_port.c  |  2 ++
- net/netfilter/ipset/ip_set_hash_gen.h     | 12 +++++++-----
- 5 files changed, 18 insertions(+), 10 deletions(-)
+ include/net/inet_frag.h                 | 2 +-
+ net/ieee802154/6lowpan/reassembly.c     | 5 +++--
+ net/ipv4/inet_fragment.c                | 4 ++--
+ net/ipv4/ip_fragment.c                  | 5 +++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 5 +++--
+ net/ipv6/reassembly.c                   | 5 +++--
+ 6 files changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-index 8ad2b52a0b32..5ca18f07683b 100644
---- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -37,11 +37,11 @@
- #define get_ext(set, map, id)	((map)->extensions + ((set)->dsize * (id)))
- 
- static void
--mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
-+mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
- {
- 	struct mtype *map = set->data;
- 
--	setup_timer(&map->gc, gc, (unsigned long)set);
-+	timer_setup(&map->gc, gc, 0);
- 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
- }
- 
-@@ -272,10 +272,10 @@ mtype_list(const struct ip_set *set,
- }
- 
- static void
--mtype_gc(unsigned long ul_set)
-+mtype_gc(struct timer_list *t)
- {
--	struct ip_set *set = (struct ip_set *)ul_set;
--	struct mtype *map = set->data;
-+	struct mtype *map = from_timer(map, t, gc);
-+	struct ip_set *set = map->set;
- 	void *x;
- 	u32 id;
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
-index 4783efff0bde..d8975a0b4282 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ip.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
-@@ -48,6 +48,7 @@ struct bitmap_ip {
- 	size_t memsize;		/* members size */
- 	u8 netmask;		/* subnet netmask */
- 	struct timer_list gc;	/* garbage collection */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	unsigned char extensions[0]	/* data extensions */
- 		__aligned(__alignof__(u64));
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index fc59e0775e00..c695807ca707 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -95,7 +95,7 @@ struct inet_frags {
+ 	void			(*constructor)(struct inet_frag_queue *q,
+ 					       const void *arg);
+ 	void			(*destructor)(struct inet_frag_queue *);
+-	void			(*frag_expire)(unsigned long data);
++	void			(*frag_expire)(struct timer_list *t);
+ 	struct kmem_cache	*frags_cachep;
+ 	const char		*frags_cache_name;
  };
-@@ -232,6 +233,7 @@ init_map_ip(struct ip_set *set, struct bitmap_ip *map,
- 	map->netmask = netmask;
- 	set->timeout = IPSET_NO_TIMEOUT;
- 
-+	map->set = set;
- 	set->data = map;
- 	set->family = NFPROTO_IPV4;
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-index 9a065f672d3a..4c279fbd2d5d 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-@@ -52,6 +52,7 @@ struct bitmap_ipmac {
- 	u32 elements;		/* number of max elements in the set */
- 	size_t memsize;		/* members size */
- 	struct timer_list gc;	/* garbage collector */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	unsigned char extensions[0]	/* MAC + data extensions */
- 		__aligned(__alignof__(u64));
- };
-@@ -307,6 +308,7 @@ init_map_ipmac(struct ip_set *set, struct bitmap_ipmac *map,
- 	map->elements = elements;
- 	set->timeout = IPSET_NO_TIMEOUT;
- 
-+	map->set = set;
- 	set->data = map;
- 	set->family = NFPROTO_IPV4;
- 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
-index 7f0c733358a4..7f9bbd7c98b5 100644
---- a/net/netfilter/ipset/ip_set_bitmap_port.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_port.c
-@@ -40,6 +40,7 @@ struct bitmap_port {
- 	u32 elements;		/* number of max elements in the set */
- 	size_t memsize;		/* members size */
- 	struct timer_list gc;	/* garbage collection */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	unsigned char extensions[0]	/* data extensions */
- 		__aligned(__alignof__(u64));
- };
-@@ -214,6 +215,7 @@ init_map_port(struct ip_set *set, struct bitmap_port *map,
- 	map->last_port = last_port;
- 	set->timeout = IPSET_NO_TIMEOUT;
- 
-+	map->set = set;
- 	set->data = map;
- 	set->family = NFPROTO_UNSPEC;
- 
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index 51063d9ed0f7..efffc8eabafe 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -280,6 +280,7 @@ htable_bits(u32 hashsize)
- struct htype {
- 	struct htable __rcu *table; /* the hash table */
- 	struct timer_list gc;	/* garbage collection when timeout enabled */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	u32 maxelem;		/* max elements in the hash */
- 	u32 initval;		/* random jhash init value */
- #ifdef IP_SET_HASH_WITH_MARKMASK
-@@ -429,11 +430,11 @@ mtype_destroy(struct ip_set *set)
+diff --git a/net/ieee802154/6lowpan/reassembly.c b/net/ieee802154/6lowpan/reassembly.c
+index f85b08baff16..85bf86ad6b18 100644
+--- a/net/ieee802154/6lowpan/reassembly.c
++++ b/net/ieee802154/6lowpan/reassembly.c
+@@ -80,12 +80,13 @@ static void lowpan_frag_init(struct inet_frag_queue *q, const void *a)
+ 	fq->daddr = *arg->dst;
  }
  
- static void
--mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
-+mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+-static void lowpan_frag_expire(unsigned long data)
++static void lowpan_frag_expire(struct timer_list *t)
  {
- 	struct htype *h = set->data;
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct frag_queue *fq;
+ 	struct net *net;
  
--	setup_timer(&h->gc, gc, (unsigned long)set);
-+	timer_setup(&h->gc, gc, 0);
- 	mod_timer(&h->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
- 	pr_debug("gc initialized, run in every %u\n",
- 		 IPSET_GC_PERIOD(set->timeout));
-@@ -526,10 +527,10 @@ mtype_expire(struct ip_set *set, struct htype *h)
+-	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	fq = container_of(frag, struct frag_queue, q);
+ 	net = container_of(fq->q.net, struct net, ieee802154_lowpan.frags);
+ 
+ 	spin_lock(&fq->q.lock);
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index af74d0433453..7f3ef5c287a1 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -147,7 +147,7 @@ inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
+ 	spin_unlock(&hb->chain_lock);
+ 
+ 	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
+-		f->frag_expire((unsigned long) fq);
++		f->frag_expire(&fq->timer);
+ 
+ 	return evicted;
+ }
+@@ -366,7 +366,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 	f->constructor(q, arg);
+ 	add_frag_mem_limit(nf, f->qsize);
+ 
+-	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
++	timer_setup(&q->timer, f->frag_expire, 0);
+ 	spin_lock_init(&q->lock);
+ 	refcount_set(&q->refcnt, 1);
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 46408c220d9d..9215654a401f 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -190,12 +190,13 @@ static bool frag_expire_skip_icmp(u32 user)
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+-static void ip_expire(unsigned long arg)
++static void ip_expire(struct timer_list *t)
+ {
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct ipq *qp;
+ 	struct net *net;
+ 
+-	qp = container_of((struct inet_frag_queue *) arg, struct ipq, q);
++	qp = container_of(frag, struct ipq, q);
+ 	net = container_of(qp->q.net, struct net, ipv4.frags);
+ 
+ 	rcu_read_lock();
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index b263bf3a19f7..977d8900cfd1 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -169,12 +169,13 @@ static unsigned int nf_hashfn(const struct inet_frag_queue *q)
+ 	return nf_hash_frag(nq->id, &nq->saddr, &nq->daddr);
  }
  
- static void
--mtype_gc(unsigned long ul_set)
-+mtype_gc(struct timer_list *t)
+-static void nf_ct_frag6_expire(unsigned long data)
++static void nf_ct_frag6_expire(struct timer_list *t)
  {
--	struct ip_set *set = (struct ip_set *)ul_set;
--	struct htype *h = set->data;
-+	struct htype *h = from_timer(h, t, gc);
-+	struct ip_set *set = h->set;
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct frag_queue *fq;
+ 	struct net *net;
  
- 	pr_debug("called\n");
- 	spin_lock_bh(&set->lock);
-@@ -1314,6 +1315,7 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
- 	t->htable_bits = hbits;
- 	RCU_INIT_POINTER(h->table, t);
+-	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	fq = container_of(frag, struct frag_queue, q);
+ 	net = container_of(fq->q.net, struct net, nf_frag.frags);
  
-+	h->set = set;
- 	set->data = h;
- #ifndef IP_SET_PROTO_UNDEF
- 	if (set->family == NFPROTO_IPV4) {
+ 	ip6_expire_frag_queue(net, fq, &nf_frags);
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 846012eae526..afbc000ad4f2 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -170,12 +170,13 @@ void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
+ }
+ EXPORT_SYMBOL(ip6_expire_frag_queue);
+ 
+-static void ip6_frag_expire(unsigned long data)
++static void ip6_frag_expire(struct timer_list *t)
+ {
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct frag_queue *fq;
+ 	struct net *net;
+ 
+-	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	fq = container_of(frag, struct frag_queue, q);
+ 	net = container_of(fq->q.net, struct net, ipv6.frags);
+ 
+ 	ip6_expire_frag_queue(net, fq, &ip6_frags);
 -- 
 2.7.4
 
