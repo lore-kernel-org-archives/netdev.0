@@ -1,7 +1,7 @@
 From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-Subject: [PATCH v3 3/6] staging: fsl-dpaa2/ethsw: Add ethtool support
-Date: Thu, 5 Oct 2017 12:16:11 +0300
-Message-ID: <1507194974-12050-4-git-send-email-razvan.stefanescu@nxp.com>
+Subject: [PATCH v3 5/6] staging: fsl-dpaa2/ethsw: Add README
+Date: Thu, 5 Oct 2017 12:16:13 +0300
+Message-ID: <1507194974-12050-6-git-send-email-razvan.stefanescu@nxp.com>
 References: <1507194974-12050-1-git-send-email-razvan.stefanescu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,8 +23,8 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Add driver information, link details and hardware statistics to be
-reported via ethtool -S.
+Add a README file describing the driver architecture, components and
+interfaces.
 
 Signed-off-by: Razvan Stefanescu <razvan.stefanescu@nxp.com>
 ---
@@ -32,381 +32,123 @@ Changelog:
  v2:
     - no changes
  v3:
-    - removed driver version
+    - no changes
 
- drivers/staging/fsl-dpaa2/ethsw/Makefile        |   2 +-
- drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h      |  13 ++
- drivers/staging/fsl-dpaa2/ethsw/dpsw.c          |  32 ++++
- drivers/staging/fsl-dpaa2/ethsw/dpsw.h          |  32 ++++
- drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c | 206 ++++++++++++++++++++++++
- drivers/staging/fsl-dpaa2/ethsw/ethsw.c         |   1 +
- drivers/staging/fsl-dpaa2/ethsw/ethsw.h         |   2 +
- 7 files changed, 287 insertions(+), 1 deletion(-)
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c
+ drivers/staging/fsl-dpaa2/ethsw/README | 106 +++++++++++++++++++++++++++++++++
+ 1 file changed, 106 insertions(+)
+ create mode 100644 drivers/staging/fsl-dpaa2/ethsw/README
 
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/Makefile b/drivers/staging/fsl-dpaa2/ethsw/Makefile
-index a6d72d1..de92cd9 100644
---- a/drivers/staging/fsl-dpaa2/ethsw/Makefile
-+++ b/drivers/staging/fsl-dpaa2/ethsw/Makefile
-@@ -4,4 +4,4 @@
- 
- obj-$(CONFIG_FSL_DPAA2_ETHSW) += dpaa2-ethsw.o
- 
--dpaa2-ethsw-objs := ethsw.o dpsw.o
-+dpaa2-ethsw-objs := ethsw.o ethsw-ethtool.o dpsw.o
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h b/drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h
-index ddfd820..06b71122 100644
---- a/drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h
-+++ b/drivers/staging/fsl-dpaa2/ethsw/dpsw-cmd.h
-@@ -74,6 +74,8 @@
- #define DPSW_CMDID_IF_SET_FLOODING          DPSW_CMD_ID(0x047)
- #define DPSW_CMDID_IF_SET_BROADCAST         DPSW_CMD_ID(0x048)
- 
-+#define DPSW_CMDID_IF_SET_LINK_CFG          DPSW_CMD_ID(0x04C)
-+
- #define DPSW_CMDID_VLAN_ADD                 DPSW_CMD_ID(0x060)
- #define DPSW_CMDID_VLAN_ADD_IF              DPSW_CMD_ID(0x061)
- #define DPSW_CMDID_VLAN_ADD_IF_UNTAGGED     DPSW_CMD_ID(0x062)
-@@ -262,6 +264,17 @@ struct dpsw_cmd_if_set_max_frame_length {
- 	__le16 frame_length;
- };
- 
-+struct dpsw_cmd_if_set_link_cfg {
-+	/* cmd word 0 */
-+	__le16 if_id;
-+	u8 pad[6];
-+	/* cmd word 1 */
-+	__le32 rate;
-+	__le32 pad1;
-+	/* cmd word 2 */
-+	__le64 options;
-+};
-+
- struct dpsw_cmd_if_get_link_state {
- 	__le16 if_id;
- };
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/dpsw.c b/drivers/staging/fsl-dpaa2/ethsw/dpsw.c
-index e65b6f5..f1a1fac 100644
---- a/drivers/staging/fsl-dpaa2/ethsw/dpsw.c
-+++ b/drivers/staging/fsl-dpaa2/ethsw/dpsw.c
-@@ -383,6 +383,38 @@ int dpsw_get_attributes(struct fsl_mc_io *mc_io,
- }
- 
- /**
-+ * dpsw_if_set_link_cfg() - Set the link configuration.
-+ * @mc_io:	Pointer to MC portal's I/O object
-+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
-+ * @token:	Token of DPSW object
-+ * @if_id:	Interface id
-+ * @cfg:	Link configuration
-+ *
-+ * Return:	'0' on Success; Error code otherwise.
-+ */
-+int dpsw_if_set_link_cfg(struct fsl_mc_io *mc_io,
-+			 u32 cmd_flags,
-+			 u16 token,
-+			 u16 if_id,
-+			 struct dpsw_link_cfg *cfg)
-+{
-+	struct mc_command cmd = { 0 };
-+	struct dpsw_cmd_if_set_link_cfg *cmd_params;
-+
-+	/* prepare command */
-+	cmd.header = mc_encode_cmd_header(DPSW_CMDID_IF_SET_LINK_CFG,
-+					  cmd_flags,
-+					  token);
-+	cmd_params = (struct dpsw_cmd_if_set_link_cfg *)cmd.params;
-+	cmd_params->if_id = cpu_to_le16(if_id);
-+	cmd_params->rate = cpu_to_le32(cfg->rate);
-+	cmd_params->options = cpu_to_le64(cfg->options);
-+
-+	/* send command to mc*/
-+	return mc_send_command(mc_io, &cmd);
-+}
-+
-+/**
-  * dpsw_if_get_link_state - Return the link state
-  * @mc_io:	Pointer to MC portal's I/O object
-  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/dpsw.h b/drivers/staging/fsl-dpaa2/ethsw/dpsw.h
-index 7fa8a61..87369a5 100644
---- a/drivers/staging/fsl-dpaa2/ethsw/dpsw.h
-+++ b/drivers/staging/fsl-dpaa2/ethsw/dpsw.h
-@@ -245,6 +245,38 @@ enum dpsw_action {
- };
- 
- /**
-+ * Enable auto-negotiation
-+ */
-+#define DPSW_LINK_OPT_AUTONEG		0x0000000000000001ULL
-+/**
-+ * Enable half-duplex mode
-+ */
-+#define DPSW_LINK_OPT_HALF_DUPLEX	0x0000000000000002ULL
-+/**
-+ * Enable pause frames
-+ */
-+#define DPSW_LINK_OPT_PAUSE		0x0000000000000004ULL
-+/**
-+ * Enable a-symmetric pause frames
-+ */
-+#define DPSW_LINK_OPT_ASYM_PAUSE	0x0000000000000008ULL
-+
-+/**
-+ * struct dpsw_link_cfg - Structure representing DPSW link configuration
-+ * @rate: Rate
-+ * @options: Mask of available options; use 'DPSW_LINK_OPT_<X>' values
-+ */
-+struct dpsw_link_cfg {
-+	u32 rate;
-+	u64 options;
-+};
-+
-+int dpsw_if_set_link_cfg(struct fsl_mc_io *mc_io,
-+			 u32 cmd_flags,
-+			 u16 token,
-+			 u16 if_id,
-+			 struct dpsw_link_cfg *cfg);
-+/**
-  * struct dpsw_link_state - Structure representing DPSW link state
-  * @rate: Rate
-  * @options: Mask of available options; use 'DPSW_LINK_OPT_<X>' values
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c b/drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c
+diff --git a/drivers/staging/fsl-dpaa2/ethsw/README b/drivers/staging/fsl-dpaa2/ethsw/README
 new file mode 100644
-index 0000000..659e66e
+index 0000000..f6fc07f
 --- /dev/null
-+++ b/drivers/staging/fsl-dpaa2/ethsw/ethsw-ethtool.c
-@@ -0,0 +1,206 @@
-+/* Copyright 2014-2016 Freescale Semiconductor Inc.
-+ * Copyright 2017 NXP
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *     * Redistributions of source code must retain the above copyright
-+ *	 notice, this list of conditions and the following disclaimer.
-+ *     * Redistributions in binary form must reproduce the above copyright
-+ *	 notice, this list of conditions and the following disclaimer in the
-+ *	 documentation and/or other materials provided with the distribution.
-+ *     * Neither the name of the above-listed copyright holders nor the
-+ *	 names of any contributors may be used to endorse or promote products
-+ *	 derived from this software without specific prior written permission.
-+ *
-+ *
-+ * ALTERNATIVELY, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") as published by the Free Software
-+ * Foundation, either version 2 of that License or (at your option) any
-+ * later version.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
++++ b/drivers/staging/fsl-dpaa2/ethsw/README
+@@ -0,0 +1,106 @@
++DPAA2 Ethernet Switch driver
++============================
 +
-+#include "ethsw.h"
++This file provides documentation for the DPAA2 Ethernet Switch driver
 +
-+static struct {
-+	enum dpsw_counter id;
-+	char name[ETH_GSTRING_LEN];
-+} ethsw_ethtool_counters[] =  {
-+	{DPSW_CNT_ING_FRAME,		"rx frames"},
-+	{DPSW_CNT_ING_BYTE,		"rx bytes"},
-+	{DPSW_CNT_ING_FLTR_FRAME,	"rx filtered frames"},
-+	{DPSW_CNT_ING_FRAME_DISCARD,	"rx discarded frames"},
-+	{DPSW_CNT_ING_BCAST_FRAME,	"rx b-cast frames"},
-+	{DPSW_CNT_ING_BCAST_BYTES,	"rx b-cast bytes"},
-+	{DPSW_CNT_ING_MCAST_FRAME,	"rx m-cast frames"},
-+	{DPSW_CNT_ING_MCAST_BYTE,	"rx m-cast bytes"},
-+	{DPSW_CNT_EGR_FRAME,		"tx frames"},
-+	{DPSW_CNT_EGR_BYTE,		"tx bytes"},
-+	{DPSW_CNT_EGR_FRAME_DISCARD,	"tx discarded frames"},
 +
-+};
++Contents
++========
++	Supported Platforms
++	Architecture Overview
++	Creating an Ethernet Switch
++	Features
 +
-+#define ETHSW_NUM_COUNTERS	ARRAY_SIZE(ethsw_ethtool_counters)
 +
-+static void ethsw_get_drvinfo(struct net_device *netdev,
-+			      struct ethtool_drvinfo *drvinfo)
-+{
-+	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
-+	u16 version_major, version_minor;
-+	int err;
++	Supported Platforms
++===================
++This driver provides networking support for Freescale LS2085A, LS2088A
++DPAA2 SoCs.
 +
-+	strlcpy(drvinfo->driver, KBUILD_MODNAME, sizeof(drvinfo->driver));
 +
-+	err = dpsw_get_api_version(port_priv->ethsw_data->mc_io, 0,
-+				   &version_major,
-+				   &version_minor);
-+	if (err)
-+		strlcpy(drvinfo->fw_version, "N/A",
-+			sizeof(drvinfo->fw_version));
-+	else
-+		snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
-+			 "%u.%u", version_major, version_minor);
++Architecture Overview
++=====================
++The Ethernet Switch in the DPAA2 architecture consists of several hardware
++resources that provide the functionality. These are allocated and
++configured via the Management Complex (MC) portals. MC abstracts most of
++these resources as DPAA2 objects and exposes ABIs through which they can
++be configured and controlled.
 +
-+	strlcpy(drvinfo->bus_info, dev_name(netdev->dev.parent->parent),
-+		sizeof(drvinfo->bus_info));
-+}
++For a more detailed description of the DPAA2 architecture and its object
++abstractions see:
++	drivers/staging/fsl-mc/README.txt
 +
-+static int
-+ethsw_get_link_ksettings(struct net_device *netdev,
-+			 struct ethtool_link_ksettings *link_ksettings)
-+{
-+	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
-+	struct dpsw_link_state state = {0};
-+	int err = 0;
++The Ethernet Switch is built on top of a Datapath Switch (DPSW) object.
 +
-+	err = dpsw_if_get_link_state(port_priv->ethsw_data->mc_io, 0,
-+				     port_priv->ethsw_data->dpsw_handle,
-+				     port_priv->idx,
-+				     &state);
-+	if (err) {
-+		netdev_err(netdev, "ERROR %d getting link state", err);
-+		goto out;
-+	}
++Configuration interface:
 +
-+	/* At the moment, we have no way of interrogating the DPMAC
-+	 * from the DPSW side or there may not exist a DPMAC at all.
-+	 * Report only autoneg state, duplexity and speed.
-+	 */
-+	if (state.options & DPSW_LINK_OPT_AUTONEG)
-+		link_ksettings->base.autoneg = AUTONEG_ENABLE;
-+	if (!(state.options & DPSW_LINK_OPT_HALF_DUPLEX))
-+		link_ksettings->base.duplex = DUPLEX_FULL;
-+	link_ksettings->base.speed = state.rate;
++          ---------------------
++         | DPAA2 Switch driver |
++          ---------------------
++                   .
++                   .
++              ----------
++             | DPSW API |
++              ----------
++                   .           software
++ ================= . ==============
++                   .           hardware
++          ---------------------
++         | MC hardware portals |
++          ---------------------
++                   .
++                   .
++                 ------
++                | DPSW |
++                 ------
 +
-+out:
-+	return err;
-+}
++Driver uses the switch device driver model and exposes each switch port as
++a network interface, which can be included in a bridge. Traffic switched
++between ports is offloaded into the hardware. Exposed network interfaces
++are not used for I/O, they are used just for configuration. This
++limitation is going to be addressed in the future.
 +
-+static int
-+ethsw_set_link_ksettings(struct net_device *netdev,
-+			 const struct ethtool_link_ksettings *link_ksettings)
-+{
-+	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
-+	struct dpsw_link_cfg cfg = {0};
-+	int err = 0;
++The DPSW can have ports connected to DPNIs or to PHYs via DPMACs.
 +
-+	netdev_dbg(netdev, "Setting link parameters...");
 +
-+	/* Due to a temporary MC limitation, the DPSW port must be down
-+	 * in order to be able to change link settings. Taking steps to let
-+	 * the user know that.
-+	 */
-+	if (netif_running(netdev)) {
-+		netdev_info(netdev, "Sorry, interface must be brought down first.\n");
-+		return -EACCES;
-+	}
++ [ethA]     [ethB]     [ethC]     [ethD]     [ethE]     [ethF]
++    :          :          :          :          :          :
++    :          :          :          :          :          :
++[eth drv]  [eth drv]  [                ethsw drv              ]
++    :          :          :          :          :          :        kernel
++========================================================================
++    :          :          :          :          :          :        hardware
++ [DPNI]      [DPNI]     [============= DPSW =================]
++    |          |          |          |          |          |
++    |           ----------           |       [DPMAC]    [DPMAC]
++     -------------------------------            |          |
++                                                |          |
++                                              [PHY]      [PHY]
 +
-+	cfg.rate = link_ksettings->base.speed;
-+	if (link_ksettings->base.autoneg == AUTONEG_ENABLE)
-+		cfg.options |= DPSW_LINK_OPT_AUTONEG;
-+	else
-+		cfg.options &= ~DPSW_LINK_OPT_AUTONEG;
-+	if (link_ksettings->base.duplex  == DUPLEX_HALF)
-+		cfg.options |= DPSW_LINK_OPT_HALF_DUPLEX;
-+	else
-+		cfg.options &= ~DPSW_LINK_OPT_HALF_DUPLEX;
++For a more detailed description of the Ethernet switch device driver model
++see:
++	Documentation/networking/switchdev.txt
 +
-+	err = dpsw_if_set_link_cfg(port_priv->ethsw_data->mc_io, 0,
-+				   port_priv->ethsw_data->dpsw_handle,
-+				   port_priv->idx,
-+				   &cfg);
-+	if (err)
-+		/* ethtool will be loud enough if we return an error; no point
-+		 * in putting our own error message on the console by default
-+		 */
-+		netdev_dbg(netdev, "ERROR %d setting link cfg", err);
++Creating an Ethernet Switch
++===========================
++A device is created for the switch objects probed on the MC bus. Each DPSW
++has a number of properties which determine the configuration options and
++associated hardware resources.
 +
-+	return err;
-+}
++A DPSW object (and the other DPAA2 objects needed for a DPAA2 switch) can
++be added to a container on the MC bus in one of two ways: statically,
++through a Datapath Layout Binary file (DPL) that is parsed by MC at boot
++time; or created dynamically at runtime, via the DPAA2 objects APIs.
 +
-+static int ethsw_ethtool_get_sset_count(struct net_device *dev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return ETHSW_NUM_COUNTERS;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
++Features
++========
++Driver configures DPSW to perform hardware switching offload of
++unicast/multicast/broadcast (VLAN tagged or untagged) traffic between its
++ports.
 +
-+static void ethsw_ethtool_get_strings(struct net_device *netdev,
-+				      u32 stringset, u8 *data)
-+{
-+	int i;
++It allows configuration of hardware learning, flooding, multicast groups,
++port VLAN configuration and STP state.
 +
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < ETHSW_NUM_COUNTERS; i++)
-+			memcpy(data + i * ETH_GSTRING_LEN,
-+			       ethsw_ethtool_counters[i].name, ETH_GSTRING_LEN);
-+		break;
-+	}
-+}
++Static entries can be added/removed from the FDB.
 +
-+static void ethsw_ethtool_get_stats(struct net_device *netdev,
-+				    struct ethtool_stats *stats,
-+				    u64 *data)
-+{
-+	struct ethsw_port_priv *port_priv = netdev_priv(netdev);
-+	int i, err;
-+
-+	memset(data, 0,
-+	       sizeof(u64) * ETHSW_NUM_COUNTERS);
-+
-+	for (i = 0; i < ETHSW_NUM_COUNTERS; i++) {
-+		err = dpsw_if_get_counter(port_priv->ethsw_data->mc_io, 0,
-+					  port_priv->ethsw_data->dpsw_handle,
-+					  port_priv->idx,
-+					  ethsw_ethtool_counters[i].id,
-+					  &data[i]);
-+		if (err)
-+			netdev_err(netdev, "dpsw_if_get_counter[%s] err %d\n",
-+				   ethsw_ethtool_counters[i].name, err);
-+	}
-+}
-+
-+const struct ethtool_ops ethsw_port_ethtool_ops = {
-+	.get_drvinfo		= ethsw_get_drvinfo,
-+	.get_link		= ethtool_op_get_link,
-+	.get_link_ksettings	= ethsw_get_link_ksettings,
-+	.set_link_ksettings	= ethsw_set_link_ksettings,
-+	.get_strings		= ethsw_ethtool_get_strings,
-+	.get_ethtool_stats	= ethsw_ethtool_get_stats,
-+	.get_sset_count		= ethsw_ethtool_get_sset_count,
-+};
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/ethsw.c b/drivers/staging/fsl-dpaa2/ethsw/ethsw.c
-index f45e5bb..7276ae37 100644
---- a/drivers/staging/fsl-dpaa2/ethsw/ethsw.c
-+++ b/drivers/staging/fsl-dpaa2/ethsw/ethsw.c
-@@ -1402,6 +1402,7 @@ static int ethsw_probe_port(struct ethsw_core *ethsw, u16 port_idx)
- 
- 	SET_NETDEV_DEV(port_netdev, dev);
- 	port_netdev->netdev_ops = &ethsw_port_ops;
-+	port_netdev->ethtool_ops = &ethsw_port_ethtool_ops;
- 	port_netdev->switchdev_ops = &ethsw_port_switchdev_ops;
- 
- 	/* Set MTU limits */
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/ethsw.h b/drivers/staging/fsl-dpaa2/ethsw/ethsw.h
-index 8c1d645..413275b 100644
---- a/drivers/staging/fsl-dpaa2/ethsw/ethsw.h
-+++ b/drivers/staging/fsl-dpaa2/ethsw/ethsw.h
-@@ -57,6 +57,8 @@
- #define ETHSW_MAX_FRAME_LENGTH	(DPAA2_MFL - VLAN_ETH_HLEN - ETH_FCS_LEN)
- #define ETHSW_L2_MAX_FRM(mtu)	((mtu) + VLAN_ETH_HLEN + ETH_FCS_LEN)
- 
-+extern const struct ethtool_ops ethsw_port_ethtool_ops;
-+
- struct ethsw_core;
- 
- /* Per port private data */
++Hardware statistics for each port are provided through ethtool -S option.
 -- 
 1.9.1
