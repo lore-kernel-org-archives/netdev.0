@@ -1,40 +1,68 @@
-From: Axel Beckert <abe@deuxchevaux.org>
-Subject: [PATCH] doc: Fix typo "8023.ad" in bonding documentation
-Date: Thu, 5 Oct 2017 22:00:33 +0200
-Message-ID: <20171005200032.GN4665@sym.noone.org>
+From: Dan Murphy <dmurphy@ti.com>
+Subject: Re: [PATCH 2/3 v2] net: phy: DP83822 initial driver submission
+Date: Thu, 5 Oct 2017 15:06:36 -0500
+Message-ID: <7dc268a5-de82-35c8-f793-a210ced69b73@ti.com>
+References: <20171004182031.13794-1-dmurphy@ti.com>
+ <20171004182031.13794-2-dmurphy@ti.com>
+ <9235D6609DB808459E95D78E17F2E43D40B3F9A9@CHN-SV-EXMX02.mchp-main.com>
+ <20171004235307.GD16612@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
-        Jiri Kosina <trivial@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>, <afd@ti.com>
+To: Andrew Lunn <andrew@lunn.ch>, <Woojung.Huh@microchip.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:32819 "EHLO sym2.noone.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751405AbdJEUAf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Oct 2017 16:00:35 -0400
-Content-Disposition: inline
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:11693 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752011AbdJEUGs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 16:06:48 -0400
+In-Reply-To: <20171004235307.GD16612@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Should be "802.3ad" like everywhere else in the document.
+Andrew
 
-Signed-off-by: Axel Beckert <abe@deuxchevaux.org>
----
- Documentation/networking/bonding.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 10/04/2017 06:53 PM, Andrew Lunn wrote:
+> On Wed, Oct 04, 2017 at 10:44:36PM +0000, Woojung.Huh@microchip.com wrote:
+>>> +static int dp83822_suspend(struct phy_device *phydev)
+>>> +{
+>>> +	int value;
+>>> +
+>>> +	mutex_lock(&phydev->lock);
+>>> +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
+>>> MII_DP83822_WOL_CFG);
+>>> +	mutex_unlock(&phydev->lock);
+> 
+>> Would we need mutex to access phy_read_mmd()?
+>> phy_read_mmd() has mdio_lock for indirect access.
+> 
+> Hi Woojung
+> 
+> The mdio lock is not sufficient. It protects against two mdio
+> accesses. But here we need to protect against two phy operations.
+> There is a danger something else tries to access the phy during
+> suspend.
+> 
+>>> +	if (!(value & DP83822_WOL_EN))
+>>> +		genphy_suspend(phydev);
+> 
+> Releasing the lock before calling genphy_suspend() is not so nice.
+> Maybe add a version which assumes the lock has already been taken?
+> 
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index 57f52cdce32e..9ba04c0bab8d 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -2387,7 +2387,7 @@ broadcast: Like active-backup, there is not much advantage to this
- 	and packet type ID), so in a "gatewayed" configuration, all
- 	outgoing traffic will generally use the same device.  Incoming
- 	traffic may also end up on a single device, but that is
--	dependent upon the balancing policy of the peer's 8023.ad
-+	dependent upon the balancing policy of the peer's 802.3ad
- 	implementation.  In a "local" configuration, traffic will be
- 	distributed across the devices in the bond.
- 
+The marvell driver does not take a lock and calls genphy_suspend/resume
+so I am wondering if this driver needs to take a lock.
+
+The at803x needs to take the lock because it does not call into the genphy
+functions.
+
+Dan
+
+>       Andrew
+> 
+
+
 -- 
-2.14.2
+------------------
+Dan Murphy
