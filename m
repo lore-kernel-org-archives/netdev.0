@@ -1,67 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] rsi: fix integer overflow warning
-Date: Thu, 5 Oct 2017 15:12:05 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008ACEE@AcuExch.aculab.com>
-References: <20171005120547.328687-1-arnd@arndb.de>
- <1507205947.4434.23.camel@perches.com>
+From: Himanshu Jha <himanshujha199640@gmail.com>
+Subject: Re: [PATCH] mwifiex: Use put_unaligned_le32
+Date: Thu, 5 Oct 2017 20:52:33 +0530
+Message-ID: <20171005152233.GA6250@himanshu-Vostro-3559>
+References: <1507141686-5178-1-git-send-email-himanshujha199640@gmail.com>
+ <874lre5a86.fsf@codeaurora.org>
+ <20171005083433.GA11485@himanshu-Vostro-3559>
+ <87zi963s1p.fsf@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Pavani Muthyala <pavani.muthyala@redpinesignals.com>,
-        Karun Eagalapati <karun256@gmail.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Joe Perches' <joe@perches.com>, Arnd Bergmann <arnd@arndb.de>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Prameela Rani Garnepudi <prameela.j04cs@gmail.com>,
-        Amitkumar Karwar <amit.karwar@redpinesignals.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: amitkarwar@gmail.com, nishants@marvell.com, gbhat@marvell.com,
+        huxm@marvell.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507205947.4434.23.camel@perches.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <87zi963s1p.fsf@codeaurora.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches
-> Sent: 05 October 2017 13:19
-> On Thu, 2017-10-05 at 14:05 +0200, Arnd Bergmann wrote:
-> > gcc produces a harmless warning about a recently introduced
-> > signed integer overflow:
+On Thu, Oct 05, 2017 at 11:41:38AM +0300, Kalle Valo wrote:
+> Himanshu Jha <himanshujha199640@gmail.com> writes:
+> 
+> >> > --- a/drivers/net/wireless/marvell/mwifiex/cmdevt.c
+> >> > +++ b/drivers/net/wireless/marvell/mwifiex/cmdevt.c
+> >> > @@ -17,6 +17,7 @@
+> >> >   * this warranty disclaimer.
+> >> >   */
+> >> >  
+> >> > +#include <linux/unaligned/access_ok.h>
+> >> 
+> >> I don't think this is correct. Should it be asm/unaligned.h?
 > >
-> > drivers/net/wireless/rsi/rsi_91x_hal.c: In function 'rsi_prepare_mgmt_desc':
-> > include/uapi/linux/swab.h:13:15: error: integer overflow in expression [-Werror=overflow]
-> >   (((__u16)(x) & (__u16)0x00ffU) << 8) |   \
-> >    ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
-> > include/uapi/linux/swab.h:104:2: note: in expansion of macro '___constant_swab16'
-> >   ___constant_swab16(x) :   \
-> >   ^~~~~~~~~~~~~~~~~~
-> > include/uapi/linux/byteorder/big_endian.h:34:43: note: in expansion of macro '__swab16'
-> >  #define __cpu_to_le16(x) ((__force __le16)__swab16((x)))
+> > Would mind explainig me as to why it is incorrect! Also, it defined in
+> > both the header files but, why is asm/unaligned.h preferred ?
 > 
-> []
-> 
-> > The problem is that the 'mask' value is a signed integer that gets
-> > turned into a negative number when truncated to 16 bits. Making it
-> > an unsigned constant avoids this.
-> 
-> I would expect there are more of these.
-> 
-> Perhaps this define in include/uapi/linux/swab.h:
-> 
-> #define __swab16(x)				\
-> 	(__builtin_constant_p((__u16)(x)) ?	\
-> 	___constant_swab16(x) :			\
-> 	__fswab16(x))
-> 
-> should be
-> 
-> #define __swab16(x)				\
-> 	(__builtin_constant_p((__u16)(x)) ?	\
-> 	___constant_swab16((__u16)(x)) :	\
-> 	__fswab16((__u16)(x)))
+> asm/unaligned.h seems to be the toplevel header file which includes
+> header files based on arch configuration. Also grepping the sources
+> support that, nobody from drivers/ include access_ok.h directly.
+>
+Yes, you are correct!
 
-You probably don't want the cast in the call to __fswab16() since
-that is likely to generate an explicit and with 0xffff.
-You will likely also get one if the argument is _u16 (not unsigned int).
+I will send v2 patch with asm/unaligned.h
 
-	David
+> But I can't say that I fully understand how the header files work so
+> please do correct me if I have mistaken.
+>
+It is confusing to me as well.
+There are various instances where a function used in file say for eg
+int func_align (void* a)
+is used and it is defined in align.h
+But many files don't *directly* include align.h and rather include
+any other header which includes align.h
+
+Is compiling the file the only way to check if apppropriate header is
+included or is there some other way to check for it.
+
+Thanks
