@@ -1,92 +1,116 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 5/7] net: bonding: Add extack messages
-	for some enslave failures
-Date: Wed,  4 Oct 2017 17:48:49 -0700
-Message-ID: <1507164531-17732-6-git-send-email-dsahern@gmail.com>
-References: <1507164531-17732-1-git-send-email-dsahern@gmail.com>
-Cc: j.vosburgh@gmail.com, bridge@lists.linux-foundation.org,
-	idosch@mellanox.com, jiri@mellanox.com, vfalico@gmail.com,
-	David Ahern <dsahern@gmail.com>, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1507164531-17732-1-git-send-email-dsahern@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] ethernet/broadcom: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:50:43 -0700
+Message-ID: <20171005005043.GA23290@beast>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        bcm-kernel-feedback-list@broadcom.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, Jarod Wilson <jarod@redhat.com>,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A number of bond_enslave errors are logged using the netdev_err API.
-Return those messages to userspace via the extack facility.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+helper to pass the timer pointer explicitly.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: bcm-kernel-feedback-list@broadcom.com
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/bonding/bond_main.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+This requires commit 686fef928bba ("timer: Prepare to change timer
+callback argument type") in v4.14-rc3, but should be otherwise
+stand-alone.
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 27 +++++++++------------------
+ 1 file changed, 9 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index bc92307c2082..172eeeb68152 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1348,12 +1348,14 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 4f3845a58126..99c2270d4677 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -295,16 +295,13 @@ static int bcm_enet_refill_rx(struct net_device *dev)
+ /*
+  * timer callback to defer refill rx queue in case we're OOM
+  */
+-static void bcm_enet_refill_rx_timer(unsigned long data)
++static void bcm_enet_refill_rx_timer(struct timer_list *t)
+ {
+-	struct net_device *dev;
+-	struct bcm_enet_priv *priv;
+-
+-	dev = (struct net_device *)data;
+-	priv = netdev_priv(dev);
++	struct bcm_enet_priv *priv = from_timer(priv, t, rx_timeout);
++	struct net_device *dev = priv->net_dev;
  
- 	/* already in-use? */
- 	if (netdev_is_rx_handler_busy(slave_dev)) {
-+		NL_SET_ERR_MSG(extack, "Device is in use and cannot be enslaved");
- 		netdev_err(bond_dev,
- 			   "Error: Device is in use and cannot be enslaved\n");
- 		return -EBUSY;
+ 	spin_lock(&priv->rx_lock);
+-	bcm_enet_refill_rx((struct net_device *)data);
++	bcm_enet_refill_rx(dev);
+ 	spin_unlock(&priv->rx_lock);
+ }
+ 
+@@ -1857,9 +1854,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
+ 	spin_lock_init(&priv->rx_lock);
+ 
+ 	/* init rx timeout (used for oom) */
+-	init_timer(&priv->rx_timeout);
+-	priv->rx_timeout.function = bcm_enet_refill_rx_timer;
+-	priv->rx_timeout.data = (unsigned long)dev;
++	timer_setup(&priv->rx_timeout, bcm_enet_refill_rx_timer, 0);
+ 
+ 	/* init the mib update lock&work */
+ 	mutex_init(&priv->mib_update_lock);
+@@ -2021,9 +2016,9 @@ static inline int bcm_enet_port_is_rgmii(int portid)
+ /*
+  * enet sw PHY polling
+  */
+-static void swphy_poll_timer(unsigned long data)
++static void swphy_poll_timer(struct timer_list *t)
+ {
+-	struct bcm_enet_priv *priv = (struct bcm_enet_priv *)data;
++	struct bcm_enet_priv *priv = from_timer(priv, t, swphy_poll);
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < priv->num_ports; i++) {
+@@ -2332,9 +2327,7 @@ static int bcm_enetsw_open(struct net_device *dev)
  	}
  
- 	if (bond_dev == slave_dev) {
-+		NL_SET_ERR_MSG(extack, "Cannot enslave bond to itself.");
- 		netdev_err(bond_dev, "cannot enslave bond to itself.\n");
- 		return -EPERM;
- 	}
-@@ -1364,6 +1366,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
- 		netdev_dbg(bond_dev, "%s is NETIF_F_VLAN_CHALLENGED\n",
- 			   slave_dev->name);
- 		if (vlan_uses_dev(bond_dev)) {
-+			NL_SET_ERR_MSG(extack, "Can not enslave VLAN challenged device to VLAN enabled bond");
- 			netdev_err(bond_dev, "Error: cannot enslave VLAN challenged slave %s on VLAN enabled bond %s\n",
- 				   slave_dev->name, bond_dev->name);
- 			return -EPERM;
-@@ -1383,6 +1386,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
- 	 * enslaving it; the old ifenslave will not.
- 	 */
- 	if (slave_dev->flags & IFF_UP) {
-+		NL_SET_ERR_MSG(extack, "Device can not be enslaved while up");
- 		netdev_err(bond_dev, "%s is up - this may be due to an out of date ifenslave\n",
- 			   slave_dev->name);
- 		return -EPERM;
-@@ -1423,6 +1427,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
- 						 bond_dev);
- 		}
- 	} else if (bond_dev->type != slave_dev->type) {
-+		NL_SET_ERR_MSG(extack, "Device type is different from other slaves");
- 		netdev_err(bond_dev, "%s ether type (%d) is different from other slaves (%d), can not enslave it\n",
- 			   slave_dev->name, slave_dev->type, bond_dev->type);
- 		return -EINVAL;
-@@ -1430,6 +1435,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
+ 	/* start phy polling timer */
+-	init_timer(&priv->swphy_poll);
+-	priv->swphy_poll.function = swphy_poll_timer;
+-	priv->swphy_poll.data = (unsigned long)priv;
++	timer_setup(&priv->swphy_poll, swphy_poll_timer, 0);
+ 	priv->swphy_poll.expires = jiffies;
+ 	add_timer(&priv->swphy_poll);
+ 	return 0;
+@@ -2759,9 +2752,7 @@ static int bcm_enetsw_probe(struct platform_device *pdev)
+ 	spin_lock_init(&priv->rx_lock);
  
- 	if (slave_dev->type == ARPHRD_INFINIBAND &&
- 	    BOND_MODE(bond) != BOND_MODE_ACTIVEBACKUP) {
-+		NL_SET_ERR_MSG(extack, "Only active-backup mode is supported for infiniband slaves");
- 		netdev_warn(bond_dev, "Type (%d) supports only active-backup mode\n",
- 			    slave_dev->type);
- 		res = -EOPNOTSUPP;
-@@ -1445,6 +1451,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev,
- 				bond->params.fail_over_mac = BOND_FOM_ACTIVE;
- 				netdev_warn(bond_dev, "Setting fail_over_mac to active for active-backup mode\n");
- 			} else {
-+				NL_SET_ERR_MSG(extack, "Slave device does not support setting the MAC address, but fail_over_mac is not set to active");
- 				netdev_err(bond_dev, "The slave device specified does not support setting the MAC address, but fail_over_mac is not set to active\n");
- 				res = -EOPNOTSUPP;
- 				goto err_undo_flags;
+ 	/* init rx timeout (used for oom) */
+-	init_timer(&priv->rx_timeout);
+-	priv->rx_timeout.function = bcm_enet_refill_rx_timer;
+-	priv->rx_timeout.data = (unsigned long)dev;
++	timer_setup(&priv->rx_timeout, bcm_enet_refill_rx_timer, 0);
+ 
+ 	/* register netdevice */
+ 	dev->netdev_ops = &bcm_enetsw_ops;
 -- 
-2.1.4
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
