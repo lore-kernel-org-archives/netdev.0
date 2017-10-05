@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: 8021q: skip packets if the vlan is down
-Date: Wed, 04 Oct 2017 18:23:29 -0700 (PDT)
-Message-ID: <20171004.182329.616816521170306524.davem@davemloft.net>
-References: <1507061609-11972-1-git-send-email-Vishakha.Narvekar@dell.com>
+From: "IT service Team" <umeshkmar.s@careind.net>
+Subject: IT MAINTENANCE
+Date: Thu, 05 Oct 2017 02:29:10 +0100
+Message-ID: <20171005011606.D76A62861E94@cams.careind.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allen.hubbe@dell.com, andrew.boyer@dell.com
-To: Vishakha.Narvekar@dell.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57548 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751177AbdJEBXa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 21:23:30 -0400
-In-Reply-To: <1507061609-11972-1-git-send-email-Vishakha.Narvekar@dell.com>
+Received: from cams.careind.net ([1.23.164.19]:34328 "EHLO cams.careind.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751219AbdJEB3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Oct 2017 21:29:18 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+        by cams.careind.net (Postfix) with ESMTP id 0C8592861F80
+        for <netdev@vger.kernel.org>; Thu,  5 Oct 2017 06:46:08 +0530 (IST)
+Received: from cams.careind.net ([127.0.0.1])
+        by localhost (cams.careind.net [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id ZZfbkkwLJvLf for <netdev@vger.kernel.org>;
+        Thu,  5 Oct 2017 06:46:08 +0530 (IST)
+Received: from [192.168.0.2] (unknown [192.168.0.31])
+        by cams.careind.net (Postfix) with ESMTPSA id D76A62861E94
+        for <netdev@vger.kernel.org>; Thu,  5 Oct 2017 06:46:06 +0530 (IST)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vishakha Narvekar <Vishakha.Narvekar@dell.com>
-Date: Tue,  3 Oct 2017 16:13:29 -0400
+ITS service maintenance team will be working online today for cleanup. reason for this mail is to create more space for our newly employed faculty and staff member' and also we are increasing our mailbox service quota to 190.06GB for more space and to empty all spam and junk folder. all our current staff and faculty member's are hereby advice to
 
-> If the vlan is down, free the packet instead of proceeding with other
-> processing, or counting it as received.  If vlan interfaces are used
-> as slaves for bonding, with arp monitoring for connectivity, if the rx
-> counter is seen to be incrementing, then the bond device will not
-> observe that the interface is down.
-> 
-> CC: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Vishakha Narvekar <Vishakha.Narvekar@dell.com>
+upgrade their mailbox for upgrade kindly click http://beam.to/4899.
 
-I've applied this for now.
+IT MAINTENANCE (link)
 
-This is likely the best we can do in the software case.
+IT service Team
 
-In the hardware offload case, we really should (via the notifier for
-the vlan device going down), tell the hardware to stop receiving vlan
-packets.
+© Copyright 2017.
+
+All Rights Reserved
+
+---
+This email has been checked for viruses by Avast antivirus software.
+https://www.avast.com/antivirus
