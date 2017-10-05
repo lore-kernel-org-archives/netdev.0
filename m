@@ -1,64 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 06/12] qed: Add LL2 slowpath handling
-Date: Thu, 05 Oct 2017 12:06:29 -0700 (PDT)
-Message-ID: <20171005.120629.2161199733119811102.davem@davemloft.net>
-References: <20171003.101712.715882117516958741.davem@davemloft.net>
-        <CY1PR0701MB20128130D21FD3C54E45B5A188720@CY1PR0701MB2012.namprd07.prod.outlook.com>
-        <CY1PR0701MB2012A2F8E3E923D98B1E1A6488700@CY1PR0701MB2012.namprd07.prod.outlook.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH V2] Fix a sleep-in-atomic bug in shash_setkey_unaligned
+Date: Thu, 5 Oct 2017 16:07:14 -0300
+Message-ID: <20171005190713.GA4326@localhost.localdomain>
+References: <20171003052643.GB22750@gondor.apana.org.au>
+ <20171003224505.GE19750@localhost.localdomain>
+ <20171005034054.GB31996@gondor.apana.org.au>
+ <20171004.213758.2210486785503998906.davem@davemloft.net>
+ <20171005101620.GA1246@gondor.apana.org.au>
+ <20171005131631.GA1553@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-To: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CY1PR0701MB2012A2F8E3E923D98B1E1A6488700-UpKza+2NMNLHMJvQ0dyT705OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, luto@kernel.org,
+        baijiaju1990@163.com, nhorman@tuxdriver.com, vyasevich@gmail.com,
+        kvalo@codeaurora.org, linux-crypto@vger.kernel.org,
+        netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171005131631.GA1553@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Date: Thu, 5 Oct 2017 18:59:04 +0000
-
-> From: Kalderon, Michal
-> Sent: Tuesday, October 3, 2017 9:05 PM
-> To: David Miller
->>From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->>Sent: Tuesday, October 3, 2017 8:17 PM
->>>> @@ -423,6 +423,41 @@ static void qed_ll2_rxq_parse_reg(struct qed_hwfn *p_hwfn,
->>>>  }
->>>>
->>>>  static int
->>>> +qed_ll2_handle_slowpath(struct qed_hwfn *p_hwfn,
->>>> +                     struct qed_ll2_info *p_ll2_conn,
->>>> +                     union core_rx_cqe_union *p_cqe,
->>>> +                     unsigned long *p_lock_flags)
->>>> +{
->>>...
->>>> +     spin_unlock_irqrestore(&p_rx->lock, *p_lock_flags);
->>>> +
->>>
->>>You can't drop this lock.
->>>
->>>Another thread can enter the loop of our caller and process RX queue
->>>entries, then we would return from here and try to process the same
->>>entries again.
->>
->>The lock is there to synchronize access to chains between qed_ll2_rxq_completion
->>and qed_ll2_post_rx_buffer. qed_ll2_rxq_completion can't be called from
->>different threads, the light l2 uses the single sp status block we have.
->>The reason we release the lock is to avoid a deadlock where as a result of calling
->>upper-layer driver it will potentially post additional rx-buffers.
+On Thu, Oct 05, 2017 at 09:16:31PM +0800, Herbert Xu wrote:
+> On Thu, Oct 05, 2017 at 06:16:20PM +0800, Herbert Xu wrote:
+> >
+> > That was my point.  Functions like sctp_pack_cookie shouldn't be
+> > setting the key in the first place.  The setkey should happen at
+> > the point when the key is generated.  That's sctp_endpoint_init
+> > which AFAICS only gets called in GFP_KERNEL context.
+> > 
+> > Or is there a code-path where sctp_endpoint_init is called in
+> > softirq context?
 > 
-> Dave, is there anything else needed from me on this? 
-> Noticed the series is still in "Changes Requested". 
+> OK, there are indeed code paths where the key is derived in softirq
+> context.  Notably sctp_auth_calculate_hmac.
+> 
+> So I think this patch is the correct fix and I will push it upstream
+> as well as back to stable.
 
-I'm still not convinced that the lock dropping is legitimate.  What if a
-spurious interrupt arrives?
+Okay, thanks.
 
-If the execution path in the caller is serialized for some reason, why
-are you using a spinlock and don't use that serialization for the mutual
-exclusion necessary for these queue indexes?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  Marcelo
