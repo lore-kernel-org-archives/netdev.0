@@ -1,136 +1,56 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v2] net/mac80211/mesh_plink: Convert timers to use
- timer_setup()
-Date: Thu, 5 Oct 2017 10:39:10 -0700
-Message-ID: <20171005173910.GA72335@beast>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next v3 1/2] libbpf: parse maps sections of varying
+ size
+Date: Thu, 5 Oct 2017 19:52:34 +0200
+Message-ID: <20171005195235.1fa3a8e4@redhat.com>
+References: <20171005144158.14860-1-kraigatgoog@gmail.com>
+        <20171005144158.14860-2-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
-        linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Chonggang Li <chonggangli@google.com>, netdev@vger.kernel.org,
+        brouer@redhat.com
+To: Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34248 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751335AbdJERwm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Oct 2017 13:52:42 -0400
+In-Reply-To: <20171005144158.14860-2-kraigatgoog@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This requires adding a pointer back
-to the sta_info since container_of() can't resolve the sta_info.
 
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-wireless@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-This requires commit 686fef928bba ("timer: Prepare to change timer
-callback argument type") in v4.14-rc3, but should be otherwise
-stand-alone.
+On Thu,  5 Oct 2017 10:41:57 -0400 Craig Gallek <kraigatgoog@gmail.com> wrote:
 
-v2:
-- make mesh_plink_timer non-static and use it in timer_setup() call directly.
----
- net/mac80211/mesh.h       |  1 +
- net/mac80211/mesh_plink.c | 10 ++++------
- net/mac80211/sta_info.c   |  4 +++-
- net/mac80211/sta_info.h   |  2 ++
- 4 files changed, 10 insertions(+), 7 deletions(-)
+> From: Craig Gallek <kraig@google.com>
+> 
+> This library previously assumed a fixed-size map options structure.
+> Any new options were ignored.  In order to allow the options structure
+> to grow and to support parsing older programs, this patch updates
+> the maps section parsing to handle varying sizes.
+> 
+> Object files with maps sections smaller than expected will have the new
+> fields initialized to zero.  Object files which have larger than expected
+> maps sections will be rejected unless all of the unrecognized data is zero.
+> 
+> This change still assumes that each map definition in the maps section
+> is the same size.
+> 
+> Signed-off-by: Craig Gallek <kraig@google.com>
+> ---
+>  tools/lib/bpf/libbpf.c | 70 +++++++++++++++++++++++++++++---------------------
+>  1 file changed, 41 insertions(+), 29 deletions(-)
 
-diff --git a/net/mac80211/mesh.h b/net/mac80211/mesh.h
-index 7e5f271e3c30..465b7853edc0 100644
---- a/net/mac80211/mesh.h
-+++ b/net/mac80211/mesh.h
-@@ -275,6 +275,7 @@ void mesh_neighbour_update(struct ieee80211_sub_if_data *sdata,
- 			   u8 *hw_addr, struct ieee802_11_elems *ie);
- bool mesh_peer_accepts_plinks(struct ieee802_11_elems *ie);
- u32 mesh_accept_plinks_update(struct ieee80211_sub_if_data *sdata);
-+void mesh_plink_timer(struct timer_list *t);
- void mesh_plink_broken(struct sta_info *sta);
- u32 mesh_plink_deactivate(struct sta_info *sta);
- u32 mesh_plink_open(struct sta_info *sta);
-diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
-index f69c6c38ca43..e79adb4164f3 100644
---- a/net/mac80211/mesh_plink.c
-+++ b/net/mac80211/mesh_plink.c
-@@ -604,8 +604,9 @@ void mesh_neighbour_update(struct ieee80211_sub_if_data *sdata,
- 	ieee80211_mbss_info_change_notify(sdata, changed);
- }
- 
--static void mesh_plink_timer(unsigned long data)
-+void mesh_plink_timer(struct timer_list *t)
- {
-+	struct mesh_sta *mesh = from_timer(mesh, t, plink_timer);
- 	struct sta_info *sta;
- 	u16 reason = 0;
- 	struct ieee80211_sub_if_data *sdata;
-@@ -617,7 +618,7 @@ static void mesh_plink_timer(unsigned long data)
- 	 * del_timer_sync() this timer after having made sure
- 	 * it cannot be readded (by deleting the plink.)
- 	 */
--	sta = (struct sta_info *) data;
-+	sta = mesh->plink_sta;
- 
- 	if (sta->sdata->local->quiescing)
- 		return;
-@@ -697,11 +698,8 @@ static void mesh_plink_timer(unsigned long data)
- 
- static inline void mesh_plink_timer_set(struct sta_info *sta, u32 timeout)
- {
--	sta->mesh->plink_timer.expires = jiffies + msecs_to_jiffies(timeout);
--	sta->mesh->plink_timer.data = (unsigned long) sta;
--	sta->mesh->plink_timer.function = mesh_plink_timer;
- 	sta->mesh->plink_timeout = timeout;
--	add_timer(&sta->mesh->plink_timer);
-+	mod_timer(&sta->mesh->plink_timer, jiffies + msecs_to_jiffies(timeout));
- }
- 
- static bool llid_in_use(struct ieee80211_sub_if_data *sdata,
-diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
-index 69615016d5bf..6c254a9d5f11 100644
---- a/net/mac80211/sta_info.c
-+++ b/net/mac80211/sta_info.c
-@@ -329,10 +329,12 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
- 		sta->mesh = kzalloc(sizeof(*sta->mesh), gfp);
- 		if (!sta->mesh)
- 			goto free;
-+		sta->mesh->plink_sta = sta;
- 		spin_lock_init(&sta->mesh->plink_lock);
- 		if (ieee80211_vif_is_mesh(&sdata->vif) &&
- 		    !sdata->u.mesh.user_mpm)
--			init_timer(&sta->mesh->plink_timer);
-+			timer_setup(&sta->mesh->plink_timer, mesh_plink_timer,
-+				    0);
- 		sta->mesh->nonpeer_pm = NL80211_MESH_POWER_ACTIVE;
- 	}
- #endif
-diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
-index 3acbdfa9f649..21d9760ce5c3 100644
---- a/net/mac80211/sta_info.h
-+++ b/net/mac80211/sta_info.h
-@@ -344,6 +344,7 @@ DECLARE_EWMA(mesh_fail_avg, 20, 8)
-  * @plink_state: peer link state
-  * @plink_timeout: timeout of peer link
-  * @plink_timer: peer link watch timer
-+ * @plink_sta: peer link watch timer's sta_info
-  * @t_offset: timing offset relative to this host
-  * @t_offset_setpoint: reference timing offset of this sta to be used when
-  * 	calculating clockdrift
-@@ -356,6 +357,7 @@ DECLARE_EWMA(mesh_fail_avg, 20, 8)
-  */
- struct mesh_sta {
- 	struct timer_list plink_timer;
-+	struct sta_info *plink_sta;
- 
- 	s64 t_offset;
- 	s64 t_offset_setpoint;
--- 
-2.7.4
+Thank you for working on this! :-)
 
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
 -- 
-Kees Cook
-Pixel Security
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
