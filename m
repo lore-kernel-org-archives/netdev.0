@@ -1,95 +1,135 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] net/mac80211/mesh_plink: Convert timers to use
-Date: Thu, 5 Oct 2017 10:27:52 -0700
-Message-ID: <CAGXu5jLMWz83XiBpVUdwxaTA9fY0X_OhPZtbEBefVzj7b3_7Wg@mail.gmail.com>
-References: <20171005004952.GA23133@beast> <1507186052.2387.11.camel@sipsolutions.net>
+Subject: [PATCH v2] net/mac80211/mesh_plink: Convert timers to use
+ timer_setup()
+Date: Thu, 5 Oct 2017 10:39:10 -0700
+Message-ID: <20171005173910.GA72335@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
+        linux-kernel@vger.kernel.org
 To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507186052.2387.11.camel@sipsolutions.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 4, 2017 at 11:47 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Wed, 2017-10-04 at 17:49 -0700, Kees Cook wrote:
->> In preparation for unconditionally passing the struct timer_list
->> pointer to all timer callbacks, switch to using the new timer_setup()
->> and from_timer() to pass the timer pointer explicitly. This requires
->> adding a pointer back to the sta_info since container_of() can't
->> resolve the sta_info.
->
-> The subject seems to be lacking something ... :-)
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly. This requires adding a pointer back
+to the sta_info since container_of() can't resolve the sta_info.
 
-Oh wonderful, all the subjects are cut off. *sigh* I wonder which
-piece of my workflow broke that...
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+This requires commit 686fef928bba ("timer: Prepare to change timer
+callback argument type") in v4.14-rc3, but should be otherwise
+stand-alone.
 
->> This requires commit 686fef928bba ("timer: Prepare to change timer
->> callback argument type") in v4.14-rc3, but should be otherwise
->> stand-alone.
->
-> I still can't apply that because that's not in net-next right now.
+v2:
+- make mesh_plink_timer non-static and use it in timer_setup() call directly.
+---
+ net/mac80211/mesh.h       |  1 +
+ net/mac80211/mesh_plink.c | 10 ++++------
+ net/mac80211/sta_info.c   |  4 +++-
+ net/mac80211/sta_info.h   |  2 ++
+ 4 files changed, 10 insertions(+), 7 deletions(-)
 
-Okay, I'll see if Dave brings that into net-next and resend after that.
+diff --git a/net/mac80211/mesh.h b/net/mac80211/mesh.h
+index 7e5f271e3c30..465b7853edc0 100644
+--- a/net/mac80211/mesh.h
++++ b/net/mac80211/mesh.h
+@@ -275,6 +275,7 @@ void mesh_neighbour_update(struct ieee80211_sub_if_data *sdata,
+ 			   u8 *hw_addr, struct ieee802_11_elems *ie);
+ bool mesh_peer_accepts_plinks(struct ieee802_11_elems *ie);
+ u32 mesh_accept_plinks_update(struct ieee80211_sub_if_data *sdata);
++void mesh_plink_timer(struct timer_list *t);
+ void mesh_plink_broken(struct sta_info *sta);
+ u32 mesh_plink_deactivate(struct sta_info *sta);
+ u32 mesh_plink_open(struct sta_info *sta);
+diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
+index f69c6c38ca43..e79adb4164f3 100644
+--- a/net/mac80211/mesh_plink.c
++++ b/net/mac80211/mesh_plink.c
+@@ -604,8 +604,9 @@ void mesh_neighbour_update(struct ieee80211_sub_if_data *sdata,
+ 	ieee80211_mbss_info_change_notify(sdata, changed);
+ }
+ 
+-static void mesh_plink_timer(unsigned long data)
++void mesh_plink_timer(struct timer_list *t)
+ {
++	struct mesh_sta *mesh = from_timer(mesh, t, plink_timer);
+ 	struct sta_info *sta;
+ 	u16 reason = 0;
+ 	struct ieee80211_sub_if_data *sdata;
+@@ -617,7 +618,7 @@ static void mesh_plink_timer(unsigned long data)
+ 	 * del_timer_sync() this timer after having made sure
+ 	 * it cannot be readded (by deleting the plink.)
+ 	 */
+-	sta = (struct sta_info *) data;
++	sta = mesh->plink_sta;
+ 
+ 	if (sta->sdata->local->quiescing)
+ 		return;
+@@ -697,11 +698,8 @@ static void mesh_plink_timer(unsigned long data)
+ 
+ static inline void mesh_plink_timer_set(struct sta_info *sta, u32 timeout)
+ {
+-	sta->mesh->plink_timer.expires = jiffies + msecs_to_jiffies(timeout);
+-	sta->mesh->plink_timer.data = (unsigned long) sta;
+-	sta->mesh->plink_timer.function = mesh_plink_timer;
+ 	sta->mesh->plink_timeout = timeout;
+-	add_timer(&sta->mesh->plink_timer);
++	mod_timer(&sta->mesh->plink_timer, jiffies + msecs_to_jiffies(timeout));
+ }
+ 
+ static bool llid_in_use(struct ieee80211_sub_if_data *sdata,
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 69615016d5bf..6c254a9d5f11 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -329,10 +329,12 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
+ 		sta->mesh = kzalloc(sizeof(*sta->mesh), gfp);
+ 		if (!sta->mesh)
+ 			goto free;
++		sta->mesh->plink_sta = sta;
+ 		spin_lock_init(&sta->mesh->plink_lock);
+ 		if (ieee80211_vif_is_mesh(&sdata->vif) &&
+ 		    !sdata->u.mesh.user_mpm)
+-			init_timer(&sta->mesh->plink_timer);
++			timer_setup(&sta->mesh->plink_timer, mesh_plink_timer,
++				    0);
+ 		sta->mesh->nonpeer_pm = NL80211_MESH_POWER_ACTIVE;
+ 	}
+ #endif
+diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
+index 3acbdfa9f649..21d9760ce5c3 100644
+--- a/net/mac80211/sta_info.h
++++ b/net/mac80211/sta_info.h
+@@ -344,6 +344,7 @@ DECLARE_EWMA(mesh_fail_avg, 20, 8)
+  * @plink_state: peer link state
+  * @plink_timeout: timeout of peer link
+  * @plink_timer: peer link watch timer
++ * @plink_sta: peer link watch timer's sta_info
+  * @t_offset: timing offset relative to this host
+  * @t_offset_setpoint: reference timing offset of this sta to be used when
+  * 	calculating clockdrift
+@@ -356,6 +357,7 @@ DECLARE_EWMA(mesh_fail_avg, 20, 8)
+  */
+ struct mesh_sta {
+ 	struct timer_list plink_timer;
++	struct sta_info *plink_sta;
+ 
+ 	s64 t_offset;
+ 	s64 t_offset_setpoint;
+-- 
+2.7.4
 
->>  static inline void mesh_plink_timer_set(struct sta_info *sta, u32
->> timeout)
->>  {
->>       sta->mesh->plink_timer.expires = jiffies +
->> msecs_to_jiffies(timeout);
->> -     sta->mesh->plink_timer.data = (unsigned long) sta;
->> -     sta->mesh->plink_timer.function = mesh_plink_timer;
->> +     sta->mesh->plink_sta = sta;
->> +     sta->mesh->plink_timer.function =
->> (TIMER_FUNC_TYPE)mesh_plink_timer;
->>       sta->mesh->plink_timeout = timeout;
->>       add_timer(&sta->mesh->plink_timer);
->
-> Wouldn't it be better to convert this to timer_setup() now?
-
-The problem is that plink_timer is used in several places, and it's
-originally initialized in net/mac80211/sta_info.c. The call to
-mesh_plink_timer_set() does an update of the function field, so it
-didn't look like it could get merged with the timer_setup(), but in
-looking again, it seems that this is the _only_ update to
-plink_timer.function, so it could probably get collapsed into the
-timer_setup() call.
-
-> That add_timer() should probably also be mod_timer() anyway?
-
-Agreed. I'd avoided making those changes in most places, but I can do it here.
-
->> diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
->> index 69615016d5bf..5e5de9455e4e 100644
->> --- a/net/mac80211/sta_info.c
->> +++ b/net/mac80211/sta_info.c
->> @@ -332,7 +332,7 @@ struct sta_info *sta_info_alloc(struct
->> ieee80211_sub_if_data *sdata,
->>               spin_lock_init(&sta->mesh->plink_lock);
->>               if (ieee80211_vif_is_mesh(&sdata->vif) &&
->>                   !sdata->u.mesh.user_mpm)
->> -                     init_timer(&sta->mesh->plink_timer);
->> +                     timer_setup(&sta->mesh->plink_timer, NULL,
->> 0);
->>               sta->mesh->nonpeer_pm = NL80211_MESH_POWER_ACTIVE;
->>       }
->
-> You just have to make mesh_plink_timer() non-static, put a prototype
-> into mesh.h and then you can use the proper timer_setup() here with the
-> function?
->
-> Also, the sta->mesh->plink_sta assignment should be here I'd say, no
-> point rewriting it all the time.
-
-Sounds good. I'll get it cleaned up.
-
--Kees
 
 -- 
 Kees Cook
