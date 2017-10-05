@@ -1,61 +1,134 @@
-From: Lin Zhang <xiaolou4617@gmail.com>
-Subject: [PATCH v3] netfilter: SYNPROXY: fix process non tcp packet bug in {ipv4,ipv6}_synproxy_hook
-Date: Fri,  6 Oct 2017 00:44:03 +0800
-Message-ID: <1507221843-4915-1-git-send-email-xiaolou4617@gmail.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, Lin Zhang <xiaolou4617@gmail.com>
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu, fw@strlen.de,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Daniel Drake <drake@endlessm.com>
+Subject: r8169 Wake-on-LAN causes immediate ACPI GPE wakeup
+Date: Thu, 5 Oct 2017 16:57:37 +0800
+Message-ID: <CAD8Lp45YVtw48+8jSq6gtu1xA7Rt+qr6vvVZF4AC-QXeCKNj4w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Upstreaming Team <linux@endlessm.com>
+To: nic_swsd@realtek.com, netdev@vger.kernel.org,
+        linux-acpi@vger.kernel.org,
+        Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In function {ipv4,ipv6}_synproxy_hook we expect a normal tcp packet,
-but the real server maybe reply an icmp error packet related to the
-exist tcp conntrack, so we will access wrong tcp data.
+Hi,
 
-For fix it, check for the protocol field and only process tcp traffic.
+On the Acer laptop models Aspire ES1-533, Aspire ES1-732, PackardBell
+ENTE69AP and Gateway NE533, we are seeing a problem where the system
+immediately wakes up after being put into S3 suspend.
 
-Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
----
-changelog:
+This problem has been seen on all kernel versions that we have tried,
+including 4.14-rc3.
 
-v1 -> v2:
-	* we only deal with TCP traffic, per Pablo Neira.
-v2 -> v3:
-	* fix parse L4 protocol field error in ipv6
----
- net/ipv4/netfilter/ipt_SYNPROXY.c  | 3 ++-
- net/ipv6/netfilter/ip6t_SYNPROXY.c | 2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+After disabling wakeup sources one by one, we found that the r8169
+ethernet is responsible for these wakeups here, the hardware is:
 
-diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
-index 811689e..f75fc6b 100644
---- a/net/ipv4/netfilter/ipt_SYNPROXY.c
-+++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
-@@ -330,7 +330,8 @@ static unsigned int ipv4_synproxy_hook(void *priv,
- 	if (synproxy == NULL)
- 		return NF_ACCEPT;
- 
--	if (nf_is_loopback_packet(skb))
-+	if (nf_is_loopback_packet(skb) ||
-+	    ip_hdr(skb)->protocol != IPPROTO_TCP)
- 		return NF_ACCEPT;
- 
- 	thoff = ip_hdrlen(skb);
-diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-index a5cd43d..437af8c 100644
---- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
-+++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
-@@ -353,7 +353,7 @@ static unsigned int ipv6_synproxy_hook(void *priv,
- 	nexthdr = ipv6_hdr(skb)->nexthdr;
- 	thoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
- 				 &frag_off);
--	if (thoff < 0)
-+	if (thoff < 0 || nexthdr != IPPROTO_TCP)
- 		return NF_ACCEPT;
- 
- 	th = skb_header_pointer(skb, thoff, sizeof(_th), &_th);
--- 
-1.8.3.1
+01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)
+    Subsystem: Acer Incorporated [ALI] Device 1084
+    Flags: bus master, fast devsel, latency 0, IRQ 124
+    I/O ports at 1000 [size=256]
+    Memory at 91204000 (64-bit, non-prefetchable) [size=4K]
+    Memory at 91200000 (64-bit, non-prefetchable) [size=16K]
+    Capabilities: [40] Power Management version 3
+    Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+    Capabilities: [70] Express Endpoint, MSI 01
+    Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
+    Capabilities: [100] Advanced Error Reporting
+    Capabilities: [140] Virtual Channel
+    Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
+    Capabilities: [170] Latency Tolerance Reporting
+    Capabilities: [178] L1 PM Substates
+    Kernel driver in use: r8169
 
+This driver enables WOL by default. The system wakes up immediately
+when it is put into S3 suspend, even if there is no ethernet cable
+plugged in.
+
+The problem was also reproduced with the r8168 vendor driver, however
+it does not occur under Windows, where we can suspend the system just
+fine and also wake it up with a magic WOL packet.
+
+Further investigation takes us into ACPI-land. The complete DSDT is here:
+https://gist.github.com/dsd/62293b6d8c30a5204128709813a55ffb
+
+Both Windows and Linux associate PCI0.RP05.PXSX with this device, so
+let's consider this part of the DSDT:
+
+  Device (RP05)
+  {
+      Method (_ADR, 0, NotSerialized)  // _ADR: Address
+      {
+          If (RPA5 != Zero)
+          {
+              Return (RPA5) /* \RPA5 */
+          }
+          Else
+          {
+              Return (0x00130002)
+          }
+      }
+
+      Method (_PRW, 0, NotSerialized)  // _PRW: Power Resources for Wake
+      {
+          Return (GPRW (0x09, 0x04))
+      }
+
+      Device (PXSX)
+      {
+          Name (_ADR, Zero)  // _ADR: Address
+          Name (_PRW, Package (0x02)  // _PRW: Power Resources for Wake
+          {
+              0x08,
+              0x04
+          })
+      }
+
+  }
+
+RP05 corresponds to
+00:13.0 PCI bridge: Intel Corporation Device 5ada (rev fb)
+
+I am not familiar with this subdevice approach, where PXSX (with
+address 0) is detected as a child of the PCI bridge, however both
+Windows and Linux associate PXSX with the ethernet device, so I guess
+it is correct.
+
+Now to focus on the _PRW power resource for wakeup. The PXSX
+(ethernet) device says that it will wake up the system using GPE08.
+However if you look at the _L08 GPE08 event handler, you will see that
+it does not do anything related to RP05/PXSX (it instead calls into
+RP02, which does not even physically exist on this platform) -
+suspicious.
+
+On the other hand, the RP05 (root port) _PRW says it will wake up the
+system via GPE09, and the _L09 handler at least has one codepath which
+could potentially do a Notify(PXSX, 2) to indicate an ethernet wakeup.
+
+But in testing:
+ - If GPE08 is enabled as a wakeup source, the system will always wake
+up as soon as it goes to sleep
+ - I have never seen a wakeup on GPE09
+ - Disabling GPE08 and all other GPE wakeups, the system sleeps fine,
+and Wake-on-LAN works fine too
+
+So in summary, the messy situation is that the DSDT suggests that
+GPE08 will be used for ethernet wakeups, however that GPE seems to
+fire instantly during suspend, and actually wake-on-LAN does not
+appear to use ACPI GPEs to wake the system it all - it must use some
+other mechanism. Windows is for some reason ignoring the ethernet
+device _PRW information so it does not suffer this issue.
+
+Does anyone have suggestions for how Linux should work with this?
+
+What logic should we use to ignore the _PRW in this case, or how can
+we quirk it?
+
+Also, is there a standard behaviour defined for ethernet drivers
+regarding wake-on-LAN? r8169 appears to enable wake-on-LAN by default
+if it believes the hardware is capable of it, but other ethernet
+drivers seem to default to WOL off. (I don't expect users of the
+affected consumer laptops here to care about WOL support.)
+
+Daniel
