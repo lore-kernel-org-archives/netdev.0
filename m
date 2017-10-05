@@ -1,12 +1,10 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net/mac80211/mesh_plink: Convert timers to use
-Date: Wed, 4 Oct 2017 17:49:52 -0700
-Message-ID: <20171005004952.GA23133@beast>
+Subject: [PATCH] net/irda-usb: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:50:01 -0700
+Message-ID: <20171005005001.GA23163@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Cc: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,12 +14,11 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This requires adding a pointer back
-to the sta_info since container_of() can't resolve the sta_info.
+to pass the timer pointer explicitly. This requires adding a pointer to
+hold the timer's target URB, as there won't be a way to pass this in the
+future.
 
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-wireless@vger.kernel.org
+Cc: Samuel Ortiz <samuel@sortiz.org>
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Kees Cook <keescook@chromium.org>
@@ -30,79 +27,77 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- net/mac80211/mesh_plink.c | 9 +++++----
- net/mac80211/sta_info.c   | 2 +-
- net/mac80211/sta_info.h   | 2 ++
- 3 files changed, 8 insertions(+), 5 deletions(-)
+ drivers/staging/irda/drivers/irda-usb.c | 20 ++++++--------------
+ drivers/staging/irda/drivers/irda-usb.h |  1 +
+ 2 files changed, 7 insertions(+), 14 deletions(-)
 
-diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
-index f69c6c38ca43..fcc02beaee6d 100644
---- a/net/mac80211/mesh_plink.c
-+++ b/net/mac80211/mesh_plink.c
-@@ -604,8 +604,9 @@ void mesh_neighbour_update(struct ieee80211_sub_if_data *sdata,
- 	ieee80211_mbss_info_change_notify(sdata, changed);
- }
+diff --git a/drivers/staging/irda/drivers/irda-usb.c b/drivers/staging/irda/drivers/irda-usb.c
+index 723e49bc4baa..901862ec1ed0 100644
+--- a/drivers/staging/irda/drivers/irda-usb.c
++++ b/drivers/staging/irda/drivers/irda-usb.c
+@@ -117,7 +117,7 @@ static void irda_usb_close(struct irda_usb_cb *self);
+ static void speed_bulk_callback(struct urb *urb);
+ static void write_bulk_callback(struct urb *urb);
+ static void irda_usb_receive(struct urb *urb);
+-static void irda_usb_rx_defer_expired(unsigned long data);
++static void irda_usb_rx_defer_expired(struct timer_list *t);
+ static int irda_usb_net_open(struct net_device *dev);
+ static int irda_usb_net_close(struct net_device *dev);
+ static int irda_usb_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+@@ -846,8 +846,7 @@ static void irda_usb_receive(struct urb *urb)
+ 		 * hot unplug of the dongle...
+ 		 * Lowest effective timer is 10ms...
+ 		 * Jean II */
+-		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
+-		self->rx_defer_timer.data = (unsigned long) urb;
++		self->rx_defer_timer_urb = urb;
+ 		mod_timer(&self->rx_defer_timer,
+ 			  jiffies + msecs_to_jiffies(10));
  
--static void mesh_plink_timer(unsigned long data)
-+static void mesh_plink_timer(struct timer_list *t)
- {
-+	struct mesh_sta *mesh = from_timer(mesh, t, plink_timer);
- 	struct sta_info *sta;
- 	u16 reason = 0;
- 	struct ieee80211_sub_if_data *sdata;
-@@ -617,7 +618,7 @@ static void mesh_plink_timer(unsigned long data)
- 	 * del_timer_sync() this timer after having made sure
- 	 * it cannot be readded (by deleting the plink.)
- 	 */
--	sta = (struct sta_info *) data;
-+	sta = mesh->plink_sta;
- 
- 	if (sta->sdata->local->quiescing)
- 		return;
-@@ -698,8 +699,8 @@ static void mesh_plink_timer(unsigned long data)
- static inline void mesh_plink_timer_set(struct sta_info *sta, u32 timeout)
- {
- 	sta->mesh->plink_timer.expires = jiffies + msecs_to_jiffies(timeout);
--	sta->mesh->plink_timer.data = (unsigned long) sta;
--	sta->mesh->plink_timer.function = mesh_plink_timer;
-+	sta->mesh->plink_sta = sta;
-+	sta->mesh->plink_timer.function = (TIMER_FUNC_TYPE)mesh_plink_timer;
- 	sta->mesh->plink_timeout = timeout;
- 	add_timer(&sta->mesh->plink_timer);
- }
-diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
-index 69615016d5bf..5e5de9455e4e 100644
---- a/net/mac80211/sta_info.c
-+++ b/net/mac80211/sta_info.c
-@@ -332,7 +332,7 @@ struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
- 		spin_lock_init(&sta->mesh->plink_lock);
- 		if (ieee80211_vif_is_mesh(&sdata->vif) &&
- 		    !sdata->u.mesh.user_mpm)
--			init_timer(&sta->mesh->plink_timer);
-+			timer_setup(&sta->mesh->plink_timer, NULL, 0);
- 		sta->mesh->nonpeer_pm = NL80211_MESH_POWER_ACTIVE;
- 	}
- #endif
-diff --git a/net/mac80211/sta_info.h b/net/mac80211/sta_info.h
-index 3acbdfa9f649..21d9760ce5c3 100644
---- a/net/mac80211/sta_info.h
-+++ b/net/mac80211/sta_info.h
-@@ -344,6 +344,7 @@ DECLARE_EWMA(mesh_fail_avg, 20, 8)
-  * @plink_state: peer link state
-  * @plink_timeout: timeout of peer link
-  * @plink_timer: peer link watch timer
-+ * @plink_sta: peer link watch timer's sta_info
-  * @t_offset: timing offset relative to this host
-  * @t_offset_setpoint: reference timing offset of this sta to be used when
-  * 	calculating clockdrift
-@@ -356,6 +357,7 @@ DECLARE_EWMA(mesh_fail_avg, 20, 8)
+@@ -953,20 +952,13 @@ static void irda_usb_receive(struct urb *urb)
+  * In case of errors, we want the USB layer to have time to recover.
+  * Now, it is time to resubmit ouur Rx URB...
   */
- struct mesh_sta {
- 	struct timer_list plink_timer;
-+	struct sta_info *plink_sta;
+-static void irda_usb_rx_defer_expired(unsigned long data)
++static void irda_usb_rx_defer_expired(struct timer_list *t)
+ {
+-	struct urb *urb = (struct urb *) data;
++	struct irda_usb_cb *self = from_timer(self, t, rx_defer_timer);
++	struct urb *urb = self->rx_defer_timer_urb;
+ 	struct sk_buff *skb = (struct sk_buff *) urb->context;
+-	struct irda_usb_cb *self; 
+-	struct irda_skb_cb *cb;
+ 	struct urb *next_urb;
  
- 	s64 t_offset;
- 	s64 t_offset_setpoint;
+-	/* Find ourselves */
+-	cb = (struct irda_skb_cb *) skb->cb;
+-	IRDA_ASSERT(cb != NULL, return;);
+-	self = (struct irda_usb_cb *) cb->context;
+-	IRDA_ASSERT(self != NULL, return;);
+-
+ 	/* Same stuff as when Rx is done, see above... */
+ 	next_urb = self->idle_rx_urb;
+ 	urb->context = NULL;
+@@ -1622,7 +1614,7 @@ static int irda_usb_probe(struct usb_interface *intf,
+ 	self = netdev_priv(net);
+ 	self->netdev = net;
+ 	spin_lock_init(&self->lock);
+-	init_timer(&self->rx_defer_timer);
++	timer_setup(&self->rx_defer_timer, irda_usb_rx_defer_expired, 0);
+ 
+ 	self->capability = id->driver_info;
+ 	self->needspatch = ((self->capability & IUC_STIR421X) != 0);
+diff --git a/drivers/staging/irda/drivers/irda-usb.h b/drivers/staging/irda/drivers/irda-usb.h
+index 8ac389fa9348..56ee8c16c5e2 100644
+--- a/drivers/staging/irda/drivers/irda-usb.h
++++ b/drivers/staging/irda/drivers/irda-usb.h
+@@ -170,5 +170,6 @@ struct irda_usb_cb {
+ 	int needspatch;        		/* device needs firmware patch */
+ 
+ 	struct timer_list rx_defer_timer;	/* Wait for Rx error to clear */
++	struct urb *rx_defer_timer_urb;	/* URB attached to rx_defer_timer */
+ };
+ 
 -- 
 2.7.4
 
