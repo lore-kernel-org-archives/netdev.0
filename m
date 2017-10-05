@@ -1,62 +1,36 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] mwifiex: Use put_unaligned_le32
-Date: Thu, 05 Oct 2017 10:23:37 +0300
-Message-ID: <874lre5a86.fsf@codeaurora.org>
-References: <1507141686-5178-1-git-send-email-himanshujha199640@gmail.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH] net: tulip: de2104x: Convert timers to use
+Date: Thu, 5 Oct 2017 09:40:06 +0200
+Message-ID: <20171005074006.GB1370@distanz.ch>
+References: <20171005005048.GA23304@beast>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: amitkarwar@gmail.com, nishants@marvell.com, gbhat@marvell.com,
-        huxm@marvell.com, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Himanshu Jha <himanshujha199640@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507141686-5178-1-git-send-email-himanshujha199640@gmail.com>
-        (Himanshu Jha's message of "Wed, 4 Oct 2017 23:58:06 +0530")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-parisc@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171005005048.GA23304@beast>
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Himanshu Jha <himanshujha199640@gmail.com> writes:
+On 2017-10-05 at 02:50:48 +0200, Kees Cook <keescook@chromium.org> wrote:
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>
+> Cc: Tobias Klauser <tklauser@distanz.ch>
+> Cc: Jarod Wilson <jarod@redhat.com>
+> Cc: Philippe Reynes <tremyfr@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-parisc@vger.kernel.org
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-> Use put_unaligned_le32 rather than using byte ordering function and
-> memcpy which makes code clear.
-> Also, add the header file where it is declared.
->
-> Done using Coccinelle and semantic patch used is :
->
-> @ rule1 @
-> identifier tmp; expression ptr,x; type T;
-> @@
->
-> - tmp = cpu_to_le32(x);
->
->   <+... when != tmp
-> - memcpy(ptr, (T)&tmp, ...);
-> + put_unaligned_le32(x,ptr);
->   ...+>
->
-> @ depends on rule1 @
-> type j; identifier tmp;
-> @@
->
-> - j tmp;
->   ...when != tmp
->
-> Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
-> ---
->  drivers/net/wireless/marvell/mwifiex/cmdevt.c | 10 ++++------
->  1 file changed, 4 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/wireless/marvell/mwifiex/cmdevt.c b/drivers/net/wireless/marvell/mwifiex/cmdevt.c
-> index 0edc5d6..e28e119 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/cmdevt.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/cmdevt.c
-> @@ -17,6 +17,7 @@
->   * this warranty disclaimer.
->   */
->  
-> +#include <linux/unaligned/access_ok.h>
-
-I don't think this is correct. Should it be asm/unaligned.h?
-
--- 
-Kalle Valo
+Reviewed-by: Tobias Klauser <tklauser@distanz.ch>
