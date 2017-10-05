@@ -1,60 +1,189 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
-Date: Wed, 4 Oct 2017 17:56:03 -0700
-Message-ID: <20171004175603.4ba68737@cakuba.netronome.com>
-References: <20171003200546.165731-1-mka@chromium.org>
-        <1507140439.4434.14.camel@perches.com>
-        <20171004184957.GO173745@google.com>
-        <20171004152203.2a4f564d@cakuba.netronome.com>
-        <20171004231649.GP173745@google.com>
-        <20171004162550.20edf18c@cakuba.netronome.com>
-        <CAAMbb06DaOY1cnSXkuL0ZMSGzpwhfi_3d87mt8FMv+iYKDG03w@mail.gmail.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] inet/connection_sock: Convert timers to use
+Date: Wed, 4 Oct 2017 17:52:26 -0700
+Message-ID: <20171005005226.GA23598@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Matthias Kaehlcke <mka@chromium.org>,
-        Joe Perches <joe@perches.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Renato Golin <renato.golin@linaro.org>,
-        Guenter Roeck <groeck@chromium.org>,
-        Doug Anderson <dianders@chromium.org>
-To: Manoj Gupta <manojgupta@chromium.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, dccp@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAMbb06DaOY1cnSXkuL0ZMSGzpwhfi_3d87mt8FMv+iYKDG03w@mail.gmail.com>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Oct 2017 17:38:22 -0700, Manoj Gupta wrote:
-> On Wed, Oct 4, 2017 at 4:25 PM, Jakub Kicinski wrote:
-> > On Wed, 4 Oct 2017 16:16:49 -0700, Matthias Kaehlcke wrote:  
-> >> > > Thanks for the suggestion. This seems a viable alternative if David
-> >> > > and the NFP owners can live without the extra checking provided by
-> >> > > __BF_FIELD_CHECK.  
-> >> >
-> >> > The reason the __BF_FIELD_CHECK refuses to compile non-constant masks
-> >> > is that it will require runtime ffs on the mask, which is potentially
-> >> > costly.  I would also feel quite stupid adding those macros to the nfp
-> >> > driver, given that I specifically created the bitfield.h header to not
-> >> > have to reimplement these in every driver I write/maintain.  
-> >>
-> >> That make sense, thanks for providing more context.
-> >>  
-> >> > Can you please test the patch I provided in the other reply?  
-> >>
-> >> With this patch there are no errors when building the kernel with
-> >> clang.  
-> >
-> > Cool, thanks for checking!  I will run it through full tests and queue
-> > for upstreaming :)  
-> 
-> Just to let you know, using __BF_FIELD_CHECK macro will not Link with
-> -O0 (GCC or Clang)  since references to __compiletime_assert_xxx will
-> not be cleaned up.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-Do you mean the current nfp_eth_set_bit_config() will not work with -O0
-on either complier, or any use of __BF_FIELD_CHECK() will not compile
-with -O0?
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org
+Cc: dccp@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+This requires commit 686fef928bba ("timer: Prepare to change timer
+callback argument type") in v4.14-rc3, but should be otherwise
+stand-alone.
+---
+ include/net/inet_connection_sock.h |  6 +++---
+ net/dccp/timer.c                   | 18 ++++++++++--------
+ net/ipv4/inet_connection_sock.c    | 14 ++++++--------
+ net/ipv4/tcp_timer.c               | 18 +++++++++++-------
+ 4 files changed, 30 insertions(+), 26 deletions(-)
+
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index 13e4c89a8231..0358745ea059 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -169,9 +169,9 @@ enum inet_csk_ack_state_t {
+ };
+ 
+ void inet_csk_init_xmit_timers(struct sock *sk,
+-			       void (*retransmit_handler)(unsigned long),
+-			       void (*delack_handler)(unsigned long),
+-			       void (*keepalive_handler)(unsigned long));
++			       void (*retransmit_handler)(struct timer_list *),
++			       void (*delack_handler)(struct timer_list *),
++			       void (*keepalive_handler)(struct timer_list *));
+ void inet_csk_clear_xmit_timers(struct sock *sk);
+ 
+ static inline void inet_csk_schedule_ack(struct sock *sk)
+diff --git a/net/dccp/timer.c b/net/dccp/timer.c
+index 3a2c34027758..1e35526bf436 100644
+--- a/net/dccp/timer.c
++++ b/net/dccp/timer.c
+@@ -125,10 +125,11 @@ static void dccp_retransmit_timer(struct sock *sk)
+ 		__sk_dst_reset(sk);
+ }
+ 
+-static void dccp_write_timer(unsigned long data)
++static void dccp_write_timer(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)data;
+-	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct inet_connection_sock *icsk =
++			from_timer(icsk, t, icsk_retransmit_timer);
++	struct sock *sk = &icsk->icsk_inet.sk;
+ 	int event = 0;
+ 
+ 	bh_lock_sock(sk);
+@@ -161,19 +162,20 @@ static void dccp_write_timer(unsigned long data)
+ 	sock_put(sk);
+ }
+ 
+-static void dccp_keepalive_timer(unsigned long data)
++static void dccp_keepalive_timer(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)data;
++	struct sock *sk = from_timer(sk, t, sk_timer);
+ 
+ 	pr_err("dccp should not use a keepalive timer !\n");
+ 	sock_put(sk);
+ }
+ 
+ /* This is the same as tcp_delack_timer, sans prequeue & mem_reclaim stuff */
+-static void dccp_delack_timer(unsigned long data)
++static void dccp_delack_timer(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)data;
+-	struct inet_connection_sock *icsk = inet_csk(sk);
++	struct inet_connection_sock *icsk =
++			from_timer(icsk, t, icsk_delack_timer);
++	struct sock *sk = &icsk->icsk_inet.sk;
+ 
+ 	bh_lock_sock(sk);
+ 	if (sock_owned_by_user(sk)) {
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index c039c937ba90..c838988eee04 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -494,17 +494,15 @@ EXPORT_SYMBOL(inet_csk_accept);
+  * to optimize.
+  */
+ void inet_csk_init_xmit_timers(struct sock *sk,
+-			       void (*retransmit_handler)(unsigned long),
+-			       void (*delack_handler)(unsigned long),
+-			       void (*keepalive_handler)(unsigned long))
++			       void (*retransmit_handler)(struct timer_list *t),
++			       void (*delack_handler)(struct timer_list *t),
++			       void (*keepalive_handler)(struct timer_list *t))
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 
+-	setup_timer(&icsk->icsk_retransmit_timer, retransmit_handler,
+-			(unsigned long)sk);
+-	setup_timer(&icsk->icsk_delack_timer, delack_handler,
+-			(unsigned long)sk);
+-	setup_timer(&sk->sk_timer, keepalive_handler, (unsigned long)sk);
++	timer_setup(&icsk->icsk_retransmit_timer, retransmit_handler, 0);
++	timer_setup(&icsk->icsk_delack_timer, delack_handler, 0);
++	timer_setup(&sk->sk_timer, keepalive_handler, 0);
+ 	icsk->icsk_pending = icsk->icsk_ack.pending = 0;
+ }
+ EXPORT_SYMBOL(inet_csk_init_xmit_timers);
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 655dd8d7f064..d24c29f73146 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -283,15 +283,17 @@ void tcp_delack_timer_handler(struct sock *sk)
+  *
+  *  Returns: Nothing (void)
+  */
+-static void tcp_delack_timer(unsigned long data)
++static void tcp_delack_timer(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)data;
++	struct inet_connection_sock *icsk =
++			from_timer(icsk, t, icsk_delack_timer);
++	struct sock *sk = &icsk->icsk_inet.sk;
+ 
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk)) {
+ 		tcp_delack_timer_handler(sk);
+ 	} else {
+-		inet_csk(sk)->icsk_ack.blocked = 1;
++		icsk->icsk_ack.blocked = 1;
+ 		__NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOCKED);
+ 		/* deleguate our work to tcp_release_cb() */
+ 		if (!test_and_set_bit(TCP_DELACK_TIMER_DEFERRED, &sk->sk_tsq_flags))
+@@ -570,9 +572,11 @@ void tcp_write_timer_handler(struct sock *sk)
+ 	sk_mem_reclaim(sk);
+ }
+ 
+-static void tcp_write_timer(unsigned long data)
++static void tcp_write_timer(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)data;
++	struct inet_connection_sock *icsk =
++			from_timer(icsk, t, icsk_retransmit_timer);
++	struct sock *sk = &icsk->icsk_inet.sk;
+ 
+ 	bh_lock_sock(sk);
+ 	if (!sock_owned_by_user(sk)) {
+@@ -607,9 +611,9 @@ void tcp_set_keepalive(struct sock *sk, int val)
+ EXPORT_SYMBOL_GPL(tcp_set_keepalive);
+ 
+ 
+-static void tcp_keepalive_timer (unsigned long data)
++static void tcp_keepalive_timer (struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *) data;
++	struct sock *sk = from_timer(sk, t, sk_timer);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 elapsed;
+-- 
+2.7.4
+
+
+-- 
+Kees Cook
+Pixel Security
