@@ -1,103 +1,126 @@
-From: Parav Pandit <parav@mellanox.com>
-Subject: RE: [PATCH net-next 01/10] net/smc: add missing dev_put
-Date: Thu, 5 Oct 2017 14:44:52 +0000
-Message-ID: <VI1PR0502MB300821C0E577822DC66E1A83D1700@VI1PR0502MB3008.eurprd05.prod.outlook.com>
-References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
- <20170920115813.63745-2-ubraun@linux.vnet.ibm.com>
- <VI1PR0502MB30089D06B9C95D682E21511BD17D0@VI1PR0502MB3008.eurprd05.prod.outlook.com>
- <7961df23-1603-7853-5f3e-f31095aebba0@linux.vnet.ibm.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: BUG in free_netdev() on ppp link deletion
+Date: Thu, 5 Oct 2017 16:55:03 +0200
+Message-ID: <20171005145503.ehv34hkzm5gtrjcp@alphalink.fr>
+References: <20171003074413.GA26158@tp>
+ <20171003164003.f5yay2oe6dhxnump@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
-        "jwi@linux.vnet.ibm.com" <jwi@linux.vnet.ibm.com>,
-        "schwidefsky@de.ibm.com" <schwidefsky@de.ibm.com>,
-        "heiko.carstens@de.ibm.com" <heiko.carstens@de.ibm.com>,
-        "raspl@linux.vnet.ibm.com" <raspl@linux.vnet.ibm.com>
-To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+        Paul Mackerras <paulus@samba.org>,
+        David Ahern <dsahern@gmail.com>,
+        Gao Feng <gfree.wind@vip.163.com>
+To: Beniamino Galvani <bgalvani@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0041.outbound.protection.outlook.com ([104.47.2.41]:27088
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751043AbdJEOo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Oct 2017 10:44:56 -0400
-In-Reply-To: <7961df23-1603-7853-5f3e-f31095aebba0@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from zimbra.alphalink.fr ([217.15.80.77]:57336 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751604AbdJEOzI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 10:55:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20171003164003.f5yay2oe6dhxnump@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgVXJzdWxhLA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFVyc3Vs
-YSBCcmF1biBbbWFpbHRvOnVicmF1bkBsaW51eC52bmV0LmlibS5jb21dDQo+IFNlbnQ6IFRodXJz
-ZGF5LCBPY3RvYmVyIDA1LCAyMDE3IDI6NTQgQU0NCj4gVG86IFBhcmF2IFBhbmRpdCA8cGFyYXZA
-bWVsbGFub3guY29tPg0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsgbGludXgtDQo+IHJkbWFAdmdlci5rZXJuZWwub3JnOyBsaW51eC1zMzkwQHZnZXIu
-a2VybmVsLm9yZzsgandpQGxpbnV4LnZuZXQuaWJtLmNvbTsNCj4gc2Nod2lkZWZza3lAZGUuaWJt
-LmNvbTsgaGVpa28uY2Fyc3RlbnNAZGUuaWJtLmNvbTsNCj4gcmFzcGxAbGludXgudm5ldC5pYm0u
-Y29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHQgMDEvMTBdIG5ldC9zbWM6IGFkZCBt
-aXNzaW5nIGRldl9wdXQNCj4gDQo+IA0KPiANCj4gT24gMTAvMDIvMjAxNyAxMDozNiBQTSwgUGFy
-YXYgUGFuZGl0IHdyb3RlOg0KPiA+IEhpIFVyc3VsYSwgRGF2ZSwgSGFucywNCj4gPg0KPiA+PiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBsaW51eC1yZG1hLW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4LXJkbWEtDQo+ID4+IG93bmVyQHZnZXIua2VybmVs
-Lm9yZ10gT24gQmVoYWxmIE9mIFVyc3VsYSBCcmF1bg0KPiA+PiBTZW50OiBXZWRuZXNkYXksIFNl
-cHRlbWJlciAyMCwgMjAxNyA2OjU4IEFNDQo+ID4+IFRvOiBkYXZlbUBkYXZlbWxvZnQubmV0DQo+
-ID4+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1yZG1hQHZnZXIua2VybmVsLm9y
-ZzsgbGludXgtDQo+ID4+IHMzOTBAdmdlci5rZXJuZWwub3JnOyBqd2lAbGludXgudm5ldC5pYm0u
-Y29tOyBzY2h3aWRlZnNreUBkZS5pYm0uY29tOw0KPiA+PiBoZWlrby5jYXJzdGVuc0BkZS5pYm0u
-Y29tOyByYXNwbEBsaW51eC52bmV0LmlibS5jb207DQo+ID4+IHVicmF1bkBsaW51eC52bmV0Lmli
-bS5jb20NCj4gPj4gU3ViamVjdDogW1BBVENIIG5ldC1uZXh0IDAxLzEwXSBuZXQvc21jOiBhZGQg
-bWlzc2luZyBkZXZfcHV0DQo+ID4+DQo+ID4+IEZyb206IEhhbnMgV2lwcGVsIDxod2lwcGVsQGxp
-bnV4LnZuZXQuaWJtLmNvbT4NCj4gPj4NCj4gPj4gSW4gdGhlIGluZmluaWJhbmQgcGFydCwgU01D
-IGN1cnJlbnRseSB1c2VzIGdldF9uZXRkZXYgd2hpY2ggY2FsbHMNCj4gPj4gZGV2X2hvbGQgb24g
-dGhlIHJldHVybmVkIG5ldCBkZXZpY2UuIEhvd2V2ZXIsIHRoZSBTTUMgY29kZSBuZXZlcg0KPiA+
-PiBjYWxscyBkZXZfcHV0IG9uIHRoYXQgbmV0IGRldmljZSByZXN1bHRpbmcgaW4gYSB3cm9uZyBy
-ZWZlcmVuY2UgY291bnQuDQo+ID4+DQo+ID4+IFRoaXMgcGF0Y2ggYWRkcyBhIGRldl9wdXQgYWZ0
-ZXIgdGhlIHVzYWdlIG9mIHRoZSBuZXQgZGV2aWNlIHRvIGZpeCB0aGUgaXNzdWUuDQo+ID4+DQo+
-ID4+IFNpZ25lZC1vZmYtYnk6IEhhbnMgV2lwcGVsIDxod2lwcGVsQGxpbnV4LnZuZXQuaWJtLmNv
-bT4NCj4gPj4gU2lnbmVkLW9mZi1ieTogVXJzdWxhIEJyYXVuIDx1YnJhdW5AbGludXgudm5ldC5p
-Ym0uY29tPg0KPiA+PiAtLS0NCj4gPj4gIG5ldC9zbWMvc21jX2liLmMgfCAxICsNCj4gPj4gIDEg
-ZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQ0KPiA+Pg0KPiA+PiBkaWZmIC0tZ2l0IGEvbmV0
-L3NtYy9zbWNfaWIuYyBiL25ldC9zbWMvc21jX2liLmMgaW5kZXgNCj4gPj4gNTQ3ZTBlMTEzYjE3
-Li4wYjU4NTIyOTkxNTggMTAwNjQ0DQo+ID4+IC0tLSBhL25ldC9zbWMvc21jX2liLmMNCj4gPj4g
-KysrIGIvbmV0L3NtYy9zbWNfaWIuYw0KPiA+PiBAQCAtMzgwLDYgKzM4MCw3IEBAIHN0YXRpYyBp
-bnQgc21jX2liX2ZpbGxfZ2lkX2FuZF9tYWMoc3RydWN0DQo+ID4+IHNtY19pYl9kZXZpY2UgKnNt
-Y2liZGV2LCB1OCBpYnBvcnQpDQo+ID4+ICAJbmRldiA9IHNtY2liZGV2LT5pYmRldi0+Z2V0X25l
-dGRldihzbWNpYmRldi0+aWJkZXYsIGlicG9ydCk7DQo+ID4+ICAJaWYgKG5kZXYpIHsNCj4gPj4g
-IAkJbWVtY3B5KCZzbWNpYmRldi0+bWFjLCBuZGV2LT5kZXZfYWRkciwgRVRIX0FMRU4pOw0KPiA+
-PiArCQlkZXZfcHV0KG5kZXYpOw0KPiA+DQo+ID4gSSBhbSBzb3JyeSBmb3IgcHJvdmlkaW5nIGxh
-dGUgY29tbWVudHMuIHNtY19pYl9maWxsX2dpZF9hbmRfbWFjKCkgaXMgbm90DQo+IGNvZGVkIGNv
-cnJlY3RseS4NCj4gPiBGZXcgZml4ZXMgYXJlIG5lZWRlZC4NCj4gPiAxLiBVTFAgc3VjaCBhcyBT
-TUMgc2hvdWxkIG5vdCBvcGVuIGNvZGUvZGVmZXJlbmNlIGFueSBmdW5jdGlvbiBwb2ludGVyIGxp
-a2UNCj4gZ2V0X25ldGRldigpIG9mIHRoZSBJQiBkZXZpY2UuDQo+ID4gMi4gUmVwbGFjZSBpYl9x
-dWVyeV9naWQoLi4uLCBOVUxMKQ0KPiA+IFdpdGgNCj4gPiBpYl9xdWVyeV9naWQoLi4uLCBnaWRf
-YXR0cik7DQo+ID4NCj4gPiBVc2UgZ2lkX2F0dHIubmRldiB0byBnZXQgdGhlIE1BQyBhZGRyZXNz
-Lg0KPiA+IERvIGRldl9wdXQoZ2lkX2F0dHIubmRldik7DQo+ID4NCj4gPiBDb2RlIHNob3VsZCBs
-b29rIGxpa2UgYmVsb3csDQo+ID4NCj4gPiBzdHJ1Y3QgaWJfZ2lkX2F0dHIgZ2lkX2F0dHI7DQo+
-ID4NCj4gPiByYyA9IGliX3F1ZXJ5X2dpZCguLi4sICZnaWRfYXR0cik7DQo+ID4gaWYgKHJjIHx8
-ICFnaWRfYWRkci5uZGV2KQ0KPiA+IAlyZXR1cm4gLUVOT0RFVjsNCj4gPiBlbHNlDQo+ID4gCW1l
-bWNweShzbWNpYmRldi0+bWFjLCBuZGV2LT5kZXZfYWRkciwgRVRIX0FMRU4pOw0KPiA+IGRldl9w
-dXQoZ2lkX2FkZHIubmRldik7DQo+ID4NCj4gDQo+IFRoYW5rcywgUGFyYXYhDQo+IEZvbGxvd2lu
-ZyB5b3VyIGZpeCBpZGVhcyBJIHBsYW4gdG8gY2hhbmdlIHRoZSBmdW5jdGlvbiBpbnRvIHRoaXMg
-b25lOg0KPiANCj4gc3RhdGljIGludCBzbWNfaWJfZmlsbF9naWRfYW5kX21hYyhzdHJ1Y3Qgc21j
-X2liX2RldmljZSAqc21jaWJkZXYsIHU4IGlicG9ydCkgew0KPiAgICAgICAgIHN0cnVjdCBpYl9n
-aWRfYXR0ciBnYXR0cjsNCj4gICAgICAgICBpbnQgcmM7DQo+IA0KPiAgICAgICAgIHJjID0gaWJf
-cXVlcnlfZ2lkKHNtY2liZGV2LT5pYmRldiwgaWJwb3J0LCAwLA0KPiAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICZzbWNpYmRldi0+Z2lkW2licG9ydCAtIDFdLCAmZ2F0dHIpOw0KPiAgICAgICAg
-IC8qIHRoZSBTTUMgcHJvdG9jb2wgcmVxdWlyZXMgc3BlY2lmaWNhdGlvbiBvZiB0aGUgcm9jZSBN
-QUMgYWRkcmVzczsNCj4gICAgICAgICAgKiBpZiBuZXRfZGV2aWNlIGNhbm5vdCBiZSBkZXRlcm1p
-bmVkLCBpdCBjYW4gYmUgZGVyaXZlZCBmcm9tIGdpZCAwDQo+ICAgICAgICAgICovDQo+ICAgICAg
-ICAgaWYgKHJjKQ0KPiAgICAgICAgICAgICAgICAgcmV0dXJuIHJjOw0KPiANCj4gICAgICAgICBp
-ZiAoZ2F0dHIubmRldikgew0KPiAgICAgICAgICAgICAgICAgbWVtY3B5KCZzbWNpYmRldi0+bWFj
-LCBnYXR0ci5uZGV2LT5kZXZfYWRkciwgRVRIX0FMRU4pOw0KPiAgICAgICAgICAgICAgICAgZGV2
-X3B1dChnYXR0ci5uZGV2KTsNCj4gICAgICAgICB9IGVsc2Ugew0KPiAgICAgICAgICAgICAgICAg
-bWVtY3B5KCZzbWNpYmRldi0+bWFjW2licG9ydCAtIDFdWzBdLA0KPiAgICAgICAgICAgICAgICAg
-ICAgICAgICZzbWNpYmRldi0+Z2lkW2licG9ydCAtIDFdLnJhd1s4XSwgMyk7DQo+ICAgICAgICAg
-ICAgICAgICBtZW1jcHkoJnNtY2liZGV2LT5tYWNbaWJwb3J0IC0gMV1bM10sDQo+ICAgICAgICAg
-ICAgICAgICAgICAgICAgJnNtY2liZGV2LT5naWRbaWJwb3J0IC0gMV0ucmF3WzEzXSwgMyk7DQo+
-ICAgICAgICAgICAgICAgICBzbWNpYmRldi0+bWFjW2licG9ydCAtIDFdWzBdICY9IH4weDAyOw0K
-VGhpcyBlbHNlIHBhcnQgaXMgbm90IG5lZWRlZC4gWW91IGNhbiBmYWlsIHRoZSBjYWxsIGFzIHN1
-Z2dlc3RlZCBhYm92ZSwgaW5saW5lIGJlbG93IHRvby4NCmlmIChyYyB8fCAhZ2lkX2FkZHIubmRl
-dikNCiAJcmV0dXJuIC1FTk9ERVY7DQpUaGVyZSBtdXN0IGJlIHZhbGlkIG5ldGRldiBmb3IgUm9D
-RSBnaWQuDQpSZXN0IGNvZGUgbG9va3MgZmluZS4NCg==
+On Tue, Oct 03, 2017 at 06:40:03PM +0200, Guillaume Nault wrote:
+> On Tue, Oct 03, 2017 at 09:44:14AM +0200, Beniamino Galvani wrote:
+> >  Call Trace:
+> >   ppp_destroy_interface+0xd8/0xe0 [ppp_generic]
+> >   ppp_disconnect_channel+0xda/0x110 [ppp_generic]
+> >   ppp_unregister_channel+0x5e/0x110 [ppp_generic]
+> >   pppox_unbind_sock+0x23/0x30 [pppox]
+> >   pppoe_connect+0x130/0x440 [pppoe]
+> >   SYSC_connect+0x98/0x110
+> >   ? do_fcntl+0x2c0/0x5d0
+> >   SyS_connect+0xe/0x10
+> >   entry_SYSCALL_64_fastpath+0x1a/0xa5
+> >  RIP: 0033:0x7fa71f4af840
+> >  RSP: 002b:00007ffe4ea40bf8 EFLAGS: 00000246 ORIG_RAX: 000000000000002a
+> >  RAX: ffffffffffffffda RBX: 0000556d37ae0538 RCX: 00007fa71f4af840
+> >  RDX: 000000000000001e RSI: 00007ffe4ea40c00 RDI: 0000000000000008
+> >  RBP: 0000556d37b2a1b0 R08: 0000556d396e95b0 R09: 0000000000000008
+> >  R10: 00000000aaaaaaab R11: 0000000000000246 R12: 0000556d37adc008
+> >  R13: 0000556d37adc004 R14: 0000556d37b2a1a4 R15: 0000000000000000
+> >  Code: 04 00 00 04 e8 cb 52 e3 ff 5b 41 5c 41 5d 5d c3 41 0f b7 84 24 32 02 00 00 4c 89 e7 48 29 c7 e8 80 8b aa ff 5b 41 5c 41 5d 5d c3 <0f> 0b 0f 1f 80 00 00 00 00 0f 1f 44 00 00 55 48 89 e5 41 57 41 
+> >  RIP: free_netdev+0x107/0x110 RSP: ffffc28a40573d88
+> >  ---[ end trace ed294ff0cc40eeff ]---
+> > 
+> > To reproduce this, establish a PPP connection through pppd, then bring
+> > down and delete the ppp interface:
+> > 
+> >  # pppd nodetach lock user client plugin rp-pppoe.so ens11 noauth nodeflate password password &
+> >  Plugin rp-pppoe.so loaded.
+> >  RP-PPPoE plugin version 3.8p compiled against pppd 2.4.7
+> >  PPP session is 16
+> >  Connected to fe:54:00:5f:04:13 via interface ens11
+> >  Using interface ppp0
+> >  Connect: ppp0 <--> ens11
+> >  CHAP authentication succeeded: Access granted
+> >  CHAP authentication succeeded
+> >  peer from calling number FE:54:00:5F:04:13 authorized
+> >  local  IP address 3.1.1.10
+> >  remote IP address 3.1.1.1
+> > 
+> >  # ip l set ppp0 down
+> >  # ip l del ppp0
+> > 
+> > It does not happen every time but only when ppp_destroy_interface() is
+> > called with dev->reg_state = UNREGISTERING, set by the concurrent
+> > rtnl_delete_link().
+> > 
+> Indeed, we have a race here: ppp_destroy_interface() can be called before
+> netdev_run_todo() completes. I'm working on it.
+> 
+Sorry for the delay, I've followed a few complicated dead ends before
+getting to this simple and rather obvious fix.
+
+Can you try this patch?
+
+
+-------- 8< --------
+
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index c3f77e3b7819..e365866600ba 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -1339,7 +1339,17 @@ ppp_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats64)
+ 
+ static int ppp_dev_init(struct net_device *dev)
+ {
++	struct ppp *ppp;
++
+ 	netdev_lockdep_set_classes(dev);
++
++	ppp = netdev_priv(dev);
++	/* Let the netdevice take a reference on the ppp file. This ensures
++	 * that ppp_destroy_interface() won't run before the device gets
++	 * unregistered.
++	 */
++	atomic_inc(&ppp->file.refcnt);
++
+ 	return 0;
+ }
+ 
+@@ -1362,6 +1372,15 @@ static void ppp_dev_uninit(struct net_device *dev)
+ 	wake_up_interruptible(&ppp->file.rwait);
+ }
+ 
++static void ppp_dev_priv_destructor(struct net_device *dev)
++{
++	struct ppp *ppp;
++
++	ppp = netdev_priv(dev);
++	if (atomic_dec_and_test(&ppp->file.refcnt))
++		ppp_destroy_interface(ppp);
++}
++
+ static const struct net_device_ops ppp_netdev_ops = {
+ 	.ndo_init	 = ppp_dev_init,
+ 	.ndo_uninit      = ppp_dev_uninit,
+@@ -1387,6 +1406,7 @@ static void ppp_setup(struct net_device *dev)
+ 	dev->tx_queue_len = 3;
+ 	dev->type = ARPHRD_PPP;
+ 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
++	dev->priv_destructor = ppp_dev_priv_destructor;
+ 	netif_keep_dst(dev);
+ }
+ 
