@@ -1,12 +1,13 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net: dl2k: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:50 -0700
-Message-ID: <20171005005150.GA23486@beast>
+Subject: [PATCH] net: ksz884x: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:59 -0700
+Message-ID: <20171005005159.GA23514@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
         Jarod Wilson <jarod@redhat.com>,
-        Tobias Klauser <tklauser@distanz.ch>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
         Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
@@ -20,8 +21,9 @@ all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
 Cc: Jarod Wilson <jarod@redhat.com>
-Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>
 Cc: Philippe Reynes <tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org
 Cc: Thomas Gleixner <tglx@linutronix.de>
@@ -31,45 +33,71 @@ This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/net/ethernet/dlink/dl2k.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/micrel/ksz884x.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index 778f974e2928..a2f6758d38dd 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -68,7 +68,7 @@ static const int max_intrloop = 50;
- static const int multicast_filter_limit = 0x40;
- 
- static int rio_open (struct net_device *dev);
--static void rio_timer (unsigned long data);
-+static void rio_timer (struct timer_list *t);
- static void rio_tx_timeout (struct net_device *dev);
- static netdev_tx_t start_xmit (struct sk_buff *skb, struct net_device *dev);
- static irqreturn_t rio_interrupt (int irq, void *dev_instance);
-@@ -644,7 +644,7 @@ static int rio_open(struct net_device *dev)
- 		return i;
- 	}
- 
--	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
-+	timer_setup(&np->timer, rio_timer, 0);
- 	np->timer.expires = jiffies + 1 * HZ;
- 	add_timer(&np->timer);
- 
-@@ -655,10 +655,10 @@ static int rio_open(struct net_device *dev)
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index e798fbe08600..52207508744c 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -4338,11 +4338,11 @@ static void ksz_stop_timer(struct ksz_timer_info *info)
  }
  
- static void
--rio_timer (unsigned long data)
-+rio_timer (struct timer_list *t)
+ static void ksz_init_timer(struct ksz_timer_info *info, int period,
+-	void (*function)(unsigned long), void *data)
++	void (*function)(struct timer_list *))
  {
--	struct net_device *dev = (struct net_device *)data;
--	struct netdev_private *np = netdev_priv(dev);
-+	struct netdev_private *np = from_timer(np, t, timer);
-+	struct net_device *dev = pci_get_drvdata(np->pdev);
- 	unsigned int entry;
- 	int next_tick = 1*HZ;
- 	unsigned long flags;
+ 	info->max = 0;
+ 	info->period = period;
+-	setup_timer(&info->timer, function, (unsigned long)data);
++	timer_setup(&info->timer, function, 0);
+ }
+ 
+ static void ksz_update_timer(struct ksz_timer_info *info)
+@@ -6689,9 +6689,9 @@ static void mib_read_work(struct work_struct *work)
+ 	}
+ }
+ 
+-static void mib_monitor(unsigned long ptr)
++static void mib_monitor(struct timer_list *t)
+ {
+-	struct dev_info *hw_priv = (struct dev_info *) ptr;
++	struct dev_info *hw_priv = from_timer(hw_priv, t, mib_timer_info.timer);
+ 
+ 	mib_read_work(&hw_priv->mib_read);
+ 
+@@ -6716,10 +6716,10 @@ static void mib_monitor(unsigned long ptr)
+  *
+  * This routine is run in a kernel timer to monitor the network device.
+  */
+-static void dev_monitor(unsigned long ptr)
++static void dev_monitor(struct timer_list *t)
+ {
+-	struct net_device *dev = (struct net_device *) ptr;
+-	struct dev_priv *priv = netdev_priv(dev);
++	struct dev_priv *priv = from_timer(priv, t, monitor_timer_info.timer);
++	struct net_device *dev = priv->mii_if.dev;
+ 	struct dev_info *hw_priv = priv->adapter;
+ 	struct ksz_hw *hw = &hw_priv->hw;
+ 	struct ksz_port *port = &priv->port;
+@@ -6789,7 +6789,7 @@ static int __init netdev_init(struct net_device *dev)
+ 
+ 	/* 500 ms timeout */
+ 	ksz_init_timer(&priv->monitor_timer_info, 500 * HZ / 1000,
+-		dev_monitor, dev);
++		dev_monitor);
+ 
+ 	/* 500 ms timeout */
+ 	dev->watchdog_timeo = HZ / 2;
+@@ -7065,7 +7065,7 @@ static int pcidev_init(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	/* 500 ms timeout */
+ 	ksz_init_timer(&hw_priv->mib_timer_info, 500 * HZ / 1000,
+-		mib_monitor, hw_priv);
++		mib_monitor);
+ 
+ 	for (i = 0; i < hw->dev_count; i++) {
+ 		dev = alloc_etherdev(sizeof(struct dev_priv));
 -- 
 2.7.4
 
