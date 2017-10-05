@@ -1,50 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 04/13] timer: Remove init_timer_pinned() in favor of
- timer_setup()
-Date: Wed, 04 Oct 2017 17:41:34 -0700 (PDT)
-Message-ID: <20171004.174134.1260012045520624727.davem@davemloft.net>
-References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
-        <1507159627-127660-5-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, cmetcalf@mellanox.com, netdev@vger.kernel.org,
-        akpm@linux-foundation.org, arnd@arndb.de, benh@kernel.crashing.org,
-        geert@linux-m68k.org, gregkh@linuxfoundation.org,
-        linux@roeck-us.net, harish.patil@cavium.com,
-        heiko.carstens@de.ibm.com, jejb@linux.vnet.ibm.com,
-        john.stultz@linaro.org, jwi@linux.vnet.ibm.com,
-        kvalo@qca.qualcomm.com, jiangshanlai@gmail.com,
-        len.brown@intel.com, manish.chopra@cavium.com,
-        mark.gross@intel.com, martin.petersen@oracle.com,
-        schwidefsky@de.ibm.com, mpe@ellerman.id.au, mdr@sgi.com,
-        oleg@redhat.com, paulus@samba.org, pavel@ucw.cz, pmladek@suse.com,
-        rjw@rjwysocki.net, ralf@linux-mips.org, sre@kernel.org,
-        stefanr@s5r6.in-berlin.de, sboyd@codeaurora.org,
-        sudipm.mukherjee@gmail.com, tj@kernel.org,
-        ubraun@linux.vnet.ibm.com, viresh.kum
-To: keescook@chromium.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v2 net-next 0/7] net: Plumb extack error reporting to enslavements
+Date: Wed,  4 Oct 2017 17:48:44 -0700
+Message-ID: <1507164531-17732-1-git-send-email-dsahern@gmail.com>
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+        jiri@mellanox.com, idosch@mellanox.com, davem@davemloft.net,
+        bridge@lists.linux-foundation.org, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56600 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751132AbdJEAlh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:41:37 -0400
-In-Reply-To: <1507159627-127660-5-git-send-email-keescook@chromium.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36335 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751177AbdJEAs6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:48:58 -0400
+Received: by mail-pg0-f65.google.com with SMTP id i195so6145343pgd.3
+        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 17:48:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <keescook@chromium.org>
-Date: Wed,  4 Oct 2017 16:26:58 -0700
+Another round of extending extack error reporting, this time for
+enslavements through ndo_add_slave and notifiers.
 
-> This refactors the only users of init_timer_pinned() to use
-> the new timer_setup() and from_timer(). Drops the definition of
-> init_timer_pinned().
-> 
-> Cc: Chris Metcalf <cmetcalf@mellanox.com>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+v2
+- changed how the messages are added to bonding driver per Jiri's request
+- fixed spectrum message for LAG overflow per Ido's comment
 
-For networking:
+David Ahern (7):
+  net: Add extack to netdev_notifier_info
+  net: Add extack to ndo_add_slave
+  net: Add extack to upper device linking
+  net: vrf: Add extack messages for enslave errors
+  net: bonding: Add extack messages for some enslave failures
+  net: bridge: Pass extack to down to netdev_master_upper_dev_link
+  mlxsw: spectrum: Add extack messages for enslave failures
 
-Acked-by: David S. Miller <davem@davemloft.net>
+ drivers/net/bonding/bond_main.c                    | 19 +++--
+ drivers/net/bonding/bond_options.c                 |  2 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 47 ++++++++---
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c |  2 +-
+ drivers/net/hyperv/netvsc_drv.c                    |  2 +-
+ drivers/net/ipvlan/ipvlan_main.c                   |  2 +-
+ drivers/net/macsec.c                               |  2 +-
+ drivers/net/macvlan.c                              |  7 +-
+ drivers/net/macvtap.c                              |  2 +-
+ drivers/net/team/team.c                            |  5 +-
+ drivers/net/usb/qmi_wwan.c                         |  2 +-
+ drivers/net/vrf.c                                  | 23 ++++--
+ include/linux/if_macvlan.h                         |  3 +-
+ include/linux/netdevice.h                          | 19 ++++-
+ include/net/bonding.h                              |  3 +-
+ net/8021q/vlan.c                                   |  6 +-
+ net/8021q/vlan.h                                   |  2 +-
+ net/8021q/vlan_netlink.c                           |  2 +-
+ net/batman-adv/hard-interface.c                    |  2 +-
+ net/batman-adv/soft-interface.c                    |  3 +-
+ net/bridge/br_device.c                             |  5 +-
+ net/bridge/br_if.c                                 | 15 +++-
+ net/bridge/br_ioctl.c                              |  2 +-
+ net/bridge/br_private.h                            |  3 +-
+ net/core/dev.c                                     | 96 +++++++++++++---------
+ net/core/rtnetlink.c                               | 10 ++-
+ net/openvswitch/vport-netdev.c                     |  3 +-
+ 27 files changed, 192 insertions(+), 97 deletions(-)
+
+-- 
+2.1.4
