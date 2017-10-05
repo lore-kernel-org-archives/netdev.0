@@ -1,68 +1,96 @@
-From: Dan Murphy <dmurphy@ti.com>
-Subject: Re: [PATCH 2/3 v2] net: phy: DP83822 initial driver submission
-Date: Thu, 5 Oct 2017 15:06:36 -0500
-Message-ID: <7dc268a5-de82-35c8-f793-a210ced69b73@ti.com>
-References: <20171004182031.13794-1-dmurphy@ti.com>
- <20171004182031.13794-2-dmurphy@ti.com>
- <9235D6609DB808459E95D78E17F2E43D40B3F9A9@CHN-SV-EXMX02.mchp-main.com>
- <20171004235307.GD16612@lunn.ch>
+From: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+Subject: Re: Regression in throughput between kvm guests over virtual bridge
+Date: Thu, 5 Oct 2017 16:07:45 -0400
+Message-ID: <038445a6-9dd5-30c2-aac0-ab5efbfa7024@linux.vnet.ibm.com>
+References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
+ <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
+ <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
+ <627d0c7a-dce5-3094-d5d4-c1507fcb8080@linux.vnet.ibm.com>
+ <50891c14-3fc6-f519-8c03-07bdef3090f4@redhat.com>
+ <e42083d9-ae7b-7207-e5e6-06483bf6293e@linux.vnet.ibm.com>
+ <15abafa1-6d58-cd85-668a-bf361a296f52@redhat.com>
+ <7345a69d-5e47-7058-c72b-bdd0f3c69210@linux.vnet.ibm.com>
+ <55f9173b-a419-98f0-2516-cbd57299ba5d@redhat.com>
+ <c9d43af9-f095-043a-7d46-acd84a18f75a@redhat.com>
+ <7d444584-3854-ace2-008d-0fdef1c9cef4@linux.vnet.ibm.com>
+ <1173ab1f-e2b6-26b3-8c3c-bd5ceaa1bd8e@redhat.com>
+ <129a01d9-de9b-f3f1-935c-128e73153df6@linux.vnet.ibm.com>
+ <3f824b0e-65f9-c69c-5421-2c5f6b349b09@redhat.com>
+ <78678f33-c9ba-bf85-7778-b2d0676b78dd@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>, <afd@ti.com>
-To: Andrew Lunn <andrew@lunn.ch>, <Woojung.Huh@microchip.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:11693 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752011AbdJEUGs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 16:06:48 -0400
-In-Reply-To: <20171004235307.GD16612@lunn.ch>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:57758 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752027AbdJEUHu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 16:07:50 -0400
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v95K3f3G069336
+        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 16:07:50 -0400
+Received: from e12.ny.us.ibm.com (e12.ny.us.ibm.com [129.33.205.202])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2ddtyfska0-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 16:07:49 -0400
+Received: from localhost
+        by e12.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <mjrosato@linux.vnet.ibm.com>;
+        Thu, 5 Oct 2017 16:07:49 -0400
+In-Reply-To: <78678f33-c9ba-bf85-7778-b2d0676b78dd@linux.vnet.ibm.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andrew
-
-On 10/04/2017 06:53 PM, Andrew Lunn wrote:
-> On Wed, Oct 04, 2017 at 10:44:36PM +0000, Woojung.Huh@microchip.com wrote:
->>> +static int dp83822_suspend(struct phy_device *phydev)
->>> +{
->>> +	int value;
->>> +
->>> +	mutex_lock(&phydev->lock);
->>> +	value = phy_read_mmd(phydev, DP83822_DEVADDR,
->>> MII_DP83822_WOL_CFG);
->>> +	mutex_unlock(&phydev->lock);
+On 09/25/2017 04:18 PM, Matthew Rosato wrote:
+> On 09/22/2017 12:03 AM, Jason Wang wrote:
+>>
+>>
+>> On 2017年09月21日 03:38, Matthew Rosato wrote:
+>>>> Seems to make some progress on wakeup mitigation. Previous patch tries
+>>>> to reduce the unnecessary traversal of waitqueue during rx. Attached
+>>>> patch goes even further which disables rx polling during processing tx.
+>>>> Please try it to see if it has any difference.
+>>> Unfortunately, this patch doesn't seem to have made a difference.  I
+>>> tried runs with both this patch and the previous patch applied, as well
+>>> as only this patch applied for comparison (numbers from vhost thread of
+>>> sending VM):
+>>>
+>>> 4.12    4.13     patch1   patch2   patch1+2
+>>> 2.00%   +3.69%   +2.55%   +2.81%   +2.69%   [...] __wake_up_sync_key
+>>>
+>>> In each case, the regression in throughput was still present.
+>>
+>> This probably means some other cases of the wakeups were missed. Could
+>> you please record the callers of __wake_up_sync_key()?
+>>
 > 
->> Would we need mutex to access phy_read_mmd()?
->> phy_read_mmd() has mdio_lock for indirect access.
+> Hi Jason,
 > 
-> Hi Woojung
+> With your 2 previous patches applied, every call to __wake_up_sync_key
+> (for both sender and server vhost threads) shows the following stack trace:
 > 
-> The mdio lock is not sufficient. It protects against two mdio
-> accesses. But here we need to protect against two phy operations.
-> There is a danger something else tries to access the phy during
-> suspend.
-> 
->>> +	if (!(value & DP83822_WOL_EN))
->>> +		genphy_suspend(phydev);
-> 
-> Releasing the lock before calling genphy_suspend() is not so nice.
-> Maybe add a version which assumes the lock has already been taken?
+>      vhost-11478-11520 [002] ....   312.927229: __wake_up_sync_key
+> <-sock_def_readable
+>      vhost-11478-11520 [002] ....   312.927230: <stack trace>
+>  => dev_hard_start_xmit
+>  => sch_direct_xmit
+>  => __dev_queue_xmit
+>  => br_dev_queue_push_xmit
+>  => br_forward_finish
+>  => __br_forward
+>  => br_handle_frame_finish
+>  => br_handle_frame
+>  => __netif_receive_skb_core
+>  => netif_receive_skb_internal
+>  => tun_get_user
+>  => tun_sendmsg
+>  => handle_tx
+>  => vhost_worker
+>  => kthread
+>  => kernel_thread_starter
+>  => kernel_thread_starter
 > 
 
-The marvell driver does not take a lock and calls genphy_suspend/resume
-so I am wondering if this driver needs to take a lock.
-
-The at803x needs to take the lock because it does not call into the genphy
-functions.
-
-Dan
-
->       Andrew
-> 
-
-
--- 
-------------------
-Dan Murphy
+Ping...  Jason, any other ideas or suggestions?
