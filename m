@@ -1,7 +1,8 @@
 From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-Subject: [PATCH v3 6/6] staging: fsl-dpaa2/ethsw: Add TODO
-Date: Thu, 5 Oct 2017 12:16:14 +0300
-Message-ID: <1507194974-12050-7-git-send-email-razvan.stefanescu@nxp.com>
+Subject: [PATCH v3 4/6] staging: fsl-dpaa2/ethsw: Add maintainer for Ethernet
+ Switch driver
+Date: Thu, 5 Oct 2017 12:16:12 +0300
+Message-ID: <1507194974-12050-5-git-send-email-razvan.stefanescu@nxp.com>
 References: <1507194974-12050-1-git-send-email-razvan.stefanescu@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,9 +24,6 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Add a TODO file describing what needs to be added/changed before the driver
-can be moved out of staging.
-
 Signed-off-by: Razvan Stefanescu <razvan.stefanescu@nxp.com>
 ---
 Changelog:
@@ -34,29 +32,25 @@ Changelog:
  v3:
     - no changes
 
- drivers/staging/fsl-dpaa2/ethsw/TODO | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/TODO
+ MAINTAINERS | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/TODO b/drivers/staging/fsl-dpaa2/ethsw/TODO
-new file mode 100644
-index 0000000..d3f12c3
---- /dev/null
-+++ b/drivers/staging/fsl-dpaa2/ethsw/TODO
-@@ -0,0 +1,14 @@
-+* Add I/O capabilities on switch port netdevices. This will allow control
-+traffic to reach the CPU.
-+* Add ACL to redirect control traffic to CPU.
-+* Add support for displaying learned FDB entries
-+* MC firmware uprev; the DPAA2 objects used by the Ethernet Switch driver
-+need to   be kept in sync with binary interface changes in MC
-+* refine README file
-+* cleanup
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2281af4..cfd4f74 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4297,6 +4297,12 @@ L:	linux-kernel@vger.kernel.org
+ S:	Maintained
+ F:	drivers/staging/fsl-dpaa2/ethernet
+ 
++DPAA2 ETHERNET SWITCH DRIVER
++M:	Razvan Stefanescu <razvan.stefanescu@nxp.com>
++L:	linux-kernel@vger.kernel.org
++S:	Maintained
++F:	drivers/staging/fsl-dpaa2/ethsw
 +
-+NOTE: At least first three of the above are required before getting the
-+DPAA2 Ethernet Switch driver out of staging. Another requirement is that
-+the fsl-mc bus driver is moved to drivers/bus and dpio driver is moved to
-+drivers/soc (this is required for I/O).
-+
+ DPT_I2O SCSI RAID DRIVER
+ M:	Adaptec OEM Raid Solutions <aacraid@adaptec.com>
+ L:	linux-scsi@vger.kernel.org
 -- 
 1.9.1
