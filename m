@@ -1,120 +1,60 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net/core: Collapse redundant sk_timer callback data
-Date: Wed, 4 Oct 2017 17:52:38 -0700
-Message-ID: <20171005005238.GA23626@beast>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
+Date: Wed, 4 Oct 2017 17:56:03 -0700
+Message-ID: <20171004175603.4ba68737@cakuba.netronome.com>
+References: <20171003200546.165731-1-mka@chromium.org>
+        <1507140439.4434.14.camel@perches.com>
+        <20171004184957.GO173745@google.com>
+        <20171004152203.2a4f564d@cakuba.netronome.com>
+        <20171004231649.GP173745@google.com>
+        <20171004162550.20edf18c@cakuba.netronome.com>
+        <CAAMbb06DaOY1cnSXkuL0ZMSGzpwhfi_3d87mt8FMv+iYKDG03w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Andrew Hendry <andrew.hendry@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        David Howells <dhowells@redhat.com>,
-        Colin Ian King <colin.king@canonical.com>,
-        Ingo Molnar <mingo@kernel.org>,
-        linzhang <xiaolou4617@gmail.com>, netdev@vger.kernel.org,
-        linux-hams@vger.kernel.org, linux-x25@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Matthias Kaehlcke <mka@chromium.org>,
+        Joe Perches <joe@perches.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
+        oss-drivers@netronome.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Renato Golin <renato.golin@linaro.org>,
+        Guenter Roeck <groeck@chromium.org>,
+        Doug Anderson <dianders@chromium.org>
+To: Manoj Gupta <manojgupta@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAMbb06DaOY1cnSXkuL0ZMSGzpwhfi_3d87mt8FMv+iYKDG03w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The core sk_timer initializer can provide the common .data assignment
-instead of it being set separately in users.
+On Wed, 4 Oct 2017 17:38:22 -0700, Manoj Gupta wrote:
+> On Wed, Oct 4, 2017 at 4:25 PM, Jakub Kicinski wrote:
+> > On Wed, 4 Oct 2017 16:16:49 -0700, Matthias Kaehlcke wrote:  
+> >> > > Thanks for the suggestion. This seems a viable alternative if David
+> >> > > and the NFP owners can live without the extra checking provided by
+> >> > > __BF_FIELD_CHECK.  
+> >> >
+> >> > The reason the __BF_FIELD_CHECK refuses to compile non-constant masks
+> >> > is that it will require runtime ffs on the mask, which is potentially
+> >> > costly.  I would also feel quite stupid adding those macros to the nfp
+> >> > driver, given that I specifically created the bitfield.h header to not
+> >> > have to reimplement these in every driver I write/maintain.  
+> >>
+> >> That make sense, thanks for providing more context.
+> >>  
+> >> > Can you please test the patch I provided in the other reply?  
+> >>
+> >> With this patch there are no errors when building the kernel with
+> >> clang.  
+> >
+> > Cool, thanks for checking!  I will run it through full tests and queue
+> > for upstreaming :)  
+> 
+> Just to let you know, using __BF_FIELD_CHECK macro will not Link with
+> -O0 (GCC or Clang)  since references to __compiletime_assert_xxx will
+> not be cleaned up.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Paolo Abeni <pabeni@redhat.com>
-Cc: David Howells <dhowells@redhat.com>
-Cc: Colin Ian King <colin.king@canonical.com>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: linzhang <xiaolou4617@gmail.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-hams@vger.kernel.org
-Cc: linux-x25@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-This requires commit 686fef928bba ("timer: Prepare to change timer
-callback argument type") in v4.14-rc3, but should be otherwise
-stand-alone.
----
- net/core/sock.c       | 2 +-
- net/netrom/nr_timer.c | 1 -
- net/rose/rose_timer.c | 1 -
- net/x25/af_x25.c      | 1 -
- net/x25/x25_timer.c   | 1 -
- 5 files changed, 1 insertion(+), 5 deletions(-)
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9b7b6bbb2a23..3a0233106f62 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2678,7 +2678,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	sk_init_common(sk);
- 	sk->sk_send_head	=	NULL;
- 
--	init_timer(&sk->sk_timer);
-+	setup_timer(&sk->sk_timer, NULL, (unsigned long)sk);
- 
- 	sk->sk_allocation	=	GFP_KERNEL;
- 	sk->sk_rcvbuf		=	sysctl_rmem_default;
-diff --git a/net/netrom/nr_timer.c b/net/netrom/nr_timer.c
-index 94d05806a9a2..f84ce71f1f5f 100644
---- a/net/netrom/nr_timer.c
-+++ b/net/netrom/nr_timer.c
-@@ -45,7 +45,6 @@ void nr_init_timers(struct sock *sk)
- 	setup_timer(&nr->idletimer, nr_idletimer_expiry, (unsigned long)sk);
- 
- 	/* initialized by sock_init_data */
--	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &nr_heartbeat_expiry;
- }
- 
-diff --git a/net/rose/rose_timer.c b/net/rose/rose_timer.c
-index 3b89d66f15bb..e08201185214 100644
---- a/net/rose/rose_timer.c
-+++ b/net/rose/rose_timer.c
-@@ -36,7 +36,6 @@ void rose_start_heartbeat(struct sock *sk)
- {
- 	del_timer(&sk->sk_timer);
- 
--	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &rose_heartbeat_expiry;
- 	sk->sk_timer.expires  = jiffies + 5 * HZ;
- 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index ac095936552d..c590c0bd1393 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -414,7 +414,6 @@ static void __x25_destroy_socket(struct sock *sk)
- 		/* Defer: outstanding buffers */
- 		sk->sk_timer.expires  = jiffies + 10 * HZ;
- 		sk->sk_timer.function = x25_destroy_timer;
--		sk->sk_timer.data = (unsigned long)sk;
- 		add_timer(&sk->sk_timer);
- 	} else {
- 		/* drop last reference so sock_put will free */
-diff --git a/net/x25/x25_timer.c b/net/x25/x25_timer.c
-index 5c5db1a36399..de5cec41d100 100644
---- a/net/x25/x25_timer.c
-+++ b/net/x25/x25_timer.c
-@@ -36,7 +36,6 @@ void x25_init_timers(struct sock *sk)
- 	setup_timer(&x25->timer, x25_timer_expiry, (unsigned long)sk);
- 
- 	/* initialized by sock_init_data */
--	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &x25_heartbeat_expiry;
- }
- 
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+Do you mean the current nfp_eth_set_bit_config() will not work with -O0
+on either complier, or any use of __BF_FIELD_CHECK() will not compile
+with -O0?
