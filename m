@@ -1,540 +1,187 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 2/5] bpf: move instruction printing into a separate file
-Date: Thu,  5 Oct 2017 08:34:19 -0700
-Message-ID: <20171005153422.8947-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 5/5] bpf: write back the verifier log buffer as it gets filled
+Date: Thu,  5 Oct 2017 08:34:22 -0700
+Message-ID: <20171005153422.8947-6-jakub.kicinski@netronome.com>
 References: <20171005153422.8947-1-jakub.kicinski@netronome.com>
 Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
         oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:47315 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751381AbdJEPeh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 11:34:37 -0400
-Received: by mail-pg0-f52.google.com with SMTP id r25so6042632pgn.4
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 08:34:36 -0700 (PDT)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:47319 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751286AbdJEPek (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 11:34:40 -0400
+Received: by mail-pg0-f50.google.com with SMTP id r25so6042702pgn.4
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 08:34:39 -0700 (PDT)
 In-Reply-To: <20171005153422.8947-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Separate the instruction printing into a standalone source file.
-This way sneaky code from tools/ can compile it in directly.
+Verifier log buffer can be quite large (up to 16MB currently).
+As Eric Dumazet points out if we allow multiple verification
+requests to proceed simultaneously, malicious user may use the
+verifier as a way of allocating large amounts of unswappable
+memory to OOM the host.
+
+Switch to a strategy of allocating a smaller buffer (a page)
+and writing it out into the user buffer whenever it fills up.
+To simplify the code assume that prints will never be longer
+than 1024 bytes.
+
+This is in preparation of the global verifier lock removal.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- kernel/bpf/Makefile   |   1 +
- kernel/bpf/disasm.c   | 214 ++++++++++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/disasm.h   |  32 ++++++++
- kernel/bpf/verifier.c | 202 +----------------------------------------------
- 4 files changed, 251 insertions(+), 198 deletions(-)
- create mode 100644 kernel/bpf/disasm.c
- create mode 100644 kernel/bpf/disasm.h
+ include/linux/bpf_verifier.h |  7 +++--
+ kernel/bpf/verifier.c        | 64 +++++++++++++++++++++++++++++++-------------
+ 2 files changed, 50 insertions(+), 21 deletions(-)
 
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 897daa005b23..53fb09f92e3f 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -2,6 +2,7 @@ obj-y := core.o
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index 598802dd1897..c0f0e210c3f8 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -140,10 +140,13 @@ struct bpf_verifier_env {
+ 	bool seen_direct_write;
+ 	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
  
- obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o
- obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o map_in_map.o
-+obj-$(CONFIG_BPF_SYSCALL) += disasm.o
- ifeq ($(CONFIG_NET),y)
- obj-$(CONFIG_BPF_SYSCALL) += devmap.o
- ifeq ($(CONFIG_STREAM_PARSER),y)
-diff --git a/kernel/bpf/disasm.c b/kernel/bpf/disasm.c
-new file mode 100644
-index 000000000000..e682850c9715
---- /dev/null
-+++ b/kernel/bpf/disasm.c
-@@ -0,0 +1,214 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ * Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+
-+#include <linux/bpf.h>
-+
-+#include "disasm.h"
-+
-+#define __BPF_FUNC_STR_FN(x) [BPF_FUNC_ ## x] = __stringify(bpf_ ## x)
-+static const char * const func_id_str[] = {
-+	__BPF_FUNC_MAPPER(__BPF_FUNC_STR_FN)
-+};
-+#undef __BPF_FUNC_STR_FN
-+
-+const char *func_id_name(int id)
-+{
-+	BUILD_BUG_ON(ARRAY_SIZE(func_id_str) != __BPF_FUNC_MAX_ID);
-+
-+	if (id >= 0 && id < __BPF_FUNC_MAX_ID && func_id_str[id])
-+		return func_id_str[id];
-+	else
-+		return "unknown";
-+}
-+
-+const char *const bpf_class_string[8] = {
-+	[BPF_LD]    = "ld",
-+	[BPF_LDX]   = "ldx",
-+	[BPF_ST]    = "st",
-+	[BPF_STX]   = "stx",
-+	[BPF_ALU]   = "alu",
-+	[BPF_JMP]   = "jmp",
-+	[BPF_RET]   = "BUG",
-+	[BPF_ALU64] = "alu64",
-+};
-+
-+const char *const bpf_alu_string[16] = {
-+	[BPF_ADD >> 4]  = "+=",
-+	[BPF_SUB >> 4]  = "-=",
-+	[BPF_MUL >> 4]  = "*=",
-+	[BPF_DIV >> 4]  = "/=",
-+	[BPF_OR  >> 4]  = "|=",
-+	[BPF_AND >> 4]  = "&=",
-+	[BPF_LSH >> 4]  = "<<=",
-+	[BPF_RSH >> 4]  = ">>=",
-+	[BPF_NEG >> 4]  = "neg",
-+	[BPF_MOD >> 4]  = "%=",
-+	[BPF_XOR >> 4]  = "^=",
-+	[BPF_MOV >> 4]  = "=",
-+	[BPF_ARSH >> 4] = "s>>=",
-+	[BPF_END >> 4]  = "endian",
-+};
-+
-+static const char *const bpf_ldst_string[] = {
-+	[BPF_W >> 3]  = "u32",
-+	[BPF_H >> 3]  = "u16",
-+	[BPF_B >> 3]  = "u8",
-+	[BPF_DW >> 3] = "u64",
-+};
-+
-+static const char *const bpf_jmp_string[16] = {
-+	[BPF_JA >> 4]   = "jmp",
-+	[BPF_JEQ >> 4]  = "==",
-+	[BPF_JGT >> 4]  = ">",
-+	[BPF_JLT >> 4]  = "<",
-+	[BPF_JGE >> 4]  = ">=",
-+	[BPF_JLE >> 4]  = "<=",
-+	[BPF_JSET >> 4] = "&",
-+	[BPF_JNE >> 4]  = "!=",
-+	[BPF_JSGT >> 4] = "s>",
-+	[BPF_JSLT >> 4] = "s<",
-+	[BPF_JSGE >> 4] = "s>=",
-+	[BPF_JSLE >> 4] = "s<=",
-+	[BPF_CALL >> 4] = "call",
-+	[BPF_EXIT >> 4] = "exit",
-+};
-+
-+static void print_bpf_end_insn(bpf_insn_print_cb verbose,
-+			       struct bpf_verifier_env *env,
-+			       const struct bpf_insn *insn)
-+{
-+	verbose(env, "(%02x) r%d = %s%d r%d\n", insn->code, insn->dst_reg,
-+		BPF_SRC(insn->code) == BPF_TO_BE ? "be" : "le",
-+		insn->imm, insn->dst_reg);
-+}
-+
-+void print_bpf_insn(bpf_insn_print_cb verbose, struct bpf_verifier_env *env,
-+		    const struct bpf_insn *insn, bool allow_ptr_leaks)
-+{
-+	u8 class = BPF_CLASS(insn->code);
-+
-+	if (class == BPF_ALU || class == BPF_ALU64) {
-+		if (BPF_OP(insn->code) == BPF_END) {
-+			if (class == BPF_ALU64)
-+				verbose(env, "BUG_alu64_%02x\n", insn->code);
-+			else
-+				print_bpf_end_insn(verbose, env, insn);
-+		} else if (BPF_OP(insn->code) == BPF_NEG) {
-+			verbose(env, "(%02x) r%d = %s-r%d\n",
-+				insn->code, insn->dst_reg,
-+				class == BPF_ALU ? "(u32) " : "",
-+				insn->dst_reg);
-+		} else if (BPF_SRC(insn->code) == BPF_X) {
-+			verbose(env, "(%02x) %sr%d %s %sr%d\n",
-+				insn->code, class == BPF_ALU ? "(u32) " : "",
-+				insn->dst_reg,
-+				bpf_alu_string[BPF_OP(insn->code) >> 4],
-+				class == BPF_ALU ? "(u32) " : "",
-+				insn->src_reg);
-+		} else {
-+			verbose(env, "(%02x) %sr%d %s %s%d\n",
-+				insn->code, class == BPF_ALU ? "(u32) " : "",
-+				insn->dst_reg,
-+				bpf_alu_string[BPF_OP(insn->code) >> 4],
-+				class == BPF_ALU ? "(u32) " : "",
-+				insn->imm);
-+		}
-+	} else if (class == BPF_STX) {
-+		if (BPF_MODE(insn->code) == BPF_MEM)
-+			verbose(env, "(%02x) *(%s *)(r%d %+d) = r%d\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->dst_reg,
-+				insn->off, insn->src_reg);
-+		else if (BPF_MODE(insn->code) == BPF_XADD)
-+			verbose(env, "(%02x) lock *(%s *)(r%d %+d) += r%d\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->dst_reg, insn->off,
-+				insn->src_reg);
-+		else
-+			verbose(env, "BUG_%02x\n", insn->code);
-+	} else if (class == BPF_ST) {
-+		if (BPF_MODE(insn->code) != BPF_MEM) {
-+			verbose(env, "BUG_st_%02x\n", insn->code);
-+			return;
-+		}
-+		verbose(env, "(%02x) *(%s *)(r%d %+d) = %d\n",
-+			insn->code,
-+			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+			insn->dst_reg,
-+			insn->off, insn->imm);
-+	} else if (class == BPF_LDX) {
-+		if (BPF_MODE(insn->code) != BPF_MEM) {
-+			verbose(env, "BUG_ldx_%02x\n", insn->code);
-+			return;
-+		}
-+		verbose(env, "(%02x) r%d = *(%s *)(r%d %+d)\n",
-+			insn->code, insn->dst_reg,
-+			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+			insn->src_reg, insn->off);
-+	} else if (class == BPF_LD) {
-+		if (BPF_MODE(insn->code) == BPF_ABS) {
-+			verbose(env, "(%02x) r0 = *(%s *)skb[%d]\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->imm);
-+		} else if (BPF_MODE(insn->code) == BPF_IND) {
-+			verbose(env, "(%02x) r0 = *(%s *)skb[r%d + %d]\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->src_reg, insn->imm);
-+		} else if (BPF_MODE(insn->code) == BPF_IMM &&
-+			   BPF_SIZE(insn->code) == BPF_DW) {
-+			/* At this point, we already made sure that the second
-+			 * part of the ldimm64 insn is accessible.
-+			 */
-+			u64 imm = ((u64)(insn + 1)->imm << 32) | (u32)insn->imm;
-+			bool map_ptr = insn->src_reg == BPF_PSEUDO_MAP_FD;
-+
-+			if (map_ptr && !allow_ptr_leaks)
-+				imm = 0;
-+
-+			verbose(env, "(%02x) r%d = 0x%llx\n", insn->code,
-+				insn->dst_reg, (unsigned long long)imm);
-+		} else {
-+			verbose(env, "BUG_ld_%02x\n", insn->code);
-+			return;
-+		}
-+	} else if (class == BPF_JMP) {
-+		u8 opcode = BPF_OP(insn->code);
-+
-+		if (opcode == BPF_CALL) {
-+			verbose(env, "(%02x) call %s#%d\n", insn->code,
-+				func_id_name(insn->imm), insn->imm);
-+		} else if (insn->code == (BPF_JMP | BPF_JA)) {
-+			verbose(env, "(%02x) goto pc%+d\n",
-+				insn->code, insn->off);
-+		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
-+			verbose(env, "(%02x) exit\n", insn->code);
-+		} else if (BPF_SRC(insn->code) == BPF_X) {
-+			verbose(env, "(%02x) if r%d %s r%d goto pc%+d\n",
-+				insn->code, insn->dst_reg,
-+				bpf_jmp_string[BPF_OP(insn->code) >> 4],
-+				insn->src_reg, insn->off);
-+		} else {
-+			verbose(env, "(%02x) if r%d %s 0x%x goto pc%+d\n",
-+				insn->code, insn->dst_reg,
-+				bpf_jmp_string[BPF_OP(insn->code) >> 4],
-+				insn->imm, insn->off);
-+		}
-+	} else {
-+		verbose(env, "(%02x) %s\n",
-+			insn->code, bpf_class_string[class]);
-+	}
-+}
-diff --git a/kernel/bpf/disasm.h b/kernel/bpf/disasm.h
-new file mode 100644
-index 000000000000..8de977e420b6
---- /dev/null
-+++ b/kernel/bpf/disasm.h
-@@ -0,0 +1,32 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ * Copyright (c) 2016 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ */
-+
-+#ifndef __BPF_DISASM_H__
-+#define __BPF_DISASM_H__
-+
-+#include <linux/bpf.h>
-+#include <linux/kernel.h>
-+#include <linux/stringify.h>
-+
-+extern const char *const bpf_alu_string[16];
-+extern const char *const bpf_class_string[8];
-+
-+const char *func_id_name(int id);
-+
-+struct bpf_verifier_env;
-+typedef void (*bpf_insn_print_cb)(struct bpf_verifier_env *env,
-+				  const char *, ...);
-+void print_bpf_insn(bpf_insn_print_cb verbose, struct bpf_verifier_env *env,
-+		    const struct bpf_insn *insn, bool allow_ptr_leaks);
-+
-+#endif
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index cb97dfde65fc..3c5b9fb33e06 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -21,6 +21,8 @@
- #include <linux/vmalloc.h>
- #include <linux/stringify.h>
- 
-+#include "disasm.h"
-+
- /* bpf_check() is a static code analyzer that walks eBPF program
-  * instruction by instruction and updates register/stack state.
-  * All paths of conditional branches are analyzed until 'bpf_exit' insn.
-@@ -193,22 +195,6 @@ static const char * const reg_type_str[] = {
- 	[PTR_TO_PACKET_END]	= "pkt_end",
+-	u32 log_level;
++	char __user *log_ubuf;
++	u32 log_usize;
++	u32 log_ulen;
++	char *log_buf;
+ 	u32 log_size;
+ 	u32 log_len;
+-	char *log_buf;
++	u32 log_level;
  };
  
--#define __BPF_FUNC_STR_FN(x) [BPF_FUNC_ ## x] = __stringify(bpf_ ## x)
--static const char * const func_id_str[] = {
--	__BPF_FUNC_MAPPER(__BPF_FUNC_STR_FN)
--};
--#undef __BPF_FUNC_STR_FN
--
--static const char *func_id_name(int id)
--{
--	BUILD_BUG_ON(ARRAY_SIZE(func_id_str) != __BPF_FUNC_MAX_ID);
--
--	if (id >= 0 && id < __BPF_FUNC_MAX_ID && func_id_str[id])
--		return func_id_str[id];
--	else
--		return "unknown";
--}
--
- static void print_verifier_state(struct bpf_verifier_env *env,
- 				 struct bpf_verifier_state *state)
+ int bpf_analyzer(struct bpf_prog *prog, const struct bpf_ext_analyzer_ops *ops,
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 3c5b9fb33e06..89763ae3f33c 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -157,6 +157,19 @@ struct bpf_call_arg_meta {
+ 
+ static DEFINE_MUTEX(bpf_verifier_lock);
+ 
++#define BFP_VERIFIER_MAX_MSG		1024
++
++static void bpf_write_back_user_log(struct bpf_verifier_env *env)
++{
++	unsigned int n = min(env->log_usize - env->log_ulen - 1, env->log_len);
++
++	if (!copy_to_user(env->log_ubuf + env->log_ulen, env->log_buf, n))
++		env->log_ulen += n;
++	else
++		env->log_ubuf = NULL;
++	env->log_len = 0;
++}
++
+ /* log_level controls verbosity level of eBPF verifier.
+  * verbose() is used to dump the verification trace to the log, so the user
+  * can figure out what's wrong with the program
+@@ -166,13 +179,19 @@ static __printf(2, 3) void verbose(struct bpf_verifier_env *env,
  {
-@@ -277,187 +263,6 @@ static void print_verifier_state(struct bpf_verifier_env *env,
- 	verbose(env, "\n");
+ 	va_list args;
+ 
+-	if (env->log_level == 0 || env->log_len >= env->log_size - 1)
++	if (!env->log_level || !env->log_ubuf ||
++	    env->log_ulen >= env->log_usize - 1)
+ 		return;
+ 
+ 	va_start(args, fmt);
+ 	env->log_len += vscnprintf(env->log_buf + env->log_len,
+ 				   env->log_size - env->log_len, fmt, args);
+ 	va_end(args);
++
++	WARN_ON_ONCE(env->log_len >= env->log_size);
++
++	if (env->log_len + BFP_VERIFIER_MAX_MSG > env->log_size)
++		bpf_write_back_user_log(env);
  }
  
--static const char *const bpf_class_string[] = {
--	[BPF_LD]    = "ld",
--	[BPF_LDX]   = "ldx",
--	[BPF_ST]    = "st",
--	[BPF_STX]   = "stx",
--	[BPF_ALU]   = "alu",
--	[BPF_JMP]   = "jmp",
--	[BPF_RET]   = "BUG",
--	[BPF_ALU64] = "alu64",
--};
--
--static const char *const bpf_alu_string[16] = {
--	[BPF_ADD >> 4]  = "+=",
--	[BPF_SUB >> 4]  = "-=",
--	[BPF_MUL >> 4]  = "*=",
--	[BPF_DIV >> 4]  = "/=",
--	[BPF_OR  >> 4]  = "|=",
--	[BPF_AND >> 4]  = "&=",
--	[BPF_LSH >> 4]  = "<<=",
--	[BPF_RSH >> 4]  = ">>=",
--	[BPF_NEG >> 4]  = "neg",
--	[BPF_MOD >> 4]  = "%=",
--	[BPF_XOR >> 4]  = "^=",
--	[BPF_MOV >> 4]  = "=",
--	[BPF_ARSH >> 4] = "s>>=",
--	[BPF_END >> 4]  = "endian",
--};
--
--static const char *const bpf_ldst_string[] = {
--	[BPF_W >> 3]  = "u32",
--	[BPF_H >> 3]  = "u16",
--	[BPF_B >> 3]  = "u8",
--	[BPF_DW >> 3] = "u64",
--};
--
--static const char *const bpf_jmp_string[16] = {
--	[BPF_JA >> 4]   = "jmp",
--	[BPF_JEQ >> 4]  = "==",
--	[BPF_JGT >> 4]  = ">",
--	[BPF_JLT >> 4]  = "<",
--	[BPF_JGE >> 4]  = ">=",
--	[BPF_JLE >> 4]  = "<=",
--	[BPF_JSET >> 4] = "&",
--	[BPF_JNE >> 4]  = "!=",
--	[BPF_JSGT >> 4] = "s>",
--	[BPF_JSLT >> 4] = "s<",
--	[BPF_JSGE >> 4] = "s>=",
--	[BPF_JSLE >> 4] = "s<=",
--	[BPF_CALL >> 4] = "call",
--	[BPF_EXIT >> 4] = "exit",
--};
--
--static void print_bpf_end_insn(struct bpf_verifier_env *env,
--			       const struct bpf_insn *insn)
--{
--	verbose(env, "(%02x) r%d = %s%d r%d\n", insn->code, insn->dst_reg,
--		BPF_SRC(insn->code) == BPF_TO_BE ? "be" : "le",
--		insn->imm, insn->dst_reg);
--}
--
--static void print_bpf_insn(struct bpf_verifier_env *env,
--			   const struct bpf_insn *insn)
--{
--	u8 class = BPF_CLASS(insn->code);
--
--	if (class == BPF_ALU || class == BPF_ALU64) {
--		if (BPF_OP(insn->code) == BPF_END) {
--			if (class == BPF_ALU64)
--				verbose(env, "BUG_alu64_%02x\n", insn->code);
--			else
--				print_bpf_end_insn(env, insn);
--		} else if (BPF_OP(insn->code) == BPF_NEG) {
--			verbose(env, "(%02x) r%d = %s-r%d\n",
--				insn->code, insn->dst_reg,
--				class == BPF_ALU ? "(u32) " : "",
--				insn->dst_reg);
--		} else if (BPF_SRC(insn->code) == BPF_X) {
--			verbose(env, "(%02x) %sr%d %s %sr%d\n",
--				insn->code, class == BPF_ALU ? "(u32) " : "",
--				insn->dst_reg,
--				bpf_alu_string[BPF_OP(insn->code) >> 4],
--				class == BPF_ALU ? "(u32) " : "",
--				insn->src_reg);
--		} else {
--			verbose(env, "(%02x) %sr%d %s %s%d\n",
--				insn->code, class == BPF_ALU ? "(u32) " : "",
--				insn->dst_reg,
--				bpf_alu_string[BPF_OP(insn->code) >> 4],
--				class == BPF_ALU ? "(u32) " : "",
--				insn->imm);
--		}
--	} else if (class == BPF_STX) {
--		if (BPF_MODE(insn->code) == BPF_MEM)
--			verbose(env, "(%02x) *(%s *)(r%d %+d) = r%d\n",
--				insn->code,
--				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
--				insn->dst_reg,
--				insn->off, insn->src_reg);
--		else if (BPF_MODE(insn->code) == BPF_XADD)
--			verbose(env, "(%02x) lock *(%s *)(r%d %+d) += r%d\n",
--				insn->code,
--				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
--				insn->dst_reg, insn->off,
--				insn->src_reg);
--		else
--			verbose(env, "BUG_%02x\n", insn->code);
--	} else if (class == BPF_ST) {
--		if (BPF_MODE(insn->code) != BPF_MEM) {
--			verbose(env, "BUG_st_%02x\n", insn->code);
--			return;
--		}
--		verbose(env, "(%02x) *(%s *)(r%d %+d) = %d\n",
--			insn->code,
--			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
--			insn->dst_reg,
--			insn->off, insn->imm);
--	} else if (class == BPF_LDX) {
--		if (BPF_MODE(insn->code) != BPF_MEM) {
--			verbose(env, "BUG_ldx_%02x\n", insn->code);
--			return;
--		}
--		verbose(env, "(%02x) r%d = *(%s *)(r%d %+d)\n",
--			insn->code, insn->dst_reg,
--			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
--			insn->src_reg, insn->off);
--	} else if (class == BPF_LD) {
--		if (BPF_MODE(insn->code) == BPF_ABS) {
--			verbose(env, "(%02x) r0 = *(%s *)skb[%d]\n",
--				insn->code,
--				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
--				insn->imm);
--		} else if (BPF_MODE(insn->code) == BPF_IND) {
--			verbose(env, "(%02x) r0 = *(%s *)skb[r%d + %d]\n",
--				insn->code,
--				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
--				insn->src_reg, insn->imm);
--		} else if (BPF_MODE(insn->code) == BPF_IMM &&
--			   BPF_SIZE(insn->code) == BPF_DW) {
--			/* At this point, we already made sure that the second
--			 * part of the ldimm64 insn is accessible.
--			 */
--			u64 imm = ((u64)(insn + 1)->imm << 32) | (u32)insn->imm;
--			bool map_ptr = insn->src_reg == BPF_PSEUDO_MAP_FD;
--
--			if (map_ptr && !env->allow_ptr_leaks)
--				imm = 0;
--
--			verbose(env, "(%02x) r%d = 0x%llx\n", insn->code,
--				insn->dst_reg, (unsigned long long)imm);
--		} else {
--			verbose(env, "BUG_ld_%02x\n", insn->code);
--			return;
--		}
--	} else if (class == BPF_JMP) {
--		u8 opcode = BPF_OP(insn->code);
--
--		if (opcode == BPF_CALL) {
--			verbose(env, "(%02x) call %s#%d\n", insn->code,
--				func_id_name(insn->imm), insn->imm);
--		} else if (insn->code == (BPF_JMP | BPF_JA)) {
--			verbose(env, "(%02x) goto pc%+d\n",
--				insn->code, insn->off);
--		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
--			verbose(env, "(%02x) exit\n", insn->code);
--		} else if (BPF_SRC(insn->code) == BPF_X) {
--			verbose(env, "(%02x) if r%d %s r%d goto pc%+d\n",
--				insn->code, insn->dst_reg,
--				bpf_jmp_string[BPF_OP(insn->code) >> 4],
--				insn->src_reg, insn->off);
--		} else {
--			verbose(env, "(%02x) if r%d %s 0x%x goto pc%+d\n",
--				insn->code, insn->dst_reg,
--				bpf_jmp_string[BPF_OP(insn->code) >> 4],
--				insn->imm, insn->off);
--		}
--	} else {
--		verbose(env, "(%02x) %s\n",
--			insn->code, bpf_class_string[class]);
--	}
--}
--
- static int pop_stack(struct bpf_verifier_env *env, int *prev_insn_idx)
+ static bool type_is_pkt_pointer(enum bpf_reg_type type)
+@@ -4220,7 +4239,6 @@ static void free_states(struct bpf_verifier_env *env)
+ 
+ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
  {
- 	struct bpf_verifier_stack_elem *elem;
-@@ -3759,7 +3564,8 @@ static int do_check(struct bpf_verifier_env *env)
+-	char __user *log_ubuf = NULL;
+ 	struct bpf_verifier_env *env;
+ 	int ret = -EINVAL;
  
- 		if (env->log_level) {
- 			verbose(env, "%d: ", insn_idx);
--			print_bpf_insn(env, insn);
-+			print_bpf_insn(verbose, env, insn,
-+				       env->allow_ptr_leaks);
- 		}
+@@ -4246,19 +4264,20 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 		 * and supplied buffer to store the verification trace
+ 		 */
+ 		env->log_level = attr->log_level;
+-		log_ubuf = (char __user *) (unsigned long) attr->log_buf;
+-		env->log_size = attr->log_size;
++		env->log_ubuf = (char __user *) (unsigned long) attr->log_buf;
++		env->log_usize = attr->log_size;
  
- 		err = ext_analyzer_insn_hook(env, insn_idx, prev_insn_idx);
+ 		ret = -EINVAL;
+ 		/* log_* values have to be sane */
+-		if (env->log_size < 128 || env->log_size > UINT_MAX >> 8 ||
+-		    env->log_level == 0 || log_ubuf == NULL)
++		if (env->log_usize < 128 || env->log_usize > UINT_MAX >> 8 ||
++		    env->log_ubuf == NULL || env->log_level == 0)
+ 			goto err_unlock;
+ 
+ 		ret = -ENOMEM;
+-		env->log_buf = vmalloc(env->log_size);
++		env->log_buf = page_address(alloc_page(GFP_USER));
+ 		if (!env->log_buf)
+ 			goto err_unlock;
++		env->log_size = PAGE_SIZE;
+ 	}
+ 
+ 	env->strict_alignment = !!(attr->prog_flags & BPF_F_STRICT_ALIGNMENT);
+@@ -4295,18 +4314,25 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 	if (ret == 0)
+ 		ret = fixup_bpf_calls(env);
+ 
+-	if (env->log_level && env->log_len >= env->log_size - 1) {
+-		BUG_ON(env->log_len >= env->log_size);
+-		/* verifier log exceeded user supplied buffer */
+-		ret = -ENOSPC;
+-		/* fall through to return what was recorded */
+-	}
++	if (env->log_level) {
++		if (env->log_ulen + env->log_len >= env->log_usize - 1) {
++			BUG_ON(env->log_ulen >= env->log_usize);
++			/* verifier log exceeded user supplied buffer */
++			env->log_len = env->log_usize - env->log_ulen - 1;
++			ret = -ENOSPC;
++			/* fall through to return what was recorded */
++		}
+ 
+-	/* copy verifier log back to user space including trailing zero */
+-	if (env->log_level &&
+-	    copy_to_user(log_ubuf, env->log_buf, env->log_len + 1) != 0) {
+-		ret = -EFAULT;
+-		goto free_log_buf;
++		/* Note that we are guaranteed BFP_VERIFIER_MAX_MSG of space */
++		env->log_buf[env->log_len] = '\0';
++
++		/* copy the rest of log to user space including trailing zero */
++		if (!env->log_ubuf ||
++		    copy_to_user(env->log_ubuf + env->log_ulen,
++				 env->log_buf, env->log_len + 1)) {
++			ret = -EFAULT;
++			goto free_log_buf;
++		}
+ 	}
+ 
+ 	if (ret == 0 && env->used_map_cnt) {
+@@ -4332,7 +4358,7 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr)
+ 
+ free_log_buf:
+ 	if (env->log_level)
+-		vfree(env->log_buf);
++		__free_page(virt_to_page(env->log_buf));
+ 	if (!env->prog->aux->used_maps)
+ 		/* if we didn't copy map pointers into bpf_prog_info, release
+ 		 * them now. Otherwise free_bpf_prog_info() will release them.
 -- 
 2.14.1
