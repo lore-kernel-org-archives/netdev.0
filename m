@@ -1,161 +1,339 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v4 1/3] tools: rename tools/net directory to tools/bpf
-Date: Wed,  4 Oct 2017 20:10:03 -0700
-Message-ID: <20171005031005.15364-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v4 3/3] tools: bpftool: add documentation
+Date: Wed,  4 Oct 2017 20:10:05 -0700
+Message-ID: <20171005031005.15364-4-jakub.kicinski@netronome.com>
 References: <20171005031005.15364-1-jakub.kicinski@netronome.com>
 Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
         dsahern@gmail.com, oss-drivers@netronome.com, brouer@redhat.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        David Beckett <david.beckett@netronome.com>,
+        linux-doc@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:44512 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751259AbdJEDKZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 23:10:25 -0400
-Received: by mail-pg0-f54.google.com with SMTP id b1so6072806pge.1
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 20:10:25 -0700 (PDT)
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <20171005031005.15364-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We currently only have BPF tools in the tools/net directory.
-We are about to add more BPF tools there, not necessarily
-networking related, rename the directory and related Makefile
-targets to bpf.
+Add documentation for bpftool.  Separate files for each subcommand.
+Use rst format.  Documentation is compiled into man pages using
+rst2man.
 
-Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: David Beckett <david.beckett@netronome.com>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- MAINTAINERS                         |  3 +--
- tools/Makefile                      | 14 +++++++-------
- tools/{net => bpf}/Makefile         |  0
- tools/{net => bpf}/bpf_asm.c        |  0
- tools/{net => bpf}/bpf_dbg.c        |  0
- tools/{net => bpf}/bpf_exp.l        |  0
- tools/{net => bpf}/bpf_exp.y        |  0
- tools/{net => bpf}/bpf_jit_disasm.c |  0
- 8 files changed, 8 insertions(+), 9 deletions(-)
- rename tools/{net => bpf}/Makefile (100%)
- rename tools/{net => bpf}/bpf_asm.c (100%)
- rename tools/{net => bpf}/bpf_dbg.c (100%)
- rename tools/{net => bpf}/bpf_exp.l (100%)
- rename tools/{net => bpf}/bpf_exp.y (100%)
- rename tools/{net => bpf}/bpf_jit_disasm.c (100%)
+CC: linux-doc@vger.kernel.org
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 5231392cf4bd..004816a585b8 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2725,7 +2725,7 @@ F:	net/core/filter.c
- F:	net/sched/act_bpf.c
- F:	net/sched/cls_bpf.c
- F:	samples/bpf/
--F:	tools/net/bpf*
-+F:	tools/bpf/
- F:	tools/testing/selftests/bpf/
+ tools/bpf/bpftool/Documentation/Makefile         |  34 +++++++
+ tools/bpf/bpftool/Documentation/bpftool-map.rst  | 110 +++++++++++++++++++++++
+ tools/bpf/bpftool/Documentation/bpftool-prog.rst |  79 ++++++++++++++++
+ tools/bpf/bpftool/Documentation/bpftool.rst      |  34 +++++++
+ tools/bpf/bpftool/Makefile                       |   6 ++
+ 5 files changed, 263 insertions(+)
+ create mode 100644 tools/bpf/bpftool/Documentation/Makefile
+ create mode 100644 tools/bpf/bpftool/Documentation/bpftool-map.rst
+ create mode 100644 tools/bpf/bpftool/Documentation/bpftool-prog.rst
+ create mode 100644 tools/bpf/bpftool/Documentation/bpftool.rst
+
+diff --git a/tools/bpf/bpftool/Documentation/Makefile b/tools/bpf/bpftool/Documentation/Makefile
+new file mode 100644
+index 000000000000..bde77d7c4390
+--- /dev/null
++++ b/tools/bpf/bpftool/Documentation/Makefile
+@@ -0,0 +1,34 @@
++include ../../../scripts/Makefile.include
++include ../../../scripts/utilities.mak
++
++INSTALL ?= install
++RM ?= rm -f
++
++# Make the path relative to DESTDIR, not prefix
++ifndef DESTDIR
++prefix?=$(HOME)
++endif
++mandir ?= $(prefix)/share/man
++man8dir = $(mandir)/man8
++
++MAN8_RST = $(wildcard *.rst)
++
++_DOC_MAN8 = $(patsubst %.rst,%.8,$(MAN8_RST))
++DOC_MAN8 = $(addprefix $(OUTPUT),$(_DOC_MAN8))
++
++man: man8
++man8: $(DOC_MAN8)
++
++$(OUTPUT)%.8: %.rst
++	rst2man $< > $@
++
++clean:
++	$(call QUIET_CLEAN, Documentation) $(RM) $(DOC_MAN8)
++
++install: man
++	$(call QUIET_INSTALL, Documentation-man) \
++		$(INSTALL) -d -m 755 $(DESTDIR)$(man8dir); \
++		$(INSTALL) -m 644 $(DOC_MAN8) $(DESTDIR)$(man8dir);
++
++.PHONY: man man8 clean install
++.DEFAULT_GOAL := man
+diff --git a/tools/bpf/bpftool/Documentation/bpftool-map.rst b/tools/bpf/bpftool/Documentation/bpftool-map.rst
+new file mode 100644
+index 000000000000..ad78a0a177aa
+--- /dev/null
++++ b/tools/bpf/bpftool/Documentation/bpftool-map.rst
+@@ -0,0 +1,110 @@
++================
++bpftool-map
++================
++-------------------------------------------------------------------------------
++tool for inspection and simple manipulation of eBPF maps
++-------------------------------------------------------------------------------
++
++:Manual section: 8
++
++SYNOPSIS
++========
++
++	**bpftool** **map** *COMMAND*
++
++	*COMMANDS* :=
++	{ show | dump | update | lookup | getnext | delete | pin | help }
++
++MAP COMMANDS
++=============
++
++|	**bpftool** map show   [*MAP*]
++|	**bpftool** map dump    *MAP*
++|	**bpftool** map update  *MAP*  key *BYTES*   value *VALUE* [*UPDATE_FLAGS*]
++|	**bpftool** map lookup  *MAP*  key *BYTES*
++|	**bpftool** map getnext *MAP* [key *BYTES*]
++|	**bpftool** map delete  *MAP*  key *BYTES*
++|	**bpftool** map pin     *MAP*  *FILE*
++|	**bpftool** map help
++|
++|	*MAP* := { id MAP_ID | pinned FILE }
++|	*VALUE* := { BYTES | MAP | PROGRAM }
++|	*UPDATE_FLAGS* := { any | exist | noexist }
++
++DESCRIPTION
++===========
++	**bpftool map show**   [*MAP*]
++		  Show information about loaded maps.  If *MAP* is specified
++		  show information only about given map, otherwise list all
++		  maps currently loaded on the system.
++
++		  Output will start with map ID followed by map type and
++		  zero or more named attributes (depending on kernel version).
++
++	**bpftool map dump**    *MAP*
++		  Dump all entries in a given *MAP*.
++
++	**bpftool map update**  *MAP*  **key** *BYTES*   **value** *VALUE* [*UPDATE_FLAGS*]
++		  Update map entry for a given *KEY*.
++
++		  *UPDATE_FLAGS* can be one of: **any** update existing entry
++		  or add if doesn't exit; **exist** update only if entry already
++		  exists; **noexist** update only if entry doesn't exist.
++
++	**bpftool map lookup**  *MAP*  **key** *BYTES*
++		  Lookup **key** in the map.
++
++	**bpftool map getnext** *MAP* [**key** *BYTES*]
++		  Get next key.  If *key* is not specified, get first key.
++
++	**bpftool map delete**  *MAP*  **key** *BYTES*
++		  Remove entry from the map.
++
++	**bpftool map pin**     *MAP*  *FILE*
++		  Pin map *MAP* as *FILE*.
++
++		  Note: *FILE* must be located in *bpffs* mount.
++
++	**bpftool map help**
++		  Print short help message.
++
++EXAMPLES
++========
++**# bpftool map show**
++::
++
++  10: hash  name some_map  flags 0x0
++	key 4B  value 8B  max_entries 2048  memlock 167936B
++
++**# bpftool map update id 10 key 13 00 07 00 value 02 00 00 00 01 02 03 04**
++
++**# bpftool map lookup id 10 key 0 1 2 3**
++
++::
++
++  key: 00 01 02 03 value: 00 01 02 03 04 05 06 07
++
++
++**# bpftool map dump id 10**
++::
++
++  key: 00 01 02 03  value: 00 01 02 03 04 05 06 07
++  key: 0d 00 07 00  value: 02 00 00 00 01 02 03 04
++  Found 2 elements
++
++**# bpftool map getnext id 10 key 0 1 2 3**
++::
++
++  key:
++  00 01 02 03
++  next key:
++  0d 00 07 00
++
++|  
++| **# mount -t bpf none /sys/fs/bpf/**
++| **# bpftool map pin id 10 /sys/fs/bpf/map**
++| **# bpftool map del pinned /sys/fs/bpf/map key 13 00 07 00**
++
++SEE ALSO
++========
++	**bpftool**\ (8), **bpftool-prog**\ (8)
+diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.rst b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
+new file mode 100644
+index 000000000000..79791bf11e4d
+--- /dev/null
++++ b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
+@@ -0,0 +1,79 @@
++================
++bpftool-prog
++================
++-------------------------------------------------------------------------------
++tool for inspection and simple manipulation of eBPF progs
++-------------------------------------------------------------------------------
++
++:Manual section: 8
++
++SYNOPSIS
++========
++
++|	**bpftool** prog show [*PROG*]
++|	**bpftool** prog dump xlated *PROG*  file *FILE*
++|	**bpftool** prog dump jited  *PROG* [file *FILE*] [opcodes]
++|	**bpftool** prog pin *PROG* *FILE*
++|	**bpftool** prog help
++|
++|	*PROG* := { id *PROG_ID* | pinned *FILE* | tag *PROG_TAG* }
++
++DESCRIPTION
++===========
++	**bpftool prog show** [*PROG*]
++		  Show information about loaded programs.  If *PROG* is
++		  specified show information only about given program, otherwise
++		  list all programs currently loaded on the system.
++
++		  Output will start with program ID followed by program type and
++		  zero or more named attributes (depending on kernel version).
++
++	**bpftool prog dump xlated** *PROG*  **file** *FILE*
++		  Dump eBPF instructions of the program from the kernel to a
++		  file.
++
++	**bpftool prog dump jited**  *PROG* [**file** *FILE*] [**opcodes**]
++		  Dump jited image (host machine code) of the program.
++		  If *FILE* is specified image will be written to a file,
++		  otherwise it will be disassembled and printed to stdout.
++
++		  **opcodes** controls if raw opcodes will be printed.
++
++	**bpftool prog pin** *PROG* *FILE*
++		  Pin program *PROG* as *FILE*.
++
++		  Note: *FILE* must be located in *bpffs* mount.
++
++	**bpftool prog help**
++		  Print short help message.
++
++EXAMPLES
++========
++**# bpftool prog show**
++::
++
++  10: xdp  name some_prog  tag 00:5a:3d:21:23:62:0c:8b
++	loaded_at Sep 29/20:11  uid 0
++	xlated 528B  jited 370B  memlock 4096B  map_ids 10
++
++| 
++| **# bpftool prog dump xlated id 10 file /tmp/t**
++| **# ls -l /tmp/t**
++|   -rw------- 1 root root 560 Jul 22 01:42 /tmp/t
++
++| 
++| **# bpftool prog dum jited pinned /sys/fs/bpf/prog**
++
++::
++
++    push   %rbp
++    mov    %rsp,%rbp
++    sub    $0x228,%rsp
++    sub    $0x28,%rbp
++    mov    %rbx,0x0(%rbp)
++
++
++
++SEE ALSO
++========
++	**bpftool**\ (8), **bpftool-map**\ (8)
+diff --git a/tools/bpf/bpftool/Documentation/bpftool.rst b/tools/bpf/bpftool/Documentation/bpftool.rst
+new file mode 100644
+index 000000000000..f1df1893fb54
+--- /dev/null
++++ b/tools/bpf/bpftool/Documentation/bpftool.rst
+@@ -0,0 +1,34 @@
++================
++BPFTOOL
++================
++-------------------------------------------------------------------------------
++tool for inspection and simple manipulation of eBPF programs and maps
++-------------------------------------------------------------------------------
++
++:Manual section: 8
++
++SYNOPSIS
++========
++
++	**bpftool** *OBJECT* { *COMMAND* | help }
++
++	**bpftool** batch file *FILE*
++
++	*OBJECT* := { **map** | **program** }
++
++	*MAP-COMMANDS* :=
++	{ show | dump | update | lookup | getnext | delete | pin | help }
++
++	*PROG-COMMANDS* := { show | dump jited | dump xlated | pin | help }
++
++DESCRIPTION
++===========
++	*bpftool* allows for inspection and simple modification of BPF objects
++	on the system.
++
++	Note that format of the output of all tools is not guaranteed to be
++	stable and should not be depended upon.
++
++SEE ALSO
++========
++	**bpftool-map**\ (8), **bpftool-prog**\ (8)
+diff --git a/tools/bpf/bpftool/Makefile b/tools/bpf/bpftool/Makefile
+index a7151f47fb40..8705ee44664d 100644
+--- a/tools/bpf/bpftool/Makefile
++++ b/tools/bpf/bpftool/Makefile
+@@ -74,6 +74,12 @@ clean: $(LIBBPF)-clean
+ install:
+ 	install $(OUTPUT)bpftool $(prefix)/sbin/bpftool
  
- BROADCOM B44 10/100 ETHERNET DRIVER
-@@ -9416,7 +9416,6 @@ F:	include/uapi/linux/in.h
- F:	include/uapi/linux/net.h
- F:	include/uapi/linux/netdevice.h
- F:	include/uapi/linux/net_namespace.h
--F:	tools/net/
- F:	tools/testing/selftests/net/
- F:	lib/random32.c
++doc:
++	$(Q)$(MAKE) -C Documentation/
++
++doc-install:
++	$(Q)$(MAKE) -C Documentation/ install
++
+ FORCE:
  
-diff --git a/tools/Makefile b/tools/Makefile
-index 9dfede37c8ff..df6fcb293fbc 100644
---- a/tools/Makefile
-+++ b/tools/Makefile
-@@ -19,7 +19,7 @@ include scripts/Makefile.include
- 	@echo '  kvm_stat               - top-like utility for displaying kvm statistics'
- 	@echo '  leds                   - LEDs  tools'
- 	@echo '  liblockdep             - user-space wrapper for kernel locking-validator'
--	@echo '  net                    - misc networking tools'
-+	@echo '  bpf                    - misc BPF tools'
- 	@echo '  perf                   - Linux performance measurement and analysis tool'
- 	@echo '  selftests              - various kernel selftests'
- 	@echo '  spi                    - spi tools'
-@@ -57,7 +57,7 @@ acpi: FORCE
- cpupower: FORCE
- 	$(call descend,power/$@)
- 
--cgroup firewire hv guest spi usb virtio vm net iio gpio objtool leds: FORCE
-+cgroup firewire hv guest spi usb virtio vm bpf iio gpio objtool leds: FORCE
- 	$(call descend,$@)
- 
- liblockdep: FORCE
-@@ -91,7 +91,7 @@ kvm_stat: FORCE
- 
- all: acpi cgroup cpupower gpio hv firewire liblockdep \
- 		perf selftests spi turbostat usb \
--		virtio vm net x86_energy_perf_policy \
-+		virtio vm bpf x86_energy_perf_policy \
- 		tmon freefall iio objtool kvm_stat
- 
- acpi_install:
-@@ -100,7 +100,7 @@ all: acpi cgroup cpupower gpio hv firewire liblockdep \
- cpupower_install:
- 	$(call descend,power/$(@:_install=),install)
- 
--cgroup_install firewire_install gpio_install hv_install iio_install perf_install spi_install usb_install virtio_install vm_install net_install objtool_install:
-+cgroup_install firewire_install gpio_install hv_install iio_install perf_install spi_install usb_install virtio_install vm_install bpf_install objtool_install:
- 	$(call descend,$(@:_install=),install)
- 
- liblockdep_install:
-@@ -124,7 +124,7 @@ all: acpi cgroup cpupower gpio hv firewire liblockdep \
- install: acpi_install cgroup_install cpupower_install gpio_install \
- 		hv_install firewire_install iio_install liblockdep_install \
- 		perf_install selftests_install turbostat_install usb_install \
--		virtio_install vm_install net_install x86_energy_perf_policy_install \
-+		virtio_install vm_install bpf_install x86_energy_perf_policy_install \
- 		tmon_install freefall_install objtool_install kvm_stat_install
- 
- acpi_clean:
-@@ -133,7 +133,7 @@ install: acpi_install cgroup_install cpupower_install gpio_install \
- cpupower_clean:
- 	$(call descend,power/cpupower,clean)
- 
--cgroup_clean hv_clean firewire_clean spi_clean usb_clean virtio_clean vm_clean net_clean iio_clean gpio_clean objtool_clean leds_clean:
-+cgroup_clean hv_clean firewire_clean spi_clean usb_clean virtio_clean vm_clean bpf_clean iio_clean gpio_clean objtool_clean leds_clean:
- 	$(call descend,$(@:_clean=),clean)
- 
- liblockdep_clean:
-@@ -169,7 +169,7 @@ install: acpi_install cgroup_install cpupower_install gpio_install \
- 
- clean: acpi_clean cgroup_clean cpupower_clean hv_clean firewire_clean \
- 		perf_clean selftests_clean turbostat_clean spi_clean usb_clean virtio_clean \
--		vm_clean net_clean iio_clean x86_energy_perf_policy_clean tmon_clean \
-+		vm_clean bpf_clean iio_clean x86_energy_perf_policy_clean tmon_clean \
- 		freefall_clean build_clean libbpf_clean libsubcmd_clean liblockdep_clean \
- 		gpio_clean objtool_clean leds_clean
- 
-diff --git a/tools/net/Makefile b/tools/bpf/Makefile
-similarity index 100%
-rename from tools/net/Makefile
-rename to tools/bpf/Makefile
-diff --git a/tools/net/bpf_asm.c b/tools/bpf/bpf_asm.c
-similarity index 100%
-rename from tools/net/bpf_asm.c
-rename to tools/bpf/bpf_asm.c
-diff --git a/tools/net/bpf_dbg.c b/tools/bpf/bpf_dbg.c
-similarity index 100%
-rename from tools/net/bpf_dbg.c
-rename to tools/bpf/bpf_dbg.c
-diff --git a/tools/net/bpf_exp.l b/tools/bpf/bpf_exp.l
-similarity index 100%
-rename from tools/net/bpf_exp.l
-rename to tools/bpf/bpf_exp.l
-diff --git a/tools/net/bpf_exp.y b/tools/bpf/bpf_exp.y
-similarity index 100%
-rename from tools/net/bpf_exp.y
-rename to tools/bpf/bpf_exp.y
-diff --git a/tools/net/bpf_jit_disasm.c b/tools/bpf/bpf_jit_disasm.c
-similarity index 100%
-rename from tools/net/bpf_jit_disasm.c
-rename to tools/bpf/bpf_jit_disasm.c
+ .PHONY: all clean FORCE
 -- 
 2.14.1
+
