@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/6] net: bridge: Notify on bridge device mrouter state changes
-Date: Thu,  5 Oct 2017 12:36:38 +0200
-Message-ID: <20171005103642.1414-3-jiri@resnulli.us>
+Subject: [patch net-next 5/6] mlxsw: spectrum_switchdev: Add support for router port in SMID entries
+Date: Thu,  5 Oct 2017 12:36:41 +0200
+Message-ID: <20171005103642.1414-6-jiri@resnulli.us>
 References: <20171005103642.1414-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         nogahf@mellanox.com, mlxsw@mellanox.com, ivecera@redhat.com,
@@ -9,106 +9,79 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         stephen@networkplumber.org, nbd@nbd.name, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36824 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751721AbdJEKgv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:36:51 -0400
-Received: by mail-wr0-f193.google.com with SMTP id l10so1121373wre.3
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 03:36:50 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:48408 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751776AbdJEKgx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:36:53 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i124so1226277wmf.3
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 03:36:53 -0700 (PDT)
 In-Reply-To: <20171005103642.1414-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Add the SWITCHDEV_ATTR_ID_BRIDGE_MROUTER switchdev notification type, used
-to indicate whether the bridge is or isn't mrouter. Notify when the bridge
-changes its state, similarly to the already existing bridged port mrouter
-notifications.
+In Spectrum, MDB entries point to MID entries, that indicate which ports a
+packet should be forwarded to. Add the support in creating MID entries that
+forward the packet to the Spectrum router port.
 
-The notification uses the switchdev_attr.u.mrouter boolean flag to indicate
-the current bridge mrouter status. Thus, it only indicates whether the
-bridge is currently used as an mrouter or not, and does not indicate the
-exact mrouter state of the bridge (learning, permanent, etc.).
+This will be later used to handle the bridge mrouter port switchdev
+notifications.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/switchdev.h   |  1 +
- net/bridge/br_multicast.c | 21 ++++++++++++++++++++-
- 2 files changed, 21 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index d767b79..d756fbe 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -51,6 +51,7 @@ enum switchdev_attr_id {
- 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
- 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
- 	SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
-+	SWITCHDEV_ATTR_ID_BRIDGE_MROUTER,
- };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 0f9eac5..092231a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -48,6 +48,7 @@
+ #include <linux/rtnetlink.h>
+ #include <net/switchdev.h>
  
- struct switchdev_attr {
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index b86307b..4d4fcb5 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -859,6 +859,19 @@ static void br_multicast_router_expired(unsigned long data)
- 	spin_unlock(&br->multicast_lock);
++#include "spectrum_router.h"
+ #include "spectrum.h"
+ #include "core.h"
+ #include "reg.h"
+@@ -1241,7 +1242,8 @@ static int mlxsw_sp_port_mdb_op(struct mlxsw_sp *mlxsw_sp, const char *addr,
  }
  
-+static void br_mc_router_state_change(struct net_bridge *p,
-+				      bool is_mc_router)
-+{
-+	struct switchdev_attr attr = {
-+		.orig_dev = p->dev,
-+		.id = SWITCHDEV_ATTR_ID_BRIDGE_MROUTER,
-+		.flags = SWITCHDEV_F_DEFER,
-+		.u.mrouter = is_mc_router,
-+	};
-+
-+	switchdev_port_attr_set(p->dev, &attr);
-+}
-+
- static void br_multicast_local_router_expired(unsigned long data)
+ static int mlxsw_sp_port_smid_full_entry(struct mlxsw_sp *mlxsw_sp, u16 mid_idx,
+-					 long *ports_bitmap)
++					 long *ports_bitmap,
++					 bool set_router_port)
  {
- 	struct net_bridge *br = (struct net_bridge *) data;
-@@ -869,6 +882,7 @@ static void br_multicast_local_router_expired(unsigned long data)
- 	    timer_pending(&br->multicast_router_timer))
- 		goto out;
- 
-+	br_mc_router_state_change(br, false);
- 	br->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
- out:
- 	spin_unlock(&br->multicast_lock);
-@@ -1379,6 +1393,8 @@ static void br_multicast_mark_router(struct net_bridge *br,
- 		    br->multicast_router == MDB_RTR_TYPE_TEMP) {
- 			mod_timer(&br->multicast_router_timer,
- 				  now + br->multicast_querier_interval);
-+			if (br->multicast_router == MDB_RTR_TYPE_TEMP_QUERY)
-+				br_mc_router_state_change(br, true);
- 			br->multicast_router = MDB_RTR_TYPE_TEMP;
- 		}
- 		return;
-@@ -2056,13 +2072,16 @@ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
- 	switch (val) {
- 	case MDB_RTR_TYPE_DISABLED:
- 	case MDB_RTR_TYPE_PERM:
-+		br_mc_router_state_change(br, val == MDB_RTR_TYPE_PERM);
- 		del_timer(&br->multicast_router_timer);
- 		br->multicast_router = val;
- 		err = 0;
- 		break;
- 	case MDB_RTR_TYPE_TEMP_QUERY:
--		if (br->multicast_router != MDB_RTR_TYPE_TEMP)
-+		if (br->multicast_router != MDB_RTR_TYPE_TEMP) {
-+			br_mc_router_state_change(br, false);
- 			br->multicast_router = val;
-+		}
- 		err = 0;
- 		break;
+ 	char *smid_pl;
+ 	int err, i;
+@@ -1256,9 +1258,15 @@ static int mlxsw_sp_port_smid_full_entry(struct mlxsw_sp *mlxsw_sp, u16 mid_idx,
+ 			mlxsw_reg_smid_port_mask_set(smid_pl, i, 1);
  	}
+ 
++	mlxsw_reg_smid_port_mask_set(smid_pl,
++				     mlxsw_sp_router_port(mlxsw_sp), 1);
++
+ 	for_each_set_bit(i, ports_bitmap, mlxsw_core_max_ports(mlxsw_sp->core))
+ 		mlxsw_reg_smid_port_set(smid_pl, i, 1);
+ 
++	mlxsw_reg_smid_port_set(smid_pl, mlxsw_sp_router_port(mlxsw_sp),
++				set_router_port);
++
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(smid), smid_pl);
+ 	kfree(smid_pl);
+ 	return err;
+@@ -1362,7 +1370,8 @@ mlxsw_sp_mc_write_mdb_entry(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_mc_get_mrouters_bitmap(flood_bitmap, bridge_device, mlxsw_sp);
+ 
+ 	mid->mid = mid_idx;
+-	err = mlxsw_sp_port_smid_full_entry(mlxsw_sp, mid_idx, flood_bitmap);
++	err = mlxsw_sp_port_smid_full_entry(mlxsw_sp, mid_idx, flood_bitmap,
++					    false);
+ 	kfree(flood_bitmap);
+ 	if (err)
+ 		return false;
 -- 
 2.9.5
