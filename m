@@ -1,54 +1,54 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net] netfilter: x_tables: avoid stack-out-of-bounds read
- in xt_copy_counters_from_user
-Date: Thu, 5 Oct 2017 11:56:44 +0200
-Message-ID: <20171005095644.GB27522@breakpoint.cc>
-References: <1507197007.14419.15.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Lin Zhang <xiaolou4617@gmail.com>
+Subject: [PATCH] net: ipv6: remove unused code in ipv6_find_hdr()
+Date: Fri,  6 Oct 2017 02:07:08 +0800
+Message-ID: <1507226828-51366-1-git-send-email-xiaolou4617@gmail.com>
+Cc: netdev@vger.kernel.org, Lin Zhang <xiaolou4617@gmail.com>
+To: kuznet@ms2.inr.ac.ru, davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58522 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751400AbdJEJ4y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 05:56:54 -0400
-Content-Disposition: inline
-In-Reply-To: <1507197007.14419.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35098 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751415AbdJEKHm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 06:07:42 -0400
+Received: by mail-pg0-f68.google.com with SMTP id p5so13066604pgn.2
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 03:07:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> syzkaller reports an out of bound read in strlcpy(), triggered
-> by xt_copy_counters_from_user()
-> 
-> Fix this by using memcpy(), then forcing a zero byte at the last position
-> of the destination, as Florian did for the non COMPAT code.
-> 
-> Fixes: d7591f0c41ce ("netfilter: x_tables: introduce and use xt_copy_counters_from_user")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-> ---
->  net/netfilter/x_tables.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> index c83a3b5e1c6c2a91b713b6681a794bd79ab3fa08..d8571f4142080a3c121fc90f0b52d81ee9df6712 100644
-> --- a/net/netfilter/x_tables.c
-> +++ b/net/netfilter/x_tables.c
-> @@ -892,7 +892,7 @@ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
->  		if (copy_from_user(&compat_tmp, user, sizeof(compat_tmp)) != 0)
->  			return ERR_PTR(-EFAULT);
->  
-> -		strlcpy(info->name, compat_tmp.name, sizeof(info->name));
-> +		memcpy(info->name, compat_tmp.name, sizeof(info->name) - 1);
+Storing the left length of skb into 'len' actually has no effect 
+so we can remove it.
 
-Argh, right, compat_tmp.name might not be 0 terminated :-/
+Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
+---
+ net/ipv6/exthdrs_core.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Acked-by: Florian Westphal <fw@strlen.de>
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index 305e2ed..98096ea 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -187,7 +187,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ {
+ 	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
+ 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
+-	unsigned int len;
+ 	bool found;
+ 
+ 	if (fragoff)
+@@ -204,7 +203,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ 		start = *offset + sizeof(struct ipv6hdr);
+ 		nexthdr = ip6->nexthdr;
+ 	}
+-	len = skb->len - start;
+ 
+ 	do {
+ 		struct ipv6_opt_hdr _hdr, *hp;
+@@ -273,7 +271,6 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+ 
+ 		if (!found) {
+ 			nexthdr = hp->nexthdr;
+-			len -= hdrlen;
+ 			start += hdrlen;
+ 		}
+ 	} while (!found);
+-- 
+1.8.3.1
