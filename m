@@ -1,145 +1,105 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCHv2 net-next] openvswitch: Add erspan tunnel support.
-Date: Wed,  4 Oct 2017 17:03:12 -0700
-Message-ID: <1507161792-18340-1-git-send-email-u9012063@gmail.com>
-Cc: Pravin B Shelar <pshelar@ovn.org>
-To: netdev@vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 09/13] timer: Remove users of expire and data arguments to
+ DEFINE_TIMER
+Date: Wed, 4 Oct 2017 17:12:21 -0700
+Message-ID: <8219ece3-429a-1a25-1fd5-5ee5bacde53c@roeck-us.net>
+References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
+ <1507159627-127660-10-git-send-email-keescook@chromium.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+        Wim Van Sebroeck <wim@iguana.be>,
+        Geert Uytterhoeven <geert@linux-m68k.org>,
+        linux-mips@linux-mips.org, linux-watchdog@vger.kernel.org,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Chris Metcalf <cmetcalf@mellanox.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Harish Patil <harish.patil@cavium.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>,
+        Kalle Valo <kvalo@qca.qualcomm.com>,
+        Lai Jiangshan <jiangshanlai@gmail.com>,
+        Len Brown <len.brown@intel.com>,
+        Manish Chopra <manish.chopra@cavium.com>,
+        M
+To: Kees Cook <keescook@chromium.org>,
+        Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:37933 "EHLO
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36430 "EHLO
         mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750951AbdJEADY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:03:24 -0400
-Received: by mail-pg0-f68.google.com with SMTP id y192so14492044pgd.5
-        for <netdev@vger.kernel.org>; Wed, 04 Oct 2017 17:03:24 -0700 (PDT)
+        with ESMTP id S1750951AbdJEAM1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Oct 2017 20:12:27 -0400
+In-Reply-To: <1507159627-127660-10-git-send-email-keescook@chromium.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add erspan netlink interface for OVS.
+On 10/04/2017 04:27 PM, Kees Cook wrote:
+> The expire and data arguments of DEFINE_TIMER are only used in two places
+> and are ignored by the code (malta-display.c only uses mod_timer(),
+> never add_timer(), so the preset expires value is ignored). Set both
+> sets of arguments to zero.
+> 
+> Cc: Ralf Baechle <ralf@linux-mips.org>
+> Cc: Wim Van Sebroeck <wim@iguana.be>
+> Cc: Guenter Roeck <linux@roeck-us.net>
+> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+> Cc: linux-mips@linux-mips.org
+> Cc: linux-watchdog@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-Signed-off-by: William Tu <u9012063@gmail.com>
-Cc: Pravin B Shelar <pshelar@ovn.org>
----
-v1->v2: remove unnecessary compat code.
----
- include/uapi/linux/openvswitch.h |  1 +
- net/openvswitch/flow_netlink.c   | 51 +++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 51 insertions(+), 1 deletion(-)
+For watchdog:
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 156ee4cab82e..efdbfbfd3ee2 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -359,6 +359,7 @@ enum ovs_tunnel_key_attr {
- 	OVS_TUNNEL_KEY_ATTR_IPV6_SRC,		/* struct in6_addr src IPv6 address. */
- 	OVS_TUNNEL_KEY_ATTR_IPV6_DST,		/* struct in6_addr dst IPv6 address. */
- 	OVS_TUNNEL_KEY_ATTR_PAD,
-+	OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS,	/* be32 ERSPAN index. */
- 	__OVS_TUNNEL_KEY_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index e8eb427ce6d1..fc0ca9a89b8e 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -48,6 +48,7 @@
- #include <net/ndisc.h>
- #include <net/mpls.h>
- #include <net/vxlan.h>
-+#include <net/erspan.h>
- 
- #include "flow_netlink.h"
- 
-@@ -319,7 +320,8 @@ size_t ovs_tun_key_attr_size(void)
- 		 * OVS_TUNNEL_KEY_ATTR_GENEVE_OPTS and covered by it.
- 		 */
- 		+ nla_total_size(2)    /* OVS_TUNNEL_KEY_ATTR_TP_SRC */
--		+ nla_total_size(2);   /* OVS_TUNNEL_KEY_ATTR_TP_DST */
-+		+ nla_total_size(2)    /* OVS_TUNNEL_KEY_ATTR_TP_DST */
-+		+ nla_total_size(4);   /* OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS */
- }
- 
- size_t ovs_key_attr_size(void)
-@@ -371,6 +373,7 @@ static const struct ovs_len_tbl ovs_tunnel_key_lens[OVS_TUNNEL_KEY_ATTR_MAX + 1]
- 						.next = ovs_vxlan_ext_key_lens },
- 	[OVS_TUNNEL_KEY_ATTR_IPV6_SRC]      = { .len = sizeof(struct in6_addr) },
- 	[OVS_TUNNEL_KEY_ATTR_IPV6_DST]      = { .len = sizeof(struct in6_addr) },
-+	[OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS]   = { .len = sizeof(u32) },
- };
- 
- /* The size of the argument for each %OVS_KEY_ATTR_* Netlink attribute.  */
-@@ -593,6 +596,33 @@ static int vxlan_tun_opt_from_nlattr(const struct nlattr *attr,
- 	return 0;
- }
- 
-+static int erspan_tun_opt_from_nlattr(const struct nlattr *attr,
-+				      struct sw_flow_match *match, bool is_mask,
-+				      bool log)
-+{
-+	unsigned long opt_key_offset;
-+	struct erspan_metadata opts;
-+
-+	BUILD_BUG_ON(sizeof(opts) > sizeof(match->key->tun_opts));
-+
-+	memset(&opts, 0, sizeof(opts));
-+	opts.index = nla_get_be32(attr);
-+
-+	/* Index has only 20-bit */
-+	if (ntohl(opts.index) & ~INDEX_MASK) {
-+		OVS_NLERR(log, "ERSPAN index number %x too large.",
-+			  ntohl(opts.index));
-+		return -EINVAL;
-+	}
-+
-+	SW_FLOW_KEY_PUT(match, tun_opts_len, sizeof(opts), is_mask);
-+	opt_key_offset = TUN_METADATA_OFFSET(sizeof(opts));
-+	SW_FLOW_KEY_MEMCPY_OFFSET(match, opt_key_offset, &opts, sizeof(opts),
-+				  is_mask);
-+
-+	return 0;
-+}
-+
- static int ip_tun_from_nlattr(const struct nlattr *attr,
- 			      struct sw_flow_match *match, bool is_mask,
- 			      bool log)
-@@ -700,6 +730,19 @@ static int ip_tun_from_nlattr(const struct nlattr *attr,
- 			break;
- 		case OVS_TUNNEL_KEY_ATTR_PAD:
- 			break;
-+		case OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS:
-+			if (opts_type) {
-+				OVS_NLERR(log, "Multiple metadata blocks provided");
-+				return -EINVAL;
-+			}
-+
-+			err = erspan_tun_opt_from_nlattr(a, match, is_mask, log);
-+			if (err)
-+				return err;
-+
-+			tun_flags |= TUNNEL_ERSPAN_OPT;
-+			opts_type = type;
-+			break;
- 		default:
- 			OVS_NLERR(log, "Unknown IP tunnel attribute %d",
- 				  type);
-@@ -824,6 +867,10 @@ static int __ip_tun_to_nlattr(struct sk_buff *skb,
- 		else if (output->tun_flags & TUNNEL_VXLAN_OPT &&
- 			 vxlan_opt_to_nlattr(skb, tun_opts, swkey_tun_opts_len))
- 			return -EMSGSIZE;
-+		else if (output->tun_flags & TUNNEL_ERSPAN_OPT &&
-+			 nla_put_be32(skb, OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS,
-+				      ((struct erspan_metadata *)tun_opts)->index))
-+			return -EMSGSIZE;
- 	}
- 
- 	return 0;
-@@ -2195,6 +2242,8 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
- 			break;
- 		case OVS_TUNNEL_KEY_ATTR_VXLAN_OPTS:
- 			break;
-+		case OVS_TUNNEL_KEY_ATTR_ERSPAN_OPTS:
-+			break;
- 		}
- 	};
- 
--- 
-2.7.4
+Acked-by: Guenter Roeck <linux@roeck-us.net>
+
+> ---
+>   arch/mips/mti-malta/malta-display.c | 6 +++---
+>   drivers/watchdog/alim7101_wdt.c     | 4 ++--
+>   2 files changed, 5 insertions(+), 5 deletions(-)
+> 
+> diff --git a/arch/mips/mti-malta/malta-display.c b/arch/mips/mti-malta/malta-display.c
+> index d4f807191ecd..ac813158b9b8 100644
+> --- a/arch/mips/mti-malta/malta-display.c
+> +++ b/arch/mips/mti-malta/malta-display.c
+> @@ -36,10 +36,10 @@ void mips_display_message(const char *str)
+>   	}
+>   }
+>   
+> -static void scroll_display_message(unsigned long data);
+> -static DEFINE_TIMER(mips_scroll_timer, scroll_display_message, HZ, 0);
+> +static void scroll_display_message(unsigned long unused);
+> +static DEFINE_TIMER(mips_scroll_timer, scroll_display_message, 0, 0);
+>   
+> -static void scroll_display_message(unsigned long data)
+> +static void scroll_display_message(unsigned long unused)
+>   {
+>   	mips_display_message(&display_string[display_count++]);
+>   	if (display_count == max_display_count)
+> diff --git a/drivers/watchdog/alim7101_wdt.c b/drivers/watchdog/alim7101_wdt.c
+> index 665e0e7dfe1e..3c1f6ac68ea9 100644
+> --- a/drivers/watchdog/alim7101_wdt.c
+> +++ b/drivers/watchdog/alim7101_wdt.c
+> @@ -71,7 +71,7 @@ MODULE_PARM_DESC(use_gpio,
+>   		"Use the gpio watchdog (required by old cobalt boards).");
+>   
+>   static void wdt_timer_ping(unsigned long);
+> -static DEFINE_TIMER(timer, wdt_timer_ping, 0, 1);
+> +static DEFINE_TIMER(timer, wdt_timer_ping, 0, 0);
+>   static unsigned long next_heartbeat;
+>   static unsigned long wdt_is_open;
+>   static char wdt_expect_close;
+> @@ -87,7 +87,7 @@ MODULE_PARM_DESC(nowayout,
+>    *	Whack the dog
+>    */
+>   
+> -static void wdt_timer_ping(unsigned long data)
+> +static void wdt_timer_ping(unsigned long unused)
+>   {
+>   	/* If we got a heartbeat pulse within the WDT_US_INTERVAL
+>   	 * we agree to ping the WDT
+> 
