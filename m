@@ -1,39 +1,48 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] selftests/net: rxtimestamp: Fix an off by one
-Date: Thu, 5 Oct 2017 15:53:47 +0300
-Message-ID: <20171005125347.otplfss4mo7hfopv@mwanda>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: [PATCH 3/3] xen/9pfs: don't inclide rwlock.h directly.
+Date: Thu,  5 Oct 2017 14:56:55 +0200
+Message-ID: <20171005125655.12373-3-bigeasy@linutronix.de>
+References: <20171005125655.12373-1-bigeasy@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemb@google.com>,
+Content-Transfer-Encoding: quoted-printable
+Cc: tglx@linutronix.de,
+        Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        Latchesar Ionkov <lucho@ionkov.net>,
         "David S. Miller" <davem@davemloft.net>,
-        linux-kselftest@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Shuah Khan <shuah@kernel.org>, Mike Maloney <maloney@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:33669 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751280AbdJEMyC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 08:54:02 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171005125655.12373-1-bigeasy@linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The > should be >= so that we don't write one element beyond the end of
-the array.
+rwlock.h should not be included directly. Instead linux/splinlock.h
+should be included. One thing it does is to break the RT build.
 
-Fixes: 16e781224198 ("selftests/net: Add a test to validate behavior of rx timestamps")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: Eric Van Hensbergen <ericvh@gmail.com>
+Cc: Ron Minnich <rminnich@sandia.gov>
+Cc: Latchesar Ionkov <lucho@ionkov.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: v9fs-developer@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ net/9p/trans_xen.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/tools/testing/selftests/networking/timestamping/rxtimestamp.c b/tools/testing/selftests/networking/timestamping/rxtimestamp.c
-index 00f286661dcd..dd4162fc0419 100644
---- a/tools/testing/selftests/networking/timestamping/rxtimestamp.c
-+++ b/tools/testing/selftests/networking/timestamping/rxtimestamp.c
-@@ -341,7 +341,7 @@ int main(int argc, char **argv)
- 			return 0;
- 		case 'n':
- 			t = atoi(optarg);
--			if (t > ARRAY_SIZE(test_cases))
-+			if (t >= ARRAY_SIZE(test_cases))
- 				error(1, 0, "Invalid test case: %d", t);
- 			all_tests = false;
- 			test_cases[t].enabled = true;
+diff --git a/net/9p/trans_xen.c b/net/9p/trans_xen.c
+index 6ad3e043c617..02c6c467a99c 100644
+--- a/net/9p/trans_xen.c
++++ b/net/9p/trans_xen.c
+@@ -38,7 +38,6 @@
+=20
+ #include <linux/module.h>
+ #include <linux/spinlock.h>
+-#include <linux/rwlock.h>
+ #include <net/9p/9p.h>
+ #include <net/9p/client.h>
+ #include <net/9p/transport.h>
+--=20
+2.14.2
