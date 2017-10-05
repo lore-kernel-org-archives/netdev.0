@@ -1,70 +1,75 @@
-From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH] net/mlx4_core: Convert timers to use timer_setup()
-Date: Wed, 4 Oct 2017 17:51:54 -0700
-Message-ID: <20171005005154.GA23500@beast>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] net: dl2k: Convert timers to use timer_setup()
+Date: Wed, 4 Oct 2017 17:51:50 -0700
+Message-ID: <20171005005150.GA23486@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jarod Wilson <jarod@redhat.com>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: Philippe Reynes <tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
 This requires commit 686fef928bba ("timer: Prepare to change timer
 callback argument type") in v4.14-rc3, but should be otherwise
 stand-alone.
 ---
- drivers/net/ethernet/mellanox/mlx4/catas.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/dlink/dl2k.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
-index 53daa6ca5d83..e2b6b0cac1ac 100644
---- a/drivers/net/ethernet/mellanox/mlx4/catas.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
-@@ -231,10 +231,10 @@ static void dump_err_buf(struct mlx4_dev *dev)
- 			 i, swab32(readl(priv->catas_err.map + i)));
- }
+diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+index 778f974e2928..a2f6758d38dd 100644
+--- a/drivers/net/ethernet/dlink/dl2k.c
++++ b/drivers/net/ethernet/dlink/dl2k.c
+@@ -68,7 +68,7 @@ static const int max_intrloop = 50;
+ static const int multicast_filter_limit = 0x40;
  
--static void poll_catas(unsigned long dev_ptr)
-+static void poll_catas(struct timer_list *t)
- {
--	struct mlx4_dev *dev = (struct mlx4_dev *) dev_ptr;
--	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_priv *priv = from_timer(priv, t, catas_err.timer);
-+	struct mlx4_dev *dev = &priv->dev;
- 	u32 slave_read;
- 
- 	if (mlx4_is_slave(dev)) {
-@@ -277,7 +277,7 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
- 	phys_addr_t addr;
- 
- 	INIT_LIST_HEAD(&priv->catas_err.list);
--	init_timer(&priv->catas_err.timer);
-+	timer_setup(&priv->catas_err.timer, poll_catas, 0);
- 	priv->catas_err.map = NULL;
- 
- 	if (!mlx4_is_slave(dev)) {
-@@ -293,8 +293,6 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
- 		}
+ static int rio_open (struct net_device *dev);
+-static void rio_timer (unsigned long data);
++static void rio_timer (struct timer_list *t);
+ static void rio_tx_timeout (struct net_device *dev);
+ static netdev_tx_t start_xmit (struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t rio_interrupt (int irq, void *dev_instance);
+@@ -644,7 +644,7 @@ static int rio_open(struct net_device *dev)
+ 		return i;
  	}
  
--	priv->catas_err.timer.data     = (unsigned long) dev;
--	priv->catas_err.timer.function = poll_catas;
- 	priv->catas_err.timer.expires  =
- 		round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL);
- 	add_timer(&priv->catas_err.timer);
+-	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
++	timer_setup(&np->timer, rio_timer, 0);
+ 	np->timer.expires = jiffies + 1 * HZ;
+ 	add_timer(&np->timer);
+ 
+@@ -655,10 +655,10 @@ static int rio_open(struct net_device *dev)
+ }
+ 
+ static void
+-rio_timer (unsigned long data)
++rio_timer (struct timer_list *t)
+ {
+-	struct net_device *dev = (struct net_device *)data;
+-	struct netdev_private *np = netdev_priv(dev);
++	struct netdev_private *np = from_timer(np, t, timer);
++	struct net_device *dev = pci_get_drvdata(np->pdev);
+ 	unsigned int entry;
+ 	int next_tick = 1*HZ;
+ 	unsigned long flags;
 -- 
 2.7.4
 
@@ -72,7 +77,3 @@ index 53daa6ca5d83..e2b6b0cac1ac 100644
 -- 
 Kees Cook
 Pixel Security
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
