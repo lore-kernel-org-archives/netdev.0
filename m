@@ -1,104 +1,106 @@
-From: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Thu, 5 Oct 2017 05:19:13 +0000
-Message-ID: <1507180753.20182.8.camel@cohaesio.com>
-References: <1507121766.30720.4.camel@cohaesio.com>
-         <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: ethernet: stmmac: Convert timers to use
+Date: Thu, 5 Oct 2017 07:21:25 +0200
+Message-ID: <436427d6-242f-073f-ddc6-a9c07c95414c@st.com>
+References: <20171005005057.GA23332@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
-To: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bender.cohaesio.com ([212.97.128.130]:39974 "EHLO
-        mail.cohaesio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750851AbdJEFTP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 01:19:15 -0400
-In-Reply-To: <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <28E24AA3FB41A14EACDF2DEAA58CB034@surftown.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>, Thomas Gleixner <tglx@linutronix.de>
+To: Kees Cook <keescook@chromium.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171005005057.GA23332@beast>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gb25zLCAyMDE3LTEwLTA0IGF0IDA4OjMyIC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
-DQo+IE9uIFdlZCwgT2N0IDQsIDIwMTcgYXQgNTo1NiBBTSwgQW5kZXJzIEsuIFBlZGVyc2VuIHwg
-Q29oYWVzaW8NCj4gPGFrcEBjb2hhZXNpby5jb20+IHdyb3RlOg0KPiA+IEhlbGxvLA0KPiA+IA0K
-PiA+IEFmdGVyIHVwZGF0aW5nIG9uZSBvZiBvdXIgTGludXggYmFzZWQgcm91dGVycyB0byBrZXJu
-ZWwgNC4xMyBpdA0KPiA+IGJlZ2FuDQo+ID4gbGVha2luZyBtZW1vcnkgcXVpdGUgZmFzdCAoYWJv
-dXQgMSBHQiBldmVyeSBoYWxmIGhvdXIpLiBUbyBuYXJyb3cNCj4gPiB3ZQ0KPiA+IHRyaWVkIHZh
-cmlvdXMga2VybmVsIHZlcnNpb25zIGFuZCBmb3VuZCB0aGF0IDQuMTEuMTIgaXMgb2theSwgd2hp
-bGUNCj4gPiA0LjEyIGFsc28gbGVha3MsIHNvIHdlIGRpZCBhIGJpc2VjdGlvbiBiZXR3ZWVuIDQu
-MTEgYW5kIDQuMTIuDQo+ID4gDQo+ID4gVGhlIGZpcnN0IGJpc2VjdGlvbiBlbmRlZCBhdA0KPiA+
-ICJbNjk2NGU1M2Y1NTgzN2IwYzQ5ZWQ2MGQzNjY1NmQyZTBlZTRmYzI3Yl0gaTQwZTogZml4IGhh
-bmRsaW5nIG9mDQo+ID4gSFcNCj4gPiBBVFIgZXZpY3Rpb24iLCB3aGljaCBmaXhlcyBzb21lIGZs
-YWcgaGFuZGxpbmcgdGhhdCB3YXMgYnJva2VuIGJ5DQo+ID4gNDc5OTRjMTE5YTM2ICJpNDBlOiBy
-ZW1vdmUgaHdfZGlzYWJsZWRfZmxhZ3MgaW4gZmF2b3Igb2YgdXNpbmcNCj4gPiBzZXBhcmF0ZQ0K
-PiA+IGZsYWcgYml0cyIsIHNvIEkgZGlkIGEgc2Vjb25kIGJpc2VjdGlvbiwgd2hlcmUgSSBhZGRl
-ZCA2OTY0ZTUzZjU1ODMNCj4gPiAiaTQwZTogZml4IGhhbmRsaW5nIG9mIEhXIEFUUiBldmljdGlv
-biIgdG8gdGhlIHN0ZXBzIHRoYXQgaGFkDQo+ID4gNDc5OTRjMTE5YTM2ICJpNDBlOiByZW1vdmUg
-aHdfZGlzYWJsZWRfZmxhZ3MgaW4gZmF2b3Igb2YgdXNpbmcNCj4gPiBzZXBhcmF0ZQ0KPiA+IGZs
-YWcgYml0cyIgaW4gdGhlbS4NCj4gPiANCj4gPiBUaGUgc2Vjb25kIGJpc2VjdGlvbiBlbmRlZCBh
-dA0KPiA+ICJbMGU2MjZmZjdjY2JmYzQzYzZjYzRhZWVhNjExYzQwYjg5OTY4MjM4Ml0gaTQwZTog
-Rml4IHN1cHBvcnQgZm9yDQo+ID4gZmxvdw0KPiA+IGRpcmVjdG9yIHByb2dyYW1taW5nIHN0YXR1
-cyIsIHdoZXJlIEkgZG9uJ3Qgc2VlIGFueSBvYnZpb3VzDQo+ID4gcHJvYmxlbXMsDQo+ID4gc28g
-SSdtIGhvcGluZyBmb3Igc29tZSBhc3Npc3RhbmNlLg0KPiA+IA0KPiA+IFRoZSByb3V0ZXIgaXMg
-YSBQb3dlckVkZ2UgUjczMCBzZXJ2ZXIgKEhhc3dlbGwgYmFzZWQpIHdpdGggdGhyZWUNCj4gPiBJ
-bnRlbA0KPiA+IE5JQ3MgKGFsbCB1c2luZyB0aGUgaTQwZSBkcml2ZXIpOg0KPiA+IA0KPiA+IFg3
-MTAgcXVhZCBwb3J0IDEwIEdiRSBTRlArOiBldGgwIGV0aDEgZXRoMiBldGgzDQo+ID4gWDcxMCBx
-dWFkIHBvcnQgMTAgR2JFIFNGUCs6IGV0aDQgZXRoNSBldGg2IGV0aDcNCj4gPiBYTDcxMCBkdWFs
-IHBvcnQgNDAgR2JFIFFTRlArOiBldGg4IGV0aDkNCj4gPiANCj4gPiBUaGUgTklDcyBhcmUgYWdn
-cmVnYXRlZCB3aXRoIExBQ1Agd2l0aCB0aGUgdGVhbSBkcml2ZXI6DQo+ID4gDQo+ID4gdGVhbTA6
-IGV0aDkgKDQwIEdiRSBzZWxlY3RlZCBwcmltYXJ5KSwgYW5kIGV0aDMsIGV0aDcgKDEwIEdiRSBu
-b24tDQo+ID4gc2VsZWN0ZWQgYmFja3VwcykNCj4gPiB0ZWFtMTogZXRoMCwgZXRoMSwgZXRoNCwg
-ZXRoNSAoYWxsIDEwIEdiRSBzZWxlY3RlZCkNCj4gPiANCj4gPiB0ZWFtMCBpcyB1c2VkIGZvciBp
-bnRlcm5hbCBuZXR3b3JrcyBhbmQgaGFzIG9uZSB1bnRhZ2dlZCBhbmQgZm91cg0KPiA+IHRhZ2dl
-ZCBWTEFOIGludGVyZmFjZXMsIHdoaWxlIHRlYW0xIGhhcyBhbiBleHRlcm5hbCB1cGxpbmsNCj4g
-PiBjb25uZWN0aW9uDQo+ID4gd2l0aG91dCBhbnkgVkxBTnMuDQo+ID4gDQo+ID4gVGhlIHJvdXRl
-ciBydW5zIGFuIGVCR1Agc2Vzc2lvbiBvbiB0ZWFtMSB0byBvbmUgb2Ygb3VyIHVwbGlua3MsIGFu
-ZA0KPiA+IGlCR1AgdmlhIHRlYW0wIHRvIG91ciBvdGhlciBib3JkZXIgcm91dGVycy4gSXQgYWxz
-byBydW5zIE9TUEYgb24NCj4gPiB0aGUNCj4gPiBpbnRlcm5hbCBWTEFOcyBvbiB0ZWFtMC4gT25l
-IHRoaW5nIEkndmUgbm90aWNlZCBpcyB0aGF0IHdoZW4gT1NQRg0KPiA+IGlzDQo+ID4gbm90IGFu
-bm91bmNpbmcgYSBkZWZhdWx0IGdhdGV3YXkgdG8gdGhlIGludGVybmFsIG5ldHdvcmtzLCBzbyB0
-aGVyZQ0KPiA+IGlzDQo+ID4gYWxtb3N0IG5vIHRyYWZmaWMgY29taW5nIGluIG9uIHRlYW0wIGFu
-ZCBvdXQgb24gdGVhbTEsIGJ1dCBzdGlsbA0KPiA+IHBsZW50eQ0KPiA+IG9mIHRyYWZmaWMgY29t
-aW5nIGluIG9uIHRlYW0xIGFuZCBvdXQgdmlhIHRlYW0wLCB0aGVyZSdzIG5vIG1lbW9yeQ0KPiA+
-IGxlYWsNCj4gPiAob3IgYXQgbGVhc3QgaXQgaXMgc28gc21hbGwgdGhhdCB3ZSBoYXZlbid0IGRl
-dGVjdGVkIGl0KS4gQnV0IGFzDQo+ID4gc29vbg0KPiA+IGFzIHdlIGNvbmZpZ3VyZSBPU1BGIHRv
-IGFubm91bmNlIGEgZGVmYXVsdCBnYXRld2F5IHRvIHRoZSBpbnRlcm5hbA0KPiA+IFZMQU5zLCBz
-byB3ZSBnZXQgdHJhZmZpYyBmcm9tIHRlYW0wIHRvIHRlYW0xIHRoZSBsZWFraW5nIGJlZ2lucy4N
-Cj4gPiBTdG9wcGluZyB0aGUgT1NQRiBkZWZhdWx0IGdhdGV3YXkgYW5ub3VuY2VtZW50IGFnYWlu
-IGFsc28gc3RvcHMgdGhlDQo+ID4gbGVha2luZywgYnV0IGRvZXMgbm90IHJlbGVhc2UgYWxyZWFk
-eSBsZWFrZWQgbWVtb3J5Lg0KPiA+IA0KPiA+IFNvIHRoaXMgbGVhZHMgdG8gbWUgc3VzcGVjdCB0
-aGF0IHRoZSBsZWFraW5nIGlzIHJlbGF0ZWQgdG8gUlggb24NCj4gPiB0ZWFtMA0KPiA+ICh3aGVy
-ZSBYTDcxMCBldGg5IGlzIG5vcm1hbGx5IHRoZSBvbmx5IGFjdGl2ZSBpbnRlcmZhY2UpIG9yIFRY
-IG9uDQo+ID4gdGVhbTENCj4gPiAoWDcxMCBldGgwLCBldGgxLCBldGg0LCBldGg1KS4gVGhlIGZp
-cnN0IGJhZCBjb21taXQgaXMgcmVsYXRlZCB0bw0KPiA+IFJYDQo+ID4gY2xlYW5pbmcsIHdoaWNo
-IHN1Z2dlc3RzIFJYIG9uIHRlYW0wLiBTaW5jZSB3ZSdyZSBvbmx5IHNlZWluZyB0aGUNCj4gPiBs
-ZWFrDQo+ID4gZm9yIG91ciBvdXRib3VuZCB0cmFmZmljLCBJIHN1c3BlY3QgZWl0aGVyIGEgZGlm
-ZmVyZW5jZSBiZXR3ZWVuIHRoZQ0KPiA+IFg3MTAgdnMuIFhMNzEwIE5JQ3MsIG9yIHRoYXQgdGhl
-IGluYm91bmQgdHJhZmZpYyBpcyBmb3IgcmVsYXRpdmVseQ0KPiA+IGZldw0KPiA+IGRlc3RpbmF0
-aW9uIGFkZHJlc3NlcyAob25seSBvdXIgb3duIHN5c3RlbXMpIHdoaWxlIHRoZSBvdXRib3VuZA0K
-PiA+IHRyYWZmaWMNCj4gPiBpcyBmb3IgbWFueSBkaWZmZXJlbnQgYWRkcmVzc2VzIG9uIHRoZSBp
-bnRlcm5ldC4gQnV0IEknbSBqdXN0DQo+ID4gZ3Vlc3NpbmcNCj4gPiBoZXJlLg0KPiA+IA0KPiA+
-IEkndmUgdHJpZWQga21lbWxlYWssIGJ1dCBpdCBvbmx5IGZvdW5kIGEgZmV3IGtCIG9mIHN1c3Bl
-Y3RlZCBtZW1vcnkNCj4gPiBsZWFrcyAoc2V2ZXJhbCBvZiB3aGljaCBkaXNhcHBlYXJlZCBhZ2Fp
-biBhZnRlciBhIHdoaWxlKS4NCj4gPiANCj4gPiBCZWxvdyBJJ3ZlIGluY2x1ZGVkIG1vcmUgZGV0
-YWlscyAtIGdpdCBiaXNlY3QgbG9ncywgZXRodG9vbCAtaSwNCj4gPiBkbWVzZywNCj4gPiBLZXJu
-ZWwgLmNvbmZpZywgYW5kIHZhcmlvdXMgbWVtb3J5IHJlbGF0ZWQgL3Byb2MgZmlsZXMuIEFueSBo
-ZWxwIG9yDQo+ID4gc3VnZ2VzdGlvbnMgd291bGQgYmUgbXVjaCBhcHByZWNpYXRlZCwgYW5kIHBs
-ZWFzZSBsZXQgbWUga25vdyBpZg0KPiA+IG1vcmUNCj4gPiBpbmZvcm1hdGlvbiBpcyBuZWVkZWQg
-b3IgdGhlcmUncyBzb21ldGhpbmcgSSBzaG91bGQgdHJ5Lg0KPiA+IA0KPiA+IFJlZ2FyZHMsDQo+
-ID4gQW5kZXJzIEsuIFBlZGVyc2VuDQo+ID4gDQo+IA0KPiBIaSBBbmRlcnMsDQo+IA0KPiBJIHRo
-aW5rIEkgc2VlIHRoZSBwcm9ibGVtIGFuZCBzaG91bGQgaGF2ZSBhIHBhdGNoIHN1Ym1pdHRlZCBz
-aG9ydGx5DQo+IHRvDQo+IGFkZHJlc3MgaXQuIEZyb20gd2hhdCBJIGNhbiB0ZWxsIGl0IGxvb2tz
-IGxpa2UgdGhlIGlzc3VlIGlzIHRoYXQgd2UNCj4gd2VyZW4ndCBwcm9wZXJseSByZWN5Y2xpbmcg
-dGhlIHBhZ2VzIGFzc29jaWF0ZWQgd2l0aCBkZXNjcmlwdG9ycyB0aGF0DQo+IGNvbnRhaW5lZCBh
-biBSeCBwcm9ncmFtbWluZyBzdGF0dXMuIEZvciBub3cgdGhlIHdvcmthcm91bmQgd291bGQgYmUN
-Cj4gdG8NCj4gdHJ5IGRpc2FibGluZyBBVFIgdmlhIHRoZSAiZXRodG9vbCAtLXNldC1wcml2LWZs
-YWdzIiBjb21tYW5kLiBJDQo+IHNob3VsZA0KPiBoYXZlIGEgcGF0Y2ggb3V0IGluIHRoZSBuZXh0
-IGhvdXIgb3Igc28gdGhhdCB5b3UgY2FuIHRyeSB0ZXN0aW5nIHRvDQo+IHZlcmlmeSBpZiBpdCBh
-ZGRyZXNzZXMgdGhlIGlzc3VlLg0KPiANCj4gVGhhbmtzLg0KPiANCj4gLSBBbGV4DQoNClRoYW5r
-cyBBbGV4LA0KDQpJIHdpbGwgdGVzdCB0aGUgcGF0Y2ggaW4gb3VyIG5leHQgc2VydmljZSB3aW5k
-b3cgb24gVHVlc2RheSBtb3JuaW5nLg0KDQpSZWdhcmRzLA0KQW5kZXJz
+On 10/5/2017 2:50 AM, Kees Cook wrote:
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
+>
+> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> Cc: Alexandre Torgue <alexandre.torgue@st.com>
+> Cc: netdev@vger.kernel.org
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+Acked-by:  Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+> This requires commit 686fef928bba ("timer: Prepare to change timer
+> callback argument type") in v4.14-rc3, but should be otherwise
+> stand-alone.
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 22 ++++++++++------------
+>   1 file changed, 10 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
+> index 6a9c954492f2..8b50afcdb52d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
+> @@ -118,10 +118,9 @@ int tse_pcs_init(void __iomem *base, struct tse_pcs *pcs)
+>   	return ret;
+>   }
+>   
+> -static void pcs_link_timer_callback(unsigned long data)
+> +static void pcs_link_timer_callback(struct tse_pcs *pcs)
+>   {
+>   	u16 val = 0;
+> -	struct tse_pcs *pcs = (struct tse_pcs *)data;
+>   	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
+>   	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
+>   
+> @@ -138,12 +137,11 @@ static void pcs_link_timer_callback(unsigned long data)
+>   	}
+>   }
+>   
+> -static void auto_nego_timer_callback(unsigned long data)
+> +static void auto_nego_timer_callback(struct tse_pcs *pcs)
+>   {
+>   	u16 val = 0;
+>   	u16 speed = 0;
+>   	u16 duplex = 0;
+> -	struct tse_pcs *pcs = (struct tse_pcs *)data;
+>   	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
+>   	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
+>   
+> @@ -201,14 +199,14 @@ static void auto_nego_timer_callback(unsigned long data)
+>   	}
+>   }
+>   
+> -static void aneg_link_timer_callback(unsigned long data)
+> +static void aneg_link_timer_callback(struct timer_list *t)
+>   {
+> -	struct tse_pcs *pcs = (struct tse_pcs *)data;
+> +	struct tse_pcs *pcs = from_timer(pcs, t, aneg_link_timer);
+>   
+>   	if (pcs->autoneg == AUTONEG_ENABLE)
+> -		auto_nego_timer_callback(data);
+> +		auto_nego_timer_callback(pcs);
+>   	else if (pcs->autoneg == AUTONEG_DISABLE)
+> -		pcs_link_timer_callback(data);
+> +		pcs_link_timer_callback(pcs);
+>   }
+>   
+>   void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+> @@ -237,8 +235,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+>   
+>   		tse_pcs_reset(tse_pcs_base, pcs);
+>   
+> -		setup_timer(&pcs->aneg_link_timer,
+> -			    aneg_link_timer_callback, (unsigned long)pcs);
+> +		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
+> +			    0);
+>   		mod_timer(&pcs->aneg_link_timer, jiffies +
+>   			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
+>   	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
+> @@ -270,8 +268,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+>   
+>   		tse_pcs_reset(tse_pcs_base, pcs);
+>   
+> -		setup_timer(&pcs->aneg_link_timer,
+> -			    aneg_link_timer_callback, (unsigned long)pcs);
+> +		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
+> +			    0);
+>   		mod_timer(&pcs->aneg_link_timer, jiffies +
+>   			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
+>   	}
