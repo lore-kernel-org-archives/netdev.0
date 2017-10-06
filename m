@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 4/7] nfp: add set ethernet header action flower offload
-Date: Fri,  6 Oct 2017 10:21:23 +0200
-Message-ID: <1507278086-3102-5-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 6/7] nfp: add set ipv6 source and destination address
+Date: Fri,  6 Oct 2017 10:21:25 +0200
+Message-ID: <1507278086-3102-7-git-send-email-simon.horman@netronome.com>
 References: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Pieter Jansen van Vuuren
@@ -10,160 +10,160 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:56420 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751495AbdJFIVi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 04:21:38 -0400
-Received: by mail-wm0-f51.google.com with SMTP id l68so6347507wmd.5
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 01:21:37 -0700 (PDT)
+Received: from mail-wr0-f181.google.com ([209.85.128.181]:49486 "EHLO
+        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751620AbdJFIVl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 04:21:41 -0400
+Received: by mail-wr0-f181.google.com with SMTP id p10so10704058wrc.6
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 01:21:40 -0700 (PDT)
 In-Reply-To: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Previously we did not have offloading support for set ethernet actions.
-This patch enables TC flower offload of set ethernet actions.
+Previously we did not have offloading support for set IPv6 actions. This
+patch enables TC flower offload of set IPv6 src and dst address actions.
 
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/flower/action.c | 85 ++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  8 ++
- 2 files changed, 93 insertions(+)
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 72 ++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   | 11 ++++
+ 2 files changed, 83 insertions(+)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/action.c b/drivers/net/ethernet/netronome/nfp/flower/action.c
-index 38f3835ae176..631ea4b7d08e 100644
+index 2f886a529ee4..4394e4f15fdb 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/action.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/action.c
-@@ -36,6 +36,7 @@
- #include <net/switchdev.h>
- #include <net/tc_act/tc_gact.h>
- #include <net/tc_act/tc_mirred.h>
-+#include <net/tc_act/tc_pedit.h>
- #include <net/tc_act/tc_vlan.h>
- #include <net/tc_act/tc_tunnel_key.h>
- 
-@@ -223,6 +224,87 @@ nfp_fl_set_vxlan(struct nfp_fl_set_vxlan *set_vxlan,
+@@ -302,9 +302,55 @@ nfp_fl_set_ip4(const struct tc_action *action, int idx, u32 off,
  	return 0;
  }
  
-+static void nfp_fl_set_helper32(u32 value, u32 mask, u8 *p_exact, u8 *p_mask)
++static void
++nfp_fl_set_ip6_helper(int opcode_tag, int idx, __be32 exact, __be32 mask,
++		      struct nfp_fl_set_ipv6_addr *ip6)
 +{
-+	u32 oldvalue = get_unaligned((u32 *)p_exact);
-+	u32 oldmask = get_unaligned((u32 *)p_mask);
++	u16 tmp_set_op;
 +
-+	value &= mask;
-+	value |= oldvalue & ~mask;
++	ip6->ipv6[idx % 4].mask = mask;
++	ip6->ipv6[idx % 4].exact = exact;
 +
-+	put_unaligned(oldmask | mask, (u32 *)p_mask);
-+	put_unaligned(value, (u32 *)p_exact);
++	ip6->reserved = cpu_to_be16(0);
++	tmp_set_op = FIELD_PREP(NFP_FL_ACT_LEN_LW, sizeof(*ip6) >>
++				NFP_FL_LW_SIZ) |
++		     FIELD_PREP(NFP_FL_ACT_JMP_ID, opcode_tag);
++	ip6->a_op = cpu_to_be16(tmp_set_op);
 +}
 +
 +static int
-+nfp_fl_set_eth(const struct tc_action *action, int idx, u32 off,
-+	       struct nfp_fl_set_eth *set_eth)
++nfp_fl_set_ip6(const struct tc_action *action, int idx, u32 off,
++	       struct nfp_fl_set_ipv6_addr *ip_dst,
++	       struct nfp_fl_set_ipv6_addr *ip_src)
 +{
-+	u16 tmp_set_eth_op;
-+	u32 exact, mask;
++	__be32 exact, mask;
 +
-+	if (off + 4 > ETH_ALEN * 2)
-+		return -EOPNOTSUPP;
-+
-+	mask = ~tcf_pedit_mask(action, idx);
-+	exact = tcf_pedit_val(action, idx);
++	/* We are expecting tcf_pedit to return a big endian value */
++	mask = (__force __be32)~tcf_pedit_mask(action, idx);
++	exact = (__force __be32)tcf_pedit_val(action, idx);
 +
 +	if (exact & ~mask)
 +		return -EOPNOTSUPP;
 +
-+	nfp_fl_set_helper32(exact, mask, &set_eth->eth_addr_val[off],
-+			    &set_eth->eth_addr_mask[off]);
-+
-+	set_eth->reserved = cpu_to_be16(0);
-+	tmp_set_eth_op = FIELD_PREP(NFP_FL_ACT_LEN_LW,
-+				    sizeof(*set_eth) >> NFP_FL_LW_SIZ) |
-+			 FIELD_PREP(NFP_FL_ACT_JMP_ID,
-+				    NFP_FL_ACTION_OPCODE_SET_ETHERNET);
-+	set_eth->a_op = cpu_to_be16(tmp_set_eth_op);
-+
-+	return 0;
-+}
-+
-+static int
-+nfp_fl_pedit(const struct tc_action *action, char *nfp_action, int *a_len)
-+{
-+	struct nfp_fl_set_eth set_eth;
-+	enum pedit_header_type htype;
-+	int idx, nkeys, err;
-+	size_t act_size;
-+	u32 offset, cmd;
-+
-+	memset(&set_eth, 0, sizeof(set_eth));
-+	nkeys = tcf_pedit_nkeys(action);
-+
-+	for (idx = 0; idx < nkeys; idx++) {
-+		cmd = tcf_pedit_cmd(action, idx);
-+		htype = tcf_pedit_htype(action, idx);
-+		offset = tcf_pedit_offset(action, idx);
-+
-+		if (cmd != TCA_PEDIT_KEY_EX_CMD_SET)
-+			return -EOPNOTSUPP;
-+
-+		switch (htype) {
-+		case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
-+			err = nfp_fl_set_eth(action, idx, offset, &set_eth);
-+			break;
-+		default:
-+			return -EOPNOTSUPP;
-+		}
-+		if (err)
-+			return err;
-+	}
-+
-+	if (set_eth.a_op) {
-+		act_size = sizeof(set_eth);
-+		memcpy(nfp_action, &set_eth, act_size);
-+		*a_len += act_size;
-+	}
++	if (off < offsetof(struct ipv6hdr, saddr))
++		return -EOPNOTSUPP;
++	else if (off < offsetof(struct ipv6hdr, daddr))
++		nfp_fl_set_ip6_helper(NFP_FL_ACTION_OPCODE_SET_IPV6_SRC, idx,
++				      exact, mask, ip_src);
++	else if (off < offsetof(struct ipv6hdr, daddr) +
++		       sizeof(struct in6_addr))
++		nfp_fl_set_ip6_helper(NFP_FL_ACTION_OPCODE_SET_IPV6_DST, idx,
++				      exact, mask, ip_dst);
++	else
++		return -EOPNOTSUPP;
 +
 +	return 0;
 +}
 +
  static int
- nfp_flower_loop_action(const struct tc_action *a,
- 		       struct nfp_fl_payload *nfp_fl, int *a_len,
-@@ -301,6 +383,9 @@ nfp_flower_loop_action(const struct tc_action *a,
- 	} else if (is_tcf_tunnel_release(a)) {
- 		/* Tunnel decap is handled by default so accept action. */
- 		return 0;
-+	} else if (is_tcf_pedit(a)) {
-+		if (nfp_fl_pedit(a, &nfp_fl->action_data[*a_len], a_len))
-+			return -EOPNOTSUPP;
- 	} else {
- 		/* Currently we do not handle any other actions. */
- 		return -EOPNOTSUPP;
+ nfp_fl_pedit(const struct tc_action *action, char *nfp_action, int *a_len)
+ {
++	struct nfp_fl_set_ipv6_addr set_ip6_dst, set_ip6_src;
+ 	struct nfp_fl_set_ip4_addrs set_ip_addr;
+ 	struct nfp_fl_set_eth set_eth;
+ 	enum pedit_header_type htype;
+@@ -312,6 +358,8 @@ nfp_fl_pedit(const struct tc_action *action, char *nfp_action, int *a_len)
+ 	size_t act_size;
+ 	u32 offset, cmd;
+ 
++	memset(&set_ip6_dst, 0, sizeof(set_ip6_dst));
++	memset(&set_ip6_src, 0, sizeof(set_ip6_src));
+ 	memset(&set_ip_addr, 0, sizeof(set_ip_addr));
+ 	memset(&set_eth, 0, sizeof(set_eth));
+ 	nkeys = tcf_pedit_nkeys(action);
+@@ -331,6 +379,10 @@ nfp_fl_pedit(const struct tc_action *action, char *nfp_action, int *a_len)
+ 		case TCA_PEDIT_KEY_EX_HDR_TYPE_IP4:
+ 			err = nfp_fl_set_ip4(action, idx, offset, &set_ip_addr);
+ 			break;
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_IP6:
++			err = nfp_fl_set_ip6(action, idx, offset, &set_ip6_dst,
++					     &set_ip6_src);
++			break;
+ 		default:
+ 			return -EOPNOTSUPP;
+ 		}
+@@ -346,6 +398,26 @@ nfp_fl_pedit(const struct tc_action *action, char *nfp_action, int *a_len)
+ 		act_size = sizeof(set_ip_addr);
+ 		memcpy(nfp_action, &set_ip_addr, act_size);
+ 		*a_len += act_size;
++	} else if (set_ip6_dst.a_op && set_ip6_src.a_op) {
++		/* TC compiles set src and dst IPv6 address as a single action,
++		 * the hardware requires this to be 2 separate actions.
++		 */
++		act_size = sizeof(set_ip6_src);
++		memcpy(nfp_action, &set_ip6_src, act_size);
++		*a_len += act_size;
++
++		act_size = sizeof(set_ip6_dst);
++		memcpy(&nfp_action[sizeof(set_ip6_src)], &set_ip6_dst,
++		       act_size);
++		*a_len += act_size;
++	} else if (set_ip6_dst.a_op) {
++		act_size = sizeof(set_ip6_dst);
++		memcpy(nfp_action, &set_ip6_dst, act_size);
++		*a_len += act_size;
++	} else if (set_ip6_src.a_op) {
++		act_size = sizeof(set_ip6_src);
++		memcpy(nfp_action, &set_ip6_src, act_size);
++		*a_len += act_size;
+ 	}
+ 
+ 	return 0;
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index fe4751607b2b..ffeaf85aa420 100644
+index 7ace557fdf84..527914e294d7 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -77,6 +77,7 @@
- #define NFP_FL_ACTION_OPCODE_PUSH_VLAN		1
- #define NFP_FL_ACTION_OPCODE_POP_VLAN		2
+@@ -79,6 +79,8 @@
  #define NFP_FL_ACTION_OPCODE_SET_IPV4_TUNNEL	6
-+#define NFP_FL_ACTION_OPCODE_SET_ETHERNET	7
+ #define NFP_FL_ACTION_OPCODE_SET_ETHERNET	7
+ #define NFP_FL_ACTION_OPCODE_SET_IPV4_ADDRS	9
++#define NFP_FL_ACTION_OPCODE_SET_IPV6_SRC	11
++#define NFP_FL_ACTION_OPCODE_SET_IPV6_DST	12
  #define NFP_FL_ACTION_OPCODE_PRE_TUNNEL		17
  #define NFP_FL_ACTION_OPCODE_NUM		32
  
-@@ -107,6 +108,13 @@ enum nfp_flower_tun_type {
- 	NFP_FL_TUNNEL_VXLAN =	2,
+@@ -125,6 +127,15 @@ struct nfp_fl_set_ip4_addrs {
+ 	__be32 ipv4_dst;
  };
  
-+struct nfp_fl_set_eth {
++struct nfp_fl_set_ipv6_addr {
 +	__be16 a_op;
 +	__be16 reserved;
-+	u8 eth_addr_mask[ETH_ALEN * 2];
-+	u8 eth_addr_val[ETH_ALEN * 2];
++	struct {
++		__be32 mask;
++		__be32 exact;
++	} ipv6[4];
 +};
 +
  struct nfp_fl_output {
