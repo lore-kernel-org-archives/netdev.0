@@ -1,125 +1,114 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net] ppp: fix race in ppp device destruction
-Date: Fri, 6 Oct 2017 17:05:49 +0200
-Message-ID: <f197b94ec7e16902a9601fdf840d5a8e94c8e91a.1507302309.git.g.nault@alphalink.fr>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH 0/4] RCU: introduce noref debug
+Date: Fri, 06 Oct 2017 17:10:09 +0200
+Message-ID: <1507302609.2793.16.camel@redhat.com>
+References: <cover.1507294365.git.pabeni@redhat.com>
+         <20171006133436.GY3521@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Beniamino Galvani <bgalvani@redhat.com>, linux-ppp@vger.kernel.org,
-        Paul Mackerras <paulus@samba.org>,
-        David Ahern <dsahern@gmail.com>,
-        Gao Feng <gfree.wind@vip.163.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:34141 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751487AbdJFPFx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 11:05:53 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+        Josh Triplett <josh@joshtriplett.org>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171006133436.GY3521@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ppp_release() tries to ensure that netdevices are unregistered before
-decrementing the unit refcount and running ppp_destroy_interface().
+Hi,
 
-This is all fine as long as the the device is unregistered by
-ppp_release(): the unregister_netdevice() call, followed by
-rtnl_unlock(), guarantee that the unregistration process completes
-before rtnl_unlock() returns.
+On Fri, 2017-10-06 at 06:34 -0700, Paul E. McKenney wrote:
+> On Fri, Oct 06, 2017 at 02:57:45PM +0200, Paolo Abeni wrote:
+> > The networking subsystem is currently using some kind of long-lived
+> > RCU-protected, references to avoid the overhead of full book-keeping.
+> > 
+> > Such references - skb_dst() noref - are stored inside the skbs and can be
+> > moved across relevant slices of the network stack, with the users
+> > being in charge of properly clearing the relevant skb - or properly refcount
+> > the related dst references - before the skb escapes the RCU section.
+> > 
+> > We currently don't have any deterministic debug infrastructure to check
+> > the dst noref usages - and the introduction of others noref artifact is
+> > currently under discussion.
+> > 
+> > This series tries to tackle the above introducing an RCU debug infrastructure
+> > aimed at spotting incorrect noref pointer usage, in patch one. The
+> > infrastructure is small and must be explicitly enabled via a newly introduced
+> > build option.
+> > 
+> > Patch two uses such infrastructure to track dst noref usage in the networking
+> > stack.
+> > 
+> > Patch 3 and 4 are bugfixes for small buglet found running this infrastructure
+> > on basic scenarios.
 
-However, the device may be unregistered by other means (like
-ppp_nl_dellink()). If this happens right before ppp_release() calling
-rtnl_lock(), then ppp_release() has to wait for the concurrent
-unregistration code to release the lock.
-But rtnl_unlock() releases the lock before completing the device
-unregistration process. This allows ppp_release() to proceed and
-eventually call ppp_destroy_interface() before the unregistration
-process completes. Calling free_netdev() on this partially unregistered
-device will BUG():
+Thank you for the prompt reply!
+> 
+> This patchset does not look like it handles rcu_read_lock() nesting.
+> For example, given code like this:
+> 
+> 	void foo(void)
+> 	{
+> 		rcu_read_lock();
+> 		rcu_track_noref(&key2, &noref2, true);
+> 		do_something();
+> 		rcu_track_noref(&key2, &noref2, false);
+> 		rcu_read_unlock();
+> 	}
+> 
+> 	void bar(void)
+> 	{
+> 		rcu_read_lock();
+> 		rcu_track_noref(&key1, &noref1, true);
+> 		do_something_more();
+> 		foo();
+> 		do_something_else();
+> 		rcu_track_noref(&key1, &noref1, false);
+> 		rcu_read_unlock();
+> 	}
+> 
+> 	void grill(void)
+> 	{
+> 		foo();
+> 	}
+> 
+> It looks like foo()'s rcu_read_unlock() will complain about key1.
+> You could remove foo()'s rcu_read_lock() and rcu_read_unlock(), but
+> that will break the call from grill().
 
- ------------[ cut here ]------------
- kernel BUG at net/core/dev.c:8141!
- invalid opcode: 0000 [#1] SMP
+Actually the code should cope correctly with your example; when foo()'s
+rcu_read_unlock() is called, 'cache' contains:
 
- CPU: 1 PID: 1557 Comm: pppd Not tainted 4.14.0-rc2+ #4
- Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.10.2-1.fc26 04/01/2014
+{ { &key1, &noref1, 1},  // ...
 
- Call Trace:
-  ppp_destroy_interface+0xd8/0xe0 [ppp_generic]
-  ppp_disconnect_channel+0xda/0x110 [ppp_generic]
-  ppp_unregister_channel+0x5e/0x110 [ppp_generic]
-  pppox_unbind_sock+0x23/0x30 [pppox]
-  pppoe_connect+0x130/0x440 [pppoe]
-  SYSC_connect+0x98/0x110
-  ? do_fcntl+0x2c0/0x5d0
-  SyS_connect+0xe/0x10
-  entry_SYSCALL_64_fastpath+0x1a/0xa5
+and when the related __rcu_check_noref() is invoked preempt_count() is
+2 - because the check is called before decreasing the preempt counter.
 
- RIP: free_netdev+0x107/0x110 RSP: ffffc28a40573d88
- ---[ end trace ed294ff0cc40eeff ]---
+In the main loop inside __rcu_check_noref() we will hit always the
+'continue' statement because 'cache->store[i].nesting != nesting', so
+no warn will be triggered.
 
-We could set the ->needs_free_netdev flag on PPP devices and move the
-ppp_destroy_interface() logic in the ->priv_destructor() callback. But
-that'd be quite intrusive as we'd first need to unlink from the other
-channels and units that depend on the device (the ones that used the
-PPPIOCCONNECT and PPPIOCATTACH ioctls).
+> Or am I missing something subtle here?  Given patch 3/4, I suspect not...
 
-Instead, we can just let the netdevice hold a reference on its
-ppp_file. This reference is dropped in ->priv_destructor(), at the very
-end of the unregistration process, so that neither ppp_release() nor
-ppp_disconnect_channel() can call ppp_destroy_interface() in the interim.
+The problem with the code in patch 3/4 is different; currently
+ip_route_input_noref() is basically doing:
 
-Reported-by: Beniamino Galvani <bgalvani@redhat.com>
-Fixes: 8cb775bc0a34 ("ppp: fix device unregistration upon netns deletion")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- drivers/net/ppp/ppp_generic.c | 20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+rcu_read_lock();
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index c3f77e3b7819..e365866600ba 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -1339,7 +1339,17 @@ ppp_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats64)
- 
- static int ppp_dev_init(struct net_device *dev)
- {
-+	struct ppp *ppp;
-+
- 	netdev_lockdep_set_classes(dev);
-+
-+	ppp = netdev_priv(dev);
-+	/* Let the netdevice take a reference on the ppp file. This ensures
-+	 * that ppp_destroy_interface() won't run before the device gets
-+	 * unregistered.
-+	 */
-+	atomic_inc(&ppp->file.refcnt);
-+
- 	return 0;
- }
- 
-@@ -1362,6 +1372,15 @@ static void ppp_dev_uninit(struct net_device *dev)
- 	wake_up_interruptible(&ppp->file.rwait);
- }
- 
-+static void ppp_dev_priv_destructor(struct net_device *dev)
-+{
-+	struct ppp *ppp;
-+
-+	ppp = netdev_priv(dev);
-+	if (atomic_dec_and_test(&ppp->file.refcnt))
-+		ppp_destroy_interface(ppp);
-+}
-+
- static const struct net_device_ops ppp_netdev_ops = {
- 	.ndo_init	 = ppp_dev_init,
- 	.ndo_uninit      = ppp_dev_uninit,
-@@ -1387,6 +1406,7 @@ static void ppp_setup(struct net_device *dev)
- 	dev->tx_queue_len = 3;
- 	dev->type = ARPHRD_PPP;
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
-+	dev->priv_destructor = ppp_dev_priv_destructor;
- 	netif_keep_dst(dev);
- }
- 
--- 
-2.14.2
+rcu_track_noref(&key1, &noref1, true);
+
+rcu_read_unlock();
+
+So the rcu lock there silence any RCU based check inside
+ip_route_input_noref() but does not really protect the noref dst.
+
+Please let me know if the above clarify the scenario.
+
+Thanks,
+
+Paolo
