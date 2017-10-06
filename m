@@ -1,68 +1,73 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH v2] gso: fix payload length when gso_size is zero
-Date: Fri, 6 Oct 2017 16:37:40 +0000
-Message-ID: <1507307855.2098.58.camel@intel.com>
-References: <1507305755-14393-1-git-send-email-alexey.kodanev@oracle.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net] bpf: fix liveness marking
+Date: Fri, 6 Oct 2017 09:43:27 -0700
+Message-ID: <0445f2ed-01c7-5256-955d-92b0201648f0@fb.com>
+References: <20171005232056.2234669-1-ast@fb.com>
+ <759810f5-f6db-0439-1b2d-637cf83ac2f8@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "alexey.kodanev@oracle.com" <alexey.kodanev@oracle.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Edward Cree <ecree@solarflare.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:31752 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751759AbdJFQhm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 12:37:42 -0400
-In-Reply-To: <1507305755-14393-1-git-send-email-alexey.kodanev@oracle.com>
-Content-Language: en-US
-Content-ID: <404CBDE219251742977D6EED79799409@intel.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:41224 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751654AbdJFQnx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 12:43:53 -0400
+In-Reply-To: <759810f5-f6db-0439-1b2d-637cf83ac2f8@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE3LTEwLTA2IGF0IDE5OjAyICswMzAwLCBBbGV4ZXkgS29kYW5ldiB3cm90ZToN
-Cj4gV2hlbiBnc29fc2l6ZSByZXNldCB0byB6ZXJvIGZvciB0aGUgdGFpbCBzZWdtZW50IGluIHNr
-Yl9zZWdtZW50KCksIGxhdGVyDQo+IGluIGlwdjZfZ3NvX3NlZ21lbnQoKSwgX19za2JfdWRwX3R1
-bm5lbF9zZWdtZW50KCkgYW5kIGdyZV9nc29fc2VnbWVudCgpDQo+IHdlIHdpbGwgZ2V0IGluY29y
-cmVjdCByZXN1bHRzIChwYXlsb2FkIGxlbmd0aCwgcGNzdW0pIGZvciB0aGF0IHNlZ21lbnQuDQo+
-IGluZXRfZ3NvX3NlZ21lbnQoKSBhbHJlYWR5IGhhcyBhIGNoZWNrIGZvciBnc29fc2l6ZSBiZWZv
-cmUgY2FsY3VsYXRpbmcNCj4gcGF5bG9hZC4NCj4gDQo+IFRoZSBpc3N1ZSB3YXMgZm91bmQgd2l0
-aCBMVFAgdnhsYW4gJiBncmUgdGVzdHMgb3ZlciBpeGdiZSBOSUMuDQo+IA0KPiBGaXhlczogMDdi
-MjZjOTQ1NGEyICgiZ3NvOiBTdXBwb3J0IHBhcnRpYWwgc3BsaXR0aW5nIGF0IHRoZSBmcmFnX2xp
-c3QgcG9pbnRlciIpDQo+IFNpZ25lZC1vZmYtYnk6IEFsZXhleSBLb2RhbmV2IDxhbGV4ZXkua29k
-YW5ldkBvcmFjbGUuY29tPg0KDQpBY2tlZC1ieTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIu
-aC5kdXlja0BpbnRlbC5jb20+DQoNCj4gLS0tDQo+IHYyOiBhbHNvIGFkZGVkIHNrYl9pc19nc28g
-dG8gZ3JlX2dzb19zZWdtZW50KCkgYW5kIF9fc2tiX3VkcF90dW5uZWxfc2VnbWVudCgpDQo+IA0K
-PiAgbmV0L2lwdjQvZ3JlX29mZmxvYWQuYyB8IDIgKy0NCj4gIG5ldC9pcHY0L3VkcF9vZmZsb2Fk
-LmMgfCAyICstDQo+ICBuZXQvaXB2Ni9pcDZfb2ZmbG9hZC5jIHwgMiArLQ0KPiAgMyBmaWxlcyBj
-aGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0
-IGEvbmV0L2lwdjQvZ3JlX29mZmxvYWQuYyBiL25ldC9pcHY0L2dyZV9vZmZsb2FkLmMNCj4gaW5k
-ZXggZDVjYWM5OS4uOGM3MjAzNCAxMDA2NDQNCj4gLS0tIGEvbmV0L2lwdjQvZ3JlX29mZmxvYWQu
-Yw0KPiArKysgYi9uZXQvaXB2NC9ncmVfb2ZmbG9hZC5jDQo+IEBAIC05OCw3ICs5OCw3IEBAIHN0
-YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZ3JlX2dzb19zZWdtZW50KHN0cnVjdCBza19idWZmICpza2Is
-DQo+ICAJCWdyZWggPSAoc3RydWN0IGdyZV9iYXNlX2hkciAqKXNrYl90cmFuc3BvcnRfaGVhZGVy
-KHNrYik7DQo+ICAJCXBjc3VtID0gKF9fc3VtMTYgKikoZ3JlaCArIDEpOw0KPiAgDQo+IC0JCWlm
-IChnc29fcGFydGlhbCkgew0KPiArCQlpZiAoZ3NvX3BhcnRpYWwgJiYgc2tiX2lzX2dzbyhza2Ip
-KSB7DQo+ICAJCQl1bnNpZ25lZCBpbnQgcGFydGlhbF9hZGo7DQo+ICANCj4gIAkJCS8qIEFkanVz
-dCBjaGVja3N1bSB0byBhY2NvdW50IGZvciB0aGUgZmFjdCB0aGF0DQo+IGRpZmYgLS1naXQgYS9u
-ZXQvaXB2NC91ZHBfb2ZmbG9hZC5jIGIvbmV0L2lwdjQvdWRwX29mZmxvYWQuYw0KPiBpbmRleCAw
-OTMyYzg1Li42NDAxNTc0IDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2NC91ZHBfb2ZmbG9hZC5jDQo+
-ICsrKyBiL25ldC9pcHY0L3VkcF9vZmZsb2FkLmMNCj4gQEAgLTEyMiw3ICsxMjIsNyBAQCBzdGF0
-aWMgc3RydWN0IHNrX2J1ZmYgKl9fc2tiX3VkcF90dW5uZWxfc2VnbWVudChzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiLA0KPiAgCQkgKiB3aWxsIGJlIHVzaW5nIGEgbGVuZ3RoIHZhbHVlIGVxdWFsIHRvIG9u
-bHkgb25lIE1TUyBzaXplZA0KPiAgCQkgKiBzZWdtZW50IGluc3RlYWQgb2YgdGhlIGVudGlyZSBm
-cmFtZS4NCj4gIAkJICovDQo+IC0JCWlmIChnc29fcGFydGlhbCkgew0KPiArCQlpZiAoZ3NvX3Bh
-cnRpYWwgJiYgc2tiX2lzX2dzbyhza2IpKSB7DQo+ICAJCQl1aC0+bGVuID0gaHRvbnMoc2tiX3No
-aW5mbyhza2IpLT5nc29fc2l6ZSArDQo+ICAJCQkJCVNLQl9HU09fQ0Ioc2tiKS0+ZGF0YV9vZmZz
-ZXQgKw0KPiAgCQkJCQlza2ItPmhlYWQgLSAodW5zaWduZWQgY2hhciAqKXVoKTsNCj4gZGlmZiAt
-LWdpdCBhL25ldC9pcHY2L2lwNl9vZmZsb2FkLmMgYi9uZXQvaXB2Ni9pcDZfb2ZmbG9hZC5jDQo+
-IGluZGV4IGNkYjM3MjguLjRhODdmOTQgMTAwNjQ0DQo+IC0tLSBhL25ldC9pcHY2L2lwNl9vZmZs
-b2FkLmMNCj4gKysrIGIvbmV0L2lwdjYvaXA2X29mZmxvYWQuYw0KPiBAQCAtMTA1LDcgKzEwNSw3
-IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqaXB2Nl9nc29fc2VnbWVudChzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiLA0KPiAgDQo+ICAJZm9yIChza2IgPSBzZWdzOyBza2I7IHNrYiA9IHNrYi0+bmV4dCkg
-ew0KPiAgCQlpcHY2aCA9IChzdHJ1Y3QgaXB2NmhkciAqKShza2JfbWFjX2hlYWRlcihza2IpICsg
-bmhvZmYpOw0KPiAtCQlpZiAoZ3NvX3BhcnRpYWwpDQo+ICsJCWlmIChnc29fcGFydGlhbCAmJiBz
-a2JfaXNfZ3NvKHNrYikpDQo+ICAJCQlwYXlsb2FkX2xlbiA9IHNrYl9zaGluZm8oc2tiKS0+Z3Nv
-X3NpemUgKw0KPiAgCQkJCSAgICAgIFNLQl9HU09fQ0Ioc2tiKS0+ZGF0YV9vZmZzZXQgKw0KPiAg
-CQkJCSAgICAgIHNrYi0+aGVhZCAtICh1bnNpZ25lZCBjaGFyICopKGlwdjZoICsgMSk7DQo=
+On 10/6/17 9:33 AM, Edward Cree wrote:
+> On 06/10/17 00:20, Alexei Starovoitov wrote:
+>> while processing Rx = Ry instruction the verifier does
+>> regs[insn->dst_reg] = regs[insn->src_reg]
+>> which often clears write mark (when Ry doesn't have it)
+>> that was just set by check_reg_arg(Rx) prior to the assignment.
+>> That causes mark_reg_read() to keep marking Rx in this block as
+>> REG_LIVE_READ (since the logic incorrectly misses that it's
+>> screened by the write) and in many of its parents (until lucky
+>> write into the same Rx or beginning of the program).
+>> That causes is_state_visited() logic to miss many pruning opportunities.
+> Good catch!
+>> Furthermore mark_reg_read() logic propagates the read mark
+>> for BPF_REG_FP as well (though it's readonly) which causes
+>> harmless but unnecssary work during is_state_visited().
+> Surely it's unnecessary for is_state_visited() to even look at
+>  BPF_REG_FP anyway, so in addition to your change we could make
+>  states_equal just do `for (i = 0; i < BPF_REG_FP; i++)`?  That
+>  might save a bit more time.
+
+yeah. before this patch it was doing extra
+memcmp(rold, rcur, ..) on FP reg. This patch saves this memcpy.
+The i < BPF_REG_FP would effectively do the same, but I'm not sure
+I want to do it just yet.
+For net-next I have a bunch of changes for verifier to support bpf_call
+and there two different states may have two different FPs.
+One FP from caller and one from callee.
+So I might still need to do full
+for (i = 0; i < MAX_BPF_REG; i++)
+      if (!regsafe(..))
+
+>> Note that do_propagate_liveness() skips FP correctly,
+>> so do the same in mark_reg_read() as well.
+>> It saves 0.2 seconds for the test below
+>>
+>> program               before  after
+>> bpf_lb-DLB_L3.o       2604    2304
+>> bpf_lb-DLB_L4.o       11159   3723
+>> bpf_lb-DUNKNOWN.o     1116    1110
+>> bpf_lxc-DDROP_ALL.o   34566   28004
+>> bpf_lxc-DUNKNOWN.o    53267   39026
+>> bpf_netdev.o          17843   16943
+>> bpf_overlay.o         8672    7929
+>> time                  ~11 sec  ~4 sec
+>>
+>> Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
+>> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Very nice numbers!
+> Acked-by: Edward Cree <ecree@solarflare.com>
+
+Thanks!
