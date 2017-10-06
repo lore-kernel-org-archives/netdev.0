@@ -1,35 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 06/12] qed: Add LL2 slowpath handling
-Date: Thu, 05 Oct 2017 17:20:13 -0700 (PDT)
-Message-ID: <20171005.172013.746380495399822.davem@davemloft.net>
-References: <CY1PR0701MB2012A2F8E3E923D98B1E1A6488700@CY1PR0701MB2012.namprd07.prod.outlook.com>
-        <20171005.120629.2161199733119811102.davem@davemloft.net>
-        <CY1PR0701MB201241C43A192735A0F1EEDD88700@CY1PR0701MB2012.namprd07.prod.outlook.com>
+Subject: Re: [RESEND PATCH 7/7] net: qrtr: Support decoding incoming v2
+ packets
+Date: Thu, 05 Oct 2017 18:05:39 -0700 (PDT)
+Message-ID: <20171005.180539.381799694621402344.davem@davemloft.net>
+References: <20171005035105.14677-1-bjorn.andersson@linaro.org>
+        <20171005035105.14677-8-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        dledford@redhat.com, Ariel.Elior@cavium.com
-To: Michal.Kalderon@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54030 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751432AbdJFAUP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 20:20:15 -0400
-In-Reply-To: <CY1PR0701MB201241C43A192735A0F1EEDD88700@CY1PR0701MB2012.namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org, clew@codeaurora.org
+To: bjorn.andersson@linaro.org
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20171005035105.14677-8-bjorn.andersson@linaro.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
-Date: Thu, 5 Oct 2017 20:27:22 +0000
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Date: Wed,  4 Oct 2017 20:51:05 -0700
 
-> The spinlock is required for the case that rx buffers are posted
-> from a different thread, where it could be run simultaneously to the
-> rxq_completion.
+> +/**
+> + * struct qrtr_hdr_v2 - (I|R)PCrouter packet header later versions
+> + * @version: protocol version
+> + * @type: packet type; one of QRTR_TYPE_*
+> + * @flags: bitmask of QRTR_FLAGS_*
+> + * @optlen: length of optional header data
+> + * @size: length of packet, excluding this header and optlen
+> + * @src_node_id: source node
+> + * @src_port_id: source port
+> + * @dst_node_id: destination node
+> + * @dst_port_id: destination port
+> + */
+> +struct qrtr_hdr_v2 {
+> +	u8 version;
+> +	u8 type;
+> +	u8 flags;
+> +	u8 optlen;
+> +	__le32 size;
+> +	__le16 src_node_id;
+> +	__le16 src_port_id;
+> +	__le16 dst_node_id;
+> +	__le16 dst_port_id;
+> +} __packed;
 
-This only brings us back to my original argument, if the lock is
-necessary in order to synchronize with those paths, how can you
-possible drop the lock safely here?
-
-Is it because you re-read the head and tail pointers of the queue each
-time around the loop?
+__packed should be only used when it is provably necessary, and it
+should not be needed here.
