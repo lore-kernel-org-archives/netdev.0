@@ -1,45 +1,27 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH RFC 1/3] tun: ethtool stats
-Date: Fri, 6 Oct 2017 16:12:45 -0700
-Message-ID: <20171006161245.0f4abb99@xeon-e3>
-References: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com>
-        <20171006222516.90654-2-willemdebruijn.kernel@gmail.com>
-        <20171006153059.193688a5@xeon-e3>
-        <CAF=yD-JZnJ4v3KZY2O3yBKWNnLxRBZJcJDVkYNuHYUZHX5Yw-Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-10-06
+Date: Fri, 06 Oct 2017 23:41:06 +0100 (WEST)
+Message-ID: <20171006.234106.58345445582002964.davem@davemloft.net>
+References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:54583 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751980AbdJFXMz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:12:55 -0400
-Received: by mail-pg0-f41.google.com with SMTP id c137so10629616pga.11
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 16:12:55 -0700 (PDT)
-In-Reply-To: <CAF=yD-JZnJ4v3KZY2O3yBKWNnLxRBZJcJDVkYNuHYUZHX5Yw-Q@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49604 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751485AbdJFX0X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:26:23 -0400
+In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 6 Oct 2017 18:37:01 -0400
-Willem de Bruijn <willemdebruijn.kernel@gmail.com> wrote:
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri,  6 Oct 2017 10:57:12 -0700
 
-> > It looks like you are just exporting the statistics taht are already
-> > through normal path. The purpose of ethtool stats is to provide
-> > statistics unique to the device, not to repeat what is available throug
-> > ip, ifconfig, etc.  
-> 
-> A follow-up patch adds non-standard statistics.
-> 
-> I included these common ones, because the new zerocopy counters
-> are only interesting in relation to tx_packets.
-> 
-> It also seems customary among existing network drivers to include
-> at least these base counters in the ethtool output.
+> This series contains updates to i40e and i40evf only.
 
-Only some drivers that slipped through before I started noticing.
-Do Not Repeat.
+Pulled, thanks Jeff.
