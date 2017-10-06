@@ -1,46 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: fix incorrect register definition
-Date: Fri,  6 Oct 2017 10:57:18 -0700
-Message-ID: <20171006175727.868-7-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e: do not enter PHY debug mode while setting LEDs behaviour
+Date: Fri,  6 Oct 2017 10:57:24 -0700
+Message-ID: <20171006175727.868-13-jeffrey.t.kirsher@intel.com>
 References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Mariusz Stachura <mariusz.stachura@intel.com>,
         netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
         jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:17217 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:12575 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752581AbdJFR5v (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 13:57:51 -0400
+        id S1752618AbdJFR5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 13:57:52 -0400
 In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Mariusz Stachura <mariusz.stachura@intel.com>
 
-This register was defined incorrectly. Fix the increment value to 8, and
-replace the iterator with _i to make the definition consistent with
-other statistics registers.
+Previous implementation of LED set/get functions required to enter
+PHY debug mode, in order to prevent access to it from FW and SW at
+the same time. Reset of all ports was a unwanted side effect.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Mariusz Stachura <mariusz.stachura@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_register.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
-index 86ca27f72f02..c234758dad15 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_register.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
-@@ -2794,7 +2794,7 @@
- #define I40E_GLV_RUPP_MAX_INDEX 383
- #define I40E_GLV_RUPP_RUPP_SHIFT 0
- #define I40E_GLV_RUPP_RUPP_MASK I40E_MASK(0xFFFFFFFF, I40E_GLV_RUPP_RUPP_SHIFT)
--#define I40E_GLV_TEPC(_VSI) (0x00344000 + ((_VSI) * 4)) /* _i=0...383 */ /* Reset: CORER */
-+#define I40E_GLV_TEPC(_i) (0x00344000 + ((_i) * 8)) /* _i=0...383 */ /* Reset: CORER */
- #define I40E_GLV_TEPC_MAX_INDEX 383
- #define I40E_GLV_TEPC_TEPC_SHIFT 0
- #define I40E_GLV_TEPC_TEPC_MASK I40E_MASK(0xFFFFFFFF, I40E_GLV_TEPC_TEPC_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 6203d362438c..de0dfe340494 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -2010,7 +2010,9 @@ static int i40e_set_phys_id(struct net_device *netdev,
+ 		if (!(pf->hw_features & I40E_HW_PHY_CONTROLS_LEDS)) {
+ 			pf->led_status = i40e_led_get(hw);
+ 		} else {
+-			i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_ALL, NULL);
++			if (!(hw->flags & I40E_HW_FLAG_AQ_PHY_ACCESS_CAPABLE))
++				i40e_aq_set_phy_debug(hw, I40E_PHY_DEBUG_ALL,
++						      NULL);
+ 			ret = i40e_led_get_phy(hw, &temp_status,
+ 					       &pf->phy_led_val);
+ 			pf->led_status = temp_status;
+@@ -2035,7 +2037,8 @@ static int i40e_set_phys_id(struct net_device *netdev,
+ 			ret = i40e_led_set_phy(hw, false, pf->led_status,
+ 					       (pf->phy_led_val |
+ 					       I40E_PHY_LED_MODE_ORIG));
+-			i40e_aq_set_phy_debug(hw, 0, NULL);
++			if (!(hw->flags & I40E_HW_FLAG_AQ_PHY_ACCESS_CAPABLE))
++				i40e_aq_set_phy_debug(hw, 0, NULL);
+ 		}
+ 		break;
+ 	default:
 -- 
 2.14.2
