@@ -1,101 +1,116 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2017-10-06
-Date: Fri,  6 Oct 2017 10:57:12 -0700
-Message-ID: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 02/15] i40e: add private flag to control source pruning
+Date: Fri,  6 Oct 2017 10:57:14 -0700
+Message-ID: <20171006175727.868-3-jeffrey.t.kirsher@intel.com>
+References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:17217 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751862AbdJFR5t (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 13:57:49 -0400
+        id S1752397AbdJFR5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 13:57:50 -0400
+In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Rami fixes a typo in the code comments.
+By default, our devices do source pruning, that is, they drop receive
+packets that have the source MAC matching one of the receive filters.
+Unfortunately, this breaks ARP monitoring in channel bonding, as the
+bonding driver expects devices to receive ARPs containing their own
+source address.
 
-Mitch adds an ethtool private flag to control source pruning to resolve an
-issue where our default behavior is to enable source pruning which breaks ARP
-monitoring in channel bonding.  Fixes a couple of register definitions, which
-were incorrect.
+Add an ethtool private flag to control this feature.
 
-Jake fixes an issue with multiple logical CPUs per core (simultaneous
-multithreading - SMT) and how we set an affinity hint based on the v_idx of
-that q_vector, which is an incremental value and might lead to multiple
-offline CPUs being assigned to a q_vector.  Instead, we should only assign
-hints for CPUs which are online, so look to use cpumask_local_spread().
-Also fixed a VF VLAN tag stripping issue, where the flag created to change
-this feature was seen as unchangeable.  Lastly, organized and re-numbered
-the feature flags.
+Also, remove the netif_running() check when we process our private
+flags. It's OK to reset when the device is closed and in most cases we
+need the reset the apply these changes.
 
-Alan re-enables PTP L4 for XL710 devices with firmware version 6.0 or
-greater, now that the previous bug in the older firmware is fixed.
-Implements the PCI error handlers for reset_prepare() and reset_done() to
-allow us to handle function level resets.
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  7 +++++--
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 25 +++++++++++++++++++++++++
+ 3 files changed, 31 insertions(+), 2 deletions(-)
 
-Alice cleans up code that was added to the incorrect function during a
-merge.
-
-Filip adds a change to display an error message when a module is inserted
-that does not meet the thermal requirements, Talking Heads "Burning Down
-the House" comes to mind.  Also fixed a flow director filter issue where
-a variable was not being cleared which stores the filter number to be
-removed from the list when the firmware refused to add the requested
-filter.
-
-The following are changes since commit cc71b7b071192ac1c288e272fdc3f3877eb96663:
-  net/ipv6: remove unused err variable on icmpv6_push_pending_frames
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alan Brady (2):
-  i40e: re-enable PTP L4 capabilities for XL710 if FW >6.0
-  i40e: implement split PCI error reset handler
-
-Alice Michael (1):
-  i40e: fix merge error
-
-Filip Sadowski (2):
-  i40e: Display error message if module does not meet thermal
-    requirements
-  i40e: Properly maintain flow director filters list
-
-Jacob Keller (4):
-  i40e/i40evf: spread CPU affinity hints across online CPUs only
-  i40evf: enable support for VF VLAN tag stripping control
-  i40e: ignore skb->xmit_more when deciding to set RS bit
-  i40e/i40evf: organize and re-number feature flags
-
-Jesse Brandeburg (1):
-  i40e/i40evf: use DECLARE_BITMAP for state
-
-Mariusz Stachura (1):
-  i40e: do not enter PHY debug mode while setting LEDs behaviour
-
-Mitch Williams (3):
-  i40e: add private flag to control source pruning
-  i40e: redfine I40E_PHY_TYPE_MAX
-  i40e: fix incorrect register definition
-
-Rami Rosen (1):
-  i40e: fix a typo in i40e_pf documentation
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  98 +++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  20 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 104 +++++++++++++++++----
- drivers/net/ethernet/intel/i40e/i40e_register.h    |   2 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  34 +------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   3 +-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   3 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  32 +++----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  31 +++---
- 12 files changed, 203 insertions(+), 138 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 2bc4dd0dbbf1..c78448daa7a1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -452,6 +452,7 @@ struct i40e_pf {
+ #define I40E_FLAG_TEMP_LINK_POLLING		BIT_ULL(55)
+ #define I40E_FLAG_CLIENT_L2_CHANGE		BIT_ULL(56)
+ #define I40E_FLAG_LEGACY_RX			BIT_ULL(58)
++#define I40E_FLAG_SOURCE_PRUNING_DISABLED	BIT_ULL(59)
+ 
+ 	struct i40e_client_instance *cinst;
+ 	bool stat_offsets_loaded;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 1136d02e2e95..6203d362438c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -227,6 +227,8 @@ static const struct i40e_priv_flags i40e_gstrings_priv_flags[] = {
+ 	I40E_PRIV_FLAG("veb-stats", I40E_FLAG_VEB_STATS_ENABLED, 0),
+ 	I40E_PRIV_FLAG("hw-atr-eviction", I40E_FLAG_HW_ATR_EVICT_ENABLED, 0),
+ 	I40E_PRIV_FLAG("legacy-rx", I40E_FLAG_LEGACY_RX, 0),
++	I40E_PRIV_FLAG("disable-source-pruning",
++		       I40E_FLAG_SOURCE_PRUNING_DISABLED, 0),
+ };
+ 
+ #define I40E_PRIV_FLAGS_STR_LEN ARRAY_SIZE(i40e_gstrings_priv_flags)
+@@ -4189,8 +4191,9 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
+ 	/* Issue reset to cause things to take effect, as additional bits
+ 	 * are added we will need to create a mask of bits requiring reset
+ 	 */
+-	if ((changed_flags & I40E_FLAG_VEB_STATS_ENABLED) ||
+-	    ((changed_flags & I40E_FLAG_LEGACY_RX) && netif_running(dev)))
++	if (changed_flags & (I40E_FLAG_VEB_STATS_ENABLED |
++			     I40E_FLAG_LEGACY_RX |
++			     I40E_FLAG_SOURCE_PRUNING_DISABLED))
+ 		i40e_do_reset(pf, BIT(__I40E_PF_RESET_REQUESTED), true);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3f9e89b054ec..b539469f576f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9903,6 +9903,31 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 
+ 		enabled_tc = i40e_pf_get_tc_map(pf);
+ 
++		/* Source pruning is enabled by default, so the flag is
++		 * negative logic - if it's set, we need to fiddle with
++		 * the VSI to disable source pruning.
++		 */
++		if (pf->flags & I40E_FLAG_SOURCE_PRUNING_DISABLED) {
++			memset(&ctxt, 0, sizeof(ctxt));
++			ctxt.seid = pf->main_vsi_seid;
++			ctxt.pf_num = pf->hw.pf_id;
++			ctxt.vf_num = 0;
++			ctxt.info.valid_sections |=
++				     cpu_to_le16(I40E_AQ_VSI_PROP_SWITCH_VALID);
++			ctxt.info.switch_id =
++				   cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_LOCAL_LB);
++			ret = i40e_aq_update_vsi_params(hw, &ctxt, NULL);
++			if (ret) {
++				dev_info(&pf->pdev->dev,
++					 "update vsi failed, err %s aq_err %s\n",
++					 i40e_stat_str(&pf->hw, ret),
++					 i40e_aq_str(&pf->hw,
++						     pf->hw.aq.asq_last_status));
++				ret = -ENOENT;
++				goto err;
++			}
++		}
++
+ 		/* MFP mode setup queue map and update VSI */
+ 		if ((pf->flags & I40E_FLAG_MFP_ENABLED) &&
+ 		    !(pf->hw.func_caps.iscsi)) { /* NIC type PF */
 -- 
 2.14.2
