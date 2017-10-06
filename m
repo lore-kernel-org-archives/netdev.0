@@ -1,94 +1,58 @@
-From: jacopo mondi <jacopo@jmondi.org>
-Subject: Re: [PATCH 3/3] ARM: dts: gr-peach: Add ETHER pin group
-Date: Fri, 6 Oct 2017 14:24:45 +0200
-Message-ID: <20171006122445.GA30375@w540>
-References: <1507193900-23801-1-git-send-email-jacopo+renesas@jmondi.org>
- <1507193900-23801-4-git-send-email-jacopo+renesas@jmondi.org>
- <CAMuHMdWLt9EYp21YiMp7uEGWgjEO_VztbDOyvhr+RxkrAKRYYA@mail.gmail.com>
- <20171005093915.GP4037@w540>
- <20171005134339.GJ13247@lunn.ch>
- <20171005154239.GB19008@w540>
- <20171005164826.GL13247@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-        Chris Brandt <Chris.Brandt@renesas.com>, f.fainelli@gmail.com,
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH 0/4] RCU: introduce noref debug
+Date: Fri,  6 Oct 2017 14:57:45 +0200
+Message-ID: <cover.1507294365.git.pabeni@redhat.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Josh Triplett <josh@joshtriplett.org>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
         netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:41071 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751807AbdJFMc6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 08:32:58 -0400
-Received: from relay3-d.mail.gandi.net (relay3-d.mail.gandi.net [217.70.183.195])
-        by slow1-d.mail.gandi.net (Postfix) with ESMTP id 47F28486D8E
-        for <netdev@vger.kernel.org>; Fri,  6 Oct 2017 14:25:34 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20171005164826.GL13247@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
-   thanks for the suggestion
+The networking subsystem is currently using some kind of long-lived
+RCU-protected, references to avoid the overhead of full book-keeping.
 
-On Thu, Oct 05, 2017 at 06:48:26PM +0200, Andrew Lunn wrote:
-> On Thu, Oct 05, 2017 at 05:42:39PM +0200, jacopo mondi wrote:
-> > Hi Andrew,
+Such references - skb_dst() noref - are stored inside the skbs and can be
+moved across relevant slices of the network stack, with the users
+being in charge of properly clearing the relevant skb - or properly refcount
+the related dst references - before the skb escapes the RCU section.
 
-[snip]
+We currently don't have any deterministic debug infrastructure to check
+the dst noref usages - and the introduction of others noref artifact is
+currently under discussion.
 
-> > > Hi Jocopo
-> > >
-> > > So what is this reset resetting?
-> > >
-> > > The MAC?
-> > > The PHY?
-> >
-> > The reset line goes from our SoC to LAN8710A PHY chip external reset pin.
->
-> So yes, this is a PHY property, and should be in the PHY node.
->
-> Documentation/devicetree/bindings/net/mdio.txt does not apply here
-> anyway. That is for an MDIO binding. This node is an ethernet MAC.
->
-> So your binding whats to look something like
->
->         ether: ethernet@e8203000 {
->                 compatible = "renesas,ether-r7s72100";
->                 reg = <0xe8203000 0x800>,
->                       <0xe8204800 0x200>;
->                 interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
->                 clocks = <&mstp7_clks R7S72100_CLK_ETHER>;
->                 power-domains = <&cpg_clocks>;
->                 phy-mode = "mii";
-> 		          phy-handle = <&phy0>;
->                 #address-cells = <1>;
->                 #size-cells = <0>;
->
->                 mdio: bus-bus {
->                       #address-cells = <1>;
->                       #size-cells = <0>;
->
->                       phy0: ethernet-phy@1 {
->                             reg = <1>;
+This series tries to tackle the above introducing an RCU debug infrastructure
+aimed at spotting incorrect noref pointer usage, in patch one. The
+infrastructure is small and must be explicitly enabled via a newly introduced
+build option.
 
-Why reg = <1> ?
-Shouldn't this be 0, or even better with no reg property at all?
+Patch two uses such infrastructure to track dst noref usage in the networking
+stack.
 
-        mdio: bus-bus {
-              phy-0 {
-                  reset-gpios = <&port4 2 GPIO_ACTIVE_LOW>;
-                  reset-delay-us = <5>;
-              };
-        };
+Patch 3 and 4 are bugfixes for small buglet found running this infrastructure
+on basic scenarios.
 
-Thanks
-   j
+Paolo Abeni (4):
+  rcu: introduce noref debug
+  net: use RCU noref infrastructure to track dst noref
+  ipv4: drop unneeded and misleading RCU lock in ip_route_input_noref()
+  tcp: avoid noref dst leak on input path
 
->                             reset-gpios = <&port4 2 GPIO_ACTIVE_LOW>;
->                             reset-delay-us = <5>;
->                       };
->                 };
->         };
->
-> 	Andrew
+ include/linux/rcupdate.h | 11 ++++++
+ include/linux/skbuff.h   |  1 +
+ include/net/dst.h        |  5 +++
+ kernel/rcu/Kconfig.debug | 15 ++++++++
+ kernel/rcu/Makefile      |  1 +
+ kernel/rcu/noref_debug.c | 89 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/route.c         |  7 +---
+ net/ipv4/tcp_input.c     |  5 ++-
+ 8 files changed, 127 insertions(+), 7 deletions(-)
+ create mode 100644 kernel/rcu/noref_debug.c
+
+-- 
+2.13.6
