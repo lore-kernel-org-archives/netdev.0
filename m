@@ -1,106 +1,56 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next v2] vhost_net: do not stall on zerocopy depletion
-Date: Fri,  6 Oct 2017 13:22:31 -0400
-Message-ID: <20171006172231.87435-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, mst@redhat.com, jasowang@redhat.com,
-        den@klaipeden.com, virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Linux bridge of hsr and Ethernet interface. Is this valid?
+Date: Fri, 6 Oct 2017 13:28:10 -0400
+Message-ID: <e1f41460-5039-dd89-4337-701eb151f911@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:36524 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751522AbdJFRWf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 13:22:35 -0400
-Received: by mail-qk0-f194.google.com with SMTP id z14so12305560qkg.3
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 10:22:35 -0700 (PDT)
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:64536 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751766AbdJFR0r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 13:26:47 -0400
+Received: from dflxv15.itg.ti.com ([128.247.5.124])
+        by lelnx194.ext.ti.com (8.15.1/8.15.1) with ESMTP id v96HQlP5030691
+        for <netdev@vger.kernel.org>; Fri, 6 Oct 2017 12:26:47 -0500
+Received: from DFLE103.ent.ti.com (dfle103.ent.ti.com [10.64.6.24])
+        by dflxv15.itg.ti.com (8.14.3/8.13.8) with ESMTP id v96HQlpe024867
+        for <netdev@vger.kernel.org>; Fri, 6 Oct 2017 12:26:47 -0500
+Received: from [158.218.103.210] (ileax41-snat.itg.ti.com [10.172.224.153])
+        by dflp32.itg.ti.com (8.14.3/8.13.8) with ESMTP id v96HQkC0017912
+        for <netdev@vger.kernel.org>; Fri, 6 Oct 2017 12:26:47 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+Hello Linux netdev experts,
 
-Vhost-net has a hard limit on the number of zerocopy skbs in flight.
-When reached, transmission stalls. Stalls cause latency, as well as
-head-of-line blocking of other flows that do not use zerocopy.
+I have a board that has multiple Ethernet intefaces. two, eth0 and eth1 and 1G interfaces and two are 100M interfaces (eth2 and eth3). I create  hsr interface, hsr0 using eth2 and eth3 using ip link command. Now I want to create a linux bridge as follows:-
 
-Instead of stalling, revert to copy-based transmission.
+brctl addbr my_bridge
+brctl addif eth0
+brctl addif hsr0
 
-Tested by sending two udp flows from guest to host, one with payload
-of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
-large flow is redirected to a netem instance with 1MBps rate limit
-and deep 1000 entry queue.
+I connect a PC to eth0 interface and another hsr compliant device to eth2 or eth3. Is it a valid scenario? 
 
-  modprobe ifb
-  ip link set dev ifb0 up
-  tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
 
-  tc qdisc add dev tap0 ingress
-  tc filter add dev tap0 parent ffff: protocol ip \
-      u32 match ip dport 8000 0xffff \
-      action mirred egress redirect dev ifb0
+I see following description at https://wiki.linuxfoundation.org/networking/bridge where is mentioned that 
 
-Before the delay, both flows process around 80K pps. With the delay,
-before this patch, both process around 400. After this patch, the
-large flow is still rate limited, while the small reverts to its
-original rate. See also discussion in the first link, below.
+=============================
+Adding devices to a bridge
 
-Without rate limiting, {1, 10, 100}x TCP_STREAM tests continued to
-send at 100% zerocopy.
+The command
 
-The limit in vhost_exceeds_maxpend must be carefully chosen. With
-vq->num >> 1, the flows remain correlated. This value happens to
-correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
-fractions and ensure correctness also for much smaller values of
-vq->num, by testing the min() of both explicitly. See also the
-discussion in the second link below.
+ brctl addif //bridgename// //device//
 
-Changes
-  v1 -> v2
-    - replaced min with typed min_t
-    - avoid unnecessary whitespace change
+adds the network device device to take part in the bridging of “bridgename.” All the devices contained in a bridge act as one big network. It is not possible to add a device to multiple bridges or bridge a bridge device, because it just wouldn't make any sense! The bridge will take a short amount of time when a device is added to learn the Ethernet addresses on the segment before starting to forward. 
 
-Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
-Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- drivers/vhost/net.c | 12 +++---------
- 1 file changed, 3 insertions(+), 9 deletions(-)
+=============================
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 58585ec8699e..68677d930e20 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -436,8 +436,8 @@ static bool vhost_exceeds_maxpend(struct vhost_net *net)
- 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
- 	struct vhost_virtqueue *vq = &nvq->vq;
- 
--	return (nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV
--		== nvq->done_idx;
-+	return (nvq->upend_idx + UIO_MAXIOV - nvq->done_idx) % UIO_MAXIOV >
-+	       min_t(unsigned int, VHOST_MAX_PEND, vq->num >> 2);
- }
- 
- /* Expects to be always run from workqueue - which acts as
-@@ -480,11 +480,6 @@ static void handle_tx(struct vhost_net *net)
- 		if (zcopy)
- 			vhost_zerocopy_signal_used(net, vq);
- 
--		/* If more outstanding DMAs, queue the work.
--		 * Handle upend_idx wrap around
--		 */
--		if (unlikely(vhost_exceeds_maxpend(net)))
--			break;
- 
- 		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
- 						ARRAY_SIZE(vq->iov),
-@@ -519,8 +514,7 @@ static void handle_tx(struct vhost_net *net)
- 		len = msg_data_left(&msg);
- 
- 		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
--				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
--				      nvq->done_idx
-+				   && !vhost_exceeds_maxpend(net)
- 				   && vhost_net_tx_select_zcopy(net);
- 
- 		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+In this case hsr is already a 802.1D bridge and we are trying to bridge a bridge.
+
+So your expert opinion is needed. Thanks.
 -- 
-2.14.2.920.gcf0c67979c-goog
+Murali Karicheri
+Linux Kernel, Keystone
