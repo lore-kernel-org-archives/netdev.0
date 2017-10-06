@@ -1,59 +1,45 @@
-From: Patrick Talbert <ptalbert@redhat.com>
-Subject: Re: [PATCH net-next 1/1] [net] bonding: Add NUMA notice
-Date: Fri, 6 Oct 2017 13:54:44 -0400
-Message-ID: <CAPRrrxUGMpOqEA8MxzY91RyMTQp+OisO8xB5jVR+QA+dqLeSww@mail.gmail.com>
-References: <1507235025-21689-1-git-send-email-ptalbert@redhat.com> <20171005214636.GM13247@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: fix a typo in i40e_pf documentation
+Date: Fri,  6 Oct 2017 10:57:13 -0700
+Message-ID: <20171006175727.868-2-jeffrey.t.kirsher@intel.com>
+References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
+Cc: Rami Rosen <rami.rosen@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:44763 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751862AbdJFRzG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 13:55:06 -0400
-Received: by mail-lf0-f45.google.com with SMTP id l196so21245711lfl.1
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 10:55:06 -0700 (PDT)
-In-Reply-To: <20171005214636.GM13247@lunn.ch>
+Received: from mga01.intel.com ([192.55.52.88]:17217 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752085AbdJFR5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 13:57:49 -0400
+In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 5, 2017 at 5:46 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Thu, Oct 05, 2017 at 04:23:45PM -0400, Patrick Talbert wrote:
->> Network performance can suffer when a load balancing bond uses slave
->> interfaces which are in different NUMA domains.
->>
->> This compares the NUMA domain of a newly enslaved interface against any
->> existing enslaved interfaces and prints a warning if they do not match.
->
-> Hi Patrick
->
-> Is there a bonding mode which might actually want to do this? Send on
-> the local domain, unless it is overloaded, in which case send it to
-> the other domain?
->
+From: Rami Rosen <rami.rosen@intel.com>
 
-I suppose there could theoretically be a bonding mode that could do
-that, but currently no such mode exists.
+This patch fixes a typo in i40e_pf object documentation; num_req_vfs
+refers to the number of VFs requested for the PF.
 
-> There is also this talk for netdev:
->
-> https://netdevconf.org/2.2/session.html?shochat-devicemgmt-talk
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->From reading the abstract there, it sounds like such a device driver
-would want to abstract away the numa location of the underlying
-devices from the "unified" net device it presents to the kernel.
-
->
->         Andrew
-
-
-My goal with the patch is not to prevent some one from bonding
-whichever interfaces they want, only to notify them that what they are
-doing is *likely* to be less than ideal from a performance
-perspective. Even if some theoretical load balancing bonding mode was
-intelligent enough to consider NUMA when choosing a transmit
-interface, it never has control over the interface traffic is received
-on (excluding the strange balance-alb mode).
-
-Patrick
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 439c63cb2a0c..2bc4dd0dbbf1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -350,7 +350,7 @@ struct i40e_pf {
+ 	u16 num_vmdq_vsis;         /* num vmdq vsis this PF has set up */
+ 	u16 num_vmdq_qps;          /* num queue pairs per vmdq pool */
+ 	u16 num_vmdq_msix;         /* num queue vectors per vmdq pool */
+-	u16 num_req_vfs;           /* num VFs requested for this VF */
++	u16 num_req_vfs;           /* num VFs requested for this PF */
+ 	u16 num_vf_qps;            /* num queue pairs per VF */
+ 	u16 num_lan_qps;           /* num lan queues this PF has set up */
+ 	u16 num_lan_msix;          /* num queue vectors for the base PF vsi */
+-- 
+2.14.2
