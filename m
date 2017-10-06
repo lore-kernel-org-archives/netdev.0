@@ -1,95 +1,55 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net-next 03/16] ipv6: prepare fib6_remove_prefsrc() for exception table
-Date: Fri,  6 Oct 2017 12:05:58 -0700
-Message-ID: <20171006190611.110633-4-tracywwnj@gmail.com>
-References: <20171006190611.110633-1-tracywwnj@gmail.com>
- <20171006190611.110633-2-tracywwnj@gmail.com>
- <20171006190611.110633-3-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:43631 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752629AbdJFTGj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 15:06:39 -0400
-Received: by mail-pf0-f170.google.com with SMTP id d2so6790829pfh.0
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 12:06:39 -0700 (PDT)
-In-Reply-To: <20171006190611.110633-3-tracywwnj@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH v2] isdn/gigaset: Convert timers to use timer_setup()
+Date: Fri, 6 Oct 2017 12:39:56 -0700
+Message-ID: <CAGXu5jJaMODs0NNasPY97wiXeQJ-Y5G+qLrFbwquhGJj=o3rxA@mail.gmail.com>
+References: <20171005193118.GA105874@beast> <1507316433.6960.19.camel@tiscali.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johan Hovold <johan@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        gigaset307x-common@lists.sourceforge.net,
+        Network Development <netdev@vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507316433.6960.19.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Wang <weiwan@google.com>
+On Fri, Oct 6, 2017 at 12:00 PM, Paul Bolle <pebolle@tiscali.nl> wrote:
+> On Thu, 2017-10-05 at 12:31 -0700, Kees Cook wrote:
+>> --- a/drivers/isdn/gigaset/bas-gigaset.c
+>> +++ b/drivers/isdn/gigaset/bas-gigaset.c
+>
+>> -static void cmd_in_timeout(unsigned long data)
+>> +static void cmd_in_timeout(struct timer_list *t)
+>>  {
+>> -     struct cardstate *cs = (struct cardstate *) data;
+>> -     struct bas_cardstate *ucs = cs->hw.bas;
+>> +     struct bas_cardstate *ucs = from_timer(ucs, t, timer_cmd_in);
+>> +     struct urb *urb = ucs->urb_int_in;
+>> +     struct cardstate *cs = urb->context;
+>
+> This makes me nervous. Are you sure urb->context points to a struct cardstate
+> here and in the other two places this patch changes?
+>
+> Anyhow, I'd like to have some time to do my review. So what's your timeframe
+> here? I do hope I have at least a few weeks. (In other words: I hope gigaset
+> isn't the only driver where the ability to use random pointers in these timer
+> callbacks is removed.)
 
-After we move cached dst entries into the exception table under its
-parent route, current fib6_remove_prefsrc() no longer can access them.
-This commit makes fib6_remove_prefsrc() also go through all routes
-in the exception table to remove the pref src.
-This is a preparation patch in order to move all cached dst into the
-exception table.
+Hi!
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/route.c | 29 +++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
+I'm in no rush for any specific change. There are about 900 call sites
+I'm making my way through, about 2/3rd are pretty trivial, and the
+less obvious is what I've started sending out now, since I expect some
+will need some more careful review.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index dc5e70975966..f52ac57dcc99 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1264,6 +1264,12 @@ static int rt6_insert_exception(struct rt6_info *nrt,
- 	if (ort->rt6i_src.plen)
- 		src_key = &nrt->rt6i_src.addr;
- #endif
-+
-+	/* Update rt6i_prefsrc as it could be changed
-+	 * in rt6_remove_prefsrc()
-+	 */
-+	nrt->rt6i_prefsrc = ort->rt6i_prefsrc;
-+
- 	rt6_ex = __rt6_find_exception_spinlock(&bucket, &nrt->rt6i_dst.addr,
- 					       src_key);
- 	if (rt6_ex)
-@@ -1432,6 +1438,25 @@ static void rt6_update_exception_stamp_rt(struct rt6_info *rt)
- 	rcu_read_unlock();
- }
- 
-+static void rt6_exceptions_remove_prefsrc(struct rt6_info *rt)
-+{
-+	struct rt6_exception_bucket *bucket;
-+	struct rt6_exception *rt6_ex;
-+	int i;
-+
-+	bucket = rcu_dereference_protected(rt->rt6i_exception_bucket,
-+					lockdep_is_held(&rt6_exception_lock));
-+
-+	if (bucket) {
-+		for (i = 0; i < FIB6_EXCEPTION_BUCKET_SIZE; i++) {
-+			hlist_for_each_entry(rt6_ex, &bucket->chain, hlist) {
-+				rt6_ex->rt6i->rt6i_prefsrc.plen = 0;
-+			}
-+			bucket++;
-+		}
-+	}
-+}
-+
- struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
- 			       int oif, struct flowi6 *fl6, int flags)
- {
-@@ -3159,8 +3184,12 @@ static int fib6_remove_prefsrc(struct rt6_info *rt, void *arg)
- 	if (((void *)rt->dst.dev == dev || !dev) &&
- 	    rt != net->ipv6.ip6_null_entry &&
- 	    ipv6_addr_equal(addr, &rt->rt6i_prefsrc.addr)) {
-+		spin_lock_bh(&rt6_exception_lock);
- 		/* remove prefsrc entry */
- 		rt->rt6i_prefsrc.plen = 0;
-+		/* need to update cache as well */
-+		rt6_exceptions_remove_prefsrc(rt);
-+		spin_unlock_bh(&rt6_exception_lock);
- 	}
- 	return 0;
- }
+Thanks for taking a look at it!
+
+-Kees
+
 -- 
-2.14.2.920.gcf0c67979c-goog
+Kees Cook
+Pixel Security
