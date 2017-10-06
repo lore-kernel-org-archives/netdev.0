@@ -1,104 +1,165 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH net v2 3/9] net/mac89x0: Fix and modernize log messages
-Date: Thu,  5 Oct 2017 21:11:05 -0400 (EDT)
-Message-ID: <e9fb341944d187cabf1ccef78cfdc9de64e3f158.1507211120.git.fthain@telegraphics.com.au>
-References: <cover.1507211120.git.fthain@telegraphics.com.au>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1507211120.git.fthain@telegraphics.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Rafael J. Wysocki" <rafael@kernel.org>
+Subject: Re: r8169 Wake-on-LAN causes immediate ACPI GPE wakeup
+Date: Fri, 6 Oct 2017 03:24:34 +0200
+Message-ID: <CAJZ5v0i+Ct9HbT+vMchW0dNxYO2WvyY5Tmz1a+3k0FLmbFGE2w@mail.gmail.com>
+References: <CAD8Lp45YVtw48+8jSq6gtu1xA7Rt+qr6vvVZF4AC-QXeCKNj4w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
+        ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Linux Upstreaming Team <linux@endlessm.com>,
+        Linux PM <linux-pm@vger.kernel.org>
+To: Daniel Drake <drake@endlessm.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <CAD8Lp45YVtw48+8jSq6gtu1xA7Rt+qr6vvVZF4AC-QXeCKNj4w@mail.gmail.com>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix misplaced newlines in conditional log messages.
-Add missing printk severity levels.
-Log the MAC address after the interface gets a meaningful name.
-Drop deprecated "out of memory" message as per checkpatch advice.
+On Thu, Oct 5, 2017 at 10:57 AM, Daniel Drake <drake@endlessm.com> wrote:
+> Hi,
+>
+> On the Acer laptop models Aspire ES1-533, Aspire ES1-732, PackardBell
+> ENTE69AP and Gateway NE533, we are seeing a problem where the system
+> immediately wakes up after being put into S3 suspend.
+>
+> This problem has been seen on all kernel versions that we have tried,
+> including 4.14-rc3.
+>
+> After disabling wakeup sources one by one, we found that the r8169
+> ethernet is responsible for these wakeups here, the hardware is:
+>
+> 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+> RTL8111/8168/8411 PCI Express Gigabit Ethernet Controller (rev 15)
+>     Subsystem: Acer Incorporated [ALI] Device 1084
+>     Flags: bus master, fast devsel, latency 0, IRQ 124
+>     I/O ports at 1000 [size=256]
+>     Memory at 91204000 (64-bit, non-prefetchable) [size=4K]
+>     Memory at 91200000 (64-bit, non-prefetchable) [size=16K]
+>     Capabilities: [40] Power Management version 3
+>     Capabilities: [50] MSI: Enable+ Count=1/1 Maskable- 64bit+
+>     Capabilities: [70] Express Endpoint, MSI 01
+>     Capabilities: [b0] MSI-X: Enable- Count=4 Masked-
+>     Capabilities: [100] Advanced Error Reporting
+>     Capabilities: [140] Virtual Channel
+>     Capabilities: [160] Device Serial Number 01-00-00-00-68-4c-e0-00
+>     Capabilities: [170] Latency Tolerance Reporting
+>     Capabilities: [178] L1 PM Substates
+>     Kernel driver in use: r8169
+>
+> This driver enables WOL by default. The system wakes up immediately
+> when it is put into S3 suspend, even if there is no ethernet cable
+> plugged in.
+>
+> The problem was also reproduced with the r8168 vendor driver, however
+> it does not occur under Windows, where we can suspend the system just
+> fine and also wake it up with a magic WOL packet.
+>
+> Further investigation takes us into ACPI-land. The complete DSDT is here:
+> https://gist.github.com/dsd/62293b6d8c30a5204128709813a55ffb
+>
+> Both Windows and Linux associate PCI0.RP05.PXSX with this device, so
+> let's consider this part of the DSDT:
+>
+>   Device (RP05)
+>   {
+>       Method (_ADR, 0, NotSerialized)  // _ADR: Address
+>       {
+>           If (RPA5 != Zero)
+>           {
+>               Return (RPA5) /* \RPA5 */
+>           }
+>           Else
+>           {
+>               Return (0x00130002)
+>           }
+>       }
+>
+>       Method (_PRW, 0, NotSerialized)  // _PRW: Power Resources for Wake
+>       {
+>           Return (GPRW (0x09, 0x04))
+>       }
+>
+>       Device (PXSX)
+>       {
+>           Name (_ADR, Zero)  // _ADR: Address
+>           Name (_PRW, Package (0x02)  // _PRW: Power Resources for Wake
+>           {
+>               0x08,
+>               0x04
+>           })
+>       }
+>
+>   }
+>
+> RP05 corresponds to
+> 00:13.0 PCI bridge: Intel Corporation Device 5ada (rev fb)
+>
+> I am not familiar with this subdevice approach, where PXSX (with
+> address 0) is detected as a child of the PCI bridge, however both
+> Windows and Linux associate PXSX with the ethernet device, so I guess
+> it is correct.
+>
+> Now to focus on the _PRW power resource for wakeup. The PXSX
+> (ethernet) device says that it will wake up the system using GPE08.
+> However if you look at the _L08 GPE08 event handler, you will see that
+> it does not do anything related to RP05/PXSX (it instead calls into
+> RP02, which does not even physically exist on this platform) -
+> suspicious.
 
-Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
----
- drivers/net/ethernet/cirrus/mac89x0.c | 26 ++++++++++++--------------
- 1 file changed, 12 insertions(+), 14 deletions(-)
+Well, it is broken, but that doesn't matter for wakeups from S3.
 
-diff --git a/drivers/net/ethernet/cirrus/mac89x0.c b/drivers/net/ethernet/cirrus/mac89x0.c
-index 4fd72c1a69f5..fa4b6968afd5 100644
---- a/drivers/net/ethernet/cirrus/mac89x0.c
-+++ b/drivers/net/ethernet/cirrus/mac89x0.c
-@@ -56,6 +56,8 @@
-   local_irq_{dis,en}able()
- */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- static const char version[] =
- "cs89x0.c:v1.02 11/26/96 Russell Nelson <nelson@crynwr.com>\n";
- 
-@@ -248,16 +250,14 @@ struct net_device * __init mac89x0_probe(int unit)
- 	if (net_debug && version_printed++ == 0)
- 		printk(version);
- 
--	printk(KERN_INFO "%s: cs89%c0%s rev %c found at %#8lx",
--	       dev->name,
--	       lp->chip_type==CS8900?'0':'2',
--	       lp->chip_type==CS8920M?"M":"",
--	       lp->chip_revision,
--	       dev->base_addr);
-+	pr_info("CS89%c0%s rev %c found at %#8lx\n",
-+	        lp->chip_type == CS8900 ? '0' : '2',
-+	        lp->chip_type == CS8920M ? "M" : "",
-+	        lp->chip_revision, dev->base_addr);
- 
- 	/* Try to read the MAC address */
- 	if ((readreg(dev, PP_SelfST) & (EEPROM_PRESENT | EEPROM_OK)) == 0) {
--		printk("\nmac89x0: No EEPROM, giving up now.\n");
-+		pr_info("No EEPROM, giving up now\n");
- 		goto out1;
-         } else {
-                 for (i = 0; i < ETH_ALEN; i += 2) {
-@@ -270,15 +270,14 @@ struct net_device * __init mac89x0_probe(int unit)
- 
- 	dev->irq = SLOT2IRQ(slot);
- 
--	/* print the IRQ and ethernet address. */
--
--	printk(" IRQ %d ADDR %pM\n", dev->irq, dev->dev_addr);
--
- 	dev->netdev_ops		= &mac89x0_netdev_ops;
- 
- 	err = register_netdev(dev);
- 	if (err)
- 		goto out1;
-+
-+	netdev_info(dev, "MAC %pM, IRQ %d\n", dev->dev_addr, dev->irq);
-+
- 	return NULL;
- out1:
- 	nubus_writew(0, dev->base_addr + ADD_PORT);
-@@ -473,7 +472,6 @@ net_rx(struct net_device *dev)
- 	/* Malloc up new buffer. */
- 	skb = alloc_skb(length, GFP_ATOMIC);
- 	if (skb == NULL) {
--		printk("%s: Memory squeeze, dropping packet.\n", dev->name);
- 		dev->stats.rx_dropped++;
- 		return;
- 	}
-@@ -561,7 +559,7 @@ static int set_mac_address(struct net_device *dev, void *addr)
- 		return -EADDRNOTAVAIL;
- 
- 	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
--	printk("%s: Setting MAC address to %pM\n", dev->name, dev->dev_addr);
-+	netdev_info(dev, "Setting MAC address to %pM\n", dev->dev_addr);
- 
- 	/* set the Ethernet address */
- 	for (i=0; i < ETH_ALEN/2; i++)
-@@ -585,7 +583,7 @@ init_module(void)
- 	net_debug = debug;
-         dev_cs89x0 = mac89x0_probe(-1);
- 	if (IS_ERR(dev_cs89x0)) {
--                printk(KERN_WARNING "mac89x0.c: No card found\n");
-+		pr_warn("No card found\n");
- 		return PTR_ERR(dev_cs89x0);
- 	}
- 	return 0;
--- 
-2.13.5
+> On the other hand, the RP05 (root port) _PRW says it will wake up the
+> system via GPE09, and the _L09 handler at least has one codepath which
+> could potentially do a Notify(PXSX, 2) to indicate an ethernet wakeup.
+
+Which can only happen in the S0 system state.
+
+> But in testing:
+>  - If GPE08 is enabled as a wakeup source, the system will always wake
+> up as soon as it goes to sleep
+
+What exactly do you mean by "enabled as a wakeup source"?
+
+>  - I have never seen a wakeup on GPE09
+>  - Disabling GPE08 and all other GPE wakeups, the system sleeps fine,
+> and Wake-on-LAN works fine too
+
+Again, what exactly do you mean by "Disabling GPE08 and all other GPE
+wakeups"?  That is, what exactly do you do to disable/enable them?
+
+> So in summary, the messy situation is that the DSDT suggests that
+> GPE08 will be used for ethernet wakeups, however that GPE seems to
+> fire instantly during suspend, and actually wake-on-LAN does not
+> appear to use ACPI GPEs to wake the system it all - it must use some
+> other mechanism. Windows is for some reason ignoring the ethernet
+> device _PRW information so it does not suffer this issue.
+
+Oh well.
+
+> Does anyone have suggestions for how Linux should work with this?
+>
+> What logic should we use to ignore the _PRW in this case, or how can
+> we quirk it?
+
+User space can do that via /proc/acpi/wakeup.  The kernel not so much.
+
+I guess it might be possible to add a DMI-based quirk for this system
+to ignore _PRW for a specific ACPI device object, but that would be
+super-ugly.
+
+> Also, is there a standard behaviour defined for ethernet drivers
+> regarding wake-on-LAN?
+
+I'm not aware of any. :-)
+
+> r8169 appears to enable wake-on-LAN by default
+> if it believes the hardware is capable of it, but other ethernet
+> drivers seem to default to WOL off. (I don't expect users of the
+> affected consumer laptops here to care about WOL support.)
+
+Defaulting to off is generally safer, because you avoid spurious
+wakeups when the user doesn't care about WoL.
+
+Thanks,
+Rafael
