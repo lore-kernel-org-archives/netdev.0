@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 3/3] bpf: Append prog->aux->name in bpf_get_prog_name()
-Date: Thu, 5 Oct 2017 21:52:13 -0700
-Message-ID: <20171006045213.752372-4-kafai@fb.com>
+Subject: [PATCH net-next 1/3] bpf: Change bpf_obj_name_cpy() to better ensure map's name is init by 0
+Date: Thu, 5 Oct 2017 21:52:11 -0700
+Message-ID: <20171006045213.752372-2-kafai@fb.com>
 References: <20171006045213.752372-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,70 +9,61 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55746 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42880 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750863AbdJFEw3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:52:29 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v964oMaK000957
-        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 21:52:29 -0700
+        by vger.kernel.org with ESMTP id S1750768AbdJFExG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:53:06 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v964mhP8027407
+        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 21:53:05 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2de2thr2b1-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2ddyqvgst9-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 21:52:29 -0700
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 21:53:05 -0700
 In-Reply-To: <20171006045213.752372-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes the bpf_prog's name available
-in kallsyms.
+During get_info_by_fd, the prog/map name is memcpy-ed.  It depends
+on the prog->aux->name and map->name to be zero initialized.
 
-The new format is bpf_prog_tag[_name].
+bpf_prog_aux is easy to guarantee that aux->name is zero init.
 
-Sample kallsyms from running selftests/bpf/test_progs:
-[root@arch-fb-vm1 ~]# egrep ' bpf_prog_[0-9a-fA-F]{16}' /proc/kallsyms
-ffffffffa0048000 t bpf_prog_dabf0207d1992486_test_obj_id
-ffffffffa0038000 t bpf_prog_a04f5eef06a7f555__123456789ABCDE
-ffffffffa0050000 t bpf_prog_a04f5eef06a7f555
+The name in bpf_map may be harder to be guaranteed in the future when
+new map type is added.
 
+Hence, this patch makes bpf_obj_name_cpy() to always zero init
+the prog/map name.
+
+Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@fb.com>
 ---
- kernel/bpf/core.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
+ kernel/bpf/syscall.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index c6be15ae83ee..248961af2421 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -309,12 +309,25 @@ bpf_get_prog_addr_region(const struct bpf_prog *prog,
- 
- static void bpf_get_prog_name(const struct bpf_prog *prog, char *sym)
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 0048cb24ba7b..d124e702e040 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -322,6 +322,8 @@ static int bpf_obj_name_cpy(char *dst, const char *src)
  {
-+	const char *end = sym + KSYM_NAME_LEN;
-+
- 	BUILD_BUG_ON(sizeof("bpf_prog_") +
--		     sizeof(prog->tag) * 2 + 1 > KSYM_NAME_LEN);
-+		     sizeof(prog->tag) * 2 +
-+		     /* name has been null terminated.
-+		      * We should need +1 for the '_' preceding
-+		      * the name.  However, the null character
-+		      * is double counted between the name and the
-+		      * sizeof("bpf_prog_") above, so we omit
-+		      * the +1 here.
-+		      */
-+		     sizeof(prog->aux->name) > KSYM_NAME_LEN);
+ 	const char *end = src + BPF_OBJ_NAME_LEN;
  
- 	sym += snprintf(sym, KSYM_NAME_LEN, "bpf_prog_");
- 	sym  = bin2hex(sym, prog->tag, sizeof(prog->tag));
--	*sym = 0;
-+	if (prog->aux->name[0])
-+		snprintf(sym, (size_t)(end - sym), "_%s", prog->aux->name);
-+	else
-+		*sym = 0;
++	memset(dst, 0, BPF_OBJ_NAME_LEN);
++
+ 	/* Copy all isalnum() and '_' char */
+ 	while (src < end && *src) {
+ 		if (!isalnum(*src) && *src != '_')
+@@ -333,9 +335,6 @@ static int bpf_obj_name_cpy(char *dst, const char *src)
+ 	if (src == end)
+ 		return -EINVAL;
+ 
+-	/* '\0' terminates dst */
+-	*dst = 0;
+-
+ 	return 0;
  }
  
- static __always_inline unsigned long
 -- 
 2.9.5
