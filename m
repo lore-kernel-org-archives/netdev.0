@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qcom/emac: make function emac_isr static
-Date: Thu, 05 Oct 2017 21:27:12 -0700 (PDT)
-Message-ID: <20171005.212712.1114511156589357681.davem@davemloft.net>
-References: <20171005091023.27781-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] selftests/net: rxtimestamp: Fix an off by one
+Date: Thu, 05 Oct 2017 21:29:36 -0700 (PDT)
+Message-ID: <20171005.212936.1533429317037705562.davem@davemloft.net>
+References: <20171005125347.otplfss4mo7hfopv@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: timur@codeaurora.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171005091023.27781-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shuah@kernel.org, maloney@google.com, willemb@google.com,
+        linux-kselftest@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57406 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750732AbdJFE3h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:29:37 -0400
+In-Reply-To: <20171005125347.otplfss4mo7hfopv@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu,  5 Oct 2017 10:10:23 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 5 Oct 2017 15:53:47 +0300
 
-> From: Colin Ian King <colin.king@canonical.com>
+> The > should be >= so that we don't write one element beyond the end of
+> the array.
 > 
-> The function emac_isr is local to the source and does not need to
-> be in global scope, so make it static.
-> 
-> Cleans up sparse warnings:
-> symbol 'emac_isr' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Fixes: 16e781224198 ("selftests/net: Add a test to validate behavior of rx timestamps")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
