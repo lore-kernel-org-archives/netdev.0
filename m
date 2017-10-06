@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 4/7] tcp: tcp_mark_head_lost() optimization
-Date: Thu,  5 Oct 2017 22:21:24 -0700
-Message-ID: <20171006052127.19913-5-edumazet@google.com>
+Subject: [PATCH net-next 6/7] tcp: pass previous skb to tcp_shifted_skb()
+Date: Thu,  5 Oct 2017 22:21:26 -0700
+Message-ID: <20171006052127.19913-7-edumazet@google.com>
 References: <20171006052127.19913-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <edumazet@google.com>,
@@ -10,46 +10,62 @@ To: "David S . Miller" <davem@davemloft.net>,
         Neal Cardwell <ncardwell@google.com>,
         Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:49682 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751736AbdJFFVn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 01:21:43 -0400
-Received: by mail-pf0-f182.google.com with SMTP id l188so9047354pfc.6
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 22:21:43 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:43821 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751833AbdJFFVr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 01:21:47 -0400
+Received: by mail-pf0-f171.google.com with SMTP id d2so5859616pfh.0
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 22:21:47 -0700 (PDT)
 In-Reply-To: <20171006052127.19913-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be a bit more expensive to get the head of rtx queue
-once rtx queue is converted to an rb-tree.
-
-We can avoid this extra cost in case tp->lost_skb_hint is set.
+No need to recompute previous skb, as it will be a bit more
+expensive when rtx queue is converted to RB tree.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_input.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/tcp_input.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 90afe41435966fc62ae8cb5799ca4c99995076dc..abc3b1db81f85a7feebda40cebc90c07afcef446 100644
+index be7644204cd4493d0574aa065afbd6cb82a6b3bb..72c4732ae2da122a878e4673ce56812055de1972 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2207,12 +2207,12 @@ static void tcp_mark_head_lost(struct sock *sk, int packets, int mark_head)
- 	const u32 loss_high = tcp_is_sack(tp) ?  tp->snd_nxt : tp->high_seq;
+@@ -1288,13 +1288,13 @@ static u8 tcp_sacktag_one(struct sock *sk,
+ /* Shift newly-SACKed bytes from this skb to the immediately previous
+  * already-SACKed sk_buff. Mark the newly-SACKed bytes as such.
+  */
+-static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
++static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *prev,
++			    struct sk_buff *skb,
+ 			    struct tcp_sacktag_state *state,
+ 			    unsigned int pcount, int shifted, int mss,
+ 			    bool dup_sack)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	struct sk_buff *prev = tcp_write_queue_prev(sk, skb);
+ 	u32 start_seq = TCP_SKB_CB(skb)->seq;	/* start of newly-SACKed */
+ 	u32 end_seq = start_seq + shifted;	/* end of newly-SACKed */
  
- 	WARN_ON(packets > tp->packets_out);
--	if (tp->lost_skb_hint) {
--		skb = tp->lost_skb_hint;
--		cnt = tp->lost_cnt_hint;
-+	skb = tp->lost_skb_hint;
-+	if (skb) {
- 		/* Head already handled? */
--		if (mark_head && skb != tcp_write_queue_head(sk))
-+		if (mark_head && after(TCP_SKB_CB(skb)->seq, tp->snd_una))
- 			return;
-+		cnt = tp->lost_cnt_hint;
- 	} else {
- 		skb = tcp_write_queue_head(sk);
- 		cnt = 0;
+@@ -1495,7 +1495,7 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
+ 
+ 	if (!skb_shift(prev, skb, len))
+ 		goto fallback;
+-	if (!tcp_shifted_skb(sk, skb, state, pcount, len, mss, dup_sack))
++	if (!tcp_shifted_skb(sk, prev, skb, state, pcount, len, mss, dup_sack))
+ 		goto out;
+ 
+ 	/* Hole filled allows collapsing with the next as well, this is very
+@@ -1514,7 +1514,8 @@ static struct sk_buff *tcp_shift_skb_data(struct sock *sk, struct sk_buff *skb,
+ 	len = skb->len;
+ 	if (skb_shift(prev, skb, len)) {
+ 		pcount += tcp_skb_pcount(skb);
+-		tcp_shifted_skb(sk, skb, state, tcp_skb_pcount(skb), len, mss, 0);
++		tcp_shifted_skb(sk, prev, skb, state, tcp_skb_pcount(skb),
++				len, mss, 0);
+ 	}
+ 
+ out:
 -- 
 2.14.2.920.gcf0c67979c-goog
