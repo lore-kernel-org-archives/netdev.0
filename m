@@ -1,46 +1,87 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH iproute2 v2 0/3] ss: add AF_VSOCK support
-Date: Fri,  6 Oct 2017 11:48:38 -0400
-Message-ID: <20171006154841.10495-1-stefanha@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Dexuan Cui <decui@microsoft.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next V4 PATCH 1/5] bpf: introduce new bpf cpu map type
+ BPF_MAP_TYPE_CPUMAP
+Date: Fri, 6 Oct 2017 17:58:36 +0200
+Message-ID: <20171006175836.1d3d7a8a@redhat.com>
+References: <150711858281.9499.7767364427831352921.stgit@firesoul>
+        <150711862505.9499.15042356194495111353.stgit@firesoul>
+        <59D5FDFF.5040002@iogearbox.net>
+        <20171006125008.676d5eaf@redhat.com>
+        <59D798B8.8090101@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55750 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42022 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751484AbdJFPsq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 11:48:46 -0400
+        id S1751525AbdJFP6s (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 11:58:48 -0400
+In-Reply-To: <59D798B8.8090101@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v2:
- * Use uint64_t instead of __u64 for filter->families
- * Added reference to net-next commit that merged vsock_diag.ko
 
-This patch series adds AF_VSOCK support to ss(8).  AF_VSOCK is a host<->guest
-communications channel supported by VMware, KVM (virtio-vsock), and Hyper-V.
+On Fri, 06 Oct 2017 16:52:40 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-To dump AF_VSOCK sockets:
+> On 10/06/2017 12:50 PM, Jesper Dangaard Brouer wrote:
+> > On Thu, 05 Oct 2017 11:40:15 +0200
+> > Daniel Borkmann <daniel@iogearbox.net> wrote:  
+> >> On 10/04/2017 02:03 PM, Jesper Dangaard Brouer wrote:
+> >> [...]  
+> [...]
+> >>> +		/* Updating qsize cause re-allocation of bpf_cpu_map_entry */
+> >>> +		rcpu = __cpu_map_entry_alloc(qsize, key_cpu, map->id);
+> >>> +		if (!rcpu)
+> >>> +			return -ENOMEM;
+> >>> +	}
+> >>> +	rcu_read_lock();
+> >>> +	__cpu_map_entry_replace(cmap, key_cpu, rcpu);
+> >>> +	rcu_read_unlock();
+> >>> +	return 0;  
+> >>
+> >> You need to update verifier such that this function cannot be called
+> >> out of an BPF program,  
+> >
+> > In the example BPF program, I do a lookup into the map, but only to
+> > verify that an entry exist (I don't look at the value).  I would like
+> > to support such usage.  
+> 
+> Ok, put comment below.
+> 
+> >> otherwise it would be possible under full RCU
+> >> read context, which is explicitly avoided here and also it would otherwise
+> >> be allowed for other maps of different type as well, which needs to
+> >> be avoided.  
+> >
+> > Sorry, I don't follow this.  
+> 
+> What I meant is that check_map_func_compatibility() should check for
+> BPF_MAP_TYPE_CPUMAP and only allow func_id of BPF_FUNC_redirect_map
+> and BPF_FUNC_map_lookup_elem to be used, which I haven't seen the set
+> restricting it to. Some of your later patches do this for the helper
+> BPF_FUNC_redirect_map but the important point is that map updates
+> wouldn't be done out of the BPF program itself, but rather from user
+> space control path given they can't be done under full RCU read lock
+> context if I read this correctly (which the programs run in though).
 
-  $ ss --vsock
+Okay, I choose to restrict bpf_prog side in check_map_func_compatibility()
+as you describe.  And I changed the user program to keep track of valid
+entries via secondary map.  We can always add/allow lookup later if users
+request this.
 
-The vsock_diag.ko module has now been merged in the Linux net-next tree.  I
-have verified that the <linux/vm_sockets_diag.h> header copy in this patch
-series is in sync with Linux net-next.  See commit
-5820299a271fd3dc9b1733e1e10cd7b983edd028 ("Merge branch 'VSOCK-sock_diag'").
-
-Stefan Hajnoczi (3):
-  ss: allow AF_FAMILY constants >32
-  include: add <linux/vm_sockets_diag.h>
-  ss: add AF_VSOCK support
-
- include/linux/vm_sockets_diag.h |  33 ++++++
- misc/ss.c                       | 238 +++++++++++++++++++++++++++++++++++-----
- man/man8/ss.8                   |   8 +-
- 3 files changed, 249 insertions(+), 30 deletions(-)
- create mode 100644 include/linux/vm_sockets_diag.h
+I'll send out V5 shortly...
 
 -- 
-2.13.6
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
