@@ -1,154 +1,177 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next 6/9] net/mlx5: Replace fs_node mutex with reader/writer semaphore
-Date: Fri,  6 Oct 2017 16:37:46 -0700
-Message-ID: <20171006233749.25545-7-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next 4/9] net/mlx5: Export building of matched flow groups list
+Date: Fri,  6 Oct 2017 16:37:44 -0700
+Message-ID: <20171006233749.25545-5-saeedm@mellanox.com>
 References: <20171006233749.25545-1-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171006233749.25545-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Maor Gottlieb <maorg@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49828 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753003AbdJFXiU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:38:20 -0400
+In-Reply-To: <20171006233749.25545-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Maor Gottlieb <maorg@mellanox.com>
 
-Currently, steering object is protected by mutex lock, replace
-the mutex lock with reader/writer semaphore .
-In this patch we still use only write semaphore. In downstream
-patches we will switch part of the write locks to read locks.
+Refactor the code and export the build of the matched flow groups
+list to separate function.
 
-Signed-off-by: Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 28 +++++++++++------------
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  2 +-
- 2 files changed, 15 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 100 ++++++++++++++--------
+ 1 file changed, 64 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 41f26f4..9406e72 100644
+index 2a0b556..33bcaca 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -145,10 +145,10 @@ struct node_caps {
+@@ -1441,47 +1441,87 @@ static bool dest_is_valid(struct mlx5_flow_destination *dest,
+ 	return true;
+ }
+ 
+-static struct mlx5_flow_handle *
+-try_add_to_existing_fg(struct mlx5_flow_table *ft,
+-		       struct mlx5_flow_spec *spec,
+-		       struct mlx5_flow_act *flow_act,
+-		       struct mlx5_flow_destination *dest,
+-		       int dest_num)
+-{
++struct match_list {
++	struct list_head	list;
+ 	struct mlx5_flow_group *g;
+-	struct mlx5_flow_handle *rule;
++};
++
++struct match_list_head {
++	struct list_head  list;
++	struct match_list first;
++};
++
++static void free_match_list(struct match_list_head *head)
++{
++	if (!list_empty(&head->list)) {
++		struct match_list *iter, *match_tmp;
++
++		list_del(&head->first.list);
++		list_for_each_entry_safe(iter, match_tmp, &head->list,
++					 list) {
++			list_del(&iter->list);
++			kfree(iter);
++		}
++	}
++}
++
++static int build_match_list(struct match_list_head *match_head,
++			    struct mlx5_flow_table *ft,
++			    struct mlx5_flow_spec *spec)
++{
+ 	struct rhlist_head *tmp, *list;
+-	struct match_list {
+-		struct list_head	list;
+-		struct mlx5_flow_group *g;
+-	} match_list, *iter;
+-	LIST_HEAD(match_head);
++	struct mlx5_flow_group *g;
++	int err = 0;
+ 
+ 	rcu_read_lock();
++	INIT_LIST_HEAD(&match_head->list);
+ 	/* Collect all fgs which has a matching match_criteria */
+ 	list = rhltable_lookup(&ft->fgs_hash, spec, rhash_fg);
++	/* RCU is atomic, we can't execute FW commands here */
+ 	rhl_for_each_entry_rcu(g, tmp, list, hash) {
+ 		struct match_list *curr_match;
+ 
+-		if (likely(list_empty(&match_head))) {
+-			match_list.g = g;
+-			list_add_tail(&match_list.list, &match_head);
++		if (likely(list_empty(&match_head->list))) {
++			match_head->first.g = g;
++			list_add_tail(&match_head->first.list,
++				      &match_head->list);
+ 			continue;
+ 		}
+-		curr_match = kmalloc(sizeof(*curr_match), GFP_ATOMIC);
+ 
++		curr_match = kmalloc(sizeof(*curr_match), GFP_ATOMIC);
+ 		if (!curr_match) {
+-			rcu_read_unlock();
+-			rule = ERR_PTR(-ENOMEM);
+-			goto free_list;
++			free_match_list(match_head);
++			err = -ENOMEM;
++			goto out;
+ 		}
+ 		curr_match->g = g;
+-		list_add_tail(&curr_match->list, &match_head);
++		list_add_tail(&curr_match->list, &match_head->list);
  	}
- };
++out:
+ 	rcu_read_unlock();
++	return err;
++}
++
++static struct mlx5_flow_handle *
++try_add_to_existing_fg(struct mlx5_flow_table *ft,
++		       struct mlx5_flow_spec *spec,
++		       struct mlx5_flow_act *flow_act,
++		       struct mlx5_flow_destination *dest,
++		       int dest_num)
++{
++	struct mlx5_flow_group *g;
++	struct mlx5_flow_handle *rule;
++	struct match_list_head match_head;
++	struct match_list *iter;
++	int err;
++
++	/* Collect all fgs which has a matching match_criteria */
++	err = build_match_list(&match_head, ft, spec);
++	if (err)
++		return ERR_PTR(err);
  
--enum fs_i_mutex_lock_class {
--	FS_MUTEX_GRANDPARENT,
--	FS_MUTEX_PARENT,
--	FS_MUTEX_CHILD
-+enum fs_i_lock_class {
-+	FS_LOCK_GRANDPARENT,
-+	FS_LOCK_PARENT,
-+	FS_LOCK_CHILD
- };
- 
- static const struct rhashtable_params rhash_fte = {
-@@ -184,7 +184,7 @@ static void tree_init_node(struct fs_node *node,
- 	atomic_set(&node->refcount, 1);
- 	INIT_LIST_HEAD(&node->list);
- 	INIT_LIST_HEAD(&node->children);
--	mutex_init(&node->lock);
-+	init_rwsem(&node->lock);
- 	node->remove_func = remove_func;
- 	node->active = false;
- }
-@@ -208,10 +208,10 @@ static void tree_get_node(struct fs_node *node)
- }
- 
- static void nested_lock_ref_node(struct fs_node *node,
--				 enum fs_i_mutex_lock_class class)
-+				 enum fs_i_lock_class class)
- {
- 	if (node) {
--		mutex_lock_nested(&node->lock, class);
-+		down_write_nested(&node->lock, class);
- 		atomic_inc(&node->refcount);
- 	}
- }
-@@ -219,7 +219,7 @@ static void nested_lock_ref_node(struct fs_node *node,
- static void lock_ref_node(struct fs_node *node)
- {
- 	if (node) {
--		mutex_lock(&node->lock);
-+		down_write(&node->lock);
- 		atomic_inc(&node->refcount);
- 	}
- }
-@@ -228,7 +228,7 @@ static void unlock_ref_node(struct fs_node *node)
- {
- 	if (node) {
- 		atomic_dec(&node->refcount);
--		mutex_unlock(&node->lock);
-+		up_write(&node->lock);
- 	}
- }
- 
-@@ -1376,7 +1376,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
- 		int old_action;
- 		int ret;
- 
--		nested_lock_ref_node(&fte->node, FS_MUTEX_CHILD);
-+		nested_lock_ref_node(&fte->node, FS_LOCK_CHILD);
- 		ret = check_conflicting_ftes(fte, flow_act);
- 		if (ret) {
- 			handle = ERR_PTR(ret);
-@@ -1400,7 +1400,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
- 	fte = alloc_insert_fte(fg, match_value, flow_act);
- 	if (IS_ERR(fte))
- 		return (void *)fte;
--	nested_lock_ref_node(&fte->node, FS_MUTEX_CHILD);
-+	nested_lock_ref_node(&fte->node, FS_LOCK_CHILD);
- 	handle = add_rule_fte(fte, fg, dest, dest_num, false);
- 	if (IS_ERR(handle)) {
- 		unlock_ref_node(&fte->node);
-@@ -1548,7 +1548,7 @@ static int build_match_list(struct match_list_head *match_head,
+ 	/* Try to find a fg that already contains a matching fte */
+-	list_for_each_entry(iter, &match_head, list) {
++	list_for_each_entry(iter, &match_head.list, list) {
  		struct fs_fte *fte;
  
  		g = iter->g;
--		nested_lock_ref_node(&g->node, FS_MUTEX_PARENT);
-+		nested_lock_ref_node(&g->node, FS_LOCK_PARENT);
- 		fte = rhashtable_lookup_fast(&g->ftes_hash, spec->match_value,
- 					     rhash_fte);
- 		if (fte) {
-@@ -1566,7 +1566,7 @@ static int build_match_list(struct match_list_head *match_head,
- 	list_for_each_entry(iter, &match_head.list, list) {
+@@ -1500,7 +1540,7 @@ static bool dest_is_valid(struct mlx5_flow_destination *dest,
+ 	/* No group with matching fte found. Try to add a new fte to any
+ 	 * matching fg.
+ 	 */
+-	list_for_each_entry(iter, &match_head, list) {
++	list_for_each_entry(iter, &match_head.list, list) {
  		g = iter->g;
  
--		nested_lock_ref_node(&g->node, FS_MUTEX_PARENT);
-+		nested_lock_ref_node(&g->node, FS_LOCK_PARENT);
- 		rule = add_rule_fg(g, spec->match_value,
- 				   flow_act, dest, dest_num, NULL);
- 		if (!IS_ERR(rule) || PTR_ERR(rule) != -ENOSPC) {
-@@ -1605,7 +1605,7 @@ static int build_match_list(struct match_list_head *match_head,
- 			return ERR_PTR(-EINVAL);
- 	}
+ 		nested_lock_ref_node(&g->node, FS_MUTEX_PARENT);
+@@ -1516,19 +1556,7 @@ static bool dest_is_valid(struct mlx5_flow_destination *dest,
+ 	rule = ERR_PTR(-ENOENT);
  
--	nested_lock_ref_node(&ft->node, FS_MUTEX_GRANDPARENT);
-+	nested_lock_ref_node(&ft->node, FS_LOCK_GRANDPARENT);
- 	rule = try_add_to_existing_fg(ft, spec, flow_act, dest, dest_num);
- 	if (!IS_ERR(rule) || PTR_ERR(rule) != -ENOENT)
- 		goto unlock;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 6e5d25b..b5c079f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -80,7 +80,7 @@ struct fs_node {
- 	struct fs_node		*parent;
- 	struct fs_node		*root;
- 	/* lock the node for writing and traversing */
--	struct mutex		lock;
-+	struct rw_semaphore	lock;
- 	atomic_t		refcount;
- 	bool			active;
- 	void			(*remove_func)(struct fs_node *);
+ free_list:
+-	if (!list_empty(&match_head)) {
+-		struct match_list *match_tmp;
+-
+-		/* The most common case is having one FG. Since we want to
+-		 * optimize this case, we save the first on the stack.
+-		 * Therefore, no need to free it.
+-		 */
+-		list_del(&list_first_entry(&match_head, typeof(*iter), list)->list);
+-		list_for_each_entry_safe(iter, match_tmp, &match_head, list) {
+-			list_del(&iter->list);
+-			kfree(iter);
+-		}
+-	}
++	free_match_list(&match_head);
+ 
+ 	return rule;
+ }
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
