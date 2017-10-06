@@ -1,65 +1,67 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next V4 PATCH 2/5] bpf: XDP_REDIRECT enable use of cpumap
-Date: Fri, 6 Oct 2017 14:01:23 +0200
-Message-ID: <20171006140123.5f94f1e7@redhat.com>
-References: <150711858281.9499.7767364427831352921.stgit@firesoul>
-        <150711863012.9499.383645968070658124.stgit@firesoul>
-        <59D60505.2040004@iogearbox.net>
-        <20171006131748.75185f65@redhat.com>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: Re: [PATCH] ipv6: gso: fix payload length when gso_size is zero
+Date: Fri, 6 Oct 2017 15:16:47 +0300
+Message-ID: <69f9c96f-e83c-62a7-8294-86a85a77e44d@oracle.com>
+References: <1507223207-17557-1-git-send-email-alexey.kodanev@oracle.com>
+ <1507229878.2098.56.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
+To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54280 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751925AbdJFMC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 08:02:29 -0400
-In-Reply-To: <20171006131748.75185f65@redhat.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:42913 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751901AbdJFMIY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 08:08:24 -0400
+In-Reply-To: <1507229878.2098.56.camel@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 6 Oct 2017 13:17:48 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+On 10/05/2017 09:58 PM, Duyck, Alexander H wrote:
+> On Thu, 2017-10-05 at 20:06 +0300, Alexey Kodanev wrote:
+>> When gso_size reset to zero for the tail segment in skb_segment(), later
+>> in ipv6_gso_segment(), we will get incorrect payload_len for that segment.
+>> inet_gso_segment() already has a check for gso_size before calculating
+>> payload so fixing only IPv6 part.
+>>
+>> The issue was found with LTP vxlan & gre tests over ixgbe NIC.
+>>
+>> Fixes: 07b26c9454a2 ("gso: Support partial splitting at the frag_list pointer")
+>> Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+>> ---
+>>  net/ipv6/ip6_offload.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+>> index cdb3728..4a87f94 100644
+>> --- a/net/ipv6/ip6_offload.c
+>> +++ b/net/ipv6/ip6_offload.c
+>> @@ -105,7 +105,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+>>  
+>>  	for (skb = segs; skb; skb = skb->next) {
+>>  		ipv6h = (struct ipv6hdr *)(skb_mac_header(skb) + nhoff);
+>> -		if (gso_partial)
+>> +		if (gso_partial && skb_is_gso(skb))
+>>  			payload_len = skb_shinfo(skb)->gso_size +
+>>  				      SKB_GSO_CB(skb)->data_offset +
+>>  				      skb->head - (unsigned char *)(ipv6h + 1);
+> So looking over this change it looks good to me. I'm just wondering if
+> you have looked at the code in __skb_udp_tunnel_segment or
+> gre_gso_segment? It seems like if you needed this change here you
+> should need to make similar changes to those functions as well. I'm
+> wondering if we just aren't seeing issues due to the segments already
+> being MSS sized before being handed to us for segmentation.
 
-> > > -int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp)
-> > > +int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
-> > > +		    struct net_device *dev_rx)
-> > >   {
-> > >   	struct xdp_pkt *xdp_pkt;
-> > >   	int headroom;
-> > > @@ -505,7 +506,7 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp)
-> > >   	xdp_pkt = xdp->data_hard_start;
-> > >   	xdp_pkt->data = xdp->data;
-> > >   	xdp_pkt->len  = xdp->data_end - xdp->data;
-> > > -	xdp_pkt->headroom = headroom;
-> > > +	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);    
-> > 
-> > (Just a note, bit confusing that first two patches add and extend
-> >   this, and only in the third you add the xdp->data_meta handling,
-> >   makes it harder to review at least.)  
-> 
-> Sorry.  This is a left-overs from rebasing and measuring the cost of
-> transferring only the pointer to the page, and remote put_page().
-> And your xdp->data_meta, happen basically while my patches was in-flight.
-> 
-> I'll move this one-line back to patch 2, to spreading over too many
-> patches.
+Right, it can happen in __skb_udp_tunnel_segment as well. I wasn't able
+to reproduce with gre, it looks like it doesn't go to that part of code,
+skipping it, possibly, on gso_type & SKB_GSO_GRE_CSUM check, though the
+NIC has tx-gre-csum-segmentation enabled...
 
-I instead choose to move the creation of cpu_map_enqueue() into this
-patch, but in a more simple version stating explicit that this is only
-seen as a void pointer enqueue.
+I'll send new version after testing completed.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks,
+Alexey
