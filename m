@@ -1,34 +1,35 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next v7 1/5] bpf: perf event change needed for
- subsequent bpf helpers
-Date: Fri, 6 Oct 2017 09:17:54 +0200
-Message-ID: <20171006071754.6klxjnudjlan3e4r@hirez.programming.kicks-ass.net>
-References: <20171005161923.332790-1-yhs@fb.com>
- <20171005161923.332790-2-yhs@fb.com>
+From: Beniamino Galvani <bgalvani@redhat.com>
+Subject: Re: BUG in free_netdev() on ppp link deletion
+Date: Fri, 6 Oct 2017 10:09:03 +0200
+Message-ID: <20171006080902.GA11223@tp>
+References: <20171003074413.GA26158@tp>
+ <20171003164003.f5yay2oe6dhxnump@alphalink.fr>
+ <20171005145503.ehv34hkzm5gtrjcp@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rostedt@goodmis.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, kernel-team@fb.com
-To: Yonghong Song <yhs@fb.com>
+Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+        Paul Mackerras <paulus@samba.org>,
+        David Ahern <dsahern@gmail.com>,
+        Gao Feng <gfree.wind@vip.163.com>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:43871 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750714AbdJFHR6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 03:17:58 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:58992 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750815AbdJFIJI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 04:09:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20171005161923.332790-2-yhs@fb.com>
+In-Reply-To: <20171005145503.ehv34hkzm5gtrjcp@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 05, 2017 at 09:19:19AM -0700, Yonghong Song wrote:
-> This patch does not impact existing functionalities.
-> It contains the changes in perf event area needed for
-> subsequent bpf_perf_event_read_value and
-> bpf_perf_prog_read_value helpers.
+On Thu, Oct 05, 2017 at 04:55:03PM +0200, Guillaume Nault wrote:
+> Sorry for the delay, I've followed a few complicated dead ends before
+> getting to this simple and rather obvious fix.
 > 
-> Signed-off-by: Yonghong Song <yhs@fb.com>
+> Can you try this patch?
+> 
+> [..]
 
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+The patch solves the issue, thanks.
 
-And as discussed, I'll take this patch into my dev tree while Dave will
-take all of them into the network tree.
+Beniamino
