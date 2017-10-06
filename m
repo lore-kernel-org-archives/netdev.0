@@ -1,126 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] i40e/i40evf: use DECLARE_BITMAP for state
-Date: Fri,  6 Oct 2017 10:57:19 -0700
-Message-ID: <20171006175727.868-8-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: Properly maintain flow director filters list
+Date: Fri,  6 Oct 2017 10:57:22 -0700
+Message-ID: <20171006175727.868-11-jeffrey.t.kirsher@intel.com>
 References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Filip Sadowski <filip.sadowski@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:12575 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:56459 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752591AbdJFR5v (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752536AbdJFR5v (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 6 Oct 2017 13:57:51 -0400
 In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Filip Sadowski <filip.sadowski@intel.com>
 
-When using set_bit and friends, we should be using actual
-bitmaps, and fix all the locations where we might access
-it.
+When there is no space for more flow director filters and user requested to
+add a new one it is rejected by firmware and automatically removed from the
+filter list maintained by driver. This behaviour is correct. Afterwards
+existing filter can be removed making free slot for the new one. This
+however causes the newly added filter to be accepted by firmware but
+removed from driver filter list resulting in not showing after issuing
+'ethtool -n <dev_name>'.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+This happened due to not clearing the variable pf->fd_inv which stores
+filter number to be removed from the list when firmware refused to add the
+requested filter. It caused the filter with this specific ID to be
+constantly removed once it was added to the list although it has been
+accepted by firmware and effectively applied to the NIC.
+It was fixed by clearing pf->fd_inv variable after removal of the filter
+from the list when it was rejected by firmware.
+
+Signed-off-by: Filip Sadowski <filip.sadowski@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 8 ++++----
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 4 ++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.h    | 3 ++-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h  | 3 ++-
- 4 files changed, 10 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 8f326f87a815..6f2725fc50a1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -278,8 +278,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
- 			 rx_ring->netdev,
- 			 rx_ring->rx_bi);
- 		dev_info(&pf->pdev->dev,
--			 "    rx_rings[%i]: state = %li, queue_index = %d, reg_idx = %d\n",
--			 i, rx_ring->state,
-+			 "    rx_rings[%i]: state = %lu, queue_index = %d, reg_idx = %d\n",
-+			 i, *rx_ring->state,
- 			 rx_ring->queue_index,
- 			 rx_ring->reg_idx);
- 		dev_info(&pf->pdev->dev,
-@@ -334,8 +334,8 @@ static void i40e_dbg_dump_vsi_seid(struct i40e_pf *pf, int seid)
- 			 tx_ring->netdev,
- 			 tx_ring->tx_bi);
- 		dev_info(&pf->pdev->dev,
--			 "    tx_rings[%i]: state = %li, queue_index = %d, reg_idx = %d\n",
--			 i, tx_ring->state,
-+			 "    tx_rings[%i]: state = %lu, queue_index = %d, reg_idx = %d\n",
-+			 i, *tx_ring->state,
- 			 tx_ring->queue_index,
- 			 tx_ring->reg_idx);
- 		dev_info(&pf->pdev->dev,
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 85132eee9f64..49401be7a2f4 100644
+index 3d6d6a283327..9704cfef2f05 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2891,7 +2891,7 @@ static void i40e_config_xps_tx_ring(struct i40e_ring *ring)
- 		return;
- 
- 	if ((vsi->tc_config.numtc <= 1) &&
--	    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state)) {
-+	    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, ring->state)) {
- 		cpu = cpumask_local_spread(ring->q_vector->v_idx, -1);
- 		netif_set_xps_queue(ring->netdev, get_cpu_mask(cpu),
- 				    ring->queue_index);
-@@ -3010,7 +3010,7 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
- 	struct i40e_hmc_obj_rxq rx_ctx;
- 	i40e_status err = 0;
- 
--	ring->state = 0;
-+	bitmap_zero(ring->state, __I40E_RING_STATE_NBITS);
- 
- 	/* clear the context structure first */
- 	memset(&rx_ctx, 0, sizeof(rx_ctx));
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 2f848bc5e391..a4e3e665a1a1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -342,6 +342,7 @@ struct i40e_rx_queue_stats {
- enum i40e_ring_state_t {
- 	__I40E_TX_FDIR_INIT_DONE,
- 	__I40E_TX_XPS_INIT_DONE,
-+	__I40E_RING_STATE_NBITS /* must be last */
- };
- 
- /* some useful defines for virtchannel interface, which
-@@ -366,7 +367,7 @@ struct i40e_ring {
- 		struct i40e_tx_buffer *tx_bi;
- 		struct i40e_rx_buffer *rx_bi;
- 	};
--	unsigned long state;
-+	DECLARE_BITMAP(state, __I40E_RING_STATE_NBITS);
- 	u16 queue_index;		/* Queue number of ring */
- 	u8 dcb_tc;			/* Traffic class of ring */
- 	u8 __iomem *tail;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index 0d9f98bc07bd..d8ca802a71a9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -325,6 +325,7 @@ struct i40e_rx_queue_stats {
- enum i40e_ring_state_t {
- 	__I40E_TX_FDIR_INIT_DONE,
- 	__I40E_TX_XPS_INIT_DONE,
-+	__I40E_RING_STATE_NBITS /* must be last */
- };
- 
- /* some useful defines for virtchannel interface, which
-@@ -348,7 +349,7 @@ struct i40e_ring {
- 		struct i40e_tx_buffer *tx_bi;
- 		struct i40e_rx_buffer *rx_bi;
- 	};
--	unsigned long state;
-+	DECLARE_BITMAP(state, __I40E_RING_STATE_NBITS);
- 	u16 queue_index;		/* Queue number of ring */
- 	u8 dcb_tc;			/* Traffic class of ring */
- 	u8 __iomem *tail;
+@@ -6232,6 +6232,7 @@ void i40e_fdir_check_and_reenable(struct i40e_pf *pf)
+ 				hlist_del(&filter->fdir_node);
+ 				kfree(filter);
+ 				pf->fdir_pf_active_filters--;
++				pf->fd_inv = 0;
+ 			}
+ 		}
+ 	}
 -- 
 2.14.2
