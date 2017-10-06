@@ -1,226 +1,504 @@
 From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net-next 06/16] ipv6: prepare fib6_age() for exception table
-Date: Fri,  6 Oct 2017 12:06:01 -0700
-Message-ID: <20171006190611.110633-7-tracywwnj@gmail.com>
+Subject: [PATCH net-next 08/16] ipv6: hook up exception table to store dst cache
+Date: Fri,  6 Oct 2017 12:06:03 -0700
+Message-ID: <20171006190611.110633-9-tracywwnj@gmail.com>
 References: <20171006190611.110633-1-tracywwnj@gmail.com>
  <20171006190611.110633-2-tracywwnj@gmail.com>
  <20171006190611.110633-3-tracywwnj@gmail.com>
  <20171006190611.110633-4-tracywwnj@gmail.com>
  <20171006190611.110633-5-tracywwnj@gmail.com>
  <20171006190611.110633-6-tracywwnj@gmail.com>
+ <20171006190611.110633-7-tracywwnj@gmail.com>
+ <20171006190611.110633-8-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:45165 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752017AbdJFTGn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 15:06:43 -0400
-Received: by mail-pg0-f54.google.com with SMTP id b192so7301847pga.2
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 12:06:43 -0700 (PDT)
-In-Reply-To: <20171006190611.110633-6-tracywwnj@gmail.com>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:46645 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752017AbdJFTGr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 15:06:47 -0400
+Received: by mail-pg0-f41.google.com with SMTP id k7so5429906pga.3
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 12:06:46 -0700 (PDT)
+In-Reply-To: <20171006190611.110633-8-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-If all dst cache entries are stored in the exception table under the
-main route, we have to go through them during fib6_age() when doing
-garbage collecting.
-Introduce a new function rt6_age_exception() which goes through all dst
-entries in the exception table and remove those entries that are expired.
-This function is called in fib6_age() so that all dst caches are also
-garbage collected.
+This commit makes use of the exception hash table implementation to
+store dst caches created by pmtu discovery and ip redirect into the hash
+table under the rt_info and no longer inserts these routes into fib6
+tree.
+This makes the fib6 tree only contain static configured routes and could
+now be protected by rcu instead of a rw lock.
+With this change, in the route lookup related functions, after finding
+the rt6_info with the longest prefix, we also need to search for the
+exception table before doing backtracking.
+In the route delete function, if the route being deleted is not a dst
+cache, deletion of this route also need to flush the whole hash table
+under it. If it is a dst cache, then only delete the cached dst in the
+hash table.
+
+Note: for fib6_walk_continue() function, w->root now is always pointing
+to a root node considering that fib6_prune_clones() is removed from the
+code. So we add a WARN_ON() msg to make sure w->root always points to a
+root node and also removed the update of w->root in fib6_repair_tree().
+This is a prerequisite for later patch because we don't need to make
+w->root as rcu protected when replacing rwlock with RCU.
+Also, we remove all prune related variables as it is no longer used.
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/ip6_fib.h   | 13 +++++++++++
- include/net/ip6_route.h |  2 ++
- net/ipv6/ip6_fib.c      | 26 ++++++++-------------
- net/ipv6/route.c        | 60 +++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 84 insertions(+), 17 deletions(-)
+ include/net/ip6_fib.h |   1 -
+ net/ipv6/addrconf.c   |   1 -
+ net/ipv6/ip6_fib.c    |  95 ++++++++------------------------------------
+ net/ipv6/route.c      | 108 +++++++++++++++++++++++++-------------------------
+ 4 files changed, 72 insertions(+), 133 deletions(-)
 
 diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index c4864c1e8f13..11a79ef87a28 100644
+index 4497a1eb4d41..d0b7283073e3 100644
 --- a/include/net/ip6_fib.h
 +++ b/include/net/ip6_fib.h
-@@ -29,6 +29,14 @@
- #define FIB6_TABLE_HASHSZ 1
- #endif
+@@ -280,7 +280,6 @@ struct fib6_walker {
+ 	struct fib6_node *root, *node;
+ 	struct rt6_info *leaf;
+ 	enum fib6_walk_state state;
+-	bool prune;
+ 	unsigned int skip;
+ 	unsigned int count;
+ 	int (*func)(struct fib6_walker *);
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3ccaf52824c9..873afafddfc4 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2326,7 +2326,6 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+ 	if (!fn)
+ 		goto out;
  
-+#define RT6_DEBUG 2
-+
-+#if RT6_DEBUG >= 3
-+#define RT6_TRACE(x...) pr_debug(x)
-+#else
-+#define RT6_TRACE(x...) do { ; } while (0)
-+#endif
-+
- struct rt6_info;
- 
- struct fib6_config {
-@@ -75,6 +83,11 @@ struct fib6_node {
- 	struct rcu_head		rcu;
- };
- 
-+struct fib6_gc_args {
-+	int			timeout;
-+	int			more;
-+};
-+
- #ifndef CONFIG_IPV6_SUBTREES
- #define FIB6_SUBTREE(fn)	NULL
- #else
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 3315605f34c9..a0087fb9864b 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -97,6 +97,8 @@ int ip6_del_rt(struct rt6_info *);
- 
- void rt6_flush_exceptions(struct rt6_info *rt);
- int rt6_remove_exception_rt(struct rt6_info *rt);
-+void rt6_age_exceptions(struct rt6_info *rt, struct fib6_gc_args *gc_args,
-+			unsigned long now);
- 
- static inline int ip6_route_get_saddr(struct net *net, struct rt6_info *rt,
- 				      const struct in6_addr *daddr,
+-	noflags |= RTF_CACHE;
+ 	for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
+ 		if (rt->dst.dev->ifindex != dev->ifindex)
+ 			continue;
 diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 0ba4fbb2f855..3afbe50f2779 100644
+index b3e4cf0962f8..9c8e704e6af7 100644
 --- a/net/ipv6/ip6_fib.c
 +++ b/net/ipv6/ip6_fib.c
-@@ -38,14 +38,6 @@
- #include <net/ip6_fib.h>
- #include <net/ip6_route.h>
+@@ -54,7 +54,6 @@ struct fib6_cleaner {
+ #define FWS_INIT FWS_L
+ #endif
  
--#define RT6_DEBUG 2
--
--#if RT6_DEBUG >= 3
--#define RT6_TRACE(x...) pr_debug(x)
--#else
--#define RT6_TRACE(x...) do { ; } while (0)
+-static void fib6_prune_clones(struct net *net, struct fib6_node *fn);
+ static struct rt6_info *fib6_find_prefix(struct net *net, struct fib6_node *fn);
+ static struct fib6_node *fib6_repair_tree(struct net *net, struct fib6_node *fn);
+ static int fib6_walk(struct net *net, struct fib6_walker *w);
+@@ -1101,6 +1100,8 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ 
+ 	if (WARN_ON_ONCE(!atomic_read(&rt->dst.__refcnt)))
+ 		return -EINVAL;
++	if (WARN_ON_ONCE(rt->rt6i_flags & RTF_CACHE))
++		return -EINVAL;
+ 
+ 	if (info->nlh) {
+ 		if (!(info->nlh->nlmsg_flags & NLM_F_CREATE))
+@@ -1192,11 +1193,8 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ #endif
+ 
+ 	err = fib6_add_rt2node(fn, rt, info, mxc);
+-	if (!err) {
++	if (!err)
+ 		fib6_start_gc(info->nl_net, rt);
+-		if (!(rt->rt6i_flags & RTF_CACHE))
+-			fib6_prune_clones(info->nl_net, pn);
+-	}
+ 
+ out:
+ 	if (err) {
+@@ -1511,19 +1509,12 @@ static struct fib6_node *fib6_repair_tree(struct net *net,
+ 		read_lock(&net->ipv6.fib6_walker_lock);
+ 		FOR_WALKERS(net, w) {
+ 			if (!child) {
+-				if (w->root == fn) {
+-					w->root = w->node = NULL;
+-					RT6_TRACE("W %p adjusted by delroot 1\n", w);
+-				} else if (w->node == fn) {
++				if (w->node == fn) {
+ 					RT6_TRACE("W %p adjusted by delnode 1, s=%d/%d\n", w, w->state, nstate);
+ 					w->node = pn;
+ 					w->state = nstate;
+ 				}
+ 			} else {
+-				if (w->root == fn) {
+-					w->root = child;
+-					RT6_TRACE("W %p adjusted by delroot 2\n", w);
+-				}
+ 				if (w->node == fn) {
+ 					w->node = child;
+ 					if (children&2) {
+@@ -1557,12 +1548,17 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
+ 
+ 	RT6_TRACE("fib6_del_route\n");
+ 
++	WARN_ON_ONCE(rt->rt6i_flags & RTF_CACHE);
++
+ 	/* Unlink it */
+ 	*rtp = rt->dst.rt6_next;
+ 	rt->rt6i_node = NULL;
+ 	net->ipv6.rt6_stats->fib_rt_entries--;
+ 	net->ipv6.rt6_stats->fib_discarded_routes++;
+ 
++	/* Flush all cached dst in exception table */
++	rt6_flush_exceptions(rt);
++
+ 	/* Reset round-robin state, if necessary */
+ 	if (fn->rr_ptr == rt)
+ 		fn->rr_ptr = NULL;
+@@ -1625,18 +1621,9 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
+ 
+ 	WARN_ON(!(fn->fn_flags & RTN_RTINFO));
+ 
+-	if (!(rt->rt6i_flags & RTF_CACHE)) {
+-		struct fib6_node *pn = fn;
+-#ifdef CONFIG_IPV6_SUBTREES
+-		/* clones of this route might be in another subtree */
+-		if (rt->rt6i_src.plen) {
+-			while (!(pn->fn_flags & RTN_ROOT))
+-				pn = pn->parent;
+-			pn = pn->parent;
+-		}
 -#endif
--
- static struct kmem_cache *fib6_node_kmem __read_mostly;
+-		fib6_prune_clones(info->nl_net, pn);
+-	}
++	/* remove cached dst from exception table */
++	if (rt->rt6i_flags & RTF_CACHE)
++		return rt6_remove_exception_rt(rt);
  
- struct fib6_cleaner {
-@@ -1890,12 +1882,6 @@ static void fib6_flush_trees(struct net *net)
-  *	Garbage collection
+ 	/*
+ 	 *	Walk the leaf entries looking for ourself
+@@ -1679,16 +1666,14 @@ static int fib6_walk_continue(struct fib6_walker *w)
+ {
+ 	struct fib6_node *fn, *pn;
+ 
++	/* w->root should always be table->tb6_root */
++	WARN_ON_ONCE(!(w->root->fn_flags & RTN_TL_ROOT));
++
+ 	for (;;) {
+ 		fn = w->node;
+ 		if (!fn)
+ 			return 0;
+ 
+-		if (w->prune && fn != w->root &&
+-		    fn->fn_flags & RTN_RTINFO && w->state < FWS_C) {
+-			w->state = FWS_C;
+-			w->leaf = fn->leaf;
+-		}
+ 		switch (w->state) {
+ #ifdef CONFIG_IPV6_SUBTREES
+ 		case FWS_S:
+@@ -1820,20 +1805,16 @@ static int fib6_clean_node(struct fib6_walker *w)
+  *	func is called on each route.
+  *		It may return -1 -> delete this route.
+  *		              0  -> continue walking
+- *
+- *	prune==1 -> only immediate children of node (certainly,
+- *	ignoring pure split nodes) will be scanned.
   */
  
--struct fib6_gc_args
--{
--	int			timeout;
--	int			more;
--};
--
- static int fib6_age(struct rt6_info *rt, void *arg)
+ static void fib6_clean_tree(struct net *net, struct fib6_node *root,
+ 			    int (*func)(struct rt6_info *, void *arg),
+-			    bool prune, int sernum, void *arg)
++			    int sernum, void *arg)
  {
- 	struct fib6_gc_args *gc_args = arg;
-@@ -1904,9 +1890,6 @@ static int fib6_age(struct rt6_info *rt, void *arg)
- 	/*
- 	 *	check addrconf expiration here.
- 	 *	Routes are expired even if they are in use.
--	 *
--	 *	Also age clones. Note, that clones are aged out
--	 *	only if they are not in use now.
- 	 */
+ 	struct fib6_cleaner c;
  
- 	if (rt->rt6i_flags & RTF_EXPIRES && rt->dst.expires) {
-@@ -1915,6 +1898,9 @@ static int fib6_age(struct rt6_info *rt, void *arg)
+ 	c.w.root = root;
+ 	c.w.func = fib6_clean_node;
+-	c.w.prune = prune;
+ 	c.w.count = 0;
+ 	c.w.skip = 0;
+ 	c.func = func;
+@@ -1858,7 +1839,7 @@ static void __fib6_clean_all(struct net *net,
+ 		hlist_for_each_entry_rcu(table, head, tb6_hlist) {
+ 			write_lock_bh(&table->tb6_lock);
+ 			fib6_clean_tree(net, &table->tb6_root,
+-					func, false, sernum, arg);
++					func, sernum, arg);
+ 			write_unlock_bh(&table->tb6_lock);
+ 		}
+ 	}
+@@ -1871,22 +1852,6 @@ void fib6_clean_all(struct net *net, int (*func)(struct rt6_info *, void *),
+ 	__fib6_clean_all(net, func, FIB6_NO_SERNUM_CHANGE, arg);
+ }
+ 
+-static int fib6_prune_clone(struct rt6_info *rt, void *arg)
+-{
+-	if (rt->rt6i_flags & RTF_CACHE) {
+-		RT6_TRACE("pruning clone %p\n", rt);
+-		return -1;
+-	}
+-
+-	return 0;
+-}
+-
+-static void fib6_prune_clones(struct net *net, struct fib6_node *fn)
+-{
+-	fib6_clean_tree(net, fn, fib6_prune_clone, true,
+-			FIB6_NO_SERNUM_CHANGE, NULL);
+-}
+-
+ static void fib6_flush_trees(struct net *net)
+ {
+ 	int new_sernum = fib6_new_sernum(net);
+@@ -1914,32 +1879,6 @@ static int fib6_age(struct rt6_info *rt, void *arg)
  			return -1;
  		}
  		gc_args->more++;
-+	/* The following part will soon be removed when the exception
-+	 * table is hooked up to store all cached routes.
-+	 */
- 	} else if (rt->rt6i_flags & RTF_CACHE) {
- 		if (time_after_eq(now, rt->dst.lastuse + gc_args->timeout))
- 			rt->dst.obsolete = DST_OBSOLETE_KILL;
-@@ -1940,6 +1926,12 @@ static int fib6_age(struct rt6_info *rt, void *arg)
- 		gc_args->more++;
+-	/* The following part will soon be removed when the exception
+-	 * table is hooked up to store all cached routes.
+-	 */
+-	} else if (rt->rt6i_flags & RTF_CACHE) {
+-		if (time_after_eq(now, rt->dst.lastuse + gc_args->timeout))
+-			rt->dst.obsolete = DST_OBSOLETE_KILL;
+-		if (atomic_read(&rt->dst.__refcnt) == 1 &&
+-		    rt->dst.obsolete == DST_OBSOLETE_KILL) {
+-			RT6_TRACE("aging clone %p\n", rt);
+-			return -1;
+-		} else if (rt->rt6i_flags & RTF_GATEWAY) {
+-			struct neighbour *neigh;
+-			__u8 neigh_flags = 0;
+-
+-			neigh = dst_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
+-			if (neigh) {
+-				neigh_flags = neigh->flags;
+-				neigh_release(neigh);
+-			}
+-			if (!(neigh_flags & NTF_ROUTER)) {
+-				RT6_TRACE("purging route %p via non-router but gateway\n",
+-					  rt);
+-				return -1;
+-			}
+-		}
+-		gc_args->more++;
  	}
  
-+	/*	Also age clones in the exception table.
-+	 *	Note, that clones are aged out
-+	 *	only if they are not in use now.
-+	 */
-+	rt6_age_exceptions(rt, gc_args, now);
-+
- 	return 0;
- }
- 
+ 	/*	Also age clones in the exception table.
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index e8e901589564..d2dd55f58b5d 100644
+index 855b4ceec349..65130dde276a 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1528,6 +1528,66 @@ static void rt6_exceptions_clean_tohost(struct rt6_info *rt,
- 	spin_unlock_bh(&rt6_exception_lock);
- }
+@@ -878,8 +878,8 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ 					     struct fib6_table *table,
+ 					     struct flowi6 *fl6, int flags)
+ {
++	struct rt6_info *rt, *rt_cache;
+ 	struct fib6_node *fn;
+-	struct rt6_info *rt;
  
-+static void rt6_age_examine_exception(struct rt6_exception_bucket *bucket,
-+				      struct rt6_exception *rt6_ex,
-+				      struct fib6_gc_args *gc_args,
-+				      unsigned long now)
-+{
-+	struct rt6_info *rt = rt6_ex->rt6i;
+ 	read_lock_bh(&table->tb6_lock);
+ 	fn = fib6_lookup(&table->tb6_root, &fl6->daddr, &fl6->saddr);
+@@ -893,6 +893,11 @@ static struct rt6_info *ip6_pol_route_lookup(struct net *net,
+ 		if (fn)
+ 			goto restart;
+ 	}
++	/* Search through exception table */
++	rt_cache = rt6_find_cached_rt(rt, &fl6->daddr, &fl6->saddr);
++	if (rt_cache)
++		rt = rt_cache;
 +
-+	if (atomic_read(&rt->dst.__refcnt) == 1 &&
-+	    time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-+		RT6_TRACE("aging clone %p\n", rt);
-+		rt6_remove_exception(bucket, rt6_ex);
-+		return;
-+	} else if (rt->rt6i_flags & RTF_GATEWAY) {
-+		struct neighbour *neigh;
-+		__u8 neigh_flags = 0;
-+
-+		neigh = dst_neigh_lookup(&rt->dst, &rt->rt6i_gateway);
-+		if (neigh) {
-+			neigh_flags = neigh->flags;
-+			neigh_release(neigh);
-+		}
-+		if (!(neigh_flags & NTF_ROUTER)) {
-+			RT6_TRACE("purging route %p via non-router but gateway\n",
-+				  rt);
-+			rt6_remove_exception(bucket, rt6_ex);
-+			return;
-+		}
-+	}
-+	gc_args->more++;
-+}
-+
-+void rt6_age_exceptions(struct rt6_info *rt,
-+			struct fib6_gc_args *gc_args,
-+			unsigned long now)
-+{
-+	struct rt6_exception_bucket *bucket;
-+	struct rt6_exception *rt6_ex;
-+	struct hlist_node *tmp;
-+	int i;
-+
-+	if (!rcu_access_pointer(rt->rt6i_exception_bucket))
-+		return;
-+
-+	spin_lock_bh(&rt6_exception_lock);
-+	bucket = rcu_dereference_protected(rt->rt6i_exception_bucket,
-+				    lockdep_is_held(&rt6_exception_lock));
-+
-+	if (bucket) {
-+		for (i = 0; i < FIB6_EXCEPTION_BUCKET_SIZE; i++) {
-+			hlist_for_each_entry_safe(rt6_ex, tmp,
-+						  &bucket->chain, hlist) {
-+				rt6_age_examine_exception(bucket, rt6_ex,
-+							  gc_args, now);
-+			}
-+			bucket++;
-+		}
-+	}
-+	spin_unlock_bh(&rt6_exception_lock);
-+}
-+
- struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 	dst_use(&rt->dst, jiffies);
+ 	read_unlock_bh(&table->tb6_lock);
+ 
+@@ -1592,7 +1597,7 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
  			       int oif, struct flowi6 *fl6, int flags)
  {
+ 	struct fib6_node *fn, *saved_fn;
+-	struct rt6_info *rt;
++	struct rt6_info *rt, *rt_cache;
+ 	int strict = 0;
+ 
+ 	strict |= flags & RT6_LOOKUP_F_IFACE;
+@@ -1624,6 +1629,10 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 		}
+ 	}
+ 
++	/*Search through exception table */
++	rt_cache = rt6_find_cached_rt(rt, &fl6->daddr, &fl6->saddr);
++	if (rt_cache)
++		rt = rt_cache;
+ 
+ 	if (rt == net->ipv6.ip6_null_entry || (rt->rt6i_flags & RTF_CACHE)) {
+ 		dst_use(&rt->dst, jiffies);
+@@ -1988,23 +1997,17 @@ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
+ 
+ 	if (!rt6_cache_allowed_for_pmtu(rt6)) {
+ 		rt6_do_update_pmtu(rt6, mtu);
++		/* update rt6_ex->stamp for cache */
++		if (rt6->rt6i_flags & RTF_CACHE)
++			rt6_update_exception_stamp_rt(rt6);
+ 	} else if (daddr) {
+ 		struct rt6_info *nrt6;
+ 
+ 		nrt6 = ip6_rt_cache_alloc(rt6, daddr, saddr);
+ 		if (nrt6) {
+ 			rt6_do_update_pmtu(nrt6, mtu);
+-
+-			/* ip6_ins_rt(nrt6) will bump the
+-			 * rt6->rt6i_node->fn_sernum
+-			 * which will fail the next rt6_check() and
+-			 * invalidate the sk->sk_dst_cache.
+-			 */
+-			ip6_ins_rt(nrt6);
+-			/* Release the reference taken in
+-			 * ip6_rt_cache_alloc()
+-			 */
+-			dst_release(&nrt6->dst);
++			if (rt6_insert_exception(nrt6, rt6))
++				dst_release_immediate(&nrt6->dst);
+ 		}
+ 	}
+ }
+@@ -2068,7 +2071,7 @@ static struct rt6_info *__ip6_route_redirect(struct net *net,
+ 					     int flags)
+ {
+ 	struct ip6rd_flowi *rdfl = (struct ip6rd_flowi *)fl6;
+-	struct rt6_info *rt;
++	struct rt6_info *rt, *rt_cache;
+ 	struct fib6_node *fn;
+ 
+ 	/* Get the "current" route for this destination and
+@@ -2093,8 +2096,23 @@ static struct rt6_info *__ip6_route_redirect(struct net *net,
+ 			continue;
+ 		if (fl6->flowi6_oif != rt->dst.dev->ifindex)
+ 			continue;
+-		if (!ipv6_addr_equal(&rdfl->gateway, &rt->rt6i_gateway))
++		/* rt_cache's gateway might be different from its 'parent'
++		 * in the case of an ip redirect.
++		 * So we keep searching in the exception table if the gateway
++		 * is different.
++		 */
++		if (!ipv6_addr_equal(&rdfl->gateway, &rt->rt6i_gateway)) {
++			rt_cache = rt6_find_cached_rt(rt,
++						      &fl6->daddr,
++						      &fl6->saddr);
++			if (rt_cache &&
++			    ipv6_addr_equal(&rdfl->gateway,
++					    &rt_cache->rt6i_gateway)) {
++				rt = rt_cache;
++				break;
++			}
+ 			continue;
++		}
+ 		break;
+ 	}
+ 
+@@ -2785,9 +2803,9 @@ static int __ip6_del_rt_siblings(struct rt6_info *rt, struct fib6_config *cfg)
+ static int ip6_route_del(struct fib6_config *cfg,
+ 			 struct netlink_ext_ack *extack)
+ {
++	struct rt6_info *rt, *rt_cache;
+ 	struct fib6_table *table;
+ 	struct fib6_node *fn;
+-	struct rt6_info *rt;
+ 	int err = -ESRCH;
+ 
+ 	table = fib6_get_table(cfg->fc_nlinfo.nl_net, cfg->fc_table);
+@@ -2801,13 +2819,17 @@ static int ip6_route_del(struct fib6_config *cfg,
+ 	fn = fib6_locate(&table->tb6_root,
+ 			 &cfg->fc_dst, cfg->fc_dst_len,
+ 			 &cfg->fc_src, cfg->fc_src_len,
+-			 true);
++			 !(cfg->fc_flags & RTF_CACHE));
+ 
+ 	if (fn) {
+ 		for (rt = fn->leaf; rt; rt = rt->dst.rt6_next) {
+-			if ((rt->rt6i_flags & RTF_CACHE) &&
+-			    !(cfg->fc_flags & RTF_CACHE))
+-				continue;
++			if (cfg->fc_flags & RTF_CACHE) {
++				rt_cache = rt6_find_cached_rt(rt, &cfg->fc_dst,
++							      &cfg->fc_src);
++				if (!rt_cache)
++					continue;
++				rt = rt_cache;
++			}
+ 			if (cfg->fc_ifindex &&
+ 			    (!rt->dst.dev ||
+ 			     rt->dst.dev->ifindex != cfg->fc_ifindex))
+@@ -2933,8 +2955,14 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 	nrt->rt6i_protocol = RTPROT_REDIRECT;
+ 	nrt->rt6i_gateway = *(struct in6_addr *)neigh->primary_key;
+ 
+-	if (ip6_ins_rt(nrt))
+-		goto out_release;
++	/* No need to remove rt from the exception table if rt is
++	 * a cached route because rt6_insert_exception() will
++	 * takes care of it
++	 */
++	if (rt6_insert_exception(nrt, rt)) {
++		dst_release_immediate(&nrt->dst);
++		goto out;
++	}
+ 
+ 	netevent.old = &rt->dst;
+ 	netevent.new = &nrt->dst;
+@@ -2942,17 +2970,6 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 	netevent.neigh = neigh;
+ 	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
+ 
+-	if (rt->rt6i_flags & RTF_CACHE) {
+-		rt = (struct rt6_info *) dst_clone(&rt->dst);
+-		ip6_del_rt(rt);
+-	}
+-
+-out_release:
+-	/* Release the reference taken in
+-	 * ip6_rt_cache_alloc()
+-	 */
+-	dst_release(&nrt->dst);
+-
+ out:
+ 	neigh_release(neigh);
+ }
+@@ -3344,12 +3361,8 @@ static int fib6_clean_tohost(struct rt6_info *rt, void *arg)
+ {
+ 	struct in6_addr *gateway = (struct in6_addr *)arg;
+ 
+-	/* RTF_CACHE_GATEWAY case will be removed once the exception
+-	 * table is hooked up to store all cached routes.
+-	 */
+-	if ((((rt->rt6i_flags & RTF_RA_ROUTER) == RTF_RA_ROUTER) ||
+-	     ((rt->rt6i_flags & RTF_CACHE_GATEWAY) == RTF_CACHE_GATEWAY)) &&
+-	     ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
++	if (((rt->rt6i_flags & RTF_RA_ROUTER) == RTF_RA_ROUTER) &&
++	    ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
+ 		return -1;
+ 	}
+ 
+@@ -3438,20 +3451,9 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
+ 	    dst_metric_raw(&rt->dst, RTAX_MTU) &&
+ 	    !dst_metric_locked(&rt->dst, RTAX_MTU)) {
+ 		spin_lock_bh(&rt6_exception_lock);
+-		/* This case will be removed once the exception table
+-		 * is hooked up.
+-		 */
+-		if (rt->rt6i_flags & RTF_CACHE) {
+-			/* For RTF_CACHE with rt6i_pmtu == 0
+-			 * (i.e. a redirected route),
+-			 * the metrics of its rt->dst.from has already
+-			 * been updated.
+-			 */
+-			if (rt->rt6i_pmtu && rt->rt6i_pmtu > arg->mtu)
+-				rt->rt6i_pmtu = arg->mtu;
+-		} else if (dst_mtu(&rt->dst) >= arg->mtu ||
+-			   (dst_mtu(&rt->dst) < arg->mtu &&
+-			    dst_mtu(&rt->dst) == idev->cnf.mtu6)) {
++		if (dst_mtu(&rt->dst) >= arg->mtu ||
++		    (dst_mtu(&rt->dst) < arg->mtu &&
++		     dst_mtu(&rt->dst) == idev->cnf.mtu6)) {
+ 			dst_metric_set(&rt->dst, RTAX_MTU, arg->mtu);
+ 		}
+ 		rt6_exceptions_update_pmtu(rt, arg->mtu);
 -- 
 2.14.2.920.gcf0c67979c-goog
