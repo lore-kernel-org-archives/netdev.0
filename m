@@ -1,52 +1,54 @@
 From: Daniel Drake <drake@endlessm.com>
 Subject: Re: r8169 Wake-on-LAN causes immediate ACPI GPE wakeup
-Date: Fri, 6 Oct 2017 10:34:58 +0800
-Message-ID: <CAD8Lp47MOpD0C-4ZNix20nLCEtiDb0NjywNODbyp-TbynOsrOw@mail.gmail.com>
+Date: Fri, 6 Oct 2017 10:44:02 +0800
+Message-ID: <CAD8Lp44=tBOTRZcZeuATLwV3+8_PDWd=HPPYs76qMfRtwrRv+A@mail.gmail.com>
 References: <CAD8Lp45YVtw48+8jSq6gtu1xA7Rt+qr6vvVZF4AC-QXeCKNj4w@mail.gmail.com>
- <20171006001649.GA21884@electric-eye.fr.zoreil.com>
+ <CAJZ5v0i+Ct9HbT+vMchW0dNxYO2WvyY5Tmz1a+3k0FLmbFGE2w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-        linux-acpi@vger.kernel.org,
+        ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
         Linux Kernel <linux-kernel@vger.kernel.org>,
-        Linux Upstreaming Team <linux@endlessm.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20171006001649.GA21884@electric-eye.fr.zoreil.com>
-Sender: linux-acpi-owner@vger.kernel.org
+        Linux Upstreaming Team <linux@endlessm.com>,
+        Linux PM <linux-pm@vger.kernel.org>
+To: "Rafael J. Wysocki" <rafael@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJZ5v0i+Ct9HbT+vMchW0dNxYO2WvyY5Tmz1a+3k0FLmbFGE2w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 6, 2017 at 8:16 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Daniel Drake <drake@endlessm.com> :
-> [...]
->> Also, is there a standard behaviour defined for ethernet drivers
->> regarding wake-on-LAN? r8169 appears to enable wake-on-LAN by default
->> if it believes the hardware is capable of it,
+On Fri, Oct 6, 2017 at 9:24 AM, Rafael J. Wysocki <rafael@kernel.org> wrote:
+>> On the other hand, the RP05 (root port) _PRW says it will wake up the
+>> system via GPE09, and the _L09 handler at least has one codepath which
+>> could potentially do a Notify(PXSX, 2) to indicate an ethernet wakeup.
 >
-> If so it isn't its designed behavior.
+> Which can only happen in the S0 system state.
+
+Not quite sure I understand your comment here. Of course the _L09
+handler (and any other ACPI code) can only execute in S0 state.
+However if Linux leaves GPE09 enabled during S3 suspend, and then
+detects that it has an event pending on resume, it will execute _L09
+during resume. (However, we have not observed GPE09 firing at all)
+
+>> But in testing:
+>>  - If GPE08 is enabled as a wakeup source, the system will always wake
+>> up as soon as it goes to sleep
 >
-> The r8169 driver does not enable specific WoL event source (unicast packet,
-> link, etc.). It should keep the current settings unless one of those holds:
-> - explicit wol config from userspace (obviously :o) )
-> - runtime pm requires different settings to resume. The change should
->   be temporary (save before suspend, restore after resume).
->
-> The device is supposed to require both an event source + Config1.PMEnable.
->
-> A problem may happen if some event source bit is already set while
-> Config1.PMEnable is not. The driver has been forcing Config1.PMEnable
-> since 5d06a99f543e734ceb53bbc9e550537be97f0c49. One may thus experience
-> transition from inconsistent wol settings to enabled ones (if you want
-> to dig it, check beforehand if Config1.PMEnable is really read-write or
-> hardwired to 1).
+> What exactly do you mean by "enabled as a wakeup source"?
 
-The code in question here is in rtl_init_one():
+Linux associates the ethernet PCI device with PCI0.RP05.PXSX, which
+has _PRW referencing GPE08.
+r8169 has already done device_set_wakeup_enable() at probe time.
+So when going into suspend, acpi_enable_wakeup_devices() and the code
+beneath that will ensure that GPE08 is enabled when the system goes
+into suspend.
+See acpi_hw_enable_wakeup_gpe_block().
 
-    device_set_wakeup_enable(&pdev->dev, tp->features & RTL_FEATURE_WOL);
+To disable it, "echo disabled > power/wakeup" for the ethernet device in sysfs.
 
-This enables wakeups regardless of current WOL settings, as long as
-the hardware supports the WOL feature.
-Should we remove this line? rtl8169_set_wol() looks like it will do
-the right thing here if WOL is later enabled.
+To test with GPE09 instead, I modified the _PRW method in the DSDT to
+point at GPE09, and again used sysfs to control whether the GPE is
+enabled during suspend or not.
 
+Thanks
 Daniel
