@@ -1,91 +1,151 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
-Date: Fri, 6 Oct 2017 10:52:44 +0100
-Message-ID: <CAEwTi7RF6s1OhEEPTrDzk61QQD_AFoZ+uX-WRhc=aAVHoHJxpw@mail.gmail.com>
-References: <20171001102110.24184f1b@xeon-e3> <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
- <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
- <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
- <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com> <CA++DawbbfQq1ZGB_x5t4a9mhkkptnDfcDxtCXgHYfGpY=8q83g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, Guillaume Nault <g.nault@alphalink.fr>
-To: SviMik <svimik@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 2/2] mac80211: only remove AP VLAN frames from TXQ
+Date: Fri,  6 Oct 2017 11:53:33 +0200
+Message-ID: <20171006095333.26335-2-johannes@sipsolutions.net>
+References: <20171006095333.26335-1-johannes@sipsolutions.net>
+Cc: =?UTF-8?q?Toke=20H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>,
+        netdev@vger.kernel.org,
+        =?UTF-8?q?Micha=C5=82=20Kazior?= <kazikcz@gmail.com>,
+        Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.katalix.com ([82.103.140.233]:52699 "EHLO mail.katalix.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750989AbdJFJwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 05:52:49 -0400
-Received: from mail-pg0-f41.google.com (mail-pg0-f41.google.com [74.125.83.41])
-        (Authenticated sender: james)
-        by mail.katalix.com (Postfix) with ESMTPSA id 2E246A8A7D
-        for <netdev@vger.kernel.org>; Fri,  6 Oct 2017 10:52:47 +0100 (BST)
-Received: by mail-pg0-f41.google.com with SMTP id c137so9693478pga.11
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 02:52:47 -0700 (PDT)
-In-Reply-To: <CA++DawbbfQq1ZGB_x5t4a9mhkkptnDfcDxtCXgHYfGpY=8q83g@mail.gmail.com>
+Received: from s3.sipsolutions.net ([144.76.63.242]:53156 "EHLO
+        sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751369AbdJFJxh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 05:53:37 -0400
+In-Reply-To: <20171006095333.26335-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6 October 2017 at 05:45, SviMik <svimik@gmail.com> wrote:
-> 2017-10-04 10:49 GMT+03:00 James Chapman <jchapman@katalix.com>:
->> On 3 October 2017 at 08:27, James Chapman <jchapman@katalix.com> wrote:
->>> For capturing complete oops messages, have you tried setting up
->>> netconsole? You might also find the full text in the syslog on reboot.
->
-> Why, thank you! You've just told me that Santa Claus exists :)
+From: Johannes Berg <johannes.berg@intel.com>
 
-You're welcome. Heh, my wife says I have a few more grey hairs and I
-don't shave as often as I should. :)
+When removing an AP VLAN interface, mac80211 currently purges
+the entire TXQ for the AP interface. Fix this by using the FQ
+API introduced in the previous patch to filter frames.
 
-> I've set up netconsole on 93 of my servers, and hope starting from
-> tomorrow I'll have more pretty kernel panic reports, and get them even
-> from servers where I had never had a chance to capture the console
-> before.
->
->>> It's interesting that you are seeing l2tp issues since switching to
->>> 4.x kernels. Are you able to try earlier kernels to find the latest
->>> version that works? I'm curious whether things broke at v3.15.
->
-> I'll try, but it will take some time to grab enough statistics. The
-> bug is relatively rare, only few panics per day on the whole bunch of
-> 93 servers.
->
->> It's possible that this may be fixed by a patch that is already
->> upstream and merged for v4.14. The fix is from Guillaume Nault:
->>
->> f3c66d4 l2tp: prevent creation of sessions on terminated tunnels
->>
->> If it's possible that the L2TP server may try to create a session in a
->> tunnel that is being closed, this bug would be exposed.
->>
->> Guillaume's fix isn't yet pushed to stable releases. Are you able to
->> try a v4.14-rc build?
->
-> Sorry, I'm not skilled enough to build a kernel for CentOS on my own.
-> Will wait till it appears in elrepo. The latest version there is
-> currently 4.13.5. Meanwhile I'll try to switch to 3.10 and see how it
-> works.
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/mac80211/ieee80211_i.h |  2 ++
+ net/mac80211/iface.c       | 25 +++----------------------
+ net/mac80211/tx.c          | 34 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 39 insertions(+), 22 deletions(-)
 
-No problem. Please keep us updated. If Guillaume's fix in v4.14
-prevents the l2tp crashes in your systems, I'd like to push it out to
-stable releases. I have been trying to reproduce the problem here but
-have had no luck so far. My guess is that your l2tp servers have a
-large ppp population and are handling a lot of traffic. Until we have
-evidence that Guillaume's patch resolves this problem, it's harder to
-justify pushing it out to stable.
-
-> I have also captured few more kernel panics in the last few days.
-> Please see if they are related to this bug:
-> http://svimik.com/hdmmsk1kp2.png
-> http://svimik.com/hdmmsk1kp3.png
-> http://svimik.com/hdmmsk1kp4.png
-> http://svimik.com/hdmmsk2kp6.png
-
-Thanks. None of these are related to this bug but it looks like p3, p4
-and p6 are all in the networking code. It might be worth opening
-separate threads for these. A full oops capture with netconsole would
-likely get more attention though.
-
-To check whether the oops is related to this bug yourself, please
-check for text that contains "l2tp_xmit_skb" before posting it to this
-thread.
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 9675814f64db..68f874e73561 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -2009,6 +2009,8 @@ void ieee80211_txq_init(struct ieee80211_sub_if_data *sdata,
+ 			struct txq_info *txq, int tid);
+ void ieee80211_txq_purge(struct ieee80211_local *local,
+ 			 struct txq_info *txqi);
++void ieee80211_txq_remove_vlan(struct ieee80211_local *local,
++			       struct ieee80211_sub_if_data *sdata);
+ void ieee80211_send_auth(struct ieee80211_sub_if_data *sdata,
+ 			 u16 transaction, u16 auth_alg, u16 status,
+ 			 const u8 *extra, size_t extra_len, const u8 *bssid,
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index 2619daa29961..13b16f90e1cf 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -793,9 +793,7 @@ static int ieee80211_open(struct net_device *dev)
+ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
+ 			      bool going_down)
+ {
+-	struct ieee80211_sub_if_data *txq_sdata = sdata;
+ 	struct ieee80211_local *local = sdata->local;
+-	struct fq *fq = &local->fq;
+ 	unsigned long flags;
+ 	struct sk_buff *skb, *tmp;
+ 	u32 hw_reconf_flags = 0;
+@@ -939,9 +937,6 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
+ 
+ 	switch (sdata->vif.type) {
+ 	case NL80211_IFTYPE_AP_VLAN:
+-		txq_sdata = container_of(sdata->bss,
+-					 struct ieee80211_sub_if_data, u.ap);
+-
+ 		mutex_lock(&local->mtx);
+ 		list_del(&sdata->u.vlan.list);
+ 		mutex_unlock(&local->mtx);
+@@ -998,8 +993,6 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
+ 		skb_queue_purge(&sdata->skb_queue);
+ 	}
+ 
+-	sdata->bss = NULL;
+-
+ 	spin_lock_irqsave(&local->queue_stop_reason_lock, flags);
+ 	for (i = 0; i < IEEE80211_MAX_QUEUES; i++) {
+ 		skb_queue_walk_safe(&local->pending[i], skb, tmp) {
+@@ -1012,22 +1005,10 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
+ 	}
+ 	spin_unlock_irqrestore(&local->queue_stop_reason_lock, flags);
+ 
+-	if (txq_sdata->vif.txq) {
+-		struct txq_info *txqi = to_txq_info(txq_sdata->vif.txq);
++	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN)
++		ieee80211_txq_remove_vlan(local, sdata);
+ 
+-		/*
+-		 * FIXME FIXME
+-		 *
+-		 * We really shouldn't purge the *entire* txqi since that
+-		 * contains frames for the other AP_VLANs (and possibly
+-		 * the AP itself) as well, but there's no API in FQ now
+-		 * to be able to filter.
+-		 */
+-
+-		spin_lock_bh(&fq->lock);
+-		ieee80211_txq_purge(local, txqi);
+-		spin_unlock_bh(&fq->lock);
+-	}
++	sdata->bss = NULL;
+ 
+ 	if (local->open_count == 0)
+ 		ieee80211_clear_tx_pending(local);
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 94826680cf2b..7b8154474b9e 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1396,6 +1396,40 @@ static void ieee80211_txq_enqueue(struct ieee80211_local *local,
+ 		       fq_flow_get_default_func);
+ }
+ 
++static bool fq_vlan_filter_func(struct fq *fq, struct fq_tin *tin,
++				struct fq_flow *flow, struct sk_buff *skb,
++				void *data)
++{
++	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
++
++	return info->control.vif == data;
++}
++
++void ieee80211_txq_remove_vlan(struct ieee80211_local *local,
++			       struct ieee80211_sub_if_data *sdata)
++{
++	struct fq *fq = &local->fq;
++	struct txq_info *txqi;
++	struct fq_tin *tin;
++	struct ieee80211_sub_if_data *ap;
++
++	if (WARN_ON(sdata->vif.type != NL80211_IFTYPE_AP_VLAN))
++		return;
++
++	ap = container_of(sdata->bss, struct ieee80211_sub_if_data, u.ap);
++
++	if (!ap->vif.txq)
++		return;
++
++	txqi = to_txq_info(ap->vif.txq);
++	tin = &txqi->tin;
++
++	spin_lock_bh(&fq->lock);
++	fq_tin_filter(fq, tin, fq_vlan_filter_func, &sdata->vif,
++		      fq_skb_free_func);
++	spin_unlock_bh(&fq->lock);
++}
++
+ void ieee80211_txq_init(struct ieee80211_sub_if_data *sdata,
+ 			struct sta_info *sta,
+ 			struct txq_info *txqi, int tid)
+-- 
+2.14.2
