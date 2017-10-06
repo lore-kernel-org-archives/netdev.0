@@ -1,64 +1,43 @@
-From: SviMik <svimik@gmail.com>
-Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
-Date: Fri, 6 Oct 2017 07:45:47 +0300
-Message-ID: <CA++DawbbfQq1ZGB_x5t4a9mhkkptnDfcDxtCXgHYfGpY=8q83g@mail.gmail.com>
-References: <20171001102110.24184f1b@xeon-e3> <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
- <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
- <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com> <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next 0/3] bpf: Misc improvements and a new usage on bpf obj name
+Date: Thu, 5 Oct 2017 21:52:10 -0700
+Message-ID: <20171006045213.752372-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, Guillaume Nault <g.nault@alphalink.fr>
-To: James Chapman <jchapman@katalix.com>
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f169.google.com ([209.85.217.169]:45985 "EHLO
-        mail-ua0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750768AbdJFEps (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:45:48 -0400
-Received: by mail-ua0-f169.google.com with SMTP id l40so10390200uah.2
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 21:45:48 -0700 (PDT)
-In-Reply-To: <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44040 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750813AbdJFEwT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:52:19 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v964o7n6021771
+        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 21:52:18 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2ddxebh5he-2
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 21:52:18 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-10-04 10:49 GMT+03:00 James Chapman <jchapman@katalix.com>:
-> On 3 October 2017 at 08:27, James Chapman <jchapman@katalix.com> wrote:
->> For capturing complete oops messages, have you tried setting up
->> netconsole? You might also find the full text in the syslog on reboot.
+The first two patches make improvements on the bpf obj name.
 
-Why, thank you! You've just told me that Santa Claus exists :)
-I've set up netconsole on 93 of my servers, and hope starting from
-tomorrow I'll have more pretty kernel panic reports, and get them even
-from servers where I had never had a chance to capture the console
-before.
+The last patch adds the prog name to kallsyms.
 
->> It's interesting that you are seeing l2tp issues since switching to
->> 4.x kernels. Are you able to try earlier kernels to find the latest
->> version that works? I'm curious whether things broke at v3.15.
+Martin KaFai Lau (3):
+  bpf: Change bpf_obj_name_cpy() to better ensure map's name is init by
+    0
+  bpf: Use char in prog and map name
+  bpf: Append prog->aux->name in bpf_get_prog_name()
 
-I'll try, but it will take some time to grab enough statistics. The
-bug is relatively rare, only few panics per day on the whole bunch of
-93 servers.
+ include/linux/bpf.h            |  4 ++--
+ include/uapi/linux/bpf.h       |  8 ++++----
+ kernel/bpf/core.c              | 17 +++++++++++++++--
+ kernel/bpf/syscall.c           |  5 ++---
+ tools/include/uapi/linux/bpf.h |  8 ++++----
+ 5 files changed, 27 insertions(+), 15 deletions(-)
 
-> It's possible that this may be fixed by a patch that is already
-> upstream and merged for v4.14. The fix is from Guillaume Nault:
->
-> f3c66d4 l2tp: prevent creation of sessions on terminated tunnels
->
-> If it's possible that the L2TP server may try to create a session in a
-> tunnel that is being closed, this bug would be exposed.
->
-> Guillaume's fix isn't yet pushed to stable releases. Are you able to
-> try a v4.14-rc build?
-
-Sorry, I'm not skilled enough to build a kernel for CentOS on my own.
-Will wait till it appears in elrepo. The latest version there is
-currently 4.13.5. Meanwhile I'll try to switch to 3.10 and see how it
-works.
-
-I have also captured few more kernel panics in the last few days.
-Please see if they are related to this bug:
-http://svimik.com/hdmmsk1kp2.png
-http://svimik.com/hdmmsk1kp3.png
-http://svimik.com/hdmmsk1kp4.png
-http://svimik.com/hdmmsk2kp6.png
+-- 
+2.9.5
