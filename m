@@ -1,47 +1,59 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next 2/2] mlxsw: spectrum: Propagate extack further
- for bridge enslavements
-Date: Fri, 6 Oct 2017 12:24:43 -0600
-Message-ID: <c678acc9-940a-b0e0-ba27-a34b19fcf13e@gmail.com>
-References: <20171005214000.14022-1-jiri@resnulli.us>
- <20171005214000.14022-3-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v5 0/3] bridge: neigh msg proxy and flood suppression support
+Date: Fri,  6 Oct 2017 11:34:37 -0700
+Message-ID: <1507314880-16310-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        stephen@networkplumber.org, makita.toshiaki@lab.ntt.co.jp,
+        bridge@lists.linux-foundation.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:38739 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752397AbdJFSYo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 14:24:44 -0400
-Received: by mail-pg0-f66.google.com with SMTP id j3so3395354pga.5
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 11:24:44 -0700 (PDT)
-In-Reply-To: <20171005214000.14022-3-jiri@resnulli.us>
-Content-Language: en-US
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:50545 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751862AbdJFSeq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 14:34:46 -0400
+Received: by mail-pf0-f182.google.com with SMTP id m63so9943129pfk.7
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 11:34:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/5/17 3:40 PM, Jiri Pirko wrote:
-> From: Ido Schimmel <idosch@mellanox.com>
-> 
-> The code that actually takes care of bridge offload introduces a few
-> more non-trivial constraints with regards to bridge enslavements.
-> Propagate extack there to indicate the reason.
-> 
-> $ ip link add link enp1s0np1 name enp1s0np1.10 type vlan id 10
-> $ ip link add link enp1s0np1 name enp1s0np1.20 type vlan id 20
-> $ ip link add name br0 type bridge
-> $ ip link set dev enp1s0np1.10 master br0
-> $ ip link set dev enp1s0np1.20 master br0
-> Error: spectrum: Can not bridge VLAN uppers of the same port.
-> 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  6 ++++--
->  drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  3 ++-
->  .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 25 +++++++++++++++-------
->  3 files changed, 23 insertions(+), 11 deletions(-)
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Acked-by: David Ahern <dsahern@gmail.com>
+This series implements arp and nd suppression in the bridge
+driver for ethernet vpns. It implements rfc7432, section 10
+https://tools.ietf.org/html/rfc7432#section-10
+for ethernet VPN deployments. It is similar to the existing
+BR_PROXYARP* flags but has a few semantic differences to conform
+to EVPN standard. Unlike the existing flags, this new flag suppresses
+flood of all neigh discovery packets (arp and nd) to tunnel ports.
+Supports both vlan filtering and non-vlan filtering bridges.
+
+In case of EVPN, it is mainly used to avoid flooding
+of arp and nd packets to tunnel ports like vxlan.
+
+v2 : rebase to latest + address some optimization feedback from Nikolay.
+v3 : fix kbuild reported build errors with CONFIG_INET off
+v4 : simplify port flag mask as suggested by stephen
+v5 : address some feedback from Toshiaki
+
+Roopa Prabhu (3):
+  bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd
+    flood
+  neigh arp suppress first
+  bridge: suppress nd messages from going to BR_NEIGH_SUPPRESS ports
+
+ include/linux/if_bridge.h    |   1 +
+ include/uapi/linux/if_link.h |   1 +
+ net/bridge/Makefile          |   2 +-
+ net/bridge/br_arp_nd_proxy.c | 492 +++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_device.c       |  18 ++
+ net/bridge/br_forward.c      |   3 +-
+ net/bridge/br_if.c           |   5 +
+ net/bridge/br_input.c        |  73 ++-----
+ net/bridge/br_netlink.c      |  16 +-
+ net/bridge/br_private.h      |   9 +
+ net/bridge/br_sysfs_if.c     |   2 +
+ 11 files changed, 561 insertions(+), 61 deletions(-)
+ create mode 100644 net/bridge/br_arp_nd_proxy.c
+
+-- 
+2.1.4
