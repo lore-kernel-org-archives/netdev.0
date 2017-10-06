@@ -1,84 +1,172 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/7] tcp: uninline tcp_write_queue_purge()
-Date: Thu,  5 Oct 2017 22:21:22 -0700
-Message-ID: <20171006052127.19913-3-edumazet@google.com>
-References: <20171006052127.19913-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:46795 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751644AbdJFFVj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 01:21:39 -0400
-Received: by mail-pg0-f44.google.com with SMTP id k7so4462160pga.3
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 22:21:39 -0700 (PDT)
-In-Reply-To: <20171006052127.19913-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] net/ipv6: Convert icmpv6_push_pending_frames to void
+Date: Thu,  5 Oct 2017 23:46:14 -0700
+Message-ID: <14612f639009193e561bcdb11c5ef5b6f12830ed.1507272313.git.joe@perches.com>
+Cc: Tim Hansen <devtimhansen@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since the upcoming rtx rbtree will add some extra code,
-it is time to not inline this fat function anymore.
+commit cc71b7b07119 ("net/ipv6: remove unused err variable on
+icmpv6_push_pending_frames") exposed icmpv6_push_pending_frames
+return value not being used.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Remove now unnecessary int err declarations and uses.
+
+Miscellanea:
+
+o Remove unnecessary goto and out: labels
+o Realign arguments
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- include/net/tcp.h | 15 +--------------
- net/ipv4/tcp.c    | 14 ++++++++++++++
- 2 files changed, 15 insertions(+), 14 deletions(-)
+ include/net/ipv6.h |  4 ++--
+ net/ipv6/icmp.c    | 43 ++++++++++++++++++-------------------------
+ net/ipv6/ping.c    |  5 ++---
+ 3 files changed, 22 insertions(+), 30 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3b16f353b539a563dae0b37328a52d67e6476f31..744559b727847db79b9751e6c6bef57e83c141f8 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1606,20 +1606,7 @@ static inline void tcp_skb_tsorted_anchor_cleanup(struct sk_buff *skb)
- 	skb->_skb_refdst = _save;		\
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 6eac5cf8f1e6..3cda3b521c36 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -300,8 +300,8 @@ static inline void fl6_sock_release(struct ip6_flowlabel *fl)
+ 
+ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info);
+ 
+-int icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+-			       struct icmp6hdr *thdr, int len);
++void icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
++				struct icmp6hdr *thdr, int len);
+ 
+ int ip6_ra_control(struct sock *sk, int sel);
+ 
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index aeb49b4d8c7d..4e52d52a6752 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -250,15 +250,15 @@ static bool opt_unrec(struct sk_buff *skb, __u32 offset)
+ 	return (*op & 0xC0) == 0x80;
  }
  
--/* write queue abstraction */
--static inline void tcp_write_queue_purge(struct sock *sk)
--{
--	struct sk_buff *skb;
+-int icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+-			       struct icmp6hdr *thdr, int len)
++void icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
++				struct icmp6hdr *thdr, int len)
+ {
+ 	struct sk_buff *skb;
+ 	struct icmp6hdr *icmp6h;
+ 
+ 	skb = skb_peek(&sk->sk_write_queue);
+ 	if (!skb)
+-		goto out;
++		return;
+ 
+ 	icmp6h = icmp6_hdr(skb);
+ 	memcpy(icmp6h, thdr, sizeof(struct icmp6hdr));
+@@ -286,8 +286,6 @@ int icmpv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+ 						      tmp_csum);
+ 	}
+ 	ip6_push_pending_frames(sk);
+-out:
+-	return 0;
+ }
+ 
+ struct icmpv6_msg {
+@@ -437,7 +435,6 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
+ 	int iif = 0;
+ 	int addr_type = 0;
+ 	int len;
+-	int err = 0;
+ 	u32 mark = IP6_REPLY_MARK(net, skb->mark);
+ 
+ 	if ((u8 *)hdr < skb->head ||
+@@ -574,17 +571,16 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
+ 	rcu_read_lock();
+ 	idev = __in6_dev_get(skb->dev);
+ 
+-	err = ip6_append_data(sk, icmpv6_getfrag, &msg,
+-			      len + sizeof(struct icmp6hdr),
+-			      sizeof(struct icmp6hdr),
+-			      &ipc6, &fl6, (struct rt6_info *)dst,
+-			      MSG_DONTWAIT, &sockc_unused);
+-	if (err) {
++	if (ip6_append_data(sk, icmpv6_getfrag, &msg,
++			    len + sizeof(struct icmp6hdr),
++			    sizeof(struct icmp6hdr),
++			    &ipc6, &fl6, (struct rt6_info *)dst,
++			    MSG_DONTWAIT, &sockc_unused)) {
+ 		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTERRORS);
+ 		ip6_flush_pending_frames(sk);
+ 	} else {
+-		err = icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr,
+-						 len + sizeof(struct icmp6hdr));
++		icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr,
++					   len + sizeof(struct icmp6hdr));
+ 	}
+ 	rcu_read_unlock();
+ out_dst_release:
+@@ -681,7 +677,6 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	struct icmpv6_msg msg;
+ 	struct dst_entry *dst;
+ 	struct ipcm6_cookie ipc6;
+-	int err = 0;
+ 	u32 mark = IP6_REPLY_MARK(net, skb->mark);
+ 	struct sockcm_cookie sockc_unused = {0};
+ 
+@@ -718,8 +713,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	else if (!fl6.flowi6_oif)
+ 		fl6.flowi6_oif = np->ucast_oif;
+ 
+-	err = ip6_dst_lookup(net, sk, &dst, &fl6);
+-	if (err)
++	if (ip6_dst_lookup(net, sk, &dst, &fl6))
+ 		goto out;
+ 	dst = xfrm_lookup(net, dst, flowi6_to_flowi(&fl6), sk, 0);
+ 	if (IS_ERR(dst))
+@@ -736,17 +730,16 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	ipc6.dontfrag = np->dontfrag;
+ 	ipc6.opt = NULL;
+ 
+-	err = ip6_append_data(sk, icmpv6_getfrag, &msg, skb->len + sizeof(struct icmp6hdr),
+-				sizeof(struct icmp6hdr), &ipc6, &fl6,
+-				(struct rt6_info *)dst, MSG_DONTWAIT,
+-				&sockc_unused);
 -
--	tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
--	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL) {
--		tcp_skb_tsorted_anchor_cleanup(skb);
--		sk_wmem_free_skb(sk, skb);
--	}
--	INIT_LIST_HEAD(&tcp_sk(sk)->tsorted_sent_queue);
--	sk_mem_reclaim(sk);
--	tcp_clear_all_retrans_hints(tcp_sk(sk));
--}
-+void tcp_write_queue_purge(struct sock *sk);
+-	if (err) {
++	if (ip6_append_data(sk, icmpv6_getfrag, &msg,
++			    skb->len + sizeof(struct icmp6hdr),
++			    sizeof(struct icmp6hdr), &ipc6, &fl6,
++			    (struct rt6_info *)dst, MSG_DONTWAIT,
++			    &sockc_unused)) {
+ 		__ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTERRORS);
+ 		ip6_flush_pending_frames(sk);
+ 	} else {
+-		err = icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr,
+-						 skb->len + sizeof(struct icmp6hdr));
++		icmpv6_push_pending_frames(sk, &fl6, &tmp_hdr,
++					   skb->len + sizeof(struct icmp6hdr));
+ 	}
+ 	dst_release(dst);
+ out:
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index ac826dd338ff..d12c55dad7d1 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -154,9 +154,8 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 				ICMP6_MIB_OUTERRORS);
+ 		ip6_flush_pending_frames(sk);
+ 	} else {
+-		err = icmpv6_push_pending_frames(sk, &fl6,
+-						 (struct icmp6hdr *) &pfh.icmph,
+-						 len);
++		icmpv6_push_pending_frames(sk, &fl6,
++					   (struct icmp6hdr *)&pfh.icmph, len);
+ 	}
+ 	release_sock(sk);
  
- static inline struct sk_buff *tcp_write_queue_head(const struct sock *sk)
- {
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 8cf742fd4f99d7eb1bd9632afcfb09c36ba1130e..f8ebae62f834ce6059d5bcf7dcb84988187dfbce 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2318,6 +2318,20 @@ static inline bool tcp_need_reset(int state)
- 		TCPF_FIN_WAIT2 | TCPF_SYN_RECV);
- }
- 
-+void tcp_write_queue_purge(struct sock *sk)
-+{
-+	struct sk_buff *skb;
-+
-+	tcp_chrono_stop(sk, TCP_CHRONO_BUSY);
-+	while ((skb = __skb_dequeue(&sk->sk_write_queue)) != NULL) {
-+		tcp_skb_tsorted_anchor_cleanup(skb);
-+		sk_wmem_free_skb(sk, skb);
-+	}
-+	INIT_LIST_HEAD(&tcp_sk(sk)->tsorted_sent_queue);
-+	sk_mem_reclaim(sk);
-+	tcp_clear_all_retrans_hints(tcp_sk(sk));
-+}
-+
- int tcp_disconnect(struct sock *sk, int flags)
- {
- 	struct inet_sock *inet = inet_sk(sk);
 -- 
-2.14.2.920.gcf0c67979c-goog
+2.10.0.rc2.1.g053435c
