@@ -1,8 +1,7 @@
 From: Finn Thain <fthain@telegraphics.com.au>
-Subject: [PATCH net v2 4/9] net/mac89x0: Replace custom debug logging with
- netif_* calls
+Subject: [PATCH net v2 1/9] net/smc9194: Remove bogus CONFIG_MAC reference
 Date: Thu,  5 Oct 2017 21:11:05 -0400 (EDT)
-Message-ID: <a08bc7a2687f64a665afcd1e02869c711355cd5c.1507211120.git.fthain@telegraphics.com.au>
+Message-ID: <eab9fff6bdf14f715f35fbff8f7d584039e07404.1507211120.git.fthain@telegraphics.com.au>
 References: <cover.1507211120.git.fthain@telegraphics.com.au>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
@@ -11,147 +10,30 @@ In-Reply-To: <cover.1507211120.git.fthain@telegraphics.com.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The only version of smc9194.c with Mac support is the one in the
+linux-mac68k CVS repo. AFAIK that driver never made it to the mainline.
+
+Despite that, as of v2.3.45, arch/m68k/config.in listed CONFIG_SMC9194
+under CONFIG_MAC. This mistake got carried over into Kconfig in v2.5.55.
+(See pre-git era "[PATCH] add m68k dependencies to net driver config".)
+
 Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 ---
- drivers/net/ethernet/cirrus/mac89x0.c | 47 ++++++++++++-----------------------
- 1 file changed, 16 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/smsc/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cirrus/mac89x0.c b/drivers/net/ethernet/cirrus/mac89x0.c
-index fa4b6968afd5..d331c8344b96 100644
---- a/drivers/net/ethernet/cirrus/mac89x0.c
-+++ b/drivers/net/ethernet/cirrus/mac89x0.c
-@@ -61,18 +61,6 @@
- static const char version[] =
- "cs89x0.c:v1.02 11/26/96 Russell Nelson <nelson@crynwr.com>\n";
+diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
+index 63aca9f847e1..4c2f612e4414 100644
+--- a/drivers/net/ethernet/smsc/Kconfig
++++ b/drivers/net/ethernet/smsc/Kconfig
+@@ -20,7 +20,7 @@ if NET_VENDOR_SMSC
  
--/* ======================= configure the driver here ======================= */
--
--/* use 0 for production, 1 for verification, >2 for debug */
--#ifndef NET_DEBUG
--#define NET_DEBUG 0
--#endif
--
--/* ======================= end of configuration ======================= */
--
--
--/* Always include 'config.h' first in case the user wants to turn on
--   or override something. */
- #include <linux/module.h>
- 
- /*
-@@ -107,10 +95,13 @@ static const char version[] =
- 
- #include "cs89x0.h"
- 
--static unsigned int net_debug = NET_DEBUG;
-+static int debug = -1;
-+module_param(debug, int, 0);
-+MODULE_PARM_DESC(debug, "debug message level");
- 
- /* Information that need to be kept for each board. */
- struct net_local {
-+	int msg_enable;
- 	int chip_type;		/* one of: CS8900, CS8920, CS8920M */
- 	char chip_revision;	/* revision letter of the chip ('A'...) */
- 	int send_cmd;		/* the propercommand used to send a packet. */
-@@ -175,7 +166,6 @@ struct net_device * __init mac89x0_probe(int unit)
- 	struct net_device *dev;
- 	static int once_is_enough;
- 	struct net_local *lp;
--	static unsigned version_printed;
- 	int i, slot;
- 	unsigned rev_type = 0;
- 	unsigned long ioaddr;
-@@ -225,6 +215,8 @@ struct net_device * __init mac89x0_probe(int unit)
- 	/* Initialize the net_device structure. */
- 	lp = netdev_priv(dev);
- 
-+	lp->msg_enable = netif_msg_init(debug, 0);
-+
- 	/* Fill in the 'dev' fields. */
- 	dev->base_addr = ioaddr;
- 	dev->mem_start = (unsigned long)
-@@ -247,8 +239,7 @@ struct net_device * __init mac89x0_probe(int unit)
- 	if (lp->chip_type != CS8900 && lp->chip_revision >= 'C')
- 		lp->send_cmd = TX_NOW;
- 
--	if (net_debug && version_printed++ == 0)
--		printk(version);
-+	netif_dbg(lp, drv, dev, "%s", version);
- 
- 	pr_info("CS89%c0%s rev %c found at %#8lx\n",
- 	        lp->chip_type == CS8900 ? '0' : '2',
-@@ -345,11 +336,9 @@ net_send_packet(struct sk_buff *skb, struct net_device *dev)
- 	struct net_local *lp = netdev_priv(dev);
- 	unsigned long flags;
- 
--	if (net_debug > 3)
--		printk("%s: sent %d byte packet of type %x\n",
--		       dev->name, skb->len,
--		       (skb->data[ETH_ALEN+ETH_ALEN] << 8)
--		       | skb->data[ETH_ALEN+ETH_ALEN+1]);
-+	netif_dbg(lp, tx_queued, dev, "sent %d byte packet of type %x\n",
-+	          skb->len, skb->data[ETH_ALEN + ETH_ALEN] << 8 |
-+	                    skb->data[ETH_ALEN + ETH_ALEN + 1]);
- 
- 	/* keep the upload from being interrupted, since we
- 	   ask the chip to start transmitting before the
-@@ -398,7 +387,7 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
-            faster than you can read them off, you're screwed.  Hasta la
-            vista, baby!  */
- 	while ((status = swab16(nubus_readw(dev->base_addr + ISQ_PORT)))) {
--		if (net_debug > 4)printk("%s: event=%04x\n", dev->name, status);
-+		netif_dbg(lp, intr, dev, "status=%04x\n", status);
- 		switch(status & ISQ_EVENT_MASK) {
- 		case ISQ_RECEIVER_EVENT:
- 			/* Got a packet(s). */
-@@ -428,7 +417,7 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
- 				netif_wake_queue(dev);
- 			}
- 			if (status & TX_UNDERRUN) {
--				if (net_debug > 0) printk("%s: transmit underrun\n", dev->name);
-+				netif_dbg(lp, tx_err, dev, "transmit underrun\n");
-                                 lp->send_underrun++;
-                                 if (lp->send_underrun == 3) lp->send_cmd = TX_AFTER_381;
-                                 else if (lp->send_underrun == 6) lp->send_cmd = TX_AFTER_ALL;
-@@ -449,6 +438,7 @@ static irqreturn_t net_interrupt(int irq, void *dev_id)
- static void
- net_rx(struct net_device *dev)
- {
-+	struct net_local *lp = netdev_priv(dev);
- 	struct sk_buff *skb;
- 	int status, length;
- 
-@@ -480,10 +470,9 @@ net_rx(struct net_device *dev)
- 	skb_copy_to_linear_data(skb, (void *)(dev->mem_start + PP_RxFrame),
- 				length);
- 
--	if (net_debug > 3)printk("%s: received %d byte packet of type %x\n",
--                                 dev->name, length,
--                                 (skb->data[ETH_ALEN+ETH_ALEN] << 8)
--				 | skb->data[ETH_ALEN+ETH_ALEN+1]);
-+	netif_dbg(lp, rx_status, dev, "received %d byte packet of type %x\n",
-+	          length, skb->data[ETH_ALEN + ETH_ALEN] << 8 |
-+	                  skb->data[ETH_ALEN + ETH_ALEN + 1]);
- 
-         skb->protocol=eth_type_trans(skb,dev);
- 	netif_rx(skb);
-@@ -571,16 +560,12 @@ static int set_mac_address(struct net_device *dev, void *addr)
- #ifdef MODULE
- 
- static struct net_device *dev_cs89x0;
--static int debug;
- 
--module_param(debug, int, 0);
--MODULE_PARM_DESC(debug, "CS89[02]0 debug level (0-5)");
- MODULE_LICENSE("GPL");
- 
- int __init
- init_module(void)
- {
--	net_debug = debug;
-         dev_cs89x0 = mac89x0_probe(-1);
- 	if (IS_ERR(dev_cs89x0)) {
- 		pr_warn("No card found\n");
+ config SMC9194
+ 	tristate "SMC 9194 support"
+-	depends on (ISA || MAC && BROKEN)
++	depends on ISA
+ 	select CRC32
+ 	---help---
+ 	  This is support for the SMC9xxx based Ethernet cards. Choose this
 -- 
 2.13.5
