@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 1/7] nfp: add mpls match offloading support
-Date: Fri,  6 Oct 2017 10:21:20 +0200
-Message-ID: <1507278086-3102-2-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 4/7] nfp: add set ethernet header action flower offload
+Date: Fri,  6 Oct 2017 10:21:23 +0200
+Message-ID: <1507278086-3102-5-git-send-email-simon.horman@netronome.com>
 References: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         Pieter Jansen van Vuuren
@@ -10,97 +10,164 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:54382 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750868AbdJFIVc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 04:21:32 -0400
-Received: by mail-wm0-f48.google.com with SMTP id i124so6347085wmf.3
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 01:21:31 -0700 (PDT)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:56420 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751495AbdJFIVi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 04:21:38 -0400
+Received: by mail-wm0-f51.google.com with SMTP id l68so6347507wmd.5
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 01:21:37 -0700 (PDT)
 In-Reply-To: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 
-Previously MPLS match offloading was not supported. This patch enables
-MPLS match offloading support for label, bos and tc fields.
+Previously we did not have offloading support for set ethernet actions.
+This patch enables TC flower offload of set ethernet actions.
 
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h    |  5 +++++
- drivers/net/ethernet/netronome/nfp/flower/match.c   | 17 +++++++++++++++--
- drivers/net/ethernet/netronome/nfp/flower/offload.c |  6 +-----
- 3 files changed, 21 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/netronome/nfp/flower/action.c | 85 ++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  8 ++
+ 2 files changed, 93 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 504ddaa21701..fe4751607b2b 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -57,6 +57,11 @@
- #define NFP_FLOWER_MASK_VLAN_CFI	BIT(12)
- #define NFP_FLOWER_MASK_VLAN_VID	GENMASK(11, 0)
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/action.c b/drivers/net/ethernet/netronome/nfp/flower/action.c
+index 38f3835ae176..631ea4b7d08e 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/action.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/action.c
+@@ -36,6 +36,7 @@
+ #include <net/switchdev.h>
+ #include <net/tc_act/tc_gact.h>
+ #include <net/tc_act/tc_mirred.h>
++#include <net/tc_act/tc_pedit.h>
+ #include <net/tc_act/tc_vlan.h>
+ #include <net/tc_act/tc_tunnel_key.h>
  
-+#define NFP_FLOWER_MASK_MPLS_LB		GENMASK(31, 12)
-+#define NFP_FLOWER_MASK_MPLS_TC		GENMASK(11, 9)
-+#define NFP_FLOWER_MASK_MPLS_BOS	BIT(8)
-+#define NFP_FLOWER_MASK_MPLS_Q		BIT(0)
-+
- #define NFP_FL_SC_ACT_DROP		0x80000000
- #define NFP_FL_SC_ACT_USER		0x7D000000
- #define NFP_FL_SC_ACT_POPV		0x6A000000
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/match.c b/drivers/net/ethernet/netronome/nfp/flower/match.c
-index 865a815ab92a..e35ade9cd3d5 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/match.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/match.c
-@@ -111,8 +111,21 @@ nfp_flower_compile_mac(struct nfp_flower_mac_mpls *frame,
- 		ether_addr_copy(frame->mac_src, &addr->src[0]);
- 	}
- 
--	if (mask_version)
--		frame->mpls_lse = cpu_to_be32(~0);
-+	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_MPLS)) {
-+		struct flow_dissector_key_mpls *mpls;
-+		u32 t_mpls;
-+
-+		mpls = skb_flow_dissector_target(flow->dissector,
-+						 FLOW_DISSECTOR_KEY_MPLS,
-+						 target);
-+
-+		t_mpls = FIELD_PREP(NFP_FLOWER_MASK_MPLS_LB, mpls->mpls_label) |
-+			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_TC, mpls->mpls_tc) |
-+			 FIELD_PREP(NFP_FLOWER_MASK_MPLS_BOS, mpls->mpls_bos) |
-+			 NFP_FLOWER_MASK_MPLS_Q;
-+
-+		frame->mpls_lse = cpu_to_be32(t_mpls);
-+	}
+@@ -223,6 +224,87 @@ nfp_fl_set_vxlan(struct nfp_fl_set_vxlan *set_vxlan,
+ 	return 0;
  }
  
- static void
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 3d9537ebdea4..a721a00a2bcc 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -57,6 +57,7 @@
- 	 BIT(FLOW_DISSECTOR_KEY_ENC_IPV6_ADDRS) | \
- 	 BIT(FLOW_DISSECTOR_KEY_ENC_CONTROL) | \
- 	 BIT(FLOW_DISSECTOR_KEY_ENC_PORTS) | \
-+	 BIT(FLOW_DISSECTOR_KEY_MPLS) | \
- 	 BIT(FLOW_DISSECTOR_KEY_IP))
++static void nfp_fl_set_helper32(u32 value, u32 mask, u8 *p_exact, u8 *p_mask)
++{
++	u32 oldvalue = get_unaligned((u32 *)p_exact);
++	u32 oldmask = get_unaligned((u32 *)p_mask);
++
++	value &= mask;
++	value |= oldvalue & ~mask;
++
++	put_unaligned(oldmask | mask, (u32 *)p_mask);
++	put_unaligned(value, (u32 *)p_exact);
++}
++
++static int
++nfp_fl_set_eth(const struct tc_action *action, int idx, u32 off,
++	       struct nfp_fl_set_eth *set_eth)
++{
++	u16 tmp_set_eth_op;
++	u32 exact, mask;
++
++	if (off + 4 > ETH_ALEN * 2)
++		return -EOPNOTSUPP;
++
++	mask = ~tcf_pedit_mask(action, idx);
++	exact = tcf_pedit_val(action, idx);
++
++	if (exact & ~mask)
++		return -EOPNOTSUPP;
++
++	nfp_fl_set_helper32(exact, mask, &set_eth->eth_addr_val[off],
++			    &set_eth->eth_addr_mask[off]);
++
++	set_eth->reserved = cpu_to_be16(0);
++	tmp_set_eth_op = FIELD_PREP(NFP_FL_ACT_LEN_LW,
++				    sizeof(*set_eth) >> NFP_FL_LW_SIZ) |
++			 FIELD_PREP(NFP_FL_ACT_JMP_ID,
++				    NFP_FL_ACTION_OPCODE_SET_ETHERNET);
++	set_eth->a_op = cpu_to_be16(tmp_set_eth_op);
++
++	return 0;
++}
++
++static int
++nfp_fl_pedit(const struct tc_action *action, char *nfp_action, int *a_len)
++{
++	struct nfp_fl_set_eth set_eth;
++	enum pedit_header_type htype;
++	int idx, nkeys, err;
++	size_t act_size;
++	u32 offset, cmd;
++
++	memset(&set_eth, 0, sizeof(set_eth));
++	nkeys = tcf_pedit_nkeys(action);
++
++	for (idx = 0; idx < nkeys; idx++) {
++		cmd = tcf_pedit_cmd(action, idx);
++		htype = tcf_pedit_htype(action, idx);
++		offset = tcf_pedit_offset(action, idx);
++
++		if (cmd != TCA_PEDIT_KEY_EX_CMD_SET)
++			return -EOPNOTSUPP;
++
++		switch (htype) {
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
++			err = nfp_fl_set_eth(action, idx, offset, &set_eth);
++			break;
++		default:
++			return -EOPNOTSUPP;
++		}
++		if (err)
++			return err;
++	}
++
++	if (set_eth.a_op) {
++		act_size = sizeof(set_eth);
++		memcpy(nfp_action, &set_eth, act_size);
++		*a_len += act_size;
++	}
++
++	return 0;
++}
++
+ static int
+ nfp_flower_loop_action(const struct tc_action *a,
+ 		       struct nfp_fl_payload *nfp_fl, int *a_len,
+@@ -301,6 +383,9 @@ nfp_flower_loop_action(const struct tc_action *a,
+ 	} else if (is_tcf_tunnel_release(a)) {
+ 		/* Tunnel decap is handled by default so accept action. */
+ 		return 0;
++	} else if (is_tcf_pedit(a)) {
++		if (nfp_fl_pedit(a, &nfp_fl->action_data[*a_len], a_len))
++			return -EOPNOTSUPP;
+ 	} else {
+ 		/* Currently we do not handle any other actions. */
+ 		return -EOPNOTSUPP;
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+index fe4751607b2b..ffeaf85aa420 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
+@@ -77,6 +77,7 @@
+ #define NFP_FL_ACTION_OPCODE_PUSH_VLAN		1
+ #define NFP_FL_ACTION_OPCODE_POP_VLAN		2
+ #define NFP_FL_ACTION_OPCODE_SET_IPV4_TUNNEL	6
++#define NFP_FL_ACTION_OPCODE_SET_ETHERNET	7
+ #define NFP_FL_ACTION_OPCODE_PRE_TUNNEL		17
+ #define NFP_FL_ACTION_OPCODE_NUM		32
  
- #define NFP_FLOWER_WHITELIST_TUN_DISSECTOR \
-@@ -238,11 +239,6 @@ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
- 		case cpu_to_be16(ETH_P_ARP):
- 			return -EOPNOTSUPP;
+@@ -107,6 +108,13 @@ enum nfp_flower_tun_type {
+ 	NFP_FL_TUNNEL_VXLAN =	2,
+ };
  
--		/* Currently we do not offload MPLS. */
--		case cpu_to_be16(ETH_P_MPLS_UC):
--		case cpu_to_be16(ETH_P_MPLS_MC):
--			return -EOPNOTSUPP;
--
- 		/* Will be included in layer 2. */
- 		case cpu_to_be16(ETH_P_8021Q):
- 			break;
++struct nfp_fl_set_eth {
++	__be16 a_op;
++	__be16 reserved;
++	u8 eth_addr_mask[ETH_ALEN * 2];
++	u8 eth_addr_val[ETH_ALEN * 2];
++};
++
+ struct nfp_fl_output {
+ 	__be16 a_op;
+ 	__be16 flags;
 -- 
 2.1.4
