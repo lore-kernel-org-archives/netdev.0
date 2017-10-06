@@ -1,7 +1,7 @@
 From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net-next 12/16] ipv6: update fn_sernum after route is inserted to tree
-Date: Fri,  6 Oct 2017 12:06:07 -0700
-Message-ID: <20171006190611.110633-13-tracywwnj@gmail.com>
+Subject: [PATCH net-next 13/16] ipv6: check fn->leaf before it is used
+Date: Fri,  6 Oct 2017 12:06:08 -0700
+Message-ID: <20171006190611.110633-14-tracywwnj@gmail.com>
 References: <20171006190611.110633-1-tracywwnj@gmail.com>
  <20171006190611.110633-2-tracywwnj@gmail.com>
  <20171006190611.110633-3-tracywwnj@gmail.com>
@@ -14,198 +14,171 @@ References: <20171006190611.110633-1-tracywwnj@gmail.com>
  <20171006190611.110633-10-tracywwnj@gmail.com>
  <20171006190611.110633-11-tracywwnj@gmail.com>
  <20171006190611.110633-12-tracywwnj@gmail.com>
+ <20171006190611.110633-13-tracywwnj@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>,
         Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:48563 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752741AbdJFTGw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 15:06:52 -0400
-Received: by mail-pg0-f47.google.com with SMTP id v78so8593508pgb.5
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 12:06:52 -0700 (PDT)
-In-Reply-To: <20171006190611.110633-12-tracywwnj@gmail.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:52122 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752757AbdJFTGz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 15:06:55 -0400
+Received: by mail-pg0-f53.google.com with SMTP id u144so7688975pgb.8
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 12:06:55 -0700 (PDT)
+In-Reply-To: <20171006190611.110633-13-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
 
-fib6_add() logic currently calls fib6_add_1() to figure out what node
-should be used for the newly added route and then call
-fib6_add_rt2node() to insert the route to the node.
-And during the call of fib6_add_1(), fn_sernum is updated for all nodes
-that share the same prefix as the new route.
-This does not have issue in the current code because reader thread will
-not be able to access the tree while writer thread is inserting new
-route to it. However, it is not the case once we transition to use RCU.
-Reader thread could potentially see the new fn_sernum before the new
-route is inserted. As a result, reader thread's route lookup will return
-a stale route with the new fn_sernum.
+If rwlock is replaced with rcu and spinlock, it is possible that the
+reader thread will see fn->leaf as NULL in the following scenarios:
+1. fib6_add() is in progress and we have already inserted a new node but
+not yet inserted the route.
+2. fib6_del_route() is in progress and we have already set fn->leaf to
+NULL but not yet freed the node because of rcu grace period.
 
-In order to solve this issue, we remove all the update of fn_sernum in
-fib6_add_1(), and instead, introduce a new function that updates fn_sernum
-for all related nodes and call this functions once the route is
-successfully inserted to the tree.
-Also, smp_wmb() is used after a route is successfully inserted into the
-fib tree and right before the updated of fn->sernum. And smp_rmb() is
-used right after fn->sernum is accessed in rt6_get_cookie_safe(). This
-is to guarantee that when the reader thread sees the new fn->sernum, the
-new route is already inserted in the tree in memory.
+This patch makes sure all the reader threads check fn->leaf first before
+using it. And together with later patch to grab rcu_read_lock() and
+rcu_dereference() fn->leaf, it makes sure reader threads are safe when
+accessing fn->leaf.
 
 Signed-off-by: Wei Wang <weiwan@google.com>
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/ip6_fib.h |  2 ++
- net/ipv6/ip6_fib.c    | 39 +++++++++++++++++++++------------------
- 2 files changed, 23 insertions(+), 18 deletions(-)
+ net/ipv6/ip6_fib.c | 23 ++++++++++++++++++-----
+ net/ipv6/route.c   | 20 ++++++++++++--------
+ 2 files changed, 30 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index d0b7283073e3..6bf929b50951 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -220,6 +220,8 @@ static inline bool rt6_get_cookie_safe(const struct rt6_info *rt,
- 
- 	if (fn) {
- 		*cookie = fn->fn_sernum;
-+		/* pairs with smp_wmb() in fib6_update_sernum_upto_root() */
-+		smp_rmb();
- 		status = true;
- 	}
- 
 diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index eee392f7b1f6..f604b311cc3e 100644
+index f604b311cc3e..cf6137e81408 100644
 --- a/net/ipv6/ip6_fib.c
 +++ b/net/ipv6/ip6_fib.c
-@@ -585,7 +585,7 @@ static int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb)
- static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 				     struct in6_addr *addr, int plen,
- 				     int offset, int allow_create,
--				     int replace_required, int sernum,
-+				     int replace_required,
- 				     struct netlink_ext_ack *extack)
- {
- 	struct fib6_node *fn, *in, *ln;
-@@ -631,8 +631,6 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 				fn->leaf = NULL;
+@@ -1279,10 +1279,13 @@ static struct fib6_node *fib6_lookup_1(struct fib6_node *root,
+ 
+ 	while (fn) {
+ 		if (FIB6_SUBTREE(fn) || fn->fn_flags & RTN_RTINFO) {
++			struct rt6_info *leaf = fn->leaf;
+ 			struct rt6key *key;
+ 
+-			key = (struct rt6key *) ((u8 *) fn->leaf +
+-						 args->offset);
++			if (!leaf)
++				goto backtrack;
++
++			key = (struct rt6key *) ((u8 *)leaf + args->offset);
+ 
+ 			if (ipv6_prefix_equal(&key->addr, args->addr, key->plen)) {
+ #ifdef CONFIG_IPV6_SUBTREES
+@@ -1299,9 +1302,7 @@ static struct fib6_node *fib6_lookup_1(struct fib6_node *root,
+ 					return fn;
  			}
- 
--			fn->fn_sernum = sernum;
--
- 			return fn;
  		}
+-#ifdef CONFIG_IPV6_SUBTREES
+ backtrack:
+-#endif
+ 		if (fn->fn_flags & RTN_ROOT)
+ 			break;
  
-@@ -641,7 +639,6 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
+@@ -1358,7 +1359,18 @@ static struct fib6_node *fib6_locate_1(struct fib6_node *root,
+ 	struct fib6_node *fn, *prev = NULL;
+ 
+ 	for (fn = root; fn ; ) {
+-		struct rt6key *key = (struct rt6key *)((u8 *)fn->leaf + offset);
++		struct rt6_info *leaf = fn->leaf;
++		struct rt6key *key;
++
++		/* This node is being deleted */
++		if (!leaf) {
++			if (plen <= fn->fn_bit)
++				goto out;
++			else
++				goto next;
++		}
++
++		key = (struct rt6key *)((u8 *)leaf + offset);
+ 
+ 		/*
+ 		 *	Prefix match
+@@ -1372,6 +1384,7 @@ static struct fib6_node *fib6_locate_1(struct fib6_node *root,
+ 
+ 		prev = fn;
+ 
++next:
+ 		/*
+ 		 *	We have more bits to go
  		 */
- 
- 		/* Try to walk down on tree. */
--		fn->fn_sernum = sernum;
- 		dir = addr_bit_set(addr, fn->fn_bit);
- 		pn = fn;
- 		fn = dir ? fn->right : fn->left;
-@@ -677,7 +674,6 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 	ln->fn_bit = plen;
- 
- 	ln->parent = pn;
--	ln->fn_sernum = sernum;
- 
- 	if (dir)
- 		pn->right = ln;
-@@ -737,8 +733,6 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 		in->leaf = fn->leaf;
- 		atomic_inc(&in->leaf->rt6i_ref);
- 
--		in->fn_sernum = sernum;
--
- 		/* update parent pointer */
- 		if (dir)
- 			pn->right = in;
-@@ -750,8 +744,6 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 		ln->parent = in;
- 		fn->parent = in;
- 
--		ln->fn_sernum = sernum;
--
- 		if (addr_bit_set(addr, bit)) {
- 			in->right = ln;
- 			in->left  = fn;
-@@ -776,8 +768,6 @@ static struct fib6_node *fib6_add_1(struct fib6_node *root,
- 
- 		ln->parent = pn;
- 
--		ln->fn_sernum = sernum;
--
- 		if (dir)
- 			pn->right = ln;
- 		else
-@@ -1079,6 +1069,20 @@ void fib6_force_start_gc(struct net *net)
- 			  jiffies + net->ipv6.sysctl.ip6_rt_gc_interval);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index aeb349aea429..05dc450af441 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -712,6 +712,7 @@ static struct rt6_info *find_match(struct rt6_info *rt, int oif, int strict,
  }
  
-+static void fib6_update_sernum_upto_root(struct rt6_info *rt,
-+					 int sernum)
-+{
-+	struct fib6_node *fn = rcu_dereference_protected(rt->rt6i_node,
-+				lockdep_is_held(&rt->rt6i_table->tb6_lock));
+ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
++				     struct rt6_info *leaf,
+ 				     struct rt6_info *rr_head,
+ 				     u32 metric, int oif, int strict,
+ 				     bool *do_rr)
+@@ -730,7 +731,7 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
+ 	}
+ 
+-	for (rt = fn->leaf; rt && rt != rr_head; rt = rt->dst.rt6_next) {
++	for (rt = leaf; rt && rt != rr_head; rt = rt->dst.rt6_next) {
+ 		if (rt->rt6i_metric != metric) {
+ 			cont = rt;
+ 			break;
+@@ -748,17 +749,21 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 	return match;
+ }
+ 
+-static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
++static struct rt6_info *rt6_select(struct net *net, struct fib6_node *fn,
++				   int oif, int strict)
+ {
++	struct rt6_info *leaf = fn->leaf;
+ 	struct rt6_info *match, *rt0;
+-	struct net *net;
+ 	bool do_rr = false;
+ 
++	if (!leaf)
++		return net->ipv6.ip6_null_entry;
 +
-+	/* paired with smp_rmb() in rt6_get_cookie_safe() */
-+	smp_wmb();
-+	while (fn) {
-+		fn->fn_sernum = sernum;
-+		fn = fn->parent;
-+	}
-+}
-+
- /*
-  *	Add routing information to the routing tree.
-  *	<destination addr>/<source addr>
-@@ -1111,7 +1115,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
+ 	rt0 = fn->rr_ptr;
+ 	if (!rt0)
+-		fn->rr_ptr = rt0 = fn->leaf;
++		fn->rr_ptr = rt0 = leaf;
  
- 	fn = fib6_add_1(root, &rt->rt6i_dst.addr, rt->rt6i_dst.plen,
- 			offsetof(struct rt6_info, rt6i_dst), allow_create,
--			replace_required, sernum, extack);
-+			replace_required, extack);
- 	if (IS_ERR(fn)) {
- 		err = PTR_ERR(fn);
- 		fn = NULL;
-@@ -1145,15 +1149,13 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 			sfn->leaf = info->nl_net->ipv6.ip6_null_entry;
- 			atomic_inc(&info->nl_net->ipv6.ip6_null_entry->rt6i_ref);
- 			sfn->fn_flags = RTN_ROOT;
--			sfn->fn_sernum = sernum;
+-	match = find_rr_leaf(fn, rt0, rt0->rt6i_metric, oif, strict,
++	match = find_rr_leaf(fn, leaf, rt0, rt0->rt6i_metric, oif, strict,
+ 			     &do_rr);
  
- 			/* Now add the first leaf node to new subtree */
+ 	if (do_rr) {
+@@ -766,13 +771,12 @@ static struct rt6_info *rt6_select(struct fib6_node *fn, int oif, int strict)
  
- 			sn = fib6_add_1(sfn, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required, sernum,
--					extack);
-+					allow_create, replace_required, extack);
+ 		/* no entries matched; do round-robin */
+ 		if (!next || next->rt6i_metric != rt0->rt6i_metric)
+-			next = fn->leaf;
++			next = leaf;
  
- 			if (IS_ERR(sn)) {
- 				/* If it is failed, discard just allocated
-@@ -1172,8 +1174,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- 			sn = fib6_add_1(fn->subtree, &rt->rt6i_src.addr,
- 					rt->rt6i_src.plen,
- 					offsetof(struct rt6_info, rt6i_src),
--					allow_create, replace_required, sernum,
--					extack);
-+					allow_create, replace_required, extack);
+ 		if (next != rt0)
+ 			fn->rr_ptr = next;
+ 	}
  
- 			if (IS_ERR(sn)) {
- 				err = PTR_ERR(sn);
-@@ -1190,8 +1191,10 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt,
- #endif
+-	net = dev_net(rt0->dst.dev);
+ 	return match ? match : net->ipv6.ip6_null_entry;
+ }
  
- 	err = fib6_add_rt2node(fn, rt, info, mxc);
--	if (!err)
-+	if (!err) {
-+		fib6_update_sernum_upto_root(rt, sernum);
- 		fib6_start_gc(info->nl_net, rt);
-+	}
+@@ -1623,7 +1627,7 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 		oif = 0;
  
- out:
- 	if (err) {
+ redo_rt6_select:
+-	rt = rt6_select(fn, oif, strict);
++	rt = rt6_select(net, fn, oif, strict);
+ 	if (rt->rt6i_nsiblings)
+ 		rt = rt6_multipath_select(rt, fl6, oif, strict);
+ 	if (rt == net->ipv6.ip6_null_entry) {
 -- 
 2.14.2.920.gcf0c67979c-goog
