@@ -1,47 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH 7/7] net: qrtr: Support decoding incoming v2
- packets
-Date: Thu, 05 Oct 2017 18:05:39 -0700 (PDT)
-Message-ID: <20171005.180539.381799694621402344.davem@davemloft.net>
-References: <20171005035105.14677-1-bjorn.andersson@linaro.org>
-        <20171005035105.14677-8-bjorn.andersson@linaro.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org, clew@codeaurora.org
-To: bjorn.andersson@linaro.org
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <20171005035105.14677-8-bjorn.andersson@linaro.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: [PATCH net v2 0/9] Fixes, cleanup and modernization for some legacy ethernet NIC drivers
+Date: Thu,  5 Oct 2017 21:11:05 -0400 (EDT)
+Message-ID: <cover.1507211120.git.fthain@telegraphics.com.au>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kvm5.telegraphics.com.au ([98.124.60.144]:44066 "EHLO
+        kvm5.telegraphics.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751363AbdJFBLF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 21:11:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Date: Wed,  4 Oct 2017 20:51:05 -0700
+This patch series fixes some logging bugs and adds some missing message
+severity levels.
 
-> +/**
-> + * struct qrtr_hdr_v2 - (I|R)PCrouter packet header later versions
-> + * @version: protocol version
-> + * @type: packet type; one of QRTR_TYPE_*
-> + * @flags: bitmask of QRTR_FLAGS_*
-> + * @optlen: length of optional header data
-> + * @size: length of packet, excluding this header and optlen
-> + * @src_node_id: source node
-> + * @src_port_id: source port
-> + * @dst_node_id: destination node
-> + * @dst_port_id: destination port
-> + */
-> +struct qrtr_hdr_v2 {
-> +	u8 version;
-> +	u8 type;
-> +	u8 flags;
-> +	u8 optlen;
-> +	__le32 size;
-> +	__le16 src_node_id;
-> +	__le16 src_port_id;
-> +	__le16 dst_node_id;
-> +	__le16 dst_port_id;
-> +} __packed;
+There are also cleanup patches for dead code and some Kconfig cruft.
 
-__packed should be only used when it is provably necessary, and it
-should not be needed here.
+Custom debug message logging is converted to netif_* calls to reduce
+code duplication.
+
+All up, about 150 lines of code are eliminated.
+
+This patch series has been tested on various Macs to provide coverage
+of the changes to lib8390.c, mac8390.c, macsonic.c, sonic.[ch] and
+macmace.c. All other changes were only compile-tested but these are
+fairly trivial or are confined to log messages or both.
+
+Changes since v1:
+- Keep the once_is_enough test in mac89x0.c.
+- Add tested-by tags.
+- Move netdev_info() call to correct branch in macmace.c.
+
+
+Finn Thain (9):
+  net/smc9194: Remove bogus CONFIG_MAC reference
+  net/mac89x0: Remove dead or unreachable code
+  net/mac89x0: Fix and modernize log messages
+  net/mac89x0: Replace custom debug logging with netif_* calls
+  net/macmace: Fix and cleanup log messages
+  net/sonic: Cleanup and modernize log messages
+  net/sonic: Replace custom debug logging with netif_* calls
+  net/8390: Fix redundant code
+  net/mac8390: Fix log messages
+
+ drivers/net/ethernet/8390/ax88796.c      |   3 -
+ drivers/net/ethernet/8390/axnet_cs.c     |   2 -
+ drivers/net/ethernet/8390/etherh.c       |  17 -----
+ drivers/net/ethernet/8390/hydra.c        |   4 --
+ drivers/net/ethernet/8390/lib8390.c      |   2 +
+ drivers/net/ethernet/8390/mac8390.c      |  42 ++++++-------
+ drivers/net/ethernet/8390/mcf8390.c      |   4 --
+ drivers/net/ethernet/8390/pcnet_cs.c     |   4 --
+ drivers/net/ethernet/8390/zorro8390.c    |   5 --
+ drivers/net/ethernet/apple/macmace.c     |  16 +++--
+ drivers/net/ethernet/cirrus/mac89x0.c    | 104 +++++++++----------------------
+ drivers/net/ethernet/natsemi/jazzsonic.c |  26 ++------
+ drivers/net/ethernet/natsemi/macsonic.c  |  45 ++++---------
+ drivers/net/ethernet/natsemi/sonic.c     |  92 +++++++++++++--------------
+ drivers/net/ethernet/natsemi/sonic.h     |   2 +
+ drivers/net/ethernet/natsemi/xtsonic.c   |  28 +++------
+ drivers/net/ethernet/smsc/Kconfig        |   2 +-
+ 17 files changed, 127 insertions(+), 271 deletions(-)
+
+-- 
+2.13.5
