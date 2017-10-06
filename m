@@ -1,75 +1,59 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH 4/4] tcp: avoid noref dst leak on input path
-Date: Fri, 6 Oct 2017 08:32:31 -0700
-Message-ID: <CANn89iK3vZ5qUagMB1ung6-xQGw4zcy+yrV5P3p1cMGfcRFW1g@mail.gmail.com>
-References: <cover.1507294365.git.pabeni@redhat.com> <77fd3b021d5a2f6dd4ad6b08e64f0643e3af95f4.1507294365.git.pabeni@redhat.com>
- <1507300642.14419.17.camel@edumazet-glaptop3.roam.corp.google.com> <1507303300.2793.25.camel@redhat.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/7] nfp: extend match and action for flower offload
+Date: Fri, 6 Oct 2017 08:34:59 -0700
+Message-ID: <CALx6S36zb=V3Uv1xxjQi04TaPre7GRyYQ1Wcx_7zd96nSpu3pg@mail.gmail.com>
+References: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507303300.2793.25.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:48966 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752518AbdJFPfB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 11:35:01 -0400
+Received: by mail-qt0-f193.google.com with SMTP id d13so31444523qta.5
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 08:35:00 -0700 (PDT)
+In-Reply-To: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 6, 2017 at 8:21 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> Hi,
->
-> On Fri, 2017-10-06 at 07:37 -0700, Eric Dumazet wrote:
->> On Fri, 2017-10-06 at 14:57 +0200, Paolo Abeni wrote:
->> > Enabling CONFIG_RCU_NOREF_DEBUG gives the following splat when
->> > processing tcp packets:
->> >
->> >            to-be-untracked noref entity ffff942cb71ea300 not found in =
-cache
->> >            ------------[ cut here ]------------
->> >            WARNING: CPU: 24 PID: 178 at kernel/rcu/noref_debug.c:54 rc=
-u_track_noref+0xa4/0xf0
->> >            Modules linked in: intel_rapl sb_edac x86_pkg_temp_thermal =
-intel_powerclamp coretemp kvm_intel kvm irqbypass crct10dif_pclmul crc32_pc=
-lmul ghash_clmulni_intel pcbc aesni_intel crypto_simd glue_helper cryptd iT=
-CO_wdt ipmi_ssif mei_me iTCO_vendor_support mei dcdbas lpc_ich ipmi_si mxm_=
-wmi sg pcspkr ipmi_devintf ipmi_msghandler acpi_power_meter shpchp wmi nfsd=
- auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c sd_mod mgag=
-200 drm_kms_helper syscopyarea sysfillrect sysimgblt fb_sys_fops ttm igb dr=
-m ixgbe mdio crc32c_intel ahci ptp i2c_algo_bit libahci pps_core i2c_core l=
-ibata dca dm_mirror dm_region_hash dm_log dm_mod
->> >            CPU: 24 PID: 178 Comm: ksoftirqd/24 Not tainted 4.14.0-rc1.=
-noref_route+ #1610
->> >            Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.4.3 =
-01/17/2017
->> >            task: ffff940e48300000 task.stack: ffffaec406a20000
->> >            RIP: 0010:rcu_track_noref+0xa4/0xf0
->> >            RSP: 0018:ffffaec406a238e0 EFLAGS: 00010246
->> >            RAX: 0000000000000040 RBX: 0000000000000000 RCX: 0000000000=
-000002
->> >            RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000=
-000292
->> >            RBP: ffffaec406a238e0 R08: 0000000000000000 R09: 0000000000=
-000000
+Simon,
 
-> Thank you for the feedback.
->
-> I most probably messed-up while extracting the info from dmsg, as this
-> issue gives a couple of splats almost concurrently. Please let me re-do
-> the test and post a more resonable dmsg.
->
-> The problem with the current code is that in the tcp_rcv_established()
-> -> tcp_queue_rcv() path, the skb_dst() is not cleared.
->
+Maybe a bit off topic, but I had the impression netronome would
+support BPF so that filters could be programmed for arbitrary
+protocols and fields. Is that true? If so, what is the relationship
+between that functionality and these patches?
 
-In any case, I would rather put one skb_dst_drop() right after the
-last possible use of skb dst in TCP stack,
-probably after sk_rx_dst_set() call.
+Thanks,
+Tom
 
-Trying to move it in multiple places has been error prone, even if
-current code is not buggy.
+On Fri, Oct 6, 2017 at 1:21 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> Pieter says:
+>
+> This series extends flower offload match and action capabilities. It
+> specifically adds offload capabilities for matching on MPLS, TTL, TOS
+> and flow label. Furthermore offload capabilities for action have been
+> expanded to include set ethernet, ipv4, ipv6, tcp and udp headers.
+>
+> Pieter Jansen van Vuuren (7):
+>   nfp: add mpls match offloading support
+>   nfp: add IPv4 ttl and tos match offloading support
+>   nfp: add IPv6 ttl and tos match offloading support
+>   nfp: add set ethernet header action flower offload
+>   nfp: add set ipv4 header action flower offload
+>   nfp: add set ipv6 source and destination address
+>   nfp: add set tcp and udp header action flower offload
+>
+>  drivers/net/ethernet/netronome/nfp/flower/action.c | 245 +++++++++++++++++++++
+>  drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  43 ++++
+>  drivers/net/ethernet/netronome/nfp/flower/match.c  |  39 +++-
+>  .../net/ethernet/netronome/nfp/flower/offload.c    |  20 +-
+>  4 files changed, 324 insertions(+), 23 deletions(-)
+>
+> --
+> 2.1.4
+>
