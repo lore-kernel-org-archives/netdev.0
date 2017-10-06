@@ -1,73 +1,68 @@
 From: Ivan Delalande <colona@arista.com>
-Subject: [PATCH iproute2 1/2] utils: add print_escape_buf to format and print arbitrary bytes
-Date: Fri,  6 Oct 2017 16:48:19 -0700
-Message-ID: <20171006234820.27567-1-colona@arista.com>
+Subject: [PATCH iproute2 2/2] ss: print MD5 signature keys configured on TCP sockets
+Date: Fri,  6 Oct 2017 16:48:20 -0700
+Message-ID: <20171006234820.27567-2-colona@arista.com>
+References: <20171006234820.27567-1-colona@arista.com>
 Cc: netdev@vger.kernel.org, Ivan Delalande <colona@arista.com>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:33745 "EHLO
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:22401 "EHLO
         prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751980AbdJFX6C (ORCPT
+        by vger.kernel.org with ESMTP id S1752191AbdJFX6C (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:58:02 -0400
+In-Reply-To: <20171006234820.27567-1-colona@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keep it as simple as possible for now: just escape anything that is not
-isprint-able, is among the "escape" parameter or '\' as an octal escape
-sequence. This should be pretty easy to extend if any other user needs
-something more complex in the future.
+These keys are reported by kernel 4.14 and later under the
+INET_DIAG_MD5SIG attribute, when INET_DIAG_INFO is requested (ss -i)
+and we have CAP_NET_ADMIN. The additional output looks like:
+
+	md5keys:fe80::/64=signing_key,10.1.2.0/24=foobar,::1/128=Test
 
 Signed-off-by: Ivan Delalande <colona@arista.com>
 ---
- include/utils.h |  2 ++
- lib/utils.c     | 15 +++++++++++++++
- 2 files changed, 17 insertions(+)
+ misc/ss.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/include/utils.h b/include/utils.h
-index 76addb32..3d91c50d 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -195,6 +195,8 @@ static inline void __jiffies_to_tv(struct timeval *tv, unsigned long jiffies)
- 	tv->tv_usec = tvusec - 1000000 * tv->tv_sec;
+diff --git a/misc/ss.c b/misc/ss.c
+index dd8dfaa4..09bff8a7 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2153,6 +2153,16 @@ static void print_skmeminfo(struct rtattr *tb[], int attrtype)
+ 	printf(")");
  }
  
-+void print_escape_buf(const __u8 *buf, size_t len, const char *escape);
-+
- int print_timestamp(FILE *fp);
- void print_nlmsg_timestamp(FILE *fp, const struct nlmsghdr *n);
- 
-diff --git a/lib/utils.c b/lib/utils.c
-index 0cf99619..a494190e 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -31,6 +31,7 @@
- #include <time.h>
- #include <sys/time.h>
- #include <errno.h>
-+#include <ctype.h>
- 
- #include "rt_names.h"
- #include "utils.h"
-@@ -1047,6 +1048,20 @@ int addr64_n2a(__u64 addr, char *buff, size_t len)
- 	return written;
- }
- 
-+/* Print buffer and escape bytes that are !isprint or among 'escape' */
-+void print_escape_buf(const __u8 *buf, size_t len, const char *escape)
++static void print_md5sig(struct tcp_diag_md5sig *sig)
 +{
-+	size_t i;
-+
-+	for (i = 0; i < len; ++i) {
-+		if (isprint(buf[i]) && buf[i] != '\\' &&
-+		    !strchr(escape, buf[i]))
-+			printf("%c", buf[i]);
-+		else
-+			printf("\\%03o", buf[i]);
-+	}
++	printf("%s/%d=",
++	       format_host(sig->tcpm_family,
++			   sig->tcpm_family == AF_INET6 ? 16 : 4,
++			   &sig->tcpm_addr),
++	       sig->tcpm_prefixlen);
++	print_escape_buf(sig->tcpm_key, sig->tcpm_keylen, " ,");
 +}
 +
- int print_timestamp(FILE *fp)
- {
- 	struct timeval tv;
+ #define TCPI_HAS_OPT(info, opt) !!(info->tcpi_options & (opt))
+ 
+ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+@@ -2289,6 +2299,17 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		free(s.dctcp);
+ 		free(s.bbr_info);
+ 	}
++	if (tb[INET_DIAG_MD5SIG]) {
++		struct tcp_diag_md5sig *sig = RTA_DATA(tb[INET_DIAG_MD5SIG]);
++		int len = RTA_PAYLOAD(tb[INET_DIAG_MD5SIG]);
++
++		printf(" md5keys:");
++		print_md5sig(sig++);
++		for (len -= sizeof(*sig); len > 0; len -= sizeof(*sig)) {
++			printf(",");
++			print_md5sig(sig++);
++		}
++	}
+ }
+ 
+ static const char *format_host_sa(struct sockaddr_storage *sa)
 -- 
 2.14.2
