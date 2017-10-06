@@ -1,46 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/5] VSOCK: add sock_diag interface
-Date: Thu, 05 Oct 2017 20:40:30 -0700 (PDT)
-Message-ID: <20171005.204030.522329909569141573.davem@davemloft.net>
-References: <20171005204654.2737-1-stefanha@redhat.com>
+Subject: Re: [PATCH net v2 3/9] net/mac89x0: Fix and modernize log messages
+Date: Thu, 05 Oct 2017 21:08:42 -0700 (PDT)
+Message-ID: <20171005.210842.1348457661309929796.davem@davemloft.net>
+References: <cover.1507211120.git.fthain@telegraphics.com.au>
+        <e9fb341944d187cabf1ccef78cfdc9de64e3f158.1507211120.git.fthain@telegraphics.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhansen@vmware.com, decui@microsoft.com
-To: stefanha@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56848 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751395AbdJFDko (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 23:40:44 -0400
-In-Reply-To: <20171005204654.2737-1-stefanha@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: fthain@telegraphics.com.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <e9fb341944d187cabf1ccef78cfdc9de64e3f158.1507211120.git.fthain@telegraphics.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Thu,  5 Oct 2017 16:46:49 -0400
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Thu,  5 Oct 2017 21:11:05 -0400 (EDT)
 
-> v3:
->  * Rebased onto net-next/master and resolved Hyper-V transport conflict
-> 
-> v2:
->  * Moved tests to tools/testing/vsock/.  I was unable to put them in selftests/
->    because they require manual setup of a VMware/KVM guest.
->  * Moved to __vsock_in_bound/connected_table() to af_vsock.h
->  * Fixed local variable ordering in Patch 4
-> 
-> There is currently no way for userspace to query open AF_VSOCK sockets.  This
-> means ss(8), netstat(8), and other utilities cannot display AF_VSOCK sockets.
-> 
-> This patch series adds the netlink sock_diag interface for AF_VSOCK.  Userspace
-> programs sent a DUMP request including an sk_state bitmap to filter sockets
-> based on their state (connected, listening, etc).  The vsock_diag.ko module
-> replies with information about matching sockets.  This userspace ABI is defined
-> in <linux/vm_sockets_diag.h>.
-> 
-> The final patch adds a test suite that exercises the basic cases.
-> 
-> Jorgen and Dexuan: I have only tested the virtio transport but this should also
-> work for VMCI and Hyper-V.  Please give it a shot if you have time.
+> Fix misplaced newlines in conditional log messages.
 
-Series applied, thanks.
+Please don't do this, the way the author formatted the strings
+was intentional, they intended to print out:
+
+	NAME: cs89%c0%s rev %c found at %#8lx IRQ %d ADDR %pM
+
+But now you are splitting it into multiple lines.  Also, you're
+printing the IRQ information after register_netdev() which is
+bad.  As soon as register_netdev() is called, the driver's
+->open() routine can be invoked, and during which time some
+log messages could be emitted during that operation.
+
+And that would cut the probe messages up.
+
+I know how you got to this state, you saw a reference to dev->name
+before it had a real value.  You just removed the "eth%d" string
+entirely.  And since you removed the dev->name reference, you had
+no reason to move log messages after register_netdev() at all.
+
+Anyways, you can also see the intention of the author here becuase
+they have _explicit_ leading newlines in the error path messages that
+come after the inital probe printk.
+
+The real way to fix the early dev->name reference is to replace it
+with a dev_info() call and have it use the struct device name rather
+than the netdev device one.
+
+Again, I think you really shouldn't be making these small weird
+changes to these old drivers.
