@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next 8/9] net/mlx5: Allocate FTE object without lock
-Date: Fri,  6 Oct 2017 16:37:48 -0700
-Message-ID: <20171006233749.25545-9-saeedm@mellanox.com>
+Subject: [for-next 6/9] net/mlx5: Replace fs_node mutex with reader/writer semaphore
+Date: Fri,  6 Oct 2017 16:37:46 -0700
+Message-ID: <20171006233749.25545-7-saeedm@mellanox.com>
 References: <20171006233749.25545-1-saeedm@mellanox.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
@@ -16,177 +16,135 @@ List-Id: netdev.vger.kernel.org
 
 From: Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Allocation of new FTE is a massive operation, part of
-it could be done without taking the flow group write lock.
-Split the FTE allocation to two functions of actions which
-need to be under lock and action which don't have.
+Currently, steering object is protected by mutex lock, replace
+the mutex lock with reader/writer semaphore .
+In this patch we still use only write semaphore. In downstream
+patches we will switch part of the write locks to read locks.
 
 Signed-off-by: Maor Gottlieb <maorg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 92 +++++++++++------------
- 1 file changed, 46 insertions(+), 46 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 28 +++++++++++------------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  2 +-
+ 2 files changed, 15 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index e7301cf..bc4bbb7 100644
+index 41f26f4..9406e72 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -546,9 +546,33 @@ static void del_sw_flow_group(struct fs_node *node)
- 	WARN_ON(err);
+@@ -145,10 +145,10 @@ struct node_caps {
+ 	}
+ };
+ 
+-enum fs_i_mutex_lock_class {
+-	FS_MUTEX_GRANDPARENT,
+-	FS_MUTEX_PARENT,
+-	FS_MUTEX_CHILD
++enum fs_i_lock_class {
++	FS_LOCK_GRANDPARENT,
++	FS_LOCK_PARENT,
++	FS_LOCK_CHILD
+ };
+ 
+ static const struct rhashtable_params rhash_fte = {
+@@ -184,7 +184,7 @@ static void tree_init_node(struct fs_node *node,
+ 	atomic_set(&node->refcount, 1);
+ 	INIT_LIST_HEAD(&node->list);
+ 	INIT_LIST_HEAD(&node->children);
+-	mutex_init(&node->lock);
++	init_rwsem(&node->lock);
+ 	node->remove_func = remove_func;
+ 	node->active = false;
+ }
+@@ -208,10 +208,10 @@ static void tree_get_node(struct fs_node *node)
  }
  
--static struct fs_fte *alloc_fte(struct mlx5_flow_act *flow_act,
--				u32 *match_value,
--				unsigned int index)
-+static int insert_fte(struct mlx5_flow_group *fg, struct fs_fte *fte)
-+{
-+	int index;
-+	int ret;
-+
-+	index = ida_simple_get(&fg->fte_allocator, 0, fg->max_ftes, GFP_KERNEL);
-+	if (index < 0)
-+		return index;
-+
-+	fte->index = index + fg->start_index;
-+	ret = rhashtable_insert_fast(&fg->ftes_hash,
-+				     &fte->hash,
-+				     rhash_fte);
-+	if (ret)
-+		goto err_ida_remove;
-+
-+	tree_add_node(&fte->node, &fg->node);
-+	list_add_tail(&fte->node.list, &fg->node.children);
-+	return 0;
-+
-+err_ida_remove:
-+	ida_simple_remove(&fg->fte_allocator, index);
-+	return ret;
-+}
-+
-+static struct fs_fte *alloc_fte(u32 *match_value,
-+				struct mlx5_flow_act *flow_act)
+ static void nested_lock_ref_node(struct fs_node *node,
+-				 enum fs_i_mutex_lock_class class)
++				 enum fs_i_lock_class class)
  {
- 	struct fs_fte *fte;
- 
-@@ -559,51 +583,13 @@ static struct fs_fte *alloc_fte(struct mlx5_flow_act *flow_act,
- 	memcpy(fte->val, match_value, sizeof(fte->val));
- 	fte->node.type =  FS_TYPE_FLOW_ENTRY;
- 	fte->flow_tag = flow_act->flow_tag;
--	fte->index = index;
- 	fte->action = flow_act->action;
- 	fte->encap_id = flow_act->encap_id;
- 	fte->modify_id = flow_act->modify_id;
- 
--	return fte;
--}
--
--static struct fs_fte *alloc_insert_fte(struct mlx5_flow_group *fg,
--				       u32 *match_value,
--				       struct mlx5_flow_act *flow_act)
--{
--	struct fs_fte *fte;
--	int index;
--	int ret;
--
--	index = ida_simple_get(&fg->fte_allocator, 0,
--			       fg->max_ftes,
--			       GFP_KERNEL);
--	if (index < 0)
--		return ERR_PTR(index);
--
--	fte = alloc_fte(flow_act, match_value, index + fg->start_index);
--	if (IS_ERR(fte)) {
--		ret = PTR_ERR(fte);
--		goto err_ida_remove;
--	}
--
--	ret = rhashtable_insert_fast(&fg->ftes_hash,
--				     &fte->hash,
--				     rhash_fte);
--	if (ret)
--		goto err_free;
--
- 	tree_init_node(&fte->node, del_hw_fte, del_sw_fte);
--	tree_add_node(&fte->node, &fg->node);
--	list_add_tail(&fte->node.list, &fg->node.children);
- 
- 	return fte;
--
--err_free:
--	kfree(fte);
--err_ida_remove:
--	ida_simple_remove(&fg->fte_allocator, index);
--	return ERR_PTR(ret);
+ 	if (node) {
+-		mutex_lock_nested(&node->lock, class);
++		down_write_nested(&node->lock, class);
+ 		atomic_inc(&node->refcount);
+ 	}
+ }
+@@ -219,7 +219,7 @@ static void nested_lock_ref_node(struct fs_node *node,
+ static void lock_ref_node(struct fs_node *node)
+ {
+ 	if (node) {
+-		mutex_lock(&node->lock);
++		down_write(&node->lock);
+ 		atomic_inc(&node->refcount);
+ 	}
+ }
+@@ -228,7 +228,7 @@ static void unlock_ref_node(struct fs_node *node)
+ {
+ 	if (node) {
+ 		atomic_dec(&node->refcount);
+-		mutex_unlock(&node->lock);
++		up_write(&node->lock);
+ 	}
  }
  
- static void dealloc_flow_group(struct mlx5_flow_group *fg)
-@@ -1589,6 +1575,11 @@ static u64 matched_fgs_get_version(struct list_head *match_head)
- 	bool take_write = false;
- 	struct fs_fte *fte;
- 	u64  version;
-+	int err;
-+
-+	fte = alloc_fte(spec->match_value, flow_act);
-+	if (IS_ERR(fte))
-+		return  ERR_PTR(-ENOMEM);
+@@ -1376,7 +1376,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
+ 		int old_action;
+ 		int ret;
  
- 	list_for_each_entry(iter, match_head, list) {
- 		nested_down_read_ref_node(&iter->g->node, FS_LOCK_PARENT);
-@@ -1620,6 +1611,7 @@ static u64 matched_fgs_get_version(struct list_head *match_head)
- 				   flow_act, dest, dest_num, fte_tmp);
- 		up_write_ref_node(&fte_tmp->node);
- 		tree_put_node(&fte_tmp->node);
-+		kfree(fte);
- 		return rule;
+-		nested_lock_ref_node(&fte->node, FS_MUTEX_CHILD);
++		nested_lock_ref_node(&fte->node, FS_LOCK_CHILD);
+ 		ret = check_conflicting_ftes(fte, flow_act);
+ 		if (ret) {
+ 			handle = ERR_PTR(ret);
+@@ -1400,7 +1400,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
+ 	fte = alloc_insert_fte(fg, match_value, flow_act);
+ 	if (IS_ERR(fte))
+ 		return (void *)fte;
+-	nested_lock_ref_node(&fte->node, FS_MUTEX_CHILD);
++	nested_lock_ref_node(&fte->node, FS_LOCK_CHILD);
+ 	handle = add_rule_fte(fte, fg, dest, dest_num, false);
+ 	if (IS_ERR(handle)) {
+ 		unlock_ref_node(&fte->node);
+@@ -1548,7 +1548,7 @@ static int build_match_list(struct match_list_head *match_head,
+ 		struct fs_fte *fte;
+ 
+ 		g = iter->g;
+-		nested_lock_ref_node(&g->node, FS_MUTEX_PARENT);
++		nested_lock_ref_node(&g->node, FS_LOCK_PARENT);
+ 		fte = rhashtable_lookup_fast(&g->ftes_hash, spec->match_value,
+ 					     rhash_fte);
+ 		if (fte) {
+@@ -1566,7 +1566,7 @@ static int build_match_list(struct match_list_head *match_head,
+ 	list_for_each_entry(iter, &match_head.list, list) {
+ 		g = iter->g;
+ 
+-		nested_lock_ref_node(&g->node, FS_MUTEX_PARENT);
++		nested_lock_ref_node(&g->node, FS_LOCK_PARENT);
+ 		rule = add_rule_fg(g, spec->match_value,
+ 				   flow_act, dest, dest_num, NULL);
+ 		if (!IS_ERR(rule) || PTR_ERR(rule) != -ENOSPC) {
+@@ -1605,7 +1605,7 @@ static int build_match_list(struct match_list_head *match_head,
+ 			return ERR_PTR(-EINVAL);
  	}
  
-@@ -1655,13 +1647,14 @@ static u64 matched_fgs_get_version(struct list_head *match_head)
- 
- 		if (!g->node.active)
- 			continue;
--		fte = alloc_insert_fte(g, spec->match_value, flow_act);
--		if (IS_ERR(fte)) {
--			if (PTR_ERR(fte) == -ENOSPC)
-+		err = insert_fte(g, fte);
-+		if (err) {
-+			if (err == -ENOSPC)
- 				continue;
- 			list_for_each_entry(iter, match_head, list)
- 				up_write_ref_node(&iter->g->node);
--			return (void *)fte;
-+			kfree(fte);
-+			return ERR_PTR(err);
- 		}
- 
- 		nested_down_write_ref_node(&fte->node, FS_LOCK_CHILD);
-@@ -1677,6 +1670,7 @@ static u64 matched_fgs_get_version(struct list_head *match_head)
- out:
- 	list_for_each_entry(iter, match_head, list)
- 		up_write_ref_node(&iter->g->node);
-+	kfree(fte);
- 	return rule;
- }
- 
-@@ -1746,12 +1740,18 @@ static u64 matched_fgs_get_version(struct list_head *match_head)
- 	if (err)
- 		goto err_release_fg;
- 
--	fte = alloc_insert_fte(g, spec->match_value, flow_act);
-+	fte = alloc_fte(spec->match_value, flow_act);
- 	if (IS_ERR(fte)) {
- 		err = PTR_ERR(fte);
- 		goto err_release_fg;
- 	}
- 
-+	err = insert_fte(g, fte);
-+	if (err) {
-+		kfree(fte);
-+		goto err_release_fg;
-+	}
-+
- 	nested_down_write_ref_node(&fte->node, FS_LOCK_CHILD);
- 	up_write_ref_node(&g->node);
- 	rule = add_rule_fg(g, spec->match_value, flow_act, dest,
+-	nested_lock_ref_node(&ft->node, FS_MUTEX_GRANDPARENT);
++	nested_lock_ref_node(&ft->node, FS_LOCK_GRANDPARENT);
+ 	rule = try_add_to_existing_fg(ft, spec, flow_act, dest, dest_num);
+ 	if (!IS_ERR(rule) || PTR_ERR(rule) != -ENOENT)
+ 		goto unlock;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index 6e5d25b..b5c079f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -80,7 +80,7 @@ struct fs_node {
+ 	struct fs_node		*parent;
+ 	struct fs_node		*root;
+ 	/* lock the node for writing and traversing */
+-	struct mutex		lock;
++	struct rw_semaphore	lock;
+ 	atomic_t		refcount;
+ 	bool			active;
+ 	void			(*remove_func)(struct fs_node *);
 -- 
 1.8.3.1
 
