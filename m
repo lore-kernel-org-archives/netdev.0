@@ -1,7 +1,7 @@
 From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next,3/3] hv_netvsc: Update netvsc Document for TCP hash level setting
-Date: Fri,  6 Oct 2017 08:33:59 -0700
-Message-ID: <20171006153359.8400-4-haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,1/3] hv_netvsc: Change the hash level variable to bit flags
+Date: Fri,  6 Oct 2017 08:33:57 -0700
+Message-ID: <20171006153359.8400-2-haiyangz@exchange.microsoft.com>
 References: <20171006153359.8400-1-haiyangz@exchange.microsoft.com>
 Reply-To: haiyangz@microsoft.com
 Cc: haiyangz@microsoft.com, kys@microsoft.com, sthemmin@microsoft.com,
@@ -14,34 +14,176 @@ List-Id: netdev.vger.kernel.org
 
 From: Haiyang Zhang <haiyangz@microsoft.com>
 
-Update Documentation/networking/netvsc.txt for TCP hash level setting
-and related info.
+This simplifies the logic and make it easier to add more
+options.
 
 Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- Documentation/networking/netvsc.txt | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/hyperv/hyperv_net.h | 11 +++++--
+ drivers/net/hyperv/netvsc_drv.c | 73 ++++++++++++++++++++++++++++-------------
+ 2 files changed, 59 insertions(+), 25 deletions(-)
 
-diff --git a/Documentation/networking/netvsc.txt b/Documentation/networking/netvsc.txt
-index 93560fb1170a..92f5b31392fa 100644
---- a/Documentation/networking/netvsc.txt
-+++ b/Documentation/networking/netvsc.txt
-@@ -19,12 +19,12 @@ Features
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 6f550e15a41c..a81335e8ebe8 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -704,6 +704,14 @@ struct netvsc_reconfig {
+ 	u32 event;
+ };
  
-   Receive Side Scaling
-   --------------------
--  Hyper-V supports receive side scaling. For TCP, packets are
--  distributed among available queues based on IP address and port
-+  Hyper-V supports receive side scaling. For TCP & UDP, packets can
-+  be distributed among available queues based on IP address and port
-   number.
++/* L4 hash bits for different protocols */
++#define HV_TCP4_L4HASH 1
++#define HV_TCP6_L4HASH 2
++#define HV_UDP4_L4HASH 4
++#define HV_UDP6_L4HASH 8
++#define HV_DEFAULT_L4HASH (HV_TCP4_L4HASH | HV_TCP6_L4HASH | HV_UDP4_L4HASH | \
++			   HV_UDP6_L4HASH)
++
+ /* The context of the netvsc device  */
+ struct net_device_context {
+ 	/* point back to our device context */
+@@ -726,10 +734,9 @@ struct net_device_context {
+ 	u32 tx_send_table[VRSS_SEND_TAB_SIZE];
  
--  For UDP, we can switch UDP hash level between L3 and L4 by ethtool
--  command. UDP over IPv4 and v6 can be set differently. The default
-+  For TCP & UDP, we can switch hash level between L3 and L4 by ethtool
-+  command. TCP/UDP over IPv4 and v6 can be set differently. The default
-   hash level is L4. We currently only allow switching TX hash level
-   from within the guests.
+ 	/* Ethtool settings */
+-	bool udp4_l4_hash;
+-	bool udp6_l4_hash;
+ 	u8 duplex;
+ 	u32 speed;
++	u32 l4_hash; /* L4 hash settings */
+ 	struct netvsc_ethtool_stats eth_stats;
  
+ 	/* State to manage the associated VF interface. */
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index dfb986421ec6..9bc7dbab9506 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -203,7 +203,7 @@ static inline u32 netvsc_get_hash(
+ 	const struct net_device_context *ndc)
+ {
+ 	struct flow_keys flow;
+-	u32 hash;
++	u32 hash, pkt_proto = 0;
+ 	static u32 hashrnd __read_mostly;
+ 
+ 	net_get_random_once(&hashrnd, sizeof(hashrnd));
+@@ -211,11 +211,25 @@ static inline u32 netvsc_get_hash(
+ 	if (!skb_flow_dissect_flow_keys(skb, &flow, 0))
+ 		return 0;
+ 
+-	if (flow.basic.ip_proto == IPPROTO_TCP ||
+-	    (flow.basic.ip_proto == IPPROTO_UDP &&
+-	     ((flow.basic.n_proto == htons(ETH_P_IP) && ndc->udp4_l4_hash) ||
+-	      (flow.basic.n_proto == htons(ETH_P_IPV6) &&
+-	       ndc->udp6_l4_hash)))) {
++	switch (flow.basic.ip_proto) {
++	case IPPROTO_TCP:
++		if (flow.basic.n_proto == htons(ETH_P_IP))
++			pkt_proto = HV_TCP4_L4HASH;
++		else if (flow.basic.n_proto == htons(ETH_P_IPV6))
++			pkt_proto = HV_TCP6_L4HASH;
++
++		break;
++
++	case IPPROTO_UDP:
++		if (flow.basic.n_proto == htons(ETH_P_IP))
++			pkt_proto = HV_UDP4_L4HASH;
++		else if (flow.basic.n_proto == htons(ETH_P_IPV6))
++			pkt_proto = HV_UDP6_L4HASH;
++
++		break;
++	}
++
++	if (pkt_proto & ndc->l4_hash) {
+ 		return skb_get_hash(skb);
+ 	} else {
+ 		if (flow.basic.n_proto == htons(ETH_P_IP))
+@@ -898,8 +912,7 @@ static void netvsc_init_settings(struct net_device *dev)
+ {
+ 	struct net_device_context *ndc = netdev_priv(dev);
+ 
+-	ndc->udp4_l4_hash = true;
+-	ndc->udp6_l4_hash = true;
++	ndc->l4_hash = HV_DEFAULT_L4HASH;
+ 
+ 	ndc->speed = SPEED_UNKNOWN;
+ 	ndc->duplex = DUPLEX_FULL;
+@@ -1245,23 +1258,25 @@ static int
+ netvsc_get_rss_hash_opts(struct net_device_context *ndc,
+ 			 struct ethtool_rxnfc *info)
+ {
++	const u32 l4_flag = RXH_L4_B_0_1 | RXH_L4_B_2_3;
++
+ 	info->data = RXH_IP_SRC | RXH_IP_DST;
+ 
+ 	switch (info->flow_type) {
+ 	case TCP_V4_FLOW:
+ 	case TCP_V6_FLOW:
+-		info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		info->data |= l4_flag;
+ 		break;
+ 
+ 	case UDP_V4_FLOW:
+-		if (ndc->udp4_l4_hash)
+-			info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		if (ndc->l4_hash & HV_UDP4_L4HASH)
++			info->data |= l4_flag;
+ 
+ 		break;
+ 
+ 	case UDP_V6_FLOW:
+-		if (ndc->udp6_l4_hash)
+-			info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		if (ndc->l4_hash & HV_UDP6_L4HASH)
++			info->data |= l4_flag;
+ 
+ 		break;
+ 
+@@ -1302,23 +1317,35 @@ static int netvsc_set_rss_hash_opts(struct net_device_context *ndc,
+ {
+ 	if (info->data == (RXH_IP_SRC | RXH_IP_DST |
+ 			   RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
+-		if (info->flow_type == UDP_V4_FLOW)
+-			ndc->udp4_l4_hash = true;
+-		else if (info->flow_type == UDP_V6_FLOW)
+-			ndc->udp6_l4_hash = true;
+-		else
++		switch (info->flow_type) {
++		case UDP_V4_FLOW:
++			ndc->l4_hash |= HV_UDP4_L4HASH;
++			break;
++
++		case UDP_V6_FLOW:
++			ndc->l4_hash |= HV_UDP6_L4HASH;
++			break;
++
++		default:
+ 			return -EOPNOTSUPP;
++		}
+ 
+ 		return 0;
+ 	}
+ 
+ 	if (info->data == (RXH_IP_SRC | RXH_IP_DST)) {
+-		if (info->flow_type == UDP_V4_FLOW)
+-			ndc->udp4_l4_hash = false;
+-		else if (info->flow_type == UDP_V6_FLOW)
+-			ndc->udp6_l4_hash = false;
+-		else
++		switch (info->flow_type) {
++		case UDP_V4_FLOW:
++			ndc->l4_hash &= ~HV_UDP4_L4HASH;
++			break;
++
++		case UDP_V6_FLOW:
++			ndc->l4_hash &= ~HV_UDP6_L4HASH;
++			break;
++
++		default:
+ 			return -EOPNOTSUPP;
++		}
+ 
+ 		return 0;
+ 	}
 -- 
 2.14.1
