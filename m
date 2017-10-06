@@ -1,130 +1,191 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/4] tcp: avoid noref dst leak on input path
-Date: Fri, 06 Oct 2017 07:37:22 -0700
-Message-ID: <1507300642.14419.17.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1507294365.git.pabeni@redhat.com>
-         <77fd3b021d5a2f6dd4ad6b08e64f0643e3af95f4.1507294365.git.pabeni@redhat.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next V4 PATCH 1/5] bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+Date: Fri, 06 Oct 2017 16:52:40 +0200
+Message-ID: <59D798B8.8090101@iogearbox.net>
+References: <150711858281.9499.7767364427831352921.stgit@firesoul>      <150711862505.9499.15042356194495111353.stgit@firesoul> <59D5FDFF.5040002@iogearbox.net> <20171006125008.676d5eaf@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Josh Triplett <josh@joshtriplett.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <77fd3b021d5a2f6dd4ad6b08e64f0643e3af95f4.1507294365.git.pabeni@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Tobias Klauser <tklauser@distanz.ch>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59219 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751925AbdJFOwq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 10:52:46 -0400
+In-Reply-To: <20171006125008.676d5eaf@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-10-06 at 14:57 +0200, Paolo Abeni wrote:
-> Enabling CONFIG_RCU_NOREF_DEBUG gives the following splat when
-> processing tcp packets:
-> 
->            to-be-untracked noref entity ffff942cb71ea300 not found in cache
->            ------------[ cut here ]------------
->            WARNING: CPU: 24 PID: 178 at kernel/rcu/noref_debug.c:54 rcu_track_noref+0xa4/0xf0
->            Modules linked in: intel_rapl sb_edac x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel kvm irqbypass crct10dif_pclmul crc32_pclmul ghash_clmulni_intel pcbc aesni_intel crypto_simd glue_helper cryptd iTCO_wdt ipmi_ssif mei_me iTCO_vendor_support mei dcdbas lpc_ich ipmi_si mxm_wmi sg pcspkr ipmi_devintf ipmi_msghandler acpi_power_meter shpchp wmi nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c sd_mod mgag200 drm_kms_helper syscopyarea sysfillrect sysimgblt fb_sys_fops ttm igb drm ixgbe mdio crc32c_intel ahci ptp i2c_algo_bit libahci pps_core i2c_core libata dca dm_mirror dm_region_hash dm_log dm_mod
->            CPU: 24 PID: 178 Comm: ksoftirqd/24 Not tainted 4.14.0-rc1.noref_route+ #1610
->            Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.4.3 01/17/2017
->            task: ffff940e48300000 task.stack: ffffaec406a20000
->            RIP: 0010:rcu_track_noref+0xa4/0xf0
->            RSP: 0018:ffffaec406a238e0 EFLAGS: 00010246
->            RAX: 0000000000000040 RBX: 0000000000000000 RCX: 0000000000000002
->            RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000292
->            RBP: ffffaec406a238e0 R08: 0000000000000000 R09: 0000000000000000
->            R10: 0000000000000001 R11: 0000000000000003 R12: 0000000000000000
->            R13: ffff942cb5110000 R14: 000000000000fe88 R15: ffff942cb1a20200
->            FS:  0000000000000000(0000) GS:ffff942cbee00000(0000) knlGS:0000000000000000
->            CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->            CR2: 00007febc072d140 CR3: 0000001feebd6002 CR4: 00000000003606e0
->            DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->            DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
->            Call Trace:
->             tcp_data_queue+0x82a/0xce0
+On 10/06/2017 12:50 PM, Jesper Dangaard Brouer wrote:
+> On Thu, 05 Oct 2017 11:40:15 +0200
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 10/04/2017 02:03 PM, Jesper Dangaard Brouer wrote:
+>> [...]
+>>> +#define CPU_MAP_BULK_SIZE 8  /* 8 == one cacheline on 64-bit archs */
+>>> +struct xdp_bulk_queue {
+>>> +	void *q[CPU_MAP_BULK_SIZE];
+>>> +	unsigned int count;
+>>> +};
+>>> +
+>>> +/* Struct for every remote "destination" CPU in map */
+>>> +struct bpf_cpu_map_entry {
+>>> +	u32 cpu;    /* kthread CPU and map index */
+>>> +	int map_id; /* Back reference to map */
+>>
+>> map_id is not used here if I read it correctly? We should
+>> then remove it.
+>
+> It is actually used in a later patch. Notice, there is no unused
+> members in the final patch.  I did consider adding back in the later
+> patch, but it was annoying to during the devel and split-up patch
+> phase, as it creates conflicts when I move between the different
+> patches, that need to modify this struct.  Thus, I choose to keep the
+> end-struct in this cpumap-base-patch.  If you insist, I can go though
+> the patch-stack and carefully introduce changes to the struct in steps?
 
-That is strange, since tcp_data_queue() starts with
+It would be great to have every patch as self-contained as possible
+since it otherwise makes reviewing much more time consuming to check
+through the other patches for possible usage patterns, I noticed you
+are using it for the tracepoints in patch 4/5 to dump map_id. Would
+definitely be good if you could avoid such split in future sets.
 
-	skb_dst_drop(skb); 
+[...]
+>>> +void __cpu_map_queue_destructor(void *ptr)
+>>> +{
+>>> +	/* For now, just catch this as an error */
+>>> +	if (!ptr)
+>>> +		return;
+>>> +	pr_err("ERROR: %s() cpu_map queue was not empty\n", __func__);
+>>
+>> Can you elaborate on this "for now" condition? Is this a race
+>> when kthread doesn't consume queue on thread exit, or should it
+>> be impossible to trigger (should it then be replaced with a
+>> 'if (WARN_ON_ONCE(ptr)) page_frag_free(ptr)' and a more elaborate
+>> comment)?
+>
+> The "for now" is an old comment while developing and testing this.
+> In this final state of the patchset it _should_ not be possible to
+> trigger this situation.  I like your idea of replacing it with a
+> WARN_ON_ONCE.  (as it might be good to keep in some form, as it would
+> catch is someone changing the code which breaks the RCU+WQ+kthread
+> tear-down procedure).
 
-So this stack trace looks suspicious.
+Ok.
 
->             tcp_rcv_established+0x283/0x570
->             tcp_v4_do_rcv+0x102/0x1e0
->             tcp_v4_rcv+0xa9e/0xc10
->             ip_local_deliver_finish+0x128/0x380
->             ? ip_local_deliver_finish+0x41/0x380
->             ip_local_deliver+0x74/0x230
->             ip_rcv_finish+0x105/0x5e0
->             ip_rcv+0x2a7/0x540
->             __netif_receive_skb_core+0x3b9/0xe10
->             ? netif_receive_skb_internal+0x40/0x390
->             __netif_receive_skb+0x18/0x60
->             netif_receive_skb_internal+0x8d/0x390
->             ? netif_receive_skb_internal+0x40/0x390
->             napi_gro_complete+0x127/0x1d0
->             ? napi_gro_complete+0x2a/0x1d0
->             napi_gro_flush+0x5f/0x80
->             napi_complete_done+0x96/0x100
->             ixgbe_poll+0x5f8/0x7c0 [ixgbe]
->             net_rx_action+0x27d/0x520
->             __do_softirq+0xd1/0x4f5
->             run_ksoftirqd+0x25/0x70
->             smpboot_thread_fn+0x11a/0x1f0
->             kthread+0x155/0x190
->             ? sort_range+0x30/0x30
->             ? kthread_create_on_node+0x70/0x70
->             ret_from_fork+0x2a/0x40
->            Code: e9 83 c2 01 48 83 c0 18 83 fa 07 75 ef 80 3d b0 e5 ff 00 00 75 d2 48 c7 c7 50 54 07 9d 31 c0 c6 05 9e e5 ff 00 01 e8 ef af fe ff <0f> ff 5d c3 80 3d 8f e5 ff 00 00 75 b0 48 c7 c7 00 54 07 9d 31
-> 
-> we must clear the skb dst before enqueuing the skb somewhere,
-> but currently the dst entry for packets delivered
-> via tcp_rcv_established() -> tcp_queue_rcv() is not cleared.
-> 
-> Fix it by adding the explicit drop in tcp_queue_rcv() and moving
-> the current skb_dst_drop() just before the other enqueuing
-> operation, do avoid unneeded double skb_dst_drop() for some
-> path.
-> 
-> The leak itself is not harmful, because the tcp recvmsg() code
-> should not access such info.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/ipv4/tcp_input.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index c5d7656beeee..bf4e17edfe7a 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4422,6 +4422,9 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
->  		return;
->  	}
->  
-> +	/* drop the -possibly noref - dst before delivery the skb to ofo tree */
-> +	skb_dst_drop(skb);
-> +
->  	/* Stash tstamp to avoid being stomped on by rbnode */
->  	if (TCP_SKB_CB(skb)->has_rxtstamp)
->  		TCP_SKB_CB(skb)->swtstamp = skb->tstamp;
-> @@ -4560,6 +4563,7 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
->  				  skb, fragstolen)) ? 1 : 0;
->  	tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
->  	if (!eaten) {
-> +		skb_dst_drop(skb);
->  		__skb_queue_tail(&sk->sk_receive_queue, skb);
->  		skb_set_owner_r(skb, sk);
->  	}
-> @@ -4626,7 +4630,6 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
->  		__kfree_skb(skb);
->  		return;
->  	}
-> -	skb_dst_drop(skb);
->  	__skb_pull(skb, tcp_hdr(skb)->doff * 4);
->  
->  	tcp_ecn_accept_cwr(tp, skb);
+[...]
+>>> +		/* Updating qsize cause re-allocation of bpf_cpu_map_entry */
+>>> +		rcpu = __cpu_map_entry_alloc(qsize, key_cpu, map->id);
+>>> +		if (!rcpu)
+>>> +			return -ENOMEM;
+>>> +	}
+>>> +	rcu_read_lock();
+>>> +	__cpu_map_entry_replace(cmap, key_cpu, rcpu);
+>>> +	rcu_read_unlock();
+>>> +	return 0;
+>>
+>> You need to update verifier such that this function cannot be called
+>> out of an BPF program,
+>
+> In the example BPF program, I do a lookup into the map, but only to
+> verify that an entry exist (I don't look at the value).  I would like
+> to support such usage.
+
+Ok, put comment below.
+
+>> otherwise it would be possible under full RCU
+>> read context, which is explicitly avoided here and also it would otherwise
+>> be allowed for other maps of different type as well, which needs to
+>> be avoided.
+>
+> Sorry, I don't follow this.
+
+What I meant is that check_map_func_compatibility() should check for
+BPF_MAP_TYPE_CPUMAP and only allow func_id of BPF_FUNC_redirect_map
+and BPF_FUNC_map_lookup_elem to be used, which I haven't seen the set
+restricting it to. Some of your later patches do this for the helper
+BPF_FUNC_redirect_map but the important point is that map updates
+wouldn't be done out of the BPF program itself, but rather from user
+space control path given they can't be done under full RCU read lock
+context if I read this correctly (which the programs run in though).
+
+[...]
+>>> +static void *cpu_map_lookup_elem(struct bpf_map *map, void *key)
+>>> +{
+>>> +	struct bpf_cpu_map_entry *rcpu =
+>>> +		__cpu_map_lookup_elem(map, *(u32 *)key);
+>>> +
+>>> +	return rcpu ? &rcpu->qsize : NULL;
+>>
+>> The qsize doesn't seem used anywhere else besides here, but you
+>> probably should update verifier such that this cannot be called
+>> out of the BPF program, which could then mangle qsize value.
+>
+> It is true that the BPF prog can modify this qsize value, but it's not
+> the authoritative value, so it doesn't really matter.
+>
+> As I said above, I do want to do a lookup from a BPF program.  To allow
+> to BPF program to know, if an entry is valid, else it will blindly
+> send to a cpu destination.  Maybe bpf_prog's just have to use a
+> map-on-the-side to coordinate this(?), but then a sysadm modifying the
+> real cpumap will be invisible to the program.
+>
+> Maybe we should just disable BPF-progs from reading this in the first
+> iteration?  It would allow for more advanced usage schemes later..
+
+Okay, what you could do is the following to prevent unintended value
+updates. Just read out the qsize from the value and put that into a
+per-cpu scratch buffer that gets returned instead of the map value,
+so even if the scratch buffer gets mangled, it's okay because the
+actual map value doesn't. Verifier still checks the map value access
+bounds for that one.
+
+> One crazy idea is to have the cpu_map_lookup_elem() return if any
+> packets are in-flight on this cpu-queue. (Making it easier to avoid OoO
+> packets, when switching target CPU, but it can also be implemented by
+> the BPF-programmer herself via maps, although via some extra atomic
+> cost).
+>
+>>> +}
+>>> +
+>>> +static int cpu_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+>>> +{
+>>> +	struct bpf_cpu_map *cmap = container_of(map, struct bpf_cpu_map, map);
+>>> +	u32 index = key ? *(u32 *)key : U32_MAX;
+>>> +	u32 *next = next_key;
+>>> +
+>>> +	if (index >= cmap->map.max_entries) {
+>>> +		*next = 0;
+>>> +		return 0;
+>>> +	}
+>>> +
+>>> +	if (index == cmap->map.max_entries - 1)
+>>> +		return -ENOENT;
+>>> +	*next = index + 1;
+>>> +	return 0;
+>>> +}
+>
+> I would have liked to have implemented next_key so it only returned the
+> next valid cpu_entry, and used it as a simple round-robin scheduler.
+> But AFAIK the next_key function is not allowed from bpf_prog's, right?
+
+Hm, true we don't export this as a helper right now, I currently don't
+see a reason why we couldn't. For the array map, the get_next_key is
+probably not too useful given we only return key + 1. For user space it
+might help for iterating/dumping the map though. Probably one could
+enable it and add a flag to search the next valid entry from the map,
+though issue could well be that this might need to iterate/test millions
+of empty slots until you get to the next valid one which might not be
+suitable in a generic case to do out of a BPF prog, perhaps a second
+map with keys to round robin over might help.
+
+Cheers,
+Daniel
