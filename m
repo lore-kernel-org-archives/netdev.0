@@ -1,54 +1,106 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ppp: fix race in ppp device destruction
-Date: Fri, 06 Oct 2017 10:17:08 -0700 (PDT)
-Message-ID: <20171006.101708.2248081297399135224.davem@davemloft.net>
-References: <f197b94ec7e16902a9601fdf840d5a8e94c8e91a.1507302309.git.g.nault@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bgalvani@redhat.com,
-        linux-ppp@vger.kernel.org, paulus@samba.org, dsahern@gmail.com,
-        gfree.wind@vip.163.com
-To: g.nault@alphalink.fr
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <f197b94ec7e16902a9601fdf840d5a8e94c8e91a.1507302309.git.g.nault@alphalink.fr>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next v2] vhost_net: do not stall on zerocopy depletion
+Date: Fri,  6 Oct 2017 13:22:31 -0400
+Message-ID: <20171006172231.87435-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, mst@redhat.com, jasowang@redhat.com,
+        den@klaipeden.com, virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:36524 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751522AbdJFRWf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 13:22:35 -0400
+Received: by mail-qk0-f194.google.com with SMTP id z14so12305560qkg.3
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 10:22:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 6 Oct 2017 17:05:49 +0200
+From: Willem de Bruijn <willemb@google.com>
 
-> ppp_release() tries to ensure that netdevices are unregistered before
-> decrementing the unit refcount and running ppp_destroy_interface().
-> 
-> This is all fine as long as the the device is unregistered by
-> ppp_release(): the unregister_netdevice() call, followed by
-> rtnl_unlock(), guarantee that the unregistration process completes
-> before rtnl_unlock() returns.
-> 
-> However, the device may be unregistered by other means (like
-> ppp_nl_dellink()). If this happens right before ppp_release() calling
-> rtnl_lock(), then ppp_release() has to wait for the concurrent
-> unregistration code to release the lock.
-> But rtnl_unlock() releases the lock before completing the device
-> unregistration process. This allows ppp_release() to proceed and
-> eventually call ppp_destroy_interface() before the unregistration
-> process completes. Calling free_netdev() on this partially unregistered
-> device will BUG():
- ...
-> We could set the ->needs_free_netdev flag on PPP devices and move the
-> ppp_destroy_interface() logic in the ->priv_destructor() callback. But
-> that'd be quite intrusive as we'd first need to unlink from the other
-> channels and units that depend on the device (the ones that used the
-> PPPIOCCONNECT and PPPIOCATTACH ioctls).
-> 
-> Instead, we can just let the netdevice hold a reference on its
-> ppp_file. This reference is dropped in ->priv_destructor(), at the very
-> end of the unregistration process, so that neither ppp_release() nor
-> ppp_disconnect_channel() can call ppp_destroy_interface() in the interim.
-> 
-> Reported-by: Beniamino Galvani <bgalvani@redhat.com>
-> Fixes: 8cb775bc0a34 ("ppp: fix device unregistration upon netns deletion")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Vhost-net has a hard limit on the number of zerocopy skbs in flight.
+When reached, transmission stalls. Stalls cause latency, as well as
+head-of-line blocking of other flows that do not use zerocopy.
 
-Applied and queued up for -stable, thanks.
+Instead of stalling, revert to copy-based transmission.
+
+Tested by sending two udp flows from guest to host, one with payload
+of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
+large flow is redirected to a netem instance with 1MBps rate limit
+and deep 1000 entry queue.
+
+  modprobe ifb
+  ip link set dev ifb0 up
+  tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
+
+  tc qdisc add dev tap0 ingress
+  tc filter add dev tap0 parent ffff: protocol ip \
+      u32 match ip dport 8000 0xffff \
+      action mirred egress redirect dev ifb0
+
+Before the delay, both flows process around 80K pps. With the delay,
+before this patch, both process around 400. After this patch, the
+large flow is still rate limited, while the small reverts to its
+original rate. See also discussion in the first link, below.
+
+Without rate limiting, {1, 10, 100}x TCP_STREAM tests continued to
+send at 100% zerocopy.
+
+The limit in vhost_exceeds_maxpend must be carefully chosen. With
+vq->num >> 1, the flows remain correlated. This value happens to
+correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
+fractions and ensure correctness also for much smaller values of
+vq->num, by testing the min() of both explicitly. See also the
+discussion in the second link below.
+
+Changes
+  v1 -> v2
+    - replaced min with typed min_t
+    - avoid unnecessary whitespace change
+
+Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
+Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ drivers/vhost/net.c | 12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 58585ec8699e..68677d930e20 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -436,8 +436,8 @@ static bool vhost_exceeds_maxpend(struct vhost_net *net)
+ 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
+ 	struct vhost_virtqueue *vq = &nvq->vq;
+ 
+-	return (nvq->upend_idx + vq->num - VHOST_MAX_PEND) % UIO_MAXIOV
+-		== nvq->done_idx;
++	return (nvq->upend_idx + UIO_MAXIOV - nvq->done_idx) % UIO_MAXIOV >
++	       min_t(unsigned int, VHOST_MAX_PEND, vq->num >> 2);
+ }
+ 
+ /* Expects to be always run from workqueue - which acts as
+@@ -480,11 +480,6 @@ static void handle_tx(struct vhost_net *net)
+ 		if (zcopy)
+ 			vhost_zerocopy_signal_used(net, vq);
+ 
+-		/* If more outstanding DMAs, queue the work.
+-		 * Handle upend_idx wrap around
+-		 */
+-		if (unlikely(vhost_exceeds_maxpend(net)))
+-			break;
+ 
+ 		head = vhost_net_tx_get_vq_desc(net, vq, vq->iov,
+ 						ARRAY_SIZE(vq->iov),
+@@ -519,8 +514,7 @@ static void handle_tx(struct vhost_net *net)
+ 		len = msg_data_left(&msg);
+ 
+ 		zcopy_used = zcopy && len >= VHOST_GOODCOPY_LEN
+-				   && (nvq->upend_idx + 1) % UIO_MAXIOV !=
+-				      nvq->done_idx
++				   && !vhost_exceeds_maxpend(net)
+ 				   && vhost_net_tx_select_zcopy(net);
+ 
+ 		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+-- 
+2.14.2.920.gcf0c67979c-goog
