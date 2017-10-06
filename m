@@ -1,49 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] i40e: fix merge error
-Date: Fri,  6 Oct 2017 10:57:20 -0700
-Message-ID: <20171006175727.868-9-jeffrey.t.kirsher@intel.com>
-References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
-Cc: Alice Michael <alice.michael@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/1] [net] bonding: Add NUMA notice
+Date: Fri, 06 Oct 2017 11:08:08 -0700
+Message-ID: <1507313288.14419.21.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1507235025-21689-1-git-send-email-ptalbert@redhat.com>
+         <20171005214636.GM13247@lunn.ch>
+         <CAPRrrxUGMpOqEA8MxzY91RyMTQp+OisO8xB5jVR+QA+dqLeSww@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
+To: Patrick Talbert <ptalbert@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:56459 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752473AbdJFR5u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 13:57:50 -0400
-In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:47500 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752534AbdJFSIL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 14:08:11 -0400
+Received: by mail-pf0-f182.google.com with SMTP id u12so9920408pfl.4
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 11:08:11 -0700 (PDT)
+In-Reply-To: <CAPRrrxUGMpOqEA8MxzY91RyMTQp+OisO8xB5jVR+QA+dqLeSww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alice Michael <alice.michael@intel.com>
+On Fri, 2017-10-06 at 13:54 -0400, Patrick Talbert wrote:
 
-This patch removes some code that was accidentally added to
-the wrong function with a merge error.  Fixes: c53934c6d1b1
-("i40e: fix: do not sleep in netdev_ops")
+> 
+> My goal with the patch is not to prevent some one from bonding
+> whichever interfaces they want, only to notify them that what they are
+> doing is *likely* to be less than ideal from a performance
+> perspective. Even if some theoretical load balancing bonding mode was
+> intelligent enough to consider NUMA when choosing a transmit
+> interface, it never has control over the interface traffic is received
+> on (excluding the strange balance-alb mode).
 
-Signed-off-by: Alice Michael <alice.michael@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 5 -----
- 1 file changed, 5 deletions(-)
+Note that following the NUMA node of current process would lead to
+reordering for TCP flows.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 49401be7a2f4..628101bb08d4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1776,11 +1776,6 @@ static void i40e_set_rx_mode(struct net_device *netdev)
- 		vsi->flags |= I40E_VSI_FLAG_FILTER_CHANGED;
- 		vsi->back->flags |= I40E_FLAG_FILTER_SYNC;
- 	}
--
--	/* schedule our worker thread which will take care of
--	 * applying the new filter changes
--	 */
--	i40e_service_event_schedule(vsi->back);
- }
- 
- /**
--- 
-2.14.2
+XPS makes sure we stick to one TXQ to avoid reorders.
+
+I am not sure your patch will really help, since you do not warn if a
+process from another NUMA node tries to send packet to a bonding driver
+using slaves on another NUMA node.
