@@ -1,27 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: Use pci_ari_enabled() instead of local copy
-Date: Fri, 06 Oct 2017 10:10:24 -0700 (PDT)
-Message-ID: <20171006.101024.669294369860767964.davem@davemloft.net>
-References: <20171006110030.10980.52268.stgit@bhelgaas-glaptop.roam.corp.google.com>
+Subject: Re: [PATCH 0/4] pull request for net-next: batman-adv 2017-10-06
+Date: Fri, 06 Oct 2017 10:13:18 -0700 (PDT)
+Message-ID: <20171006.101318.984122297926260390.davem@davemloft.net>
+References: <20171006135437.26736-1-sw@simonwunderlich.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ariel.elior@cavium.com, netdev@vger.kernel.org,
-        everest-linux-l2@cavium.com, linux-kernel@vger.kernel.org
-To: helgaas@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171006110030.10980.52268.stgit@bhelgaas-glaptop.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sw@simonwunderlich.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42540 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751487AbdJFRNS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 13:13:18 -0400
+In-Reply-To: <20171006135437.26736-1-sw@simonwunderlich.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <helgaas@kernel.org>
-Date: Fri, 06 Oct 2017 06:00:30 -0500
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Date: Fri,  6 Oct 2017 15:54:33 +0200
 
-> From: Bjorn Helgaas <bhelgaas@google.com>
+> here is a small cleanup pull request of batman-adv to go into net-next.
 > 
-> Use pci_ari_enabled() from the PCI core instead of the identical local copy
-> bnx2x_ari_enabled().  No functional change intended.
-> 
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+> Please pull or let me know of any problem!
 
-Applied to net-next.
+Pulled, thanks Simon.
