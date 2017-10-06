@@ -1,92 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40evf: enable support for VF VLAN tag stripping control
-Date: Fri,  6 Oct 2017 10:57:25 -0700
-Message-ID: <20171006175727.868-14-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: re-enable PTP L4 capabilities for XL710 if FW >6.0
+Date: Fri,  6 Oct 2017 10:57:16 -0700
+Message-ID: <20171006175727.868-5-jeffrey.t.kirsher@intel.com>
 References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:56459 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:17217 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752604AbdJFR5v (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 13:57:51 -0400
+        id S1751862AbdJFR5u (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 13:57:50 -0400
 In-Reply-To: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-A recent commit 809481484e5d ("i40e/i40evf: support for VF VLAN tag
-stripping control") added support for VFs to negotiate the control of
-VLAN tag stripping. This should have allowed VFs to disable the feature.
-Unfortunately, the flag was set only in netdev->feature flags and not in
-netdev->hw_features.
+Starting with XL710 FW 5.3 PTP L4 was disabled for XL710 due to a bug.  The
+bug has since been resolved in XL710 FW >6.0 and PTP L4 can now be
+re-enabled on those devices with updated firmware.
 
-This ultimately causes the stack to assume that it cannot change the
-flag, so it was unchangeable and marked as [fixed] in the ethtool -k
-output.
-
-Fix this by setting the feature in hw_features first, just as we do for
-the PF code. This enables ethtool -K to disable the feature correctly,
-and fully enables user control of the VLAN tag stripping feature.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 22 ++++++++++++++--------
- 1 file changed, 14 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index bc76378a71e2..1d2fc898b664 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2423,10 +2423,6 @@ static netdev_features_t i40evf_features_check(struct sk_buff *skb,
- 	return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d2bb4f17c89e..85132eee9f64 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9074,6 +9074,11 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	    (pf->hw.aq.fw_maj_ver >= 5)))
+ 		pf->hw_features |= I40E_HW_USE_SET_LLDP_MIB;
  
--#define I40EVF_VLAN_FEATURES (NETIF_F_HW_VLAN_CTAG_TX |\
--			      NETIF_F_HW_VLAN_CTAG_RX |\
--			      NETIF_F_HW_VLAN_CTAG_FILTER)
--
- /**
-  * i40evf_fix_features - fix up the netdev feature bits
-  * @netdev: our net device
-@@ -2439,9 +2435,11 @@ static netdev_features_t i40evf_fix_features(struct net_device *netdev,
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
--	features &= ~I40EVF_VLAN_FEATURES;
--	if (adapter->vf_res->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
--		features |= I40EVF_VLAN_FEATURES;
-+	if (!(adapter->vf_res->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN))
-+		features &= ~(NETIF_F_HW_VLAN_CTAG_TX |
-+			      NETIF_F_HW_VLAN_CTAG_RX |
-+			      NETIF_F_HW_VLAN_CTAG_FILTER);
++	/* Enable PTP L4 if FW > v6.0 */
++	if (pf->hw.mac.type == I40E_MAC_XL710 &&
++	    pf->hw.aq.fw_maj_ver >= 6)
++		pf->hw_features |= I40E_HW_PTP_L4_CAPABLE;
 +
- 	return features;
- }
- 
-@@ -2572,9 +2570,17 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	 */
- 	hw_features = hw_enc_features;
- 
-+	/* Enable VLAN features if supported */
-+	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
-+		hw_features |= (NETIF_F_HW_VLAN_CTAG_TX |
-+				NETIF_F_HW_VLAN_CTAG_RX);
-+
- 	netdev->hw_features |= hw_features;
- 
--	netdev->features |= hw_features | I40EVF_VLAN_FEATURES;
-+	netdev->features |= hw_features;
-+
-+	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
-+		netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	adapter->vsi.id = adapter->vsi_res->vsi_id;
- 
+ 	if (pf->hw.func_caps.vmdq) {
+ 		pf->num_vmdq_vsis = I40E_DEFAULT_NUM_VMDQ_VSI;
+ 		pf->flags |= I40E_FLAG_VMDQ_ENABLED;
 -- 
 2.14.2
