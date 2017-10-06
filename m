@@ -1,113 +1,70 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH 0/4] RCU: introduce noref debug
-Date: Fri, 06 Oct 2017 17:10:09 +0200
-Message-ID: <1507302609.2793.16.camel@redhat.com>
+Subject: Re: [PATCH 4/4] tcp: avoid noref dst leak on input path
+Date: Fri, 06 Oct 2017 17:21:40 +0200
+Message-ID: <1507303300.2793.25.camel@redhat.com>
 References: <cover.1507294365.git.pabeni@redhat.com>
-         <20171006133436.GY3521@linux.vnet.ibm.com>
+         <77fd3b021d5a2f6dd4ad6b08e64f0643e3af95f4.1507294365.git.pabeni@redhat.com>
+         <1507300642.14419.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
         Josh Triplett <josh@joshtriplett.org>,
         Steven Rostedt <rostedt@goodmis.org>,
         "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
         netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171006133436.GY3521@linux.vnet.ibm.com>
+In-Reply-To: <1507300642.14419.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-On Fri, 2017-10-06 at 06:34 -0700, Paul E. McKenney wrote:
-> On Fri, Oct 06, 2017 at 02:57:45PM +0200, Paolo Abeni wrote:
-> > The networking subsystem is currently using some kind of long-lived
-> > RCU-protected, references to avoid the overhead of full book-keeping.
+On Fri, 2017-10-06 at 07:37 -0700, Eric Dumazet wrote:
+> On Fri, 2017-10-06 at 14:57 +0200, Paolo Abeni wrote:
+> > Enabling CONFIG_RCU_NOREF_DEBUG gives the following splat when
+> > processing tcp packets:
 > > 
-> > Such references - skb_dst() noref - are stored inside the skbs and can be
-> > moved across relevant slices of the network stack, with the users
-> > being in charge of properly clearing the relevant skb - or properly refcount
-> > the related dst references - before the skb escapes the RCU section.
-> > 
-> > We currently don't have any deterministic debug infrastructure to check
-> > the dst noref usages - and the introduction of others noref artifact is
-> > currently under discussion.
-> > 
-> > This series tries to tackle the above introducing an RCU debug infrastructure
-> > aimed at spotting incorrect noref pointer usage, in patch one. The
-> > infrastructure is small and must be explicitly enabled via a newly introduced
-> > build option.
-> > 
-> > Patch two uses such infrastructure to track dst noref usage in the networking
-> > stack.
-> > 
-> > Patch 3 and 4 are bugfixes for small buglet found running this infrastructure
-> > on basic scenarios.
-
-Thank you for the prompt reply!
+> >            to-be-untracked noref entity ffff942cb71ea300 not found in cache
+> >            ------------[ cut here ]------------
+> >            WARNING: CPU: 24 PID: 178 at kernel/rcu/noref_debug.c:54 rcu_track_noref+0xa4/0xf0
+> >            Modules linked in: intel_rapl sb_edac x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel kvm irqbypass crct10dif_pclmul crc32_pclmul ghash_clmulni_intel pcbc aesni_intel crypto_simd glue_helper cryptd iTCO_wdt ipmi_ssif mei_me iTCO_vendor_support mei dcdbas lpc_ich ipmi_si mxm_wmi sg pcspkr ipmi_devintf ipmi_msghandler acpi_power_meter shpchp wmi nfsd auth_rpcgss nfs_acl lockd grace sunrpc ip_tables xfs libcrc32c sd_mod mgag200 drm_kms_helper syscopyarea sysfillrect sysimgblt fb_sys_fops ttm igb drm ixgbe mdio crc32c_intel ahci ptp i2c_algo_bit libahci pps_core i2c_core libata dca dm_mirror dm_region_hash dm_log dm_mod
+> >            CPU: 24 PID: 178 Comm: ksoftirqd/24 Not tainted 4.14.0-rc1.noref_route+ #1610
+> >            Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.4.3 01/17/2017
+> >            task: ffff940e48300000 task.stack: ffffaec406a20000
+> >            RIP: 0010:rcu_track_noref+0xa4/0xf0
+> >            RSP: 0018:ffffaec406a238e0 EFLAGS: 00010246
+> >            RAX: 0000000000000040 RBX: 0000000000000000 RCX: 0000000000000002
+> >            RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000292
+> >            RBP: ffffaec406a238e0 R08: 0000000000000000 R09: 0000000000000000
+> >            R10: 0000000000000001 R11: 0000000000000003 R12: 0000000000000000
+> >            R13: ffff942cb5110000 R14: 000000000000fe88 R15: ffff942cb1a20200
+> >            FS:  0000000000000000(0000) GS:ffff942cbee00000(0000) knlGS:0000000000000000
+> >            CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> >            CR2: 00007febc072d140 CR3: 0000001feebd6002 CR4: 00000000003606e0
+> >            DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> >            DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+> >            Call Trace:
+> >             tcp_data_queue+0x82a/0xce0
 > 
-> This patchset does not look like it handles rcu_read_lock() nesting.
-> For example, given code like this:
+> That is strange, since tcp_data_queue() starts with
 > 
-> 	void foo(void)
-> 	{
-> 		rcu_read_lock();
-> 		rcu_track_noref(&key2, &noref2, true);
-> 		do_something();
-> 		rcu_track_noref(&key2, &noref2, false);
-> 		rcu_read_unlock();
-> 	}
+> 	skb_dst_drop(skb); 
 > 
-> 	void bar(void)
-> 	{
-> 		rcu_read_lock();
-> 		rcu_track_noref(&key1, &noref1, true);
-> 		do_something_more();
-> 		foo();
-> 		do_something_else();
-> 		rcu_track_noref(&key1, &noref1, false);
-> 		rcu_read_unlock();
-> 	}
-> 
-> 	void grill(void)
-> 	{
-> 		foo();
-> 	}
-> 
-> It looks like foo()'s rcu_read_unlock() will complain about key1.
-> You could remove foo()'s rcu_read_lock() and rcu_read_unlock(), but
-> that will break the call from grill().
+> So this stack trace looks suspicious.
 
-Actually the code should cope correctly with your example; when foo()'s
-rcu_read_unlock() is called, 'cache' contains:
+Thank you for the feedback.
 
-{ { &key1, &noref1, 1},  // ...
+I most probably messed-up while extracting the info from dmsg, as this
+issue gives a couple of splats almost concurrently. Please let me re-do 
+the test and post a more resonable dmsg.
 
-and when the related __rcu_check_noref() is invoked preempt_count() is
-2 - because the check is called before decreasing the preempt counter.
-
-In the main loop inside __rcu_check_noref() we will hit always the
-'continue' statement because 'cache->store[i].nesting != nesting', so
-no warn will be triggered.
-
-> Or am I missing something subtle here?  Given patch 3/4, I suspect not...
-
-The problem with the code in patch 3/4 is different; currently
-ip_route_input_noref() is basically doing:
-
-rcu_read_lock();
-
-rcu_track_noref(&key1, &noref1, true);
-
-rcu_read_unlock();
-
-So the rcu lock there silence any RCU based check inside
-ip_route_input_noref() but does not really protect the noref dst.
-
-Please let me know if the above clarify the scenario.
+The problem with the current code is that in the tcp_rcv_established()
+-> tcp_queue_rcv() path, the skb_dst() is not cleared.
 
 Thanks,
 
