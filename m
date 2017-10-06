@@ -1,102 +1,123 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [pull request][for-next 0/9] Mellanox, mlx5 updates 2017-10-06
-Date: Fri,  6 Oct 2017 16:37:40 -0700
-Message-ID: <20171006233749.25545-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 00/16] ipv6: replace rwlock with rcu and
+ spinlock in fib6 table
+Date: Fri, 06 Oct 2017 16:49:55 -0700
+Message-ID: <1507333795.14419.23.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171006190611.110633-1-tracywwnj@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49732 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752278AbdJFXiK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:38:10 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:37668 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752731AbdJFXt5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:49:57 -0400
+Received: by mail-pf0-f193.google.com with SMTP id e69so17858494pfg.4
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 16:49:57 -0700 (PDT)
+In-Reply-To: <20171006190611.110633-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave and Doug,
+On Fri, 2017-10-06 at 12:05 -0700, Wei Wang wrote:
+> From: Wei Wang <weiwan@google.com>
+> 
+> Currently, fib6 table is protected by rwlock. During route lookup,
+> reader lock is taken and during route insertion, deletion or
+> modification, writer lock is taken. This is a very inefficient
+> implementation because the fastpath always has to do the operation
+> to grab the reader lock.
+> According to my latest syn flood test on an iota ivybridage machine
+> with 2 10G mlx nics bonded together, each with 8 rx queues on 2 NUMA
+> nodes, and with the upstream net-next kernel:
+> ipv4 stack can handle around 4.2Mpps
+> ipv6 stack can handle around 1.3Mpps
+> 
+> In order to close the gap of the performance number between ipv4
+> and ipv6 stack, this patch series tries to get rid of the usage of
+> the rwlock and replace it with rcu and spinlock protection. This will
+> greatly speed up the fastpath performance as it only needs to hold
+> rcu which is much less expensive than grabbing the reader lock. It
+> also makes ipv6 fib implementation more consistent with ipv4.
+> 
+> In order to be able to replace the current rwlock with rcu and
+> spinlock, some preparation work is needed:
+> Patch 1-8 introduces a per-route hash table (protected by rcu and a
+> different spinlock) to store all cached routes created by pmtu and ip
+> redirect under its main route. This makes the main fib6 tree only
+> contain static routes.
+> Patch 9-14 prepares all the reader path to be ready to tolerate
+> concurrent writer.
+> Patch 15 finally does the rwlock to rcu and spinlock conversion.
+> Patch 16 takes care of rt6_stats.
+> 
+> After this patch series, in the same syn flood test,
+> ipv6 stack can now handle around 3.5Mpps compared to previous 1.3Mpps
+> in my test setup.
+> 
+> After this patch series, there are still some improvements that should
+> be done in ipv6 stack:
+> 1. During route lookup, dst_use() is called everytime on the selected
+> route to update dst->__use and dst->lastuse. This dirties the cacheline 
+> and causes extra cacheline miss and should be avoided.
+> 2. when no route is found in the current table, net->ip6.ipv6_null_entry
+> is used and refcnt is taken on it. As there is no pcpu cache for this
+> specific route, frequent change on the refcnt for this route causes
+> quite some cacheline misses.
+> And to make things worse, if CONFIG_IPV6_MULTIPLE_TABLES is defined,
+> output path route lookup always starts with local table first and
+> guarantees to hit net->ipv6.ip6_null_entry before continuing to do
+> lookup in the main table.
+> These operations on net->ipv6.ip6_null_entry could potentially be
+> avoided.
+> 3. ipv6 input path route lookup grabs refcnt on dst. This is different
+> from ipv4. We could potentially change this behavior to let ipv6 input
+> path route lookup not to grab refcnt on dst. However, it does not give
+> us much performance boost as we currently have pcpu route cache for
+> input path as well in ipv6. But this work probably is still worth doing
+> to unify ipv6 and ipv4 route lookup behavior.
+> 
+> The above issues will be addressed separately after this patch series
+> has been accepted.
+> 
+> This is a joint work with Martin KaFai Lau and Eric Dumazet. And many
+> many thanks to them for their inspiring ideas and big big code review
+> efforts.
+> 
+> Wei Wang (16):
+>   ipv6: introduce a new function fib6_update_sernum()
+>   ipv6: introduce a hash table to store dst cache
+>   ipv6: prepare fib6_remove_prefsrc() for exception table
+>   ipv6: prepare rt6_mtu_change() for exception table
+>   ipv6: prepare rt6_clean_tohost() for exception table
+>   ipv6: prepare fib6_age() for exception table
+>   ipv6: prepare fib6_locate() for exception table
+>   ipv6: hook up exception table to store dst cache
+>   ipv6: grab rt->rt6i_ref before allocating pcpu rt
+>   ipv6: don't release rt->rt6i_pcpu memory during rt6_release()
+>   ipv6: replace dst_hold() with dst_hold_safe() in routing code
+>   ipv6: update fn_sernum after route is inserted to tree
+>   ipv6: check fn->leaf before it is used
+>   ipv6: add key length check into rt6_select()
+>   ipv6: replace rwlock with rcu and spinlock in fib6_table
+>   ipv6: take care of rt6_stats
+> 
+>  include/net/dst.h       |   2 +-
+>  include/net/ip6_fib.h   |  79 ++++-
+>  include/net/ip6_route.h |   5 +
+>  net/ipv6/addrconf.c     |  17 +-
+>  net/ipv6/ip6_fib.c      | 645 ++++++++++++++++++----------------
+>  net/ipv6/route.c        | 901 ++++++++++++++++++++++++++++++++++++++++--------
+>  6 files changed, 1179 insertions(+), 470 deletions(-)
+> 
 
-This series includes some shared code updates for kernel 4.15 to both
-net-next and rdma-next trees.
+Awesome work Wei.
 
-The series includes mlx5 low level flow steering updates and optimizations
-to support firmware command parallelism for flow steering requests from
-Maor Gottlieb and two other small fixes from Matan and Maor.
+For the whole series :
 
-One fix from Matan adds error handling for when the destination
-list of the flow steering rule is full.
+Reviewed-by: Eric Dumazet <edumazet@google.com>
 
-Maor introduced a patch to avoid NULL pointer dereference on steering cleanup.
-
-Then Some refactoring patches needed by the series for code sharing purposes.
-and split the Flow Table Entry (FTE) and Flow Group (FG) creation code to two parts:
-    1) Object allocation - allocate the steering node and initialize
-    its resources.
-
-    2) The firmware command execution.
-
-This change will give us the ability to take write lock on the 
-parent node (e.g. FG for FTE creating) only on the software data struct allocation
-and creation part of the procedure where the synchronization is really required,
-and will allow us to execute multiple firmware commands simultaneously and overcome the 
-firmware bottleneck.
-
-Refactor the locking scheme of the mlx5 core flow steering as follows:
-
-1) Replace the mutex lock with readers-writers semaphore and take
-    the write lock only when necessary (e.g. allocating a new flow
-    table entry index or adding a node to the parent's children list).
-    When we try to find a suitable child in the parent's children list
-    (e.g. search for flow group with the same match_criteria of the rule)
-    then we only take the read lock.
-
-2) Add versioning mechanism - each steering entity (FT, FG, FTE, DST)
-    will have an incremental version. The version is increased when the 
-    entity is changed (e.g. when a new FTE was added to FG - the FG's
-    version is increased).
-    Versioning is used in order to determine if the last traverse of an
-    entity's children is valid or a rescan under write lock is required.
-
-Last patch adds FGs and FTEs memory pool, It is useful because these objects 
-are not small and could be allocated/deallocated many times.
-
-This support improves the insertion rate of steering rules
-from ~5k/sec to ~40k/sec.
-
-Please pull and let me knwo if there's any problem.
-
-Thanks,
-Saeed
-
----
-
-The following changes since commit e19b205be43d11bff638cad4487008c48d21c103:
-
-  Linux 4.14-rc2 (2017-09-24 16:38:56 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux.git tags/mlx5-updates-2017-10-06
-
-for you to fetch changes up to a369d4ac4dff92129ea0dfa3d66f45a830e29098:
-
-  net/mlx5: Add FGs and FTEs memory pool (2017-09-26 20:52:05 +0300)
-
-----------------------------------------------------------------
-Maor Gottlieb (8):
-      net/mlx5: Avoid NULL pointer dereference on steering cleanup
-      net/mlx5: Move the entry index allocator to flow group
-      net/mlx5: Export building of matched flow groups list
-      net/mlx5: Refactor FTE and FG creation code
-      net/mlx5: Replace fs_node mutex with reader/writer semaphore
-      net/mlx5: Support multiple updates of steering rules in parallel
-      net/mlx5: Allocate FTE object without lock
-      net/mlx5: Add FGs and FTEs memory pool
-
-Matan Barak (1):
-      net/mlx5: Fix creating a new FTE when an existing but full FTE exists
-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 853 ++++++++++++++--------
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  11 +-
- 2 files changed, 547 insertions(+), 317 deletions(-)
+Thanks !
