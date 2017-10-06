@@ -1,224 +1,115 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 1/4] rcu: introduce noref debug
-Date: Fri, 6 Oct 2017 10:13:38 -0400
-Message-ID: <20171006101338.4fb76785@gandalf.local.home>
-References: <cover.1507294365.git.pabeni@redhat.com>
-        <bc39fa36c0765e6d2f7dab82e4c6460989669957.1507294365.git.pabeni@redhat.com>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] net/mlx4_core: Convert timers to use timer_setup()
+Date: Fri, 6 Oct 2017 07:26:55 -0700
+Message-ID: <CAGXu5jKSSem56Kp_oqqmNhqC0WWr7zpzTwJW-CnsR5Z+9hir4g@mail.gmail.com>
+References: <20171005005154.GA23500@beast> <20171005093802.GK25829@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Josh Triplett <josh@joshtriplett.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <bc39fa36c0765e6d2f7dab82e4c6460989669957.1507294365.git.pabeni@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171005093802.GK25829-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri,  6 Oct 2017 14:57:46 +0200
-Paolo Abeni <pabeni@redhat.com> wrote:
+On Thu, Oct 5, 2017 at 2:38 AM, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> On Wed, Oct 04, 2017 at 05:51:54PM -0700, Kees Cook wrote:
+>> In preparation for unconditionally passing the struct timer_list pointer to
+>> all timer callbacks, switch to using the new timer_setup() and from_timer()
+>> to pass the timer pointer explicitly.
+>>
+>> Cc: Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+>> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+>> ---
+>> This requires commit 686fef928bba ("timer: Prepare to change timer
+>> callback argument type") in v4.14-rc3, but should be otherwise
+>> stand-alone.
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/catas.c | 10 ++++------
+>>  1 file changed, 4 insertions(+), 6 deletions(-)
+>>
+>
+> Hi Kees,
+>
+> In RDMA, we had very similar patch [1] to your patch series, but it converts to
+> setup_timer, while you are converting to timer_setup.
+>
+> Which conversion is the right one?
 
-> We currently lack a debugging infrastructure to ensure that
-> long-lived noref dst are properly handled - namely dropped
-> or converted to a refcounted version before escaping the current
-> RCU section.
-> 
-> This changeset implements such infra, tracking the noref pointer
-> on a per CPU store and checking that all noref tracked at any
-> given RCU nesting level are cleared before leaving such RCU
-> section.
-> 
-> Each noref entity is identified using the entity pointer and an
-> additional, optional, key/opaque pointer. This is needed to cope
-> with usage case scenario where the same noref entity is stored
-> in different places (e.g. noref dst on skb_clone()).
-> 
-> To keep the patch/implementation simple RCU_NOREF_DEBUG depends
-> on PREEMPT_RCU=n in Kconfig.
-> 
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  include/linux/rcupdate.h | 11 ++++++
->  kernel/rcu/Kconfig.debug | 15 ++++++++
->  kernel/rcu/Makefile      |  1 +
->  kernel/rcu/noref_debug.c | 89 ++++++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 116 insertions(+)
->  create mode 100644 kernel/rcu/noref_debug.c
-> 
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index de50d8a4cf41..20c1ce08e3eb 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -60,6 +60,15 @@ void call_rcu_sched(struct rcu_head *head, rcu_callback_t func);
->  void synchronize_sched(void);
->  void rcu_barrier_tasks(void);
->  
-> +#ifdef CONFIG_RCU_NOREF_DEBUG
-> +void rcu_track_noref(void *key, void *noref, bool track);
-> +void __rcu_check_noref(void);
-> +
-> +#else
-> +static inline void rcu_track_noref(void *key, void *noref, bool add) { }
-> +static inline void __rcu_check_noref(void) { }
-> +#endif
-> +
->  #ifdef CONFIG_PREEMPT_RCU
->  
->  void __rcu_read_lock(void);
-> @@ -85,6 +94,7 @@ static inline void __rcu_read_lock(void)
->  
->  static inline void __rcu_read_unlock(void)
->  {
-> +	__rcu_check_noref();
->  	if (IS_ENABLED(CONFIG_PREEMPT_COUNT))
->  		preempt_enable();
->  }
-> @@ -723,6 +733,7 @@ static inline void rcu_read_unlock_bh(void)
->  			 "rcu_read_unlock_bh() used illegally while idle");
->  	rcu_lock_release(&rcu_bh_lock_map);
->  	__release(RCU_BH);
-> +	__rcu_check_noref();
->  	local_bh_enable();
->  }
->  
-> diff --git a/kernel/rcu/Kconfig.debug b/kernel/rcu/Kconfig.debug
-> index 0ec7d1d33a14..6c7f52a3e809 100644
-> --- a/kernel/rcu/Kconfig.debug
-> +++ b/kernel/rcu/Kconfig.debug
-> @@ -68,6 +68,21 @@ config RCU_TRACE
->  	  Say Y here if you want to enable RCU tracing
->  	  Say N if you are unsure.
->  
-> +config RCU_NOREF_DEBUG
-> +	bool "Debugging for RCU-protected noref entries"
-> +	depends on PREEMPT_RCU=n
-> +	select PREEMPT_COUNT
-> +	default n
-> +	help
-> +	  In case of long lasting rcu_read_lock sections this debug
-> +	  feature enables one to ensure that no rcu managed dereferenced
-> +	  data leaves the locked section. One use case is the tracking
-> +	  of dst_entries in struct sk_buff ->dst, which is used to pass
-> +	  the dst_entry around in the whole stack while under RCU lock.
-> +
-> +	  Say Y here if you want to enable noref RCU debugging
-> +	  Say N if you are unsure.
-> +
->  config RCU_EQS_DEBUG
->  	bool "Provide debugging asserts for adding NO_HZ support to an arch"
->  	depends on DEBUG_KERNEL
-> diff --git a/kernel/rcu/Makefile b/kernel/rcu/Makefile
-> index 13c0fc852767..c67d7c65c582 100644
-> --- a/kernel/rcu/Makefile
-> +++ b/kernel/rcu/Makefile
-> @@ -11,3 +11,4 @@ obj-$(CONFIG_TREE_RCU) += tree.o
->  obj-$(CONFIG_PREEMPT_RCU) += tree.o
->  obj-$(CONFIG_TINY_RCU) += tiny.o
->  obj-$(CONFIG_RCU_NEED_SEGCBLIST) += rcu_segcblist.o
-> +obj-$(CONFIG_RCU_NOREF_DEBUG) += noref_debug.o
-> \ No newline at end of file
-> diff --git a/kernel/rcu/noref_debug.c b/kernel/rcu/noref_debug.c
-> new file mode 100644
-> index 000000000000..ae2e104b11d6
-> --- /dev/null
-> +++ b/kernel/rcu/noref_debug.c
-> @@ -0,0 +1,89 @@
-> +#include <linux/bug.h>
-> +#include <linux/percpu.h>
-> +#include <linux/skbuff.h>
-> +#include <linux/bitops.h>
-> +
-> +#define NOREF_MAX 7
-> +struct noref_entry {
-> +	void *noref;
-> +	void *key;
-> +	int nesting;
-> +};
-> +
-> +struct noref_cache {
-> +	struct noref_entry store[NOREF_MAX];
-> +};
-> +
-> +static DEFINE_PER_CPU(struct noref_cache, per_cpu_noref_cache);
-> +
-> +static int noref_cache_lookup(struct noref_cache *cache, void *noref, void *key)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < NOREF_MAX; ++i)
-> +		if (cache->store[i].noref == noref &&
-> +		    cache->store[i].key == key)
-> +			return i;
-> +
-> +	return -1;
-> +}
-> +
+The timer_setup() is the new API designed to eliminate the .data field
+and pass in the struct timer_list to callbacks. (Please take the
+timer_setup() change instead.)
 
-Please add a comment above this function on how to use it.
+Thanks!
 
--- Steve
+-Kees
 
-> +void rcu_track_noref(void *key, void *noref, bool track)
-> +{
-> +	struct noref_cache *cache = this_cpu_ptr(&per_cpu_noref_cache);
-> +	int i;
-> +
-> +	if (track) {
-> +		/* find the first empty slot */
-> +		i = noref_cache_lookup(cache, NULL, 0);
-> +		if (i < 0) {
-> +			WARN_ONCE(1, "can't find empty an slot to track a noref"
-> +				  " noref tracking will be inaccurate");
-> +			return;
-> +		}
-> +
-> +		cache->store[i].noref = noref;
-> +		cache->store[i].key = key;
-> +		cache->store[i].nesting = preempt_count();
-> +		return;
-> +	}
-> +
-> +	i = noref_cache_lookup(cache, noref, key);
-> +	if (i == -1) {
-> +		WARN_ONCE(1, "to-be-untracked noref entity %p not found in "
-> +			  "cache\n", noref);
-> +		return;
-> +	}
-> +
-> +	cache->store[i].noref = NULL;
-> +	cache->store[i].key = NULL;
-> +	cache->store[i].nesting = 0;
-> +}
-> +EXPORT_SYMBOL_GPL(rcu_track_noref);
-> +
-> +void __rcu_check_noref(void)
-> +{
-> +	struct noref_cache *cache = this_cpu_ptr(&per_cpu_noref_cache);
-> +	char *cur, buf[strlen("0xffffffffffffffff") * NOREF_MAX + 1];
-> +	int nesting = preempt_count();
-> +	int i, ret, cnt = 0;
-> +
-> +	cur = buf;
-> +	for (i = 0; i < NOREF_MAX; ++i) {
-> +		if (!cache->store[i].noref ||
-> +		    cache->store[i].nesting != nesting)
-> +			continue;
-> +
-> +		cnt++;
-> +		ret = sprintf(cur, " %p", cache->store[i].noref);
-> +		if (ret >= 0)
-> +			cur += ret;
-> +		cache->store[i].noref = NULL;
-> +		cache->store[i].key = NULL;
-> +		cache->store[i].nesting = 0;
-> +	}
-> +
-> +	WARN_ONCE(cnt, "%d noref entities escaped an RCU section, "
-> +		  "nesting %d, leaked noref list %s", cnt, nesting, buf);
-> +}
-> +EXPORT_SYMBOL_GPL(__rcu_check_noref);
+>
+> [1] https://patchwork.kernel.org/patch/9980701/
+>
+> Thanks
+>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/catas.c b/drivers/net/ethernet/mellanox/mlx4/catas.c
+>> index 53daa6ca5d83..e2b6b0cac1ac 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/catas.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/catas.c
+>> @@ -231,10 +231,10 @@ static void dump_err_buf(struct mlx4_dev *dev)
+>>                        i, swab32(readl(priv->catas_err.map + i)));
+>>  }
+>>
+>> -static void poll_catas(unsigned long dev_ptr)
+>> +static void poll_catas(struct timer_list *t)
+>>  {
+>> -     struct mlx4_dev *dev = (struct mlx4_dev *) dev_ptr;
+>> -     struct mlx4_priv *priv = mlx4_priv(dev);
+>> +     struct mlx4_priv *priv = from_timer(priv, t, catas_err.timer);
+>> +     struct mlx4_dev *dev = &priv->dev;
+>>       u32 slave_read;
+>>
+>>       if (mlx4_is_slave(dev)) {
+>> @@ -277,7 +277,7 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+>>       phys_addr_t addr;
+>>
+>>       INIT_LIST_HEAD(&priv->catas_err.list);
+>> -     init_timer(&priv->catas_err.timer);
+>> +     timer_setup(&priv->catas_err.timer, poll_catas, 0);
+>>       priv->catas_err.map = NULL;
+>>
+>>       if (!mlx4_is_slave(dev)) {
+>> @@ -293,8 +293,6 @@ void mlx4_start_catas_poll(struct mlx4_dev *dev)
+>>               }
+>>       }
+>>
+>> -     priv->catas_err.timer.data     = (unsigned long) dev;
+>> -     priv->catas_err.timer.function = poll_catas;
+>>       priv->catas_err.timer.expires  =
+>>               round_jiffies(jiffies + MLX4_CATAS_POLL_INTERVAL);
+>>       add_timer(&priv->catas_err.timer);
+>> --
+>> 2.7.4
+>>
+>>
+>> --
+>> Kees Cook
+>> Pixel Security
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Kees Cook
+Pixel Security
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
