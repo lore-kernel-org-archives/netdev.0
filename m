@@ -1,75 +1,80 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 3/3] samples/bpf: xdp_monitor increase memory rlimit
-Date: Fri, 06 Oct 2017 10:41:51 +0200
-Message-ID: <150727931167.4460.6190697015268732941.stgit@firesoul>
-References: <150727927390.4460.3200093291677318710.stgit@firesoul>
+Subject: Re: [net-next V4 PATCH 1/5] bpf: introduce new bpf cpu map type
+ BPF_MAP_TYPE_CPUMAP
+Date: Fri, 6 Oct 2017 11:03:38 +0200
+Message-ID: <20171006110338.21f645b9@redhat.com>
+References: <150711858281.9499.7767364427831352921.stgit@firesoul>
+        <150711862505.9499.15042356194495111353.stgit@firesoul>
+        <20171004190201.5no5mrmkko43cvv2@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36978 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7484 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751811AbdJFIlx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Oct 2017 04:41:53 -0400
-In-Reply-To: <150727927390.4460.3200093291677318710.stgit@firesoul>
+        id S1753670AbdJFJDt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 05:03:49 -0400
+In-Reply-To: <20171004190201.5no5mrmkko43cvv2@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Other concurrent running programs, like perf or the XDP program what
-needed to be monitored, might take up part of the max locked memory
-limit.  Thus, the xdp_monitor tool have to set the RLIMIT_MEMLOCK to
-RLIM_INFINITY, as it cannot determine a more sane limit.
+On Wed, 4 Oct 2017 12:02:02 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-Using the man exit(3) specified EXIT_FAILURE return exit code, and
-correct other users too.
+> On Wed, Oct 04, 2017 at 02:03:45PM +0200, Jesper Dangaard Brouer wrote:
+> > The 'cpumap' is primary used as a backend map for XDP BPF helper
+> > call bpf_redirect_map() and XDP_REDIRECT action, like 'devmap'.
+> > 
+> > This patch implement the main part of the map.  It is not connected to
+> > the XDP redirect system yet, and no SKB allocation are done yet.
+> > 
+> > The main concern in this patch is to ensure the datapath can run
+> > without any locking.  This adds complexity to the setup and tear-down
+> > procedure, which assumptions are extra carefully documented in the
+> > code comments.
+> > 
+> > V2:
+> >  - make sure array isn't larger than NR_CPUS
+> >  - make sure CPUs added is a valid possible CPU
+> > 
+> > V3: fix nitpicks from Jakub Kicinski <kubakici@wp.pl>
+> > 
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> ...
+> > +static struct bpf_map *cpu_map_alloc(union bpf_attr *attr)
+> > +{
+> > +	struct bpf_cpu_map *cmap;
+> > +	u64 cost;
+> > +	int err;
+> > +
+> > +	/* check sanity of attributes */
+> > +	if (attr->max_entries == 0 || attr->key_size != 4 ||
+> > +	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
+> > +		return ERR_PTR(-EINVAL);
+> > +
+> > +	cmap = kzalloc(sizeof(*cmap), GFP_USER);
+> > +	if (!cmap)
+> > +		return ERR_PTR(-ENOMEM);  
+> 
+> just noticed that there is nothing here nor in DEVMAP/SOCKMAP
+> that prevents unpriv user to create them.
+> I'm not sure it was intentional for DEVMAP/SOCKMAP.
+> For CPUMAP I'd suggest to restrict it to root, since it
+> suppose to operate with XDP only which is root anyway.
+> Note, lpm and lru maps are cap_sys_admin only already.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- samples/bpf/xdp_monitor_user.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+I agree.  Have restricted this in V5
 
-diff --git a/samples/bpf/xdp_monitor_user.c b/samples/bpf/xdp_monitor_user.c
-index 97c3456c11b2..eaba165b3549 100644
---- a/samples/bpf/xdp_monitor_user.c
-+++ b/samples/bpf/xdp_monitor_user.c
-@@ -20,6 +20,7 @@ static const char *__doc_err_only__=
- #include <unistd.h>
- #include <locale.h>
- 
-+#include <sys/resource.h>
- #include <getopt.h>
- #include <net/if.h>
- #include <time.h>
-@@ -295,6 +296,7 @@ static void print_bpf_prog_info(void)
- 
- int main(int argc, char **argv)
- {
-+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
- 	int longindex = 0, opt;
- 	int ret = EXIT_SUCCESS;
- 	char bpf_obj_file[256];
-@@ -325,13 +327,18 @@ int main(int argc, char **argv)
- 		}
- 	}
- 
-+	if (setrlimit(RLIMIT_MEMLOCK, &r)) {
-+		perror("setrlimit(RLIMIT_MEMLOCK)");
-+		return EXIT_FAILURE;
-+	}
-+
- 	if (load_bpf_file(bpf_obj_file)) {
- 		printf("ERROR - bpf_log_buf: %s", bpf_log_buf);
--		return 1;
-+		return EXIT_FAILURE;
- 	}
- 	if (!prog_fd[0]) {
- 		printf("ERROR - load_bpf_file: %s\n", strerror(errno));
--		return 1;
-+		return EXIT_FAILURE;
- 	}
- 
- 	if (debug) {
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
