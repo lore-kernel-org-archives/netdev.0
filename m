@@ -1,78 +1,29 @@
-From: "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 06/12] qed: Add LL2 slowpath handling
-Date: Fri, 6 Oct 2017 05:09:13 +0000
-Message-ID: <CY1PR0701MB20123E0FC36400232910B65888710@CY1PR0701MB2012.namprd07.prod.outlook.com>
-References: <CY1PR0701MB2012A2F8E3E923D98B1E1A6488700@CY1PR0701MB2012.namprd07.prod.outlook.com>
-        <20171005.120629.2161199733119811102.davem@davemloft.net>
-        <CY1PR0701MB201241C43A192735A0F1EEDD88700@CY1PR0701MB2012.namprd07.prod.outlook.com>,<20171005.172013.746380495399822.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ipv6: remove unused code in ipv6_find_hdr()
+Date: Thu, 05 Oct 2017 22:15:51 -0700 (PDT)
+Message-ID: <20171005.221551.657368686354482984.davem@davemloft.net>
+References: <1507226828-51366-1-git-send-email-xiaolou4617@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171005.172013.746380495399822.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org
+To: xiaolou4617@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57956 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750768AbdJFFPy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 01:15:54 -0400
+In-Reply-To: <1507226828-51366-1-git-send-email-xiaolou4617@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> o=
-n behalf of David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+From: Lin Zhang <xiaolou4617@gmail.com>
+Date: Fri,  6 Oct 2017 02:07:08 +0800
 
->From: "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->Date: Thu, 5 Oct 2017 20:27:22 +0000
->
->> The spinlock is required for the case that rx buffers are posted
->> from a different thread, where it could be run simultaneously to the
->> rxq_completion.
->
->This only brings us back to my original argument, if the lock is
->necessary in order to synchronize with those paths, how can you
->possible drop the lock safely here?
->
->Is it because you re-read the head and tail pointers of the queue each
->time around the loop?
+> Storing the left length of skb into 'len' actually has no effect 
+> so we can remove it.
+> 
+> Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
 
-It's safe to drop the lock here because the implementation of the queue (qe=
-d_chain)
-maintains both a consumer pointer (tail) indices and producer pointer(head)=
-.
-The main loop reads  the FWs value and stores it as the "new cons"
-and traverses the queue only until it reaches the FWs consumer value.=20
-The post function adds more buffers to the end of the queue and updates the=
-=20
-producer. They will not affect the consumer pointers. So posting of buffers
-doesn't affect the main loop.
-
-The resources that are protected by the lock and accessed inside the loop
-and from post-buffers are three linked-lists, free-descq, posting_descq and
-active_descq, their head and tail are  read on every access
-(elements are removed and moved between the lists).
-
-Following this discussion, it looks like there was no need to take the lock=
- in the
-outer function, but only around the places that access these lists, this is=
- a delicate
-change which affects the ll2 clients (iscsi,fcoe,roce,iwarp). As this serie=
-s is rather
-large as it is and is intended for iWARP, please consider taking this one a=
-s it is.=20
-Since it doesn't change existing functionality and doesn't introduce risk t=
-o other
-components.=20
-
-thanks,
-Michal
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
