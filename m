@@ -1,47 +1,68 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next 0/3] tcp: improving RACK cpu performance
-Date: Fri, 6 Oct 2017 09:34:48 -0700
-Message-ID: <CAK6E8=fBi05MuH_r9XrsmavUqQrtgvWbUv-7MXFyBYg1udsrXw@mail.gmail.com>
-References: <20171004200000.39257-1-ycheng@google.com> <20171005.212612.1580802624897584218.davem@davemloft.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH v2] gso: fix payload length when gso_size is zero
+Date: Fri, 6 Oct 2017 16:37:40 +0000
+Message-ID: <1507307855.2098.58.camel@intel.com>
+References: <1507305755-14393-1-git-send-email-alexey.kodanev@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "alexey.kodanev@oracle.com" <alexey.kodanev@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:46983 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751489AbdJFQfb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 12:35:31 -0400
-Received: by mail-wr0-f170.google.com with SMTP id z1so4608977wre.3
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 09:35:30 -0700 (PDT)
-In-Reply-To: <20171005.212612.1580802624897584218.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:31752 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751759AbdJFQhm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 12:37:42 -0400
+In-Reply-To: <1507305755-14393-1-git-send-email-alexey.kodanev@oracle.com>
+Content-Language: en-US
+Content-ID: <404CBDE219251742977D6EED79799409@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 5, 2017 at 9:26 PM, David Miller <davem@davemloft.net> wrote:
->
-> From: Yuchung Cheng <ycheng@google.com>
-> Date: Wed,  4 Oct 2017 12:59:57 -0700
->
-> > This patch set improves the CPU consumption of the RACK TCP loss
-> > recovery algorithm, in particular for high-speed networks. Currently,
-> > for every ACK in recovery RACK can potentially iterate over all sent
-> > packets in the write queue. On large BDP networks with non-trivial
-> > losses the RACK write queue walk CPU usage becomes unreasonably high.
-> >
-> > This patch introduces a new queue in TCP that keeps only skbs sent and
-> > not yet (s)acked or marked lost, in time order instead of sequence
-> > order.  With that, RACK can examine this time-sorted list and only
-> > check packets that were sent recently, within the reordering window,
-> > per ACK. This is the fastest way without any write queue walks. The
-> > number of skbs examined per ACK is reduced by orders of magnitude.
->
-> That's a pretty risky way to implement the second SKB list.... but
-Agreed. I really appreciate you accepting this change. We tried a few
-alternatives but this is the most clean and fastest approach. BBR can
-reach 8-10Gbps on 300ms RTT link so both RACK and SACK need to scale
-in the era of hundreds MB BDP :-)
-
-> you avoided making sk_buff larger so what can I say :-)
->
-> Series applied, thank.
+T24gRnJpLCAyMDE3LTEwLTA2IGF0IDE5OjAyICswMzAwLCBBbGV4ZXkgS29kYW5ldiB3cm90ZToN
+Cj4gV2hlbiBnc29fc2l6ZSByZXNldCB0byB6ZXJvIGZvciB0aGUgdGFpbCBzZWdtZW50IGluIHNr
+Yl9zZWdtZW50KCksIGxhdGVyDQo+IGluIGlwdjZfZ3NvX3NlZ21lbnQoKSwgX19za2JfdWRwX3R1
+bm5lbF9zZWdtZW50KCkgYW5kIGdyZV9nc29fc2VnbWVudCgpDQo+IHdlIHdpbGwgZ2V0IGluY29y
+cmVjdCByZXN1bHRzIChwYXlsb2FkIGxlbmd0aCwgcGNzdW0pIGZvciB0aGF0IHNlZ21lbnQuDQo+
+IGluZXRfZ3NvX3NlZ21lbnQoKSBhbHJlYWR5IGhhcyBhIGNoZWNrIGZvciBnc29fc2l6ZSBiZWZv
+cmUgY2FsY3VsYXRpbmcNCj4gcGF5bG9hZC4NCj4gDQo+IFRoZSBpc3N1ZSB3YXMgZm91bmQgd2l0
+aCBMVFAgdnhsYW4gJiBncmUgdGVzdHMgb3ZlciBpeGdiZSBOSUMuDQo+IA0KPiBGaXhlczogMDdi
+MjZjOTQ1NGEyICgiZ3NvOiBTdXBwb3J0IHBhcnRpYWwgc3BsaXR0aW5nIGF0IHRoZSBmcmFnX2xp
+c3QgcG9pbnRlciIpDQo+IFNpZ25lZC1vZmYtYnk6IEFsZXhleSBLb2RhbmV2IDxhbGV4ZXkua29k
+YW5ldkBvcmFjbGUuY29tPg0KDQpBY2tlZC1ieTogQWxleGFuZGVyIER1eWNrIDxhbGV4YW5kZXIu
+aC5kdXlja0BpbnRlbC5jb20+DQoNCj4gLS0tDQo+IHYyOiBhbHNvIGFkZGVkIHNrYl9pc19nc28g
+dG8gZ3JlX2dzb19zZWdtZW50KCkgYW5kIF9fc2tiX3VkcF90dW5uZWxfc2VnbWVudCgpDQo+IA0K
+PiAgbmV0L2lwdjQvZ3JlX29mZmxvYWQuYyB8IDIgKy0NCj4gIG5ldC9pcHY0L3VkcF9vZmZsb2Fk
+LmMgfCAyICstDQo+ICBuZXQvaXB2Ni9pcDZfb2ZmbG9hZC5jIHwgMiArLQ0KPiAgMyBmaWxlcyBj
+aGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0
+IGEvbmV0L2lwdjQvZ3JlX29mZmxvYWQuYyBiL25ldC9pcHY0L2dyZV9vZmZsb2FkLmMNCj4gaW5k
+ZXggZDVjYWM5OS4uOGM3MjAzNCAxMDA2NDQNCj4gLS0tIGEvbmV0L2lwdjQvZ3JlX29mZmxvYWQu
+Yw0KPiArKysgYi9uZXQvaXB2NC9ncmVfb2ZmbG9hZC5jDQo+IEBAIC05OCw3ICs5OCw3IEBAIHN0
+YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqZ3JlX2dzb19zZWdtZW50KHN0cnVjdCBza19idWZmICpza2Is
+DQo+ICAJCWdyZWggPSAoc3RydWN0IGdyZV9iYXNlX2hkciAqKXNrYl90cmFuc3BvcnRfaGVhZGVy
+KHNrYik7DQo+ICAJCXBjc3VtID0gKF9fc3VtMTYgKikoZ3JlaCArIDEpOw0KPiAgDQo+IC0JCWlm
+IChnc29fcGFydGlhbCkgew0KPiArCQlpZiAoZ3NvX3BhcnRpYWwgJiYgc2tiX2lzX2dzbyhza2Ip
+KSB7DQo+ICAJCQl1bnNpZ25lZCBpbnQgcGFydGlhbF9hZGo7DQo+ICANCj4gIAkJCS8qIEFkanVz
+dCBjaGVja3N1bSB0byBhY2NvdW50IGZvciB0aGUgZmFjdCB0aGF0DQo+IGRpZmYgLS1naXQgYS9u
+ZXQvaXB2NC91ZHBfb2ZmbG9hZC5jIGIvbmV0L2lwdjQvdWRwX29mZmxvYWQuYw0KPiBpbmRleCAw
+OTMyYzg1Li42NDAxNTc0IDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2NC91ZHBfb2ZmbG9hZC5jDQo+
+ICsrKyBiL25ldC9pcHY0L3VkcF9vZmZsb2FkLmMNCj4gQEAgLTEyMiw3ICsxMjIsNyBAQCBzdGF0
+aWMgc3RydWN0IHNrX2J1ZmYgKl9fc2tiX3VkcF90dW5uZWxfc2VnbWVudChzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLA0KPiAgCQkgKiB3aWxsIGJlIHVzaW5nIGEgbGVuZ3RoIHZhbHVlIGVxdWFsIHRvIG9u
+bHkgb25lIE1TUyBzaXplZA0KPiAgCQkgKiBzZWdtZW50IGluc3RlYWQgb2YgdGhlIGVudGlyZSBm
+cmFtZS4NCj4gIAkJICovDQo+IC0JCWlmIChnc29fcGFydGlhbCkgew0KPiArCQlpZiAoZ3NvX3Bh
+cnRpYWwgJiYgc2tiX2lzX2dzbyhza2IpKSB7DQo+ICAJCQl1aC0+bGVuID0gaHRvbnMoc2tiX3No
+aW5mbyhza2IpLT5nc29fc2l6ZSArDQo+ICAJCQkJCVNLQl9HU09fQ0Ioc2tiKS0+ZGF0YV9vZmZz
+ZXQgKw0KPiAgCQkJCQlza2ItPmhlYWQgLSAodW5zaWduZWQgY2hhciAqKXVoKTsNCj4gZGlmZiAt
+LWdpdCBhL25ldC9pcHY2L2lwNl9vZmZsb2FkLmMgYi9uZXQvaXB2Ni9pcDZfb2ZmbG9hZC5jDQo+
+IGluZGV4IGNkYjM3MjguLjRhODdmOTQgMTAwNjQ0DQo+IC0tLSBhL25ldC9pcHY2L2lwNl9vZmZs
+b2FkLmMNCj4gKysrIGIvbmV0L2lwdjYvaXA2X29mZmxvYWQuYw0KPiBAQCAtMTA1LDcgKzEwNSw3
+IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqaXB2Nl9nc29fc2VnbWVudChzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLA0KPiAgDQo+ICAJZm9yIChza2IgPSBzZWdzOyBza2I7IHNrYiA9IHNrYi0+bmV4dCkg
+ew0KPiAgCQlpcHY2aCA9IChzdHJ1Y3QgaXB2NmhkciAqKShza2JfbWFjX2hlYWRlcihza2IpICsg
+bmhvZmYpOw0KPiAtCQlpZiAoZ3NvX3BhcnRpYWwpDQo+ICsJCWlmIChnc29fcGFydGlhbCAmJiBz
+a2JfaXNfZ3NvKHNrYikpDQo+ICAJCQlwYXlsb2FkX2xlbiA9IHNrYl9zaGluZm8oc2tiKS0+Z3Nv
+X3NpemUgKw0KPiAgCQkJCSAgICAgIFNLQl9HU09fQ0Ioc2tiKS0+ZGF0YV9vZmZzZXQgKw0KPiAg
+CQkJCSAgICAgIHNrYi0+aGVhZCAtICh1bnNpZ25lZCBjaGFyICopKGlwdjZoICsgMSk7DQo=
