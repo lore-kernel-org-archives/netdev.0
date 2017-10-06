@@ -1,42 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/1] [net] bonding: Add NUMA notice
-Date: Fri, 06 Oct 2017 11:08:08 -0700
-Message-ID: <1507313288.14419.21.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1507235025-21689-1-git-send-email-ptalbert@redhat.com>
-         <20171005214636.GM13247@lunn.ch>
-         <CAPRrrxUGMpOqEA8MxzY91RyMTQp+OisO8xB5jVR+QA+dqLeSww@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] net: enable interface alias removal via rtnl
+Date: Fri, 6 Oct 2017 12:18:44 -0600
+Message-ID: <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
+References: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org
-To: Patrick Talbert <ptalbert@redhat.com>
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <oliver@hartkopp.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:47500 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752534AbdJFSIL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 14:08:11 -0400
-Received: by mail-pf0-f182.google.com with SMTP id u12so9920408pfl.4
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 11:08:11 -0700 (PDT)
-In-Reply-To: <CAPRrrxUGMpOqEA8MxzY91RyMTQp+OisO8xB5jVR+QA+dqLeSww@mail.gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33355 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752292AbdJFSSr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 14:18:47 -0400
+Received: by mail-pg0-f65.google.com with SMTP id b11so9964357pgn.0
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 11:18:47 -0700 (PDT)
+In-Reply-To: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-10-06 at 13:54 -0400, Patrick Talbert wrote:
+On 10/5/17 4:19 AM, Nicolas Dichtel wrote:
+> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
+> the attribute is 1 ("\0"). However, to remove an alias, the attribute
+> length must be 0 (see dev_set_alias()).
+
+why not add a check in dev_set_alias that if len is 1 and the 1
+character is '\0' it means remove the alias?
 
 > 
-> My goal with the patch is not to prevent some one from bonding
-> whichever interfaces they want, only to notify them that what they are
-> doing is *likely* to be less than ideal from a performance
-> perspective. Even if some theoretical load balancing bonding mode was
-> intelligent enough to consider NUMA when choosing a transmit
-> interface, it never has control over the interface traffic is received
-> on (excluding the strange balance-alb mode).
+> Let's define the type to NLA_BINARY, so that the alias can be removed.
 
-Note that following the NUMA node of current process would lead to
-reordering for TCP flows.
-
-XPS makes sure we stick to one TXQ to avoid reorders.
-
-I am not sure your patch will really help, since you do not warn if a
-process from another NUMA node tries to send packet to a bonding driver
-using slaves on another NUMA node.
+that changes the uapi
