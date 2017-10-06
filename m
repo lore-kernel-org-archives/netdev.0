@@ -1,52 +1,49 @@
-From: Jonathan Toppins <jtoppins@redhat.com>
-Subject: [PATCH net-next 1/2] bnxt_en: don't consider building bnxt_tc.o if option not enabled
-Date: Fri,  6 Oct 2017 15:48:30 -0400
-Message-ID: <1a4d96f368f199bba0425012f50d55d634484cce.1507319311.git.jtoppins@redhat.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org (open list)
-To: michael.chan@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net] net: enable interface alias removal via rtnl
+Date: Fri, 6 Oct 2017 22:10:42 +0200
+Message-ID: <f6bd73fe-9b60-6741-8a6d-c93f6ee64a40@hartkopp.net>
+References: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
+ <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <oliver@hartkopp.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: David Ahern <dsahern@gmail.com>,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.218]:34235 "EHLO
+        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751649AbdJFUQ4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 16:16:56 -0400
+In-Reply-To: <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of zeroing out bnxt_tc.c with a #ifdef foo, instead don't compile
-the file when the option is not enabled. Now make and the preprocessor do
-not have to waste time compiling a no-op.
 
-Signed-off-by: Jonathan Toppins <jtoppins@redhat.com>
----
- drivers/net/ethernet/broadcom/bnxt/Makefile  | 3 ++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 5 -----
- 2 files changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
-index 4f0cb8e1ffc0..457201f409a7 100644
---- a/drivers/net/ethernet/broadcom/bnxt/Makefile
-+++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
-@@ -1,3 +1,4 @@
- obj-$(CONFIG_BNXT) += bnxt_en.o
- 
--bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o bnxt_vfr.o bnxt_tc.o
-+bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o bnxt_vfr.o
-+bnxt_en-$(CONFIG_BNXT_FLOWER_OFFLOAD) += bnxt_tc.o
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-index 7dd3d131043a..4730c048ed9b 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-@@ -23,8 +23,6 @@
- #include "bnxt_tc.h"
- #include "bnxt_vfr.h"
- 
--#ifdef CONFIG_BNXT_FLOWER_OFFLOAD
--
- #define BNXT_FID_INVALID			0xffff
- #define VLAN_TCI(vid, prio)	((vid) | ((prio) << VLAN_PRIO_SHIFT))
- 
-@@ -833,6 +831,3 @@ void bnxt_shutdown_tc(struct bnxt *bp)
- 	rhashtable_destroy(&tc_info->flow_table);
- 	rhashtable_destroy(&tc_info->l2_table);
- }
--
--#else
--#endif
--- 
-2.13.6
+On 10/06/2017 08:18 PM, David Ahern wrote:
+> On 10/5/17 4:19 AM, Nicolas Dichtel wrote:
+>> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
+>> the attribute is 1 ("\0"). However, to remove an alias, the attribute
+>> length must be 0 (see dev_set_alias()).
+> 
+> why not add a check in dev_set_alias that if len is 1 and the 1
+> character is '\0' it means remove the alias?
+
+Yes. That looks indeed better than changing NLA_STRING to NLA_BINARY 
+which does not really hit the point.
+
+Nicolas, can you send an updated patch picking up David's suggestion?
+
+Tnx & best regards,
+Oliver
+
+> 
+>>
+>> Let's define the type to NLA_BINARY, so that the alias can be removed.
+> 
+> that changes the uapi
+> 
