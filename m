@@ -1,49 +1,179 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH net] net: enable interface alias removal via rtnl
-Date: Fri, 6 Oct 2017 22:10:42 +0200
-Message-ID: <f6bd73fe-9b60-6741-8a6d-c93f6ee64a40@hartkopp.net>
-References: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
- <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
+From: <Tristram.Ha@microchip.com>
+Subject: [PATCH v1 RFC 1/7] Replace license with GPL
+Date: Fri, 6 Oct 2017 13:32:59 -0700
+Message-ID: <1507321985-15097-2-git-send-email-Tristram.Ha@microchip.com>
+References: <1507321985-15097-1-git-send-email-Tristram.Ha@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <oliver@hartkopp.net>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: David Ahern <dsahern@gmail.com>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.218]:34235 "EHLO
-        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751649AbdJFUQ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 16:16:56 -0400
-In-Reply-To: <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Tristram Ha <Tristram.Ha@microchip.com>, <muvarov@gmail.com>,
+        <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>,
+        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ruediger Schmitt <ruediger.schmitt@philips.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507321985-15097-1-git-send-email-Tristram.Ha@microchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Tristram Ha <Tristram.Ha@microchip.com>
 
+Replace license with GPL.
 
-On 10/06/2017 08:18 PM, David Ahern wrote:
-> On 10/5/17 4:19 AM, Nicolas Dichtel wrote:
->> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
->> the attribute is 1 ("\0"). However, to remove an alias, the attribute
->> length must be 0 (see dev_set_alias()).
-> 
-> why not add a check in dev_set_alias that if len is 1 and the 1
-> character is '\0' it means remove the alias?
+Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+---
+ drivers/net/dsa/microchip/ksz_9477_reg.h | 23 ++++++++++++-----------
+ drivers/net/dsa/microchip/ksz_common.c   | 23 ++++++++++++-----------
+ drivers/net/dsa/microchip/ksz_priv.h     | 23 ++++++++++++-----------
+ drivers/net/dsa/microchip/ksz_spi.c      | 23 ++++++++++++-----------
+ 4 files changed, 48 insertions(+), 44 deletions(-)
 
-Yes. That looks indeed better than changing NLA_STRING to NLA_BINARY 
-which does not really hit the point.
-
-Nicolas, can you send an updated patch picking up David's suggestion?
-
-Tnx & best regards,
-Oliver
-
-> 
->>
->> Let's define the type to NLA_BINARY, so that the alias can be removed.
-> 
-> that changes the uapi
-> 
+diff --git a/drivers/net/dsa/microchip/ksz_9477_reg.h b/drivers/net/dsa/microchip/ksz_9477_reg.h
+index 6aa6752..26a0e4b 100644
+--- a/drivers/net/dsa/microchip/ksz_9477_reg.h
++++ b/drivers/net/dsa/microchip/ksz_9477_reg.h
+@@ -1,19 +1,20 @@
+ /*
+  * Microchip KSZ9477 register definitions
+  *
+- * Copyright (C) 2017
++ * Copyright (C) 2017 Microchip Technology Inc.
+  *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
+  *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #ifndef __KSZ9477_REGS_H
+diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
+index 56cd6d3..685dafd 100644
+--- a/drivers/net/dsa/microchip/ksz_common.c
++++ b/drivers/net/dsa/microchip/ksz_common.c
+@@ -1,19 +1,20 @@
+ /*
+  * Microchip switch driver main logic
+  *
+- * Copyright (C) 2017
++ * Copyright (C) 2017 Microchip Technology Inc.
+  *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
+  *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <linux/delay.h>
+diff --git a/drivers/net/dsa/microchip/ksz_priv.h b/drivers/net/dsa/microchip/ksz_priv.h
+index 2a98dbd..d461468 100644
+--- a/drivers/net/dsa/microchip/ksz_priv.h
++++ b/drivers/net/dsa/microchip/ksz_priv.h
+@@ -1,19 +1,20 @@
+ /*
+  * Microchip KSZ series switch common definitions
+  *
+- * Copyright (C) 2017
++ * Copyright (C) 2017 Microchip Technology Inc.
+  *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
+  *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #ifndef __KSZ_PRIV_H
+diff --git a/drivers/net/dsa/microchip/ksz_spi.c b/drivers/net/dsa/microchip/ksz_spi.c
+index c519469..d0d6920 100644
+--- a/drivers/net/dsa/microchip/ksz_spi.c
++++ b/drivers/net/dsa/microchip/ksz_spi.c
+@@ -1,19 +1,20 @@
+ /*
+  * Microchip KSZ series register access through SPI
+  *
+- * Copyright (C) 2017
++ * Copyright (C) 2017 Microchip Technology Inc.
+  *
+- * Permission to use, copy, modify, and/or distribute this software for any
+- * purpose with or without fee is hereby granted, provided that the above
+- * copyright notice and this permission notice appear in all copies.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
+  *
+- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+  */
+ 
+ #include <asm/unaligned.h>
+-- 
+1.9.1
