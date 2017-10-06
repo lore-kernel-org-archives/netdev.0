@@ -1,76 +1,46 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH v2] gso: fix payload length when gso_size is zero
-Date: Fri,  6 Oct 2017 19:02:35 +0300
-Message-ID: <1507305755-14393-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH iproute2 v2 0/3] ss: add AF_VSOCK support
+Date: Fri,  6 Oct 2017 11:48:38 -0400
+Message-ID: <20171006154841.10495-1-stefanha@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        Dexuan Cui <decui@microsoft.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:42562 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752379AbdJFPyo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 11:54:44 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:55750 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751484AbdJFPsq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 11:48:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When gso_size reset to zero for the tail segment in skb_segment(), later
-in ipv6_gso_segment(), __skb_udp_tunnel_segment() and gre_gso_segment()
-we will get incorrect results (payload length, pcsum) for that segment.
-inet_gso_segment() already has a check for gso_size before calculating
-payload.
+v2:
+ * Use uint64_t instead of __u64 for filter->families
+ * Added reference to net-next commit that merged vsock_diag.ko
 
-The issue was found with LTP vxlan & gre tests over ixgbe NIC.
+This patch series adds AF_VSOCK support to ss(8).  AF_VSOCK is a host<->guest
+communications channel supported by VMware, KVM (virtio-vsock), and Hyper-V.
 
-Fixes: 07b26c9454a2 ("gso: Support partial splitting at the frag_list pointer")
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
-v2: also added skb_is_gso to gre_gso_segment() and __skb_udp_tunnel_segment()
+To dump AF_VSOCK sockets:
 
- net/ipv4/gre_offload.c | 2 +-
- net/ipv4/udp_offload.c | 2 +-
- net/ipv6/ip6_offload.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+  $ ss --vsock
 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index d5cac99..8c72034 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -98,7 +98,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
- 		greh = (struct gre_base_hdr *)skb_transport_header(skb);
- 		pcsum = (__sum16 *)(greh + 1);
- 
--		if (gso_partial) {
-+		if (gso_partial && skb_is_gso(skb)) {
- 			unsigned int partial_adj;
- 
- 			/* Adjust checksum to account for the fact that
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 0932c85..6401574 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -122,7 +122,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
- 		 * will be using a length value equal to only one MSS sized
- 		 * segment instead of the entire frame.
- 		 */
--		if (gso_partial) {
-+		if (gso_partial && skb_is_gso(skb)) {
- 			uh->len = htons(skb_shinfo(skb)->gso_size +
- 					SKB_GSO_CB(skb)->data_offset +
- 					skb->head - (unsigned char *)uh);
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index cdb3728..4a87f94 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -105,7 +105,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 
- 	for (skb = segs; skb; skb = skb->next) {
- 		ipv6h = (struct ipv6hdr *)(skb_mac_header(skb) + nhoff);
--		if (gso_partial)
-+		if (gso_partial && skb_is_gso(skb))
- 			payload_len = skb_shinfo(skb)->gso_size +
- 				      SKB_GSO_CB(skb)->data_offset +
- 				      skb->head - (unsigned char *)(ipv6h + 1);
+The vsock_diag.ko module has now been merged in the Linux net-next tree.  I
+have verified that the <linux/vm_sockets_diag.h> header copy in this patch
+series is in sync with Linux net-next.  See commit
+5820299a271fd3dc9b1733e1e10cd7b983edd028 ("Merge branch 'VSOCK-sock_diag'").
+
+Stefan Hajnoczi (3):
+  ss: allow AF_FAMILY constants >32
+  include: add <linux/vm_sockets_diag.h>
+  ss: add AF_VSOCK support
+
+ include/linux/vm_sockets_diag.h |  33 ++++++
+ misc/ss.c                       | 238 +++++++++++++++++++++++++++++++++++-----
+ man/man8/ss.8                   |   8 +-
+ 3 files changed, 249 insertions(+), 30 deletions(-)
+ create mode 100644 include/linux/vm_sockets_diag.h
+
 -- 
-1.8.3.1
+2.13.6
