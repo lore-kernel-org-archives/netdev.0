@@ -1,93 +1,195 @@
-From: Finn Thain <fthain@telegraphics.com.au>
-Subject: Re: [PATCH net v2 3/9] net/mac89x0: Fix and modernize log messages
-Date: Fri, 6 Oct 2017 22:06:47 +1100 (AEDT)
-Message-ID: <alpine.LNX.2.00.1710062009140.3@nippy.intranet>
-References: <cover.1507211120.git.fthain@telegraphics.com.au> <e9fb341944d187cabf1ccef78cfdc9de64e3f158.1507211120.git.fthain@telegraphics.com.au> <20171005.210842.1348457661309929796.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next V4 PATCH 2/5] bpf: XDP_REDIRECT enable use of cpumap
+Date: Fri, 6 Oct 2017 13:17:48 +0200
+Message-ID: <20171006131748.75185f65@redhat.com>
+References: <150711858281.9499.7767364427831352921.stgit@firesoul>
+        <150711863012.9499.383645968070658124.stgit@firesoul>
+        <59D60505.2040004@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171005.210842.1348457661309929796.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60638 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751917AbdJFLR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Oct 2017 07:17:59 -0400
+In-Reply-To: <59D60505.2040004@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 5 Oct 2017, David Miller wrote:
 
-> From: Finn Thain <fthain@telegraphics.com.au>
-> Date: Thu, 5 Oct 2017 21:11:05 -0400 (EDT)
+On Thu, 05 Oct 2017 12:10:13 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
+
+> On 10/04/2017 02:03 PM, Jesper Dangaard Brouer wrote:
+> > This patch connects cpumap to the xdp_do_redirect_map infrastructure.
+> >
+> > Still no SKB allocation are done yet.  The XDP frames are transferred
+> > to the other CPU, but they are simply refcnt decremented on the remote
+> > CPU.  This served as a good benchmark for measuring the overhead of
+> > remote refcnt decrement.  If driver page recycle cache is not
+> > efficient then this, exposes a bottleneck in the page allocator.
+> >
+> > A shout-out to MST's ptr_ring, which is the secret behind is being so
+> > efficient to transfer memory pointers between CPUs, without constantly
+> > bouncing cache-lines between CPUs.
+> >
+> > V3: Handle !CONFIG_BPF_SYSCALL pointed out by kbuild test robot.
+> >
+> > V4: Make Generic-XDP aware of cpumap type, but don't allow redirect yet,
+> >   as implementation require a separate upstream discussion.
+> >
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> [...]
+> > diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
+> > index ae8e29352261..4926a9971f90 100644
+> > --- a/kernel/bpf/cpumap.c
+> > +++ b/kernel/bpf/cpumap.c
+> > @@ -493,7 +493,8 @@ static int bq_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_pkt *xdp_pkt)
+> >   	return 0;
+> >   }
+> >
+> > -int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp)
+> > +int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
+> > +		    struct net_device *dev_rx)
+> >   {
+> >   	struct xdp_pkt *xdp_pkt;
+> >   	int headroom;
+> > @@ -505,7 +506,7 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp)
+> >   	xdp_pkt = xdp->data_hard_start;
+> >   	xdp_pkt->data = xdp->data;
+> >   	xdp_pkt->len  = xdp->data_end - xdp->data;
+> > -	xdp_pkt->headroom = headroom;
+> > +	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);  
 > 
-> > Fix misplaced newlines in conditional log messages.
+> (Just a note, bit confusing that first two patches add and extend
+>   this, and only in the third you add the xdp->data_meta handling,
+>   makes it harder to review at least.)
+
+Sorry.  This is a left-overs from rebasing and measuring the cost of
+transferring only the pointer to the page, and remote put_page().
+And your xdp->data_meta, happen basically while my patches was in-flight.
+
+I'll move this one-line back to patch 2, to spreading over too many
+patches.
+
+> [...]
+> > diff --git a/net/core/filter.c b/net/core/filter.c
+> > index 9b6e7e84aafd..dbf2ae071108 100644
+> > --- a/net/core/filter.c
+> > +++ b/net/core/filter.c
+> > @@ -2521,10 +2521,36 @@ static int __bpf_tx_xdp(struct net_device *dev,
+> >   	err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
+> >   	if (err)
+> >   		return err;
+> > -	if (map)
+> > +	dev->netdev_ops->ndo_xdp_flush(dev);
+> > +	return 0;
+> > +}
+> > +
+> > +static int __bpf_tx_xdp_map(struct net_device *dev_rx, void *fwd,
+> > +			    struct bpf_map *map,
+> > +			    struct xdp_buff *xdp,
+> > +			    u32 index)
+> > +{
+> > +	int err;
+> > +
+> > +	if (map->map_type == BPF_MAP_TYPE_DEVMAP) {
+> > +		struct net_device *dev = fwd;
+> > +
+> > +		if (!dev->netdev_ops->ndo_xdp_xmit)
+> > +			return -EOPNOTSUPP;
+> > +
+> > +		err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
+> > +		if (err)
+> > +			return err;
+> >   		__dev_map_insert_ctx(map, index);
+> > -	else
+> > -		dev->netdev_ops->ndo_xdp_flush(dev);
+> > +
+> > +	} else if (map->map_type == BPF_MAP_TYPE_CPUMAP) {
+> > +		struct bpf_cpu_map_entry *rcpu = fwd;
+> > +
+> > +		err = cpu_map_enqueue(rcpu, xdp, dev_rx);
+> > +		if (err)
+> > +			return err;
+> > +		__cpu_map_insert_ctx(map, index);
+> > +	}
+> >   	return 0;
+> >   }
+> >
+> > @@ -2534,11 +2560,33 @@ void xdp_do_flush_map(void)
+> >   	struct bpf_map *map = ri->map_to_flush;
+> >
+> >   	ri->map_to_flush = NULL;
+> > -	if (map)
+> > -		__dev_map_flush(map);
+> > +	if (map) {
+> > +		switch (map->map_type) {
+> > +		case BPF_MAP_TYPE_DEVMAP:
+> > +			__dev_map_flush(map);
+> > +			break;
+> > +		case BPF_MAP_TYPE_CPUMAP:
+> > +			__cpu_map_flush(map);
+> > +			break;
+> > +		default:
+> > +			break;
+> > +		}
+> > +	}
+> >   }
+> >   EXPORT_SYMBOL_GPL(xdp_do_flush_map);
+> >
+> > +static void *__xdp_map_lookup_elem(struct bpf_map *map, u32 index)
+> > +{
+> > +	switch (map->map_type) {
+> > +	case BPF_MAP_TYPE_DEVMAP:
+> > +		return __dev_map_lookup_elem(map, index);
+> > +	case BPF_MAP_TYPE_CPUMAP:
+> > +		return __cpu_map_lookup_elem(map, index);
+> > +	default:
+> > +		return NULL;
+> > +	}  
 > 
-> Please don't do this, the way the author formatted the strings was 
-> intentional, they intended to print out:
-> 
-> 	NAME: cs89%c0%s rev %c found at %#8lx IRQ %d ADDR %pM
-> 
-> But now you are splitting it into multiple lines.
+> Should we just have a callback and instead of the above use
+> map->ptr_lookup_elem() (or however we name it) ... lot of it
+> is pretty much the same logic as with devmap.
 
-Right.
+We could extend struct bpf_map *map with such a callback, I was just
+afraid that this would be too invasive.
 
-> Also, you're printing the IRQ information after register_netdev() which 
-> is bad.  As soon as register_netdev() is called, the driver's
-> ->open() routine can be invoked, and during which time some
-> log messages could be emitted during that operation.
-> 
-> And that would cut the probe messages up.
-> 
+Performance wise, I don't thinks will hurt too much.
+http://www.cipht.net/2017/10/03/are-jump-tables-always-fastest.html
 
-Yes and no. The thing is, "IRQ %d" isn't really a "probe message" and 
-doesn't need to be logged at all: the IRQ is entirely fixed. Actually the 
-same is true for the macmace driver. There is value in this information 
-but it can be found in /proc/interrupts so I'd happily drop the "IRQ %d" 
-portion from these log messages.
 
-> I know how you got to this state, you saw a reference to dev->name 
-> before it had a real value.  You just removed the "eth%d" string 
-> entirely.  And since you removed the dev->name reference, you had no 
-> reason to move log messages after register_netdev() at all.
-> 
-
-Not quite. I used the "MAC %pM, IRQ %d" style for consistency with other 
-NIC drivers. Though consistency in itself may be insufficient 
-justification. More importantly, I wanted the MAC address logged together 
-with the actual interface name. That's how I arrived at this code.
-
-> Anyways, you can also see the intention of the author here becuase they 
-> have _explicit_ leading newlines in the error path messages that come 
-> after the inital probe printk.
+> > +}
+> > +
+> >   static inline bool xdp_map_invalid(const struct bpf_prog *xdp_prog,
+> >   				   unsigned long aux)
+> >   {
+> > @@ -2551,8 +2599,8 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+> >   	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> >   	unsigned long map_owner = ri->map_owner;
+> >   	struct bpf_map *map = ri->map;
+> > -	struct net_device *fwd = NULL;
+> >   	u32 index = ri->ifindex;
+> > +	void *fwd = NULL;
+> >   	int err;
+> >
+> >   	ri->ifindex = 0;  
 > 
 
-Of course. I do understand the existing code. And the code actually 
-reflects the intentions of the author of the ISA driver. Having the IRQ 
-logged could be really valuable to the typical ISA card user but this 
-platform is not ISA.
 
-> The real way to fix the early dev->name reference is to replace it with 
-> a dev_info() call and have it use the struct device name rather than the 
-> netdev device one.
-> 
-
-This driver only runs on machines with one expansion slot (called a "Comm 
-Slot"). So I figured that either pr_info() or printk(KERN_INFO ...) would 
-do just fine here (always has done). I did consider dev_info() but I don't 
-see the benefit. I'm probably missing something, so would you elaborate 
-please?
-
-BTW I've also used pr_info() elsewhere in this series in platform drivers. 
-It's not yet clear to me whether the mac89x0 driver should ultimately bind 
-to a platform device or a nubus device: comm slot cards are a bit of 
-each.
-
-> Again, I think you really shouldn't be making these small weird changes 
-> to these old drivers.
-> 
-
-These are weird changes befitting a weird platform.
-
-I understand your reluctance to touch legacy drivers, but my intention is 
-not change for the sake of change. There is bitrot here. Sometimes that's 
-due to the rest of the kernel having changed and sometimes it's due to 
-actual damage of the kind you seem to fear. I'm trying to address both.
 
 -- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
