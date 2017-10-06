@@ -1,36 +1,57 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH 1/3] samples/bpf: xdp_monitor first 8 bytes are
- not accessible by bpf
-Date: Fri, 6 Oct 2017 09:13:27 -0700
-Message-ID: <20171006161325.274axwwcgliuxmkz@ast-mbp.dhcp.thefacebook.com>
-References: <150727927390.4460.3200093291677318710.stgit@firesoul>
- <150727930151.4460.3117254071267380300.stgit@firesoul>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net] bpf: fix liveness marking
+Date: Fri, 6 Oct 2017 17:33:10 +0100
+Message-ID: <759810f5-f6db-0439-1b2d-637cf83ac2f8@solarflare.com>
+References: <20171005232056.2234669-1-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <daniel@iogearbox.net>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35192 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752017AbdJFQNb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 12:13:31 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i23so17108806pfi.2
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 09:13:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <150727930151.4460.3117254071267380300.stgit@firesoul>
+Received: from dispatch1-us1.ppe-hosted.com ([148.163.129.52]:48268 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751423AbdJFQdV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 12:33:21 -0400
+In-Reply-To: <20171005232056.2234669-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 06, 2017 at 10:41:41AM +0200, Jesper Dangaard Brouer wrote:
-> The first 8 bytes of the tracepoint context struct are not accessible
-> by the bpf code.  This is a choice that dates back to the original
-> inclusion of this code.
-> 
-> See explaination in:
->  commit 98b5c2c65c29 ("perf, bpf: allow bpf programs attach to tracepoints")
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
-thank you for fixing it.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+On 06/10/17 00:20, Alexei Starovoitov wrote:
+> while processing Rx = Ry instruction the verifier does
+> regs[insn->dst_reg] = regs[insn->src_reg]
+> which often clears write mark (when Ry doesn't have it)
+> that was just set by check_reg_arg(Rx) prior to the assignment.
+> That causes mark_reg_read() to keep marking Rx in this block as
+> REG_LIVE_READ (since the logic incorrectly misses that it's
+> screened by the write) and in many of its parents (until lucky
+> write into the same Rx or beginning of the program).
+> That causes is_state_visited() logic to miss many pruning opportunities.
+Good catch!
+> Furthermore mark_reg_read() logic propagates the read mark
+> for BPF_REG_FP as well (though it's readonly) which causes
+> harmless but unnecssary work during is_state_visited().
+Surely it's unnecessary for is_state_visited() to even look at
+ BPF_REG_FP anyway, so in addition to your change we could make
+ states_equal just do `for (i = 0; i < BPF_REG_FP; i++)`?  That
+ might save a bit more time.
+> Note that do_propagate_liveness() skips FP correctly,
+> so do the same in mark_reg_read() as well.
+> It saves 0.2 seconds for the test below
+>
+> program               before  after
+> bpf_lb-DLB_L3.o       2604    2304
+> bpf_lb-DLB_L4.o       11159   3723
+> bpf_lb-DUNKNOWN.o     1116    1110
+> bpf_lxc-DDROP_ALL.o   34566   28004
+> bpf_lxc-DUNKNOWN.o    53267   39026
+> bpf_netdev.o          17843   16943
+> bpf_overlay.o         8672    7929
+> time                  ~11 sec  ~4 sec
+>
+> Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Very nice numbers!
+Acked-by: Edward Cree <ecree@solarflare.com>
