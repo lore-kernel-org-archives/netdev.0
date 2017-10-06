@@ -1,55 +1,45 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH v2] isdn/gigaset: Convert timers to use timer_setup()
-Date: Fri, 6 Oct 2017 12:39:56 -0700
-Message-ID: <CAGXu5jJaMODs0NNasPY97wiXeQJ-Y5G+qLrFbwquhGJj=o3rxA@mail.gmail.com>
-References: <20171005193118.GA105874@beast> <1507316433.6960.19.camel@tiscali.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Johan Hovold <johan@kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        gigaset307x-common@lists.sourceforge.net,
-        Network Development <netdev@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>
+From: Jonathan Toppins <jtoppins@redhat.com>
+Subject: [PATCH net-next 2/2] bnxt_en: tc: only the function prototypes need to be wrapped in #ifdef
+Date: Fri,  6 Oct 2017 15:48:31 -0400
+Message-ID: <a58d04f653e79b12c86eaa67f768f4ff64b2a975.1507319311.git.jtoppins@redhat.com>
+References: <1a4d96f368f199bba0425012f50d55d634484cce.1507319311.git.jtoppins@redhat.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org (open list)
+To: michael.chan@broadcom.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507316433.6960.19.camel@tiscali.nl>
+In-Reply-To: <1a4d96f368f199bba0425012f50d55d634484cce.1507319311.git.jtoppins@redhat.com>
+In-Reply-To: <1a4d96f368f199bba0425012f50d55d634484cce.1507319311.git.jtoppins@redhat.com>
+References: <1a4d96f368f199bba0425012f50d55d634484cce.1507319311.git.jtoppins@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 6, 2017 at 12:00 PM, Paul Bolle <pebolle@tiscali.nl> wrote:
-> On Thu, 2017-10-05 at 12:31 -0700, Kees Cook wrote:
->> --- a/drivers/isdn/gigaset/bas-gigaset.c
->> +++ b/drivers/isdn/gigaset/bas-gigaset.c
->
->> -static void cmd_in_timeout(unsigned long data)
->> +static void cmd_in_timeout(struct timer_list *t)
->>  {
->> -     struct cardstate *cs = (struct cardstate *) data;
->> -     struct bas_cardstate *ucs = cs->hw.bas;
->> +     struct bas_cardstate *ucs = from_timer(ucs, t, timer_cmd_in);
->> +     struct urb *urb = ucs->urb_int_in;
->> +     struct cardstate *cs = urb->context;
->
-> This makes me nervous. Are you sure urb->context points to a struct cardstate
-> here and in the other two places this patch changes?
->
-> Anyhow, I'd like to have some time to do my review. So what's your timeframe
-> here? I do hope I have at least a few weeks. (In other words: I hope gigaset
-> isn't the only driver where the ability to use random pointers in these timer
-> callbacks is removed.)
+There is no reason to wrap the data structures inside the ifdef.
 
-Hi!
+Signed-off-by: Jonathan Toppins <jtoppins@redhat.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I'm in no rush for any specific change. There are about 900 call sites
-I'm making my way through, about 2/3rd are pretty trivial, and the
-less obvious is what I've started sending out now, since I expect some
-will need some more careful review.
-
-Thanks for taking a look at it!
-
--Kees
-
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+index 6c4c1ed279ef..6e771e9eed51 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+@@ -10,8 +10,6 @@
+ #ifndef BNXT_TC_H
+ #define BNXT_TC_H
+ 
+-#ifdef CONFIG_BNXT_FLOWER_OFFLOAD
+-
+ /* Structs used for storing the filter/actions of the TC cmd.
+  */
+ struct bnxt_tc_l2_key {
+@@ -133,6 +131,8 @@ struct bnxt_tc_flow_node {
+ 	struct rcu_head			rcu;
+ };
+ 
++#if IS_ENABLED(CONFIG_BNXT_FLOWER_OFFLOAD)
++
+ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
+ 			 struct tc_cls_flower_offload *cls_flower);
+ int bnxt_init_tc(struct bnxt *bp);
 -- 
-Kees Cook
-Pixel Security
+2.13.6
