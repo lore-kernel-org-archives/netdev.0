@@ -1,146 +1,78 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 2/3] bpf: Use char in prog and map name
-Date: Thu, 5 Oct 2017 21:52:12 -0700
-Message-ID: <20171006045213.752372-3-kafai@fb.com>
+Subject: [PATCH net-next 3/3] bpf: Append prog->aux->name in bpf_get_prog_name()
+Date: Thu, 5 Oct 2017 21:52:13 -0700
+Message-ID: <20171006045213.752372-4-kafai@fb.com>
 References: <20171006045213.752372-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
+        Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:44048 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55746 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750863AbdJFEwT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:52:19 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v964o7n9021771
-        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 21:52:19 -0700
+        by vger.kernel.org with ESMTP id S1750863AbdJFEw3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 00:52:29 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v964oMaK000957
+        for <netdev@vger.kernel.org>; Thu, 5 Oct 2017 21:52:29 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2ddxebh5he-5
+        by mx0a-00082601.pphosted.com with ESMTP id 2de2thr2b1-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 21:52:19 -0700
+        for <netdev@vger.kernel.org>; Thu, 05 Oct 2017 21:52:29 -0700
 In-Reply-To: <20171006045213.752372-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of u8, use char for prog and map name.  It can avoid the
-userspace tool getting compiler's signess warning.  The
-bpf_prog_aux, bpf_map, bpf_attr, bpf_prog_info and
-bpf_map_info are changed.
+This patch makes the bpf_prog's name available
+in kallsyms.
+
+The new format is bpf_prog_tag[_name].
+
+Sample kallsyms from running selftests/bpf/test_progs:
+[root@arch-fb-vm1 ~]# egrep ' bpf_prog_[0-9a-fA-F]{16}' /proc/kallsyms
+ffffffffa0048000 t bpf_prog_dabf0207d1992486_test_obj_id
+ffffffffa0038000 t bpf_prog_a04f5eef06a7f555__123456789ABCDE
+ffffffffa0050000 t bpf_prog_a04f5eef06a7f555
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@fb.com>
 ---
- include/linux/bpf.h            | 4 ++--
- include/uapi/linux/bpf.h       | 8 ++++----
- tools/include/uapi/linux/bpf.h | 8 ++++----
- 3 files changed, 10 insertions(+), 10 deletions(-)
+ kernel/bpf/core.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index a67daea731ab..bc7da2ddfcaf 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -56,7 +56,7 @@ struct bpf_map {
- 	struct work_struct work;
- 	atomic_t usercnt;
- 	struct bpf_map *inner_map_meta;
--	u8 name[BPF_OBJ_NAME_LEN];
-+	char name[BPF_OBJ_NAME_LEN];
- };
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index c6be15ae83ee..248961af2421 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -309,12 +309,25 @@ bpf_get_prog_addr_region(const struct bpf_prog *prog,
  
- /* function argument constraints */
-@@ -189,7 +189,7 @@ struct bpf_prog_aux {
- 	struct bpf_prog *prog;
- 	struct user_struct *user;
- 	u64 load_time; /* ns since boottime */
--	u8 name[BPF_OBJ_NAME_LEN];
-+	char name[BPF_OBJ_NAME_LEN];
- 	union {
- 		struct work_struct work;
- 		struct rcu_head	rcu;
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 6082faf5fd2a..a37ad348c436 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -230,7 +230,7 @@ union bpf_attr {
- 		__u32	numa_node;	/* numa node (effective only if
- 					 * BPF_F_NUMA_NODE is set).
- 					 */
--		__u8	map_name[BPF_OBJ_NAME_LEN];
-+		char	map_name[BPF_OBJ_NAME_LEN];
- 	};
+ static void bpf_get_prog_name(const struct bpf_prog *prog, char *sym)
+ {
++	const char *end = sym + KSYM_NAME_LEN;
++
+ 	BUILD_BUG_ON(sizeof("bpf_prog_") +
+-		     sizeof(prog->tag) * 2 + 1 > KSYM_NAME_LEN);
++		     sizeof(prog->tag) * 2 +
++		     /* name has been null terminated.
++		      * We should need +1 for the '_' preceding
++		      * the name.  However, the null character
++		      * is double counted between the name and the
++		      * sizeof("bpf_prog_") above, so we omit
++		      * the +1 here.
++		      */
++		     sizeof(prog->aux->name) > KSYM_NAME_LEN);
  
- 	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-@@ -253,7 +253,7 @@ union bpf_attr {
- 		__aligned_u64	log_buf;	/* user supplied buffer */
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
- 		__u32		prog_flags;
--		__u8		prog_name[BPF_OBJ_NAME_LEN];
-+		char		prog_name[BPF_OBJ_NAME_LEN];
- 	};
+ 	sym += snprintf(sym, KSYM_NAME_LEN, "bpf_prog_");
+ 	sym  = bin2hex(sym, prog->tag, sizeof(prog->tag));
+-	*sym = 0;
++	if (prog->aux->name[0])
++		snprintf(sym, (size_t)(end - sym), "_%s", prog->aux->name);
++	else
++		*sym = 0;
+ }
  
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
-@@ -869,7 +869,7 @@ struct bpf_prog_info {
- 	__u32 created_by_uid;
- 	__u32 nr_map_ids;
- 	__aligned_u64 map_ids;
--	__u8  name[BPF_OBJ_NAME_LEN];
-+	char name[BPF_OBJ_NAME_LEN];
- } __attribute__((aligned(8)));
- 
- struct bpf_map_info {
-@@ -879,7 +879,7 @@ struct bpf_map_info {
- 	__u32 value_size;
- 	__u32 max_entries;
- 	__u32 map_flags;
--	__u8  name[BPF_OBJ_NAME_LEN];
-+	char  name[BPF_OBJ_NAME_LEN];
- } __attribute__((aligned(8)));
- 
- /* User bpf_sock_ops struct to access socket values and specify request ops
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index cb2b9f95160a..f75ac330831d 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -230,7 +230,7 @@ union bpf_attr {
- 		__u32	numa_node;	/* numa node (effective only if
- 					 * BPF_F_NUMA_NODE is set).
- 					 */
--		__u8	map_name[BPF_OBJ_NAME_LEN];
-+		char	map_name[BPF_OBJ_NAME_LEN];
- 	};
- 
- 	struct { /* anonymous struct used by BPF_MAP_*_ELEM commands */
-@@ -253,7 +253,7 @@ union bpf_attr {
- 		__aligned_u64	log_buf;	/* user supplied buffer */
- 		__u32		kern_version;	/* checked when prog_type=kprobe */
- 		__u32		prog_flags;
--		__u8		prog_name[BPF_OBJ_NAME_LEN];
-+		char		prog_name[BPF_OBJ_NAME_LEN];
- 	};
- 
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
-@@ -869,7 +869,7 @@ struct bpf_prog_info {
- 	__u32 created_by_uid;
- 	__u32 nr_map_ids;
- 	__aligned_u64 map_ids;
--	__u8  name[BPF_OBJ_NAME_LEN];
-+	char  name[BPF_OBJ_NAME_LEN];
- } __attribute__((aligned(8)));
- 
- struct bpf_map_info {
-@@ -879,7 +879,7 @@ struct bpf_map_info {
- 	__u32 value_size;
- 	__u32 max_entries;
- 	__u32 map_flags;
--	__u8  name[BPF_OBJ_NAME_LEN];
-+	char  name[BPF_OBJ_NAME_LEN];
- } __attribute__((aligned(8)));
- 
- /* User bpf_sock_ops struct to access socket values and specify request ops
+ static __always_inline unsigned long
 -- 
 2.9.5
