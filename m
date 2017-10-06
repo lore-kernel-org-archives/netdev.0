@@ -1,123 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 00/16] ipv6: replace rwlock with rcu and
- spinlock in fib6 table
-Date: Fri, 06 Oct 2017 16:49:55 -0700
-Message-ID: <1507333795.14419.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171006190611.110633-1-tracywwnj@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>
-To: Wei Wang <weiwan@google.com>
+From: Ivan Delalande <colona@arista.com>
+Subject: [PATCH iproute2 1/2] utils: add print_escape_buf to format and print arbitrary bytes
+Date: Fri,  6 Oct 2017 16:48:19 -0700
+Message-ID: <20171006234820.27567-1-colona@arista.com>
+Cc: netdev@vger.kernel.org, Ivan Delalande <colona@arista.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:37668 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752731AbdJFXt5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:49:57 -0400
-Received: by mail-pf0-f193.google.com with SMTP id e69so17858494pfg.4
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 16:49:57 -0700 (PDT)
-In-Reply-To: <20171006190611.110633-1-tracywwnj@gmail.com>
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:33745 "EHLO
+        prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751980AbdJFX6C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 19:58:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-10-06 at 12:05 -0700, Wei Wang wrote:
-> From: Wei Wang <weiwan@google.com>
-> 
-> Currently, fib6 table is protected by rwlock. During route lookup,
-> reader lock is taken and during route insertion, deletion or
-> modification, writer lock is taken. This is a very inefficient
-> implementation because the fastpath always has to do the operation
-> to grab the reader lock.
-> According to my latest syn flood test on an iota ivybridage machine
-> with 2 10G mlx nics bonded together, each with 8 rx queues on 2 NUMA
-> nodes, and with the upstream net-next kernel:
-> ipv4 stack can handle around 4.2Mpps
-> ipv6 stack can handle around 1.3Mpps
-> 
-> In order to close the gap of the performance number between ipv4
-> and ipv6 stack, this patch series tries to get rid of the usage of
-> the rwlock and replace it with rcu and spinlock protection. This will
-> greatly speed up the fastpath performance as it only needs to hold
-> rcu which is much less expensive than grabbing the reader lock. It
-> also makes ipv6 fib implementation more consistent with ipv4.
-> 
-> In order to be able to replace the current rwlock with rcu and
-> spinlock, some preparation work is needed:
-> Patch 1-8 introduces a per-route hash table (protected by rcu and a
-> different spinlock) to store all cached routes created by pmtu and ip
-> redirect under its main route. This makes the main fib6 tree only
-> contain static routes.
-> Patch 9-14 prepares all the reader path to be ready to tolerate
-> concurrent writer.
-> Patch 15 finally does the rwlock to rcu and spinlock conversion.
-> Patch 16 takes care of rt6_stats.
-> 
-> After this patch series, in the same syn flood test,
-> ipv6 stack can now handle around 3.5Mpps compared to previous 1.3Mpps
-> in my test setup.
-> 
-> After this patch series, there are still some improvements that should
-> be done in ipv6 stack:
-> 1. During route lookup, dst_use() is called everytime on the selected
-> route to update dst->__use and dst->lastuse. This dirties the cacheline 
-> and causes extra cacheline miss and should be avoided.
-> 2. when no route is found in the current table, net->ip6.ipv6_null_entry
-> is used and refcnt is taken on it. As there is no pcpu cache for this
-> specific route, frequent change on the refcnt for this route causes
-> quite some cacheline misses.
-> And to make things worse, if CONFIG_IPV6_MULTIPLE_TABLES is defined,
-> output path route lookup always starts with local table first and
-> guarantees to hit net->ipv6.ip6_null_entry before continuing to do
-> lookup in the main table.
-> These operations on net->ipv6.ip6_null_entry could potentially be
-> avoided.
-> 3. ipv6 input path route lookup grabs refcnt on dst. This is different
-> from ipv4. We could potentially change this behavior to let ipv6 input
-> path route lookup not to grab refcnt on dst. However, it does not give
-> us much performance boost as we currently have pcpu route cache for
-> input path as well in ipv6. But this work probably is still worth doing
-> to unify ipv6 and ipv4 route lookup behavior.
-> 
-> The above issues will be addressed separately after this patch series
-> has been accepted.
-> 
-> This is a joint work with Martin KaFai Lau and Eric Dumazet. And many
-> many thanks to them for their inspiring ideas and big big code review
-> efforts.
-> 
-> Wei Wang (16):
->   ipv6: introduce a new function fib6_update_sernum()
->   ipv6: introduce a hash table to store dst cache
->   ipv6: prepare fib6_remove_prefsrc() for exception table
->   ipv6: prepare rt6_mtu_change() for exception table
->   ipv6: prepare rt6_clean_tohost() for exception table
->   ipv6: prepare fib6_age() for exception table
->   ipv6: prepare fib6_locate() for exception table
->   ipv6: hook up exception table to store dst cache
->   ipv6: grab rt->rt6i_ref before allocating pcpu rt
->   ipv6: don't release rt->rt6i_pcpu memory during rt6_release()
->   ipv6: replace dst_hold() with dst_hold_safe() in routing code
->   ipv6: update fn_sernum after route is inserted to tree
->   ipv6: check fn->leaf before it is used
->   ipv6: add key length check into rt6_select()
->   ipv6: replace rwlock with rcu and spinlock in fib6_table
->   ipv6: take care of rt6_stats
-> 
->  include/net/dst.h       |   2 +-
->  include/net/ip6_fib.h   |  79 ++++-
->  include/net/ip6_route.h |   5 +
->  net/ipv6/addrconf.c     |  17 +-
->  net/ipv6/ip6_fib.c      | 645 ++++++++++++++++++----------------
->  net/ipv6/route.c        | 901 ++++++++++++++++++++++++++++++++++++++++--------
->  6 files changed, 1179 insertions(+), 470 deletions(-)
-> 
+Keep it as simple as possible for now: just escape anything that is not
+isprint-able, is among the "escape" parameter or '\' as an octal escape
+sequence. This should be pretty easy to extend if any other user needs
+something more complex in the future.
 
-Awesome work Wei.
+Signed-off-by: Ivan Delalande <colona@arista.com>
+---
+ include/utils.h |  2 ++
+ lib/utils.c     | 15 +++++++++++++++
+ 2 files changed, 17 insertions(+)
 
-For the whole series :
-
-Reviewed-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+diff --git a/include/utils.h b/include/utils.h
+index 76addb32..3d91c50d 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -195,6 +195,8 @@ static inline void __jiffies_to_tv(struct timeval *tv, unsigned long jiffies)
+ 	tv->tv_usec = tvusec - 1000000 * tv->tv_sec;
+ }
+ 
++void print_escape_buf(const __u8 *buf, size_t len, const char *escape);
++
+ int print_timestamp(FILE *fp);
+ void print_nlmsg_timestamp(FILE *fp, const struct nlmsghdr *n);
+ 
+diff --git a/lib/utils.c b/lib/utils.c
+index 0cf99619..a494190e 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -31,6 +31,7 @@
+ #include <time.h>
+ #include <sys/time.h>
+ #include <errno.h>
++#include <ctype.h>
+ 
+ #include "rt_names.h"
+ #include "utils.h"
+@@ -1047,6 +1048,20 @@ int addr64_n2a(__u64 addr, char *buff, size_t len)
+ 	return written;
+ }
+ 
++/* Print buffer and escape bytes that are !isprint or among 'escape' */
++void print_escape_buf(const __u8 *buf, size_t len, const char *escape)
++{
++	size_t i;
++
++	for (i = 0; i < len; ++i) {
++		if (isprint(buf[i]) && buf[i] != '\\' &&
++		    !strchr(escape, buf[i]))
++			printf("%c", buf[i]);
++		else
++			printf("\\%03o", buf[i]);
++	}
++}
++
+ int print_timestamp(FILE *fp)
+ {
+ 	struct timeval tv;
+-- 
+2.14.2
