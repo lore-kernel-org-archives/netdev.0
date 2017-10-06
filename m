@@ -1,50 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 Wake-on-LAN causes immediate ACPI GPE wakeup
-Date: Fri, 6 Oct 2017 02:16:50 +0200
-Message-ID: <20171006001649.GA21884@electric-eye.fr.zoreil.com>
-References: <CAD8Lp45YVtw48+8jSq6gtu1xA7Rt+qr6vvVZF4AC-QXeCKNj4w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 06/12] qed: Add LL2 slowpath handling
+Date: Thu, 05 Oct 2017 17:20:13 -0700 (PDT)
+Message-ID: <20171005.172013.746380495399822.davem@davemloft.net>
+References: <CY1PR0701MB2012A2F8E3E923D98B1E1A6488700@CY1PR0701MB2012.namprd07.prod.outlook.com>
+        <20171005.120629.2161199733119811102.davem@davemloft.net>
+        <CY1PR0701MB201241C43A192735A0F1EEDD88700@CY1PR0701MB2012.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-        linux-acpi@vger.kernel.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Linux Upstreaming Team <linux@endlessm.com>
-To: Daniel Drake <drake@endlessm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        dledford@redhat.com, Ariel.Elior@cavium.com
+To: Michal.Kalderon@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:40310 "EHLO
-        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751083AbdJFAQ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 20:16:58 -0400
-Content-Disposition: inline
-In-Reply-To: <CAD8Lp45YVtw48+8jSq6gtu1xA7Rt+qr6vvVZF4AC-QXeCKNj4w@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54030 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751432AbdJFAUP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Oct 2017 20:20:15 -0400
+In-Reply-To: <CY1PR0701MB201241C43A192735A0F1EEDD88700@CY1PR0701MB2012.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Drake <drake@endlessm.com> :
-[...]
-> Also, is there a standard behaviour defined for ethernet drivers
-> regarding wake-on-LAN? r8169 appears to enable wake-on-LAN by default
-> if it believes the hardware is capable of it,
+From: "Kalderon, Michal" <Michal.Kalderon@cavium.com>
+Date: Thu, 5 Oct 2017 20:27:22 +0000
 
-If so it isn't its designed behavior.
+> The spinlock is required for the case that rx buffers are posted
+> from a different thread, where it could be run simultaneously to the
+> rxq_completion.
 
-The r8169 driver does not enable specific WoL event source (unicast packet,
-link, etc.). It should keep the current settings unless one of those holds:
-- explicit wol config from userspace (obviously :o) )
-- runtime pm requires different settings to resume. The change should
-  be temporary (save before suspend, restore after resume).
+This only brings us back to my original argument, if the lock is
+necessary in order to synchronize with those paths, how can you
+possible drop the lock safely here?
 
-The device is supposed to require both an event source + Config1.PMEnable.
-
-A problem may happen if some event source bit is already set while
-Config1.PMEnable is not. The driver has been forcing Config1.PMEnable
-since 5d06a99f543e734ceb53bbc9e550537be97f0c49. One may thus experience
-transition from inconsistent wol settings to enabled ones (if you want
-to dig it, check beforehand if Config1.PMEnable is really read-write or
-hardwired to 1).
-
-Whatever it seems rather orthogonal with your wake over wifi style instant
-resume symptom.
-
--- 
-Ueimor
+Is it because you re-read the head and tail pointers of the queue each
+time around the loop?
