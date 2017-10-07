@@ -1,52 +1,135 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net 1/1] tipc: correct initialization of skb list
-Date: Sat, 7 Oct 2017 14:32:49 +0200
-Message-ID: <1507379569-26507-1-git-send-email-jon.maloy@ericsson.com>
+From: icenowy-h8G6r0blFSE@public.gmane.org
+Subject: Re: [PATCH v3 1/2] dt-bindings: add device tree binding
+ for Allwinner XR819 SDIO Wi-Fi
+Date: Sat, 07 Oct 2017 21:01:51 +0800
+Message-ID: <46e9b7199a2668842313504273f9f86a@aosc.io>
+References: <20171003165944.13056-1-icenowy@aosc.io>
+ <20171003165944.13056-2-icenowy@aosc.io>
+ <871smjxp46.fsf@kamboji.qca.qualcomm.com>
+ <E46F3A20-294A-497E-AF71-C77A67AFDB8C@aosc.io>
+ <59D4B1C8.8020105@broadcom.com> <20171004101145.kgjufpcktodppuy3@flea>
+ <C4895259-FCDE-4B21-BB15-8F150FC53BE3@aosc.io>
+ <878tgq5beu.fsf@codeaurora.org>
+Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:58937 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751027AbdJGMc7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 08:32:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arend van Spriel
+ <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Maxime
+ Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+ linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-sunxi+bncBDS6XAN6ZADRBQFA4PHAKGQEHZNQVQI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <878tgq5beu.fsf-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-We change the initialization of the skb transmit buffer queues
-in the functions tipc_bcast_xmit() and tipc_rcast_xmit() to also
-initialize their spinlocks. This is needed because we may, during
-error conditions, need to call skb_queue_purge() on those queues
-further down the stack.
+=E5=9C=A8 2017-10-05 14:58=EF=BC=8CKalle Valo =E5=86=99=E9=81=93=EF=BC=9A
+> Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org> writes:
+>=20
+>> =E4=BA=8E 2017=E5=B9=B410=E6=9C=884=E6=97=A5 GMT+08:00 =E4=B8=8B=E5=8D=
+=886:11:45, Maxime Ripard
+>> <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org> =E5=86=99=E5=88=B0:
+>>> On Wed, Oct 04, 2017 at 10:02:48AM +0000, Arend van Spriel wrote:
+>>>> On 10/4/2017 11:03 AM, Icenowy Zheng wrote:
+>>>> >
+>>>> >
+>>>> > =E4=BA=8E 2017=E5=B9=B410=E6=9C=884=E6=97=A5 GMT+08:00 =E4=B8=8B=E5=
+=8D=885:02:17, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+>>> =E5=86=99=E5=88=B0:
+>>>> > > Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org> writes:
+>>>> > >
+>>>> > > > Allwinner XR819 is a SDIO Wi-Fi chip, which has the
+>>> functionality to
+>>>> > > use
+>>>> > > > an out-of-band interrupt pin instead of SDIO in-band interrupt.
+>>>> > > >
+>>>> > > > Add the device tree binding of this chip, in order to make it
+>>>> > > possible
+>>>> > > > to add this interrupt pin to device trees.
+>>>> > > >
+>>>> > > > Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+>>>> > > > Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>>> > > > ---
+>>>> > > > Changes in v3:
+>>>> > > > - Renames the node name.
+>>>> > > > - Adds ACK from Rob.
+>>>> > > > Changes in v2:
+>>>> > > > - Removed status property in example.
+>>>> > > > - Added required property reg.
+>>>> > > >
+>>>> > > >   .../bindings/net/wireless/allwinner,xr819.txt      | 38
+>>>> > > ++++++++++++++++++++++
+>>>> > > >   1 file changed, 38 insertions(+)
+>>>> > > >   create mode 100644
+>>>> > >
+>>> Documentation/devicetree/bindings/net/wireless/allwinner,xr819.txt
+>>>> > >
+>>>> > > Like I asked already last time, AFAICS there is no upstream xr819
+>>>> > > wireless driver in drivers/net/wireless directory. Do we still
+>>> accept
+>>>> > > bindings like this for out-of-tree drivers?
+>>>> >
+>>>> > See esp8089.
+>>>> >
+>>>> > There's also no in-tree driver for it.
+>>>>=20
+>>>> The question is whether we should. The above might be a precedent,
+>>> but it
+>>>> may not necessarily be the way to go. The commit message for esp8089
+>>> seems
+>>>> to hint that there is intent to have an in-tree driver:
+>>>>=20
+>>>> """
+>>>>     Note that at this point there only is an out of tree driver for
+>>> this
+>>>>     hardware, there is no clear timeline / path for merging this.
+>>> Still
+>>>>     I believe it would be good to specify the binding for this in
+>>> tree
+>>>>     now, so that any future migration to an in tree driver will not
+>>> cause
+>>>>     compatiblity issues.
+>>>>=20
+>>>>     Cc: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+>>>>     Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>>     Signed-off-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+>>>> """
+>>>>=20
+>>>> Regardless the bindings are in principle independent of the kernel
+>>> and just
+>>>> describing hardware. I think there have been discussions to move the
+>>>> bindings to their own repository, but apparently it was decided
+>>> otherwise.
+>>>=20
+>>> Yeah, I guess especially how it could be merged with the cw1200=20
+>>> driver
+>>> would be very relevant to that commit log.
+>>=20
+>> The cw1200 driver seems to still have some legacy platform
+>> data. Maybe they should also be convert to DT.
+>> (Or maybe compatible =3D "allwinner,xr819" is enough, as
+>> xr819 is a specified variant of cw1200 family)
+>=20
+> Ah, so the upstream cw1200 driver supports xr819? Has anyone tested
+> that? Or does cw1200 more changes than just adding the DT support?
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bcast.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+By doing some tests, XR819 is in the the CW1x60 family, which is not
+yet well supported by cw1200 driver.
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 7d99029..a140dd4 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -233,7 +233,7 @@ static int tipc_bcast_xmit(struct net *net, struct sk_buff_head *pkts,
- 	struct sk_buff_head xmitq;
- 	int rc = 0;
- 
--	__skb_queue_head_init(&xmitq);
-+	skb_queue_head_init(&xmitq);
- 	tipc_bcast_lock(net);
- 	if (tipc_link_bc_peers(l))
- 		rc = tipc_link_xmit(l, pkts, &xmitq);
-@@ -263,7 +263,7 @@ static int tipc_rcast_xmit(struct net *net, struct sk_buff_head *pkts,
- 	u32 dst, selector;
- 
- 	selector = msg_link_selector(buf_msg(skb_peek(pkts)));
--	__skb_queue_head_init(&_pkts);
-+	skb_queue_head_init(&_pkts);
- 
- 	list_for_each_entry_safe(n, tmp, &dests->list, list) {
- 		dst = n->value;
--- 
-2.1.4
+More work should be needed for support xr819 in cw1200 driver.
+
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
