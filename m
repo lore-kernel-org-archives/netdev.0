@@ -1,46 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v7 0/5] bpf: add two helpers to read perf
- event enabled/running time
-Date: Sat, 07 Oct 2017 23:06:15 +0100 (WEST)
-Message-ID: <20171007.230615.453122717434468471.davem@davemloft.net>
-References: <20171005161923.332790-1-yhs@fb.com>
+Subject: Re: [PATCH] ipv6: fix net.ipv6.conf.all.accept_dad behaviour for
+ real
+Date: Sat, 07 Oct 2017 23:11:59 +0100 (WEST)
+Message-ID: <20171007.231159.210016932080491947.davem@davemloft.net>
+References: <20171005170305.30065-1-mcroce@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, rostedt@goodmis.org, ast@fb.com,
-        daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: yhs@fb.com
+Cc: netdev@vger.kernel.org, ek@google.com
+To: mcroce@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42812 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42870 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752710AbdJGWJD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 18:09:03 -0400
-In-Reply-To: <20171005161923.332790-1-yhs@fb.com>
+        with ESMTP id S1751940AbdJGWMQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 18:12:16 -0400
+In-Reply-To: <20171005170305.30065-1-mcroce@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yonghong Song <yhs@fb.com>
-Date: Thu, 5 Oct 2017 09:19:18 -0700
+From: Matteo Croce <mcroce@redhat.com>
+Date: Thu,  5 Oct 2017 19:03:05 +0200
 
-> Hardware pmu counters are limited resources. When there are more
-> pmu based perf events opened than available counters, kernel will
-> multiplex these events so each event gets certain percentage
-> (but not 100%) of the pmu time. In case that multiplexing happens,
-> the number of samples or counter value will not reflect the
-> case compared to no multiplexing. This makes comparison between
-> different runs difficult.
+> Commit 35e015e1f577 ("ipv6: fix net.ipv6.conf.all interface DAD handlers")
+> was intended to affect accept_dad flag handling in such a way that
+> DAD operation and mode on a given interface would be selected
+> according to the maximum value of conf/{all,interface}/accept_dad.
 > 
-> Typically, the number of samples or counter value should be
-> normalized before comparing to other experiments. The typical
-> normalization is done like:
->   normalized_num_samples = num_samples * time_enabled / time_running
->   normalized_counter_value = counter_value * time_enabled / time_running
-> where time_enabled is the time enabled for event and time_running is
-> the time running for event since last normalization.
+> However, addrconf_dad_begin() checks for particular cases in which we
+> need to skip DAD, and this check was modified in the wrong way.
 > 
-> This patch set implements two helper functions.
-> The helper bpf_perf_event_read_value reads counter/time_enabled/time_running
-> for perf event array map. The helper bpf_perf_prog_read_value read
-> counter/time_enabled/time_running for bpf prog with type BPF_PROG_TYPE_PERF_EVENT.
+> Namely, it was modified so that, if the accept_dad flag is 0 for the
+> given interface *or* for all interfaces, DAD would be skipped.
+> 
+> We have instead to skip DAD if accept_dad is 0 for the given interface
+> *and* for all interfaces.
+> 
+> Fixes: 35e015e1f577 ("ipv6: fix net.ipv6.conf.all interface DAD handlers")
+> Acked-by: Stefano Brivio <sbrivio@redhat.com>
+> Signed-off-by: Matteo Croce <mcroce@redhat.com>
 
-Series applied to net-next, thanks.
+Applied.
