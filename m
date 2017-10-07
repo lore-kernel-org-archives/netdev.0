@@ -1,77 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/16] ipv6: replace rwlock with rcu and
- spinlock in fib6 table
-Date: Sat, 07 Oct 2017 21:28:31 +0100 (WEST)
-Message-ID: <20171007.212831.1578627314815022241.davem@davemloft.net>
-References: <20171006190611.110633-1-tracywwnj@gmail.com>
-        <1507333795.14419.23.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CAPA1RqBSKi9ra_UBur6L9HHExZzk9BxSrwSKn2xtvAC5K54N+A@mail.gmail.com>
+Subject: Re: [PATCH v6 1/1] ip_tunnel: add mpls over gre support
+Date: Sat, 07 Oct 2017 21:39:09 +0100 (WEST)
+Message-ID: <20171007.213909.1220990225016361208.davem@davemloft.net>
+References: <cover.1507129836.git.amine.kherbouche@6wind.com>
+        <e2d0ce36a2e811df680cad29d1ae283b6ba0f13d.1507129836.git.amine.kherbouche@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, weiwan@google.com, netdev@vger.kernel.org,
-        edumazet@google.com, kafai@fb.com, yoshfuji@linux-ipv6.org
-To: hideaki.yoshifuji@miraclelinux.com
+Cc: tom@herbertland.com, roopa@cumulusnetworks.com,
+        netdev@vger.kernel.org, equinox@diac24.net
+To: amine.kherbouche@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41528 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41640 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752997AbdJGU2p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 16:28:45 -0400
-In-Reply-To: <CAPA1RqBSKi9ra_UBur6L9HHExZzk9BxSrwSKn2xtvAC5K54N+A@mail.gmail.com>
+        with ESMTP id S1751425AbdJGUj1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 16:39:27 -0400
+In-Reply-To: <e2d0ce36a2e811df680cad29d1ae283b6ba0f13d.1507129836.git.amine.kherbouche@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: 吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
-Date: Sat, 7 Oct 2017 18:25:13 +0900
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Date: Wed,  4 Oct 2017 19:35:57 +0200
 
-> Hi,
+> This commit introduces the MPLSoGRE support (RFC 4023), using ip tunnel
+> API by simply adding ipgre_tunnel_encap_(add|del)_mpls_ops() and the new
+> tunnel type TUNNEL_ENCAP_MPLS.
 > 
-> 2017-10-07 8:49 GMT+09:00 Eric Dumazet <eric.dumazet@gmail.com>:
->> On Fri, 2017-10-06 at 12:05 -0700, Wei Wang wrote:
->>> From: Wei Wang <weiwan@google.com>
->>>
->>> Currently, fib6 table is protected by rwlock. During route lookup,
->>> reader lock is taken and during route insertion, deletion or
->>> modification, writer lock is taken. This is a very inefficient
->>> implementation because the fastpath always has to do the operation
->>> to grab the reader lock.
->>> According to my latest syn flood test on an iota ivybridage machine
->>> with 2 10G mlx nics bonded together, each with 8 rx queues on 2 NUMA
->>> nodes, and with the upstream net-next kernel:
->>> ipv4 stack can handle around 4.2Mpps
->>> ipv6 stack can handle around 1.3Mpps
->>>
->>> In order to close the gap of the performance number between ipv4
->>> and ipv6 stack, this patch series tries to get rid of the usage of
->>> the rwlock and replace it with rcu and spinlock protection. This will
->>> greatly speed up the fastpath performance as it only needs to hold
->>> rcu which is much less expensive than grabbing the reader lock. It
->>> also makes ipv6 fib implementation more consistent with ipv4.
- ...
->> Awesome work Wei.
->>
->> For the whole series :
->>
->> Reviewed-by: Eric Dumazet <edumazet@google.com>
-> 
-> It looks ok to me.
-> Reviewed-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
 
-I have some reservations about these changes, fib6_info gets bigger,
-etc.
-
-And even with the amazing developers that helped review and
-audit these changes already, I can guarantee there are some
-bugs in here just like there were bugs in the ipv4 routing
-cache removal I did :-)
-
-But those don't block integration, for sure.
-
-So series applied, thanks a lot for doing this!
-
-I think there is some code that doesn't use proper RCU accessors
-for rt6i_exception_bucket.  For example there are some assignments
-of it to NULL that should use RCU_ASSIGN_FOO() or similar.  Please
-take a lok and fix those up.
-
-Thanks!
+Applied, thanks.
