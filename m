@@ -1,236 +1,355 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net-next v6 1/3] bridge: add new BR_NEIGH_SUPPRESS port flag to suppress arp and nd flood
-Date: Fri,  6 Oct 2017 22:12:37 -0700
-Message-ID: <1507353159-46814-2-git-send-email-roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v6 3/3] bridge: suppress nd pkts on BR_NEIGH_SUPPRESS ports
+Date: Fri,  6 Oct 2017 22:12:39 -0700
+Message-ID: <1507353159-46814-4-git-send-email-roopa@cumulusnetworks.com>
 References: <1507353159-46814-1-git-send-email-roopa@cumulusnetworks.com>
 Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
         stephen@networkplumber.org, makita.toshiaki@lab.ntt.co.jp,
         bridge@lists.linux-foundation.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:52606 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750822AbdJGFMp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 01:12:45 -0400
-Received: by mail-pg0-f48.google.com with SMTP id i8so1129165pgd.9
-        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 22:12:45 -0700 (PDT)
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:48195 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751057AbdJGFMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 01:12:48 -0400
+Received: by mail-pf0-f174.google.com with SMTP id n24so10464951pfk.5
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 22:12:47 -0700 (PDT)
 In-Reply-To: <1507353159-46814-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-This patch adds a new bridge port flag BR_NEIGH_SUPPRESS to
-suppress arp and nd flood on bridge ports. It implements
-rfc7432, section 10.
-https://tools.ietf.org/html/rfc7432#section-10
-for ethernet VPN deployments. It is similar to the existing
-BR_PROXYARP* flags but has a few semantic differences to conform
-to EVPN standard. Unlike the existing flags, this new flag suppresses
-flood of all neigh discovery packets (arp and nd) to tunnel ports.
-Supports both vlan filtering and non-vlan filtering bridges.
-
-In case of EVPN, it is mainly used to avoid flooding
-of arp and nd packets to tunnel ports like vxlan.
-
-This patch adds netlink and sysfs support to set this bridge port
-flag.
+This patch avoids flooding and proxies ndisc packets
+for BR_NEIGH_SUPPRESS ports.
 
 Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
- include/linux/if_bridge.h    |  1 +
- include/uapi/linux/if_link.h |  1 +
- net/bridge/Makefile          |  2 +-
- net/bridge/br_arp_nd_proxy.c | 32 ++++++++++++++++++++++++++++++++
- net/bridge/br_forward.c      |  2 +-
- net/bridge/br_if.c           |  5 +++++
- net/bridge/br_netlink.c      | 10 +++++++++-
- net/bridge/br_private.h      |  2 ++
- net/bridge/br_sysfs_if.c     |  2 ++
- 9 files changed, 54 insertions(+), 3 deletions(-)
- create mode 100644 net/bridge/br_arp_nd_proxy.c
+ net/bridge/br_arp_nd_proxy.c | 249 +++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_device.c       |  11 ++
+ net/bridge/br_input.c        |  11 ++
+ net/bridge/br_private.h      |   3 +
+ 4 files changed, 274 insertions(+)
 
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index 3cd18ac..316ee11 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -49,6 +49,7 @@ struct br_ip_list {
- #define BR_MULTICAST_TO_UNICAST	BIT(12)
- #define BR_VLAN_TUNNEL		BIT(13)
- #define BR_BCAST_FLOOD		BIT(14)
-+#define BR_NEIGH_SUPPRESS	BIT(15)
- 
- #define BR_DEFAULT_AGEING_TIME	(300 * HZ)
- 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index cd580fc..b037e0a 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -327,6 +327,7 @@ enum {
- 	IFLA_BRPORT_VLAN_TUNNEL,
- 	IFLA_BRPORT_BCAST_FLOOD,
- 	IFLA_BRPORT_GROUP_FWD_MASK,
-+	IFLA_BRPORT_NEIGH_SUPPRESS,
- 	__IFLA_BRPORT_MAX
- };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
-diff --git a/net/bridge/Makefile b/net/bridge/Makefile
-index 40b1ede..4aee55f 100644
---- a/net/bridge/Makefile
-+++ b/net/bridge/Makefile
-@@ -7,7 +7,7 @@ obj-$(CONFIG_BRIDGE) += bridge.o
- bridge-y	:= br.o br_device.o br_fdb.o br_forward.o br_if.o br_input.o \
- 			br_ioctl.o br_stp.o br_stp_bpdu.o \
- 			br_stp_if.o br_stp_timer.o br_netlink.o \
--			br_netlink_tunnel.o
-+			br_netlink_tunnel.o br_arp_nd_proxy.o
- 
- bridge-$(CONFIG_SYSFS) += br_sysfs_if.o br_sysfs_br.o
- 
 diff --git a/net/bridge/br_arp_nd_proxy.c b/net/bridge/br_arp_nd_proxy.c
-new file mode 100644
-index 0000000..f889ad5
---- /dev/null
+index a79c182..2cf7716 100644
+--- a/net/bridge/br_arp_nd_proxy.c
 +++ b/net/bridge/br_arp_nd_proxy.c
-@@ -0,0 +1,32 @@
-+/*
-+ *  Handle bridge arp/nd proxy/suppress
-+ *
-+ *  Copyright (C) 2017 Cumulus Networks
-+ *  Copyright (c) 2017 Roopa Prabhu <roopa@cumulusnetworks.com>
-+ *
-+ *  Authors:
-+ *	Roopa Prabhu <roopa@cumulusnetworks.com>
-+ *
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License
-+ *  as published by the Free Software Foundation; either version
-+ *  2 of the License, or (at your option) any later version.
-+ */
+@@ -21,6 +21,9 @@
+ #include <linux/if_vlan.h>
+ #include <linux/inetdevice.h>
+ #include <net/addrconf.h>
++#if IS_ENABLED(CONFIG_IPV6)
++#include <net/ip6_checksum.h>
++#endif
+ 
+ #include "br_private.h"
+ 
+@@ -218,3 +221,249 @@ void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
+ 	}
+ }
+ #endif
 +
-+#include <linux/kernel.h>
-+#include "br_private.h"
-+
-+void br_recalculate_neigh_suppress_enabled(struct net_bridge *br)
++#if IS_ENABLED(CONFIG_IPV6)
++struct nd_msg *br_is_nd_neigh_msg(struct sk_buff *skb, struct nd_msg *msg)
 +{
-+	struct net_bridge_port *p;
-+	bool neigh_suppress = false;
++	struct nd_msg *m;
 +
-+	list_for_each_entry(p, &br->port_list, list) {
-+		if (p->flags & BR_NEIGH_SUPPRESS) {
-+			neigh_suppress = true;
++	m = skb_header_pointer(skb, skb_network_offset(skb) +
++			       sizeof(struct ipv6hdr), sizeof(*msg), msg);
++	if (!m)
++		return NULL;
++
++	if (m->icmph.icmp6_code != 0 ||
++	    (m->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION &&
++	     m->icmph.icmp6_type != NDISC_NEIGHBOUR_ADVERTISEMENT))
++		return NULL;
++
++	return m;
++}
++
++static void br_nd_send(struct net_bridge *br, struct net_bridge_port *p,
++		       struct sk_buff *request, struct neighbour *n,
++		       __be16 vlan_proto, u16 vlan_tci, struct nd_msg *ns)
++{
++	struct net_device *dev = request->dev;
++	struct net_bridge_vlan_group *vg;
++	struct sk_buff *reply;
++	struct nd_msg *na;
++	struct ipv6hdr *pip6;
++	int na_olen = 8; /* opt hdr + ETH_ALEN for target */
++	int ns_olen;
++	int i, len;
++	u8 *daddr;
++	u16 pvid;
++
++	if (!dev)
++		return;
++
++	len = LL_RESERVED_SPACE(dev) + sizeof(struct ipv6hdr) +
++		sizeof(*na) + na_olen + dev->needed_tailroom;
++
++	reply = alloc_skb(len, GFP_ATOMIC);
++	if (!reply)
++		return;
++
++	reply->protocol = htons(ETH_P_IPV6);
++	reply->dev = dev;
++	skb_reserve(reply, LL_RESERVED_SPACE(dev));
++	skb_push(reply, sizeof(struct ethhdr));
++	skb_set_mac_header(reply, 0);
++
++	daddr = eth_hdr(request)->h_source;
++
++	/* Do we need option processing ? */
++	ns_olen = request->len - (skb_network_offset(request) +
++				  sizeof(struct ipv6hdr)) - sizeof(*ns);
++	for (i = 0; i < ns_olen - 1; i += (ns->opt[i + 1] << 3)) {
++		if (ns->opt[i] == ND_OPT_SOURCE_LL_ADDR) {
++			daddr = ns->opt + i + sizeof(struct nd_opt_hdr);
 +			break;
 +		}
 +	}
 +
-+	br->neigh_suppress_enabled = neigh_suppress;
++	/* Ethernet header */
++	ether_addr_copy(eth_hdr(reply)->h_dest, daddr);
++	ether_addr_copy(eth_hdr(reply)->h_source, n->ha);
++	eth_hdr(reply)->h_proto = htons(ETH_P_IPV6);
++	reply->protocol = htons(ETH_P_IPV6);
++
++	skb_pull(reply, sizeof(struct ethhdr));
++	skb_set_network_header(reply, 0);
++	skb_put(reply, sizeof(struct ipv6hdr));
++
++	/* IPv6 header */
++	pip6 = ipv6_hdr(reply);
++	memset(pip6, 0, sizeof(struct ipv6hdr));
++	pip6->version = 6;
++	pip6->priority = ipv6_hdr(request)->priority;
++	pip6->nexthdr = IPPROTO_ICMPV6;
++	pip6->hop_limit = 255;
++	pip6->daddr = ipv6_hdr(request)->saddr;
++	pip6->saddr = *(struct in6_addr *)n->primary_key;
++
++	skb_pull(reply, sizeof(struct ipv6hdr));
++	skb_set_transport_header(reply, 0);
++
++	na = (struct nd_msg *)skb_put(reply, sizeof(*na) + na_olen);
++
++	/* Neighbor Advertisement */
++	memset(na, 0, sizeof(*na) + na_olen);
++	na->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
++	na->icmph.icmp6_router = 0; /* XXX: should be 1 ? */
++	na->icmph.icmp6_override = 1;
++	na->icmph.icmp6_solicited = 1;
++	na->target = ns->target;
++	ether_addr_copy(&na->opt[2], n->ha);
++	na->opt[0] = ND_OPT_TARGET_LL_ADDR;
++	na->opt[1] = na_olen >> 3;
++
++	na->icmph.icmp6_cksum = csum_ipv6_magic(&pip6->saddr,
++						&pip6->daddr,
++						sizeof(*na) + na_olen,
++						IPPROTO_ICMPV6,
++						csum_partial(na, sizeof(*na) + na_olen, 0));
++
++	pip6->payload_len = htons(sizeof(*na) + na_olen);
++
++	skb_push(reply, sizeof(struct ipv6hdr));
++	skb_push(reply, sizeof(struct ethhdr));
++
++	reply->ip_summed = CHECKSUM_UNNECESSARY;
++
++	if (p)
++		vg = nbp_vlan_group_rcu(p);
++	else
++		vg = br_vlan_group_rcu(br);
++	pvid = br_get_pvid(vg);
++	if (pvid == (vlan_tci & VLAN_VID_MASK))
++		vlan_tci = 0;
++
++	if (vlan_tci)
++		__vlan_hwaccel_put_tag(reply, vlan_proto, vlan_tci);
++
++	netdev_dbg(dev, "nd send dev %s dst %pI6 dst_hw %pM src %pI6 src_hw %pM\n",
++		   dev->name, &pip6->daddr, daddr, &pip6->saddr, n->ha);
++
++	if (p) {
++		dev_queue_xmit(reply);
++	} else {
++		skb_reset_mac_header(reply);
++		__skb_pull(reply, skb_network_offset(reply));
++		reply->ip_summed = CHECKSUM_UNNECESSARY;
++		reply->pkt_type = PACKET_HOST;
++
++		netif_rx_ni(reply);
++	}
 +}
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 48fb174..b4eed11 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -204,7 +204,7 @@ void br_flood(struct net_bridge *br, struct sk_buff *skb,
- 		/* Do not flood to ports that enable proxy ARP */
- 		if (p->flags & BR_PROXYARP)
- 			continue;
--		if ((p->flags & BR_PROXYARP_WIFI) &&
-+		if ((p->flags & (BR_PROXYARP_WIFI | BR_NEIGH_SUPPRESS)) &&
- 		    BR_INPUT_SKB_CB(skb)->proxyarp_replied)
- 			continue;
- 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 59a74a4..ae38547 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -310,6 +310,8 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
- 		del_nbp(p);
++
++static int br_chk_addr_ip6(struct net_device *dev, void *data)
++{
++	struct in6_addr *addr = (struct in6_addr *)data;
++
++	if (ipv6_chk_addr(dev_net(dev), addr, dev, 0))
++		return 1;
++
++	return 0;
++}
++
++static bool br_is_local_ip6(struct net_device *dev, struct in6_addr *addr)
++
++{
++	if (br_chk_addr_ip6(dev, addr))
++		return true;
++
++	/* check if ip is configured on upper dev */
++	if (netdev_walk_all_upper_dev_rcu(dev, br_chk_addr_ip6, addr))
++		return true;
++
++	return false;
++}
++
++void br_do_suppress_nd(struct sk_buff *skb, struct net_bridge *br,
++		       u16 vid, struct net_bridge_port *p, struct nd_msg *msg)
++{
++	struct net_device *dev = br->dev;
++	struct net_device *vlandev = NULL;
++	struct in6_addr *saddr, *daddr;
++	struct ipv6hdr *iphdr;
++	struct neighbour *n;
++
++	BR_INPUT_SKB_CB(skb)->proxyarp_replied = false;
++
++	if (p && (p->flags & BR_NEIGH_SUPPRESS))
++		return;
++
++	if (msg->icmph.icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT &&
++	    !msg->icmph.icmp6_solicited) {
++		/* prevent flooding to neigh suppress ports */
++		BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
++		return;
++	}
++
++	if (msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
++		return;
++
++	iphdr = ipv6_hdr(skb);
++	saddr = &iphdr->saddr;
++	daddr = &iphdr->daddr;
++
++	if (ipv6_addr_any(saddr) || !ipv6_addr_cmp(saddr, daddr)) {
++		/* prevent flooding to neigh suppress ports */
++		BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
++		return;
++	}
++
++	if (vid != 0) {
++		/* build neigh table lookup on the vlan device */
++		vlandev = __vlan_find_dev_deep_rcu(br->dev, skb->vlan_proto,
++						   vid);
++		if (!vlandev)
++			return;
++	} else {
++		vlandev = dev;
++	}
++
++	if (br_is_local_ip6(vlandev, &msg->target)) {
++		/* its our own ip, so don't proxy reply
++		 * and don't forward to arp suppress ports
++		 */
++		BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
++		return;
++	}
++
++	n = neigh_lookup(ipv6_stub->nd_tbl, &msg->target, vlandev);
++	if (n) {
++		struct net_bridge_fdb_entry *f;
++
++		if (!(n->nud_state & NUD_VALID)) {
++			neigh_release(n);
++			return;
++		}
++
++		f = br_fdb_find_rcu(br, n->ha, vid);
++		if (f) {
++			bool replied = false;
++
++			if (f->dst && (f->dst->flags & BR_NEIGH_SUPPRESS)) {
++				if (vid != 0)
++					br_nd_send(br, p, skb, n,
++						   skb->vlan_proto,
++						   skb_vlan_tag_get(skb), msg);
++				else
++					br_nd_send(br, p, skb, n, 0, 0, msg);
++				replied = true;
++			}
++
++			/* If we have replied or as long as we know the
++			 * mac, indicate to NEIGH_SUPPRESS ports that we
++			 * have replied
++			 */
++			if (replied || br->neigh_suppress_enabled)
++				BR_INPUT_SKB_CB(skb)->proxyarp_replied = true;
++		}
++		neigh_release(n);
++	}
++}
++#endif
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index eb30c6a..28bb221 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -69,6 +69,17 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	     eth->h_proto == htons(ETH_P_RARP)) &&
+ 	    br->neigh_suppress_enabled) {
+ 		br_do_proxy_suppress_arp(skb, br, vid, NULL);
++	} else if (IS_ENABLED(CONFIG_IPV6) &&
++		   skb->protocol == htons(ETH_P_IPV6) &&
++		   br->neigh_suppress_enabled &&
++		   pskb_may_pull(skb, sizeof(struct ipv6hdr) +
++				 sizeof(struct nd_msg)) &&
++		   ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
++			struct nd_msg *msg, _msg;
++
++			msg = br_is_nd_neigh_msg(skb, &_msg);
++			if (msg)
++				br_do_suppress_nd(skb, br, vid, NULL, msg);
  	}
  
-+	br_recalculate_neigh_suppress_enabled(br);
+ 	dest = eth_hdr(skb)->h_dest;
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 4b8d2ec..a096d3e 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -119,6 +119,17 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
+ 	    (skb->protocol == htons(ETH_P_ARP) ||
+ 	     skb->protocol == htons(ETH_P_RARP))) {
+ 		br_do_proxy_suppress_arp(skb, br, vid, p);
++	} else if (IS_ENABLED(CONFIG_IPV6) &&
++		   skb->protocol == htons(ETH_P_IPV6) &&
++		   br->neigh_suppress_enabled &&
++		   pskb_may_pull(skb, sizeof(struct ipv6hdr) +
++				 sizeof(struct nd_msg)) &&
++		   ipv6_hdr(skb)->nexthdr == IPPROTO_ICMPV6) {
++			struct nd_msg *msg, _msg;
 +
- 	br_fdb_delete_by_port(br, NULL, 0, 1);
- 
- 	cancel_delayed_work_sync(&br->gc_work);
-@@ -660,4 +662,7 @@ void br_port_flags_change(struct net_bridge_port *p, unsigned long mask)
- 
- 	if (mask & BR_AUTO_MASK)
- 		nbp_update_port_count(br);
-+
-+	if (mask & BR_NEIGH_SUPPRESS)
-+		br_recalculate_neigh_suppress_enabled(br);
- }
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index dea88a2..f0e8268 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -138,6 +138,7 @@ static inline size_t br_port_info_size(void)
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROXYARP_WIFI */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_VLAN_TUNNEL */
-+		+ nla_total_size(1)	/* IFLA_BRPORT_NEIGH_SUPPRESS */
- 		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_ROOT_ID */
- 		+ nla_total_size(sizeof(struct ifla_bridge_id))	/* IFLA_BRPORT_BRIDGE_ID */
- 		+ nla_total_size(sizeof(u16))	/* IFLA_BRPORT_DESIGNATED_PORT */
-@@ -210,7 +211,9 @@ static int br_port_fill_attrs(struct sk_buff *skb,
- 	    nla_put_u8(skb, IFLA_BRPORT_CONFIG_PENDING, p->config_pending) ||
- 	    nla_put_u8(skb, IFLA_BRPORT_VLAN_TUNNEL, !!(p->flags &
- 							BR_VLAN_TUNNEL)) ||
--	    nla_put_u16(skb, IFLA_BRPORT_GROUP_FWD_MASK, p->group_fwd_mask))
-+	    nla_put_u16(skb, IFLA_BRPORT_GROUP_FWD_MASK, p->group_fwd_mask) ||
-+	    nla_put_u8(skb, IFLA_BRPORT_NEIGH_SUPPRESS,
-+		       !!(p->flags & BR_NEIGH_SUPPRESS)))
- 		return -EMSGSIZE;
- 
- 	timerval = br_timer_value(&p->message_age_timer);
-@@ -785,6 +788,11 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
- 		p->group_fwd_mask = fwd_mask;
++			msg = br_is_nd_neigh_msg(skb, &_msg);
++			if (msg)
++				br_do_suppress_nd(skb, br, vid, p, msg);
  	}
  
-+	err = br_set_port_flag(p, tb, IFLA_BRPORT_NEIGH_SUPPRESS,
-+			       BR_NEIGH_SUPPRESS);
-+	if (err)
-+		return err;
-+
- 	br_port_flags_change(p, old_flags ^ p->flags);
- 	return 0;
- }
+ 	switch (pkt_type) {
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index ab4df24..00fa371 100644
+index 4e6b25b..fa0039f 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -404,6 +404,7 @@ struct net_bridge {
- #ifdef CONFIG_NET_SWITCHDEV
- 	int offload_fwd_mark;
+@@ -1144,4 +1144,7 @@ static inline void br_switchdev_frame_unmark(struct sk_buff *skb)
+ void br_recalculate_neigh_suppress_enabled(struct net_bridge *br);
+ void br_do_proxy_suppress_arp(struct sk_buff *skb, struct net_bridge *br,
+ 			      u16 vid, struct net_bridge_port *p);
++void br_do_suppress_nd(struct sk_buff *skb, struct net_bridge *br,
++		       u16 vid, struct net_bridge_port *p, struct nd_msg *msg);
++struct nd_msg *br_is_nd_neigh_msg(struct sk_buff *skb, struct nd_msg *m);
  #endif
-+	bool				neigh_suppress_enabled;
- };
- 
- struct br_input_skb_cb {
-@@ -1139,4 +1140,5 @@ static inline void br_switchdev_frame_unmark(struct sk_buff *skb)
- }
- #endif /* CONFIG_NET_SWITCHDEV */
- 
-+void br_recalculate_neigh_suppress_enabled(struct net_bridge *br);
- #endif
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 9110d5e..0a1fa9c 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -191,6 +191,7 @@ BRPORT_ATTR_FLAG(proxyarp, BR_PROXYARP);
- BRPORT_ATTR_FLAG(proxyarp_wifi, BR_PROXYARP_WIFI);
- BRPORT_ATTR_FLAG(multicast_flood, BR_MCAST_FLOOD);
- BRPORT_ATTR_FLAG(broadcast_flood, BR_BCAST_FLOOD);
-+BRPORT_ATTR_FLAG(neigh_suppress, BR_NEIGH_SUPPRESS);
- 
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
-@@ -241,6 +242,7 @@ static const struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_multicast_flood,
- 	&brport_attr_broadcast_flood,
- 	&brport_attr_group_fwd_mask,
-+	&brport_attr_neigh_suppress,
- 	NULL
- };
- 
 -- 
 2.1.4
