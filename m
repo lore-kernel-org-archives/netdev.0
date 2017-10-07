@@ -1,31 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 1/1] ip_tunnel: add mpls over gre support
-Date: Sat, 07 Oct 2017 21:39:09 +0100 (WEST)
-Message-ID: <20171007.213909.1220990225016361208.davem@davemloft.net>
-References: <cover.1507129836.git.amine.kherbouche@6wind.com>
-        <e2d0ce36a2e811df680cad29d1ae283b6ba0f13d.1507129836.git.amine.kherbouche@6wind.com>
+Subject: Re: [patch net-next 0/6] mlxsw: Offload bridge device mrouter
+Date: Sat, 07 Oct 2017 21:42:36 +0100 (WEST)
+Message-ID: <20171007.214236.828908395863095403.davem@davemloft.net>
+References: <20171005103642.1414-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org, equinox@diac24.net
-To: amine.kherbouche@6wind.com
+Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
+        nogahf@mellanox.com, mlxsw@mellanox.com, ivecera@redhat.com,
+        nikolay@cumulusnetworks.com, andrew@lunn.ch,
+        stephen@networkplumber.org, nbd@nbd.name, roopa@cumulusnetworks.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41640 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41716 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751425AbdJGUj1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 16:39:27 -0400
-In-Reply-To: <e2d0ce36a2e811df680cad29d1ae283b6ba0f13d.1507129836.git.amine.kherbouche@6wind.com>
+        with ESMTP id S1751425AbdJGUmy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 16:42:54 -0400
+In-Reply-To: <20171005103642.1414-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amine Kherbouche <amine.kherbouche@6wind.com>
-Date: Wed,  4 Oct 2017 19:35:57 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  5 Oct 2017 12:36:36 +0200
 
-> This commit introduces the MPLSoGRE support (RFC 4023), using ip tunnel
-> API by simply adding ipgre_tunnel_encap_(add|del)_mpls_ops() and the new
-> tunnel type TUNNEL_ENCAP_MPLS.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Signed-off-by: Amine Kherbouche <amine.kherbouche@6wind.com>
+> Yotam says:
+> 
+> Similarly to a bridged port, the bridge device itself can be configured by
+> the user to be an mrouter port. In this case, all multicast traffic should
+> be forwarded to it. Make the mlxsw Spectrum driver offload these directives
+> to the Spectrum hardware.
+> 
+> Patches 1-3 add a new switchdev notification for bridge device mrouter
+> port status and make the bridge module notify about it.
+> 
+> Patches 4-6 change the mlxsw Spectrum driver to handle these notifications
+> by adding the Spectrum router port to the bridge MDB entries.
 
-Applied, thanks.
+It looks like Nikolay wants some feedback addressed for patch #1.
+
+Thanks.
