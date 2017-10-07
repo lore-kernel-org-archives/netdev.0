@@ -1,70 +1,47 @@
-From: SviMik <svimik@gmail.com>
-Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
-Date: Sat, 7 Oct 2017 15:09:48 +0300
-Message-ID: <CA++DawbMB8aFa3s-0jW2CC5pRTU2Ui4ec6GSRCkhMotGGj_Ytg@mail.gmail.com>
-References: <20171001102110.24184f1b@xeon-e3> <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
- <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
- <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
- <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
- <CA++DawbbfQq1ZGB_x5t4a9mhkkptnDfcDxtCXgHYfGpY=8q83g@mail.gmail.com> <CAEwTi7RF6s1OhEEPTrDzk61QQD_AFoZ+uX-WRhc=aAVHoHJxpw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, Guillaume Nault <g.nault@alphalink.fr>
-To: James Chapman <jchapman@katalix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f49.google.com ([209.85.213.49]:45032 "EHLO
-        mail-vk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750948AbdJGMJt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 08:09:49 -0400
-Received: by mail-vk0-f49.google.com with SMTP id d12so10881000vkf.1
-        for <netdev@vger.kernel.org>; Sat, 07 Oct 2017 05:09:48 -0700 (PDT)
-In-Reply-To: <CAEwTi7RF6s1OhEEPTrDzk61QQD_AFoZ+uX-WRhc=aAVHoHJxpw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: [PATCH 3/3] batman-adv: Add missing kerneldoc for
+ extack
+Date: Sat,  7 Oct 2017 14:21:22 +0200
+Message-ID: <20171007122122.6470-1-sven@narfation.org>
+References: <20171007121853.6278-1-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+ David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20171007121853.6278-1-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-2017-10-06 12:52 GMT+03:00 James Chapman <jchapman@katalix.com>:
-> On 6 October 2017 at 05:45, SviMik <svimik@gmail.com> wrote:
->> 2017-10-04 10:49 GMT+03:00 James Chapman <jchapman@katalix.com>:
->>> On 3 October 2017 at 08:27, James Chapman <jchapman@katalix.com> wrote:
->>>> For capturing complete oops messages, have you tried setting up
->>>> netconsole? You might also find the full text in the syslog on reboot.
->>
->> Why, thank you! You've just told me that Santa Claus exists :)
->
-> You're welcome. Heh, my wife says I have a few more grey hairs and I
-> don't shave as often as I should. :)
->
->> I've set up netconsole on 93 of my servers, and hope starting from
->> tomorrow I'll have more pretty kernel panic reports, and get them even
->> from servers where I had never had a chance to capture the console
->> before.
+The parameter extack was added to batadv_softif_slave_add without adding
+the kernel-doc for it. This caused kernel-doc warnings.
 
-Unfortunately, netconsole has managed to send a kernel panic trace
-only once, and it's not related to this bug. Looks like something
-crashes really hard to make netconsole unusable.
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Cc: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/batman-adv/soft-interface.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Just for record, it seems to me that tun_do_read() has some bug too:
-http://svimik.com/hdmmsk1kp5.txt
-Shall I report it to a separate thread?
-
-Meanwhile, I have found that kdump in CentOS just fails to work with
-kernels >=4.9 while working fine with 4.8.
-It says:
-Rebuilding /boot/initrd-4.9.48-29.el6.x86_64kdump.img
-No module ext4 found for kernel 4.9.48-29.el6.x86_64, aborting.
-Failed to run mkdumprd
-
->>>> It's interesting that you are seeing l2tp issues since switching to
->>>> 4.x kernels. Are you able to try earlier kernels to find the latest
->>>> version that works? I'm curious whether things broke at v3.15.
->>
->> I'll try, but it will take some time to grab enough statistics. The
->> bug is relatively rare, only few panics per day on the whole bunch of
->> 93 servers.
-
-I have tested the kernel 3.10.107-1.el6.elrepo.x86_64 for 24 hours,
-and have to say that none of kernel panics occurred on any of the
-servers during this period. Which is pretty impressive comparing how
-many different oops I had with 4.x kernels. Oops which were not
-related to this bug are gone too.
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 543d2c3e..9f673cdf 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -863,6 +863,7 @@ static int batadv_softif_init_late(struct net_device *dev)
+  * batadv_softif_slave_add - Add a slave interface to a batadv_soft_interface
+  * @dev: batadv_soft_interface used as master interface
+  * @slave_dev: net_device which should become the slave interface
++ * @extack: extended ACK report struct
+  *
+  * Return: 0 if successful or error otherwise.
+  */
+-- 
+2.11.0
