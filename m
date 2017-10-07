@@ -1,62 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 11/16] ipv6: replace dst_hold() with
- dst_hold_safe() in routing code
-Date: Sat, 07 Oct 2017 03:23:44 +0100 (WEST)
-Message-ID: <20171007.032344.1464599410029867578.davem@davemloft.net>
-References: <20171006190611.110633-11-tracywwnj@gmail.com>
-        <20171006190611.110633-12-tracywwnj@gmail.com>
-        <CAPA1RqB14m4BERjrOO5Fryu2WAU9iwqAbC8H7Sb_bNUi9jfLAg@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v5 0/3] bridge: neigh msg proxy and
+ flood suppression support
+Date: Fri, 6 Oct 2017 19:35:27 -0700
+Message-ID: <CAJieiUhec_RU3ncjYd-PjUkduvmprwXmj-9S7Uy1LKSD4dzbAg@mail.gmail.com>
+References: <1507314880-16310-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: weiwan@google.com, netdev@vger.kernel.org, edumazet@google.com,
-        kafai@fb.com, yoshfuji@linux-ipv6.org
-To: hideaki.yoshifuji@miraclelinux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52310 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752155AbdJGCXp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Oct 2017 22:23:45 -0400
-In-Reply-To: <CAPA1RqB14m4BERjrOO5Fryu2WAU9iwqAbC8H7Sb_bNUi9jfLAg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+To: "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1507314880-16310-1-git-send-email-roopa@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: 吉藤英明 <hideaki.yoshifuji@miraclelinux.com>
-Date: Sat, 7 Oct 2017 08:57:49 +0900
+On Fri, Oct 6, 2017 at 11:34 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> This series implements arp and nd suppression in the bridge
+> driver for ethernet vpns. It implements rfc7432, section 10
+> https://tools.ietf.org/html/rfc7432#section-10
+> for ethernet VPN deployments. It is similar to the existing
+> BR_PROXYARP* flags but has a few semantic differences to conform
+> to EVPN standard. Unlike the existing flags, this new flag suppresses
+> flood of all neigh discovery packets (arp and nd) to tunnel ports.
+> Supports both vlan filtering and non-vlan filtering bridges.
+>
+> In case of EVPN, it is mainly used to avoid flooding
+> of arp and nd packets to tunnel ports like vxlan.
+>
+> v2 : rebase to latest + address some optimization feedback from Nikolay.
+> v3 : fix kbuild reported build errors with CONFIG_INET off
+> v4 : simplify port flag mask as suggested by stephen
+> v5 : address some feedback from Toshiaki
+>
 
-> Hi,
-> 
-> 2017-10-07 4:06 GMT+09:00 Wei Wang <weiwan@google.com>:
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index 941c062389d2..aeb349aea429 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
-> :
->> @@ -1625,12 +1643,17 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
->>         if (rt_cache)
->>                 rt = rt_cache;
->>
->> -       if (rt == net->ipv6.ip6_null_entry || (rt->rt6i_flags & RTF_CACHE)) {
->> -               dst_use(&rt->dst, jiffies);
->> +       if (rt == net->ipv6.ip6_null_entry) {
->> +               read_unlock_bh(&table->tb6_lock);
->> +               dst_hold(&rt->dst);
->> +               trace_fib6_table_lookup(net, rt, table->tb6_id, fl6);
->> +               return rt;
->> +       } else if (rt->rt6i_flags & RTF_CACHE) {
->> +               if (ip6_hold_safe(net, &rt, true)) {
->> +                       dst_use_noref(&rt->dst, jiffies);
->> +                       rt6_dst_from_metrics_check(rt);
->> +               }
->>                 read_unlock_bh(&table->tb6_lock);
->> -
->> -               rt6_dst_from_metrics_check(rt);
->> -
->>                 trace_fib6_table_lookup(net, rt, table->tb6_id, fl6);
->>                 return rt;
->>         } else if (unlikely((fl6->flowi6_flags & FLOWI_FLAG_KNOWN_NH) &&
-> 
-> Is it intended to move rt6_dst_from_metrics_check() inside the table lock?
-
-That lock is replaced with rcu_read_unlock() or similar in patch #15 so I
-don't think it matters much in the end.
+Looks like I missed applying a cleanup done in v5 to the ipv6 nd path.
+Dave, I see these patches 'under review' in patchworks. If its not too
+late, pls drop them. I will spin v6 in a few hrs. thanks.
