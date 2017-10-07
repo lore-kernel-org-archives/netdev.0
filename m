@@ -1,134 +1,70 @@
-From: =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: [PATCH net-next 00/16] ipv6: replace rwlock with rcu and spinlock
- in fib6 table
-Date: Sat, 7 Oct 2017 18:25:13 +0900
-Message-ID: <CAPA1RqBSKi9ra_UBur6L9HHExZzk9BxSrwSKn2xtvAC5K54N+A@mail.gmail.com>
-References: <20171006190611.110633-1-tracywwnj@gmail.com> <1507333795.14419.23.camel@edumazet-glaptop3.roam.corp.google.com>
+From: SviMik <svimik@gmail.com>
+Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+Date: Sat, 7 Oct 2017 15:09:48 +0300
+Message-ID: <CA++DawbMB8aFa3s-0jW2CC5pRTU2Ui4ec6GSRCkhMotGGj_Ytg@mail.gmail.com>
+References: <20171001102110.24184f1b@xeon-e3> <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
+ <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
+ <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
+ <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
+ <CA++DawbbfQq1ZGB_x5t4a9mhkkptnDfcDxtCXgHYfGpY=8q83g@mail.gmail.com> <CAEwTi7RF6s1OhEEPTrDzk61QQD_AFoZ+uX-WRhc=aAVHoHJxpw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Wei Wang <weiwan@google.com>, David Miller <davem@davemloft.net>,
-        network dev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        =?UTF-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, Guillaume Nault <g.nault@alphalink.fr>
+To: James Chapman <jchapman@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:49523 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750862AbdJGJZf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 05:25:35 -0400
-Received: by mail-io0-f179.google.com with SMTP id 21so17901577iof.6
-        for <netdev@vger.kernel.org>; Sat, 07 Oct 2017 02:25:34 -0700 (PDT)
-In-Reply-To: <1507333795.14419.23.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-vk0-f49.google.com ([209.85.213.49]:45032 "EHLO
+        mail-vk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750948AbdJGMJt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 08:09:49 -0400
+Received: by mail-vk0-f49.google.com with SMTP id d12so10881000vkf.1
+        for <netdev@vger.kernel.org>; Sat, 07 Oct 2017 05:09:48 -0700 (PDT)
+In-Reply-To: <CAEwTi7RF6s1OhEEPTrDzk61QQD_AFoZ+uX-WRhc=aAVHoHJxpw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+2017-10-06 12:52 GMT+03:00 James Chapman <jchapman@katalix.com>:
+> On 6 October 2017 at 05:45, SviMik <svimik@gmail.com> wrote:
+>> 2017-10-04 10:49 GMT+03:00 James Chapman <jchapman@katalix.com>:
+>>> On 3 October 2017 at 08:27, James Chapman <jchapman@katalix.com> wrote:
+>>>> For capturing complete oops messages, have you tried setting up
+>>>> netconsole? You might also find the full text in the syslog on reboot.
+>>
+>> Why, thank you! You've just told me that Santa Claus exists :)
+>
+> You're welcome. Heh, my wife says I have a few more grey hairs and I
+> don't shave as often as I should. :)
+>
+>> I've set up netconsole on 93 of my servers, and hope starting from
+>> tomorrow I'll have more pretty kernel panic reports, and get them even
+>> from servers where I had never had a chance to capture the console
+>> before.
 
-2017-10-07 8:49 GMT+09:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Fri, 2017-10-06 at 12:05 -0700, Wei Wang wrote:
->> From: Wei Wang <weiwan@google.com>
->>
->> Currently, fib6 table is protected by rwlock. During route lookup,
->> reader lock is taken and during route insertion, deletion or
->> modification, writer lock is taken. This is a very inefficient
->> implementation because the fastpath always has to do the operation
->> to grab the reader lock.
->> According to my latest syn flood test on an iota ivybridage machine
->> with 2 10G mlx nics bonded together, each with 8 rx queues on 2 NUMA
->> nodes, and with the upstream net-next kernel:
->> ipv4 stack can handle around 4.2Mpps
->> ipv6 stack can handle around 1.3Mpps
->>
->> In order to close the gap of the performance number between ipv4
->> and ipv6 stack, this patch series tries to get rid of the usage of
->> the rwlock and replace it with rcu and spinlock protection. This will
->> greatly speed up the fastpath performance as it only needs to hold
->> rcu which is much less expensive than grabbing the reader lock. It
->> also makes ipv6 fib implementation more consistent with ipv4.
->>
->> In order to be able to replace the current rwlock with rcu and
->> spinlock, some preparation work is needed:
->> Patch 1-8 introduces a per-route hash table (protected by rcu and a
->> different spinlock) to store all cached routes created by pmtu and ip
->> redirect under its main route. This makes the main fib6 tree only
->> contain static routes.
->> Patch 9-14 prepares all the reader path to be ready to tolerate
->> concurrent writer.
->> Patch 15 finally does the rwlock to rcu and spinlock conversion.
->> Patch 16 takes care of rt6_stats.
->>
->> After this patch series, in the same syn flood test,
->> ipv6 stack can now handle around 3.5Mpps compared to previous 1.3Mpps
->> in my test setup.
->>
->> After this patch series, there are still some improvements that should
->> be done in ipv6 stack:
->> 1. During route lookup, dst_use() is called everytime on the selected
->> route to update dst->__use and dst->lastuse. This dirties the cacheline
->> and causes extra cacheline miss and should be avoided.
->> 2. when no route is found in the current table, net->ip6.ipv6_null_entry
->> is used and refcnt is taken on it. As there is no pcpu cache for this
->> specific route, frequent change on the refcnt for this route causes
->> quite some cacheline misses.
->> And to make things worse, if CONFIG_IPV6_MULTIPLE_TABLES is defined,
->> output path route lookup always starts with local table first and
->> guarantees to hit net->ipv6.ip6_null_entry before continuing to do
->> lookup in the main table.
->> These operations on net->ipv6.ip6_null_entry could potentially be
->> avoided.
->> 3. ipv6 input path route lookup grabs refcnt on dst. This is different
->> from ipv4. We could potentially change this behavior to let ipv6 input
->> path route lookup not to grab refcnt on dst. However, it does not give
->> us much performance boost as we currently have pcpu route cache for
->> input path as well in ipv6. But this work probably is still worth doing
->> to unify ipv6 and ipv4 route lookup behavior.
->>
->> The above issues will be addressed separately after this patch series
->> has been accepted.
->>
->> This is a joint work with Martin KaFai Lau and Eric Dumazet. And many
->> many thanks to them for their inspiring ideas and big big code review
->> efforts.
->>
->> Wei Wang (16):
->>   ipv6: introduce a new function fib6_update_sernum()
->>   ipv6: introduce a hash table to store dst cache
->>   ipv6: prepare fib6_remove_prefsrc() for exception table
->>   ipv6: prepare rt6_mtu_change() for exception table
->>   ipv6: prepare rt6_clean_tohost() for exception table
->>   ipv6: prepare fib6_age() for exception table
->>   ipv6: prepare fib6_locate() for exception table
->>   ipv6: hook up exception table to store dst cache
->>   ipv6: grab rt->rt6i_ref before allocating pcpu rt
->>   ipv6: don't release rt->rt6i_pcpu memory during rt6_release()
->>   ipv6: replace dst_hold() with dst_hold_safe() in routing code
->>   ipv6: update fn_sernum after route is inserted to tree
->>   ipv6: check fn->leaf before it is used
->>   ipv6: add key length check into rt6_select()
->>   ipv6: replace rwlock with rcu and spinlock in fib6_table
->>   ipv6: take care of rt6_stats
->>
->>  include/net/dst.h       |   2 +-
->>  include/net/ip6_fib.h   |  79 ++++-
->>  include/net/ip6_route.h |   5 +
->>  net/ipv6/addrconf.c     |  17 +-
->>  net/ipv6/ip6_fib.c      | 645 ++++++++++++++++++----------------
->>  net/ipv6/route.c        | 901 ++++++++++++++++++++++++++++++++++++++++--------
->>  6 files changed, 1179 insertions(+), 470 deletions(-)
->>
->
-> Awesome work Wei.
->
-> For the whole series :
->
-> Reviewed-by: Eric Dumazet <edumazet@google.com>
+Unfortunately, netconsole has managed to send a kernel panic trace
+only once, and it's not related to this bug. Looks like something
+crashes really hard to make netconsole unusable.
 
-It looks ok to me.
-Reviewed-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Just for record, it seems to me that tun_do_read() has some bug too:
+http://svimik.com/hdmmsk1kp5.txt
+Shall I report it to a separate thread?
 
->
-> Thanks !
->
->
+Meanwhile, I have found that kdump in CentOS just fails to work with
+kernels >=4.9 while working fine with 4.8.
+It says:
+Rebuilding /boot/initrd-4.9.48-29.el6.x86_64kdump.img
+No module ext4 found for kernel 4.9.48-29.el6.x86_64, aborting.
+Failed to run mkdumprd
+
+>>>> It's interesting that you are seeing l2tp issues since switching to
+>>>> 4.x kernels. Are you able to try earlier kernels to find the latest
+>>>> version that works? I'm curious whether things broke at v3.15.
+>>
+>> I'll try, but it will take some time to grab enough statistics. The
+>> bug is relatively rare, only few panics per day on the whole bunch of
+>> 93 servers.
+
+I have tested the kernel 3.10.107-1.el6.elrepo.x86_64 for 24 hours,
+and have to say that none of kernel panics occurred on any of the
+servers during this period. Which is pretty impressive comparing how
+many different oops I had with 4.x kernels. Oops which were not
+related to this bug are gone too.
