@@ -1,66 +1,51 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net 1/1] tipc: Unclone message at secondary destination lookup
-Date: Sat, 7 Oct 2017 15:07:20 +0200
-Message-ID: <1507381640-29340-1-git-send-email-jon.maloy@ericsson.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH 3/3] batman-adv: Add missing kerneldoc for extack
+Date: Sat, 7 Oct 2017 08:23:44 -0600
+Message-ID: <514099d9-571b-f1c3-11a3-46f759cccc0d@gmail.com>
+References: <20171007121853.6278-1-sven@narfation.org>
+ <20171007122122.6470-1-sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Sven Eckelmann <sven@narfation.org>,
+        b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:51854 "EHLO
-        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751119AbdJGNHf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 09:07:35 -0400
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37286 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750929AbdJGOXp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 10:23:45 -0400
+Received: by mail-pg0-f66.google.com with SMTP id o1so19933888pga.4
+        for <netdev@vger.kernel.org>; Sat, 07 Oct 2017 07:23:44 -0700 (PDT)
+In-Reply-To: <20171007122122.6470-1-sven@narfation.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a bundling message is received, the function tipc_link_input()
-calls function tipc_msg_extract() to unbundle all inner messages of
-the bundling message before adding them to input queue.
+On 10/7/17 6:21 AM, Sven Eckelmann wrote:
+> The parameter extack was added to batadv_softif_slave_add without adding
+> the kernel-doc for it. This caused kernel-doc warnings.
+> 
+> Signed-off-by: Sven Eckelmann <sven@narfation.org>
+> Cc: David Ahern <dsahern@gmail.com>
+> ---
+>  net/batman-adv/soft-interface.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+> index 543d2c3e..9f673cdf 100644
+> --- a/net/batman-adv/soft-interface.c
+> +++ b/net/batman-adv/soft-interface.c
+> @@ -863,6 +863,7 @@ static int batadv_softif_init_late(struct net_device *dev)
+>   * batadv_softif_slave_add - Add a slave interface to a batadv_soft_interface
+>   * @dev: batadv_soft_interface used as master interface
+>   * @slave_dev: net_device which should become the slave interface
+> + * @extack: extended ACK report struct
+>   *
+>   * Return: 0 if successful or error otherwise.
+>   */
+> 
 
-The function tipc_msg_extract() just clones all inner skb for all
-inner messagges from the bundling skb. This means that the skb
-headroom of an inner message overlaps with the data part of the
-preceding message in the bundle.
+Thanks for the cleanup.
 
-If the message in question is a name addressed message, it may be
-subject to a secondary destination lookup, and eventually be sent out
-on one of the interfaces again. But, since what is perceived as headroom
-by the device driver in reality is the last bytes of the preceding
-message in the bundle, the latter will be overwritten by the MAC
-addresses of the L2 header. If the preceding message has not yet been
-consumed by the user, it will evenually be delivered with corrupted
-contents.
-
-This commit fixes this by uncloning all messages passing through the
-function tipc_msg_lookup_dest(), hence ensuring that the headroom
-is always valid when the message is passed on.
-
-Signed-off-by: Tung Nguyen <tung.q.nguyen@dektech.com.au>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/msg.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index 121e59a..17146c1 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -568,6 +568,14 @@ bool tipc_msg_lookup_dest(struct net *net, struct sk_buff *skb, int *err)
- 	msg_set_destnode(msg, dnode);
- 	msg_set_destport(msg, dport);
- 	*err = TIPC_OK;
-+
-+	if (!skb_cloned(skb))
-+		return true;
-+
-+	/* Unclone buffer in case it was bundled */
-+	if (pskb_expand_head(skb, BUF_HEADROOM, BUF_TAILROOM, GFP_ATOMIC))
-+		return false;
-+
- 	return true;
- }
- 
--- 
-2.1.4
+Acked-by: David Ahern <dsahern@gmail.com>
