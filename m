@@ -1,55 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/3] bridge: neigh msg proxy and
- flood suppression support
-Date: Sat, 07 Oct 2017 06:46:56 +0100 (WEST)
-Message-ID: <20171007.064656.350053402823144762.davem@davemloft.net>
-References: <1507314880-16310-1-git-send-email-roopa@cumulusnetworks.com>
-	<CAJieiUhec_RU3ncjYd-PjUkduvmprwXmj-9S7Uy1LKSD4dzbAg@mail.gmail.com>
+From: Shmulik Ladkani <shmulik@nsof.io>
+Subject: Re: [PATCH net] net: fib_rules: Fix fib_rules_ops->compare
+ implementations to support exact match
+Date: Sat, 7 Oct 2017 09:04:35 +0300
+Message-ID: <20171007090435.0a793acc@pixies>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: roopa@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAJieiUhec_RU3ncjYd-PjUkduvmprwXmj-9S7Uy1LKSD4dzbAg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mateusz.bajorski@nokia.com,
+        dsa@cumulusnetworks.com, tgraf@suug.ch, shmulik.ladkani@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:55009 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750876AbdJGGEk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 02:04:40 -0400
+Received: by mail-wm0-f41.google.com with SMTP id i124so11758624wmf.3
+        for <netdev@vger.kernel.org>; Fri, 06 Oct 2017 23:04:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Date: Fri, 6 Oct 2017 19:35:27 -0700
+Hi David,
 
-> On Fri, Oct 6, 2017 at 11:34 AM, Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This series implements arp and nd suppression in the bridge
->> driver for ethernet vpns. It implements rfc7432, section 10
->> https://tools.ietf.org/html/rfc7432#section-10
->> for ethernet VPN deployments. It is similar to the existing
->> BR_PROXYARP* flags but has a few semantic differences to conform
->> to EVPN standard. Unlike the existing flags, this new flag suppresses
->> flood of all neigh discovery packets (arp and nd) to tunnel ports.
->> Supports both vlan filtering and non-vlan filtering bridges.
->>
->> In case of EVPN, it is mainly used to avoid flooding
->> of arp and nd packets to tunnel ports like vxlan.
->>
->> v2 : rebase to latest + address some optimization feedback from Nikolay.
->> v3 : fix kbuild reported build errors with CONFIG_INET off
->> v4 : simplify port flag mask as suggested by stephen
->> v5 : address some feedback from Toshiaki
->>
+On Tue, 03 Oct 2017 14:54:18 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+
+> From: Shmulik Ladkani <shmulik@nsof.io>
+> Date: Sat, 30 Sep 2017 11:59:09 +0300
 > 
-> Looks like I missed applying a cleanup done in v5 to the ipv6 nd path.
-> Dave, I see these patches 'under review' in patchworks. If its not too
-> late, pls drop them. I will spin v6 in a few hrs. thanks.
+> > This leads to inconsistencies, depending on order of operations, e.g.:  
+> 
+> I don't see any inconsistency.  When you insert using NLM_F_EXCL the
+> insertion fails if any existing rule matches or overlaps in any way
+> with the keys in the new rule.
 
-Ok.
+(Haven't seen any response to https://patchwork.ozlabs.org/patch/820186/
+ for a while.
+ The original description of the problem was vague.
+ Summarizing the arguments here)
+
+The "matches or overlaps in any way" statement is incorrect for fib
+rules; strict exact comparison of the addresses is performed,
+see snip of fib4_rule_compare:
+
+	if (frh->src_len && (rule4->src_len != frh->src_len))
+		return 0;
+  ...
+	if (frh->src_len && (rule4->src != nla_get_in_addr(tb[FRA_SRC])))
+		return 0;
+
+(with the ONLY exception of src_len being zero, i.e. FRA_SRC not being
+ specified, where comparison is skipped, and compare result defaults to
+ true)
+
+Therefore, one can successfully add various overlapping rules in any
+arbitrary order:
+
+  ip ru a from 10.20.0.0/16 iif eth2 pref 22 table 22
+  ip ru a from 10.0.0.0/8 iif eth2 pref 22 table 22
+  ip ru a from 10.20.30.0/24 iif eth2 pref 22 table 22
+  ip ru a from 0.0.0.0/4 iif eth2 pref 22 table 22
+  ip ru a from 0.0.0.0/1 iif eth2 pref 22 table 22
+  ip ru a from 0.0.0.0/2 iif eth2 pref 22 table 22
+
+One can also add various overlapping rules, after the 0.0.0.0/0 rule has
+been initially inserted:
+
+  ip ru a from 0.0.0.0/0 iif eth2 pref 33 table 33
+  ip ru a from 10.0.0.0/8 iif eth2 pref 33 table 33
+  ip ru a from 0.0.0.0/4 iif eth2 pref 33 table 33
+
+But one cannot add the 0.0.0.0/0 rule after other rules have been
+inserted:
+
+  ip ru a from 10.20.30.0/24 iif eth2 pref 44 table 44
+  ip ru a from 10.0.0.0/8 iif eth2 pref 44 table 44
+  ip ru a from 0.0.0.0/0 iif eth2 pref 44 table 44
+  RTNETLINK answers: File exists
+
+This behaviour is unexpected for the user program, as it needs to
+"sort" its insertions if it has a 0.0.0.0/0 rule among the rules
+it wishes to add.
+
+The purpose of NLM_F_EXCL is for ensuring rule exclusiveness, as
+explained in commit 153380ec4b9b; there's no overlap semantics in none
+of the fib_rules_ops->compare implementations.
