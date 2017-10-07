@@ -1,51 +1,39 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH 3/3] batman-adv: Add missing kerneldoc for extack
-Date: Sat, 7 Oct 2017 08:23:44 -0600
-Message-ID: <514099d9-571b-f1c3-11a3-46f759cccc0d@gmail.com>
-References: <20171007121853.6278-1-sven@narfation.org>
- <20171007122122.6470-1-sven@narfation.org>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
+Date: Sat, 07 Oct 2017 19:38:48 +0300
+Message-ID: <f74effad2ec9b6a1a1bdbf25d6bd3801@nuclearcat.com>
+References: <20171001102110.24184f1b@xeon-e3>
+ <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
+ <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
+ <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
+ <CAEwTi7SS7qsbV19NsPGwdiwTcejxygUEqQi-_MJ07uMec0CY9A@mail.gmail.com>
+ <CA++DawbbfQq1ZGB_x5t4a9mhkkptnDfcDxtCXgHYfGpY=8q83g@mail.gmail.com>
+ <CAEwTi7RF6s1OhEEPTrDzk61QQD_AFoZ+uX-WRhc=aAVHoHJxpw@mail.gmail.com>
+ <CA++DawbMB8aFa3s-0jW2CC5pRTU2Ui4ec6GSRCkhMotGGj_Ytg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sven Eckelmann <sven@narfation.org>,
-        b.a.t.m.a.n@lists.open-mesh.org
+Cc: James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org,
+        Guillaume Nault <g.nault@alphalink.fr>,
+        netdev-owner@vger.kernel.org
+To: SviMik <svimik@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:37286 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750929AbdJGOXp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Oct 2017 10:23:45 -0400
-Received: by mail-pg0-f66.google.com with SMTP id o1so19933888pga.4
-        for <netdev@vger.kernel.org>; Sat, 07 Oct 2017 07:23:44 -0700 (PDT)
-In-Reply-To: <20171007122122.6470-1-sven@narfation.org>
-Content-Language: en-US
+Received: from nuclearcat.com ([144.76.183.226]:55252 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751279AbdJGQiw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 7 Oct 2017 12:38:52 -0400
+In-Reply-To: <CA++DawbMB8aFa3s-0jW2CC5pRTU2Ui4ec6GSRCkhMotGGj_Ytg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/7/17 6:21 AM, Sven Eckelmann wrote:
-> The parameter extack was added to batadv_softif_slave_add without adding
-> the kernel-doc for it. This caused kernel-doc warnings.
+On 2017-10-07 15:09, SviMik wrote:
 > 
-> Signed-off-by: Sven Eckelmann <sven@narfation.org>
-> Cc: David Ahern <dsahern@gmail.com>
-> ---
->  net/batman-adv/soft-interface.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-> index 543d2c3e..9f673cdf 100644
-> --- a/net/batman-adv/soft-interface.c
-> +++ b/net/batman-adv/soft-interface.c
-> @@ -863,6 +863,7 @@ static int batadv_softif_init_late(struct net_device *dev)
->   * batadv_softif_slave_add - Add a slave interface to a batadv_soft_interface
->   * @dev: batadv_soft_interface used as master interface
->   * @slave_dev: net_device which should become the slave interface
-> + * @extack: extended ACK report struct
->   *
->   * Return: 0 if successful or error otherwise.
->   */
-> 
-
-Thanks for the cleanup.
-
-Acked-by: David Ahern <dsahern@gmail.com>
+> Unfortunately, netconsole has managed to send a kernel panic trace
+> only once, and it's not related to this bug. Looks like something
+> crashes really hard to make netconsole unusable.
+In some cases i had luck with pstore, when netconsole failed me 
+(especially networking bugs), it stores panic messages more reliably, 
+especially on recent platforms who have ERST and EFI.
+https://www.kernel.org/doc/Documentation/ABI/testing/pstore
