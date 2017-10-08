@@ -1,45 +1,557 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv6: Do not use this_cpu_ptr() in preemptible
- context
-Date: Sun, 08 Oct 2017 11:25:15 -0700
-Message-ID: <1507487115.14419.31.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171008151839.24519-1-idosch@mellanox.com>
-         <1507478633.14419.30.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20171008165407.GA26635@shredder.mtl.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v6 05/11] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Sun, 8 Oct 2017 20:33:40 +0200
+Message-ID: <20171008183340.GA21531@Red>
+References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
+ <20170927073414.17361-6-clabbe.montjoie@gmail.com>
+ <20170927140210.GE13516@lunn.ch>
+ <20170928073708.GB32676@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, weiwan@google.com, mlxsw@mellanox.com
-To: Ido Schimmel <idosch@idosch.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:54699 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751771AbdJHSZS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 14:25:18 -0400
-Received: by mail-pf0-f172.google.com with SMTP id m28so6762209pfi.11
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 11:25:17 -0700 (PDT)
-In-Reply-To: <20171008165407.GA26635@shredder.mtl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, linux@armlinux.org.uk,
+        catalin.marinas@arm.com, will.deacon@arm.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        frowand.list@gmail.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org, linux-sunxi@googlegroups.com
+To: Andrew Lunn <andrew@lunn.ch>, robh+dt@kernel.org,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170928073708.GB32676@Red>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2017-10-08 at 19:54 +0300, Ido Schimmel wrote:
-> Hi Eric,
-
-> >  	prev = cmpxchg(p, NULL, pcpu_rt);
-> > -	if (prev) {
-> > -		/* If someone did it before us, return prev instead */
-> > -		/* release refcnt taken by ip6_rt_pcpu_alloc() */
-> > -		dst_release_immediate(&pcpu_rt->dst);
-> > -		/* release refcnt taken by above dst_hold() */
-> > -		dst_release_immediate(&pcpu_rt->dst);
-> > -		dst_hold(&prev->dst);
-> > -		pcpu_rt = prev;
-> > -	}
-> > +	BUG_ON(prev);
+On Thu, Sep 28, 2017 at 09:37:08AM +0200, Corentin Labbe wrote:
+> On Wed, Sep 27, 2017 at 04:02:10PM +0200, Andrew Lunn wrote:
+> > Hi Corentin
+> > 
+> > > +Required properties for the mdio-mux node:
+> > > +  - compatible = "mdio-mux"
+> > 
+> > This is too generic. Please add a more specific compatible for this
+> > particular mux. You can keep "mdio-mux", since that is what the MDIO
+> > subsystem will look for.
+> > 
 > 
-> Is this BUG_ON() now valid because of the local_bh_disable() in
-> ip6_pol_route()?
+> I will add allwinner,sun8i-h3-mdio-mux
+> 
+> > > +Required properties of the integrated phy node:
+> > >  - clocks: a phandle to the reference clock for the EPHY
+> > >  - resets: a phandle to the reset control for the EPHY
+> > > +- phy-is-integrated
+> > 
+> > So the last thing you said is that the mux is not the problem
+> > here. Something else is locking up. Did you discover what?
+> > 
+> > I really would like phy-is-integrated to go away.
+> > 
+> 
+> I have found the problem: by enabling ephy clk/reset the timeout does not occur anymore.
+> So we could remove phy-is-integrated by:
+> Moving internal phy clk/reset handling in mdio_mux_syscon_switch_fn()
+> But this means:
+> - getting internalphy node always by manually get internal_mdio/internal_phy (and not by the given phyhandle)
+> - doing some unnecessary tasks (enable/scan/disable) when external_phy is needed
+> 
+> Regards
 
-Yes, this bug to trigger would need this code be re-entered from a hard
-IRQ, and that would be wrong of course.
+Hello all
+
+Below is the current patch, as you can read, it does not use anymore the phy-is-integrated property.
+So now, the mdio-mux must always enable the internal mdio when switch_fn ask for it and so reset MAC and so need to enable ephy clk/reset.
+But for this I need a reference to thoses clock and reset. (this is done in get_ephy_nodes)
+The current version set those clock in mdio-mux node, and as you can see it is already ugly (lots of get next node),
+if the clk/rst nodes were as it should be, in phy nodes, it will be more bad.
+
+So, since the MAC have a dependency on thoses clk/rst nodes for doing reset(), I seek a proper way to get references on it.
+OR do you agree that putting ephy clk/rst in emac is acceptable ?
+
+thanks
+regards
+
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -17,6 +17,7 @@
+ #include <linux/clk.h>
+ #include <linux/io.h>
+ #include <linux/iopoll.h>
++#include <linux/mdio-mux.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+@@ -41,14 +42,14 @@
+  *				This value is used for disabling properly EMAC
+  *				and used as a good starting value in case of the
+  *				boot process(uboot) leave some stuff.
+- * @internal_phy:		Does the MAC embed an internal PHY
++ * @soc_has_internal_phy:	Does the MAC embed an internal PHY
+  * @support_mii:		Does the MAC handle MII
+  * @support_rmii:		Does the MAC handle RMII
+  * @support_rgmii:		Does the MAC handle RGMII
+  */
+ struct emac_variant {
+ 	u32 default_syscon_value;
+-	int internal_phy;
++	bool soc_has_internal_phy;
+ 	bool support_mii;
+ 	bool support_rmii;
+ 	bool support_rgmii;
+@@ -61,7 +62,7 @@ struct emac_variant {
+  * @rst_ephy:	reference to the optional EPHY reset for the internal PHY
+  * @variant:	reference to the current board variant
+  * @regmap:	regmap for using the syscon
+- * @use_internal_phy: Does the current PHY choice imply using the internal PHY
++ * @internal_phy_powered: Does the internal PHY is enabled
+  */
+ struct sunxi_priv_data {
+ 	struct clk *tx_clk;
+@@ -70,12 +71,13 @@ struct sunxi_priv_data {
+ 	struct reset_control *rst_ephy;
+ 	const struct emac_variant *variant;
+ 	struct regmap *regmap;
+-	bool use_internal_phy;
++	bool internal_phy_powered;
++	void *mux_handle;
+ };
+ 
+ static const struct emac_variant emac_variant_h3 = {
+ 	.default_syscon_value = 0x58000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -83,20 +85,20 @@ static const struct emac_variant emac_variant_h3 = {
+ 
+ static const struct emac_variant emac_variant_v3s = {
+ 	.default_syscon_value = 0x38000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true
+ };
+ 
+ static const struct emac_variant emac_variant_a83t = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rgmii = true
+ };
+ 
+ static const struct emac_variant emac_variant_a64 = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -195,6 +197,9 @@ static const struct emac_variant emac_variant_a64 = {
+ #define H3_EPHY_LED_POL		BIT(17) /* 1: active low, 0: active high */
+ #define H3_EPHY_SHUTDOWN	BIT(16) /* 1: shutdown, 0: power up */
+ #define H3_EPHY_SELECT		BIT(15) /* 1: internal PHY, 0: external PHY */
++#define H3_EPHY_MUX_MASK	(H3_EPHY_SHUTDOWN | H3_EPHY_SELECT)
++#define DWMAC_SUN8I_MDIO_MUX_INTERNAL_ID	1
++#define DWMAC_SUN8I_MDIO_MUX_EXTERNAL_ID	2
+ 
+ /* H3/A64 specific bits */
+ #define SYSCON_RMII_EN		BIT(13) /* 1: enable RMII (overrides EPIT) */
+@@ -634,6 +639,164 @@ static int sun8i_dwmac_reset(struct stmmac_priv *priv)
+ 	return 0;
+ }
+ 
++static int get_ephy_nodes(struct stmmac_priv *priv)
++{
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++	struct device_node *mdio_mux;
++	struct device_node *mdio_internal;
++	int ret;
++
++	mdio_mux = of_get_child_by_name(priv->plat->mdio_node, "mdio-mux");
++	if (!mdio_mux) {
++		dev_err(priv->device, "Cannot get mdio-mux node\n");
++		return -ENODEV;
++	}
++
++	mdio_internal = of_find_compatible_node(mdio_mux, NULL,
++						"allwinner,sun8i-h3-mdio-internal");
++	if (!mdio_internal) {
++		dev_err(priv->device, "Cannot get internal_mdio node\n");
++		return -ENODEV;
++	}
++
++	/* insert here code to get child phynode */
++	gmac->ephy_clk = of_clk_get(mdio_internal, 0);
++	if (IS_ERR(gmac->ephy_clk)) {
++		ret = PTR_ERR(gmac->ephy_clk);
++		dev_err(priv->device, "Cannot get EPHY clock: %d\n", ret);
++		return -EINVAL;
++	}
++
++	/* Note that we cannot use devm_reset_control_get, since
++	 * the reset is not in the device node.
++	 */
++	gmac->rst_ephy = of_reset_control_get_exclusive(mdio_internal, NULL);
++	if (IS_ERR(gmac->rst_ephy)) {
++		ret = PTR_ERR(gmac->rst_ephy);
++		if (ret == -EPROBE_DEFER)
++			return ret;
++		dev_err(priv->device, "No EPHY reset control found %d\n", ret);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
++{
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++	int ret;
++
++	if (gmac->internal_phy_powered) {
++		dev_warn(priv->device, "Internal PHY already powered\n");
++		return 0;
++	}
++
++	dev_info(priv->device, "Powering internal PHY\n");
++	ret = clk_prepare_enable(gmac->ephy_clk);
++	if (ret) {
++		dev_err(priv->device, "Cannot enable internal PHY\n");
++		return ret;
++	}
++
++	/* Make sure the EPHY is properly reseted, as U-Boot may leave
++	 * it at deasserted state, and thus it may fail to reset EMAC.
++	 */
++	reset_control_assert(gmac->rst_ephy);
++
++	ret = reset_control_deassert(gmac->rst_ephy);
++	if (ret) {
++		dev_err(priv->device, "Cannot deassert internal phy\n");
++		clk_disable_unprepare(gmac->ephy_clk);
++		return ret;
++	}
++
++	gmac->internal_phy_powered = true;
++
++	return 0;
++}
++
++static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
++{
++	if (!gmac->internal_phy_powered)
++		return 0;
++
++	clk_disable_unprepare(gmac->ephy_clk);
++	reset_control_assert(gmac->rst_ephy);
++	gmac->internal_phy_powered = false;
++	return 0;
++}
++
++/* MDIO multiplexing switch function
++ * This function is called by the mdio-mux layer when it thinks the mdio bus
++ * multiplexer needs to switch.
++ * 'current_child' is the current value of the mux register
++ * 'desired_child' is the value of the 'reg' property of the target child MDIO
++ * node.
++ * The first time this function is called, current_child == -1.
++ * If current_child == desired_child, then the mux is already set to the
++ * correct bus.
++ *
++ * Note that we do not use reg/mask like mdio-mux-mmioreg because we need to
++ * know easily which bus is used (reset must be done only for desired bus).
++ */
++static int mdio_mux_syscon_switch_fn(int current_child, int desired_child,
++				     void *data)
++{
++	struct stmmac_priv *priv = data;
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++	u32 reg, val;
++	int ret = 0;
++	bool need_power_ephy = false;
++
++	if (current_child ^ desired_child) {
++		regmap_read(gmac->regmap, SYSCON_EMAC_REG, &reg);
++		switch (desired_child) {
++		case DWMAC_SUN8I_MDIO_MUX_INTERNAL_ID:
++			dev_info(priv->device, "Switch mux to internal PHY");
++			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SELECT;
++
++			need_power_ephy = true;
++			break;
++		case DWMAC_SUN8I_MDIO_MUX_EXTERNAL_ID:
++			dev_info(priv->device, "Switch mux to external PHY");
++			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SHUTDOWN;
++			need_power_ephy = false;
++			break;
++		default:
++			dev_err(priv->device, "Invalid child ID %x\n",
++				desired_child);
++			return -EINVAL;
++		}
++		regmap_write(gmac->regmap, SYSCON_EMAC_REG, val);
++		if (need_power_ephy) {
++			ret = sun8i_dwmac_power_internal_phy(priv);
++			if (ret)
++				return ret;
++		} else {
++			sun8i_dwmac_unpower_internal_phy(gmac);
++		}
++		/* After changing syscon value, the MAC need reset or it will
++		 * use the last value (and so the last PHY set).
++		 */
++		ret = sun8i_dwmac_reset(priv);
++	}
++	return ret;
++}
++
++static int sun8i_dwmac_register_mdio_mux(struct stmmac_priv *priv)
++{
++	int ret;
++	struct device_node *mdio_mux;
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++
++	mdio_mux = of_get_child_by_name(priv->plat->mdio_node, "mdio-mux");
++	if (!mdio_mux)
++		return -ENODEV;
++
++	ret = mdio_mux_init(priv->device, mdio_mux, mdio_mux_syscon_switch_fn,
++			    &gmac->mux_handle, priv, priv->mii);
++	return ret;
++}
++
+ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ {
+ 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
+@@ -648,35 +811,25 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ 			 "Current syscon value is not the default %x (expect %x)\n",
+ 			 val, reg);
+ 
+-	if (gmac->variant->internal_phy) {
+-		if (!gmac->use_internal_phy) {
+-			/* switch to external PHY interface */
+-			reg &= ~H3_EPHY_SELECT;
+-		} else {
+-			reg |= H3_EPHY_SELECT;
+-			reg &= ~H3_EPHY_SHUTDOWN;
+-			dev_dbg(priv->device, "Select internal_phy %x\n", reg);
+-
+-			if (of_property_read_bool(priv->plat->phy_node,
+-						  "allwinner,leds-active-low"))
+-				reg |= H3_EPHY_LED_POL;
+-			else
+-				reg &= ~H3_EPHY_LED_POL;
+-
+-			/* Force EPHY xtal frequency to 24MHz. */
+-			reg |= H3_EPHY_CLK_SEL;
+-
+-			ret = of_mdio_parse_addr(priv->device,
+-						 priv->plat->phy_node);
+-			if (ret < 0) {
+-				dev_err(priv->device, "Could not parse MDIO addr\n");
+-				return ret;
+-			}
+-			/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
+-			 * address. No need to mask it again.
+-			 */
+-			reg |= ret << H3_EPHY_ADDR_SHIFT;
++	if (gmac->variant->soc_has_internal_phy) {
++		if (of_property_read_bool(priv->plat->phy_node,
++					  "allwinner,leds-active-low"))
++			reg |= H3_EPHY_LED_POL;
++		else
++			reg &= ~H3_EPHY_LED_POL;
++
++		/* Force EPHY xtal frequency to 24MHz. */
++		reg |= H3_EPHY_CLK_SEL;
++
++		ret = of_mdio_parse_addr(priv->device, priv->plat->phy_node);
++		if (ret < 0) {
++			dev_err(priv->device, "Could not parse MDIO addr\n");
++			return ret;
+ 		}
++		/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
++		 * address. No need to mask it again.
++		 */
++		reg |= 1 << H3_EPHY_ADDR_SHIFT;
+ 	}
+ 
+ 	if (!of_property_read_u32(node, "allwinner,tx-delay-ps", &val)) {
+@@ -746,81 +899,21 @@ static void sun8i_dwmac_unset_syscon(struct sunxi_priv_data *gmac)
+ 	regmap_write(gmac->regmap, SYSCON_EMAC_REG, reg);
+ }
+ 
+-static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
++static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+ {
+-	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
+-	int ret;
+-
+-	if (!gmac->use_internal_phy)
+-		return 0;
+-
+-	ret = clk_prepare_enable(gmac->ephy_clk);
+-	if (ret) {
+-		dev_err(priv->device, "Cannot enable ephy\n");
+-		return ret;
+-	}
+-
+-	/* Make sure the EPHY is properly reseted, as U-Boot may leave
+-	 * it at deasserted state, and thus it may fail to reset EMAC.
+-	 */
+-	reset_control_assert(gmac->rst_ephy);
++	struct sunxi_priv_data *gmac = priv;
+ 
+-	ret = reset_control_deassert(gmac->rst_ephy);
+-	if (ret) {
+-		dev_err(priv->device, "Cannot deassert ephy\n");
+-		clk_disable_unprepare(gmac->ephy_clk);
+-		return ret;
++	if (gmac->variant->soc_has_internal_phy) {
++		/* sun8i_dwmac_exit could be called with mdiomux uninit */
++		if (gmac->mux_handle)
++			mdio_mux_uninit(gmac->mux_handle);
++		if (gmac->internal_phy_powered)
++			sun8i_dwmac_unpower_internal_phy(gmac);
+ 	}
+ 
+-	return 0;
+-}
+-
+-static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
+-{
+-	if (!gmac->use_internal_phy)
+-		return 0;
+-
+-	clk_disable_unprepare(gmac->ephy_clk);
+-	reset_control_assert(gmac->rst_ephy);
+-	return 0;
+-}
+-
+-/* sun8i_power_phy() - Activate the PHY:
+- * In case of error, no need to call sun8i_unpower_phy(),
+- * it will be called anyway by sun8i_dwmac_exit()
+- */
+-static int sun8i_power_phy(struct stmmac_priv *priv)
+-{
+-	int ret;
+-
+-	ret = sun8i_dwmac_power_internal_phy(priv);
+-	if (ret)
+-		return ret;
+-
+-	ret = sun8i_dwmac_set_syscon(priv);
+-	if (ret)
+-		return ret;
+-
+-	/* After changing syscon value, the MAC need reset or it will use
+-	 * the last value (and so the last PHY set.
+-	 */
+-	ret = sun8i_dwmac_reset(priv);
+-	if (ret)
+-		return ret;
+-	return 0;
+-}
+-
+-static void sun8i_unpower_phy(struct sunxi_priv_data *gmac)
+-{
+ 	sun8i_dwmac_unset_syscon(gmac);
+-	sun8i_dwmac_unpower_internal_phy(gmac);
+-}
+ 
+-static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+-{
+-	struct sunxi_priv_data *gmac = priv;
+-
+-	sun8i_unpower_phy(gmac);
++	reset_control_put(gmac->rst_ephy);
+ 
+ 	clk_disable_unprepare(gmac->tx_clk);
+ 
+@@ -849,7 +942,7 @@ static struct mac_device_info *sun8i_dwmac_setup(void *ppriv)
+ 	if (!mac)
+ 		return NULL;
+ 
+-	ret = sun8i_power_phy(priv);
++	ret = sun8i_dwmac_set_syscon(priv);
+ 	if (ret)
+ 		return NULL;
+ 
+@@ -889,6 +982,8 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	struct sunxi_priv_data *gmac;
+ 	struct device *dev = &pdev->dev;
+ 	int ret;
++	struct stmmac_priv *priv;
++	struct net_device *ndev;
+ 
+ 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
+ 	if (ret)
+@@ -932,29 +1027,6 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	plat_dat->interface = of_get_phy_mode(dev->of_node);
+-	if (plat_dat->interface == gmac->variant->internal_phy) {
+-		dev_info(&pdev->dev, "Will use internal PHY\n");
+-		gmac->use_internal_phy = true;
+-		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
+-		if (IS_ERR(gmac->ephy_clk)) {
+-			ret = PTR_ERR(gmac->ephy_clk);
+-			dev_err(&pdev->dev, "Cannot get EPHY clock: %d\n", ret);
+-			return -EINVAL;
+-		}
+-
+-		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
+-		if (IS_ERR(gmac->rst_ephy)) {
+-			ret = PTR_ERR(gmac->rst_ephy);
+-			if (ret == -EPROBE_DEFER)
+-				return ret;
+-			dev_err(&pdev->dev, "No EPHY reset control found %d\n",
+-				ret);
+-			return -EINVAL;
+-		}
+-	} else {
+-		dev_info(&pdev->dev, "Will use external PHY\n");
+-		gmac->use_internal_phy = false;
+-	}
+ 
+ 	/* platform data specifying hardware features and callbacks.
+ 	 * hardware features were copied from Allwinner drivers.
+@@ -973,9 +1045,34 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 
+ 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ 	if (ret)
+-		sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
++		goto dwmac_exit;
++
++	ndev = dev_get_drvdata(&pdev->dev);
++	priv = netdev_priv(ndev);
++	/* The mux must be registered after parent MDIO
++	 * so after stmmac_dvr_probe()
++	 */
++	if (gmac->variant->soc_has_internal_phy) {
++		ret = get_ephy_nodes(priv);
++		if (ret)
++			return ret;
++		ret = sun8i_dwmac_register_mdio_mux(priv);
++		if (ret) {
++			dev_err(&pdev->dev, "Failed to register mux\n");
++			goto dwmac_mux;
++		}
++	} else {
++		ret = sun8i_dwmac_reset(priv);
++		if (ret)
++			goto dwmac_exit;
++	}
+ 
+ 	return ret;
++dwmac_mux:
++	sun8i_dwmac_unset_syscon(gmac);
++dwmac_exit:
++	sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
++return ret;
+ }
+ 
+ static const struct of_device_id sun8i_dwmac_match[] = {
+-- 
+2.13.6
