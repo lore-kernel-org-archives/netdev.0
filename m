@@ -1,78 +1,76 @@
-From: Christos Gkekas <chris.gekas@gmail.com>
-Subject: [PATCH] net: ethernet: stmmac: Clean up dead code
-Date: Sun,  8 Oct 2017 20:13:49 +0100
-Message-ID: <1507490029-26406-1-git-send-email-chris.gekas@gmail.com>
-Cc: Christos Gkekas <chris.gekas@gmail.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Tim Hansen <devtimhansen@gmail.com>
+Subject: [PATCH] net/core: Fix BUG to BUG_ON conditionals.
+Date: Sun, 8 Oct 2017 15:17:20 -0400
+Message-ID: <20171008191720.prewqllyazdstwkp@debian>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: willemb@google.com, edumazet@google.com, soheil@google.com,
+        elena.reshetova@intel.com, pabeni@redhat.com, tom@quantonium.net,
+        Jason@zx2c4.com, fw@strlen.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, alexander.levin@one.verizon.com,
+        devtimhansen@gmail.com
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Many macros in dwmac-ipq806x are unused and should be removed.
-Moreover gmac->id is an unsigned variable and therefore checking
-whether it is less than zero is redundant.
+Fix BUG() calls to use BUG_ON(conditional) macros.
 
-Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
+This was found using make coccicheck M=net/core on linux next
+tag next-20170929.
+
+Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c | 14 +-------------
- 1 file changed, 1 insertion(+), 13 deletions(-)
+ net/core/skbuff.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-index 866444b..2c6d7c6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-ipq806x.c
-@@ -51,15 +51,11 @@
- #define NSS_COMMON_CLK_SRC_CTRL_RGMII(x)	1
- #define NSS_COMMON_CLK_SRC_CTRL_SGMII(x)	((x >= 2) ? 1 : 0)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d98c2e3ce2bf..461516f45b33 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+ 	/* Set the tail pointer and length */
+ 	skb_put(n, skb->len);
  
--#define NSS_COMMON_MACSEC_CTL			0x28
--#define NSS_COMMON_MACSEC_CTL_EXT_BYPASS_EN(x)	(1 << x)
--
- #define NSS_COMMON_GMAC_CTL(x)			(0x30 + (x * 4))
- #define NSS_COMMON_GMAC_CTL_CSYS_REQ		BIT(19)
- #define NSS_COMMON_GMAC_CTL_PHY_IFACE_SEL	BIT(16)
- #define NSS_COMMON_GMAC_CTL_IFG_LIMIT_OFFSET	8
- #define NSS_COMMON_GMAC_CTL_IFG_OFFSET		0
--#define NSS_COMMON_GMAC_CTL_IFG_MASK		0x3f
+-	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
  
- #define NSS_COMMON_CLK_DIV_RGMII_1000		1
- #define NSS_COMMON_CLK_DIV_RGMII_100		9
-@@ -68,9 +64,6 @@
- #define NSS_COMMON_CLK_DIV_SGMII_100		4
- #define NSS_COMMON_CLK_DIV_SGMII_10		49
+ 	copy_skb_header(n, skb);
+ 	return n;
+@@ -1449,8 +1448,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
  
--#define QSGMII_PCS_MODE_CTL			0x68
--#define QSGMII_PCS_MODE_CTL_AUTONEG_EN(x)	BIT((x * 8) + 7)
--
- #define QSGMII_PCS_CAL_LCKDT_CTL		0x120
- #define QSGMII_PCS_CAL_LCKDT_CTL_RST		BIT(19)
+ 	BUG_ON(nhead < 0);
  
-@@ -83,15 +76,10 @@
- #define QSGMII_PHY_TX_DRIVER_EN			BIT(3)
- #define QSGMII_PHY_QSGMII_EN			BIT(7)
- #define QSGMII_PHY_PHASE_LOOP_GAIN_OFFSET	12
--#define QSGMII_PHY_PHASE_LOOP_GAIN_MASK		0x7
- #define QSGMII_PHY_RX_DC_BIAS_OFFSET		18
--#define QSGMII_PHY_RX_DC_BIAS_MASK		0x3
- #define QSGMII_PHY_RX_INPUT_EQU_OFFSET		20
--#define QSGMII_PHY_RX_INPUT_EQU_MASK		0x3
- #define QSGMII_PHY_CDR_PI_SLEW_OFFSET		22
--#define QSGMII_PHY_CDR_PI_SLEW_MASK		0x3
- #define QSGMII_PHY_TX_DRV_AMP_OFFSET		28
--#define QSGMII_PHY_TX_DRV_AMP_MASK		0xf
+-	if (skb_shared(skb))
+-		BUG();
++	BUG_ON(skb_shared(skb));
  
- struct ipq806x_gmac {
- 	struct platform_device *pdev;
-@@ -217,7 +205,7 @@ static int ipq806x_gmac_of_parse(struct ipq806x_gmac *gmac)
- 	 * code and keep it consistent with the Linux convention, we'll number
- 	 * them from 0 to 3 here.
- 	 */
--	if (gmac->id < 0 || gmac->id > 3) {
-+	if (gmac->id > 3) {
- 		dev_err(dev, "invalid gmac id\n");
- 		return -EINVAL;
+ 	size = SKB_DATA_ALIGN(size);
+ 
+@@ -1595,9 +1593,8 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
+ 		head_copy_off = newheadroom - head_copy_len;
+ 
+ 	/* Copy the linear header and data. */
+-	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+-			  skb->len + head_copy_len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
++			     skb->len + head_copy_len));
+ 
+ 	copy_skb_header(n, skb);
+ 
+@@ -1878,8 +1875,8 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 			return NULL;
  	}
+ 
+-	if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, skb_headlen(skb),
++			     skb_tail_pointer(skb), delta))
+ 
+ 	/* Optimization: no fragments, no reasons to preestimate
+ 	 * size of pulled pages. Superb.
 -- 
-2.7.4
+2.14.2
