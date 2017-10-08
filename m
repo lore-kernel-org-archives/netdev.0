@@ -1,72 +1,35 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum_router: Avoid expensive lookup during route removal
-Date: Sun,  8 Oct 2017 11:53:26 +0200
-Message-ID: <20171008095326.1238-1-jiri@resnulli.us>
+Subject: [patch net-next repost 0/2] mlxsw: Add more extack error reporting
+Date: Sun,  8 Oct 2017 11:57:54 +0200
+Message-ID: <20171008095756.2139-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsa@cumulusnetworks.com
+        dsahern@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37230 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751523AbdJHJx2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 05:53:28 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r68so4467808wmr.4
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 02:53:27 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36393 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751463AbdJHJ56 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 05:57:58 -0400
+Received: by mail-wm0-f68.google.com with SMTP id 131so10336462wmk.3
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 02:57:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-In commit fc922bb0dd94 ("mlxsw: spectrum_router: Use one LPM tree for
-all virtual routers") I increased the scale of supported VRFs by having
-all of them share the same LPM tree.
+Ido says:
 
-In order to avoid look-ups for prefix lengths that don't exist, each
-route removal would trigger an aggregation across all the active virtual
-routers to see which prefix lengths are in use and which aren't and
-structure the tree accordingly.
+Add error messages to VLAN and bridge enslavements to help users
+understand why the enslavement failed.
 
-With the way the data structures are currently laid out, this is a very
-expensive operation. When preformed repeatedly - due to the invocation
-of the abort mechanism - and with enough VRFs, this can result in a hung
-task.
+Ido Schimmel (2):
+  mlxsw: spectrum: Add extack for VLAN enslavements
+  mlxsw: spectrum: Propagate extack further for bridge enslavements
 
-For now, avoid this optimization until it can be properly re-added in
-net-next.
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 18 ++++++++++++----
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  3 ++-
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 25 +++++++++++++++-------
+ 3 files changed, 33 insertions(+), 13 deletions(-)
 
-Fixes: fc922bb0dd94 ("mlxsw: spectrum_router: Use one LPM tree for all virtual routers")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reported-by: David Ahern <dsa@cumulusnetworks.com>
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 14 --------------
- 1 file changed, 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 032089e..c16718d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3505,20 +3505,6 @@ static int mlxsw_sp_fib_lpm_tree_link(struct mlxsw_sp *mlxsw_sp,
- static void mlxsw_sp_fib_lpm_tree_unlink(struct mlxsw_sp *mlxsw_sp,
- 					 struct mlxsw_sp_fib *fib)
- {
--	struct mlxsw_sp_prefix_usage req_prefix_usage = {{ 0 } };
--	struct mlxsw_sp_lpm_tree *lpm_tree;
--
--	/* Aggregate prefix lengths across all virtual routers to make
--	 * sure we only have used prefix lengths in the LPM tree.
--	 */
--	mlxsw_sp_vrs_prefixes(mlxsw_sp, fib->proto, &req_prefix_usage);
--	lpm_tree = mlxsw_sp_lpm_tree_get(mlxsw_sp, &req_prefix_usage,
--					 fib->proto);
--	if (IS_ERR(lpm_tree))
--		goto err_tree_get;
--	mlxsw_sp_vrs_lpm_tree_replace(mlxsw_sp, fib, lpm_tree);
--
--err_tree_get:
- 	if (!mlxsw_sp_prefix_usage_none(&fib->prefix_usage))
- 		return;
- 	mlxsw_sp_vr_lpm_tree_unbind(mlxsw_sp, fib);
 -- 
 2.9.5
