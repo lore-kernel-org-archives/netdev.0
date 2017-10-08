@@ -1,38 +1,80 @@
-From: Christos Gkekas <chris.gekas@gmail.com>
-Subject: [PATCH] ath10k: spectral: Simplify error checking
-Date: Sun,  8 Oct 2017 20:30:26 +0100
-Message-ID: <1507491026-28690-1-git-send-email-chris.gekas@gmail.com>
-Cc: Christos Gkekas <chris.gekas@gmail.com>
-To: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: Tim Hansen <devtimhansen@gmail.com>
+Subject: Re: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
+Date: Sun, 8 Oct 2017 16:03:38 -0400
+Message-ID: <20171008200338.2noygmfbdri6lc4y@debian>
+References: <20171008191720.prewqllyazdstwkp@debian>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: willemb@google.com, edumazet@google.com, soheil@google.com,
+        elena.reshetova@intel.com, pabeni@redhat.com, tom@quantonium.net,
+        Jason@zx2c4.com, fw@strlen.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, alexander.levin@one.verizon.com
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171008191720.prewqllyazdstwkp@debian>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Variable val is unsigned so checking whether it is less than zero is
-redundant.
+Mistakenly sent the patch previously with a missing semicolon.
+Apologies.
 
-Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
+Fix BUG() calls to use BUG_ON(conditional) macros.
+
+This was found using make coccicheck M=net/core on linux next
+tag next-20170929
+
+Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
 ---
- drivers/net/wireless/ath/ath10k/spectral.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ net/core/skbuff.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/spectral.c b/drivers/net/wireless/ath/ath10k/spectral.c
-index dd9cc09..1867937 100644
---- a/drivers/net/wireless/ath/ath10k/spectral.c
-+++ b/drivers/net/wireless/ath/ath10k/spectral.c
-@@ -403,10 +403,7 @@ static ssize_t write_file_spectral_count(struct file *file,
- 		return -EFAULT;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d98c2e3ce2bf..34ce4c1a0f3c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+ 	/* Set the tail pointer and length */
+ 	skb_put(n, skb->len);
  
- 	buf[len] = '\0';
--	if (kstrtoul(buf, 0, &val))
--		return -EINVAL;
--
--	if (val < 0 || val > 255)
-+	if (kstrtoul(buf, 0, &val) || val > 255)
- 		return -EINVAL;
+-	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
  
- 	mutex_lock(&ar->conf_mutex);
+ 	copy_skb_header(n, skb);
+ 	return n;
+@@ -1449,8 +1448,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	BUG_ON(nhead < 0);
+ 
+-	if (skb_shared(skb))
+-		BUG();
++	BUG_ON(skb_shared(skb));
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
+@@ -1595,9 +1593,8 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
+ 		head_copy_off = newheadroom - head_copy_len;
+ 
+ 	/* Copy the linear header and data. */
+-	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+-			  skb->len + head_copy_len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
++			     skb->len + head_copy_len));
+ 
+ 	copy_skb_header(n, skb);
+ 
+@@ -1878,8 +1875,8 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 			return NULL;
+ 	}
+ 
+-	if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, skb_headlen(skb),
++			     skb_tail_pointer(skb), delta));
+ 
+ 	/* Optimization: no fragments, no reasons to preestimate
+ 	 * size of pulled pages. Superb.
 -- 
-2.7.4
+2.14.2
