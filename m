@@ -1,146 +1,72 @@
-From: <marketing@chinesport.it>
-Subject: (unknown)
-Date: Sun, 08 Oct 2017 09:52:27 -0000
-Message-ID: <150745634760.32758.17664627600215872385@myrepublic.com.sg>
-Mime-Version: 1.0
-Content-Type: application/zip; name="0528473.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum_router: Avoid expensive lookup during route removal
+Date: Sun,  8 Oct 2017 11:53:26 +0200
+Message-ID: <20171008095326.1238-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        dsa@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 76-130-140-158.myrepublic.com.sg ([158.140.130.76]:57489 "HELO
-        myrepublic.com.sg" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-        with SMTP id S1751463AbdJHJwb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 05:52:31 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:37230 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751523AbdJHJx2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 05:53:28 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r68so4467808wmr.4
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 02:53:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAAAAA==
+From: Ido Schimmel <idosch@mellanox.com>
+
+In commit fc922bb0dd94 ("mlxsw: spectrum_router: Use one LPM tree for
+all virtual routers") I increased the scale of supported VRFs by having
+all of them share the same LPM tree.
+
+In order to avoid look-ups for prefix lengths that don't exist, each
+route removal would trigger an aggregation across all the active virtual
+routers to see which prefix lengths are in use and which aren't and
+structure the tree accordingly.
+
+With the way the data structures are currently laid out, this is a very
+expensive operation. When preformed repeatedly - due to the invocation
+of the abort mechanism - and with enough VRFs, this can result in a hung
+task.
+
+For now, avoid this optimization until it can be properly re-added in
+net-next.
+
+Fixes: fc922bb0dd94 ("mlxsw: spectrum_router: Use one LPM tree for all virtual routers")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Reported-by: David Ahern <dsa@cumulusnetworks.com>
+Tested-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 14 --------------
+ 1 file changed, 14 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 032089e..c16718d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -3505,20 +3505,6 @@ static int mlxsw_sp_fib_lpm_tree_link(struct mlxsw_sp *mlxsw_sp,
+ static void mlxsw_sp_fib_lpm_tree_unlink(struct mlxsw_sp *mlxsw_sp,
+ 					 struct mlxsw_sp_fib *fib)
+ {
+-	struct mlxsw_sp_prefix_usage req_prefix_usage = {{ 0 } };
+-	struct mlxsw_sp_lpm_tree *lpm_tree;
+-
+-	/* Aggregate prefix lengths across all virtual routers to make
+-	 * sure we only have used prefix lengths in the LPM tree.
+-	 */
+-	mlxsw_sp_vrs_prefixes(mlxsw_sp, fib->proto, &req_prefix_usage);
+-	lpm_tree = mlxsw_sp_lpm_tree_get(mlxsw_sp, &req_prefix_usage,
+-					 fib->proto);
+-	if (IS_ERR(lpm_tree))
+-		goto err_tree_get;
+-	mlxsw_sp_vrs_lpm_tree_replace(mlxsw_sp, fib, lpm_tree);
+-
+-err_tree_get:
+ 	if (!mlxsw_sp_prefix_usage_none(&fib->prefix_usage))
+ 		return;
+ 	mlxsw_sp_vr_lpm_tree_unbind(mlxsw_sp, fib);
+-- 
+2.9.5
