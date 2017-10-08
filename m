@@ -1,49 +1,171 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: devlink dump of mlxsw_adj table triggers a panic
-Date: Sun, 8 Oct 2017 10:43:08 +0300
-Message-ID: <c7286c2b-09de-1221-303a-0aed3ed77c21@mellanox.com>
-References: <78e0bce8-e122-ab92-2f48-e9d278f4d2b4@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0042.outbound.protection.outlook.com ([104.47.0.42]:20944
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750997AbdJHHnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Oct 2017 03:43:15 -0400
-In-Reply-To: <78e0bce8-e122-ab92-2f48-e9d278f4d2b4@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Harsh Jain <harsh@chelsio.com>
+Subject: [PATCH v2 1/7] crypto:chelsio: Remove unused parameter
+Date: Sun,  8 Oct 2017 13:37:18 +0530
+Message-ID: <6684d047aa37a73f4a614c47c74551e266b8cd00.1507449374.git.harsh@chelsio.com>
+References: <cover.1507010612.git.harsh@chelsio.com>
+Cc: Yeshaswi M R Gowda <yeshaswi@chelsio.com>,
+        Harsh Jain <harsh@chelsio.com>
+To: herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <cover.1507010612.git.harsh@chelsio.com>
+In-Reply-To: <cover.1507449374.git.harsh@chelsio.com>
+References: <cover.1507449374.git.harsh@chelsio.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
 
+Remove unused parameter sent to latest fw.
 
-On 10/05/2017 02:57 AM, David Ahern wrote:
-> The following devlink command on a 2700 triggers a panic every time.
-> Kernel is net-next at 26873308b21654b6e0785b9f9e2c5414d37a4c4c
-> 
-> $ devlink  dpipe table dump pci/0000:03:00.0 name mlxsw_adj
-> devlink answers: No buffer space available
-> <hang>
-> 
-> I have seen several different stack traces and varying amounts of EMAD
-> errors on console:
-> 
-> [   77.453364] mlxsw_spectrum 0000:03:00.0: EMAD reg access failed
-> (tid=64c24a400003688,reg_id=200b(sfn),type=query,status=0(operation
-> performed))
-> [   77.466568] mlxsw_spectrum 0000:03:00.0: Failed to get FDB notifications
-> 
-> If it does not reproduce for you let me know and I'll grab a trace.
-> 
-> David
-> 
+Signed-off-by: Harsh Jain <harsh@chelsio.com>
+---
+ drivers/crypto/chelsio/chcr_algo.c | 43 +++++++++++++++-----------------------
+ drivers/crypto/chelsio/chcr_algo.h | 12 +++++------
+ 2 files changed, 23 insertions(+), 32 deletions(-)
 
-Thanks, will check it out. How many nexthops groups & overall number of
-nexthops you configured?
-
-Thanks,
-Arkadi
+diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
+index 0e81607..bdb1014 100644
+--- a/drivers/crypto/chelsio/chcr_algo.c
++++ b/drivers/crypto/chelsio/chcr_algo.c
+@@ -577,36 +577,27 @@ static int chcr_cipher_fallback(struct crypto_skcipher *cipher,
+ static inline void create_wreq(struct chcr_context *ctx,
+ 			       struct chcr_wr *chcr_req,
+ 			       void *req, struct sk_buff *skb,
+-			       int kctx_len, int hash_sz,
+-			       int is_iv,
++			       int hash_sz,
+ 			       unsigned int sc_len,
+ 			       unsigned int lcb)
+ {
+ 	struct uld_ctx *u_ctx = ULD_CTX(ctx);
+-	int iv_loc = IV_DSGL;
+ 	int qid = u_ctx->lldi.rxq_ids[ctx->rx_qidx];
+-	unsigned int immdatalen = 0, nr_frags = 0;
++	unsigned int immdatalen = 0;
+ 
+-	if (is_ofld_imm(skb)) {
++	if (is_ofld_imm(skb))
+ 		immdatalen = skb->data_len;
+-		iv_loc = IV_IMMEDIATE;
+-	} else {
+-		nr_frags = skb_shinfo(skb)->nr_frags;
+-	}
+ 
+-	chcr_req->wreq.op_to_cctx_size = FILL_WR_OP_CCTX_SIZE(immdatalen,
+-				((sizeof(chcr_req->key_ctx) + kctx_len) >> 4));
++	chcr_req->wreq.op_to_cctx_size = FILL_WR_OP_CCTX_SIZE;
+ 	chcr_req->wreq.pld_size_hash_size =
+-		htonl(FW_CRYPTO_LOOKASIDE_WR_PLD_SIZE_V(sgl_lengths[nr_frags]) |
+-		      FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE_V(hash_sz));
++		htonl(FW_CRYPTO_LOOKASIDE_WR_HASH_SIZE_V(hash_sz));
+ 	chcr_req->wreq.len16_pkd =
+ 		htonl(FW_CRYPTO_LOOKASIDE_WR_LEN16_V(DIV_ROUND_UP(
+ 				    (calc_tx_flits_ofld(skb) * 8), 16)));
+ 	chcr_req->wreq.cookie = cpu_to_be64((uintptr_t)req);
+ 	chcr_req->wreq.rx_chid_to_rx_q_id =
+ 		FILL_WR_RX_Q_ID(ctx->dev->rx_channel_id, qid,
+-				is_iv ? iv_loc : IV_NOP, !!lcb,
+-				ctx->tx_qidx);
++				!!lcb, ctx->tx_qidx);
+ 
+ 	chcr_req->ulptx.cmd_dest = FILL_ULPTX_CMD_DEST(ctx->dev->tx_channel_id,
+ 						       qid);
+@@ -616,7 +607,7 @@ static inline void create_wreq(struct chcr_context *ctx,
+ 	chcr_req->sc_imm.cmd_more = FILL_CMD_MORE(immdatalen);
+ 	chcr_req->sc_imm.len = cpu_to_be32(sizeof(struct cpl_tx_sec_pdu) +
+ 				   sizeof(chcr_req->key_ctx) +
+-				   kctx_len + sc_len + immdatalen);
++				   sc_len + immdatalen);
+ }
+ 
+ /**
+@@ -706,8 +697,8 @@ static struct sk_buff *create_cipher_wr(struct cipher_wr_param *wrparam)
+ 	write_buffer_to_skb(skb, &frags, reqctx->iv, ivsize);
+ 	write_sg_to_skb(skb, &frags, wrparam->srcsg, wrparam->bytes);
+ 	atomic_inc(&adap->chcr_stats.cipher_rqst);
+-	create_wreq(ctx, chcr_req, &(wrparam->req->base), skb, kctx_len, 0, 1,
+-			sizeof(struct cpl_rx_phys_dsgl) + phys_dsgl,
++	create_wreq(ctx, chcr_req, &(wrparam->req->base), skb, 0,
++			sizeof(struct cpl_rx_phys_dsgl) + phys_dsgl + kctx_len,
+ 			ablkctx->ciph_mode == CHCR_SCMD_CIPHER_MODE_AES_CBC);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+@@ -1417,8 +1408,8 @@ static struct sk_buff *create_hash_wr(struct ahash_request *req,
+ 	if (param->sg_len != 0)
+ 		write_sg_to_skb(skb, &frags, req->src, param->sg_len);
+ 	atomic_inc(&adap->chcr_stats.digest_rqst);
+-	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len,
+-		    hash_size_in_response, 0, DUMMY_BYTES, 0);
++	create_wreq(ctx, chcr_req, &req->base, skb, hash_size_in_response,
++		    DUMMY_BYTES + kctx_len, 0);
+ 	req_ctx->skb = skb;
+ 	skb_get(skb);
+ 	return skb;
+@@ -2080,8 +2071,8 @@ static struct sk_buff *create_authenc_wr(struct aead_request *req,
+ 	write_buffer_to_skb(skb, &frags, req->iv, ivsize);
+ 	write_sg_to_skb(skb, &frags, src, req->cryptlen);
+ 	atomic_inc(&adap->chcr_stats.cipher_rqst);
+-	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len, size, 1,
+-		   sizeof(struct cpl_rx_phys_dsgl) + dst_size, 0);
++	create_wreq(ctx, chcr_req, &req->base, skb, size,
++		   sizeof(struct cpl_rx_phys_dsgl) + dst_size + kctx_len, 0);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+ 
+@@ -2396,8 +2387,8 @@ static struct sk_buff *create_aead_ccm_wr(struct aead_request *req,
+ 	skb_set_transport_header(skb, transhdr_len);
+ 	frags = fill_aead_req_fields(skb, req, src, ivsize, aeadctx);
+ 	atomic_inc(&adap->chcr_stats.aead_rqst);
+-	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len, 0, 1,
+-		    sizeof(struct cpl_rx_phys_dsgl) + dst_size, 0);
++	create_wreq(ctx, chcr_req, &req->base, skb, 0,
++		    sizeof(struct cpl_rx_phys_dsgl) + dst_size + kctx_len, 0);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+ 	return skb;
+@@ -2554,8 +2545,8 @@ static struct sk_buff *create_gcm_wr(struct aead_request *req,
+ 	write_buffer_to_skb(skb, &frags, reqctx->iv, ivsize);
+ 	write_sg_to_skb(skb, &frags, src, req->cryptlen);
+ 	atomic_inc(&adap->chcr_stats.aead_rqst);
+-	create_wreq(ctx, chcr_req, &req->base, skb, kctx_len, size, 1,
+-			sizeof(struct cpl_rx_phys_dsgl) + dst_size,
++	create_wreq(ctx, chcr_req, &req->base, skb, size,
++			sizeof(struct cpl_rx_phys_dsgl) + dst_size + kctx_len,
+ 			reqctx->verify);
+ 	reqctx->skb = skb;
+ 	skb_get(skb);
+diff --git a/drivers/crypto/chelsio/chcr_algo.h b/drivers/crypto/chelsio/chcr_algo.h
+index 583008d..54851ec 100644
+--- a/drivers/crypto/chelsio/chcr_algo.h
++++ b/drivers/crypto/chelsio/chcr_algo.h
+@@ -176,21 +176,21 @@
+ 		      KEY_CONTEXT_SALT_PRESENT_V(1) | \
+ 		      KEY_CONTEXT_CTX_LEN_V((ctx_len)))
+ 
+-#define FILL_WR_OP_CCTX_SIZE(len, ctx_len) \
++#define FILL_WR_OP_CCTX_SIZE \
+ 		htonl( \
+ 			FW_CRYPTO_LOOKASIDE_WR_OPCODE_V( \
+ 			FW_CRYPTO_LOOKASIDE_WR) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_COMPL_V(0) | \
+-			FW_CRYPTO_LOOKASIDE_WR_IMM_LEN_V((len)) | \
+-			FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC_V(1) | \
+-			FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE_V((ctx_len)))
++			FW_CRYPTO_LOOKASIDE_WR_IMM_LEN_V((0)) | \
++			FW_CRYPTO_LOOKASIDE_WR_CCTX_LOC_V(0) | \
++			FW_CRYPTO_LOOKASIDE_WR_CCTX_SIZE_V(0))
+ 
+-#define FILL_WR_RX_Q_ID(cid, qid, wr_iv, lcb, fid) \
++#define FILL_WR_RX_Q_ID(cid, qid, lcb, fid) \
+ 		htonl( \
+ 			FW_CRYPTO_LOOKASIDE_WR_RX_CHID_V((cid)) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_RX_Q_ID_V((qid)) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_LCB_V((lcb)) | \
+-			FW_CRYPTO_LOOKASIDE_WR_IV_V((wr_iv)) | \
++			FW_CRYPTO_LOOKASIDE_WR_IV_V((IV_NOP)) | \
+ 			FW_CRYPTO_LOOKASIDE_WR_FQIDX_V(fid))
+ 
+ #define FILL_ULPTX_CMD_DEST(cid, qid) \
+-- 
+2.1.4
