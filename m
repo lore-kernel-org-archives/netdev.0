@@ -1,124 +1,115 @@
-From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 00/12] radix-tree: split out struct radix_tree_root out
- to <linux/radix-tree-root.h>
-Date: Sun, 8 Oct 2017 21:52:33 +0300
-Message-ID: <20171008185233.GF25829@mtr-leonro.local>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH 10/12] net/mlx4: replace <linux/radix-tree.h> with
+ <linux/radix-tree-root.h>
+Date: Sun, 8 Oct 2017 21:55:29 +0300
+Message-ID: <20171008185529.GG25829@mtr-leonro.local>
 References: <1507479013-5207-1-git-send-email-yamada.masahiro@socionext.com>
+ <1507479013-5207-11-git-send-email-yamada.masahiro@socionext.com>
+ <20171008.100013.2081721941420989813.davem@davemloft.net>
+ <CAK7LNAQ1BeSb14poieRU4uMsnsEHPNL2zSNtWi1TGN=YrK_8jA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="O9uFcEIpmYvy18ul"
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        Ian Abbott <abbotti-GUHe90Wt2aFaa/9Udqfwiw@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        linux-cachefs-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Rodrigo Vivi <rodrigo.vivi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, David Airlie <airlied-cv59FeDIM0c@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Yoshinori Sato <ysato-Rn4VEauK+AKRv+LV9MX5uooqe+aC9MnS@public.gmane.org>,
-        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Rich Felker <dalias-8zAoT0mYgF4@public.gmane.org>,
-        Jani Nikula <jani.nikula-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Joonas Lahtinen <joonas.lahtinen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-To: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="Kra4tWuoVJHqwr45"
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Andrew Morton <akpm@linux-foundation.org>, abbotti@mev.co.uk,
+        Ingo Molnar <mingo@kernel.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        linux-rdma@vger.kernel.org, yishaih@mellanox.com,
+        tariqt@mellanox.com, netdev@vger.kernel.org
+To: Masahiro Yamada <yamada.masahiro@socionext.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1507479013-5207-1-git-send-email-yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <CAK7LNAQ1BeSb14poieRU4uMsnsEHPNL2zSNtWi1TGN=YrK_8jA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---O9uFcEIpmYvy18ul
+--Kra4tWuoVJHqwr45
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, Oct 09, 2017 at 01:10:01AM +0900, Masahiro Yamada wrote:
-
-<...>
+On Mon, Oct 09, 2017 at 02:29:15AM +0900, Masahiro Yamada wrote:
+> 2017-10-09 2:00 GMT+09:00 David Miller <davem@davemloft.net>:
+> > From: Masahiro Yamada <yamada.masahiro@socionext.com>
+> > Date: Mon,  9 Oct 2017 01:10:11 +0900
+> >
+> >> The headers
+> >>  - include/linux/mlx4/device.h
+> >>  - drivers/net/ethernet/mellanox/mlx4/mlx4.h
+> >> require the definition of struct radix_tree_root, but do not need to
+> >> know anything about other radix tree stuff.
+> >>
+> >> Include <linux/radix-tree-root.h> instead of <linux/radix-tree.h> to
+> >> reduce the header dependency.
+> >>
+> >> While we are here, let's add missing <linux/radix-tree.h> where
+> >> radix tree accessors are used.
+> >>
+> >> Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+> >
+> > Honestly this makes things more complicated.
 >
-> By splitting out the radix_tree_root definition,
-> we can reduce the header file dependency.
 >
-> Reducing the header dependency will help for speeding the kernel
-> build, suppressing unnecessary recompile of objects during
-> git-bisect'ing, etc.
+> The idea is simple; include necessary headers explicitly.
+>
+> Putting everything into one common header
+> means most of C files are forced to parse unnecessary headers.
 
-If we judge by the diffstat of this series, there won't be any
-visible change in anything mentioned above.
-
-<...>
+It is neglected, only first caller will actually parse that header file,
+other callers will check the #ifndef pragma without need to reparse the
+whole file.
 
 >
-> Masahiro Yamada (12):
->   radix-tree: replace <linux/spinlock.h> with <linux/spinlock_types.h>
->   radix-tree: split struct radix_tree_root to <linux/radix-tree-root.h>
->   irqdomain: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   writeback: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   iocontext.h: replace <linux/radix-tree.h> with
->     <linux/radix-tree-root.h>
->   fs: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   blkcg: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   fscache: include <linux-radix-tree.h>
->   sh: intc: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   net/mlx4: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   net/mlx5: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
->   drm/i915: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
 >
->  drivers/gpu/drm/i915/i915_gem.c            |  1 +
->  drivers/gpu/drm/i915/i915_gem_context.c    |  1 +
->  drivers/gpu/drm/i915/i915_gem_context.h    |  2 +-
->  drivers/gpu/drm/i915/i915_gem_execbuffer.c |  1 +
->  drivers/gpu/drm/i915/i915_gem_object.h     |  1 +
->  drivers/net/ethernet/mellanox/mlx4/cq.c    |  1 +
->  drivers/net/ethernet/mellanox/mlx4/mlx4.h  |  2 +-
->  drivers/net/ethernet/mellanox/mlx4/qp.c    |  1 +
->  drivers/net/ethernet/mellanox/mlx4/srq.c   |  1 +
->  drivers/sh/intc/internals.h                |  2 +-
->  include/linux/backing-dev-defs.h           |  2 +-
->  include/linux/blk-cgroup.h                 |  2 +-
->  include/linux/fs.h                         |  2 +-
->  include/linux/fscache.h                    |  1 +
->  include/linux/iocontext.h                  |  2 +-
->  include/linux/irqdomain.h                  |  2 +-
->  include/linux/mlx4/device.h                |  2 +-
->  include/linux/mlx4/qp.h                    |  1 +
->  include/linux/mlx5/driver.h                |  2 +-
->  include/linux/mlx5/qp.h                    |  1 +
->  include/linux/radix-tree-root.h            | 24 ++++++++++++++++++++++++
->  include/linux/radix-tree.h                 |  8 ++------
->  22 files changed, 46 insertions(+), 16 deletions(-)
->  create mode 100644 include/linux/radix-tree-root.h
+>
+> > The driver was trying to consolidate all of the header needs
+> > by including them all in one place, the main driver header.
+> >
+> > Now you're including headers in several different files.
+> >
+> > I really don't like the results of this change and would
+> > ask you to reconsider.
+> >
+> > Just add both radix-tree-root.h _and_ radix-tree.h to mlx4.h
+> > and leave the rest of the driver alone.
+>
+>
+> If you do not like this, you can just throw it away.
+>
+> <linux/radix-tree.h> includes <linux/radix-tree-root.h>.
+> You do not need to include both.
+>
+>
+>
 >
 > --
-> 2.7.4
->
+> Best Regards
+> Masahiro Yamada
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
---O9uFcEIpmYvy18ul
+--Kra4tWuoVJHqwr45
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnac/EACgkQ5GN7iDZy
-WKfp7xAAoOGndfBeCCDaUoat2rL4d0CYwVKpSm1S9KaBMPien9InhQ0sQxtSpPvq
-gra5Z2N2gnw+wPQhoQSzpzLyRf7Zx97sBMysgYCgoXdnj6p8HooNPwGa0AEG//c/
-SiBl32z7SpeG7G2n2+8F5lV8AQ6OggWHWiEc1odpQuM50ODhAdFzuxVubALLd6xl
-BeGMSKbs8Vcm7eA/pNjmlzOvZ/w/7ZRBFv6wCFeBPviyBrvvR2oIhqfbs7rmKoUL
-C1Tv4VeQwI1sZRJMfbAHZpQigay/qVen8jOnfn+pTQ8XGKQFa94o6eoet8m/eXIj
-0MIeTNqTSFo8qGXuh7oSlx/5ePB32sp0HCVqPsKVQKiFji5H8f5zA1LORt7o0AkK
-xOGf4xewEmf9C8Pedd3GNuPOXWrjWoaN73TkXfjXevRb4sEBFfwJ3LXta24AT4vl
-AJ1cxMmnOmaVrMH0MaLY89MuqsxAHgbSezSG/AO3T8vXNTLo/4EQMNug6h0Mpt6+
-iSg0GWddjd0rWInaTXlsIawoq47avrKcAsAYccl2m29ny+kxVR9Kff23sOQhLR9Z
-UYDZhle4a4rSByEbpiYQlnLUKEkfrvmUsi65hM2ZYy73FDYkDKUtKH6vjJfs/64/
-2bQh5q+VSeHCr1Psv7pLf+eIjtpbMmBoTYx0xZ894gwhRmI7jMw=
-=Ge7A
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnadKEACgkQ5GN7iDZy
+WKcU/w/+IV/xfGH1SRd5FqoN7noTc/kYlBAXPyI7c3io/tfZDeLUd114YTKMbowW
+IrqxTgOxWgD8bmW+3w5kYjneDz8n7olzRBTit3HoRcqK1HgfpTAKFb7RhJBSXbRP
+Jqi7rFX2iYkO4mwu9PBR6yEbrRz4Cc9cvLrO0tB4HfBawn6oZKP1GaWVfbSUvGMg
+2XV7nhvXsvWHAUnVYqvEoR7olehLjtJi8W7pKmI+CzbjLkiBjdQWapHJsA/3ED5Y
+EcCN6IqGTSryYzVIwFlmZ/cHtLWO9OazrpkXAPnHWtTrPJDyU70Q3QtI+Pq7kf/B
+aXhdJY4PAjQaWujTL8qx597sJ5edmOAFxDlVLgMx+MrXREQD5+tCt8ieGLNANG68
+Iw9du/Y0wvg+sDSLZzeUNVQmxyfMXvlU6KPREnwui+Bd0uXzzgMhjsRBWonJvaZj
+oS8djFuoIoY29zO+eAT10chOxNNzv2DXJmPPJgu46eUmoe/1BcJviCl5qT3BIjeP
+ZH1mAq0Umn83y3b72BbxiIe6GcQu+7+4Y2MkSfaZC8qqwBUg7FuoNxJBEOGVr32y
++wMqvOQgWmVphrnBoGa7+mLIUbAeLHoP69+nNuLElpPOuKEJEEvZSMO9t3iaLHeR
+Yp3ZYg4FU0DZT7VobjPNjdc3m5Fi2vUYHwAzjvlkhWLBPB8fqnY=
+=bN5m
 -----END PGP SIGNATURE-----
 
---O9uFcEIpmYvy18ul--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--Kra4tWuoVJHqwr45--
