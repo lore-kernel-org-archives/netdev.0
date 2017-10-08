@@ -1,168 +1,320 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next repost 2/2] mlxsw: spectrum: Propagate extack further for bridge enslavements
-Date: Sun,  8 Oct 2017 11:57:56 +0200
-Message-ID: <20171008095756.2139-3-jiri@resnulli.us>
-References: <20171008095756.2139-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
-        dsahern@gmail.com
-To: netdev@vger.kernel.org
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: Re: [patch net-next 1/6] net: bridge: Use the MDB_RTR_TYPE_TEMP on
+ bridge device too
+Date: Sun, 8 Oct 2017 13:30:08 +0300
+Message-ID: <3631ae6c-6780-50ae-ba42-462d8155ed4e@mellanox.com>
+References: <20171005103642.1414-1-jiri@resnulli.us>
+ <20171005103642.1414-2-jiri@resnulli.us>
+ <b9cfcf9f-bb3a-6649-5b6a-39be0a957550@cumulusnetworks.com>
+ <b782b23c-b85f-680d-0e91-5de3a3d436f6@mellanox.com>
+ <c282f731-2d8e-a30d-b36d-d407cf7ccfe8@cumulusnetworks.com>
+ <52b8e2d1-ce5a-f0d5-cfa7-b483bf223f78@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, nogahf@mellanox.com,
+        mlxsw@mellanox.com, ivecera@redhat.com, andrew@lunn.ch,
+        stephen@networkplumber.org, nbd@nbd.name, roopa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:45291 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751463AbdJHJ6A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 05:58:00 -0400
-Received: by mail-wm0-f68.google.com with SMTP id q124so15809611wmb.0
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 02:58:00 -0700 (PDT)
-In-Reply-To: <20171008095756.2139-1-jiri@resnulli.us>
+Received: from mail-eopbgr20073.outbound.protection.outlook.com ([40.107.2.73]:5877
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751556AbdJHKaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Oct 2017 06:30:20 -0400
+In-Reply-To: <52b8e2d1-ce5a-f0d5-cfa7-b483bf223f78@cumulusnetworks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+On 10/08/2017 12:42 PM, Nikolay Aleksandrov wrote:
+> On 08/10/17 12:39, Nikolay Aleksandrov wrote:
+>> On 08/10/17 08:23, Yotam Gigi wrote:
+>>> On 10/05/2017 03:09 PM, Nikolay Aleksandrov wrote:
+>>>> On 05/10/17 13:36, Jiri Pirko wrote:
+>>>>> From: Yotam Gigi <yotamg@mellanox.com>
+>>>>>
+>>>>> Every bridge port is in one of four mcast router port states:
+>>>>>  - MDB_RTR_TYPE_PERM - the port is set by the user to be an mrouter port
+>>>>>    regardless of IGMP queries.
+>>>>>  - MDB_RTR_TYPE_DISABLED - the port is set by the user to not be an mrouter
+>>>>>    port regardless of IGMP queries.
+>>>>>  - MDB_RTR_TYPE_TEMP - the port is set by the user to be in mcast router
+>>>>>    learning state, but currently it is not an mrouter port as no IGMP query
+>>>>>    has been received by it for the last multicast_querier_interval.
+>>>>>  - MDB_RTR_TYPE_TEMP_QUERY - the port is set by the user to be in mcast
+>>>>>    router learning state, and currently it is an mrouter port due to an
+>>>>>    IGMP query that has been received by it during the passed
+>>>>>    multicast_querier_interval.
+>>>> I think you got the last two partially mixed up, MDB_RTR_TYPE_TEMP marks the port as a router
+>>>> regardless if there were any igmp queries, while TYPE_TEMP_QUERY means it's in learning
+>>>> state. It is the timer (armed vs not) that defines if currently the port is a router
+>>>> when one of the TEMP/TEMP_QUERY are set. In the _TEMP case it is always armed as it
+>>>> is refreshed by user or igmp queries which was the point of that mode.
+>>>> So this means in br_multicast_router() just check for the timer_pending or perm mode.
+>>>
+>>> As much as I tried to make this clear, it seems like I failed :)
+>>>
+>>> The 4 states I described are currently the "bridged port" states, not the
+>>> "bridge device" state. A bridged port has these 4 states, all can be set by the
+>>> user, while the bridge device only uses 3 of these states. This patch makes the
+>>> bridge device use the 4 states too. I thought it makes sense.
+>> (disclaimer: this is all about bridge ports, not bridge device)
+>> Right, I'll try to explain again: _TEMP always marks the port as a mcast router,
+>> it does not put it into just learning state waiting for an igmp query and it can
+>> be refreshed by either a query or the user again setting the port in _TEMP.
+>> While _TEMP_QUERY puts the port in learning state waiting for a query to become
+>> a router, and _TEMP downgrades to _TEMP_QUERY if it expires.
+>>
+>> Does that make it clearer ?
+>>
+>> so for _TEMP you say:
+>>>>>  - MDB_RTR_TYPE_TEMP - the port is set by the user to be in mcast router
+>>>>>    learning state, but currently it is not an mrouter port as no IGMP query
+>>>>>    has been received by it for the last multicast_querier_interval.
+>> which is not the case, it is always a router when that mode is set on a port.
+>> Same for _TEMP_QUERY.
+> Err, sorry by same I meant it is not correct, not that the _TEMP definition is the same.
+> Need to get coffee :-)
 
-The code that actually takes care of bridge offload introduces a few
-more non-trivial constraints with regards to bridge enslavements.
-Propagate extack there to indicate the reason.
+Ho, I see  that I was clear but not right :)
 
-$ ip link add link enp1s0np1 name enp1s0np1.10 type vlan id 10
-$ ip link add link enp1s0np1 name enp1s0np1.20 type vlan id 20
-$ ip link add name br0 type bridge
-$ ip link set dev enp1s0np1.10 master br0
-$ ip link set dev enp1s0np1.20 master br0
-Error: spectrum: Can not bridge VLAN uppers of the same port.
+I had a look at the code and seems like you are right - for some reason I
+thought that _TEMP is learning-active and _TEMP_QUERY is learning-inactive, and
+the ports change states when according to IGMP queries.
 
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Acked-by: David Ahern <dsahern@gmail.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  6 ++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  3 ++-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 25 +++++++++++++++-------
- 3 files changed, 23 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 5ab4fd7..321988a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -4299,7 +4299,8 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *lower_dev,
- 			if (info->linking)
- 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port,
- 								lower_dev,
--								upper_dev);
-+								upper_dev,
-+								extack);
- 			else
- 				mlxsw_sp_port_bridge_leave(mlxsw_sp_port,
- 							   lower_dev,
-@@ -4416,7 +4417,8 @@ static int mlxsw_sp_netdevice_port_vlan_event(struct net_device *vlan_dev,
- 			if (info->linking)
- 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port,
- 								vlan_dev,
--								upper_dev);
-+								upper_dev,
-+								extack);
- 			else
- 				mlxsw_sp_port_bridge_leave(mlxsw_sp_port,
- 							   vlan_dev,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index ae67e60..8e45183 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -326,7 +326,8 @@ void
- mlxsw_sp_port_vlan_bridge_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan);
- int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 			      struct net_device *brport_dev,
--			      struct net_device *br_dev);
-+			      struct net_device *br_dev,
-+			      struct netlink_ext_ack *extack);
- void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 				struct net_device *brport_dev,
- 				struct net_device *br_dev);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 0f9eac5..2cfdf22 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -46,6 +46,7 @@
- #include <linux/workqueue.h>
- #include <linux/jiffies.h>
- #include <linux/rtnetlink.h>
-+#include <linux/netlink.h>
- #include <net/switchdev.h>
- 
- #include "spectrum.h"
-@@ -107,7 +108,8 @@ struct mlxsw_sp_bridge_vlan {
- struct mlxsw_sp_bridge_ops {
- 	int (*port_join)(struct mlxsw_sp_bridge_device *bridge_device,
- 			 struct mlxsw_sp_bridge_port *bridge_port,
--			 struct mlxsw_sp_port *mlxsw_sp_port);
-+			 struct mlxsw_sp_port *mlxsw_sp_port,
-+			 struct netlink_ext_ack *extack);
- 	void (*port_leave)(struct mlxsw_sp_bridge_device *bridge_device,
- 			   struct mlxsw_sp_bridge_port *bridge_port,
- 			   struct mlxsw_sp_port *mlxsw_sp_port);
-@@ -1735,12 +1737,15 @@ static const struct switchdev_ops mlxsw_sp_port_switchdev_ops = {
- static int
- mlxsw_sp_bridge_8021q_port_join(struct mlxsw_sp_bridge_device *bridge_device,
- 				struct mlxsw_sp_bridge_port *bridge_port,
--				struct mlxsw_sp_port *mlxsw_sp_port)
-+				struct mlxsw_sp_port *mlxsw_sp_port,
-+				struct netlink_ext_ack *extack)
- {
- 	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
- 
--	if (is_vlan_dev(bridge_port->dev))
-+	if (is_vlan_dev(bridge_port->dev)) {
-+		NL_SET_ERR_MSG(extack, "spectrum: Can not enslave a VLAN device to a VLAN-aware bridge");
- 		return -EINVAL;
-+	}
- 
- 	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, 1);
- 	if (WARN_ON(!mlxsw_sp_port_vlan))
-@@ -1797,13 +1802,16 @@ mlxsw_sp_port_is_br_member(const struct mlxsw_sp_port *mlxsw_sp_port,
- static int
- mlxsw_sp_bridge_8021d_port_join(struct mlxsw_sp_bridge_device *bridge_device,
- 				struct mlxsw_sp_bridge_port *bridge_port,
--				struct mlxsw_sp_port *mlxsw_sp_port)
-+				struct mlxsw_sp_port *mlxsw_sp_port,
-+				struct netlink_ext_ack *extack)
- {
- 	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
- 	u16 vid;
- 
--	if (!is_vlan_dev(bridge_port->dev))
-+	if (!is_vlan_dev(bridge_port->dev)) {
-+		NL_SET_ERR_MSG(extack, "spectrum: Only VLAN devices can be enslaved to a VLAN-unaware bridge");
- 		return -EINVAL;
-+	}
- 	vid = vlan_dev_vlan_id(bridge_port->dev);
- 
- 	mlxsw_sp_port_vlan = mlxsw_sp_port_vlan_find_by_vid(mlxsw_sp_port, vid);
-@@ -1811,7 +1819,7 @@ mlxsw_sp_bridge_8021d_port_join(struct mlxsw_sp_bridge_device *bridge_device,
- 		return -EINVAL;
- 
- 	if (mlxsw_sp_port_is_br_member(mlxsw_sp_port, bridge_device->dev)) {
--		netdev_err(mlxsw_sp_port->dev, "Can't bridge VLAN uppers of the same port\n");
-+		NL_SET_ERR_MSG(extack, "spectrum: Can not bridge VLAN uppers of the same port");
- 		return -EINVAL;
- 	}
- 
-@@ -1854,7 +1862,8 @@ static const struct mlxsw_sp_bridge_ops mlxsw_sp_bridge_8021d_ops = {
- 
- int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 			      struct net_device *brport_dev,
--			      struct net_device *br_dev)
-+			      struct net_device *br_dev,
-+			      struct netlink_ext_ack *extack)
- {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	struct mlxsw_sp_bridge_device *bridge_device;
-@@ -1867,7 +1876,7 @@ int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 	bridge_device = bridge_port->bridge_device;
- 
- 	err = bridge_device->ops->port_join(bridge_device, bridge_port,
--					    mlxsw_sp_port);
-+					    mlxsw_sp_port, extack);
- 	if (err)
- 		goto err_port_join;
- 
--- 
-2.9.5
+>
+>>> The first paragraph describes the current states of a bridged port, and the
+>>> second one explains the difference between bridged port and bridge device. I
+>>> will (try to) make it clearer if we agree on resending this patch.
+>>>
+>>> Is it clearer now?
+
+
+Yes it is.
+
+>>>
+>>>
+>>>> In the port code you have the following transitions:
+>>>>  _TEMP -> TEMP_QUERY (on timer fire or user-set val, port becomes learning only)
+>>>>  _TEMP -> _TEMP (noop on user refresh or igmp query, timer refreshes)
+>>>>  _TEMP_QUERY -> _TEMP_QUERY (on igmp query the timer is armed, port becomes router)
+>>>>
+>>>> you never have _TEMP_QUERY -> _TEMP, which you're using here to denote the timer
+>>>> getting armed and the bridge becoming a router.
+>>>
+>>> I am not sure I got this one. I do address that: when an IGMP query is recieved
+>>> and the current state is _TEMP_QUERY, I arm the timer and set the state to
+>>> _TEMP. I marked that place on the patch, so you can see below.
+>>>
+>> Exactly, there is no such transition for the ports. I tried to say that you're using
+>> the router type to distinguish between when a query is received and it is just learning.
+>> I get that you need to do so, but that deviates from how ports are handled, thus I
+>> suggested to use the timer state instead and drop the _TEMP for bridge device altogether.
+>> If it's possible then the patch will be much simpler and you will not need the hacks
+>> to hide the state from user-space which is the part I really don't like.
+
+
+Yeah, I agree. Thanks for the feedback and sorry for the late answer :)
+
+>>
+>>>>> The bridge device (brX) itself can also be configured by the user to be
+>>>>> either fixed, disabled or learning mrouter port states, but currently there
+>>>>> is no distinction between the MDB_RTR_TYPE_TEMP_QUERY and MDB_RTR_TYPE_TEMP
+>>>>> in the bridge internal state. Due to that, when an IGMP query is received,
+>>>>> it is not straightforward to tell whether it changes the bridge device
+>>>>> mrouter port status or not.
+>>>> But before this patch the bridge device could not get that set.
+>>>>
+>>>>> Further patches in this patch-set will introduce notifications upon the
+>>>>> bridge device mrouter port state. In order to prevent resending bridge
+>>>>> mrouter notification when it is not needed, such distinction is necessary.
+>>>>>
+>>>> Granted the bridge device hasn't got a way to clearly distinguish the transitions
+>>>> without the chance for a race and if using the timer one could get an unnecessary
+>>> Is there a race condition?
+>>>
+>> With this state - no, if you try to use the timer state though there might be
+>> an extra notification as I've explained below, that's why I asked if it would be
+>> a problem. I think it is worth looking into using the timer state because it will
+>> remove a lot of the hacks for hiding the state needed in this patch.
+>>
+>>>> notification but that seems like a corner case when the timer fires exactly at the
+>>>> same time as the igmp query is received. Can't it be handled by just checking if
+>>>> the new state is different in the notification receiver ?
+>>>> If it can't and is a problem then I'd prefer to add a new boolean to denote that
+>>>> router on/off transition rather than doing this.
+>>>>
+>>>>> Hence, add the distinction between MDB_RTR_TYPE_TEMP and
+>>>>> MDB_RTR_TYPE_TEMP_QUERY states for the bridge device, similarly to any
+>>>>> other bridge port.
+>>>>>
+>>>> This does not add proper MDB_RTR_TYPE_TEMP support for the bridge device
+>>>> but seems to abuse it to distinguish the timer state, and changes
+>>>> the meaning of MDB_RTR_TYPE_TEMP. Can't you just use the timer instead ?
+>>>> I think it will simplify the set and avoid all of this.
+>>>>
+>>>>> In order to not break the current kernel-user API, don't propagate the new
+>>>>> state to the user and use it only in the bridge internal state. Thus, if
+>>>>> the user reads (either via sysfs or netlink) the bridge device mrouter
+>>>>> state, he will get the MDB_RTR_TYPE_TEMP_QUERY state even if the current
+>>>>> bridge state is MDB_RTR_TYPE_TEMP.
+>>>>>
+>>>>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+>>>>> Reviewed-by: Nogah Frankel <nogahf@mellanox.com>
+>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>> ---
+>>>>>  net/bridge/br_multicast.c | 25 +++++++++++++++++++++----
+>>>>>  net/bridge/br_netlink.c   |  3 ++-
+>>>>>  net/bridge/br_private.h   | 13 ++++++++++---
+>>>>>  net/bridge/br_sysfs_br.c  |  3 ++-
+>>>>>  4 files changed, 35 insertions(+), 9 deletions(-)
+>>>>>
+>>>>> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+>>>>> index 8dc5c8d..b86307b 100644
+>>>>> --- a/net/bridge/br_multicast.c
+>>>>> +++ b/net/bridge/br_multicast.c
+>>>>> @@ -861,6 +861,17 @@ static void br_multicast_router_expired(unsigned long data)
+>>>>>  
+>>>>>  static void br_multicast_local_router_expired(unsigned long data)
+>>>>>  {
+>>>>> +	struct net_bridge *br = (struct net_bridge *) data;
+>>>>> +
+>>>>> +	spin_lock(&br->multicast_lock);
+>>>>> +	if (br->multicast_router == MDB_RTR_TYPE_DISABLED ||
+>>>>> +	    br->multicast_router == MDB_RTR_TYPE_PERM ||
+>>>>> +	    timer_pending(&br->multicast_router_timer))
+>>>>> +		goto out;
+>>>>> +
+>>>>> +	br->multicast_router = MDB_RTR_TYPE_TEMP_QUERY;
+>>>>> +out:
+>>>>> +	spin_unlock(&br->multicast_lock);
+>>>>>  }
+>>>>>  
+>>>>>  static void br_multicast_querier_expired(struct net_bridge *br,
+>>>>> @@ -1364,9 +1375,12 @@ static void br_multicast_mark_router(struct net_bridge *br,
+>>>>>  	unsigned long now = jiffies;
+>>>>>  
+>>>>>  	if (!port) {
+>>>>> -		if (br->multicast_router == MDB_RTR_TYPE_TEMP_QUERY)
+>>>>> +		if (br->multicast_router == MDB_RTR_TYPE_TEMP_QUERY ||
+>>>>> +		    br->multicast_router == MDB_RTR_TYPE_TEMP) {
+>>>>>  			mod_timer(&br->multicast_router_timer,
+>>>>>  				  now + br->multicast_querier_interval);
+>>>>> +			br->multicast_router = MDB_RTR_TYPE_TEMP;
+>>>>> +		}
+>>>
+>>> These are the transitions:
+>>> _TEMP -> _TEMP_QUERY
+>>> _TEMP_QUERY -> _TEMP_QUERY
+>> You clearly always set multicast_router to _TEMP, where did you see a transition
+>> _TEMP_QUERY -> _TEMP_QUERY or _TEMP -> _TEMP_QUERY ?
+>> All transitions are -> _TEMP, because you use it to differentiate between learning
+>> state and when a query was received. Maybe we have different definition for 
+>> a transition :-)
+>>
+>>> In both transitions the timer is armed.
+>>>
+>>>
+>>>>>  		return;
+>>>>>  	}
+>>>>>  
+>>>>> @@ -1952,7 +1966,7 @@ void br_multicast_init(struct net_bridge *br)
+>>>>>  
+>>>>>  	spin_lock_init(&br->multicast_lock);
+>>>>>  	setup_timer(&br->multicast_router_timer,
+>>>>> -		    br_multicast_local_router_expired, 0);
+>>>>> +		    br_multicast_local_router_expired, (unsigned long)br);
+>>>>>  	setup_timer(&br->ip4_other_query.timer,
+>>>>>  		    br_ip4_multicast_querier_expired, (unsigned long)br);
+>>>>>  	setup_timer(&br->ip4_own_query.timer, br_ip4_multicast_query_expired,
+>>>>> @@ -2043,11 +2057,14 @@ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
+>>>>>  	case MDB_RTR_TYPE_DISABLED:
+>>>>>  	case MDB_RTR_TYPE_PERM:
+>>>>>  		del_timer(&br->multicast_router_timer);
+>>>>> -		/* fall through */
+>>>>> -	case MDB_RTR_TYPE_TEMP_QUERY:
+>>>>>  		br->multicast_router = val;
+>>>>>  		err = 0;
+>>>>>  		break;
+>>>>> +	case MDB_RTR_TYPE_TEMP_QUERY:
+>>>>> +		if (br->multicast_router != MDB_RTR_TYPE_TEMP)
+>>>>> +			br->multicast_router = val;
+>>>>> +		err = 0;
+>>>>> +		break;
+>>>>>  	}
+>>>>>  
+>>>>>  	spin_unlock_bh(&br->multicast_lock);
+>>>>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>>>>> index dea88a2..cee5016 100644
+>>>>> --- a/net/bridge/br_netlink.c
+>>>>> +++ b/net/bridge/br_netlink.c
+>>>>> @@ -1357,7 +1357,8 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+>>>>>  		return -EMSGSIZE;
+>>>>>  #endif
+>>>>>  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+>>>>> -	if (nla_put_u8(skb, IFLA_BR_MCAST_ROUTER, br->multicast_router) ||
+>>>>> +	if (nla_put_u8(skb, IFLA_BR_MCAST_ROUTER,
+>>>>> +		       br_multicast_router_translate(br->multicast_router)) ||
+>>>>>  	    nla_put_u8(skb, IFLA_BR_MCAST_SNOOPING, !br->multicast_disabled) ||
+>>>>>  	    nla_put_u8(skb, IFLA_BR_MCAST_QUERY_USE_IFADDR,
+>>>>>  		       br->multicast_query_use_ifaddr) ||
+>>>>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>>>>> index ab4df24..e6e3fec 100644
+>>>>> --- a/net/bridge/br_private.h
+>>>>> +++ b/net/bridge/br_private.h
+>>>>> @@ -649,9 +649,8 @@ void br_multicast_get_stats(const struct net_bridge *br,
+>>>>>  
+>>>>>  static inline bool br_multicast_is_router(struct net_bridge *br)
+>>>>>  {
+>>>>> -	return br->multicast_router == 2 ||
+>>>>> -	       (br->multicast_router == 1 &&
+>>>>> -		timer_pending(&br->multicast_router_timer));
+>>>>> +	return br->multicast_router == MDB_RTR_TYPE_PERM ||
+>>>>> +	       br->multicast_router == MDB_RTR_TYPE_TEMP;
+>>>>>  }
+>>>>>  
+>>>>>  static inline bool
+>>>>> @@ -790,6 +789,14 @@ static inline int br_multicast_igmp_type(const struct sk_buff *skb)
+>>>>>  }
+>>>>>  #endif
+>>>>>  
+>>>>> +static inline unsigned char
+>>>> u8
+>>>>
+>>>>> +br_multicast_router_translate(unsigned char multicast_router)
+>>>> u8, if need be change the type of the struct member
+>>>
+>>> Sorry, didn't quite get that. Currently, both the bridge_port and bridge have
+>>> the multicast_router field, and in both cases it is of type unsigned char. Do
+>>> you suggest to change both to be "u8"?
+>>>
+>> Right, and this is unnecessarily long and requires to be broken ugly like that with
+>> the type above and name below. So I suggested to use u8 to avoid that.
+>>
+>>>>> +{
+>>>>> +	if (multicast_router == MDB_RTR_TYPE_TEMP)
+>>>>> +		return MDB_RTR_TYPE_TEMP_QUERY;
+>>>>> +	return multicast_router;
+>>>>> +}
+>>>>> +
+>>>>>  /* br_vlan.c */
+>>>>>  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+>>>>>  bool br_allowed_ingress(const struct net_bridge *br,
+>>>>> diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+>>>>> index 723f25e..9b9c597 100644
+>>>>> --- a/net/bridge/br_sysfs_br.c
+>>>>> +++ b/net/bridge/br_sysfs_br.c
+>>>>> @@ -340,7 +340,8 @@ static ssize_t multicast_router_show(struct device *d,
+>>>>>  				     struct device_attribute *attr, char *buf)
+>>>>>  {
+>>>>>  	struct net_bridge *br = to_bridge(d);
+>>>>> -	return sprintf(buf, "%d\n", br->multicast_router);
+>>>>> +	return sprintf(buf, "%d\n",
+>>>>> +		       br_multicast_router_translate(br->multicast_router));
+>>>>>  }
+>>>>>  
+>>>>>  static ssize_t multicast_router_store(struct device *d,
+>>>>>
