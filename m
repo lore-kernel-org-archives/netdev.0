@@ -1,66 +1,173 @@
 From: Bernd Edlinger <bernd.edlinger@hotmail.de>
-Subject: Re: [PATCH] Add a driver for Renesas uPD60620 and uPD60620A PHYs
-Date: Sun, 8 Oct 2017 13:31:50 +0000
-Message-ID: <AM5PR0701MB2657CC23E268601D24CF2B0EE4770@AM5PR0701MB2657.eurprd07.prod.outlook.com>
-References: <AM5PR0701MB26574EBBE4E7CACC9173B345E4670@AM5PR0701MB2657.eurprd07.prod.outlook.com>
- <20170922175918.GD3470@lunn.ch>
- <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
+Subject: [PATCHv2] Add a driver for Renesas uPD60620 and uPD60620A PHYs
+Date: Sun, 8 Oct 2017 13:40:08 +0000
+Message-ID: <AM5PR0701MB2657AEF45DB8CDEC543A8A11E4770@AM5PR0701MB2657.eurprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+Cc: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oln040092071102.outbound.protection.outlook.com ([40.92.71.102]:26656
-        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
+Received: from mail-oln040092066096.outbound.protection.outlook.com ([40.92.66.96]:54464
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751783AbdJHNbw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Oct 2017 09:31:52 -0400
-In-Reply-To: <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
-Content-Language: en-US
-Content-ID: <C3D97F9EAAFD0A47BD21B4C3B1967AF7@eurprd07.prod.outlook.com>
+        id S1751179AbdJHNkL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Oct 2017 09:40:11 -0400
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgQW5kcmV3LA0KDQpzb3JyeSBmb3IgZGVsYXllZCByZXBseS4NCkxvb2tzIGxpa2UgSSBkaWQg
-bm90IHJlY2VpdmUgYSBjb3B5IG9mIHlvdXIgZS1tYWlsLg0KDQogPj4gRG8geW91IHN1Z2dlc3Qg
-dGhhdCB0aGVyZSBhcmUgY2FzZXMgd2hlcmUgYXV0byBuZWdvdGlhdGlvbiBkb2VzIG5vdA0KID4+
-IHJlYWNoIGNvbXBsZXRpb24sIGFuZCBzdGlsbCBwcm92aWRlcyBhIHVzYWJsZSBsaW5rIHN0YXR1
-cz8NCiA+DQogPiBNeSBleHBlcmllbmNlIGlzIHRoYXQgaXQgb2Z0ZW4gcmV0dXJuIDEwL2hhbGYs
-IHNpbmNlIGV2ZXJ5dGhpbmcgc2hvdWxkDQogPiBzdXBwb3J0IHRoYXQuIEFuZCBkZXBlbmRpbmcg
-b24gd2hhdCB0aGUgTUFDIGlzIGRvaW5nLCBwYWNrZXRzIGNhbg0KID4gc29tZXRpbWUgZ2V0IGFj
-cm9zcyB0aGUgbGluay4NCiA+Pg0KID4+IEkgaGF2ZSB0cmllZCB0byBjb25uZWN0IHRvIGxpbmsg
-cGFydG5lcnMgd2l0aCBmaXhlZCBjb25maWd1cmF0aW9uDQogPj4gYnV0IGV2ZW4gdGhlbiB0aGUg
-YXV0byBuZWdvdGlhdGlvbiBhbHdheXMgY29tcGV0ZXMgbm9ybWFsbHkuDQogPg0KID4gV2hpY2gg
-aXMgYSBiaXQgb2RkLg0KID4NCiA+IFRoZXJlIGFyZSBhIGZldyBkaWZmZXJlbnQgcG9zc2liaWxp
-dGllcyBoZXJlLiAgVGhlIHBlZXIgUEhZIGRyaXZlciBpcw0KID4gYnJva2VuLiBSYXRoZXIgdGhh
-biBkb2luZyBmaXhlZCwgaXQgYWN0dWFsbHkgc2V0IHRoZSBwb3NzaWJsZQ0KID4gbmVnb3RpYXRp
-b24gb3B0aW9ucyB0byBqdXN0IHRoZSBvbmUgc2V0dGluZyB5b3UgdHJpZWQgdG8gZml4IGl0DQog
-PiB0by4gQW5kIGhlbmNlIHRoZSB1UEQ2MDYyMCBkZXZpY2UgbmVnb3RpYXRlZCBmaW5lLiBPciB0
-aGUgdVBENjA2MjAgaXMNCiA+IGJyb2tlbiBpcyBzYWlkIGl0IG5lZ290aWF0ZWQsIGJ1dCBpbiBm
-YWN0IGl0IGZhaWxlZC4NCiA+DQogPiBXaGF0IHdhcyB0aGUgcmVzdWx0PyAxMC9IYWxmLCBvciB0
-aGUgZml4ZWQgdmFsdWVzIHlvdSBzZXQgdGhlIHBlZXIgdG8/DQoNClRoaXMgaXMgYSBkdWFsLWNo
-YW5uZWwgUEhZLCBzbyBJIGRpZCBqdXN0IGNvbm5lY3QgYm90aCBwb3J0cyBhbmQNCnBsYXllZCB3
-aXRoIHRoZSBtaWktdG9vbCAtRiAvIC1BIGluIGRpZmZlcmVudCBjb21iaW5hdGlvbnMgb24gZWFj
-aA0KcG9ydCBhbmQgb2JzZXJ2ZWQgd2hhdCBoYXBwZW5zIHdoZW4gdGhlIGNhYmxlIGlzIHBsdWdn
-ZWQgaW4uDQoNCldoYXQgaGFwcGVucyBpcyB0aGF0IHRoZSBwb3J0IHdpdGggYXV0b25lZ290aWF0
-aW9uIGVuYWJsZWQgZGV0ZWN0cw0KdGhlIGNvcnJlY3Qgc3BlZWQgYW5kIGFsd2F5cyBoYWxmIGR1
-cGxleCwgc28gdGhlIEFTSUMgX3ByZXRlbmRzXyB0aGF0DQphdXRvbmVnb3RpYXRpYXRpb24gY29t
-cGxldGVzLCB3aGVuIGluIGZhY3Qgb25seSBwYXJhbGxlbCBkZXRlY3Rpb24NCnN1Y2NlZWRlZC4g
-IE9mIGNvdXJzZSB0aGUgb3RoZXIgcGh5IG1heSBiZSBpbiBmdWxsLWR1cGxleCBtb2RlLCBidXQN
-CnRoYXQgY2FuIG5vdCBiZSBkZXRlY3RlZCBieSBwYXJhbGxlbCBkZXRlY3Rpb24uDQoNClRoZSBk
-dXBsZXggbW9kZSB3b3VsZCBiZSBmdWxsIGR1cGxleCBieSBkZWZhdWx0LCBidXQgbXkgaW5pdGlh
-bGl6YXRpb24NCm92ZXJyaWRlcyBhIHBvc3NpYmxlIHN0cmFwIG9wdGlvbiBhbmQgY2hhbmdlcyB0
-aGF0IHRvIGhhbGYgZHVwbGV4Og0KDQorCS8qIEVuYWJsZSBzdXBwb3J0IGZvciBwYXNzaXZlIEhV
-QnMgKGNvdWxkIGJlIGEgc3RyYXAgb3B0aW9uKSAqLw0KKwkvKiBQSFlNT0RFOiBBbGwgc3BlZWRz
-LCBIRCBpbiBwYXJhbGxlbCBkZXRlY3QgKi8NCisJcmV0dXJuIHBoeV93cml0ZShwaHlkZXYsIFBI
-WV9TUE0sIDB4MDE4MCB8IHBoeWRldi0+bWRpby5hZGRyKTsNCg0KID4+DQogPj4gU2lnbmVkLW9m
-Zi1ieTogQmVybmQgRWRsaW5nZXIgPGJlcm5kLmVkbGluZ2VyQGhvdG1haWwuZGU+DQogPg0KID4g
-UGxlYXNlIHNlbmQgdGhpcyBpcyBhIG5ldyBwYXRjaC4gSWYgd2Ugd2VyZSB0byB0YWtlIHRoaXMg
-aXMgaXMsIGFsbA0KID4gdGhlIGNvbW1lbnRzIGFib3ZlIHdvdWxkIGVuZCB1cCBpbiB0aGUgY29t
-bWl0IG1lc3NhZ2UuDQogPg0KID4gLS0tDQogPg0KID4gVW5kZXIgdGhlIC0tLSB5b3UgY2FuIGhv
-d2V2ZXIgYWRkIGNvbW1lbnRzIHdoaWNoIGRvbid0IGdvIGludG8gdGhlDQogPiBjb21taXQgbG9n
-LiBHb29kIHByYWN0aWNlIGlzIHRvIGxpc3QgdGhlIHRoaW5ncyB5b3UgY2hhbmdlZCBzaW5jZSB0
-aGUNCiA+IHByZXZpb3VzIHZlcnNpb24uDQoNClRoYW5rcywgSSBkaWQgbm90IGtub3cgdGhhdC4N
-Ckkgd2lsbCByZS1zZW5kIHRoZSBwYXRjaCBpbiBhIG5ldyB0aHJlYWQuDQoNCkJlcm5kLg0K
+Signed-off-by: Bernd Edlinger <bernd.edlinger@hotmail.de>
+---
+ drivers/net/phy/Kconfig    |   5 +++
+ drivers/net/phy/Makefile   |   1 +
+ drivers/net/phy/uPD60620.c | 109 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 115 insertions(+)
+ create mode 100644 drivers/net/phy/uPD60620.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index cd931cf..e2cf8ff 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -366,6 +366,11 @@ config REALTEK_PHY
+ 	---help---
+ 	  Supports the Realtek 821x PHY.
+ 
++config RENESAS_PHY
++	tristate "Driver for Renesas PHYs"
++	---help---
++	  Supports the Renesas PHYs uPD60620 and uPD60620A.
++
+ config ROCKCHIP_PHY
+         tristate "Driver for Rockchip Ethernet PHYs"
+         ---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 416df92..1404ad3 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -72,6 +72,7 @@ obj-$(CONFIG_MICROSEMI_PHY)	+= mscc.o
+ obj-$(CONFIG_NATIONAL_PHY)	+= national.o
+ obj-$(CONFIG_QSEMI_PHY)		+= qsemi.o
+ obj-$(CONFIG_REALTEK_PHY)	+= realtek.o
++obj-$(CONFIG_RENESAS_PHY)	+= uPD60620.o
+ obj-$(CONFIG_ROCKCHIP_PHY)	+= rockchip.o
+ obj-$(CONFIG_SMSC_PHY)		+= smsc.o
+ obj-$(CONFIG_STE10XP)		+= ste10Xp.o
+diff --git a/drivers/net/phy/uPD60620.c b/drivers/net/phy/uPD60620.c
+new file mode 100644
+index 0000000..96b3347
+--- /dev/null
++++ b/drivers/net/phy/uPD60620.c
+@@ -0,0 +1,109 @@
++/*
++ * Driver for the Renesas PHY uPD60620.
++ *
++ * Copyright (C) 2015 Softing Industrial Automation GmbH
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/phy.h>
++
++#define UPD60620_PHY_ID    0xb8242824
++
++/* Extended Registers and values */
++/* PHY Special Control/Status    */
++#define PHY_PHYSCR         0x1F      /* PHY.31 */
++#define PHY_PHYSCR_10MB    0x0004    /* PHY speed = 10mb */
++#define PHY_PHYSCR_100MB   0x0008    /* PHY speed = 100mb */
++#define PHY_PHYSCR_DUPLEX  0x0010    /* PHY Duplex */
++
++/* PHY Special Modes */
++#define PHY_SPM            0x12      /* PHY.18 */
++
++/* Init PHY */
++
++static int upd60620_config_init(struct phy_device *phydev)
++{
++	/* Enable support for passive HUBs (could be a strap option) */
++	/* PHYMODE: All speeds, HD in parallel detect */
++	return phy_write(phydev, PHY_SPM, 0x0180 | phydev->mdio.addr);
++}
++
++/* Get PHY status from common registers */
++
++static int upd60620_read_status(struct phy_device *phydev)
++{
++	int phy_state;
++
++	/* Read negotiated state */
++	phy_state = phy_read(phydev, MII_BMSR);
++	if (phy_state < 0)
++		return phy_state;
++
++	phydev->link = 0;
++	phydev->lp_advertising = 0;
++	phydev->pause = 0;
++	phydev->asym_pause = 0;
++
++	if (phy_state & (BMSR_ANEGCOMPLETE | BMSR_LSTATUS)) {
++		phy_state = phy_read(phydev, PHY_PHYSCR);
++		if (phy_state < 0)
++			return phy_state;
++
++		if (phy_state & (PHY_PHYSCR_10MB | PHY_PHYSCR_100MB)) {
++			phydev->link = 1;
++			phydev->speed = SPEED_10;
++			phydev->duplex = DUPLEX_HALF;
++
++			if (phy_state & PHY_PHYSCR_100MB)
++				phydev->speed = SPEED_100;
++			if (phy_state & PHY_PHYSCR_DUPLEX)
++				phydev->duplex = DUPLEX_FULL;
++
++			phy_state = phy_read(phydev, MII_LPA);
++			if (phy_state < 0)
++				return phy_state;
++
++			phydev->lp_advertising
++				= mii_lpa_to_ethtool_lpa_t(phy_state);
++
++			if (phydev->duplex == DUPLEX_FULL) {
++				if (phy_state & LPA_PAUSE_CAP)
++					phydev->pause = 1;
++				if (phy_state & LPA_PAUSE_ASYM)
++					phydev->asym_pause = 1;
++			}
++		}
++	}
++	return 0;
++}
++
++MODULE_DESCRIPTION("Renesas uPD60620 PHY driver");
++MODULE_AUTHOR("Bernd Edlinger <bernd.edlinger@hotmail.de>");
++MODULE_LICENSE("GPL");
++
++static struct phy_driver upd60620_driver[1] = { {
++	.phy_id         = UPD60620_PHY_ID,
++	.phy_id_mask    = 0xfffffffe,
++	.name           = "Renesas uPD60620",
++	.features       = PHY_BASIC_FEATURES,
++	.flags          = 0,
++	.config_init    = upd60620_config_init,
++	.config_aneg    = genphy_config_aneg,
++	.read_status    = upd60620_read_status,
++} };
++
++module_phy_driver(upd60620_driver);
++
++static struct mdio_device_id __maybe_unused upd60620_tbl[] = {
++	{ UPD60620_PHY_ID, 0xfffffffe },
++	{ }
++};
++
++MODULE_DEVICE_TABLE(mdio, upd60620_tbl);
+-- 
+1.9.1
