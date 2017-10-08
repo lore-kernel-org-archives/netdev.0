@@ -1,129 +1,110 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Subject: [PATCH 00/12] radix-tree: split out struct radix_tree_root out to <linux/radix-tree-root.h>
-Date: Mon,  9 Oct 2017 01:10:01 +0900
-Message-ID: <1507479013-5207-1-git-send-email-yamada.masahiro@socionext.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Ian Abbott <abbotti@mev.co.uk>, Ingo Molnar <mingo@kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        linux-cachefs@redhat.com, linux-sh@vger.kernel.org,
-        Rodrigo Vivi <rodrigo.vivi@intel.com>,
-        dri-devel@lists.freedesktop.org, David Airlie <airlied@linux.ie>,
-        linux-rdma@vger.kernel.org,
-        Yoshinori Sato <ysato@users.sourceforge.jp>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Rich Felker <dalias@libc.org>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Jani Nikula <jani.nikula@linux.intel.com>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        David Howells <dhowells@redhat.com>,
-        intel-gfx@lists.freedesktop.org,
-        Yishai Hadas <yishaih@mella
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH net-next] ipv6: Do not use this_cpu_ptr() in preemptible
+ context
+Date: Sun, 8 Oct 2017 19:54:07 +0300
+Message-ID: <20171008165407.GA26635@shredder.mtl.com>
+References: <20171008151839.24519-1-idosch@mellanox.com>
+ <1507478633.14419.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, weiwan@google.com, mlxsw@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39859 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751553AbdJHQyK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 12:54:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1507478633.14419.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Eric,
 
-The motivation of this series is to cut down unnecessary header
-dependency in terms of radix tree.
+On Sun, Oct 08, 2017 at 09:03:53AM -0700, Eric Dumazet wrote:
+> Thanks Ido for this patch.
+> 
+> IMO, we no longer play this read_lock() -> write_lock() game since
+> ip6_dst_gc() could be called from rt6_make_pcpu_route()
 
-Sub-systems or drivers that use radix-tree for data management
-typically embed struct radix_tree_root in their data structures,
-like this:
+Right, cause we can't deadlock anymore as with the rwlock.
 
-struct foo {
-       ...
+> 
+> So we might simplify things quite a bit, by blocking BH (and thus
+> preventing preemption)
+> 
+> Something like :
+> 
+>  net/ipv6/route.c |   26 ++++++--------------------
+>  1 file changed, 6 insertions(+), 20 deletions(-)
+> 
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 399d1bceec4a6e6736c367e706dd2acbd4093d58..606e80325b21c0e10a02e9c7d5b3fcfbfc26a003 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1136,15 +1136,7 @@ static struct rt6_info *rt6_make_pcpu_route(struct rt6_info *rt)
+>  	dst_hold(&pcpu_rt->dst);
+>  	p = this_cpu_ptr(rt->rt6i_pcpu);
+>  	prev = cmpxchg(p, NULL, pcpu_rt);
+> -	if (prev) {
+> -		/* If someone did it before us, return prev instead */
+> -		/* release refcnt taken by ip6_rt_pcpu_alloc() */
+> -		dst_release_immediate(&pcpu_rt->dst);
+> -		/* release refcnt taken by above dst_hold() */
+> -		dst_release_immediate(&pcpu_rt->dst);
+> -		dst_hold(&prev->dst);
+> -		pcpu_rt = prev;
+> -	}
+> +	BUG_ON(prev);
 
-       struct radix_tree_root   foo_tree;
-       ...
-};
+Is this BUG_ON() now valid because of the local_bh_disable() in
+ip6_pol_route()?
 
-So, <linux/foo.h> needs to include <linux/radix-tree.h>,
-therefore, users of <linux/foo.h> include a lot of bloat
-from <linux/radix-tree.h>.
+>  
+>  	rt6_dst_from_metrics_check(pcpu_rt);
+>  	return pcpu_rt;
+> @@ -1739,31 +1731,25 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+>  		struct rt6_info *pcpu_rt;
+>  
+>  		dst_use_noref(&rt->dst, jiffies);
+> +		local_bh_disable();
+>  		pcpu_rt = rt6_get_pcpu_route(rt);
+>  
+> -		if (pcpu_rt) {
+> -			rcu_read_unlock();
+> -		} else {
+> +		if (!pcpu_rt) {
+>  			/* atomic_inc_not_zero() is needed when using rcu */
+>  			if (atomic_inc_not_zero(&rt->rt6i_ref)) {
+> -				/* We have to do the read_unlock first
+> -				 * because rt6_make_pcpu_route() may trigger
+> -				 * ip6_dst_gc() which will take the write_lock.
+> -				 *
+> -				 * No dst_hold() on rt is needed because grabbing
+> +				/* No dst_hold() on rt is needed because grabbing
+>  				 * rt->rt6i_ref makes sure rt can't be released.
+>  				 */
+> -				rcu_read_unlock();
+>  				pcpu_rt = rt6_make_pcpu_route(rt);
+>  				rt6_release(rt);
+>  			} else {
+>  				/* rt is already removed from tree */
+> -				rcu_read_unlock();
+>  				pcpu_rt = net->ipv6.ip6_null_entry;
+>  				dst_hold(&pcpu_rt->dst);
+>  			}
+>  		}
+> -
+> +		local_bh_enable();
+> +		rcu_read_unlock();
+>  		trace_fib6_table_lookup(net, pcpu_rt, table->tb6_id, fl6);
+>  		return pcpu_rt;
+>  	}
 
-If you see the definition of radix_tree_root,
+I replaced my patch with yours and I don't trigger the bug anymore. Feel
+free to add my tag:
 
-   struct radix_tree_root {
-           gfp_t			gfp_mask;
-	   struct radix_tree_node	__rcu *rnode;
-   };
+Tested-by: Ido Schimmel <idosch@mellanox.com>
 
-it is a very simple structure.
-It only depends on <linux/types.h> for gfp_t and
-<linux/compiler.h> for __rcu.
-
-By splitting out the radix_tree_root definition,
-we can reduce the header file dependency.
-
-Reducing the header dependency will help for speeding the kernel
-build, suppressing unnecessary recompile of objects during
-git-bisect'ing, etc.
-
-The patch 1 is a trivial clean-up; it is just here
-to avoid conflict.
-
-The patch 2 is the main part of this series;
-split out struct radix_tree_root.
-
-The rest of the series replace <linux/radix-tree.h>
-with <linux/radix-tree-root.h> where appropriate.
-
-Please review if the idea is OK.
-
-If it is OK, I'd like to know how to apply the series.
-
-Perhaps, the first two for v4.15.  Then, rest of series
-will be sent per-subsystem for v4.16?
-
-Or, can somebody take care of the whole series?
-
-I checked allmodconfig for x86 and arm64.
-I am expecting 0 day testing will check it too.
-
-
-
-Masahiro Yamada (12):
-  radix-tree: replace <linux/spinlock.h> with <linux/spinlock_types.h>
-  radix-tree: split struct radix_tree_root to <linux/radix-tree-root.h>
-  irqdomain: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  writeback: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  iocontext.h: replace <linux/radix-tree.h> with
-    <linux/radix-tree-root.h>
-  fs: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  blkcg: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  fscache: include <linux-radix-tree.h>
-  sh: intc: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  net/mlx4: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  net/mlx5: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-  drm/i915: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
-
- drivers/gpu/drm/i915/i915_gem.c            |  1 +
- drivers/gpu/drm/i915/i915_gem_context.c    |  1 +
- drivers/gpu/drm/i915/i915_gem_context.h    |  2 +-
- drivers/gpu/drm/i915/i915_gem_execbuffer.c |  1 +
- drivers/gpu/drm/i915/i915_gem_object.h     |  1 +
- drivers/net/ethernet/mellanox/mlx4/cq.c    |  1 +
- drivers/net/ethernet/mellanox/mlx4/mlx4.h  |  2 +-
- drivers/net/ethernet/mellanox/mlx4/qp.c    |  1 +
- drivers/net/ethernet/mellanox/mlx4/srq.c   |  1 +
- drivers/sh/intc/internals.h                |  2 +-
- include/linux/backing-dev-defs.h           |  2 +-
- include/linux/blk-cgroup.h                 |  2 +-
- include/linux/fs.h                         |  2 +-
- include/linux/fscache.h                    |  1 +
- include/linux/iocontext.h                  |  2 +-
- include/linux/irqdomain.h                  |  2 +-
- include/linux/mlx4/device.h                |  2 +-
- include/linux/mlx4/qp.h                    |  1 +
- include/linux/mlx5/driver.h                |  2 +-
- include/linux/mlx5/qp.h                    |  1 +
- include/linux/radix-tree-root.h            | 24 ++++++++++++++++++++++++
- include/linux/radix-tree.h                 |  8 ++------
- 22 files changed, 46 insertions(+), 16 deletions(-)
- create mode 100644 include/linux/radix-tree-root.h
-
--- 
-2.7.4
+Thanks!
