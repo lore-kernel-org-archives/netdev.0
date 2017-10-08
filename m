@@ -1,34 +1,51 @@
-From: Christos Gkekas <chris.gekas@gmail.com>
-Subject: [PATCH] qed: Delete redundant check on dcb_app priority
-Date: Sun,  8 Oct 2017 23:46:47 +0100
-Message-ID: <1507502807-19767-1-git-send-email-chris.gekas@gmail.com>
-Cc: Christos Gkekas <chris.gekas@gmail.com>
-To: Ariel Elior <Ariel.Elior@cavium.com>, everest-linux-l2@cavium.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: [net PATCH] macvlan: Only deliver one copy of the frame to the
+ macvlan interface
+Date: Sun, 08 Oct 2017 15:54:26 -0700
+Message-ID: <20171008225403.15848.77823.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36738 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751001AbdJHWy2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 18:54:28 -0400
+Received: by mail-pf0-f195.google.com with SMTP id z11so5983536pfk.3
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 15:54:28 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dcb_app priority is unsigned thus checking whether it is less than zero
-is redundant.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
+This patch intoduces a slight adjustment for macvlan to address the fact
+that in source mode I was seeing two copies of any packet addressed to the
+macvlan interface being delivered where there should have been only one.
+
+The issue appears to be that one copy was delivered based on the source MAC
+address and then the second copy was being delivered based on the
+destination MAC address. To fix it I am just freeing the second copy
+instead of delivering it up the stack using the same netdev as was already
+delivered to.
+
+Fixes: 79cf79abce71 ("macvlan: add source mode")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/macvlan.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index 8f6ccc0..6e15d3c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -2308,7 +2308,7 @@ static int qed_dcbnl_ieee_setapp(struct qed_dev *cdev, struct dcb_app *app)
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index d2aea961e0f4..744b0fe6dc78 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -484,7 +484,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+ 		return RX_HANDLER_PASS;
  
- 	DP_VERBOSE(hwfn, QED_MSG_DCB, "selector = %d protocol = %d pri = %d\n",
- 		   app->selector, app->protocol, app->priority);
--	if (app->priority < 0 || app->priority >= QED_MAX_PFC_PRIORITIES) {
-+	if (app->priority >= QED_MAX_PFC_PRIORITIES) {
- 		DP_INFO(hwfn, "Invalid priority %d\n", app->priority);
- 		return -EINVAL;
+ 	dev = vlan->dev;
+-	if (unlikely(!(dev->flags & IFF_UP))) {
++	if ((vlan->mode == MACVLAN_MODE_SOURCE) ||
++	    unlikely(!(dev->flags & IFF_UP))) {
+ 		kfree_skb(skb);
+ 		return RX_HANDLER_CONSUMED;
  	}
--- 
-2.7.4
