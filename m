@@ -1,142 +1,46 @@
-From: Petr Vorel <petr.vorel@gmail.com>
-Subject: [PATCH] tests: Remove bashisms (s/source/.)
-Date: Sun,  8 Oct 2017 16:39:16 +0200
-Message-ID: <20171008143916.21813-1-petr.vorel@gmail.com>
-Cc: Petr Vorel <petr.vorel@gmail.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: [PATCH iproute2 net-next] ip: mroute: Print offload indication
+Date: Sun,  8 Oct 2017 17:43:04 +0300
+Message-ID: <20171008144304.48850-1-yotamg@mellanox.com>
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+        mlxsw@mellanox.com, Yotam Gigi <yotamg@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35314 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753681AbdJHOj0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 10:39:26 -0400
-Received: by mail-wm0-f67.google.com with SMTP id b189so17419981wmd.2
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 07:39:25 -0700 (PDT)
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50240 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753420AbdJHOnS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 10:43:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Petr Vorel <petr.vorel@gmail.com>
----
- testsuite/tests/ip/link/new_link.t            | 2 +-
- testsuite/tests/ip/link/show_dev_wo_vf_rate.t | 2 +-
- testsuite/tests/ip/netns/set_nsid.t           | 2 +-
- testsuite/tests/ip/netns/set_nsid_batch.t     | 2 +-
- testsuite/tests/ip/route/add_default_route.t  | 4 ++--
- testsuite/tests/ip/tunnel/add_tunnel.t        | 2 +-
- testsuite/tests/tc/cls-testbed.t              | 2 +-
- testsuite/tests/tc/dsmark.t                   | 2 +-
- testsuite/tests/tc/pedit.t                    | 2 +-
- 9 files changed, 10 insertions(+), 10 deletions(-)
+Since kernel net-next commit c7c0bbeae950 ("net: ipmr: Add MFC offload
+indication") the kernel indicates on an MFC entry whether it was offloaded
+using the RTNH_F_OFFLOAD flag. Update the "ip mroute show" command to
+indicate when a route is offloaded, similarly to the "ip route show"
+command.
 
-diff --git a/testsuite/tests/ip/link/new_link.t b/testsuite/tests/ip/link/new_link.t
-index 699adbcd..c17650a2 100755
---- a/testsuite/tests/ip/link/new_link.t
-+++ b/testsuite/tests/ip/link/new_link.t
-@@ -1,6 +1,6 @@
- #!/bin/sh
+Example output:
+$ ip mroute
+(0.0.0.0, 239.255.0.1)      Iif: sw1p7  Oifs: t_br0 State: resolved offload
+(192.168.1.1, 239.255.0.1)  Iif: sw1p7  Oifs: sw1p4 State: resolved offload
+
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+---
+ ip/ipmroute.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/ip/ipmroute.c b/ip/ipmroute.c
+index b51c23c..453a6cf 100644
+--- a/ip/ipmroute.c
++++ b/ip/ipmroute.c
+@@ -161,6 +161,8 @@ int print_mroute(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	}
+ 	fprintf(fp, " State: %s",
+ 		r->rtm_flags & RTNH_F_UNRESOLVED ? "unresolved" : "resolved");
++	if (r->rtm_flags & RTNH_F_OFFLOAD)
++		fprintf(fp, " offload");
+ 	if (show_stats && tb[RTA_MFC_STATS]) {
+ 		struct rta_mfc_stats *mfcs = RTA_DATA(tb[RTA_MFC_STATS]);
  
--source lib/generic.sh
-+. lib/generic.sh
- 
- ts_log "[Testing add/del virtual links]"
- 
-diff --git a/testsuite/tests/ip/link/show_dev_wo_vf_rate.t b/testsuite/tests/ip/link/show_dev_wo_vf_rate.t
-index a600ba65..5b3c004e 100755
---- a/testsuite/tests/ip/link/show_dev_wo_vf_rate.t
-+++ b/testsuite/tests/ip/link/show_dev_wo_vf_rate.t
-@@ -1,6 +1,6 @@
- #!/bin/sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- NL_FILE="tests/ip/link/dev_wo_vf_rate.nl"
- ts_ip "$0" "Show VF devices w/o VF rate info" -d monitor file $NL_FILE
-diff --git a/testsuite/tests/ip/netns/set_nsid.t b/testsuite/tests/ip/netns/set_nsid.t
-index 606d45ab..8f8c7792 100755
---- a/testsuite/tests/ip/netns/set_nsid.t
-+++ b/testsuite/tests/ip/netns/set_nsid.t
-@@ -1,6 +1,6 @@
- #!/bin/sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- ts_log "[Testing netns nsid]"
- 
-diff --git a/testsuite/tests/ip/netns/set_nsid_batch.t b/testsuite/tests/ip/netns/set_nsid_batch.t
-index abb3f1bb..196fd4b3 100755
---- a/testsuite/tests/ip/netns/set_nsid_batch.t
-+++ b/testsuite/tests/ip/netns/set_nsid_batch.t
-@@ -1,6 +1,6 @@
- #!/bin/sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- ts_log "[Testing netns nsid in batch mode]"
- 
-diff --git a/testsuite/tests/ip/route/add_default_route.t b/testsuite/tests/ip/route/add_default_route.t
-index e5ea6473..0b566f1f 100755
---- a/testsuite/tests/ip/route/add_default_route.t
-+++ b/testsuite/tests/ip/route/add_default_route.t
-@@ -1,6 +1,6 @@
--#!/bin/sh
-+#!/bin/bash
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- ts_log "[Testing add default route]"
- 
-diff --git a/testsuite/tests/ip/tunnel/add_tunnel.t b/testsuite/tests/ip/tunnel/add_tunnel.t
-index 18f6e370..3f5a9d3c 100755
---- a/testsuite/tests/ip/tunnel/add_tunnel.t
-+++ b/testsuite/tests/ip/tunnel/add_tunnel.t
-@@ -1,6 +1,6 @@
- #!/bin/sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- TUNNEL_NAME="tunnel_test_ip"
- 
-diff --git a/testsuite/tests/tc/cls-testbed.t b/testsuite/tests/tc/cls-testbed.t
-index 2afc26fc..d5c21e5c 100755
---- a/testsuite/tests/tc/cls-testbed.t
-+++ b/testsuite/tests/tc/cls-testbed.t
-@@ -1,7 +1,7 @@
- #!/bin/bash
- # vim: ft=sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- QDISCS="cbq htb dsmark"
- 
-diff --git a/testsuite/tests/tc/dsmark.t b/testsuite/tests/tc/dsmark.t
-index 6934165e..177585e6 100755
---- a/testsuite/tests/tc/dsmark.t
-+++ b/testsuite/tests/tc/dsmark.t
-@@ -1,7 +1,7 @@
- #!/bin/bash
- # vim: ft=sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- ts_qdisc_available "dsmark"
- if [ $? -eq 0 ]; then
-diff --git a/testsuite/tests/tc/pedit.t b/testsuite/tests/tc/pedit.t
-index e9b6c333..8d531a05 100755
---- a/testsuite/tests/tc/pedit.t
-+++ b/testsuite/tests/tc/pedit.t
-@@ -1,6 +1,6 @@
- #!/bin/sh
- 
--source lib/generic.sh
-+. lib/generic.sh
- 
- DEV="$(rand_dev)"
- ts_ip "$0" "Add $DEV dummy interface" link add dev $DEV type dummy
 -- 
-2.14.2
+2.8.4
