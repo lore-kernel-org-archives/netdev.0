@@ -1,85 +1,107 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH iproute2] iproute: build more easily on Android
-Date: Sun, 8 Oct 2017 09:47:47 +0300
-Message-ID: <20171008064747.GN25829@mtr-leonro.local>
-References: <20171002170337.42235-1-lorenzo@google.com>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: [PATCH 3/3] batman-adv: Add missing kerneldoc for extack
+Date: Sun, 08 Oct 2017 09:29:17 +0200
+Message-ID: <1655154.zJsG0lsWS3@sven-edge>
+References: <20171007121853.6278-1-sven@narfation.org> <20171007122122.6470-1-sven@narfation.org> <20171007.205952.775593212999479324.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="TXIPBuAs4GDcsx9K"
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org, enh@google.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: multipart/signed; boundary="nextPart4166471.q1eGAoD70L"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+        dsahern@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:48866 "EHLO mail.kernel.org"
+Received: from narfation.org ([79.140.41.39]:57292 "EHLO v3-1039.vlinux.de"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751189AbdJHGrv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Oct 2017 02:47:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20171002170337.42235-1-lorenzo@google.com>
+        id S1750997AbdJHH31 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Oct 2017 03:29:27 -0400
+In-Reply-To: <20171007.205952.775593212999479324.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--nextPart4166471.q1eGAoD70L
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
---TXIPBuAs4GDcsx9K
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Samstag, 7. Oktober 2017 20:59:52 CEST David Miller wrote:
+> From: Sven Eckelmann <sven@narfation.org>
+> Date: Sat,  7 Oct 2017 14:21:22 +0200
+> 
+> > The parameter extack was added to batadv_softif_slave_add without adding
+> > the kernel-doc for it. This caused kernel-doc warnings.
+> > 
+> > Signed-off-by: Sven Eckelmann <sven@narfation.org>
+> > Cc: David Ahern <dsahern@gmail.com>
+> 
+> I'm happy to apply this but where are the other two patches of this
+> series and the series header posting?
 
-On Tue, Oct 03, 2017 at 02:03:37AM +0900, Lorenzo Colitti wrote:
-> iproute2 contains a bunch of kernel headers, including uapi ones.
-> Android's libc uses uapi headers almost directly, and uses a
-> script to fix kernel types that don't match what userspace
-> expects.
->
-> For example: https://issuetracker.google.com/36987220 reports
-> that our struct ip_mreq_source contains "__be32 imr_multiaddr"
-> rather than "struct in_addr imr_multiaddr". The script addresses
-> this by replacing the uapi struct definition with a #include
-> <bits/ip_mreq.h> which contains the traditional userspace
-> definition.
->
-> Unfortunately, when we compile iproute2, this definition
-> conflicts with the one in iproute2's linux/in.h.
->
-> Historically we've just solved this problem by running "git rm"
-> on all the iproute2 include/linux headers that break Android's
-> libc.  However, deleting the files in this way makes it harder to
-> keep up with upstream, because every upstream change to
-> an include file causes a merge conflict with the delete.
->
-> This patch fixes the problem by moving the iproute2 linux headers
-> from include/linux to include/uapi/linux.
->
-> Tested: compiles on ubuntu trusty (glibc)
->
-> Signed-off-by: Elliott Hughes <enh@google.com>
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
+They are on the b.a.t.m.a.n@lists.open-mesh.org mailing list. And they deal 
+with the "extack" compat problems of the out-of-tree module build.
 
-include/rdma/* files are coming from kernel's uapi too.
+Why were you cc'ed for the patch 3:
+==================================
 
-BTW, I know that the rdma folder is not relevant for android, but
-anyway would like to see the same treatment for that folder as for the
-include/linux.
+David Ahern and David Miller were involved in adding following changes to 
+batman-adv:
 
-Thanks
+* net: Add extack to ndo_add_slave
+* net: Add extack to upper device linking
 
---TXIPBuAs4GDcsx9K
+These were not posted to the batman-adv mailing list.
+
+An automatic kernel-doc run on a build machine noticed a minor problem in the 
+first patch. Since I was not involved in the original change (and have not 
+checked what was discussed in the past about it), I could only guess how the 
+kernel-doc should have looked like. But you, David Ahern or anyone else from 
+netdev@... could have a different, more educated opinion about the correct 
+documentation - this is why you were Cc'ed.
+
+
+Why are you not Cc'ed on the patch 1+2:
+======================================
+
+The changes are about code which is not present in the upstream kernel. It 
+only deals with changes required to build the extracted batman-adv module 
+against a different kernel. These changes were required to get the "extack" 
+stuff working on Linux 4.14 and below.
+
+So, it is not really relevant for you but for some people on the 
+b.a.t.m.a.n@lists.open-mesh.org mailing list. This is why everything 
+(including the third patch) was send directly ("To:") to the mentioned mailing 
+list.
+
+
+Are you expected to apply this change:
+=====================================
+
+I was hoping that Simon is picking the patch up and forwards it do you in a 
+proper pull request. But I would doubt that he has a big problem with you 
+applying this single line kernel-doc change. At least it is less work for him 
+and less extra noise on both mailing lists...
+
+But feel free to tell us your preferred solution.
+
+Kind regards,
+	Sven
+--nextPart4166471.q1eGAoD70L
 Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnZyhMACgkQ5GN7iDZy
-WKefyg/+LrQMHsGSvbQlkiqW65jMKkQyYgOeLcNDiymDzQzujgQ/9EUfnq2kHkOb
-8ZkxRcX8XwgQSIf7M+oh5Q7RGWpDm7OLyzvGHjZc5OYi84Zwy6H3Zt7ZoiXAGrF9
-/yEVQVePsvhD4WjOHQ7jRwnZS+tKdS7ywkS5XcLI6HIKz0I5i2qgWYBQDayOZTaa
-5kKwJwdL9Tz+sEyJT8VYpOMgvfHGH2fey8AAI2UVYHhSpuPsHimfjCsYxtztkLdu
-LwGdTBvxzxTtRee1f95KZSquGMjtKlR3NP/FhHNtFhvoXbv1osq7EykTPYgogGBQ
-SHnsccBWHA+UfLNdXO6DVdgNJOYJyMGK/aaHNPa7htj7wII4iYPZmPpTBB5JZM83
-WmJkDpze/4f2FoZY+C66qQ7X1o/RRhUfRFuidUZMl32HVo37zcsw0ZnEBL3KJVIl
-W2FLZpxdmgQ7GfQC7/XJwev22mkFzykQ7D2Qh2JnabxqRPWXyb4zhlNjF1WR16Oz
-OytdfCGIcL2lN2zX6ZDirbN6BwdOUIM/s43a4A0PGweg+hs2RXBk8Ah/ug+FrjAX
-uYqgUaYtLWxmhqI/qtSCvIiZJqH7Y+e58LtoKmyP7xZGvLAtdzzVkoW6/hoZjJGX
-Hs/FB6B1OamFRgMDBlIpGCsye3fiTxRG6UrEp5u6JbxiXs7WTxo=
-=4cvx
+iQIzBAABCgAdFiEEF10rh2Elc9zjMuACXYcKB8Eme0YFAlnZ080ACgkQXYcKB8Em
+e0Z2wxAA12zqXHsQg3LlWV9SI/vd5TXFcRdFA00ruYXaH3LfDUSPB9i0diMSbHIM
+w0zJr1oDumxeO/g/hJtpBMFB1MJv2ThSAg1YZC3QYyBqEs7jMxJTE2a98zz6zF0v
+CraG0oayud20ZxGvCuY29Gb5PYMJbXIBskqa0jjs9kQebCBPLpPBXbwrQU8gIk93
+eHi4rUXG+Cly0zU+U2VRZu2YaawPW2r3bar6NwziPDioP5JpF6tV3TLUxBuUcfZB
+03bmSjovY0fZWbzFpGXZCqAAO8Y/cQk6fjCET7rJrOypAVt4mpCykcdT+WXL6wkz
+06eNYzdTG4I74FsageHwkikw/lauJDtRxdpxK/9AzCP4mBAzugel95fY1H49EvoY
+pa0Jk4n1WdXcLkBgpJKncwKm3ISgQSRRQyxXljQFaaZHR98a2TOGrInUBW1z5qJe
+HoPAIOjbS2YAHw3UftwTFWFtTX/FS7gkDmiIlKW6t458Vu3XwLX/PlvFm6YkgSuY
+hgE1KZq+pz07lnZOqK9eZJrbGqoDyVFiBk8g+iOUYBhoCa9CqaHlXJad/9d4MBZ1
+HAellSUcSaH4xE2P0xH/Nfpr3i0dGzaDNUIMploi5H/zYYIMyNIOgawLd/B2PmB9
+ae94jPTOS0gZafDLYGDFVyaO2hRCug5sIfysdlKHtT/PGGhpTpM=
+=oLrj
 -----END PGP SIGNATURE-----
 
---TXIPBuAs4GDcsx9K--
+--nextPart4166471.q1eGAoD70L--
