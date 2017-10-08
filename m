@@ -1,53 +1,66 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next RFC 5/9] net: dsa: forward hardware timestamping
- ioctls to switch driver
-Date: Sun, 8 Oct 2017 09:12:59 -0400
-Message-ID: <20171008131259.6rgk36exnr2bmmbh@localhost>
-References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
- <1506612341-18061-6-git-send-email-brandon.streiff@ni.com>
- <cb36aecc-3649-e22a-0fd4-0babbb691c8c@gmail.com>
+From: Bernd Edlinger <bernd.edlinger@hotmail.de>
+Subject: Re: [PATCH] Add a driver for Renesas uPD60620 and uPD60620A PHYs
+Date: Sun, 8 Oct 2017 13:31:50 +0000
+Message-ID: <AM5PR0701MB2657CC23E268601D24CF2B0EE4770@AM5PR0701MB2657.eurprd07.prod.outlook.com>
+References: <AM5PR0701MB26574EBBE4E7CACC9173B345E4670@AM5PR0701MB2657.eurprd07.prod.outlook.com>
+ <20170922175918.GD3470@lunn.ch>
+ <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brandon Streiff <brandon.streiff@ni.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Erik Hons <erik.hons@ni.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cb36aecc-3649-e22a-0fd4-0babbb691c8c@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oln040092071102.outbound.protection.outlook.com ([40.92.71.102]:26656
+        "EHLO EUR03-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751783AbdJHNbw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Oct 2017 09:31:52 -0400
+In-Reply-To: <ca1763c4-fb7b-cf49-6bcf-d9e2c29c7363@hotmail.de>
+Content-Language: en-US
+Content-ID: <C3D97F9EAAFD0A47BD21B4C3B1967AF7@eurprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 28, 2017 at 10:25:34AM -0700, Florian Fainelli wrote:
-> This echoes back to Andrew's comments in patch 2, but we may have to
-> prefer PHY timestamping over MAC timestamping if both are available?
-> Richard, is that usually how the preference should be made?
-
-No, if the MAC supports time stamping, then it will take precedence,
-because the MAC driver doesn't know that the PHY also supports this.
-In the case where a board design includes the PHYTER (the one and only
-PHY PHC) and a MAC PHC, the user must de-select the MAC support in the
-Kconfig in order to use the PHYTER.
-
-So in general, we don't support PHC/timestamping simultaneously in the
-MAC and PHY.  It would be a lot of work to support this, and the user
-timestamping API would have to be extended yet again, and so I think
-it is not worth the effort.
-
-Getting back to this patch, it should fall back to PHY timestamping
-when the switch device doesn't support timestamping:
-
-	case SIOCGHWTSTAMP:
-		if (ds->ops->port_hwtstamp_get)
-			return ds->ops->port_hwtstamp_get(ds, port, ifr);
-		else
-			return phy_mii_ioctl(dev->phydev, ifr, cmd);
-
-That way, if someone combines a PHYTER with a non-PTP capable switch,
-it will just work.
-
-Thanks,
-Richard
+SGkgQW5kcmV3LA0KDQpzb3JyeSBmb3IgZGVsYXllZCByZXBseS4NCkxvb2tzIGxpa2UgSSBkaWQg
+bm90IHJlY2VpdmUgYSBjb3B5IG9mIHlvdXIgZS1tYWlsLg0KDQogPj4gRG8geW91IHN1Z2dlc3Qg
+dGhhdCB0aGVyZSBhcmUgY2FzZXMgd2hlcmUgYXV0byBuZWdvdGlhdGlvbiBkb2VzIG5vdA0KID4+
+IHJlYWNoIGNvbXBsZXRpb24sIGFuZCBzdGlsbCBwcm92aWRlcyBhIHVzYWJsZSBsaW5rIHN0YXR1
+cz8NCiA+DQogPiBNeSBleHBlcmllbmNlIGlzIHRoYXQgaXQgb2Z0ZW4gcmV0dXJuIDEwL2hhbGYs
+IHNpbmNlIGV2ZXJ5dGhpbmcgc2hvdWxkDQogPiBzdXBwb3J0IHRoYXQuIEFuZCBkZXBlbmRpbmcg
+b24gd2hhdCB0aGUgTUFDIGlzIGRvaW5nLCBwYWNrZXRzIGNhbg0KID4gc29tZXRpbWUgZ2V0IGFj
+cm9zcyB0aGUgbGluay4NCiA+Pg0KID4+IEkgaGF2ZSB0cmllZCB0byBjb25uZWN0IHRvIGxpbmsg
+cGFydG5lcnMgd2l0aCBmaXhlZCBjb25maWd1cmF0aW9uDQogPj4gYnV0IGV2ZW4gdGhlbiB0aGUg
+YXV0byBuZWdvdGlhdGlvbiBhbHdheXMgY29tcGV0ZXMgbm9ybWFsbHkuDQogPg0KID4gV2hpY2gg
+aXMgYSBiaXQgb2RkLg0KID4NCiA+IFRoZXJlIGFyZSBhIGZldyBkaWZmZXJlbnQgcG9zc2liaWxp
+dGllcyBoZXJlLiAgVGhlIHBlZXIgUEhZIGRyaXZlciBpcw0KID4gYnJva2VuLiBSYXRoZXIgdGhh
+biBkb2luZyBmaXhlZCwgaXQgYWN0dWFsbHkgc2V0IHRoZSBwb3NzaWJsZQ0KID4gbmVnb3RpYXRp
+b24gb3B0aW9ucyB0byBqdXN0IHRoZSBvbmUgc2V0dGluZyB5b3UgdHJpZWQgdG8gZml4IGl0DQog
+PiB0by4gQW5kIGhlbmNlIHRoZSB1UEQ2MDYyMCBkZXZpY2UgbmVnb3RpYXRlZCBmaW5lLiBPciB0
+aGUgdVBENjA2MjAgaXMNCiA+IGJyb2tlbiBpcyBzYWlkIGl0IG5lZ290aWF0ZWQsIGJ1dCBpbiBm
+YWN0IGl0IGZhaWxlZC4NCiA+DQogPiBXaGF0IHdhcyB0aGUgcmVzdWx0PyAxMC9IYWxmLCBvciB0
+aGUgZml4ZWQgdmFsdWVzIHlvdSBzZXQgdGhlIHBlZXIgdG8/DQoNClRoaXMgaXMgYSBkdWFsLWNo
+YW5uZWwgUEhZLCBzbyBJIGRpZCBqdXN0IGNvbm5lY3QgYm90aCBwb3J0cyBhbmQNCnBsYXllZCB3
+aXRoIHRoZSBtaWktdG9vbCAtRiAvIC1BIGluIGRpZmZlcmVudCBjb21iaW5hdGlvbnMgb24gZWFj
+aA0KcG9ydCBhbmQgb2JzZXJ2ZWQgd2hhdCBoYXBwZW5zIHdoZW4gdGhlIGNhYmxlIGlzIHBsdWdn
+ZWQgaW4uDQoNCldoYXQgaGFwcGVucyBpcyB0aGF0IHRoZSBwb3J0IHdpdGggYXV0b25lZ290aWF0
+aW9uIGVuYWJsZWQgZGV0ZWN0cw0KdGhlIGNvcnJlY3Qgc3BlZWQgYW5kIGFsd2F5cyBoYWxmIGR1
+cGxleCwgc28gdGhlIEFTSUMgX3ByZXRlbmRzXyB0aGF0DQphdXRvbmVnb3RpYXRpYXRpb24gY29t
+cGxldGVzLCB3aGVuIGluIGZhY3Qgb25seSBwYXJhbGxlbCBkZXRlY3Rpb24NCnN1Y2NlZWRlZC4g
+IE9mIGNvdXJzZSB0aGUgb3RoZXIgcGh5IG1heSBiZSBpbiBmdWxsLWR1cGxleCBtb2RlLCBidXQN
+CnRoYXQgY2FuIG5vdCBiZSBkZXRlY3RlZCBieSBwYXJhbGxlbCBkZXRlY3Rpb24uDQoNClRoZSBk
+dXBsZXggbW9kZSB3b3VsZCBiZSBmdWxsIGR1cGxleCBieSBkZWZhdWx0LCBidXQgbXkgaW5pdGlh
+bGl6YXRpb24NCm92ZXJyaWRlcyBhIHBvc3NpYmxlIHN0cmFwIG9wdGlvbiBhbmQgY2hhbmdlcyB0
+aGF0IHRvIGhhbGYgZHVwbGV4Og0KDQorCS8qIEVuYWJsZSBzdXBwb3J0IGZvciBwYXNzaXZlIEhV
+QnMgKGNvdWxkIGJlIGEgc3RyYXAgb3B0aW9uKSAqLw0KKwkvKiBQSFlNT0RFOiBBbGwgc3BlZWRz
+LCBIRCBpbiBwYXJhbGxlbCBkZXRlY3QgKi8NCisJcmV0dXJuIHBoeV93cml0ZShwaHlkZXYsIFBI
+WV9TUE0sIDB4MDE4MCB8IHBoeWRldi0+bWRpby5hZGRyKTsNCg0KID4+DQogPj4gU2lnbmVkLW9m
+Zi1ieTogQmVybmQgRWRsaW5nZXIgPGJlcm5kLmVkbGluZ2VyQGhvdG1haWwuZGU+DQogPg0KID4g
+UGxlYXNlIHNlbmQgdGhpcyBpcyBhIG5ldyBwYXRjaC4gSWYgd2Ugd2VyZSB0byB0YWtlIHRoaXMg
+aXMgaXMsIGFsbA0KID4gdGhlIGNvbW1lbnRzIGFib3ZlIHdvdWxkIGVuZCB1cCBpbiB0aGUgY29t
+bWl0IG1lc3NhZ2UuDQogPg0KID4gLS0tDQogPg0KID4gVW5kZXIgdGhlIC0tLSB5b3UgY2FuIGhv
+d2V2ZXIgYWRkIGNvbW1lbnRzIHdoaWNoIGRvbid0IGdvIGludG8gdGhlDQogPiBjb21taXQgbG9n
+LiBHb29kIHByYWN0aWNlIGlzIHRvIGxpc3QgdGhlIHRoaW5ncyB5b3UgY2hhbmdlZCBzaW5jZSB0
+aGUNCiA+IHByZXZpb3VzIHZlcnNpb24uDQoNClRoYW5rcywgSSBkaWQgbm90IGtub3cgdGhhdC4N
+Ckkgd2lsbCByZS1zZW5kIHRoZSBwYXRjaCBpbiBhIG5ldyB0aHJlYWQuDQoNCkJlcm5kLg0K
