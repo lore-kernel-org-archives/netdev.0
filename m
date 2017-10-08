@@ -1,76 +1,142 @@
 From: Petr Vorel <petr.vorel@gmail.com>
-Subject: [PATCH iproute2 1/1] color: Fix ip segfault in color_fprintf() when using --color switch
-Date: Sun,  8 Oct 2017 16:38:47 +0200
-Message-ID: <20171008143847.21699-1-petr.vorel@gmail.com>
-Cc: Petr Vorel <petr.vorel@gmail.com>,
-        Julien Fortin <julien@cumulusnetworks.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH] tests: Remove bashisms (s/source/.)
+Date: Sun,  8 Oct 2017 16:39:16 +0200
+Message-ID: <20171008143916.21813-1-petr.vorel@gmail.com>
+Cc: Petr Vorel <petr.vorel@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37287 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35314 "EHLO
         mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753623AbdJHOi7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 10:38:59 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r68so5118985wmr.4
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 07:38:58 -0700 (PDT)
+        with ESMTP id S1753681AbdJHOj0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 10:39:26 -0400
+Received: by mail-wm0-f67.google.com with SMTP id b189so17419981wmd.2
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 07:39:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes two regressions:
-
-Commit 959f1428 ("color: add new COLOR_NONE and disable_color function")
-caused segfault, when running ip with --color switch, as 'attr + 8' in
-color_fprintf() access array item out of bounds.
-Changing latter value of ternar operator in attr_colors[] index is for
-restoring the same colors.
-Reproduce the bug with:
-$ ip -c a
-
-Commit d0e72011 ("ip: ipaddress.c: add support for json output")
-introduced passing -1 as enum color_attr. This is not only wrong as no
-color_attr has value -1, but also causes another segfault in color_fprintf()
-on this setup as there is no item with index -1 in array of enum attr_colors[].
-Using 0 is valid option.
-
-Reproduce the bug with:
-$ COLORFGBG='0;15' ip -c a
-
-NOTE: COLORFGBG is environmental variable used for defining whether user
-has light or dark background.
-COLORFGBG="0;15" is used to ask for color set suitable for light background,
-COLORFGBG="15;0" is used to ask for color set suitable for dark background.
-
 Signed-off-by: Petr Vorel <petr.vorel@gmail.com>
 ---
- include/json_print.h | 2 +-
- lib/color.c          | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ testsuite/tests/ip/link/new_link.t            | 2 +-
+ testsuite/tests/ip/link/show_dev_wo_vf_rate.t | 2 +-
+ testsuite/tests/ip/netns/set_nsid.t           | 2 +-
+ testsuite/tests/ip/netns/set_nsid_batch.t     | 2 +-
+ testsuite/tests/ip/route/add_default_route.t  | 4 ++--
+ testsuite/tests/ip/tunnel/add_tunnel.t        | 2 +-
+ testsuite/tests/tc/cls-testbed.t              | 2 +-
+ testsuite/tests/tc/dsmark.t                   | 2 +-
+ testsuite/tests/tc/pedit.t                    | 2 +-
+ 9 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/include/json_print.h b/include/json_print.h
-index b6ce1f9f..2f3f07c8 100644
---- a/include/json_print.h
-+++ b/include/json_print.h
-@@ -53,7 +53,7 @@ void close_json_array(enum output_type type, const char *delim);
- 					     const char *fmt,		\
- 					     type value)		\
- 	{								\
--		print_color_##type_name(t, -1, key, fmt, value);	\
-+		print_color_##type_name(t, 0, key, fmt, value);	\
- 	}
- _PRINT_FUNC(int, int);
- _PRINT_FUNC(bool, bool);
-diff --git a/lib/color.c b/lib/color.c
-index 79d5e289..e597798f 100644
---- a/lib/color.c
-+++ b/lib/color.c
-@@ -110,7 +110,7 @@ int color_fprintf(FILE *fp, enum color_attr attr, const char *fmt, ...)
- 	}
+diff --git a/testsuite/tests/ip/link/new_link.t b/testsuite/tests/ip/link/new_link.t
+index 699adbcd..c17650a2 100755
+--- a/testsuite/tests/ip/link/new_link.t
++++ b/testsuite/tests/ip/link/new_link.t
+@@ -1,6 +1,6 @@
+ #!/bin/sh
  
- 	ret += fprintf(fp, "%s",
--		       color_codes[attr_colors[is_dark_bg ? attr + 8 : attr]]);
-+		       color_codes[attr_colors[is_dark_bg ? attr + 6 : attr - 1]]);
- 	ret += vfprintf(fp, fmt, args);
- 	ret += fprintf(fp, "%s", color_codes[C_CLEAR]);
+-source lib/generic.sh
++. lib/generic.sh
  
+ ts_log "[Testing add/del virtual links]"
+ 
+diff --git a/testsuite/tests/ip/link/show_dev_wo_vf_rate.t b/testsuite/tests/ip/link/show_dev_wo_vf_rate.t
+index a600ba65..5b3c004e 100755
+--- a/testsuite/tests/ip/link/show_dev_wo_vf_rate.t
++++ b/testsuite/tests/ip/link/show_dev_wo_vf_rate.t
+@@ -1,6 +1,6 @@
+ #!/bin/sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ NL_FILE="tests/ip/link/dev_wo_vf_rate.nl"
+ ts_ip "$0" "Show VF devices w/o VF rate info" -d monitor file $NL_FILE
+diff --git a/testsuite/tests/ip/netns/set_nsid.t b/testsuite/tests/ip/netns/set_nsid.t
+index 606d45ab..8f8c7792 100755
+--- a/testsuite/tests/ip/netns/set_nsid.t
++++ b/testsuite/tests/ip/netns/set_nsid.t
+@@ -1,6 +1,6 @@
+ #!/bin/sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ ts_log "[Testing netns nsid]"
+ 
+diff --git a/testsuite/tests/ip/netns/set_nsid_batch.t b/testsuite/tests/ip/netns/set_nsid_batch.t
+index abb3f1bb..196fd4b3 100755
+--- a/testsuite/tests/ip/netns/set_nsid_batch.t
++++ b/testsuite/tests/ip/netns/set_nsid_batch.t
+@@ -1,6 +1,6 @@
+ #!/bin/sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ ts_log "[Testing netns nsid in batch mode]"
+ 
+diff --git a/testsuite/tests/ip/route/add_default_route.t b/testsuite/tests/ip/route/add_default_route.t
+index e5ea6473..0b566f1f 100755
+--- a/testsuite/tests/ip/route/add_default_route.t
++++ b/testsuite/tests/ip/route/add_default_route.t
+@@ -1,6 +1,6 @@
+-#!/bin/sh
++#!/bin/bash
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ ts_log "[Testing add default route]"
+ 
+diff --git a/testsuite/tests/ip/tunnel/add_tunnel.t b/testsuite/tests/ip/tunnel/add_tunnel.t
+index 18f6e370..3f5a9d3c 100755
+--- a/testsuite/tests/ip/tunnel/add_tunnel.t
++++ b/testsuite/tests/ip/tunnel/add_tunnel.t
+@@ -1,6 +1,6 @@
+ #!/bin/sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ TUNNEL_NAME="tunnel_test_ip"
+ 
+diff --git a/testsuite/tests/tc/cls-testbed.t b/testsuite/tests/tc/cls-testbed.t
+index 2afc26fc..d5c21e5c 100755
+--- a/testsuite/tests/tc/cls-testbed.t
++++ b/testsuite/tests/tc/cls-testbed.t
+@@ -1,7 +1,7 @@
+ #!/bin/bash
+ # vim: ft=sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ QDISCS="cbq htb dsmark"
+ 
+diff --git a/testsuite/tests/tc/dsmark.t b/testsuite/tests/tc/dsmark.t
+index 6934165e..177585e6 100755
+--- a/testsuite/tests/tc/dsmark.t
++++ b/testsuite/tests/tc/dsmark.t
+@@ -1,7 +1,7 @@
+ #!/bin/bash
+ # vim: ft=sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ ts_qdisc_available "dsmark"
+ if [ $? -eq 0 ]; then
+diff --git a/testsuite/tests/tc/pedit.t b/testsuite/tests/tc/pedit.t
+index e9b6c333..8d531a05 100755
+--- a/testsuite/tests/tc/pedit.t
++++ b/testsuite/tests/tc/pedit.t
+@@ -1,6 +1,6 @@
+ #!/bin/sh
+ 
+-source lib/generic.sh
++. lib/generic.sh
+ 
+ DEV="$(rand_dev)"
+ ts_ip "$0" "Add $DEV dummy interface" link add dev $DEV type dummy
 -- 
 2.14.2
