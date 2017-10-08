@@ -1,43 +1,39 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: RIF/VRF overflow in spectrum and reporting errors back to user
-Date: Sun, 8 Oct 2017 14:10:33 -0600
-Message-ID: <8d0df382-35d1-7991-1c39-9a2b5d5334e2@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ido Schimmel <idosch@mellanox.com>, Jiri Pirko <jiri@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:55279 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751232AbdJHUKg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 16:10:36 -0400
-Received: by mail-pf0-f176.google.com with SMTP id m28so6879892pfi.11
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 13:10:36 -0700 (PDT)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christos Gkekas <chris.gekas@gmail.com>
+Subject: [PATCH] ath9k: debug: Simplify error checking
+Date: Sun,  8 Oct 2017 22:29:12 +0100
+Message-ID: <1507498152-4058-1-git-send-email-chris.gekas@gmail.com>
+Cc: Christos Gkekas <chris.gekas@gmail.com>
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri / Ido:
+Variable val is unsigned so checking whether it is less than zero is
+redundant.
 
-I am looking at adding user messages for spectrum failures related to
-RIF and VRF overflow coming from the inetaddr and inet6addr notifier
-paths. The key is that if the notifiers fail the address add needs to
-fail and an error reported to the user as to what happened.
+Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
+---
+ drivers/net/wireless/ath/ath9k/debug.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Earlier this year 3ad7d2468f79f added in_validator_info and
-in6_validator_info as a way for the notifiers to fail adding an address.
-Adding support to spectrum for that notifier is complicated by the fact
-that the validator notifier and address notifiers will come in back to
-back for the NETDEV_UP case. Ignoring NETDEV_UP in
-mlxsw_sp_inetaddr_event seems ok for IPv6 but not clear for IPv4 since
-the NETDEV_UP case is emitted on an address delete that involves a
-promotion. Handling the back to back NETDEV_UP is complicated since
-functions invoked by __mlxsw_sp_inetaddr_event can take multiple
-references. Specifically, in mlxsw_sp_port_vlan_router_join():
-    fid = rif->ops->fid_get(rif);
-
-Can NETDEV_UP be ignored for the inetaddr notifier if it is handled by
-the validator notitifer?
-
-David
+diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
+index 01fa301..3b93c23 100644
+--- a/drivers/net/wireless/ath/ath9k/debug.c
++++ b/drivers/net/wireless/ath/ath9k/debug.c
+@@ -1164,10 +1164,7 @@ static ssize_t write_file_tpc(struct file *file, const char __user *user_buf,
+ 		return -EFAULT;
+ 
+ 	buf[len] = '\0';
+-	if (kstrtoul(buf, 0, &val))
+-		return -EINVAL;
+-
+-	if (val < 0 || val > 1)
++	if (kstrtoul(buf, 0, &val) || val > 1)
+ 		return -EINVAL;
+ 
+ 	tpc_enabled = !!val;
+-- 
+2.7.4
