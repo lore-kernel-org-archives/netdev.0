@@ -1,557 +1,124 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v6 05/11] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Sun, 8 Oct 2017 20:33:40 +0200
-Message-ID: <20171008183340.GA21531@Red>
-References: <20170927073414.17361-1-clabbe.montjoie@gmail.com>
- <20170927073414.17361-6-clabbe.montjoie@gmail.com>
- <20170927140210.GE13516@lunn.ch>
- <20170928073708.GB32676@Red>
+From: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH 00/12] radix-tree: split out struct radix_tree_root out
+ to <linux/radix-tree-root.h>
+Date: Sun, 8 Oct 2017 21:52:33 +0300
+Message-ID: <20171008185233.GF25829@mtr-leonro.local>
+References: <1507479013-5207-1-git-send-email-yamada.masahiro@socionext.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland@arm.com, linux@armlinux.org.uk,
-        catalin.marinas@arm.com, will.deacon@arm.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        frowand.list@gmail.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org, linux-sunxi@googlegroups.com
-To: Andrew Lunn <andrew@lunn.ch>, robh+dt@kernel.org,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="O9uFcEIpmYvy18ul"
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        Ian Abbott <abbotti-GUHe90Wt2aFaa/9Udqfwiw@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        linux-cachefs-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rodrigo Vivi <rodrigo.vivi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, David Airlie <airlied-cv59FeDIM0c@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Yoshinori Sato <ysato-Rn4VEauK+AKRv+LV9MX5uooqe+aC9MnS@public.gmane.org>,
+        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Rich Felker <dalias-8zAoT0mYgF4@public.gmane.org>,
+        Jani Nikula <jani.nikula-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+        Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Joonas Lahtinen <joonas.lahtinen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+To: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170928073708.GB32676@Red>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1507479013-5207-1-git-send-email-yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 28, 2017 at 09:37:08AM +0200, Corentin Labbe wrote:
-> On Wed, Sep 27, 2017 at 04:02:10PM +0200, Andrew Lunn wrote:
-> > Hi Corentin
-> > 
-> > > +Required properties for the mdio-mux node:
-> > > +  - compatible = "mdio-mux"
-> > 
-> > This is too generic. Please add a more specific compatible for this
-> > particular mux. You can keep "mdio-mux", since that is what the MDIO
-> > subsystem will look for.
-> > 
-> 
-> I will add allwinner,sun8i-h3-mdio-mux
-> 
-> > > +Required properties of the integrated phy node:
-> > >  - clocks: a phandle to the reference clock for the EPHY
-> > >  - resets: a phandle to the reset control for the EPHY
-> > > +- phy-is-integrated
-> > 
-> > So the last thing you said is that the mux is not the problem
-> > here. Something else is locking up. Did you discover what?
-> > 
-> > I really would like phy-is-integrated to go away.
-> > 
-> 
-> I have found the problem: by enabling ephy clk/reset the timeout does not occur anymore.
-> So we could remove phy-is-integrated by:
-> Moving internal phy clk/reset handling in mdio_mux_syscon_switch_fn()
-> But this means:
-> - getting internalphy node always by manually get internal_mdio/internal_phy (and not by the given phyhandle)
-> - doing some unnecessary tasks (enable/scan/disable) when external_phy is needed
-> 
-> Regards
 
-Hello all
+--O9uFcEIpmYvy18ul
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Below is the current patch, as you can read, it does not use anymore the phy-is-integrated property.
-So now, the mdio-mux must always enable the internal mdio when switch_fn ask for it and so reset MAC and so need to enable ephy clk/reset.
-But for this I need a reference to thoses clock and reset. (this is done in get_ephy_nodes)
-The current version set those clock in mdio-mux node, and as you can see it is already ugly (lots of get next node),
-if the clk/rst nodes were as it should be, in phy nodes, it will be more bad.
+On Mon, Oct 09, 2017 at 01:10:01AM +0900, Masahiro Yamada wrote:
 
-So, since the MAC have a dependency on thoses clk/rst nodes for doing reset(), I seek a proper way to get references on it.
-OR do you agree that putting ephy clk/rst in emac is acceptable ?
+<...>
+>
+> By splitting out the radix_tree_root definition,
+> we can reduce the header file dependency.
+>
+> Reducing the header dependency will help for speeding the kernel
+> build, suppressing unnecessary recompile of objects during
+> git-bisect'ing, etc.
 
-thanks
-regards
+If we judge by the diffstat of this series, there won't be any
+visible change in anything mentioned above.
 
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -17,6 +17,7 @@
- #include <linux/clk.h>
- #include <linux/io.h>
- #include <linux/iopoll.h>
-+#include <linux/mdio-mux.h>
- #include <linux/mfd/syscon.h>
- #include <linux/module.h>
- #include <linux/of_device.h>
-@@ -41,14 +42,14 @@
-  *				This value is used for disabling properly EMAC
-  *				and used as a good starting value in case of the
-  *				boot process(uboot) leave some stuff.
-- * @internal_phy:		Does the MAC embed an internal PHY
-+ * @soc_has_internal_phy:	Does the MAC embed an internal PHY
-  * @support_mii:		Does the MAC handle MII
-  * @support_rmii:		Does the MAC handle RMII
-  * @support_rgmii:		Does the MAC handle RGMII
-  */
- struct emac_variant {
- 	u32 default_syscon_value;
--	int internal_phy;
-+	bool soc_has_internal_phy;
- 	bool support_mii;
- 	bool support_rmii;
- 	bool support_rgmii;
-@@ -61,7 +62,7 @@ struct emac_variant {
-  * @rst_ephy:	reference to the optional EPHY reset for the internal PHY
-  * @variant:	reference to the current board variant
-  * @regmap:	regmap for using the syscon
-- * @use_internal_phy: Does the current PHY choice imply using the internal PHY
-+ * @internal_phy_powered: Does the internal PHY is enabled
-  */
- struct sunxi_priv_data {
- 	struct clk *tx_clk;
-@@ -70,12 +71,13 @@ struct sunxi_priv_data {
- 	struct reset_control *rst_ephy;
- 	const struct emac_variant *variant;
- 	struct regmap *regmap;
--	bool use_internal_phy;
-+	bool internal_phy_powered;
-+	void *mux_handle;
- };
- 
- static const struct emac_variant emac_variant_h3 = {
- 	.default_syscon_value = 0x58000,
--	.internal_phy = PHY_INTERFACE_MODE_MII,
-+	.soc_has_internal_phy = true,
- 	.support_mii = true,
- 	.support_rmii = true,
- 	.support_rgmii = true
-@@ -83,20 +85,20 @@ static const struct emac_variant emac_variant_h3 = {
- 
- static const struct emac_variant emac_variant_v3s = {
- 	.default_syscon_value = 0x38000,
--	.internal_phy = PHY_INTERFACE_MODE_MII,
-+	.soc_has_internal_phy = true,
- 	.support_mii = true
- };
- 
- static const struct emac_variant emac_variant_a83t = {
- 	.default_syscon_value = 0,
--	.internal_phy = 0,
-+	.soc_has_internal_phy = false,
- 	.support_mii = true,
- 	.support_rgmii = true
- };
- 
- static const struct emac_variant emac_variant_a64 = {
- 	.default_syscon_value = 0,
--	.internal_phy = 0,
-+	.soc_has_internal_phy = false,
- 	.support_mii = true,
- 	.support_rmii = true,
- 	.support_rgmii = true
-@@ -195,6 +197,9 @@ static const struct emac_variant emac_variant_a64 = {
- #define H3_EPHY_LED_POL		BIT(17) /* 1: active low, 0: active high */
- #define H3_EPHY_SHUTDOWN	BIT(16) /* 1: shutdown, 0: power up */
- #define H3_EPHY_SELECT		BIT(15) /* 1: internal PHY, 0: external PHY */
-+#define H3_EPHY_MUX_MASK	(H3_EPHY_SHUTDOWN | H3_EPHY_SELECT)
-+#define DWMAC_SUN8I_MDIO_MUX_INTERNAL_ID	1
-+#define DWMAC_SUN8I_MDIO_MUX_EXTERNAL_ID	2
- 
- /* H3/A64 specific bits */
- #define SYSCON_RMII_EN		BIT(13) /* 1: enable RMII (overrides EPIT) */
-@@ -634,6 +639,164 @@ static int sun8i_dwmac_reset(struct stmmac_priv *priv)
- 	return 0;
- }
- 
-+static int get_ephy_nodes(struct stmmac_priv *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	struct device_node *mdio_mux;
-+	struct device_node *mdio_internal;
-+	int ret;
-+
-+	mdio_mux = of_get_child_by_name(priv->plat->mdio_node, "mdio-mux");
-+	if (!mdio_mux) {
-+		dev_err(priv->device, "Cannot get mdio-mux node\n");
-+		return -ENODEV;
-+	}
-+
-+	mdio_internal = of_find_compatible_node(mdio_mux, NULL,
-+						"allwinner,sun8i-h3-mdio-internal");
-+	if (!mdio_internal) {
-+		dev_err(priv->device, "Cannot get internal_mdio node\n");
-+		return -ENODEV;
-+	}
-+
-+	/* insert here code to get child phynode */
-+	gmac->ephy_clk = of_clk_get(mdio_internal, 0);
-+	if (IS_ERR(gmac->ephy_clk)) {
-+		ret = PTR_ERR(gmac->ephy_clk);
-+		dev_err(priv->device, "Cannot get EPHY clock: %d\n", ret);
-+		return -EINVAL;
-+	}
-+
-+	/* Note that we cannot use devm_reset_control_get, since
-+	 * the reset is not in the device node.
-+	 */
-+	gmac->rst_ephy = of_reset_control_get_exclusive(mdio_internal, NULL);
-+	if (IS_ERR(gmac->rst_ephy)) {
-+		ret = PTR_ERR(gmac->rst_ephy);
-+		if (ret == -EPROBE_DEFER)
-+			return ret;
-+		dev_err(priv->device, "No EPHY reset control found %d\n", ret);
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
-+{
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	int ret;
-+
-+	if (gmac->internal_phy_powered) {
-+		dev_warn(priv->device, "Internal PHY already powered\n");
-+		return 0;
-+	}
-+
-+	dev_info(priv->device, "Powering internal PHY\n");
-+	ret = clk_prepare_enable(gmac->ephy_clk);
-+	if (ret) {
-+		dev_err(priv->device, "Cannot enable internal PHY\n");
-+		return ret;
-+	}
-+
-+	/* Make sure the EPHY is properly reseted, as U-Boot may leave
-+	 * it at deasserted state, and thus it may fail to reset EMAC.
-+	 */
-+	reset_control_assert(gmac->rst_ephy);
-+
-+	ret = reset_control_deassert(gmac->rst_ephy);
-+	if (ret) {
-+		dev_err(priv->device, "Cannot deassert internal phy\n");
-+		clk_disable_unprepare(gmac->ephy_clk);
-+		return ret;
-+	}
-+
-+	gmac->internal_phy_powered = true;
-+
-+	return 0;
-+}
-+
-+static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
-+{
-+	if (!gmac->internal_phy_powered)
-+		return 0;
-+
-+	clk_disable_unprepare(gmac->ephy_clk);
-+	reset_control_assert(gmac->rst_ephy);
-+	gmac->internal_phy_powered = false;
-+	return 0;
-+}
-+
-+/* MDIO multiplexing switch function
-+ * This function is called by the mdio-mux layer when it thinks the mdio bus
-+ * multiplexer needs to switch.
-+ * 'current_child' is the current value of the mux register
-+ * 'desired_child' is the value of the 'reg' property of the target child MDIO
-+ * node.
-+ * The first time this function is called, current_child == -1.
-+ * If current_child == desired_child, then the mux is already set to the
-+ * correct bus.
-+ *
-+ * Note that we do not use reg/mask like mdio-mux-mmioreg because we need to
-+ * know easily which bus is used (reset must be done only for desired bus).
-+ */
-+static int mdio_mux_syscon_switch_fn(int current_child, int desired_child,
-+				     void *data)
-+{
-+	struct stmmac_priv *priv = data;
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	u32 reg, val;
-+	int ret = 0;
-+	bool need_power_ephy = false;
-+
-+	if (current_child ^ desired_child) {
-+		regmap_read(gmac->regmap, SYSCON_EMAC_REG, &reg);
-+		switch (desired_child) {
-+		case DWMAC_SUN8I_MDIO_MUX_INTERNAL_ID:
-+			dev_info(priv->device, "Switch mux to internal PHY");
-+			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SELECT;
-+
-+			need_power_ephy = true;
-+			break;
-+		case DWMAC_SUN8I_MDIO_MUX_EXTERNAL_ID:
-+			dev_info(priv->device, "Switch mux to external PHY");
-+			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SHUTDOWN;
-+			need_power_ephy = false;
-+			break;
-+		default:
-+			dev_err(priv->device, "Invalid child ID %x\n",
-+				desired_child);
-+			return -EINVAL;
-+		}
-+		regmap_write(gmac->regmap, SYSCON_EMAC_REG, val);
-+		if (need_power_ephy) {
-+			ret = sun8i_dwmac_power_internal_phy(priv);
-+			if (ret)
-+				return ret;
-+		} else {
-+			sun8i_dwmac_unpower_internal_phy(gmac);
-+		}
-+		/* After changing syscon value, the MAC need reset or it will
-+		 * use the last value (and so the last PHY set).
-+		 */
-+		ret = sun8i_dwmac_reset(priv);
-+	}
-+	return ret;
-+}
-+
-+static int sun8i_dwmac_register_mdio_mux(struct stmmac_priv *priv)
-+{
-+	int ret;
-+	struct device_node *mdio_mux;
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+
-+	mdio_mux = of_get_child_by_name(priv->plat->mdio_node, "mdio-mux");
-+	if (!mdio_mux)
-+		return -ENODEV;
-+
-+	ret = mdio_mux_init(priv->device, mdio_mux, mdio_mux_syscon_switch_fn,
-+			    &gmac->mux_handle, priv, priv->mii);
-+	return ret;
-+}
-+
- static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- {
- 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-@@ -648,35 +811,25 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- 			 "Current syscon value is not the default %x (expect %x)\n",
- 			 val, reg);
- 
--	if (gmac->variant->internal_phy) {
--		if (!gmac->use_internal_phy) {
--			/* switch to external PHY interface */
--			reg &= ~H3_EPHY_SELECT;
--		} else {
--			reg |= H3_EPHY_SELECT;
--			reg &= ~H3_EPHY_SHUTDOWN;
--			dev_dbg(priv->device, "Select internal_phy %x\n", reg);
--
--			if (of_property_read_bool(priv->plat->phy_node,
--						  "allwinner,leds-active-low"))
--				reg |= H3_EPHY_LED_POL;
--			else
--				reg &= ~H3_EPHY_LED_POL;
--
--			/* Force EPHY xtal frequency to 24MHz. */
--			reg |= H3_EPHY_CLK_SEL;
--
--			ret = of_mdio_parse_addr(priv->device,
--						 priv->plat->phy_node);
--			if (ret < 0) {
--				dev_err(priv->device, "Could not parse MDIO addr\n");
--				return ret;
--			}
--			/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
--			 * address. No need to mask it again.
--			 */
--			reg |= ret << H3_EPHY_ADDR_SHIFT;
-+	if (gmac->variant->soc_has_internal_phy) {
-+		if (of_property_read_bool(priv->plat->phy_node,
-+					  "allwinner,leds-active-low"))
-+			reg |= H3_EPHY_LED_POL;
-+		else
-+			reg &= ~H3_EPHY_LED_POL;
-+
-+		/* Force EPHY xtal frequency to 24MHz. */
-+		reg |= H3_EPHY_CLK_SEL;
-+
-+		ret = of_mdio_parse_addr(priv->device, priv->plat->phy_node);
-+		if (ret < 0) {
-+			dev_err(priv->device, "Could not parse MDIO addr\n");
-+			return ret;
- 		}
-+		/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
-+		 * address. No need to mask it again.
-+		 */
-+		reg |= 1 << H3_EPHY_ADDR_SHIFT;
- 	}
- 
- 	if (!of_property_read_u32(node, "allwinner,tx-delay-ps", &val)) {
-@@ -746,81 +899,21 @@ static void sun8i_dwmac_unset_syscon(struct sunxi_priv_data *gmac)
- 	regmap_write(gmac->regmap, SYSCON_EMAC_REG, reg);
- }
- 
--static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
-+static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
- {
--	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
--	int ret;
--
--	if (!gmac->use_internal_phy)
--		return 0;
--
--	ret = clk_prepare_enable(gmac->ephy_clk);
--	if (ret) {
--		dev_err(priv->device, "Cannot enable ephy\n");
--		return ret;
--	}
--
--	/* Make sure the EPHY is properly reseted, as U-Boot may leave
--	 * it at deasserted state, and thus it may fail to reset EMAC.
--	 */
--	reset_control_assert(gmac->rst_ephy);
-+	struct sunxi_priv_data *gmac = priv;
- 
--	ret = reset_control_deassert(gmac->rst_ephy);
--	if (ret) {
--		dev_err(priv->device, "Cannot deassert ephy\n");
--		clk_disable_unprepare(gmac->ephy_clk);
--		return ret;
-+	if (gmac->variant->soc_has_internal_phy) {
-+		/* sun8i_dwmac_exit could be called with mdiomux uninit */
-+		if (gmac->mux_handle)
-+			mdio_mux_uninit(gmac->mux_handle);
-+		if (gmac->internal_phy_powered)
-+			sun8i_dwmac_unpower_internal_phy(gmac);
- 	}
- 
--	return 0;
--}
--
--static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
--{
--	if (!gmac->use_internal_phy)
--		return 0;
--
--	clk_disable_unprepare(gmac->ephy_clk);
--	reset_control_assert(gmac->rst_ephy);
--	return 0;
--}
--
--/* sun8i_power_phy() - Activate the PHY:
-- * In case of error, no need to call sun8i_unpower_phy(),
-- * it will be called anyway by sun8i_dwmac_exit()
-- */
--static int sun8i_power_phy(struct stmmac_priv *priv)
--{
--	int ret;
--
--	ret = sun8i_dwmac_power_internal_phy(priv);
--	if (ret)
--		return ret;
--
--	ret = sun8i_dwmac_set_syscon(priv);
--	if (ret)
--		return ret;
--
--	/* After changing syscon value, the MAC need reset or it will use
--	 * the last value (and so the last PHY set.
--	 */
--	ret = sun8i_dwmac_reset(priv);
--	if (ret)
--		return ret;
--	return 0;
--}
--
--static void sun8i_unpower_phy(struct sunxi_priv_data *gmac)
--{
- 	sun8i_dwmac_unset_syscon(gmac);
--	sun8i_dwmac_unpower_internal_phy(gmac);
--}
- 
--static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
--{
--	struct sunxi_priv_data *gmac = priv;
--
--	sun8i_unpower_phy(gmac);
-+	reset_control_put(gmac->rst_ephy);
- 
- 	clk_disable_unprepare(gmac->tx_clk);
- 
-@@ -849,7 +942,7 @@ static struct mac_device_info *sun8i_dwmac_setup(void *ppriv)
- 	if (!mac)
- 		return NULL;
- 
--	ret = sun8i_power_phy(priv);
-+	ret = sun8i_dwmac_set_syscon(priv);
- 	if (ret)
- 		return NULL;
- 
-@@ -889,6 +982,8 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 	struct sunxi_priv_data *gmac;
- 	struct device *dev = &pdev->dev;
- 	int ret;
-+	struct stmmac_priv *priv;
-+	struct net_device *ndev;
- 
- 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
- 	if (ret)
-@@ -932,29 +1027,6 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 	}
- 
- 	plat_dat->interface = of_get_phy_mode(dev->of_node);
--	if (plat_dat->interface == gmac->variant->internal_phy) {
--		dev_info(&pdev->dev, "Will use internal PHY\n");
--		gmac->use_internal_phy = true;
--		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
--		if (IS_ERR(gmac->ephy_clk)) {
--			ret = PTR_ERR(gmac->ephy_clk);
--			dev_err(&pdev->dev, "Cannot get EPHY clock: %d\n", ret);
--			return -EINVAL;
--		}
--
--		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
--		if (IS_ERR(gmac->rst_ephy)) {
--			ret = PTR_ERR(gmac->rst_ephy);
--			if (ret == -EPROBE_DEFER)
--				return ret;
--			dev_err(&pdev->dev, "No EPHY reset control found %d\n",
--				ret);
--			return -EINVAL;
--		}
--	} else {
--		dev_info(&pdev->dev, "Will use external PHY\n");
--		gmac->use_internal_phy = false;
--	}
- 
- 	/* platform data specifying hardware features and callbacks.
- 	 * hardware features were copied from Allwinner drivers.
-@@ -973,9 +1045,34 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 
- 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
- 	if (ret)
--		sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
-+		goto dwmac_exit;
-+
-+	ndev = dev_get_drvdata(&pdev->dev);
-+	priv = netdev_priv(ndev);
-+	/* The mux must be registered after parent MDIO
-+	 * so after stmmac_dvr_probe()
-+	 */
-+	if (gmac->variant->soc_has_internal_phy) {
-+		ret = get_ephy_nodes(priv);
-+		if (ret)
-+			return ret;
-+		ret = sun8i_dwmac_register_mdio_mux(priv);
-+		if (ret) {
-+			dev_err(&pdev->dev, "Failed to register mux\n");
-+			goto dwmac_mux;
-+		}
-+	} else {
-+		ret = sun8i_dwmac_reset(priv);
-+		if (ret)
-+			goto dwmac_exit;
-+	}
- 
- 	return ret;
-+dwmac_mux:
-+	sun8i_dwmac_unset_syscon(gmac);
-+dwmac_exit:
-+	sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
-+return ret;
- }
- 
- static const struct of_device_id sun8i_dwmac_match[] = {
--- 
-2.13.6
+<...>
+
+>
+> Masahiro Yamada (12):
+>   radix-tree: replace <linux/spinlock.h> with <linux/spinlock_types.h>
+>   radix-tree: split struct radix_tree_root to <linux/radix-tree-root.h>
+>   irqdomain: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   writeback: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   iocontext.h: replace <linux/radix-tree.h> with
+>     <linux/radix-tree-root.h>
+>   fs: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   blkcg: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   fscache: include <linux-radix-tree.h>
+>   sh: intc: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   net/mlx4: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   net/mlx5: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>   drm/i915: replace <linux/radix-tree.h> with <linux/radix-tree-root.h>
+>
+>  drivers/gpu/drm/i915/i915_gem.c            |  1 +
+>  drivers/gpu/drm/i915/i915_gem_context.c    |  1 +
+>  drivers/gpu/drm/i915/i915_gem_context.h    |  2 +-
+>  drivers/gpu/drm/i915/i915_gem_execbuffer.c |  1 +
+>  drivers/gpu/drm/i915/i915_gem_object.h     |  1 +
+>  drivers/net/ethernet/mellanox/mlx4/cq.c    |  1 +
+>  drivers/net/ethernet/mellanox/mlx4/mlx4.h  |  2 +-
+>  drivers/net/ethernet/mellanox/mlx4/qp.c    |  1 +
+>  drivers/net/ethernet/mellanox/mlx4/srq.c   |  1 +
+>  drivers/sh/intc/internals.h                |  2 +-
+>  include/linux/backing-dev-defs.h           |  2 +-
+>  include/linux/blk-cgroup.h                 |  2 +-
+>  include/linux/fs.h                         |  2 +-
+>  include/linux/fscache.h                    |  1 +
+>  include/linux/iocontext.h                  |  2 +-
+>  include/linux/irqdomain.h                  |  2 +-
+>  include/linux/mlx4/device.h                |  2 +-
+>  include/linux/mlx4/qp.h                    |  1 +
+>  include/linux/mlx5/driver.h                |  2 +-
+>  include/linux/mlx5/qp.h                    |  1 +
+>  include/linux/radix-tree-root.h            | 24 ++++++++++++++++++++++++
+>  include/linux/radix-tree.h                 |  8 ++------
+>  22 files changed, 46 insertions(+), 16 deletions(-)
+>  create mode 100644 include/linux/radix-tree-root.h
+>
+> --
+> 2.7.4
+>
+
+--O9uFcEIpmYvy18ul
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnac/EACgkQ5GN7iDZy
+WKfp7xAAoOGndfBeCCDaUoat2rL4d0CYwVKpSm1S9KaBMPien9InhQ0sQxtSpPvq
+gra5Z2N2gnw+wPQhoQSzpzLyRf7Zx97sBMysgYCgoXdnj6p8HooNPwGa0AEG//c/
+SiBl32z7SpeG7G2n2+8F5lV8AQ6OggWHWiEc1odpQuM50ODhAdFzuxVubALLd6xl
+BeGMSKbs8Vcm7eA/pNjmlzOvZ/w/7ZRBFv6wCFeBPviyBrvvR2oIhqfbs7rmKoUL
+C1Tv4VeQwI1sZRJMfbAHZpQigay/qVen8jOnfn+pTQ8XGKQFa94o6eoet8m/eXIj
+0MIeTNqTSFo8qGXuh7oSlx/5ePB32sp0HCVqPsKVQKiFji5H8f5zA1LORt7o0AkK
+xOGf4xewEmf9C8Pedd3GNuPOXWrjWoaN73TkXfjXevRb4sEBFfwJ3LXta24AT4vl
+AJ1cxMmnOmaVrMH0MaLY89MuqsxAHgbSezSG/AO3T8vXNTLo/4EQMNug6h0Mpt6+
+iSg0GWddjd0rWInaTXlsIawoq47avrKcAsAYccl2m29ny+kxVR9Kff23sOQhLR9Z
+UYDZhle4a4rSByEbpiYQlnLUKEkfrvmUsi65hM2ZYy73FDYkDKUtKH6vjJfs/64/
+2bQh5q+VSeHCr1Psv7pLf+eIjtpbMmBoTYx0xZ894gwhRmI7jMw=
+=Ge7A
+-----END PGP SIGNATURE-----
+
+--O9uFcEIpmYvy18ul--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
