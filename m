@@ -1,75 +1,107 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 41/47] netfilter: convert hook list to an array
-Date: Mon, 9 Oct 2017 11:31:32 +0200
-Message-ID: <20171009093132.GA7150@breakpoint.cc>
-References: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
- <1504478574-13281-6-git-send-email-pablo@netfilter.org>
- <81603cbd-603d-1d93-a29a-1174fc826dec@mellanox.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/4] ravb: Add optional PHY reset during system resume
+Date: Mon, 9 Oct 2017 12:37:36 +0300
+Message-ID: <316a7f99-d2ca-cdb2-2eca-deb044085c52@cogentembedded.com>
+References: <1506614014-4398-1-git-send-email-geert+renesas@glider.be>
+ <1506614014-4398-3-git-send-email-geert+renesas@glider.be>
+ <406f7aff-e386-31f3-39d3-17523443c265@gmail.com>
+ <CAMuHMdWOAnT3xONPfU8pJi9fbAgtWL2GyRbooAxrfGDb=bsB_A@mail.gmail.com>
+ <1a474c45-29ea-82fa-1ab0-0febfdc38bcb@gmail.com>
+ <47456e34-2c2f-ec19-fcda-e3132a8037b3@cogentembedded.com>
+ <846bb632-9fcf-3306-c2cf-4d913fd1834a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        netfilter-devel@vger.kernel.org, Aaron Conole <aconole@bytheb.org>,
-        Florian Westphal <fw@strlen.de>, davem@davemloft.net,
-        netdev@vger.kernel.org
-To: Tariq Toukan <tariqt@mellanox.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <horms@verge.net.au>,
+        Magnus Damm <magnus.damm@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53416 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751636AbdJIJbl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:31:41 -0400
-Content-Disposition: inline
-In-Reply-To: <81603cbd-603d-1d93-a29a-1174fc826dec@mellanox.com>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:47174 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750930AbdJIJhj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:37:39 -0400
+Received: by mail-lf0-f45.google.com with SMTP id k40so7110508lfi.4
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 02:37:39 -0700 (PDT)
+In-Reply-To: <846bb632-9fcf-3306-c2cf-4d913fd1834a@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tariq Toukan <tariqt@mellanox.com> wrote:
-> On 04/09/2017 1:42 AM, Pablo Neira Ayuso wrote:
-> >From: Aaron Conole <aconole@bytheb.org>
-> >
-> >This converts the storage and layout of netfilter hook entries from a
-> >linked list to an array.  After this commit, hook entries will be
-> >stored adjacent in memory.  The next pointer is no longer required.
-> >
-> >The ops pointers are stored at the end of the array as they are only
-> >used in the register/unregister path and in the legacy br_netfilter code.
-> >
-> >nf_unregister_net_hooks() is slower than needed as it just calls
-> >nf_unregister_net_hook in a loop (i.e. at least n synchronize_net()
-> >calls), this will be addressed in followup patch.
-> >
-> >Test setup:
-> >  - ixgbe 10gbit
-> >  - netperf UDP_STREAM, 64 byte packets
-> >  - 5 hooks: (raw + mangle prerouting, mangle+filter input, inet filter):
-> >empty mangle and raw prerouting, mangle and filter input hooks:
-> >353.9
-> >this patch:
-> >364.2
-> >
-> >Signed-off-by: Aaron Conole <aconole@bytheb.org>
-> >Signed-off-by: Florian Westphal <fw@strlen.de>
-> >Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> >---
+Hello!
+
+On 10/1/2017 7:34 PM, Florian Fainelli wrote:
+
+>>>>>> If the optional "reset-gpios" property is specified in DT, the generic
+>>>>>> MDIO bus code takes care of resetting the PHY during device probe.
+>>>>>> However, the PHY may still have to be reset explicitly after system
+>>>>>> resume.
+>>>>>>
+>>>>>> This allows to restore Ethernet operation after resume from s2ram on
+>>>>>> Salvator-XS, where the enable pin of the regulator providing PHY power
+>>>>>> is connected to PRESETn, and PSCI suspend powers down the SoC.
+>>>>>>
+>>>>>> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+>>>>>> ---
+>>>>>>    drivers/net/ethernet/renesas/ravb_main.c | 9 +++++++++
+>>>>>>    1 file changed, 9 insertions(+)
+>>>>>>
+>>>>>> diff --git a/drivers/net/ethernet/renesas/ravb_main.c
+>>>>>> b/drivers/net/ethernet/renesas/ravb_main.c
+>>>>>> index fdf30bfa403bf416..96d1d48e302f8c9a 100644
+>>>>>> --- a/drivers/net/ethernet/renesas/ravb_main.c
+>>>>>> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+>> [...]
+>>>>>> @@ -2302,6 +2304,13 @@ static int __maybe_unused ravb_resume(struct
+>>>>>> device *dev)he patches
+>>>>>>          * reopen device if it was running before system suspended.
+>>>>>>          */
+>>>>>>
+>>>>>> +     /* PHY reset */
+>>>>>> +     if (bus->reset_gpiod) {
+>>>>>> +             gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+>>>>>> +             udelay(bus->reset_delay_us);
+>>>>>> +             gpiod_set_value_cansleep(bus->reset_gpiod, 0);
+>>>>>> +     }
+>>>>>
+>>>>> This is a clever hack, but unfortunately this is also misusing the MDIO
+>>>>> bus reset line into a PHY reset line. As commented in patch 3, if this
+>>>>> reset line is tied to the PHY, then this should be a PHY property and
+>>>>
+>>>> OK.
+>>>>
+>>>>> you cannot (ab)use the MDIO bus GPIO reset logic anymore...
+>>>>
+>>>> And then I should add reset-gpios support to drivers/net/phy/micrel.c?
+>>>> Or is there already generic code to handle per-PHY reset? I couldn't
+>>>> find it.
+>>>
+>>> There is not such a thing unfortunately, but it would presumably be
+>>
+>>     It's strange you don't remember about my (abandoned) patches to
+>> handle per=PHY reset GPIOs -- perhaps it's time to unearth them. Here
+>> they are:
+>>
+>> http://patchwork.ozlabs.org/patch/616495/
+>> http://patchwork.ozlabs.org/patch/616501/
+>>
+>>     I had v3 in the works before abandoning this series -- it doesn't
+>> apply now.
 > 
-> Hi,
-> 
-> We experience a regression in server with iommu enabled.
-> After installing kernel and rebooting the server, it crashes during boot.
-> Please see trace below.
-> 
-> Bisecting points to this patch.
+> Should Geert pick-up where you left and address the feedback given in
+> v2, or do you plan to post a rebased v3?
 
-Hmm, strange because
+    I was going to address the rejects in v3 and give the patchset to Geert... 
+unfortunately, this took so-o-o long. I'm going to do it today, at last.
 
-> [   25.907811] BUG: unable to handle kernel NULL pointer dereference at
-> 000000000000003c
-> [   25.907828] IP: _raw_read_lock_bh+0x15/0x40
+[...]
 
-... this says that ebt_table is NULL (0x3c is the offset of the rwlock).
-
-If you don't have that fix already, does
-https://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git/commit/?id=e6b72ee88a56bcfe63f72e9c30766484c45bec72
-
-netfilter: ebtables: fix race condition in frame_filter_net_init()
-
-resolve this bug for you?
+MBR, Sergei
