@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] i40e/i40evf: fix incorrect default ITR values on driver load
-Date: Mon,  9 Oct 2017 15:38:31 -0700
-Message-ID: <20171009223841.2557-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/14] i40e/i40evf: always set the CLEARPBA flag when re-enabling interrupts
+Date: Mon,  9 Oct 2017 15:38:32 -0700
+Message-ID: <20171009223841.2557-6-jeffrey.t.kirsher@intel.com>
 References: <20171009223841.2557-1-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:36096 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([134.134.136.65]:36088 "EHLO mga03.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755258AbdJIWjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754068AbdJIWjG (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 9 Oct 2017 18:39:06 -0400
 In-Reply-To: <20171009223841.2557-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,100 +18,151 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-The ITR register expects to be programmed in units of 2 microseconds.
-Because of this, all of the drivers I40E_ITR_* constants are in terms of
-this 2 microsecond register.
+In the past we changed driver behavior to not clear the PBA when
+re-enabling interrupts. This change was motivated by the flawed belief
+that clearing the PBA would cause a lost interrupt if a receive
+interrupt occurred while interrupts were disabled.
 
-Unfortunately, the rx_itr_default value is expected to be programmed in
-microseconds.
+According to empirical testing this isn't the case. Additionally, the
+data sheet specifically says that we should set the CLEARPBA bit when
+re-enabling interrupts in a polling setup.
 
-Effectively the driver defaults to an ITR value of half the expected
-value (in terms of minimum microseconds between interrupts).
-
-Fix this by changing the default values to be calculated using
-ITR_REG_TO_USEC macro which indicates that we're converting from the
-register units into microseconds.
+This reverts commit 40d72a509862 ("i40e/i40evf: don't lose interrupts")
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 4 ++--
- drivers/net/ethernet/intel/i40e/i40e_txrx.h     | 6 ++++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h   | 6 ++++--
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++--
- 4 files changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             |  5 +----
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 11 +++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  6 ++----
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  4 +---
+ 5 files changed, 10 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 7baf6d8a84dd..8139b4ee1dc3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -949,9 +949,6 @@ static inline void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
+ 	struct i40e_hw *hw = &pf->hw;
+ 	u32 val;
+ 
+-	/* definitely clear the PBA here, as this function is meant to
+-	 * clean out all previous interrupts AND enable the interrupt
+-	 */
+ 	val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
+ 	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
+ 	      (I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT);
+@@ -960,7 +957,7 @@ static inline void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
+ }
+ 
+ void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
+-void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf, bool clearpba);
++void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
+ int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
+ int i40e_open(struct net_device *netdev);
+ int i40e_close(struct net_device *netdev);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 60b11fdeca2d..d4b0cc36afb1 100644
+index d4b0cc36afb1..00a83afb02e9 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8983,8 +8983,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 		    I40E_FLAG_MSIX_ENABLED;
+@@ -3403,15 +3403,14 @@ void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf)
+ /**
+  * i40e_irq_dynamic_enable_icr0 - Enable default interrupt generation for icr0
+  * @pf: board private structure
+- * @clearpba: true when all pending interrupt events should be cleared
+  **/
+-void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf, bool clearpba)
++void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+ 	u32 val;
  
- 	/* Set default ITR */
--	pf->rx_itr_default = I40E_ITR_DYNAMIC | I40E_ITR_RX_DEF;
--	pf->tx_itr_default = I40E_ITR_DYNAMIC | I40E_ITR_TX_DEF;
-+	pf->rx_itr_default = I40E_ITR_RX_DEF;
-+	pf->tx_itr_default = I40E_ITR_TX_DEF;
+ 	val = I40E_PFINT_DYN_CTL0_INTENA_MASK   |
+-	      (clearpba ? I40E_PFINT_DYN_CTL0_CLEARPBA_MASK : 0) |
++	      I40E_PFINT_DYN_CTL0_CLEARPBA_MASK |
+ 	      (I40E_ITR_NONE << I40E_PFINT_DYN_CTL0_ITR_INDX_SHIFT);
  
- 	/* Depending on PF configurations, it is possible that the RSS
- 	 * maximum might end up larger than the available queues
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index a4e3e665a1a1..c3156aa3f709 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -38,8 +38,10 @@
- #define I40E_ITR_8K                0x003E
- #define I40E_ITR_4K                0x007A
- #define I40E_MAX_INTRL             0x3B    /* reg uses 4 usec resolution */
--#define I40E_ITR_RX_DEF            I40E_ITR_20K
--#define I40E_ITR_TX_DEF            I40E_ITR_20K
-+#define I40E_ITR_RX_DEF            (ITR_REG_TO_USEC(I40E_ITR_20K) | \
-+				    I40E_ITR_DYNAMIC)
-+#define I40E_ITR_TX_DEF            (ITR_REG_TO_USEC(I40E_ITR_20K) | \
-+				    I40E_ITR_DYNAMIC)
- #define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
- #define I40E_MIN_INT_RATE          250     /* ~= 1000000 / (I40E_MAX_ITR * 2) */
- #define I40E_MAX_INT_RATE          500000  /* == 1000000 / (I40E_MIN_ITR * 2) */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index d8ca802a71a9..8f9830d7649a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -38,8 +38,10 @@
- #define I40E_ITR_8K                0x003E
- #define I40E_ITR_4K                0x007A
- #define I40E_MAX_INTRL             0x3B    /* reg uses 4 usec resolution */
--#define I40E_ITR_RX_DEF            I40E_ITR_20K
--#define I40E_ITR_TX_DEF            I40E_ITR_20K
-+#define I40E_ITR_RX_DEF            (ITR_REG_TO_USEC(I40E_ITR_20K) | \
-+				    I40E_ITR_DYNAMIC)
-+#define I40E_ITR_TX_DEF            (ITR_REG_TO_USEC(I40E_ITR_20K) | \
-+				    I40E_ITR_DYNAMIC)
- #define I40E_ITR_DYNAMIC           0x8000  /* use top bit as a flag */
- #define I40E_MIN_INT_RATE          250     /* ~= 1000000 / (I40E_MAX_ITR * 2) */
- #define I40E_MAX_INT_RATE          500000  /* == 1000000 / (I40E_MIN_ITR * 2) */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index f62d9565c7b5..5bcbd46e2f6c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1223,7 +1223,7 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
- 		tx_ring->netdev = adapter->netdev;
- 		tx_ring->dev = &adapter->pdev->dev;
- 		tx_ring->count = adapter->tx_desc_count;
--		tx_ring->tx_itr_setting = (I40E_ITR_DYNAMIC | I40E_ITR_TX_DEF);
-+		tx_ring->tx_itr_setting = I40E_ITR_TX_DEF;
- 		if (adapter->flags & I40EVF_FLAG_WB_ON_ITR_CAPABLE)
- 			tx_ring->flags |= I40E_TXR_FLAGS_WB_ON_ITR;
- 
-@@ -1232,7 +1232,7 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
- 		rx_ring->netdev = adapter->netdev;
- 		rx_ring->dev = &adapter->pdev->dev;
- 		rx_ring->count = adapter->rx_desc_count;
--		rx_ring->rx_itr_setting = (I40E_ITR_DYNAMIC | I40E_ITR_RX_DEF);
-+		rx_ring->rx_itr_setting = I40E_ITR_RX_DEF;
+ 	wr32(hw, I40E_PFINT_DYN_CTL0, val);
+@@ -3597,7 +3596,7 @@ static int i40e_vsi_enable_irq(struct i40e_vsi *vsi)
+ 		for (i = 0; i < vsi->num_q_vectors; i++)
+ 			i40e_irq_dynamic_enable(vsi, i);
+ 	} else {
+-		i40e_irq_dynamic_enable_icr0(pf, true);
++		i40e_irq_dynamic_enable_icr0(pf);
  	}
  
- 	adapter->num_active_queues = num_active_queues;
+ 	i40e_flush(&pf->hw);
+@@ -3746,7 +3745,7 @@ static irqreturn_t i40e_intr(int irq, void *data)
+ 	wr32(hw, I40E_PFINT_ICR0_ENA, ena_mask);
+ 	if (!test_bit(__I40E_DOWN, pf->state)) {
+ 		i40e_service_event_schedule(pf);
+-		i40e_irq_dynamic_enable_icr0(pf, false);
++		i40e_irq_dynamic_enable_icr0(pf);
+ 	}
+ 
+ 	return ret;
+@@ -8455,7 +8454,7 @@ static int i40e_setup_misc_vector(struct i40e_pf *pf)
+ 
+ 	i40e_flush(hw);
+ 
+-	i40e_irq_dynamic_enable_icr0(pf, true);
++	i40e_irq_dynamic_enable_icr0(pf);
+ 
+ 	return err;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 3bd176606c09..616abf79253e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2202,9 +2202,7 @@ static u32 i40e_buildreg_itr(const int type, const u16 itr)
+ 	u32 val;
+ 
+ 	val = I40E_PFINT_DYN_CTLN_INTENA_MASK |
+-	      /* Don't clear PBA because that can cause lost interrupts that
+-	       * came in while we were cleaning/polling
+-	       */
++	      I40E_PFINT_DYN_CTLN_CLEARPBA_MASK |
+ 	      (type << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT) |
+ 	      (itr << I40E_PFINT_DYN_CTLN_INTERVAL_SHIFT);
+ 
+@@ -2241,7 +2239,7 @@ static inline void i40e_update_enable_itr(struct i40e_vsi *vsi,
+ 
+ 	/* If we don't have MSIX, then we only need to re-enable icr0 */
+ 	if (!(vsi->back->flags & I40E_FLAG_MSIX_ENABLED)) {
+-		i40e_irq_dynamic_enable_icr0(vsi->back, false);
++		i40e_irq_dynamic_enable_icr0(vsi->back);
+ 		return;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index c062d74d21f3..10298956a81b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1358,7 +1358,7 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 		i40e_free_vfs(pf);
+ err_iov:
+ 	/* Re-enable interrupt 0. */
+-	i40e_irq_dynamic_enable_icr0(pf, false);
++	i40e_irq_dynamic_enable_icr0(pf);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 37e1de886d48..fe817e2b6fef 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1409,9 +1409,7 @@ static u32 i40e_buildreg_itr(const int type, const u16 itr)
+ 	u32 val;
+ 
+ 	val = I40E_VFINT_DYN_CTLN1_INTENA_MASK |
+-	      /* Don't clear PBA because that can cause lost interrupts that
+-	       * came in while we were cleaning/polling
+-	       */
++	      I40E_VFINT_DYN_CTLN1_CLEARPBA_MASK |
+ 	      (type << I40E_VFINT_DYN_CTLN1_ITR_INDX_SHIFT) |
+ 	      (itr << I40E_VFINT_DYN_CTLN1_INTERVAL_SHIFT);
+ 
 -- 
 2.14.2
