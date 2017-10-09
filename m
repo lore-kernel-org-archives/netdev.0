@@ -1,52 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2017-10-09
-Date: Mon,  9 Oct 2017 09:40:12 +0200
-Message-ID: <20171009074013.1979-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next 0/7] nfp: extend match and action for flower
+ offload
+Date: Mon, 9 Oct 2017 10:05:46 +0200
+Message-ID: <20171009080545.GB11130@netronome.com>
+References: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
+ <CALx6S36zb=V3Uv1xxjQi04TaPre7GRyYQ1Wcx_7zd96nSpu3pg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.63.242]:34704 "EHLO
-        sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751257AbdJIHkX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 03:40:23 -0400
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:50913 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751661AbdJIIFs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 04:05:48 -0400
+Received: by mail-wm0-f47.google.com with SMTP id u138so20003874wmu.5
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 01:05:48 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CALx6S36zb=V3Uv1xxjQi04TaPre7GRyYQ1Wcx_7zd96nSpu3pg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Fri, Oct 06, 2017 at 08:34:59AM -0700, Tom Herbert wrote:
+> Simon,
+> 
+> Maybe a bit off topic, but I had the impression netronome would
+> support BPF so that filters could be programmed for arbitrary
+> protocols and fields. Is that true? If so, what is the relationship
+> between that functionality and these patches?
 
-The QCA folks found another netlink problem - we were missing validation
-of some attributes. It's not super problematic since one can only read a
-few bytes beyond the message (and that memory must exist), but here's the
-fix for it.
+Hi Tom,
 
-I thought perhaps we can make nla_parse_nested() require a policy, but
-given the two-stage validation/parsing in regular netlink that won't work.
+you are correct in thinking that Netronome is supporting BPF offload
+in its nfp driver. That support continues to be enhanced and supported.
 
-Please pull and let me know if there's any problem.
+This patch-set relates to a different set of functionality, offload of the
+TC flower classifier. At this point there is no relationship between the
+two sets of functionality and they cannot be used at the same time;
+different firmware images are required and the driver initiates itself
+according to the firmware loaded.
 
-Thanks,
-johannes
+In future it may be possible to use both BPF and TC flower offloads at the
+same time but that is not the case at this time.
 
-
-
-The following changes since commit 9f775ead5e570e7e19015b9e4e2f3dd6e71a5935:
-
-  l2tp: fix l2tp_eth module loading (2017-10-01 22:35:07 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-10-09
-
-for you to fetch changes up to ad670233c9e1d5feb365d870e30083ef1b889177:
-
-  nl80211: Define policy for packet pattern attributes (2017-10-04 14:39:21 +0200)
-
-----------------------------------------------------------------
-Just a single fix for a missing netlink attribute validation.
-
-----------------------------------------------------------------
-Peng Xu (1):
-      nl80211: Define policy for packet pattern attributes
-
- net/wireless/nl80211.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+Does that answer your question?
