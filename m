@@ -1,57 +1,36 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/14] i40e: use the safe hash table iterator when deleting mac filters
-Date: Mon,  9 Oct 2017 15:38:29 -0700
-Message-ID: <20171009223841.2557-3-jeffrey.t.kirsher@intel.com>
-References: <20171009223841.2557-1-jeffrey.t.kirsher@intel.com>
-Cc: Lihong Yang <lihong.yang@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:36096 "EHLO mga03.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754302AbdJIWjF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 18:39:05 -0400
-In-Reply-To: <20171009223841.2557-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cdc_ether: flag the u-blox TOBY-L2 and SARA-U2 as wwan
+Date: Mon, 09 Oct 2017 16:03:45 -0700 (PDT)
+Message-ID: <20171009.160345.94596657344673183.davem@davemloft.net>
+References: <20171009120512.16681-1-aleksander@aleksander.es>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: oliver@neukum.org, marco.demarco@u-blox.com,
+        stefano.godeas@u-blox.com, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: aleksander@aleksander.es
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171009120512.16681-1-aleksander@aleksander.es>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lihong Yang <lihong.yang@intel.com>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Date: Mon,  9 Oct 2017 14:05:12 +0200
 
-This patch replaces hash_for_each function with hash_for_each_safe
-when calling  __i40e_del_filter. The hash_for_each_safe function is
-the right one to use when iterating over a hash table to safely remove
-a hash entry. Otherwise, incorrect values may be read from freed memory.
+> The u-blox TOBY-L2 is a LTE Cat 4 module with HSPA+ and 2G fallback.
+> This module allows switching to different USB profiles with the
+> 'AT+UUSBCONF' command, and provides a ECM network interface when the
+> 'AT+UUSBCONF=2' profile is selected.
+> 
+> The u-blox SARA-U2 is a HSPA module with 2G fallback. The default USB
+> configuration includes a ECM network interface.
+> 
+> Both these modules are controlled via AT commands through one of the
+> TTYs exposed. Connecting these modules may be done just by activating
+> the desired PDP context with 'AT+CGACT=1,<cid>' and then running DHCP
+> on the ECM interface.
+> 
+> Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
 
-Detected by CoverityScan, CID 1402048 Read from pointer after free
-
-Signed-off-by: Lihong Yang <lihong.yang@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 04568137e029..c062d74d21f3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2883,6 +2883,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
- 	struct i40e_mac_filter *f;
- 	struct i40e_vf *vf;
- 	int ret = 0;
-+	struct hlist_node *h;
- 	int bkt;
- 
- 	/* validate the request */
-@@ -2921,7 +2922,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
- 	/* Delete all the filters for this VSI - we're going to kill it
- 	 * anyway.
- 	 */
--	hash_for_each(vsi->mac_filter_hash, bkt, f, hlist)
-+	hash_for_each_safe(vsi->mac_filter_hash, bkt, h, f, hlist)
- 		__i40e_del_filter(vsi, f);
- 
- 	spin_unlock_bh(&vsi->mac_filter_hash_lock);
--- 
-2.14.2
+Applied, thank you.
