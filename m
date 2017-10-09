@@ -1,112 +1,66 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [net-next 14/15] i40e: ignore skb->xmit_more when deciding to
- set RS bit
-Date: Mon, 9 Oct 2017 20:10:16 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882AC15CA@ORSMSX115.amr.corp.intel.com>
-References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
- <20171006175727.868-15-jeffrey.t.kirsher@intel.com>
- <063D6719AE5E284EB5DD2968C1650D6DD008D373@AcuExch.aculab.com>
- <CAKgT0UfZEU++hZkpp1NixYxj=2STfXX-5opz2BoEhG1SfUA5pQ@mail.gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
+ support malloc buff at run time
+Date: Mon, 9 Oct 2017 22:25:25 +0200
+Message-ID: <20171009202525.GR32278@orbyte.nwl.cc>
+References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
+ <1506605626-1744-3-git-send-email-haliu@redhat.com>
+ <20171002103708.0572704b@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hangbin Liu <haliu@redhat.com>, netdev@vger.kernel.org,
+        Michal Kubecek <mkubecek@suse.cz>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48569 "EHLO mga02.intel.com"
+Received: from orbyte.nwl.cc ([151.80.46.58]:41234 "EHLO orbyte.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752528AbdJIUKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 16:10:19 -0400
-In-Reply-To: <CAKgT0UfZEU++hZkpp1NixYxj=2STfXX-5opz2BoEhG1SfUA5pQ@mail.gmail.com>
-Content-Language: en-US
+        id S1754373AbdJIUZa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 16:25:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20171002103708.0572704b@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEFsZXhhbmRlciBEdXljaw0KPiBTZW50OiBNb25kYXksIE9jdG9iZXIgMDksIDIwMTcg
-OToyOCBBTQ0KPiBUbzogRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFiLmNvbT4NCj4g
-Q2M6IEtpcnNoZXIsIEplZmZyZXkgVCA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPjsgZGF2
-ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRl
-bC5jb20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBuaG9ybWFuQHJlZGhhdC5jb207IHNh
-c3NtYW5uQHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtu
-ZXQtbmV4dCAxNC8xNV0gaTQwZTogaWdub3JlIHNrYi0+eG1pdF9tb3JlIHdoZW4gZGVjaWRpbmcg
-dG8gc2V0DQo+IFJTIGJpdA0KPiANCj4gT24gTW9uLCBPY3QgOSwgMjAxNyBhdCAyOjA3IEFNLCBE
-YXZpZCBMYWlnaHQgPERhdmlkLkxhaWdodEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPiBGcm9tOiBK
-ZWZmIEtpcnNoZXINCj4gPj4gU2VudDogMDYgT2N0b2JlciAyMDE3IDE4OjU3DQo+ID4+IEZyb206
-IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiA+Pg0KPiA+PiBTaW5j
-ZSBjb21taXQgNmE3ZmRlZDc3NmE3ICgiaTQwZTogRml4IFJTIGJpdCB1cGRhdGUgaW4gVHggcGF0
-aCBhbmQNCj4gPj4gZGlzYWJsZSBmb3JjZSBXQiB3b3JrYXJvdW5kIikgd2UndmUgdHJpZWQgdG8g
-Im9wdGltaXplIiBzZXR0aW5nIHRoZQ0KPiA+PiBSUyBiaXQgYmFzZWQgYXJvdW5kIHNrYi0+eG1p
-dF9tb3JlLiBUaGlzIHNhbWUgbG9naWMgd2FzIHJlZmFjdG9yZWQNCj4gPj4gaW4gY29tbWl0IDFk
-YzhiNTM4Nzk1ZiAoImk0MGU6IFJlb3JkZXIgbG9naWMgZm9yIGNvYWxlc2NpbmcgUlMgYml0cyIp
-LA0KPiA+PiBidXQgdWx0aW1hdGVseSB3YXMgbm90IGZ1bmN0aW9uYWxseSBjaGFuZ2VkLg0KPiA+
-DQo+ID4gSSd2ZSB0cmllZCB0byB1bmRlcnN0YW5kIHRoZSBhYm92ZSwgYnV0IHdpdGhvdXQgZGVm
-aW5pdGlvbnMgb2YgV0INCj4gPiBhbmQgUlMgYW5kIHRoZSAnNC1uZXNzJyBvZiBzb21ldGhpbmcg
-aXQgaXMgcXVpdGUgZGlmZmljdWx0Lg0KPiA+DQo+ID4gSSBUSElOSyB0aGlzIGlzIGFsbCBhYm91
-dCB0ZWxsaW5nIHRoZSBoYXJkd2FyZSB0aGVyZSBpcyBhIHBhY2tldA0KPiA+IGluIHRoZSByaW5n
-IHRvIHRyYW5zbWl0Pw0KPiA+DQo+ID4gSSBkb24ndCB1bmRlcnN0YW5kIHRoZSA0LW5lc3MuIExp
-bnV4IHJlcXVpcmVzIHRoYXQgdGhlIGhhcmR3YXJlDQo+ID4gYmUgbm90aWZpZWQgb2YgYSBzaW5n
-bGUgcGFja2V0IHRyYW5zbWl0LCBhbmQgdGhhdCB0aGUgJ3RyYW5zbWl0DQo+ID4gY29tcGxldGUn
-IGFsc28gYmUgbm90aWZpZWQgaW4gJ2EgdGltZWx5IG1hbm5lcicgZm9yIGEgc2luZ2xlIHBhY2tl
-dC4NCj4gDQo+IFNvIHRvIGNsYXJpZnkgc29tZSBvZiB0aGlzLiBUaGUgUlMgaXMgc2hvcnQgZm9y
-IFJlcG9ydCBTdGF0dXMuIEl0DQo+IHRlbGxzIHRoZSBoYXJkd2FyZSB0aGF0IHdoZW4gaXQgaGFz
-IGNvbXBsZXRlZCB0aGUgZGVzY3JpcHRvciBpdCBzaG91bGQNCj4gdHJpZ2dlciBhIHdyaXRlIGJh
-Y2ssIGFrYSBXQi4NCj4gDQo+IFRoZSA0LW5lc3MgaXMgYmVjYXVzZSBlYWNoIGRlc2NyaXB0b3Ig
-aXMgMTYgYnl0ZXMsIHNvIGlmIHdlIHdyaXRlIGJhY2sNCj4gb25jZSBldmVyeSA0IGRlc2NyaXB0
-b3JzIHRoYXQgaXMgb25lIDY0QiBjYWNoZSBsaW5lIHdoaWNoIGlzIG11Y2gNCj4gYmV0dGVyIGZv
-ciBtb3N0IHBsYXRmb3JtcyBwZXJmb3JtYW5jZSB3aXNlLg0KPiANCj4gPiBza2ItPnhtaXRfbW9y
-ZSBvdWdodCB0byBiZSB1c2FibGUgdG8gb3B0aW1pc2UgYm90aCBvZiB0aGVzZQ0KPiA+IChhc3N1
-bWluZyBpdCBpc24ndCBhIGxpZSkuDQo+IA0KPiBBY3R1YWxseSBpdCBsZWFkcyB0byBpc3N1ZXMg
-aWYgd2UgaG9sZCBvZmYgZm9yIHRvbyBsb25nLiBJZiB3ZSBhcmUNCj4gYnVzeSBkZXF1ZXVlaW5n
-IGEgbG9uZyBsaXN0LCBhbmQgdGhlIFR4IHF1ZXVlIGhhcyBnb25lIGVtcHR5IHRoZW4gd2UNCj4g
-YXJlIHN0YWxsaW5nIFR4IHdpdGhvdXQgbmVlZCB0byBkbyBzby4gV2UgbmVlZCB0byBiZSByZWd1
-bGFybHkNCj4gbm90aWZ5aW5nIHRoZSBkZXZpY2UgdGhhdCBpdCBoYXMgYnVmZmVycyBhdmFpbGFi
-bGUgdG8gdHJhbnNtaXQgd2hpY2gNCj4gaXMgd2hhdCB4bWl0X21vcmUgaXMgZ29vZCBmb3IuIEhv
-d2V2ZXIgaW4gYWRkaXRpb24gdGhlIGhhcmR3YXJlIG5lZWRzDQo+IHRvIG5vdGlmeSB1cyByZWd1
-bGFybHkgdGhhdCB0aGVyZSBhcmUgYnVmZmVycyByZWFkeSB0byBjbGVhbiB3aGljaCBpdA0KPiBp
-c24ndCBuZWNlc3NhcmlseSBzbyB1c2VmdWwgZm9yLCBlc3BlY2lhbGx5IGlmICBhcmUgZmlsbGlu
-ZyB0aGUgZW50aXJlDQo+IHJpbmcgYW5kIG9ubHkgcHJvdmlkaW5nIG9uZSBub3RpZmljYXRpb24g
-dG8gdGhlIGRyaXZlciB0aGF0IHRoZXJlIGFyZQ0KPiBidWZmZXJzIHJlYWR5IHNpbmNlIHdlIGNh
-biBkZWZlciB0aGUgVHggaW50ZXJydXB0IGZvciB0b28gbG9uZy4NCj4gDQo+IFdoYXQgSmFrZSBp
-cyB0cnlpbmcgdG8gZml4IGhlcmUgaXMgdG8gcHJldmVudCB1cyBmcm9tIGdlbmVyYXRpbmcgd2hh
-dA0KPiBsb29rcyBsaWtlIGEgc3F1YXJlIHdhdmUgaW4gdGVybXMgb2YgdGhyb3VnaHB1dC4gRXNz
-ZW50aWFsbHkgdGhlDQo+IGN1cnJlbnQgYmVoYXZpb3IgdGhhdCBpcyBiZWluZyBzZWVuIGlzIHRo
-YXQgYWxsIHRoZSBidWZmZXJzIGluIHRoZQ0KPiByaW5nIGVpdGhlciBiZWxvbmcgdG8gc29mdHdh
-cmUsIG9yIGJlbG9uZyB0byBoYXJkd2FyZS4gSXQgaXMgYmVzdCBmb3INCj4gdXMgdG8gaGF2ZSB0
-aGlzIHNwbGl0IGhhbGYgYW5kIGhhbGYgc28gdGhhdCB0aGUgaGFyZHdhcmUgaGFzIGJ1ZmZlcnMN
-Cj4gdG8gdHJhbnNtaXQgYW5kIHNvZnR3YXJlIGhhcyBidWZmZXJzIHRvIGNsZWFuIGFuZCBlbnF1
-ZXVlIG5ldyBidWZmZXJzDQo+IG9udG8uDQo+IA0KDQpZZXMgdGhpcyBzdW1zIGl0IHVwIHByZXR0
-eSB3ZWxsLiBUaGUgdGVzdCBjYXNlIHdoaWNoIGZvdW5kIHRoaXMgYnVnIGlzIG91dGxpbmVkIGlu
-IHRoZSBkZXNjcmlwdGlvbi4gRXNzZW50aWFsbHkgd2UgY291bGQgc2VlIHVwIHRvIGRvemVucyBv
-ciBldmVuIGFsbW9zdCBhIGh1bmRyZWQgcGFja2V0cyBpbiBhIHJvdyBidW5jaGVkIHVwIGlmIHdl
-IGhhZCBhIGJ1bmNoIG9mIHZpcnR1YWwgZGV2aWNlcyBsYXllcmVkIG9uIHRvcCBvZiB0aGUgbmV0
-d29yayBkcml2ZXIuIFRoaXMgbGVkIHRvIHVzIG5vdCBpbmRpY2F0aW5nIHRvIGdldCBzdGF0dXMg
-ZnJvbSB0aGUgaGFyZHdhcmUgYWJvdXQgZmluaXNoZWQgcGFja2V0cywgd2hpY2ggcmVzdWx0cyBp
-biBhbiBpbmNyZWFzZWQgZGVsYXkgdG8gZmluaXNoIFR4Lg0KDQo+ID4gVGhlIGRyaXZlciB3b3Vs
-ZCBuZWVkIHRvIGVuc3VyZSBhIHJpbmcgZnVsbCBvZiBtZXNzYWdlcyBpc24ndA0KPiA+IGdlbmVy
-YXRlZCB3aXRob3V0IGVpdGhlciB3YWtldXAgLSBidXQgdGhhdCBtaWdodCBiZSAxMjggZnJhbWVz
-Lg0KPiANCj4gVGhhdCBpcyB3aGF0IGlzIGhhcHBlbmluZyBoZXJlLiBCYXNpY2FsbHkgd2UgYXJl
-IGd1YXJhbnRlZWluZw0KPiB3cml0ZWJhY2tzIGFyZSBvY2N1cnJpbmcgb24gYSByZWd1bGFyIGJh
-c2lzIGluc3RlYWQgb2YgaW4gbGFyZ2UNCj4gYnVyc3RzLg0KPiANCj4gPiBGV0lXIG9uIHRoZSBz
-eXN0ZW1zIEkgaGF2ZSBQQ0llIHdyaXRlcyBhcmUgcmVsYXRpdmVseSBjaGVhcA0KPiA+IChyZWFk
-cyBhcmUgc2xvdykuIFNvIGRpZmZlcmVudCBjb3VudHMgd291bGQgYmUgYXBwcm9wcmlhdGUNCj4g
-PiBmb3IgZGVsYXlpbmcgZG9vcmJlbGwgd3JpdGVzIGFuZCByZXF1ZXN0aW5nIGNvbXBsZXRpb24g
-aW50ZXJydXB0cy4NCj4gPg0KPiA+ICAgICAgICAgRGF2aWQNCj4gDQo+IFRoZSBkb29yYmVsbCB3
-cml0ZXMgYXJlIHN0aWxsIGJlaW5nIGRlbGF5ZWQgdGhlIHNhbWUgYW1vdW50IHdpdGggdGhpcw0K
-PiBwYXRjaC4gVGhlIG9ubHkgdGhpbmcgdGhhdCB3YXMgc3BsaXQgb3V0IHdhcyB0aGUgZGV2aWNl
-IHdyaXRlIGJhY2tzDQo+IGFyZSBub3cgb2NjdXJyaW5nIG9uIGEgbW9yZSByZWd1bGFyIGJhc2lz
-IGluc3RlYWQgb2YgYmVpbmcgaGVsZCBvZmYNCj4gdW50aWwgYSBtdWNoIGxhcmdlciBzZXQgaXMg
-aGFuZGxlZC4NCj4gDQoNCkV4YWN0bHkuIFRoZSB0YWlsIGJ1bXBzIGFyZSBzdGlsbCBmdW5jdGlv
-bmluZyB0aGUgc2FtZSwgYnV0IGl0J3MgdGhlIGhhcmR3YXJlIHJlcG9ydCBzdGF0dXMgcmVxdWVz
-dHMgd2hpY2ggYXJlIG5vdCBkZWxheWVkLiBOb3RlIHRoYXQgdGhlcmUncyBzb21lIGZ1cnRoZXIg
-cXVpcmtzIGluIGhvdyBvdXIgaGFyZHdhcmUgcGVyZm9ybXMgd3JpdGUgYmFja3Mgd2hpY2ggZXhh
-Y2VyYmF0ZSB0aGUgcHJvYmxlbSBiZWNhdXNlIG9mIGhvdyB0aGUgY2FjaGVsaW5lcyBhcmUgc2V0
-dXAgc28gdGhhdCB0aGUgZGVsYXkgaXMgZXZlbiB3b3JzZSB0aGFuIHdlIHdvdWxkIGV4cGVjdC4N
-Cg0KVGhhbmtzLA0KSmFrZQ0KDQo+IC0gQWxleA0K
+Hi Stephen,
+
+On Mon, Oct 02, 2017 at 10:37:08AM -0700, Stephen Hemminger wrote:
+> On Thu, 28 Sep 2017 21:33:46 +0800
+> Hangbin Liu <haliu@redhat.com> wrote:
+> 
+> > From: Hangbin Liu <liuhangbin@gmail.com>
+> > 
+> > This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
+> > iplink_get()"). After update, we will not need to double the buffer size
+> > every time when VFs number increased.
+> > 
+> > With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
+> > length parameter.
+> > 
+> > With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
+> > answer to avoid overwrite data in nlh, because it may has more info after
+> > nlh. also this will avoid nlh buffer not enough issue.
+> > 
+> > We need to free answer after using.
+> > 
+> > Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > ---
+> 
+> Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
+> Can only those places that need that be targeted?
+
+We could probably do that, by having a buffer on stack in __rtnl_talk()
+which will be used instead of the allocated one if 'answer' is NULL. Or
+maybe even introduce a dedicated API call for the dynamically allocated
+receive buffer. But I really doubt that's feasible: AFAICT, that stack
+buffer still needs to be reasonably sized since the reply might be
+larger than the request (reusing the request buffer would be the most
+simple way to tackle this), also there is support for extack which may
+bloat the response to arbitrary size. Hangbin has shown in his benchmark
+that the overhead of the second syscall is negligible, so why care about
+that and increase code complexity even further?
+
+Not saying it's not possible, but I just doubt it's worth the effort.
+
+Cheers, Phil
