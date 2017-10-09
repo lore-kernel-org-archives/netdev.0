@@ -1,65 +1,91 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/10] ixgbe: restore normal RSS after last macvlan offload is removed
-Date: Mon,  9 Oct 2017 11:39:53 -0700
-Message-ID: <20171009184000.80053-4-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] ixgbe: Clear SWFW_SYNC register during init
+Date: Mon,  9 Oct 2017 11:39:51 -0700
+Message-ID: <20171009184000.80053-2-jeffrey.t.kirsher@intel.com>
 References: <20171009184000.80053-1-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:54649 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755214AbdJISkX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 14:40:23 -0400
+        id S1754162AbdJISkW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 14:40:22 -0400
 In-Reply-To: <20171009184000.80053-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Just like when the last VF is removed, we need to restore normal
-operations after the last macvlan offload is removed, else we
-get stuck in single queue operations.
+Added clearing of SW resource bits in the SW/FW synchronization
+register to ixgbe_init_swfw_sync_X540().
 
-To test:
-ethtool -l eth1   # note the number of queues in use, ~= cpus
+Updated ixgbe_acquire_swfw_sync_X540 SW Manageability host interface
+resource bit error case to match the error handling of the other SW
+resource bits. Which is to release the SW resource bits if SW times
+out while attempting to acquire the resource.
 
-ethtool -K eth1 l2-fwd-offload on
-ip link add mv1 link eth1 type macvlan mode bridge
-ip link set dev mv1 up
-ip link del mv1
+This allows the driver to load in cases where the semaphore bits
+could be stuck after a reset or a crash.
 
-ethtool -l eth1   # are we back to the same # of queues, or stuck on 1?
-
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 3942c6208745..d83cc9d34de3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9758,6 +9758,17 @@ static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
- 	limit = find_last_bit(&adapter->fwd_bitmask, 32);
- 	adapter->ring_feature[RING_F_VMDQ].limit = limit + 1;
- 	ixgbe_fwd_ring_down(fwd_adapter->netdev, fwd_adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index 6ea0d6a5fb90..b8c5fd2a2115 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -619,12 +619,6 @@ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ 		usleep_range(5000, 10000);
+ 	}
+ 
+-	/* Failed to get SW only semaphore */
+-	if (swmask == IXGBE_GSSR_SW_MNG_SM) {
+-		hw_dbg(hw, "Failed to get SW only semaphore\n");
+-		return IXGBE_ERR_SWFW_SYNC;
+-	}
+-
+ 	/* If the resource is not released by the FW/HW the SW can assume that
+ 	 * the FW/HW malfunctions. In that case the SW should set the SW bit(s)
+ 	 * of the requested resource(s) while ignoring the corresponding FW/HW
+@@ -647,7 +641,8 @@ s32 ixgbe_acquire_swfw_sync_X540(struct ixgbe_hw *hw, u32 mask)
+ 	 */
+ 	if (swfw_sync & swmask) {
+ 		u32 rmask = IXGBE_GSSR_EEP_SM | IXGBE_GSSR_PHY0_SM |
+-			    IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_MAC_CSR_SM;
++			    IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_MAC_CSR_SM |
++			    IXGBE_GSSR_SW_MNG_SM;
+ 
+ 		if (swi2c_mask)
+ 			rmask |= IXGBE_GSSR_I2C_MASK;
+@@ -763,6 +758,8 @@ static void ixgbe_release_swfw_sync_semaphore(struct ixgbe_hw *hw)
+  **/
+ void ixgbe_init_swfw_sync_X540(struct ixgbe_hw *hw)
+ {
++	u32 rmask;
 +
-+	/* go back to full RSS if we're done with our VMQs */
-+	if (adapter->ring_feature[RING_F_VMDQ].limit == 1) {
-+		int rss = min_t(int, ixgbe_max_rss_indices(adapter),
-+				num_online_cpus());
+ 	/* First try to grab the semaphore but we don't need to bother
+ 	 * looking to see whether we got the lock or not since we do
+ 	 * the same thing regardless of whether we got the lock or not.
+@@ -771,6 +768,14 @@ void ixgbe_init_swfw_sync_X540(struct ixgbe_hw *hw)
+ 	 */
+ 	ixgbe_get_swfw_sync_semaphore(hw);
+ 	ixgbe_release_swfw_sync_semaphore(hw);
 +
-+		adapter->flags &= ~IXGBE_FLAG_VMDQ_ENABLED;
-+		adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
-+		adapter->ring_feature[RING_F_RSS].limit = rss;
-+	}
++	/* Acquire and release all software resources. */
++	rmask = IXGBE_GSSR_EEP_SM | IXGBE_GSSR_PHY0_SM |
++		IXGBE_GSSR_PHY1_SM | IXGBE_GSSR_MAC_CSR_SM |
++		IXGBE_GSSR_SW_MNG_SM | IXGBE_GSSR_I2C_MASK;
 +
- 	ixgbe_setup_tc(pdev, netdev_get_num_tc(pdev));
- 	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
- 		   fwd_adapter->pool, adapter->num_rx_pools,
++	ixgbe_acquire_swfw_sync_X540(hw, rmask);
++	ixgbe_release_swfw_sync_X540(hw, rmask);
+ }
+ 
+ /**
 -- 
 2.14.2
