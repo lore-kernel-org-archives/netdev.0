@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH v3 net-next 12/12] qed: Add iWARP support for fpdu spanned over more than two tcp packets
-Date: Mon, 9 Oct 2017 12:37:54 +0300
-Message-ID: <1507541874-18344-13-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [PATCH v3 net-next 10/12] qed: Add support for freeing two ll2 buffers for corner cases
+Date: Mon, 9 Oct 2017 12:37:52 +0300
+Message-ID: <1507541874-18344-11-git-send-email-Michal.Kalderon@cavium.com>
 References: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,288 +11,99 @@ Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
         "Ariel Elior" <Ariel.Elior@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0046.outbound.protection.outlook.com ([104.47.33.46]:13920
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0081.outbound.protection.outlook.com ([104.47.41.81]:52736
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750828AbdJIJja (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 05:39:30 -0400
+        id S1753949AbdJIJjR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 05:39:17 -0400
 In-Reply-To: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We continue to maintain a maximum of three buffers per fpdu, to ensure
-that there are enough buffers for additional unaligned mpa packets.
-To support this, if a fpdu is split over more than two tcp packets, we
-use an intermediate buffer to copy the data to the previous buffer, then
-we can release the data. We need an intermediate buffer as the initial
-buffer partial packet could be located at the end of the packet, not
-leaving room for additional data. This is a corner case, and will usually
-not be the case.
+When posting a packet on the ll2 tx, we can provide a cookie that
+will be returned upon tx completion. This cookie is the ll2 iwarp buffer
+which is then reposted to the rx ring. Part of the unaligned mpa flow
+is determining when a buffer can be reposted. Each buffer needs to be
+sent only once as a cookie for on the tx ring. In packed fpdu case, only
+the last packet will be sent with the buffer, meaning we need to handle the
+case that a cookie can be NULL on tx complete. In addition, when a fpdu
+splits over two buffers, but there are no more fpdus on the second buffer,
+two buffers need to be provided as a cookie. To avoid changing the ll2
+interface to provide two cookies, we introduce a piggy buf pointer,
+relevant for iWARP only, that holds a pointer to a second buffer that
+needs to be released during tx completion.
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 193 ++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |   1 +
- 2 files changed, 194 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 25 +++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  1 +
+ 2 files changed, 26 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 2994942..b2b1f87 100644
+index 83b147f..8b17369 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1420,6 +1420,7 @@ void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn)
- 	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->tcp_cid_map, 1);
- 	kfree(iwarp_info->mpa_bufs);
- 	kfree(iwarp_info->partial_fpdus);
-+	kfree(iwarp_info->mpa_intermediate_buf);
- }
+@@ -1846,6 +1846,12 @@ enum qed_iwarp_mpa_pkt_type {
+ 	/* vlan overload with enum iwarp_ll2_tx_queues */
+ 	tx_pkt.vlan = IWARP_LL2_ALIGNED_TX_QUEUE;
  
- int qed_iwarp_accept(void *rdma_cxt, struct qed_iwarp_accept_in *iparams)
-@@ -1762,6 +1763,11 @@ enum qed_iwarp_mpa_pkt_type {
- 	"QED_IWARP_MPA_PKT_UNALIGNED"
- };
- 
-+static int
-+qed_iwarp_recycle_pkt(struct qed_hwfn *p_hwfn,
-+		      struct qed_iwarp_fpdu *fpdu,
-+		      struct qed_iwarp_ll2_buff *buf);
-+
- static enum qed_iwarp_mpa_pkt_type
- qed_iwarp_mpa_classify(struct qed_hwfn *p_hwfn,
- 		       struct qed_iwarp_fpdu *fpdu,
-@@ -1822,6 +1828,68 @@ enum qed_iwarp_mpa_pkt_type {
- 	fpdu->mpa_frag_len = fpdu->fpdu_length - fpdu->incomplete_bytes;
- }
- 
-+static int
-+qed_iwarp_cp_pkt(struct qed_hwfn *p_hwfn,
-+		 struct qed_iwarp_fpdu *fpdu,
-+		 struct unaligned_opaque_data *pkt_data,
-+		 struct qed_iwarp_ll2_buff *buf, u16 tcp_payload_size)
-+{
-+	u8 *tmp_buf = p_hwfn->p_rdma_info->iwarp.mpa_intermediate_buf;
-+	int rc;
-+
-+	/* need to copy the data from the partial packet stored in fpdu
-+	 * to the new buf, for this we also need to move the data currently
-+	 * placed on the buf. The assumption is that the buffer is big enough
-+	 * since fpdu_length <= mss, we use an intermediate buffer since
-+	 * we may need to copy the new data to an overlapping location
++	/* special case of unaligned packet and not packed, need to send
++	 * both buffers as cookie to release.
 +	 */
-+	if ((fpdu->mpa_frag_len + tcp_payload_size) > (u16)buf->buff_size) {
-+		DP_ERR(p_hwfn,
-+		       "MPA ALIGN: Unexpected: buffer is not large enough for split fpdu buff_size = %d mpa_frag_len = %d, tcp_payload_size = %d, incomplete_bytes = %d\n",
-+		       buf->buff_size, fpdu->mpa_frag_len,
-+		       tcp_payload_size, fpdu->incomplete_bytes);
-+		return -EINVAL;
++	if (tcp_payload_size == fpdu->incomplete_bytes)
++		fpdu->mpa_buf->piggy_buf = buf;
++
+ 	ll2_handle = p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle;
+ 
+ 	/* Set first fragment to header */
+@@ -2195,9 +2201,19 @@ static void qed_iwarp_ll2_comp_tx_pkt(void *cxt, u8 connection_handle,
+ 				      bool b_last_fragment, bool b_last_packet)
+ {
+ 	struct qed_iwarp_ll2_buff *buffer = cookie;
++	struct qed_iwarp_ll2_buff *piggy;
+ 	struct qed_hwfn *p_hwfn = cxt;
+ 
++	if (!buffer)		/* can happen in packed mpa unaligned... */
++		return;
++
+ 	/* this was originally an rx packet, post it back */
++	piggy = buffer->piggy_buf;
++	if (piggy) {
++		buffer->piggy_buf = NULL;
++		qed_iwarp_ll2_post_rx(p_hwfn, piggy, connection_handle);
 +	}
 +
-+	DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
-+		   "MPA ALIGN Copying fpdu: [%p, %d] [%p, %d]\n",
-+		   fpdu->mpa_frag_virt, fpdu->mpa_frag_len,
-+		   (u8 *)(buf->data) + pkt_data->first_mpa_offset,
-+		   tcp_payload_size);
-+
-+	memcpy(tmp_buf, fpdu->mpa_frag_virt, fpdu->mpa_frag_len);
-+	memcpy(tmp_buf + fpdu->mpa_frag_len,
-+	       (u8 *)(buf->data) + pkt_data->first_mpa_offset,
-+	       tcp_payload_size);
-+
-+	rc = qed_iwarp_recycle_pkt(p_hwfn, fpdu, fpdu->mpa_buf);
-+	if (rc)
-+		return rc;
-+
-+	/* If we managed to post the buffer copy the data to the new buffer
-+	 * o/w this will occur in the next round...
-+	 */
-+	memcpy((u8 *)(buf->data), tmp_buf,
-+	       fpdu->mpa_frag_len + tcp_payload_size);
-+
-+	fpdu->mpa_buf = buf;
-+	/* fpdu->pkt_hdr remains as is */
-+	/* fpdu->mpa_frag is overridden with new buf */
-+	fpdu->mpa_frag = buf->data_phys_addr;
-+	fpdu->mpa_frag_virt = buf->data;
-+	fpdu->mpa_frag_len += tcp_payload_size;
-+
-+	fpdu->incomplete_bytes -= tcp_payload_size;
-+
-+	DP_VERBOSE(p_hwfn,
-+		   QED_MSG_RDMA,
-+		   "MPA ALIGN: split fpdu buff_size = %d mpa_frag_len = %d, tcp_payload_size = %d, incomplete_bytes = %d\n",
-+		   buf->buff_size, fpdu->mpa_frag_len, tcp_payload_size,
-+		   fpdu->incomplete_bytes);
-+
-+	return 0;
-+}
-+
- static void
- qed_iwarp_update_fpdu_length(struct qed_hwfn *p_hwfn,
- 			     struct qed_iwarp_fpdu *fpdu, u8 *mpa_data)
-@@ -1843,6 +1911,90 @@ enum qed_iwarp_mpa_pkt_type {
- 	}
- }
+ 	qed_iwarp_ll2_post_rx(p_hwfn, buffer, connection_handle);
  
-+#define QED_IWARP_IS_RIGHT_EDGE(_curr_pkt) \
-+	(GET_FIELD((_curr_pkt)->flags,	   \
-+		   UNALIGNED_OPAQUE_DATA_PKT_REACHED_WIN_RIGHT_EDGE))
-+
-+/* This function is used to recycle a buffer using the ll2 drop option. It
-+ * uses the mechanism to ensure that all buffers posted to tx before this one
-+ * were completed. The buffer sent here will be sent as a cookie in the tx
-+ * completion function and can then be reposted to rx chain when done. The flow
-+ * that requires this is the flow where a FPDU splits over more than 3 tcp
-+ * segments. In this case the driver needs to re-post a rx buffer instead of
-+ * the one received, but driver can't simply repost a buffer it copied from
-+ * as there is a case where the buffer was originally a packed FPDU, and is
-+ * partially posted to FW. Driver needs to ensure FW is done with it.
-+ */
-+static int
-+qed_iwarp_recycle_pkt(struct qed_hwfn *p_hwfn,
-+		      struct qed_iwarp_fpdu *fpdu,
-+		      struct qed_iwarp_ll2_buff *buf)
-+{
-+	struct qed_ll2_tx_pkt_info tx_pkt;
-+	u8 ll2_handle;
-+	int rc;
-+
-+	memset(&tx_pkt, 0, sizeof(tx_pkt));
-+	tx_pkt.num_of_bds = 1;
-+	tx_pkt.tx_dest = QED_LL2_TX_DEST_DROP;
-+	tx_pkt.l4_hdr_offset_w = fpdu->pkt_hdr_size >> 2;
-+	tx_pkt.first_frag = fpdu->pkt_hdr;
-+	tx_pkt.first_frag_len = fpdu->pkt_hdr_size;
-+	buf->piggy_buf = NULL;
-+	tx_pkt.cookie = buf;
-+
-+	ll2_handle = p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle;
-+
-+	rc = qed_ll2_prepare_tx_packet(p_hwfn, ll2_handle, &tx_pkt, true);
-+	if (rc)
-+		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
-+			   "Can't drop packet rc=%d\n", rc);
-+
-+	DP_VERBOSE(p_hwfn,
-+		   QED_MSG_RDMA,
-+		   "MPA_ALIGN: send drop tx packet [%lx, 0x%x], buf=%p, rc=%d\n",
-+		   (unsigned long int)tx_pkt.first_frag,
-+		   tx_pkt.first_frag_len, buf, rc);
-+
-+	return rc;
-+}
-+
-+static int
-+qed_iwarp_win_right_edge(struct qed_hwfn *p_hwfn, struct qed_iwarp_fpdu *fpdu)
-+{
-+	struct qed_ll2_tx_pkt_info tx_pkt;
-+	u8 ll2_handle;
-+	int rc;
-+
-+	memset(&tx_pkt, 0, sizeof(tx_pkt));
-+	tx_pkt.num_of_bds = 1;
-+	tx_pkt.tx_dest = QED_LL2_TX_DEST_LB;
-+	tx_pkt.l4_hdr_offset_w = fpdu->pkt_hdr_size >> 2;
-+
-+	tx_pkt.first_frag = fpdu->pkt_hdr;
-+	tx_pkt.first_frag_len = fpdu->pkt_hdr_size;
-+	tx_pkt.enable_ip_cksum = true;
-+	tx_pkt.enable_l4_cksum = true;
-+	tx_pkt.calc_ip_len = true;
-+	/* vlan overload with enum iwarp_ll2_tx_queues */
-+	tx_pkt.vlan = IWARP_LL2_ALIGNED_RIGHT_TRIMMED_TX_QUEUE;
-+
-+	ll2_handle = p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle;
-+
-+	rc = qed_ll2_prepare_tx_packet(p_hwfn, ll2_handle, &tx_pkt, true);
-+	if (rc)
-+		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
-+			   "Can't send right edge rc=%d\n", rc);
-+	DP_VERBOSE(p_hwfn,
-+		   QED_MSG_RDMA,
-+		   "MPA_ALIGN: Sent right edge FPDU num_bds=%d [%lx, 0x%x], rc=%d\n",
-+		   tx_pkt.num_of_bds,
-+		   (unsigned long int)tx_pkt.first_frag,
-+		   tx_pkt.first_frag_len, rc);
-+
-+	return rc;
-+}
-+
- static int
- qed_iwarp_send_fpdu(struct qed_hwfn *p_hwfn,
- 		    struct qed_iwarp_fpdu *fpdu,
-@@ -1971,6 +2123,20 @@ enum qed_iwarp_mpa_pkt_type {
- 					    mpa_buf->tcp_payload_len,
- 					    mpa_buf->placement_offset);
+ 	if (connection_handle == p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle)
+@@ -2216,6 +2232,15 @@ static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
+ 	if (!buffer)
+ 		return;
  
-+			if (!QED_IWARP_IS_RIGHT_EDGE(curr_pkt)) {
-+				mpa_buf->tcp_payload_len = 0;
-+				break;
-+			}
++	if (buffer->piggy_buf) {
++		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
++				  buffer->piggy_buf->buff_size,
++				  buffer->piggy_buf->data,
++				  buffer->piggy_buf->data_phys_addr);
 +
-+			rc = qed_iwarp_win_right_edge(p_hwfn, fpdu);
++		kfree(buffer->piggy_buf);
++	}
 +
-+			if (rc) {
-+				DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
-+					   "Can't send FPDU:reset rc=%d\n", rc);
-+				memset(fpdu, 0, sizeof(*fpdu));
-+				break;
-+			}
-+
- 			mpa_buf->tcp_payload_len = 0;
- 			break;
- 		case QED_IWARP_MPA_PKT_PACKED:
-@@ -1994,6 +2160,28 @@ enum qed_iwarp_mpa_pkt_type {
- 			break;
- 		case QED_IWARP_MPA_PKT_UNALIGNED:
- 			qed_iwarp_update_fpdu_length(p_hwfn, fpdu, mpa_data);
-+			if (mpa_buf->tcp_payload_len < fpdu->incomplete_bytes) {
-+				/* special handling of fpdu split over more
-+				 * than 2 segments
-+				 */
-+				if (QED_IWARP_IS_RIGHT_EDGE(curr_pkt)) {
-+					rc = qed_iwarp_win_right_edge(p_hwfn,
-+								      fpdu);
-+					/* packet will be re-processed later */
-+					if (rc)
-+						return rc;
-+				}
-+
-+				rc = qed_iwarp_cp_pkt(p_hwfn, fpdu, curr_pkt,
-+						      buf,
-+						      mpa_buf->tcp_payload_len);
-+				if (rc) /* packet will be re-processed later */
-+					return rc;
-+
-+				mpa_buf->tcp_payload_len = 0;
-+				break;
-+			}
-+
- 			rc = qed_iwarp_send_fpdu(p_hwfn, fpdu, curr_pkt, buf,
- 						 mpa_buf->tcp_payload_len,
- 						 pkt_type);
-@@ -2510,6 +2698,11 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 		goto err;
+ 	dma_free_coherent(&p_hwfn->cdev->pdev->dev, buffer->buff_size,
+ 			  buffer->data, buffer->data_phys_addr);
  
- 	iwarp_info->max_num_partial_fpdus = (u16)p_hwfn->p_rdma_info->num_qps;
-+
-+	iwarp_info->mpa_intermediate_buf = kzalloc(mpa_buff_size, GFP_KERNEL);
-+	if (!iwarp_info->mpa_intermediate_buf)
-+		goto err;
-+
- 	/* The mpa_bufs array serves for pending RX packets received on the
- 	 * mpa ll2 that don't have place on the tx ring and require later
- 	 * processing. We can't fail on allocation of such a struct therefore
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index c58793a..c1ecd74 100644
+index 858755c..58db51a 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -107,6 +107,7 @@ struct qed_iwarp_info {
- 	enum mpa_rtr_type rtr_type;
- 	struct qed_iwarp_fpdu *partial_fpdus;
- 	struct qed_iwarp_ll2_mpa_buf *mpa_bufs;
-+	u8 *mpa_intermediate_buf;
- 	u16 max_num_partial_fpdus;
- };
+@@ -55,6 +55,7 @@ enum qed_iwarp_qp_state {
+ #define QED_IWARP_HANDLE_INVAL		(0xff)
  
+ struct qed_iwarp_ll2_buff {
++	struct qed_iwarp_ll2_buff *piggy_buf;
+ 	void *data;
+ 	dma_addr_t data_phys_addr;
+ 	u32 buff_size;
 -- 
 1.8.3.1
