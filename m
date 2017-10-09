@@ -1,419 +1,112 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 04/15] nfp: bpf: move software reg helpers and cmd table out of translator
-Date: Sun,  8 Oct 2017 21:04:06 -0700
-Message-ID: <20171009040417.22172-5-jakub.kicinski@netronome.com>
-References: <20171009040417.22172-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv6: fix a BUG in rt6_get_pcpu_route()
+Date: Sun, 08 Oct 2017 21:07:18 -0700
+Message-ID: <1507522038.31614.3.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171008151839.24519-1-idosch@mellanox.com>
+         <1507478633.14419.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, weiwan@google.com,
+        mlxsw@mellanox.com
+To: Ido Schimmel <idosch@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:50729 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751629AbdJIEFu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:50 -0400
-Received: by mail-pf0-f176.google.com with SMTP id m63so12531786pfk.7
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:50 -0700 (PDT)
-In-Reply-To: <20171009040417.22172-1-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33526 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751588AbdJIEHV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:07:21 -0400
+Received: by mail-pf0-f194.google.com with SMTP id m28so24404496pfi.0
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:07:20 -0700 (PDT)
+In-Reply-To: <1507478633.14419.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the software reg helpers and some static data to nfp_asm.c.
-They are related to the previous patch, but move is done in a separate
-commit for ease of review.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Ido reported following splat and provided a patch.
+
+[  122.221814] BUG: using smp_processor_id() in preemptible [00000000] code: sshd/2672
+[  122.221845] caller is debug_smp_processor_id+0x17/0x20
+[  122.221866] CPU: 0 PID: 2672 Comm: sshd Not tainted 4.14.0-rc3-idosch-next-custom #639
+[  122.221880] Hardware name: Mellanox Technologies Ltd. MSN2100-CB2FO/SA001017, BIOS 5.6.5 06/07/2016
+[  122.221893] Call Trace:
+[  122.221919]  dump_stack+0xb1/0x10c
+[  122.221946]  ? _atomic_dec_and_lock+0x124/0x124
+[  122.221974]  ? ___ratelimit+0xfe/0x240
+[  122.222020]  check_preemption_disabled+0x173/0x1b0
+[  122.222060]  debug_smp_processor_id+0x17/0x20
+[  122.222083]  ip6_pol_route+0x1482/0x24a0
+...
+
+I believe we can simplify this code path a bit, since we no longer
+hold a read_lock and need to release it to avoid a dead lock.
+
+By disabling BH, we make sure we'll prevent code re-entry and
+rt6_get_pcpu_route()/rt6_make_pcpu_route() run on the same cpu. 
+
+Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
+Reported-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile  |   1 +
- drivers/net/ethernet/netronome/nfp/bpf/jit.c | 147 -----------------------
- drivers/net/ethernet/netronome/nfp/nfp_asm.c | 167 +++++++++++++++++++++++++++
- drivers/net/ethernet/netronome/nfp/nfp_asm.h |  24 ++++
- 4 files changed, 192 insertions(+), 147 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_asm.c
+ net/ipv6/route.c |   26 ++++++--------------------
+ 1 file changed, 6 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index becaacf1554d..bd3b2bd408bc 100644
---- a/drivers/net/ethernet/netronome/nfp/Makefile
-+++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -14,6 +14,7 @@ nfp-objs := \
- 	    nfpcore/nfp_resource.o \
- 	    nfpcore/nfp_rtsym.o \
- 	    nfpcore/nfp_target.o \
-+	    nfp_asm.o \
- 	    nfp_app.o \
- 	    nfp_app_nic.o \
- 	    nfp_devlink.o \
-diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index 7e8cdfb39607..7bcff007075c 100644
---- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -110,154 +110,7 @@ nfp_prog_offset_to_index(struct nfp_prog *nfp_prog, unsigned int offset)
- 	return offset - nfp_prog->start_off;
- }
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 399d1bceec4a6e6736c367e706dd2acbd4093d58..606e80325b21c0e10a02e9c7d5b3fcfbfc26a003 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1136,15 +1136,7 @@ static struct rt6_info *rt6_make_pcpu_route(struct rt6_info *rt)
+ 	dst_hold(&pcpu_rt->dst);
+ 	p = this_cpu_ptr(rt->rt6i_pcpu);
+ 	prev = cmpxchg(p, NULL, pcpu_rt);
+-	if (prev) {
+-		/* If someone did it before us, return prev instead */
+-		/* release refcnt taken by ip6_rt_pcpu_alloc() */
+-		dst_release_immediate(&pcpu_rt->dst);
+-		/* release refcnt taken by above dst_hold() */
+-		dst_release_immediate(&pcpu_rt->dst);
+-		dst_hold(&prev->dst);
+-		pcpu_rt = prev;
+-	}
++	BUG_ON(prev);
  
--/* --- SW reg --- */
--struct nfp_insn_ur_regs {
--	enum alu_dst_ab dst_ab;
--	u16 dst;
--	u16 areg, breg;
--	bool swap;
--	bool wr_both;
--};
--
--struct nfp_insn_re_regs {
--	enum alu_dst_ab dst_ab;
--	u8 dst;
--	u8 areg, breg;
--	bool swap;
--	bool wr_both;
--	bool i8;
--};
--
--static u16 nfp_swreg_to_unreg(swreg reg, bool is_dst)
--{
--	u16 val = swreg_value(reg);
--
--	switch (swreg_type(reg)) {
--	case NN_REG_GPR_A:
--	case NN_REG_GPR_B:
--	case NN_REG_GPR_BOTH:
--		return val;
--	case NN_REG_NNR:
--		return UR_REG_NN | val;
--	case NN_REG_XFER:
--		return UR_REG_XFR | val;
--	case NN_REG_IMM:
--		if (val & ~0xff) {
--			pr_err("immediate too large\n");
--			return 0;
--		}
--		return UR_REG_IMM_encode(val);
--	case NN_REG_NONE:
--		return is_dst ? UR_REG_NO_DST : REG_NONE;
--	}
--
--	pr_err("unrecognized reg encoding %08x\n", reg);
--	return 0;
--}
--
--static int
--swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
--		      struct nfp_insn_ur_regs *reg)
--{
--	memset(reg, 0, sizeof(*reg));
--
--	/* Decode destination */
--	if (swreg_type(dst) == NN_REG_IMM)
--		return -EFAULT;
--
--	if (swreg_type(dst) == NN_REG_GPR_B)
--		reg->dst_ab = ALU_DST_B;
--	if (swreg_type(dst) == NN_REG_GPR_BOTH)
--		reg->wr_both = true;
--	reg->dst = nfp_swreg_to_unreg(dst, true);
--
--	/* Decode source operands */
--	if (swreg_type(lreg) == swreg_type(rreg))
--		return -EFAULT;
--
--	if (swreg_type(lreg) == NN_REG_GPR_B ||
--	    swreg_type(rreg) == NN_REG_GPR_A) {
--		reg->areg = nfp_swreg_to_unreg(rreg, false);
--		reg->breg = nfp_swreg_to_unreg(lreg, false);
--		reg->swap = true;
--	} else {
--		reg->areg = nfp_swreg_to_unreg(lreg, false);
--		reg->breg = nfp_swreg_to_unreg(rreg, false);
--	}
--
--	return 0;
--}
--
--static u16 nfp_swreg_to_rereg(swreg reg, bool is_dst, bool has_imm8, bool *i8)
--{
--	u16 val = swreg_value(reg);
--
--	switch (swreg_type(reg)) {
--	case NN_REG_GPR_A:
--	case NN_REG_GPR_B:
--	case NN_REG_GPR_BOTH:
--		return val;
--	case NN_REG_XFER:
--		return RE_REG_XFR | val;
--	case NN_REG_IMM:
--		if (val & ~(0x7f | has_imm8 << 7)) {
--			pr_err("immediate too large\n");
--			return 0;
--		}
--		*i8 = val & 0x80;
--		return RE_REG_IMM_encode(val & 0x7f);
--	case NN_REG_NONE:
--		return is_dst ? RE_REG_NO_DST : REG_NONE;
--	case NN_REG_NNR:
--		pr_err("NNRs used with restricted encoding\n");
--		return 0;
--	}
--
--	pr_err("unrecognized reg encoding\n");
--	return 0;
--}
--
--static int
--swreg_to_restricted(swreg dst, swreg lreg, swreg rreg,
--		    struct nfp_insn_re_regs *reg, bool has_imm8)
--{
--	memset(reg, 0, sizeof(*reg));
--
--	/* Decode destination */
--	if (swreg_type(dst) == NN_REG_IMM)
--		return -EFAULT;
--
--	if (swreg_type(dst) == NN_REG_GPR_B)
--		reg->dst_ab = ALU_DST_B;
--	if (swreg_type(dst) == NN_REG_GPR_BOTH)
--		reg->wr_both = true;
--	reg->dst = nfp_swreg_to_rereg(dst, true, false, NULL);
--
--	/* Decode source operands */
--	if (swreg_type(lreg) == swreg_type(rreg))
--		return -EFAULT;
--
--	if (swreg_type(lreg) == NN_REG_GPR_B ||
--	    swreg_type(rreg) == NN_REG_GPR_A) {
--		reg->areg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
--		reg->breg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
--		reg->swap = true;
--	} else {
--		reg->areg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
--		reg->breg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
--	}
--
--	return 0;
--}
--
- /* --- Emitters --- */
--static const struct cmd_tgt_act cmd_tgt_act[__CMD_TGT_MAP_SIZE] = {
--	[CMD_TGT_WRITE8] =		{ 0x00, 0x42 },
--	[CMD_TGT_READ8] =		{ 0x01, 0x43 },
--	[CMD_TGT_READ_LE] =		{ 0x01, 0x40 },
--	[CMD_TGT_READ_SWAP_LE] =	{ 0x03, 0x40 },
--};
--
- static void
- __emit_cmd(struct nfp_prog *nfp_prog, enum cmd_tgt_map op,
- 	   u8 mode, u8 xfer, u8 areg, u8 breg, u8 size, bool sync)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.c b/drivers/net/ethernet/netronome/nfp/nfp_asm.c
-new file mode 100644
-index 000000000000..4c9201bf9331
---- /dev/null
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.c
-@@ -0,0 +1,167 @@
-+/*
-+ * Copyright (C) 2016-2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/bitops.h>
-+#include <linux/errno.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/types.h>
-+
-+#include "nfp_asm.h"
-+
-+const struct cmd_tgt_act cmd_tgt_act[__CMD_TGT_MAP_SIZE] = {
-+	[CMD_TGT_WRITE8] =		{ 0x00, 0x42 },
-+	[CMD_TGT_READ8] =		{ 0x01, 0x43 },
-+	[CMD_TGT_READ_LE] =		{ 0x01, 0x40 },
-+	[CMD_TGT_READ_SWAP_LE] =	{ 0x03, 0x40 },
-+};
-+
-+static u16 nfp_swreg_to_unreg(swreg reg, bool is_dst)
-+{
-+	u16 val = swreg_value(reg);
-+
-+	switch (swreg_type(reg)) {
-+	case NN_REG_GPR_A:
-+	case NN_REG_GPR_B:
-+	case NN_REG_GPR_BOTH:
-+		return val;
-+	case NN_REG_NNR:
-+		return UR_REG_NN | val;
-+	case NN_REG_XFER:
-+		return UR_REG_XFR | val;
-+	case NN_REG_IMM:
-+		if (val & ~0xff) {
-+			pr_err("immediate too large\n");
-+			return 0;
-+		}
-+		return UR_REG_IMM_encode(val);
-+	case NN_REG_NONE:
-+		return is_dst ? UR_REG_NO_DST : REG_NONE;
-+	}
-+
-+	pr_err("unrecognized reg encoding %08x\n", reg);
-+	return 0;
-+}
-+
-+int swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
-+			  struct nfp_insn_ur_regs *reg)
-+{
-+	memset(reg, 0, sizeof(*reg));
-+
-+	/* Decode destination */
-+	if (swreg_type(dst) == NN_REG_IMM)
-+		return -EFAULT;
-+
-+	if (swreg_type(dst) == NN_REG_GPR_B)
-+		reg->dst_ab = ALU_DST_B;
-+	if (swreg_type(dst) == NN_REG_GPR_BOTH)
-+		reg->wr_both = true;
-+	reg->dst = nfp_swreg_to_unreg(dst, true);
-+
-+	/* Decode source operands */
-+	if (swreg_type(lreg) == swreg_type(rreg))
-+		return -EFAULT;
-+
-+	if (swreg_type(lreg) == NN_REG_GPR_B ||
-+	    swreg_type(rreg) == NN_REG_GPR_A) {
-+		reg->areg = nfp_swreg_to_unreg(rreg, false);
-+		reg->breg = nfp_swreg_to_unreg(lreg, false);
-+		reg->swap = true;
-+	} else {
-+		reg->areg = nfp_swreg_to_unreg(lreg, false);
-+		reg->breg = nfp_swreg_to_unreg(rreg, false);
-+	}
-+
-+	return 0;
-+}
-+
-+static u16 nfp_swreg_to_rereg(swreg reg, bool is_dst, bool has_imm8, bool *i8)
-+{
-+	u16 val = swreg_value(reg);
-+
-+	switch (swreg_type(reg)) {
-+	case NN_REG_GPR_A:
-+	case NN_REG_GPR_B:
-+	case NN_REG_GPR_BOTH:
-+		return val;
-+	case NN_REG_XFER:
-+		return RE_REG_XFR | val;
-+	case NN_REG_IMM:
-+		if (val & ~(0x7f | has_imm8 << 7)) {
-+			pr_err("immediate too large\n");
-+			return 0;
-+		}
-+		*i8 = val & 0x80;
-+		return RE_REG_IMM_encode(val & 0x7f);
-+	case NN_REG_NONE:
-+		return is_dst ? RE_REG_NO_DST : REG_NONE;
-+	case NN_REG_NNR:
-+		pr_err("NNRs used with restricted encoding\n");
-+		return 0;
-+	}
-+
-+	pr_err("unrecognized reg encoding\n");
-+	return 0;
-+}
-+
-+int swreg_to_restricted(swreg dst, swreg lreg, swreg rreg,
-+			struct nfp_insn_re_regs *reg, bool has_imm8)
-+{
-+	memset(reg, 0, sizeof(*reg));
-+
-+	/* Decode destination */
-+	if (swreg_type(dst) == NN_REG_IMM)
-+		return -EFAULT;
-+
-+	if (swreg_type(dst) == NN_REG_GPR_B)
-+		reg->dst_ab = ALU_DST_B;
-+	if (swreg_type(dst) == NN_REG_GPR_BOTH)
-+		reg->wr_both = true;
-+	reg->dst = nfp_swreg_to_rereg(dst, true, false, NULL);
-+
-+	/* Decode source operands */
-+	if (swreg_type(lreg) == swreg_type(rreg))
-+		return -EFAULT;
-+
-+	if (swreg_type(lreg) == NN_REG_GPR_B ||
-+	    swreg_type(rreg) == NN_REG_GPR_A) {
-+		reg->areg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
-+		reg->breg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
-+		reg->swap = true;
-+	} else {
-+		reg->areg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
-+		reg->breg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
-+	}
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-index 9b9d5d18ee20..8e87c0676c30 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-@@ -205,6 +205,8 @@ enum cmd_tgt_map {
- 	__CMD_TGT_MAP_SIZE,
- };
+ 	rt6_dst_from_metrics_check(pcpu_rt);
+ 	return pcpu_rt;
+@@ -1739,31 +1731,25 @@ struct rt6_info *ip6_pol_route(struct net *net, struct fib6_table *table,
+ 		struct rt6_info *pcpu_rt;
  
-+extern const struct cmd_tgt_act cmd_tgt_act[__CMD_TGT_MAP_SIZE];
-+
- enum cmd_mode {
- 	CMD_MODE_40b_AB	= 0,
- 	CMD_MODE_40b_BA	= 1,
-@@ -275,4 +277,26 @@ static inline u16 swreg_value(swreg reg)
- 	return FIELD_GET(NN_REG_VAL, swreg_raw(reg));
- }
+ 		dst_use_noref(&rt->dst, jiffies);
++		local_bh_disable();
+ 		pcpu_rt = rt6_get_pcpu_route(rt);
  
-+struct nfp_insn_ur_regs {
-+	enum alu_dst_ab dst_ab;
-+	u16 dst;
-+	u16 areg, breg;
-+	bool swap;
-+	bool wr_both;
-+};
-+
-+struct nfp_insn_re_regs {
-+	enum alu_dst_ab dst_ab;
-+	u8 dst;
-+	u8 areg, breg;
-+	bool swap;
-+	bool wr_both;
-+	bool i8;
-+};
-+
-+int swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
-+			  struct nfp_insn_ur_regs *reg);
-+int swreg_to_restricted(swreg dst, swreg lreg, swreg rreg,
-+			struct nfp_insn_re_regs *reg, bool has_imm8);
-+
- #endif
--- 
-2.14.1
+-		if (pcpu_rt) {
+-			rcu_read_unlock();
+-		} else {
++		if (!pcpu_rt) {
+ 			/* atomic_inc_not_zero() is needed when using rcu */
+ 			if (atomic_inc_not_zero(&rt->rt6i_ref)) {
+-				/* We have to do the read_unlock first
+-				 * because rt6_make_pcpu_route() may trigger
+-				 * ip6_dst_gc() which will take the write_lock.
+-				 *
+-				 * No dst_hold() on rt is needed because grabbing
++				/* No dst_hold() on rt is needed because grabbing
+ 				 * rt->rt6i_ref makes sure rt can't be released.
+ 				 */
+-				rcu_read_unlock();
+ 				pcpu_rt = rt6_make_pcpu_route(rt);
+ 				rt6_release(rt);
+ 			} else {
+ 				/* rt is already removed from tree */
+-				rcu_read_unlock();
+ 				pcpu_rt = net->ipv6.ip6_null_entry;
+ 				dst_hold(&pcpu_rt->dst);
+ 			}
+ 		}
+-
++		local_bh_enable();
++		rcu_read_unlock();
+ 		trace_fib6_table_lookup(net, pcpu_rt, table->tb6_id, fl6);
+ 		return pcpu_rt;
+ 	}
