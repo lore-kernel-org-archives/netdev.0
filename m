@@ -1,68 +1,45 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 1/3] net/mlx4: Fix endianness issue in qp context params
-Date: Mon,  9 Oct 2017 16:59:48 +0300
-Message-ID: <1507557590-17747-2-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 3/3] net/mlx4_en: Use __force to fix a sparse warning in TX datapath
+Date: Mon,  9 Oct 2017 16:59:50 +0300
+Message-ID: <1507557590-17747-4-git-send-email-tariqt@mellanox.com>
 References: <1507557590-17747-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33670 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33680 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754161AbdJIOAE (ORCPT
+        with ESMTP id S1755140AbdJIOAE (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 10:00:04 -0400
 In-Reply-To: <1507557590-17747-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Should take care of the endianness before assigning to params2 field.
+In TX data-path, we intentionally do not byte-swap, as documented
+in code and in the cited commit log.
+This fixes sparse warning:
+en_tx.c:720:23: warning: incorrect type in argument 1 (different base types)
+en_tx.c:720:23:    expected unsigned int [unsigned] [usertype] <noident>
+en_tx.c:720:23:    got restricted __be32 [usertype] doorbell_qpn
 
-Fixes: 53f33ae295a5 ("net/mlx4_core: Port aggregation upper layer interface")
+Fixes: 492f5add4be8 ("net/mlx4_en: Doorbell is byteswapped in Little Endian archs")
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_resources.c     | 2 +-
- drivers/net/ethernet/mellanox/mlx4/qp.c               | 2 +-
- drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_resources.c b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-index 5a47f9669621..6883ac75d37f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_resources.c
-@@ -53,7 +53,7 @@ void mlx4_en_fill_qp_context(struct mlx4_en_priv *priv, int size, int stride,
- 	if (is_tx) {
- 		context->sq_size_stride = ilog2(size) << 3 | (ilog2(stride) - 4);
- 		if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PORT_REMAP)
--			context->params2 |= MLX4_QP_BIT_FPP;
-+			context->params2 |= cpu_to_be32(MLX4_QP_BIT_FPP);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 8a32a8f7f9c0..2cc82dc07397 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -718,7 +718,7 @@ void mlx4_en_xmit_doorbell(struct mlx4_en_tx_ring *ring)
+ #else
+ 	iowrite32be(
+ #endif
+-		  ring->doorbell_qpn,
++		  (__force u32)ring->doorbell_qpn,
+ 		  ring->bf.uar->map + MLX4_SEND_DOORBELL);
+ }
  
- 	} else {
- 		context->sq_size_stride = ilog2(TXBB_SIZE) - 4;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 728a2fb1f5c0..203320923340 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -925,7 +925,7 @@ int mlx4_qp_to_ready(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		context->flags &= cpu_to_be32(~(0xf << 28));
- 		context->flags |= cpu_to_be32(states[i + 1] << 28);
- 		if (states[i + 1] != MLX4_QP_STATE_RTR)
--			context->params2 &= ~MLX4_QP_BIT_FPP;
-+			context->params2 &= ~cpu_to_be32(MLX4_QP_BIT_FPP);
- 		err = mlx4_qp_modify(dev, mtt, states[i], states[i + 1],
- 				     context, 0, 0, qp);
- 		if (err) {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index fabb53379727..04304dd894c6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3185,7 +3185,7 @@ static int verify_qp_parameters(struct mlx4_dev *dev,
- 	optpar	= be32_to_cpu(*(__be32 *) inbox->buf);
- 
- 	if (slave != mlx4_master_func_num(dev)) {
--		qp_ctx->params2 &= ~MLX4_QP_BIT_FPP;
-+		qp_ctx->params2 &= ~cpu_to_be32(MLX4_QP_BIT_FPP);
- 		/* setting QP rate-limit is disallowed for VFs */
- 		if (qp_ctx->rate_limit_params)
- 			return -EPERM;
 -- 
 1.8.3.1
