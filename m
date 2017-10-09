@@ -1,45 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
-Date: Mon, 09 Oct 2017 16:17:08 -0700 (PDT)
-Message-ID: <20171009.161708.963726434970115075.davem@davemloft.net>
-References: <20171009171540.lgmk2slq3bdrptxk@ast-mbp.dhcp.thefacebook.com>
-        <20171009202633.ep5pbi2tlg7dqidz@sasha-lappy>
-        <20171009230618.e5gla2iuqwmndkig@ast-mbp>
+From: Darren Hart <dvhart@infradead.org>
+Subject: Re: linux-next: manual merge of the drivers-x86 tree with the
+ net-next tree
+Date: Mon, 9 Oct 2017 16:18:10 -0700
+Message-ID: <20171009231810.GI12321@fury>
+References: <20171009175633.dm7hjmgoxusspue5@sirena.co.uk>
+ <20171009194301.GP2761@lahna.fi.intel.com>
+ <20171009195634.gzxwcqn7xklumqyr@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexander.levin@verizon.com, devtimhansen@gmail.com,
-        willemb@google.com, edumazet@google.com, soheil@google.com,
-        pabeni@redhat.com, elena.reshetova@intel.com, tom@quantonium.net,
-        Jason@zx2c4.com, fw@strlen.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: alexei.starovoitov@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171009230618.e5gla2iuqwmndkig@ast-mbp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mika Westerberg <mika.westerberg@linux.intel.com>,
+        Mario Limonciello <mario.limonciello@dell.com>,
+        Yehezkel Bernat <yehezkel.bernat@intel.com>,
+        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+        Amir Levy <amir.jer.levy@intel.com>,
+        Michael Jamet <michael.jamet@intel.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Mark Brown <broonie@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([65.50.211.133]:52954 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754347AbdJIXSR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 19:18:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20171009195634.gzxwcqn7xklumqyr@sirena.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Date: Mon, 9 Oct 2017 16:06:20 -0700
-
->> For these archs, wouldn't it then be more efficient to use BUG_ON
->> rather than BUG()?
+On Mon, Oct 09, 2017 at 08:56:34PM +0100, Mark Brown wrote:
+> On Mon, Oct 09, 2017 at 10:43:01PM +0300, Mika Westerberg wrote:
 > 
-> why more efficient? any data to prove that?
+> > If possible, I would rather move this chapter to be before "Networking
+> > over Thunderbolt cable". Reason is that it then follows NVM flashing
+> > chapter which is typically where you need to force power in the first
+> > place.
+> 
 
-It can completely eliminate a branch.
+Agreed.
 
-For example on powerpc if you use BUG() then the code generated is:
+> I guess that's something best sorted out either in the relevant trees or
+> during the merge window?
 
-	test condition
-	branch_not_true	1f
-	unconditional_trap
-1:
+I'm not sure how we would deal with it in the trees. Best to note this during
+the merge window - whichever goes in second. Test merge will identify the merge
+conflict, and we can include a note to Linus on the preference.
 
-Whereas with BUG_ON() it's just:
-
-	test condition
-	trap_if_true
-
-Which is a lot better even when the branches in the first case are
-well predicted.
+-- 
+Darren Hart
+VMware Open Source Technology Center
