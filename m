@@ -1,164 +1,201 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 11/15] nfp: bpf: move to datapath ABI version 2
-Date: Sun,  8 Oct 2017 21:04:13 -0700
-Message-ID: <20171009040417.22172-12-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 09/15] nfp: bpf: encode LMEM accesses
+Date: Sun,  8 Oct 2017 21:04:11 -0700
+Message-ID: <20171009040417.22172-10-jakub.kicinski@netronome.com>
 References: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:53942 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751343AbdJIEF4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:56 -0400
-Received: by mail-pf0-f174.google.com with SMTP id n73so5855466pfg.10
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:56 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:44552 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751706AbdJIEFz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:55 -0400
+Received: by mail-pf0-f180.google.com with SMTP id x7so2233531pfa.1
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:54 -0700 (PDT)
 In-Reply-To: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Datapath ABI version 2 stores the packet information in LMEM
-instead of NNRs.  We also have strict restrictions on which
-GPRs we can use.  Only GPRs 0-23 are reserved for BPF.
+NFP LMEM is a large, indirectly accessed register file.  There
+are two basic indirect access registers.  Each access operation
+may either use offset (up to 8 or 16 words) or perform post
+decrement/increment.
 
-Adjust the static register locations and "ABI" registers.
-Note that packet length is packed with other info so we have
-to extract it into one of the scratch registers, OTOH since
-LMEM can be used in restricted operands we don't have to
-extract packet pointer.
+Add encodings of LMEM indexes as instruction operands.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/jit.c      | 19 +++++++++---------
- drivers/net/ethernet/netronome/nfp/bpf/main.h     | 24 ++++++++++++++---------
- drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h |  2 +-
- 3 files changed, 26 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_asm.c | 44 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_asm.h | 41 ++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index d7dc19feba8d..9b6c98ccebfe 100644
---- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -526,22 +526,22 @@ construct_data_ind_ld(struct nfp_prog *nfp_prog, u16 offset,
- 		emit_alu(nfp_prog, imm_a(nfp_prog),
- 			 imm_a(nfp_prog), ALU_OP_ADD, reg_imm(size));
- 		emit_alu(nfp_prog, reg_none(),
--			 NFP_BPF_ABI_LEN, ALU_OP_SUB, imm_a(nfp_prog));
-+			 plen_reg(nfp_prog), ALU_OP_SUB, imm_a(nfp_prog));
- 		wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
- 		/* Load data */
- 		emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
--			 pkt_reg(nfp_prog), imm_b(nfp_prog), sz - 1, true);
-+			 pptr_reg(nfp_prog), imm_b(nfp_prog), sz - 1, true);
- 	} else {
- 		/* Check packet length */
- 		tmp_reg = ur_load_imm_any(nfp_prog, offset + size,
- 					  imm_a(nfp_prog));
- 		emit_alu(nfp_prog, reg_none(),
--			 NFP_BPF_ABI_LEN, ALU_OP_SUB, tmp_reg);
-+			 plen_reg(nfp_prog), ALU_OP_SUB, tmp_reg);
- 		wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
- 		/* Load data */
- 		tmp_reg = re_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
- 		emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
--			 pkt_reg(nfp_prog), tmp_reg, sz - 1, true);
-+			 pptr_reg(nfp_prog), tmp_reg, sz - 1, true);
- 	}
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.c b/drivers/net/ethernet/netronome/nfp/nfp_asm.c
+index 4c9201bf9331..4bcab43da16d 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_asm.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.c
+@@ -48,6 +48,7 @@ const struct cmd_tgt_act cmd_tgt_act[__CMD_TGT_MAP_SIZE] = {
  
- 	i = 0;
-@@ -1024,7 +1024,7 @@ static int mem_ldx4_skb(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ static u16 nfp_swreg_to_unreg(swreg reg, bool is_dst)
  {
- 	if (meta->insn.off == offsetof(struct sk_buff, len))
- 		emit_alu(nfp_prog, reg_both(meta->insn.dst_reg * 2),
--			 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_LEN);
-+			 reg_none(), ALU_OP_NONE, plen_reg(nfp_prog));
- 	else
- 		return -EOPNOTSUPP;
++	bool lm_id, lm_dec = false;
+ 	u16 val = swreg_value(reg);
  
-@@ -1039,12 +1039,12 @@ static int mem_ldx4_xdp(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- 	    meta->insn.off != offsetof(struct xdp_md, data_end))
- 		return -EOPNOTSUPP;
- 
--	emit_alu(nfp_prog, dst, reg_none(), ALU_OP_NONE, NFP_BPF_ABI_PKT);
-+	emit_alu(nfp_prog, dst, reg_none(), ALU_OP_NONE, pptr_reg(nfp_prog));
- 
- 	if (meta->insn.off == offsetof(struct xdp_md, data))
- 		return 0;
- 
--	emit_alu(nfp_prog, dst,	dst, ALU_OP_ADD, NFP_BPF_ABI_LEN);
-+	emit_alu(nfp_prog, dst,	dst, ALU_OP_ADD, plen_reg(nfp_prog));
- 
- 	return 0;
- }
-@@ -1403,8 +1403,9 @@ static int nfp_fixup_branches(struct nfp_prog *nfp_prog)
- 
- static void nfp_intro(struct nfp_prog *nfp_prog)
+ 	switch (swreg_type(reg)) {
+@@ -59,6 +60,33 @@ static u16 nfp_swreg_to_unreg(swreg reg, bool is_dst)
+ 		return UR_REG_NN | val;
+ 	case NN_REG_XFER:
+ 		return UR_REG_XFR | val;
++	case NN_REG_LMEM:
++		lm_id = swreg_lm_idx(reg);
++
++		switch (swreg_lm_mode(reg)) {
++		case NN_LM_MOD_NONE:
++			if (val & ~UR_REG_LM_IDX_MAX) {
++				pr_err("LM offset too large\n");
++				return 0;
++			}
++			return UR_REG_LM | FIELD_PREP(UR_REG_LM_IDX, lm_id) |
++				val;
++		case NN_LM_MOD_DEC:
++			lm_dec = true;
++			/* fall through */
++		case NN_LM_MOD_INC:
++			if (val) {
++				pr_err("LM offset in inc/dev mode\n");
++				return 0;
++			}
++			return UR_REG_LM | UR_REG_LM_POST_MOD |
++				FIELD_PREP(UR_REG_LM_IDX, lm_id) |
++				FIELD_PREP(UR_REG_LM_POST_MOD_DEC, lm_dec);
++		default:
++			pr_err("bad LM mode for unrestricted operands %d\n",
++			       swreg_lm_mode(reg));
++			return 0;
++		}
+ 	case NN_REG_IMM:
+ 		if (val & ~0xff) {
+ 			pr_err("immediate too large\n");
+@@ -108,6 +136,7 @@ int swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
+ static u16 nfp_swreg_to_rereg(swreg reg, bool is_dst, bool has_imm8, bool *i8)
  {
--	emit_alu(nfp_prog, pkt_reg(nfp_prog),
--		 reg_none(), ALU_OP_NONE, NFP_BPF_ABI_PKT);
-+	wrp_immed(nfp_prog, plen_reg(nfp_prog), GENMASK(13, 0));
-+	emit_alu(nfp_prog, plen_reg(nfp_prog),
-+		 plen_reg(nfp_prog), ALU_OP_AND, pv_len(nfp_prog));
- }
+ 	u16 val = swreg_value(reg);
++	bool lm_id;
  
- static void nfp_outro_tc_legacy(struct nfp_prog *nfp_prog)
-diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.h b/drivers/net/ethernet/netronome/nfp/bpf/main.h
-index 7d959757a51a..b7a112acbdb7 100644
---- a/drivers/net/ethernet/netronome/nfp/bpf/main.h
-+++ b/drivers/net/ethernet/netronome/nfp/bpf/main.h
-@@ -54,9 +54,13 @@ enum br_special {
- };
+ 	switch (swreg_type(reg)) {
+ 	case NN_REG_GPR_A:
+@@ -116,6 +145,21 @@ static u16 nfp_swreg_to_rereg(swreg reg, bool is_dst, bool has_imm8, bool *i8)
+ 		return val;
+ 	case NN_REG_XFER:
+ 		return RE_REG_XFR | val;
++	case NN_REG_LMEM:
++		lm_id = swreg_lm_idx(reg);
++
++		if (swreg_lm_mode(reg) != NN_LM_MOD_NONE) {
++			pr_err("bad LM mode for restricted operands %d\n",
++			       swreg_lm_mode(reg));
++			return 0;
++		}
++
++		if (val & ~RE_REG_LM_IDX_MAX) {
++			pr_err("LM offset too large\n");
++			return 0;
++		}
++
++		return RE_REG_LM | FIELD_PREP(RE_REG_LM_IDX, lm_id) | val;
+ 	case NN_REG_IMM:
+ 		if (val & ~(0x7f | has_imm8 << 7)) {
+ 			pr_err("immediate too large\n");
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
+index 63cfd07da34e..d722f6878bd8 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
+@@ -44,9 +44,17 @@
+ #define RE_REG_IMM_encode(x)					\
+ 	(RE_REG_IMM | ((x) & 0x1f) | (((x) & 0x60) << 1))
+ #define RE_REG_IMM_MAX	 0x07fULL
++#define RE_REG_LM	0x050
++#define RE_REG_LM_IDX	0x008
++#define RE_REG_LM_IDX_MAX	0x7
+ #define RE_REG_XFR	0x080
  
- enum static_regs {
--	STATIC_REG_PKT		= 1,
--#define REG_PKT_BANK	ALU_DST_A
--	STATIC_REG_IMM		= 2, /* Bank AB */
-+	STATIC_REG_IMM		= 21, /* Bank AB */
-+	STATIC_REG_PKT_LEN	= 22, /* Bank B */
+ #define UR_REG_XFR	0x180
++#define UR_REG_LM	0x200
++#define UR_REG_LM_IDX	0x020
++#define UR_REG_LM_POST_MOD	0x010
++#define UR_REG_LM_POST_MOD_DEC	0x001
++#define UR_REG_LM_IDX_MAX	0xf
+ #define UR_REG_NN	0x280
+ #define UR_REG_NO_DST	0x300
+ #define UR_REG_IMM	UR_REG_NO_DST
+@@ -235,6 +243,8 @@ enum lcsr_wr_src {
+ 
+ /* Software register representation, independent of operand type */
+ #define NN_REG_TYPE	GENMASK(31, 24)
++#define NN_REG_LM_IDX	BIT(22)
++#define NN_REG_LM_MOD	GENMASK(21, 20)
+ #define NN_REG_VAL	GENMASK(7, 0)
+ 
+ enum nfp_bpf_reg_type {
+@@ -245,6 +255,13 @@ enum nfp_bpf_reg_type {
+ 	NN_REG_XFER =	BIT(3),
+ 	NN_REG_IMM =	BIT(4),
+ 	NN_REG_NONE =	BIT(5),
++	NN_REG_LMEM =	BIT(6),
 +};
 +
-+enum pkt_vec {
-+	PKT_VEC_PKT_LEN		= 0,
-+	PKT_VEC_PKT_PTR		= 2,
++enum nfp_bpf_lm_mode {
++	NN_LM_MOD_NONE = 0,
++	NN_LM_MOD_INC,
++	NN_LM_MOD_DEC,
  };
  
- enum nfp_bpf_action_type {
-@@ -66,15 +70,17 @@ enum nfp_bpf_action_type {
- 	NN_ACT_XDP,
- };
+ #define reg_both(x)	__enc_swreg((x), NN_REG_GPR_BOTH)
+@@ -254,6 +271,10 @@ enum nfp_bpf_reg_type {
+ #define reg_xfer(x)	__enc_swreg((x), NN_REG_XFER)
+ #define reg_imm(x)	__enc_swreg((x), NN_REG_IMM)
+ #define reg_none()	__enc_swreg(0, NN_REG_NONE)
++#define reg_lm(x, off)	__enc_swreg_lm((x), NN_LM_MOD_NONE, (off))
++#define reg_lm_inc(x)	__enc_swreg_lm((x), NN_LM_MOD_INC, 0)
++#define reg_lm_dec(x)	__enc_swreg_lm((x), NN_LM_MOD_DEC, 0)
++#define __reg_lm(x, mod, off)	__enc_swreg_lm((x), (mod), (off))
  
--#define pkt_reg(np)	reg_a((np)->regs_per_thread - STATIC_REG_PKT)
--#define imm_a(np)	reg_a((np)->regs_per_thread - STATIC_REG_IMM)
--#define imm_b(np)	reg_b((np)->regs_per_thread - STATIC_REG_IMM)
--#define imm_both(np)	reg_both((np)->regs_per_thread - STATIC_REG_IMM)
-+#define pv_len(np)	reg_lm(1, PKT_VEC_PKT_LEN)
-+#define pv_ctm_ptr(np)	reg_lm(1, PKT_VEC_PKT_PTR)
+ typedef __u32 __bitwise swreg;
+ 
+@@ -262,6 +283,16 @@ static inline swreg __enc_swreg(u16 id, u8 type)
+ 	return (__force swreg)(id | FIELD_PREP(NN_REG_TYPE, type));
+ }
+ 
++static inline swreg __enc_swreg_lm(u8 id, enum nfp_bpf_lm_mode mode, u8 off)
++{
++	WARN_ON(id > 1 || (off && mode != NN_LM_MOD_NONE));
 +
-+#define plen_reg(np)	reg_b(STATIC_REG_PKT_LEN)
-+#define pptr_reg(np)	pv_ctm_ptr(np)
-+#define imm_a(np)	reg_a(STATIC_REG_IMM)
-+#define imm_b(np)	reg_b(STATIC_REG_IMM)
-+#define imm_both(np)	reg_both(STATIC_REG_IMM)
++	return (__force swreg)(FIELD_PREP(NN_REG_TYPE, NN_REG_LMEM) |
++			       FIELD_PREP(NN_REG_LM_IDX, id) |
++			       FIELD_PREP(NN_REG_LM_MOD, mode) |
++			       off);
++}
++
+ static inline u32 swreg_raw(swreg reg)
+ {
+ 	return (__force u32)reg;
+@@ -277,6 +308,16 @@ static inline u16 swreg_value(swreg reg)
+ 	return FIELD_GET(NN_REG_VAL, swreg_raw(reg));
+ }
  
- #define NFP_BPF_ABI_FLAGS	reg_imm(0)
- #define   NFP_BPF_ABI_FLAG_MARK	1
--#define NFP_BPF_ABI_PKT		reg_nnr(2)
--#define NFP_BPF_ABI_LEN		reg_nnr(3)
- 
- struct nfp_prog;
- struct nfp_insn_meta;
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-index b0a452ba9039..782d452e0fc2 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h
-@@ -255,7 +255,7 @@
-  * @NFP_NET_CFG_BPF_ADDR:	DMA address of the buffer with JITed BPF code
-  */
- #define NFP_NET_CFG_BPF_ABI		0x0080
--#define   NFP_NET_BPF_ABI		1
-+#define   NFP_NET_BPF_ABI		2
- #define NFP_NET_CFG_BPF_CAP		0x0081
- #define   NFP_NET_BPF_CAP_RELO		(1 << 0) /* seamless reload */
- #define NFP_NET_CFG_BPF_MAX_LEN		0x0082
++static inline bool swreg_lm_idx(swreg reg)
++{
++	return FIELD_GET(NN_REG_LM_IDX, swreg_raw(reg));
++}
++
++static inline enum nfp_bpf_lm_mode swreg_lm_mode(swreg reg)
++{
++	return FIELD_GET(NN_REG_LM_MOD, swreg_raw(reg));
++}
++
+ struct nfp_insn_ur_regs {
+ 	enum alu_dst_ab dst_ab;
+ 	u16 dst;
 -- 
 2.14.1
