@@ -1,34 +1,134 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] isdn/gigaset: Convert timers to use timer_setup()
-Date: Mon, 9 Oct 2017 09:15:17 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008D392@AcuExch.aculab.com>
-References: <20171005193118.GA105874@beast>
- <1507316433.6960.19.camel@tiscali.nl>
- <CAGXu5jJaMODs0NNasPY97wiXeQJ-Y5G+qLrFbwquhGJj=o3rxA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Johan Hovold <johan@kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "gigaset307x-common@lists.sourceforge.net"
-        <gigaset307x-common@lists.sourceforge.net>,
-        Network Development <netdev@vger.kernel.org>
-To: 'Kees Cook' <keescook@chromium.org>,
-        Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jJaMODs0NNasPY97wiXeQJ-Y5G+qLrFbwquhGJj=o3rxA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 1/5] net: bridge: Notify on bridge device mrouter state changes
+Date: Mon,  9 Oct 2017 11:15:31 +0200
+Message-ID: <20171009091535.1315-2-jiri@resnulli.us>
+References: <20171009091535.1315-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        nogahf@mellanox.com, mlxsw@mellanox.com, ivecera@redhat.com,
+        nikolay@cumulusnetworks.com, andrew@lunn.ch,
+        stephen@networkplumber.org, nbd@nbd.name, roopa@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:32833 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751676AbdJIJPi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:15:38 -0400
+Received: by mail-wm0-f68.google.com with SMTP id u138so19374016wmu.0
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 02:15:37 -0700 (PDT)
+In-Reply-To: <20171009091535.1315-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogS2VlcyBDb29rDQo+IFNlbnQ6IDA2IE9jdG9iZXIgMjAxNyAyMDo0MA0KLi4uDQo+IEkn
-bSBpbiBubyBydXNoIGZvciBhbnkgc3BlY2lmaWMgY2hhbmdlLiBUaGVyZSBhcmUgYWJvdXQgOTAw
-IGNhbGwgc2l0ZXMNCj4gSSdtIG1ha2luZyBteSB3YXkgdGhyb3VnaCwgYWJvdXQgMi8zcmQgYXJl
-IHByZXR0eSB0cml2aWFsLCBhbmQgdGhlDQo+IGxlc3Mgb2J2aW91cyBpcyB3aGF0IEkndmUgc3Rh
-cnRlZCBzZW5kaW5nIG91dCBub3csIHNpbmNlIEkgZXhwZWN0IHNvbWUNCj4gd2lsbCBuZWVkIHNv
-bWUgbW9yZSBjYXJlZnVsIHJldmlldy4NCg0KSXMgaXQgd29ydGggYWRkaW5nIGEgc3RydWN0dXJl
-IHRoYXQgY29udGFpbnMgYSB0aW1lciBhbmQgYW4gZXh0cmEgJ2xvbmcnDQp0aGFuIGNhbiBiZSB1
-c2VkIHRvIG1haW50YWluIHRoZSBleGlzdGluZyBBUEkgbG9naWMgZm9yIHRoZSAnZGlmZmljdWx0
-Jw0KY2FzZXM/DQoNCglEYXZpZA0KDQo=
+From: Yotam Gigi <yotamg@mellanox.com>
+
+Add the SWITCHDEV_ATTR_ID_BRIDGE_MROUTER switchdev notification type, used
+to indicate whether the bridge is or isn't mrouter. Notify when the bridge
+changes its state, similarly to the already existing bridged port mrouter
+notifications.
+
+The notification uses the switchdev_attr.u.mrouter boolean flag to indicate
+the current bridge mrouter status. Thus, it only indicates whether the
+bridge is currently used as an mrouter or not, and does not indicate the
+exact mrouter state of the bridge (learning, permanent, etc.).
+
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+v1->v2:
+ - use the timer_pending to distinguish between learning-on and
+   learning-off states
+---
+ include/net/switchdev.h   |  1 +
+ net/bridge/br_multicast.c | 38 +++++++++++++++++++++++++++++++++++---
+ 2 files changed, 36 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index d767b79..d756fbe 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -51,6 +51,7 @@ enum switchdev_attr_id {
+ 	SWITCHDEV_ATTR_ID_BRIDGE_AGEING_TIME,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING,
+ 	SWITCHDEV_ATTR_ID_BRIDGE_MC_DISABLED,
++	SWITCHDEV_ATTR_ID_BRIDGE_MROUTER,
+ };
+ 
+ struct switchdev_attr {
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 8dc5c8d..bd50550 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -859,8 +859,32 @@ static void br_multicast_router_expired(unsigned long data)
+ 	spin_unlock(&br->multicast_lock);
+ }
+ 
++static void br_mc_router_state_change(struct net_bridge *p,
++				      bool is_mc_router)
++{
++	struct switchdev_attr attr = {
++		.orig_dev = p->dev,
++		.id = SWITCHDEV_ATTR_ID_BRIDGE_MROUTER,
++		.flags = SWITCHDEV_F_DEFER,
++		.u.mrouter = is_mc_router,
++	};
++
++	switchdev_port_attr_set(p->dev, &attr);
++}
++
+ static void br_multicast_local_router_expired(unsigned long data)
+ {
++	struct net_bridge *br = (struct net_bridge *)data;
++
++	spin_lock(&br->multicast_lock);
++	if (br->multicast_router == MDB_RTR_TYPE_DISABLED ||
++	    br->multicast_router == MDB_RTR_TYPE_PERM ||
++	    timer_pending(&br->multicast_router_timer))
++		goto out;
++
++	br_mc_router_state_change(br, false);
++out:
++	spin_unlock(&br->multicast_lock);
+ }
+ 
+ static void br_multicast_querier_expired(struct net_bridge *br,
+@@ -1364,9 +1388,12 @@ static void br_multicast_mark_router(struct net_bridge *br,
+ 	unsigned long now = jiffies;
+ 
+ 	if (!port) {
+-		if (br->multicast_router == MDB_RTR_TYPE_TEMP_QUERY)
++		if (br->multicast_router == MDB_RTR_TYPE_TEMP_QUERY) {
++			if (!timer_pending(&br->multicast_router_timer))
++				br_mc_router_state_change(br, true);
+ 			mod_timer(&br->multicast_router_timer,
+ 				  now + br->multicast_querier_interval);
++		}
+ 		return;
+ 	}
+ 
+@@ -1952,7 +1979,7 @@ void br_multicast_init(struct net_bridge *br)
+ 
+ 	spin_lock_init(&br->multicast_lock);
+ 	setup_timer(&br->multicast_router_timer,
+-		    br_multicast_local_router_expired, 0);
++		    br_multicast_local_router_expired, (unsigned long)br);
+ 	setup_timer(&br->ip4_other_query.timer,
+ 		    br_ip4_multicast_querier_expired, (unsigned long)br);
+ 	setup_timer(&br->ip4_own_query.timer, br_ip4_multicast_query_expired,
+@@ -2042,9 +2069,14 @@ int br_multicast_set_router(struct net_bridge *br, unsigned long val)
+ 	switch (val) {
+ 	case MDB_RTR_TYPE_DISABLED:
+ 	case MDB_RTR_TYPE_PERM:
++		br_mc_router_state_change(br, val == MDB_RTR_TYPE_PERM);
+ 		del_timer(&br->multicast_router_timer);
+-		/* fall through */
++		br->multicast_router = val;
++		err = 0;
++		break;
+ 	case MDB_RTR_TYPE_TEMP_QUERY:
++		if (br->multicast_router != MDB_RTR_TYPE_TEMP_QUERY)
++			br_mc_router_state_change(br, false);
+ 		br->multicast_router = val;
+ 		err = 0;
+ 		break;
+-- 
+2.9.5
