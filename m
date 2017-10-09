@@ -1,23 +1,24 @@
 From: Dan Murphy <dmurphy@ti.com>
-Subject: [PATCH v3 1/3] net: phy: Remove TI DP83822 from DP83848 driver
-Date: Mon, 9 Oct 2017 07:03:00 -0500
-Message-ID: <20171009120302.23611-1-dmurphy@ti.com>
+Subject: [PATCH v3 3/3] net: phy: Change error to EINVAL for invalid MAC
+Date: Mon, 9 Oct 2017 07:03:02 -0500
+Message-ID: <20171009120302.23611-3-dmurphy@ti.com>
+References: <20171009120302.23611-1-dmurphy@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Woojung.Huh@microchip.com>,
         <afd@ti.com>, Dan Murphy <dmurphy@ti.com>
 To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:45147 "EHLO
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:45148 "EHLO
         lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbdJIMDP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 08:03:15 -0400
+        with ESMTP id S1751635AbdJIMDQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 08:03:16 -0400
+In-Reply-To: <20171009120302.23611-1-dmurphy@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removing the DP83822 device from the DP83848 to
-support the TI DP83822 dedicated driver that will
-initially support WoL settings.
+Change the return error code to EINVAL if the MAC
+address is not valid in the set_wol function.
 
 Signed-off-by: Dan Murphy <dmurphy@ti.com>
 ---
@@ -25,36 +26,21 @@ Signed-off-by: Dan Murphy <dmurphy@ti.com>
 v3 - No changes made
 v2 - There was no v1 on this patch this is new.
 
- drivers/net/phy/dp83848.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/phy/at803x.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
-index 3de4fe4dda77..3966d43c5146 100644
---- a/drivers/net/phy/dp83848.c
-+++ b/drivers/net/phy/dp83848.c
-@@ -20,7 +20,6 @@
- #define TI_DP83620_PHY_ID		0x20005ce0
- #define NS_DP83848C_PHY_ID		0x20005c90
- #define TLK10X_PHY_ID			0x2000a210
--#define TI_DP83822_PHY_ID		0x2000a240
+diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
+index c1e52b9dc58d..5f93e6add563 100644
+--- a/drivers/net/phy/at803x.c
++++ b/drivers/net/phy/at803x.c
+@@ -167,7 +167,7 @@ static int at803x_set_wol(struct phy_device *phydev,
+ 		mac = (const u8 *) ndev->dev_addr;
  
- /* Registers */
- #define DP83848_MICR			0x11 /* MII Interrupt Control Register */
-@@ -80,7 +79,6 @@ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
- 	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
- 	{ TI_DP83620_PHY_ID, 0xfffffff0 },
- 	{ TLK10X_PHY_ID, 0xfffffff0 },
--	{ TI_DP83822_PHY_ID, 0xfffffff0 },
- 	{ }
- };
- MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
-@@ -110,7 +108,6 @@ static struct phy_driver dp83848_driver[] = {
- 	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
- 	DP83848_PHY_DRIVER(TI_DP83620_PHY_ID, "TI DP83620 10/100 Mbps PHY"),
- 	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
--	DP83848_PHY_DRIVER(TI_DP83822_PHY_ID, "TI DP83822 10/100 Mbps PHY"),
- };
- module_phy_driver(dp83848_driver);
+ 		if (!is_valid_ether_addr(mac))
+-			return -EFAULT;
++			return -EINVAL;
  
+ 		for (i = 0; i < 3; i++) {
+ 			phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
 -- 
 2.14.0
