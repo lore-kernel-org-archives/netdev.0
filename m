@@ -1,156 +1,87 @@
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 net-next 01/12] qed: Add ll2 option to limit the number of bds per packet
-Date: Mon, 9 Oct 2017 12:37:43 +0300
-Message-ID: <1507541874-18344-2-git-send-email-Michal.Kalderon@cavium.com>
+From: Michal Kalderon <Michal.Kalderon@cavium.com>
+Subject: [PATCH v3 net-next 02/12] qed: Add ll2 ability of opening a secondary queue
+Date: Mon, 9 Oct 2017 12:37:44 +0300
+Message-ID: <1507541874-18344-3-git-send-email-Michal.Kalderon@cavium.com>
 References: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-        "Ariel Elior" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1507541874-18344-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
+        <dledford@redhat.com>,
+        Michal Kalderon <Michal.Kalderon@cavium.com>,
+        "Ariel Elior" <Ariel.Elior@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn3nam01on0050.outbound.protection.outlook.com ([104.47.33.50]:38469
+        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751693AbdJIJi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 05:38:26 -0400
+In-Reply-To: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-iWARP uses 3 ll2 connections, the maximum number of bds is known
-during connection setup. This patch modifies the static array in
-the ll2_tx_packet descriptor to be a flexible array and
-significantlly reduces memory size.
+When more than one ll2 queue is opened ( that is not an OOO queue )
+ll2 code does not have enough information to determine whether
+the queue is the main one or not, so a new field is added to the
+acquire input data to expose the control of determining whether
+the queue is the main queue or a secondary queue.
 
-In addition, some redundant fields in the ll2_tx_packet were
-removed, which also contributed to decreasing the descriptor size.
-
-Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
+Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 29 +++++++++++++++++++++--------
- drivers/net/ethernet/qlogic/qed/qed_ll2.h |  9 +++------
- 2 files changed, 24 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 7 ++++++-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h | 1 +
+ include/linux/qed/qed_ll2_if.h            | 1 +
+ 3 files changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 250afa5..75af40a 100644
+index 75af40a..3c695da 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -1105,6 +1105,7 @@ static int qed_ll2_acquire_connection_tx(struct qed_hwfn *p_hwfn,
- 					 struct qed_ll2_info *p_ll2_info)
- {
- 	struct qed_ll2_tx_packet *p_descq;
-+	u32 desc_size;
- 	u32 capacity;
- 	int rc = 0;
+@@ -894,7 +894,7 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
+ 	p_ramrod->drop_ttl0_flg = p_ll2_conn->input.rx_drop_ttl0_flg;
+ 	p_ramrod->inner_vlan_removal_en = p_ll2_conn->input.rx_vlan_removal_en;
+ 	p_ramrod->queue_id = p_ll2_conn->queue_id;
+-	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_OOO) ? 0 : 1;
++	p_ramrod->main_func_queue = p_ll2_conn->main_func_queue ? 1 : 0;
  
-@@ -1122,13 +1123,17 @@ static int qed_ll2_acquire_connection_tx(struct qed_hwfn *p_hwfn,
- 		goto out;
+ 	if ((IS_MF_DEFAULT(p_hwfn) || IS_MF_SI(p_hwfn)) &&
+ 	    p_ramrod->main_func_queue && (conn_type != QED_LL2_TYPE_ROCE) &&
+@@ -1265,6 +1265,11 @@ int qed_ll2_acquire_connection(void *cxt, struct qed_ll2_acquire_data *data)
  
- 	capacity = qed_chain_get_capacity(&p_ll2_info->tx_queue.txq_chain);
--	p_descq = kcalloc(capacity, sizeof(struct qed_ll2_tx_packet),
--			  GFP_KERNEL);
-+	/* First element is part of the packet, rest are flexibly added */
-+	desc_size = (sizeof(*p_descq) +
-+		     (p_ll2_info->input.tx_max_bds_per_packet - 1) *
-+		     sizeof(p_descq->bds_set));
-+
-+	p_descq = kcalloc(capacity, desc_size, GFP_KERNEL);
- 	if (!p_descq) {
- 		rc = -ENOMEM;
- 		goto out;
- 	}
--	p_ll2_info->tx_queue.descq_array = p_descq;
-+	p_ll2_info->tx_queue.descq_mem = p_descq;
+ 	p_ll2_info->tx_dest = (data->input.tx_dest == QED_LL2_TX_DEST_NW) ?
+ 			      CORE_TX_DEST_NW : CORE_TX_DEST_LB;
++	if (data->input.conn_type == QED_LL2_TYPE_OOO ||
++	    data->input.secondary_queue)
++		p_ll2_info->main_func_queue = false;
++	else
++		p_ll2_info->main_func_queue = true;
  
- 	DP_VERBOSE(p_hwfn, QED_MSG_LL2,
- 		   "Allocated LL2 Txq [Type %08x] with 0x%08x buffers\n",
-@@ -1359,11 +1364,13 @@ int qed_ll2_establish_connection(void *cxt, u8 connection_handle)
- {
- 	struct qed_hwfn *p_hwfn = cxt;
- 	struct qed_ll2_info *p_ll2_conn;
-+	struct qed_ll2_tx_packet *p_pkt;
- 	struct qed_ll2_rx_queue *p_rx;
- 	struct qed_ll2_tx_queue *p_tx;
- 	struct qed_ptt *p_ptt;
- 	int rc = -EINVAL;
- 	u32 i, capacity;
-+	u32 desc_size;
- 	u8 qid;
- 
- 	p_ptt = qed_ptt_acquire(p_hwfn);
-@@ -1397,9 +1404,15 @@ int qed_ll2_establish_connection(void *cxt, u8 connection_handle)
- 	INIT_LIST_HEAD(&p_tx->sending_descq);
- 	spin_lock_init(&p_tx->lock);
- 	capacity = qed_chain_get_capacity(&p_tx->txq_chain);
--	for (i = 0; i < capacity; i++)
--		list_add_tail(&p_tx->descq_array[i].list_entry,
--			      &p_tx->free_descq);
-+	/* First element is part of the packet, rest are flexibly added */
-+	desc_size = (sizeof(*p_pkt) +
-+		     (p_ll2_conn->input.tx_max_bds_per_packet - 1) *
-+		     sizeof(p_pkt->bds_set));
-+
-+	for (i = 0; i < capacity; i++) {
-+		p_pkt = p_tx->descq_mem + desc_size * i;
-+		list_add_tail(&p_pkt->list_entry, &p_tx->free_descq);
-+	}
- 	p_tx->cur_completing_bd_idx = 0;
- 	p_tx->bds_idx = 0;
- 	p_tx->b_completing_packet = false;
-@@ -1698,7 +1711,7 @@ int qed_ll2_prepare_tx_packet(void *cxt,
- 	p_tx = &p_ll2_conn->tx_queue;
- 	p_tx_chain = &p_tx->txq_chain;
- 
--	if (pkt->num_of_bds > CORE_LL2_TX_MAX_BDS_PER_PACKET)
-+	if (pkt->num_of_bds > p_ll2_conn->input.tx_max_bds_per_packet)
- 		return -EIO;
- 
- 	spin_lock_irqsave(&p_tx->lock, flags);
-@@ -1858,7 +1871,7 @@ void qed_ll2_release_connection(void *cxt, u8 connection_handle)
- 		qed_int_unregister_cb(p_hwfn, p_ll2_conn->tx_queue.tx_sb_index);
- 	}
- 
--	kfree(p_ll2_conn->tx_queue.descq_array);
-+	kfree(p_ll2_conn->tx_queue.descq_mem);
- 	qed_chain_free(p_hwfn->cdev, &p_ll2_conn->tx_queue.txq_chain);
- 
- 	kfree(p_ll2_conn->rx_queue.descq_array);
+ 	/* Correct maximum number of Tx BDs */
+ 	p_tx_max = &p_ll2_info->input.tx_max_bds_per_packet;
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.h b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-index a822528..9bdd08f 100644
+index 9bdd08f..f658170 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-@@ -63,17 +63,14 @@ struct qed_ll2_rx_packet {
- struct qed_ll2_tx_packet {
- 	struct list_head list_entry;
- 	u16 bd_used;
--	u16 vlan;
--	u16 l4_hdr_offset_w;
--	u8 bd_flags;
- 	bool notify_fw;
- 	void *cookie;
--
-+	/* Flexible Array of bds_set determined by max_bds_per_packet */
- 	struct {
- 		struct core_tx_bd *txq_bd;
- 		dma_addr_t tx_frag;
- 		u16 frag_len;
--	} bds_set[ETH_TX_MAX_BDS_PER_NON_LSO_PACKET];
-+	} bds_set[1];
+@@ -121,6 +121,7 @@ struct qed_ll2_info {
+ 	bool b_active;
+ 	enum core_tx_dest tx_dest;
+ 	u8 tx_stats_en;
++	bool main_func_queue;
+ 	struct qed_ll2_rx_queue rx_queue;
+ 	struct qed_ll2_tx_queue tx_queue;
+ 	struct qed_ll2_cbs cbs;
+diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
+index 89fa0bb..d7cca59 100644
+--- a/include/linux/qed/qed_ll2_if.h
++++ b/include/linux/qed/qed_ll2_if.h
+@@ -171,6 +171,7 @@ struct qed_ll2_acquire_data_inputs {
+ 	enum qed_ll2_tx_dest tx_dest;
+ 	enum qed_ll2_error_handle ai_err_packet_too_big;
+ 	enum qed_ll2_error_handle ai_err_no_buf;
++	bool secondary_queue;
+ 	u8 gsi_enable;
  };
  
- struct qed_ll2_rx_queue {
-@@ -101,7 +98,7 @@ struct qed_ll2_tx_queue {
- 	struct list_head active_descq;
- 	struct list_head free_descq;
- 	struct list_head sending_descq;
--	struct qed_ll2_tx_packet *descq_array;
-+	void *descq_mem; /* memory for variable sized qed_ll2_tx_packet*/
- 	struct qed_ll2_tx_packet *cur_send_packet;
- 	struct qed_ll2_tx_packet cur_completing_packet;
- 	u16 cur_completing_bd_idx;
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
