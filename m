@@ -1,47 +1,52 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: Re: Fw: [Bug 197099] New: Kernel panic in interrupt [l2tp_ppp]
-Date: Mon, 9 Oct 2017 19:15:33 +0200
-Message-ID: <20171009171533.y5x7y55cksga2e7q@alphalink.fr>
-References: <20171001102110.24184f1b@xeon-e3>
- <CAEwTi7QkF73cc1hShzOoM9bzb5mBzyFW8t68OCn+XECrJ9d61Q@mail.gmail.com>
- <1506952566.8061.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <CA++DawY6CPh5S8A7pPE+-nwwGxJ4=pKL_MkXT_Q5TZb8xFnCjA@mail.gmail.com>
- <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
+Date: Mon, 9 Oct 2017 10:15:42 -0700
+Message-ID: <20171009171540.lgmk2slq3bdrptxk@ast-mbp.dhcp.thefacebook.com>
+References: <20171009153759.km3lqss7hb72wrze@debian>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: SviMik <svimik@gmail.com>, netdev@vger.kernel.org
-To: James Chapman <jchapman@katalix.com>
+Cc: davem@davemloft.net, willemb@google.com, edumazet@google.com,
+        soheil@google.com, pabeni@redhat.com, elena.reshetova@intel.com,
+        tom@quantonium.net, Jason@zx2c4.com, fw@strlen.de,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        alexander.levin@one.verizon.com
+To: Tim Hansen <devtimhansen@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:54258 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754151AbdJIRPn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:15:43 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:37179 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754151AbdJIRPp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:15:45 -0400
 Content-Disposition: inline
-In-Reply-To: <CAEwTi7S3-B81bNxyWq8j4hUpXyqNnTADReYoKoGF-V4wC5OBkQ@mail.gmail.com>
+In-Reply-To: <20171009153759.km3lqss7hb72wrze@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 03, 2017 at 08:27:32AM +0100, James Chapman wrote:
-> On 2 October 2017 at 19:35, SviMik <svimik@gmail.com> wrote:
-> > Hi, James!
-> >
-> > No, I'm suffering from kernel panics since I started using 4.x
-> > kernels.
-> It's interesting that you are seeing l2tp issues since switching to
-> 4.x kernels. Are you able to try earlier kernels to find the latest
-> version that works? I'm curious whether things broke at v3.15.
+On Mon, Oct 09, 2017 at 11:37:59AM -0400, Tim Hansen wrote:
+> Fix BUG() calls to use BUG_ON(conditional) macros.
 > 
-> > See my current collection:
-> > http://svimik.com/hdmmsk1kp1.png
-> This one is another crash implicating l2tp socket shutdown, this time
-> when the session pppol2tp socket is closed. Unfortunately the
-> screenshot doesn't show the full oops text. I'll investigate this one
-> too if you can get a full oops capture.
+> This was found using make coccicheck M=net/core on linux next
+> tag next-2017092
 > 
-For this one too, it looks like tunnel->sock is NULL. This time, it's
-l2tp_session_free() that breaks, but the root issue is probably the
-same: l2tp_tunnel_destruct() removes the tunnel concurrently, most
-likely because the session was created on a closing tunnel (as was
-suggested by James in another message). So here too, commit
-f3c66d4e144a ("l2tp: prevent creation of sessions on terminated tunnels")
-might be a good start.
+> Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
+> ---
+>  net/core/skbuff.c | 15 ++++++---------
+>  1 file changed, 6 insertions(+), 9 deletions(-)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index d98c2e3ce2bf..34ce4c1a0f3c 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+>  	/* Set the tail pointer and length */
+>  	skb_put(n, skb->len);
+>  
+> -	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
+> -		BUG();
+> +	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
+
+I'm concerned with this change.
+1. Calling non-trivial bit of code inside the macro is a poor coding style (imo)
+2. BUG_ON != BUG. Some archs like mips and ppc have HAVE_ARCH_BUG_ON and implementation
+of BUG and BUG_ON look quite different.
+
+I'd prefer to keep the code as-is.
