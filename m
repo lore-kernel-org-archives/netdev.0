@@ -1,48 +1,53 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 2/3] net/mlx4_core: Fix cast warning in fw.c
-Date: Mon,  9 Oct 2017 16:59:49 +0300
-Message-ID: <1507557590-17747-3-git-send-email-tariqt@mellanox.com>
-References: <1507557590-17747-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net] net: enable interface alias removal via rtnl
+Date: Mon, 9 Oct 2017 08:02:38 -0600
+Message-ID: <ffd17810-8d65-04f5-6841-98c74201780c@gmail.com>
+References: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
+ <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
+ <f6bd73fe-9b60-6741-8a6d-c93f6ee64a40@hartkopp.net>
+ <6e1671c7-93d7-0090-54f6-6b36abb8ba89@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Oliver Hartkopp <oliver@hartkopp.net>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: nicolas.dichtel@6wind.com,
+        Oliver Hartkopp <socketcan@hartkopp.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:33682 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755141AbdJIOAE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 10:00:04 -0400
-In-Reply-To: <1507557590-17747-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35008 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754225AbdJIOCq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 10:02:46 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i23so27977852pfi.2
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 07:02:45 -0700 (PDT)
+In-Reply-To: <6e1671c7-93d7-0090-54f6-6b36abb8ba89@6wind.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the following SPARSE warning, in MLX4_GET() macro:
-drivers/net/ethernet/mellanox/mlx4/fw.c:233:9: warning: cast to restricted __be64
+On 10/9/17 2:23 AM, Nicolas Dichtel wrote:
+> Le 06/10/2017 à 22:10, Oliver Hartkopp a écrit :
+>>
+>>
+>> On 10/06/2017 08:18 PM, David Ahern wrote:
+>>> On 10/5/17 4:19 AM, Nicolas Dichtel wrote:
+>>>> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
+>>>> the attribute is 1 ("\0"). However, to remove an alias, the attribute
+>>>> length must be 0 (see dev_set_alias()).
+>>>
+>>> why not add a check in dev_set_alias that if len is 1 and the 1
+>>> character is '\0' it means remove the alias?
+> Because it requires an iproute2 patch. iproute2 doesn't send the '\0'. With the
+> command 'ip link set dummy0 alias ""', the attribute length is 0.
 
-Fixes: 17d5ceb6e43e ("net/mlx4_core: Fix unaligned accesses")
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/fw.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+iproute2 needs the feature for 0-len strings or perhaps a 'noalias' option.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 16c09949afd5..634f603f941c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -57,12 +57,12 @@ enum {
- #define MLX4_GET(dest, source, offset)				      \
- 	do {							      \
- 		void *__p = (char *) (source) + (offset);	      \
--		u64 val;                                              \
--		switch (sizeof(dest)) {			      \
-+		__be64 val;                                           \
-+		switch (sizeof(dest)) {				      \
- 		case 1: (dest) = *(u8 *) __p;	    break;	      \
- 		case 2: (dest) = be16_to_cpup(__p); break;	      \
- 		case 4: (dest) = be32_to_cpup(__p); break;	      \
--		case 8: val = get_unaligned((u64 *)__p);              \
-+		case 8: val = get_unaligned((__be64 *)__p);           \
- 			(dest) = be64_to_cpu(val);  break;            \
- 		default: __buggy_use_of_MLX4_GET();		      \
- 		}						      \
--- 
-1.8.3.1
+You can reset the alias using the sysfs file. Given that there is a
+workaround for existing kernels and userspace, upstream can get fixed
+without changing the UAPI.
+
+> A kernel patch is probably enough for this problem. Updating iproute2 on old
+> distributions is not always easy.
+
+Can't say I have ever heard someone suggest that a kernel is easier to
+change than userspace.
