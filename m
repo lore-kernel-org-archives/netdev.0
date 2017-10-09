@@ -1,76 +1,55 @@
-From: Tim Hansen <devtimhansen@gmail.com>
-Subject: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
-Date: Mon, 9 Oct 2017 11:37:59 -0400
-Message-ID: <20171009153759.km3lqss7hb72wrze@debian>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/7] nfp: extend match and action for flower offload
+Date: Mon, 9 Oct 2017 08:45:41 -0700
+Message-ID: <CALx6S34Akd2Z3TDaEKwG3-1BwSZ79bO4kweuLojw=00cg0t=Nw@mail.gmail.com>
+References: <1507278086-3102-1-git-send-email-simon.horman@netronome.com>
+ <CALx6S36zb=V3Uv1xxjQi04TaPre7GRyYQ1Wcx_7zd96nSpu3pg@mail.gmail.com> <20171009080545.GB11130@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: willemb@google.com, edumazet@google.com, soheil@google.com,
-        pabeni@redhat.com, elena.reshetova@intel.com, tom@quantonium.net,
-        Jason@zx2c4.com, fw@strlen.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, devtimhansen@gmail.com,
-        alexander.levin@one.verizon.com
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:49503 "EHLO
+        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754357AbdJIPpm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 11:45:42 -0400
+Received: by mail-qk0-f172.google.com with SMTP id s14so10715515qks.6
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 08:45:42 -0700 (PDT)
+In-Reply-To: <20171009080545.GB11130@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix BUG() calls to use BUG_ON(conditional) macros.
+On Mon, Oct 9, 2017 at 1:05 AM, Simon Horman <simon.horman@netronome.com> wrote:
+> On Fri, Oct 06, 2017 at 08:34:59AM -0700, Tom Herbert wrote:
+>> Simon,
+>>
+>> Maybe a bit off topic, but I had the impression netronome would
+>> support BPF so that filters could be programmed for arbitrary
+>> protocols and fields. Is that true? If so, what is the relationship
+>> between that functionality and these patches?
+>
+> Hi Tom,
+>
+> you are correct in thinking that Netronome is supporting BPF offload
+> in its nfp driver. That support continues to be enhanced and supported.
+>
+> This patch-set relates to a different set of functionality, offload of the
+> TC flower classifier. At this point there is no relationship between the
+> two sets of functionality and they cannot be used at the same time;
+> different firmware images are required and the driver initiates itself
+> according to the firmware loaded.
+>
+> In future it may be possible to use both BPF and TC flower offloads at the
+> same time but that is not the case at this time.
+>
+> Does that answer your question?
 
-This was found using make coccicheck M=net/core on linux next
-tag next-2017092
+Yes... A couple of follow up questions. If someone uses tc-bpf would
+that be offloaded to nfp? Is there anything that TC flower offloads
+can do that the BPF solution can't do?
 
-Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
----
- net/core/skbuff.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d98c2e3ce2bf..34ce4c1a0f3c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
- 	/* Set the tail pointer and length */
- 	skb_put(n, skb->len);
- 
--	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
--		BUG();
-+	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
- 
- 	copy_skb_header(n, skb);
- 	return n;
-@@ -1449,8 +1448,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 
- 	BUG_ON(nhead < 0);
- 
--	if (skb_shared(skb))
--		BUG();
-+	BUG_ON(skb_shared(skb));
- 
- 	size = SKB_DATA_ALIGN(size);
- 
-@@ -1595,9 +1593,8 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 		head_copy_off = newheadroom - head_copy_len;
- 
- 	/* Copy the linear header and data. */
--	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
--			  skb->len + head_copy_len))
--		BUG();
-+	BUG_ON(skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
-+			     skb->len + head_copy_len));
- 
- 	copy_skb_header(n, skb);
- 
-@@ -1878,8 +1875,8 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
- 			return NULL;
- 	}
- 
--	if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
--		BUG();
-+	BUG_ON(skb_copy_bits(skb, skb_headlen(skb),
-+			     skb_tail_pointer(skb), delta));
- 
- 	/* Optimization: no fragments, no reasons to preestimate
- 	 * size of pulled pages. Superb.
--- 
-2.14.2
+Thanks,
+Tom
