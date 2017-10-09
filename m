@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH v3 net-next 02/12] qed: Add ll2 ability of opening a secondary queue
-Date: Mon, 9 Oct 2017 12:37:44 +0300
-Message-ID: <1507541874-18344-3-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [PATCH v3 net-next 03/12] qed: Add ll2 option for dropping a tx packet
+Date: Mon, 9 Oct 2017 12:37:45 +0300
+Message-ID: <1507541874-18344-4-git-send-email-Michal.Kalderon@cavium.com>
 References: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,76 +11,64 @@ Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
         "Ariel Elior" <Ariel.Elior@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0050.outbound.protection.outlook.com ([104.47.33.50]:38469
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-sn1nam01on0046.outbound.protection.outlook.com ([104.47.32.46]:9088
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751693AbdJIJi0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 05:38:26 -0400
+        id S1753728AbdJIJic (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 05:38:32 -0400
 In-Reply-To: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When more than one ll2 queue is opened ( that is not an OOO queue )
-ll2 code does not have enough information to determine whether
-the queue is the main one or not, so a new field is added to the
-acquire input data to expose the control of determining whether
-the queue is the main queue or a secondary queue.
+The option of sending a packet on the ll2 and dropping it exists in
+hardware and was not used until now, thus not exposed.
+The iWARP unaligned MPA flow requires this functionality for
+flushing the tx queue.
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c | 7 ++++++-
- drivers/net/ethernet/qlogic/qed/qed_ll2.h | 1 +
- include/linux/qed/qed_ll2_if.h            | 1 +
- 3 files changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c | 16 ++++++++++++++--
+ include/linux/qed/qed_ll2_if.h            |  1 +
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 75af40a..3c695da 100644
+index 3c695da..ad67d36 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -894,7 +894,7 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
- 	p_ramrod->drop_ttl0_flg = p_ll2_conn->input.rx_drop_ttl0_flg;
- 	p_ramrod->inner_vlan_removal_en = p_ll2_conn->input.rx_vlan_removal_en;
- 	p_ramrod->queue_id = p_ll2_conn->queue_id;
--	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_OOO) ? 0 : 1;
-+	p_ramrod->main_func_queue = p_ll2_conn->main_func_queue ? 1 : 0;
+@@ -1597,8 +1597,20 @@ static void qed_ll2_prepare_tx_packet_set(struct qed_hwfn *p_hwfn,
+ 	roce_flavor = (pkt->qed_roce_flavor == QED_LL2_ROCE) ? CORE_ROCE
+ 							     : CORE_RROCE;
  
- 	if ((IS_MF_DEFAULT(p_hwfn) || IS_MF_SI(p_hwfn)) &&
- 	    p_ramrod->main_func_queue && (conn_type != QED_LL2_TYPE_ROCE) &&
-@@ -1265,6 +1265,11 @@ int qed_ll2_acquire_connection(void *cxt, struct qed_ll2_acquire_data *data)
+-	tx_dest = (pkt->tx_dest == QED_LL2_TX_DEST_NW) ? CORE_TX_DEST_NW
+-						       : CORE_TX_DEST_LB;
++	switch (pkt->tx_dest) {
++	case QED_LL2_TX_DEST_NW:
++		tx_dest = CORE_TX_DEST_NW;
++		break;
++	case QED_LL2_TX_DEST_LB:
++		tx_dest = CORE_TX_DEST_LB;
++		break;
++	case QED_LL2_TX_DEST_DROP:
++		tx_dest = CORE_TX_DEST_DROP;
++		break;
++	default:
++		tx_dest = CORE_TX_DEST_LB;
++		break;
++	}
  
- 	p_ll2_info->tx_dest = (data->input.tx_dest == QED_LL2_TX_DEST_NW) ?
- 			      CORE_TX_DEST_NW : CORE_TX_DEST_LB;
-+	if (data->input.conn_type == QED_LL2_TYPE_OOO ||
-+	    data->input.secondary_queue)
-+		p_ll2_info->main_func_queue = false;
-+	else
-+		p_ll2_info->main_func_queue = true;
- 
- 	/* Correct maximum number of Tx BDs */
- 	p_tx_max = &p_ll2_info->input.tx_max_bds_per_packet;
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.h b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-index 9bdd08f..f658170 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-@@ -121,6 +121,7 @@ struct qed_ll2_info {
- 	bool b_active;
- 	enum core_tx_dest tx_dest;
- 	u8 tx_stats_en;
-+	bool main_func_queue;
- 	struct qed_ll2_rx_queue rx_queue;
- 	struct qed_ll2_tx_queue tx_queue;
- 	struct qed_ll2_cbs cbs;
+ 	start_bd = (struct core_tx_bd *)qed_chain_produce(p_tx_chain);
+ 	start_bd->nw_vlan_or_lb_echo = cpu_to_le16(pkt->vlan);
 diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
-index 89fa0bb..d7cca59 100644
+index d7cca59..95fdf02 100644
 --- a/include/linux/qed/qed_ll2_if.h
 +++ b/include/linux/qed/qed_ll2_if.h
-@@ -171,6 +171,7 @@ struct qed_ll2_acquire_data_inputs {
- 	enum qed_ll2_tx_dest tx_dest;
- 	enum qed_ll2_error_handle ai_err_packet_too_big;
- 	enum qed_ll2_error_handle ai_err_no_buf;
-+	bool secondary_queue;
- 	u8 gsi_enable;
+@@ -64,6 +64,7 @@ enum qed_ll2_roce_flavor_type {
+ enum qed_ll2_tx_dest {
+ 	QED_LL2_TX_DEST_NW, /* Light L2 TX Destination to the Network */
+ 	QED_LL2_TX_DEST_LB, /* Light L2 TX Destination to the Loopback */
++	QED_LL2_TX_DEST_DROP, /* Light L2 Drop the TX packet */
+ 	QED_LL2_TX_DEST_MAX
  };
  
 -- 
