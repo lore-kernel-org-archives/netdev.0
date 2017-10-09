@@ -1,36 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cdc_ether: flag the u-blox TOBY-L2 and SARA-U2 as wwan
-Date: Mon, 09 Oct 2017 16:03:45 -0700 (PDT)
-Message-ID: <20171009.160345.94596657344673183.davem@davemloft.net>
-References: <20171009120512.16681-1-aleksander@aleksander.es>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: linux-next: manual merge of the cgroup tree with the net-next
+ tree
+Date: Mon, 9 Oct 2017 16:04:25 -0700
+Message-ID: <20171009230424.4p7r4b7s7xubmyhi@ast-mbp>
+References: <20171009183836.cceczuqytzmgqubr@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, marco.demarco@u-blox.com,
-        stefano.godeas@u-blox.com, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: aleksander@aleksander.es
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Mark Brown <broonie@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171009120512.16681-1-aleksander@aleksander.es>
+Content-Disposition: inline
+In-Reply-To: <20171009183836.cceczuqytzmgqubr@sirena.co.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aleksander Morgado <aleksander@aleksander.es>
-Date: Mon,  9 Oct 2017 14:05:12 +0200
+On Mon, Oct 09, 2017 at 07:38:36PM +0100, Mark Brown wrote:
+> Hi Tejun,
+> 
+> Today's linux-next merge of the cgroup tree got a conflict in:
+> 
+>   kernel/cgroup/cgroup.c
+> 
+> between commit:
+> 
+>   324bda9e6c5ad ("bpf: multi program support for cgroup+bpf")
+> 
+> from the net-next tree and commit:
+> 
+>   041cd640b2f3c ("cgroup: Implement cgroup2 basic CPU usage accounting")
+> 
+> from the cgroup tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
+> 
+> diff --cc kernel/cgroup/cgroup.c
+> index 00f5b358aeac,c3421ee0d230..000000000000
+> --- a/kernel/cgroup/cgroup.c
+> +++ b/kernel/cgroup/cgroup.c
+> @@@ -4765,8 -4785,9 +4788,11 @@@ static struct cgroup *cgroup_create(str
+>   
+>   	return cgrp;
+>   
+>  +out_idr_free:
+>  +	cgroup_idr_remove(&root->cgroup_idr, cgrp->id);
+> + out_stat_exit:
+> + 	if (cgroup_on_dfl(parent))
+> + 		cgroup_stat_exit(cgrp);
 
-> The u-blox TOBY-L2 is a LTE Cat 4 module with HSPA+ and 2G fallback.
-> This module allows switching to different USB profiles with the
-> 'AT+UUSBCONF' command, and provides a ECM network interface when the
-> 'AT+UUSBCONF=2' profile is selected.
-> 
-> The u-blox SARA-U2 is a HSPA module with 2G fallback. The default USB
-> configuration includes a ECM network interface.
-> 
-> Both these modules are controlled via AT commands through one of the
-> TTYs exposed. Connecting these modules may be done just by activating
-> the desired PDP context with 'AT+CGACT=1,<cid>' and then running DHCP
-> on the ECM interface.
-> 
-> Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
-
-Applied, thank you.
+thanks. I did the same merge conflict resolution for our combined tree.
