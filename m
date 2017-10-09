@@ -1,214 +1,125 @@
-From: Greg Ungerer <gerg@linux-m68k.org>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: rework in-chip bridging
-Date: Mon, 9 Oct 2017 13:23:43 +1000
-Message-ID: <18a28b2b-3e59-77d1-961b-213171b98136@linux-m68k.org>
-References: <ab86ad59-06af-b4ab-0bc6-dace73f04ef0@linux-m68k.org>
- <339d3e25-8262-d0c3-16f9-75fa9faa25dd@gmail.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: BUG: using smp_processor_id() in preemptible [00000000]
+Date: Sun, 8 Oct 2017 20:43:04 -0700
+Message-ID: <20171008204304.58ec8e5e@cakuba.netronome.com>
+References: <20171006190611.110633-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from icp-osb-irony-out7.external.iinet.net.au ([203.59.1.107]:42202
-        "EHLO icp-osb-irony-out7.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753885AbdJIDYb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 23:24:31 -0400
-In-Reply-To: <339d3e25-8262-d0c3-16f9-75fa9faa25dd@gmail.com>
-Content-Language: en-US
+Received: from mx4.wp.pl ([212.77.101.11]:28933 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753711AbdJIDnM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Oct 2017 23:43:12 -0400
+In-Reply-To: <20171006190611.110633-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Hi!
 
-On 07/10/17 13:04, Florian Fainelli wrote:
-> Le 10/03/17 à 23:20, Greg Ungerer a écrit :
->> On Wed, Mar 29, 2017 at 04:30:16PM -0400, Vivien Didelot wrote:
->>> All ports -- internal and external, for chips featuring a PVT -- have a
->>> mask restricting to which internal ports a frame is allowed to egress.
->>>
->>> Now that DSA exposes the number of ports and their bridge devices, it is
->>> possible to extract the code generating the VLAN map and make it generic
->>> so that it can be shared later with the cross-chip bridging code.
->>
->> This patch changes the behavior of interfaces on startup if they are
->> not part of a bridge.
->>
->> I have a board with a Marvell 6350 switch with a device tree that sets
->> up the 5 ports as lan1, lan2, lan3, lan4, wan. With kernels before
->> this patch (so linux-4.12 and older) after system startup I could do:
->>
->>   ifconfig lan1 192.168.0.1
->>
->> And then ping out that interface with no problems.
->>
->> After this patch is applied (effects linux-4.13 and newer) then the
->> ping fails:
->>
->>   PING 192.168.0.22 (192.168.0.22) 56(84) bytes of data.
->>   From 192.168.0.1 icmp_seq=1 Destination Host Unreachable
->>   From 192.168.0.1 icmp_seq=2 Destination Host Unreachable
->>   From 192.168.0.1 icmp_seq=3 Destination Host Unreachable
->>
->> If I incorporate an interface into a bridge then it all works ok.
->> So simply:
->>
->>   brctl addbr br0
->>   brctl addif br0 lan1
->>   ifconfig lan1 up
->>   ifconfig br0 192.168.0.1
->>
->> Then pings out work as expected. And if I now remove that lan1
->> interface from the bridge and use it alone again then it will
->> now work ok:
->>
->>   ifconfig br0 down
->>   brctl delif br0 lan1
->>   ifconfig lan1 192.168.0.1
->>
->> And that now pings ok.
->>
->> I fixed this with the attached patch. It is probably not the correct
->> approach, but it does restore the older behavior.
->>
->> What do you think?
-> 
-> This is strange, the dsa_switch_tree and its associated dsa_switch
-> instances should be fully setup by the time ops->setup() is running in
-> your driver but your patch suggests this may not be happening?
+This appeared in net-next over the weekend - looks likely related to
+this set...
 
-That is what I am seeing, yep.
-
-
-> Are you using the new style Device Tree binding or the old style Device
-> Tree binding out of curiosity?
-
-This is my device tree fragment for the switch:
-
-        dsa@0 {
-                compatible = "marvell,dsa";
-                #address-cells = <2>;
-                #size-cells = <0>;
-
-                dsa,ethernet = <&eth0>;
-                dsa,mii-bus = <&mdio>;
-
-                switch@0 {
-                        #address-cells = <1>;
-                        #size-cells = <0>;
-                        reg = <0x11 0>;
-
-                        port@0 {
-                                reg = <0>;
-                                label = "lan1";
-                        };
-                        port@1 {
-                                reg = <1>;
-                                label = "lan2";
-                        };
-                        port@2 {
-                                reg = <2>;
-                                label = "lan3";
-                        };
-                        port@3 {
-                                reg = <3>;
-                                label = "lan4";
-                        };
-                        port@4 {
-                                reg = <4>;
-                                label = "wan";
-                        };
-                        port@5 {
-                                reg = <5>;
-                                label = "cpu";
-                        };
-                };
-         };
-
-The board I am using is based around an Marvell Armada 370. This device tree
-setup looks pretty similar to the other Marvell boards using marvell,dsa.
-
-Regards
-Greg
-
-
-
->>> Signed-off-by: Vivien Didelot <vivien.dide...@savoirfairelinux.com>
->>> ---
->>>  drivers/net/dsa/mv88e6xxx/chip.c | 53 ++++++++++++++++++++++++++--------------
->>>  1 file changed, 34 insertions(+), 19 deletions(-)
->>>
->>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
->>> index b114bf8e6a11..e5165831e8b5 100644
->>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
->>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
->>> @@ -1123,27 +1123,42 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int 
->>> port,
->>>         return err;
->>>  }
->>>  
->>> +static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
->>> +{
->>> +       struct dsa_switch *ds = NULL;
->>> +       struct net_device *br;
->>> +       u16 pvlan;
->>> +       int i;
->>> +
->>> +       if (dev < DSA_MAX_SWITCHES)
->>> +               ds = chip->ds->dst->ds[dev];
->>> +
->>> +       /* Prevent frames from unknown switch or port */
->>> +       if (!ds || port >= ds->num_ports)
->>> +               return 0;
->>> +
->>> +       /* Frames from DSA links and CPU ports can egress any local port */
->>> +       if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
->>> +               return mv88e6xxx_port_mask(chip);
->>> +
->>> +       br = ds->ports[port].bridge_dev;
->>> +       pvlan = 0;
->>> +
->>> +       /* Frames from user ports can egress any local DSA links and CPU ports,
->>> +        * as well as any local member of their bridge group.
->>> +        */
->>> +       for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
->>> +               if (dsa_is_cpu_port(chip->ds, i) ||
->>> +                   dsa_is_dsa_port(chip->ds, i) ||
->>> +                   (br && chip->ds->ports[i].bridge_dev == br))
->>> +                       pvlan |= BIT(i);
->>> +
->>> +       return pvlan;
->>> +}
->>> +
->>>  static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int 
->>> port)
->>>  {
->>> -       struct dsa_switch *ds = chip->ds;
->>> -       struct net_device *bridge = ds->ports[port].bridge_dev;
->>> -       u16 output_ports = 0;
->>> -       int i;
->>> -
->>> -       /* allow CPU port or DSA link(s) to send frames to every port */
->>> -       if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
->>> -               output_ports = ~0;
->>> -       } else {
->>> -               for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
->>> -                       /* allow sending frames to every group member */
->>> -                       if (bridge && ds->ports[i].bridge_dev == bridge)
->>> -                               output_ports |= BIT(i);
->>> -
->>> -                       /* allow sending frames to CPU port and DSA link(s) */
->>> -                       if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
->>> -                               output_ports |= BIT(i);
->>> -               }
->>> -       }
->>> +       u16 output_ports = mv88e6xxx_port_vlan(chip, chip->ds->index, port);
->>>  
->>>         /* prevent frames from going back out of the port they came in on */
->>>         output_ports &= ~BIT(port);
->>> -- 
->>
-> 
-> 
+[  164.456668] BUG: using smp_processor_id() in preemptible [00000000] code: sshd/1255
+[  164.472259] caller is ip6_pol_route+0xe88/0x4a80
+[  164.477571] CPU: 10 PID: 1255 Comm: sshd Not tainted 4.14.0-rc3-debug-00960-g58e545033ed7 #312
+[  164.487350] Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.3.4 11/08/2016
+[  164.495884] Call Trace:
+[  164.498771]  dump_stack+0xb3/0x140
+[  164.502720]  ? _atomic_dec_and_lock+0x2b0/0x2b0
+[  164.507909]  ? __lock_is_held+0xcf/0x1a0
+[  164.512492]  check_preemption_disabled+0x1a0/0x1d0
+[  164.517974]  ip6_pol_route+0xe88/0x4a80
+[  164.522402]  ? ip6_rt_update_pmtu+0xc0/0xc0
+[  164.527205]  ? unwind_get_return_address+0x5f/0xc0
+[  164.532685]  ? print_usage_bug+0x5a0/0x5a0
+[  164.537399]  ? lock_downgrade+0x740/0x740
+[  164.542000]  ? deref_stack_reg+0x75/0x230
+[  164.546605]  ? __read_once_size_nocheck.constprop.3+0x50/0x50
+[  164.553158]  ? print_usage_bug+0x5a0/0x5a0
+[  164.557859]  ? bpf_prog_alloc+0x330/0x330
+[  164.562467]  ? lock_downgrade+0x740/0x740
+[  164.567076]  ? __mod_tree_remove+0x40/0x40
+[  164.571774]  ? deref_stack_reg+0x75/0x230
+[  164.576414]  ? __read_once_size_nocheck.constprop.3+0x50/0x50
+[  164.582964]  ? deref_stack_reg+0x230/0x230
+[  164.587676]  ? __free_insn_slot+0x970/0x970
+[  164.592507]  ? print_usage_bug+0x5a0/0x5a0
+[  164.597203]  ? deref_stack_reg+0x75/0x230
+[  164.601804]  ? __read_once_size_nocheck.constprop.3+0x50/0x50
+[  164.608412]  ? show_rcu_gp_kthreads+0x160/0x160
+[  164.613601]  ? is_bpf_text_address+0xa4/0x130
+[  164.618590]  ? bpf_prog_alloc+0x330/0x330
+[  164.623194]  ? kernel_text_address+0xec/0x120
+[  164.628200]  ? cyc2ns_read_end+0x20/0x20
+[  164.632705]  ? __mod_tree_remove+0x40/0x40
+[  164.637403]  ? deref_stack_reg+0x75/0x230
+[  164.642006]  ? __read_once_size_nocheck.constprop.3+0x50/0x50
+[  164.648552]  ? deref_stack_reg+0x75/0x230
+[  164.653165]  ? sched_clock_cpu+0x18/0x290
+[  164.657768]  ? lock_downgrade+0x740/0x740
+[  164.662383]  ? bpf_prog_alloc+0x330/0x330
+[  164.666978]  ? lock_downgrade+0x740/0x740
+[  164.671581]  ? debug_check_no_locks_freed+0x2f0/0x2f0
+[  164.677425]  ? deref_stack_reg+0x75/0x230
+[  164.677432]  ? __read_once_size_nocheck.constprop.3+0x50/0x50
+[  164.677438]  ? deref_stack_reg+0x230/0x230
+[  164.677445]  ? deref_stack_reg+0x230/0x230
+[  164.677458]  ? rcu_read_lock_held+0xc0/0xc0
+[  164.677466]  ? __free_insn_slot+0x970/0x970
+[  164.677476]  ? rcu_is_watching+0x59/0x1f0
+[  164.677483]  ? show_rcu_gp_kthreads+0x160/0x160
+[  164.677496]  ? is_bpf_text_address+0xa4/0x130
+[  164.677504]  ? kernel_text_address+0xec/0x120
+[  164.677509]  ? __kernel_text_address+0xe/0x30
+[  164.677516]  ? __kernel_text_address+0xe/0x30
+[  164.677523]  ? unwind_get_return_address+0x5f/0xc0
+[  164.677532]  ? __save_stack_trace+0x83/0x120
+[  164.677549]  ? __lock_acquire+0x1fcf/0x4440
+[  164.677557]  ? save_trace+0x350/0x350
+[  164.677566]  ? cyc2ns_read_end+0x20/0x20
+[  164.677580]  ? debug_check_no_locks_freed+0x2f0/0x2f0
+[  164.677589]  ? ip6_pol_route_input+0x90/0x90
+[  164.677595]  fib6_rule_lookup+0x10a/0x750
+[  164.677604]  ? fib6_rules_seq_read+0x10/0x10
+[  164.677623]  ? lock_downgrade+0x740/0x740
+[  164.677631]  ? ip6_route_output_flags+0x1ff/0x310
+[  164.677642]  ip6_dst_lookup_tail+0x4ce/0xd50
+[  164.677671]  ip6_dst_lookup_flow+0xce/0x2a0
+[  164.677679]  ? ip6_dst_lookup+0x90/0x90
+[  164.677684]  ? __lock_is_held+0xcf/0x1a0
+[  164.677690]  ? show_rcu_gp_kthreads+0x160/0x160
+[  164.677704]  ip6_datagram_dst_update+0x728/0x1b00
+[  164.677711]  ? cyc2ns_read_end+0x20/0x20
+[  164.677721]  ? ip6_datagram_send_ctl+0x1400/0x1400
+[  164.677733]  ? print_usage_bug+0x5a0/0x5a0
+[  164.677741]  ? sched_clock_cpu+0x18/0x290
+[  164.677759]  ? lock_downgrade+0x740/0x740
+[  164.677765]  ? get_lock_stats+0x18/0x160
+[  164.677788]  ? __ip6_datagram_connect+0x51b/0x1410
+[  164.677793]  __ip6_datagram_connect+0x51b/0x1410
+[  164.677803]  ? ip6_datagram_release_cb+0x5f0/0x5f0
+[  164.677809]  ? mark_held_locks+0xce/0x170
+[  164.677817]  ? __local_bh_enable_ip+0x5f/0xa0
+[  164.677830]  ip6_datagram_connect+0x27/0x40
+[  164.677839]  SYSC_connect+0x1e8/0x4a0
+[  164.677847]  ? SYSC_bind+0x3e0/0x3e0
+[  164.677856]  ? get_unused_fd_flags+0x133/0x210
+[  164.677863]  ? trace_raw_output_sys_exit+0x110/0x110
+[  164.677874]  ? __close_fd+0x242/0x400
+[  164.677883]  ? sock_map_fd+0x3d/0x60
+[  164.677893]  ? entry_SYSCALL_64_fastpath+0x5/0xb1
+[  164.677901]  ? trace_hardirqs_on_caller+0x3cb/0x680
+[  164.677908]  ? trace_hardirqs_on_thunk+0x1a/0x1c
+[  164.677919]  entry_SYSCALL_64_fastpath+0x1c/0xb1
+[  164.677926] RIP: 0033:0x7f44264eb160
+[  164.677931] RSP: 002b:00007ffe6e705f88 EFLAGS: 00000246 ORIG_RAX: 000000000000002a
+[  164.677939] RAX: ffffffffffffffda RBX: 0000000000000046 RCX: 00007f44264eb160
+[  164.677943] RDX: 000000000000001c RSI: 000055de0fedc2b0 RDI: 0000000000000003
+[  164.677948] RBP: 00007ffe6e7060e0 R08: 0100007fffff0000 R09: 0000000200001600
+[  164.677952] R10: 0000000000000000 R11: 0000000000000246 R12: 00007ffe6e706090
+[  164.677956] R13: 00007ffe6e7060a0 R14: 0000000000000003 R15: 00007ffe6e705f40
