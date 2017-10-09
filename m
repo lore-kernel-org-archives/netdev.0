@@ -1,109 +1,89 @@
-From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH v3 net-next 10/12] qed: Add support for freeing two ll2 buffers for corner cases
-Date: Mon, 9 Oct 2017 12:37:52 +0300
-Message-ID: <1507541874-18344-11-git-send-email-Michal.Kalderon@cavium.com>
-References: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH 41/47] netfilter: convert hook list to an array
+Date: Mon, 9 Oct 2017 13:04:27 +0300
+Message-ID: <2249f4d8-b962-a953-70f6-33a5dc4ca5f2@mellanox.com>
+References: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
+ <1504478574-13281-6-git-send-email-pablo@netfilter.org>
+ <81603cbd-603d-1d93-a29a-1174fc826dec@mellanox.com>
+ <20171009093132.GA7150@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
-        <dledford@redhat.com>,
-        Michal Kalderon <Michal.Kalderon@cavium.com>,
-        "Ariel Elior" <Ariel.Elior@cavium.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org, Aaron Conole <aconole@bytheb.org>,
+        davem@davemloft.net, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>, Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0081.outbound.protection.outlook.com ([104.47.41.81]:52736
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-db5eur01on0054.outbound.protection.outlook.com ([104.47.2.54]:6064
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753949AbdJIJjR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 05:39:17 -0400
-In-Reply-To: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
+        id S1751581AbdJIKEh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 06:04:37 -0400
+In-Reply-To: <20171009093132.GA7150@breakpoint.cc>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When posting a packet on the ll2 tx, we can provide a cookie that
-will be returned upon tx completion. This cookie is the ll2 iwarp buffer
-which is then reposted to the rx ring. Part of the unaligned mpa flow
-is determining when a buffer can be reposted. Each buffer needs to be
-sent only once as a cookie for on the tx ring. In packed fpdu case, only
-the last packet will be sent with the buffer, meaning we need to handle the
-case that a cookie can be NULL on tx complete. In addition, when a fpdu
-splits over two buffers, but there are no more fpdus on the second buffer,
-two buffers need to be provided as a cookie. To avoid changing the ll2
-interface to provide two cookies, we introduce a piggy buf pointer,
-relevant for iWARP only, that holds a pointer to a second buffer that
-needs to be released during tx completion.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
----
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 25 +++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  1 +
- 2 files changed, 26 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index 83b147f..8b17369 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1846,6 +1846,12 @@ enum qed_iwarp_mpa_pkt_type {
- 	/* vlan overload with enum iwarp_ll2_tx_queues */
- 	tx_pkt.vlan = IWARP_LL2_ALIGNED_TX_QUEUE;
- 
-+	/* special case of unaligned packet and not packed, need to send
-+	 * both buffers as cookie to release.
-+	 */
-+	if (tcp_payload_size == fpdu->incomplete_bytes)
-+		fpdu->mpa_buf->piggy_buf = buf;
-+
- 	ll2_handle = p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle;
- 
- 	/* Set first fragment to header */
-@@ -2195,9 +2201,19 @@ static void qed_iwarp_ll2_comp_tx_pkt(void *cxt, u8 connection_handle,
- 				      bool b_last_fragment, bool b_last_packet)
- {
- 	struct qed_iwarp_ll2_buff *buffer = cookie;
-+	struct qed_iwarp_ll2_buff *piggy;
- 	struct qed_hwfn *p_hwfn = cxt;
- 
-+	if (!buffer)		/* can happen in packed mpa unaligned... */
-+		return;
-+
- 	/* this was originally an rx packet, post it back */
-+	piggy = buffer->piggy_buf;
-+	if (piggy) {
-+		buffer->piggy_buf = NULL;
-+		qed_iwarp_ll2_post_rx(p_hwfn, piggy, connection_handle);
-+	}
-+
- 	qed_iwarp_ll2_post_rx(p_hwfn, buffer, connection_handle);
- 
- 	if (connection_handle == p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle)
-@@ -2216,6 +2232,15 @@ static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
- 	if (!buffer)
- 		return;
- 
-+	if (buffer->piggy_buf) {
-+		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
-+				  buffer->piggy_buf->buff_size,
-+				  buffer->piggy_buf->data,
-+				  buffer->piggy_buf->data_phys_addr);
-+
-+		kfree(buffer->piggy_buf);
-+	}
-+
- 	dma_free_coherent(&p_hwfn->cdev->pdev->dev, buffer->buff_size,
- 			  buffer->data, buffer->data_phys_addr);
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index 858755c..58db51a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -55,6 +55,7 @@ enum qed_iwarp_qp_state {
- #define QED_IWARP_HANDLE_INVAL		(0xff)
- 
- struct qed_iwarp_ll2_buff {
-+	struct qed_iwarp_ll2_buff *piggy_buf;
- 	void *data;
- 	dma_addr_t data_phys_addr;
- 	u32 buff_size;
--- 
-1.8.3.1
+On 09/10/2017 12:31 PM, Florian Westphal wrote:
+> Tariq Toukan <tariqt@mellanox.com> wrote:
+>> On 04/09/2017 1:42 AM, Pablo Neira Ayuso wrote:
+>>> From: Aaron Conole <aconole@bytheb.org>
+>>>
+>>> This converts the storage and layout of netfilter hook entries from a
+>>> linked list to an array.  After this commit, hook entries will be
+>>> stored adjacent in memory.  The next pointer is no longer required.
+>>>
+>>> The ops pointers are stored at the end of the array as they are only
+>>> used in the register/unregister path and in the legacy br_netfilter code.
+>>>
+>>> nf_unregister_net_hooks() is slower than needed as it just calls
+>>> nf_unregister_net_hook in a loop (i.e. at least n synchronize_net()
+>>> calls), this will be addressed in followup patch.
+>>>
+>>> Test setup:
+>>>   - ixgbe 10gbit
+>>>   - netperf UDP_STREAM, 64 byte packets
+>>>   - 5 hooks: (raw + mangle prerouting, mangle+filter input, inet filter):
+>>> empty mangle and raw prerouting, mangle and filter input hooks:
+>>> 353.9
+>>> this patch:
+>>> 364.2
+>>>
+>>> Signed-off-by: Aaron Conole <aconole@bytheb.org>
+>>> Signed-off-by: Florian Westphal <fw@strlen.de>
+>>> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+>>> ---
+>>
+>> Hi,
+>>
+>> We experience a regression in server with iommu enabled.
+>> After installing kernel and rebooting the server, it crashes during boot.
+>> Please see trace below.
+>>
+>> Bisecting points to this patch.
+> 
+> Hmm, strange because
+> 
+>> [   25.907811] BUG: unable to handle kernel NULL pointer dereference at
+>> 000000000000003c
+>> [   25.907828] IP: _raw_read_lock_bh+0x15/0x40
+> 
+> ... this says that ebt_table is NULL (0x3c is the offset of the rwlock).
+> 
+> If you don't have that fix already, does
+
+No, didn't have it.
+
+> https://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git/commit/?id=e6b72ee88a56bcfe63f72e9c30766484c45bec72
+> 
+> netfilter: ebtables: fix race condition in frame_filter_net_init()
+> 
+> resolve this bug for you?
+> 
+
+Now I applied the fix and bug is resolved.
+
+Many thanks!
+Tariq
