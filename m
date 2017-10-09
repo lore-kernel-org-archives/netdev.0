@@ -1,432 +1,116 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 03/15] nfp: bpf: use the power of sparse to check we encode registers right
-Date: Sun,  8 Oct 2017 21:04:05 -0700
-Message-ID: <20171009040417.22172-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 06/15] nfp: bpf: remove register rename
+Date: Sun,  8 Oct 2017 21:04:08 -0700
+Message-ID: <20171009040417.22172-7-jakub.kicinski@netronome.com>
 References: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:53166 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751606AbdJIEFu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:50 -0400
-Received: by mail-pf0-f176.google.com with SMTP id a1so9304306pfj.9
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:49 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:43947 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751653AbdJIEFw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:52 -0400
+Received: by mail-pf0-f179.google.com with SMTP id d2so9340782pfh.0
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:52 -0700 (PDT)
 In-Reply-To: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Define a new __bitwise type for software representation of registers.
-This will allow us to catch incorrect parameter types using sparse.
+Remove the register renumbering optimization.  To implement calling
+map and other helpers we need more strict register layout.  We can't
+freely reassign register numbers.
 
-Accessors we define also allow us to return correct enum type and
-therefore ensure all switches handle all register types.
+This will have the effect of running in 4 context/thread mode, which
+should be OK since we are moving towards integrating the BPF closer
+with FW app datapath anyway, and the target datapath itself runs in
+4 context mode.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/jit.c  | 99 ++++++++++++++-------------
- drivers/net/ethernet/netronome/nfp/bpf/main.h | 24 +------
- drivers/net/ethernet/netronome/nfp/nfp_asm.h  | 45 ++++++++++++
- 3 files changed, 99 insertions(+), 69 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 46 ++--------------------------
+ 1 file changed, 3 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index 239dfbe8a0a1..7e8cdfb39607 100644
+index 095cf50e8450..469dc8a055f2 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -128,11 +128,11 @@ struct nfp_insn_re_regs {
- 	bool i8;
- };
- 
--static u16 nfp_swreg_to_unreg(u32 swreg, bool is_dst)
-+static u16 nfp_swreg_to_unreg(swreg reg, bool is_dst)
- {
--	u16 val = FIELD_GET(NN_REG_VAL, swreg);
-+	u16 val = swreg_value(reg);
- 
--	switch (FIELD_GET(NN_REG_TYPE, swreg)) {
-+	switch (swreg_type(reg)) {
- 	case NN_REG_GPR_A:
- 	case NN_REG_GPR_B:
- 	case NN_REG_GPR_BOTH:
-@@ -149,33 +149,34 @@ static u16 nfp_swreg_to_unreg(u32 swreg, bool is_dst)
- 		return UR_REG_IMM_encode(val);
- 	case NN_REG_NONE:
- 		return is_dst ? UR_REG_NO_DST : REG_NONE;
--	default:
--		pr_err("unrecognized reg encoding %08x\n", swreg);
--		return 0;
+@@ -1621,38 +1621,6 @@ static void nfp_bpf_opt_reg_init(struct nfp_prog *nfp_prog)
  	}
-+
-+	pr_err("unrecognized reg encoding %08x\n", reg);
-+	return 0;
  }
  
- static int
--swreg_to_unrestricted(u32 dst, u32 lreg, u32 rreg, struct nfp_insn_ur_regs *reg)
-+swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
-+		      struct nfp_insn_ur_regs *reg)
+-/* Try to rename registers so that program uses only low ones */
+-static int nfp_bpf_opt_reg_rename(struct nfp_prog *nfp_prog)
+-{
+-	bool reg_used[MAX_BPF_REG] = {};
+-	u8 tgt_reg[MAX_BPF_REG] = {};
+-	struct nfp_insn_meta *meta;
+-	unsigned int i, j;
+-
+-	list_for_each_entry(meta, &nfp_prog->insns, l) {
+-		if (meta->skip)
+-			continue;
+-
+-		reg_used[meta->insn.src_reg] = true;
+-		reg_used[meta->insn.dst_reg] = true;
+-	}
+-
+-	for (i = 0, j = 0; i < ARRAY_SIZE(tgt_reg); i++) {
+-		if (!reg_used[i])
+-			continue;
+-
+-		tgt_reg[i] = j++;
+-	}
+-	nfp_prog->num_regs = j;
+-
+-	list_for_each_entry(meta, &nfp_prog->insns, l) {
+-		meta->insn.src_reg = tgt_reg[meta->insn.src_reg];
+-		meta->insn.dst_reg = tgt_reg[meta->insn.dst_reg];
+-	}
+-
+-	return 0;
+-}
+-
+ /* Remove masking after load since our load guarantees this is not needed */
+ static void nfp_bpf_opt_ld_mask(struct nfp_prog *nfp_prog)
  {
- 	memset(reg, 0, sizeof(*reg));
+@@ -1729,14 +1697,8 @@ static void nfp_bpf_opt_ld_shift(struct nfp_prog *nfp_prog)
  
- 	/* Decode destination */
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_IMM)
-+	if (swreg_type(dst) == NN_REG_IMM)
- 		return -EFAULT;
- 
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_B)
-+	if (swreg_type(dst) == NN_REG_GPR_B)
- 		reg->dst_ab = ALU_DST_B;
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_BOTH)
-+	if (swreg_type(dst) == NN_REG_GPR_BOTH)
- 		reg->wr_both = true;
- 	reg->dst = nfp_swreg_to_unreg(dst, true);
- 
- 	/* Decode source operands */
--	if (FIELD_GET(NN_REG_TYPE, lreg) == FIELD_GET(NN_REG_TYPE, rreg))
-+	if (swreg_type(lreg) == swreg_type(rreg))
- 		return -EFAULT;
- 
--	if (FIELD_GET(NN_REG_TYPE, lreg) == NN_REG_GPR_B ||
--	    FIELD_GET(NN_REG_TYPE, rreg) == NN_REG_GPR_A) {
-+	if (swreg_type(lreg) == NN_REG_GPR_B ||
-+	    swreg_type(rreg) == NN_REG_GPR_A) {
- 		reg->areg = nfp_swreg_to_unreg(rreg, false);
- 		reg->breg = nfp_swreg_to_unreg(lreg, false);
- 		reg->swap = true;
-@@ -187,11 +188,11 @@ swreg_to_unrestricted(u32 dst, u32 lreg, u32 rreg, struct nfp_insn_ur_regs *reg)
- 	return 0;
- }
- 
--static u16 nfp_swreg_to_rereg(u32 swreg, bool is_dst, bool has_imm8, bool *i8)
-+static u16 nfp_swreg_to_rereg(swreg reg, bool is_dst, bool has_imm8, bool *i8)
+ static int nfp_bpf_optimize(struct nfp_prog *nfp_prog)
  {
--	u16 val = FIELD_GET(NN_REG_VAL, swreg);
-+	u16 val = swreg_value(reg);
+-	int ret;
+-
+ 	nfp_bpf_opt_reg_init(nfp_prog);
  
--	switch (FIELD_GET(NN_REG_TYPE, swreg)) {
-+	switch (swreg_type(reg)) {
- 	case NN_REG_GPR_A:
- 	case NN_REG_GPR_B:
- 	case NN_REG_GPR_BOTH:
-@@ -207,34 +208,37 @@ static u16 nfp_swreg_to_rereg(u32 swreg, bool is_dst, bool has_imm8, bool *i8)
- 		return RE_REG_IMM_encode(val & 0x7f);
- 	case NN_REG_NONE:
- 		return is_dst ? RE_REG_NO_DST : REG_NONE;
--	default:
--		pr_err("unrecognized reg encoding\n");
-+	case NN_REG_NNR:
-+		pr_err("NNRs used with restricted encoding\n");
- 		return 0;
+-	ret = nfp_bpf_opt_reg_rename(nfp_prog);
+-	if (ret)
+-		return ret;
+-
+ 	nfp_bpf_opt_ld_mask(nfp_prog);
+ 	nfp_bpf_opt_ld_shift(nfp_prog);
+ 
+@@ -1783,10 +1745,8 @@ nfp_bpf_jit(struct bpf_prog *filter, void *prog_mem,
+ 	if (ret)
+ 		goto out;
+ 
+-	if (nfp_prog->num_regs <= 7)
+-		nfp_prog->regs_per_thread = 16;
+-	else
+-		nfp_prog->regs_per_thread = 32;
++	nfp_prog->num_regs = MAX_BPF_REG;
++	nfp_prog->regs_per_thread = 32;
+ 
+ 	nfp_prog->prog = prog_mem;
+ 	nfp_prog->__prog_alloc_len = prog_sz;
+@@ -1799,7 +1759,7 @@ nfp_bpf_jit(struct bpf_prog *filter, void *prog_mem,
  	}
-+
-+	pr_err("unrecognized reg encoding\n");
-+	return 0;
- }
  
- static int
--swreg_to_restricted(u32 dst, u32 lreg, u32 rreg, struct nfp_insn_re_regs *reg,
--		    bool has_imm8)
-+swreg_to_restricted(swreg dst, swreg lreg, swreg rreg,
-+		    struct nfp_insn_re_regs *reg, bool has_imm8)
- {
- 	memset(reg, 0, sizeof(*reg));
+ 	res->n_instr = nfp_prog->prog_len;
+-	res->dense_mode = nfp_prog->num_regs <= 7;
++	res->dense_mode = false;
+ out:
+ 	nfp_prog_free(nfp_prog);
  
- 	/* Decode destination */
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_IMM)
-+	if (swreg_type(dst) == NN_REG_IMM)
- 		return -EFAULT;
- 
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_B)
-+	if (swreg_type(dst) == NN_REG_GPR_B)
- 		reg->dst_ab = ALU_DST_B;
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_GPR_BOTH)
-+	if (swreg_type(dst) == NN_REG_GPR_BOTH)
- 		reg->wr_both = true;
- 	reg->dst = nfp_swreg_to_rereg(dst, true, false, NULL);
- 
- 	/* Decode source operands */
--	if (FIELD_GET(NN_REG_TYPE, lreg) == FIELD_GET(NN_REG_TYPE, rreg))
-+	if (swreg_type(lreg) == swreg_type(rreg))
- 		return -EFAULT;
- 
--	if (FIELD_GET(NN_REG_TYPE, lreg) == NN_REG_GPR_B ||
--	    FIELD_GET(NN_REG_TYPE, rreg) == NN_REG_GPR_A) {
-+	if (swreg_type(lreg) == NN_REG_GPR_B ||
-+	    swreg_type(rreg) == NN_REG_GPR_A) {
- 		reg->areg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
- 		reg->breg = nfp_swreg_to_rereg(lreg, false, has_imm8, &reg->i8);
- 		reg->swap = true;
-@@ -281,7 +285,7 @@ __emit_cmd(struct nfp_prog *nfp_prog, enum cmd_tgt_map op,
- 
- static void
- emit_cmd(struct nfp_prog *nfp_prog, enum cmd_tgt_map op,
--	 u8 mode, u8 xfer, u32 lreg, u32 rreg, u8 size, bool sync)
-+	 u8 mode, u8 xfer, swreg lreg, swreg rreg, u8 size, bool sync)
- {
- 	struct nfp_insn_re_regs reg;
- 	int err;
-@@ -364,7 +368,7 @@ __emit_br_byte(struct nfp_prog *nfp_prog, u8 areg, u8 breg, bool imm8,
- 
- static void
- emit_br_byte_neq(struct nfp_prog *nfp_prog,
--		 u32 dst, u8 imm, u8 byte, u16 addr, u8 defer)
-+		 swreg dst, u8 imm, u8 byte, u16 addr, u8 defer)
- {
- 	struct nfp_insn_re_regs reg;
- 	int err;
-@@ -399,13 +403,13 @@ __emit_immed(struct nfp_prog *nfp_prog, u16 areg, u16 breg, u16 imm_hi,
- }
- 
- static void
--emit_immed(struct nfp_prog *nfp_prog, u32 dst, u16 imm,
-+emit_immed(struct nfp_prog *nfp_prog, swreg dst, u16 imm,
- 	   enum immed_width width, bool invert, enum immed_shift shift)
- {
- 	struct nfp_insn_ur_regs reg;
- 	int err;
- 
--	if (FIELD_GET(NN_REG_TYPE, dst) == NN_REG_IMM) {
-+	if (swreg_type(dst) == NN_REG_IMM) {
- 		nfp_prog->error = -EFAULT;
- 		return;
- 	}
-@@ -451,8 +455,8 @@ __emit_shf(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
- }
- 
- static void
--emit_shf(struct nfp_prog *nfp_prog, u32 dst, u32 lreg, enum shf_op op, u32 rreg,
--	 enum shf_sc sc, u8 shift)
-+emit_shf(struct nfp_prog *nfp_prog, swreg dst,
-+	 swreg lreg, enum shf_op op, swreg rreg, enum shf_sc sc, u8 shift)
- {
- 	struct nfp_insn_re_regs reg;
- 	int err;
-@@ -486,7 +490,8 @@ __emit_alu(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
- }
- 
- static void
--emit_alu(struct nfp_prog *nfp_prog, u32 dst, u32 lreg, enum alu_op op, u32 rreg)
-+emit_alu(struct nfp_prog *nfp_prog, swreg dst,
-+	 swreg lreg, enum alu_op op, swreg rreg)
- {
- 	struct nfp_insn_ur_regs reg;
- 	int err;
-@@ -524,7 +529,7 @@ __emit_ld_field(struct nfp_prog *nfp_prog, enum shf_sc sc,
- 
- static void
- emit_ld_field_any(struct nfp_prog *nfp_prog, enum shf_sc sc, u8 shift,
--		  u32 dst, u8 bmask, u32 src, bool zero)
-+		  swreg dst, u8 bmask, swreg src, bool zero)
- {
- 	struct nfp_insn_re_regs reg;
- 	int err;
-@@ -540,7 +545,7 @@ emit_ld_field_any(struct nfp_prog *nfp_prog, enum shf_sc sc, u8 shift,
- }
- 
- static void
--emit_ld_field(struct nfp_prog *nfp_prog, u32 dst, u8 bmask, u32 src,
-+emit_ld_field(struct nfp_prog *nfp_prog, swreg dst, u8 bmask, swreg src,
- 	      enum shf_sc sc, u8 shift)
- {
- 	emit_ld_field_any(nfp_prog, sc, shift, dst, bmask, src, false);
-@@ -565,7 +570,7 @@ static bool pack_immed(u32 imm, u16 *val, enum immed_shift *shift)
- 	return true;
- }
- 
--static void wrp_immed(struct nfp_prog *nfp_prog, u32 dst, u32 imm)
-+static void wrp_immed(struct nfp_prog *nfp_prog, swreg dst, u32 imm)
- {
- 	enum immed_shift shift;
- 	u16 val;
-@@ -586,7 +591,7 @@ static void wrp_immed(struct nfp_prog *nfp_prog, u32 dst, u32 imm)
-  * If the @imm is small enough encode it directly in operand and return
-  * otherwise load @imm to a spare register and return its encoding.
-  */
--static u32 ur_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, u32 tmp_reg)
-+static swreg ur_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, swreg tmp_reg)
- {
- 	if (FIELD_FIT(UR_REG_IMM_MAX, imm))
- 		return reg_imm(imm);
-@@ -599,7 +604,7 @@ static u32 ur_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, u32 tmp_reg)
-  * If the @imm is small enough encode it directly in operand and return
-  * otherwise load @imm to a spare register and return its encoding.
-  */
--static u32 re_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, u32 tmp_reg)
-+static swreg re_load_imm_any(struct nfp_prog *nfp_prog, u32 imm, swreg tmp_reg)
- {
- 	if (FIELD_FIT(RE_REG_IMM_MAX, imm))
- 		return reg_imm(imm);
-@@ -629,7 +634,7 @@ construct_data_ind_ld(struct nfp_prog *nfp_prog, u16 offset,
- {
- 	unsigned int i;
- 	u16 shift, sz;
--	u32 tmp_reg;
-+	swreg tmp_reg;
- 
- 	/* We load the value from the address indicated in @offset and then
- 	 * shift out the data we don't need.  Note: this is big endian!
-@@ -697,7 +702,7 @@ static int wrp_set_mark(struct nfp_prog *nfp_prog, u8 src)
- static void
- wrp_alu_imm(struct nfp_prog *nfp_prog, u8 dst, enum alu_op alu_op, u32 imm)
- {
--	u32 tmp_reg;
-+	swreg tmp_reg;
- 
- 	if (alu_op == ALU_OP_AND) {
- 		if (!imm)
-@@ -815,7 +820,7 @@ wrp_cmp_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
- 	const struct bpf_insn *insn = &meta->insn;
- 	u64 imm = insn->imm; /* sign extend */
- 	u8 reg = insn->dst_reg * 2;
--	u32 tmp_reg;
-+	swreg tmp_reg;
- 
- 	if (insn->off < 0) /* TODO */
- 		return -EOPNOTSUPP;
-@@ -1139,7 +1144,7 @@ static int mem_ldx4_skb(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- 
- static int mem_ldx4_xdp(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
--	u32 dst = reg_both(meta->insn.dst_reg * 2);
-+	swreg dst = reg_both(meta->insn.dst_reg * 2);
- 
- 	if (meta->insn.off != offsetof(struct xdp_md, data) &&
- 	    meta->insn.off != offsetof(struct xdp_md, data_end))
-@@ -1202,8 +1207,10 @@ static int jeq_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
- 	const struct bpf_insn *insn = &meta->insn;
- 	u64 imm = insn->imm; /* sign extend */
--	u32 or1 = reg_a(insn->dst_reg * 2), or2 = reg_b(insn->dst_reg * 2 + 1);
--	u32 tmp_reg;
-+	swreg or1, or2, tmp_reg;
-+
-+	or1 = reg_a(insn->dst_reg * 2);
-+	or2 = reg_b(insn->dst_reg * 2 + 1);
- 
- 	if (insn->off < 0) /* TODO */
- 		return -EOPNOTSUPP;
-@@ -1252,7 +1259,7 @@ static int jset_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
- 	const struct bpf_insn *insn = &meta->insn;
- 	u64 imm = insn->imm; /* sign extend */
--	u32 tmp_reg;
-+	swreg tmp_reg;
- 
- 	if (insn->off < 0) /* TODO */
- 		return -EOPNOTSUPP;
-@@ -1283,7 +1290,7 @@ static int jne_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
- 	const struct bpf_insn *insn = &meta->insn;
- 	u64 imm = insn->imm; /* sign extend */
--	u32 tmp_reg;
-+	swreg tmp_reg;
- 
- 	if (insn->off < 0) /* TODO */
- 		return -EOPNOTSUPP;
-diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.h b/drivers/net/ethernet/netronome/nfp/bpf/main.h
-index 4051e943f363..ccc3dbea25f6 100644
---- a/drivers/net/ethernet/netronome/nfp/bpf/main.h
-+++ b/drivers/net/ethernet/netronome/nfp/bpf/main.h
-@@ -39,6 +39,7 @@
- #include <linux/list.h>
- #include <linux/types.h>
- 
-+#include "../nfp_asm.h"
- #include "../nfp_net.h"
- 
- /* For branch fixup logic use up-most byte of branch instruction as scratch
-@@ -65,29 +66,6 @@ enum nfp_bpf_action_type {
- 	NN_ACT_XDP,
- };
- 
--/* Software register representation, hardware encoding in asm.h */
--#define NN_REG_TYPE	GENMASK(31, 24)
--#define NN_REG_VAL	GENMASK(7, 0)
--
--enum nfp_bpf_reg_type {
--	NN_REG_GPR_A =	BIT(0),
--	NN_REG_GPR_B =	BIT(1),
--	NN_REG_NNR =	BIT(2),
--	NN_REG_XFER =	BIT(3),
--	NN_REG_IMM =	BIT(4),
--	NN_REG_NONE =	BIT(5),
--};
--
--#define NN_REG_GPR_BOTH	(NN_REG_GPR_A | NN_REG_GPR_B)
--
--#define reg_both(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_GPR_BOTH))
--#define reg_a(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_GPR_A))
--#define reg_b(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_GPR_B))
--#define reg_nnr(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_NNR))
--#define reg_xfer(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_XFER))
--#define reg_imm(x)	((x) | FIELD_PREP(NN_REG_TYPE, NN_REG_IMM))
--#define reg_none()	(FIELD_PREP(NN_REG_TYPE, NN_REG_NONE))
--
- #define pkt_reg(np)	reg_a((np)->regs_per_thread - STATIC_REG_PKT)
- #define imm_a(np)	reg_a((np)->regs_per_thread - STATIC_REG_IMM)
- #define imm_b(np)	reg_b((np)->regs_per_thread - STATIC_REG_IMM)
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-index d2b535739d2b..9b9d5d18ee20 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-@@ -34,6 +34,7 @@
- #ifndef __NFP_ASM_H__
- #define __NFP_ASM_H__ 1
- 
-+#include <linux/bitfield.h>
- #include <linux/types.h>
- 
- #define REG_NONE	0
-@@ -230,4 +231,48 @@ enum lcsr_wr_src {
- #define OP_CARB_BASE	0x0e000000000ULL
- #define OP_CARB_OR	0x00000010000ULL
- 
-+/* Software register representation, independent of operand type */
-+#define NN_REG_TYPE	GENMASK(31, 24)
-+#define NN_REG_VAL	GENMASK(7, 0)
-+
-+enum nfp_bpf_reg_type {
-+	NN_REG_GPR_A =	BIT(0),
-+	NN_REG_GPR_B =	BIT(1),
-+	NN_REG_GPR_BOTH = NN_REG_GPR_A | NN_REG_GPR_B,
-+	NN_REG_NNR =	BIT(2),
-+	NN_REG_XFER =	BIT(3),
-+	NN_REG_IMM =	BIT(4),
-+	NN_REG_NONE =	BIT(5),
-+};
-+
-+#define reg_both(x)	__enc_swreg((x), NN_REG_GPR_BOTH)
-+#define reg_a(x)	__enc_swreg((x), NN_REG_GPR_A)
-+#define reg_b(x)	__enc_swreg((x), NN_REG_GPR_B)
-+#define reg_nnr(x)	__enc_swreg((x), NN_REG_NNR)
-+#define reg_xfer(x)	__enc_swreg((x), NN_REG_XFER)
-+#define reg_imm(x)	__enc_swreg((x), NN_REG_IMM)
-+#define reg_none()	__enc_swreg(0, NN_REG_NONE)
-+
-+typedef __u32 __bitwise swreg;
-+
-+static inline swreg __enc_swreg(u16 id, u8 type)
-+{
-+	return (__force swreg)(id | FIELD_PREP(NN_REG_TYPE, type));
-+}
-+
-+static inline u32 swreg_raw(swreg reg)
-+{
-+	return (__force u32)reg;
-+}
-+
-+static inline enum nfp_bpf_reg_type swreg_type(swreg reg)
-+{
-+	return FIELD_GET(NN_REG_TYPE, swreg_raw(reg));
-+}
-+
-+static inline u16 swreg_value(swreg reg)
-+{
-+	return FIELD_GET(NN_REG_VAL, swreg_raw(reg));
-+}
-+
- #endif
 -- 
 2.14.1
