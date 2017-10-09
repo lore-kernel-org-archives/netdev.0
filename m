@@ -1,257 +1,214 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net v1 2/2] net: fec: Let fec_ptp have its own interrupt
- routine
-Date: Mon, 9 Oct 2017 02:55:30 +0000
-Message-ID: <AM4PR0401MB226084D06C656E2B5EC1B22FFF740@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20171003000442.31841-1-troy.kisky@boundarydevices.com>
- <20171003000442.31841-2-troy.kisky@boundarydevices.com>
+From: Greg Ungerer <gerg@linux-m68k.org>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: rework in-chip bridging
+Date: Mon, 9 Oct 2017 13:23:43 +1000
+Message-ID: <18a28b2b-3e59-77d1-961b-213171b98136@linux-m68k.org>
+References: <ab86ad59-06af-b4ab-0bc6-dace73f04ef0@linux-m68k.org>
+ <339d3e25-8262-d0c3-16f9-75fa9faa25dd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-        "lznuaa@gmail.com" <lznuaa@gmail.com>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-        "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50055.outbound.protection.outlook.com ([40.107.5.55]:19904
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753408AbdJICzk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Oct 2017 22:55:40 -0400
-In-Reply-To: <20171003000442.31841-2-troy.kisky@boundarydevices.com>
+Received: from icp-osb-irony-out7.external.iinet.net.au ([203.59.1.107]:42202
+        "EHLO icp-osb-irony-out7.external.iinet.net.au" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753885AbdJIDYb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Oct 2017 23:24:31 -0400
+In-Reply-To: <339d3e25-8262-d0c3-16f9-75fa9faa25dd@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Tuesday, October 03=
-, 2017 8:05 AM
->To: shawn.guo@linaro.org; Andy Duan <fugang.duan@nxp.com>;
->netdev@vger.kernel.org; davem@davemloft.net
->Cc: Fabio Estevam <fabio.estevam@nxp.com>; lznuaa@gmail.com; Troy Kisky
-><troy.kisky@boundarydevices.com>
->Subject: [PATCH net v1 2/2] net: fec: Let fec_ptp have its own interrupt
->routine
->
->This is better for code locality and should slightly speed up normal inter=
-rupts.
->
->This also allows PPS clock output to start working for i.mx7. This is beca=
-use
->i.mx7 was already using the limit of 3 interrupts, and needed another.
->
->Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
->
->---
->If this patch is taken before the corresponding dtb file patch than time
->stamping will be momentarily broken.
->---
+Hi Florian,
 
-The two patches for PPS seems=20
+On 07/10/17 13:04, Florian Fainelli wrote:
+> Le 10/03/17 à 23:20, Greg Ungerer a écrit :
+>> On Wed, Mar 29, 2017 at 04:30:16PM -0400, Vivien Didelot wrote:
+>>> All ports -- internal and external, for chips featuring a PVT -- have a
+>>> mask restricting to which internal ports a frame is allowed to egress.
+>>>
+>>> Now that DSA exposes the number of ports and their bridge devices, it is
+>>> possible to extract the code generating the VLAN map and make it generic
+>>> so that it can be shared later with the cross-chip bridging code.
+>>
+>> This patch changes the behavior of interfaces on startup if they are
+>> not part of a bridge.
+>>
+>> I have a board with a Marvell 6350 switch with a device tree that sets
+>> up the 5 ports as lan1, lan2, lan3, lan4, wan. With kernels before
+>> this patch (so linux-4.12 and older) after system startup I could do:
+>>
+>>   ifconfig lan1 192.168.0.1
+>>
+>> And then ping out that interface with no problems.
+>>
+>> After this patch is applied (effects linux-4.13 and newer) then the
+>> ping fails:
+>>
+>>   PING 192.168.0.22 (192.168.0.22) 56(84) bytes of data.
+>>   From 192.168.0.1 icmp_seq=1 Destination Host Unreachable
+>>   From 192.168.0.1 icmp_seq=2 Destination Host Unreachable
+>>   From 192.168.0.1 icmp_seq=3 Destination Host Unreachable
+>>
+>> If I incorporate an interface into a bridge then it all works ok.
+>> So simply:
+>>
+>>   brctl addbr br0
+>>   brctl addif br0 lan1
+>>   ifconfig lan1 up
+>>   ifconfig br0 192.168.0.1
+>>
+>> Then pings out work as expected. And if I now remove that lan1
+>> interface from the bridge and use it alone again then it will
+>> now work ok:
+>>
+>>   ifconfig br0 down
+>>   brctl delif br0 lan1
+>>   ifconfig lan1 192.168.0.1
+>>
+>> And that now pings ok.
+>>
+>> I fixed this with the attached patch. It is probably not the correct
+>> approach, but it does restore the older behavior.
+>>
+>> What do you think?
+> 
+> This is strange, the dsa_switch_tree and its associated dsa_switch
+> instances should be fully setup by the time ops->setup() is running in
+> your driver but your patch suggests this may not be happening?
 
-> drivers/net/ethernet/freescale/fec.h      |  1 -
-> drivers/net/ethernet/freescale/fec_main.c | 15 +++---
->drivers/net/ethernet/freescale/fec_ptp.c  | 77 ++++++++++++++++++--------
->-----
-> 3 files changed, 52 insertions(+), 41 deletions(-)
->
->diff --git a/drivers/net/ethernet/freescale/fec.h
->b/drivers/net/ethernet/freescale/fec.h
->index ede1876a9a19..782509041102 100644
->--- a/drivers/net/ethernet/freescale/fec.h
->+++ b/drivers/net/ethernet/freescale/fec.h
->@@ -587,7 +587,6 @@ void fec_ptp_stop(struct platform_device *pdev);
->void fec_ptp_start_cyclecounter(struct net_device *ndev);  int
->fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);  int
->fec_ptp_get(struct net_device *ndev, struct ifreq *ifr); -uint
->fec_ptp_check_pps_event(struct fec_enet_private *fep);
->
->
->/**********************************************************
->******************/
-> #endif /* FEC_H */
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index 3dc2d771a222..80fe04165ba0 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -1602,10 +1602,6 @@ fec_enet_interrupt(int irq, void *dev_id)
-> 		ret =3D IRQ_HANDLED;
-> 		complete(&fep->mdio_done);
-> 	}
->-
->-	if (fep->ptp_clock)
->-		if (fec_ptp_check_pps_event(fep))
->-			ret =3D IRQ_HANDLED;
-> 	return ret;
-> }
->
->@@ -3325,6 +3321,7 @@ fec_probe(struct platform_device *pdev)
-> 	struct device_node *np =3D pdev->dev.of_node, *phy_node;
-> 	int num_tx_qs;
-> 	int num_rx_qs;
->+	int ptp_irq, j;
->
-> 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
->
->@@ -3472,20 +3469,24 @@ fec_probe(struct platform_device *pdev)
-> 	if (ret)
-> 		goto failed_init;
->
->-	for (i =3D 0; i < FEC_IRQ_NUM; i++) {
->-		irq =3D platform_get_irq(pdev, i);
->+	ptp_irq =3D platform_get_irq_byname(pdev, "ptp");
+That is what I am seeing, yep.
 
-Here, interrupt-names property is required properties, it should update bin=
-ding doc.
-Also need to handle the return value checking.
 
->+	i =3D j =3D 0;
->+	while (i < FEC_IRQ_NUM) {
->+		irq =3D platform_get_irq(pdev, j++);
-> 		if (irq < 0) {
-> 			if (i)
-> 				break;
-> 			ret =3D irq;
-> 			goto failed_irq;
-> 		}
->+		if (irq =3D=3D ptp_irq)
->+			continue;
-> 		ret =3D devm_request_irq(&pdev->dev, irq, fec_enet_interrupt,
-> 				       0, pdev->name, ndev);
-> 		if (ret)
-> 			goto failed_irq;
->
->-		fep->irq[i] =3D irq;
->+		fep->irq[i++] =3D irq;
+> Are you using the new style Device Tree binding or the old style Device
+> Tree binding out of curiosity?
 
-I think it is not necessary to split pps interrupt handler.
-To support pps interrupt handler,  just change the maximum interrupt number=
- FEC_IRQ_NUM to 4 that minimize the code change.
+This is my device tree fragment for the switch:
 
-> 	}
->
-> 	init_completion(&fep->mdio_done);
->diff --git a/drivers/net/ethernet/freescale/fec_ptp.c
->b/drivers/net/ethernet/freescale/fec_ptp.c
->index 6ebad3fac81d..20e01a3ca453 100644
->--- a/drivers/net/ethernet/freescale/fec_ptp.c
->+++ b/drivers/net/ethernet/freescale/fec_ptp.c
->@@ -549,6 +549,38 @@ static void fec_time_keep(struct work_struct *work)
-> 	schedule_delayed_work(&fep->time_keep, HZ);  }
->
->+/*
->+ * This function checks the pps event and reloads the timer compare count=
-er.
->+ */
->+static irqreturn_t fec_ptp_interrupt(int irq, void *dev_id) {
->+	struct net_device *ndev =3D dev_id;
->+	struct fec_enet_private *fep =3D netdev_priv(ndev);
->+	u32 val;
->+	u8 channel =3D fep->pps_channel;
->+	struct ptp_clock_event event;
->+
->+	val =3D readl(fep->hwp + FEC_TCSR(channel));
->+	if (val & FEC_T_TF_MASK) {
->+		/* Write the next next compare(not the next according the
->spec)
->+		 * value to the register
->+		 */
->+		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
->+		do {
->+			writel(val, fep->hwp + FEC_TCSR(channel));
->+		} while (readl(fep->hwp + FEC_TCSR(channel)) &
->FEC_T_TF_MASK);
->+
->+		/* Update the counter; */
->+		fep->next_counter =3D (fep->next_counter + fep-
->>reload_period) &
->+fep->cc.mask;
->+
->+		event.type =3D PTP_CLOCK_PPS;
->+		ptp_clock_event(fep->ptp_clock, &event);
->+		return IRQ_HANDLED;
->+	}
->+
->+	return IRQ_NONE;
->+}
->+
-> /**
->  * fec_ptp_init
->  * @ndev: The FEC network adapter
->@@ -562,6 +594,8 @@ void fec_ptp_init(struct platform_device *pdev)  {
-> 	struct net_device *ndev =3D platform_get_drvdata(pdev);
-> 	struct fec_enet_private *fep =3D netdev_priv(ndev);
->+	int irq;
->+	int ret;
->
-> 	fep->ptp_caps.owner =3D THIS_MODULE;
-> 	snprintf(fep->ptp_caps.name, 16, "fec ptp"); @@ -587,6 +621,16 @@
->void fec_ptp_init(struct platform_device *pdev)
->
-> 	INIT_DELAYED_WORK(&fep->time_keep, fec_time_keep);
->
->+	irq =3D platform_get_irq_byname(pdev, "ptp");
->+	if (irq < 0)
->+		return;
+        dsa@0 {
+                compatible = "marvell,dsa";
+                #address-cells = <2>;
+                #size-cells = <0>;
 
-If dts don't set interrupt name, here break ptp function. Suppose PPS don't=
- break ptp.
+                dsa,ethernet = <&eth0>;
+                dsa,mii-bus = <&mdio>;
 
->+	ret =3D devm_request_irq(&pdev->dev, irq, fec_ptp_interrupt,
->+			       0, pdev->name, ndev);
->+	if (ret < 0) {
->+		dev_warn(&pdev->dev, "request for ptp irq failed(%d)\n",
->ret);
->+		return;
+                switch@0 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        reg = <0x11 0>;
 
-Ditto...
+                        port@0 {
+                                reg = <0>;
+                                label = "lan1";
+                        };
+                        port@1 {
+                                reg = <1>;
+                                label = "lan2";
+                        };
+                        port@2 {
+                                reg = <2>;
+                                label = "lan3";
+                        };
+                        port@3 {
+                                reg = <3>;
+                                label = "lan4";
+                        };
+                        port@4 {
+                                reg = <4>;
+                                label = "wan";
+                        };
+                        port@5 {
+                                reg = <5>;
+                                label = "cpu";
+                        };
+                };
+         };
 
->+	}
->+
-> 	fep->ptp_clock =3D ptp_clock_register(&fep->ptp_caps, &pdev->dev);
-> 	if (IS_ERR(fep->ptp_clock)) {
-> 		fep->ptp_clock =3D NULL;
->@@ -605,36 +649,3 @@ void fec_ptp_stop(struct platform_device *pdev)
-> 	if (fep->ptp_clock)
-> 		ptp_clock_unregister(fep->ptp_clock);
-> }
->-
->-/**
->- * fec_ptp_check_pps_event
->- * @fep: the fec_enet_private structure handle
->- *
->- * This function check the pps event and reload the timer compare counter=
-.
->- */
->-uint fec_ptp_check_pps_event(struct fec_enet_private *fep) -{
->-	u32 val;
->-	u8 channel =3D fep->pps_channel;
->-	struct ptp_clock_event event;
->-
->-	val =3D readl(fep->hwp + FEC_TCSR(channel));
->-	if (val & FEC_T_TF_MASK) {
->-		/* Write the next next compare(not the next according the
->spec)
->-		 * value to the register
->-		 */
->-		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
->-		do {
->-			writel(val, fep->hwp + FEC_TCSR(channel));
->-		} while (readl(fep->hwp + FEC_TCSR(channel)) &
->FEC_T_TF_MASK);
->-
->-		/* Update the counter; */
->-		fep->next_counter =3D (fep->next_counter + fep-
->>reload_period) & fep->cc.mask;
->-
->-		event.type =3D PTP_CLOCK_PPS;
->-		ptp_clock_event(fep->ptp_clock, &event);
->-		return 1;
->-	}
->-
->-	return 0;
->-}
->--
->2.11.0
+The board I am using is based around an Marvell Armada 370. This device tree
+setup looks pretty similar to the other Marvell boards using marvell,dsa.
+
+Regards
+Greg
+
+
+
+>>> Signed-off-by: Vivien Didelot <vivien.dide...@savoirfairelinux.com>
+>>> ---
+>>>  drivers/net/dsa/mv88e6xxx/chip.c | 53 ++++++++++++++++++++++++++--------------
+>>>  1 file changed, 34 insertions(+), 19 deletions(-)
+>>>
+>>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+>>> index b114bf8e6a11..e5165831e8b5 100644
+>>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+>>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+>>> @@ -1123,27 +1123,42 @@ static int mv88e6xxx_set_eee(struct dsa_switch *ds, int 
+>>> port,
+>>>         return err;
+>>>  }
+>>>  
+>>> +static u16 mv88e6xxx_port_vlan(struct mv88e6xxx_chip *chip, int dev, int port)
+>>> +{
+>>> +       struct dsa_switch *ds = NULL;
+>>> +       struct net_device *br;
+>>> +       u16 pvlan;
+>>> +       int i;
+>>> +
+>>> +       if (dev < DSA_MAX_SWITCHES)
+>>> +               ds = chip->ds->dst->ds[dev];
+>>> +
+>>> +       /* Prevent frames from unknown switch or port */
+>>> +       if (!ds || port >= ds->num_ports)
+>>> +               return 0;
+>>> +
+>>> +       /* Frames from DSA links and CPU ports can egress any local port */
+>>> +       if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port))
+>>> +               return mv88e6xxx_port_mask(chip);
+>>> +
+>>> +       br = ds->ports[port].bridge_dev;
+>>> +       pvlan = 0;
+>>> +
+>>> +       /* Frames from user ports can egress any local DSA links and CPU ports,
+>>> +        * as well as any local member of their bridge group.
+>>> +        */
+>>> +       for (i = 0; i < mv88e6xxx_num_ports(chip); ++i)
+>>> +               if (dsa_is_cpu_port(chip->ds, i) ||
+>>> +                   dsa_is_dsa_port(chip->ds, i) ||
+>>> +                   (br && chip->ds->ports[i].bridge_dev == br))
+>>> +                       pvlan |= BIT(i);
+>>> +
+>>> +       return pvlan;
+>>> +}
+>>> +
+>>>  static int _mv88e6xxx_port_based_vlan_map(struct mv88e6xxx_chip *chip, int 
+>>> port)
+>>>  {
+>>> -       struct dsa_switch *ds = chip->ds;
+>>> -       struct net_device *bridge = ds->ports[port].bridge_dev;
+>>> -       u16 output_ports = 0;
+>>> -       int i;
+>>> -
+>>> -       /* allow CPU port or DSA link(s) to send frames to every port */
+>>> -       if (dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)) {
+>>> -               output_ports = ~0;
+>>> -       } else {
+>>> -               for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+>>> -                       /* allow sending frames to every group member */
+>>> -                       if (bridge && ds->ports[i].bridge_dev == bridge)
+>>> -                               output_ports |= BIT(i);
+>>> -
+>>> -                       /* allow sending frames to CPU port and DSA link(s) */
+>>> -                       if (dsa_is_cpu_port(ds, i) || dsa_is_dsa_port(ds, i))
+>>> -                               output_ports |= BIT(i);
+>>> -               }
+>>> -       }
+>>> +       u16 output_ports = mv88e6xxx_port_vlan(chip, chip->ds->index, port);
+>>>  
+>>>         /* prevent frames from going back out of the port they came in on */
+>>>         output_ports &= ~BIT(port);
+>>> -- 
+>>
+> 
+> 
