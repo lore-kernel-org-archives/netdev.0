@@ -1,71 +1,75 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: RIF/VRF overflow in spectrum and reporting errors back to user
-Date: Mon, 9 Oct 2017 12:31:10 +0300
-Message-ID: <20171009093110.GA5193@shredder.mtl.com>
-References: <8d0df382-35d1-7991-1c39-9a2b5d5334e2@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 41/47] netfilter: convert hook list to an array
+Date: Mon, 9 Oct 2017 11:31:32 +0200
+Message-ID: <20171009093132.GA7150@breakpoint.cc>
+References: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
+ <1504478574-13281-6-git-send-email-pablo@netfilter.org>
+ <81603cbd-603d-1d93-a29a-1174fc826dec@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        netfilter-devel@vger.kernel.org, Aaron Conole <aconole@bytheb.org>,
+        Florian Westphal <fw@strlen.de>, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39605 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751636AbdJIJbM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:31:12 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:53416 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751636AbdJIJbl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:31:41 -0400
 Content-Disposition: inline
-In-Reply-To: <8d0df382-35d1-7991-1c39-9a2b5d5334e2@gmail.com>
+In-Reply-To: <81603cbd-603d-1d93-a29a-1174fc826dec@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-On Sun, Oct 08, 2017 at 02:10:33PM -0600, David Ahern wrote:
-> Jiri / Ido:
+Tariq Toukan <tariqt@mellanox.com> wrote:
+> On 04/09/2017 1:42 AM, Pablo Neira Ayuso wrote:
+> >From: Aaron Conole <aconole@bytheb.org>
+> >
+> >This converts the storage and layout of netfilter hook entries from a
+> >linked list to an array.  After this commit, hook entries will be
+> >stored adjacent in memory.  The next pointer is no longer required.
+> >
+> >The ops pointers are stored at the end of the array as they are only
+> >used in the register/unregister path and in the legacy br_netfilter code.
+> >
+> >nf_unregister_net_hooks() is slower than needed as it just calls
+> >nf_unregister_net_hook in a loop (i.e. at least n synchronize_net()
+> >calls), this will be addressed in followup patch.
+> >
+> >Test setup:
+> >  - ixgbe 10gbit
+> >  - netperf UDP_STREAM, 64 byte packets
+> >  - 5 hooks: (raw + mangle prerouting, mangle+filter input, inet filter):
+> >empty mangle and raw prerouting, mangle and filter input hooks:
+> >353.9
+> >this patch:
+> >364.2
+> >
+> >Signed-off-by: Aaron Conole <aconole@bytheb.org>
+> >Signed-off-by: Florian Westphal <fw@strlen.de>
+> >Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> >---
 > 
-> I am looking at adding user messages for spectrum failures related to
-> RIF and VRF overflow coming from the inetaddr and inet6addr notifier
-> paths. The key is that if the notifiers fail the address add needs to
-> fail and an error reported to the user as to what happened.
-
-Thanks for working on this. Very nice idea!
-
-> Earlier this year 3ad7d2468f79f added in_validator_info and
-> in6_validator_info as a way for the notifiers to fail adding an address.
-> Adding support to spectrum for that notifier is complicated by the fact
-> that the validator notifier and address notifiers will come in back to
-> back for the NETDEV_UP case. Ignoring NETDEV_UP in
-> mlxsw_sp_inetaddr_event seems ok for IPv6 but not clear for IPv4 since
-> the NETDEV_UP case is emitted on an address delete that involves a
-> promotion. Handling the back to back NETDEV_UP is complicated since
-> functions invoked by __mlxsw_sp_inetaddr_event can take multiple
-> references. Specifically, in mlxsw_sp_port_vlan_router_join():
->     fid = rif->ops->fid_get(rif);
+> Hi,
 > 
-> Can NETDEV_UP be ignored for the inetaddr notifier if it is handled by
-> the validator notitifer?
+> We experience a regression in server with iommu enabled.
+> After installing kernel and rebooting the server, it crashes during boot.
+> Please see trace below.
+> 
+> Bisecting points to this patch.
 
-Yes. The case where we get a NETDEV_DOWN for an address delete and then
-a NETDEV_UP for a promotion is basically a NOP from the driver's
-perspective. When the NETDEV_DOWN is received, the RIF isn't destroyed
-because the address list isn't empty (there's an address to be
-promoted). When the NETDEV_UP is received, it's ignored because we
-already have a RIF.
+Hmm, strange because
 
-Regarding IPv6, it's a bit more complicated actually, since we do the
-actual work in a workqueue, as the notification chain is atomic. I
-believe this is because the notifier can be called from softirq in
-response to RA packets.
+> [   25.907811] BUG: unable to handle kernel NULL pointer dereference at
+> 000000000000003c
+> [   25.907828] IP: _raw_read_lock_bh+0x15/0x40
 
-However, this case isn't interesting for mlxsw, as the fact that you
-process an RA packet suggests you already have a link-local address and
-thus a RIF. Plus, the kernel won't even process such packets in our case
-as you most likely have forwarding enabled (unless you tweaked accept_ra
-for some reason).
+... this says that ebt_table is NULL (0x3c is the offset of the rwlock).
 
-Looking at ipvlan (the only user of inet6addr_validator_chain), I see
-that it ignores this specific case and returns NOTIFY_DONE. Maybe we can
-move this notification chain to be blocking and not call it in response
-to RA packets seeing that all its users ignore it?
+If you don't have that fix already, does
+https://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git/commit/?id=e6b72ee88a56bcfe63f72e9c30766484c45bec72
 
-Please let me know if you need my help in any way.
+netfilter: ebtables: fix race condition in frame_filter_net_init()
+
+resolve this bug for you?
