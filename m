@@ -1,97 +1,40 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH v3] lib: fix multiple strlcpy definition
-Date: Mon,  9 Oct 2017 08:49:44 +0300
-Message-ID: <9a00dc2dca0650efd7e169db9bb15ae1ec043c08.1507528184.git.baruch@tkos.co.il>
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>,
-        Baruch Siach <baruch@tkos.co.il>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:51013 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751581AbdJIFuw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 01:50:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 13/14] netfilter/ipvs: Use %pS printk format for direct
+ addresses
+Date: Mon, 9 Oct 2017 07:52:24 +0200
+Message-ID: <20171009055224.GB31804@verge.net.au>
+References: <1504729681-3504-1-git-send-email-deller@gmx.de>
+ <1504729681-3504-14-git-send-email-deller@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+        Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Petr Mladek <pmladek@suse.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+To: Helge Deller <deller@gmx.de>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1504729681-3504-14-git-send-email-deller@gmx.de>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Some C libraries, like uClibc and musl, provide BSD compatible
-strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
-and strlcat when the C library provides them.
+On Wed, Sep 06, 2017 at 10:28:00PM +0200, Helge Deller wrote:
+> The debug and error printk functions in ipvs uses wrongly the %pF instead of
+> the %pS printk format specifier for printing symbols for the address returned
+> by _builtin_return_address(0). Fix it for the ia64, ppc64 and parisc64
+> architectures.
+> 
+> Signed-off-by: Helge Deller <deller@gmx.de>
+> Cc: Wensong Zhang <wensong@linux-vs.org>
+> Cc: netdev@vger.kernel.org
+> Cc: lvs-devel@vger.kernel.org
+> Cc: netfilter-devel@vger.kernel.org
 
-This fixes the following static link error with uClibc-ng:
+Sorry for the delay in processing this.
 
-.../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
-strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
-../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
-collect2: error: ld returned 1 exit status
+Acked-by: Simon Horman <horms@verge.net.au>
 
-Acked-by: Phil Sutter <phil@nwl.cc>
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
-v3: Set CFLAGS directly in config.mk
-v2: Fix the order of strlcpy parameters
----
- configure   | 24 ++++++++++++++++++++++++
- lib/utils.c |  2 ++
- 2 files changed, 26 insertions(+)
-
-diff --git a/configure b/configure
-index 7be8fb113cc9..f0668ab3f7e9 100755
---- a/configure
-+++ b/configure
-@@ -326,6 +326,27 @@ EOF
-     rm -f $TMPDIR/dbtest.c $TMPDIR/dbtest
- }
- 
-+check_strlcpy()
-+{
-+    cat >$TMPDIR/strtest.c <<EOF
-+#include <string.h>
-+int main(int argc, char **argv) {
-+	char dst[10];
-+	strlcpy(dst, "test", sizeof(dst));
-+	return 0;
-+}
-+EOF
-+    $CC -I$INCLUDE -o $TMPDIR/strtest $TMPDIR/strtest.c >/dev/null 2>&1
-+    if [ $? -eq 0 ]
-+    then
-+	echo "no"
-+    else
-+	echo 'CFLAGS += -DNEED_STRLCPY' >>$CONFIG
-+	echo "yes"
-+    fi
-+    rm -f $TMPDIR/strtest.c $TMPDIR/strtest
-+}
-+
- quiet_config()
- {
- 	cat <<EOF
-@@ -397,6 +418,9 @@ check_mnl
- echo -n "Berkeley DB: "
- check_berkeley_db
- 
-+echo -n "need for strlcpy: "
-+check_strlcpy
-+
- echo
- echo -n "docs:"
- check_docs
-diff --git a/lib/utils.c b/lib/utils.c
-index 0cf99619c302..632fd0ddac82 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -1260,6 +1260,7 @@ int get_real_family(int rtm_type, int rtm_family)
- 	return rtm_family;
- }
- 
-+#ifdef NEED_STRLCPY
- size_t strlcpy(char *dst, const char *src, size_t size)
- {
- 	size_t srclen = strlen(src);
-@@ -1282,3 +1283,4 @@ size_t strlcat(char *dst, const char *src, size_t size)
- 
- 	return dlen + strlcpy(dst + dlen, src, size - dlen);
- }
-+#endif
--- 
-2.14.2
+Pablo, could you take this through the nf-next tree directly?
