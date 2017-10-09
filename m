@@ -1,108 +1,221 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next v2 6/7] bpf: don't rely on the verifier lock for metadata_dst allocation
-Date: Mon,  9 Oct 2017 10:30:14 -0700
-Message-ID: <20171009173015.23520-7-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next v2 5/7] tools: bpftool: use the kernel's instruction printer
+Date: Mon,  9 Oct 2017 10:30:13 -0700
+Message-ID: <20171009173015.23520-6-jakub.kicinski@netronome.com>
 References: <20171009173015.23520-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
         daniel@iogearbox.net, Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:51886 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755005AbdJIRac (ORCPT
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:54864 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751952AbdJIRac (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:30:32 -0400
-Received: by mail-pf0-f178.google.com with SMTP id n14so12538397pfh.8
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 10:30:32 -0700 (PDT)
+Received: by mail-pf0-f181.google.com with SMTP id m28so9506408pfi.11
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 10:30:31 -0700 (PDT)
 In-Reply-To: <20171009173015.23520-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bpf_skb_set_tunnel_*() functions require allocation of per-cpu
-metadata_dst.  The allocation happens upon verification of the
-first program using those helpers.  In preparation for removing
-the verifier lock, use cmpxchg() to make sure we only allocate
-the metadata_dsts once.
+Compile the instruction printer from kernel/bpf and use it
+for disassembling "translated" eBPF code.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/net/dst_metadata.h |  1 +
- net/core/dst.c             | 16 ++++++++++++++++
- net/core/filter.c          | 16 +++++++++-------
- 3 files changed, 26 insertions(+), 7 deletions(-)
+ tools/bpf/bpftool/Documentation/bpftool-prog.rst | 11 +++---
+ tools/bpf/bpftool/Makefile                       |  7 ++--
+ tools/bpf/bpftool/main.h                         | 10 ++----
+ tools/bpf/bpftool/prog.c                         | 44 +++++++++++++++++++-----
+ 4 files changed, 51 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/dst_metadata.h b/include/net/dst_metadata.h
-index 9fba2ebf6dda..87a0bb8d449f 100644
---- a/include/net/dst_metadata.h
-+++ b/include/net/dst_metadata.h
-@@ -87,6 +87,7 @@ static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
- void metadata_dst_free(struct metadata_dst *);
- struct metadata_dst *metadata_dst_alloc(u8 optslen, enum metadata_type type,
- 					gfp_t flags);
-+void metadata_dst_free_percpu(struct metadata_dst __percpu *md_dst);
- struct metadata_dst __percpu *
- metadata_dst_alloc_percpu(u8 optslen, enum metadata_type type, gfp_t flags);
+diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.rst b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
+index 57fc4b9924ea..04d12f768f06 100644
+--- a/tools/bpf/bpftool/Documentation/bpftool-prog.rst
++++ b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
+@@ -11,7 +11,7 @@ SYNOPSIS
+ ========
  
-diff --git a/net/core/dst.c b/net/core/dst.c
-index a6c47da7d0f8..8b2eafac984d 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -322,3 +322,19 @@ metadata_dst_alloc_percpu(u8 optslen, enum metadata_type type, gfp_t flags)
- 	return md_dst;
+ |	**bpftool** prog show [*PROG*]
+-|	**bpftool** prog dump xlated *PROG*  file *FILE*
++|	**bpftool** prog dump xlated *PROG* [file *FILE*] [opcodes]
+ |	**bpftool** prog dump jited  *PROG* [file *FILE*] [opcodes]
+ |	**bpftool** prog pin *PROG* *FILE*
+ |	**bpftool** prog help
+@@ -28,9 +28,12 @@ DESCRIPTION
+ 		  Output will start with program ID followed by program type and
+ 		  zero or more named attributes (depending on kernel version).
+ 
+-	**bpftool prog dump xlated** *PROG*  **file** *FILE*
+-		  Dump eBPF instructions of the program from the kernel to a
+-		  file.
++	**bpftool prog dump xlated** *PROG* [**file** *FILE*] [**opcodes**]
++		  Dump eBPF instructions of the program from the kernel.
++		  If *FILE* is specified image will be written to a file,
++		  otherwise it will be disassembled and printed to stdout.
++
++		  **opcodes** controls if raw opcodes will be printed.
+ 
+ 	**bpftool prog dump jited**  *PROG* [**file** *FILE*] [**opcodes**]
+ 		  Dump jited image (host machine code) of the program.
+diff --git a/tools/bpf/bpftool/Makefile b/tools/bpf/bpftool/Makefile
+index 8705ee44664d..4f339824ca57 100644
+--- a/tools/bpf/bpftool/Makefile
++++ b/tools/bpf/bpftool/Makefile
+@@ -51,7 +51,7 @@ CC = gcc
+ 
+ CFLAGS += -O2
+ CFLAGS += -W -Wall -Wextra -Wno-unused-parameter -Wshadow
+-CFLAGS += -D__EXPORTED_HEADERS__ -I$(srctree)/tools/include/uapi -I$(srctree)/tools/include -I$(srctree)/tools/lib/bpf
++CFLAGS += -D__EXPORTED_HEADERS__ -I$(srctree)/tools/include/uapi -I$(srctree)/tools/include -I$(srctree)/tools/lib/bpf -I$(srctree)/kernel/bpf/
+ LIBS = -lelf -lbfd -lopcodes $(LIBBPF)
+ 
+ include $(wildcard *.d)
+@@ -59,7 +59,10 @@ include $(wildcard *.d)
+ all: $(OUTPUT)bpftool
+ 
+ SRCS=$(wildcard *.c)
+-OBJS=$(patsubst %.c,$(OUTPUT)%.o,$(SRCS))
++OBJS=$(patsubst %.c,$(OUTPUT)%.o,$(SRCS)) $(OUTPUT)disasm.o
++
++$(OUTPUT)disasm.o: $(srctree)/kernel/bpf/disasm.c
++	$(QUIET_CC)$(COMPILE.c) -MMD -o $@ $<
+ 
+ $(OUTPUT)bpftool: $(OBJS) $(LIBBPF)
+ 	$(QUIET_LINK)$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
+index 85d2d7870a58..8e809b2bb311 100644
+--- a/tools/bpf/bpftool/main.h
++++ b/tools/bpf/bpftool/main.h
+@@ -36,11 +36,12 @@
+ #ifndef __BPF_TOOL_H
+ #define __BPF_TOOL_H
+ 
++/* BFD and kernel.h both define GCC_VERSION, differently */
++#undef GCC_VERSION
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <linux/bpf.h>
+-
+-#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
++#include <linux/kernel.h>
+ 
+ #define err(msg...)	fprintf(stderr, "Error: " msg)
+ #define warn(msg...)	fprintf(stderr, "Warning: " msg)
+@@ -48,11 +49,6 @@
+ 
+ #define ptr_to_u64(ptr)	((__u64)(unsigned long)(ptr))
+ 
+-#define min(a, b)							\
+-	({ typeof(a) _a = (a); typeof(b) _b = (b); _a > _b ? _b : _a; })
+-#define max(a, b)							\
+-	({ typeof(a) _a = (a); typeof(b) _b = (b); _a < _b ? _b : _a; })
+-
+ #define NEXT_ARG()	({ argc--; argv++; if (argc < 0) usage(); })
+ #define NEXT_ARGP()	({ (*argc)--; (*argv)++; if (*argc < 0) usage(); })
+ #define BAD_ARG()	({ err("what is '%s'?\n", *argv); -1; })
+diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
+index 421ba89ce86a..9e2681c83717 100644
+--- a/tools/bpf/bpftool/prog.c
++++ b/tools/bpf/bpftool/prog.c
+@@ -35,6 +35,7 @@
+ 
+ #include <errno.h>
+ #include <fcntl.h>
++#include <stdarg.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -46,6 +47,7 @@
+ #include <bpf.h>
+ 
+ #include "main.h"
++#include "disasm.h"
+ 
+ static const char * const prog_type_name[] = {
+ 	[BPF_PROG_TYPE_UNSPEC]		= "unspec",
+@@ -297,11 +299,39 @@ static int do_show(int argc, char **argv)
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(metadata_dst_alloc_percpu);
-+
-+void metadata_dst_free_percpu(struct metadata_dst __percpu *md_dst)
+ 
++static void print_insn(struct bpf_verifier_env *env, const char *fmt, ...)
 +{
-+	int cpu;
++	va_list args;
 +
-+#ifdef CONFIG_DST_CACHE
-+	for_each_possible_cpu(cpu) {
-+		struct metadata_dst *one_md_dst = per_cpu_ptr(md_dst, cpu);
-+
-+		if (one_md_dst->type == METADATA_IP_TUNNEL)
-+			dst_cache_destroy(&one_md_dst->u.tun_info.dst_cache);
-+	}
-+#endif
-+	free_percpu(md_dst);
++	va_start(args, fmt);
++	vprintf(fmt, args);
++	va_end(args);
 +}
-+EXPORT_SYMBOL_GPL(metadata_dst_free_percpu);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index b7e8caa1e790..140fa9f9c0f4 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -43,6 +43,7 @@
- #include <linux/timer.h>
- #include <linux/uaccess.h>
- #include <asm/unaligned.h>
-+#include <asm/cmpxchg.h>
- #include <linux/filter.h>
- #include <linux/ratelimit.h>
- #include <linux/seccomp.h>
-@@ -2987,14 +2988,15 @@ static const struct bpf_func_proto *
- bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
- {
- 	if (!md_dst) {
--		/* Race is not possible, since it's called from verifier
--		 * that is holding verifier mutex.
--		 */
--		md_dst = metadata_dst_alloc_percpu(IP_TUNNEL_OPTS_MAX,
--						   METADATA_IP_TUNNEL,
--						   GFP_KERNEL);
--		if (!md_dst)
-+		struct metadata_dst __percpu *tmp;
 +
-+		tmp = metadata_dst_alloc_percpu(IP_TUNNEL_OPTS_MAX,
-+						METADATA_IP_TUNNEL,
-+						GFP_KERNEL);
-+		if (!tmp)
- 			return NULL;
-+		if (cmpxchg(&md_dst, NULL, tmp))
-+			metadata_dst_free_percpu(tmp);
++static void dump_xlated(void *buf, unsigned int len, bool opcodes)
++{
++	struct bpf_insn *insn = buf;
++	unsigned int i;
++
++	for (i = 0; i < len / sizeof(*insn); i++) {
++		printf("% 4d: ", i);
++		print_bpf_insn(print_insn, NULL, insn + i, true);
++
++		if (opcodes) {
++			printf("       ");
++			print_hex(insn + i, 8, " ");
++			printf("\n");
++		}
++
++		if (insn[i].code == (BPF_LD | BPF_IMM | BPF_DW))
++			i++;
++	}
++}
++
+ static int do_dump(int argc, char **argv)
+ {
+ 	struct bpf_prog_info info = {};
+ 	__u32 len = sizeof(info);
+-	bool can_disasm = false;
+ 	unsigned int buf_size;
+ 	char *filepath = NULL;
+ 	bool opcodes = false;
+@@ -315,7 +345,6 @@ static int do_dump(int argc, char **argv)
+ 	if (is_prefix(*argv, "jited")) {
+ 		member_len = &info.jited_prog_len;
+ 		member_ptr = &info.jited_prog_insns;
+-		can_disasm = true;
+ 	} else if (is_prefix(*argv, "xlated")) {
+ 		member_len = &info.xlated_prog_len;
+ 		member_ptr = &info.xlated_prog_insns;
+@@ -346,10 +375,6 @@ static int do_dump(int argc, char **argv)
+ 		NEXT_ARG();
  	}
  
- 	switch (which) {
+-	if (!filepath && !can_disasm) {
+-		err("expected 'file' got %s\n", *argv);
+-		return -1;
+-	}
+ 	if (argc) {
+ 		usage();
+ 		return -1;
+@@ -409,7 +434,10 @@ static int do_dump(int argc, char **argv)
+ 			goto err_free;
+ 		}
+ 	} else {
+-		disasm_print_insn(buf, *member_len, opcodes);
++		if (member_len == &info.jited_prog_len)
++			disasm_print_insn(buf, *member_len, opcodes);
++		else
++			dump_xlated(buf, *member_len, opcodes);
+ 	}
+ 
+ 	free(buf);
+@@ -430,7 +458,7 @@ static int do_help(int argc, char **argv)
+ {
+ 	fprintf(stderr,
+ 		"Usage: %s %s show [PROG]\n"
+-		"       %s %s dump xlated PROG  file FILE\n"
++		"       %s %s dump xlated PROG [file FILE] [opcodes]\n"
+ 		"       %s %s dump jited  PROG [file FILE] [opcodes]\n"
+ 		"       %s %s pin   PROG FILE\n"
+ 		"       %s %s help\n"
 -- 
 2.14.1
