@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 3/5] mlxsw: spectrum: router: Export the mlxsw_sp_router_port function
-Date: Mon,  9 Oct 2017 11:15:33 +0200
-Message-ID: <20171009091535.1315-4-jiri@resnulli.us>
+Subject: [patch net-next v2 4/5] mlxsw: spectrum_switchdev: Add support for router port in SMID entries
+Date: Mon,  9 Oct 2017 11:15:34 +0200
+Message-ID: <20171009091535.1315-5-jiri@resnulli.us>
 References: <20171009091535.1315-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         nogahf@mellanox.com, mlxsw@mellanox.com, ivecera@redhat.com,
@@ -9,60 +9,79 @@ Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         stephen@networkplumber.org, nbd@nbd.name, roopa@cumulusnetworks.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:52477 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751550AbdJIJPk (ORCPT
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:46164 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751676AbdJIJPk (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:15:40 -0400
-Received: by mail-wm0-f66.google.com with SMTP id k4so21469735wmc.1
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 02:15:39 -0700 (PDT)
+Received: by mail-wm0-f67.google.com with SMTP id m72so20597153wmc.1
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 02:15:40 -0700 (PDT)
 In-Reply-To: <20171009091535.1315-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-In Spectrum hardware, the router port is a virtual port that is the gateway
-to the routing mechanism. Hence, in order for a packet to be L3 forwarded,
-it must first be L2 forwarded to the router port inside the hardware.
+In Spectrum, MDB entries point to MID entries, that indicate which ports a
+packet should be forwarded to. Add the support in creating MID entries that
+forward the packet to the Spectrum router port.
 
-Further patches in this patchset are going to introduce support in bridge
-device used as an mrouter port. In this case, the router port index will be
-needed in order to update the MDB entries to include the router port. Thus,
-export the mlxsw_sp_router_port function, which returns the index of the
-Spectrum router port.
+This will be later used to handle the bridge mrouter port switchdev
+notifications.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index e0f8ea4..a072903 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -5957,7 +5957,7 @@ static int mlxsw_sp_rif_vlan_fid_op(struct mlxsw_sp_rif *rif,
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 2cfdf22..4b4584f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -49,6 +49,7 @@
+ #include <linux/netlink.h>
+ #include <net/switchdev.h>
+ 
++#include "spectrum_router.h"
+ #include "spectrum.h"
+ #include "core.h"
+ #include "reg.h"
+@@ -1243,7 +1244,8 @@ static int mlxsw_sp_port_mdb_op(struct mlxsw_sp *mlxsw_sp, const char *addr,
  }
  
--static u8 mlxsw_sp_router_port(const struct mlxsw_sp *mlxsw_sp)
-+u8 mlxsw_sp_router_port(const struct mlxsw_sp *mlxsw_sp)
+ static int mlxsw_sp_port_smid_full_entry(struct mlxsw_sp *mlxsw_sp, u16 mid_idx,
+-					 long *ports_bitmap)
++					 long *ports_bitmap,
++					 bool set_router_port)
  {
- 	return mlxsw_core_max_ports(mlxsw_sp->core) + 1;
- }
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-index 3d44918..3f2d840 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-@@ -70,6 +70,7 @@ u16 mlxsw_sp_rif_index(const struct mlxsw_sp_rif *rif);
- u16 mlxsw_sp_ipip_lb_rif_index(const struct mlxsw_sp_rif_ipip_lb *rif);
- u16 mlxsw_sp_ipip_lb_ul_vr_id(const struct mlxsw_sp_rif_ipip_lb *rif);
- int mlxsw_sp_rif_dev_ifindex(const struct mlxsw_sp_rif *rif);
-+u8 mlxsw_sp_router_port(const struct mlxsw_sp *mlxsw_sp);
- const struct net_device *mlxsw_sp_rif_dev(const struct mlxsw_sp_rif *rif);
- int mlxsw_sp_rif_counter_value_get(struct mlxsw_sp *mlxsw_sp,
- 				   struct mlxsw_sp_rif *rif,
+ 	char *smid_pl;
+ 	int err, i;
+@@ -1258,9 +1260,15 @@ static int mlxsw_sp_port_smid_full_entry(struct mlxsw_sp *mlxsw_sp, u16 mid_idx,
+ 			mlxsw_reg_smid_port_mask_set(smid_pl, i, 1);
+ 	}
+ 
++	mlxsw_reg_smid_port_mask_set(smid_pl,
++				     mlxsw_sp_router_port(mlxsw_sp), 1);
++
+ 	for_each_set_bit(i, ports_bitmap, mlxsw_core_max_ports(mlxsw_sp->core))
+ 		mlxsw_reg_smid_port_set(smid_pl, i, 1);
+ 
++	mlxsw_reg_smid_port_set(smid_pl, mlxsw_sp_router_port(mlxsw_sp),
++				set_router_port);
++
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(smid), smid_pl);
+ 	kfree(smid_pl);
+ 	return err;
+@@ -1364,7 +1372,8 @@ mlxsw_sp_mc_write_mdb_entry(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_mc_get_mrouters_bitmap(flood_bitmap, bridge_device, mlxsw_sp);
+ 
+ 	mid->mid = mid_idx;
+-	err = mlxsw_sp_port_smid_full_entry(mlxsw_sp, mid_idx, flood_bitmap);
++	err = mlxsw_sp_port_smid_full_entry(mlxsw_sp, mid_idx, flood_bitmap,
++					    false);
+ 	kfree(flood_bitmap);
+ 	if (err)
+ 		return false;
 -- 
 2.9.5
