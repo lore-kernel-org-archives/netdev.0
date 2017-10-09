@@ -1,78 +1,34 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: pull request: linux-firmware: update cxgb4 firmware
-Date: Mon, 09 Oct 2017 17:50:29 +0100
-Message-ID: <1507567829.2677.125.camel@decadent.org.uk>
-References: <1506525877-6675-1-git-send-email-ganeshgr@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/15] nfp: bpf ABIv2 and multi port
+Date: Mon, 09 Oct 2017 09:52:03 -0700 (PDT)
+Message-ID: <20171009.095203.1106666816137564253.davem@davemloft.net>
+References: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-DuzgR/2YCxsbkgqKD4dp"
-Cc: linux-kernel@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com,
-        netdev <netdev@vger.kernel.org>
-To: Ganesh Goudar <ganeshgr@chelsio.com>, linux-firmware@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506525877-6675-1-git-send-email-ganeshgr@chelsio.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51814 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751581AbdJIQwI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 12:52:08 -0400
+In-Reply-To: <20171009040417.22172-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Sun,  8 Oct 2017 21:04:02 -0700
 
---=-DuzgR/2YCxsbkgqKD4dp
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> This series migrates our eBPF offload from old PoC firmware to 
+> a redesigned, faster and more feature rich FW.  Marking support
+> is dropped for now.  We have to teach the JIT about encoding
+> local memory accesses (one of NFP memory types).  There is also
+> code to populate the ECC of instructions (PoC had ECC protection
+> on instruction store disabled).  There is also a minor ld_field
+> fix and all 64 bit shifts can now be encoded.
 
-On Wed, 2017-09-27 at 20:54 +0530, Ganesh Goudar wrote:
-> Hi,
->=20
-> Kindly pull the new firmware from the following URL.
-> git://git.chelsio.net/pub/git/linux-firmware.git for-upstream
+Thank you for structuring this series the way you did, as this made it
+very easy to review.
 
-Pulled, thanks.
-
-Ben.
-
-> Thanks
-> Ganesh
->=20
-> The following changes since commit 59bf7e2cad88269ea704eb270d7ac6e69e8a54=
-4c:
->=20
->   cxgb4: update firmware to revision 1.16.63.0 (2017-09-27 08:14:29 -0700=
-)
->=20
-> are available in the git repository at:
->=20
->   git://git.chelsio.net/pub/git/linux-firmware.git for-upstream
->=20
-> for you to fetch changes up to 59bf7e2cad88269ea704eb270d7ac6e69e8a544c:
->=20
->   cxgb4: update firmware to revision 1.16.63.0 (2017-09-27 08:14:29 -0700=
-)
->=20
-> ----------------------------------------------------------------
---=20
-Ben Hutchings
-Humour is the best antidote to reality.
-
-
---=-DuzgR/2YCxsbkgqKD4dp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAlnbqNYACgkQ57/I7JWG
-EQkXfg//TC8CKqOMKi08yn5KT/bwSitKGR9fYEYO+kSEfDoEz+KbHkz/t/mkN+p6
-4KCiWDe80Ly2X+bH08xEipIICD9oRnKQIo+2mpunKFC452V0n3NphAUGX8IuJ1h7
-pc0q6ferWIn+955+wFUZbANHBA9uZeZTluEThfRT/7iGoIrOA03Lbidk8SfWQnoj
-2uIXuGInh36T+p4+PgmbD48eIYyxHGj3fYqdLXy6dqt+Ec1rFVZsptXafMcyJGF6
-Q3uuAHAq2yXlyx+vndThaconIhenXt+Ybocot9fR6o3F5gkKUsysThXo+0x/2WxY
-R0axGdNp4X59Ijzr7H4llSffcDcUOXZwShvHbIICx9CqYQeF15eDyGCmAautlPgN
-oxOk6EM1g7U1YA3A4GdYtXAWNN8JEgoPt/CxUPdNONhRhxPwJK2U1lqUPvuBeoMb
-8Tl17P00crS+P5FxidvVGqdpRC0xyNp2ehnAUU0yfxSuexbDU/2HrWpe71FpahEY
-JQoibSJmsvbO4QCkXb7d0MfiS4+DVvCb+1N8TxNXDJO4C9KtgCrmj0bxtXD452dH
-e9k5haeezQguLwXf1Sx0eiEwdYq5eizvL+b0aOVF8Q6d462VhbPxDpBft0kZQWPT
-uob5iSte2sbCAlUKCPqxc46Kk6c6r/gNoDbgPcPddKzaljx5MtU=
-=G55Z
------END PGP SIGNATURE-----
-
---=-DuzgR/2YCxsbkgqKD4dp--
+Series applied.
