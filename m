@@ -1,39 +1,101 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/12] netfilter: nf_tables: do not dump chain counters if not enabled
-Date: Mon,  9 Oct 2017 18:25:43 +0200
-Message-ID: <1507566346-32553-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/12] netfilter: xt_socket: Restore mark from full sockets only
+Date: Mon,  9 Oct 2017 18:25:36 +0200
+Message-ID: <1507566346-32553-3-git-send-email-pablo@netfilter.org>
 References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57780 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754953AbdJIQZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 12:25:59 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 97339C0B40
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:57 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 85A76DA872
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:57 +0200 (CEST)
 In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Chain counters are only enabled on demand since 9f08ea848117, skip them
-when dumping them via netlink.
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 
-Fixes: 9f08ea848117 ("netfilter: nf_tables: keep chain counters away from hot path")
-Reported-by: Johny Mattsson <johny.mattsson+kernel@gmail.com>
-Tested-by: Johny Mattsson <johny.mattsson+kernel@gmail.com>
+An out of bounds error was detected on an ARM64 target with
+Android based kernel 4.9. This occurs while trying to
+restore mark on a skb from an inet request socket.
+
+BUG: KASAN: slab-out-of-bounds in socket_match.isra.2+0xc8/0x1f0 net/netfilter/xt_socket.c:248
+Read of size 4 at addr ffffffc06a8d824c by task syz-fuzzer/1532
+CPU: 7 PID: 1532 Comm: syz-fuzzer Tainted: G        W  O    4.9.41+ #1
+Call trace:
+[<ffffff900808d2f8>] dump_backtrace+0x0/0x440 arch/arm64/kernel/traps.c:76
+[<ffffff900808d760>] show_stack+0x28/0x38 arch/arm64/kernel/traps.c:226
+[<ffffff90085f7dc8>] __dump_stack lib/dump_stack.c:15 [inline]
+[<ffffff90085f7dc8>] dump_stack+0xe4/0x134 lib/dump_stack.c:51
+[<ffffff900830f358>] print_address_description+0x68/0x258 mm/kasan/report.c:248
+[<ffffff900830f770>] kasan_report_error mm/kasan/report.c:347 [inline]
+[<ffffff900830f770>] kasan_report.part.2+0x228/0x2f0 mm/kasan/report.c:371
+[<ffffff900830fdec>] kasan_report+0x5c/0x70 mm/kasan/report.c:372
+[<ffffff900830de98>] check_memory_region_inline mm/kasan/kasan.c:308 [inline]
+[<ffffff900830de98>] __asan_load4+0x88/0xa0 mm/kasan/kasan.c:740
+[<ffffff90097498f8>] socket_match.isra.2+0xc8/0x1f0 net/netfilter/xt_socket.c:248
+[<ffffff9009749a5c>] socket_mt4_v1_v2_v3+0x3c/0x48 net/netfilter/xt_socket.c:272
+[<ffffff90097f7e4c>] ipt_do_table+0x54c/0xad8 net/ipv4/netfilter/ip_tables.c:311
+[<ffffff90097fcf14>] iptable_mangle_hook+0x6c/0x220 net/ipv4/netfilter/iptable_mangle.c:90
+...
+Allocated by task 1532:
+ save_stack_trace_tsk+0x0/0x2a0 arch/arm64/kernel/stacktrace.c:131
+ save_stack_trace+0x28/0x38 arch/arm64/kernel/stacktrace.c:215
+ save_stack mm/kasan/kasan.c:495 [inline]
+ set_track mm/kasan/kasan.c:507 [inline]
+ kasan_kmalloc+0xd8/0x188 mm/kasan/kasan.c:599
+ kasan_slab_alloc+0x14/0x20 mm/kasan/kasan.c:537
+ slab_post_alloc_hook mm/slab.h:417 [inline]
+ slab_alloc_node mm/slub.c:2728 [inline]
+ slab_alloc mm/slub.c:2736 [inline]
+ kmem_cache_alloc+0x14c/0x2e8 mm/slub.c:2741
+ reqsk_alloc include/net/request_sock.h:87 [inline]
+ inet_reqsk_alloc+0x4c/0x238 net/ipv4/tcp_input.c:6236
+ tcp_conn_request+0x2b0/0xea8 net/ipv4/tcp_input.c:6341
+ tcp_v4_conn_request+0xe0/0x100 net/ipv4/tcp_ipv4.c:1256
+ tcp_rcv_state_process+0x384/0x18a8 net/ipv4/tcp_input.c:5926
+ tcp_v4_do_rcv+0x2f0/0x3e0 net/ipv4/tcp_ipv4.c:1430
+ tcp_v4_rcv+0x1278/0x1350 net/ipv4/tcp_ipv4.c:1709
+ ip_local_deliver_finish+0x174/0x3e0 net/ipv4/ip_input.c:216
+
+v1->v2: Change socket_mt6_v1_v2_v3() as well as mentioned by Eric
+v2->v3: Put the correct fixes tag
+
+Fixes: 01555e74bde5 ("netfilter: xt_socket: add XT_SOCKET_RESTORESKMARK flag")
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_socket.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 34adedcb239e..64e1ee091225 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -1048,7 +1048,7 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
- 		if (nla_put_string(skb, NFTA_CHAIN_TYPE, basechain->type->name))
- 			goto nla_put_failure;
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index e75ef39669c5..575d2153e3b8 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -76,7 +76,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 			transparent = nf_sk_is_transparent(sk);
  
--		if (nft_dump_stats(skb, nft_base_chain(chain)->stats))
-+		if (basechain->stats && nft_dump_stats(skb, basechain->stats))
- 			goto nla_put_failure;
- 	}
+ 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
+-		    transparent)
++		    transparent && sk_fullsock(sk))
+ 			pskb->mark = sk->sk_mark;
  
+ 		if (sk != skb->sk)
+@@ -133,7 +133,7 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
+ 			transparent = nf_sk_is_transparent(sk);
+ 
+ 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
+-		    transparent)
++		    transparent && sk_fullsock(sk))
+ 			pskb->mark = sk->sk_mark;
+ 
+ 		if (sk != skb->sk)
 -- 
 2.1.4
-
