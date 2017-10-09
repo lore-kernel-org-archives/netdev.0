@@ -1,35 +1,50 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3] netfilter: SYNPROXY: fix process non tcp packet bug
- in {ipv4,ipv6}_synproxy_hook
-Date: Mon, 9 Oct 2017 13:09:06 +0200
-Message-ID: <20171009110906.GA4025@salvia>
-References: <1507221843-4915-1-git-send-email-xiaolou4617@gmail.com>
+Subject: Re: [PATCH] netfilter: xt_bpf: Fix XT_BPF_MODE_FD_PINNED mode of
+ 'xt_bpf_info_v1'
+Date: Mon, 9 Oct 2017 13:18:23 +0200
+Message-ID: <20171009111823.GA30637@salvia>
+References: <20171006160242.4403-1-shmulik@nsof.io>
+ <CAF=yD-JbZ_ViWsBWK7Ye=4RYF9BgnMKvD04xE5P26RNRpnmuiQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kadlec@blackhole.kfki.hu, fw@strlen.de, davem@davemloft.net,
-        kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-To: Lin Zhang <xiaolou4617@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:39798 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751598AbdJILJO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 07:09:14 -0400
+Cc: Shmulik Ladkani <shmulik@nsof.io>,
+        netfilter-devel <netfilter-devel@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Rafael Buchbinder <rafi@rbk.ms>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1507221843-4915-1-git-send-email-xiaolou4617@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAF=yD-JbZ_ViWsBWK7Ye=4RYF9BgnMKvD04xE5P26RNRpnmuiQ@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 06, 2017 at 12:44:03AM +0800, Lin Zhang wrote:
-> In function {ipv4,ipv6}_synproxy_hook we expect a normal tcp packet,
-> but the real server maybe reply an icmp error packet related to the
-> exist tcp conntrack, so we will access wrong tcp data.
+On Fri, Oct 06, 2017 at 01:40:13PM -0400, Willem de Bruijn wrote:
+> On Fri, Oct 6, 2017 at 12:02 PM, Shmulik Ladkani <shmulik@nsof.io> wrote:
+> > From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> >
+> > Commit 2c16d6033264 ("netfilter: xt_bpf: support ebpf") introduced
+> > support for attaching an eBPF object by an fd, with the
+> > 'bpf_mt_check_v1' ABI expecting the '.fd' to be specified upon each
+> > IPT_SO_SET_REPLACE call.
+> >
+> > However this breaks subsequent iptables calls:
+> >
+> >  # iptables -A INPUT -m bpf --object-pinned /sys/fs/bpf/xxx -j ACCEPT
+> >  # iptables -A INPUT -s 5.6.7.8 -j ACCEPT
+> >  iptables: Invalid argument. Run `dmesg' for more information.
+[...]
+> >
+> > References: [1] https://marc.info/?l=netfilter-devel&m=150564724607440&w=2
+> >             [2] https://marc.info/?l=netfilter-devel&m=150575727129880&w=2
+> >
+> > Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> > Cc: Willem de Bruijn <willemb@google.com>
+> > Reported-by: Rafael Buchbinder <rafi@rbk.ms>
+> > Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 > 
-> For fix it, check for the protocol field and only process tcp traffic.
+> Acked-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thanks. I have mangled the title slightly to:
-
-        netfilter: SYNPROXY: skip non-tcp packet in {ipv4, ipv6}_synproxy_hook
-
-For the record.
+Applied, thanks.
