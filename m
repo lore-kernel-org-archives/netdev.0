@@ -1,57 +1,34 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 14/15] i40e: ignore skb->xmit_more when deciding to
- set RS bit
-Date: Mon, 9 Oct 2017 09:07:21 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008D373@AcuExch.aculab.com>
-References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
- <20171006175727.868-15-jeffrey.t.kirsher@intel.com>
+Subject: RE: [PATCH v2] isdn/gigaset: Convert timers to use timer_setup()
+Date: Mon, 9 Oct 2017 09:15:17 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008D392@AcuExch.aculab.com>
+References: <20171005193118.GA105874@beast>
+ <1507316433.6960.19.camel@tiscali.nl>
+ <CAGXu5jJaMODs0NNasPY97wiXeQJ-Y5G+qLrFbwquhGJj=o3rxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jacob Keller <jacob.e.keller@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.185]:57808 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751068AbdJIJHi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:07:38 -0400
-In-Reply-To: <20171006175727.868-15-jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johan Hovold <johan@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "gigaset307x-common@lists.sourceforge.net"
+        <gigaset307x-common@lists.sourceforge.net>,
+        Network Development <netdev@vger.kernel.org>
+To: 'Kees Cook' <keescook@chromium.org>,
+        Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jJaMODs0NNasPY97wiXeQJ-Y5G+qLrFbwquhGJj=o3rxA@mail.gmail.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher
-> Sent: 06 October 2017 18:57
-> From: Jacob Keller <jacob.e.keller@intel.com>
-> 
-> Since commit 6a7fded776a7 ("i40e: Fix RS bit update in Tx path and
-> disable force WB workaround") we've tried to "optimize" setting the
-> RS bit based around skb->xmit_more. This same logic was refactored
-> in commit 1dc8b538795f ("i40e: Reorder logic for coalescing RS bits"),
-> but ultimately was not functionally changed.
-
-I've tried to understand the above, but without definitions of WB
-and RS and the '4-ness' of something it is quite difficult.
-
-I THINK this is all about telling the hardware there is a packet
-in the ring to transmit?
-
-I don't understand the 4-ness. Linux requires that the hardware
-be notified of a single packet transmit, and that the 'transmit
-complete' also be notified in 'a timely manner' for a single packet.
-
-skb->xmit_more ought to be usable to optimise both of these
-(assuming it isn't a lie).
-The driver would need to ensure a ring full of messages isn't
-generated without either wakeup - but that might be 128 frames.
-
-FWIW on the systems I have PCIe writes are relatively cheap
-(reads are slow). So different counts would be appropriate
-for delaying doorbell writes and requesting completion interrupts.
-
-	David
+RnJvbTogS2VlcyBDb29rDQo+IFNlbnQ6IDA2IE9jdG9iZXIgMjAxNyAyMDo0MA0KLi4uDQo+IEkn
+bSBpbiBubyBydXNoIGZvciBhbnkgc3BlY2lmaWMgY2hhbmdlLiBUaGVyZSBhcmUgYWJvdXQgOTAw
+IGNhbGwgc2l0ZXMNCj4gSSdtIG1ha2luZyBteSB3YXkgdGhyb3VnaCwgYWJvdXQgMi8zcmQgYXJl
+IHByZXR0eSB0cml2aWFsLCBhbmQgdGhlDQo+IGxlc3Mgb2J2aW91cyBpcyB3aGF0IEkndmUgc3Rh
+cnRlZCBzZW5kaW5nIG91dCBub3csIHNpbmNlIEkgZXhwZWN0IHNvbWUNCj4gd2lsbCBuZWVkIHNv
+bWUgbW9yZSBjYXJlZnVsIHJldmlldy4NCg0KSXMgaXQgd29ydGggYWRkaW5nIGEgc3RydWN0dXJl
+IHRoYXQgY29udGFpbnMgYSB0aW1lciBhbmQgYW4gZXh0cmEgJ2xvbmcnDQp0aGFuIGNhbiBiZSB1
+c2VkIHRvIG1haW50YWluIHRoZSBleGlzdGluZyBBUEkgbG9naWMgZm9yIHRoZSAnZGlmZmljdWx0
+Jw0KY2FzZXM/DQoNCglEYXZpZA0KDQo=
