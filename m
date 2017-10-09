@@ -1,174 +1,112 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v1 RFC 6/7] Add MIB counter reading support
-Date: Mon, 9 Oct 2017 13:07:34 -0700
-Message-ID: <eeac17e3-b026-707f-cdf3-dfdcadf49947@gmail.com>
-References: <1507321985-15097-1-git-send-email-Tristram.Ha@microchip.com>
- <1507321985-15097-7-git-send-email-Tristram.Ha@microchip.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [net-next 14/15] i40e: ignore skb->xmit_more when deciding to
+ set RS bit
+Date: Mon, 9 Oct 2017 20:10:16 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882AC15CA@ORSMSX115.amr.corp.intel.com>
+References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
+ <20171006175727.868-15-jeffrey.t.kirsher@intel.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD008D373@AcuExch.aculab.com>
+ <CAKgT0UfZEU++hZkpp1NixYxj=2STfXX-5opz2BoEhG1SfUA5pQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, UNGLinuxDriver@microchip.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tristram.Ha@microchip.com, Andrew Lunn <andrew@lunn.ch>,
-        Pavel Machek <pavel@ucw.cz>,
-        Ruediger Schmitt <ruediger.schmitt@philips.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507321985-15097-7-git-send-email-Tristram.Ha@microchip.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:48569 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752528AbdJIUKT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 16:10:19 -0400
+In-Reply-To: <CAKgT0UfZEU++hZkpp1NixYxj=2STfXX-5opz2BoEhG1SfUA5pQ@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/06/2017 01:33 PM, Tristram.Ha@microchip.com wrote:
-> From: Tristram Ha <Tristram.Ha@microchip.com>
-> 
-> Add MIB counter reading support.
-> Rename ksz_9477_reg.h to ksz9477_reg.h for consistency as the product
-> name is always KSZ####.
-> Header file ksz_priv.h no longer contains any chip specific data.
-
-You should probably explain in the commit message that you are adding a
-timer that reads counters every 30 seconds to avoid overflows, as this
-is a pretty important piece of information.
-
-
-> +static void ksz9477_phy_setup(struct ksz_device *dev, int port,
-> +			      struct phy_device *phy)
-> +{
-> +	if (port < dev->phy_port_cnt) {
-> +		/* SUPPORTED_Asym_Pause and SUPPORTED_Pause can be removed to
-> +		 * disable flow control when rate limiting is used.
-> +		 */
-> +		phy->advertising = phy->supported;
-> +	}
-> +}
-
-This appears to be an unrelated change here that you would want to put
-in a separate patch.
-
-> +
->  static void ksz9477_port_setup(struct ksz_device *dev, int port, bool cpu_port)
->  {
->  	u8 data8;
-> @@ -1159,6 +1198,8 @@ static int ksz9477_setup(struct dsa_switch *ds)
->  	/* start switch */
->  	ksz_cfg(dev, REG_SW_OPERATION, SW_START, true);
->  
-> +	ksz_init_mib_timer(dev);
-> +
->  	return 0;
->  }
->  
-> @@ -1168,6 +1209,7 @@ static int ksz9477_setup(struct dsa_switch *ds)
->  	.set_addr		= ksz9477_set_addr,
->  	.phy_read		= ksz9477_phy_read16,
->  	.phy_write		= ksz9477_phy_write16,
-> +	.adjust_link		= ksz_adjust_link,
->  	.port_enable		= ksz_enable_port,
->  	.port_disable		= ksz_disable_port,
->  	.get_strings		= ksz9477_get_strings,
-> @@ -1289,6 +1331,7 @@ static int ksz9477_switch_init(struct ksz_device *dev)
->  	if (!dev->ports)
->  		return -ENOMEM;
->  	for (i = 0; i < dev->mib_port_cnt; i++) {
-> +		mutex_init(&dev->ports[i].mib.cnt_mutex);
->  		dev->ports[i].mib.counters =
->  			devm_kzalloc(dev->dev,
->  				     sizeof(u64) *
-> @@ -1310,7 +1353,12 @@ static void ksz9477_switch_exit(struct ksz_device *dev)
->  	.get_port_addr = ksz9477_get_port_addr,
->  	.cfg_port_member = ksz9477_cfg_port_member,
->  	.flush_dyn_mac_table = ksz9477_flush_dyn_mac_table,
-> +	.phy_setup = ksz9477_phy_setup,
->  	.port_setup = ksz9477_port_setup,
-> +	.r_mib_cnt = ksz9477_r_mib_cnt,
-> +	.r_mib_pkt = ksz9477_r_mib_pkt,
-> +	.freeze_mib = ksz9477_freeze_mib,
-> +	.port_init_cnt = ksz9477_port_init_cnt,
->  	.shutdown = ksz9477_reset_switch,
->  	.detect = ksz9477_switch_detect,
->  	.init = ksz9477_switch_init,
-> diff --git a/drivers/net/dsa/microchip/ksz_9477_reg.h b/drivers/net/dsa/microchip/ksz9477_reg.h
-> similarity index 100%
-> rename from drivers/net/dsa/microchip/ksz_9477_reg.h
-> rename to drivers/net/dsa/microchip/ksz9477_reg.h
-> diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
-> index 1c9c4c5..885b3e3 100644
-> --- a/drivers/net/dsa/microchip/ksz_common.c
-> +++ b/drivers/net/dsa/microchip/ksz_common.c
-> @@ -50,6 +50,81 @@ void ksz_update_port_member(struct ksz_device *dev, int port)
->  	}
->  }
->  
-> +static void port_r_cnt(struct ksz_device *dev, int port)
-> +{
-> +	struct ksz_port_mib *mib = &dev->ports[port].mib;
-> +	u64 *dropped;
-> +
-> +	/* Some ports may not have MIB counters before SWITCH_COUNTER_NUM. */
-> +	while (mib->cnt_ptr < dev->reg_mib_cnt) {
-> +		dev->dev_ops->r_mib_cnt(dev, port, mib->cnt_ptr,
-> +					&mib->counters[mib->cnt_ptr]);
-> +		++mib->cnt_ptr;
-> +	}
-> +
-> +	/* last one in storage */
-> +	dropped = &mib->counters[dev->mib_cnt];
-> +
-> +	/* Some ports may not have MIB counters after SWITCH_COUNTER_NUM. */
-> +	while (mib->cnt_ptr < dev->mib_cnt) {
-> +		dev->dev_ops->r_mib_pkt(dev, port, mib->cnt_ptr,
-> +					dropped, &mib->counters[mib->cnt_ptr]);
-> +		++mib->cnt_ptr;
-> +	}
-> +	mib->cnt_ptr = 0;
-> +}
-> +
-> +static void ksz_mib_read_work(struct work_struct *work)
-> +{
-> +	struct ksz_device *dev =
-> +		container_of(work, struct ksz_device, mib_read);
-> +	struct ksz_port *p;
-> +	struct ksz_port_mib *mib;
-> +	int i;
-> +
-> +	for (i = 0; i < dev->mib_port_cnt; i++) {
-> +		p = &dev->ports[i];
-> +		if (!p->on)
-> +			continue;
-> +		mib = &p->mib;
-> +		mutex_lock(&mib->cnt_mutex);
-> +
-> +		/* read only dropped counters when link is not up */
-> +		if (p->link_down)
-> +			p->link_down = 0;
-> +		else if (!p->link_up)
-> +			mib->cnt_ptr = dev->reg_mib_cnt;
-
-Can't you just check the ports' PHY device here instead of caching that
-(which can get out of sync)?
-
-
-> +void ksz_adjust_link(struct dsa_switch *ds, int port,
-> +		     struct phy_device *phydev)
-> +{
-> +	struct ksz_device *dev = ds->priv;
-> +	struct ksz_port *p = &dev->ports[port];
-> +
-> +	if (phydev->link) {
-> +		p->speed = phydev->speed;
-> +		p->duplex = phydev->duplex;
-> +		p->flow_ctrl = phydev->pause;
-> +		p->link_up = 1;
-> +		dev->live_ports |= (1 << port) & dev->on_ports;
-> +	} else if (p->link_up) {
-> +		p->link_up = 0;
-> +		p->link_down = 1;
-> +		dev->live_ports &= ~(1 << port);
-> +	}
-> +}
-
-It would have been nice to explain why this is needed in the commit
-message. dev->live_ports is read-only it seems?
--- 
-Florian
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIEFsZXhhbmRlciBEdXljaw0KPiBTZW50OiBNb25kYXksIE9jdG9iZXIgMDksIDIwMTcg
+OToyOCBBTQ0KPiBUbzogRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFiLmNvbT4NCj4g
+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVCA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPjsgZGF2
+ZW1AZGF2ZW1sb2Z0Lm5ldDsNCj4gS2VsbGVyLCBKYWNvYiBFIDxqYWNvYi5lLmtlbGxlckBpbnRl
+bC5jb20+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBuaG9ybWFuQHJlZGhhdC5jb207IHNh
+c3NtYW5uQHJlZGhhdC5jb207IGpvZ3JlZW5lQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtu
+ZXQtbmV4dCAxNC8xNV0gaTQwZTogaWdub3JlIHNrYi0+eG1pdF9tb3JlIHdoZW4gZGVjaWRpbmcg
+dG8gc2V0DQo+IFJTIGJpdA0KPiANCj4gT24gTW9uLCBPY3QgOSwgMjAxNyBhdCAyOjA3IEFNLCBE
+YXZpZCBMYWlnaHQgPERhdmlkLkxhaWdodEBhY3VsYWIuY29tPiB3cm90ZToNCj4gPiBGcm9tOiBK
+ZWZmIEtpcnNoZXINCj4gPj4gU2VudDogMDYgT2N0b2JlciAyMDE3IDE4OjU3DQo+ID4+IEZyb206
+IEphY29iIEtlbGxlciA8amFjb2IuZS5rZWxsZXJAaW50ZWwuY29tPg0KPiA+Pg0KPiA+PiBTaW5j
+ZSBjb21taXQgNmE3ZmRlZDc3NmE3ICgiaTQwZTogRml4IFJTIGJpdCB1cGRhdGUgaW4gVHggcGF0
+aCBhbmQNCj4gPj4gZGlzYWJsZSBmb3JjZSBXQiB3b3JrYXJvdW5kIikgd2UndmUgdHJpZWQgdG8g
+Im9wdGltaXplIiBzZXR0aW5nIHRoZQ0KPiA+PiBSUyBiaXQgYmFzZWQgYXJvdW5kIHNrYi0+eG1p
+dF9tb3JlLiBUaGlzIHNhbWUgbG9naWMgd2FzIHJlZmFjdG9yZWQNCj4gPj4gaW4gY29tbWl0IDFk
+YzhiNTM4Nzk1ZiAoImk0MGU6IFJlb3JkZXIgbG9naWMgZm9yIGNvYWxlc2NpbmcgUlMgYml0cyIp
+LA0KPiA+PiBidXQgdWx0aW1hdGVseSB3YXMgbm90IGZ1bmN0aW9uYWxseSBjaGFuZ2VkLg0KPiA+
+DQo+ID4gSSd2ZSB0cmllZCB0byB1bmRlcnN0YW5kIHRoZSBhYm92ZSwgYnV0IHdpdGhvdXQgZGVm
+aW5pdGlvbnMgb2YgV0INCj4gPiBhbmQgUlMgYW5kIHRoZSAnNC1uZXNzJyBvZiBzb21ldGhpbmcg
+aXQgaXMgcXVpdGUgZGlmZmljdWx0Lg0KPiA+DQo+ID4gSSBUSElOSyB0aGlzIGlzIGFsbCBhYm91
+dCB0ZWxsaW5nIHRoZSBoYXJkd2FyZSB0aGVyZSBpcyBhIHBhY2tldA0KPiA+IGluIHRoZSByaW5n
+IHRvIHRyYW5zbWl0Pw0KPiA+DQo+ID4gSSBkb24ndCB1bmRlcnN0YW5kIHRoZSA0LW5lc3MuIExp
+bnV4IHJlcXVpcmVzIHRoYXQgdGhlIGhhcmR3YXJlDQo+ID4gYmUgbm90aWZpZWQgb2YgYSBzaW5n
+bGUgcGFja2V0IHRyYW5zbWl0LCBhbmQgdGhhdCB0aGUgJ3RyYW5zbWl0DQo+ID4gY29tcGxldGUn
+IGFsc28gYmUgbm90aWZpZWQgaW4gJ2EgdGltZWx5IG1hbm5lcicgZm9yIGEgc2luZ2xlIHBhY2tl
+dC4NCj4gDQo+IFNvIHRvIGNsYXJpZnkgc29tZSBvZiB0aGlzLiBUaGUgUlMgaXMgc2hvcnQgZm9y
+IFJlcG9ydCBTdGF0dXMuIEl0DQo+IHRlbGxzIHRoZSBoYXJkd2FyZSB0aGF0IHdoZW4gaXQgaGFz
+IGNvbXBsZXRlZCB0aGUgZGVzY3JpcHRvciBpdCBzaG91bGQNCj4gdHJpZ2dlciBhIHdyaXRlIGJh
+Y2ssIGFrYSBXQi4NCj4gDQo+IFRoZSA0LW5lc3MgaXMgYmVjYXVzZSBlYWNoIGRlc2NyaXB0b3Ig
+aXMgMTYgYnl0ZXMsIHNvIGlmIHdlIHdyaXRlIGJhY2sNCj4gb25jZSBldmVyeSA0IGRlc2NyaXB0
+b3JzIHRoYXQgaXMgb25lIDY0QiBjYWNoZSBsaW5lIHdoaWNoIGlzIG11Y2gNCj4gYmV0dGVyIGZv
+ciBtb3N0IHBsYXRmb3JtcyBwZXJmb3JtYW5jZSB3aXNlLg0KPiANCj4gPiBza2ItPnhtaXRfbW9y
+ZSBvdWdodCB0byBiZSB1c2FibGUgdG8gb3B0aW1pc2UgYm90aCBvZiB0aGVzZQ0KPiA+IChhc3N1
+bWluZyBpdCBpc24ndCBhIGxpZSkuDQo+IA0KPiBBY3R1YWxseSBpdCBsZWFkcyB0byBpc3N1ZXMg
+aWYgd2UgaG9sZCBvZmYgZm9yIHRvbyBsb25nLiBJZiB3ZSBhcmUNCj4gYnVzeSBkZXF1ZXVlaW5n
+IGEgbG9uZyBsaXN0LCBhbmQgdGhlIFR4IHF1ZXVlIGhhcyBnb25lIGVtcHR5IHRoZW4gd2UNCj4g
+YXJlIHN0YWxsaW5nIFR4IHdpdGhvdXQgbmVlZCB0byBkbyBzby4gV2UgbmVlZCB0byBiZSByZWd1
+bGFybHkNCj4gbm90aWZ5aW5nIHRoZSBkZXZpY2UgdGhhdCBpdCBoYXMgYnVmZmVycyBhdmFpbGFi
+bGUgdG8gdHJhbnNtaXQgd2hpY2gNCj4gaXMgd2hhdCB4bWl0X21vcmUgaXMgZ29vZCBmb3IuIEhv
+d2V2ZXIgaW4gYWRkaXRpb24gdGhlIGhhcmR3YXJlIG5lZWRzDQo+IHRvIG5vdGlmeSB1cyByZWd1
+bGFybHkgdGhhdCB0aGVyZSBhcmUgYnVmZmVycyByZWFkeSB0byBjbGVhbiB3aGljaCBpdA0KPiBp
+c24ndCBuZWNlc3NhcmlseSBzbyB1c2VmdWwgZm9yLCBlc3BlY2lhbGx5IGlmICBhcmUgZmlsbGlu
+ZyB0aGUgZW50aXJlDQo+IHJpbmcgYW5kIG9ubHkgcHJvdmlkaW5nIG9uZSBub3RpZmljYXRpb24g
+dG8gdGhlIGRyaXZlciB0aGF0IHRoZXJlIGFyZQ0KPiBidWZmZXJzIHJlYWR5IHNpbmNlIHdlIGNh
+biBkZWZlciB0aGUgVHggaW50ZXJydXB0IGZvciB0b28gbG9uZy4NCj4gDQo+IFdoYXQgSmFrZSBp
+cyB0cnlpbmcgdG8gZml4IGhlcmUgaXMgdG8gcHJldmVudCB1cyBmcm9tIGdlbmVyYXRpbmcgd2hh
+dA0KPiBsb29rcyBsaWtlIGEgc3F1YXJlIHdhdmUgaW4gdGVybXMgb2YgdGhyb3VnaHB1dC4gRXNz
+ZW50aWFsbHkgdGhlDQo+IGN1cnJlbnQgYmVoYXZpb3IgdGhhdCBpcyBiZWluZyBzZWVuIGlzIHRo
+YXQgYWxsIHRoZSBidWZmZXJzIGluIHRoZQ0KPiByaW5nIGVpdGhlciBiZWxvbmcgdG8gc29mdHdh
+cmUsIG9yIGJlbG9uZyB0byBoYXJkd2FyZS4gSXQgaXMgYmVzdCBmb3INCj4gdXMgdG8gaGF2ZSB0
+aGlzIHNwbGl0IGhhbGYgYW5kIGhhbGYgc28gdGhhdCB0aGUgaGFyZHdhcmUgaGFzIGJ1ZmZlcnMN
+Cj4gdG8gdHJhbnNtaXQgYW5kIHNvZnR3YXJlIGhhcyBidWZmZXJzIHRvIGNsZWFuIGFuZCBlbnF1
+ZXVlIG5ldyBidWZmZXJzDQo+IG9udG8uDQo+IA0KDQpZZXMgdGhpcyBzdW1zIGl0IHVwIHByZXR0
+eSB3ZWxsLiBUaGUgdGVzdCBjYXNlIHdoaWNoIGZvdW5kIHRoaXMgYnVnIGlzIG91dGxpbmVkIGlu
+IHRoZSBkZXNjcmlwdGlvbi4gRXNzZW50aWFsbHkgd2UgY291bGQgc2VlIHVwIHRvIGRvemVucyBv
+ciBldmVuIGFsbW9zdCBhIGh1bmRyZWQgcGFja2V0cyBpbiBhIHJvdyBidW5jaGVkIHVwIGlmIHdl
+IGhhZCBhIGJ1bmNoIG9mIHZpcnR1YWwgZGV2aWNlcyBsYXllcmVkIG9uIHRvcCBvZiB0aGUgbmV0
+d29yayBkcml2ZXIuIFRoaXMgbGVkIHRvIHVzIG5vdCBpbmRpY2F0aW5nIHRvIGdldCBzdGF0dXMg
+ZnJvbSB0aGUgaGFyZHdhcmUgYWJvdXQgZmluaXNoZWQgcGFja2V0cywgd2hpY2ggcmVzdWx0cyBp
+biBhbiBpbmNyZWFzZWQgZGVsYXkgdG8gZmluaXNoIFR4Lg0KDQo+ID4gVGhlIGRyaXZlciB3b3Vs
+ZCBuZWVkIHRvIGVuc3VyZSBhIHJpbmcgZnVsbCBvZiBtZXNzYWdlcyBpc24ndA0KPiA+IGdlbmVy
+YXRlZCB3aXRob3V0IGVpdGhlciB3YWtldXAgLSBidXQgdGhhdCBtaWdodCBiZSAxMjggZnJhbWVz
+Lg0KPiANCj4gVGhhdCBpcyB3aGF0IGlzIGhhcHBlbmluZyBoZXJlLiBCYXNpY2FsbHkgd2UgYXJl
+IGd1YXJhbnRlZWluZw0KPiB3cml0ZWJhY2tzIGFyZSBvY2N1cnJpbmcgb24gYSByZWd1bGFyIGJh
+c2lzIGluc3RlYWQgb2YgaW4gbGFyZ2UNCj4gYnVyc3RzLg0KPiANCj4gPiBGV0lXIG9uIHRoZSBz
+eXN0ZW1zIEkgaGF2ZSBQQ0llIHdyaXRlcyBhcmUgcmVsYXRpdmVseSBjaGVhcA0KPiA+IChyZWFk
+cyBhcmUgc2xvdykuIFNvIGRpZmZlcmVudCBjb3VudHMgd291bGQgYmUgYXBwcm9wcmlhdGUNCj4g
+PiBmb3IgZGVsYXlpbmcgZG9vcmJlbGwgd3JpdGVzIGFuZCByZXF1ZXN0aW5nIGNvbXBsZXRpb24g
+aW50ZXJydXB0cy4NCj4gPg0KPiA+ICAgICAgICAgRGF2aWQNCj4gDQo+IFRoZSBkb29yYmVsbCB3
+cml0ZXMgYXJlIHN0aWxsIGJlaW5nIGRlbGF5ZWQgdGhlIHNhbWUgYW1vdW50IHdpdGggdGhpcw0K
+PiBwYXRjaC4gVGhlIG9ubHkgdGhpbmcgdGhhdCB3YXMgc3BsaXQgb3V0IHdhcyB0aGUgZGV2aWNl
+IHdyaXRlIGJhY2tzDQo+IGFyZSBub3cgb2NjdXJyaW5nIG9uIGEgbW9yZSByZWd1bGFyIGJhc2lz
+IGluc3RlYWQgb2YgYmVpbmcgaGVsZCBvZmYNCj4gdW50aWwgYSBtdWNoIGxhcmdlciBzZXQgaXMg
+aGFuZGxlZC4NCj4gDQoNCkV4YWN0bHkuIFRoZSB0YWlsIGJ1bXBzIGFyZSBzdGlsbCBmdW5jdGlv
+bmluZyB0aGUgc2FtZSwgYnV0IGl0J3MgdGhlIGhhcmR3YXJlIHJlcG9ydCBzdGF0dXMgcmVxdWVz
+dHMgd2hpY2ggYXJlIG5vdCBkZWxheWVkLiBOb3RlIHRoYXQgdGhlcmUncyBzb21lIGZ1cnRoZXIg
+cXVpcmtzIGluIGhvdyBvdXIgaGFyZHdhcmUgcGVyZm9ybXMgd3JpdGUgYmFja3Mgd2hpY2ggZXhh
+Y2VyYmF0ZSB0aGUgcHJvYmxlbSBiZWNhdXNlIG9mIGhvdyB0aGUgY2FjaGVsaW5lcyBhcmUgc2V0
+dXAgc28gdGhhdCB0aGUgZGVsYXkgaXMgZXZlbiB3b3JzZSB0aGFuIHdlIHdvdWxkIGV4cGVjdC4N
+Cg0KVGhhbmtzLA0KSmFrZQ0KDQo+IC0gQWxleA0K
