@@ -1,111 +1,50 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 10/12] net/mlx4: replace <linux/radix-tree.h> with
- <linux/radix-tree-root.h>
-Date: Mon, 9 Oct 2017 09:10:30 +0300
-Message-ID: <20171009061030.GI25829@mtr-leonro.local>
-References: <1507479013-5207-1-git-send-email-yamada.masahiro@socionext.com>
- <1507479013-5207-11-git-send-email-yamada.masahiro@socionext.com>
- <20171008.100013.2081721941420989813.davem@davemloft.net>
- <CAK7LNAQ1BeSb14poieRU4uMsnsEHPNL2zSNtWi1TGN=YrK_8jA@mail.gmail.com>
- <20171008185529.GG25829@mtr-leonro.local>
- <CAK7LNARAhAaO+YjqXyBbi=-udCu8zzGnLMsoVNdkSXtXPuMKsA@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH net] ipv6: Fix traffic triggered IPsec connections.
+Date: Mon, 9 Oct 2017 08:39:43 +0200
+Message-ID: <20171009063943.GG3149@secunet.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="JMMA/5w7oqUUivCa"
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        Ian Abbott <abbotti-GUHe90Wt2aFaa/9Udqfwiw@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Tobias Brunner <tobias@strongswan.org>,
+        Wei Wang <weiwan@google.com>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:48020 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751636AbdJIGjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 02:39:45 -0400
 Content-Disposition: inline
-In-Reply-To: <CAK7LNARAhAaO+YjqXyBbi=-udCu8zzGnLMsoVNdkSXtXPuMKsA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+A recent patch removed the dst_free() on the allocated
+dst_entry in ipv6_blackhole_route(). The dst_free() marked
+the dst_entry as dead and added it to the gc list. I.e. it
+was setup for a one time usage. As a result we may now have
+a blackhole route cached at a socket on some IPsec scenarios.
+This makes the connection unusable.
 
---JMMA/5w7oqUUivCa
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Fix this by marking the dst_entry directly at allocation time
+as 'dead', so it is used only once.
 
-On Mon, Oct 09, 2017 at 02:56:56PM +0900, Masahiro Yamada wrote:
-> 2017-10-09 3:55 GMT+09:00 Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>:
-> > On Mon, Oct 09, 2017 at 02:29:15AM +0900, Masahiro Yamada wrote:
-> >> 2017-10-09 2:00 GMT+09:00 David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
-> >> > From: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-> >> > Date: Mon,  9 Oct 2017 01:10:11 +0900
-> >> >
-> >> >> The headers
-> >> >>  - include/linux/mlx4/device.h
-> >> >>  - drivers/net/ethernet/mellanox/mlx4/mlx4.h
-> >> >> require the definition of struct radix_tree_root, but do not need to
-> >> >> know anything about other radix tree stuff.
-> >> >>
-> >> >> Include <linux/radix-tree-root.h> instead of <linux/radix-tree.h> to
-> >> >> reduce the header dependency.
-> >> >>
-> >> >> While we are here, let's add missing <linux/radix-tree.h> where
-> >> >> radix tree accessors are used.
-> >> >>
-> >> >> Signed-off-by: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-> >> >
-> >> > Honestly this makes things more complicated.
-> >>
-> >>
-> >> The idea is simple; include necessary headers explicitly.
-> >>
-> >> Putting everything into one common header
-> >> means most of C files are forced to parse unnecessary headers.
-> >
-> > It is neglected, only first caller will actually parse that header file,
-> > other callers will check the #ifndef pragma without need to reparse the
-> > whole file.
-> >
->
->
-> You completely neglected the point of the discussion.
->
-> I am trying to not include unnecessary headers at all.
->
+Fixes: 587fea741134 ("ipv6: mark DST_NOGC and remove the operation of dst_free()")
+Reported-by: Tobias Brunner <tobias@strongswan.org>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I understand it and have no issues with that, just have hard time to justify for
-myself any benefit of doing it.
-
-Thanks
-
->
->
->
-> --
-> Best Regards
-> Masahiro Yamada
-
---JMMA/5w7oqUUivCa
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnbEtYACgkQ5GN7iDZy
-WKek7hAAtR2jEZhW99vK3xLBqRuCN/L1s2fWBKBq7BxlgxYkPJhccAK1Y4+HmXGt
-AucaU2HZ7MevkXClN8JoastBj/ziplA9/6pFhzIQn8FFqLt9CxBPRiK2d6AaR6Ij
-FFbo479mLUFRn94abMKbcUQK+3SA++UZD5OxDGwjLHp2EYOxbztFjb2XABi3zkka
-YeQ4DWiBZSgzZ93FO07U0Syk1/29zRjLBehRXaL3P5MVbzfWVzavd+R4+aBML1ey
-ORE7zBNI73qUrwGZIL8HjHPlTWlLY3FbCp1laLh/lMUEOCJM3xwDO7pXqkETXa9D
-Ne9mKpYJ19A/6v7q2HQniTzCg/ZJNigtGA0wVOrPwO4CCCQg5Upzkdz6hUPnryA8
-0MjzE5V2ZXuFWLtI+GrDPcr0xpm8OtUj8aS1ZOF+m447QrQikG98K7lgjZqE5d43
-iS2uYetVFRnx62Cn0elRcEyypZWQteb5kgdGEbntjJZGILlZDKlMBRJmZg+wu9dd
-0X49R05+DBY0zDg+w+V+zLTDcUHAg6avq9PR27AhPCJlD6BTw3E7T6QATP+GHc68
-pisIEfzwtX8/R4/QN8oY9pnVgDE7Kfhw1UOktZH6V5jBDUAlfMX/jocqTisswbky
-QAE7LZF4QmAh7aH2Gpmvuq5gopk9wLNqEjHrerGdLjgucu7Yd/8=
-=9Vo3
------END PGP SIGNATURE-----
-
---JMMA/5w7oqUUivCa--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 26cc9f4..a96d5b3 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1325,7 +1325,7 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
+ 	struct dst_entry *new = NULL;
+ 
+ 	rt = dst_alloc(&ip6_dst_blackhole_ops, loopback_dev, 1,
+-		       DST_OBSOLETE_NONE, 0);
++		       DST_OBSOLETE_DEAD, 0);
+ 	if (rt) {
+ 		rt6_info_init(rt);
+ 
+-- 
+2.7.4
