@@ -1,56 +1,66 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/12] netfilter: x_tables: avoid stack-out-of-bounds read in xt_copy_counters_from_user
-Date: Mon,  9 Oct 2017 18:25:44 +0200
-Message-ID: <1507566346-32553-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/12] netfilter: SYNPROXY: skip non-tcp packet in {ipv4, ipv6}_synproxy_hook
+Date: Mon,  9 Oct 2017 18:25:45 +0200
+Message-ID: <1507566346-32553-12-git-send-email-pablo@netfilter.org>
 References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57782 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755197AbdJIQ0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 12:26:04 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 95B8AC0B2C
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:03 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 84E50DA399
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:03 +0200 (CEST)
 In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Lin Zhang <xiaolou4617@gmail.com>
 
-syzkaller reports an out of bound read in strlcpy(), triggered
-by xt_copy_counters_from_user()
+In function {ipv4,ipv6}_synproxy_hook we expect a normal tcp packet, but
+the real server maybe reply an icmp error packet related to the exist
+tcp conntrack, so we will access wrong tcp data.
 
-Fix this by using memcpy(), then forcing a zero byte at the last position
-of the destination, as Florian did for the non COMPAT code.
+Fix it by checking for the protocol field and only process tcp traffic.
 
-Fixes: d7591f0c41ce ("netfilter: x_tables: introduce and use xt_copy_counters_from_user")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
-Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/x_tables.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/netfilter/ipt_SYNPROXY.c  | 3 ++-
+ net/ipv6/netfilter/ip6t_SYNPROXY.c | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index c83a3b5e1c6c..d8571f414208 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -892,7 +892,7 @@ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
- 		if (copy_from_user(&compat_tmp, user, sizeof(compat_tmp)) != 0)
- 			return ERR_PTR(-EFAULT);
+diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+index 811689e523c3..f75fc6b53115 100644
+--- a/net/ipv4/netfilter/ipt_SYNPROXY.c
++++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+@@ -330,7 +330,8 @@ static unsigned int ipv4_synproxy_hook(void *priv,
+ 	if (synproxy == NULL)
+ 		return NF_ACCEPT;
  
--		strlcpy(info->name, compat_tmp.name, sizeof(info->name));
-+		memcpy(info->name, compat_tmp.name, sizeof(info->name) - 1);
- 		info->num_counters = compat_tmp.num_counters;
- 		user += sizeof(compat_tmp);
- 	} else
-@@ -905,9 +905,9 @@ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
- 		if (copy_from_user(info, user, sizeof(*info)) != 0)
- 			return ERR_PTR(-EFAULT);
+-	if (nf_is_loopback_packet(skb))
++	if (nf_is_loopback_packet(skb) ||
++	    ip_hdr(skb)->protocol != IPPROTO_TCP)
+ 		return NF_ACCEPT;
  
--		info->name[sizeof(info->name) - 1] = '\0';
- 		user += sizeof(*info);
- 	}
-+	info->name[sizeof(info->name) - 1] = '\0';
+ 	thoff = ip_hdrlen(skb);
+diff --git a/net/ipv6/netfilter/ip6t_SYNPROXY.c b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+index a5cd43d75393..437af8c95277 100644
+--- a/net/ipv6/netfilter/ip6t_SYNPROXY.c
++++ b/net/ipv6/netfilter/ip6t_SYNPROXY.c
+@@ -353,7 +353,7 @@ static unsigned int ipv6_synproxy_hook(void *priv,
+ 	nexthdr = ipv6_hdr(skb)->nexthdr;
+ 	thoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr,
+ 				 &frag_off);
+-	if (thoff < 0)
++	if (thoff < 0 || nexthdr != IPPROTO_TCP)
+ 		return NF_ACCEPT;
  
- 	size = sizeof(struct xt_counters);
- 	size *= info->num_counters;
+ 	th = skb_header_pointer(skb, thoff, sizeof(_th), &_th);
 -- 
 2.1.4
-
