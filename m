@@ -1,55 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: avoid zeroing per cpu data again
-Date: Mon, 09 Oct 2017 06:01:37 -0700
-Message-ID: <1507554097.31614.11.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net-next] net: mvpp2: phylink support
+Date: Mon, 9 Oct 2017 14:09:24 +0100
+Message-ID: <20171009130924.GS20805@n2100.armlinux.org.uk>
+References: <20170921134522.10993-1-antoine.tenart@free-electrons.com>
+ <20170922110731.GG20805@n2100.armlinux.org.uk>
+ <20170925095514.GA19364@kwain>
+ <20171009125527.GA24414@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
-        Tejun Heo <tj@kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:37078 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754668AbdJINBk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 09:01:40 -0400
-Received: by mail-pf0-f193.google.com with SMTP id z80so9063114pff.4
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 06:01:40 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com,
+        miquel.raynal@free-electrons.com, nadavh@marvell.com,
+        linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171009125527.GA24414@kwain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Oct 09, 2017 at 02:55:27PM +0200, Antoine Tenart wrote:
+> Hi Russell,
+> 
+> On Mon, Sep 25, 2017 at 11:55:14AM +0200, Antoine Tenart wrote:
+> > On Fri, Sep 22, 2017 at 12:07:31PM +0100, Russell King - ARM Linux wrote:
+> > > On Thu, Sep 21, 2017 at 03:45:22PM +0200, Antoine Tenart wrote:
+> > 
+> > > > +static int mvpp2_phylink_mac_link_state(struct net_device *dev,
+> > > > +					struct phylink_link_state *state)
+> > > > +{
+> > > > +	struct mvpp2_port *port = netdev_priv(dev);
+> > > > +	u32 val;
+> > > > +
+> > > > +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
+> > > > +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
+> > > > +		return 0;
+> > > 
+> > > You're blocking this for 1000base-X and 10G connections, which is not
+> > > correct.  The expectation is that this function returns the current
+> > > MAC state irrespective of the interface mode.
+> > 
+> > I moved what was already supported in the PPv2 driver and did not
+> > implemented the full set of what is supported. It's not perfect, but it
+> > does move what was already supported.
+> > 
+> > Any reason not to first move what's already supported to phylink, and
+> > then add more supported modes in separate patches?
+> 
+> Any thoughts on this?
 
-per cpu allocations are already zeroed, no need to clear them again.
+You're asking me to comment about something I know little about as
+I've not used mvpp2.c.  I don't know the details of what your "already
+supported" statement refers to.  Maybe you could give some clues -
+maybe produce a list of what mvpp2 currently supports?
 
-Fixes: d52d3997f843f ("ipv6: Create percpu rt6_info")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Martin KaFai Lau <kafai@fb.com>
-Cc: Tejun Heo <tj@kernel.org>
----
- net/ipv6/route.c |   12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+Here's the link modes that phylink supports:
+1. PHY based links
+2. PHYless fixed links with details specified in DT, in the same way as
+   the existing "fixed-link" support works, but without needing to create
+   fake PHYs.
+3. PHYless fixed links with GPIO link indication (again, same way as the
+   existing fixed-link support.)
+4. Direct fibre connections via fixed-link or SFP.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 606e80325b21c0e10a02e9c7d5b3fcfbfc26a003..3d7d4e09301ef4deae1985412599c6f4e973c46f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -377,17 +377,7 @@ struct rt6_info *ip6_dst_alloc(struct net *net,
- 
- 	if (rt) {
- 		rt->rt6i_pcpu = alloc_percpu_gfp(struct rt6_info *, GFP_ATOMIC);
--		if (rt->rt6i_pcpu) {
--			int cpu;
--
--			for_each_possible_cpu(cpu) {
--				struct rt6_info **p;
--
--				p = per_cpu_ptr(rt->rt6i_pcpu, cpu);
--				/* no one shares rt */
--				*p =  NULL;
--			}
--		} else {
-+		if (!rt->rt6i_pcpu) {
- 			dst_release_immediate(&rt->dst);
- 			return NULL;
- 		}
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
+According to speedtest.net: 8.21Mbps down 510kbps up
