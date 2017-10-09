@@ -1,59 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] net: enable interface alias removal via rtnl
-Date: Mon, 9 Oct 2017 10:23:51 +0200
-Message-ID: <6e1671c7-93d7-0090-54f6-6b36abb8ba89@6wind.com>
-References: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
- <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
- <f6bd73fe-9b60-6741-8a6d-c93f6ee64a40@hartkopp.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 14/15] i40e: ignore skb->xmit_more when deciding to
+ set RS bit
+Date: Mon, 9 Oct 2017 09:07:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008D373@AcuExch.aculab.com>
+References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
+ <20171006175727.868-15-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <oliver@hartkopp.net>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        David Ahern <dsahern@gmail.com>, davem@davemloft.net
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Jacob Keller <jacob.e.keller@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:45608 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdJIIXz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 04:23:55 -0400
-Received: by mail-wm0-f48.google.com with SMTP id q124so20225573wmb.0
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 01:23:55 -0700 (PDT)
-In-Reply-To: <f6bd73fe-9b60-6741-8a6d-c93f6ee64a40@hartkopp.net>
-Content-Language: fr
+Received: from smtp-out4.electric.net ([192.162.216.185]:57808 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751068AbdJIJHi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 05:07:38 -0400
+In-Reply-To: <20171006175727.868-15-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/10/2017 à 22:10, Oliver Hartkopp a écrit :
+From: Jeff Kirsher
+> Sent: 06 October 2017 18:57
+> From: Jacob Keller <jacob.e.keller@intel.com>
 > 
-> 
-> On 10/06/2017 08:18 PM, David Ahern wrote:
->> On 10/5/17 4:19 AM, Nicolas Dichtel wrote:
->>> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
->>> the attribute is 1 ("\0"). However, to remove an alias, the attribute
->>> length must be 0 (see dev_set_alias()).
->>
->> why not add a check in dev_set_alias that if len is 1 and the 1
->> character is '\0' it means remove the alias?
-Because it requires an iproute2 patch. iproute2 doesn't send the '\0'. With the
-command 'ip link set dummy0 alias ""', the attribute length is 0.
-A kernel patch is probably enough for this problem. Updating iproute2 on old
-distributions is not always easy.
+> Since commit 6a7fded776a7 ("i40e: Fix RS bit update in Tx path and
+> disable force WB workaround") we've tried to "optimize" setting the
+> RS bit based around skb->xmit_more. This same logic was refactored
+> in commit 1dc8b538795f ("i40e: Reorder logic for coalescing RS bits"),
+> but ultimately was not functionally changed.
 
-> 
-> Yes. That looks indeed better than changing NLA_STRING to NLA_BINARY which does
-> not really hit the point.
-> 
-> Nicolas, can you send an updated patch picking up David's suggestion?
-> 
-> Tnx & best regards,
-> Oliver
-> 
->>
->>>
->>> Let's define the type to NLA_BINARY, so that the alias can be removed.
->>
->> that changes the uapi
->>
-I don't understand what will be broken.
+I've tried to understand the above, but without definitions of WB
+and RS and the '4-ness' of something it is quite difficult.
+
+I THINK this is all about telling the hardware there is a packet
+in the ring to transmit?
+
+I don't understand the 4-ness. Linux requires that the hardware
+be notified of a single packet transmit, and that the 'transmit
+complete' also be notified in 'a timely manner' for a single packet.
+
+skb->xmit_more ought to be usable to optimise both of these
+(assuming it isn't a lie).
+The driver would need to ensure a ring full of messages isn't
+generated without either wakeup - but that might be 128 frames.
+
+FWIW on the systems I have PCIe writes are relatively cheap
+(reads are slow). So different counts would be appropriate
+for delaying doorbell writes and requesting completion interrupts.
+
+	David
