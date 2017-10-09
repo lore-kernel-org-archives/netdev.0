@@ -1,89 +1,177 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 1/2] ipv6: addrlabel: rework ip6addrlbl_get()
-Date: Mon,  9 Oct 2017 09:52:24 -0700
-Message-ID: <20171009165225.7008-2-edumazet@google.com>
-References: <20171009165225.7008-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH 0/4] RCU: introduce noref debug
+Date: Mon, 09 Oct 2017 18:53:12 +0200
+Message-ID: <1507567992.21825.9.camel@redhat.com>
+References: <cover.1507294365.git.pabeni@redhat.com>
+         <20171006133436.GY3521@linux.vnet.ibm.com>
+         <1507302609.2793.16.camel@redhat.com>
+         <20171006163414.GC3521@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+        Josh Triplett <josh@joshtriplett.org>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        "David S. Miller" <davem@davemloft.net>,
         Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:47374 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754255AbdJIQwb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 12:52:31 -0400
-Received: by mail-pf0-f180.google.com with SMTP id z11so4397973pfk.4
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 09:52:31 -0700 (PDT)
-In-Reply-To: <20171009165225.7008-1-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171006163414.GC3521@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If we allocate skb before the lookup, we can use RCU
-without the need of ip6addrlbl_hold()
+On Fri, 2017-10-06 at 09:34 -0700, Paul E. McKenney wrote:
+> On Fri, Oct 06, 2017 at 05:10:09PM +0200, Paolo Abeni wrote:
+> > Hi,
+> > 
+> > On Fri, 2017-10-06 at 06:34 -0700, Paul E. McKenney wrote:
+> > > On Fri, Oct 06, 2017 at 02:57:45PM +0200, Paolo Abeni wrote:
+> > > > The networking subsystem is currently using some kind of long-lived
+> > > > RCU-protected, references to avoid the overhead of full book-keeping.
+> > > > 
+> > > > Such references - skb_dst() noref - are stored inside the skbs and can be
+> > > > moved across relevant slices of the network stack, with the users
+> > > > being in charge of properly clearing the relevant skb - or properly refcount
+> > > > the related dst references - before the skb escapes the RCU section.
+> > > > 
+> > > > We currently don't have any deterministic debug infrastructure to check
+> > > > the dst noref usages - and the introduction of others noref artifact is
+> > > > currently under discussion.
+> > > > 
+> > > > This series tries to tackle the above introducing an RCU debug infrastructure
+> > > > aimed at spotting incorrect noref pointer usage, in patch one. The
+> > > > infrastructure is small and must be explicitly enabled via a newly introduced
+> > > > build option.
+> > > > 
+> > > > Patch two uses such infrastructure to track dst noref usage in the networking
+> > > > stack.
+> > > > 
+> > > > Patch 3 and 4 are bugfixes for small buglet found running this infrastructure
+> > > > on basic scenarios.
+> > 
+> > Thank you for the prompt reply!
+> > > 
+> > > This patchset does not look like it handles rcu_read_lock() nesting.
+> > > For example, given code like this:
+> > > 
+> > > 	void foo(void)
+> > > 	{
+> > > 		rcu_read_lock();
+> > > 		rcu_track_noref(&key2, &noref2, true);
+> > > 		do_something();
+> > > 		rcu_track_noref(&key2, &noref2, false);
+> > > 		rcu_read_unlock();
+> > > 	}
+> > > 
+> > > 	void bar(void)
+> > > 	{
+> > > 		rcu_read_lock();
+> > > 		rcu_track_noref(&key1, &noref1, true);
+> > > 		do_something_more();
+> > > 		foo();
+> > > 		do_something_else();
+> > > 		rcu_track_noref(&key1, &noref1, false);
+> > > 		rcu_read_unlock();
+> > > 	}
+> > > 
+> > > 	void grill(void)
+> > > 	{
+> > > 		foo();
+> > > 	}
+> > > 
+> > > It looks like foo()'s rcu_read_unlock() will complain about key1.
+> > > You could remove foo()'s rcu_read_lock() and rcu_read_unlock(), but
+> > > that will break the call from grill().
+> > 
+> > Actually the code should cope correctly with your example; when foo()'s
+> > rcu_read_unlock() is called, 'cache' contains:
+> > 
+> > { { &key1, &noref1, 1},  // ...
+> > 
+> > and when the related __rcu_check_noref() is invoked preempt_count() is
+> > 2 - because the check is called before decreasing the preempt counter.
+> > 
+> > In the main loop inside __rcu_check_noref() we will hit always the
+> > 'continue' statement because 'cache->store[i].nesting != nesting', so
+> > no warn will be triggered.
+> 
+> You are right, it was too early, and my example wasn't correct.  How
+> about this one?
+> 
+> 	void foo(void (*f)(struct s *sp), struct s **spp)
+> 	{
+> 		rcu_read_lock();
+> 		rcu_track_noref(&key2, &noref2, true);
+> 		f(spp);
+> 		rcu_track_noref(&key2, &noref2, false);
+> 		rcu_read_unlock();
+> 	}
+> 
+> 	void barcb(struct s **spp)
+> 	{
+> 		*spp = &noref3;
+> 		rcu_track_noref(&key3, *spp, true);
+> 	}
+> 
+> 	void bar(void)
+> 	{
+> 		struct s *sp;
+> 
+> 		rcu_read_lock();
+> 		rcu_track_noref(&key1, &noref1, true);
+> 		do_something_more();
+> 		foo(barcb, &sp);
+> 		do_something_else(sp);
+> 		rcu_track_noref(&key3, sp, false);
+> 		rcu_track_noref(&key1, &noref1, false);
+> 		rcu_read_unlock();
+> 	}
+> 
+> 	void grillcb(struct s **spp)
+> 	{
+> 		*spp
+> 	}
+> 
+> 	void grill(void)
+> 	{
+> 		foo();
+> 	}
 
-This means that the following patch can get rid of refcounting.
+You are right: this will generate a splat, even if the code it safe.
+The false positive can be avoided looking for leaked references only in
+the outermost rcu unlook. I did a previous implementation performing
+such check, but it emitted very generic splat so I tried to be more
+strict. The latter choice allowed to find/do 3/4.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/addrlabel.c | 36 +++++++++++++-----------------------
- 1 file changed, 13 insertions(+), 23 deletions(-)
+What about using save_stack_trace() in rcu_track_noref(, true) and
+reporting such stack trace when the check in the outer most rcu fails?
 
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index c6311d7108f651c7385cd6316752ba4a86667dcc..f31489652c4ae1fc0c93d1756e13717f0689b0ab 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -546,38 +546,28 @@ static int ip6addrlbl_get(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 		return -EINVAL;
- 	addr = nla_data(tb[IFAL_ADDRESS]);
- 
--	rcu_read_lock();
--	p = __ipv6_addr_label(net, addr, ipv6_addr_type(addr), ifal->ifal_index);
--	if (p && !ip6addrlbl_hold(p))
--		p = NULL;
--	lseq = net->ipv6.ip6addrlbl_table.seq;
--	rcu_read_unlock();
--
--	if (!p) {
--		err = -ESRCH;
--		goto out;
--	}
--
- 	skb = nlmsg_new(ip6addrlbl_msgsize(), GFP_KERNEL);
--	if (!skb) {
--		ip6addrlbl_put(p);
-+	if (!skb)
- 		return -ENOBUFS;
--	}
- 
--	err = ip6addrlbl_fill(skb, p, lseq,
--			      NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
--			      RTM_NEWADDRLABEL, 0);
-+	err = -ESRCH;
- 
--	ip6addrlbl_put(p);
-+	rcu_read_lock();
-+	p = __ipv6_addr_label(net, addr, ipv6_addr_type(addr), ifal->ifal_index);
-+	lseq = net->ipv6.ip6addrlbl_table.seq;
-+	if (p)
-+		err = ip6addrlbl_fill(skb, p, lseq,
-+				      NETLINK_CB(in_skb).portid,
-+				      nlh->nlmsg_seq,
-+				      RTM_NEWADDRLABEL, 0);
-+	rcu_read_unlock();
- 
- 	if (err < 0) {
- 		WARN_ON(err == -EMSGSIZE);
- 		kfree_skb(skb);
--		goto out;
-+	} else {
-+		err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
- 	}
--
--	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
--out:
- 	return err;
- }
- 
--- 
-2.14.2.920.gcf0c67979c-goog
+the current strict/false-postive-prone check could be enabled under an
+additional build flag.
+
+> How does the user select the key argument?  It looks like someone
+> can choose to just pass in NULL -- is that the intent, or am I confused
+> about this as well?
+
+The 'key' argument is intented to discriminate the scope of the same
+noref dst attached to different skbs, which happens e.g. as a result of
+as skb_dst_copy().
+
+In a generic use case, it can be NULL, too.
+
+> I am also concerned about false negatives when the user invokes
+> rcu_track_noref(..., false) but then leaks the pointer anyway.  Or is
+> there something you are doing that catches this that I am missing?
+
+If the rcu_track_noref(..., false) is misplaced or missing, yes we can
+have false negative. 
+
+In the noref rcu use-case the rcu_track_noref(, false) call is/must be
+placed side-by-side with the code clearing the the noref pointer, so
+is/should be quite easy avoiding such mistakes.
+
+Cheers,
+
+Paolo
