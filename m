@@ -1,101 +1,97 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/12] netfilter: xt_socket: Restore mark from full sockets only
-Date: Mon,  9 Oct 2017 18:25:36 +0200
-Message-ID: <1507566346-32553-3-git-send-email-pablo@netfilter.org>
-References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next 14/15] i40e: ignore skb->xmit_more when deciding to set
+ RS bit
+Date: Mon, 9 Oct 2017 09:28:15 -0700
+Message-ID: <CAKgT0UfZEU++hZkpp1NixYxj=2STfXX-5opz2BoEhG1SfUA5pQ@mail.gmail.com>
+References: <20171006175727.868-1-jeffrey.t.kirsher@intel.com>
+ <20171006175727.868-15-jeffrey.t.kirsher@intel.com> <063D6719AE5E284EB5DD2968C1650D6DD008D373@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Jacob Keller <jacob.e.keller@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57780 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754953AbdJIQZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 12:25:59 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 97339C0B40
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:57 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 85A76DA872
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:57 +0200 (CEST)
-In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
+Received: from mail-qt0-f177.google.com ([209.85.216.177]:52118 "EHLO
+        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755279AbdJIQ2S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 12:28:18 -0400
+Received: by mail-qt0-f177.google.com with SMTP id q4so44164485qtq.8
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 09:28:18 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD008D373@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+On Mon, Oct 9, 2017 at 2:07 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Jeff Kirsher
+>> Sent: 06 October 2017 18:57
+>> From: Jacob Keller <jacob.e.keller@intel.com>
+>>
+>> Since commit 6a7fded776a7 ("i40e: Fix RS bit update in Tx path and
+>> disable force WB workaround") we've tried to "optimize" setting the
+>> RS bit based around skb->xmit_more. This same logic was refactored
+>> in commit 1dc8b538795f ("i40e: Reorder logic for coalescing RS bits"),
+>> but ultimately was not functionally changed.
+>
+> I've tried to understand the above, but without definitions of WB
+> and RS and the '4-ness' of something it is quite difficult.
+>
+> I THINK this is all about telling the hardware there is a packet
+> in the ring to transmit?
+>
+> I don't understand the 4-ness. Linux requires that the hardware
+> be notified of a single packet transmit, and that the 'transmit
+> complete' also be notified in 'a timely manner' for a single packet.
 
-An out of bounds error was detected on an ARM64 target with
-Android based kernel 4.9. This occurs while trying to
-restore mark on a skb from an inet request socket.
+So to clarify some of this. The RS is short for Report Status. It
+tells the hardware that when it has completed the descriptor it should
+trigger a write back, aka WB.
 
-BUG: KASAN: slab-out-of-bounds in socket_match.isra.2+0xc8/0x1f0 net/netfilter/xt_socket.c:248
-Read of size 4 at addr ffffffc06a8d824c by task syz-fuzzer/1532
-CPU: 7 PID: 1532 Comm: syz-fuzzer Tainted: G        W  O    4.9.41+ #1
-Call trace:
-[<ffffff900808d2f8>] dump_backtrace+0x0/0x440 arch/arm64/kernel/traps.c:76
-[<ffffff900808d760>] show_stack+0x28/0x38 arch/arm64/kernel/traps.c:226
-[<ffffff90085f7dc8>] __dump_stack lib/dump_stack.c:15 [inline]
-[<ffffff90085f7dc8>] dump_stack+0xe4/0x134 lib/dump_stack.c:51
-[<ffffff900830f358>] print_address_description+0x68/0x258 mm/kasan/report.c:248
-[<ffffff900830f770>] kasan_report_error mm/kasan/report.c:347 [inline]
-[<ffffff900830f770>] kasan_report.part.2+0x228/0x2f0 mm/kasan/report.c:371
-[<ffffff900830fdec>] kasan_report+0x5c/0x70 mm/kasan/report.c:372
-[<ffffff900830de98>] check_memory_region_inline mm/kasan/kasan.c:308 [inline]
-[<ffffff900830de98>] __asan_load4+0x88/0xa0 mm/kasan/kasan.c:740
-[<ffffff90097498f8>] socket_match.isra.2+0xc8/0x1f0 net/netfilter/xt_socket.c:248
-[<ffffff9009749a5c>] socket_mt4_v1_v2_v3+0x3c/0x48 net/netfilter/xt_socket.c:272
-[<ffffff90097f7e4c>] ipt_do_table+0x54c/0xad8 net/ipv4/netfilter/ip_tables.c:311
-[<ffffff90097fcf14>] iptable_mangle_hook+0x6c/0x220 net/ipv4/netfilter/iptable_mangle.c:90
-...
-Allocated by task 1532:
- save_stack_trace_tsk+0x0/0x2a0 arch/arm64/kernel/stacktrace.c:131
- save_stack_trace+0x28/0x38 arch/arm64/kernel/stacktrace.c:215
- save_stack mm/kasan/kasan.c:495 [inline]
- set_track mm/kasan/kasan.c:507 [inline]
- kasan_kmalloc+0xd8/0x188 mm/kasan/kasan.c:599
- kasan_slab_alloc+0x14/0x20 mm/kasan/kasan.c:537
- slab_post_alloc_hook mm/slab.h:417 [inline]
- slab_alloc_node mm/slub.c:2728 [inline]
- slab_alloc mm/slub.c:2736 [inline]
- kmem_cache_alloc+0x14c/0x2e8 mm/slub.c:2741
- reqsk_alloc include/net/request_sock.h:87 [inline]
- inet_reqsk_alloc+0x4c/0x238 net/ipv4/tcp_input.c:6236
- tcp_conn_request+0x2b0/0xea8 net/ipv4/tcp_input.c:6341
- tcp_v4_conn_request+0xe0/0x100 net/ipv4/tcp_ipv4.c:1256
- tcp_rcv_state_process+0x384/0x18a8 net/ipv4/tcp_input.c:5926
- tcp_v4_do_rcv+0x2f0/0x3e0 net/ipv4/tcp_ipv4.c:1430
- tcp_v4_rcv+0x1278/0x1350 net/ipv4/tcp_ipv4.c:1709
- ip_local_deliver_finish+0x174/0x3e0 net/ipv4/ip_input.c:216
+The 4-ness is because each descriptor is 16 bytes, so if we write back
+once every 4 descriptors that is one 64B cache line which is much
+better for most platforms performance wise.
 
-v1->v2: Change socket_mt6_v1_v2_v3() as well as mentioned by Eric
-v2->v3: Put the correct fixes tag
+> skb->xmit_more ought to be usable to optimise both of these
+> (assuming it isn't a lie).
 
-Fixes: 01555e74bde5 ("netfilter: xt_socket: add XT_SOCKET_RESTORESKMARK flag")
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_socket.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Actually it leads to issues if we hold off for too long. If we are
+busy dequeueing a long list, and the Tx queue has gone empty then we
+are stalling Tx without need to do so. We need to be regularly
+notifying the device that it has buffers available to transmit which
+is what xmit_more is good for. However in addition the hardware needs
+to notify us regularly that there are buffers ready to clean which it
+isn't necessarily so useful for, especially if  are filling the entire
+ring and only providing one notification to the driver that there are
+buffers ready since we can defer the Tx interrupt for too long.
 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index e75ef39669c5..575d2153e3b8 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -76,7 +76,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 			transparent = nf_sk_is_transparent(sk);
- 
- 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
--		    transparent)
-+		    transparent && sk_fullsock(sk))
- 			pskb->mark = sk->sk_mark;
- 
- 		if (sk != skb->sk)
-@@ -133,7 +133,7 @@ socket_mt6_v1_v2_v3(const struct sk_buff *skb, struct xt_action_param *par)
- 			transparent = nf_sk_is_transparent(sk);
- 
- 		if (info->flags & XT_SOCKET_RESTORESKMARK && !wildcard &&
--		    transparent)
-+		    transparent && sk_fullsock(sk))
- 			pskb->mark = sk->sk_mark;
- 
- 		if (sk != skb->sk)
--- 
-2.1.4
+What Jake is trying to fix here is to prevent us from generating what
+looks like a square wave in terms of throughput. Essentially the
+current behavior that is being seen is that all the buffers in the
+ring either belong to software, or belong to hardware. It is best for
+us to have this split half and half so that the hardware has buffers
+to transmit and software has buffers to clean and enqueue new buffers
+onto.
+
+> The driver would need to ensure a ring full of messages isn't
+> generated without either wakeup - but that might be 128 frames.
+
+That is what is happening here. Basically we are guaranteeing
+writebacks are occurring on a regular basis instead of in large
+bursts.
+
+> FWIW on the systems I have PCIe writes are relatively cheap
+> (reads are slow). So different counts would be appropriate
+> for delaying doorbell writes and requesting completion interrupts.
+>
+>         David
+
+The doorbell writes are still being delayed the same amount with this
+patch. The only thing that was split out was the device write backs
+are now occurring on a more regular basis instead of being held off
+until a much larger set is handled.
+
+- Alex
