@@ -1,160 +1,39 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/12] netfilter: ebtables: fix race condition in frame_filter_net_init()
-Date: Mon,  9 Oct 2017 18:25:41 +0200
-Message-ID: <1507566346-32553-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/12] netfilter: nf_tables: do not dump chain counters if not enabled
+Date: Mon,  9 Oct 2017 18:25:43 +0200
+Message-ID: <1507566346-32553-10-git-send-email-pablo@netfilter.org>
 References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57798 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755200AbdJIQ0C (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 12:26:02 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 6CAE4C0B40
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:01 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 5BAA0DA385
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:01 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Artem Savkov <asavkov@redhat.com>
+Chain counters are only enabled on demand since 9f08ea848117, skip them
+when dumping them via netlink.
 
-It is possible for ebt_in_hook to be triggered before ebt_table is assigned
-resulting in a NULL-pointer dereference. Make sure hooks are
-registered as the last step.
-
-Fixes: aee12a0a3727 ("ebtables: remove nf_hook_register usage")
-Signed-off-by: Artem Savkov <asavkov@redhat.com>
+Fixes: 9f08ea848117 ("netfilter: nf_tables: keep chain counters away from hot path")
+Reported-by: Johny Mattsson <johny.mattsson+kernel@gmail.com>
+Tested-by: Johny Mattsson <johny.mattsson+kernel@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter_bridge/ebtables.h |  7 ++++---
- net/bridge/netfilter/ebtable_broute.c     |  4 ++--
- net/bridge/netfilter/ebtable_filter.c     |  4 ++--
- net/bridge/netfilter/ebtable_nat.c        |  4 ++--
- net/bridge/netfilter/ebtables.c           | 17 +++++++++--------
- 5 files changed, 19 insertions(+), 17 deletions(-)
+ net/netfilter/nf_tables_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
-index 2c2a5514b0df..528b24c78308 100644
---- a/include/linux/netfilter_bridge/ebtables.h
-+++ b/include/linux/netfilter_bridge/ebtables.h
-@@ -108,9 +108,10 @@ struct ebt_table {
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 34adedcb239e..64e1ee091225 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1048,7 +1048,7 @@ static int nf_tables_fill_chain_info(struct sk_buff *skb, struct net *net,
+ 		if (nla_put_string(skb, NFTA_CHAIN_TYPE, basechain->type->name))
+ 			goto nla_put_failure;
  
- #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
- 		     ~(__alignof__(struct _xt_align)-1))
--extern struct ebt_table *ebt_register_table(struct net *net,
--					    const struct ebt_table *table,
--					    const struct nf_hook_ops *);
-+extern int ebt_register_table(struct net *net,
-+			      const struct ebt_table *table,
-+			      const struct nf_hook_ops *ops,
-+			      struct ebt_table **res);
- extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
- 				 const struct nf_hook_ops *);
- extern unsigned int ebt_do_table(struct sk_buff *skb,
-diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
-index 2585b100ebbb..276b60262981 100644
---- a/net/bridge/netfilter/ebtable_broute.c
-+++ b/net/bridge/netfilter/ebtable_broute.c
-@@ -65,8 +65,8 @@ static int ebt_broute(struct sk_buff *skb)
- 
- static int __net_init broute_net_init(struct net *net)
- {
--	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
--	return PTR_ERR_OR_ZERO(net->xt.broute_table);
-+	return ebt_register_table(net, &broute_table, NULL,
-+				  &net->xt.broute_table);
- }
- 
- static void __net_exit broute_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
-index 45a00dbdbcad..c41da5fac84f 100644
---- a/net/bridge/netfilter/ebtable_filter.c
-+++ b/net/bridge/netfilter/ebtable_filter.c
-@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
- 
- static int __net_init frame_filter_net_init(struct net *net)
- {
--	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
--	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
-+	return ebt_register_table(net, &frame_filter, ebt_ops_filter,
-+				  &net->xt.frame_filter);
- }
- 
- static void __net_exit frame_filter_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index 57cd5bb154e7..08df7406ecb3 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
- 
- static int __net_init frame_nat_net_init(struct net *net)
- {
--	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
--	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
-+	return ebt_register_table(net, &frame_nat, ebt_ops_nat,
-+				  &net->xt.frame_nat);
- }
- 
- static void __net_exit frame_nat_net_exit(struct net *net)
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 83951f978445..3b3dcf719e07 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1169,9 +1169,8 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
- 	kfree(table);
- }
- 
--struct ebt_table *
--ebt_register_table(struct net *net, const struct ebt_table *input_table,
--		   const struct nf_hook_ops *ops)
-+int ebt_register_table(struct net *net, const struct ebt_table *input_table,
-+		       const struct nf_hook_ops *ops, struct ebt_table **res)
- {
- 	struct ebt_table_info *newinfo;
- 	struct ebt_table *t, *table;
-@@ -1183,7 +1182,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	    repl->entries == NULL || repl->entries_size == 0 ||
- 	    repl->counters != NULL || input_table->private != NULL) {
- 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
--		return ERR_PTR(-EINVAL);
-+		return -EINVAL;
+-		if (nft_dump_stats(skb, nft_base_chain(chain)->stats))
++		if (basechain->stats && nft_dump_stats(skb, basechain->stats))
+ 			goto nla_put_failure;
  	}
  
- 	/* Don't add one table to multiple lists. */
-@@ -1252,16 +1251,18 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
- 	mutex_unlock(&ebt_mutex);
- 
-+	WRITE_ONCE(*res, table);
-+
- 	if (!ops)
--		return table;
-+		return 0;
- 
- 	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
- 	if (ret) {
- 		__ebt_unregister_table(net, table);
--		return ERR_PTR(ret);
-+		*res = NULL;
- 	}
- 
--	return table;
-+	return ret;
- free_unlock:
- 	mutex_unlock(&ebt_mutex);
- free_chainstack:
-@@ -1276,7 +1277,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
- free_table:
- 	kfree(table);
- out:
--	return ERR_PTR(ret);
-+	return ret;
- }
- 
- void ebt_unregister_table(struct net *net, struct ebt_table *table,
 -- 
 2.1.4
+
