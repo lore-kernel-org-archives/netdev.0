@@ -1,106 +1,37 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net: can: Convert timers to use timer_setup()
-Date: Mon, 9 Oct 2017 20:10:50 +0200
-Message-ID: <1de2e034-debc-d356-2ea9-e5eecb15f397@pengutronix.de>
-References: <20171005005126.GA23416@beast>
- <04d30a39-3e88-e46b-ad94-686da16e571e@pengutronix.de>
- <CAGXu5jKcQ0ez7dEma5fJv3DjWABAoEm+9P_G6aMcdBv6MHnsdQ@mail.gmail.com>
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH v1 RFC 1/1] Add Microchip KSZ8795 DSA driver
+Date: Mon, 9 Oct 2017 18:24:33 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD4112EE0B@CHN-SV-EXMX02.mchp-main.com>
+References: <1507322023-15182-1-git-send-email-Tristram.Ha@microchip.com>
+ <1507322023-15182-2-git-send-email-Tristram.Ha@microchip.com>
+ <CAJGZr0+E=esM1s086QYr8q3J3UeKvFKBFHt7ydUtC91rALCsjw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="D47cmVrcFt9L7S0u0kpXGn92epK8Efxx0"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Oliver Hartkopp <socketcan@hartkopp.net>,
-        "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>
-To: Kees Cook <keescook@chromium.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>, <pavel@ucw.cz>,
+        <ruediger.schmitt@philips.com>, <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>,
+        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <muvarov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jKcQ0ez7dEma5fJv3DjWABAoEm+9P_G6aMcdBv6MHnsdQ@mail.gmail.com>
+In-Reply-To: <CAJGZr0+E=esM1s086QYr8q3J3UeKvFKBFHt7ydUtC91rALCsjw@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---D47cmVrcFt9L7S0u0kpXGn92epK8Efxx0
-Content-Type: multipart/mixed; boundary="3OCJTdNND5trGJVb54wJfpKatFEDDDBm8";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: Kees Cook <keescook@chromium.org>
-Cc: LKML <linux-kernel@vger.kernel.org>,
- Oliver Hartkopp <socketcan@hartkopp.net>,
- "David S. Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
- Network Development <netdev@vger.kernel.org>,
- Thomas Gleixner <tglx@linutronix.de>
-Message-ID: <1de2e034-debc-d356-2ea9-e5eecb15f397@pengutronix.de>
-Subject: Re: [PATCH] net: can: Convert timers to use timer_setup()
-References: <20171005005126.GA23416@beast>
- <04d30a39-3e88-e46b-ad94-686da16e571e@pengutronix.de>
- <CAGXu5jKcQ0ez7dEma5fJv3DjWABAoEm+9P_G6aMcdBv6MHnsdQ@mail.gmail.com>
-In-Reply-To: <CAGXu5jKcQ0ez7dEma5fJv3DjWABAoEm+9P_G6aMcdBv6MHnsdQ@mail.gmail.com>
-
---3OCJTdNND5trGJVb54wJfpKatFEDDDBm8
-Content-Type: text/plain; charset=utf-8
-Content-Language: de-DE
-Content-Transfer-Encoding: quoted-printable
-
-On 10/09/2017 08:09 PM, Kees Cook wrote:
-> On Mon, Oct 9, 2017 at 10:53 AM, Marc Kleine-Budde <mkl@pengutronix.de>=
- wrote:
->> On 10/05/2017 02:51 AM, Kees Cook wrote:
->>> In preparation for unconditionally passing the struct timer_list poin=
-ter to
->>> all timer callbacks, switch to using the new timer_setup() and from_t=
-imer()
->>> to pass the timer pointer explicitly.
->>>
->>> Cc: Oliver Hartkopp <socketcan@hartkopp.net>
->>> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
->>> Cc: "David S. Miller" <davem@davemloft.net>
->>> Cc: linux-can@vger.kernel.org
->>> Cc: netdev@vger.kernel.org
->>> Cc: Thomas Gleixner <tglx@linutronix.de>
->>> Signed-off-by: Kees Cook <keescook@chromium.org>
->>> ---
->>> This requires commit 686fef928bba ("timer: Prepare to change timer
->>> callback argument type") in v4.14-rc3, but should be otherwise
->>> stand-alone.
->>
->> Are you taking the patch or should I apply it?
->>
->> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
->=20
-> If you have -rc3 in your tree, please take it. If you want the timers
-> tree to carry it instead, we can do that too.
-
-I think it will hit mainline faster via your tree, as it will go via
-net-next. You've my acked-by.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---3OCJTdNND5trGJVb54wJfpKatFEDDDBm8--
-
---D47cmVrcFt9L7S0u0kpXGn92epK8Efxx0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlnbu6oACgkQHv7KIOw4
-HPZG7ggAligHi21MQu+5erns0N1xXD/dp642K2tVhD56VtpSpLctbVvHNQU9rxpj
-WlcU0LTBcjjFSXCTSWHFEkCeT+ggstuQl3TOLMBfAuiqMcUxPp+6m8NNm4eAVFGq
-W38c+czLrBj0o2TDiVh++liH+Eqv0RxIUptdlAUiJg3rMSDHB4GbMxqV0/viriki
-xSDQT/ch+0IoC18N72lKjkFjYWJMQgwjdK6eXSPRhd4n9Xi3MrlziuFcd0ax1vge
-dJxmeBCFBa14C+ahOzPMu5xBibTbqSmtJxNAnrwNis5Y8/vjJPE+aIljXXSmZ7+2
-SVTq3SRa/za1yfHgDWtZQzEBaVbjGg==
-=KGSh
------END PGP SIGNATURE-----
-
---D47cmVrcFt9L7S0u0kpXGn92epK8Efxx0--
+PiBpbiBwcmV2aW91cyB2ZXJzaW9uIEkgc2VlIHRoYXQgdHJhbnNpdCB0cmFmZmljIChwaW5nKSBn
+b2VzIHRvIGNwdSwNCj4gdGhlbiBmcm9tIGNwdSBiYWNrIHRvIGRlc3RpbmF0aW9uIHBvcnQuIEku
+ZS4gaXQgd29ya3MgYnV0IHdpdGggY3B1DQo+IGludm9sdmluZy4gSXMgdGhpcyB2ZXJzaW9uIHN1
+cHBvc2VkIHRvIHdvcmsgbGlrZSB0aGF0Pw0KDQpZZXMsIGl0IHdvcmtzIGluIHRoZSBvbGQgRFNB
+IHdheSBzdWNoIHRoYXQgYSBzb2Z0d2FyZSBicmlkZ2UgaXMNCnJlc3BvbnNpYmxlIHRvIGZvcndh
+cmQgZXZlcnkgcGFja2V0Lg0KDQpOb3cgaWYgdGhlIGtzel91cGRhdGVfcG9ydF9tZW1iZXIgZnVu
+Y3Rpb24gaXMgY2FsbGVkIGluc2lkZQ0KdGhlIGtzejg3OTVfcG9ydF9zdHBfc3RhdGVfc2V0IGZ1
+bmN0aW9uIHRoZSBzd2l0Y2ggd2lsbCBmb3J3YXJkDQpwYWNrZXRzIGl0c2VsZi4gIEJlY2F1c2Ug
+b2YgdGhhdCB0aGUgb2ZmbG9hZF9md2RfbWFyayBiaXQgc2hvdWxkIGJlDQpzZXQgaW4gdGhlIHNv
+Y2tldCBidWZmZXIgc28gdGhhdCB0aGUgc29mdHdhcmUgYnJpZGdlIGRvZXMgbm90DQpmb3J3YXJk
+IHRoZSBwYWNrZXQgKG1vc3RseSBtdWx0aWNhc3QpIGFnYWluLiAgSG93ZXZlciwgdGhhdA0KaW5k
+aWNhdGlvbiBjYW5ub3QgYmUgc2V0IGluIHRoZSBzd2l0Y2ggZHJpdmVyIGJ1dCBpbiB0aGUgdGFp
+bCB0YWcgY29kZQ0KaW4gdGFnX2tzei5jLiAgUmlnaHQgbm93IHRoZXJlIGlzIG5vIGVhc3kgd2F5
+IGZvciB0aGF0IGNvZGUgdG8ga25vdw0KdGhlIGJpdCBzaG91bGQgYmUgc2V0IGJlY2F1c2UgdGhl
+IHN3aXRjaCBpcyBpbiBmb3J3YXJkaW5nIG1vZGUuDQoNCg==
