@@ -1,52 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
-Date: Mon, 9 Oct 2017 10:15:42 -0700
-Message-ID: <20171009171540.lgmk2slq3bdrptxk@ast-mbp.dhcp.thefacebook.com>
-References: <20171009153759.km3lqss7hb72wrze@debian>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next v2 0/5] mlxsw: Offload bridge device mrouter
+Date: Mon, 09 Oct 2017 10:18:28 -0700 (PDT)
+Message-ID: <20171009.101828.1483628850783668385.davem@davemloft.net>
+References: <20171009091535.1315-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, willemb@google.com, edumazet@google.com,
-        soheil@google.com, pabeni@redhat.com, elena.reshetova@intel.com,
-        tom@quantonium.net, Jason@zx2c4.com, fw@strlen.de,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        alexander.levin@one.verizon.com
-To: Tim Hansen <devtimhansen@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
+        nogahf@mellanox.com, mlxsw@mellanox.com, ivecera@redhat.com,
+        nikolay@cumulusnetworks.com, andrew@lunn.ch,
+        stephen@networkplumber.org, nbd@nbd.name, roopa@cumulusnetworks.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:37179 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754151AbdJIRPp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:15:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20171009153759.km3lqss7hb72wrze@debian>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52362 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754373AbdJIRSa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:18:30 -0400
+In-Reply-To: <20171009091535.1315-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 09, 2017 at 11:37:59AM -0400, Tim Hansen wrote:
-> Fix BUG() calls to use BUG_ON(conditional) macros.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon,  9 Oct 2017 11:15:30 +0200
+
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> This was found using make coccicheck M=net/core on linux next
-> tag next-2017092
+> Yotam says:
 > 
-> Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
+> Similarly to a bridged port, the bridge device itself can be configured by
+> the user to be an mrouter port. In this case, all multicast traffic should
+> be forwarded to it. Make the mlxsw Spectrum driver offload these directives
+> to the Spectrum hardware.
+> 
+> Patches 1 and 2 add a new switchdev notification for bridge device mrouter
+> port status and make the bridge module notify about it.
+> 
+> Patches 3-5 change the mlxsw Spectrum driver to handle these notifications
+> by adding the Spectrum router port to the bridge MDB entries.
+> 
 > ---
->  net/core/skbuff.c | 15 ++++++---------
->  1 file changed, 6 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d98c2e3ce2bf..34ce4c1a0f3c 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
->  	/* Set the tail pointer and length */
->  	skb_put(n, skb->len);
->  
-> -	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
-> -		BUG();
-> +	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
+> v1->v2:
+>  - patch1:
+>    - Don't add the MDB_RTR_TYPE_TEMP state and use the timer_pending to
+>      distinguish between learning-on and learning-off states
 
-I'm concerned with this change.
-1. Calling non-trivial bit of code inside the macro is a poor coding style (imo)
-2. BUG_ON != BUG. Some archs like mips and ppc have HAVE_ARCH_BUG_ON and implementation
-of BUG and BUG_ON look quite different.
-
-I'd prefer to keep the code as-is.
+Series applied, thank you.
