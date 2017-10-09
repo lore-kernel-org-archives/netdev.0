@@ -1,338 +1,82 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 10/15] nfp: bpf: encode extended LM pointer operands
-Date: Sun,  8 Oct 2017 21:04:12 -0700
-Message-ID: <20171009040417.22172-11-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 13/15] nfp: bpf: pad code with valid nops
+Date: Sun,  8 Oct 2017 21:04:15 -0700
+Message-ID: <20171009040417.22172-14-jakub.kicinski@netronome.com>
 References: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:54934 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751606AbdJIEFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:55 -0400
-Received: by mail-pf0-f181.google.com with SMTP id m28so7595307pfi.11
-        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:55 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:48796 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751745AbdJIEF5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 00:05:57 -0400
+Received: by mail-pf0-f182.google.com with SMTP id b79so239228pfk.5
+        for <netdev@vger.kernel.org>; Sun, 08 Oct 2017 21:05:57 -0700 (PDT)
 In-Reply-To: <20171009040417.22172-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most instructions have special fields which allow switching
-between base and extended Local Memory pointers.  Introduce
-those to register encoding, we will use the extra LM pointers
-to access high addresses of the stack.
+We need to append up to 8 nops after last instruction to make
+sure the CPU will not fetch garbage instructions with invalid
+ECC if the code store was not initialized.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/jit.c | 56 +++++++++++++++++++---------
- drivers/net/ethernet/netronome/nfp/nfp_asm.c |  6 +++
- drivers/net/ethernet/netronome/nfp/nfp_asm.h | 28 ++++++++++++--
- 3 files changed, 70 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 12 +++++++++++-
+ drivers/net/ethernet/netronome/nfp/nfp_asm.h |  2 ++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index 4fa220f710d2..d7dc19feba8d 100644
+index f4aedc89bfc8..e0600d037773 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -153,6 +153,11 @@ emit_cmd(struct nfp_prog *nfp_prog, enum cmd_tgt_map op,
- 		nfp_prog->error = -EFAULT;
- 		return;
- 	}
-+	if (reg.dst_lmextn || reg.src_lmextn) {
-+		pr_err("cmd can't use LMextn\n");
-+		nfp_prog->error = -EFAULT;
-+		return;
-+	}
- 
- 	__emit_cmd(nfp_prog, op, mode, xfer, reg.areg, reg.breg, size, sync);
- }
-@@ -198,7 +203,7 @@ emit_br(struct nfp_prog *nfp_prog, enum br_mask mask, u16 addr, u8 defer)
- 
- static void
- __emit_br_byte(struct nfp_prog *nfp_prog, u8 areg, u8 breg, bool imm8,
--	       u8 byte, bool equal, u16 addr, u8 defer)
-+	       u8 byte, bool equal, u16 addr, u8 defer, bool src_lmextn)
- {
- 	u16 addr_lo, addr_hi;
- 	u64 insn;
-@@ -214,32 +219,34 @@ __emit_br_byte(struct nfp_prog *nfp_prog, u8 areg, u8 breg, bool imm8,
- 		FIELD_PREP(OP_BB_EQ, equal) |
- 		FIELD_PREP(OP_BB_DEFBR, defer) |
- 		FIELD_PREP(OP_BB_ADDR_LO, addr_lo) |
--		FIELD_PREP(OP_BB_ADDR_HI, addr_hi);
-+		FIELD_PREP(OP_BB_ADDR_HI, addr_hi) |
-+		FIELD_PREP(OP_BB_SRC_LMEXTN, src_lmextn);
- 
- 	nfp_prog_push(nfp_prog, insn);
+@@ -426,6 +426,11 @@ emit_ld_field(struct nfp_prog *nfp_prog, swreg dst, u8 bmask, swreg src,
+ 	emit_ld_field_any(nfp_prog, sc, shift, dst, bmask, src, false);
  }
  
- static void
- emit_br_byte_neq(struct nfp_prog *nfp_prog,
--		 swreg dst, u8 imm, u8 byte, u16 addr, u8 defer)
-+		 swreg src, u8 imm, u8 byte, u16 addr, u8 defer)
- {
- 	struct nfp_insn_re_regs reg;
- 	int err;
- 
--	err = swreg_to_restricted(reg_none(), dst, reg_imm(imm), &reg, true);
-+	err = swreg_to_restricted(reg_none(), src, reg_imm(imm), &reg, true);
- 	if (err) {
- 		nfp_prog->error = err;
- 		return;
- 	}
- 
- 	__emit_br_byte(nfp_prog, reg.areg, reg.breg, reg.i8, byte, false, addr,
--		       defer);
-+		       defer, reg.src_lmextn);
- }
- 
- static void
- __emit_immed(struct nfp_prog *nfp_prog, u16 areg, u16 breg, u16 imm_hi,
- 	     enum immed_width width, bool invert,
--	     enum immed_shift shift, bool wr_both)
-+	     enum immed_shift shift, bool wr_both,
-+	     bool dst_lmextn, bool src_lmextn)
- {
- 	u64 insn;
- 
-@@ -250,7 +257,9 @@ __emit_immed(struct nfp_prog *nfp_prog, u16 areg, u16 breg, u16 imm_hi,
- 		FIELD_PREP(OP_IMMED_WIDTH, width) |
- 		FIELD_PREP(OP_IMMED_INV, invert) |
- 		FIELD_PREP(OP_IMMED_SHIFT, shift) |
--		FIELD_PREP(OP_IMMED_WR_AB, wr_both);
-+		FIELD_PREP(OP_IMMED_WR_AB, wr_both) |
-+		FIELD_PREP(OP_IMMED_SRC_LMEXTN, src_lmextn) |
-+		FIELD_PREP(OP_IMMED_DST_LMEXTN, dst_lmextn);
- 
- 	nfp_prog_push(nfp_prog, insn);
- }
-@@ -274,13 +283,15 @@ emit_immed(struct nfp_prog *nfp_prog, swreg dst, u16 imm,
- 	}
- 
- 	__emit_immed(nfp_prog, reg.areg, reg.breg, imm >> 8, width,
--		     invert, shift, reg.wr_both);
-+		     invert, shift, reg.wr_both,
-+		     reg.dst_lmextn, reg.src_lmextn);
- }
- 
- static void
- __emit_shf(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
- 	   enum shf_sc sc, u8 shift,
--	   u16 areg, enum shf_op op, u16 breg, bool i8, bool sw, bool wr_both)
-+	   u16 areg, enum shf_op op, u16 breg, bool i8, bool sw, bool wr_both,
-+	   bool dst_lmextn, bool src_lmextn)
- {
- 	u64 insn;
- 
-@@ -302,7 +313,9 @@ __emit_shf(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
- 		FIELD_PREP(OP_SHF_SHIFT, shift) |
- 		FIELD_PREP(OP_SHF_OP, op) |
- 		FIELD_PREP(OP_SHF_DST_AB, dst_ab) |
--		FIELD_PREP(OP_SHF_WR_AB, wr_both);
-+		FIELD_PREP(OP_SHF_WR_AB, wr_both) |
-+		FIELD_PREP(OP_SHF_SRC_LMEXTN, src_lmextn) |
-+		FIELD_PREP(OP_SHF_DST_LMEXTN, dst_lmextn);
- 
- 	nfp_prog_push(nfp_prog, insn);
- }
-@@ -321,12 +334,14 @@ emit_shf(struct nfp_prog *nfp_prog, swreg dst,
- 	}
- 
- 	__emit_shf(nfp_prog, reg.dst, reg.dst_ab, sc, shift,
--		   reg.areg, op, reg.breg, reg.i8, reg.swap, reg.wr_both);
-+		   reg.areg, op, reg.breg, reg.i8, reg.swap, reg.wr_both,
-+		   reg.dst_lmextn, reg.src_lmextn);
- }
- 
- static void
- __emit_alu(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
--	   u16 areg, enum alu_op op, u16 breg, bool swap, bool wr_both)
-+	   u16 areg, enum alu_op op, u16 breg, bool swap, bool wr_both,
-+	   bool dst_lmextn, bool src_lmextn)
- {
- 	u64 insn;
- 
-@@ -337,7 +352,9 @@ __emit_alu(struct nfp_prog *nfp_prog, u16 dst, enum alu_dst_ab dst_ab,
- 		FIELD_PREP(OP_ALU_SW, swap) |
- 		FIELD_PREP(OP_ALU_OP, op) |
- 		FIELD_PREP(OP_ALU_DST_AB, dst_ab) |
--		FIELD_PREP(OP_ALU_WR_AB, wr_both);
-+		FIELD_PREP(OP_ALU_WR_AB, wr_both) |
-+		FIELD_PREP(OP_ALU_SRC_LMEXTN, src_lmextn) |
-+		FIELD_PREP(OP_ALU_DST_LMEXTN, dst_lmextn);
- 
- 	nfp_prog_push(nfp_prog, insn);
- }
-@@ -356,13 +373,15 @@ emit_alu(struct nfp_prog *nfp_prog, swreg dst,
- 	}
- 
- 	__emit_alu(nfp_prog, reg.dst, reg.dst_ab,
--		   reg.areg, op, reg.breg, reg.swap, reg.wr_both);
-+		   reg.areg, op, reg.breg, reg.swap, reg.wr_both,
-+		   reg.dst_lmextn, reg.src_lmextn);
- }
- 
- static void
- __emit_ld_field(struct nfp_prog *nfp_prog, enum shf_sc sc,
- 		u8 areg, u8 bmask, u8 breg, u8 shift, bool imm8,
--		bool zero, bool swap, bool wr_both)
-+		bool zero, bool swap, bool wr_both,
-+		bool dst_lmextn, bool src_lmextn)
- {
- 	u64 insn;
- 
-@@ -375,7 +394,9 @@ __emit_ld_field(struct nfp_prog *nfp_prog, enum shf_sc sc,
- 		FIELD_PREP(OP_LDF_ZF, zero) |
- 		FIELD_PREP(OP_LDF_BMASK, bmask) |
- 		FIELD_PREP(OP_LDF_SHF, shift) |
--		FIELD_PREP(OP_LDF_WR_AB, wr_both);
-+		FIELD_PREP(OP_LDF_WR_AB, wr_both) |
-+		FIELD_PREP(OP_LDF_SRC_LMEXTN, src_lmextn) |
-+		FIELD_PREP(OP_LDF_DST_LMEXTN, dst_lmextn);
- 
- 	nfp_prog_push(nfp_prog, insn);
- }
-@@ -394,7 +415,8 @@ emit_ld_field_any(struct nfp_prog *nfp_prog, enum shf_sc sc, u8 shift,
- 	}
- 
- 	__emit_ld_field(nfp_prog, sc, reg.areg, bmask, reg.breg, shift,
--			reg.i8, zero, reg.swap, reg.wr_both);
-+			reg.i8, zero, reg.swap, reg.wr_both,
-+			reg.dst_lmextn, reg.src_lmextn);
- }
- 
- static void
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.c b/drivers/net/ethernet/netronome/nfp/nfp_asm.c
-index 4bcab43da16d..1decc638ea6f 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_asm.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.c
-@@ -130,6 +130,9 @@ int swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
- 		reg->breg = nfp_swreg_to_unreg(rreg, false);
- 	}
- 
-+	reg->dst_lmextn = swreg_lmextn(dst);
-+	reg->src_lmextn = swreg_lmextn(lreg) | swreg_lmextn(rreg);
-+
- 	return 0;
- }
- 
-@@ -207,5 +210,8 @@ int swreg_to_restricted(swreg dst, swreg lreg, swreg rreg,
- 		reg->breg = nfp_swreg_to_rereg(rreg, false, has_imm8, &reg->i8);
- 	}
- 
-+	reg->dst_lmextn = swreg_lmextn(dst);
-+	reg->src_lmextn = swreg_lmextn(lreg) | swreg_lmextn(rreg);
-+
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-index d722f6878bd8..40a51a45afd7 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-@@ -100,6 +100,7 @@ enum br_ctx_signal_state {
- #define OP_BB_DEFBR		0x00000300000ULL
- #define OP_BB_ADDR_LO		0x007ffc00000ULL
- #define OP_BB_ADDR_HI		0x10000000000ULL
-+#define OP_BB_SRC_LMEXTN	0x40000000000ULL
- 
- #define OP_BALU_BASE		0x0e800000000ULL
- #define OP_BA_A_SRC		0x000000003ffULL
-@@ -115,6 +116,8 @@ enum br_ctx_signal_state {
- #define OP_IMMED_SHIFT		0x00600000000ULL
- #define OP_IMMED_BASE		0x0f000000000ULL
- #define OP_IMMED_WR_AB		0x20000000000ULL
-+#define OP_IMMED_SRC_LMEXTN	0x40000000000ULL
-+#define OP_IMMED_DST_LMEXTN	0x80000000000ULL
- 
- enum immed_width {
- 	IMMED_WIDTH_ALL = 0,
-@@ -139,6 +142,8 @@ enum immed_shift {
- #define OP_SHF_OP		0x00e00000000ULL
- #define OP_SHF_DST_AB		0x01000000000ULL
- #define OP_SHF_WR_AB		0x20000000000ULL
-+#define OP_SHF_SRC_LMEXTN	0x40000000000ULL
-+#define OP_SHF_DST_LMEXTN	0x80000000000ULL
- 
- enum shf_op {
- 	SHF_OP_NONE = 0,
-@@ -161,6 +166,8 @@ enum shf_sc {
- #define OP_ALU_DST_AB		0x01000000000ULL
- #define OP_ALU_BASE		0x0a000000000ULL
- #define OP_ALU_WR_AB		0x20000000000ULL
-+#define OP_ALU_SRC_LMEXTN	0x40000000000ULL
-+#define OP_ALU_DST_LMEXTN	0x80000000000ULL
- 
- enum alu_op {
- 	ALU_OP_NONE	= 0x00,
-@@ -189,6 +196,8 @@ enum alu_dst_ab {
- #define OP_LDF_BMASK		0x0000f000000ULL
- #define OP_LDF_SHF		0x001f0000000ULL
- #define OP_LDF_WR_AB		0x20000000000ULL
-+#define OP_LDF_SRC_LMEXTN	0x40000000000ULL
-+#define OP_LDF_DST_LMEXTN	0x80000000000ULL
- 
- #define OP_CMD_A_SRC		0x000000000ffULL
- #define OP_CMD_CTX		0x00000000300ULL
-@@ -231,6 +240,8 @@ enum cmd_ctx_swap {
- #define OP_LCSR_B_SRC		0x000000ffc00ULL
- #define OP_LCSR_WRITE		0x00000200000ULL
- #define OP_LCSR_ADDR		0x001ffc00000ULL
-+#define OP_LCSR_SRC_LMEXTN	0x40000000000ULL
-+#define OP_LCSR_DST_LMEXTN	0x80000000000ULL
- 
- enum lcsr_wr_src {
- 	LCSR_WR_AREG,
-@@ -243,7 +254,9 @@ enum lcsr_wr_src {
- 
- /* Software register representation, independent of operand type */
- #define NN_REG_TYPE	GENMASK(31, 24)
--#define NN_REG_LM_IDX	BIT(22)
-+#define NN_REG_LM_IDX	GENMASK(23, 22)
-+#define NN_REG_LM_IDX_HI	BIT(23)
-+#define NN_REG_LM_IDX_LO	BIT(22)
- #define NN_REG_LM_MOD	GENMASK(21, 20)
- #define NN_REG_VAL	GENMASK(7, 0)
- 
-@@ -285,7 +298,7 @@ static inline swreg __enc_swreg(u16 id, u8 type)
- 
- static inline swreg __enc_swreg_lm(u8 id, enum nfp_bpf_lm_mode mode, u8 off)
- {
--	WARN_ON(id > 1 || (off && mode != NN_LM_MOD_NONE));
-+	WARN_ON(id > 3 || (off && mode != NN_LM_MOD_NONE));
- 
- 	return (__force swreg)(FIELD_PREP(NN_REG_TYPE, NN_REG_LMEM) |
- 			       FIELD_PREP(NN_REG_LM_IDX, id) |
-@@ -310,7 +323,12 @@ static inline u16 swreg_value(swreg reg)
- 
- static inline bool swreg_lm_idx(swreg reg)
- {
--	return FIELD_GET(NN_REG_LM_IDX, swreg_raw(reg));
-+	return FIELD_GET(NN_REG_LM_IDX_LO, swreg_raw(reg));
++static void emit_nop(struct nfp_prog *nfp_prog)
++{
++	__emit_immed(nfp_prog, UR_REG_IMM, UR_REG_IMM, 0, 0, 0, 0, 0, 0, 0);
 +}
 +
-+static inline bool swreg_lmextn(swreg reg)
-+{
-+	return FIELD_GET(NN_REG_LM_IDX_HI, swreg_raw(reg));
+ /* --- Wrappers --- */
+ static bool pack_immed(u32 imm, u16 *val, enum immed_shift *shift)
+ {
+@@ -1550,7 +1555,7 @@ static void nfp_outro(struct nfp_prog *nfp_prog)
+ static int nfp_translate(struct nfp_prog *nfp_prog)
+ {
+ 	struct nfp_insn_meta *meta;
+-	int err;
++	int i, err;
+ 
+ 	nfp_intro(nfp_prog);
+ 	if (nfp_prog->error)
+@@ -1582,6 +1587,11 @@ static int nfp_translate(struct nfp_prog *nfp_prog)
+ 	if (nfp_prog->error)
+ 		return nfp_prog->error;
+ 
++	for (i = 0; i < NFP_USTORE_PREFETCH_WINDOW; i++)
++		emit_nop(nfp_prog);
++	if (nfp_prog->error)
++		return nfp_prog->error;
++
+ 	return nfp_fixup_branches(nfp_prog);
  }
  
- static inline enum nfp_bpf_lm_mode swreg_lm_mode(swreg reg)
-@@ -324,6 +342,8 @@ struct nfp_insn_ur_regs {
- 	u16 areg, breg;
- 	bool swap;
- 	bool wr_both;
-+	bool dst_lmextn;
-+	bool src_lmextn;
- };
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
+index d95087e5fb73..c4c18dd5630a 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
+@@ -362,6 +362,8 @@ int swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
+ int swreg_to_restricted(swreg dst, swreg lreg, swreg rreg,
+ 			struct nfp_insn_re_regs *reg, bool has_imm8);
  
- struct nfp_insn_re_regs {
-@@ -333,6 +353,8 @@ struct nfp_insn_re_regs {
- 	bool swap;
- 	bool wr_both;
- 	bool i8;
-+	bool dst_lmextn;
-+	bool src_lmextn;
- };
++#define NFP_USTORE_PREFETCH_WINDOW	8
++
+ int nfp_ustore_check_valid_no_ecc(u64 insn);
+ u64 nfp_ustore_calc_ecc_insn(u64 insn);
  
- int swreg_to_unrestricted(swreg dst, swreg lreg, swreg rreg,
 -- 
 2.14.1
