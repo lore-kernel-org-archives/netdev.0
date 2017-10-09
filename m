@@ -1,27 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/10][pull request] 10GbE Intel Wired LAN Driver
- Updates 2017-10-09
-Date: Mon, 09 Oct 2017 16:39:28 -0700 (PDT)
-Message-ID: <20171009.163928.607411612616012003.davem@davemloft.net>
-References: <20171009184000.80053-1-jeffrey.t.kirsher@intel.com>
+From: Sistemas administrador <bpbd@jogjaprov.go.id>
+Subject: =?utf-8?b?QVRFTkNJw5NO?=
+Date: Tue, 10 Oct 2017 02:40:19 +0530
+Message-ID: <20171009210138.953F4363910@mx1.jogjaprov.go.id>
+Reply-To: sistemassadminss@barid.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <bpbd@jogjaprov.go.id>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59268 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754644AbdJIXj3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 19:39:29 -0400
-In-Reply-To: <20171009184000.80053-1-jeffrey.t.kirsher@intel.com>
+Received: from mx1.jogjaprov.go.id ([103.255.15.38]:53570 "EHLO
+        mx1.jogjaprov.go.id" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755711AbdJJAFF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 20:05:05 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon,  9 Oct 2017 11:39:50 -0700
+ATENCIÓN;
 
-> This series contains updates to ixgbe only.
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-Pulled, thanks Jeff.
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
+
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2017
+
+¡gracias
+Sistemas administrador 
+(null)
