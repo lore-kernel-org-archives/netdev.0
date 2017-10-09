@@ -1,95 +1,90 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: usb/net/ath6kl: GPF in ath6kl_usb_alloc_urb_from_pipe
-Date: Mon, 9 Oct 2017 19:50:01 +0200
-Message-ID: <CAAeHK+yHexQUqEAAzC+Bgus4+HcbmJqYUYRVV_Yi=mYJ+B3tig@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net PATCH] macvlan: Only deliver one copy of the frame to the
+ macvlan interface
+Date: Mon, 9 Oct 2017 10:50:32 -0700
+Message-ID: <CAKgT0Udnm+WBF9dyvRh1_b-j0JAbfM9YNcPARzrO1Gc=PD9rkQ@mail.gmail.com>
+References: <20171008225403.15848.77823.stgit@localhost.localdomain>
+ <1507511262.14419.32.camel@edumazet-glaptop3.roam.corp.google.com> <CAKgT0Ueb8O_Exh6ERaQev7kE-xv89Dqkn4C2uWNtmLaqQXZrKw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Kalle Valo <kvalo@qca.qualcomm.com>,
-        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:44497 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932077AbdJIRue (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:50:34 -0400
+Received: by mail-qt0-f194.google.com with SMTP id v28so35811982qtv.1
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 10:50:33 -0700 (PDT)
+In-Reply-To: <CAKgT0Ueb8O_Exh6ERaQev7kE-xv89Dqkn4C2uWNtmLaqQXZrKw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Mon, Oct 9, 2017 at 10:30 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Sun, Oct 8, 2017 at 6:07 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Sun, 2017-10-08 at 15:54 -0700, Alexander Duyck wrote:
+>>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>>>
+>>> This patch intoduces a slight adjustment for macvlan to address the fact
+>>> that in source mode I was seeing two copies of any packet addressed to the
+>>> macvlan interface being delivered where there should have been only one.
+>>>
+>>> The issue appears to be that one copy was delivered based on the source MAC
+>>> address and then the second copy was being delivered based on the
+>>> destination MAC address. To fix it I am just freeing the second copy
+>>> instead of delivering it up the stack using the same netdev as was already
+>>> delivered to.
+>>>
+>>> Fixes: 79cf79abce71 ("macvlan: add source mode")
+>>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>>> ---
+>>>  drivers/net/macvlan.c |    3 ++-
+>>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>>> index d2aea961e0f4..744b0fe6dc78 100644
+>>> --- a/drivers/net/macvlan.c
+>>> +++ b/drivers/net/macvlan.c
+>>> @@ -484,7 +484,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
+>>>               return RX_HANDLER_PASS;
+>>>
+>>>       dev = vlan->dev;
+>>> -     if (unlikely(!(dev->flags & IFF_UP))) {
+>>> +     if ((vlan->mode == MACVLAN_MODE_SOURCE) ||
+>>> +         unlikely(!(dev->flags & IFF_UP))) {
+>>>               kfree_skb(skb);
+>>>               return RX_HANDLER_CONSUMED;
+>>>       }
+>>>
+>>
+>>
+>> Shouldn't we have a consume_skb() then instead of kfree_skb() ?
+>>
+>> We are not really dropping a packet here, only avoiding some artifact
+>> cause by the cited commit.
+>
+> The cited commit basically introduced an issue where we are cloning it
+> and sending the clone to the correct device and then are stuck with
+> the original. The way I fixed it is currently consistent with how
+> broadcast is already being handled for macvlan since they are calling
+> kfree_skb() on the clone that they end up enqueueing for broadcast.
+>
+> My thought is to look at rewriting this in relation to some other work
+> I am doing, but I wanted to have a fix for net and stable kernels that
+> prevents this frame duplication from occurring. Really in order to
+> handle this correctly my thought is that we should probably be doing a
+> vlan_prev similar to how we have a pt_prev in
+> __netif_receive_skb_core. Then that way when a packet is meant to be
+> handled by one interface, as is the case for most unicast traffic with
+> VLAN regardless of source mode or not we can then just jump back in
+> using RX_HANDLER_ANOTHER.
+>
+> - Alex
 
-I've got the following report while fuzzing the kernel with syzkaller.
+Actually, now that I am thinking it over again maybe us calling
+kfree_skb() isn't the correct answer. It might make more sense to just
+return RX_HANDLER_PASS. Then we can defer it to the original interface
+to drop it.
 
-On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
-
-usb 1-1: New USB device found, idVendor=0cf3, idProduct=9375
-usb 1-1: New USB device strings: Mfr=2, Product=255, SerialNumber=8
-usb 1-1: Product: a
-usb 1-1: Manufacturer: a
-usb 1-1: SerialNumber: a
-gadgetfs: configuration #9
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] PREEMPT SMP KASAN
-Modules linked in:
-CPU: 1 PID: 1494 Comm: kworker/1:1 Not tainted
-4.14.0-rc4-43418-g43a3f84d2109 #379
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-Workqueue: usb_hub_wq hub_event
-task: ffff880068e9ca40 task.stack: ffff880068948000
-RIP: 0010:__lock_acquire+0xe18/0x4550 kernel/locking/lockdep.c:3376
-RSP: 0018:ffff88006894d788 EFLAGS: 00010006
-RAX: dffffc0000000000 RBX: dffffc0000000000 RCX: 0000000000000000
-RDX: 0000000000000003 RSI: 0000000000000000 RDI: 1ffff1000d129b3c
-RBP: ffff88006894dd08 R08: 0000000000000001 R09: 0000000000000001
-R10: 0000000000000000 R11: ffffffff89789760 R12: ffff880068e9ca40
-R13: dffffc0000000000 R14: 0000000000000001 R15: 0000000000000018
-FS:  0000000000000000(0000) GS:ffff88006c500000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 00007f9558dca000 CR3: 0000000066dc4000 CR4: 00000000000006e0
-Call Trace:
- lock_acquire+0x259/0x620 kernel/locking/lockdep.c:4002
- __raw_spin_lock_irqsave ./include/linux/spinlock_api_smp.h:110
- _raw_spin_lock_irqsave+0xcc/0x110 kernel/locking/spinlock.c:159
- ath6kl_usb_alloc_urb_from_pipe+0x103/0x4c0
-drivers/net/wireless/ath/ath6kl/usb.c:135
- ath6kl_usb_post_recv_transfers.constprop.10+0x228/0x420
-drivers/net/wireless/ath/ath6kl/usb.c:410
- ath6kl_usb_start_recv_pipes drivers/net/wireless/ath/ath6kl/usb.c:484
- hif_start drivers/net/wireless/ath/ath6kl/usb.c:682
- ath6kl_usb_power_on+0x8a/0x120 drivers/net/wireless/ath/ath6kl/usb.c:1041
- ath6kl_hif_power_on drivers/net/wireless/ath/ath6kl/hif-ops.h:136
- ath6kl_core_init+0x180/0x1190 drivers/net/wireless/ath/ath6kl/core.c:97
- ath6kl_usb_probe+0xdf4/0x1420 drivers/net/wireless/ath/ath6kl/usb.c:1147
- usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
- really_probe drivers/base/dd.c:413
- driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
- __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
- bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
- __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
- device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
- bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
- device_add+0xd0b/0x1660 drivers/base/core.c:1835
- usb_set_configuration+0x104e/0x1870 drivers/usb/core/message.c:1932
- generic_probe+0x73/0xe0 drivers/usb/core/generic.c:174
- usb_probe_device+0xaf/0xe0 drivers/usb/core/driver.c:266
- really_probe drivers/base/dd.c:413
- driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
- __device_attach_driver+0x230/0x290 drivers/base/dd.c:653
- bus_for_each_drv+0x161/0x210 drivers/base/bus.c:463
- __device_attach+0x26e/0x3d0 drivers/base/dd.c:710
- device_initial_probe+0x1f/0x30 drivers/base/dd.c:757
- bus_probe_device+0x1eb/0x290 drivers/base/bus.c:523
- device_add+0xd0b/0x1660 drivers/base/core.c:1835
- usb_new_device+0x7b8/0x1020 drivers/usb/core/hub.c:2457
- hub_port_connect drivers/usb/core/hub.c:4903
- hub_port_connect_change drivers/usb/core/hub.c:5009
- port_event drivers/usb/core/hub.c:5115
- hub_event+0x194d/0x3740 drivers/usb/core/hub.c:5195
- process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
- worker_thread+0x221/0x1850 kernel/workqueue.c:2253
- kthread+0x3a1/0x470 kernel/kthread.c:231
- ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
-Code: 89 f0 c7 07 00 00 00 00 48 81 c4 58 05 00 00 5b 41 5c 41 5d 41
-5e 41 5f 5d c3 48 b8 00 00 00 00 00 fc ff df 4c 89 fa 48 c1 ea 03 <80>
-3c 02 00 0f 85 b2 36 00 00 49 81 3f 00 52 bb 88 41 be 00 00
-RIP: __lock_acquire+0xe18/0x4550 RSP: ffff88006894d788
----[ end trace 56dead20dbd7b387 ]---
+- Alex
