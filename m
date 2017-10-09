@@ -1,82 +1,51 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/12] netfilter: ipvs: full-functionality option for ECN encapsulation in tunnel
-Date: Mon,  9 Oct 2017 18:25:35 +0200
-Message-ID: <1507566346-32553-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/12] netfilter: nf_tables: Release memory obtained by kasprintf
+Date: Mon,  9 Oct 2017 18:25:42 +0200
+Message-ID: <1507566346-32553-9-git-send-email-pablo@netfilter.org>
 References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57780 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:57782 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755197AbdJIQ0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 12:26:00 -0400
+        id S1754953AbdJIQ0C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 12:26:02 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id BB610C0B4D
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:58 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 4D76CC0B38
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:01 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id ABF2CDA87F
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:58 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 3CA0DDA396
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:01 +0200 (CEST)
 In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vadim Fedorenko <vfedorenko@yandex-team.ru>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
 
-IPVS tunnel mode works as simple tunnel (see RFC 3168) copying ECN field
-to outer header. That's result in packet drops on egress tunnels in case
-the egress tunnel operates as ECN-capable with Full-functionality option
-(like ip_tunnel and ip6_tunnel kernel modules), according to RFC 3168
-section 9.1.1 recommendation.
+Free memory region, if nf_tables_set_alloc_name is not successful.
 
-This patch implements ECN full-functionality option into ipvs xmit code.
-
-Cc: netdev@vger.kernel.org
-Cc: lvs-devel@vger.kernel.org
-Signed-off-by: Vadim Fedorenko <vfedorenko@yandex-team.ru>
-Reviewed-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Acked-by: Julian Anastasov <ja@ssi.bg>
+Fixes: 387454901bd6 ("netfilter: nf_tables: Allow set names of up to 255 chars")
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/netfilter/nf_tables_api.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 90d396814798..4527921b1c3a 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -921,6 +921,7 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int skb_af,
- {
- 	struct sk_buff *new_skb = NULL;
- 	struct iphdr *old_iph = NULL;
-+	__u8 old_dsfield;
- #ifdef CONFIG_IP_VS_IPV6
- 	struct ipv6hdr *old_ipv6h = NULL;
- #endif
-@@ -945,7 +946,7 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int skb_af,
- 			*payload_len =
- 				ntohs(old_ipv6h->payload_len) +
- 				sizeof(*old_ipv6h);
--		*dsfield = ipv6_get_dsfield(old_ipv6h);
-+		old_dsfield = ipv6_get_dsfield(old_ipv6h);
- 		*ttl = old_ipv6h->hop_limit;
- 		if (df)
- 			*df = 0;
-@@ -960,12 +961,15 @@ ip_vs_prepare_tunneled_skb(struct sk_buff *skb, int skb_af,
- 
- 		/* fix old IP header checksum */
- 		ip_send_check(old_iph);
--		*dsfield = ipv4_get_dsfield(old_iph);
-+		old_dsfield = ipv4_get_dsfield(old_iph);
- 		*ttl = old_iph->ttl;
- 		if (payload_len)
- 			*payload_len = ntohs(old_iph->tot_len);
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index f98ca8c6aa59..34adedcb239e 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2741,8 +2741,10 @@ static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
+ 	list_for_each_entry(i, &ctx->table->sets, list) {
+ 		if (!nft_is_active_next(ctx->net, i))
+ 			continue;
+-		if (!strcmp(set->name, i->name))
++		if (!strcmp(set->name, i->name)) {
++			kfree(set->name);
+ 			return -ENFILE;
++		}
  	}
- 
-+	/* Implement full-functionality option for ECN encapsulation */
-+	*dsfield = INET_ECN_encapsulate(old_dsfield, old_dsfield);
-+
- 	return skb;
- error:
- 	kfree_skb(skb);
+ 	return 0;
+ }
 -- 
 2.1.4
