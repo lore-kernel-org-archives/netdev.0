@@ -1,48 +1,22 @@
-From: Dan Murphy <dmurphy@ti.com>
-Subject: [PATCH v4 2/2] net: phy: at803x: Change error to EINVAL for invalid MAC
-Date: Mon, 9 Oct 2017 11:59:34 -0500
-Message-ID: <20171009165934.12671-2-dmurphy@ti.com>
-References: <20171009165934.12671-1-dmurphy@ti.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2] netlink: do not set cb_running if dump's start() errs
+Date: Mon, 9 Oct 2017 19:02:15 +0200
+Message-ID: <CAHmME9qvKBAF8RAiqbzP+kEn0NmqO-D3TxnAQodpt4oR9p=GYg@mail.gmail.com>
+References: <CAHmME9qK84HT6DEC2Z3q-E+J8AtNSp_7GNAcjWSSsKnxX0eAkA@mail.gmail.com>
+ <20171009121451.26815-1-Jason@zx2c4.com> <1507552289.26041.52.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Woojung.Huh@microchip.com>,
-        <afd@ti.com>, Dan Murphy <dmurphy@ti.com>
-To: <andrew@lunn.ch>, <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:60291 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754049AbdJIRAw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:00:52 -0400
-In-Reply-To: <20171009165934.12671-1-dmurphy@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507552289.26041.52.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change the return error code to EINVAL if the MAC
-address is not valid in the set_wol function.
+On Mon, Oct 9, 2017 at 2:31 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
+>
+> Reviewed-by: Johannes Berg <johannes@sipsolutions.net>
 
-Signed-off-by: Dan Murphy <dmurphy@ti.com>
----
-
-v4 - Updated $subject to include the part number -
-https://www.mail-archive.com/netdev@vger.kernel.org/msg192424.html
-v3 - No changes made
-v2 - There was no v1 on this patch this is new.
-
- drivers/net/phy/at803x.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index c1e52b9dc58d..5f93e6add563 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -167,7 +167,7 @@ static int at803x_set_wol(struct phy_device *phydev,
- 		mac = (const u8 *) ndev->dev_addr;
- 
- 		if (!is_valid_ether_addr(mac))
--			return -EFAULT;
-+			return -EINVAL;
- 
- 		for (i = 0; i < 3; i++) {
- 			phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
--- 
-2.14.0
+Thanks for the review. Hopefully this can make it into 4.13.6 and 4.14-rc5.
