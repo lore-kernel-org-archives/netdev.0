@@ -1,237 +1,160 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/12] netfilter: ipset: Fix adding an IPv4 range containing more than 2^31 addresses
-Date: Mon,  9 Oct 2017 18:25:37 +0200
-Message-ID: <1507566346-32553-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/12] netfilter: ebtables: fix race condition in frame_filter_net_init()
+Date: Mon,  9 Oct 2017 18:25:41 +0200
+Message-ID: <1507566346-32553-8-git-send-email-pablo@netfilter.org>
 References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57772 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:57798 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754944AbdJIQZ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 12:25:59 -0400
+        id S1755200AbdJIQ0C (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 12:26:02 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 7E89EC0B2C
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:57 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 6CAE4C0B40
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:01 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 6D43ADA873
-        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:25:57 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5BAA0DA385
+        for <netdev@vger.kernel.org>; Mon,  9 Oct 2017 18:26:01 +0200 (CEST)
 In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Artem Savkov <asavkov@redhat.com>
 
-Wrong comparison prevented the hash types to add a range with more than
-2^31 addresses but reported as a success.
+It is possible for ebt_in_hook to be triggered before ebt_table is assigned
+resulting in a NULL-pointer dereference. Make sure hooks are
+registered as the last step.
 
-Fixes Netfilter's bugzilla id #1005, reported by Oleg Serditov and
-Oliver Ford.
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Fixes: aee12a0a3727 ("ebtables: remove nf_hook_register usage")
+Signed-off-by: Artem Savkov <asavkov@redhat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_hash_ip.c         | 22 ++++++++++++----------
- net/netfilter/ipset/ip_set_hash_ipmark.c     |  2 +-
- net/netfilter/ipset/ip_set_hash_ipport.c     |  2 +-
- net/netfilter/ipset/ip_set_hash_ipportip.c   |  2 +-
- net/netfilter/ipset/ip_set_hash_ipportnet.c  |  4 ++--
- net/netfilter/ipset/ip_set_hash_net.c        |  2 +-
- net/netfilter/ipset/ip_set_hash_netiface.c   |  2 +-
- net/netfilter/ipset/ip_set_hash_netnet.c     |  4 ++--
- net/netfilter/ipset/ip_set_hash_netport.c    |  2 +-
- net/netfilter/ipset/ip_set_hash_netportnet.c |  4 ++--
- 10 files changed, 24 insertions(+), 22 deletions(-)
+ include/linux/netfilter_bridge/ebtables.h |  7 ++++---
+ net/bridge/netfilter/ebtable_broute.c     |  4 ++--
+ net/bridge/netfilter/ebtable_filter.c     |  4 ++--
+ net/bridge/netfilter/ebtable_nat.c        |  4 ++--
+ net/bridge/netfilter/ebtables.c           | 17 +++++++++--------
+ 5 files changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
-index 20bfbd315f61..613eb212cb48 100644
---- a/net/netfilter/ipset/ip_set_hash_ip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ip.c
-@@ -123,13 +123,12 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		return ret;
+diff --git a/include/linux/netfilter_bridge/ebtables.h b/include/linux/netfilter_bridge/ebtables.h
+index 2c2a5514b0df..528b24c78308 100644
+--- a/include/linux/netfilter_bridge/ebtables.h
++++ b/include/linux/netfilter_bridge/ebtables.h
+@@ -108,9 +108,10 @@ struct ebt_table {
  
- 	ip &= ip_set_hostmask(h->netmask);
-+	e.ip = htonl(ip);
-+	if (e.ip == 0)
-+		return -IPSET_ERR_HASH_ELEM;
+ #define EBT_ALIGN(s) (((s) + (__alignof__(struct _xt_align)-1)) & \
+ 		     ~(__alignof__(struct _xt_align)-1))
+-extern struct ebt_table *ebt_register_table(struct net *net,
+-					    const struct ebt_table *table,
+-					    const struct nf_hook_ops *);
++extern int ebt_register_table(struct net *net,
++			      const struct ebt_table *table,
++			      const struct nf_hook_ops *ops,
++			      struct ebt_table **res);
+ extern void ebt_unregister_table(struct net *net, struct ebt_table *table,
+ 				 const struct nf_hook_ops *);
+ extern unsigned int ebt_do_table(struct sk_buff *skb,
+diff --git a/net/bridge/netfilter/ebtable_broute.c b/net/bridge/netfilter/ebtable_broute.c
+index 2585b100ebbb..276b60262981 100644
+--- a/net/bridge/netfilter/ebtable_broute.c
++++ b/net/bridge/netfilter/ebtable_broute.c
+@@ -65,8 +65,8 @@ static int ebt_broute(struct sk_buff *skb)
  
--	if (adt == IPSET_TEST) {
--		e.ip = htonl(ip);
--		if (e.ip == 0)
--			return -IPSET_ERR_HASH_ELEM;
-+	if (adt == IPSET_TEST)
- 		return adtfn(set, &e, &ext, &ext, flags);
--	}
+ static int __net_init broute_net_init(struct net *net)
+ {
+-	net->xt.broute_table = ebt_register_table(net, &broute_table, NULL);
+-	return PTR_ERR_OR_ZERO(net->xt.broute_table);
++	return ebt_register_table(net, &broute_table, NULL,
++				  &net->xt.broute_table);
+ }
  
- 	ip_to = ip;
- 	if (tb[IPSET_ATTR_IP_TO]) {
-@@ -148,17 +147,20 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
+ static void __net_exit broute_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtable_filter.c b/net/bridge/netfilter/ebtable_filter.c
+index 45a00dbdbcad..c41da5fac84f 100644
+--- a/net/bridge/netfilter/ebtable_filter.c
++++ b/net/bridge/netfilter/ebtable_filter.c
+@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_filter[] = {
  
- 	hosts = h->netmask == 32 ? 1 : 2 << (32 - h->netmask - 1);
+ static int __net_init frame_filter_net_init(struct net *net)
+ {
+-	net->xt.frame_filter = ebt_register_table(net, &frame_filter, ebt_ops_filter);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_filter);
++	return ebt_register_table(net, &frame_filter, ebt_ops_filter,
++				  &net->xt.frame_filter);
+ }
  
--	if (retried)
-+	if (retried) {
- 		ip = ntohl(h->next.ip);
--	for (; !before(ip_to, ip); ip += hosts) {
- 		e.ip = htonl(ip);
--		if (e.ip == 0)
--			return -IPSET_ERR_HASH_ELEM;
-+	}
-+	for (; ip <= ip_to;) {
- 		ret = adtfn(set, &e, &ext, &ext, flags);
--
- 		if (ret && !ip_set_eexist(ret, flags))
- 			return ret;
+ static void __net_exit frame_filter_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
+index 57cd5bb154e7..08df7406ecb3 100644
+--- a/net/bridge/netfilter/ebtable_nat.c
++++ b/net/bridge/netfilter/ebtable_nat.c
+@@ -93,8 +93,8 @@ static const struct nf_hook_ops ebt_ops_nat[] = {
  
-+		ip += hosts;
-+		e.ip = htonl(ip);
-+		if (e.ip == 0)
-+			return 0;
+ static int __net_init frame_nat_net_init(struct net *net)
+ {
+-	net->xt.frame_nat = ebt_register_table(net, &frame_nat, ebt_ops_nat);
+-	return PTR_ERR_OR_ZERO(net->xt.frame_nat);
++	return ebt_register_table(net, &frame_nat, ebt_ops_nat,
++				  &net->xt.frame_nat);
+ }
+ 
+ static void __net_exit frame_nat_net_exit(struct net *net)
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index 83951f978445..3b3dcf719e07 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1169,9 +1169,8 @@ static void __ebt_unregister_table(struct net *net, struct ebt_table *table)
+ 	kfree(table);
+ }
+ 
+-struct ebt_table *
+-ebt_register_table(struct net *net, const struct ebt_table *input_table,
+-		   const struct nf_hook_ops *ops)
++int ebt_register_table(struct net *net, const struct ebt_table *input_table,
++		       const struct nf_hook_ops *ops, struct ebt_table **res)
+ {
+ 	struct ebt_table_info *newinfo;
+ 	struct ebt_table *t, *table;
+@@ -1183,7 +1182,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ 	    repl->entries == NULL || repl->entries_size == 0 ||
+ 	    repl->counters != NULL || input_table->private != NULL) {
+ 		BUGPRINT("Bad table data for ebt_register_table!!!\n");
+-		return ERR_PTR(-EINVAL);
++		return -EINVAL;
+ 	}
+ 
+ 	/* Don't add one table to multiple lists. */
+@@ -1252,16 +1251,18 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ 	list_add(&table->list, &net->xt.tables[NFPROTO_BRIDGE]);
+ 	mutex_unlock(&ebt_mutex);
+ 
++	WRITE_ONCE(*res, table);
 +
- 		ret = 0;
+ 	if (!ops)
+-		return table;
++		return 0;
+ 
+ 	ret = nf_register_net_hooks(net, ops, hweight32(table->valid_hooks));
+ 	if (ret) {
+ 		__ebt_unregister_table(net, table);
+-		return ERR_PTR(ret);
++		*res = NULL;
  	}
- 	return ret;
-diff --git a/net/netfilter/ipset/ip_set_hash_ipmark.c b/net/netfilter/ipset/ip_set_hash_ipmark.c
-index b64cf14e8352..f3ba8348cf9d 100644
---- a/net/netfilter/ipset/ip_set_hash_ipmark.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipmark.c
-@@ -149,7 +149,7 @@ hash_ipmark4_uadt(struct ip_set *set, struct nlattr *tb[],
  
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	for (; !before(ip_to, ip); ip++) {
-+	for (; ip <= ip_to; ip++) {
- 		e.ip = htonl(ip);
- 		ret = adtfn(set, &e, &ext, &ext, flags);
+-	return table;
++	return ret;
+ free_unlock:
+ 	mutex_unlock(&ebt_mutex);
+ free_chainstack:
+@@ -1276,7 +1277,7 @@ ebt_register_table(struct net *net, const struct ebt_table *input_table,
+ free_table:
+ 	kfree(table);
+ out:
+-	return ERR_PTR(ret);
++	return ret;
+ }
  
-diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
-index f438740e6c6a..ddb8039ec1d2 100644
---- a/net/netfilter/ipset/ip_set_hash_ipport.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipport.c
-@@ -178,7 +178,7 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	for (; !before(ip_to, ip); ip++) {
-+	for (; ip <= ip_to; ip++) {
- 		p = retried && ip == ntohl(h->next.ip) ? ntohs(h->next.port)
- 						       : port;
- 		for (; p <= port_to; p++) {
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
-index 6215fb898c50..a7f4d7a85420 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
-@@ -185,7 +185,7 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	for (; !before(ip_to, ip); ip++) {
-+	for (; ip <= ip_to; ip++) {
- 		p = retried && ip == ntohl(h->next.ip) ? ntohs(h->next.port)
- 						       : port;
- 		for (; p <= port_to; p++) {
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-index 5ab1b99a53c2..a2f19b9906e9 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-@@ -271,7 +271,7 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	for (; !before(ip_to, ip); ip++) {
-+	for (; ip <= ip_to; ip++) {
- 		e.ip = htonl(ip);
- 		p = retried && ip == ntohl(h->next.ip) ? ntohs(h->next.port)
- 						       : port;
-@@ -281,7 +281,7 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 			      ip == ntohl(h->next.ip) &&
- 			      p == ntohs(h->next.port)
- 				? ntohl(h->next.ip2) : ip2_from;
--			while (!after(ip2, ip2_to)) {
-+			while (ip2 <= ip2_to) {
- 				e.ip2 = htonl(ip2);
- 				ip2_last = ip_set_range_to_cidr(ip2, ip2_to,
- 								&cidr);
-diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
-index 5d9e895452e7..1c67a1761e45 100644
---- a/net/netfilter/ipset/ip_set_hash_net.c
-+++ b/net/netfilter/ipset/ip_set_hash_net.c
-@@ -193,7 +193,7 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	}
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	while (!after(ip, ip_to)) {
-+	while (ip <= ip_to) {
- 		e.ip = htonl(ip);
- 		last = ip_set_range_to_cidr(ip, ip_to, &e.cidr);
- 		ret = adtfn(set, &e, &ext, &ext, flags);
-diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index 44cf11939c91..d417074f1c1a 100644
---- a/net/netfilter/ipset/ip_set_hash_netiface.c
-+++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -255,7 +255,7 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	while (!after(ip, ip_to)) {
-+	while (ip <= ip_to) {
- 		e.ip = htonl(ip);
- 		last = ip_set_range_to_cidr(ip, ip_to, &e.cidr);
- 		ret = adtfn(set, &e, &ext, &ext, flags);
-diff --git a/net/netfilter/ipset/ip_set_hash_netnet.c b/net/netfilter/ipset/ip_set_hash_netnet.c
-index db614e13b193..7f9ae2e9645b 100644
---- a/net/netfilter/ipset/ip_set_hash_netnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netnet.c
-@@ -250,13 +250,13 @@ hash_netnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (retried)
- 		ip = ntohl(h->next.ip[0]);
- 
--	while (!after(ip, ip_to)) {
-+	while (ip <= ip_to) {
- 		e.ip[0] = htonl(ip);
- 		last = ip_set_range_to_cidr(ip, ip_to, &e.cidr[0]);
- 		ip2 = (retried &&
- 		       ip == ntohl(h->next.ip[0])) ? ntohl(h->next.ip[1])
- 						   : ip2_from;
--		while (!after(ip2, ip2_to)) {
-+		while (ip2 <= ip2_to) {
- 			e.ip[1] = htonl(ip2);
- 			last2 = ip_set_range_to_cidr(ip2, ip2_to, &e.cidr[1]);
- 			ret = adtfn(set, &e, &ext, &ext, flags);
-diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
-index 54b64b6cd0cd..e6ef382febe4 100644
---- a/net/netfilter/ipset/ip_set_hash_netport.c
-+++ b/net/netfilter/ipset/ip_set_hash_netport.c
-@@ -241,7 +241,7 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	if (retried)
- 		ip = ntohl(h->next.ip);
--	while (!after(ip, ip_to)) {
-+	while (ip <= ip_to) {
- 		e.ip = htonl(ip);
- 		last = ip_set_range_to_cidr(ip, ip_to, &cidr);
- 		e.cidr = cidr - 1;
-diff --git a/net/netfilter/ipset/ip_set_hash_netportnet.c b/net/netfilter/ipset/ip_set_hash_netportnet.c
-index aff846960ac4..8602f2595a1a 100644
---- a/net/netfilter/ipset/ip_set_hash_netportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_netportnet.c
-@@ -291,7 +291,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	if (retried)
- 		ip = ntohl(h->next.ip[0]);
- 
--	while (!after(ip, ip_to)) {
-+	while (ip <= ip_to) {
- 		e.ip[0] = htonl(ip);
- 		ip_last = ip_set_range_to_cidr(ip, ip_to, &e.cidr[0]);
- 		p = retried && ip == ntohl(h->next.ip[0]) ? ntohs(h->next.port)
-@@ -301,7 +301,7 @@ hash_netportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 			ip2 = (retried && ip == ntohl(h->next.ip[0]) &&
- 			       p == ntohs(h->next.port)) ? ntohl(h->next.ip[1])
- 							 : ip2_from;
--			while (!after(ip2, ip2_to)) {
-+			while (ip2 <= ip2_to) {
- 				e.ip[1] = htonl(ip2);
- 				ip2_last = ip_set_range_to_cidr(ip2, ip2_to,
- 								&e.cidr[1]);
+ void ebt_unregister_table(struct net *net, struct ebt_table *table,
 -- 
 2.1.4
