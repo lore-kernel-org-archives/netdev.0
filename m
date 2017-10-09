@@ -1,7 +1,7 @@
 From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH v3 net-next 08/12] qed: Add mpa buffer descriptors for storing and processing mpa fpdus
-Date: Mon, 9 Oct 2017 12:37:50 +0300
-Message-ID: <1507541874-18344-9-git-send-email-Michal.Kalderon@cavium.com>
+Subject: [PATCH v3 net-next 09/12] qed: Add unaligned and packed packet processing
+Date: Mon, 9 Oct 2017 12:37:51 +0300
+Message-ID: <1507541874-18344-10-git-send-email-Michal.Kalderon@cavium.com>
 References: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,228 +11,371 @@ Cc: <netdev@vger.kernel.org>, <linux-rdma@vger.kernel.org>,
         "Ariel Elior" <Ariel.Elior@cavium.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0043.outbound.protection.outlook.com ([104.47.33.43]:53376
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-dm3nam03on0079.outbound.protection.outlook.com ([104.47.41.79]:7744
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751598AbdJIJjF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Oct 2017 05:39:05 -0400
+        id S1751738AbdJIJjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Oct 2017 05:39:12 -0400
 In-Reply-To: <1507541874-18344-1-git-send-email-Michal.Kalderon@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mpa buff is a descriptor for iwarp ll2 buffers that contains
-additional information required for aligining fpdu's.
-In some cases, an additional packet will arrive which will complete
-the alignment of a fpdu, but we won't be able to post the fpdu due to
-insufficient place on the tx ring. In this case we can't loose the data
-and require storing it for later. Processing is therefore done
-in two places, during rx completion, where we initialize a mpa buffer
-descriptor and add it to the pending list, and during tx-completion, since
-we free up an entry in the tx chain we can process any pending mpa packets.
-The mpa buff descriptors are pre-allocated since we have to ensure that
-we won't reach a state where we can't store an incoming unaligned packet.
-All packets received on the ll2 MUST be processed by the driver at some
-stage. Since they are preallocated, we hold a free list.
+The fpdu data structure is preallocated per connection.
+Each connection stores the current status of the connection:
+either nothing pending, or there is a partial fpdu that is waiting for
+the rest of the fpdu (incomplete bytes != 0).
+The same structure is also used for splitting a packet when there are
+packed fpdus. The structure is initialized with all data required
+for sending the fpdu back to the FW. A fpdu will always be spanned across
+a maximum of 3 tx bds. One for the header, one for the partial fdpu
+received and one for the remainder (unaligned) packet.
+In case of packed fpdu's, two fragments are used, one for the header
+and one for the data.
+Corner cases are not handled in the patch for clarity, and will be added
+as a separate patch.
 
 Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 116 ++++++++++++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  11 +++
- 2 files changed, 127 insertions(+)
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 257 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h |  13 ++
+ 2 files changed, 270 insertions(+)
 
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-index f413621..efd4861 100644
+index efd4861..83b147f 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
-@@ -1415,7 +1415,10 @@ int qed_iwarp_alloc(struct qed_hwfn *p_hwfn)
+@@ -1419,6 +1419,7 @@ void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn)
  
- void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn)
- {
-+	struct qed_iwarp_info *iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-+
  	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->tcp_cid_map, 1);
-+	kfree(iwarp_info->mpa_bufs);
+ 	kfree(iwarp_info->mpa_bufs);
++	kfree(iwarp_info->partial_fpdus);
  }
  
  int qed_iwarp_accept(void *rdma_cxt, struct qed_iwarp_accept_in *iparams)
-@@ -1716,12 +1719,103 @@ int qed_iwarp_reject(void *rdma_cxt, struct qed_iwarp_reject_in *iparams)
- /* fpdu can be fragmented over maximum 3 bds: header, partial mpa, unaligned */
- #define QED_IWARP_MAX_BDS_PER_FPDU 3
- static void
-+qed_iwarp_mpa_get_data(struct qed_hwfn *p_hwfn,
-+		       struct unaligned_opaque_data *curr_pkt,
-+		       u32 opaque_data0, u32 opaque_data1)
-+{
-+	u64 opaque_data;
-+
-+	opaque_data = HILO_64(opaque_data1, opaque_data0);
-+	*curr_pkt = *((struct unaligned_opaque_data *)&opaque_data);
-+
-+	curr_pkt->first_mpa_offset = curr_pkt->tcp_payload_offset +
-+				     le16_to_cpu(curr_pkt->first_mpa_offset);
-+	curr_pkt->cid = le32_to_cpu(curr_pkt->cid);
-+}
-+
-+/* This function is called when an unaligned or incomplete MPA packet arrives
-+ * driver needs to align the packet, perhaps using previous data and send
-+ * it down to FW once it is aligned.
-+ */
-+static int
-+qed_iwarp_process_mpa_pkt(struct qed_hwfn *p_hwfn,
-+			  struct qed_iwarp_ll2_mpa_buf *mpa_buf)
-+{
-+	struct qed_iwarp_ll2_buff *buf = mpa_buf->ll2_buf;
-+	int rc = -EINVAL;
-+
-+	qed_iwarp_ll2_post_rx(p_hwfn,
-+			      buf,
-+			      p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle);
-+	return rc;
-+}
-+
-+static void qed_iwarp_process_pending_pkts(struct qed_hwfn *p_hwfn)
+@@ -1716,8 +1717,170 @@ int qed_iwarp_reject(void *rdma_cxt, struct qed_iwarp_reject_in *iparams)
+ 	return 0;
+ }
+ 
++static struct qed_iwarp_fpdu *qed_iwarp_get_curr_fpdu(struct qed_hwfn *p_hwfn,
++						      u16 cid)
 +{
 +	struct qed_iwarp_info *iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-+	struct qed_iwarp_ll2_mpa_buf *mpa_buf = NULL;
-+	int rc;
++	struct qed_iwarp_fpdu *partial_fpdu;
++	u32 idx;
 +
-+	while (!list_empty(&iwarp_info->mpa_buf_pending_list)) {
-+		mpa_buf = list_first_entry(&iwarp_info->mpa_buf_pending_list,
-+					   struct qed_iwarp_ll2_mpa_buf,
-+					   list_entry);
-+
-+		rc = qed_iwarp_process_mpa_pkt(p_hwfn, mpa_buf);
-+
-+		/* busy means break and continue processing later, don't
-+		 * remove the buf from the pending list.
-+		 */
-+		if (rc == -EBUSY)
-+			break;
-+
-+		list_del(&mpa_buf->list_entry);
-+		list_add_tail(&mpa_buf->list_entry, &iwarp_info->mpa_buf_list);
-+
-+		if (rc) {	/* different error, don't continue */
-+			DP_NOTICE(p_hwfn, "process pkts failed rc=%d\n", rc);
-+			break;
-+		}
++	idx = cid - qed_cxt_get_proto_cid_start(p_hwfn, PROTOCOLID_IWARP);
++	if (idx >= iwarp_info->max_num_partial_fpdus) {
++		DP_ERR(p_hwfn, "Invalid cid %x max_num_partial_fpdus=%x\n", cid,
++		       iwarp_info->max_num_partial_fpdus);
++		return NULL;
 +	}
++
++	partial_fpdu = &iwarp_info->partial_fpdus[idx];
++
++	return partial_fpdu;
++}
++
++enum qed_iwarp_mpa_pkt_type {
++	QED_IWARP_MPA_PKT_PACKED,
++	QED_IWARP_MPA_PKT_PARTIAL,
++	QED_IWARP_MPA_PKT_UNALIGNED
++};
++
++#define QED_IWARP_MPA_FPDU_LENGTH_SIZE (2)
++#define QED_IWARP_MPA_CRC32_DIGEST_SIZE (4)
++
++/* Pad to multiple of 4 */
++#define QED_IWARP_PDU_DATA_LEN_WITH_PAD(data_len) ALIGN(data_len, 4)
++#define QED_IWARP_FPDU_LEN_WITH_PAD(_mpa_len)				   \
++	(QED_IWARP_PDU_DATA_LEN_WITH_PAD((_mpa_len) +			   \
++					 QED_IWARP_MPA_FPDU_LENGTH_SIZE) + \
++					 QED_IWARP_MPA_CRC32_DIGEST_SIZE)
++
+ /* fpdu can be fragmented over maximum 3 bds: header, partial mpa, unaligned */
+ #define QED_IWARP_MAX_BDS_PER_FPDU 3
++
++char *pkt_type_str[] = {
++	"QED_IWARP_MPA_PKT_PACKED",
++	"QED_IWARP_MPA_PKT_PARTIAL",
++	"QED_IWARP_MPA_PKT_UNALIGNED"
++};
++
++static enum qed_iwarp_mpa_pkt_type
++qed_iwarp_mpa_classify(struct qed_hwfn *p_hwfn,
++		       struct qed_iwarp_fpdu *fpdu,
++		       u16 tcp_payload_len, u8 *mpa_data)
++{
++	enum qed_iwarp_mpa_pkt_type pkt_type;
++	u16 mpa_len;
++
++	if (fpdu->incomplete_bytes) {
++		pkt_type = QED_IWARP_MPA_PKT_UNALIGNED;
++		goto out;
++	}
++
++	mpa_len = ntohs(*((u16 *)(mpa_data)));
++	fpdu->fpdu_length = QED_IWARP_FPDU_LEN_WITH_PAD(mpa_len);
++
++	if (fpdu->fpdu_length <= tcp_payload_len)
++		pkt_type = QED_IWARP_MPA_PKT_PACKED;
++	else
++		pkt_type = QED_IWARP_MPA_PKT_PARTIAL;
++
++out:
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
++		   "MPA_ALIGN: %s: fpdu_length=0x%x tcp_payload_len:0x%x\n",
++		   pkt_type_str[pkt_type], fpdu->fpdu_length, tcp_payload_len);
++
++	return pkt_type;
 +}
 +
 +static void
- qed_iwarp_ll2_comp_mpa_pkt(void *cxt, struct qed_ll2_comp_rx_data *data)
- {
-+	struct qed_iwarp_ll2_mpa_buf *mpa_buf;
- 	struct qed_iwarp_info *iwarp_info;
- 	struct qed_hwfn *p_hwfn = cxt;
- 
- 	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
-+	mpa_buf = list_first_entry(&iwarp_info->mpa_buf_list,
-+				   struct qed_iwarp_ll2_mpa_buf, list_entry);
-+	if (!mpa_buf) {
-+		DP_ERR(p_hwfn, "No free mpa buf\n");
-+		goto err;
-+	}
++qed_iwarp_init_fpdu(struct qed_iwarp_ll2_buff *buf,
++		    struct qed_iwarp_fpdu *fpdu,
++		    struct unaligned_opaque_data *pkt_data,
++		    u16 tcp_payload_size, u8 placement_offset)
++{
++	fpdu->mpa_buf = buf;
++	fpdu->pkt_hdr = buf->data_phys_addr + placement_offset;
++	fpdu->pkt_hdr_size = pkt_data->tcp_payload_offset;
++	fpdu->mpa_frag = buf->data_phys_addr + pkt_data->first_mpa_offset;
++	fpdu->mpa_frag_virt = (u8 *)(buf->data) + pkt_data->first_mpa_offset;
 +
-+	list_del(&mpa_buf->list_entry);
-+	qed_iwarp_mpa_get_data(p_hwfn, &mpa_buf->data,
-+			       data->opaque_data_0, data->opaque_data_1);
++	if (tcp_payload_size < fpdu->fpdu_length)
++		fpdu->incomplete_bytes = fpdu->fpdu_length - tcp_payload_size;
++	else
++		fpdu->incomplete_bytes = 0;	/* complete fpdu */
 +
++	fpdu->mpa_frag_len = fpdu->fpdu_length - fpdu->incomplete_bytes;
++}
++
++static int
++qed_iwarp_send_fpdu(struct qed_hwfn *p_hwfn,
++		    struct qed_iwarp_fpdu *fpdu,
++		    struct unaligned_opaque_data *curr_pkt,
++		    struct qed_iwarp_ll2_buff *buf,
++		    u16 tcp_payload_size, enum qed_iwarp_mpa_pkt_type pkt_type)
++{
++	struct qed_ll2_tx_pkt_info tx_pkt;
++	u8 ll2_handle;
++	int rc;
++
++	memset(&tx_pkt, 0, sizeof(tx_pkt));
++
++	/* An unaligned packet means it's split over two tcp segments. So the
++	 * complete packet requires 3 bds, one for the header, one for the
++	 * part of the fpdu of the first tcp segment, and the last fragment
++	 * will point to the remainder of the fpdu. A packed pdu, requires only
++	 * two bds, one for the header and one for the data.
++	 */
++	tx_pkt.num_of_bds = (pkt_type == QED_IWARP_MPA_PKT_UNALIGNED) ? 3 : 2;
++	tx_pkt.tx_dest = QED_LL2_TX_DEST_LB;
++	tx_pkt.l4_hdr_offset_w = fpdu->pkt_hdr_size >> 2; /* offset in words */
++
++	/* Send the mpa_buf only with the last fpdu (in case of packed) */
++	if (pkt_type == QED_IWARP_MPA_PKT_UNALIGNED ||
++	    tcp_payload_size <= fpdu->fpdu_length)
++		tx_pkt.cookie = fpdu->mpa_buf;
++
++	tx_pkt.first_frag = fpdu->pkt_hdr;
++	tx_pkt.first_frag_len = fpdu->pkt_hdr_size;
++	tx_pkt.enable_ip_cksum = true;
++	tx_pkt.enable_l4_cksum = true;
++	tx_pkt.calc_ip_len = true;
++	/* vlan overload with enum iwarp_ll2_tx_queues */
++	tx_pkt.vlan = IWARP_LL2_ALIGNED_TX_QUEUE;
++
++	ll2_handle = p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle;
++
++	/* Set first fragment to header */
++	rc = qed_ll2_prepare_tx_packet(p_hwfn, ll2_handle, &tx_pkt, true);
++	if (rc)
++		goto out;
++
++	/* Set second fragment to first part of packet */
++	rc = qed_ll2_set_fragment_of_tx_packet(p_hwfn, ll2_handle,
++					       fpdu->mpa_frag,
++					       fpdu->mpa_frag_len);
++	if (rc)
++		goto out;
++
++	if (!fpdu->incomplete_bytes)
++		goto out;
++
++	/* Set third fragment to second part of the packet */
++	rc = qed_ll2_set_fragment_of_tx_packet(p_hwfn,
++					       ll2_handle,
++					       buf->data_phys_addr +
++					       curr_pkt->first_mpa_offset,
++					       fpdu->incomplete_bytes);
++out:
 +	DP_VERBOSE(p_hwfn,
 +		   QED_MSG_RDMA,
-+		   "LL2 MPA CompRx payload_len:0x%x\tfirst_mpa_offset:0x%x\ttcp_payload_offset:0x%x\tflags:0x%x\tcid:0x%x\n",
-+		   data->length.packet_length, mpa_buf->data.first_mpa_offset,
-+		   mpa_buf->data.tcp_payload_offset, mpa_buf->data.flags,
-+		   mpa_buf->data.cid);
++		   "MPA_ALIGN: Sent FPDU num_bds=%d first_frag_len=%x, mpa_frag_len=0x%x, incomplete_bytes:0x%x rc=%d\n",
++		   tx_pkt.num_of_bds,
++		   tx_pkt.first_frag_len,
++		   fpdu->mpa_frag_len,
++		   fpdu->incomplete_bytes, rc);
 +
-+	mpa_buf->ll2_buf = data->cookie;
-+	mpa_buf->tcp_payload_len = data->length.packet_length -
-+				   mpa_buf->data.first_mpa_offset;
-+	mpa_buf->data.first_mpa_offset += data->u.placement_offset;
-+	mpa_buf->placement_offset = data->u.placement_offset;
++	return rc;
++}
 +
-+	list_add_tail(&mpa_buf->list_entry, &iwarp_info->mpa_buf_pending_list);
+ static void
+ qed_iwarp_mpa_get_data(struct qed_hwfn *p_hwfn,
+ 		       struct unaligned_opaque_data *curr_pkt,
+@@ -1741,9 +1904,79 @@ int qed_iwarp_reject(void *rdma_cxt, struct qed_iwarp_reject_in *iparams)
+ qed_iwarp_process_mpa_pkt(struct qed_hwfn *p_hwfn,
+ 			  struct qed_iwarp_ll2_mpa_buf *mpa_buf)
+ {
++	struct unaligned_opaque_data *curr_pkt = &mpa_buf->data;
+ 	struct qed_iwarp_ll2_buff *buf = mpa_buf->ll2_buf;
++	enum qed_iwarp_mpa_pkt_type pkt_type;
++	struct qed_iwarp_fpdu *fpdu;
+ 	int rc = -EINVAL;
++	u8 *mpa_data;
 +
-+	qed_iwarp_process_pending_pkts(p_hwfn);
-+	return;
++	fpdu = qed_iwarp_get_curr_fpdu(p_hwfn, curr_pkt->cid & 0xffff);
++	if (!fpdu) { /* something corrupt with cid, post rx back */
++		DP_ERR(p_hwfn, "Invalid cid, drop and post back to rx cid=%x\n",
++		       curr_pkt->cid);
++		goto err;
++	}
+ 
++	do {
++		mpa_data = ((u8 *)(buf->data) + curr_pkt->first_mpa_offset);
++
++		pkt_type = qed_iwarp_mpa_classify(p_hwfn, fpdu,
++						  mpa_buf->tcp_payload_len,
++						  mpa_data);
++
++		switch (pkt_type) {
++		case QED_IWARP_MPA_PKT_PARTIAL:
++			qed_iwarp_init_fpdu(buf, fpdu,
++					    curr_pkt,
++					    mpa_buf->tcp_payload_len,
++					    mpa_buf->placement_offset);
++
++			mpa_buf->tcp_payload_len = 0;
++			break;
++		case QED_IWARP_MPA_PKT_PACKED:
++			qed_iwarp_init_fpdu(buf, fpdu,
++					    curr_pkt,
++					    mpa_buf->tcp_payload_len,
++					    mpa_buf->placement_offset);
++
++			rc = qed_iwarp_send_fpdu(p_hwfn, fpdu, curr_pkt, buf,
++						 mpa_buf->tcp_payload_len,
++						 pkt_type);
++			if (rc) {
++				DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
++					   "Can't send FPDU:reset rc=%d\n", rc);
++				memset(fpdu, 0, sizeof(*fpdu));
++				break;
++			}
++
++			mpa_buf->tcp_payload_len -= fpdu->fpdu_length;
++			curr_pkt->first_mpa_offset += fpdu->fpdu_length;
++			break;
++		case QED_IWARP_MPA_PKT_UNALIGNED:
++			rc = qed_iwarp_send_fpdu(p_hwfn, fpdu, curr_pkt, buf,
++						 mpa_buf->tcp_payload_len,
++						 pkt_type);
++			if (rc) {
++				DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
++					   "Can't send FPDU:delay rc=%d\n", rc);
++				/* don't reset fpdu -> we need it for next
++				 * classify
++				 */
++				break;
++			}
++
++			mpa_buf->tcp_payload_len -= fpdu->incomplete_bytes;
++			curr_pkt->first_mpa_offset += fpdu->incomplete_bytes;
++			/* The framed PDU was sent - no more incomplete bytes */
++			fpdu->incomplete_bytes = 0;
++			break;
++		}
++	} while (mpa_buf->tcp_payload_len && !rc);
++
++	return rc;
++
 +err:
- 	qed_iwarp_ll2_post_rx(p_hwfn, data->cookie,
- 			      iwarp_info->ll2_mpa_handle);
- }
-@@ -1872,6 +1966,11 @@ static void qed_iwarp_ll2_comp_tx_pkt(void *cxt, u8 connection_handle,
- 
- 	/* this was originally an rx packet, post it back */
- 	qed_iwarp_ll2_post_rx(p_hwfn, buffer, connection_handle);
-+
-+	if (connection_handle == p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle)
-+		qed_iwarp_process_pending_pkts(p_hwfn);
-+
-+	return;
+ 	qed_iwarp_ll2_post_rx(p_hwfn,
+ 			      buf,
+ 			      p_hwfn->p_rdma_info->iwarp.ll2_mpa_handle);
+@@ -1989,11 +2222,27 @@ static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
+ 	kfree(buffer);
  }
  
- static void qed_iwarp_ll2_rel_tx_pkt(void *cxt, u8 connection_handle,
-@@ -1986,6 +2085,7 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
- 	u32 mpa_buff_size;
- 	u16 n_ooo_bufs;
- 	int rc = 0;
-+	int i;
++/* The only slowpath for iwarp ll2 is unalign flush. When this completion
++ * is received, need to reset the FPDU.
++ */
+ void
+ qed_iwarp_ll2_slowpath(void *cxt,
+ 		       u8 connection_handle,
+ 		       u32 opaque_data_0, u32 opaque_data_1)
+ {
++	struct unaligned_opaque_data unalign_data;
++	struct qed_hwfn *p_hwfn = cxt;
++	struct qed_iwarp_fpdu *fpdu;
++
++	qed_iwarp_mpa_get_data(p_hwfn, &unalign_data,
++			       opaque_data_0, opaque_data_1);
++
++	DP_VERBOSE(p_hwfn, QED_MSG_RDMA, "(0x%x) Flush fpdu\n",
++		   unalign_data.cid);
++
++	fpdu = qed_iwarp_get_curr_fpdu(p_hwfn, (u16)unalign_data.cid);
++	if (fpdu)
++		memset(fpdu, 0, sizeof(*fpdu));
+ }
  
- 	iwarp_info = &p_hwfn->p_rdma_info->iwarp;
- 	iwarp_info->ll2_syn_handle = QED_IWARP_HANDLE_INVAL;
-@@ -2094,6 +2194,22 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
+@@ -2194,6 +2443,14 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt)
  					 iwarp_info->ll2_mpa_handle);
  	if (rc)
  		goto err;
-+	/* The mpa_bufs array serves for pending RX packets received on the
-+	 * mpa ll2 that don't have place on the tx ring and require later
-+	 * processing. We can't fail on allocation of such a struct therefore
-+	 * we allocate enough to take care of all rx packets
-+	 */
-+	iwarp_info->mpa_bufs = kcalloc(data.input.rx_num_desc,
-+				       sizeof(*iwarp_info->mpa_bufs),
-+				       GFP_KERNEL);
-+	if (!iwarp_info->mpa_bufs)
++
++	iwarp_info->partial_fpdus = kcalloc((u16)p_hwfn->p_rdma_info->num_qps,
++					    sizeof(*iwarp_info->partial_fpdus),
++					    GFP_KERNEL);
++	if (!iwarp_info->partial_fpdus)
 +		goto err;
 +
-+	INIT_LIST_HEAD(&iwarp_info->mpa_buf_pending_list);
-+	INIT_LIST_HEAD(&iwarp_info->mpa_buf_list);
-+	for (i = 0; i < data.input.rx_num_desc; i++)
-+		list_add_tail(&iwarp_info->mpa_bufs[i].list_entry,
-+			      &iwarp_info->mpa_buf_list);
- 	return rc;
- err:
- 	qed_iwarp_ll2_stop(p_hwfn, p_ptt);
++	iwarp_info->max_num_partial_fpdus = (u16)p_hwfn->p_rdma_info->num_qps;
+ 	/* The mpa_bufs array serves for pending RX packets received on the
+ 	 * mpa ll2 that don't have place on the tx ring and require later
+ 	 * processing. We can't fail on allocation of such a struct therefore
 diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-index 9d33a1f..2c53fe4 100644
+index 2c53fe4..858755c 100644
 --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
 +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.h
-@@ -60,10 +60,20 @@ struct qed_iwarp_ll2_buff {
- 	u32 buff_size;
+@@ -68,6 +68,17 @@ struct qed_iwarp_ll2_mpa_buf {
+ 	u8 placement_offset;
  };
  
-+struct qed_iwarp_ll2_mpa_buf {
-+	struct list_head list_entry;
-+	struct qed_iwarp_ll2_buff *ll2_buf;
-+	struct unaligned_opaque_data data;
-+	u16 tcp_payload_len;
-+	u8 placement_offset;
++struct qed_iwarp_fpdu {
++	struct qed_iwarp_ll2_buff *mpa_buf;
++	void *mpa_frag_virt;
++	dma_addr_t mpa_frag;
++	dma_addr_t pkt_hdr;
++	u16 mpa_frag_len;
++	u16 fpdu_length;
++	u16 incomplete_bytes;
++	u8 pkt_hdr_size;
 +};
 +
  struct qed_iwarp_info {
  	struct list_head listen_list;	/* qed_iwarp_listener */
  	struct list_head ep_list;	/* qed_iwarp_ep */
- 	struct list_head ep_free_list;	/* pre-allocated ep's */
-+	struct list_head mpa_buf_list;	/* list of mpa_bufs */
-+	struct list_head mpa_buf_pending_list;
- 	spinlock_t iw_lock;	/* for iwarp resources */
- 	spinlock_t qp_lock;	/* for teardown races */
- 	u32 rcv_wnd_scale;
-@@ -77,6 +87,7 @@ struct qed_iwarp_info {
+@@ -87,7 +98,9 @@ struct qed_iwarp_info {
  	u8 peer2peer;
  	enum mpa_negotiation_mode mpa_rev;
  	enum mpa_rtr_type rtr_type;
-+	struct qed_iwarp_ll2_mpa_buf *mpa_bufs;
++	struct qed_iwarp_fpdu *partial_fpdus;
+ 	struct qed_iwarp_ll2_mpa_buf *mpa_bufs;
++	u16 max_num_partial_fpdus;
  };
  
  enum qed_iwarp_ep_state {
