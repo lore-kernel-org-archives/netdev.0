@@ -1,84 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/5] Revert commit 1a8b6d76dc5b ("net:add one common config...")
-Date: Mon,  9 Oct 2017 08:12:49 -0700
-Message-ID: <20171009151251.53939-4-jeffrey.t.kirsher@intel.com>
+Subject: [net 2/5] ixgbe: fix masking of bits read from IXGBE_VXLANCTRL register
+Date: Mon,  9 Oct 2017 08:12:48 -0700
+Message-ID: <20171009151251.53939-3-jeffrey.t.kirsher@intel.com>
 References: <20171009151251.53939-1-jeffrey.t.kirsher@intel.com>
-Cc: Ding Tianhong <dingtianhong@huawei.com>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Cc: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga05.intel.com ([192.55.52.43]:48022 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754245AbdJIPNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1754209AbdJIPNP (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 9 Oct 2017 11:13:15 -0400
 In-Reply-To: <20171009151251.53939-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
 
-The new flag PCI_DEV_FLAGS_NO_RELAXED_ORDERING has been added
-to indicate that Relaxed Ordering Attributes (RO) should not
-be used for Transaction Layer Packets (TLP) targeted toward
-these affected Root Port, it will clear the bit4 in the PCIe
-Device Control register, so the PCIe device drivers could
-query PCIe configuration space to determine if it can send
-TLPs to Root Port with the Relaxed Ordering Attributes set.
+In ixgbe_clear_udp_tunnel_port(), we read the IXGBE_VXLANCTRL register
+and then try to mask some bits out of the value, using the logical
+instead of bitwise and operator.
 
-With this new flag  we don't need the config ARCH_WANT_RELAX_ORDER
-to control the Relaxed Ordering Attributes for the ixgbe drivers
-just like the commit 1a8b6d76dc5b ("net:add one common config...") did,
-so revert this commit.
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+Fixes: a21d0822ff69 ("ixgbe: add support for geneve Rx offload")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- arch/Kconfig                                    | 3 ---
- arch/sparc/Kconfig                              | 1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
- 3 files changed, 1 insertion(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index 1aafb4efbb51..d789a89cb32c 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -937,9 +937,6 @@ config STRICT_MODULE_RWX
- 	  and non-text memory will be made non-executable. This provides
- 	  protection against certain security exploits (e.g. writing to text)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 822cdb4f2c25..4d76afd13868 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4881,7 +4881,7 @@ static void ixgbe_clear_udp_tunnel_port(struct ixgbe_adapter *adapter, u32 mask)
+ 				IXGBE_FLAG_GENEVE_OFFLOAD_CAPABLE)))
+ 		return;
  
--config ARCH_WANT_RELAX_ORDER
--	bool
--
- config ARCH_HAS_REFCOUNT
- 	bool
- 	help
-diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index 0be3828752e5..4e83f950713e 100644
---- a/arch/sparc/Kconfig
-+++ b/arch/sparc/Kconfig
-@@ -44,7 +44,6 @@ config SPARC
- 	select ARCH_HAS_SG_CHAIN
- 	select CPU_NO_EFFICIENT_FFS
- 	select LOCKDEP_SMALL if LOCKDEP
--	select ARCH_WANT_RELAX_ORDER
+-	vxlanctrl = IXGBE_READ_REG(hw, IXGBE_VXLANCTRL) && ~mask;
++	vxlanctrl = IXGBE_READ_REG(hw, IXGBE_VXLANCTRL) & ~mask;
+ 	IXGBE_WRITE_REG(hw, IXGBE_VXLANCTRL, vxlanctrl);
  
- config SPARC32
- 	def_bool !64BIT
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 2c19070d2a0b..e8c1788aed1f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -366,7 +366,7 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	}
- 	IXGBE_WRITE_FLUSH(hw);
- 
--#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
-+#ifndef CONFIG_SPARC
- 	/* Disable relaxed ordering */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
- 		u32 regval;
+ 	if (mask & IXGBE_VXLANCTRL_VXLAN_UDPPORT_MASK)
 -- 
 2.14.2
