@@ -1,62 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/10] ixgbe: add error checks when initializing the PHY
-Date: Mon,  9 Oct 2017 11:39:54 -0700
-Message-ID: <20171009184000.80053-5-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/10] ixgbe: restore normal RSS after last macvlan offload is removed
+Date: Mon,  9 Oct 2017 11:39:53 -0700
+Message-ID: <20171009184000.80053-4-jeffrey.t.kirsher@intel.com>
 References: <20171009184000.80053-1-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50188 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:54649 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755216AbdJISkX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1755214AbdJISkX (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 9 Oct 2017 14:40:23 -0400
 In-Reply-To: <20171009184000.80053-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Shannon Nelson <shannon.nelson@oracle.com>
 
-Ignoring errors when attempting to identify the PHY can lead to a crash.
-Specifically in the case of FW controlled PHYs where the PHY read/write
-operations are set to NULL.
+Just like when the last VF is removed, we need to restore normal
+operations after the last macvlan offload is removed, else we
+get stuck in single queue operations.
 
-Removed redundant comment.
+To test:
+ethtool -l eth1   # note the number of queues in use, ~= cpus
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+ethtool -K eth1 l2-fwd-offload on
+ip link add mv1 link eth1 type macvlan mode bridge
+ip link set dev mv1 up
+ip link del mv1
+
+ethtool -l eth1   # are we back to the same # of queues, or stuck on 1?
+
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 933c5070f1b6..8cea53b62e1b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -3192,6 +3192,9 @@ static s32 ixgbe_init_phy_ops_X550em(struct ixgbe_hw *hw)
- 
- 	/* Identify the PHY or SFP module */
- 	ret_val = phy->ops.identify(hw);
-+	if (ret_val == IXGBE_ERR_SFP_NOT_SUPPORTED ||
-+	    ret_val == IXGBE_ERR_PHY_ADDR_INVALID)
-+		return ret_val;
- 
- 	/* Setup function pointers based on detected hardware */
- 	ixgbe_init_mac_link_ops_X550em(hw);
-@@ -3394,9 +3397,10 @@ static s32 ixgbe_reset_hw_X550em(struct ixgbe_hw *hw)
- 	ixgbe_clear_tx_pending(hw);
- 
- 	/* PHY ops must be identified and initialized prior to reset */
--
--	/* Identify PHY and related function pointers */
- 	status = hw->phy.ops.init(hw);
-+	if (status == IXGBE_ERR_SFP_NOT_SUPPORTED ||
-+	    status == IXGBE_ERR_PHY_ADDR_INVALID)
-+		return status;
- 
- 	/* start the external PHY */
- 	if (hw->phy.type == ixgbe_phy_x550em_ext_t) {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3942c6208745..d83cc9d34de3 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9758,6 +9758,17 @@ static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
+ 	limit = find_last_bit(&adapter->fwd_bitmask, 32);
+ 	adapter->ring_feature[RING_F_VMDQ].limit = limit + 1;
+ 	ixgbe_fwd_ring_down(fwd_adapter->netdev, fwd_adapter);
++
++	/* go back to full RSS if we're done with our VMQs */
++	if (adapter->ring_feature[RING_F_VMDQ].limit == 1) {
++		int rss = min_t(int, ixgbe_max_rss_indices(adapter),
++				num_online_cpus());
++
++		adapter->flags &= ~IXGBE_FLAG_VMDQ_ENABLED;
++		adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
++		adapter->ring_feature[RING_F_RSS].limit = rss;
++	}
++
+ 	ixgbe_setup_tc(pdev, netdev_get_num_tc(pdev));
+ 	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
+ 		   fwd_adapter->pool, adapter->num_rx_pools,
 -- 
 2.14.2
