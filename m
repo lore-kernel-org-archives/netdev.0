@@ -1,55 +1,76 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] net: enable interface alias removal via rtnl
-Date: Mon, 9 Oct 2017 17:25:47 +0200
-Message-ID: <3e705d90-9b9a-aa02-e1d9-e3a944953014@6wind.com>
-References: <20171005101940.28550-1-nicolas.dichtel@6wind.com>
- <b6c121f1-c585-6fa4-8dc9-8847ea5ee20c@gmail.com>
- <f6bd73fe-9b60-6741-8a6d-c93f6ee64a40@hartkopp.net>
- <6e1671c7-93d7-0090-54f6-6b36abb8ba89@6wind.com>
- <ffd17810-8d65-04f5-6841-98c74201780c@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Tim Hansen <devtimhansen@gmail.com>
+Subject: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
+Date: Mon, 9 Oct 2017 11:37:59 -0400
+Message-ID: <20171009153759.km3lqss7hb72wrze@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Oliver Hartkopp <oliver@hartkopp.net>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: David Ahern <dsahern@gmail.com>,
-        Oliver Hartkopp <socketcan@hartkopp.net>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:56578 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754818AbdJIPZu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 11:25:50 -0400
-Received: by mail-wm0-f51.google.com with SMTP id l68so24497129wmd.5
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 08:25:49 -0700 (PDT)
-In-Reply-To: <ffd17810-8d65-04f5-6841-98c74201780c@gmail.com>
-Content-Language: fr
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: willemb@google.com, edumazet@google.com, soheil@google.com,
+        pabeni@redhat.com, elena.reshetova@intel.com, tom@quantonium.net,
+        Jason@zx2c4.com, fw@strlen.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, devtimhansen@gmail.com,
+        alexander.levin@one.verizon.com
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 09/10/2017 à 16:02, David Ahern a écrit :
-> On 10/9/17 2:23 AM, Nicolas Dichtel wrote:
->> Le 06/10/2017 à 22:10, Oliver Hartkopp a écrit :
->>>
->>>
->>> On 10/06/2017 08:18 PM, David Ahern wrote:
->>>> On 10/5/17 4:19 AM, Nicolas Dichtel wrote:
->>>>> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
->>>>> the attribute is 1 ("\0"). However, to remove an alias, the attribute
->>>>> length must be 0 (see dev_set_alias()).
->>>>
->>>> why not add a check in dev_set_alias that if len is 1 and the 1
->>>> character is '\0' it means remove the alias?
->> Because it requires an iproute2 patch. iproute2 doesn't send the '\0'. With the
->> command 'ip link set dummy0 alias ""', the attribute length is 0.
-> 
-> iproute2 needs the feature for 0-len strings or perhaps a 'noalias' option.
-iproute2 needs nothing ...
+Fix BUG() calls to use BUG_ON(conditional) macros.
 
-> 
-> You can reset the alias using the sysfs file. Given that there is a
-> workaround for existing kernels and userspace, upstream can get fixed
-> without changing the UAPI.
-> 
-I don't get the point with the UAPI. What will be broken?
-I don't see why allowing an attribute with no data is a problem.
+This was found using make coccicheck M=net/core on linux next
+tag next-2017092
+
+Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
+---
+ net/core/skbuff.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d98c2e3ce2bf..34ce4c1a0f3c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+ 	/* Set the tail pointer and length */
+ 	skb_put(n, skb->len);
+ 
+-	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
+ 
+ 	copy_skb_header(n, skb);
+ 	return n;
+@@ -1449,8 +1448,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 
+ 	BUG_ON(nhead < 0);
+ 
+-	if (skb_shared(skb))
+-		BUG();
++	BUG_ON(skb_shared(skb));
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 
+@@ -1595,9 +1593,8 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
+ 		head_copy_off = newheadroom - head_copy_len;
+ 
+ 	/* Copy the linear header and data. */
+-	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+-			  skb->len + head_copy_len))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
++			     skb->len + head_copy_len));
+ 
+ 	copy_skb_header(n, skb);
+ 
+@@ -1878,8 +1875,8 @@ void *__pskb_pull_tail(struct sk_buff *skb, int delta)
+ 			return NULL;
+ 	}
+ 
+-	if (skb_copy_bits(skb, skb_headlen(skb), skb_tail_pointer(skb), delta))
+-		BUG();
++	BUG_ON(skb_copy_bits(skb, skb_headlen(skb),
++			     skb_tail_pointer(skb), delta));
+ 
+ 	/* Optimization: no fragments, no reasons to preestimate
+ 	 * size of pulled pages. Superb.
+-- 
+2.14.2
