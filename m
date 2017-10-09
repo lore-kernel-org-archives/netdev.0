@@ -1,46 +1,67 @@
-From: Eric Biggers <ebiggers3@gmail.com>
-Subject: Re: [PATCH] once: switch to new jump label API
-Date: Mon, 9 Oct 2017 13:27:08 -0700
-Message-ID: <20171009202708.GB67463@gmail.com>
-References: <20170821234241.88438-1-ebiggers3@gmail.com>
- <874lszmoh2.fsf@stressinduktion.org>
- <20170916040751.GA14238@zzz.localdomain>
+From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+Subject: Re: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
+Date: Mon, 9 Oct 2017 20:26:34 +0000
+Message-ID: <20171009202633.ep5pbi2tlg7dqidz@sasha-lappy>
+References: <20171009153759.km3lqss7hb72wrze@debian>
+ <20171009171540.lgmk2slq3bdrptxk@ast-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Jason Baron <jbaron@akamai.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Eric Biggers <ebiggers@google.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Tim Hansen <devtimhansen@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "willemb@google.com" <willemb@google.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "soheil@google.com" <soheil@google.com>,
+        "pabeni@redhat.com" <pabeni@redhat.com>,
+        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
+        "tom@quantonium.net" <tom@quantonium.net>,
+        "Jason@zx2c4.com" <Jason@zx2c4.com>, "fw@strlen.de" <fw@strlen.de>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170916040751.GA14238@zzz.localdomain>
+In-Reply-To: <20171009171540.lgmk2slq3bdrptxk@ast-mbp.dhcp.thefacebook.com>
+Content-Language: en-US
+Content-ID: <27366CC39A0C184C85A9D6DCD45F6134@vzwcorp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 15, 2017 at 09:07:51PM -0700, Eric Biggers wrote:
-> On Tue, Aug 22, 2017 at 02:44:41PM -0400, Hannes Frederic Sowa wrote:
-> > Eric Biggers <ebiggers3@gmail.com> writes:
-> > 
-> > > From: Eric Biggers <ebiggers@google.com>
-> > >
-> > > Switch the DO_ONCE() macro from the deprecated jump label API to the new
-> > > one.  The new one is more readable, and for DO_ONCE() it also makes the
-> > > generated code more icache-friendly: now the one-time initialization
-> > > code is placed out-of-line at the jump target, rather than at the inline
-> > > fallthrough case.
-> > >
-> > > Signed-off-by: Eric Biggers <ebiggers@google.com>
-> > 
-> > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org.
-> > 
-> > Thanks!
-> 
-> Great!  Who though is the maintainer for this code?  It seems it was originally
-> taken by David Miller through the networking tree.  David, are you taking
-> further patches to the "once" functions, or should I be trying to get this into
-> -mm, or somewhere else?
-> 
-> Eric
+On Mon, Oct 09, 2017 at 10:15:42AM -0700, Alexei Starovoitov wrote:
+>On Mon, Oct 09, 2017 at 11:37:59AM -0400, Tim Hansen wrote:
+>> Fix BUG() calls to use BUG_ON(conditional) macros.
+>>
+>> This was found using make coccicheck M=3Dnet/core on linux next
+>> tag next-2017092
+>>
+>> Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
+>> ---
+>>  net/core/skbuff.c | 15 ++++++---------
+>>  1 file changed, 6 insertions(+), 9 deletions(-)
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index d98c2e3ce2bf..34ce4c1a0f3c 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb=
+, gfp_t gfp_mask)
+>>  	/* Set the tail pointer and length */
+>>  	skb_put(n, skb->len);
+>>
+>> -	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len))
+>> -		BUG();
+>> +	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len));
+>
+>I'm concerned with this change.
+>1. Calling non-trivial bit of code inside the macro is a poor coding style=
+ (imo)
+>2. BUG_ON !=3D BUG. Some archs like mips and ppc have HAVE_ARCH_BUG_ON and=
+ implementation
+>of BUG and BUG_ON look quite different.
 
-Ping.
+For these archs, wouldn't it then be more efficient to use BUG_ON rather th=
+an BUG()?
+
+--=20
+
+Thanks,
+Sasha=
