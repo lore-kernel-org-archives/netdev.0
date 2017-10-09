@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] Netfilter/IPVS fixes for net
-Date: Mon, 09 Oct 2017 10:40:47 -0700 (PDT)
-Message-ID: <20171009.104047.1245092259258863465.davem@davemloft.net>
-References: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] net: thunderx: mark expected switch fall-throughs in
+ nicvf_main()
+Date: Mon, 09 Oct 2017 10:43:20 -0700 (PDT)
+Message-ID: <20171009.104320.709683794054164260.davem@davemloft.net>
+References: <20171009164453.GA4889@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52902 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751635AbdJIRks (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 13:40:48 -0400
-In-Reply-To: <1507566346-32553-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sgoutham@cavium.com, rric@kernel.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: gustavo@embeddedor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171009164453.GA4889@embeddedor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon,  9 Oct 2017 18:25:34 +0200
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Date: Mon, 9 Oct 2017 11:44:53 -0500
 
-> The following patchset contains Netfilter/IPVS fixes for your net tree,
-> they are:
- ...
-> You can pull these changes from:
+> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+> where we are expecting to fall through.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
+> Cc: Sunil Goutham <sgoutham@cavium.com>
+> Cc: Robert Richter <rric@kernel.org>
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 
-Pulled, thanks!
+Applied.
