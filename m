@@ -1,56 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v1 RFC 1/7] Replace license with GPL
-Date: Mon, 9 Oct 2017 12:40:15 -0700
-Message-ID: <45a93e39-6530-fc1b-7808-51750691a470@gmail.com>
-References: <1507321985-15097-1-git-send-email-Tristram.Ha@microchip.com>
- <1507321985-15097-2-git-send-email-Tristram.Ha@microchip.com>
- <063D6719AE5E284EB5DD2968C1650D6DD008D3F0@AcuExch.aculab.com>
- <93AF473E2DA327428DE3D46B72B1E9FD4112EE49@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, UNGLinuxDriver@microchip.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        andrew@lunn.ch, pavel@ucw.cz, ruediger.schmitt@philips.com
-To: Tristram.Ha@microchip.com, David.Laight@ACULAB.COM
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: [PATCH] wimax/i2400m: Remove VLAIS
+Date: Mon,  9 Oct 2017 12:41:53 -0700
+Message-ID: <20171009194153.30467-1-mka@chromium.org>
+Cc: linux-wimax@intel.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Behan Webster <behanw@converseincode.com>,
+        Mark Charlebois <charlebm@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>,
+        Guenter Roeck <groeck@chromium.org>,
+        Matthias Kaehlcke <mka@chromium.org>
+To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD4112EE49@CHN-SV-EXMX02.mchp-main.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/09/2017 11:40 AM, Tristram.Ha@microchip.com wrote:
->> From: Tristram.Ha@microchip.com
->>> Sent: 06 October 2017 21:33
->>> Replace license with GPL.
->>
->> Don't you need permission from all the people who have updated
->> the files in order to make this change?
->>
->> 	David
-> 
-> I am a little confused by your comment.  The 4 original KSZ9477 DSA
-> driver files were written by Woojung at Microchip Technology Inc.
-> There was a complaint the "AS IS" license is not exactly GPL.
-> 
-> It should be submitted formally to net-next instead of a RFC, but it
-> is probably pointless to do that when there is no code change.
-> 
-> I am hoping these drastic changes of KSZ9477 driver can be accepted
-> so that the patches can be submitted formally to net-next.
+From: Behan Webster <behanw@converseincode.com>
 
-What David is saying is that you need to take into account every one who
-has been making changes to the Microchip driver, because anytime
-someones submits a patch that gets accepted, their "voice" now counts:
+Convert Variable Length Array in Struct (VLAIS) to valid C by converting
+local struct definition to use a flexible array. The structure is only
+used to define a cast of a buffer so the size of the struct is not used
+to allocate storage.
 
-Fortunately, the list seems to be fairly limited:
+Signed-off-by: Behan Webster <behanw@converseincode.com>
+Signed-off-by: Mark Charebois <charlebm@gmail.com>
+Suggested-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+---
+ drivers/net/wimax/i2400m/fw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-git shortlog -sne drivers/net/dsa/microchip
-     5  Arkadi Sharshevsky <arkadis@mellanox.com>
-     1  Woojung Huh <Woojung.Huh@microchip.com>
-
-So seeking contributor approval for a license change should be fairly
-simple.
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index c9c711dcd0e6..a89b5685e68b 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -652,7 +652,7 @@ static int i2400m_download_chunk(struct i2400m *i2400m, const void *chunk,
+ 	struct device *dev = i2400m_dev(i2400m);
+ 	struct {
+ 		struct i2400m_bootrom_header cmd;
+-		u8 cmd_payload[chunk_len];
++		u8 cmd_payload[];
+ 	} __packed *buf;
+ 	struct i2400m_bootrom_header ack;
+ 
 -- 
-Florian
+2.14.2.920.gcf0c67979c-goog
