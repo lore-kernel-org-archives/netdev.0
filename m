@@ -1,16 +1,16 @@
 From: Andrey Konovalov <andreyknvl@google.com>
-Subject: usb/irda: global-out-of-bounds in irda_qos_bits_to_value
-Date: Mon, 9 Oct 2017 19:50:48 +0200
-Message-ID: <CAAeHK+x8HnczPeM9+SLiBFqw==HZHmdpHMUBXXPCaFY4ZeejnA@mail.gmail.com>
+Subject: usb/net/rt2x00: warning in rt2800_eeprom_word_index
+Date: Mon, 9 Oct 2017 19:50:53 +0200
+Message-ID: <CAAeHK+yUNrrNU3Jqrfs7XAT809eyF4nv673cSL8RppbLrDtWNA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: Dmitry Vyukov <dvyukov@google.com>,
         Kostya Serebryany <kcc@google.com>,
         syzkaller <syzkaller@googlegroups.com>
-To: Samuel Ortiz <samuel@sortiz.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org,
+To: Stanislaw Gruszka <sgruszka@redhat.com>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -22,27 +22,42 @@ I've got the following report while fuzzing the kernel with syzkaller.
 
 On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
 
-It seems that qos->baud_rate.bits value is taken from USB descriptor
-and then used as a array index without any checks.
+I'm not sure whether this is a bug in the driver, or just a way to
+report misbehaving device. In the latter case this shouldn't be a
+WARN() call, since WARN() means bug in the kernel.
 
-==================================================================
-BUG: KASAN: global-out-of-bounds in irda_qos_bits_to_value+0x55a/0x5a0
-Read of size 4 at addr ffffffff881f655c by task syz-executor/5582
-
-CPU: 1 PID: 5582 Comm: syz-executor Not tainted
+phy2: invalid access of EEPROM word 39
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 5591 at
+drivers/net/wireless/ralink/rt2x00/rt2800lib.c:399
+rt2800_eeprom_word_index.isra.15+0x149/0x1c0
+Modules linked in:
+CPU: 1 PID: 5591 Comm: syz-executor Not tainted
 4.14.0-rc4-43423-g7263a3720c3f #392
 Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+task: ffff880069933180 task.stack: ffff88005aee8000
+RIP: 0010:rt2800_eeprom_word_index.isra.15+0x149/0x1c0
+drivers/net/wireless/ralink/rt2x00/rt2800lib.c:397
+RSP: 0018:ffff88005aeed960 EFLAGS: 00010282
+RAX: 0000000000000026 RBX: ffff88005af0c5c0 RCX: 0000000000000000
+RDX: 0000000000000026 RSI: ffffffff813292c9 RDI: ffffed000b5ddb1e
+RBP: ffff88005aeed978 R08: ffff88005aeecd90 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000027
+R13: ffff880068631018 R14: 0000000000000052 R15: 0000000000000000
+FS:  0000000001c60940(0000) GS:ffff88006c700000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000001967000 CR3: 0000000068089000 CR4: 00000000000006e0
 Call Trace:
- __dump_stack lib/dump_stack.c:16
- dump_stack+0x292/0x395 lib/dump_stack.c:52
- print_address_description+0x1d9/0x280 mm/kasan/report.c:252
- kasan_report_error mm/kasan/report.c:351
- kasan_report+0x23d/0x350 mm/kasan/report.c:409
- __asan_report_load4_noabort+0x19/0x20 mm/kasan/report.c:429
- irda_qos_bits_to_value+0x55a/0x5a0 drivers/staging/irda/net/qos.c:751
- irda_usb_init_qos drivers/staging/irda/drivers/irda-usb.c:1389
- irda_usb_open drivers/staging/irda/drivers/irda-usb.c:1411
- irda_usb_probe+0x14ea/0x2ca0 drivers/staging/irda/drivers/irda-usb.c:1736
+ rt2800_eeprom_addr drivers/net/wireless/ralink/rt2x00/rt2800lib.c:409
+ rt2800_probe_hw_mode drivers/net/wireless/ralink/rt2x00/rt2800lib.c:9321
+ rt2800_probe_hw+0x19ef/0x27b0
+drivers/net/wireless/ralink/rt2x00/rt2800lib.c:9456
+ rt2800usb_probe_hw+0x6e/0x200
+drivers/net/wireless/ralink/rt2x00/rt2800usb.c:768
+ rt2x00lib_probe_dev+0x9e5/0x2800
+drivers/net/wireless/ralink/rt2x00/rt2x00dev.c:1427
+ rt2x00usb_probe+0x67b/0x990 drivers/net/wireless/ralink/rt2x00/rt2x00usb.c:837
+ rt2800usb_probe+0x21/0x30 drivers/net/wireless/ralink/rt2x00/rt2800usb.c:1410
  usb_probe_interface+0x35d/0x8e0 drivers/usb/core/driver.c:361
  really_probe drivers/base/dd.c:413
  driver_probe_device+0x610/0xa00 drivers/base/dd.c:557
@@ -79,23 +94,14 @@ Call Trace:
  SYSC_ioctl fs/ioctl.c:700
  SyS_ioctl+0x94/0xc0 fs/ioctl.c:691
  entry_SYSCALL_64_fastpath+0x23/0xc2 arch/x86/entry/entry_64.S:202
-
 RIP: 0033:0x447707
-RSP: 002b:00007ffd24fe61a8 EFLAGS: 00000202 ORIG_RAX: 0000000000000010
+RSP: 002b:00007ffd565109b8 EFLAGS: 00000206 ORIG_RAX: 0000000000000010
 RAX: ffffffffffffffda RBX: 00000000ffffffff RCX: 0000000000447707
-RDX: 00007ffd24fe61c0 RSI: 00000000c0105512 RDI: 0000000000000015
-RBP: 0000000000000005 R08: 000000000265c940 R09: 000000000265c940
-R10: 00000000004a8e59 R11: 0000000000000202 R12: 0000000000000015
-R13: 0000000000000000 R14: 00007ffd24fe6078 R15: 00007ffd24fe60e8
-
-The buggy address belongs to the variable:
- baud_rates+0x3c/0x60
-
-Memory state around the buggy address:
- ffffffff881f6400: 00 00 00 00 00 00 00 fa fa fa fa fa 00 00 00 00
- ffffffff881f6480: fa fa fa fa 00 00 fa fa fa fa fa fa 00 00 00 fa
->ffffffff881f6500: fa fa fa fa 00 00 00 00 00 fa fa fa fa fa fa fa
-                                                    ^
- ffffffff881f6580: 00 00 00 00 fa fa fa fa 04 fa fa fa fa fa fa fa
- ffffffff881f6600: 04 fa fa fa fa fa fa fa 04 fa fa fa fa fa fa fa
-==================================================================
+RDX: 00007ffd565109d0 RSI: 00000000c0105512 RDI: 0000000000000015
+RBP: 0000000000000005 R08: 0000000001c60940 R09: 0000000001c60940
+R10: 00000000004a8e59 R11: 0000000000000206 R12: 0000000000000015
+R13: 0000000000000000 R14: 00007ffd56510888 R15: 00007ffd565108f8
+Code: ea 03 80 3c 02 00 75 72 4c 8b ab 70 01 00 00 4d 85 ed 74 3a e8
+29 c5 9b fd 44 89 e2 4c 89 ee 48 c7 c7 e0 4d d5 86 e8 f1 6d 84 fd <0f>
+ff 31 db e9 4c ff ff ff 48 89 df e8 36 f2 cd fd e9 34 ff ff
+---[ end trace a71f41162bce05c3 ]---
