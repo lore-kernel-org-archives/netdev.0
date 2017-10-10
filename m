@@ -1,55 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH v2 net-next] rtnetlink: bridge: use ext_ack instead of
- printk
-Date: Tue, 10 Oct 2017 16:28:11 +0200
-Message-ID: <20171010142811.GA2132@breakpoint.cc>
-References: <20171010113236.8889-1-fw@strlen.de>
- <9c01905a-92e1-1246-35ee-2a60ac11733e@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 2/4] net: sched: introduce per-egress action
+ device callbacks
+Date: Tue, 10 Oct 2017 16:31:52 +0200
+Message-ID: <20171010143152.GG2033@nanopsycho>
+References: <20171010073016.3682-1-jiri@resnulli.us>
+ <20171010073016.3682-3-jiri@resnulli.us>
+ <063D6719AE5E284EB5DD2968C1650D6DD008ED67@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "matanb@mellanox.com" <matanb@mellanox.com>,
+        "leonro@mellanox.com" <leonro@mellanox.com>,
+        "mlxsw@mellanox.com" <mlxsw@mellanox.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:34106 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932075AbdJJO2Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 10:28:16 -0400
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:57055 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932119AbdJJOby (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 10:31:54 -0400
+Received: by mail-wm0-f51.google.com with SMTP id l68so5920104wmd.5
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 07:31:54 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <9c01905a-92e1-1246-35ee-2a60ac11733e@gmail.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD008ED67@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Ahern <dsahern@gmail.com> wrote:
-> On 10/10/17 5:32 AM, Florian Westphal wrote:
-> > diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> > index e84d108cfee4..19ea53a5210f 100644
-> > --- a/net/core/rtnetlink.c
-> > +++ b/net/core/rtnetlink.c
-> > @@ -3066,21 +3066,22 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
-> >  }
-> >  EXPORT_SYMBOL(ndo_dflt_fdb_add);
-> >  
-> > -static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
-> > +static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid,
-> > +			 struct netlink_ext_ack *exta)
-> >  {
-> >  	u16 vid = 0;
-> >  
-> >  	if (vlan_attr) {
-> >  		if (nla_len(vlan_attr) != sizeof(u16)) {
-> > -			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan\n");
-> > +			NL_SET_ERR_MSG(exta, "RTM_NEWNEIGH with invalid vlan");
-> 
-> I realize you are keeping the existing wording, but the messages are
-> moving from out of line pr_info to inline message in response to a user
-> command.  From a user's perspective the RTM_NEWNEIGH and DELNEIGH do not
-> add much value, and the add and del in the bridge command tells which it
-> is. So in this case just emit "Invalid vlan id".
+Tue, Oct 10, 2017 at 03:31:59PM CEST, David.Laight@ACULAB.COM wrote:
+>From: Jiri Pirko
+>> Sent: 10 October 2017 08:30
+>> Introduce infrastructure that allows drivers to register callbacks that
+>> are called whenever tc would offload inserted rule and specified device
+>> acts as tc action egress device.
+>
+>How does a driver safely unregister a callback?
+>(to avoid a race with the callback being called.)
+>
+>Usually this requires a callback in the context that makes the
+>notification callbacks indicating that no more such callbacks
+>will be made.
 
-Right, makes sense.
-
-> Although this failure is an invalid vlan attribute as opposed to an
-> invalid vlan id which is what the next message checks. So the message
-> needs to be updated as well.
-
-Indeed, I'll send a v2, thanks!
+rtnl is your answer. It is being held during register/unregister/cb
