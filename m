@@ -1,85 +1,41 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v5 1/2] net: phy: DP83822 initial driver submission
-Date: Tue, 10 Oct 2017 18:56:54 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B48F9D@CHN-SV-EXMX02.mchp-main.com>
-References: <20171010174256.21930-1-dmurphy@ti.com>
+From: Parav Pandit <parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: RE: [PATCH net 2/2] net/smc: dev_put for netdev after usage of
+ ib_query_gid()
+Date: Tue, 10 Oct 2017 19:04:50 +0000
+Message-ID: <VI1PR0502MB3008C19845C45D7D4A9147F9D1750@VI1PR0502MB3008.eurprd05.prod.outlook.com>
+References: <20171010141351.87700-1-ubraun@linux.vnet.ibm.com>
+ <20171010141351.87700-3-ubraun@linux.vnet.ibm.com>
+ <VI1PR0502MB30088E4F58036AB3A06822E8D1750@VI1PR0502MB3008.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <afd@ti.com>
-To: <dmurphy@ti.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa1.microchip.iphmx.com ([68.232.147.91]:5989 "EHLO
-        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932298AbdJJS44 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 14:56:56 -0400
-In-Reply-To: <20171010174256.21930-1-dmurphy@ti.com>
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org" <schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+        "heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org" <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+        "raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: Parav Pandit <parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <VI1PR0502MB30088E4F58036AB3A06822E8D1750-o1MPJYiShExKsLr+rGaxW8DSnupUy6xnnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> +static int dp83822_config_intr(struct phy_device *phydev)
-> +{
-> +	int misr_status;
-> +	int physcr_status;
-> +	int err;
-> +
-> +	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
-> +		misr_status = phy_read(phydev, MII_DP83822_MISR1);
-> +		if (misr_status < 0)
-> +			return misr_status;
-> +
-> +		misr_status |= (DP83822_RX_ERR_HF_INT_EN |
-> +				DP83822_FALSE_CARRIER_HF_INT_EN |
-> +				DP83822_ANEG_COMPLETE_INT_EN |
-> +				DP83822_DUP_MODE_CHANGE_INT_EN |
-> +				DP83822_SPEED_CHANGED_INT_EN |
-> +				DP83822_LINK_STAT_INT_EN |
-> +				DP83822_ENERGY_DET_INT_EN |
-> +				DP83822_LINK_QUAL_INT_EN);
-> +
-> +		err = phy_write(phydev, MII_DP83822_MISR1, misr_status);
-> +		if (err < 0)
-> +			return err;
-> +
-> +		misr_status = phy_read(phydev, MII_DP83822_MISR2);
-> +		if (misr_status < 0)
-> +			return misr_status;
-> +
-> +		misr_status |= (DP83822_JABBER_DET_INT_EN |
-> +				DP83822_WOL_PKT_INT_EN |
-> +				DP83822_SLEEP_MODE_INT_EN |
-> +				DP83822_MDI_XOVER_INT_EN |
-> +				DP83822_LB_FIFO_INT_EN |
-> +				DP83822_PAGE_RX_INT_EN |
-> +				DP83822_ANEG_ERR_INT_EN |
-> +				DP83822_EEE_ERROR_CHANGE_INT_EN);
-> +
-> +		err = phy_write(phydev, MII_DP83822_MISR2, misr_status);
-> +		if (err < 0)
-> +			return err;
-> +
-> +		physcr_status = phy_read(phydev, MII_DP83822_PHYSCR);
-> +		if (physcr_status < 0)
-> +			return physcr_status;
-> +
-> +		physcr_status |= DP83822_PHYSCR_INT_OE |
-> DP83822_PHYSCR_INTEN;
-> +
-Don't want to be picky, but seeing extra blank line here. 
 
-> +	} else {
-> +		err = phy_write(phydev, MII_DP83822_MISR1, 0);
-> +		if (err < 0)
-> +			return err;
-> +
-> +		err = phy_write(phydev, MII_DP83822_MISR1, 0);
-> +		if (err < 0)
-> +			return err;
-> +
-> +		physcr_status = phy_read(phydev, MII_DP83822_PHYSCR);
-> +		if (physcr_status < 0)
-> +			return physcr_status;
-> +
-> +		physcr_status &= ~DP83822_PHYSCR_INTEN;
-> +	}
+> -----Original Message-----
+> > For ROCEs ib_query_gid() takes a reference count on the net_device.
+> > This reference count must be decreased by the caller.
+> >
+> > Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+> Reported-by: Parav Pandit <parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>=20
+Also add 'Fixes' line that introduced this bug.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
