@@ -1,54 +1,58 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC net 1/1] net: sched: act: fix rcu race in dump
-Date: Tue, 10 Oct 2017 09:40:12 -0700
-Message-ID: <CAM_iQpVVqFUpeYc-b4bzc2=L-O7h0z3bbSLOaAoQ17h1jcrdCw@mail.gmail.com>
-References: <20171010123218.5251-1-aring@mojatatu.com> <20171010123218.5251-2-aring@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        kurup.manish@gmail.com, Brenda Butler <bjb@mojatatu.com>
-To: Alexander Aring <aring@mojatatu.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: [RFC net-next 0/4] mlxsw: spectrum_router: Add extack messages for RIF and VRF overflow
+Date: Tue, 10 Oct 2017 09:41:01 -0700
+Message-ID: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
+Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
+        David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37582 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932075AbdJJQkd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:40:33 -0400
-Received: by mail-pf0-f194.google.com with SMTP id z80so18342933pff.4
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:40:33 -0700 (PDT)
-In-Reply-To: <20171010123218.5251-2-aring@mojatatu.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:37506 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932237AbdJJQlL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:41:11 -0400
+Received: by mail-pf0-f196.google.com with SMTP id z80so18347076pff.4
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:41:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 5:32 AM, Alexander Aring <aring@mojatatu.com> wrote:
-> This patch fixes an issue with kfree_rcu which is not protected by RTNL
-> lock. It could be that the current assigned rcu pointer will be freed by
-> kfree_rcu while dump callback is running.
+Currently, exceeding the number of VRF instances or the number of router
+interfaces either fails with a non-intuitive EBUSY:
+    $ ip li set swp1s1.6 vrf vrf-1s1-6 up
+    RTNETLINK answers: Device or resource busy
 
-Why? kfree_rcu() respects existing readers, so why this could happen?
+or fails silently (IPv6) since the checks are done in a work queue. This
+set adds support for the address validator notifier to spectrum which
+allows ext-ack based messages to be returned on failure.
 
+To make that happen the IPv6 version needs to be converted from atomic
+to blocking (patch 1), and then support for extack needs to be added
+to the notifier (patch 2). Patches 3 and 4 add the validator notifier
+to spectrum and then plumb the extack argument.
 
->
-> To prevent this, we call rcu_synchronize at first. Then we are sure all
-> latest rcu functions e.g. rcu_assign_pointer and kfree_rcu in init are
-> done. After rcu_synchronize we dereference under RTNL lock which is also
-> held in init function, which means no other rcu_assign_pointer or
-> kfree_rcu will occur.
+With this set, VRF overflows fail with:
+   $ ip li set swp1s1.6 vrf vrf-1s1-6 up
+   Error: spectrum: Exceeded number of supported VRF.
 
-If you really want to wait for kfree_rcu(), rcu_barrier() is the one
-instead of rcu_synchronize(). Just FYI.
+and RIF overflows fail with:
+   $ ip addr add dev swp1s2.191 10.12.191.1/24
+   Error: spectrum: Exceeded number of supported router interfaces.
 
+David Ahern (4):
+  net: ipv6: Make inet6addr_validator a blocking notifier
+  net: Add extack to validator_info structs used for address notifier
+  mlxsw: spectrum: router: Add support for address validator notifier
+  mlxsw: spectrum_router: Add extack message for RIF and VRF overflow
 
->
-> To call rcu_synchronize will also prevent weird behaviours by doing over
-> netlink:
->
->  - set params A
->  - set params B
->  - dump params
->   \--> will dump params A
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 ++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   4 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 163 +++++++++++++++------
+ drivers/net/ipvlan/ipvlan_main.c                   |  10 +-
+ include/linux/inetdevice.h                         |   1 +
+ include/net/addrconf.h                             |   1 +
+ net/ipv4/devinet.c                                 |   8 +-
+ net/ipv6/addrconf.c                                |  51 ++++---
+ net/ipv6/addrconf_core.c                           |   9 +-
+ 9 files changed, 184 insertions(+), 73 deletions(-)
 
-
-What's wrong with this? Existing readers could still read old data,
-which is _perfectly_ fine as long as we don't free the old data before
-they are gone.
+-- 
+2.1.4
