@@ -1,80 +1,40 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: RIF/VRF overflow in spectrum and reporting errors back to user
-Date: Tue, 10 Oct 2017 18:47:05 +0300
-Message-ID: <20171010154705.GA16622@shredder.mtl.com>
-References: <8d0df382-35d1-7991-1c39-9a2b5d5334e2@gmail.com>
- <20171009093110.GA5193@shredder.mtl.com>
- <779c2ba6-fd29-b260-f008-b41a607acd41@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH v2 net-next 1/2] net: dsa: lan9303: Move tag setup to
+ new lan9303_setup_tagging
+Date: Tue, 10 Oct 2017 15:51:14 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B48CC6@CHN-SV-EXMX02.mchp-main.com>
+References: <20171010124953.386-1-privat@egil-hjelmeland.no>
+ <20171010124953.386-2-privat@egil-hjelmeland.no>
+ <9235D6609DB808459E95D78E17F2E43D40B48C3D@CHN-SV-EXMX02.mchp-main.com>
+ <2d03fb99-fd1c-9a0b-3274-eda605c3eb2d@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57819 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755866AbdJJPrI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:47:08 -0400
-Content-Disposition: inline
-In-Reply-To: <779c2ba6-fd29-b260-f008-b41a607acd41@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <privat@egil-hjelmeland.no>, <andrew@lunn.ch>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2d03fb99-fd1c-9a0b-3274-eda605c3eb2d@egil-hjelmeland.no>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2017 at 09:23:48AM -0600, David Ahern wrote:
-> On 10/9/17 3:31 AM, Ido Schimmel wrote:
-> >> Can NETDEV_UP be ignored for the inetaddr notifier if it is handled by
-> >> the validator notitifer?
-> > 
-> > Yes. The case where we get a NETDEV_DOWN for an address delete and then
-> > a NETDEV_UP for a promotion is basically a NOP from the driver's
-> > perspective. When the NETDEV_DOWN is received, the RIF isn't destroyed
-> > because the address list isn't empty (there's an address to be
-> > promoted). When the NETDEV_UP is received, it's ignored because we
-> > already have a RIF.
-> 
-> You lost me on the RIF. Looking at the chain:
-> 
-> mlxsw_sp_inet6addr_event_work or mlxsw_sp_inetaddr_event
-> - __mlxsw_sp_inetaddr_event
->   + mlxsw_sp_inetaddr_vlan_event
->     * mlxsw_sp_inetaddr_port_vlan_event
->       - NETDEV_UP: mlxsw_sp_port_vlan_router_join
-> 
-> mlxsw_sp_port_vlan_router_join does the rif lookup and if it exists
-> calls fid_get() which takes a reference. I read that to mean
-> back-to-back NETDEV_UP notifiers (the address validator and then the
-> address notifier) would lead to a reference count leak.
-> 
-> Based on your address delete comment, I take the IPv4 solution to be
-> adding the validator notifier to spectrum and then ignoring NETDEV_UP in
-> mlxsw_sp_inetaddr_event. That means IPv4 inetaddr work is done for the
-> validator notifier while NETDEV_DOWN is done through the inetaddr notifier.
-
-Exactly. The only NETDEV_UP we "miss" is the one sent for the promoted
-address in the inetaddr chain, but it's irrelevant because when we got
-the preceding NETDEV_DOWN for the deleted primary address we didn't
-destroy the RIF as the address list wasn't empty (see
-mlxsw_sp_rif_should_config() which is called by both top functions in
-your call chain).
-
-> > Regarding IPv6, it's a bit more complicated actually, since we do the
-> > actual work in a workqueue, as the notification chain is atomic. I
-> > believe this is because the notifier can be called from softirq in
-> > response to RA packets.
-> > 
-> > However, this case isn't interesting for mlxsw, as the fact that you
-> > process an RA packet suggests you already have a link-local address and
-> > thus a RIF. Plus, the kernel won't even process such packets in our case
-> > as you most likely have forwarding enabled (unless you tweaked accept_ra
-> > for some reason).
-> > 
-> > Looking at ipvlan (the only user of inet6addr_validator_chain), I see
-> > that it ignores this specific case and returns NOTIFY_DONE. Maybe we can
-> > move this notification chain to be blocking and not call it in response
-> > to RA packets seeing that all its users ignore it?
-> 
-> Seems reasonable to me.
-> 
-> I have it coded. Let me test and send an rfc.
-
-Great. Looking forward to it.
+PiA+IFNwZWNpZmljIHJlYXNvbiB0byB1c2UgdmFsIHRoZW4gdXNpbmcNCj4gTEFOOTMwM19CTV9F
+R1JTU19QT1JUX1RZUEVfU1BFQ0lBTF9UQUdfUE9SVDANCj4gPiBsaWtlIHByZXZpb3VzIGxpbmU/
+DQo+ID4NCj4gU3BlY2lmaWMgcmVhc29uIHdhcyB0byBwbGVhc2UgYSByZXZpZXdlciB0aGF0IGRp
+ZCBub3QgbGlrZSBteQ0KPiBpbmRlbnRpbmcgaW4gZmlyc3QgdmVyc2lvbi4gSSBkaWQgbm90IGFn
+cmVlIHdpdGggaGltLCBidXQgc2luY2UNCj4gbm9ib2R5IGVsc2Ugc3Bva2UgdXAsIEkgY2hhbmdl
+ZCB0aGUgY29kZS4NCkdvdCBpdC4gTWlzc2VkIHByZXZpb3VzIHBhdGNoL2NvbW1lbnQuDQoNCj4g
+Pj4gQEAgLTY0NCw2ICs2NDgsMTAgQEAgc3RhdGljIGludCBsYW45MzAzX3NldHVwKHN0cnVjdCBk
+c2Ffc3dpdGNoICpkcykNCj4gPj4gICAJCXJldHVybiAtRUlOVkFMOw0KPiA+PiAgIAl9DQo+ID4+
+DQo+ID4+ICsJcmV0ID0gbGFuOTMwM19zZXR1cF90YWdnaW5nKGNoaXApOw0KPiA+PiArCWlmIChy
+ZXQpDQo+ID4+ICsJCWRldl9lcnIoY2hpcC0+ZGV2LCAiZmFpbGVkIHRvIHNldHVwIHBvcnQgdGFn
+Z2luZyAlZFxuIiwgcmV0KTsNCj4gPj4gKw0KPiA+IFN0aWxsIG1vdmUgb24gd2hlbiBlcnJvciBo
+YXBwZW5zPw0KPiA+DQo+IEdvb2QgcXVlc3Rpb24uIEkganVzdCBmb2xsb3dlZCB0aGUgcGF0dGVy
+biBmcm9tIHRoZSBvcmlnaW5hbCBmdW5jdGlvbiwNCj4gd2hpY2ggd2FzIG5vdCBtYWRlIGJ5IG1l
+LiBBY3R1YWxseSBJIGRpZCBvbmNlIHJlZmxlY3Qgb24gd2hldGhlciB0aGlzDQo+IHdhcyB0aGUg
+Y29ycmVjdCB3YXkuIFBlcmhhcHMgaXQgY291bGQgYmUgYXJndWVkIHRoYXQgaXQgaXMgYmV0dGVy
+IHRvDQo+IGFsbG93IHRoZSBkZXZpY2UgdG8gY29tZSB1cCwgc28gdGhlIHByb2JsZW0gY2FuIGJl
+IGludmVzdGlnYXRlZD8NCk1heWJlIGRlcGVuZHMgb24gc2V2ZXJpdHkgb2Ygc2V0dGluZz8NCkJU
+VywgbGFuOTMwM19zZXR1cCgpIHN0aWxsIHJldHVybnMgWkVSTyBhdCB0aGUgZW5kPw0KDQpUaGFu
+a3MuDQpXb29qdW5nDQo=
