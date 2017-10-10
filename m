@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next V6 PATCH 2/5] bpf: XDP_REDIRECT enable use of cpumap
-Date: Tue, 10 Oct 2017 14:47:43 +0200
-Message-ID: <150763966378.14394.18290342545990881765.stgit@firesoul>
+Subject: [net-next V6 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion and
+ allocation
+Date: Tue, 10 Oct 2017 14:47:48 +0200
+Message-ID: <150763966888.14394.346608801518125744.stgit@firesoul>
 References: <150763962554.14394.15623435724195136364.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,399 +18,286 @@ Cc: jakub.kicinski@netronome.com,
         Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51024 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:49962 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755245AbdJJMrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 08:47:52 -0400
+        id S1755144AbdJJMrv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 08:47:51 -0400
 In-Reply-To: <150763962554.14394.15623435724195136364.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch connects cpumap to the xdp_do_redirect_map infrastructure.
+This patch makes cpumap functional, by adding SKB allocation and
+invoking the network stack on the dequeuing CPU.
 
-Still no SKB allocation are done yet.  The XDP frames are transferred
-to the other CPU, but they are simply refcnt decremented on the remote
-CPU.  This served as a good benchmark for measuring the overhead of
-remote refcnt decrement.  If driver page recycle cache is not
-efficient then this, exposes a bottleneck in the page allocator.
+For constructing the SKB on the remote CPU, the xdp_buff in converted
+into a struct xdp_pkt, and it mapped into the top headroom of the
+packet, to avoid allocating separate mem.  For now, struct xdp_pkt is
+just a cpumap internal data structure, with info carried between
+enqueue to dequeue.
 
-A shout-out to MST's ptr_ring, which is the secret behind is being so
-efficient to transfer memory pointers between CPUs, without constantly
-bouncing cache-lines between CPUs.
+If a driver doesn't have enough headroom it is simply dropped, with
+return code -EOVERFLOW.  This will be picked up the xdp tracepoint
+infrastructure, to allow users to catch this.
 
-V3: Handle !CONFIG_BPF_SYSCALL pointed out by kbuild test robot.
+V2: take into account xdp->data_meta
 
-V4: Make Generic-XDP aware of cpumap type, but don't allow redirect yet,
- as implementation require a separate upstream discussion.
+V4:
+ - Drop busypoll tricks, keeping it more simple.
+ - Skip RPS and Generic-XDP-recursive-reinjection, suggested by Alexei
 
-V5:
- - Fix a maybe-uninitialized pointed out by kbuild test robot.
- - Restrict bpf-prog side access to cpumap, open when use-cases appear
- - Implement cpu_map_enqueue() as a more simple void pointer enqueue
+V5: correct RCU read protection around __netif_receive_skb_core.
 
-V6:
- - Allow cpumap type for usage in helper bpf_redirect_map,
-   general bpf-prog side restriction moved to earlier patch.
+V6: Setting TASK_RUNNING vs TASK_INTERRUPTIBLE based on talk with Rik van Riel
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- include/linux/bpf.h        |   31 +++++++++-
- include/trace/events/xdp.h |   10 +++
- kernel/bpf/cpumap.c        |   22 +++++++
- kernel/bpf/verifier.c      |    3 +
- net/core/filter.c          |  140 +++++++++++++++++++++++++++++++++++---------
- 5 files changed, 172 insertions(+), 34 deletions(-)
+ include/linux/netdevice.h |    1 
+ kernel/bpf/cpumap.c       |  152 ++++++++++++++++++++++++++++++++++++++-------
+ net/core/dev.c            |   27 ++++++++
+ 3 files changed, 158 insertions(+), 22 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 4373125de1f3..6d4dd844828a 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -355,6 +355,13 @@ struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key);
- void __dev_map_insert_ctx(struct bpf_map *map, u32 index);
- void __dev_map_flush(struct bpf_map *map);
- 
-+struct bpf_cpu_map_entry *__cpu_map_lookup_elem(struct bpf_map *map, u32 key);
-+void __cpu_map_insert_ctx(struct bpf_map *map, u32 index);
-+void __cpu_map_flush(struct bpf_map *map);
-+struct xdp_buff;
-+int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
-+		    struct net_device *dev_rx);
-+
- /* Return map's numa specified by userspace */
- static inline int bpf_map_attr_numa_node(const union bpf_attr *attr)
- {
-@@ -362,7 +369,7 @@ static inline int bpf_map_attr_numa_node(const union bpf_attr *attr)
- 		attr->numa_node : NUMA_NO_NODE;
- }
- 
--#else
-+#else /* !CONFIG_BPF_SYSCALL */
- static inline struct bpf_prog *bpf_prog_get(u32 ufd)
- {
- 	return ERR_PTR(-EOPNOTSUPP);
-@@ -425,6 +432,28 @@ static inline void __dev_map_insert_ctx(struct bpf_map *map, u32 index)
- static inline void __dev_map_flush(struct bpf_map *map)
- {
- }
-+
-+static inline
-+struct bpf_cpu_map_entry *__cpu_map_lookup_elem(struct bpf_map *map, u32 key)
-+{
-+	return NULL;
-+}
-+
-+static inline void __cpu_map_insert_ctx(struct bpf_map *map, u32 index)
-+{
-+}
-+
-+static inline void __cpu_map_flush(struct bpf_map *map)
-+{
-+}
-+
-+struct xdp_buff;
-+static inline int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu,
-+				  struct xdp_buff *xdp,
-+				  struct net_device *dev_rx)
-+{
-+	return 0;
-+}
- #endif /* CONFIG_BPF_SYSCALL */
- 
- #if defined(CONFIG_STREAM_PARSER) && defined(CONFIG_BPF_SYSCALL)
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index 4e16c43fba10..eb2ece96c1a2 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -136,12 +136,18 @@ DEFINE_EVENT_PRINT(xdp_redirect_template, xdp_redirect_map_err,
- 		  __entry->map_id, __entry->map_index)
- );
- 
-+#define devmap_ifindex(fwd, map)				\
-+	(!fwd ? 0 :						\
-+	 (!map ? 0 :						\
-+	  ((map->map_type == BPF_MAP_TYPE_DEVMAP) ?		\
-+	   ((struct net_device *)fwd)->ifindex : 0)))
-+
- #define _trace_xdp_redirect_map(dev, xdp, fwd, map, idx)		\
--	 trace_xdp_redirect_map(dev, xdp, fwd ? fwd->ifindex : 0,	\
-+	 trace_xdp_redirect_map(dev, xdp, devmap_ifindex(fwd, map),	\
- 				0, map, idx)
- 
- #define _trace_xdp_redirect_map_err(dev, xdp, fwd, map, idx, err)	\
--	 trace_xdp_redirect_map_err(dev, xdp, fwd ? fwd->ifindex : 0,	\
-+	 trace_xdp_redirect_map_err(dev, xdp, devmap_ifindex(fwd, map),	\
- 				    err, map, idx)
- 
- #endif /* _TRACE_XDP_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 31bb3010c69b..bf014afcb914 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3260,6 +3260,7 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb);
+ int netif_rx(struct sk_buff *skb);
+ int netif_rx_ni(struct sk_buff *skb);
+ int netif_receive_skb(struct sk_buff *skb);
++int netif_receive_skb_core(struct sk_buff *skb);
+ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
+ void napi_gro_flush(struct napi_struct *napi, bool flush_old);
+ struct sk_buff *napi_get_frags(struct napi_struct *napi);
 diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
-index 2ef1d7060e53..7f74f7fb11d5 100644
+index 7f74f7fb11d5..ac854ad22437 100644
 --- a/kernel/bpf/cpumap.c
 +++ b/kernel/bpf/cpumap.c
-@@ -483,7 +483,7 @@ struct xdp_pkt {
+@@ -25,6 +25,9 @@
+ #include <linux/kthread.h>
+ #include <linux/capability.h>
+ 
++#include <linux/netdevice.h>   /* netif_receive_skb_core */
++#include <linux/etherdevice.h> /* eth_type_trans */
++
+ /* General idea: XDP packets getting XDP redirected to another CPU,
+  * will maximum be stored/queued for one driver ->poll() call.  It is
+  * guaranteed that setting flush bit and flush operation happen on
+@@ -172,21 +175,137 @@ static void cpu_map_kthread_stop(struct work_struct *work)
+ 	kthread_stop(rcpu->kthread); /* calls put_cpu_map_entry */
+ }
+ 
++/* For now, xdp_pkt is a cpumap internal data structure, with info
++ * carried between enqueue to dequeue. It is mapped into the top
++ * headroom of the packet, to avoid allocating separate mem.
++ */
++struct xdp_pkt {
++	void *data;
++	u16 len;
++	u16 headroom;
++	u16 metasize;
++	struct net_device *dev_rx;
++};
++
++/* Convert xdp_buff to xdp_pkt */
++static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
++{
++	struct xdp_pkt *xdp_pkt;
++	int metasize;
++	int headroom;
++
++	/* Assure headroom is available for storing info */
++	headroom = xdp->data - xdp->data_hard_start;
++	metasize = xdp->data - xdp->data_meta;
++	metasize = metasize > 0 ? metasize : 0;
++	if ((headroom - metasize) < sizeof(*xdp_pkt))
++		return NULL;
++
++	/* Store info in top of packet */
++	xdp_pkt = xdp->data_hard_start;
++
++	xdp_pkt->data = xdp->data;
++	xdp_pkt->len  = xdp->data_end - xdp->data;
++	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
++	xdp_pkt->metasize = metasize;
++
++	return xdp_pkt;
++}
++
++struct sk_buff *cpu_map_build_skb(struct bpf_cpu_map_entry *rcpu,
++				  struct xdp_pkt *xdp_pkt)
++{
++	unsigned int frame_size;
++	void *pkt_data_start;
++	struct sk_buff *skb;
++
++	/* build_skb need to place skb_shared_info after SKB end, and
++	 * also want to know the memory "truesize".  Thus, need to
++	 * know the memory frame size backing xdp_buff.
++	 *
++	 * XDP was designed to have PAGE_SIZE frames, but this
++	 * assumption is not longer true with ixgbe and i40e.  It
++	 * would be preferred to set frame_size to 2048 or 4096
++	 * depending on the driver.
++	 *   frame_size = 2048;
++	 *   frame_len  = frame_size - sizeof(*xdp_pkt);
++	 *
++	 * Instead, with info avail, skb_shared_info in placed after
++	 * packet len.  This, unfortunately fakes the truesize.
++	 * Another disadvantage of this approach, the skb_shared_info
++	 * is not at a fixed memory location, with mixed length
++	 * packets, which is bad for cache-line hotness.
++	 */
++	frame_size = SKB_DATA_ALIGN(xdp_pkt->len) + xdp_pkt->headroom +
++		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++
++	pkt_data_start = xdp_pkt->data - xdp_pkt->headroom;
++	skb = build_skb(pkt_data_start, frame_size);
++	if (!skb)
++		return NULL;
++
++	skb_reserve(skb, xdp_pkt->headroom);
++	__skb_put(skb, xdp_pkt->len);
++	if (xdp_pkt->metasize)
++		skb_metadata_set(skb, xdp_pkt->metasize);
++
++	/* Essential SKB info: protocol and skb->dev */
++	skb->protocol = eth_type_trans(skb, xdp_pkt->dev_rx);
++
++	/* Optional SKB info, currently missing:
++	 * - HW checksum info		(skb->ip_summed)
++	 * - HW RX hash			(skb_set_hash)
++	 * - RX ring dev queue index	(skb_record_rx_queue)
++	 */
++
++	return skb;
++}
++
+ static int cpu_map_kthread_run(void *data)
+ {
+ 	struct bpf_cpu_map_entry *rcpu = data;
+ 
+ 	set_current_state(TASK_INTERRUPTIBLE);
+ 	while (!kthread_should_stop()) {
++		unsigned int processed = 0, drops = 0;
+ 		struct xdp_pkt *xdp_pkt;
+ 
+-		schedule();
+-		/* Do work */
+-		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
+-			/* For now just "refcnt-free" */
+-			page_frag_free(xdp_pkt);
++		/* Release CPU reschedule checks */
++		if (__ptr_ring_empty(rcpu->queue)) {
++			__set_current_state(TASK_INTERRUPTIBLE);
++			schedule();
++		} else {
++			cond_resched();
++		}
++		__set_current_state(TASK_RUNNING);
++
++		/* Process packets in rcpu->queue */
++		local_bh_disable();
++		/*
++		 * The bpf_cpu_map_entry is single consumer, with this
++		 * kthread CPU pinned. Lockless access to ptr_ring
++		 * consume side valid as no-resize allowed of queue.
++		 */
++		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
++			struct sk_buff *skb;
++			int ret;
++
++			skb = cpu_map_build_skb(rcpu, xdp_pkt);
++			if (!skb) {
++				page_frag_free(xdp_pkt);
++				continue;
++			}
++
++			/* Inject into network stack */
++			ret = netif_receive_skb_core(skb);
++			if (ret == NET_RX_DROP)
++				drops++;
++
++			/* Limit BH-disable period */
++			if (++processed == 8)
++				break;
+ 		}
+-		__set_current_state(TASK_INTERRUPTIBLE);
++		local_bh_enable(); /* resched point, may call do_softirq() */
+ 	}
+ 	put_cpu_map_entry(rcpu);
+ 
+@@ -473,13 +592,6 @@ static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
+ 	return 0;
+ }
+ 
+-/* Notice: Will change in later patch */
+-struct xdp_pkt {
+-	void *data;
+-	u16 len;
+-	u16 headroom;
+-};
+-
  /* Runs under RCU-read-side, plus in softirq under NAPI protection.
   * Thus, safe percpu variable access.
   */
--int bq_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_pkt *xdp_pkt)
-+static int bq_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_pkt *xdp_pkt)
+@@ -507,17 +619,13 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
+ 		    struct net_device *dev_rx)
  {
- 	struct xdp_bulk_queue *bq = this_cpu_ptr(rcpu->bulkq);
+ 	struct xdp_pkt *xdp_pkt;
+-	int headroom;
  
-@@ -503,6 +503,26 @@ int bq_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_pkt *xdp_pkt)
+-	/* For now this is just used as a void pointer to data_hard_start.
+-	 * Followup patch will generalize this.
+-	 */
+-	xdp_pkt = xdp->data_hard_start;
++	xdp_pkt = convert_to_xdp_pkt(xdp);
++	if (!xdp_pkt)
++		return -EOVERFLOW;
+ 
+-	/* Fake writing into xdp_pkt->data to measure overhead */
+-	headroom = xdp->data - xdp->data_hard_start;
+-	if (headroom < sizeof(*xdp_pkt))
+-		xdp_pkt->data = xdp->data;
++	/* Info needed when constructing SKB on remote CPU */
++	xdp_pkt->dev_rx = dev_rx;
+ 
+ 	bq_enqueue(rcpu, xdp_pkt);
  	return 0;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fcddccb6be41..36bb68f3a2c7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4491,6 +4491,33 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ 	return ret;
  }
  
-+int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
-+		    struct net_device *dev_rx)
++/**
++ *	netif_receive_skb_core - special purpose version of netif_receive_skb
++ *	@skb: buffer to process
++ *
++ *	More direct receive version of netif_receive_skb().  It should
++ *	only be used by callers that have a need to skip RPS and Generic XDP.
++ *	Caller must also take care of handling if (page_is_)pfmemalloc.
++ *
++ *	This function may only be called from softirq context and interrupts
++ *	should be enabled.
++ *
++ *	Return values (usually ignored):
++ *	NET_RX_SUCCESS: no congestion
++ *	NET_RX_DROP: packet was dropped
++ */
++int netif_receive_skb_core(struct sk_buff *skb)
 +{
-+	struct xdp_pkt *xdp_pkt;
-+	int headroom;
++	int ret;
 +
-+	/* For now this is just used as a void pointer to data_hard_start.
-+	 * Followup patch will generalize this.
-+	 */
-+	xdp_pkt = xdp->data_hard_start;
++	rcu_read_lock();
++	ret = __netif_receive_skb_core(skb, false);
++	rcu_read_unlock();
 +
-+	/* Fake writing into xdp_pkt->data to measure overhead */
-+	headroom = xdp->data - xdp->data_hard_start;
-+	if (headroom < sizeof(*xdp_pkt))
-+		xdp_pkt->data = xdp->data;
-+
-+	bq_enqueue(rcpu, xdp_pkt);
-+	return 0;
++	return ret;
 +}
++EXPORT_SYMBOL(netif_receive_skb_core);
 +
- void __cpu_map_insert_ctx(struct bpf_map *map, u32 bit)
+ static int __netif_receive_skb(struct sk_buff *skb)
  {
- 	struct bpf_cpu_map *cmap = container_of(map, struct bpf_cpu_map, map);
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index d63fb96f114e..6da0e6c04df0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1619,7 +1619,8 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 			goto error;
- 		break;
- 	case BPF_FUNC_redirect_map:
--		if (map->map_type != BPF_MAP_TYPE_DEVMAP)
-+		if (map->map_type != BPF_MAP_TYPE_DEVMAP &&
-+		    map->map_type != BPF_MAP_TYPE_CPUMAP)
- 			goto error;
- 		break;
- 	case BPF_FUNC_sk_redirect_map:
-diff --git a/net/core/filter.c b/net/core/filter.c
-index b7e8caa1e790..cc26ea62fc6d 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2525,10 +2525,36 @@ static int __bpf_tx_xdp(struct net_device *dev,
- 	err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
- 	if (err)
- 		return err;
--	if (map)
-+	dev->netdev_ops->ndo_xdp_flush(dev);
-+	return 0;
-+}
-+
-+static int __bpf_tx_xdp_map(struct net_device *dev_rx, void *fwd,
-+			    struct bpf_map *map,
-+			    struct xdp_buff *xdp,
-+			    u32 index)
-+{
-+	int err;
-+
-+	if (map->map_type == BPF_MAP_TYPE_DEVMAP) {
-+		struct net_device *dev = fwd;
-+
-+		if (!dev->netdev_ops->ndo_xdp_xmit)
-+			return -EOPNOTSUPP;
-+
-+		err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
-+		if (err)
-+			return err;
- 		__dev_map_insert_ctx(map, index);
--	else
--		dev->netdev_ops->ndo_xdp_flush(dev);
-+
-+	} else if (map->map_type == BPF_MAP_TYPE_CPUMAP) {
-+		struct bpf_cpu_map_entry *rcpu = fwd;
-+
-+		err = cpu_map_enqueue(rcpu, xdp, dev_rx);
-+		if (err)
-+			return err;
-+		__cpu_map_insert_ctx(map, index);
-+	}
- 	return 0;
- }
- 
-@@ -2538,11 +2564,33 @@ void xdp_do_flush_map(void)
- 	struct bpf_map *map = ri->map_to_flush;
- 
- 	ri->map_to_flush = NULL;
--	if (map)
--		__dev_map_flush(map);
-+	if (map) {
-+		switch (map->map_type) {
-+		case BPF_MAP_TYPE_DEVMAP:
-+			__dev_map_flush(map);
-+			break;
-+		case BPF_MAP_TYPE_CPUMAP:
-+			__cpu_map_flush(map);
-+			break;
-+		default:
-+			break;
-+		}
-+	}
- }
- EXPORT_SYMBOL_GPL(xdp_do_flush_map);
- 
-+static void *__xdp_map_lookup_elem(struct bpf_map *map, u32 index)
-+{
-+	switch (map->map_type) {
-+	case BPF_MAP_TYPE_DEVMAP:
-+		return __dev_map_lookup_elem(map, index);
-+	case BPF_MAP_TYPE_CPUMAP:
-+		return __cpu_map_lookup_elem(map, index);
-+	default:
-+		return NULL;
-+	}
-+}
-+
- static inline bool xdp_map_invalid(const struct bpf_prog *xdp_prog,
- 				   unsigned long aux)
- {
-@@ -2555,8 +2603,8 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	unsigned long map_owner = ri->map_owner;
- 	struct bpf_map *map = ri->map;
--	struct net_device *fwd = NULL;
- 	u32 index = ri->ifindex;
-+	void *fwd = NULL;
- 	int err;
- 
- 	ri->ifindex = 0;
-@@ -2569,7 +2617,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 		goto err;
- 	}
- 
--	fwd = __dev_map_lookup_elem(map, index);
-+	fwd = __xdp_map_lookup_elem(map, index);
- 	if (!fwd) {
- 		err = -EINVAL;
- 		goto err;
-@@ -2577,7 +2625,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 	if (ri->map_to_flush && ri->map_to_flush != map)
- 		xdp_do_flush_map();
- 
--	err = __bpf_tx_xdp(fwd, map, xdp, index);
-+	err = __bpf_tx_xdp_map(dev, fwd, map, xdp, index);
- 	if (unlikely(err))
- 		goto err;
- 
-@@ -2619,54 +2667,88 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
- 
--int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
--			    struct bpf_prog *xdp_prog)
-+static int __xdp_generic_ok_fwd_dev(struct sk_buff *skb, struct net_device *fwd)
-+{
-+	unsigned int len;
-+
-+	if (unlikely(!(fwd->flags & IFF_UP)))
-+		return -ENETDOWN;
-+
-+	len = fwd->mtu + fwd->hard_header_len + VLAN_HLEN;
-+	if (skb->len > len)
-+		return -EMSGSIZE;
-+
-+	return 0;
-+}
-+
-+int xdp_do_generic_redirect_map(struct net_device *dev, struct sk_buff *skb,
-+				struct bpf_prog *xdp_prog)
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	unsigned long map_owner = ri->map_owner;
- 	struct bpf_map *map = ri->map;
- 	struct net_device *fwd = NULL;
- 	u32 index = ri->ifindex;
--	unsigned int len;
- 	int err = 0;
- 
- 	ri->ifindex = 0;
- 	ri->map = NULL;
- 	ri->map_owner = 0;
- 
--	if (map) {
--		if (unlikely(xdp_map_invalid(xdp_prog, map_owner))) {
--			err = -EFAULT;
--			map = NULL;
--			goto err;
--		}
--		fwd = __dev_map_lookup_elem(map, index);
--	} else {
--		fwd = dev_get_by_index_rcu(dev_net(dev), index);
-+	if (unlikely(xdp_map_invalid(xdp_prog, map_owner))) {
-+		err = -EFAULT;
-+		map = NULL;
-+		goto err;
- 	}
-+	fwd = __xdp_map_lookup_elem(map, index);
- 	if (unlikely(!fwd)) {
- 		err = -EINVAL;
- 		goto err;
- 	}
- 
--	if (unlikely(!(fwd->flags & IFF_UP))) {
--		err = -ENETDOWN;
-+	if (map->map_type == BPF_MAP_TYPE_DEVMAP) {
-+		if (unlikely((err = __xdp_generic_ok_fwd_dev(skb, fwd))))
-+			goto err;
-+		skb->dev = fwd;
-+	} else {
-+		/* TODO: Handle BPF_MAP_TYPE_CPUMAP */
-+		err = -EBADRQC;
- 		goto err;
- 	}
- 
--	len = fwd->mtu + fwd->hard_header_len + VLAN_HLEN;
--	if (skb->len > len) {
--		err = -EMSGSIZE;
-+	_trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index);
-+	return 0;
-+err:
-+	_trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err);
-+	return err;
-+}
-+
-+int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-+			    struct bpf_prog *xdp_prog)
-+{
-+	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-+	u32 index = ri->ifindex;
-+	struct net_device *fwd;
-+	int err = 0;
-+
-+	if (ri->map)
-+		return xdp_do_generic_redirect_map(dev, skb, xdp_prog);
-+
-+	ri->ifindex = 0;
-+	fwd = dev_get_by_index_rcu(dev_net(dev), index);
-+	if (unlikely(!fwd)) {
-+		err = -EINVAL;
- 		goto err;
- 	}
- 
-+	if (unlikely((err = __xdp_generic_ok_fwd_dev(skb, fwd))))
-+		goto err;
-+
- 	skb->dev = fwd;
--	map ? _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index)
--		: _trace_xdp_redirect(dev, xdp_prog, index);
-+	_trace_xdp_redirect(dev, xdp_prog, index);
- 	return 0;
- err:
--	map ? _trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err)
--		: _trace_xdp_redirect_err(dev, xdp_prog, index, err);
-+	_trace_xdp_redirect_err(dev, xdp_prog, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
+ 	int ret;
