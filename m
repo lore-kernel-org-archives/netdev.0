@@ -1,71 +1,95 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v2] net: enable interface alias removal via rtnl
-Date: Tue, 10 Oct 2017 14:41:38 +0200
-Message-ID: <20171010124138.27342-1-nicolas.dichtel@6wind.com>
-References: <1cccbbaa-455b-66e0-a447-7f7e3b3bb375@gmail.com>
-Cc: netdev@vger.kernel.org, oliver@hartkopp.net, dsahern@gmail.com,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next V6 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Tue, 10 Oct 2017 14:47:33 +0200
+Message-ID: <150763962554.14394.15623435724195136364.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:39457 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755866AbdJJMmC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 08:42:02 -0400
-In-Reply-To: <1cccbbaa-455b-66e0-a447-7f7e3b3bb375@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:57098 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755144AbdJJMrn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 08:47:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
-the attribute is 1 ("\0"). However, to remove an alias, the attribute
-length must be 0 (see dev_set_alias()).
+Introducing a new way to redirect XDP frames.  Notice how no driver
+changes are necessary given the design of XDP_REDIRECT.
 
-Let's define the type to NLA_BINARY, so that the alias can be removed.
+This redirect map type is called 'cpumap', as it allows redirection
+XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+and start the network stack invocation on that CPU.
 
-Example:
-$ ip l s dummy0 alias foo
-$ ip l l dev dummy0
-5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
-    alias foo
+This is a scalability and isolation mechanism, that allow separating
+the early driver network XDP layer, from the rest of the netstack, and
+assigning dedicated CPUs for this stage.  The sysadm control/configure
+the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+many queues are configured via ethtool --set-channels.  Benchmarks
+show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+have the advantage that more packets being "bulk" available per hard
+interrupt[1].
 
-Before the patch:
-$ ip l s dummy0 alias ""
-RTNETLINK answers: Numerical result out of range
+[1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
 
-After the patch:
-$ ip l s dummy0 alias ""
-$ ip l l dev dummy0
-5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
+Use-cases:
 
-CC: Oliver Hartkopp <oliver@hartkopp.net>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Fixes: 96ca4a2cc145 ("net: remove ifalias on empty given alias")
-Reported-by: Julien FLoret <julien.floret@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+1. End-host based pre-filtering for DDoS mitigation.  This is fast
+   enough to allow software to see and filter all packets wirespeed.
+   Thus, no packets getting silently dropped by hardware.
+
+2. Given NIC HW unevenly distributes packets across RX queue, this
+   mechanism can be used for redistribution load across CPUs.  This
+   usually happens when HW is unaware of a new protocol.  This
+   resembles RPS (Receive Packet Steering), just faster, but with more
+   responsibility placed on the BPF program for correct steering.
+
+3. Auto-scaling or power saving via only activating the appropriate
+   number of remote CPUs for handling the current load.  The cpumap
+   tracepoints can function as a feedback loop for this purpose.
+
+See individual patches for patchset-version changes.
+
+Patchset V6 based on net-next at commit:
+ 812b5ca7d376 ("Add a driver for Renesas uPD60620 and uPD60620A PHYs")
+
 ---
 
-v1 -> v2: add the comment
+Jesper Dangaard Brouer (5):
+      bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+      bpf: XDP_REDIRECT enable use of cpumap
+      bpf: cpumap xdp_buff to skb conversion and allocation
+      bpf: cpumap add tracepoints
+      samples/bpf: add cpumap sample program xdp_redirect_cpu
 
- net/core/rtnetlink.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4bcdcc68e92..5343565d88b7 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1483,7 +1483,10 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
--	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
-+	/* IFLA_IFALIAS is a string, but policy is set to NLA_BINARY to
-+	 * allow 0-length string (needed to remove an alias).
-+	 */
-+	[IFLA_IFALIAS]	        = { .type = NLA_BINARY, .len = IFALIASZ - 1 },
- 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
--- 
-2.13.2
+ include/linux/bpf.h                 |   31 ++
+ include/linux/bpf_types.h           |    1 
+ include/linux/netdevice.h           |    1 
+ include/trace/events/xdp.h          |   80 ++++
+ include/uapi/linux/bpf.h            |    1 
+ kernel/bpf/Makefile                 |    1 
+ kernel/bpf/cpumap.c                 |  684 +++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c                |    8 
+ kernel/bpf/verifier.c               |    8 
+ net/core/dev.c                      |   27 +
+ net/core/filter.c                   |  140 ++++++-
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_redirect_cpu_kern.c |  609 +++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_cpu_user.c |  676 +++++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h      |    1 
+ 15 files changed, 2238 insertions(+), 34 deletions(-)
+ create mode 100644 kernel/bpf/cpumap.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_user.c
