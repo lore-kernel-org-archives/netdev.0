@@ -1,316 +1,123 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/4] net: sched: convert cls_flower->egress_dev users to tc_setup_cb_egdev infra
-Date: Tue, 10 Oct 2017 09:30:15 +0200
-Message-ID: <20171010073016.3682-4-jiri@resnulli.us>
+Subject: [patch net-next 1/4] net: sched: make tc_action_ops->get_dev return dev and avoid passing net
+Date: Tue, 10 Oct 2017 09:30:13 +0200
+Message-ID: <20171010073016.3682-2-jiri@resnulli.us>
 References: <20171010073016.3682-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:56307 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755434AbdJJHaV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:30:21 -0400
-Received: by mail-wm0-f65.google.com with SMTP id u138so2426845wmu.4
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 00:30:21 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35637 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755361AbdJJHaU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:30:20 -0400
+Received: by mail-wm0-f67.google.com with SMTP id b189so23988882wmd.2
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 00:30:19 -0700 (PDT)
 In-Reply-To: <20171010073016.3682-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-The only user of cls_flower->egress_dev is mlx5. So do the conversion
-there alongside with the code originating the call in cls_flower
-function fl_hw_replace_filter to the newly introduced egress device
-callback infrastucture.
+Return dev directly, NULL if not possible. That is enough.
+
+Makes no sense to pass struct net * to get_dev op, as there is only one
+net possible, the one the action was created in. So just store it in
+mirred priv and use directly.
+
+Rename the mirred op callback function.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  3 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 31 +++++++----
- include/net/pkt_cls.h                             |  5 +-
- net/sched/cls_api.c                               | 13 +++--
- net/sched/cls_flower.c                            | 63 ++++++++++++-----------
- 6 files changed, 73 insertions(+), 46 deletions(-)
+ include/net/act_api.h          |  3 +--
+ include/net/tc_act/tc_mirred.h |  1 +
+ net/sched/act_mirred.c         | 13 +++++--------
+ net/sched/cls_api.c            |  6 ++----
+ 4 files changed, 9 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index cc13d3d..5ec6d3e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -1081,6 +1081,9 @@ int mlx5e_ethtool_get_ts_info(struct mlx5e_priv *priv,
- int mlx5e_ethtool_flash_device(struct mlx5e_priv *priv,
- 			       struct ethtool_flash *flash);
- 
-+int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+		   void *type_data);
-+
- /* mlx5e generic netdev management API */
- struct net_device*
- mlx5e_create_netdev(struct mlx5_core_dev *mdev, const struct mlx5e_profile *profile,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index cc11bbb..2a32102 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3108,8 +3108,8 @@ static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
- }
- #endif
- 
--static int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
--			  void *type_data)
-+int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+		   void *type_data)
- {
- 	switch (type) {
- #ifdef CONFIG_MLX5_ESWITCH
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 45e03c4..765fc74 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -34,6 +34,7 @@
- #include <linux/mlx5/fs.h>
- #include <net/switchdev.h>
- #include <net/pkt_cls.h>
-+#include <net/act_api.h>
- #include <net/netevent.h>
- #include <net/arp.h>
- 
-@@ -667,14 +668,6 @@ mlx5e_rep_setup_tc_cls_flower(struct net_device *dev,
- 	    cls_flower->common.chain_index)
- 		return -EOPNOTSUPP;
- 
--	if (cls_flower->egress_dev) {
--		struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
--
--		dev = mlx5_eswitch_get_uplink_netdev(esw);
--		return dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
--						     cls_flower);
--	}
--
- 	switch (cls_flower->command) {
- 	case TC_CLSFLOWER_REPLACE:
- 		return mlx5e_configure_flower(priv, cls_flower);
-@@ -698,6 +691,14 @@ static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	}
- }
- 
-+static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
-+				 void *cb_priv)
-+{
-+	struct net_device *dev = cb_priv;
-+
-+	return mlx5e_setup_tc(dev, type, type_data);
-+}
-+
- bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv)
- {
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-@@ -1017,15 +1018,24 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 		goto err_detach_netdev;
- 	}
- 
-+	err = tc_setup_cb_egdev_register(netdev, mlx5e_rep_setup_tc_cb,
-+					 mlx5_eswitch_get_uplink_netdev(esw));
-+	if (err)
-+		goto err_neigh_cleanup;
-+
- 	err = register_netdev(netdev);
- 	if (err) {
- 		pr_warn("Failed to register representor netdev for vport %d\n",
- 			rep->vport);
--		goto err_neigh_cleanup;
-+		goto err_egdev_cleanup;
- 	}
- 
- 	return 0;
- 
-+err_egdev_cleanup:
-+	tc_setup_cb_egdev_unregister(netdev, mlx5e_rep_setup_tc_cb,
-+				     mlx5_eswitch_get_uplink_netdev(esw));
-+
- err_neigh_cleanup:
- 	mlx5e_rep_neigh_cleanup(rpriv);
- 
-@@ -1047,7 +1057,8 @@ mlx5e_vport_rep_unload(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 	void *ppriv = priv->ppriv;
- 
- 	unregister_netdev(rep->netdev);
--
-+	tc_setup_cb_egdev_unregister(netdev, mlx5e_rep_setup_tc_cb,
-+				     mlx5_eswitch_get_uplink_netdev(esw));
- 	mlx5e_rep_neigh_cleanup(rpriv);
- 	mlx5e_detach_netdev(priv);
- 	mlx5e_destroy_netdev(priv);
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 6f8149c..c0bdf5c 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -206,8 +206,6 @@ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts);
- int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts);
- int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
- 		     struct net_device **hw_dev);
--int tcf_exts_egdev_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
--			   void *type_data, bool err_stop);
- 
- /**
-  * struct tcf_pkt_info - packet information
-@@ -407,6 +405,9 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
- }
- #endif /* CONFIG_NET_CLS_IND */
- 
-+int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
-+		     void *type_data, bool err_stop);
-+
- struct tc_cls_common_offload {
- 	u32 chain_index;
- 	__be16 protocol;
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 99f9432..51994a2 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -1026,8 +1026,9 @@ int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
- }
- EXPORT_SYMBOL(tcf_exts_get_dev);
- 
--int tcf_exts_egdev_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
--			   void *type_data, bool err_stop)
-+static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
-+				       enum tc_setup_type type,
-+				       void *type_data, bool err_stop)
- {
- 	int ok_count = 0;
- #ifdef CONFIG_NET_CLS_ACT
-@@ -1054,7 +1055,13 @@ int tcf_exts_egdev_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
- #endif
- 	return ok_count;
- }
--EXPORT_SYMBOL(tcf_exts_egdev_cb_call);
-+
-+int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
-+		     void *type_data, bool err_stop)
-+{
-+	return tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
-+}
-+EXPORT_SYMBOL(tc_setup_cb_call);
- 
- static int __init tc_filter_init(void)
- {
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index db831ac..5b7bb96 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -88,7 +88,6 @@ struct cls_fl_filter {
- 	u32 handle;
- 	u32 flags;
- 	struct rcu_head	rcu;
--	struct net_device *hw_dev;
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index b944e0e..900168a 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -93,8 +93,7 @@ struct tc_action_ops {
+ 	int     (*walk)(struct net *, struct sk_buff *,
+ 			struct netlink_callback *, int, const struct tc_action_ops *);
+ 	void	(*stats_update)(struct tc_action *, u64, u32, u64);
+-	int	(*get_dev)(const struct tc_action *a, struct net *net,
+-			   struct net_device **mirred_dev);
++	struct net_device *(*get_dev)(const struct tc_action *a);
  };
  
- static unsigned short int fl_mask_range(const struct fl_flow_mask *mask)
-@@ -201,16 +200,17 @@ static void fl_destroy_filter(struct rcu_head *head)
- static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ struct tc_action_net {
+diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+index 604bc31..21a6565 100644
+--- a/include/net/tc_act/tc_mirred.h
++++ b/include/net/tc_act/tc_mirred.h
+@@ -10,6 +10,7 @@ struct tcf_mirred {
+ 	int			tcfm_ifindex;
+ 	bool			tcfm_mac_header_xmit;
+ 	struct net_device __rcu	*tcfm_dev;
++	struct net		*net;
+ 	struct list_head	tcfm_list;
+ };
+ #define to_mirred(a) ((struct tcf_mirred *)a)
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 416627c..8b3e5938 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -140,6 +140,7 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	m->tcfm_eaction = parm->eaction;
+ 	if (dev != NULL) {
+ 		m->tcfm_ifindex = parm->ifindex;
++		m->net = net;
+ 		if (ret != ACT_P_CREATED)
+ 			dev_put(rcu_dereference_protected(m->tcfm_dev, 1));
+ 		dev_hold(dev);
+@@ -313,15 +314,11 @@ static struct notifier_block mirred_device_notifier = {
+ 	.notifier_call = mirred_device_event,
+ };
+ 
+-static int tcf_mirred_device(const struct tc_action *a, struct net *net,
+-			     struct net_device **mirred_dev)
++static struct net_device *tcf_mirred_get_dev(const struct tc_action *a)
  {
- 	struct tc_cls_flower_offload cls_flower = {};
--	struct net_device *dev = f->hw_dev;
--
--	if (!tc_can_offload(dev))
--		return;
-+	struct net_device *dev = tp->q->dev_queue->dev;
+-	int ifindex = tcf_mirred_ifindex(a);
++	struct tcf_mirred *m = to_mirred(a);
  
- 	tc_cls_common_offload_init(&cls_flower.common, tp);
- 	cls_flower.command = TC_CLSFLOWER_DESTROY;
- 	cls_flower.cookie = (unsigned long) f;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, &cls_flower);
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
-+					      &cls_flower);
-+	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
-+			 &cls_flower, false);
+-	*mirred_dev = __dev_get_by_index(net, ifindex);
+-	if (!*mirred_dev)
+-		return -EINVAL;
+-	return 0;
++	return __dev_get_by_index(m->net, m->tcfm_ifindex);
  }
  
- static int fl_hw_replace_filter(struct tcf_proto *tp,
-@@ -220,20 +220,9 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_flower_offload cls_flower = {};
-+	bool skip_sw = tc_skip_sw(f->flags);
- 	int err;
+ static struct tc_action_ops act_mirred_ops = {
+@@ -336,7 +333,7 @@ static struct tc_action_ops act_mirred_ops = {
+ 	.walk		=	tcf_mirred_walker,
+ 	.lookup		=	tcf_mirred_search,
+ 	.size		=	sizeof(struct tcf_mirred),
+-	.get_dev	=	tcf_mirred_device,
++	.get_dev	=	tcf_mirred_get_dev,
+ };
  
--	if (!tc_can_offload(dev)) {
--		if (tcf_exts_get_dev(dev, &f->exts, &f->hw_dev) ||
--		    (f->hw_dev && !tc_can_offload(f->hw_dev))) {
--			f->hw_dev = dev;
--			return tc_skip_sw(f->flags) ? -EINVAL : 0;
+ static __net_init int mirred_init_net(struct net *net)
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 0b2219a..450873b 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -1016,10 +1016,8 @@ int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
+ 
+ 	tcf_exts_to_list(exts, &actions);
+ 	list_for_each_entry(a, &actions, list) {
+-		if (a->ops->get_dev) {
+-			a->ops->get_dev(a, dev_net(dev), hw_dev);
+-			break;
 -		}
--		dev = f->hw_dev;
--		cls_flower.egress_dev = true;
--	} else {
--		f->hw_dev = dev;
--	}
--
- 	tc_cls_common_offload_init(&cls_flower.common, tp);
- 	cls_flower.command = TC_CLSFLOWER_REPLACE;
- 	cls_flower.cookie = (unsigned long) f;
-@@ -242,31 +231,47 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 	cls_flower.key = &f->mkey;
- 	cls_flower.exts = &f->exts;
- 
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
--					    &cls_flower);
--	if (!err)
--		f->flags |= TCA_CLS_FLAGS_IN_HW;
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
-+						    &cls_flower);
-+		if (err) {
-+			if (skip_sw)
-+				return err;
-+		} else {
-+			f->flags |= TCA_CLS_FLAGS_IN_HW;
-+		}
-+	}
- 
--	if (tc_skip_sw(f->flags))
-+	err = tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
-+			       &cls_flower, skip_sw);
-+	if (err < 0) {
-+		fl_hw_destroy_filter(tp, f);
- 		return err;
-+	} else if (err > 0) {
-+		f->flags |= TCA_CLS_FLAGS_IN_HW;
-+	}
-+
-+	if (skip_sw && !(f->flags & TCA_CLS_FLAGS_IN_HW))
-+		return -EINVAL;
-+
- 	return 0;
- }
- 
- static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
- 	struct tc_cls_flower_offload cls_flower = {};
--	struct net_device *dev = f->hw_dev;
--
--	if (!tc_can_offload(dev))
--		return;
-+	struct net_device *dev = tp->q->dev_queue->dev;
- 
- 	tc_cls_common_offload_init(&cls_flower.common, tp);
- 	cls_flower.command = TC_CLSFLOWER_STATS;
- 	cls_flower.cookie = (unsigned long) f;
- 	cls_flower.exts = &f->exts;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
--				      &cls_flower);
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
-+					      &cls_flower);
-+	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
-+			 &cls_flower, false);
- }
- 
- static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
++		if (a->ops->get_dev)
++			*hw_dev = a->ops->get_dev(a);
+ 	}
+ 	if (*hw_dev)
+ 		return 0;
 -- 
 2.9.5
