@@ -1,41 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v5 1/2] net: phy: DP83822 initial driver submission
-Date: Tue, 10 Oct 2017 10:50:02 -0700
-Message-ID: <e718326f-f7c2-ede6-be2c-9c1f83a7c44f@gmail.com>
-References: <20171010174256.21930-1-dmurphy@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][net-next] ipv6: fix dereference of rt6_ex before null
+ check error
+Date: Tue, 10 Oct 2017 10:54:47 -0700 (PDT)
+Message-ID: <20171010.105447.757260394877902006.davem@davemloft.net>
+References: <20171010170116.21124-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Woojung.Huh@microchip.com, afd@ti.com
-To: Dan Murphy <dmurphy@ti.com>, andrew@lunn.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f173.google.com ([209.85.216.173]:47048 "EHLO
-        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932316AbdJJRuG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 13:50:06 -0400
-Received: by mail-qt0-f173.google.com with SMTP id 1so13558866qtn.3
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 10:50:05 -0700 (PDT)
-In-Reply-To: <20171010174256.21930-1-dmurphy@ti.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171010170116.21124-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/10/2017 10:42 AM, Dan Murphy wrote:
-> Add support for the TI  DP83822 10/100Mbit ethernet phy.
-> 
-> The DP83822 provides flexibility to connect to a MAC through a
-> standard MII, RMII or RGMII interface.
-> 
-> In addition the DP83822 needs to be removed from the DP83848 driver
-> as the WoL support is added here for this device.
-> 
-> Datasheet:
-> http://www.ti.com/product/DP83822I/datasheet
-> 
-> Signed-off-by: Dan Murphy <dmurphy@ti.com>
+From: Colin King <colin.king@canonical.com>
+Date: Tue, 10 Oct 2017 18:01:16 +0100
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Currently rt6_ex is being dereferenced before it is null checked
+> hence there is a possible null dereference bug. Fix this by only
+> dereferencing rt6_ex after it has been null checked.
+> 
+> Detected by CoverityScan, CID#1457749 ("Dereference before null check")
+> 
+> Fixes: 81eb8447daae ("ipv6: take care of rt6_stats")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Thanks Dan!
--- 
-Florian
+Applied, thanks Colin.
