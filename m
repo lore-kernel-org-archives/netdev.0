@@ -1,117 +1,109 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2] iplink: new option to set neigh suppression on a bridge port
-Date: Mon,  9 Oct 2017 21:42:13 -0700
-Message-ID: <1507610533-18724-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:48426 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751794AbdJJEml (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 00:42:41 -0400
-Received: by mail-pf0-f175.google.com with SMTP id b79so3707147pfk.5
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 21:42:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joel Stanley <joel@jms.id.au>
+Subject: [PATCH] net: ftgmac100: Request clock and set speed
+Date: Tue, 10 Oct 2017 15:19:25 +1030
+Message-ID: <20171010044925.21078-1-joel@jms.id.au>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andrew Jeffery <andrew@aj.id.au>
+To: "David S . Miller" <davem@davemloft.net>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+According to the ASPEED datasheet, gigabit speeds require a clock of
+100MHz or higher. Other speeds require 25MHz or higher.
 
-neigh suppression can be used to suppress arp and nd flood
-to bridge ports. It maps to the recently added
-kernel support for bridge port flag IFLA_BRPORT_NEIGH_SUPPRESS.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Joel Stanley <joel@jms.id.au>
 ---
- bridge/link.c            | 13 +++++++++++++
- ip/iplink_bridge_slave.c |  8 ++++++++
- man/man8/bridge.8        |  4 ++++
- 3 files changed, 25 insertions(+)
+ drivers/net/ethernet/faraday/ftgmac100.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-diff --git a/bridge/link.c b/bridge/link.c
-index 93472ad..d3a211e 100644
---- a/bridge/link.c
-+++ b/bridge/link.c
-@@ -198,6 +198,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 				if (prtb[IFLA_BRPORT_MCAST_FLOOD])
- 					print_onoff(fp, "mcast_flood",
- 						    rta_getattr_u8(prtb[IFLA_BRPORT_MCAST_FLOOD]));
-+				if (prtb[IFLA_BRPORT_NEIGH_SUPPRESS])
-+					print_onoff(fp, "neigh_suppress",
-+						    rta_getattr_u8(prtb[IFLA_BRPORT_NEIGH_SUPPRESS]));
- 			}
- 		} else
- 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
-@@ -266,6 +269,7 @@ static int brlink_modify(int argc, char **argv)
- 		.ifm.ifi_family = PF_BRIDGE,
- 	};
- 	char *d = NULL;
-+	__s8 neigh_suppress = -1;
- 	__s8 learning = -1;
- 	__s8 learning_sync = -1;
- 	__s8 flood = -1;
-@@ -355,6 +359,11 @@ static int brlink_modify(int argc, char **argv)
- 			flags |= BRIDGE_FLAGS_SELF;
- 		} else if (strcmp(*argv, "master") == 0) {
- 			flags |= BRIDGE_FLAGS_MASTER;
-+		} else if (strcmp(*argv, "neigh_suppress") == 0) {
-+			NEXT_ARG();
-+			if (!on_off("neigh_suppress", &neigh_suppress,
-+				    *argv))
-+				return -1;
- 		} else {
- 			usage();
- 		}
-@@ -407,6 +416,10 @@ static int brlink_modify(int argc, char **argv)
- 	if (state >= 0)
- 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_STATE, state);
+diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+index 9ed8e4b81530..870ebd857978 100644
+--- a/drivers/net/ethernet/faraday/ftgmac100.c
++++ b/drivers/net/ethernet/faraday/ftgmac100.c
+@@ -21,6 +21,7 @@
  
-+	if (neigh_suppress != -1)
-+		addattr8(&req.n, sizeof(req), IFLA_BRPORT_NEIGH_SUPPRESS,
-+			 neigh_suppress);
+ #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+ 
++#include <linux/clk.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
+@@ -59,6 +60,9 @@
+ /* Min number of tx ring entries before stopping queue */
+ #define TX_THRESHOLD		(MAX_SKB_FRAGS + 1)
+ 
++#define FTGMAC_100MHZ		100000000
++#define FTGMAC_25MHZ		25000000
 +
- 	addattr_nest_end(&req.n, nest);
+ struct ftgmac100 {
+ 	/* Registers */
+ 	struct resource *res;
+@@ -96,6 +100,7 @@ struct ftgmac100 {
+ 	struct napi_struct napi;
+ 	struct work_struct reset_task;
+ 	struct mii_bus *mii_bus;
++	struct clk *clk;
  
- 	/* IFLA_AF_SPEC nested attribute. Contains IFLA_BRIDGE_FLAGS that
-diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
-index 80272b0..fdf8e89 100644
---- a/ip/iplink_bridge_slave.c
-+++ b/ip/iplink_bridge_slave.c
-@@ -238,6 +238,10 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
- 	if (tb[IFLA_BRPORT_MCAST_FLOOD])
- 		_print_onoff(f, "mcast_flood", "mcast_flood",
- 			     rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
+ 	/* Link management */
+ 	int cur_speed;
+@@ -142,18 +147,22 @@ static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+ static int ftgmac100_reset_and_config_mac(struct ftgmac100 *priv)
+ {
+ 	u32 maccr = 0;
++	int freq = 0;
+ 
+ 	switch (priv->cur_speed) {
+ 	case SPEED_10:
+ 	case 0: /* no link */
++		freq = FTGMAC_25MHZ;
+ 		break;
+ 
+ 	case SPEED_100:
+ 		maccr |= FTGMAC100_MACCR_FAST_MODE;
++		freq = FTGMAC_25MHZ;
+ 		break;
+ 
+ 	case SPEED_1000:
+ 		maccr |= FTGMAC100_MACCR_GIGA_MODE;
++		freq = FTGMAC_100MHZ;
+ 		break;
+ 	default:
+ 		netdev_err(priv->netdev, "Unknown speed %d !\n",
+@@ -161,6 +170,9 @@ static int ftgmac100_reset_and_config_mac(struct ftgmac100 *priv)
+ 		break;
+ 	}
+ 
++	if (freq && priv->clk)
++		clk_set_rate(priv->clk, freq);
 +
-+	if (tb[IFLA_BRPORT_NEIGH_SUPPRESS])
-+		_print_onoff(f, "neigh_suppress", "neigh_suppress",
-+			     rta_getattr_u8(tb[IFLA_BRPORT_NEIGH_SUPPRESS]));
- }
+ 	/* (Re)initialize the queue pointers */
+ 	priv->rx_pointer = 0;
+ 	priv->tx_clean_pointer = 0;
+@@ -1775,6 +1787,13 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	priv->dev = &pdev->dev;
+ 	INIT_WORK(&priv->reset_task, ftgmac100_reset_task);
  
- static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
-@@ -328,6 +332,10 @@ static int bridge_slave_parse_opt(struct link_util *lu, int argc, char **argv,
- 			NEXT_ARG();
- 			bridge_slave_parse_on_off("mcast_fast_leave", *argv, n,
- 						  IFLA_BRPORT_FAST_LEAVE);
-+		} else if (matches(*argv, "neigh_suppress") == 0) {
-+			NEXT_ARG();
-+			bridge_slave_parse_on_off("neigh_suppress", *argv, n,
-+						  IFLA_BRPORT_NEIGH_SUPPRESS);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 9c5f855..fdba0fe 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -323,6 +323,10 @@ switch.
- Controls whether a given port will be flooded with multicast traffic for which there is no MDB entry. By default this flag is on.
- 
- .TP
-+.BR "neigh_suppress on " or " neigh_suppress off "
-+Controls whether neigh discovery (arp and nd) proxy and suppression is enabled on the port. By default this flag is off.
++	/* Enable clock if present */
++	priv->clk = devm_clk_get(&pdev->dev, NULL);
++	if (!IS_ERR(priv->clk))
++		clk_prepare_enable(priv->clk);
++	else
++		priv->clk = NULL;
 +
-+.TP
- .BI self
- link setting is configured on specified physical device
+ 	/* map io memory */
+ 	priv->res = request_mem_region(res->start, resource_size(res),
+ 				       dev_name(&pdev->dev));
+@@ -1883,6 +1902,9 @@ static int ftgmac100_remove(struct platform_device *pdev)
  
+ 	unregister_netdev(netdev);
+ 
++	if (priv->clk)
++		clk_disable_unprepare(priv->clk);
++
+ 	/* There's a small chance the reset task will have been re-queued,
+ 	 * during stop, make sure it's gone before we free the structure.
+ 	 */
 -- 
-2.1.4
+2.14.1
