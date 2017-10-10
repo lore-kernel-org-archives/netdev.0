@@ -1,72 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] vhost_net: do not stall on zerocopy
- depletion
-Date: Mon, 09 Oct 2017 20:47:12 -0700 (PDT)
-Message-ID: <20171009.204712.443251456571733555.davem@davemloft.net>
-References: <20171006172231.87435-1-willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH RFC 0/3] tun zerocopy stats
+Date: Mon, 09 Oct 2017 20:52:28 -0700 (PDT)
+Message-ID: <20171009.205228.714368596112967819.davem@davemloft.net>
+References: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
-        den@klaipeden.com, virtualization@lists.linux-foundation.org,
         willemb@google.com
 To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34414 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34488 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756039AbdJJDrN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 23:47:13 -0400
-In-Reply-To: <20171006172231.87435-1-willemdebruijn.kernel@gmail.com>
+        with ESMTP id S1755048AbdJJDwa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 23:52:30 -0400
+In-Reply-To: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Fri,  6 Oct 2017 13:22:31 -0400
+Date: Fri,  6 Oct 2017 18:25:13 -0400
 
 > From: Willem de Bruijn <willemb@google.com>
 > 
-> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
-> When reached, transmission stalls. Stalls cause latency, as well as
-> head-of-line blocking of other flows that do not use zerocopy.
+> Add zerocopy transfer statistics to the vhost_net/tun zerocopy path.
 > 
-> Instead of stalling, revert to copy-based transmission.
+> I've been using this to verify recent changes to zerocopy tuning [1].
+> Sharing more widely, as it may be useful in similar future work.
 > 
-> Tested by sending two udp flows from guest to host, one with payload
-> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
-> large flow is redirected to a netem instance with 1MBps rate limit
-> and deep 1000 entry queue.
+> Use ethtool stats as interface, as these are defined per device
+> driver and can easily be extended.
 > 
->   modprobe ifb
->   ip link set dev ifb0 up
->   tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
+> Make the zerocopy release callback take an extra hop through the tun
+> driver to allow the driver to increment its counters.
 > 
->   tc qdisc add dev tap0 ingress
->   tc filter add dev tap0 parent ffff: protocol ip \
->       u32 match ip dport 8000 0xffff \
->       action mirred egress redirect dev ifb0
+> Care must be taken to avoid adding an alloc/free to this hot path.
+> Since the caller already must allocate a ubuf_info, make it allocate
+> two at a time and grant one to the tun device.
 > 
-> Before the delay, both flows process around 80K pps. With the delay,
-> before this patch, both process around 400. After this patch, the
-> large flow is still rate limited, while the small reverts to its
-> original rate. See also discussion in the first link, below.
+>  1/3: introduce ethtool stats (`ethtool -S $DEV`) for tun devices
+>  2/3: add zerocopy tx and tx_err counters
+>  3/3: convert vhost_net to pass a pair of ubuf_info to tun
 > 
-> Without rate limiting, {1, 10, 100}x TCP_STREAM tests continued to
-> send at 100% zerocopy.
-> 
-> The limit in vhost_exceeds_maxpend must be carefully chosen. With
-> vq->num >> 1, the flows remain correlated. This value happens to
-> correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
-> fractions and ensure correctness also for much smaller values of
-> vq->num, by testing the min() of both explicitly. See also the
-> discussion in the second link below.
-> 
-> Changes
->   v1 -> v2
->     - replaced min with typed min_t
->     - avoid unnecessary whitespace change
-> 
-> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
-> Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> [1] http://patchwork.ozlabs.org/patch/822613/
 
-Applied, thanks Willem.
+This looks mostly fine to me, but I don't know enough about how vhost
+and tap interact to tell whether this makes sense to upstream.
+
+What are the runtime costs for these new statistics?
