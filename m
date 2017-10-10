@@ -1,93 +1,49 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net-next] ipv6: use rcu_dereference_bh() in ipv6_route_seq_next()
-Date: Mon,  9 Oct 2017 17:17:26 -0700
-Message-ID: <20171010001726.77046-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:49656 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754617AbdJJARx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 20:17:53 -0400
-Received: by mail-pf0-f174.google.com with SMTP id l188so15395637pfc.6
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 17:17:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: [PATCH RFC tip/core/rcu 03/15] drivers/net/ethernet/qlogic/qed: Fix __qed_spq_block() ordering
+Date: Mon,  9 Oct 2017 17:22:37 -0700
+Message-ID: <1507594969-8347-3-git-send-email-paulmck@linux.vnet.ibm.com>
+References: <20171010001951.GA6476@linux.vnet.ibm.com>
+Cc: mingo@kernel.org, torvalds@linux-foundation.org,
+        mark.rutland@arm.com, dhowells@redhat.com,
+        linux-arch@vger.kernel.org, peterz@infradead.org,
+        will.deacon@arm.com,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Ariel Elior <Ariel.Elior@cavium.com>,
+        <everest-linux-l2@cavium.com>, <netdev@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171010001951.GA6476@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Wang <weiwan@google.com>
+The __qed_spq_block() function expects an smp_read_barrier_depends()
+to order a prior READ_ONCE() against a later load that does not depend
+on the prior READ_ONCE(), an expectation that can fail to be met.
+This commit therefore replaces the READ_ONCE() with smp_load_acquire()
+and removes the smp_read_barrier_depends().
 
-This patch replaces rcu_deference() with rcu_dereference_bh() in
-ipv6_route_seq_next() to avoid the following warning:
-
-[   19.431685] WARNING: suspicious RCU usage
-[   19.433451] 4.14.0-rc3-00914-g66f5d6c #118 Not tainted
-[   19.435509] -----------------------------
-[   19.437267] net/ipv6/ip6_fib.c:2259 suspicious
-rcu_dereference_check() usage!
-[   19.440790]
-[   19.440790] other info that might help us debug this:
-[   19.440790]
-[   19.444734]
-[   19.444734] rcu_scheduler_active = 2, debug_locks = 1
-[   19.447757] 2 locks held by odhcpd/3720:
-[   19.449480]  #0:  (&p->lock){+.+.}, at: [<ffffffffb1231f7d>]
-seq_read+0x3c/0x333
-[   19.452720]  #1:  (rcu_read_lock_bh){....}, at: [<ffffffffb1d2b984>]
-ipv6_route_seq_start+0x5/0xfd
-[   19.456323]
-[   19.456323] stack backtrace:
-[   19.458812] CPU: 0 PID: 3720 Comm: odhcpd Not tainted
-4.14.0-rc3-00914-g66f5d6c #118
-[   19.462042] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-BIOS 1.10.2-1 04/01/2014
-[   19.465414] Call Trace:
-[   19.466788]  dump_stack+0x86/0xc0
-[   19.468358]  lockdep_rcu_suspicious+0xea/0xf3
-[   19.470183]  ipv6_route_seq_next+0x71/0x164
-[   19.471963]  seq_read+0x244/0x333
-[   19.473522]  proc_reg_read+0x48/0x67
-[   19.475152]  ? proc_reg_write+0x67/0x67
-[   19.476862]  __vfs_read+0x26/0x10b
-[   19.478463]  ? __might_fault+0x37/0x84
-[   19.480148]  vfs_read+0xba/0x146
-[   19.481690]  SyS_read+0x51/0x8e
-[   19.483197]  do_int80_syscall_32+0x66/0x15a
-[   19.484969]  entry_INT80_compat+0x32/0x50
-[   19.486707] RIP: 0023:0xf7f0be8e
-[   19.488244] RSP: 002b:00000000ffa75d04 EFLAGS: 00000246 ORIG_RAX:
-0000000000000003
-[   19.491431] RAX: ffffffffffffffda RBX: 0000000000000009 RCX:
-0000000008056068
-[   19.493886] RDX: 0000000000001000 RSI: 0000000008056008 RDI:
-0000000000001000
-[   19.496331] RBP: 00000000000001ff R08: 0000000000000000 R09:
-0000000000000000
-[   19.498768] R10: 0000000000000000 R11: 0000000000000000 R12:
-0000000000000000
-[   19.501217] R13: 0000000000000000 R14: 0000000000000000 R15:
-0000000000000000
-
-Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
-Reported-by: Xiaolong Ye <xiaolong.ye@intel.com>
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Ariel Elior <Ariel.Elior@cavium.com>
+Cc: <everest-linux-l2@cavium.com>
+Cc: <netdev@vger.kernel.org>
 ---
- net/ipv6/ip6_fib.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qed/qed_spq.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 52a29ba32928..c2ecd5ec638a 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -2262,7 +2262,7 @@ static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	if (!v)
- 		goto iter_table;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index be48d9abd001..c1237ec58b6c 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -97,9 +97,7 @@ static int __qed_spq_block(struct qed_hwfn *p_hwfn,
  
--	n = rcu_dereference(((struct rt6_info *)v)->dst.rt6_next);
-+	n = rcu_dereference_bh(((struct rt6_info *)v)->dst.rt6_next);
- 	if (n) {
- 		++*pos;
- 		return n;
+ 	while (iter_cnt--) {
+ 		/* Validate we receive completion update */
+-		if (READ_ONCE(comp_done->done) == 1) {
+-			/* Read updated FW return value */
+-			smp_read_barrier_depends();
++		if (smp_load_acquire(&comp_done->done) == 1) { /* ^^^ */
+ 			if (p_fw_ret)
+ 				*p_fw_ret = comp_done->fw_return_code;
+ 			return 0;
 -- 
-2.14.2.920.gcf0c67979c-goog
+2.5.2
