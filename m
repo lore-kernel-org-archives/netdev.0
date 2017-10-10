@@ -1,153 +1,98 @@
-From: Eric Garver <e@erig.me>
-Subject: [PATCH net-next v2] openvswitch: add ct_clear action
-Date: Tue, 10 Oct 2017 16:54:44 -0400
-Message-ID: <20171010205444.20628-1-e@erig.me>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
+Date: Tue, 10 Oct 2017 12:55:02 -0700
+Message-ID: <94264677-cf71-86d5-5220-413cfbac8e90@gmail.com>
+References: <20171010193027.GA23108@embeddedor.com>
+ <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jes Sorensen <jes.sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5f5f0f54-d901-90be-9025-0a1c4b909368-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This adds a ct_clear action for clearing conntrack state. ct_clear is
-currently implemented in OVS userspace, but is not backed by an action
-in the kernel datapath. This is useful for flows that may modify a
-packet tuple after a ct lookup has already occurred.
+On 10/10/2017 12:35 PM, Jes Sorensen wrote:
+> On 10/10/2017 03:30 PM, Gustavo A. R. Silva wrote:
+>> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+>> where we are expecting to fall through.
+> 
+> While this isn't harmful, to me this looks like pointless patch churn
+> for zero gain and it's just ugly.
 
-Signed-off-by: Eric Garver <e@erig.me>
----
-v2:
-	- Use IP_CT_UNTRACKED for nf_ct_set()
-	- Only fill key if previously conntracked
+That is the canonical way to tell static analyzers and compilers that
+fall throughs are wanted and not accidental mistakes in the code. For
+people that deal with these kinds of errors, it's quite helpful, unless
+you suggest disabling that particular GCC warning specific for that
+file/directory?
 
- include/uapi/linux/openvswitch.h |  2 ++
- net/openvswitch/actions.c        |  4 ++++
- net/openvswitch/conntrack.c      | 11 +++++++++++
- net/openvswitch/conntrack.h      |  7 +++++++
- net/openvswitch/flow_netlink.c   |  5 +++++
- 5 files changed, 29 insertions(+)
+> 
+> Jes
+> 
+> 
+>> Cc: Jes Sorensen <Jes.Sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+>> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> Signed-off-by: Gustavo A. R. Silva <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+>> ---
+>>   drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c | 5 +++++
+>>   1 file changed, 5 insertions(+)
+>>
+>> diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> index 7806a4d..e66be05 100644
+>> --- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> +++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_core.c
+>> @@ -1153,6 +1153,7 @@ void rtl8xxxu_gen1_config_channel(struct
+>> ieee80211_hw *hw)
+>>       switch (hw->conf.chandef.width) {
+>>       case NL80211_CHAN_WIDTH_20_NOHT:
+>>           ht = false;
+>> +        /* fall through */
+>>       case NL80211_CHAN_WIDTH_20:
+>>           opmode |= BW_OPMODE_20MHZ;
+>>           rtl8xxxu_write8(priv, REG_BW_OPMODE, opmode);
+>> @@ -1280,6 +1281,7 @@ void rtl8xxxu_gen2_config_channel(struct
+>> ieee80211_hw *hw)
+>>       switch (hw->conf.chandef.width) {
+>>       case NL80211_CHAN_WIDTH_20_NOHT:
+>>           ht = false;
+>> +        /* fall through */
+>>       case NL80211_CHAN_WIDTH_20:
+>>           rf_mode_bw |= WMAC_TRXPTCL_CTL_BW_20;
+>>           subchannel = 0;
+>> @@ -1748,9 +1750,11 @@ static int rtl8xxxu_identify_chip(struct
+>> rtl8xxxu_priv *priv)
+>>           case 3:
+>>               priv->ep_tx_low_queue = 1;
+>>               priv->ep_tx_count++;
+>> +            /* fall through */
+>>           case 2:
+>>               priv->ep_tx_normal_queue = 1;
+>>               priv->ep_tx_count++;
+>> +            /* fall through */
+>>           case 1:
+>>               priv->ep_tx_high_queue = 1;
+>>               priv->ep_tx_count++;
+>> @@ -5691,6 +5695,7 @@ static int rtl8xxxu_set_key(struct ieee80211_hw
+>> *hw, enum set_key_cmd cmd,
+>>           break;
+>>       case WLAN_CIPHER_SUITE_TKIP:
+>>           key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIC;
+>> +        /* fall through */
+>>       default:
+>>           return -EOPNOTSUPP;
+>>       }
+>>
+> 
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index efdbfbfd3ee2..0cd6f8833147 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -807,6 +807,7 @@ struct ovs_action_push_eth {
-  * packet.
-  * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the
-  * packet.
-+ * @OVS_ACTION_ATTR_CT_CLEAR: Clear conntrack state from the packet.
-  *
-  * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
-  * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-@@ -836,6 +837,7 @@ enum ovs_action_attr {
- 	OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
- 	OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
- 	OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-+	OVS_ACTION_ATTR_CT_CLEAR,     /* No argument. */
- 
- 	__OVS_ACTION_ATTR_MAX,	      /* Nothing past this will be accepted
- 				       * from userspace. */
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index a54a556fcdb5..a551232daf61 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -1203,6 +1203,10 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 				return err == -EINPROGRESS ? 0 : err;
- 			break;
- 
-+		case OVS_ACTION_ATTR_CT_CLEAR:
-+			err = ovs_ct_clear(skb, key);
-+			break;
-+
- 		case OVS_ACTION_ATTR_PUSH_ETH:
- 			err = push_eth(skb, key, nla_data(a));
- 			break;
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index d558e882ca0c..fe861e2f0deb 100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -1129,6 +1129,17 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
- 	return err;
- }
- 
-+int ovs_ct_clear(struct sk_buff *skb, struct sw_flow_key *key)
-+{
-+	if (skb_nfct(skb)) {
-+		nf_conntrack_put(skb_nfct(skb));
-+		nf_ct_set(skb, NULL, IP_CT_UNTRACKED);
-+		ovs_ct_fill_key(skb, key);
-+	}
-+
-+	return 0;
-+}
-+
- static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
- 			     const struct sw_flow_key *key, bool log)
- {
-diff --git a/net/openvswitch/conntrack.h b/net/openvswitch/conntrack.h
-index bc7efd1867ab..399dfdd2c4f9 100644
---- a/net/openvswitch/conntrack.h
-+++ b/net/openvswitch/conntrack.h
-@@ -30,6 +30,7 @@ int ovs_ct_action_to_attr(const struct ovs_conntrack_info *, struct sk_buff *);
- 
- int ovs_ct_execute(struct net *, struct sk_buff *, struct sw_flow_key *,
- 		   const struct ovs_conntrack_info *);
-+int ovs_ct_clear(struct sk_buff *skb, struct sw_flow_key *key);
- 
- void ovs_ct_fill_key(const struct sk_buff *skb, struct sw_flow_key *key);
- int ovs_ct_put_key(const struct sw_flow_key *swkey,
-@@ -73,6 +74,12 @@ static inline int ovs_ct_execute(struct net *net, struct sk_buff *skb,
- 	return -ENOTSUPP;
- }
- 
-+static inline int ovs_ct_clear(struct sk_buff *skb,
-+			       struct sw_flow_key *key)
-+{
-+	return -ENOTSUPP;
-+}
-+
- static inline void ovs_ct_fill_key(const struct sk_buff *skb,
- 				   struct sw_flow_key *key)
- {
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index fc0ca9a89b8e..dc0d79092e74 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -76,6 +76,7 @@ static bool actions_may_change_flow(const struct nlattr *actions)
- 			break;
- 
- 		case OVS_ACTION_ATTR_CT:
-+		case OVS_ACTION_ATTR_CT_CLEAR:
- 		case OVS_ACTION_ATTR_HASH:
- 		case OVS_ACTION_ATTR_POP_ETH:
- 		case OVS_ACTION_ATTR_POP_MPLS:
-@@ -2528,6 +2529,7 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
- 			[OVS_ACTION_ATTR_SAMPLE] = (u32)-1,
- 			[OVS_ACTION_ATTR_HASH] = sizeof(struct ovs_action_hash),
- 			[OVS_ACTION_ATTR_CT] = (u32)-1,
-+			[OVS_ACTION_ATTR_CT_CLEAR] = 0,
- 			[OVS_ACTION_ATTR_TRUNC] = sizeof(struct ovs_action_trunc),
- 			[OVS_ACTION_ATTR_PUSH_ETH] = sizeof(struct ovs_action_push_eth),
- 			[OVS_ACTION_ATTR_POP_ETH] = 0,
-@@ -2669,6 +2671,9 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
- 			skip_copy = true;
- 			break;
- 
-+		case OVS_ACTION_ATTR_CT_CLEAR:
-+			break;
-+
- 		case OVS_ACTION_ATTR_PUSH_ETH:
- 			/* Disallow pushing an Ethernet header if one
- 			 * is already present */
+
 -- 
-2.12.0
+Florian
