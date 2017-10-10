@@ -1,60 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
-Date: Tue, 10 Oct 2017 23:58:53 +0200
-Message-ID: <87po9ull5u.fsf@stressinduktion.org>
-References: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
-        <20171010173821.6djxyvrggvaivqec@ast-mbp.dhcp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Brendan Gregg <brendan.d.gregg@gmail.com>,
-        Song Liu <songliubraving@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: [PATCH] i40e: only redistribute MSI-X vectors when needed
+Date: Tue, 10 Oct 2017 14:56:58 -0700
+Message-ID: <1507672618-396715-1-git-send-email-shannon.nelson@oracle.com>
+Cc: netdev@vger.kernel.org
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:33339 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756534AbdJJV64 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 17:58:56 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:44840 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753877AbdJJV7p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 17:59:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
+Whether or not there are vectors_left, we only need to redistribute
+our vectors if we didn't get as many as we requested.  With the current
+check, the code will try to redistribute even if we did in fact get all
+the vectors we requested - this can happen when we have more CPUs than
+we do vectors.  This restores an earlier check to be sure we only
+redistribute if we didn't get the full count we requested.
 
-> On Mon, Oct 09, 2017 at 10:35:47PM -0700, Cong Wang wrote:
+Fixes: 4ce20abc645f (i40e: fix MSI-X vector redistribution if hw limit is reached)
+Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-[...]
-
->> +		trace_tcp_retransmit_skb(sk, skb, segs);
->
-> I'm happy to see new tracepoints being added to tcp stack, but I'm concerned
-> with practical usability of them.
-> Like the above tracepoint definition makes it not very useful from bpf point of view,
-> since 'sk' pointer is not recored by as part of the tracepoint.
-> In bpf/tracing world we prefer tracepoints to have raw pointers recorded
-> in TP_STRUCT__entry() and _not_ printed in TP_printk()
-> (since pointers are useless for userspace).
-
-Ack.
-
-Also could the TP_printk also use the socket cookies so they can get
-associated with netlink dumps and as such also be associated to user
-space processes? It could help against races while trying to associate
-the socket with a process. ss already supports dumping those cookies
-with -e.
-
-The corresponding commit would be:
-
-commit 33cf7c90fe2f97afb1cadaa0cfb782cb9d1b9ee2
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Wed Mar 11 18:53:14 2015 -0700
-
-    net: add real socket cookies
-
-Right now they only get set when needed but as Eric already mentioned in
-his commit log, this could be refined.
-
-[...]
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index bf91958..535e6e7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8176,7 +8176,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		pf->num_lan_qps = 1;
+ 		pf->num_lan_msix = 1;
+ 
+-	} else if (!vectors_left) {
++	} else if (v_actual != v_budget) {
+ 		/* If we have limited resources, we will start with no vectors
+ 		 * for the special features and then allocate vectors to some
+ 		 * of these features based on the policy and at the end disable
+@@ -8185,7 +8185,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		int vec;
+ 
+ 		dev_info(&pf->pdev->dev,
+-			 "MSI-X vector limit reached, attempting to redistribute vectors\n");
++			 "MSI-X vector limit reached with %d, wanted %d, attempting to redistribute vectors\n",
++			 v_actual, v_budget);
+ 		/* reserve the misc vector */
+ 		vec = v_actual - 1;
+ 
+-- 
+1.7.1
