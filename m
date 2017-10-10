@@ -1,75 +1,205 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
- support malloc buff at run time
-Date: Tue, 10 Oct 2017 08:41:17 +0200
-Message-ID: <20171010064117.ipyarf5ml7fwnzdv@unicorn.suse.cz>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
- <1506605626-1744-3-git-send-email-haliu@redhat.com>
- <20171002103708.0572704b@xeon-e3>
- <20171009202525.GR32278@orbyte.nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Hangbin Liu <haliu@redhat.com>, netdev@vger.kernel.org,
-        Hangbin Liu <liuhangbin@gmail.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Add support for new flash parts
+Date: Tue, 10 Oct 2017 12:44:13 +0530
+Message-ID: <1507619653-8726-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, leedom@chelsio.com, indranil@chelsio.com,
+        venkatesh@chelsio.com, Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:40041 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750950AbdJJGlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 02:41:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20171009202525.GR32278@orbyte.nwl.cc>
+Received: from stargate.chelsio.com ([12.32.117.8]:60588 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754461AbdJJHOY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:14:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 09, 2017 at 10:25:25PM +0200, Phil Sutter wrote:
-> Hi Stephen,
-> 
-> On Mon, Oct 02, 2017 at 10:37:08AM -0700, Stephen Hemminger wrote:
-> > On Thu, 28 Sep 2017 21:33:46 +0800
-> > Hangbin Liu <haliu@redhat.com> wrote:
-> > 
-> > > From: Hangbin Liu <liuhangbin@gmail.com>
-> > > 
-> > > This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
-> > > iplink_get()"). After update, we will not need to double the buffer size
-> > > every time when VFs number increased.
-> > > 
-> > > With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
-> > > length parameter.
-> > > 
-> > > With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
-> > > answer to avoid overwrite data in nlh, because it may has more info after
-> > > nlh. also this will avoid nlh buffer not enough issue.
-> > > 
-> > > We need to free answer after using.
-> > > 
-> > > Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> > > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > > ---
-> > 
-> > Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
-> > Can only those places that need that be targeted?
-> 
-> We could probably do that, by having a buffer on stack in __rtnl_talk()
-> which will be used instead of the allocated one if 'answer' is NULL. Or
-> maybe even introduce a dedicated API call for the dynamically allocated
-> receive buffer. But I really doubt that's feasible: AFAICT, that stack
-> buffer still needs to be reasonably sized since the reply might be
-> larger than the request (reusing the request buffer would be the most
-> simple way to tackle this), also there is support for extack which may
-> bloat the response to arbitrary size. Hangbin has shown in his benchmark
-> that the overhead of the second syscall is negligible, so why care about
-> that and increase code complexity even further?
-> 
-> Not saying it's not possible, but I just doubt it's worth the effort.
+Add support for new flash parts identification, and
+also cleanup the flash Part identifying and decoding
+code.
 
-Agreed. Current code is based on the assumption that we can estimate the
-maximum reply length in advance and the reason for this series is that
-this assumption turned out to be wrong. I'm afraid that if we replace
-it by an assumption that we can estimate the maximum reply length for
-most requests with only few exceptions, it's only matter of time for us
-to be proven wrong again.
+Based on the original work of Casey Leedom <leedom@chelsio.com>
 
-Michal Kubecek
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 136 ++++++++++++++++++++++++-----
+ 1 file changed, 116 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index b65ce26..b3fd1f4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -8205,7 +8205,7 @@ struct flash_desc {
+ 	u32 size_mb;
+ };
+ 
+-static int get_flash_params(struct adapter *adap)
++static int t4_get_flash_params(struct adapter *adap)
+ {
+ 	/* Table for non-Numonix supported flash parts.  Numonix parts are left
+ 	 * to the preexisting code.  All flash parts have 64KB sectors.
+@@ -8214,40 +8214,136 @@ static int get_flash_params(struct adapter *adap)
+ 		{ 0x150201, 4 << 20 },       /* Spansion 4MB S25FL032P */
+ 	};
+ 
++	unsigned int part, manufacturer;
++	unsigned int density, size;
++	u32 flashid = 0;
+ 	int ret;
+-	u32 info;
++
++	/* Issue a Read ID Command to the Flash part.  We decode supported
++	 * Flash parts and their sizes from this.  There's a newer Query
++	 * Command which can retrieve detailed geometry information but many
++	 * Flash parts don't support it.
++	 */
+ 
+ 	ret = sf1_write(adap, 1, 1, 0, SF_RD_ID);
+ 	if (!ret)
+-		ret = sf1_read(adap, 3, 0, 1, &info);
++		ret = sf1_read(adap, 3, 0, 1, &flashid);
+ 	t4_write_reg(adap, SF_OP_A, 0);                    /* unlock SF */
+ 	if (ret)
+ 		return ret;
+ 
+-	for (ret = 0; ret < ARRAY_SIZE(supported_flash); ++ret)
+-		if (supported_flash[ret].vendor_and_model_id == info) {
+-			adap->params.sf_size = supported_flash[ret].size_mb;
++	/* Check to see if it's one of our non-standard supported Flash parts.
++	 */
++	for (part = 0; part < ARRAY_SIZE(supported_flash); part++)
++		if (supported_flash[part].vendor_and_model_id == flashid) {
++			adap->params.sf_size = supported_flash[part].size_mb;
+ 			adap->params.sf_nsec =
+ 				adap->params.sf_size / SF_SEC_SIZE;
+-			return 0;
++			goto found;
+ 		}
+ 
+-	if ((info & 0xff) != 0x20)             /* not a Numonix flash */
++	/* Decode Flash part size.  The code below looks repetative with
++	 * common encodings, but that's not guaranteed in the JEDEC
++	 * specification for the Read JADEC ID command.  The only thing that
++	 * we're guaranteed by the JADEC specification is where the
++	 * Manufacturer ID is in the returned result.  After that each
++	 * Manufacturer ~could~ encode things completely differently.
++	 * Note, all Flash parts must have 64KB sectors.
++	 */
++	manufacturer = flashid & 0xff;
++	switch (manufacturer) {
++	case 0x20: { /* Micron/Numonix */
++		/* This Density -> Size decoding table is taken from Micron
++		 * Data Sheets.
++		 */
++		density = (flashid >> 16) & 0xff;
++		switch (density) {
++		case 0x14: /* 1MB */
++			size = 1 << 20;
++			break;
++		case 0x15: /* 2MB */
++			size = 1 << 21;
++			break;
++		case 0x16: /* 4MB */
++			size = 1 << 22;
++			break;
++		case 0x17: /* 8MB */
++			size = 1 << 23;
++			break;
++		case 0x18: /* 16MB */
++			size = 1 << 24;
++			break;
++		case 0x19: /* 32MB */
++			size = 1 << 25;
++			break;
++		case 0x20: /* 64MB */
++			size = 1 << 26;
++			break;
++		case 0x21: /* 128MB */
++			size = 1 << 27;
++			break;
++		case 0x22: /* 256MB */
++			size = 1 << 28;
++			break;
++
++		default:
++			dev_err(adap->pdev_dev, "Micron Flash Part has bad size, ID = %#x, Density code = %#x\n",
++				flashid, density);
+ 		return -EINVAL;
+-	info >>= 16;                           /* log2 of size */
+-	if (info >= 0x14 && info < 0x18)
+-		adap->params.sf_nsec = 1 << (info - 16);
+-	else if (info == 0x18)
+-		adap->params.sf_nsec = 64;
+-	else
++		}
++		break;
++	}
++	case 0xc2: { /* Macronix */
++		/* This Density -> Size decoding table is taken from Macronix
++		 * Data Sheets.
++		 */
++		density = (flashid >> 16) & 0xff;
++		switch (density) {
++		case 0x17: /* 8MB */
++			size = 1 << 23;
++			break;
++		case 0x18: /* 16MB */
++			size = 1 << 24;
++			break;
++		default:
++			dev_err(adap->pdev_dev, "Macronix Flash Part has bad size, ID = %#x, Density code = %#x\n",
++				flashid, density);
++		return -EINVAL;
++		}
++	}
++	case 0xef: { /* Winbond */
++		/* This Density -> Size decoding table is taken from Winbond
++		 * Data Sheets.
++		 */
++		density = (flashid >> 16) & 0xff;
++		switch (density) {
++		case 0x17: /* 8MB */
++			size = 1 << 23;
++			break;
++		case 0x18: /* 16MB */
++			size = 1 << 24;
++			break;
++		default:
++			dev_err(adap->pdev_dev, "Winbond Flash Part has bad size, ID = %#x, Density code = %#x\n",
++				flashid, density);
+ 		return -EINVAL;
+-	adap->params.sf_size = 1 << info;
+-	adap->params.sf_fw_start =
+-		t4_read_reg(adap, CIM_BOOT_CFG_A) & BOOTADDR_M;
++		}
++		break;
++	}
++	default:
++		dev_err(adap->pdev_dev, "Unsupported Flash Part, ID = %#x\n",
++			flashid);
++		return -EINVAL;
++	}
++
++	/* Store decoded Flash size and fall through into vetting code. */
++	adap->params.sf_size = size;
++	adap->params.sf_nsec = size / SF_SEC_SIZE;
+ 
++found:
+ 	if (adap->params.sf_size < FLASH_MIN_SIZE)
+-		dev_warn(adap->pdev_dev, "WARNING!!! FLASH size %#x < %#x!!!\n",
+-			 adap->params.sf_size, FLASH_MIN_SIZE);
++		dev_warn(adap->pdev_dev, "WARNING: Flash Part ID %#x, size %#x < %#x\n",
++			 flashid, adap->params.sf_size, FLASH_MIN_SIZE);
+ 	return 0;
+ }
+ 
+@@ -8285,7 +8381,7 @@ int t4_prep_adapter(struct adapter *adapter)
+ 	get_pci_mode(adapter, &adapter->params.pci);
+ 	pl_rev = REV_G(t4_read_reg(adapter, PL_REV_A));
+ 
+-	ret = get_flash_params(adapter);
++	ret = t4_get_flash_params(adapter);
+ 	if (ret < 0) {
+ 		dev_err(adapter->pdev_dev, "error %d identifying flash\n", ret);
+ 		return ret;
+-- 
+2.1.0
