@@ -1,47 +1,34 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next 0/4] net: sched: get rid of cls_flower->egress_dev
-Date: Tue, 10 Oct 2017 20:25:02 +0300
-Message-ID: <CAJ3xEMid7eDVe6RQBs4qCNm-_DsRLZM=TDLO_YTCmdbmJqX6KQ@mail.gmail.com>
-References: <20171010073016.3682-1-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH][net-next] ipv6: fix dereference of rt6_ex before null
+ check error
+Date: Tue, 10 Oct 2017 10:26:10 -0700
+Message-ID: <1507656370.31614.18.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171010170116.21124-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        mlxsw <mlxsw@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:35952 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756600AbdJJRZE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 13:25:04 -0400
-Received: by mail-oi0-f65.google.com with SMTP id s185so6989967oif.3
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 10:25:04 -0700 (PDT)
-In-Reply-To: <20171010073016.3682-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171010170116.21124-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2017 at 10:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->
->
->  drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   4 +-
->  drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  |  31 ++--
+On Tue, 2017-10-10 at 18:01 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Currently rt6_ex is being dereferenced before it is null checked
+> hence there is a possible null dereference bug. Fix this by only
+> dereferencing rt6_ex after it has been null checked.
+> 
+> Detected by CoverityScan, CID#1457749 ("Dereference before null check")
+> 
+> Fixes: 81eb8447daae ("ipv6: take care of rt6_stats")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
 
-
-
-Jiri,
-
-FWIW, as I reported to you earlier, I was playing with tc encap/decap
-rules on 4.14-rc+ (net) before
-applying any patch of this series, and something is messy w.r.t to
-decap rules. I don't see
-them removed at all when user space attempts to do so. It might
-(probably) mlx5 bug, which
-we will have to fix for net and later rebase net-next over net. We
-have short WW here so
-I will not be able to do RCA this week.
+Reviewed-by: Eric Dumazet <edumazet@google.com>
