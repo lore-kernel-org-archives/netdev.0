@@ -1,60 +1,45 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v2 net-next 1/2] net: dsa: lan9303: Move tag setup to
- new lan9303_setup_tagging
-Date: Tue, 10 Oct 2017 15:14:30 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B48C3D@CHN-SV-EXMX02.mchp-main.com>
-References: <20171010124953.386-1-privat@egil-hjelmeland.no>
- <20171010124953.386-2-privat@egil-hjelmeland.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <privat@egil-hjelmeland.no>, <andrew@lunn.ch>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171010124953.386-2-privat@egil-hjelmeland.no>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/2] i40e: Fix comment about locking for __i40e_read_nvm_word()
+Date: Tue, 10 Oct 2017 08:14:15 -0700
+Message-ID: <20171010151416.43149-2-jeffrey.t.kirsher@intel.com>
+References: <20171010151416.43149-1-jeffrey.t.kirsher@intel.com>
+Cc: Stefano Brivio <sbrivio@redhat.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:50722 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932407AbdJJPOh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 11:14:37 -0400
+In-Reply-To: <20171010151416.43149-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +/* forward special tagged packets from port 0 to port 1 *or* port 2 */
-> +static int lan9303_setup_tagging(struct lan9303 *chip)
-> +{
-> +	int ret;
-> +	u32 val;
-> +	/* enable defining the destination port via special VLAN tagging
-> +	 * for port 0
-> +	 */
-> +	ret = lan9303_write_switch_reg(chip,
-> LAN9303_SWE_INGRESS_PORT_TYPE,
-> +
-> LAN9303_SWE_INGRESS_PORT_TYPE_VLAN);
-> +	if (ret)
-> +		return ret;
-> +
-> +	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
-> +	 * able to discover their source port
-> +	 */
-> +	val = LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0;
-> +	return lan9303_write_switch_reg(chip,
-> LAN9303_BM_EGRSS_PORT_TYPE, val);
-Specific reason to use val then using LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0
-like previous line?
+From: Stefano Brivio <sbrivio@redhat.com>
 
-> @@ -644,6 +648,10 @@ static int lan9303_setup(struct dsa_switch *ds)
->  		return -EINVAL;
->  	}
-> 
-> +	ret = lan9303_setup_tagging(chip);
-> +	if (ret)
-> +		dev_err(chip->dev, "failed to setup port tagging %d\n", ret);
-> +
-Still move on when error happens?
+Caller needs to acquire the lock. Called functions will not.
 
->  	ret = lan9303_separate_ports(chip);
->  	if (ret)
->  		dev_err(chip->dev, "failed to separate ports %d\n", ret);
-> --
-> 2.11.0
+Fixes: 09f79fd49d94 ("i40e: avoid NVM acquire deadlock during NVM update")
+Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-- Woojung
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 57505b1df98d..d591b3e6bd7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -298,7 +298,7 @@ static i40e_status i40e_read_nvm_word_aq(struct i40e_hw *hw, u16 offset,
+ }
+ 
+ /**
+- * __i40e_read_nvm_word - Reads nvm word, assumes called does the locking
++ * __i40e_read_nvm_word - Reads nvm word, assumes caller does the locking
+  * @hw: pointer to the HW structure
+  * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF)
+  * @data: word read from the Shadow RAM
+-- 
+2.14.2
