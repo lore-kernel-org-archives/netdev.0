@@ -1,136 +1,93 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] timer: Remove meaningless .data/.function assignments
-Date: Mon, 9 Oct 2017 17:10:32 -0700
-Message-ID: <20171010001032.GA119829@beast>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
- Jens Axboe <axboe@fb.com>, Ganesh Krishna <ganesh.krishna@microchip.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Aditya Shankar <aditya.shankar@microchip.com>,
- Krzysztof Halasa <khc@pm.waw.pl>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net-next] ipv6: use rcu_dereference_bh() in ipv6_route_seq_next()
+Date: Mon,  9 Oct 2017 17:17:26 -0700
+Message-ID: <20171010001726.77046-1-tracywwnj@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:49656 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754617AbdJJARx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 20:17:53 -0400
+Received: by mail-pf0-f174.google.com with SMTP id l188so15395637pfc.6
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 17:17:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Several timer users needlessly reset their .function/.data fields during
-their timer callback, but nothing else changes them. Some users do not
-use their .data field at all. Each instance is removed here.
+From: Wei Wang <weiwan@google.com>
 
-Cc: Krzysztof Halasa <khc@pm.waw.pl>
-Cc: Aditya Shankar <aditya.shankar@microchip.com>
-Cc: Ganesh Krishna <ganesh.krishna@microchip.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Jens Axboe <axboe@fb.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
-Cc: devel@driverdev.osuosl.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org> # for staging
-Acked-by: Krzysztof Halasa <khc@pm.waw.pl> # for wan/hdlc*
-Acked-by: Jens Axboe <axboe@kernel.dk> # for amiflop
+This patch replaces rcu_deference() with rcu_dereference_bh() in
+ipv6_route_seq_next() to avoid the following warning:
+
+[   19.431685] WARNING: suspicious RCU usage
+[   19.433451] 4.14.0-rc3-00914-g66f5d6c #118 Not tainted
+[   19.435509] -----------------------------
+[   19.437267] net/ipv6/ip6_fib.c:2259 suspicious
+rcu_dereference_check() usage!
+[   19.440790]
+[   19.440790] other info that might help us debug this:
+[   19.440790]
+[   19.444734]
+[   19.444734] rcu_scheduler_active = 2, debug_locks = 1
+[   19.447757] 2 locks held by odhcpd/3720:
+[   19.449480]  #0:  (&p->lock){+.+.}, at: [<ffffffffb1231f7d>]
+seq_read+0x3c/0x333
+[   19.452720]  #1:  (rcu_read_lock_bh){....}, at: [<ffffffffb1d2b984>]
+ipv6_route_seq_start+0x5/0xfd
+[   19.456323]
+[   19.456323] stack backtrace:
+[   19.458812] CPU: 0 PID: 3720 Comm: odhcpd Not tainted
+4.14.0-rc3-00914-g66f5d6c #118
+[   19.462042] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
+BIOS 1.10.2-1 04/01/2014
+[   19.465414] Call Trace:
+[   19.466788]  dump_stack+0x86/0xc0
+[   19.468358]  lockdep_rcu_suspicious+0xea/0xf3
+[   19.470183]  ipv6_route_seq_next+0x71/0x164
+[   19.471963]  seq_read+0x244/0x333
+[   19.473522]  proc_reg_read+0x48/0x67
+[   19.475152]  ? proc_reg_write+0x67/0x67
+[   19.476862]  __vfs_read+0x26/0x10b
+[   19.478463]  ? __might_fault+0x37/0x84
+[   19.480148]  vfs_read+0xba/0x146
+[   19.481690]  SyS_read+0x51/0x8e
+[   19.483197]  do_int80_syscall_32+0x66/0x15a
+[   19.484969]  entry_INT80_compat+0x32/0x50
+[   19.486707] RIP: 0023:0xf7f0be8e
+[   19.488244] RSP: 002b:00000000ffa75d04 EFLAGS: 00000246 ORIG_RAX:
+0000000000000003
+[   19.491431] RAX: ffffffffffffffda RBX: 0000000000000009 RCX:
+0000000008056068
+[   19.493886] RDX: 0000000000001000 RSI: 0000000008056008 RDI:
+0000000000001000
+[   19.496331] RBP: 00000000000001ff R08: 0000000000000000 R09:
+0000000000000000
+[   19.498768] R10: 0000000000000000 R11: 0000000000000000 R12:
+0000000000000000
+[   19.501217] R13: 0000000000000000 R14: 0000000000000000 R15:
+0000000000000000
+
+Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
+Reported-by: Xiaolong Ye <xiaolong.ye@intel.com>
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
-This should go via the timer/core tree, please. It's been acked by each
-of the maintainers. Thanks!
----
- drivers/block/amiflop.c                           | 3 +--
- drivers/net/wan/hdlc_cisco.c                      | 2 --
- drivers/net/wan/hdlc_fr.c                         | 2 --
- drivers/staging/wilc1000/wilc_wfi_cfgoperations.c | 4 +---
- 4 files changed, 2 insertions(+), 9 deletions(-)
+ net/ipv6/ip6_fib.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/block/amiflop.c b/drivers/block/amiflop.c
-index 49908c74bfcb..4e3fb9f104af 100644
---- a/drivers/block/amiflop.c
-+++ b/drivers/block/amiflop.c
-@@ -323,7 +323,7 @@ static void fd_deselect (int drive)
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 52a29ba32928..c2ecd5ec638a 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -2262,7 +2262,7 @@ static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	if (!v)
+ 		goto iter_table;
  
- }
- 
--static void motor_on_callback(unsigned long nr)
-+static void motor_on_callback(unsigned long ignored)
- {
- 	if (!(ciaa.pra & DSKRDY) || --on_attempts == 0) {
- 		complete_all(&motor_on_completion);
-@@ -344,7 +344,6 @@ static int fd_motor_on(int nr)
- 		fd_select(nr);
- 
- 		reinit_completion(&motor_on_completion);
--		motor_on_timer.data = nr;
- 		mod_timer(&motor_on_timer, jiffies + HZ/2);
- 
- 		on_attempts = 10;
-diff --git a/drivers/net/wan/hdlc_cisco.c b/drivers/net/wan/hdlc_cisco.c
-index a408abc25512..f4b0ab34f048 100644
---- a/drivers/net/wan/hdlc_cisco.c
-+++ b/drivers/net/wan/hdlc_cisco.c
-@@ -276,8 +276,6 @@ static void cisco_timer(unsigned long arg)
- 	spin_unlock(&st->lock);
- 
- 	st->timer.expires = jiffies + st->settings.interval * HZ;
--	st->timer.function = cisco_timer;
--	st->timer.data = arg;
- 	add_timer(&st->timer);
- }
- 
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index 78596e42a3f3..07f265fa2826 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -644,8 +644,6 @@ static void fr_timer(unsigned long arg)
- 			state(hdlc)->settings.t391 * HZ;
- 	}
- 
--	state(hdlc)->timer.function = fr_timer;
--	state(hdlc)->timer.data = arg;
- 	add_timer(&state(hdlc)->timer);
- }
- 
-diff --git a/drivers/staging/wilc1000/wilc_wfi_cfgoperations.c b/drivers/staging/wilc1000/wilc_wfi_cfgoperations.c
-index ac5aaafa461c..60f088babf27 100644
---- a/drivers/staging/wilc1000/wilc_wfi_cfgoperations.c
-+++ b/drivers/staging/wilc1000/wilc_wfi_cfgoperations.c
-@@ -266,7 +266,7 @@ static void update_scan_time(void)
- 		last_scanned_shadow[i].time_scan = jiffies;
- }
- 
--static void remove_network_from_shadow(unsigned long arg)
-+static void remove_network_from_shadow(unsigned long unused)
- {
- 	unsigned long now = jiffies;
- 	int i, j;
-@@ -287,7 +287,6 @@ static void remove_network_from_shadow(unsigned long arg)
- 	}
- 
- 	if (last_scanned_cnt != 0) {
--		hAgingTimer.data = arg;
- 		mod_timer(&hAgingTimer, jiffies + msecs_to_jiffies(AGING_TIME));
- 	}
- }
-@@ -304,7 +303,6 @@ static int is_network_in_shadow(struct network_info *pstrNetworkInfo,
- 	int i;
- 
- 	if (last_scanned_cnt == 0) {
--		hAgingTimer.data = (unsigned long)user_void;
- 		mod_timer(&hAgingTimer, jiffies + msecs_to_jiffies(AGING_TIME));
- 		state = -1;
- 	} else {
+-	n = rcu_dereference(((struct rt6_info *)v)->dst.rt6_next);
++	n = rcu_dereference_bh(((struct rt6_info *)v)->dst.rt6_next);
+ 	if (n) {
+ 		++*pos;
+ 		return n;
 -- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+2.14.2.920.gcf0c67979c-goog
