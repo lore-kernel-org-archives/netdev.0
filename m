@@ -1,14 +1,14 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] rtnetlink: bridge: use ext_ack instead of printk
-Date: Tue, 10 Oct 2017 13:25:03 +0200
-Message-ID: <20171010112503.13791-1-fw@strlen.de>
+Subject: [PATCH v2 net-next] rtnetlink: bridge: use ext_ack instead of printk
+Date: Tue, 10 Oct 2017 13:32:36 +0200
+Message-ID: <20171010113236.8889-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:32980 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:32996 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755799AbdJJLYp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 07:24:45 -0400
+        by vger.kernel.org with ESMTP id S1751826AbdJJLcU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 07:32:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,11 +25,13 @@ Error: RTM_NEWNEIGH with invalid vlan id.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/core/rtnetlink.c | 29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+ v2: forgot to refresh patch, v1 did not even compile.
+
+ net/core/rtnetlink.c | 33 +++++++++++++++++----------------
+ 1 file changed, 17 insertions(+), 16 deletions(-)
 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e84d108cfee4..5030c71ef752 100644
+index e84d108cfee4..19ea53a5210f 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
 @@ -3066,21 +3066,22 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
@@ -59,7 +61,23 @@ index e84d108cfee4..5030c71ef752 100644
  			return -EINVAL;
  		}
  	}
-@@ -3105,24 +3106,24 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -3089,7 +3090,7 @@ static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
+ }
+ 
+ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			struct netlink_ext_ack *extack)
++			struct netlink_ext_ack *exta)
+ {
+ 	struct net *net = sock_net(skb->sk);
+ 	struct ndmsg *ndm;
+@@ -3099,30 +3100,30 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	u16 vid;
+ 	int err;
+ 
+-	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL, extack);
++	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL, exta);
+ 	if (err < 0)
+ 		return err;
  
  	ndm = nlmsg_data(nlh);
  	if (ndm->ndm_ifindex == 0) {
