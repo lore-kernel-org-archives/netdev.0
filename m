@@ -1,77 +1,66 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] selftests: rtnetlink: test RTM_GETNETCONF
-Date: Tue, 10 Oct 2017 16:18:05 +0200
-Message-ID: <20171010141805.19194-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next] rtnetlink: bridge: use ext_ack instead of
+ printk
+Date: Tue, 10 Oct 2017 08:18:46 -0600
+Message-ID: <9c01905a-92e1-1246-35ee-2a60ac11733e@gmail.com>
+References: <20171010113236.8889-1-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:34056 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756446AbdJJORr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 10:17:47 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36219 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756116AbdJJOSy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 10:18:54 -0400
+Received: by mail-pf0-f193.google.com with SMTP id z11so18625429pfk.3
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 07:18:54 -0700 (PDT)
+In-Reply-To: <20171010113236.8889-1-fw@strlen.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-exercise RTM_GETNETCONF call path for unspec, inet and inet6
-families, they are DOIT_UNLOCKED candidates.
+On 10/10/17 5:32 AM, Florian Westphal wrote:
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index e84d108cfee4..19ea53a5210f 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -3066,21 +3066,22 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+>  }
+>  EXPORT_SYMBOL(ndo_dflt_fdb_add);
+>  
+> -static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
+> +static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid,
+> +			 struct netlink_ext_ack *exta)
+>  {
+>  	u16 vid = 0;
+>  
+>  	if (vlan_attr) {
+>  		if (nla_len(vlan_attr) != sizeof(u16)) {
+> -			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan\n");
+> +			NL_SET_ERR_MSG(exta, "RTM_NEWNEIGH with invalid vlan");
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- tools/testing/selftests/net/rtnetlink.sh | 28 ++++++++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
+I realize you are keeping the existing wording, but the messages are
+moving from out of line pr_info to inline message in response to a user
+command.  From a user's perspective the RTM_NEWNEIGH and DELNEIGH do not
+add much value, and the add and del in the bridge command tells which it
+is. So in this case just emit "Invalid vlan id".
 
-diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
-index e8c86c416ed0..a8a8cdf726b2 100755
---- a/tools/testing/selftests/net/rtnetlink.sh
-+++ b/tools/testing/selftests/net/rtnetlink.sh
-@@ -37,6 +37,26 @@ kci_del_dummy()
- 	check_err $?
- }
- 
-+kci_test_netconf()
-+{
-+	dev="$1"
-+	r=$ret
-+
-+	ip netconf show dev "$dev" > /dev/null
-+	check_err $?
-+
-+	for f in 4 6; do
-+		ip -$f netconf show dev "$dev" > /dev/null
-+		check_err $?
-+	done
-+
-+	if [ $ret -ne 0 ] ;then
-+		echo "FAIL: ip netconf show $dev"
-+		test $r -eq 0 && ret=0
-+		return 1
-+	fi
-+}
-+
- # add a bridge with vlans on top
- kci_test_bridge()
- {
-@@ -63,6 +83,11 @@ kci_test_bridge()
- 	check_err $?
- 	ip r s t all > /dev/null
- 	check_err $?
-+
-+	for name in "$devbr" "$vlandev" "$devdummy" ; do
-+		kci_test_netconf "$name"
-+	done
-+
- 	ip -6 addr del dev "$vlandev" dead:42::1234/64
- 	check_err $?
- 
-@@ -100,6 +125,9 @@ kci_test_gre()
- 	check_err $?
- 	ip addr > /dev/null
- 	check_err $?
-+
-+	kci_test_netconf "$gredev"
-+
- 	ip addr del dev "$devdummy" 10.23.7.11/24
- 	check_err $?
- 
--- 
-2.13.6
+Although this failure is an invalid vlan attribute as opposed to an
+invalid vlan id which is what the next message checks. So the message
+needs to be updated as well.
+
+
+>  			return -EINVAL;
+>  		}
+>  
+>  		vid = nla_get_u16(vlan_attr);
+>  
+>  		if (!vid || vid >= VLAN_VID_MASK) {
+> -			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan id %d\n",
+> -				vid);
+> +			NL_SET_ERR_MSG(exta,
+> +				       "RTM_NEWNEIGH with invalid vlan id");
+>  			return -EINVAL;
+>  		}
+>  	}
