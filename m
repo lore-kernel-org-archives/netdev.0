@@ -1,119 +1,147 @@
-From: Eric Garver <e@erig.me>
-Subject: Re: [PATCH net-next] openvswitch: add ct_clear action
-Date: Tue, 10 Oct 2017 11:09:49 -0400
-Message-ID: <20171010150949.GG26353@dev-rhel7>
-References: <20171006164426.9752-1-e@erig.me>
- <CAOrHB_BUVwWqYQcbWiQ69EhnQpY8epqu55pRBGA6g7xG21zSqQ@mail.gmail.com>
- <CAPWQB7FgKYe4Ax08NzW97-WGmriC7j9YhxQF9QtuQZwMjA00bQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pravin Shelar <pshelar@ovn.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>
-To: Joe Stringer <joe@ovn.org>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v4 net-next] rtnetlink: bridge: use ext_ack instead of printk
+Date: Tue, 10 Oct 2017 17:10:04 +0200
+Message-ID: <20171010151004.20056-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>, David Ahern <dsahern@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49364 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755866AbdJJPJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 11:09:42 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPWQB7FgKYe4Ax08NzW97-WGmriC7j9YhxQF9QtuQZwMjA00bQ@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:34360 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755866AbdJJPJq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:09:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 05:33:48AM -0700, Joe Stringer wrote:
-> On 9 October 2017 at 21:41, Pravin Shelar <pshelar@ovn.org> wrote:
-> > On Fri, Oct 6, 2017 at 9:44 AM, Eric Garver <e@erig.me> wrote:
-> >> This adds a ct_clear action for clearing conntrack state. ct_clear is
-> >> currently implemented in OVS userspace, but is not backed by an action
-> >> in the kernel datapath. This is useful for flows that may modify a
-> >> packet tuple after a ct lookup has already occurred.
-> >>
-> >> Signed-off-by: Eric Garver <e@erig.me>
-> > Patch mostly looks good. I have following comments.
-> >
-> >> ---
-> >>  include/uapi/linux/openvswitch.h |  2 ++
-> >>  net/openvswitch/actions.c        |  5 +++++
-> >>  net/openvswitch/conntrack.c      | 12 ++++++++++++
-> >>  net/openvswitch/conntrack.h      |  7 +++++++
-> >>  net/openvswitch/flow_netlink.c   |  5 +++++
-> >>  5 files changed, 31 insertions(+)
-> >>
-> >> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-> >> index 156ee4cab82e..1b6e510e2cc6 100644
-> >> --- a/include/uapi/linux/openvswitch.h
-> >> +++ b/include/uapi/linux/openvswitch.h
-> >> @@ -806,6 +806,7 @@ struct ovs_action_push_eth {
-> >>   * packet.
-> >>   * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the
-> >>   * packet.
-> >> + * @OVS_ACTION_ATTR_CT_CLEAR: Clear conntrack state from the packet.
-> >>   *
-> >>   * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
-> >>   * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-> >> @@ -835,6 +836,7 @@ enum ovs_action_attr {
-> >>         OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
-> >>         OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
-> >>         OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-> >> +       OVS_ACTION_ATTR_CT_CLEAR,     /* No argument. */
-> >>
-> >>         __OVS_ACTION_ATTR_MAX,        /* Nothing past this will be accepted
-> >>                                        * from userspace. */
-> >> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> >> index a54a556fcdb5..db9c7f2e662b 100644
-> >> --- a/net/openvswitch/actions.c
-> >> +++ b/net/openvswitch/actions.c
-> >> @@ -1203,6 +1203,10 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-> >>                                 return err == -EINPROGRESS ? 0 : err;
-> >>                         break;
-> >>
-> >> +               case OVS_ACTION_ATTR_CT_CLEAR:
-> >> +                       err = ovs_ct_clear(skb, key);
-> >> +                       break;
-> >> +
-> >>                 case OVS_ACTION_ATTR_PUSH_ETH:
-> >>                         err = push_eth(skb, key, nla_data(a));
-> >>                         break;
-> >> @@ -1210,6 +1214,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-> >>                 case OVS_ACTION_ATTR_POP_ETH:
-> >>                         err = pop_eth(skb, key);
-> >>                         break;
-> >> +
-> >>                 }
-> > Unrelated change.
-> >
-> >>
-> >>                 if (unlikely(err)) {
-> >> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-> >> index d558e882ca0c..f9b73c726ad7 100644
-> >> --- a/net/openvswitch/conntrack.c
-> >> +++ b/net/openvswitch/conntrack.c
-> >> @@ -1129,6 +1129,18 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
-> >>         return err;
-> >>  }
-> >>
-> >> +int ovs_ct_clear(struct sk_buff *skb, struct sw_flow_key *key)
-> >> +{
-> >> +       if (skb_nfct(skb)) {
-> >> +               nf_conntrack_put(skb_nfct(skb));
-> >> +               nf_ct_set(skb, NULL, 0);
-> > Can the new conntract state be appropriate? may be IP_CT_UNTRACKED?
-> >
-> >> +       }
-> >> +
-> >> +       ovs_ct_fill_key(skb, key);
-> >> +
-> > I do not see need to refill the key if there is no skb-nf-ct.
-> 
-> Really this is trying to just zero the CT key fields, but reuses
-> existing functions, right? This means that subsequent upcalls, for
+We can now piggyback error strings to userspace via extended acks
+rather than using printk.
 
-Right.
+Before:
+bridge fdb add 01:02:03:04:05:06 dev br0 vlan 4095
+RTNETLINK answers: Invalid argument
 
-> instance, won't have the outdated view of the CT state from the
-> previous lookup (that was prior to the ct_clear). I'd expect these key
-> fields to be cleared.
+After:
+bridge fdb add 01:02:03:04:05:06 dev br0 vlan 4095
+Error: invalid vlan id.
 
-I assumed Pravin was saying that we don't need to clear them if there is
-no conntrack state. They should already be zero.
+v3: drop 'RTM_' prefixes, suggested by David Ahern, they
+are not useful, the add/del in bridge command line is enough.
+
+Also reword error in response to malformed/bad vlan id attribute
+size.
+
+Cc: David Ahern <dsahern@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ change since v3: forgot to remove "RTM_SETLINK:" prefix in error message.
+
+ net/core/rtnetlink.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e84d108cfee4..6a09f3d575af 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3066,21 +3066,21 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ }
+ EXPORT_SYMBOL(ndo_dflt_fdb_add);
+ 
+-static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
++static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid,
++			 struct netlink_ext_ack *extack)
+ {
+ 	u16 vid = 0;
+ 
+ 	if (vlan_attr) {
+ 		if (nla_len(vlan_attr) != sizeof(u16)) {
+-			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan\n");
++			NL_SET_ERR_MSG(extack, "invalid vlan attribute size");
+ 			return -EINVAL;
+ 		}
+ 
+ 		vid = nla_get_u16(vlan_attr);
+ 
+ 		if (!vid || vid >= VLAN_VID_MASK) {
+-			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan id %d\n",
+-				vid);
++			NL_SET_ERR_MSG(extack, "invalid vlan id");
+ 			return -EINVAL;
+ 		}
+ 	}
+@@ -3105,24 +3105,24 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	ndm = nlmsg_data(nlh);
+ 	if (ndm->ndm_ifindex == 0) {
+-		pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid ifindex\n");
++		NL_SET_ERR_MSG(extack, "invalid ifindex");
+ 		return -EINVAL;
+ 	}
+ 
+ 	dev = __dev_get_by_index(net, ndm->ndm_ifindex);
+ 	if (dev == NULL) {
+-		pr_info("PF_BRIDGE: RTM_NEWNEIGH with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+ 	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
+-		pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid address\n");
++		NL_SET_ERR_MSG(extack, "invalid address");
+ 		return -EINVAL;
+ 	}
+ 
+ 	addr = nla_data(tb[NDA_LLADDR]);
+ 
+-	err = fdb_vid_parse(tb[NDA_VLAN], &vid);
++	err = fdb_vid_parse(tb[NDA_VLAN], &vid, extack);
+ 	if (err)
+ 		return err;
+ 
+@@ -3209,24 +3209,24 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	ndm = nlmsg_data(nlh);
+ 	if (ndm->ndm_ifindex == 0) {
+-		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid ifindex\n");
++		NL_SET_ERR_MSG(extack, "invalid ifindex");
+ 		return -EINVAL;
+ 	}
+ 
+ 	dev = __dev_get_by_index(net, ndm->ndm_ifindex);
+ 	if (dev == NULL) {
+-		pr_info("PF_BRIDGE: RTM_DELNEIGH with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+ 	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
+-		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid address\n");
++		NL_SET_ERR_MSG(extack, "invalid address");
+ 		return -EINVAL;
+ 	}
+ 
+ 	addr = nla_data(tb[NDA_LLADDR]);
+ 
+-	err = fdb_vid_parse(tb[NDA_VLAN], &vid);
++	err = fdb_vid_parse(tb[NDA_VLAN], &vid, extack);
+ 	if (err)
+ 		return err;
+ 
+@@ -3666,7 +3666,7 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	if (!dev) {
+-		pr_info("PF_BRIDGE: RTM_SETLINK with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -3741,7 +3741,7 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	if (!dev) {
+-		pr_info("PF_BRIDGE: RTM_SETLINK with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+-- 
+2.13.6
