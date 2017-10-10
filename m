@@ -1,49 +1,63 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH v4 net-next] rtnetlink: bridge: use ext_ack instead of
- printk
-Date: Tue, 10 Oct 2017 09:11:15 -0600
-Message-ID: <c152d9f3-deb5-a1c7-d1c4-caa8a80bd985@gmail.com>
-References: <20171010151004.20056-1-fw@strlen.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch net-next 2/4] net: sched: introduce per-egress action
+ device callbacks
+Date: Tue, 10 Oct 2017 15:12:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008F06E@AcuExch.aculab.com>
+References: <20171010073016.3682-1-jiri@resnulli.us>
+ <20171010073016.3682-3-jiri@resnulli.us>
+ <063D6719AE5E284EB5DD2968C1650D6DD008ED67@AcuExch.aculab.com>
+ <20171010143152.GG2033@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "matanb@mellanox.com" <matanb@mellanox.com>,
+        "leonro@mellanox.com" <leonro@mellanox.com>,
+        "mlxsw@mellanox.com" <mlxsw@mellanox.com>
+To: 'Jiri Pirko' <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:37117 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756058AbdJJPLQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:11:16 -0400
-Received: by mail-pf0-f196.google.com with SMTP id z80so17794630pff.4
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 08:11:16 -0700 (PDT)
-In-Reply-To: <20171010151004.20056-1-fw@strlen.de>
+Received: from smtp-out4.electric.net ([192.162.216.182]:52409 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932107AbdJJPMh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:12:37 -0400
+In-Reply-To: <20171010143152.GG2033@nanopsycho>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/10/17 9:10 AM, Florian Westphal wrote:
-> We can now piggyback error strings to userspace via extended acks
-> rather than using printk.
+From: Jiri Pirko
+> Sent: 10 October 2017 15:32
+> To: David Laight
+> Cc: netdev@vger.kernel.org; davem@davemloft.net; jhs@mojatatu.com; xiyou.wangcong@gmail.com;
+> saeedm@mellanox.com; matanb@mellanox.com; leonro@mellanox.com; mlxsw@mellanox.com
+> Subject: Re: [patch net-next 2/4] net: sched: introduce per-egress action device callbacks
 > 
-> Before:
-> bridge fdb add 01:02:03:04:05:06 dev br0 vlan 4095
-> RTNETLINK answers: Invalid argument
+> Tue, Oct 10, 2017 at 03:31:59PM CEST, David.Laight@ACULAB.COM wrote:
+> >From: Jiri Pirko
+> >> Sent: 10 October 2017 08:30
+> >> Introduce infrastructure that allows drivers to register callbacks that
+> >> are called whenever tc would offload inserted rule and specified device
+> >> acts as tc action egress device.
+> >
+> >How does a driver safely unregister a callback?
+> >(to avoid a race with the callback being called.)
+> >
+> >Usually this requires a callback in the context that makes the
+> >notification callbacks indicating that no more such callbacks
+> >will be made.
 > 
-> After:
-> bridge fdb add 01:02:03:04:05:06 dev br0 vlan 4095
-> Error: invalid vlan id.
-> 
-> v3: drop 'RTM_' prefixes, suggested by David Ahern, they
-> are not useful, the add/del in bridge command line is enough.
-> 
-> Also reword error in response to malformed/bad vlan id attribute
-> size.
-> 
-> Cc: David Ahern <dsahern@gmail.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  change since v3: forgot to remove "RTM_SETLINK:" prefix in error message.
-> 
->  net/core/rtnetlink.c | 28 ++++++++++++++--------------
->  1 file changed, 14 insertions(+), 14 deletions(-)
+> rtnl is your answer. It is being held during register/unregister/cb
 
-Reviewed-by: David Ahern <dsahern@gmail.com>
+Do you mean 'acquired during register/unregister' and 'held across the
+callback' ?
+
+So the unregister sleeps (or spins?) until any callbacks complete?
+So the driver mustn't hold any locks (etc) across the unregister that
+it acquires in the callback.
+That ought to be noted somewhere.
+
+	David
