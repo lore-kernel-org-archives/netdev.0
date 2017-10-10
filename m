@@ -1,233 +1,395 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC net-next 2/4] net: Add extack to validator_info structs used for address notifier
-Date: Tue, 10 Oct 2017 09:41:03 -0700
-Message-ID: <1507653665-20540-3-git-send-email-dsahern@gmail.com>
+Subject: [RFC net-next 4/4] mlxsw: spectrum_router: Add extack message for RIF and VRF overflow
+Date: Tue, 10 Oct 2017 09:41:05 -0700
+Message-ID: <1507653665-20540-5-git-send-email-dsahern@gmail.com>
 References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
 Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
         David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35049 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932237AbdJJQlM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:41:12 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i23so36901749pfi.2
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:41:12 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35101 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932449AbdJJQlO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:41:14 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i23so36901962pfi.2
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:41:14 -0700 (PDT)
 In-Reply-To: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add extack to in_validator_info and in6_validator_info. Update the one
-user of each, ipvlan, to return an error message for failures.
-
-Only manual configuration of an address is plumbed in the IPv6 code path.
+Add extack argument down to mlxsw_sp_rif_create and mlxsw_sp_vr_create
+to set an error message on RIF or VR overflow. Now an overflow of
+either resource the use gets an informative message as opposed to
+failing with EBUSY.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 10 ++++++++--
- include/linux/inetdevice.h       |  1 +
- include/net/addrconf.h           |  1 +
- net/ipv4/devinet.c               |  8 +++++---
- net/ipv6/addrconf.c              | 23 +++++++++++++----------
- 5 files changed, 28 insertions(+), 15 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 114 +++++++++++++--------
+ 1 file changed, 69 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 57c3856bab05..56a868415ba2 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -846,8 +846,11 @@ static int ipvlan_addr6_validator_event(struct notifier_block *unused,
- 
- 	switch (event) {
- 	case NETDEV_UP:
--		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true))
-+		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true)) {
-+			NL_SET_ERR_MSG(i6vi->extack,
-+				       "Address already assigned to an ipvlan device");
- 			return notifier_from_errno(-EADDRINUSE);
-+		}
- 		break;
- 	}
- 
-@@ -916,8 +919,11 @@ static int ipvlan_addr4_validator_event(struct notifier_block *unused,
- 
- 	switch (event) {
- 	case NETDEV_UP:
--		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false))
-+		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false)) {
-+			NL_SET_ERR_MSG(ivi->extack,
-+				       "Address already assigned to an ipvlan device");
- 			return notifier_from_errno(-EADDRINUSE);
-+		}
- 		break;
- 	}
- 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index 751d051f0bc7..681dff30940b 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -154,6 +154,7 @@ struct in_ifaddr {
- struct in_validator_info {
- 	__be32			ivi_addr;
- 	struct in_device	*ivi_dev;
-+	struct netlink_ext_ack	*extack;
- };
- 
- int register_inetaddr_notifier(struct notifier_block *nb);
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 87981cd63180..b8b16437c6d5 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -55,6 +55,7 @@ struct prefix_info {
- struct in6_validator_info {
- 	struct in6_addr		i6vi_addr;
- 	struct inet6_dev	*i6vi_dev;
-+	struct netlink_ext_ack	*extack;
- };
- 
- #define IN6_ADDR_HSIZE_SHIFT	4
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 7ce22a2c07ce..0118698cd623 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -444,7 +444,7 @@ static void check_lifetime(struct work_struct *work);
- static DECLARE_DELAYED_WORK(check_lifetime_work, check_lifetime);
- 
- static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
--			     u32 portid)
-+			     u32 portid, struct netlink_ext_ack  *extack)
- {
- 	struct in_device *in_dev = ifa->ifa_dev;
- 	struct in_ifaddr *ifa1, **ifap, **last_primary;
-@@ -489,6 +489,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- 	 */
- 	ivi.ivi_addr = ifa->ifa_address;
- 	ivi.ivi_dev = ifa->ifa_dev;
-+	ivi.extack = extack;
- 	ret = blocking_notifier_call_chain(&inetaddr_validator_chain,
- 					   NETDEV_UP, &ivi);
- 	ret = notifier_to_errno(ret);
-@@ -521,7 +522,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
- 
- static int inet_insert_ifa(struct in_ifaddr *ifa)
- {
--	return __inet_insert_ifa(ifa, NULL, 0);
-+	return __inet_insert_ifa(ifa, NULL, 0, NULL);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 7d53fdf2c0a8..ec4d313b9eca 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -731,14 +731,17 @@ static struct mlxsw_sp_fib *mlxsw_sp_vr_fib(const struct mlxsw_sp_vr *vr,
  }
  
- static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
-@@ -902,7 +903,8 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh,
- 				return ret;
- 			}
- 		}
--		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid);
-+		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid,
-+					 extack);
- 	} else {
- 		inet_free_ifa(ifa);
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 632cf4b26277..0bad4a800f73 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -958,7 +958,8 @@ static u32 inet6_addr_hash(const struct in6_addr *addr)
- static struct inet6_ifaddr *
- ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	      const struct in6_addr *peer_addr, int pfxlen,
--	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft)
-+	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft,
-+	      struct netlink_ext_ack  *extack)
+ static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+-					      u32 tb_id)
++					      u32 tb_id,
++					      struct netlink_ext_ack *extack)
  {
- 	struct net *net = dev_net(idev->dev);
- 	struct inet6_ifaddr *ifa = NULL;
-@@ -994,6 +995,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 		struct in6_validator_info i6vi = {
- 			.i6vi_addr = *addr,
- 			.i6vi_dev = idev,
-+			.extack = extack,
+ 	struct mlxsw_sp_vr *vr;
+ 	int err;
+ 
+ 	vr = mlxsw_sp_vr_find_unused(mlxsw_sp);
+-	if (!vr)
++	if (!vr) {
++		NL_SET_ERR_MSG(extack, "spectrum: Exceeded number of supported VRF");
+ 		return ERR_PTR(-EBUSY);
++	}
+ 	vr->fib4 = mlxsw_sp_fib_create(vr, MLXSW_SP_L3_PROTO_IPV4);
+ 	if (IS_ERR(vr->fib4))
+ 		return ERR_CAST(vr->fib4);
+@@ -775,14 +778,15 @@ static void mlxsw_sp_vr_destroy(struct mlxsw_sp_vr *vr)
+ 	vr->fib4 = NULL;
+ }
+ 
+-static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id)
++static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id,
++					   struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_vr *vr;
+ 
+ 	tb_id = mlxsw_sp_fix_tb_id(tb_id);
+ 	vr = mlxsw_sp_vr_find(mlxsw_sp, tb_id);
+ 	if (!vr)
+-		vr = mlxsw_sp_vr_create(mlxsw_sp, tb_id);
++		vr = mlxsw_sp_vr_create(mlxsw_sp, tb_id, extack);
+ 	return vr;
+ }
+ 
+@@ -948,7 +952,8 @@ static u32 mlxsw_sp_ipip_dev_ul_tb_id(const struct net_device *ol_dev)
+ 
+ static struct mlxsw_sp_rif *
+ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+-		    const struct mlxsw_sp_rif_params *params);
++		    const struct mlxsw_sp_rif_params *params,
++		    struct netlink_ext_ack *extack);
+ 
+ static struct mlxsw_sp_rif_ipip_lb *
+ mlxsw_sp_ipip_ol_ipip_lb_create(struct mlxsw_sp *mlxsw_sp,
+@@ -966,7 +971,7 @@ mlxsw_sp_ipip_ol_ipip_lb_create(struct mlxsw_sp *mlxsw_sp,
+ 		.lb_config = ipip_ops->ol_loopback_config(mlxsw_sp, ol_dev),
+ 	};
+ 
+-	rif = mlxsw_sp_rif_create(mlxsw_sp, &lb_params.common);
++	rif = mlxsw_sp_rif_create(mlxsw_sp, &lb_params.common, NULL);
+ 	if (IS_ERR(rif))
+ 		return ERR_CAST(rif);
+ 	return container_of(rif, struct mlxsw_sp_rif_ipip_lb, common);
+@@ -3711,7 +3716,7 @@ mlxsw_sp_fib_node_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id, const void *addr,
+ 	struct mlxsw_sp_vr *vr;
+ 	int err;
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id, NULL);
+ 	if (IS_ERR(vr))
+ 		return ERR_CAST(vr);
+ 	fib = mlxsw_sp_vr_fib(vr, proto);
+@@ -4750,7 +4755,7 @@ static int mlxsw_sp_router_fibmr_add(struct mlxsw_sp *mlxsw_sp,
+ 	if (mlxsw_sp->router->aborted)
+ 		return 0;
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, men_info->tb_id);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, men_info->tb_id, NULL);
+ 	if (IS_ERR(vr))
+ 		return PTR_ERR(vr);
+ 
+@@ -4783,7 +4788,7 @@ mlxsw_sp_router_fibmr_vif_add(struct mlxsw_sp *mlxsw_sp,
+ 	if (mlxsw_sp->router->aborted)
+ 		return 0;
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, ven_info->tb_id);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, ven_info->tb_id, NULL);
+ 	if (IS_ERR(vr))
+ 		return PTR_ERR(vr);
+ 
+@@ -5346,7 +5351,8 @@ const struct net_device *mlxsw_sp_rif_dev(const struct mlxsw_sp_rif *rif)
+ 
+ static struct mlxsw_sp_rif *
+ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+-		    const struct mlxsw_sp_rif_params *params)
++		    const struct mlxsw_sp_rif_params *params,
++		    struct netlink_ext_ack *extack)
+ {
+ 	u32 tb_id = l3mdev_fib_table(params->dev);
+ 	const struct mlxsw_sp_rif_ops *ops;
+@@ -5360,14 +5366,16 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+ 	type = mlxsw_sp_dev_rif_type(mlxsw_sp, params->dev);
+ 	ops = mlxsw_sp->router->rif_ops_arr[type];
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id ? : RT_TABLE_MAIN);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id ? : RT_TABLE_MAIN, extack);
+ 	if (IS_ERR(vr))
+ 		return ERR_CAST(vr);
+ 	vr->rif_count++;
+ 
+ 	err = mlxsw_sp_rif_index_alloc(mlxsw_sp, &rif_index);
+-	if (err)
++	if (err) {
++		NL_SET_ERR_MSG(extack, "spectrum: Exceeded number of supported router interfaces");
+ 		goto err_rif_index_alloc;
++	}
+ 
+ 	rif = mlxsw_sp_rif_alloc(ops->rif_size, rif_index, vr->id, params->dev);
+ 	if (!rif) {
+@@ -5454,7 +5462,8 @@ mlxsw_sp_rif_subport_params_init(struct mlxsw_sp_rif_params *params,
+ 
+ static int
+ mlxsw_sp_port_vlan_router_join(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan,
+-			       struct net_device *l3_dev)
++			       struct net_device *l3_dev,
++			       struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp_port_vlan->mlxsw_sp_port;
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+@@ -5470,7 +5479,7 @@ mlxsw_sp_port_vlan_router_join(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan,
  		};
  
- 		rcu_read_unlock_bh();
-@@ -1336,7 +1338,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
+ 		mlxsw_sp_rif_subport_params_init(&params, mlxsw_sp_port_vlan);
+-		rif = mlxsw_sp_rif_create(mlxsw_sp, &params);
++		rif = mlxsw_sp_rif_create(mlxsw_sp, &params, extack);
+ 		if (IS_ERR(rif))
+ 			return PTR_ERR(rif);
+ 	}
+@@ -5525,7 +5534,8 @@ mlxsw_sp_port_vlan_router_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
  
- 	ift = ipv6_add_addr(idev, &addr, NULL, tmp_plen,
- 			    ipv6_addr_scope(&addr), addr_flags,
--			    tmp_valid_lft, tmp_prefered_lft);
-+			    tmp_valid_lft, tmp_prefered_lft, NULL);
- 	if (IS_ERR(ift)) {
- 		in6_ifa_put(ifp);
- 		in6_dev_put(idev);
-@@ -2020,7 +2022,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
- 
- 		ifp2 = ipv6_add_addr(idev, &new_addr, NULL, pfxlen,
- 				     scope, flags, valid_lft,
--				     preferred_lft);
-+				     preferred_lft, NULL);
- 		if (IS_ERR(ifp2))
- 			goto lock_errdad;
- 
-@@ -2478,7 +2480,7 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
- 					    pinfo->prefix_len,
- 					    addr_type&IPV6_ADDR_SCOPE_MASK,
- 					    addr_flags, valid_lft,
--					    prefered_lft);
-+					    prefered_lft, NULL);
- 
- 		if (IS_ERR_OR_NULL(ifp))
- 			return -1;
-@@ -2788,7 +2790,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 			  const struct in6_addr *pfx,
- 			  const struct in6_addr *peer_pfx,
- 			  unsigned int plen, __u32 ifa_flags,
--			  __u32 prefered_lft, __u32 valid_lft)
-+			  __u32 prefered_lft, __u32 valid_lft,
-+			  struct netlink_ext_ack *extack)
+ static int mlxsw_sp_inetaddr_port_vlan_event(struct net_device *l3_dev,
+ 					     struct net_device *port_dev,
+-					     unsigned long event, u16 vid)
++					     unsigned long event, u16 vid,
++					     struct netlink_ext_ack *extack)
  {
- 	struct inet6_ifaddr *ifp;
- 	struct inet6_dev *idev;
-@@ -2847,7 +2850,7 @@ static int inet6_addr_add(struct net *net, int ifindex,
- 	}
- 
- 	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
--			    valid_lft, prefered_lft);
-+			    valid_lft, prefered_lft, extack);
- 
- 	if (!IS_ERR(ifp)) {
- 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
-@@ -2932,7 +2935,7 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
- 	rtnl_lock();
- 	err = inet6_addr_add(net, ireq.ifr6_ifindex, &ireq.ifr6_addr, NULL,
- 			     ireq.ifr6_prefixlen, IFA_F_PERMANENT,
--			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
-+			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, NULL);
- 	rtnl_unlock();
- 	return err;
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(port_dev);
+ 	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+@@ -5537,7 +5547,7 @@ static int mlxsw_sp_inetaddr_port_vlan_event(struct net_device *l3_dev,
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		return mlxsw_sp_port_vlan_router_join(mlxsw_sp_port_vlan,
+-						      l3_dev);
++						      l3_dev, extack);
+ 	case NETDEV_DOWN:
+ 		mlxsw_sp_port_vlan_router_leave(mlxsw_sp_port_vlan);
+ 		break;
+@@ -5547,19 +5557,22 @@ static int mlxsw_sp_inetaddr_port_vlan_event(struct net_device *l3_dev,
  }
-@@ -2962,7 +2965,7 @@ static void add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
  
- 	ifp = ipv6_add_addr(idev, addr, NULL, plen,
- 			    scope, IFA_F_PERMANENT,
--			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
-+			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, NULL);
- 	if (!IS_ERR(ifp)) {
- 		spin_lock_bh(&ifp->lock);
- 		ifp->flags &= ~IFA_F_TENTATIVE;
-@@ -3062,7 +3065,7 @@ void addrconf_add_linklocal(struct inet6_dev *idev,
- #endif
+ static int mlxsw_sp_inetaddr_port_event(struct net_device *port_dev,
+-					unsigned long event)
++					unsigned long event,
++					struct netlink_ext_ack *extack)
+ {
+ 	if (netif_is_bridge_port(port_dev) ||
+ 	    netif_is_lag_port(port_dev) ||
+ 	    netif_is_ovs_port(port_dev))
+ 		return 0;
  
- 	ifp = ipv6_add_addr(idev, addr, NULL, 64, IFA_LINK, addr_flags,
--			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
-+			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, NULL);
- 	if (!IS_ERR(ifp)) {
- 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, idev->dev, 0, 0);
- 		addrconf_dad_start(ifp);
-@@ -4565,7 +4568,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		 */
- 		return inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
- 				      ifm->ifa_prefixlen, ifa_flags,
--				      preferred_lft, valid_lft);
-+				      preferred_lft, valid_lft, extack);
+-	return mlxsw_sp_inetaddr_port_vlan_event(port_dev, port_dev, event, 1);
++	return mlxsw_sp_inetaddr_port_vlan_event(port_dev, port_dev, event, 1,
++						 extack);
+ }
+ 
+ static int __mlxsw_sp_inetaddr_lag_event(struct net_device *l3_dev,
+ 					 struct net_device *lag_dev,
+-					 unsigned long event, u16 vid)
++					 unsigned long event, u16 vid,
++					 struct netlink_ext_ack *extack)
+ {
+ 	struct net_device *port_dev;
+ 	struct list_head *iter;
+@@ -5569,7 +5582,8 @@ static int __mlxsw_sp_inetaddr_lag_event(struct net_device *l3_dev,
+ 		if (mlxsw_sp_port_dev_check(port_dev)) {
+ 			err = mlxsw_sp_inetaddr_port_vlan_event(l3_dev,
+ 								port_dev,
+-								event, vid);
++								event, vid,
++								extack);
+ 			if (err)
+ 				return err;
+ 		}
+@@ -5579,16 +5593,19 @@ static int __mlxsw_sp_inetaddr_lag_event(struct net_device *l3_dev,
+ }
+ 
+ static int mlxsw_sp_inetaddr_lag_event(struct net_device *lag_dev,
+-				       unsigned long event)
++				       unsigned long event,
++				       struct netlink_ext_ack *extack)
+ {
+ 	if (netif_is_bridge_port(lag_dev))
+ 		return 0;
+ 
+-	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1);
++	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1,
++					     extack);
+ }
+ 
+ static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
+-					  unsigned long event)
++					  unsigned long event,
++					  struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(l3_dev);
+ 	struct mlxsw_sp_rif_params params = {
+@@ -5598,7 +5615,7 @@ static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
+-		rif = mlxsw_sp_rif_create(mlxsw_sp, &params);
++		rif = mlxsw_sp_rif_create(mlxsw_sp, &params, extack);
+ 		if (IS_ERR(rif))
+ 			return PTR_ERR(rif);
+ 		break;
+@@ -5612,7 +5629,8 @@ static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
+ }
+ 
+ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+-					unsigned long event)
++					unsigned long event,
++					struct netlink_ext_ack *extack)
+ {
+ 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
+ 	u16 vid = vlan_dev_vlan_id(vlan_dev);
+@@ -5622,27 +5640,28 @@ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+ 
+ 	if (mlxsw_sp_port_dev_check(real_dev))
+ 		return mlxsw_sp_inetaddr_port_vlan_event(vlan_dev, real_dev,
+-							 event, vid);
++							 event, vid, extack);
+ 	else if (netif_is_lag_master(real_dev))
+ 		return __mlxsw_sp_inetaddr_lag_event(vlan_dev, real_dev, event,
+-						     vid);
++						     vid, extack);
+ 	else if (netif_is_bridge_master(real_dev) && br_vlan_enabled(real_dev))
+-		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, event);
++		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, event, extack);
+ 
+ 	return 0;
+ }
+ 
+ static int __mlxsw_sp_inetaddr_event(struct net_device *dev,
+-				     unsigned long event)
++				     unsigned long event,
++				     struct netlink_ext_ack *extack)
+ {
+ 	if (mlxsw_sp_port_dev_check(dev))
+-		return mlxsw_sp_inetaddr_port_event(dev, event);
++		return mlxsw_sp_inetaddr_port_event(dev, event, extack);
+ 	else if (netif_is_lag_master(dev))
+-		return mlxsw_sp_inetaddr_lag_event(dev, event);
++		return mlxsw_sp_inetaddr_lag_event(dev, event, extack);
+ 	else if (netif_is_bridge_master(dev))
+-		return mlxsw_sp_inetaddr_bridge_event(dev, event);
++		return mlxsw_sp_inetaddr_bridge_event(dev, event, extack);
+ 	else if (is_vlan_dev(dev))
+-		return mlxsw_sp_inetaddr_vlan_event(dev, event);
++		return mlxsw_sp_inetaddr_vlan_event(dev, event, extack);
+ 	else
+ 		return 0;
+ }
+@@ -5668,7 +5687,7 @@ int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	err = __mlxsw_sp_inetaddr_event(dev, event);
++	err = __mlxsw_sp_inetaddr_event(dev, event, NULL);
+ out:
+ 	return notifier_from_errno(err);
+ }
+@@ -5691,7 +5710,7 @@ int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	err = __mlxsw_sp_inetaddr_event(dev, event);
++	err = __mlxsw_sp_inetaddr_event(dev, event, ivi->extack);
+ out:
+ 	return notifier_from_errno(err);
+ }
+@@ -5720,7 +5739,7 @@ static void mlxsw_sp_inet6addr_event_work(struct work_struct *work)
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	__mlxsw_sp_inetaddr_event(dev, event);
++	__mlxsw_sp_inetaddr_event(dev, event, NULL);
+ out:
+ 	rtnl_unlock();
+ 	dev_put(dev);
+@@ -5772,7 +5791,7 @@ int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	err = __mlxsw_sp_inetaddr_event(dev, event);
++	err = __mlxsw_sp_inetaddr_event(dev, event, i6vi->extack);
+ out:
+ 	return notifier_from_errno(err);
+ }
+@@ -5849,7 +5868,8 @@ int mlxsw_sp_netdevice_router_port_event(struct net_device *dev)
+ }
+ 
+ static int mlxsw_sp_port_vrf_join(struct mlxsw_sp *mlxsw_sp,
+-				  struct net_device *l3_dev)
++				  struct net_device *l3_dev,
++				  struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_rif *rif;
+ 
+@@ -5858,9 +5878,9 @@ static int mlxsw_sp_port_vrf_join(struct mlxsw_sp *mlxsw_sp,
+ 	 */
+ 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, l3_dev);
+ 	if (rif)
+-		__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN);
++		__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN, extack);
+ 
+-	return __mlxsw_sp_inetaddr_event(l3_dev, NETDEV_UP);
++	return __mlxsw_sp_inetaddr_event(l3_dev, NETDEV_UP, extack);
+ }
+ 
+ static void mlxsw_sp_port_vrf_leave(struct mlxsw_sp *mlxsw_sp,
+@@ -5871,7 +5891,7 @@ static void mlxsw_sp_port_vrf_leave(struct mlxsw_sp *mlxsw_sp,
+ 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, l3_dev);
+ 	if (!rif)
+ 		return;
+-	__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN);
++	__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN, NULL);
+ }
+ 
+ int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
+@@ -5887,10 +5907,14 @@ int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
+ 	case NETDEV_PRECHANGEUPPER:
+ 		return 0;
+ 	case NETDEV_CHANGEUPPER:
+-		if (info->linking)
+-			err = mlxsw_sp_port_vrf_join(mlxsw_sp, l3_dev);
+-		else
++		if (info->linking) {
++			struct netlink_ext_ack *extack;
++
++			extack = netdev_notifier_info_to_extack(&info->info);
++			err = mlxsw_sp_port_vrf_join(mlxsw_sp, l3_dev, extack);
++		} else {
+ 			mlxsw_sp_port_vrf_leave(mlxsw_sp, l3_dev);
++		}
+ 		break;
  	}
  
- 	if (nlh->nlmsg_flags & NLM_F_EXCL ||
+@@ -6197,7 +6221,7 @@ mlxsw_sp_rif_ipip_lb_configure(struct mlxsw_sp_rif *rif)
+ 	struct mlxsw_sp_vr *ul_vr;
+ 	int err;
+ 
+-	ul_vr = mlxsw_sp_vr_get(mlxsw_sp, ul_tb_id);
++	ul_vr = mlxsw_sp_vr_get(mlxsw_sp, ul_tb_id, NULL);
+ 	if (IS_ERR(ul_vr))
+ 		return PTR_ERR(ul_vr);
+ 
 -- 
 2.1.4
