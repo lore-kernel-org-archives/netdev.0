@@ -1,61 +1,85 @@
-From: Wei Wang <tracywwnj@gmail.com>
-Subject: Re: [PATCH][V2] ipv6: fix incorrect bitwise operator used on rt6i_flags
-Date: Tue, 10 Oct 2017 11:38:20 -0700
-Message-ID: <CAC15z3jrkT6K0-FC9QLOmaZQCvEMoDZrABDJ_iGDecTYAksqAw@mail.gmail.com>
-References: <20171010181030.22290-1-colin.king@canonical.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH v5 1/2] net: phy: DP83822 initial driver submission
+Date: Tue, 10 Oct 2017 18:56:54 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B48F9D@CHN-SV-EXMX02.mchp-main.com>
+References: <20171010174256.21930-1-dmurphy@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20171010181030.22290-1-colin.king@canonical.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <afd@ti.com>
+To: <dmurphy@ti.com>, <andrew@lunn.ch>, <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa1.microchip.iphmx.com ([68.232.147.91]:5989 "EHLO
+        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932298AbdJJS44 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 14:56:56 -0400
+In-Reply-To: <20171010174256.21930-1-dmurphy@ti.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 11:10 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> The use of the | operator always leads to true which looks rather
-> suspect to me. Fix this by using & instead to just check the
-> RTF_CACHE entry bit.
->
-> Detected by CoverityScan, CID#1457734, #1457747 ("Wrong operator used")
->
-> Fixes: 35732d01fe31 ("ipv6: introduce a hash table to store dst cache")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
+> +static int dp83822_config_intr(struct phy_device *phydev)
+> +{
+> +	int misr_status;
+> +	int physcr_status;
+> +	int err;
+> +
+> +	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
+> +		misr_status = phy_read(phydev, MII_DP83822_MISR1);
+> +		if (misr_status < 0)
+> +			return misr_status;
+> +
+> +		misr_status |= (DP83822_RX_ERR_HF_INT_EN |
+> +				DP83822_FALSE_CARRIER_HF_INT_EN |
+> +				DP83822_ANEG_COMPLETE_INT_EN |
+> +				DP83822_DUP_MODE_CHANGE_INT_EN |
+> +				DP83822_SPEED_CHANGED_INT_EN |
+> +				DP83822_LINK_STAT_INT_EN |
+> +				DP83822_ENERGY_DET_INT_EN |
+> +				DP83822_LINK_QUAL_INT_EN);
+> +
+> +		err = phy_write(phydev, MII_DP83822_MISR1, misr_status);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		misr_status = phy_read(phydev, MII_DP83822_MISR2);
+> +		if (misr_status < 0)
+> +			return misr_status;
+> +
+> +		misr_status |= (DP83822_JABBER_DET_INT_EN |
+> +				DP83822_WOL_PKT_INT_EN |
+> +				DP83822_SLEEP_MODE_INT_EN |
+> +				DP83822_MDI_XOVER_INT_EN |
+> +				DP83822_LB_FIFO_INT_EN |
+> +				DP83822_PAGE_RX_INT_EN |
+> +				DP83822_ANEG_ERR_INT_EN |
+> +				DP83822_EEE_ERROR_CHANGE_INT_EN);
+> +
+> +		err = phy_write(phydev, MII_DP83822_MISR2, misr_status);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		physcr_status = phy_read(phydev, MII_DP83822_PHYSCR);
+> +		if (physcr_status < 0)
+> +			return physcr_status;
+> +
+> +		physcr_status |= DP83822_PHYSCR_INT_OE |
+> DP83822_PHYSCR_INTEN;
+> +
+Don't want to be picky, but seeing extra blank line here. 
 
-Acked-by: Wei Wang <weiwan@google.com>
-
->  net/ipv6/route.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 6db1541eaa7b..dd9ba1192dbc 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -1425,7 +1425,7 @@ int rt6_remove_exception_rt(struct rt6_info *rt)
->         int err;
->
->         if (!from ||
-> -           !(rt->rt6i_flags | RTF_CACHE))
-> +           !(rt->rt6i_flags & RTF_CACHE))
->                 return -EINVAL;
->
->         if (!rcu_access_pointer(from->rt6i_exception_bucket))
-> @@ -1469,7 +1469,7 @@ static void rt6_update_exception_stamp_rt(struct rt6_info *rt)
->         struct rt6_exception *rt6_ex;
->
->         if (!from ||
-> -           !(rt->rt6i_flags | RTF_CACHE))
-> +           !(rt->rt6i_flags & RTF_CACHE))
->                 return;
->
->         rcu_read_lock();
-> --
-> 2.14.1
->
+> +	} else {
+> +		err = phy_write(phydev, MII_DP83822_MISR1, 0);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		err = phy_write(phydev, MII_DP83822_MISR1, 0);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		physcr_status = phy_read(phydev, MII_DP83822_PHYSCR);
+> +		if (physcr_status < 0)
+> +			return physcr_status;
+> +
+> +		physcr_status &= ~DP83822_PHYSCR_INTEN;
+> +	}
