@@ -1,44 +1,43 @@
-From: Matthew Wilcox <willy@infradead.org>
-Subject: Re: [PATCH 00/12] radix-tree: split out struct radix_tree_root out
- to <linux/radix-tree-root.h>
-Date: Tue, 10 Oct 2017 06:20:25 -0700
-Message-ID: <20171010132025.GA2687@bombadil.infradead.org>
-References: <1507479013-5207-1-git-send-email-yamada.masahiro@socionext.com>
- <20171010121829.GA26493@bombadil.infradead.org>
- <CAK7LNAQ_SVA1aYYgjMFqJG5OzjYa1EbNDGdrCAOOen_dABX30g@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch net-next 2/4] net: sched: introduce per-egress action
+ device callbacks
+Date: Tue, 10 Oct 2017 13:31:59 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008ED67@AcuExch.aculab.com>
+References: <20171010073016.3682-1-jiri@resnulli.us>
+ <20171010073016.3682-3-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Ian Abbott <abbotti@mev.co.uk>, Ingo Molnar <mingo@kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        linux-cachefs@redhat.com, linux-sh@vger.kernel.org,
-        Rodrigo Vivi <rodrigo.vivi@intel.com>,
-        dri-devel <dri-devel@lists.freedesktop.org>,
-        David Airlie <airlied@linux.ie>, linux-rdma@vger.kernel.org,
-        Yoshinori Sato <ysato@users.sourceforge.jp>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Rich Felker <dalias@libc.org>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Jani Nikula <jani.nikula@linux.intel.com>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        David Howells <dhowells@redhat.com>,
-        intel-gfx@lists.freedesktop.org,
-        Yishai
-To: Masahiro Yamada <yamada.masahiro@socionext.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAK7LNAQ_SVA1aYYgjMFqJG5OzjYa1EbNDGdrCAOOen_dABX30g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "saeedm@mellanox.com" <saeedm@mellanox.com>,
+        "matanb@mellanox.com" <matanb@mellanox.com>,
+        "leonro@mellanox.com" <leonro@mellanox.com>,
+        "mlxsw@mellanox.com" <mlxsw@mellanox.com>
+To: 'Jiri Pirko' <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.195]:57363 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932176AbdJJNcJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 09:32:09 -0400
+In-Reply-To: <20171010073016.3682-3-jiri@resnulli.us>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 09:56:22PM +0900, Masahiro Yamada wrote:
-> One refactoring alone does not produce much benefits,
-> but making continuous efforts will disentangle the knotted threads.
-> Of course, this might be a pipe dream...
+From: Jiri Pirko
+> Sent: 10 October 2017 08:30
+> Introduce infrastructure that allows drivers to register callbacks that
+> are called whenever tc would offload inserted rule and specified device
+> acts as tc action egress device.
 
-A lot of people have had that dream, and some of those refactoring
-efforts have proven worthwhile.  But it's not a dream without costs;
-your refactoring will conflict with other changes.  I don't think the
-benefit here is high enough to pursue this edition of the dream.
+How does a driver safely unregister a callback?
+(to avoid a race with the callback being called.)
+
+Usually this requires a callback in the context that makes the
+notification callbacks indicating that no more such callbacks
+will be made.
+
+	David
