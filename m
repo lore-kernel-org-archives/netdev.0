@@ -1,132 +1,41 @@
-From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-Subject: Re: [PATCH v2] net/core: Fix BUG to BUG_ON conditionals.
-Date: Tue, 10 Oct 2017 01:14:18 +0000
-Message-ID: <20171010011416.2tpyrkiflzn3727g@sasha-lappy>
-References: <20171009153759.km3lqss7hb72wrze@debian>
- <20171009171540.lgmk2slq3bdrptxk@ast-mbp.dhcp.thefacebook.com>
- <20171009202633.ep5pbi2tlg7dqidz@sasha-lappy>
- <20171009230618.e5gla2iuqwmndkig@ast-mbp>
- <20171009231538.doypjzvxzkoxyoeo@sasha-lappy>
- <20171009232355.5mcd3fj7gjhenv25@ast-mbp>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next RFC 4/9] net: dsa: mv88e6xxx: add support for
+ event capture
+Date: Mon, 9 Oct 2017 21:53:29 -0400
+Message-ID: <20171010015329.b5yvspofytay7osx@localhost>
+References: <1506612341-18061-1-git-send-email-brandon.streiff@ni.com>
+ <1506612341-18061-5-git-send-email-brandon.streiff@ni.com>
+ <20171008150634.hb7nxwbbmi5xff7m@localhost>
+ <CAEYbN3TpMVPVapmLNCPj69pxP9b_1y8VizS3XvccskcWOrpwEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Tim Hansen <devtimhansen@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "willemb@google.com" <willemb@google.com>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "soheil@google.com" <soheil@google.com>,
-        "pabeni@redhat.com" <pabeni@redhat.com>,
-        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
-        "tom@quantonium.net" <tom@quantonium.net>,
-        "Jason@zx2c4.com" <Jason@zx2c4.com>, "fw@strlen.de" <fw@strlen.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Brandon Streiff <brandon.streiff@ni.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Erik Hons <erik.hons@ni.com>
+To: Levi Pearson <levipearson@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171009232355.5mcd3fj7gjhenv25@ast-mbp>
-Content-Language: en-US
-Content-ID: <5ED23820EA259142A9F417FCCC360945@vzwcorp.com>
+Content-Disposition: inline
+In-Reply-To: <CAEYbN3TpMVPVapmLNCPj69pxP9b_1y8VizS3XvccskcWOrpwEw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 09, 2017 at 04:23:57PM -0700, Alexei Starovoitov wrote:
->On Mon, Oct 09, 2017 at 11:15:40PM +0000, Levin, Alexander (Sasha Levin) w=
-rote:
->> On Mon, Oct 09, 2017 at 04:06:20PM -0700, Alexei Starovoitov wrote:
->> >On Mon, Oct 09, 2017 at 08:26:34PM +0000, Levin, Alexander (Sasha Levin=
-) wrote:
->> >> On Mon, Oct 09, 2017 at 10:15:42AM -0700, Alexei Starovoitov wrote:
->> >> >On Mon, Oct 09, 2017 at 11:37:59AM -0400, Tim Hansen wrote:
->> >> >> Fix BUG() calls to use BUG_ON(conditional) macros.
->> >> >>
->> >> >> This was found using make coccicheck M=3Dnet/core on linux next
->> >> >> tag next-2017092
->> >> >>
->> >> >> Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
->> >> >> ---
->> >> >>  net/core/skbuff.c | 15 ++++++---------
->> >> >>  1 file changed, 6 insertions(+), 9 deletions(-)
->> >> >>
->> >> >> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> >> >> index d98c2e3ce2bf..34ce4c1a0f3c 100644
->> >> >> --- a/net/core/skbuff.c
->> >> >> +++ b/net/core/skbuff.c
->> >> >> @@ -1350,8 +1350,7 @@ struct sk_buff *skb_copy(const struct sk_buf=
-f *skb, gfp_t gfp_mask)
->> >> >>  	/* Set the tail pointer and length */
->> >> >>  	skb_put(n, skb->len);
->> >> >>
->> >> >> -	if (skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->len=
-))
->> >> >> -		BUG();
->> >> >> +	BUG_ON(skb_copy_bits(skb, -headerlen, n->head, headerlen + skb->=
-len));
->> >> >
->> >> >I'm concerned with this change.
->> >> >1. Calling non-trivial bit of code inside the macro is a poor coding=
- style (imo)
->> >> >2. BUG_ON !=3D BUG. Some archs like mips and ppc have HAVE_ARCH_BUG_=
-ON and implementation
->> >> >of BUG and BUG_ON look quite different.
->> >>
->> >> For these archs, wouldn't it then be more efficient to use BUG_ON rat=
-her than BUG()?
->> >
->> >why more efficient? any data to prove that?
->>
->> Just guessing.
->>
->> Either way, is there a particular reason for not using BUG_ON() here
->> besides that it's implementation is "quite different"?
->>
->> >I'm pointing that the change is not equivalent and
->> >this code has been around forever (pre-git days), so I see
->> >no reason to risk changing it.
->>
->> Do you know that BUG_ON() is broken on any archs?
->>
->> If not, "this code has been around forever" is really not an excuse to
->> not touch code.
->>
->> If BUG_ON() behavior is broken somewhere, then it needs to get fixed.
->
->no idea whether it's broken. My main objection is #1.
->imo it's a very poor coding style to put functions with
->side-effects into macros. Especially debug/bug/warn-like.
+On Mon, Oct 09, 2017 at 04:08:50PM -0600, Levi Pearson wrote:
+> Another issue related to this is that while the free-running counter
+> in the hardware can't be easily adjusted, the periodic event generator
+> *can* be finely adjusted (via picosecond and sub-picosecond
+> accumulators) to correct for drift between the local clock and the PTP
+> grandmaster time. So to be semantically correct, this needs to be both
+> started at the right time *and* it needs to have the periodic
+> corrections made so that the fine correction parameters in the
+> hardware keep it adjusted to be synchronous with PTP grandmaster time.
 
-This, however, seems to be an accepted coding style in the net/
-subsys. Look a few lines lower in the very same file to find:
-
-	BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
-
-Side effects ahoy ;)
-
->For example llvm has DEBUG() macro and everything inside
->will disappear depending on compilation flags.
->I wouldn't be surprised if somebody for the name
->of security (to avoid crash on BUG_ON) will replace
->BUG/BUG_ON with some other implementation or nop
->and will have real bugs, since skb_copy_bits() is somehow
->not called or called in different context.
-
-This was already discussed, with the conclusion that BUG() can never
-be disabled, since, as you described, it'll lead to very catastrophic
-results. See i.e.:
-
-	commit b06dd879f5db33c1d7f5ab516ea671627f99c0c9
-	Author: Josh Triplett <josh@joshtriplett.org>
-	Date:   Mon Apr 7 15:39:14 2014 -0700
-
-    		x86: always define BUG() and HAVE_ARCH_BUG, even with !CONFIG_BUG
-
-
-Anyway, as you said, this boils down to coding style nitpicking. I
-guess that my only comment here would be that it shpid go one way or
-the other and we document the decision somewhere (either per subsys,
-or for the entire tree).
-
---=20
+So if the accumulators are safe to adjust on the fly, then the
+adjfine() method will have to program them with every adjustment.
 
 Thanks,
-Sasha=
+Richard
