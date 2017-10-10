@@ -1,44 +1,30 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 0/3] mlx4_en num of rings
-Date: Tue, 10 Oct 2017 12:28:32 +0300
-Message-ID: <1507627715-25487-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
+Date: Tue, 10 Oct 2017 04:21:09 -0700
+Message-ID: <CANn89i+vtkP+bisnTURSazuKwtjeYJjLba6wZOLg5AjsqjJPqQ@mail.gmail.com>
+References: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48120 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1755987AbdJJJ2w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 05:28:52 -0400
+Received: from mail-qt0-f169.google.com ([209.85.216.169]:50836 "EHLO
+        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755890AbdJJLVK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 07:21:10 -0400
+Received: by mail-qt0-f169.google.com with SMTP id f15so50029846qtf.7
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 04:21:10 -0700 (PDT)
+In-Reply-To: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Mon, Oct 9, 2017 at 10:35 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> We need a real-time notification for tcp retransmission
+> for monitoring.
 
-This patchset from Inbar contains changes to rings control
-to the mlx4 Eth driver.
+Hi Cong
 
-Patches 1 and 2 limit the number of rings to the number of CPUs.
-Patch 3 removes a limitation in logic of default number of RX rings.
+This seems to not be well defined.
 
-Series generated against net-next commit:
-812b5ca7d376 Add a driver for Renesas uPD60620 and uPD60620A PHYs
-
-Thanks,
-Tariq.
-
-
-Inbar Karmy (3):
-  net/mlx4_en: Limit the number of TX rings
-  net/mlx4_en: Limit the number of RX rings
-  net/mlx4_en: Increase number of default RX rings
-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 11 ++++++++---
- drivers/net/ethernet/mellanox/mlx4/en_main.c    |  6 +++---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      |  3 +--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  2 +-
- 5 files changed, 14 insertions(+), 10 deletions(-)
-
--- 
-1.8.3.1
+For example, why a retransmission triggered by TLP is not traced ?
