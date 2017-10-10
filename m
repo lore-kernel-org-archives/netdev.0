@@ -1,30 +1,139 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
-Date: Tue, 10 Oct 2017 04:21:09 -0700
-Message-ID: <CANn89i+vtkP+bisnTURSazuKwtjeYJjLba6wZOLg5AjsqjJPqQ@mail.gmail.com>
-References: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] rtnetlink: bridge: use ext_ack instead of printk
+Date: Tue, 10 Oct 2017 13:25:03 +0200
+Message-ID: <20171010112503.13791-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:50836 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755890AbdJJLVK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 07:21:10 -0400
-Received: by mail-qt0-f169.google.com with SMTP id f15so50029846qtf.7
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 04:21:10 -0700 (PDT)
-In-Reply-To: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:32980 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755799AbdJJLYp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 07:24:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 9, 2017 at 10:35 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> We need a real-time notification for tcp retransmission
-> for monitoring.
+We can now piggyback error strings to userspace via extended acks
+rather than using printk.
 
-Hi Cong
+Before:
+bridge fdb add 01:02:03:04:05:06 dev br0 vlan 4095
+RTNETLINK answers: Invalid argument
 
-This seems to not be well defined.
+After:
+bridge fdb add 01:02:03:04:05:06 dev br0 vlan 4095
+Error: RTM_NEWNEIGH with invalid vlan id.
 
-For example, why a retransmission triggered by TLP is not traced ?
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/core/rtnetlink.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index e84d108cfee4..5030c71ef752 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3066,21 +3066,22 @@ int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ }
+ EXPORT_SYMBOL(ndo_dflt_fdb_add);
+ 
+-static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid)
++static int fdb_vid_parse(struct nlattr *vlan_attr, u16 *p_vid,
++			 struct netlink_ext_ack *exta)
+ {
+ 	u16 vid = 0;
+ 
+ 	if (vlan_attr) {
+ 		if (nla_len(vlan_attr) != sizeof(u16)) {
+-			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan\n");
++			NL_SET_ERR_MSG(exta, "RTM_NEWNEIGH with invalid vlan");
+ 			return -EINVAL;
+ 		}
+ 
+ 		vid = nla_get_u16(vlan_attr);
+ 
+ 		if (!vid || vid >= VLAN_VID_MASK) {
+-			pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid vlan id %d\n",
+-				vid);
++			NL_SET_ERR_MSG(exta,
++				       "RTM_NEWNEIGH with invalid vlan id");
+ 			return -EINVAL;
+ 		}
+ 	}
+@@ -3105,24 +3106,24 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	ndm = nlmsg_data(nlh);
+ 	if (ndm->ndm_ifindex == 0) {
+-		pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid ifindex\n");
++		NL_SET_ERR_MSG(exta, "RTM_NEWNEIGH with invalid ifindex");
+ 		return -EINVAL;
+ 	}
+ 
+ 	dev = __dev_get_by_index(net, ndm->ndm_ifindex);
+ 	if (dev == NULL) {
+-		pr_info("PF_BRIDGE: RTM_NEWNEIGH with unknown ifindex\n");
++		NL_SET_ERR_MSG(exta, "RTM_NEWNEIGH with unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+ 	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
+-		pr_info("PF_BRIDGE: RTM_NEWNEIGH with invalid address\n");
++		NL_SET_ERR_MSG(exta, "RTM_NEWNEIGH with invalid address");
+ 		return -EINVAL;
+ 	}
+ 
+ 	addr = nla_data(tb[NDA_LLADDR]);
+ 
+-	err = fdb_vid_parse(tb[NDA_VLAN], &vid);
++	err = fdb_vid_parse(tb[NDA_VLAN], &vid, exta);
+ 	if (err)
+ 		return err;
+ 
+@@ -3209,24 +3210,24 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	ndm = nlmsg_data(nlh);
+ 	if (ndm->ndm_ifindex == 0) {
+-		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid ifindex\n");
++		NL_SET_ERR_MSG(extack, "RTM_DELNEIGH with invalid ifindex");
+ 		return -EINVAL;
+ 	}
+ 
+ 	dev = __dev_get_by_index(net, ndm->ndm_ifindex);
+ 	if (dev == NULL) {
+-		pr_info("PF_BRIDGE: RTM_DELNEIGH with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "RTM_DELNEIGH with unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+ 	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
+-		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid address\n");
++		NL_SET_ERR_MSG(extack, "RTM_DELNEIGH with invalid address");
+ 		return -EINVAL;
+ 	}
+ 
+ 	addr = nla_data(tb[NDA_LLADDR]);
+ 
+-	err = fdb_vid_parse(tb[NDA_VLAN], &vid);
++	err = fdb_vid_parse(tb[NDA_VLAN], &vid, extack);
+ 	if (err)
+ 		return err;
+ 
+@@ -3666,7 +3667,7 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	if (!dev) {
+-		pr_info("PF_BRIDGE: RTM_SETLINK with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "RTM_SETLINK with unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -3741,7 +3742,7 @@ static int rtnl_bridge_dellink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 	dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	if (!dev) {
+-		pr_info("PF_BRIDGE: RTM_SETLINK with unknown ifindex\n");
++		NL_SET_ERR_MSG(extack, "RTM_SETLINK with unknown ifindex");
+ 		return -ENODEV;
+ 	}
+ 
+-- 
+2.13.6
