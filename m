@@ -1,205 +1,37 @@
 From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Add support for new flash parts
-Date: Tue, 10 Oct 2017 12:44:13 +0530
-Message-ID: <1507619653-8726-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, leedom@chelsio.com, indranil@chelsio.com,
-        venkatesh@chelsio.com, Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: add new T5 pci device id's
+Date: Tue, 10 Oct 2017 12:45:02 +0530
+Message-ID: <1507619702-8793-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:60588 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:13869 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754461AbdJJHOY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:14:24 -0400
+        with ESMTP id S1751872AbdJJHPE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:15:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for new flash parts identification, and
-also cleanup the flash Part identifying and decoding
-code.
-
-Based on the original work of Casey Leedom <leedom@chelsio.com>
+Add 0x50aa and 0x50ab T5 device id's.
 
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 136 ++++++++++++++++++++++++-----
- 1 file changed, 116 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index b65ce26..b3fd1f4 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -8205,7 +8205,7 @@ struct flash_desc {
- 	u32 size_mb;
- };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+index 37d90d6..c660c1a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+@@ -181,6 +181,8 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
+ 	CH_PCI_ID_TABLE_FENTRY(0x50a7), /* Custom T580-CR */
+ 	CH_PCI_ID_TABLE_FENTRY(0x50a8), /* Custom T580-KR */
+ 	CH_PCI_ID_TABLE_FENTRY(0x50a9), /* Custom T580-KR */
++	CH_PCI_ID_TABLE_FENTRY(0x50aa), /* Custom T580-CR */
++	CH_PCI_ID_TABLE_FENTRY(0x50ab), /* Custom T520-CR */
  
--static int get_flash_params(struct adapter *adap)
-+static int t4_get_flash_params(struct adapter *adap)
- {
- 	/* Table for non-Numonix supported flash parts.  Numonix parts are left
- 	 * to the preexisting code.  All flash parts have 64KB sectors.
-@@ -8214,40 +8214,136 @@ static int get_flash_params(struct adapter *adap)
- 		{ 0x150201, 4 << 20 },       /* Spansion 4MB S25FL032P */
- 	};
- 
-+	unsigned int part, manufacturer;
-+	unsigned int density, size;
-+	u32 flashid = 0;
- 	int ret;
--	u32 info;
-+
-+	/* Issue a Read ID Command to the Flash part.  We decode supported
-+	 * Flash parts and their sizes from this.  There's a newer Query
-+	 * Command which can retrieve detailed geometry information but many
-+	 * Flash parts don't support it.
-+	 */
- 
- 	ret = sf1_write(adap, 1, 1, 0, SF_RD_ID);
- 	if (!ret)
--		ret = sf1_read(adap, 3, 0, 1, &info);
-+		ret = sf1_read(adap, 3, 0, 1, &flashid);
- 	t4_write_reg(adap, SF_OP_A, 0);                    /* unlock SF */
- 	if (ret)
- 		return ret;
- 
--	for (ret = 0; ret < ARRAY_SIZE(supported_flash); ++ret)
--		if (supported_flash[ret].vendor_and_model_id == info) {
--			adap->params.sf_size = supported_flash[ret].size_mb;
-+	/* Check to see if it's one of our non-standard supported Flash parts.
-+	 */
-+	for (part = 0; part < ARRAY_SIZE(supported_flash); part++)
-+		if (supported_flash[part].vendor_and_model_id == flashid) {
-+			adap->params.sf_size = supported_flash[part].size_mb;
- 			adap->params.sf_nsec =
- 				adap->params.sf_size / SF_SEC_SIZE;
--			return 0;
-+			goto found;
- 		}
- 
--	if ((info & 0xff) != 0x20)             /* not a Numonix flash */
-+	/* Decode Flash part size.  The code below looks repetative with
-+	 * common encodings, but that's not guaranteed in the JEDEC
-+	 * specification for the Read JADEC ID command.  The only thing that
-+	 * we're guaranteed by the JADEC specification is where the
-+	 * Manufacturer ID is in the returned result.  After that each
-+	 * Manufacturer ~could~ encode things completely differently.
-+	 * Note, all Flash parts must have 64KB sectors.
-+	 */
-+	manufacturer = flashid & 0xff;
-+	switch (manufacturer) {
-+	case 0x20: { /* Micron/Numonix */
-+		/* This Density -> Size decoding table is taken from Micron
-+		 * Data Sheets.
-+		 */
-+		density = (flashid >> 16) & 0xff;
-+		switch (density) {
-+		case 0x14: /* 1MB */
-+			size = 1 << 20;
-+			break;
-+		case 0x15: /* 2MB */
-+			size = 1 << 21;
-+			break;
-+		case 0x16: /* 4MB */
-+			size = 1 << 22;
-+			break;
-+		case 0x17: /* 8MB */
-+			size = 1 << 23;
-+			break;
-+		case 0x18: /* 16MB */
-+			size = 1 << 24;
-+			break;
-+		case 0x19: /* 32MB */
-+			size = 1 << 25;
-+			break;
-+		case 0x20: /* 64MB */
-+			size = 1 << 26;
-+			break;
-+		case 0x21: /* 128MB */
-+			size = 1 << 27;
-+			break;
-+		case 0x22: /* 256MB */
-+			size = 1 << 28;
-+			break;
-+
-+		default:
-+			dev_err(adap->pdev_dev, "Micron Flash Part has bad size, ID = %#x, Density code = %#x\n",
-+				flashid, density);
- 		return -EINVAL;
--	info >>= 16;                           /* log2 of size */
--	if (info >= 0x14 && info < 0x18)
--		adap->params.sf_nsec = 1 << (info - 16);
--	else if (info == 0x18)
--		adap->params.sf_nsec = 64;
--	else
-+		}
-+		break;
-+	}
-+	case 0xc2: { /* Macronix */
-+		/* This Density -> Size decoding table is taken from Macronix
-+		 * Data Sheets.
-+		 */
-+		density = (flashid >> 16) & 0xff;
-+		switch (density) {
-+		case 0x17: /* 8MB */
-+			size = 1 << 23;
-+			break;
-+		case 0x18: /* 16MB */
-+			size = 1 << 24;
-+			break;
-+		default:
-+			dev_err(adap->pdev_dev, "Macronix Flash Part has bad size, ID = %#x, Density code = %#x\n",
-+				flashid, density);
-+		return -EINVAL;
-+		}
-+	}
-+	case 0xef: { /* Winbond */
-+		/* This Density -> Size decoding table is taken from Winbond
-+		 * Data Sheets.
-+		 */
-+		density = (flashid >> 16) & 0xff;
-+		switch (density) {
-+		case 0x17: /* 8MB */
-+			size = 1 << 23;
-+			break;
-+		case 0x18: /* 16MB */
-+			size = 1 << 24;
-+			break;
-+		default:
-+			dev_err(adap->pdev_dev, "Winbond Flash Part has bad size, ID = %#x, Density code = %#x\n",
-+				flashid, density);
- 		return -EINVAL;
--	adap->params.sf_size = 1 << info;
--	adap->params.sf_fw_start =
--		t4_read_reg(adap, CIM_BOOT_CFG_A) & BOOTADDR_M;
-+		}
-+		break;
-+	}
-+	default:
-+		dev_err(adap->pdev_dev, "Unsupported Flash Part, ID = %#x\n",
-+			flashid);
-+		return -EINVAL;
-+	}
-+
-+	/* Store decoded Flash size and fall through into vetting code. */
-+	adap->params.sf_size = size;
-+	adap->params.sf_nsec = size / SF_SEC_SIZE;
- 
-+found:
- 	if (adap->params.sf_size < FLASH_MIN_SIZE)
--		dev_warn(adap->pdev_dev, "WARNING!!! FLASH size %#x < %#x!!!\n",
--			 adap->params.sf_size, FLASH_MIN_SIZE);
-+		dev_warn(adap->pdev_dev, "WARNING: Flash Part ID %#x, size %#x < %#x\n",
-+			 flashid, adap->params.sf_size, FLASH_MIN_SIZE);
- 	return 0;
- }
- 
-@@ -8285,7 +8381,7 @@ int t4_prep_adapter(struct adapter *adapter)
- 	get_pci_mode(adapter, &adapter->params.pci);
- 	pl_rev = REV_G(t4_read_reg(adapter, PL_REV_A));
- 
--	ret = get_flash_params(adapter);
-+	ret = t4_get_flash_params(adapter);
- 	if (ret < 0) {
- 		dev_err(adapter->pdev_dev, "error %d identifying flash\n", ret);
- 		return ret;
+ 	/* T6 adapters:
+ 	 */
 -- 
 2.1.0
