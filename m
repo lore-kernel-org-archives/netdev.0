@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [PATCH v2] xdp: Sample xdp program implementing ip forward
-Date: Tue, 10 Oct 2017 10:19:21 -0700
-Message-ID: <20171010101921.30136d48@shemminger-XPS-13-9360>
+Date: Tue, 10 Oct 2017 10:21:22 -0700
+Message-ID: <20171010102122.6ca1e756@shemminger-XPS-13-9360>
 References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
         <1507620532-25804-2-git-send-email-Christina.Jacob@cavium.com>
 Mime-Version: 1.0
@@ -20,21 +20,14 @@ List-Id: netdev.vger.kernel.org
 On Tue, 10 Oct 2017 12:58:52 +0530
 Christina Jacob <christina.jacob.koikara@gmail.com> wrote:
 
-> +/* Get the mac address of the interface given interface name */
-> +static long *getmac(char *iface)
-> +{
-> +	int fd;
-> +	struct ifreq ifr;
-> +	long *mac = NULL;
-> +
-> +	fd = socket(AF_INET, SOCK_DGRAM, 0);
-> +	ifr.ifr_addr.sa_family = AF_INET;
-> +	strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
-> +	ioctl(fd, SIOCGIFHWADDR, &ifr);
-> +	mac = (long *)ifr.ifr_hwaddr.sa_data;
-> +	close(fd);
-> +	return mac;
+> +		bzero(&route, sizeof(route));
+> +		bzero(dsts, sizeof(dsts));
+> +		bzero(dsts_len, sizeof(dsts_len));
+> +		bzero(gws, sizeof(gws));
+> +		bzero(ifs, sizeof(ifs));
+> +		bzero(&route, sizeof(route));
 
-Always check return value of ioctl.
-You are assuming sizeof(long) > 6 bytes.
-Also the byte order.
+This is all unnecessary.
+It looks like you write OpenBSD security code.
+Only a security person would zero stack variables before return
+and only BSD people use bzero(), Linux style is to use memset.
