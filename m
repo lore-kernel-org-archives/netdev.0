@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: use rcu_dereference_bh() in
- ipv6_route_seq_next()
-Date: Mon, 09 Oct 2017 20:00:18 -0700 (PDT)
-Message-ID: <20171009.200018.1469919737024387506.davem@davemloft.net>
-References: <20171010001726.77046-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH net-next] once: switch to new jump label API
+Date: Mon, 09 Oct 2017 20:26:37 -0700 (PDT)
+Message-ID: <20171009.202637.490575732444034495.davem@davemloft.net>
+References: <20171009213052.97771-1-ebiggers3@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com
-To: weiwan@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33864 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755596AbdJJDAV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 23:00:21 -0400
-In-Reply-To: <20171010001726.77046-1-tracywwnj@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        hannes@stressinduktion.org, jbaron@akamai.com,
+        peterz@infradead.org, ebiggers@google.com
+To: ebiggers3@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171009213052.97771-1-ebiggers3@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Wang <weiwan@google.com>
-Date: Mon,  9 Oct 2017 17:17:26 -0700
+From: Eric Biggers <ebiggers3@gmail.com>
+Date: Mon,  9 Oct 2017 14:30:52 -0700
 
-> From: Wei Wang <weiwan@google.com>
+> From: Eric Biggers <ebiggers@google.com>
 > 
-> This patch replaces rcu_deference() with rcu_dereference_bh() in
-> ipv6_route_seq_next() to avoid the following warning:
- ...
-> Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
-> Reported-by: Xiaolong Ye <xiaolong.ye@intel.com>
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Switch the DO_ONCE() macro from the deprecated jump label API to the new
+> one.  The new one is more readable, and for DO_ONCE() it also makes the
+> generated code more icache-friendly: now the one-time initialization
+> code is placed out-of-line at the jump target, rather than at the inline
+> fallthrough case.
+> 
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Eric Biggers <ebiggers@google.com>
 
-Applied, thanks.
+Applied, thank you.
