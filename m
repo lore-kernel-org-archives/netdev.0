@@ -1,42 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: High CPU load by native_queued_spin_lock_slowpath
-Date: Tue, 10 Oct 2017 07:07:12 -0700
-Message-ID: <1507644432.31614.13.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAGv8E+xZOweXEedymRuLt4idQmCM8Mk1TZOM=0p3YmnXbh-n+g@mail.gmail.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH 0/4] adapt DPAA drivers for DSA
+Date: Tue, 10 Oct 2017 17:10:14 +0300
+Message-ID: <1507644618-32006-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Sergey K." <simkergey@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:37375 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755981AbdJJOHO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 10:07:14 -0400
-Received: by mail-pf0-f195.google.com with SMTP id z80so17400718pff.4
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 07:07:13 -0700 (PDT)
-In-Reply-To: <CAGv8E+xZOweXEedymRuLt4idQmCM8Mk1TZOM=0p3YmnXbh-n+g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <andrew@lunn.ch>,
+        <vivien.didelot@savoirfairelinux.com>, <junote@outlook.com>,
+        <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-10-10 at 18:00 +0600, Sergey K. wrote:
-> I'm using Debian 9(stretch edition) kernel 4.9., hp dl385 g7 server
-> with 32 cpu cores. NIC queues are tied to processor cores. Server is
-> shaping traffic (iproute2 and htb discipline + skbinfo + ipset + ifb)
-> and filtering some rules by iptables.
-> 
-> At that moment, when traffic goes up about 1gbit/s cpu is very high
-> loaded. Perf tool tells me that kernel module
-> native_queued_spin_lock_slowpath loading cpu about 40%.
-> 
-> After several hours of searching, I found that if I remove the htb
-> discipline from ifb0, the high load goes down.
-> Well, I think that problem with classify and shaping by htb.
-> 
-> Who knows how to solve?
+Junote Cai reported that he was not able to get a DSA setup involving the
+DPAA/FMAN driver to work and narrowed it down to of_find_net_device_by_node()
+call in DSA setup. The initial attempt to fix this by adding of_node to the
+platform device results in a second, failed, probing of the FMan MAC driver
+against the new platform device created for the DPAA Ethernet driver.
+Solve these issues by removing the of_node pointer from the platform device
+and changing the net_dev dev to the of_device dev to ensure the DSA init
+will be able to find the DPAA net_dev using of_find_net_device_by_node().
+Several changes were required to enable this solution: refactoring the
+adjust_link (also resulted in lesser, cleaner code) and renaming the fman
+kernel modules to keep the legacy udev rules happy.
 
-You use a single ifb0 on the whole (multiqueue) device for ingress ?
 
-What about multiple ifb instead, one per RX queue ?
+Madalin Bucur (4):
+  fsl/fman: remove of_node
+  dpaa_eth: move of_phy_connect() to the eth driver
+  dpaa_eth: change device used
+  fsl/fman: add dpaa in module names
 
-Alternative is to reduce contention and use a single RX queue.
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c |  89 +++++++++-------
+ drivers/net/ethernet/freescale/fman/Makefile   |  12 +--
+ drivers/net/ethernet/freescale/fman/mac.c      | 135 +++++++------------------
+ drivers/net/ethernet/freescale/fman/mac.h      |   6 +-
+ 4 files changed, 99 insertions(+), 143 deletions(-)
+
+-- 
+2.1.0
