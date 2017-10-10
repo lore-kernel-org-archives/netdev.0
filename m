@@ -1,38 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
-Date: Tue, 10 Oct 2017 10:16:21 -0700
-Message-ID: <CAM_iQpWYgNrSmZYMj-jBSqDud0x=1d+8BTjECD+apBY-91FgLw@mail.gmail.com>
-References: <20171010053547.21162-1-xiyou.wangcong@gmail.com> <CANn89i+vtkP+bisnTURSazuKwtjeYJjLba6wZOLg5AjsqjJPqQ@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2] xdp: Sample xdp program implementing ip forward
+Date: Tue, 10 Oct 2017 10:19:21 -0700
+Message-ID: <20171010101921.30136d48@shemminger-XPS-13-9360>
+References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
+        <1507620532-25804-2-git-send-email-Christina.Jacob@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33707 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755473AbdJJRQm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 13:16:42 -0400
-Received: by mail-pf0-f196.google.com with SMTP id m28so36970493pfi.0
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 10:16:42 -0700 (PDT)
-In-Reply-To: <CANn89i+vtkP+bisnTURSazuKwtjeYJjLba6wZOLg5AjsqjJPqQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, brouer@redhat.com,
+        Sunil.Goutham@cavium.com, daniel@iogearbox.net, dsahern@gmail.com,
+        Christina Jacob <Christina.Jacob@cavium.com>
+To: Christina Jacob <christina.jacob.koikara@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507620532-25804-2-git-send-email-Christina.Jacob@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2017 at 4:21 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Mon, Oct 9, 2017 at 10:35 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> We need a real-time notification for tcp retransmission
->> for monitoring.
->
-> Hi Cong
->
-> This seems to not be well defined.
->
-> For example, why a retransmission triggered by TLP is not traced ?
+On Tue, 10 Oct 2017 12:58:52 +0530
+Christina Jacob <christina.jacob.koikara@gmail.com> wrote:
 
-Oh, it should, seems I should just put the trace in __tcp_retransmit_skb()
-instead...
+> +/* Get the mac address of the interface given interface name */
+> +static long *getmac(char *iface)
+> +{
+> +	int fd;
+> +	struct ifreq ifr;
+> +	long *mac = NULL;
+> +
+> +	fd = socket(AF_INET, SOCK_DGRAM, 0);
+> +	ifr.ifr_addr.sa_family = AF_INET;
+> +	strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
+> +	ioctl(fd, SIOCGIFHWADDR, &ifr);
+> +	mac = (long *)ifr.ifr_hwaddr.sa_data;
+> +	close(fd);
+> +	return mac;
 
-I will update the patch after waiting for other feedbacks.
-
-Thanks.
+Always check return value of ioctl.
+You are assuming sizeof(long) > 6 bytes.
+Also the byte order.
