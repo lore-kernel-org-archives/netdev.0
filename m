@@ -1,35 +1,59 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next 3/4] net: sched: convert cls_flower->egress_dev
- users to tc_setup_cb_egdev infra
-Date: Tue, 10 Oct 2017 23:08:23 +0300
-Message-ID: <CAJ3xEMh0cM3FszEjKNNe3aWTjHoDxof9GURgUSMy5k3iSTLg2g@mail.gmail.com>
-References: <20171010073016.3682-1-jiri@resnulli.us> <20171010073016.3682-4-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        mlxsw <mlxsw@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>,
-        Simon Horman <simon.horman@netronome.com>
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH net-next 1/1] veth: tweak creation of veth device
+Date: Tue, 10 Oct 2017 16:08:44 -0400
+Message-ID: <1507666124-8780-1-git-send-email-mrv@mojatatu.com>
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
+        Roman Mashak <mrv@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:45632 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935022AbdJJUIY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 16:08:24 -0400
-Received: by mail-oi0-f66.google.com with SMTP id f66so2969137oib.2
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 13:08:24 -0700 (PDT)
-In-Reply-To: <20171010073016.3682-4-jiri@resnulli.us>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:56148 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935073AbdJJUIv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 16:08:51 -0400
+Received: by mail-it0-f65.google.com with SMTP id l196so126230itl.4
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 13:08:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 10:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> The only user of cls_flower->egress_dev is mlx5.
+When creating veth pair, at first rtnl_new_link() creates veth_dev, i.e.
+one end of the veth pipe, but not registers it; then veth_newlink() gets
+invoked, where peer dev is created _and_ registered, followed by veth_dev
+registration, which may fail if peer information, that is VETH_INFO_PEER
+attribute, has not been provided and the kernel will allocate unique veth
+name.
 
-but nfp supports decap action offload too and from the flower code
-stand point, I guess they are both the same, right? how does it work
-there?
+So, we should ask the kernel to allocate unique name for veth_dev only
+when peer info is not available.
 
-Or.
+Example:
+
+% ip link dev veth0 type veth
+RTNETLINK answers: File exists
+
+After fix:
+% ip link dev veth0 type veth
+% ip link show dev veth0
+5: veth0@veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether f6:ef:8b:96:f4:ec brd ff:ff:ff:ff:ff:ff
+%
+
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+---
+ drivers/net/veth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index f5438d0..00dce15 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -432,7 +432,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 	if (tb[IFLA_ADDRESS] == NULL)
+ 		eth_hw_addr_random(dev);
+ 
+-	if (tb[IFLA_IFNAME])
++	if (ifmp && tb[IFLA_IFNAME])
+ 		nla_strlcpy(dev->name, tb[IFLA_IFNAME], IFNAMSIZ);
+ 	else
+ 		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
+-- 
+1.9.1
