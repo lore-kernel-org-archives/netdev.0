@@ -1,42 +1,60 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [patch net-next 3/4] net: sched: convert cls_flower->egress_dev
- users to tc_setup_cb_egdev infra
-Date: Wed, 11 Oct 2017 00:47:19 +0300
-Message-ID: <CAJ3xEMhHf8_bV_EFs2T44ikskm5dzHgiV0GhbW1UZneyO=d8jw@mail.gmail.com>
-References: <20171010073016.3682-1-jiri@resnulli.us> <20171010073016.3682-4-jiri@resnulli.us>
- <CAJ3xEMh0cM3FszEjKNNe3aWTjHoDxof9GURgUSMy5k3iSTLg2g@mail.gmail.com> <20171010211609.GK2033@nanopsycho>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
+Date: Tue, 10 Oct 2017 23:58:53 +0200
+Message-ID: <87po9ull5u.fsf@stressinduktion.org>
+References: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
+        <20171010173821.6djxyvrggvaivqec@ast-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Simon Horman <simon.horman@netronome.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        mlxsw <mlxsw@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>,
-        John Hurley <john.hurley@netronome.com>
+Content-Type: text/plain
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Brendan Gregg <brendan.d.gregg@gmail.com>,
+        Song Liu <songliubraving@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:50436 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756410AbdJJVrU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 17:47:20 -0400
-Received: by mail-oi0-f67.google.com with SMTP id q4so30052091oic.7
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 14:47:20 -0700 (PDT)
-In-Reply-To: <20171010211609.GK2033@nanopsycho>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:33339 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756534AbdJJV64 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 17:58:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 11, 2017 at 12:16 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Oct 10, 2017 at 10:08:23PM CEST, gerlitz.or@gmail.com wrote:
->>On Tue, Oct 10, 2017 at 10:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> The only user of cls_flower->egress_dev is mlx5.
->>
->>but nfp supports decap action offload too and from the flower code
->>stand point, I guess they are both the same, right? how does it work
->>there?
->
-> Apparently they don't use cls_flower->egress_dev.
+Alexei Starovoitov <alexei.starovoitov@gmail.com> writes:
 
-John, can you elaborate on that, how do you manage to get away from
-that practice?
+> On Mon, Oct 09, 2017 at 10:35:47PM -0700, Cong Wang wrote:
+
+[...]
+
+>> +		trace_tcp_retransmit_skb(sk, skb, segs);
+>
+> I'm happy to see new tracepoints being added to tcp stack, but I'm concerned
+> with practical usability of them.
+> Like the above tracepoint definition makes it not very useful from bpf point of view,
+> since 'sk' pointer is not recored by as part of the tracepoint.
+> In bpf/tracing world we prefer tracepoints to have raw pointers recorded
+> in TP_STRUCT__entry() and _not_ printed in TP_printk()
+> (since pointers are useless for userspace).
+
+Ack.
+
+Also could the TP_printk also use the socket cookies so they can get
+associated with netlink dumps and as such also be associated to user
+space processes? It could help against races while trying to associate
+the socket with a process. ss already supports dumping those cookies
+with -e.
+
+The corresponding commit would be:
+
+commit 33cf7c90fe2f97afb1cadaa0cfb782cb9d1b9ee2
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Wed Mar 11 18:53:14 2015 -0700
+
+    net: add real socket cookies
+
+Right now they only get set when needed but as Eric already mentioned in
+his commit log, this could be refined.
+
+[...]
