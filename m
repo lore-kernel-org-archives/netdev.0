@@ -1,75 +1,72 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC 0/3] tun zerocopy stats
-Date: Tue, 10 Oct 2017 11:29:33 -0400
-Message-ID: <CAF=yD-Jc_ikdYLydYwkw+h_+izVEg2Qp66=5+URokyqM=E=zJg@mail.gmail.com>
-References: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com> <20171009.205228.714368596112967819.davem@davemloft.net>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH v2 net-next 1/2] net: dsa: lan9303: Move tag setup to new
+ lan9303_setup_tagging
+Date: Tue, 10 Oct 2017 17:30:57 +0200
+Message-ID: <2d03fb99-fd1c-9a0b-3274-eda605c3eb2d@egil-hjelmeland.no>
+References: <20171010124953.386-1-privat@egil-hjelmeland.no>
+ <20171010124953.386-2-privat@egil-hjelmeland.no>
+ <9235D6609DB808459E95D78E17F2E43D40B48C3D@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:56566 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932424AbdJJPaP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:30:15 -0400
-Received: by mail-oi0-f68.google.com with SMTP id v9so33609419oif.13
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 08:30:15 -0700 (PDT)
-In-Reply-To: <20171009.205228.714368596112967819.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Woojung.Huh@microchip.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40B48C3D@CHN-SV-EXMX02.mchp-main.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 9, 2017 at 11:52 PM, David Miller <davem@davemloft.net> wrote:
-> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-> Date: Fri,  6 Oct 2017 18:25:13 -0400
->
->> From: Willem de Bruijn <willemb@google.com>
+On 10. okt. 2017 17:14, Woojung.Huh@microchip.com wrote:
+>> +/* forward special tagged packets from port 0 to port 1 *or* port 2 */
+>> +static int lan9303_setup_tagging(struct lan9303 *chip)
+>> +{
+>> +	int ret;
+>> +	u32 val;
+>> +	/* enable defining the destination port via special VLAN tagging
+>> +	 * for port 0
+>> +	 */
+>> +	ret = lan9303_write_switch_reg(chip,
+>> LAN9303_SWE_INGRESS_PORT_TYPE,
+>> +
+>> LAN9303_SWE_INGRESS_PORT_TYPE_VLAN);
+>> +	if (ret)
+>> +		return ret;
+>> +
+>> +	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
+>> +	 * able to discover their source port
+>> +	 */
+>> +	val = LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0;
+>> +	return lan9303_write_switch_reg(chip,
+>> LAN9303_BM_EGRSS_PORT_TYPE, val);
+> Specific reason to use val then using LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0
+> like previous line?
+> 
+Specific reason was to please a reviewer that did not like my
+indenting in first version. I did not agree with him, but since
+nobody else spoke up, I changed the code.
+
+>> @@ -644,6 +648,10 @@ static int lan9303_setup(struct dsa_switch *ds)
+>>   		return -EINVAL;
+>>   	}
 >>
->> Add zerocopy transfer statistics to the vhost_net/tun zerocopy path.
->>
->> I've been using this to verify recent changes to zerocopy tuning [1].
->> Sharing more widely, as it may be useful in similar future work.
->>
->> Use ethtool stats as interface, as these are defined per device
->> driver and can easily be extended.
->>
->> Make the zerocopy release callback take an extra hop through the tun
->> driver to allow the driver to increment its counters.
->>
->> Care must be taken to avoid adding an alloc/free to this hot path.
->> Since the caller already must allocate a ubuf_info, make it allocate
->> two at a time and grant one to the tun device.
->>
->>  1/3: introduce ethtool stats (`ethtool -S $DEV`) for tun devices
->>  2/3: add zerocopy tx and tx_err counters
->>  3/3: convert vhost_net to pass a pair of ubuf_info to tun
->>
->> [1] http://patchwork.ozlabs.org/patch/822613/
->
-> This looks mostly fine to me, but I don't know enough about how vhost
-> and tap interact to tell whether this makes sense to upstream.
+>> +	ret = lan9303_setup_tagging(chip);
+>> +	if (ret)
+>> +		dev_err(chip->dev, "failed to setup port tagging %d\n", ret);
+>> +
+> Still move on when error happens?
+> 
+Good question. I just followed the pattern from the original function,
+which was not made by me. Actually I did once reflect on whether this 
+was the correct way. Perhaps it could be argued that it is better to 
+allow the device to come up, so the problem can be investigated?
 
-Thanks for taking a look. The need for monitoring these stats has
-come up in a couple of patch evaluation discussions, so I wanted
-to share at least one implementation to get the data.
-
-Because the choice to use zerocopy is based on heuristics and
-there is a cost if it mispredicts, I think we even want to being able
-to continuously monitor this in production.
-
-The implementation is probably not ready for that as is.
-
-> What are the runtime costs for these new statistics?
-
-It currently doubles the size of the ubuf_info memory pool. That can be
-fixed, as the current size is UIO_MAXIOV (1024), but the number of
-zerocopy packets in flight is bound by VHOST_MAX_PEND (128).
-
-It also adds an indirect function call to call to each zerocopy skb free
-path, though.
-
-If there is a way to expose these stats through vhost_net directly,
-instead of through tun, that may be better. But I did not see a
-suitable interface. Perhaps debugfs.
+>>   	ret = lan9303_separate_ports(chip);
+>>   	if (ret)
+>>   		dev_err(chip->dev, "failed to separate ports %d\n", ret);
+>> --
+>> 2.11.0
+> 
+> - Woojung
+> 
