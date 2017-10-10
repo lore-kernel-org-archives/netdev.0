@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] nfp: fix ethtool stats and page allocation
-Date: Tue, 10 Oct 2017 13:18:48 -0700 (PDT)
-Message-ID: <20171010.131848.1224943700020587506.davem@davemloft.net>
-References: <20171010161623.23838-1-jakub.kicinski@netronome.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [patch net-next 3/4] net: sched: convert cls_flower->egress_dev
+ users to tc_setup_cb_egdev infra
+Date: Tue, 10 Oct 2017 23:04:43 +0300
+Message-ID: <CAJ3xEMgRv3fVD3aBYMmyDjSeN+xoh-q71_aVkqyCNE7czpetwg@mail.gmail.com>
+References: <20171010073016.3682-1-jiri@resnulli.us> <20171010073016.3682-4-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leonro@mellanox.com>,
+        mlxsw <mlxsw@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53540 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934566AbdJJUSt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 16:18:49 -0400
-In-Reply-To: <20171010161623.23838-1-jakub.kicinski@netronome.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:36993 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934898AbdJJUEo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 16:04:44 -0400
+Received: by mail-oi0-f67.google.com with SMTP id 82so4378896oid.4
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 13:04:44 -0700 (PDT)
+In-Reply-To: <20171010073016.3682-4-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Tue, 10 Oct 2017 09:16:21 -0700
+On Tue, Oct 10, 2017 at 10:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
 
-> Two fixes for net.  First one makes sure we handle gather of stats on
-> 32bit machines correctly (ouch).  The second fix solves a potential
-> NULL-deref if we fail to allocate a page with XDP running.
-> 
-> I used Fixes: tags pointing to where the bug was introduced, but for
-> patch 1 it has been in the driver "for ever" and fix won't backport
-> cleanly beyond commit 325945ede6d4 ("nfp: split software and hardware 
-> vNIC statistics") which is in net.
+> --- a/include/net/pkt_cls.h
+> +++ b/include/net/pkt_cls.h
+> @@ -206,8 +206,6 @@ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts);
+>  int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts);
+>  int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
+>                      struct net_device **hw_dev);
+> -int tcf_exts_egdev_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
+> -                          void *type_data, bool err_stop);
 
-Series applied, thanks Jakub.
+but this (and another 1-2 hunks below) were set by upstream patch of
+this series, did you do that add/del on purpose? is that for
+bisection? if not why?
