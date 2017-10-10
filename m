@@ -1,44 +1,72 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH RFC tip/core/rcu 14/15] netfilter: Remove now-redundant
- smp_read_barrier_depends()
-Date: Tue, 10 Oct 2017 08:56:50 -0700
-Message-ID: <20171010155650.GF3521@linux.vnet.ibm.com>
-References: <20171010001951.GA6476@linux.vnet.ibm.com>
- <1507594969-8347-14-git-send-email-paulmck@linux.vnet.ibm.com>
- <20171010084334.nbyhryiwyrl6km4u@hirez.programming.kicks-ass.net>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, mingo@kernel.org,
-        torvalds@linux-foundation.org, mark.rutland@arm.com,
-        dhowells@redhat.com, linux-arch@vger.kernel.org,
-        will.deacon@arm.com, Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171010084334.nbyhryiwyrl6km4u@hirez.programming.kicks-ass.net>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net 2/2] nfp: handle page allocation failures
+Date: Tue, 10 Oct 2017 09:16:23 -0700
+Message-ID: <20171010161623.23838-3-jakub.kicinski@netronome.com>
+References: <20171010161623.23838-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:44803 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932089AbdJJQQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:16:36 -0400
+Received: by mail-pf0-f171.google.com with SMTP id x7so7430454pfa.1
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:16:35 -0700 (PDT)
+In-Reply-To: <20171010161623.23838-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 10:43:34AM +0200, Peter Zijlstra wrote:
-> On Mon, Oct 09, 2017 at 05:22:48PM -0700, Paul E. McKenney wrote:
-> > READ_ONCE() now implies smp_read_barrier_depends(), which means that
-> > the instances in arpt_do_table(), ipt_do_table(), and ip6t_do_table()
-> > are now redundant.  This commit removes them and adjusts the comments.
-> 
-> Similar to the previous patch, the lack of READ_ONCE() in the original
-> code is a pre-existing bug. It would allow the compiler to tear the load
-> and observe a composite of two difference pointer values, or reload the
-> private pointer and result in table_base and jumpstacl being part of
-> different objects.
-> 
-> It would be good to point out this actually fixes a bug in the code.
+page_address() does not handle NULL argument gracefully,
+make sure we NULL-check the page pointer before passing it
+to page_address().
 
-Assuming that these changes actually fixed something, agreed.  ;-)
+Fixes: ecd63a0217d5 ("nfp: add XDP support in the driver")
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
 
-							Thanx, Paul
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 1c0187f0af51..e118b5f23996 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1180,10 +1180,14 @@ static void *nfp_net_rx_alloc_one(struct nfp_net_dp *dp, dma_addr_t *dma_addr)
+ {
+ 	void *frag;
+ 
+-	if (!dp->xdp_prog)
++	if (!dp->xdp_prog) {
+ 		frag = netdev_alloc_frag(dp->fl_bufsz);
+-	else
+-		frag = page_address(alloc_page(GFP_KERNEL | __GFP_COLD));
++	} else {
++		struct page *page;
++
++		page = alloc_page(GFP_KERNEL | __GFP_COLD);
++		frag = page ? page_address(page) : NULL;
++	}
+ 	if (!frag) {
+ 		nn_dp_warn(dp, "Failed to alloc receive page frag\n");
+ 		return NULL;
+@@ -1203,10 +1207,14 @@ static void *nfp_net_napi_alloc_one(struct nfp_net_dp *dp, dma_addr_t *dma_addr)
+ {
+ 	void *frag;
+ 
+-	if (!dp->xdp_prog)
++	if (!dp->xdp_prog) {
+ 		frag = napi_alloc_frag(dp->fl_bufsz);
+-	else
+-		frag = page_address(alloc_page(GFP_ATOMIC | __GFP_COLD));
++	} else {
++		struct page *page;
++
++		page = alloc_page(GFP_ATOMIC | __GFP_COLD);
++		frag = page ? page_address(page) : NULL;
++	}
+ 	if (!frag) {
+ 		nn_dp_warn(dp, "Failed to alloc receive page frag\n");
+ 		return NULL;
+-- 
+2.14.1
