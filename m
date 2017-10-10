@@ -1,342 +1,473 @@
-From: Chenbo Feng <fengc@google.com>
-Subject: Re: [PATCH net-next v2 5/5] selinux: bpf: Add addtional check for bpf
- object file receive
-Date: Tue, 10 Oct 2017 10:48:35 -0700
-Message-ID: <CAMOXUJnuxe8mYUv9Dw5wo40M5Bhszg+uf54dzsp6t=JiBgNZ2Q@mail.gmail.com>
-References: <20171009222028.13096-1-chenbofeng.kernel@gmail.com>
- <20171009222028.13096-6-chenbofeng.kernel@gmail.com> <1507645461.30616.9.camel@tycho.nsa.gov>
+From: "Andrew F. Davis" <afd@ti.com>
+Subject: Re: [PATCH v5 1/2] net: phy: DP83822 initial driver submission
+Date: Tue, 10 Oct 2017 12:49:07 -0500
+Message-ID: <656fb45a-8602-4fcf-b3a2-6628da4ca3d2@ti.com>
+References: <20171010174256.21930-1-dmurphy@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-        SELinux <Selinux@tycho.nsa.gov>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Stephen Smalley <sds@tycho.nsa.gov>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <Woojung.Huh@microchip.com>
+To: Dan Murphy <dmurphy@ti.com>, <andrew@lunn.ch>,
+        <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:43570 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932114AbdJJRsh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 13:48:37 -0400
-Received: by mail-lf0-f50.google.com with SMTP id a16so14532015lfk.0
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 10:48:37 -0700 (PDT)
-In-Reply-To: <1507645461.30616.9.camel@tycho.nsa.gov>
+Received: from lelnx193.ext.ti.com ([198.47.27.77]:53246 "EHLO
+        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932114AbdJJRtX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 13:49:23 -0400
+In-Reply-To: <20171010174256.21930-1-dmurphy@ti.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 7:24 AM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
-> On Mon, 2017-10-09 at 15:20 -0700, Chenbo Feng wrote:
->> From: Chenbo Feng <fengc@google.com>
->>
->> Introduce a bpf object related check when sending and receiving files
->> through unix domain socket as well as binder. It checks if the
->> receiving
->> process have privilege to read/write the bpf map or use the bpf
->> program.
->> This check is necessary because the bpf maps and programs are using a
->> anonymous inode as their shared inode so the normal way of checking
->> the
->> files and sockets when passing between processes cannot work properly
->> on
->> eBPF object. This check only works when the BPF_SYSCALL is
->> configured.
->> The information stored inside the file security struct is the same as
->> the information in bpf object security struct.
->>
->> Signed-off-by: Chenbo Feng <fengc@google.com>
->> ---
->>  include/linux/bpf.h       |  3 +++
->>  include/linux/lsm_hooks.h | 17 +++++++++++++
->>  include/linux/security.h  |  9 +++++++
->>  kernel/bpf/syscall.c      |  4 ++--
->>  security/security.c       |  8 +++++++
->>  security/selinux/hooks.c  | 61
->> +++++++++++++++++++++++++++++++++++++++++++++++
->>  6 files changed, 100 insertions(+), 2 deletions(-)
->>
->> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
->> index 225740688ab7..81d6c01b8825 100644
->> --- a/include/linux/bpf.h
->> +++ b/include/linux/bpf.h
->> @@ -285,6 +285,9 @@ int bpf_prog_array_copy_to_user(struct
->> bpf_prog_array __rcu *progs,
->>  #ifdef CONFIG_BPF_SYSCALL
->>  DECLARE_PER_CPU(int, bpf_prog_active);
->>
->> +extern const struct file_operations bpf_map_fops;
->> +extern const struct file_operations bpf_prog_fops;
->> +
->>  #define BPF_PROG_TYPE(_id, _ops) \
->>       extern const struct bpf_verifier_ops _ops;
->>  #define BPF_MAP_TYPE(_id, _ops) \
->> diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
->> index 7161d8e7ee79..517dea60b87b 100644
->> --- a/include/linux/lsm_hooks.h
->> +++ b/include/linux/lsm_hooks.h
->> @@ -1385,6 +1385,19 @@
->>   * @bpf_prog_free_security:
->>   *   Clean up the security information stored inside bpf prog.
->>   *
->> + * @bpf_map_file:
->> + *   When creating a bpf map fd, set up the file security
->> information with
->> + *   the bpf security information stored in the map struct. So
->> when the map
->> + *   fd is passed between processes, the security module can
->> directly read
->> + *   the security information from file security struct rather
->> than the bpf
->> + *   security struct.
->> + *
->> + * @bpf_prog_file:
->> + *   When creating a bpf prog fd, set up the file security
->> information with
->> + *   the bpf security information stored in the prog struct. So
->> when the prog
->> + *   fd is passed between processes, the security module can
->> directly read
->> + *   the security information from file security struct rather
->> than the bpf
->> + *   security struct.
->>   */
->>  union security_list_options {
->>       int (*binder_set_context_mgr)(struct task_struct *mgr);
->> @@ -1726,6 +1739,8 @@ union security_list_options {
->>       void (*bpf_map_free_security)(struct bpf_map *map);
->>       int (*bpf_prog_alloc_security)(struct bpf_prog_aux *aux);
->>       void (*bpf_prog_free_security)(struct bpf_prog_aux *aux);
->> +     void (*bpf_map_file)(struct bpf_map *map, struct file
->> *file);
->> +     void (*bpf_prog_file)(struct bpf_prog_aux *aux, struct file
->> *file);
->>  #endif /* CONFIG_BPF_SYSCALL */
->>  };
->>
->> @@ -1954,6 +1969,8 @@ struct security_hook_heads {
->>       struct list_head bpf_map_free_security;
->>       struct list_head bpf_prog_alloc_security;
->>       struct list_head bpf_prog_free_security;
->> +     struct list_head bpf_map_file;
->> +     struct list_head bpf_prog_file;
->>  #endif /* CONFIG_BPF_SYSCALL */
->>  } __randomize_layout;
->>
->> diff --git a/include/linux/security.h b/include/linux/security.h
->> index 18800b0911e5..57573b794e2d 100644
->> --- a/include/linux/security.h
->> +++ b/include/linux/security.h
->> @@ -1740,6 +1740,8 @@ extern int security_bpf_map_alloc(struct
->> bpf_map *map);
->>  extern void security_bpf_map_free(struct bpf_map *map);
->>  extern int security_bpf_prog_alloc(struct bpf_prog_aux *aux);
->>  extern void security_bpf_prog_free(struct bpf_prog_aux *aux);
->> +extern void security_bpf_map_file(struct bpf_map *map, struct file
->> *file);
->> +extern void security_bpf_prog_file(struct bpf_prog_aux *aux, struct
->> file *file);
->>  #else
->>  static inline int security_bpf(int cmd, union bpf_attr *attr,
->>                                            unsigned int size)
->> @@ -1772,6 +1774,13 @@ static inline int
->> security_bpf_prog_alloc(struct bpf_prog_aux *aux)
->>
->>  static inline void security_bpf_prog_free(struct bpf_prog_aux *aux)
->>  { }
->> +
->> +static inline void security_bpf_map_file(struct bpf_map *map, struct
->> file *file)
->> +{ }
->> +
->> +static inline void security_bpf_prog_file(struct bpf_prog_aux *aux,
->> +                                       struct file *file)
->> +{ }
->>  #endif /* CONFIG_SECURITY */
->>  #endif /* CONFIG_BPF_SYSCALL */
->>
->> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
->> index 1cf31ddd7616..b144181d3f3a 100644
->> --- a/kernel/bpf/syscall.c
->> +++ b/kernel/bpf/syscall.c
->> @@ -313,7 +313,7 @@ static ssize_t bpf_dummy_write(struct file *filp,
->> const char __user *buf,
->>       return -EINVAL;
->>  }
->>
->> -static const struct file_operations bpf_map_fops = {
->> +const struct file_operations bpf_map_fops = {
->>  #ifdef CONFIG_PROC_FS
->>       .show_fdinfo    = bpf_map_show_fdinfo,
->>  #endif
->> @@ -964,7 +964,7 @@ static void bpf_prog_show_fdinfo(struct seq_file
->> *m, struct file *filp)
->>  }
->>  #endif
->>
->> -static const struct file_operations bpf_prog_fops = {
->> +const struct file_operations bpf_prog_fops = {
->>  #ifdef CONFIG_PROC_FS
->>       .show_fdinfo    = bpf_prog_show_fdinfo,
->>  #endif
->> diff --git a/security/security.c b/security/security.c
->> index 1cd8526cb0b7..dacf649b8cfa 100644
->> --- a/security/security.c
->> +++ b/security/security.c
->> @@ -1734,4 +1734,12 @@ void security_bpf_prog_free(struct
->> bpf_prog_aux *aux)
->>  {
->>       call_void_hook(bpf_prog_free_security, aux);
->>  }
->> +void security_bpf_map_file(struct bpf_map *map, struct file *file)
->> +{
->> +     call_void_hook(bpf_map_file, map, file);
->> +}
->> +void security_bpf_prog_file(struct bpf_prog_aux *aux, struct file
->> *file)
->> +{
->> +     call_void_hook(bpf_prog_file, aux, file);
->> +}
->>  #endif /* CONFIG_BPF_SYSCALL */
->> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
->> index 41aba4e3d57c..fea88655e0ee 100644
->> --- a/security/selinux/hooks.c
->> +++ b/security/selinux/hooks.c
->> @@ -1815,6 +1815,10 @@ static inline int file_path_has_perm(const
->> struct cred *cred,
->>       return inode_has_perm(cred, file_inode(file), av, &ad);
->>  }
->>
->> +#ifdef CONFIG_BPF_SYSCALL
->> +static int bpf_file_check(struct file *file, u32 sid);
->> +#endif
->> +
->>  /* Check whether a task can use an open file descriptor to
->>     access an inode in a given way.  Check access to the
->>     descriptor itself, and then use dentry_has_perm to
->> @@ -1845,6 +1849,12 @@ static int file_has_perm(const struct cred
->> *cred,
->>                       goto out;
->>       }
->>
->> +#ifdef CONFIG_BPF_SYSCALL
->> +     rc = bpf_file_check(file, cred_sid(cred));
->> +     if (rc)
->> +             goto out;
->> +#endif
->> +
->>       /* av is zero if only checking access to the descriptor. */
->>       rc = 0;
->>       if (av)
->> @@ -2165,6 +2175,12 @@ static int selinux_binder_transfer_file(struct
->> task_struct *from,
->>                       return rc;
->>       }
->>
->> +#ifdef CONFIG_BPF_SYSCALL
->> +     rc = bpf_file_check(file, sid);
->> +     if (rc)
->> +             return rc;
->> +#endif
->> +
->>       if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
->>               return 0;
->>
->> @@ -6288,6 +6304,33 @@ static u32 bpf_map_fmode_to_av(fmode_t fmode)
->>       return av;
->>  }
->>
->> +/* This function will check the file pass through unix socket or
->> binder to see
->> + * if it is a bpf related object. And apply correspinding checks on
->> the bpf
->> + * object based on the type. The bpf maps and programs, not like
->> other files and
->> + * socket, are using a shared anonymous inode inside the kernel as
->> their inode.
->> + * So checking that inode cannot identify if the process have
->> privilege to
->> + * access the bpf object and that's why we have to add this
->> additional check in
->> + * selinux_file_receive and selinux_binder_transfer_files.
->> + */
->> +static int bpf_file_check(struct file *file, u32 sid)
->> +{
->> +     struct file_security_struct *fsec = file->f_security;
->> +     int ret;
->> +
->> +     if (file->f_op == &bpf_map_fops) {
->> +             ret = avc_has_perm(sid, fsec->sid, SECCLASS_BPF_MAP,
->> +                                bpf_map_fmode_to_av(file-
->> >f_mode), NULL);
->> +             if (ret)
->> +                     return ret;
->> +     } else if (file->f_op == &bpf_prog_fops) {
->> +             ret = avc_has_perm(sid, fsec->sid,
->> SECCLASS_BPF_PROG,
->> +                                BPF_PROG__USE, NULL);
->> +             if (ret)
->> +                     return ret;
->> +     }
->> +     return 0;
->> +}
->> +
->>  static int selinux_bpf_map(struct bpf_map *map, fmode_t fmode)
->>  {
->>       u32 sid = current_sid();
->> @@ -6351,6 +6394,22 @@ static void selinux_bpf_prog_free(struct
->> bpf_prog_aux *aux)
->>       aux->security = NULL;
->>       kfree(bpfsec);
->>  }
->> +
->> +static void selinux_bpf_map_file(struct bpf_map *map, struct file
->> *file)
->> +{
->> +     struct bpf_security_struct *bpfsec = map->security;
->> +     struct file_security_struct *fsec = file->f_security;
->> +
->> +     fsec->sid = bpfsec->sid;
->> +}
->> +
->> +static void selinux_bpf_prog_file(struct bpf_prog_aux *aux, struct
->> file *file)
->> +{
->> +     struct bpf_security_struct *bpfsec = aux->security;
->> +     struct file_security_struct *fsec = file->f_security;
->> +
->> +     fsec->sid = bpfsec->sid;
->
-> I could be wrong, but isn't it the case that fsec->sid already will
-> equal bpfsec->sid, because they are both created by the same thread
-> during the same system call, and they each inherit the SID of the
-> current task?
->
-This is true when bpf object is created by the same process that
-obtains the fd. But there are other ways of getting a bpf object fd
-from the kernel such as bpf_obj_get and bpf_get_obj_fd_by_id. These
-action will ask the kernel to allocate a new file for the bpf object
-and the file sid would be the process ask for fd while the bpfsec->sid
-is the sid when bpf object get created. These two could be different.
-> What I expected you to do was to add and set a flags field in the
-> file_security_struct to indicate that this is a bpf map or prog, and
-> then test for that in your bpf_file_check() function instead of having
-> to export and test the fops structures.
->
->
->> +}
->>  #endif
->>
->>  static struct security_hook_list selinux_hooks[] __lsm_ro_after_init
->> = {
->> @@ -6581,6 +6640,8 @@ static struct security_hook_list
->> selinux_hooks[] __lsm_ro_after_init = {
->>       LSM_HOOK_INIT(bpf_prog_alloc_security,
->> selinux_bpf_prog_alloc),
->>       LSM_HOOK_INIT(bpf_map_free_security, selinux_bpf_map_free),
->>       LSM_HOOK_INIT(bpf_prog_free_security,
->> selinux_bpf_prog_free),
->> +     LSM_HOOK_INIT(bpf_map_file, selinux_bpf_map_file),
->> +     LSM_HOOK_INIT(bpf_prog_file, selinux_bpf_prog_file),
->>  #endif
->>  };
->>
+On 10/10/2017 12:42 PM, Dan Murphy wrote:
+> Add support for the TI  DP83822 10/100Mbit ethernet phy.
+> 
+> The DP83822 provides flexibility to connect to a MAC through a
+> standard MII, RMII or RGMII interface.
+> 
+> In addition the DP83822 needs to be removed from the DP83848 driver
+> as the WoL support is added here for this device.
+> 
+> Datasheet:
+> http://www.ti.com/product/DP83822I/datasheet
+> 
+> Signed-off-by: Dan Murphy <dmurphy@ti.com>
+> ---
+
+
+Looks much nicer now, thanks for dealing with my nitpicking :)
+
+Acked-by: Andrew F. Davis <afd@ti.com>
+
+> 
+> v5 - Fixed bit mask, added config_init to set WOL register bits, fixed spacing
+> issues, moved password storage under secure on if statement, and added INT_EN bit
+> setting for interrupt enable.
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg192495.html
+> 
+> v4 - Squash DP83822 removal patch into this patch -
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg192424.html
+> 
+> v3 - Fixed WoL indication bit and removed mutex for suspend/resume - 
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg191891.html and
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg191665.html
+> 
+> v2 - Updated per comments.  Removed unnessary parantheis, called genphy_suspend/
+> resume routines and then performing WoL changes, reworked sopass storage and reduced
+> the number of phy reads, and moved WOL_SECURE_ON - 
+> https://www.mail-archive.com/netdev@vger.kernel.org/msg191392.html
+> 
+>  drivers/net/phy/Kconfig   |   5 +
+>  drivers/net/phy/Makefile  |   1 +
+>  drivers/net/phy/dp83822.c | 344 ++++++++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/phy/dp83848.c |   3 -
+>  4 files changed, 350 insertions(+), 3 deletions(-)
+>  create mode 100644 drivers/net/phy/dp83822.c
+> 
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index cd931cf9dcc2..8e78a482e09e 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -277,6 +277,11 @@ config DAVICOM_PHY
+>  	---help---
+>  	  Currently supports dm9161e and dm9131
+>  
+> +config DP83822_PHY
+> +	tristate "Texas Instruments DP83822 PHY"
+> +	---help---
+> +	  Supports the DP83822 PHY.
+> +
+>  config DP83848_PHY
+>  	tristate "Texas Instruments DP83848 PHY"
+>  	---help---
+> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+> index 416df92fbf4f..df3b82ba8550 100644
+> --- a/drivers/net/phy/Makefile
+> +++ b/drivers/net/phy/Makefile
+> @@ -55,6 +55,7 @@ obj-$(CONFIG_CICADA_PHY)	+= cicada.o
+>  obj-$(CONFIG_CORTINA_PHY)	+= cortina.o
+>  obj-$(CONFIG_DAVICOM_PHY)	+= davicom.o
+>  obj-$(CONFIG_DP83640_PHY)	+= dp83640.o
+> +obj-$(CONFIG_DP83822_PHY)	+= dp83822.o
+>  obj-$(CONFIG_DP83848_PHY)	+= dp83848.o
+>  obj-$(CONFIG_DP83867_PHY)	+= dp83867.o
+>  obj-$(CONFIG_FIXED_PHY)		+= fixed_phy.o
+> diff --git a/drivers/net/phy/dp83822.c b/drivers/net/phy/dp83822.c
+> new file mode 100644
+> index 000000000000..14335d14e9e4
+> --- /dev/null
+> +++ b/drivers/net/phy/dp83822.c
+> @@ -0,0 +1,344 @@
+> +/*
+> + * Driver for the Texas Instruments DP83822 PHY
+> + *
+> + * Copyright (C) 2017 Texas Instruments Inc.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#include <linux/ethtool.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/kernel.h>
+> +#include <linux/mii.h>
+> +#include <linux/module.h>
+> +#include <linux/of.h>
+> +#include <linux/phy.h>
+> +#include <linux/netdevice.h>
+> +
+> +#define DP83822_PHY_ID	        0x2000a240
+> +#define DP83822_DEVADDR		0x1f
+> +
+> +#define MII_DP83822_PHYSCR	0x11
+> +#define MII_DP83822_MISR1	0x12
+> +#define MII_DP83822_MISR2	0x13
+> +#define MII_DP83822_RESET_CTRL	0x1f
+> +
+> +#define DP83822_HW_RESET	BIT(15)
+> +#define DP83822_SW_RESET	BIT(14)
+> +
+> +/* PHYSCR Register Fields */
+> +#define DP83822_PHYSCR_INT_OE		BIT(0) /* Interrupt Output Enable */
+> +#define DP83822_PHYSCR_INTEN		BIT(1) /* Interrupt Enable */
+> +
+> +/* MISR1 bits */
+> +#define DP83822_RX_ERR_HF_INT_EN	BIT(0)
+> +#define DP83822_FALSE_CARRIER_HF_INT_EN	BIT(1)
+> +#define DP83822_ANEG_COMPLETE_INT_EN	BIT(2)
+> +#define DP83822_DUP_MODE_CHANGE_INT_EN	BIT(3)
+> +#define DP83822_SPEED_CHANGED_INT_EN	BIT(4)
+> +#define DP83822_LINK_STAT_INT_EN	BIT(5)
+> +#define DP83822_ENERGY_DET_INT_EN	BIT(6)
+> +#define DP83822_LINK_QUAL_INT_EN	BIT(7)
+> +
+> +/* MISR2 bits */
+> +#define DP83822_JABBER_DET_INT_EN	BIT(0)
+> +#define DP83822_WOL_PKT_INT_EN		BIT(1)
+> +#define DP83822_SLEEP_MODE_INT_EN	BIT(2)
+> +#define DP83822_MDI_XOVER_INT_EN	BIT(3)
+> +#define DP83822_LB_FIFO_INT_EN		BIT(4)
+> +#define DP83822_PAGE_RX_INT_EN		BIT(5)
+> +#define DP83822_ANEG_ERR_INT_EN		BIT(6)
+> +#define DP83822_EEE_ERROR_CHANGE_INT_EN	BIT(7)
+> +
+> +/* INT_STAT1 bits */
+> +#define DP83822_WOL_INT_EN	BIT(4)
+> +#define DP83822_WOL_INT_STAT	BIT(12)
+> +
+> +#define MII_DP83822_RXSOP1	0x04a5
+> +#define	MII_DP83822_RXSOP2	0x04a6
+> +#define	MII_DP83822_RXSOP3	0x04a7
+> +
+> +/* WoL Registers */
+> +#define	MII_DP83822_WOL_CFG	0x04a0
+> +#define	MII_DP83822_WOL_STAT	0x04a1
+> +#define	MII_DP83822_WOL_DA1	0x04a2
+> +#define	MII_DP83822_WOL_DA2	0x04a3
+> +#define	MII_DP83822_WOL_DA3	0x04a4
+> +
+> +/* WoL bits */
+> +#define DP83822_WOL_MAGIC_EN	BIT(0)
+> +#define DP83822_WOL_SECURE_ON	BIT(5)
+> +#define DP83822_WOL_EN		BIT(7)
+> +#define DP83822_WOL_INDICATION_SEL BIT(8)
+> +#define DP83822_WOL_CLR_INDICATION BIT(11)
+> +
+> +static int dp83822_ack_interrupt(struct phy_device *phydev)
+> +{
+> +	int err;
+> +
+> +	err = phy_read(phydev, MII_DP83822_MISR1);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	err = phy_read(phydev, MII_DP83822_MISR2);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	return 0;
+> +}
+> +
+> +static int dp83822_set_wol(struct phy_device *phydev,
+> +			   struct ethtool_wolinfo *wol)
+> +{
+> +	struct net_device *ndev = phydev->attached_dev;
+> +	u16 value;
+> +	const u8 *mac;
+> +
+> +	if (wol->wolopts & (WAKE_MAGIC | WAKE_MAGICSECURE)) {
+> +		mac = (const u8 *)ndev->dev_addr;
+> +
+> +		if (!is_valid_ether_addr(mac))
+> +			return -EINVAL;
+> +
+> +		/* MAC addresses start with byte 5, but stored in mac[0].
+> +		 * 822 PHYs store bytes 4|5, 2|3, 0|1
+> +		 */
+> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_DA1,
+> +			      (mac[1] << 8) | mac[0]);
+> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_DA2,
+> +			      (mac[3] << 8) | mac[2]);
+> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_DA3,
+> +			      (mac[5] << 8) | mac[4]);
+> +
+> +		value = phy_read_mmd(phydev, DP83822_DEVADDR,
+> +				     MII_DP83822_WOL_CFG);
+> +		if (wol->wolopts & WAKE_MAGIC)
+> +			value |= DP83822_WOL_MAGIC_EN;
+> +		else
+> +			value &= ~DP83822_WOL_MAGIC_EN;
+> +
+> +		if (wol->wolopts & WAKE_MAGICSECURE) {
+> +			phy_write_mmd(phydev, DP83822_DEVADDR,
+> +				      MII_DP83822_RXSOP1,
+> +				      (wol->sopass[1] << 8) | wol->sopass[0]);
+> +			phy_write_mmd(phydev, DP83822_DEVADDR,
+> +				      MII_DP83822_RXSOP2,
+> +				      (wol->sopass[3] << 8) | wol->sopass[2]);
+> +			phy_write_mmd(phydev, DP83822_DEVADDR,
+> +				      MII_DP83822_RXSOP3,
+> +				      (wol->sopass[5] << 8) | wol->sopass[4]);
+> +			value |= DP83822_WOL_SECURE_ON;
+> +		} else {
+> +			value &= ~DP83822_WOL_SECURE_ON;
+> +		}
+> +
+> +		value |= (DP83822_WOL_EN | DP83822_WOL_INDICATION_SEL |
+> +			  DP83822_WOL_CLR_INDICATION);
+> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
+> +			      value);
+> +	} else {
+> +		value = phy_read_mmd(phydev, DP83822_DEVADDR,
+> +				     MII_DP83822_WOL_CFG);
+> +		value &= ~DP83822_WOL_EN;
+> +		phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
+> +			      value);
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static void dp83822_get_wol(struct phy_device *phydev,
+> +			    struct ethtool_wolinfo *wol)
+> +{
+> +	int value;
+> +	u16 sopass_val;
+> +
+> +	wol->supported = (WAKE_MAGIC | WAKE_MAGICSECURE);
+> +	wol->wolopts = 0;
+> +
+> +	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+> +
+> +	if (value & DP83822_WOL_MAGIC_EN)
+> +		wol->wolopts |= WAKE_MAGIC;
+> +
+> +	if (value & DP83822_WOL_SECURE_ON) {
+> +		sopass_val = phy_read_mmd(phydev, DP83822_DEVADDR,
+> +					  MII_DP83822_RXSOP1);
+> +		wol->sopass[0] = (sopass_val & 0xff);
+> +		wol->sopass[1] = (sopass_val >> 8);
+> +
+> +		sopass_val = phy_read_mmd(phydev, DP83822_DEVADDR,
+> +					  MII_DP83822_RXSOP2);
+> +		wol->sopass[2] = (sopass_val & 0xff);
+> +		wol->sopass[3] = (sopass_val >> 8);
+> +
+> +		sopass_val = phy_read_mmd(phydev, DP83822_DEVADDR,
+> +					  MII_DP83822_RXSOP3);
+> +		wol->sopass[4] = (sopass_val & 0xff);
+> +		wol->sopass[5] = (sopass_val >> 8);
+> +
+> +		wol->wolopts |= WAKE_MAGICSECURE;
+> +	}
+> +
+> +	/* WoL is not enabled so set wolopts to 0 */
+> +	if (!(value & DP83822_WOL_EN))
+> +		wol->wolopts = 0;
+> +}
+> +
+> +static int dp83822_config_intr(struct phy_device *phydev)
+> +{
+> +	int misr_status;
+> +	int physcr_status;
+> +	int err;
+> +
+> +	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
+> +		misr_status = phy_read(phydev, MII_DP83822_MISR1);
+> +		if (misr_status < 0)
+> +			return misr_status;
+> +
+> +		misr_status |= (DP83822_RX_ERR_HF_INT_EN |
+> +				DP83822_FALSE_CARRIER_HF_INT_EN |
+> +				DP83822_ANEG_COMPLETE_INT_EN |
+> +				DP83822_DUP_MODE_CHANGE_INT_EN |
+> +				DP83822_SPEED_CHANGED_INT_EN |
+> +				DP83822_LINK_STAT_INT_EN |
+> +				DP83822_ENERGY_DET_INT_EN |
+> +				DP83822_LINK_QUAL_INT_EN);
+> +
+> +		err = phy_write(phydev, MII_DP83822_MISR1, misr_status);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		misr_status = phy_read(phydev, MII_DP83822_MISR2);
+> +		if (misr_status < 0)
+> +			return misr_status;
+> +
+> +		misr_status |= (DP83822_JABBER_DET_INT_EN |
+> +				DP83822_WOL_PKT_INT_EN |
+> +				DP83822_SLEEP_MODE_INT_EN |
+> +				DP83822_MDI_XOVER_INT_EN |
+> +				DP83822_LB_FIFO_INT_EN |
+> +				DP83822_PAGE_RX_INT_EN |
+> +				DP83822_ANEG_ERR_INT_EN |
+> +				DP83822_EEE_ERROR_CHANGE_INT_EN);
+> +
+> +		err = phy_write(phydev, MII_DP83822_MISR2, misr_status);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		physcr_status = phy_read(phydev, MII_DP83822_PHYSCR);
+> +		if (physcr_status < 0)
+> +			return physcr_status;
+> +
+> +		physcr_status |= DP83822_PHYSCR_INT_OE | DP83822_PHYSCR_INTEN;
+> +
+> +	} else {
+> +		err = phy_write(phydev, MII_DP83822_MISR1, 0);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		err = phy_write(phydev, MII_DP83822_MISR1, 0);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		physcr_status = phy_read(phydev, MII_DP83822_PHYSCR);
+> +		if (physcr_status < 0)
+> +			return physcr_status;
+> +
+> +		physcr_status &= ~DP83822_PHYSCR_INTEN;
+> +	}
+> +
+> +	return phy_write(phydev, MII_DP83822_PHYSCR, physcr_status);
+> +}
+> +
+> +static int dp83822_config_init(struct phy_device *phydev)
+> +{
+> +	int err;
+> +	int value;
+> +
+> +	err = genphy_config_init(phydev);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	value = DP83822_WOL_MAGIC_EN | DP83822_WOL_SECURE_ON | DP83822_WOL_EN;
+> +
+> +	return phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG,
+> +	      value);
+> +}
+> +
+> +static int dp83822_phy_reset(struct phy_device *phydev)
+> +{
+> +	int err;
+> +
+> +	err = phy_write(phydev, MII_DP83822_RESET_CTRL, DP83822_HW_RESET);
+> +	if (err < 0)
+> +		return err;
+> +
+> +	dp83822_config_init(phydev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int dp83822_suspend(struct phy_device *phydev)
+> +{
+> +	int value;
+> +
+> +	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+> +
+> +	if (!(value & DP83822_WOL_EN))
+> +		genphy_suspend(phydev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int dp83822_resume(struct phy_device *phydev)
+> +{
+> +	int value;
+> +
+> +	genphy_resume(phydev);
+> +
+> +	value = phy_read_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG);
+> +
+> +	phy_write_mmd(phydev, DP83822_DEVADDR, MII_DP83822_WOL_CFG, value |
+> +		      DP83822_WOL_CLR_INDICATION);
+> +
+> +	return 0;
+> +}
+> +
+> +static struct phy_driver dp83822_driver[] = {
+> +	{
+> +		.phy_id = DP83822_PHY_ID,
+> +		.phy_id_mask = 0xfffffff0,
+> +		.name = "TI DP83822",
+> +		.features = PHY_BASIC_FEATURES,
+> +		.flags = PHY_HAS_INTERRUPT,
+> +		.config_init = dp83822_config_init,
+> +		.soft_reset = dp83822_phy_reset,
+> +		.get_wol = dp83822_get_wol,
+> +		.set_wol = dp83822_set_wol,
+> +		.ack_interrupt = dp83822_ack_interrupt,
+> +		.config_intr = dp83822_config_intr,
+> +		.config_aneg = genphy_config_aneg,
+> +		.read_status = genphy_read_status,
+> +		.suspend = dp83822_suspend,
+> +		.resume = dp83822_resume,
+> +	 },
+> +};
+> +module_phy_driver(dp83822_driver);
+> +
+> +static struct mdio_device_id __maybe_unused dp83822_tbl[] = {
+> +	{ DP83822_PHY_ID, 0xfffffff0 },
+> +	{ },
+> +};
+> +MODULE_DEVICE_TABLE(mdio, dp83822_tbl);
+> +
+> +MODULE_DESCRIPTION("Texas Instruments DP83822 PHY driver");
+> +MODULE_AUTHOR("Dan Murphy <dmurphy@ti.com");
+> +MODULE_LICENSE("GPL");
+> diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+> index 3de4fe4dda77..3966d43c5146 100644
+> --- a/drivers/net/phy/dp83848.c
+> +++ b/drivers/net/phy/dp83848.c
+> @@ -20,7 +20,6 @@
+>  #define TI_DP83620_PHY_ID		0x20005ce0
+>  #define NS_DP83848C_PHY_ID		0x20005c90
+>  #define TLK10X_PHY_ID			0x2000a210
+> -#define TI_DP83822_PHY_ID		0x2000a240
+>  
+>  /* Registers */
+>  #define DP83848_MICR			0x11 /* MII Interrupt Control Register */
+> @@ -80,7 +79,6 @@ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
+>  	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
+>  	{ TI_DP83620_PHY_ID, 0xfffffff0 },
+>  	{ TLK10X_PHY_ID, 0xfffffff0 },
+> -	{ TI_DP83822_PHY_ID, 0xfffffff0 },
+>  	{ }
+>  };
+>  MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+> @@ -110,7 +108,6 @@ static struct phy_driver dp83848_driver[] = {
+>  	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
+>  	DP83848_PHY_DRIVER(TI_DP83620_PHY_ID, "TI DP83620 10/100 Mbps PHY"),
+>  	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
+> -	DP83848_PHY_DRIVER(TI_DP83822_PHY_ID, "TI DP83822 10/100 Mbps PHY"),
+>  };
+>  module_phy_driver(dp83848_driver);
+>  
+> 
