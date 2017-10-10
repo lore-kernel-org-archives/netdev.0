@@ -1,125 +1,76 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/9] e1000e: Avoid receiver overrun interrupt bursts
-Date: Tue, 10 Oct 2017 10:21:35 -0700
-Message-ID: <20171010172139.77914-6-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 6/9] e1000e: fix buffer overrun while the I219 is processing DMA transactions
+Date: Tue, 10 Oct 2017 10:21:36 -0700
+Message-ID: <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
 References: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
-Cc: Benjamin Poirier <bpoirier@suse.com>, netdev@vger.kernel.org,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Sasha Neftin <sasha.neftin@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11575 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:6195 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932563AbdJJRWC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S932562AbdJJRWC (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 10 Oct 2017 13:22:02 -0400
 In-Reply-To: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
+From: Sasha Neftin <sasha.neftin@intel.com>
 
-When e1000e_poll() is not fast enough to keep up with incoming traffic, the
-adapter (when operating in msix mode) raises the Other interrupt to signal
-Receiver Overrun.
+Intel® 100/200 Series Chipset platforms reduced the round-trip
+latency for the LAN Controller DMA accesses, causing in some high
+performance cases a buffer overrun while the I219 LAN Connected
+Device is processing the DMA transactions. I219LM and I219V devices
+can fall into unrecovered Tx hang under very stressfully UDP traffic
+and multiple reconnection of Ethernet cable. This Tx hang of the LAN
+Controller is only recovered if the system is rebooted. Slightly slow
+down DMA access by reducing the number of outstanding requests.
+This workaround could have an impact on TCP traffic performance
+on the platform. Disabling TSO eliminates performance loss for TCP
+traffic without a noticeable impact on CPU performance.
 
-This is a double problem because 1) at the moment e1000_msix_other()
-assumes that it is only called in case of Link Status Change and 2) if the
-condition persists, the interrupt is repeatedly raised again in quick
-succession.
+Please, refer to I218/I219 specification update:
+https://www.intel.com/content/www/us/en/embedded/products/networking/
+ethernet-connection-i218-family-documentation.html
 
-Ideally we would configure the Other interrupt to not be raised in case of
-receiver overrun but this doesn't seem possible on this adapter. Instead,
-we handle the first part of the problem by reverting to the practice of
-reading ICR in the other interrupt handler, like before commit 16ecba59bc33
-("e1000e: Do not read ICR in Other interrupt"). Thanks to commit
-0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
-from CTRL_EXT, reading ICR doesn't interfere with RxQ0, TxQ0 interrupts
-anymore. We handle the second part of the problem by not re-enabling the
-Other interrupt right away when there is overrun. Instead, we wait until
-traffic subsides, napi polling mode is exited and interrupts are
-re-enabled.
-
-Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Fixes: 16ecba59bc33 ("e1000e: Do not read ICR in Other interrupt")
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+Reviewed-by: Dima Ruinskiy <dima.ruinskiy@intel.com>
+Reviewed-by: Raanan Avargil <raanan.avargil@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |  1 +
- drivers/net/ethernet/intel/e1000e/netdev.c  | 33 ++++++++++++++++++++++-------
- 2 files changed, 26 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 0641c0098738..afb7ebe20b24 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -398,6 +398,7 @@
- #define E1000_ICR_LSC           0x00000004 /* Link Status Change */
- #define E1000_ICR_RXSEQ         0x00000008 /* Rx sequence error */
- #define E1000_ICR_RXDMT0        0x00000010 /* Rx desc min. threshold (0) */
-+#define E1000_ICR_RXO           0x00000040 /* Receiver Overrun */
- #define E1000_ICR_RXT0          0x00000080 /* Rx timer intr (ring 0) */
- #define E1000_ICR_ECCER         0x00400000 /* Uncorrectable ECC Error */
- /* If this bit asserted, the driver should claim the interrupt */
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 0a5f95ab0d3c..ee9de3500331 100644
+index ee9de3500331..14b096f3d1da 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1910,14 +1910,30 @@ static irqreturn_t e1000_msix_other(int __always_unused irq, void *data)
- 	struct net_device *netdev = data;
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
-+	u32 icr;
-+	bool enable = true;
-+
-+	icr = er32(ICR);
-+	if (icr & E1000_ICR_RXO) {
-+		ew32(ICR, E1000_ICR_RXO);
-+		enable = false;
-+		/* napi poll will re-enable Other, make sure it runs */
-+		if (napi_schedule_prep(&adapter->napi)) {
-+			adapter->total_rx_bytes = 0;
-+			adapter->total_rx_packets = 0;
-+			__napi_schedule(&adapter->napi);
-+		}
-+	}
-+	if (icr & E1000_ICR_LSC) {
-+		ew32(ICR, E1000_ICR_LSC);
-+		hw->mac.get_link_status = true;
-+		/* guard against interrupt when we're going down */
-+		if (!test_bit(__E1000_DOWN, &adapter->state))
-+			mod_timer(&adapter->watchdog_timer, jiffies + 1);
-+	}
+@@ -3021,8 +3021,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
  
--	hw->mac.get_link_status = true;
--
--	/* guard against interrupt when we're going down */
--	if (!test_bit(__E1000_DOWN, &adapter->state)) {
--		mod_timer(&adapter->watchdog_timer, jiffies + 1);
-+	if (enable && !test_bit(__E1000_DOWN, &adapter->state))
- 		ew32(IMS, E1000_IMS_OTHER);
--	}
+ 	hw->mac.ops.config_collision_dist(hw);
  
- 	return IRQ_HANDLED;
- }
-@@ -2687,7 +2703,8 @@ static int e1000e_poll(struct napi_struct *napi, int weight)
- 		napi_complete_done(napi, work_done);
- 		if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 			if (adapter->msix_entries)
--				ew32(IMS, adapter->rx_ring->ims_val);
-+				ew32(IMS, adapter->rx_ring->ims_val |
-+				     E1000_IMS_OTHER);
- 			else
- 				e1000_irq_enable(adapter);
- 		}
-@@ -4204,7 +4221,7 @@ static void e1000e_trigger_lsc(struct e1000_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
+-	/* SPT and CNP Si errata workaround to avoid data corruption */
+-	if (hw->mac.type >= e1000_pch_spt) {
++	/* SPT and KBL Si errata workaround to avoid data corruption */
++	if (hw->mac.type == e1000_pch_spt) {
+ 		u32 reg_val;
  
- 	if (adapter->msix_entries)
--		ew32(ICS, E1000_ICS_OTHER);
-+		ew32(ICS, E1000_ICS_LSC | E1000_ICS_OTHER);
- 	else
- 		ew32(ICS, E1000_ICS_LSC);
+ 		reg_val = er32(IOSFPC);
+@@ -3030,7 +3030,9 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+ 		ew32(IOSFPC, reg_val);
+ 
+ 		reg_val = er32(TARC(0));
+-		reg_val |= E1000_TARC0_CB_MULTIQ_3_REQ;
++		/* SPT and KBL Si errata workaround to avoid Tx hang */
++		reg_val &= ~BIT(28);
++		reg_val |= BIT(29);
+ 		ew32(TARC(0), reg_val);
+ 	}
  }
 -- 
 2.14.2
