@@ -1,84 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
- support malloc buff at run time
-Date: Tue, 10 Oct 2017 09:47:43 -0700
-Message-ID: <20171010094743.6ae2baa8@shemminger-XPS-13-9360>
-References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
-        <1506605626-1744-3-git-send-email-haliu@redhat.com>
-        <20171002103708.0572704b@xeon-e3>
-        <20171009202525.GR32278@orbyte.nwl.cc>
-        <20171010064117.ipyarf5ml7fwnzdv@unicorn.suse.cz>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next] ipv6: fix dereference of rt6_ex before null check error
+Date: Tue, 10 Oct 2017 18:01:16 +0100
+Message-ID: <20171010170116.21124-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>, Hangbin Liu <haliu@redhat.com>,
-        netdev@vger.kernel.org, Hangbin Liu <liuhangbin@gmail.com>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:44614 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932075AbdJJQrt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:47:49 -0400
-Received: by mail-pf0-f175.google.com with SMTP id x7so7523051pfa.1
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:47:49 -0700 (PDT)
-In-Reply-To: <20171010064117.ipyarf5ml7fwnzdv@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Oct 2017 08:41:17 +0200
-Michal Kubecek <mkubecek@suse.cz> wrote:
+From: Colin Ian King <colin.king@canonical.com>
 
-> On Mon, Oct 09, 2017 at 10:25:25PM +0200, Phil Sutter wrote:
-> > Hi Stephen,
-> > 
-> > On Mon, Oct 02, 2017 at 10:37:08AM -0700, Stephen Hemminger wrote:  
-> > > On Thu, 28 Sep 2017 21:33:46 +0800
-> > > Hangbin Liu <haliu@redhat.com> wrote:
-> > >   
-> > > > From: Hangbin Liu <liuhangbin@gmail.com>
-> > > > 
-> > > > This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
-> > > > iplink_get()"). After update, we will not need to double the buffer size
-> > > > every time when VFs number increased.
-> > > > 
-> > > > With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
-> > > > length parameter.
-> > > > 
-> > > > With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
-> > > > answer to avoid overwrite data in nlh, because it may has more info after
-> > > > nlh. also this will avoid nlh buffer not enough issue.
-> > > > 
-> > > > We need to free answer after using.
-> > > > 
-> > > > Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> > > > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > > > ---  
-> > > 
-> > > Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
-> > > Can only those places that need that be targeted?  
-> > 
-> > We could probably do that, by having a buffer on stack in __rtnl_talk()
-> > which will be used instead of the allocated one if 'answer' is NULL. Or
-> > maybe even introduce a dedicated API call for the dynamically allocated
-> > receive buffer. But I really doubt that's feasible: AFAICT, that stack
-> > buffer still needs to be reasonably sized since the reply might be
-> > larger than the request (reusing the request buffer would be the most
-> > simple way to tackle this), also there is support for extack which may
-> > bloat the response to arbitrary size. Hangbin has shown in his benchmark
-> > that the overhead of the second syscall is negligible, so why care about
-> > that and increase code complexity even further?
-> > 
-> > Not saying it's not possible, but I just doubt it's worth the effort.  
-> 
-> Agreed. Current code is based on the assumption that we can estimate the
-> maximum reply length in advance and the reason for this series is that
-> this assumption turned out to be wrong. I'm afraid that if we replace
-> it by an assumption that we can estimate the maximum reply length for
-> most requests with only few exceptions, it's only matter of time for us
-> to be proven wrong again.
-> 
-> Michal Kubecek
-> 
+Currently rt6_ex is being dereferenced before it is null checked
+hence there is a possible null dereference bug. Fix this by only
+dereferencing rt6_ex after it has been null checked.
 
-For query responses, yes the response may be large. But for the common cases of
-add address or add route, the response should just be ack or error.
+Detected by CoverityScan, CID#1457749 ("Dereference before null check")
+
+Fixes: 81eb8447daae ("ipv6: take care of rt6_stats")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/ipv6/route.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 606e80325b21..6db1541eaa7b 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1152,10 +1152,12 @@ static DEFINE_SPINLOCK(rt6_exception_lock);
+ static void rt6_remove_exception(struct rt6_exception_bucket *bucket,
+ 				 struct rt6_exception *rt6_ex)
+ {
+-	struct net *net = dev_net(rt6_ex->rt6i->dst.dev);
++	struct net *net;
+ 
+ 	if (!bucket || !rt6_ex)
+ 		return;
++
++	net = dev_net(rt6_ex->rt6i->dst.dev);
+ 	rt6_ex->rt6i->rt6i_node = NULL;
+ 	hlist_del_rcu(&rt6_ex->hlist);
+ 	rt6_release(rt6_ex->rt6i);
+-- 
+2.14.1
