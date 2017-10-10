@@ -1,52 +1,44 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH] i40e: only redistribute MSI-X vectors when needed
-Date: Tue, 10 Oct 2017 14:56:58 -0700
-Message-ID: <1507672618-396715-1-git-send-email-shannon.nelson@oracle.com>
-Cc: netdev@vger.kernel.org
-To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next] net: dst: move cpu inside ifdef to avoid compilation warning
+Date: Tue, 10 Oct 2017 15:05:39 -0700
+Message-ID: <20171010220539.21200-1-jakub.kicinski@netronome.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44840 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753877AbdJJV7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 17:59:45 -0400
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:46000 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754108AbdJJWFz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 18:05:55 -0400
+Received: by mail-pf0-f173.google.com with SMTP id d28so3967526pfe.2
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 15:05:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Whether or not there are vectors_left, we only need to redistribute
-our vectors if we didn't get as many as we requested.  With the current
-check, the code will try to redistribute even if we did in fact get all
-the vectors we requested - this can happen when we have more CPUs than
-we do vectors.  This restores an earlier check to be sure we only
-redistribute if we didn't get the full count we requested.
+If CONFIG_DST_CACHE is not selected cpu variable
+will be unused and we will see a compilation warning.
+Move it under the ifdef.
 
-Fixes: 4ce20abc645f (i40e: fix MSI-X vector redistribution if hw limit is reached)
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: d66f2b91f95b ("bpf: don't rely on the verifier lock for metadata_dst allocation")
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ net/core/dst.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index bf91958..535e6e7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8176,7 +8176,7 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		pf->num_lan_qps = 1;
- 		pf->num_lan_msix = 1;
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 8b2eafac984d..662a2d4a3d19 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -325,9 +325,9 @@ EXPORT_SYMBOL_GPL(metadata_dst_alloc_percpu);
  
--	} else if (!vectors_left) {
-+	} else if (v_actual != v_budget) {
- 		/* If we have limited resources, we will start with no vectors
- 		 * for the special features and then allocate vectors to some
- 		 * of these features based on the policy and at the end disable
-@@ -8185,7 +8185,8 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		int vec;
+ void metadata_dst_free_percpu(struct metadata_dst __percpu *md_dst)
+ {
++#ifdef CONFIG_DST_CACHE
+ 	int cpu;
  
- 		dev_info(&pf->pdev->dev,
--			 "MSI-X vector limit reached, attempting to redistribute vectors\n");
-+			 "MSI-X vector limit reached with %d, wanted %d, attempting to redistribute vectors\n",
-+			 v_actual, v_budget);
- 		/* reserve the misc vector */
- 		vec = v_actual - 1;
+-#ifdef CONFIG_DST_CACHE
+ 	for_each_possible_cpu(cpu) {
+ 		struct metadata_dst *one_md_dst = per_cpu_ptr(md_dst, cpu);
  
 -- 
-1.7.1
+2.14.1
