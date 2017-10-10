@@ -1,52 +1,73 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 05/14] i40e/i40evf: always set the CLEARPBA flag when
- re-enabling interrupts
-Date: Tue, 10 Oct 2017 13:07:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD008ECFE@AcuExch.aculab.com>
-References: <20171009223841.2557-1-jeffrey.t.kirsher@intel.com>
- <20171009223841.2557-6-jeffrey.t.kirsher@intel.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v2] XDP Program for Ip forward
+Date: Tue, 10 Oct 2017 15:12:31 +0200
+Message-ID: <20171010151231.69fde82f@redhat.com>
+References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jacob Keller <jacob.e.keller@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:56456 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755272AbdJJNHl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 09:07:41 -0400
-In-Reply-To: <20171009223841.2557-6-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, Sunil.Goutham@cavium.com,
+        daniel@iogearbox.net, dsahern@gmail.com,
+        Christina Jacob <Christina.Jacob@cavium.com>, brouer@redhat.com
+To: Christina Jacob <christina.jacob.koikara@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher
-> Sent: 09 October 2017 23:39
-> In the past we changed driver behavior to not clear the PBA when
-> re-enabling interrupts. This change was motivated by the flawed belief
-> that clearing the PBA would cause a lost interrupt if a receive
-> interrupt occurred while interrupts were disabled.
+
+On Tue, 10 Oct 2017 12:58:51 +0530 Christina Jacob <christina.jacob.koikara@gmail.com> wrote:
+
+> The patch below implements port to port forwarding through route table and arp
+> table lookup for ipv4 packets using bpf_redirect helper function and lpm_trie
+> map.  This has an improved performance over the normal kernel stack ip forward.
 > 
-> According to empirical testing this isn't the case. Additionally, the
-> data sheet specifically says that we should set the CLEARPBA bit when
-> re-enabling interrupts in a polling setup.
+> Implementation details.
+> -----------------------
+[...]
+> 
+> In the xdp3_user.c,
+> 
+[...]
+> 
+> In the xdp3_kern.c,
 
-I presume this if the MSI-X Pending Bit Array?
-Normally this bit is cleared when the interrupt is actioned.
+You forgot to update the program name in the cover letter.
 
-If request the device clear the PBA then it (probably) won't
-raise an interrupt when it is unmasked (by clearing the 'masked' bit).
+> The array map for the 32 bit mask entries checked to see if there is a key that
+> exactly matches with the destination ip. If it has a non zero destination mac
+> entry then the xdp data is updated accordingly Otherwise a proper route and 
+> arp table lookup is done using the lpm_trie and the arp table array map.
+> 	
+> 	Usage: as ./xdp3 -S <ifindex1...ifindexn> (-S for
+                    ^^^^^
+The executable name also changed.
 
-If you've just checked all the rings (with the interrupt masked)
-and you clear the PBA bit when you unmask interrupts then you will
-need to do another scan of the rings to pick up any packets that
-arrived (or tried to signal an interrupt) in that small gap.
+> 	generic xdp implementation ifindex- the index of the interface to which
+> 	the xdp program has to be attached.) in 4.14-rc3 kernel.
+> 
+> Changes from v1 to v2
+> ---------------------
+>  
+> * As suggested by Jesper Dangaard Brouer
+> 	1. Changed the program name to  list xdp_router_ipv4
 
-'Empirical testing' probably won't hit the timing window.
+Thanks
 
-	David
+> 	2. Changed the commandline arguments from ifindex list to interface name
+> 		Usage : ./xdp_router_ipv4 [-S] <interface name list>
+> 		-S for generic xdp implementation
+> 		-interface name list is the list of interfaces to which
+> 		the xdp program should attach to
+
+Okay, you choose a slightly different way of implementing this, but it
+shouldn't matter.
+
+I'll try to test/benchmark your program...
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
