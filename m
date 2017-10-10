@@ -1,7 +1,7 @@
 From: Lipeng <lipeng321@huawei.com>
-Subject: [PATCH net-next 5/5] net: hns3: fix the ring count for ETHTOOL_GRXRINGS
-Date: Tue, 10 Oct 2017 16:42:07 +0800
-Message-ID: <1507624927-98008-6-git-send-email-lipeng321@huawei.com>
+Subject: [PATCH net-next 2/5] net: hns3: add support for set_ringparam
+Date: Tue, 10 Oct 2017 16:42:04 +0800
+Message-ID: <1507624927-98008-3-git-send-email-lipeng321@huawei.com>
 References: <1507624927-98008-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,26 +14,148 @@ In-Reply-To: <1507624927-98008-1-git-send-email-lipeng321@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix the ring count for ETHTOOL_GRXRINGS. Ring count
-not TC size should be return for command "ethtool -n ethx".
+This patch supports the ethtool's set_ringparam().
 
 Signed-off-by: Lipeng <lipeng321@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |  4 +-
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  4 ++
+ .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  | 75 ++++++++++++++++++++++
+ 3 files changed, 81 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index acb82cf..ba550c1 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -2637,7 +2637,7 @@ static void hns3_init_ring_hw(struct hns3_enet_ring *ring)
+ 	}
+ }
+ 
+-static int hns3_init_all_ring(struct hns3_nic_priv *priv)
++int hns3_init_all_ring(struct hns3_nic_priv *priv)
+ {
+ 	struct hnae3_handle *h = priv->ae_handle;
+ 	int ring_num = h->kinfo.num_tqps * 2;
+@@ -2666,7 +2666,7 @@ static int hns3_init_all_ring(struct hns3_nic_priv *priv)
+ 	return -ENOMEM;
+ }
+ 
+-static int hns3_uninit_all_ring(struct hns3_nic_priv *priv)
++int hns3_uninit_all_ring(struct hns3_nic_priv *priv)
+ {
+ 	struct hnae3_handle *h = priv->ae_handle;
+ 	int i;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+index dd8d40c..6659989 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+@@ -76,6 +76,8 @@ enum hns3_nic_state {
+ #define HNS3_RING_NAME_LEN			16
+ #define HNS3_BUFFER_SIZE_2048			2048
+ #define HNS3_RING_MAX_PENDING			32768
++#define HNS3_RING_MIN_PENDING			8
++#define HNS3_RING_BD_MULTIPLE			8
+ #define HNS3_MAX_MTU				9728
+ 
+ #define HNS3_BD_SIZE_512_TYPE			0
+@@ -593,6 +595,8 @@ static inline void hns3_write_reg(void __iomem *base, u32 reg, u32 value)
+ void hns3_ethtool_set_ops(struct net_device *netdev);
+ 
+ int hns3_clean_tx_ring(struct hns3_enet_ring *ring, int budget);
++int hns3_init_all_ring(struct hns3_nic_priv *priv);
++int hns3_uninit_all_ring(struct hns3_nic_priv *priv);
+ 
+ #ifdef CONFIG_HNS3_DCB
+ void hns3_dcbnl_setup(struct hnae3_handle *handle);
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-index b64fbd3..9b36ce0 100644
+index 060bace..1c5d003 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-@@ -450,7 +450,7 @@ static int hns3_get_rxnfc(struct net_device *netdev,
+@@ -459,10 +459,85 @@ static int hns3_get_rxnfc(struct net_device *netdev,
+ 	return 0;
+ }
  
- 	switch (cmd->cmd) {
- 	case ETHTOOL_GRXRINGS:
--		cmd->data = h->ae_algo->ops->get_tc_size(h);
-+		cmd->data = h->kinfo.num_tc * h->kinfo.rss_size;
- 		break;
- 	case ETHTOOL_GRXFH:
- 		return h->ae_algo->ops->get_rss_tuple(h, cmd);
++int hns3_change_all_ring_bd_num(struct hns3_nic_priv *priv, u32 new_desc_num)
++{
++	struct hnae3_handle *h = priv->ae_handle;
++	int i;
++
++	h->kinfo.num_desc = new_desc_num;
++
++	for (i = 0; i < h->kinfo.num_tqps * 2; i++)
++		priv->ring_data[i].ring->desc_num = new_desc_num;
++
++	return hns3_init_all_ring(priv);
++}
++
++int hns3_set_ringparam(struct net_device *ndev, struct ethtool_ringparam *param)
++{
++	struct hns3_nic_priv *priv = netdev_priv(ndev);
++	struct hnae3_handle *h = priv->ae_handle;
++	bool if_running = netif_running(ndev);
++	u32 old_desc_num, new_desc_num;
++	int ret;
++
++	if (param->rx_mini_pending || param->rx_jumbo_pending)
++		return -EINVAL;
++
++	if (param->tx_pending != param->rx_pending) {
++		netdev_err(ndev,
++			   "Descriptors of tx and rx must be equal");
++		return -EINVAL;
++	}
++
++	if (param->tx_pending > HNS3_RING_MAX_PENDING ||
++	    param->tx_pending < HNS3_RING_MIN_PENDING) {
++		netdev_err(ndev,
++			   "Descriptors requested (Tx/Rx: %d) out of range [%d-%d]\n",
++			   param->tx_pending, HNS3_RING_MIN_PENDING,
++			   HNS3_RING_MAX_PENDING);
++		return -EINVAL;
++	}
++
++	new_desc_num = param->tx_pending;
++
++	/* Hardware requires that its descriptors must be multiple of eight */
++	new_desc_num = ALIGN(new_desc_num, HNS3_RING_BD_MULTIPLE);
++	old_desc_num = h->kinfo.num_desc;
++	if (old_desc_num == new_desc_num)
++		return 0;
++
++	netdev_info(ndev,
++		    "Changing descriptor count from %d to %d.\n",
++		    old_desc_num, new_desc_num);
++
++	if (if_running)
++		dev_close(ndev);
++
++	ret = hns3_uninit_all_ring(priv);
++	if (ret)
++		return ret;
++
++	ret = hns3_change_all_ring_bd_num(priv, new_desc_num);
++	if (ret) {
++		ret = hns3_change_all_ring_bd_num(priv, old_desc_num);
++		if (ret) {
++			netdev_err(ndev,
++				   "Revert to old bd num fail, ret=%d.\n", ret);
++			return ret;
++		}
++	}
++
++	if (if_running)
++		ret = dev_open(ndev);
++
++	return ret;
++}
++
+ static const struct ethtool_ops hns3_ethtool_ops = {
+ 	.get_drvinfo = hns3_get_drvinfo,
+ 	.get_link = hns3_get_link,
+ 	.get_ringparam = hns3_get_ringparam,
++	.set_ringparam = hns3_set_ringparam,
+ 	.get_pauseparam = hns3_get_pauseparam,
+ 	.get_strings = hns3_get_strings,
+ 	.get_ethtool_stats = hns3_get_stats,
 -- 
 1.9.1
