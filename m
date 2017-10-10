@@ -1,87 +1,71 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/4] net: sched: remove unused tcf_exts_get_dev helper and cls_flower->egress_dev
-Date: Tue, 10 Oct 2017 09:30:16 +0200
-Message-ID: <20171010073016.3682-5-jiri@resnulli.us>
-References: <20171010073016.3682-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: Patch "udp: perform source validation for mcast early demux" has
+ been added to the 4.13-stable tree
+Date: Tue, 10 Oct 2017 09:31:43 +0200
+Message-ID: <20171010073143.GA19540@kroah.com>
+References: <150753453416498@kroah.com>
+ <1507534651.2517.1.camel@redhat.com>
+ <20171009075751.GA695@kroah.com>
+ <1507536134.2517.5.camel@redhat.com>
+ <20171009085458.GA20532@kroah.com>
+ <1507619766.2719.14.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, stable-commits@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Paolo Abeni <pabeni@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:46531 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755361AbdJJHaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:30:22 -0400
-Received: by mail-wm0-f68.google.com with SMTP id m72so2347297wmc.1
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 00:30:22 -0700 (PDT)
-In-Reply-To: <20171010073016.3682-1-jiri@resnulli.us>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:41624 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751900AbdJJHbg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 03:31:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1507619766.2719.14.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Tue, Oct 10, 2017 at 09:16:06AM +0200, Paolo Abeni wrote:
+> On Mon, 2017-10-09 at 10:54 +0200, Greg KH wrote:
+> > On Mon, Oct 09, 2017 at 10:02:14AM +0200, Paolo Abeni wrote:
+> > > On Mon, 2017-10-09 at 09:57 +0200, Greg KH wrote:
+> > > > On Mon, Oct 09, 2017 at 09:37:31AM +0200, Paolo Abeni wrote:
+> > > > > On Mon, 2017-10-09 at 09:35 +0200, gregkh@linuxfoundation.org wrote:
+> > > > > > This is a note to let you know that I've just added the patch titled
+> > > > > > 
+> > > > > >     udp: perform source validation for mcast early demux
+> > > > > > 
+> > > > > > to the 4.13-stable tree which can be found at:
+> > > > > >     http://www.kernel.org/git/?p=linux/kernel/git/stable/stable-queue.git;a=summary
+> > > > > > 
+> > > > > > The filename of the patch is:
+> > > > > >      udp-perform-source-validation-for-mcast-early-demux.patch
+> > > > > > and it can be found in the queue-4.13 subdirectory.
+> > > > > > 
+> > > > > > If you, or anyone else, feels it should not be added to the stable tree,
+> > > > > > please let <stable@vger.kernel.org> know about it.
+> > > > > 
+> > > > > Please, keep this one on-hold. It needs a relevant follow-up I'm going
+> > > > > to post soon!
+> > > > 
+> > > > Can I keep the patch before this one in the series "IPv4: early demux
+> > > > can return an error code"?  Or should I hold off on both of these for
+> > > > now?
+> > > 
+> > > AFAIK the patch "IPv4: early demux can return an error code" does not
+> > > have any issue - it's just useless without this one - I guess it can
+> > > stay in.
+> > 
+> > Ok, I've now moved this one out, thanks for letting me know.
+> > 
+> > And if you happen to remember when/if a fix for this goes into the tree,
+> > that would be most helpful :)
+> 
+> Sure! the fix just entered Linus's tree: commit 996b44fcef8f ("udp: fix
+> bcast packet reception")
 
-The helper and the struct field ares no longer used by any code,
-so remove them.
+Great!  Dave, mind if I take this now, or do you want me to wait for the
+next round of networking patches.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/pkt_cls.h |  3 ---
- net/sched/cls_api.c   | 22 ----------------------
- 2 files changed, 25 deletions(-)
+thanks,
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index c0bdf5c..f526374 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -204,8 +204,6 @@ void tcf_exts_destroy(struct tcf_exts *exts);
- void tcf_exts_change(struct tcf_exts *dst, struct tcf_exts *src);
- int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts);
- int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts);
--int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
--		     struct net_device **hw_dev);
- 
- /**
-  * struct tcf_pkt_info - packet information
-@@ -517,7 +515,6 @@ struct tc_cls_flower_offload {
- 	struct fl_flow_key *mask;
- 	struct fl_flow_key *key;
- 	struct tcf_exts *exts;
--	bool egress_dev;
- };
- 
- enum tc_matchall_command {
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 51994a2..2977b8a 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -1004,28 +1004,6 @@ int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts)
- }
- EXPORT_SYMBOL(tcf_exts_dump_stats);
- 
--int tcf_exts_get_dev(struct net_device *dev, struct tcf_exts *exts,
--		     struct net_device **hw_dev)
--{
--#ifdef CONFIG_NET_CLS_ACT
--	const struct tc_action *a;
--	LIST_HEAD(actions);
--
--	if (!tcf_exts_has_actions(exts))
--		return -EINVAL;
--
--	tcf_exts_to_list(exts, &actions);
--	list_for_each_entry(a, &actions, list) {
--		if (a->ops->get_dev)
--			*hw_dev = a->ops->get_dev(a);
--	}
--	if (*hw_dev)
--		return 0;
--#endif
--	return -EOPNOTSUPP;
--}
--EXPORT_SYMBOL(tcf_exts_get_dev);
--
- static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
- 				       enum tc_setup_type type,
- 				       void *type_data, bool err_stop)
--- 
-2.9.5
+greg k-h
