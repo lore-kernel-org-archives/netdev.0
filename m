@@ -1,114 +1,117 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next] openvswitch: add ct_clear action
-Date: Mon, 9 Oct 2017 21:41:53 -0700
-Message-ID: <CAOrHB_BUVwWqYQcbWiQ69EhnQpY8epqu55pRBGA6g7xG21zSqQ@mail.gmail.com>
-References: <20171006164426.9752-1-e@erig.me>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>
-To: Eric Garver <e@erig.me>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2] iplink: new option to set neigh suppression on a bridge port
+Date: Mon,  9 Oct 2017 21:42:13 -0700
+Message-ID: <1507610533-18724-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:60682 "EHLO
-        relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750734AbdJJEl4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 00:41:56 -0400
-Received: from mail-wm0-f45.google.com (mail-wm0-f45.google.com [74.125.82.45])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id E9D7AC5A4E
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 06:41:54 +0200 (CEST)
-Received: by mail-wm0-f45.google.com with SMTP id q132so1546141wmd.2
-        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 21:41:54 -0700 (PDT)
-In-Reply-To: <20171006164426.9752-1-e@erig.me>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:48426 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751794AbdJJEml (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 00:42:41 -0400
+Received: by mail-pf0-f175.google.com with SMTP id b79so3707147pfk.5
+        for <netdev@vger.kernel.org>; Mon, 09 Oct 2017 21:42:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 6, 2017 at 9:44 AM, Eric Garver <e@erig.me> wrote:
-> This adds a ct_clear action for clearing conntrack state. ct_clear is
-> currently implemented in OVS userspace, but is not backed by an action
-> in the kernel datapath. This is useful for flows that may modify a
-> packet tuple after a ct lookup has already occurred.
->
-> Signed-off-by: Eric Garver <e@erig.me>
-Patch mostly looks good. I have following comments.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-> ---
->  include/uapi/linux/openvswitch.h |  2 ++
->  net/openvswitch/actions.c        |  5 +++++
->  net/openvswitch/conntrack.c      | 12 ++++++++++++
->  net/openvswitch/conntrack.h      |  7 +++++++
->  net/openvswitch/flow_netlink.c   |  5 +++++
->  5 files changed, 31 insertions(+)
->
-> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-> index 156ee4cab82e..1b6e510e2cc6 100644
-> --- a/include/uapi/linux/openvswitch.h
-> +++ b/include/uapi/linux/openvswitch.h
-> @@ -806,6 +806,7 @@ struct ovs_action_push_eth {
->   * packet.
->   * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the
->   * packet.
-> + * @OVS_ACTION_ATTR_CT_CLEAR: Clear conntrack state from the packet.
->   *
->   * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
->   * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-> @@ -835,6 +836,7 @@ enum ovs_action_attr {
->         OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
->         OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
->         OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-> +       OVS_ACTION_ATTR_CT_CLEAR,     /* No argument. */
->
->         __OVS_ACTION_ATTR_MAX,        /* Nothing past this will be accepted
->                                        * from userspace. */
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index a54a556fcdb5..db9c7f2e662b 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-> @@ -1203,6 +1203,10 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->                                 return err == -EINPROGRESS ? 0 : err;
->                         break;
->
-> +               case OVS_ACTION_ATTR_CT_CLEAR:
-> +                       err = ovs_ct_clear(skb, key);
-> +                       break;
-> +
->                 case OVS_ACTION_ATTR_PUSH_ETH:
->                         err = push_eth(skb, key, nla_data(a));
->                         break;
-> @@ -1210,6 +1214,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->                 case OVS_ACTION_ATTR_POP_ETH:
->                         err = pop_eth(skb, key);
->                         break;
-> +
->                 }
-Unrelated change.
+neigh suppression can be used to suppress arp and nd flood
+to bridge ports. It maps to the recently added
+kernel support for bridge port flag IFLA_BRPORT_NEIGH_SUPPRESS.
 
->
->                 if (unlikely(err)) {
-> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-> index d558e882ca0c..f9b73c726ad7 100644
-> --- a/net/openvswitch/conntrack.c
-> +++ b/net/openvswitch/conntrack.c
-> @@ -1129,6 +1129,18 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
->         return err;
->  }
->
-> +int ovs_ct_clear(struct sk_buff *skb, struct sw_flow_key *key)
-> +{
-> +       if (skb_nfct(skb)) {
-> +               nf_conntrack_put(skb_nfct(skb));
-> +               nf_ct_set(skb, NULL, 0);
-Can the new conntract state be appropriate? may be IP_CT_UNTRACKED?
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ bridge/link.c            | 13 +++++++++++++
+ ip/iplink_bridge_slave.c |  8 ++++++++
+ man/man8/bridge.8        |  4 ++++
+ 3 files changed, 25 insertions(+)
 
-> +       }
-> +
-> +       ovs_ct_fill_key(skb, key);
-> +
-I do not see need to refill the key if there is no skb-nf-ct.
-
-> +       return 0;
-> +}
-> +
->  static int ovs_ct_add_helper(struct ovs_conntrack_info *info, const char *name,
->                              const struct sw_flow_key *key, bool log)
->  {
+diff --git a/bridge/link.c b/bridge/link.c
+index 93472ad..d3a211e 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -198,6 +198,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 				if (prtb[IFLA_BRPORT_MCAST_FLOOD])
+ 					print_onoff(fp, "mcast_flood",
+ 						    rta_getattr_u8(prtb[IFLA_BRPORT_MCAST_FLOOD]));
++				if (prtb[IFLA_BRPORT_NEIGH_SUPPRESS])
++					print_onoff(fp, "neigh_suppress",
++						    rta_getattr_u8(prtb[IFLA_BRPORT_NEIGH_SUPPRESS]));
+ 			}
+ 		} else
+ 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
+@@ -266,6 +269,7 @@ static int brlink_modify(int argc, char **argv)
+ 		.ifm.ifi_family = PF_BRIDGE,
+ 	};
+ 	char *d = NULL;
++	__s8 neigh_suppress = -1;
+ 	__s8 learning = -1;
+ 	__s8 learning_sync = -1;
+ 	__s8 flood = -1;
+@@ -355,6 +359,11 @@ static int brlink_modify(int argc, char **argv)
+ 			flags |= BRIDGE_FLAGS_SELF;
+ 		} else if (strcmp(*argv, "master") == 0) {
+ 			flags |= BRIDGE_FLAGS_MASTER;
++		} else if (strcmp(*argv, "neigh_suppress") == 0) {
++			NEXT_ARG();
++			if (!on_off("neigh_suppress", &neigh_suppress,
++				    *argv))
++				return -1;
+ 		} else {
+ 			usage();
+ 		}
+@@ -407,6 +416,10 @@ static int brlink_modify(int argc, char **argv)
+ 	if (state >= 0)
+ 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_STATE, state);
+ 
++	if (neigh_suppress != -1)
++		addattr8(&req.n, sizeof(req), IFLA_BRPORT_NEIGH_SUPPRESS,
++			 neigh_suppress);
++
+ 	addattr_nest_end(&req.n, nest);
+ 
+ 	/* IFLA_AF_SPEC nested attribute. Contains IFLA_BRIDGE_FLAGS that
+diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
+index 80272b0..fdf8e89 100644
+--- a/ip/iplink_bridge_slave.c
++++ b/ip/iplink_bridge_slave.c
+@@ -238,6 +238,10 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
+ 	if (tb[IFLA_BRPORT_MCAST_FLOOD])
+ 		_print_onoff(f, "mcast_flood", "mcast_flood",
+ 			     rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
++
++	if (tb[IFLA_BRPORT_NEIGH_SUPPRESS])
++		_print_onoff(f, "neigh_suppress", "neigh_suppress",
++			     rta_getattr_u8(tb[IFLA_BRPORT_NEIGH_SUPPRESS]));
+ }
+ 
+ static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
+@@ -328,6 +332,10 @@ static int bridge_slave_parse_opt(struct link_util *lu, int argc, char **argv,
+ 			NEXT_ARG();
+ 			bridge_slave_parse_on_off("mcast_fast_leave", *argv, n,
+ 						  IFLA_BRPORT_FAST_LEAVE);
++		} else if (matches(*argv, "neigh_suppress") == 0) {
++			NEXT_ARG();
++			bridge_slave_parse_on_off("neigh_suppress", *argv, n,
++						  IFLA_BRPORT_NEIGH_SUPPRESS);
+ 		} else if (matches(*argv, "help") == 0) {
+ 			explain();
+ 			return -1;
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 9c5f855..fdba0fe 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -323,6 +323,10 @@ switch.
+ Controls whether a given port will be flooded with multicast traffic for which there is no MDB entry. By default this flag is on.
+ 
+ .TP
++.BR "neigh_suppress on " or " neigh_suppress off "
++Controls whether neigh discovery (arp and nd) proxy and suppression is enabled on the port. By default this flag is off.
++
++.TP
+ .BI self
+ link setting is configured on specified physical device
+ 
+-- 
+2.1.4
