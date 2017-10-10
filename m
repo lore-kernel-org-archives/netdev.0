@@ -1,115 +1,82 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH net-next] openvswitch: add ct_clear action
-Date: Tue, 10 Oct 2017 05:33:48 -0700
-Message-ID: <CAPWQB7FgKYe4Ax08NzW97-WGmriC7j9YhxQF9QtuQZwMjA00bQ@mail.gmail.com>
-References: <20171006164426.9752-1-e@erig.me> <CAOrHB_BUVwWqYQcbWiQ69EhnQpY8epqu55pRBGA6g7xG21zSqQ@mail.gmail.com>
+From: Alexander Aring <aring@mojatatu.com>
+Subject: Re: [RFC net 1/1] net: sched: act: fix rcu race in dump
+Date: Tue, 10 Oct 2017 08:39:42 -0400
+Message-ID: <CAOHTApinT4Q1PiV0J5snyS2qH0ZRW6AktmNDJJKG16=9ivq1kQ@mail.gmail.com>
+References: <20171010123218.5251-1-aring@mojatatu.com> <20171010123218.5251-2-aring@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Garver <e@erig.me>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>
-To: Pravin Shelar <pshelar@ovn.org>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
+        netdev@vger.kernel.org, Manish Kurup <kurup.manish@gmail.com>,
+        Brenda Butler <bjb@mojatatu.com>,
+        Alexander Aring <aring@mojatatu.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:48922 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751415AbdJJMeK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 08:34:10 -0400
-Received: from mail-lf0-f43.google.com (mail-lf0-f43.google.com [209.85.215.43])
-        (Authenticated sender: joe@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 7484B1720B8
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 14:34:09 +0200 (CEST)
-Received: by mail-lf0-f43.google.com with SMTP id l23so23948154lfk.10
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 05:34:09 -0700 (PDT)
-In-Reply-To: <CAOrHB_BUVwWqYQcbWiQ69EhnQpY8epqu55pRBGA6g7xG21zSqQ@mail.gmail.com>
+Received: from mail-ua0-f193.google.com ([209.85.217.193]:35378 "EHLO
+        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751434AbdJJMjn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 08:39:43 -0400
+Received: by mail-ua0-f193.google.com with SMTP id d3so1387800uai.2
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 05:39:43 -0700 (PDT)
+In-Reply-To: <20171010123218.5251-2-aring@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9 October 2017 at 21:41, Pravin Shelar <pshelar@ovn.org> wrote:
-> On Fri, Oct 6, 2017 at 9:44 AM, Eric Garver <e@erig.me> wrote:
->> This adds a ct_clear action for clearing conntrack state. ct_clear is
->> currently implemented in OVS userspace, but is not backed by an action
->> in the kernel datapath. This is useful for flows that may modify a
->> packet tuple after a ct lookup has already occurred.
->>
->> Signed-off-by: Eric Garver <e@erig.me>
-> Patch mostly looks good. I have following comments.
->
->> ---
->>  include/uapi/linux/openvswitch.h |  2 ++
->>  net/openvswitch/actions.c        |  5 +++++
->>  net/openvswitch/conntrack.c      | 12 ++++++++++++
->>  net/openvswitch/conntrack.h      |  7 +++++++
->>  net/openvswitch/flow_netlink.c   |  5 +++++
->>  5 files changed, 31 insertions(+)
->>
->> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
->> index 156ee4cab82e..1b6e510e2cc6 100644
->> --- a/include/uapi/linux/openvswitch.h
->> +++ b/include/uapi/linux/openvswitch.h
->> @@ -806,6 +806,7 @@ struct ovs_action_push_eth {
->>   * packet.
->>   * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the
->>   * packet.
->> + * @OVS_ACTION_ATTR_CT_CLEAR: Clear conntrack state from the packet.
->>   *
->>   * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
->>   * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
->> @@ -835,6 +836,7 @@ enum ovs_action_attr {
->>         OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
->>         OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
->>         OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
->> +       OVS_ACTION_ATTR_CT_CLEAR,     /* No argument. */
->>
->>         __OVS_ACTION_ATTR_MAX,        /* Nothing past this will be accepted
->>                                        * from userspace. */
->> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->> index a54a556fcdb5..db9c7f2e662b 100644
->> --- a/net/openvswitch/actions.c
->> +++ b/net/openvswitch/actions.c
->> @@ -1203,6 +1203,10 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->>                                 return err == -EINPROGRESS ? 0 : err;
->>                         break;
->>
->> +               case OVS_ACTION_ATTR_CT_CLEAR:
->> +                       err = ovs_ct_clear(skb, key);
->> +                       break;
->> +
->>                 case OVS_ACTION_ATTR_PUSH_ETH:
->>                         err = push_eth(skb, key, nla_data(a));
->>                         break;
->> @@ -1210,6 +1214,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->>                 case OVS_ACTION_ATTR_POP_ETH:
->>                         err = pop_eth(skb, key);
->>                         break;
->> +
->>                 }
-> Unrelated change.
->
->>
->>                 if (unlikely(err)) {
->> diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
->> index d558e882ca0c..f9b73c726ad7 100644
->> --- a/net/openvswitch/conntrack.c
->> +++ b/net/openvswitch/conntrack.c
->> @@ -1129,6 +1129,18 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
->>         return err;
->>  }
->>
->> +int ovs_ct_clear(struct sk_buff *skb, struct sw_flow_key *key)
->> +{
->> +       if (skb_nfct(skb)) {
->> +               nf_conntrack_put(skb_nfct(skb));
->> +               nf_ct_set(skb, NULL, 0);
-> Can the new conntract state be appropriate? may be IP_CT_UNTRACKED?
->
->> +       }
->> +
->> +       ovs_ct_fill_key(skb, key);
->> +
-> I do not see need to refill the key if there is no skb-nf-ct.
+Hi,
 
-Really this is trying to just zero the CT key fields, but reuses
-existing functions, right? This means that subsequent upcalls, for
-instance, won't have the outdated view of the CT state from the
-previous lookup (that was prior to the ct_clear). I'd expect these key
-fields to be cleared.
+On Tue, Oct 10, 2017 at 8:32 AM, Alexander Aring <aring@mojatatu.com> wrote:
+> This patch fixes an issue with kfree_rcu which is not protected by RTNL
+> lock. It could be that the current assigned rcu pointer will be freed by
+> kfree_rcu while dump callback is running.
+>
+> To prevent this, we call rcu_synchronize at first. Then we are sure all
+> latest rcu functions e.g. rcu_assign_pointer and kfree_rcu in init are
+> done. After rcu_synchronize we dereference under RTNL lock which is also
+> held in init function, which means no other rcu_assign_pointer or
+> kfree_rcu will occur.
+>
+> To call rcu_synchronize will also prevent weird behaviours by doing over
+> netlink:
+>
+>  - set params A
+>  - set params B
+>  - dump params
+>   \--> will dump params A
+>
+> This could be a unlikely case that the last rcu_assign_pointer was not
+> happened before dump callback.
+>
+> Signed-off-by: Alexander Aring <aring@mojatatu.com>
+> ---
+>  net/sched/act_skbmod.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
+> index b642ad3d39dd..231e07bca384 100644
+> --- a/net/sched/act_skbmod.c
+> +++ b/net/sched/act_skbmod.c
+> @@ -198,7 +198,7 @@ static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
+>  {
+>         struct tcf_skbmod *d = to_skbmod(a);
+>         unsigned char *b = skb_tail_pointer(skb);
+> -       struct tcf_skbmod_params  *p = rtnl_dereference(d->skbmod_p);
+> +       struct tcf_skbmod_params  *p;
+>         struct tc_skbmod opt = {
+>                 .index   = d->tcf_index,
+>                 .refcnt  = d->tcf_refcnt - ref,
+> @@ -207,6 +207,11 @@ static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
+>         };
+>         struct tcf_t t;
+>
+> +       /* wait until last rcu_assign_pointer/kfree_rcu is done */
+> +       rcu_synchronize();
+
+... and next time I should use the right function:
+
+s/rcu_synchronize/synchronize_rcu/
+
+anyway there exists a reason why sent it as RFC. :-)
+
+Thanks.
+
+- Alex
