@@ -1,51 +1,48 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 1/3] atm: idt77105: Drop needless setup_timer()
-Date: Tue, 10 Oct 2017 12:25:48 -0700
-Message-ID: <1507663550-13343-2-git-send-email-keescook@chromium.org>
-References: <1507663550-13343-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-        Chas Williams <3chas3@gmail.com>,
-        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/7] bpf: get rid of global verifier state
+ and reuse instruction printer
+Date: Tue, 10 Oct 2017 12:30:37 -0700 (PDT)
+Message-ID: <20171010.123037.1660238025229239353.davem@davemloft.net>
+References: <20171009173015.23520-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:52386 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753369AbdJJT0A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 15:26:00 -0400
-Received: by mail-pf0-f182.google.com with SMTP id a1so15025078pfj.9
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 12:26:00 -0700 (PDT)
-In-Reply-To: <1507663550-13343-1-git-send-email-keescook@chromium.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52494 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751168AbdJJTai (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 15:30:38 -0400
+In-Reply-To: <20171009173015.23520-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Calling setup_timer() is redundant when DEFINE_TIMER() has been used.
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Mon,  9 Oct 2017 10:30:08 -0700
 
-Cc: Chas Williams <3chas3@gmail.com>
-Cc: linux-atm-general@lists.sourceforge.net
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-This is intended to go via the timer tree. Acks appreciated!
----
- drivers/atm/idt77105.c | 2 --
- 1 file changed, 2 deletions(-)
+> This set started off as simple extraction of eBPF verifier's instruction
+> printer into a separate file but evolved into removal of global state.
+> The purpose of moving instruction printing code is to be able to reuse it
+> from the bpftool.
+> 
+> As far as the global verifier lock goes, this set removes the global
+> variables relating to the log buffer, makes the one-time init done
+> by bpf_get_skb_set_tunnel_proto() not depend on any external locking,
+> and performs verifier log writeback as data is produced removing the need
+> for allocating a potentially large temporary buffer.
+> 
+> The final step of actually removing the verifier lock is left to someone
+> more competent and self-confident :)
+> 
+> Note that struct bpf_verifier_env is just 40B under two pages now,
+> we should probably switch to vzalloc() when it's expanded again...
+> 
+> v2:
+>  - add a selftest;
+>  - use env buffer and flush on every print (Alexei);
+>  - handle kernel log allocation failures (Daniel);
+>  - put the env log members into a struct (Daniel).
 
-diff --git a/drivers/atm/idt77105.c b/drivers/atm/idt77105.c
-index 57af9fd198e4..909744eb7bab 100644
---- a/drivers/atm/idt77105.c
-+++ b/drivers/atm/idt77105.c
-@@ -306,11 +306,9 @@ static int idt77105_start(struct atm_dev *dev)
- 	if (start_timer) {
- 		start_timer = 0;
-                 
--		setup_timer(&stats_timer, idt77105_stats_timer_func, 0UL);
- 		stats_timer.expires = jiffies+IDT77105_STATS_TIMER_PERIOD;
- 		add_timer(&stats_timer);
-                 
--		setup_timer(&restart_timer, idt77105_restart_timer_func, 0UL);
- 		restart_timer.expires = jiffies+IDT77105_RESTART_TIMER_PERIOD;
- 		add_timer(&restart_timer);
- 	}
--- 
-2.7.4
+Looks great, series applied, thanks Jakub.
