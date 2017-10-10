@@ -1,30 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] openvswitch: Add erspan tunnel support.
-Date: Mon, 09 Oct 2017 20:46:12 -0700 (PDT)
-Message-ID: <20171009.204612.489065272823149295.davem@davemloft.net>
-References: <1507161792-18340-1-git-send-email-u9012063@gmail.com>
+Subject: Re: [PATCH net-next v2] vhost_net: do not stall on zerocopy
+ depletion
+Date: Mon, 09 Oct 2017 20:47:12 -0700 (PDT)
+Message-ID: <20171009.204712.443251456571733555.davem@davemloft.net>
+References: <20171006172231.87435-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@ovn.org
-To: u9012063@gmail.com
+Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com,
+        den@klaipeden.com, virtualization@lists.linux-foundation.org,
+        willemb@google.com
+To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34396 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34414 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754906AbdJJDqN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 23:46:13 -0400
-In-Reply-To: <1507161792-18340-1-git-send-email-u9012063@gmail.com>
+        with ESMTP id S1756039AbdJJDrN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 23:47:13 -0400
+In-Reply-To: <20171006172231.87435-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Tu <u9012063@gmail.com>
-Date: Wed,  4 Oct 2017 17:03:12 -0700
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Date: Fri,  6 Oct 2017 13:22:31 -0400
 
-> Add erspan netlink interface for OVS.
+> From: Willem de Bruijn <willemb@google.com>
 > 
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Cc: Pravin B Shelar <pshelar@ovn.org>
-> ---
-> v1->v2: remove unnecessary compat code.
+> Vhost-net has a hard limit on the number of zerocopy skbs in flight.
+> When reached, transmission stalls. Stalls cause latency, as well as
+> head-of-line blocking of other flows that do not use zerocopy.
+> 
+> Instead of stalling, revert to copy-based transmission.
+> 
+> Tested by sending two udp flows from guest to host, one with payload
+> of VHOST_GOODCOPY_LEN, the other too small for zerocopy (1B). The
+> large flow is redirected to a netem instance with 1MBps rate limit
+> and deep 1000 entry queue.
+> 
+>   modprobe ifb
+>   ip link set dev ifb0 up
+>   tc qdisc add dev ifb0 root netem limit 1000 rate 1MBit
+> 
+>   tc qdisc add dev tap0 ingress
+>   tc filter add dev tap0 parent ffff: protocol ip \
+>       u32 match ip dport 8000 0xffff \
+>       action mirred egress redirect dev ifb0
+> 
+> Before the delay, both flows process around 80K pps. With the delay,
+> before this patch, both process around 400. After this patch, the
+> large flow is still rate limited, while the small reverts to its
+> original rate. See also discussion in the first link, below.
+> 
+> Without rate limiting, {1, 10, 100}x TCP_STREAM tests continued to
+> send at 100% zerocopy.
+> 
+> The limit in vhost_exceeds_maxpend must be carefully chosen. With
+> vq->num >> 1, the flows remain correlated. This value happens to
+> correspond to VHOST_MAX_PENDING for vq->num == 256. Allow smaller
+> fractions and ensure correctness also for much smaller values of
+> vq->num, by testing the min() of both explicitly. See also the
+> discussion in the second link below.
+> 
+> Changes
+>   v1 -> v2
+>     - replaced min with typed min_t
+>     - avoid unnecessary whitespace change
+> 
+> Link:http://lkml.kernel.org/r/CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com
+> Link:http://lkml.kernel.org/r/20170819064129.27272-1-den@klaipeden.com
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied, thanks.
+Applied, thanks Willem.
