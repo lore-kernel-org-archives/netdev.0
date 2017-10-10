@@ -1,98 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] i40e: mark PM functions as __maybe_unused
-Date: Tue, 10 Oct 2017 10:17:38 +0200
-Message-ID: <20171010081847.4090496-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Jacob Keller <jacob.e.keller@intel.com>,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alan Brady <alan.brady@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: net/wireless/ray_cs: Convert timers to use
+Date: Tue, 10 Oct 2017 08:26:03 +0000 (UTC)
+Message-ID: <20171010082603.6B3EA60723@smtp.codeaurora.org>
+References: <20171005005020.GA23219@beast>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171005005020.GA23219@beast>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A cleanup of the PM code left an incorrect #ifdef in place, leading
-to a harmless build warning:
+Kees Cook <keescook@chromium.org> wrote:
 
-drivers/net/ethernet/intel/i40e/i40e_main.c:12223:12: error: 'i40e_resume' defined but not used [-Werror=unused-function]
-drivers/net/ethernet/intel/i40e/i40e_main.c:12185:12: error: 'i40e_suspend' defined but not used [-Werror=unused-function]
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
+> 
+> Cc: Kalle Valo <kvalo@codeaurora.org>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-It's easier to use __maybe_unused attributes here, since you
-can't pick the wrong one.
+I'll apply this once I have fast forwarded wireless-drivers-next to
+-rc3. I'll also fix the title, what was it supposed to say?
 
-Fixes: 0e5d3da40055 ("i40e: use newer generic PM support instead of legacy PM callbacks")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+Patch set to Awaiting Upstream.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 60b11fdeca2d..eb091268bc3c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8370,7 +8370,6 @@ static int i40e_init_interrupt_scheme(struct i40e_pf *pf)
- 	return 0;
- }
- 
--#ifdef CONFIG_PM
- /**
-  * i40e_restore_interrupt_scheme - Restore the interrupt scheme
-  * @pf: private board data structure
-@@ -8419,7 +8418,6 @@ static int i40e_restore_interrupt_scheme(struct i40e_pf *pf)
- 
- 	return err;
- }
--#endif /* CONFIG_PM */
- 
- /**
-  * i40e_setup_misc_vector - Setup the misc vector to handle non queue events
-@@ -12177,12 +12175,11 @@ static void i40e_shutdown(struct pci_dev *pdev)
- 	}
- }
- 
--#ifdef CONFIG_PM
- /**
-  * i40e_suspend - PM callback for moving to D3
-  * @dev: generic device information structure
-  **/
--static int i40e_suspend(struct device *dev)
-+static int __maybe_unused i40e_suspend(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-@@ -12220,7 +12217,7 @@ static int i40e_suspend(struct device *dev)
-  * i40e_resume - PM callback for waking up from D3
-  * @dev: generic device information structure
-  **/
--static int i40e_resume(struct device *dev)
-+static int __maybe_unused i40e_resume(struct device *dev)
- {
- 	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
-@@ -12252,8 +12249,6 @@ static int i40e_resume(struct device *dev)
- 	return 0;
- }
- 
--#endif /* CONFIG_PM */
--
- static const struct pci_error_handlers i40e_err_handler = {
- 	.error_detected = i40e_pci_error_detected,
- 	.slot_reset = i40e_pci_error_slot_reset,
-@@ -12269,11 +12264,9 @@ static struct pci_driver i40e_driver = {
- 	.id_table = i40e_pci_tbl,
- 	.probe    = i40e_probe,
- 	.remove   = i40e_remove,
--#ifdef CONFIG_PM
- 	.driver   = {
- 		.pm = &i40e_pm_ops,
- 	},
--#endif /* CONFIG_PM */
- 	.shutdown = i40e_shutdown,
- 	.err_handler = &i40e_err_handler,
- 	.sriov_configure = i40e_pci_sriov_configure,
 -- 
-2.9.0
+https://patchwork.kernel.org/patch/9986253/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
