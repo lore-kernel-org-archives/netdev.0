@@ -1,97 +1,75 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: RIF/VRF overflow in spectrum and reporting errors back to user
-Date: Tue, 10 Oct 2017 09:23:48 -0600
-Message-ID: <779c2ba6-fd29-b260-f008-b41a607acd41@gmail.com>
-References: <8d0df382-35d1-7991-1c39-9a2b5d5334e2@gmail.com>
- <20171009093110.GA5193@shredder.mtl.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH RFC 0/3] tun zerocopy stats
+Date: Tue, 10 Oct 2017 11:29:33 -0400
+Message-ID: <CAF=yD-Jc_ikdYLydYwkw+h_+izVEg2Qp66=5+URokyqM=E=zJg@mail.gmail.com>
+References: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com> <20171009.205228.714368596112967819.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Ido Schimmel <idosch@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:55481 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932262AbdJJPXu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:23:50 -0400
-Received: by mail-pf0-f180.google.com with SMTP id 17so9227814pfn.12
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 08:23:50 -0700 (PDT)
-In-Reply-To: <20171009093110.GA5193@shredder.mtl.com>
-Content-Language: en-US
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:56566 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932424AbdJJPaP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 11:30:15 -0400
+Received: by mail-oi0-f68.google.com with SMTP id v9so33609419oif.13
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 08:30:15 -0700 (PDT)
+In-Reply-To: <20171009.205228.714368596112967819.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/9/17 3:31 AM, Ido Schimmel wrote:
-> Hi David,
-> 
-> On Sun, Oct 08, 2017 at 02:10:33PM -0600, David Ahern wrote:
->> Jiri / Ido:
+On Mon, Oct 9, 2017 at 11:52 PM, David Miller <davem@davemloft.net> wrote:
+> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+> Date: Fri,  6 Oct 2017 18:25:13 -0400
+>
+>> From: Willem de Bruijn <willemb@google.com>
 >>
->> I am looking at adding user messages for spectrum failures related to
->> RIF and VRF overflow coming from the inetaddr and inet6addr notifier
->> paths. The key is that if the notifiers fail the address add needs to
->> fail and an error reported to the user as to what happened.
-> 
-> Thanks for working on this. Very nice idea!
-> 
->> Earlier this year 3ad7d2468f79f added in_validator_info and
->> in6_validator_info as a way for the notifiers to fail adding an address.
->> Adding support to spectrum for that notifier is complicated by the fact
->> that the validator notifier and address notifiers will come in back to
->> back for the NETDEV_UP case. Ignoring NETDEV_UP in
->> mlxsw_sp_inetaddr_event seems ok for IPv6 but not clear for IPv4 since
->> the NETDEV_UP case is emitted on an address delete that involves a
->> promotion. Handling the back to back NETDEV_UP is complicated since
->> functions invoked by __mlxsw_sp_inetaddr_event can take multiple
->> references. Specifically, in mlxsw_sp_port_vlan_router_join():
->>     fid = rif->ops->fid_get(rif);
+>> Add zerocopy transfer statistics to the vhost_net/tun zerocopy path.
 >>
->> Can NETDEV_UP be ignored for the inetaddr notifier if it is handled by
->> the validator notitifer?
-> 
-> Yes. The case where we get a NETDEV_DOWN for an address delete and then
-> a NETDEV_UP for a promotion is basically a NOP from the driver's
-> perspective. When the NETDEV_DOWN is received, the RIF isn't destroyed
-> because the address list isn't empty (there's an address to be
-> promoted). When the NETDEV_UP is received, it's ignored because we
-> already have a RIF.
+>> I've been using this to verify recent changes to zerocopy tuning [1].
+>> Sharing more widely, as it may be useful in similar future work.
+>>
+>> Use ethtool stats as interface, as these are defined per device
+>> driver and can easily be extended.
+>>
+>> Make the zerocopy release callback take an extra hop through the tun
+>> driver to allow the driver to increment its counters.
+>>
+>> Care must be taken to avoid adding an alloc/free to this hot path.
+>> Since the caller already must allocate a ubuf_info, make it allocate
+>> two at a time and grant one to the tun device.
+>>
+>>  1/3: introduce ethtool stats (`ethtool -S $DEV`) for tun devices
+>>  2/3: add zerocopy tx and tx_err counters
+>>  3/3: convert vhost_net to pass a pair of ubuf_info to tun
+>>
+>> [1] http://patchwork.ozlabs.org/patch/822613/
+>
+> This looks mostly fine to me, but I don't know enough about how vhost
+> and tap interact to tell whether this makes sense to upstream.
 
-You lost me on the RIF. Looking at the chain:
+Thanks for taking a look. The need for monitoring these stats has
+come up in a couple of patch evaluation discussions, so I wanted
+to share at least one implementation to get the data.
 
-mlxsw_sp_inet6addr_event_work or mlxsw_sp_inetaddr_event
-- __mlxsw_sp_inetaddr_event
-  + mlxsw_sp_inetaddr_vlan_event
-    * mlxsw_sp_inetaddr_port_vlan_event
-      - NETDEV_UP: mlxsw_sp_port_vlan_router_join
+Because the choice to use zerocopy is based on heuristics and
+there is a cost if it mispredicts, I think we even want to being able
+to continuously monitor this in production.
 
-mlxsw_sp_port_vlan_router_join does the rif lookup and if it exists
-calls fid_get() which takes a reference. I read that to mean
-back-to-back NETDEV_UP notifiers (the address validator and then the
-address notifier) would lead to a reference count leak.
+The implementation is probably not ready for that as is.
 
-Based on your address delete comment, I take the IPv4 solution to be
-adding the validator notifier to spectrum and then ignoring NETDEV_UP in
-mlxsw_sp_inetaddr_event. That means IPv4 inetaddr work is done for the
-validator notifier while NETDEV_DOWN is done through the inetaddr notifier.
+> What are the runtime costs for these new statistics?
 
-> 
-> Regarding IPv6, it's a bit more complicated actually, since we do the
-> actual work in a workqueue, as the notification chain is atomic. I
-> believe this is because the notifier can be called from softirq in
-> response to RA packets.
-> 
-> However, this case isn't interesting for mlxsw, as the fact that you
-> process an RA packet suggests you already have a link-local address and
-> thus a RIF. Plus, the kernel won't even process such packets in our case
-> as you most likely have forwarding enabled (unless you tweaked accept_ra
-> for some reason).
-> 
-> Looking at ipvlan (the only user of inet6addr_validator_chain), I see
-> that it ignores this specific case and returns NOTIFY_DONE. Maybe we can
-> move this notification chain to be blocking and not call it in response
-> to RA packets seeing that all its users ignore it?
+It currently doubles the size of the ubuf_info memory pool. That can be
+fixed, as the current size is UIO_MAXIOV (1024), but the number of
+zerocopy packets in flight is bound by VHOST_MAX_PEND (128).
 
-Seems reasonable to me.
+It also adds an indirect function call to call to each zerocopy skb free
+path, though.
 
-I have it coded. Let me test and send an rfc.
+If there is a way to expose these stats through vhost_net directly,
+instead of through tun, that may be better. But I did not see a
+suitable interface. Perhaps debugfs.
