@@ -1,44 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: defer cgroups init to accept()
-Date: Mon, 09 Oct 2017 20:55:27 -0700 (PDT)
-Message-ID: <20171009.205527.1425793711119155761.davem@davemloft.net>
-References: <20171009044452.20564-1-edumazet@google.com>
-        <CANn89iKwxY8fiozVvRVhUTO14Cj_DBBoTHrEzYmPE2EwbZL8qw@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/3] net/atm: Delete an error message for a failed
+ memory allocation in five functions
+Date: Mon, 09 Oct 2017 21:18:25 -0700
+Message-ID: <1507609105.3552.18.camel@perches.com>
+References: <10a92558-1105-b947-86a2-6ac763cca36d@users.sourceforge.net>
+         <5270f15b-5e97-0c3e-3e55-fbded48ae07d@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, hannes@cmpxchg.org,
-        tj@kernel.org, jsperbeck@google.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34550 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755961AbdJJDz2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Oct 2017 23:55:28 -0400
-In-Reply-To: <CANn89iKwxY8fiozVvRVhUTO14Cj_DBBoTHrEzYmPE2EwbZL8qw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        netdev@vger.kernel.org, Alexey Dobriyan <adobriyan@gmail.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Augusto Mecking Caringi <augustocaringi@gmail.com>,
+        Bhumika Goyal <bhumirks@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        David Windsor <dwindsor@gmail.com>,
+        Elena Reshetova <elena.reshetova@intel.com>,
+        Hans Liljestrand <ishkamiel@gmail.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Kees Cook <keescook@chromium.org>,
+        Mitchell Blank Jr <mitch@sfgoth.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5270f15b-5e97-0c3e-3e55-fbded48ae07d@users.sourceforge.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Sun, 8 Oct 2017 21:47:49 -0700
+On Mon, 2017-10-09 at 22:49 +0200, SF Markus Elfring wrote:
+> Omit extra messages for a memory allocation failure in these functions.
+[]
+> diff --git a/net/atm/mpc.c b/net/atm/mpc.c
+> @@ -184,10 +184,8 @@ struct atm_mpoa_qos *atm_mpoa_add_qos(__be32 dst_ip, struct atm_qos *qos)
+>  	}
+>  
+>  	entry = kmalloc(sizeof(struct atm_mpoa_qos), GFP_KERNEL);
+> -	if (entry == NULL) {
+> -		pr_info("mpoa: out of memory\n");
+> +	if (!entry)
 
-> On Sun, Oct 8, 2017 at 9:44 PM, Eric Dumazet <edumazet@google.com> wrote:
->> After TCP 3WHS became lockless, we should not attempt cgroup games
->> from sk_clone_lock() since listener/cgroup might be already gone.
->>
->> Move this business to inet_csk_accept() where we have
->> the guarantee both parent and child exist.
->>
->> Many thanks to John Sperbeck for spotting these issues
->>
->> Eric Dumazet (2):
->>   net: memcontrol: defer call to mem_cgroup_sk_alloc()
->>   net: defer call to cgroup_sk_alloc()
-> 
-> This was based on net tree, but I used the wrong script, and thus this
-> has the [PATCH net-next] tag.
-> 
-> Sorry for the confusion, but I guess this also can be applied to
-> net-next since this is not a recent regression.
+Unspecified change.  Make sure your changelog is comprehensive.
 
-Series applied to 'net', thanks.
+>  		return entry;
+> -	}
+
+ 
+>  	entry->ipaddr = dst_ip;
+>  	entry->qos = *qos;
+> @@ -473,10 +471,8 @@ static const uint8_t *copy_macs(struct mpoa_client *mpc,
+>  			kfree(mpc->mps_macs);
+>  		mpc->number_of_mps_macs = 0;
+>  		mpc->mps_macs = kmalloc(num_macs * ETH_ALEN, GFP_KERNEL);
+> -		if (mpc->mps_macs == NULL) {
+> -			pr_info("(%s) out of mem\n", mpc->dev->name);
+> +		if (!mpc->mps_macs)
+>  			return NULL;
+
+etc...
