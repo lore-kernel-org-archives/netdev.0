@@ -1,85 +1,229 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC net 1/1] net: sched: act: fix rcu race in dump
-Date: Tue, 10 Oct 2017 07:12:25 -0700
-Message-ID: <1507644745.31614.17.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171010123218.5251-1-aring@mojatatu.com>
-         <20171010123218.5251-2-aring@mojatatu.com>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH net-next v2 4/5] selinux: bpf: Add selinux check for
+ eBPF syscall operations
+Date: Tue, 10 Oct 2017 10:18:17 -0400
+Message-ID: <1507645097.30616.6.camel@tycho.nsa.gov>
+References: <20171009222028.13096-1-chenbofeng.kernel@gmail.com>
+         <20171009222028.13096-5-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        netdev@vger.kernel.org, kurup.manish@gmail.com, bjb@mojatatu.com
-To: Alexander Aring <aring@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:37270 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756413AbdJJOM1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 10:12:27 -0400
-Received: by mail-pf0-f195.google.com with SMTP id z80so17434732pff.4
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 07:12:27 -0700 (PDT)
-In-Reply-To: <20171010123218.5251-2-aring@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: Jeffrey Vander Stoep <jeffv@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        lorenzo@google.com, Daniel Borkmann <daniel@iogearbox.net>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>,
+        linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+        SELinux <Selinux@tycho.nsa.gov>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20171009222028.13096-5-chenbofeng.kernel@gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-10-10 at 08:32 -0400, Alexander Aring wrote:
-> This patch fixes an issue with kfree_rcu which is not protected by RTNL
-> lock. It could be that the current assigned rcu pointer will be freed by
-> kfree_rcu while dump callback is running.
+On Mon, 2017-10-09 at 15:20 -0700, Chenbo Feng wrote:
+> From: Chenbo Feng <fengc@google.com>
 > 
-> To prevent this, we call rcu_synchronize at first. Then we are sure all
-> latest rcu functions e.g. rcu_assign_pointer and kfree_rcu in init are
-> done. After rcu_synchronize we dereference under RTNL lock which is also
-> held in init function, which means no other rcu_assign_pointer or
-> kfree_rcu will occur.
+> Implement the actual checks introduced to eBPF related syscalls. This
+> implementation use the security field inside bpf object to store a
+> sid that
+> identify the bpf object. And when processes try to access the object,
+> selinux will check if processes have the right privileges. The
+> creation
+> of eBPF object are also checked at the general bpf check hook and new
+> cmd introduced to eBPF domain can also be checked there.
 > 
-> To call rcu_synchronize will also prevent weird behaviours by doing over
-> netlink:
-> 
->  - set params A
->  - set params B
->  - dump params
->   \--> will dump params A
-> 
-> This could be a unlikely case that the last rcu_assign_pointer was not
-> happened before dump callback.
-> 
-> Signed-off-by: Alexander Aring <aring@mojatatu.com>
+> Signed-off-by: Chenbo Feng <fengc@google.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 > ---
->  net/sched/act_skbmod.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
+>  security/selinux/hooks.c            | 111
+> ++++++++++++++++++++++++++++++++++++
+>  security/selinux/include/classmap.h |   2 +
+>  security/selinux/include/objsec.h   |   4 ++
+>  3 files changed, 117 insertions(+)
 > 
-> diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
-> index b642ad3d39dd..231e07bca384 100644
-> --- a/net/sched/act_skbmod.c
-> +++ b/net/sched/act_skbmod.c
-> @@ -198,7 +198,7 @@ static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
->  {
->  	struct tcf_skbmod *d = to_skbmod(a);
->  	unsigned char *b = skb_tail_pointer(skb);
-> -	struct tcf_skbmod_params  *p = rtnl_dereference(d->skbmod_p);
-> +	struct tcf_skbmod_params  *p;
->  	struct tc_skbmod opt = {
->  		.index   = d->tcf_index,
->  		.refcnt  = d->tcf_refcnt - ref,
-> @@ -207,6 +207,11 @@ static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
->  	};
->  	struct tcf_t t;
->  
-> +	/* wait until last rcu_assign_pointer/kfree_rcu is done */
-> +	rcu_synchronize();
-> +	/* RTNL lock prevents another rcu_assign_pointer/kfree_rcu call */
-> +	p = rtnl_dereference(d->skbmod_p);
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index f5d304736852..41aba4e3d57c 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -85,6 +85,7 @@
+>  #include <linux/export.h>
+>  #include <linux/msg.h>
+>  #include <linux/shm.h>
+> +#include <linux/bpf.h>
+>  
+>  #include "avc.h"
+>  #include "objsec.h"
+> @@ -6252,6 +6253,106 @@ static void selinux_ib_free_security(void
+> *ib_sec)
+>  }
+>  #endif
+>  
+> +#ifdef CONFIG_BPF_SYSCALL
+> +static int selinux_bpf(int cmd, union bpf_attr *attr,
+> +				     unsigned int size)
+> +{
+> +	u32 sid = current_sid();
+> +	int ret;
 > +
->  	opt.flags  = p->flags;
->  	if (nla_put(skb, TCA_SKBMOD_PARMS, sizeof(opt), &opt))
->  		goto nla_put_failure;
+> +	switch (cmd) {
+> +	case BPF_MAP_CREATE:
+> +		ret = avc_has_perm(sid, sid, SECCLASS_BPF_MAP,
+> BPF_MAP__CREATE,
+> +				   NULL);
+> +		break;
+> +	case BPF_PROG_LOAD:
+> +		ret = avc_has_perm(sid, sid, SECCLASS_BPF_PROG,
+> BPF_PROG__LOAD,
+> +				   NULL);
+> +		break;
+> +	default:
+> +		ret = 0;
+> +		break;
+> +	}
+> +
+> +	return ret;
+> +}
+> +
+> +static u32 bpf_map_fmode_to_av(fmode_t fmode)
+> +{
+> +	u32 av = 0;
+> +
+> +	if (f_mode & FMODE_READ)
+> +		av |= BPF_MAP__READ;
+> +	if (f_mode & FMODE_WRITE)
+> +		av |= BPF_MAP__WRITE;
+> +	return av;
+> +}
+> +
+> +static int selinux_bpf_map(struct bpf_map *map, fmode_t fmode)
+> +{
+> +	u32 sid = current_sid();
+> +	struct bpf_security_struct *bpfsec;
+> +
+> +	bpfsec = map->security;
+> +	return avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF_MAP,
+> +			    bpf_map_fmode_to_av(fmode), NULL);
+> +}
+> +
+> +static int selinux_bpf_prog(struct bpf_prog *prog)
+> +{
+> +	u32 sid = current_sid();
+> +	struct bpf_security_struct *bpfsec;
+> +
+> +	bpfsec = prog->aux->security;
+> +	return avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF_PROG,
+> +			    BPF_PROG__USE, NULL);
+> +}
+> +
+> +static int selinux_bpf_map_alloc(struct bpf_map *map)
+> +{
+> +	struct bpf_security_struct *bpfsec;
+> +
+> +	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
+> +	if (!bpfsec)
+> +		return -ENOMEM;
+> +
+> +	bpfsec->sid = current_sid();
+> +	map->security = bpfsec;
+> +
+> +	return 0;
+> +}
+> +
+> +static void selinux_bpf_map_free(struct bpf_map *map)
+> +{
+> +	struct bpf_security_struct *bpfsec = map->security;
+> +
+> +	map->security = NULL;
+> +	kfree(bpfsec);
+> +}
+> +
+> +static int selinux_bpf_prog_alloc(struct bpf_prog_aux *aux)
+> +{
+> +	struct bpf_security_struct *bpfsec;
+> +
+> +	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
+> +	if (!bpfsec)
+> +		return -ENOMEM;
+> +
+> +	bpfsec->sid = current_sid();
+> +	aux->security = bpfsec;
+> +
+> +	return 0;
+> +}
+> +
+> +static void selinux_bpf_prog_free(struct bpf_prog_aux *aux)
+> +{
+> +	struct bpf_security_struct *bpfsec = aux->security;
+> +
+> +	aux->security = NULL;
+> +	kfree(bpfsec);
+> +}
+> +#endif
+> +
+>  static struct security_hook_list selinux_hooks[] __lsm_ro_after_init
+> = {
+>  	LSM_HOOK_INIT(binder_set_context_mgr,
+> selinux_binder_set_context_mgr),
+>  	LSM_HOOK_INIT(binder_transaction,
+> selinux_binder_transaction),
+> @@ -6471,6 +6572,16 @@ static struct security_hook_list
+> selinux_hooks[] __lsm_ro_after_init = {
+>  	LSM_HOOK_INIT(audit_rule_match, selinux_audit_rule_match),
+>  	LSM_HOOK_INIT(audit_rule_free, selinux_audit_rule_free),
+>  #endif
+> +
+> +#ifdef CONFIG_BPF_SYSCALL
+> +	LSM_HOOK_INIT(bpf, selinux_bpf),
+> +	LSM_HOOK_INIT(bpf_map, selinux_bpf_map),
+> +	LSM_HOOK_INIT(bpf_prog, selinux_bpf_prog),
+> +	LSM_HOOK_INIT(bpf_map_alloc_security,
+> selinux_bpf_map_alloc),
+> +	LSM_HOOK_INIT(bpf_prog_alloc_security,
+> selinux_bpf_prog_alloc),
+> +	LSM_HOOK_INIT(bpf_map_free_security, selinux_bpf_map_free),
+> +	LSM_HOOK_INIT(bpf_prog_free_security,
+> selinux_bpf_prog_free),
+> +#endif
+>  };
+>  
+>  static __init int selinux_init(void)
+> diff --git a/security/selinux/include/classmap.h
+> b/security/selinux/include/classmap.h
+> index 35ffb29a69cb..7253c5eea59c 100644
+> --- a/security/selinux/include/classmap.h
+> +++ b/security/selinux/include/classmap.h
+> @@ -237,6 +237,8 @@ struct security_class_mapping secclass_map[] = {
+>  	  { "access", NULL } },
+>  	{ "infiniband_endport",
+>  	  { "manage_subnet", NULL } },
+> +	{ "bpf_map", {"create", "read", "write"} },
+> +	{ "bpf_prog", {"load", "use"} },
 
-Sorry but no. This is plainly wrong.
+Again I have to ask: do you truly need/want two separate classes, or
+would a single class with distinct permissions suffice, ala:
+        { "bpf", { "create_map", "read_map", "write_map", "prog_load",
+"prog_use" } },
 
-We need to fix this without adding a _very_ expensive rcu_synchronize()
-on a path which does not need such thing.
+and then allow A self:bpf { create_map read_map write_map prog_load
+prog_use }; would be stored in a single policy avtab rule, and be
+cached in a single AVC entry.
 
-I am confused by this patch, please tell us more what the problem is.
-
-I suspect rcu_read_lock() is what you need, but isn't a writer supposed
-to hold RTNL in net/sched/* ???
+>  	{ NULL }
+>    };
+>  
+> diff --git a/security/selinux/include/objsec.h
+> b/security/selinux/include/objsec.h
+> index 1649cd18eb0b..3d54468ce334 100644
+> --- a/security/selinux/include/objsec.h
+> +++ b/security/selinux/include/objsec.h
+> @@ -150,6 +150,10 @@ struct pkey_security_struct {
+>  	u32	sid;	/* SID of pkey */
+>  };
+>  
+> +struct bpf_security_struct {
+> +	u32 sid;  /*SID of bpf obj creater*/
+> +};
+> +
+>  extern unsigned int selinux_checkreqprot;
+>  
+>  #endif /* _SELINUX_OBJSEC_H_ */
