@@ -1,162 +1,123 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [RFC net-next 3/4] mlxsw: spectrum: router: Add support for address validator notifier
-Date: Tue, 10 Oct 2017 09:41:04 -0700
-Message-ID: <1507653665-20540-4-git-send-email-dsahern@gmail.com>
+Subject: [RFC net-next 1/4] net: ipv6: Make inet6addr_validator a blocking notifier
+Date: Tue, 10 Oct 2017 09:41:02 -0700
+Message-ID: <1507653665-20540-2-git-send-email-dsahern@gmail.com>
 References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
 Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
         David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:38833 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:38780 "EHLO
         mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932436AbdJJQlN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:41:13 -0400
-Received: by mail-pf0-f195.google.com with SMTP id a7so36889819pfj.5
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:41:13 -0700 (PDT)
+        with ESMTP id S932391AbdJJQlL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 12:41:11 -0400
+Received: by mail-pf0-f195.google.com with SMTP id a7so36889586pfj.5
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 09:41:11 -0700 (PDT)
 In-Reply-To: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for inetaddr_validator and inet6addr_validator. The
-notifiers provide a means for validating ipv4 and ipv6 addresses
-before the addresses are installed and on failure the error
-is propagated back to the user.
+inet6addr_validator chain was added by commit 3ad7d2468f79f ("Ipvlan
+should return an error when an address is already in use") to allow
+address validation before changes are committed and to be able to
+fail the address change with an error back to the user. The address
+validation is not done for addresses received from router
+advertisements.
+
+Handling RAs in softirq context is the only reason for the notifier
+chain to be atomic versus blocking. Since the only current user, ipvlan,
+of the validator chain ignores softirq context, the notifier can be made
+blocking and simply not invoked for softirq path.
+
+The blocking option is needed by spectrum for example to validate
+resources for an adding an address to an interface.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 10 ++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 53 ++++++++++++++++++++++
- 3 files changed, 67 insertions(+)
+ net/ipv6/addrconf.c      | 24 +++++++++++++++---------
+ net/ipv6/addrconf_core.c |  9 +++++----
+ 2 files changed, 20 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 321988ac57cc..da4ee91235be 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -4505,11 +4505,19 @@ static struct notifier_block mlxsw_sp_netdevice_nb __read_mostly = {
- 	.notifier_call = mlxsw_sp_netdevice_event,
- };
- 
-+static struct notifier_block mlxsw_sp_inetaddr_valid_nb __read_mostly = {
-+	.notifier_call = mlxsw_sp_inetaddr_valid_event,
-+};
-+
- static struct notifier_block mlxsw_sp_inetaddr_nb __read_mostly = {
- 	.notifier_call = mlxsw_sp_inetaddr_event,
- 	.priority = 10,	/* Must be called before FIB notifier block */
- };
- 
-+static struct notifier_block mlxsw_sp_inet6addr_valid_nb __read_mostly = {
-+	.notifier_call = mlxsw_sp_inet6addr_valid_event,
-+};
-+
- static struct notifier_block mlxsw_sp_inet6addr_nb __read_mostly = {
- 	.notifier_call = mlxsw_sp_inet6addr_event,
- };
-@@ -4533,7 +4541,9 @@ static int __init mlxsw_sp_module_init(void)
- 	int err;
- 
- 	register_netdevice_notifier(&mlxsw_sp_netdevice_nb);
-+	register_inetaddr_validator_notifier(&mlxsw_sp_inetaddr_valid_nb);
- 	register_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
-+	register_inet6addr_validator_notifier(&mlxsw_sp_inet6addr_valid_nb);
- 	register_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
- 	register_netevent_notifier(&mlxsw_sp_router_netevent_nb);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 8e45183dc9bb..4865a6f58c83 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -390,8 +390,12 @@ int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
- int mlxsw_sp_netdevice_router_port_event(struct net_device *dev);
- int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
- 			    unsigned long event, void *ptr);
-+int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
-+				  unsigned long event, void *ptr);
- int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
- 			     unsigned long event, void *ptr);
-+int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
-+				   unsigned long event, void *ptr);
- int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
- 				 struct netdev_notifier_changeupper_info *info);
- void
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 6a356f4b99a3..7d53fdf2c0a8 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -5656,6 +5656,33 @@ int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
- 	struct mlxsw_sp_rif *rif;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d9f6226694eb..632cf4b26277 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -963,7 +963,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	struct net *net = dev_net(idev->dev);
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
+-	struct in6_validator_info i6vi;
+ 	unsigned int hash;
  	int err = 0;
+ 	int addr_type = ipv6_addr_type(addr);
+@@ -988,16 +987,23 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		goto out2;
+ 	}
  
-+	/* NETDEV_UP event is handled by mlxsw_sp_inetaddr_valid_event */
-+	if (event == NETDEV_UP)
-+		goto out;
-+
-+	mlxsw_sp = mlxsw_sp_lower_get(dev);
-+	if (!mlxsw_sp)
-+		goto out;
-+
-+	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
-+	if (!mlxsw_sp_rif_should_config(rif, dev, event))
-+		goto out;
-+
-+	err = __mlxsw_sp_inetaddr_event(dev, event);
-+out:
-+	return notifier_from_errno(err);
-+}
-+
-+/* only expected to be called for event == NETDEV_UP */
-+int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
-+				  unsigned long event, void *ptr)
-+{
-+	struct in_validator_info *ivi = (struct in_validator_info *)ptr;
-+	struct net_device *dev = ivi->ivi_dev->dev;
-+	struct mlxsw_sp *mlxsw_sp;
-+	struct mlxsw_sp_rif *rif;
-+	int err = 0;
-+
- 	mlxsw_sp = mlxsw_sp_lower_get(dev);
- 	if (!mlxsw_sp)
- 		goto out;
-@@ -5708,6 +5735,10 @@ int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
- 	struct mlxsw_sp_inet6addr_event_work *inet6addr_work;
- 	struct net_device *dev = if6->idev->dev;
+-	i6vi.i6vi_addr = *addr;
+-	i6vi.i6vi_dev = idev;
+-	rcu_read_unlock_bh();
++	/* validator notifier needs to be blocking;
++	 * do not call in softirq context
++	 */
++	if (!in_softirq()) {
++		struct in6_validator_info i6vi = {
++			.i6vi_addr = *addr,
++			.i6vi_dev = idev,
++		};
  
-+	/* NETDEV_UP event is handled by mlxsw_sp_inet6addr_valid_event */
-+	if (event == NETDEV_UP)
-+		return NOTIFY_DONE;
-+
- 	if (!mlxsw_sp_port_dev_lower_find_rcu(dev))
- 		return NOTIFY_DONE;
+-	err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
++		rcu_read_unlock_bh();
++		err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
++		rcu_read_lock_bh();
  
-@@ -5724,6 +5755,28 @@ int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
- 	return NOTIFY_DONE;
- }
+-	rcu_read_lock_bh();
+-	err = notifier_to_errno(err);
+-	if (err)
+-		goto out2;
++		err = notifier_to_errno(err);
++		if (err)
++			goto out2;
++	}
  
-+int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
-+				   unsigned long event, void *ptr)
-+{
-+	struct in6_validator_info *i6vi = (struct in6_validator_info *)ptr;
-+	struct net_device *dev = i6vi->i6vi_dev->dev;
-+	struct mlxsw_sp *mlxsw_sp;
-+	struct mlxsw_sp_rif *rif;
-+	int err = 0;
-+
-+	mlxsw_sp = mlxsw_sp_lower_get(dev);
-+	if (!mlxsw_sp)
-+		goto out;
-+
-+	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
-+	if (!mlxsw_sp_rif_should_config(rif, dev, event))
-+		goto out;
-+
-+	err = __mlxsw_sp_inetaddr_event(dev, event);
-+out:
-+	return notifier_from_errno(err);
-+}
-+
- static int mlxsw_sp_rif_edit(struct mlxsw_sp *mlxsw_sp, u16 rif_index,
- 			     const char *mac, int mtu)
+ 	spin_lock(&addrconf_hash_lock);
+ 
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index 9e3488d50b15..32b564dfd02a 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -88,7 +88,7 @@ int __ipv6_addr_type(const struct in6_addr *addr)
+ EXPORT_SYMBOL(__ipv6_addr_type);
+ 
+ static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
+-static ATOMIC_NOTIFIER_HEAD(inet6addr_validator_chain);
++static BLOCKING_NOTIFIER_HEAD(inet6addr_validator_chain);
+ 
+ int register_inet6addr_notifier(struct notifier_block *nb)
  {
+@@ -110,19 +110,20 @@ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
+ 
+ int register_inet6addr_validator_notifier(struct notifier_block *nb)
+ {
+-	return atomic_notifier_chain_register(&inet6addr_validator_chain, nb);
++	return blocking_notifier_chain_register(&inet6addr_validator_chain, nb);
+ }
+ EXPORT_SYMBOL(register_inet6addr_validator_notifier);
+ 
+ int unregister_inet6addr_validator_notifier(struct notifier_block *nb)
+ {
+-	return atomic_notifier_chain_unregister(&inet6addr_validator_chain, nb);
++	return blocking_notifier_chain_unregister(&inet6addr_validator_chain,
++						  nb);
+ }
+ EXPORT_SYMBOL(unregister_inet6addr_validator_notifier);
+ 
+ int inet6addr_validator_notifier_call_chain(unsigned long val, void *v)
+ {
+-	return atomic_notifier_call_chain(&inet6addr_validator_chain, val, v);
++	return blocking_notifier_call_chain(&inet6addr_validator_chain, val, v);
+ }
+ EXPORT_SYMBOL(inet6addr_validator_notifier_call_chain);
+ 
 -- 
 2.1.4
