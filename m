@@ -1,34 +1,31 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: Re: linux-next: manual merge of the drivers-x86 tree with the
- net-next tree
-Date: Tue, 10 Oct 2017 14:49:20 +0300
-Message-ID: <20171010114920.GY2761@lahna.fi.intel.com>
-References: <20171009175633.dm7hjmgoxusspue5@sirena.co.uk>
- <20171009194301.GP2761@lahna.fi.intel.com>
- <20171009195634.gzxwcqn7xklumqyr@sirena.co.uk>
- <20171009231810.GI12321@fury>
+From: "Sergey K." <simkergey@gmail.com>
+Subject: High CPU load by native_queued_spin_lock_slowpath
+Date: Tue, 10 Oct 2017 18:00:19 +0600
+Message-ID: <CAGv8E+xZOweXEedymRuLt4idQmCM8Mk1TZOM=0p3YmnXbh-n+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Brown <broonie@kernel.org>,
-        Mario Limonciello <mario.limonciello@dell.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        Amir Levy <amir.jer.levy@intel.com>,
-        Michael Jamet <michael.jamet@intel.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Darren Hart <dvhart@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171009231810.GI12321@fury>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:48377 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755349AbdJJMAU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 08:00:20 -0400
+Received: by mail-it0-f48.google.com with SMTP id c3so2034601itc.3
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 05:00:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 09, 2017 at 04:18:10PM -0700, Darren Hart wrote:
+I'm using Debian 9(stretch edition) kernel 4.9., hp dl385 g7 server
+with 32 cpu cores. NIC queues are tied to processor cores. Server is
+shaping traffic (iproute2 and htb discipline + skbinfo + ipset + ifb)
+and filtering some rules by iptables.
 
-> I'm not sure how we would deal with it in the trees. Best to note this during
-> the merge window - whichever goes in second. Test merge will identify the merge
-> conflict, and we can include a note to Linus on the preference.
+At that moment, when traffic goes up about 1gbit/s cpu is very high
+loaded. Perf tool tells me that kernel module
+native_queued_spin_lock_slowpath loading cpu about 40%.
 
-That sounds good, thanks!
+After several hours of searching, I found that if I remove the htb
+discipline from ifb0, the high load goes down.
+Well, I think that problem with classify and shaping by htb.
+
+Who knows how to solve?
