@@ -1,91 +1,62 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
-Date: Tue, 10 Oct 2017 14:37:11 -0700
-Message-ID: <CAM_iQpU9TAU-SbjTyfp3xZUjpdrz=WWobHiAhoZ2zeF0oonYXg@mail.gmail.com>
-References: <20171010053547.21162-1-xiyou.wangcong@gmail.com> <20171010173821.6djxyvrggvaivqec@ast-mbp.dhcp.thefacebook.com>
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: Re: [PATCH v2] xdp: Sample xdp program implementing ip forward
+Date: Tue, 10 Oct 2017 14:37:51 -0700
+Message-ID: <d73a1229-7bb2-873c-932e-61430847ba3a@caviumnetworks.com>
+References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
+ <1507620532-25804-2-git-send-email-Christina.Jacob@cavium.com>
+ <20171010101921.30136d48@shemminger-XPS-13-9360>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Brendan Gregg <brendan.d.gregg@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Song Liu <songliubraving@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35199 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754212AbdJJVhc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 17:37:32 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i23so38530580pfi.2
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 14:37:32 -0700 (PDT)
-In-Reply-To: <20171010173821.6djxyvrggvaivqec@ast-mbp.dhcp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Christina Jacob <Christina.Jacob@cavium.com>, daniel@iogearbox.net,
+        Sunil.Goutham@cavium.com, netdev@vger.kernel.org,
+        dsahern@gmail.com, linux-kernel@vger.kernel.org, brouer@redhat.com,
+        linux-arm-kernel@lists.infradead.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        Christina Jacob <christina.jacob.koikara@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171010101921.30136d48@shemminger-XPS-13-9360>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2017 at 10:38 AM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
->
-> I'm happy to see new tracepoints being added to tcp stack, but I'm concerned
-> with practical usability of them.
-> Like the above tracepoint definition makes it not very useful from bpf point of view,
-> since 'sk' pointer is not recored by as part of the tracepoint.
-> In bpf/tracing world we prefer tracepoints to have raw pointers recorded
-> in TP_STRUCT__entry() and _not_ printed in TP_printk()
-> (since pointers are useless for userspace).
-> Like trace_kfree_skb() tracepoint records raw 'skb' pointer and we can
-> walk whatever sk_buff fields we need inside the program.
-> Such approach allows tracepoint to be usable in many more scenarios, since
-> bpf program can examine kernel datastructures.
-
-
-Sure, I am happy to add them for BPF. The current version is merely
-for our own use case, other use cases like this are always welcome!
+On 10/10/2017 10:19 AM, Stephen Hemminger wrote:
+> On Tue, 10 Oct 2017 12:58:52 +0530
+> Christina Jacob <christina.jacob.koikara@gmail.com> wrote:
+> 
+>> +/* Get the mac address of the interface given interface name */
+>> +static long *getmac(char *iface)
+>> +{
+>> +	int fd;
+>> +	struct ifreq ifr;
+>> +	long *mac = NULL;
+>> +
+>> +	fd = socket(AF_INET, SOCK_DGRAM, 0);
+>> +	ifr.ifr_addr.sa_family = AF_INET;
+>> +	strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
+>> +	ioctl(fd, SIOCGIFHWADDR, &ifr);
+>> +	mac = (long *)ifr.ifr_hwaddr.sa_data;
+>> +	close(fd);
+>> +	return mac;
+> 
+> Always check return value of ioctl.
+> You are assuming sizeof(long) > 6 bytes.
+> Also the byte order.
 
 
-> Over the last few years we've been running tcp statistics framework (similar to web10g)
-> using 8 kprobes in tcp stack with bpf programs extracting the data and now we're
-> ready to share this experience with the community. Right now we're working on a set
-> of tracepoints for tcp stack to make the interface more accurate, faster and more stable.
-> We're planning to send an RFC patch with these new tracepoints in the comming weeks.
+Also:
 
-Great! Looking forward to it!
+Returning the address of a local variable (ifr.ifr_hwaddr.sa_data), and 
+then dereferencing it outside of the function is not correct.
 
->
-> More concrete, if you can make this trace_tcp_retransmit_skb() to record
-> sk, skb pointers and err code at the end of __tcp_retransmit_skb() it will solve
-> our need as well.
+The casting of the char sa_data[] to a long * may cause alignment faults 
+on some architectures.  The may also be endinaness issues depending on 
+how the data are manipulated if you pack all those chars into a long.
 
+If we think that a MAC address is char[6], then it may be best to define 
+the data structures as such and manipulate it as an array instead of 
+trying to pack it into a long.
 
-Note, currently I only call trace_tcp_retransmit_skb() for successful
-retransmissions, since you mentioned err code, I guess you want it
-for failures too? I am not sure if tracing unsuccessful TCP retransmissions
-is meaningful here, I guess it's needed for BPF to track TCP states?
+Keep working on this though, this program will surely be useful.
 
-It doesn't harm to add it, at least we can filter out err!=0 since we
-only care about successful ones.
-
-
->
-> So far our list of kprobes is:
-> int kprobe__tcp_validate_incoming
-> int kprobe__tcp_send_active_reset
-> int kprobe__tcp_v4_send_reset
-> int kprobe__tcp_v6_send_reset
-> int kprobe__tcp_v4_destroy_sock
-> int kprobe__tcp_set_state
-> int kprobe__tcp_retransmit_skb
-> int kprobe__tcp_rtx_synack
->
-> with tracepoints we can consolidate two of them into one and drop
-> another one for sure. Notice that tcp_retransmit_skb is on our list too
-> and currently we're doing extra work inside the program to make it more
-> accurate which will be unnecessary if this tracepoint is at the end
-> of __tcp_retransmit_skb().
-
-Yeah, with these tracepoints we would be able to trace more TCP
-state changes.
-
-Thanks!
+David Daney
