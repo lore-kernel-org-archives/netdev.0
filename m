@@ -1,118 +1,124 @@
-From: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>
-Subject: Re: [jkirsher/net-queue PATCH] i40e: Fix memory leak related filter
- programming status
-Date: Tue, 10 Oct 2017 08:01:12 +0000
-Message-ID: <1507622471.1185.17.camel@cohaesio.com>
-References: <20171004153903.13100.38029.stgit@localhost.localdomain>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] net: ftgmac100: Request clock and set speed
+Date: Tue, 10 Oct 2017 10:14:29 +0200
+Message-ID: <1507623269.25065.202.camel@kernel.crashing.org>
+References: <20171010044925.21078-1-joel@jms.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bender.cohaesio.com ([212.97.128.130]:55072 "EHLO
-        mail.cohaesio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754585AbdJJIBP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 04:01:15 -0400
-In-Reply-To: <20171004153903.13100.38029.stgit@localhost.localdomain>
-Content-Language: en-US
-Content-ID: <744F583524A2E74E9DE7E5D9201BE02A@surftown.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Andrew Jeffery <andrew@aj.id.au>
+To: Joel Stanley <joel@jms.id.au>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171010044925.21078-1-joel@jms.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gb25zLCAyMDE3LTEwLTA0IGF0IDA4OjQ0IC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
-DQo+IEZyb206IEFsZXhhbmRlciBEdXljayA8YWxleGFuZGVyLmguZHV5Y2tAaW50ZWwuY29tPg0K
-PiANCj4gSXQgbG9va3MgbGlrZSB3ZSB3ZXJlbid0IGNvcnJlY3RseSBwbGFjaW5nIHRoZSBwYWdl
-cyBmcm9tIGJ1ZmZlcnMNCj4gdGhhdCBoYWQNCj4gYmVlbiB1c2VkIHRvIHJldHVybiBhIGZpbHRl
-ciBwcm9ncmFtbWluZyBzdGF0dXMgYmFjayBvbiB0aGUgcmluZy4gQXMNCj4gYQ0KPiByZXN1bHQg
-dGhleSB3ZXJlIGJlaW5nIG92ZXJ3cml0dGVuIGFuZCB0cmFja2luZyBvZiB0aGUgcGFnZXMgd2Fz
-DQo+IGxvc3QuDQo+IA0KPiBUaGlzIGNoYW5nZSB3b3JrcyB0byBjb3JyZWN0IHRoYXQgYnkgaW5j
-b3Jwb3JhdGluZyBwYXJ0IG9mDQo+IGk0MGVfcHV0X3J4X2J1ZmZlciBpbnRvIHRoZSBwcm9ncmFt
-bWluZyBzdGF0dXMgaGFuZGxlciBjb2RlLiBBcyBhDQo+IHJlc3VsdCB3ZQ0KPiBzaG91bGQgbm93
-IGJlIGNvcnJlY3RseSBwbGFjaW5nIHRoZSBwYWdlcyBmb3IgdGhvc2UgYnVmZmVycyBvbiB0aGUN
-Cj4gcmUtYWxsb2NhdGlvbiBsaXN0IGluc3RlYWQgb2YgbGV0dGluZyB0aGVtIHN0YXkgaW4gcGxh
-Y2UuDQo+IA0KPiBGaXhlczogMGU2MjZmZjdjY2JmICgiaTQwZTogRml4IHN1cHBvcnQgZm9yIGZs
-b3cgZGlyZWN0b3IgcHJvZ3JhbW1pbmcNCj4gc3RhdHVzIikNCj4gUmVwb3J0ZWQtYnk6IEFuZGVy
-cyBLLiBQZWRlcnNlbiA8YWtwQGNvaGFlc2lvLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogQWxleGFu
-ZGVyIER1eWNrIDxhbGV4YW5kZXIuaC5kdXlja0BpbnRlbC5jb20+DQoNCldlIHJlYm9vdGVkIHRo
-ZSByb3V0ZXIgdGhhdCBoYWQgbWVtb3J5IGxlYWtzIG9uIDQuMTIgYW5kIDQuMTMga2VybmVscyAN
-CndpdGggNC4xMy41IHBsdXMgdGhpcyBwYXRjaCB0aGlzIG1vcm5pbmcsIGFuZCB0aGUgbWVtb3J5
-IGxlYWsgaXMgZ29uZSwNCnNvDQoNClRlc3RlZC1ieTogQW5kZXJzIEsuIFBlZGVyc2VuIDxha3BA
-Y29oYWVzaW8uY29tPg0KDQpUaGFua3MsDQpBbmRlcnMNCg0KPiAtLS0NCj4gDQo+IEknbSBzdWJt
-aXR0aW5nIHRoaXMgZm9yIEplZmYncyBuZXQgcXVldWUgdG8gdW5kZXJnbyBzb21lIGFkZGl0aW9u
-YWwNCj4gdGVzdGluZw0KPiBiZWZvcmUgYmVpbmcgc3VibWl0dGVkIGZvciBuZXQgb3Igc3RhYmxl
-IHRvIGFkZHJlc3MgdGhlIG1lbW9yeSBsZWFrDQo+IGlzdWUuIFRoZQ0KPiB0ZXN0aW5nIGZvciB0
-aGlzIHNob3VsZCBiZSBwcmV0dHkgc3RyYWlnaHQgZm9yd2FyZCBzaW5jZSBBVFIgZmlsdGVycw0K
-PiBzZWVtDQo+IHRvIGNhdXNlIHRoZSBpc3N1ZSBpdCBzaG91bGQgYmUgcG9zc2libGUgdG8gdHJp
-Z2dlciBhIHByZXR0eQ0KPiBzaWduZmljYW50DQo+IGFtb3VudCBvZiBtZW1vcnkgbG9zcyBydW5u
-aW5nIHNvbWV0aGluZyBsaWtlIGEgbmV0cGVyZiBUQ1BfQ1JSIHRlc3QNCj4gZm9yIGFuDQo+IGV4
-dGVuZGVkIHBlcmlvZCBvZiB0aW1lIHdoaWNoIHdpbGwgdHJpZ2dlciBtdWx0aXBsZSBzb2NrZXQN
-Cj4gY3JlYXRpb24vZGVzdHJ1Y3Rpb24uDQo+IA0KPiBBbmRlcnMsIGZlZWwgZnJlZSB0byB0ZXN0
-IHRoaXMgcGF0Y2guIElmIHlvdSBuZWVkIHRvIGdyYWIgYSBjb3B5IG9mDQo+IHRoZQ0KPiBkaWZm
-IGluc3RlYWQgb2YgdHJ5aW5nIHRvIHdvcmsgd2l0aCBhcHBseWluZyB0aGUgcGF0Y2ggdGhyb3Vn
-aCBlbWFpbA0KPiB5b3UNCj4gc2hvdWxkIGJlIGFibGUgdG8gZmluZCBhIGNvcHkgYXQgdGhlIGZv
-bGxvd2luZyBVUkwgc2hvcnRseSBhZnRlciBJDQo+IHN1Ym1pdA0KPiB0aGlzIHRvIGludGVsLXdp
-cmVkLWxhbjoNCj4gCWh0dHA6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wcm9qZWN0L2ludGVsLXdp
-cmVkLWxhbi9saXN0Lw0KPiANCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQw
-ZV90eHJ4LmMgfCAgIDYzICsrKysrKysrKysrKysrKw0KPiAtLS0tLS0tLS0tLS0NCj4gIDEgZmls
-ZSBjaGFuZ2VkLCAzNiBpbnNlcnRpb25zKCspLCAyNyBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5jDQo+IGIv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguYw0KPiBpbmRleCA5NDMx
-MWUzZTRmNDMuLmQ0YWUyNDY3NGE3MCAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaTQwZS9pNDBlX3R4cnguYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9pNDBlL2k0MGVfdHhyeC5jDQo+IEBAIC0xMDM4LDYgKzEwMzgsMzIgQEAgc3RhdGljIGJv
-b2wgaTQwZV9zZXRfbmV3X2R5bmFtaWNfaXRyKHN0cnVjdA0KPiBpNDBlX3JpbmdfY29udGFpbmVy
-ICpyYykNCj4gIH0NCj4gIA0KPiAgLyoqDQo+ICsgKiBpNDBlX3JldXNlX3J4X3BhZ2UgLSBwYWdl
-IGZsaXAgYnVmZmVyIGFuZCBzdG9yZSBpdCBiYWNrIG9uIHRoZQ0KPiByaW5nDQo+ICsgKiBAcnhf
-cmluZzogcnggZGVzY3JpcHRvciByaW5nIHRvIHN0b3JlIGJ1ZmZlcnMgb24NCj4gKyAqIEBvbGRf
-YnVmZjogZG9ub3IgYnVmZmVyIHRvIGhhdmUgcGFnZSByZXVzZWQNCj4gKyAqDQo+ICsgKiBTeW5j
-aHJvbml6ZXMgcGFnZSBmb3IgcmV1c2UgYnkgdGhlIGFkYXB0ZXINCj4gKyAqKi8NCj4gK3N0YXRp
-YyB2b2lkIGk0MGVfcmV1c2VfcnhfcGFnZShzdHJ1Y3QgaTQwZV9yaW5nICpyeF9yaW5nLA0KPiAr
-CQkJICAgICAgIHN0cnVjdCBpNDBlX3J4X2J1ZmZlciAqb2xkX2J1ZmYpDQo+ICt7DQo+ICsJc3Ry
-dWN0IGk0MGVfcnhfYnVmZmVyICpuZXdfYnVmZjsNCj4gKwl1MTYgbnRhID0gcnhfcmluZy0+bmV4
-dF90b19hbGxvYzsNCj4gKw0KPiArCW5ld19idWZmID0gJnJ4X3JpbmctPnJ4X2JpW250YV07DQo+
-ICsNCj4gKwkvKiB1cGRhdGUsIGFuZCBzdG9yZSBuZXh0IHRvIGFsbG9jICovDQo+ICsJbnRhKys7
-DQo+ICsJcnhfcmluZy0+bmV4dF90b19hbGxvYyA9IChudGEgPCByeF9yaW5nLT5jb3VudCkgPyBu
-dGEgOiAwOw0KPiArDQo+ICsJLyogdHJhbnNmZXIgcGFnZSBmcm9tIG9sZCBidWZmZXIgdG8gbmV3
-IGJ1ZmZlciAqLw0KPiArCW5ld19idWZmLT5kbWEJCT0gb2xkX2J1ZmYtPmRtYTsNCj4gKwluZXdf
-YnVmZi0+cGFnZQkJPSBvbGRfYnVmZi0+cGFnZTsNCj4gKwluZXdfYnVmZi0+cGFnZV9vZmZzZXQJ
-PSBvbGRfYnVmZi0+cGFnZV9vZmZzZXQ7DQo+ICsJbmV3X2J1ZmYtPnBhZ2VjbnRfYmlhcwk9IG9s
-ZF9idWZmLT5wYWdlY250X2JpYXM7DQo+ICt9DQo+ICsNCj4gKy8qKg0KPiAgICogaTQwZV9yeF9p
-c19wcm9ncmFtbWluZ19zdGF0dXMgLSBjaGVjayBmb3IgcHJvZ3JhbW1pbmcgc3RhdHVzDQo+IGRl
-c2NyaXB0b3INCj4gICAqIEBxdzogcXdvcmQgcmVwcmVzZW50aW5nIHN0YXR1c19lcnJvcl9sZW4g
-aW4gQ1BVIG9yZGVyaW5nDQo+ICAgKg0KPiBAQCAtMTA3MSwxNSArMTA5NywyNCBAQCBzdGF0aWMg
-dm9pZA0KPiBpNDBlX2NsZWFuX3Byb2dyYW1taW5nX3N0YXR1cyhzdHJ1Y3QgaTQwZV9yaW5nICpy
-eF9yaW5nLA0KPiAgCQkJCQkgIHVuaW9uIGk0MGVfcnhfZGVzYw0KPiAqcnhfZGVzYywNCj4gIAkJ
-CQkJICB1NjQgcXcpDQo+ICB7DQo+IC0JdTMyIG50YyA9IHJ4X3JpbmctPm5leHRfdG9fY2xlYW4g
-KyAxOw0KPiArCXN0cnVjdCBpNDBlX3J4X2J1ZmZlciAqcnhfYnVmZmVyOw0KPiArCXUzMiBudGMg
-PSByeF9yaW5nLT5uZXh0X3RvX2NsZWFuOw0KPiAgCXU4IGlkOw0KPiAgDQo+ICAJLyogZmV0Y2gs
-IHVwZGF0ZSwgYW5kIHN0b3JlIG5leHQgdG8gY2xlYW4gKi8NCj4gKwlyeF9idWZmZXIgPSAmcnhf
-cmluZy0+cnhfYmlbbnRjKytdOw0KPiAgCW50YyA9IChudGMgPCByeF9yaW5nLT5jb3VudCkgPyBu
-dGMgOiAwOw0KPiAgCXJ4X3JpbmctPm5leHRfdG9fY2xlYW4gPSBudGM7DQo+ICANCj4gIAlwcmVm
-ZXRjaChJNDBFX1JYX0RFU0MocnhfcmluZywgbnRjKSk7DQo+ICANCj4gKwkvKiBwbGFjZSB1bnVz
-ZWQgcGFnZSBiYWNrIG9uIHRoZSByaW5nICovDQo+ICsJaTQwZV9yZXVzZV9yeF9wYWdlKHJ4X3Jp
-bmcsIHJ4X2J1ZmZlcik7DQo+ICsJcnhfcmluZy0+cnhfc3RhdHMucGFnZV9yZXVzZV9jb3VudCsr
-Ow0KPiArDQo+ICsJLyogY2xlYXIgY29udGVudHMgb2YgYnVmZmVyX2luZm8gKi8NCj4gKwlyeF9i
-dWZmZXItPnBhZ2UgPSBOVUxMOw0KPiArDQo+ICAJaWQgPSAocXcgJiBJNDBFX1JYX1BST0dfU1RB
-VFVTX0RFU0NfUVcxX1BST0dJRF9NQVNLKSA+Pg0KPiAgCQkgIEk0MEVfUlhfUFJPR19TVEFUVVNf
-REVTQ19RVzFfUFJPR0lEX1NISUZUOw0KPiAgDQo+IEBAIC0xNjQ4LDMyICsxNjgzLDYgQEAgc3Rh
-dGljIGJvb2wgaTQwZV9jbGVhbnVwX2hlYWRlcnMoc3RydWN0DQo+IGk0MGVfcmluZyAqcnhfcmlu
-Zywgc3RydWN0IHNrX2J1ZmYgKnNrYiwNCj4gIH0NCj4gIA0KPiAgLyoqDQo+IC0gKiBpNDBlX3Jl
-dXNlX3J4X3BhZ2UgLSBwYWdlIGZsaXAgYnVmZmVyIGFuZCBzdG9yZSBpdCBiYWNrIG9uIHRoZQ0K
-PiByaW5nDQo+IC0gKiBAcnhfcmluZzogcnggZGVzY3JpcHRvciByaW5nIHRvIHN0b3JlIGJ1ZmZl
-cnMgb24NCj4gLSAqIEBvbGRfYnVmZjogZG9ub3IgYnVmZmVyIHRvIGhhdmUgcGFnZSByZXVzZWQN
-Cj4gLSAqDQo+IC0gKiBTeW5jaHJvbml6ZXMgcGFnZSBmb3IgcmV1c2UgYnkgdGhlIGFkYXB0ZXIN
-Cj4gLSAqKi8NCj4gLXN0YXRpYyB2b2lkIGk0MGVfcmV1c2VfcnhfcGFnZShzdHJ1Y3QgaTQwZV9y
-aW5nICpyeF9yaW5nLA0KPiAtCQkJICAgICAgIHN0cnVjdCBpNDBlX3J4X2J1ZmZlciAqb2xkX2J1
-ZmYpDQo+IC17DQo+IC0Jc3RydWN0IGk0MGVfcnhfYnVmZmVyICpuZXdfYnVmZjsNCj4gLQl1MTYg
-bnRhID0gcnhfcmluZy0+bmV4dF90b19hbGxvYzsNCj4gLQ0KPiAtCW5ld19idWZmID0gJnJ4X3Jp
-bmctPnJ4X2JpW250YV07DQo+IC0NCj4gLQkvKiB1cGRhdGUsIGFuZCBzdG9yZSBuZXh0IHRvIGFs
-bG9jICovDQo+IC0JbnRhKys7DQo+IC0JcnhfcmluZy0+bmV4dF90b19hbGxvYyA9IChudGEgPCBy
-eF9yaW5nLT5jb3VudCkgPyBudGEgOiAwOw0KPiAtDQo+IC0JLyogdHJhbnNmZXIgcGFnZSBmcm9t
-IG9sZCBidWZmZXIgdG8gbmV3IGJ1ZmZlciAqLw0KPiAtCW5ld19idWZmLT5kbWEJCT0gb2xkX2J1
-ZmYtPmRtYTsNCj4gLQluZXdfYnVmZi0+cGFnZQkJPSBvbGRfYnVmZi0+cGFnZTsNCj4gLQluZXdf
-YnVmZi0+cGFnZV9vZmZzZXQJPSBvbGRfYnVmZi0+cGFnZV9vZmZzZXQ7DQo+IC0JbmV3X2J1ZmYt
-PnBhZ2VjbnRfYmlhcwk9IG9sZF9idWZmLT5wYWdlY250X2JpYXM7DQo+IC19DQo+IC0NCj4gLS8q
-Kg0KPiAgICogaTQwZV9wYWdlX2lzX3JldXNhYmxlIC0gY2hlY2sgaWYgYW55IHJldXNlIGlzIHBv
-c3NpYmxlDQo+ICAgKiBAcGFnZTogcGFnZSBzdHJ1Y3QgdG8gY2hlY2sNCj4gICAqDQo+IA==
+On Tue, 2017-10-10 at 15:19 +1030, Joel Stanley wrote:
+> According to the ASPEED datasheet, gigabit speeds require a clock of
+> 100MHz or higher. Other speeds require 25MHz or higher.
+
+Did you try "live" changing by either using ethtool or plugging into
+switches/hubs at different speed ?
+
+Also this is aspeed'isms, we should probably keep that under an
+is_aspeed test.
+
+My assumption is that we wouldn't bother, and just leave the freq
+set based on whether there's a physical gigabit capable connection or
+not (ie, real gigabit PHY vs. NC-SI really). But if it can help save a
+few milliwatts..
+
+> Signed-off-by: Joel Stanley <joel@jms.id.au>
+> ---
+>  drivers/net/ethernet/faraday/ftgmac100.c | 22 ++++++++++++++++++++++
+>  1 file changed, 22 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+> index 9ed8e4b81530..870ebd857978 100644
+> --- a/drivers/net/ethernet/faraday/ftgmac100.c
+> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
+> @@ -21,6 +21,7 @@
+>  
+>  #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
+>  
+> +#include <linux/clk.h>
+>  #include <linux/dma-mapping.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/ethtool.h>
+> @@ -59,6 +60,9 @@
+>  /* Min number of tx ring entries before stopping queue */
+>  #define TX_THRESHOLD		(MAX_SKB_FRAGS + 1)
+>  
+> +#define FTGMAC_100MHZ		100000000
+> +#define FTGMAC_25MHZ		25000000
+> +
+>  struct ftgmac100 {
+>  	/* Registers */
+>  	struct resource *res;
+> @@ -96,6 +100,7 @@ struct ftgmac100 {
+>  	struct napi_struct napi;
+>  	struct work_struct reset_task;
+>  	struct mii_bus *mii_bus;
+> +	struct clk *clk;
+>  
+>  	/* Link management */
+>  	int cur_speed;
+> @@ -142,18 +147,22 @@ static int ftgmac100_reset_mac(struct ftgmac100 *priv, u32 maccr)
+>  static int ftgmac100_reset_and_config_mac(struct ftgmac100 *priv)
+>  {
+>  	u32 maccr = 0;
+> +	int freq = 0;
+>  
+>  	switch (priv->cur_speed) {
+>  	case SPEED_10:
+>  	case 0: /* no link */
+> +		freq = FTGMAC_25MHZ;
+>  		break;
+>  
+>  	case SPEED_100:
+>  		maccr |= FTGMAC100_MACCR_FAST_MODE;
+> +		freq = FTGMAC_25MHZ;
+>  		break;
+>  
+>  	case SPEED_1000:
+>  		maccr |= FTGMAC100_MACCR_GIGA_MODE;
+> +		freq = FTGMAC_100MHZ;
+>  		break;
+>  	default:
+>  		netdev_err(priv->netdev, "Unknown speed %d !\n",
+> @@ -161,6 +170,9 @@ static int ftgmac100_reset_and_config_mac(struct ftgmac100 *priv)
+>  		break;
+>  	}
+>  
+> +	if (freq && priv->clk)
+> +		clk_set_rate(priv->clk, freq);
+> +
+>  	/* (Re)initialize the queue pointers */
+>  	priv->rx_pointer = 0;
+>  	priv->tx_clean_pointer = 0;
+> @@ -1775,6 +1787,13 @@ static int ftgmac100_probe(struct platform_device *pdev)
+>  	priv->dev = &pdev->dev;
+>  	INIT_WORK(&priv->reset_task, ftgmac100_reset_task);
+>  
+> +	/* Enable clock if present */
+> +	priv->clk = devm_clk_get(&pdev->dev, NULL);
+> +	if (!IS_ERR(priv->clk))
+> +		clk_prepare_enable(priv->clk);
+> +	else
+> +		priv->clk = NULL;
+> +
+>  	/* map io memory */
+>  	priv->res = request_mem_region(res->start, resource_size(res),
+>  				       dev_name(&pdev->dev));
+> @@ -1883,6 +1902,9 @@ static int ftgmac100_remove(struct platform_device *pdev)
+>  
+>  	unregister_netdev(netdev);
+>  
+> +	if (priv->clk)
+> +		clk_disable_unprepare(priv->clk);
+> +
+>  	/* There's a small chance the reset task will have been re-queued,
+>  	 * during stop, make sure it's gone before we free the structure.
+>  	 */
