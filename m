@@ -1,84 +1,185 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [jkirsher/next-queue PATCH v4 0/6] tc-flower based cloud filters
- in i40e
-Date: Wed, 11 Oct 2017 22:58:30 +0200
-Message-ID: <20171011205830.GD9297@nanopsycho>
-References: <20171011125635.GD2039@nanopsycho>
- <CAKgT0UcP8refj2KLMT258xPNS2h3KhLqKD5sJkNLXRdNJrRCVg@mail.gmail.com>
- <20171011203832.GA9297@nanopsycho>
- <20171011.134652.1653141099248918341.davem@davemloft.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH v1 RFC 1/1] Add Microchip KSZ8795 DSA driver
+Date: Wed, 11 Oct 2017 22:59:16 +0200
+Message-ID: <20171011205916.GC31288@amd>
+References: <1507322023-15182-1-git-send-email-Tristram.Ha@microchip.com>
+ <1507322023-15182-2-git-send-email-Tristram.Ha@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexander.duyck@gmail.com, amritha.nambiar@intel.com,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-        alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:53686 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751386AbdJKU6c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 16:58:32 -0400
-Received: by mail-wm0-f46.google.com with SMTP id q132so8264343wmd.2
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 13:58:32 -0700 (PDT)
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="DIOMP1UsTsWJauNi"
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Ruediger Schmitt <ruediger.schmitt@philips.com>,
+        muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, UNGLinuxDriver@microchip.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171011.134652.1653141099248918341.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1507322023-15182-2-git-send-email-Tristram.Ha@microchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Oct 11, 2017 at 10:46:52PM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Wed, 11 Oct 2017 22:38:32 +0200
->
->> Wed, Oct 11, 2017 at 07:46:27PM CEST, alexander.duyck@gmail.com wrote:
->>>On Wed, Oct 11, 2017 at 5:56 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Wed, Oct 11, 2017 at 02:24:12AM CEST, amritha.nambiar@intel.com wrote:
->>>>>This patch series enables configuring cloud filters in i40e
->>>>>using the tc-flower classifier. The classification function
->>>>>of the filter is to match a packet to a class. cls_flower is
->>>>>extended to offload classid to hardware. The offloaded classid
->>>>>is used direct matched packets to a traffic class on the device.
->>>>>The approach here is similar to the tc 'prio' qdisc which uses
->>>>>the classid for band selection. The ingress qdisc is called ffff:0,
->>>>>so traffic classes are ffff:1 to ffff:8 (i40e has max of 8 TCs).
->>>>
->>>>
->>>> NACK. This clearly looks like abuse of classid to something
->>>> else. Classid is here to identify qdisc instance. However, you use it
->>>> for hw tclass identification. This is mixing of apples and oranges.
->>>>
->>>> Why?
->>>>
->>>> Please don't try to abuse things! This is not nice.
->>>
->>>This isn't an abuse. This is reproducing in hardware what is already
->>>the behavior for software. Isn't that how offloads are supposed to
->>>work?
->> 
->> What is meaning of classid in HW? Classid is SW only identification of
->> qdisc instances. No relation to HW instances = abuse.
->
->Jiri I really don't see what the problem is.
->
->As long as the driver does the right thing when changes are made to the
->qdisc, it doesn't really matter what "key" they use to refer to it.
->
->It could have just as easily used the qdisc pointer and then internally
->use some IDR allocated ID to refer to it in the driver and hardware.
->
->But that's such a waste, we have a unique handle already so why can't
->the driver just use that?
 
-Well if I see classid, I expect it should refer to qdisc instance. So
-far, this has been always a case. But for some drivers, this would mean
-something totally different and unrelated. So what should I think?
-What's next? Classid could be abused to identify something else. I don't
-understand why.
+--DIOMP1UsTsWJauNi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-classid in kernel and tclass in hw are 2 completely unrelated things.
-Why they should share the same userspace api? What am I missing that
-indicates this is not an abuse?
+Hi!
 
-There should be clean and well-defined userspace api:
-1) classid to identify qdisc instances
-2) something else to identify HW tclasses
+> +static void ksz8795_set_prio_queue(struct ksz_device *dev, int port, int=
+ queue)
+> +{
+> +	u8 hi;
+> +	u8 lo;
+> +
+> +	/* Number of queues can only be 1, 2, or 4. */
+> +	switch (queue) {
+> +	case 4:
+> +	case 3:
+> +		queue =3D PORT_QUEUE_SPLIT_4;
+> +		break;
+> +	case 2:
+> +		queue =3D PORT_QUEUE_SPLIT_2;
+> +		break;
+> +	default:
+> +		queue =3D PORT_QUEUE_SPLIT_1;
+> +	}
+
+If only 1, 2 and 4 are valid, it probably should not accept other
+values?
+
+> +static void ksz8795_r_mib_cnt(struct ksz_device *dev, int port, u16 addr,
+> +			      u64 *cnt)
+> +{
+> +	u32 data;
+> +	u16 ctrl_addr;
+> +	u8 check;
+> +	int loop;
+> +
+> +	ctrl_addr =3D addr + SWITCH_COUNTER_NUM * port;
+> +	ctrl_addr |=3D IND_ACC_TABLE(TABLE_MIB | TABLE_READ);
+> +
+> +	mutex_lock(&dev->alu_mutex);
+> +	ksz_write16(dev, REG_IND_CTRL_0, ctrl_addr);
+> +
+> +	/* It is almost guaranteed to always read the valid bit because of
+> +	 * slow SPI speed.
+> +	 */
+> +	for (loop =3D 2; loop > 0; loop--) {
+> +		ksz_read8(dev, REG_IND_MIB_CHECK, &check);
+> +
+> +		if (check & MIB_COUNTER_VALID) {
+> +			ksz_read32(dev, REG_IND_DATA_LO, &data);
+> +			if (check & MIB_COUNTER_OVERFLOW)
+> +				*cnt +=3D MIB_COUNTER_VALUE + 1;
+> +			*cnt +=3D data & MIB_COUNTER_VALUE;
+> +			break;
+> +		}
+> +	}
+
+Hmm. Maybe, but should not this at least warn if if it can not get
+valid counter?
+
+> +	/* It is almost guaranteed to always read the valid bit because of
+> +	 * slow SPI speed.
+> +	 */
+> +	for (loop =3D 2; loop > 0; loop--) {
+> +		ksz_read8(dev, REG_IND_MIB_CHECK, &check);
+> +
+> +		if (check & MIB_COUNTER_VALID) {
+> +			ksz_read32(dev, REG_IND_DATA_LO, &data);
+> +			if (addr < 2) {
+> +				u64 total;
+> +
+> +				total =3D check & MIB_TOTAL_BYTES_H;
+> +				total <<=3D 32;
+> +				*cnt +=3D total;
+> +				*cnt +=3D data;
+> +				if (check & MIB_COUNTER_OVERFLOW) {
+> +					total =3D MIB_TOTAL_BYTES_H + 1;
+> +					total <<=3D 32;
+> +					*cnt +=3D total;
+> +				}
+> +			} else {
+> +				if (check & MIB_COUNTER_OVERFLOW)
+> +					*cnt +=3D MIB_PACKET_DROPPED + 1;
+> +				*cnt +=3D data & MIB_PACKET_DROPPED;
+> +			}
+> +			break;
+> +		}
+> +	}
+
+Same here. Plus, is overflow handling correct? There may be more than
+MIB_PACKET_DROPPED + 1 packets dropped between the checks.=20
+
+> +static void ksz8795_r_table(struct ksz_device *dev, int table, u16 addr,
+> +			    u64 *data)
+> +{
+> +	u16 ctrl_addr;
+> +
+> +	ctrl_addr =3D IND_ACC_TABLE(table | TABLE_READ) | addr;
+> +
+> +	mutex_lock(&dev->alu_mutex);
+> +	ksz_write16(dev, REG_IND_CTRL_0, ctrl_addr);
+> +	ksz_get(dev, REG_IND_DATA_HI, data, sizeof(u64));
+> +	mutex_unlock(&dev->alu_mutex);
+> +	*data =3D be64_to_cpu(*data);
+> +}
+
+It would be a tiny bit nicer to have be64 temporary variable and use
+it; having *data change endianness at runtime is "interesting".
+
+> +static int ksz8795_valid_dyn_entry(struct ksz_device *dev, u8 *data)
+> +{
+> +	int timeout =3D 100;
+> +
+> +	do {
+> +		ksz_read8(dev, REG_IND_DATA_CHECK, data);
+> +		timeout--;
+> +	} while ((*data & DYNAMIC_MAC_TABLE_NOT_READY) && timeout);
+> +
+> +	/* Entry is not ready for accessing. */
+> +	if (*data & DYNAMIC_MAC_TABLE_NOT_READY) {
+> +		return -EAGAIN;
+> +	/* Entry is ready for accessing. */
+> +	} else {
+> +		ksz_read8(dev, REG_IND_DATA_8, data);
+> +
+> +		/* There is no valid entry in the table. */
+> +		if (*data & DYNAMIC_MAC_TABLE_MAC_EMPTY)
+> +			return -ENXIO;
+> +	}
+
+You can drop else and one indentation level.
+
+> +	/* At least one valid entry in the table. */
+> +	} else {
+> +		u64 buf;
+> +		int cnt;
+> +
+> +		ksz_get(dev, REG_IND_DATA_HI, &buf, sizeof(buf));
+> +		buf =3D be64_to_cpu(buf);
+
+Would it make sense to convert endianness inside ksz_get?
+
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--DIOMP1UsTsWJauNi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlnehiQACgkQMOfwapXb+vJhCgCfXs5DiTirsoBhX4TNBbCxO9a2
+yBYAnAng6lYxCqQ2Futpu24q23Z+vR4T
+=DCX1
+-----END PGP SIGNATURE-----
+
+--DIOMP1UsTsWJauNi--
