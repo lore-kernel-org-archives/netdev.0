@@ -1,70 +1,44 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 2/3] net/mlx4_en: Obsolete call to generic write_desc in XDP xmit flow
-Date: Wed, 11 Oct 2017 13:17:26 +0300
-Message-ID: <1507717047-29255-3-git-send-email-tariqt@mellanox.com>
-References: <1507717047-29255-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        kernel-team@fb.com, Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53160 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752346AbdJKKRs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 06:17:48 -0400
-In-Reply-To: <1507717047-29255-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][next] sctp: make array sctp_sched_ops static
+Date: Wed, 11 Oct 2017 11:17:57 +0100
+Message-ID: <20171011101757.18825-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Function mlx4_en_tx_write_desc() is not optimized to use of XDP xmit.
-Use the relevant parts inline instead.
+From: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+The array sctp_sched_ops  is local to the source and
+does not need to be in global scope, so make it static.
+
+Cleans up sparse warning:
+symbol 'sctp_sched_ops' was not declared. Should it be static?
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c | 17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
+ net/sctp/stream_sched.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index f16774c9c347..ac7254e3f909 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -1090,7 +1090,9 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_ring *rx_ring,
- 			       struct mlx4_en_priv *priv, unsigned int length,
- 			       int tx_ind, bool *doorbell_pending)
- {
--	union mlx4_wqe_qpn_vlan	qpn_vlan = {};
-+	union mlx4_wqe_qpn_vlan qpn_vlan = {
-+		.fence_size = MLX4_EN_XDP_TX_REAL_SZ,
-+	};
- 	struct mlx4_en_tx_desc *tx_desc;
- 	struct mlx4_en_tx_info *tx_info;
- 	struct mlx4_wqe_data_seg *data;
-@@ -1140,7 +1142,6 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_ring *rx_ring,
- 	data->byte_count = cpu_to_be32(length);
+diff --git a/net/sctp/stream_sched.c b/net/sctp/stream_sched.c
+index 03513a9fa110..0b83ec51e43b 100644
+--- a/net/sctp/stream_sched.c
++++ b/net/sctp/stream_sched.c
+@@ -124,7 +124,7 @@ static struct sctp_sched_ops sctp_sched_fcfs = {
+ extern struct sctp_sched_ops sctp_sched_prio;
+ extern struct sctp_sched_ops sctp_sched_rr;
  
- 	/* tx completion can avoid cache line miss for common cases */
--	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
- 
- 	op_own = cpu_to_be32(MLX4_OPCODE_SEND) |
- 		((ring->prod & ring->size) ?
-@@ -1151,10 +1152,16 @@ netdev_tx_t mlx4_en_xmit_frame(struct mlx4_en_rx_ring *rx_ring,
- 
- 	ring->prod += MLX4_EN_XDP_TX_NRTXBB;
- 
--	qpn_vlan.fence_size = MLX4_EN_XDP_TX_REAL_SZ;
-+	tx_desc->ctrl.qpn_vlan = qpn_vlan;
-+	tx_desc->ctrl.srcrb_flags = priv->ctrl_flags;
-+
-+	/* Ensure new descriptor hits memory
-+	 * before setting ownership of this descriptor to HW
-+	 */
-+	dma_wmb();
-+	tx_desc->ctrl.owner_opcode = op_own;
-+	ring->xmit_more++;
- 
--	mlx4_en_tx_write_desc(ring, tx_desc, qpn_vlan, TXBB_SIZE, 0,
--			      op_own, false, false);
- 	*doorbell_pending = true;
- 
- 	return NETDEV_TX_OK;
+-struct sctp_sched_ops *sctp_sched_ops[] = {
++static struct sctp_sched_ops *sctp_sched_ops[] = {
+ 	&sctp_sched_fcfs,
+ 	&sctp_sched_prio,
+ 	&sctp_sched_rr,
 -- 
-1.8.3.1
+2.14.1
