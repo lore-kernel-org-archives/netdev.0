@@ -1,104 +1,105 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [jkirsher/next-queue PATCH v4 0/6] tc-flower based cloud filters
- in i40e
-Date: Wed, 11 Oct 2017 14:56:35 +0200
-Message-ID: <20171011125635.GD2039@nanopsycho>
-References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
+Subject: Re: [E] Re: [PATCH net-next 1/2] net sched act_vlan: Change stats
+ update to use per-core stats
+Date: Wed, 11 Oct 2017 14:58:20 +0200
+Message-ID: <20171011125820.GE2039@nanopsycho>
+References: <1507689147-22941-1-git-send-email-manish.kurup@verizon.com>
+ <d79cf8b2-4c67-1101-0405-afec1e9f89c7@mojatatu.com>
+ <10f80e225811433d89d58f139fba8026@OMZP1LUMXCA01.uswin.ad.vzwcorp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
-        alexander.h.duyck@intel.com, netdev@vger.kernel.org,
-        jhs@mojatatu.com, alexander.duyck@gmail.com,
-        xiyou.wangcong@gmail.com
-To: Amritha Nambiar <amritha.nambiar@intel.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Manish Kurup <kurup.manish@gmail.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "aring@mojatatu.com" <aring@mojatatu.com>,
+        "mrv@mojatatu.com" <mrv@mojatatu.com>
+To: "Kurup, Manish B" <manish.kurup@verizon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:45501 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751991AbdJKM4h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 08:56:37 -0400
-Received: by mail-wm0-f53.google.com with SMTP id q124so4503855wmb.0
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 05:56:37 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:37079 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757413AbdJKM6W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 08:58:22 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r68so1810126wmr.4
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 05:58:22 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
+In-Reply-To: <10f80e225811433d89d58f139fba8026@OMZP1LUMXCA01.uswin.ad.vzwcorp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Oct 11, 2017 at 02:24:12AM CEST, amritha.nambiar@intel.com wrote:
->This patch series enables configuring cloud filters in i40e
->using the tc-flower classifier. The classification function
->of the filter is to match a packet to a class. cls_flower is
->extended to offload classid to hardware. The offloaded classid
->is used direct matched packets to a traffic class on the device. 
->The approach here is similar to the tc 'prio' qdisc which uses
->the classid for band selection. The ingress qdisc is called ffff:0,
->so traffic classes are ffff:1 to ffff:8 (i40e has max of 8 TCs).
+Wed, Oct 11, 2017 at 02:35:50PM CEST, manish.kurup@verizon.com wrote:
+>Hi Jamal, Yes, that's an indentation mismatch - I put in one tab too many. Shall fix before commit.
+
+No top-posting please!
 
 
-NACK. This clearly looks like abuse of classid to something
-else. Classid is here to identify qdisc instance. However, you use it
-for hw tclass identification. This is mixing of apples and oranges.
-
-Why?
-
-Please don't try to abuse things! This is not nice.
-
-
-
-
->TC0 is minor number 1, TC1 is minor number 2 etc.
 >
->The cloud filters are added for a VSI and are cleaned up when
->the VSI is deleted. The filters that match on L4 ports needs
->enhanced admin queue functions with big buffer support for
->extended fields in cloud filter commands.
+>Thanks,
 >
->Example:
-># tc qdisc add dev eth0 ingress
-># ethtool -K eth0 hw-tc-offload on
+>-Manish
 >
->Match Dst IPv4,Dst Port and route to TC1:
-># tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
->  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
->  skip_sw classid ffff:2
+>-----Original Message-----
+>From: Jamal Hadi Salim [mailto:jhs@mojatatu.com] 
+>Sent: Wednesday, October 11, 2017 8:28 AM
+>To: Manish Kurup; xiyou.wangcong@gmail.com; jiri@resnulli.us; davem@davemloft.net; netdev@vger.kernel.org
+>Cc: aring@mojatatu.com; mrv@mojatatu.com; Kurup, Manish B
+>Subject: [E] Re: [PATCH net-next 1/2] net sched act_vlan: Change stats update to use per-core stats
 >
-># tc filter show dev eth0 parent ffff:
->filter pref 1 flower chain 0
->filter pref 1 flower chain 0 handle 0x1 classid ffff:2
->  eth_type ipv4
->  ip_proto udp
->  dst_ip 192.168.1.1
->  dst_port 22
->  skip_sw
->  in_hw
+>minus lk
 >
->v4: classid based approach to set traffic class for matched packets.
+>On 17-10-10 10:32 PM, Manish Kurup wrote:
+>> The VLAN action maintains one set of stats across all cores, and uses 
+>> a spinlock to synchronize updates to it from the same. Changed this to 
+>> use a per-CPU stats context instead.
+>> This change will result in better performance.
+>> 
+>> Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
+>> ---
+>>   net/sched/act_vlan.c | 10 ++++++----
+>>   1 file changed, 6 insertions(+), 4 deletions(-)
+>> 
+>> diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c index 
+>> 16eb067..14c262c 100644
+>> --- a/net/sched/act_vlan.c
+>> +++ b/net/sched/act_vlan.c
+>> @@ -30,9 +30,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+>>   	int err;
+>>   	u16 tci;
+>>   
+>> -	spin_lock(&v->tcf_lock);
+>>   	tcf_lastuse_update(&v->tcf_tm);
+>> -	bstats_update(&v->tcf_bstats, skb);
+>> +	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
+>> +
+>> +	spin_lock(&v->tcf_lock);
+>>   	action = v->tcf_action;
+>>   
+>>   	/* Ensure 'data' points at mac_header prior calling vlan 
+>> manipulating @@ -85,7 +86,8 @@ static int tcf_vlan(struct sk_buff 
+>> *skb, const struct tc_action *a,
+>>   
+>>   drop:
+>>   	action = TC_ACT_SHOT;
+>> -	v->tcf_qstats.drops++;
+>> +	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
+>> +
+>>   unlock:
+>>   	if (skb_at_tc_ingress(skb))
+>>   		skb_pull_rcsum(skb, skb->mac_len); @@ -172,7 +174,7 @@ static int 
+>> tcf_vlan_init(struct net *net, struct nlattr *nla,
+>>   
+>>   	if (!exists) {
+>>   		ret = tcf_idr_create(tn, parm->index, est, a,
+>> -				     &act_vlan_ops, bind, false);
+>> +						&act_vlan_ops, bind, true);
+>>
 >
->Authors:
->Amritha Nambiar <amritha.nambiar@intel.com>
->Kiran Patil <kiran.patil@intel.com>
->Anjali Singhai Jain <anjali.singhai@intel.com>
->Jingjing Wu <jingjing.wu@intel.com>
->---
+>Indentation mismatch here?
 >
->Amritha Nambiar (6):
->      cls_flower: Offload classid to hardware
->      i40e: Map TCs with the VSI seids
->      i40e: Cloud filter mode for set_switch_config command
->      i40e: Admin queue definitions for cloud filters
->      i40e: Clean up of cloud filters
->      i40e: Enable cloud filters via tc-flower
+>Otherwise looks good to me.
 >
+>Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> drivers/net/ethernet/intel/i40e/i40e.h             |   55 +
-> drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  143 +++
-> drivers/net/ethernet/intel/i40e/i40e_common.c      |  193 ++++
-> drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    2 
-> drivers/net/ethernet/intel/i40e/i40e_main.c        |  941 +++++++++++++++++++-
-> drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   18 
-> drivers/net/ethernet/intel/i40e/i40e_type.h        |   10 
-> .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  113 ++
-> include/net/pkt_cls.h                              |    1 
-> net/sched/cls_flower.c                             |    2 
-> 10 files changed, 1439 insertions(+), 39 deletions(-)
->
->--
+>cheers,
+>jamal
