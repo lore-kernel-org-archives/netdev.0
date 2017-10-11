@@ -1,46 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] i40e/i40evf: actually use u32 for feature flags
-Date: Wed, 11 Oct 2017 16:02:58 +0200
-Message-ID: <20171011140316.3802721-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        Jacob Keller <jacob.e.keller@intel.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        Filip Sadowski <filip.sadowski@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH][net-next] net: mpls: make function ipgre_mpls_encap_hlen
+ static
+Date: Wed, 11 Oct 2017 08:12:34 -0600
+Message-ID: <282bd0a3-4cf6-4269-c07f-a476aa0bb764@gmail.com>
+References: <20171011095328.17546-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Amine Kherbouche <amine.kherbouche@6wind.com>
+To: Colin King <colin.king@canonical.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Robert Shearman <rshearma@brocade.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171011095328.17546-1-colin.king@canonical.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A previous cleanup intended to change the flags variable to 32
-bit instead of 64, but accidentally left out the important
-part of that change, leading to a build error:
+On 10/11/17 3:53 AM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The function ipgre_mpls_encap_hlen is local to the source and
+> does not need to be in global scope, so make it static.
+> 
+> Cleans up sparse warning:
+> symbol 'ipgre_mpls_encap_hlen' was not declared. Should it be static?
+> 
+Fixes: bdc476413dcdb ("ip_tunnel: add mpls over gre support")
 
-drivers/net/ethernet/intel/i40e/i40e_ethtool.o: In function `i40e_set_priv_flags':
-i40e_ethtool.c:(.text+0x1a94): undefined reference to `wrong_size_cmpxchg'
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  net/mpls/af_mpls.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+> index 9745e8f69810..8ca9915befc8 100644
+> --- a/net/mpls/af_mpls.c
+> +++ b/net/mpls/af_mpls.c
+> @@ -41,7 +41,7 @@ static int label_limit = (1 << 20) - 1;
+>  static int ttl_max = 255;
+>  
+>  #if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
+> -size_t ipgre_mpls_encap_hlen(struct ip_tunnel_encap *e)
+> +static size_t ipgre_mpls_encap_hlen(struct ip_tunnel_encap *e)
+>  {
+>  	return sizeof(struct mpls_shim_hdr);
+>  }
+> 
 
-This adds the missing modification.
-
-Fixes: b74f571f59a8 ("i40e/i40evf: organize and re-number feature flags")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/intel/i40e/i40e.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 18c453a3e728..7baf6d8a84dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -424,7 +424,7 @@ struct i40e_pf {
- #define I40E_HW_PORT_ID_VALID			BIT(17)
- #define I40E_HW_RESTART_AUTONEG			BIT(18)
- 
--	u64 flags;
-+	u32 flags;
- #define I40E_FLAG_RX_CSUM_ENABLED		BIT(0)
- #define I40E_FLAG_MSI_ENABLED			BIT(1)
- #define I40E_FLAG_MSIX_ENABLED			BIT(2)
--- 
-2.9.0
+ Acked-by: David Ahern <dsahern@gmail.com>
