@@ -1,23 +1,32 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next 0/2] ipv6: addrconf: make two more doit functions not use rtnl mutex
-Date: Wed, 11 Oct 2017 10:27:59 +0200
-Message-ID: <20171011082801.12715-1-fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:38988 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756661AbdJKI1n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 04:27:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
+Date: Wed, 11 Oct 2017 11:41:49 +0300
+Message-ID: <87o9peqdo2.fsf@kamboji.qca.qualcomm.com>
+References: <20171010193027.GA23108@embeddedor.com>
+        <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jes Sorensen <jes.sorensen@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com> (Jes Sorensen's
+        message of "Tue, 10 Oct 2017 15:35:10 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ipv6 RTM_GETNETCONF and RTM_GETADDR don't seem to require strict
-serialization via rtnl mutex, so switch both to DOIT_UNLOCKED and increment
-device reference counts instead.
+Jes Sorensen <jes.sorensen@gmail.com> writes:
 
-Alternative would be to use rcu which would need some minor
-code re-arrangements (we can't use GFP_ATOMIC for buffer allocation in that
-case).
+> On 10/10/2017 03:30 PM, Gustavo A. R. Silva wrote:
+>> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+>> where we are expecting to fall through.
+>
+> While this isn't harmful, to me this looks like pointless patch churn
+> for zero gain and it's just ugly.
 
- addrconf.c |   38 +++++++++++++++++++++-----------------
- 1 file changed, 21 insertions(+), 17 deletions(-)
+In general I find it useful to mark fall through cases. And it's just a
+comment with two words, so they cannot hurt your eyes that much.
+
+-- 
+Kalle Valo
