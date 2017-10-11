@@ -1,40 +1,35 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v3] lib: fix multiple strlcpy definition
-Date: Wed, 11 Oct 2017 11:03:35 -0700
-Message-ID: <20171011110335.1e2a793c@xeon-e3>
-References: <9a00dc2dca0650efd7e169db9bb15ae1ec043c08.1507528184.git.baruch@tkos.co.il>
+Subject: Re: [PATCH iproute2 2/2] ss: print MD5 signature keys configured on
+ TCP sockets
+Date: Wed, 11 Oct 2017 11:06:54 -0700
+Message-ID: <20171011110654.260f9b8c@xeon-e3>
+References: <20171006234820.27567-1-colona@arista.com>
+        <20171006234820.27567-2-colona@arista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Baruch Siach <baruch@tkos.co.il>
+Cc: netdev@vger.kernel.org
+To: Ivan Delalande <colona@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:50811 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757798AbdJKSDh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 14:03:37 -0400
-Received: by mail-pf0-f178.google.com with SMTP id m63so1495925pfk.7
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:03:37 -0700 (PDT)
-In-Reply-To: <9a00dc2dca0650efd7e169db9bb15ae1ec043c08.1507528184.git.baruch@tkos.co.il>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:49329 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752508AbdJKSHB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 14:07:01 -0400
+Received: by mail-pg0-f54.google.com with SMTP id v13so1419158pgq.6
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:07:01 -0700 (PDT)
+In-Reply-To: <20171006234820.27567-2-colona@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  9 Oct 2017 08:49:44 +0300
-Baruch Siach <baruch@tkos.co.il> wrote:
+On Fri,  6 Oct 2017 16:48:20 -0700
+Ivan Delalande <colona@arista.com> wrote:
 
-> Some C libraries, like uClibc and musl, provide BSD compatible
-> strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
-> and strlcat when the C library provides them.
+> These keys are reported by kernel 4.14 and later under the
+> INET_DIAG_MD5SIG attribute, when INET_DIAG_INFO is requested (ss -i)
+> and we have CAP_NET_ADMIN. The additional output looks like:
 > 
-> This fixes the following static link error with uClibc-ng:
+> 	md5keys:fe80::/64=signing_key,10.1.2.0/24=foobar,::1/128=Test
 > 
-> .../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
-> strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
-> ../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
-> collect2: error: ld returned 1 exit status
-> 
-> Acked-by: Phil Sutter <phil@nwl.cc>
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> Signed-off-by: Ivan Delalande <colona@arista.com>
 
-Thanks for fixing. Most people never use other versions of libc
-so things get broken rather often.
+Sure makes sense applied.
