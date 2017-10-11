@@ -1,95 +1,42 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net sched act_vlan: VLAN action rewrite to
- use RCU lock/unlock and update
-Date: Wed, 11 Oct 2017 06:30:03 -0700
-Message-ID: <1507728603.31614.23.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1507689219-22993-1-git-send-email-manish.kurup@verizon.com>
-         <1507727429.31614.22.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
+Date: Wed, 11 Oct 2017 06:31:45 -0700
+Message-ID: <1507728705.31614.24.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
+         <20171010173821.6djxyvrggvaivqec@ast-mbp.dhcp.thefacebook.com>
+         <87po9ull5u.fsf@stressinduktion.org>
+         <20171011025606.tzts5wgys5hn52p2@ast-mbp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, aring@mojatatu.com, mrv@mojatatu.com,
-        manish.kurup@verizon.com
-To: Manish Kurup <kurup.manish@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507727429.31614.22.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Brendan Gregg <brendan.d.gregg@gmail.com>,
+        Song Liu <songliubraving@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:55613 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752511AbdJKNbr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 09:31:47 -0400
+Received: by mail-pf0-f176.google.com with SMTP id 17so1093223pfn.12
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 06:31:47 -0700 (PDT)
+In-Reply-To: <20171011025606.tzts5wgys5hn52p2@ast-mbp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-11 at 06:10 -0700, Eric Dumazet wrote:
-> On Tue, 2017-10-10 at 22:33 -0400, Manish Kurup wrote:
-> > Using a spinlock in the VLAN action causes performance issues when the VLAN
-> > action is used on multiple cores. Rewrote the VLAN action to use RCU read
-> > locking for reads and updates instead.
-> > 
-> > Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
-> > ---
-> >  include/net/tc_act/tc_vlan.h | 21 ++++++++-----
-> >  net/sched/act_vlan.c         | 73 ++++++++++++++++++++++++++++++--------------
-> >  2 files changed, 63 insertions(+), 31 deletions(-)
-> > 
-> > diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
-> > index c2090df..67fd355 100644
-> > --- a/include/net/tc_act/tc_vlan.h
-> > +++ b/include/net/tc_act/tc_vlan.h
-> > @@ -13,12 +13,17 @@
-> >  #include <net/act_api.h>
-> >  #include <linux/tc_act/tc_vlan.h>
-> >  
-> > +struct tcf_vlan_params {
-> > +	struct rcu_head   rcu;
-> > +	int               tcfv_action;
-> > +	u16               tcfv_push_vid;
-> > +	__be16            tcfv_push_proto;
-> > +	u8                tcfv_push_prio;
-> > +};
-> > +
-> >  struct tcf_vlan {
-> >  	struct tc_action	common;
-> > -	int			tcfv_action;
-> > -	u16			tcfv_push_vid;
-> > -	__be16			tcfv_push_proto;
-> > -	u8			tcfv_push_prio;
-> > +	struct tcf_vlan_params __rcu *vlan_p;
-> >  };
-> >  #define to_vlan(a) ((struct tcf_vlan *)a)
-> >  
-> > @@ -33,22 +38,22 @@ static inline bool is_tcf_vlan(const struct tc_action *a)
-> >  
-> >  static inline u32 tcf_vlan_action(const struct tc_action *a)
-> >  {
-> > -	return to_vlan(a)->tcfv_action;
-> > +	return to_vlan(a)->vlan_p->tcfv_action;
-> 
-> This is not proper RCU : ->vlan_p should be read once, and using
-> rcu_dereference()
-> 
-> So the caller should provide to this helper the 'p' pointer instead of
-> 'a'
-> 
-> 
-> CONFIG_SPARSE_RCU_POINTER=y
-> 
-> and make C=2 would probably give you warnings about that.
+On Tue, 2017-10-10 at 19:56 -0700, Alexei Starovoitov wrote:
+
+> actually we hit that too for completely different tracing use case.
+> Indeed would be good to generate socket cookie unconditionally
+> for all sockets. I don't think there is any harm.
 > 
 
+Simply call sock_gen_cookie() when needed.
 
-BTW no need to change your .config after :
-
-
-commit 41a2901e7d220875752a8c870e0b53288a578c20
-Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Date:   Fri May 12 15:56:35 2017 -0700
-
-    rcu: Remove SPARSE_RCU_POINTER Kconfig option
-    
-    The sparse-based checking for non-RCU accesses to RCU-protected pointers
-    has been around for a very long time, and it is now the only type of
-    sparse-based checking that is optional.  This commit therefore makes
-    it unconditional.
-    
-    Reported-by: Ingo Molnar <mingo@kernel.org>
-    Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-    Cc: Fengguang Wu <fengguang.wu@intel.com>
+If a tracepoint needs the cookie and the cookie was not yet generated,
+it will be generated at this point.
