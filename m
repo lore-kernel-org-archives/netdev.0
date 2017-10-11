@@ -1,38 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] Rewrite some existing functionality
-Date: Wed, 11 Oct 2017 15:25:18 -0700 (PDT)
-Message-ID: <20171011.152518.927596165753645888.davem@davemloft.net>
-References: <1507695456-17051-1-git-send-email-subashab@codeaurora.org>
-        <20171011.152259.969926721717992984.davem@davemloft.net>
+Subject: Re: [PATCH] r8169: only enable PCI wakeups when WOL is active
+Date: Wed, 11 Oct 2017 15:26:51 -0700 (PDT)
+Message-ID: <20171011.152651.2054751831392289579.davem@davemloft.net>
+References: <20171011045652.6301-1-drake@endlessm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org, romieu@fr.zoreil.com,
+        linux@enlessm.com
+To: drake@endlessm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38080 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38098 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750848AbdJKWZT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 18:25:19 -0400
-In-Reply-To: <20171011.152259.969926721717992984.davem@davemloft.net>
+        with ESMTP id S1751423AbdJKW0w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 18:26:52 -0400
+In-Reply-To: <20171011045652.6301-1-drake@endlessm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAxMSBP
-Y3QgMjAxNyAxNToyMjo1OSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFN1YmFzaCBBYmhpbm92IEth
-c2l2aXN3YW5hdGhhbiA8c3ViYXNoYWJAY29kZWF1cm9yYS5vcmc+DQo+IERhdGU6IFR1ZSwgMTAg
-T2N0IDIwMTcgMjI6MTc6MjkgLTA2MDANCj4gDQo+PiBUaGlzIHNlcmllcyBmaXhlcyBzb21lIG9m
-IHRoZSBicm9rZW4gcm1uZXQgZnVuY3Rpb25hbGl0eS4NCj4+IEJyaWRnZSBtb2RlIGlzIHJlLXdy
-aXR0ZW4gYW5kIG1hZGUgdXNlYWJsZSBhbmQgdGhlIG11eGVkX2VwIGlzIGNvbnZlcnRlZCB0byBo
-bGlzdC4NCj4+IA0KPj4gUGF0Y2hlcyAxLTUgYXJlIGNsZWFudXBzIGluIHByZXBhcmF0aW9uIGZv
-ciB0aGVzZSBjaGFuZ2VzLg0KPj4gUGF0Y2ggNiBkb2VzIHRoZSBobGlzdCBjb252ZXJzaW9uLg0K
-Pj4gUGF0Y2ggNyBoYXMgdGhlIGltcGxlbWVudGF0aW9uIG9mIHRoZSBybW5ldCBicmlkZ2UgbW9k
-ZS4NCj4gDQo+IFNlcmllcyBhcHBsaWVkLCB0aGFuayB5b3UuDQoNCkFjdHVhbGx5LCBJIHJldmVy
-dGVkOg0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9xdWFsY29tbS9ybW5ldC9ybW5ldF9oYW5kbGVy
-cy5jOiBJbiBmdW5jdGlvbiChcm1uZXRfcnhfaGFuZGxlcqI6DQpkcml2ZXJzL25ldC9ldGhlcm5l
-dC9xdWFsY29tbS9ybW5ldC9ybW5ldF9oYW5kbGVycy5jOjE3NDo2OiB3YXJuaW5nOiChcmOiIG1h
-eSBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVdtYXliZS11bmluaXRp
-YWxpemVkXQ0KICBpbnQgcmM7DQogICAgICBefg0KDQpBbHNvLCB0aGUgaW5kZW50YXRpb24gb2Yg
-dGhlIHN3aXRjaCBzdGF0ZW1lbnQgaXMgd3JvbmcsIHRoZSBicmVhaw0Kc3RhdGVtZW50cyBuZWVk
-IHRvIGJlIGluZGVudGVkIHRoZSBzYW1lIGFzIHRoZSByZXN0IG9mIHRoZSBjb2RlDQppbiB0aGVp
-ciBzd2l0Y2ggc3RhdGVtZW50cy4NCg==
+From: Daniel Drake <drake@endlessm.com>
+Date: Wed, 11 Oct 2017 12:56:52 +0800
+
+> rtl_init_one() currently enables PCI wakeups if the ethernet device
+> is found to be WOL-capable. There is no need to do this when
+> rtl8169_set_wol() will correctly enable or disable the same wakeup flag
+> when WOL is activated/deactivated.
+> 
+> This works around an ACPI DSDT bug which prevents the Acer laptop models
+> Aspire ES1-533, Aspire ES1-732, PackardBell ENTE69AP and Gateway NE533
+> from entering S3 suspend - even when no ethernet cable is connected.
+> 
+> On these platforms, the DSDT says that GPE08 is a wakeup source for
+> ethernet, but this GPE fires as soon as the system goes into suspend,
+> waking the system up immediately. Having the wakeup normally disabled
+> avoids this issue in the default case.
+> 
+> With this change, WOL will continue to be unusable on these platforms
+> (it will instantly wake up if WOL is later enabled by the user) but we
+> do not expect this to be a commonly used feature on these consumer
+> laptops. We have separately determined that WOL works fine without any
+> ACPI GPEs enabled during sleep, so a DSDT fix or override would be
+> possible to make WOL work.
+> 
+> Signed-off-by: Daniel Drake <drake@endlessm.com>
+
+Applied, thank you.
