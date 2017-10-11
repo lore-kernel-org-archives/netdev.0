@@ -1,79 +1,41 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [RFC net-next 4/4] mlxsw: spectrum_router: Add extack message
- for RIF and VRF overflow
-Date: Wed, 11 Oct 2017 17:13:30 +0300
-Message-ID: <20171011141330.GC11653@splinter>
-References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
- <1507653665-20540-5-git-send-email-dsahern@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net v2] net: enable interface alias removal via rtnl
+Date: Wed, 11 Oct 2017 08:13:45 -0600
+Message-ID: <66bbef72-90fb-7142-2070-07dc0c2b0ca9@gmail.com>
+References: <1cccbbaa-455b-66e0-a447-7f7e3b3bb375@gmail.com>
+ <20171010124138.27342-1-nicolas.dichtel@6wind.com>
+ <c81359e7-feb8-475e-69d7-3eacc3406caf@gmail.com>
+ <8b334f53-235b-42d2-ba68-4e63c54c498c@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        kjlx@templeofstupid.com
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, oliver@hartkopp.net,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: nicolas.dichtel@6wind.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:60643 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753699AbdJKONe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 10:13:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1507653665-20540-5-git-send-email-dsahern@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34731 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752547AbdJKONm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 10:13:42 -0400
+Received: by mail-pg0-f65.google.com with SMTP id u27so2223960pgn.1
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 07:13:42 -0700 (PDT)
+In-Reply-To: <8b334f53-235b-42d2-ba68-4e63c54c498c@6wind.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 09:41:05AM -0700, David Ahern wrote:
-> Add extack argument down to mlxsw_sp_rif_create and mlxsw_sp_vr_create
-> to set an error message on RIF or VR overflow. Now an overflow of
-> either resource the use gets an informative message as opposed to
+On 10/11/17 6:29 AM, Nicolas Dichtel wrote:
+> Le 10/10/2017 à 16:50, David Ahern a écrit :
+>> On 10/10/17 6:41 AM, Nicolas Dichtel wrote:
+>>> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
+>>> the attribute is 1 ("\0"). However, to remove an alias, the attribute
+>>> length must be 0 (see dev_set_alias()).
+>>>
+>>> Let's define the type to NLA_BINARY, so that the alias can be removed.
+>>
+>> not to be pedantic, but we need to be clear that the type is changed
+>> only for policy validation.
+> With the comment in the code, it is clear, isn't it?
 
-s/the/in/ ?
-
-> failing with EBUSY.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-
-One comment below, but other than that:
-
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-
-I'll run some tests and report if anything blows up.
-
-Thanks David!
-
-> ---
->  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 114 +++++++++++++--------
->  1 file changed, 69 insertions(+), 45 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> index 7d53fdf2c0a8..ec4d313b9eca 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-> @@ -731,14 +731,17 @@ static struct mlxsw_sp_fib *mlxsw_sp_vr_fib(const struct mlxsw_sp_vr *vr,
->  }
->  
->  static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
-> -					      u32 tb_id)
-> +					      u32 tb_id,
-> +					      struct netlink_ext_ack *extack)
->  {
->  	struct mlxsw_sp_vr *vr;
->  	int err;
->  
->  	vr = mlxsw_sp_vr_find_unused(mlxsw_sp);
-> -	if (!vr)
-> +	if (!vr) {
-> +		NL_SET_ERR_MSG(extack, "spectrum: Exceeded number of supported VRF");
-
-Maybe:
-"spectrum: Exceeded number of supported VRF devices"
-
-To be consistent with previously added:
-"spectrum: Exceeded number of supported LAG devices"
-
->  		return ERR_PTR(-EBUSY);
-> +	}
->  	vr->fib4 = mlxsw_sp_fib_create(vr, MLXSW_SP_L3_PROTO_IPV4);
->  	if (IS_ERR(vr->fib4))
->  		return ERR_CAST(vr->fib4);
-> @@ -775,14 +778,15 @@ static void mlxsw_sp_vr_destroy(struct mlxsw_sp_vr *vr)
->  	vr->fib4 = NULL;
->  }
+Code comment was fine; commit log -- line referenced above -- is open
+for interpretation.
