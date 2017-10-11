@@ -1,50 +1,84 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [net-next] ip_tunnel: fix building with NET_IP_TUNNEL=m
-Date: Wed, 11 Oct 2017 15:57:28 +0200
-Message-ID: <CAK8P3a0GDGs-iJegS2RZFtiBKU7miOuK0aujGDdBLVsvyh0Ngg@mail.gmail.com>
-References: <20171011135546.3536829-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Arnd Bergmann <arnd@arndb.de>, Networking <netdev@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Amine Kherbouche <amine.kherbouche@6wind.com>
-To: "David S. Miller" <davem@davemloft.net>
+Subject: [PATCH] fm10k: mark PM functions as __maybe_unused
+Date: Wed, 11 Oct 2017 15:58:22 +0200
+Message-ID: <20171011135834.3628155-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Jacob Keller <jacob.e.keller@intel.com>,
+        Ngai-Mint Kwan <ngai-mint.kwan@intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Westphal <fw@strlen.de>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171011135546.3536829-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I forgot to Cc Amine, sorry.
+A cleanup of the PM code left an incorrect #ifdef in place, leading
+to a harmless build warning:
 
-On Wed, Oct 11, 2017 at 3:55 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> When af_mpls is built-in but the tunnel support is a module,
-> we get a link failure:
->
-> net/mpls/af_mpls.o: In function `mpls_init':
-> af_mpls.c:(.init.text+0xdc): undefined reference to `ip_tunnel_encap_add_ops'
->
-> This adds a Kconfig statement to prevent the broken
-> configuration and force mpls to be a module as well in
-> this case.
->
-> Fixes: bdc476413dcd ("ip_tunnel: add mpls over gre support")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  net/mpls/Kconfig | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
-> index 5c467ef97311..801ea9098387 100644
-> --- a/net/mpls/Kconfig
-> +++ b/net/mpls/Kconfig
-> @@ -24,6 +24,7 @@ config NET_MPLS_GSO
->
->  config MPLS_ROUTING
->         tristate "MPLS: routing support"
-> +       depends on NET_IP_TUNNEL || NET_IP_TUNNEL=n
->         ---help---
->          Add support for forwarding of mpls packets.
->
-> --
-> 2.9.0
->
+drivers/net/ethernet/intel/fm10k/fm10k_pci.c:2502:12: error: 'fm10k_suspend' defined but not used [-Werror=unused-function]
+drivers/net/ethernet/intel/fm10k/fm10k_pci.c:2475:12: error: 'fm10k_resume' defined but not used [-Werror=unused-function]
+
+It's easier to use __maybe_unused attributes here, since you
+can't pick the wrong one.
+
+Fixes: 8249c47c6ba4 ("fm10k: use generic PM hooks instead of legacy PCIe power hooks")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+index 1e9ae3197b17..52f8eb3c470e 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_pci.c
+@@ -2463,7 +2463,6 @@ static int fm10k_handle_resume(struct fm10k_intfc *interface)
+ 	return err;
+ }
+ 
+-#ifdef CONFIG_PM
+ /**
+  * fm10k_resume - Generic PM resume hook
+  * @dev: generic device structure
+@@ -2472,7 +2471,7 @@ static int fm10k_handle_resume(struct fm10k_intfc *interface)
+  * suspend or hibernation. This function does not need to handle lower PCIe
+  * device state as the stack takes care of that for us.
+  **/
+-static int fm10k_resume(struct device *dev)
++static int __maybe_unused fm10k_resume(struct device *dev)
+ {
+ 	struct fm10k_intfc *interface = pci_get_drvdata(to_pci_dev(dev));
+ 	struct net_device *netdev = interface->netdev;
+@@ -2499,7 +2498,7 @@ static int fm10k_resume(struct device *dev)
+  * system suspend or hibernation. This function does not need to handle lower
+  * PCIe device state as the stack takes care of that for us.
+  **/
+-static int fm10k_suspend(struct device *dev)
++static int __maybe_unused fm10k_suspend(struct device *dev)
+ {
+ 	struct fm10k_intfc *interface = pci_get_drvdata(to_pci_dev(dev));
+ 	struct net_device *netdev = interface->netdev;
+@@ -2511,8 +2510,6 @@ static int fm10k_suspend(struct device *dev)
+ 	return 0;
+ }
+ 
+-#endif /* CONFIG_PM */
+-
+ /**
+  * fm10k_io_error_detected - called when PCI error is detected
+  * @pdev: Pointer to PCI device
+@@ -2643,11 +2640,9 @@ static struct pci_driver fm10k_driver = {
+ 	.id_table		= fm10k_pci_tbl,
+ 	.probe			= fm10k_probe,
+ 	.remove			= fm10k_remove,
+-#ifdef CONFIG_PM
+ 	.driver = {
+ 		.pm		= &fm10k_pm_ops,
+ 	},
+-#endif /* CONFIG_PM */
+ 	.sriov_configure	= fm10k_iov_configure,
+ 	.err_handler		= &fm10k_err_handler
+ };
+-- 
+2.9.0
