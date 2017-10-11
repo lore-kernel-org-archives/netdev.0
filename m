@@ -1,42 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] tcp: add a tracepoint for tcp_retransmit_skb()
-Date: Wed, 11 Oct 2017 06:31:45 -0700
-Message-ID: <1507728705.31614.24.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171010053547.21162-1-xiyou.wangcong@gmail.com>
-         <20171010173821.6djxyvrggvaivqec@ast-mbp.dhcp.thefacebook.com>
-         <87po9ull5u.fsf@stressinduktion.org>
-         <20171011025606.tzts5wgys5hn52p2@ast-mbp>
+From: Jes Sorensen <jes.sorensen@gmail.com>
+Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
+Date: Wed, 11 Oct 2017 09:34:51 -0400
+Message-ID: <eb89f2ad-f2d5-b97f-c224-daf3953d912c@gmail.com>
+References: <20171010193027.GA23108@embeddedor.com>
+ <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com>
+ <87o9peqdo2.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Brendan Gregg <brendan.d.gregg@gmail.com>,
-        Song Liu <songliubraving@fb.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:55613 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752511AbdJKNbr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 09:31:47 -0400
-Received: by mail-pf0-f176.google.com with SMTP id 17so1093223pfn.12
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 06:31:47 -0700 (PDT)
-In-Reply-To: <20171011025606.tzts5wgys5hn52p2@ast-mbp>
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:55145 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752123AbdJKNey (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 09:34:54 -0400
+In-Reply-To: <87o9peqdo2.fsf@kamboji.qca.qualcomm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-10-10 at 19:56 -0700, Alexei Starovoitov wrote:
-
-> actually we hit that too for completely different tracing use case.
-> Indeed would be good to generate socket cookie unconditionally
-> for all sockets. I don't think there is any harm.
+On 10/11/2017 04:41 AM, Kalle Valo wrote:
+> Jes Sorensen <jes.sorensen@gmail.com> writes:
 > 
+>> On 10/10/2017 03:30 PM, Gustavo A. R. Silva wrote:
+>>> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+>>> where we are expecting to fall through.
+>>
+>> While this isn't harmful, to me this looks like pointless patch churn
+>> for zero gain and it's just ugly.
+> 
+> In general I find it useful to mark fall through cases. And it's just a
+> comment with two words, so they cannot hurt your eyes that much.
 
-Simply call sock_gen_cookie() when needed.
+I don't see them being harmful in the code, but I don't see them of much 
+use either. If it happened as part of natural code development, fine. My 
+objection is to people running around doing this systematically causing 
+patch churn for little to zero gain.
 
-If a tracepoint needs the cookie and the cookie was not yet generated,
-it will be generated at this point.
+Jes
