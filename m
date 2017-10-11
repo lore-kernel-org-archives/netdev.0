@@ -1,88 +1,96 @@
-From: Christos Gkekas <chris.gekas@gmail.com>
-Subject: [PATCH] vxge: Clean up unused variables in vxge-traffic
-Date: Wed, 11 Oct 2017 20:26:58 +0100
-Message-ID: <1507750018-7131-1-git-send-email-chris.gekas@gmail.com>
-Cc: Christos Gkekas <chris.gekas@gmail.com>
-To: Jon Mason <jdmason@kudzu.us>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 20:39:57 +0100
+Message-ID: <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com>,
+        Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36650 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752236AbdJKTkL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 15:40:11 -0400
+In-Reply-To: <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Delete unused channel variables in vxge-traffic.
+On 11/10/17 19:57, Willem de Bruijn wrote:
+> On Wed, Oct 11, 2017 at 2:39 PM, Anton Ivanov
+> <anton.ivanov@kot-begemot.co.uk> wrote:
+>> The check as now insists that the actual driver supports GSO_ROBUST, because
+>> we have marked the skb dodgy.
+>>
+>> The specific bit which does this check is in net_gso_ok()
+>>
+>> Now, lets's see how many Ethernet drivers set GSO_ROBUST.
+>>
+>> find drivers/net/ethernet -type f -name "*.[c,h]" -exec grep -H GSO_ROBUST
+>> {} \;
+>>
+>> That returns nothing in 4.x
+>>
+>> IMHO - af_packet allocates the skb, does all checks (and extra may be added)
+>> on the gso, why is this set dodgy in the first place?
+> It is set when the header has to be validated.
+>
+> The segmentation logic will validate and fixup gso_segs. See for
+> instance tcp_gso_segment:
+>
+>         if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+>                 /* Packet is from an untrusted source, reset gso_segs. */
+>
+>                 skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+>
+>                 segs = NULL;
+>                 goto out;
+>         }
+>
+> If the device would have the robust bit set and otherwise supports the
+> required features, fix up gso_segs and pass the large packet to the
+> device.
+>
+> Else it continues to the software gso path.
+>
+> Large packets generated with psock_txring_vnet.c pass this test. I
 
-Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
----
- drivers/net/ethernet/neterion/vxge/vxge-traffic.c | 19 -------------------
- 1 file changed, 19 deletions(-)
+That test is indeed a different path - this goes via the tpacket_snd
+which allocs via sock_alloc_send_skb. That results in a non-fragged skb
+as it calls pskb after that with data_len = 0 asking for a contiguous one.
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-index 5f630a2..0c3b5de 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-@@ -1209,9 +1209,6 @@ void vxge_hw_ring_rxd_pre_post(struct __vxge_hw_ring *ring, void *rxdh)
- void vxge_hw_ring_rxd_post_post(struct __vxge_hw_ring *ring, void *rxdh)
- {
- 	struct vxge_hw_ring_rxd_1 *rxdp = (struct vxge_hw_ring_rxd_1 *)rxdh;
--	struct __vxge_hw_channel *channel;
--
--	channel = &ring->channel;
- 
- 	rxdp->control_0	= VXGE_HW_RING_RXD_LIST_OWN_ADAPTER;
- 
-@@ -1359,11 +1356,8 @@ enum vxge_hw_status vxge_hw_ring_rxd_next_completed(
- enum vxge_hw_status vxge_hw_ring_handle_tcode(
- 	struct __vxge_hw_ring *ring, void *rxdh, u8 t_code)
- {
--	struct __vxge_hw_channel *channel;
- 	enum vxge_hw_status status = VXGE_HW_OK;
- 
--	channel = &ring->channel;
--
- 	/* If the t_code is not supported and if the
- 	 * t_code is other than 0x5 (unparseable packet
- 	 * such as unknown UPV6 header), Drop it !!!
-@@ -1399,10 +1393,6 @@ enum vxge_hw_status vxge_hw_ring_handle_tcode(
- static void __vxge_hw_non_offload_db_post(struct __vxge_hw_fifo *fifo,
- 	u64 txdl_ptr, u32 num_txds, u32 no_snoop)
- {
--	struct __vxge_hw_channel *channel;
--
--	channel = &fifo->channel;
--
- 	writeq(VXGE_HW_NODBW_TYPE(VXGE_HW_NODBW_TYPE_NODBW) |
- 		VXGE_HW_NODBW_LAST_TXD_NUMBER(num_txds) |
- 		VXGE_HW_NODBW_GET_NO_SNOOP(no_snoop),
-@@ -1506,9 +1496,6 @@ void vxge_hw_fifo_txdl_buffer_set(struct __vxge_hw_fifo *fifo,
- {
- 	struct __vxge_hw_fifo_txdl_priv *txdl_priv;
- 	struct vxge_hw_fifo_txd *txdp, *txdp_last;
--	struct __vxge_hw_channel *channel;
--
--	channel = &fifo->channel;
- 
- 	txdl_priv = __vxge_hw_fifo_txdl_priv(fifo, txdlh);
- 	txdp = (struct vxge_hw_fifo_txd *)txdlh  +  txdl_priv->frags;
-@@ -1554,9 +1541,6 @@ void vxge_hw_fifo_txdl_post(struct __vxge_hw_fifo *fifo, void *txdlh)
- 	struct __vxge_hw_fifo_txdl_priv *txdl_priv;
- 	struct vxge_hw_fifo_txd *txdp_last;
- 	struct vxge_hw_fifo_txd *txdp_first;
--	struct __vxge_hw_channel *channel;
--
--	channel = &fifo->channel;
- 
- 	txdl_priv = __vxge_hw_fifo_txdl_priv(fifo, txdlh);
- 	txdp_first = txdlh;
-@@ -1672,10 +1656,7 @@ enum vxge_hw_status vxge_hw_fifo_handle_tcode(struct __vxge_hw_fifo *fifo,
- 					      void *txdlh,
- 					      enum vxge_hw_fifo_tcode t_code)
- {
--	struct __vxge_hw_channel *channel;
--
- 	enum vxge_hw_status status = VXGE_HW_OK;
--	channel = &fifo->channel;
- 
- 	if (((t_code & 0x7) < 0) || ((t_code & 0x7) > 0x4)) {
- 		status = VXGE_HW_ERR_INVALID_TCODE;
--- 
-2.7.4
+My stuff is using sendmmsg which ends up via packet_snd which allocs
+via  sock_alloc_send_pskb which is invoked in a way which always creates
+2 segments - one for the linear section and one for the rest (and more
+if needed). It is faster than tpacket by the way (several times).
+
+As a comparison tap and other virtual drivers use sock_alloc_send_pskb
+with non-zero data length which results in multiple frags. The code in
+packet_snd is in fact identical with tap (+/- some cosmetic differences).
+
+That is the difference between the tests and that is why your test works
+and mine fails.
+
+Now, alloc-ing a 64k contiguous skb every time IMHO is wrong.
+
+So the logic in the xmit check at present works only because it is given
+only a very corner case for a GSO frame and tested versus it. It should
+work with the generic case which is what comes out of
+sock_alloc_send_pskb (same as in tap).
+
+A.
+
+
+
+> suspect that there is a subtle difference in the virtio_net_hdr fields
+> that that generates vs. your program.
+>
