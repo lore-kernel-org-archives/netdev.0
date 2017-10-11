@@ -1,74 +1,60 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
-Date: Wed, 11 Oct 2017 10:00:54 -0700
-Message-ID: <CAGXu5jKH72JG92CRJ8_89o74Edr6Ym_XTZGzjutGLUbvCbd9JQ@mail.gmail.com>
-References: <20171010193027.GA23108@embeddedor.com> <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com>
- <87o9peqdo2.fsf@kamboji.qca.qualcomm.com> <eb89f2ad-f2d5-b97f-c224-daf3953d912c@gmail.com>
- <20171011093248.Horde.Jwmh0VKhmCeOxBgQzLLpYeZ@gator4166.hostgator.com>
+From: Christina Jacob <christina.jacob.koikara@gmail.com>
+Subject: Re: [PATCH v2] XDP Program for Ip forward
+Date: Wed, 11 Oct 2017 22:36:48 +0530
+Message-ID: <CAGSfdShhRGe97-EtgYGFdYhEtGfFPU_OmeCX3UkxkCZ5XGCt4A@mail.gmail.com>
+References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
+ <20171010151231.69fde82f@redhat.com> <20171010160057.32678367@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Jes Sorensen <jes.sorensen@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, Sunil.Goutham@cavium.com,
+        daniel@iogearbox.net, David Ahern <dsahern@gmail.com>,
+        Christina Jacob <Christina.Jacob@cavium.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171011093248.Horde.Jwmh0VKhmCeOxBgQzLLpYeZ@gator4166.hostgator.com>
+In-Reply-To: <20171010160057.32678367@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 11, 2017 at 7:32 AM, Gustavo A. R. Silva
-<garsilva@embeddedor.com> wrote:
-> Quoting Jes Sorensen <jes.sorensen@gmail.com>:
->> On 10/11/2017 04:41 AM, Kalle Valo wrote:
->>> Jes Sorensen <jes.sorensen@gmail.com> writes:
->>>> On 10/10/2017 03:30 PM, Gustavo A. R. Silva wrote:
->>>>>
->>>>> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
->>>>> where we are expecting to fall through.
->>>>
->>>> While this isn't harmful, to me this looks like pointless patch churn
->>>> for zero gain and it's just ugly.
->>>
->>> In general I find it useful to mark fall through cases. And it's just a
->>> comment with two words, so they cannot hurt your eyes that much.
->>
->> I don't see them being harmful in the code, but I don't see them of much
->> use either. If it happened as part of natural code development, fine. My
->> objection is to people running around doing this systematically causing
->> patch churn for little to zero gain.
+On Tue, Oct 10, 2017 at 7:30 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
 >
-> I understand that you think this is of zero gain for you, but as Florian
-> Fainelli pointed out:
+> On Tue, 10 Oct 2017 15:12:31 +0200
+> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 >
-> "That is the canonical way to tell static analyzers and compilers that
-> fall throughs are wanted and not accidental mistakes in the code. For
-> people that deal with these kinds of errors, it's quite helpful, unless
-> you suggest disabling that particular GCC warning specific for that
-> file/directory?"
+> > I'll try to test/benchmark your program...
 >
-> this is very helpful for people working on fixing issues reported by static
-> analyzers. It saves a huge amount of time when dealing with False Positives.
-> Also, there are cases when an apparently intentional fall-through turns out
-> to be an actual missing break or continue.
+> In my initial testing, I cannot get this to work...
 >
-> So there is an ongoing effort to detect such cases and avoid them to show up
-> in the future by at least warning people about a potential issue in their
-> code. And this is helpful for everybody.
 
-This is an unfortunate omission in the C language, and thankfully both
-gcc and clang have stepped up to solve this the same way static
-analyzers have solved it. It's not exactly pretty, but it does both
-document the intention for humans and provide a way for analyzers to
-report issues. Having the compiler help us not make mistakes is quite
-handy, and with Gustavo grinding through all the Coverity warnings,
-he's found actual bugs with missing "break"s, so I think this has a
-demonstrable benefit to the code-base as a whole. It makes things
-unambiguous to someone else reviewing the code.
+What is the test setup you are using? So that I can also test
+I verified the program in this minimal test setup, I did not see any
+issue with the mac addresses being set.
 
--Kees
+Below is the test setup.
 
--- 
-Kees Cook
-Pixel Security
+machine 1                                             machine 2
+(90.0.0.2)port 1 ===============>port3(90.0.0.1)
+                                                               ||
+(80.0.0.2)port 2<================port4(80.0.0.1)
+traffic gen                                             xdp program
+
+Below are the steps followed to run the program.
+
+ Assigned ips in different subnets to interfaces 3 and 4
+Ip of port 1 is in the same subnet as port 3
+Ip of port 2 is in the same subnet as port 4
+sysctl -w net.core.bpf_jit_enable=1
+./xdp_router_ipv4 eth0 eth1
+
+Note: The program will not generate arp requests. Proper arp entries
+need to be added to get the packets forwarded correctly.
+
+> You do seem to XDP_REDIRECT out the right interface, but you have an
+> error with setting the correct MAC address.
+>
+> --
+> Best regards,
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   LinkedIn: http://www.linkedin.com/in/brouer
