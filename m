@@ -1,108 +1,106 @@
 From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH 4/4] net: qcom/emac: clean up some TX/RX error messages
-Date: Wed, 11 Oct 2017 14:52:26 -0500
-Message-ID: <1507751546-10265-5-git-send-email-timur@codeaurora.org>
+Subject: [PATCH 3/4] net: qcom/emac: enforce DMA address restrictions
+Date: Wed, 11 Oct 2017 14:52:25 -0500
+Message-ID: <1507751546-10265-4-git-send-email-timur@codeaurora.org>
 References: <1507751546-10265-1-git-send-email-timur@codeaurora.org>
 Cc: timur@codeaurora.org
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37706 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:37672 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752518AbdJKTwd (ORCPT
+        with ESMTP id S1752417AbdJKTwd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 15:52:33 -0400
 In-Reply-To: <1507751546-10265-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the error messages that are printed by the interrupt handlers
-are poorly written.  For example, many don't include a device prefix,
-so there's no indication that they are EMAC errors.
+The EMAC has a restriction that the upper 32 bits of the base addresses
+for the RFD and RRD rings must be the same.  The ensure that restriction,
+we allocate twice the space for the RRD and locate it at an appropriate
+address.
 
-Also use rate limiting for all messages that could be printed from
-interrupt context.
+We also re-arrange the allocations so that invalid addresses are even
+less likely.
 
 Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
- drivers/net/ethernet/qualcomm/emac/emac-sgmii.c | 15 ++++++---------
- drivers/net/ethernet/qualcomm/emac/emac.c       |  8 ++++----
- 2 files changed, 10 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c | 39 ++++++++++++++++-----------
+ 1 file changed, 24 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-index 29ba37a08372..e8ab512ee7e3 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-sgmii.c
-@@ -68,10 +68,10 @@ static void emac_sgmii_link_init(struct emac_adapter *adpt)
- 	writel(val, phy->base + EMAC_SGMII_PHY_AUTONEG_CFG2);
- }
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index 9cbb27263742..0f5ece5d9507 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -734,6 +734,11 @@ static int emac_rx_descs_alloc(struct emac_adapter *adpt)
+ 	rx_q->rrd.size = rx_q->rrd.count * (adpt->rrd_size * 4);
+ 	rx_q->rfd.size = rx_q->rfd.count * (adpt->rfd_size * 4);
  
--static int emac_sgmii_irq_clear(struct emac_adapter *adpt, u32 irq_bits)
-+static int emac_sgmii_irq_clear(struct emac_adapter *adpt, u8 irq_bits)
- {
- 	struct emac_sgmii *phy = &adpt->phy;
--	u32 status;
-+	u8 status;
++	/* Check if the RRD and RFD are aligned properly, and if not, adjust. */
++	if (upper_32_bits(ring_header->dma_addr) !=
++	    upper_32_bits(ring_header->dma_addr + ALIGN(rx_q->rrd.size, 8)))
++		ring_header->used = ALIGN(rx_q->rrd.size, 8);
++
+ 	rx_q->rrd.dma_addr = ring_header->dma_addr + ring_header->used;
+ 	rx_q->rrd.v_addr   = ring_header->v_addr + ring_header->used;
+ 	ring_header->used += ALIGN(rx_q->rrd.size, 8);
+@@ -767,11 +772,18 @@ int emac_mac_rx_tx_rings_alloc_all(struct emac_adapter *adpt)
  
- 	writel_relaxed(irq_bits, phy->base + EMAC_SGMII_PHY_INTERRUPT_CLEAR);
- 	writel_relaxed(IRQ_GLOBAL_CLEAR, phy->base + EMAC_SGMII_PHY_IRQ_CMD);
-@@ -86,9 +86,8 @@ static int emac_sgmii_irq_clear(struct emac_adapter *adpt, u32 irq_bits)
- 				      EMAC_SGMII_PHY_INTERRUPT_STATUS,
- 				      status, !(status & irq_bits), 1,
- 				      SGMII_PHY_IRQ_CLR_WAIT_TIME)) {
--		netdev_err(adpt->netdev,
--			   "error: failed clear SGMII irq: status:0x%x bits:0x%x\n",
--			   status, irq_bits);
-+		net_err_ratelimited("%s: failed to clear SGMII irq: status:0x%x bits:0x%x\n",
-+				    adpt->netdev->name, status, irq_bits);
- 		return -EIO;
- 	}
+ 	/* Ring DMA buffer. Each ring may need up to 8 bytes for alignment,
+ 	 * hence the additional padding bytes are allocated.
++	 *
++	 * Also double the memory allocated for the RRD so that we can
++	 * re-align it if necessary.  The EMAC has a restriction that the
++	 * upper 32 bits of the base addresses for the RFD and RRD rings
++	 * must be the same.  It is extremely unlikely that this is not the
++	 * case, since the rings are only a few KB in size.  However, we
++	 * need to check for this anyway, and if the two rings are not
++	 * compliant, then we re-align.
+ 	 */
+-	ring_header->size = num_tx_descs * (adpt->tpd_size * 4) +
+-			    num_rx_descs * (adpt->rfd_size * 4) +
+-			    num_rx_descs * (adpt->rrd_size * 4) +
+-			    8 + 2 * 8; /* 8 byte per one Tx and two Rx rings */
++	ring_header->size = ALIGN(num_tx_descs * (adpt->tpd_size * 4), 8) +
++			    ALIGN(num_rx_descs * (adpt->rfd_size * 4), 8) +
++			    ALIGN(num_rx_descs * (adpt->rrd_size * 4), 8) * 2;
  
-@@ -109,7 +108,7 @@ static irqreturn_t emac_sgmii_interrupt(int irq, void *data)
- {
- 	struct emac_adapter *adpt = data;
- 	struct emac_sgmii *phy = &adpt->phy;
--	u32 status;
-+	u8 status;
+ 	ring_header->used = 0;
+ 	ring_header->v_addr = dma_zalloc_coherent(dev, ring_header->size,
+@@ -780,26 +792,23 @@ int emac_mac_rx_tx_rings_alloc_all(struct emac_adapter *adpt)
+ 	if (!ring_header->v_addr)
+ 		return -ENOMEM;
  
- 	status = readl(phy->base + EMAC_SGMII_PHY_INTERRUPT_STATUS);
- 	status &= SGMII_ISR_MASK;
-@@ -139,10 +138,8 @@ static irqreturn_t emac_sgmii_interrupt(int irq, void *data)
- 		atomic_set(&phy->decode_error_count, 0);
- 	}
- 
--	if (emac_sgmii_irq_clear(adpt, status)) {
--		netdev_warn(adpt->netdev, "failed to clear SGMII interrupt\n");
-+	if (emac_sgmii_irq_clear(adpt, status))
- 		schedule_work(&adpt->work_thread);
+-	ring_header->used = ALIGN(ring_header->dma_addr, 8) -
+-							ring_header->dma_addr;
+-
+-	ret = emac_tx_q_desc_alloc(adpt, &adpt->tx_q);
+-	if (ret) {
+-		netdev_err(adpt->netdev, "error: Tx Queue alloc failed\n");
+-		goto err_alloc_tx;
 -	}
- 
- 	return IRQ_HANDLED;
- }
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-index ee6f2d27502c..70c92b649b29 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -148,9 +148,8 @@ static irqreturn_t emac_isr(int _irq, void *data)
- 		goto exit;
- 
- 	if (status & ISR_ERROR) {
--		netif_warn(adpt,  intr, adpt->netdev,
--			   "warning: error irq status 0x%lx\n",
--			   status & ISR_ERROR);
-+		net_err_ratelimited("%s: error interrupt 0x%lx\n",
-+				    adpt->netdev->name, status & ISR_ERROR);
- 		/* reset MAC */
- 		schedule_work(&adpt->work_thread);
+-
+ 	ret = emac_rx_descs_alloc(adpt);
+ 	if (ret) {
+ 		netdev_err(adpt->netdev, "error: Rx Queue alloc failed\n");
+ 		goto err_alloc_rx;
  	}
-@@ -169,7 +168,8 @@ static irqreturn_t emac_isr(int _irq, void *data)
- 		emac_mac_tx_process(adpt, &adpt->tx_q);
  
- 	if (status & ISR_OVER)
--		net_warn_ratelimited("warning: TX/RX overflow\n");
-+		net_warn_ratelimited("%s: TX/RX overflow interrupt\n",
-+				     adpt->netdev->name);
++	ret = emac_tx_q_desc_alloc(adpt, &adpt->tx_q);
++	if (ret) {
++		netdev_err(adpt->netdev, "transmit queue allocation failed\n");
++		goto err_alloc_tx;
++	}
++
+ 	return 0;
  
- exit:
- 	/* enable the interrupt */
+-err_alloc_rx:
+-	emac_tx_q_bufs_free(adpt);
+ err_alloc_tx:
++	emac_rx_q_bufs_free(adpt);
++err_alloc_rx:
+ 	dma_free_coherent(dev, ring_header->size,
+ 			  ring_header->v_addr, ring_header->dma_addr);
+ 
 -- 
 Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
 Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
