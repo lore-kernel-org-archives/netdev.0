@@ -1,91 +1,80 @@
-From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: [PATCH net] net/ncsi: Don't limit vids based on hot_channel
-Date: Wed, 11 Oct 2017 16:54:27 +1100
-Message-ID: <20171011055427.30227-1-sam@mendozajonas.com>
-Cc: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next V6 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Tue, 10 Oct 2017 23:10:39 -0700
+Message-ID: <a430c181-aa56-61a7-fc59-9b135bbb262b@gmail.com>
+References: <150763962554.14394.15623435724195136364.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        peter.waskiewicz.jr@intel.com,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35151 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751499AbdJKGKn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 02:10:43 -0400
+Received: by mail-wm0-f65.google.com with SMTP id b189so1115635wmd.2
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 23:10:43 -0700 (PDT)
+In-Reply-To: <150763962554.14394.15623435724195136364.stgit@firesoul>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently we drop any new VLAN ids if there are more than the current
-(or last used) channel can support. Most importantly this is a problem
-if no channel has been selected yet, resulting in a segfault.
+On 10/10/2017 05:47 AM, Jesper Dangaard Brouer wrote:
+> Introducing a new way to redirect XDP frames.  Notice how no driver
+> changes are necessary given the design of XDP_REDIRECT.
+> 
+> This redirect map type is called 'cpumap', as it allows redirection
+> XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+> and start the network stack invocation on that CPU.
+> 
+> This is a scalability and isolation mechanism, that allow separating
+> the early driver network XDP layer, from the rest of the netstack, and
+> assigning dedicated CPUs for this stage.  The sysadm control/configure
+> the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+> many queues are configured via ethtool --set-channels.  Benchmarks
+> show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+> two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+> wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+> have the advantage that more packets being "bulk" available per hard
+> interrupt[1].
+> 
+> [1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
+> 
+> Use-cases:
+> 
+> 1. End-host based pre-filtering for DDoS mitigation.  This is fast
+>    enough to allow software to see and filter all packets wirespeed.
+>    Thus, no packets getting silently dropped by hardware.
+> 
+> 2. Given NIC HW unevenly distributes packets across RX queue, this
+>    mechanism can be used for redistribution load across CPUs.  This
+>    usually happens when HW is unaware of a new protocol.  This
+>    resembles RPS (Receive Packet Steering), just faster, but with more
+>    responsibility placed on the BPF program for correct steering.
 
-Secondly this does not necessarily reflect the capabilities of any other
-channels. Instead only drop a new VLAN id if we are already tracking the
-maximum allowed by the NCSI specification. Per-channel limits are
-already handled by ncsi_add_filter(), but add a message to set_one_vid()
-to make it obvious that the channel can not support any more VLAN ids.
+Hi Jesper,
 
-Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
----
- net/ncsi/internal.h    |  1 +
- net/ncsi/ncsi-manage.c | 17 +++++++++--------
- 2 files changed, 10 insertions(+), 8 deletions(-)
+Another (somewhat meta) comment about the performance benchmarks. In
+one of the original threads you showed that the XDP cpu map outperformed
+RPS in TCP_CRR netperf tests. It was significant iirc in the mpps range.
 
-diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
-index af3d636534ef..d30f7bd741d0 100644
---- a/net/ncsi/internal.h
-+++ b/net/ncsi/internal.h
-@@ -286,6 +286,7 @@ struct ncsi_dev_priv {
- 	struct work_struct  work;            /* For channel management     */
- 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
- 	struct list_head    node;            /* Form NCSI device list      */
-+#define NCSI_MAX_VLAN_VIDS	15
- 	struct list_head    vlan_vids;       /* List of active VLAN IDs */
- };
- 
-diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index 3fd3c39e6278..b6a449aa9d4b 100644
---- a/net/ncsi/ncsi-manage.c
-+++ b/net/ncsi/ncsi-manage.c
-@@ -732,6 +732,10 @@ static int set_one_vid(struct ncsi_dev_priv *ndp, struct ncsi_channel *nc,
- 	if (index < 0) {
- 		netdev_err(ndp->ndev.dev,
- 			   "Failed to add new VLAN tag, error %d\n", index);
-+		if (index == -ENOSPC)
-+			netdev_err(ndp->ndev.dev,
-+				   "Channel %u already has all VLAN filters set\n",
-+				   nc->id);
- 		return -1;
- 	}
- 
-@@ -1403,7 +1407,6 @@ static int ncsi_kick_channels(struct ncsi_dev_priv *ndp)
- 
- int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
- {
--	struct ncsi_channel_filter *ncf;
- 	struct ncsi_dev_priv *ndp;
- 	unsigned int n_vids = 0;
- 	struct vlan_vid *vlan;
-@@ -1420,7 +1423,6 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
- 	}
- 
- 	ndp = TO_NCSI_DEV_PRIV(nd);
--	ncf = ndp->hot_channel->filters[NCSI_FILTER_VLAN];
- 
- 	/* Add the VLAN id to our internal list */
- 	list_for_each_entry_rcu(vlan, &ndp->vlan_vids, list) {
-@@ -1431,12 +1433,11 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
- 			return 0;
- 		}
- 	}
--
--	if (n_vids >= ncf->total) {
--		netdev_info(dev,
--			    "NCSI Channel supports up to %u VLAN tags but %u are already set\n",
--			    ncf->total, n_vids);
--		return -EINVAL;
-+	if (n_vids >= NCSI_MAX_VLAN_VIDS) {
-+		netdev_warn(dev,
-+			    "tried to add vlan id %u but NCSI max already registered (%u)\n",
-+			    vid, NCSI_MAX_VLAN_VIDS);
-+		return -ENOSPC;
- 	}
- 
- 	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
--- 
-2.14.2
+But, with this series we will skip GRO. Do you have any idea how this
+looks with other tests such as TCP_STREAM? I'm trying to understand
+if this is something that can be used in the general case or is more
+for the special case and will have to be enabled/disabled by the
+orchestration layer depending on workload/network conditions.
+
+My intuition is the general case will be slower due to lack of GRO. If
+this is the case any ideas how we could add GRO? Not needed in the
+initial patchset but trying to see if the two are mutually exclusive. I
+don't off-hand see an easy way to pull GRO into this feature.
+
+Thanks,
+John
