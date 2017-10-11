@@ -1,74 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next V6 PATCH 1/5] bpf: introduce new bpf cpu map type
- BPF_MAP_TYPE_CPUMAP
-Date: Wed, 11 Oct 2017 07:36:28 +0200
-Message-ID: <20171011073628.0c149ca5@redhat.com>
-References: <150763962554.14394.15623435724195136364.stgit@firesoul>
-        <150763965869.14394.6619644617101345170.stgit@firesoul>
-        <59DD4E48.3060403@iogearbox.net>
+From: "Sergey K." <simkergey@gmail.com>
+Subject: Re: High CPU load by native_queued_spin_lock_slowpath
+Date: Wed, 11 Oct 2017 11:46:09 +0600
+Message-ID: <CAGv8E+xwzwZgEsGb6wmG3KFffMRxGKmGBqrueHwXzFwv2WB=_Q@mail.gmail.com>
+References: <CAGv8E+xZOweXEedymRuLt4idQmCM8Mk1TZOM=0p3YmnXbh-n+g@mail.gmail.com>
+ <1507644432.31614.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37672 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750718AbdJKFgj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Oct 2017 01:36:39 -0400
-In-Reply-To: <59DD4E48.3060403@iogearbox.net>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:54763 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751499AbdJKFqK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 01:46:10 -0400
+Received: by mail-io0-f182.google.com with SMTP id h66so934777ioh.11
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 22:46:10 -0700 (PDT)
+In-Reply-To: <1507644432.31614.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Oct 2017 00:48:40 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+I'm using ifb0 device for outgoing traffic.
+I have one bond0 interface with exit to the Internet, and 2 interfaces
+eth0 and eth2 to local users.
+ifb0 - for shaping Internet traffic from bond0 to eth2 or eth0.
+All outgoing traffic to the eth0 and eth2 redirecting to ifb0.
 
-> On 10/10/2017 02:47 PM, Jesper Dangaard Brouer wrote:
-> [...]
-> > +static struct bpf_map *cpu_map_alloc(union bpf_attr *attr)
-> > +{
-> > +	struct bpf_cpu_map *cmap;
-> > +	int err = -ENOMEM;
-> > +	u64 cost;
-> > +	int ret;
-> > +
-> > +	if (!capable(CAP_SYS_ADMIN))
-> > +		return ERR_PTR(-EPERM);
-> > +
-> > +	/* check sanity of attributes */
-> > +	if (attr->max_entries == 0 || attr->key_size != 4 ||
-> > +	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
-> > +		return ERR_PTR(-EINVAL);
-> > +
-> > +	cmap = kzalloc(sizeof(*cmap), GFP_USER);
-> > +	if (!cmap)
-> > +		return ERR_PTR(-ENOMEM);
-> > +
-> > +	/* mandatory map attributes */
-> > +	cmap->map.map_type = attr->map_type;
-> > +	cmap->map.key_size = attr->key_size;
-> > +	cmap->map.value_size = attr->value_size;
-> > +	cmap->map.max_entries = attr->max_entries;
-> > +	cmap->map.map_flags = attr->map_flags;
-> > +	cmap->map.numa_node = bpf_map_attr_numa_node(attr);
-> > +
-> > +	/* Pre-limit array size based on NR_CPUS, not final CPU check */
-> > +	if (cmap->map.max_entries > NR_CPUS)
-> > +		return ERR_PTR(-E2BIG);  
-> 
-> We still have a leak here, meaning kfree(cmap) is missing on above error.
+> What about multiple ifb instead, one per RX queue ?
+You are offering to redirect traffic from every queue to personal ifb
+device? I do not quite understand.
 
-Darn... yes, I introduced this in this V6 as I moved the check.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2017-10-10 20:07 GMT+06:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Tue, 2017-10-10 at 18:00 +0600, Sergey K. wrote:
+>> I'm using Debian 9(stretch edition) kernel 4.9., hp dl385 g7 server
+>> with 32 cpu cores. NIC queues are tied to processor cores. Server is
+>> shaping traffic (iproute2 and htb discipline + skbinfo + ipset + ifb)
+>> and filtering some rules by iptables.
+>>
+>> At that moment, when traffic goes up about 1gbit/s cpu is very high
+>> loaded. Perf tool tells me that kernel module
+>> native_queued_spin_lock_slowpath loading cpu about 40%.
+>>
+>> After several hours of searching, I found that if I remove the htb
+>> discipline from ifb0, the high load goes down.
+>> Well, I think that problem with classify and shaping by htb.
+>>
+>> Who knows how to solve?
+>
+> You use a single ifb0 on the whole (multiqueue) device for ingress ?
+>
+> What about multiple ifb instead, one per RX queue ?
+>
+> Alternative is to reduce contention and use a single RX queue.
+>
+>
