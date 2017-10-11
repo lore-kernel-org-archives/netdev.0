@@ -1,8 +1,7 @@
 From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [jkirsher/next-queue PATCH v4 1/6] cls_flower: Offload classid to
- hardware
-Date: Tue, 10 Oct 2017 17:24:17 -0700
-Message-ID: <150768145789.5320.12630174072579962718.stgit@anamdev.jf.intel.com>
+Subject: [jkirsher/next-queue PATCH v4 2/6] i40e: Map TCs with the VSI seids
+Date: Tue, 10 Oct 2017 17:24:23 -0700
+Message-ID: <150768146296.5320.684345674569171719.stgit@anamdev.jf.intel.com>
 References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,54 +12,53 @@ Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
         xiyou.wangcong@gmail.com
 To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:58302 "EHLO mga14.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:21914 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754392AbdJKAZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 20:25:43 -0400
+        id S1756553AbdJKAZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 20:25:48 -0400
 In-Reply-To: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The classid on a filter is used to match a packet to a class.
-tcf_result structure contains the class ID of the class to which
-the packet belongs. This patch enables offloading the classid to
-the hardware.
+Add mapping of TCs with the seids of the channel VSIs. TC0
+will be mapped to the main VSI seid and all other TCs are
+mapped to the seid of the corresponding channel VSI.
 
 Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 ---
- include/net/pkt_cls.h  |    1 +
- net/sched/cls_flower.c |    2 ++
+ drivers/net/ethernet/intel/i40e/i40e.h      |    1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c |    2 ++
  2 files changed, 3 insertions(+)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 456017a..c2f847f 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -515,6 +515,7 @@ struct tc_cls_flower_offload {
- 	struct fl_flow_key *key;
- 	struct tcf_exts *exts;
- 	bool egress_dev;
-+	u32 classid;
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index eb01776..f3c501e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -739,6 +739,7 @@ struct i40e_vsi {
+ 	u16 next_base_queue;	/* next queue to be used for channel setup */
  
- enum tc_matchall_command {
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index db831ac..50c8a52 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -241,6 +241,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 	cls_flower.mask = mask;
- 	cls_flower.key = &f->mkey;
- 	cls_flower.exts = &f->exts;
-+	cls_flower.classid = f->res.classid;
+ 	struct list_head ch_list;
++	u16 tc_seid_map[I40E_MAX_TRAFFIC_CLASS];
  
- 	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
- 					    &cls_flower);
-@@ -264,6 +265,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	cls_flower.command = TC_CLSFLOWER_STATS;
- 	cls_flower.cookie = (unsigned long) f;
- 	cls_flower.exts = &f->exts;
-+	cls_flower.classid = f->res.classid;
+ 	void *priv;	/* client driver data reference. */
  
- 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
- 				      &cls_flower);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 75f944f..33a8f429 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6100,6 +6100,7 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+ 	int ret = 0, i;
+ 
+ 	/* Create app vsi with the TCs. Main VSI with TC0 is already set up */
++	vsi->tc_seid_map[0] = vsi->seid;
+ 	for (i = 1; i < I40E_MAX_TRAFFIC_CLASS; i++) {
+ 		if (vsi->tc_config.enabled_tc & BIT(i)) {
+ 			ch = kzalloc(sizeof(*ch), GFP_KERNEL);
+@@ -6130,6 +6131,7 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+ 					i, ch->num_queue_pairs);
+ 				goto err_free;
+ 			}
++			vsi->tc_seid_map[i] = ch->seid;
+ 		}
+ 	}
+ 	return ret;
