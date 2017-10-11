@@ -1,43 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/7] net: qualcomm: rmnet: Fix some existing
- functionality
-Date: Tue, 10 Oct 2017 20:11:58 -0700 (PDT)
-Message-ID: <20171010.201158.638298226550574884.davem@davemloft.net>
-References: <1507681229-27861-1-git-send-email-subashab@codeaurora.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC 0/3] tun zerocopy stats
+Date: Wed, 11 Oct 2017 11:15:54 +0800
+Message-ID: <3ef92f5f-b242-a66a-860f-31da29216dc4@redhat.com>
+References: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com>
+ <20171009.205228.714368596112967819.davem@davemloft.net>
+ <CAF=yD-Jc_ikdYLydYwkw+h_+izVEg2Qp66=5+URokyqM=E=zJg@mail.gmail.com>
+ <20171010.103918.358738948563291074.davem@davemloft.net>
+ <CAF=yD-J+Abjka9PViEFE6OhKOWf65UK1do5prYboFC+m+Tv1wA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44824 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754285AbdJKDMA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 23:12:00 -0400
-In-Reply-To: <1507681229-27861-1-git-send-email-subashab@codeaurora.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39682 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754273AbdJKDQC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 23:16:02 -0400
+In-Reply-To: <CAF=yD-J+Abjka9PViEFE6OhKOWf65UK1do5prYboFC+m+Tv1wA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Date: Tue, 10 Oct 2017 18:20:22 -0600
 
-> This series fixes some of the broken rmnet functionality from the initial
-> patchset. Bridge mode is re-written and made useable and the muxed_ep is
-> converted to hlist.
-> 
-> Patches 1-5 are cleanups in preparation for these changes.
-> Patch 6 does the hlist conversion.
-> Patch 7 has the implementation of the rmnet bridge mode.
-> 
-> Note that there will be a compilation error when merging net with net-next
-> due to the addition of the ext ack argument in
-> netdev_master_upper_dev_link / ndo_add_slave.
 
-I don't thnk any of these changes qualify as "fixes".  They don't
-fix any bugs at all.
+On 2017年10月11日 03:11, Willem de Bruijn wrote:
+> On Tue, Oct 10, 2017 at 1:39 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+>> Date: Tue, 10 Oct 2017 11:29:33 -0400
+>>
+>>> If there is a way to expose these stats through vhost_net directly,
+>>> instead of through tun, that may be better. But I did not see a
+>>> suitable interface. Perhaps debugfs.
+>> Please don't use debugfs, thank you :-)
+> Okay. I'll take a look at tracing for on-demand measurement.
 
-These are cleanups, and the addition of a new feature used for
-debugging.
+This reminds me a past series that adding tracepoints to vhost/net[1]. 
+It can count zero/datacopy independently and even contains a sample 
+program to show the stats.
 
-Therefore these should be all targetted at the 'net-next' tree
-not 'net'.
+Thanks
+
+[1] https://lists.oasis-open.org/archives/virtio-dev/201403/msg00025.html
