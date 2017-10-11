@@ -1,65 +1,45 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: BUG:af_packet fails to TX TSO frames
-Date: Wed, 11 Oct 2017 14:57:50 -0400
-Message-ID: <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
- <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com> <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
- <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com> <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: act_skbedit unable to check queue_mapping at init time
+Date: Wed, 11 Oct 2017 12:02:35 -0700
+Message-ID: <c48c8af5-d4c6-d2f7-cc0f-6cb50f2a865e@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com>,
-        Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org, jhs@mojatatu.com, jiri@resnulli.us,
+        alexander.h.duyck@intel.com, xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f45.google.com ([209.85.218.45]:48909 "EHLO
-        mail-oi0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752434AbdJKS6c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 14:58:32 -0400
-Received: by mail-oi0-f45.google.com with SMTP id m198so4707668oig.5
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:58:31 -0700 (PDT)
-In-Reply-To: <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+Received: from mail-qt0-f181.google.com ([209.85.216.181]:52161 "EHLO
+        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752534AbdJKTCk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 15:02:40 -0400
+Received: by mail-qt0-f181.google.com with SMTP id q4so8313460qtq.8
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 12:02:40 -0700 (PDT)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 11, 2017 at 2:39 PM, Anton Ivanov
-<anton.ivanov@kot-begemot.co.uk> wrote:
-> The check as now insists that the actual driver supports GSO_ROBUST, because
-> we have marked the skb dodgy.
->
-> The specific bit which does this check is in net_gso_ok()
->
-> Now, lets's see how many Ethernet drivers set GSO_ROBUST.
->
-> find drivers/net/ethernet -type f -name "*.[c,h]" -exec grep -H GSO_ROBUST
-> {} \;
->
-> That returns nothing in 4.x
->
-> IMHO - af_packet allocates the skb, does all checks (and extra may be added)
-> on the gso, why is this set dodgy in the first place?
+Hi all,
 
-It is set when the header has to be validated.
+It is perfectly possible for the following to happen:
 
-The segmentation logic will validate and fixup gso_segs. See for
-instance tcp_gso_segment:
+# ls /sys/class/net/gphy/queues
+rx-0  tx-0  tx-1  tx-2  tx-3
+# tc qdisc add dev gphy root handle 1: multiq
+# tc filter add dev gphy parent 1: protocol ip prio 1 u32
+ match ip dst 192.168.1.1 action skbedit queue_mapping 5
 
-        if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
-                /* Packet is from an untrusted source, reset gso_segs. */
+that specifies a queue_mapping value that exceeds what the underlying
+device supports. There is a check for dev->real_num_tx_queue >
+d->queue_mapping in tcf_skbedit() which makes sure we won't overflow the
+queue space, but this will essentially render the action inactive.
 
-                skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+I can't find a way to get a reference on a network device from a
+tc_action_ops->init function in order to validate that the queue_mapping
+is valid at ->init() time and return an appropriate error if we are
+exceeding what the device does. This is an action chained to a match and
+a filter, so somehow one would think it would be possible to obtain a
+reference on the network device the filter was installed on...
 
-                segs = NULL;
-                goto out;
-        }
-
-If the device would have the robust bit set and otherwise supports the
-required features, fix up gso_segs and pass the large packet to the
-device.
-
-Else it continues to the software gso path.
-
-Large packets generated with psock_txring_vnet.c pass this test. I
-suspect that there is a subtle difference in the virtio_net_hdr fields
-that that generates vs. your program.
+Any clues how we could fix that?
+-- 
+Florian
