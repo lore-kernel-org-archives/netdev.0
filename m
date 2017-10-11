@@ -1,8 +1,9 @@
 From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [jkirsher/next-queue PATCH v4 0/6] tc-flower based cloud filters in
- i40e
-Date: Tue, 10 Oct 2017 17:24:12 -0700
-Message-ID: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
+Subject: [jkirsher/next-queue PATCH v4 1/6] cls_flower: Offload classid to
+ hardware
+Date: Tue, 10 Oct 2017 17:24:17 -0700
+Message-ID: <150768145789.5320.12630174072579962718.stgit@anamdev.jf.intel.com>
+References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,73 +13,54 @@ Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
         xiyou.wangcong@gmail.com
 To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:12810 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:58302 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751858AbdJKAZi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 20:25:38 -0400
+        id S1754392AbdJKAZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 20:25:43 -0400
+In-Reply-To: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series enables configuring cloud filters in i40e
-using the tc-flower classifier. The classification function
-of the filter is to match a packet to a class. cls_flower is
-extended to offload classid to hardware. The offloaded classid
-is used direct matched packets to a traffic class on the device. 
-The approach here is similar to the tc 'prio' qdisc which uses
-the classid for band selection. The ingress qdisc is called ffff:0,
-so traffic classes are ffff:1 to ffff:8 (i40e has max of 8 TCs).
-TC0 is minor number 1, TC1 is minor number 2 etc.
+The classid on a filter is used to match a packet to a class.
+tcf_result structure contains the class ID of the class to which
+the packet belongs. This patch enables offloading the classid to
+the hardware.
 
-The cloud filters are added for a VSI and are cleaned up when
-the VSI is deleted. The filters that match on L4 ports needs
-enhanced admin queue functions with big buffer support for
-extended fields in cloud filter commands.
-
-Example:
-# tc qdisc add dev eth0 ingress
-# ethtool -K eth0 hw-tc-offload on
-
-Match Dst IPv4,Dst Port and route to TC1:
-# tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
-  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
-  skip_sw classid ffff:2
-
-# tc filter show dev eth0 parent ffff:
-filter pref 1 flower chain 0
-filter pref 1 flower chain 0 handle 0x1 classid ffff:2
-  eth_type ipv4
-  ip_proto udp
-  dst_ip 192.168.1.1
-  dst_port 22
-  skip_sw
-  in_hw
-
-v4: classid based approach to set traffic class for matched packets.
-
-Authors:
-Amritha Nambiar <amritha.nambiar@intel.com>
-Kiran Patil <kiran.patil@intel.com>
-Anjali Singhai Jain <anjali.singhai@intel.com>
-Jingjing Wu <jingjing.wu@intel.com>
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 ---
+ include/net/pkt_cls.h  |    1 +
+ net/sched/cls_flower.c |    2 ++
+ 2 files changed, 3 insertions(+)
 
-Amritha Nambiar (6):
-      cls_flower: Offload classid to hardware
-      i40e: Map TCs with the VSI seids
-      i40e: Cloud filter mode for set_switch_config command
-      i40e: Admin queue definitions for cloud filters
-      i40e: Clean up of cloud filters
-      i40e: Enable cloud filters via tc-flower
-
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   55 +
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  143 +++
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  193 ++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    2 
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  941 +++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   18 
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   10 
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  113 ++
- include/net/pkt_cls.h                              |    1 
- net/sched/cls_flower.c                             |    2 
- 10 files changed, 1439 insertions(+), 39 deletions(-)
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 456017a..c2f847f 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -515,6 +515,7 @@ struct tc_cls_flower_offload {
+ 	struct fl_flow_key *key;
+ 	struct tcf_exts *exts;
+ 	bool egress_dev;
++	u32 classid;
+ };
+ 
+ enum tc_matchall_command {
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index db831ac..50c8a52 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -241,6 +241,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ 	cls_flower.mask = mask;
+ 	cls_flower.key = &f->mkey;
+ 	cls_flower.exts = &f->exts;
++	cls_flower.classid = f->res.classid;
+ 
+ 	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 					    &cls_flower);
+@@ -264,6 +265,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	cls_flower.command = TC_CLSFLOWER_STATS;
+ 	cls_flower.cookie = (unsigned long) f;
+ 	cls_flower.exts = &f->exts;
++	cls_flower.classid = f->res.classid;
+ 
+ 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 				      &cls_flower);
