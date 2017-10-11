@@ -1,64 +1,61 @@
-From: Xiang Gao <qasdfgtyuiop@gmail.com>
-Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
-Date: Tue, 10 Oct 2017 22:31:32 -0400
-Message-ID: <CAMtaSwTgu5vV3Pr_TaEOK4-4x0WO2Mk71Wg+Nr2ukg6VwNZ+2Q@mail.gmail.com>
-References: <20170926131945.3962-1-qasdfgtyuiop@gmail.com> <1506945898.25586.3.camel@sipsolutions.net>
- <CAMtaSwRU45ve71=H4C7cDQEHrkHg2=eMvXhYbe4HZGxsPRD+AQ@mail.gmail.com> <1507532953.26041.5.camel@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Manish Kurup <kurup.manish@gmail.com>
+Subject: [PATCH net-next 1/2] net sched act_vlan: Change stats update to use per-core stats
+Date: Tue, 10 Oct 2017 22:32:27 -0400
+Message-ID: <1507689147-22941-1-git-send-email-manish.kurup@verizon.com>
+Cc: aring@mojatatu.com, mrv@mojatatu.com, kurup.manish@gmail.com,
+        manish.kurup@verizon.com
+To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507532953.26041.5.camel@sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2017-10-09 3:09 GMT-04:00 Johannes Berg <johannes@sipsolutions.net>:
-> On Sun, 2017-10-08 at 01:43 -0400, Xiang Gao wrote:
->>
->> By the way, I'm still struggling on how to run unit tests. It might
->> take time for me to make it run on my machine.
->
-> I can run it easily, so don't worry about it too much. Running it is of
-> course much appreciated, but I don't really want to go and require that
-> right now, it takes a long time to run.
->
-> If you do want to set it up, I suggest the vm scripts (hostap
-> repository in tests/hwsim/vm/ - you can use the kernel .config there as
-> a base to compile a kernel and then just kick it off from there, but it
-> can take a while to run.
+The VLAN action maintains one set of stats across all cores, and uses a
+spinlock to synchronize updates to it from the same. Changed this to use a
+per-CPU stats context instead.
+This change will result in better performance.
 
-Thanks for your help on this. This information is actually very helpful to me.
+Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
+---
+ net/sched/act_vlan.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-Since the unit test is not required, I will put working on this patch
-higher priority than unit tests. I will send out patches without
-running unit tests for now before I can make it run on my computer.
-But I'm still interested in trying to run it on my computer after I
-finish this patch.
-
-I will send PATCH v3 soon.
-
-Thanks
-
->
->> Hmm... good question. The reason is, aes_ccm.c and aes_gcm.c was
->> almost exact copy of each other. But they have different copyright
->> information.
->> The copyright of aes_ccm.c was:
->>
->> Copyright 2006, Devicescape Software, Inc.
->> Copyright 2003-2004, Instant802 Networks, Inc.
->>
->> and the copyright of aes_gcm.c was:
->>
->> Copyright 2014-2015, Qualcomm Atheros, Inc.
->>
->> I just don't know how to write the copyright for the new aead_api.c,
->> so I does not put anything there.
->
-> Heh, good point. Well, I guess we can pretend it wasn't already copied
-> before and just "keep" both.
->
-> johannes
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index 16eb067..14c262c 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -30,9 +30,10 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 	int err;
+ 	u16 tci;
+ 
+-	spin_lock(&v->tcf_lock);
+ 	tcf_lastuse_update(&v->tcf_tm);
+-	bstats_update(&v->tcf_bstats, skb);
++	bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
++
++	spin_lock(&v->tcf_lock);
+ 	action = v->tcf_action;
+ 
+ 	/* Ensure 'data' points at mac_header prior calling vlan manipulating
+@@ -85,7 +86,8 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
+ 
+ drop:
+ 	action = TC_ACT_SHOT;
+-	v->tcf_qstats.drops++;
++	qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
++
+ unlock:
+ 	if (skb_at_tc_ingress(skb))
+ 		skb_pull_rcsum(skb, skb->mac_len);
+@@ -172,7 +174,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
+ 
+ 	if (!exists) {
+ 		ret = tcf_idr_create(tn, parm->index, est, a,
+-				     &act_vlan_ops, bind, false);
++						&act_vlan_ops, bind, true);
+ 		if (ret)
+ 			return ret;
+ 
+-- 
+2.7.4
