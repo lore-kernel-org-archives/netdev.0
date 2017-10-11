@@ -1,44 +1,52 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH net-next 1/1] bridge: return error code when deleting Vlan
-Date: Wed, 11 Oct 2017 17:29:45 -0400
-Message-ID: <1507757385-32256-1-git-send-email-mrv@mojatatu.com>
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-        Roman Mashak <mrv@mojatatu.com>
-To: davem@davemloft.net
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: Re: [next-queue PATCH v5 3/5] net/sched: Introduce Credit Based Shaper (CBS) qdisc
+Date: Wed, 11 Oct 2017 14:38:46 -0700
+Message-ID: <87vajlmkk9.fsf@intel.com>
+References: <20171011004400.14946-1-vinicius.gomes@intel.com> <20171011004400.14946-4-vinicius.gomes@intel.com> <20171011065809.GB2039@nanopsycho>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:46504 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752411AbdJKV3y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:29:54 -0400
-Received: by mail-io0-f196.google.com with SMTP id 101so3327086ioj.3
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:29:53 -0700 (PDT)
+Received: from mga06.intel.com ([134.134.136.31]:21015 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750718AbdJKVis (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Oct 2017 17:38:48 -0400
+In-Reply-To: <20171011065809.GB2039@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jiri Pirko <jiri@resnulli.us> writes:
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
----
- net/bridge/br_netlink.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+[...]
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index f0e8268..a1e1ca8 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -527,11 +527,11 @@ static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
- 
- 	case RTM_DELLINK:
- 		if (p) {
--			nbp_vlan_delete(p, vinfo->vid);
-+			err = nbp_vlan_delete(p, vinfo->vid);
- 			if (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)
--				br_vlan_delete(p->br, vinfo->vid);
-+				err = br_vlan_delete(p->br, vinfo->vid);
- 		} else {
--			br_vlan_delete(br, vinfo->vid);
-+			err = br_vlan_delete(br, vinfo->vid);
- 		}
- 		break;
- 	}
--- 
-1.9.1
+>>+struct tc_cbs_qopt_offload {
+>>+	u8 enable;
+>>+	s32 queue;
+>>+	s32 hicredit;
+>>+	s32 locredit;
+>>+	s32 idleslope;
+>>+	s32 sendslope;
+>
+> Please introduce the qdisc in one patch, then offload it in second. That
+> is what I requested already. 2 patches please.
+>
+> [...]
+
+Will move these declarations to the offload patch.
+
+>
+>
+>>+static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
+>>+	.next		=	NULL,
+>
+> It is already 0, no need to re-init.
+
+Will fix.
+
+
+Cheers,
