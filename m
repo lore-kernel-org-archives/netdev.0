@@ -1,60 +1,53 @@
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v5 1/5] net/sched: Check for null dev_queue on create flow
-Date: Tue, 10 Oct 2017 17:43:56 -0700
-Message-ID: <20171011004400.14946-2-vinicius.gomes@intel.com>
-References: <20171011004400.14946-1-vinicius.gomes@intel.com>
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36484 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932625AbdJKAqL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 20:46:11 -0400
-In-Reply-To: <20171011004400.14946-1-vinicius.gomes@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [PATCH net] driver: e1000: fix race condition between
+ e1000_down() and e1000_watchdog
+Date: Wed, 11 Oct 2017 01:07:48 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6BE222@ORSMSX101.amr.corp.intel.com>
+References: <20170916160000.3560-1-v.maffione@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Vincenzo Maffione <v.maffione@gmail.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170916160000.3560-1-v.maffione@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Vincenzo Maffione
+> Sent: Saturday, September 16, 2017 9:00 AM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> Cc: intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Vincenzo Maffione <v.maffione@gmail.com>
+> Subject: [PATCH net] driver: e1000: fix race condition between e1000_down()
+> and e1000_watchdog
+> 
+> This patch fixes a race condition that can result into the interface being
+> up and carrier on, but with transmits disabled in the hardware.
+> The bug may show up by repeatedly IFF_DOWN+IFF_UP the interface, which
+> allows e1000_watchdog() interleave with e1000_down().
+> 
+>     CPU x                           CPU y
+>     --------------------------------------------------------------------
+>     e1000_down():
+>         netif_carrier_off()
+>                                     e1000_watchdog():
+>                                         if (carrier == off) {
+>                                             netif_carrier_on();
+>                                             enable_hw_transmit();
+>                                         }
+>         disable_hw_transmit();
+>                                     e1000_watchdog():
+>                                         /* carrier on, do nothing */
+> 
+> Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_main.c | 11 +++++++++--
+>  1 file changed, 9 insertions(+), 2 deletions(-)
 
-In qdisc_alloc() the dev_queue pointer was used without any checks
-being performed. If qdisc_create() gets a null dev_queue pointer, it
-just passes it along to qdisc_alloc(), leading to a crash. That
-happens if a root qdisc implements select_queue() and returns a null
-dev_queue pointer for an "invalid handle", for example, or if the
-dev_queue associated with the parent qdisc is null.
-
-This patch is in preparation for the next in this series, where
-select_queue() is being added to mqprio and as it may return a null
-dev_queue.
-
-Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
----
- net/sched/sch_generic.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index a0a198768aad..de2408f1ccd3 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
- 	struct Qdisc *sch;
- 	unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
- 	int err = -ENOBUFS;
--	struct net_device *dev = dev_queue->dev;
-+	struct net_device *dev;
-+
-+	if (!dev_queue) {
-+		err = -EINVAL;
-+		goto errout;
-+	}
- 
-+	dev = dev_queue->dev;
- 	p = kzalloc_node(size, GFP_KERNEL,
- 			 netdev_queue_numa_node_read(dev_queue));
- 
--- 
-2.14.2
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
