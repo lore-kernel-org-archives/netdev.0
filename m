@@ -1,35 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 2/2] ss: print MD5 signature keys configured on
- TCP sockets
-Date: Wed, 11 Oct 2017 11:06:54 -0700
-Message-ID: <20171011110654.260f9b8c@xeon-e3>
-References: <20171006234820.27567-1-colona@arista.com>
-        <20171006234820.27567-2-colona@arista.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:49329 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752508AbdJKSHB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 14:07:01 -0400
-Received: by mail-pg0-f54.google.com with SMTP id v13so1419158pgq.6
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:07:01 -0700 (PDT)
-In-Reply-To: <20171006234820.27567-2-colona@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] sched: tc_mirred: Remove whitespaces
+Date: Wed, 11 Oct 2017 11:14:49 -0700
+Message-ID: <20171011181450.22648-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri,  6 Oct 2017 16:48:20 -0700
-Ivan Delalande <colona@arista.com> wrote:
+This file contains unnecessary whitespaces as newlines, remove them,
+found by looking at what struct tc_mirred looks like.
 
-> These keys are reported by kernel 4.14 and later under the
-> INET_DIAG_MD5SIG attribute, when INET_DIAG_INFO is requested (ss -i)
-> and we have CAP_NET_ADMIN. The additional output looks like:
-> 
-> 	md5keys:fe80::/64=signing_key,10.1.2.0/24=foobar,::1/128=Test
-> 
-> Signed-off-by: Ivan Delalande <colona@arista.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/uapi/linux/tc_act/tc_mirred.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Sure makes sense applied.
+diff --git a/include/uapi/linux/tc_act/tc_mirred.h b/include/uapi/linux/tc_act/tc_mirred.h
+index 3d7a2b352a62..69038c29e8a9 100644
+--- a/include/uapi/linux/tc_act/tc_mirred.h
++++ b/include/uapi/linux/tc_act/tc_mirred.h
+@@ -9,13 +9,13 @@
+ #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
+ #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
+ #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
+-                                                                                
++
+ struct tc_mirred {
+ 	tc_gen;
+ 	int                     eaction;   /* one of IN/EGRESS_MIRROR/REDIR */
+ 	__u32                   ifindex;  /* ifindex of egress port */
+ };
+-                                                                                
++
+ enum {
+ 	TCA_MIRRED_UNSPEC,
+ 	TCA_MIRRED_TM,
+@@ -24,5 +24,5 @@ enum {
+ 	__TCA_MIRRED_MAX
+ };
+ #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
+-                                                                                
++
+ #endif
+-- 
+2.9.3
