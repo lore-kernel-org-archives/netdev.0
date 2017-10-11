@@ -1,67 +1,68 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [jkirsher/next-queue PATCH v4 0/6] tc-flower based cloud filters
- in i40e
-Date: Wed, 11 Oct 2017 08:42:20 -0400
-Message-ID: <f85aa039-cf16-a25a-5b60-1af747b44f62@mojatatu.com>
-References: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
+From: "Kurup, Manish B" <manish.kurup@verizon.com>
+Subject: RE: [E] Re: [PATCH net-next 1/2] net sched act_vlan: Change stats
+ update to use per-core stats
+Date: Wed, 11 Oct 2017 12:35:50 +0000
+Message-ID: <10f80e225811433d89d58f139fba8026@OMZP1LUMXCA01.uswin.ad.vzwcorp.com>
+References: <1507689147-22941-1-git-send-email-manish.kurup@verizon.com>
+ <d79cf8b2-4c67-1101-0405-afec1e9f89c7@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
-        netdev@vger.kernel.org, alexander.duyck@gmail.com,
-        xiyou.wangcong@gmail.com
-To: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "aring@mojatatu.com" <aring@mojatatu.com>,
+        "mrv@mojatatu.com" <mrv@mojatatu.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Manish Kurup <kurup.manish@gmail.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:44594 "EHLO
-        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757265AbdJKMmX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 08:42:23 -0400
-Received: by mail-it0-f54.google.com with SMTP id n195so13257231itg.1
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 05:42:23 -0700 (PDT)
-In-Reply-To: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
-Content-Language: en-GB
+Received: from omzsmtpe02.verizonbusiness.com ([199.249.25.209]:56066 "EHLO
+        omzsmtpe02.verizonbusiness.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752141AbdJKMpt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 08:45:49 -0400
+In-Reply-To: <d79cf8b2-4c67-1101-0405-afec1e9f89c7@mojatatu.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-10-10 08:24 PM, Amritha Nambiar wrote:
-> This patch series enables configuring cloud filters in i40e
-> using the tc-flower classifier. The classification function
-> of the filter is to match a packet to a class. cls_flower is
-> extended to offload classid to hardware. The offloaded classid
-> is used direct matched packets to a traffic class on the device.
-> The approach here is similar to the tc 'prio' qdisc which uses
-> the classid for band selection. The ingress qdisc is called ffff:0,
-> so traffic classes are ffff:1 to ffff:8 (i40e has max of 8 TCs).
-> TC0 is minor number 1, TC1 is minor number 2 etc.
-> 
-> The cloud filters are added for a VSI and are cleaned up when
-> the VSI is deleted. The filters that match on L4 ports needs
-> enhanced admin queue functions with big buffer support for
-> extended fields in cloud filter commands.
-> 
-> Example:
-> # tc qdisc add dev eth0 ingress
-> # ethtool -K eth0 hw-tc-offload on
-> 
-> Match Dst IPv4,Dst Port and route to TC1:
-> # tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
->    dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
->    skip_sw classid ffff:2
-> 
-> # tc filter show dev eth0 parent ffff:
-> filter pref 1 flower chain 0
-> filter pref 1 flower chain 0 handle 0x1 classid ffff:2
->    eth_type ipv4
->    ip_proto udp
->    dst_ip 192.168.1.1
->    dst_port 22
->    skip_sw
->    in_hw
-> 
-
-Much much better semantic. Thank you.
-Have you tested many filter mapping to the same classid?
-
-cheers,
-jamal
+SGkgSmFtYWwsIFllcywgdGhhdCdzIGFuIGluZGVudGF0aW9uIG1pc21hdGNoIC0gSSBwdXQgaW4g
+b25lIHRhYiB0b28gbWFueS4gU2hhbGwgZml4IGJlZm9yZSBjb21taXQuDQoNClRoYW5rcywNCg0K
+LU1hbmlzaA0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogSmFtYWwgSGFkaSBT
+YWxpbSBbbWFpbHRvOmpoc0Btb2phdGF0dS5jb21dIA0KU2VudDogV2VkbmVzZGF5LCBPY3RvYmVy
+IDExLCAyMDE3IDg6MjggQU0NClRvOiBNYW5pc2ggS3VydXA7IHhpeW91Lndhbmdjb25nQGdtYWls
+LmNvbTsgamlyaUByZXNudWxsaS51czsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIu
+a2VybmVsLm9yZw0KQ2M6IGFyaW5nQG1vamF0YXR1LmNvbTsgbXJ2QG1vamF0YXR1LmNvbTsgS3Vy
+dXAsIE1hbmlzaCBCDQpTdWJqZWN0OiBbRV0gUmU6IFtQQVRDSCBuZXQtbmV4dCAxLzJdIG5ldCBz
+Y2hlZCBhY3RfdmxhbjogQ2hhbmdlIHN0YXRzIHVwZGF0ZSB0byB1c2UgcGVyLWNvcmUgc3RhdHMN
+Cg0KbWludXMgbGsNCg0KT24gMTctMTAtMTAgMTA6MzIgUE0sIE1hbmlzaCBLdXJ1cCB3cm90ZToN
+Cj4gVGhlIFZMQU4gYWN0aW9uIG1haW50YWlucyBvbmUgc2V0IG9mIHN0YXRzIGFjcm9zcyBhbGwg
+Y29yZXMsIGFuZCB1c2VzIA0KPiBhIHNwaW5sb2NrIHRvIHN5bmNocm9uaXplIHVwZGF0ZXMgdG8g
+aXQgZnJvbSB0aGUgc2FtZS4gQ2hhbmdlZCB0aGlzIHRvIA0KPiB1c2UgYSBwZXItQ1BVIHN0YXRz
+IGNvbnRleHQgaW5zdGVhZC4NCj4gVGhpcyBjaGFuZ2Ugd2lsbCByZXN1bHQgaW4gYmV0dGVyIHBl
+cmZvcm1hbmNlLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogTWFuaXNoIEt1cnVwIDxtYW5pc2gua3Vy
+dXBAdmVyaXpvbi5jb20+DQo+IC0tLQ0KPiAgIG5ldC9zY2hlZC9hY3Rfdmxhbi5jIHwgMTAgKysr
+KysrLS0tLQ0KPiAgIDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDQgZGVsZXRpb25z
+KC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvbmV0L3NjaGVkL2FjdF92bGFuLmMgYi9uZXQvc2NoZWQv
+YWN0X3ZsYW4uYyBpbmRleCANCj4gMTZlYjA2Ny4uMTRjMjYyYyAxMDA2NDQNCj4gLS0tIGEvbmV0
+L3NjaGVkL2FjdF92bGFuLmMNCj4gKysrIGIvbmV0L3NjaGVkL2FjdF92bGFuLmMNCj4gQEAgLTMw
+LDkgKzMwLDEwIEBAIHN0YXRpYyBpbnQgdGNmX3ZsYW4oc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29u
+c3Qgc3RydWN0IHRjX2FjdGlvbiAqYSwNCj4gICAJaW50IGVycjsNCj4gICAJdTE2IHRjaTsNCj4g
+ICANCj4gLQlzcGluX2xvY2soJnYtPnRjZl9sb2NrKTsNCj4gICAJdGNmX2xhc3R1c2VfdXBkYXRl
+KCZ2LT50Y2ZfdG0pOw0KPiAtCWJzdGF0c191cGRhdGUoJnYtPnRjZl9ic3RhdHMsIHNrYik7DQo+
+ICsJYnN0YXRzX2NwdV91cGRhdGUodGhpc19jcHVfcHRyKHYtPmNvbW1vbi5jcHVfYnN0YXRzKSwg
+c2tiKTsNCj4gKw0KPiArCXNwaW5fbG9jaygmdi0+dGNmX2xvY2spOw0KPiAgIAlhY3Rpb24gPSB2
+LT50Y2ZfYWN0aW9uOw0KPiAgIA0KPiAgIAkvKiBFbnN1cmUgJ2RhdGEnIHBvaW50cyBhdCBtYWNf
+aGVhZGVyIHByaW9yIGNhbGxpbmcgdmxhbiANCj4gbWFuaXB1bGF0aW5nIEBAIC04NSw3ICs4Niw4
+IEBAIHN0YXRpYyBpbnQgdGNmX3ZsYW4oc3RydWN0IHNrX2J1ZmYgDQo+ICpza2IsIGNvbnN0IHN0
+cnVjdCB0Y19hY3Rpb24gKmEsDQo+ICAgDQo+ICAgZHJvcDoNCj4gICAJYWN0aW9uID0gVENfQUNU
+X1NIT1Q7DQo+IC0Jdi0+dGNmX3FzdGF0cy5kcm9wcysrOw0KPiArCXFzdGF0c19kcm9wX2luYyh0
+aGlzX2NwdV9wdHIodi0+Y29tbW9uLmNwdV9xc3RhdHMpKTsNCj4gKw0KPiAgIHVubG9jazoNCj4g
+ICAJaWYgKHNrYl9hdF90Y19pbmdyZXNzKHNrYikpDQo+ICAgCQlza2JfcHVsbF9yY3N1bShza2Is
+IHNrYi0+bWFjX2xlbik7IEBAIC0xNzIsNyArMTc0LDcgQEAgc3RhdGljIGludCANCj4gdGNmX3Zs
+YW5faW5pdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBubGF0dHIgKm5sYSwNCj4gICANCj4gICAJ
+aWYgKCFleGlzdHMpIHsNCj4gICAJCXJldCA9IHRjZl9pZHJfY3JlYXRlKHRuLCBwYXJtLT5pbmRl
+eCwgZXN0LCBhLA0KPiAtCQkJCSAgICAgJmFjdF92bGFuX29wcywgYmluZCwgZmFsc2UpOw0KPiAr
+CQkJCQkJJmFjdF92bGFuX29wcywgYmluZCwgdHJ1ZSk7DQo+DQoNCkluZGVudGF0aW9uIG1pc21h
+dGNoIGhlcmU/DQoNCk90aGVyd2lzZSBsb29rcyBnb29kIHRvIG1lLg0KDQpBY2tlZC1ieTogSmFt
+YWwgSGFkaSBTYWxpbSA8amhzQG1vamF0YXR1LmNvbT4NCg0KY2hlZXJzLA0KamFtYWwNCg==
