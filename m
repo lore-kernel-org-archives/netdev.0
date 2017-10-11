@@ -1,102 +1,57 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next 3/7] net: qualcomm: rmnet: Move rmnet_mode to rmnet_port
-Date: Tue, 10 Oct 2017 22:17:32 -0600
-Message-ID: <1507695456-17051-4-git-send-email-subashab@codeaurora.org>
-References: <1507695456-17051-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Daniel Drake <drake@endlessm.com>
+Subject: [PATCH] r8169: only enable PCI wakeups when WOL is active
+Date: Wed, 11 Oct 2017 12:56:52 +0800
+Message-ID: <20171011045652.6301-1-drake@endlessm.com>
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, linux@enlessm.com
+To: nic_swsd@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56236 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750808AbdJKER4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 00:17:56 -0400
-In-Reply-To: <1507695456-17051-1-git-send-email-subashab@codeaurora.org>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:43861 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750729AbdJKE5N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 00:57:13 -0400
+Received: by mail-pf0-f179.google.com with SMTP id a8so80405pfc.0
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 21:57:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mode information on the real device makes it easier to route packets
-to rmnet device or bridged device based on the configuration.
+rtl_init_one() currently enables PCI wakeups if the ethernet device
+is found to be WOL-capable. There is no need to do this when
+rtl8169_set_wol() will correctly enable or disable the same wakeup flag
+when WOL is activated/deactivated.
 
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+This works around an ACPI DSDT bug which prevents the Acer laptop models
+Aspire ES1-533, Aspire ES1-732, PackardBell ENTE69AP and Gateway NE533
+from entering S3 suspend - even when no ethernet cable is connected.
+
+On these platforms, the DSDT says that GPE08 is a wakeup source for
+ethernet, but this GPE fires as soon as the system goes into suspend,
+waking the system up immediately. Having the wakeup normally disabled
+avoids this issue in the default case.
+
+With this change, WOL will continue to be unusable on these platforms
+(it will instantly wake up if WOL is later enabled by the user) but we
+do not expect this to be a commonly used feature on these consumer
+laptops. We have separately determined that WOL works fine without any
+ACPI GPEs enabled during sleep, so a DSDT fix or override would be
+possible to make WOL work.
+
+Signed-off-by: Daniel Drake <drake@endlessm.com>
 ---
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c   | 12 +++++-------
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h   |  2 +-
- drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c |  3 +--
- 3 files changed, 7 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
-index 8403eea..85fce9c 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
-@@ -124,20 +124,17 @@ static int rmnet_register_real_device(struct net_device *real_dev)
- }
- 
- static void rmnet_set_endpoint_config(struct net_device *dev,
--				      u8 mux_id, u8 rmnet_mode,
--				      struct net_device *egress_dev)
-+				      u8 mux_id, struct net_device *egress_dev)
- {
- 	struct rmnet_endpoint *ep;
- 
--	netdev_dbg(dev, "id %d mode %d dev %s\n",
--		   mux_id, rmnet_mode, egress_dev->name);
-+	netdev_dbg(dev, "id %d dev %s\n", mux_id, egress_dev->name);
- 
- 	ep = rmnet_get_endpoint(dev, mux_id);
- 	/* This config is cleared on every set, so its ok to not
- 	 * clear it on a device delete.
- 	 */
- 	memset(ep, 0, sizeof(struct rmnet_endpoint));
--	ep->rmnet_mode = rmnet_mode;
- 	ep->egress_dev = egress_dev;
- 	ep->mux_id = mux_id;
- }
-@@ -183,9 +180,10 @@ static int rmnet_newlink(struct net *src_net, struct net_device *dev,
- 		   ingress_format, egress_format);
- 	port->egress_data_format = egress_format;
- 	port->ingress_data_format = ingress_format;
-+	port->rmnet_mode = mode;
- 
--	rmnet_set_endpoint_config(real_dev, mux_id, mode, dev);
--	rmnet_set_endpoint_config(dev, mux_id, mode, real_dev);
-+	rmnet_set_endpoint_config(real_dev, mux_id, dev);
-+	rmnet_set_endpoint_config(dev, mux_id, real_dev);
- 	return 0;
- 
- err2:
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-index 0b0c5a7..03d473f 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-@@ -24,7 +24,6 @@
-  * Exact usage of this parameter depends on the rmnet_mode.
-  */
- struct rmnet_endpoint {
--	u8 rmnet_mode;
- 	u8 mux_id;
- 	struct net_device *egress_dev;
- };
-@@ -39,6 +38,7 @@ struct rmnet_port {
- 	u32 egress_data_format;
- 	struct net_device *rmnet_devices[RMNET_MAX_LOGICAL_EP];
- 	u8 nr_rmnet_devs;
-+	u8 rmnet_mode;
- };
- 
- extern struct rtnl_link_ops rmnet_link_ops;
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
-index b50f401..86e37cc 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
-@@ -205,8 +205,7 @@ void rmnet_egress_handler(struct sk_buff *skb,
- 		}
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index e03fcf914690..a3c949ea7d1a 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -8491,8 +8491,6 @@ static int rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		rtl8168_driver_start(tp);
  	}
  
--	if (ep->rmnet_mode == RMNET_EPMODE_VND)
--		rmnet_vnd_tx_fixup(skb, orig_dev);
-+	rmnet_vnd_tx_fixup(skb, orig_dev);
+-	device_set_wakeup_enable(&pdev->dev, tp->features & RTL_FEATURE_WOL);
+-
+ 	if (pci_dev_run_wake(pdev))
+ 		pm_runtime_put_noidle(&pdev->dev);
  
- 	dev_queue_xmit(skb);
- }
 -- 
-1.9.1
+2.11.0
