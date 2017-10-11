@@ -1,50 +1,43 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH][next] sctp: make array sctp_sched_ops static
-Date: Wed, 11 Oct 2017 07:39:07 -0400
-Message-ID: <20171011113906.GA5546@hmswarspite.think-freely.org>
-References: <20171011101757.18825-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171011101757.18825-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH v2 net 0/2] net/smc: ib_query_gid() patches
+Date: Wed, 11 Oct 2017 13:47:21 +0200
+Message-ID: <20171011114723.30733-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+        parav-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 11, 2017 at 11:17:57AM +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The array sctp_sched_ops  is local to the source and
-> does not need to be in global scope, so make it static.
-> 
-> Cleans up sparse warning:
-> symbol 'sctp_sched_ops' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  net/sctp/stream_sched.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/stream_sched.c b/net/sctp/stream_sched.c
-> index 03513a9fa110..0b83ec51e43b 100644
-> --- a/net/sctp/stream_sched.c
-> +++ b/net/sctp/stream_sched.c
-> @@ -124,7 +124,7 @@ static struct sctp_sched_ops sctp_sched_fcfs = {
->  extern struct sctp_sched_ops sctp_sched_prio;
->  extern struct sctp_sched_ops sctp_sched_rr;
->  
-> -struct sctp_sched_ops *sctp_sched_ops[] = {
-> +static struct sctp_sched_ops *sctp_sched_ops[] = {
->  	&sctp_sched_fcfs,
->  	&sctp_sched_prio,
->  	&sctp_sched_rr,
-> -- 
-> 2.14.1
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Dave,
+
+triggered by Parav Pandit here are 2 cleanup patches for usage of
+ib_query_gid() in the smc-code.
+
+Thanks, Ursula
+
+v2 changes advised by Parav Pandit:
+   extra check is_vlan_dev() in patch 2/2
+   "RoCE" spelling
+   added "Reported-by"
+   added "Reviewed-by"
+   added "Fixes"
+
+Ursula Braun (2):
+  net/smc: replace function pointer get_netdev()
+  net/smc: dev_put for netdev after usage of ib_query_gid()
+
+ net/smc/smc_core.c | 12 ++++++++----
+ net/smc/smc_ib.c   | 26 +++++++++-----------------
+ 2 files changed, 17 insertions(+), 21 deletions(-)
+
+-- 
+2.13.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
