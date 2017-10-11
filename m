@@ -1,125 +1,42 @@
-From: <morice.diane@gmail.com>
-Subject: (unknown)
-Date: Wed, 11 Oct 2017 04:11:46 -0000
-Message-ID: <150769510615.879.14481299709702421398@138-97-64-229.westlink.net.br>
-Mime-Version: 1.0
-Content-Type: application/zip; name="998537216140305.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next 0/7] Rewrite some existing functionality
+Date: Tue, 10 Oct 2017 22:17:29 -0600
+Message-ID: <1507695456-17051-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 138-97-64-229.westlink.net.br ([170.247.42.229]:46637 "HELO
-        138-97-64-229.westlink.net.br" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with SMTP id S1750722AbdJKELt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 00:11:49 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from smtp.codeaurora.org ([198.145.29.96]:56086 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750722AbdJKERu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 00:17:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AAEAWwAAADYXAAAAAA==
+This series fixes some of the broken rmnet functionality.
+Bridge mode is re-written and made useable and the muxed_ep is converted to hlist.
+
+Patches 1-5 are cleanups in preparation for these changes.
+Patch 6 does the hlist conversion.
+Patch 7 has the implementation of the rmnet bridge mode.
+
+Subash Abhinov Kasiviswanathan (7):
+  net: qualcomm: rmnet: Remove existing logic for bridge mode
+  net: qualcomm: rmnet: Remove some unused defines
+  net: qualcomm: rmnet: Move rmnet_mode to rmnet_port
+  net: qualcomm: rmnet: Remove duplicate setting of rmnet private info
+  net: qualcomm: rmnet: Remove duplicate setting of rmnet_devices
+  net: qualcomm: rmnet: Convert the muxed endpoint to hlist
+  net: qualcomm: rmnet: Implement bridge mode
+
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c | 166 ++++++++++++++++-----
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h |  19 +--
+ .../net/ethernet/qualcomm/rmnet/rmnet_handlers.c   | 131 ++++++----------
+ .../net/ethernet/qualcomm/rmnet/rmnet_handlers.h   |   3 +-
+ .../ethernet/qualcomm/rmnet/rmnet_map_command.c    |   4 +-
+ .../net/ethernet/qualcomm/rmnet/rmnet_private.h    |   8 -
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c    |  36 ++---
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.h    |   7 +-
+ 8 files changed, 204 insertions(+), 170 deletions(-)
+
+-- 
+1.9.1
