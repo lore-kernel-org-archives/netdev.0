@@ -1,7 +1,7 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next v3 1/5] bpf: Add file mode configuration into bpf maps
-Date: Tue, 10 Oct 2017 17:09:26 -0700
-Message-ID: <20171011000930.133308-2-chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v3 4/5] selinux: bpf: Add selinux check for eBPF syscall operations
+Date: Tue, 10 Oct 2017 17:09:29 -0700
+Message-ID: <20171011000930.133308-5-chenbofeng.kernel@gmail.com>
 References: <20171011000930.133308-1-chenbofeng.kernel@gmail.com>
 Cc: Jeffrey Vander Stoep <jeffv@google.com>,
         Alexei Starovoitov <alexei.starovoitov@gmail.com>,
@@ -17,465 +17,185 @@ List-Id: netdev.vger.kernel.org
 
 From: Chenbo Feng <fengc@google.com>
 
-Introduce the map read/write flags to the eBPF syscalls that returns the
-map fd. The flags is used to set up the file mode when construct a new
-file descriptor for bpf maps. To not break the backward capability, the
-f_flags is set to O_RDWR if the flag passed by syscall is 0. Otherwise
-it should be O_RDONLY or O_WRONLY. When the userspace want to modify or
-read the map content, it will check the file mode to see if it is
-allowed to make the change.
+Implement the actual checks introduced to eBPF related syscalls. This
+implementation use the security field inside bpf object to store a sid that
+identify the bpf object. And when processes try to access the object,
+selinux will check if processes have the right privileges. The creation
+of eBPF object are also checked at the general bpf check hook and new
+cmd introduced to eBPF domain can also be checked there.
 
 Signed-off-by: Chenbo Feng <fengc@google.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf.h      |  6 ++--
- include/uapi/linux/bpf.h |  6 ++++
- kernel/bpf/arraymap.c    |  6 +++-
- kernel/bpf/devmap.c      |  5 ++-
- kernel/bpf/hashtab.c     |  5 +--
- kernel/bpf/inode.c       | 15 ++++++---
- kernel/bpf/lpm_trie.c    |  3 +-
- kernel/bpf/sockmap.c     |  5 ++-
- kernel/bpf/stackmap.c    |  5 ++-
- kernel/bpf/syscall.c     | 80 +++++++++++++++++++++++++++++++++++++++++++-----
- 10 files changed, 114 insertions(+), 22 deletions(-)
+ security/selinux/hooks.c            | 111 ++++++++++++++++++++++++++++++++++++
+ security/selinux/include/classmap.h |   2 +
+ security/selinux/include/objsec.h   |   4 ++
+ 3 files changed, 117 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index bc7da2ddfcaf..0e9ca2555d7f 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -308,11 +308,11 @@ void bpf_map_area_free(void *base);
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index f5d304736852..94e473b9c884 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -85,6 +85,7 @@
+ #include <linux/export.h>
+ #include <linux/msg.h>
+ #include <linux/shm.h>
++#include <linux/bpf.h>
  
- extern int sysctl_unprivileged_bpf_disabled;
- 
--int bpf_map_new_fd(struct bpf_map *map);
-+int bpf_map_new_fd(struct bpf_map *map, int flags);
- int bpf_prog_new_fd(struct bpf_prog *prog);
- 
- int bpf_obj_pin_user(u32 ufd, const char __user *pathname);
--int bpf_obj_get_user(const char __user *pathname);
-+int bpf_obj_get_user(const char __user *pathname, int flags);
- 
- int bpf_percpu_hash_copy(struct bpf_map *map, void *key, void *value);
- int bpf_percpu_array_copy(struct bpf_map *map, void *key, void *value);
-@@ -331,6 +331,8 @@ int bpf_fd_htab_map_update_elem(struct bpf_map *map, struct file *map_file,
- 				void *key, void *value, u64 map_flags);
- int bpf_fd_htab_map_lookup_elem(struct bpf_map *map, void *key, u32 *value);
- 
-+int bpf_get_file_flag(int flags);
-+
- /* memcpy that is used with 8-byte aligned pointers, power-of-8 size and
-  * forced to use 'long' read/writes to try to atomically copy long counters.
-  * Best-effort only.  No barriers here, since it _will_ race with concurrent
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 6db9e1d679cd..9cb50a228c39 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -217,6 +217,10 @@ enum bpf_attach_type {
- 
- #define BPF_OBJ_NAME_LEN 16U
- 
-+/* Flags for accessing BPF object */
-+#define BPF_F_RDONLY		(1U << 3)
-+#define BPF_F_WRONLY		(1U << 4)
-+
- union bpf_attr {
- 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
- 		__u32	map_type;	/* one of enum bpf_map_type */
-@@ -259,6 +263,7 @@ union bpf_attr {
- 	struct { /* anonymous struct used by BPF_OBJ_* commands */
- 		__aligned_u64	pathname;
- 		__u32		bpf_fd;
-+		__u32		file_flags;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_PROG_ATTACH/DETACH commands */
-@@ -286,6 +291,7 @@ union bpf_attr {
- 			__u32		map_id;
- 		};
- 		__u32		next_id;
-+		__u32		open_flags;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_OBJ_GET_INFO_BY_FD */
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index 68d866628be0..988c04c91e10 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -19,6 +19,9 @@
- 
- #include "map_in_map.h"
- 
-+#define ARRAY_CREATE_FLAG_MASK \
-+	(BPF_F_NUMA_NODE | BPF_F_RDONLY | BPF_F_WRONLY)
-+
- static void bpf_array_free_percpu(struct bpf_array *array)
- {
- 	int i;
-@@ -56,7 +59,8 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
- 
- 	/* check sanity of attributes */
- 	if (attr->max_entries == 0 || attr->key_size != 4 ||
--	    attr->value_size == 0 || attr->map_flags & ~BPF_F_NUMA_NODE ||
-+	    attr->value_size == 0 ||
-+	    attr->map_flags & ~ARRAY_CREATE_FLAG_MASK ||
- 	    (percpu && numa_node != NUMA_NO_NODE))
- 		return ERR_PTR(-EINVAL);
- 
-diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-index e093d9a2c4dd..e5d3de7cff2e 100644
---- a/kernel/bpf/devmap.c
-+++ b/kernel/bpf/devmap.c
-@@ -50,6 +50,9 @@
- #include <linux/bpf.h>
- #include <linux/filter.h>
- 
-+#define DEV_CREATE_FLAG_MASK \
-+	(BPF_F_NUMA_NODE | BPF_F_RDONLY | BPF_F_WRONLY)
-+
- struct bpf_dtab_netdev {
- 	struct net_device *dev;
- 	struct bpf_dtab *dtab;
-@@ -80,7 +83,7 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
- 
- 	/* check sanity of attributes */
- 	if (attr->max_entries == 0 || attr->key_size != 4 ||
--	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
-+	    attr->value_size != 4 || attr->map_flags & ~DEV_CREATE_FLAG_MASK)
- 		return ERR_PTR(-EINVAL);
- 
- 	dtab = kzalloc(sizeof(*dtab), GFP_USER);
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 431126f31ea3..919955236e63 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -18,8 +18,9 @@
- #include "bpf_lru_list.h"
- #include "map_in_map.h"
- 
--#define HTAB_CREATE_FLAG_MASK \
--	(BPF_F_NO_PREALLOC | BPF_F_NO_COMMON_LRU | BPF_F_NUMA_NODE)
-+#define HTAB_CREATE_FLAG_MASK						\
-+	(BPF_F_NO_PREALLOC | BPF_F_NO_COMMON_LRU | BPF_F_NUMA_NODE |	\
-+	 BPF_F_RDONLY | BPF_F_WRONLY)
- 
- struct bucket {
- 	struct hlist_nulls_head head;
-diff --git a/kernel/bpf/inode.c b/kernel/bpf/inode.c
-index e833ed914358..7d8c6dd8dd5d 100644
---- a/kernel/bpf/inode.c
-+++ b/kernel/bpf/inode.c
-@@ -295,7 +295,7 @@ int bpf_obj_pin_user(u32 ufd, const char __user *pathname)
- }
- 
- static void *bpf_obj_do_get(const struct filename *pathname,
--			    enum bpf_type *type)
-+			    enum bpf_type *type, int flags)
- {
- 	struct inode *inode;
- 	struct path path;
-@@ -307,7 +307,7 @@ static void *bpf_obj_do_get(const struct filename *pathname,
- 		return ERR_PTR(ret);
- 
- 	inode = d_backing_inode(path.dentry);
--	ret = inode_permission(inode, MAY_WRITE);
-+	ret = inode_permission(inode, ACC_MODE(flags));
- 	if (ret)
- 		goto out;
- 
-@@ -326,18 +326,23 @@ static void *bpf_obj_do_get(const struct filename *pathname,
- 	return ERR_PTR(ret);
- }
- 
--int bpf_obj_get_user(const char __user *pathname)
-+int bpf_obj_get_user(const char __user *pathname, int flags)
- {
- 	enum bpf_type type = BPF_TYPE_UNSPEC;
- 	struct filename *pname;
- 	int ret = -ENOENT;
-+	int f_flags;
- 	void *raw;
- 
-+	f_flags = bpf_get_file_flag(flags);
-+	if (f_flags < 0)
-+		return f_flags;
-+
- 	pname = getname(pathname);
- 	if (IS_ERR(pname))
- 		return PTR_ERR(pname);
- 
--	raw = bpf_obj_do_get(pname, &type);
-+	raw = bpf_obj_do_get(pname, &type, f_flags);
- 	if (IS_ERR(raw)) {
- 		ret = PTR_ERR(raw);
- 		goto out;
-@@ -346,7 +351,7 @@ int bpf_obj_get_user(const char __user *pathname)
- 	if (type == BPF_TYPE_PROG)
- 		ret = bpf_prog_new_fd(raw);
- 	else if (type == BPF_TYPE_MAP)
--		ret = bpf_map_new_fd(raw);
-+		ret = bpf_map_new_fd(raw, f_flags);
- 	else
- 		goto out;
- 
-diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
-index 34d8a690ea05..885e45479680 100644
---- a/kernel/bpf/lpm_trie.c
-+++ b/kernel/bpf/lpm_trie.c
-@@ -495,7 +495,8 @@ static int trie_delete_elem(struct bpf_map *map, void *_key)
- #define LPM_KEY_SIZE_MAX	LPM_KEY_SIZE(LPM_DATA_SIZE_MAX)
- #define LPM_KEY_SIZE_MIN	LPM_KEY_SIZE(LPM_DATA_SIZE_MIN)
- 
--#define LPM_CREATE_FLAG_MASK	(BPF_F_NO_PREALLOC | BPF_F_NUMA_NODE)
-+#define LPM_CREATE_FLAG_MASK	(BPF_F_NO_PREALLOC | BPF_F_NUMA_NODE |	\
-+				 BPF_F_RDONLY | BPF_F_WRONLY)
- 
- static struct bpf_map *trie_alloc(union bpf_attr *attr)
- {
-diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
-index a298d6666698..86ec846f2d5e 100644
---- a/kernel/bpf/sockmap.c
-+++ b/kernel/bpf/sockmap.c
-@@ -40,6 +40,9 @@
- #include <linux/list.h>
- #include <net/strparser.h>
- 
-+#define SOCK_CREATE_FLAG_MASK \
-+	(BPF_F_NUMA_NODE | BPF_F_RDONLY | BPF_F_WRONLY)
-+
- struct bpf_stab {
- 	struct bpf_map map;
- 	struct sock **sock_map;
-@@ -489,7 +492,7 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
- 
- 	/* check sanity of attributes */
- 	if (attr->max_entries == 0 || attr->key_size != 4 ||
--	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
-+	    attr->value_size != 4 || attr->map_flags & ~SOCK_CREATE_FLAG_MASK)
- 		return ERR_PTR(-EINVAL);
- 
- 	if (attr->value_size > KMALLOC_MAX_SIZE)
-diff --git a/kernel/bpf/stackmap.c b/kernel/bpf/stackmap.c
-index 135be433e9a0..a15bc636cc98 100644
---- a/kernel/bpf/stackmap.c
-+++ b/kernel/bpf/stackmap.c
-@@ -11,6 +11,9 @@
- #include <linux/perf_event.h>
- #include "percpu_freelist.h"
- 
-+#define STACK_CREATE_FLAG_MASK \
-+	(BPF_F_NUMA_NODE | BPF_F_RDONLY | BPF_F_WRONLY)
-+
- struct stack_map_bucket {
- 	struct pcpu_freelist_node fnode;
- 	u32 hash;
-@@ -60,7 +63,7 @@ static struct bpf_map *stack_map_alloc(union bpf_attr *attr)
- 	if (!capable(CAP_SYS_ADMIN))
- 		return ERR_PTR(-EPERM);
- 
--	if (attr->map_flags & ~BPF_F_NUMA_NODE)
-+	if (attr->map_flags & ~STACK_CREATE_FLAG_MASK)
- 		return ERR_PTR(-EINVAL);
- 
- 	/* check sanity of attributes */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index d124e702e040..b02582ead9a4 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -294,17 +294,48 @@ static void bpf_map_show_fdinfo(struct seq_file *m, struct file *filp)
+ #include "avc.h"
+ #include "objsec.h"
+@@ -6252,6 +6253,106 @@ static void selinux_ib_free_security(void *ib_sec)
  }
  #endif
  
-+static ssize_t bpf_dummy_read(struct file *filp, char __user *buf, size_t siz,
-+			      loff_t *ppos)
++#ifdef CONFIG_BPF_SYSCALL
++static int selinux_bpf(int cmd, union bpf_attr *attr,
++				     unsigned int size)
 +{
-+	/* We need this handler such that alloc_file() enables
-+	 * f_mode with FMODE_CAN_READ.
-+	 */
-+	return -EINVAL;
++	u32 sid = current_sid();
++	int ret;
++
++	switch (cmd) {
++	case BPF_MAP_CREATE:
++		ret = avc_has_perm(sid, sid, SECCLASS_BPF, BPF__MAP_CREATE,
++				   NULL);
++		break;
++	case BPF_PROG_LOAD:
++		ret = avc_has_perm(sid, sid, SECCLASS_BPF, BPF__PROG_LOAD,
++				   NULL);
++		break;
++	default:
++		ret = 0;
++		break;
++	}
++
++	return ret;
 +}
 +
-+static ssize_t bpf_dummy_write(struct file *filp, const char __user *buf,
-+			       size_t siz, loff_t *ppos)
++static u32 bpf_map_fmode_to_av(fmode_t fmode)
 +{
-+	/* We need this handler such that alloc_file() enables
-+	 * f_mode with FMODE_CAN_WRITE.
-+	 */
-+	return -EINVAL;
++	u32 av = 0;
++
++	if (fmode & FMODE_READ)
++		av |= BPF__MAP_READ;
++	if (fmode & FMODE_WRITE)
++		av |= BPF__MAP_WRITE;
++	return av;
 +}
 +
- static const struct file_operations bpf_map_fops = {
- #ifdef CONFIG_PROC_FS
- 	.show_fdinfo	= bpf_map_show_fdinfo,
++static int selinux_bpf_map(struct bpf_map *map, fmode_t fmode)
++{
++	u32 sid = current_sid();
++	struct bpf_security_struct *bpfsec;
++
++	bpfsec = map->security;
++	return avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF,
++			    bpf_map_fmode_to_av(fmode), NULL);
++}
++
++static int selinux_bpf_prog(struct bpf_prog *prog)
++{
++	u32 sid = current_sid();
++	struct bpf_security_struct *bpfsec;
++
++	bpfsec = prog->aux->security;
++	return avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF,
++			    BPF__PROG_USE, NULL);
++}
++
++static int selinux_bpf_map_alloc(struct bpf_map *map)
++{
++	struct bpf_security_struct *bpfsec;
++
++	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
++	if (!bpfsec)
++		return -ENOMEM;
++
++	bpfsec->sid = current_sid();
++	map->security = bpfsec;
++
++	return 0;
++}
++
++static void selinux_bpf_map_free(struct bpf_map *map)
++{
++	struct bpf_security_struct *bpfsec = map->security;
++
++	map->security = NULL;
++	kfree(bpfsec);
++}
++
++static int selinux_bpf_prog_alloc(struct bpf_prog_aux *aux)
++{
++	struct bpf_security_struct *bpfsec;
++
++	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
++	if (!bpfsec)
++		return -ENOMEM;
++
++	bpfsec->sid = current_sid();
++	aux->security = bpfsec;
++
++	return 0;
++}
++
++static void selinux_bpf_prog_free(struct bpf_prog_aux *aux)
++{
++	struct bpf_security_struct *bpfsec = aux->security;
++
++	aux->security = NULL;
++	kfree(bpfsec);
++}
++#endif
++
+ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
+ 	LSM_HOOK_INIT(binder_set_context_mgr, selinux_binder_set_context_mgr),
+ 	LSM_HOOK_INIT(binder_transaction, selinux_binder_transaction),
+@@ -6471,6 +6572,16 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
+ 	LSM_HOOK_INIT(audit_rule_match, selinux_audit_rule_match),
+ 	LSM_HOOK_INIT(audit_rule_free, selinux_audit_rule_free),
  #endif
- 	.release	= bpf_map_release,
-+	.read		= bpf_dummy_read,
-+	.write		= bpf_dummy_write,
++
++#ifdef CONFIG_BPF_SYSCALL
++	LSM_HOOK_INIT(bpf, selinux_bpf),
++	LSM_HOOK_INIT(bpf_map, selinux_bpf_map),
++	LSM_HOOK_INIT(bpf_prog, selinux_bpf_prog),
++	LSM_HOOK_INIT(bpf_map_alloc_security, selinux_bpf_map_alloc),
++	LSM_HOOK_INIT(bpf_prog_alloc_security, selinux_bpf_prog_alloc),
++	LSM_HOOK_INIT(bpf_map_free_security, selinux_bpf_map_free),
++	LSM_HOOK_INIT(bpf_prog_free_security, selinux_bpf_prog_free),
++#endif
  };
  
--int bpf_map_new_fd(struct bpf_map *map)
-+int bpf_map_new_fd(struct bpf_map *map, int flags)
- {
- 	return anon_inode_getfd("bpf-map", &bpf_map_fops, map,
--				O_RDWR | O_CLOEXEC);
-+				flags | O_CLOEXEC);
-+}
-+
-+int bpf_get_file_flag(int flags)
-+{
-+	if ((flags & BPF_F_RDONLY) && (flags & BPF_F_WRONLY))
-+		return -EINVAL;
-+	if (flags & BPF_F_RDONLY)
-+		return O_RDONLY;
-+	if (flags & BPF_F_WRONLY)
-+		return O_WRONLY;
-+	return O_RDWR;
- }
+ static __init int selinux_init(void)
+diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
+index 35ffb29a69cb..a91fa46a789f 100644
+--- a/security/selinux/include/classmap.h
++++ b/security/selinux/include/classmap.h
+@@ -237,6 +237,8 @@ struct security_class_mapping secclass_map[] = {
+ 	  { "access", NULL } },
+ 	{ "infiniband_endport",
+ 	  { "manage_subnet", NULL } },
++	{ "bpf",
++	  {"map_create", "map_read", "map_write", "prog_load", "prog_use"} },
+ 	{ NULL }
+   };
  
- /* helper macro to check that unused fields 'union bpf_attr' are zero */
-@@ -344,12 +375,17 @@ static int map_create(union bpf_attr *attr)
- {
- 	int numa_node = bpf_map_attr_numa_node(attr);
- 	struct bpf_map *map;
-+	int f_flags;
- 	int err;
- 
- 	err = CHECK_ATTR(BPF_MAP_CREATE);
- 	if (err)
- 		return -EINVAL;
- 
-+	f_flags = bpf_get_file_flag(attr->map_flags);
-+	if (f_flags < 0)
-+		return f_flags;
-+
- 	if (numa_node != NUMA_NO_NODE &&
- 	    ((unsigned int)numa_node >= nr_node_ids ||
- 	     !node_online(numa_node)))
-@@ -375,7 +411,7 @@ static int map_create(union bpf_attr *attr)
- 	if (err)
- 		goto free_map;
- 
--	err = bpf_map_new_fd(map);
-+	err = bpf_map_new_fd(map, f_flags);
- 	if (err < 0) {
- 		/* failed to allocate fd.
- 		 * bpf_map_put() is needed because the above
-@@ -490,6 +526,11 @@ static int map_lookup_elem(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_READ)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	key = memdup_user(ukey, map->key_size);
- 	if (IS_ERR(key)) {
- 		err = PTR_ERR(key);
-@@ -570,6 +611,11 @@ static int map_update_elem(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_WRITE)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	key = memdup_user(ukey, map->key_size);
- 	if (IS_ERR(key)) {
- 		err = PTR_ERR(key);
-@@ -653,6 +699,11 @@ static int map_delete_elem(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_WRITE)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	key = memdup_user(ukey, map->key_size);
- 	if (IS_ERR(key)) {
- 		err = PTR_ERR(key);
-@@ -696,6 +747,11 @@ static int map_get_next_key(union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
-+	if (!(f.file->f_mode & FMODE_CAN_READ)) {
-+		err = -EPERM;
-+		goto err_put;
-+	}
-+
- 	if (ukey) {
- 		key = memdup_user(ukey, map->key_size);
- 		if (IS_ERR(key)) {
-@@ -902,6 +958,8 @@ static const struct file_operations bpf_prog_fops = {
- 	.show_fdinfo	= bpf_prog_show_fdinfo,
- #endif
- 	.release	= bpf_prog_release,
-+	.read		= bpf_dummy_read,
-+	.write		= bpf_dummy_write,
+diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
+index 1649cd18eb0b..3d54468ce334 100644
+--- a/security/selinux/include/objsec.h
++++ b/security/selinux/include/objsec.h
+@@ -150,6 +150,10 @@ struct pkey_security_struct {
+ 	u32	sid;	/* SID of pkey */
  };
  
- int bpf_prog_new_fd(struct bpf_prog *prog)
-@@ -1111,11 +1169,11 @@ static int bpf_prog_load(union bpf_attr *attr)
- 	return err;
- }
- 
--#define BPF_OBJ_LAST_FIELD bpf_fd
-+#define BPF_OBJ_LAST_FIELD file_flags
- 
- static int bpf_obj_pin(const union bpf_attr *attr)
- {
--	if (CHECK_ATTR(BPF_OBJ))
-+	if (CHECK_ATTR(BPF_OBJ) || attr->file_flags != 0)
- 		return -EINVAL;
- 
- 	return bpf_obj_pin_user(attr->bpf_fd, u64_to_user_ptr(attr->pathname));
-@@ -1126,7 +1184,8 @@ static int bpf_obj_get(const union bpf_attr *attr)
- 	if (CHECK_ATTR(BPF_OBJ) || attr->bpf_fd != 0)
- 		return -EINVAL;
- 
--	return bpf_obj_get_user(u64_to_user_ptr(attr->pathname));
-+	return bpf_obj_get_user(u64_to_user_ptr(attr->pathname),
-+				attr->file_flags);
- }
- 
- #ifdef CONFIG_CGROUP_BPF
-@@ -1386,12 +1445,13 @@ static int bpf_prog_get_fd_by_id(const union bpf_attr *attr)
- 	return fd;
- }
- 
--#define BPF_MAP_GET_FD_BY_ID_LAST_FIELD map_id
-+#define BPF_MAP_GET_FD_BY_ID_LAST_FIELD open_flags
- 
- static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- {
- 	struct bpf_map *map;
- 	u32 id = attr->map_id;
-+	int f_flags;
- 	int fd;
- 
- 	if (CHECK_ATTR(BPF_MAP_GET_FD_BY_ID))
-@@ -1400,6 +1460,10 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- 	if (!capable(CAP_SYS_ADMIN))
- 		return -EPERM;
- 
-+	f_flags = bpf_get_file_flag(attr->open_flags);
-+	if (f_flags < 0)
-+		return f_flags;
++struct bpf_security_struct {
++	u32 sid;  /*SID of bpf obj creater*/
++};
 +
- 	spin_lock_bh(&map_idr_lock);
- 	map = idr_find(&map_idr, id);
- 	if (map)
-@@ -1411,7 +1475,7 @@ static int bpf_map_get_fd_by_id(const union bpf_attr *attr)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
+ extern unsigned int selinux_checkreqprot;
  
--	fd = bpf_map_new_fd(map);
-+	fd = bpf_map_new_fd(map, f_flags);
- 	if (fd < 0)
- 		bpf_map_put(map);
- 
+ #endif /* _SELINUX_OBJSEC_H_ */
 -- 
 2.14.2.920.gcf0c67979c-goog
 
