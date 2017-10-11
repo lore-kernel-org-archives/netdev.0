@@ -1,7 +1,7 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH v2 5/7] net: qrtr: Clean up control packet handling
-Date: Tue, 10 Oct 2017 23:45:21 -0700
-Message-ID: <20171011064523.7902-6-bjorn.andersson@linaro.org>
+Subject: [PATCH v2 4/7] net: qrtr: Pass source and destination to enqueue functions
+Date: Tue, 10 Oct 2017 23:45:20 -0700
+Message-ID: <20171011064523.7902-5-bjorn.andersson@linaro.org>
 References: <20171011064523.7902-1-bjorn.andersson@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-msm@vger.kernel.org, Chris Lew <clew@codeaurora.org>
@@ -11,13 +11,14 @@ In-Reply-To: <20171011064523.7902-1-bjorn.andersson@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As the message header generation is deferred the internal functions for
-generating control packets can be simplified.
+Defer writing the message header to the skb until its time to enqueue
+the packet. As the receive path is reworked to decode the message header
+as it's received from the transport and only pass around the payload in
+the skb this change means that we do not have to fill out the full
+message header just to decode it immediately in qrtr_local_enqueue().
 
-This patch modifies qrtr_alloc_ctrl_packet() to, in addition to the
-sk_buff, return a reference to a struct qrtr_ctrl_pkt, which clarifies
-and simplifies the helpers to the point that these functions can be
-folded back into the callers.
+In the future this change also makes it possible to prepend message
+headers based on the version of each link.
 
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
@@ -25,167 +26,274 @@ Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 Changes since v1:
 - None
 
- net/qrtr/qrtr.c | 93 ++++++++++++++++++---------------------------------------
- 1 file changed, 29 insertions(+), 64 deletions(-)
+ net/qrtr/qrtr.c | 120 ++++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 69 insertions(+), 51 deletions(-)
 
 diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index 82dc83789310..a84edba7b1ef 100644
+index d85ca7170b8f..82dc83789310 100644
 --- a/net/qrtr/qrtr.c
 +++ b/net/qrtr/qrtr.c
-@@ -255,9 +255,18 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
- }
- EXPORT_SYMBOL_GPL(qrtr_endpoint_post);
+@@ -97,8 +97,12 @@ struct qrtr_node {
+ 	struct list_head item;
+ };
  
--static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
--					      u32 src_node, u32 dst_node)
-+/**
-+ * qrtr_alloc_ctrl_packet() - allocate control packet skb
-+ * @pkt: reference to qrtr_ctrl_pkt pointer
-+ *
-+ * Returns newly allocated sk_buff, or NULL on failure
-+ *
-+ * This function allocates a sk_buff large enough to carry a qrtr_ctrl_pkt and
-+ * on success returns a reference to the control packet in @pkt.
-+ */
-+static struct sk_buff *qrtr_alloc_ctrl_packet(struct qrtr_ctrl_pkt **pkt)
+-static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb);
+-static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb);
++static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
++			      int type, struct sockaddr_qrtr *from,
++			      struct sockaddr_qrtr *to);
++static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
++			      int type, struct sockaddr_qrtr *from,
++			      struct sockaddr_qrtr *to);
+ 
+ /* Release node resources and free the node.
+  *
+@@ -136,10 +140,27 @@ static void qrtr_node_release(struct qrtr_node *node)
+ }
+ 
+ /* Pass an outgoing packet socket buffer to the endpoint driver. */
+-static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb)
++static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
++			     int type, struct sockaddr_qrtr *from,
++			     struct sockaddr_qrtr *to)
  {
-+	const int pkt_len = sizeof(struct qrtr_ctrl_pkt);
++	struct qrtr_hdr *hdr;
++	size_t len = skb->len;
+ 	int rc = -ENODEV;
+ 
++	hdr = skb_push(skb, QRTR_HDR_SIZE);
++	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
++	hdr->type = cpu_to_le32(type);
++	hdr->src_node_id = cpu_to_le32(from->sq_node);
++	hdr->src_port_id = cpu_to_le32(from->sq_port);
++	hdr->dst_node_id = cpu_to_le32(to->sq_node);
++	hdr->dst_port_id = cpu_to_le32(to->sq_port);
++
++	hdr->size = cpu_to_le32(len);
++	hdr->confirm_rx = 0;
++
++	skb_put_padto(skb, ALIGN(len, 4));
++
+ 	mutex_lock(&node->ep_lock);
+ 	if (node->ep)
+ 		rc = node->ep->xmit(node->ep, skb);
+@@ -237,23 +258,13 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_post);
+ static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
+ 					      u32 src_node, u32 dst_node)
+ {
+-	struct qrtr_hdr *hdr;
  	struct sk_buff *skb;
  
  	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
-@@ -265,64 +274,7 @@ static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
+ 	if (!skb)
  		return NULL;
+-	skb_reset_transport_header(skb);
  
- 	skb_reserve(skb, QRTR_HDR_SIZE);
--
--	return skb;
--}
--
--/* Allocate and construct a resume-tx packet. */
--static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
--					    u32 dst_node, u32 port)
--{
--	const int pkt_len = 20;
--	struct sk_buff *skb;
--	__le32 *buf;
--
--	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_RESUME_TX, pkt_len,
--				     src_node, dst_node);
--	if (!skb)
--		return NULL;
--
--	buf = skb_put_zero(skb, pkt_len);
--	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
--	buf[1] = cpu_to_le32(src_node);
--	buf[2] = cpu_to_le32(port);
--
--	return skb;
--}
--
--/* Allocate and construct a BYE message to signal remote termination */
--static struct sk_buff *qrtr_alloc_local_bye(u32 src_node)
--{
--	const int pkt_len = 20;
--	struct sk_buff *skb;
--	__le32 *buf;
--
--	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_BYE, pkt_len,
--				     src_node, qrtr_local_nid);
--	if (!skb)
--		return NULL;
--
--	buf = skb_put_zero(skb, pkt_len);
--	buf[0] = cpu_to_le32(QRTR_TYPE_BYE);
--
--	return skb;
--}
--
--static struct sk_buff *qrtr_alloc_del_client(struct sockaddr_qrtr *sq)
--{
--	const int pkt_len = 20;
--	struct sk_buff *skb;
--	__le32 *buf;
--
--	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_DEL_CLIENT, pkt_len,
--				     sq->sq_node, QRTR_NODE_BCAST);
--	if (!skb)
--		return NULL;
--
--	buf = skb_put_zero(skb, pkt_len);
--	buf[0] = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
--	buf[1] = cpu_to_le32(sq->sq_node);
--	buf[2] = cpu_to_le32(sq->sq_port);
-+	*pkt = skb_put_zero(skb, pkt_len);
+-	hdr = skb_put(skb, QRTR_HDR_SIZE);
+-	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
+-	hdr->type = cpu_to_le32(type);
+-	hdr->src_node_id = cpu_to_le32(src_node);
+-	hdr->src_port_id = cpu_to_le32(QRTR_PORT_CTRL);
+-	hdr->confirm_rx = cpu_to_le32(0);
+-	hdr->size = cpu_to_le32(pkt_len);
+-	hdr->dst_node_id = cpu_to_le32(dst_node);
+-	hdr->dst_port_id = cpu_to_le32(QRTR_PORT_CTRL);
++	skb_reserve(skb, QRTR_HDR_SIZE);
  
  	return skb;
  }
-@@ -337,6 +289,7 @@ static void qrtr_port_put(struct qrtr_sock *ipc);
+@@ -326,6 +337,8 @@ static void qrtr_port_put(struct qrtr_sock *ipc);
  static void qrtr_node_rx_work(struct work_struct *work)
  {
  	struct qrtr_node *node = container_of(work, struct qrtr_node, work);
-+	struct qrtr_ctrl_pkt *pkt;
- 	struct sockaddr_qrtr dst;
- 	struct sockaddr_qrtr src;
++	struct sockaddr_qrtr dst;
++	struct sockaddr_qrtr src;
  	struct sk_buff *skb;
-@@ -372,10 +325,14 @@ static void qrtr_node_rx_work(struct work_struct *work)
- 		}
  
- 		if (confirm) {
--			skb = qrtr_alloc_resume_tx(dst_node, node->nid, dst_port);
-+			skb = qrtr_alloc_ctrl_packet(&pkt);
+ 	while ((skb = skb_dequeue(&node->rx_queue)) != NULL) {
+@@ -341,6 +354,11 @@ static void qrtr_node_rx_work(struct work_struct *work)
+ 		dst_port = le32_to_cpu(phdr->dst_port_id);
+ 		confirm = !!phdr->confirm_rx;
+ 
++		src.sq_node = src_node;
++		src.sq_port = le32_to_cpu(phdr->src_port_id);
++		dst.sq_node = dst_node;
++		dst.sq_port = dst_port;
++
+ 		qrtr_node_assign(node, src_node);
+ 
+ 		ipc = qrtr_port_lookup(dst_port);
+@@ -357,7 +375,9 @@ static void qrtr_node_rx_work(struct work_struct *work)
+ 			skb = qrtr_alloc_resume_tx(dst_node, node->nid, dst_port);
  			if (!skb)
  				break;
- 
-+			pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);
-+			pkt->client.node = cpu_to_le32(dst.sq_node);
-+			pkt->client.port = cpu_to_le32(dst.sq_port);
+-			if (qrtr_node_enqueue(node, skb))
 +
- 			if (qrtr_node_enqueue(node, skb, QRTR_TYPE_RESUME_TX,
- 					      &dst, &src))
++			if (qrtr_node_enqueue(node, skb, QRTR_TYPE_RESUME_TX,
++					      &dst, &src))
  				break;
-@@ -429,6 +386,7 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
+ 		}
+ 	}
+@@ -407,6 +427,8 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_register);
+ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
+ {
  	struct qrtr_node *node = ep->node;
- 	struct sockaddr_qrtr src = {AF_QIPCRTR, node->nid, QRTR_PORT_CTRL};
- 	struct sockaddr_qrtr dst = {AF_QIPCRTR, qrtr_local_nid, QRTR_PORT_CTRL};
-+	struct qrtr_ctrl_pkt *pkt;
++	struct sockaddr_qrtr src = {AF_QIPCRTR, node->nid, QRTR_PORT_CTRL};
++	struct sockaddr_qrtr dst = {AF_QIPCRTR, qrtr_local_nid, QRTR_PORT_CTRL};
  	struct sk_buff *skb;
  
  	mutex_lock(&node->ep_lock);
-@@ -436,9 +394,11 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
- 	mutex_unlock(&node->ep_lock);
- 
+@@ -416,7 +438,7 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
  	/* Notify the local controller about the event */
--	skb = qrtr_alloc_local_bye(node->nid);
--	if (skb)
-+	skb = qrtr_alloc_ctrl_packet(&pkt);
-+	if (skb) {
-+		pkt->cmd = cpu_to_le32(QRTR_TYPE_BYE);
- 		qrtr_local_enqueue(NULL, skb, QRTR_TYPE_BYE, &src, &dst);
-+	}
+ 	skb = qrtr_alloc_local_bye(node->nid);
+ 	if (skb)
+-		qrtr_local_enqueue(NULL, skb);
++		qrtr_local_enqueue(NULL, skb, QRTR_TYPE_BYE, &src, &dst);
  
  	qrtr_node_release(node);
  	ep->node = NULL;
-@@ -474,6 +434,7 @@ static void qrtr_port_put(struct qrtr_sock *ipc)
- /* Remove port assignment. */
- static void qrtr_port_remove(struct qrtr_sock *ipc)
+@@ -454,11 +476,17 @@ static void qrtr_port_remove(struct qrtr_sock *ipc)
  {
-+	struct qrtr_ctrl_pkt *pkt;
  	struct sk_buff *skb;
  	int port = ipc->us.sq_port;
- 	struct sockaddr_qrtr to;
-@@ -482,8 +443,12 @@ static void qrtr_port_remove(struct qrtr_sock *ipc)
- 	to.sq_node = QRTR_NODE_BCAST;
- 	to.sq_port = QRTR_PORT_CTRL;
- 
--	skb = qrtr_alloc_del_client(&ipc->us);
-+	skb = qrtr_alloc_ctrl_packet(&pkt);
- 	if (skb) {
-+		pkt->cmd = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
-+		pkt->client.node = cpu_to_le32(ipc->us.sq_node);
-+		pkt->client.port = cpu_to_le32(ipc->us.sq_port);
++	struct sockaddr_qrtr to;
 +
++	to.sq_family = AF_QIPCRTR;
++	to.sq_node = QRTR_NODE_BCAST;
++	to.sq_port = QRTR_PORT_CTRL;
+ 
+ 	skb = qrtr_alloc_del_client(&ipc->us);
+ 	if (skb) {
  		skb_set_owner_w(skb, &ipc->sk);
- 		qrtr_bcast_enqueue(NULL, skb, QRTR_TYPE_DEL_CLIENT, &ipc->us,
- 				   &to);
+-		qrtr_bcast_enqueue(NULL, skb);
++		qrtr_bcast_enqueue(NULL, skb, QRTR_TYPE_DEL_CLIENT, &ipc->us,
++				   &to);
+ 	}
+ 
+ 	if (port == QRTR_PORT_CTRL)
+@@ -606,19 +634,25 @@ static int qrtr_bind(struct socket *sock, struct sockaddr *saddr, int len)
+ }
+ 
+ /* Queue packet to local peer socket. */
+-static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb)
++static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
++			      int type, struct sockaddr_qrtr *from,
++			      struct sockaddr_qrtr *to)
+ {
+-	const struct qrtr_hdr *phdr;
+ 	struct qrtr_sock *ipc;
++	struct qrtr_hdr *phdr;
+ 
+-	phdr = (const struct qrtr_hdr *)skb_transport_header(skb);
+-
+-	ipc = qrtr_port_lookup(le32_to_cpu(phdr->dst_port_id));
++	ipc = qrtr_port_lookup(to->sq_port);
+ 	if (!ipc || &ipc->sk == skb->sk) { /* do not send to self */
+ 		kfree_skb(skb);
+ 		return -ENODEV;
+ 	}
+ 
++	phdr = skb_push(skb, QRTR_HDR_SIZE);
++	skb_reset_transport_header(skb);
++
++	phdr->src_node_id = cpu_to_le32(from->sq_node);
++	phdr->src_port_id = cpu_to_le32(from->sq_port);
++
+ 	if (sock_queue_rcv_skb(&ipc->sk, skb)) {
+ 		qrtr_port_put(ipc);
+ 		kfree_skb(skb);
+@@ -631,7 +665,9 @@ static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb)
+ }
+ 
+ /* Queue packet for broadcast. */
+-static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb)
++static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
++			      int type, struct sockaddr_qrtr *from,
++			      struct sockaddr_qrtr *to)
+ {
+ 	struct sk_buff *skbn;
+ 
+@@ -641,11 +677,11 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb)
+ 		if (!skbn)
+ 			break;
+ 		skb_set_owner_w(skbn, skb->sk);
+-		qrtr_node_enqueue(node, skbn);
++		qrtr_node_enqueue(node, skbn, type, from, to);
+ 	}
+ 	mutex_unlock(&qrtr_node_lock);
+ 
+-	qrtr_local_enqueue(node, skb);
++	qrtr_local_enqueue(node, skb, type, from, to);
+ 
+ 	return 0;
+ }
+@@ -653,13 +689,14 @@ static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb)
+ static int qrtr_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ {
+ 	DECLARE_SOCKADDR(struct sockaddr_qrtr *, addr, msg->msg_name);
+-	int (*enqueue_fn)(struct qrtr_node *, struct sk_buff *);
++	int (*enqueue_fn)(struct qrtr_node *, struct sk_buff *, int,
++			  struct sockaddr_qrtr *, struct sockaddr_qrtr *);
+ 	struct qrtr_sock *ipc = qrtr_sk(sock->sk);
+ 	struct sock *sk = sock->sk;
+ 	struct qrtr_node *node;
+-	struct qrtr_hdr *hdr;
+ 	struct sk_buff *skb;
+ 	size_t plen;
++	u32 type = QRTR_TYPE_DATA;
+ 	int rc;
+ 
+ 	if (msg->msg_flags & ~(MSG_DONTWAIT))
+@@ -713,32 +750,14 @@ static int qrtr_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 	if (!skb)
+ 		goto out_node;
+ 
+-	skb_reset_transport_header(skb);
+-	skb_put(skb, len + QRTR_HDR_SIZE);
+-
+-	hdr = (struct qrtr_hdr *)skb_transport_header(skb);
+-	hdr->version = cpu_to_le32(QRTR_PROTO_VER);
+-	hdr->src_node_id = cpu_to_le32(ipc->us.sq_node);
+-	hdr->src_port_id = cpu_to_le32(ipc->us.sq_port);
+-	hdr->confirm_rx = cpu_to_le32(0);
+-	hdr->size = cpu_to_le32(len);
+-	hdr->dst_node_id = cpu_to_le32(addr->sq_node);
+-	hdr->dst_port_id = cpu_to_le32(addr->sq_port);
++	skb_reserve(skb, QRTR_HDR_SIZE);
+ 
+-	rc = skb_copy_datagram_from_iter(skb, QRTR_HDR_SIZE,
+-					 &msg->msg_iter, len);
++	rc = memcpy_from_msg(skb_put(skb, len), msg, len);
+ 	if (rc) {
+ 		kfree_skb(skb);
+ 		goto out_node;
+ 	}
+ 
+-	if (plen != len) {
+-		rc = skb_pad(skb, plen - len);
+-		if (rc)
+-			goto out_node;
+-		skb_put(skb, plen - len);
+-	}
+-
+ 	if (ipc->us.sq_port == QRTR_PORT_CTRL) {
+ 		if (len < 4) {
+ 			rc = -EINVAL;
+@@ -747,12 +766,11 @@ static int qrtr_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 		}
+ 
+ 		/* control messages already require the type as 'command' */
+-		skb_copy_bits(skb, QRTR_HDR_SIZE, &hdr->type, 4);
+-	} else {
+-		hdr->type = cpu_to_le32(QRTR_TYPE_DATA);
++		skb_copy_bits(skb, 0, &type, 4);
++		type = le32_to_cpu(type);
+ 	}
+ 
+-	rc = enqueue_fn(node, skb);
++	rc = enqueue_fn(node, skb, type, &ipc->us, addr);
+ 	if (rc >= 0)
+ 		rc = len;
+ 
 -- 
 2.12.0
