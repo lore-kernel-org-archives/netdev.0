@@ -1,46 +1,73 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [RFC net-next 1/4] net: ipv6: Make inet6addr_validator a
- blocking notifier
-Date: Wed, 11 Oct 2017 16:08:45 +0300
-Message-ID: <20171011130845.GA11493@splinter>
-References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
- <1507653665-20540-2-git-send-email-dsahern@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net sched act_vlan: VLAN action rewrite to
+ use RCU lock/unlock and update
+Date: Wed, 11 Oct 2017 06:10:29 -0700
+Message-ID: <1507727429.31614.22.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1507689219-22993-1-git-send-email-manish.kurup@verizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        kjlx@templeofstupid.com
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:36009 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752047AbdJKNIv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 09:08:51 -0400
-Content-Disposition: inline
-In-Reply-To: <1507653665-20540-2-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, aring@mojatatu.com, mrv@mojatatu.com,
+        manish.kurup@verizon.com
+To: Manish Kurup <kurup.manish@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507689219-22993-1-git-send-email-manish.kurup@verizon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 10, 2017 at 09:41:02AM -0700, David Ahern wrote:
-> inet6addr_validator chain was added by commit 3ad7d2468f79f ("Ipvlan
-> should return an error when an address is already in use") to allow
-> address validation before changes are committed and to be able to
-> fail the address change with an error back to the user. The address
-> validation is not done for addresses received from router
-> advertisements.
+On Tue, 2017-10-10 at 22:33 -0400, Manish Kurup wrote:
+> Using a spinlock in the VLAN action causes performance issues when the VLAN
+> action is used on multiple cores. Rewrote the VLAN action to use RCU read
+> locking for reads and updates instead.
 > 
-> Handling RAs in softirq context is the only reason for the notifier
-> chain to be atomic versus blocking. Since the only current user, ipvlan,
-> of the validator chain ignores softirq context, the notifier can be made
-> blocking and simply not invoked for softirq path.
+> Signed-off-by: Manish Kurup <manish.kurup@verizon.com>
+> ---
+>  include/net/tc_act/tc_vlan.h | 21 ++++++++-----
+>  net/sched/act_vlan.c         | 73 ++++++++++++++++++++++++++++++--------------
+>  2 files changed, 63 insertions(+), 31 deletions(-)
 > 
-> The blocking option is needed by spectrum for example to validate
-> resources for an adding an address to an interface.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> diff --git a/include/net/tc_act/tc_vlan.h b/include/net/tc_act/tc_vlan.h
+> index c2090df..67fd355 100644
+> --- a/include/net/tc_act/tc_vlan.h
+> +++ b/include/net/tc_act/tc_vlan.h
+> @@ -13,12 +13,17 @@
+>  #include <net/act_api.h>
+>  #include <linux/tc_act/tc_vlan.h>
+>  
+> +struct tcf_vlan_params {
+> +	struct rcu_head   rcu;
+> +	int               tcfv_action;
+> +	u16               tcfv_push_vid;
+> +	__be16            tcfv_push_proto;
+> +	u8                tcfv_push_prio;
+> +};
+> +
+>  struct tcf_vlan {
+>  	struct tc_action	common;
+> -	int			tcfv_action;
+> -	u16			tcfv_push_vid;
+> -	__be16			tcfv_push_proto;
+> -	u8			tcfv_push_prio;
+> +	struct tcf_vlan_params __rcu *vlan_p;
+>  };
+>  #define to_vlan(a) ((struct tcf_vlan *)a)
+>  
+> @@ -33,22 +38,22 @@ static inline bool is_tcf_vlan(const struct tc_action *a)
+>  
+>  static inline u32 tcf_vlan_action(const struct tc_action *a)
+>  {
+> -	return to_vlan(a)->tcfv_action;
+> +	return to_vlan(a)->vlan_p->tcfv_action;
 
-With the fixup posted later:
+This is not proper RCU : ->vlan_p should be read once, and using
+rcu_dereference()
 
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+So the caller should provide to this helper the 'p' pointer instead of
+'a'
 
-BTW, the in_softirq() check in ipvlan_addr6_validator_event() can be
-removed after this patch.
+
+CONFIG_SPARSE_RCU_POINTER=y
+
+and make C=2 would probably give you warnings about that.
