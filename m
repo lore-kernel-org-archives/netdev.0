@@ -1,42 +1,58 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [net-next,RESEND] igb: add function to get maximum RSS queues
-Date: Wed, 11 Oct 2017 01:45:13 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6BE24C@ORSMSX101.amr.corp.intel.com>
-References: <1505828454-2826-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net 2/2] net: call cgroup_sk_alloc() earlier in sk_clone_lock()
+Date: Tue, 10 Oct 2017 19:12:33 -0700
+Message-ID: <20171011021233.24158-2-edumazet@google.com>
+References: <20171011021233.24158-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        Craig Gallek <cgallek@google.com>, Tejun Heo <tj@kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32710 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752099AbdJKBpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 21:45:16 -0400
-In-Reply-To: <1505828454-2826-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Content-Language: en-US
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:53090 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756781AbdJKCMl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 22:12:41 -0400
+Received: by mail-pg0-f50.google.com with SMTP id w9so193988pgo.9
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 19:12:41 -0700 (PDT)
+In-Reply-To: <20171011021233.24158-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Zhang Shengju
-> Sent: Tuesday, September 19, 2017 6:41 AM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>; intel-wired-
-> lan@lists.osuosl.org; netdev@vger.kernel.org
-> Subject: [net-next,RESEND] igb: add function to get maximum RSS queues
-> 
-> This patch adds a new function igb_get_max_rss_queues() to get maximum
-> RSS queues, this will reduce duplicate code and facilitate future
-> maintenance.
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb.h         |  1 +
->  drivers/net/ethernet/intel/igb/igb_ethtool.c | 32 +---------------------------
->  drivers/net/ethernet/intel/igb/igb_main.c    | 12 +++++++++--
->  3 files changed, 12 insertions(+), 33 deletions(-)
-> 
+If for some reason, the newly allocated child need to be freed,
+we will call cgroup_put() (via sk_free_unlock_clone()) while the
+corresponding cgroup_get() was not yet done, and we will free memory
+too soon.
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Fixes: d979a39d7242 ("cgroup: duplicate cgroup reference when cloning sockets")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Johannes Weiner <hannes@cmpxchg.org>
+Cc: Tejun Heo <tj@kernel.org>
+---
+ net/core/sock.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 70c6ccbdf49f2f8a5a0f7c41c7849ea01459be50..415f441c63b9e2ff8feb010f44ca27303c72aaa1 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1687,6 +1687,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		atomic_set(&newsk->sk_zckey, 0);
+ 
+ 		sock_reset_flag(newsk, SOCK_DONE);
++		cgroup_sk_alloc(&newsk->sk_cgrp_data);
+ 
+ 		rcu_read_lock();
+ 		filter = rcu_dereference(sk->sk_filter);
+@@ -1718,8 +1719,6 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
+ 		newsk->sk_incoming_cpu = raw_smp_processor_id();
+ 		atomic64_set(&newsk->sk_cookie, 0);
+ 
+-		cgroup_sk_alloc(&newsk->sk_cgrp_data);
+-
+ 		/*
+ 		 * Before updating sk_refcnt, we must commit prior changes to memory
+ 		 * (Documentation/RCU/rculist_nulls.txt for details)
+-- 
+2.15.0.rc0.271.g36b669edcc-goog
