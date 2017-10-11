@@ -1,32 +1,72 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
-Date: Wed, 11 Oct 2017 11:41:49 +0300
-Message-ID: <87o9peqdo2.fsf@kamboji.qca.qualcomm.com>
-References: <20171010193027.GA23108@embeddedor.com>
-        <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next 6/9] e1000e: fix buffer overrun while the I219 is
+ processing DMA transactions
+Date: Wed, 11 Oct 2017 09:07:33 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
+References: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
+ <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jes Sorensen <jes.sorensen@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com> (Jes Sorensen's
-        message of "Tue, 10 Oct 2017 15:35:10 -0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Sasha Neftin <sasha.neftin@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.184]:64441 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752387AbdJKJHm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 05:07:42 -0400
+In-Reply-To: <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jes Sorensen <jes.sorensen@gmail.com> writes:
-
-> On 10/10/2017 03:30 PM, Gustavo A. R. Silva wrote:
->> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
->> where we are expecting to fall through.
->
-> While this isn't harmful, to me this looks like pointless patch churn
-> for zero gain and it's just ugly.
-
-In general I find it useful to mark fall through cases. And it's just a
-comment with two words, so they cannot hurt your eyes that much.
-
--- 
-Kalle Valo
+RnJvbTogSmVmZiBLaXJzaGVyDQo+IFNlbnQ6IDEwIE9jdG9iZXIgMjAxNyAxODoyMg0KPiBJbnRl
+bCAxMDAvMjAwIFNlcmllcyBDaGlwc2V0IHBsYXRmb3JtcyByZWR1Y2VkIHRoZSByb3VuZC10cmlw
+DQo+IGxhdGVuY3kgZm9yIHRoZSBMQU4gQ29udHJvbGxlciBETUEgYWNjZXNzZXMsIGNhdXNpbmcg
+aW4gc29tZSBoaWdoDQo+IHBlcmZvcm1hbmNlIGNhc2VzIGEgYnVmZmVyIG92ZXJydW4gd2hpbGUg
+dGhlIEkyMTkgTEFOIENvbm5lY3RlZA0KPiBEZXZpY2UgaXMgcHJvY2Vzc2luZyB0aGUgRE1BIHRy
+YW5zYWN0aW9ucy4gSTIxOUxNIGFuZCBJMjE5ViBkZXZpY2VzDQo+IGNhbiBmYWxsIGludG8gdW5y
+ZWNvdmVyZWQgVHggaGFuZyB1bmRlciB2ZXJ5IHN0cmVzc2Z1bGx5IFVEUCB0cmFmZmljDQo+IGFu
+ZCBtdWx0aXBsZSByZWNvbm5lY3Rpb24gb2YgRXRoZXJuZXQgY2FibGUuIFRoaXMgVHggaGFuZyBv
+ZiB0aGUgTEFODQo+IENvbnRyb2xsZXIgaXMgb25seSByZWNvdmVyZWQgaWYgdGhlIHN5c3RlbSBp
+cyByZWJvb3RlZC4gU2xpZ2h0bHkgc2xvdw0KPiBkb3duIERNQSBhY2Nlc3MgYnkgcmVkdWNpbmcg
+dGhlIG51bWJlciBvZiBvdXRzdGFuZGluZyByZXF1ZXN0cy4NCj4gVGhpcyB3b3JrYXJvdW5kIGNv
+dWxkIGhhdmUgYW4gaW1wYWN0IG9uIFRDUCB0cmFmZmljIHBlcmZvcm1hbmNlDQo+IG9uIHRoZSBw
+bGF0Zm9ybS4gRGlzYWJsaW5nIFRTTyBlbGltaW5hdGVzIHBlcmZvcm1hbmNlIGxvc3MgZm9yIFRD
+UA0KPiB0cmFmZmljIHdpdGhvdXQgYSBub3RpY2VhYmxlIGltcGFjdCBvbiBDUFUgcGVyZm9ybWFu
+Y2UuDQo+IA0KPiBQbGVhc2UsIHJlZmVyIHRvIEkyMTgvSTIxOSBzcGVjaWZpY2F0aW9uIHVwZGF0
+ZToNCj4gaHR0cHM6Ly93d3cuaW50ZWwuY29tL2NvbnRlbnQvd3d3L3VzL2VuL2VtYmVkZGVkL3By
+b2R1Y3RzL25ldHdvcmtpbmcvDQo+IGV0aGVybmV0LWNvbm5lY3Rpb24taTIxOC1mYW1pbHktZG9j
+dW1lbnRhdGlvbi5odG1sDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTYXNoYSBOZWZ0aW4gPHNhc2hh
+Lm5lZnRpbkBpbnRlbC5jb20+DQo+IFJldmlld2VkLWJ5OiBEaW1hIFJ1aW5za2l5IDxkaW1hLnJ1
+aW5za2l5QGludGVsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IFJhYW5hbiBBdmFyZ2lsIDxyYWFuYW4u
+YXZhcmdpbEBpbnRlbC5jb20+DQo+IFRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFhcm9uLmYuYnJv
+d25AaW50ZWwuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5r
+aXJzaGVyQGludGVsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9l
+MTAwMGUvbmV0ZGV2LmMgfCA4ICsrKysrLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgNSBpbnNlcnRp
+b25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2UxMDAwZS9uZXRkZXYuYw0KPiBpbmRleCBlZTlkZTM1MDAzMzEuLjE0YjA5NmYzZDFkYSAxMDA2
+NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRldi5jDQo+
+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYw0KPiBAQCAt
+MzAyMSw4ICszMDIxLDggQEAgc3RhdGljIHZvaWQgZTEwMDBfY29uZmlndXJlX3R4KHN0cnVjdCBl
+MTAwMF9hZGFwdGVyICphZGFwdGVyKQ0KPiANCj4gIAlody0+bWFjLm9wcy5jb25maWdfY29sbGlz
+aW9uX2Rpc3QoaHcpOw0KPiANCj4gLQkvKiBTUFQgYW5kIENOUCBTaSBlcnJhdGEgd29ya2Fyb3Vu
+ZCB0byBhdm9pZCBkYXRhIGNvcnJ1cHRpb24gKi8NCj4gLQlpZiAoaHctPm1hYy50eXBlID49IGUx
+MDAwX3BjaF9zcHQpIHsNCj4gKwkvKiBTUFQgYW5kIEtCTCBTaSBlcnJhdGEgd29ya2Fyb3VuZCB0
+byBhdm9pZCBkYXRhIGNvcnJ1cHRpb24gKi8NCj4gKwlpZiAoaHctPm1hYy50eXBlID09IGUxMDAw
+X3BjaF9zcHQpIHsNCj4gIAkJdTMyIHJlZ192YWw7DQo+IA0KPiAgCQlyZWdfdmFsID0gZXIzMihJ
+T1NGUEMpOw0KPiBAQCAtMzAzMCw3ICszMDMwLDkgQEAgc3RhdGljIHZvaWQgZTEwMDBfY29uZmln
+dXJlX3R4KHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVyKQ0KPiAgCQlldzMyKElPU0ZQQywg
+cmVnX3ZhbCk7DQo+IA0KPiAgCQlyZWdfdmFsID0gZXIzMihUQVJDKDApKTsNCj4gLQkJcmVnX3Zh
+bCB8PSBFMTAwMF9UQVJDMF9DQl9NVUxUSVFfM19SRVE7DQo+ICsJCS8qIFNQVCBhbmQgS0JMIFNp
+IGVycmF0YSB3b3JrYXJvdW5kIHRvIGF2b2lkIFR4IGhhbmcgKi8NCj4gKwkJcmVnX3ZhbCAmPSB+
+QklUKDI4KTsNCj4gKwkJcmVnX3ZhbCB8PSBCSVQoMjkpOw0KDQpTaG91bGRuJ3Qgc29tZSBtb3Jl
+IG9mIHRoZSBjb21taXQgbWVzc2FnZSBhYm91dCB3aGF0IHRoaXMgaXMgZG9pbmcNCmJlIGluIHRo
+ZSBjb21tZW50Pw0KQW5kIHNob3VsZG4ndCB0aGUgMjggYW5kIDI4IGJlIG5hbWVkIGNvbnN0YW50
+cz8NCg0KPiAgCQlldzMyKFRBUkMoMCksIHJlZ192YWwpOw0KDQoJRGF2aWQNCg0K
