@@ -1,112 +1,135 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/4] RCU: introduce noref debug
-Date: Wed, 11 Oct 2017 08:45:32 -0700
-Message-ID: <20171011154532.GD3521@linux.vnet.ibm.com>
-References: <cover.1507294365.git.pabeni@redhat.com>
- <20171006133436.GY3521@linux.vnet.ibm.com>
- <1507302609.2793.16.camel@redhat.com>
- <20171006163414.GC3521@linux.vnet.ibm.com>
- <1507567992.21825.9.camel@redhat.com>
- <20171011040225.GU3521@linux.vnet.ibm.com>
- <1507733436.2487.32.camel@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 16:54:09 +0100
+Message-ID: <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-        Josh Triplett <josh@joshtriplett.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:58726 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756560AbdJKPph (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 11:45:37 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9BFiMRO002479
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:45:37 -0400
-Received: from e18.ny.us.ibm.com (e18.ny.us.ibm.com [129.33.205.208])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2dhnrssk9f-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:45:36 -0400
-Received: from localhost
-        by e18.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-        Wed, 11 Oct 2017 11:45:35 -0400
-Content-Disposition: inline
-In-Reply-To: <1507733436.2487.32.camel@redhat.com>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36633 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755157AbdJKPyM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 11:54:12 -0400
+In-Reply-To: <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 11, 2017 at 04:50:36PM +0200, Paolo Abeni wrote:
-> On Tue, 2017-10-10 at 21:02 -0700, Paul E. McKenney wrote:
-> > Linus and Ingo will ask me how users decide how they should set that
-> > additional build flag.  Especially given that if there is code that
-> > requires non-strict checking, isn't everyone required to set up non-strict
-> > checking to avoid false positives?  Unless you can also configure out
-> > all the code that requires non-strict checking, I suppose, but how
-> > would you keep track of what to configure out?
-> 
-> I'm working to a new version using a single compile flag - without
-> additional strict option.
-> 
-> I don't know of any other subsytem that stores rcu pointer in
-> datastructures for a longer amount of time. That having said, I wonder
-> if the tests should completely move to the networking subsystem for the
-> time being. The Kconfig option would thus be called NET_DEBUG or
-> something along the lines. For abstraction it would be possible to add
-> an atomic_notifier_chain to the rcu_read/unlock methods, where multiple
-> users or checkers could register for. That way we keep the users
-> seperate from the implementation for the cost of a bit more layering
-> and more indirect calls. But given that this will anyway slow down
-> execution a lot, it will anyway only be suitable in
-> testing/verification/debugging environments.
+It is that patch.
 
-I like this approach.  And if it does a good job of finding networking
-bugs over the next year or so, I would be quite happy to consider
-something for all RCU users.
+I rolled it back and immediately got it to work correctly on a Broadcom 
+Tigon. I can test on all other scenarios, I have tried, I suspect it 
+will come back alive on all of them.
 
-> > OK.  There will probably be some discussion about the API in that case.
-> 
-> I'll drop noref parameter, the key will became mandatory - the exact
-> position of where the reference of RCU managed object is stored. In the
-> case of noref dst it is &skb->_skb_refdst. With this kind of API it
-> should suite more subsystems.
+I am going to try to trace it through and see exactly where it drops a 
+skb which the card has no issues in accepting.
 
-Interesting.  Do you intend to allow rcu_track_noref() to refuse to
-record a pointer?  Other than for the array-full case.
+A.
 
-> > True enough.  Except that if people were good about always clearing the
-> > pointer, then the pointer couldn't leak, right?  Or am I missing something
-> > in your use cases?
-> 
-> This is correct. The dst_entry checking in skb, which this patch series
-> implements there are strict brackets in the sense of skb_dst_set,
-> skb_dst_set_noref, skb_dst_force, etc., which form brackets around the
-> safe uses of those dst_entries. This patch series validates that the
-> correct skb_dst_* functions are being called before the sk_buff leaves
-> the rcu protected section. Thus we don't need to modify and review a
-> lot of code but we can just patch into those helpers already.
+On 10/11/17 14:50, Anton Ivanov wrote:
+>
+>
+> On 10/11/17 14:39, Willem de Bruijn wrote:
+>> On Wed, Oct 11, 2017 at 4:39 AM, Anton Ivanov
+>> <anton.ivanov@cambridgegreys.com> wrote:
+>>> Hi all,
+>>>
+>>> I am having an issue with af_packet.c
+>>>
+>>> It fails to transmit any TSO frame submitted via raw socket + vnet 
+>>> headers.
+>>> An identical frame is considered valid for tap.
+>> This may be due to validation. As of commit 104ba78c9880 ("packet: on
+>> direct_xmit, limit tso and csum to supported devices") the packet socket
+>> code validates TSO packets and HW support in the direct_xmit path.
+>
+> I will look at it. I have tried with bridge+vEth (raw socket on the 
+> vEth) and directly on a tg3 and e1000e. All of these should be tso 
+> capable.
+>
+> CSUM definitely works in both cases, it is only TSO and only via raw 
+> socket on TX which is refusing to work.
+>
+>>
+>> Do you have a test program or packet (incl. vnet hdr) to reproduce this
+>> with? I usually test this path with
+>
+> My test program at present is UML instance with my vector IO patches. 
+> Latest version just went to the uml mailing list and can be pulled from
+>
+> http://foswiki.kot-begemot.co.uk/Main/EatYourOwnDogFoodOnUML
+>
+> I am going to dump one of the frames being produced and isolate it for 
+> a standalone test case.
+>
+>>
+>> https://github.com/wdebruij/kerneltools/blob/master/tests/psock_txring_vnet.c 
+>>
+>>
+>>> The frames are generated out of legit linux skbufs (in UML) and vnet 
+>>> headers
+>>> work for checksumming on raw, so I should have the raw 
+>>> initialization right.
+>>>
+>>> The header is supposedly parsed correctly and the newly formed skbuf 
+>>> is sent
+>>> to the device transmit routine (or enqueued) . I have debugged it as 
+>>> far as
+>>> it reaching the following line in packet_snd() (line 2592 in 4.13):
+>>>
+>>> err = po->xmit(skb);
+>> That maps either on to packet_direct_xmit or dev_queue_xmit.
+>
+> I know. In my case it is direct_xmit as I have asked for QDISC bypass.
+>
+>>
+>>> This returns NET_XMIT_DROP for any TSO capable device I tested.
+>> You can also try
+>>
+>>    perf record -a -g -e skb:kfree_skb sleep 10
+>>    perf report
+>>
+>> to see where these packets are dropped.
+>
+> Thanks, will try that.
+>
+>>
+>>> They dislike
+>>> the frame. Same frame is accepted by tap. I have went through the 
+>>> header
+>>> parsing and skb allocation code in both af_packet and tap several 
+>>> times and
+>>> I do not see any material difference (except the new zerocopy 
+>>> stuff). So,
+>>> frankly, I am stuck.
+>>>
+>>> Can someone help me to debug this. I do not see an easy way to debug 
+>>> it, but
+>>> this is not a part of the kernel I am familiar with. Is there a 
+>>> suitable
+>>> helper function to try to segment the frame and see exactly what is 
+>>> wrong
+>>> with it?
+>>>
+>>> Cc-ing DaveM as this has no specific maintainer so it falls under his
+>>> umbrella remit.
+>>>
+>>> -- 
+>>> Anton R. Ivanov
+>>>
+>>> Cambridge Greys Limited, England and Wales company No 10273661
+>>> http://www.cambridgegreys.com/
+>>>
+>
 
-Makes sense.  Those willing to strictly bracket uses gain some debug
-assist.
+-- 
+Anton R. Ivanov
 
-> > Or to put it another way -- have you been able to catch any real
-> > pointer-leak bugs with thister-leak bugs with this?  The other RCU
-> > debug options have had pretty long found-bug lists before we accepted
-> > them.
-> 
-> There have been two problems found so far, one is a rather minor one
-> while the other one seems like a normal bug. The patches for those are
-> part of this series (3/4 and 4/4).
-
-I agree that you have started gathering evidence and that the early
-indications are positive, if quite mildly so.  If this time next year
-there are a few tens of such bugs found, preferably including some
-serious ones, I would very likely look favorably on pulling this in to
-allow others to use it.
-
-							Thanx, Paul
+Cambridge Greys Limited, England and Wales company No 10273661
+http://www.cambridgegreys.com/
