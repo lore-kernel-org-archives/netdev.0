@@ -1,35 +1,40 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH] tests: Remove bashisms (s/source/.)
-Date: Wed, 11 Oct 2017 11:02:49 -0700
-Message-ID: <290f2f69-48ee-f47f-2704-293b5354baed@infradead.org>
-References: <20171008143916.21813-1-petr.vorel@gmail.com>
- <20171011110115.13739488@xeon-e3>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v3] lib: fix multiple strlcpy definition
+Date: Wed, 11 Oct 2017 11:03:35 -0700
+Message-ID: <20171011110335.1e2a793c@xeon-e3>
+References: <9a00dc2dca0650efd7e169db9bb15ae1ec043c08.1507528184.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        Petr Vorel <petr.vorel@gmail.com>
+Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:52214 "EHLO
-        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757505AbdJKSCu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 14:02:50 -0400
-In-Reply-To: <20171011110115.13739488@xeon-e3>
-Content-Language: en-US
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:50811 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757798AbdJKSDh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 14:03:37 -0400
+Received: by mail-pf0-f178.google.com with SMTP id m63so1495925pfk.7
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 11:03:37 -0700 (PDT)
+In-Reply-To: <9a00dc2dca0650efd7e169db9bb15ae1ec043c08.1507528184.git.baruch@tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/11/17 11:01, Stephen Hemminger wrote:
-> On Sun,  8 Oct 2017 16:39:16 +0200
-> Petr Vorel <petr.vorel@gmail.com> wrote:
-> 
->> Signed-off-by: Petr Vorel <petr.vorel@gmail.com>
-> 
-> Ok, applied. But iproute2 is really limited to Linux and bash is lingua franca on Linux
-> 
+On Mon,  9 Oct 2017 08:49:44 +0300
+Baruch Siach <baruch@tkos.co.il> wrote:
 
-no French, please. Some distros use dash, but being POSIX is usually good.
+> Some C libraries, like uClibc and musl, provide BSD compatible
+> strlcpy(). Add check_strlcpy() to configure, and avoid defining strlcpy
+> and strlcat when the C library provides them.
+> 
+> This fixes the following static link error with uClibc-ng:
+> 
+> .../sysroot/usr/lib/libc.a(strlcpy.os): In function `strlcpy':
+> strlcpy.c:(.text+0x0): multiple definition of `strlcpy'
+> ../lib/libutil.a(utils.o):utils.c:(.text+0x1ddc): first defined here
+> collect2: error: ld returned 1 exit status
+> 
+> Acked-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 
--- 
-~Randy
+Thanks for fixing. Most people never use other versions of libc
+so things get broken rather often.
