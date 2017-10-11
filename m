@@ -1,108 +1,190 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Subject: Re: BUG:af_packet fails to TX TSO frames
-Date: Wed, 11 Oct 2017 14:50:10 +0100
-Message-ID: <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [RFC net-next 3/4] mlxsw: spectrum: router: Add support for
+ address validator notifier
+Date: Wed, 11 Oct 2017 16:54:05 +0300
+Message-ID: <20171011135405.GB11653@splinter>
+References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
+ <1507653665-20540-4-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
+        kjlx@templeofstupid.com
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:36629 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752112AbdJKNuX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 09:50:23 -0400
-In-Reply-To: <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
-Content-Language: en-US
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:45439 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1757623AbdJKNyJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 09:54:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1507653665-20540-4-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Oct 10, 2017 at 09:41:04AM -0700, David Ahern wrote:
+> Add support for inetaddr_validator and inet6addr_validator. The
+> notifiers provide a means for validating ipv4 and ipv6 addresses
+> before the addresses are installed and on failure the error
+> is propagated back to the user.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 10 ++++
+>  drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++
+>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 53 ++++++++++++++++++++++
+>  3 files changed, 67 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+> index 321988ac57cc..da4ee91235be 100644
+> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+> @@ -4505,11 +4505,19 @@ static struct notifier_block mlxsw_sp_netdevice_nb __read_mostly = {
+>  	.notifier_call = mlxsw_sp_netdevice_event,
+>  };
+>  
+> +static struct notifier_block mlxsw_sp_inetaddr_valid_nb __read_mostly = {
+> +	.notifier_call = mlxsw_sp_inetaddr_valid_event,
+> +};
+> +
+>  static struct notifier_block mlxsw_sp_inetaddr_nb __read_mostly = {
+>  	.notifier_call = mlxsw_sp_inetaddr_event,
+>  	.priority = 10,	/* Must be called before FIB notifier block */
 
+This line can now be removed since the validator notifier is called
+before the inetaddr notifier.
 
-On 10/11/17 14:39, Willem de Bruijn wrote:
-> On Wed, Oct 11, 2017 at 4:39 AM, Anton Ivanov
-> <anton.ivanov@cambridgegreys.com> wrote:
->> Hi all,
->>
->> I am having an issue with af_packet.c
->>
->> It fails to transmit any TSO frame submitted via raw socket + vnet headers.
->> An identical frame is considered valid for tap.
-> This may be due to validation. As of commit 104ba78c9880 ("packet: on
-> direct_xmit, limit tso and csum to supported devices") the packet socket
-> code validates TSO packets and HW support in the direct_xmit path.
+It's used to create a RIF before fib_add_ifaddr() is invoked to create a
+prefix route. IPv6 doesn't need that since routes aren't created based
+on a NETDEV_UP event in inet6addr.
 
-I will look at it. I have tried with bridge+vEth (raw socket on the 
-vEth) and directly on a tg3 and e1000e. All of these should be tso capable.
+>  };
+>  
+> +static struct notifier_block mlxsw_sp_inet6addr_valid_nb __read_mostly = {
+> +	.notifier_call = mlxsw_sp_inet6addr_valid_event,
+> +};
+> +
+>  static struct notifier_block mlxsw_sp_inet6addr_nb __read_mostly = {
+>  	.notifier_call = mlxsw_sp_inet6addr_event,
+>  };
+> @@ -4533,7 +4541,9 @@ static int __init mlxsw_sp_module_init(void)
+>  	int err;
+>  
+>  	register_netdevice_notifier(&mlxsw_sp_netdevice_nb);
+> +	register_inetaddr_validator_notifier(&mlxsw_sp_inetaddr_valid_nb);
+>  	register_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
+> +	register_inet6addr_validator_notifier(&mlxsw_sp_inet6addr_valid_nb);
+>  	register_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
+>  	register_netevent_notifier(&mlxsw_sp_router_netevent_nb);
 
-CSUM definitely works in both cases, it is only TSO and only via raw 
-socket on TX which is refusing to work.
+Need unregister in rollback and __exit function.
 
->
-> Do you have a test program or packet (incl. vnet hdr) to reproduce this
-> with? I usually test this path with
+>  
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+> index 8e45183dc9bb..4865a6f58c83 100644
+> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+> @@ -390,8 +390,12 @@ int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
+>  int mlxsw_sp_netdevice_router_port_event(struct net_device *dev);
+>  int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
+>  			    unsigned long event, void *ptr);
+> +int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
+> +				  unsigned long event, void *ptr);
+>  int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
+>  			     unsigned long event, void *ptr);
+> +int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
+> +				   unsigned long event, void *ptr);
+>  int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
+>  				 struct netdev_notifier_changeupper_info *info);
+>  void
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> index 6a356f4b99a3..7d53fdf2c0a8 100644
+> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> @@ -5656,6 +5656,33 @@ int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
+>  	struct mlxsw_sp_rif *rif;
+>  	int err = 0;
+>  
+> +	/* NETDEV_UP event is handled by mlxsw_sp_inetaddr_valid_event */
+> +	if (event == NETDEV_UP)
+> +		goto out;
+> +
+> +	mlxsw_sp = mlxsw_sp_lower_get(dev);
+> +	if (!mlxsw_sp)
+> +		goto out;
+> +
+> +	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+> +	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+> +		goto out;
+> +
+> +	err = __mlxsw_sp_inetaddr_event(dev, event);
+> +out:
+> +	return notifier_from_errno(err);
+> +}
+> +
+> +/* only expected to be called for event == NETDEV_UP */
 
-My test program at present is UML instance with my vector IO patches. 
-Latest version just went to the uml mailing list and can be pulled from
+I don't really mind, but I don't think the comment is necessary.
 
-http://foswiki.kot-begemot.co.uk/Main/EatYourOwnDogFoodOnUML
+> +int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
+> +				  unsigned long event, void *ptr)
+> +{
+> +	struct in_validator_info *ivi = (struct in_validator_info *)ptr;
 
-I am going to dump one of the frames being produced and isolate it for a 
-standalone test case.
+We usually put a space after the cast in mlxsw (I'm aware of the
+checkpatch CHECK).
 
->
-> https://github.com/wdebruij/kerneltools/blob/master/tests/psock_txring_vnet.c
->
->> The frames are generated out of legit linux skbufs (in UML) and vnet headers
->> work for checksumming on raw, so I should have the raw initialization right.
->>
->> The header is supposedly parsed correctly and the newly formed skbuf is sent
->> to the device transmit routine (or enqueued) . I have debugged it as far as
->> it reaching the following line in packet_snd() (line 2592 in 4.13):
->>
->> err = po->xmit(skb);
-> That maps either on to packet_direct_xmit or dev_queue_xmit.
+> +	struct net_device *dev = ivi->ivi_dev->dev;
+> +	struct mlxsw_sp *mlxsw_sp;
+> +	struct mlxsw_sp_rif *rif;
+> +	int err = 0;
+> +
+>  	mlxsw_sp = mlxsw_sp_lower_get(dev);
+>  	if (!mlxsw_sp)
+>  		goto out;
+> @@ -5708,6 +5735,10 @@ int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
+>  	struct mlxsw_sp_inet6addr_event_work *inet6addr_work;
+>  	struct net_device *dev = if6->idev->dev;
+>  
+> +	/* NETDEV_UP event is handled by mlxsw_sp_inet6addr_valid_event */
+> +	if (event == NETDEV_UP)
+> +		return NOTIFY_DONE;
+> +
+>  	if (!mlxsw_sp_port_dev_lower_find_rcu(dev))
+>  		return NOTIFY_DONE;
+>  
+> @@ -5724,6 +5755,28 @@ int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
+>  	return NOTIFY_DONE;
+>  }
+>  
+> +int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
+> +				   unsigned long event, void *ptr)
+> +{
+> +	struct in6_validator_info *i6vi = (struct in6_validator_info *)ptr;
 
-I know. In my case it is direct_xmit as I have asked for QDISC bypass.
+Same as above.
 
->
->> This returns NET_XMIT_DROP for any TSO capable device I tested.
-> You can also try
->
->    perf record -a -g -e skb:kfree_skb sleep 10
->    perf report
->
-> to see where these packets are dropped.
+Looks good otherwise, thanks!
 
-Thanks, will try that.
-
->
->> They dislike
->> the frame. Same frame is accepted by tap. I have went through the header
->> parsing and skb allocation code in both af_packet and tap several times and
->> I do not see any material difference (except the new zerocopy stuff). So,
->> frankly, I am stuck.
->>
->> Can someone help me to debug this. I do not see an easy way to debug it, but
->> this is not a part of the kernel I am familiar with. Is there a suitable
->> helper function to try to segment the frame and see exactly what is wrong
->> with it?
->>
->> Cc-ing DaveM as this has no specific maintainer so it falls under his
->> umbrella remit.
->>
->> --
->> Anton R. Ivanov
->>
->> Cambridge Greys Limited, England and Wales company No 10273661
->> http://www.cambridgegreys.com/
->>
-
--- 
-Anton R. Ivanov
-
-Cambridge Greys Limited, England and Wales company No 10273661
-http://www.cambridgegreys.com/
+> +	struct net_device *dev = i6vi->i6vi_dev->dev;
+> +	struct mlxsw_sp *mlxsw_sp;
+> +	struct mlxsw_sp_rif *rif;
+> +	int err = 0;
+> +
+> +	mlxsw_sp = mlxsw_sp_lower_get(dev);
+> +	if (!mlxsw_sp)
+> +		goto out;
+> +
+> +	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+> +	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+> +		goto out;
+> +
+> +	err = __mlxsw_sp_inetaddr_event(dev, event);
+> +out:
+> +	return notifier_from_errno(err);
+> +}
+> +
+>  static int mlxsw_sp_rif_edit(struct mlxsw_sp *mlxsw_sp, u16 rif_index,
+>  			     const char *mac, int mtu)
+>  {
+> -- 
+> 2.1.4
+> 
