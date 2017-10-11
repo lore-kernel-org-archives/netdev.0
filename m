@@ -1,7 +1,7 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH net-next v3 4/5] selinux: bpf: Add selinux check for eBPF syscall operations
-Date: Tue, 10 Oct 2017 17:09:29 -0700
-Message-ID: <20171011000930.133308-5-chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v3 2/5] bpf: Add tests for eBPF file mode
+Date: Tue, 10 Oct 2017 17:09:27 -0700
+Message-ID: <20171011000930.133308-3-chenbofeng.kernel@gmail.com>
 References: <20171011000930.133308-1-chenbofeng.kernel@gmail.com>
 Cc: Jeffrey Vander Stoep <jeffv@google.com>,
         Alexei Starovoitov <alexei.starovoitov@gmail.com>,
@@ -17,185 +17,81 @@ List-Id: netdev.vger.kernel.org
 
 From: Chenbo Feng <fengc@google.com>
 
-Implement the actual checks introduced to eBPF related syscalls. This
-implementation use the security field inside bpf object to store a sid that
-identify the bpf object. And when processes try to access the object,
-selinux will check if processes have the right privileges. The creation
-of eBPF object are also checked at the general bpf check hook and new
-cmd introduced to eBPF domain can also be checked there.
+Two related tests are added into bpf selftest to test read only map and
+write only map. The tests verified the read only and write only flags
+are working on hash maps.
 
 Signed-off-by: Chenbo Feng <fengc@google.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- security/selinux/hooks.c            | 111 ++++++++++++++++++++++++++++++++++++
- security/selinux/include/classmap.h |   2 +
- security/selinux/include/objsec.h   |   4 ++
- 3 files changed, 117 insertions(+)
+ tools/testing/selftests/bpf/test_maps.c | 48 +++++++++++++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index f5d304736852..94e473b9c884 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -85,6 +85,7 @@
- #include <linux/export.h>
- #include <linux/msg.h>
- #include <linux/shm.h>
-+#include <linux/bpf.h>
- 
- #include "avc.h"
- #include "objsec.h"
-@@ -6252,6 +6253,106 @@ static void selinux_ib_free_security(void *ib_sec)
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index fe3a443a1102..896f23cfe918 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -1033,6 +1033,51 @@ static void test_map_parallel(void)
+ 	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
  }
- #endif
  
-+#ifdef CONFIG_BPF_SYSCALL
-+static int selinux_bpf(int cmd, union bpf_attr *attr,
-+				     unsigned int size)
++static void test_map_rdonly(void)
 +{
-+	u32 sid = current_sid();
-+	int ret;
++	int i, fd, key = 0, value = 0;
 +
-+	switch (cmd) {
-+	case BPF_MAP_CREATE:
-+		ret = avc_has_perm(sid, sid, SECCLASS_BPF, BPF__MAP_CREATE,
-+				   NULL);
-+		break;
-+	case BPF_PROG_LOAD:
-+		ret = avc_has_perm(sid, sid, SECCLASS_BPF, BPF__PROG_LOAD,
-+				   NULL);
-+		break;
-+	default:
-+		ret = 0;
-+		break;
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    MAP_SIZE, map_flags | BPF_F_RDONLY);
++	if (fd < 0) {
++		printf("Failed to create map for read only test '%s'!\n",
++		       strerror(errno));
++		exit(1);
 +	}
 +
-+	return ret;
++	key = 1;
++	value = 1234;
++	/* Insert key=1 element. */
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == -1 &&
++	       errno == EPERM);
++
++	/* Check that key=2 is not found. */
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_map_get_next_key(fd, &key, &value) == -1 && errno == ENOENT);
 +}
 +
-+static u32 bpf_map_fmode_to_av(fmode_t fmode)
++static void test_map_wronly(void)
 +{
-+	u32 av = 0;
++	int i, fd, key = 0, value = 0;
 +
-+	if (fmode & FMODE_READ)
-+		av |= BPF__MAP_READ;
-+	if (fmode & FMODE_WRITE)
-+		av |= BPF__MAP_WRITE;
-+	return av;
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    MAP_SIZE, map_flags | BPF_F_WRONLY);
++	if (fd < 0) {
++		printf("Failed to create map for read only test '%s'!\n",
++		       strerror(errno));
++		exit(1);
++	}
++
++	key = 1;
++	value = 1234;
++	/* Insert key=1 element. */
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == 0)
++
++	/* Check that key=2 is not found. */
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == EPERM);
++	assert(bpf_map_get_next_key(fd, &key, &value) == -1 && errno == EPERM);
 +}
 +
-+static int selinux_bpf_map(struct bpf_map *map, fmode_t fmode)
-+{
-+	u32 sid = current_sid();
-+	struct bpf_security_struct *bpfsec;
+ static void run_all_tests(void)
+ {
+ 	test_hashmap(0, NULL);
+@@ -1050,6 +1095,9 @@ static void run_all_tests(void)
+ 	test_map_large();
+ 	test_map_parallel();
+ 	test_map_stress();
 +
-+	bpfsec = map->security;
-+	return avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF,
-+			    bpf_map_fmode_to_av(fmode), NULL);
-+}
-+
-+static int selinux_bpf_prog(struct bpf_prog *prog)
-+{
-+	u32 sid = current_sid();
-+	struct bpf_security_struct *bpfsec;
-+
-+	bpfsec = prog->aux->security;
-+	return avc_has_perm(sid, bpfsec->sid, SECCLASS_BPF,
-+			    BPF__PROG_USE, NULL);
-+}
-+
-+static int selinux_bpf_map_alloc(struct bpf_map *map)
-+{
-+	struct bpf_security_struct *bpfsec;
-+
-+	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
-+	if (!bpfsec)
-+		return -ENOMEM;
-+
-+	bpfsec->sid = current_sid();
-+	map->security = bpfsec;
-+
-+	return 0;
-+}
-+
-+static void selinux_bpf_map_free(struct bpf_map *map)
-+{
-+	struct bpf_security_struct *bpfsec = map->security;
-+
-+	map->security = NULL;
-+	kfree(bpfsec);
-+}
-+
-+static int selinux_bpf_prog_alloc(struct bpf_prog_aux *aux)
-+{
-+	struct bpf_security_struct *bpfsec;
-+
-+	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
-+	if (!bpfsec)
-+		return -ENOMEM;
-+
-+	bpfsec->sid = current_sid();
-+	aux->security = bpfsec;
-+
-+	return 0;
-+}
-+
-+static void selinux_bpf_prog_free(struct bpf_prog_aux *aux)
-+{
-+	struct bpf_security_struct *bpfsec = aux->security;
-+
-+	aux->security = NULL;
-+	kfree(bpfsec);
-+}
-+#endif
-+
- static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
- 	LSM_HOOK_INIT(binder_set_context_mgr, selinux_binder_set_context_mgr),
- 	LSM_HOOK_INIT(binder_transaction, selinux_binder_transaction),
-@@ -6471,6 +6572,16 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
- 	LSM_HOOK_INIT(audit_rule_match, selinux_audit_rule_match),
- 	LSM_HOOK_INIT(audit_rule_free, selinux_audit_rule_free),
- #endif
-+
-+#ifdef CONFIG_BPF_SYSCALL
-+	LSM_HOOK_INIT(bpf, selinux_bpf),
-+	LSM_HOOK_INIT(bpf_map, selinux_bpf_map),
-+	LSM_HOOK_INIT(bpf_prog, selinux_bpf_prog),
-+	LSM_HOOK_INIT(bpf_map_alloc_security, selinux_bpf_map_alloc),
-+	LSM_HOOK_INIT(bpf_prog_alloc_security, selinux_bpf_prog_alloc),
-+	LSM_HOOK_INIT(bpf_map_free_security, selinux_bpf_map_free),
-+	LSM_HOOK_INIT(bpf_prog_free_security, selinux_bpf_prog_free),
-+#endif
- };
++	test_map_rdonly();
++	test_map_wronly();
+ }
  
- static __init int selinux_init(void)
-diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
-index 35ffb29a69cb..a91fa46a789f 100644
---- a/security/selinux/include/classmap.h
-+++ b/security/selinux/include/classmap.h
-@@ -237,6 +237,8 @@ struct security_class_mapping secclass_map[] = {
- 	  { "access", NULL } },
- 	{ "infiniband_endport",
- 	  { "manage_subnet", NULL } },
-+	{ "bpf",
-+	  {"map_create", "map_read", "map_write", "prog_load", "prog_use"} },
- 	{ NULL }
-   };
- 
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index 1649cd18eb0b..3d54468ce334 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -150,6 +150,10 @@ struct pkey_security_struct {
- 	u32	sid;	/* SID of pkey */
- };
- 
-+struct bpf_security_struct {
-+	u32 sid;  /*SID of bpf obj creater*/
-+};
-+
- extern unsigned int selinux_checkreqprot;
- 
- #endif /* _SELINUX_OBJSEC_H_ */
+ int main(void)
 -- 
 2.14.2.920.gcf0c67979c-goog
 
