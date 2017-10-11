@@ -1,39 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] xdp: Sample xdp program implementing ip forward
-Date: Wed, 11 Oct 2017 10:08:21 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0090EEE@AcuExch.aculab.com>
-References: <1507620532-25804-1-git-send-email-Christina.Jacob@cavium.com>
-        <1507620532-25804-2-git-send-email-Christina.Jacob@cavium.com>
- <20171010210607.2af452e2@redhat.com>
+From: Petr Mladek <pmladek-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCH 11/13] timer: Remove expires argument from
+ __TIMER_INITIALIZER()
+Date: Wed, 11 Oct 2017 12:15:14 +0200
+Message-ID: <20171011101514.GA2882@pathway.suse.cz>
+References: <1507159627-127660-1-git-send-email-keescook@chromium.org>
+ <1507159627-127660-12-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "Sunil.Goutham@cavium.com" <Sunil.Goutham@cavium.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "dsahern@gmail.com" <dsahern@gmail.com>,
-        Christina Jacob <Christina.Jacob@cavium.com>
-To: 'Jesper Dangaard Brouer' <brouer@redhat.com>,
-        Christina Jacob <christina.jacob.koikara@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171010210607.2af452e2@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+        Chris Metcalf <cmetcalf-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>,
+        Harish Patil <harish.patil-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+        "James E.J. Bottomley" <jejb-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Julian Wiedmann <jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        Lai Jiangshan <jiangshanlai-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Manish Chopra <manish.chopra-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Mark Gross <mark.gross-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "Martin K. Petersen"
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1507159627-127660-12-git-send-email-keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Sender: linux-watchdog-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer
-> Sent: 10 October 2017 20:06
-...
-> > +		int src_ip = 0, dest_ip = 0;
-...
-> > +			key4.b8[4] = dest_ip % 0x100;
-> > +			key4.b8[5] = (dest_ip >> 8) % 0x100;
-> > +			key4.b8[6] = (dest_ip >> 16) % 0x100;
-> > +			key4.b8[7] = (dest_ip >> 24) % 0x100;
+On Wed 2017-10-04 16:27:05, Kees Cook wrote:
+> The expires field is normally initialized during the first mod_timer()
+> call. It was unused by all callers, so remove it from the macro.
+> 
+> Signed-off-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> ---
+>  include/linux/kthread.h   | 2 +-
+>  include/linux/timer.h     | 5 ++---
+>  include/linux/workqueue.h | 2 +-
+>  3 files changed, 4 insertions(+), 5 deletions(-)
 
-Do you really want signed remainders done here?
+I was primary interested into the change in kthread.h. But the entire
+patch is simple and looks fine:
 
-	David
+Reviewed-by: Petr Mladek <pmladek-AlSwsSmVLrQ@public.gmane.org>
+
+Best Regards,
+Petr
+--
+To unsubscribe from this list: send the line "unsubscribe linux-watchdog" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
