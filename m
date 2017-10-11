@@ -1,36 +1,79 @@
-From: Xiang Gao <qasdfgtyuiop@gmail.com>
-Subject: Re: [PATCH v3] mac80211: aead api to reduce redundancy
-Date: Wed, 11 Oct 2017 10:12:30 -0400
-Message-ID: <CAMtaSwRNc0JvyG04SpW2DxNyzdCtwE0o0i2biMF6Wm+53NHmDg@mail.gmail.com>
-References: <20171011023149.18021-1-qasdfgtyuiop@gmail.com> <1507708082.1998.9.camel@sipsolutions.net>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [RFC net-next 4/4] mlxsw: spectrum_router: Add extack message
+ for RIF and VRF overflow
+Date: Wed, 11 Oct 2017 17:13:30 +0300
+Message-ID: <20171011141330.GC11653@splinter>
+References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
+ <1507653665-20540-5-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507708082.1998.9.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
+        kjlx@templeofstupid.com
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:60643 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753699AbdJKONe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 10:13:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1507653665-20540-5-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Great ! Thanks !
-Xiang Gao
+On Tue, Oct 10, 2017 at 09:41:05AM -0700, David Ahern wrote:
+> Add extack argument down to mlxsw_sp_rif_create and mlxsw_sp_vr_create
+> to set an error message on RIF or VR overflow. Now an overflow of
+> either resource the use gets an informative message as opposed to
 
+s/the/in/ ?
 
-2017-10-11 3:48 GMT-04:00 Johannes Berg <johannes@sipsolutions.net>:
-> On Tue, 2017-10-10 at 22:31 -0400, Xiang Gao wrote:
->> Currently, the aes_ccm.c and aes_gcm.c are almost line by line copy
->> of
->> each other. This patch reduce code redundancy by moving the code in
->> these
->> two files to crypto/aead_api.c to make it a higher level aead api.
->> The
->> file aes_ccm.c and aes_gcm.c are removed and all the functions there
->> are
->> now implemented in their headers using the newly added aead api.
->
-> Applied. FWIW, the sta_dynamic_down_up test that the robot complained
-> about, and the PSK tests that heavily use CCMP all pass.
->
-> johannes
+> failing with EBUSY.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+
+One comment below, but other than that:
+
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+
+I'll run some tests and report if anything blows up.
+
+Thanks David!
+
+> ---
+>  .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 114 +++++++++++++--------
+>  1 file changed, 69 insertions(+), 45 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> index 7d53fdf2c0a8..ec4d313b9eca 100644
+> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+> @@ -731,14 +731,17 @@ static struct mlxsw_sp_fib *mlxsw_sp_vr_fib(const struct mlxsw_sp_vr *vr,
+>  }
+>  
+>  static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+> -					      u32 tb_id)
+> +					      u32 tb_id,
+> +					      struct netlink_ext_ack *extack)
+>  {
+>  	struct mlxsw_sp_vr *vr;
+>  	int err;
+>  
+>  	vr = mlxsw_sp_vr_find_unused(mlxsw_sp);
+> -	if (!vr)
+> +	if (!vr) {
+> +		NL_SET_ERR_MSG(extack, "spectrum: Exceeded number of supported VRF");
+
+Maybe:
+"spectrum: Exceeded number of supported VRF devices"
+
+To be consistent with previously added:
+"spectrum: Exceeded number of supported LAG devices"
+
+>  		return ERR_PTR(-EBUSY);
+> +	}
+>  	vr->fib4 = mlxsw_sp_fib_create(vr, MLXSW_SP_L3_PROTO_IPV4);
+>  	if (IS_ERR(vr->fib4))
+>  		return ERR_CAST(vr->fib4);
+> @@ -775,14 +778,15 @@ static void mlxsw_sp_vr_destroy(struct mlxsw_sp_vr *vr)
+>  	vr->fib4 = NULL;
+>  }
