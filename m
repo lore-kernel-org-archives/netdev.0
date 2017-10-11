@@ -1,72 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 6/9] e1000e: fix buffer overrun while the I219 is
- processing DMA transactions
-Date: Wed, 11 Oct 2017 09:07:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
-References: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
- <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 09:39:47 +0100
+Message-ID: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sasha Neftin <sasha.neftin@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.184]:64441 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752387AbdJKJHm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 05:07:42 -0400
-In-Reply-To: <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36620 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752011AbdJKJUM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 05:20:12 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmVmZiBLaXJzaGVyDQo+IFNlbnQ6IDEwIE9jdG9iZXIgMjAxNyAxODoyMg0KPiBJbnRl
-bCAxMDAvMjAwIFNlcmllcyBDaGlwc2V0IHBsYXRmb3JtcyByZWR1Y2VkIHRoZSByb3VuZC10cmlw
-DQo+IGxhdGVuY3kgZm9yIHRoZSBMQU4gQ29udHJvbGxlciBETUEgYWNjZXNzZXMsIGNhdXNpbmcg
-aW4gc29tZSBoaWdoDQo+IHBlcmZvcm1hbmNlIGNhc2VzIGEgYnVmZmVyIG92ZXJydW4gd2hpbGUg
-dGhlIEkyMTkgTEFOIENvbm5lY3RlZA0KPiBEZXZpY2UgaXMgcHJvY2Vzc2luZyB0aGUgRE1BIHRy
-YW5zYWN0aW9ucy4gSTIxOUxNIGFuZCBJMjE5ViBkZXZpY2VzDQo+IGNhbiBmYWxsIGludG8gdW5y
-ZWNvdmVyZWQgVHggaGFuZyB1bmRlciB2ZXJ5IHN0cmVzc2Z1bGx5IFVEUCB0cmFmZmljDQo+IGFu
-ZCBtdWx0aXBsZSByZWNvbm5lY3Rpb24gb2YgRXRoZXJuZXQgY2FibGUuIFRoaXMgVHggaGFuZyBv
-ZiB0aGUgTEFODQo+IENvbnRyb2xsZXIgaXMgb25seSByZWNvdmVyZWQgaWYgdGhlIHN5c3RlbSBp
-cyByZWJvb3RlZC4gU2xpZ2h0bHkgc2xvdw0KPiBkb3duIERNQSBhY2Nlc3MgYnkgcmVkdWNpbmcg
-dGhlIG51bWJlciBvZiBvdXRzdGFuZGluZyByZXF1ZXN0cy4NCj4gVGhpcyB3b3JrYXJvdW5kIGNv
-dWxkIGhhdmUgYW4gaW1wYWN0IG9uIFRDUCB0cmFmZmljIHBlcmZvcm1hbmNlDQo+IG9uIHRoZSBw
-bGF0Zm9ybS4gRGlzYWJsaW5nIFRTTyBlbGltaW5hdGVzIHBlcmZvcm1hbmNlIGxvc3MgZm9yIFRD
-UA0KPiB0cmFmZmljIHdpdGhvdXQgYSBub3RpY2VhYmxlIGltcGFjdCBvbiBDUFUgcGVyZm9ybWFu
-Y2UuDQo+IA0KPiBQbGVhc2UsIHJlZmVyIHRvIEkyMTgvSTIxOSBzcGVjaWZpY2F0aW9uIHVwZGF0
-ZToNCj4gaHR0cHM6Ly93d3cuaW50ZWwuY29tL2NvbnRlbnQvd3d3L3VzL2VuL2VtYmVkZGVkL3By
-b2R1Y3RzL25ldHdvcmtpbmcvDQo+IGV0aGVybmV0LWNvbm5lY3Rpb24taTIxOC1mYW1pbHktZG9j
-dW1lbnRhdGlvbi5odG1sDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTYXNoYSBOZWZ0aW4gPHNhc2hh
-Lm5lZnRpbkBpbnRlbC5jb20+DQo+IFJldmlld2VkLWJ5OiBEaW1hIFJ1aW5za2l5IDxkaW1hLnJ1
-aW5za2l5QGludGVsLmNvbT4NCj4gUmV2aWV3ZWQtYnk6IFJhYW5hbiBBdmFyZ2lsIDxyYWFuYW4u
-YXZhcmdpbEBpbnRlbC5jb20+DQo+IFRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFhcm9uLmYuYnJv
-d25AaW50ZWwuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5r
-aXJzaGVyQGludGVsLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9l
-MTAwMGUvbmV0ZGV2LmMgfCA4ICsrKysrLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgNSBpbnNlcnRp
-b25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2UxMDAwZS9uZXRkZXYuYw0KPiBpbmRleCBlZTlkZTM1MDAzMzEuLjE0YjA5NmYzZDFkYSAxMDA2
-NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRldi5jDQo+
-ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYw0KPiBAQCAt
-MzAyMSw4ICszMDIxLDggQEAgc3RhdGljIHZvaWQgZTEwMDBfY29uZmlndXJlX3R4KHN0cnVjdCBl
-MTAwMF9hZGFwdGVyICphZGFwdGVyKQ0KPiANCj4gIAlody0+bWFjLm9wcy5jb25maWdfY29sbGlz
-aW9uX2Rpc3QoaHcpOw0KPiANCj4gLQkvKiBTUFQgYW5kIENOUCBTaSBlcnJhdGEgd29ya2Fyb3Vu
-ZCB0byBhdm9pZCBkYXRhIGNvcnJ1cHRpb24gKi8NCj4gLQlpZiAoaHctPm1hYy50eXBlID49IGUx
-MDAwX3BjaF9zcHQpIHsNCj4gKwkvKiBTUFQgYW5kIEtCTCBTaSBlcnJhdGEgd29ya2Fyb3VuZCB0
-byBhdm9pZCBkYXRhIGNvcnJ1cHRpb24gKi8NCj4gKwlpZiAoaHctPm1hYy50eXBlID09IGUxMDAw
-X3BjaF9zcHQpIHsNCj4gIAkJdTMyIHJlZ192YWw7DQo+IA0KPiAgCQlyZWdfdmFsID0gZXIzMihJ
-T1NGUEMpOw0KPiBAQCAtMzAzMCw3ICszMDMwLDkgQEAgc3RhdGljIHZvaWQgZTEwMDBfY29uZmln
-dXJlX3R4KHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVyKQ0KPiAgCQlldzMyKElPU0ZQQywg
-cmVnX3ZhbCk7DQo+IA0KPiAgCQlyZWdfdmFsID0gZXIzMihUQVJDKDApKTsNCj4gLQkJcmVnX3Zh
-bCB8PSBFMTAwMF9UQVJDMF9DQl9NVUxUSVFfM19SRVE7DQo+ICsJCS8qIFNQVCBhbmQgS0JMIFNp
-IGVycmF0YSB3b3JrYXJvdW5kIHRvIGF2b2lkIFR4IGhhbmcgKi8NCj4gKwkJcmVnX3ZhbCAmPSB+
-QklUKDI4KTsNCj4gKwkJcmVnX3ZhbCB8PSBCSVQoMjkpOw0KDQpTaG91bGRuJ3Qgc29tZSBtb3Jl
-IG9mIHRoZSBjb21taXQgbWVzc2FnZSBhYm91dCB3aGF0IHRoaXMgaXMgZG9pbmcNCmJlIGluIHRo
-ZSBjb21tZW50Pw0KQW5kIHNob3VsZG4ndCB0aGUgMjggYW5kIDI4IGJlIG5hbWVkIGNvbnN0YW50
-cz8NCg0KPiAgCQlldzMyKFRBUkMoMCksIHJlZ192YWwpOw0KDQoJRGF2aWQNCg0K
+Hi all,
+
+I am having an issue with af_packet.c
+
+It fails to transmit any TSO frame submitted via raw socket + vnet 
+headers. An identical frame is considered valid for tap.
+
+The frames are generated out of legit linux skbufs (in UML) and vnet 
+headers work for checksumming on raw, so I should have the raw 
+initialization right.
+
+The header is supposedly parsed correctly and the newly formed skbuf is 
+sent to the device transmit routine (or enqueued) . I have debugged it 
+as far as it reaching the following line in packet_snd() (line 2592 in 
+4.13):
+
+err = po->xmit(skb);
+
+This returns NET_XMIT_DROP for any TSO capable device I tested. They 
+dislike the frame. Same frame is accepted by tap. I have went through 
+the header parsing and skb allocation code in both af_packet and tap 
+several times and I do not see any material difference (except the new 
+zerocopy stuff). So, frankly, I am stuck.
+
+Can someone help me to debug this. I do not see an easy way to debug it, 
+but this is not a part of the kernel I am familiar with. Is there a 
+suitable helper function to try to segment the frame and see exactly 
+what is wrong with it?
+
+Cc-ing DaveM as this has no specific maintainer so it falls under his 
+umbrella remit.
+
+-- 
+Anton R. Ivanov
+
+Cambridge Greys Limited, England and Wales company No 10273661
+http://www.cambridgegreys.com/	
