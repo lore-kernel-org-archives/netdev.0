@@ -1,59 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] veth: tweak creation of veth device
-Date: Wed, 11 Oct 2017 15:17:06 -0700 (PDT)
-Message-ID: <20171011.151706.1844884518098480593.davem@davemloft.net>
-References: <1507666124-8780-1-git-send-email-mrv@mojatatu.com>
+Subject: Re: [PATCH] hdlc: Convert timers to use timer_setup()
+Date: Wed, 11 Oct 2017 15:19:08 -0700 (PDT)
+Message-ID: <20171011.151908.1325409031052082911.davem@davemloft.net>
+References: <20171010220833.GA97664@beast>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: mrv@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37964 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750848AbdJKWRH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 18:17:07 -0400
-In-Reply-To: <1507666124-8780-1-git-send-email-mrv@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org, tglx@linutronix.de,
+        linux-kernel@vger.kernel.org
+To: keescook@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171010220833.GA97664@beast>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roman Mashak <mrv@mojatatu.com>
-Date: Tue, 10 Oct 2017 16:08:44 -0400
+From: Kees Cook <keescook@chromium.org>
+Date: Tue, 10 Oct 2017 15:08:33 -0700
 
-> When creating veth pair, at first rtnl_new_link() creates veth_dev, i.e.
-> one end of the veth pipe, but not registers it; then veth_newlink() gets
-> invoked, where peer dev is created _and_ registered, followed by veth_dev
-> registration, which may fail if peer information, that is VETH_INFO_PEER
-> attribute, has not been provided and the kernel will allocate unique veth
-> name.
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly. This adds a pointer back to the
+> net_device, and drops needless open-coded resetting of the .function and
+> .data fields.
 > 
-> So, we should ask the kernel to allocate unique name for veth_dev only
-> when peer info is not available.
-> 
-> Example:
-> 
-> % ip link dev veth0 type veth
-> RTNETLINK answers: File exists
-> 
-> After fix:
-> % ip link dev veth0 type veth
-> % ip link show dev veth0
-> 5: veth0@veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->     link/ether f6:ef:8b:96:f4:ec brd ff:ff:ff:ff:ff:ff
-> %
-> 
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Krzysztof Halasa <khc@pm.waw.pl>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> ---
+> This requires commit 686fef928bba ("timer: Prepare to change timer
+> callback argument type") in v4.14-rc3, but should be otherwise
+> stand-alone.
 
-I'm not so sure about this.
-
-If we specify an explicit tb[IFLA_NAME], we shouldn't completely ignore that
-request from the user just because they didn't give any peer information.
-
-I see what happens in this case, the peer gets 'veth0' and then since
-the user asked for 'veth0' for the non-peer it conflicts.
-
-Well, too bad.  The user must work to orchestrate things such that
-this doesn't happen.  That means either providing the IFLA_NAME for
-both the peer and the non-peer, or specifying neither.
-
-I'm not applying this, sorry.
+This doesn't apply cleanly to net-next, please respin.
