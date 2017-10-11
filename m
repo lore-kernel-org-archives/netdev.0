@@ -1,69 +1,102 @@
-From: Alexander Aring <aring@mojatatu.com>
-Subject: [PATCH net-next 1/3] sched: act: ife: move encode/decode check to init
-Date: Wed, 11 Oct 2017 17:16:06 -0400
-Message-ID: <20171011211608.22692-2-aring@mojatatu.com>
-References: <20171011211608.22692-1-aring@mojatatu.com>
-Cc: xiyou.wangcong@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
-        eric.dumazet@gmail.com, bjb@mojatatu.com,
-        Alexander Aring <aring@mojatatu.com>
-To: jhs@mojatatu.com
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: [PATCH net-next 1/4] tc-testing: Add test cases for flushing actions
+Date: Wed, 11 Oct 2017 17:16:51 -0400
+Message-ID: <1507756614-30333-2-git-send-email-lucasb@mojatatu.com>
+References: <1507756614-30333-1-git-send-email-lucasb@mojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        jhs@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com,
+        Lucas Bates <lucasb@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:46541 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752760AbdJKVQk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:16:40 -0400
-Received: by mail-io0-f195.google.com with SMTP id 101so3292798ioj.3
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:16:39 -0700 (PDT)
-In-Reply-To: <20171011211608.22692-1-aring@mojatatu.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:46877 "EHLO
+        mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752448AbdJKVRP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:17:15 -0400
+Received: by mail-io0-f174.google.com with SMTP id 101so3294239ioj.3
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:17:15 -0700 (PDT)
+In-Reply-To: <1507756614-30333-1-git-send-email-lucasb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the check of the two possible ife handlings encode
-and decode to the init callback. The decode value is for usability
-aspect and used in userspace code only. The current code offers encode
-else decode only. This patch avoids any other option than this.
+Tests for flushing gact and mirred were missing. This patch
+adds test cases to explicitly test the flush of any installed
+gact/mirred actions.
 
-Signed-off-by: Alexander Aring <aring@mojatatu.com>
+Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/sched/act_ife.c | 19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+ .../tc-testing/tc-tests/actions/tests.json         | 49 +++++++++++++++++++++-
+ 1 file changed, 48 insertions(+), 1 deletion(-)
 
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 8ccd35825b6b..efac8a32c30a 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -450,6 +450,13 @@ static int tcf_ife_init(struct net *net, struct nlattr *nla,
- 
- 	parm = nla_data(tb[TCA_IFE_PARMS]);
- 
-+	/* IFE_DECODE is 0 and indicates the opposite of IFE_ENCODE because
-+	 * they cannot run as the same time. Check on all other values which
-+	 * are not supported right now.
-+	 */
-+	if (parm->flags & ~IFE_ENCODE)
-+		return -EINVAL;
-+
- 	exists = tcf_idr_check(tn, parm->index, a, bind);
- 	if (exists && bind)
- 		return 0;
-@@ -772,17 +779,7 @@ static int tcf_ife_act(struct sk_buff *skb, const struct tc_action *a,
- 	if (ife->flags & IFE_ENCODE)
- 		return tcf_ife_encode(skb, a, res);
- 
--	if (!(ife->flags & IFE_ENCODE))
--		return tcf_ife_decode(skb, a, res);
--
--	pr_info_ratelimited("unknown failure(policy neither de/encode\n");
--	spin_lock(&ife->tcf_lock);
--	bstats_update(&ife->tcf_bstats, skb);
--	tcf_lastuse_update(&ife->tcf_tm);
--	ife->tcf_qstats.drops++;
--	spin_unlock(&ife->tcf_lock);
--
--	return TC_ACT_SHOT;
-+	return tcf_ife_decode(skb, a, res);
- }
- 
- static int tcf_ife_walker(struct net *net, struct sk_buff *skb,
--- 
-2.11.0
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json b/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
+index 6973bdc..2ea0065 100644
+--- a/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
++++ b/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
+@@ -246,6 +246,27 @@
+         ]
+     },
+     {
++        "id": "3edf",
++        "name": "Flush gact actions",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            "$TC actions add action reclassify index 101",
++            "$TC actions add action reclassify index 102",
++            "$TC actions add action reclassify index 103",
++            "$TC actions add action reclassify index 104",
++            "$TC actions add action reclassify index 105"
++        ],
++        "cmdUnderTest": "$TC actions flush action gact",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action reclassify",
++        "matchCount": "0",
++        "teardown": []
++    },
++    {
+         "id": "63ec",
+         "name": "Delete pass action",
+         "category": [
+@@ -469,6 +490,32 @@
+         ]
+     },
+     {
++        "id": "58c3",
++        "name": "Flush mirred actions",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action mirred egress mirror index 1 dev lo",
++            "$TC actions add action mirred egress redirect index 2 dev lo"
++        ],
++        "cmdUnderTest": "$TC actions show action mirred",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "[Mirror|Redirect] to device lo",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
+         "id": "d7c0",
+         "name": "Add invalid mirred direction",
+         "category": [
+@@ -1162,4 +1209,4 @@
+             "$TC actions flush action ife"
+         ]
+     }
+-]
+\ No newline at end of file
++]
