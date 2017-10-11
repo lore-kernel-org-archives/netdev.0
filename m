@@ -1,144 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net sched act_vlan: VLAN action rewrite to
- use RCU lock/unlock and update
-Date: Wed, 11 Oct 2017 09:27:07 -0700
-Message-ID: <CAM_iQpUYGUzvvM3Weaw5ertgVpwn0p9j6B5xd5Ar5ysJwrdVvg@mail.gmail.com>
-References: <1507689219-22993-1-git-send-email-manish.kurup@verizon.com>
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 17:32:21 +0100
+Message-ID: <bd4f863d-e39a-c31f-712f-1720af8e0024@cambridgegreys.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Alexander Aring <aring@mojatatu.com>,
-        Roman Mashak <mrv@mojatatu.com>, manish.kurup@verizon.com
-To: Manish Kurup <kurup.manish@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507689219-22993-1-git-send-email-manish.kurup@verizon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36638 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757030AbdJKQcY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 12:32:24 -0400
+In-Reply-To: <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 7:33 PM, Manish Kurup <kurup.manish@gmail.com> wrote:
-> diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-> index 14c262c..9bb0236 100644
-> --- a/net/sched/act_vlan.c
-> +++ b/net/sched/act_vlan.c
-> @@ -29,31 +29,37 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
->         int action;
->         int err;
->         u16 tci;
-> +       struct tcf_vlan_params *p;
->
->         tcf_lastuse_update(&v->tcf_tm);
->         bstats_cpu_update(this_cpu_ptr(v->common.cpu_bstats), skb);
->
-> -       spin_lock(&v->tcf_lock);
-> -       action = v->tcf_action;
-> -
+Working through it at the moment.
 
-spin_lock() is removed here, see below.
+The validation logic is prohibiting what the hardware considers to be a 
+perfectly legit skb.
 
+Once I narrow down the culprit I will come back with my findings.
 
->         /* Ensure 'data' points at mac_header prior calling vlan manipulating
->          * functions.
->          */
->         if (skb_at_tc_ingress(skb))
->                 skb_push_rcsum(skb, skb->mac_len);
->
-> -       switch (v->tcfv_action) {
-> +       rcu_read_lock();
-> +
-> +       action = READ_ONCE(v->tcf_action);
-> +
-> +       p = rcu_dereference(v->vlan_p);
-> +
-> +       switch (p->tcfv_action) {
->         case TCA_VLAN_ACT_POP:
->                 err = skb_vlan_pop(skb);
->                 if (err)
->                         goto drop;
->                 break;
-> +
->         case TCA_VLAN_ACT_PUSH:
-> -               err = skb_vlan_push(skb, v->tcfv_push_proto, v->tcfv_push_vid |
-> -                                   (v->tcfv_push_prio << VLAN_PRIO_SHIFT));
-> +               err = skb_vlan_push(skb, p->tcfv_push_proto, p->tcfv_push_vid |
-> +                               (p->tcfv_push_prio << VLAN_PRIO_SHIFT));
->                 if (err)
->                         goto drop;
->                 break;
-> +
->         case TCA_VLAN_ACT_MODIFY:
->                 /* No-op if no vlan tag (either hw-accel or in-payload) */
->                 if (!skb_vlan_tagged(skb))
-> @@ -69,15 +75,16 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
->                                 goto drop;
->                 }
->                 /* replace the vid */
-> -               tci = (tci & ~VLAN_VID_MASK) | v->tcfv_push_vid;
-> +               tci = (tci & ~VLAN_VID_MASK) | p->tcfv_push_vid;
->                 /* replace prio bits, if tcfv_push_prio specified */
-> -               if (v->tcfv_push_prio) {
-> +               if (p->tcfv_push_prio) {
->                         tci &= ~VLAN_PRIO_MASK;
-> -                       tci |= v->tcfv_push_prio << VLAN_PRIO_SHIFT;
-> +                       tci |= p->tcfv_push_prio << VLAN_PRIO_SHIFT;
->                 }
->                 /* put updated tci as hwaccel tag */
-> -               __vlan_hwaccel_put_tag(skb, v->tcfv_push_proto, tci);
-> +               __vlan_hwaccel_put_tag(skb, p->tcfv_push_proto, tci);
->                 break;
-> +
->         default:
->                 BUG();
->         }
-> @@ -89,6 +96,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
->         qstats_drop_inc(this_cpu_ptr(v->common.cpu_qstats));
->
->  unlock:
-> +       rcu_read_unlock();
->         if (skb_at_tc_ingress(skb))
->                 skb_pull_rcsum(skb, skb->mac_len);
+Thanks for pointing me where to look by the way.
+
+A.
+
+On 10/11/17 17:26, Willem de Bruijn wrote:
+> On Wed, Oct 11, 2017 at 11:54 AM, Anton Ivanov
+> <anton.ivanov@cambridgegreys.com> wrote:
+>> It is that patch.
+>>
+>> I rolled it back and immediately got it to work correctly on a Broadcom
+>> Tigon. I can test on all other scenarios, I have tried, I suspect it will
+>> come back alive on all of them.
+>>
+>> I am going to try to trace it through and see exactly where it drops a skb
+>> which the card has no issues in accepting.
+> It might be in the initialization of gso_type and csum. The virtio_net_hdr
+> can encode various combinations of flags that are not allowed by the
+> validation logic.
 >
 
+-- 
+Anton R. Ivanov
 
-But here spin_unlock() is not removed... At least it doesn't show in diff
-context. It's probably unbalanced spinlock.
-
-
-> @@ -111,6 +119,7 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
->         struct nlattr *tb[TCA_VLAN_MAX + 1];
->         struct tc_vlan *parm;
->         struct tcf_vlan *v;
-> +       struct tcf_vlan_params *p, *p_old;
->         int action;
->         __be16 push_vid = 0;
->         __be16 push_proto = 0;
-> @@ -187,16 +196,33 @@ static int tcf_vlan_init(struct net *net, struct nlattr *nla,
->
->         v = to_vlan(*a);
->
-> -       spin_lock_bh(&v->tcf_lock);
-> -
-> -       v->tcfv_action = action;
-> -       v->tcfv_push_vid = push_vid;
-> -       v->tcfv_push_prio = push_prio;
-> -       v->tcfv_push_proto = push_proto;
-> +       ASSERT_RTNL();
-> +       p = kzalloc(sizeof(*p), GFP_KERNEL);
-> +       if (unlikely(!p)) {
-> +               if (ovr)
-> +                       tcf_idr_release(*a, bind);
-> +               return -ENOMEM;
-> +       }
->
->         v->tcf_action = parm->action;
->
-> -       spin_unlock_bh(&v->tcf_lock);
-> +       p_old = rtnl_dereference(v->vlan_p);
-> +
-> +       if (ovr)
-> +               spin_lock_bh(&v->tcf_lock);
-
-Why still take spinlock when you already have RTNL lock?
-What's the point?
+Cambridge Greys Limited, England and Wales company No 10273661
+http://www.cambridgegreys.com/
