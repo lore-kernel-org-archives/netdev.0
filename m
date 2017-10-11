@@ -1,7 +1,7 @@
 From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [iproute2 net-next v2 2/3] tc: Add support for the CBS qdisc
-Date: Tue, 10 Oct 2017 17:46:51 -0700
-Message-ID: <20171011004652.15630-2-vinicius.gomes@intel.com>
+Subject: [iproute2 net-next v2 3/3] man: Add initial manpage for tc-cbs(8)
+Date: Tue, 10 Oct 2017 17:46:52 -0700
+Message-ID: <20171011004652.15630-3-vinicius.gomes@intel.com>
 References: <20171011004652.15630-1-vinicius.gomes@intel.com>
 Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>, jhs@mojatatu.com,
         xiyou.wangcong@gmail.com, jiri@resnulli.us, andre.guedes@intel.com,
@@ -12,190 +12,135 @@ To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:39663 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932871AbdJKArI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Oct 2017 20:47:08 -0400
+        id S932897AbdJKArJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 20:47:09 -0400
 In-Reply-To: <20171011004652.15630-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Credit Based Shaper (CBS) queueing discipline allows bandwidth
-reservation with sub-milisecond precision. It is defined by the
-802.1Q-2014 specification (section 8.6.8.2 and Annex L).
-
-The syntax is:
-
-tc qdisc add dev DEV parent NODE cbs locredit <LOCREDIT>
-   		hicredit <HICREDIT> sendslope <SENDSLOPE>
-		idleslope <IDLESLOPE>
-
-(The order is not important)
-
 Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 ---
- tc/Makefile |   1 +
- tc/q_cbs.c  | 142 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 143 insertions(+)
- create mode 100644 tc/q_cbs.c
+ man/man8/tc-cbs.8 | 112 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 112 insertions(+)
+ create mode 100644 man/man8/tc-cbs.8
 
-diff --git a/tc/Makefile b/tc/Makefile
-index 777de5e6..24bd3e2e 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -69,6 +69,7 @@ TCMODULES += q_hhf.o
- TCMODULES += q_clsact.o
- TCMODULES += e_bpf.o
- TCMODULES += f_matchall.o
-+TCMODULES += q_cbs.o
- 
- TCSO :=
- ifeq ($(TC_CONFIG_ATM),y)
-diff --git a/tc/q_cbs.c b/tc/q_cbs.c
+diff --git a/man/man8/tc-cbs.8 b/man/man8/tc-cbs.8
 new file mode 100644
-index 00000000..e53be654
+index 00000000..97e00c84
 --- /dev/null
-+++ b/tc/q_cbs.c
-@@ -0,0 +1,142 @@
-+/*
-+ * q_cbs.c		CBS.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Vinicius Costa Gomes <vinicius.gomes@intel.com>
-+ *
-+ */
++++ b/man/man8/tc-cbs.8
+@@ -0,0 +1,112 @@
++.TH CBS 8 "18 Sept 2017" "iproute2" "Linux"
++.SH NAME
++CBS \- Credit Based Shaper (CBS) Qdisc
++.SH SYNOPSIS
++.B tc qdisc ... dev
++dev
++.B parent
++classid
++.B [ handle
++major:
++.B ] cbs idleslope
++idleslope
++.B sendslope
++sendslope
++.B hicredit
++hicredit
++.B locredit
++locredit
++.B [ offload
++0|1
++.B ]
 +
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
++.SH DESCRIPTION
++The CBS (Credit Based Shaper) qdisc implements the shaping algorithm
++defined by the IEEE 802.1Q-2014 Section 8.6.8.2, which applies a well
++defined rate limiting method to the traffic.
 +
-+#include "utils.h"
-+#include "tc_util.h"
++This queueing discipline is intended to be used by TSN (Time Sensitive
++Networking) applications, the CBS parameters are derived directly by
++what is described by the Annex L of the IEEE 802.1Q-2014
++Sepcification. The algorithm and how it affects the latency are
++detailed there.
 +
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: ... cbs hicredit BYTES locredit BYTES sendslope BPS idleslope BPS\n");
-+	fprintf(stderr, "           [offload 0|1]\n");
++CBS is meant to be installed under another qdisc that maps packet
++flows to traffic classes, one example is
++.BR mqprio(8).
 +
-+}
++.SH PARAMETERS
++.TP
++idleslope
++Idleslope is the rate of credits that is accumulated (in kilobits per
++second) when there is at least one packet waiting for transmission.
++Packets are transmitted when the current value of credits is equal or
++greater than zero. When there is no packet to be transmitted the
++amount of credits is set to zero. This is the main tunable of the CBS
++algorithm.
++.TP
++sendslope
++Sendslope is the rate of credits that is depleted (it should be a
++negative number of kilobits per second) when a transmission is
++ocurring. It can be calculated as follows, (IEEE 802.1Q-2014 Section
++8.6.8.2 item g):
 +
-+static void explain1(const char *arg, const char *val)
-+{
-+	fprintf(stderr, "cbs: illegal value for \"%s\": \"%s\"\n", arg, val);
-+}
++sendslope = idleslope - port_transmit_rate
 +
-+static int cbs_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
-+{
-+	struct tc_cbs_qopt opt = {};
-+	struct rtattr *tail;
++.TP
++hicredit
++Hicredit defines the maximum amount of credits (in bytes) that can be
++accumulated. Hicredit depends on the characteristics of interfering
++traffic, 'max_interference_size' is the maximum size of any burst of
++traffic that can delay the transmission of a frame that is available
++for transmission for this traffic class, (IEEE 802.1Q-2014 Annex L,
++Equation L-3):
 +
-+	while (argc > 0) {
-+		if (matches(*argv, "offload") == 0) {
-+			NEXT_ARG();
-+			if (opt.offload) {
-+				fprintf(stderr, "cbs: duplicate \"offload\" specification\n");
-+				return -1;
-+			}
-+			if (get_u8(&opt.offload, *argv, 0)) {
-+				explain1("offload", *argv);
-+				return -1;
-+			}
-+		} else if (matches(*argv, "hicredit") == 0) {
-+			NEXT_ARG();
-+			if (opt.hicredit) {
-+				fprintf(stderr, "cbs: duplicate \"hicredit\" specification\n");
-+				return -1;
-+			}
-+			if (get_s32(&opt.hicredit, *argv, 0)) {
-+				explain1("hicredit", *argv);
-+				return -1;
-+			}
-+		} else if (matches(*argv, "locredit") == 0) {
-+			NEXT_ARG();
-+			if (opt.locredit) {
-+				fprintf(stderr, "cbs: duplicate \"locredit\" specification\n");
-+				return -1;
-+			}
-+			if (get_s32(&opt.locredit, *argv, 0)) {
-+				explain1("locredit", *argv);
-+				return -1;
-+			}
-+		} else if (matches(*argv, "sendslope") == 0) {
-+			NEXT_ARG();
-+			if (opt.sendslope) {
-+				fprintf(stderr, "cbs: duplicate \"sendslope\" specification\n");
-+				return -1;
-+			}
-+			if (get_s32(&opt.sendslope, *argv, 0)) {
-+				explain1("sendslope", *argv);
-+				return -1;
-+			}
-+		} else if (matches(*argv, "idleslope") == 0) {
-+			NEXT_ARG();
-+			if (opt.idleslope) {
-+				fprintf(stderr, "cbs: duplicate \"idleslope\" specification\n");
-+				return -1;
-+			}
-+			if (get_s32(&opt.idleslope, *argv, 0)) {
-+				explain1("idleslope", *argv);
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "cbs: unknown parameter \"%s\"\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--; argv++;
-+	}
++hicredit = max_interference_size * (idleslope / port_transmit_rate)
 +
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
-+	addattr_l(n, 2024, TCA_CBS_PARMS, &opt, sizeof(opt));
-+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
-+	return 0;
-+}
++.TP
++locredit
++Locredit is the minimum amount of credits that can be reached. It is a
++function of the traffic flowing through this qdisc (IEEE 802.1Q-2014
++Annex L, Equation L-2):
 +
-+static int cbs_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
-+{
-+	struct rtattr *tb[TCA_CBS_MAX+1];
-+	struct tc_cbs_qopt *qopt;
++locredit = max_frame_size * (sendslope / port_transmit_rate)
 +
-+	if (opt == NULL)
-+		return 0;
++.TP
++offload
++When
++.B offload
++is 1,
++.BR cbs(8)
++will try to configure the network interface so the CBS algorithm runs
++in the controller. The default is 0.
 +
-+	parse_rtattr_nested(tb, TCA_CBS_MAX, opt);
++.SH EXAMPLES
 +
-+	if (tb[TCA_CBS_PARMS] == NULL)
-+		return -1;
++CBS is used to enforce a Quality of Service by limiting the data rate
++of a traffic class, to separate packets into traffic classes the user
++may choose
++.BR mqprio(8),
++and configure it like this:
 +
-+	qopt = RTA_DATA(tb[TCA_CBS_PARMS]);
-+	if (RTA_PAYLOAD(tb[TCA_CBS_PARMS])  < sizeof(*qopt))
-+		return -1;
++.EX
++# tc qdisc add dev eth0 handle 100: parent root mqprio num_tc 3 \\
++	map 2 2 1 0 2 2 2 2 2 2 2 2 2 2 2 2 \\
++	queues 1@0 1@1 2@2 \\
++	hw 0
++.EE
++.P
++To replace the current queuing disciple by CBS in the current queueing
++discipline connected to traffic class number 0, issue:
++.P
++.EX
++# tc qdisc replace dev eth0 parent 100:4 cbs \\
++	locredit -1470 hicredit 30 sendslope -980000 idleslope 20000
++.EE
 +
-+	fprintf(f, "hicredit %d ", qopt->hicredit);
-+	fprintf(f, "locredit %d ", qopt->locredit);
-+	fprintf(f, "sendslope %d ", qopt->sendslope);
-+	fprintf(f, "idleslope %d ", qopt->idleslope);
-+	fprintf(f, "offload %d ", qopt->offload);
++These values are obtained from the following parameters, idleslope is
++20mbit/s, the transmission rate is 1Gbit/s and the maximum interfering
++frame size is 1500 bytes.
 +
-+	return 0;
-+}
-+
-+struct qdisc_util cbs_qdisc_util = {
-+	.id		= "cbs",
-+	.parse_qopt	= cbs_parse_opt,
-+	.print_qopt	= cbs_print_opt,
-+};
++.SH AUTHORS
++Vinicius Costa Gomes <vinicius.gomes@intel.com>
 -- 
 2.14.2
