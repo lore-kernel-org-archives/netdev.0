@@ -1,57 +1,52 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Subject: Re: BUG:af_packet fails to TX TSO frames
-Date: Wed, 11 Oct 2017 17:32:21 +0100
-Message-ID: <bd4f863d-e39a-c31f-712f-1720af8e0024@cambridgegreys.com>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
- <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
- <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
- <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net-next 1/4] net: sched: make tc_action_ops->get_dev
+ return dev and avoid passing net
+Date: Wed, 11 Oct 2017 09:34:51 -0700
+Message-ID: <CAM_iQpU5MP546FjwdD_PtOUFiAKb_TiRBEY3b+Kt9mVcCY7MTQ@mail.gmail.com>
+References: <20171010073016.3682-1-jiri@resnulli.us> <20171010073016.3682-2-jiri@resnulli.us>
+ <CAM_iQpXjq1QVVAC2L3TdTEJzdda1=H1V=c4n5v+qeYJqCSxoWw@mail.gmail.com> <20171010211926.GL2033@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Saeed Mahameed <saeedm@mellanox.com>, matanb@mellanox.com,
+        leonro@mellanox.com, mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:36638 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757030AbdJKQcY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 12:32:24 -0400
-In-Reply-To: <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:38761 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751852AbdJKQfM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 12:35:12 -0400
+Received: by mail-pg0-f68.google.com with SMTP id j3so2525134pga.5
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 09:35:12 -0700 (PDT)
+In-Reply-To: <20171010211926.GL2033@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Working through it at the moment.
-
-The validation logic is prohibiting what the hardware considers to be a 
-perfectly legit skb.
-
-Once I narrow down the culprit I will come back with my findings.
-
-Thanks for pointing me where to look by the way.
-
-A.
-
-On 10/11/17 17:26, Willem de Bruijn wrote:
-> On Wed, Oct 11, 2017 at 11:54 AM, Anton Ivanov
-> <anton.ivanov@cambridgegreys.com> wrote:
->> It is that patch.
+On Tue, Oct 10, 2017 at 2:19 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Oct 10, 2017 at 07:44:53PM CEST, xiyou.wangcong@gmail.com wrote:
+>>On Tue, Oct 10, 2017 at 12:30 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> -static int tcf_mirred_device(const struct tc_action *a, struct net *net,
+>>> -                            struct net_device **mirred_dev)
+>>> +static struct net_device *tcf_mirred_get_dev(const struct tc_action *a)
+>>>  {
+>>> -       int ifindex = tcf_mirred_ifindex(a);
+>>> +       struct tcf_mirred *m = to_mirred(a);
+>>>
+>>> -       *mirred_dev = __dev_get_by_index(net, ifindex);
+>>> -       if (!*mirred_dev)
+>>> -               return -EINVAL;
+>>> -       return 0;
+>>> +       return __dev_get_by_index(m->net, m->tcfm_ifindex);
 >>
->> I rolled it back and immediately got it to work correctly on a Broadcom
->> Tigon. I can test on all other scenarios, I have tried, I suspect it will
->> come back alive on all of them.
->>
->> I am going to try to trace it through and see exactly where it drops a skb
->> which the card has no issues in accepting.
-> It might be in the initialization of gso_type and csum. The virtio_net_hdr
-> can encode various combinations of flags that are not allowed by the
-> validation logic.
+>>Hmm, why not just return m->tcfm_dev?
 >
+> I just follow the existing code. The change you suggest should be a
+> separate follow-up patch.
 
--- 
-Anton R. Ivanov
+Why?
 
-Cambridge Greys Limited, England and Wales company No 10273661
-http://www.cambridgegreys.com/
+Your goal is "make tc_action_ops->get_dev return dev and avoid passing net",
+using m->tcfm_dev is simpler and could save you from adding a net pointer
+to struct tcf_mirred too.
