@@ -1,55 +1,91 @@
-From: "Sergey K." <simkergey@gmail.com>
-Subject: Re: High CPU load by native_queued_spin_lock_slowpath
-Date: Wed, 11 Oct 2017 11:46:09 +0600
-Message-ID: <CAGv8E+xwzwZgEsGb6wmG3KFffMRxGKmGBqrueHwXzFwv2WB=_Q@mail.gmail.com>
-References: <CAGv8E+xZOweXEedymRuLt4idQmCM8Mk1TZOM=0p3YmnXbh-n+g@mail.gmail.com>
- <1507644432.31614.13.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:54763 "EHLO
-        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751499AbdJKFqK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 01:46:10 -0400
-Received: by mail-io0-f182.google.com with SMTP id h66so934777ioh.11
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 22:46:10 -0700 (PDT)
-In-Reply-To: <1507644432.31614.13.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Subject: [PATCH net] net/ncsi: Don't limit vids based on hot_channel
+Date: Wed, 11 Oct 2017 16:54:27 +1100
+Message-ID: <20171011055427.30227-1-sam@mendozajonas.com>
+Cc: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I'm using ifb0 device for outgoing traffic.
-I have one bond0 interface with exit to the Internet, and 2 interfaces
-eth0 and eth2 to local users.
-ifb0 - for shaping Internet traffic from bond0 to eth2 or eth0.
-All outgoing traffic to the eth0 and eth2 redirecting to ifb0.
+Currently we drop any new VLAN ids if there are more than the current
+(or last used) channel can support. Most importantly this is a problem
+if no channel has been selected yet, resulting in a segfault.
 
-> What about multiple ifb instead, one per RX queue ?
-You are offering to redirect traffic from every queue to personal ifb
-device? I do not quite understand.
+Secondly this does not necessarily reflect the capabilities of any other
+channels. Instead only drop a new VLAN id if we are already tracking the
+maximum allowed by the NCSI specification. Per-channel limits are
+already handled by ncsi_add_filter(), but add a message to set_one_vid()
+to make it obvious that the channel can not support any more VLAN ids.
 
-2017-10-10 20:07 GMT+06:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Tue, 2017-10-10 at 18:00 +0600, Sergey K. wrote:
->> I'm using Debian 9(stretch edition) kernel 4.9., hp dl385 g7 server
->> with 32 cpu cores. NIC queues are tied to processor cores. Server is
->> shaping traffic (iproute2 and htb discipline + skbinfo + ipset + ifb)
->> and filtering some rules by iptables.
->>
->> At that moment, when traffic goes up about 1gbit/s cpu is very high
->> loaded. Perf tool tells me that kernel module
->> native_queued_spin_lock_slowpath loading cpu about 40%.
->>
->> After several hours of searching, I found that if I remove the htb
->> discipline from ifb0, the high load goes down.
->> Well, I think that problem with classify and shaping by htb.
->>
->> Who knows how to solve?
->
-> You use a single ifb0 on the whole (multiqueue) device for ingress ?
->
-> What about multiple ifb instead, one per RX queue ?
->
-> Alternative is to reduce contention and use a single RX queue.
->
->
+Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+---
+ net/ncsi/internal.h    |  1 +
+ net/ncsi/ncsi-manage.c | 17 +++++++++--------
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/net/ncsi/internal.h b/net/ncsi/internal.h
+index af3d636534ef..d30f7bd741d0 100644
+--- a/net/ncsi/internal.h
++++ b/net/ncsi/internal.h
+@@ -286,6 +286,7 @@ struct ncsi_dev_priv {
+ 	struct work_struct  work;            /* For channel management     */
+ 	struct packet_type  ptype;           /* NCSI packet Rx handler     */
+ 	struct list_head    node;            /* Form NCSI device list      */
++#define NCSI_MAX_VLAN_VIDS	15
+ 	struct list_head    vlan_vids;       /* List of active VLAN IDs */
+ };
+ 
+diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+index 3fd3c39e6278..b6a449aa9d4b 100644
+--- a/net/ncsi/ncsi-manage.c
++++ b/net/ncsi/ncsi-manage.c
+@@ -732,6 +732,10 @@ static int set_one_vid(struct ncsi_dev_priv *ndp, struct ncsi_channel *nc,
+ 	if (index < 0) {
+ 		netdev_err(ndp->ndev.dev,
+ 			   "Failed to add new VLAN tag, error %d\n", index);
++		if (index == -ENOSPC)
++			netdev_err(ndp->ndev.dev,
++				   "Channel %u already has all VLAN filters set\n",
++				   nc->id);
+ 		return -1;
+ 	}
+ 
+@@ -1403,7 +1407,6 @@ static int ncsi_kick_channels(struct ncsi_dev_priv *ndp)
+ 
+ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+ {
+-	struct ncsi_channel_filter *ncf;
+ 	struct ncsi_dev_priv *ndp;
+ 	unsigned int n_vids = 0;
+ 	struct vlan_vid *vlan;
+@@ -1420,7 +1423,6 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+ 	}
+ 
+ 	ndp = TO_NCSI_DEV_PRIV(nd);
+-	ncf = ndp->hot_channel->filters[NCSI_FILTER_VLAN];
+ 
+ 	/* Add the VLAN id to our internal list */
+ 	list_for_each_entry_rcu(vlan, &ndp->vlan_vids, list) {
+@@ -1431,12 +1433,11 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+ 			return 0;
+ 		}
+ 	}
+-
+-	if (n_vids >= ncf->total) {
+-		netdev_info(dev,
+-			    "NCSI Channel supports up to %u VLAN tags but %u are already set\n",
+-			    ncf->total, n_vids);
+-		return -EINVAL;
++	if (n_vids >= NCSI_MAX_VLAN_VIDS) {
++		netdev_warn(dev,
++			    "tried to add vlan id %u but NCSI max already registered (%u)\n",
++			    vid, NCSI_MAX_VLAN_VIDS);
++		return -ENOSPC;
+ 	}
+ 
+ 	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
+-- 
+2.14.2
