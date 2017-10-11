@@ -1,61 +1,106 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH v2 net-next 1/2] net: dsa: lan9303: Move tag setup to new
- lan9303_setup_tagging
-Date: Wed, 11 Oct 2017 10:16:30 +0200
-Message-ID: <20f8c457-0f61-641e-a12a-7c0bcf2fba21@egil-hjelmeland.no>
-References: <20171010124953.386-1-privat@egil-hjelmeland.no>
- <20171010124953.386-2-privat@egil-hjelmeland.no>
- <9235D6609DB808459E95D78E17F2E43D40B48C3D@CHN-SV-EXMX02.mchp-main.com>
- <2d03fb99-fd1c-9a0b-3274-eda605c3eb2d@egil-hjelmeland.no>
- <9235D6609DB808459E95D78E17F2E43D40B48CC6@CHN-SV-EXMX02.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Woojung.Huh@microchip.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40B48CC6@CHN-SV-EXMX02.mchp-main.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next 1/2] ipv6: addrconf: don't use rtnl mutex in RTM_GETNETCONF
+Date: Wed, 11 Oct 2017 10:28:00 +0200
+Message-ID: <20171011082801.12715-2-fw@strlen.de>
+References: <20171011082801.12715-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:38990 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1757275AbdJKI1r (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 04:27:47 -0400
+In-Reply-To: <20171011082801.12715-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10. okt. 2017 17:51, Woojung.Huh@microchip.com wrote:
->>> Specific reason to use val then using
->> LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0
->>> like previous line?
->>>
->> Specific reason was to please a reviewer that did not like my
->> indenting in first version. I did not agree with him, but since
->> nobody else spoke up, I changed the code.
-> Got it. Missed previous patch/comment.
-> 
->>>> @@ -644,6 +648,10 @@ static int lan9303_setup(struct dsa_switch *ds)
->>>>    		return -EINVAL;
->>>>    	}
->>>>
->>>> +	ret = lan9303_setup_tagging(chip);
->>>> +	if (ret)
->>>> +		dev_err(chip->dev, "failed to setup port tagging %d\n", ret);
->>>> +
->>> Still move on when error happens?
->>>
->> Good question. I just followed the pattern from the original function,
->> which was not made by me. Actually I did once reflect on whether this
->> was the correct way. Perhaps it could be argued that it is better to
->> allow the device to come up, so the problem can be investigated?
-> Maybe depends on severity of setting?
-> BTW, lan9303_setup() still returns ZERO at the end?
-I did quick survey of the _setup functions of the other dsa drivers.
-Some return on error, some ignore errors.
-If you think so, I can make a v3 series that return on error. Otherwise
-I leave it as it is.
+Instead of relying on rtnl mutex bump device reference count.
+After this change, values reported can change in parallel, but thats not
+much different from current state, as anyone can change the settings
+right after rtnl_unlock (and before userspace processed reply).
 
-> 
-> Thanks.
-> Woojung
-> 
+While at it, switch to GFP_KERNEL allocation.
 
-Thank you for polite review.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv6/addrconf.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
 
-Egil
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index d9f6226694eb..5207f567ef28 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -616,23 +616,23 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+ {
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct nlattr *tb[NETCONFA_MAX+1];
++	struct inet6_dev *in6_dev = NULL;
++	struct net_device *dev = NULL;
+ 	struct netconfmsg *ncm;
+ 	struct sk_buff *skb;
+ 	struct ipv6_devconf *devconf;
+-	struct inet6_dev *in6_dev;
+-	struct net_device *dev;
+ 	int ifindex;
+ 	int err;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*ncm), tb, NETCONFA_MAX,
+ 			  devconf_ipv6_policy, extack);
+ 	if (err < 0)
+-		goto errout;
++		return err;
+ 
+-	err = -EINVAL;
+ 	if (!tb[NETCONFA_IFINDEX])
+-		goto errout;
++		return -EINVAL;
+ 
++	err = -EINVAL;
+ 	ifindex = nla_get_s32(tb[NETCONFA_IFINDEX]);
+ 	switch (ifindex) {
+ 	case NETCONFA_IFINDEX_ALL:
+@@ -642,10 +642,10 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+ 		devconf = net->ipv6.devconf_dflt;
+ 		break;
+ 	default:
+-		dev = __dev_get_by_index(net, ifindex);
++		dev = dev_get_by_index(net, ifindex);
+ 		if (!dev)
+-			goto errout;
+-		in6_dev = __in6_dev_get(dev);
++			return -EINVAL;
++		in6_dev = in6_dev_get(dev);
+ 		if (!in6_dev)
+ 			goto errout;
+ 		devconf = &in6_dev->cnf;
+@@ -653,7 +653,7 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+ 	}
+ 
+ 	err = -ENOBUFS;
+-	skb = nlmsg_new(inet6_netconf_msgsize_devconf(NETCONFA_ALL), GFP_ATOMIC);
++	skb = nlmsg_new(inet6_netconf_msgsize_devconf(NETCONFA_ALL), GFP_KERNEL);
+ 	if (!skb)
+ 		goto errout;
+ 
+@@ -669,6 +669,10 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+ 	}
+ 	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
+ errout:
++	if (in6_dev)
++		in6_dev_put(in6_dev);
++	if (dev)
++		dev_put(dev);
+ 	return err;
+ }
+ 
+@@ -6570,7 +6574,7 @@ int __init addrconf_init(void)
+ 	__rtnl_register(PF_INET6, RTM_GETANYCAST, NULL,
+ 			inet6_dump_ifacaddr, 0);
+ 	__rtnl_register(PF_INET6, RTM_GETNETCONF, inet6_netconf_get_devconf,
+-			inet6_netconf_dump_devconf, 0);
++			inet6_netconf_dump_devconf, RTNL_FLAG_DOIT_UNLOCKED);
+ 
+ 	ipv6_addr_label_rtnl_register();
+ 
+-- 
+2.13.6
