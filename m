@@ -1,49 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
-Date: Wed, 11 Oct 2017 10:47:13 -0700
-Message-ID: <1507744033.3552.55.camel@perches.com>
-References: <20171010193027.GA23108@embeddedor.com>
-         <1507717237.3552.48.camel@perches.com>
-         <063D6719AE5E284EB5DD2968C1650D6DD009123C@AcuExch.aculab.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2 0/3] ss: add AF_VSOCK support
+Date: Wed, 11 Oct 2017 10:52:00 -0700
+Message-ID: <20171011105200.7ed68d3b@xeon-e3>
+References: <20171006154841.10495-1-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Arnaldo Carvalho de Melo <acme@infradead.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
-        Jes Sorensen <Jes.Sorensen@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD009123C@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jorgen Hansen <jhansen@vmware.com>,
+        Dexuan Cui <decui@microsoft.com>
+To: Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:44761 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751988AbdJKRwI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 13:52:08 -0400
+Received: by mail-pf0-f180.google.com with SMTP id x7so1494800pfa.1
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 10:52:08 -0700 (PDT)
+In-Reply-To: <20171006154841.10495-1-stefanha@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-11 at 12:54 +0000, David Laight wrote:
-> From: Joe Perches
-> > Sent: 11 October 2017 11:21
-> > On Tue, 2017-10-10 at 14:30 -0500, Gustavo A. R. Silva wrote:
-> > > In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-> > > where we are expecting to fall through.
-> > 
-> > perhaps use Arnaldo's idea:
-> > 
-> > https://lkml.org/lkml/2017/2/9/845
-> > https://lkml.org/lkml/2017/2/10/485
+On Fri,  6 Oct 2017 11:48:38 -0400
+Stefan Hajnoczi <stefanha@redhat.com> wrote:
+
+> v2:
+>  * Use uint64_t instead of __u64 for filter->families
+>  * Added reference to net-next commit that merged vsock_diag.ko
 > 
-> gah, that is even uglier and requires a chase through
-> headers to find out what it means.
+> This patch series adds AF_VSOCK support to ss(8).  AF_VSOCK is a host<->guest
+> communications channel supported by VMware, KVM (virtio-vsock), and Hyper-V.
+> 
+> To dump AF_VSOCK sockets:
+> 
+>   $ ss --vsock
+> 
+> The vsock_diag.ko module has now been merged in the Linux net-next tree.  I
+> have verified that the <linux/vm_sockets_diag.h> header copy in this patch
+> series is in sync with Linux net-next.  See commit
+> 5820299a271fd3dc9b1733e1e10cd7b983edd028 ("Merge branch 'VSOCK-sock_diag'").
+> 
+> Stefan Hajnoczi (3):
+>   ss: allow AF_FAMILY constants >32
+>   include: add <linux/vm_sockets_diag.h>
+>   ss: add AF_VSOCK support
+> 
+>  include/linux/vm_sockets_diag.h |  33 ++++++
+>  misc/ss.c                       | 238 +++++++++++++++++++++++++++++++++++-----
+>  man/man8/ss.8                   |   8 +-
+>  3 files changed, 249 insertions(+), 30 deletions(-)
+>  create mode 100644 include/linux/vm_sockets_diag.h
+> 
 
-Sure, if you think __fallthrough; isn't self-documenting.
-
-	case foo;
-		bar;
-		__fallthrough;
-	case baz;
-		etc...
-
-
-
-		
+Thanks Stefan.
+Applied to iproute2 net-next branch.
+Headers got rearranged recently.
