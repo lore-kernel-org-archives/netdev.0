@@ -1,147 +1,84 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net 1/7] net: qualcomm: rmnet: Remove existing logic for bridge mode
-Date: Tue, 10 Oct 2017 18:20:23 -0600
-Message-ID: <1507681229-27861-2-git-send-email-subashab@codeaurora.org>
-References: <1507681229-27861-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Amritha Nambiar <amritha.nambiar@intel.com>
+Subject: [jkirsher/next-queue PATCH v4 0/6] tc-flower based cloud filters in
+ i40e
+Date: Tue, 10 Oct 2017 17:24:12 -0700
+Message-ID: <150768099999.5320.1633617713417675266.stgit@anamdev.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, jiri@resnulli.us,
+        amritha.nambiar@intel.com, netdev@vger.kernel.org,
+        jhs@mojatatu.com, alexander.duyck@gmail.com,
+        xiyou.wangcong@gmail.com
+To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:43602 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756588AbdJKAVL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 20:21:11 -0400
-In-Reply-To: <1507681229-27861-1-git-send-email-subashab@codeaurora.org>
+Received: from mga09.intel.com ([134.134.136.24]:12810 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751858AbdJKAZi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Oct 2017 20:25:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will be rewritten in the following patches.
+This patch series enables configuring cloud filters in i40e
+using the tc-flower classifier. The classification function
+of the filter is to match a packet to a class. cls_flower is
+extended to offload classid to hardware. The offloaded classid
+is used direct matched packets to a traffic class on the device. 
+The approach here is similar to the tc 'prio' qdisc which uses
+the classid for band selection. The ingress qdisc is called ffff:0,
+so traffic classes are ffff:1 to ffff:8 (i40e has max of 8 TCs).
+TC0 is minor number 1, TC1 is minor number 2 etc.
 
-Fixes: ceed73a2cf4a ("drivers: net: ethernet: qualcomm: rmnet: Initial implementation")
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+The cloud filters are added for a VSI and are cleaned up when
+the VSI is deleted. The filters that match on L4 ports needs
+enhanced admin queue functions with big buffer support for
+extended fields in cloud filter commands.
+
+Example:
+# tc qdisc add dev eth0 ingress
+# ethtool -K eth0 hw-tc-offload on
+
+Match Dst IPv4,Dst Port and route to TC1:
+# tc filter add dev eth0 protocol ip parent ffff: prio 1 flower\
+  dst_ip 192.168.1.1/32 ip_proto udp dst_port 22\
+  skip_sw classid ffff:2
+
+# tc filter show dev eth0 parent ffff:
+filter pref 1 flower chain 0
+filter pref 1 flower chain 0 handle 0x1 classid ffff:2
+  eth_type ipv4
+  ip_proto udp
+  dst_ip 192.168.1.1
+  dst_port 22
+  skip_sw
+  in_hw
+
+v4: classid based approach to set traffic class for matched packets.
+
+Authors:
+Amritha Nambiar <amritha.nambiar@intel.com>
+Kiran Patil <kiran.patil@intel.com>
+Anjali Singhai Jain <anjali.singhai@intel.com>
+Jingjing Wu <jingjing.wu@intel.com>
 ---
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h |  1 -
- .../net/ethernet/qualcomm/rmnet/rmnet_handlers.c   | 77 +++-------------------
- 2 files changed, 9 insertions(+), 69 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-index dde4e9f..0b0c5a7 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-@@ -34,7 +34,6 @@ struct rmnet_endpoint {
-  */
- struct rmnet_port {
- 	struct net_device *dev;
--	struct rmnet_endpoint local_ep;
- 	struct rmnet_endpoint muxed_ep[RMNET_MAX_LOGICAL_EP];
- 	u32 ingress_data_format;
- 	u32 egress_data_format;
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
-index 540c762..b50f401 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
-@@ -44,56 +44,18 @@ static void rmnet_set_skb_proto(struct sk_buff *skb)
- /* Generic handler */
- 
- static rx_handler_result_t
--rmnet_bridge_handler(struct sk_buff *skb, struct rmnet_endpoint *ep)
-+rmnet_deliver_skb(struct sk_buff *skb)
- {
--	if (!ep->egress_dev)
--		kfree_skb(skb);
--	else
--		rmnet_egress_handler(skb, ep);
-+	skb_reset_transport_header(skb);
-+	skb_reset_network_header(skb);
-+	rmnet_vnd_rx_fixup(skb, skb->dev);
- 
-+	skb->pkt_type = PACKET_HOST;
-+	skb_set_mac_header(skb, 0);
-+	netif_receive_skb(skb);
- 	return RX_HANDLER_CONSUMED;
- }
- 
--static rx_handler_result_t
--rmnet_deliver_skb(struct sk_buff *skb, struct rmnet_endpoint *ep)
--{
--	switch (ep->rmnet_mode) {
--	case RMNET_EPMODE_NONE:
--		return RX_HANDLER_PASS;
--
--	case RMNET_EPMODE_BRIDGE:
--		return rmnet_bridge_handler(skb, ep);
--
--	case RMNET_EPMODE_VND:
--		skb_reset_transport_header(skb);
--		skb_reset_network_header(skb);
--		rmnet_vnd_rx_fixup(skb, skb->dev);
--
--		skb->pkt_type = PACKET_HOST;
--		skb_set_mac_header(skb, 0);
--		netif_receive_skb(skb);
--		return RX_HANDLER_CONSUMED;
--
--	default:
--		kfree_skb(skb);
--		return RX_HANDLER_CONSUMED;
--	}
--}
--
--static rx_handler_result_t
--rmnet_ingress_deliver_packet(struct sk_buff *skb,
--			     struct rmnet_port *port)
--{
--	if (!port) {
--		kfree_skb(skb);
--		return RX_HANDLER_CONSUMED;
--	}
--
--	skb->dev = port->local_ep.egress_dev;
--
--	return rmnet_deliver_skb(skb, &port->local_ep);
--}
--
- /* MAP handler */
- 
- static rx_handler_result_t
-@@ -130,7 +92,7 @@ static void rmnet_set_skb_proto(struct sk_buff *skb)
- 	skb_pull(skb, sizeof(struct rmnet_map_header));
- 	skb_trim(skb, len);
- 	rmnet_set_skb_proto(skb);
--	return rmnet_deliver_skb(skb, ep);
-+	return rmnet_deliver_skb(skb);
- }
- 
- static rx_handler_result_t
-@@ -204,29 +166,8 @@ rx_handler_result_t rmnet_rx_handler(struct sk_buff **pskb)
- 	dev = skb->dev;
- 	port = rmnet_get_port(dev);
- 
--	if (port->ingress_data_format & RMNET_INGRESS_FORMAT_MAP) {
-+	if (port->ingress_data_format & RMNET_INGRESS_FORMAT_MAP)
- 		rc = rmnet_map_ingress_handler(skb, port);
--	} else {
--		switch (ntohs(skb->protocol)) {
--		case ETH_P_MAP:
--			if (port->local_ep.rmnet_mode ==
--				RMNET_EPMODE_BRIDGE) {
--				rc = rmnet_ingress_deliver_packet(skb, port);
--			} else {
--				kfree_skb(skb);
--				rc = RX_HANDLER_CONSUMED;
--			}
--			break;
--
--		case ETH_P_IP:
--		case ETH_P_IPV6:
--			rc = rmnet_ingress_deliver_packet(skb, port);
--			break;
--
--		default:
--			rc = RX_HANDLER_PASS;
--		}
--	}
- 
- 	return rc;
- }
--- 
-1.9.1
+Amritha Nambiar (6):
+      cls_flower: Offload classid to hardware
+      i40e: Map TCs with the VSI seids
+      i40e: Cloud filter mode for set_switch_config command
+      i40e: Admin queue definitions for cloud filters
+      i40e: Clean up of cloud filters
+      i40e: Enable cloud filters via tc-flower
+
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   55 +
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  143 +++
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  193 ++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    2 
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  941 +++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   18 
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   10 
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  113 ++
+ include/net/pkt_cls.h                              |    1 
+ net/sched/cls_flower.c                             |    2 
+ 10 files changed, 1439 insertions(+), 39 deletions(-)
