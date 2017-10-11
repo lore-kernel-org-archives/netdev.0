@@ -1,64 +1,101 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH] wcn36xx: Remove unnecessary rcu_read_unlock in
- wcn36xx_bss_info_changed
-Date: Tue, 10 Oct 2017 23:54:45 -0700
-Message-ID: <20171011065445.GP1165@minitux>
-References: <1507467969-24016-1-git-send-email-baijiaju1990@163.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [next-queue PATCH v5 3/5] net/sched: Introduce Credit Based
+ Shaper (CBS) qdisc
+Date: Wed, 11 Oct 2017 08:58:09 +0200
+Message-ID: <20171011065809.GB2039@nanopsycho>
+References: <20171011004400.14946-1-vinicius.gomes@intel.com>
+ <20171011004400.14946-4-vinicius.gomes@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: k.eugene.e@gmail.com, kvalo@codeaurora.org,
-        wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jia-Ju Bai <baijiaju1990@163.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:49693 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750808AbdJKG6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 02:58:11 -0400
+Received: by mail-wm0-f66.google.com with SMTP id b189so2353411wmd.4
+        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 23:58:10 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1507467969-24016-1-git-send-email-baijiaju1990@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20171011004400.14946-4-vinicius.gomes@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun 08 Oct 06:06 PDT 2017, Jia-Ju Bai wrote:
-
-> No rcu_read_lock is called, but rcu_read_unlock is still called.
-> Thus rcu_read_unlock should be removed.
+Wed, Oct 11, 2017 at 02:43:58AM CEST, vinicius.gomes@intel.com wrote:
+>This queueing discipline implements the shaper algorithm defined by
+>the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
+>
+>It's primary usage is to apply some bandwidth reservation to user
+>defined traffic classes, which are mapped to different queues via the
+>mqprio qdisc.
+>
+>Only a simple software implementation is added for now.
+>
+>Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+>Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+>---
+> include/linux/netdevice.h      |   1 +
+> include/net/pkt_sched.h        |   9 ++
+> include/uapi/linux/pkt_sched.h |  18 +++
+> net/sched/Kconfig              |  11 ++
+> net/sched/Makefile             |   1 +
+> net/sched/sch_cbs.c            | 305 +++++++++++++++++++++++++++++++++++++++++
+> 6 files changed, 345 insertions(+)
+> create mode 100644 net/sched/sch_cbs.c
+>
+>diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>index 31bb3010c69b..1f6c44ef5b21 100644
+>--- a/include/linux/netdevice.h
+>+++ b/include/linux/netdevice.h
+>@@ -775,6 +775,7 @@ enum tc_setup_type {
+> 	TC_SETUP_CLSFLOWER,
+> 	TC_SETUP_CLSMATCHALL,
+> 	TC_SETUP_CLSBPF,
+>+	TC_SETUP_CBS,
+> };
 > 
-
-Thanks, not sure how I could miss that one. Kalle can you please include
-this in a v4.14-rc pull request?
-
-
-:
-
-Fixes: 39efc7cc7ccf ("wcn36xx: Introduce mutual exclusion of fw configuration")
-
-> Signed-off-by: Jia-Ju Bai <baijiaju1990@163.com>
-
-Acked-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-
-Regards,
-Bjorn
-
-> ---
->  drivers/net/wireless/ath/wcn36xx/main.c |    1 -
->  1 file changed, 1 deletion(-)
+> /* These structures hold the attributes of xdp state that are being passed
+>diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+>index 259bc191ba59..7c597b050b36 100644
+>--- a/include/net/pkt_sched.h
+>+++ b/include/net/pkt_sched.h
+>@@ -146,4 +146,13 @@ static inline bool is_classid_clsact_egress(u32 classid)
+> 	       TC_H_MIN(classid) == TC_H_MIN(TC_H_MIN_EGRESS);
+> }
 > 
-> diff --git a/drivers/net/wireless/ath/wcn36xx/main.c b/drivers/net/wireless/ath/wcn36xx/main.c
-> index 35bd50b..b83f01d 100644
-> --- a/drivers/net/wireless/ath/wcn36xx/main.c
-> +++ b/drivers/net/wireless/ath/wcn36xx/main.c
-> @@ -812,7 +812,6 @@ static void wcn36xx_bss_info_changed(struct ieee80211_hw *hw,
->  			if (!sta) {
->  				wcn36xx_err("sta %pM is not found\n",
->  					      bss_conf->bssid);
-> -				rcu_read_unlock();
->  				goto out;
->  			}
->  			sta_priv = wcn36xx_sta_to_priv(sta);
-> -- 
-> 1.7.9.5
-> 
-> 
-> 
-> _______________________________________________
-> wcn36xx mailing list
-> wcn36xx@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/wcn36xx
+>+struct tc_cbs_qopt_offload {
+>+	u8 enable;
+>+	s32 queue;
+>+	s32 hicredit;
+>+	s32 locredit;
+>+	s32 idleslope;
+>+	s32 sendslope;
+
+Please introduce the qdisc in one patch, then offload it in second. That
+is what I requested already. 2 patches please.
+
+[...]
+
+
+>+static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
+>+	.next		=	NULL,
+
+It is already 0, no need to re-init.
+
+
+>+	.id		=	"cbs",
+>+	.priv_size	=	sizeof(struct cbs_sched_data),
+>+	.enqueue	=	cbs_enqueue,
+>+	.dequeue	=	cbs_dequeue,
+>+	.peek		=	qdisc_peek_dequeued,
+>+	.init		=	cbs_init,
+>+	.reset		=	qdisc_reset_queue,
+>+	.destroy	=	cbs_destroy,
+>+	.change		=	cbs_change,
+>+	.dump		=	cbs_dump,
+>+	.owner		=	THIS_MODULE,
+>+};
