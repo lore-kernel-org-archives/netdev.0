@@ -1,67 +1,56 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [RFC net-next 1/4] net: ipv6: Make inet6addr_validator a blocking
- notifier
-Date: Wed, 11 Oct 2017 15:56:47 -0600
-Message-ID: <8e0a3f28-14fd-337d-c2e0-6b8419cbdddb@gmail.com>
-References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
- <1507653665-20540-2-git-send-email-dsahern@gmail.com>
- <20171011.141301.998956921662009292.davem@davemloft.net>
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 23:01:49 +0100
+Message-ID: <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+ <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        kjlx@templeofstupid.com
-To: David Miller <davem@davemloft.net>
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36152 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751434AbdJKV4t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:56:49 -0400
-Received: by mail-pf0-f194.google.com with SMTP id z11so3483883pfk.3
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:56:49 -0700 (PDT)
-In-Reply-To: <20171011.141301.998956921662009292.davem@davemloft.net>
-Content-Language: en-US
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36660 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751368AbdJKWB4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 18:01:56 -0400
+In-Reply-To: <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/11/17 3:13 PM, David Miller wrote:
-> From: David Ahern <dsahern@gmail.com>
-> Date: Tue, 10 Oct 2017 09:41:02 -0700
-> 
->> +	/* validator notifier needs to be blocking;
->> +	 * do not call in softirq context
->> +	 */
->> +	if (!in_softirq()) {
-> 
-> I think we can test this better.
+[snip]
 
-The callchain we are protecting against is
-            7fff8149d0dd ipv6_add_addr ([kernel.kallsyms])
-            7fff814a161b addrconf_prefix_rcv ([kernel.kallsyms])
-            7fff814afb8a ndisc_router_discovery ([kernel.kallsyms])
-            7fff814b0310 ndisc_rcv ([kernel.kallsyms])
-            7fff814b62da icmpv6_rcv ([kernel.kallsyms])
-            7fff81499c37 ip6_input_finish ([kernel.kallsyms])
-            7fff81499e96 ip6_input ([kernel.kallsyms])
-            7fff8149a519 ip6_mc_input ([kernel.kallsyms])
-            7fff81499f9d ip6_rcv_finish ([kernel.kallsyms])
-            7fff8149a349 ipv6_rcv ([kernel.kallsyms])
-            7fff813fbe12 __netif_receive_skb_core ([kernel.kallsyms])
-            7fff813fc04c __netif_receive_skb ([kernel.kallsyms])
-            7fff813ff97c netif_receive_skb_internal ([kernel.kallsyms])
+> This will be tomorrow though, it is late here.
+>
+> The only obvious difference I can see at this point is that I am using
+> iovs and sending the vnet header as iov[0] and the data in pieces after
+> that while your code is doing a send() for the whole frame. This should
+> not make any difference though - it all ends up as an iov internally in
+> the kernel.
 
-> 
-> You should be able to audit the call sites and for each one set the
-> value of a new boolean argument properly, and this way you can also
-> give the boolean argument a descriptive name.
+Spoke too soon. It is not reporting any errors, but there is nothing
+coming out on the actual Ethernet.
 
-The safest is an in_atomic() check, but to your point I'll see if the
-caller can pass in atomic vs blocking option as a bool.
+Leaving it till tomorrow.
 
-> 
-> Furthermore, we can also then pull the inet6_addr allocation out of
-> the locking paths and thus use GFP_KERNEL when possible.
-> 
+A.
 
-Yes, I was thinking about that as a follow on -- how far down can the
-rcu_read_lock_bh be pushed.
+>
+> A.
+>
+>
+
+
+-- 
+Anton R. Ivanov
+Cambridgegreys Limited. Registered in England. Company Number 10273661
