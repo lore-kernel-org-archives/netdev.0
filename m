@@ -1,48 +1,110 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][bpf-next] bpf: remove redundant variable old_flags
-Date: Wed, 11 Oct 2017 11:56:23 +0100
-Message-ID: <20171011105623.19998-1-colin.king@canonical.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
+ support malloc buff at run time
+Date: Wed, 11 Oct 2017 13:10:07 +0200
+Message-ID: <20171011111007.GA11332@orbyte.nwl.cc>
+References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
+ <1506605626-1744-3-git-send-email-haliu@redhat.com>
+ <20171002103708.0572704b@xeon-e3>
+ <20171009202525.GR32278@orbyte.nwl.cc>
+ <20171010064117.ipyarf5ml7fwnzdv@unicorn.suse.cz>
+ <20171010094743.6ae2baa8@shemminger-XPS-13-9360>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Kubecek <mkubecek@suse.cz>, Hangbin Liu <haliu@redhat.com>,
+        netdev@vger.kernel.org, Hangbin Liu <liuhangbin@gmail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:49974 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753285AbdJKLKK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Oct 2017 07:10:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20171010094743.6ae2baa8@shemminger-XPS-13-9360>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Tue, Oct 10, 2017 at 09:47:43AM -0700, Stephen Hemminger wrote:
+> On Tue, 10 Oct 2017 08:41:17 +0200
+> Michal Kubecek <mkubecek@suse.cz> wrote:
+> 
+> > On Mon, Oct 09, 2017 at 10:25:25PM +0200, Phil Sutter wrote:
+> > > Hi Stephen,
+> > > 
+> > > On Mon, Oct 02, 2017 at 10:37:08AM -0700, Stephen Hemminger wrote:  
+> > > > On Thu, 28 Sep 2017 21:33:46 +0800
+> > > > Hangbin Liu <haliu@redhat.com> wrote:
+> > > >   
+> > > > > From: Hangbin Liu <liuhangbin@gmail.com>
+> > > > > 
+> > > > > This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
+> > > > > iplink_get()"). After update, we will not need to double the buffer size
+> > > > > every time when VFs number increased.
+> > > > > 
+> > > > > With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
+> > > > > length parameter.
+> > > > > 
+> > > > > With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
+> > > > > answer to avoid overwrite data in nlh, because it may has more info after
+> > > > > nlh. also this will avoid nlh buffer not enough issue.
+> > > > > 
+> > > > > We need to free answer after using.
+> > > > > 
+> > > > > Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> > > > > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > > > > ---  
+> > > > 
+> > > > Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
+> > > > Can only those places that need that be targeted?  
+> > > 
+> > > We could probably do that, by having a buffer on stack in __rtnl_talk()
+> > > which will be used instead of the allocated one if 'answer' is NULL. Or
+> > > maybe even introduce a dedicated API call for the dynamically allocated
+> > > receive buffer. But I really doubt that's feasible: AFAICT, that stack
+> > > buffer still needs to be reasonably sized since the reply might be
+> > > larger than the request (reusing the request buffer would be the most
+> > > simple way to tackle this), also there is support for extack which may
+> > > bloat the response to arbitrary size. Hangbin has shown in his benchmark
+> > > that the overhead of the second syscall is negligible, so why care about
+> > > that and increase code complexity even further?
+> > > 
+> > > Not saying it's not possible, but I just doubt it's worth the effort.  
+> > 
+> > Agreed. Current code is based on the assumption that we can estimate the
+> > maximum reply length in advance and the reason for this series is that
+> > this assumption turned out to be wrong. I'm afraid that if we replace
+> > it by an assumption that we can estimate the maximum reply length for
+> > most requests with only few exceptions, it's only matter of time for us
+> > to be proven wrong again.
+> > 
+> > Michal Kubecek
+> > 
+> 
+> For query responses, yes the response may be large. But for the common cases of
+> add address or add route, the response should just be ack or error.
 
-Variable old_flags is being assigned but is never read; it is redundant
-and can be removed.
+And with extack, error is comprised of the original request plus an
+arbitrarily sized error message, so we can't just reuse the request
+buffer and are back to "guessing" the right length again.
 
-Cleans up clang warning: Value stored to 'old_flags' is never read
+To get an idea of what we're talking about, I wrote a simple benchmark
+which adds 256 * 254 (= 65024) addresses to an interface, then removes
+them again one by one and measured the time that takes for binaries with
+and without Hangbin's patches:
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- kernel/bpf/cgroup.c | 2 --
- 1 file changed, 2 deletions(-)
+OP	Vanilla		Hangbin		Delta
+--------------------------------------------------------
+add	real 2m16.244s	real 2m27.964s	+11.72s	(108.6%)
+	user 0m15.241s	user 0m17.295s	+2.054s	(113.5%)
+	sys  1m40.229s	sys  1m48.239s	+8.01s	(108.0%)
 
-diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-index e88abc0865d5..3db5a17fcfe8 100644
---- a/kernel/bpf/cgroup.c
-+++ b/kernel/bpf/cgroup.c
-@@ -192,7 +192,6 @@ int __cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
- 	struct cgroup_subsys_state *css;
- 	struct bpf_prog_list *pl;
- 	bool pl_was_allocated;
--	u32 old_flags;
- 	int err;
- 
- 	if ((flags & BPF_F_ALLOW_OVERRIDE) && (flags & BPF_F_ALLOW_MULTI))
-@@ -239,7 +238,6 @@ int __cgroup_bpf_attach(struct cgroup *cgrp, struct bpf_prog *prog,
- 		pl->prog = prog;
- 	}
- 
--	old_flags = cgrp->bpf.flags[type];
- 	cgrp->bpf.flags[type] = flags;
- 
- 	/* allocate and recompute effective prog arrays */
--- 
-2.14.1
+remove	real 1m44.950s	real 1m47.044s	+2.094s	(102.0%)
+	user 0m13.899s	user 0m14.723s	+0.824s (105.9%)
+	sys  1m30.798s	sys  1m31.938s	+1.140s (101.3%)
+
+So the overhead of the second syscall and dynamic memory allocation is
+less than 10% overall. Given the short time a single call to 'ip'
+typically takes, I don't think the difference is noticeable even in
+highly performance critical applications.
+
+Cheers, Phil
