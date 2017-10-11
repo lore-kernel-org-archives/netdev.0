@@ -1,104 +1,64 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net 1/2] Revert "net: defer call to cgroup_sk_alloc()"
-Date: Tue, 10 Oct 2017 19:12:32 -0700
-Message-ID: <20171011021233.24158-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Johannes Weiner <hannes@cmpxchg.org>,
-        Craig Gallek <cgallek@google.com>, Tejun Heo <tj@kernel.org>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:44933 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756779AbdJKCMj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Oct 2017 22:12:39 -0400
-Received: by mail-pf0-f172.google.com with SMTP id x7so358431pfa.1
-        for <netdev@vger.kernel.org>; Tue, 10 Oct 2017 19:12:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xiang Gao <qasdfgtyuiop@gmail.com>
+Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
+Date: Tue, 10 Oct 2017 22:31:32 -0400
+Message-ID: <CAMtaSwTgu5vV3Pr_TaEOK4-4x0WO2Mk71Wg+Nr2ukg6VwNZ+2Q@mail.gmail.com>
+References: <20170926131945.3962-1-qasdfgtyuiop@gmail.com> <1506945898.25586.3.camel@sipsolutions.net>
+ <CAMtaSwRU45ve71=H4C7cDQEHrkHg2=eMvXhYbe4HZGxsPRD+AQ@mail.gmail.com> <1507532953.26041.5.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507532953.26041.5.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This reverts commit fbb1fb4ad415cb31ce944f65a5ca700aaf73a227.
+2017-10-09 3:09 GMT-04:00 Johannes Berg <johannes@sipsolutions.net>:
+> On Sun, 2017-10-08 at 01:43 -0400, Xiang Gao wrote:
+>>
+>> By the way, I'm still struggling on how to run unit tests. It might
+>> take time for me to make it run on my machine.
+>
+> I can run it easily, so don't worry about it too much. Running it is of
+> course much appreciated, but I don't really want to go and require that
+> right now, it takes a long time to run.
+>
+> If you do want to set it up, I suggest the vm scripts (hostap
+> repository in tests/hwsim/vm/ - you can use the kernel .config there as
+> a base to compile a kernel and then just kick it off from there, but it
+> can take a while to run.
 
-This was not the proper fix, lets cleanly revert it, so that
-following patch can be carried to stable versions.
+Thanks for your help on this. This information is actually very helpful to me.
 
-sock_cgroup_ptr() callers do not expect a NULL return value.
+Since the unit test is not required, I will put working on this patch
+higher priority than unit tests. I will send out patches without
+running unit tests for now before I can make it run on my computer.
+But I'm still interested in trying to run it on my computer after I
+finish this patch.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Johannes Weiner <hannes@cmpxchg.org>
-Cc: Tejun Heo <tj@kernel.org>
----
- kernel/cgroup/cgroup.c          | 11 +++++++++++
- net/core/sock.c                 |  3 ++-
- net/ipv4/inet_connection_sock.c |  5 -----
- 3 files changed, 13 insertions(+), 6 deletions(-)
+I will send PATCH v3 soon.
 
-diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
-index 3380a3e49af501e457991b2823020494cf32af80..44857278eb8aa6a2bbf27b7eb12137ef42628170 100644
---- a/kernel/cgroup/cgroup.c
-+++ b/kernel/cgroup/cgroup.c
-@@ -5709,6 +5709,17 @@ void cgroup_sk_alloc(struct sock_cgroup_data *skcd)
- 	if (cgroup_sk_alloc_disabled)
- 		return;
- 
-+	/* Socket clone path */
-+	if (skcd->val) {
-+		/*
-+		 * We might be cloning a socket which is left in an empty
-+		 * cgroup and the cgroup might have already been rmdir'd.
-+		 * Don't use cgroup_get_live().
-+		 */
-+		cgroup_get(sock_cgroup_ptr(skcd));
-+		return;
-+	}
-+
- 	rcu_read_lock();
- 
- 	while (true) {
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 4499e31538132ed59a16d92e6f6b923e776df84e..70c6ccbdf49f2f8a5a0f7c41c7849ea01459be50 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1680,7 +1680,6 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 
- 		/* sk->sk_memcg will be populated at accept() time */
- 		newsk->sk_memcg = NULL;
--		memset(&newsk->sk_cgrp_data, 0, sizeof(newsk->sk_cgrp_data));
- 
- 		atomic_set(&newsk->sk_drops, 0);
- 		newsk->sk_send_head	= NULL;
-@@ -1719,6 +1718,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 		newsk->sk_incoming_cpu = raw_smp_processor_id();
- 		atomic64_set(&newsk->sk_cookie, 0);
- 
-+		cgroup_sk_alloc(&newsk->sk_cgrp_data);
-+
- 		/*
- 		 * Before updating sk_refcnt, we must commit prior changes to memory
- 		 * (Documentation/RCU/rculist_nulls.txt for details)
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index d32c74507314cc4b91d040de8e877e4bd8204106..67aec7a106860b26c929fea1624d652c87972f04 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -26,8 +26,6 @@
- #include <net/tcp.h>
- #include <net/sock_reuseport.h>
- #include <net/addrconf.h>
--#include <net/cls_cgroup.h>
--#include <net/netprio_cgroup.h>
- 
- #ifdef INET_CSK_DEBUG
- const char inet_csk_timer_bug_msg[] = "inet_csk BUG: unknown timer value\n";
-@@ -478,9 +476,6 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
- 		spin_unlock_bh(&queue->fastopenq.lock);
- 	}
- 	mem_cgroup_sk_alloc(newsk);
--	cgroup_sk_alloc(&newsk->sk_cgrp_data);
--	sock_update_classid(&newsk->sk_cgrp_data);
--	sock_update_netprioidx(&newsk->sk_cgrp_data);
- out:
- 	release_sock(sk);
- 	if (req)
--- 
-2.15.0.rc0.271.g36b669edcc-goog
+Thanks
+
+>
+>> Hmm... good question. The reason is, aes_ccm.c and aes_gcm.c was
+>> almost exact copy of each other. But they have different copyright
+>> information.
+>> The copyright of aes_ccm.c was:
+>>
+>> Copyright 2006, Devicescape Software, Inc.
+>> Copyright 2003-2004, Instant802 Networks, Inc.
+>>
+>> and the copyright of aes_gcm.c was:
+>>
+>> Copyright 2014-2015, Qualcomm Atheros, Inc.
+>>
+>> I just don't know how to write the copyright for the new aead_api.c,
+>> so I does not put anything there.
+>
+> Heh, good point. Well, I guess we can pretend it wasn't already copied
+> before and just "keep" both.
+>
+> johannes
