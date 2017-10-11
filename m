@@ -1,84 +1,76 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH RFC 0/3] tun zerocopy stats
-Date: Wed, 11 Oct 2017 17:44:10 -0400
-Message-ID: <CAF=yD-++Vn6UbDm5q7_wpwx90Wt-Yia+g4ju_cJ+rX34tt7JPw@mail.gmail.com>
-References: <20171006222516.90654-1-willemdebruijn.kernel@gmail.com>
- <20171009.205228.714368596112967819.davem@davemloft.net> <CAF=yD-Jc_ikdYLydYwkw+h_+izVEg2Qp66=5+URokyqM=E=zJg@mail.gmail.com>
- <20171010.103918.358738948563291074.davem@davemloft.net> <CAF=yD-J+Abjka9PViEFE6OhKOWf65UK1do5prYboFC+m+Tv1wA@mail.gmail.com>
- <3ef92f5f-b242-a66a-860f-31da29216dc4@redhat.com>
+From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 22:55:25 +0100
+Message-ID: <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+ <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com>,
         Network Development <netdev@vger.kernel.org>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Jason Wang <jasowang@redhat.com>
+        David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:38055 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750718AbdJKVov (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:44:51 -0400
-Received: by mail-oi0-f67.google.com with SMTP id t134so1598692oih.5
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:44:51 -0700 (PDT)
-In-Reply-To: <3ef92f5f-b242-a66a-860f-31da29216dc4@redhat.com>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36656 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750778AbdJKVzf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:55:35 -0400
+In-Reply-To: <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 10, 2017 at 11:15 PM, Jason Wang <jasowang@redhat.com> wrote:
+[snip]
+
+> The test can be run both with and without ring:
 >
+>   psock_txring_vnet -l 8000 -s $src_ip -d $dst_ip -v
+>   psock_txring_vnet -l 8000 -s $src_ip -d $dst_ip -v -N
 >
-> On 2017=E5=B9=B410=E6=9C=8811=E6=97=A5 03:11, Willem de Bruijn wrote:
+> both with and without qdisc bypass ('-q').
+
+Thanks, apologies, I was being inpatient. Started reading the source,
+saw the tpacket bits and stopped there.
+
+>
+>>  - this goes via the tpacket_snd
+>> which allocs via sock_alloc_send_skb. That results in a non-fragged skb
+>> as it calls pskb after that with data_len = 0 asking for a contiguous one.
+> but attached the ring slot as fragments in tpacket_fill_skb.
+>
+>> My stuff is using sendmmsg which ends up via packet_snd which allocs
+>> via  sock_alloc_send_pskb which is invoked in a way which always creates
+>> 2 segments - one for the linear section and one for the rest (and more
+>> if needed). It is faster than tpacket by the way (several times).
 >>
->> On Tue, Oct 10, 2017 at 1:39 PM, David Miller <davem@davemloft.net> wrot=
-e:
->>>
->>> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
->>> Date: Tue, 10 Oct 2017 11:29:33 -0400
->>>
->>>> If there is a way to expose these stats through vhost_net directly,
->>>> instead of through tun, that may be better. But I did not see a
->>>> suitable interface. Perhaps debugfs.
->>>
->>> Please don't use debugfs, thank you :-)
+>> As a comparison tap and other virtual drivers use sock_alloc_send_pskb
+>> with non-zero data length which results in multiple frags. The code in
+>> packet_snd is in fact identical with tap (+/- some cosmetic differences).
 >>
->> Okay. I'll take a look at tracing for on-demand measurement.
+>> That is the difference between the tests and that is why your test works
+>> and mine fails.
+> All the above test cases work for me, including those that build skbs
+> with fragments. Could you try those.
+
+Tried it, works on all of the adapters and hosts where mine fails. I
+will step by step hack-in the differences so it behaves same as mine
+until I find the culprit.
+
+This will be tomorrow though, it is late here.
+
+The only obvious difference I can see at this point is that I am using
+iovs and sending the vnet header as iov[0] and the data in pieces after
+that while your code is doing a send() for the whole frame. This should
+not make any difference though - it all ends up as an iov internally in
+the kernel.
+
+A.
+
 >
->
-> This reminds me a past series that adding tracepoints to vhost/net[1]. It
-> can count zero/datacopy independently and even contains a sample program =
-to
-> show the stats.
-
-Interesting, thanks!
-
-For occasional evaluation, we can also use a bpf kprobe for the time being:
-
-  bpf_program =3D """
-  #include <uapi/linux/ptrace.h>
-  #include <bcc/proto.h>
-
-  BPF_ARRAY(count, u64, 2);
-
-  void inc_counter(struct pt_regs *ctx) {
-      bool success;
-      int key;
-      u64 *val;
-
-      success =3D PT_REGS_PARM2(ctx);
-      key =3D success ? 0 : 1;
-      val =3D count.lookup(&key);
-      if (val)
-          lock_xadd(val, 1);
-  }
-  """
-
-  b =3D bcc.BPF(text=3Dbpf_program)
-  b.attach_kprobe(event=3D"vhost_zerocopy_callback", fn_name=3D"inc_counter=
-")
-
-  time.sleep(5)
-
-  print("vhost_zerocopy_callback: Y:%d N:%d" %
-        (b["count"][ctypes.c_int(0)].value,
-         b["count"][ctypes.c_int(1)].value))
