@@ -1,76 +1,67 @@
-From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
-Subject: Re: BUG:af_packet fails to TX TSO frames
-Date: Wed, 11 Oct 2017 22:55:25 +0100
-Message-ID: <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
- <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
- <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
- <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
- <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
- <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
- <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
- <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [RFC net-next 1/4] net: ipv6: Make inet6addr_validator a blocking
+ notifier
+Date: Wed, 11 Oct 2017 15:56:47 -0600
+Message-ID: <8e0a3f28-14fd-337d-c2e0-6b8419cbdddb@gmail.com>
+References: <1507653665-20540-1-git-send-email-dsahern@gmail.com>
+ <1507653665-20540-2-git-send-email-dsahern@gmail.com>
+ <20171011.141301.998956921662009292.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com>,
-        Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
+        kjlx@templeofstupid.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:36656 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750778AbdJKVzf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:55:35 -0400
-In-Reply-To: <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36152 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751434AbdJKV4t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:56:49 -0400
+Received: by mail-pf0-f194.google.com with SMTP id z11so3483883pfk.3
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:56:49 -0700 (PDT)
+In-Reply-To: <20171011.141301.998956921662009292.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[snip]
+On 10/11/17 3:13 PM, David Miller wrote:
+> From: David Ahern <dsahern@gmail.com>
+> Date: Tue, 10 Oct 2017 09:41:02 -0700
+> 
+>> +	/* validator notifier needs to be blocking;
+>> +	 * do not call in softirq context
+>> +	 */
+>> +	if (!in_softirq()) {
+> 
+> I think we can test this better.
 
-> The test can be run both with and without ring:
->
->   psock_txring_vnet -l 8000 -s $src_ip -d $dst_ip -v
->   psock_txring_vnet -l 8000 -s $src_ip -d $dst_ip -v -N
->
-> both with and without qdisc bypass ('-q').
+The callchain we are protecting against is
+            7fff8149d0dd ipv6_add_addr ([kernel.kallsyms])
+            7fff814a161b addrconf_prefix_rcv ([kernel.kallsyms])
+            7fff814afb8a ndisc_router_discovery ([kernel.kallsyms])
+            7fff814b0310 ndisc_rcv ([kernel.kallsyms])
+            7fff814b62da icmpv6_rcv ([kernel.kallsyms])
+            7fff81499c37 ip6_input_finish ([kernel.kallsyms])
+            7fff81499e96 ip6_input ([kernel.kallsyms])
+            7fff8149a519 ip6_mc_input ([kernel.kallsyms])
+            7fff81499f9d ip6_rcv_finish ([kernel.kallsyms])
+            7fff8149a349 ipv6_rcv ([kernel.kallsyms])
+            7fff813fbe12 __netif_receive_skb_core ([kernel.kallsyms])
+            7fff813fc04c __netif_receive_skb ([kernel.kallsyms])
+            7fff813ff97c netif_receive_skb_internal ([kernel.kallsyms])
 
-Thanks, apologies, I was being inpatient. Started reading the source,
-saw the tpacket bits and stopped there.
+> 
+> You should be able to audit the call sites and for each one set the
+> value of a new boolean argument properly, and this way you can also
+> give the boolean argument a descriptive name.
 
->
->>  - this goes via the tpacket_snd
->> which allocs via sock_alloc_send_skb. That results in a non-fragged skb
->> as it calls pskb after that with data_len = 0 asking for a contiguous one.
-> but attached the ring slot as fragments in tpacket_fill_skb.
->
->> My stuff is using sendmmsg which ends up via packet_snd which allocs
->> via  sock_alloc_send_pskb which is invoked in a way which always creates
->> 2 segments - one for the linear section and one for the rest (and more
->> if needed). It is faster than tpacket by the way (several times).
->>
->> As a comparison tap and other virtual drivers use sock_alloc_send_pskb
->> with non-zero data length which results in multiple frags. The code in
->> packet_snd is in fact identical with tap (+/- some cosmetic differences).
->>
->> That is the difference between the tests and that is why your test works
->> and mine fails.
-> All the above test cases work for me, including those that build skbs
-> with fragments. Could you try those.
+The safest is an in_atomic() check, but to your point I'll see if the
+caller can pass in atomic vs blocking option as a bool.
 
-Tried it, works on all of the adapters and hosts where mine fails. I
-will step by step hack-in the differences so it behaves same as mine
-until I find the culprit.
+> 
+> Furthermore, we can also then pull the inet6_addr allocation out of
+> the locking paths and thus use GFP_KERNEL when possible.
+> 
 
-This will be tomorrow though, it is late here.
-
-The only obvious difference I can see at this point is that I am using
-iovs and sending the vnet header as iov[0] and the data in pieces after
-that while your code is doing a send() for the whole frame. This should
-not make any difference though - it all ends up as an iov internally in
-the kernel.
-
-A.
-
->
+Yes, I was thinking about that as a follow on -- how far down can the
+rcu_read_lock_bh be pushed.
