@@ -1,68 +1,68 @@
-From: <kindergartenchaos2@gmail.com>
-Subject: (unknown)
-Date: Wed, 11 Oct 2017 19:55:02 -0000
-Message-ID: <150775170262.31215.17511391057348907174@alandick.ro>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: fix tcp_unlink_write_queue()
+Date: Wed, 11 Oct 2017 13:27:29 -0700
+Message-ID: <1507753649.31614.36.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171011183522.tm2xxgzbdspjtsax@yury-thinkpad>
+         <1507747313.31614.27.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1507747717.31614.28.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20171011194355.n6mb4oe7qt76d6wh@yury-thinkpad>
 Mime-Version: 1.0
-Content-Type: application/zip; name="150646856.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Wei Wang <weiwan@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Yury Norov <ynorov@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.alandick.ro ([46.97.229.107]:42543 "HELO alandick.ro"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1752295AbdJKTzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Oct 2017 15:55:15 -0400
-Subject: 
-Content-Disposition: attachment
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:37795 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752337AbdJKU1b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 16:27:31 -0400
+Received: by mail-pf0-f196.google.com with SMTP id z80so3253488pff.4
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 13:27:31 -0700 (PDT)
+In-Reply-To: <20171011194355.n6mb4oe7qt76d6wh@yury-thinkpad>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-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
-AQBbAAAAhAoAAAAA
+From: Eric Dumazet <edumazet@google.com>
+
+Yury reported crash with this signature :
+
+[  554.034021] [<ffff80003ccd5a58>] 0xffff80003ccd5a58
+[  554.034156] [<ffff00000888fd34>] skb_release_all+0x14/0x30
+[  554.034288] [<ffff00000888fd64>] __kfree_skb+0x14/0x28
+[  554.034409] [<ffff0000088ece6c>] tcp_sendmsg_locked+0x4dc/0xcc8
+[  554.034541] [<ffff0000088ed68c>] tcp_sendmsg+0x34/0x58
+[  554.034659] [<ffff000008919fd4>] inet_sendmsg+0x2c/0xf8
+[  554.034783] [<ffff0000088842e8>] sock_sendmsg+0x18/0x30
+[  554.034928] [<ffff0000088861fc>] SyS_sendto+0x84/0xf8
+
+Problem is that skb->destructor contains garbage, and this is
+because I accidentally removed tcp_skb_tsorted_anchor_cleanup()
+from tcp_unlink_write_queue()
+
+This would trigger with a write(fd, <invalid_memory>, len) attempt,
+and we will add to packetdrill this capability to avoid future
+regressions.
+
+Fixes: 75c119afe14f ("tcp: implement rb-tree based retransmit queue")
+Reported-by: Yury Norov <ynorov@caviumnetworks.com>
+Tested-by: Yury Norov <ynorov@caviumnetworks.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/tcp.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 5a95e5886b55e03e4a8bfeac3506c657a4f97dde..15163454174babdcb465904f725b919268dd1bc7 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1712,6 +1712,7 @@ static inline void tcp_insert_write_queue_before(struct sk_buff *new,
+ 
+ static inline void tcp_unlink_write_queue(struct sk_buff *skb, struct sock *sk)
+ {
++	tcp_skb_tsorted_anchor_cleanup(skb);
+ 	__skb_unlink(skb, &sk->sk_write_queue);
+ }
+ 
