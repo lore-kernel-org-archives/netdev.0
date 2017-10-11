@@ -1,7 +1,7 @@
 From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: [PATCH v2 2/7] net: qrtr: Move constants to header file
-Date: Tue, 10 Oct 2017 23:45:18 -0700
-Message-ID: <20171011064523.7902-3-bjorn.andersson@linaro.org>
+Subject: [PATCH v2 1/7] net: qrtr: Invoke sk_error_report() after setting sk_err
+Date: Tue, 10 Oct 2017 23:45:17 -0700
+Message-ID: <20171011064523.7902-2-bjorn.andersson@linaro.org>
 References: <20171011064523.7902-1-bjorn.andersson@linaro.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-msm@vger.kernel.org, Chris Lew <clew@codeaurora.org>
@@ -11,8 +11,10 @@ In-Reply-To: <20171011064523.7902-1-bjorn.andersson@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The constants are used by both the name server and clients, so clarify
-their value and move them to the uapi header.
+Rather than manually waking up any context sleeping on the sock to
+signal an error we should call sk_error_report(). This has the added
+benefit that in-kernel consumers can override this notification with
+its own callback.
 
 Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
@@ -20,36 +22,21 @@ Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 Changes since v1:
 - None
 
- include/uapi/linux/qrtr.h | 3 +++
- net/qrtr/qrtr.c           | 2 --
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ net/qrtr/qrtr.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/qrtr.h b/include/uapi/linux/qrtr.h
-index 9d76c566f66e..63e8803e4d90 100644
---- a/include/uapi/linux/qrtr.h
-+++ b/include/uapi/linux/qrtr.h
-@@ -4,6 +4,9 @@
- #include <linux/socket.h>
- #include <linux/types.h>
- 
-+#define QRTR_NODE_BCAST	0xffffffffu
-+#define QRTR_PORT_CTRL	0xfffffffeu
-+
- struct sockaddr_qrtr {
- 	__kernel_sa_family_t sq_family;
- 	__u32 sq_node;
 diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index 7e4b49a8349e..15981abc042c 100644
+index c2f5c13550c0..7e4b49a8349e 100644
 --- a/net/qrtr/qrtr.c
 +++ b/net/qrtr/qrtr.c
-@@ -61,8 +61,6 @@ struct qrtr_hdr {
- } __packed;
+@@ -541,7 +541,7 @@ static void qrtr_reset_ports(void)
  
- #define QRTR_HDR_SIZE sizeof(struct qrtr_hdr)
--#define QRTR_NODE_BCAST ((unsigned int)-1)
--#define QRTR_PORT_CTRL ((unsigned int)-2)
- 
- struct qrtr_sock {
- 	/* WARNING: sk must be the first member */
+ 		sock_hold(&ipc->sk);
+ 		ipc->sk.sk_err = ENETRESET;
+-		wake_up_interruptible(sk_sleep(&ipc->sk));
++		ipc->sk.sk_error_report(&ipc->sk);
+ 		sock_put(&ipc->sk);
+ 	}
+ 	mutex_unlock(&qrtr_port_lock);
 -- 
 2.12.0
