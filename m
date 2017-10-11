@@ -1,55 +1,45 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Subject: BUG:af_packet fails to TX TSO frames
-Date: Wed, 11 Oct 2017 09:39:47 +0100
-Message-ID: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next] net: mpls: make function ipgre_mpls_encap_hlen static
+Date: Wed, 11 Oct 2017 10:53:28 +0100
+Message-ID: <20171011095328.17546-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:36620 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752011AbdJKJUM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 05:20:12 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        David Ahern <dsahern@gmail.com>,
+        Robert Shearman <rshearma@brocade.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Colin Ian King <colin.king@canonical.com>
 
-I am having an issue with af_packet.c
+The function ipgre_mpls_encap_hlen is local to the source and
+does not need to be in global scope, so make it static.
 
-It fails to transmit any TSO frame submitted via raw socket + vnet 
-headers. An identical frame is considered valid for tap.
+Cleans up sparse warning:
+symbol 'ipgre_mpls_encap_hlen' was not declared. Should it be static?
 
-The frames are generated out of legit linux skbufs (in UML) and vnet 
-headers work for checksumming on raw, so I should have the raw 
-initialization right.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/mpls/af_mpls.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The header is supposedly parsed correctly and the newly formed skbuf is 
-sent to the device transmit routine (or enqueued) . I have debugged it 
-as far as it reaching the following line in packet_snd() (line 2592 in 
-4.13):
-
-err = po->xmit(skb);
-
-This returns NET_XMIT_DROP for any TSO capable device I tested. They 
-dislike the frame. Same frame is accepted by tap. I have went through 
-the header parsing and skb allocation code in both af_packet and tap 
-several times and I do not see any material difference (except the new 
-zerocopy stuff). So, frankly, I am stuck.
-
-Can someone help me to debug this. I do not see an easy way to debug it, 
-but this is not a part of the kernel I am familiar with. Is there a 
-suitable helper function to try to segment the frame and see exactly 
-what is wrong with it?
-
-Cc-ing DaveM as this has no specific maintainer so it falls under his 
-umbrella remit.
-
+diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+index 9745e8f69810..8ca9915befc8 100644
+--- a/net/mpls/af_mpls.c
++++ b/net/mpls/af_mpls.c
+@@ -41,7 +41,7 @@ static int label_limit = (1 << 20) - 1;
+ static int ttl_max = 255;
+ 
+ #if IS_ENABLED(CONFIG_NET_IP_TUNNEL)
+-size_t ipgre_mpls_encap_hlen(struct ip_tunnel_encap *e)
++static size_t ipgre_mpls_encap_hlen(struct ip_tunnel_encap *e)
+ {
+ 	return sizeof(struct mpls_shim_hdr);
+ }
 -- 
-Anton R. Ivanov
-
-Cambridge Greys Limited, England and Wales company No 10273661
-http://www.cambridgegreys.com/	
+2.14.1
