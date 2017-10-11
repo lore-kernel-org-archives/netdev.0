@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: hns3: make local functions static
-Date: Wed, 11 Oct 2017 15:22:15 -0700 (PDT)
-Message-ID: <20171011.152215.1528295657576742719.davem@davemloft.net>
-References: <1507689323-183009-1-git-send-email-weiyongjun1@huawei.com>
+Subject: Re: [PATCH net-next 0/7] Rewrite some existing functionality
+Date: Wed, 11 Oct 2017 15:22:59 -0700 (PDT)
+Message-ID: <20171011.152259.969926721717992984.davem@davemloft.net>
+References: <1507695456-17051-1-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        lipeng321@huawei.com, linyunsheng@huawei.com,
-        colin.king@canonical.com, netdev@vger.kernel.org
-To: weiyongjun1@huawei.com
+Cc: netdev@vger.kernel.org
+To: subashab@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38052 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38062 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751285AbdJKWWQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 18:22:16 -0400
-In-Reply-To: <1507689323-183009-1-git-send-email-weiyongjun1@huawei.com>
+        with ESMTP id S1750848AbdJKWXA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 18:23:00 -0400
+In-Reply-To: <1507695456-17051-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
-Date: Wed, 11 Oct 2017 02:35:23 +0000
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Date: Tue, 10 Oct 2017 22:17:29 -0600
 
-> Fixes the following sparse warnings:
+> This series fixes some of the broken rmnet functionality.
+> Bridge mode is re-written and made useable and the muxed_ep is converted to hlist.
 > 
-> drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c:464:5: warning:
->  symbol 'hns3_change_all_ring_bd_num' was not declared. Should it be static?
-> drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c:477:5: warning:
->  symbol 'hns3_set_ringparam' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+> Patches 1-5 are cleanups in preparation for these changes.
+> Patch 6 does the hlist conversion.
+> Patch 7 has the implementation of the rmnet bridge mode.
 
-Applied.
+Series applied, thank you.
