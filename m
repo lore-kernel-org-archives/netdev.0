@@ -1,135 +1,97 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH RFC] Add Microchip KSZ8895 DSA driver
-Date: Wed, 11 Oct 2017 23:03:29 +0200
-Message-ID: <20171011210329.GA32314@amd>
-References: <1507322033-15222-1-git-send-email-Tristram.Ha@microchip.com>
- <1507322033-15222-2-git-send-email-Tristram.Ha@microchip.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 17:05:19 -0400
+Message-ID: <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com> <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk> <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="fdj2RfSjLxBAspz7"
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, muvarov@gmail.com,
-        nathan.leigh.conrad@gmail.com, vivien.didelot@savoirfairelinux.com,
-        UNGLinuxDriver@microchip.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Tristram.Ha@microchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1507322033-15222-2-git-send-email-Tristram.Ha@microchip.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Anton Ivanov <anton.ivanov@cambridgegreys.com>,
+        Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:49512 "EHLO
+        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752236AbdJKVGA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 17:06:00 -0400
+Received: by mail-oi0-f50.google.com with SMTP id w197so5264766oif.6
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 14:06:00 -0700 (PDT)
+In-Reply-To: <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Oct 11, 2017 at 3:39 PM, Anton Ivanov
+<anton.ivanov@kot-begemot.co.uk> wrote:
+> On 11/10/17 19:57, Willem de Bruijn wrote:
+>> On Wed, Oct 11, 2017 at 2:39 PM, Anton Ivanov
+>> <anton.ivanov@kot-begemot.co.uk> wrote:
+>>> The check as now insists that the actual driver supports GSO_ROBUST, because
+>>> we have marked the skb dodgy.
+>>>
+>>> The specific bit which does this check is in net_gso_ok()
+>>>
+>>> Now, lets's see how many Ethernet drivers set GSO_ROBUST.
+>>>
+>>> find drivers/net/ethernet -type f -name "*.[c,h]" -exec grep -H GSO_ROBUST
+>>> {} \;
+>>>
+>>> That returns nothing in 4.x
+>>>
+>>> IMHO - af_packet allocates the skb, does all checks (and extra may be added)
+>>> on the gso, why is this set dodgy in the first place?
+>> It is set when the header has to be validated.
+>>
+>> The segmentation logic will validate and fixup gso_segs. See for
+>> instance tcp_gso_segment:
+>>
+>>         if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
+>>                 /* Packet is from an untrusted source, reset gso_segs. */
+>>
+>>                 skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
+>>
+>>                 segs = NULL;
+>>                 goto out;
+>>         }
+>>
+>> If the device would have the robust bit set and otherwise supports the
+>> required features, fix up gso_segs and pass the large packet to the
+>> device.
+>>
+>> Else it continues to the software gso path.
+>>
+>> Large packets generated with psock_txring_vnet.c pass this test. I
+>
+> That test is indeed a different path
 
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The test can be run both with and without ring:
 
-Hi!
+  psock_txring_vnet -l 8000 -s $src_ip -d $dst_ip -v
+  psock_txring_vnet -l 8000 -s $src_ip -d $dst_ip -v -N
 
-> +static void ksz8895_set_prio_queue(struct ksz_device *dev, int port, int=
- queue)
-> +{
-> +	u8 hi;
-> +	u8 lo;
-> +
-> +	/* Number of queues can only be 1, 2, or 4. */
-> +	switch (queue) {
-> +	case 4:
-> +	case 3:
-> +		queue =3D PORT_QUEUE_SPLIT_4;
-> +		break;
-> +	case 2:
-> +		queue =3D PORT_QUEUE_SPLIT_2;
-> +		break;
-> +	default:
-> +		queue =3D PORT_QUEUE_SPLIT_1;
-> +	}
-> +	ksz_pread8(dev, port, REG_PORT_CTRL_0, &lo);
-> +	ksz_pread8(dev, port, P_DROP_TAG_CTRL, &hi);
-> +	lo &=3D ~PORT_QUEUE_SPLIT_L;
-> +	if (queue & PORT_QUEUE_SPLIT_2)
-> +		lo |=3D PORT_QUEUE_SPLIT_L;
-> +	hi &=3D ~PORT_QUEUE_SPLIT_H;
-> +	if (queue & PORT_QUEUE_SPLIT_4)
-> +		hi |=3D PORT_QUEUE_SPLIT_H;
-> +	ksz_pwrite8(dev, port, REG_PORT_CTRL_0, lo);
-> +	ksz_pwrite8(dev, port, P_DROP_TAG_CTRL, hi);
-> +
-> +	/* Default is port based for egress rate limit. */
-> +	if (queue !=3D PORT_QUEUE_SPLIT_1)
-> +		ksz_cfg(dev, REG_SW_CTRL_19, SW_OUT_RATE_LIMIT_QUEUE_BASED,
-> +			true);
-> +}
+both with and without qdisc bypass ('-q').
 
-This is same as the other driver, right? Same comments apply here, and
-please find a way to make it shared.
+>  - this goes via the tpacket_snd
+> which allocs via sock_alloc_send_skb. That results in a non-fragged skb
+> as it calls pskb after that with data_len = 0 asking for a contiguous one.
 
+but attached the ring slot as fragments in tpacket_fill_skb.
 
-> +static void ksz8895_r_mib_cnt(struct ksz_device *dev, int port, u16 addr,
-> +			      u64 *cnt)
-> +{
-> +	u32 data;
-> +	u16 ctrl_addr;
-> +	u8 check;
-> +	int loop;
-> +
-> +	ctrl_addr =3D addr + SWITCH_COUNTER_NUM * port;
-> +	ctrl_addr |=3D IND_ACC_TABLE(TABLE_MIB | TABLE_READ);
-> +
-> +	mutex_lock(&dev->alu_mutex);
-> +	ksz_write16(dev, REG_IND_CTRL_0, ctrl_addr);
-> +
-> +	/* It is almost guaranteed to always read the valid bit because of
-> +	 * slow SPI speed.
-> +	 */
-> +	for (loop =3D 2; loop > 0; loop--) {
-> +		ksz_read8(dev, REG_IND_MIB_CHECK, &check);
-> +
-> +		if (check & MIB_COUNTER_VALID) {
-> +			ksz_read32(dev, REG_IND_DATA_LO, &data);
-> +			if (check & MIB_COUNTER_OVERFLOW)
-> +				*cnt +=3D MIB_COUNTER_VALUE + 1;
-> +			*cnt +=3D data & MIB_COUNTER_VALUE;
-> +			break;
-> +		}
-> +	}
-> +	mutex_unlock(&dev->alu_mutex);
+> My stuff is using sendmmsg which ends up via packet_snd which allocs
+> via  sock_alloc_send_pskb which is invoked in a way which always creates
+> 2 segments - one for the linear section and one for the rest (and more
+> if needed). It is faster than tpacket by the way (several times).
+>
+> As a comparison tap and other virtual drivers use sock_alloc_send_pskb
+> with non-zero data length which results in multiple frags. The code in
+> packet_snd is in fact identical with tap (+/- some cosmetic differences).
+>
+> That is the difference between the tests and that is why your test works
+> and mine fails.
 
-Again, same function, same review comments.
-
-> +static void ksz8895_r_table(struct ksz_device *dev, int table, u16 addr,
-> +			    u64 *data)
-> +{
-> +	u16 ctrl_addr;
-> +
-> +	ctrl_addr =3D IND_ACC_TABLE(table | TABLE_READ) | addr;
-> +
-> +	mutex_lock(&dev->alu_mutex);
-> +	ksz_write16(dev, REG_IND_CTRL_0, ctrl_addr);
-> +	ksz_get(dev, REG_IND_DATA_HI, data, sizeof(u64));
-> +	mutex_unlock(&dev->alu_mutex);
-> +	*data =3D be64_to_cpu(*data);
-> +}
-
-I've seen this before; this is duplicated code, it does not make sense
-to review.
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---fdj2RfSjLxBAspz7
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlnehyEACgkQMOfwapXb+vJGTgCgvIgxfgpVy4NX7Sxh2XwQAC+N
-aysAoI107AgeN9zGH+Cz4ZXTRcRRq/dp
-=VV/O
------END PGP SIGNATURE-----
-
---fdj2RfSjLxBAspz7--
+All the above test cases work for me, including those that build skbs
+with fragments. Could you try those.
