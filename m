@@ -1,77 +1,66 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net v3] net: enable interface alias removal via rtnl
-Date: Wed, 11 Oct 2017 16:24:48 +0200
-Message-ID: <20171011142448.31707-1-nicolas.dichtel@6wind.com>
-References: <66bbef72-90fb-7142-2070-07dc0c2b0ca9@gmail.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org, oliver@hartkopp.net,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.76.145.23.62.rev.coltfrance.com ([62.23.145.76]:45568 "EHLO
-        proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752065AbdJKOZG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 10:25:06 -0400
-In-Reply-To: <66bbef72-90fb-7142-2070-07dc0c2b0ca9@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] rtl8xxxu: mark expected switch fall-throughs
+Date: Wed, 11 Oct 2017 09:32:48 -0500
+Message-ID: <20171011093248.Horde.Jwmh0VKhmCeOxBgQzLLpYeZ@gator4166.hostgator.com>
+References: <20171010193027.GA23108@embeddedor.com>
+ <5f5f0f54-d901-90be-9025-0a1c4b909368@gmail.com>
+ <87o9peqdo2.fsf@kamboji.qca.qualcomm.com>
+ <eb89f2ad-f2d5-b97f-c224-daf3953d912c@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Kees Cook <keescook@chromium.org>
+To: Jes Sorensen <jes.sorensen@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <eb89f2ad-f2d5-b97f-c224-daf3953d912c@gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
-the attribute is 1 ("\0"). However, to remove an alias, the attribute
-length must be 0 (see dev_set_alias()).
+Hi Jes,
 
-Let's define the type to NLA_BINARY to allow 0-length string, so that the
-alias can be removed.
+Quoting Jes Sorensen <jes.sorensen@gmail.com>:
 
-Example:
-$ ip l s dummy0 alias foo
-$ ip l l dev dummy0
-5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
-    alias foo
+> On 10/11/2017 04:41 AM, Kalle Valo wrote:
+>> Jes Sorensen <jes.sorensen@gmail.com> writes:
+>>
+>>> On 10/10/2017 03:30 PM, Gustavo A. R. Silva wrote:
+>>>> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+>>>> where we are expecting to fall through.
+>>>
+>>> While this isn't harmful, to me this looks like pointless patch churn
+>>> for zero gain and it's just ugly.
+>>
+>> In general I find it useful to mark fall through cases. And it's just a
+>> comment with two words, so they cannot hurt your eyes that much.
+>
+> I don't see them being harmful in the code, but I don't see them of  
+> much use either. If it happened as part of natural code development,  
+> fine. My objection is to people running around doing this  
+> systematically causing patch churn for little to zero gain.
+>
+> Jes
 
-Before the patch:
-$ ip l s dummy0 alias ""
-RTNETLINK answers: Numerical result out of range
 
-After the patch:
-$ ip l s dummy0 alias ""
-$ ip l l dev dummy0
-5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-    link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
+I understand that you think this is of zero gain for you, but as  
+Florian Fainelli pointed out:
 
-CC: Oliver Hartkopp <oliver@hartkopp.net>
-CC: Stephen Hemminger <stephen@networkplumber.org>
-Fixes: 96ca4a2cc145 ("net: remove ifalias on empty given alias")
-Reported-by: Julien FLoret <julien.floret@6wind.com>
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+"That is the canonical way to tell static analyzers and compilers that
+fall throughs are wanted and not accidental mistakes in the code. For
+people that deal with these kinds of errors, it's quite helpful, unless
+you suggest disabling that particular GCC warning specific for that
+file/directory?"
 
-David A., I hope that it is now clear and that a v4 will not be needed
-for a so trivial patch.
+this is very helpful for people working on fixing issues reported by  
+static analyzers. It saves a huge amount of time when dealing with  
+False Positives. Also, there are cases when an apparently intentional  
+fall-through turns out to be an actual missing break or continue.
 
-v2 -> v3: reword the commit log
+So there is an ongoing effort to detect such cases and avoid them to  
+show up in the future by at least warning people about a potential  
+issue in their code. And this is helpful for everybody.
 
-v1 -> v2: add the comment
-
- net/core/rtnetlink.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4bcdcc68e92..5343565d88b7 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1483,7 +1483,10 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
--	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
-+	/* IFLA_IFALIAS is a string, but policy is set to NLA_BINARY to
-+	 * allow 0-length string (needed to remove an alias).
-+	 */
-+	[IFLA_IFALIAS]	        = { .type = NLA_BINARY, .len = IFALIASZ - 1 },
- 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
- 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
--- 
-2.13.2
+Thanks
+--
+Gustavo A. R. Silva
