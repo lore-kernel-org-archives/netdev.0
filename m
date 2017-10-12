@@ -1,114 +1,104 @@
-From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
-Subject: Re: BUG:af_packet fails to TX TSO frames
-Date: Thu, 12 Oct 2017 16:57:11 +0100
-Message-ID: <27c7ae97-c838-37b7-99c3-9bc4b0d6e69f@kot-begemot.co.uk>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
- <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
- <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
- <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
- <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
- <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
- <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
- <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
- <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
- <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
- <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com>
- <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
- <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
- <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com>
- <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC 0/3] Adding config get/set to devlink
+Date: Thu, 12 Oct 2017 09:05:22 -0700
+Message-ID: <CAJieiUhQsL14W5DTst=BRDcjMCavZPNRJf=9i2yOAfB6cLUeyg@mail.gmail.com>
+References: <1507815262-33294-1-git-send-email-steven.lin1@broadcom.com>
+ <CAJieiUjuKtmYDZ5-7UjYkWFJuMGu2gajhziLQKAZLTz6g63f2A@mail.gmail.com>
+ <20171012144032.GG14672@nanopsycho> <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
+ <20171012150419.GI14672@nanopsycho> <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
- David Miller <davem@davemloft.net>,
- user-mode-linux-devel@lists.sourceforge.net
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <user-mode-linux-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/options/user-mode-linux-devel>,
- <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=user-mode-linux-devel>
-List-Post: <mailto:user-mode-linux-devel@lists.sourceforge.net>
-List-Help: <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/user-mode-linux-devel>,
- <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: user-mode-linux-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        Steve Lin <steven.lin1@broadcom.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        linux-pci@vger.kernel.org,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QWxzbyBjb25maXJtZWQgdXNpbmcgbXkgVU1MIHBhdGNoc2V0LiBUaGlzIGlzIGluc2lkZSB0aGUg
-VU1MIGd1ZXN0LgoKcm9vdEBibGlua3k6fiMgaXBlcmYgLWMgMTkyLjE2OC45OC4xCi0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpDbGll
-bnQgY29ubmVjdGluZyB0byAxOTIuMTY4Ljk4LjEsIFRDUCBwb3J0IDUwMDEKVENQIHdpbmRvdyBz
-aXplOsKgIDQxNCBLQnl0ZSAoZGVmYXVsdCkKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClvCoCAzXSBsb2NhbCAxOTIuMTY4Ljk4LjE0
-NiBwb3J0IDM2NzQ0IGNvbm5lY3RlZCB3aXRoIDE5Mi4xNjguOTguMSBwb3J0IDUwMDEKWyBJRF0g
-SW50ZXJ2YWzCoMKgwqDCoMKgwqAgVHJhbnNmZXLCoMKgwqDCoCBCYW5kd2lkdGgKW8KgIDNdwqAg
-MC4wLTEwLjAgc2VjwqAgNC41MiBHQnl0ZXPCoCAzLjg5IEdiaXRzL3NlYwoKVGhpcyBpcyBHU08g
-b24gYSByYXcgc29ja2V0IFZpcnR1YWwgTklDIHRvIGhvc3QuIE5vcm1hbCBzcGVlZCB3aXRob3V0
-IApHU08gb24gc2FtZSBtYWNoaW5lIGlzIH4gNTAwLgoKU28gZm9yIHRoZSB0aW1lIGJlaW5nIEkg
-Y2FuIHR1cm4gb2ZmIFRTTyBmb3IgYW55dGhpbmcgYnV0IHY0IGluIHRoZSBVc2VyIApNb2RlIExp
-bnV4IHBhdGNoc2V0IChkZWNsYXJlIHRoZSBndWVzdCBOSUMgYXMgVFNPVjQgY2FwYWJsZSBvbmx5
-KSBhbmQgCmVuYWJsZSBpdCBvbmNlIHRoZSBob3N0IGtlcm5lbCBpcyBmaXhlZC4gQWx0ZXJuYXRp
-dmVseSwgdGhlcmUgaXMgdGhlIApyYXRoZXIgdWdseSBhcHByb2FjaCBvZiB1c2luZyBtdWx0aXBs
-ZSBGRHMgLSBvbmUgZm9yIHY0LCBvbmUgZm9yIHY2LCBvbmUgCmZvci4uLgoKQS4KCk9uIDEwLzEy
-LzE3IDE2OjQ0LCBBbnRvbiBJdmFub3Ygd3JvdGU6Cj4gRm91bmQgaXQuCj4KPiBUd28gYnVncyBj
-YW5jZWxpbmcgZWFjaCBvdGhlci4KPiBUaGUgYmluZCBzZXF1ZW5jZSBpbjrCoCBwc29ja190eHJp
-bmdfdm5ldC5jIGlzIHdyb25nLgo+Cj4gSXQgZG9lcyB0aGUgZm9sbG93aW5nIGFkZHIuc2xsX3By
-b3RvY29sID3CoMKgwqAgaHRvbnMoRVRIX1BfSVApOwo+IGJlZm9yZSBjYWxsaW5nIGJpbmQuCj4K
-PiBJZiB5b3Ugc2V0IGFkZHIuc2xsX3Byb3RvY29sIHRvIEVUSF9QX0FMTCB3aGVyZSBpdCBzaG91
-bGQgaGF2ZSBiZWVuIGluIAo+IHRoZSBmaXJzdCBwbGFjZSB0aGUgdGVzdCBwcm9ncmFtIGJsb3dz
-IHVwIHdpdGggLUVOT0JVRlMKPgo+IEkgdGhpbmsgd2hhdCBpcyBoYXBwZW5pbmcgaXMgdGhhdCB0
-aGlzIHZhbHVlIGlzIHRha2VuIGludG8gYWNjb3VudCAKPiB3aGVuIGxvb2tpbmcgYXQgIndoYXQg
-c2hvdWxkIEkgdXNlIHRvIHNlZ21lbnQgaXQgd2l0aCIgaW4gCj4gc2tiX21hY19nc29fc2VnbWVu
-dCB3aGljaCBpcyBpbnZva2VkIGF0IHRoZSBlbmQgb2YgdGhlIHZlcmlmaWNhdGlvbiAKPiBjaGFp
-biB3aGljaCBzdGFydHMgaW4gcGFja2V0X2RpcmVjdF94bWl0IGluIGFmX3BhY2tldC5jCj4KPiBJ
-IGhhdmUgbm90IHRyaWVkIHRoZSBvdGhlciB0ZXN0IGNhc2VzIGxpa2Ugc2V0dGluZyBpdCB0byBF
-VEhfUF9JUCBhbmQgCj4gZ2l2aW5nIGl0IElQdjYgdHJhZmZpYyBvciB0aGUgb3Bwb3NpdGUsIGJ1
-dCBteSBndWVzcyBpcyB0aGF0IHRoZXNlIAo+IHdpbGwgZmFpbCB0b28gaWYgdGhleSBuZWVkIEdT
-TyB0byBiZSBhcHBsaWVkLgo+Cj4gQS4KPgo+IE9uIDEwLzEyLzE3IDE1OjEyLCBBbnRvbiBJdmFu
-b3Ygd3JvdGU6Cj4+Cj4+Cj4+IE9uIDEwLzEyLzE3IDE0OjM5LCBXaWxsZW0gZGUgQnJ1aWpuIHdy
-b3RlOgo+Pj4+IElmIEkgcHJvZHVjZSBhIHJlYWwgdm5ldCBmcmFtZSBvdXQgb2YgYSBsaXZlIGtl
-cm5lbCBmcmFtZSB1c2luZwo+Pj4+IHZpcnRpb19uZXRfaGRyX2Zyb21fc2tiKCkgYW5kIHRyeSB0
-byBzZW5kIGl0IGl0IGZhaWxzIG9uIHRoZSBjaGVjayBpbgo+Pj4+IGFmX3BhY2tldCwgd2hpbGUg
-c3VjY2VlZGluZyBmb3IgdGFwLiBJZiBJIHJlbW92ZSB0aGUgYWZfcGFja2V0IAo+Pj4+IGNoZWNr
-IHRoZQo+Pj4+IGZyYW1lIGlzIGFjY2VwdGVkIGJ5IHRoZSBoYXJkd2FyZSB0b28uCj4+Pj4KPj4+
-PiBJZiBJIHByb2R1Y2UgaXQgYSBzeW50aGV0aWMgZnJhbWUgKyB2bmV0IGhlYWRlciB1c2luZyB0
-aGUgdGVzdCAKPj4+PiBwcm9ncmFtIC0gaXQKPj4+PiB3b3Jrcy4gR28gZmlndXJlLgo+Pj4gQmVz
-aWRlcyBsb29raW5nIGF0IHRoZSByYXcgZnJhbWUgYnl0ZXMsIGFsc28gY29tcGFyZSB0aGUgc2V0
-dXAKPj4+IG9mIHZpcnRpb19uZXRfaGVhZGVyLCBhcyB3ZWxsIGFzIHRoZSB0Y3AgY2hlY2tzdW0g
-ZmllbGQuIFRoZSBzdGFjawo+Pj4gZXhwZWN0cyB0aGUgcHNldWRvIGhlYWRlciB0byBoYXZlIGFs
-cmVhZHkgYmVlbiBjYWxjdWxhdGVkLgo+Pgo+PiBJIGFtIGZlZWRpbmcgaXQgYSBza2Igd2hpY2gg
-aXMgY29taW5nIHVwIGluIHRoZSB0eCByb3V0aW5lIG9mIGEgVXNlciAKPj4gTW9kZSBMaW51eCBk
-ZXZpY2Ugd2hpY2ggaXMgbWFya2VkIGFzIE5FVElGX0ZfSFdfQ1NVTSBhbmQgU0cgLSB0aGF0IAo+
-PiByZXN1bHRzIGluIGEgc2tiIHdpdGggY3N1bS1lZCBoZWFkZXJzLCBib2R5IHNldCB1cCBmb3Ig
-Q1NVTV9QQVJUSUFMIAo+PiBhbmQgbXVsdGlwbGUgZnJhZ21lbnRzIChhbHdheXMgYXQgbGVhc3Qg
-MSBtb3JlIGZyYWcgYmVzaWRlcyB0aGUgVENQIAo+PiBoZWFkKS4KPj4KPj4gVGhhdCBoYXMgZXZl
-cnl0aGluZyBpbiBvcmRlciBhcyBleHBlY3RlZCBieSB2aXJ0aW9fbmV0X2hkcl9mcm9tX3NrYiAK
-Pj4gYW5kIHRoaXMgaXMgd2hhdCBJIHVzZSB0byBnZW5lcmF0ZSB0aGUgdm5ldCBoZWFkZXIuIEl0
-IHdvcmtzIAo+PiBjb3JyZWN0bHkgZm9yIGNzdW0gYW5kIEdSTyB3aXRoIGFmX3BhY2tldCBhbmQg
-aXQgd29ya3MgY29ycmVjdGx5IGZvciAKPj4gZXZlcnl0aGluZyB1c2luZyBhIHRhcCBkZXZpY2Uu
-IEl0IGZhaWxzIG9ubHkgb24gR1NPICsgYWZfcGFja2V0IFRYLgo+Pgo+PiBXaGF0IEkgYW0gZG9p
-bmcgaXMgdGhlIHNhbWUgdGhpbmcgdmlydGlvX25ldCBkb2VzIC0gaXQganVzdCB0YWtlcyB0aGUg
-Cj4+IG91dHB1dCBvZiB2aXJ0aW9fbmV0X2hkcl9mcm9tX3NrYiBhbmQgZG9lcyBub3RoaW5nIG1v
-cmUuIFRoZXJlIHNob3VsZCAKPj4gYmUgbm8gbmVlZCB0byBkbyBhbnl0aGluZyBtb3JlIDooCj4+
-Cj4+IEl0IHNob3VsZCBqdXN0IHdvcmsuCj4+Cj4+IFVubGVzcyB0aGVyZSBpcyBhIGdyZW1saW4g
-c29tZXdoZXJlIGluIHRoZSBtYWNoaW5lcnkgYW5kIHRoYXQgZ3JlbWxpbiAKPj4gbmVlZHMgc29t
-ZSBsaWdodCB0byBiZSBmbHVzaGVkIG91dC4KPj4+Cj4+Pj4gSSBhbSBnb2luZyB0byBjb250aW51
-ZSBkaWdnaW5nIGludG8gaXQuCj4+Pj4KPj4+PiBBdCB0aGUgdmVyeSBsZWFzdCBJIG5vdyBoYXZl
-IGEgcG9zaXRpdmUgdGVzdCBjYXNlIHdoaWNoIHVzZXMgdGhlIHNhbWUKPj4+PiBzZW1hbnRpY3Mg
-YXMgbXkgY29kZSBzbyBJIGhhdmUgc29tZXRoaW5nIHRvIGNvbXBhcmUgdG8uCj4+PiBHbGFkIHRv
-IGhlYXIgdGhhdCB0aGUgdGVzdCBpcyBoZWxwZnVsLiBJIHdyb3RlIGl0IGJlY2F1c2UgSQo+Pj4g
-aGF2ZSBydW4gaW50byB0aGVzZSBleGFjdCBzYW1lIGlzc3VlcyBpbiB0aGUgcGFzdC4KPj4KPj4g
-SXQgaXMuIEkgaGF2ZSBjaGFuZ2VzIHJlYWR5IGZvciBpdCBzbyBpdCBhbHNvIHN1cHBvcnRzIHZl
-Y3RvciBJTywgCj4+IG5lZWQgdG8gZmluaXNoIGZpZ2h0aW5nIHdpdGggaXQuCj4+Cj4+IEEuCj4+
-Cj4+Pgo+Pgo+CgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KQ2hlY2sgb3V0IHRoZSB2aWJyYW50IHRl
-Y2ggY29tbXVuaXR5IG9uIG9uZSBvZiB0aGUgd29ybGQncyBtb3N0CmVuZ2FnaW5nIHRlY2ggc2l0
-ZXMsIFNsYXNoZG90Lm9yZyEgaHR0cDovL3NkbS5saW5rL3NsYXNoZG90Cl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClVzZXItbW9kZS1saW51eC1kZXZlbCBt
-YWlsaW5nIGxpc3QKVXNlci1tb2RlLWxpbnV4LWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApo
-dHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby91c2VyLW1vZGUtbGlu
-dXgtZGV2ZWwK
+On Thu, Oct 12, 2017 at 8:43 AM, Florian Fainelli <f.fainelli@gmail.com> wr=
+ote:
+> On October 12, 2017 8:04:19 AM PDT, Jiri Pirko <jiri@resnulli.us> wrote:
+>>Thu, Oct 12, 2017 at 04:46:24PM CEST, roopa@cumulusnetworks.com wrote:
+>>>On Thu, Oct 12, 2017 at 7:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> Thu, Oct 12, 2017 at 04:35:10PM CEST, roopa@cumulusnetworks.com
+>>wrote:
+>>>>>On Thu, Oct 12, 2017 at 6:34 AM, Steve Lin
+>><steven.lin1@broadcom.com> wrote:
+>>>>>> Adds a devlink command for getting & setting device configuration
+>>>>>> parameters, and enumerates a bunch of those parameters as devlink
+>>>>>> attributes.  Also introduces an attribute that can be set by a
+>>>>>> driver to indicate that the config change doesn't take effect
+>>>>>> until the next restart (as in the case of the bnxt driver changes
+>>>>>> in this patchset, for which all the configuration changes affect
+>>NVM
+>>>>>> only, and aren't loaded until the next restart.)
+>>>>>>
+>>>>>> bnxt driver patches make use of these new devlink cmds/attributes.
+>>>>>>
+>>>>>> Steve Lin (3):
+>>>>>>   devlink: Add config parameter get/set operations
+>>>>>>   bnxt: Move generic devlink code to new file
+>>>>>>   bnxt: Add devlink support for config get/set
+>>>>>>
+>>>>>
+>>>>>Is the goal here to move all ethtool operations to devlink (I saw
+>>some
+>>>>>attrs related to speed etc). ?.
+>>>>>We do need to move ethtool attrs to netlink and devlink is a good
+>>>>>place (and of-course leave the current ethtool api around for
+>>backward
+>>>>>compatibility).
+>>>>
+>>>> We need to make sure we are not moving things to devlink which don't
+>>>> belong there. All options that use "netdev" as a handle should go
+>>into
+>>>> rtnetlink instead.
+>>>>
+>>>
+>>>Any reason you want to keep that restriction ?.
+>>>FWIS, devlink is a driver api just like ethtool is.
+>>>and ethtool needs to move to netlink soon...and It would be better to
+>>>not put the rtnl_lock burden on ethtool driver operations. Instead of
+>>>adding yet another driver api, extending devlink seems like a great
+>>>fit to me.
+>>
+>>Hmm, the original purpose of devlink was to obtain iface for things
+>>that
+>>could not use "netdev" as a handle. I try to stick with it as we
+>>already
+>>have iface for things that could use "netdev" as a handle - rtnetlink.
+>>
+>>Not sure we want to go this way and add "netdev"-handle things into
+>>devlink. Thoughts?
+>
+> In the current situation where we have ethtool and devlink operating sepa=
+rately on different objects as entry points to the kernel, I agree with tha=
+t design.
+>
+> Once we move ethtool (or however we name its successor) over to netlink t=
+here is an opportunity for accessing objects that do and do not have a netd=
+evice representor today (e.g: management ports on switches) with the same i=
+nterface, and devlink could be used for that.
+>
+> In terms of compatibility though we should have a pseudo generic layer th=
+at can take ethtool ioctl() and transform that into a netlink message and t=
+hen call back down to drivers with the existing ethtool_ops that are implem=
+ented. It is reasonably simple to use coccinelle to update these ethtool_op=
+s with possibly updated signatures to support netlink attributes and whatno=
+t,
+
+ack, that sounds like a good approach.
+
+> but forcing drivers to quit doing ethtool_ops entitely and implement new =
+sets of "ethtool over netlink" ops is a non starter IMHO.
+
+correct, nobody disagrees with that point.
