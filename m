@@ -1,101 +1,104 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 01/12] bpf: verifier: set reg_type on context accesses in second pass
-Date: Thu, 12 Oct 2017 10:34:07 -0700
-Message-ID: <20171012173418.4029-2-jakub.kicinski@netronome.com>
-References: <20171012173418.4029-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: netdev@vger.kernel.org
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] Revert "net: qcom/emac: enforce DMA address restrictions"
+Date: Thu, 12 Oct 2017 12:42:04 -0500
+Message-ID: <1507830124-19294-1-git-send-email-timur@codeaurora.org>
+Cc: timur@codeaurora.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        David.Laight@ACULAB.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:54261 "EHLO
-        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752673AbdJLReu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:34:50 -0400
-Received: by mail-pf0-f179.google.com with SMTP id t188so3330122pfd.10
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:34:49 -0700 (PDT)
-In-Reply-To: <20171012173418.4029-1-jakub.kicinski@netronome.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55030 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdJLRmI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:42:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use a simplified is_valid_access() callback when verifier
-is used for program analysis by non-host JITs.  This allows
-us to teach the verifier about packet start and packet end
-offsets for direct packet access.
+This reverts commit df1ec1b9d0df57e96011f175418dc95b1af46821.
 
-We can extend the callback as needed but for most packet
-processing needs there isn't much more the offloads may
-require.
+It turns out that memory allocated via dma_alloc_coherent is always
+aligned to the size of the buffer, so there's no way the RRD and RFD
+can ever be in separate 32-bit regions.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
-CC: alexei.starovoitov@gmail.com
-CC: daniel@iogearbox.net
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c | 39 +++++++++++----------------
+ 1 file changed, 15 insertions(+), 24 deletions(-)
 
- kernel/bpf/verifier.c | 43 +++++++++++++++++++++++++++++++++++++------
- 1 file changed, 37 insertions(+), 6 deletions(-)
-
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 2cdbcc4f8f6b..9755279d94cb 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -813,6 +813,36 @@ static int check_packet_access(struct bpf_verifier_env *env, u32 regno, int off,
- 	return err;
- }
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+index 0f5ece5d9507..9cbb27263742 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
+@@ -734,11 +734,6 @@ static int emac_rx_descs_alloc(struct emac_adapter *adpt)
+ 	rx_q->rrd.size = rx_q->rrd.count * (adpt->rrd_size * 4);
+ 	rx_q->rfd.size = rx_q->rfd.count * (adpt->rfd_size * 4);
  
-+static bool analyzer_is_valid_access(struct bpf_verifier_env *env, int off,
-+				     struct bpf_insn_access_aux *info)
-+{
-+	switch (env->prog->type) {
-+	case BPF_PROG_TYPE_XDP:
-+		switch (off) {
-+		case offsetof(struct xdp_buff, data):
-+			info->reg_type = PTR_TO_PACKET;
-+			return true;
-+		case offsetof(struct xdp_buff, data_end):
-+			info->reg_type = PTR_TO_PACKET_END;
-+			return true;
-+		}
-+		return false;
-+	case BPF_PROG_TYPE_SCHED_CLS:
-+		switch (off) {
-+		case offsetof(struct sk_buff, data):
-+			info->reg_type = PTR_TO_PACKET;
-+			return true;
-+		case offsetof(struct sk_buff, cb) +
-+		     offsetof(struct bpf_skb_data_end, data_end):
-+			info->reg_type = PTR_TO_PACKET_END;
-+			return true;
-+		}
-+		return false;
-+	default:
-+		return false;
-+	}
-+}
-+
- /* check access to 'struct bpf_context' fields.  Supports fixed offsets only */
- static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off, int size,
- 			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
-@@ -821,12 +851,13 @@ static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off,
- 		.reg_type = *reg_type,
- 	};
- 
--	/* for analyzer ctx accesses are already validated and converted */
--	if (env->analyzer_ops)
--		return 0;
+-	/* Check if the RRD and RFD are aligned properly, and if not, adjust. */
+-	if (upper_32_bits(ring_header->dma_addr) !=
+-	    upper_32_bits(ring_header->dma_addr + ALIGN(rx_q->rrd.size, 8)))
+-		ring_header->used = ALIGN(rx_q->rrd.size, 8);
 -
--	if (env->prog->aux->ops->is_valid_access &&
--	    env->prog->aux->ops->is_valid_access(off, size, t, &info)) {
-+	if (env->analyzer_ops) {
-+		if (analyzer_is_valid_access(env, off, &info)) {
-+			*reg_type = info.reg_type;
-+			return 0;
-+		}
-+	} else if (env->prog->aux->ops->is_valid_access &&
-+		   env->prog->aux->ops->is_valid_access(off, size, t, &info)) {
- 		/* A non zero info.ctx_field_size indicates that this field is a
- 		 * candidate for later verifier transformation to load the whole
- 		 * field and then apply a mask when accessed with a narrower
+ 	rx_q->rrd.dma_addr = ring_header->dma_addr + ring_header->used;
+ 	rx_q->rrd.v_addr   = ring_header->v_addr + ring_header->used;
+ 	ring_header->used += ALIGN(rx_q->rrd.size, 8);
+@@ -772,18 +767,11 @@ int emac_mac_rx_tx_rings_alloc_all(struct emac_adapter *adpt)
+ 
+ 	/* Ring DMA buffer. Each ring may need up to 8 bytes for alignment,
+ 	 * hence the additional padding bytes are allocated.
+-	 *
+-	 * Also double the memory allocated for the RRD so that we can
+-	 * re-align it if necessary.  The EMAC has a restriction that the
+-	 * upper 32 bits of the base addresses for the RFD and RRD rings
+-	 * must be the same.  It is extremely unlikely that this is not the
+-	 * case, since the rings are only a few KB in size.  However, we
+-	 * need to check for this anyway, and if the two rings are not
+-	 * compliant, then we re-align.
+ 	 */
+-	ring_header->size = ALIGN(num_tx_descs * (adpt->tpd_size * 4), 8) +
+-			    ALIGN(num_rx_descs * (adpt->rfd_size * 4), 8) +
+-			    ALIGN(num_rx_descs * (adpt->rrd_size * 4), 8) * 2;
++	ring_header->size = num_tx_descs * (adpt->tpd_size * 4) +
++			    num_rx_descs * (adpt->rfd_size * 4) +
++			    num_rx_descs * (adpt->rrd_size * 4) +
++			    8 + 2 * 8; /* 8 byte per one Tx and two Rx rings */
+ 
+ 	ring_header->used = 0;
+ 	ring_header->v_addr = dma_zalloc_coherent(dev, ring_header->size,
+@@ -792,23 +780,26 @@ int emac_mac_rx_tx_rings_alloc_all(struct emac_adapter *adpt)
+ 	if (!ring_header->v_addr)
+ 		return -ENOMEM;
+ 
+-	ret = emac_rx_descs_alloc(adpt);
+-	if (ret) {
+-		netdev_err(adpt->netdev, "error: Rx Queue alloc failed\n");
+-		goto err_alloc_rx;
+-	}
++	ring_header->used = ALIGN(ring_header->dma_addr, 8) -
++							ring_header->dma_addr;
+ 
+ 	ret = emac_tx_q_desc_alloc(adpt, &adpt->tx_q);
+ 	if (ret) {
+-		netdev_err(adpt->netdev, "transmit queue allocation failed\n");
++		netdev_err(adpt->netdev, "error: Tx Queue alloc failed\n");
+ 		goto err_alloc_tx;
+ 	}
+ 
++	ret = emac_rx_descs_alloc(adpt);
++	if (ret) {
++		netdev_err(adpt->netdev, "error: Rx Queue alloc failed\n");
++		goto err_alloc_rx;
++	}
++
+ 	return 0;
+ 
+-err_alloc_tx:
+-	emac_rx_q_bufs_free(adpt);
+ err_alloc_rx:
++	emac_tx_q_bufs_free(adpt);
++err_alloc_tx:
+ 	dma_free_coherent(dev, ring_header->size,
+ 			  ring_header->v_addr, ring_header->dma_addr);
+ 
 -- 
-2.14.1
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
