@@ -1,100 +1,114 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC 0/3] Adding config get/set to devlink
-Date: Thu, 12 Oct 2017 08:43:59 -0700
-Message-ID: <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
-References: <1507815262-33294-1-git-send-email-steven.lin1@broadcom.com> <CAJieiUjuKtmYDZ5-7UjYkWFJuMGu2gajhziLQKAZLTz6g63f2A@mail.gmail.com> <20171012144032.GG14672@nanopsycho> <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com> <20171012150419.GI14672@nanopsycho>
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Thu, 12 Oct 2017 16:44:26 +0100
+Message-ID: <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+ <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
+ <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+ <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+ <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com>
+ <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
+ <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
+ <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        michael.chan@broadcom.com, linux-pci@vger.kernel.org,
-        "John W. Linville" <linville@tuxdriver.com>, gospo@broadcom.com
-To: Jiri Pirko <jiri@resnulli.us>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:49456 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752221AbdJLPoK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 11:44:10 -0400
-In-Reply-To: <20171012150419.GI14672@nanopsycho>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36704 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752454AbdJLPoa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 11:44:30 -0400
+In-Reply-To: <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On October 12, 2017 8:04:19 AM PDT, Jiri Pirko <jiri@resnulli=2Eus> wrote:
->Thu, Oct 12, 2017 at 04:46:24PM CEST, roopa@cumulusnetworks=2Ecom wrote:
->>On Thu, Oct 12, 2017 at 7:40 AM, Jiri Pirko <jiri@resnulli=2Eus> wrote:
->>> Thu, Oct 12, 2017 at 04:35:10PM CEST, roopa@cumulusnetworks=2Ecom
->wrote:
->>>>On Thu, Oct 12, 2017 at 6:34 AM, Steve Lin
-><steven=2Elin1@broadcom=2Ecom> wrote:
->>>>> Adds a devlink command for getting & setting device configuration
->>>>> parameters, and enumerates a bunch of those parameters as devlink
->>>>> attributes=2E  Also introduces an attribute that can be set by a
->>>>> driver to indicate that the config change doesn't take effect
->>>>> until the next restart (as in the case of the bnxt driver changes
->>>>> in this patchset, for which all the configuration changes affect
->NVM
->>>>> only, and aren't loaded until the next restart=2E)
->>>>>
->>>>> bnxt driver patches make use of these new devlink cmds/attributes=2E
->>>>>
->>>>> Steve Lin (3):
->>>>>   devlink: Add config parameter get/set operations
->>>>>   bnxt: Move generic devlink code to new file
->>>>>   bnxt: Add devlink support for config get/set
->>>>>
->>>>
->>>>Is the goal here to move all ethtool operations to devlink (I saw
->some
->>>>attrs related to speed etc)=2E ?=2E
->>>>We do need to move ethtool attrs to netlink and devlink is a good
->>>>place (and of-course leave the current ethtool api around for
->backward
->>>>compatibility)=2E
+Found it.
+
+Two bugs canceling each other.
+The bind sequence in:  psock_txring_vnet.c is wrong.
+
+It does the following addr.sll_protocol =    htons(ETH_P_IP);
+before calling bind.
+
+If you set addr.sll_protocol to ETH_P_ALL where it should have been in 
+the first place the test program blows up with -ENOBUFS
+
+I think what is happening is that this value is taken into account when 
+looking at "what should I use to segment it with" in skb_mac_gso_segment 
+which is invoked at the end of the verification chain which starts in 
+packet_direct_xmit in af_packet.c
+
+I have not tried the other test cases like setting it to ETH_P_IP and 
+giving it IPv6 traffic or the opposite, but my guess is that these will 
+fail too if they need GSO to be applied.
+
+A.
+
+On 10/12/17 15:12, Anton Ivanov wrote:
+>
+>
+> On 10/12/17 14:39, Willem de Bruijn wrote:
+>>> If I produce a real vnet frame out of a live kernel frame using
+>>> virtio_net_hdr_from_skb() and try to send it it fails on the check in
+>>> af_packet, while succeeding for tap. If I remove the af_packet check 
+>>> the
+>>> frame is accepted by the hardware too.
 >>>
->>> We need to make sure we are not moving things to devlink which don't
->>> belong there=2E All options that use "netdev" as a handle should go
->into
->>> rtnetlink instead=2E
->>>
+>>> If I produce it a synthetic frame + vnet header using the test 
+>>> program - it
+>>> works. Go figure.
+>> Besides looking at the raw frame bytes, also compare the setup
+>> of virtio_net_header, as well as the tcp checksum field. The stack
+>> expects the pseudo header to have already been calculated.
+>
+> I am feeding it a skb which is coming up in the tx routine of a User 
+> Mode Linux device which is marked as NETIF_F_HW_CSUM and SG - that 
+> results in a skb with csum-ed headers, body set up for CSUM_PARTIAL 
+> and multiple fragments (always at least 1 more frag besides the TCP 
+> head).
+>
+> That has everything in order as expected by virtio_net_hdr_from_skb 
+> and this is what I use to generate the vnet header. It works correctly 
+> for csum and GRO with af_packet and it works correctly for everything 
+> using a tap device. It fails only on GSO + af_packet TX.
+>
+> What I am doing is the same thing virtio_net does - it just takes the 
+> output of virtio_net_hdr_from_skb and does nothing more. There should 
+> be no need to do anything more :(
+>
+> It should just work.
+>
+> Unless there is a gremlin somewhere in the machinery and that gremlin 
+> needs some light to be flushed out.
 >>
->>Any reason you want to keep that restriction ?=2E
->>FWIS, devlink is a driver api just like ethtool is=2E
->>and ethtool needs to move to netlink soon=2E=2E=2Eand It would be better=
- to
->>not put the rtnl_lock burden on ethtool driver operations=2E Instead of
->>adding yet another driver api, extending devlink seems like a great
->>fit to me=2E
+>>> I am going to continue digging into it.
+>>>
+>>> At the very least I now have a positive test case which uses the same
+>>> semantics as my code so I have something to compare to.
+>> Glad to hear that the test is helpful. I wrote it because I
+>> have run into these exact same issues in the past.
 >
->Hmm, the original purpose of devlink was to obtain iface for things
->that
->could not use "netdev" as a handle=2E I try to stick with it as we
->already
->have iface for things that could use "netdev" as a handle - rtnetlink=2E
+> It is. I have changes ready for it so it also supports vector IO, need 
+> to finish fighting with it.
 >
->Not sure we want to go this way and add "netdev"-handle things into
->devlink=2E Thoughts?
+> A.
+>
+>>
+>
 
-In the current situation where we have ethtool and devlink operating separ=
-ately on different objects as entry points to the kernel, I agree with that=
- design=2E
+-- 
+Anton R. Ivanov
 
-Once we move ethtool (or however we name its successor) over to netlink th=
-ere is an opportunity for accessing objects that do and do not have a netde=
-vice representor today (e=2Eg: management ports on switches) with the same =
-interface, and devlink could be used for that=2E
-
-In terms of compatibility though we should have a pseudo generic layer tha=
-t can take ethtool ioctl() and transform that into a netlink message and th=
-en call back down to drivers with the existing ethtool_ops that are impleme=
-nted=2E It is reasonably simple to use coccinelle to update these ethtool_o=
-ps with possibly updated signatures to support netlink attributes and whatn=
-ot, but forcing drivers to quit doing ethtool_ops entitely and implement ne=
-w sets of "ethtool over netlink" ops is a non starter IMHO=2E
-
---=20
-Florian
+Cambridge Greys Limited, England and Wales company No 10273661
+http://www.cambridgegreys.com/
