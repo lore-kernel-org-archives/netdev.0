@@ -1,108 +1,84 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH] ravb: Consolidate clock handling
-Date: Thu, 12 Oct 2017 10:24:53 +0200
-Message-ID: <1507796693-14268-1-git-send-email-geert+renesas@glider.be>
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S . Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 0/8] cxgb4: add support to get hardware debug logs via ethtool
+Date: Thu, 12 Oct 2017 13:54:37 +0530
+Message-ID: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
+Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
+        indranil@chelsio.com,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:6734 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752353AbdJLIZ6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:25:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The module clock is used for two purposes:
-  - Wake-on-LAN (WoL), which is optional,
-  - gPTP Timer Increment (GTI) configuration, which is mandatory.
+This series of patches add support to collect hardware debug logs
+via ethtool --get-dump facility.
 
-As the clock is needed for GTI configuration anyway, WoL is always
-available.  Hence remove duplication and repeated obtaining of the clock
-by making GTI use the stored clock for WoL use.
+Currently supports:
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
- drivers/net/ethernet/renesas/ravb_main.c | 35 +++++++++-----------------------
- 1 file changed, 10 insertions(+), 25 deletions(-)
+Memory dumps - Collects on-chip EDC0 and EDC1 dumps.
+Hardware dumps - Collects firmware and hardware dumps.
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index fdf30bfa403bf416..8fad62f08e85e3ac 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1337,20 +1337,15 @@ static void ravb_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
- 
--	wol->supported = 0;
--	wol->wolopts = 0;
--
--	if (priv->clk) {
--		wol->supported = WAKE_MAGIC;
--		wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
--	}
-+	wol->supported = WAKE_MAGIC;
-+	wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
- }
- 
- static int ravb_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
- 
--	if (!priv->clk || wol->wolopts & ~WAKE_MAGIC)
-+	if (wol->wolopts & ~WAKE_MAGIC)
- 		return -EOPNOTSUPP;
- 
- 	priv->wol_enabled = !!(wol->wolopts & WAKE_MAGIC);
-@@ -1912,22 +1907,12 @@ MODULE_DEVICE_TABLE(of, ravb_match_table);
- 
- static int ravb_set_gti(struct net_device *ndev)
- {
--
-+	struct ravb_private *priv = netdev_priv(ndev);
- 	struct device *dev = ndev->dev.parent;
--	struct device_node *np = dev->of_node;
- 	unsigned long rate;
--	struct clk *clk;
- 	uint64_t inc;
- 
--	clk = of_clk_get(np, 0);
--	if (IS_ERR(clk)) {
--		dev_err(dev, "could not get clock\n");
--		return PTR_ERR(clk);
--	}
--
--	rate = clk_get_rate(clk);
--	clk_put(clk);
--
-+	rate = clk_get_rate(priv->clk);
- 	if (!rate)
- 		return -EINVAL;
- 
-@@ -2073,10 +2058,11 @@ static int ravb_probe(struct platform_device *pdev)
- 
- 	priv->chip_id = chip_id;
- 
--	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
- 	priv->clk = devm_clk_get(&pdev->dev, NULL);
--	if (IS_ERR(priv->clk))
--		priv->clk = NULL;
-+	if (IS_ERR(priv->clk)) {
-+		error = PTR_ERR(priv->clk);
-+		goto out_release;
-+	}
- 
- 	/* Set function */
- 	ndev->netdev_ops = &ravb_netdev_ops;
-@@ -2144,8 +2130,7 @@ static int ravb_probe(struct platform_device *pdev)
- 	if (error)
- 		goto out_napi_del;
- 
--	if (priv->clk)
--		device_set_wakeup_capable(&pdev->dev, 1);
-+	device_set_wakeup_capable(&pdev->dev, 1);
- 
- 	/* Print device information */
- 	netdev_info(ndev, "Base address at %#x, %pM, IRQ %d.\n",
+Patch 1 adds ethtool set/get dump data.  It also adds template header
+that precedes dump data.  This template header gives additional
+information needed for extracting and decoding the collected dump
+data.
+
+Patch 2 adds base to collect dumps.  Also collects regdump.
+
+Patch 3 collects on-chip EDC0 and EDC1 memory dumps.
+
+Patch 4 collects firmware mbox log and device log.
+
+Patch 5 updates base API for accessing TP indirect registers.
+
+Patch 6 collects hardware TP module dump.
+
+Patch 7 collects hardware SGE, PCIE, PM, UP CIM, MA, and HMA
+module dumps.
+
+Patch 8 collects hardware IBQ and OBQ dump.
+
+Thanks,
+Rahul
+
+Rahul Lakkireddy (8):
+  cxgb4: implement ethtool dump data operations
+  cxgb4: collect register dump
+  cxgb4: collect on-chip memory dump
+  cxgb4: collect firmware mbox and device log dump
+  cxgb4: update API for TP indirect register access
+  cxgb4: collect TP dump
+  cxgb4: collect hardware module dumps
+  cxgb4: collect IBQ and OBQ dumps
+
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   3 +-
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c  |  54 ++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h  | 181 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      |  69 ++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c     | 863 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h     | 103 +++
+ .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  |  81 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  41 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   | 296 +++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h   |  44 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  13 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c |  70 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   7 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 332 +++++---
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |   2 +
+ 15 files changed, 2017 insertions(+), 142 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
+
 -- 
-2.7.4
+2.14.1
