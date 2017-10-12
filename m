@@ -1,116 +1,52 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [Intel-wired-lan] [next-queue PATCH v6 2/5] mqprio: Implement
- select_queue class_ops
-Date: Thu, 12 Oct 2017 09:16:40 -0700
-Message-ID: <b5dabe15-79f3-c314-eb5f-fef686b060c6@intel.com>
-References: <20171012005449.26533-1-vinicius.gomes@intel.com>
- <20171012005449.26533-3-vinicius.gomes@intel.com>
- <CAKgT0Ufo1tG4GpSkGaWuUxqhzEUOT7wcBLuaZx_mZmEL+9SnXw@mail.gmail.com>
- <633dfce2-71f1-f704-7ae2-b1ef2ba9b448@intel.com>
- <CAKgT0UcpSq2-LaqDKhTWKoZdemDE2SOCWggxGBjCH98qYPBGFw@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Thu, 12 Oct 2017 12:30:44 -0400
+Message-ID: <CAF=yD-+W2tyXqCS_ueZgu11BB8ON5hdKGOZQOWtfr+HfvqW=Sg@mail.gmail.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com> <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk> <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk> <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk> <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+ <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+ <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com> <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
+ <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
+ <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com> <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        Netdev <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        rodney.cummings@ni.com, andre.guedes@intel.com,
-        Jiri Pirko <jiri@resnulli.us>, ivan.briano@intel.com,
-        Richard Cochran <richardcochran@gmail.com>, henrik@austad.us,
-        Jamal Hadi Salim <jhs@mojatatu.com>, levipearson@gmail.com,
-        boon.leong.ong@intel.com, Cong Wang <xiyou.wangcong@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Anton Ivanov <anton.ivanov@cambridgegreys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:49030 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751517AbdJLQYM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Oct 2017 12:24:12 -0400
-In-Reply-To: <CAKgT0UcpSq2-LaqDKhTWKoZdemDE2SOCWggxGBjCH98qYPBGFw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-oi0-f46.google.com ([209.85.218.46]:56393 "EHLO
+        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751434AbdJLQbZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:31:25 -0400
+Received: by mail-oi0-f46.google.com with SMTP id v9so9377336oif.13
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 09:31:25 -0700 (PDT)
+In-Reply-To: <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Oct 12, 2017 at 11:44 AM, Anton Ivanov
+<anton.ivanov@cambridgegreys.com> wrote:
+> Found it.
+>
+> Two bugs canceling each other.
+> The bind sequence in:  psock_txring_vnet.c is wrong.
+>
+> It does the following addr.sll_protocol =    htons(ETH_P_IP);
+> before calling bind.
+>
+> If you set addr.sll_protocol to ETH_P_ALL where it should have been in the
+> first place the test program blows up with -ENOBUFS
 
+There is no such requirement that the socket should bind to ETH_P_ALL.
 
-On 10/12/2017 09:09 AM, Alexander Duyck wrote:
-> On Thu, Oct 12, 2017 at 8:59 AM, Jesus Sanchez-Palencia
-> <jesus.sanchez-palencia@intel.com> wrote:
->> Hi Alex,
->>
->>
->> On 10/12/2017 08:21 AM, Alexander Duyck wrote:
->>> On Wed, Oct 11, 2017 at 5:54 PM, Vinicius Costa Gomes
->>> <vinicius.gomes@intel.com> wrote:
->>>> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->>>>
->>>> When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
->>>> the netdev_queue pointer that the current child qdisc is associated
->>>> with before creating the new qdisc.
->>>>
->>>> Currently, when using mqprio as root qdisc, the kernel will end up
->>>> getting the queue #0 pointer from the mqprio (root qdisc), which leaves
->>>> any new child qdisc with a possibly wrong netdev_queue pointer.
->>>>
->>>> Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
->>>> issue and avoid an inconsistent state when child qdiscs are replaced.
->>>>
->>>> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->>>> ---
->>>>  net/sched/sch_mqprio.c | 7 +++++++
->>>>  1 file changed, 7 insertions(+)
->>>>
->>>> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
->>>> index 6bcdfe6e7b63..8c042ae323e3 100644
->>>> --- a/net/sched/sch_mqprio.c
->>>> +++ b/net/sched/sch_mqprio.c
->>>> @@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
->>>>         }
->>>>  }
->>>>
->>>> +static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
->>>> +                                               struct tcmsg *tcm)
->>>> +{
->>>> +       return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
->>>> +}
->>>> +
->>>
->>> So I was just comparing this against mq_selet_queue, and I was
->>> wondering why we are willing to return NULL here instead of just
->>> returning a pointer to the first Tx queue? I realize there is the fix
->>> in the first patch but it seems like if we are going to go that route
->>> then maybe we should update mq as well so that both of these qdiscs
->>> behave the same way. Either this should work like mq, or mq should
->>> work like this, but we shouldn't have them exposing different
->>> behaviors.
->>
->>
->> This was brought up by Cong Wang during the review of our v2. Based on my
->> understanding, the point I've made is that for mqprio the inner qdiscs are
->> always 'related' to one of the Tx netdev_queues per design. Returning any other
->> queue as a fallback seemed like going against that to me.
->>
->> I'm still inclined to say that we should keep this function as the patch is
->> proposing, thus either returning the correct netdev_queue for a given handle, or
->> NULL as a way to flag that something was 'wrong' with it. Returning queue #0 is
->> misleading in that sense, imho.
->>
->> As for aligning mq_select_queue() with this approach, if my reasoning behind
->> mqprio is correct and also applies to mq, I would be happy to send that fix as
->> part our v7.
->>
->> What do you think?
->>
->>
->> Thanks,
->> Jesus
-> 
-> I think it would be better to bring mq_select_queue in line with your
-> fix. You could probably just add it to your first patch. That way if
-> the user specifies a bad qdisc classid they don't get to just
-> overwrite the qdisc on Tx queue 0.
+> I think what is happening is that this value is taken into account when
+> looking at "what should I use to segment it with" in skb_mac_gso_segment
+> which is invoked at the end of the verification chain which starts in
+> packet_direct_xmit in af_packet.c
 
-Ok, I will send the fix then, but I'm just not sure if I'll send it together
-with the patch fixing qdisc_alloc(). Looks like a change that should be together
-with this one of after it, instead.
-
-Anyhow, it will be fixed in our v7. Thanks!
+packet_snd sets skb->protocol based on the protocol that the packet
+socket is bound to. Binding to ETH_P_IP is the right choice here.
