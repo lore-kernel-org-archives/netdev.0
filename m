@@ -1,73 +1,86 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH next] ipvlan: always use the current L2 addr of the master
-Date: Wed, 11 Oct 2017 17:16:26 -0700
-Message-ID: <20171012001626.3255-1-mahesh@bandewar.net>
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        Mahesh Bandewar <maheshb@google.com>
-To: Netdev <netdev@vger.kernel.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Wed, 11 Oct 2017 20:19:56 -0400
+Message-ID: <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com> <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk> <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk> <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk> <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>,
+        Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Anton Ivanov <anton.ivanov@cambridgegreys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:50187 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752626AbdJLAQe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 20:16:34 -0400
-Received: by mail-pf0-f196.google.com with SMTP id m63so2556664pfk.7
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 17:16:34 -0700 (PDT)
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:52898 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752593AbdJLAUh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 20:20:37 -0400
+Received: by mail-oi0-f44.google.com with SMTP id c202so5756298oih.9
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 17:20:37 -0700 (PDT)
+In-Reply-To: <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+On Wed, Oct 11, 2017 at 6:01 PM, Anton Ivanov
+<anton.ivanov@cambridgegreys.com> wrote:
+> [snip]
+>
+>> This will be tomorrow though, it is late here.
+>>
+>> The only obvious difference I can see at this point is that I am using
+>> iovs and sending the vnet header as iov[0] and the data in pieces after
+>> that while your code is doing a send() for the whole frame. This should
+>> not make any difference though - it all ends up as an iov internally in
+>> the kernel.
+>
+> Spoke too soon. It is not reporting any errors, but there is nothing
+> coming out on the actual Ethernet.
 
-If the underlying master ever changes its L2 (e.g. bonding device),
-then make sure that the IPvlan slaves always emit packets with the
-current L2 of the master instead of the stale mac addr which was
-copied during the device creation. The problem can be seen with
-following script -
+It works for me on various platforms. On the receiver, drop these fake
+tcp packets in iptables and read them with tcpdump
 
-  #!/bin/bash
-  # Create a vEth pair
-  ip link add dev veth0 type veth peer name veth1
-  ip link set veth0 up
-  ip link set veth1 up
-  ip link show veth0
-  ip link show veth1
-  # Create an IPvlan device on one end of this vEth pair.
-  ip link add link veth0 dev ipvl0 type ipvlan mode l2
-  ip link show ipvl0
-  # Change the mac-address of the vEth master.
-  ip link set veth0 address 02:11:22:33:44:55
+   iptables -A PREROUTING -t raw -p tcp --dport 9 -j DROP
+   tcpdump src $src_ip
 
-Fixes: 2ad7bf363841 ("ipvlan: Initial check-in of the IPVLAN driver.")
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/ipvlan/ipvlan_main.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+Note that not all combinations of flags are supported by the kernel
+and that some flags have non-obvious behavior (disable a feature, in
+place of enable it).
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index c74893c1e620..5832091680f4 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -407,7 +407,7 @@ static int ipvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
- 	 * while the packets use the mac-addr on the physical device.
- 	 */
- 	return dev_hard_header(skb, phy_dev, type, daddr,
--			       saddr ? : dev->dev_addr, len);
-+			       saddr ? : phy_dev->dev_addr, len);
- }
- 
- static const struct header_ops ipvlan_header_ops = {
-@@ -730,6 +730,11 @@ static int ipvlan_device_event(struct notifier_block *unused,
- 			ipvlan_adjust_mtu(ipvlan, dev);
- 		break;
- 
-+	case NETDEV_CHANGEADDR:
-+		list_for_each_entry(ipvlan, &port->ipvlans, pnode)
-+			ether_addr_copy(ipvlan->dev->dev_addr, dev->dev_addr);
-+		break;
-+
- 	case NETDEV_PRE_TYPE_CHANGE:
- 		/* Forbid underlying device to change its type. */
- 		return NOTIFY_BAD;
--- 
-2.15.0.rc0.271.g36b669edcc-goog
+Specifically, mtu sized packets either must not pass a vnet_hdr or
+must pass one with gso explicitly disabled ('-G').
+
+  psock_txring_vnet -s $src_ip $dst_ip -l 1400
+  psock_txring_vnet -s $src_ip $dst_ip -l 1400 -v -G
+  psock_txring_vnet -s $src_ip $dst_ip -l 1400 -N
+  psock_txring_vnet -s $src_ip $dst_ip -l 1400 -N -v -G
+
+Conversely, packets that exceed mtu have to have the gso flags in the
+virtio_net_hdr:
+
+  psock_txring_vnet -s $src_ip $dst_ip -l 4400 -v
+  psock_txring_vnet -s $src_ip $dst_ip -l 4400 -N -v
+
+When sending a large packet, but not passing a virtio_net_hdr along
+('-v'), the test fails with
+
+  psock_txring_vnet: send: Message too long
+
+When passing a header along, but not disabling gso, the packet is
+indeed dropped silently.
+
+I verified correct segmentation with three modes of ethtool
+
+  ethtool -K eth0 tso off gso off
+  ethtool -K eth0 tso off gso on
+  ethtool -K eth0 tso on gso on
+
+by reading tcpdump on the sender.
+
+The receive side results are the same with dev_queue_xmit and
+packet_direct_xmit ('-q') mode. With direct_xmit, the packets are not
+observed on the send side.
