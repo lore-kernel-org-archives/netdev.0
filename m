@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 09/34] net: sched: tcindex, fw, flow: use tcf_block_q helper to get struct Qdisc
-Date: Thu, 12 Oct 2017 19:17:58 +0200
-Message-ID: <20171012171823.1431-10-jiri@resnulli.us>
+Subject: [patch net-next 10/34] net: sched: use tcf_block_q helper to get q pointer for sch_tree_lock
+Date: Thu, 12 Oct 2017 19:17:59 +0200
+Message-ID: <20171012171823.1431-11-jiri@resnulli.us>
 References: <20171012171823.1431-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -16,94 +16,58 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35333 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752501AbdJLRSd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:33 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b189so4344755wmd.2
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:33 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:51962 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753416AbdJLRSf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:35 -0400
+Received: by mail-wm0-f65.google.com with SMTP id f4so15295606wme.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:34 -0700 (PDT)
 In-Reply-To: <20171012171823.1431-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use helper to get q pointer per block.
+Use tcf_block_q helper to get q pointer to be used for direct call of
+sch_tree_lock/unlock instead of tcf_tree_lock/unlock.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_flow.c    | 7 +++++--
- net/sched/cls_fw.c      | 5 ++++-
- net/sched/cls_tcindex.c | 5 ++++-
- 3 files changed, 13 insertions(+), 4 deletions(-)
+ include/net/sch_generic.h | 3 ---
+ net/sched/sch_api.c       | 6 ++++--
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 2a3a60e..f3be666 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -491,8 +491,11 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 			perturb_period = nla_get_u32(tb[TCA_FLOW_PERTURB]) * HZ;
- 		}
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 0b2ba3b..a4926c9 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -361,9 +361,6 @@ static inline void sch_tree_unlock(const struct Qdisc *q)
+ 	spin_unlock_bh(qdisc_root_sleeping_lock(q));
+ }
  
--		if (TC_H_MAJ(baseclass) == 0)
--			baseclass = TC_H_MAKE(tp->q->handle, baseclass);
-+		if (TC_H_MAJ(baseclass) == 0) {
-+			struct Qdisc *q = tcf_block_q(tp->chain->block);
-+
-+			baseclass = TC_H_MAKE(q->handle, baseclass);
-+		}
- 		if (TC_H_MIN(baseclass) == 0)
- 			baseclass = TC_H_MAKE(baseclass, 1);
+-#define tcf_tree_lock(tp)	sch_tree_lock((tp)->q)
+-#define tcf_tree_unlock(tp)	sch_tree_unlock((tp)->q)
+-
+ extern struct Qdisc noop_qdisc;
+ extern struct Qdisc_ops noop_qdisc_ops;
+ extern struct Qdisc_ops pfifo_fast_ops;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index aa82116..a9ac912 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -1661,9 +1661,11 @@ static int tcf_node_bind(struct tcf_proto *tp, void *n, struct tcf_walker *arg)
+ 	struct tcf_bind_args *a = (void *)arg;
  
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 941245a..aa1e1f3 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -28,6 +28,7 @@
- #include <net/netlink.h>
- #include <net/act_api.h>
- #include <net/pkt_cls.h>
-+#include <net/sch_generic.h>
- 
- #define HTSIZE 256
- 
-@@ -83,9 +84,11 @@ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			}
- 		}
- 	} else {
+ 	if (tp->ops->bind_class) {
+-		tcf_tree_lock(tp);
 +		struct Qdisc *q = tcf_block_q(tp->chain->block);
 +
- 		/* Old method: classify the packet using its skb mark. */
- 		if (id && (TC_H_MAJ(id) == 0 ||
--			   !(TC_H_MAJ(id ^ tp->q->handle)))) {
-+			   !(TC_H_MAJ(id ^ q->handle)))) {
- 			res->classid = id;
- 			res->class = 0;
- 			return 0;
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 14a7e08..d732b54 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -13,6 +13,7 @@
- #include <net/act_api.h>
- #include <net/netlink.h>
- #include <net/pkt_cls.h>
-+#include <net/sch_generic.h>
- 
- /*
-  * Passing parameters to the root seems to be done more awkwardly than really
-@@ -90,9 +91,11 @@ static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- 	f = tcindex_lookup(p, key);
- 	if (!f) {
-+		struct Qdisc *q = tcf_block_q(tp->chain->block);
-+
- 		if (!p->fall_through)
- 			return -1;
--		res->classid = TC_H_MAKE(TC_H_MAJ(tp->q->handle), key);
-+		res->classid = TC_H_MAKE(TC_H_MAJ(q->handle), key);
- 		res->class = 0;
- 		pr_debug("alg 0x%x\n", res->classid);
- 		return 0;
++		sch_tree_lock(q);
+ 		tp->ops->bind_class(n, a->classid, a->cl);
+-		tcf_tree_unlock(tp);
++		sch_tree_unlock(q);
+ 	}
+ 	return 0;
+ }
 -- 
 2.9.5
