@@ -1,44 +1,59 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 03/12] nfp: bpf: add missing return in jne_imm optimization
-Date: Thu, 12 Oct 2017 10:34:09 -0700
-Message-ID: <20171012173418.4029-4-jakub.kicinski@netronome.com>
-References: <20171012173418.4029-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 00/12] nfp: bpf: support direct packet access
+Date: Thu, 12 Oct 2017 10:34:06 -0700
+Message-ID: <20171012173418.4029-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:49194 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752704AbdJLRev (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:34:51 -0400
-Received: by mail-pf0-f169.google.com with SMTP id l188so5841901pfc.6
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:34:51 -0700 (PDT)
-In-Reply-To: <20171012173418.4029-1-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:43241 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752246AbdJLRet (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:34:49 -0400
+Received: by mail-pf0-f181.google.com with SMTP id a8so5395068pfc.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:34:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We optimize comparisons to immediate 0 as if (reg.lo | reg.hi).
-The early return statement was missing, however, which means we
-would generate two comparisons - optimized one followed by a
-normal 2x 32 bit compare.
+Hi!
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/bpf/jit.c | 1 +
- 1 file changed, 1 insertion(+)
+The core of this series is direct packet access support.  With a
+small change to the verifier, the offloaded code can now make
+use of DPA.  We need to be careful to use kernel (after initial
+translation) offsets in our JIT.  Direct packet access also brings
+us to the problem of eBPF endianness.  After considering the 
+changes necessary we decided to not support translation on both
+BE and LE hosts, for now.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index cf8a6eb3ec99..5ac834e91aed 100644
---- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-+++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -1191,6 +1191,7 @@ static int jne_imm(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- 		emit_alu(nfp_prog, reg_none(), reg_a(insn->dst_reg * 2),
- 			 ALU_OP_OR, reg_b(insn->dst_reg * 2 + 1));
- 		emit_br(nfp_prog, BR_BNE, insn->off, 0);
-+		return 0;
- 	}
- 
- 	tmp_reg = ur_load_imm_any(nfp_prog, imm & ~0U, imm_b(nfp_prog));
+This series contains two fixes - one for compare instructions and
+one for ineffective jne optimization.  I chose to include fixes
+in this set because the code in -net works only with unreleased
+PoC FW (ABI version 1) and therefore nobody outside of Netronome
+can exercise it anyway.
+
+
+Jakub Kicinski (12):
+  bpf: verifier: set reg_type on context accesses in second pass
+  nfp: bpf: reorder arguments to emit_ld_field_any()
+  nfp: bpf: add missing return in jne_imm optimization
+  nfp: bpf: fix compare instructions
+  nfp: bpf: add mov helper
+  nfp: bpf: implement byte swap instruction
+  nfp: bpf: support BPF offload only on little endian
+  nfp: bpf: fix context accesses
+  nfp: bpf: separate I/O from checks for legacy data load
+  nfp: bpf: add support for direct packet access - read
+  nfp: bpf: direct packet access - write
+  nfp: bpf: support direct packet access in TC
+
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c      | 402 ++++++++++++++++++----
+ drivers/net/ethernet/netronome/nfp/bpf/main.c     |   2 +
+ drivers/net/ethernet/netronome/nfp/bpf/main.h     |   3 +
+ drivers/net/ethernet/netronome/nfp/bpf/verifier.c |  21 +-
+ drivers/net/ethernet/netronome/nfp/nfp_asm.c      |   5 +-
+ drivers/net/ethernet/netronome/nfp/nfp_asm.h      |   6 +-
+ kernel/bpf/verifier.c                             |  43 ++-
+ 7 files changed, 393 insertions(+), 89 deletions(-)
+
 -- 
 2.14.1
