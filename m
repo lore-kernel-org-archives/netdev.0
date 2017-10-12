@@ -1,200 +1,449 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 14/18] tipc: guarantee group unicast doesn't bypass group broadcast
-Date: Thu, 12 Oct 2017 16:02:35 +0200
-Message-ID: <1507816959-31787-15-git-send-email-jon.maloy@ericsson.com>
-References: <1507816959-31787-1-git-send-email-jon.maloy@ericsson.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC 1/3] devlink: Add config parameter get/set operations
+Date: Thu, 12 Oct 2017 16:03:17 +0200
+Message-ID: <20171012140317.GC14672@nanopsycho>
+References: <1507815262-33294-1-git-send-email-steven.lin1@broadcom.com>
+ <1507815262-33294-2-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:46423 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752295AbdJLOC6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 10:02:58 -0400
-In-Reply-To: <1507816959-31787-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
+        michael.chan@broadcom.com, linux-pci@vger.kernel.org,
+        linville@tuxdriver.com, gospo@broadcom.com
+To: Steve Lin <steven.lin1@broadcom.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1507815262-33294-2-git-send-email-steven.lin1@broadcom.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Group unicast messages don't follow the same path as broadcast messages,
-and there is a high risk that unicasts sent from a socket might bypass
-previously sent broadcasts from the same socket.
+Thu, Oct 12, 2017 at 03:34:20PM CEST, steven.lin1@broadcom.com wrote:
+>Add support for config parameter get/set commands. Initially used by
+>bnxt driver, but other drivers can use the same, or new, attributes.
+>The config_get() and config_set() operations operate as expected, but
+>note that the driver implementation of the config_set() operation can
+>indicate whether a restart is necessary for the setting to take
+>effect.
+>
 
-We fix this by letting all unicast messages carry the sequence number of
-the next sent broadcast from the same node, but without updating this
-number at the receiver. This way, a receiver can check and if necessary
-re-order such messages before they are added to the socket receive buffer.
+First of all, I like this approach.
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/group.c  | 87 +++++++++++++++++++++++++++++++++++++++++++++----------
- net/tipc/socket.c |  2 ++
- 2 files changed, 74 insertions(+), 15 deletions(-)
+I would like to see this patch split into:
+1) config-options infrastructure introduction
+2) specific config options introductions - would be best to have it
+   per-option. We need to make sure every option is very well described
+   and explained usecases. This is needed in order vendors to share
+   attributes among drivers.
 
-diff --git a/net/tipc/group.c b/net/tipc/group.c
-index 2fa49cc7..5edceb6 100644
---- a/net/tipc/group.c
-+++ b/net/tipc/group.c
-@@ -62,6 +62,7 @@ struct tipc_member {
- 	struct list_head list;
- 	struct list_head congested;
- 	struct sk_buff *event_msg;
-+	struct sk_buff_head deferredq;
- 	struct tipc_group *group;
- 	u32 node;
- 	u32 port;
-@@ -253,6 +254,7 @@ static struct tipc_member *tipc_group_create_member(struct tipc_group *grp,
- 		return NULL;
- 	INIT_LIST_HEAD(&m->list);
- 	INIT_LIST_HEAD(&m->congested);
-+	__skb_queue_head_init(&m->deferredq);
- 	m->group = grp;
- 	m->node = node;
- 	m->port = port;
-@@ -383,29 +385,54 @@ bool tipc_group_bc_cong(struct tipc_group *grp, int len)
- 	return tipc_group_cong(grp, m->node, m->port, len, &m);
- }
- 
-+/* tipc_group_sort_msg() - sort msg into queue by bcast sequence number
-+ */
-+static void tipc_group_sort_msg(struct sk_buff *skb, struct sk_buff_head *defq)
-+{
-+	struct sk_buff *_skb, *tmp;
-+	struct tipc_msg *_hdr, *hdr = buf_msg(skb);
-+	u16 bc_seqno = msg_grp_bc_seqno(hdr);
-+	int mtyp = msg_type(hdr);
-+
-+	/* Bcast may be bypassed by unicast, - sort it in */
-+	if (mtyp == TIPC_GRP_BCAST_MSG || mtyp == TIPC_GRP_MCAST_MSG) {
-+		skb_queue_walk_safe(defq, _skb, tmp) {
-+			_hdr = buf_msg(_skb);
-+			if (!less(bc_seqno, msg_grp_bc_seqno(_hdr)))
-+				continue;
-+			__skb_queue_before(defq, _skb, skb);
-+			return;
-+		}
-+		/* Bcast was not bypassed, - add to tail */
-+	}
-+	/* Unicasts are never bypassed, - always add to tail */
-+	__skb_queue_tail(defq, skb);
-+}
-+
- /* tipc_group_filter_msg() - determine if we should accept arriving message
-  */
- void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 			   struct sk_buff_head *xmitq)
- {
- 	struct sk_buff *skb = __skb_dequeue(inputq);
-+	struct sk_buff_head *defq;
- 	struct tipc_member *m;
- 	struct tipc_msg *hdr;
-+	bool deliver, update;
- 	u32 node, port;
--	int mtyp;
-+	int mtyp, blks;
- 
- 	if (!skb)
- 		return;
- 
- 	hdr = buf_msg(skb);
--	mtyp = msg_type(hdr);
- 	node =  msg_orignode(hdr);
- 	port = msg_origport(hdr);
- 
- 	if (!msg_in_group(hdr))
- 		goto drop;
- 
--	if (mtyp == TIPC_GRP_MEMBER_EVT) {
-+	if (msg_is_grp_evt(hdr)) {
- 		if (!grp->events)
- 			goto drop;
- 		__skb_queue_tail(inputq, skb);
-@@ -416,22 +443,52 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 	if (!tipc_group_is_receiver(m))
- 		goto drop;
- 
--	m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
-+	if (less(msg_grp_bc_seqno(hdr), m->bc_rcv_nxt))
-+		goto drop;
- 
--	/* Drop multicast here if not for this member */
--	if (mtyp == TIPC_GRP_MCAST_MSG) {
--		if (msg_nameinst(hdr) != grp->instance) {
--			m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
--			tipc_group_update_rcv_win(grp, msg_blocks(hdr),
--						  node, port, xmitq);
--			kfree_skb(skb);
--			return;
-+	TIPC_SKB_CB(skb)->orig_member = m->instance;
-+	defq = &m->deferredq;
-+	tipc_group_sort_msg(skb, defq);
-+
-+	while ((skb = skb_peek(defq))) {
-+		hdr = buf_msg(skb);
-+		mtyp = msg_type(hdr);
-+		deliver = true;
-+		update = false;
-+
-+		if (more(msg_grp_bc_seqno(hdr), m->bc_rcv_nxt))
-+			break;
-+
-+		/* Decide what to do with message */
-+		switch (mtyp) {
-+		case TIPC_GRP_MCAST_MSG:
-+			if (msg_nameinst(hdr) != grp->instance) {
-+				update = true;
-+				deliver = false;
-+			}
-+			/* Fall thru */
-+		case TIPC_GRP_BCAST_MSG:
-+			m->bc_rcv_nxt++;
-+			break;
-+		case TIPC_GRP_UCAST_MSG:
-+			break;
-+		default:
-+			break;
- 		}
--	}
- 
--	TIPC_SKB_CB(skb)->orig_member = m->instance;
--	__skb_queue_tail(inputq, skb);
-+		/* Execute decisions */
-+		__skb_dequeue(defq);
-+		if (deliver)
-+			__skb_queue_tail(inputq, skb);
-+		else
-+			kfree_skb(skb);
-+
-+		if (!update)
-+			continue;
- 
-+		blks = msg_blocks(hdr);
-+		tipc_group_update_rcv_win(grp, blks, node, port, xmitq);
-+	}
- 	return;
- drop:
- 	kfree_skb(skb);
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index ad41f64..015cdd9 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -827,6 +827,7 @@ static int tipc_send_group_msg(struct net *net, struct tipc_sock *tsk,
- {
- 	struct tipc_msg *hdr = &tsk->phdr;
- 	struct sk_buff_head pkts;
-+	u16 bc_snd_nxt = tipc_group_bc_snd_nxt(tsk->group);
- 	int blks = tsk_blocks(GROUP_H_SIZE + dlen);
- 	int mtu, rc;
- 
-@@ -835,6 +836,7 @@ static int tipc_send_group_msg(struct net *net, struct tipc_sock *tsk,
- 	msg_set_hdr_sz(hdr, GROUP_H_SIZE);
- 	msg_set_destport(hdr, dport);
- 	msg_set_destnode(hdr, dnode);
-+	msg_set_grp_bc_seqno(hdr, bc_snd_nxt);
- 
- 	/* Build message as chain of buffers */
- 	skb_queue_head_init(&pkts);
--- 
-2.1.4
+More nits inlined.
+
+
+>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+>Acked-by: Andy Gospodarek <gospo@broadcom.com>
+>---
+> include/net/devlink.h        |   4 +
+> include/uapi/linux/devlink.h | 108 ++++++++++++++++++++++
+> net/core/devlink.c           | 207 +++++++++++++++++++++++++++++++++++++++++++
+> 3 files changed, 319 insertions(+)
+>
+>diff --git a/include/net/devlink.h b/include/net/devlink.h
+>index b9654e1..952966c 100644
+>--- a/include/net/devlink.h
+>+++ b/include/net/devlink.h
+>@@ -270,6 +270,10 @@ struct devlink_ops {
+> 	int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
+> 	int (*eswitch_encap_mode_get)(struct devlink *devlink, u8 *p_encap_mode);
+> 	int (*eswitch_encap_mode_set)(struct devlink *devlink, u8 encap_mode);
+>+	int (*config_get)(struct devlink *devlink, enum devlink_attr attr,
+>+			  u32 *value);
+>+	int (*config_set)(struct devlink *devlink, enum devlink_attr attr,
+>+			  u32 value, u8 *restart_reqd);
+> };
+> 
+> static inline void *devlink_priv(struct devlink *devlink)
+>diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+>index 0cbca96..e959716 100644
+>--- a/include/uapi/linux/devlink.h
+>+++ b/include/uapi/linux/devlink.h
+>@@ -70,6 +70,9 @@ enum devlink_command {
+> 	DEVLINK_CMD_DPIPE_HEADERS_GET,
+> 	DEVLINK_CMD_DPIPE_TABLE_COUNTERS_SET,
+> 
+>+	DEVLINK_CMD_CONFIG_GET,
+>+	DEVLINK_CMD_CONFIG_SET,
+>+
+> 	/* add new commands above here */
+> 	__DEVLINK_CMD_MAX,
+> 	DEVLINK_CMD_MAX = __DEVLINK_CMD_MAX - 1
+>@@ -124,6 +127,68 @@ enum devlink_eswitch_encap_mode {
+> 	DEVLINK_ESWITCH_ENCAP_MODE_BASIC,
+> };
+> 
+>+enum devlink_dcbx_mode {
+>+	DEVLINK_DCBX_MODE_DISABLED,
+>+	DEVLINK_DCBX_MODE_IEEE,
+>+	DEVLINK_DCBX_MODE_CEE,
+>+	DEVLINK_DCBX_MODE_IEEE_CEE,
+>+};
+>+
+>+enum devlink_multifunc_mode {
+>+	DEVLINK_MULTIFUNC_MODE_ALLOWED,		/* Ext switch activates MF */
+>+	DEVLINK_MULTIFUNC_MODE_FORCE_SINGFUNC,
+>+	DEVLINK_MULTIFUNC_MODE_NPAR10,		/* NPAR 1.0 */
+>+	DEVLINK_MULTIFUNC_MODE_NPAR15,		/* NPAR 1.5 */
+>+	DEVLINK_MULTIFUNC_MODE_NPAR20,		/* NPAR 2.0 */
+>+};
+>+
+>+enum devlink_autoneg_protocol {
+>+	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_BAM,
+>+	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_CONSORTIUM,
+>+	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY,
+>+	DEVLINK_AUTONEG_PROTOCOL_BAM,		/* Broadcom Autoneg Mode */
+>+	DEVLINK_AUTONEG_PROTOCOL_CONSORTIUM,	/* Consortium Autoneg Mode */
+>+};
+>+
+>+enum devlink_pre_os_link_speed {
+>+	DEVLINK_PRE_OS_LINK_SPEED_AUTONEG,
+>+	DEVLINK_PRE_OS_LINK_SPEED_1G,
+>+	DEVLINK_PRE_OS_LINK_SPEED_10G,
+>+	DEVLINK_PRE_OS_LINK_SPEED_25G,
+>+	DEVLINK_PRE_OS_LINK_SPEED_40G,
+>+	DEVLINK_PRE_OS_LINK_SPEED_50G,
+>+	DEVLINK_PRE_OS_LINK_SPEED_100G,
+>+	DEVLINK_PRE_OS_LINK_SPEED_5G = 0xe,
+>+	DEVLINK_PRE_OS_LINK_SPEED_100M = 0xf,
+>+};
+>+
+>+enum devlink_mba_boot_type {
+>+	DEVLINK_MBA_BOOT_TYPE_AUTO_DETECT,
+>+	DEVLINK_MBA_BOOT_TYPE_BBS,		/* BIOS Boot Specification */
+>+	DEVLINK_MBA_BOOT_TYPE_INTR18,		/* Hook interrupt 0x18 */
+>+	DEVLINK_MBA_BOOT_TYPE_INTR19,		/* Hook interrupt 0x19 */
+>+};
+>+
+>+enum devlink_mba_setup_hot_key {
+>+	DEVLINK_MBA_SETUP_HOT_KEY_CTRL_S,
+>+	DEVLINK_MBA_SETUP_HOT_KEY_CTRL_B,
+>+};
+>+
+>+enum devlink_mba_boot_protocol {
+>+	DEVLINK_MBA_BOOT_PROTOCOL_PXE,
+>+	DEVLINK_MBA_BOOT_PROTOCOL_ISCSI,
+>+	DEVLINK_MBA_BOOT_PROTOCOL_NONE = 0x7,
+>+};
+>+
+>+enum devlink_mba_link_speed {
+>+	DEVLINK_MBA_LINK_SPEED_AUTONEG,
+>+	DEVLINK_MBA_LINK_SPEED_1G,
+>+	DEVLINK_MBA_LINK_SPEED_10G,
+>+	DEVLINK_MBA_LINK_SPEED_25G,
+>+	DEVLINK_MBA_LINK_SPEED_40G,
+>+	DEVLINK_MBA_LINK_SPEED_50G,
+>+};
+>+
+> enum devlink_attr {
+> 	/* don't change the order or add anything between, this is ABI! */
+> 	DEVLINK_ATTR_UNSPEC,
+>@@ -202,6 +267,49 @@ enum devlink_attr {
+> 
+> 	DEVLINK_ATTR_ESWITCH_ENCAP_MODE,	/* u8 */
+> 
+>+	/* Configuration Parameters */
+>+	DEVLINK_ATTR_SRIOV_ENABLED,		/* u8 */
+>+	DEVLINK_ATTR_NUM_VF_PER_PF,		/* u32 */
+>+	DEVLINK_ATTR_MAX_NUM_PF_MSIX_VECT,	/* u32 */
+>+	DEVLINK_ATTR_MSIX_VECTORS_PER_VF,	/* u32 */
+>+	DEVLINK_ATTR_NPAR_NUM_PARTITIONS_PER_PORT,	/* u32 */
+>+	DEVLINK_ATTR_NPAR_BW_IN_PERCENT,	/* u8 */
+>+	DEVLINK_ATTR_NPAR_BW_RESERVATION,	/* u8 */
+>+	DEVLINK_ATTR_NPAR_BW_RESERVATION_VALID,	/* u8 */
+>+	DEVLINK_ATTR_NPAR_BW_LIMIT,		/* u8 */
+>+	DEVLINK_ATTR_NPAR_BW_LIMIT_VALID,	/* u8 */
+>+	DEVLINK_ATTR_DCBX_MODE,			/* u8 */
+>+	DEVLINK_ATTR_RDMA_ENABLED,		/* u8 */
+>+	DEVLINK_ATTR_MULTIFUNC_MODE,		/* u8 */
+>+	DEVLINK_ATTR_SECURE_NIC_ENABLED,	/* u8 */
+>+	DEVLINK_ATTR_IGNORE_ARI_CAPABILITY,	/* u8 */
+>+	DEVLINK_ATTR_LLDP_NEAREST_BRIDGE_ENABLED,	/* u8 */
+>+	DEVLINK_ATTR_LLDP_NEAREST_NONTPMR_BRIDGE_ENABLED,	/* u8 */
+>+	DEVLINK_ATTR_PME_CAPABILITY_ENABLED,	/* u8 */
+>+	DEVLINK_ATTR_MAGIC_PACKET_WOL_ENABLED,	/* u8 */
+>+	DEVLINK_ATTR_EEE_PWR_SAVE_ENABLED,	/* u8 */
+>+	DEVLINK_ATTR_AUTONEG_PROTOCOL,		/* u8 */
+>+	DEVLINK_ATTR_MEDIA_AUTO_DETECT,		/* u8 */
+>+	DEVLINK_ATTR_PHY_SELECT,		/* u8 */
+>+	DEVLINK_ATTR_PRE_OS_LINK_SPEED_D0,	/* u8 */
+>+	DEVLINK_ATTR_PRE_OS_LINK_SPEED_D3,	/* u8 */
+>+	DEVLINK_ATTR_MBA_ENABLED,		/* u8 */
+>+	DEVLINK_ATTR_MBA_BOOT_TYPE,		/* u8 */
+>+	DEVLINK_ATTR_MBA_DELAY_TIME,		/* u32 */
+>+	DEVLINK_ATTR_MBA_SETUP_HOT_KEY,		/* u8 */
+>+	DEVLINK_ATTR_MBA_HIDE_SETUP_PROMPT,	/* u8 */
+>+	DEVLINK_ATTR_MBA_BOOT_RETRY_COUNT,	/* u32 */
+>+	DEVLINK_ATTR_MBA_VLAN_ENABLED,		/* u8 */
+>+	DEVLINK_ATTR_MBA_VLAN_TAG,		/* u16 */
+>+	DEVLINK_ATTR_MBA_BOOT_PROTOCOL,		/* u8 */
+>+	DEVLINK_ATTR_MBA_LINK_SPEED,		/* u8 */
+
+Okay, I think it is about the time we should start thinking about
+putting this new config attributes under nester attribute. What do you
+think?
+
+
+>+
+>+	/* When config doesn't take effect until next reboot (config
+>+	 * just changed NVM which isn't read until boot, for example),
+>+	 * this attribute should be set by the driver.
+>+	 */
+>+	DEVLINK_ATTR_RESTART_REQUIRED,		/* u8 */
+>+
+> 	/* add new attributes above here, update the policy in devlink.c */
+> 
+> 	__DEVLINK_ATTR_MAX,
+>diff --git a/net/core/devlink.c b/net/core/devlink.c
+>index 7d430c1..701c84b 100644
+>--- a/net/core/devlink.c
+>+++ b/net/core/devlink.c
+>@@ -1566,6 +1566,164 @@ static int devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
+> 	return 0;
+> }
+> 
+>+static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
+>+
+>+static int devlink_nl_config_fill(struct sk_buff *msg,
+>+				  struct devlink *devlink,
+>+				  enum devlink_command cmd,
+>+				  struct genl_info *info)
+>+{
+>+	const struct devlink_ops *ops = devlink->ops;
+>+	void *hdr;
+>+	int err;
+>+	enum devlink_attr attr = -1;
+
+-1 is not a valid enum value. Better to just have bool to indicate attr
+was found or not.
+
+
+>+	u32 value;
+>+	int i;
+>+	struct nla_policy policy;
+>+	u8 restart_reqd;
+>+
+>+	if (!ops->config_get)
+>+		return -EOPNOTSUPP;
+>+
+>+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
+>+			  &devlink_nl_family, 0, cmd);
+>+	if (!hdr) {
+>+		err = -EMSGSIZE;
+>+		goto nla_msg_failure;
+>+	}
+>+
+>+	err = devlink_nl_put_handle(msg, devlink);
+>+	if (err)
+>+		goto nla_put_failure;
+>+
+>+	for (i = 0; i < DEVLINK_ATTR_MAX; i++)
+>+		if (info->attrs[i])
+>+			attr = i;
+>+
+>+	if (attr == -1) {
+>+		/* Not found - invalid/unknown attribute? */
+>+		err = -EINVAL;
+>+		goto nla_put_failure;
+>+	}
+>+
+>+	policy = devlink_nl_policy[attr];
+>+
+>+	if (cmd == DEVLINK_CMD_CONFIG_GET) {
+>+		err = ops->config_get(devlink, attr, &value);
+>+
+>+		if (err)
+>+			goto nla_put_failure;
+>+
+>+		switch (policy.type) {
+>+		case NLA_U8:
+>+			err = nla_put_u8(msg, attr, value);
+>+			break;
+>+		case NLA_U16:
+>+			err = nla_put_u16(msg, attr, value);
+>+			break;
+>+		case NLA_U32:
+>+			err = nla_put_u32(msg, attr, value);
+>+			break;
+>+		default:
+>+			goto nla_put_failure;
+>+		}
+>+
+>+		if (err)
+>+			goto nla_put_failure;
+>+	} else {
+>+		/* Must be config_set command */
+>+		u8 *val8;
+>+		u16 *val16;
+>+		u32 *val32;
+>+
+>+		switch (policy.type) {
+>+		case NLA_U8:
+>+			val8 = nla_data(info->attrs[attr]);
+>+			value = *val8;
+>+			break;
+>+		case NLA_U16:
+>+			val16 = nla_data(info->attrs[attr]);
+>+			value = *val16;
+>+			break;
+>+		case NLA_U32:
+>+			val32 = nla_data(info->attrs[attr]);
+>+			value = *val32;
+>+			break;
+>+		default:
+>+			goto nla_put_failure;
+>+		}
+>+
+>+		err = ops->config_set(devlink, attr, value, &restart_reqd);
+>+		if (err)
+>+			goto nla_put_failure;
+>+
+>+		if (restart_reqd) {
+>+			err = nla_put_u8(msg, DEVLINK_ATTR_RESTART_REQUIRED,
+>+					 restart_reqd);
+>+			if (err)
+>+				goto nla_put_failure;
+>+		}
+>+	}
+>+
+>+	genlmsg_end(msg, hdr);
+>+	return 0;
+>+
+>+nla_put_failure:
+>+	genlmsg_cancel(msg, hdr);
+>+nla_msg_failure:
+>+	return err;
+>+}
+>+
+>+static int devlink_nl_cmd_config_get_doit(struct sk_buff *skb,
+>+					  struct genl_info *info)
+>+{
+>+	struct devlink *devlink = info->user_ptr[0];
+>+	struct sk_buff *msg;
+>+	int err;
+>+
+>+	if (!devlink->ops)
+>+		return -EOPNOTSUPP;
+>+
+>+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+>+	if (!msg)
+>+		return -ENOMEM;
+>+
+>+	err = devlink_nl_config_fill(msg, devlink, DEVLINK_CMD_CONFIG_GET,
+>+				     info);
+>+
+>+	if (err) {
+>+		nlmsg_free(msg);
+>+		return err;
+>+	}
+>+
+>+	return genlmsg_reply(msg, info);
+>+}
+>+
+>+static int devlink_nl_cmd_config_set_doit(struct sk_buff *skb,
+>+					  struct genl_info *info)
+>+{
+>+	struct devlink *devlink = info->user_ptr[0];
+>+	struct sk_buff *msg;
+>+	int err;
+>+
+>+	if (!devlink->ops)
+>+		return -EOPNOTSUPP;
+>+
+>+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+>+	if (!msg)
+>+		return -ENOMEM;
+>+
+>+	err = devlink_nl_config_fill(msg, devlink, DEVLINK_CMD_CONFIG_SET,
+>+				     info);
+
+This is odd. You are using "fill" function for "set". It should be used
+for "get". But for set, it really sounds odd. Please split the
+devlink_nl_config_fill function into get and set parts.
+
+Also, get should dump all available options. 
+
+
+>+
+>+	if (err) {
+>+		nlmsg_free(msg);
+>+		return err;
+>+	}
+>+
+>+	return genlmsg_reply(msg, info);
+>+}
+>+
+> int devlink_dpipe_match_put(struct sk_buff *skb,
+> 			    struct devlink_dpipe_match *match)
+> {
+>@@ -2291,6 +2449,41 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+> 	[DEVLINK_ATTR_ESWITCH_ENCAP_MODE] = { .type = NLA_U8 },
+> 	[DEVLINK_ATTR_DPIPE_TABLE_NAME] = { .type = NLA_NUL_STRING },
+> 	[DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_SRIOV_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_NUM_VF_PER_PF] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MAX_NUM_PF_MSIX_VECT] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MSIX_VECTORS_PER_VF] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_NPAR_NUM_PARTITIONS_PER_PORT] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_NPAR_BW_IN_PERCENT] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_NPAR_BW_RESERVATION] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_NPAR_BW_RESERVATION_VALID] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_NPAR_BW_LIMIT] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_NPAR_BW_LIMIT_VALID] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_DCBX_MODE] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_RDMA_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_MULTIFUNC_MODE] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_SECURE_NIC_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_IGNORE_ARI_CAPABILITY] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_LLDP_NEAREST_BRIDGE_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_LLDP_NEAREST_NONTPMR_BRIDGE_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_PME_CAPABILITY_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_MAGIC_PACKET_WOL_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_EEE_PWR_SAVE_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_AUTONEG_PROTOCOL] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MEDIA_AUTO_DETECT] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_PHY_SELECT] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_PRE_OS_LINK_SPEED_D0] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_PRE_OS_LINK_SPEED_D3] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MBA_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_MBA_BOOT_TYPE] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MBA_DELAY_TIME] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MBA_SETUP_HOT_KEY] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MBA_HIDE_SETUP_PROMPT] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_MBA_BOOT_RETRY_COUNT] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MBA_VLAN_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_MBA_VLAN_TAG] = { .type = NLA_U16 },
+>+	[DEVLINK_ATTR_MBA_BOOT_PROTOCOL] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_MBA_LINK_SPEED] = { .type = NLA_U32 },
+> };
+> 
+> static const struct genl_ops devlink_nl_ops[] = {
+>@@ -2451,6 +2644,20 @@ static const struct genl_ops devlink_nl_ops[] = {
+> 		.flags = GENL_ADMIN_PERM,
+> 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+> 	},
+>+	{
+>+		.cmd = DEVLINK_CMD_CONFIG_GET,
+>+		.doit = devlink_nl_cmd_config_get_doit,
+>+		.policy = devlink_nl_policy,
+>+		.flags = GENL_ADMIN_PERM,
+>+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+>+	},
+>+	{
+>+		.cmd = DEVLINK_CMD_CONFIG_SET,
+>+		.doit = devlink_nl_cmd_config_set_doit,
+>+		.policy = devlink_nl_policy,
+>+		.flags = GENL_ADMIN_PERM,
+>+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+>+	},
+> };
+> 
+> static struct genl_family devlink_nl_family __ro_after_init = {
+>-- 
+>2.7.4
+>
