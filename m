@@ -1,198 +1,115 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [net-next PATCH] mqprio: Reserve last 32 classid values for HW
- traffic classes and misc IDs
-Date: Thu, 12 Oct 2017 11:38:45 -0700
-Message-ID: <20171012182658.14632.9010.stgit@localhost.localdomain>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Thu, 12 Oct 2017 14:41:07 -0400
+Message-ID: <CAF=yD-K6f_+dw=ivu=jgrqdv+og4gvzPanYSBzizJBvM5rbiig@mail.gmail.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk> <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk> <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk> <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+ <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+ <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com> <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
+ <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
+ <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com> <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
+ <CAF=yD-+W2tyXqCS_ueZgu11BB8ON5hdKGOZQOWtfr+HfvqW=Sg@mail.gmail.com>
+ <CAF=yD-KiMWMwvD-s=z4brqUrNbRe4-fRZAKupEc2FvVn0MQxuQ@mail.gmail.com> <beef71a3-2cfc-95d7-f334-04685d31b640@cambridgegreys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: jiri@resnulli.us, amritha.nambiar@intel.com,
-        vinicius.gomes@intel.com, netdev@vger.kernel.org, jhs@mojatatu.com,
-        jesus.sanchez-palencia@intel.com, davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Anton Ivanov <anton.ivanov@cambridgegreys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:48882 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754506AbdJLSir (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 14:38:47 -0400
-Received: by mail-pf0-f194.google.com with SMTP id b79so6106265pfk.5
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 11:38:47 -0700 (PDT)
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:44025 "EHLO
+        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750907AbdJLSlt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 14:41:49 -0400
+Received: by mail-oi0-f47.google.com with SMTP id c77so9956484oig.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 11:41:49 -0700 (PDT)
+In-Reply-To: <beef71a3-2cfc-95d7-f334-04685d31b640@cambridgegreys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+On Thu, Oct 12, 2017 at 1:58 PM, Anton Ivanov
+<anton.ivanov@cambridgegreys.com> wrote:
+>
+>
+> On 10/12/17 18:25, Willem de Bruijn wrote:
+>>
+>> On Thu, Oct 12, 2017 at 12:30 PM, Willem de Bruijn
+>> <willemdebruijn.kernel@gmail.com> wrote:
+>>>
+>>> On Thu, Oct 12, 2017 at 11:44 AM, Anton Ivanov
+>>> <anton.ivanov@cambridgegreys.com> wrote:
+>>>>
+>>>> Found it.
+>>>>
+>>>> Two bugs canceling each other.
+>>>> The bind sequence in:  psock_txring_vnet.c is wrong.
+>>>>
+>>>> It does the following addr.sll_protocol =    htons(ETH_P_IP);
+>>>> before calling bind.
+>>>>
+>>>> If you set addr.sll_protocol to ETH_P_ALL where it should have been in
+>>>> the
+>>>> first place the test program blows up with -ENOBUFS
+>>>
+>>> There is no such requirement that the socket should bind to ETH_P_ALL.
+>
+>
+> There is no requirement to bind to ETH_P_IP either and most code examples
+> going back more than 10 years to the days of TCP Illustrated use ALL.
 
-This patch makes a slight tweak to mqprio in order to bring the
-classid values used back in line with what is used for mq. The general idea
-is to reserve values :ffe0 - :ffef to identify hardware traffic classes
-normally reported via dev->num_tc. By doing this we can maintain a
-consistent behavior with mq for classid where :1 - :ffdf will represent a
-physical qdisc mapped onto a Tx queue represented by classid - 1, and the
-traffic classes will be mapped onto a known subset of classid values
-reserved for our virtual qdiscs.
+For send only sockets, it is often advised to pass 0 as protocol to
+socket(), so as to avoid having to spend cycles on packet reception
+at all.
 
-Note I reserved the range from :fff0 - :ffff since this way we might be
-able to reuse these classid values with clsact and ingress which would mean
-that for mq, mqprio, ingress, and clsact we should be able to maintain a
-similar classid layout.
+Commit c72219b75fde ("packet: infer protocol from ethernet header
+if unset") explicitly added logic to infer skb->protocol for this common
+case of sockets, if using rings.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+> I just did the v6 test - if you bind with ETH_P_IP GSO on TCPv6 is broken
+> and returns NOBUF and vice versa.
 
-So I thought I would put this out here as a first step towards trying to
-address some of Jiri's concerns about wanting to have a consistent
-userspace API.
+Given that skb->protocol is set from proto, that is indeed not expected to work.
 
-The plan is to follow this up with patches to ingress and clsact to look at
-exposing a set of virtual qdiscs similar to what we already have for the HW
-traffic classes in mqprio, although I won't bother with the ability to dump
-class stats since they don't actually enqueue anything.
+>>>> I think what is happening is that this value is taken into account when
+>>>> looking at "what should I use to segment it with" in skb_mac_gso_segment
+>>>> which is invoked at the end of the verification chain which starts in
+>>>> packet_direct_xmit in af_packet.c
+>>>
+>>> packet_snd sets skb->protocol based on the protocol that the packet
+>>> socket is bound to. Binding to ETH_P_IP is the right choice here.
+>>
+>> To avoid having to open multiple sockets for different protocols,
+>> sockaddr_ll can also be passed in the msg_name argument on
+>> each call.
+>
+>
+> Does not work for vnet headers - it honors what you bound with. I tried to
+> bind with ETH_ALL and pass ETH_P_IP as an arg and it ENOBUF-ed
 
- include/uapi/linux/pkt_sched.h |    1 +
- net/sched/sch_mqprio.c         |   79 +++++++++++++++++++++++-----------------
- 2 files changed, 47 insertions(+), 33 deletions(-)
+Odd. The code for looking up proto in packet_snd looks fairly straightforward:
 
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 099bf5528fed..174f1cf7e7f9 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -74,6 +74,7 @@ struct tc_estimator {
- #define TC_H_INGRESS    (0xFFFFFFF1U)
- #define TC_H_CLSACT	TC_H_INGRESS
- 
-+#define TC_H_MIN_PRIORITY	0xFFE0U
- #define TC_H_MIN_INGRESS	0xFFF2U
- #define TC_H_MIN_EGRESS		0xFFF3U
- 
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 6bcdfe6e7b63..a61ef119a556 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -115,6 +115,10 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!netif_is_multiqueue(dev))
- 		return -EOPNOTSUPP;
- 
-+	/* make certain can allocate enough classids to handle queues */
-+	if (dev->num_tx_queues >= TC_H_MIN_PRIORITY)
-+		return -ENOMEM;
-+
- 	if (!opt || nla_len(opt) < sizeof(*qopt))
- 		return -EINVAL;
- 
-@@ -193,7 +197,7 @@ static struct netdev_queue *mqprio_queue_get(struct Qdisc *sch,
- 					     unsigned long cl)
- {
- 	struct net_device *dev = qdisc_dev(sch);
--	unsigned long ntx = cl - 1 - netdev_get_num_tc(dev);
-+	unsigned long ntx = cl - 1;
- 
- 	if (ntx >= dev->num_tx_queues)
- 		return NULL;
-@@ -282,38 +286,35 @@ static unsigned long mqprio_find(struct Qdisc *sch, u32 classid)
- 	struct net_device *dev = qdisc_dev(sch);
- 	unsigned int ntx = TC_H_MIN(classid);
- 
--	if (ntx > dev->num_tx_queues + netdev_get_num_tc(dev))
--		return 0;
--	return ntx;
-+	/* There are essentially two regions here that have valid classid
-+	 * values. The first region will have a classid value of 1 through
-+	 * num_tx_queues. All of these are backed by actual Qdiscs.
-+	 */
-+	if (ntx < TC_H_MIN_PRIORITY)
-+		return (ntx <= dev->num_tx_queues) ? ntx : 0;
-+
-+	/* The second region represents the hardware traffic classes. These
-+	 * are represented by classid values of TC_H_MIN_PRIORITY through
-+	 * TC_H_MIN_PRIORITY + netdev_get_num_tc - 1
-+	 */
-+	return ((ntx - TC_H_MIN_PRIORITY) < netdev_get_num_tc(dev)) ? ntx : 0;
- }
- 
- static int mqprio_dump_class(struct Qdisc *sch, unsigned long cl,
- 			 struct sk_buff *skb, struct tcmsg *tcm)
- {
--	struct net_device *dev = qdisc_dev(sch);
-+	if (cl < TC_H_MIN_PRIORITY) {
-+		struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
-+		struct net_device *dev = qdisc_dev(sch);
-+		int tc = netdev_txq_to_tc(dev, cl - 1);
- 
--	if (cl <= netdev_get_num_tc(dev)) {
-+		tcm->tcm_parent = (tc < 0) ? 0 :
-+			TC_H_MAKE(TC_H_MAJ(sch->handle),
-+				  TC_H_MIN(tc + TC_H_MIN_PRIORITY));
-+		tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
-+	} else {
- 		tcm->tcm_parent = TC_H_ROOT;
- 		tcm->tcm_info = 0;
--	} else {
--		int i;
--		struct netdev_queue *dev_queue;
--
--		dev_queue = mqprio_queue_get(sch, cl);
--		tcm->tcm_parent = 0;
--		for (i = 0; i < netdev_get_num_tc(dev); i++) {
--			struct netdev_tc_txq tc = dev->tc_to_txq[i];
--			int q_idx = cl - netdev_get_num_tc(dev);
--
--			if (q_idx > tc.offset &&
--			    q_idx <= tc.offset + tc.count) {
--				tcm->tcm_parent =
--					TC_H_MAKE(TC_H_MAJ(sch->handle),
--						  TC_H_MIN(i + 1));
--				break;
--			}
--		}
--		tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
- 	}
- 	tcm->tcm_handle |= TC_H_MIN(cl);
- 	return 0;
-@@ -324,15 +325,14 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 	__releases(d->lock)
- 	__acquires(d->lock)
- {
--	struct net_device *dev = qdisc_dev(sch);
--
--	if (cl <= netdev_get_num_tc(dev)) {
-+	if (cl >= TC_H_MIN_PRIORITY) {
- 		int i;
- 		__u32 qlen = 0;
- 		struct Qdisc *qdisc;
- 		struct gnet_stats_queue qstats = {0};
- 		struct gnet_stats_basic_packed bstats = {0};
--		struct netdev_tc_txq tc = dev->tc_to_txq[cl - 1];
-+		struct net_device *dev = qdisc_dev(sch);
-+		struct netdev_tc_txq tc = dev->tc_to_txq[cl & TC_BITMASK];
- 
- 		/* Drop lock here it will be reclaimed before touching
- 		 * statistics this is required because the d->lock we
-@@ -385,12 +385,25 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
- 
- 	/* Walk hierarchy with a virtual class per tc */
- 	arg->count = arg->skip;
--	for (ntx = arg->skip;
--	     ntx < dev->num_tx_queues + netdev_get_num_tc(dev);
--	     ntx++) {
-+	for (ntx = arg->skip; ntx < netdev_get_num_tc(dev); ntx++) {
-+		if (arg->fn(sch, ntx + TC_H_MIN_PRIORITY, arg) < 0) {
-+			arg->stop = 1;
-+			return;
-+		}
-+		arg->count++;
-+	}
-+
-+	/* Pad the values and skip over unused traffic classes */
-+	if (ntx < TC_MAX_QUEUE) {
-+		arg->count = TC_MAX_QUEUE;
-+		ntx = TC_MAX_QUEUE;
-+	}
-+
-+	/* Reset offset, sort out remaining per-queue qdiscs */
-+	for (ntx -= TC_MAX_QUEUE; ntx < dev->num_tx_queues; ntx++) {
- 		if (arg->fn(sch, ntx + 1, arg) < 0) {
- 			arg->stop = 1;
--			break;
-+			return;
- 		}
- 		arg->count++;
- 	}
+        /*
+         *      Get and verify the address.
+         */
+
+        if (likely(saddr == NULL)) {
+                dev     = packet_cached_dev_get(po);
+                proto   = po->num;
+                addr    = NULL;
+        } else {
+                err = -EINVAL;
+                if (msg->msg_namelen < sizeof(struct sockaddr_ll))
+                        goto out;
+                if (msg->msg_namelen < (saddr->sll_halen +
+offsetof(struct sockaddr_ll, sll_addr)))
+                        goto out;
+                proto   = saddr->sll_protocol;
+                addr    = saddr->sll_addr;
+                dev = dev_get_by_index(sock_net(sk), saddr->sll_ifindex);
+        }
+
+followed later by
+
+        skb->protocol = proto;
+        skb->dev = dev;
