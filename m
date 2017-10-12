@@ -1,104 +1,98 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC 0/3] Adding config get/set to devlink
-Date: Thu, 12 Oct 2017 09:05:22 -0700
-Message-ID: <CAJieiUhQsL14W5DTst=BRDcjMCavZPNRJf=9i2yOAfB6cLUeyg@mail.gmail.com>
-References: <1507815262-33294-1-git-send-email-steven.lin1@broadcom.com>
- <CAJieiUjuKtmYDZ5-7UjYkWFJuMGu2gajhziLQKAZLTz6g63f2A@mail.gmail.com>
- <20171012144032.GG14672@nanopsycho> <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
- <20171012150419.GI14672@nanopsycho> <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Subject: Re: [Intel-wired-lan] [next-queue PATCH v6 2/5] mqprio: Implement
+ select_queue class_ops
+Date: Thu, 12 Oct 2017 08:59:03 -0700
+Message-ID: <633dfce2-71f1-f704-7ae2-b1ef2ba9b448@intel.com>
+References: <20171012005449.26533-1-vinicius.gomes@intel.com>
+ <20171012005449.26533-3-vinicius.gomes@intel.com>
+ <CAKgT0Ufo1tG4GpSkGaWuUxqhzEUOT7wcBLuaZx_mZmEL+9SnXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        linux-pci@vger.kernel.org,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        rodney.cummings@ni.com, andre.guedes@intel.com,
+        Jiri Pirko <jiri@resnulli.us>, ivan.briano@intel.com,
+        Richard Cochran <richardcochran@gmail.com>, henrik@austad.us,
+        Jamal Hadi Salim <jhs@mojatatu.com>, levipearson@gmail.com,
+        boon.leong.ong@intel.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:49582 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751040AbdJLQGV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Oct 2017 12:06:21 -0400
+In-Reply-To: <CAKgT0Ufo1tG4GpSkGaWuUxqhzEUOT7wcBLuaZx_mZmEL+9SnXw@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 12, 2017 at 8:43 AM, Florian Fainelli <f.fainelli@gmail.com> wr=
-ote:
-> On October 12, 2017 8:04:19 AM PDT, Jiri Pirko <jiri@resnulli.us> wrote:
->>Thu, Oct 12, 2017 at 04:46:24PM CEST, roopa@cumulusnetworks.com wrote:
->>>On Thu, Oct 12, 2017 at 7:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> Thu, Oct 12, 2017 at 04:35:10PM CEST, roopa@cumulusnetworks.com
->>wrote:
->>>>>On Thu, Oct 12, 2017 at 6:34 AM, Steve Lin
->><steven.lin1@broadcom.com> wrote:
->>>>>> Adds a devlink command for getting & setting device configuration
->>>>>> parameters, and enumerates a bunch of those parameters as devlink
->>>>>> attributes.  Also introduces an attribute that can be set by a
->>>>>> driver to indicate that the config change doesn't take effect
->>>>>> until the next restart (as in the case of the bnxt driver changes
->>>>>> in this patchset, for which all the configuration changes affect
->>NVM
->>>>>> only, and aren't loaded until the next restart.)
->>>>>>
->>>>>> bnxt driver patches make use of these new devlink cmds/attributes.
->>>>>>
->>>>>> Steve Lin (3):
->>>>>>   devlink: Add config parameter get/set operations
->>>>>>   bnxt: Move generic devlink code to new file
->>>>>>   bnxt: Add devlink support for config get/set
->>>>>>
->>>>>
->>>>>Is the goal here to move all ethtool operations to devlink (I saw
->>some
->>>>>attrs related to speed etc). ?.
->>>>>We do need to move ethtool attrs to netlink and devlink is a good
->>>>>place (and of-course leave the current ethtool api around for
->>backward
->>>>>compatibility).
->>>>
->>>> We need to make sure we are not moving things to devlink which don't
->>>> belong there. All options that use "netdev" as a handle should go
->>into
->>>> rtnetlink instead.
->>>>
->>>
->>>Any reason you want to keep that restriction ?.
->>>FWIS, devlink is a driver api just like ethtool is.
->>>and ethtool needs to move to netlink soon...and It would be better to
->>>not put the rtnl_lock burden on ethtool driver operations. Instead of
->>>adding yet another driver api, extending devlink seems like a great
->>>fit to me.
+Hi Alex,
+
+
+On 10/12/2017 08:21 AM, Alexander Duyck wrote:
+> On Wed, Oct 11, 2017 at 5:54 PM, Vinicius Costa Gomes
+> <vinicius.gomes@intel.com> wrote:
+>> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 >>
->>Hmm, the original purpose of devlink was to obtain iface for things
->>that
->>could not use "netdev" as a handle. I try to stick with it as we
->>already
->>have iface for things that could use "netdev" as a handle - rtnetlink.
+>> When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
+>> the netdev_queue pointer that the current child qdisc is associated
+>> with before creating the new qdisc.
 >>
->>Not sure we want to go this way and add "netdev"-handle things into
->>devlink. Thoughts?
->
-> In the current situation where we have ethtool and devlink operating sepa=
-rately on different objects as entry points to the kernel, I agree with tha=
-t design.
->
-> Once we move ethtool (or however we name its successor) over to netlink t=
-here is an opportunity for accessing objects that do and do not have a netd=
-evice representor today (e.g: management ports on switches) with the same i=
-nterface, and devlink could be used for that.
->
-> In terms of compatibility though we should have a pseudo generic layer th=
-at can take ethtool ioctl() and transform that into a netlink message and t=
-hen call back down to drivers with the existing ethtool_ops that are implem=
-ented. It is reasonably simple to use coccinelle to update these ethtool_op=
-s with possibly updated signatures to support netlink attributes and whatno=
-t,
+>> Currently, when using mqprio as root qdisc, the kernel will end up
+>> getting the queue #0 pointer from the mqprio (root qdisc), which leaves
+>> any new child qdisc with a possibly wrong netdev_queue pointer.
+>>
+>> Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
+>> issue and avoid an inconsistent state when child qdiscs are replaced.
+>>
+>> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+>> ---
+>>  net/sched/sch_mqprio.c | 7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+>> index 6bcdfe6e7b63..8c042ae323e3 100644
+>> --- a/net/sched/sch_mqprio.c
+>> +++ b/net/sched/sch_mqprio.c
+>> @@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+>>         }
+>>  }
+>>
+>> +static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
+>> +                                               struct tcmsg *tcm)
+>> +{
+>> +       return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
+>> +}
+>> +
+> 
+> So I was just comparing this against mq_selet_queue, and I was
+> wondering why we are willing to return NULL here instead of just
+> returning a pointer to the first Tx queue? I realize there is the fix
+> in the first patch but it seems like if we are going to go that route
+> then maybe we should update mq as well so that both of these qdiscs
+> behave the same way. Either this should work like mq, or mq should
+> work like this, but we shouldn't have them exposing different
+> behaviors.
 
-ack, that sounds like a good approach.
 
-> but forcing drivers to quit doing ethtool_ops entitely and implement new =
-sets of "ethtool over netlink" ops is a non starter IMHO.
+This was brought up by Cong Wang during the review of our v2. Based on my
+understanding, the point I've made is that for mqprio the inner qdiscs are
+always 'related' to one of the Tx netdev_queues per design. Returning any other
+queue as a fallback seemed like going against that to me.
 
-correct, nobody disagrees with that point.
+I'm still inclined to say that we should keep this function as the patch is
+proposing, thus either returning the correct netdev_queue for a given handle, or
+NULL as a way to flag that something was 'wrong' with it. Returning queue #0 is
+misleading in that sense, imho.
+
+As for aligning mq_select_queue() with this approach, if my reasoning behind
+mqprio is correct and also applies to mq, I would be happy to send that fix as
+part our v7.
+
+What do you think?
+
+
+Thanks,
+Jesus
