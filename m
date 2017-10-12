@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/ncsi: Don't limit vids based on hot_channel
-Date: Wed, 11 Oct 2017 20:13:19 -0700 (PDT)
-Message-ID: <20171011.201319.1327623357814721573.davem@davemloft.net>
-References: <20171011055427.30227-1-sam@mendozajonas.com>
+Subject: Re: [patch net-next v2 0/4] net: sched: get rid of
+ cls_flower->egress_dev
+Date: Wed, 11 Oct 2017 20:15:57 -0700 (PDT)
+Message-ID: <20171011.201557.1830627406292467709.davem@davemloft.net>
+References: <20171011074110.2800-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sam@mendozajonas.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171011055427.30227-1-sam@mendozajonas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        saeedm@mellanox.com, matanb@mellanox.com, leonro@mellanox.com,
+        mlxsw@mellanox.com, David.Laight@ACULAB.COM, gerlitz.or@gmail.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42004 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752029AbdJLDP6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 23:15:58 -0400
+In-Reply-To: <20171011074110.2800-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Date: Wed, 11 Oct 2017 16:54:27 +1100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 11 Oct 2017 09:41:06 +0200
 
-> Currently we drop any new VLAN ids if there are more than the current
-> (or last used) channel can support. Most importantly this is a problem
-> if no channel has been selected yet, resulting in a segfault.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Secondly this does not necessarily reflect the capabilities of any other
-> channels. Instead only drop a new VLAN id if we are already tracking the
-> maximum allowed by the NCSI specification. Per-channel limits are
-> already handled by ncsi_add_filter(), but add a message to set_one_vid()
-> to make it obvious that the channel can not support any more VLAN ids.
+> Introduction of cls_flower->egress_dev was a workaround. Turned out
+> to be a bit ugly hack. So replace it with more generic and reusable
+> infrastructure.
 > 
-> Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+> This is a dependency of shared block introduction that will be send as
+> a follow-up patchsets group.
 
-Applied, thanks.
+Series applied, thanks.
