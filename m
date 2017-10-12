@@ -1,67 +1,102 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] ravb: Consolidate clock handling
-Date: Thu, 12 Oct 2017 14:20:45 +0200
-Message-ID: <CAMuHMdUpvrWpyiAo2qT=5JWHU+jpbDgV8LuvF0-+pC825XQMeg@mail.gmail.com>
-References: <1507796693-14268-1-git-send-email-geert+renesas@glider.be> <20171012095508.vjpqvq37474qp2cb@verge.net.au>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next V7 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Thu, 12 Oct 2017 14:26:44 +0200
+Message-ID: <150781116384.9409.2491501775270038284.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        "David S . Miller" <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        =?UTF-8?Q?Niklas_S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20171012095508.vjpqvq37474qp2cb@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Jesper Dangaard Brouer <brouer@redhat.com>, ast@fiberby.dk,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43738 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752187AbdJLM0v (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Oct 2017 08:26:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+Introducing a new way to redirect XDP frames.  Notice how no driver
+changes are necessary given the design of XDP_REDIRECT.
 
-On Thu, Oct 12, 2017 at 11:55 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Thu, Oct 12, 2017 at 10:24:53AM +0200, Geert Uytterhoeven wrote:
->> The module clock is used for two purposes:
->>   - Wake-on-LAN (WoL), which is optional,
->>   - gPTP Timer Increment (GTI) configuration, which is mandatory.
->>
->> As the clock is needed for GTI configuration anyway, WoL is always
->> available.  Hence remove duplication and repeated obtaining of the clock
->> by making GTI use the stored clock for WoL use.
->
-> Hi Geert,
->
-> I understand from the statements above that the clock must be present,
-> but I'm most sure that I understand why that means that WoL is always
-> available.
+In this V7, I've implemented a --stress-mode for the samples program,
+which between each stats update, adds + removes CPUs from the map
+concurrently with traffic.  I did find and fix some concurrency issues
+in the tear-down path, details in patch desc.  The stress test have
+now been running for 15 hours without any issues, while being bombarded
+with 11.6 Mpps via pktgen_sample04_many_flows.sh.
 
-That refers to the part below: WoL was considered available iff the clock
-is available.
+This redirect map type is called 'cpumap', as it allows redirection
+XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+and start the network stack invocation on that CPU.
 
-@@ -2073,10 +2058,11 @@ static int ravb_probe(struct platform_device *pdev)
+This is a scalability and isolation mechanism, that allow separating
+the early driver network XDP layer, from the rest of the netstack, and
+assigning dedicated CPUs for this stage.  The sysadm control/configure
+the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+many queues are configured via ethtool --set-channels.  Benchmarks
+show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+have the advantage that more packets being "bulk" available per hard
+interrupt[1].
 
-        priv->chip_id = chip_id;
+[1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
 
--       /* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
-        priv->clk = devm_clk_get(&pdev->dev, NULL);
--       if (IS_ERR(priv->clk))
--               priv->clk = NULL;
-+       if (IS_ERR(priv->clk)) {
-+               error = PTR_ERR(priv->clk);
-+               goto out_release;
-+       }
+Use-cases:
 
-But the clock must always be available, else GTI configuration
-would fail, and ravb initialization would return with an error.
+1. End-host based pre-filtering for DDoS mitigation.  This is fast
+   enough to allow software to see and filter all packets wirespeed.
+   Thus, no packets getting silently dropped by hardware.
 
-Gr{oetje,eeting}s,
+2. Given NIC HW unevenly distributes packets across RX queue, this
+   mechanism can be used for redistribution load across CPUs.  This
+   usually happens when HW is unaware of a new protocol.  This
+   resembles RPS (Receive Packet Steering), just faster, but with more
+   responsibility placed on the BPF program for correct steering.
 
-                        Geert
+3. Auto-scaling or power saving via only activating the appropriate
+   number of remote CPUs for handling the current load.  The cpumap
+   tracepoints can function as a feedback loop for this purpose.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+See individual patches for patchset-version changes.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Patchset V7 based on net-next at commit:
+ 812b5ca7d376 ("Add a driver for Renesas uPD60620 and uPD60620A PHYs")
+
+---
+
+Jesper Dangaard Brouer (5):
+      bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+      bpf: XDP_REDIRECT enable use of cpumap
+      bpf: cpumap xdp_buff to skb conversion and allocation
+      bpf: cpumap add tracepoints
+      samples/bpf: add cpumap sample program xdp_redirect_cpu
+
+
+ include/linux/bpf.h                 |   31 +-
+ include/linux/bpf_types.h           |    1 
+ include/linux/netdevice.h           |    1 
+ include/trace/events/xdp.h          |   80 ++++
+ include/uapi/linux/bpf.h            |    1 
+ kernel/bpf/Makefile                 |    1 
+ kernel/bpf/cpumap.c                 |  702 +++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c                |    8 
+ kernel/bpf/verifier.c               |    8 
+ net/core/dev.c                      |   27 +
+ net/core/filter.c                   |  140 ++++++-
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_redirect_cpu_kern.c |  609 ++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_cpu_user.c |  697 +++++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h      |    1 
+ 15 files changed, 2277 insertions(+), 34 deletions(-)
+ create mode 100644 kernel/bpf/cpumap.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_user.c
