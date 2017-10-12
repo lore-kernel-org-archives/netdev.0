@@ -1,64 +1,121 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Ethtool question
-Date: Thu, 12 Oct 2017 14:45:25 -0700
-Message-ID: <59DFE275.3050805@candelatech.com>
-References: <492e57b2-ac0a-ff01-2698-e048e97d8e37@candelatech.com>      <20171011204406.GC30940@tuxdriver.com> <20171011.134919.321292333200236097.davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [patch net-next 06/34] net: core: use dev->ingress_queue instead
+ of tp->q
+Date: Thu, 12 Oct 2017 23:45:43 +0200
+Message-ID: <59DFE287.2040400@iogearbox.net>
+References: <20171012171823.1431-1-jiri@resnulli.us> <20171012171823.1431-7-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, linville@tuxdriver.com
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, ast@kernel.org,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, edumazet@google.com, dsahern@gmail.com,
+        alexander.h.duyck@intel.com, john.fastabend@gmail.com,
+        willemb@google.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:55834 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752965AbdJLVoy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:44:54 -0400
-In-Reply-To: <20171011.134919.321292333200236097.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:48306 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752096AbdJLVqH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:46:07 -0400
+In-Reply-To: <20171012171823.1431-7-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/11/2017 01:49 PM, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Wed, 11 Oct 2017 16:44:07 -0400
+On 10/12/2017 07:17 PM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
 >
->> On Wed, Oct 11, 2017 at 09:51:56AM -0700, Ben Greear wrote:
->>> I noticed today that setting some ethtool settings to the same value
->>> returns an error code.  I would think this should silently return
->>> success instead?  Makes it easier to call it from scripts this way:
->>>
->>> [root@lf0313-6477 lanforge]# ethtool -L eth3 combined 1
->>> combined unmodified, ignoring
->>> no channel parameters changed, aborting
->>> current values: tx 0 rx 0 other 1 combined 1
->>> [root@lf0313-6477 lanforge]# echo $?
->>> 1
->>
->> I just had this discussion a couple of months ago with someone. My
->> initial feeling was like you, a no-op is not a failure. But someone
->> convinced me otherwise...I will now endeavour to remember who that
->> was and how they convinced me...
->>
->> Anyone else have input here?
+> In sch_handle_egress and sch_handle_ingress, don't use tp->q and use
+> dev->ingress_queue which stores the same pointer instead.
 >
-> I guess this usually happens when drivers don't support changing the
-> settings at all.  So they just make their ethtool operation for the
-> 'set' always return an error.
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>   net/core/dev.c | 21 +++++++++++++++------
+>   1 file changed, 15 insertions(+), 6 deletions(-)
 >
-> We could have a generic ethtool helper that does "get" and then if the
-> "set" request is identical just return zero.
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index fcddccb..cb9e5e5 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3273,14 +3273,18 @@ EXPORT_SYMBOL(dev_loopback_xmit);
+>   static struct sk_buff *
+>   sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+>   {
+> +	struct netdev_queue *netdev_queue =
+> +				rcu_dereference_bh(dev->ingress_queue);
+>   	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
+>   	struct tcf_result cl_res;
+> +	struct Qdisc *q;
 >
-> But from another perspective, the error returned from the "set" in this
-> situation also indicates to the user that the driver does not support
-> the "set" operation which has value and meaning in and of itself.  And
-> we'd lose that with the given suggestion.
+> -	if (!cl)
+> +	if (!cl || !netdev_queue)
+>   		return skb;
+> +	q = netdev_queue->qdisc;
 
-In my case, the driver (igb) does support the set, my program just made the same
-ethtool call several times and it fails after the initial change (that actually
-changes something), as best as I can figure.
+NAK, no additional overhead in the software fast-path of
+sch_handle_{ingress,egress}() like this. There are users out there
+that use tc in software only, so performance is critical here.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+>   	/* qdisc_skb_cb(skb)->pkt_len was already set by the caller. */
+> -	qdisc_bstats_cpu_update(cl->q, skb);
+> +	qdisc_bstats_cpu_update(q, skb);
+>
+>   	switch (tcf_classify(skb, cl, &cl_res, false)) {
+>   	case TC_ACT_OK:
+> @@ -3288,7 +3292,7 @@ sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+>   		skb->tc_index = TC_H_MIN(cl_res.classid);
+>   		break;
+>   	case TC_ACT_SHOT:
+> -		qdisc_qstats_cpu_drop(cl->q);
+> +		qdisc_qstats_cpu_drop(q);
+>   		*ret = NET_XMIT_DROP;
+>   		kfree_skb(skb);
+>   		return NULL;
+> @@ -4188,16 +4192,21 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+>   		   struct net_device *orig_dev)
+>   {
+>   #ifdef CONFIG_NET_CLS_ACT
+> +	struct netdev_queue *netdev_queue =
+> +				rcu_dereference_bh(skb->dev->ingress_queue);
+>   	struct tcf_proto *cl = rcu_dereference_bh(skb->dev->ingress_cl_list);
+>   	struct tcf_result cl_res;
+> +	struct Qdisc *q;
+>
+>   	/* If there's at least one ingress present somewhere (so
+>   	 * we get here via enabled static key), remaining devices
+>   	 * that are not configured with an ingress qdisc will bail
+>   	 * out here.
+>   	 */
+> -	if (!cl)
+> +	if (!cl || !netdev_queue)
+>   		return skb;
+> +	q = netdev_queue->qdisc;
+> +
+>   	if (*pt_prev) {
+>   		*ret = deliver_skb(skb, *pt_prev, orig_dev);
+>   		*pt_prev = NULL;
+> @@ -4205,7 +4214,7 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+>
+>   	qdisc_skb_cb(skb)->pkt_len = skb->len;
+>   	skb->tc_at_ingress = 1;
+> -	qdisc_bstats_cpu_update(cl->q, skb);
+> +	qdisc_bstats_cpu_update(q, skb);
+>
+>   	switch (tcf_classify(skb, cl, &cl_res, false)) {
+>   	case TC_ACT_OK:
+> @@ -4213,7 +4222,7 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
+>   		skb->tc_index = TC_H_MIN(cl_res.classid);
+>   		break;
+>   	case TC_ACT_SHOT:
+> -		qdisc_qstats_cpu_drop(cl->q);
+> +		qdisc_qstats_cpu_drop(q);
+>   		kfree_skb(skb);
+>   		return NULL;
+>   	case TC_ACT_STOLEN:
+>
