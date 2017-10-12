@@ -1,374 +1,229 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 6/8] cxgb4: collect TP dump
-Date: Thu, 12 Oct 2017 13:54:43 +0530
-Message-ID: <5082139c97bfc9e5da151306e7f86ae239bd0fbf.1507795407.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 4/8] cxgb4: collect firmware mbox and device log dump
+Date: Thu, 12 Oct 2017 13:54:41 +0530
+Message-ID: <17186a827de1b2bed6cd610ce70f73d86ea6cf53.1507795407.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:53602 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:24954 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754662AbdJLI0N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:26:13 -0400
+        with ESMTP id S1754212AbdJLI0I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:26:08 -0400
 In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Collect firmware mbox and device logs before collecting the rest of
+the hardware dumps to snap the firmware state before the mailbox logs
+are updated by other hardware dumps.
+
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  72 ++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |   1 +
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 114 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |   3 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        |   2 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  21 +++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c        |  20 ++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h      |   2 +
- 8 files changed, 234 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  6 ++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |  2 +
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 84 +++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  6 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  9 +++
+ 5 files changed, 107 insertions(+)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-index 2b717e700bbc..a7446fd09366 100644
+index 71a426dd22f5..2b717e700bbc 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-@@ -32,4 +32,76 @@ struct cudbg_mbox_log {
- 	u32 hi[MBOX_LEN / 8];
- 	u32 lo[MBOX_LEN / 8];
+@@ -26,4 +26,10 @@ struct card_mem {
+ 	u16 size_edc1;
+ 	u16 mem_flag;
  };
 +
-+struct ireg_field {
-+	u32 ireg_addr;
-+	u32 ireg_data;
-+	u32 ireg_local_offset;
-+	u32 ireg_offset_range;
-+};
-+
-+struct ireg_buf {
-+	struct ireg_field tp_pio;
-+	u32 outbuf[32];
-+};
-+
-+#define IREG_NUM_ELEM 4
-+
-+static const u32 t6_tp_pio_array[][IREG_NUM_ELEM] = {
-+	{0x7e40, 0x7e44, 0x020, 28}, /* t6_tp_pio_regs_20_to_3b */
-+	{0x7e40, 0x7e44, 0x040, 10}, /* t6_tp_pio_regs_40_to_49 */
-+	{0x7e40, 0x7e44, 0x050, 10}, /* t6_tp_pio_regs_50_to_59 */
-+	{0x7e40, 0x7e44, 0x060, 14}, /* t6_tp_pio_regs_60_to_6d */
-+	{0x7e40, 0x7e44, 0x06F, 1}, /* t6_tp_pio_regs_6f */
-+	{0x7e40, 0x7e44, 0x070, 6}, /* t6_tp_pio_regs_70_to_75 */
-+	{0x7e40, 0x7e44, 0x130, 18}, /* t6_tp_pio_regs_130_to_141 */
-+	{0x7e40, 0x7e44, 0x145, 19}, /* t6_tp_pio_regs_145_to_157 */
-+	{0x7e40, 0x7e44, 0x160, 1}, /* t6_tp_pio_regs_160 */
-+	{0x7e40, 0x7e44, 0x230, 25}, /* t6_tp_pio_regs_230_to_248 */
-+	{0x7e40, 0x7e44, 0x24a, 3}, /* t6_tp_pio_regs_24c */
-+	{0x7e40, 0x7e44, 0x8C0, 1} /* t6_tp_pio_regs_8c0 */
-+};
-+
-+static const u32 t5_tp_pio_array[][IREG_NUM_ELEM] = {
-+	{0x7e40, 0x7e44, 0x020, 28}, /* t5_tp_pio_regs_20_to_3b */
-+	{0x7e40, 0x7e44, 0x040, 19}, /* t5_tp_pio_regs_40_to_52 */
-+	{0x7e40, 0x7e44, 0x054, 2}, /* t5_tp_pio_regs_54_to_55 */
-+	{0x7e40, 0x7e44, 0x060, 13}, /* t5_tp_pio_regs_60_to_6c */
-+	{0x7e40, 0x7e44, 0x06F, 1}, /* t5_tp_pio_regs_6f */
-+	{0x7e40, 0x7e44, 0x120, 4}, /* t5_tp_pio_regs_120_to_123 */
-+	{0x7e40, 0x7e44, 0x12b, 2}, /* t5_tp_pio_regs_12b_to_12c */
-+	{0x7e40, 0x7e44, 0x12f, 21}, /* t5_tp_pio_regs_12f_to_143 */
-+	{0x7e40, 0x7e44, 0x145, 19}, /* t5_tp_pio_regs_145_to_157 */
-+	{0x7e40, 0x7e44, 0x230, 25}, /* t5_tp_pio_regs_230_to_248 */
-+	{0x7e40, 0x7e44, 0x8C0, 1} /* t5_tp_pio_regs_8c0 */
-+};
-+
-+static const u32 t6_tp_tm_pio_array[][IREG_NUM_ELEM] = {
-+	{0x7e18, 0x7e1c, 0x0, 12}
-+};
-+
-+static const u32 t5_tp_tm_pio_array[][IREG_NUM_ELEM] = {
-+	{0x7e18, 0x7e1c, 0x0, 12}
-+};
-+
-+static const u32 t6_tp_mib_index_array[6][IREG_NUM_ELEM] = {
-+	{0x7e50, 0x7e54, 0x0, 13},
-+	{0x7e50, 0x7e54, 0x10, 6},
-+	{0x7e50, 0x7e54, 0x18, 21},
-+	{0x7e50, 0x7e54, 0x30, 32},
-+	{0x7e50, 0x7e54, 0x50, 22},
-+	{0x7e50, 0x7e54, 0x68, 12}
-+};
-+
-+static const u32 t5_tp_mib_index_array[9][IREG_NUM_ELEM] = {
-+	{0x7e50, 0x7e54, 0x0, 13},
-+	{0x7e50, 0x7e54, 0x10, 6},
-+	{0x7e50, 0x7e54, 0x18, 8},
-+	{0x7e50, 0x7e54, 0x20, 13},
-+	{0x7e50, 0x7e54, 0x30, 16},
-+	{0x7e50, 0x7e54, 0x40, 16},
-+	{0x7e50, 0x7e54, 0x50, 16},
-+	{0x7e50, 0x7e54, 0x60, 6},
-+	{0x7e50, 0x7e54, 0x68, 4}
++struct cudbg_mbox_log {
++	struct mbox_cmd entry;
++	u32 hi[MBOX_LEN / 8];
++	u32 lo[MBOX_LEN / 8];
 +};
  #endif /* __CUDBG_ENTITY_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index 89c47e4c5e82..6c1be3b9cba6 100644
+index e45690fd0932..89c47e4c5e82 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -31,6 +31,7 @@ enum cudbg_dbg_entity_type {
- 	CUDBG_DEV_LOG = 2,
+@@ -28,8 +28,10 @@
+ 
+ enum cudbg_dbg_entity_type {
+ 	CUDBG_REG_DUMP = 1,
++	CUDBG_DEV_LOG = 2,
  	CUDBG_EDC0 = 18,
  	CUDBG_EDC1 = 19,
-+	CUDBG_TP_INDIRECT = 36,
- 	CUDBG_MBOX_LOG = 66,
++	CUDBG_MBOX_LOG = 66,
  	CUDBG_MAX_ENTITY = 70,
  };
+ 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-index b9039562e5d4..4bc739fba185 100644
+index b0a747a6fbb2..b9039562e5d4 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -249,6 +249,120 @@ int collect_edc1_meminfo(struct cudbg_init *pdbg_init,
- 	return collect_mem_region(pdbg_init, dbg_buff, cudbg_err, MEM_EDC1);
+@@ -90,6 +90,45 @@ int collect_reg_dump(struct cudbg_init *pdbg_init,
+ 	return rc;
  }
  
-+int collect_tp_indirect(struct cudbg_init *pdbg_init,
-+			struct cudbg_buffer *dbg_buff,
-+			struct cudbg_error *cudbg_err)
++int collect_fw_devlog(struct cudbg_init *pdbg_init,
++		      struct cudbg_buffer *dbg_buff,
++		      struct cudbg_error *cudbg_err)
 +{
 +	struct adapter *padap = pdbg_init->adap;
 +	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_tp_pio;
-+	int i, rc, n = 0;
-+	u32 size;
++	struct devlog_params *dparams;
++	int rc = 0;
 +
-+	if (is_t5(padap->params.chip))
-+		n = sizeof(t5_tp_pio_array) +
-+		    sizeof(t5_tp_tm_pio_array) +
-+		    sizeof(t5_tp_mib_index_array);
-+	else
-+		n = sizeof(t6_tp_pio_array) +
-+		    sizeof(t6_tp_tm_pio_array) +
-+		    sizeof(t6_tp_mib_index_array);
++	rc = t4_init_devlog_params(padap);
++	if (rc < 0) {
++		cudbg_err->sys_err = rc;
++		return rc;
++	}
 +
-+	n = n / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n;
-+	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
++	dparams = &padap->params.devlog;
++	rc = get_cudbg_buff(dbg_buff, dparams->size, &temp_buff);
 +	if (rc)
 +		return rc;
 +
-+	ch_tp_pio = (struct ireg_buf *)temp_buff.data;
-+
-+	/* TP_PIO */
-+	if (is_t5(padap->params.chip))
-+		n = sizeof(t5_tp_pio_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	else if (is_t6(padap->params.chip))
-+		n = sizeof(t6_tp_pio_array) / (IREG_NUM_ELEM * sizeof(u32));
-+
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *tp_pio = &ch_tp_pio->tp_pio;
-+		u32 *buff = ch_tp_pio->outbuf;
-+
-+		if (is_t5(padap->params.chip)) {
-+			tp_pio->ireg_addr = t5_tp_pio_array[i][0];
-+			tp_pio->ireg_data = t5_tp_pio_array[i][1];
-+			tp_pio->ireg_local_offset = t5_tp_pio_array[i][2];
-+			tp_pio->ireg_offset_range = t5_tp_pio_array[i][3];
-+		} else if (is_t6(padap->params.chip)) {
-+			tp_pio->ireg_addr = t6_tp_pio_array[i][0];
-+			tp_pio->ireg_data = t6_tp_pio_array[i][1];
-+			tp_pio->ireg_local_offset = t6_tp_pio_array[i][2];
-+			tp_pio->ireg_offset_range = t6_tp_pio_array[i][3];
++	/* Collect FW devlog */
++	if (dparams->start != 0) {
++		spin_lock(&padap->win0_lock);
++		rc = t4_memory_rw(padap, padap->params.drv_memwin,
++				  dparams->memtype, dparams->start,
++				  dparams->size,
++				  (__be32 *)(char *)temp_buff.data,
++				  1);
++		spin_unlock(&padap->win0_lock);
++		if (rc) {
++			cudbg_err->sys_err = rc;
++			put_cudbg_buff(&temp_buff, dbg_buff);
++			return rc;
 +		}
-+		t4_tp_pio_read(padap, buff, tp_pio->ireg_offset_range,
-+			       tp_pio->ireg_local_offset, true);
-+		ch_tp_pio++;
-+	}
-+
-+	/* TP_TM_PIO */
-+	if (is_t5(padap->params.chip))
-+		n = sizeof(t5_tp_tm_pio_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	else if (is_t6(padap->params.chip))
-+		n = sizeof(t6_tp_tm_pio_array) / (IREG_NUM_ELEM * sizeof(u32));
-+
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *tp_pio = &ch_tp_pio->tp_pio;
-+		u32 *buff = ch_tp_pio->outbuf;
-+
-+		if (is_t5(padap->params.chip)) {
-+			tp_pio->ireg_addr = t5_tp_tm_pio_array[i][0];
-+			tp_pio->ireg_data = t5_tp_tm_pio_array[i][1];
-+			tp_pio->ireg_local_offset = t5_tp_tm_pio_array[i][2];
-+			tp_pio->ireg_offset_range = t5_tp_tm_pio_array[i][3];
-+		} else if (is_t6(padap->params.chip)) {
-+			tp_pio->ireg_addr = t6_tp_tm_pio_array[i][0];
-+			tp_pio->ireg_data = t6_tp_tm_pio_array[i][1];
-+			tp_pio->ireg_local_offset = t6_tp_tm_pio_array[i][2];
-+			tp_pio->ireg_offset_range = t6_tp_tm_pio_array[i][3];
-+		}
-+		t4_tp_tm_pio_read(padap, buff, tp_pio->ireg_offset_range,
-+				  tp_pio->ireg_local_offset, true);
-+		ch_tp_pio++;
-+	}
-+
-+	/* TP_MIB_INDEX */
-+	if (is_t5(padap->params.chip))
-+		n = sizeof(t5_tp_mib_index_array) /
-+		    (IREG_NUM_ELEM * sizeof(u32));
-+	else if (is_t6(padap->params.chip))
-+		n = sizeof(t6_tp_mib_index_array) /
-+		    (IREG_NUM_ELEM * sizeof(u32));
-+
-+	for (i = 0; i < n ; i++) {
-+		struct ireg_field *tp_pio = &ch_tp_pio->tp_pio;
-+		u32 *buff = ch_tp_pio->outbuf;
-+
-+		if (is_t5(padap->params.chip)) {
-+			tp_pio->ireg_addr = t5_tp_mib_index_array[i][0];
-+			tp_pio->ireg_data = t5_tp_mib_index_array[i][1];
-+			tp_pio->ireg_local_offset =
-+				t5_tp_mib_index_array[i][2];
-+			tp_pio->ireg_offset_range =
-+				t5_tp_mib_index_array[i][3];
-+		} else if (is_t6(padap->params.chip)) {
-+			tp_pio->ireg_addr = t6_tp_mib_index_array[i][0];
-+			tp_pio->ireg_data = t6_tp_mib_index_array[i][1];
-+			tp_pio->ireg_local_offset =
-+				t6_tp_mib_index_array[i][2];
-+			tp_pio->ireg_offset_range =
-+				t6_tp_mib_index_array[i][3];
-+		}
-+		t4_tp_mib_read(padap, buff, tp_pio->ireg_offset_range,
-+			       tp_pio->ireg_local_offset, true);
-+		ch_tp_pio++;
 +	}
 +	write_and_release_buff(&temp_buff, dbg_buff);
 +	return rc;
 +}
 +
- int collect_mbox_log(struct cudbg_init *pdbg_init,
- 		     struct cudbg_buffer *dbg_buff,
- 		     struct cudbg_error *cudbg_err)
+ static int read_fw_mem(struct cudbg_init *pdbg_init,
+ 		       struct cudbg_buffer *dbg_buff, u8 mem_type,
+ 		       unsigned long tot_len, struct cudbg_error *cudbg_err)
+@@ -209,3 +248,48 @@ int collect_edc1_meminfo(struct cudbg_init *pdbg_init,
+ {
+ 	return collect_mem_region(pdbg_init, dbg_buff, cudbg_err, MEM_EDC1);
+ }
++
++int collect_mbox_log(struct cudbg_init *pdbg_init,
++		     struct cudbg_buffer *dbg_buff,
++		     struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_mbox_log *mboxlog = NULL;
++	struct cudbg_buffer temp_buff = { 0 };
++	struct mbox_cmd_log *log = NULL;
++	struct mbox_cmd *entry;
++	unsigned int entry_idx;
++	u16 mbox_cmds;
++	int i, k, rc;
++	u64 flit;
++	u32 size;
++
++	log = padap->mbox_log;
++	mbox_cmds = padap->mbox_log->size;
++	size = sizeof(struct cudbg_mbox_log) * mbox_cmds;
++	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
++	if (rc)
++		return rc;
++
++	mboxlog = (struct cudbg_mbox_log *)temp_buff.data;
++	for (k = 0; k < mbox_cmds; k++) {
++		entry_idx = log->cursor + k;
++		if (entry_idx >= log->size)
++			entry_idx -= log->size;
++
++		entry = mbox_cmd_log_entry(log, entry_idx);
++		/* skip over unused entries */
++		if (entry->timestamp == 0)
++			continue;
++
++		memcpy(&mboxlog->entry, entry, sizeof(struct mbox_cmd));
++		for (i = 0; i < MBOX_LEN / 8; i++) {
++			flit = entry->cmd[i];
++			mboxlog->hi[i] = (u32)(flit >> 32);
++			mboxlog->lo[i] = (u32)flit;
++		}
++		mboxlog++;
++	}
++	write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-index 4a3e522a26ed..8efa25cfdd25 100644
+index 04d66807c153..4a3e522a26ed 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -30,6 +30,9 @@ int collect_edc0_meminfo(struct cudbg_init *pdbg_init,
+@@ -21,12 +21,18 @@
+ int collect_reg_dump(struct cudbg_init *pdbg_init,
+ 		     struct cudbg_buffer *dbg_buff,
+ 		     struct cudbg_error *cudbg_err);
++int collect_fw_devlog(struct cudbg_init *pdbg_init,
++		      struct cudbg_buffer *dbg_buff,
++		      struct cudbg_error *cudbg_err);
+ int collect_edc0_meminfo(struct cudbg_init *pdbg_init,
+ 			 struct cudbg_buffer *dbg_buff,
+ 			 struct cudbg_error *cudbg_err);
  int collect_edc1_meminfo(struct cudbg_init *pdbg_init,
  			 struct cudbg_buffer *dbg_buff,
  			 struct cudbg_error *cudbg_err);
-+int collect_tp_indirect(struct cudbg_init *pdbg_init,
-+			struct cudbg_buffer *dbg_buff,
-+			struct cudbg_error *cudbg_err);
- int collect_mbox_log(struct cudbg_init *pdbg_init,
- 		     struct cudbg_buffer *dbg_buff,
- 		     struct cudbg_error *cudbg_err);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index d4032e373927..4eaca05ebd3a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1634,6 +1634,8 @@ int t4_set_vf_mac_acl(struct adapter *adapter, unsigned int vf,
- 		      unsigned int naddr, u8 *addr);
- void t4_tp_pio_read(struct adapter *adap, u32 *buff, u32 nregs,
- 		    u32 start_index, bool sleep_ok);
-+void t4_tp_tm_pio_read(struct adapter *adap, u32 *buff, u32 nregs,
-+		       u32 start_index, bool sleep_ok);
- void t4_tp_mib_read(struct adapter *adap, u32 *buff, u32 nregs,
- 		    u32 start_index, bool sleep_ok);
++int collect_mbox_log(struct cudbg_init *pdbg_init,
++		     struct cudbg_buffer *dbg_buff,
++		     struct cudbg_error *cudbg_err);
  
+ struct cudbg_entity_hdr *get_entity_hdr(void *outbuf, int i);
+ void align_debug_buffer(struct cudbg_buffer *dbg_buff,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index 337593afe60b..c1a930475b81 100644
+index cd8599083a69..337593afe60b 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -29,11 +29,12 @@ static const struct cudbg_collect_entity collect_hw_dump[] = {
- 	{ CUDBG_MBOX_LOG, collect_mbox_log },
- 	{ CUDBG_DEV_LOG, collect_fw_devlog },
- 	{ CUDBG_REG_DUMP, collect_reg_dump },
-+	{ CUDBG_TP_INDIRECT, collect_tp_indirect },
+@@ -18,6 +18,7 @@
+ #include "t4_regs.h"
+ #include "cxgb4.h"
+ #include "cxgb4_cudbg.h"
++#include "cudbg_entity.h"
+ 
+ static const struct cudbg_collect_entity collect_mem_dump[] = {
+ 	{ CUDBG_EDC0, collect_edc0_meminfo },
+@@ -25,6 +26,8 @@ static const struct cudbg_collect_entity collect_mem_dump[] = {
  };
  
- static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
- {
--	u32 value, len = 0;
-+	u32 value, n = 0, len = 0;
+ static const struct cudbg_collect_entity collect_hw_dump[] = {
++	{ CUDBG_MBOX_LOG, collect_mbox_log },
++	{ CUDBG_DEV_LOG, collect_fw_devlog },
+ 	{ CUDBG_REG_DUMP, collect_reg_dump },
+ };
  
- 	switch (entity) {
- 	case CUDBG_REG_DUMP:
-@@ -68,6 +69,24 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+@@ -46,6 +49,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 			break;
+ 		}
+ 		break;
++	case CUDBG_DEV_LOG:
++		len = adap->params.devlog.size;
++		break;
+ 	case CUDBG_EDC0:
+ 		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
+ 		if (value & EDRAM0_ENABLE_F) {
+@@ -62,6 +68,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
  		}
  		len = mbytes_to_bytes(len);
  		break;
-+	case CUDBG_TP_INDIRECT:
-+		switch (CHELSIO_CHIP_VERSION(adap->params.chip)) {
-+		case CHELSIO_T5:
-+			n = sizeof(t5_tp_pio_array) +
-+			    sizeof(t5_tp_tm_pio_array) +
-+			    sizeof(t5_tp_mib_index_array);
-+			break;
-+		case CHELSIO_T6:
-+			n = sizeof(t6_tp_pio_array) +
-+			    sizeof(t6_tp_tm_pio_array) +
-+			    sizeof(t6_tp_mib_index_array);
-+			break;
-+		default:
-+			break;
-+		}
-+		n = n / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n;
++	case CUDBG_MBOX_LOG:
++		len = sizeof(struct cudbg_mbox_log) * adap->mbox_log->size;
 +		break;
- 	case CUDBG_MBOX_LOG:
- 		len = sizeof(struct cudbg_mbox_log) * adap->mbox_log->size;
+ 	default:
  		break;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 0f12bf507d56..8fa40f9e75c4 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -5118,6 +5118,9 @@ static void t4_tp_indirect_rw(struct adapter *adap, u32 reg_addr, u32 reg_data,
- 	case TP_PIO_ADDR_A:
- 		cmd = FW_LDST_ADDRSPC_TP_PIO;
- 		break;
-+	case TP_TM_PIO_ADDR_A:
-+		cmd = FW_LDST_ADDRSPC_TP_TM_PIO;
-+		break;
- 	case TP_MIB_INDEX_A:
- 		cmd = FW_LDST_ADDRSPC_TP_MIB;
- 		break;
-@@ -5175,6 +5178,23 @@ static void t4_tp_pio_write(struct adapter *adap, u32 *buff, u32 nregs,
- 			  start_index, 0, sleep_ok);
- }
- 
-+/**
-+ * t4_tp_tm_pio_read - Read TP TM PIO registers
-+ * @adap: the adapter
-+ * @buff: where the indirect register values are written
-+ * @nregs: how many indirect registers to read
-+ * @start_index: index of first indirect register to read
-+ * @sleep_ok: if true we may sleep while awaiting command completion
-+ *
-+ * Read TP TM PIO Registers
-+ **/
-+void t4_tp_tm_pio_read(struct adapter *adap, u32 *buff, u32 nregs,
-+		       u32 start_index, bool sleep_ok)
-+{
-+	t4_tp_indirect_rw(adap, TP_TM_PIO_ADDR_A, TP_TM_PIO_DATA_A, buff,
-+			  nregs, start_index, 1, sleep_ok);
-+}
-+
- /**
-  * t4_tp_mib_read - Read TP MIB registers
-  * @adap: the adapter
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index dac90837842b..82614e078f50 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -1447,6 +1447,8 @@
- #define LKPTBLQUEUE0_M    0x3ffU
- #define LKPTBLQUEUE0_G(x) (((x) >> LKPTBLQUEUE0_S) & LKPTBLQUEUE0_M)
- 
-+#define TP_TM_PIO_ADDR_A 0x7e18
-+#define TP_TM_PIO_DATA_A 0x7e1c
- #define TP_PIO_ADDR_A	0x7e40
- #define TP_PIO_DATA_A	0x7e44
- #define TP_MIB_INDEX_A	0x7e50
+ 	}
 -- 
 2.14.1
