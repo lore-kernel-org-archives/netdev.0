@@ -1,212 +1,117 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [net-next PATCH] mqprio: Reserve last 32 classid values for HW
- traffic classes and misc IDs
-Date: Thu, 12 Oct 2017 14:56:06 -0700
-Message-ID: <f9f2c2a7-51bf-0637-12aa-d22099b89272@intel.com>
-References: <20171012182658.14632.9010.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Alexander Duyck <alexander.duyck@gmail.com>, jiri@resnulli.us,
-        amritha.nambiar@intel.com, vinicius.gomes@intel.com,
-        netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:46811 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750990AbdJLWDY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Oct 2017 18:03:24 -0400
-In-Reply-To: <20171012182658.14632.9010.stgit@localhost.localdomain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: set random switch address
+Date: Thu, 12 Oct 2017 18:10:09 -0400
+Message-ID: <20171012221009.14615-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Alex,
+An Ethernet switch may support having a MAC address, which can be used
+as the switch's source address in transmitted full-duplex Pause frames.
 
+If a DSA switch supports the related .set_addr operation, the DSA core
+sets the master's MAC address on the switch.
 
-On 10/12/2017 11:38 AM, Alexander Duyck wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This patch makes a slight tweak to mqprio in order to bring the
-> classid values used back in line with what is used for mq. The general idea
-> is to reserve values :ffe0 - :ffef to identify hardware traffic classes
-> normally reported via dev->num_tc. By doing this we can maintain a
-> consistent behavior with mq for classid where :1 - :ffdf will represent a
-> physical qdisc mapped onto a Tx queue represented by classid - 1, and the
-> traffic classes will be mapped onto a known subset of classid values
-> reserved for our virtual qdiscs.
-> 
-> Note I reserved the range from :fff0 - :ffff since this way we might be
-> able to reuse these classid values with clsact and ingress which would mean
-> that for mq, mqprio, ingress, and clsact we should be able to maintain a
-> similar classid layout.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
-> So I thought I would put this out here as a first step towards trying to
-> address some of Jiri's concerns about wanting to have a consistent
-> userspace API.
-> 
-> The plan is to follow this up with patches to ingress and clsact to look at
-> exposing a set of virtual qdiscs similar to what we already have for the HW
-> traffic classes in mqprio, although I won't bother with the ability to dump
-> class stats since they don't actually enqueue anything.
-> 
->  include/uapi/linux/pkt_sched.h |    1 +
->  net/sched/sch_mqprio.c         |   79 +++++++++++++++++++++++-----------------
->  2 files changed, 47 insertions(+), 33 deletions(-)
-> 
-> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-> index 099bf5528fed..174f1cf7e7f9 100644
-> --- a/include/uapi/linux/pkt_sched.h
-> +++ b/include/uapi/linux/pkt_sched.h
-> @@ -74,6 +74,7 @@ struct tc_estimator {
->  #define TC_H_INGRESS    (0xFFFFFFF1U)
->  #define TC_H_CLSACT	TC_H_INGRESS
->  
-> +#define TC_H_MIN_PRIORITY	0xFFE0U
->  #define TC_H_MIN_INGRESS	0xFFF2U
->  #define TC_H_MIN_EGRESS		0xFFF3U
->  
-> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-> index 6bcdfe6e7b63..a61ef119a556 100644
-> --- a/net/sched/sch_mqprio.c
-> +++ b/net/sched/sch_mqprio.c
-> @@ -115,6 +115,10 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
->  	if (!netif_is_multiqueue(dev))
->  		return -EOPNOTSUPP;
->  
-> +	/* make certain can allocate enough classids to handle queues */
-> +	if (dev->num_tx_queues >= TC_H_MIN_PRIORITY)
-> +		return -ENOMEM;
-> +
->  	if (!opt || nla_len(opt) < sizeof(*qopt))
->  		return -EINVAL;
->  
-> @@ -193,7 +197,7 @@ static struct netdev_queue *mqprio_queue_get(struct Qdisc *sch,
->  					     unsigned long cl)
->  {
->  	struct net_device *dev = qdisc_dev(sch);
-> -	unsigned long ntx = cl - 1 - netdev_get_num_tc(dev);
-> +	unsigned long ntx = cl - 1;
->  
->  	if (ntx >= dev->num_tx_queues)
->  		return NULL;
-> @@ -282,38 +286,35 @@ static unsigned long mqprio_find(struct Qdisc *sch, u32 classid)
->  	struct net_device *dev = qdisc_dev(sch);
->  	unsigned int ntx = TC_H_MIN(classid);
->  
-> -	if (ntx > dev->num_tx_queues + netdev_get_num_tc(dev))
-> -		return 0;
-> -	return ntx;
-> +	/* There are essentially two regions here that have valid classid
-> +	 * values. The first region will have a classid value of 1 through
-> +	 * num_tx_queues. All of these are backed by actual Qdiscs.
-> +	 */
-> +	if (ntx < TC_H_MIN_PRIORITY)
-> +		return (ntx <= dev->num_tx_queues) ? ntx : 0;
-> +
-> +	/* The second region represents the hardware traffic classes. These
-> +	 * are represented by classid values of TC_H_MIN_PRIORITY through
-> +	 * TC_H_MIN_PRIORITY + netdev_get_num_tc - 1
-> +	 */
-> +	return ((ntx - TC_H_MIN_PRIORITY) < netdev_get_num_tc(dev)) ? ntx : 0;
->  }
->  
->  static int mqprio_dump_class(struct Qdisc *sch, unsigned long cl,
->  			 struct sk_buff *skb, struct tcmsg *tcm)
->  {
-> -	struct net_device *dev = qdisc_dev(sch);
-> +	if (cl < TC_H_MIN_PRIORITY) {
-> +		struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
-> +		struct net_device *dev = qdisc_dev(sch);
-> +		int tc = netdev_txq_to_tc(dev, cl - 1);
->  
-> -	if (cl <= netdev_get_num_tc(dev)) {
-> +		tcm->tcm_parent = (tc < 0) ? 0 :
-> +			TC_H_MAKE(TC_H_MAJ(sch->handle),
-> +				  TC_H_MIN(tc + TC_H_MIN_PRIORITY));
-> +		tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
-> +	} else {
->  		tcm->tcm_parent = TC_H_ROOT;
->  		tcm->tcm_info = 0;
-> -	} else {
-> -		int i;
-> -		struct netdev_queue *dev_queue;
-> -
-> -		dev_queue = mqprio_queue_get(sch, cl);
-> -		tcm->tcm_parent = 0;
-> -		for (i = 0; i < netdev_get_num_tc(dev); i++) {
-> -			struct netdev_tc_txq tc = dev->tc_to_txq[i];
-> -			int q_idx = cl - netdev_get_num_tc(dev);
-> -
-> -			if (q_idx > tc.offset &&
-> -			    q_idx <= tc.offset + tc.count) {
-> -				tcm->tcm_parent =
-> -					TC_H_MAKE(TC_H_MAJ(sch->handle),
-> -						  TC_H_MIN(i + 1));
-> -				break;
-> -			}
-> -		}
-> -		tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
->  	}
->  	tcm->tcm_handle |= TC_H_MIN(cl);
->  	return 0;
-> @@ -324,15 +325,14 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
->  	__releases(d->lock)
->  	__acquires(d->lock)
->  {
-> -	struct net_device *dev = qdisc_dev(sch);
-> -
-> -	if (cl <= netdev_get_num_tc(dev)) {
-> +	if (cl >= TC_H_MIN_PRIORITY) {
->  		int i;
->  		__u32 qlen = 0;
->  		struct Qdisc *qdisc;
->  		struct gnet_stats_queue qstats = {0};
->  		struct gnet_stats_basic_packed bstats = {0};
-> -		struct netdev_tc_txq tc = dev->tc_to_txq[cl - 1];
-> +		struct net_device *dev = qdisc_dev(sch);
-> +		struct netdev_tc_txq tc = dev->tc_to_txq[cl & TC_BITMASK];
->  
->  		/* Drop lock here it will be reclaimed before touching
->  		 * statistics this is required because the d->lock we
-> @@ -385,12 +385,25 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
->  
->  	/* Walk hierarchy with a virtual class per tc */
->  	arg->count = arg->skip;
-> -	for (ntx = arg->skip;
-> -	     ntx < dev->num_tx_queues + netdev_get_num_tc(dev);
-> -	     ntx++) {
-> +	for (ntx = arg->skip; ntx < netdev_get_num_tc(dev); ntx++) {
-> +		if (arg->fn(sch, ntx + TC_H_MIN_PRIORITY, arg) < 0) {
-> +			arg->stop = 1;
-> +			return;
-> +		}
-> +		arg->count++;
-> +	}
-> +
-> +	/* Pad the values and skip over unused traffic classes */
-> +	if (ntx < TC_MAX_QUEUE) {
-> +		arg->count = TC_MAX_QUEUE;
-> +		ntx = TC_MAX_QUEUE;
-> +	}
-> +
-> +	/* Reset offset, sort out remaining per-queue qdiscs */
-> +	for (ntx -= TC_MAX_QUEUE; ntx < dev->num_tx_queues; ntx++) {
->  		if (arg->fn(sch, ntx + 1, arg) < 0) {
->  			arg->stop = 1;
-> -			break;
-> +			return;
->  		}
->  		arg->count++;
->  	}
-> 
+This won't make sense anymore in a multi-CPU ports system, because there
+won't be a unique master device assigned to a switch tree.
 
-Tested-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+To fix this, assign a random MAC address to the switch chip instead.
 
-Looks good.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa2.c     |  8 +++-----
+ net/dsa/dsa_priv.h |  1 +
+ net/dsa/legacy.c   |  8 +++-----
+ net/dsa/switch.c   | 17 +++++++++++++++++
+ 4 files changed, 24 insertions(+), 10 deletions(-)
 
-
-thanks,
-Jesus
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 54ed054777bd..8e5780ddd7f9 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -336,11 +336,9 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ 	if (err)
+ 		return err;
+ 
+-	if (ds->ops->set_addr) {
+-		err = ds->ops->set_addr(ds, dst->cpu_dp->netdev->dev_addr);
+-		if (err < 0)
+-			return err;
+-	}
++	err = dsa_switch_set_addr(ds);
++	if (err)
++		return err;
+ 
+ 	if (!ds->slave_mii_bus && ds->ops->phy_read) {
+ 		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 2850077cc9cc..9c4c17a4bd6b 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -172,6 +172,7 @@ void dsa_slave_unregister_notifier(void);
+ /* switch.c */
+ int dsa_switch_register_notifier(struct dsa_switch *ds);
+ void dsa_switch_unregister_notifier(struct dsa_switch *ds);
++int dsa_switch_set_addr(struct dsa_switch *ds);
+ 
+ /* tag_brcm.c */
+ extern const struct dsa_device_ops brcm_netdev_ops;
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index 19ff6e0a21dc..340ca7997271 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -172,11 +172,9 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (ops->set_addr) {
+-		ret = ops->set_addr(ds, master->dev_addr);
+-		if (ret < 0)
+-			return ret;
+-	}
++	ret = dsa_switch_set_addr(ds);
++	if (ret)
++		return ret;
+ 
+ 	if (!ds->slave_mii_bus && ops->phy_read) {
+ 		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+diff --git a/net/dsa/switch.c b/net/dsa/switch.c
+index e6c06aa349a6..b45a26b006af 100644
+--- a/net/dsa/switch.c
++++ b/net/dsa/switch.c
+@@ -10,6 +10,7 @@
+  * (at your option) any later version.
+  */
+ 
++#include <linux/etherdevice.h>
+ #include <linux/netdevice.h>
+ #include <linux/notifier.h>
+ #include <net/switchdev.h>
+@@ -267,3 +268,19 @@ void dsa_switch_unregister_notifier(struct dsa_switch *ds)
+ 	if (err)
+ 		dev_err(ds->dev, "failed to unregister notifier (%d)\n", err);
+ }
++
++int dsa_switch_set_addr(struct dsa_switch *ds)
++{
++	u8 addr[6];
++	int err;
++
++	if (ds->ops->set_addr) {
++		eth_random_addr(addr);
++
++		err = ds->ops->set_addr(ds, addr);
++		if (err)
++			return err;
++	}
++
++	return 0;
++}
+-- 
+2.14.2
