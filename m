@@ -1,55 +1,64 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next 01/12] bpf: verifier: set reg_type on context
- accesses in second pass
-Date: Thu, 12 Oct 2017 14:39:50 -0700
-Message-ID: <20171012143950.58c1b601@cakuba.netronome.com>
-References: <20171012173418.4029-1-jakub.kicinski@netronome.com>
-        <20171012173418.4029-2-jakub.kicinski@netronome.com>
-        <59DFD3DE.9050907@iogearbox.net>
-        <20171012135632.1fa408bc@cakuba.netronome.com>
-        <59DFDFA1.3020809@iogearbox.net>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Ethtool question
+Date: Thu, 12 Oct 2017 14:45:25 -0700
+Message-ID: <59DFE275.3050805@candelatech.com>
+References: <492e57b2-ac0a-ff01-2698-e048e97d8e37@candelatech.com>      <20171011204406.GC30940@tuxdriver.com> <20171011.134919.321292333200236097.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:46441 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750990AbdJLVjy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:39:54 -0400
-Received: by mail-qt0-f174.google.com with SMTP id 1so16256702qtn.3
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 14:39:53 -0700 (PDT)
-In-Reply-To: <59DFDFA1.3020809@iogearbox.net>
+Received: from mail2.candelatech.com ([208.74.158.173]:55834 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752965AbdJLVoy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:44:54 -0400
+In-Reply-To: <20171011.134919.321292333200236097.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Oct 2017 23:33:21 +0200, Daniel Borkmann wrote:
-> On 10/12/2017 10:56 PM, Jakub Kicinski wrote:
-> > On Thu, 12 Oct 2017 22:43:10 +0200, Daniel Borkmann wrote:  
-> [...]
-> >> It would be nice to keep the reg_type setting in one place, meaning
-> >> the callbacks themselves, so we wouldn't need to maintain this in
-> >> multiple places.  
-> >
-> > Hm.. I though this was the smallest and simplest change.  I could
-> > translate the offsets but that seems wobbly.  Or try to consolidate the
-> > call into the same if () branch?  Not sure..  
-> 
-> Different callbacks for post-verification would be good at min as it
-> would allow to keep all the context access info in one place for a
-> given type at least.
+On 10/11/2017 01:49 PM, David Miller wrote:
+> From: "John W. Linville" <linville@tuxdriver.com>
+> Date: Wed, 11 Oct 2017 16:44:07 -0400
+>
+>> On Wed, Oct 11, 2017 at 09:51:56AM -0700, Ben Greear wrote:
+>>> I noticed today that setting some ethtool settings to the same value
+>>> returns an error code.  I would think this should silently return
+>>> success instead?  Makes it easier to call it from scripts this way:
+>>>
+>>> [root@lf0313-6477 lanforge]# ethtool -L eth3 combined 1
+>>> combined unmodified, ignoring
+>>> no channel parameters changed, aborting
+>>> current values: tx 0 rx 0 other 1 combined 1
+>>> [root@lf0313-6477 lanforge]# echo $?
+>>> 1
+>>
+>> I just had this discussion a couple of months ago with someone. My
+>> initial feeling was like you, a no-op is not a failure. But someone
+>> convinced me otherwise...I will now endeavour to remember who that
+>> was and how they convinced me...
+>>
+>> Anyone else have input here?
+>
+> I guess this usually happens when drivers don't support changing the
+> settings at all.  So they just make their ethtool operation for the
+> 'set' always return an error.
+>
+> We could have a generic ethtool helper that does "get" and then if the
+> "set" request is identical just return zero.
+>
+> But from another perspective, the error returned from the "set" in this
+> situation also indicates to the user that the driver does not support
+> the "set" operation which has value and meaning in and of itself.  And
+> we'd lose that with the given suggestion.
 
-Sorry to be clear - you're suggesting adding a new callback to struct
-bpf_verifier_ops, or swapping the struct bpf_verifier_ops for a
-special post-verification one?
+In my case, the driver (igb) does support the set, my program just made the same
+ethtool call several times and it fails after the initial change (that actually
+changes something), as best as I can figure.
 
-> > As a bonus info I discovered there is a bug in -net with how things are
-> > converted.  We allow arithmetic on context pointers but then only
-> > look at the insn.off in the converter...  I'm working on a fix.  
-> 
-> Ohh well, good catch, indeed! :( Can you also add coverage to the
-> bpf selftests for this?
+Thanks,
+Ben
 
-Will do!
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
