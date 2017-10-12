@@ -1,39 +1,36 @@
-From: Timur Tabi <timur@codeaurora.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 3/4] net: qcom/emac: enforce DMA address restrictions
-Date: Thu, 12 Oct 2017 11:52:58 -0500
-Message-ID: <c1ddf6d6-c28f-2bfc-c5e4-dcb065019fb3@codeaurora.org>
-References: <1507751546-10265-1-git-send-email-timur@codeaurora.org>
- <1507751546-10265-4-git-send-email-timur@codeaurora.org>
- <063D6719AE5E284EB5DD2968C1650D6DD00923AE@AcuExch.aculab.com>
- <e523734d-d845-8eae-4a5b-e679b8e46654@codeaurora.org>
- <063D6719AE5E284EB5DD2968C1650D6DD0092ADF@AcuExch.aculab.com>
+Date: Thu, 12 Oct 2017 09:58:37 -0700 (PDT)
+Message-ID: <20171012.095837.2057549694773237248.davem@davemloft.net>
+References: <1507751546-10265-4-git-send-email-timur@codeaurora.org>
+        <063D6719AE5E284EB5DD2968C1650D6DD00923AE@AcuExch.aculab.com>
+        <e523734d-d845-8eae-4a5b-e679b8e46654@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-        "David S. Miller" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:48682 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751040AbdJLQxA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:53:00 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0092ADF@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:52892 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752849AbdJLQ6k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:58:40 -0400
+In-Reply-To: <e523734d-d845-8eae-4a5b-e679b8e46654@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/12/2017 11:20 AM, David Laight wrote:
->> I'm pretty sure that kzalloc does not make that guarantee, and I don't
->> think dma_alloc_coherent does either.
+From: Timur Tabi <timur@codeaurora.org>
+Date: Thu, 12 Oct 2017 09:13:25 -0500
 
-> dma_alloc_coherent() definitely does.
-> And I've a driver that relies on it (for 16k blocks).
+> On 10/12/17 4:30 AM, David Laight wrote:
+>> Isn't the memory allocated by a single kzalloc() call?
+> 
+> dma_alloc_coherenent, actually.
+> 
+>> IIRC that guarantees it doesn't cross a power or 2 boundary less than
+>> the size.
+> 
+> I'm pretty sure that kzalloc does not make that guarantee, and I don't
+> think dma_alloc_coherent does either.
 
-What about when an IOMMU is used?  The DMA address that gets returned is 
-not necessarily the physical address of the memory buffer.
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Both make that guarantee, even when an IOMMU is used.
