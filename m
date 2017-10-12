@@ -1,113 +1,63 @@
-From: Joel Stanley <joel@jms.id.au>
-Subject: [PATCH v2] net: ftgmac100: Request clock and set speed
-Date: Thu, 12 Oct 2017 11:32:01 +0800
-Message-ID: <20171012033201.12845-1-joel@jms.id.au>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Andrew Jeffery <andrew@aj.id.au>
-To: "David S . Miller" <davem@davemloft.net>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: remove obsolete helpers
+Date: Wed, 11 Oct 2017 20:45:40 -0700
+Message-ID: <1507779940.31614.43.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:44761 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753086AbdJLDpm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 23:45:42 -0400
+Received: by mail-pf0-f195.google.com with SMTP id x7so3144909pfa.1
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 20:45:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-According to the ASPEED datasheet, gigabit speeds require a clock of
-100MHz or higher. Other speeds require 25MHz or higher. This patch
-configures a 100MHz clock if the system has a direct-attached
-PHY, or 25MHz if the system is running NC-SI which is limited to 100MHz.
+From: Eric Dumazet <edumazet@google.com>
 
-There appear to be no other upstream users of the FTGMAC100 driver so it
-is hard to know the clocking requirements of other platforms. Therefore
-a conservative approach was taken with enabling clocks. If the platform
-is not ASPEED, both requesting the clock and configuring the speed is
-skipped.
+Remove three inline helpers that are no longer needed.
 
-Signed-off-by: Joel Stanley <joel@jms.id.au>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-Andrew, as I'm travelling can you please test this on the evb and a
-palmetto? Use my wip/aspeed-v4.14-clk branch, or OpenBMC's dev-4.13.
+ include/net/tcp.h |   17 -----------------
+ 1 file changed, 17 deletions(-)
 
-David, please wait for Andrew's tested-by before applying.
-
-Cheers!
-
-v2:
- - only touch the clocks on Aspeed platforms
- - unconditionally call clk_unprepare_disable
-
- drivers/net/ethernet/faraday/ftgmac100.c | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
-
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 9ed8e4b81530..cd352bf41da1 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -21,6 +21,7 @@
- 
- #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
- 
-+#include <linux/clk.h>
- #include <linux/dma-mapping.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
-@@ -59,6 +60,9 @@
- /* Min number of tx ring entries before stopping queue */
- #define TX_THRESHOLD		(MAX_SKB_FRAGS + 1)
- 
-+#define FTGMAC_100MHZ		100000000
-+#define FTGMAC_25MHZ		25000000
-+
- struct ftgmac100 {
- 	/* Registers */
- 	struct resource *res;
-@@ -96,6 +100,7 @@ struct ftgmac100 {
- 	struct napi_struct napi;
- 	struct work_struct reset_task;
- 	struct mii_bus *mii_bus;
-+	struct clk *clk;
- 
- 	/* Link management */
- 	int cur_speed;
-@@ -1734,6 +1739,22 @@ static void ftgmac100_ncsi_handler(struct ncsi_dev *nd)
- 		    nd->link_up ? "up" : "down");
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 15163454174babdcb465904f725b919268dd1bc7..3b3b9b968e2d4b3469aa4f69d708a440bda578e7 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1629,18 +1629,6 @@ static inline struct sk_buff *tcp_write_queue_tail(const struct sock *sk)
+ 	return skb_peek_tail(&sk->sk_write_queue);
  }
  
-+static void ftgmac100_setup_clk(struct ftgmac100_priv *priv)
-+{
-+	priv->clk = devm_clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(priv->clk))
-+		return;
-+
-+	clk_prepare_enable(priv->clk);
-+
-+	/* Aspeed specifies a 100MHz clock is required for up to
-+	 * 1000Mbit link speeds. As NCSI is limited to 100Mbit, 25MHz
-+	 * is sufficient
-+	 */
-+	clk_set_rate(priv->clk, priv->is_ncsi ? FTGMAC_25MHZ :
-+			FTGMAC_100MHZ);
-+}
-+
- static int ftgmac100_probe(struct platform_device *pdev)
- {
- 	struct resource *res;
-@@ -1830,6 +1851,9 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 			goto err_setup_mdio;
+-static inline struct sk_buff *tcp_write_queue_next(const struct sock *sk,
+-						   const struct sk_buff *skb)
+-{
+-	return skb_queue_next(&sk->sk_write_queue, skb);
+-}
+-
+-static inline struct sk_buff *tcp_write_queue_prev(const struct sock *sk,
+-						   const struct sk_buff *skb)
+-{
+-	return skb_queue_prev(&sk->sk_write_queue, skb);
+-}
+-
+ #define tcp_for_write_queue_from_safe(skb, tmp, sk)			\
+ 	skb_queue_walk_from_safe(&(sk)->sk_write_queue, skb, tmp)
+ 
+@@ -1697,11 +1685,6 @@ static inline void tcp_add_write_queue_tail(struct sock *sk, struct sk_buff *skb
  	}
+ }
  
-+	if (priv->is_aspeed)
-+		ftgmac100_setup_clk(priv);
-+
- 	/* Default ring sizes */
- 	priv->rx_q_entries = priv->new_rx_q_entries = DEF_RX_QUEUE_ENTRIES;
- 	priv->tx_q_entries = priv->new_tx_q_entries = DEF_TX_QUEUE_ENTRIES;
-@@ -1883,6 +1907,8 @@ static int ftgmac100_remove(struct platform_device *pdev)
- 
- 	unregister_netdev(netdev);
- 
-+	clk_disable_unprepare(priv->clk);
-+
- 	/* There's a small chance the reset task will have been re-queued,
- 	 * during stop, make sure it's gone before we free the structure.
- 	 */
--- 
-2.14.1
+-static inline void __tcp_add_write_queue_head(struct sock *sk, struct sk_buff *skb)
+-{
+-	__skb_queue_head(&sk->sk_write_queue, skb);
+-}
+-
+ /* Insert new before skb on the write queue of sk.  */
+ static inline void tcp_insert_write_queue_before(struct sk_buff *new,
+ 						  struct sk_buff *skb,
