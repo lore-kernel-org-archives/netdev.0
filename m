@@ -1,73 +1,39 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: Re: [PATCH net-next 1/1] veth: tweak creation of veth device
-Date: Thu, 12 Oct 2017 12:49:37 -0400
-Message-ID: <85tvz4wbtq.fsf@mojatatu.com>
-References: <1507666124-8780-1-git-send-email-mrv@mojatatu.com>
-        <20171011.151706.1844884518098480593.davem@davemloft.net>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 3/4] net: qcom/emac: enforce DMA address restrictions
+Date: Thu, 12 Oct 2017 11:52:58 -0500
+Message-ID: <c1ddf6d6-c28f-2bfc-c5e4-dcb065019fb3@codeaurora.org>
+References: <1507751546-10265-1-git-send-email-timur@codeaurora.org>
+ <1507751546-10265-4-git-send-email-timur@codeaurora.org>
+ <063D6719AE5E284EB5DD2968C1650D6DD00923AE@AcuExch.aculab.com>
+ <e523734d-d845-8eae-4a5b-e679b8e46654@codeaurora.org>
+ <063D6719AE5E284EB5DD2968C1650D6DD0092ADF@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Laight <David.Laight@ACULAB.COM>,
+        "David S. Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:48100 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752973AbdJLQtl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:49:41 -0400
-Received: by mail-io0-f194.google.com with SMTP id h70so6157678ioi.4
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 09:49:41 -0700 (PDT)
-In-Reply-To: <20171011.151706.1844884518098480593.davem@davemloft.net> (David
-        Miller's message of "Wed, 11 Oct 2017 15:17:06 -0700 (PDT)")
+Received: from smtp.codeaurora.org ([198.145.29.96]:48682 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751040AbdJLQxA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:53:00 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0092ADF@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On 10/12/2017 11:20 AM, David Laight wrote:
+>> I'm pretty sure that kzalloc does not make that guarantee, and I don't
+>> think dma_alloc_coherent does either.
 
->> When creating veth pair, at first rtnl_new_link() creates veth_dev, i.e.
->> one end of the veth pipe, but not registers it; then veth_newlink() gets
->> invoked, where peer dev is created _and_ registered, followed by veth_dev
->> registration, which may fail if peer information, that is VETH_INFO_PEER
->> attribute, has not been provided and the kernel will allocate unique veth
->> name.
->> 
->> So, we should ask the kernel to allocate unique name for veth_dev only
->> when peer info is not available.
->> 
->> Example:
->> 
->> % ip link dev veth0 type veth
->> RTNETLINK answers: File exists
->> 
->> After fix:
->> % ip link dev veth0 type veth
->> % ip link show dev veth0
->> 5: veth0@veth1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->>     link/ether f6:ef:8b:96:f4:ec brd ff:ff:ff:ff:ff:ff
->> %
->> 
->> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
->
-> I'm not so sure about this.
->
-> If we specify an explicit tb[IFLA_NAME], we shouldn't completely ignore that
-> request from the user just because they didn't give any peer information.
->
-> I see what happens in this case, the peer gets 'veth0' and then since
-> the user asked for 'veth0' for the non-peer it conflicts.
+> dma_alloc_coherent() definitely does.
+> And I've a driver that relies on it (for 16k blocks).
 
-So, the only way is to require user space to _always_ pass in
-VETH_INFO_PEER, which may break existing code (fixing iproute2 is easiest).
+What about when an IOMMU is used?  The DMA address that gets returned is 
+not necessarily the physical address of the memory buffer.
 
-Otherwise ignore netlink messages lacking of VETH_INFO_PEER and return
-error.
-
-IMO, neither of these solutions seem reasonable.
-
-Also, there are valid use cases where a user does not care about veth
-name sitting in container, but assigns a name following certain
-pattern to a host-side veth.
-
-> Well, too bad.  The user must work to orchestrate things such that
-> this doesn't happen.  That means either providing the IFLA_NAME for
-> both the peer and the non-peer, or specifying neither.
->
-> I'm not applying this, sorry.
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
