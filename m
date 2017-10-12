@@ -1,43 +1,48 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: staging/irda/net: Adjustments for several function implementations
-Date: Thu, 12 Oct 2017 15:45:09 +0200
-Message-ID: <8c28f031-c7aa-154c-7175-067538f8957a@users.sourceforge.net>
-References: <8152401b-d68d-c4fe-2619-82a09e0c52ec@users.sourceforge.net>
- <878tggwr70.fsf@miraculix.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Georgiana Chelu <georgiana.chelu93@gmail.com>,
- Samuel Ortiz <samuel@sortiz.org>, Johannes Berg <johannes.berg@intel.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- kernel-janitors@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
- Yuan Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
- David Howells <dhowells@redhat.com>, Julia Lawall <julia.lawall@lip6.fr>,
- Srishti Sharma <srishtishar@gmail.com>,
- Corentin Labbe <clabbe.montjoie@gmail.com>, Al Viro <viro@zeniv.linux.org.uk>,
- "David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Bj=c3=b8rn_Mork?= <bjorn@mork.no>, devel@driverdev.osuosl.org,
- netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <878tggwr70.fsf@miraculix.mork.no>
-Content-Language: en-GB
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH net-next v2 1/1] bridge: return error code when deleting Vlan
+Date: Thu, 12 Oct 2017 09:51:54 -0400
+Message-ID: <1507816314-2896-1-git-send-email-mrv@mojatatu.com>
+Cc: stephen@networkplumber.org, dsahern@gmail.com,
+        netdev@vger.kernel.org, Roman Mashak <mrv@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:53768 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751138AbdJLNwG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 09:52:06 -0400
+Received: by mail-io0-f193.google.com with SMTP id 189so5536699iow.10
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 06:52:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Did you read drivers/staging/irda/TODO ?
+v2:
+ Return err immediately if nbp_vlan_delete() fails (pointed by David Ahern)
 
-Yes.
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+---
+ net/bridge/br_netlink.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-How do recent contributions (by other software developers) fit to information
-that is provided in this file?
-
-Regards,
-Markus
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index f0e8268..1efdd48 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -527,11 +527,13 @@ static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
+ 
+ 	case RTM_DELLINK:
+ 		if (p) {
+-			nbp_vlan_delete(p, vinfo->vid);
++			err = nbp_vlan_delete(p, vinfo->vid);
++			if (err)
++				break;
+ 			if (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)
+-				br_vlan_delete(p->br, vinfo->vid);
++				err = br_vlan_delete(p->br, vinfo->vid);
+ 		} else {
+-			br_vlan_delete(br, vinfo->vid);
++			err = br_vlan_delete(br, vinfo->vid);
+ 		}
+ 		break;
+ 	}
+-- 
+1.9.1
