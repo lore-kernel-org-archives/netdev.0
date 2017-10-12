@@ -1,118 +1,107 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net-next 01/12] bpf: verifier: set reg_type on context
- accesses in second pass
-Date: Thu, 12 Oct 2017 13:56:32 -0700
-Message-ID: <20171012135632.1fa408bc@cakuba.netronome.com>
-References: <20171012173418.4029-1-jakub.kicinski@netronome.com>
-        <20171012173418.4029-2-jakub.kicinski@netronome.com>
-        <59DFD3DE.9050907@iogearbox.net>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [net-next V7 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion
+ and allocation
+Date: Thu, 12 Oct 2017 22:13:43 +0100
+Message-ID: <21efa4a5-1e2f-bbe9-c1d0-115843fb885b@solarflare.com>
+References: <150781116384.9409.2491501775270038284.stgit@firesoul>
+ <150781121989.9409.14542782810603037426.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        alexei.starovoitov@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <jakub.kicinski@netronome.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>, <pavel.odintsov@gmail.com>,
+        Jason Wang <jasowang@redhat.com>, <mchan@broadcom.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        <peter.waskiewicz.jr@intel.com>, <ast@fiberby.dk>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+        <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f175.google.com ([209.85.220.175]:48957 "EHLO
-        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754770AbdJLU4g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 16:56:36 -0400
-Received: by mail-qk0-f175.google.com with SMTP id d67so2742397qkg.5
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 13:56:36 -0700 (PDT)
-In-Reply-To: <59DFD3DE.9050907@iogearbox.net>
+Received: from dispatch1-us1.ppe-hosted.com ([148.163.129.52]:42544 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755627AbdJLVN4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:13:56 -0400
+In-Reply-To: <150781121989.9409.14542782810603037426.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Oct 2017 22:43:10 +0200, Daniel Borkmann wrote:
-> On 10/12/2017 07:34 PM, Jakub Kicinski wrote:
-> > Use a simplified is_valid_access() callback when verifier
-> > is used for program analysis by non-host JITs.  This allows
-> > us to teach the verifier about packet start and packet end
-> > offsets for direct packet access.
-> >
-> > We can extend the callback as needed but for most packet
-> > processing needs there isn't much more the offloads may
-> > require.
-> >
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> > Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> > ---
-> > CC: alexei.starovoitov@gmail.com
-> > CC: daniel@iogearbox.net
-> >
-> >   kernel/bpf/verifier.c | 43 +++++++++++++++++++++++++++++++++++++------
-> >   1 file changed, 37 insertions(+), 6 deletions(-)
-> >
-> > diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> > index 2cdbcc4f8f6b..9755279d94cb 100644
-> > --- a/kernel/bpf/verifier.c
-> > +++ b/kernel/bpf/verifier.c
-> > @@ -813,6 +813,36 @@ static int check_packet_access(struct bpf_verifier_env *env, u32 regno, int off,
-> >   	return err;
-> >   }
-> >
-> > +static bool analyzer_is_valid_access(struct bpf_verifier_env *env, int off,
-> > +				     struct bpf_insn_access_aux *info)
-> > +{
-> > +	switch (env->prog->type) {
-> > +	case BPF_PROG_TYPE_XDP:
-> > +		switch (off) {
-> > +		case offsetof(struct xdp_buff, data):
-> > +			info->reg_type = PTR_TO_PACKET;
-> > +			return true;
-> > +		case offsetof(struct xdp_buff, data_end):
-> > +			info->reg_type = PTR_TO_PACKET_END;
-> > +			return true;
-> > +		}
-> > +		return false;
-> > +	case BPF_PROG_TYPE_SCHED_CLS:
-> > +		switch (off) {
-> > +		case offsetof(struct sk_buff, data):
-> > +			info->reg_type = PTR_TO_PACKET;
-> > +			return true;
-> > +		case offsetof(struct sk_buff, cb) +
-> > +		     offsetof(struct bpf_skb_data_end, data_end):
-> > +			info->reg_type = PTR_TO_PACKET_END;
-> > +			return true;
-> > +		}
-> > +		return false;
-> > +	default:
-> > +		return false;
-> > +	}
-> > +}
-> > +
-> >   /* check access to 'struct bpf_context' fields.  Supports fixed offsets only */
-> >   static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off, int size,
-> >   			    enum bpf_access_type t, enum bpf_reg_type *reg_type)
-> > @@ -821,12 +851,13 @@ static int check_ctx_access(struct bpf_verifier_env *env, int insn_idx, int off,
-> >   		.reg_type = *reg_type,
-> >   	};
-> >
-> > -	/* for analyzer ctx accesses are already validated and converted */
-> > -	if (env->analyzer_ops)
-> > -		return 0;
-> > -
-> > -	if (env->prog->aux->ops->is_valid_access &&
-> > -	    env->prog->aux->ops->is_valid_access(off, size, t, &info)) {
-> > +	if (env->analyzer_ops) {
-> > +		if (analyzer_is_valid_access(env, off, &info)) {
-> > +			*reg_type = info.reg_type;  
-> 
-> Is there some specific issue with the is_valid_access() callbacks that you
-> need to do this (I couldn't parse that out of the commit message)?
+On 12/10/17 13:26, Jesper Dangaard Brouer wrote:
+> This patch makes cpumap functional, by adding SKB allocation and
+> invoking the network stack on the dequeuing CPU.
+>
+> For constructing the SKB on the remote CPU, the xdp_buff in converted
+> into a struct xdp_pkt, and it mapped into the top headroom of the
+> packet, to avoid allocating separate mem.  For now, struct xdp_pkt is
+> just a cpumap internal data structure, with info carried between
+> enqueue to dequeue.
 
-Do you mean why not just call is_valid_access()?  The offsets are
-translated, so is_valid_access() will use user space __sk_buff's
-offsets while we have the kernel's sk_buff offsets here...
+<snip>
 
-> It would be nice to keep the reg_type setting in one place, meaning
-> the callbacks themselves, so we wouldn't need to maintain this in
-> multiple places.
+> +struct sk_buff *cpu_map_build_skb(struct bpf_cpu_map_entry *rcpu,
+> +				  struct xdp_pkt *xdp_pkt)
+> +{
+> +	unsigned int frame_size;
+> +	void *pkt_data_start;
+> +	struct sk_buff *skb;
+> +
+> +	/* build_skb need to place skb_shared_info after SKB end, and
+> +	 * also want to know the memory "truesize".  Thus, need to
+> +	 * know the memory frame size backing xdp_buff.
+> +	 *
+> +	 * XDP was designed to have PAGE_SIZE frames, but this
+> +	 * assumption is not longer true with ixgbe and i40e.  It
+> +	 * would be preferred to set frame_size to 2048 or 4096
+> +	 * depending on the driver.
+> +	 *   frame_size = 2048;
+> +	 *   frame_len  = frame_size - sizeof(*xdp_pkt);
+> +	 *
+> +	 * Instead, with info avail, skb_shared_info in placed after
+> +	 * packet len.  This, unfortunately fakes the truesize.
+> +	 * Another disadvantage of this approach, the skb_shared_info
+> +	 * is not at a fixed memory location, with mixed length
+> +	 * packets, which is bad for cache-line hotness.
+> +	 */
+> +	frame_size = SKB_DATA_ALIGN(xdp_pkt->len) + xdp_pkt->headroom +
+> +		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+> +
+> +	pkt_data_start = xdp_pkt->data - xdp_pkt->headroom;
+> +	skb = build_skb(pkt_data_start, frame_size);
+> +	if (!skb)
+> +		return NULL;
+> +
+> +	skb_reserve(skb, xdp_pkt->headroom);
+> +	__skb_put(skb, xdp_pkt->len);
+> +	if (xdp_pkt->metasize)
+> +		skb_metadata_set(skb, xdp_pkt->metasize);
+> +
+> +	/* Essential SKB info: protocol and skb->dev */
+> +	skb->protocol = eth_type_trans(skb, xdp_pkt->dev_rx);
+> +
+> +	/* Optional SKB info, currently missing:
+> +	 * - HW checksum info		(skb->ip_summed)
+> +	 * - HW RX hash			(skb_set_hash)
+> +	 * - RX ring dev queue index	(skb_record_rx_queue)
+> +	 */
+One possibility for dealing with these and related issues — also things
+ like the proper way to free an xdp_buff if SKB creation fails, which
+ might not be page_frag_free() for some drivers with unusual recycle ring
+ implementations — is to have a new ndo for 'receiving' an xdp_pkt from a
+ cpumap redirect.
+Since you're always receiving from the same driver that enqueued it, even
+ the structure of the metadata stored in the top of the packet page
+ doesn't have to be standardised; instead, each driver can put there just
+ whatever happens to be needed for its ndo_xdp_rx routine.  (Though there
+ would probably be standard enqueue and dequeue functions that the
+ 'common-case' drivers could use.)
+In some cases, the driver could even just leave in the page the packet
+ prefix it got from the NIC, rather than reading it and then writing an
+ interpreted version back, thus minimising the number of packet-page
+ cachelines the 'bottom half' RX function has to touch (it would still
+ need to write in anything it got from the RX event, of course).
+It shouldn't be much work as many driver RX routines are already
+ structured this way — sfc, for instance, has a split into efx_rx_packet()
+ and __efx_rx_packet(), as a software pipeline for prefetching.
 
-Hm.. I though this was the smallest and simplest change.  I could
-translate the offsets but that seems wobbly.  Or try to consolidate the
-call into the same if () branch?  Not sure..
-
-As a bonus info I discovered there is a bug in -net with how things are
-converted.  We allow arithmetic on context pointers but then only
-look at the insn.off in the converter...  I'm working on a fix.
+-Ed
