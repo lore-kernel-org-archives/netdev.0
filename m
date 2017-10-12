@@ -1,399 +1,383 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 1/8] cxgb4: implement ethtool dump data operations
-Date: Thu, 12 Oct 2017 13:54:38 +0530
-Message-ID: <fcbaddde12689633669b60cec7b89f3919c7d85f.1507795407.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 3/8] cxgb4: collect on-chip memory dump
+Date: Thu, 12 Oct 2017 13:54:40 +0530
+Message-ID: <c33d67b3caa86c3f57438d13dd9341a8a0fe63c9.1507795407.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:6006 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:7060 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752353AbdJLIZ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:25:59 -0400
+        with ESMTP id S1753384AbdJLI0G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:26:06 -0400
 In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement operations to set/get dump data via ethtool.  Also add
-template header that precedes dump data, which helps in decoding
-and extracting the dump data.
+Collect EDC0 and EDC1 memory dump.
 
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |  2 +-
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      | 33 ++++++++++
- .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  | 65 +++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  3 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   | 73 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h   | 32 ++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 56 ++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  3 +
- 8 files changed, 265 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h  |  29 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      |   8 ++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c     | 132 +++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h     |   6 +
+ .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   |  38 +++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h   |   1 +
+ 7 files changed, 216 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index fecd7aab673b..4c6041f45630 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -6,7 +6,7 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o \
- 	      cxgb4_uld.o sched.o cxgb4_filter.o cxgb4_tc_u32.o \
--	      cxgb4_ptp.o cxgb4_tc_flower.o
-+	      cxgb4_ptp.o cxgb4_tc_flower.o cxgb4_cudbg.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
+new file mode 100644
+index 000000000000..71a426dd22f5
+--- /dev/null
++++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
+@@ -0,0 +1,29 @@
++/*
++ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
++ *
++ *  This program is free software; you can redistribute it and/or modify it
++ *  under the terms and conditions of the GNU General Public License,
++ *  version 2, as published by the Free Software Foundation.
++ *
++ *  This program is distributed in the hope it will be useful, but WITHOUT
++ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ *  more details.
++ *
++ *  The full GNU General Public License is included in this distribution in
++ *  the file called "COPYING".
++ *
++ */
++
++#ifndef __CUDBG_ENTITY_H__
++#define __CUDBG_ENTITY_H__
++
++#define EDC0_FLAG 3
++#define EDC1_FLAG 4
++
++struct card_mem {
++	u16 size_edc0;
++	u16 size_edc1;
++	u16 mem_flag;
++};
++#endif /* __CUDBG_ENTITY_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-new file mode 100644
-index 000000000000..ebaa5b7063cf
---- /dev/null
+index 73725a8666df..e45690fd0932 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -0,0 +1,33 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CUDBG_IF_H__
-+#define __CUDBG_IF_H__
-+
-+#define CUDBG_MAJOR_VERSION 1
-+#define CUDBG_MINOR_VERSION 14
-+
-+enum cudbg_dbg_entity_type {
-+	CUDBG_MAX_ENTITY = 70,
-+};
-+
-+struct cudbg_init {
-+	struct adapter *adap; /* Pointer to adapter structure */
-+	void *outbuf; /* Output buffer */
-+	u32 outbuf_size;  /* Output buffer size */
-+};
-+#endif /* __CUDBG_IF_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-new file mode 100644
-index 000000000000..eb1b36b72455
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-@@ -0,0 +1,65 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CUDBG_LIB_COMMON_H__
-+#define __CUDBG_LIB_COMMON_H__
-+
-+#define CUDBG_SIGNATURE 67856866 /* CUDB in ascii */
-+
-+enum cudbg_dump_type {
-+	CUDBG_DUMP_TYPE_MINI = 1,
-+};
-+
-+enum cudbg_compression_type {
-+	CUDBG_COMPRESSION_NONE = 1,
-+};
-+
-+struct cudbg_hdr {
-+	u32 signature;
-+	u32 hdr_len;
-+	u16 major_ver;
-+	u16 minor_ver;
-+	u32 data_len;
-+	u32 hdr_flags;
-+	u16 max_entities;
-+	u8 chip_ver;
-+	u8 dump_type:3;
-+	u8 reserved1:1;
-+	u8 compress_type:4;
-+	u32 reserved[8];
-+};
-+
-+struct cudbg_entity_hdr {
-+	u32 entity_type;
-+	u32 start_offset;
-+	u32 size;
-+	int hdr_flags;
-+	u32 sys_warn;
-+	u32 sys_err;
-+	u8 num_pad;
-+	u8 flag;             /* bit 0 is used to indicate ext data */
-+	u8 reserved1[2];
-+	u32 next_ext_offset; /* pointer to next extended entity meta data */
-+	u32 reserved[5];
-+};
-+
-+struct cudbg_buffer {
-+	u32 size;
-+	u32 offset;
-+	char *data;
-+};
-+#endif /* __CUDBG_LIB_COMMON_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 0db3ab6ad094..a749602fdc41 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -909,6 +909,9 @@ struct adapter {
- 	/* TC flower offload */
- 	DECLARE_HASHTABLE(flower_anymatch_tbl, 9);
- 	struct timer_list flower_stats_timer;
-+
-+	/* Ethtool Dump */
-+	struct ethtool_dump eth_dump;
+@@ -20,6 +20,7 @@
+ 
+ /* Error codes */
+ #define CUDBG_STATUS_NO_MEM -19
++#define CUDBG_STATUS_ENTITY_NOT_FOUND -24
+ #define CUDBG_SYSTEM_ERROR -29
+ 
+ #define CUDBG_MAJOR_VERSION 1
+@@ -27,6 +28,8 @@
+ 
+ enum cudbg_dbg_entity_type {
+ 	CUDBG_REG_DUMP = 1,
++	CUDBG_EDC0 = 18,
++	CUDBG_EDC1 = 19,
+ 	CUDBG_MAX_ENTITY = 70,
  };
  
- /* Support for "sched-class" command to allow a TX Scheduling Class to be
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-new file mode 100644
-index 000000000000..534e7b79a41c
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -0,0 +1,73 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
+@@ -35,4 +38,9 @@ struct cudbg_init {
+ 	void *outbuf; /* Output buffer */
+ 	u32 outbuf_size;  /* Output buffer size */
+ };
 +
-+#include "cxgb4.h"
-+#include "cxgb4_cudbg.h"
-+
-+u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag)
++static inline unsigned int mbytes_to_bytes(unsigned int size)
 +{
-+	return 0;
++	return size * 1024 * 1024;
 +}
-+
-+int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
-+			u32 flag)
-+{
-+	struct cudbg_init cudbg_init = { 0 };
-+	struct cudbg_buffer dbg_buff = { 0 };
-+	u32 size, min_size, total_size = 0;
-+	struct cudbg_hdr *cudbg_hdr;
-+
-+	size = *buf_size;
-+
-+	cudbg_init.adap = adap;
-+	cudbg_init.outbuf = buf;
-+	cudbg_init.outbuf_size = size;
-+
-+	dbg_buff.data = buf;
-+	dbg_buff.size = size;
-+	dbg_buff.offset = 0;
-+
-+	cudbg_hdr = (struct cudbg_hdr *)buf;
-+	cudbg_hdr->signature = CUDBG_SIGNATURE;
-+	cudbg_hdr->hdr_len = sizeof(struct cudbg_hdr);
-+	cudbg_hdr->major_ver = CUDBG_MAJOR_VERSION;
-+	cudbg_hdr->minor_ver = CUDBG_MINOR_VERSION;
-+	cudbg_hdr->max_entities = CUDBG_MAX_ENTITY;
-+	cudbg_hdr->chip_ver = adap->params.chip;
-+	cudbg_hdr->dump_type = CUDBG_DUMP_TYPE_MINI;
-+	cudbg_hdr->compress_type = CUDBG_COMPRESSION_NONE;
-+
-+	min_size = sizeof(struct cudbg_hdr) +
-+		   sizeof(struct cudbg_entity_hdr) *
-+		   cudbg_hdr->max_entities;
-+	if (size < min_size)
-+		return -ENOMEM;
-+
-+	dbg_buff.offset += min_size;
-+	total_size = dbg_buff.offset;
-+
-+	cudbg_hdr->data_len = total_size;
-+	*buf_size = total_size;
-+	return 0;
-+}
-+
-+void init_ethtool_dump(struct adapter *adapter)
-+{
-+	adapter->eth_dump.flag = CXGB4_ETH_DUMP_NONE;
-+	adapter->eth_dump.version = adapter->params.fw_vers;
-+	adapter->eth_dump.len = 0;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-new file mode 100644
-index 000000000000..5a7965517fd8
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-@@ -0,0 +1,32 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CXGB4_CUDBG_H__
-+#define __CXGB4_CUDBG_H__
-+
-+#include "cudbg_if.h"
-+#include "cudbg_lib_common.h"
-+
-+enum CXGB4_ETHTOOL_DUMP_FLAGS {
-+	CXGB4_ETH_DUMP_NONE = ETH_FW_DUMP_DISABLE,
-+};
-+
-+u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag);
-+int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
-+			u32 flag);
-+void init_ethtool_dump(struct adapter *adapter);
-+#endif /* __CXGB4_CUDBG_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index a71af1e587e2..796eb051cb2f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -21,6 +21,7 @@
+ #endif /* __CUDBG_IF_H__ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
+index 4605481706ec..b0a747a6fbb2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
+@@ -15,10 +15,12 @@
+  *
+  */
+ 
++#include "t4_regs.h"
  #include "cxgb4.h"
- #include "t4_regs.h"
- #include "t4fw_api.h"
-+#include "cxgb4_cudbg.h"
+ #include "cudbg_if.h"
+ #include "cudbg_lib_common.h"
+ #include "cudbg_lib.h"
++#include "cudbg_entity.h"
  
- #define EEPROM_MAGIC 0x38E2F10C
- 
-@@ -1374,6 +1375,56 @@ static int get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- 	return -EOPNOTSUPP;
+ static void write_and_release_buff(struct cudbg_buffer *pin_buff,
+ 				   struct cudbg_buffer *dbg_buff)
+@@ -27,6 +29,16 @@ static void write_and_release_buff(struct cudbg_buffer *pin_buff,
+ 	put_cudbg_buff(pin_buff, dbg_buff);
  }
  
-+static int set_dump(struct net_device *dev, struct ethtool_dump *eth_dump)
++static int is_fw_attached(struct cudbg_init *pdbg_init)
 +{
-+	struct adapter *adapter = netdev2adap(dev);
-+	u32 len = 0;
++	struct adapter *padap = pdbg_init->adap;
 +
-+	len = sizeof(struct cudbg_hdr) +
-+	      sizeof(struct cudbg_entity_hdr) * CUDBG_MAX_ENTITY;
-+	len += cxgb4_get_dump_length(adapter, eth_dump->flag);
++	if (!(padap->flags & FW_OK) || padap->use_bd)
++		return 0;
 +
-+	adapter->eth_dump.flag = eth_dump->flag;
-+	adapter->eth_dump.len = len;
-+	return 0;
++	return 1;
 +}
 +
-+static int get_dump_flag(struct net_device *dev, struct ethtool_dump *eth_dump)
-+{
-+	struct adapter *adapter = netdev2adap(dev);
+ /* This function will add additional padding bytes into debug_buffer to make it
+  * 4 byte aligned.
+  */
+@@ -77,3 +89,123 @@ int collect_reg_dump(struct cudbg_init *pdbg_init,
+ 	write_and_release_buff(&temp_buff, dbg_buff);
+ 	return rc;
+ }
 +
-+	eth_dump->flag = adapter->eth_dump.flag;
-+	eth_dump->len = adapter->eth_dump.len;
-+	eth_dump->version = adapter->eth_dump.version;
-+	return 0;
++static int read_fw_mem(struct cudbg_init *pdbg_init,
++		       struct cudbg_buffer *dbg_buff, u8 mem_type,
++		       unsigned long tot_len, struct cudbg_error *cudbg_err)
++{
++	unsigned long bytes, bytes_left, bytes_read = 0;
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	int rc = 0;
++
++	bytes_left = tot_len;
++	while (bytes_left > 0) {
++		bytes = min_t(unsigned long, bytes_left,
++			      (unsigned long)CUDBG_CHUNK_SIZE);
++		rc = get_cudbg_buff(dbg_buff, bytes, &temp_buff);
++		if (rc)
++			return rc;
++		spin_lock(&padap->win0_lock);
++		rc = t4_memory_rw(padap, MEMWIN_NIC, mem_type,
++				  bytes_read, bytes,
++				  (__be32 *)temp_buff.data,
++				  1);
++		spin_unlock(&padap->win0_lock);
++		if (rc) {
++			cudbg_err->sys_err = rc;
++			put_cudbg_buff(&temp_buff, dbg_buff);
++			return rc;
++		}
++		bytes_left -= bytes;
++		bytes_read += bytes;
++		write_and_release_buff(&temp_buff, dbg_buff);
++	}
++	return rc;
 +}
 +
-+static int get_dump_data(struct net_device *dev, struct ethtool_dump *eth_dump,
-+			 void *buf)
++void collect_mem_info(struct cudbg_init *pdbg_init, struct card_mem *mem_info)
 +{
-+	struct adapter *adapter = netdev2adap(dev);
-+	u32 len = 0;
-+	int ret = 0;
++	struct adapter *padap = pdbg_init->adap;
++	u32 value;
 +
-+	if (adapter->eth_dump.flag == CXGB4_ETH_DUMP_NONE)
-+		return -ENOENT;
++	value = t4_read_reg(padap, MA_EDRAM0_BAR_A);
++	value = EDRAM0_SIZE_G(value);
++	mem_info->size_edc0 = (u16)value;
 +
-+	len = sizeof(struct cudbg_hdr) +
-+	      sizeof(struct cudbg_entity_hdr) * CUDBG_MAX_ENTITY;
-+	len += cxgb4_get_dump_length(adapter, adapter->eth_dump.flag);
-+	if (eth_dump->len < len)
-+		return -ENOMEM;
++	value = t4_read_reg(padap, MA_EDRAM1_BAR_A);
++	value = EDRAM1_SIZE_G(value);
++	mem_info->size_edc1 = (u16)value;
 +
-+	ret = cxgb4_cudbg_collect(adapter, buf, &len, adapter->eth_dump.flag);
-+	if (ret)
-+		return ret;
-+
-+	eth_dump->flag = adapter->eth_dump.flag;
-+	eth_dump->len = len;
-+	eth_dump->version = adapter->eth_dump.version;
-+	return 0;
++	value = t4_read_reg(padap, MA_TARGET_MEM_ENABLE_A);
++	if (value & EDRAM0_ENABLE_F)
++		mem_info->mem_flag |= (1 << EDC0_FLAG);
++	if (value & EDRAM1_ENABLE_F)
++		mem_info->mem_flag |= (1 << EDC1_FLAG);
 +}
 +
- static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.get_link_ksettings = get_link_ksettings,
- 	.set_link_ksettings = set_link_ksettings,
-@@ -1404,7 +1455,10 @@ static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.get_rxfh	   = get_rss_table,
- 	.set_rxfh	   = set_rss_table,
- 	.flash_device      = set_flash,
--	.get_ts_info       = get_ts_info
-+	.get_ts_info       = get_ts_info,
-+	.set_dump          = set_dump,
-+	.get_dump_flag     = get_dump_flag,
-+	.get_dump_data     = get_dump_data,
++static void cudbg_t4_fwcache(struct cudbg_init *pdbg_init,
++			     struct cudbg_error *cudbg_err)
++{
++	struct adapter *padap = pdbg_init->adap;
++	int rc;
++
++	if (is_fw_attached(pdbg_init)) {
++		/* Flush uP dcache before reading edcX/mcX  */
++		rc = t4_fwcache(padap, FW_PARAM_DEV_FWCACHE_FLUSH);
++		if (rc)
++			cudbg_err->sys_warn = rc;
++	}
++}
++
++static int collect_mem_region(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err,
++			      u8 mem_type)
++{
++	struct card_mem mem_info = {0};
++	unsigned long flag, size;
++	int rc;
++
++	cudbg_t4_fwcache(pdbg_init, cudbg_err);
++	collect_mem_info(pdbg_init, &mem_info);
++	switch (mem_type) {
++	case MEM_EDC0:
++		flag = (1 << EDC0_FLAG);
++		size = mbytes_to_bytes(mem_info.size_edc0);
++		break;
++	case MEM_EDC1:
++		flag = (1 << EDC1_FLAG);
++		size = mbytes_to_bytes(mem_info.size_edc1);
++		break;
++	default:
++		rc = CUDBG_STATUS_ENTITY_NOT_FOUND;
++		goto err;
++	}
++
++	if (mem_info.mem_flag & flag) {
++		rc = read_fw_mem(pdbg_init, dbg_buff, mem_type,
++				 size, cudbg_err);
++		if (rc)
++			goto err;
++	} else {
++		rc = CUDBG_STATUS_ENTITY_NOT_FOUND;
++		goto err;
++	}
++err:
++	return rc;
++}
++
++int collect_edc0_meminfo(struct cudbg_init *pdbg_init,
++			 struct cudbg_buffer *dbg_buff,
++			 struct cudbg_error *cudbg_err)
++{
++	return collect_mem_region(pdbg_init, dbg_buff, cudbg_err, MEM_EDC0);
++}
++
++int collect_edc1_meminfo(struct cudbg_init *pdbg_init,
++			 struct cudbg_buffer *dbg_buff,
++			 struct cudbg_error *cudbg_err)
++{
++	return collect_mem_region(pdbg_init, dbg_buff, cudbg_err, MEM_EDC1);
++}
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
+index c6baeb533c44..04d66807c153 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
+@@ -21,6 +21,12 @@
+ int collect_reg_dump(struct cudbg_init *pdbg_init,
+ 		     struct cudbg_buffer *dbg_buff,
+ 		     struct cudbg_error *cudbg_err);
++int collect_edc0_meminfo(struct cudbg_init *pdbg_init,
++			 struct cudbg_buffer *dbg_buff,
++			 struct cudbg_error *cudbg_err);
++int collect_edc1_meminfo(struct cudbg_init *pdbg_init,
++			 struct cudbg_buffer *dbg_buff,
++			 struct cudbg_error *cudbg_err);
+ 
+ struct cudbg_entity_hdr *get_entity_hdr(void *outbuf, int i);
+ void align_debug_buffer(struct cudbg_buffer *dbg_buff,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
+index 851284db0812..a5b92ae8fc85 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
+@@ -69,6 +69,9 @@ struct cudbg_error {
+ 	int app_err;
  };
  
- void cxgb4_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index fe4cbe22d5d7..0322ff40fde0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -81,6 +81,7 @@
- #include "cxgb4_tc_u32.h"
- #include "cxgb4_tc_flower.h"
- #include "cxgb4_ptp.h"
-+#include "cxgb4_cudbg.h"
++#define CDUMP_MAX_COMP_BUF_SIZE ((64 * 1024) - 1)
++#define CUDBG_CHUNK_SIZE ((CDUMP_MAX_COMP_BUF_SIZE / 1024) * 1024)
++
+ int get_cudbg_buff(struct cudbg_buffer *pdbg_buff, u32 size,
+ 		   struct cudbg_buffer *pin_buff);
+ void put_cudbg_buff(struct cudbg_buffer *pin_buff,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
+index 5c351ee8ab58..cd8599083a69 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
+@@ -15,16 +15,22 @@
+  *
+  */
  
- char cxgb4_driver_name[] = KBUILD_MODNAME;
++#include "t4_regs.h"
+ #include "cxgb4.h"
+ #include "cxgb4_cudbg.h"
  
-@@ -5035,6 +5036,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		cxgb4_set_ethtool_ops(netdev);
++static const struct cudbg_collect_entity collect_mem_dump[] = {
++	{ CUDBG_EDC0, collect_edc0_meminfo },
++	{ CUDBG_EDC1, collect_edc1_meminfo },
++};
++
+ static const struct cudbg_collect_entity collect_hw_dump[] = {
+ 	{ CUDBG_REG_DUMP, collect_reg_dump },
+ };
+ 
+ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ {
+-	u32 len = 0;
++	u32 value, len = 0;
+ 
+ 	switch (entity) {
+ 	case CUDBG_REG_DUMP:
+@@ -40,6 +46,22 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 			break;
+ 		}
+ 		break;
++	case CUDBG_EDC0:
++		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
++		if (value & EDRAM0_ENABLE_F) {
++			value = t4_read_reg(adap, MA_EDRAM0_BAR_A);
++			len = EDRAM0_SIZE_G(value);
++		}
++		len = mbytes_to_bytes(len);
++		break;
++	case CUDBG_EDC1:
++		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
++		if (value & EDRAM1_ENABLE_F) {
++			value = t4_read_reg(adap, MA_EDRAM1_BAR_A);
++			len = EDRAM1_SIZE_G(value);
++		}
++		len = mbytes_to_bytes(len);
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -59,6 +81,13 @@ u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag)
+ 		}
  	}
  
-+	init_ethtool_dump(adapter);
++	if (flag & CXGB4_ETH_DUMP_MEM) {
++		for (i = 0; i < ARRAY_SIZE(collect_mem_dump); i++) {
++			entity = collect_mem_dump[i].entity;
++			len += cxgb4_get_entity_length(adap, entity);
++		}
++	}
 +
- 	pci_set_drvdata(pdev, adapter);
+ 	return len;
+ }
  
- 	if (adapter->flags & FW_OK) {
+@@ -152,6 +181,13 @@ int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
+ 					   buf,
+ 					   &total_size);
+ 
++	if (flag & CXGB4_ETH_DUMP_MEM)
++		cxgb4_cudbg_collect_entity(&cudbg_init, &dbg_buff,
++					   collect_mem_dump,
++					   ARRAY_SIZE(collect_mem_dump),
++					   buf,
++					   &total_size);
++
+ 	cudbg_hdr->data_len = total_size;
+ 	*buf_size = total_size;
+ 	return 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
+index 3aeb887831c9..79fcea1ad163 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
+@@ -33,6 +33,7 @@ struct cudbg_collect_entity {
+ 
+ enum CXGB4_ETHTOOL_DUMP_FLAGS {
+ 	CXGB4_ETH_DUMP_NONE = ETH_FW_DUMP_DISABLE,
++	CXGB4_ETH_DUMP_MEM = (1 << 0), /* On-Chip Memory Dumps */
+ 	CXGB4_ETH_DUMP_HW = (1 << 1), /* various FW and HW dumps */
+ };
+ 
 -- 
 2.14.1
