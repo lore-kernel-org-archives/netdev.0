@@ -1,144 +1,114 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [next-queue PATCH v6 3/5] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Thu, 12 Oct 2017 08:45:37 -0700
-Message-ID: <7c1420f1-45a4-7a4b-7010-9049cc7bb352@intel.com>
-References: <20171012005449.26533-1-vinicius.gomes@intel.com>
- <20171012005449.26533-4-vinicius.gomes@intel.com>
- <20171012075826.GA29396@sisyphus.home.austad.us>
+From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Thu, 12 Oct 2017 16:57:11 +0100
+Message-ID: <27c7ae97-c838-37b7-99c3-9bc4b0d6e69f@kot-begemot.co.uk>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+ <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
+ <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+ <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+ <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com>
+ <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
+ <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
+ <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com>
+ <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        levipearson@gmail.com, rodney.cummings@ni.com
-To: Henrik Austad <henrik@austad.us>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:27630 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753086AbdJLPxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Oct 2017 11:53:09 -0400
-In-Reply-To: <20171012075826.GA29396@sisyphus.home.austad.us>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: Network Development <netdev@vger.kernel.org>,
+ David Miller <davem@davemloft.net>,
+ user-mode-linux-devel@lists.sourceforge.net
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <user-mode-linux-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/options/user-mode-linux-devel>,
+ <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=user-mode-linux-devel>
+List-Post: <mailto:user-mode-linux-devel@lists.sourceforge.net>
+List-Help: <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/user-mode-linux-devel>,
+ <mailto:user-mode-linux-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: user-mode-linux-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi Henrik,
-
-
-On 10/12/2017 12:58 AM, Henrik Austad wrote:
-> On Wed, Oct 11, 2017 at 05:54:47PM -0700, Vinicius Costa Gomes wrote:
->> This queueing discipline implements the shaper algorithm defined by
->> the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
->>
->> It's primary usage is to apply some bandwidth reservation to user
->> defined traffic classes, which are mapped to different queues via the
->> mqprio qdisc.
->>
->> Only a simple software implementation is added for now.
->>
->> Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
->> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->> ---
->>  include/uapi/linux/pkt_sched.h |  18 +++
->>  net/sched/Kconfig              |  11 ++
->>  net/sched/Makefile             |   1 +
->>  net/sched/sch_cbs.c            | 302 +++++++++++++++++++++++++++++++++++++++++
->>  4 files changed, 332 insertions(+)
->>  create mode 100644 net/sched/sch_cbs.c
->>
->> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
->> index 099bf5528fed..41e349df4bf4 100644
->> --- a/include/uapi/linux/pkt_sched.h
->> +++ b/include/uapi/linux/pkt_sched.h
->> @@ -871,4 +871,22 @@ struct tc_pie_xstats {
->>  	__u32 maxq;             /* maximum queue size */
->>  	__u32 ecn_mark;         /* packets marked with ecn*/
->>  };
->> +
->> +/* CBS */
->> +struct tc_cbs_qopt {
->> +	__u8 offload;
->> +	__s32 hicredit;
->> +	__s32 locredit;
->> +	__s32 idleslope;
->> +	__s32 sendslope;
->> +};
->> +
->> +enum {
->> +	TCA_CBS_UNSPEC,
->> +	TCA_CBS_PARMS,
->> +	__TCA_CBS_MAX,
->> +};
->> +
->> +#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
->> +
->>  #endif
->> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
->> index e70ed26485a2..c03d86a7775e 100644
->> --- a/net/sched/Kconfig
->> +++ b/net/sched/Kconfig
->> @@ -172,6 +172,17 @@ config NET_SCH_TBF
->>  	  To compile this code as a module, choose M here: the
->>  	  module will be called sch_tbf.
->>  
->> +config NET_SCH_CBS
->> +	tristate "Credit Based Shaper (CBS)"
-> 
-> Any particular reason why the dependency to MQPRIO was dropped? I'm only 
-> asking because you added it in v1 of the series and then it disappeared in 
-> v2 and onwards.
-
-
-The main reason is that currently there are no qdiscs that depend on any other
-specifically. The dependency CBS had on MQPRIO came from how we were calculating
-the queue index from the qdisc id inside sch_cbc.c . During the previous review
-rounds we agreed on a fix for that and the dependency could be finally removed.
-
-
-(...)
-
-
->> +static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
->> +{
->> +	struct cbs_sched_data *q = qdisc_priv(sch);
->> +	struct net_device *dev = qdisc_dev(sch);
->> +	struct nlattr *tb[TCA_CBS_MAX + 1];
->> +	struct ethtool_link_ksettings ecmd;
->> +	struct tc_cbs_qopt *qopt;
->> +	s64 link_speed;
->> +	int err;
->> +
->> +	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
->> +	if (err < 0)
->> +		return err;
->> +
->> +	if (!tb[TCA_CBS_PARMS])
->> +		return -EINVAL;
->> +
->> +	qopt = nla_data(tb[TCA_CBS_PARMS]);
->> +
->> +	if (qopt->offload)
->> +		return -EOPNOTSUPP;
->> +
->> +	if (!__ethtool_get_link_ksettings(dev, &ecmd))
->> +		link_speed = ecmd.base.speed;
->> +	else
->> +		link_speed = SPEED_1000;
->> +
->> +	q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
->> +
->> +	q->enqueue = cbs_enqueue_soft;
->> +	q->dequeue = cbs_dequeue_soft;
-> 
-> How does one use the cbs_(en|de)queue instead of _soft()?
-
-
-Judging from your comment on the other patch I believe you've got that
-clarified. Please let us know if otherwise.
-
-Thanks,
-Jesus
+QWxzbyBjb25maXJtZWQgdXNpbmcgbXkgVU1MIHBhdGNoc2V0LiBUaGlzIGlzIGluc2lkZSB0aGUg
+VU1MIGd1ZXN0LgoKcm9vdEBibGlua3k6fiMgaXBlcmYgLWMgMTkyLjE2OC45OC4xCi0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpDbGll
+bnQgY29ubmVjdGluZyB0byAxOTIuMTY4Ljk4LjEsIFRDUCBwb3J0IDUwMDEKVENQIHdpbmRvdyBz
+aXplOsKgIDQxNCBLQnl0ZSAoZGVmYXVsdCkKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tClvCoCAzXSBsb2NhbCAxOTIuMTY4Ljk4LjE0
+NiBwb3J0IDM2NzQ0IGNvbm5lY3RlZCB3aXRoIDE5Mi4xNjguOTguMSBwb3J0IDUwMDEKWyBJRF0g
+SW50ZXJ2YWzCoMKgwqDCoMKgwqAgVHJhbnNmZXLCoMKgwqDCoCBCYW5kd2lkdGgKW8KgIDNdwqAg
+MC4wLTEwLjAgc2VjwqAgNC41MiBHQnl0ZXPCoCAzLjg5IEdiaXRzL3NlYwoKVGhpcyBpcyBHU08g
+b24gYSByYXcgc29ja2V0IFZpcnR1YWwgTklDIHRvIGhvc3QuIE5vcm1hbCBzcGVlZCB3aXRob3V0
+IApHU08gb24gc2FtZSBtYWNoaW5lIGlzIH4gNTAwLgoKU28gZm9yIHRoZSB0aW1lIGJlaW5nIEkg
+Y2FuIHR1cm4gb2ZmIFRTTyBmb3IgYW55dGhpbmcgYnV0IHY0IGluIHRoZSBVc2VyIApNb2RlIExp
+bnV4IHBhdGNoc2V0IChkZWNsYXJlIHRoZSBndWVzdCBOSUMgYXMgVFNPVjQgY2FwYWJsZSBvbmx5
+KSBhbmQgCmVuYWJsZSBpdCBvbmNlIHRoZSBob3N0IGtlcm5lbCBpcyBmaXhlZC4gQWx0ZXJuYXRp
+dmVseSwgdGhlcmUgaXMgdGhlIApyYXRoZXIgdWdseSBhcHByb2FjaCBvZiB1c2luZyBtdWx0aXBs
+ZSBGRHMgLSBvbmUgZm9yIHY0LCBvbmUgZm9yIHY2LCBvbmUgCmZvci4uLgoKQS4KCk9uIDEwLzEy
+LzE3IDE2OjQ0LCBBbnRvbiBJdmFub3Ygd3JvdGU6Cj4gRm91bmQgaXQuCj4KPiBUd28gYnVncyBj
+YW5jZWxpbmcgZWFjaCBvdGhlci4KPiBUaGUgYmluZCBzZXF1ZW5jZSBpbjrCoCBwc29ja190eHJp
+bmdfdm5ldC5jIGlzIHdyb25nLgo+Cj4gSXQgZG9lcyB0aGUgZm9sbG93aW5nIGFkZHIuc2xsX3By
+b3RvY29sID3CoMKgwqAgaHRvbnMoRVRIX1BfSVApOwo+IGJlZm9yZSBjYWxsaW5nIGJpbmQuCj4K
+PiBJZiB5b3Ugc2V0IGFkZHIuc2xsX3Byb3RvY29sIHRvIEVUSF9QX0FMTCB3aGVyZSBpdCBzaG91
+bGQgaGF2ZSBiZWVuIGluIAo+IHRoZSBmaXJzdCBwbGFjZSB0aGUgdGVzdCBwcm9ncmFtIGJsb3dz
+IHVwIHdpdGggLUVOT0JVRlMKPgo+IEkgdGhpbmsgd2hhdCBpcyBoYXBwZW5pbmcgaXMgdGhhdCB0
+aGlzIHZhbHVlIGlzIHRha2VuIGludG8gYWNjb3VudCAKPiB3aGVuIGxvb2tpbmcgYXQgIndoYXQg
+c2hvdWxkIEkgdXNlIHRvIHNlZ21lbnQgaXQgd2l0aCIgaW4gCj4gc2tiX21hY19nc29fc2VnbWVu
+dCB3aGljaCBpcyBpbnZva2VkIGF0IHRoZSBlbmQgb2YgdGhlIHZlcmlmaWNhdGlvbiAKPiBjaGFp
+biB3aGljaCBzdGFydHMgaW4gcGFja2V0X2RpcmVjdF94bWl0IGluIGFmX3BhY2tldC5jCj4KPiBJ
+IGhhdmUgbm90IHRyaWVkIHRoZSBvdGhlciB0ZXN0IGNhc2VzIGxpa2Ugc2V0dGluZyBpdCB0byBF
+VEhfUF9JUCBhbmQgCj4gZ2l2aW5nIGl0IElQdjYgdHJhZmZpYyBvciB0aGUgb3Bwb3NpdGUsIGJ1
+dCBteSBndWVzcyBpcyB0aGF0IHRoZXNlIAo+IHdpbGwgZmFpbCB0b28gaWYgdGhleSBuZWVkIEdT
+TyB0byBiZSBhcHBsaWVkLgo+Cj4gQS4KPgo+IE9uIDEwLzEyLzE3IDE1OjEyLCBBbnRvbiBJdmFu
+b3Ygd3JvdGU6Cj4+Cj4+Cj4+IE9uIDEwLzEyLzE3IDE0OjM5LCBXaWxsZW0gZGUgQnJ1aWpuIHdy
+b3RlOgo+Pj4+IElmIEkgcHJvZHVjZSBhIHJlYWwgdm5ldCBmcmFtZSBvdXQgb2YgYSBsaXZlIGtl
+cm5lbCBmcmFtZSB1c2luZwo+Pj4+IHZpcnRpb19uZXRfaGRyX2Zyb21fc2tiKCkgYW5kIHRyeSB0
+byBzZW5kIGl0IGl0IGZhaWxzIG9uIHRoZSBjaGVjayBpbgo+Pj4+IGFmX3BhY2tldCwgd2hpbGUg
+c3VjY2VlZGluZyBmb3IgdGFwLiBJZiBJIHJlbW92ZSB0aGUgYWZfcGFja2V0IAo+Pj4+IGNoZWNr
+IHRoZQo+Pj4+IGZyYW1lIGlzIGFjY2VwdGVkIGJ5IHRoZSBoYXJkd2FyZSB0b28uCj4+Pj4KPj4+
+PiBJZiBJIHByb2R1Y2UgaXQgYSBzeW50aGV0aWMgZnJhbWUgKyB2bmV0IGhlYWRlciB1c2luZyB0
+aGUgdGVzdCAKPj4+PiBwcm9ncmFtIC0gaXQKPj4+PiB3b3Jrcy4gR28gZmlndXJlLgo+Pj4gQmVz
+aWRlcyBsb29raW5nIGF0IHRoZSByYXcgZnJhbWUgYnl0ZXMsIGFsc28gY29tcGFyZSB0aGUgc2V0
+dXAKPj4+IG9mIHZpcnRpb19uZXRfaGVhZGVyLCBhcyB3ZWxsIGFzIHRoZSB0Y3AgY2hlY2tzdW0g
+ZmllbGQuIFRoZSBzdGFjawo+Pj4gZXhwZWN0cyB0aGUgcHNldWRvIGhlYWRlciB0byBoYXZlIGFs
+cmVhZHkgYmVlbiBjYWxjdWxhdGVkLgo+Pgo+PiBJIGFtIGZlZWRpbmcgaXQgYSBza2Igd2hpY2gg
+aXMgY29taW5nIHVwIGluIHRoZSB0eCByb3V0aW5lIG9mIGEgVXNlciAKPj4gTW9kZSBMaW51eCBk
+ZXZpY2Ugd2hpY2ggaXMgbWFya2VkIGFzIE5FVElGX0ZfSFdfQ1NVTSBhbmQgU0cgLSB0aGF0IAo+
+PiByZXN1bHRzIGluIGEgc2tiIHdpdGggY3N1bS1lZCBoZWFkZXJzLCBib2R5IHNldCB1cCBmb3Ig
+Q1NVTV9QQVJUSUFMIAo+PiBhbmQgbXVsdGlwbGUgZnJhZ21lbnRzIChhbHdheXMgYXQgbGVhc3Qg
+MSBtb3JlIGZyYWcgYmVzaWRlcyB0aGUgVENQIAo+PiBoZWFkKS4KPj4KPj4gVGhhdCBoYXMgZXZl
+cnl0aGluZyBpbiBvcmRlciBhcyBleHBlY3RlZCBieSB2aXJ0aW9fbmV0X2hkcl9mcm9tX3NrYiAK
+Pj4gYW5kIHRoaXMgaXMgd2hhdCBJIHVzZSB0byBnZW5lcmF0ZSB0aGUgdm5ldCBoZWFkZXIuIEl0
+IHdvcmtzIAo+PiBjb3JyZWN0bHkgZm9yIGNzdW0gYW5kIEdSTyB3aXRoIGFmX3BhY2tldCBhbmQg
+aXQgd29ya3MgY29ycmVjdGx5IGZvciAKPj4gZXZlcnl0aGluZyB1c2luZyBhIHRhcCBkZXZpY2Uu
+IEl0IGZhaWxzIG9ubHkgb24gR1NPICsgYWZfcGFja2V0IFRYLgo+Pgo+PiBXaGF0IEkgYW0gZG9p
+bmcgaXMgdGhlIHNhbWUgdGhpbmcgdmlydGlvX25ldCBkb2VzIC0gaXQganVzdCB0YWtlcyB0aGUg
+Cj4+IG91dHB1dCBvZiB2aXJ0aW9fbmV0X2hkcl9mcm9tX3NrYiBhbmQgZG9lcyBub3RoaW5nIG1v
+cmUuIFRoZXJlIHNob3VsZCAKPj4gYmUgbm8gbmVlZCB0byBkbyBhbnl0aGluZyBtb3JlIDooCj4+
+Cj4+IEl0IHNob3VsZCBqdXN0IHdvcmsuCj4+Cj4+IFVubGVzcyB0aGVyZSBpcyBhIGdyZW1saW4g
+c29tZXdoZXJlIGluIHRoZSBtYWNoaW5lcnkgYW5kIHRoYXQgZ3JlbWxpbiAKPj4gbmVlZHMgc29t
+ZSBsaWdodCB0byBiZSBmbHVzaGVkIG91dC4KPj4+Cj4+Pj4gSSBhbSBnb2luZyB0byBjb250aW51
+ZSBkaWdnaW5nIGludG8gaXQuCj4+Pj4KPj4+PiBBdCB0aGUgdmVyeSBsZWFzdCBJIG5vdyBoYXZl
+IGEgcG9zaXRpdmUgdGVzdCBjYXNlIHdoaWNoIHVzZXMgdGhlIHNhbWUKPj4+PiBzZW1hbnRpY3Mg
+YXMgbXkgY29kZSBzbyBJIGhhdmUgc29tZXRoaW5nIHRvIGNvbXBhcmUgdG8uCj4+PiBHbGFkIHRv
+IGhlYXIgdGhhdCB0aGUgdGVzdCBpcyBoZWxwZnVsLiBJIHdyb3RlIGl0IGJlY2F1c2UgSQo+Pj4g
+aGF2ZSBydW4gaW50byB0aGVzZSBleGFjdCBzYW1lIGlzc3VlcyBpbiB0aGUgcGFzdC4KPj4KPj4g
+SXQgaXMuIEkgaGF2ZSBjaGFuZ2VzIHJlYWR5IGZvciBpdCBzbyBpdCBhbHNvIHN1cHBvcnRzIHZl
+Y3RvciBJTywgCj4+IG5lZWQgdG8gZmluaXNoIGZpZ2h0aW5nIHdpdGggaXQuCj4+Cj4+IEEuCj4+
+Cj4+Pgo+Pgo+CgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KQ2hlY2sgb3V0IHRoZSB2aWJyYW50IHRl
+Y2ggY29tbXVuaXR5IG9uIG9uZSBvZiB0aGUgd29ybGQncyBtb3N0CmVuZ2FnaW5nIHRlY2ggc2l0
+ZXMsIFNsYXNoZG90Lm9yZyEgaHR0cDovL3NkbS5saW5rL3NsYXNoZG90Cl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClVzZXItbW9kZS1saW51eC1kZXZlbCBt
+YWlsaW5nIGxpc3QKVXNlci1tb2RlLWxpbnV4LWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApo
+dHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby91c2VyLW1vZGUtbGlu
+dXgtZGV2ZWwK
