@@ -1,65 +1,56 @@
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v6 2/5] mqprio: Implement select_queue class_ops
-Date: Wed, 11 Oct 2017 17:54:46 -0700
-Message-ID: <20171012005449.26533-3-vinicius.gomes@intel.com>
-References: <20171012005449.26533-1-vinicius.gomes@intel.com>
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        boon.leong.ong@intel.com, richardcochran@gmail.com,
-        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [RFC] iproute2: reject zero length strings for matches
+Date: Wed, 11 Oct 2017 18:21:44 -0700
+Message-ID: <20171011182144.08ffc990@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:36598 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752801AbdJLA6a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Oct 2017 20:58:30 -0400
-In-Reply-To: <20171012005449.26533-1-vinicius.gomes@intel.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:50916 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752470AbdJLBVz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 21:21:55 -0400
+Received: by mail-pf0-f172.google.com with SMTP id m63so2723576pfk.7
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 18:21:55 -0700 (PDT)
+Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
+        by smtp.gmail.com with ESMTPSA id f7sm495200pgq.5.2017.10.11.18.21.53
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Wed, 11 Oct 2017 18:21:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+The ip commands use the function matches() to allow for abbreviations like:
+  $ ip l
+  $ ip r
 
-When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
-the netdev_queue pointer that the current child qdisc is associated
-with before creating the new qdisc.
+But the function does not check for zero length strings which is potentially error
+prone (but might also break some power users assumptions). For example:
 
-Currently, when using mqprio as root qdisc, the kernel will end up
-getting the queue #0 pointer from the mqprio (root qdisc), which leaves
-any new child qdisc with a possibly wrong netdev_queue pointer.
+$ ip ""
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
 
-Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
-issue and avoid an inconsistent state when child qdiscs are replaced.
+This patch checks for zero length strings and never matches the option.
 
-Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
----
- net/sched/sch_mqprio.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+$ ip ""
+Object "" is unknown, try "ip help".
 
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 6bcdfe6e7b63..8c042ae323e3 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
- 	}
+diff --git a/lib/utils.c b/lib/utils.c
+index ac155bf5a044..b68a2e0f4a07 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -733,7 +733,7 @@ int matches(const char *cmd, const char *pattern)
+ {
+ 	int len = strlen(cmd);
+ 
+-	if (len > strlen(pattern))
++	if (len == 0 || len > strlen(pattern))
+ 		return -1;
+ 	return memcmp(pattern, cmd, len);
  }
- 
-+static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
-+						struct tcmsg *tcm)
-+{
-+	return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
-+}
-+
- static const struct Qdisc_class_ops mqprio_class_ops = {
- 	.graft		= mqprio_graft,
- 	.leaf		= mqprio_leaf,
-@@ -403,6 +409,7 @@ static const struct Qdisc_class_ops mqprio_class_ops = {
- 	.walk		= mqprio_walk,
- 	.dump		= mqprio_dump_class,
- 	.dump_stats	= mqprio_dump_class_stats,
-+	.select_queue	= mqprio_select_queue,
- };
- 
- static struct Qdisc_ops mqprio_qdisc_ops __read_mostly = {
--- 
-2.14.2
