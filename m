@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 24/34] ixgbe: Convert ndo_setup_tc offloads to block callbacks
-Date: Thu, 12 Oct 2017 19:18:13 +0200
-Message-ID: <20171012171823.1431-25-jiri@resnulli.us>
+Subject: [patch net-next 15/34] net: sched: use tc_setup_cb_call to call per-block callbacks
+Date: Thu, 12 Oct 2017 19:18:04 +0200
+Message-ID: <20171012171823.1431-16-jiri@resnulli.us>
 References: <20171012171823.1431-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -16,97 +16,130 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:46124 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754373AbdJLRSr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:47 -0400
-Received: by mail-wm0-f65.google.com with SMTP id m72so15071364wmc.1
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:47 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35353 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754494AbdJLRSj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:39 -0400
+Received: by mail-wm0-f68.google.com with SMTP id b189so4344864wmd.2
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:39 -0700 (PDT)
 In-Reply-To: <20171012171823.1431-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for u32 offloads to block callbacks.
+Extend the tc_setup_cb_call entrypoint function originally used only for
+action egress devices callbacks to call per-block callbacks as well.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 45 +++++++++++++++++++++++----
- 1 file changed, 39 insertions(+), 6 deletions(-)
+ include/net/pkt_cls.h  |  4 ++--
+ net/sched/cls_api.c    | 21 ++++++++++++++++++---
+ net/sched/cls_flower.c |  9 ++++++---
+ 3 files changed, 26 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7683c14..6b52cfd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9365,13 +9365,10 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 	return err;
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 4e6cdf4..2e73832 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -554,8 +554,8 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
+ }
+ #endif /* CONFIG_NET_CLS_IND */
+ 
+-int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
+-		     void *type_data, bool err_stop);
++int tc_setup_cb_call(struct tcf_block *block, struct tcf_exts *exts,
++		     enum tc_setup_type type, void *type_data, bool err_stop);
+ 
+ enum tc_block_command {
+ 	TC_BLOCK_BIND,
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 7837c8a..5a647e0 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -1349,10 +1349,25 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
+ 	return ok_count;
  }
  
--static int ixgbe_setup_tc_cls_u32(struct net_device *dev,
-+static int ixgbe_setup_tc_cls_u32(struct ixgbe_adapter *adapter,
- 				  struct tc_cls_u32_offload *cls_u32)
+-int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
+-		     void *type_data, bool err_stop)
++int tc_setup_cb_call(struct tcf_block *block, struct tcf_exts *exts,
++		     enum tc_setup_type type, void *type_data, bool err_stop)
  {
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--
--	if (!is_classid_clsact_ingress(cls_u32->common.classid) ||
--	    cls_u32->common.chain_index)
-+	if (cls_u32->common.chain_index)
- 		return -EOPNOTSUPP;
+-	return tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
++	int ok_count;
++	int ret;
++
++	ret = tcf_block_cb_call(block, type, type_data, err_stop);
++	if (ret < 0)
++		return ret;
++	ok_count = ret;
++
++	if (!exts)
++		return ok_count;
++	ret = tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
++	if (ret < 0)
++		return ret;
++	ok_count += ret;
++
++	return ok_count;
+ }
+ EXPORT_SYMBOL(tc_setup_cb_call);
  
- 	switch (cls_u32->command) {
-@@ -9390,6 +9387,40 @@ static int ixgbe_setup_tc_cls_u32(struct net_device *dev,
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 5b7bb96..76b4e0a 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -201,6 +201,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
+ 	struct tc_cls_flower_offload cls_flower = {};
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 
+ 	tc_cls_common_offload_init(&cls_flower.common, tp);
+ 	cls_flower.command = TC_CLSFLOWER_DESTROY;
+@@ -209,7 +210,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	if (tc_can_offload(dev))
+ 		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 					      &cls_flower);
+-	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
++	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			 &cls_flower, false);
+ }
+ 
+@@ -220,6 +221,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_flower_offload cls_flower = {};
++	struct tcf_block *block = tp->chain->block;
+ 	bool skip_sw = tc_skip_sw(f->flags);
+ 	int err;
+ 
+@@ -242,7 +244,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ 		}
  	}
+ 
+-	err = tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
++	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			       &cls_flower, skip_sw);
+ 	if (err < 0) {
+ 		fl_hw_destroy_filter(tp, f);
+@@ -261,6 +263,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
+ 	struct tc_cls_flower_offload cls_flower = {};
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 
+ 	tc_cls_common_offload_init(&cls_flower.common, tp);
+ 	cls_flower.command = TC_CLSFLOWER_STATS;
+@@ -270,7 +273,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	if (tc_can_offload(dev))
+ 		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 					      &cls_flower);
+-	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
++	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			 &cls_flower, false);
  }
  
-+static int ixgbe_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+				   void *cb_priv)
-+{
-+	struct ixgbe_adapter *adapter = cb_priv;
-+
-+	switch (type) {
-+	case TC_SETUP_CLSU32:
-+		return ixgbe_setup_tc_cls_u32(adapter, type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int ixgbe_setup_tc_block(struct net_device *dev,
-+				struct tc_block_offload *f)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block, ixgbe_setup_tc_block_cb,
-+					     adapter, adapter);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block, ixgbe_setup_tc_block_cb,
-+					adapter);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int ixgbe_setup_tc_mqprio(struct net_device *dev,
- 				 struct tc_mqprio_qopt *mqprio)
- {
-@@ -9402,7 +9433,9 @@ static int __ixgbe_setup_tc(struct net_device *dev, enum tc_setup_type type,
- {
- 	switch (type) {
- 	case TC_SETUP_CLSU32:
--		return ixgbe_setup_tc_cls_u32(dev, type_data);
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return ixgbe_setup_tc_block(dev, type_data);
- 	case TC_SETUP_MQPRIO:
- 		return ixgbe_setup_tc_mqprio(dev, type_data);
- 	default:
 -- 
 2.9.5
