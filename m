@@ -1,8 +1,8 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 04/10] staging/irda/net: Delete an unnecessary variable
- initialisation in irlap_recv_discovery_xid_cmd()
-Date: Thu, 12 Oct 2017 12:43:12 +0200
-Message-ID: <9ef40fde-7e60-716c-8ac5-232c04fe4401@users.sourceforge.net>
+Subject: [PATCH 05/10] staging/irda/net: Delete an unnecessary variable
+ initialisation in irlap_recv_discovery_xid_rsp()
+Date: Thu, 12 Oct 2017 12:45:03 +0200
+Message-ID: <a7e40d8e-8dc6-63d4-a637-cec895e30408@users.sourceforge.net>
 References: <8152401b-d68d-c4fe-2619-82a09e0c52ec@users.sourceforge.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
@@ -29,10 +29,10 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Wed, 11 Oct 2017 22:18:34 +0200
+Date: Wed, 11 Oct 2017 22:20:22 +0200
 
-The local variable "discovery" will only be used in a single if branch
-of this function. Thus omit the explicit initialisation at the beginning.
+The variable "discovery" will eventually be set to an appropriate pointer
+a bit later. Thus omit the explicit initialisation at the beginning.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
@@ -40,10 +40,10 @@ Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/staging/irda/net/irlap_frame.c b/drivers/staging/irda/net/irlap_frame.c
-index 94972db87951..33259ed5f3cd 100644
+index 33259ed5f3cd..5b8be5b9812e 100644
 --- a/drivers/staging/irda/net/irlap_frame.c
 +++ b/drivers/staging/irda/net/irlap_frame.c
-@@ -481,7 +481,7 @@ static void irlap_recv_discovery_xid_cmd(struct irlap_cb *self,
+@@ -408,7 +408,7 @@ static void irlap_recv_discovery_xid_rsp(struct irlap_cb *self,
  					 struct irlap_info *info)
  {
  	struct xid_frame *xid;
