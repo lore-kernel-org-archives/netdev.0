@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 08/18] tipc: add second source address to recvmsg()/recvfrom()
-Date: Thu, 12 Oct 2017 16:02:29 +0200
-Message-ID: <1507816959-31787-9-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next 06/18] tipc: improve destination linked list
+Date: Thu, 12 Oct 2017 16:02:27 +0200
+Message-ID: <1507816959-31787-7-git-send-email-jon.maloy@ericsson.com>
 References: <1507816959-31787-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,152 +9,305 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:51926 "EHLO
+Received: from sessmg23.ericsson.net ([193.180.251.45]:59245 "EHLO
         sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751725AbdJLOCz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 10:02:55 -0400
+        with ESMTP id S1751691AbdJLOCy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 10:02:54 -0400
 In-Reply-To: <1507816959-31787-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With group communication, it becomes important for a message receiver to
-identify not only from which socket (identfied by a node:port tuple) the
-message was sent, but also the logical identity (type:instance) of the
-sending member.
-
-We fix this by adding a second instance of struct sockaddr_tipc to the
-source address area when a message is read. The extra address struct
-is filled in with data found in the received message header (type,) and
-in the local member representation struct (instance.)
+We often see a need for a linked list of destination identities,
+sometimes containing a port number, sometimes a node identity, and
+sometimes both. The currently defined struct u32_list is not generic
+enough to cover all cases, so we extend it to contain two u32 integers
+and rename it to struct tipc_dest_list.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/group.c  |  3 +++
- net/tipc/msg.h    |  1 +
- net/tipc/socket.c | 52 ++++++++++++++++++++++++++++++++++------------------
- 3 files changed, 38 insertions(+), 18 deletions(-)
+ net/tipc/bcast.c      | 18 +++++------
+ net/tipc/name_table.c | 89 ++++++++++++++++++++++++++-------------------------
+ net/tipc/name_table.h | 22 ++++++++-----
+ net/tipc/socket.c     | 12 +++----
+ 4 files changed, 74 insertions(+), 67 deletions(-)
 
-diff --git a/net/tipc/group.c b/net/tipc/group.c
-index 20663e5..b30e24a 100644
---- a/net/tipc/group.c
-+++ b/net/tipc/group.c
-@@ -61,6 +61,7 @@ struct tipc_member {
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index a140dd4..421fa44 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -259,19 +259,19 @@ static int tipc_rcast_xmit(struct net *net, struct sk_buff_head *pkts,
+ 			   struct tipc_nlist *dests, u16 *cong_link_cnt)
+ {
+ 	struct sk_buff_head _pkts;
+-	struct u32_item *n, *tmp;
+-	u32 dst, selector;
++	struct tipc_dest *dst, *tmp;
++	u32 dnode, selector;
+ 
+ 	selector = msg_link_selector(buf_msg(skb_peek(pkts)));
+ 	skb_queue_head_init(&_pkts);
+ 
+-	list_for_each_entry_safe(n, tmp, &dests->list, list) {
+-		dst = n->value;
+-		if (!tipc_msg_pskb_copy(dst, pkts, &_pkts))
++	list_for_each_entry_safe(dst, tmp, &dests->list, list) {
++		dnode = dst->node;
++		if (!tipc_msg_pskb_copy(dnode, pkts, &_pkts))
+ 			return -ENOMEM;
+ 
+ 		/* Any other return value than -ELINKCONG is ignored */
+-		if (tipc_node_xmit(net, &_pkts, dst, selector) == -ELINKCONG)
++		if (tipc_node_xmit(net, &_pkts, dnode, selector) == -ELINKCONG)
+ 			(*cong_link_cnt)++;
+ 	}
+ 	return 0;
+@@ -554,7 +554,7 @@ void tipc_nlist_add(struct tipc_nlist *nl, u32 node)
+ {
+ 	if (node == nl->self)
+ 		nl->local = true;
+-	else if (u32_push(&nl->list, node))
++	else if (tipc_dest_push(&nl->list, node, 0))
+ 		nl->remote++;
+ }
+ 
+@@ -562,13 +562,13 @@ void tipc_nlist_del(struct tipc_nlist *nl, u32 node)
+ {
+ 	if (node == nl->self)
+ 		nl->local = false;
+-	else if (u32_del(&nl->list, node))
++	else if (tipc_dest_del(&nl->list, node, 0))
+ 		nl->remote--;
+ }
+ 
+ void tipc_nlist_purge(struct tipc_nlist *nl)
+ {
+-	u32_list_purge(&nl->list);
++	tipc_dest_list_purge(&nl->list);
+ 	nl->remote = 0;
+ 	nl->local = 0;
+ }
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index bd0aac8..20f75b1 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -634,7 +634,7 @@ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+ 		info = sseq->info;
+ 		list_for_each_entry(publ, &info->node_list, node_list) {
+ 			if (publ->scope <= limit)
+-				u32_push(dports, publ->ref);
++				tipc_dest_push(dports, 0, publ->ref);
+ 		}
+ 
+ 		if (info->cluster_list_size != info->node_list_size)
+@@ -1057,78 +1057,79 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
+ }
+ 
+-bool u32_find(struct list_head *l, u32 value)
++struct tipc_dest *tipc_dest_find(struct list_head *l, u32 node, u32 port)
+ {
+-	struct u32_item *item;
++	struct tipc_dest *dst;
++	u64 value = (u64)node << 32 | port;
+ 
+-	list_for_each_entry(item, l, list) {
+-		if (item->value == value)
+-			return true;
++	list_for_each_entry(dst, l, list) {
++		if (dst->value != value)
++			continue;
++		return dst;
+ 	}
+-	return false;
++	return NULL;
+ }
+ 
+-bool u32_push(struct list_head *l, u32 value)
++bool tipc_dest_push(struct list_head *l, u32 node, u32 port)
+ {
+-	struct u32_item *item;
++	struct tipc_dest *dst;
++	u64 value = (u64)node << 32 | port;
+ 
+-	list_for_each_entry(item, l, list) {
+-		if (item->value == value)
+-			return false;
+-	}
+-	item = kmalloc(sizeof(*item), GFP_ATOMIC);
+-	if (unlikely(!item))
++	if (tipc_dest_find(l, node, port))
+ 		return false;
+ 
+-	item->value = value;
+-	list_add(&item->list, l);
++	dst = kmalloc(sizeof(*dst), GFP_ATOMIC);
++	if (unlikely(!dst))
++		return false;
++	dst->value = value;
++	list_add(&dst->list, l);
+ 	return true;
+ }
+ 
+-u32 u32_pop(struct list_head *l)
++bool tipc_dest_pop(struct list_head *l, u32 *node, u32 *port)
+ {
+-	struct u32_item *item;
+-	u32 value = 0;
++	struct tipc_dest *dst;
+ 
+ 	if (list_empty(l))
+-		return 0;
+-	item = list_first_entry(l, typeof(*item), list);
+-	value = item->value;
+-	list_del(&item->list);
+-	kfree(item);
+-	return value;
++		return false;
++	dst = list_first_entry(l, typeof(*dst), list);
++	if (port)
++		*port = dst->port;
++	if (node)
++		*node = dst->node;
++	list_del(&dst->list);
++	kfree(dst);
++	return true;
+ }
+ 
+-bool u32_del(struct list_head *l, u32 value)
++bool tipc_dest_del(struct list_head *l, u32 node, u32 port)
+ {
+-	struct u32_item *item, *tmp;
++	struct tipc_dest *dst;
+ 
+-	list_for_each_entry_safe(item, tmp, l, list) {
+-		if (item->value != value)
+-			continue;
+-		list_del(&item->list);
+-		kfree(item);
+-		return true;
+-	}
+-	return false;
++	dst = tipc_dest_find(l, node, port);
++	if (!dst)
++		return false;
++	list_del(&dst->list);
++	kfree(dst);
++	return true;
+ }
+ 
+-void u32_list_purge(struct list_head *l)
++void tipc_dest_list_purge(struct list_head *l)
+ {
+-	struct u32_item *item, *tmp;
++	struct tipc_dest *dst, *tmp;
+ 
+-	list_for_each_entry_safe(item, tmp, l, list) {
+-		list_del(&item->list);
+-		kfree(item);
++	list_for_each_entry_safe(dst, tmp, l, list) {
++		list_del(&dst->list);
++		kfree(dst);
+ 	}
+ }
+ 
+-int u32_list_len(struct list_head *l)
++int tipc_dest_list_len(struct list_head *l)
+ {
+-	struct u32_item *item;
++	struct tipc_dest *dst;
+ 	int i = 0;
+ 
+-	list_for_each_entry(item, l, list) {
++	list_for_each_entry(dst, l, list) {
+ 		i++;
+ 	}
+ 	return i;
+diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
+index 6ebdeb1..d121175 100644
+--- a/net/tipc/name_table.h
++++ b/net/tipc/name_table.h
+@@ -120,16 +120,22 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
+ int tipc_nametbl_init(struct net *net);
+ void tipc_nametbl_stop(struct net *net);
+ 
+-struct u32_item {
++struct tipc_dest {
  	struct list_head list;
- 	u32 node;
- 	u32 port;
-+	u32 instance;
- 	enum mbr_state state;
- 	u16 bc_rcv_nxt;
+-	u32 value;
++	union {
++		struct {
++			u32 port;
++			u32 node;
++		};
++		u64 value;
++	};
  };
-@@ -282,6 +283,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 	if (!tipc_group_is_receiver(m))
- 		goto drop;
  
-+	TIPC_SKB_CB(skb)->orig_member = m->instance;
- 	__skb_queue_tail(inputq, skb);
+-bool u32_push(struct list_head *l, u32 value);
+-u32 u32_pop(struct list_head *l);
+-bool u32_find(struct list_head *l, u32 value);
+-bool u32_del(struct list_head *l, u32 value);
+-void u32_list_purge(struct list_head *l);
+-int u32_list_len(struct list_head *l);
++struct tipc_dest *tipc_dest_find(struct list_head *l, u32 node, u32 port);
++bool tipc_dest_push(struct list_head *l, u32 node, u32 port);
++bool tipc_dest_pop(struct list_head *l, u32 *node, u32 *port);
++bool tipc_dest_del(struct list_head *l, u32 node, u32 port);
++void tipc_dest_list_purge(struct list_head *l);
++int tipc_dest_list_len(struct list_head *l);
  
- 	m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
-@@ -388,6 +390,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
- 			m->state = MBR_PUBLISHED;
- 		else
- 			m->state = MBR_JOINED;
-+		m->instance = evt->found_lower;
- 		tipc_group_proto_xmit(grp, m, GRP_JOIN_MSG, xmitq);
- 	} else if (evt->event == TIPC_WITHDRAWN) {
- 		if (!m)
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 7ba1045..6bf9840 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -100,6 +100,7 @@ struct plist;
- 
- struct tipc_skb_cb {
- 	u32 bytes_read;
-+	u32 orig_member;
- 	struct sk_buff *tail;
- 	bool validated;
- 	u16 chain_imp;
+ #endif
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 1e5de367..43a74b8 100644
+index 6b2b4ca..850358f 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1222,26 +1222,42 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- }
+@@ -565,7 +565,7 @@ static int tipc_release(struct socket *sock)
  
- /**
-- * set_orig_addr - capture sender's address for received message
-+ * tipc_sk_set_orig_addr - capture sender's address for received message
-  * @m: descriptor for message info
-- * @msg: received message header
-+ * @hdr: received message header
-  *
-  * Note: Address is not captured if not requested by receiver.
-  */
--static void set_orig_addr(struct msghdr *m, struct tipc_msg *msg)
--{
--	DECLARE_SOCKADDR(struct sockaddr_tipc *, addr, m->msg_name);
--
--	if (addr) {
--		addr->family = AF_TIPC;
--		addr->addrtype = TIPC_ADDR_ID;
--		memset(&addr->addr, 0, sizeof(addr->addr));
--		addr->addr.id.ref = msg_origport(msg);
--		addr->addr.id.node = msg_orignode(msg);
--		addr->addr.name.domain = 0;	/* could leave uninitialized */
--		addr->scope = 0;		/* could leave uninitialized */
--		m->msg_namelen = sizeof(struct sockaddr_tipc);
--	}
-+static void tipc_sk_set_orig_addr(struct msghdr *m, struct sk_buff *skb)
-+{
-+	struct tipc_msg *hdr = buf_msg(skb);
-+	struct sockaddr_pair {
-+		struct sockaddr_tipc sock;
-+		struct sockaddr_tipc member;
-+	};
-+	DECLARE_SOCKADDR(struct sockaddr_pair *, srcaddr, m->msg_name);
-+
-+	if (!srcaddr)
-+		return;
-+
-+	srcaddr->sock.family = AF_TIPC;
-+	srcaddr->sock.addrtype = TIPC_ADDR_ID;
-+	srcaddr->sock.addr.id.ref = msg_origport(hdr);
-+	srcaddr->sock.addr.id.node = msg_orignode(hdr);
-+	srcaddr->sock.addr.name.domain = 0;
-+	srcaddr->sock.scope = 0;
-+	m->msg_namelen = sizeof(struct sockaddr_tipc);
-+
-+	if (!msg_in_group(hdr))
-+		return;
-+
-+	/* Group message users may also want to know sending member's id */
-+	srcaddr->member.family = AF_TIPC;
-+	srcaddr->member.addrtype = TIPC_ADDR_NAME;
-+	srcaddr->member.addr.name.name.type = msg_nametype(hdr);
-+	srcaddr->member.addr.name.name.instance = TIPC_SKB_CB(skb)->orig_member;
-+	srcaddr->member.addr.name.domain = 0;
-+	m->msg_namelen = sizeof(*srcaddr);
- }
+ 	/* Reject any messages that accumulated in backlog queue */
+ 	release_sock(sk);
+-	u32_list_purge(&tsk->cong_links);
++	tipc_dest_list_purge(&tsk->cong_links);
+ 	tsk->cong_link_cnt = 0;
+ 	call_rcu(&tsk->rcu, tipc_sk_callback);
+ 	sock->sk = NULL;
+@@ -826,8 +826,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 		tipc_nametbl_mc_translate(net,
+ 					  msg_nametype(msg), msg_namelower(msg),
+ 					  msg_nameupper(msg), scope, &dports);
+-		portid = u32_pop(&dports);
+-		for (; portid; portid = u32_pop(&dports)) {
++		while (tipc_dest_pop(&dports, NULL, &portid)) {
+ 			_skb = __pskb_copy(skb, hsz, GFP_ATOMIC);
+ 			if (_skb) {
+ 				msg_set_destport(buf_msg(_skb), portid);
+@@ -1000,7 +999,8 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
+ 	}
  
- /**
-@@ -1432,7 +1448,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
- 	} while (1);
- 
- 	/* Collect msg meta data, including error code and rejected data */
--	set_orig_addr(m, hdr);
-+	tipc_sk_set_orig_addr(m, skb);
- 	rc = tipc_sk_anc_data_recv(m, hdr, tsk);
+ 	/* Block or return if destination link is congested */
+-	rc = tipc_wait_for_cond(sock, &timeout, !u32_find(clinks, dnode));
++	rc = tipc_wait_for_cond(sock, &timeout,
++				!tipc_dest_find(clinks, dnode, 0));
  	if (unlikely(rc))
- 		goto exit;
-@@ -1526,7 +1542,7 @@ static int tipc_recvstream(struct socket *sock, struct msghdr *m,
+ 		return rc;
  
- 		/* Collect msg meta data, incl. error code and rejected data */
- 		if (!copied) {
--			set_orig_addr(m, hdr);
-+			tipc_sk_set_orig_addr(m, skb);
- 			rc = tipc_sk_anc_data_recv(m, hdr, tsk);
- 			if (rc)
- 				break;
+@@ -1012,7 +1012,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
+ 
+ 	rc = tipc_node_xmit(net, &pkts, dnode, tsk->portid);
+ 	if (unlikely(rc == -ELINKCONG)) {
+-		u32_push(clinks, dnode);
++		tipc_dest_push(clinks, dnode, 0);
+ 		tsk->cong_link_cnt++;
+ 		rc = 0;
+ 	}
+@@ -1549,7 +1549,7 @@ static void tipc_sk_proto_rcv(struct sock *sk,
+ 		tipc_sk_conn_proto_rcv(tsk, skb, xmitq);
+ 		return;
+ 	case SOCK_WAKEUP:
+-		u32_del(&tsk->cong_links, msg_orignode(hdr));
++		tipc_dest_del(&tsk->cong_links, msg_orignode(hdr), 0);
+ 		tsk->cong_link_cnt--;
+ 		sk->sk_write_space(sk);
+ 		break;
 -- 
 2.1.4
