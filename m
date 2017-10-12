@@ -1,47 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [next-queue PATCH v6 3/5] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Wed, 11 Oct 2017 18:32:52 -0700
-Message-ID: <1507771972.31614.41.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171012005449.26533-1-vinicius.gomes@intel.com>
-         <20171012005449.26533-4-vinicius.gomes@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
-        rodney.cummings@ni.com
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v4 2/5] bpf: Add tests for eBPF file mode
+Date: Wed, 11 Oct 2017 18:46:38 -0700
+Message-ID: <20171012014641.96818-3-chenbofeng.kernel@gmail.com>
+References: <20171012014641.96818-1-chenbofeng.kernel@gmail.com>
+Cc: Jeffrey Vander Stoep <jeffv@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        lorenzo@google.com, Daniel Borkmann <daniel@iogearbox.net>,
+        Stephen Smalley <sds@tycho.nsa.gov>, viro@zeniv.linux.org.uk,
+        James Morris <james.l.morris@oracle.com>,
+        Paul Moore <paul@paul-moore.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:57078 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751757AbdJLBcz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 21:32:55 -0400
-Received: by mail-pf0-f178.google.com with SMTP id b85so2735611pfj.13
-        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 18:32:55 -0700 (PDT)
-In-Reply-To: <20171012005449.26533-4-vinicius.gomes@intel.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:32890 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754818AbdJLBrM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 21:47:12 -0400
+Received: by mail-pf0-f194.google.com with SMTP id m28so3970665pfi.0
+        for <netdev@vger.kernel.org>; Wed, 11 Oct 2017 18:47:12 -0700 (PDT)
+In-Reply-To: <20171012014641.96818-1-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-10-11 at 17:54 -0700, Vinicius Costa Gomes wrote:
-> This queueing discipline implements the shaper algorithm defined by
-> the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
+From: Chenbo Feng <fengc@google.com>
 
-...
+Two related tests are added into bpf selftest to test read only map and
+write only map. The tests verified the read only and write only flags
+are working on hash maps.
 
-> +static s64 delay_from_credits(s64 credits, s32 slope)
-> +{
-> +	s64 rate = slope * BYTES_PER_KBIT;
-> +
-> +	if (unlikely(rate == 0))
-> +		return S64_MAX;
-> +
-> +	return ((-credits * NSEC_PER_SEC) / rate);
-> +}
+Signed-off-by: Chenbo Feng <fengc@google.com>
+---
+ tools/testing/selftests/bpf/test_maps.c | 48 +++++++++++++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
 
-Have you tried to compile this on 32bit arch ?
-
-make ARCH=i386
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index fe3a443a1102..896f23cfe918 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -1033,6 +1033,51 @@ static void test_map_parallel(void)
+ 	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+ }
+ 
++static void test_map_rdonly(void)
++{
++	int i, fd, key = 0, value = 0;
++
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    MAP_SIZE, map_flags | BPF_F_RDONLY);
++	if (fd < 0) {
++		printf("Failed to create map for read only test '%s'!\n",
++		       strerror(errno));
++		exit(1);
++	}
++
++	key = 1;
++	value = 1234;
++	/* Insert key=1 element. */
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == -1 &&
++	       errno == EPERM);
++
++	/* Check that key=2 is not found. */
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_map_get_next_key(fd, &key, &value) == -1 && errno == ENOENT);
++}
++
++static void test_map_wronly(void)
++{
++	int i, fd, key = 0, value = 0;
++
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    MAP_SIZE, map_flags | BPF_F_WRONLY);
++	if (fd < 0) {
++		printf("Failed to create map for read only test '%s'!\n",
++		       strerror(errno));
++		exit(1);
++	}
++
++	key = 1;
++	value = 1234;
++	/* Insert key=1 element. */
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == 0)
++
++	/* Check that key=2 is not found. */
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == EPERM);
++	assert(bpf_map_get_next_key(fd, &key, &value) == -1 && errno == EPERM);
++}
++
+ static void run_all_tests(void)
+ {
+ 	test_hashmap(0, NULL);
+@@ -1050,6 +1095,9 @@ static void run_all_tests(void)
+ 	test_map_large();
+ 	test_map_parallel();
+ 	test_map_stress();
++
++	test_map_rdonly();
++	test_map_wronly();
+ }
+ 
+ int main(void)
+-- 
+2.15.0.rc0.271.g36b669edcc-goog
