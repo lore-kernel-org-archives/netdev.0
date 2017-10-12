@@ -1,82 +1,74 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC 0/3] Adding config get/set to devlink
-Date: Thu, 12 Oct 2017 14:53:56 -0700
-Message-ID: <CAJieiUjK4CsBGT5_YidnEGk7mCVYYO_8S0xcsv+XfaW=amGCaQ@mail.gmail.com>
-References: <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
- <20171012150419.GI14672@nanopsycho> <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
- <20171012.120650.1063812043202847517.davem@davemloft.net> <21ab4a5d-0b6a-7976-7bf0-acd334f2613f@gmail.com>
+Subject: Re: Ethtool question
+Date: Thu, 12 Oct 2017 15:00:38 -0700
+Message-ID: <CAJieiUhsxPRPBBV1WJR6NRfzDKt-8c=QYRHhwoW33KchSb-gXg@mail.gmail.com>
+References: <492e57b2-ac0a-ff01-2698-e048e97d8e37@candelatech.com>
+ <20171011204406.GC30940@tuxdriver.com> <20171011.134919.321292333200236097.davem@davemloft.net>
+ <59DFE275.3050805@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: David Miller <davem@davemloft.net>,
-        =?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>,
-        Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        linux-pci@vger.kernel.org,
         "John W. Linville" <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <21ab4a5d-0b6a-7976-7bf0-acd334f2613f@gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:43767 "EHLO
+        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755110AbdJLWAk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 18:00:40 -0400
+Received: by mail-vk0-f46.google.com with SMTP id t203so3412347vke.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 15:00:39 -0700 (PDT)
+In-Reply-To: <59DFE275.3050805@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 12, 2017 at 12:20 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 10/12/2017 12:06 PM, David Miller wrote:
->> From: Florian Fainelli <f.fainelli@gmail.com>
->> Date: Thu, 12 Oct 2017 08:43:59 -0700
+On Thu, Oct 12, 2017 at 2:45 PM, Ben Greear <greearb@candelatech.com> wrote:
+> On 10/11/2017 01:49 PM, David Miller wrote:
 >>
->>> Once we move ethtool (or however we name its successor) over to
->>> netlink there is an opportunity for accessing objects that do and do
->>> not have a netdevice representor today (e.g: management ports on
->>> switches) with the same interface, and devlink could be used for
->>> that.
+>> From: "John W. Linville" <linville@tuxdriver.com>
+>> Date: Wed, 11 Oct 2017 16:44:07 -0400
 >>
->> That is an interesting angle for including this in devlink.
+>>> On Wed, Oct 11, 2017 at 09:51:56AM -0700, Ben Greear wrote:
+>>>>
+>>>> I noticed today that setting some ethtool settings to the same value
+>>>> returns an error code.  I would think this should silently return
+>>>> success instead?  Makes it easier to call it from scripts this way:
+>>>>
+>>>> [root@lf0313-6477 lanforge]# ethtool -L eth3 combined 1
+>>>> combined unmodified, ignoring
+>>>> no channel parameters changed, aborting
+>>>> current values: tx 0 rx 0 other 1 combined 1
+>>>> [root@lf0313-6477 lanforge]# echo $?
+>>>> 1
+>>>
+>>>
+>>> I just had this discussion a couple of months ago with someone. My
+>>> initial feeling was like you, a no-op is not a failure. But someone
+>>> convinced me otherwise...I will now endeavour to remember who that
+>>> was and how they convinced me...
+>>>
+>>> Anyone else have input here?
 >>
->> I'm not so sure what to do about this.
 >>
->> One suggestion is that devlink is used for getting ethtool stats for
->> objects lacking netdev representor's, and a new genetlink family is
->> used for netdev based ethtool.
+>> I guess this usually happens when drivers don't support changing the
+>> settings at all.  So they just make their ethtool operation for the
+>> 'set' always return an error.
+>>
+>> We could have a generic ethtool helper that does "get" and then if the
+>> "set" request is identical just return zero.
+>>
+>> But from another perspective, the error returned from the "set" in this
+>> situation also indicates to the user that the driver does not support
+>> the "set" operation which has value and meaning in and of itself.  And
+>> we'd lose that with the given suggestion.
 >
-> Right, I was also thinking along those lines that we we would have a new
-> generic netlink family for ethtool to support ethtool over netlink.
+>
+> In my case, the driver (igb) does support the set, my program just made the
+> same
+> ethtool call several times and it fails after the initial change (that
+> actually
+> changes something), as best as I can figure.
 
-new api is fine by me. The reason for suggesting devlink was because
-some of the devlink
-port_* ops are close to ethtool ops that can operate on a port/netdev.
-eg split_port could be a netdev operation
-unless you want to split before the netdev is created.
 
-There are some ops in devlink which are global hw parameters and not
-specific to a port, those fit perfectly with
-devlinks original goal.
-
-
->
->>
->> I think it's important that we don't expand the scope of devlink
->> beyond what it was originally designed for.
->
-> It seems to me like devlink is well defined in what it is not for: it is
-> not meant to be used for any object that is/has a net_device, but it is
-> not well defined for what it can offer to these non network devices. For
-> instance, we have a tremendous amount of operations that are extremely
-> specific to its single user(s) such as mlx5 and mlxsw.
->
-> For instance, I am not sure how the buffer reservation scheme can be
-> generalized, and this is always the tricky part with a single user
-> facility in that you try to generalize the best you can based on the HW
-> you know. This is not a criticism or meant to be anything negative, this
-> just happens to be the case, and we did not have anything better.
->
-> So maybe the first thing is to clarify what devlink operations can and
-> should be and what they are absolutely not allowed to cover. We should
-> also clarify whether a generic set/get that Steven is proposing is
-> something that we tolerate, or whether there should be specific function
-> pointers implemented for each attribute, which would be more in line
-> with what has been done thus far.
-> --
-> Florian
+This error is returned by ethtool user-space. It does a get, check and
+then set if user has requested changes.
