@@ -1,51 +1,58 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 4/5] net: dsa: add slave get master helper
-Date: Thu, 12 Oct 2017 19:23:34 -0400
-Message-ID: <87o9pc6jd5.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20171012225156.20758-1-vivien.didelot@savoirfairelinux.com> <20171012225156.20758-5-vivien.didelot@savoirfairelinux.com> <e3e7001e-8618-0b31-cd28-ebcdad561f7b@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e3e7001e-8618-0b31-cd28-ebcdad561f7b@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Adam Borowski <kilobyte@angband.pl>
+Subject: [PATCH] wanxl: use m68k-linux-gnu-as if available
+Date: Fri, 13 Oct 2017 01:24:34 +0200
+Message-ID: <20171012232434.15890-1-kilobyte@angband.pl>
+Cc: Adam Borowski <kilobyte@angband.pl>
+To: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tartarus.angband.pl ([89.206.35.136]:36731 "EHLO
+        tartarus.angband.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752804AbdJLXYm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 19:24:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+This fixes build failure on Debian based systems: GNU as is the only m68k
+assembler available in the archive (package binutils-m68k-linux-gnu).
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+Signed-off-by: Adam Borowski <kilobyte@angband.pl>
+---
+I have no relevant hardware, thus I can't check whether the built firmware
+actually works.  Some opcodes are translated differently, thus it might be
+possible that some extra options are required.  Or possibly the assembler
+has long since changed -- the prebuilt copy hasn't been updated anywhere
+within recorded history.
 
-> On 10/12/2017 03:51 PM, Vivien Didelot wrote:
->> Many part of the DSA slave code require to get the master device
->> assigned to a slave device. Remove dsa_master_netdev() in favor of a
->> dsa_slave_get_master() helper which does that.
->> 
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->
->> +static inline struct net_device *
->> +dsa_slave_get_master(const struct net_device *dev)
->> +{
->> +	struct dsa_port *dp = dsa_slave_to_port(dev);
->> +
->> +	return dp->cpu_dp->netdev;
->> +}
->
-> Nit: _get may convey the idea that a reference count may be incremented
-> when the function is called (balanced with a _put), so maybe name it
-> dsa_slave_to_master() which is more in line with dsa_slave_to_port() as
-> well? Other than that:
->
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+In any case, I admit I don't really care about this driver -- it's merely
+a notorious cause of randconfig failures.
 
-Perfect, I was hesitating myself between the two, but I didn't have a
-good argument for any of them. Now I have one! I'll change that for
-dsa_slave_to_master and add your tag.
+ drivers/net/wan/Makefile | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-
-Thanks,
-
-        Vivien
+diff --git a/drivers/net/wan/Makefile b/drivers/net/wan/Makefile
+index 73c2326603fc..fa17b18765b0 100644
+--- a/drivers/net/wan/Makefile
++++ b/drivers/net/wan/Makefile
+@@ -38,14 +38,20 @@ obj-$(CONFIG_SLIC_DS26522)	+= slic_ds26522.o
+ clean-files := wanxlfw.inc
+ $(obj)/wanxl.o:	$(obj)/wanxlfw.inc
+ 
++HAVE_GNU_M68K_AS := $(shell command -v m68k-linux-gnu-as 2> /dev/null)
+ ifeq ($(CONFIG_WANXL_BUILD_FIRMWARE),y)
+ ifeq ($(ARCH),m68k)
+   AS68K = $(AS)
+   LD68K = $(LD)
++else
++ifdef HAVE_GNU_M68K_AS
++  AS68K = m68k-linux-gnu-as
++  LD68K = m68k-linux-gnu-ld
+ else
+   AS68K = as68k
+   LD68K = ld68k
+ endif
++endif
+ 
+ quiet_cmd_build_wanxlfw = BLD FW  $@
+       cmd_build_wanxlfw = \
+-- 
+2.15.0.rc0
