@@ -1,58 +1,67 @@
-From: Adam Borowski <kilobyte@angband.pl>
-Subject: [PATCH] wanxl: use m68k-linux-gnu-as if available
-Date: Fri, 13 Oct 2017 01:24:34 +0200
-Message-ID: <20171012232434.15890-1-kilobyte@angband.pl>
-Cc: Adam Borowski <kilobyte@angband.pl>
-To: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tartarus.angband.pl ([89.206.35.136]:36731 "EHLO
-        tartarus.angband.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752804AbdJLXYm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 19:24:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
+Subject: [PATCH] Add -target to clang switch while cross compiling.
+Date: Thu, 12 Oct 2017 16:45:15 -0700
+Message-ID: <1507851915-24591-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
+References: <1507841157-10487-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
+To: ast@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507841157-10487-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This fixes build failure on Debian based systems: GNU as is the only m68k
-assembler available in the archive (package binutils-m68k-linux-gnu).
+Update to llvm excludes assembly instructions.
+llvm git revision is below
 
-Signed-off-by: Adam Borowski <kilobyte@angband.pl>
+commit 2865ab6996164e7854d55c9e21c065fad7c26569
+Author: Yonghong Song <yhs@fb.com>
+Date:   Mon Sep 18 23:29:36 2017 +0000
+
+    bpf: add inline-asm support
+
+    Signed-off-by: Yonghong Song <yhs@fb.com>
+    Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+    git-svn-id: https://llvm.org/svn/llvm-project/llvm/trunk@313593 91177308-0d34-0410-b5e6-96231b3b80d8
+
+__ASM_SYSREG_H define is not required for native compile.
+-target switch includes appropriate target specific files
+while cross compiling
+
+Tested on x86 and arm64.
+
+Signed-off-by: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
 ---
-I have no relevant hardware, thus I can't check whether the built firmware
-actually works.  Some opcodes are translated differently, thus it might be
-possible that some extra options are required.  Or possibly the assembler
-has long since changed -- the prebuilt copy hasn't been updated anywhere
-within recorded history.
+ samples/bpf/Makefile | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-In any case, I admit I don't really care about this driver -- it's merely
-a notorious cause of randconfig failures.
-
- drivers/net/wan/Makefile | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/drivers/net/wan/Makefile b/drivers/net/wan/Makefile
-index 73c2326603fc..fa17b18765b0 100644
---- a/drivers/net/wan/Makefile
-+++ b/drivers/net/wan/Makefile
-@@ -38,14 +38,20 @@ obj-$(CONFIG_SLIC_DS26522)	+= slic_ds26522.o
- clean-files := wanxlfw.inc
- $(obj)/wanxl.o:	$(obj)/wanxlfw.inc
- 
-+HAVE_GNU_M68K_AS := $(shell command -v m68k-linux-gnu-as 2> /dev/null)
- ifeq ($(CONFIG_WANXL_BUILD_FIRMWARE),y)
- ifeq ($(ARCH),m68k)
-   AS68K = $(AS)
-   LD68K = $(LD)
-+else
-+ifdef HAVE_GNU_M68K_AS
-+  AS68K = m68k-linux-gnu-as
-+  LD68K = m68k-linux-gnu-ld
- else
-   AS68K = as68k
-   LD68K = ld68k
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index ebc2ad6..81f9fcd 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -180,6 +180,7 @@ CLANG ?= clang
+ # Detect that we're cross compiling and use the cross compiler
+ ifdef CROSS_COMPILE
+ HOSTCC = $(CROSS_COMPILE)gcc
++CLANG_ARCH_ARGS = -target $(ARCH)
  endif
-+endif
  
- quiet_cmd_build_wanxlfw = BLD FW  $@
-       cmd_build_wanxlfw = \
+ # Trick to allow make to be run from this directory
+@@ -229,9 +230,9 @@ $(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
+ $(obj)/%.o: $(src)/%.c
+ 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
+ 		-I$(srctree)/tools/testing/selftests/bpf/ \
+-		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
++		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
+ 		-D__TARGET_ARCH_$(ARCH) -Wno-compare-distinct-pointer-types \
+ 		-Wno-gnu-variable-sized-type-not-at-end \
+ 		-Wno-address-of-packed-member -Wno-tautological-compare \
+-		-Wno-unknown-warning-option \
++		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
+ 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
 -- 
-2.15.0.rc0
+2.7.4
