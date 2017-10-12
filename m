@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 26/34] nfp: flower: Convert ndo_setup_tc offloads to block callbacks
-Date: Thu, 12 Oct 2017 19:18:15 +0200
-Message-ID: <20171012171823.1431-27-jiri@resnulli.us>
+Subject: [patch net-next 33/34] net: sched: remove classid and q fields from tcf_proto
+Date: Thu, 12 Oct 2017 19:18:22 +0200
+Message-ID: <20171012171823.1431-34-jiri@resnulli.us>
 References: <20171012171823.1431-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -16,101 +16,70 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33755 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33790 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754494AbdJLRSt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:49 -0400
-Received: by mail-wm0-f65.google.com with SMTP id u138so4373081wmu.0
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:48 -0700 (PDT)
+        with ESMTP id S1754494AbdJLRSz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:55 -0400
+Received: by mail-wm0-f65.google.com with SMTP id u138so4373236wmu.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:55 -0700 (PDT)
 In-Reply-To: <20171012171823.1431-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for flower offloads to block callbacks.
+Both are no longer used, so remove them.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/netronome/nfp/flower/offload.c    | 56 ++++++++++++++++++----
- 1 file changed, 48 insertions(+), 8 deletions(-)
+ include/net/sch_generic.h | 2 --
+ net/sched/cls_api.c       | 7 ++-----
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 6f239c2..f8523df 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -449,6 +449,10 @@ static int
- nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
- 			struct tc_cls_flower_offload *flower)
- {
-+	if (!eth_proto_is_802_3(flower->common.protocol) ||
-+	    flower->common.chain_index)
-+		return -EOPNOTSUPP;
-+
- 	switch (flower->command) {
- 	case TC_CLSFLOWER_REPLACE:
- 		return nfp_flower_add_offload(app, netdev, flower);
-@@ -461,16 +465,52 @@ nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
- 	return -EOPNOTSUPP;
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 17c908a..df4a1e9 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -244,8 +244,6 @@ struct tcf_proto {
+ 
+ 	/* All the rest */
+ 	u32			prio;
+-	u32			classid;
+-	struct Qdisc		*q;
+ 	void			*data;
+ 	const struct tcf_proto_ops	*ops;
+ 	struct tcf_chain	*chain;
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index fba6a85..4b0c051 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -114,8 +114,7 @@ static inline u32 tcf_auto_prio(struct tcf_proto *tp)
  }
  
--int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
--			enum tc_setup_type type, void *type_data)
-+static int nfp_flower_setup_tc_block_cb(enum tc_setup_type type,
-+					void *type_data, void *cb_priv)
-+{
-+	struct nfp_net *nn = cb_priv;
-+
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return nfp_flower_repr_offload(nn->app, nn->port->netdev,
-+					       type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int nfp_flower_setup_tc_block(struct net_device *netdev,
-+				     struct tc_block_offload *f)
+ static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
+-					  u32 prio, u32 parent, struct Qdisc *q,
+-					  struct tcf_chain *chain)
++					  u32 prio, struct tcf_chain *chain)
  {
--	struct tc_cls_flower_offload *cls_flower = type_data;
-+	struct nfp_net *nn = netdev_priv(netdev);
+ 	struct tcf_proto *tp;
+ 	int err;
+@@ -149,8 +148,6 @@ static struct tcf_proto *tcf_proto_create(const char *kind, u32 protocol,
+ 	tp->classify = tp->ops->classify;
+ 	tp->protocol = protocol;
+ 	tp->prio = prio;
+-	tp->classid = parent;
+-	tp->q = q;
+ 	tp->chain = chain;
  
--	if (type != TC_SETUP_CLSFLOWER ||
--	    !is_classid_clsact_ingress(cls_flower->common.classid) ||
--	    !eth_proto_is_802_3(cls_flower->common.protocol) ||
--	    cls_flower->common.chain_index)
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
- 		return -EOPNOTSUPP;
+ 	err = tp->ops->init(tp);
+@@ -1039,7 +1036,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 			prio = tcf_auto_prio(tcf_chain_tp_prev(&chain_info));
  
--	return nfp_flower_repr_offload(app, netdev, cls_flower);
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block,
-+					     nfp_flower_setup_tc_block_cb,
-+					     nn, nn);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block,
-+					nfp_flower_setup_tc_block_cb,
-+					nn);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
-+			enum tc_setup_type type, void *type_data)
-+{
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return nfp_flower_setup_tc_block(netdev, type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
- }
+ 		tp = tcf_proto_create(nla_data(tca[TCA_KIND]),
+-				      protocol, prio, parent, q, chain);
++				      protocol, prio, chain);
+ 		if (IS_ERR(tp)) {
+ 			err = PTR_ERR(tp);
+ 			goto errout;
 -- 
 2.9.5
