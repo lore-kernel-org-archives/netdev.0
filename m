@@ -1,98 +1,138 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [Intel-wired-lan] [next-queue PATCH v6 2/5] mqprio: Implement
- select_queue class_ops
-Date: Thu, 12 Oct 2017 08:59:03 -0700
-Message-ID: <633dfce2-71f1-f704-7ae2-b1ef2ba9b448@intel.com>
-References: <20171012005449.26533-1-vinicius.gomes@intel.com>
- <20171012005449.26533-3-vinicius.gomes@intel.com>
- <CAKgT0Ufo1tG4GpSkGaWuUxqhzEUOT7wcBLuaZx_mZmEL+9SnXw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv4 iproute2 2/2] lib/libnetlink: update rtnl_talk to
+ support malloc buff at run time
+Date: Thu, 12 Oct 2017 09:07:06 -0700
+Message-ID: <20171012090706.04c00ab5@xeon-e3>
+References: <1506605626-1744-1-git-send-email-haliu@redhat.com>
+        <1506605626-1744-3-git-send-email-haliu@redhat.com>
+        <20171002103708.0572704b@xeon-e3>
+        <20171009202525.GR32278@orbyte.nwl.cc>
+        <20171010064117.ipyarf5ml7fwnzdv@unicorn.suse.cz>
+        <20171010094743.6ae2baa8@shemminger-XPS-13-9360>
+        <20171011111007.GA11332@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        rodney.cummings@ni.com, andre.guedes@intel.com,
-        Jiri Pirko <jiri@resnulli.us>, ivan.briano@intel.com,
-        Richard Cochran <richardcochran@gmail.com>, henrik@austad.us,
-        Jamal Hadi Salim <jhs@mojatatu.com>, levipearson@gmail.com,
-        boon.leong.ong@intel.com, Cong Wang <xiyou.wangcong@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Cc: Michal Kubecek <mkubecek@suse.cz>, Hangbin Liu <haliu@redhat.com>,
+        netdev@vger.kernel.org, Hangbin Liu <liuhangbin@gmail.com>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:49582 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751040AbdJLQGV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Oct 2017 12:06:21 -0400
-In-Reply-To: <CAKgT0Ufo1tG4GpSkGaWuUxqhzEUOT7wcBLuaZx_mZmEL+9SnXw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:51380 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751455AbdJLQHO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:07:14 -0400
+Received: by mail-pf0-f178.google.com with SMTP id n14so5476040pfh.8
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 09:07:13 -0700 (PDT)
+In-Reply-To: <20171011111007.GA11332@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex,
+On Wed, 11 Oct 2017 13:10:07 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-
-On 10/12/2017 08:21 AM, Alexander Duyck wrote:
-> On Wed, Oct 11, 2017 at 5:54 PM, Vinicius Costa Gomes
-> <vinicius.gomes@intel.com> wrote:
->> From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->>
->> When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
->> the netdev_queue pointer that the current child qdisc is associated
->> with before creating the new qdisc.
->>
->> Currently, when using mqprio as root qdisc, the kernel will end up
->> getting the queue #0 pointer from the mqprio (root qdisc), which leaves
->> any new child qdisc with a possibly wrong netdev_queue pointer.
->>
->> Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
->> issue and avoid an inconsistent state when child qdiscs are replaced.
->>
->> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
->> ---
->>  net/sched/sch_mqprio.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
->> index 6bcdfe6e7b63..8c042ae323e3 100644
->> --- a/net/sched/sch_mqprio.c
->> +++ b/net/sched/sch_mqprio.c
->> @@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
->>         }
->>  }
->>
->> +static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
->> +                                               struct tcmsg *tcm)
->> +{
->> +       return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
->> +}
->> +
+> On Tue, Oct 10, 2017 at 09:47:43AM -0700, Stephen Hemminger wrote:
+> > On Tue, 10 Oct 2017 08:41:17 +0200
+> > Michal Kubecek <mkubecek@suse.cz> wrote:
+> > 
+> > > On Mon, Oct 09, 2017 at 10:25:25PM +0200, Phil Sutter wrote:
+> > > > Hi Stephen,
+> > > > 
+> > > > On Mon, Oct 02, 2017 at 10:37:08AM -0700, Stephen Hemminger wrote:  
+> > > > > On Thu, 28 Sep 2017 21:33:46 +0800
+> > > > > Hangbin Liu <haliu@redhat.com> wrote:
+> > > > >   
+> > > > > > From: Hangbin Liu <liuhangbin@gmail.com>
+> > > > > > 
+> > > > > > This is an update for 460c03f3f3cc ("iplink: double the buffer size also in
+> > > > > > iplink_get()"). After update, we will not need to double the buffer size
+> > > > > > every time when VFs number increased.
+> > > > > > 
+> > > > > > With call like rtnl_talk(&rth, &req.n, NULL, 0), we can simply remove the
+> > > > > > length parameter.
+> > > > > > 
+> > > > > > With call like rtnl_talk(&rth, nlh, nlh, sizeof(req), I add a new variable
+> > > > > > answer to avoid overwrite data in nlh, because it may has more info after
+> > > > > > nlh. also this will avoid nlh buffer not enough issue.
+> > > > > > 
+> > > > > > We need to free answer after using.
+> > > > > > 
+> > > > > > Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> > > > > > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > > > > > ---  
+> > > > > 
+> > > > > Most of the uses of rtnl_talk() don't need to this peek and dynamic sizing.
+> > > > > Can only those places that need that be targeted?  
+> > > > 
+> > > > We could probably do that, by having a buffer on stack in __rtnl_talk()
+> > > > which will be used instead of the allocated one if 'answer' is NULL. Or
+> > > > maybe even introduce a dedicated API call for the dynamically allocated
+> > > > receive buffer. But I really doubt that's feasible: AFAICT, that stack
+> > > > buffer still needs to be reasonably sized since the reply might be
+> > > > larger than the request (reusing the request buffer would be the most
+> > > > simple way to tackle this), also there is support for extack which may
+> > > > bloat the response to arbitrary size. Hangbin has shown in his benchmark
+> > > > that the overhead of the second syscall is negligible, so why care about
+> > > > that and increase code complexity even further?
+> > > > 
+> > > > Not saying it's not possible, but I just doubt it's worth the effort.  
+> > > 
+> > > Agreed. Current code is based on the assumption that we can estimate the
+> > > maximum reply length in advance and the reason for this series is that
+> > > this assumption turned out to be wrong. I'm afraid that if we replace
+> > > it by an assumption that we can estimate the maximum reply length for
+> > > most requests with only few exceptions, it's only matter of time for us
+> > > to be proven wrong again.
+> > > 
+> > > Michal Kubecek
+> > > 
+> > 
+> > For query responses, yes the response may be large. But for the common cases of
+> > add address or add route, the response should just be ack or error.
 > 
-> So I was just comparing this against mq_selet_queue, and I was
-> wondering why we are willing to return NULL here instead of just
-> returning a pointer to the first Tx queue? I realize there is the fix
-> in the first patch but it seems like if we are going to go that route
-> then maybe we should update mq as well so that both of these qdiscs
-> behave the same way. Either this should work like mq, or mq should
-> work like this, but we shouldn't have them exposing different
-> behaviors.
+> And with extack, error is comprised of the original request plus an
+> arbitrarily sized error message, so we can't just reuse the request
+> buffer and are back to "guessing" the right length again.
+> 
+> To get an idea of what we're talking about, I wrote a simple benchmark
+> which adds 256 * 254 (= 65024) addresses to an interface, then removes
+> them again one by one and measured the time that takes for binaries with
+> and without Hangbin's patches:
+> 
+> OP	Vanilla		Hangbin		Delta
+> --------------------------------------------------------
+> add	real 2m16.244s	real 2m27.964s	+11.72s	(108.6%)
+> 	user 0m15.241s	user 0m17.295s	+2.054s	(113.5%)
+> 	sys  1m40.229s	sys  1m48.239s	+8.01s	(108.0%)
+> 
+> remove	real 1m44.950s	real 1m47.044s	+2.094s	(102.0%)
+> 	user 0m13.899s	user 0m14.723s	+0.824s (105.9%)
+> 	sys  1m30.798s	sys  1m31.938s	+1.140s (101.3%)
+> 
+> So the overhead of the second syscall and dynamic memory allocation is
+> less than 10% overall. Given the short time a single call to 'ip'
+> typically takes, I don't think the difference is noticeable even in
+> highly performance critical applications.
+> 
+> Cheers, Phil
+
+For a better benchmark, I generated 4 Million routes
+then did: 
+	# ip ---batch routes.txt
 
 
-This was brought up by Cong Wang during the review of our v2. Based on my
-understanding, the point I've made is that for mqprio the inner qdiscs are
-always 'related' to one of the Tx netdev_queues per design. Returning any other
-queue as a fallback seemed like going against that to me.
+OP	Vanilla		Hangbin		Delta
+-----------------------------------------------------
+add	real 1:25.840	1:33.677	+9.13%
+	user   10.690	   6.078	-56.85%
+	sys  1:00.920	1:13.109	+20.00%	
 
-I'm still inclined to say that we should keep this function as the patch is
-proposing, thus either returning the correct netdev_queue for a given handle, or
-NULL as a way to flag that something was 'wrong' with it. Returning queue #0 is
-misleading in that sense, imho.
-
-As for aligning mq_select_queue() with this approach, if my reasoning behind
-mqprio is correct and also applies to mq, I would be happy to send that fix as
-part our v7.
-
-What do you think?
+remove	real 2:29.881	2:25.872	-2.67%
+	user   12.862	   7.942	-38.25%
+	sys    44.127	  44.633	+1.15%
 
 
-Thanks,
-Jesus
+So the answer is addition is slower but deletion appears faster?
+If I rerun the Vanilla test, get about the same times.
+
+The slowdown won't impact me, but what about large scale users
+like Cumulus.
