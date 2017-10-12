@@ -1,527 +1,737 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 7/8] cxgb4: collect hardware module dumps
-Date: Thu, 12 Oct 2017 13:54:44 +0530
-Message-ID: <e983297b3753e160eab46d0afad66ff0e8410eb3.1507795407.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 5/8] cxgb4: update API for TP indirect register access
+Date: Thu, 12 Oct 2017 13:54:42 +0530
+Message-ID: <9f38ed9f056e6820d347627572459c30425d0c87.1507795407.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:55007 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:39890 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754662AbdJLI0R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:26:17 -0400
+        with ESMTP id S1754662AbdJLI0L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:26:11 -0400
 In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Collect SGE, PCIE, PM, UP CIM, MA and HMA dumps.
+Try to access TP indirect registers via firmware first.  If this fails,
+fallback and access them directly.  This ensures that driver and
+firmware do not conflict each other while accessing the TP indirect
+registers.
 
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  74 ++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |   6 +
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 289 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  18 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  35 +++
- 5 files changed, 422 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  36 ++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c |  13 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c |  14 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         | 312 +++++++++++++--------
+ 5 files changed, 239 insertions(+), 140 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-index a7446fd09366..d7f3392f618f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-@@ -104,4 +104,78 @@ static const u32 t5_tp_mib_index_array[9][IREG_NUM_ELEM] = {
- 	{0x7e50, 0x7e54, 0x60, 6},
- 	{0x7e50, 0x7e54, 0x68, 4}
- };
-+
-+static const u32 t5_sge_dbg_index_array[2][IREG_NUM_ELEM] = {
-+	{0x10cc, 0x10d0, 0x0, 16},
-+	{0x10cc, 0x10d4, 0x0, 16},
-+};
-+
-+static const u32 t5_pcie_pdbg_array[][IREG_NUM_ELEM] = {
-+	{0x5a04, 0x5a0c, 0x00, 0x20}, /* t5_pcie_pdbg_regs_00_to_20 */
-+	{0x5a04, 0x5a0c, 0x21, 0x20}, /* t5_pcie_pdbg_regs_21_to_40 */
-+	{0x5a04, 0x5a0c, 0x41, 0x10}, /* t5_pcie_pdbg_regs_41_to_50 */
-+};
-+
-+static const u32 t5_pcie_cdbg_array[][IREG_NUM_ELEM] = {
-+	{0x5a10, 0x5a18, 0x00, 0x20}, /* t5_pcie_cdbg_regs_00_to_20 */
-+	{0x5a10, 0x5a18, 0x21, 0x18}, /* t5_pcie_cdbg_regs_21_to_37 */
-+};
-+
-+static const u32 t5_pm_rx_array[][IREG_NUM_ELEM] = {
-+	{0x8FD0, 0x8FD4, 0x10000, 0x20}, /* t5_pm_rx_regs_10000_to_10020 */
-+	{0x8FD0, 0x8FD4, 0x10021, 0x0D}, /* t5_pm_rx_regs_10021_to_1002c */
-+};
-+
-+static const u32 t5_pm_tx_array[][IREG_NUM_ELEM] = {
-+	{0x8FF0, 0x8FF4, 0x10000, 0x20}, /* t5_pm_tx_regs_10000_to_10020 */
-+	{0x8FF0, 0x8FF4, 0x10021, 0x1D}, /* t5_pm_tx_regs_10021_to_1003c */
-+};
-+
-+static const u32 t6_ma_ireg_array[][IREG_NUM_ELEM] = {
-+	{0x78f8, 0x78fc, 0xa000, 23}, /* t6_ma_regs_a000_to_a016 */
-+	{0x78f8, 0x78fc, 0xa400, 30}, /* t6_ma_regs_a400_to_a41e */
-+	{0x78f8, 0x78fc, 0xa800, 20} /* t6_ma_regs_a800_to_a813 */
-+};
-+
-+static const u32 t6_ma_ireg_array2[][IREG_NUM_ELEM] = {
-+	{0x78f8, 0x78fc, 0xe400, 17}, /* t6_ma_regs_e400_to_e600 */
-+	{0x78f8, 0x78fc, 0xe640, 13} /* t6_ma_regs_e640_to_e7c0 */
-+};
-+
-+static const u32 t6_up_cim_reg_array[][IREG_NUM_ELEM] = {
-+	{0x7b50, 0x7b54, 0x2000, 0x20}, /* up_cim_2000_to_207c */
-+	{0x7b50, 0x7b54, 0x2080, 0x1d}, /* up_cim_2080_to_20fc */
-+	{0x7b50, 0x7b54, 0x00, 0x20}, /* up_cim_00_to_7c */
-+	{0x7b50, 0x7b54, 0x80, 0x20}, /* up_cim_80_to_fc */
-+	{0x7b50, 0x7b54, 0x100, 0x11}, /* up_cim_100_to_14c */
-+	{0x7b50, 0x7b54, 0x200, 0x10}, /* up_cim_200_to_23c */
-+	{0x7b50, 0x7b54, 0x240, 0x2}, /* up_cim_240_to_244 */
-+	{0x7b50, 0x7b54, 0x250, 0x2}, /* up_cim_250_to_254 */
-+	{0x7b50, 0x7b54, 0x260, 0x2}, /* up_cim_260_to_264 */
-+	{0x7b50, 0x7b54, 0x270, 0x2}, /* up_cim_270_to_274 */
-+	{0x7b50, 0x7b54, 0x280, 0x20}, /* up_cim_280_to_2fc */
-+	{0x7b50, 0x7b54, 0x300, 0x20}, /* up_cim_300_to_37c */
-+	{0x7b50, 0x7b54, 0x380, 0x14}, /* up_cim_380_to_3cc */
-+
-+};
-+
-+static const u32 t5_up_cim_reg_array[][IREG_NUM_ELEM] = {
-+	{0x7b50, 0x7b54, 0x2000, 0x20}, /* up_cim_2000_to_207c */
-+	{0x7b50, 0x7b54, 0x2080, 0x19}, /* up_cim_2080_to_20ec */
-+	{0x7b50, 0x7b54, 0x00, 0x20}, /* up_cim_00_to_7c */
-+	{0x7b50, 0x7b54, 0x80, 0x20}, /* up_cim_80_to_fc */
-+	{0x7b50, 0x7b54, 0x100, 0x11}, /* up_cim_100_to_14c */
-+	{0x7b50, 0x7b54, 0x200, 0x10}, /* up_cim_200_to_23c */
-+	{0x7b50, 0x7b54, 0x240, 0x2}, /* up_cim_240_to_244 */
-+	{0x7b50, 0x7b54, 0x250, 0x2}, /* up_cim_250_to_254 */
-+	{0x7b50, 0x7b54, 0x260, 0x2}, /* up_cim_260_to_264 */
-+	{0x7b50, 0x7b54, 0x270, 0x2}, /* up_cim_270_to_274 */
-+	{0x7b50, 0x7b54, 0x280, 0x20}, /* up_cim_280_to_2fc */
-+	{0x7b50, 0x7b54, 0x300, 0x20}, /* up_cim_300_to_37c */
-+	{0x7b50, 0x7b54, 0x380, 0x14}, /* up_cim_380_to_3cc */
-+};
-+
-+static const u32 t6_hma_ireg_array[][IREG_NUM_ELEM] = {
-+	{0x51320, 0x51324, 0xa000, 32} /* t6_hma_regs_a000_to_a01f */
-+};
- #endif /* __CUDBG_ENTITY_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index 6c1be3b9cba6..5c5f5339d917 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -32,7 +32,13 @@ enum cudbg_dbg_entity_type {
- 	CUDBG_EDC0 = 18,
- 	CUDBG_EDC1 = 19,
- 	CUDBG_TP_INDIRECT = 36,
-+	CUDBG_SGE_INDIRECT = 37,
-+	CUDBG_PCIE_INDIRECT = 50,
-+	CUDBG_PM_INDIRECT = 51,
-+	CUDBG_MA_INDIRECT = 61,
-+	CUDBG_UP_CIM_INDIRECT = 64,
- 	CUDBG_MBOX_LOG = 66,
-+	CUDBG_HMA_INDIRECT = 67,
- 	CUDBG_MAX_ENTITY = 70,
- };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index a749602fdc41..d4032e373927 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1459,7 +1459,7 @@ unsigned int qtimer_val(const struct adapter *adap,
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-index 4bc739fba185..536d4eecbdd7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -363,6 +363,258 @@ int collect_tp_indirect(struct cudbg_init *pdbg_init,
- 	return rc;
- }
+ int t4_init_devlog_params(struct adapter *adapter);
+ int t4_init_sge_params(struct adapter *adapter);
+-int t4_init_tp_params(struct adapter *adap);
++int t4_init_tp_params(struct adapter *adap, bool sleep_ok);
+ int t4_filter_field_shift(const struct adapter *adap, int filter_sel);
+ int t4_init_rss_mode(struct adapter *adap, int mbox);
+ int t4_init_portinfo(struct port_info *pi, int mbox,
+@@ -1473,14 +1473,15 @@ int t4_config_glbl_rss(struct adapter *adapter, int mbox, unsigned int mode,
+ int t4_config_vi_rss(struct adapter *adapter, int mbox, unsigned int viid,
+ 		     unsigned int flags, unsigned int defq);
+ int t4_read_rss(struct adapter *adapter, u16 *entries);
+-void t4_read_rss_key(struct adapter *adapter, u32 *key);
+-void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx);
++void t4_read_rss_key(struct adapter *adapter, u32 *key, bool sleep_ok);
++void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx,
++		      bool sleep_ok);
+ void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index,
+-			   u32 *valp);
++			   u32 *valp, bool sleep_ok);
+ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
+-			   u32 *vfl, u32 *vfh);
+-u32 t4_read_rss_pf_map(struct adapter *adapter);
+-u32 t4_read_rss_pf_mask(struct adapter *adapter);
++			   u32 *vfl, u32 *vfh, bool sleep_ok);
++u32 t4_read_rss_pf_map(struct adapter *adapter, bool sleep_ok);
++u32 t4_read_rss_pf_mask(struct adapter *adapter, bool sleep_ok);
  
-+int collect_sge_indirect(struct cudbg_init *pdbg_init,
-+			 struct cudbg_buffer *dbg_buff,
-+			 struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_sge_dbg;
-+	int i, rc;
-+
-+	rc = get_cudbg_buff(dbg_buff, sizeof(*ch_sge_dbg) * 2, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ch_sge_dbg = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < 2; i++) {
-+		struct ireg_field *sge_pio = &ch_sge_dbg->tp_pio;
-+		u32 *buff = ch_sge_dbg->outbuf;
-+
-+		sge_pio->ireg_addr = t5_sge_dbg_index_array[i][0];
-+		sge_pio->ireg_data = t5_sge_dbg_index_array[i][1];
-+		sge_pio->ireg_local_offset = t5_sge_dbg_index_array[i][2];
-+		sge_pio->ireg_offset_range = t5_sge_dbg_index_array[i][3];
-+		t4_read_indirect(padap,
-+				 sge_pio->ireg_addr,
-+				 sge_pio->ireg_data,
-+				 buff,
-+				 sge_pio->ireg_offset_range,
-+				 sge_pio->ireg_local_offset);
-+		ch_sge_dbg++;
-+	}
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
-+int collect_pcie_indirect(struct cudbg_init *pdbg_init,
-+			  struct cudbg_buffer *dbg_buff,
-+			  struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_pcie;
-+	int i, rc, n;
-+	u32 size;
-+
-+	n = sizeof(t5_pcie_pdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n * 2;
-+	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ch_pcie = (struct ireg_buf *)temp_buff.data;
-+	/* PCIE_PDBG */
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pcie_pio = &ch_pcie->tp_pio;
-+		u32 *buff = ch_pcie->outbuf;
-+
-+		pcie_pio->ireg_addr = t5_pcie_pdbg_array[i][0];
-+		pcie_pio->ireg_data = t5_pcie_pdbg_array[i][1];
-+		pcie_pio->ireg_local_offset = t5_pcie_pdbg_array[i][2];
-+		pcie_pio->ireg_offset_range = t5_pcie_pdbg_array[i][3];
-+		t4_read_indirect(padap,
-+				 pcie_pio->ireg_addr,
-+				 pcie_pio->ireg_data,
-+				 buff,
-+				 pcie_pio->ireg_offset_range,
-+				 pcie_pio->ireg_local_offset);
-+		ch_pcie++;
-+	}
-+
-+	/* PCIE_CDBG */
-+	n = sizeof(t5_pcie_cdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pcie_pio = &ch_pcie->tp_pio;
-+		u32 *buff = ch_pcie->outbuf;
-+
-+		pcie_pio->ireg_addr = t5_pcie_cdbg_array[i][0];
-+		pcie_pio->ireg_data = t5_pcie_cdbg_array[i][1];
-+		pcie_pio->ireg_local_offset = t5_pcie_cdbg_array[i][2];
-+		pcie_pio->ireg_offset_range = t5_pcie_cdbg_array[i][3];
-+		t4_read_indirect(padap,
-+				 pcie_pio->ireg_addr,
-+				 pcie_pio->ireg_data,
-+				 buff,
-+				 pcie_pio->ireg_offset_range,
-+				 pcie_pio->ireg_local_offset);
-+		ch_pcie++;
-+	}
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
-+int collect_pm_indirect(struct cudbg_init *pdbg_init,
-+			struct cudbg_buffer *dbg_buff,
-+			struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_pm;
-+	int i, rc, n;
-+	u32 size;
-+
-+	n = sizeof(t5_pm_rx_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n * 2;
-+	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ch_pm = (struct ireg_buf *)temp_buff.data;
-+	/* PM_RX */
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pm_pio = &ch_pm->tp_pio;
-+		u32 *buff = ch_pm->outbuf;
-+
-+		pm_pio->ireg_addr = t5_pm_rx_array[i][0];
-+		pm_pio->ireg_data = t5_pm_rx_array[i][1];
-+		pm_pio->ireg_local_offset = t5_pm_rx_array[i][2];
-+		pm_pio->ireg_offset_range = t5_pm_rx_array[i][3];
-+		t4_read_indirect(padap,
-+				 pm_pio->ireg_addr,
-+				 pm_pio->ireg_data,
-+				 buff,
-+				 pm_pio->ireg_offset_range,
-+				 pm_pio->ireg_local_offset);
-+		ch_pm++;
-+	}
-+
-+	/* PM_TX */
-+	n = sizeof(t5_pm_tx_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pm_pio = &ch_pm->tp_pio;
-+		u32 *buff = ch_pm->outbuf;
-+
-+		pm_pio->ireg_addr = t5_pm_tx_array[i][0];
-+		pm_pio->ireg_data = t5_pm_tx_array[i][1];
-+		pm_pio->ireg_local_offset = t5_pm_tx_array[i][2];
-+		pm_pio->ireg_offset_range = t5_pm_tx_array[i][3];
-+		t4_read_indirect(padap,
-+				 pm_pio->ireg_addr,
-+				 pm_pio->ireg_data,
-+				 buff,
-+				 pm_pio->ireg_offset_range,
-+				 pm_pio->ireg_local_offset);
-+		ch_pm++;
-+	}
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
-+int collect_ma_indirect(struct cudbg_init *pdbg_init,
-+			struct cudbg_buffer *dbg_buff,
-+			struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ma_indr;
-+	int i, rc, n;
-+	u32 size, j;
-+
-+	if (CHELSIO_CHIP_VERSION(padap->params.chip) < CHELSIO_T6)
-+		return CUDBG_STATUS_ENTITY_NOT_FOUND;
-+
-+	n = sizeof(t6_ma_ireg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n * 2;
-+	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ma_indr = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *ma_fli = &ma_indr->tp_pio;
-+		u32 *buff = ma_indr->outbuf;
-+
-+		ma_fli->ireg_addr = t6_ma_ireg_array[i][0];
-+		ma_fli->ireg_data = t6_ma_ireg_array[i][1];
-+		ma_fli->ireg_local_offset = t6_ma_ireg_array[i][2];
-+		ma_fli->ireg_offset_range = t6_ma_ireg_array[i][3];
-+		t4_read_indirect(padap, ma_fli->ireg_addr, ma_fli->ireg_data,
-+				 buff, ma_fli->ireg_offset_range,
-+				 ma_fli->ireg_local_offset);
-+		ma_indr++;
-+	}
-+
-+	n = sizeof(t6_ma_ireg_array2) / (IREG_NUM_ELEM * sizeof(u32));
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *ma_fli = &ma_indr->tp_pio;
-+		u32 *buff = ma_indr->outbuf;
-+
-+		ma_fli->ireg_addr = t6_ma_ireg_array2[i][0];
-+		ma_fli->ireg_data = t6_ma_ireg_array2[i][1];
-+		ma_fli->ireg_local_offset = t6_ma_ireg_array2[i][2];
-+		for (j = 0; j < t6_ma_ireg_array2[i][3]; j++) {
-+			t4_read_indirect(padap, ma_fli->ireg_addr,
-+					 ma_fli->ireg_data, buff, 1,
-+					 ma_fli->ireg_local_offset);
-+			buff++;
-+			ma_fli->ireg_local_offset += 0x20;
-+		}
-+		ma_indr++;
-+	}
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
-+int collect_up_cim_indirect(struct cudbg_init *pdbg_init,
-+			    struct cudbg_buffer *dbg_buff,
-+			    struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *up_cim;
-+	int i, rc, n;
-+	u32 size;
-+
-+	n = sizeof(t5_up_cim_reg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n;
-+	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	up_cim = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *up_cim_reg = &up_cim->tp_pio;
-+		u32 *buff = up_cim->outbuf;
-+
-+		if (is_t5(padap->params.chip)) {
-+			up_cim_reg->ireg_addr = t5_up_cim_reg_array[i][0];
-+			up_cim_reg->ireg_data = t5_up_cim_reg_array[i][1];
-+			up_cim_reg->ireg_local_offset =
-+						t5_up_cim_reg_array[i][2];
-+			up_cim_reg->ireg_offset_range =
-+						t5_up_cim_reg_array[i][3];
-+		} else if (is_t6(padap->params.chip)) {
-+			up_cim_reg->ireg_addr = t6_up_cim_reg_array[i][0];
-+			up_cim_reg->ireg_data = t6_up_cim_reg_array[i][1];
-+			up_cim_reg->ireg_local_offset =
-+						t6_up_cim_reg_array[i][2];
-+			up_cim_reg->ireg_offset_range =
-+						t6_up_cim_reg_array[i][3];
-+		}
-+
-+		rc = t4_cim_read(padap, up_cim_reg->ireg_local_offset,
-+				 up_cim_reg->ireg_offset_range, buff);
-+		if (rc) {
-+			put_cudbg_buff(&temp_buff, dbg_buff);
-+			return rc;
-+		}
-+		up_cim++;
-+	}
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
- int collect_mbox_log(struct cudbg_init *pdbg_init,
- 		     struct cudbg_buffer *dbg_buff,
- 		     struct cudbg_error *cudbg_err)
-@@ -407,3 +659,40 @@ int collect_mbox_log(struct cudbg_init *pdbg_init,
- 	write_and_release_buff(&temp_buff, dbg_buff);
- 	return rc;
- }
-+
-+int collect_hma_indirect(struct cudbg_init *pdbg_init,
-+			 struct cudbg_buffer *dbg_buff,
-+			 struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *hma_indr;
-+	int i, rc, n;
-+	u32 size;
-+
-+	if (CHELSIO_CHIP_VERSION(padap->params.chip) < CHELSIO_T6)
-+		return CUDBG_STATUS_ENTITY_NOT_FOUND;
-+
-+	n = sizeof(t6_hma_ireg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n;
-+	rc = get_cudbg_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	hma_indr = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *hma_fli = &hma_indr->tp_pio;
-+		u32 *buff = hma_indr->outbuf;
-+
-+		hma_fli->ireg_addr = t6_hma_ireg_array[i][0];
-+		hma_fli->ireg_data = t6_hma_ireg_array[i][1];
-+		hma_fli->ireg_local_offset = t6_hma_ireg_array[i][2];
-+		hma_fli->ireg_offset_range = t6_hma_ireg_array[i][3];
-+		t4_read_indirect(padap, hma_fli->ireg_addr, hma_fli->ireg_data,
-+				 buff, hma_fli->ireg_offset_range,
-+				 hma_fli->ireg_local_offset);
-+		hma_indr++;
-+	}
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-index 8efa25cfdd25..d9260bdaf9dc 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -33,9 +33,27 @@ int collect_edc1_meminfo(struct cudbg_init *pdbg_init,
- int collect_tp_indirect(struct cudbg_init *pdbg_init,
- 			struct cudbg_buffer *dbg_buff,
- 			struct cudbg_error *cudbg_err);
-+int collect_sge_indirect(struct cudbg_init *pdbg_init,
-+			 struct cudbg_buffer *dbg_buff,
-+			 struct cudbg_error *cudbg_err);
-+int collect_pcie_indirect(struct cudbg_init *pdbg_init,
-+			  struct cudbg_buffer *dbg_buff,
-+			  struct cudbg_error *cudbg_err);
-+int collect_pm_indirect(struct cudbg_init *pdbg_init,
-+			struct cudbg_buffer *dbg_buff,
-+			struct cudbg_error *cudbg_err);
-+int collect_ma_indirect(struct cudbg_init *pdbg_init,
-+			struct cudbg_buffer *dbg_buff,
-+			struct cudbg_error *cudbg_err);
-+int collect_up_cim_indirect(struct cudbg_init *pdbg_init,
-+			    struct cudbg_buffer *dbg_buff,
-+			    struct cudbg_error *cudbg_err);
- int collect_mbox_log(struct cudbg_init *pdbg_init,
- 		     struct cudbg_buffer *dbg_buff,
- 		     struct cudbg_error *cudbg_err);
-+int collect_hma_indirect(struct cudbg_init *pdbg_init,
-+			 struct cudbg_buffer *dbg_buff,
-+			 struct cudbg_error *cudbg_err);
+ unsigned int t4_get_mps_bg_map(struct adapter *adapter, int pidx);
+ unsigned int t4_get_tp_ch_map(struct adapter *adapter, int pidx);
+@@ -1511,14 +1512,18 @@ void t4_read_cong_tbl(struct adapter *adap, u16 incr[NMTUS][NCCTRL_WIN]);
+ void t4_tp_wr_bits_indirect(struct adapter *adap, unsigned int addr,
+ 			    unsigned int mask, unsigned int val);
+ void t4_tp_read_la(struct adapter *adap, u64 *la_buf, unsigned int *wrptr);
+-void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st);
+-void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st);
+-void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st);
+-void t4_get_usm_stats(struct adapter *adap, struct tp_usm_stats *st);
++void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st,
++			 bool sleep_ok);
++void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st,
++			 bool sleep_ok);
++void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st,
++			  bool sleep_ok);
++void t4_get_usm_stats(struct adapter *adap, struct tp_usm_stats *st,
++		      bool sleep_ok);
+ void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
+-			 struct tp_tcp_stats *v6);
++			 struct tp_tcp_stats *v6, bool sleep_ok);
+ void t4_get_fcoe_stats(struct adapter *adap, unsigned int idx,
+-		       struct tp_fcoe_stats *st);
++		       struct tp_fcoe_stats *st, bool sleep_ok);
+ void t4_load_mtus(struct adapter *adap, const unsigned short *mtus,
+ 		  const unsigned short *alpha, const unsigned short *beta);
  
- struct cudbg_entity_hdr *get_entity_hdr(void *outbuf, int i);
- void align_debug_buffer(struct cudbg_buffer *dbg_buff,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index c1a930475b81..5b24799da469 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -30,6 +30,12 @@ static const struct cudbg_collect_entity collect_hw_dump[] = {
- 	{ CUDBG_DEV_LOG, collect_fw_devlog },
- 	{ CUDBG_REG_DUMP, collect_reg_dump },
- 	{ CUDBG_TP_INDIRECT, collect_tp_indirect },
-+	{ CUDBG_SGE_INDIRECT, collect_sge_indirect },
-+	{ CUDBG_PCIE_INDIRECT, collect_pcie_indirect },
-+	{ CUDBG_PM_INDIRECT, collect_pm_indirect },
-+	{ CUDBG_MA_INDIRECT, collect_ma_indirect },
-+	{ CUDBG_UP_CIM_INDIRECT, collect_up_cim_indirect },
-+	{ CUDBG_HMA_INDIRECT, collect_hma_indirect },
- };
+@@ -1627,6 +1632,11 @@ void t4_idma_monitor(struct adapter *adapter,
+ 		     int hz, int ticks);
+ int t4_set_vf_mac_acl(struct adapter *adapter, unsigned int vf,
+ 		      unsigned int naddr, u8 *addr);
++void t4_tp_pio_read(struct adapter *adap, u32 *buff, u32 nregs,
++		    u32 start_index, bool sleep_ok);
++void t4_tp_mib_read(struct adapter *adap, u32 *buff, u32 nregs,
++		    u32 start_index, bool sleep_ok);
++
+ void t4_uld_mem_free(struct adapter *adap);
+ int t4_uld_mem_alloc(struct adapter *adap);
+ void t4_uld_clean_up(struct adapter *adap);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+index 76540b0e082d..917663b35603 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_debugfs.c
+@@ -2211,7 +2211,7 @@ static int rss_key_show(struct seq_file *seq, void *v)
+ {
+ 	u32 key[10];
  
- static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
-@@ -87,9 +93,38 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
- 		n = n / (IREG_NUM_ELEM * sizeof(u32));
- 		len = sizeof(struct ireg_buf) * n;
- 		break;
-+	case CUDBG_SGE_INDIRECT:
-+		len = sizeof(struct ireg_buf) * 2;
-+		break;
-+	case CUDBG_PCIE_INDIRECT:
-+		n = sizeof(t5_pcie_pdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n * 2;
-+		break;
-+	case CUDBG_PM_INDIRECT:
-+		n = sizeof(t5_pm_rx_array) / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n * 2;
-+		break;
-+	case CUDBG_MA_INDIRECT:
-+		if (CHELSIO_CHIP_VERSION(adap->params.chip) > CHELSIO_T5) {
-+			n = sizeof(t6_ma_ireg_array) /
-+			    (IREG_NUM_ELEM * sizeof(u32));
-+			len = sizeof(struct ireg_buf) * n * 2;
-+		}
-+		break;
-+	case CUDBG_UP_CIM_INDIRECT:
-+		n = sizeof(t5_up_cim_reg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n;
-+		break;
- 	case CUDBG_MBOX_LOG:
- 		len = sizeof(struct cudbg_mbox_log) * adap->mbox_log->size;
- 		break;
-+	case CUDBG_HMA_INDIRECT:
-+		if (CHELSIO_CHIP_VERSION(adap->params.chip) > CHELSIO_T5) {
-+			n = sizeof(t6_hma_ireg_array) /
-+			    (IREG_NUM_ELEM * sizeof(u32));
-+			len = sizeof(struct ireg_buf) * n;
-+		}
-+		break;
- 	default:
- 		break;
+-	t4_read_rss_key(seq->private, key);
++	t4_read_rss_key(seq->private, key, true);
+ 	seq_printf(seq, "%08x%08x%08x%08x%08x%08x%08x%08x%08x%08x\n",
+ 		   key[9], key[8], key[7], key[6], key[5], key[4], key[3],
+ 		   key[2], key[1], key[0]);
+@@ -2248,7 +2248,7 @@ static ssize_t rss_key_write(struct file *file, const char __user *buf,
+ 		}
  	}
+ 
+-	t4_write_rss_key(adap, key, -1);
++	t4_write_rss_key(adap, key, -1, true);
+ 	return count;
+ }
+ 
+@@ -2325,12 +2325,13 @@ static int rss_pf_config_open(struct inode *inode, struct file *file)
+ 		return -ENOMEM;
+ 
+ 	pfconf = (struct rss_pf_conf *)p->data;
+-	rss_pf_map = t4_read_rss_pf_map(adapter);
+-	rss_pf_mask = t4_read_rss_pf_mask(adapter);
++	rss_pf_map = t4_read_rss_pf_map(adapter, true);
++	rss_pf_mask = t4_read_rss_pf_mask(adapter, true);
+ 	for (pf = 0; pf < 8; pf++) {
+ 		pfconf[pf].rss_pf_map = rss_pf_map;
+ 		pfconf[pf].rss_pf_mask = rss_pf_mask;
+-		t4_read_rss_pf_config(adapter, pf, &pfconf[pf].rss_pf_config);
++		t4_read_rss_pf_config(adapter, pf, &pfconf[pf].rss_pf_config,
++				      true);
+ 	}
+ 	return 0;
+ }
+@@ -2393,7 +2394,7 @@ static int rss_vf_config_open(struct inode *inode, struct file *file)
+ 	vfconf = (struct rss_vf_conf *)p->data;
+ 	for (vf = 0; vf < vfcount; vf++) {
+ 		t4_read_rss_vf_config(adapter, vf, &vfconf[vf].rss_vf_vfl,
+-				      &vfconf[vf].rss_vf_vfh);
++				      &vfconf[vf].rss_vf_vfh, true);
+ 	}
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+index 796eb051cb2f..1b7f6b9ccc8b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
+@@ -336,10 +336,10 @@ static void collect_adapter_stats(struct adapter *adap, struct adapter_stats *s)
+ 	memset(s, 0, sizeof(*s));
+ 
+ 	spin_lock(&adap->stats_lock);
+-	t4_tp_get_tcp_stats(adap, &v4, &v6);
+-	t4_tp_get_rdma_stats(adap, &rdma_stats);
+-	t4_get_usm_stats(adap, &usm_stats);
+-	t4_tp_get_err_stats(adap, &err_stats);
++	t4_tp_get_tcp_stats(adap, &v4, &v6, false);
++	t4_tp_get_rdma_stats(adap, &rdma_stats, false);
++	t4_get_usm_stats(adap, &usm_stats, false);
++	t4_tp_get_err_stats(adap, &err_stats, false);
+ 	spin_unlock(&adap->stats_lock);
+ 
+ 	s->db_drop = adap->db_stats.db_drop;
+@@ -389,9 +389,9 @@ static void collect_channel_stats(struct adapter *adap, struct channel_stats *s,
+ 	memset(s, 0, sizeof(*s));
+ 
+ 	spin_lock(&adap->stats_lock);
+-	t4_tp_get_cpl_stats(adap, &cpl_stats);
+-	t4_tp_get_err_stats(adap, &err_stats);
+-	t4_get_fcoe_stats(adap, i, &fcoe_stats);
++	t4_tp_get_cpl_stats(adap, &cpl_stats, false);
++	t4_tp_get_err_stats(adap, &err_stats, false);
++	t4_get_fcoe_stats(adap, i, &fcoe_stats, false);
+ 	spin_unlock(&adap->stats_lock);
+ 
+ 	s->cpl_req = cpl_stats.req[i];
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 0322ff40fde0..865034cb6a62 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1639,7 +1639,7 @@ void cxgb4_get_tcp_stats(struct pci_dev *pdev, struct tp_tcp_stats *v4,
+ 	struct adapter *adap = pci_get_drvdata(pdev);
+ 
+ 	spin_lock(&adap->stats_lock);
+-	t4_tp_get_tcp_stats(adap, v4, v6);
++	t4_tp_get_tcp_stats(adap, v4, v6, false);
+ 	spin_unlock(&adap->stats_lock);
+ }
+ EXPORT_SYMBOL(cxgb4_get_tcp_stats);
+@@ -4077,7 +4077,7 @@ static int adap_init0(struct adapter *adap)
+ 	}
+ 	t4_init_sge_params(adap);
+ 	adap->flags |= FW_OK;
+-	t4_init_tp_params(adap);
++	t4_init_tp_params(adap, true);
+ 	return 0;
+ 
+ 	/*
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index b3fd1f457639..0f12bf507d56 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -5052,23 +5052,26 @@ static unsigned int t4_use_ldst(struct adapter *adap)
+ }
+ 
+ /**
+- *	t4_fw_tp_pio_rw - Access TP PIO through LDST
+- *	@adap: the adapter
+- *	@vals: where the indirect register values are stored/written
+- *	@nregs: how many indirect registers to read/write
+- *	@start_idx: index of first indirect register to read/write
+- *	@rw: Read (1) or Write (0)
++ * t4_tp_fw_ldst_rw - Access TP indirect register through LDST
++ * @adap: the adapter
++ * @cmd: TP fw ldst address space type
++ * @vals: where the indirect register values are stored/written
++ * @nregs: how many indirect registers to read/write
++ * @start_idx: index of first indirect register to read/write
++ * @rw: Read (1) or Write (0)
++ * @sleep_ok: if true we may sleep while awaiting command completion
+  *
+- *	Access TP PIO registers through LDST
++ * Access TP indirect registers through LDST
+  */
+-static void t4_fw_tp_pio_rw(struct adapter *adap, u32 *vals, unsigned int nregs,
+-			    unsigned int start_index, unsigned int rw)
++static int t4_tp_fw_ldst_rw(struct adapter *adap, int cmd, u32 *vals,
++			    unsigned int nregs, unsigned int start_index,
++			    unsigned int rw, bool sleep_ok)
+ {
+-	int ret, i;
+-	int cmd = FW_LDST_ADDRSPC_TP_PIO;
++	int ret = 0;
++	unsigned int i;
+ 	struct fw_ldst_cmd c;
+ 
+-	for (i = 0 ; i < nregs; i++) {
++	for (i = 0; i < nregs; i++) {
+ 		memset(&c, 0, sizeof(c));
+ 		c.op_to_addrspace = cpu_to_be32(FW_CMD_OP_V(FW_LDST_CMD) |
+ 						FW_CMD_REQUEST_F |
+@@ -5079,26 +5082,127 @@ static void t4_fw_tp_pio_rw(struct adapter *adap, u32 *vals, unsigned int nregs,
+ 
+ 		c.u.addrval.addr = cpu_to_be32(start_index + i);
+ 		c.u.addrval.val  = rw ? 0 : cpu_to_be32(vals[i]);
+-		ret = t4_wr_mbox(adap, adap->mbox, &c, sizeof(c), &c);
+-		if (!ret && rw)
++		ret = t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c,
++				      sleep_ok);
++		if (ret)
++			return ret;
++
++		if (rw)
+ 			vals[i] = be32_to_cpu(c.u.addrval.val);
+ 	}
++	return 0;
++}
++
++/**
++ * t4_tp_indirect_rw - Read/Write TP indirect register through LDST or backdoor
++ * @adap: the adapter
++ * @reg_addr: Address Register
++ * @reg_data: Data register
++ * @buff: where the indirect register values are stored/written
++ * @nregs: how many indirect registers to read/write
++ * @start_index: index of first indirect register to read/write
++ * @rw: READ(1) or WRITE(0)
++ * @sleep_ok: if true we may sleep while awaiting command completion
++ *
++ * Read/Write TP indirect registers through LDST if possible.
++ * Else, use backdoor access
++ **/
++static void t4_tp_indirect_rw(struct adapter *adap, u32 reg_addr, u32 reg_data,
++			      u32 *buff, u32 nregs, u32 start_index, int rw,
++			      bool sleep_ok)
++{
++	int rc = -EINVAL;
++	int cmd;
++
++	switch (reg_addr) {
++	case TP_PIO_ADDR_A:
++		cmd = FW_LDST_ADDRSPC_TP_PIO;
++		break;
++	case TP_MIB_INDEX_A:
++		cmd = FW_LDST_ADDRSPC_TP_MIB;
++		break;
++	default:
++		goto indirect_access;
++	}
++
++	if (t4_use_ldst(adap))
++		rc = t4_tp_fw_ldst_rw(adap, cmd, buff, nregs, start_index, rw,
++				      sleep_ok);
++
++indirect_access:
++
++	if (rc) {
++		if (rw)
++			t4_read_indirect(adap, reg_addr, reg_data, buff, nregs,
++					 start_index);
++		else
++			t4_write_indirect(adap, reg_addr, reg_data, buff, nregs,
++					  start_index);
++	}
++}
++
++/**
++ * t4_tp_pio_read - Read TP PIO registers
++ * @adap: the adapter
++ * @buff: where the indirect register values are written
++ * @nregs: how many indirect registers to read
++ * @start_index: index of first indirect register to read
++ * @sleep_ok: if true we may sleep while awaiting command completion
++ *
++ * Read TP PIO Registers
++ **/
++void t4_tp_pio_read(struct adapter *adap, u32 *buff, u32 nregs,
++		    u32 start_index, bool sleep_ok)
++{
++	t4_tp_indirect_rw(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, buff, nregs,
++			  start_index, 1, sleep_ok);
++}
++
++/**
++ * t4_tp_pio_write - Write TP PIO registers
++ * @adap: the adapter
++ * @buff: where the indirect register values are stored
++ * @nregs: how many indirect registers to write
++ * @start_index: index of first indirect register to write
++ * @sleep_ok: if true we may sleep while awaiting command completion
++ *
++ * Write TP PIO Registers
++ **/
++static void t4_tp_pio_write(struct adapter *adap, u32 *buff, u32 nregs,
++			    u32 start_index, bool sleep_ok)
++{
++	t4_tp_indirect_rw(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, buff, nregs,
++			  start_index, 0, sleep_ok);
++}
++
++/**
++ * t4_tp_mib_read - Read TP MIB registers
++ * @adap: the adapter
++ * @buff: where the indirect register values are written
++ * @nregs: how many indirect registers to read
++ * @start_index: index of first indirect register to read
++ * @sleep_ok: if true we may sleep while awaiting command completion
++ *
++ * Read TP MIB Registers
++ **/
++void t4_tp_mib_read(struct adapter *adap, u32 *buff, u32 nregs, u32 start_index,
++		    bool sleep_ok)
++{
++	t4_tp_indirect_rw(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, buff, nregs,
++			  start_index, 1, sleep_ok);
+ }
+ 
+ /**
+  *	t4_read_rss_key - read the global RSS key
+  *	@adap: the adapter
+  *	@key: 10-entry array holding the 320-bit RSS key
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Reads the global 320-bit RSS key.
+  */
+-void t4_read_rss_key(struct adapter *adap, u32 *key)
++void t4_read_rss_key(struct adapter *adap, u32 *key, bool sleep_ok)
+ {
+-	if (t4_use_ldst(adap))
+-		t4_fw_tp_pio_rw(adap, key, 10, TP_RSS_SECRET_KEY0_A, 1);
+-	else
+-		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
+-				 TP_RSS_SECRET_KEY0_A);
++	t4_tp_pio_read(adap, key, 10, TP_RSS_SECRET_KEY0_A, sleep_ok);
+ }
+ 
+ /**
+@@ -5106,12 +5210,14 @@ void t4_read_rss_key(struct adapter *adap, u32 *key)
+  *	@adap: the adapter
+  *	@key: 10-entry array holding the 320-bit RSS key
+  *	@idx: which RSS key to write
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Writes one of the RSS keys with the given 320-bit value.  If @idx is
+  *	0..15 the corresponding entry in the RSS key table is written,
+  *	otherwise the global RSS key is written.
+  */
+-void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
++void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx,
++		      bool sleep_ok)
+ {
+ 	u8 rss_key_addr_cnt = 16;
+ 	u32 vrt = t4_read_reg(adap, TP_RSS_CONFIG_VRT_A);
+@@ -5124,11 +5230,7 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
+ 	    (vrt & KEYEXTEND_F) && (KEYMODE_G(vrt) == 3))
+ 		rss_key_addr_cnt = 32;
+ 
+-	if (t4_use_ldst(adap))
+-		t4_fw_tp_pio_rw(adap, (void *)key, 10, TP_RSS_SECRET_KEY0_A, 0);
+-	else
+-		t4_write_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A, key, 10,
+-				  TP_RSS_SECRET_KEY0_A);
++	t4_tp_pio_write(adap, (void *)key, 10, TP_RSS_SECRET_KEY0_A, sleep_ok);
+ 
+ 	if (idx >= 0 && idx < rss_key_addr_cnt) {
+ 		if (rss_key_addr_cnt > 16)
+@@ -5146,19 +5248,15 @@ void t4_write_rss_key(struct adapter *adap, const u32 *key, int idx)
+  *	@adapter: the adapter
+  *	@index: the entry in the PF RSS table to read
+  *	@valp: where to store the returned value
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Reads the PF RSS Configuration Table at the specified index and returns
+  *	the value found there.
+  */
+ void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index,
+-			   u32 *valp)
++			   u32 *valp, bool sleep_ok)
+ {
+-	if (t4_use_ldst(adapter))
+-		t4_fw_tp_pio_rw(adapter, valp, 1,
+-				TP_RSS_PF0_CONFIG_A + index, 1);
+-	else
+-		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 valp, 1, TP_RSS_PF0_CONFIG_A + index);
++	t4_tp_pio_read(adapter, valp, 1, TP_RSS_PF0_CONFIG_A + index, sleep_ok);
+ }
+ 
+ /**
+@@ -5167,12 +5265,13 @@ void t4_read_rss_pf_config(struct adapter *adapter, unsigned int index,
+  *	@index: the entry in the VF RSS table to read
+  *	@vfl: where to store the returned VFL
+  *	@vfh: where to store the returned VFH
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Reads the VF RSS Configuration Table at the specified index and returns
+  *	the (VFL, VFH) values found there.
+  */
+ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
+-			   u32 *vfl, u32 *vfh)
++			   u32 *vfl, u32 *vfh, bool sleep_ok)
+ {
+ 	u32 vrt, mask, data;
+ 
+@@ -5193,50 +5292,37 @@ void t4_read_rss_vf_config(struct adapter *adapter, unsigned int index,
+ 
+ 	/* Grab the VFL/VFH values ...
+ 	 */
+-	if (t4_use_ldst(adapter)) {
+-		t4_fw_tp_pio_rw(adapter, vfl, 1, TP_RSS_VFL_CONFIG_A, 1);
+-		t4_fw_tp_pio_rw(adapter, vfh, 1, TP_RSS_VFH_CONFIG_A, 1);
+-	} else {
+-		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 vfl, 1, TP_RSS_VFL_CONFIG_A);
+-		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 vfh, 1, TP_RSS_VFH_CONFIG_A);
+-	}
++	t4_tp_pio_read(adapter, vfl, 1, TP_RSS_VFL_CONFIG_A, sleep_ok);
++	t4_tp_pio_read(adapter, vfh, 1, TP_RSS_VFH_CONFIG_A, sleep_ok);
+ }
+ 
+ /**
+  *	t4_read_rss_pf_map - read PF RSS Map
+  *	@adapter: the adapter
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Reads the PF RSS Map register and returns its value.
+  */
+-u32 t4_read_rss_pf_map(struct adapter *adapter)
++u32 t4_read_rss_pf_map(struct adapter *adapter, bool sleep_ok)
+ {
+ 	u32 pfmap;
+ 
+-	if (t4_use_ldst(adapter))
+-		t4_fw_tp_pio_rw(adapter, &pfmap, 1, TP_RSS_PF_MAP_A, 1);
+-	else
+-		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 &pfmap, 1, TP_RSS_PF_MAP_A);
++	t4_tp_pio_read(adapter, &pfmap, 1, TP_RSS_PF_MAP_A, sleep_ok);
+ 	return pfmap;
+ }
+ 
+ /**
+  *	t4_read_rss_pf_mask - read PF RSS Mask
+  *	@adapter: the adapter
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Reads the PF RSS Mask register and returns its value.
+  */
+-u32 t4_read_rss_pf_mask(struct adapter *adapter)
++u32 t4_read_rss_pf_mask(struct adapter *adapter, bool sleep_ok)
+ {
+ 	u32 pfmask;
+ 
+-	if (t4_use_ldst(adapter))
+-		t4_fw_tp_pio_rw(adapter, &pfmask, 1, TP_RSS_PF_MSK_A, 1);
+-	else
+-		t4_read_indirect(adapter, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 &pfmask, 1, TP_RSS_PF_MSK_A);
++	t4_tp_pio_read(adapter, &pfmask, 1, TP_RSS_PF_MSK_A, sleep_ok);
+ 	return pfmask;
+ }
+ 
+@@ -5245,12 +5331,13 @@ u32 t4_read_rss_pf_mask(struct adapter *adapter)
+  *	@adap: the adapter
+  *	@v4: holds the TCP/IP counter values
+  *	@v6: holds the TCP/IPv6 counter values
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Returns the values of TP's TCP/IP and TCP/IPv6 MIB counters.
+  *	Either @v4 or @v6 may be %NULL to skip the corresponding stats.
+  */
+ void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
+-			 struct tp_tcp_stats *v6)
++			 struct tp_tcp_stats *v6, bool sleep_ok)
+ {
+ 	u32 val[TP_MIB_TCP_RXT_SEG_LO_A - TP_MIB_TCP_OUT_RST_A + 1];
+ 
+@@ -5259,16 +5346,16 @@ void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
+ #define STAT64(x)   (((u64)STAT(x##_HI) << 32) | STAT(x##_LO))
+ 
+ 	if (v4) {
+-		t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, val,
+-				 ARRAY_SIZE(val), TP_MIB_TCP_OUT_RST_A);
++		t4_tp_mib_read(adap, val, ARRAY_SIZE(val),
++			       TP_MIB_TCP_OUT_RST_A, sleep_ok);
+ 		v4->tcp_out_rsts = STAT(OUT_RST);
+ 		v4->tcp_in_segs  = STAT64(IN_SEG);
+ 		v4->tcp_out_segs = STAT64(OUT_SEG);
+ 		v4->tcp_retrans_segs = STAT64(RXT_SEG);
+ 	}
+ 	if (v6) {
+-		t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, val,
+-				 ARRAY_SIZE(val), TP_MIB_TCP_V6OUT_RST_A);
++		t4_tp_mib_read(adap, val, ARRAY_SIZE(val),
++			       TP_MIB_TCP_V6OUT_RST_A, sleep_ok);
+ 		v6->tcp_out_rsts = STAT(OUT_RST);
+ 		v6->tcp_in_segs  = STAT64(IN_SEG);
+ 		v6->tcp_out_segs = STAT64(OUT_SEG);
+@@ -5283,63 +5370,66 @@ void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
+  *	t4_tp_get_err_stats - read TP's error MIB counters
+  *	@adap: the adapter
+  *	@st: holds the counter values
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Returns the values of TP's error counters.
+  */
+-void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st)
++void t4_tp_get_err_stats(struct adapter *adap, struct tp_err_stats *st,
++			 bool sleep_ok)
+ {
+ 	int nchan = adap->params.arch.nchan;
+ 
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->mac_in_errs, nchan, TP_MIB_MAC_IN_ERR_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->hdr_in_errs, nchan, TP_MIB_HDR_IN_ERR_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->tcp_in_errs, nchan, TP_MIB_TCP_IN_ERR_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->tnl_cong_drops, nchan, TP_MIB_TNL_CNG_DROP_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->ofld_chan_drops, nchan, TP_MIB_OFD_CHN_DROP_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->tnl_tx_drops, nchan, TP_MIB_TNL_DROP_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->ofld_vlan_drops, nchan, TP_MIB_OFD_VLN_DROP_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 st->tcp6_in_errs, nchan, TP_MIB_TCP_V6IN_ERR_0_A);
+-
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A,
+-			 &st->ofld_no_neigh, 2, TP_MIB_OFD_ARP_DROP_A);
++	t4_tp_mib_read(adap, st->mac_in_errs, nchan, TP_MIB_MAC_IN_ERR_0_A,
++		       sleep_ok);
++	t4_tp_mib_read(adap, st->hdr_in_errs, nchan, TP_MIB_HDR_IN_ERR_0_A,
++		       sleep_ok);
++	t4_tp_mib_read(adap, st->tcp_in_errs, nchan, TP_MIB_TCP_IN_ERR_0_A,
++		       sleep_ok);
++	t4_tp_mib_read(adap, st->tnl_cong_drops, nchan,
++		       TP_MIB_TNL_CNG_DROP_0_A, sleep_ok);
++	t4_tp_mib_read(adap, st->ofld_chan_drops, nchan,
++		       TP_MIB_OFD_CHN_DROP_0_A, sleep_ok);
++	t4_tp_mib_read(adap, st->tnl_tx_drops, nchan, TP_MIB_TNL_DROP_0_A,
++		       sleep_ok);
++	t4_tp_mib_read(adap, st->ofld_vlan_drops, nchan,
++		       TP_MIB_OFD_VLN_DROP_0_A, sleep_ok);
++	t4_tp_mib_read(adap, st->tcp6_in_errs, nchan,
++		       TP_MIB_TCP_V6IN_ERR_0_A, sleep_ok);
++	t4_tp_mib_read(adap, &st->ofld_no_neigh, 2, TP_MIB_OFD_ARP_DROP_A,
++		       sleep_ok);
+ }
+ 
+ /**
+  *	t4_tp_get_cpl_stats - read TP's CPL MIB counters
+  *	@adap: the adapter
+  *	@st: holds the counter values
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Returns the values of TP's CPL counters.
+  */
+-void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st)
++void t4_tp_get_cpl_stats(struct adapter *adap, struct tp_cpl_stats *st,
++			 bool sleep_ok)
+ {
+ 	int nchan = adap->params.arch.nchan;
+ 
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, st->req,
+-			 nchan, TP_MIB_CPL_IN_REQ_0_A);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, st->rsp,
+-			 nchan, TP_MIB_CPL_OUT_RSP_0_A);
++	t4_tp_mib_read(adap, st->req, nchan, TP_MIB_CPL_IN_REQ_0_A, sleep_ok);
+ 
++	t4_tp_mib_read(adap, st->rsp, nchan, TP_MIB_CPL_OUT_RSP_0_A, sleep_ok);
+ }
+ 
+ /**
+  *	t4_tp_get_rdma_stats - read TP's RDMA MIB counters
+  *	@adap: the adapter
+  *	@st: holds the counter values
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Returns the values of TP's RDMA counters.
+  */
+-void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st)
++void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st,
++			  bool sleep_ok)
+ {
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, &st->rqe_dfr_pkt,
+-			 2, TP_MIB_RQE_DFR_PKT_A);
++	t4_tp_mib_read(adap, &st->rqe_dfr_pkt, 2, TP_MIB_RQE_DFR_PKT_A,
++		       sleep_ok);
+ }
+ 
+ /**
+@@ -5347,20 +5437,24 @@ void t4_tp_get_rdma_stats(struct adapter *adap, struct tp_rdma_stats *st)
+  *	@adap: the adapter
+  *	@idx: the port index
+  *	@st: holds the counter values
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Returns the values of TP's FCoE counters for the selected port.
+  */
+ void t4_get_fcoe_stats(struct adapter *adap, unsigned int idx,
+-		       struct tp_fcoe_stats *st)
++		       struct tp_fcoe_stats *st, bool sleep_ok)
+ {
+ 	u32 val[2];
+ 
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, &st->frames_ddp,
+-			 1, TP_MIB_FCOE_DDP_0_A + idx);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, &st->frames_drop,
+-			 1, TP_MIB_FCOE_DROP_0_A + idx);
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, val,
+-			 2, TP_MIB_FCOE_BYTE_0_HI_A + 2 * idx);
++	t4_tp_mib_read(adap, &st->frames_ddp, 1, TP_MIB_FCOE_DDP_0_A + idx,
++		       sleep_ok);
++
++	t4_tp_mib_read(adap, &st->frames_drop, 1,
++		       TP_MIB_FCOE_DROP_0_A + idx, sleep_ok);
++
++	t4_tp_mib_read(adap, val, 2, TP_MIB_FCOE_BYTE_0_HI_A + 2 * idx,
++		       sleep_ok);
++
+ 	st->octets_ddp = ((u64)val[0] << 32) | val[1];
+ }
+ 
+@@ -5368,15 +5462,16 @@ void t4_get_fcoe_stats(struct adapter *adap, unsigned int idx,
+  *	t4_get_usm_stats - read TP's non-TCP DDP MIB counters
+  *	@adap: the adapter
+  *	@st: holds the counter values
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *	Returns the values of TP's counters for non-TCP directly-placed packets.
+  */
+-void t4_get_usm_stats(struct adapter *adap, struct tp_usm_stats *st)
++void t4_get_usm_stats(struct adapter *adap, struct tp_usm_stats *st,
++		      bool sleep_ok)
+ {
+ 	u32 val[4];
+ 
+-	t4_read_indirect(adap, TP_MIB_INDEX_A, TP_MIB_DATA_A, val, 4,
+-			 TP_MIB_USM_PKTS_A);
++	t4_tp_mib_read(adap, val, 4, TP_MIB_USM_PKTS_A, sleep_ok);
+ 	st->frames = val[0];
+ 	st->drops = val[1];
+ 	st->octets = ((u64)val[2] << 32) | val[3];
+@@ -8663,10 +8758,11 @@ int t4_init_sge_params(struct adapter *adapter)
+ /**
+  *      t4_init_tp_params - initialize adap->params.tp
+  *      @adap: the adapter
++ *      @sleep_ok: if true we may sleep while awaiting command completion
+  *
+  *      Initialize various fields of the adapter's TP Parameters structure.
+  */
+-int t4_init_tp_params(struct adapter *adap)
++int t4_init_tp_params(struct adapter *adap, bool sleep_ok)
+ {
+ 	int chan;
+ 	u32 v;
+@@ -8682,19 +8778,11 @@ int t4_init_tp_params(struct adapter *adap)
+ 	/* Cache the adapter's Compressed Filter Mode and global Incress
+ 	 * Configuration.
+ 	 */
+-	if (t4_use_ldst(adap)) {
+-		t4_fw_tp_pio_rw(adap, &adap->params.tp.vlan_pri_map, 1,
+-				TP_VLAN_PRI_MAP_A, 1);
+-		t4_fw_tp_pio_rw(adap, &adap->params.tp.ingress_config, 1,
+-				TP_INGRESS_CONFIG_A, 1);
+-	} else {
+-		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 &adap->params.tp.vlan_pri_map, 1,
+-				 TP_VLAN_PRI_MAP_A);
+-		t4_read_indirect(adap, TP_PIO_ADDR_A, TP_PIO_DATA_A,
+-				 &adap->params.tp.ingress_config, 1,
+-				 TP_INGRESS_CONFIG_A);
+-	}
++	t4_tp_pio_read(adap, &adap->params.tp.vlan_pri_map, 1,
++		       TP_VLAN_PRI_MAP_A, sleep_ok);
++	t4_tp_pio_read(adap, &adap->params.tp.ingress_config, 1,
++		       TP_INGRESS_CONFIG_A, sleep_ok);
++
+ 	/* For T6, cache the adapter's compressed error vector
+ 	 * and passing outer header info for encapsulated packets.
+ 	 */
 -- 
 2.14.1
