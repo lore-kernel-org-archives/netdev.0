@@ -1,81 +1,61 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next] selftests: rtnetlink: add a small macsec test case
-Date: Thu, 12 Oct 2017 11:11:22 +0200
-Message-ID: <20171012091122.28133-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44736 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751835AbdJLJLF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 05:11:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH 3/4] dpaa_eth: change device used
+Date: Thu, 12 Oct 2017 09:11:02 +0000
+Message-ID: <DB3PR0402MB3849646B999712EE93DC9207EC4B0@DB3PR0402MB3849.eurprd04.prod.outlook.com>
+References: <1507644618-32006-1-git-send-email-madalin.bucur@nxp.com>
+        <1507644618-32006-4-git-send-email-madalin.bucur@nxp.com>
+ <20171011.140203.578840078366210432.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>,
+        "junote@outlook.com" <junote@outlook.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171011.140203.578840078366210432.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- tools/testing/selftests/net/rtnetlink.sh | 42 ++++++++++++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, October 12, 2017 12:02 AM
+> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+> Subject: Re: [PATCH 3/4] dpaa_eth: change device used
+>=20
+> From: Madalin Bucur <madalin.bucur@nxp.com>
+> Date: Tue, 10 Oct 2017 17:10:17 +0300
+>=20
+> > @@ -2696,7 +2681,13 @@ static int dpaa_eth_probe(struct platform_device
+> *pdev)
+> >  	int err =3D 0, i, channel;
+> >  	struct device *dev;
+> >
+> > -	dev =3D &pdev->dev;
+> > +	/* device used for DMA mapping */
+> > +	dev =3D pdev->dev.parent;
+> > +	err =3D dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(40));
+> > +	if (err) {
+> > +		dev_err(dev, "dma_coerce_mask_and_coherent() failed\n");
+> > +		goto dev_mask_failed;
+> > +	}
+> >
+> >  	/* Allocate this early, so we can store relevant information in
+> >  	 * the private area
+>=20
+> Since you are moving this code up before the netdev allocation, you must
+> adjust the failure path goto label used.
+>=20
+> Your change as-is will cause an OOPS because we'll pass a NULL pointer
+> to free_netdev().
 
-diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
-index a8a8cdf726b2..5215493166c9 100755
---- a/tools/testing/selftests/net/rtnetlink.sh
-+++ b/tools/testing/selftests/net/rtnetlink.sh
-@@ -461,6 +461,47 @@ kci_test_encap()
- 	ip netns del "$testns"
- }
- 
-+kci_test_macsec()
-+{
-+	msname="test_macsec0"
-+	ret=0
-+
-+	ip macsec help 2>&1 | grep -q "^Usage: ip macsec"
-+	if [ $? -ne 0 ]; then
-+		echo "SKIP: macsec: iproute2 too old"
-+		return 0
-+	fi
-+
-+	ip link add link "$devdummy" "$msname" type macsec port 42 encrypt on
-+	check_err $?
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: can't add macsec interface, skipping test"
-+		return 1
-+	fi
-+
-+	ip macsec add "$msname" tx sa 0 pn 1024 on key 01 12345678901234567890123456789012
-+	check_err $?
-+
-+	ip macsec add "$msname" rx port 1234 address "1c:ed:de:ad:be:ef"
-+	check_err $?
-+
-+	ip macsec add "$msname" rx port 1234 address "1c:ed:de:ad:be:ef" sa 0 pn 1 on key 00 0123456789abcdef0123456789abcdef
-+	check_err $?
-+
-+	ip macsec show > /dev/null
-+	check_err $?
-+
-+	ip link del dev "$msname"
-+	check_err $?
-+
-+	if [ $ret -ne 0 ];then
-+		echo "FAIL: macsec"
-+		return 1
-+	fi
-+
-+	echo "PASS: macsec"
-+}
-+
- kci_test_rtnl()
- {
- 	kci_add_dummy
-@@ -478,6 +519,7 @@ kci_test_rtnl()
- 	kci_test_ifalias
- 	kci_test_vrf
- 	kci_test_encap
-+	kci_test_macsec
- 
- 	kci_del_dummy
- }
--- 
-2.13.6
+Thank you, besides this new issue I was introducing I see there other probl=
+ems,
+I'll include a cleanup of these error paths in v2.
+
+Madalin
