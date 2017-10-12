@@ -1,71 +1,60 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next v2 5/7] net: qualcomm: rmnet: Remove duplicate setting of rmnet_devices
-Date: Wed, 11 Oct 2017 18:43:56 -0600
-Message-ID: <1507769038-30231-6-git-send-email-subashab@codeaurora.org>
-References: <1507769038-30231-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v6 1/5] net/sched: Check for null dev_queue on create flow
+Date: Wed, 11 Oct 2017 17:54:45 -0700
+Message-ID: <20171012005449.26533-2-vinicius.gomes@intel.com>
+References: <20171012005449.26533-1-vinicius.gomes@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33280 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752675AbdJLAoX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 20:44:23 -0400
-In-Reply-To: <1507769038-30231-1-git-send-email-subashab@codeaurora.org>
+Received: from mga11.intel.com ([192.55.52.93]:57397 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751717AbdJLA63 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Oct 2017 20:58:29 -0400
+In-Reply-To: <20171012005449.26533-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The rmnet_devices information is already stored in muxed_ep, so
-storing this in rmnet_devices[] again is redundant.
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+In qdisc_alloc() the dev_queue pointer was used without any checks
+being performed. If qdisc_create() gets a null dev_queue pointer, it
+just passes it along to qdisc_alloc(), leading to a crash. That
+happens if a root qdisc implements select_queue() and returns a null
+dev_queue pointer for an "invalid handle", for example, or if the
+dev_queue associated with the parent qdisc is null.
+
+This patch is in preparation for the next in this series, where
+select_queue() is being added to mqprio and as it may return a null
+dev_queue.
+
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 ---
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h | 1 -
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c    | 8 ++++----
- 2 files changed, 4 insertions(+), 5 deletions(-)
+ net/sched/sch_generic.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-index c5f5c6d..123ccf4 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h
-@@ -33,7 +33,6 @@ struct rmnet_port {
- 	struct rmnet_endpoint muxed_ep[RMNET_MAX_LOGICAL_EP];
- 	u32 ingress_data_format;
- 	u32 egress_data_format;
--	struct net_device *rmnet_devices[RMNET_MAX_LOGICAL_EP];
- 	u8 nr_rmnet_devs;
- 	u8 rmnet_mode;
- };
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-index 4ca59a4..8b8497b 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-@@ -105,12 +105,12 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
- 	struct rmnet_priv *priv;
- 	int rc;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index a0a198768aad..de2408f1ccd3 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	struct Qdisc *sch;
+ 	unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
+ 	int err = -ENOBUFS;
+-	struct net_device *dev = dev_queue->dev;
++	struct net_device *dev;
++
++	if (!dev_queue) {
++		err = -EINVAL;
++		goto errout;
++	}
  
--	if (port->rmnet_devices[id])
-+	if (port->muxed_ep[id].egress_dev)
- 		return -EINVAL;
++	dev = dev_queue->dev;
+ 	p = kzalloc_node(size, GFP_KERNEL,
+ 			 netdev_queue_numa_node_read(dev_queue));
  
- 	rc = register_netdevice(rmnet_dev);
- 	if (!rc) {
--		port->rmnet_devices[id] = rmnet_dev;
-+		port->muxed_ep[id].egress_dev = rmnet_dev;
- 		port->nr_rmnet_devs++;
- 
- 		rmnet_dev->rtnl_link_ops = &rmnet_link_ops;
-@@ -127,10 +127,10 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
- 
- int rmnet_vnd_dellink(u8 id, struct rmnet_port *port)
- {
--	if (id >= RMNET_MAX_LOGICAL_EP || !port->rmnet_devices[id])
-+	if (id >= RMNET_MAX_LOGICAL_EP || !port->muxed_ep[id].egress_dev)
- 		return -EINVAL;
- 
--	port->rmnet_devices[id] = NULL;
-+	port->muxed_ep[id].egress_dev = NULL;
- 	port->nr_rmnet_devs--;
- 	return 0;
- }
 -- 
-1.9.1
+2.14.2
