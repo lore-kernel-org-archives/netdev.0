@@ -1,52 +1,131 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: BUG:af_packet fails to TX TSO frames
-Date: Thu, 12 Oct 2017 12:30:44 -0400
-Message-ID: <CAF=yD-+W2tyXqCS_ueZgu11BB8ON5hdKGOZQOWtfr+HfvqW=Sg@mail.gmail.com>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com> <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
- <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
- <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk> <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
- <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk> <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
- <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk> <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
- <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
- <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com> <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
- <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
- <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com> <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
+From: Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Thu, 12 Oct 2017 09:33:49 -0700
+Message-ID: <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
-To: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:56393 "EHLO
-        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751434AbdJLQbZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 12:31:25 -0400
-Received: by mail-oi0-f46.google.com with SMTP id v9so9377336oif.13
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 09:31:25 -0700 (PDT)
-In-Reply-To: <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
+        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171012141359.saqdtnodwmbz33b2-bcJWsdo4jJjeVoXN4CMphl7TgLCtbB0G@public.gmane.org>
+Content-Language: en-US
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 12, 2017 at 11:44 AM, Anton Ivanov
-<anton.ivanov@cambridgegreys.com> wrote:
-> Found it.
+On 10/12/2017 7:14 AM, Richard Guy Briggs wrote:
+> Containers are a userspace concept.  The kernel knows nothing of them.
 >
-> Two bugs canceling each other.
-> The bind sequence in:  psock_txring_vnet.c is wrong.
+> The Linux audit system needs a way to be able to track the container
+> provenance of events and actions.  Audit needs the kernel's help to do
+> this.
 >
-> It does the following addr.sll_protocol =    htons(ETH_P_IP);
-> before calling bind.
+> Since the concept of a container is entirely a userspace concept, a
+> registration from the userspace container orchestration system initiates
+> this.  This will define a point in time and a set of resources
+> associated with a particular container with an audit container ID.
 >
-> If you set addr.sll_protocol to ETH_P_ALL where it should have been in the
-> first place the test program blows up with -ENOBUFS
+> The registration is a pseudo filesystem (proc, since PID tree already
+> exists) write of a u8[16] UUID representing the container ID to a file
+> representing a process that will become the first process in a new
+> container.  This write might place restrictions on mount namespaces
+> required to define a container, or at least careful checking of
+> namespaces in the kernel to verify permissions of the orchestrator so it
+> can't change its own container ID.  A bind mount of nsfs may be
+> necessary in the container orchestrator's mntNS.
+> Note: Use a 128-bit scalar rather than a string to make compares faster
+> and simpler.
+>
+> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
+> registration.
 
-There is no such requirement that the socket should bind to ETH_P_ALL.
+Hang on. If containers are a user space concept, how can
+you want CAP_CONTAINER_ANYTHING? If there's not such thing as
+a container, how can you be asking for a capability to manage
+them?
 
-> I think what is happening is that this value is taken into account when
-> looking at "what should I use to segment it with" in skb_mac_gso_segment
-> which is invoked at the end of the verification chain which starts in
-> packet_direct_xmit in af_packet.c
-
-packet_snd sets skb->protocol based on the protocol that the packet
-socket is bound to. Binding to ETH_P_IP is the right choice here.
+>   At that time, record the target container's user-supplied
+> container identifier along with the target container's first process
+> (which may become the target container's "init" process) process ID
+> (referenced from the initial PID namespace), all namespace IDs (in the
+> form of a nsfs device number and inode number tuple) in a new auxilliary
+> record AUDIT_CONTAINER with a qualifying op=$action field.
+>
+> Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
+> container ID present on an auditable action or event.
+>
+> Forked and cloned processes inherit their parent's container ID,
+> referenced in the process' task_struct.
+>
+> Mimic setns(2) and return an error if the process has already initiated
+> threading or forked since this registration should happen before the
+> process execution is started by the orchestrator and hence should not
+> yet have any threads or children.  If this is deemed overly restrictive,
+> switch all threads and children to the new containerID.
+>
+> Trust the orchestrator to judiciously use and restrict CAP_CONTAINER_ADMIN.
+>
+> Log the creation of every namespace, inheriting/adding its spawning
+> process' containerID(s), if applicable.  Include the spawning and
+> spawned namespace IDs (device and inode number tuples).
+> [AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
+> Note: At this point it appears only network namespaces may need to track
+> container IDs apart from processes since incoming packets may cause an
+> auditable event before being associated with a process.
+>
+> Log the destruction of every namespace when it is no longer used by any
+> process, include the namespace IDs (device and inode number tuples).
+> [AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
+>
+> Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
+> the parent and child namespace IDs for any changes to a process'
+> namespaces. [setns(2)]
+> Note: It may be possible to combine AUDIT_NS_* record formats and
+> distinguish them with an op=$action field depending on the fields
+> required for each message type.
+>
+> When a container ceases to exist because the last process in that
+> container has exited and hence the last namespace has been destroyed and
+> its refcount dropping to zero, log the fact.
+> (This latter is likely needed for certification accountability.)  A
+> container object may need a list of processes and/or namespaces.
+>
+> A namespace cannot directly migrate from one container to another but
+> could be assigned to a newly spawned container.  A namespace can be
+> moved from one container to another indirectly by having that namespace
+> used in a second process in another container and then ending all the
+> processes in the first container.
+>
+> (v2)
+> - switch from u64 to u128 UUID
+> - switch from "signal" and "trigger" to "register"
+> - restrict registration to single process or force all threads and children into same container
+>
+> - RGB
+>
+> --
+> Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Sr. S/W Engineer, Kernel Security, Base Operating Systems
+> Remote, Ottawa, Red Hat Canada
+> IRC: rgb, SunRaycer
+> Voice: +1.647.777.2635, Internal: (81) 32635
+>
+> --
+> Linux-audit mailing list
+> Linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+> https://www.redhat.com/mailman/listinfo/linux-audit
+>
