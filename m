@@ -1,388 +1,107 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 09/18] tipc: receive group membership events via member socket
-Date: Thu, 12 Oct 2017 16:02:30 +0200
-Message-ID: <1507816959-31787-10-git-send-email-jon.maloy@ericsson.com>
-References: <1507816959-31787-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Matteo Croce <mcroce@redhat.com>
+Subject: [PATCH net-next] icmp: don't fail on fragment reassembly time exceeded
+Date: Thu, 12 Oct 2017 16:12:37 +0200
+Message-ID: <20171012141237.2209-1-mcroce@redhat.com>
+To: "David S . Miller " <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:59245 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751441AbdJLOCz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 10:02:55 -0400
-In-Reply-To: <1507816959-31787-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:56388 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751348AbdJLOMl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 10:12:41 -0400
+Received: by mail-wm0-f49.google.com with SMTP id l68so13745525wmd.5
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 07:12:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Like with any other service, group members' availability can be
-subscribed for by connecting to be topology server. However, because
-the events arrive via a different socket than the member socket, there
-is a real risk that membership events my arrive out of synch with the
-actual JOIN/LEAVE action. I.e., it is possible to receive the first
-messages from a new member before the corresponding JOIN event arrives,
-just as it is possible to receive the last messages from a leaving
-member after the LEAVE event has already been received.
+The ICMP implementation currently replies to an ICMP time exceeded message
+(type 11) with an ICMP host unreachable message (type 3, code 1).
 
-Since each member socket is internally also subscribing for membership
-events, we now fix this problem by passing those events on to the user
-via the member socket. We leverage the already present member synch-
-ronization protocol to guarantee correct message/event order. An event
-is delivered to the user as an empty message where the two source
-addresses identify the new/lost member. Furthermore, we set the MSG_OOB
-bit in the message flags to mark it as an event. If the event is an
-indication about a member loss we also set the MSG_EOR bit, so it can
-be distinguished from a member addition event.
+However, time exceeded messages can either represent "time to live exceeded
+in transit" (code 0) or "fragment reassembly time exceeded" (code 1).
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
+Unconditionally replying to "fragment reassembly time exceeded" with
+host unreachable messages might cause unjustified connection resets
+which are now easily triggered as UFO has been removed, because, in turn,
+sending large buffers triggers IP fragmentation.
+
+The issue can be easily reproduced by running a lot of UDP streams
+which is likely to trigger IP fragmentation:
+
+  # start netserver in the test namespace
+  ip netns add test
+  ip netns exec test netserver
+
+  # create a VETH pair
+  ip link add name veth0 type veth peer name veth0 netns test
+  ip link set veth0 up
+  ip -n test link set veth0 up
+
+  for i in $(seq 20 29); do
+      # assign addresses to both ends
+      ip addr add dev veth0 192.168.$i.1/24
+      ip -n test addr add dev veth0 192.168.$i.2/24
+
+      # start the traffic
+      netperf -L 192.168.$i.1 -H 192.168.$i.2 -t UDP_STREAM -l 0 &
+  done
+
+  # wait
+  send_data: data send error: No route to host (errno 113)
+  netperf: send_omni: send_data failed: No route to host
+
+We need to differentiate instead: if fragment reassembly time exceeded
+is reported, we need to silently drop the packet,
+if time to live exceeded is reported, maintain the current behaviour.
+In both cases increment the related error count "icmpInTimeExcds".
+
+While at it, fix a typo in a comment, and convert the if statement
+into a switch to mate it more readable.
+
+Signed-off-by: Matteo Croce <mcroce@redhat.com>
 ---
- include/uapi/linux/tipc.h |  1 +
- net/tipc/group.c          | 60 +++++++++++++++++++++++++++++++++++++----------
- net/tipc/group.h          |  2 ++
- net/tipc/msg.h            | 22 +++++++++++++++--
- net/tipc/socket.c         | 43 +++++++++++++++++++++------------
- 5 files changed, 98 insertions(+), 30 deletions(-)
+ net/ipv4/icmp.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
-index 5f7b2c4..ef41c11 100644
---- a/include/uapi/linux/tipc.h
-+++ b/include/uapi/linux/tipc.h
-@@ -238,6 +238,7 @@ struct sockaddr_tipc {
-  * Flag values
-  */
- #define TIPC_GROUP_LOOPBACK     0x1  /* Receive copy of sent msg when match */
-+#define TIPC_GROUP_MEMBER_EVTS  0x2  /* Receive membership events in socket */
- 
- struct tipc_group_req {
- 	__u32 type;      /* group id */
-diff --git a/net/tipc/group.c b/net/tipc/group.c
-index b30e24a..fe2a76f 100644
---- a/net/tipc/group.c
-+++ b/net/tipc/group.c
-@@ -59,6 +59,7 @@ enum mbr_state {
- struct tipc_member {
- 	struct rb_node tree_node;
- 	struct list_head list;
-+	struct sk_buff *event_msg;
- 	u32 node;
- 	u32 port;
- 	u32 instance;
-@@ -79,6 +80,7 @@ struct tipc_group {
- 	u16 member_cnt;
- 	u16 bc_snd_nxt;
- 	bool loopback;
-+	bool events;
- };
- 
- static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
-@@ -117,6 +119,7 @@ struct tipc_group *tipc_group_create(struct net *net, u32 portid,
- 	grp->instance = mreq->instance;
- 	grp->scope = mreq->scope;
- 	grp->loopback = mreq->flags & TIPC_GROUP_LOOPBACK;
-+	grp->events = mreq->flags & TIPC_GROUP_MEMBER_EVTS;
- 	if (tipc_topsrv_kern_subscr(net, portid, type, 0, ~0, &grp->subid))
- 		return grp;
- 	kfree(grp);
-@@ -279,6 +282,13 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 	if (!msg_in_group(hdr))
- 		goto drop;
- 
-+	if (mtyp == TIPC_GRP_MEMBER_EVT) {
-+		if (!grp->events)
-+			goto drop;
-+		__skb_queue_tail(inputq, skb);
-+		return;
-+	}
-+
- 	m = tipc_group_find_member(grp, node, port);
- 	if (!tipc_group_is_receiver(m))
- 		goto drop;
-@@ -311,6 +321,7 @@ static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 681e33998e03..3c1570d3e22f 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -782,7 +782,7 @@ static bool icmp_tag_validation(int proto)
  }
- 
- void tipc_group_proto_rcv(struct tipc_group *grp, struct tipc_msg *hdr,
-+			  struct sk_buff_head *inputq,
- 			  struct sk_buff_head *xmitq)
- {
- 	struct tipc_member *m;
-@@ -332,10 +343,12 @@ void tipc_group_proto_rcv(struct tipc_group *grp, struct tipc_msg *hdr,
- 		m->bc_rcv_nxt = msg_grp_bc_syncpt(hdr);
- 
- 		/* Wait until PUBLISH event is received */
--		if (m->state == MBR_DISCOVERED)
-+		if (m->state == MBR_DISCOVERED) {
- 			m->state = MBR_JOINING;
--		else if (m->state == MBR_PUBLISHED)
-+		} else if (m->state == MBR_PUBLISHED) {
- 			m->state = MBR_JOINED;
-+			__skb_queue_tail(inputq, m->event_msg);
-+		}
- 		return;
- 	case GRP_LEAVE_MSG:
- 		if (!m)
-@@ -347,6 +360,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, struct tipc_msg *hdr,
- 			return;
- 		}
- 		/* Otherwise deliver already received WITHDRAW event */
-+		__skb_queue_tail(inputq, m->event_msg);
- 		tipc_group_delete_member(grp, m);
- 		return;
- 	default:
-@@ -354,16 +368,17 @@ void tipc_group_proto_rcv(struct tipc_group *grp, struct tipc_msg *hdr,
- 	}
- }
- 
--/* tipc_group_member_evt() - receive and handle a member up/down event
-- */
- void tipc_group_member_evt(struct tipc_group *grp,
- 			   struct sk_buff *skb,
-+			   struct sk_buff_head *inputq,
- 			   struct sk_buff_head *xmitq)
- {
- 	struct tipc_msg *hdr = buf_msg(skb);
- 	struct tipc_event *evt = (void *)msg_data(hdr);
- 	struct tipc_member *m;
- 	struct net *net;
-+	int event = evt->event;
-+	u32 instance = evt->found_lower;
- 	u32 port = evt->port.ref;
- 	u32 node = evt->port.node;
- 	u32 self;
-@@ -376,32 +391,51 @@ void tipc_group_member_evt(struct tipc_group *grp,
- 	if (!grp->loopback && node == self && port == grp->portid)
- 		goto drop;
- 
-+	/* Convert message before delivery to user */
-+	msg_set_hdr_sz(hdr, GROUP_H_SIZE);
-+	msg_set_user(hdr, TIPC_CRITICAL_IMPORTANCE);
-+	msg_set_type(hdr, TIPC_GRP_MEMBER_EVT);
-+	msg_set_origport(hdr, port);
-+	msg_set_orignode(hdr, node);
-+	msg_set_nametype(hdr, grp->type);
-+	msg_set_grp_evt(hdr, event);
-+
- 	m = tipc_group_find_member(grp, node, port);
- 
--	if (evt->event == TIPC_PUBLISHED) {
-+	if (event == TIPC_PUBLISHED) {
- 		if (!m)
- 			m = tipc_group_create_member(grp, node, port,
- 						     MBR_DISCOVERED);
- 		if (!m)
- 			goto drop;
- 
--		/* Wait if JOIN message not yet received */
--		if (m->state == MBR_DISCOVERED)
-+		/* Hold back event if JOIN message not yet received */
-+		if (m->state == MBR_DISCOVERED) {
-+			m->event_msg = skb;
- 			m->state = MBR_PUBLISHED;
--		else
-+		} else {
-+			__skb_queue_tail(inputq, skb);
- 			m->state = MBR_JOINED;
--		m->instance = evt->found_lower;
-+		}
-+		m->instance = instance;
-+		TIPC_SKB_CB(skb)->orig_member = m->instance;
- 		tipc_group_proto_xmit(grp, m, GRP_JOIN_MSG, xmitq);
--	} else if (evt->event == TIPC_WITHDRAWN) {
-+	} else if (event == TIPC_WITHDRAWN) {
- 		if (!m)
- 			goto drop;
- 
--		/* Keep back event if more messages might be expected */
--		if (m->state != MBR_LEAVING && tipc_node_is_up(net, node))
-+		TIPC_SKB_CB(skb)->orig_member = m->instance;
-+
-+		/* Hold back event if more messages might be expected */
-+		if (m->state != MBR_LEAVING && tipc_node_is_up(net, node)) {
-+			m->event_msg = skb;
- 			m->state = MBR_LEAVING;
--		else
-+		} else {
-+			__skb_queue_tail(inputq, skb);
- 			tipc_group_delete_member(grp, m);
-+		}
- 	}
-+	return;
- drop:
- 	kfree_skb(skb);
- }
-diff --git a/net/tipc/group.h b/net/tipc/group.h
-index 9bdf447..5d3f10d 100644
---- a/net/tipc/group.h
-+++ b/net/tipc/group.h
-@@ -54,9 +54,11 @@ void tipc_group_filter_msg(struct tipc_group *grp,
- 			   struct sk_buff_head *xmitq);
- void tipc_group_member_evt(struct tipc_group *grp,
- 			   struct sk_buff *skb,
-+			   struct sk_buff_head *inputq,
- 			   struct sk_buff_head *xmitq);
- void tipc_group_proto_rcv(struct tipc_group *grp,
- 			  struct tipc_msg *hdr,
-+			  struct sk_buff_head *inputq,
- 			  struct sk_buff_head *xmitq);
- void tipc_group_update_bc_members(struct tipc_group *grp);
- u16 tipc_group_bc_snd_nxt(struct tipc_group *grp);
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 6bf9840..3384ee6 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -65,7 +65,8 @@ struct plist;
- #define TIPC_MCAST_MSG		1
- #define TIPC_NAMED_MSG		2
- #define TIPC_DIRECT_MSG		3
--#define TIPC_GRP_BCAST_MSG	4
-+#define TIPC_GRP_MEMBER_EVT	4
-+#define TIPC_GRP_BCAST_MSG	5
  
  /*
-  * Internal message users
-@@ -258,7 +259,14 @@ static inline void msg_set_type(struct tipc_msg *m, u32 n)
- 
- static inline int msg_in_group(struct tipc_msg *m)
- {
--	return (msg_type(m) == TIPC_GRP_BCAST_MSG);
-+	int mtyp = msg_type(m);
-+
-+	return (mtyp == TIPC_GRP_BCAST_MSG) || (mtyp == TIPC_GRP_MEMBER_EVT);
-+}
-+
-+static inline bool msg_is_grp_evt(struct tipc_msg *m)
-+{
-+	return msg_type(m) == TIPC_GRP_MEMBER_EVT;
- }
- 
- static inline u32 msg_named(struct tipc_msg *m)
-@@ -824,6 +832,16 @@ static inline void msg_set_grp_bc_syncpt(struct tipc_msg *m, u16 n)
- 
- /* Word 10
+- *	Handle ICMP_DEST_UNREACH, ICMP_TIME_EXCEED, ICMP_QUENCH, and
++ *	Handle ICMP_DEST_UNREACH, ICMP_TIME_EXCEEDED, ICMP_QUENCH, and
+  *	ICMP_PARAMETERPROB.
   */
-+static inline u16 msg_grp_evt(struct tipc_msg *m)
-+{
-+	return msg_bits(m, 10, 0, 0x3);
-+}
-+
-+static inline void msg_set_grp_evt(struct tipc_msg *m, int n)
-+{
-+	msg_set_bits(m, 10, 0, 0x3, n);
-+}
-+
- static inline u16 msg_grp_bc_seqno(struct tipc_msg *m)
- {
- 	return msg_bits(m, 10, 16, 0xffff);
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 43a74b8..ed0907c 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -706,39 +706,41 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct tipc_group *grp = tsk->group;
--	u32 mask = 0;
-+	struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
-+	u32 revents = 0;
  
- 	sock_poll_wait(file, sk_sleep(sk), wait);
+@@ -810,7 +810,8 @@ static bool icmp_unreach(struct sk_buff *skb)
+ 	if (iph->ihl < 5) /* Mangled header, drop. */
+ 		goto out_err;
  
- 	if (sk->sk_shutdown & RCV_SHUTDOWN)
--		mask |= POLLRDHUP | POLLIN | POLLRDNORM;
-+		revents |= POLLRDHUP | POLLIN | POLLRDNORM;
- 	if (sk->sk_shutdown == SHUTDOWN_MASK)
--		mask |= POLLHUP;
-+		revents |= POLLHUP;
- 
- 	switch (sk->sk_state) {
- 	case TIPC_ESTABLISHED:
- 		if (!tsk->cong_link_cnt && !tsk_conn_cong(tsk))
--			mask |= POLLOUT;
-+			revents |= POLLOUT;
- 		/* fall thru' */
- 	case TIPC_LISTEN:
- 	case TIPC_CONNECTING:
--		if (!skb_queue_empty(&sk->sk_receive_queue))
--			mask |= (POLLIN | POLLRDNORM);
-+		if (skb)
-+			revents |= POLLIN | POLLRDNORM;
- 		break;
- 	case TIPC_OPEN:
- 		if (!grp || tipc_group_size(grp))
- 			if (!tsk->cong_link_cnt)
--				mask |= POLLOUT;
--		if (tipc_sk_type_connectionless(sk) &&
--		    (!skb_queue_empty(&sk->sk_receive_queue)))
--			mask |= (POLLIN | POLLRDNORM);
-+				revents |= POLLOUT;
-+		if (!tipc_sk_type_connectionless(sk))
-+			break;
-+		if (!skb)
-+			break;
-+		revents |= POLLIN | POLLRDNORM;
- 		break;
- 	case TIPC_DISCONNECTING:
--		mask = (POLLIN | POLLRDNORM | POLLHUP);
-+		revents = POLLIN | POLLRDNORM | POLLHUP;
- 		break;
- 	}
--
--	return mask;
-+	return revents;
- }
- 
- /**
-@@ -1418,6 +1420,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
- 	struct sk_buff *skb;
- 	struct tipc_msg *hdr;
- 	bool connected = !tipc_sk_type_connectionless(sk);
-+	bool grp_evt;
- 	int rc, err, hlen, dlen, copy;
- 	long timeout;
- 
-@@ -1442,6 +1445,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
- 		dlen = msg_data_sz(hdr);
- 		hlen = msg_hdr_sz(hdr);
- 		err = msg_errcode(hdr);
-+		grp_evt = msg_is_grp_evt(hdr);
- 		if (likely(dlen || err))
- 			break;
- 		tsk_advance_rx_queue(sk);
-@@ -1468,11 +1472,20 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
- 	if (unlikely(rc))
- 		goto exit;
- 
-+	/* Mark message as group event if applicable */
-+	if (unlikely(grp_evt)) {
-+		if (msg_grp_evt(hdr) == TIPC_WITHDRAWN)
-+			m->msg_flags |= MSG_EOR;
-+		m->msg_flags |= MSG_OOB;
-+		copy = 0;
+-	if (icmph->type == ICMP_DEST_UNREACH) {
++	switch (icmph->type) {
++	case ICMP_DEST_UNREACH:
+ 		switch (icmph->code & 15) {
+ 		case ICMP_NET_UNREACH:
+ 		case ICMP_HOST_UNREACH:
+@@ -846,8 +847,16 @@ static bool icmp_unreach(struct sk_buff *skb)
+ 		}
+ 		if (icmph->code > NR_ICMP_UNREACH)
+ 			goto out;
+-	} else if (icmph->type == ICMP_PARAMETERPROB)
++		break;
++	case ICMP_PARAMETERPROB:
+ 		info = ntohl(icmph->un.gateway) >> 24;
++		break;
++	case ICMP_TIME_EXCEEDED:
++		__ICMP_INC_STATS(net, ICMP_MIB_INTIMEEXCDS);
++		if (icmph->code == ICMP_EXC_FRAGTIME)
++			goto out;
++		break;
 +	}
-+
- 	/* Caption of data or error code/rejected data was successful */
- 	if (unlikely(flags & MSG_PEEK))
- 		goto exit;
  
- 	tsk_advance_rx_queue(sk);
-+
- 	if (likely(!connected))
- 		goto exit;
- 
-@@ -1647,10 +1660,10 @@ static void tipc_sk_proto_rcv(struct sock *sk,
- 		sk->sk_write_space(sk);
- 		break;
- 	case GROUP_PROTOCOL:
--		tipc_group_proto_rcv(grp, hdr, xmitq);
-+		tipc_group_proto_rcv(grp, hdr, inputq, xmitq);
- 		break;
- 	case TOP_SRV:
--		tipc_group_member_evt(tsk->group, skb, xmitq);
-+		tipc_group_member_evt(tsk->group, skb, inputq, xmitq);
- 		skb = NULL;
- 		break;
- 	default:
+ 	/*
+ 	 *	Throw it at our lower layers
 -- 
-2.1.4
+2.13.6
