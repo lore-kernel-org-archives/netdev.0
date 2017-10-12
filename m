@@ -1,415 +1,135 @@
-From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 2/8] cxgb4: collect register dump
-Date: Thu, 12 Oct 2017 13:54:39 +0530
-Message-ID: <3f228cbea6fb25948a2306de681f6b3a71347ac6.1507795407.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
-Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
-        indranil@chelsio.com,
-        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-To: netdev@vger.kernel.org
+From: Anton Ivanov <anton.ivanov@kot-begemot.co.uk>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Thu, 12 Oct 2017 09:46:44 +0100
+Message-ID: <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+ <f2fe3f46-2ef1-0029-1c44-3576ca19d34b@cambridgegreys.com>
+ <844d6e0f-6ee7-74bc-b961-faa77b240303@cambridgegreys.com>
+ <CAF=yD-+JaS8JwEC2TyUG=Ebaho-MM+gjumrbHYM-H0EK1Hu62Q@mail.gmail.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+ <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
+ <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+ <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+ <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Anton Ivanov <anton.ivanov@cambridgegreys.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:36720 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753356AbdJLI0E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:26:04 -0400
-In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
-In-Reply-To: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1507795407.git.rahul.lakkireddy@chelsio.com>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36689 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752545AbdJLIqx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:46:53 -0400
+In-Reply-To: <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add base to collect dump entities.  Collect register dump
-and update template header accordingly.
+Hi Willem,
 
-Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |  3 +-
- drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c  | 54 +++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      |  5 ++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c     | 79 ++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h     | 28 +++++++
- .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  | 13 +++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   | 94 +++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h   | 11 +++
- 8 files changed, 285 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
+Thanks for all your help so far.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 4c6041f45630..70d454379996 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -6,7 +6,8 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o \
- 	      cxgb4_uld.o sched.o cxgb4_filter.o cxgb4_tc_u32.o \
--	      cxgb4_ptp.o cxgb4_tc_flower.o cxgb4_cudbg.o
-+	      cxgb4_ptp.o cxgb4_tc_flower.o cxgb4_cudbg.o \
-+	      cudbg_common.o cudbg_lib.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c
-new file mode 100644
-index 000000000000..396aaf9ffe08
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c
-@@ -0,0 +1,54 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#include "cxgb4.h"
-+#include "cudbg_if.h"
-+#include "cudbg_lib_common.h"
-+
-+int get_cudbg_buff(struct cudbg_buffer *pdbg_buff, u32 size,
-+		   struct cudbg_buffer *pin_buff)
-+{
-+	u32 offset;
-+
-+	offset = pdbg_buff->offset;
-+	if (offset + size > pdbg_buff->size)
-+		return CUDBG_STATUS_NO_MEM;
-+
-+	pin_buff->data = (char *)pdbg_buff->data + offset;
-+	pin_buff->offset = offset;
-+	pin_buff->size = size;
-+	pdbg_buff->size -= size;
-+	return 0;
-+}
-+
-+void put_cudbg_buff(struct cudbg_buffer *pin_buff,
-+		    struct cudbg_buffer *pdbg_buff)
-+{
-+	pdbg_buff->size += pin_buff->size;
-+	pin_buff->data = NULL;
-+	pin_buff->offset = 0;
-+	pin_buff->size = 0;
-+}
-+
-+void update_cudbg_buff(struct cudbg_buffer *pin_buff,
-+		       struct cudbg_buffer *pout_buff)
-+{
-+	/* We already write to buffer provided by ethool, so just
-+	 * increment offset to next free space.
-+	 */
-+	pout_buff->offset += pin_buff->size;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index ebaa5b7063cf..73725a8666df 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -18,10 +18,15 @@
- #ifndef __CUDBG_IF_H__
- #define __CUDBG_IF_H__
- 
-+/* Error codes */
-+#define CUDBG_STATUS_NO_MEM -19
-+#define CUDBG_SYSTEM_ERROR -29
-+
- #define CUDBG_MAJOR_VERSION 1
- #define CUDBG_MINOR_VERSION 14
- 
- enum cudbg_dbg_entity_type {
-+	CUDBG_REG_DUMP = 1,
- 	CUDBG_MAX_ENTITY = 70,
- };
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-new file mode 100644
-index 000000000000..4605481706ec
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -0,0 +1,79 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#include "cxgb4.h"
-+#include "cudbg_if.h"
-+#include "cudbg_lib_common.h"
-+#include "cudbg_lib.h"
-+
-+static void write_and_release_buff(struct cudbg_buffer *pin_buff,
-+				   struct cudbg_buffer *dbg_buff)
-+{
-+	update_cudbg_buff(pin_buff, dbg_buff);
-+	put_cudbg_buff(pin_buff, dbg_buff);
-+}
-+
-+/* This function will add additional padding bytes into debug_buffer to make it
-+ * 4 byte aligned.
-+ */
-+void align_debug_buffer(struct cudbg_buffer *dbg_buff,
-+			struct cudbg_entity_hdr *entity_hdr)
-+{
-+	u8 zero_buf[4] = {0};
-+	u8 padding, remain;
-+
-+	remain = (dbg_buff->offset - entity_hdr->start_offset) % 4;
-+	padding = 4 - remain;
-+	if (remain) {
-+		memcpy(((u8 *)dbg_buff->data) + dbg_buff->offset, &zero_buf,
-+		       padding);
-+		dbg_buff->offset += padding;
-+		entity_hdr->num_pad = padding;
-+	}
-+	entity_hdr->size = dbg_buff->offset - entity_hdr->start_offset;
-+}
-+
-+struct cudbg_entity_hdr *get_entity_hdr(void *outbuf, int i)
-+{
-+	struct cudbg_hdr *cudbg_hdr = (struct cudbg_hdr *)outbuf;
-+
-+	return (struct cudbg_entity_hdr *)
-+	       ((char *)outbuf + cudbg_hdr->hdr_len +
-+		(sizeof(struct cudbg_entity_hdr) * (i - 1)));
-+}
-+
-+int collect_reg_dump(struct cudbg_init *pdbg_init,
-+		     struct cudbg_buffer *dbg_buff,
-+		     struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	u32 buf_size = 0;
-+	int rc = 0;
-+
-+	if (is_t4(padap->params.chip))
-+		buf_size = T4_REGMAP_SIZE;
-+	else if (is_t5(padap->params.chip) || is_t6(padap->params.chip))
-+		buf_size = T5_REGMAP_SIZE;
-+
-+	rc = get_cudbg_buff(dbg_buff, buf_size, &temp_buff);
-+	if (rc)
-+		return rc;
-+	t4_get_regs(padap, (void *)temp_buff.data, temp_buff.size);
-+	write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-new file mode 100644
-index 000000000000..c6baeb533c44
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -0,0 +1,28 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CUDBG_LIB_H__
-+#define __CUDBG_LIB_H__
-+
-+int collect_reg_dump(struct cudbg_init *pdbg_init,
-+		     struct cudbg_buffer *dbg_buff,
-+		     struct cudbg_error *cudbg_err);
-+
-+struct cudbg_entity_hdr *get_entity_hdr(void *outbuf, int i);
-+void align_debug_buffer(struct cudbg_buffer *dbg_buff,
-+			struct cudbg_entity_hdr *entity_hdr);
-+#endif /* __CUDBG_LIB_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-index eb1b36b72455..851284db0812 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-@@ -62,4 +62,17 @@ struct cudbg_buffer {
- 	u32 offset;
- 	char *data;
- };
-+
-+struct cudbg_error {
-+	int sys_err;
-+	int sys_warn;
-+	int app_err;
-+};
-+
-+int get_cudbg_buff(struct cudbg_buffer *pdbg_buff, u32 size,
-+		   struct cudbg_buffer *pin_buff);
-+void put_cudbg_buff(struct cudbg_buffer *pin_buff,
-+		    struct cudbg_buffer *pdbg_buff);
-+void update_cudbg_buff(struct cudbg_buffer *pin_buff,
-+		       struct cudbg_buffer *pout_buff);
- #endif /* __CUDBG_LIB_COMMON_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index 534e7b79a41c..5c351ee8ab58 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -18,9 +18,94 @@
- #include "cxgb4.h"
- #include "cxgb4_cudbg.h"
- 
-+static const struct cudbg_collect_entity collect_hw_dump[] = {
-+	{ CUDBG_REG_DUMP, collect_reg_dump },
-+};
-+
-+static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
-+{
-+	u32 len = 0;
-+
-+	switch (entity) {
-+	case CUDBG_REG_DUMP:
-+		switch (CHELSIO_CHIP_VERSION(adap->params.chip)) {
-+		case CHELSIO_T4:
-+			len = T4_REGMAP_SIZE;
-+			break;
-+		case CHELSIO_T5:
-+		case CHELSIO_T6:
-+			len = T5_REGMAP_SIZE;
-+			break;
-+		default:
-+			break;
-+		}
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return len;
-+}
-+
- u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag)
- {
--	return 0;
-+	u32 i, entity;
-+	u32 len = 0;
-+
-+	if (flag & CXGB4_ETH_DUMP_HW) {
-+		for (i = 0; i < ARRAY_SIZE(collect_hw_dump); i++) {
-+			entity = collect_hw_dump[i].entity;
-+			len += cxgb4_get_entity_length(adap, entity);
-+		}
-+	}
-+
-+	return len;
-+}
-+
-+static void cxgb4_cudbg_collect_entity(struct cudbg_init *pdbg_init,
-+				       struct cudbg_buffer *dbg_buff,
-+				       const struct cudbg_collect_entity *e_arr,
-+				       u32 arr_size, void *buf, u32 *tot_size)
-+{
-+	struct adapter *adap = pdbg_init->adap;
-+	struct cudbg_error cudbg_err = { 0 };
-+	struct cudbg_entity_hdr *entity_hdr;
-+	u32 entity_size, i;
-+	u32 total_size = 0;
-+	int ret;
-+
-+	for (i = 0; i < arr_size; i++) {
-+		const struct cudbg_collect_entity *e = &e_arr[i];
-+
-+		/* Skip entities that won't fit in output buffer */
-+		entity_size = cxgb4_get_entity_length(adap, e->entity);
-+		if (entity_size >
-+		    pdbg_init->outbuf_size - *tot_size - total_size)
-+			continue;
-+
-+		entity_hdr = get_entity_hdr(buf, e->entity);
-+		entity_hdr->entity_type = e->entity;
-+		entity_hdr->start_offset = dbg_buff->offset;
-+		memset(&cudbg_err, 0, sizeof(struct cudbg_error));
-+		ret = e->collect_cb(pdbg_init, dbg_buff, &cudbg_err);
-+		if (ret) {
-+			entity_hdr->size = 0;
-+			dbg_buff->offset = entity_hdr->start_offset;
-+		} else {
-+			align_debug_buffer(dbg_buff, entity_hdr);
-+		}
-+
-+		/* Log error and continue with next entity */
-+		if (cudbg_err.sys_err)
-+			ret = CUDBG_SYSTEM_ERROR;
-+
-+		entity_hdr->hdr_flags = ret;
-+		entity_hdr->sys_err = cudbg_err.sys_err;
-+		entity_hdr->sys_warn = cudbg_err.sys_warn;
-+		total_size += entity_hdr->size;
-+	}
-+
-+	*tot_size += total_size;
- }
- 
- int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
-@@ -60,6 +145,13 @@ int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
- 	dbg_buff.offset += min_size;
- 	total_size = dbg_buff.offset;
- 
-+	if (flag & CXGB4_ETH_DUMP_HW)
-+		cxgb4_cudbg_collect_entity(&cudbg_init, &dbg_buff,
-+					   collect_hw_dump,
-+					   ARRAY_SIZE(collect_hw_dump),
-+					   buf,
-+					   &total_size);
-+
- 	cudbg_hdr->data_len = total_size;
- 	*buf_size = total_size;
- 	return 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-index 5a7965517fd8..3aeb887831c9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-@@ -20,9 +20,20 @@
- 
- #include "cudbg_if.h"
- #include "cudbg_lib_common.h"
-+#include "cudbg_lib.h"
-+
-+typedef int (*collect_callback_t)(struct cudbg_init *pdbg_init,
-+				  struct cudbg_buffer *dbg_buff,
-+				  struct cudbg_error *cudbg_err);
-+
-+struct cudbg_collect_entity {
-+	enum cudbg_dbg_entity_type entity;
-+	collect_callback_t collect_cb;
-+};
- 
- enum CXGB4_ETHTOOL_DUMP_FLAGS {
- 	CXGB4_ETH_DUMP_NONE = ETH_FW_DUMP_DISABLE,
-+	CXGB4_ETH_DUMP_HW = (1 << 1), /* various FW and HW dumps */
- };
- 
- u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag);
--- 
-2.14.1
+I modified your test program to do sendmmsg as an option in addition to 
+send. I will send you a github pull req with the changes later today. 
+This allows to send let's say n frames (let's say 64) in one syscall - 
+probably the highest TX rate you can get out of Linux userspace.
+
+The test case works via that route too which is now getting into the 
+realm of the surreal.
+
+If I produce a real vnet frame out of a live kernel frame using 
+virtio_net_hdr_from_skb() and try to send it it fails on the check in 
+af_packet, while succeeding for tap. If I remove the af_packet check the 
+frame is accepted by the hardware too.
+
+If I produce it a synthetic frame + vnet header using the test program - 
+it works. Go figure.
+
+I am going to continue digging into it.
+
+At the very least I now have a positive test case which uses the same 
+semantics as my code so I have something to compare to.
+
+A.
+
+On 10/12/17 07:11, Anton Ivanov wrote:
+> On 12/10/17 01:19, Willem de Bruijn wrote:
+>> On Wed, Oct 11, 2017 at 6:01 PM, Anton Ivanov
+>> <anton.ivanov@cambridgegreys.com> wrote:
+>>> [snip]
+>>>
+>>>> This will be tomorrow though, it is late here.
+>>>>
+>>>> The only obvious difference I can see at this point is that I am using
+>>>> iovs and sending the vnet header as iov[0] and the data in pieces after
+>>>> that while your code is doing a send() for the whole frame. This should
+>>>> not make any difference though - it all ends up as an iov internally in
+>>>> the kernel.
+>>> Spoke too soon. It is not reporting any errors, but there is nothing
+>>> coming out on the actual Ethernet.
+> Different issue - switch was blacklisting the fake dst MAC after the
+> first packet as a suspected flood attack.
+>
+> It worked after I changed the mac in the source to a "real" one. In
+> fact, an argument for that
+> would be nice :)
+>
+> I will go through it step by step now and figure out exactly what and
+> where is wrong with the framing on my side.
+>
+> Thanks for your help.
+>
+> A.
+>
+>> It works for me on various platforms. On the receiver, drop these fake
+>> tcp packets in iptables and read them with tcpdump
+>>
+>>     iptables -A PREROUTING -t raw -p tcp --dport 9 -j DROP
+>>     tcpdump src $src_ip
+>>
+>> Note that not all combinations of flags are supported by the kernel
+>> and that some flags have non-obvious behavior (disable a feature, in
+>> place of enable it).
+>>
+>> Specifically, mtu sized packets either must not pass a vnet_hdr or
+>> must pass one with gso explicitly disabled ('-G').
+>>
+>>    psock_txring_vnet -s $src_ip $dst_ip -l 1400
+>>    psock_txring_vnet -s $src_ip $dst_ip -l 1400 -v -G
+>>    psock_txring_vnet -s $src_ip $dst_ip -l 1400 -N
+>>    psock_txring_vnet -s $src_ip $dst_ip -l 1400 -N -v -G
+>>
+>> Conversely, packets that exceed mtu have to have the gso flags in the
+>> virtio_net_hdr:
+>>
+>>    psock_txring_vnet -s $src_ip $dst_ip -l 4400 -v
+>>    psock_txring_vnet -s $src_ip $dst_ip -l 4400 -N -v
+>>
+>> When sending a large packet, but not passing a virtio_net_hdr along
+>> ('-v'), the test fails with
+>>
+>>    psock_txring_vnet: send: Message too long
+>>
+>> When passing a header along, but not disabling gso, the packet is
+>> indeed dropped silently.
+>>
+>> I verified correct segmentation with three modes of ethtool
+>>
+>>    ethtool -K eth0 tso off gso off
+>>    ethtool -K eth0 tso off gso on
+>>    ethtool -K eth0 tso on gso on
+>>
+>> by reading tcpdump on the sender.
+>>
+>> The receive side results are the same with dev_queue_xmit and
+>> packet_direct_xmit ('-q') mode. With direct_xmit, the packets are not
+>> observed on the send side.
+>>
+>
