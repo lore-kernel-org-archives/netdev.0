@@ -1,70 +1,88 @@
 From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: [PATCH 06/10] staging/irda/net: Delete an unnecessary variable
- initialisation in two functions
-Date: Thu, 12 Oct 2017 12:46:03 +0200
-Message-ID: <632598f6-c36d-a672-edfe-fbf62e9a2e25@users.sourceforge.net>
+Subject: [PATCH 07/10] staging/irda/net: Delete an unnecessary variable
+ initialisation in four functions
+Date: Thu, 12 Oct 2017 12:47:05 +0200
+Message-ID: <db761c03-3e90-4284-2652-a5516b372a32@users.sourceforge.net>
 References: <8152401b-d68d-c4fe-2619-82a09e0c52ec@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org
 To: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Al Viro <viro@zeniv.linux.org.uk>, Corentin Labbe
- <clabbe.montjoie@gmail.com>, David Howells <dhowells@redhat.com>,
- "David S. Miller" <davem@davemloft.net>,
- Georgiana Chelu <georgiana.chelu93@gmail.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Johannes Berg <johannes.berg@intel.com>, Julia Lawall
- <julia.lawall@lip6.fr>, Samuel Ortiz <samuel@sortiz.org>,
- Srishti Sharma <srishtishar@gmail.com>,
- Stephen Hemminger <stephen@networkplumber.org>,
- Yuan Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Corentin Labbe <clabbe.montjoie@gmail.com>,
+        David Howells <dhowells@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Georgiana Chelu <georgiana.chelu93@gmail.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        Samuel Ortiz <samuel@sortiz.org>,
+        Srishti Sharma <srishtishar@gmail.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Yuan Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <8152401b-d68d-c4fe-2619-82a09e0c52ec@users.sourceforge.net>
 Content-Language: en-GB
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Wed, 11 Oct 2017 22:22:13 +0200
+Date: Wed, 11 Oct 2017 22:26:00 +0200
 
-The local variable "tx_skb" will only be used in a single if branch
-of these functions. Thus omit the explicit initialisation at the beginning.
+The variable "tx_skb" will eventually be set to an appropriate pointer
+a bit later. Thus omit the explicit initialisation at the beginning.
 
 Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- drivers/staging/irda/net/irlap_frame.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/staging/irda/net/irlap_frame.c | 6 +++---
+ drivers/staging/irda/net/irttp.c       | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/staging/irda/net/irlap_frame.c b/drivers/staging/irda/net/irlap_frame.c
-index 5b8be5b9812e..25ceb06efd58 100644
+index 25ceb06efd58..16fe7f53fdb7 100644
 --- a/drivers/staging/irda/net/irlap_frame.c
 +++ b/drivers/staging/irda/net/irlap_frame.c
-@@ -862,7 +862,7 @@ void irlap_send_data_primary_poll(struct irlap_cb *self, struct sk_buff *skb)
- void irlap_send_data_secondary_final(struct irlap_cb *self,
- 				     struct sk_buff *skb)
+@@ -258,7 +258,7 @@ void irlap_send_ua_response_frame(struct irlap_cb *self, struct qos_info *qos)
+  */
+ void irlap_send_dm_frame( struct irlap_cb *self)
  {
 -	struct sk_buff *tx_skb = NULL;
 +	struct sk_buff *tx_skb;
+ 	struct dm_frame *frame;
  
  	IRDA_ASSERT(self, return;);
- 	IRDA_ASSERT(self->magic == LAP_MAGIC, return;);
-@@ -922,7 +922,7 @@ void irlap_send_data_secondary_final(struct irlap_cb *self,
+@@ -288,7 +288,7 @@ void irlap_send_dm_frame( struct irlap_cb *self)
   */
- void irlap_send_data_secondary(struct irlap_cb *self, struct sk_buff *skb)
+ void irlap_send_disc_frame(struct irlap_cb *self)
  {
 -	struct sk_buff *tx_skb = NULL;
 +	struct sk_buff *tx_skb;
+ 	struct disc_frame *frame;
  
- 	/* Is this reliable or unreliable data? */
- 	if (skb->data[1] == I_FRAME) {
+ 	IRDA_ASSERT(self, return;);
+@@ -315,7 +315,7 @@ void irlap_send_disc_frame(struct irlap_cb *self)
+ void irlap_send_discovery_xid_frame(struct irlap_cb *self, int S, __u8 s,
+ 				    __u8 command, discovery_t *discovery)
+ {
+-	struct sk_buff *tx_skb = NULL;
++	struct sk_buff *tx_skb;
+ 	struct xid_frame *frame;
+ 	__u32 bcast = BROADCAST;
+ 	__u8 *info;
+diff --git a/drivers/staging/irda/net/irttp.c b/drivers/staging/irda/net/irttp.c
+index 2adba87aeb68..bc612227cdc3 100644
+--- a/drivers/staging/irda/net/irttp.c
++++ b/drivers/staging/irda/net/irttp.c
+@@ -811,7 +811,7 @@ static void irttp_run_tx_queue(struct tsap_cb *self)
+  */
+ static inline void irttp_give_credit(struct tsap_cb *self)
+ {
+-	struct sk_buff *tx_skb = NULL;
++	struct sk_buff *tx_skb;
+ 	unsigned long flags;
+ 	int n;
+ 
 -- 
 2.14.2
