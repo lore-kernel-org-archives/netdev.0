@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 16/34] net: sched: cls_matchall: call block callbacks for offload
-Date: Thu, 12 Oct 2017 19:18:05 +0200
-Message-ID: <20171012171823.1431-17-jiri@resnulli.us>
+Subject: [patch net-next 22/34] bnxt: Convert ndo_setup_tc offloads to block callbacks
+Date: Thu, 12 Oct 2017 19:18:11 +0200
+Message-ID: <20171012171823.1431-23-jiri@resnulli.us>
 References: <20171012171823.1431-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -16,148 +16,163 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36541 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:56734 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754373AbdJLRSk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:40 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 131so4357533wmk.3
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:40 -0700 (PDT)
+        with ESMTP id S1755408AbdJLRSq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:46 -0400
+Received: by mail-wm0-f65.google.com with SMTP id l68so15223822wmd.5
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:45 -0700 (PDT)
 In-Reply-To: <20171012171823.1431-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use the newly introduced callbacks infrastructure and call block
-callbacks alongside with the existing per-netdev ndo_setup_tc.
+Benefit from the newly introduced block callback infrastructure and
+convert ndo_setup_tc calls for flower offloads to block callbacks.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_matchall.c | 72 ++++++++++++++++++++++++++++++------------------
- 1 file changed, 45 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 37 +++++++++++++++++++----
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c  |  3 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 43 +++++++++++++++++++++++++--
+ 3 files changed, 73 insertions(+), 10 deletions(-)
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index eeac606..5278534 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -50,50 +50,73 @@ static void mall_destroy_rcu(struct rcu_head *rcu)
- 	kfree(head);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 5ba4993..4dde2b8 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -7295,15 +7295,40 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
+ 	return 0;
  }
  
--static int mall_replace_hw_filter(struct tcf_proto *tp,
--				  struct cls_mall_head *head,
--				  unsigned long cookie)
-+static void mall_destroy_hw_filter(struct tcf_proto *tp,
-+				   struct cls_mall_head *head,
-+				   unsigned long cookie)
+-static int bnxt_setup_flower(struct net_device *dev,
+-			     struct tc_cls_flower_offload *cls_flower)
++static int bnxt_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
++				  void *cb_priv)
  {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_matchall_offload cls_mall = {};
--	int err;
-+	struct tcf_block *block = tp->chain->block;
+-	struct bnxt *bp = netdev_priv(dev);
++	struct bnxt *bp = cb_priv;
  
- 	tc_cls_common_offload_init(&cls_mall.common, tp);
--	cls_mall.command = TC_CLSMATCHALL_REPLACE;
--	cls_mall.exts = &head->exts;
-+	cls_mall.command = TC_CLSMATCHALL_DESTROY;
- 	cls_mall.cookie = cookie;
+ 	if (BNXT_VF(bp))
+ 		return -EOPNOTSUPP;
  
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
--					    &cls_mall);
--	if (!err)
--		head->flags |= TCA_CLS_FLAGS_IN_HW;
--
--	return err;
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
-+					      &cls_mall);
-+	tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL, &cls_mall, false);
- }
- 
--static void mall_destroy_hw_filter(struct tcf_proto *tp,
--				   struct cls_mall_head *head,
--				   unsigned long cookie)
-+static int mall_replace_hw_filter(struct tcf_proto *tp,
-+				  struct cls_mall_head *head,
-+				  unsigned long cookie)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_matchall_offload cls_mall = {};
-+	struct tcf_block *block = tp->chain->block;
-+	bool skip_sw = tc_skip_sw(head->flags);
-+	int err;
- 
- 	tc_cls_common_offload_init(&cls_mall.common, tp);
--	cls_mall.command = TC_CLSMATCHALL_DESTROY;
-+	cls_mall.command = TC_CLSMATCHALL_REPLACE;
-+	cls_mall.exts = &head->exts;
- 	cls_mall.cookie = cookie;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &cls_mall);
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
-+						    &cls_mall);
-+		if (err) {
-+			if (skip_sw)
-+				return err;
-+		} else {
-+			head->flags |= TCA_CLS_FLAGS_IN_HW;
-+		}
+-	return bnxt_tc_setup_flower(bp, bp->pf.fw_fid, cls_flower);
++	switch (type) {
++	case TC_SETUP_CLSFLOWER:
++		return bnxt_tc_setup_flower(bp, bp->pf.fw_fid, type_data);
++	default:
++		return -EOPNOTSUPP;
 +	}
++}
 +
-+	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL,
-+			       &cls_mall, skip_sw);
-+	if (err < 0) {
-+		mall_destroy_hw_filter(tp, head, cookie);
-+		return err;
-+	} else if (err > 0) {
-+		head->flags |= TCA_CLS_FLAGS_IN_HW;
++static int bnxt_setup_tc_block(struct net_device *dev,
++			       struct tc_block_offload *f)
++{
++	struct bnxt *bp = netdev_priv(dev);
++
++	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
++		return -EOPNOTSUPP;
++
++	switch (f->command) {
++	case TC_BLOCK_BIND:
++		return tcf_block_cb_register(f->block, bnxt_setup_tc_block_cb,
++					     bp, bp);
++	case TC_BLOCK_UNBIND:
++		tcf_block_cb_unregister(f->block, bnxt_setup_tc_block_cb, bp);
++		return 0;
++	default:
++		return -EOPNOTSUPP;
 +	}
-+
-+	if (skip_sw && !(head->flags & TCA_CLS_FLAGS_IN_HW))
-+		return -EINVAL;
-+
-+	return 0;
  }
  
- static void mall_destroy(struct tcf_proto *tp)
+ static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
+@@ -7311,7 +7336,9 @@ static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
  {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
--	struct net_device *dev = tp->q->dev_queue->dev;
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+-		return bnxt_setup_flower(dev, type_data);
++		return 0; /* will be removed after conversion from ndo */
++	case TC_SETUP_BLOCK:
++		return bnxt_setup_tc_block(dev, type_data);
+ 	case TC_SETUP_MQPRIO: {
+ 		struct tc_mqprio_qopt *mqprio = type_data;
  
- 	if (!head)
- 		return;
- 
--	if (tc_should_offload(dev, head->flags))
-+	if (!tc_skip_hw(head->flags))
- 		mall_destroy_hw_filter(tp, head, (unsigned long) head);
- 
- 	call_rcu(&head->rcu, mall_destroy_rcu);
-@@ -133,7 +156,6 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 		       void **arg, bool ovr)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index 4730c04..a9cb653 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -748,8 +748,7 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
  {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
--	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
- 	struct cls_mall_head *new;
- 	u32 flags = 0;
-@@ -173,14 +195,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	if (err)
- 		goto err_set_parms;
+ 	int rc = 0;
  
--	if (tc_should_offload(dev, flags)) {
-+	if (!tc_skip_hw(new->flags)) {
- 		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
--		if (err) {
--			if (tc_skip_sw(flags))
--				goto err_replace_hw_filter;
--			else
--				err = 0;
--		}
-+		if (err)
-+			goto err_replace_hw_filter;
+-	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
+-	    cls_flower->common.chain_index)
++	if (cls_flower->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (cls_flower->command) {
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+index e75db04..cc278d7 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+@@ -115,10 +115,11 @@ bnxt_vf_rep_get_stats64(struct net_device *dev,
+ 	stats->tx_bytes = vf_rep->tx_stats.bytes;
+ }
+ 
+-static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-				void *type_data)
++static int bnxt_vf_rep_setup_tc_block_cb(enum tc_setup_type type,
++					 void *type_data,
++					 void *cb_priv)
+ {
+-	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
++	struct bnxt_vf_rep *vf_rep = cb_priv;
+ 	struct bnxt *bp = vf_rep->bp;
+ 	int vf_fid = bp->pf.vf[vf_rep->vf_idx].fw_fid;
+ 
+@@ -130,6 +131,42 @@ static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
  	}
+ }
  
- 	if (!tc_in_hw(new->flags))
++static int bnxt_vf_rep_setup_tc_block(struct net_device *dev,
++				      struct tc_block_offload *f)
++{
++	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
++
++	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
++		return -EOPNOTSUPP;
++
++	switch (f->command) {
++	case TC_BLOCK_BIND:
++		return tcf_block_cb_register(f->block,
++					     bnxt_vf_rep_setup_tc_block_cb,
++					     vf_rep, vf_rep);
++		return 0;
++	case TC_BLOCK_UNBIND:
++		tcf_block_cb_unregister(f->block,
++					bnxt_vf_rep_setup_tc_block_cb, vf_rep);
++		return 0;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
++				void *type_data)
++{
++	switch (type) {
++	case TC_SETUP_CLSFLOWER:
++		return 0; /* will be removed after conversion from ndo */
++	case TC_SETUP_BLOCK:
++		return bnxt_vf_rep_setup_tc_block(dev, type_data);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
+ struct net_device *bnxt_get_vf_rep(struct bnxt *bp, u16 cfa_code)
+ {
+ 	u16 vf_idx;
 -- 
 2.9.5
