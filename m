@@ -1,75 +1,108 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH 2/2] net: bgmac: enable master mode for BCM54210E and B50212E PHYs
-Date: Thu, 12 Oct 2017 10:21:26 +0200
-Message-ID: <20171012082126.30660-3-zajec5@gmail.com>
-References: <20171012082126.30660-1-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Hauke Mehrtens <hauke@hauke-m.de>,
-        Jon Mason <jon.mason@broadcom.com>,
-        Steve Lin <steven.lin1@broadcom.com>,
-        Tobias Klauser <tklauser@distanz.ch>,
-        bcm-kernel-feedback-list@broadcom.com,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f68.google.com ([209.85.215.68]:46127 "EHLO
-        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753246AbdJLIWc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:22:32 -0400
-Received: by mail-lf0-f68.google.com with SMTP id g70so5051099lfl.3
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 01:22:31 -0700 (PDT)
-In-Reply-To: <20171012082126.30660-1-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Subject: [PATCH] ravb: Consolidate clock handling
+Date: Thu, 12 Oct 2017 10:24:53 +0200
+Message-ID: <1507796693-14268-1-git-send-email-geert+renesas@glider.be>
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        Geert Uytterhoeven <geert+renesas@glider.be>
+To: "David S . Miller" <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rafał Miłecki <rafal@milecki.pl>
+The module clock is used for two purposes:
+  - Wake-on-LAN (WoL), which is optional,
+  - gPTP Timer Increment (GTI) configuration, which is mandatory.
 
-There are 4 very similar PHYs:
-0x600d84a1: BCM54210E (rev B0)
-0x600d84a2: BCM54210E (rev B1)
-0x600d84a5: B50212E (rev B0)
-0x600d84a6: B50212E (rev B1)
-that need setting master mode manually. It's because they run in slave
-mode by default with Automatic Slave/Master configuration disabled which
-can lead to unreliable connection with massive ping loss.
+As the clock is needed for GTI configuration anyway, WoL is always
+available.  Hence remove duplication and repeated obtaining of the clock
+by making GTI use the stored clock for WoL use.
 
-So far it was reported for a board with BCM47189 SoC and B50212E B1 PHY
-connected to the bgmac supported ethernet device. Telling PHY driver to
-setup PHY properly solves this issue.
-
-Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 ---
- drivers/net/ethernet/broadcom/bgmac-bcma.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/renesas/ravb_main.c | 35 +++++++++-----------------------
+ 1 file changed, 10 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-index 6322594ab260..6fe074c1588b 100644
---- a/drivers/net/ethernet/broadcom/bgmac-bcma.c
-+++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
-@@ -184,13 +184,19 @@ static int bgmac_probe(struct bcma_device *core)
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index fdf30bfa403bf416..8fad62f08e85e3ac 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -1337,20 +1337,15 @@ static void ravb_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
  
- 	if (!bgmac_is_bcm4707_family(core) &&
- 	    !(ci->id == BCMA_CHIP_ID_BCM53573 && core->core_unit == 1)) {
-+		struct phy_device *phydev;
-+
- 		mii_bus = bcma_mdio_mii_register(bgmac);
- 		if (IS_ERR(mii_bus)) {
- 			err = PTR_ERR(mii_bus);
- 			goto err;
- 		}
+-	wol->supported = 0;
+-	wol->wolopts = 0;
 -
- 		bgmac->mii_bus = mii_bus;
-+
-+		phydev = mdiobus_get_phy(bgmac->mii_bus, bgmac->phyaddr);
-+		if (ci->id == BCMA_CHIP_ID_BCM53573 && phydev &&
-+		    (phydev->drv->phy_id & phydev->drv->phy_id_mask) == PHY_ID_BCM54210E)
-+			phydev->dev_flags |= PHY_BRCM_EN_MASTER_MODE;
- 	}
+-	if (priv->clk) {
+-		wol->supported = WAKE_MAGIC;
+-		wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
+-	}
++	wol->supported = WAKE_MAGIC;
++	wol->wolopts = priv->wol_enabled ? WAKE_MAGIC : 0;
+ }
  
- 	if (core->bus->hosttype == BCMA_HOSTTYPE_PCI) {
+ static int ravb_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+ 
+-	if (!priv->clk || wol->wolopts & ~WAKE_MAGIC)
++	if (wol->wolopts & ~WAKE_MAGIC)
+ 		return -EOPNOTSUPP;
+ 
+ 	priv->wol_enabled = !!(wol->wolopts & WAKE_MAGIC);
+@@ -1912,22 +1907,12 @@ MODULE_DEVICE_TABLE(of, ravb_match_table);
+ 
+ static int ravb_set_gti(struct net_device *ndev)
+ {
+-
++	struct ravb_private *priv = netdev_priv(ndev);
+ 	struct device *dev = ndev->dev.parent;
+-	struct device_node *np = dev->of_node;
+ 	unsigned long rate;
+-	struct clk *clk;
+ 	uint64_t inc;
+ 
+-	clk = of_clk_get(np, 0);
+-	if (IS_ERR(clk)) {
+-		dev_err(dev, "could not get clock\n");
+-		return PTR_ERR(clk);
+-	}
+-
+-	rate = clk_get_rate(clk);
+-	clk_put(clk);
+-
++	rate = clk_get_rate(priv->clk);
+ 	if (!rate)
+ 		return -EINVAL;
+ 
+@@ -2073,10 +2058,11 @@ static int ravb_probe(struct platform_device *pdev)
+ 
+ 	priv->chip_id = chip_id;
+ 
+-	/* Get clock, if not found that's OK but Wake-On-Lan is unavailable */
+ 	priv->clk = devm_clk_get(&pdev->dev, NULL);
+-	if (IS_ERR(priv->clk))
+-		priv->clk = NULL;
++	if (IS_ERR(priv->clk)) {
++		error = PTR_ERR(priv->clk);
++		goto out_release;
++	}
+ 
+ 	/* Set function */
+ 	ndev->netdev_ops = &ravb_netdev_ops;
+@@ -2144,8 +2130,7 @@ static int ravb_probe(struct platform_device *pdev)
+ 	if (error)
+ 		goto out_napi_del;
+ 
+-	if (priv->clk)
+-		device_set_wakeup_capable(&pdev->dev, 1);
++	device_set_wakeup_capable(&pdev->dev, 1);
+ 
+ 	/* Print device information */
+ 	netdev_info(ndev, "Base address at %#x, %pM, IRQ %d.\n",
 -- 
-2.11.0
+2.7.4
