@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC 0/3] Adding config get/set to devlink
-Date: Thu, 12 Oct 2017 12:01:56 -0700 (PDT)
-Message-ID: <20171012.120156.1222864362390761311.davem@davemloft.net>
-References: <20171012144032.GG14672@nanopsycho>
-        <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
+Date: Thu, 12 Oct 2017 12:06:50 -0700 (PDT)
+Message-ID: <20171012.120650.1063812043202847517.davem@davemloft.net>
+References: <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
         <20171012150419.GI14672@nanopsycho>
+        <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, steven.lin1@broadcom.com,
-        netdev@vger.kernel.org, jiri@mellanox.com,
-        michael.chan@broadcom.com, linux-pci@vger.kernel.org,
-        linville@tuxdriver.com, gospo@broadcom.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55128 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751348AbdJLTB5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 15:01:57 -0400
-In-Reply-To: <20171012150419.GI14672@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+        steven.lin1@broadcom.com, netdev@vger.kernel.org,
+        jiri@mellanox.com, michael.chan@broadcom.com,
+        linux-pci@vger.kernel.org, linville@tuxdriver.com,
+        gospo@broadcom.com
+To: f.fainelli@gmail.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 12 Oct 2017 17:04:19 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 12 Oct 2017 08:43:59 -0700
 
-> Not sure we want to go this way and add "netdev"-handle things into
-> devlink. Thoughts?
+> Once we move ethtool (or however we name its successor) over to
+> netlink there is an opportunity for accessing objects that do and do
+> not have a netdevice representor today (e.g: management ports on
+> switches) with the same interface, and devlink could be used for
+> that.
 
-I think we should avoid this and keep devlink to it's designed purpose.
+That is an interesting angle for including this in devlink.
+
+I'm not so sure what to do about this.
+
+One suggestion is that devlink is used for getting ethtool stats for
+objects lacking netdev representor's, and a new genetlink family is
+used for netdev based ethtool.
+
+I think it's important that we don't expand the scope of devlink
+beyond what it was originally designed for.
