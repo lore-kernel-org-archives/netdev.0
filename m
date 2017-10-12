@@ -1,78 +1,45 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] atm: fore200e: mark expected switch fall-throughs
-Date: Thu, 12 Oct 2017 16:11:32 -0500
-Message-ID: <20171012211132.GA6589@embeddedor.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 01/12] bpf: verifier: set reg_type on context
+ accesses in second pass
+Date: Thu, 12 Oct 2017 23:33:21 +0200
+Message-ID: <59DFDFA1.3020809@iogearbox.net>
+References: <20171012173418.4029-1-jakub.kicinski@netronome.com>        <20171012173418.4029-2-jakub.kicinski@netronome.com>    <59DFD3DE.9050907@iogearbox.net> <20171012135632.1fa408bc@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Chas Williams <3chas3@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        alexei.starovoitov@gmail.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway32.websitewelcome.com ([192.185.145.119]:39387 "EHLO
-        gateway32.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751682AbdJLVcb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:32:31 -0400
-Received: from cm17.websitewelcome.com (cm17.websitewelcome.com [100.42.49.20])
-        by gateway32.websitewelcome.com (Postfix) with ESMTP id 1E44A4C376
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 16:11:34 -0500 (CDT)
-Content-Disposition: inline
+Received: from www62.your-server.de ([213.133.104.62]:47055 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753203AbdJLVdX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 17:33:23 -0400
+In-Reply-To: <20171012135632.1fa408bc@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
+On 10/12/2017 10:56 PM, Jakub Kicinski wrote:
+> On Thu, 12 Oct 2017 22:43:10 +0200, Daniel Borkmann wrote:
+[...]
+>> It would be nice to keep the reg_type setting in one place, meaning
+>> the callbacks themselves, so we wouldn't need to maintain this in
+>> multiple places.
+>
+> Hm.. I though this was the smallest and simplest change.  I could
+> translate the offsets but that seems wobbly.  Or try to consolidate the
+> call into the same if () branch?  Not sure..
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- drivers/atm/fore200e.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Different callbacks for post-verification would be good at min as it
+would allow to keep all the context access info in one place for a
+given type at least.
 
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index f8b7e86..126855e 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -358,26 +358,33 @@ fore200e_shutdown(struct fore200e* fore200e)
-     case FORE200E_STATE_COMPLETE:
- 	kfree(fore200e->stats);
- 
-+	/* fall through */
-     case FORE200E_STATE_IRQ:
- 	free_irq(fore200e->irq, fore200e->atm_dev);
- 
-+	/* fall through */
-     case FORE200E_STATE_ALLOC_BUF:
- 	fore200e_free_rx_buf(fore200e);
- 
-+	/* fall through */
-     case FORE200E_STATE_INIT_BSQ:
- 	fore200e_uninit_bs_queue(fore200e);
- 
-+	/* fall through */
-     case FORE200E_STATE_INIT_RXQ:
- 	fore200e->bus->dma_chunk_free(fore200e, &fore200e->host_rxq.status);
- 	fore200e->bus->dma_chunk_free(fore200e, &fore200e->host_rxq.rpd);
- 
-+	/* fall through */
-     case FORE200E_STATE_INIT_TXQ:
- 	fore200e->bus->dma_chunk_free(fore200e, &fore200e->host_txq.status);
- 	fore200e->bus->dma_chunk_free(fore200e, &fore200e->host_txq.tpd);
- 
-+	/* fall through */
-     case FORE200E_STATE_INIT_CMDQ:
- 	fore200e->bus->dma_chunk_free(fore200e, &fore200e->host_cmdq.status);
- 
-+	/* fall through */
-     case FORE200E_STATE_INITIALIZE:
- 	/* nothing to do for that state */
- 
-@@ -390,6 +397,7 @@ fore200e_shutdown(struct fore200e* fore200e)
-     case FORE200E_STATE_MAP:
- 	fore200e->bus->unmap(fore200e);
- 
-+	/* fall through */
-     case FORE200E_STATE_CONFIGURE:
- 	/* nothing to do for that state */
- 
--- 
-2.7.4
+> As a bonus info I discovered there is a bug in -net with how things are
+> converted.  We allow arithmetic on context pointers but then only
+> look at the insn.off in the converter...  I'm working on a fix.
+
+Ohh well, good catch, indeed! :( Can you also add coverage to the
+bpf selftests for this?
+
+Thanks,
+Daniel
