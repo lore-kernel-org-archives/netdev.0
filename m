@@ -1,50 +1,57 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] netconsole: make config_item_type const
-Date: Thu, 12 Oct 2017 14:29:12 +0200
-Message-ID: <1507811352-9962-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, davem@davemloft.net,
-        akpm@linux-foundation.org, nab@linux-iscsi.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Subject: Re: [PATCH] [net-next] ip_tunnel: fix building with NET_IP_TUNNEL=m
+Date: Thu, 12 Oct 2017 15:16:36 +0200
+Message-ID: <b020dc5d-5d76-037e-a055-c93c9fefc751@6wind.com>
+References: <20171011135546.3536829-1-arnd@arndb.de>
+ <CAK8P3a0GDGs-iJegS2RZFtiBKU7miOuK0aujGDdBLVsvyh0Ngg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a0GDGs-iJegS2RZFtiBKU7miOuK0aujGDdBLVsvyh0Ngg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a followup patch for: https://lkml.org/lkml/2017/10/11/375 and
-https://patchwork.kernel.org/patch/9999649/
+Hi Arnd,
 
-Make these structures const as they are either passed to the functions
-having the argument as const or stored as a reference in the "ci_type"
-const field of a config_item structure.
+On 10/11/2017 03:57 PM, Arnd Bergmann wrote:
+> I forgot to Cc Amine, sorry.
+>
+> On Wed, Oct 11, 2017 at 3:55 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> When af_mpls is built-in but the tunnel support is a module,
+>> we get a link failure:
+>>
+>> net/mpls/af_mpls.o: In function `mpls_init':
+>> af_mpls.c:(.init.text+0xdc): undefined reference to `ip_tunnel_encap_add_ops'
+>>
+>> This adds a Kconfig statement to prevent the broken
+>> configuration and force mpls to be a module as well in
+>> this case.
+>>
+>> Fixes: bdc476413dcd ("ip_tunnel: add mpls over gre support")
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> ---
+>>  net/mpls/Kconfig | 1 +
+>>  1 file changed, 1 insertion(+)
+>>
+>> diff --git a/net/mpls/Kconfig b/net/mpls/Kconfig
+>> index 5c467ef97311..801ea9098387 100644
+>> --- a/net/mpls/Kconfig
+>> +++ b/net/mpls/Kconfig
+>> @@ -24,6 +24,7 @@ config NET_MPLS_GSO
+>>
+>>  config MPLS_ROUTING
+>>         tristate "MPLS: routing support"
+>> +       depends on NET_IP_TUNNEL || NET_IP_TUNNEL=n
+>>         ---help---
+>>          Add support for forwarding of mpls packets.
+>>
+>> --
+>> 2.9.0
+>>
 
-Done using Coccienlle.
-
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/net/netconsole.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 0e27920..be9aa36 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -616,7 +616,7 @@ static void netconsole_target_release(struct config_item *item)
- 	.release		= netconsole_target_release,
- };
- 
--static struct config_item_type netconsole_target_type = {
-+static const struct config_item_type netconsole_target_type = {
- 	.ct_attrs		= netconsole_target_attrs,
- 	.ct_item_ops		= &netconsole_target_item_ops,
- 	.ct_owner		= THIS_MODULE,
-@@ -682,7 +682,7 @@ static void drop_netconsole_target(struct config_group *group,
- 	.drop_item	= drop_netconsole_target,
- };
- 
--static struct config_item_type netconsole_subsys_type = {
-+static const struct config_item_type netconsole_subsys_type = {
- 	.ct_group_ops	= &netconsole_subsys_group_ops,
- 	.ct_owner	= THIS_MODULE,
- };
--- 
-1.9.1
+Acked-by: Amine Kherbouche <amine.kherbouche@6wind.com>
