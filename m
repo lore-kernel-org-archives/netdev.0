@@ -1,120 +1,59 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: [net-next RFC 2/4] openvswitch: export get_dp() API.
-Date: Thu, 12 Oct 2017 15:38:41 -0700
-Message-ID: <1507847923-13612-3-git-send-email-azhou@ovn.org>
-References: <1507847923-13612-1-git-send-email-azhou@ovn.org>
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: pshelar@ovn.org, joe@ovn.org, gvrose8192@gmail.com,
-        Andy Zhou <azhou@ovn.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:50343 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753191AbdJLWkK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 18:40:10 -0400
-Received: by mail-pf0-f195.google.com with SMTP id m63so6971519pfk.7
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 15:40:09 -0700 (PDT)
-In-Reply-To: <1507847923-13612-1-git-send-email-azhou@ovn.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: set random switch address
+Date: Thu, 12 Oct 2017 15:43:10 -0700
+Message-ID: <b845912e-a65a-6800-82e7-b2d26cd29d4e@gmail.com>
+References: <20171012221009.14615-1-vivien.didelot@savoirfairelinux.com>
+ <b9aecb73-b240-7b59-4315-ea87868396cd@gmail.com>
+ <87k200vvsl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87k200vvsl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Later patches will invoke get_dp() outside of datapath.c. Export it.
+On 10/12/2017 03:35 PM, Vivien Didelot wrote:
+> Hi Florian,
+> 
+> Florian Fainelli <f.fainelli@gmail.com> writes:
+> 
+>> On 10/12/2017 03:10 PM, Vivien Didelot wrote:
+>>> An Ethernet switch may support having a MAC address, which can be used
+>>> as the switch's source address in transmitted full-duplex Pause frames.
+>>>
+>>> If a DSA switch supports the related .set_addr operation, the DSA core
+>>> sets the master's MAC address on the switch.
+>>>
+>>> This won't make sense anymore in a multi-CPU ports system, because there
+>>> won't be a unique master device assigned to a switch tree.
+>>
+>> Thus far, everything you have said is true, but why we should do it,
+>> that is: what if we don't, needs to be explained. Does that create a
+>> problem with the generation of pause frames throughout the switch fabric?
+>>
+>>>
+>>> To fix this, assign a random MAC address to the switch chip instead.
+>>
+>> Maybe this is something that should be removed entirely from the DSA
+>> core and pushed into the individual switch drivers instead. dsa_loop
+>> implements it for code coverage, but that does not do anything.
+>>
+>> set_addr is confusing in that you may think it could be used to program
+>> the switch with the MAC address of the CPU/management port such that you
+>> can disable MAC address learning on said port, but in fact, that's not
+>> how it is used.
+> 
+> You are correct. So what I can do is assign a random MAC address in the
+> Marvell driver, remove the .set_addr implementation of mv88e6xxx and
+> dsa_loop, and finally remove this code from DSA core completely.
 
-Signed-off-by: Andy Zhou <azhou@ovn.org>
----
- net/openvswitch/datapath.c | 29 -----------------------------
- net/openvswitch/datapath.h | 31 +++++++++++++++++++++++++++++++
- 2 files changed, 31 insertions(+), 29 deletions(-)
-
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index c3aec6227c91..ac7154018676 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -142,35 +142,6 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *,
- 				  const struct dp_upcall_info *,
- 				  uint32_t cutlen);
- 
--/* Must be called with rcu_read_lock. */
--static struct datapath *get_dp_rcu(struct net *net, int dp_ifindex)
--{
--	struct net_device *dev = dev_get_by_index_rcu(net, dp_ifindex);
--
--	if (dev) {
--		struct vport *vport = ovs_internal_dev_get_vport(dev);
--		if (vport)
--			return vport->dp;
--	}
--
--	return NULL;
--}
--
--/* The caller must hold either ovs_mutex or rcu_read_lock to keep the
-- * returned dp pointer valid.
-- */
--static inline struct datapath *get_dp(struct net *net, int dp_ifindex)
--{
--	struct datapath *dp;
--
--	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_ovsl_is_held());
--	rcu_read_lock();
--	dp = get_dp_rcu(net, dp_ifindex);
--	rcu_read_unlock();
--
--	return dp;
--}
--
- /* Must be called with rcu_read_lock or ovs_mutex. */
- const char *ovs_dp_name(const struct datapath *dp)
- {
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 480600649d0b..ad14b571219d 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -30,6 +30,7 @@
- #include "conntrack.h"
- #include "flow.h"
- #include "flow_table.h"
-+#include "vport-internal_dev.h"
- 
- #define DP_MAX_PORTS           USHRT_MAX
- #define DP_VPORT_HASH_BUCKETS  1024
-@@ -190,6 +191,36 @@ static inline struct vport *ovs_vport_ovsl(const struct datapath *dp, int port_n
- 	return ovs_lookup_vport(dp, port_no);
- }
- 
-+/* Must be called with rcu_read_lock. */
-+static inline struct datapath *get_dp_rcu(struct net *net, int dp_ifindex)
-+{
-+	struct net_device *dev = dev_get_by_index_rcu(net, dp_ifindex);
-+
-+	if (dev) {
-+		struct vport *vport = ovs_internal_dev_get_vport(dev);
-+
-+		if (vport)
-+			return vport->dp;
-+	}
-+
-+	return NULL;
-+}
-+
-+/* The caller must hold either ovs_mutex or rcu_read_lock to keep the
-+ * returned dp pointer valid.
-+ */
-+static inline struct datapath *get_dp(struct net *net, int dp_ifindex)
-+{
-+	struct datapath *dp;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held() && !lockdep_ovsl_is_held());
-+	rcu_read_lock();
-+	dp = get_dp_rcu(net, dp_ifindex);
-+	rcu_read_unlock();
-+
-+	return dp;
-+}
-+
- extern struct notifier_block ovs_dp_device_notifier;
- extern struct genl_family dp_vport_genl_family;
- 
+Works for me, thanks!
 -- 
-1.8.3.1
+Florian
