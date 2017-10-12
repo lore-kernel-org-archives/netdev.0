@@ -1,61 +1,46 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Linux 4.9.55 break network setup because dhcp client gets an error
-Date: Thu, 12 Oct 2017 12:56:57 -0700
-Message-ID: <CAM_iQpXcx3rzHf-vw_D0miPC+asUKWN8kUcXSQzgV8vMXHJpFA@mail.gmail.com>
-References: <b4a1ec2d-d40d-555d-f1d6-74f96cbb405a@free.fr> <CAKocOOPvO4GjWPGVt+dUkti3=GruUz5eu3WXV8D-9fdF+KK0sg@mail.gmail.com>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH net-next 1/2] mqprio: Add a new hardware offload type in
+ mqprio
+Date: Thu, 12 Oct 2017 20:10:28 +0000
+Message-ID: <AM0PR0502MB3683208C0F411F67C70BF6B1BF4B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1507775912-22402-1-git-send-email-linyunsheng@huawei.com>
+ <1507775912-22402-2-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: eric.valette@free.fr, LKML <linux-kernel@vger.kernel.org>,
-        stable <stable@vger.kernel.org>,
-        Greg KH <gregkh@linuxfoundation.org>,
-        David Miller <davem@davemloft.net>, shuahkh@osg.samsung.com,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Shuah Khan <shuahkhan@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAKocOOPvO4GjWPGVt+dUkti3=GruUz5eu3WXV8D-9fdF+KK0sg@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "yisen.zhuang@huawei.com" <yisen.zhuang@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Yunsheng Lin <linyunsheng@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507775912-22402-2-git-send-email-linyunsheng@huawei.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Cc'ing netdev and the author Eric)
+> When a driver supports both dcb and hardware offloaded mqprio, and
+> user is running mqprio and dcb tool concurrently, the configuration
+> set by each tool may be conflicted with each other because the dcb
+(for second 'each') s/each/the
 
-On Thu, Oct 12, 2017 at 10:57 AM, Shuah Khan <shuahkhan@gmail.com> wrote:
-> On Thu, Oct 12, 2017 at 11:52 AM, Eric Valette <eric.valette@free.fr> wrote:
->> Hi,
->>
->> Just compiled a fresh 4.9.55, with same .config, same user space than 4.9.54
->> and discovered I had no network because ifup fails because dhcp cleint
->> fails. As everything is identical, 4.9.54 still works, I guess one patch in
->> net/core/... did break something.
->>
->> ifup eth0
->> Internet Systems Consortium DHCP Client 4.3.5
->> Copyright 2004-2016 Internet Systems Consortium.
->> All rights reserved.
->> For info, please visit https://www.isc.org/software/dhcp/
->>
->> Can't install packet filter program: Cannot allocate memory
->>  <=====
->> If you think you have received this message due to a bug rather
->> than a configuration issue please read the section on submitting
->> bugs on either our web page at www.isc.org or in the README file
->> before submitting a bug.  These pages explain the proper
->> process and the information we find helpful for debugging..
->>
->> exiting.
->> ifup: failed to bring up eth0
->>
->> Ps: CC me I'm not subscribed
->>
->
-> Please revert commit 345c66695569db83eed100723e4df72cb54df7de
->
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Mon Oct 2 12:20:51 2017 -0700
->
->     socket, bpf: fix possible use after free
->
-> This will fix the problem.
->
-> thanks,
-> -- Shuah
+> and mqprio may be using the same hardwere offload component and share
+s/hardwere/hardware
+
+> the tc system in the network stack.
+>=20
+> This patch adds a new offload type to indicate that the underlying
+> driver offload prio mapping as part of DCB. If the driver would be
+'should' offload
+
+> incapable of that it would refuse the offload. User would then have
+> to explicitly request that qdisc offload.
