@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] net: qualcomm: rmnet: Rewrite some
- existing functionality
-Date: Wed, 11 Oct 2017 20:10:55 -0700 (PDT)
-Message-ID: <20171011.201055.552267514887015078.davem@davemloft.net>
-References: <1507769038-30231-1-git-send-email-subashab@codeaurora.org>
+Subject: Re: [PATCH net] net/ncsi: Don't limit vids based on hot_channel
+Date: Wed, 11 Oct 2017 20:13:19 -0700 (PDT)
+Message-ID: <20171011.201319.1327623357814721573.davem@davemloft.net>
+References: <20171011055427.30227-1-sam@mendozajonas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41950 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752836AbdJLDNI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Oct 2017 23:13:08 -0400
-In-Reply-To: <1507769038-30231-1-git-send-email-subashab@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sam@mendozajonas.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171011055427.30227-1-sam@mendozajonas.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Date: Wed, 11 Oct 2017 18:43:51 -0600
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Date: Wed, 11 Oct 2017 16:54:27 +1100
 
-> This series fixes some of the broken rmnet functionality.
-> Bridge mode is re-written and made useable and the muxed_ep is converted to hlist.
+> Currently we drop any new VLAN ids if there are more than the current
+> (or last used) channel can support. Most importantly this is a problem
+> if no channel has been selected yet, resulting in a segfault.
 > 
-> Patches 1-5 are cleanups in preparation for these changes.
-> Patch 6 does the hlist conversion.
-> Patch 7 has the implementation of the rmnet bridge mode.
+> Secondly this does not necessarily reflect the capabilities of any other
+> channels. Instead only drop a new VLAN id if we are already tracking the
+> maximum allowed by the NCSI specification. Per-channel limits are
+> already handled by ncsi_add_filter(), but add a message to set_one_vid()
+> to make it obvious that the channel can not support any more VLAN ids.
 > 
-> v1->v2: Fix the warning and code style issue in rmnet_rx_handler as
-> mentioned by David.
+> Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 
-This looks better, series applied, thanks!
+Applied, thanks.
