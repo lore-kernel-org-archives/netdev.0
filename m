@@ -1,34 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] Enable ACB for bcm_sf2 and bcmsysport
-Date: Thu, 12 Oct 2017 12:19:43 -0700 (PDT)
-Message-ID: <20171012.121943.242637521819341132.davem@davemloft.net>
-References: <20171011175752.22030-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55382 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752308AbdJLTTp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 15:19:45 -0400
-In-Reply-To: <20171011175752.22030-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 11 Oct 2017 10:57:47 -0700
+Subject: Re: [RFC 0/3] Adding config get/set to devlink
+Date: Thu, 12 Oct 2017 12:20:07 -0700
+Message-ID: <21ab4a5d-0b6a-7976-7bf0-acd334f2613f@gmail.com>
+References: <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
+ <20171012150419.GI14672@nanopsycho>
+ <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
+ <20171012.120650.1063812043202847517.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: jiri@resnulli.us, roopa@cumulusnetworks.com,
+        steven.lin1@broadcom.com, netdev@vger.kernel.org,
+        jiri@mellanox.com, michael.chan@broadcom.com,
+        linux-pci@vger.kernel.org, linville@tuxdriver.com,
+        gospo@broadcom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20171012.120650.1063812043202847517.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This patch series enables Broadcom's Advanced Congestion Buffering mechanism
-> which requires cooperation between the CPU/Management Ethernet MAC controller
-> and the switch.
+On 10/12/2017 12:06 PM, David Miller wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Thu, 12 Oct 2017 08:43:59 -0700
 > 
-> I took the notifier approach because ultimately the information we need to
-> carry to the master network device is DSA specific and I saw little room for
-> generalizing beyond what DSA requires. Chances are that this is highly specific
-> to the Broadcom HW as I don't know of any HW out there that supports something
-> nearly similar for similar or identical needs.
+>> Once we move ethtool (or however we name its successor) over to
+>> netlink there is an opportunity for accessing objects that do and do
+>> not have a netdevice representor today (e.g: management ports on
+>> switches) with the same interface, and devlink could be used for
+>> that.
+> 
+> That is an interesting angle for including this in devlink.
+> 
+> I'm not so sure what to do about this.
+> 
+> One suggestion is that devlink is used for getting ethtool stats for
+> objects lacking netdev representor's, and a new genetlink family is
+> used for netdev based ethtool.
 
-Series applied, thanks.
+Right, I was also thinking along those lines that we we would have a new
+generic netlink family for ethtool to support ethtool over netlink.
+
+> 
+> I think it's important that we don't expand the scope of devlink
+> beyond what it was originally designed for.
+
+It seems to me like devlink is well defined in what it is not for: it is
+not meant to be used for any object that is/has a net_device, but it is
+not well defined for what it can offer to these non network devices. For
+instance, we have a tremendous amount of operations that are extremely
+specific to its single user(s) such as mlx5 and mlxsw.
+
+For instance, I am not sure how the buffer reservation scheme can be
+generalized, and this is always the tricky part with a single user
+facility in that you try to generalize the best you can based on the HW
+you know. This is not a criticism or meant to be anything negative, this
+just happens to be the case, and we did not have anything better.
+
+So maybe the first thing is to clarify what devlink operations can and
+should be and what they are absolutely not allowed to cover. We should
+also clarify whether a generic set/get that Steven is proposing is
+something that we tolerate, or whether there should be specific function
+pointers implemented for each attribute, which would be more in line
+with what has been done thus far.
+-- 
+Florian
