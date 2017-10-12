@@ -1,74 +1,212 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: Ethtool question
-Date: Thu, 12 Oct 2017 15:00:38 -0700
-Message-ID: <CAJieiUhsxPRPBBV1WJR6NRfzDKt-8c=QYRHhwoW33KchSb-gXg@mail.gmail.com>
-References: <492e57b2-ac0a-ff01-2698-e048e97d8e37@candelatech.com>
- <20171011204406.GC30940@tuxdriver.com> <20171011.134919.321292333200236097.davem@davemloft.net>
- <59DFE275.3050805@candelatech.com>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Subject: Re: [net-next PATCH] mqprio: Reserve last 32 classid values for HW
+ traffic classes and misc IDs
+Date: Thu, 12 Oct 2017 14:56:06 -0700
+Message-ID: <f9f2c2a7-51bf-0637-12aa-d22099b89272@intel.com>
+References: <20171012182658.14632.9010.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Alexander Duyck <alexander.duyck@gmail.com>, jiri@resnulli.us,
+        amritha.nambiar@intel.com, vinicius.gomes@intel.com,
+        netdev@vger.kernel.org, jhs@mojatatu.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:43767 "EHLO
-        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755110AbdJLWAk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 18:00:40 -0400
-Received: by mail-vk0-f46.google.com with SMTP id t203so3412347vke.0
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 15:00:39 -0700 (PDT)
-In-Reply-To: <59DFE275.3050805@candelatech.com>
+Received: from mga04.intel.com ([192.55.52.120]:46811 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750990AbdJLWDY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Oct 2017 18:03:24 -0400
+In-Reply-To: <20171012182658.14632.9010.stgit@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 12, 2017 at 2:45 PM, Ben Greear <greearb@candelatech.com> wrote:
-> On 10/11/2017 01:49 PM, David Miller wrote:
->>
->> From: "John W. Linville" <linville@tuxdriver.com>
->> Date: Wed, 11 Oct 2017 16:44:07 -0400
->>
->>> On Wed, Oct 11, 2017 at 09:51:56AM -0700, Ben Greear wrote:
->>>>
->>>> I noticed today that setting some ethtool settings to the same value
->>>> returns an error code.  I would think this should silently return
->>>> success instead?  Makes it easier to call it from scripts this way:
->>>>
->>>> [root@lf0313-6477 lanforge]# ethtool -L eth3 combined 1
->>>> combined unmodified, ignoring
->>>> no channel parameters changed, aborting
->>>> current values: tx 0 rx 0 other 1 combined 1
->>>> [root@lf0313-6477 lanforge]# echo $?
->>>> 1
->>>
->>>
->>> I just had this discussion a couple of months ago with someone. My
->>> initial feeling was like you, a no-op is not a failure. But someone
->>> convinced me otherwise...I will now endeavour to remember who that
->>> was and how they convinced me...
->>>
->>> Anyone else have input here?
->>
->>
->> I guess this usually happens when drivers don't support changing the
->> settings at all.  So they just make their ethtool operation for the
->> 'set' always return an error.
->>
->> We could have a generic ethtool helper that does "get" and then if the
->> "set" request is identical just return zero.
->>
->> But from another perspective, the error returned from the "set" in this
->> situation also indicates to the user that the driver does not support
->> the "set" operation which has value and meaning in and of itself.  And
->> we'd lose that with the given suggestion.
->
->
-> In my case, the driver (igb) does support the set, my program just made the
-> same
-> ethtool call several times and it fails after the initial change (that
-> actually
-> changes something), as best as I can figure.
+Hi Alex,
 
 
-This error is returned by ethtool user-space. It does a get, check and
-then set if user has requested changes.
+On 10/12/2017 11:38 AM, Alexander Duyck wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+> This patch makes a slight tweak to mqprio in order to bring the
+> classid values used back in line with what is used for mq. The general idea
+> is to reserve values :ffe0 - :ffef to identify hardware traffic classes
+> normally reported via dev->num_tc. By doing this we can maintain a
+> consistent behavior with mq for classid where :1 - :ffdf will represent a
+> physical qdisc mapped onto a Tx queue represented by classid - 1, and the
+> traffic classes will be mapped onto a known subset of classid values
+> reserved for our virtual qdiscs.
+> 
+> Note I reserved the range from :fff0 - :ffff since this way we might be
+> able to reuse these classid values with clsact and ingress which would mean
+> that for mq, mqprio, ingress, and clsact we should be able to maintain a
+> similar classid layout.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+> 
+> So I thought I would put this out here as a first step towards trying to
+> address some of Jiri's concerns about wanting to have a consistent
+> userspace API.
+> 
+> The plan is to follow this up with patches to ingress and clsact to look at
+> exposing a set of virtual qdiscs similar to what we already have for the HW
+> traffic classes in mqprio, although I won't bother with the ability to dump
+> class stats since they don't actually enqueue anything.
+> 
+>  include/uapi/linux/pkt_sched.h |    1 +
+>  net/sched/sch_mqprio.c         |   79 +++++++++++++++++++++++-----------------
+>  2 files changed, 47 insertions(+), 33 deletions(-)
+> 
+> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+> index 099bf5528fed..174f1cf7e7f9 100644
+> --- a/include/uapi/linux/pkt_sched.h
+> +++ b/include/uapi/linux/pkt_sched.h
+> @@ -74,6 +74,7 @@ struct tc_estimator {
+>  #define TC_H_INGRESS    (0xFFFFFFF1U)
+>  #define TC_H_CLSACT	TC_H_INGRESS
+>  
+> +#define TC_H_MIN_PRIORITY	0xFFE0U
+>  #define TC_H_MIN_INGRESS	0xFFF2U
+>  #define TC_H_MIN_EGRESS		0xFFF3U
+>  
+> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+> index 6bcdfe6e7b63..a61ef119a556 100644
+> --- a/net/sched/sch_mqprio.c
+> +++ b/net/sched/sch_mqprio.c
+> @@ -115,6 +115,10 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+>  	if (!netif_is_multiqueue(dev))
+>  		return -EOPNOTSUPP;
+>  
+> +	/* make certain can allocate enough classids to handle queues */
+> +	if (dev->num_tx_queues >= TC_H_MIN_PRIORITY)
+> +		return -ENOMEM;
+> +
+>  	if (!opt || nla_len(opt) < sizeof(*qopt))
+>  		return -EINVAL;
+>  
+> @@ -193,7 +197,7 @@ static struct netdev_queue *mqprio_queue_get(struct Qdisc *sch,
+>  					     unsigned long cl)
+>  {
+>  	struct net_device *dev = qdisc_dev(sch);
+> -	unsigned long ntx = cl - 1 - netdev_get_num_tc(dev);
+> +	unsigned long ntx = cl - 1;
+>  
+>  	if (ntx >= dev->num_tx_queues)
+>  		return NULL;
+> @@ -282,38 +286,35 @@ static unsigned long mqprio_find(struct Qdisc *sch, u32 classid)
+>  	struct net_device *dev = qdisc_dev(sch);
+>  	unsigned int ntx = TC_H_MIN(classid);
+>  
+> -	if (ntx > dev->num_tx_queues + netdev_get_num_tc(dev))
+> -		return 0;
+> -	return ntx;
+> +	/* There are essentially two regions here that have valid classid
+> +	 * values. The first region will have a classid value of 1 through
+> +	 * num_tx_queues. All of these are backed by actual Qdiscs.
+> +	 */
+> +	if (ntx < TC_H_MIN_PRIORITY)
+> +		return (ntx <= dev->num_tx_queues) ? ntx : 0;
+> +
+> +	/* The second region represents the hardware traffic classes. These
+> +	 * are represented by classid values of TC_H_MIN_PRIORITY through
+> +	 * TC_H_MIN_PRIORITY + netdev_get_num_tc - 1
+> +	 */
+> +	return ((ntx - TC_H_MIN_PRIORITY) < netdev_get_num_tc(dev)) ? ntx : 0;
+>  }
+>  
+>  static int mqprio_dump_class(struct Qdisc *sch, unsigned long cl,
+>  			 struct sk_buff *skb, struct tcmsg *tcm)
+>  {
+> -	struct net_device *dev = qdisc_dev(sch);
+> +	if (cl < TC_H_MIN_PRIORITY) {
+> +		struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
+> +		struct net_device *dev = qdisc_dev(sch);
+> +		int tc = netdev_txq_to_tc(dev, cl - 1);
+>  
+> -	if (cl <= netdev_get_num_tc(dev)) {
+> +		tcm->tcm_parent = (tc < 0) ? 0 :
+> +			TC_H_MAKE(TC_H_MAJ(sch->handle),
+> +				  TC_H_MIN(tc + TC_H_MIN_PRIORITY));
+> +		tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
+> +	} else {
+>  		tcm->tcm_parent = TC_H_ROOT;
+>  		tcm->tcm_info = 0;
+> -	} else {
+> -		int i;
+> -		struct netdev_queue *dev_queue;
+> -
+> -		dev_queue = mqprio_queue_get(sch, cl);
+> -		tcm->tcm_parent = 0;
+> -		for (i = 0; i < netdev_get_num_tc(dev); i++) {
+> -			struct netdev_tc_txq tc = dev->tc_to_txq[i];
+> -			int q_idx = cl - netdev_get_num_tc(dev);
+> -
+> -			if (q_idx > tc.offset &&
+> -			    q_idx <= tc.offset + tc.count) {
+> -				tcm->tcm_parent =
+> -					TC_H_MAKE(TC_H_MAJ(sch->handle),
+> -						  TC_H_MIN(i + 1));
+> -				break;
+> -			}
+> -		}
+> -		tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
+>  	}
+>  	tcm->tcm_handle |= TC_H_MIN(cl);
+>  	return 0;
+> @@ -324,15 +325,14 @@ static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+>  	__releases(d->lock)
+>  	__acquires(d->lock)
+>  {
+> -	struct net_device *dev = qdisc_dev(sch);
+> -
+> -	if (cl <= netdev_get_num_tc(dev)) {
+> +	if (cl >= TC_H_MIN_PRIORITY) {
+>  		int i;
+>  		__u32 qlen = 0;
+>  		struct Qdisc *qdisc;
+>  		struct gnet_stats_queue qstats = {0};
+>  		struct gnet_stats_basic_packed bstats = {0};
+> -		struct netdev_tc_txq tc = dev->tc_to_txq[cl - 1];
+> +		struct net_device *dev = qdisc_dev(sch);
+> +		struct netdev_tc_txq tc = dev->tc_to_txq[cl & TC_BITMASK];
+>  
+>  		/* Drop lock here it will be reclaimed before touching
+>  		 * statistics this is required because the d->lock we
+> @@ -385,12 +385,25 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+>  
+>  	/* Walk hierarchy with a virtual class per tc */
+>  	arg->count = arg->skip;
+> -	for (ntx = arg->skip;
+> -	     ntx < dev->num_tx_queues + netdev_get_num_tc(dev);
+> -	     ntx++) {
+> +	for (ntx = arg->skip; ntx < netdev_get_num_tc(dev); ntx++) {
+> +		if (arg->fn(sch, ntx + TC_H_MIN_PRIORITY, arg) < 0) {
+> +			arg->stop = 1;
+> +			return;
+> +		}
+> +		arg->count++;
+> +	}
+> +
+> +	/* Pad the values and skip over unused traffic classes */
+> +	if (ntx < TC_MAX_QUEUE) {
+> +		arg->count = TC_MAX_QUEUE;
+> +		ntx = TC_MAX_QUEUE;
+> +	}
+> +
+> +	/* Reset offset, sort out remaining per-queue qdiscs */
+> +	for (ntx -= TC_MAX_QUEUE; ntx < dev->num_tx_queues; ntx++) {
+>  		if (arg->fn(sch, ntx + 1, arg) < 0) {
+>  			arg->stop = 1;
+> -			break;
+> +			return;
+>  		}
+>  		arg->count++;
+>  	}
+> 
+
+Tested-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+
+Looks good.
+
+
+thanks,
+Jesus
