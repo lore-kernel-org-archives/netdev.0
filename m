@@ -1,48 +1,81 @@
-From: Emiliano Ingrassia <ingrassia@epigenesys.com>
-Subject: [PATCH] net: stmmac: dwmac_lib: fix interchanged sleep/timeout
- values in DMA reset function
-Date: Thu, 12 Oct 2017 11:00:47 +0200
-Message-ID: <20171012090047.GA4479@ingrassia.epigenesys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next] selftests: rtnetlink: add a small macsec test case
+Date: Thu, 12 Oct 2017 11:11:22 +0200
+Message-ID: <20171012091122.28133-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35854 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750907AbdJLJEy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 05:04:54 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 131so3576733wmk.3
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 02:04:54 -0700 (PDT)
-Content-Disposition: inline
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44736 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751835AbdJLJLF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 05:11:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DMA reset timeout, used in read_poll_timeout, is
-ten times shorter than the sleep time.
-This patch fixes these values interchanging them, as it was
-before the read_poll_timeout introduction.
-
-Fixes: 8a70aeca80c2 ("net: stmmac: Use readl_poll_timeout")
-
-Signed-off-by: Emiliano Ingrassia <ingrassia@epigenesys.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ tools/testing/selftests/net/rtnetlink.sh | 42 ++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index 67af0bdd7f10..7516ca210855 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -34,7 +34,7 @@ int dwmac_dma_reset(void __iomem *ioaddr)
+diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
+index a8a8cdf726b2..5215493166c9 100755
+--- a/tools/testing/selftests/net/rtnetlink.sh
++++ b/tools/testing/selftests/net/rtnetlink.sh
+@@ -461,6 +461,47 @@ kci_test_encap()
+ 	ip netns del "$testns"
+ }
  
- 	err = readl_poll_timeout(ioaddr + DMA_BUS_MODE, value,
- 				 !(value & DMA_BUS_MODE_SFT_RESET),
--				 100000, 10000);
-+				 10000, 100000);
- 	if (err)
- 		return -EBUSY;
++kci_test_macsec()
++{
++	msname="test_macsec0"
++	ret=0
++
++	ip macsec help 2>&1 | grep -q "^Usage: ip macsec"
++	if [ $? -ne 0 ]; then
++		echo "SKIP: macsec: iproute2 too old"
++		return 0
++	fi
++
++	ip link add link "$devdummy" "$msname" type macsec port 42 encrypt on
++	check_err $?
++	if [ $ret -ne 0 ];then
++		echo "FAIL: can't add macsec interface, skipping test"
++		return 1
++	fi
++
++	ip macsec add "$msname" tx sa 0 pn 1024 on key 01 12345678901234567890123456789012
++	check_err $?
++
++	ip macsec add "$msname" rx port 1234 address "1c:ed:de:ad:be:ef"
++	check_err $?
++
++	ip macsec add "$msname" rx port 1234 address "1c:ed:de:ad:be:ef" sa 0 pn 1 on key 00 0123456789abcdef0123456789abcdef
++	check_err $?
++
++	ip macsec show > /dev/null
++	check_err $?
++
++	ip link del dev "$msname"
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: macsec"
++		return 1
++	fi
++
++	echo "PASS: macsec"
++}
++
+ kci_test_rtnl()
+ {
+ 	kci_add_dummy
+@@ -478,6 +519,7 @@ kci_test_rtnl()
+ 	kci_test_ifalias
+ 	kci_test_vrf
+ 	kci_test_encap
++	kci_test_macsec
  
+ 	kci_del_dummy
+ }
 -- 
-2.14.1
+2.13.6
