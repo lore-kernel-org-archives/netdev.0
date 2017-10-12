@@ -1,54 +1,50 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: set random switch address
-Date: Thu, 12 Oct 2017 18:35:54 -0400
-Message-ID: <87k200vvsl.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20171012221009.14615-1-vivien.didelot@savoirfairelinux.com> <b9aecb73-b240-7b59-4315-ea87868396cd@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b9aecb73-b240-7b59-4315-ea87868396cd@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Zhou <azhou@ovn.org>
+Subject: [net-next RFC 0/4] Openvswitch meter action
+Date: Thu, 12 Oct 2017 15:38:39 -0700
+Message-ID: <1507847923-13612-1-git-send-email-azhou@ovn.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: pshelar@ovn.org, joe@ovn.org, gvrose8192@gmail.com,
+        Andy Zhou <azhou@ovn.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:45818 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753191AbdJLWkB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 18:40:01 -0400
+Received: by mail-pf0-f195.google.com with SMTP id d28so6985646pfe.2
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 15:40:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+This patch series is the first attempt to add openvswitch
+meter support. We have previously experimented with adding
+metering support in nftables. However 1) It was not clear
+how to expose a named nftables object cleanly, and 2)
+the logic that implements metering is quite small, < 100 lines
+of code.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
-
-> On 10/12/2017 03:10 PM, Vivien Didelot wrote:
->> An Ethernet switch may support having a MAC address, which can be used
->> as the switch's source address in transmitted full-duplex Pause frames.
->> 
->> If a DSA switch supports the related .set_addr operation, the DSA core
->> sets the master's MAC address on the switch.
->> 
->> This won't make sense anymore in a multi-CPU ports system, because there
->> won't be a unique master device assigned to a switch tree.
->
-> Thus far, everything you have said is true, but why we should do it,
-> that is: what if we don't, needs to be explained. Does that create a
-> problem with the generation of pause frames throughout the switch fabric?
->
->> 
->> To fix this, assign a random MAC address to the switch chip instead.
->
-> Maybe this is something that should be removed entirely from the DSA
-> core and pushed into the individual switch drivers instead. dsa_loop
-> implements it for code coverage, but that does not do anything.
->
-> set_addr is confusing in that you may think it could be used to program
-> the switch with the MAC address of the CPU/management port such that you
-> can disable MAC address learning on said port, but in fact, that's not
-> how it is used.
-
-You are correct. So what I can do is assign a random MAC address in the
-Marvell driver, remove the .set_addr implementation of mv88e6xxx and
-dsa_loop, and finally remove this code from DSA core completely.
+With those two observations, it seems cleaner to add meter
+support in the openvswitch module directly.
 
 
-Thanks,
+Andy Zhou (4):
+  openvswitch: Add meter netlink definitions
+  openvswitch: export get_dp() API.
+  openvswitch: Add meter infrastructure
+  openvswitch: Add meter action support
 
-        Vivien
+ include/uapi/linux/openvswitch.h |  52 ++++
+ net/openvswitch/Makefile         |   1 +
+ net/openvswitch/actions.c        |  12 +
+ net/openvswitch/datapath.c       |  43 +--
+ net/openvswitch/datapath.h       |  35 +++
+ net/openvswitch/flow_netlink.c   |   6 +
+ net/openvswitch/meter.c          | 611 +++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/meter.h          |  54 ++++
+ 8 files changed, 783 insertions(+), 31 deletions(-)
+ create mode 100644 net/openvswitch/meter.c
+ create mode 100644 net/openvswitch/meter.h
+
+-- 
+1.8.3.1
