@@ -1,54 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net] liquidio: fix timespec64_to_ns typo
-Date: Thu, 12 Oct 2017 11:48:31 +0200
-Message-ID: <20171012094841.3178599-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Intiyaz Basha <intiyaz.basha@cavium.com>,
-        Rick Farrington <ricardo.farrington@cavium.com>,
-        VSR Burru <veerasenareddy.burru@cavium.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ravb: Consolidate clock handling
+Date: Thu, 12 Oct 2017 11:55:21 +0200
+Message-ID: <20171012095508.vjpqvq37474qp2cb@verge.net.au>
+References: <1507796693-14268-1-git-send-email-geert+renesas@glider.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Niklas =?utf-8?Q?S=C3=B6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1507796693-14268-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While experimenting with changes to the timekeeping code, I
-ran into a build error in the liquidio driver:
+On Thu, Oct 12, 2017 at 10:24:53AM +0200, Geert Uytterhoeven wrote:
+> The module clock is used for two purposes:
+>   - Wake-on-LAN (WoL), which is optional,
+>   - gPTP Timer Increment (GTI) configuration, which is mandatory.
+> 
+> As the clock is needed for GTI configuration anyway, WoL is always
+> available.  Hence remove duplication and repeated obtaining of the clock
+> by making GTI use the stored clock for WoL use.
 
-drivers/net/ethernet/cavium/liquidio/lio_main.c: In function 'liquidio_ptp_settime':
-drivers/net/ethernet/cavium/liquidio/lio_main.c:1850:22: error: passing argument 1 of 'timespec_to_ns' from incompatible pointer type [-Werror=incompatible-pointer-types]
+Hi Geert,
 
-The driver had a type mismatch since it was first merged, but
-this never caused problems because it is only built on 64-bit
-architectures that define timespec and timespec64 to the same
-type.
+I understand from the statements above that the clock must be present,
+but I'm most sure that I understand why that means that WoL is always
+available.
 
-If we ever want to compile-test the driver on 32-bit or change
-the way that 64-bit timespec64 is defined, we need to fix it,
-so let's just do it now.
-
-Fixes: f21fb3ed364b ("Add support of Cavium Liquidio ethernet adapters")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 963803bc6633..eafae3eb4fed 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -1847,7 +1847,7 @@ static int liquidio_ptp_settime(struct ptp_clock_info *ptp,
- 	struct lio *lio = container_of(ptp, struct lio, ptp_info);
- 	struct octeon_device *oct = (struct octeon_device *)lio->oct_dev;
- 
--	ns = timespec_to_ns(ts);
-+	ns = timespec64_to_ns(ts);
- 
- 	spin_lock_irqsave(&lio->ptp_lock, flags);
- 	lio_pci_writeq(oct, ns, CN6XXX_MIO_PTP_CLOCK_HI);
--- 
-2.9.0
+Assuming your assertion that WoL is correct the code changes look good to me.
