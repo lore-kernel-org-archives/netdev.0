@@ -1,52 +1,82 @@
-From: Daniel Vetter <daniel@ffwll.ch>
-Subject: Re: [Nouveau] [PATCH 03/10] driver:gpu: return -ENOMEM on allocation
- failure.
-Date: Thu, 12 Oct 2017 19:55:41 +0200
-Message-ID: <20171012175541.5jh3ovdzpyj5fflv@phenom.ffwll.local>
-References: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
- <1505287939-14106-3-git-send-email-allen.lkml@gmail.com>
+From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
+Subject: Re: BUG:af_packet fails to TX TSO frames
+Date: Thu, 12 Oct 2017 18:58:02 +0100
+Message-ID: <beef71a3-2cfc-95d7-f334-04685d31b640@cambridgegreys.com>
+References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
+ <23ace6d6-afa7-9a3a-aa61-1245ee6c0498@kot-begemot.co.uk>
+ <CAF=yD-+MCLAoP5=orUyG0tQjXykde++QrOdE7v44srR54yP32Q@mail.gmail.com>
+ <d6c1cda2-f7df-9132-304d-075c62d4d83d@kot-begemot.co.uk>
+ <CAF=yD-+gc5oQ=XT0+yw4Wt_h3rObETti3FvXm+V-nu=87zaMyA@mail.gmail.com>
+ <1e9c4f8b-2eb6-24cf-764f-b0a98aa0d044@kot-begemot.co.uk>
+ <40e87e75-742f-3542-b79e-1e7fee9b4485@cambridgegreys.com>
+ <CAF=yD-+YUZdCCLXdQEG5AA0Pkrf-OrWGwySWf7mqH5BhO-Vr+g@mail.gmail.com>
+ <2f973588-e193-86c1-a645-7a158b17ebdc@cambridgegreys.com>
+ <529ff560-8230-c799-2948-fae711de382e@kot-begemot.co.uk>
+ <CAF=yD-+q_h4SE0E9RjE59i2FDYZQ_wV+L6RQjE9B_fszen-y0A@mail.gmail.com>
+ <f046dbf4-0b46-2d7c-c82c-fe9f50c11f71@cambridgegreys.com>
+ <e301fbfd-a283-caa1-5915-8be15677ed74@cambridgegreys.com>
+ <CAF=yD-+W2tyXqCS_ueZgu11BB8ON5hdKGOZQOWtfr+HfvqW=Sg@mail.gmail.com>
+ <CAF=yD-KiMWMwvD-s=z4brqUrNbRe4-fRZAKupEc2FvVn0MQxuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-fbdev@vger.kernel.org, linux-scsi@vger.kernel.org,
- nouveau@lists.freedesktop.org, megaraidlinux.pdl@broadcom.com,
- linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
- target-devel@vger.kernel.org, linux-crypto@vger.kernel.org,
- netdev@vger.kernel.org, MPT-FusionLinux.pdl@broadcom.com,
- linux-btrfs@vger.kernel.org
-To: Allen Pais <allen.lkml@gmail.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-Content-Disposition: inline
-In-Reply-To: <1505287939-14106-3-git-send-email-allen.lkml@gmail.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ivanoab5.miniserver.com ([78.31.111.25]:36713 "EHLO
+        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750729AbdJLR6S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:58:18 -0400
+In-Reply-To: <CAF=yD-KiMWMwvD-s=z4brqUrNbRe4-fRZAKupEc2FvVn0MQxuQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCBTZXAgMTMsIDIwMTcgYXQgMDE6MDI6MTJQTSArMDUzMCwgQWxsZW4gUGFpcyB3cm90
-ZToKPiBTaWduZWQtb2ZmLWJ5OiBBbGxlbiBQYWlzIDxhbGxlbi5sa21sQGdtYWlsLmNvbT4KCkFw
-cGxpZWQgdG8gZHJtLW1pc2MtbmV4dCwgdGhhbmtzLgotRGFuaWVsCgo+IC0tLQo+ICBkcml2ZXJz
-L2dwdS9kcm0vZ21hNTAwL21pZF9iaW9zLmMgfCAyICstCj4gIDEgZmlsZSBjaGFuZ2VkLCAxIGlu
-c2VydGlvbigrKSwgMSBkZWxldGlvbigtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL2dwdS9k
-cm0vZ21hNTAwL21pZF9iaW9zLmMgYi9kcml2ZXJzL2dwdS9kcm0vZ21hNTAwL21pZF9iaW9zLmMK
-PiBpbmRleCBkNzVlY2IzLi4xZmExNjMzIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvZ3B1L2RybS9n
-bWE1MDAvbWlkX2Jpb3MuYwo+ICsrKyBiL2RyaXZlcnMvZ3B1L2RybS9nbWE1MDAvbWlkX2Jpb3Mu
-Ywo+IEBAIC0yMzcsNyArMjM3LDcgQEAgc3RhdGljIGludCBtaWRfZ2V0X3ZidF9kYXRhX3IxMChz
-dHJ1Y3QgZHJtX3BzYl9wcml2YXRlICpkZXZfcHJpdiwgdTMyIGFkZHIpCj4gIAo+ICAJZ2N0ID0g
-a21hbGxvYyhzaXplb2YoKmdjdCkgKiB2YnQucGFuZWxfY291bnQsIEdGUF9LRVJORUwpOwo+ICAJ
-aWYgKCFnY3QpCj4gLQkJcmV0dXJuIC0xOwo+ICsJCXJldHVybiAtRU5PTUVNOwo+ICAKPiAgCWdj
-dF92aXJ0dWFsID0gaW9yZW1hcChhZGRyICsgc2l6ZW9mKHZidCksCj4gIAkJCXNpemVvZigqZ2N0
-KSAqIHZidC5wYW5lbF9jb3VudCk7Cj4gLS0gCj4gMi43LjQKPiAKPiBfX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+IE5vdXZlYXUgbWFpbGluZyBsaXN0Cj4g
-Tm91dmVhdUBsaXN0cy5mcmVlZGVza3RvcC5vcmcKPiBodHRwczovL2xpc3RzLmZyZWVkZXNrdG9w
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL25vdXZlYXUKCi0tIApEYW5pZWwgVmV0dGVyClNvZnR3YXJl
-IEVuZ2luZWVyLCBJbnRlbCBDb3Jwb3JhdGlvbgpodHRwOi8vYmxvZy5mZndsbC5jaApfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGlu
-ZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVl
-ZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+
+
+On 10/12/17 18:25, Willem de Bruijn wrote:
+> On Thu, Oct 12, 2017 at 12:30 PM, Willem de Bruijn
+> <willemdebruijn.kernel@gmail.com> wrote:
+>> On Thu, Oct 12, 2017 at 11:44 AM, Anton Ivanov
+>> <anton.ivanov@cambridgegreys.com> wrote:
+>>> Found it.
+>>>
+>>> Two bugs canceling each other.
+>>> The bind sequence in:  psock_txring_vnet.c is wrong.
+>>>
+>>> It does the following addr.sll_protocol =    htons(ETH_P_IP);
+>>> before calling bind.
+>>>
+>>> If you set addr.sll_protocol to ETH_P_ALL where it should have been in the
+>>> first place the test program blows up with -ENOBUFS
+>> There is no such requirement that the socket should bind to ETH_P_ALL.
+
+There is no requirement to bind to ETH_P_IP either and most code 
+examples going back more than 10 years to the days of TCP Illustrated 
+use ALL.
+
+I just did the v6 test - if you bind with ETH_P_IP GSO on TCPv6 is 
+broken and returns NOBUF and vice versa.
+
+>>
+>>> I think what is happening is that this value is taken into account when
+>>> looking at "what should I use to segment it with" in skb_mac_gso_segment
+>>> which is invoked at the end of the verification chain which starts in
+>>> packet_direct_xmit in af_packet.c
+>> packet_snd sets skb->protocol based on the protocol that the packet
+>> socket is bound to. Binding to ETH_P_IP is the right choice here.
+> To avoid having to open multiple sockets for different protocols,
+> sockaddr_ll can also be passed in the msg_name argument on
+> each call.
+
+Does not work for vnet headers - it honors what you bound with. I tried 
+to bind with ETH_ALL and pass ETH_P_IP as an arg and it ENOBUF-ed
+
+>
+
+-- 
+Anton R. Ivanov
+
+Cambridge Greys Limited, England and Wales company No 10273661
+http://www.cambridgegreys.com/
