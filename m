@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 21/34] mlx5e: Convert ndo_setup_tc offloads to block callbacks
-Date: Thu, 12 Oct 2017 19:18:10 +0200
-Message-ID: <20171012171823.1431-22-jiri@resnulli.us>
+Subject: [patch net-next 34/34] net: sched: allow ingress and clsact qdiscs to share filter blocks
+Date: Thu, 12 Oct 2017 19:18:23 +0200
+Message-ID: <20171012171823.1431-35-jiri@resnulli.us>
 References: <20171012171823.1431-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -16,179 +16,200 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         willemb@google.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:43863 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755063AbdJLRSp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:45 -0400
-Received: by mail-wm0-f68.google.com with SMTP id m72so24897663wmc.0
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:44 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:52023 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755797AbdJLRS5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:18:57 -0400
+Received: by mail-wm0-f65.google.com with SMTP id f4so15297961wme.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:18:56 -0700 (PDT)
 In-Reply-To: <20171012171823.1431-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for flower offloads to block callbacks.
+Benefit from the previously introduced shared filter blocks
+infrastructure and allow ingress and clsact qdisc instances to share
+filter blocks. The block index is coming from userspace as qdisc option.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 45 ++++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 24 +++++-------
- 3 files changed, 51 insertions(+), 22 deletions(-)
+ include/uapi/linux/pkt_sched.h | 12 ++++++
+ net/sched/sch_ingress.c        | 89 +++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 100 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 5ec6d3e..ca07a60 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -1081,8 +1081,8 @@ int mlx5e_ethtool_get_ts_info(struct mlx5e_priv *priv,
- int mlx5e_ethtool_flash_device(struct mlx5e_priv *priv,
- 			       struct ethtool_flash *flash);
- 
--int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
--		   void *type_data);
-+int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+			    void *cb_priv);
- 
- /* mlx5e generic netdev management API */
- struct net_device*
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 2a32102..da67217 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3086,13 +3086,10 @@ static int mlx5e_setup_tc_mqprio(struct net_device *netdev,
+diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+index 099bf55..a684087 100644
+--- a/include/uapi/linux/pkt_sched.h
++++ b/include/uapi/linux/pkt_sched.h
+@@ -871,4 +871,16 @@ struct tc_pie_xstats {
+ 	__u32 maxq;             /* maximum queue size */
+ 	__u32 ecn_mark;         /* packets marked with ecn*/
+ };
++
++/* Ingress/clsact */
++
++enum {
++	TCA_CLSACT_UNSPEC,
++	TCA_CLSACT_INGRESS_BLOCK,
++	TCA_CLSACT_EGRESS_BLOCK,
++	__TCA_CLSACT_MAX
++};
++
++#define TCA_CLSACT_MAX	(__TCA_CLSACT_MAX - 1)
++
+ #endif
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index b599db2..59625e8 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -54,12 +54,40 @@ static struct tcf_block *ingress_tcf_block(struct Qdisc *sch, unsigned long cl)
+ 	return q->block;
  }
  
- #ifdef CONFIG_MLX5_ESWITCH
--static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
-+static int mlx5e_setup_tc_cls_flower(struct mlx5e_priv *priv,
- 				     struct tc_cls_flower_offload *cls_flower)
- {
--	struct mlx5e_priv *priv = netdev_priv(dev);
--
--	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
--	    cls_flower->common.chain_index)
-+	if (cls_flower->common.chain_index)
- 		return -EOPNOTSUPP;
- 
- 	switch (cls_flower->command) {
-@@ -3106,6 +3103,40 @@ static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
- 		return -EOPNOTSUPP;
- 	}
- }
++static const struct nla_policy ingress_policy[TCA_CLSACT_MAX + 1] = {
++	[TCA_CLSACT_INGRESS_BLOCK]	= { .type = NLA_U32 },
++};
 +
-+int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+			    void *cb_priv)
++static int ingress_parse_opt(struct nlattr *opt, u32 *p_ingress_block_index)
 +{
-+	struct mlx5e_priv *priv = cb_priv;
++	struct nlattr *tb[TCA_CLSACT_MAX + 1];
++	int err;
 +
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return mlx5e_setup_tc_cls_flower(priv, type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
++	*p_ingress_block_index = 0;
 +
-+static int mlx5e_setup_tc_block(struct net_device *dev,
-+				struct tc_block_offload *f)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block, mlx5e_setup_tc_block_cb,
-+					     priv, priv);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block, mlx5e_setup_tc_block_cb,
-+					priv);
++	if (!opt)
 +		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
++	err = nla_parse_nested(tb, TCA_CLSACT_MAX, opt, ingress_policy, NULL);
++	if (err)
++		return err;
++
++	if (tb[TCA_CLSACT_INGRESS_BLOCK])
++		*p_ingress_block_index =
++			nla_get_u32(tb[TCA_CLSACT_INGRESS_BLOCK]);
++	return 0;
 +}
- #endif
- 
- int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
-@@ -3114,7 +3145,9 @@ int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	switch (type) {
- #ifdef CONFIG_MLX5_ESWITCH
- 	case TC_SETUP_CLSFLOWER:
--		return mlx5e_setup_tc_cls_flower(dev, type_data);
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return mlx5e_setup_tc_block(dev, type_data);
- #endif
- 	case TC_SETUP_MQPRIO:
- 		return mlx5e_setup_tc_mqprio(dev, type_data);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 765fc74..4edd92d 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -691,14 +691,6 @@ static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	}
- }
- 
--static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
--				 void *cb_priv)
--{
--	struct net_device *dev = cb_priv;
--
--	return mlx5e_setup_tc(dev, type, type_data);
--}
--
- bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv)
++
+ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
  {
- 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-@@ -987,6 +979,7 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- {
- 	struct mlx5e_rep_priv *rpriv;
- 	struct net_device *netdev;
-+	struct mlx5e_priv *upriv;
+ 	struct ingress_sched_data *q = qdisc_priv(sch);
+ 	struct net_device *dev = qdisc_dev(sch);
  	int err;
  
- 	rpriv = kzalloc(sizeof(*rpriv), GFP_KERNEL);
-@@ -1018,8 +1011,9 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 		goto err_detach_netdev;
++	err = ingress_parse_opt(opt, &q->block_info.block_index);
++	if (err)
++		return err;
++
++	q->block_info.shareable = true;
+ 	q->block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS;
+ 
+ 	err = tcf_block_get_ext(&q->block, &dev->ingress_cl_list,
+@@ -85,11 +113,14 @@ static void ingress_destroy(struct Qdisc *sch)
+ 
+ static int ingress_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
++	struct ingress_sched_data *q = qdisc_priv(sch);
+ 	struct nlattr *nest;
+ 
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
++	if (nla_put_u32(skb, TCA_CLSACT_INGRESS_BLOCK, q->block->index))
++		goto nla_put_failure;
+ 
+ 	return nla_nest_end(skb, nest);
+ 
+@@ -155,12 +186,47 @@ static struct tcf_block *clsact_tcf_block(struct Qdisc *sch, unsigned long cl)
  	}
+ }
  
--	err = tc_setup_cb_egdev_register(netdev, mlx5e_rep_setup_tc_cb,
--					 mlx5_eswitch_get_uplink_netdev(esw));
-+	upriv = netdev_priv(mlx5_eswitch_get_uplink_netdev(esw));
-+	err = tc_setup_cb_egdev_register(netdev, mlx5e_setup_tc_block_cb,
-+					 upriv);
++static const struct nla_policy clsact_policy[TCA_CLSACT_MAX + 1] = {
++	[TCA_CLSACT_INGRESS_BLOCK]	= { .type = NLA_U32 },
++	[TCA_CLSACT_EGRESS_BLOCK]	= { .type = NLA_U32 },
++};
++
++static int clsact_parse_opt(struct nlattr *opt, u32 *p_ingress_block_index,
++			    u32 *p_egress_block_index)
++{
++	struct nlattr *tb[TCA_CLSACT_MAX + 1];
++	int err;
++
++	*p_ingress_block_index = 0;
++	*p_egress_block_index = 0;
++
++	if (!opt)
++		return 0;
++	err = nla_parse_nested(tb, TCA_CLSACT_MAX, opt, clsact_policy, NULL);
++	if (err)
++		return err;
++
++	if (tb[TCA_CLSACT_INGRESS_BLOCK])
++		*p_ingress_block_index =
++			nla_get_u32(tb[TCA_CLSACT_INGRESS_BLOCK]);
++	if (tb[TCA_CLSACT_EGRESS_BLOCK])
++		*p_egress_block_index =
++			nla_get_u32(tb[TCA_CLSACT_EGRESS_BLOCK]);
++	return 0;
++}
++
+ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct clsact_sched_data *q = qdisc_priv(sch);
+ 	struct net_device *dev = qdisc_dev(sch);
+ 	int err;
+ 
++	err = clsact_parse_opt(opt, &q->ingress_block_info.block_index,
++			       &q->egress_block_info.block_index);
++	if (err)
++		return err;
++
++	q->ingress_block_info.shareable = true;
+ 	q->ingress_block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS;
+ 
+ 	err = tcf_block_get_ext(&q->ingress_block, &dev->ingress_cl_list,
+@@ -168,6 +234,7 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
  	if (err)
- 		goto err_neigh_cleanup;
+ 		return err;
  
-@@ -1033,8 +1027,8 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 	return 0;
++	q->egress_block_info.shareable = true;
+ 	q->egress_block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS;
  
- err_egdev_cleanup:
--	tc_setup_cb_egdev_unregister(netdev, mlx5e_rep_setup_tc_cb,
--				     mlx5_eswitch_get_uplink_netdev(esw));
-+	tc_setup_cb_egdev_unregister(netdev, mlx5e_setup_tc_block_cb,
-+				     upriv);
+ 	err = tcf_block_get_ext(&q->egress_block, &dev->egress_cl_list,
+@@ -202,6 +269,26 @@ static void clsact_destroy(struct Qdisc *sch)
+ 	net_dec_egress_queue();
+ }
  
- err_neigh_cleanup:
- 	mlx5e_rep_neigh_cleanup(rpriv);
-@@ -1055,10 +1049,12 @@ mlx5e_vport_rep_unload(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
- 	struct mlx5e_rep_priv *rpriv = priv->ppriv;
- 	void *ppriv = priv->ppriv;
-+	struct mlx5e_priv *upriv;
++static int clsact_dump(struct Qdisc *sch, struct sk_buff *skb)
++{
++	struct clsact_sched_data *q = qdisc_priv(sch);
++	struct nlattr *nest;
++
++	nest = nla_nest_start(skb, TCA_OPTIONS);
++	if (!nest)
++		goto nla_put_failure;
++	if (nla_put_u32(skb, TCA_CLSACT_INGRESS_BLOCK, q->ingress_block->index))
++		goto nla_put_failure;
++	if (nla_put_u32(skb, TCA_CLSACT_EGRESS_BLOCK, q->egress_block->index))
++		goto nla_put_failure;
++
++	return nla_nest_end(skb, nest);
++
++nla_put_failure:
++	nla_nest_cancel(skb, nest);
++	return -1;
++}
++
+ static const struct Qdisc_class_ops clsact_class_ops = {
+ 	.leaf		=	ingress_leaf,
+ 	.find		=	clsact_find,
+@@ -217,7 +304,7 @@ static struct Qdisc_ops clsact_qdisc_ops __read_mostly = {
+ 	.priv_size	=	sizeof(struct clsact_sched_data),
+ 	.init		=	clsact_init,
+ 	.destroy	=	clsact_destroy,
+-	.dump		=	ingress_dump,
++	.dump		=	clsact_dump,
+ 	.owner		=	THIS_MODULE,
+ };
  
- 	unregister_netdev(rep->netdev);
--	tc_setup_cb_egdev_unregister(netdev, mlx5e_rep_setup_tc_cb,
--				     mlx5_eswitch_get_uplink_netdev(esw));
-+	upriv = netdev_priv(mlx5_eswitch_get_uplink_netdev(esw));
-+	tc_setup_cb_egdev_unregister(netdev, mlx5e_setup_tc_block_cb,
-+				     upriv);
- 	mlx5e_rep_neigh_cleanup(rpriv);
- 	mlx5e_detach_netdev(priv);
- 	mlx5e_destroy_netdev(priv);
 -- 
 2.9.5
