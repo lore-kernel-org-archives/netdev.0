@@ -1,159 +1,58 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 09/12] nfp: bpf: separate I/O from checks for legacy data load
-Date: Thu, 12 Oct 2017 10:34:15 -0700
-Message-ID: <20171012173418.4029-10-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 02/12] nfp: bpf: reorder arguments to emit_ld_field_any()
+Date: Thu, 12 Oct 2017 10:34:08 -0700
+Message-ID: <20171012173418.4029-3-jakub.kicinski@netronome.com>
 References: <20171012173418.4029-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:56944 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752840AbdJLRe4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:34:56 -0400
-Received: by mail-pf0-f173.google.com with SMTP id b85so5820989pfj.13
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:34:56 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:51199 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752246AbdJLReu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 13:34:50 -0400
+Received: by mail-pf0-f180.google.com with SMTP id m63so5837602pfk.7
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 10:34:50 -0700 (PDT)
 In-Reply-To: <20171012173418.4029-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move data load into a separate function and separate it from
-packet length checks of legacy I/O.  This makes the code more
-readable and easier to reuse.
+ld_field instruction has the following format in NFP assembler:
+
+  ld_field[dst, 1000, src, <<24]
+
+reoder parameters to emit_ld_field_any() to make it closer to
+the familiar assembler order.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/jit.c | 77 +++++++++++++++-------------
- 1 file changed, 40 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index 4b62f5497728..3e173da16428 100644
+index 13148f30fc4c..cf8a6eb3ec99 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -515,63 +515,66 @@ static void wrp_reg_mov(struct nfp_prog *nfp_prog, u16 dst, u16 src)
- }
- 
- static int
--construct_data_ind_ld(struct nfp_prog *nfp_prog, u16 offset,
--		      u16 src, bool src_valid, u8 size)
-+data_ld(struct nfp_prog *nfp_prog, swreg offset, u8 dst_gpr, int size)
- {
- 	unsigned int i;
- 	u16 shift, sz;
--	swreg tmp_reg;
- 
- 	/* We load the value from the address indicated in @offset and then
- 	 * shift out the data we don't need.  Note: this is big endian!
- 	 */
--	sz = size < 4 ? 4 : size;
-+	sz = max(size, 4);
- 	shift = size < 4 ? 4 - size : 0;
- 
--	if (src_valid) {
--		/* Calculate the true offset (src_reg + imm) */
--		tmp_reg = ur_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
--		emit_alu(nfp_prog, imm_both(nfp_prog),
--			 reg_a(src), ALU_OP_ADD, tmp_reg);
--		/* Check packet length (size guaranteed to fit b/c it's u8) */
--		emit_alu(nfp_prog, imm_a(nfp_prog),
--			 imm_a(nfp_prog), ALU_OP_ADD, reg_imm(size));
--		emit_alu(nfp_prog, reg_none(),
--			 plen_reg(nfp_prog), ALU_OP_SUB, imm_a(nfp_prog));
--		wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
--		/* Load data */
--		emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
--			 pptr_reg(nfp_prog), imm_b(nfp_prog), sz - 1, true);
--	} else {
--		/* Check packet length */
--		tmp_reg = ur_load_imm_any(nfp_prog, offset + size,
--					  imm_a(nfp_prog));
--		emit_alu(nfp_prog, reg_none(),
--			 plen_reg(nfp_prog), ALU_OP_SUB, tmp_reg);
--		wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
--		/* Load data */
--		tmp_reg = re_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
--		emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
--			 pptr_reg(nfp_prog), tmp_reg, sz - 1, true);
--	}
-+	emit_cmd(nfp_prog, CMD_TGT_READ8, CMD_MODE_32b, 0,
-+		 pptr_reg(nfp_prog), offset, sz - 1, true);
- 
- 	i = 0;
- 	if (shift)
--		emit_shf(nfp_prog, reg_both(0), reg_none(), SHF_OP_NONE,
-+		emit_shf(nfp_prog, reg_both(dst_gpr), reg_none(), SHF_OP_NONE,
- 			 reg_xfer(0), SHF_SC_R_SHF, shift * 8);
- 	else
- 		for (; i * 4 < size; i++)
--			wrp_mov(nfp_prog, reg_both(i), reg_xfer(i));
-+			wrp_mov(nfp_prog, reg_both(dst_gpr + i), reg_xfer(i));
- 
- 	if (i < 2)
--		wrp_immed(nfp_prog, reg_both(1), 0);
-+		wrp_immed(nfp_prog, reg_both(dst_gpr + 1), 0);
- 
- 	return 0;
- }
- 
-+static int
-+construct_data_ind_ld(struct nfp_prog *nfp_prog, u16 offset, u16 src, u8 size)
-+{
-+	swreg tmp_reg;
-+
-+	/* Calculate the true offset (src_reg + imm) */
-+	tmp_reg = ur_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
-+	emit_alu(nfp_prog, imm_both(nfp_prog), reg_a(src), ALU_OP_ADD, tmp_reg);
-+
-+	/* Check packet length (size guaranteed to fit b/c it's u8) */
-+	emit_alu(nfp_prog, imm_a(nfp_prog),
-+		 imm_a(nfp_prog), ALU_OP_ADD, reg_imm(size));
-+	emit_alu(nfp_prog, reg_none(),
-+		 plen_reg(nfp_prog), ALU_OP_SUB, imm_a(nfp_prog));
-+	wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
-+
-+	/* Load data */
-+	return data_ld(nfp_prog, imm_b(nfp_prog), 0, size);
-+}
-+
- static int construct_data_ld(struct nfp_prog *nfp_prog, u16 offset, u8 size)
- {
--	return construct_data_ind_ld(nfp_prog, offset, 0, false, size);
-+	swreg tmp_reg;
-+
-+	/* Check packet length */
-+	tmp_reg = ur_load_imm_any(nfp_prog, offset + size, imm_a(nfp_prog));
-+	emit_alu(nfp_prog, reg_none(), plen_reg(nfp_prog), ALU_OP_SUB, tmp_reg);
-+	wrp_br_special(nfp_prog, BR_BLO, OP_BR_GO_ABORT);
-+
-+	/* Load data */
-+	tmp_reg = re_load_imm_any(nfp_prog, offset, imm_b(nfp_prog));
-+	return data_ld(nfp_prog, tmp_reg, 0, size);
+@@ -402,8 +402,8 @@ __emit_ld_field(struct nfp_prog *nfp_prog, enum shf_sc sc,
  }
  
  static void
-@@ -1055,19 +1058,19 @@ static int data_ld4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- static int data_ind_ld1(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+-emit_ld_field_any(struct nfp_prog *nfp_prog, enum shf_sc sc, u8 shift,
+-		  swreg dst, u8 bmask, swreg src, bool zero)
++emit_ld_field_any(struct nfp_prog *nfp_prog, swreg dst, u8 bmask, swreg src,
++		  enum shf_sc sc, u8 shift, bool zero)
  {
- 	return construct_data_ind_ld(nfp_prog, meta->insn.imm,
--				     meta->insn.src_reg * 2, true, 1);
-+				     meta->insn.src_reg * 2, 1);
+ 	struct nfp_insn_re_regs reg;
+ 	int err;
+@@ -424,7 +424,7 @@ static void
+ emit_ld_field(struct nfp_prog *nfp_prog, swreg dst, u8 bmask, swreg src,
+ 	      enum shf_sc sc, u8 shift)
+ {
+-	emit_ld_field_any(nfp_prog, sc, shift, dst, bmask, src, false);
++	emit_ld_field_any(nfp_prog, dst, bmask, src, sc, shift, false);
  }
  
- static int data_ind_ld2(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
- 	return construct_data_ind_ld(nfp_prog, meta->insn.imm,
--				     meta->insn.src_reg * 2, true, 2);
-+				     meta->insn.src_reg * 2, 2);
- }
- 
- static int data_ind_ld4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
- {
- 	return construct_data_ind_ld(nfp_prog, meta->insn.imm,
--				     meta->insn.src_reg * 2, true, 4);
-+				     meta->insn.src_reg * 2, 4);
- }
- 
- static int mem_ldx_skb(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ static void emit_nop(struct nfp_prog *nfp_prog)
 -- 
 2.14.1
