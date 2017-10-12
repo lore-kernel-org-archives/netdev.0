@@ -1,68 +1,61 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [lkp-robot] [mac80211]  cd1a0cdbf9: hwsim.ap_cipher_bip.fail
-Date: Thu, 12 Oct 2017 10:03:57 +0200
-Message-ID: <1507795437.1998.70.camel@sipsolutions.net>
-References: <20171012061919.GE26196@yexl-desktop>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [next-queue PATCH v6 4/5] net/sched: Add support for HW
+ offloading for CBS
+Date: Thu, 12 Oct 2017 10:04:12 +0200
+Message-ID: <20171012080412.GB29396@sisyphus.home.austad.us>
+References: <20171012005449.26533-1-vinicius.gomes@intel.com>
+ <20171012005449.26533-5-vinicius.gomes@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org, lkp@01.org
-To: kernel test robot <xiaolong.ye@intel.com>,
-        Xiang Gao <qasdfgtyuiop@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171012061919.GE26196@yexl-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="6sX45UoQRIJXqkqR"
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, levipearson@gmail.com,
+        rodney.cummings@ni.com
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:56137 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753217AbdJLIEK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 04:04:10 -0400
+Received: by mail-lf0-f44.google.com with SMTP id p184so4993910lfe.12
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 01:04:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171012005449.26533-5-vinicius.gomes@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Thanks for the report.
+--6sX45UoQRIJXqkqR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2017-10-12 at 14:19 +0800, kernel test robot wrote:
-> FYI, we noticed the following commit (built with gcc-6):
-> 
-> commit: cd1a0cdbf9ada9bb975d8730a375bc13824ef065 ("mac80211: aead api to reduce redundancy")
+On Wed, Oct 11, 2017 at 05:54:48PM -0700, Vinicius Costa Gomes wrote:
+> This adds support for offloading the CBS algorithm to the controller,
+> if supported. Drivers wanting to support CBS offload must implement
+> the .ndo_setup_tc callback and handle the TC_SETUP_CBS (introduced
+> here) type.
 
-I guess the commit isn't actually an upstream commit, but one the robot
-made when applying the patch?
+This also answered my question in the previous patch (as to how hw=20
+offloading can be enabled).
 
-> url: https://github.com/0day-ci/linux/commits/Xiang-Gao/mac80211-aead-api-to-reduce-redundancy/20170929-140556
+/me goes off to test the series
+Looking good so far!
 
-This URL doesn't work (any more?)
+-Henrik
 
-> 2017-10-05 23:08:27 	./run-tests.py ap_cipher_bip 
-> DEV: wlan0: 02:00:00:00:00:00
-> DEV: wlan1: 02:00:00:00:01:00
-> DEV: wlan2: 02:00:00:00:02:00
-> APDEV: wlan3
-> APDEV: wlan4
-> START ap_cipher_bip 1/1
-> Test: WPA2-PSK with BIP
-> Starting AP wlan3
-> Connect STA wlan0 to AP
-> dev1->dev2 unicast data delivery failed
-> Traceback (most recent call last):
->   File "./run-tests.py", line 453, in main
->     t(dev, apdev)
->   File "/lkp/benchmarks/hwsim/tests/hwsim/test_ap_ciphers.py", line
-> 279, in test_ap_cipher_bip
->     check_group_mgmt_cipher(dev[0], apdev[0], "AES-128-CMAC")
->   File "/lkp/benchmarks/hwsim/tests/hwsim/test_ap_ciphers.py", line
-> 51, in check_group_mgmt_cipher
->     hwsim_utils.test_connectivity(dev, hapd)
->   File "/lkp/benchmarks/hwsim/tests/hwsim/hwsim_utils.py", line 165,
-> in test_connectivity
->     raise Exception(last_err)
-> Exception: dev1->dev2 unicast data delivery failed
-> FAIL ap_cipher_bip 5.24306 2017-10-05 23:08:32.620542
+--6sX45UoQRIJXqkqR
+Content-Type: application/pgp-signature; name="signature.asc"
 
-[... similar results ...]
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-As on the previous version of this report (which had different test
-cases failing IIRC), I can't reproduce this on my tree, even with your
-kernel config. Since I can't actually look at the tree state that you
-had (mac80211-next + patch, but which mac80211-next?), I can't
-reproduce entirely.
+iEYEARECAAYFAlnfIfwACgkQ6k5VT6v45lmumQCgxLRfnF+ZT/bikdbzHaheG3Vn
+QAMAnRiuwj5+3Mi5cIlWFjAS1LAvjH64
+=OVi3
+-----END PGP SIGNATURE-----
 
-johannes
+--6sX45UoQRIJXqkqR--
