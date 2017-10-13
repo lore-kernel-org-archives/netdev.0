@@ -1,59 +1,133 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: RE: [PATCH net-next 5/5] net: dsa: split dsa_port's netdev member
-Date: Fri, 13 Oct 2017 12:50:29 -0400
-Message-ID: <87infjm1pm.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20171012225156.20758-1-vivien.didelot@savoirfairelinux.com> <20171012225156.20758-6-vivien.didelot@savoirfairelinux.com> <5b637ea3-6c4b-1d93-ed43-09038af473f9@gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD0094DFE@AcuExch.aculab.com> <87y3ofi0oi.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <874lr3vzg4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <063D6719AE5E284EB5DD2968C1650D6DD0094FEF@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        "kernel\@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-        'Florian Fainelli' <f.fainelli@gmail.com>,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0094FEF@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v1] pch_gbe: Switch to new PCI IRQ allocation API
+Date: Fri, 13 Oct 2017 20:02:21 +0300
+Message-ID: <20171013170221.70056-1-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:13255 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752349AbdJMRC6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Oct 2017 13:02:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+This removes custom flag handling.
 
-David Laight <David.Laight@ACULAB.COM> writes:
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  3 +-
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 42 +++++++++-------------
+ 2 files changed, 17 insertions(+), 28 deletions(-)
 
-> From: Vivien Didelot
->> Sent: 13 October 2017 16:29
->> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
->> 
->> >>> How about using:
->> >>>
->> >>> 	union {
->> >>> 		struct net_device *master;
->> >>> 		struct net_device *slave;
->> >>> 	} netdev;
->> >> ...
->> >>
->> >> You can remove the 'netdev' all the compilers support unnamed unions.
->> >
->> > There are issues with older GCC versions, see the commit 42275bd8fcb3
->> > ("switchdev: don't use anonymous union on switchdev attr/obj structs")
->> >
->> > That's why I kept it in the v2 I sent.
->> 
->> At the same time, I can see that struct sk_buff uses anonym union a lot.
->> 
->> It seems weird that one raised a compiler issue for switchdev but not
->> for skbuff.h... Do you think it is viable to drop the name here then?
->
-> I believe the problem is with initialisers for static structures
-> that contain anonymous unions.
-
-The dsa_port structures are dynamically allocated so this seems safe to
-use an anonymous union here.
-
-BTW v2 never left my computer in fact, so this will be fixed up in v2.
-
-
-Thanks!
-
-        Vivien
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+index 8d710a3b4db0..697e29dd4bd3 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
+@@ -613,7 +613,6 @@ struct pch_gbe_privdata {
+  * @rx_ring:		Pointer of Rx descriptor ring structure
+  * @rx_buffer_len:	Receive buffer length
+  * @tx_queue_len:	Transmit queue length
+- * @have_msi:		PCI MSI mode flag
+  * @pch_gbe_privdata:	PCI Device ID driver_data
+  */
+ 
+@@ -623,6 +622,7 @@ struct pch_gbe_adapter {
+ 	atomic_t irq_sem;
+ 	struct net_device *netdev;
+ 	struct pci_dev *pdev;
++	int irq;
+ 	struct net_device *polling_netdev;
+ 	struct napi_struct napi;
+ 	struct pch_gbe_hw hw;
+@@ -637,7 +637,6 @@ struct pch_gbe_adapter {
+ 	struct pch_gbe_rx_ring *rx_ring;
+ 	unsigned long rx_buffer_len;
+ 	unsigned long tx_queue_len;
+-	bool have_msi;
+ 	bool rx_stop_flag;
+ 	int hwts_tx_en;
+ 	int hwts_rx_en;
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+index 5ae9681a2da7..0284a3bc019c 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+@@ -781,11 +781,8 @@ static void pch_gbe_free_irq(struct pch_gbe_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 
+-	free_irq(adapter->pdev->irq, netdev);
+-	if (adapter->have_msi) {
+-		pci_disable_msi(adapter->pdev);
+-		netdev_dbg(netdev, "call pci_disable_msi\n");
+-	}
++	free_irq(adapter->irq, netdev);
++	pci_free_irq_vectors(adapter->pdev);
+ }
+ 
+ /**
+@@ -799,7 +796,7 @@ static void pch_gbe_irq_disable(struct pch_gbe_adapter *adapter)
+ 	atomic_inc(&adapter->irq_sem);
+ 	iowrite32(0, &hw->reg->INT_EN);
+ 	ioread32(&hw->reg->INT_ST);
+-	synchronize_irq(adapter->pdev->irq);
++	synchronize_irq(adapter->irq);
+ 
+ 	netdev_dbg(adapter->netdev, "INT_EN reg : 0x%08x\n",
+ 		   ioread32(&hw->reg->INT_EN));
+@@ -1903,30 +1900,23 @@ static int pch_gbe_request_irq(struct pch_gbe_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+ 	int err;
+-	int flags;
+ 
+-	flags = IRQF_SHARED;
+-	adapter->have_msi = false;
+-	err = pci_enable_msi(adapter->pdev);
+-	netdev_dbg(netdev, "call pci_enable_msi\n");
+-	if (err) {
+-		netdev_dbg(netdev, "call pci_enable_msi - Error: %d\n", err);
+-	} else {
+-		flags = 0;
+-		adapter->have_msi = true;
+-	}
+-	err = request_irq(adapter->pdev->irq, &pch_gbe_intr,
+-			  flags, netdev->name, netdev);
++	err = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_ALL_TYPES);
++	if (err < 0)
++		return err;
++
++	adapter->irq = pci_irq_vector(pdev, 0);
++
++	err = request_irq(adapter->irq, &pch_gbe_intr, IRQF_SHARED,
++			  netdev->name, netdev);
+ 	if (err)
+ 		netdev_err(netdev, "Unable to allocate interrupt Error: %d\n",
+ 			   err);
+-	netdev_dbg(netdev,
+-		   "adapter->have_msi : %d  flags : 0x%04x  return : 0x%04x\n",
+-		   adapter->have_msi, flags, err);
++	netdev_dbg(netdev, "have_msi : %d  return : 0x%04x\n",
++		   pci_dev_msi_enabled(adapter->pdev), err);
+ 	return err;
+ }
+ 
+-
+ /**
+  * pch_gbe_up - Up GbE network device
+  * @adapter:  Board private structure
+@@ -2399,9 +2389,9 @@ static void pch_gbe_netpoll(struct net_device *netdev)
+ {
+ 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
+ 
+-	disable_irq(adapter->pdev->irq);
+-	pch_gbe_intr(adapter->pdev->irq, netdev);
+-	enable_irq(adapter->pdev->irq);
++	disable_irq(adapter->irq);
++	pch_gbe_intr(adapter->irq, netdev);
++	enable_irq(adapter->irq);
+ }
+ #endif
+ 
+-- 
+2.14.2
