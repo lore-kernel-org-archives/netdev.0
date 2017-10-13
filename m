@@ -1,402 +1,72 @@
-From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next v2 1/8] cxgb4: implement ethtool dump data operations
-Date: Fri, 13 Oct 2017 18:48:13 +0530
-Message-ID: <15978b96d0f07b2319dcc0a531c2eca4a63d5921.1507899723.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
-Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
-        indranil@chelsio.com,
-        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:33112 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753438AbdJMNTb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 09:19:31 -0400
-In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
-In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Cox <gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Fri, 13 Oct 2017 14:43:11 +0100
+Message-ID: <20171013144311.45856ba2@alans-desktop>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Carlos O'Donell" <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Aristeu Rozanski <arozansk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+        Al Viro <viro-RmSDqhL/yNOmg8Ev75riOw@public.gmane.org
+To: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171012141359.saqdtnodwmbz33b2-bcJWsdo4jJjeVoXN4CMphl7TgLCtbB0G@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Implement operations to set/get dump data via ethtool.  Also add
-template header that precedes dump data, which helps in decoding
-and extracting the dump data.
+On Thu, 12 Oct 2017 10:14:00 -0400
+Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
 
-Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
-v2:
-- Renamed init_ethtool_dump() to cxgb4_init_ethtool_dump().
+> Containers are a userspace concept.  The kernel knows nothing of them.
+> 
+> The Linux audit system needs a way to be able to track the container
+> provenance of events and actions.  Audit needs the kernel's help to do
+> this.
+> 
+> Since the concept of a container is entirely a userspace concept, a
+> registration from the userspace container orchestration system initiates
+> this.  This will define a point in time and a set of resources
+> associated with a particular container with an audit container ID.
 
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |  2 +-
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      | 33 ++++++++++
- .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  | 65 +++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  3 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   | 73 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h   | 32 ++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c | 56 ++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  3 +
- 8 files changed, 265 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
+I don't think this has anything to do with containers directly. If i
+read it right you need a subtree of stuff to be asigned a (possibly
+irrevocable) magic identifier that you can use for other purposes.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index fecd7aab673b..4c6041f45630 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -6,7 +6,7 @@ obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o \
- 	      cxgb4_uld.o sched.o cxgb4_filter.o cxgb4_tc_u32.o \
--	      cxgb4_ptp.o cxgb4_tc_flower.o
-+	      cxgb4_ptp.o cxgb4_tc_flower.o cxgb4_cudbg.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-new file mode 100644
-index 000000000000..ebaa5b7063cf
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -0,0 +1,33 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CUDBG_IF_H__
-+#define __CUDBG_IF_H__
-+
-+#define CUDBG_MAJOR_VERSION 1
-+#define CUDBG_MINOR_VERSION 14
-+
-+enum cudbg_dbg_entity_type {
-+	CUDBG_MAX_ENTITY = 70,
-+};
-+
-+struct cudbg_init {
-+	struct adapter *adap; /* Pointer to adapter structure */
-+	void *outbuf; /* Output buffer */
-+	u32 outbuf_size;  /* Output buffer size */
-+};
-+#endif /* __CUDBG_IF_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-new file mode 100644
-index 000000000000..eb1b36b72455
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-@@ -0,0 +1,65 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CUDBG_LIB_COMMON_H__
-+#define __CUDBG_LIB_COMMON_H__
-+
-+#define CUDBG_SIGNATURE 67856866 /* CUDB in ascii */
-+
-+enum cudbg_dump_type {
-+	CUDBG_DUMP_TYPE_MINI = 1,
-+};
-+
-+enum cudbg_compression_type {
-+	CUDBG_COMPRESSION_NONE = 1,
-+};
-+
-+struct cudbg_hdr {
-+	u32 signature;
-+	u32 hdr_len;
-+	u16 major_ver;
-+	u16 minor_ver;
-+	u32 data_len;
-+	u32 hdr_flags;
-+	u16 max_entities;
-+	u8 chip_ver;
-+	u8 dump_type:3;
-+	u8 reserved1:1;
-+	u8 compress_type:4;
-+	u32 reserved[8];
-+};
-+
-+struct cudbg_entity_hdr {
-+	u32 entity_type;
-+	u32 start_offset;
-+	u32 size;
-+	int hdr_flags;
-+	u32 sys_warn;
-+	u32 sys_err;
-+	u8 num_pad;
-+	u8 flag;             /* bit 0 is used to indicate ext data */
-+	u8 reserved1[2];
-+	u32 next_ext_offset; /* pointer to next extended entity meta data */
-+	u32 reserved[5];
-+};
-+
-+struct cudbg_buffer {
-+	u32 size;
-+	u32 offset;
-+	char *data;
-+};
-+#endif /* __CUDBG_LIB_COMMON_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 0db3ab6ad094..a749602fdc41 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -909,6 +909,9 @@ struct adapter {
- 	/* TC flower offload */
- 	DECLARE_HASHTABLE(flower_anymatch_tbl, 9);
- 	struct timer_list flower_stats_timer;
-+
-+	/* Ethtool Dump */
-+	struct ethtool_dump eth_dump;
- };
- 
- /* Support for "sched-class" command to allow a TX Scheduling Class to be
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-new file mode 100644
-index 000000000000..a808150de208
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -0,0 +1,73 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#include "cxgb4.h"
-+#include "cxgb4_cudbg.h"
-+
-+u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag)
-+{
-+	return 0;
-+}
-+
-+int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
-+			u32 flag)
-+{
-+	struct cudbg_init cudbg_init = { 0 };
-+	struct cudbg_buffer dbg_buff = { 0 };
-+	u32 size, min_size, total_size = 0;
-+	struct cudbg_hdr *cudbg_hdr;
-+
-+	size = *buf_size;
-+
-+	cudbg_init.adap = adap;
-+	cudbg_init.outbuf = buf;
-+	cudbg_init.outbuf_size = size;
-+
-+	dbg_buff.data = buf;
-+	dbg_buff.size = size;
-+	dbg_buff.offset = 0;
-+
-+	cudbg_hdr = (struct cudbg_hdr *)buf;
-+	cudbg_hdr->signature = CUDBG_SIGNATURE;
-+	cudbg_hdr->hdr_len = sizeof(struct cudbg_hdr);
-+	cudbg_hdr->major_ver = CUDBG_MAJOR_VERSION;
-+	cudbg_hdr->minor_ver = CUDBG_MINOR_VERSION;
-+	cudbg_hdr->max_entities = CUDBG_MAX_ENTITY;
-+	cudbg_hdr->chip_ver = adap->params.chip;
-+	cudbg_hdr->dump_type = CUDBG_DUMP_TYPE_MINI;
-+	cudbg_hdr->compress_type = CUDBG_COMPRESSION_NONE;
-+
-+	min_size = sizeof(struct cudbg_hdr) +
-+		   sizeof(struct cudbg_entity_hdr) *
-+		   cudbg_hdr->max_entities;
-+	if (size < min_size)
-+		return -ENOMEM;
-+
-+	dbg_buff.offset += min_size;
-+	total_size = dbg_buff.offset;
-+
-+	cudbg_hdr->data_len = total_size;
-+	*buf_size = total_size;
-+	return 0;
-+}
-+
-+void cxgb4_init_ethtool_dump(struct adapter *adapter)
-+{
-+	adapter->eth_dump.flag = CXGB4_ETH_DUMP_NONE;
-+	adapter->eth_dump.version = adapter->params.fw_vers;
-+	adapter->eth_dump.len = 0;
-+}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-new file mode 100644
-index 000000000000..8c5dd6794f81
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-@@ -0,0 +1,32 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CXGB4_CUDBG_H__
-+#define __CXGB4_CUDBG_H__
-+
-+#include "cudbg_if.h"
-+#include "cudbg_lib_common.h"
-+
-+enum CXGB4_ETHTOOL_DUMP_FLAGS {
-+	CXGB4_ETH_DUMP_NONE = ETH_FW_DUMP_DISABLE,
-+};
-+
-+u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag);
-+int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
-+			u32 flag);
-+void cxgb4_init_ethtool_dump(struct adapter *adapter);
-+#endif /* __CXGB4_CUDBG_H__ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-index a71af1e587e2..796eb051cb2f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_ethtool.c
-@@ -21,6 +21,7 @@
- #include "cxgb4.h"
- #include "t4_regs.h"
- #include "t4fw_api.h"
-+#include "cxgb4_cudbg.h"
- 
- #define EEPROM_MAGIC 0x38E2F10C
- 
-@@ -1374,6 +1375,56 @@ static int get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *info,
- 	return -EOPNOTSUPP;
- }
- 
-+static int set_dump(struct net_device *dev, struct ethtool_dump *eth_dump)
-+{
-+	struct adapter *adapter = netdev2adap(dev);
-+	u32 len = 0;
-+
-+	len = sizeof(struct cudbg_hdr) +
-+	      sizeof(struct cudbg_entity_hdr) * CUDBG_MAX_ENTITY;
-+	len += cxgb4_get_dump_length(adapter, eth_dump->flag);
-+
-+	adapter->eth_dump.flag = eth_dump->flag;
-+	adapter->eth_dump.len = len;
-+	return 0;
-+}
-+
-+static int get_dump_flag(struct net_device *dev, struct ethtool_dump *eth_dump)
-+{
-+	struct adapter *adapter = netdev2adap(dev);
-+
-+	eth_dump->flag = adapter->eth_dump.flag;
-+	eth_dump->len = adapter->eth_dump.len;
-+	eth_dump->version = adapter->eth_dump.version;
-+	return 0;
-+}
-+
-+static int get_dump_data(struct net_device *dev, struct ethtool_dump *eth_dump,
-+			 void *buf)
-+{
-+	struct adapter *adapter = netdev2adap(dev);
-+	u32 len = 0;
-+	int ret = 0;
-+
-+	if (adapter->eth_dump.flag == CXGB4_ETH_DUMP_NONE)
-+		return -ENOENT;
-+
-+	len = sizeof(struct cudbg_hdr) +
-+	      sizeof(struct cudbg_entity_hdr) * CUDBG_MAX_ENTITY;
-+	len += cxgb4_get_dump_length(adapter, adapter->eth_dump.flag);
-+	if (eth_dump->len < len)
-+		return -ENOMEM;
-+
-+	ret = cxgb4_cudbg_collect(adapter, buf, &len, adapter->eth_dump.flag);
-+	if (ret)
-+		return ret;
-+
-+	eth_dump->flag = adapter->eth_dump.flag;
-+	eth_dump->len = len;
-+	eth_dump->version = adapter->eth_dump.version;
-+	return 0;
-+}
-+
- static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.get_link_ksettings = get_link_ksettings,
- 	.set_link_ksettings = set_link_ksettings,
-@@ -1404,7 +1455,10 @@ static const struct ethtool_ops cxgb_ethtool_ops = {
- 	.get_rxfh	   = get_rss_table,
- 	.set_rxfh	   = set_rss_table,
- 	.flash_device      = set_flash,
--	.get_ts_info       = get_ts_info
-+	.get_ts_info       = get_ts_info,
-+	.set_dump          = set_dump,
-+	.get_dump_flag     = get_dump_flag,
-+	.get_dump_data     = get_dump_data,
- };
- 
- void cxgb4_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index fe4cbe22d5d7..70c395d18087 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -81,6 +81,7 @@
- #include "cxgb4_tc_u32.h"
- #include "cxgb4_tc_flower.h"
- #include "cxgb4_ptp.h"
-+#include "cxgb4_cudbg.h"
- 
- char cxgb4_driver_name[] = KBUILD_MODNAME;
- 
-@@ -5035,6 +5036,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		cxgb4_set_ethtool_ops(netdev);
- 	}
- 
-+	cxgb4_init_ethtool_dump(adapter);
-+
- 	pci_set_drvdata(pdev, adapter);
- 
- 	if (adapter->flags & FW_OK) {
--- 
-2.14.1
+Traditional Unix in the more 'secure' space had that decades ago in the
+form of luid. At login time you did a setluid() and that set an
+irrevocable tag onthe session which was (traditionally) the uid of the
+login process so that audit and other related tools always knew how to
+tie the process back to the login session.
+
+That doesn't quite work as of itself (if you login you'd get luid set and
+not be able to change it for the container), but it seems something
+similarly trivial like a "setauditid(void)" would do the trick providing
+the kernel picked the UUID randomly [otherwise I can copy another known
+UUID to confuse or hide].
+
+As you say a container is a userspace concept. So IMHO any audit
+interface should be about auditing and what needs tracking, not about
+containers. If the container management tool wants to set a suitable tag
+then let it. If not then it doesn't.
+
+Then it's a simple as checking CAP_AUDIT_WRITE to see if you are allowed
+to setauditit(), generating a random uuid and a matching getauditid() to
+copy it back.
+
+Alan
