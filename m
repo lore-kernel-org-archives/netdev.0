@@ -1,40 +1,47 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v2 1/1] bridge: return error code when deleting
- Vlan
-Date: Fri, 13 Oct 2017 08:31:42 -0600
-Message-ID: <fd85d139-f727-6ef7-ceec-8b6dba961bca@gmail.com>
-References: <1507816314-2896-1-git-send-email-mrv@mojatatu.com>
- <fef6f65d-473c-ee8e-51cc-1382cb6f84b9@gmail.com>
- <CAHvchGnVZaSq+s9953jdbf6-UzDFb36457U6Pk0oQHgVOKwzQg@mail.gmail.com>
- <e4611694-4248-e796-5cca-24f3d07e0e9e@cumulusnetworks.com>
- <64292550-f043-c1f7-5b0e-004288832887@mojatatu.com>
- <ba70b4c0-2bd9-9722-7101-e823d901f09f@cumulusnetworks.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH v2 0/5] adapt DPAA drivers for DSA
+Date: Fri, 13 Oct 2017 17:50:07 +0300
+Message-ID: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Roman Mashak <mrv@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:53571 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758063AbdJMObl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 10:31:41 -0400
-Received: by mail-pf0-f178.google.com with SMTP id t188so7976000pfd.10
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 07:31:41 -0700 (PDT)
-In-Reply-To: <ba70b4c0-2bd9-9722-7101-e823d901f09f@cumulusnetworks.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <andrew@lunn.ch>,
+        <vivien.didelot@savoirfairelinux.com>, <junote@outlook.com>,
+        <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/12/17 8:15 PM, Nikolay Aleksandrov wrote:
-> I do agree it's a bug, but there might be scripts that rely on it and
-> don't check the return value when clearing vlans. They will end up with
-> a partial clear and wrongly assumed state, so maybe leave the
-> opportunistic delete but count if anything was actually deleted and send
-> an event only then ?
+Junote Cai reported that he was not able to get a DSA setup involving the
+DPAA/FMAN driver to work and narrowed it down to of_find_net_device_by_node()
+call in DSA setup. The initial attempt to fix this by adding of_node to the
+platform device results in a second, failed, probing of the FMan MAC driver
+against the new platform device created for the DPAA Ethernet driver.
+Solve these issues by removing the of_node pointer from the platform device
+and changing the net_dev dev to the of_device dev to ensure the DSA init
+will be able to find the DPAA net_dev using of_find_net_device_by_node().
+Several changes were required to enable this solution: refactoring the
+adjust_link (also resulted in lesser, cleaner code) and renaming the fman
+kernel modules to keep the legacy udev rules happy.
 
-+1
+Changes in v2:
+
+ - fix issue on error path in "dpaa_eth: change device used" patch
+ - cleanup the dpaa_eth_probe() error paths
+
+Madalin Bucur (5):
+  fsl/fman: remove of_node
+  dpaa_eth: move of_phy_connect() to the eth driver
+  dpaa_eth: change device used
+  dpaa_eth: cleanup dpaa_eth_probe() error paths
+  fsl/fman: add dpaa in module names
+
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 143 +++++++++++++------------
+ drivers/net/ethernet/freescale/fman/Makefile   |  12 +--
+ drivers/net/ethernet/freescale/fman/mac.c      | 135 ++++++-----------------
+ drivers/net/ethernet/freescale/fman/mac.h      |   6 +-
+ 4 files changed, 119 insertions(+), 177 deletions(-)
+
+-- 
+2.1.0
