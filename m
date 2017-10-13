@@ -1,67 +1,27 @@
-From: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
-Subject: [PATCH] Add -target to clang switch while cross compiling.
-Date: Thu, 12 Oct 2017 16:58:43 -0700
-Message-ID: <1507852723-24677-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
-References: <20171012231615.ugya5fa4mvrze6hw@ast-mbp>
+From: Collins Ogbor <collinsogbor@gmail.com>
+Subject: =?UTF-8?Q?Waiting_for_your_response_to_my_numerous_un=2Dreplied_?=
+        =?UTF-8?Q?emails_to_you_concerning_your_family_inheritance_fund_=28=247=2E5_?=
+        =?UTF-8?Q?million_dollars=29=2E_I_seek_your_assistance_and_I_assured_of_yo?=
+        =?UTF-8?Q?ur_capability_to_champion_this_business_opportunity_to_remit?=
+        =?UTF-8?Q?_=247=2E5_million_dollars_into_your_account=2C_if_you_are_interest?=
+        =?UTF-8?Q?ed_let_me_know_so_that_I_can_send_you_the_details_of_this_tr?=
+        =?UTF-8?Q?ansaction=2E_I_agreed_that_55=25_of_this_money_will_be_for_you_5?=
+        =?UTF-8?Q?=25_will_be_set_aside_for_expenses_incurred_during_the_busines?=
+        =?UTF-8?Q?s_and_40=25_would_be_for_me=2E_And_if_you_are_not_willing_to_han?=
+        =?UTF-8?Q?dle_the_transaction_don=E2=80=99t_border_to_reply_me=2E?=
+Date: Fri, 13 Oct 2017 00:32:00 +0000
+Message-ID: <CAM_j3=O1TaTcoBhx5W97VYM0m0K-JOH36y1pp8LoPEdmCDD4Pw@mail.gmail.com>
+Reply-To: collinsogbor01@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
-To: ast@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171012231615.ugya5fa4mvrze6hw@ast-mbp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:43842 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752644AbdJMAcB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 20:32:01 -0400
+Received: by mail-io0-f196.google.com with SMTP id 134so3100704ioo.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 17:32:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Update to llvm excludes assembly instructions.
-llvm git revision is below
-
-commit 2865ab6996164e7854d55c9e21c065fad7c26569
-Author: Yonghong Song <yhs@fb.com>
-Date:   Mon Sep 18 23:29:36 2017 +0000
-
-    bpf: add inline-asm support
-
-    Signed-off-by: Yonghong Song <yhs@fb.com>
-    Acked-by: Alexei Starovoitov <ast@kernel.org>
-
-    git-svn-id: https://llvm.org/svn/llvm-project/llvm/trunk@313593 91177308-0d34-0410-b5e6-96231b3b80d8
-
-__ASM_SYSREG_H define is not required for native compile.
--target switch includes appropriate target specific files
-while cross compiling
-
-Tested on x86 and arm64.
-
-Signed-off-by: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
----
- samples/bpf/Makefile | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index ebc2ad6..81f9fcd 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -180,6 +180,7 @@ CLANG ?= clang
- # Detect that we're cross compiling and use the cross compiler
- ifdef CROSS_COMPILE
- HOSTCC = $(CROSS_COMPILE)gcc
-+CLANG_ARCH_ARGS = -target $(ARCH)
- endif
- 
- # Trick to allow make to be run from this directory
-@@ -229,9 +230,9 @@ $(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
- $(obj)/%.o: $(src)/%.c
- 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
- 		-I$(srctree)/tools/testing/selftests/bpf/ \
--		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
-+		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
- 		-D__TARGET_ARCH_$(ARCH) -Wno-compare-distinct-pointer-types \
- 		-Wno-gnu-variable-sized-type-not-at-end \
- 		-Wno-address-of-packed-member -Wno-tautological-compare \
--		-Wno-unknown-warning-option \
-+		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
- 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
--- 
-2.7.4
