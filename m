@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 03/18] tipc: add ability to obtain node availability status from other files
-Date: Fri, 13 Oct 2017 11:04:19 +0200
-Message-ID: <1507885474-11213-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 08/18] tipc: add second source address to recvmsg()/recvfrom()
+Date: Fri, 13 Oct 2017 11:04:24 +0200
+Message-ID: <1507885474-11213-9-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,106 +9,160 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:52780 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753406AbdJMJEw (ORCPT
+Received: from sessmg22.ericsson.net ([193.180.251.58]:49534 "EHLO
+        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757987AbdJMJEw (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:52 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the coming commits, functions at the socket level will need the
-ability to read the availability status of a given node. We therefore
-introduce a new function for this purpose, while renaming the existing
-static function currently having the wanted name.
+With group communication, it becomes important for a message receiver to
+identify not only from which socket (identfied by a node:port tuple) the
+message was sent, but also the logical identity (type:instance) of the
+sending member.
+
+We fix this by adding a second instance of struct sockaddr_tipc to the
+source address area when a message is read. The extra address struct
+is filled in with data found in the received message header (type,) and
+in the local member representation struct (instance.)
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/node.c | 26 +++++++++++++++++++++-----
- net/tipc/node.h |  1 +
- 2 files changed, 22 insertions(+), 5 deletions(-)
+ net/tipc/group.c  |  3 +++
+ net/tipc/msg.h    |  1 +
+ net/tipc/socket.c | 53 +++++++++++++++++++++++++++++++++++------------------
+ 3 files changed, 39 insertions(+), 18 deletions(-)
 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 198dbc7..6cc1ae6 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -157,7 +157,7 @@ static void tipc_node_timeout(unsigned long data);
- static void tipc_node_fsm_evt(struct tipc_node *n, int evt);
- static struct tipc_node *tipc_node_find(struct net *net, u32 addr);
- static void tipc_node_put(struct tipc_node *node);
--static bool tipc_node_is_up(struct tipc_node *n);
-+static bool node_is_up(struct tipc_node *n);
- 
- struct tipc_sock_conn {
+diff --git a/net/tipc/group.c b/net/tipc/group.c
+index 3f0e1ce..beb214a 100644
+--- a/net/tipc/group.c
++++ b/net/tipc/group.c
+@@ -61,6 +61,7 @@ struct tipc_member {
+ 	struct list_head list;
+ 	u32 node;
  	u32 port;
-@@ -657,7 +657,7 @@ static void __tipc_node_link_down(struct tipc_node *n, int *bearer_id,
- 		*slot1 = i;
- 	}
++	u32 instance;
+ 	enum mbr_state state;
+ 	u16 bc_rcv_nxt;
+ };
+@@ -282,6 +283,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 	if (!tipc_group_is_receiver(m))
+ 		goto drop;
  
--	if (!tipc_node_is_up(n)) {
-+	if (!node_is_up(n)) {
- 		if (tipc_link_peer_is_down(l))
- 			tipc_node_fsm_evt(n, PEER_LOST_CONTACT_EVT);
- 		tipc_node_fsm_evt(n, SELF_LOST_CONTACT_EVT);
-@@ -717,11 +717,27 @@ static void tipc_node_link_down(struct tipc_node *n, int bearer_id, bool delete)
- 	tipc_sk_rcv(n->net, &le->inputq);
++	TIPC_SKB_CB(skb)->orig_member = m->instance;
+ 	__skb_queue_tail(inputq, skb);
+ 
+ 	m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
+@@ -388,6 +390,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
+ 			m->state = MBR_PUBLISHED;
+ 		else
+ 			m->state = MBR_JOINED;
++		m->instance = evt->found_lower;
+ 		tipc_group_proto_xmit(grp, m, GRP_JOIN_MSG, xmitq);
+ 	} else if (evt->event == TIPC_WITHDRAWN) {
+ 		if (!m)
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index dad4009..e438716 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -100,6 +100,7 @@ struct plist;
+ 
+ struct tipc_skb_cb {
+ 	u32 bytes_read;
++	u32 orig_member;
+ 	struct sk_buff *tail;
+ 	bool validated;
+ 	u16 chain_imp;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 64bbf9d..25ecf12 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -62,6 +62,11 @@ enum {
+ 	TIPC_CONNECTING = TCP_SYN_SENT,
+ };
+ 
++struct sockaddr_pair {
++	struct sockaddr_tipc sock;
++	struct sockaddr_tipc member;
++};
++
+ /**
+  * struct tipc_sock - TIPC socket structure
+  * @sk: socket - interacts with 'port' and with user via the socket API
+@@ -1222,26 +1227,38 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
  }
  
--static bool tipc_node_is_up(struct tipc_node *n)
-+static bool node_is_up(struct tipc_node *n)
- {
- 	return n->active_links[0] != INVALID_BEARER_ID;
- }
- 
-+bool tipc_node_is_up(struct net *net, u32 addr)
+ /**
+- * set_orig_addr - capture sender's address for received message
++ * tipc_sk_set_orig_addr - capture sender's address for received message
+  * @m: descriptor for message info
+- * @msg: received message header
++ * @hdr: received message header
+  *
+  * Note: Address is not captured if not requested by receiver.
+  */
+-static void set_orig_addr(struct msghdr *m, struct tipc_msg *msg)
+-{
+-	DECLARE_SOCKADDR(struct sockaddr_tipc *, addr, m->msg_name);
+-
+-	if (addr) {
+-		addr->family = AF_TIPC;
+-		addr->addrtype = TIPC_ADDR_ID;
+-		memset(&addr->addr, 0, sizeof(addr->addr));
+-		addr->addr.id.ref = msg_origport(msg);
+-		addr->addr.id.node = msg_orignode(msg);
+-		addr->addr.name.domain = 0;	/* could leave uninitialized */
+-		addr->scope = 0;		/* could leave uninitialized */
+-		m->msg_namelen = sizeof(struct sockaddr_tipc);
+-	}
++static void tipc_sk_set_orig_addr(struct msghdr *m, struct sk_buff *skb)
 +{
-+	struct tipc_node *n;
-+	bool retval = false;
++	DECLARE_SOCKADDR(struct sockaddr_pair *, srcaddr, m->msg_name);
++	struct tipc_msg *hdr = buf_msg(skb);
 +
-+	if (in_own_node(net, addr))
-+		return true;
++	if (!srcaddr)
++		return;
 +
-+	n = tipc_node_find(net, addr);
-+	if (!n)
-+		return false;
-+	retval = node_is_up(n);
-+	tipc_node_put(n);
-+	return retval;
-+}
++	srcaddr->sock.family = AF_TIPC;
++	srcaddr->sock.addrtype = TIPC_ADDR_ID;
++	srcaddr->sock.addr.id.ref = msg_origport(hdr);
++	srcaddr->sock.addr.id.node = msg_orignode(hdr);
++	srcaddr->sock.addr.name.domain = 0;
++	srcaddr->sock.scope = 0;
++	m->msg_namelen = sizeof(struct sockaddr_tipc);
 +
- void tipc_node_check_dest(struct net *net, u32 onode,
- 			  struct tipc_bearer *b,
- 			  u16 capabilities, u32 signature,
-@@ -1149,7 +1165,7 @@ static int __tipc_nl_add_node(struct tipc_nl_msg *msg, struct tipc_node *node)
++	if (!msg_in_group(hdr))
++		return;
++
++	/* Group message users may also want to know sending member's id */
++	srcaddr->member.family = AF_TIPC;
++	srcaddr->member.addrtype = TIPC_ADDR_NAME;
++	srcaddr->member.addr.name.name.type = msg_nametype(hdr);
++	srcaddr->member.addr.name.name.instance = TIPC_SKB_CB(skb)->orig_member;
++	srcaddr->member.addr.name.domain = 0;
++	m->msg_namelen = sizeof(*srcaddr);
+ }
  
- 	if (nla_put_u32(msg->skb, TIPC_NLA_NODE_ADDR, node->addr))
- 		goto attr_msg_full;
--	if (tipc_node_is_up(node))
-+	if (node_is_up(node))
- 		if (nla_put_flag(msg->skb, TIPC_NLA_NODE_UP))
- 			goto attr_msg_full;
+ /**
+@@ -1432,7 +1449,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
+ 	} while (1);
  
-@@ -1249,7 +1265,7 @@ void tipc_node_broadcast(struct net *net, struct sk_buff *skb)
- 		dst = n->addr;
- 		if (in_own_node(net, dst))
- 			continue;
--		if (!tipc_node_is_up(n))
-+		if (!node_is_up(n))
- 			continue;
- 		txskb = pskb_copy(skb, GFP_ATOMIC);
- 		if (!txskb)
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 898c229..8db59fe 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -76,6 +76,7 @@ void tipc_node_broadcast(struct net *net, struct sk_buff *skb);
- int tipc_node_add_conn(struct net *net, u32 dnode, u32 port, u32 peer_port);
- void tipc_node_remove_conn(struct net *net, u32 dnode, u32 port);
- int tipc_node_get_mtu(struct net *net, u32 addr, u32 sel);
-+bool tipc_node_is_up(struct net *net, u32 addr);
- u16 tipc_node_get_capabilities(struct net *net, u32 addr);
- int tipc_nl_node_dump(struct sk_buff *skb, struct netlink_callback *cb);
- int tipc_nl_node_dump_link(struct sk_buff *skb, struct netlink_callback *cb);
+ 	/* Collect msg meta data, including error code and rejected data */
+-	set_orig_addr(m, hdr);
++	tipc_sk_set_orig_addr(m, skb);
+ 	rc = tipc_sk_anc_data_recv(m, hdr, tsk);
+ 	if (unlikely(rc))
+ 		goto exit;
+@@ -1526,7 +1543,7 @@ static int tipc_recvstream(struct socket *sock, struct msghdr *m,
+ 
+ 		/* Collect msg meta data, incl. error code and rejected data */
+ 		if (!copied) {
+-			set_orig_addr(m, hdr);
++			tipc_sk_set_orig_addr(m, skb);
+ 			rc = tipc_sk_anc_data_recv(m, hdr, tsk);
+ 			if (rc)
+ 				break;
 -- 
 2.1.4
