@@ -1,44 +1,94 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [patch net-next 27/34] nfp: bpf: Convert ndo_setup_tc offloads
- to block callbacks
-Date: Thu, 12 Oct 2017 18:08:24 -0700
-Message-ID: <20171012180824.1e76eac1@cakuba.netronome.com>
-References: <20171012171823.1431-1-jiri@resnulli.us>
-        <20171012171823.1431-28-jiri@resnulli.us>
+From: AceLan Kao <acelan.kao@canonical.com>
+Subject: Re: [PATCH 2/6] ath9k: add a quirk to set use_msi automatically
+Date: Fri, 13 Oct 2017 09:12:49 +0800
+Message-ID: <CAFv23Q=dFRfxXQnY3pu_zV-yK9yaw-t3-Kn2q9YFFuyB9jJMog@mail.gmail.com>
+References: <1506408099-18488-1-git-send-email-acelan.kao@canonical.com>
+ <1506408099-18488-2-git-send-email-acelan.kao@canonical.com>
+ <20170926064456.GA28611@infradead.org> <CAFv23Qm9kZLSqJ_BP1D7mWCxekq0nt3S8onT1ckH-AoHDBUDzw@mail.gmail.com>
+ <20170926140413.GA19977@infradead.org> <878th14kde.fsf@kamboji.qca.qualcomm.com>
+ <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com>
+ <CAD8Lp46mdgbfCGY_i=N7FB1rMfL0KA0VFQxJESxshe4Cn6k4+Q@mail.gmail.com> <CAFv23QkLJ0m112Y8iAGv+6DyFT52Hqnxq5Fy=ryWTWxu8oTXdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:44733 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753303AbdJMBIc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 21:08:32 -0400
-Received: by mail-qt0-f180.google.com with SMTP id 8so16949999qtv.1
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 18:08:31 -0700 (PDT)
-In-Reply-To: <20171012171823.1431-28-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+        Christoph Hellwig <hch@infradead.org>,
+        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Daniel Drake <drake@endlessm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFv23QkLJ0m112Y8iAGv+6DyFT52Hqnxq5Fy=ryWTWxu8oTXdw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Oct 2017 19:18:16 +0200, Jiri Pirko wrote:
-> diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
-> index a88bb5b..9e9af88 100644
-> --- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
-> +++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
-> @@ -246,6 +246,10 @@ int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
->  	void *code;
->  	int err;
->  
-> +	if (cls_bpf->common.protocol != htons(ETH_P_ALL) ||
-> +	    cls_bpf->common.chain_index)
-> +		return -EOPNOTSUPP;
-> +
->  	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
->  
->  	switch (cls_bpf->command) {
+Hi Daniel,
 
-It is certainly very ugly but I send a fake struct tc_cls_bpf_offload
-here for XDP.  Refactoring this mess is pretty high on my priority list
-but one way or the other this function will be called from XDP so TC
-checks must stay in the TC handler... :(
+After applied the 2 commits you mentioned in the email, ath9k works.
+
+https://marc.info/?l=linux-wireless&m=150631274108016&w=2
+https://github.com/endlessm/linux/commit/739c7a924db8f4434a9617657
+
+Best regards,
+AceLan Kao.
+
+2017-10-05 14:39 GMT+08:00 AceLan Kao <acelan.kao@canonical.com>:
+> Hi all,
+>
+> Please drop my patches, Qualcomm is working internally and will submit
+> the MSI patch by themselves.
+> Thanks.
+>
+> Hi Daniel,
+>
+> I'll try your patches tomorrow.
+>
+> Best regards,
+> AceLan Kao.
+>
+> 2017-10-02 12:21 GMT+08:00 Daniel Drake <drake@endlessm.com>:
+>> Hi AceLan,
+>>
+>> On Thu, Sep 28, 2017 at 4:28 PM, AceLan Kao <acelan.kao@canonical.com> wrote:
+>>> Hi Daniel,
+>>>
+>>> I've tried your patch, but it doesn't work for me.
+>>> Wifi can scan AP, but can't get connected.
+>>
+>> Can you please clarify which patch(es) you have tried?
+>>
+>> This is the base patch which adds the infrastructure to request
+>> specific MSI IRQ vectors:
+>> https://marc.info/?l=linux-wireless&m=150631274108016&w=2
+>>
+>> This is the ath9k MSI patch which makes use of that:
+>> https://github.com/endlessm/linux/commit/739c7a924db8f4434a9617657
+>>
+>> If you were already able to use ath9k MSI interrupts without specific
+>> consideration for which MSI vector numbers were used, these are the
+>> possible explanations that spring to mind:
+>>
+>> 1. You got lucky and it picked a vector number that is 4-aligned. You
+>> can check this in the "lspci -vvv" output. You'll see something like:
+>> Capabilities: [50] MSI: Enable+ Count=1/4 Maskable+ 64bit+
+>>         Address: 00000000fee0300c  Data: 4142
+>> The lower number is the vector number. In my example here 0x42 (66) is
+>> not 4-aligned so the failure condition will be hit.
+>>
+>> 2. You are using interrupt remapping, which I suspect may provide a
+>> high likelihood of MSI interrupt vectors being 4-aligned. See if
+>> /proc/interrupts shows the IRQ type as IR-PCI-MSI
+>> Unfortunately interrupt remapping is not available here,
+>> https://lists.linuxfoundation.org/pipermail/iommu/2017-August/023717.html
+>>
+>> 3. My assumption that all ath9k hardware corrupts the MSI vector
+>> number could wrong. However we've seen this on different wifi modules
+>> in laptops produced by different OEMs and ODMs, so it seems to be a
+>> somewhat widespread problem at least.
+>>
+>> 4. My assumption that ath9k hardware is corrupting the MSI vector
+>> number could be wrong; maybe another component is to blame, could it
+>> be a BIOS issue? Admittedly I don't really know how I can debug the
+>> layers inbetween seeing the MSI Message Data value disagree with the
+>> vector number being handled inside do_IRQ().
+>>
+>> Daniel
