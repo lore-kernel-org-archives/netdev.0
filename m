@@ -1,54 +1,52 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [RFC] SIOCGSTAMP semantics
-Date: Fri, 13 Oct 2017 21:54:38 +0100
-Message-ID: <20171013205438.GJ21978@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Lucas Bates <lucasb@mojatatu.com>
+Subject: [PATCH net-next v2 0/4] tc-testing: Test suite updates
+Date: Fri, 13 Oct 2017 17:51:21 -0400
+Message-ID: <1507931485-1814-1-git-send-email-lucasb@mojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        jhs@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com,
+        Lucas Bates <lucasb@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:41596 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751186AbdJMUyk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 16:54:40 -0400
-Received: from viro by ZenIV.linux.org.uk with local (Exim 4.87 #1 (Red Hat Linux))
-        id 1e36yc-0005Ky-Un
-        for netdev@vger.kernel.org; Fri, 13 Oct 2017 20:54:39 +0000
-Content-Disposition: inline
+Received: from mail-io0-f195.google.com ([209.85.223.195]:55789 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751624AbdJMVvj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 17:51:39 -0400
+Received: by mail-io0-f195.google.com with SMTP id p186so4242223ioe.12
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 14:51:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	ioctl() in question
-1) fails with EOPNOTSUPP on
-	AF_ALG, AF_CAIF, AF_IUCV, AF_KEY, AF_NFC, AF_RXRPC, AF_VSOCK
-2) fails with ENOTTY on
-	AF_DECnet, AF_KCM, AF_LLC, AF_NETLINK, AF_PHONET, AF_PPPOX, AF_RDS,
-	AF_TIPC, AF_UNIX
-3) fails with EINVAL on
-	AF_ISDN
-4) sock_get_timestamp(sock->sk, arg)
-	AF_INET, AF_INET6, AF_CAN, AF_ROSE, AF_PACKET, AF_IEEE802154,
-	AF_ATMSVC, AF_ATMPVC, AF_APPLETALK
-5) sock_get_timestamp(sock->sk, arg) under lock_sock(sock->sk)
-	AF_AX25, AF_NETROM, AF_QRTR, AF_IPX
-6) sock_get_timestamp(sock->sk, arg) after checking that sock->sk != NULL
-	AF_X25, AF_IRDA
+This patch series is a roundup of changes to the tc-testing
+suite:
 
-AF_BLUETOOTH is sometimes (1), sometimes (2), sometimes (4).  Not sure about
-AF_SMC - sometimes it's (1), sometimes might be (4).
+ - Add test cases for police and mirred modules and some coverage
+   in already-submitted test categories
+ - Break the test case files down into more user-friendly sizes
+ - Bug fix to the tdc.py script's handling of the -l argument
 
-To make the things even less consistent, AF_CAN, AF_IPX and AF_QRTR lack
-SIOCGSTAMPNS; everything else has it parallel to SIOCGSTAMP with s/timestamp/&ns/.
+v2: fix the lack of final newlines in two new files (thanks David)
 
-Am I right assuming that (5) and (6) should be like (4)?  IOW, that
-lock_sock() is not needed for anyone and that sock->sk cannot be NULL on
-anything that could be fed to ioctl()?  If the last assumption is not true,
-we have a plenty of triggerable oopsen - other ioctls (handled on the top
-level) do _not_ check that and dereference sock->sk directly.  I've grepped
-around, and AFAICS NULL sock->sk on an opened socket should be impossible,
-but confirmation would be nice.
+Lucas Bates (4):
+  tc-testing: Add test cases for flushing actions
+  tc-testing: Split test case files into smaller chunks
+  tc-testing: Add test cases for police and skbmod
+  tc-testing: fix the -l argument bug in tdc.py
 
-Another question, of course, is whether anyone gives a damn about distinctions
-between (1), (2) and (3) *and* if anything bad would've happenend from having
-sock_get_timestamp() simply done to all sockets, right in net/socket.c.
-
-Comments?
+ .../tc-testing/tc-tests/actions/gact.json          |  469 ++++++++
+ .../selftests/tc-testing/tc-tests/actions/ife.json |   52 +
+ .../tc-testing/tc-tests/actions/mirred.json        |  223 ++++
+ .../tc-testing/tc-tests/actions/police.json        |  527 +++++++++
+ .../tc-testing/tc-tests/actions/simple.json        |  130 +++
+ .../tc-testing/tc-tests/actions/skbedit.json       |  320 ++++++
+ .../tc-testing/tc-tests/actions/skbmod.json        |  372 +++++++
+ .../tc-testing/tc-tests/actions/tests.json         | 1165 --------------------
+ tools/testing/selftests/tc-testing/tdc.py          |    8 +-
+ 9 files changed, 2097 insertions(+), 1169 deletions(-)
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/gact.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/ife.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/mirred.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/police.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/simple.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/skbedit.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/skbmod.json
+ delete mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
