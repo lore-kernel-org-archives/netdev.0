@@ -1,24 +1,22 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next v2 7/8] cxgb4: collect hardware module dumps
-Date: Fri, 13 Oct 2017 18:48:19 +0530
-Message-ID: <8e473937989dd372b5ccfcd8429f8205e49d61fa.1507899723.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next v2 8/8] cxgb4: collect IBQ and OBQ dumps
+Date: Fri, 13 Oct 2017 18:48:20 +0530
+Message-ID: <8dba37ef13f4ece6c89199f744a93885b633179b.1507899723.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:56308 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:23429 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757969AbdJMNTr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 09:19:47 -0400
+        with ESMTP id S1758171AbdJMNTt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 09:19:49 -0400
 In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-Collect SGE, PCIE, PM, UP CIM, MA and HMA dumps.
 
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
@@ -26,505 +24,328 @@ Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 v2:
 - Prefix symbols in cudbg_* files with cudbg_
 
- drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  74 ++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |   6 +
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 289 ++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  18 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  35 +++
- 5 files changed, 422 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h    |  14 ++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c   | 165 +++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h   |  42 ++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c |  32 +++++
+ 4 files changed, 253 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-index a7446fd09366..d7f3392f618f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-@@ -104,4 +104,78 @@ static const u32 t5_tp_mib_index_array[9][IREG_NUM_ELEM] = {
- 	{0x7e50, 0x7e54, 0x60, 6},
- 	{0x7e50, 0x7e54, 0x68, 4}
- };
-+
-+static const u32 t5_sge_dbg_index_array[2][IREG_NUM_ELEM] = {
-+	{0x10cc, 0x10d0, 0x0, 16},
-+	{0x10cc, 0x10d4, 0x0, 16},
-+};
-+
-+static const u32 t5_pcie_pdbg_array[][IREG_NUM_ELEM] = {
-+	{0x5a04, 0x5a0c, 0x00, 0x20}, /* t5_pcie_pdbg_regs_00_to_20 */
-+	{0x5a04, 0x5a0c, 0x21, 0x20}, /* t5_pcie_pdbg_regs_21_to_40 */
-+	{0x5a04, 0x5a0c, 0x41, 0x10}, /* t5_pcie_pdbg_regs_41_to_50 */
-+};
-+
-+static const u32 t5_pcie_cdbg_array[][IREG_NUM_ELEM] = {
-+	{0x5a10, 0x5a18, 0x00, 0x20}, /* t5_pcie_cdbg_regs_00_to_20 */
-+	{0x5a10, 0x5a18, 0x21, 0x18}, /* t5_pcie_cdbg_regs_21_to_37 */
-+};
-+
-+static const u32 t5_pm_rx_array[][IREG_NUM_ELEM] = {
-+	{0x8FD0, 0x8FD4, 0x10000, 0x20}, /* t5_pm_rx_regs_10000_to_10020 */
-+	{0x8FD0, 0x8FD4, 0x10021, 0x0D}, /* t5_pm_rx_regs_10021_to_1002c */
-+};
-+
-+static const u32 t5_pm_tx_array[][IREG_NUM_ELEM] = {
-+	{0x8FF0, 0x8FF4, 0x10000, 0x20}, /* t5_pm_tx_regs_10000_to_10020 */
-+	{0x8FF0, 0x8FF4, 0x10021, 0x1D}, /* t5_pm_tx_regs_10021_to_1003c */
-+};
-+
-+static const u32 t6_ma_ireg_array[][IREG_NUM_ELEM] = {
-+	{0x78f8, 0x78fc, 0xa000, 23}, /* t6_ma_regs_a000_to_a016 */
-+	{0x78f8, 0x78fc, 0xa400, 30}, /* t6_ma_regs_a400_to_a41e */
-+	{0x78f8, 0x78fc, 0xa800, 20} /* t6_ma_regs_a800_to_a813 */
-+};
-+
-+static const u32 t6_ma_ireg_array2[][IREG_NUM_ELEM] = {
-+	{0x78f8, 0x78fc, 0xe400, 17}, /* t6_ma_regs_e400_to_e600 */
-+	{0x78f8, 0x78fc, 0xe640, 13} /* t6_ma_regs_e640_to_e7c0 */
-+};
-+
-+static const u32 t6_up_cim_reg_array[][IREG_NUM_ELEM] = {
-+	{0x7b50, 0x7b54, 0x2000, 0x20}, /* up_cim_2000_to_207c */
-+	{0x7b50, 0x7b54, 0x2080, 0x1d}, /* up_cim_2080_to_20fc */
-+	{0x7b50, 0x7b54, 0x00, 0x20}, /* up_cim_00_to_7c */
-+	{0x7b50, 0x7b54, 0x80, 0x20}, /* up_cim_80_to_fc */
-+	{0x7b50, 0x7b54, 0x100, 0x11}, /* up_cim_100_to_14c */
-+	{0x7b50, 0x7b54, 0x200, 0x10}, /* up_cim_200_to_23c */
-+	{0x7b50, 0x7b54, 0x240, 0x2}, /* up_cim_240_to_244 */
-+	{0x7b50, 0x7b54, 0x250, 0x2}, /* up_cim_250_to_254 */
-+	{0x7b50, 0x7b54, 0x260, 0x2}, /* up_cim_260_to_264 */
-+	{0x7b50, 0x7b54, 0x270, 0x2}, /* up_cim_270_to_274 */
-+	{0x7b50, 0x7b54, 0x280, 0x20}, /* up_cim_280_to_2fc */
-+	{0x7b50, 0x7b54, 0x300, 0x20}, /* up_cim_300_to_37c */
-+	{0x7b50, 0x7b54, 0x380, 0x14}, /* up_cim_380_to_3cc */
-+
-+};
-+
-+static const u32 t5_up_cim_reg_array[][IREG_NUM_ELEM] = {
-+	{0x7b50, 0x7b54, 0x2000, 0x20}, /* up_cim_2000_to_207c */
-+	{0x7b50, 0x7b54, 0x2080, 0x19}, /* up_cim_2080_to_20ec */
-+	{0x7b50, 0x7b54, 0x00, 0x20}, /* up_cim_00_to_7c */
-+	{0x7b50, 0x7b54, 0x80, 0x20}, /* up_cim_80_to_fc */
-+	{0x7b50, 0x7b54, 0x100, 0x11}, /* up_cim_100_to_14c */
-+	{0x7b50, 0x7b54, 0x200, 0x10}, /* up_cim_200_to_23c */
-+	{0x7b50, 0x7b54, 0x240, 0x2}, /* up_cim_240_to_244 */
-+	{0x7b50, 0x7b54, 0x250, 0x2}, /* up_cim_250_to_254 */
-+	{0x7b50, 0x7b54, 0x260, 0x2}, /* up_cim_260_to_264 */
-+	{0x7b50, 0x7b54, 0x270, 0x2}, /* up_cim_270_to_274 */
-+	{0x7b50, 0x7b54, 0x280, 0x20}, /* up_cim_280_to_2fc */
-+	{0x7b50, 0x7b54, 0x300, 0x20}, /* up_cim_300_to_37c */
-+	{0x7b50, 0x7b54, 0x380, 0x14}, /* up_cim_380_to_3cc */
-+};
-+
-+static const u32 t6_hma_ireg_array[][IREG_NUM_ELEM] = {
-+	{0x51320, 0x51324, 0xa000, 32} /* t6_hma_regs_a000_to_a01f */
-+};
- #endif /* __CUDBG_ENTITY_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index 53ea447c9103..01d282081b2d 100644
+index 01d282081b2d..9b8005e67811 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -32,7 +32,13 @@ enum cudbg_dbg_entity_type {
+@@ -29,10 +29,24 @@
+ enum cudbg_dbg_entity_type {
+ 	CUDBG_REG_DUMP = 1,
+ 	CUDBG_DEV_LOG = 2,
++	CUDBG_CIM_IBQ_TP0 = 6,
++	CUDBG_CIM_IBQ_TP1 = 7,
++	CUDBG_CIM_IBQ_ULP = 8,
++	CUDBG_CIM_IBQ_SGE0 = 9,
++	CUDBG_CIM_IBQ_SGE1 = 10,
++	CUDBG_CIM_IBQ_NCSI = 11,
++	CUDBG_CIM_OBQ_ULP0 = 12,
++	CUDBG_CIM_OBQ_ULP1 = 13,
++	CUDBG_CIM_OBQ_ULP2 = 14,
++	CUDBG_CIM_OBQ_ULP3 = 15,
++	CUDBG_CIM_OBQ_SGE = 16,
++	CUDBG_CIM_OBQ_NCSI = 17,
  	CUDBG_EDC0 = 18,
  	CUDBG_EDC1 = 19,
  	CUDBG_TP_INDIRECT = 36,
-+	CUDBG_SGE_INDIRECT = 37,
-+	CUDBG_PCIE_INDIRECT = 50,
-+	CUDBG_PM_INDIRECT = 51,
-+	CUDBG_MA_INDIRECT = 61,
-+	CUDBG_UP_CIM_INDIRECT = 64,
- 	CUDBG_MBOX_LOG = 66,
-+	CUDBG_HMA_INDIRECT = 67,
- 	CUDBG_MAX_ENTITY = 70,
- };
- 
+ 	CUDBG_SGE_INDIRECT = 37,
++	CUDBG_CIM_OBQ_RXQ0 = 47,
++	CUDBG_CIM_OBQ_RXQ1 = 48,
+ 	CUDBG_PCIE_INDIRECT = 50,
+ 	CUDBG_PM_INDIRECT = 51,
+ 	CUDBG_MA_INDIRECT = 61,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-index 6efa1de3723c..0149f1ca9f51 100644
+index 0149f1ca9f51..c451b2e42a6c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -367,6 +367,258 @@ int cudbg_collect_tp_indirect(struct cudbg_init *pdbg_init,
+@@ -129,6 +129,171 @@ int cudbg_collect_fw_devlog(struct cudbg_init *pdbg_init,
  	return rc;
  }
  
-+int cudbg_collect_sge_indirect(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err)
++static int cudbg_read_cim_ibq(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err, int qid)
 +{
 +	struct adapter *padap = pdbg_init->adap;
 +	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_sge_dbg;
-+	int i, rc;
++	int no_of_read_words, rc = 0;
++	u32 qsize;
 +
-+	rc = cudbg_get_buff(dbg_buff, sizeof(*ch_sge_dbg) * 2, &temp_buff);
++	/* collect CIM IBQ */
++	qsize = CIM_IBQ_SIZE * 4 * sizeof(u32);
++	rc = cudbg_get_buff(dbg_buff, qsize, &temp_buff);
 +	if (rc)
 +		return rc;
 +
-+	ch_sge_dbg = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < 2; i++) {
-+		struct ireg_field *sge_pio = &ch_sge_dbg->tp_pio;
-+		u32 *buff = ch_sge_dbg->outbuf;
-+
-+		sge_pio->ireg_addr = t5_sge_dbg_index_array[i][0];
-+		sge_pio->ireg_data = t5_sge_dbg_index_array[i][1];
-+		sge_pio->ireg_local_offset = t5_sge_dbg_index_array[i][2];
-+		sge_pio->ireg_offset_range = t5_sge_dbg_index_array[i][3];
-+		t4_read_indirect(padap,
-+				 sge_pio->ireg_addr,
-+				 sge_pio->ireg_data,
-+				 buff,
-+				 sge_pio->ireg_offset_range,
-+				 sge_pio->ireg_local_offset);
-+		ch_sge_dbg++;
++	/* t4_read_cim_ibq will return no. of read words or error */
++	no_of_read_words = t4_read_cim_ibq(padap, qid,
++					   (u32 *)((u32 *)temp_buff.data +
++					   temp_buff.offset), qsize);
++	/* no_of_read_words is less than or equal to 0 means error */
++	if (no_of_read_words <= 0) {
++		if (!no_of_read_words)
++			rc = CUDBG_SYSTEM_ERROR;
++		else
++			rc = no_of_read_words;
++		cudbg_err->sys_err = rc;
++		cudbg_put_buff(&temp_buff, dbg_buff);
++		return rc;
 +	}
 +	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
 +	return rc;
 +}
 +
-+int cudbg_collect_pcie_indirect(struct cudbg_init *pdbg_init,
++int cudbg_collect_cim_ibq_tp0(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_ibq(pdbg_init, dbg_buff, cudbg_err, 0);
++}
++
++int cudbg_collect_cim_ibq_tp1(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_ibq(pdbg_init, dbg_buff, cudbg_err, 1);
++}
++
++int cudbg_collect_cim_ibq_ulp(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_ibq(pdbg_init, dbg_buff, cudbg_err, 2);
++}
++
++int cudbg_collect_cim_ibq_sge0(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_ibq(pdbg_init, dbg_buff, cudbg_err, 3);
++}
++
++int cudbg_collect_cim_ibq_sge1(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_ibq(pdbg_init, dbg_buff, cudbg_err, 4);
++}
++
++int cudbg_collect_cim_ibq_ncsi(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_ibq(pdbg_init, dbg_buff, cudbg_err, 5);
++}
++
++static int cudbg_read_cim_obq(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err, int qid)
++{
++	struct adapter *padap = pdbg_init->adap;
++	struct cudbg_buffer temp_buff = { 0 };
++	int no_of_read_words, rc = 0;
++	u32 qsize;
++
++	/* collect CIM OBQ */
++	qsize =  6 * CIM_OBQ_SIZE * 4 *  sizeof(u32);
++	rc = cudbg_get_buff(dbg_buff, qsize, &temp_buff);
++	if (rc)
++		return rc;
++
++	/* t4_read_cim_obq will return no. of read words or error */
++	no_of_read_words = t4_read_cim_obq(padap, qid,
++					   (u32 *)((u32 *)temp_buff.data +
++					   temp_buff.offset), qsize);
++	/* no_of_read_words is less than or equal to 0 means error */
++	if (no_of_read_words <= 0) {
++		if (!no_of_read_words)
++			rc = CUDBG_SYSTEM_ERROR;
++		else
++			rc = no_of_read_words;
++		cudbg_err->sys_err = rc;
++		cudbg_put_buff(&temp_buff, dbg_buff);
++		return rc;
++	}
++	temp_buff.size = no_of_read_words * 4;
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
++	return rc;
++}
++
++int cudbg_collect_cim_obq_ulp0(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 0);
++}
++
++int cudbg_collect_cim_obq_ulp1(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 1);
++}
++
++int cudbg_collect_cim_obq_ulp2(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 2);
++}
++
++int cudbg_collect_cim_obq_ulp3(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 3);
++}
++
++int cudbg_collect_cim_obq_sge(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 4);
++}
++
++int cudbg_collect_cim_obq_ncsi(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err)
++{
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 5);
++}
++
++int cudbg_collect_obq_sge_rx_q0(struct cudbg_init *pdbg_init,
 +				struct cudbg_buffer *dbg_buff,
 +				struct cudbg_error *cudbg_err)
 +{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_pcie;
-+	int i, rc, n;
-+	u32 size;
-+
-+	n = sizeof(t5_pcie_pdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n * 2;
-+	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ch_pcie = (struct ireg_buf *)temp_buff.data;
-+	/* PCIE_PDBG */
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pcie_pio = &ch_pcie->tp_pio;
-+		u32 *buff = ch_pcie->outbuf;
-+
-+		pcie_pio->ireg_addr = t5_pcie_pdbg_array[i][0];
-+		pcie_pio->ireg_data = t5_pcie_pdbg_array[i][1];
-+		pcie_pio->ireg_local_offset = t5_pcie_pdbg_array[i][2];
-+		pcie_pio->ireg_offset_range = t5_pcie_pdbg_array[i][3];
-+		t4_read_indirect(padap,
-+				 pcie_pio->ireg_addr,
-+				 pcie_pio->ireg_data,
-+				 buff,
-+				 pcie_pio->ireg_offset_range,
-+				 pcie_pio->ireg_local_offset);
-+		ch_pcie++;
-+	}
-+
-+	/* PCIE_CDBG */
-+	n = sizeof(t5_pcie_cdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pcie_pio = &ch_pcie->tp_pio;
-+		u32 *buff = ch_pcie->outbuf;
-+
-+		pcie_pio->ireg_addr = t5_pcie_cdbg_array[i][0];
-+		pcie_pio->ireg_data = t5_pcie_cdbg_array[i][1];
-+		pcie_pio->ireg_local_offset = t5_pcie_cdbg_array[i][2];
-+		pcie_pio->ireg_offset_range = t5_pcie_cdbg_array[i][3];
-+		t4_read_indirect(padap,
-+				 pcie_pio->ireg_addr,
-+				 pcie_pio->ireg_data,
-+				 buff,
-+				 pcie_pio->ireg_offset_range,
-+				 pcie_pio->ireg_local_offset);
-+		ch_pcie++;
-+	}
-+	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 6);
 +}
 +
-+int cudbg_collect_pm_indirect(struct cudbg_init *pdbg_init,
-+			      struct cudbg_buffer *dbg_buff,
-+			      struct cudbg_error *cudbg_err)
++int cudbg_collect_obq_sge_rx_q1(struct cudbg_init *pdbg_init,
++				struct cudbg_buffer *dbg_buff,
++				struct cudbg_error *cudbg_err)
 +{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ch_pm;
-+	int i, rc, n;
-+	u32 size;
-+
-+	n = sizeof(t5_pm_rx_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n * 2;
-+	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ch_pm = (struct ireg_buf *)temp_buff.data;
-+	/* PM_RX */
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pm_pio = &ch_pm->tp_pio;
-+		u32 *buff = ch_pm->outbuf;
-+
-+		pm_pio->ireg_addr = t5_pm_rx_array[i][0];
-+		pm_pio->ireg_data = t5_pm_rx_array[i][1];
-+		pm_pio->ireg_local_offset = t5_pm_rx_array[i][2];
-+		pm_pio->ireg_offset_range = t5_pm_rx_array[i][3];
-+		t4_read_indirect(padap,
-+				 pm_pio->ireg_addr,
-+				 pm_pio->ireg_data,
-+				 buff,
-+				 pm_pio->ireg_offset_range,
-+				 pm_pio->ireg_local_offset);
-+		ch_pm++;
-+	}
-+
-+	/* PM_TX */
-+	n = sizeof(t5_pm_tx_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *pm_pio = &ch_pm->tp_pio;
-+		u32 *buff = ch_pm->outbuf;
-+
-+		pm_pio->ireg_addr = t5_pm_tx_array[i][0];
-+		pm_pio->ireg_data = t5_pm_tx_array[i][1];
-+		pm_pio->ireg_local_offset = t5_pm_tx_array[i][2];
-+		pm_pio->ireg_offset_range = t5_pm_tx_array[i][3];
-+		t4_read_indirect(padap,
-+				 pm_pio->ireg_addr,
-+				 pm_pio->ireg_data,
-+				 buff,
-+				 pm_pio->ireg_offset_range,
-+				 pm_pio->ireg_local_offset);
-+		ch_pm++;
-+	}
-+	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
++	return cudbg_read_cim_obq(pdbg_init, dbg_buff, cudbg_err, 7);
 +}
 +
-+int cudbg_collect_ma_indirect(struct cudbg_init *pdbg_init,
-+			      struct cudbg_buffer *dbg_buff,
-+			      struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *ma_indr;
-+	int i, rc, n;
-+	u32 size, j;
-+
-+	if (CHELSIO_CHIP_VERSION(padap->params.chip) < CHELSIO_T6)
-+		return CUDBG_STATUS_ENTITY_NOT_FOUND;
-+
-+	n = sizeof(t6_ma_ireg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n * 2;
-+	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	ma_indr = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *ma_fli = &ma_indr->tp_pio;
-+		u32 *buff = ma_indr->outbuf;
-+
-+		ma_fli->ireg_addr = t6_ma_ireg_array[i][0];
-+		ma_fli->ireg_data = t6_ma_ireg_array[i][1];
-+		ma_fli->ireg_local_offset = t6_ma_ireg_array[i][2];
-+		ma_fli->ireg_offset_range = t6_ma_ireg_array[i][3];
-+		t4_read_indirect(padap, ma_fli->ireg_addr, ma_fli->ireg_data,
-+				 buff, ma_fli->ireg_offset_range,
-+				 ma_fli->ireg_local_offset);
-+		ma_indr++;
-+	}
-+
-+	n = sizeof(t6_ma_ireg_array2) / (IREG_NUM_ELEM * sizeof(u32));
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *ma_fli = &ma_indr->tp_pio;
-+		u32 *buff = ma_indr->outbuf;
-+
-+		ma_fli->ireg_addr = t6_ma_ireg_array2[i][0];
-+		ma_fli->ireg_data = t6_ma_ireg_array2[i][1];
-+		ma_fli->ireg_local_offset = t6_ma_ireg_array2[i][2];
-+		for (j = 0; j < t6_ma_ireg_array2[i][3]; j++) {
-+			t4_read_indirect(padap, ma_fli->ireg_addr,
-+					 ma_fli->ireg_data, buff, 1,
-+					 ma_fli->ireg_local_offset);
-+			buff++;
-+			ma_fli->ireg_local_offset += 0x20;
-+		}
-+		ma_indr++;
-+	}
-+	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
-+int cudbg_collect_up_cim_indirect(struct cudbg_init *pdbg_init,
-+				  struct cudbg_buffer *dbg_buff,
-+				  struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *up_cim;
-+	int i, rc, n;
-+	u32 size;
-+
-+	n = sizeof(t5_up_cim_reg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n;
-+	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	up_cim = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *up_cim_reg = &up_cim->tp_pio;
-+		u32 *buff = up_cim->outbuf;
-+
-+		if (is_t5(padap->params.chip)) {
-+			up_cim_reg->ireg_addr = t5_up_cim_reg_array[i][0];
-+			up_cim_reg->ireg_data = t5_up_cim_reg_array[i][1];
-+			up_cim_reg->ireg_local_offset =
-+						t5_up_cim_reg_array[i][2];
-+			up_cim_reg->ireg_offset_range =
-+						t5_up_cim_reg_array[i][3];
-+		} else if (is_t6(padap->params.chip)) {
-+			up_cim_reg->ireg_addr = t6_up_cim_reg_array[i][0];
-+			up_cim_reg->ireg_data = t6_up_cim_reg_array[i][1];
-+			up_cim_reg->ireg_local_offset =
-+						t6_up_cim_reg_array[i][2];
-+			up_cim_reg->ireg_offset_range =
-+						t6_up_cim_reg_array[i][3];
-+		}
-+
-+		rc = t4_cim_read(padap, up_cim_reg->ireg_local_offset,
-+				 up_cim_reg->ireg_offset_range, buff);
-+		if (rc) {
-+			cudbg_put_buff(&temp_buff, dbg_buff);
-+			return rc;
-+		}
-+		up_cim++;
-+	}
-+	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
-+
- int cudbg_collect_mbox_log(struct cudbg_init *pdbg_init,
- 			   struct cudbg_buffer *dbg_buff,
- 			   struct cudbg_error *cudbg_err)
-@@ -411,3 +663,40 @@ int cudbg_collect_mbox_log(struct cudbg_init *pdbg_init,
- 	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
- 	return rc;
- }
-+
-+int cudbg_collect_hma_indirect(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	struct cudbg_buffer temp_buff = { 0 };
-+	struct ireg_buf *hma_indr;
-+	int i, rc, n;
-+	u32 size;
-+
-+	if (CHELSIO_CHIP_VERSION(padap->params.chip) < CHELSIO_T6)
-+		return CUDBG_STATUS_ENTITY_NOT_FOUND;
-+
-+	n = sizeof(t6_hma_ireg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+	size = sizeof(struct ireg_buf) * n;
-+	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
-+	if (rc)
-+		return rc;
-+
-+	hma_indr = (struct ireg_buf *)temp_buff.data;
-+	for (i = 0; i < n; i++) {
-+		struct ireg_field *hma_fli = &hma_indr->tp_pio;
-+		u32 *buff = hma_indr->outbuf;
-+
-+		hma_fli->ireg_addr = t6_hma_ireg_array[i][0];
-+		hma_fli->ireg_data = t6_hma_ireg_array[i][1];
-+		hma_fli->ireg_local_offset = t6_hma_ireg_array[i][2];
-+		hma_fli->ireg_offset_range = t6_hma_ireg_array[i][3];
-+		t4_read_indirect(padap, hma_fli->ireg_addr, hma_fli->ireg_data,
-+				 buff, hma_fli->ireg_offset_range,
-+				 hma_fli->ireg_local_offset);
-+		hma_indr++;
-+	}
-+	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
-+	return rc;
-+}
+ static int cudbg_read_fw_mem(struct cudbg_init *pdbg_init,
+ 			     struct cudbg_buffer *dbg_buff, u8 mem_type,
+ 			     unsigned long tot_len,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-index 7a927ec71a5f..4838d823750f 100644
+index 4838d823750f..c4440c1d0142 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -33,9 +33,27 @@ int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
- int cudbg_collect_tp_indirect(struct cudbg_init *pdbg_init,
- 			      struct cudbg_buffer *dbg_buff,
- 			      struct cudbg_error *cudbg_err);
-+int cudbg_collect_sge_indirect(struct cudbg_init *pdbg_init,
+@@ -24,6 +24,42 @@ int cudbg_collect_reg_dump(struct cudbg_init *pdbg_init,
+ int cudbg_collect_fw_devlog(struct cudbg_init *pdbg_init,
+ 			    struct cudbg_buffer *dbg_buff,
+ 			    struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_ibq_tp0(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_ibq_tp1(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_ibq_ulp(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_ibq_sge0(struct cudbg_init *pdbg_init,
 +			       struct cudbg_buffer *dbg_buff,
 +			       struct cudbg_error *cudbg_err);
-+int cudbg_collect_pcie_indirect(struct cudbg_init *pdbg_init,
++int cudbg_collect_cim_ibq_sge1(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_ibq_ncsi(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_obq_ulp0(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_obq_ulp1(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_obq_ulp2(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_obq_ulp3(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_obq_sge(struct cudbg_init *pdbg_init,
++			      struct cudbg_buffer *dbg_buff,
++			      struct cudbg_error *cudbg_err);
++int cudbg_collect_cim_obq_ncsi(struct cudbg_init *pdbg_init,
++			       struct cudbg_buffer *dbg_buff,
++			       struct cudbg_error *cudbg_err);
+ int cudbg_collect_edc0_meminfo(struct cudbg_init *pdbg_init,
+ 			       struct cudbg_buffer *dbg_buff,
+ 			       struct cudbg_error *cudbg_err);
+@@ -36,6 +72,12 @@ int cudbg_collect_tp_indirect(struct cudbg_init *pdbg_init,
+ int cudbg_collect_sge_indirect(struct cudbg_init *pdbg_init,
+ 			       struct cudbg_buffer *dbg_buff,
+ 			       struct cudbg_error *cudbg_err);
++int cudbg_collect_obq_sge_rx_q0(struct cudbg_init *pdbg_init,
 +				struct cudbg_buffer *dbg_buff,
 +				struct cudbg_error *cudbg_err);
-+int cudbg_collect_pm_indirect(struct cudbg_init *pdbg_init,
-+			      struct cudbg_buffer *dbg_buff,
-+			      struct cudbg_error *cudbg_err);
-+int cudbg_collect_ma_indirect(struct cudbg_init *pdbg_init,
-+			      struct cudbg_buffer *dbg_buff,
-+			      struct cudbg_error *cudbg_err);
-+int cudbg_collect_up_cim_indirect(struct cudbg_init *pdbg_init,
-+				  struct cudbg_buffer *dbg_buff,
-+				  struct cudbg_error *cudbg_err);
- int cudbg_collect_mbox_log(struct cudbg_init *pdbg_init,
- 			   struct cudbg_buffer *dbg_buff,
- 			   struct cudbg_error *cudbg_err);
-+int cudbg_collect_hma_indirect(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err);
- 
- struct cudbg_entity_hdr *cudbg_get_entity_hdr(void *outbuf, int i);
- void cudbg_align_debug_buffer(struct cudbg_buffer *dbg_buff,
++int cudbg_collect_obq_sge_rx_q1(struct cudbg_init *pdbg_init,
++				struct cudbg_buffer *dbg_buff,
++				struct cudbg_error *cudbg_err);
+ int cudbg_collect_pcie_indirect(struct cudbg_init *pdbg_init,
+ 				struct cudbg_buffer *dbg_buff,
+ 				struct cudbg_error *cudbg_err);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index 7dfee6adc51e..1f6d800dd1be 100644
+index 1f6d800dd1be..9d97080a9d17 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -30,6 +30,12 @@ static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
+@@ -29,8 +29,22 @@ static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
+ 	{ CUDBG_MBOX_LOG, cudbg_collect_mbox_log },
  	{ CUDBG_DEV_LOG, cudbg_collect_fw_devlog },
  	{ CUDBG_REG_DUMP, cudbg_collect_reg_dump },
++	{ CUDBG_CIM_IBQ_TP0, cudbg_collect_cim_ibq_tp0 },
++	{ CUDBG_CIM_IBQ_TP1, cudbg_collect_cim_ibq_tp1 },
++	{ CUDBG_CIM_IBQ_ULP, cudbg_collect_cim_ibq_ulp },
++	{ CUDBG_CIM_IBQ_SGE0, cudbg_collect_cim_ibq_sge0 },
++	{ CUDBG_CIM_IBQ_SGE1, cudbg_collect_cim_ibq_sge1 },
++	{ CUDBG_CIM_IBQ_NCSI, cudbg_collect_cim_ibq_ncsi },
++	{ CUDBG_CIM_OBQ_ULP0, cudbg_collect_cim_obq_ulp0 },
++	{ CUDBG_CIM_OBQ_ULP1, cudbg_collect_cim_obq_ulp1 },
++	{ CUDBG_CIM_OBQ_ULP2, cudbg_collect_cim_obq_ulp2 },
++	{ CUDBG_CIM_OBQ_ULP3, cudbg_collect_cim_obq_ulp3 },
++	{ CUDBG_CIM_OBQ_SGE, cudbg_collect_cim_obq_sge },
++	{ CUDBG_CIM_OBQ_NCSI, cudbg_collect_cim_obq_ncsi },
  	{ CUDBG_TP_INDIRECT, cudbg_collect_tp_indirect },
-+	{ CUDBG_SGE_INDIRECT, cudbg_collect_sge_indirect },
-+	{ CUDBG_PCIE_INDIRECT, cudbg_collect_pcie_indirect },
-+	{ CUDBG_PM_INDIRECT, cudbg_collect_pm_indirect },
-+	{ CUDBG_MA_INDIRECT, cudbg_collect_ma_indirect },
-+	{ CUDBG_UP_CIM_INDIRECT, cudbg_collect_up_cim_indirect },
-+	{ CUDBG_HMA_INDIRECT, cudbg_collect_hma_indirect },
- };
- 
- static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
-@@ -87,9 +93,38 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
- 		n = n / (IREG_NUM_ELEM * sizeof(u32));
- 		len = sizeof(struct ireg_buf) * n;
+ 	{ CUDBG_SGE_INDIRECT, cudbg_collect_sge_indirect },
++	{ CUDBG_CIM_OBQ_RXQ0, cudbg_collect_obq_sge_rx_q0 },
++	{ CUDBG_CIM_OBQ_RXQ1, cudbg_collect_obq_sge_rx_q1 },
+ 	{ CUDBG_PCIE_INDIRECT, cudbg_collect_pcie_indirect },
+ 	{ CUDBG_PM_INDIRECT, cudbg_collect_pm_indirect },
+ 	{ CUDBG_MA_INDIRECT, cudbg_collect_ma_indirect },
+@@ -59,6 +73,24 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 	case CUDBG_DEV_LOG:
+ 		len = adap->params.devlog.size;
  		break;
-+	case CUDBG_SGE_INDIRECT:
-+		len = sizeof(struct ireg_buf) * 2;
++	case CUDBG_CIM_IBQ_TP0:
++	case CUDBG_CIM_IBQ_TP1:
++	case CUDBG_CIM_IBQ_ULP:
++	case CUDBG_CIM_IBQ_SGE0:
++	case CUDBG_CIM_IBQ_SGE1:
++	case CUDBG_CIM_IBQ_NCSI:
++		len = CIM_IBQ_SIZE * 4 * sizeof(u32);
 +		break;
-+	case CUDBG_PCIE_INDIRECT:
-+		n = sizeof(t5_pcie_pdbg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n * 2;
++	case CUDBG_CIM_OBQ_ULP0:
++	case CUDBG_CIM_OBQ_ULP1:
++	case CUDBG_CIM_OBQ_ULP2:
++	case CUDBG_CIM_OBQ_ULP3:
++	case CUDBG_CIM_OBQ_SGE:
++	case CUDBG_CIM_OBQ_NCSI:
++	case CUDBG_CIM_OBQ_RXQ0:
++	case CUDBG_CIM_OBQ_RXQ1:
++		len = 6 * CIM_OBQ_SIZE * 4 * sizeof(u32);
 +		break;
-+	case CUDBG_PM_INDIRECT:
-+		n = sizeof(t5_pm_rx_array) / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n * 2;
-+		break;
-+	case CUDBG_MA_INDIRECT:
-+		if (CHELSIO_CHIP_VERSION(adap->params.chip) > CHELSIO_T5) {
-+			n = sizeof(t6_ma_ireg_array) /
-+			    (IREG_NUM_ELEM * sizeof(u32));
-+			len = sizeof(struct ireg_buf) * n * 2;
-+		}
-+		break;
-+	case CUDBG_UP_CIM_INDIRECT:
-+		n = sizeof(t5_up_cim_reg_array) / (IREG_NUM_ELEM * sizeof(u32));
-+		len = sizeof(struct ireg_buf) * n;
-+		break;
- 	case CUDBG_MBOX_LOG:
- 		len = sizeof(struct cudbg_mbox_log) * adap->mbox_log->size;
- 		break;
-+	case CUDBG_HMA_INDIRECT:
-+		if (CHELSIO_CHIP_VERSION(adap->params.chip) > CHELSIO_T5) {
-+			n = sizeof(t6_hma_ireg_array) /
-+			    (IREG_NUM_ELEM * sizeof(u32));
-+			len = sizeof(struct ireg_buf) * n;
-+		}
-+		break;
- 	default:
- 		break;
- 	}
+ 	case CUDBG_EDC0:
+ 		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
+ 		if (value & EDRAM0_ENABLE_F) {
 -- 
 2.14.1
