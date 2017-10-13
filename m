@@ -1,49 +1,45 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH] tests: Remove bashisms (s/source/.)
-Date: Fri, 13 Oct 2017 17:55:45 +0000
-Message-ID: <C7ED1FFD-C1B2-4543-9DBD-B633E7D0AA30@intel.com>
-References: <20171008143916.21813-1-petr.vorel@gmail.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next v2 2/4] net: dsa: mv88e6060: setup random mac
+ address
+Date: Fri, 13 Oct 2017 17:59:00 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B51650@CHN-SV-EXMX02.mchp-main.com>
+References: <20171013014113.29561-1-vivien.didelot@savoirfairelinux.com>
+ <20171013014113.29561-3-vivien.didelot@savoirfairelinux.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0094F25@AcuExch.aculab.com>
+ <9235D6609DB808459E95D78E17F2E43D40B512EB@CHN-SV-EXMX02.mchp-main.com>
+ <871sm7j8ub.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-        boundary="Apple-Mail=_48F7F435-3A21-479C-B38C-CEC77E370B68";
-        protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Petr Vorel <petr.vorel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:59510 "EHLO mga02.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751762AbdJMR4A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Oct 2017 13:56:00 -0400
-In-Reply-To: <20171008143916.21813-1-petr.vorel@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kernel@vger.kernel.org>, <kernel@savoirfairelinux.com>,
+        <davem@davemloft.net>, <f.fainelli@gmail.com>, <andrew@lunn.ch>
+To: <vivien.didelot@savoirfairelinux.com>, <David.Laight@ACULAB.COM>,
+        <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <871sm7j8ub.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_48F7F435-3A21-479C-B38C-CEC77E370B68
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+Hi Vivien,
 
-> On Oct 8, 2017, at 7:39 AM, Petr Vorel <petr.vorel@gmail.com> wrote:
->=20
-> diff --git a/testsuite/tests/ip/route/add_default_route.t =
-b/testsuite/tests/ip/route/add_default_route.t
-> index e5ea6473..0b566f1f 100755
-> --- a/testsuite/tests/ip/route/add_default_route.t
-> +++ b/testsuite/tests/ip/route/add_default_route.t
-> @@ -1,6 +1,6 @@
-> -#!/bin/sh
-> +#!/bin/bash
+> >> > +	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, (addr[0] << 9) |
+> >> addr[1]);
+> >>
+> >> Is that supposed to be 9 ?
+> >
+> > Looks like it.
+> > Check
+> http://www.marvell.com/switching/assets/marvell_linkstreet_88E6060_data
+> sheet.pdf
+> 
+> Hum, David is correct, there is a bug in the driver which needs to be
+> addressed first. MAC address bit 40 is addr[0] & 0x1, thus we must
+> shift byte 0 by 8 and mask it against 0xfe.
+> 
+> I'll respin this serie including a fix for both net and net-next.
 
-Funny - ^^^ choosing bash explicitly while
-   vvvv removing the bashism?
+Yes, you are right. Missed description about bit 40.
 
-> -source lib/generic.sh
-> +. lib/generic.sh
->=20
-> ts_log "[Testing add default route]"
-
-I noticed a couple other files already specified /bin/bash, yet you =
-removed the bashisms. But the above struck me as something that would =
-not seem to have been intended.
---Apple-Mail=_48F7F435-3A21-479C-B38C-CEC77E370B68--
+Thanks.
+Woojung
