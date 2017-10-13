@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 17/18] tipc: guarantee delivery of last broadcast before DOWN event
-Date: Fri, 13 Oct 2017 11:04:33 +0200
-Message-ID: <1507885474-11213-18-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 05/18] tipc: add new function for sending multiple small messages
+Date: Fri, 13 Oct 2017 11:04:21 +0200
+Message-ID: <1507885474-11213-6-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,205 +9,110 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:50819 "EHLO
-        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758012AbdJMJE4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:56 -0400
+Received: from sessmg23.ericsson.net ([193.180.251.45]:59735 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758005AbdJMJEy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:54 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following scenario is possible:
-- A user sends a broadcast message, and thereafter immediately leaves
-  the group.
-- The LEAVE message, following a different path than the broadcast,
-  arrives ahead of the broadcast, and the sending member is removed
-  from the receiver's list.
-- The broadcast message arrives, but is dropped because the sender
-  now is unknown to the receipient.
-
-We fix this by sequence numbering membership events, just like ordinary
-unicast messages. Currently, when a JOIN is sent to a peer, it contains
-a synchronization point, - the sequence number of the next sent
-broadcast, in order to give the receiver a start synchronization point.
-We now let even LEAVE messages contain such an "end synchronization"
-point, so that the recipient can delay the removal of the sending member
-until it knows that all messages have been received.
-
-The received synchronization points are added as sequence numbers to the
-generated membership events, making it possible to handle them almost
-the same way as regular unicasts in the receiving filter function. In
-particular, a DOWN event with a too high sequence number will be kept
-in the reordering queue until the missing broadcast(s) arrive and have
-been delivered.
+We see an increasing need to send multiple single-buffer messages
+of TIPC_SYSTEM_IMPORTANCE to different individual destination nodes.
+Instead of looping over the send queue and sending each buffer
+individually, as we do now, we add a new help function
+tipc_node_distr_xmit() to do this.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/group.c | 45 ++++++++++++++++++++++++++++++++-------------
- 1 file changed, 32 insertions(+), 13 deletions(-)
+ net/tipc/node.c   | 16 ++++++++++++++++
+ net/tipc/node.h   |  1 +
+ net/tipc/socket.c | 14 ++------------
+ 3 files changed, 19 insertions(+), 12 deletions(-)
 
-diff --git a/net/tipc/group.c b/net/tipc/group.c
-index eab862e..8f0eb5d 100644
---- a/net/tipc/group.c
-+++ b/net/tipc/group.c
-@@ -71,6 +71,7 @@ struct tipc_member {
- 	u16 advertised;
- 	u16 window;
- 	u16 bc_rcv_nxt;
-+	u16 bc_syncpt;
- 	u16 bc_acked;
- 	bool usr_pending;
- };
-@@ -410,7 +411,7 @@ static void tipc_group_sort_msg(struct sk_buff *skb, struct sk_buff_head *defq)
- 	struct sk_buff *_skb, *tmp;
- 	int mtyp = msg_type(hdr);
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 6cc1ae6..89f8ac73 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1254,6 +1254,22 @@ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dnode,
+ 	return 0;
+ }
  
--	/* Bcast may be bypassed by unicast or other bcast, - sort it in */
-+	/* Bcast/mcast may be bypassed by ucast or other bcast, - sort it in */
- 	if (mtyp == TIPC_GRP_BCAST_MSG || mtyp == TIPC_GRP_MCAST_MSG) {
- 		skb_queue_walk_safe(defq, _skb, tmp) {
- 			_hdr = buf_msg(_skb);
-@@ -431,7 +432,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 			   struct sk_buff_head *xmitq)
++/* tipc_node_distr_xmit(): send single buffer msgs to individual destinations
++ * Note: this is only for SYSTEM_IMPORTANCE messages, which cannot be rejected
++ */
++int tipc_node_distr_xmit(struct net *net, struct sk_buff_head *xmitq)
++{
++	struct sk_buff *skb;
++	u32 selector, dnode;
++
++	while ((skb = __skb_dequeue(xmitq))) {
++		selector = msg_origport(buf_msg(skb));
++		dnode = msg_destnode(buf_msg(skb));
++		tipc_node_xmit_skb(net, skb, dnode, selector);
++	}
++	return 0;
++}
++
+ void tipc_node_broadcast(struct net *net, struct sk_buff *skb)
  {
- 	struct sk_buff *skb = __skb_dequeue(inputq);
--	bool ack, deliver, update;
-+	bool ack, deliver, update, leave = false;
- 	struct sk_buff_head *defq;
- 	struct tipc_member *m;
- 	struct tipc_msg *hdr;
-@@ -448,13 +449,6 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 	if (!msg_in_group(hdr))
- 		goto drop;
+ 	struct sk_buff *txskb;
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 8db59fe..df2f219 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -68,6 +68,7 @@ int tipc_node_get_linkname(struct net *net, u32 bearer_id, u32 node,
+ 			   char *linkname, size_t len);
+ int tipc_node_xmit(struct net *net, struct sk_buff_head *list, u32 dnode,
+ 		   int selector);
++int tipc_node_distr_xmit(struct net *net, struct sk_buff_head *list);
+ int tipc_node_xmit_skb(struct net *net, struct sk_buff *skb, u32 dest,
+ 		       u32 selector);
+ void tipc_node_subscribe(struct net *net, struct list_head *subscr, u32 addr);
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index bc226f5..c7c6749 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1740,14 +1740,11 @@ static void tipc_sk_filter_rcv(struct sock *sk, struct sk_buff *skb,
+  * @skb: message
+  *
+  * Caller must hold socket lock
+- *
+- * Returns 0
+  */
+ static int tipc_sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	unsigned int before = sk_rmem_alloc_get(sk);
+ 	struct sk_buff_head xmitq;
+-	u32 dnode, selector;
+ 	unsigned int added;
  
--	if (msg_is_grp_evt(hdr)) {
--		if (!grp->events)
--			goto drop;
--		__skb_queue_tail(inputq, skb);
--		return;
+ 	__skb_queue_head_init(&xmitq);
+@@ -1757,11 +1754,7 @@ static int tipc_sk_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ 	atomic_add(added, &tipc_sk(sk)->dupl_rcvcnt);
+ 
+ 	/* Send pending response/rejected messages, if any */
+-	while ((skb = __skb_dequeue(&xmitq))) {
+-		selector = msg_origport(buf_msg(skb));
+-		dnode = msg_destnode(buf_msg(skb));
+-		tipc_node_xmit_skb(sock_net(sk), skb, dnode, selector);
 -	}
--
- 	m = tipc_group_find_member(grp, node, port);
- 	if (!tipc_group_is_receiver(m))
- 		goto drop;
-@@ -490,6 +484,12 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 			break;
- 		case TIPC_GRP_UCAST_MSG:
- 			break;
-+		case TIPC_GRP_MEMBER_EVT:
-+			if (m->state == MBR_LEAVING)
-+				leave = true;
-+			if (!grp->events)
-+				deliver = false;
-+			break;
- 		default:
- 			break;
- 		}
-@@ -504,6 +504,11 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 		if (ack)
- 			tipc_group_proto_xmit(grp, m, GRP_ACK_MSG, xmitq);
++	tipc_node_distr_xmit(sock_net(sk), &xmitq);
+ 	return 0;
+ }
  
-+		if (leave) {
-+			tipc_group_delete_member(grp, m);
-+			__skb_queue_purge(defq);
-+			break;
-+		}
- 		if (!update)
+@@ -1840,10 +1833,7 @@ void tipc_sk_rcv(struct net *net, struct sk_buff_head *inputq)
+ 				spin_unlock_bh(&sk->sk_lock.slock);
+ 			}
+ 			/* Send pending response/rejected messages, if any */
+-			while ((skb = __skb_dequeue(&xmitq))) {
+-				dnode = msg_destnode(buf_msg(skb));
+-				tipc_node_xmit_skb(net, skb, dnode, dport);
+-			}
++			tipc_node_distr_xmit(sock_net(sk), &xmitq);
+ 			sock_put(sk);
  			continue;
- 
-@@ -561,6 +566,8 @@ static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
- 		msg_set_grp_bc_syncpt(hdr, grp->bc_snd_nxt);
- 		msg_set_adv_win(hdr, adv);
- 		m->advertised += adv;
-+	} else if (mtyp == GRP_LEAVE_MSG) {
-+		msg_set_grp_bc_syncpt(hdr, grp->bc_snd_nxt);
- 	} else if (mtyp == GRP_ADV_MSG) {
- 		msg_set_adv_win(hdr, adv);
- 		m->advertised += adv;
-@@ -577,6 +584,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 	u32 node = msg_orignode(hdr);
- 	u32 port = msg_origport(hdr);
- 	struct tipc_member *m;
-+	struct tipc_msg *ehdr;
- 
- 	if (!grp)
- 		return;
-@@ -590,7 +598,8 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 						     MBR_QUARANTINED);
- 		if (!m)
- 			return;
--		m->bc_rcv_nxt = msg_grp_bc_syncpt(hdr);
-+		m->bc_syncpt = msg_grp_bc_syncpt(hdr);
-+		m->bc_rcv_nxt = m->bc_syncpt;
- 		m->window += msg_adv_win(hdr);
- 
- 		/* Wait until PUBLISH event is received */
-@@ -601,6 +610,8 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 			*usr_wakeup = true;
- 			m->usr_pending = false;
- 			tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, xmitq);
-+			ehdr = buf_msg(m->event_msg);
-+			msg_set_grp_bc_seqno(ehdr, m->bc_syncpt);
- 			__skb_queue_tail(inputq, m->event_msg);
  		}
- 		if (m->window < ADV_IDLE)
-@@ -611,6 +622,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 	case GRP_LEAVE_MSG:
- 		if (!m)
- 			return;
-+		m->bc_syncpt = msg_grp_bc_syncpt(hdr);
- 
- 		/* Wait until WITHDRAW event is received */
- 		if (m->state != MBR_LEAVING) {
-@@ -618,9 +630,10 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 			return;
- 		}
- 		/* Otherwise deliver already received WITHDRAW event */
-+		ehdr = buf_msg(m->event_msg);
-+		msg_set_grp_bc_seqno(ehdr, m->bc_syncpt);
- 		__skb_queue_tail(inputq, m->event_msg);
- 		*usr_wakeup = true;
--		tipc_group_delete_member(grp, m);
- 		list_del_init(&m->congested);
- 		return;
- 	case GRP_ADV_MSG:
-@@ -662,6 +675,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
- 	int event = evt->event;
- 	struct tipc_member *m;
- 	struct net *net;
-+	bool node_up;
- 	u32 self;
- 
- 	if (!grp)
-@@ -695,6 +709,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
- 			m->event_msg = skb;
- 			m->state = MBR_PUBLISHED;
- 		} else {
-+			msg_set_grp_bc_seqno(hdr, m->bc_syncpt);
- 			__skb_queue_tail(inputq, skb);
- 			m->state = MBR_JOINED;
- 			*usr_wakeup = true;
-@@ -715,14 +730,18 @@ void tipc_group_member_evt(struct tipc_group *grp,
- 
- 		*usr_wakeup = true;
- 		m->usr_pending = false;
-+		node_up = tipc_node_is_up(net, node);
- 
- 		/* Hold back event if more messages might be expected */
--		if (m->state != MBR_LEAVING && tipc_node_is_up(net, node)) {
-+		if (m->state != MBR_LEAVING && node_up) {
- 			m->event_msg = skb;
- 			m->state = MBR_LEAVING;
- 		} else {
-+			if (node_up)
-+				msg_set_grp_bc_seqno(hdr, m->bc_syncpt);
-+			else
-+				msg_set_grp_bc_seqno(hdr, m->bc_rcv_nxt);
- 			__skb_queue_tail(inputq, skb);
--			tipc_group_delete_member(grp, m);
- 		}
- 		list_del_init(&m->congested);
- 	}
 -- 
 2.1.4
