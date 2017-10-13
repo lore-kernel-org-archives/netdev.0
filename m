@@ -1,76 +1,112 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC 0/3] Adding config get/set to devlink
-Date: Fri, 13 Oct 2017 09:11:21 +0200
-Message-ID: <20171013071121.GF1952@nanopsycho.orion>
-References: <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
- <20171012150419.GI14672@nanopsycho>
- <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
- <20171012.120650.1063812043202847517.davem@davemloft.net>
- <21ab4a5d-0b6a-7976-7bf0-acd334f2613f@gmail.com>
- <CAJieiUjK4CsBGT5_YidnEGk7mCVYYO_8S0xcsv+XfaW=amGCaQ@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2017-10-13
+Date: Fri, 13 Oct 2017 10:25:14 +0300
+Message-ID: <878tgfpl0l.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        linux-pci@vger.kernel.org,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:50494 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750924AbdJMHLW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 03:11:22 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u138so18745982wmu.5
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 00:11:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJieiUjK4CsBGT5_YidnEGk7mCVYYO_8S0xcsv+XfaW=amGCaQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Oct 12, 2017 at 11:53:56PM CEST, roopa@cumulusnetworks.com wrote:
->On Thu, Oct 12, 2017 at 12:20 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 10/12/2017 12:06 PM, David Miller wrote:
->>> From: Florian Fainelli <f.fainelli@gmail.com>
->>> Date: Thu, 12 Oct 2017 08:43:59 -0700
->>>
->>>> Once we move ethtool (or however we name its successor) over to
->>>> netlink there is an opportunity for accessing objects that do and do
->>>> not have a netdevice representor today (e.g: management ports on
->>>> switches) with the same interface, and devlink could be used for
->>>> that.
->>>
->>> That is an interesting angle for including this in devlink.
->>>
->>> I'm not so sure what to do about this.
->>>
->>> One suggestion is that devlink is used for getting ethtool stats for
->>> objects lacking netdev representor's, and a new genetlink family is
->>> used for netdev based ethtool.
->>
->> Right, I was also thinking along those lines that we we would have a new
->> generic netlink family for ethtool to support ethtool over netlink.
->
->new api is fine by me. The reason for suggesting devlink was because
->some of the devlink
->port_* ops are close to ethtool ops that can operate on a port/netdev.
->eg split_port could be a netdev operation
->unless you want to split before the netdev is created.
+Hi Dave,
 
-Let me correct you. The split is always devlink_port operation. In some
-cases however when there is a mapping between devlink_port and netdev,
-userspace part could translate netdev->devlink_port.
+here's a pull request to net tree, more info in the signed tag below.
+Please let me know if there are any problems.
 
+Kalle
 
->
->There are some ops in devlink which are global hw parameters and not
->specific to a port, those fit perfectly with
->devlinks original goal.
+The following changes since commit 3e747fa18202896b5be66b88478352d5880fb8eb:
 
-There are 2 handles from the very beginning:
-1) devlink - asic-wide handle
-2) devlink_port - port handle
+  Merge ath-current from ath.git (2017-09-25 10:06:12 +0300)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-10-13
+
+for you to fetch changes up to a6127b4440d1f74f26b64006b2f50c9dc6d66efc:
+
+  Merge tag 'iwlwifi-for-kalle-2017-10-06' of git://git.kernel.org/pub/scm/linux/kernel/git/iwlwifi/iwlwifi-fixes (2017-10-09 17:31:39 +0300)
+
+----------------------------------------------------------------
+wireless-drivers fixes for 4.14
+
+Nothing really special standing out, all of these are important fixes
+which should go to 4.14.
+
+iwlwifi
+
+* fix support for 3168 device series
+
+* fix a potential crash when using FW debugging recording;
+
+* improve channel flags parsing to avoid warnings on too long traces
+
+* return -ENODATA when the temperature is not available, since the
+ -EIO we were returning was causing fatal errors in userspace
+
+* avoid printing too many messages in dmesg when using monitor mode,
+  since this can become very noisy and completely flood the logs
+
+brcmsmac
+
+* reduce stack usage to avoid frame size warnings with KASAN
+
+brcmfmac
+
+* add a check to avoid copying uninitialised memory
+
+rtlwifi:
+
+* fix a regression with rtl8821ae starting from v4.11 where
+  connections was frequently lost
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      brcmsmac: make some local variables 'static const' to reduce stack size
+
+Chaya Rachel Ivgi (1):
+      iwlwifi: nvm: set the correct offsets to 3168 series
+
+Golan Ben Ami (1):
+      iwlwifi: stop dbgc recording before stopping DMA
+
+Johannes Berg (1):
+      iwlwifi: nvm-parse: unify channel flags printing
+
+Kalle Valo (1):
+      Merge tag 'iwlwifi-for-kalle-2017-10-06' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+
+Kevin Cernekee (1):
+      brcmfmac: Add check for short event packets
+
+Larry Finger (1):
+      rtlwifi: rtl8821ae: Fix connection lost problem
+
+Luca Coelho (1):
+      iwlwifi: mvm: return -ENODATA when reading the temperature with the FW down
+
+Shaul Triebitz (1):
+      iwlwifi: mvm: do not print security error in monitor mode
+
+ .../wireless/broadcom/brcm80211/brcmfmac/fweh.c    |   3 +-
+ .../broadcom/brcm80211/brcmsmac/phy/phy_n.c        | 197 ++++++++++-----------
+ drivers/net/wireless/intel/iwlwifi/cfg/7000.c      |   1 +
+ drivers/net/wireless/intel/iwlwifi/cfg/8000.c      |   2 +-
+ drivers/net/wireless/intel/iwlwifi/cfg/9000.c      |   2 +-
+ drivers/net/wireless/intel/iwlwifi/cfg/a000.c      |   2 +-
+ .../net/wireless/intel/iwlwifi/fw/api/nvm-reg.h    |   2 +
+ drivers/net/wireless/intel/iwlwifi/fw/dbg.c        |   7 +-
+ drivers/net/wireless/intel/iwlwifi/fw/dbg.h        |  15 ++
+ drivers/net/wireless/intel/iwlwifi/iwl-config.h    |  16 +-
+ drivers/net/wireless/intel/iwlwifi/iwl-nvm-parse.c | 137 +++++++-------
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |   7 +
+ drivers/net/wireless/intel/iwlwifi/mvm/mvm.h       |   5 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/nvm.c       |  21 ++-
+ drivers/net/wireless/intel/iwlwifi/mvm/rx.c        |   4 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |   4 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/tt.c        |   2 +-
+ .../net/wireless/realtek/rtlwifi/rtl8821ae/hw.c    |   2 +-
+ 18 files changed, 232 insertions(+), 197 deletions(-)
