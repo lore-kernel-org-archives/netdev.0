@@ -1,26 +1,40 @@
-From: Enu Ofe <barristerenuofe@gmail.com>
-Subject: =?UTF-8?Q?Waiting_for_your_response_to_my_numerous_un=2Dreplied_?=
-        =?UTF-8?Q?emails_to_you_concerning_your_family_inheritance_fund_=28=247=2E5_?=
-        =?UTF-8?Q?million_dollars=29=2E_I_seek_your_assistance_and_I_assured_of_yo?=
-        =?UTF-8?Q?ur_capability_to_champion_this_business_opportunity_to_remit?=
-        =?UTF-8?Q?_=247=2E5_million_dollars_into_your_account=2C_if_you_are_interest?=
-        =?UTF-8?Q?ed_let_me_know_so_that_I_can_send_you_the_details_of_this_tr?=
-        =?UTF-8?Q?ansaction=2E_I_agreed_that_55=25_of_this_money_will_be_for_you_5?=
-        =?UTF-8?Q?=25_will_be_set_aside_for_expenses_incurred_during_the_busines?=
-        =?UTF-8?Q?s_and_40=25_would_be_for_me=2E_And_if_you_are_not_willing_to_han?=
-        =?UTF-8?Q?dle_the_transaction_don=E2=80=99t_border_to_reply_me=2E?=
-Date: Fri, 13 Oct 2017 04:24:27 +0000
-Message-ID: <CAL=qg2SOBRVr-1Zqq+H7vtDdNyn2a4UuWWQMqLoJhBfVJJiPGg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] Fix IFE meta modules loading
+Date: Thu, 12 Oct 2017 22:13:50 -0700 (PDT)
+Message-ID: <20171012.221350.700540002817151386.davem@davemloft.net>
+References: <1507733430-17860-1-git-send-email-mrv@mojatatu.com>
+        <20171012.122318.1151617277989957064.davem@davemloft.net>
+        <85lgkgw19o.fsf@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: mrv@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:52888 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753355AbdJMEY2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 00:24:28 -0400
-Received: by mail-io0-f193.google.com with SMTP id f20so7701522ioj.9
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 21:24:28 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:35034 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753294AbdJMFNw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 01:13:52 -0400
+In-Reply-To: <85lgkgw19o.fsf@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Roman Mashak <mrv@mojatatu.com>
+Date: Thu, 12 Oct 2017 16:37:39 -0400
+
+> David Miller <davem@davemloft.net> writes:
+> 
+>> From: Roman Mashak <mrv@mojatatu.com>
+>> Date: Wed, 11 Oct 2017 10:50:28 -0400
+>>
+>>> Adjust module alias names of IFE meta modules and fix the bug that
+>>> prevented auto-loading IFE modules in run-time.
+>>
+>> Anyone using the existing alises will be broken by these changes
+>> no?
+> 
+> Actually aliases never worked, the bug existed since the day act_meta_*
+> modules have been introduced. I suspect everyone compiles them in-kernel
+> rather then as modules.
+
+Fair enough, series applied, thanks for explaining.
