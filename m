@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 13/18] tipc: introduce group multicast messaging
-Date: Fri, 13 Oct 2017 11:04:29 +0200
-Message-ID: <1507885474-11213-14-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 12/18] tipc: introduce group anycast messaging
+Date: Fri, 13 Oct 2017 11:04:28 +0200
+Message-ID: <1507885474-11213-13-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,135 +9,150 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:59569 "EHLO
+Received: from sessmg22.ericsson.net ([193.180.251.58]:50329 "EHLO
         sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757996AbdJMJFA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:05:00 -0400
+        with ESMTP id S1756779AbdJMJE5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:57 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The previously introduced message transport to all group members is
-based on the tipc multicast service, but is logically a broadcast
-service within the group, and that is what we call it.
+In this commit, we make it possible to send connectionless unicast
+messages to any member corresponding to the given member identity,
+when there is more than one such member. The sender must use a
+TIPC_ADDR_NAME address to achieve this effect.
 
-We now add functionality for sending messages to all group members
-having a certain identity. Correspondingly, we call this feature 'group
-multicast'. The service is using unicast when only one destination is
-found, otherwise it will use the bearer broadcast service to transfer
-the messages. In the latter case, the receiving members filter arriving
-messages by looking at the intended destination instance. If there is
-no match, the message will be dropped, while still being considered
-received and read as seen by the flow control mechanism.
+We also perform load balancing between the destinations, i.e., we
+primarily select one which has advertised sufficient send window
+to not cause a block/EAGAIN delay, if any. This mechanism is
+overlayed on the always present round-robin selection.
+
+Anycast messages are subject to the same start synchronization
+and flow control mechanism as group broadcast messages.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/group.c  | 14 +++++++++++++-
- net/tipc/msg.h    | 11 +++++++++--
- net/tipc/socket.c | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++----
- 3 files changed, 74 insertions(+), 7 deletions(-)
+ net/tipc/group.c      |  7 +++++
+ net/tipc/group.h      |  3 ++
+ net/tipc/name_table.c | 41 +++++++++++++++++++++++++
+ net/tipc/name_table.h |  3 ++
+ net/tipc/socket.c     | 84 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 138 insertions(+)
 
 diff --git a/net/tipc/group.c b/net/tipc/group.c
-index 16aaaa9..ffac2f3 100644
+index 18440be..16aaaa9 100644
 --- a/net/tipc/group.c
 +++ b/net/tipc/group.c
-@@ -413,10 +413,22 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 	if (!tipc_group_is_receiver(m))
- 		goto drop;
- 
-+	m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
-+
-+	/* Drop multicast here if not for this member */
-+	if (mtyp == TIPC_GRP_MCAST_MSG) {
-+		if (msg_nameinst(hdr) != grp->instance) {
-+			m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
-+			tipc_group_update_rcv_win(grp, msg_blocks(hdr),
-+						  node, port, xmitq);
-+			kfree_skb(skb);
-+			return;
-+		}
-+	}
-+
- 	TIPC_SKB_CB(skb)->orig_member = m->instance;
- 	__skb_queue_tail(inputq, skb);
- 
--	m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
- 	return;
- drop:
- 	kfree_skb(skb);
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index f5033f4..d6f9821 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -67,7 +67,8 @@ struct plist;
- #define TIPC_DIRECT_MSG         3
- #define TIPC_GRP_MEMBER_EVT     4
- #define TIPC_GRP_BCAST_MSG      5
--#define TIPC_GRP_UCAST_MSG      6
-+#define TIPC_GRP_MCAST_MSG      6
-+#define TIPC_GRP_UCAST_MSG      7
- 
- /*
-  * Internal message users
-@@ -195,6 +196,11 @@ static inline u32 msg_size(struct tipc_msg *m)
- 	return msg_bits(m, 0, 0, 0x1ffff);
+@@ -116,6 +116,13 @@ static bool tipc_group_is_receiver(struct tipc_member *m)
+ 	return m && m->state >= MBR_JOINED;
  }
  
-+static inline u32 msg_blocks(struct tipc_msg *m)
++u32 tipc_group_exclude(struct tipc_group *grp)
 +{
-+	return (msg_size(m) / 1024) + 1;
++	if (!grp->loopback)
++		return grp->portid;
++	return 0;
 +}
 +
- static inline u32 msg_data_sz(struct tipc_msg *m)
+ int tipc_group_size(struct tipc_group *grp)
  {
- 	return msg_size(m) - msg_hdr_sz(m);
-@@ -279,7 +285,8 @@ static inline u32 msg_mcast(struct tipc_msg *m)
- {
- 	int mtyp = msg_type(m);
- 
--	return ((mtyp == TIPC_MCAST_MSG) || (mtyp == TIPC_GRP_BCAST_MSG));
-+	return ((mtyp == TIPC_MCAST_MSG) || (mtyp == TIPC_GRP_BCAST_MSG) ||
-+		(mtyp == TIPC_GRP_MCAST_MSG));
+ 	return grp->member_cnt;
+diff --git a/net/tipc/group.h b/net/tipc/group.h
+index 8f77290..e432066 100644
+--- a/net/tipc/group.h
++++ b/net/tipc/group.h
+@@ -49,6 +49,7 @@ void tipc_group_add_member(struct tipc_group *grp, u32 node, u32 port);
+ struct tipc_nlist *tipc_group_dests(struct tipc_group *grp);
+ void tipc_group_self(struct tipc_group *grp, struct tipc_name_seq *seq,
+ 		     int *scope);
++u32 tipc_group_exclude(struct tipc_group *grp);
+ void tipc_group_filter_msg(struct tipc_group *grp,
+ 			   struct sk_buff_head *inputq,
+ 			   struct sk_buff_head *xmitq);
+@@ -68,5 +69,7 @@ void tipc_group_update_rcv_win(struct tipc_group *grp, int blks, u32 node,
+ 			       u32 port, struct sk_buff_head *xmitq);
+ u16 tipc_group_bc_snd_nxt(struct tipc_group *grp);
+ void tipc_group_update_member(struct tipc_member *m, int len);
++struct tipc_member *tipc_group_find_sender(struct tipc_group *grp,
++					   u32 node, u32 port);
+ int tipc_group_size(struct tipc_group *grp);
+ #endif
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 114d72b..2856e19 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -597,6 +597,47 @@ u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance,
+ 	return ref;
  }
  
- static inline u32 msg_connected(struct tipc_msg *m)
++bool tipc_nametbl_lookup(struct net *net, u32 type, u32 instance, u32 domain,
++			 struct list_head *dsts, int *dstcnt, u32 exclude,
++			 bool all)
++{
++	u32 self = tipc_own_addr(net);
++	struct publication *publ;
++	struct name_info *info;
++	struct name_seq *seq;
++	struct sub_seq *sseq;
++
++	if (!tipc_in_scope(domain, self))
++		return false;
++
++	*dstcnt = 0;
++	rcu_read_lock();
++	seq = nametbl_find_seq(net, type);
++	if (unlikely(!seq))
++		goto exit;
++	spin_lock_bh(&seq->lock);
++	sseq = nameseq_find_subseq(seq, instance);
++	if (likely(sseq)) {
++		info = sseq->info;
++		list_for_each_entry(publ, &info->zone_list, zone_list) {
++			if (!tipc_in_scope(domain, publ->node))
++				continue;
++			if (publ->ref == exclude && publ->node == self)
++				continue;
++			tipc_dest_push(dsts, publ->node, publ->ref);
++			(*dstcnt)++;
++			if (all)
++				continue;
++			list_move_tail(&publ->zone_list, &info->zone_list);
++			break;
++		}
++	}
++	spin_unlock_bh(&seq->lock);
++exit:
++	rcu_read_unlock();
++	return !list_empty(dsts);
++}
++
+ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+ 			      u32 limit, struct list_head *dports)
+ {
+diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
+index 97646b1..71926e4 100644
+--- a/net/tipc/name_table.h
++++ b/net/tipc/name_table.h
+@@ -107,6 +107,9 @@ void tipc_nametbl_build_group(struct net *net, struct tipc_group *grp,
+ void tipc_nametbl_lookup_dst_nodes(struct net *net, u32 type, u32 lower,
+ 				   u32 upper, u32 domain,
+ 				   struct tipc_nlist *nodes);
++bool tipc_nametbl_lookup(struct net *net, u32 type, u32 instance, u32 domain,
++			 struct list_head *dsts, int *dstcnt, u32 exclude,
++			 bool all);
+ struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
+ 					 u32 upper, u32 scope, u32 port_ref,
+ 					 u32 key);
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 66165e1..8fdd969 100644
+index e71c8d2..66165e1 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -999,6 +999,7 @@ static int tipc_send_group_anycast(struct socket *sock, struct msghdr *m,
- static int tipc_send_group_bcast(struct socket *sock, struct msghdr *m,
- 				 int dlen, long timeout)
- {
-+	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
- 	struct sock *sk = sock->sk;
- 	struct net *net = sock_net(sk);
- 	struct tipc_sock *tsk = tipc_sk(sk);
-@@ -1021,11 +1022,16 @@ static int tipc_send_group_bcast(struct socket *sock, struct msghdr *m,
- 		return rc;
- 
- 	/* Complete message header */
--	msg_set_type(hdr, TIPC_GRP_BCAST_MSG);
-+	if (dest) {
-+		msg_set_type(hdr, TIPC_GRP_MCAST_MSG);
-+		msg_set_nameinst(hdr, dest->addr.name.name.instance);
-+	} else {
-+		msg_set_type(hdr, TIPC_GRP_BCAST_MSG);
-+		msg_set_nameinst(hdr, 0);
-+	}
- 	msg_set_hdr_sz(hdr, GROUP_H_SIZE);
- 	msg_set_destport(hdr, 0);
- 	msg_set_destnode(hdr, 0);
--	msg_set_nameinst(hdr, 0);
- 	msg_set_grp_bc_seqno(hdr, tipc_group_bc_snd_nxt(grp));
- 
- 	/* Build message as chain of buffers */
-@@ -1046,6 +1052,48 @@ static int tipc_send_group_bcast(struct socket *sock, struct msghdr *m,
+@@ -905,6 +905,88 @@ static int tipc_send_group_unicast(struct socket *sock, struct msghdr *m,
  }
  
  /**
-+ * tipc_send_group_mcast - send message to all members with given identity
++ * tipc_send_group_anycast - send message to any member with given identity
 + * @sock: socket structure
 + * @m: message to send
 + * @dlen: total length of message data
@@ -146,59 +161,90 @@ index 66165e1..8fdd969 100644
 + * Called from function tipc_sendmsg(), which has done all sanity checks
 + * Returns the number of bytes sent on success, or errno
 + */
-+static int tipc_send_group_mcast(struct socket *sock, struct msghdr *m,
-+				 int dlen, long timeout)
++static int tipc_send_group_anycast(struct socket *sock, struct msghdr *m,
++				   int dlen, long timeout)
 +{
-+	struct sock *sk = sock->sk;
 +	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
-+	struct tipc_name_seq *seq = &dest->addr.nameseq;
++	struct sock *sk = sock->sk;
 +	struct tipc_sock *tsk = tipc_sk(sk);
++	struct list_head *cong_links = &tsk->cong_links;
++	int blks = tsk_blocks(GROUP_H_SIZE + dlen);
 +	struct tipc_group *grp = tsk->group;
++	struct tipc_member *first = NULL;
++	struct tipc_member *mbr = NULL;
 +	struct net *net = sock_net(sk);
-+	u32 domain, exclude, dstcnt;
++	u32 node, port, exclude;
++	u32 type, inst, domain;
 +	struct list_head dsts;
++	int lookups = 0;
++	int dstcnt, rc;
++	bool cong;
 +
 +	INIT_LIST_HEAD(&dsts);
 +
-+	if (seq->lower != seq->upper)
-+		return -ENOTSUPP;
-+
++	type = dest->addr.name.name.type;
++	inst = dest->addr.name.name.instance;
 +	domain = addr_domain(net, dest->scope);
 +	exclude = tipc_group_exclude(grp);
-+	if (!tipc_nametbl_lookup(net, seq->type, seq->lower, domain,
-+				 &dsts, &dstcnt, exclude, true))
-+		return -EHOSTUNREACH;
 +
-+	if (dstcnt == 1) {
-+		tipc_dest_pop(&dsts, &dest->addr.id.node, &dest->addr.id.ref);
-+		return tipc_send_group_unicast(sock, m, dlen, timeout);
++	while (++lookups < 4) {
++		first = NULL;
++
++		/* Look for a non-congested destination member, if any */
++		while (1) {
++			if (!tipc_nametbl_lookup(net, type, inst, domain, &dsts,
++						 &dstcnt, exclude, false))
++				return -EHOSTUNREACH;
++			tipc_dest_pop(&dsts, &node, &port);
++			cong = tipc_group_cong(grp, node, port, blks, &mbr);
++			if (!cong)
++				break;
++			if (mbr == first)
++				break;
++			if (!first)
++				first = mbr;
++		}
++
++		/* Start over if destination was not in member list */
++		if (unlikely(!mbr))
++			continue;
++
++		if (likely(!cong && !tipc_dest_find(cong_links, node, 0)))
++			break;
++
++		/* Block or return if destination link or member is congested */
++		rc = tipc_wait_for_cond(sock, &timeout,
++					!tipc_dest_find(cong_links, node, 0) &&
++					!tipc_group_cong(grp, node, port,
++							 blks, &mbr));
++		if (unlikely(rc))
++			return rc;
++
++		/* Send, unless destination disappeared while waiting */
++		if (likely(mbr))
++			break;
 +	}
 +
-+	tipc_dest_list_purge(&dsts);
-+	return tipc_send_group_bcast(sock, m, dlen, timeout);
++	if (unlikely(lookups >= 4))
++		return -EHOSTUNREACH;
++
++	rc = tipc_send_group_msg(net, tsk, m, mbr, node, port, dlen);
++
++	return rc ? rc : dlen;
 +}
 +
 +/**
-  * tipc_sk_mcast_rcv - Deliver multicast messages to all destination sockets
-  * @arrvq: queue with arriving messages, to be cloned after destination lookup
-  * @inputq: queue with cloned messages, delivered to socket after dest lookup
-@@ -1213,6 +1261,8 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
- 			return tipc_send_group_anycast(sock, m, dlen, timeout);
+  * tipc_send_group_bcast - send message to all members in communication group
+  * @sk: socket structure
+  * @m: message to send
+@@ -1127,6 +1209,8 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
+ 	if (grp) {
+ 		if (!dest)
+ 			return tipc_send_group_bcast(sock, m, dlen, timeout);
++		if (dest->addrtype == TIPC_ADDR_NAME)
++			return tipc_send_group_anycast(sock, m, dlen, timeout);
  		if (dest->addrtype == TIPC_ADDR_ID)
  			return tipc_send_group_unicast(sock, m, dlen, timeout);
-+		if (dest->addrtype == TIPC_ADDR_MCAST)
-+			return tipc_send_group_mcast(sock, m, dlen, timeout);
  		return -EINVAL;
- 	}
- 
-@@ -2022,8 +2072,6 @@ static void tipc_sk_filter_rcv(struct sock *sk, struct sk_buff *skb,
- 
- 	if (unlikely(!msg_isdata(hdr)))
- 		tipc_sk_proto_rcv(sk, &inputq, xmitq);
--	else if (unlikely(msg_type(hdr) > TIPC_GRP_UCAST_MSG))
--		return kfree_skb(skb);
- 
- 	if (unlikely(grp))
- 		tipc_group_filter_msg(grp, &inputq, xmitq);
 -- 
 2.1.4
