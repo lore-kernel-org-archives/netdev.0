@@ -1,118 +1,203 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 9/9] i40e/i40evf: don't trust VF to reset itself
-Date: Fri, 13 Oct 2017 14:52:49 -0700
-Message-ID: <20171013215249.61286-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] i40e: Refactor VF BW rate limiting
+Date: Fri, 13 Oct 2017 14:52:45 -0700
+Message-ID: <20171013215249.61286-6-jeffrey.t.kirsher@intel.com>
 References: <20171013215249.61286-1-jeffrey.t.kirsher@intel.com>
-Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:20274 "EHLO mga06.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:48069 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752834AbdJMVxU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753016AbdJMVxU (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 13 Oct 2017 17:53:20 -0400
 In-Reply-To: <20171013215249.61286-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Brady <alan.brady@intel.com>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
 
-When using 'ethtool -L' on a VF to change number of requested queues
-from PF, we shouldn't trust the VF to reset itself after making the
-request.  Doing it that way opens the door for a potentially malicious
-VF to do nasty things to the PF which should never be the case.
+This patch refactors the BW rate limiting for Tx traffic
+on the VF to be reused in the next patch for rate limiting Tx
+traffic for the VSIs on the PF as well.
 
-This makes it such that after VF makes a successful request, PF will
-then reset the VF to institute required changes.  Only if the request
-fails will PF send a message back to VF letting it know the request was
-unsuccessful.
-
-Testing-hints:
-There should be no real functional changes.  This is simply hardening
-against a potentially malicious VF.
-
-Signed-off-by: Alan Brady <alan.brady@intel.com>
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c  | 9 +++++++--
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 7 +++----
- include/linux/avf/virtchnl.h                        | 4 ++--
- 3 files changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             |  5 ++
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 64 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 45 +--------------
+ 3 files changed, 71 insertions(+), 43 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 024c88474951..524aa06a9e0e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -128,6 +128,10 @@
+ /* default to trying for four seconds */
+ #define I40E_TRY_LINK_TIMEOUT	(4 * HZ)
+ 
++/* BW rate limiting */
++#define I40E_BW_CREDIT_DIVISOR		50 /* 50Mbps per BW credit */
++#define I40E_MAX_BW_INACTIVE_ACCUM	4  /* accumulate 4 credits max */
++
+ /* driver state flags */
+ enum i40e_state_t {
+ 	__I40E_TESTING,
+@@ -1039,4 +1043,5 @@ static inline bool i40e_enabled_xdp_vsi(struct i40e_vsi *vsi)
+ }
+ 
+ int i40e_create_queue_channel(struct i40e_vsi *vsi, struct i40e_channel *ch);
++int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate);
+ #endif /* _I40E_H_ */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index e803aa1552c6..fc6eaf44d87c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5399,6 +5399,70 @@ static int i40e_vsi_config_tc(struct i40e_vsi *vsi, u8 enabled_tc)
+ 	return ret;
+ }
+ 
++/**
++ * i40e_get_link_speed - Returns link speed for the interface
++ * @vsi: VSI to be configured
++ *
++ **/
++int i40e_get_link_speed(struct i40e_vsi *vsi)
++{
++	struct i40e_pf *pf = vsi->back;
++
++	switch (pf->hw.phy.link_info.link_speed) {
++	case I40E_LINK_SPEED_40GB:
++		return 40000;
++	case I40E_LINK_SPEED_25GB:
++		return 25000;
++	case I40E_LINK_SPEED_20GB:
++		return 20000;
++	case I40E_LINK_SPEED_10GB:
++		return 10000;
++	case I40E_LINK_SPEED_1GB:
++		return 1000;
++	default:
++		return -EINVAL;
++	}
++}
++
++/**
++ * i40e_set_bw_limit - setup BW limit for Tx traffic based on max_tx_rate
++ * @vsi: VSI to be configured
++ * @seid: seid of the channel/VSI
++ * @max_tx_rate: max TX rate to be configured as BW limit
++ *
++ * Helper function to set BW limit for a given VSI
++ **/
++int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
++{
++	struct i40e_pf *pf = vsi->back;
++	int speed = 0;
++	int ret = 0;
++
++	speed = i40e_get_link_speed(vsi);
++	if (max_tx_rate > speed) {
++		dev_err(&pf->pdev->dev,
++			"Invalid max tx rate %llu specified for VSI seid %d.",
++			max_tx_rate, seid);
++		return -EINVAL;
++	}
++	if (max_tx_rate && max_tx_rate < 50) {
++		dev_warn(&pf->pdev->dev,
++			 "Setting max tx rate to minimum usable value of 50Mbps.\n");
++		max_tx_rate = 50;
++	}
++
++	/* Tx rate credits are in values of 50Mbps, 0 is disabled */
++	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid,
++					  max_tx_rate / I40E_BW_CREDIT_DIVISOR,
++					  I40E_MAX_BW_INACTIVE_ACCUM, NULL);
++	if (ret)
++		dev_err(&pf->pdev->dev,
++			"Failed set tx rate (%llu Mbps) for vsi->seid %u, err %s aq_err %s\n",
++			max_tx_rate, seid, i40e_stat_str(&pf->hw, ret),
++			i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
++	return ret;
++}
++
+ /**
+  * i40e_remove_queue_channels - Remove queue channels for the TCs
+  * @vsi: VSI to be configured
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index ce0981e2f605..f8a794b72462 100644
+index e7f98e306554..ce0981e2f605 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2045,8 +2045,9 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
-  * @msglen: msg length
-  *
-  * VFs get a default number of queues but can use this message to request a
-- * different number.  Will respond with either the number requested or the
-- * maximum we can support.
-+ * different number.  If the request is successful, PF will reset the VF and
-+ * return 0.  If unsuccessful, PF will send message informing VF of number of
-+ * available queues and return result of sending VF a message.
-  **/
- static int i40e_vc_request_queues_msg(struct i40e_vf *vf, u8 *msg, int msglen)
- {
-@@ -2077,7 +2078,11 @@ static int i40e_vc_request_queues_msg(struct i40e_vf *vf, u8 *msg, int msglen)
- 			 pf->queues_left);
- 		vfres->num_queue_pairs = pf->queues_left + cur_pairs;
- 	} else {
-+		/* successful request */
- 		vf->num_req_queues = req_pairs;
-+		i40e_vc_notify_vf_reset(vf);
-+		i40e_reset_vf(vf, false);
-+		return 0;
+@@ -3117,8 +3117,6 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev, int vf_id,
+ 	return ret;
+ }
+ 
+-#define I40E_BW_CREDIT_DIVISOR 50     /* 50Mbps per BW credit */
+-#define I40E_MAX_BW_INACTIVE_ACCUM 4  /* device can accumulate 4 credits max */
+ /**
+  * i40e_ndo_set_vf_bw
+  * @netdev: network interface device structure
+@@ -3134,7 +3132,6 @@ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
+ 	struct i40e_pf *pf = np->vsi->back;
+ 	struct i40e_vsi *vsi;
+ 	struct i40e_vf *vf;
+-	int speed = 0;
+ 	int ret = 0;
+ 
+ 	/* validate the request */
+@@ -3159,48 +3156,10 @@ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
+ 		goto error;
  	}
  
- 	return i40e_vc_send_msg_to_vf(vf, VIRTCHNL_OP_REQUEST_QUEUES, 0,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 2bb81c39d85f..46c8b8a3907c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -407,6 +407,7 @@ int i40evf_request_queues(struct i40evf_adapter *adapter, int num)
- 	vfres.num_queue_pairs = num;
+-	switch (pf->hw.phy.link_info.link_speed) {
+-	case I40E_LINK_SPEED_40GB:
+-		speed = 40000;
+-		break;
+-	case I40E_LINK_SPEED_25GB:
+-		speed = 25000;
+-		break;
+-	case I40E_LINK_SPEED_20GB:
+-		speed = 20000;
+-		break;
+-	case I40E_LINK_SPEED_10GB:
+-		speed = 10000;
+-		break;
+-	case I40E_LINK_SPEED_1GB:
+-		speed = 1000;
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	if (max_tx_rate > speed) {
+-		dev_err(&pf->pdev->dev, "Invalid max tx rate %d specified for VF %d.\n",
+-			max_tx_rate, vf->vf_id);
+-		ret = -EINVAL;
++	ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
++	if (ret)
+ 		goto error;
+-	}
  
- 	adapter->current_op = VIRTCHNL_OP_REQUEST_QUEUES;
-+	adapter->flags |= I40EVF_FLAG_REINIT_ITR_NEEDED;
- 	return i40evf_send_pf_msg(adapter, VIRTCHNL_OP_REQUEST_QUEUES,
- 				  (u8 *)&vfres, sizeof(vfres));
- }
-@@ -1098,15 +1099,13 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 	case VIRTCHNL_OP_REQUEST_QUEUES: {
- 		struct virtchnl_vf_res_request *vfres =
- 			(struct virtchnl_vf_res_request *)msg;
--		if (vfres->num_queue_pairs == adapter->num_req_queues) {
--			adapter->flags |= I40EVF_FLAG_REINIT_ITR_NEEDED;
--			i40evf_schedule_reset(adapter);
--		} else {
-+		if (vfres->num_queue_pairs != adapter->num_req_queues) {
- 			dev_info(&adapter->pdev->dev,
- 				 "Requested %d queues, PF can support %d\n",
- 				 adapter->num_req_queues,
- 				 vfres->num_queue_pairs);
- 			adapter->num_req_queues = 0;
-+			adapter->flags &= ~I40EVF_FLAG_REINIT_ITR_NEEDED;
- 		}
- 		}
- 		break;
-diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
-index 60e5d90cb18a..3ce61342fa31 100644
---- a/include/linux/avf/virtchnl.h
-+++ b/include/linux/avf/virtchnl.h
-@@ -333,8 +333,8 @@ struct virtchnl_vsi_queue_config_info {
-  * additional queues must be negotiated.  This is a best effort request as it
-  * is possible the PF does not have enough queues left to support the request.
-  * If the PF cannot support the number requested it will respond with the
-- * maximum number it is able to support; otherwise it will respond with the
-- * number requested.
-+ * maximum number it is able to support.  If the request is successful, PF will
-+ * then reset the VF to institute required changes.
-  */
- 
- /* VF resource request */
+-	if ((max_tx_rate < 50) && (max_tx_rate > 0)) {
+-		dev_warn(&pf->pdev->dev, "Setting max Tx rate to minimum usable value of 50Mbps.\n");
+-		max_tx_rate = 50;
+-	}
+-
+-	/* Tx rate credits are in values of 50Mbps, 0 is disabled*/
+-	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, vsi->seid,
+-					  max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+-					  I40E_MAX_BW_INACTIVE_ACCUM, NULL);
+-	if (ret) {
+-		dev_err(&pf->pdev->dev, "Unable to set max tx rate, error code %d.\n",
+-			ret);
+-		ret = -EIO;
+-		goto error;
+-	}
+ 	vf->tx_rate = max_tx_rate;
+ error:
+ 	return ret;
 -- 
 2.14.2
