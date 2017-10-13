@@ -1,100 +1,70 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 7/9] net: sched: tcindex, fw, flow: use tcf_block_q helper to get struct Qdisc
-Date: Fri, 13 Oct 2017 14:01:03 +0200
-Message-ID: <20171013120105.23358-8-jiri@resnulli.us>
+Subject: [patch net-next 3/9] net: sched: introduce tcf_block_q and tcf_block_dev helpers
+Date: Fri, 13 Oct 2017 14:00:59 +0200
+Message-ID: <20171013120105.23358-4-jiri@resnulli.us>
 References: <20171013120105.23358-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:52583 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757973AbdJMMBP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 08:01:15 -0400
-Received: by mail-wm0-f68.google.com with SMTP id k4so21191051wmc.1
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 05:01:14 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37646 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758060AbdJMMBL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 08:01:11 -0400
+Received: by mail-wm0-f65.google.com with SMTP id r68so5588158wmr.4
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 05:01:10 -0700 (PDT)
 In-Reply-To: <20171013120105.23358-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use helper to get q pointer per block.
+These helpers allows to get a q and netdev pointers
+for given block easily.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_flow.c    | 7 +++++--
- net/sched/cls_fw.c      | 5 ++++-
- net/sched/cls_tcindex.c | 5 ++++-
- 3 files changed, 13 insertions(+), 4 deletions(-)
+ include/net/pkt_cls.h | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 2a3a60e..f3be666 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -491,8 +491,11 @@ static int flow_change(struct net *net, struct sk_buff *in_skb,
- 			perturb_period = nla_get_u32(tb[TCA_FLOW_PERTURB]) * HZ;
- 		}
- 
--		if (TC_H_MAJ(baseclass) == 0)
--			baseclass = TC_H_MAKE(tp->q->handle, baseclass);
-+		if (TC_H_MAJ(baseclass) == 0) {
-+			struct Qdisc *q = tcf_block_q(tp->chain->block);
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 772dfa8..01ffda5 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -24,6 +24,17 @@ void tcf_chain_put(struct tcf_chain *chain);
+ int tcf_block_get(struct tcf_block **p_block,
+ 		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q);
+ void tcf_block_put(struct tcf_block *block);
 +
-+			baseclass = TC_H_MAKE(q->handle, baseclass);
-+		}
- 		if (TC_H_MIN(baseclass) == 0)
- 			baseclass = TC_H_MAKE(baseclass, 1);
- 
-diff --git a/net/sched/cls_fw.c b/net/sched/cls_fw.c
-index 941245a..aa1e1f3 100644
---- a/net/sched/cls_fw.c
-+++ b/net/sched/cls_fw.c
-@@ -28,6 +28,7 @@
- #include <net/netlink.h>
- #include <net/act_api.h>
- #include <net/pkt_cls.h>
-+#include <net/sch_generic.h>
- 
- #define HTSIZE 256
- 
-@@ -83,9 +84,11 @@ static int fw_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 			}
- 		}
- 	} else {
-+		struct Qdisc *q = tcf_block_q(tp->chain->block);
++static inline struct Qdisc *tcf_block_q(struct tcf_block *block)
++{
++	return block->q;
++}
 +
- 		/* Old method: classify the packet using its skb mark. */
- 		if (id && (TC_H_MAJ(id) == 0 ||
--			   !(TC_H_MAJ(id ^ tp->q->handle)))) {
-+			   !(TC_H_MAJ(id ^ q->handle)))) {
- 			res->classid = id;
- 			res->class = 0;
- 			return 0;
-diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
-index 14a7e08..d732b54 100644
---- a/net/sched/cls_tcindex.c
-+++ b/net/sched/cls_tcindex.c
-@@ -13,6 +13,7 @@
- #include <net/act_api.h>
- #include <net/netlink.h>
- #include <net/pkt_cls.h>
-+#include <net/sch_generic.h>
- 
- /*
-  * Passing parameters to the root seems to be done more awkwardly than really
-@@ -90,9 +91,11 @@ static int tcindex_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- 	f = tcindex_lookup(p, key);
- 	if (!f) {
-+		struct Qdisc *q = tcf_block_q(tp->chain->block);
++static inline struct net_device *tcf_block_dev(struct tcf_block *block)
++{
++	return tcf_block_q(block)->dev_queue->dev;
++}
 +
- 		if (!p->fall_through)
- 			return -1;
--		res->classid = TC_H_MAKE(TC_H_MAJ(tp->q->handle), key);
-+		res->classid = TC_H_MAKE(TC_H_MAJ(q->handle), key);
- 		res->class = 0;
- 		pr_debug("alg 0x%x\n", res->classid);
- 		return 0;
+ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		 struct tcf_result *res, bool compat_mode);
+ 
+@@ -39,6 +50,16 @@ static inline void tcf_block_put(struct tcf_block *block)
+ {
+ }
+ 
++static inline struct Qdisc *tcf_block_q(struct tcf_block *block)
++{
++	return NULL;
++}
++
++static inline struct net_device *tcf_block_dev(struct tcf_block *block)
++{
++	return NULL;
++}
++
+ static inline int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			       struct tcf_result *res, bool compat_mode)
+ {
 -- 
 2.9.5
