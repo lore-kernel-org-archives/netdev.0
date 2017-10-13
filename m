@@ -1,57 +1,91 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: linux-next: build failure after merge of the akpm-current tree
-Date: Fri, 13 Oct 2017 03:38:39 +0100
-Message-ID: <20171013023839.tz2l22ked5jfgztw@sirena.co.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [next-queue PATCH v7 4/6] net/sched: Introduce Credit Based
+ Shaper (CBS) qdisc
+Date: Thu, 12 Oct 2017 19:42:33 -0700
+Message-ID: <1507862553.31614.53.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171013004005.17416-1-vinicius.gomes@intel.com>
+         <20171013004005.17416-5-vinicius.gomes@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="fhj5ftztqkrlmtep"
-Cc: netdev@vger.kernel.org,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
+        rodney.cummings@ni.com
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:43363 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753291AbdJMCmh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 22:42:37 -0400
+Received: by mail-pf0-f196.google.com with SMTP id a8so7337782pfc.0
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 19:42:36 -0700 (PDT)
+In-Reply-To: <20171013004005.17416-5-vinicius.gomes@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Thu, 2017-10-12 at 17:40 -0700, Vinicius Costa Gomes wrote:
+> This queueing discipline implements the shaper algorithm defined by
+> the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
+> 
+> It's primary usage is to apply some bandwidth reservation to user
+> defined traffic classes, which are mapped to different queues via the
+> mqprio qdisc.
+> 
+> Only a simple software implementation is added for now.
+> 
+> Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+> ---
+
+> +/* timediff is in ns, slope is in kbps */
+> +static s64 timediff_to_credits(s64 timediff, s32 slope)
+> +{
+> +	s64 credits = timediff * slope * BYTES_PER_KBIT;
+> +
+> +	do_div(credits, NSEC_PER_SEC);
+> +
+> +	return credits;
+> +}
+> +
+> +static s64 delay_from_credits(s64 credits, s32 slope)
+> +{
+> +	s64 rate = slope * BYTES_PER_KBIT;
+> +	s64 delay;
+> +
+> +	if (unlikely(rate == 0))
+> +		return S64_MAX;
+> +
+> +	delay = -credits * NSEC_PER_SEC;
+> +	do_div(delay, rate);
+> +
+> +	return delay;
+> +}
+> +
+> +static s64 credits_from_len(unsigned int len, s32 slope, s64 port_rate)
+> +{
+> +	/* As do_div() only works on unsigned quantities, convert
+> +	 * slope to a positive number here, and credits to a negative
+> +	 * number before returning.
+> +	 */
+> +	s64 rate = -slope * BYTES_PER_KBIT;
+> +	s64 credits;
+> +
+> +	if (unlikely(port_rate == 0))
+> +		return S64_MAX;
+> +
+> +	credits = len * rate;
+> +	do_div(credits, port_rate);
+> +
+> +	return -credits;
+> +}
+> +
 
 
---fhj5ftztqkrlmtep
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Your mixing of s64 and u64 is disturbing.
 
-Hi Andrew,
+do_div() handles u64, not s64.
 
-After merging the akpm-current tree, today's linux-next build
-(x86 allmodconfig) failed like this:
-
-  CC [M]  drivers/net/ethernet/netronome/nfp/nfp_app.o
-In file included from /home/broonie/tmpfs/next/drivers/net/ethernet/netronome/nfp/nfp_asm.c:40:0:
-/home/broonie/tmpfs/next/drivers/net/ethernet/netronome/nfp/nfp_asm.h: In function '__enc_swreg_lm':
-/home/broonie/tmpfs/next/drivers/net/ethernet/netronome/nfp/nfp_asm.h:301:2: error: implicit declaration of function 'WARN_ON' [-Werror=implicit-function-declaration]
-  WARN_ON(id > 3 || (off && mode != NN_LM_MOD_NONE));
-  ^
-cc1: some warnings being treated as errors
-
-Caused by some reliance on an implicit include being exposed by a header
-reorganization in your tree.  I'll add a patch for this which I'll post,
-probably tomorrow morning.
-
---fhj5ftztqkrlmtep
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlngJy4ACgkQJNaLcl1U
-h9DZIQf/fhaZXsuRxlUVyjaIxtjuarqIHjhRksBH56e3CW6vCaSXCyWMLA/cJ6kK
-vx5LWteEjD9cRnuIFJxHTF35/kiNJehNMm74eCPLqgBfoRHgcRn1FCEq8QAdOEG4
-LN+esJFAiwgMQxsYzjGVpHQUFzKEpNt8E7CNZfnPLK/QV/tHuCkHckHsEtCynGm9
-v6iYbsr2C53fmgE2D6BqqITRD8/TqxglrxIRYWBQBRN7CisQRXCYoOHhpYn7hajg
-MwlNa+VyGkavkYV08vRmphoiULVS59lkqPjHP31NF+Acpxqaz4XW8ET5rejXvrPB
-mGx9vuo+zW//uzHL2Xy1whhW9VpNVQ==
-=2/eB
------END PGP SIGNATURE-----
-
---fhj5ftztqkrlmtep--
+div64_s64() might be needed in place of do_div()
