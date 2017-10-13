@@ -1,41 +1,299 @@
 From: Lucas Bates <lucasb@mojatatu.com>
-Subject: [PATCH net-next v2 1/4] tc-testing: Add test cases for flushing actions
-Date: Fri, 13 Oct 2017 17:51:22 -0400
-Message-ID: <1507931485-1814-2-git-send-email-lucasb@mojatatu.com>
+Subject: [PATCH net-next v2 2/4] tc-testing: Split test case files into smaller chunks
+Date: Fri, 13 Oct 2017 17:51:23 -0400
+Message-ID: <1507931485-1814-3-git-send-email-lucasb@mojatatu.com>
 References: <1507931485-1814-1-git-send-email-lucasb@mojatatu.com>
 Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
         jhs@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com,
         Lucas Bates <lucasb@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f51.google.com ([209.85.214.51]:47370 "EHLO
-        mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751624AbdJMVvk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 17:51:40 -0400
-Received: by mail-it0-f51.google.com with SMTP id p138so12914031itp.2
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 14:51:40 -0700 (PDT)
+Received: from mail-it0-f43.google.com ([209.85.214.43]:44083 "EHLO
+        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751624AbdJMVvn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 17:51:43 -0400
+Received: by mail-it0-f43.google.com with SMTP id n195so19472139itg.1
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 14:51:42 -0700 (PDT)
 In-Reply-To: <1507931485-1814-1-git-send-email-lucasb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tests for flushing gact and mirred were missing. This patch
-adds test cases to explicitly test the flush of any installed
-gact/mirred actions.
+The original submission had the test cases stored in one
+monolithic file. This can be unwieldy to edit, especially as more
+test cases are added. This patch removes the original tests.json
+file in favour of individual ones broken down by category.
 
 Signed-off-by: Lucas Bates <lucasb@mojatatu.com>
 Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- .../tc-testing/tc-tests/actions/tests.json         | 49 +++++++++++++++++++++-
- 1 file changed, 48 insertions(+), 1 deletion(-)
+ .../tc-testing/tc-tests/actions/gact.json          |  469 ++++++++
+ .../selftests/tc-testing/tc-tests/actions/ife.json |   52 +
+ .../tc-testing/tc-tests/actions/mirred.json        |  223 ++++
+ .../tc-testing/tc-tests/actions/simple.json        |  130 +++
+ .../tc-testing/tc-tests/actions/skbedit.json       |  320 ++++++
+ .../tc-testing/tc-tests/actions/tests.json         | 1212 --------------------
+ 6 files changed, 1194 insertions(+), 1212 deletions(-)
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/gact.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/ife.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/mirred.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/simple.json
+ create mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/skbedit.json
+ delete mode 100644 tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
 
-diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json b/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
-index 6973bdc..2ea0065 100644
---- a/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
-+++ b/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
-@@ -246,6 +246,27 @@
-         ]
-     },
-     {
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/gact.json b/tools/testing/selftests/tc-testing/tc-tests/actions/gact.json
+new file mode 100644
+index 0000000..e2187b6
+--- /dev/null
++++ b/tools/testing/selftests/tc-testing/tc-tests/actions/gact.json
+@@ -0,0 +1,469 @@
++[
++    {
++        "id": "e89a",
++        "name": "Add valid pass action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action pass index 8",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action pass.*index 8 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "a02c",
++        "name": "Add valid pipe action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action pipe index 6",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action pipe.*index 6 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "feef",
++        "name": "Add valid reclassify action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action reclassify index 5",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action reclassify.*index 5 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "8a7a",
++        "name": "Add valid drop action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action drop index 30",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action drop.*index 30 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "9a52",
++        "name": "Add valid continue action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action continue index 432",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action continue.*index 432 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "d700",
++        "name": "Add invalid action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action pump index 386",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action.*index 386 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "9215",
++        "name": "Add action with duplicate index",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action pipe index 15"
++        ],
++        "cmdUnderTest": "$TC actions add action drop index 15",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action drop.*index 15 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "798e",
++        "name": "Add action with index exceeding 32-bit maximum",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action drop index 4294967296",
++        "expExitCode": "255",
++        "verifyCmd": "actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action drop.*index 4294967296 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "22be",
++        "name": "Add action with index at 32-bit maximum",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action drop index 4294967295",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action drop.*index 4294967295 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "ac2a",
++        "name": "List actions",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action reclassify index 101",
++            "$TC actions add action reclassify index 102",
++            "$TC actions add action reclassify index 103",
++            "$TC actions add action reclassify index 104",
++            "$TC actions add action reclassify index 105"
++        ],
++        "cmdUnderTest": "$TC actions list action gact",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action reclassify",
++        "matchCount": "5",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
 +        "id": "3edf",
 +        "name": "Flush gact actions",
 +        "category": [
@@ -57,15 +315,322 @@ index 6973bdc..2ea0065 100644
 +        "teardown": []
 +    },
 +    {
-         "id": "63ec",
-         "name": "Delete pass action",
-         "category": [
-@@ -469,6 +490,32 @@
-         ]
-     },
-     {
-+        "id": "58c3",
-+        "name": "Flush mirred actions",
++        "id": "63ec",
++        "name": "Delete pass action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action pass index 1"
++        ],
++        "cmdUnderTest": "$TC actions del action gact index 1",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action pass.*index 1 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "46be",
++        "name": "Delete pipe action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action pipe index 9"
++        ],
++        "cmdUnderTest": "$TC actions del action gact index 9",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action pipe.*index 9 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "2e08",
++        "name": "Delete reclassify action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action reclassify index 65536"
++        ],
++        "cmdUnderTest": "$TC actions del action gact index 65536",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action reclassify.*index 65536 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "99c4",
++        "name": "Delete drop action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action drop index 16"
++        ],
++        "cmdUnderTest": "$TC actions del action gact index 16",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action drop.*index 16 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "fb6b",
++        "name": "Delete continue action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action continue index 32"
++        ],
++        "cmdUnderTest": "$TC actions del action gact index 32",
++        "expExitCode": "0",
++        "verifyCmd": "actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action continue.*index 32 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "0eb3",
++        "name": "Delete non-existent action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions del action gact index 2",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action gact",
++        "matchPattern": "action order [0-9]*: gact action",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "f02c",
++        "name": "Replace gact action",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action drop index 10",
++            "$TC actions add action drop index 12"
++        ],
++        "cmdUnderTest": "$TC actions replace action ok index 12",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions ls action gact",
++        "matchPattern": "action order [0-9]*: gact action pass",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    },
++    {
++        "id": "525f",
++        "name": "Get gact action by index",
++        "category": [
++            "actions",
++            "gact"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action gact",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action drop index 3900800700"
++        ],
++        "cmdUnderTest": "$TC actions get action gact index 3900800700",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions get action gact index 3900800700",
++        "matchPattern": "index 3900800700",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action gact"
++        ]
++    }
++]
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/ife.json b/tools/testing/selftests/tc-testing/tc-tests/actions/ife.json
+new file mode 100644
+index 0000000..9f34f07
+--- /dev/null
++++ b/tools/testing/selftests/tc-testing/tc-tests/actions/ife.json
+@@ -0,0 +1,52 @@
++[
++    {
++        "id": "a568",
++        "name": "Add action with ife type",
++        "category": [
++            "actions",
++            "ife"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action ife",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action ife encode type 0xDEAD index 1"
++        ],
++        "cmdUnderTest": "$TC actions get action ife index 1",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions get action ife index 1",
++        "matchPattern": "type 0xDEAD",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action ife"
++        ]
++    },
++    {
++        "id": "b983",
++        "name": "Add action without ife type",
++        "category": [
++            "actions",
++            "ife"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action ife",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action ife encode index 1"
++        ],
++        "cmdUnderTest": "$TC actions get action ife index 1",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions get action ife index 1",
++        "matchPattern": "type 0xED3E",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action ife"
++        ]
++    }
++]
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/mirred.json b/tools/testing/selftests/tc-testing/tc-tests/actions/mirred.json
+new file mode 100644
+index 0000000..0fcccf1
+--- /dev/null
++++ b/tools/testing/selftests/tc-testing/tc-tests/actions/mirred.json
+@@ -0,0 +1,223 @@
++[
++    {
++        "id": "5124",
++        "name": "Add mirred mirror to egress action",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action mirred egress mirror index 1 dev lo",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(Egress Mirror to device lo\\).*index 1 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "6fb4",
++        "name": "Add mirred redirect to egress action",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action mirred egress redirect index 2 dev lo action pipe",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(Egress Redirect to device lo\\).*index 2 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "ba38",
++        "name": "Get mirred actions",
 +        "category": [
 +            "actions",
 +            "mirred"
@@ -84,19 +649,1836 @@ index 6973bdc..2ea0065 100644
 +        "expExitCode": "0",
 +        "verifyCmd": "$TC actions list action mirred",
 +        "matchPattern": "[Mirror|Redirect] to device lo",
++        "matchCount": "2",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "d7c0",
++        "name": "Add invalid mirred direction",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action mirred inbound mirror index 20 dev lo",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(.*to device lo\\).*index 20 ref",
 +        "matchCount": "0",
 +        "teardown": [
 +            "$TC actions flush action mirred"
 +        ]
 +    },
 +    {
-         "id": "d7c0",
-         "name": "Add invalid mirred direction",
-         "category": [
-@@ -1162,4 +1209,4 @@
-             "$TC actions flush action ife"
-         ]
-     }
--]
-\ No newline at end of file
++        "id": "e213",
++        "name": "Add invalid mirred action",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action mirred egress remirror index 20 dev lo",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(Egress.*to device lo\\).*index 20 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "2d89",
++        "name": "Add mirred action with invalid device",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action mirred egress mirror index 20 dev eltoh",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(.*to device eltoh\\).*index 20 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "300b",
++        "name": "Add mirred action with duplicate index",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action mirred egress redirect index 15 dev lo"
++        ],
++        "cmdUnderTest": "$TC actions add action mirred egress mirror index 15 dev lo",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(.*to device lo\\).*index 15 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "a70e",
++        "name": "Delete mirred mirror action",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action mirred egress mirror index 5 dev lo"
++        ],
++        "cmdUnderTest": "$TC actions del action mirred index 5",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(Egress Mirror to device lo\\).*index 5 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    },
++    {
++        "id": "3fb3",
++        "name": "Delete mirred redirect action",
++        "category": [
++            "actions",
++            "mirred"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action mirred",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action mirred egress redirect index 5 dev lo"
++        ],
++        "cmdUnderTest": "$TC actions del action mirred index 5",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action mirred",
++        "matchPattern": "action order [0-9]*: mirred \\(Egress Redirect to device lo\\).*index 5 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action mirred"
++        ]
++    }
 +]
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/simple.json b/tools/testing/selftests/tc-testing/tc-tests/actions/simple.json
+new file mode 100644
+index 0000000..e89a7aa
+--- /dev/null
++++ b/tools/testing/selftests/tc-testing/tc-tests/actions/simple.json
+@@ -0,0 +1,130 @@
++[
++    {
++        "id": "b078",
++        "name": "Add simple action",
++        "category": [
++            "actions",
++            "simple"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action simple",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action simple sdata \"A triumph\" index 60",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action simple",
++        "matchPattern": "action order [0-9]*: Simple <A triumph>.*index 60 ref",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action simple"
++        ]
++    },
++    {
++        "id": "6d4c",
++        "name": "Add simple action with duplicate index",
++        "category": [
++            "actions",
++            "simple"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action simple",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action simple sdata \"Aruba\" index 4"
++        ],
++        "cmdUnderTest": "$TC actions add action simple sdata \"Jamaica\" index 4",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action simple",
++        "matchPattern": "action order [0-9]*: Simple <Jamaica>.*ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action simple"
++        ]
++    },
++    {
++        "id": "2542",
++        "name": "List simple actions",
++        "category": [
++            "actions",
++            "simple"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action simple",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action simple sdata \"Rock\"",
++            "$TC actions add action simple sdata \"Paper\"",
++            "$TC actions add action simple sdata \"Scissors\" index 98"
++        ],
++        "cmdUnderTest": "$TC actions list action simple",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action simple",
++        "matchPattern": "action order [0-9]*: Simple <[A-Z][a-z]*>",
++        "matchCount": "3",
++        "teardown": [
++            "$TC actions flush action simple"
++        ]
++    },
++    {
++        "id": "ea67",
++        "name": "Delete simple action",
++        "category": [
++            "actions",
++            "simple"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action simple",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action simple sdata \"Blinkenlights\" index 1"
++        ],
++        "cmdUnderTest": "$TC actions delete action simple index 1",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action simple",
++        "matchPattern": "action order [0-9]*: Simple <Blinkenlights>.*index 1 ref",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action simple"
++        ]
++    },
++    {
++        "id": "8ff1",
++        "name": "Flush simple actions",
++        "category": [
++            "actions",
++            "simple"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action simple",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action simple sdata \"Kirk\"",
++            "$TC actions add action simple sdata \"Spock\" index 50",
++            "$TC actions add action simple sdata \"McCoy\" index 9"
++        ],
++        "cmdUnderTest": "$TC actions flush action simple",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action simple",
++        "matchPattern": "action order [0-9]*: Simple <[A-Z][a-z]*>",
++        "matchCount": "0",
++        "teardown": [
++            ""
++        ]
++    }
++]
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/skbedit.json b/tools/testing/selftests/tc-testing/tc-tests/actions/skbedit.json
+new file mode 100644
+index 0000000..99635ea
+--- /dev/null
++++ b/tools/testing/selftests/tc-testing/tc-tests/actions/skbedit.json
+@@ -0,0 +1,320 @@
++[
++    {
++        "id": "6236",
++        "name": "Add skbedit action with valid mark",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit mark 1",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit mark 1",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "407b",
++        "name": "Add skbedit action with invalid mark",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit mark 666777888999",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit mark",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "081d",
++        "name": "Add skbedit action with priority",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit prio 99",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit priority :99",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "cc37",
++        "name": "Add skbedit action with invalid priority",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit prio foo",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit priority",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "3c95",
++        "name": "Add skbedit action with queue_mapping",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit queue_mapping 909",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit queue_mapping 909",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "985c",
++        "name": "Add skbedit action with invalid queue_mapping",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit queue_mapping 67000",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit queue_mapping",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "224f",
++        "name": "Add skbedit action with ptype host",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit ptype host",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit ptype host",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "d1a3",
++        "name": "Add skbedit action with ptype otherhost",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit ptype otherhost",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit ptype otherhost",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "b9c6",
++        "name": "Add skbedit action with invalid ptype",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit ptype openair",
++        "expExitCode": "255",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit ptype openair",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "5172",
++        "name": "List skbedit actions",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action skbedit ptype otherhost",
++            "$TC actions add action skbedit ptype broadcast",
++            "$TC actions add action skbedit mark 59",
++            "$TC actions add action skbedit mark 409"
++        ],
++        "cmdUnderTest": "$TC actions list action skbedit",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit",
++        "matchCount": "4",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "a6d6",
++        "name": "Add skbedit action with index",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ]
++        ],
++        "cmdUnderTest": "$TC actions add action skbedit mark 808 index 4040404040",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "index 4040404040",
++        "matchCount": "1",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "38f3",
++        "name": "Delete skbedit action",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            [
++                "$TC actions flush action skbedit",
++                0,
++                1,
++                255
++            ],
++            "$TC actions add action skbedit mark 42 index 9009"
++        ],
++        "cmdUnderTest": "$TC actions del action skbedit index 9009",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit mark 42",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    },
++    {
++        "id": "ce97",
++        "name": "Flush skbedit actions",
++        "category": [
++            "actions",
++            "skbedit"
++        ],
++        "setup": [
++            "$TC actions add action skbedit mark 500",
++            "$TC actions add action skbedit mark 501",
++            "$TC actions add action skbedit mark 502",
++            "$TC actions add action skbedit mark 503",
++            "$TC actions add action skbedit mark 504",
++            "$TC actions add action skbedit mark 505",
++            "$TC actions add action skbedit mark 506"
++        ],
++        "cmdUnderTest": "$TC actions flush action skbedit",
++        "expExitCode": "0",
++        "verifyCmd": "$TC actions list action skbedit",
++        "matchPattern": "action order [0-9]*:  skbedit",
++        "matchCount": "0",
++        "teardown": [
++            "$TC actions flush action skbedit"
++        ]
++    }
++]
+diff --git a/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json b/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
+deleted file mode 100644
+index 2ea0065..0000000
+--- a/tools/testing/selftests/tc-testing/tc-tests/actions/tests.json
++++ /dev/null
+@@ -1,1212 +0,0 @@
+-[
+-    {
+-        "id": "e89a",
+-        "name": "Add valid pass action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action pass index 8",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action pass.*index 8 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "a02c",
+-        "name": "Add valid pipe action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action pipe index 6",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action pipe.*index 6 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "feef",
+-        "name": "Add valid reclassify action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action reclassify index 5",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action reclassify.*index 5 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "8a7a",
+-        "name": "Add valid drop action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action drop index 30",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action drop.*index 30 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "9a52",
+-        "name": "Add valid continue action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action continue index 432",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action continue.*index 432 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "d700",
+-        "name": "Add invalid action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action pump index 386",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action.*index 386 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "9215",
+-        "name": "Add action with duplicate index",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action pipe index 15"
+-        ],
+-        "cmdUnderTest": "$TC actions add action drop index 15",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action drop.*index 15 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "798e",
+-        "name": "Add action with index exceeding 32-bit maximum",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action drop index 4294967296",
+-        "expExitCode": "255",
+-        "verifyCmd": "actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action drop.*index 4294967296 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "22be",
+-        "name": "Add action with index at 32-bit maximum",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action drop index 4294967295",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action drop.*index 4294967295 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "ac2a",
+-        "name": "List actions",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action reclassify index 101",
+-            "$TC actions add action reclassify index 102",
+-            "$TC actions add action reclassify index 103",
+-            "$TC actions add action reclassify index 104",
+-            "$TC actions add action reclassify index 105"
+-        ],
+-        "cmdUnderTest": "$TC actions list action gact",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action reclassify",
+-        "matchCount": "5",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "3edf",
+-        "name": "Flush gact actions",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            "$TC actions add action reclassify index 101",
+-            "$TC actions add action reclassify index 102",
+-            "$TC actions add action reclassify index 103",
+-            "$TC actions add action reclassify index 104",
+-            "$TC actions add action reclassify index 105"
+-        ],
+-        "cmdUnderTest": "$TC actions flush action gact",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action reclassify",
+-        "matchCount": "0",
+-        "teardown": []
+-    },
+-    {
+-        "id": "63ec",
+-        "name": "Delete pass action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action pass index 1"
+-        ],
+-        "cmdUnderTest": "$TC actions del action gact index 1",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action pass.*index 1 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "46be",
+-        "name": "Delete pipe action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action pipe index 9"
+-        ],
+-        "cmdUnderTest": "$TC actions del action gact index 9",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action pipe.*index 9 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "2e08",
+-        "name": "Delete reclassify action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action reclassify index 65536"
+-        ],
+-        "cmdUnderTest": "$TC actions del action gact index 65536",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action reclassify.*index 65536 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "99c4",
+-        "name": "Delete drop action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action drop index 16"
+-        ],
+-        "cmdUnderTest": "$TC actions del action gact index 16",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action drop.*index 16 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "fb6b",
+-        "name": "Delete continue action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action continue index 32"
+-        ],
+-        "cmdUnderTest": "$TC actions del action gact index 32",
+-        "expExitCode": "0",
+-        "verifyCmd": "actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action continue.*index 32 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "0eb3",
+-        "name": "Delete non-existent action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions del action gact index 2",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action gact",
+-        "matchPattern": "action order [0-9]*: gact action",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "5124",
+-        "name": "Add mirred mirror to egress action",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action mirred egress mirror index 1 dev lo",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(Egress Mirror to device lo\\).*index 1 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "6fb4",
+-        "name": "Add mirred redirect to egress action",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action mirred egress redirect index 2 dev lo action pipe",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(Egress Redirect to device lo\\).*index 2 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "ba38",
+-        "name": "Get mirred actions",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action mirred egress mirror index 1 dev lo",
+-            "$TC actions add action mirred egress redirect index 2 dev lo"
+-        ],
+-        "cmdUnderTest": "$TC actions show action mirred",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "[Mirror|Redirect] to device lo",
+-        "matchCount": "2",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "58c3",
+-        "name": "Flush mirred actions",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action mirred egress mirror index 1 dev lo",
+-            "$TC actions add action mirred egress redirect index 2 dev lo"
+-        ],
+-        "cmdUnderTest": "$TC actions show action mirred",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "[Mirror|Redirect] to device lo",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "d7c0",
+-        "name": "Add invalid mirred direction",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action mirred inbound mirror index 20 dev lo",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(.*to device lo\\).*index 20 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "e213",
+-        "name": "Add invalid mirred action",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action mirred egress remirror index 20 dev lo",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(Egress.*to device lo\\).*index 20 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "2d89",
+-        "name": "Add mirred action with invalid device",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action mirred egress mirror index 20 dev eltoh",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(.*to device eltoh\\).*index 20 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "300b",
+-        "name": "Add mirred action with duplicate index",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action mirred egress redirect index 15 dev lo"
+-        ],
+-        "cmdUnderTest": "$TC actions add action mirred egress mirror index 15 dev lo",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(.*to device lo\\).*index 15 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "a70e",
+-        "name": "Delete mirred mirror action",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action mirred egress mirror index 5 dev lo"
+-        ],
+-        "cmdUnderTest": "$TC actions del action mirred index 5",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(Egress Mirror to device lo\\).*index 5 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "3fb3",
+-        "name": "Delete mirred redirect action",
+-        "category": [
+-            "actions",
+-            "mirred"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action mirred",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action mirred egress redirect index 5 dev lo"
+-        ],
+-        "cmdUnderTest": "$TC actions del action mirred index 5",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action mirred",
+-        "matchPattern": "action order [0-9]*: mirred \\(Egress Redirect to device lo\\).*index 5 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action mirred"
+-        ]
+-    },
+-    {
+-        "id": "b078",
+-        "name": "Add simple action",
+-        "category": [
+-            "actions",
+-            "simple"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action simple",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action simple sdata \"A triumph\" index 60",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action simple",
+-        "matchPattern": "action order [0-9]*: Simple <A triumph>.*index 60 ref",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action simple"
+-        ]
+-    },
+-    {
+-        "id": "6d4c",
+-        "name": "Add simple action with duplicate index",
+-        "category": [
+-            "actions",
+-            "simple"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action simple",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action simple sdata \"Aruba\" index 4"
+-        ],
+-        "cmdUnderTest": "$TC actions add action simple sdata \"Jamaica\" index 4",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action simple",
+-        "matchPattern": "action order [0-9]*: Simple <Jamaica>.*ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action simple"
+-        ]
+-    },
+-    {
+-        "id": "2542",
+-        "name": "List simple actions",
+-        "category": [
+-            "actions",
+-            "simple"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action simple",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action simple sdata \"Rock\"",
+-            "$TC actions add action simple sdata \"Paper\"",
+-            "$TC actions add action simple sdata \"Scissors\" index 98"
+-        ],
+-        "cmdUnderTest": "$TC actions list action simple",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action simple",
+-        "matchPattern": "action order [0-9]*: Simple <[A-Z][a-z]*>",
+-        "matchCount": "3",
+-        "teardown": [
+-            "$TC actions flush action simple"
+-        ]
+-    },
+-    {
+-        "id": "ea67",
+-        "name": "Delete simple action",
+-        "category": [
+-            "actions",
+-            "simple"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action simple",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action simple sdata \"Blinkenlights\" index 1"
+-        ],
+-        "cmdUnderTest": "$TC actions delete action simple index 1",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action simple",
+-        "matchPattern": "action order [0-9]*: Simple <Blinkenlights>.*index 1 ref",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action simple"
+-        ]
+-    },
+-    {
+-        "id": "8ff1",
+-        "name": "Flush simple actions",
+-        "category": [
+-            "actions",
+-            "simple"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action simple",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action simple sdata \"Kirk\"",
+-            "$TC actions add action simple sdata \"Spock\" index 50",
+-            "$TC actions add action simple sdata \"McCoy\" index 9"
+-        ],
+-        "cmdUnderTest": "$TC actions flush action simple",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action simple",
+-        "matchPattern": "action order [0-9]*: Simple <[A-Z][a-z]*>",
+-        "matchCount": "0",
+-        "teardown": [
+-            ""
+-        ]
+-    },
+-    {
+-        "id": "6236",
+-        "name": "Add skbedit action with valid mark",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit mark 1",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit mark 1",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "407b",
+-        "name": "Add skbedit action with invalid mark",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit mark 666777888999",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit mark",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "081d",
+-        "name": "Add skbedit action with priority",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit prio 99",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit priority :99",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "cc37",
+-        "name": "Add skbedit action with invalid priority",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit prio foo",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit priority",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "3c95",
+-        "name": "Add skbedit action with queue_mapping",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit queue_mapping 909",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit queue_mapping 909",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "985c",
+-        "name": "Add skbedit action with invalid queue_mapping",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit queue_mapping 67000",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit queue_mapping",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "224f",
+-        "name": "Add skbedit action with ptype host",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit ptype host",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit ptype host",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "d1a3",
+-        "name": "Add skbedit action with ptype otherhost",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit ptype otherhost",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit ptype otherhost",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "b9c6",
+-        "name": "Add skbedit action with invalid ptype",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit ptype openair",
+-        "expExitCode": "255",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit ptype openair",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "5172",
+-        "name": "List skbedit actions",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action skbedit ptype otherhost",
+-            "$TC actions add action skbedit ptype broadcast",
+-            "$TC actions add action skbedit mark 59",
+-            "$TC actions add action skbedit mark 409"
+-        ],
+-        "cmdUnderTest": "$TC actions list action skbedit",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit",
+-        "matchCount": "4",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "a6d6",
+-        "name": "Add skbedit action with index",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ]
+-        ],
+-        "cmdUnderTest": "$TC actions add action skbedit mark 808 index 4040404040",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "index 4040404040",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "38f3",
+-        "name": "Delete skbedit action",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action skbedit",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action skbedit mark 42 index 9009"
+-        ],
+-        "cmdUnderTest": "$TC actions del action skbedit index 9009",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit mark 42",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "ce97",
+-        "name": "Flush skbedit actions",
+-        "category": [
+-            "actions",
+-            "skbedit"
+-        ],
+-        "setup": [
+-            "$TC actions add action skbedit mark 500",
+-            "$TC actions add action skbedit mark 501",
+-            "$TC actions add action skbedit mark 502",
+-            "$TC actions add action skbedit mark 503",
+-            "$TC actions add action skbedit mark 504",
+-            "$TC actions add action skbedit mark 505",
+-            "$TC actions add action skbedit mark 506"
+-        ],
+-        "cmdUnderTest": "$TC actions flush action skbedit",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions list action skbedit",
+-        "matchPattern": "action order [0-9]*:  skbedit",
+-        "matchCount": "0",
+-        "teardown": [
+-            "$TC actions flush action skbedit"
+-        ]
+-    },
+-    {
+-        "id": "f02c",
+-        "name": "Replace gact action",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action drop index 10",
+-            "$TC actions add action drop index 12"
+-        ],
+-        "cmdUnderTest": "$TC actions replace action ok index 12",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions ls action gact",
+-        "matchPattern": "action order [0-9]*: gact action pass",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "525f",
+-        "name": "Get gact action by index",
+-        "category": [
+-            "actions",
+-            "gact"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action gact",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action drop index 3900800700"
+-        ],
+-        "cmdUnderTest": "$TC actions get action gact index 3900800700",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions get action gact index 3900800700",
+-        "matchPattern": "index 3900800700",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action gact"
+-        ]
+-    },
+-    {
+-        "id": "a568",
+-        "name": "Add action with ife type",
+-        "category": [
+-            "actions",
+-            "ife"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action ife",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action ife encode type 0xDEAD index 1"
+-        ],
+-        "cmdUnderTest": "$TC actions get action ife index 1",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions get action ife index 1",
+-        "matchPattern": "type 0xDEAD",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action ife"
+-        ]
+-    },
+-    {
+-        "id": "b983",
+-        "name": "Add action without ife type",
+-        "category": [
+-            "actions",
+-            "ife"
+-        ],
+-        "setup": [
+-            [
+-                "$TC actions flush action ife",
+-                0,
+-                1,
+-                255
+-            ],
+-            "$TC actions add action ife encode index 1"
+-        ],
+-        "cmdUnderTest": "$TC actions get action ife index 1",
+-        "expExitCode": "0",
+-        "verifyCmd": "$TC actions get action ife index 1",
+-        "matchPattern": "type 0xED3E",
+-        "matchCount": "1",
+-        "teardown": [
+-            "$TC actions flush action ife"
+-        ]
+-    }
+-]
