@@ -1,45 +1,76 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] tracing: bpf: Hide bpf trace events when they are not
- used
-Date: Thu, 12 Oct 2017 21:49:45 -0400
-Message-ID: <20171012214945.1fbcba2f@vmware.local.home>
-References: <20171012184002.0661a867@gandalf.local.home>
-        <20171013011450.w2uqygdfzwf7ud64@ast-mbp>
-        <20171012213501.17fe6f8c@vmware.local.home>
-        <20171013013834.pxh3ancgutrm6m7t@ast-mbp>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v2 1/1] bridge: return error code when deleting
+ Vlan
+Date: Thu, 12 Oct 2017 22:03:30 -0400
+Message-ID: <64292550-f043-c1f7-5b0e-004288832887@mojatatu.com>
+References: <1507816314-2896-1-git-send-email-mrv@mojatatu.com>
+ <fef6f65d-473c-ee8e-51cc-1382cb6f84b9@gmail.com>
+ <CAHvchGnVZaSq+s9953jdbf6-UzDFb36457U6Pk0oQHgVOKwzQg@mail.gmail.com>
+ <e4611694-4248-e796-5cca-24f3d07e0e9e@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171013013834.pxh3ancgutrm6m7t@ast-mbp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Roman Mashak <mrv@mojatatu.com>,
+        David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f43.google.com ([209.85.214.43]:47293 "EHLO
+        mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753326AbdJMCDd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 22:03:33 -0400
+Received: by mail-it0-f43.google.com with SMTP id p138so9565808itp.2
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 19:03:33 -0700 (PDT)
+In-Reply-To: <e4611694-4248-e796-5cca-24f3d07e0e9e@cumulusnetworks.com>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Oct 2017 18:38:36 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+On 17-10-12 02:12 PM, Nikolay Aleksandrov wrote:
+> On 12/10/17 21:07, Roman Mashak wrote:
 
-> actually just noticed that xdp tracepoints are not covered by ifdef.
-> They depend on bpf_syscall too. So probably makes sense to wrap
-> them together.
-> bpf tracepoints are not being actively worked on whereas xdp tracepoints
-> keep evolving quickly, so the best is probalby to go via net-next
-> if you don't mind.
+>> For example, if you attempt to delete a non-existing vlan on a port,
+>> the current code succeeds and also sends event :
+>>
+>> rtnetlink_rcv_msg
+>>      rtnl_bridge_dellink
+>>         br_dellink
+>>            br_afspec
+>>               br_vlan_info
+>>
+>> int br_dellink(..)
+>> {
+>>    ...
+>>    err = br_afspec()
+>>    if (err == 0)
+>>        br_ifinfo_notify(RTM_NEWLINK, p);
+>> }
+>>
+>> This is misleading, so a proper errcode has to be produced.
+>>
+>
 
-Hmm, they didn't trigger a warning, with the exception of
-trace_xdp_redirect_map. I have code to check if tracepoints are used or
-not, and it appears that the xdp can be used without BPF_SYSCALL.
 
-I don't think they should be wrapped together until we know why they
-are used. I can still take this patch and just not touch the xdp ones.
 
-Note, my kernel was using trace_xdp_redirect_map_err,
-trace_xdp_redirect_err, trace_xdp_redirect and trace_xdp_exception.
+> True, but you also change the expected behaviour because now a user can
+> clear all vlans with one request (1 - 4094), and after the change that
+> will fail with a partial delete if some vlan was missing.
+> 
 
-As they did appear.
+The issue is more subtle (per Roman above):
+Try to delete a vlan (that doesnt  exist).
+1) It says "success".
+2) Worse: Another process listening (bridge monitor?) gets an _event_
+  that  the vlan has been deleted (when it never existed in the first
+  place).
 
--- Steve
+> This has been the behaviour forever and some script might depend on it.
+> Also IMO, and as David also mentioned, doing a partial delete is not good.
+>
+
+I think this is a bug (especially the event part).
+
+cheers,
+jamal
