@@ -1,53 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 5/5] fsl/fman: add dpaa in module names
-Date: Fri, 13 Oct 2017 10:39:08 -0700
-Message-ID: <ba387138-03e5-52df-dc5b-98c6c9d57be8@gmail.com>
-References: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
- <1507906212-10076-6-git-send-email-madalin.bucur@nxp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        junote@outlook.com, linux-kernel@vger.kernel.org
-To: madalin.bucur@nxp.com, netdev@vger.kernel.org, davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net] net: dsa: mv88e6060: fix switch MAC address
+Date: Fri, 13 Oct 2017 13:39:22 -0400
+Message-ID: <20171013173922.26536-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        David Laight <David.Laight@ACULAB.COM>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507906212-10076-6-git-send-email-madalin.bucur@nxp.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/13/2017 07:50 AM, Madalin Bucur wrote:
-> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+The 88E6060 Ethernet switch always transmits the multicast bit of the
+switch MAC address as a zero. It re-uses the corresponding bit 8 of the
+register "Switch MAC Address Register Bytes 0 & 1" for "DiffAddr".
 
-You should provide a line or two to explain why are you making this
-change, it is to resolve modular build configurations?
+If the "DiffAddr" bit is 0, then all ports transmit the same source
+address. If it is set to 1, then bit 2:0 are used for the port number.
 
-> ---
->  drivers/net/ethernet/freescale/fman/Makefile | 12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fman/Makefile b/drivers/net/ethernet/freescale/fman/Makefile
-> index 2c38119..4ae524a 100644
-> --- a/drivers/net/ethernet/freescale/fman/Makefile
-> +++ b/drivers/net/ethernet/freescale/fman/Makefile
-> @@ -1,9 +1,9 @@
->  subdir-ccflags-y +=  -I$(srctree)/drivers/net/ethernet/freescale/fman
->  
-> -obj-$(CONFIG_FSL_FMAN) += fsl_fman.o
-> -obj-$(CONFIG_FSL_FMAN) += fsl_fman_port.o
-> -obj-$(CONFIG_FSL_FMAN) += fsl_mac.o
-> +obj-$(CONFIG_FSL_FMAN) += fsl_dpaa_fman.o
-> +obj-$(CONFIG_FSL_FMAN) += fsl_dpaa_fman_port.o
-> +obj-$(CONFIG_FSL_FMAN) += fsl_dpaa_mac.o
->  
-> -fsl_fman-objs	:= fman_muram.o fman.o fman_sp.o fman_keygen.o
-> -fsl_fman_port-objs := fman_port.o
-> -fsl_mac-objs:= mac.o fman_dtsec.o fman_memac.o fman_tgec.o
-> +fsl_dpaa_fman-objs	:= fman_muram.o fman.o fman_sp.o fman_keygen.o
-> +fsl_dpaa_fman_port-objs := fman_port.o
-> +fsl_dpaa_mac-objs:= mac.o fman_dtsec.o fman_memac.o fman_tgec.o
-> 
+The mv88e6060 driver is currently wrongly shifting the MAC address byte
+0 by 9. To fix this, shift it by 8 as usual and clear its bit 0.
 
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6060.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index 621cdc46ad81..d64be2b83d3c 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -214,8 +214,14 @@ static int mv88e6060_setup(struct dsa_switch *ds)
+ 
+ static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
+ {
+-	/* Use the same MAC Address as FD Pause frames for all ports */
+-	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, (addr[0] << 9) | addr[1]);
++	u16 val = addr[0] << 8 | addr[1];
++
++	/* The multicast bit is always transmitted as a zero, so the switch uses
++	 * bit 8 for "DiffAddr", where 0 means all ports transmit the same SA.
++	 */
++	val &= 0xfeff;
++
++	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, val);
+ 	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_23, (addr[2] << 8) | addr[3]);
+ 	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_45, (addr[4] << 8) | addr[5]);
+ 
 -- 
-Florian
+2.14.2
