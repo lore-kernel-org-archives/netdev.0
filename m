@@ -1,49 +1,43 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: RE: [PATCH net-next 5/5] net: dsa: split dsa_port's netdev member
-Date: Fri, 13 Oct 2017 11:29:15 -0400
-Message-ID: <874lr3vzg4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20171012225156.20758-1-vivien.didelot@savoirfairelinux.com> <20171012225156.20758-6-vivien.didelot@savoirfairelinux.com> <5b637ea3-6c4b-1d93-ed43-09038af473f9@gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD0094DFE@AcuExch.aculab.com> <87y3ofi0oi.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 2/4] net: dsa: mv88e6060: setup random mac
+ address
+Date: Fri, 13 Oct 2017 15:30:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0094F25@AcuExch.aculab.com>
+References: <20171013014113.29561-1-vivien.didelot@savoirfairelinux.com>
+ <20171013014113.29561-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        "kernel\@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-        'Florian Fainelli' <f.fainelli@gmail.com>,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87y3ofi0oi.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+In-Reply-To: <20171013014113.29561-3-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi again,
+From: Vivien Didelot
+> Sent: 13 October 2017 02:41
+> As for mv88e6xxx, setup the switch from within the mv88e6060 driver with
+> a random MAC address, and remove the .set_addr implementation.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6060.c | 30 +++++++++++++++++++-----------
+>  1 file changed, 19 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+> index 621cdc46ad81..2f9d5e6a0f97 100644
+> --- a/drivers/net/dsa/mv88e6060.c
+> +++ b/drivers/net/dsa/mv88e6060.c
+...
+> +	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, (addr[0] << 9) | addr[1]);
 
-Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+Is that supposed to be 9 ?
 
->>> How about using:
->>> 
->>> 	union {
->>> 		struct net_device *master;
->>> 		struct net_device *slave;
->>> 	} netdev;
->> ...
->>
->> You can remove the 'netdev' all the compilers support unnamed unions.
->
-> There are issues with older GCC versions, see the commit 42275bd8fcb3
-> ("switchdev: don't use anonymous union on switchdev attr/obj structs")
->
-> That's why I kept it in the v2 I sent.
-
-At the same time, I can see that struct sk_buff uses anonym union a lot.
-
-It seems weird that one raised a compiler issue for switchdev but not
-for skbuff.h... Do you think it is viable to drop the name here then?
-
-I'd be happy to respin a v3 if this sounds safe.
-
-
-Thanks,
-
-        Vivien
+	David
