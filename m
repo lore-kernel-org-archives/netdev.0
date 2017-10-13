@@ -1,45 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] sched: act: ife: UAPI checks and
- performance tweaks
-Date: Thu, 12 Oct 2017 22:23:17 -0700 (PDT)
-Message-ID: <20171012.222317.639552348780320377.davem@davemloft.net>
-References: <20171011211608.22692-1-aring@mojatatu.com>
+Subject: Re: [PATCH net-next 0/4] tc-testing: Test suite updates
+Date: Thu, 12 Oct 2017 22:31:41 -0700 (PDT)
+Message-ID: <20171012.223141.649885637634633495.davem@davemloft.net>
+References: <1507756614-30333-1-git-send-email-lucasb@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        netdev@vger.kernel.org, eric.dumazet@gmail.com, bjb@mojatatu.com
-To: aring@mojatatu.com
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        jhs@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com
+To: lucasb@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35152 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35240 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdJMFXS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 01:23:18 -0400
-In-Reply-To: <20171011211608.22692-1-aring@mojatatu.com>
+        with ESMTP id S1751353AbdJMFbm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 01:31:42 -0400
+In-Reply-To: <1507756614-30333-1-git-send-email-lucasb@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <aring@mojatatu.com>
-Date: Wed, 11 Oct 2017 17:16:05 -0400
+From: Lucas Bates <lucasb@mojatatu.com>
+Date: Wed, 11 Oct 2017 17:16:50 -0400
 
-> this patch series contains at first a patch which adds a check for
-> IFE_ENCODE and IFE_DECODE when a ife act gets created or updated and adding
-> handling of these cases only inside the act callback only.
+> This patch series is a roundup of changes to the tc-testing
+> suite:
 > 
-> The second patch use per-cpu counters and move the spinlock around so that
-> the spinlock is less being held in act callback.
-> 
-> The last patch use rcu for update parameters and also move the spinlock for
-> the same purpose as in patch 2.
-> 
-> Notes:
->  - There is still a spinlock around for protecting the metalist and a
->    rw-lock for another list. Should be migrated to a rcu list, ife
->    possible.
-> 
->  - I use still dereference in dump callback, so I think what I didn't
->    got was what happened when rcu_assign_pointer will do when rcu read
->    lock is held. I suppose the pointer will be updated, then we don't
->    have any issue here.
+>  - Add test cases for police and mirred modules and some coverage
+>    in already-submitted test categories
+>  - Break the test case files down into more user-friendly sizes
+>  - Bug fix to the tdc.py script's handling of the -l argument
 
-Series applied.
+Some of the newly added files lack final newlines, and as you can
+see in the git patch output a warning is generated.
+
+Please fix this up and resubmit.
+
+Thanks.
