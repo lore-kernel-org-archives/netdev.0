@@ -1,7 +1,8 @@
 From: Jose Abreu <Jose.Abreu@synopsys.com>
-Subject: [PATCH net-next v2 0/2] net: stmmac: Improvements for multi-queuing and for AVB
-Date: Fri, 13 Oct 2017 10:58:35 +0100
-Message-ID: <cover.1507888312.git.joabreu@synopsys.com>
+Subject: [PATCH net-next v2 1/2] net: stmmac: Use correct values in TQS/RQS fields
+Date: Fri, 13 Oct 2017 10:58:36 +0100
+Message-ID: <beb40edc56b7ab3a790321f63ec8632d2d767363.1507888312.git.joabreu@synopsys.com>
+References: <cover.1507888312.git.joabreu@synopsys.com>
 Cc: Jose Abreu <Jose.Abreu@synopsys.com>,
         "David S. Miller" <davem@davemloft.net>,
         Joao Pinto <Joao.Pinto@synopsys.com>,
@@ -9,38 +10,144 @@ Cc: Jose Abreu <Jose.Abreu@synopsys.com>,
         Alexandre Torgue <alexandre.torgue@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:53558 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:53562 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751033AbdJMJ6y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:58:54 -0400
+        with ESMTP id S1757823AbdJMJ6z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:58:55 -0400
+In-Reply-To: <cover.1507888312.git.joabreu@synopsys.com>
+In-Reply-To: <cover.1507888312.git.joabreu@synopsys.com>
+References: <cover.1507888312.git.joabreu@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Currently we are using all the available fifo size in RQS and
+TQS fields. This will not work correctly in multi-queues IP's
+because total fifo size must be splitted to the enabled queues.
 
-Two improvements for stmmac: First one corrects the available fifo size per queue, second one corrects enabling of AVB queues. More info in commit log.
+Correct this by computing the available fifo size per queue and
+setting the right value in TQS and RQS fields.
 
-Best regards,
-Jose Miguel Abreu
-
+Signed-off-by: Jose Abreu <joabreu@synopsys.com>
 Cc: David S. Miller <davem@davemloft.net>
 Cc: Joao Pinto <jpinto@synopsys.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Cc: Alexandre Torgue <alexandre.torgue@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  3 ++-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  | 15 +++++++++------
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 22 ++++++++++++++++++++--
+ 3 files changed, 31 insertions(+), 9 deletions(-)
 
-Changes from v1:
-- Fix typo in second patch
-
-Jose Abreu (2):
-  net: stmmac: Use correct values in TQS/RQS fields
-  net: stmmac: Disable flow ctrl for RX AVB queues and really enable TX
-    AVB queues
-
- drivers/net/ethernet/stmicro/stmmac/common.h      |  5 +--
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  2 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  | 27 ++++++++++------
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 39 +++++++++++++++++++----
- 4 files changed, 56 insertions(+), 17 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index e82b4b7..c26c8a7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -443,7 +443,8 @@ struct stmmac_dma_ops {
+ 			 int rxfifosz);
+ 	void (*dma_rx_mode)(void __iomem *ioaddr, int mode, u32 channel,
+ 			    int fifosz);
+-	void (*dma_tx_mode)(void __iomem *ioaddr, int mode, u32 channel);
++	void (*dma_tx_mode)(void __iomem *ioaddr, int mode, u32 channel,
++			    int fifosz);
+ 	/* To track extra statistic (if supported) */
+ 	void (*dma_diagnostic_fr) (void *data, struct stmmac_extra_stats *x,
+ 				   void __iomem *ioaddr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+index e84831e..898849b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+@@ -271,9 +271,10 @@ static void dwmac4_dma_rx_chan_op_mode(void __iomem *ioaddr, int mode,
+ }
+ 
+ static void dwmac4_dma_tx_chan_op_mode(void __iomem *ioaddr, int mode,
+-				       u32 channel)
++				       u32 channel, int fifosz)
+ {
+ 	u32 mtl_tx_op = readl(ioaddr + MTL_CHAN_TX_OP_MODE(channel));
++	unsigned int tqs = fifosz / 256 - 1;
+ 
+ 	if (mode == SF_DMA_MODE) {
+ 		pr_debug("GMAC: enable TX store and forward mode\n");
+@@ -306,12 +307,14 @@ static void dwmac4_dma_tx_chan_op_mode(void __iomem *ioaddr, int mode,
+ 	 * For an IP with DWC_EQOS_NUM_TXQ > 1, the fields TXQEN and TQS are R/W
+ 	 * with reset values: TXQEN off, TQS 256 bytes.
+ 	 *
+-	 * Write the bits in both cases, since it will have no effect when RO.
+-	 * For DWC_EQOS_NUM_TXQ > 1, the top bits in MTL_OP_MODE_TQS_MASK might
+-	 * be RO, however, writing the whole TQS field will result in a value
+-	 * equal to DWC_EQOS_TXFIFO_SIZE, just like for DWC_EQOS_NUM_TXQ == 1.
++	 * TXQEN must be written for multi-channel operation and TQS must
++	 * reflect the available fifo size per queue (total fifo size / number
++	 * of enabled queues).
+ 	 */
+-	mtl_tx_op |= MTL_OP_MODE_TXQEN | MTL_OP_MODE_TQS_MASK;
++	mtl_tx_op |= MTL_OP_MODE_TXQEN;
++	mtl_tx_op &= ~MTL_OP_MODE_TQS_MASK;
++	mtl_tx_op |= tqs << MTL_OP_MODE_TQS_SHIFT;
++
+ 	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
+ }
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index f41661a..edf245b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1750,12 +1750,19 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ 	u32 rx_channels_count = priv->plat->rx_queues_to_use;
+ 	u32 tx_channels_count = priv->plat->tx_queues_to_use;
+ 	int rxfifosz = priv->plat->rx_fifo_size;
++	int txfifosz = priv->plat->tx_fifo_size;
+ 	u32 txmode = 0;
+ 	u32 rxmode = 0;
+ 	u32 chan = 0;
+ 
+ 	if (rxfifosz == 0)
+ 		rxfifosz = priv->dma_cap.rx_fifo_size;
++	if (txfifosz == 0)
++		txfifosz = priv->dma_cap.tx_fifo_size;
++
++	/* Adjust for real per queue fifo size */
++	rxfifosz /= rx_channels_count;
++	txfifosz /= tx_channels_count;
+ 
+ 	if (priv->plat->force_thresh_dma_mode) {
+ 		txmode = tc;
+@@ -1783,7 +1790,8 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
+ 						   rxfifosz);
+ 
+ 		for (chan = 0; chan < tx_channels_count; chan++)
+-			priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan);
++			priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan,
++						   txfifosz);
+ 	} else {
+ 		priv->hw->dma->dma_mode(priv->ioaddr, txmode, rxmode,
+ 					rxfifosz);
+@@ -1946,15 +1954,25 @@ static void stmmac_tx_err(struct stmmac_priv *priv, u32 chan)
+ static void stmmac_set_dma_operation_mode(struct stmmac_priv *priv, u32 txmode,
+ 					  u32 rxmode, u32 chan)
+ {
++	u32 rx_channels_count = priv->plat->rx_queues_to_use;
++	u32 tx_channels_count = priv->plat->tx_queues_to_use;
+ 	int rxfifosz = priv->plat->rx_fifo_size;
++	int txfifosz = priv->plat->tx_fifo_size;
+ 
+ 	if (rxfifosz == 0)
+ 		rxfifosz = priv->dma_cap.rx_fifo_size;
++	if (txfifosz == 0)
++		txfifosz = priv->dma_cap.tx_fifo_size;
++
++	/* Adjust for real per queue fifo size */
++	rxfifosz /= rx_channels_count;
++	txfifosz /= tx_channels_count;
+ 
+ 	if (priv->synopsys_id >= DWMAC_CORE_4_00) {
+ 		priv->hw->dma->dma_rx_mode(priv->ioaddr, rxmode, chan,
+ 					   rxfifosz);
+-		priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan);
++		priv->hw->dma->dma_tx_mode(priv->ioaddr, txmode, chan,
++					   txfifosz);
+ 	} else {
+ 		priv->hw->dma->dma_mode(priv->ioaddr, txmode, rxmode,
+ 					rxfifosz);
 -- 
 1.9.1
