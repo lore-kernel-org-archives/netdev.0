@@ -1,52 +1,32 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: [PATCH] nfp: Explicitly include linux/bug.h
-Date: Fri, 13 Oct 2017 03:50:35 +0100
-Message-ID: <20171013025035.4450-1-broonie@kernel.org>
-Cc: oss-drivers@netronome.com, netdev@vger.kernel.org,
-        Mark Brown <broonie@kernel.org>
-To: davem@davemloft.net, Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Simon Horman <simon.horman@netronome.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH] nfp: Explicitly include linux/bug.h
+Date: Thu, 12 Oct 2017 20:16:43 -0700
+Message-ID: <20171012201643.08ff9f4f@cakuba.netronome.com>
+References: <20171013025035.4450-1-broonie@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Simon Horman <simon.horman@netronome.com>,
+        oss-drivers@netronome.com, netdev@vger.kernel.org
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from heliosphere.sirena.org.uk ([172.104.155.198]:53506 "EHLO
-        heliosphere.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753291AbdJMCuq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 22:50:46 -0400
+Received: from mail-qt0-f178.google.com ([209.85.216.178]:44309 "EHLO
+        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753305AbdJMDQv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 23:16:51 -0400
+Received: by mail-qt0-f178.google.com with SMTP id 8so17327845qtv.1
+        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 20:16:51 -0700 (PDT)
+In-Reply-To: <20171013025035.4450-1-broonie@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today's -next build encountered an error due to a missing definition of
-WARN_ON(), caused by some header reorganization removing an implicit
-inclusion of linux/bug.h.  Fix this with an explicit inclusion.
+On Fri, 13 Oct 2017 03:50:35 +0100, Mark Brown wrote:
+> Today's -next build encountered an error due to a missing definition of
+> WARN_ON(), caused by some header reorganization removing an implicit
+> inclusion of linux/bug.h.  Fix this with an explicit inclusion.
+> 
+> Signed-off-by: Mark Brown <broonie@kernel.org>
 
-Signed-off-by: Mark Brown <broonie@kernel.org>
----
- drivers/net/ethernet/netronome/nfp/nfp_app.c | 1 +
- drivers/net/ethernet/netronome/nfp/nfp_asm.h | 1 +
- 2 files changed, 2 insertions(+)
+Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-index 82c290763529..5d9e2eba5b49 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
-@@ -31,6 +31,7 @@
-  * SOFTWARE.
-  */
- 
-+#include <linux/bug.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
- 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_asm.h b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-index c4c18dd5630a..aa397bf308e4 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_asm.h
-@@ -35,6 +35,7 @@
- #define __NFP_ASM_H__ 1
- 
- #include <linux/bitfield.h>
-+#include <linux/bug.h>
- #include <linux/types.h>
- 
- #define REG_NONE	0
--- 
-2.14.1
+Thank you!
