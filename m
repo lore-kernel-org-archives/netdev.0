@@ -1,117 +1,70 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net-next] ipv6: only update __use and lastusetime once per jiffy at most
-Date: Fri, 13 Oct 2017 15:08:07 -0700
-Message-ID: <20171013220807.90366-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Paolo Abeni <pabeni@redhat.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [Patch net-next v3] tcp: add a tracepoint for tcp retransmission
+Date: Fri, 13 Oct 2017 15:09:39 -0700
+Message-ID: <20171013220937.qoyu5heijjsr6z6p@ast-mbp>
+References: <20171013200316.28561-1-xiyou.wangcong@gmail.com>
+ <CAE40pdcdcLw9pdDkVEPFKvCLe0FcQzsV4vU0K-3YbNr1gS0Y6g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Neal Cardwell <ncardwell@google.com>
+To: Brendan Gregg <brendan.d.gregg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:45146 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752360AbdJMWIO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 18:08:14 -0400
-Received: by mail-pg0-f43.google.com with SMTP id b192so2213110pga.2
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 15:08:14 -0700 (PDT)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:51868 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751081AbdJMWJp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 18:09:45 -0400
+Received: by mail-pg0-f67.google.com with SMTP id k70so1186098pgc.8
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 15:09:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAE40pdcdcLw9pdDkVEPFKvCLe0FcQzsV4vU0K-3YbNr1gS0Y6g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+On Fri, Oct 13, 2017 at 01:50:44PM -0700, Brendan Gregg wrote:
+> On Fri, Oct 13, 2017 at 1:03 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > We need a real-time notification for tcp retransmission
+> > for monitoring.
+> >
+> > Of course we could use ftrace to dynamically instrument this
+> > kernel function too, however we can't retrieve the connection
+> > information at the same time, for example perf-tools [1] reads
+> > /proc/net/tcp for socket details, which is slow when we have
+> > a lots of connections.
+> >
+> > Therefore, this patch adds a tracepoint for __tcp_retransmit_skb()
+> > and exposes src/dst IP addresses and ports of the connection.
+> > This also makes it easier to integrate into perf.
+> >
+> > Note, I expose both IPv4 and IPv6 addresses at the same time:
+> > for a IPv4 socket, v4 mapped address is used as IPv6 addresses,
+> > for a IPv6 socket, LOOPBACK4_IPV6 is already filled by kernel.
+> > Also, add sk and skb pointers as they are useful for BPF.
+> 
+> Thanks, a TCP retransmit tracepoint would be great. (tcp_set_state
+> would be highly useful too, which Alexei already has in his list).
+> 
+> Should skp->__sk_common.skc_state be included in the format string, so
+> we don't have to always dig it out of the skaddr? For retransmits I
+> always want to know the TCP state, to determine if it is ESTABLISHED
+> (packet drop) or SYN_SENT (backlog full) or something else.
 
-In order to not dirty the cacheline too often, we try to only update
-dst->__use and dst->lastusetime at most once per jiffy.
-As dst->lastusetime is only used by ipv6 garbage collector, it should
-be good enough time resolution.
-And __use is only used in ipv6_route_seq_show() to show how many times a
-dst has been used. And as __use is not atomic_t right now, it does not
-show the precise number of usage times anyway. So we think it should be
-OK to only update it at most once per jiffy.
+let's not expose internal socket fields into tp fields.
+Few people still believe that tp fields are abi, so to be safe
+no such fields should be exposed.
+It's trivial enough to read sk_state from bpf program
+with bpf_probe_read().
 
-According to my latest syn flood test on a machine with intel Xeon 6th
-gen processor and 2 10G mlx nics bonded together, each with 8 rx queues
-on 2 NUMA nodes:
-With this patch, the packet process rate increases from ~3.49Mpps to
-~3.75Mpps with a 7% increase rate.
+> We probably need a tracepoint for tcp_send_loss_probe() (TLP) as well,
+> for tracing at the same time as retransmits (like my tools do), but
+> that can be added later.
 
-Note: dst_use() is being renamed to dst_hold_and_use() to better specify
-the purpose of the function.
+hmm. why?
+This single tracepoint will cover both cases of retransmits.
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Eric Dumazet <edumazet@googl.com>
----
- include/net/dst.h     | 15 ++++++++-------
- net/decnet/dn_route.c |  8 ++++----
- 2 files changed, 12 insertions(+), 11 deletions(-)
+For the patch:
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 204c19e25456..5047e8053d6c 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -255,17 +255,18 @@ static inline void dst_hold(struct dst_entry *dst)
- 	WARN_ON(atomic_inc_not_zero(&dst->__refcnt) == 0);
- }
- 
--static inline void dst_use(struct dst_entry *dst, unsigned long time)
-+static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
- {
--	dst_hold(dst);
--	dst->__use++;
--	dst->lastuse = time;
-+	if (time != dst->lastuse) {
-+		dst->__use++;
-+		dst->lastuse = time;
-+	}
- }
- 
--static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
-+static inline void dst_hold_and_use(struct dst_entry *dst, unsigned long time)
- {
--	dst->__use++;
--	dst->lastuse = time;
-+	dst_hold(dst);
-+	dst_use_noref(dst, time);
- }
- 
- static inline struct dst_entry *dst_clone(struct dst_entry *dst)
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index 0bd3afd01dd2..bff5ab88cdbb 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -338,7 +338,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 					   dn_rt_hash_table[hash].chain);
- 			rcu_assign_pointer(dn_rt_hash_table[hash].chain, rth);
- 
--			dst_use(&rth->dst, now);
-+			dst_hold_and_use(&rth->dst, now);
- 			spin_unlock_bh(&dn_rt_hash_table[hash].lock);
- 
- 			dst_release_immediate(&rt->dst);
-@@ -351,7 +351,7 @@ static int dn_insert_route(struct dn_route *rt, unsigned int hash, struct dn_rou
- 	rcu_assign_pointer(rt->dst.dn_next, dn_rt_hash_table[hash].chain);
- 	rcu_assign_pointer(dn_rt_hash_table[hash].chain, rt);
- 
--	dst_use(&rt->dst, now);
-+	dst_hold_and_use(&rt->dst, now);
- 	spin_unlock_bh(&dn_rt_hash_table[hash].lock);
- 	*rp = rt;
- 	return 0;
-@@ -1258,7 +1258,7 @@ static int __dn_route_output_key(struct dst_entry **pprt, const struct flowidn *
- 			    (flp->flowidn_mark == rt->fld.flowidn_mark) &&
- 			    dn_is_output_route(rt) &&
- 			    (rt->fld.flowidn_oif == flp->flowidn_oif)) {
--				dst_use(&rt->dst, jiffies);
-+				dst_hold_and_use(&rt->dst, jiffies);
- 				rcu_read_unlock_bh();
- 				*pprt = &rt->dst;
- 				return 0;
-@@ -1535,7 +1535,7 @@ static int dn_route_input(struct sk_buff *skb)
- 		    (rt->fld.flowidn_oif == 0) &&
- 		    (rt->fld.flowidn_mark == skb->mark) &&
- 		    (rt->fld.flowidn_iif == cb->iif)) {
--			dst_use(&rt->dst, jiffies);
-+			dst_hold_and_use(&rt->dst, jiffies);
- 			rcu_read_unlock();
- 			skb_dst_set(skb, (struct dst_entry *)rt);
- 			return 0;
--- 
-2.15.0.rc0.271.g36b669edcc-goog
+I believe it will fit our use case perfectly.
