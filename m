@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 2/5] net: dsa: mv88e6060: fix switch MAC address
-Date: Fri, 13 Oct 2017 14:18:06 -0400
-Message-ID: <20171013181809.14627-3-vivien.didelot@savoirfairelinux.com>
-References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
+Date: Fri, 13 Oct 2017 14:18:04 -0400
+Message-ID: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,50 +9,47 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         David Laight <David.Laight@ACULAB.COM>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46580 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752785AbdJMSSx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 14:18:53 -0400
-In-Reply-To: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 88E6060 Ethernet switch always transmits the multicast bit of the
-switch MAC address as a zero. It re-uses the corresponding bit 8 of the
-register "Switch MAC Address Register Bytes 0 & 1" for "DiffAddr".
+An Ethernet switch may support having a MAC address, which can be used
+as the switch's source address in transmitted full-duplex Pause frames.
 
-If the "DiffAddr" bit is 0, then all ports transmit the same source
-address. If it is set to 1, then bit 2:0 are used for the port number.
+If a DSA switch supports the related .set_addr operation, the DSA core
+sets the master's MAC address on the switch.
 
-The mv88e6060 driver is currently wrongly shifting the MAC address byte
-0 by 9. To fix this, shift it by 8 as usual and clear its bit 0.
+This won't make sense anymore in a multi-CPU ports system, because there
+won't be a unique master device assigned to a switch tree.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6060.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+Moreover this operation is confusing because it makes the user think
+that it could be used to program the switch with the MAC address of the
+CPU/management port such that MAC address learning can be disabled on
+said port, but in fact, that's not how it is currently used.
 
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index 621cdc46ad81..d64be2b83d3c 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -214,8 +214,14 @@ static int mv88e6060_setup(struct dsa_switch *ds)
- 
- static int mv88e6060_set_addr(struct dsa_switch *ds, u8 *addr)
- {
--	/* Use the same MAC Address as FD Pause frames for all ports */
--	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, (addr[0] << 9) | addr[1]);
-+	u16 val = addr[0] << 8 | addr[1];
-+
-+	/* The multicast bit is always transmitted as a zero, so the switch uses
-+	 * bit 8 for "DiffAddr", where 0 means all ports transmit the same SA.
-+	 */
-+	val &= 0xfeff;
-+
-+	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_01, val);
- 	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_23, (addr[2] << 8) | addr[3]);
- 	REG_WRITE(REG_GLOBAL, GLOBAL_MAC_45, (addr[4] << 8) | addr[5]);
- 
+To fix this, assign a random MAC address at setup time in the mv88e6060
+and mv88e6xxx drivers before removing .set_addr completely from DSA.
+
+Changes in v3:
+  - include fix for mv88e6060 switch MAC address setter.
+
+Changes in v2:
+  - remove .set_addr implementation from drivers and use a random MAC.
+
+Vivien Didelot (5):
+  net: dsa: mv88e6xxx: setup random mac address
+  net: dsa: mv88e6060: fix switch MAC address
+  net: dsa: mv88e6060: setup random mac address
+  net: dsa: dsa_loop: remove .set_addr
+  net: dsa: remove .set_addr
+
+ drivers/net/dsa/dsa_loop.c       |  8 --------
+ drivers/net/dsa/mv88e6060.c      | 37 ++++++++++++++++++++++++++-----------
+ drivers/net/dsa/mv88e6xxx/chip.c | 33 +++++++++++++++++----------------
+ include/net/dsa.h                |  1 -
+ net/dsa/dsa2.c                   |  6 ------
+ net/dsa/legacy.c                 |  6 ------
+ 6 files changed, 43 insertions(+), 48 deletions(-)
+
 -- 
 2.14.2
