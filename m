@@ -1,41 +1,57 @@
-From: Anton Ivanov <anton.ivanov@cambridgegreys.com>
-Subject: Not BUG, feature :) af_packet fails to TX TSO frames
-Date: Fri, 13 Oct 2017 08:25:29 +0100
-Message-ID: <1b445a1b-12bc-5e36-50ba-3a683b7096e2@cambridgegreys.com>
-References: <c3002d4f-62ff-1d0b-65fb-b366be45a6d8@cambridgegreys.com>
- <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 00/34] net: sched: allow qdiscs to share filter
+ block instances
+Date: Fri, 13 Oct 2017 09:39:56 +0200
+Message-ID: <20171013073956.GG1952@nanopsycho.orion>
+References: <20171012171823.1431-1-jiri@resnulli.us>
+ <20171012.102148.580269505585324793.davem@davemloft.net>
+ <20171013062101.GA1952@nanopsycho.orion>
+ <20171012.233153.709649098069912221.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, ast@kernel.org, daniel@iogearbox.net,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, edumazet@google.com, dsahern@gmail.com,
+        alexander.h.duyck@intel.com, john.fastabend@gmail.com,
+        willemb@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ivanoab5.miniserver.com ([78.31.111.25]:36739 "EHLO
-        www.kot-begemot.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751901AbdJMHZb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 03:25:31 -0400
-In-Reply-To: <CAF=yD-+SxQTHxiU5Yi2f8dm6X1s7SA6PdkbeJP-K_9ZuTMAaTA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:55608 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751570AbdJMHj6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 03:39:58 -0400
+Received: by mail-wm0-f50.google.com with SMTP id u138so19340800wmu.4
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 00:39:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171012.233153.709649098069912221.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let's reset this one.
+Fri, Oct 13, 2017 at 08:31:53AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Fri, 13 Oct 2017 08:21:01 +0200
+>
+>> Thu, Oct 12, 2017 at 07:21:48PM CEST, davem@davemloft.net wrote:
+>>>
+>>>Jiri I'm not looking at a 34 patch set, it's too large.
+>>>
+>>>Break this up into groups of a dozen or so patches each, no
+>>>more.  Submit them one at a time and wait for each series
+>>>to be fully reviewed and integrated before moving onto the
+>>>next one.
+>> 
+>> Yeah. As I stated in the beginning of the cover letter, I did not find a
+>> way to do it. I could split into 2 of 3 patchsets, problem is that I
+>> would introduce interfaces in first patchset that would be only used in
+>> patchset 2 or 3. I believe that is not ok. Do you think that I can do it
+>> like this this time?
+>
+>Jiri, please try harder.
 
-I cannot say I am happy with the current number of caveats on using 
-this. We should at least throw a small page similar to the one dedicated 
-to tpacket_v2 into the kernel docs (or amend the offload docs). As I do 
-not know all the corner cases well enough I find it difficult to 
-volunteer on this one, it should be someone more familiar with the code. 
-If they are documented, we can say that this is not a bug, it is a 
-feature :)
-
-What I can volunteer on is contributing some code to the actual 
-af_packet.c. When I did the digging in the source, I noticed that tap 
-has an unfair advantage over raw by allowing the user to specify buffers 
-from userspace. I am happy to port that, test it and contribute it.
-
--- 
-Anton R. Ivanov
-
-Cambridge Greys Limited, England and Wales company No 10273661
-http://www.cambridgegreys.com/
+Hmm. Okay. The reviewer would miss the big picture. But as you wish :)
