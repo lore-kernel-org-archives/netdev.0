@@ -1,153 +1,41 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH v1] pch_gbe: Switch to new PCI IRQ allocation API
-Date: Fri, 13 Oct 2017 20:04:33 +0300
-Message-ID: <1507914273.16112.468.camel@linux.intel.com>
-References: <20171013170221.70056-1-andriy.shevchenko@linux.intel.com>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: Re: [next-queue PATCH v7 4/6] net/sched: Introduce Credit Based Shaper (CBS) qdisc
+Date: Fri, 13 Oct 2017 10:12:18 -0700
+Message-ID: <87efq7m0p9.fsf@intel.com>
+References: <20171013004005.17416-1-vinicius.gomes@intel.com> <20171013004005.17416-5-vinicius.gomes@intel.com> <1507862553.31614.53.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
+        rodney.cummings@ni.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:31619 "EHLO mga09.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:19080 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750973AbdJMRHy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Oct 2017 13:07:54 -0400
-In-Reply-To: <20171013170221.70056-1-andriy.shevchenko@linux.intel.com>
+        id S1752120AbdJMRMZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Oct 2017 13:12:25 -0400
+In-Reply-To: <1507862553.31614.53.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-10-13 at 20:02 +0300, Andy Shevchenko wrote:
-> This removes custom flag handling.
+Hi,
 
-Please, discard this one, slipped to early.
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-> 
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> ---
->  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  3 +-
->  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 42 +++++++++--
-> -----------
->  2 files changed, 17 insertions(+), 28 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> index 8d710a3b4db0..697e29dd4bd3 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> @@ -613,7 +613,6 @@ struct pch_gbe_privdata {
->   * @rx_ring:		Pointer of Rx descriptor ring structure
->   * @rx_buffer_len:	Receive buffer length
->   * @tx_queue_len:	Transmit queue length
-> - * @have_msi:		PCI MSI mode flag
->   * @pch_gbe_privdata:	PCI Device ID driver_data
->   */
->  
-> @@ -623,6 +622,7 @@ struct pch_gbe_adapter {
->  	atomic_t irq_sem;
->  	struct net_device *netdev;
->  	struct pci_dev *pdev;
-> +	int irq;
->  	struct net_device *polling_netdev;
->  	struct napi_struct napi;
->  	struct pch_gbe_hw hw;
-> @@ -637,7 +637,6 @@ struct pch_gbe_adapter {
->  	struct pch_gbe_rx_ring *rx_ring;
->  	unsigned long rx_buffer_len;
->  	unsigned long tx_queue_len;
-> -	bool have_msi;
->  	bool rx_stop_flag;
->  	int hwts_tx_en;
->  	int hwts_rx_en;
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> index 5ae9681a2da7..0284a3bc019c 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> @@ -781,11 +781,8 @@ static void pch_gbe_free_irq(struct
-> pch_gbe_adapter *adapter)
->  {
->  	struct net_device *netdev = adapter->netdev;
->  
-> -	free_irq(adapter->pdev->irq, netdev);
-> -	if (adapter->have_msi) {
-> -		pci_disable_msi(adapter->pdev);
-> -		netdev_dbg(netdev, "call pci_disable_msi\n");
-> -	}
-> +	free_irq(adapter->irq, netdev);
-> +	pci_free_irq_vectors(adapter->pdev);
->  }
->  
->  /**
-> @@ -799,7 +796,7 @@ static void pch_gbe_irq_disable(struct
-> pch_gbe_adapter *adapter)
->  	atomic_inc(&adapter->irq_sem);
->  	iowrite32(0, &hw->reg->INT_EN);
->  	ioread32(&hw->reg->INT_ST);
-> -	synchronize_irq(adapter->pdev->irq);
-> +	synchronize_irq(adapter->irq);
->  
->  	netdev_dbg(adapter->netdev, "INT_EN reg : 0x%08x\n",
->  		   ioread32(&hw->reg->INT_EN));
-> @@ -1903,30 +1900,23 @@ static int pch_gbe_request_irq(struct
-> pch_gbe_adapter *adapter)
->  {
->  	struct net_device *netdev = adapter->netdev;
->  	int err;
-> -	int flags;
->  
-> -	flags = IRQF_SHARED;
-> -	adapter->have_msi = false;
-> -	err = pci_enable_msi(adapter->pdev);
-> -	netdev_dbg(netdev, "call pci_enable_msi\n");
-> -	if (err) {
-> -		netdev_dbg(netdev, "call pci_enable_msi - Error:
-> %d\n", err);
-> -	} else {
-> -		flags = 0;
-> -		adapter->have_msi = true;
-> -	}
-> -	err = request_irq(adapter->pdev->irq, &pch_gbe_intr,
-> -			  flags, netdev->name, netdev);
-> +	err = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_ALL_TYPES);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	adapter->irq = pci_irq_vector(pdev, 0);
-> +
-> +	err = request_irq(adapter->irq, &pch_gbe_intr, IRQF_SHARED,
-> +			  netdev->name, netdev);
->  	if (err)
->  		netdev_err(netdev, "Unable to allocate interrupt
-> Error: %d\n",
->  			   err);
-> -	netdev_dbg(netdev,
-> -		   "adapter->have_msi : %d  flags : 0x%04x  return :
-> 0x%04x\n",
-> -		   adapter->have_msi, flags, err);
-> +	netdev_dbg(netdev, "have_msi : %d  return : 0x%04x\n",
-> +		   pci_dev_msi_enabled(adapter->pdev), err);
->  	return err;
->  }
->  
-> -
->  /**
->   * pch_gbe_up - Up GbE network device
->   * @adapter:  Board private structure
-> @@ -2399,9 +2389,9 @@ static void pch_gbe_netpoll(struct net_device
-> *netdev)
->  {
->  	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
->  
-> -	disable_irq(adapter->pdev->irq);
-> -	pch_gbe_intr(adapter->pdev->irq, netdev);
-> -	enable_irq(adapter->pdev->irq);
-> +	disable_irq(adapter->irq);
-> +	pch_gbe_intr(adapter->irq, netdev);
-> +	enable_irq(adapter->irq);
->  }
->  #endif
->  
+[...]
 
--- 
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+>
+> Your mixing of s64 and u64 is disturbing.
+>
+> do_div() handles u64, not s64.
+>
+> div64_s64() might be needed in place of do_div()
+
+I wasn't very comfortable about the signal juggling either. Didn't know
+about div64_s64(), looks much better. Will fix, thanks.
+
+
+Cheers,
