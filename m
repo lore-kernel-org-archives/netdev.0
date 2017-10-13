@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
-Date: Fri, 13 Oct 2017 14:18:04 -0400
-Message-ID: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 5/5] net: dsa: remove .set_addr
+Date: Fri, 13 Oct 2017 14:18:09 -0400
+Message-ID: <20171013181809.14627-6-vivien.didelot@savoirfairelinux.com>
+References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,46 +11,66 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-An Ethernet switch may support having a MAC address, which can be used
-as the switch's source address in transmitted full-duplex Pause frames.
+Now that there is no user for the .set_addr function, remove it from
+DSA. If a switch supports this feature (like mv88e6xxx), the
+implementation can be done in the driver setup.
 
-If a DSA switch supports the related .set_addr operation, the DSA core
-sets the master's MAC address on the switch.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ include/net/dsa.h | 1 -
+ net/dsa/dsa2.c    | 6 ------
+ net/dsa/legacy.c  | 6 ------
+ 3 files changed, 13 deletions(-)
 
-This won't make sense anymore in a multi-CPU ports system, because there
-won't be a unique master device assigned to a switch tree.
-
-Moreover this operation is confusing because it makes the user think
-that it could be used to program the switch with the MAC address of the
-CPU/management port such that MAC address learning can be disabled on
-said port, but in fact, that's not how it is currently used.
-
-To fix this, assign a random MAC address at setup time in the mv88e6060
-and mv88e6xxx drivers before removing .set_addr completely from DSA.
-
-Changes in v3:
-  - include fix for mv88e6060 switch MAC address setter.
-
-Changes in v2:
-  - remove .set_addr implementation from drivers and use a random MAC.
-
-Vivien Didelot (5):
-  net: dsa: mv88e6xxx: setup random mac address
-  net: dsa: mv88e6060: fix switch MAC address
-  net: dsa: mv88e6060: setup random mac address
-  net: dsa: dsa_loop: remove .set_addr
-  net: dsa: remove .set_addr
-
- drivers/net/dsa/dsa_loop.c       |  8 --------
- drivers/net/dsa/mv88e6060.c      | 37 ++++++++++++++++++++++++++-----------
- drivers/net/dsa/mv88e6xxx/chip.c | 33 +++++++++++++++++----------------
- include/net/dsa.h                |  1 -
- net/dsa/dsa2.c                   |  6 ------
- net/dsa/legacy.c                 |  6 ------
- 6 files changed, 43 insertions(+), 48 deletions(-)
-
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index ce1d622734d7..2746741f74cf 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -291,7 +291,6 @@ struct dsa_switch_ops {
+ 	enum dsa_tag_protocol (*get_tag_protocol)(struct dsa_switch *ds);
+ 
+ 	int	(*setup)(struct dsa_switch *ds);
+-	int	(*set_addr)(struct dsa_switch *ds, u8 *addr);
+ 	u32	(*get_phy_flags)(struct dsa_switch *ds, int port);
+ 
+ 	/*
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 54ed054777bd..6ac9e11d385c 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -336,12 +336,6 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ 	if (err)
+ 		return err;
+ 
+-	if (ds->ops->set_addr) {
+-		err = ds->ops->set_addr(ds, dst->cpu_dp->netdev->dev_addr);
+-		if (err < 0)
+-			return err;
+-	}
+-
+ 	if (!ds->slave_mii_bus && ds->ops->phy_read) {
+ 		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+ 		if (!ds->slave_mii_bus)
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index 19ff6e0a21dc..b0fefbffe082 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -172,12 +172,6 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 	if (ret)
+ 		return ret;
+ 
+-	if (ops->set_addr) {
+-		ret = ops->set_addr(ds, master->dev_addr);
+-		if (ret < 0)
+-			return ret;
+-	}
+-
+ 	if (!ds->slave_mii_bus && ops->phy_read) {
+ 		ds->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
+ 		if (!ds->slave_mii_bus)
 -- 
 2.14.2
