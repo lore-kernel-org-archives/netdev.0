@@ -1,52 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [net-next:master 836/858] bcmsysport.c:undefined reference to
- `unregister_dsa_notifier'
-Date: Fri, 13 Oct 2017 12:19:49 -0700
-Message-ID: <bc5755d6-0633-9b06-b186-14e2831cc2a3@gmail.com>
-References: <201710131551.04CpSDSV%fengguang.wu@intel.com>
+From: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
+Subject: [PATCH] Add -target to clang switch while cross compiling.
+Date: Fri, 13 Oct 2017 12:24:06 -0700
+Message-ID: <1507922646-19260-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
+References: <20171013011359.tyhynrjghe2krxec@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, netdev@vger.kernel.org, davem@davemloft.net,
-        andew@lunn.ch, vivien.didelot@savoirfairelinux.com
-To: kbuild test robot <fengguang.wu@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:47097 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751165AbdJMTTy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 15:19:54 -0400
-Received: by mail-qk0-f196.google.com with SMTP id k123so6245935qke.3
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 12:19:54 -0700 (PDT)
-In-Reply-To: <201710131551.04CpSDSV%fengguang.wu@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
+To: ast@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171013011359.tyhynrjghe2krxec@ast-mbp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/13/2017 12:41 AM, kbuild test robot wrote:
-> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   2d0d21c12dfa3851620f1fa9fe2d444538f1fad4
-> commit: d156576362c07e954dc36e07b0d7b0733a010f7d [836/858] net: systemport: Establish lower/upper queue mapping
-> config: x86_64-randconfig-it0-10131242 (attached as .config)
-> compiler: gcc-4.9 (Debian 4.9.4-2) 4.9.4
-> reproduce:
->         git checkout d156576362c07e954dc36e07b0d7b0733a010f7d
->         # save the attached .config to linux build tree
->         make ARCH=x86_64 
-> 
-> All errors (new ones prefixed by >>):
-> 
->    drivers/net/ethernet/broadcom/bcmsysport.o: In function `bcm_sysport_remove':
->>> bcmsysport.c:(.text+0x2020): undefined reference to `unregister_dsa_notifier'
->    drivers/net/ethernet/broadcom/bcmsysport.o: In function `bcm_sysport_probe':
->>> bcmsysport.c:(.text+0x3689): undefined reference to `register_dsa_notifier'
->    bcmsysport.c:(.text+0x38d1): undefined reference to `unregister_dsa_notifier'
+Update to llvm excludes assembly instructions.
+llvm git revision is below
 
-Ah this configuration is: CONFIG_SYSTEMPORT=y and CONFIG_NET_DSA=m which
-would cause the following link failures.
+commit 65fad7c26569 ("bpf: add inline-asm support")
 
-I will submit a fix shortly after making sure that this won't cause
-circular dependencies.
+This change will be part of llvm  release 6.0
 
-Thanks
+__ASM_SYSREG_H define is not required for native compile.
+-target switch includes appropriate target specific files
+while cross compiling
+
+Tested on x86 and arm64.
+
+Signed-off-by: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
+---
+ samples/bpf/Makefile | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index ebc2ad6..81f9fcd 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -180,6 +180,7 @@ CLANG ?= clang
+ # Detect that we're cross compiling and use the cross compiler
+ ifdef CROSS_COMPILE
+ HOSTCC = $(CROSS_COMPILE)gcc
++CLANG_ARCH_ARGS = -target $(ARCH)
+ endif
+ 
+ # Trick to allow make to be run from this directory
+@@ -229,9 +230,9 @@ $(obj)/tracex5_kern.o: $(obj)/syscall_nrs.h
+ $(obj)/%.o: $(src)/%.c
+ 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
+ 		-I$(srctree)/tools/testing/selftests/bpf/ \
+-		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
++		-D__KERNEL__ -Wno-unused-value -Wno-pointer-sign \
+ 		-D__TARGET_ARCH_$(ARCH) -Wno-compare-distinct-pointer-types \
+ 		-Wno-gnu-variable-sized-type-not-at-end \
+ 		-Wno-address-of-packed-member -Wno-tautological-compare \
+-		-Wno-unknown-warning-option \
++		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
+ 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf -filetype=obj -o $@
 -- 
-Florian
+2.7.4
