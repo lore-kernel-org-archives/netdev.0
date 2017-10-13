@@ -1,63 +1,44 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][net-next] cxgb4: fix missing break in switch and indent return statements
-Date: Fri, 13 Oct 2017 17:29:00 +0100
-Message-ID: <20171013162900.16911-1-colin.king@canonical.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Kernel Performance Tuning for High Volume SCTP traffic
+Date: Fri, 13 Oct 2017 16:35:38 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00950DD@AcuExch.aculab.com>
+References: <CAFKCRVL-e03Cn35-Vvtb8+NSAz3Tk2Hje_Hg5K9HfqgokEBPgg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0094F48@AcuExch.aculab.com>
+ <CAFKCRVLTA8Vrz-36rxfUtOf8Zc9mSPZteAgdyeETsqSa-XsOcQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ganesh Goudar <ganeshgr@chelsio.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Traiano Welcome' <traiano@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.186]:50488 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750722AbdJMQfj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 12:35:39 -0400
+In-Reply-To: <CAFKCRVLTA8Vrz-36rxfUtOf8Zc9mSPZteAgdyeETsqSa-XsOcQ@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
-
-The break statement for the Macronix case is missing and will
-fall through to the Winbond case and re-assign the size setting.
-Fix this by adding the missing break statement.  Also correctly
-indent the return statements.
-
-Detected by CoverityScan, CID#1458020 ("Missing break in switch")
-
-Fixes: 96ac18f14a5a ("cxgb4: Add support for new flash parts")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index b3fd1f457639..fe7db70a9fa6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -8289,7 +8289,7 @@ static int t4_get_flash_params(struct adapter *adap)
- 		default:
- 			dev_err(adap->pdev_dev, "Micron Flash Part has bad size, ID = %#x, Density code = %#x\n",
- 				flashid, density);
--		return -EINVAL;
-+			return -EINVAL;
- 		}
- 		break;
- 	}
-@@ -8308,8 +8308,9 @@ static int t4_get_flash_params(struct adapter *adap)
- 		default:
- 			dev_err(adap->pdev_dev, "Macronix Flash Part has bad size, ID = %#x, Density code = %#x\n",
- 				flashid, density);
--		return -EINVAL;
-+			return -EINVAL;
- 		}
-+		break;
- 	}
- 	case 0xef: { /* Winbond */
- 		/* This Density -> Size decoding table is taken from Winbond
-@@ -8326,7 +8327,7 @@ static int t4_get_flash_params(struct adapter *adap)
- 		default:
- 			dev_err(adap->pdev_dev, "Winbond Flash Part has bad size, ID = %#x, Density code = %#x\n",
- 				flashid, density);
--		return -EINVAL;
-+			return -EINVAL;
- 		}
- 		break;
- 	}
--- 
-2.14.1
+RnJvbTogVHJhaWFubyBXZWxjb21lDQo+IFNlbnQ6IDEzIE9jdG9iZXIgMjAxNyAxNzowNA0KPiBP
+biBGcmksIE9jdCAxMywgMjAxNyBhdCAxMTo1NiBQTSwgRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWln
+aHRAYWN1bGFiLmNvbT4gd3JvdGU6DQo+ID4gRnJvbTogVHJhaWFubyBXZWxjb21lDQo+ID4NCj4g
+PiAoY29waWVkIHRvIG5ldGRldikNCj4gPj4gU2VudDogMTMgT2N0b2JlciAyMDE3IDA3OjE2DQo+
+ID4+IFRvOiBsaW51eC1zY3RwQHZnZXIua2VybmVsLm9yZw0KPiA+PiBTdWJqZWN0OiBLZXJuZWwg
+UGVyZm9ybWFuY2UgVHVuaW5nIGZvciBIaWdoIFZvbHVtZSBTQ1RQIHRyYWZmaWMNCj4gPj4NCj4g
+Pj4gSGkgTGlzdA0KPiA+Pg0KPiA+PiBJJ20gcnVubmluZyBhIGxpbnV4IHNlcnZlciBwcm9jZXNz
+aW5nIGhpZ2ggdm9sdW1lcyBvZiBTQ1RQIHRyYWZmaWMgYW5kDQo+ID4+IGFtIHNlZWluZyBsYXJn
+ZSBudW1iZXJzIG9mIHBhY2tldCBvdmVycnVucyAoaWZjb25maWcgb3V0cHV0KS4NCj4gPg0KPiA+
+IEknZCBndWVzcyB0aGF0IG92ZXJydW5zIGluZGljYXRlIHRoYXQgdGhlIGV0aGVybmV0IE1BQyBp
+cyBmYWlsaW5nIHRvDQo+ID4gY29weSB0aGUgcmVjZWl2ZSBmcmFtZXMgaW50byBrZXJuZWwgbWVt
+b3J5Lg0KPiA+IEl0IGlzIHByb2JhYmx5IHJ1bm5pbmcgb3V0IG9mIHJlY2VpdmUgYnVmZmVycywg
+YnV0IG1pZ2h0IGJlDQo+ID4gc3VmZmVyaW5nIGZyb20gYSBsYWNrIG9mIGJ1cyBiYW5kd2lkdGgu
+DQo+ID4gTUFDIGRyaXZlcnMgdXN1YWxseSBkaXNjYXJkIHJlY2VpdmUgZnJhbWVzIGlmIHRoZXkg
+Y2FuJ3QgZ2V0DQo+ID4gYSByZXBsYWNlbWVudCBidWZmZXIgLSBzbyB5b3Ugc2hvdWxkbid0IHJ1
+biBvdXQgb2YgcnggYnVmZmVycy4NCj4gPg0KPiA+IFRoaXMgbWVhbnMgdGhlIGVycm9ycyBhcmUg
+cHJvYmFibHkgYmVsb3cgU0NUUCAtIHNvIGNoYW5naW5nIFNDVFAgcGFyYW1ldGVycw0KPiA+IGlz
+IHVubGlrZWx5IHRvIGhlbHAuDQo+IA0KPiBEb2VzIHRoaXMgbWVhbiB0aGF0IHR1bmluZyBVRFAg
+cGVyZm9ybWFuY2UgY291bGQgaGVscCA/IE9yIGRvIHlvdSBtZWFuDQo+IGhhcmR3YXJlIChOSUMp
+IHBlcmZvcm1hbmNlIGNvdWxkIGJlIHRoZSBpc3N1ZT8NCg0KSSdkIGNlcnRhaW5seSBjaGVjayBV
+RFAgcGVyZm9ybWFuY2UuDQoNCglEYXZpZA0KDQo=
