@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: dwmac_lib: fix interchanged sleep/timeout
- values in DMA reset function
-Date: Fri, 13 Oct 2017 10:20:04 -0700 (PDT)
-Message-ID: <20171013.102004.2277222434519825101.davem@davemloft.net>
-References: <20171012090047.GA4479@ingrassia.epigenesys.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] l2tp: check ps->sock before running
+ pppol2tp_session_ioctl()
+Date: Fri, 13 Oct 2017 19:22:35 +0200
+Message-ID: <520e39809f7ca7d8b38282e3a6bf0bbf93219541.1507915312.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-To: ingrassia@epigenesys.com
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+        Tom Parkin <tparkin@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44966 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751138AbdJMRUF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 13:20:05 -0400
-In-Reply-To: <20171012090047.GA4479@ingrassia.epigenesys.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:46982 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751633AbdJMRWj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 13:22:39 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emiliano Ingrassia <ingrassia@epigenesys.com>
-Date: Thu, 12 Oct 2017 11:00:47 +0200
+When pppol2tp_session_ioctl() is called by pppol2tp_tunnel_ioctl(),
+the session may be unconnected. That is, it was created by
+pppol2tp_session_create() and hasn't been connected with
+pppol2tp_connect(). In this case, ps->sock is NULL, so we need to check
+for this case in order to avoid dereferencing a NULL pointer.
 
-> The DMA reset timeout, used in read_poll_timeout, is
-> ten times shorter than the sleep time.
-> This patch fixes these values interchanging them, as it was
-> before the read_poll_timeout introduction.
-> 
-> Fixes: 8a70aeca80c2 ("net: stmmac: Use readl_poll_timeout")
-> 
-> Signed-off-by: Emiliano Ingrassia <ingrassia@epigenesys.com>
+Fixes: 309795f4bec2 ("l2tp: Add netlink control API for L2TP")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_ppp.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Applied.
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index bc6e8bfc5be4..f50452b919d5 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -988,6 +988,9 @@ static int pppol2tp_session_ioctl(struct l2tp_session *session,
+ 		 session->name, cmd, arg);
+ 
+ 	sk = ps->sock;
++	if (!sk)
++		return -EBADR;
++
+ 	sock_hold(sk);
+ 
+ 	switch (cmd) {
+-- 
+2.15.0.rc0
