@@ -1,311 +1,235 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/9] net: sched: store Qdisc pointer in struct block
-Date: Fri, 13 Oct 2017 14:00:57 +0200
-Message-ID: <20171013120105.23358-2-jiri@resnulli.us>
+Subject: [patch net-next 9/9] net: sched: propagate q and parent from caller down to tcf_fill_node
+Date: Fri, 13 Oct 2017 14:01:05 +0200
+Message-ID: <20171013120105.23358-10-jiri@resnulli.us>
 References: <20171013120105.23358-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36478 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757973AbdJMMBJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 08:01:09 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 131so5601751wmk.3
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 05:01:08 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37683 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758070AbdJMMBQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 08:01:16 -0400
+Received: by mail-wm0-f65.google.com with SMTP id r68so5588327wmr.4
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 05:01:16 -0700 (PDT)
 In-Reply-To: <20171013120105.23358-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Prepare for removal of tp->q and store Qdisc pointer in the block
-structure.
+The callers have this info, they will pass it down to tcf_fill_node.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h     | 4 ++--
- include/net/sch_generic.h | 1 +
- net/sched/cls_api.c       | 3 ++-
- net/sched/sch_atm.c       | 4 ++--
- net/sched/sch_cbq.c       | 2 +-
- net/sched/sch_drr.c       | 2 +-
- net/sched/sch_dsmark.c    | 2 +-
- net/sched/sch_fq_codel.c  | 2 +-
- net/sched/sch_hfsc.c      | 4 ++--
- net/sched/sch_htb.c       | 4 ++--
- net/sched/sch_ingress.c   | 6 +++---
- net/sched/sch_multiq.c    | 2 +-
- net/sched/sch_prio.c      | 2 +-
- net/sched/sch_qfq.c       | 2 +-
- net/sched/sch_sfb.c       | 2 +-
- net/sched/sch_sfq.c       | 2 +-
- 16 files changed, 23 insertions(+), 21 deletions(-)
+ net/sched/cls_api.c | 55 ++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 35 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index f526374..772dfa8 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -22,7 +22,7 @@ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
- 				bool create);
- void tcf_chain_put(struct tcf_chain *chain);
- int tcf_block_get(struct tcf_block **p_block,
--		  struct tcf_proto __rcu **p_filter_chain);
-+		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q);
- void tcf_block_put(struct tcf_block *block);
- int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		 struct tcf_result *res, bool compat_mode);
-@@ -30,7 +30,7 @@ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- #else
- static inline
- int tcf_block_get(struct tcf_block **p_block,
--		  struct tcf_proto __rcu **p_filter_chain)
-+		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q)
- {
- 	return 0;
- }
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 684d8ed..df4032c 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -270,6 +270,7 @@ struct tcf_chain {
- 
- struct tcf_block {
- 	struct list_head chain_list;
-+	struct Qdisc *q;
- };
- 
- static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 2977b8a..f7d3f1f 100644
+index 856003c..2e8e87f 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -241,7 +241,7 @@ tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
+@@ -420,8 +420,8 @@ static struct tcf_proto *tcf_chain_tp_find(struct tcf_chain *chain,
  }
  
- int tcf_block_get(struct tcf_block **p_block,
--		  struct tcf_proto __rcu **p_filter_chain)
-+		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q)
+ static int tcf_fill_node(struct net *net, struct sk_buff *skb,
+-			 struct tcf_proto *tp, void *fh, u32 portid,
+-			 u32 seq, u16 flags, int event)
++			 struct tcf_proto *tp, struct Qdisc *q, u32 parent,
++			 void *fh, u32 portid, u32 seq, u16 flags, int event)
  {
- 	struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
- 	struct tcf_chain *chain;
-@@ -257,6 +257,7 @@ int tcf_block_get(struct tcf_block **p_block,
- 		goto err_chain_create;
- 	}
- 	tcf_chain_filter_chain_ptr_set(chain, p_filter_chain);
-+	block->q = q;
- 	*p_block = block;
- 	return 0;
+ 	struct tcmsg *tcm;
+ 	struct nlmsghdr  *nlh;
+@@ -434,8 +434,8 @@ static int tcf_fill_node(struct net *net, struct sk_buff *skb,
+ 	tcm->tcm_family = AF_UNSPEC;
+ 	tcm->tcm__pad1 = 0;
+ 	tcm->tcm__pad2 = 0;
+-	tcm->tcm_ifindex = qdisc_dev(tp->q)->ifindex;
+-	tcm->tcm_parent = tp->classid;
++	tcm->tcm_ifindex = qdisc_dev(q)->ifindex;
++	tcm->tcm_parent = parent;
+ 	tcm->tcm_info = TC_H_MAKE(tp->prio, tp->protocol);
+ 	if (nla_put_string(skb, TCA_KIND, tp->ops->kind))
+ 		goto nla_put_failure;
+@@ -458,6 +458,7 @@ static int tcf_fill_node(struct net *net, struct sk_buff *skb,
  
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index c5fcdf1..2dbd249 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -281,7 +281,7 @@ static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
- 		goto err_out;
- 	}
- 
--	error = tcf_block_get(&flow->block, &flow->filter_list);
-+	error = tcf_block_get(&flow->block, &flow->filter_list, sch);
- 	if (error) {
- 		kfree(flow);
- 		goto err_out;
-@@ -546,7 +546,7 @@ static int atm_tc_init(struct Qdisc *sch, struct nlattr *opt)
- 		p->link.q = &noop_qdisc;
- 	pr_debug("atm_tc_init: link (%p) qdisc %p\n", &p->link, p->link.q);
- 
--	err = tcf_block_get(&p->link.block, &p->link.filter_list);
-+	err = tcf_block_get(&p->link.block, &p->link.filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index dcef97f..c3b92d6 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1566,7 +1566,7 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
- 	if (cl == NULL)
- 		goto failure;
- 
--	err = tcf_block_get(&cl->block, &cl->filter_list);
-+	err = tcf_block_get(&cl->block, &cl->filter_list, sch);
- 	if (err) {
- 		kfree(cl);
- 		return err;
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 2d0e8d4..753dc7a 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -412,7 +412,7 @@ static int drr_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
- 	struct drr_sched *q = qdisc_priv(sch);
- 	int err;
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
- 	err = qdisc_class_hash_init(&q->clhash);
-diff --git a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
-index 2836c80..fb4fb71 100644
---- a/net/sched/sch_dsmark.c
-+++ b/net/sched/sch_dsmark.c
-@@ -344,7 +344,7 @@ static int dsmark_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!opt)
- 		goto errout;
- 
--	err = tcf_block_get(&p->block, &p->filter_list);
-+	err = tcf_block_get(&p->block, &p->filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index de3b57c..3c40ede 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -481,7 +481,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
- 			return err;
- 	}
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index 3f88b75..a692184 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1033,7 +1033,7 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 	if (cl == NULL)
+ static int tfilter_notify(struct net *net, struct sk_buff *oskb,
+ 			  struct nlmsghdr *n, struct tcf_proto *tp,
++			  struct Qdisc *q, u32 parent,
+ 			  void *fh, int event, bool unicast)
+ {
+ 	struct sk_buff *skb;
+@@ -467,7 +468,7 @@ static int tfilter_notify(struct net *net, struct sk_buff *oskb,
+ 	if (!skb)
  		return -ENOBUFS;
  
--	err = tcf_block_get(&cl->block, &cl->filter_list);
-+	err = tcf_block_get(&cl->block, &cl->filter_list, sch);
- 	if (err) {
- 		kfree(cl);
- 		return err;
-@@ -1405,7 +1405,7 @@ hfsc_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
- 		return err;
- 	q->eligible = RB_ROOT;
- 
--	err = tcf_block_get(&q->root.block, &q->root.filter_list);
-+	err = tcf_block_get(&q->root.block, &q->root.filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index c6d7ae8..57be73c 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1030,7 +1030,7 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!opt)
+-	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq,
++	if (tcf_fill_node(net, skb, tp, q, parent, fh, portid, n->nlmsg_seq,
+ 			  n->nlmsg_flags, event) <= 0) {
+ 		kfree_skb(skb);
  		return -EINVAL;
+@@ -482,6 +483,7 @@ static int tfilter_notify(struct net *net, struct sk_buff *oskb,
  
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
+ static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
+ 			      struct nlmsghdr *n, struct tcf_proto *tp,
++			      struct Qdisc *q, u32 parent,
+ 			      void *fh, bool unicast, bool *last)
+ {
+ 	struct sk_buff *skb;
+@@ -492,7 +494,7 @@ static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
+ 	if (!skb)
+ 		return -ENOBUFS;
  
-@@ -1393,7 +1393,7 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 		if (!cl)
- 			goto failure;
+-	if (tcf_fill_node(net, skb, tp, fh, portid, n->nlmsg_seq,
++	if (tcf_fill_node(net, skb, tp, q, parent, fh, portid, n->nlmsg_seq,
+ 			  n->nlmsg_flags, RTM_DELTFILTER) <= 0) {
+ 		kfree_skb(skb);
+ 		return -EINVAL;
+@@ -512,6 +514,7 @@ static int tfilter_del_notify(struct net *net, struct sk_buff *oskb,
+ }
  
--		err = tcf_block_get(&cl->block, &cl->filter_list);
-+		err = tcf_block_get(&cl->block, &cl->filter_list, sch);
- 		if (err) {
- 			kfree(cl);
- 			goto failure;
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 44de4ee..9ccc1b8 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -59,7 +59,7 @@ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct net_device *dev = qdisc_dev(sch);
+ static void tfilter_notify_chain(struct net *net, struct sk_buff *oskb,
++				 struct Qdisc *q, u32 parent,
+ 				 struct nlmsghdr *n,
+ 				 struct tcf_chain *chain, int event)
+ {
+@@ -519,7 +522,7 @@ static void tfilter_notify_chain(struct net *net, struct sk_buff *oskb,
+ 
+ 	for (tp = rtnl_dereference(chain->filter_chain);
+ 	     tp; tp = rtnl_dereference(tp->next))
+-		tfilter_notify(net, oskb, n, tp, 0, event, false);
++		tfilter_notify(net, oskb, n, tp, q, parent, 0, event, false);
+ }
+ 
+ /* Add/change/delete/get a filter node */
+@@ -638,7 +641,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 	}
+ 
+ 	if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
+-		tfilter_notify_chain(net, skb, n, chain, RTM_DELTFILTER);
++		tfilter_notify_chain(net, skb, q, parent, n,
++				     chain, RTM_DELTFILTER);
+ 		tcf_chain_flush(chain);
+ 		err = 0;
+ 		goto errout;
+@@ -685,7 +689,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 	if (!fh) {
+ 		if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
+ 			tcf_chain_tp_remove(chain, &chain_info, tp);
+-			tfilter_notify(net, skb, n, tp, fh,
++			tfilter_notify(net, skb, n, tp, q, parent, fh,
+ 				       RTM_DELTFILTER, false);
+ 			tcf_proto_destroy(tp);
+ 			err = 0;
+@@ -710,8 +714,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 			}
+ 			break;
+ 		case RTM_DELTFILTER:
+-			err = tfilter_del_notify(net, skb, n, tp, fh, false,
+-						 &last);
++			err = tfilter_del_notify(net, skb, n, tp, q, parent,
++						 fh, false, &last);
+ 			if (err)
+ 				goto errout;
+ 			if (last) {
+@@ -720,7 +724,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 			}
+ 			goto errout;
+ 		case RTM_GETTFILTER:
+-			err = tfilter_notify(net, skb, n, tp, fh,
++			err = tfilter_notify(net, skb, n, tp, q, parent, fh,
+ 					     RTM_NEWTFILTER, true);
+ 			goto errout;
+ 		default:
+@@ -734,7 +738,8 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n,
+ 	if (err == 0) {
+ 		if (tp_created)
+ 			tcf_chain_tp_insert(chain, &chain_info, tp);
+-		tfilter_notify(net, skb, n, tp, fh, RTM_NEWTFILTER, false);
++		tfilter_notify(net, skb, n, tp, q, parent, fh,
++			       RTM_NEWTFILTER, false);
+ 	} else {
+ 		if (tp_created)
+ 			tcf_proto_destroy(tp);
+@@ -753,6 +758,8 @@ struct tcf_dump_args {
+ 	struct tcf_walker w;
+ 	struct sk_buff *skb;
+ 	struct netlink_callback *cb;
++	struct Qdisc *q;
++	u32 parent;
+ };
+ 
+ static int tcf_node_dump(struct tcf_proto *tp, void *n, struct tcf_walker *arg)
+@@ -760,13 +767,14 @@ static int tcf_node_dump(struct tcf_proto *tp, void *n, struct tcf_walker *arg)
+ 	struct tcf_dump_args *a = (void *)arg;
+ 	struct net *net = sock_net(a->skb->sk);
+ 
+-	return tcf_fill_node(net, a->skb, tp, n, NETLINK_CB(a->cb->skb).portid,
++	return tcf_fill_node(net, a->skb, tp, a->q, a->parent,
++			     n, NETLINK_CB(a->cb->skb).portid,
+ 			     a->cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 			     RTM_NEWTFILTER);
+ }
+ 
+-static bool tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
+-			   struct netlink_callback *cb,
++static bool tcf_chain_dump(struct tcf_chain *chain, struct Qdisc *q, u32 parent,
++			   struct sk_buff *skb, struct netlink_callback *cb,
+ 			   long index_start, long *p_index)
+ {
+ 	struct net *net = sock_net(skb->sk);
+@@ -788,7 +796,7 @@ static bool tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
+ 			memset(&cb->args[1], 0,
+ 			       sizeof(cb->args) - sizeof(cb->args[0]));
+ 		if (cb->args[1] == 0) {
+-			if (tcf_fill_node(net, skb, tp, 0,
++			if (tcf_fill_node(net, skb, tp, q, parent, 0,
+ 					  NETLINK_CB(cb->skb).portid,
+ 					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 					  RTM_NEWTFILTER) <= 0)
+@@ -801,6 +809,8 @@ static bool tcf_chain_dump(struct tcf_chain *chain, struct sk_buff *skb,
+ 		arg.w.fn = tcf_node_dump;
+ 		arg.skb = skb;
+ 		arg.cb = cb;
++		arg.q = q;
++		arg.parent = parent;
+ 		arg.w.stop = 0;
+ 		arg.w.skip = cb->args[1] - 1;
+ 		arg.w.count = 0;
+@@ -826,6 +836,7 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	const struct Qdisc_class_ops *cops;
+ 	long index_start;
+ 	long index;
++	u32 parent;
  	int err;
  
--	err = tcf_block_get(&q->block, &dev->ingress_cl_list);
-+	err = tcf_block_get(&q->block, &dev->ingress_cl_list, sch);
- 	if (err)
- 		return err;
+ 	if (nlmsg_len(cb->nlh) < sizeof(*tcm))
+@@ -839,10 +850,13 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 	if (!dev)
+ 		return skb->len;
  
-@@ -153,11 +153,11 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct net_device *dev = qdisc_dev(sch);
- 	int err;
- 
--	err = tcf_block_get(&q->ingress_block, &dev->ingress_cl_list);
-+	err = tcf_block_get(&q->ingress_block, &dev->ingress_cl_list, sch);
- 	if (err)
- 		return err;
- 
--	err = tcf_block_get(&q->egress_block, &dev->egress_cl_list);
-+	err = tcf_block_get(&q->egress_block, &dev->egress_cl_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index ff4fc3e..31e0a28 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -245,7 +245,7 @@ static int multiq_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (opt == NULL)
- 		return -EINVAL;
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 2dd6c68..95fad34 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -212,7 +212,7 @@ static int prio_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (!opt)
- 		return -EINVAL;
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 6ddfd49..8694c7b 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -1419,7 +1419,7 @@ static int qfq_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
- 	int i, j, err;
- 	u32 max_cl_shift, maxbudg_shift, max_classes;
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index cc39e17..487d375 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -553,7 +553,7 @@ static int sfb_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct sfb_sched_data *q = qdisc_priv(sch);
- 	int err;
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
- 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 74ea863..123a53a 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -725,7 +725,7 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
- 	setup_deferrable_timer(&q->perturb_timer, sfq_perturbation,
- 			       (unsigned long)sch);
- 
--	err = tcf_block_get(&q->block, &q->filter_list);
-+	err = tcf_block_get(&q->block, &q->filter_list, sch);
- 	if (err)
- 		return err;
+-	if (!tcm->tcm_parent)
++	parent = tcm->tcm_parent;
++	if (!parent) {
+ 		q = dev->qdisc;
+-	else
++		parent = q->handle;
++	} else {
+ 		q = qdisc_lookup(dev, TC_H_MAJ(tcm->tcm_parent));
++	}
+ 	if (!q)
+ 		goto out;
+ 	cops = q->ops->cl_ops;
+@@ -866,7 +880,8 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (tca[TCA_CHAIN] &&
+ 		    nla_get_u32(tca[TCA_CHAIN]) != chain->index)
+ 			continue;
+-		if (!tcf_chain_dump(chain, skb, cb, index_start, &index))
++		if (!tcf_chain_dump(chain, q, parent, skb, cb,
++				    index_start, &index))
+ 			break;
+ 	}
  
 -- 
 2.9.5
