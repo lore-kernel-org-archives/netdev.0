@@ -1,64 +1,87 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: fix a compile warning in act_ife
-Date: Fri, 13 Oct 2017 16:16:51 -0400
-Message-ID: <858tgex0p8.fsf@mojatatu.com>
-References: <20171013195813.25321-1-xiyou.wangcong@gmail.com>
+From: Shreeya Patel <shreeya.patel23498@gmail.com>
+Subject: [PATCH] Staging: irda: Remove trailing whitespace errors
+Date: Sat, 14 Oct 2017 02:05:35 +0530
+Message-ID: <1507926935-3552-1-git-send-email-shreeya.patel23498@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:50190 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdJMUQ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 16:16:57 -0400
-Received: by mail-it0-f68.google.com with SMTP id 72so12664690itl.5
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 13:16:57 -0700 (PDT)
-In-Reply-To: <20171013195813.25321-1-xiyou.wangcong@gmail.com> (Cong Wang's
-        message of "Fri, 13 Oct 2017 12:58:13 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Shreeya Patel <shreeya.patel23498@gmail.com>
+To: gregkh@linuxfoundation.org, samuel@sortiz.org, netdev@vger.kernel.org,
+ devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+ outreachy-kernel@googlegroups.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
+Remove trailing whitespace checkpatch errors.
 
-> Apparently ife_meta_id2name() is only called when
-> CONFIG_MODULES is defined.
->
-> This fixes:
->
-> net/sched/act_ife.c:251:20: warning: =E2=80=98ife_meta_id2name=E2=80=99 d=
-efined but not used [-Wunused-function]
->  static const char *ife_meta_id2name(u32 metaid)
->                     ^~~~~~~~~~~~~~~~
+Signed-off-by: Shreeya Patel <shreeya.patel23498@gmail.com>
+---
+ drivers/staging/irda/drivers/esi-sir.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-Fair enough, thanks Cong!
-
-> Fixes: d3f24ba895f0 ("net sched actions: fix module auto-loading")
-> Cc: Roman Mashak <mrv@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  net/sched/act_ife.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-> index 252ee7d8c731..3007cb1310ea 100644
-> --- a/net/sched/act_ife.c
-> +++ b/net/sched/act_ife.c
-> @@ -248,6 +248,7 @@ static int ife_validate_metatype(struct tcf_meta_ops =
-*ops, void *val, int len)
->  	return ret;
->  }
->=20=20
-> +#ifdef CONFIG_MODULES
->  static const char *ife_meta_id2name(u32 metaid)
->  {
->  	switch (metaid) {
-> @@ -261,6 +262,7 @@ static const char *ife_meta_id2name(u32 metaid)
->  		return "unknown";
->  	}
->  }
-> +#endif
->=20=20
->  /* called when adding new meta information
->   * under ife->tcf_lock for existing action
+diff --git a/drivers/staging/irda/drivers/esi-sir.c b/drivers/staging/irda/drivers/esi-sir.c
+index 019a3e8..eb7aa64 100644
+--- a/drivers/staging/irda/drivers/esi-sir.c
++++ b/drivers/staging/irda/drivers/esi-sir.c
+@@ -1,5 +1,5 @@
+ /*********************************************************************
+- *                
++ *
+  * Filename:      esi.c
+  * Version:       1.6
+  * Description:   Driver for the Extended Systems JetEye PC dongle
+@@ -8,25 +8,25 @@
+  * Created at:    Sat Feb 21 18:54:38 1998
+  * Modified at:   Sun Oct 27 22:01:04 2002
+  * Modified by:   Martin Diehl <mad@mdiehl.de>
+- * 
++ *
+  *     Copyright (c) 1999 Dag Brattli, <dagb@cs.uit.no>,
+  *     Copyright (c) 1998 Thomas Davis, <ratbert@radiks.net>,
+  *     Copyright (c) 2002 Martin Diehl, <mad@mdiehl.de>,
+  *     All Rights Reserved.
+- *     
+- *     This program is free software; you can redistribute it and/or 
+- *     modify it under the terms of the GNU General Public License as 
+- *     published by the Free Software Foundation; either version 2 of 
++ *
++ *     This program is free software; you can redistribute it and/or
++ *     modify it under the terms of the GNU General Public License as
++ *     published by the Free Software Foundation; either version 2 of
+  *     the License, or (at your option) any later version.
+- * 
++ *
+  *     This program is distributed in the hope that it will be useful,
+  *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+  *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  *     GNU General Public License for more details.
+- * 
+- *     You should have received a copy of the GNU General Public License 
++ *
++ *     You should have received a copy of the GNU General Public License
+  *     along with this program; if not, see <http://www.gnu.org/licenses/>.
+- *     
++ *
+  ********************************************************************/
+ 
+ #include <linux/module.h>
+@@ -97,7 +97,7 @@ static int esi_change_speed(struct sir_dev *dev, unsigned speed)
+ {
+ 	int ret = 0;
+ 	int dtr, rts;
+-	
++
+ 	switch (speed) {
+ 	case 19200:
+ 		dtr = TRUE;
+-- 
+2.7.4
