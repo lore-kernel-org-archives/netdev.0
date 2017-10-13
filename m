@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 18/18] tipc: add multipoint-to-point flow control
-Date: Fri, 13 Oct 2017 11:04:34 +0200
-Message-ID: <1507885474-11213-19-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 15/18] tipc: guarantee that group broadcast doesn't bypass group unicast
+Date: Fri, 13 Oct 2017 11:04:31 +0200
+Message-ID: <1507885474-11213-16-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,345 +9,285 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:50819 "EHLO
-        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758023AbdJMJFE (ORCPT
+Received: from sessmg22.ericsson.net ([193.180.251.58]:49534 "EHLO
+        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758020AbdJMJFE (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:05:04 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We already have point-to-multipoint flow control within a group. But
-we even need the opposite; -a scheme which can handle that potentially
-hundreds of sources may try to send messages to the same destination
-simultaneously without causing buffer overflow at the recipient. This
-commit adds such a mechanism.
+We need a mechanism guaranteeing that group unicasts sent out from a
+socket are not bypassed by later sent broadcasts from the same socket.
+We do this as follows:
 
-The algorithm works as follows:
+- Each time a unicast is sent, we set a the broadcast method for the
+  socket to "replicast" and "mandatory". This forces the first
+  subsequent broadcast message to follow the same network and data path
+  as the preceding unicast to a destination, hence preventing it from
+  overtaking the latter.
 
-- When a member detects a new, joining member, it initially set its
-  state to JOINED and advertises a minimum window to the new member.
-  This window is chosen so that the new member can send exactly one
-  maximum sized message, or several smaller ones, to the recipient
-  before it must stop and wait for an additional advertisement. This
-  minimum window ADV_IDLE is set to 65 1kB blocks.
+- In order to make the 'same data path' statement above true, we let
+  group unicasts pass through the multicast link input queue, instead
+  of as previously through the unicast link input queue.
 
-- When a member receives the first data message from a JOINED member,
-  it changes the state of the latter to ACTIVE, and advertises a larger
-  window ADV_ACTIVE = 12 x ADV_IDLE blocks to the sender, so it can
-  continue sending with minimal disturbances to the data flow.
+- In the first broadcast following a unicast, we set a new header flag,
+  requiring all recipients to immediately acknowledge its reception.
 
-- The active members are kept in a dedicated linked list. Each time a
-  message is received from an active member, it will be moved to the
-  tail of that list. This way, we keep a record of which members have
-  been most (tail) and least (head) recently active.
+- During the period before all the expected acknowledges are received,
+  the socket refuses to accept any more broadcast attempts, i.e., by
+  blocking or returning EAGAIN. This period should typically not be
+  longer than a few microseconds.
 
-- There is a maximum number (16) of permitted simultaneous active
-  senders per receiver. When this limit is reached, the receiver will
-  not advertise anything immediately to a new sender, but instead put
-  it in a PENDING state, and add it to a corresponding queue. At the
-  same time, it will pick the least recently active member, send it an
-  advertisement RECLAIM message, and set this member to state
-  RECLAIMING.
+- When all acknowledges have been received, the sending socket will
+  open up for subsequent broadcasts, this time giving the link layer
+  freedom to itself select the best transmission method.
 
-- The reclaimee member has to respond with a REMIT message, meaning that
-  it goes back to a send window of ADV_IDLE, and returns its unused
-  advertised blocks beyond that value to the reclaiming member.
-
-- When the reclaiming member receives the REMIT message, it unlinks
-  the reclaimee from its active list, resets its state to JOINED, and
-  notes that it is now back at ADV_IDLE advertised blocks to that
-  member. If there are still unread data messages sent out by
-  reclaimee before the REMIT, the member goes into an intermediate
-  state REMITTED, where it stays until the said messages have been
-  consumed.
-
-- The returned advertised blocks can now be re-advertised to the
-  pending member, which is now set to state ACTIVE and added to
-  the active member list.
-
-- To be proactive, i.e., to minimize the risk that any member will
-  end up in the pending queue, we start reclaiming resources already
-  when the number of active members exceeds 3/4 of the permitted
-  maximum.
+- The forced and/or abrupt transmission method changes described above
+  may lead to broadcasts arriving out of order to the recipients. We
+  remedy this by introducing code that checks and if necessary
+  re-orders such messages at the receiving end.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/group.c | 129 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
- net/tipc/msg.h   |  12 ++++++
- 2 files changed, 136 insertions(+), 5 deletions(-)
+ net/tipc/group.c  | 47 +++++++++++++++++++++++++++++++++++++++++------
+ net/tipc/group.h  |  4 +---
+ net/tipc/link.c   |  5 ++---
+ net/tipc/msg.h    | 21 +++++++++++++++++++++
+ net/tipc/socket.c | 34 +++++++++++++++++++++++++++++-----
+ 5 files changed, 94 insertions(+), 17 deletions(-)
 
 diff --git a/net/tipc/group.c b/net/tipc/group.c
-index 8f0eb5d..7821085 100644
+index 985e0ce..eab862e 100644
 --- a/net/tipc/group.c
 +++ b/net/tipc/group.c
-@@ -54,6 +54,10 @@ enum mbr_state {
- 	MBR_JOINING,
- 	MBR_PUBLISHED,
- 	MBR_JOINED,
-+	MBR_PENDING,
-+	MBR_ACTIVE,
-+	MBR_RECLAIMING,
-+	MBR_REMITTED,
- 	MBR_LEAVING
+@@ -71,6 +71,7 @@ struct tipc_member {
+ 	u16 advertised;
+ 	u16 window;
+ 	u16 bc_rcv_nxt;
++	u16 bc_acked;
+ 	bool usr_pending;
  };
  
-@@ -79,6 +83,9 @@ struct tipc_member {
- struct tipc_group {
- 	struct rb_root members;
- 	struct list_head congested;
-+	struct list_head pending;
-+	struct list_head active;
-+	struct list_head reclaiming;
- 	struct tipc_nlist dests;
- 	struct net *net;
- 	int subid;
-@@ -88,6 +95,8 @@ struct tipc_group {
- 	u32 scope;
+@@ -87,6 +88,7 @@ struct tipc_group {
  	u32 portid;
  	u16 member_cnt;
-+	u16 active_cnt;
-+	u16 max_active;
  	u16 bc_snd_nxt;
- 	u16 bc_ackers;
++	u16 bc_ackers;
  	bool loopback;
-@@ -97,12 +106,29 @@ struct tipc_group {
- static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
- 				  int mtyp, struct sk_buff_head *xmitq);
- 
-+static void tipc_group_decr_active(struct tipc_group *grp,
-+				   struct tipc_member *m)
-+{
-+	if (m->state == MBR_ACTIVE || m->state == MBR_RECLAIMING)
-+		grp->active_cnt--;
-+}
-+
- static int tipc_group_rcvbuf_limit(struct tipc_group *grp)
+ 	bool events;
+ };
+@@ -258,6 +260,7 @@ static struct tipc_member *tipc_group_create_member(struct tipc_group *grp,
+ 	m->group = grp;
+ 	m->node = node;
+ 	m->port = port;
++	m->bc_acked = grp->bc_snd_nxt - 1;
+ 	grp->member_cnt++;
+ 	tipc_group_add_to_tree(grp, m);
+ 	tipc_nlist_add(&grp->dests, m->node);
+@@ -275,6 +278,11 @@ static void tipc_group_delete_member(struct tipc_group *grp,
  {
-+	int max_active, active_pool, idle_pool;
- 	int mcnt = grp->member_cnt + 1;
- 
-+	/* Limit simultaneous reception from other members */
-+	max_active = min(mcnt / 8, 64);
-+	max_active = max(max_active, 16);
-+	grp->max_active = max_active;
+ 	rb_erase(&m->tree_node, &grp->members);
+ 	grp->member_cnt--;
 +
-+	/* Reserve blocks for active and idle members */
-+	active_pool = max_active * ADV_ACTIVE;
-+	idle_pool = (mcnt - max_active) * ADV_IDLE;
++	/* Check if we were waiting for replicast ack from this member */
++	if (grp->bc_ackers && less(m->bc_acked, grp->bc_snd_nxt - 1))
++		grp->bc_ackers--;
 +
- 	/* Scale to bytes, considering worst-case truesize/msgsize ratio */
--	return mcnt * ADV_ACTIVE * FLOWCTL_BLK_SZ * 4;
-+	return (active_pool + idle_pool) * FLOWCTL_BLK_SZ * 4;
- }
- 
- u16 tipc_group_bc_snd_nxt(struct tipc_group *grp)
-@@ -143,6 +169,9 @@ struct tipc_group *tipc_group_create(struct net *net, u32 portid,
- 		return NULL;
- 	tipc_nlist_init(&grp->dests, tipc_own_addr(net));
- 	INIT_LIST_HEAD(&grp->congested);
-+	INIT_LIST_HEAD(&grp->active);
-+	INIT_LIST_HEAD(&grp->pending);
-+	INIT_LIST_HEAD(&grp->reclaiming);
- 	grp->members = RB_ROOT;
- 	grp->net = net;
- 	grp->portid = portid;
-@@ -286,6 +315,7 @@ static void tipc_group_delete_member(struct tipc_group *grp,
- 
  	list_del_init(&m->list);
  	list_del_init(&m->congested);
-+	tipc_group_decr_active(grp, m);
  
- 	/* If last member on a node, remove node from dest list */
- 	if (!tipc_group_find_node(grp, m->node))
-@@ -378,6 +408,10 @@ bool tipc_group_cong(struct tipc_group *grp, u32 dnode, u32 dport,
- 		return true;
- 	if (state == MBR_JOINED && adv == ADV_IDLE)
- 		return true;
-+	if (state == MBR_ACTIVE && adv == ADV_ACTIVE)
-+		return true;
-+	if (state == MBR_PENDING && adv == ADV_IDLE)
-+		return true;
- 	skb_queue_head_init(&xmitq);
- 	tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, &xmitq);
- 	tipc_node_distr_xmit(grp->net, &xmitq);
-@@ -523,7 +557,11 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- void tipc_group_update_rcv_win(struct tipc_group *grp, int blks, u32 node,
- 			       u32 port, struct sk_buff_head *xmitq)
+@@ -325,16 +333,23 @@ void tipc_group_update_member(struct tipc_member *m, int len)
+ 	list_add_tail(&m->congested, &grp->congested);
+ }
+ 
+-void tipc_group_update_bc_members(struct tipc_group *grp, int len)
++void tipc_group_update_bc_members(struct tipc_group *grp, int len, bool ack)
  {
--	struct tipc_member *m;
-+	struct list_head *active = &grp->active;
-+	int max_active = grp->max_active;
-+	int reclaim_limit = max_active * 3 / 4;
-+	int active_cnt = grp->active_cnt;
-+	struct tipc_member *m, *rm;
++	u16 prev = grp->bc_snd_nxt - 1;
+ 	struct tipc_member *m;
+ 	struct rb_node *n;
  
- 	m = tipc_group_find_member(grp, node, port);
- 	if (!m)
-@@ -533,9 +571,41 @@ void tipc_group_update_rcv_win(struct tipc_group *grp, int blks, u32 node,
- 
- 	switch (m->state) {
- 	case MBR_JOINED:
--		if (m->advertised <= (ADV_ACTIVE - ADV_UNIT))
-+		/* Reclaim advertised space from least active member */
-+		if (!list_empty(active) && active_cnt >= reclaim_limit) {
-+			rm = list_first_entry(active, struct tipc_member, list);
-+			rm->state = MBR_RECLAIMING;
-+			list_move_tail(&rm->list, &grp->reclaiming);
-+			tipc_group_proto_xmit(grp, rm, GRP_RECLAIM_MSG, xmitq);
+ 	for (n = rb_first(&grp->members); n; n = rb_next(n)) {
+ 		m = container_of(n, struct tipc_member, tree_node);
+-		if (tipc_group_is_enabled(m))
++		if (tipc_group_is_enabled(m)) {
+ 			tipc_group_update_member(m, len);
++			m->bc_acked = prev;
 +		}
-+		/* If max active, become pending and wait for reclaimed space */
-+		if (active_cnt >= max_active) {
-+			m->state = MBR_PENDING;
-+			list_add_tail(&m->list, &grp->pending);
-+			break;
-+		}
-+		/* Otherwise become active */
-+		m->state = MBR_ACTIVE;
-+		list_add_tail(&m->list, &grp->active);
-+		grp->active_cnt++;
-+		/* Fall through */
-+	case MBR_ACTIVE:
-+		if (!list_is_last(&m->list, &grp->active))
-+			list_move_tail(&m->list, &grp->active);
-+		if (m->advertised > (ADV_ACTIVE * 3 / 4))
-+			break;
-+		tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, xmitq);
-+		break;
-+	case MBR_REMITTED:
-+		if (m->advertised > ADV_IDLE)
-+			break;
-+		m->state = MBR_JOINED;
-+		if (m->advertised < ADV_IDLE) {
-+			pr_warn_ratelimited("Rcv unexpected msg after REMIT\n");
- 			tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, xmitq);
-+		}
- 		break;
-+	case MBR_RECLAIMING:
- 	case MBR_DISCOVERED:
- 	case MBR_JOINING:
- 	case MBR_LEAVING:
-@@ -557,8 +627,10 @@ static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
- 	if (!skb)
- 		return;
+ 	}
++
++	/* Mark number of acknowledges to expect, if any */
++	if (ack)
++		grp->bc_ackers = grp->member_cnt;
+ 	grp->bc_snd_nxt++;
+ }
  
--	if (m->state == MBR_JOINED)
-+	if (m->state == MBR_ACTIVE)
- 		adv = ADV_ACTIVE - m->advertised;
-+	else if (m->state == MBR_JOINED || m->state == MBR_PENDING)
-+		adv = ADV_IDLE - m->advertised;
+@@ -372,6 +387,10 @@ bool tipc_group_bc_cong(struct tipc_group *grp, int len)
+ {
+ 	struct tipc_member *m = NULL;
  
- 	hdr = buf_msg(skb);
++	/* If prev bcast was replicast, reject until all receivers have acked */
++	if (grp->bc_ackers)
++		return true;
++
+ 	if (list_empty(&grp->congested))
+ 		return false;
  
-@@ -573,6 +645,8 @@ static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
+@@ -391,7 +410,7 @@ static void tipc_group_sort_msg(struct sk_buff *skb, struct sk_buff_head *defq)
+ 	struct sk_buff *_skb, *tmp;
+ 	int mtyp = msg_type(hdr);
+ 
+-	/* Bcast may be bypassed by unicast, - sort it in */
++	/* Bcast may be bypassed by unicast or other bcast, - sort it in */
+ 	if (mtyp == TIPC_GRP_BCAST_MSG || mtyp == TIPC_GRP_MCAST_MSG) {
+ 		skb_queue_walk_safe(defq, _skb, tmp) {
+ 			_hdr = buf_msg(_skb);
+@@ -412,10 +431,10 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 			   struct sk_buff_head *xmitq)
+ {
+ 	struct sk_buff *skb = __skb_dequeue(inputq);
++	bool ack, deliver, update;
+ 	struct sk_buff_head *defq;
+ 	struct tipc_member *m;
+ 	struct tipc_msg *hdr;
+-	bool deliver, update;
+ 	u32 node, port;
+ 	int mtyp, blks;
+ 
+@@ -451,6 +470,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 		hdr = buf_msg(skb);
+ 		mtyp = msg_type(hdr);
+ 		deliver = true;
++		ack = false;
+ 		update = false;
+ 
+ 		if (more(msg_grp_bc_seqno(hdr), m->bc_rcv_nxt))
+@@ -466,6 +486,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 			/* Fall thru */
+ 		case TIPC_GRP_BCAST_MSG:
+ 			m->bc_rcv_nxt++;
++			ack = msg_grp_bc_ack_req(hdr);
+ 			break;
+ 		case TIPC_GRP_UCAST_MSG:
+ 			break;
+@@ -480,6 +501,9 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 		else
+ 			kfree_skb(skb);
+ 
++		if (ack)
++			tipc_group_proto_xmit(grp, m, GRP_ACK_MSG, xmitq);
++
+ 		if (!update)
+ 			continue;
+ 
+@@ -540,6 +564,8 @@ static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
+ 	} else if (mtyp == GRP_ADV_MSG) {
+ 		msg_set_adv_win(hdr, adv);
  		m->advertised += adv;
- 	} else if (mtyp == GRP_ACK_MSG) {
- 		msg_set_grp_bc_acked(hdr, m->bc_rcv_nxt);
-+	} else if (mtyp == GRP_REMIT_MSG) {
-+		msg_set_grp_remitted(hdr, m->window);
++	} else if (mtyp == GRP_ACK_MSG) {
++		msg_set_grp_bc_acked(hdr, m->bc_rcv_nxt);
  	}
  	__skb_queue_tail(xmitq, skb);
  }
-@@ -583,8 +657,9 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- {
- 	u32 node = msg_orignode(hdr);
- 	u32 port = msg_origport(hdr);
--	struct tipc_member *m;
-+	struct tipc_member *m, *pm;
- 	struct tipc_msg *ehdr;
-+	u16 remitted, in_flight;
- 
- 	if (!grp)
- 		return;
-@@ -626,6 +701,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 
- 		/* Wait until WITHDRAW event is received */
- 		if (m->state != MBR_LEAVING) {
-+			tipc_group_decr_active(grp, m);
- 			m->state = MBR_LEAVING;
- 			return;
+@@ -593,7 +619,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
  		}
-@@ -653,6 +729,48 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
- 		*usr_wakeup = true;
- 		m->usr_pending = false;
+ 		/* Otherwise deliver already received WITHDRAW event */
+ 		__skb_queue_tail(inputq, m->event_msg);
+-		*usr_wakeup = m->usr_pending;
++		*usr_wakeup = true;
+ 		tipc_group_delete_member(grp, m);
+ 		list_del_init(&m->congested);
  		return;
-+	case GRP_RECLAIM_MSG:
+@@ -605,6 +631,15 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
+ 		m->usr_pending = false;
+ 		list_del_init(&m->congested);
+ 		return;
++	case GRP_ACK_MSG:
 +		if (!m)
 +			return;
-+		*usr_wakeup = m->usr_pending;
++		m->bc_acked = msg_grp_bc_acked(hdr);
++		if (--grp->bc_ackers)
++			break;
++		*usr_wakeup = true;
 +		m->usr_pending = false;
-+		tipc_group_proto_xmit(grp, m, GRP_REMIT_MSG, xmitq);
-+		m->window = ADV_IDLE;
-+		return;
-+	case GRP_REMIT_MSG:
-+		if (!m || m->state != MBR_RECLAIMING)
-+			return;
-+
-+		list_del_init(&m->list);
-+		grp->active_cnt--;
-+		remitted = msg_grp_remitted(hdr);
-+
-+		/* Messages preceding the REMIT still in receive queue */
-+		if (m->advertised > remitted) {
-+			m->state = MBR_REMITTED;
-+			in_flight = m->advertised - remitted;
-+		}
-+		/* All messages preceding the REMIT have been read */
-+		if (m->advertised <= remitted) {
-+			m->state = MBR_JOINED;
-+			in_flight = 0;
-+		}
-+		/* ..and the REMIT overtaken by more messages => re-advertise */
-+		if (m->advertised < remitted)
-+			tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, xmitq);
-+
-+		m->advertised = ADV_IDLE + in_flight;
-+
-+		/* Set oldest pending member to active and advertise */
-+		if (list_empty(&grp->pending))
-+			return;
-+		pm = list_first_entry(&grp->pending, struct tipc_member, list);
-+		pm->state = MBR_ACTIVE;
-+		list_move_tail(&pm->list, &grp->active);
-+		grp->active_cnt++;
-+		if (pm->advertised <= (ADV_ACTIVE * 3 / 4))
-+			tipc_group_proto_xmit(grp, pm, GRP_ADV_MSG, xmitq);
 +		return;
  	default:
  		pr_warn("Received unknown GROUP_PROTO message\n");
  	}
-@@ -735,6 +853,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
+@@ -678,7 +713,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
+ 
+ 		TIPC_SKB_CB(skb)->orig_member = m->instance;
+ 
+-		*usr_wakeup = m->usr_pending;
++		*usr_wakeup = true;
+ 		m->usr_pending = false;
+ 
  		/* Hold back event if more messages might be expected */
- 		if (m->state != MBR_LEAVING && node_up) {
- 			m->event_msg = skb;
-+			tipc_group_decr_active(grp, m);
- 			m->state = MBR_LEAVING;
- 		} else {
- 			if (node_up)
+diff --git a/net/tipc/group.h b/net/tipc/group.h
+index e432066..d525e1c 100644
+--- a/net/tipc/group.h
++++ b/net/tipc/group.h
+@@ -61,7 +61,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *wakeup,
+ 			  struct tipc_msg *hdr,
+ 			  struct sk_buff_head *inputq,
+ 			  struct sk_buff_head *xmitq);
+-void tipc_group_update_bc_members(struct tipc_group *grp, int len);
++void tipc_group_update_bc_members(struct tipc_group *grp, int len, bool ack);
+ bool tipc_group_cong(struct tipc_group *grp, u32 dnode, u32 dport,
+ 		     int len, struct tipc_member **m);
+ bool tipc_group_bc_cong(struct tipc_group *grp, int len);
+@@ -69,7 +69,5 @@ void tipc_group_update_rcv_win(struct tipc_group *grp, int blks, u32 node,
+ 			       u32 port, struct sk_buff_head *xmitq);
+ u16 tipc_group_bc_snd_nxt(struct tipc_group *grp);
+ void tipc_group_update_member(struct tipc_member *m, int len);
+-struct tipc_member *tipc_group_find_sender(struct tipc_group *grp,
+-					   u32 node, u32 port);
+ int tipc_group_size(struct tipc_group *grp);
+ #endif
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index bd25bff..70a2149 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1046,13 +1046,12 @@ static bool tipc_data_input(struct tipc_link *l, struct sk_buff *skb,
+ 	case TIPC_MEDIUM_IMPORTANCE:
+ 	case TIPC_HIGH_IMPORTANCE:
+ 	case TIPC_CRITICAL_IMPORTANCE:
+-		if (unlikely(msg_mcast(hdr))) {
++		if (unlikely(msg_in_group(hdr) || msg_mcast(hdr))) {
+ 			skb_queue_tail(l->bc_rcvlink->inputq, skb);
+ 			return true;
+ 		}
+-	case CONN_MANAGER:
+ 	case GROUP_PROTOCOL:
+-		skb_queue_tail(inputq, skb);
++	case CONN_MANAGER:
+ 		return true;
+ 	case NAME_DISTRIBUTOR:
+ 		l->bc_rcvlink->state = LINK_ESTABLISHED;
 diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 52c6a2e..cedf811 100644
+index d6f9821..52c6a2e 100644
 --- a/net/tipc/msg.h
 +++ b/net/tipc/msg.h
-@@ -548,6 +548,8 @@ static inline void msg_set_nameupper(struct tipc_msg *m, u32 n)
+@@ -547,6 +547,7 @@ static inline void msg_set_nameupper(struct tipc_msg *m, u32 n)
+ #define GRP_JOIN_MSG         0
  #define GRP_LEAVE_MSG        1
  #define GRP_ADV_MSG          2
- #define GRP_ACK_MSG          3
-+#define GRP_RECLAIM_MSG      4
-+#define GRP_REMIT_MSG        5
++#define GRP_ACK_MSG          3
  
  /*
   * Word 1
-@@ -850,6 +852,16 @@ static inline void msg_set_grp_bc_acked(struct tipc_msg *m, u16 n)
+@@ -839,6 +840,16 @@ static inline void msg_set_grp_bc_syncpt(struct tipc_msg *m, u16 n)
  	msg_set_bits(m, 9, 16, 0xffff, n);
  }
  
-+static inline u16 msg_grp_remitted(struct tipc_msg *m)
++static inline u16 msg_grp_bc_acked(struct tipc_msg *m)
 +{
 +	return msg_bits(m, 9, 16, 0xffff);
 +}
 +
-+static inline void msg_set_grp_remitted(struct tipc_msg *m, u16 n)
++static inline void msg_set_grp_bc_acked(struct tipc_msg *m, u16 n)
 +{
 +	msg_set_bits(m, 9, 16, 0xffff, n);
 +}
@@ -355,5 +295,115 @@ index 52c6a2e..cedf811 100644
  /* Word 10
   */
  static inline u16 msg_grp_evt(struct tipc_msg *m)
+@@ -851,6 +862,16 @@ static inline void msg_set_grp_evt(struct tipc_msg *m, int n)
+ 	msg_set_bits(m, 10, 0, 0x3, n);
+ }
+ 
++static inline u16 msg_grp_bc_ack_req(struct tipc_msg *m)
++{
++	return msg_bits(m, 10, 0, 0x1);
++}
++
++static inline void msg_set_grp_bc_ack_req(struct tipc_msg *m, bool n)
++{
++	msg_set_bits(m, 10, 0, 0x1, n);
++}
++
+ static inline u16 msg_grp_bc_seqno(struct tipc_msg *m)
+ {
+ 	return msg_bits(m, 10, 16, 0xffff);
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 3276b7a..b1f1c3c 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -831,6 +831,7 @@ static int tipc_send_group_msg(struct net *net, struct tipc_sock *tsk,
+ 			       u32 dnode, u32 dport, int dlen)
+ {
+ 	u16 bc_snd_nxt = tipc_group_bc_snd_nxt(tsk->group);
++	struct tipc_mc_method *method = &tsk->mc_method;
+ 	int blks = tsk_blocks(GROUP_H_SIZE + dlen);
+ 	struct tipc_msg *hdr = &tsk->phdr;
+ 	struct sk_buff_head pkts;
+@@ -857,9 +858,12 @@ static int tipc_send_group_msg(struct net *net, struct tipc_sock *tsk,
+ 		tsk->cong_link_cnt++;
+ 	}
+ 
+-	/* Update send window and sequence number */
++	/* Update send window */
+ 	tipc_group_update_member(mb, blks);
+ 
++	/* A broadcast sent within next EXPIRE period must follow same path */
++	method->rcast = true;
++	method->mandatory = true;
+ 	return dlen;
+ }
+ 
+@@ -1008,6 +1012,7 @@ static int tipc_send_group_bcast(struct socket *sock, struct msghdr *m,
+ 	struct tipc_group *grp = tsk->group;
+ 	struct tipc_nlist *dsts = tipc_group_dests(grp);
+ 	struct tipc_mc_method *method = &tsk->mc_method;
++	bool ack = method->mandatory && method->rcast;
+ 	int blks = tsk_blocks(MCAST_H_SIZE + dlen);
+ 	struct tipc_msg *hdr = &tsk->phdr;
+ 	int mtu = tipc_bcast_get_mtu(net);
+@@ -1036,6 +1041,9 @@ static int tipc_send_group_bcast(struct socket *sock, struct msghdr *m,
+ 	msg_set_destnode(hdr, 0);
+ 	msg_set_grp_bc_seqno(hdr, tipc_group_bc_snd_nxt(grp));
+ 
++	/* Avoid getting stuck with repeated forced replicasts */
++	msg_set_grp_bc_ack_req(hdr, ack);
++
+ 	/* Build message as chain of buffers */
+ 	skb_queue_head_init(&pkts);
+ 	rc = tipc_msg_build(hdr, m, 0, dlen, mtu, &pkts);
+@@ -1043,13 +1051,17 @@ static int tipc_send_group_bcast(struct socket *sock, struct msghdr *m,
+ 		return rc;
+ 
+ 	/* Send message */
+-	rc = tipc_mcast_xmit(net, &pkts, method, dsts,
+-			     &tsk->cong_link_cnt);
++	rc = tipc_mcast_xmit(net, &pkts, method, dsts, &tsk->cong_link_cnt);
+ 	if (unlikely(rc))
+ 		return rc;
+ 
+ 	/* Update broadcast sequence number and send windows */
+-	tipc_group_update_bc_members(tsk->group, blks);
++	tipc_group_update_bc_members(tsk->group, blks, ack);
++
++	/* Broadcast link is now free to choose method for next broadcast */
++	method->mandatory = false;
++	method->expires = jiffies;
++
+ 	return dlen;
+ }
+ 
+@@ -1113,7 +1125,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 	u32 portid, oport, onode;
+ 	struct list_head dports;
+ 	struct tipc_msg *msg;
+-	int hsz;
++	int user, mtyp, hsz;
+ 
+ 	__skb_queue_head_init(&tmpq);
+ 	INIT_LIST_HEAD(&dports);
+@@ -1121,6 +1133,18 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 	skb = tipc_skb_peek(arrvq, &inputq->lock);
+ 	for (; skb; skb = tipc_skb_peek(arrvq, &inputq->lock)) {
+ 		msg = buf_msg(skb);
++		user = msg_user(msg);
++		mtyp = msg_type(msg);
++		if (mtyp == TIPC_GRP_UCAST_MSG || user == GROUP_PROTOCOL) {
++			spin_lock_bh(&inputq->lock);
++			if (skb_peek(arrvq) == skb) {
++				__skb_dequeue(arrvq);
++				__skb_queue_tail(inputq, skb);
++			}
++			refcount_dec(&skb->users);
++			spin_unlock_bh(&inputq->lock);
++			continue;
++		}
+ 		hsz = skb_headroom(skb) + msg_hdr_sz(msg);
+ 		oport = msg_origport(msg);
+ 		onode = msg_orignode(msg);
 -- 
 2.1.4
