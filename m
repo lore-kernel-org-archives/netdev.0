@@ -1,8 +1,7 @@
 From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Subject: [PATCH net-next v2 1/2] dt-bindings: net: add DT bindings for Socionext UniPhier AVE
-Date: Fri, 13 Oct 2017 09:35:27 +0900
-Message-ID: <1507854928-4357-2-git-send-email-hayashi.kunihiko@socionext.com>
-References: <1507854928-4357-1-git-send-email-hayashi.kunihiko@socionext.com>
+Subject: [PATCH net-next v2 0/2] add UniPhier AVE ethernet support
+Date: Fri, 13 Oct 2017 09:35:26 +0900
+Message-ID: <1507854928-4357-1-git-send-email-hayashi.kunihiko@socionext.com>
 Cc: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
@@ -14,78 +13,68 @@ Cc: Rob Herring <robh+dt@kernel.org>,
 To: netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1507854928-4357-1-git-send-email-hayashi.kunihiko@socionext.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DT bindings for the AVE ethernet controller found on Socionext's
-UniPhier platforms.
+This series adds support for Socionext AVE ethernet controller implemented
+on UniPhier SoCs. This driver supports RGMII/RMII modes.
 
-Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
----
- .../bindings/net/socionext,uniphier-ave4.txt       | 53 ++++++++++++++++++++++
- 1 file changed, 53 insertions(+)
+v1: http://www.spinics.net/lists/netdev/msg454292.html
+
+The PHY patch included in v1 has already separated in:
+http://www.spinics.net/lists/netdev/msg454595.html
+
+Changes since v1:
+- add/remove devicetree properties and sub-node
+  - remove "internal-phy-interrupt" and "desc-bits" property
+  - add SoC data structures based on compatible strings
+  - add node operation to apply "mdio" sub-node
+- add support for features
+  - add support for {get,set}_pauseparam and pause frame operations
+  - add support for ndo_get_stats64 instead of ndo_get_stats
+- replace with desiable functions
+  - replace check for valid phy_mode with phy_interface{_mode}_is_rgmii()
+  - replace phy attach message with phy_attached_info()
+  - replace 32bit operation with {upper,lower}_32_bits() on ave_wdesc_addr()
+  - replace nway_reset and get_link with generic functions
+- move operations to proper functions
+  - move phy_start_aneg() to ndo_open,
+    and remove unnecessary PHY interrupt operations
+    See http://www.spinics.net/lists/netdev/msg454590.html
+  - move irq initialization and descriptor memory allocation to ndo_open
+  - move initialization of reset and clock and mdiobus to ndo_init
+- fix skbuffer operations
+  - fix skb alignment operations and add Rx buffer adjustment for descriptor
+    See http://www.spinics.net/lists/netdev/msg456014.html
+  - add error returns when dma_map_single() failed 
+- clean up code structures
+  - clean up wait-loop and wake-queue conditions
+  - add ave_wdesc_addr() and offset definitions
+  - add ave_macaddr_init() to clean up mac-address operation
+  - fix checking whether Tx entry is not enough
+  - fix supported features of phydev
+  - add necessary free/disable operations
+  - add phydev check on ave_{get,set}_wol()
+  - remove netif_carrier functions, phydev initializer, and Tx budget check
+- change obsolate codes
+  - replace ndev->{base_addr,irq} with the members of ave_private
+- rename goto labels and mask definitions, and remove unused codes
+
+Kunihiko Hayashi (2):
+  dt-bindings: net: add DT bindings for Socionext UniPhier AVE
+  net: ethernet: socionext: add AVE ethernet driver
+
+ .../bindings/net/socionext,uniphier-ave4.txt       |   53 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/socionext/Kconfig             |   22 +
+ drivers/net/ethernet/socionext/Makefile            |    4 +
+ drivers/net/ethernet/socionext/sni_ave.c           | 1773 ++++++++++++++++++++
+ 6 files changed, 1854 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
+ create mode 100644 drivers/net/ethernet/socionext/Kconfig
+ create mode 100644 drivers/net/ethernet/socionext/Makefile
+ create mode 100644 drivers/net/ethernet/socionext/sni_ave.c
 
-diff --git a/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
-new file mode 100644
-index 0000000..25f4d92
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
-@@ -0,0 +1,53 @@
-+* Socionext AVE ethernet controller
-+
-+This describes the devicetree bindings for AVE ethernet controller
-+implemented on Socionext UniPhier SoCs.
-+
-+Required properties:
-+ - compatible: Should be
-+	- "socionext,uniphier-pro4-ave4" : for Pro4 SoC
-+	- "socionext,uniphier-pxs2-ave4" : for PXs2 SoC
-+	- "socionext,uniphier-ld20-ave4" : for LD20 SoC
-+	- "socionext,uniphier-ld11-ave4" : for LD11 SoC
-+ - reg: Address where registers are mapped and size of region.
-+ - interrupts: Should contain the MAC interrupt.
-+ - phy-mode: See ethernet.txt in the same directory. Allow to choose
-+	"rgmii", "rmii", or "mii" according to the PHY.
-+ - pinctrl-names: List of assigned state names, see pinctrl
-+	binding documentation.
-+ - pinctrl-0: List of phandles to configure the GPIO pin,
-+	see pinctrl binding documentation. Choose this appropriately
-+	according to phy-mode.
-+	- <&pinctrl_ether_rgmii> if phy-mode is "rgmii".
-+	- <&pinctrl_ether_rmii> if phy-mode is "rmii".
-+	- <&pinctrl_ether_mii> if phy-mode is "mii".
-+ - phy-handle: Should point to the external phy device.
-+	See ethernet.txt file in the same directory.
-+ - mdio subnode: Should be device tree subnode with the following required
-+	properties:
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
-+	- reg: phy ID number, usually a small integer.
-+
-+Optional properties:
-+ - local-mac-address: See ethernet.txt in the same directory.
-+
-+Example:
-+
-+	ether: ethernet@65000000 {
-+		compatible = "socionext,uniphier-ld20-ave4";
-+		reg = <0x65000000 0x8500>;
-+		interrupts = <0 66 4>;
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&pinctrl_ether_rgmii>;
-+		phy-mode = "rgmii";
-+		phy-handle = <&ethphy>;
-+		local-mac-address = [00 00 00 00 00 00];
-+		mdio {
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			ethphy: ethphy@1 {
-+				reg = <1>;
-+			};
-+		};
-+	};
 -- 
 2.7.4
