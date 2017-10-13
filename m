@@ -1,41 +1,26 @@
-From: Abhijit Ayarekar <abhijit.ayarekar@cavium.com>
-Subject: Re: [PATCH] Add -target to clang switch while cross compiling.
-Date: Fri, 13 Oct 2017 15:12:44 -0700
-Message-ID: <20171013221244.GA10595@abhijit-ayarekar.cavium.com>
-References: <20171013011359.tyhynrjghe2krxec@ast-mbp>
- <1507922646-19260-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
- <20171013221036.jekimnr2i5linzid@ast-mbp>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next] ipv6: check fn before doing FIB6_SUBTREE(fn)
+Date: Fri, 13 Oct 2017 15:49:58 -0700
+Message-ID: <20171013224949.mrl6jsy6uj22kl2e@kafai-mbp.dhcp.thefacebook.com>
+References: <20171013220108.88710-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>,
-        ast@kernel.org, daniel@iogearbox.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Wei Wang <weiwan@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38498 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751339AbdJMWuE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 18:50:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20171013221036.jekimnr2i5linzid@ast-mbp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20171013220108.88710-1-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 13, 2017 at 03:10:38PM -0700, Alexei Starovoitov wrote:
-> On Fri, Oct 13, 2017 at 12:24:06PM -0700, Abhijit Ayarekar wrote:
-> > Update to llvm excludes assembly instructions.
-> > llvm git revision is below
-> > 
-> > commit 65fad7c26569 ("bpf: add inline-asm support")
-> > 
-> > This change will be part of llvm  release 6.0
-> > 
-> > __ASM_SYSREG_H define is not required for native compile.
-> > -target switch includes appropriate target specific files
-> > while cross compiling
-> > 
-> > Tested on x86 and arm64.
-> > 
-> > Signed-off-by: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
+On Fri, Oct 13, 2017 at 10:01:08PM +0000, Wei Wang wrote:
+> From: Wei Wang <weiwan@google.com>
 > 
-> Thanks
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
->
-Glad i could help :)
- 
+> In fib6_locate(), we need to first make sure fn is not NULL before doing
+> FIB6_SUBTREE(fn) to avoid crash.
+Acked-by: Martin KaFai Lau <kafai@fb.com>
