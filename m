@@ -1,58 +1,68 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: rsi: fix integer overflow warning
-Date: Fri, 13 Oct 2017 10:00:59 +0000 (UTC)
-Message-ID: <20171013100100.B7A2F605A5@smtp.codeaurora.org>
-References: <20171005120547.328687-1-arnd@arndb.de>
+From: Mark Brown <broonie@kernel.org>
+Subject: linux-next: manual merge of the rdma tree with the FIXME tree
+Date: Fri, 13 Oct 2017 11:18:06 +0100
+Message-ID: <20171013101806.vqcbv2sop2r4wsrk@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Prameela Rani Garnepudi <prameela.j04cs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Amitkumar Karwar <amit.karwar-MngUzFJYhy7c8hPZMNZi9dBPR1lH4CV8@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Pavani Muthyala <pavani.muthyala-MngUzFJYhy7c8hPZMNZi9dBPR1lH4CV8@public.gmane.org>,
-        Karun Eagalapati <karun256-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171005120547.328687-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="wp5nohmpfdhnln5a"
+Cc: netdev@vger.kernel.org,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Doug Ledford <dledford@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Allen Pais <allen.lkml@gmail.com>,
+        Kees Cook <keescook@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from heliosphere.sirena.org.uk ([172.104.155.198]:42260 "EHLO
+        heliosphere.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757058AbdJMKSN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 06:18:13 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
 
-> gcc produces a harmless warning about a recently introduced
-> signed integer overflow:
-> 
-> drivers/net/wireless/rsi/rsi_91x_hal.c: In function 'rsi_prepare_mgmt_desc':
-> include/uapi/linux/swab.h:13:15: error: integer overflow in expression [-Werror=overflow]
->   (((__u16)(x) & (__u16)0x00ffU) << 8) |   \
->    ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
-> include/uapi/linux/swab.h:104:2: note: in expansion of macro '___constant_swab16'
->   ___constant_swab16(x) :   \
->   ^~~~~~~~~~~~~~~~~~
-> include/uapi/linux/byteorder/big_endian.h:34:43: note: in expansion of macro '__swab16'
->  #define __cpu_to_le16(x) ((__force __le16)__swab16((x)))
->                                            ^~~~~~~~
-> include/linux/byteorder/generic.h:89:21: note: in expansion of macro '__cpu_to_le16'
->  #define cpu_to_le16 __cpu_to_le16
->                      ^~~~~~~~~~~~~
-> drivers/net/wireless/rsi/rsi_91x_hal.c:136:3: note: in expansion of macro 'cpu_to_le16'
->    cpu_to_le16((tx_params->vap_id << RSI_DESC_VAP_ID_OFST) &
->    ^~~~~~~~~~~
-> 
-> The problem is that the 'mask' value is a signed integer that gets
-> turned into a negative number when truncated to 16 bits. Making it
-> an unsigned constant avoids this.
-> 
-> Fixes: eac4eed3224b ("rsi: tx and rx path enhancements for p2p mode")
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+--wp5nohmpfdhnln5a
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Patch applied to wireless-drivers-next.git, thanks.
+Hi Doug,
 
-a39644b235c1 rsi: fix integer overflow warning
+Today's linux-next merge of the rdma tree got a conflict in:
 
--- 
-https://patchwork.kernel.org/patch/9986961/
+  drivers/net/ethernet/mellanox/mlx4/catas.c
 
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+between commit:
+
+  d2a0012e7632a5 ("drivers: net: mlx4: use setup_timer() helper.")
+
+=66rom the net-next tree and commit:
+
+  55c0fcc3de4605 ("net/mlx4_core: Convert timers to use timer_setup()")
+
+=66rom the rdma tree.
+
+I fixed it up by taking the second commit and can carry the fix as
+necessary. This is now fixed as far as linux-next is concerned, but any
+non trivial conflicts should be mentioned to your upstream maintainer
+when your tree is submitted for merging.  You may also want to consider
+cooperating with the maintainer of the conflicting tree to minimise any
+particularly complex conflicts.
+
+--wp5nohmpfdhnln5a
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlngkt0ACgkQJNaLcl1U
+h9AVrgf+PuLxss5Zfg63+7HHydD/JT+sPj0GpIDyoBAEBO3tMx+3xwBSLBjr5hjB
+LM9ImPnSqlAply4fbDpozq1l/CTXyxDvt/5KaESUNV6OZllkIbdwjkU5elQXwyCQ
+DvJJIDTtO+fqJFllVCG9AsU90kFxQQhMPMQosWNstGQ5X1wYyo6ycRk4sSwMnC21
+/UdJeSH+X1P2v1wMsszuW3cffVZWkBVcv7IW0JTJmTnsgeQm67wwBcVi672GEh60
+EyxE6PqEDjoc98azDb8Xt+jW0dE74Sk0MidrxQEUL/IROgf2D32Jp+FnFpVFZpuX
+x4QZHl8PGIx/nhHsxxI5IpmxaNgZCw==
+=5zax
+-----END PGP SIGNATURE-----
+
+--wp5nohmpfdhnln5a--
