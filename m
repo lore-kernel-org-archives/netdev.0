@@ -1,58 +1,76 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 7/9] i40e: make const array patterns static, reduces object code size
-Date: Fri, 13 Oct 2017 14:52:47 -0700
-Message-ID: <20171013215249.61286-8-jeffrey.t.kirsher@intel.com>
-References: <20171013215249.61286-1-jeffrey.t.kirsher@intel.com>
-Cc: Colin Ian King <colin.king@canonical.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net-next] ipv6: check fn before doing FIB6_SUBTREE(fn)
+Date: Fri, 13 Oct 2017 15:01:08 -0700
+Message-ID: <20171013220108.88710-1-tracywwnj@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:59784 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753080AbdJMVxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Oct 2017 17:53:22 -0400
-In-Reply-To: <20171013215249.61286-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:49459 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751502AbdJMWBR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 18:01:17 -0400
+Received: by mail-pf0-f176.google.com with SMTP id l188so11382766pfc.6
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 15:01:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Wei Wang <weiwan@google.com>
 
-Don't populate const array patterns on the stack, instead make it
-static. Makes the object code smaller by over 60 bytes:
+In fib6_locate(), we need to first make sure fn is not NULL before doing
+FIB6_SUBTREE(fn) to avoid crash.
 
-Before:
-   text	   data	    bss	    dec	    hex	filename
-   1953	    496	      0	   2449	    991	i40e_diag.o
+This fixes the following static checker warning:
+net/ipv6/ip6_fib.c:1462 fib6_locate()
+         warn: variable dereferenced before check 'fn' (see line 1459)
 
-After:
-   text	   data	    bss	    dec	    hex	filename
-   1798	    584	      0	   2382	    94e	i40e_diag.o
+net/ipv6/ip6_fib.c
+  1458          if (src_len) {
+  1459                  struct fib6_node *subtree = FIB6_SUBTREE(fn);
+                                                    ^^^^^^^^^^^^^^^^
+We shifted this dereference
 
-(gcc 6.3.0, x86-64)
+  1460
+  1461                  WARN_ON(saddr == NULL);
+  1462                  if (fn && subtree)
+                            ^^
+before the check for NULL.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+  1463                          fn = fib6_locate_1(subtree, saddr, src_len,
+  1464                                             offsetof(struct rt6_info, rt6i_src)
+
+Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_diag.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/ipv6/ip6_fib.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-index f141e78d409e..76ed56641864 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-@@ -36,7 +36,9 @@
- static i40e_status i40e_diag_reg_pattern_test(struct i40e_hw *hw,
- 							u32 reg, u32 mask)
- {
--	const u32 patterns[] = {0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
-+	static const u32 patterns[] = {
-+		0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF
-+	};
- 	u32 pat, val, orig_val;
- 	int i;
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index c2ecd5ec638a..548af48212fc 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1456,13 +1456,16 @@ struct fib6_node *fib6_locate(struct fib6_node *root,
+ 
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	if (src_len) {
+-		struct fib6_node *subtree = FIB6_SUBTREE(fn);
+-
+ 		WARN_ON(saddr == NULL);
+-		if (fn && subtree)
+-			fn = fib6_locate_1(subtree, saddr, src_len,
++		if (fn) {
++			struct fib6_node *subtree = FIB6_SUBTREE(fn);
++
++			if (subtree) {
++				fn = fib6_locate_1(subtree, saddr, src_len,
+ 					   offsetof(struct rt6_info, rt6i_src),
+ 					   exact_match);
++			}
++		}
+ 	}
+ #endif
  
 -- 
-2.14.2
+2.15.0.rc0.271.g36b669edcc-goog
