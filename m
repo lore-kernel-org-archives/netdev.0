@@ -1,38 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 1/3] sched: act: ife: move encode/decode check to
- init
-Date: Thu, 12 Oct 2017 21:38:20 -0400
-Message-ID: <df414888-a723-f6df-f703-d83045ab25dd@mojatatu.com>
-References: <20171011211608.22692-1-aring@mojatatu.com>
- <20171011211608.22692-2-aring@mojatatu.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] tracing: bpf: Hide bpf trace events when they are not
+ used
+Date: Thu, 12 Oct 2017 18:38:36 -0700
+Message-ID: <20171013013834.pxh3ancgutrm6m7t@ast-mbp>
+References: <20171012184002.0661a867@gandalf.local.home>
+ <20171013011450.w2uqygdfzwf7ud64@ast-mbp>
+ <20171012213501.17fe6f8c@vmware.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, jiri@resnulli.us, netdev@vger.kernel.org,
-        eric.dumazet@gmail.com, bjb@mojatatu.com,
-        Yotam Gigi <yotamg@mellanox.com>
-To: Alexander Aring <aring@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:48744 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753326AbdJMBiW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 21:38:22 -0400
-Received: by mail-io0-f195.google.com with SMTP id j17so7434725iod.5
-        for <netdev@vger.kernel.org>; Thu, 12 Oct 2017 18:38:22 -0700 (PDT)
-In-Reply-To: <20171011211608.22692-2-aring@mojatatu.com>
-Content-Language: en-GB
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:54771 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753513AbdJMBij (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Oct 2017 21:38:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20171012213501.17fe6f8c@vmware.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-10-11 05:16 PM, Alexander Aring wrote:
-> This patch adds the check of the two possible ife handlings encode
-> and decode to the init callback. The decode value is for usability
-> aspect and used in userspace code only. The current code offers encode
-> else decode only. This patch avoids any other option than this.
+On Thu, Oct 12, 2017 at 09:35:01PM -0400, Steven Rostedt wrote:
+> On Thu, 12 Oct 2017 18:14:52 -0700
+> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 > 
-> Signed-off-by: Alexander Aring <aring@mojatatu.com>
+> > On Thu, Oct 12, 2017 at 06:40:02PM -0400, Steven Rostedt wrote:
+> > > From: Steven Rostedt (VMware) <rostedt@goodmis.org>
+> > > 
+> > > All the trace events defined in include/trace/events/bpf.h are only
+> > > used when CONFIG_BPF_SYSCALL is defined. But this file gets included by
+> > > include/linux/bpf_trace.h which is included by the networking code with
+> > > CREATE_TRACE_POINTS defined.
+> > > 
+> > > If a trace event is created but not used it still has data structures
+> > > and functions created for its use, even though nothing is using them.
+> > > To not waste space, do not define the BPF trace events in bpf.h unless
+> > > CONFIG_BPF_SYSCALL is defined.
+> > > 
+> > > Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>  
+> > 
+> > Looks fine.
+> > Acked-by: Alexei Starovoitov <ast@kernel.org>
+> > 
+> > I'm assuming you want to take it through tracing tree along
+> > with all other cleanups?
+> 
+> Either way is fine. I have a few other ones. I believe Paul is taking
+> the RCU patch. There's no dependency.
+> 
+> I'll take it if it is easier for you. I just need the ack.
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+actually just noticed that xdp tracepoints are not covered by ifdef.
+They depend on bpf_syscall too. So probably makes sense to wrap
+them together.
+bpf tracepoints are not being actively worked on whereas xdp tracepoints
+keep evolving quickly, so the best is probalby to go via net-next
+if you don't mind.
