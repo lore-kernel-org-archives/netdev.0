@@ -1,38 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 00/18] tipc: Introduce
- Communcation Group feature
-Date: Fri, 13 Oct 2017 08:51:59 -0700 (PDT)
-Message-ID: <20171013.085159.1083347709200645426.davem@davemloft.net>
-References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
- tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211-next 2017-10-13
+Date: Fri, 13 Oct 2017 17:53:31 +0200
+Message-ID: <20171013155332.4310-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.63.242]:53600 "EHLO
+        sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758379AbdJMPxh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 11:53:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 13 Oct 2017 11:04:16 +0200
+Hi Dave,
 
-> With this commit series we introduce a 'Group Communication' feature in
-> order to resolve the datagram and multicast flow control problem. This 
-> new feature makes it possible for a user to instantiate multiple private
-> virtual brokerless message buses by just creating and joining member 
-> sockets.
+Sorry for the quick succession - there were a few issues with
+the last pull request that only got noticed now, so I'm fixing
+those here.
 
-Series applied.
+Please pull and let me know if there's any problem.
 
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+Thanks,
+johannes
+
+
+
+The following changes since commit 90a53e4432b12288316efaa5f308adafb8d304b0:
+
+  cfg80211: implement regdb signature checking (2017-10-11 14:24:24 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git tags/mac80211-next-for-davem-2017-10-13
+
+for you to fetch changes up to b1b1ae2c1c150f8db5d3523c74e81eaf8cae5cbb:
+
+  mac80211: don't track HT capability changes (2017-10-13 14:29:02 +0200)
+
+----------------------------------------------------------------
+Three fixes for the recently added new code:
+ * make "make -s" silent for the certs file (Arnd)
+ * fix missing CONFIG_ in extra certs symbol (Arnd)
+ * use crypto_aead_authsize() to use the proper API
+and two other changes:
+ * remove a set-but-unused variable
+ * don't track HT *capability* changes, capabilities
+   are supposed to be constant (HT operation changes)
+
+----------------------------------------------------------------
+Arnd Bergmann (2):
+      cfg80211: don't print log output for building shipped-certs
+      cfg80211: fix CFG80211_EXTRA_REGDB_KEYDIR typo
+
+Johannes Berg (3):
+      mac80211: use crypto_aead_authsize()
+      cfg80211: remove set but never used variable cf_offset
+      mac80211: don't track HT capability changes
+
+ net/mac80211/aead_api.c |  4 ++--
+ net/mac80211/mlme.c     | 14 +++-----------
+ net/wireless/Makefile   |  4 ++--
+ net/wireless/chan.c     |  4 +---
+ net/wireless/reg.c      |  2 +-
+ 5 files changed, 9 insertions(+), 19 deletions(-)
