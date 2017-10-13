@@ -1,441 +1,163 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [next-queue PATCH v7 4/6] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Fri, 13 Oct 2017 22:59:26 +0300
-Message-ID: <20171013195924.GA19439@khorivan>
-References: <20171013004005.17416-1-vinicius.gomes@intel.com>
- <20171013004005.17416-5-vinicius.gomes@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
-        rodney.cummings@ni.com
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v3] tcp: add a tracepoint for tcp retransmission
+Date: Fri, 13 Oct 2017 13:03:16 -0700
+Message-ID: <20171013200316.28561-1-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Brendan Gregg <brendan.d.gregg@gmail.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:53880 "EHLO
-        mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdJMT7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 15:59:31 -0400
-Received: by mail-lf0-f46.google.com with SMTP id l23so10790571lfk.10
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 12:59:30 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171013004005.17416-5-vinicius.gomes@intel.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:53558 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751650AbdJMUDW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 16:03:22 -0400
+Received: by mail-pf0-f194.google.com with SMTP id t188so8696461pfd.10
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 13:03:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 12, 2017 at 05:40:03PM -0700, Vinicius Costa Gomes wrote:
-> This queueing discipline implements the shaper algorithm defined by
-> the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
-> 
-> It's primary usage is to apply some bandwidth reservation to user
-> defined traffic classes, which are mapped to different queues via the
-> mqprio qdisc.
-> 
-> Only a simple software implementation is added for now.
-> 
-> Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-> Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-> ---
->  include/uapi/linux/pkt_sched.h |  18 +++
->  net/sched/Kconfig              |  11 ++
->  net/sched/Makefile             |   1 +
->  net/sched/sch_cbs.c            | 314 +++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 344 insertions(+)
->  create mode 100644 net/sched/sch_cbs.c
-> 
-> diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-> index 099bf5528fed..41e349df4bf4 100644
-> --- a/include/uapi/linux/pkt_sched.h
-> +++ b/include/uapi/linux/pkt_sched.h
-> @@ -871,4 +871,22 @@ struct tc_pie_xstats {
->  	__u32 maxq;             /* maximum queue size */
->  	__u32 ecn_mark;         /* packets marked with ecn*/
->  };
-> +
-> +/* CBS */
-> +struct tc_cbs_qopt {
-> +	__u8 offload;
-> +	__s32 hicredit;
-> +	__s32 locredit;
-> +	__s32 idleslope;
-> +	__s32 sendslope;
-> +};
-> +
-> +enum {
-> +	TCA_CBS_UNSPEC,
-> +	TCA_CBS_PARMS,
-> +	__TCA_CBS_MAX,
-> +};
-> +
-> +#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
-> +
->  #endif
-> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-> index e70ed26485a2..c03d86a7775e 100644
-> --- a/net/sched/Kconfig
-> +++ b/net/sched/Kconfig
-> @@ -172,6 +172,17 @@ config NET_SCH_TBF
->  	  To compile this code as a module, choose M here: the
->  	  module will be called sch_tbf.
->  
-> +config NET_SCH_CBS
-> +	tristate "Credit Based Shaper (CBS)"
-> +	---help---
-> +	  Say Y here if you want to use the Credit Based Shaper (CBS) packet
-> +	  scheduling algorithm.
-> +
-> +	  See the top of <file:net/sched/sch_cbs.c> for more details.
-> +
-> +	  To compile this code as a module, choose M here: the
-> +	  module will be called sch_cbs.
-> +
->  config NET_SCH_GRED
->  	tristate "Generic Random Early Detection (GRED)"
->  	---help---
-> diff --git a/net/sched/Makefile b/net/sched/Makefile
-> index 7b915d226de7..80c8f92d162d 100644
-> --- a/net/sched/Makefile
-> +++ b/net/sched/Makefile
-> @@ -52,6 +52,7 @@ obj-$(CONFIG_NET_SCH_FQ_CODEL)	+= sch_fq_codel.o
->  obj-$(CONFIG_NET_SCH_FQ)	+= sch_fq.o
->  obj-$(CONFIG_NET_SCH_HHF)	+= sch_hhf.o
->  obj-$(CONFIG_NET_SCH_PIE)	+= sch_pie.o
-> +obj-$(CONFIG_NET_SCH_CBS)	+= sch_cbs.o
->  
->  obj-$(CONFIG_NET_CLS_U32)	+= cls_u32.o
->  obj-$(CONFIG_NET_CLS_ROUTE4)	+= cls_route.o
-> diff --git a/net/sched/sch_cbs.c b/net/sched/sch_cbs.c
-> new file mode 100644
-> index 000000000000..0643587e6dc8
-> --- /dev/null
-> +++ b/net/sched/sch_cbs.c
-> @@ -0,0 +1,314 @@
-> +/*
-> + * net/sched/sch_cbs.c	Credit Based Shaper
-> + *
-> + *		This program is free software; you can redistribute it and/or
-> + *		modify it under the terms of the GNU General Public License
-> + *		as published by the Free Software Foundation; either version
-> + *		2 of the License, or (at your option) any later version.
-> + *
-> + * Authors:	Vinicius Costa Gomes <vinicius.gomes@intel.com>
-> + *
-> + */
-> +
-> +/* Credit Based Shaper (CBS)
-> + * =========================
-> + *
-> + * This is a simple rate-limiting shaper aimed at TSN applications on
-> + * systems with known traffic workloads.
-> + *
-> + * Its algorithm is defined by the IEEE 802.1Q-2014 Specification,
-> + * Section 8.6.8.2, and explained in more detail in the Annex L of the
-> + * same specification.
-> + *
-> + * There are four tunables to be considered:
-> + *
-> + *	'idleslope': Idleslope is the rate of credits that is
-> + *	accumulated (in kilobits per second) when there is at least
-> + *	one packet waiting for transmission. Packets are transmitted
-> + *	when the current value of credits is equal or greater than
-> + *	zero. When there is no packet to be transmitted the amount of
-> + *	credits is set to zero. This is the main tunable of the CBS
-> + *	algorithm.
-> + *
-> + *	'sendslope':
-> + *	Sendslope is the rate of credits that is depleted (it should be a
-> + *	negative number of kilobits per second) when a transmission is
-> + *	ocurring. It can be calculated as follows, (IEEE 802.1Q-2014 Section
-> + *	8.6.8.2 item g):
-> + *
-> + *	sendslope = idleslope - port_transmit_rate
-> + *
-> + *	'hicredit': Hicredit defines the maximum amount of credits (in
-> + *	bytes) that can be accumulated. Hicredit depends on the
-> + *	characteristics of interfering traffic,
-> + *	'max_interference_size' is the maximum size of any burst of
-> + *	traffic that can delay the transmission of a frame that is
-> + *	available for transmission for this traffic class, (IEEE
-> + *	802.1Q-2014 Annex L, Equation L-3):
-> + *
-> + *	hicredit = max_interference_size * (idleslope / port_transmit_rate)
-> + *
-> + *	'locredit': Locredit is the minimum amount of credits that can
-> + *	be reached. It is a function of the traffic flowing through
-> + *	this qdisc (IEEE 802.1Q-2014 Annex L, Equation L-2):
-> + *
-> + *	locredit = max_frame_size * (sendslope / port_transmit_rate)
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <linux/types.h>
-> +#include <linux/kernel.h>
-> +#include <linux/string.h>
-> +#include <linux/errno.h>
-> +#include <linux/skbuff.h>
-> +#include <net/netlink.h>
-> +#include <net/sch_generic.h>
-> +#include <net/pkt_sched.h>
-> +
-> +#define BYTES_PER_KBIT (1000 / 8)
-> +
-> +struct cbs_sched_data {
-> +	s64 port_rate; /* in bytes/s */
-> +	s64 last; /* timestamp in ns */
-> +	s64 credits; /* in bytes */
-> +	s32 locredit; /* in bytes */
-> +	s32 hicredit; /* in bytes */
-> +	s32 sendslope; /* in kbits/s */
-> +	s32 idleslope; /* in kbits/s */
-> +	struct qdisc_watchdog watchdog;
-> +	int (*enqueue)(struct sk_buff *skb, struct Qdisc *sch);
-> +	struct sk_buff *(*dequeue)(struct Qdisc *sch);
-> +};
-> +
-> +static int cbs_enqueue_soft(struct sk_buff *skb, struct Qdisc *sch)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +
-> +	if (sch->q.qlen == 0 && q->credits > 0) {
-> +		/* We need to stop accumulating credits when there's
-> +		 * no packet enqueued packets and q->credits is
-no packet -> no
+We need a real-time notification for tcp retransmission
+for monitoring.
 
-> +		 * positive.
-> +		 */
-> +		q->credits = 0;
-> +		q->last = ktime_get_ns();
-> +	}
-> +
-> +	return qdisc_enqueue_tail(skb, sch);
-> +}
-> +
-> +static int cbs_enqueue(struct sk_buff *skb, struct Qdisc *sch,
-> +		       struct sk_buff **to_free)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +
-> +	return q->enqueue(skb, sch);
-> +}
-> +
-> +/* timediff is in ns, slope is in kbps */
-> +static s64 timediff_to_credits(s64 timediff, s32 slope)
-> +{
-> +	s64 credits = timediff * slope * BYTES_PER_KBIT;
-> +
-> +	do_div(credits, NSEC_PER_SEC);
-> +
-> +	return credits;
-> +}
-> +
-> +static s64 delay_from_credits(s64 credits, s32 slope)
-> +{
-> +	s64 rate = slope * BYTES_PER_KBIT;
-> +	s64 delay;
-> +
-> +	if (unlikely(rate == 0))
-> +		return S64_MAX;
-> +
-> +	delay = -credits * NSEC_PER_SEC;
-> +	do_div(delay, rate);
-> +
-> +	return delay;
-> +}
-> +
-> +static s64 credits_from_len(unsigned int len, s32 slope, s64 port_rate)
-> +{
-> +	/* As do_div() only works on unsigned quantities, convert
-> +	 * slope to a positive number here, and credits to a negative
-> +	 * number before returning.
-> +	 */
-> +	s64 rate = -slope * BYTES_PER_KBIT;
-> +	s64 credits;
-> +
-> +	if (unlikely(port_rate == 0))
-> +		return S64_MAX;
-> +
-> +	credits = len * rate;
-> +	do_div(credits, port_rate);
-> +
-> +	return -credits;
-> +}
-> +
-> +static struct sk_buff *cbs_dequeue_soft(struct Qdisc *sch)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +	s64 now = ktime_get_ns();
-> +	struct sk_buff *skb;
-> +	s64 credits;
-> +	int len;
-> +
-> +	if (q->credits < 0) {
-> +		credits = timediff_to_credits(now - q->last, q->idleslope);
-Maybe be better to add small optimization by moving some calculations from data
-path, I mean, save idle_slope in bytes instead of kbit and converting it for
-every packet. Both delay_from_credits() and timediff_to_credits() is used only
-once and with idle_slope only...and both of them converting it.
+Of course we could use ftrace to dynamically instrument this
+kernel function too, however we can't retrieve the connection
+information at the same time, for example perf-tools [1] reads
+/proc/net/tcp for socket details, which is slow when we have
+a lots of connections.
 
-Same for credits_from_len() and send slope, save it in units of port_rate.
+Therefore, this patch adds a tracepoint for __tcp_retransmit_skb()
+and exposes src/dst IP addresses and ports of the connection.
+This also makes it easier to integrate into perf.
 
-> +
-> +		credits = q->credits + credits;
-> +		q->credits = min_t(s64, credits, q->hicredit);
-> +
-> +		if (q->credits < 0) {
-> +			s64 delay;
-> +
-> +			delay = delay_from_credits(q->credits, q->idleslope);
-> +			qdisc_watchdog_schedule_ns(&q->watchdog, now + delay);
-> +
-> +			q->last = now;
-> +
-> +			return NULL;
-> +		}
-> +	}
-> +
-> +	skb = qdisc_dequeue_head(sch);
-> +	if (!skb)
-> +		return NULL;
-> +
-> +	len = qdisc_pkt_len(skb);
-> +
-> +	/* As sendslope is a negative number, this will decrease the
-> +	 * amount of q->credits.
-> +	 */
-> +	credits = credits_from_len(len, q->sendslope, q->port_rate);
-> +	credits += q->credits;
-> +
-> +	q->credits = max_t(s64, credits, q->locredit);
-> +	q->last = now;
-> +
-> +	return skb;
-> +}
-> +
-> +static struct sk_buff *cbs_dequeue(struct Qdisc *sch)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +
-> +	return q->dequeue(sch);
-> +}
-> +
-> +static const struct nla_policy cbs_policy[TCA_CBS_MAX + 1] = {
-> +	[TCA_CBS_PARMS]	= { .len = sizeof(struct tc_cbs_qopt) },
-> +};
-> +
-> +static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +	struct net_device *dev = qdisc_dev(sch);
-> +	struct nlattr *tb[TCA_CBS_MAX + 1];
-> +	struct ethtool_link_ksettings ecmd;
-> +	struct tc_cbs_qopt *qopt;
-> +	s64 link_speed;
-> +	int err;
-> +
-> +	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
-> +	if (err < 0)
-> +		return err;
-> +
-> +	if (!tb[TCA_CBS_PARMS])
-> +		return -EINVAL;
-> +
-> +	qopt = nla_data(tb[TCA_CBS_PARMS]);
-> +
-> +	if (qopt->offload)
-> +		return -EOPNOTSUPP;
-> +
-> +	if (!__ethtool_get_link_ksettings(dev, &ecmd))
-> +		link_speed = ecmd.base.speed;
-> +	else
-> +		link_speed = SPEED_1000;
-> +
-> +	q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
-> +
-> +	q->enqueue = cbs_enqueue_soft;
-> +	q->dequeue = cbs_dequeue_soft;
-> +
-> +	q->hicredit = qopt->hicredit;
-> +	q->locredit = qopt->locredit;
-> +	q->idleslope = qopt->idleslope;
-> +	q->sendslope = qopt->sendslope;
-> +
-> +	return 0;
-> +}
-> +
-> +static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +
-> +	if (!opt)
-> +		return -EINVAL;
-> +
-> +	qdisc_watchdog_init(&q->watchdog, sch);
-> +
-> +	return cbs_change(sch, opt);
-> +}
-> +
-> +static void cbs_destroy(struct Qdisc *sch)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +
-> +	qdisc_watchdog_cancel(&q->watchdog);
-> +}
-> +
-> +static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
-> +{
-> +	struct cbs_sched_data *q = qdisc_priv(sch);
-> +	struct tc_cbs_qopt opt = { };
-> +	struct nlattr *nest;
-> +
-> +	nest = nla_nest_start(skb, TCA_OPTIONS);
-> +	if (!nest)
-> +		goto nla_put_failure;
-> +
-> +	opt.hicredit = q->hicredit;
-> +	opt.locredit = q->locredit;
-> +	opt.sendslope = q->sendslope;
-> +	opt.idleslope = q->idleslope;
-> +	opt.offload = 0;
-> +
-> +	if (nla_put(skb, TCA_CBS_PARMS, sizeof(opt), &opt))
-> +		goto nla_put_failure;
-> +
-> +	return nla_nest_end(skb, nest);
-> +
-> +nla_put_failure:
-> +	nla_nest_cancel(skb, nest);
-> +	return -1;
-> +}
-> +
-> +static struct Qdisc_ops cbs_qdisc_ops __read_mostly = {
-> +	.id		=	"cbs",
-> +	.priv_size	=	sizeof(struct cbs_sched_data),
-> +	.enqueue	=	cbs_enqueue,
-> +	.dequeue	=	cbs_dequeue,
-> +	.peek		=	qdisc_peek_dequeued,
-> +	.init		=	cbs_init,
-> +	.reset		=	qdisc_reset_queue,
-> +	.destroy	=	cbs_destroy,
-> +	.change		=	cbs_change,
-> +	.dump		=	cbs_dump,
-> +	.owner		=	THIS_MODULE,
-> +};
-> +
-> +static int __init cbs_module_init(void)
-> +{
-> +	return register_qdisc(&cbs_qdisc_ops);
-> +}
-> +
-> +static void __exit cbs_module_exit(void)
-> +{
-> +	unregister_qdisc(&cbs_qdisc_ops);
-> +}
-> +module_init(cbs_module_init)
-> +module_exit(cbs_module_exit)
-> +MODULE_LICENSE("GPL");
-> -- 
-> 2.14.2
-> 
+Note, I expose both IPv4 and IPv6 addresses at the same time:
+for a IPv4 socket, v4 mapped address is used as IPv6 addresses,
+for a IPv6 socket, LOOPBACK4_IPV6 is already filled by kernel.
+Also, add sk and skb pointers as they are useful for BPF.
+
+1. https://github.com/brendangregg/perf-tools/blob/master/net/tcpretrans
+
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Brendan Gregg <brendan.d.gregg@gmail.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/trace/events/tcp.h | 68 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/core/net-traces.c      |  1 +
+ net/ipv4/tcp_output.c      |  3 ++
+ 3 files changed, 72 insertions(+)
+ create mode 100644 include/trace/events/tcp.h
+
+diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
+new file mode 100644
+index 000000000000..3d1cbd072b7e
+--- /dev/null
++++ b/include/trace/events/tcp.h
+@@ -0,0 +1,68 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM tcp
++
++#if !defined(_TRACE_TCP_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_TCP_H
++
++#include <linux/ipv6.h>
++#include <linux/tcp.h>
++#include <linux/tracepoint.h>
++#include <net/ipv6.h>
++
++TRACE_EVENT(tcp_retransmit_skb,
++
++	TP_PROTO(struct sock *sk, struct sk_buff *skb),
++
++	TP_ARGS(sk, skb),
++
++	TP_STRUCT__entry(
++		__field(void *, skbaddr)
++		__field(void *, skaddr)
++		__field(__u16, sport)
++		__field(__u16, dport)
++		__array(__u8, saddr, 4)
++		__array(__u8, daddr, 4)
++		__array(__u8, saddr_v6, 16)
++		__array(__u8, daddr_v6, 16)
++	),
++
++	TP_fast_assign(
++		struct ipv6_pinfo *np = inet6_sk(sk);
++		struct inet_sock *inet = inet_sk(sk);
++		struct in6_addr *pin6;
++		__be32 *p32;
++
++		__entry->skbaddr = skb;
++		__entry->skaddr = sk;
++
++		__entry->sport = ntohs(inet->inet_sport);
++		__entry->dport = ntohs(inet->inet_dport);
++
++		p32 = (__be32 *) __entry->saddr;
++		*p32 = inet->inet_saddr;
++
++		p32 = (__be32 *) __entry->daddr;
++		*p32 =  inet->inet_daddr;
++
++		if (np) {
++			pin6 = (struct in6_addr *)__entry->saddr_v6;
++			*pin6 = np->saddr;
++			pin6 = (struct in6_addr *)__entry->daddr_v6;
++			*pin6 = *(np->daddr_cache);
++		} else {
++			pin6 = (struct in6_addr *)__entry->saddr_v6;
++			ipv6_addr_set_v4mapped(inet->inet_saddr, pin6);
++			pin6 = (struct in6_addr *)__entry->daddr_v6;
++			ipv6_addr_set_v4mapped(inet->inet_daddr, pin6);
++		}
++	),
++
++	TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6 daddrv6=%pI6",
++		  __entry->sport, __entry->dport, __entry->saddr, __entry->daddr,
++		  __entry->saddr_v6, __entry->daddr_v6)
++);
++
++#endif /* _TRACE_TCP_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index 1132820c8e62..f4e4fa2db505 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -31,6 +31,7 @@
+ #include <trace/events/napi.h>
+ #include <trace/events/sock.h>
+ #include <trace/events/udp.h>
++#include <trace/events/tcp.h>
+ #include <trace/events/fib.h>
+ #include <trace/events/qdisc.h>
+ #if IS_ENABLED(CONFIG_IPV6)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 696b0a168f16..6c74f2a39778 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -42,6 +42,8 @@
+ #include <linux/gfp.h>
+ #include <linux/module.h>
+ 
++#include <trace/events/tcp.h>
++
+ /* People can turn this off for buggy TCP's found in printers etc. */
+ int sysctl_tcp_retrans_collapse __read_mostly = 1;
+ 
+@@ -2875,6 +2877,7 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+ 
+ 	if (likely(!err)) {
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_EVER_RETRANS;
++		trace_tcp_retransmit_skb(sk, skb);
+ 	} else if (err != -EBUSY) {
+ 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPRETRANSFAIL);
+ 	}
+-- 
+2.13.0
