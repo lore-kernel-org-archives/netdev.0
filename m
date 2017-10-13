@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 02/18] tipc: improve address sanity check in tipc_connect()
-Date: Fri, 13 Oct 2017 11:04:18 +0200
-Message-ID: <1507885474-11213-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 16/18] tipc: guarantee delivery of UP event before first broadcast
+Date: Fri, 13 Oct 2017 11:04:32 +0200
+Message-ID: <1507885474-11213-17-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,79 +9,81 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg23.ericsson.net ([193.180.251.45]:59735 "EHLO
-        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757852AbdJMJEv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:51 -0400
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:50819 "EHLO
+        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757990AbdJMJEw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:52 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The address given to tipc_connect() is not completely sanity checked,
-under the assumption that this will be done later in the function
-__tipc_sendmsg() when the address is used there.
+The following scenario is possible:
+- A user joins a group, and immediately sends out a broadcast message
+  to its members.
+- The broadcast message, following a different data path than the
+  initial JOIN message sent out during the joining procedure, arrives
+  to a receiver before the latter..
+- The receiver drops the message, since it is not ready to accept any
+  messages until the JOIN has arrived.
 
-However, the latter functon will in the next commits serve as caller
-to several other send functions, so we want to move the corresponding
-sanity check there to the beginning of that function, before we possibly
-need to grab the address stored by tipc_connect(). We must therefore
-be able to trust that this address already has been thoroughly checked.
-
-We do this in this commit.
+We avoid this by treating group protocol JOIN messages like unicast
+messages.
+- We let them pass through the recipient's multicast input queue, just
+  like ordinary unicasts.
+- We force the first following broadacst to be sent as replicated
+  unicast and being acknowledged by the recipient before accepting
+  any more broadcast transmissions.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/socket.c | 31 +++++++++++++++----------------
- 1 file changed, 15 insertions(+), 16 deletions(-)
+ net/tipc/link.c   | 7 +++++--
+ net/tipc/socket.c | 4 ++++
+ 2 files changed, 9 insertions(+), 2 deletions(-)
 
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 70a2149..723dd69 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1039,6 +1039,7 @@ int tipc_link_retrans(struct tipc_link *l, struct tipc_link *nacker,
+ static bool tipc_data_input(struct tipc_link *l, struct sk_buff *skb,
+ 			    struct sk_buff_head *inputq)
+ {
++	struct sk_buff_head *mc_inputq = l->bc_rcvlink->inputq;
+ 	struct tipc_msg *hdr = buf_msg(skb);
+ 
+ 	switch (msg_user(hdr)) {
+@@ -1047,12 +1048,14 @@ static bool tipc_data_input(struct tipc_link *l, struct sk_buff *skb,
+ 	case TIPC_HIGH_IMPORTANCE:
+ 	case TIPC_CRITICAL_IMPORTANCE:
+ 		if (unlikely(msg_in_group(hdr) || msg_mcast(hdr))) {
+-			skb_queue_tail(l->bc_rcvlink->inputq, skb);
++			skb_queue_tail(mc_inputq, skb);
+ 			return true;
+ 		}
+-	case GROUP_PROTOCOL:
+ 	case CONN_MANAGER:
+ 		return true;
++	case GROUP_PROTOCOL:
++		skb_queue_tail(mc_inputq, skb);
++		return true;
+ 	case NAME_DISTRIBUTOR:
+ 		l->bc_rcvlink->state = LINK_ESTABLISHED;
+ 		skb_queue_tail(l->namedq, skb);
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 9a7e7b5c..7659e79 100644
+index b1f1c3c..2bbab4f 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1911,28 +1911,27 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
- 	int previous;
- 	int res = 0;
- 
-+	if (destlen != sizeof(struct sockaddr_tipc))
-+		return -EINVAL;
+@@ -2762,6 +2762,10 @@ static int tipc_sk_join(struct tipc_sock *tsk, struct tipc_group_req *mreq)
+ 	rc = tipc_sk_publish(tsk, mreq->scope, &seq);
+ 	if (rc)
+ 		tipc_group_delete(net, grp);
 +
- 	lock_sock(sk);
- 
--	/* DGRAM/RDM connect(), just save the destaddr */
--	if (tipc_sk_type_connectionless(sk)) {
--		if (dst->family == AF_UNSPEC) {
--			memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
--		} else if (destlen != sizeof(struct sockaddr_tipc)) {
-+	if (dst->family == AF_UNSPEC) {
-+		memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
-+		if (!tipc_sk_type_connectionless(sk))
- 			res = -EINVAL;
--		} else {
--			memcpy(&tsk->peer, dest, destlen);
--		}
- 		goto exit;
-+	} else if (dst->family != AF_TIPC) {
-+		res = -EINVAL;
- 	}
--
--	/*
--	 * Reject connection attempt using multicast address
--	 *
--	 * Note: send_msg() validates the rest of the address fields,
--	 *       so there's no need to do it here
--	 */
--	if (dst->addrtype == TIPC_ADDR_MCAST) {
-+	if (dst->addrtype != TIPC_ADDR_ID && dst->addrtype != TIPC_ADDR_NAME)
- 		res = -EINVAL;
-+	if (res)
-+		goto exit;
-+
-+	/* DGRAM/RDM connect(), just save the destaddr */
-+	if (tipc_sk_type_connectionless(sk)) {
-+		memcpy(&tsk->peer, dest, destlen);
- 		goto exit;
- 	}
++	/* Eliminate any risk that a broadcast overtakes the sent JOIN */
++	tsk->mc_method.rcast = true;
++	tsk->mc_method.mandatory = true;
+ 	return rc;
+ }
  
 -- 
 2.1.4
