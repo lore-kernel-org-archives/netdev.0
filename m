@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 11/18] tipc: introduce group unicast messaging
-Date: Fri, 13 Oct 2017 11:04:27 +0200
-Message-ID: <1507885474-11213-12-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 17/18] tipc: guarantee delivery of last broadcast before DOWN event
+Date: Fri, 13 Oct 2017 11:04:33 +0200
+Message-ID: <1507885474-11213-18-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,291 +9,205 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:49534 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758010AbdJMJE4 (ORCPT
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:50819 "EHLO
+        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758012AbdJMJE4 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:56 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We now make it possible to send connectionless unicast messages
-within a communication group. To send a message, the sender can use
-either a direct port address, aka port identity, or an indirect port
-name to be looked up.
+The following scenario is possible:
+- A user sends a broadcast message, and thereafter immediately leaves
+  the group.
+- The LEAVE message, following a different path than the broadcast,
+  arrives ahead of the broadcast, and the sending member is removed
+  from the receiver's list.
+- The broadcast message arrives, but is dropped because the sender
+  now is unknown to the receipient.
 
-This type of messages are subject to the same start synchronization
-and flow control mechanism as group broadcast messages.
+We fix this by sequence numbering membership events, just like ordinary
+unicast messages. Currently, when a JOIN is sent to a peer, it contains
+a synchronization point, - the sequence number of the next sent
+broadcast, in order to give the receiver a start synchronization point.
+We now let even LEAVE messages contain such an "end synchronization"
+point, so that the recipient can delay the removal of the sending member
+until it knows that all messages have been received.
+
+The received synchronization points are added as sequence numbers to the
+generated membership events, making it possible to handle them almost
+the same way as regular unicasts in the receiving filter function. In
+particular, a DOWN event with a too high sequence number will be kept
+in the reordering queue until the missing broadcast(s) arrive and have
+been delivered.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/group.c  |  45 +++++++++++++++++++++-
- net/tipc/group.h  |   3 ++
- net/tipc/msg.h    |   3 +-
- net/tipc/socket.c | 112 +++++++++++++++++++++++++++++++++++++++++++++++++-----
- 4 files changed, 150 insertions(+), 13 deletions(-)
+ net/tipc/group.c | 45 ++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 32 insertions(+), 13 deletions(-)
 
 diff --git a/net/tipc/group.c b/net/tipc/group.c
-index b8ed70a..18440be 100644
+index eab862e..8f0eb5d 100644
 --- a/net/tipc/group.c
 +++ b/net/tipc/group.c
-@@ -186,6 +186,17 @@ struct tipc_member *tipc_group_find_member(struct tipc_group *grp,
- 	return NULL;
- }
+@@ -71,6 +71,7 @@ struct tipc_member {
+ 	u16 advertised;
+ 	u16 window;
+ 	u16 bc_rcv_nxt;
++	u16 bc_syncpt;
+ 	u16 bc_acked;
+ 	bool usr_pending;
+ };
+@@ -410,7 +411,7 @@ static void tipc_group_sort_msg(struct sk_buff *skb, struct sk_buff_head *defq)
+ 	struct sk_buff *_skb, *tmp;
+ 	int mtyp = msg_type(hdr);
  
-+static struct tipc_member *tipc_group_find_dest(struct tipc_group *grp,
-+						u32 node, u32 port)
-+{
-+	struct tipc_member *m;
-+
-+	m = tipc_group_find_member(grp, node, port);
-+	if (m && tipc_group_is_enabled(m))
-+		return m;
-+	return NULL;
-+}
-+
- static struct tipc_member *tipc_group_find_node(struct tipc_group *grp,
- 						u32 node)
+-	/* Bcast may be bypassed by unicast or other bcast, - sort it in */
++	/* Bcast/mcast may be bypassed by ucast or other bcast, - sort it in */
+ 	if (mtyp == TIPC_GRP_BCAST_MSG || mtyp == TIPC_GRP_MCAST_MSG) {
+ 		skb_queue_walk_safe(defq, _skb, tmp) {
+ 			_hdr = buf_msg(_skb);
+@@ -431,7 +432,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 			   struct sk_buff_head *xmitq)
  {
-@@ -318,9 +329,39 @@ void tipc_group_update_bc_members(struct tipc_group *grp, int len)
- 	grp->bc_snd_nxt++;
- }
- 
--bool tipc_group_bc_cong(struct tipc_group *grp, int len)
-+bool tipc_group_cong(struct tipc_group *grp, u32 dnode, u32 dport,
-+		     int len, struct tipc_member **mbr)
- {
-+	struct sk_buff_head xmitq;
+ 	struct sk_buff *skb = __skb_dequeue(inputq);
+-	bool ack, deliver, update;
++	bool ack, deliver, update, leave = false;
+ 	struct sk_buff_head *defq;
  	struct tipc_member *m;
-+	int adv, state;
-+
-+	m = tipc_group_find_dest(grp, dnode, dport);
-+	*mbr = m;
-+	if (!m)
-+		return false;
-+	if (m->usr_pending)
-+		return true;
-+	if (m->window >= len)
-+		return false;
-+	m->usr_pending = true;
-+
-+	/* If not fully advertised, do it now to prevent mutual blocking */
-+	adv = m->advertised;
-+	state = m->state;
-+	if (state < MBR_JOINED)
-+		return true;
-+	if (state == MBR_JOINED && adv == ADV_IDLE)
-+		return true;
-+	skb_queue_head_init(&xmitq);
-+	tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, &xmitq);
-+	tipc_node_distr_xmit(grp->net, &xmitq);
-+	return true;
-+}
-+
-+bool tipc_group_bc_cong(struct tipc_group *grp, int len)
-+{
-+	struct tipc_member *m = NULL;
+ 	struct tipc_msg *hdr;
+@@ -448,13 +449,6 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 	if (!msg_in_group(hdr))
+ 		goto drop;
  
- 	if (list_empty(&grp->congested))
- 		return false;
-@@ -329,7 +370,7 @@ bool tipc_group_bc_cong(struct tipc_group *grp, int len)
- 	if (m->window >= len)
- 		return false;
+-	if (msg_is_grp_evt(hdr)) {
+-		if (!grp->events)
+-			goto drop;
+-		__skb_queue_tail(inputq, skb);
+-		return;
+-	}
+-
+ 	m = tipc_group_find_member(grp, node, port);
+ 	if (!tipc_group_is_receiver(m))
+ 		goto drop;
+@@ -490,6 +484,12 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 			break;
+ 		case TIPC_GRP_UCAST_MSG:
+ 			break;
++		case TIPC_GRP_MEMBER_EVT:
++			if (m->state == MBR_LEAVING)
++				leave = true;
++			if (!grp->events)
++				deliver = false;
++			break;
+ 		default:
+ 			break;
+ 		}
+@@ -504,6 +504,11 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
+ 		if (ack)
+ 			tipc_group_proto_xmit(grp, m, GRP_ACK_MSG, xmitq);
  
--	return true;
-+	return tipc_group_cong(grp, m->node, m->port, len, &m);
- }
++		if (leave) {
++			tipc_group_delete_member(grp, m);
++			__skb_queue_purge(defq);
++			break;
++		}
+ 		if (!update)
+ 			continue;
  
- /* tipc_group_filter_msg() - determine if we should accept arriving message
-diff --git a/net/tipc/group.h b/net/tipc/group.h
-index 0e2740e..8f77290 100644
---- a/net/tipc/group.h
-+++ b/net/tipc/group.h
-@@ -61,9 +61,12 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *wakeup,
- 			  struct sk_buff_head *inputq,
- 			  struct sk_buff_head *xmitq);
- void tipc_group_update_bc_members(struct tipc_group *grp, int len);
-+bool tipc_group_cong(struct tipc_group *grp, u32 dnode, u32 dport,
-+		     int len, struct tipc_member **m);
- bool tipc_group_bc_cong(struct tipc_group *grp, int len);
- void tipc_group_update_rcv_win(struct tipc_group *grp, int blks, u32 node,
- 			       u32 port, struct sk_buff_head *xmitq);
- u16 tipc_group_bc_snd_nxt(struct tipc_group *grp);
-+void tipc_group_update_member(struct tipc_member *m, int len);
- int tipc_group_size(struct tipc_group *grp);
- #endif
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 237d007..f5033f4 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -67,6 +67,7 @@ struct plist;
- #define TIPC_DIRECT_MSG         3
- #define TIPC_GRP_MEMBER_EVT     4
- #define TIPC_GRP_BCAST_MSG      5
-+#define TIPC_GRP_UCAST_MSG      6
+@@ -561,6 +566,8 @@ static void tipc_group_proto_xmit(struct tipc_group *grp, struct tipc_member *m,
+ 		msg_set_grp_bc_syncpt(hdr, grp->bc_snd_nxt);
+ 		msg_set_adv_win(hdr, adv);
+ 		m->advertised += adv;
++	} else if (mtyp == GRP_LEAVE_MSG) {
++		msg_set_grp_bc_syncpt(hdr, grp->bc_snd_nxt);
+ 	} else if (mtyp == GRP_ADV_MSG) {
+ 		msg_set_adv_win(hdr, adv);
+ 		m->advertised += adv;
+@@ -577,6 +584,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
+ 	u32 node = msg_orignode(hdr);
+ 	u32 port = msg_origport(hdr);
+ 	struct tipc_member *m;
++	struct tipc_msg *ehdr;
  
- /*
-  * Internal message users
-@@ -261,7 +262,7 @@ static inline int msg_in_group(struct tipc_msg *m)
- {
- 	int mtyp = msg_type(m);
+ 	if (!grp)
+ 		return;
+@@ -590,7 +598,8 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
+ 						     MBR_QUARANTINED);
+ 		if (!m)
+ 			return;
+-		m->bc_rcv_nxt = msg_grp_bc_syncpt(hdr);
++		m->bc_syncpt = msg_grp_bc_syncpt(hdr);
++		m->bc_rcv_nxt = m->bc_syncpt;
+ 		m->window += msg_adv_win(hdr);
  
--	return (mtyp == TIPC_GRP_BCAST_MSG) || (mtyp == TIPC_GRP_MEMBER_EVT);
-+	return mtyp >= TIPC_GRP_MEMBER_EVT && mtyp <= TIPC_GRP_UCAST_MSG;
- }
+ 		/* Wait until PUBLISH event is received */
+@@ -601,6 +610,8 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
+ 			*usr_wakeup = true;
+ 			m->usr_pending = false;
+ 			tipc_group_proto_xmit(grp, m, GRP_ADV_MSG, xmitq);
++			ehdr = buf_msg(m->event_msg);
++			msg_set_grp_bc_seqno(ehdr, m->bc_syncpt);
+ 			__skb_queue_tail(inputq, m->event_msg);
+ 		}
+ 		if (m->window < ADV_IDLE)
+@@ -611,6 +622,7 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
+ 	case GRP_LEAVE_MSG:
+ 		if (!m)
+ 			return;
++		m->bc_syncpt = msg_grp_bc_syncpt(hdr);
  
- static inline bool msg_is_grp_evt(struct tipc_msg *m)
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 50145c9..e71c8d2 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -818,6 +818,93 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- }
+ 		/* Wait until WITHDRAW event is received */
+ 		if (m->state != MBR_LEAVING) {
+@@ -618,9 +630,10 @@ void tipc_group_proto_rcv(struct tipc_group *grp, bool *usr_wakeup,
+ 			return;
+ 		}
+ 		/* Otherwise deliver already received WITHDRAW event */
++		ehdr = buf_msg(m->event_msg);
++		msg_set_grp_bc_seqno(ehdr, m->bc_syncpt);
+ 		__skb_queue_tail(inputq, m->event_msg);
+ 		*usr_wakeup = true;
+-		tipc_group_delete_member(grp, m);
+ 		list_del_init(&m->congested);
+ 		return;
+ 	case GRP_ADV_MSG:
+@@ -662,6 +675,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
+ 	int event = evt->event;
+ 	struct tipc_member *m;
+ 	struct net *net;
++	bool node_up;
+ 	u32 self;
  
- /**
-+ * tipc_send_group_msg - send a message to a member in the group
-+ * @net: network namespace
-+ * @m: message to send
-+ * @mb: group member
-+ * @dnode: destination node
-+ * @dport: destination port
-+ * @dlen: total length of message data
-+ */
-+static int tipc_send_group_msg(struct net *net, struct tipc_sock *tsk,
-+			       struct msghdr *m, struct tipc_member *mb,
-+			       u32 dnode, u32 dport, int dlen)
-+{
-+	int blks = tsk_blocks(GROUP_H_SIZE + dlen);
-+	struct tipc_msg *hdr = &tsk->phdr;
-+	struct sk_buff_head pkts;
-+	int mtu, rc;
-+
-+	/* Complete message header */
-+	msg_set_type(hdr, TIPC_GRP_UCAST_MSG);
-+	msg_set_hdr_sz(hdr, GROUP_H_SIZE);
-+	msg_set_destport(hdr, dport);
-+	msg_set_destnode(hdr, dnode);
-+
-+	/* Build message as chain of buffers */
-+	skb_queue_head_init(&pkts);
-+	mtu = tipc_node_get_mtu(net, dnode, tsk->portid);
-+	rc = tipc_msg_build(hdr, m, 0, dlen, mtu, &pkts);
-+	if (unlikely(rc != dlen))
-+		return rc;
-+
-+	/* Send message */
-+	rc = tipc_node_xmit(net, &pkts, dnode, tsk->portid);
-+	if (unlikely(rc == -ELINKCONG)) {
-+		tipc_dest_push(&tsk->cong_links, dnode, 0);
-+		tsk->cong_link_cnt++;
-+	}
-+
-+	/* Update send window and sequence number */
-+	tipc_group_update_member(mb, blks);
-+
-+	return dlen;
-+}
-+
-+/**
-+ * tipc_send_group_unicast - send message to a member in the group
-+ * @sock: socket structure
-+ * @m: message to send
-+ * @dlen: total length of message data
-+ * @timeout: timeout to wait for wakeup
-+ *
-+ * Called from function tipc_sendmsg(), which has done all sanity checks
-+ * Returns the number of bytes sent on success, or errno
-+ */
-+static int tipc_send_group_unicast(struct socket *sock, struct msghdr *m,
-+				   int dlen, long timeout)
-+{
-+	struct sock *sk = sock->sk;
-+	DECLARE_SOCKADDR(struct sockaddr_tipc *, dest, m->msg_name);
-+	int blks = tsk_blocks(GROUP_H_SIZE + dlen);
-+	struct tipc_sock *tsk = tipc_sk(sk);
-+	struct tipc_group *grp = tsk->group;
-+	struct net *net = sock_net(sk);
-+	struct tipc_member *mb = NULL;
-+	u32 node, port;
-+	int rc;
-+
-+	node = dest->addr.id.node;
-+	port = dest->addr.id.ref;
-+	if (!port && !node)
-+		return -EHOSTUNREACH;
-+
-+	/* Block or return if destination link or member is congested */
-+	rc = tipc_wait_for_cond(sock, &timeout,
-+				!tipc_dest_find(&tsk->cong_links, node, 0) &&
-+				!tipc_group_cong(grp, node, port, blks, &mb));
-+	if (unlikely(rc))
-+		return rc;
-+
-+	if (unlikely(!mb))
-+		return -EHOSTUNREACH;
-+
-+	rc = tipc_send_group_msg(net, tsk, m, mb, node, port, dlen);
-+
-+	return rc ? rc : dlen;
-+}
-+
-+/**
-  * tipc_send_group_bcast - send message to all members in communication group
-  * @sk: socket structure
-  * @m: message to send
-@@ -1030,8 +1117,20 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
- 	if (unlikely(dlen > TIPC_MAX_USER_MSG_SIZE))
- 		return -EMSGSIZE;
+ 	if (!grp)
+@@ -695,6 +709,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
+ 			m->event_msg = skb;
+ 			m->state = MBR_PUBLISHED;
+ 		} else {
++			msg_set_grp_bc_seqno(hdr, m->bc_syncpt);
+ 			__skb_queue_tail(inputq, skb);
+ 			m->state = MBR_JOINED;
+ 			*usr_wakeup = true;
+@@ -715,14 +730,18 @@ void tipc_group_member_evt(struct tipc_group *grp,
  
--	if (unlikely(grp && !dest))
--		return tipc_send_group_bcast(sock, m, dlen, timeout);
-+	if (likely(dest)) {
-+		if (unlikely(m->msg_namelen < sizeof(*dest)))
-+			return -EINVAL;
-+		if (unlikely(dest->family != AF_TIPC))
-+			return -EINVAL;
-+	}
-+
-+	if (grp) {
-+		if (!dest)
-+			return tipc_send_group_bcast(sock, m, dlen, timeout);
-+		if (dest->addrtype == TIPC_ADDR_ID)
-+			return tipc_send_group_unicast(sock, m, dlen, timeout);
-+		return -EINVAL;
-+	}
+ 		*usr_wakeup = true;
+ 		m->usr_pending = false;
++		node_up = tipc_node_is_up(net, node);
  
- 	if (unlikely(!dest)) {
- 		dest = &tsk->peer;
-@@ -1039,12 +1138,6 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
- 			return -EDESTADDRREQ;
+ 		/* Hold back event if more messages might be expected */
+-		if (m->state != MBR_LEAVING && tipc_node_is_up(net, node)) {
++		if (m->state != MBR_LEAVING && node_up) {
+ 			m->event_msg = skb;
+ 			m->state = MBR_LEAVING;
+ 		} else {
++			if (node_up)
++				msg_set_grp_bc_seqno(hdr, m->bc_syncpt);
++			else
++				msg_set_grp_bc_seqno(hdr, m->bc_rcv_nxt);
+ 			__skb_queue_tail(inputq, skb);
+-			tipc_group_delete_member(grp, m);
+ 		}
+ 		list_del_init(&m->congested);
  	}
- 
--	if (unlikely(m->msg_namelen < sizeof(*dest)))
--		return -EINVAL;
--
--	if (unlikely(dest->family != AF_TIPC))
--		return -EINVAL;
--
- 	if (unlikely(syn)) {
- 		if (sk->sk_state == TIPC_LISTEN)
- 			return -EPIPE;
-@@ -1077,7 +1170,6 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dlen)
- 		msg_set_destport(hdr, dport);
- 		if (unlikely(!dport && !dnode))
- 			return -EHOSTUNREACH;
--
- 	} else if (dest->addrtype == TIPC_ADDR_ID) {
- 		dnode = dest->addr.id.node;
- 		msg_set_type(hdr, TIPC_DIRECT_MSG);
-@@ -1846,7 +1938,7 @@ static void tipc_sk_filter_rcv(struct sock *sk, struct sk_buff *skb,
- 
- 	if (unlikely(!msg_isdata(hdr)))
- 		tipc_sk_proto_rcv(sk, &inputq, xmitq);
--	else if (unlikely(msg_type(hdr) > TIPC_GRP_BCAST_MSG))
-+	else if (unlikely(msg_type(hdr) > TIPC_GRP_UCAST_MSG))
- 		return kfree_skb(skb);
- 
- 	if (unlikely(grp))
 -- 
 2.1.4
