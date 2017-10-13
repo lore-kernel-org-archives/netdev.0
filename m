@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Fix IFE meta modules loading
-Date: Thu, 12 Oct 2017 22:13:50 -0700 (PDT)
-Message-ID: <20171012.221350.700540002817151386.davem@davemloft.net>
-References: <1507733430-17860-1-git-send-email-mrv@mojatatu.com>
-        <20171012.122318.1151617277989957064.davem@davemloft.net>
-        <85lgkgw19o.fsf@mojatatu.com>
+Subject: Re: [PATCH net-next 0/3] sched: act: ife: UAPI checks and
+ performance tweaks
+Date: Thu, 12 Oct 2017 22:23:17 -0700 (PDT)
+Message-ID: <20171012.222317.639552348780320377.davem@davemloft.net>
+References: <20171011211608.22692-1-aring@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: mrv@mojatatu.com
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        netdev@vger.kernel.org, eric.dumazet@gmail.com, bjb@mojatatu.com
+To: aring@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35034 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35152 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753294AbdJMFNw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 01:13:52 -0400
-In-Reply-To: <85lgkgw19o.fsf@mojatatu.com>
+        with ESMTP id S1750733AbdJMFXS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 01:23:18 -0400
+In-Reply-To: <20171011211608.22692-1-aring@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roman Mashak <mrv@mojatatu.com>
-Date: Thu, 12 Oct 2017 16:37:39 -0400
+From: Alexander Aring <aring@mojatatu.com>
+Date: Wed, 11 Oct 2017 17:16:05 -0400
 
-> David Miller <davem@davemloft.net> writes:
+> this patch series contains at first a patch which adds a check for
+> IFE_ENCODE and IFE_DECODE when a ife act gets created or updated and adding
+> handling of these cases only inside the act callback only.
 > 
->> From: Roman Mashak <mrv@mojatatu.com>
->> Date: Wed, 11 Oct 2017 10:50:28 -0400
->>
->>> Adjust module alias names of IFE meta modules and fix the bug that
->>> prevented auto-loading IFE modules in run-time.
->>
->> Anyone using the existing alises will be broken by these changes
->> no?
+> The second patch use per-cpu counters and move the spinlock around so that
+> the spinlock is less being held in act callback.
 > 
-> Actually aliases never worked, the bug existed since the day act_meta_*
-> modules have been introduced. I suspect everyone compiles them in-kernel
-> rather then as modules.
+> The last patch use rcu for update parameters and also move the spinlock for
+> the same purpose as in patch 2.
+> 
+> Notes:
+>  - There is still a spinlock around for protecting the metalist and a
+>    rw-lock for another list. Should be migrated to a rcu list, ife
+>    possible.
+> 
+>  - I use still dereference in dump callback, so I think what I didn't
+>    got was what happened when rcu_assign_pointer will do when rcu read
+>    lock is held. I suppose the pointer will be updated, then we don't
+>    have any issue here.
 
-Fair enough, series applied, thanks for explaining.
+Series applied.
