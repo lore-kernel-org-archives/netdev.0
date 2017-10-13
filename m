@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next v2 08/18] tipc: add second source address to recvmsg()/recvfrom()
-Date: Fri, 13 Oct 2017 11:04:24 +0200
-Message-ID: <1507885474-11213-9-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next v2 02/18] tipc: improve address sanity check in tipc_connect()
+Date: Fri, 13 Oct 2017 11:04:18 +0200
+Message-ID: <1507885474-11213-3-git-send-email-jon.maloy@ericsson.com>
 References: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,160 +9,79 @@ Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
         <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:49534 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757987AbdJMJEw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:52 -0400
+Received: from sessmg23.ericsson.net ([193.180.251.45]:59735 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757852AbdJMJEv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 05:04:51 -0400
 In-Reply-To: <1507885474-11213-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With group communication, it becomes important for a message receiver to
-identify not only from which socket (identfied by a node:port tuple) the
-message was sent, but also the logical identity (type:instance) of the
-sending member.
+The address given to tipc_connect() is not completely sanity checked,
+under the assumption that this will be done later in the function
+__tipc_sendmsg() when the address is used there.
 
-We fix this by adding a second instance of struct sockaddr_tipc to the
-source address area when a message is read. The extra address struct
-is filled in with data found in the received message header (type,) and
-in the local member representation struct (instance.)
+However, the latter functon will in the next commits serve as caller
+to several other send functions, so we want to move the corresponding
+sanity check there to the beginning of that function, before we possibly
+need to grab the address stored by tipc_connect(). We must therefore
+be able to trust that this address already has been thoroughly checked.
+
+We do this in this commit.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/group.c  |  3 +++
- net/tipc/msg.h    |  1 +
- net/tipc/socket.c | 53 +++++++++++++++++++++++++++++++++++------------------
- 3 files changed, 39 insertions(+), 18 deletions(-)
+ net/tipc/socket.c | 31 +++++++++++++++----------------
+ 1 file changed, 15 insertions(+), 16 deletions(-)
 
-diff --git a/net/tipc/group.c b/net/tipc/group.c
-index 3f0e1ce..beb214a 100644
---- a/net/tipc/group.c
-+++ b/net/tipc/group.c
-@@ -61,6 +61,7 @@ struct tipc_member {
- 	struct list_head list;
- 	u32 node;
- 	u32 port;
-+	u32 instance;
- 	enum mbr_state state;
- 	u16 bc_rcv_nxt;
- };
-@@ -282,6 +283,7 @@ void tipc_group_filter_msg(struct tipc_group *grp, struct sk_buff_head *inputq,
- 	if (!tipc_group_is_receiver(m))
- 		goto drop;
- 
-+	TIPC_SKB_CB(skb)->orig_member = m->instance;
- 	__skb_queue_tail(inputq, skb);
- 
- 	m->bc_rcv_nxt = msg_grp_bc_seqno(hdr) + 1;
-@@ -388,6 +390,7 @@ void tipc_group_member_evt(struct tipc_group *grp,
- 			m->state = MBR_PUBLISHED;
- 		else
- 			m->state = MBR_JOINED;
-+		m->instance = evt->found_lower;
- 		tipc_group_proto_xmit(grp, m, GRP_JOIN_MSG, xmitq);
- 	} else if (evt->event == TIPC_WITHDRAWN) {
- 		if (!m)
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index dad4009..e438716 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -100,6 +100,7 @@ struct plist;
- 
- struct tipc_skb_cb {
- 	u32 bytes_read;
-+	u32 orig_member;
- 	struct sk_buff *tail;
- 	bool validated;
- 	u16 chain_imp;
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 64bbf9d..25ecf12 100644
+index 9a7e7b5c..7659e79 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -62,6 +62,11 @@ enum {
- 	TIPC_CONNECTING = TCP_SYN_SENT,
- };
+@@ -1911,28 +1911,27 @@ static int tipc_connect(struct socket *sock, struct sockaddr *dest,
+ 	int previous;
+ 	int res = 0;
  
-+struct sockaddr_pair {
-+	struct sockaddr_tipc sock;
-+	struct sockaddr_tipc member;
-+};
++	if (destlen != sizeof(struct sockaddr_tipc))
++		return -EINVAL;
 +
- /**
-  * struct tipc_sock - TIPC socket structure
-  * @sk: socket - interacts with 'port' and with user via the socket API
-@@ -1222,26 +1227,38 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- }
+ 	lock_sock(sk);
  
- /**
-- * set_orig_addr - capture sender's address for received message
-+ * tipc_sk_set_orig_addr - capture sender's address for received message
-  * @m: descriptor for message info
-- * @msg: received message header
-+ * @hdr: received message header
-  *
-  * Note: Address is not captured if not requested by receiver.
-  */
--static void set_orig_addr(struct msghdr *m, struct tipc_msg *msg)
--{
--	DECLARE_SOCKADDR(struct sockaddr_tipc *, addr, m->msg_name);
--
--	if (addr) {
--		addr->family = AF_TIPC;
--		addr->addrtype = TIPC_ADDR_ID;
--		memset(&addr->addr, 0, sizeof(addr->addr));
--		addr->addr.id.ref = msg_origport(msg);
--		addr->addr.id.node = msg_orignode(msg);
--		addr->addr.name.domain = 0;	/* could leave uninitialized */
--		addr->scope = 0;		/* could leave uninitialized */
--		m->msg_namelen = sizeof(struct sockaddr_tipc);
--	}
-+static void tipc_sk_set_orig_addr(struct msghdr *m, struct sk_buff *skb)
-+{
-+	DECLARE_SOCKADDR(struct sockaddr_pair *, srcaddr, m->msg_name);
-+	struct tipc_msg *hdr = buf_msg(skb);
-+
-+	if (!srcaddr)
-+		return;
-+
-+	srcaddr->sock.family = AF_TIPC;
-+	srcaddr->sock.addrtype = TIPC_ADDR_ID;
-+	srcaddr->sock.addr.id.ref = msg_origport(hdr);
-+	srcaddr->sock.addr.id.node = msg_orignode(hdr);
-+	srcaddr->sock.addr.name.domain = 0;
-+	srcaddr->sock.scope = 0;
-+	m->msg_namelen = sizeof(struct sockaddr_tipc);
-+
-+	if (!msg_in_group(hdr))
-+		return;
-+
-+	/* Group message users may also want to know sending member's id */
-+	srcaddr->member.family = AF_TIPC;
-+	srcaddr->member.addrtype = TIPC_ADDR_NAME;
-+	srcaddr->member.addr.name.name.type = msg_nametype(hdr);
-+	srcaddr->member.addr.name.name.instance = TIPC_SKB_CB(skb)->orig_member;
-+	srcaddr->member.addr.name.domain = 0;
-+	m->msg_namelen = sizeof(*srcaddr);
- }
- 
- /**
-@@ -1432,7 +1449,7 @@ static int tipc_recvmsg(struct socket *sock, struct msghdr *m,
- 	} while (1);
- 
- 	/* Collect msg meta data, including error code and rejected data */
--	set_orig_addr(m, hdr);
-+	tipc_sk_set_orig_addr(m, skb);
- 	rc = tipc_sk_anc_data_recv(m, hdr, tsk);
- 	if (unlikely(rc))
+-	/* DGRAM/RDM connect(), just save the destaddr */
+-	if (tipc_sk_type_connectionless(sk)) {
+-		if (dst->family == AF_UNSPEC) {
+-			memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
+-		} else if (destlen != sizeof(struct sockaddr_tipc)) {
++	if (dst->family == AF_UNSPEC) {
++		memset(&tsk->peer, 0, sizeof(struct sockaddr_tipc));
++		if (!tipc_sk_type_connectionless(sk))
+ 			res = -EINVAL;
+-		} else {
+-			memcpy(&tsk->peer, dest, destlen);
+-		}
  		goto exit;
-@@ -1526,7 +1543,7 @@ static int tipc_recvstream(struct socket *sock, struct msghdr *m,
++	} else if (dst->family != AF_TIPC) {
++		res = -EINVAL;
+ 	}
+-
+-	/*
+-	 * Reject connection attempt using multicast address
+-	 *
+-	 * Note: send_msg() validates the rest of the address fields,
+-	 *       so there's no need to do it here
+-	 */
+-	if (dst->addrtype == TIPC_ADDR_MCAST) {
++	if (dst->addrtype != TIPC_ADDR_ID && dst->addrtype != TIPC_ADDR_NAME)
+ 		res = -EINVAL;
++	if (res)
++		goto exit;
++
++	/* DGRAM/RDM connect(), just save the destaddr */
++	if (tipc_sk_type_connectionless(sk)) {
++		memcpy(&tsk->peer, dest, destlen);
+ 		goto exit;
+ 	}
  
- 		/* Collect msg meta data, incl. error code and rejected data */
- 		if (!copied) {
--			set_orig_addr(m, hdr);
-+			tipc_sk_set_orig_addr(m, skb);
- 			rc = tipc_sk_anc_data_recv(m, hdr, tsk);
- 			if (rc)
- 				break;
 -- 
 2.1.4
