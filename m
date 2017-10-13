@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v2 3/5] dpaa_eth: change device used
-Date: Fri, 13 Oct 2017 17:50:10 +0300
-Message-ID: <1507906212-10076-4-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH v2 2/5] dpaa_eth: move of_phy_connect() to the eth driver
+Date: Fri, 13 Oct 2017 17:50:09 +0300
+Message-ID: <1507906212-10076-3-git-send-email-madalin.bucur@nxp.com>
 References: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -15,270 +15,321 @@ In-Reply-To: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Change device used for DMA mapping to the MAC device that is an
-of_device, with proper DMA ops. Using this device for the netdevice
-should also address the issue with DSA scenarios that need the
-netdevice to be backed by an of_device.
-
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 42 ++++++++------------------
- drivers/net/ethernet/freescale/fman/mac.c      | 37 +++++++++--------------
- drivers/net/ethernet/freescale/fman/mac.h      |  1 -
- 3 files changed, 27 insertions(+), 53 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 48 +++++++++++--
+ drivers/net/ethernet/freescale/fman/mac.c      | 97 ++++++--------------------
+ drivers/net/ethernet/freescale/fman/mac.h      |  5 +-
+ 3 files changed, 66 insertions(+), 84 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 7cf61d6..823aa65 100644
+index 4225806..7cf61d6 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -385,34 +385,19 @@ static int dpaa_setup_tc(struct net_device *net_dev, enum tc_setup_type type,
- 
- static struct mac_device *dpaa_mac_dev_get(struct platform_device *pdev)
- {
--	struct platform_device *of_dev;
- 	struct dpaa_eth_data *eth_data;
--	struct device *dpaa_dev, *dev;
--	struct device_node *mac_node;
-+	struct device *dpaa_dev;
- 	struct mac_device *mac_dev;
- 
- 	dpaa_dev = &pdev->dev;
- 	eth_data = dpaa_dev->platform_data;
--	if (!eth_data)
-+	if (!eth_data) {
-+		dev_err(dpaa_dev, "eth_data missing\n");
- 		return ERR_PTR(-ENODEV);
--
--	mac_node = eth_data->mac_node;
--
--	of_dev = of_find_device_by_node(mac_node);
--	if (!of_dev) {
--		dev_err(dpaa_dev, "of_find_device_by_node(%pOF) failed\n",
--			mac_node);
--		of_node_put(mac_node);
--		return ERR_PTR(-EINVAL);
+@@ -2435,6 +2435,48 @@ static void dpaa_eth_napi_disable(struct dpaa_priv *priv)
  	}
--	of_node_put(mac_node);
--
--	dev = &of_dev->dev;
--
--	mac_dev = dev_get_drvdata(dev);
-+	mac_dev = eth_data->mac_dev;
- 	if (!mac_dev) {
--		dev_err(dpaa_dev, "dev_get_drvdata(%s) failed\n",
--			dev_name(dev));
-+		dev_err(dpaa_dev, "mac_dev missing\n");
- 		return ERR_PTR(-EINVAL);
- 	}
+ }
  
-@@ -2696,7 +2681,13 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- 	int err = 0, i, channel;
- 	struct device *dev;
- 
--	dev = &pdev->dev;
-+	/* device used for DMA mapping */
-+	dev = pdev->dev.parent;
-+	err = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(40));
-+	if (err) {
-+		dev_err(dev, "dma_coerce_mask_and_coherent() failed\n");
-+		return err;
++static void dpaa_adjust_link(struct net_device *net_dev)
++{
++	struct mac_device *mac_dev;
++	struct dpaa_priv *priv;
++
++	priv = netdev_priv(net_dev);
++	mac_dev = priv->mac_dev;
++	mac_dev->adjust_link(mac_dev);
++}
++
++static int dpaa_phy_init(struct net_device *net_dev)
++{
++	struct mac_device *mac_dev;
++	struct phy_device *phy_dev;
++	struct dpaa_priv *priv;
++
++	priv = netdev_priv(net_dev);
++	mac_dev = priv->mac_dev;
++
++	phy_dev = of_phy_connect(net_dev, mac_dev->phy_node,
++				 &dpaa_adjust_link, 0,
++				 mac_dev->phy_if);
++	if (!phy_dev) {
++		netif_err(priv, ifup, net_dev, "init_phy() failed\n");
++		return -ENODEV;
 +	}
- 
- 	/* Allocate this early, so we can store relevant information in
- 	 * the private area
-@@ -2738,14 +2729,6 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- 	priv->buf_layout[RX].priv_data_size = DPAA_RX_PRIV_DATA_SIZE; /* Rx */
- 	priv->buf_layout[TX].priv_data_size = DPAA_TX_PRIV_DATA_SIZE; /* Tx */
- 
--	/* device used for DMA mapping */
--	set_dma_ops(dev, get_dma_ops(&pdev->dev));
--	err = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(40));
--	if (err) {
--		dev_err(dev, "dma_coerce_mask_and_coherent() failed\n");
--		goto dev_mask_failed;
--	}
--
- 	/* bp init */
- 	for (i = 0; i < DPAA_BPS_NUM; i++) {
- 		int err;
-@@ -2879,7 +2862,6 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- 	dpaa_bps_free(priv);
- bp_create_failed:
- fq_probe_failed:
--dev_mask_failed:
- mac_probe_failed:
- 	dev_set_drvdata(dev, NULL);
- 	free_netdev(net_dev);
-diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
-index a0a3107..1d6da1e 100644
---- a/drivers/net/ethernet/freescale/fman/mac.c
-+++ b/drivers/net/ethernet/freescale/fman/mac.c
-@@ -542,8 +542,7 @@ static const u16 phy2speed[] = {
- };
- 
- static struct platform_device *dpaa_eth_add_device(int fman_id,
--						   struct mac_device *mac_dev,
--						   struct device_node *node)
-+						   struct mac_device *mac_dev)
++
++	/* Remove any features not supported by the controller */
++	phy_dev->supported &= mac_dev->if_support;
++
++	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
++	 * as most of the PHY drivers do not enable them by default.
++	 */
++	phy_dev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
++	phy_dev->advertising = phy_dev->supported;
++
++	mac_dev->phy_dev = phy_dev;
++	net_dev->phydev = phy_dev;
++
++	return 0;
++}
++
+ static int dpaa_open(struct net_device *net_dev)
  {
- 	struct platform_device *pdev;
- 	struct dpaa_eth_data data;
-@@ -556,10 +555,8 @@ static struct platform_device *dpaa_eth_add_device(int fman_id,
- 	data.mac_dev = mac_dev;
- 	data.mac_hw_id = priv->cell_index;
- 	data.fman_hw_id = fman_id;
--	data.mac_node = node;
+ 	struct mac_device *mac_dev;
+@@ -2445,12 +2487,8 @@ static int dpaa_open(struct net_device *net_dev)
+ 	mac_dev = priv->mac_dev;
+ 	dpaa_eth_napi_enable(priv);
  
- 	mutex_lock(&eth_lock);
--
- 	pdev = platform_device_alloc("dpaa-ethernet", dpaa_eth_dev_cnt);
- 	if (!pdev) {
- 		ret = -ENOMEM;
-@@ -648,9 +645,6 @@ static int mac_probe(struct platform_device *_of_dev)
- 		goto _return;
- 	}
- 
--	/* Register mac_dev */
--	dev_set_drvdata(dev, mac_dev);
--
- 	INIT_LIST_HEAD(&priv->mc_addr_list);
- 
- 	/* Get the FM node */
-@@ -659,7 +653,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 		dev_err(dev, "of_get_parent(%pOF) failed\n",
- 			mac_node);
- 		err = -EINVAL;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 
- 	of_dev = of_find_device_by_node(dev_node);
-@@ -693,7 +687,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 	if (err < 0) {
- 		dev_err(dev, "of_address_to_resource(%pOF) = %d\n",
- 			mac_node, err);
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 
- 	mac_dev->res = __devm_request_region(dev,
-@@ -703,7 +697,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 	if (!mac_dev->res) {
- 		dev_err(dev, "__devm_request_mem_region(mac) failed\n");
- 		err = -EBUSY;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 
- 	priv->vaddr = devm_ioremap(dev, mac_dev->res->start,
-@@ -711,7 +705,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 	if (!priv->vaddr) {
- 		dev_err(dev, "devm_ioremap() failed\n");
- 		err = -EIO;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 
- 	if (!of_device_is_available(mac_node)) {
-@@ -728,7 +722,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 	if (err) {
- 		dev_err(dev, "failed to read cell-index for %pOF\n", mac_node);
- 		err = -EINVAL;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 	priv->cell_index = (u8)val;
- 
-@@ -737,7 +731,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 	if (!mac_addr) {
- 		dev_err(dev, "of_get_mac_address(%pOF) failed\n", mac_node);
- 		err = -EINVAL;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 	memcpy(mac_dev->addr, mac_addr, sizeof(mac_dev->addr));
- 
-@@ -747,14 +741,14 @@ static int mac_probe(struct platform_device *_of_dev)
- 		dev_err(dev, "of_count_phandle_with_args(%pOF, fsl,fman-ports) failed\n",
- 			mac_node);
- 		err = nph;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
- 
- 	if (nph != ARRAY_SIZE(mac_dev->port)) {
- 		dev_err(dev, "Not supported number of fman-ports handles of mac node %pOF from device tree\n",
- 			mac_node);
- 		err = -EINVAL;
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
- 	}
+-	net_dev->phydev = mac_dev->init_phy(net_dev, priv->mac_dev);
+-	if (!net_dev->phydev) {
+-		netif_err(priv, ifup, net_dev, "init_phy() failed\n");
+-		err = -ENODEV;
++	if (dpaa_phy_init(net_dev))
+ 		goto phy_init_failed;
+-	}
  
  	for (i = 0; i < ARRAY_SIZE(mac_dev->port); i++) {
-@@ -818,20 +812,20 @@ static int mac_probe(struct platform_device *_of_dev)
+ 		err = fman_port_enable(mac_dev->port[i]);
+diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
+index 9a265f8..a0a3107 100644
+--- a/drivers/net/ethernet/freescale/fman/mac.c
++++ b/drivers/net/ethernet/freescale/fman/mac.c
+@@ -57,9 +57,7 @@ struct mac_priv_s {
+ 	struct device			*dev;
+ 	void __iomem			*vaddr;
+ 	u8				cell_index;
+-	phy_interface_t			phy_if;
+ 	struct fman			*fman;
+-	struct device_node		*phy_node;
+ 	struct device_node		*internal_phy_node;
+ 	/* List of multicast addresses */
+ 	struct list_head		mc_addr_list;
+@@ -106,7 +104,7 @@ static void set_fman_mac_params(struct mac_device *mac_dev,
+ 			     resource_size(mac_dev->res));
+ 	memcpy(&params->addr, mac_dev->addr, sizeof(mac_dev->addr));
+ 	params->max_speed	= priv->max_speed;
+-	params->phy_if		= priv->phy_if;
++	params->phy_if		= mac_dev->phy_if;
+ 	params->basex_if	= false;
+ 	params->mac_id		= priv->cell_index;
+ 	params->fm		= (void *)priv->fman;
+@@ -419,15 +417,12 @@ void fman_get_pause_cfg(struct mac_device *mac_dev, bool *rx_pause,
+ }
+ EXPORT_SYMBOL(fman_get_pause_cfg);
+ 
+-static void adjust_link_void(struct net_device *net_dev)
++static void adjust_link_void(struct mac_device *mac_dev)
+ {
+ }
+ 
+-static void adjust_link_dtsec(struct net_device *net_dev)
++static void adjust_link_dtsec(struct mac_device *mac_dev)
+ {
+-	struct device *dev = net_dev->dev.parent;
+-	struct dpaa_eth_data *eth_data = dev->platform_data;
+-	struct mac_device *mac_dev = eth_data->mac_dev;
+ 	struct phy_device *phy_dev = mac_dev->phy_dev;
+ 	struct fman_mac *fman_mac;
+ 	bool rx_pause, tx_pause;
+@@ -444,14 +439,12 @@ static void adjust_link_dtsec(struct net_device *net_dev)
+ 	fman_get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
+ 	err = fman_set_mac_active_pause(mac_dev, rx_pause, tx_pause);
+ 	if (err < 0)
+-		netdev_err(net_dev, "fman_set_mac_active_pause() = %d\n", err);
++		dev_err(mac_dev->priv->dev, "fman_set_mac_active_pause() = %d\n",
++			err);
+ }
+ 
+-static void adjust_link_memac(struct net_device *net_dev)
++static void adjust_link_memac(struct mac_device *mac_dev)
+ {
+-	struct device *dev = net_dev->dev.parent;
+-	struct dpaa_eth_data *eth_data = dev->platform_data;
+-	struct mac_device *mac_dev = eth_data->mac_dev;
+ 	struct phy_device *phy_dev = mac_dev->phy_dev;
+ 	struct fman_mac *fman_mac;
+ 	bool rx_pause, tx_pause;
+@@ -463,60 +456,12 @@ static void adjust_link_memac(struct net_device *net_dev)
+ 	fman_get_pause_cfg(mac_dev, &rx_pause, &tx_pause);
+ 	err = fman_set_mac_active_pause(mac_dev, rx_pause, tx_pause);
+ 	if (err < 0)
+-		netdev_err(net_dev, "fman_set_mac_active_pause() = %d\n", err);
+-}
+-
+-/* Initializes driver's PHY state, and attaches to the PHY.
+- * Returns 0 on success.
+- */
+-static struct phy_device *init_phy(struct net_device *net_dev,
+-				   struct mac_device *mac_dev,
+-				   void (*adj_lnk)(struct net_device *))
+-{
+-	struct phy_device	*phy_dev;
+-	struct mac_priv_s	*priv = mac_dev->priv;
+-
+-	phy_dev = of_phy_connect(net_dev, priv->phy_node, adj_lnk, 0,
+-				 priv->phy_if);
+-	if (!phy_dev) {
+-		netdev_err(net_dev, "Could not connect to PHY\n");
+-		return NULL;
+-	}
+-
+-	/* Remove any features not supported by the controller */
+-	phy_dev->supported &= mac_dev->if_support;
+-	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
+-	 * as most of the PHY drivers do not enable them by default.
+-	 */
+-	phy_dev->supported |= (SUPPORTED_Pause | SUPPORTED_Asym_Pause);
+-	phy_dev->advertising = phy_dev->supported;
+-
+-	mac_dev->phy_dev = phy_dev;
+-
+-	return phy_dev;
+-}
+-
+-static struct phy_device *dtsec_init_phy(struct net_device *net_dev,
+-					 struct mac_device *mac_dev)
+-{
+-	return init_phy(net_dev, mac_dev, &adjust_link_dtsec);
+-}
+-
+-static struct phy_device *tgec_init_phy(struct net_device *net_dev,
+-					struct mac_device *mac_dev)
+-{
+-	return init_phy(net_dev, mac_dev, adjust_link_void);
+-}
+-
+-static struct phy_device *memac_init_phy(struct net_device *net_dev,
+-					 struct mac_device *mac_dev)
+-{
+-	return init_phy(net_dev, mac_dev, &adjust_link_memac);
++		dev_err(mac_dev->priv->dev, "fman_set_mac_active_pause() = %d\n",
++			err);
+ }
+ 
+ static void setup_dtsec(struct mac_device *mac_dev)
+ {
+-	mac_dev->init_phy		= dtsec_init_phy;
+ 	mac_dev->init			= dtsec_initialization;
+ 	mac_dev->set_promisc		= dtsec_set_promiscuous;
+ 	mac_dev->change_addr		= dtsec_modify_mac_address;
+@@ -528,14 +473,13 @@ static void setup_dtsec(struct mac_device *mac_dev)
+ 	mac_dev->set_multi		= set_multi;
+ 	mac_dev->start			= start;
+ 	mac_dev->stop			= stop;
+-
++	mac_dev->adjust_link            = adjust_link_dtsec;
+ 	mac_dev->priv->enable		= dtsec_enable;
+ 	mac_dev->priv->disable		= dtsec_disable;
+ }
+ 
+ static void setup_tgec(struct mac_device *mac_dev)
+ {
+-	mac_dev->init_phy		= tgec_init_phy;
+ 	mac_dev->init			= tgec_initialization;
+ 	mac_dev->set_promisc		= tgec_set_promiscuous;
+ 	mac_dev->change_addr		= tgec_modify_mac_address;
+@@ -547,14 +491,13 @@ static void setup_tgec(struct mac_device *mac_dev)
+ 	mac_dev->set_multi		= set_multi;
+ 	mac_dev->start			= start;
+ 	mac_dev->stop			= stop;
+-
++	mac_dev->adjust_link            = adjust_link_void;
+ 	mac_dev->priv->enable		= tgec_enable;
+ 	mac_dev->priv->disable		= tgec_disable;
+ }
+ 
+ static void setup_memac(struct mac_device *mac_dev)
+ {
+-	mac_dev->init_phy		= memac_init_phy;
+ 	mac_dev->init			= memac_initialization;
+ 	mac_dev->set_promisc		= memac_set_promiscuous;
+ 	mac_dev->change_addr		= memac_modify_mac_address;
+@@ -566,7 +509,7 @@ static void setup_memac(struct mac_device *mac_dev)
+ 	mac_dev->set_multi		= set_multi;
+ 	mac_dev->start			= start;
+ 	mac_dev->stop			= stop;
+-
++	mac_dev->adjust_link            = adjust_link_memac;
+ 	mac_dev->priv->enable		= memac_enable;
+ 	mac_dev->priv->disable		= memac_disable;
+ }
+@@ -850,13 +793,13 @@ static int mac_probe(struct platform_device *_of_dev)
+ 			 mac_node);
+ 		phy_if = PHY_INTERFACE_MODE_SGMII;
+ 	}
+-	priv->phy_if = phy_if;
++	mac_dev->phy_if = phy_if;
+ 
+-	priv->speed		= phy2speed[priv->phy_if];
++	priv->speed		= phy2speed[mac_dev->phy_if];
+ 	priv->max_speed		= priv->speed;
+ 	mac_dev->if_support	= DTSEC_SUPPORTED;
+ 	/* We don't support half-duplex in SGMII mode */
+-	if (priv->phy_if == PHY_INTERFACE_MODE_SGMII)
++	if (mac_dev->phy_if == PHY_INTERFACE_MODE_SGMII)
+ 		mac_dev->if_support &= ~(SUPPORTED_10baseT_Half |
+ 					SUPPORTED_100baseT_Half);
+ 
+@@ -865,12 +808,12 @@ static int mac_probe(struct platform_device *_of_dev)
+ 		mac_dev->if_support |= SUPPORTED_1000baseT_Full;
+ 
+ 	/* The 10G interface only supports one mode */
+-	if (priv->phy_if == PHY_INTERFACE_MODE_XGMII)
++	if (mac_dev->phy_if == PHY_INTERFACE_MODE_XGMII)
+ 		mac_dev->if_support = SUPPORTED_10000baseT_Full;
+ 
+ 	/* Get the rest of the PHY information */
+-	priv->phy_node = of_parse_phandle(mac_node, "phy-handle", 0);
+-	if (!priv->phy_node && of_phy_is_fixed_link(mac_node)) {
++	mac_dev->phy_node = of_parse_phandle(mac_node, "phy-handle", 0);
++	if (!mac_dev->phy_node && of_phy_is_fixed_link(mac_node)) {
+ 		struct phy_device *phy;
  
  		err = of_phy_register_fixed_link(mac_node);
- 		if (err)
--			goto _return_dev_set_drvdata;
-+			goto _return_of_get_parent;
- 
- 		priv->fixed_link = kzalloc(sizeof(*priv->fixed_link),
- 					   GFP_KERNEL);
- 		if (!priv->fixed_link) {
- 			err = -ENOMEM;
--			goto _return_dev_set_drvdata;
-+			goto _return_of_get_parent;
+@@ -884,8 +827,8 @@ static int mac_probe(struct platform_device *_of_dev)
+ 			goto _return_dev_set_drvdata;
  		}
  
- 		mac_dev->phy_node = of_node_get(mac_node);
- 		phy = of_phy_find_device(mac_dev->phy_node);
+-		priv->phy_node = of_node_get(mac_node);
+-		phy = of_phy_find_device(priv->phy_node);
++		mac_dev->phy_node = of_node_get(mac_node);
++		phy = of_phy_find_device(mac_dev->phy_node);
  		if (!phy) {
  			err = -EINVAL;
--			goto _return_dev_set_drvdata;
-+			goto _return_of_get_parent;
- 		}
- 
- 		priv->fixed_link->link = phy->link;
-@@ -847,7 +841,7 @@ static int mac_probe(struct platform_device *_of_dev)
+ 			goto _return_dev_set_drvdata;
+@@ -903,7 +846,7 @@ static int mac_probe(struct platform_device *_of_dev)
+ 	err = mac_dev->init(mac_dev);
  	if (err < 0) {
  		dev_err(dev, "mac_dev->init() = %d\n", err);
- 		of_node_put(mac_dev->phy_node);
--		goto _return_dev_set_drvdata;
-+		goto _return_of_get_parent;
+-		of_node_put(priv->phy_node);
++		of_node_put(mac_dev->phy_node);
+ 		goto _return_dev_set_drvdata;
  	}
  
- 	/* pause frame autonegotiation enabled */
-@@ -868,7 +862,7 @@ static int mac_probe(struct platform_device *_of_dev)
- 		 mac_dev->addr[0], mac_dev->addr[1], mac_dev->addr[2],
- 		 mac_dev->addr[3], mac_dev->addr[4], mac_dev->addr[5]);
- 
--	priv->eth_dev = dpaa_eth_add_device(fman_id, mac_dev, mac_node);
-+	priv->eth_dev = dpaa_eth_add_device(fman_id, mac_dev);
- 	if (IS_ERR(priv->eth_dev)) {
- 		dev_err(dev, "failed to add Ethernet platform device for MAC %d\n",
- 			priv->cell_index);
-@@ -879,9 +873,8 @@ static int mac_probe(struct platform_device *_of_dev)
- 
- _return_of_node_put:
- 	of_node_put(dev_node);
--_return_dev_set_drvdata:
-+_return_of_get_parent:
- 	kfree(priv->fixed_link);
--	dev_set_drvdata(dev, NULL);
- _return:
- 	return err;
- }
 diff --git a/drivers/net/ethernet/freescale/fman/mac.h b/drivers/net/ethernet/freescale/fman/mac.h
-index 1ca85a1..eefb335 100644
+index d7313f0..1ca85a1 100644
 --- a/drivers/net/ethernet/freescale/fman/mac.h
 +++ b/drivers/net/ethernet/freescale/fman/mac.h
-@@ -83,7 +83,6 @@ struct mac_device {
- };
+@@ -50,6 +50,8 @@ struct mac_device {
+ 	struct fman_port	*port[2];
+ 	u32			 if_support;
+ 	struct phy_device	*phy_dev;
++	phy_interface_t		phy_if;
++	struct device_node	*phy_node;
  
- struct dpaa_eth_data {
--	struct device_node *mac_node;
- 	struct mac_device *mac_dev;
- 	int mac_hw_id;
- 	int fman_hw_id;
+ 	bool autoneg_pause;
+ 	bool rx_pause_req;
+@@ -58,11 +60,10 @@ struct mac_device {
+ 	bool tx_pause_active;
+ 	bool promisc;
+ 
+-	struct phy_device *(*init_phy)(struct net_device *net_dev,
+-				       struct mac_device *mac_dev);
+ 	int (*init)(struct mac_device *mac_dev);
+ 	int (*start)(struct mac_device *mac_dev);
+ 	int (*stop)(struct mac_device *mac_dev);
++	void (*adjust_link)(struct mac_device *mac_dev);
+ 	int (*set_promisc)(struct fman_mac *mac_dev, bool enable);
+ 	int (*change_addr)(struct fman_mac *mac_dev, enet_addr_t *enet_addr);
+ 	int (*set_multi)(struct net_device *net_dev,
 -- 
 2.1.0
