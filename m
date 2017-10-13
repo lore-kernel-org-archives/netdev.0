@@ -1,31 +1,39 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [RFC 0/3] Adding config get/set to devlink
-Date: Fri, 13 Oct 2017 09:08:23 +0200
-Message-ID: <20171013070823.GE1952@nanopsycho.orion>
+Date: Fri, 13 Oct 2017 09:11:21 +0200
+Message-ID: <20171013071121.GF1952@nanopsycho.orion>
 References: <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
  <20171012150419.GI14672@nanopsycho>
  <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
  <20171012.120650.1063812043202847517.davem@davemloft.net>
  <21ab4a5d-0b6a-7976-7bf0-acd334f2613f@gmail.com>
- <CA+Jmh7Em0ZjN0y3FSk1yBhOtPKvFBnJCVA97oZZb7cgXXF_aUA@mail.gmail.com>
+ <CAJieiUjK4CsBGT5_YidnEGk7mCVYYO_8S0xcsv+XfaW=amGCaQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         David Miller <davem@davemloft.net>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Steve Lin <steven.lin1@broadcom.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
         Michael Chan <michael.chan@broadcom.com>,
-        linux-pci@vger.kernel.org, John Linville <linville@tuxdriver.com>,
+        linux-pci@vger.kernel.org,
+        "John W. Linville" <linville@tuxdriver.com>,
         Andy Gospodarek <gospo@broadcom.com>
-To: Steve Lin <steven.lin1@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:50494 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750924AbdJMHLW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 03:11:22 -0400
+Received: by mail-wm0-f67.google.com with SMTP id u138so18745982wmu.5
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 00:11:22 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CA+Jmh7Em0ZjN0y3FSk1yBhOtPKvFBnJCVA97oZZb7cgXXF_aUA@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAJieiUjK4CsBGT5_YidnEGk7mCVYYO_8S0xcsv+XfaW=amGCaQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Oct 12, 2017 at 10:12:31PM CEST, steven.lin1@broadcom.com wrote:
->On Thu, Oct 12, 2017 at 3:20 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+Thu, Oct 12, 2017 at 11:53:56PM CEST, roopa@cumulusnetworks.com wrote:
+>On Thu, Oct 12, 2017 at 12:20 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
 >> On 10/12/2017 12:06 PM, David Miller wrote:
 >>> From: Florian Fainelli <f.fainelli@gmail.com>
 >>> Date: Thu, 12 Oct 2017 08:43:59 -0700
@@ -46,39 +54,23 @@ Thu, Oct 12, 2017 at 10:12:31PM CEST, steven.lin1@broadcom.com wrote:
 >>
 >> Right, I was also thinking along those lines that we we would have a new
 >> generic netlink family for ethtool to support ethtool over netlink.
->>
->>>
->>> I think it's important that we don't expand the scope of devlink
->>> beyond what it was originally designed for.
->>
->> It seems to me like devlink is well defined in what it is not for: it is
->> not meant to be used for any object that is/has a net_device, but it is
->> not well defined for what it can offer to these non network devices. For
->> instance, we have a tremendous amount of operations that are extremely
->> specific to its single user(s) such as mlx5 and mlxsw.
->>
->> For instance, I am not sure how the buffer reservation scheme can be
->> generalized, and this is always the tricky part with a single user
->> facility in that you try to generalize the best you can based on the HW
->> you know. This is not a criticism or meant to be anything negative, this
->> just happens to be the case, and we did not have anything better.
->>
->> So maybe the first thing is to clarify what devlink operations can and
->> should be and what they are absolutely not allowed to cover. We should
->> also clarify whether a generic set/get that Steven is proposing is
->> something that we tolerate, or whether there should be specific function
->> pointers implemented for each attribute, which would be more in line
->> with what has been done thus far.
 >
->Hi Florian,
->
->Some of this is subjective, of course, but just to clarify, it did
->seem like implementing a new devlink_op function pointer per attribute
->might be more consistent with what's been done so far.  But for code
->reuse purposes - i.e. to avoid replicating essentially the same
->function for each of the 30+ config attributes - I elected to just
->implement a single generic get and set devlink_op.
+>new api is fine by me. The reason for suggesting devlink was because
+>some of the devlink
+>port_* ops are close to ethtool ops that can operate on a port/netdev.
+>eg split_port could be a netdev operation
+>unless you want to split before the netdev is created.
 
-Also, it this case, unlike any existing cmds, the config options are
-all permanent, written in hw. I think it is fine to have one set
-of get/set cmd to handle them all at once. Same family.
+Let me correct you. The split is always devlink_port operation. In some
+cases however when there is a mapping between devlink_port and netdev,
+userspace part could translate netdev->devlink_port.
+
+
+>
+>There are some ops in devlink which are global hw parameters and not
+>specific to a port, those fit perfectly with
+>devlinks original goal.
+
+There are 2 handles from the very beginning:
+1) devlink - asic-wide handle
+2) devlink_port - port handle
