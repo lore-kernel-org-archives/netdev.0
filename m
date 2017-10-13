@@ -1,169 +1,105 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next v2 3/8] cxgb4: collect on-chip memory dump
-Date: Fri, 13 Oct 2017 18:48:15 +0530
-Message-ID: <996a9cb428c77e9fd16d3bd12d6979ea33371149.1507899723.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next v2 4/8] cxgb4: collect firmware mbox and device log dump
+Date: Fri, 13 Oct 2017 18:48:16 +0530
+Message-ID: <5535b5faeb63985d5ccbfe6b209f834efa55d5d1.1507899723.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, ganeshgr@chelsio.com, nirranjan@chelsio.com,
         indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:9232 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:11574 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757969AbdJMNTf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 09:19:35 -0400
+        with ESMTP id S1757969AbdJMNTj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 09:19:39 -0400
 In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Collect EDC0 and EDC1 memory dump.
+Collect firmware mbox and device logs before collecting the rest of
+the hardware dumps to snap the firmware state before the mailbox logs
+are updated by other hardware dumps.
 
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
 v2:
-- Prefix symbols in cxgb4_*.c files with cxgb4_
 - Prefix symbols in cudbg_* files with cudbg_
-- Make cudbg_collect_mem_info() static.
 
- drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h  |  29 +++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h      |   8 ++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c     | 136 +++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h     |   6 +
- .../net/ethernet/chelsio/cxgb4/cudbg_lib_common.h  |   3 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c   |  38 +++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h   |   1 +
- 7 files changed, 220 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h |  6 ++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h     |  2 +
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c    | 84 +++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h    |  6 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c  |  9 +++
+ 5 files changed, 107 insertions(+)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-new file mode 100644
-index 000000000000..71a426dd22f5
---- /dev/null
+index 71a426dd22f5..2b717e700bbc 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_entity.h
-@@ -0,0 +1,29 @@
-+/*
-+ *  Copyright (C) 2017 Chelsio Communications.  All rights reserved.
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
+@@ -26,4 +26,10 @@ struct card_mem {
+ 	u16 size_edc1;
+ 	u16 mem_flag;
+ };
 +
-+#ifndef __CUDBG_ENTITY_H__
-+#define __CUDBG_ENTITY_H__
-+
-+#define EDC0_FLAG 3
-+#define EDC1_FLAG 4
-+
-+struct card_mem {
-+	u16 size_edc0;
-+	u16 size_edc1;
-+	u16 mem_flag;
++struct cudbg_mbox_log {
++	struct mbox_cmd entry;
++	u32 hi[MBOX_LEN / 8];
++	u32 lo[MBOX_LEN / 8];
 +};
-+#endif /* __CUDBG_ENTITY_H__ */
+ #endif /* __CUDBG_ENTITY_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-index 73725a8666df..8bcea985af77 100644
+index 8bcea985af77..0a37d9b6cd32 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_if.h
-@@ -20,6 +20,7 @@
- 
- /* Error codes */
- #define CUDBG_STATUS_NO_MEM -19
-+#define CUDBG_STATUS_ENTITY_NOT_FOUND -24
- #define CUDBG_SYSTEM_ERROR -29
- 
- #define CUDBG_MAJOR_VERSION 1
-@@ -27,6 +28,8 @@
+@@ -28,8 +28,10 @@
  
  enum cudbg_dbg_entity_type {
  	CUDBG_REG_DUMP = 1,
-+	CUDBG_EDC0 = 18,
-+	CUDBG_EDC1 = 19,
++	CUDBG_DEV_LOG = 2,
+ 	CUDBG_EDC0 = 18,
+ 	CUDBG_EDC1 = 19,
++	CUDBG_MBOX_LOG = 66,
  	CUDBG_MAX_ENTITY = 70,
  };
  
-@@ -35,4 +38,9 @@ struct cudbg_init {
- 	void *outbuf; /* Output buffer */
- 	u32 outbuf_size;  /* Output buffer size */
- };
-+
-+static inline unsigned int cudbg_mbytes_to_bytes(unsigned int size)
-+{
-+	return size * 1024 * 1024;
-+}
- #endif /* __CUDBG_IF_H__ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-index b37d8f7825dd..fb0e97e6a6a0 100644
+index fb0e97e6a6a0..960635e37a9d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.c
-@@ -15,10 +15,12 @@
-  *
-  */
- 
-+#include "t4_regs.h"
- #include "cxgb4.h"
- #include "cudbg_if.h"
- #include "cudbg_lib_common.h"
- #include "cudbg_lib.h"
-+#include "cudbg_entity.h"
- 
- static void cudbg_write_and_release_buff(struct cudbg_buffer *pin_buff,
- 					 struct cudbg_buffer *dbg_buff)
-@@ -27,6 +29,16 @@ static void cudbg_write_and_release_buff(struct cudbg_buffer *pin_buff,
- 	cudbg_put_buff(pin_buff, dbg_buff);
- }
- 
-+static int is_fw_attached(struct cudbg_init *pdbg_init)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+
-+	if (!(padap->flags & FW_OK) || padap->use_bd)
-+		return 0;
-+
-+	return 1;
-+}
-+
- /* This function will add additional padding bytes into debug_buffer to make it
-  * 4 byte aligned.
-  */
-@@ -77,3 +89,127 @@ int cudbg_collect_reg_dump(struct cudbg_init *pdbg_init,
- 	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
+@@ -90,6 +90,45 @@ int cudbg_collect_reg_dump(struct cudbg_init *pdbg_init,
  	return rc;
  }
-+
-+static int cudbg_read_fw_mem(struct cudbg_init *pdbg_init,
-+			     struct cudbg_buffer *dbg_buff, u8 mem_type,
-+			     unsigned long tot_len,
-+			     struct cudbg_error *cudbg_err)
+ 
++int cudbg_collect_fw_devlog(struct cudbg_init *pdbg_init,
++			    struct cudbg_buffer *dbg_buff,
++			    struct cudbg_error *cudbg_err)
 +{
-+	unsigned long bytes, bytes_left, bytes_read = 0;
 +	struct adapter *padap = pdbg_init->adap;
 +	struct cudbg_buffer temp_buff = { 0 };
++	struct devlog_params *dparams;
 +	int rc = 0;
 +
-+	bytes_left = tot_len;
-+	while (bytes_left > 0) {
-+		bytes = min_t(unsigned long, bytes_left,
-+			      (unsigned long)CUDBG_CHUNK_SIZE);
-+		rc = cudbg_get_buff(dbg_buff, bytes, &temp_buff);
-+		if (rc)
-+			return rc;
++	rc = t4_init_devlog_params(padap);
++	if (rc < 0) {
++		cudbg_err->sys_err = rc;
++		return rc;
++	}
++
++	dparams = &padap->params.devlog;
++	rc = cudbg_get_buff(dbg_buff, dparams->size, &temp_buff);
++	if (rc)
++		return rc;
++
++	/* Collect FW devlog */
++	if (dparams->start != 0) {
 +		spin_lock(&padap->win0_lock);
-+		rc = t4_memory_rw(padap, MEMWIN_NIC, mem_type,
-+				  bytes_read, bytes,
-+				  (__be32 *)temp_buff.data,
++		rc = t4_memory_rw(padap, padap->params.drv_memwin,
++				  dparams->memtype, dparams->start,
++				  dparams->size,
++				  (__be32 *)(char *)temp_buff.data,
 +				  1);
 +		spin_unlock(&padap->win0_lock);
 +		if (rc) {
@@ -171,222 +107,126 @@ index b37d8f7825dd..fb0e97e6a6a0 100644
 +			cudbg_put_buff(&temp_buff, dbg_buff);
 +			return rc;
 +		}
-+		bytes_left -= bytes;
-+		bytes_read += bytes;
-+		cudbg_write_and_release_buff(&temp_buff, dbg_buff);
 +	}
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
 +	return rc;
 +}
 +
-+static void cudbg_collect_mem_info(struct cudbg_init *pdbg_init,
-+				   struct card_mem *mem_info)
+ static int cudbg_read_fw_mem(struct cudbg_init *pdbg_init,
+ 			     struct cudbg_buffer *dbg_buff, u8 mem_type,
+ 			     unsigned long tot_len,
+@@ -213,3 +252,48 @@ int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
+ 	return cudbg_collect_mem_region(pdbg_init, dbg_buff, cudbg_err,
+ 					MEM_EDC1);
+ }
++
++int cudbg_collect_mbox_log(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err)
 +{
 +	struct adapter *padap = pdbg_init->adap;
-+	u32 value;
++	struct cudbg_mbox_log *mboxlog = NULL;
++	struct cudbg_buffer temp_buff = { 0 };
++	struct mbox_cmd_log *log = NULL;
++	struct mbox_cmd *entry;
++	unsigned int entry_idx;
++	u16 mbox_cmds;
++	int i, k, rc;
++	u64 flit;
++	u32 size;
 +
-+	value = t4_read_reg(padap, MA_EDRAM0_BAR_A);
-+	value = EDRAM0_SIZE_G(value);
-+	mem_info->size_edc0 = (u16)value;
++	log = padap->mbox_log;
++	mbox_cmds = padap->mbox_log->size;
++	size = sizeof(struct cudbg_mbox_log) * mbox_cmds;
++	rc = cudbg_get_buff(dbg_buff, size, &temp_buff);
++	if (rc)
++		return rc;
 +
-+	value = t4_read_reg(padap, MA_EDRAM1_BAR_A);
-+	value = EDRAM1_SIZE_G(value);
-+	mem_info->size_edc1 = (u16)value;
++	mboxlog = (struct cudbg_mbox_log *)temp_buff.data;
++	for (k = 0; k < mbox_cmds; k++) {
++		entry_idx = log->cursor + k;
++		if (entry_idx >= log->size)
++			entry_idx -= log->size;
 +
-+	value = t4_read_reg(padap, MA_TARGET_MEM_ENABLE_A);
-+	if (value & EDRAM0_ENABLE_F)
-+		mem_info->mem_flag |= (1 << EDC0_FLAG);
-+	if (value & EDRAM1_ENABLE_F)
-+		mem_info->mem_flag |= (1 << EDC1_FLAG);
-+}
++		entry = mbox_cmd_log_entry(log, entry_idx);
++		/* skip over unused entries */
++		if (entry->timestamp == 0)
++			continue;
 +
-+static void cudbg_t4_fwcache(struct cudbg_init *pdbg_init,
-+			     struct cudbg_error *cudbg_err)
-+{
-+	struct adapter *padap = pdbg_init->adap;
-+	int rc;
-+
-+	if (is_fw_attached(pdbg_init)) {
-+		/* Flush uP dcache before reading edcX/mcX  */
-+		rc = t4_fwcache(padap, FW_PARAM_DEV_FWCACHE_FLUSH);
-+		if (rc)
-+			cudbg_err->sys_warn = rc;
++		memcpy(&mboxlog->entry, entry, sizeof(struct mbox_cmd));
++		for (i = 0; i < MBOX_LEN / 8; i++) {
++			flit = entry->cmd[i];
++			mboxlog->hi[i] = (u32)(flit >> 32);
++			mboxlog->lo[i] = (u32)flit;
++		}
++		mboxlog++;
 +	}
-+}
-+
-+static int cudbg_collect_mem_region(struct cudbg_init *pdbg_init,
-+				    struct cudbg_buffer *dbg_buff,
-+				    struct cudbg_error *cudbg_err,
-+				    u8 mem_type)
-+{
-+	struct card_mem mem_info = {0};
-+	unsigned long flag, size;
-+	int rc;
-+
-+	cudbg_t4_fwcache(pdbg_init, cudbg_err);
-+	cudbg_collect_mem_info(pdbg_init, &mem_info);
-+	switch (mem_type) {
-+	case MEM_EDC0:
-+		flag = (1 << EDC0_FLAG);
-+		size = cudbg_mbytes_to_bytes(mem_info.size_edc0);
-+		break;
-+	case MEM_EDC1:
-+		flag = (1 << EDC1_FLAG);
-+		size = cudbg_mbytes_to_bytes(mem_info.size_edc1);
-+		break;
-+	default:
-+		rc = CUDBG_STATUS_ENTITY_NOT_FOUND;
-+		goto err;
-+	}
-+
-+	if (mem_info.mem_flag & flag) {
-+		rc = cudbg_read_fw_mem(pdbg_init, dbg_buff, mem_type,
-+				       size, cudbg_err);
-+		if (rc)
-+			goto err;
-+	} else {
-+		rc = CUDBG_STATUS_ENTITY_NOT_FOUND;
-+		goto err;
-+	}
-+err:
++	cudbg_write_and_release_buff(&temp_buff, dbg_buff);
 +	return rc;
-+}
-+
-+int cudbg_collect_edc0_meminfo(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err)
-+{
-+	return cudbg_collect_mem_region(pdbg_init, dbg_buff, cudbg_err,
-+					MEM_EDC0);
-+}
-+
-+int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err)
-+{
-+	return cudbg_collect_mem_region(pdbg_init, dbg_buff, cudbg_err,
-+					MEM_EDC1);
 +}
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-index 5b0a0e964601..f7be5090b172 100644
+index f7be5090b172..690591b36d4c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib.h
-@@ -21,6 +21,12 @@
+@@ -21,12 +21,18 @@
  int cudbg_collect_reg_dump(struct cudbg_init *pdbg_init,
  			   struct cudbg_buffer *dbg_buff,
  			   struct cudbg_error *cudbg_err);
-+int cudbg_collect_edc0_meminfo(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err);
-+int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
-+			       struct cudbg_buffer *dbg_buff,
-+			       struct cudbg_error *cudbg_err);
++int cudbg_collect_fw_devlog(struct cudbg_init *pdbg_init,
++			    struct cudbg_buffer *dbg_buff,
++			    struct cudbg_error *cudbg_err);
+ int cudbg_collect_edc0_meminfo(struct cudbg_init *pdbg_init,
+ 			       struct cudbg_buffer *dbg_buff,
+ 			       struct cudbg_error *cudbg_err);
+ int cudbg_collect_edc1_meminfo(struct cudbg_init *pdbg_init,
+ 			       struct cudbg_buffer *dbg_buff,
+ 			       struct cudbg_error *cudbg_err);
++int cudbg_collect_mbox_log(struct cudbg_init *pdbg_init,
++			   struct cudbg_buffer *dbg_buff,
++			   struct cudbg_error *cudbg_err);
  
  struct cudbg_entity_hdr *cudbg_get_entity_hdr(void *outbuf, int i);
  void cudbg_align_debug_buffer(struct cudbg_buffer *dbg_buff,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-index 422a5ceedd2e..b150c5d1f7c0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cudbg_lib_common.h
-@@ -69,6 +69,9 @@ struct cudbg_error {
- 	int app_err;
- };
- 
-+#define CDUMP_MAX_COMP_BUF_SIZE ((64 * 1024) - 1)
-+#define CUDBG_CHUNK_SIZE ((CDUMP_MAX_COMP_BUF_SIZE / 1024) * 1024)
-+
- int cudbg_get_buff(struct cudbg_buffer *pdbg_buff, u32 size,
- 		   struct cudbg_buffer *pin_buff);
- void cudbg_put_buff(struct cudbg_buffer *pin_buff,
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-index 4ec322eec68c..286d172a9c19 100644
+index 286d172a9c19..f8c4f4199ce6 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.c
-@@ -15,16 +15,22 @@
-  *
-  */
- 
-+#include "t4_regs.h"
+@@ -18,6 +18,7 @@
+ #include "t4_regs.h"
  #include "cxgb4.h"
  #include "cxgb4_cudbg.h"
++#include "cudbg_entity.h"
  
-+static const struct cxgb4_collect_entity cxgb4_collect_mem_dump[] = {
-+	{ CUDBG_EDC0, cudbg_collect_edc0_meminfo },
-+	{ CUDBG_EDC1, cudbg_collect_edc1_meminfo },
-+};
-+
+ static const struct cxgb4_collect_entity cxgb4_collect_mem_dump[] = {
+ 	{ CUDBG_EDC0, cudbg_collect_edc0_meminfo },
+@@ -25,6 +26,8 @@ static const struct cxgb4_collect_entity cxgb4_collect_mem_dump[] = {
+ };
+ 
  static const struct cxgb4_collect_entity cxgb4_collect_hw_dump[] = {
++	{ CUDBG_MBOX_LOG, cudbg_collect_mbox_log },
++	{ CUDBG_DEV_LOG, cudbg_collect_fw_devlog },
  	{ CUDBG_REG_DUMP, cudbg_collect_reg_dump },
  };
  
- static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
- {
--	u32 len = 0;
-+	u32 value, len = 0;
- 
- 	switch (entity) {
- 	case CUDBG_REG_DUMP:
-@@ -40,6 +46,22 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+@@ -46,6 +49,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
  			break;
  		}
  		break;
-+	case CUDBG_EDC0:
-+		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
-+		if (value & EDRAM0_ENABLE_F) {
-+			value = t4_read_reg(adap, MA_EDRAM0_BAR_A);
-+			len = EDRAM0_SIZE_G(value);
-+		}
-+		len = cudbg_mbytes_to_bytes(len);
++	case CUDBG_DEV_LOG:
++		len = adap->params.devlog.size;
 +		break;
-+	case CUDBG_EDC1:
-+		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
-+		if (value & EDRAM1_ENABLE_F) {
-+			value = t4_read_reg(adap, MA_EDRAM1_BAR_A);
-+			len = EDRAM1_SIZE_G(value);
-+		}
-+		len = cudbg_mbytes_to_bytes(len);
+ 	case CUDBG_EDC0:
+ 		value = t4_read_reg(adap, MA_TARGET_MEM_ENABLE_A);
+ 		if (value & EDRAM0_ENABLE_F) {
+@@ -62,6 +68,9 @@ static u32 cxgb4_get_entity_length(struct adapter *adap, u32 entity)
+ 		}
+ 		len = cudbg_mbytes_to_bytes(len);
+ 		break;
++	case CUDBG_MBOX_LOG:
++		len = sizeof(struct cudbg_mbox_log) * adap->mbox_log->size;
 +		break;
  	default:
  		break;
  	}
-@@ -59,6 +81,13 @@ u32 cxgb4_get_dump_length(struct adapter *adap, u32 flag)
- 		}
- 	}
- 
-+	if (flag & CXGB4_ETH_DUMP_MEM) {
-+		for (i = 0; i < ARRAY_SIZE(cxgb4_collect_mem_dump); i++) {
-+			entity = cxgb4_collect_mem_dump[i].entity;
-+			len += cxgb4_get_entity_length(adap, entity);
-+		}
-+	}
-+
- 	return len;
- }
- 
-@@ -152,6 +181,13 @@ int cxgb4_cudbg_collect(struct adapter *adap, void *buf, u32 *buf_size,
- 					   buf,
- 					   &total_size);
- 
-+	if (flag & CXGB4_ETH_DUMP_MEM)
-+		cxgb4_cudbg_collect_entity(&cudbg_init, &dbg_buff,
-+					   cxgb4_collect_mem_dump,
-+					   ARRAY_SIZE(cxgb4_collect_mem_dump),
-+					   buf,
-+					   &total_size);
-+
- 	cudbg_hdr->data_len = total_size;
- 	*buf_size = total_size;
- 	return 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-index 7369a7e22b89..c099b5aa2214 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_cudbg.h
-@@ -33,6 +33,7 @@ struct cxgb4_collect_entity {
- 
- enum CXGB4_ETHTOOL_DUMP_FLAGS {
- 	CXGB4_ETH_DUMP_NONE = ETH_FW_DUMP_DISABLE,
-+	CXGB4_ETH_DUMP_MEM = (1 << 0), /* On-Chip Memory Dumps */
- 	CXGB4_ETH_DUMP_HW = (1 << 1), /* various FW and HW dumps */
- };
- 
 -- 
 2.14.1
