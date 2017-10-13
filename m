@@ -1,47 +1,50 @@
-From: Daniel Drake <drake@endlessm.com>
-Subject: Re: [PATCH 2/6] ath9k: add a quirk to set use_msi automatically
-Date: Fri, 13 Oct 2017 09:17:04 +0800
-Message-ID: <CAD8Lp46ZHN656P_aROGs5WyxNckga7rBUrcDJpEApwtRvA0yhg@mail.gmail.com>
-References: <1506408099-18488-1-git-send-email-acelan.kao@canonical.com>
- <1506408099-18488-2-git-send-email-acelan.kao@canonical.com>
- <20170926064456.GA28611@infradead.org> <CAFv23Qm9kZLSqJ_BP1D7mWCxekq0nt3S8onT1ckH-AoHDBUDzw@mail.gmail.com>
- <20170926140413.GA19977@infradead.org> <878th14kde.fsf@kamboji.qca.qualcomm.com>
- <CAFv23Qn4OMuHaSA6UG+Q7L1sTt+ZO8T-JYVaBM1FxZtGNxOhdQ@mail.gmail.com>
- <CAD8Lp46mdgbfCGY_i=N7FB1rMfL0KA0VFQxJESxshe4Cn6k4+Q@mail.gmail.com>
- <CAFv23QkLJ0m112Y8iAGv+6DyFT52Hqnxq5Fy=ryWTWxu8oTXdw@mail.gmail.com> <CAFv23Q=dFRfxXQnY3pu_zV-yK9yaw-t3-Kn2q9YFFuyB9jJMog@mail.gmail.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] tracing: bpf: Hide bpf trace events when they are not
+ used
+Date: Thu, 12 Oct 2017 21:35:01 -0400
+Message-ID: <20171012213501.17fe6f8c@vmware.local.home>
+References: <20171012184002.0661a867@gandalf.local.home>
+        <20171013011450.w2uqygdfzwf7ud64@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Christoph Hellwig <hch@infradead.org>,
-        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: AceLan Kao <acelan.kao@canonical.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFv23Q=dFRfxXQnY3pu_zV-yK9yaw-t3-Kn2q9YFFuyB9jJMog@mail.gmail.com>
+In-Reply-To: <20171013011450.w2uqygdfzwf7ud64@ast-mbp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 13, 2017 at 9:12 AM, AceLan Kao <acelan.kao@canonical.com> wrote:
-> Hi Daniel,
->
-> After applied the 2 commits you mentioned in the email, ath9k works.
->
-> https://marc.info/?l=linux-wireless&m=150631274108016&w=2
-> https://github.com/endlessm/linux/commit/739c7a924db8f4434a9617657
+On Thu, 12 Oct 2017 18:14:52 -0700
+Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
 
-Thanks for testing. However the approach was basically rejected in this thread:
-  [PATCH] PCI MSI: allow alignment restrictions on vector allocation
-  https://marc.info/?t=150631283200001&r=1&w=2
+> On Thu, Oct 12, 2017 at 06:40:02PM -0400, Steven Rostedt wrote:
+> > From: Steven Rostedt (VMware) <rostedt@goodmis.org>
+> > 
+> > All the trace events defined in include/trace/events/bpf.h are only
+> > used when CONFIG_BPF_SYSCALL is defined. But this file gets included by
+> > include/linux/bpf_trace.h which is included by the networking code with
+> > CREATE_TRACE_POINTS defined.
+> > 
+> > If a trace event is created but not used it still has data structures
+> > and functions created for its use, even though nothing is using them.
+> > To not waste space, do not define the BPF trace events in bpf.h unless
+> > CONFIG_BPF_SYSCALL is defined.
+> > 
+> > Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>  
+> 
+> Looks fine.
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> 
+> I'm assuming you want to take it through tracing tree along
+> with all other cleanups?
 
-So we still need an upstream solution.
+Either way is fine. I have a few other ones. I believe Paul is taking
+the RCU patch. There's no dependency.
 
-I am curious what Qualcomm have to say about their hardware corrupting
-the MSI Message Data value. Is there any news on them submitting the
-MSI support patch?
+I'll take it if it is easier for you. I just need the ack.
 
-Separately we have the option of seeing if Intel can help us unblock
-the legacy interrupt (assuming it was simply blocked by the BIOS), or
-adding an interrupt-polling fallback path to ath9k.
-
-Daniel
+-- Steve
