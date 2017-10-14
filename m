@@ -1,76 +1,65 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [net-next RFC 4/4] openvswitch: Add meter action support
-Date: Fri, 13 Oct 2017 17:13:00 -0700
-Message-ID: <CAOrHB_AaUYb_s4Mp9gOBsH26P1CHcnEcLjPW8ZDeJxPCESP3pw@mail.gmail.com>
-References: <1507847923-13612-1-git-send-email-azhou@ovn.org> <1507847923-13612-5-git-send-email-azhou@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>, Greg Rose <gvrose8192@gmail.com>
-To: Andy Zhou <azhou@ovn.org>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v8 3/6] net/sched: Add select_queue() class_ops for mqprio
+Date: Fri, 13 Oct 2017 17:25:31 -0700
+Message-ID: <20171014002534.19896-4-vinicius.gomes@intel.com>
+References: <20171014002534.19896-1-vinicius.gomes@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:55847 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751783AbdJNAND (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 20:13:03 -0400
-Received: from mail-wm0-f44.google.com (mail-wm0-f44.google.com [74.125.82.44])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id D7118A80C7
-        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 02:13:01 +0200 (CEST)
-Received: by mail-wm0-f44.google.com with SMTP id m72so24150244wmc.1
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 17:13:01 -0700 (PDT)
-In-Reply-To: <1507847923-13612-5-git-send-email-azhou@ovn.org>
+Received: from mga01.intel.com ([192.55.52.88]:23381 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753448AbdJNAZp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Oct 2017 20:25:45 -0400
+In-Reply-To: <20171014002534.19896-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 12, 2017 at 3:38 PM, Andy Zhou <azhou@ovn.org> wrote:
-> Implements OVS kernel meter action support.
->
-> Signed-off-by: Andy Zhou <azhou@ovn.org>
-> ---
->  include/uapi/linux/openvswitch.h |  1 +
->  net/openvswitch/actions.c        | 12 ++++++++++++
->  net/openvswitch/datapath.h       |  1 +
->  net/openvswitch/flow_netlink.c   |  6 ++++++
->  4 files changed, 20 insertions(+)
->
-> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-> index 325049a129e4..11fe1a06cdd6 100644
-> --- a/include/uapi/linux/openvswitch.h
-> +++ b/include/uapi/linux/openvswitch.h
-> @@ -835,6 +835,7 @@ enum ovs_action_attr {
->         OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
->         OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
->         OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
-> +       OVS_ACTION_ATTR_METER,        /* u32 meter ID. */
->
->         __OVS_ACTION_ATTR_MAX,        /* Nothing past this will be accepted
->                                        * from userspace. */
-> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> index a54a556fcdb5..4eb160ac5a27 100644
-> --- a/net/openvswitch/actions.c
-> +++ b/net/openvswitch/actions.c
-> @@ -1210,6 +1210,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->                 case OVS_ACTION_ATTR_POP_ETH:
->                         err = pop_eth(skb, key);
->                         break;
-> +
-> +               case OVS_ACTION_ATTR_METER:
-> +                       if (ovs_meter_execute(dp, skb, key, nla_get_u32(a))) {
-> +                               consume_skb(skb);
-> +                               return 0;
-> +                       }
->                 }
->
->                 if (unlikely(err)) {
-> @@ -1341,6 +1347,12 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
->         err = do_execute_actions(dp, skb, key,
->                                  acts->actions, acts->actions_len);
->
-> +       /* OVS action has dropped the packet, do not expose it
-> +        * to the user.
-> +        */
-> +       if (err == -ENODATA)
-> +               err = 0;
-> +
-I am not sure who is returning this error code?
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+
+When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
+the netdev_queue pointer that the current child qdisc is associated
+with before creating the new qdisc.
+
+Currently, when using mqprio as root qdisc, the kernel will end up
+getting the queue #0 pointer from the mqprio (root qdisc), which leaves
+any new child qdisc with a possibly wrong netdev_queue pointer.
+
+Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
+issue and avoid an inconsistent state when child qdiscs are replaced.
+
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+---
+ net/sched/sch_mqprio.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 6bcdfe6e7b63..8c042ae323e3 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ 	}
+ }
+ 
++static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
++						struct tcmsg *tcm)
++{
++	return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
++}
++
+ static const struct Qdisc_class_ops mqprio_class_ops = {
+ 	.graft		= mqprio_graft,
+ 	.leaf		= mqprio_leaf,
+@@ -403,6 +409,7 @@ static const struct Qdisc_class_ops mqprio_class_ops = {
+ 	.walk		= mqprio_walk,
+ 	.dump		= mqprio_dump_class,
+ 	.dump_stats	= mqprio_dump_class_stats,
++	.select_queue	= mqprio_select_queue,
+ };
+ 
+ static struct Qdisc_ops mqprio_qdisc_ops __read_mostly = {
+-- 
+2.14.2
