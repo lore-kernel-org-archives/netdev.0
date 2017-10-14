@@ -1,7 +1,7 @@
 From: Natale Patriciello <natale.patriciello@gmail.com>
-Subject: [RFC PATCH v2 2/5] tcp: implemented pacing_expired
-Date: Sat, 14 Oct 2017 13:47:11 +0200
-Message-ID: <20171014114714.3694-3-natale.patriciello@gmail.com>
+Subject: [RFC PATCH v2 1/5] tcp: Added a function to retrieve pacing timer
+Date: Sat, 14 Oct 2017 13:47:10 +0200
+Message-ID: <20171014114714.3694-2-natale.patriciello@gmail.com>
 References: <20171014114714.3694-1-natale.patriciello@gmail.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Ahmed Said <ahmed.said@uniroma2.it>,
@@ -11,63 +11,100 @@ Cc: netdev <netdev@vger.kernel.org>,
 To: "David S . Miller" <davem@davemloft.net>,
         Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34990 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753184AbdJNLtu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 07:49:50 -0400
-Received: by mail-wr0-f194.google.com with SMTP id y44so2182590wry.2
-        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 04:49:49 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:44720 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753178AbdJNLtt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 07:49:49 -0400
+Received: by mail-wm0-f68.google.com with SMTP id 196so30680966wma.1
+        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 04:49:48 -0700 (PDT)
 In-Reply-To: <20171014114714.3694-1-natale.patriciello@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inform the congestion control that the pacing timer, previously set,
-has expired. The commit does not consider situations in which another
-kind of timer has expired (e.g., a tail loss probe, a retransmission
-timer...)
+Allow congestion control modules to set a custom pacing time between
+the transmission of segments.
+Moreover, it is assumed that the time returned by the congestion module
+in the past is firm, until the timer expires; therefore, do not re-start
+the timer if it is already active.
 
 Signed-off-by: Natale Patriciello <natale.patriciello@gmail.com>
 ---
- include/net/tcp.h     | 2 ++
- net/ipv4/tcp_output.c | 6 ++++++
- 2 files changed, 8 insertions(+)
+ include/net/tcp.h     |  2 ++
+ net/ipv4/tcp_output.c | 36 +++++++++++++++++++++++++-----------
+ 2 files changed, 27 insertions(+), 11 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 42c7aa96c4cf..e817f0669d0e 100644
+index 89974c5286d8..42c7aa96c4cf 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1017,6 +1017,8 @@ struct tcp_congestion_ops {
+@@ -1015,6 +1015,8 @@ struct tcp_congestion_ops {
+ 	/* get info for inet_diag (optional) */
+ 	size_t (*get_info)(struct sock *sk, u32 ext, int *attr,
  			   union tcp_cc_info *info);
- 	/* get the expiration time for the pacing timer (optional) */
- 	u64 (*get_pacing_time)(struct sock *sk);
-+	/* the pacing timer is expired (optional) */
-+	void (*pacing_timer_expired)(struct sock *sk);
++	/* get the expiration time for the pacing timer (optional) */
++	u64 (*get_pacing_time)(struct sock *sk);
  
  	char 		name[TCP_CA_NAME_MAX];
  	struct module 	*owner;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index ec5977156c26..25b4cf0802f2 100644
+index 0bc9e46a5369..ec5977156c26 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -2241,6 +2241,7 @@ void tcp_chrono_stop(struct sock *sk, const enum tcp_chrono type)
- static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
- 			   int push_one, gfp_t gfp)
+@@ -950,22 +950,36 @@ static bool tcp_needs_internal_pacing(const struct sock *sk)
+ 	return smp_load_acquire(&sk->sk_pacing_status) == SK_PACING_NEEDED;
+ }
+ 
++static bool tcp_pacing_timer_check(const struct sock *sk)
++{
++	return hrtimer_active(&tcp_sk(sk)->pacing_timer);
++}
++
+ static void tcp_internal_pacing(struct sock *sk, const struct sk_buff *skb)
  {
 +	const struct tcp_congestion_ops *ca_ops = inet_csk(sk)->icsk_ca_ops;
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	unsigned int tso_segs, sent_pkts;
-@@ -2263,6 +2264,11 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	u64 len_ns;
+-	u32 rate;
  
- 	max_segs = tcp_tso_segs(sk, mss_now);
- 	tcp_mstamp_refresh(tp);
+ 	if (!tcp_needs_internal_pacing(sk))
+ 		return;
+-	rate = sk->sk_pacing_rate;
+-	if (!rate || rate == ~0U)
+-		return;
+-
+-	/* Should account for header sizes as sch_fq does,
+-	 * but lets make things simple.
+-	 */
+-	len_ns = (u64)skb->len * NSEC_PER_SEC;
+-	do_div(len_ns, rate);
 +
-+	if (!tcp_pacing_timer_check(sk) &&
-+	    ca_ops && ca_ops->pacing_timer_expired)
-+		ca_ops->pacing_timer_expired(sk);
++	if (ca_ops && ca_ops->get_pacing_time) {
++		if (tcp_pacing_timer_check(sk))
++			return;
 +
- 	while ((skb = tcp_send_head(sk))) {
- 		unsigned int limit;
++		len_ns = ca_ops->get_pacing_time(sk);
++	} else {
++		u32 rate = sk->sk_pacing_rate;
++
++		if (!rate || rate == ~0U)
++			return;
++
++		/* Should account for header sizes as sch_fq does,
++		 * but lets make things simple.
++		 */
++		len_ns = (u64)skb->len * NSEC_PER_SEC;
++		do_div(len_ns, rate);
++	}
+ 	hrtimer_start(&tcp_sk(sk)->pacing_timer,
+ 		      ktime_add_ns(ktime_get(), len_ns),
+ 		      HRTIMER_MODE_ABS_PINNED);
+@@ -2123,7 +2137,7 @@ static int tcp_mtu_probe(struct sock *sk)
+ static bool tcp_pacing_check(const struct sock *sk)
+ {
+ 	return tcp_needs_internal_pacing(sk) &&
+-	       hrtimer_active(&tcp_sk(sk)->pacing_timer);
++		tcp_pacing_timer_check(sk);
+ }
  
+ /* TCP Small Queues :
 -- 
 2.14.2
