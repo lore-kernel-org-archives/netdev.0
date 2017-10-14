@@ -1,194 +1,173 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next 03/12] net/mlx5e: IPoIB, Move underlay QP init/uninit to separate functions
-Date: Sat, 14 Oct 2017 11:48:18 -0700
-Message-ID: <20171014184827.18491-4-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next 12/12] net/mlx5e: IPoIB, Modify rdma netdev allocate and free to support PKEY
+Date: Sat, 14 Oct 2017 11:48:27 -0700
+Message-ID: <20171014184827.18491-13-saeedm@mellanox.com>
 References: <20171014184827.18491-1-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171014184827.18491-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Alex Vesker <valex@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43478 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751788AbdJNStH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 14:49:07 -0400
+In-Reply-To: <20171014184827.18491-1-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Alex Vesker <valex@mellanox.com>
 
-During the creation of the underlay QP the PKEY index is unknown, the
-PKEY index is known only when calling ndo_open.
-PKEY index attached to the QP during state modification.
+Resources such as FT, QPN HT and mdev resources should be allocated
+only by parent netdev. Shared resources are allocated and freed by the
+parent interface since the parent is always present and created
+before the IPoIB PKEY sub-interface.
 
-Splitting the functions will also make the code symmetric and more
-readable. This split is also required for later PKEY support to be
-called with the PKEY index during ndo_open.
-
-Signed-off-by: Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Alex Vesker <valex@mellanox.com>
+Reviewed-by: Erez Shitrit <erezsh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  | 108 +++++++++++++--------
- 1 file changed, 70 insertions(+), 38 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_common.c    |  1 +
+ .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  | 52 ++++++++++++++--------
+ .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h  |  1 +
+ 3 files changed, 36 insertions(+), 18 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+index ece3fb147e3e..157d02917237 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+@@ -134,6 +134,7 @@ void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev)
+ 	mlx5_core_destroy_mkey(mdev, &res->mkey);
+ 	mlx5_core_dealloc_transport_domain(mdev, res->td.tdn);
+ 	mlx5_core_dealloc_pd(mdev, res->pdn);
++	memset(res, 0, sizeof(*res));
+ }
+ 
+ int mlx5e_refresh_tirs(struct mlx5e_priv *priv, bool enable_uc_lb)
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-index 14dfb577691b..feb94db6b921 100644
+index 70706eb70d3e..abf270d7f556 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-@@ -108,11 +108,68 @@ static void mlx5i_cleanup(struct mlx5e_priv *priv)
- 	/* Do nothing .. */
- }
- 
-+static int mlx5i_init_underlay_qp(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5i_priv *ipriv = priv->ppriv;
-+	struct mlx5_core_qp *qp = &ipriv->qp;
-+	struct mlx5_qp_context *context;
-+	int ret;
-+
-+	/* QP states */
-+	context = kzalloc(sizeof(*context), GFP_KERNEL);
-+	if (!context)
-+		return -ENOMEM;
-+
-+	context->flags = cpu_to_be32(MLX5_QP_PM_MIGRATED << 11);
-+	context->pri_path.port = 1;
-+	context->qkey = cpu_to_be32(IB_DEFAULT_Q_KEY);
-+
-+	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RST2INIT_QP, 0, context, qp);
-+	if (ret) {
-+		mlx5_core_err(mdev, "Failed to modify qp RST2INIT, err: %d\n", ret);
-+		goto err_qp_modify_to_err;
-+	}
-+	memset(context, 0, sizeof(*context));
-+
-+	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_INIT2RTR_QP, 0, context, qp);
-+	if (ret) {
-+		mlx5_core_err(mdev, "Failed to modify qp INIT2RTR, err: %d\n", ret);
-+		goto err_qp_modify_to_err;
-+	}
-+
-+	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RTR2RTS_QP, 0, context, qp);
-+	if (ret) {
-+		mlx5_core_err(mdev, "Failed to modify qp RTR2RTS, err: %d\n", ret);
-+		goto err_qp_modify_to_err;
-+	}
-+
-+	kfree(context);
-+	return 0;
-+
-+err_qp_modify_to_err:
-+	mlx5_core_qp_modify(mdev, MLX5_CMD_OP_2ERR_QP, 0, &context, qp);
-+	kfree(context);
-+	return ret;
-+}
-+
-+static void mlx5i_uninit_underlay_qp(struct mlx5e_priv *priv)
-+{
-+	struct mlx5i_priv *ipriv = priv->ppriv;
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5_qp_context context;
-+	int err;
-+
-+	err = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_2RST_QP, 0, &context,
-+				  &ipriv->qp);
-+	if (err)
-+		mlx5_core_err(mdev, "Failed to modify qp 2RST, err: %d\n", err);
-+}
-+
- #define MLX5_QP_ENHANCED_ULP_STATELESS_MODE 2
- 
- static int mlx5i_create_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core_qp *qp)
+@@ -560,12 +560,13 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
+ 					  const char *name,
+ 					  void (*setup)(struct net_device *))
  {
--	struct mlx5_qp_context *context = NULL;
- 	u32 *in = NULL;
- 	void *addr_path;
- 	int ret = 0;
-@@ -140,38 +197,7 @@ static int mlx5i_create_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core
- 		goto out;
+-	const struct mlx5e_profile *profile = &mlx5i_nic_profile;
+-	int nch = profile->max_nch(mdev);
++	const struct mlx5e_profile *profile;
+ 	struct net_device *netdev;
+ 	struct mlx5i_priv *ipriv;
+ 	struct mlx5e_priv *epriv;
+ 	struct rdma_netdev *rn;
++	bool sub_interface;
++	int nch;
+ 	int err;
+ 
+ 	if (mlx5i_check_required_hca_cap(mdev)) {
+@@ -573,10 +574,15 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
+ 		return ERR_PTR(-EOPNOTSUPP);
  	}
  
--	/* QP states */
--	context = kzalloc(sizeof(*context), GFP_KERNEL);
--	if (!context) {
--		ret = -ENOMEM;
--		goto out;
--	}
--
--	context->flags = cpu_to_be32(MLX5_QP_PM_MIGRATED << 11);
--	context->pri_path.port = 1;
--	context->qkey = cpu_to_be32(IB_DEFAULT_Q_KEY);
--
--	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RST2INIT_QP, 0, context, qp);
--	if (ret) {
--		mlx5_core_err(mdev, "Failed to modify qp RST2INIT, err: %d\n", ret);
--		goto out;
--	}
--	memset(context, 0, sizeof(*context));
--
--	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_INIT2RTR_QP, 0, context, qp);
--	if (ret) {
--		mlx5_core_err(mdev, "Failed to modify qp INIT2RTR, err: %d\n", ret);
--		goto out;
--	}
--
--	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RTR2RTS_QP, 0, context, qp);
--	if (ret) {
--		mlx5_core_err(mdev, "Failed to modify qp RTR2RTS, err: %d\n", ret);
--		goto out;
--	}
--
- out:
--	kfree(context);
- 	kvfree(in);
- 	return ret;
- }
-@@ -192,13 +218,23 @@ static int mlx5i_init_tx(struct mlx5e_priv *priv)
- 		return err;
- 	}
- 
-+	err = mlx5i_init_underlay_qp(priv);
-+	if (err) {
-+		mlx5_core_warn(priv->mdev, "intilize underlay QP failed, %d\n", err);
-+		goto err_destroy_underlay_qp;
-+	}
+-	/* This function should only be called once per mdev */
+-	err = mlx5e_create_mdev_resources(mdev);
+-	if (err)
+-		return NULL;
++	/* TODO: Need to find a better way to check if child device*/
++	sub_interface = (mdev->mlx5e_res.pdn != 0);
 +
- 	err = mlx5e_create_tis(priv->mdev, 0 /* tc */, ipriv->qp.qpn, &priv->tisn[0]);
- 	if (err) {
- 		mlx5_core_warn(priv->mdev, "create tis failed, %d\n", err);
--		return err;
-+		goto err_destroy_underlay_qp;
++	if (sub_interface)
++		profile = mlx5i_pkey_get_profile();
++	else
++		profile = &mlx5i_nic_profile;
++
++	nch = profile->max_nch(mdev);
+ 
+ 	netdev = alloc_netdev_mqs(sizeof(struct mlx5i_priv) + sizeof(struct mlx5e_priv),
+ 				  name, NET_NAME_UNKNOWN,
+@@ -585,7 +591,7 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
+ 				  nch);
+ 	if (!netdev) {
+ 		mlx5_core_warn(mdev, "alloc_netdev_mqs failed\n");
+-		goto free_mdev_resources;
++		return NULL;
  	}
  
- 	return 0;
-+
-+err_destroy_underlay_qp:
-+	mlx5i_destroy_underlay_qp(priv->mdev, &ipriv->qp);
-+	return err;
- }
+ 	ipriv = netdev_priv(netdev);
+@@ -595,10 +601,18 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
+ 	if (!epriv->wq)
+ 		goto err_free_netdev;
  
- static void mlx5i_cleanup_tx(struct mlx5e_priv *priv)
-@@ -381,12 +417,8 @@ static int mlx5i_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- static void mlx5i_dev_cleanup(struct net_device *dev)
+-	err = mlx5i_pkey_qpn_ht_init(netdev);
+-	if (err) {
+-		mlx5_core_warn(mdev, "allocate qpn_to_netdev ht failed\n");
+-		goto destroy_wq;
++	ipriv->sub_interface = sub_interface;
++	if (!ipriv->sub_interface) {
++		err = mlx5i_pkey_qpn_ht_init(netdev);
++		if (err) {
++			mlx5_core_warn(mdev, "allocate qpn_to_netdev ht failed\n");
++			goto destroy_wq;
++		}
++
++		/* This should only be called once per mdev */
++		err = mlx5e_create_mdev_resources(mdev);
++		if (err)
++			goto destroy_ht;
+ 	}
+ 
+ 	profile->init(mdev, netdev, profile, ipriv);
+@@ -616,12 +630,12 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
+ 
+ 	return netdev;
+ 
++destroy_ht:
++	mlx5i_pkey_qpn_ht_cleanup(netdev);
+ destroy_wq:
+ 	destroy_workqueue(epriv->wq);
+ err_free_netdev:
+ 	free_netdev(netdev);
+-free_mdev_resources:
+-	mlx5e_destroy_mdev_resources(mdev);
+ 
+ 	return NULL;
+ }
+@@ -629,16 +643,18 @@ EXPORT_SYMBOL(mlx5_rdma_netdev_alloc);
+ 
+ void mlx5_rdma_netdev_free(struct net_device *netdev)
  {
- 	struct mlx5e_priv    *priv   = mlx5i_epriv(dev);
--	struct mlx5_core_dev *mdev   = priv->mdev;
--	struct mlx5i_priv    *ipriv  = priv->ppriv;
--	struct mlx5_qp_context context;
+-	struct mlx5e_priv          *priv    = mlx5i_epriv(netdev);
++	struct mlx5e_priv *priv = mlx5i_epriv(netdev);
++	struct mlx5i_priv *ipriv = priv->ppriv;
+ 	const struct mlx5e_profile *profile = priv->profile;
+-	struct mlx5_core_dev       *mdev    = priv->mdev;
  
--	/* detach qp from flow-steering by reset it */
--	mlx5_core_qp_modify(mdev, MLX5_CMD_OP_2RST_QP, 0, &context, &ipriv->qp);
-+	mlx5i_uninit_underlay_qp(priv);
+ 	mlx5e_detach_netdev(priv);
+ 	profile->cleanup(priv);
+ 	destroy_workqueue(priv->wq);
+-	mlx5i_pkey_qpn_ht_cleanup(netdev);
+-	free_netdev(netdev);
+ 
+-	mlx5e_destroy_mdev_resources(mdev);
++	if (!ipriv->sub_interface) {
++		mlx5i_pkey_qpn_ht_cleanup(netdev);
++		mlx5e_destroy_mdev_resources(priv->mdev);
++	}
++	free_netdev(netdev);
  }
- 
- static int mlx5i_open(struct net_device *netdev)
+ EXPORT_SYMBOL(mlx5_rdma_netdev_free);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+index a50c1a19550e..49008022c306 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+@@ -50,6 +50,7 @@ extern const struct ethtool_ops mlx5i_pkey_ethtool_ops;
+ struct mlx5i_priv {
+ 	struct rdma_netdev rn; /* keep this first */
+ 	struct mlx5_core_qp qp;
++	bool   sub_interface;
+ 	u32    qkey;
+ 	u16    pkey_index;
+ 	struct mlx5i_pkey_qpn_ht *qpn_htbl;
 -- 
 2.14.2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
