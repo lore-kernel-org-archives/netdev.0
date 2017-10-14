@@ -1,7 +1,7 @@
 From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v8 2/6] net/sched: Change behavior of mq select_queue()
-Date: Fri, 13 Oct 2017 17:25:30 -0700
-Message-ID: <20171014002534.19896-3-vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v8 1/6] net/sched: Check for null dev_queue on create flow
+Date: Fri, 13 Oct 2017 17:25:29 -0700
+Message-ID: <20171014002534.19896-2-vinicius.gomes@intel.com>
 References: <20171014002534.19896-1-vinicius.gomes@intel.com>
 Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
         jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
@@ -10,9 +10,9 @@ Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
         henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:19951 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:23381 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753440AbdJNAZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753436AbdJNAZo (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 13 Oct 2017 20:25:44 -0400
 In-Reply-To: <20171014002534.19896-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -20,41 +20,41 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-Currently, the class_ops select_queue() implementation on sch_mq
-returns a pointer to netdev_queue #0 when it receives and invalid
-qdisc id. That can be misleading since all of mq's inner qdiscs are
-attached to a valid netdev_queue.
+In qdisc_alloc() the dev_queue pointer was used without any checks
+being performed. If qdisc_create() gets a null dev_queue pointer, it
+just passes it along to qdisc_alloc(), leading to a crash. That
+happens if a root qdisc implements select_queue() and returns a null
+dev_queue pointer for an "invalid handle", for example, or if the
+dev_queue associated with the parent qdisc is null.
 
-Here we fix that by returning NULL when a qdisc id is invalid. This is
-aligned with how select_queue() is implemented for sch_mqprio in the
-next patch on this series, keeping a consistent behavior between these
-two qdiscs.
+This patch is in preparation for the next in this series, where
+select_queue() is being added to mqprio and as it may return a null
+dev_queue.
 
 Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 ---
- net/sched/sch_mq.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ net/sched/sch_generic.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-index f3a3e507422b..213b586a06a0 100644
---- a/net/sched/sch_mq.c
-+++ b/net/sched/sch_mq.c
-@@ -130,15 +130,7 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
- static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
- 					    struct tcmsg *tcm)
- {
--	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
--	struct netdev_queue *dev_queue = mq_queue_get(sch, ntx);
--
--	if (!dev_queue) {
--		struct net_device *dev = qdisc_dev(sch);
--
--		return netdev_get_tx_queue(dev, 0);
--	}
--	return dev_queue;
-+	return mq_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
- }
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index a0a198768aad..de2408f1ccd3 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	struct Qdisc *sch;
+ 	unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
+ 	int err = -ENOBUFS;
+-	struct net_device *dev = dev_queue->dev;
++	struct net_device *dev;
++
++	if (!dev_queue) {
++		err = -EINVAL;
++		goto errout;
++	}
  
- static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
++	dev = dev_queue->dev;
+ 	p = kzalloc_node(size, GFP_KERNEL,
+ 			 netdev_queue_numa_node_read(dev_queue));
+ 
 -- 
 2.14.2
