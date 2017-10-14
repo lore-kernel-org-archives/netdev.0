@@ -1,87 +1,148 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 5/6] bnxt_en: Fix possible corrupted NVRAM parameters from firmware response.
-Date: Fri, 13 Oct 2017 21:09:33 -0400
-Message-ID: <1507943374-13308-6-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net 2/6] bnxt_en: Don't use rtnl lock to protect link change logic in workqueue.
+Date: Fri, 13 Oct 2017 21:09:30 -0400
+Message-ID: <1507943374-13308-3-git-send-email-michael.chan@broadcom.com>
 References: <1507943374-13308-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f173.google.com ([209.85.220.173]:55153 "EHLO
-        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753508AbdJNBJv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 21:09:51 -0400
-Received: by mail-qk0-f173.google.com with SMTP id n5so7015529qke.11
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 18:09:51 -0700 (PDT)
+Received: from mail-qt0-f169.google.com ([209.85.216.169]:52501 "EHLO
+        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751617AbdJNBJs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 21:09:48 -0400
+Received: by mail-qt0-f169.google.com with SMTP id o52so22646875qtc.9
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 18:09:48 -0700 (PDT)
 In-Reply-To: <1507943374-13308-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In bnxt_find_nvram_item(), it is copying firmware response data after
-releasing the mutex.  This can cause the firmware response data
-to be corrupted if the next firmware response overwrites the response
-buffer.  The rare problem shows up when running ethtool -i repeatedly.
+As a further improvement to the PF/VF link change logic, use a private
+mutex instead of the rtnl lock to protect link change logic.  With the
+new mutex, we don't have to take the rtnl lock in the workqueue when
+we have to handle link related functions.  If the VF and PF drivers
+are running on the same host and both take the rtnl lock and one is
+waiting for the other, it will cause timeout.  This patch fixes these
+timeouts.
 
-Fix it by calling the new variant _hwrm_send_message_silent() that requires
-the caller to take the mutex and to release it after the response data has
-been copied.
-
-Fixes: 3ebf6f0a09a2 ("bnxt_en: Add installed-package version reporting via Ethtool GDRVINFO")
-Reported-by: Sarveswara Rao Mygapula <sarveswararao.mygapula@broadcom.com>
+Fixes: 90c694bb7181 ("bnxt_en: Fix RTNL lock usage on bnxt_update_link().")
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 6 ++++++
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         | 1 +
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 4 +++-
- 3 files changed, 10 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 25 ++++++++++++-----------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  4 ++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  4 ++++
+ 3 files changed, 21 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 4ffa0b1..dc5de27 100644
+index 7906153..3f596de 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3466,6 +3466,12 @@ int _hwrm_send_message(struct bnxt *bp, void *msg, u32 msg_len, int timeout)
- 	return bnxt_hwrm_do_send_msg(bp, msg, msg_len, timeout, false);
- }
+@@ -6345,7 +6345,9 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
+ 	}
  
-+int _hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 msg_len,
-+			      int timeout)
-+{
-+	return bnxt_hwrm_do_send_msg(bp, msg, msg_len, timeout, true);
-+}
-+
- int hwrm_send_message(struct bnxt *bp, void *msg, u32 msg_len, int timeout)
- {
- 	int rc;
+ 	if (link_re_init) {
++		mutex_lock(&bp->link_lock);
+ 		rc = bnxt_update_phy_setting(bp);
++		mutex_unlock(&bp->link_lock);
+ 		if (rc)
+ 			netdev_warn(bp->dev, "failed to update phy settings\n");
+ 	}
+@@ -7043,30 +7045,28 @@ static void bnxt_sp_task(struct work_struct *work)
+ 	if (test_and_clear_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event))
+ 		bnxt_hwrm_port_qstats(bp);
+ 
+-	/* These functions below will clear BNXT_STATE_IN_SP_TASK.  They
+-	 * must be the last functions to be called before exiting.
+-	 */
+ 	if (test_and_clear_bit(BNXT_LINK_CHNG_SP_EVENT, &bp->sp_event)) {
+-		int rc = 0;
++		int rc;
+ 
++		mutex_lock(&bp->link_lock);
+ 		if (test_and_clear_bit(BNXT_LINK_SPEED_CHNG_SP_EVENT,
+ 				       &bp->sp_event))
+ 			bnxt_hwrm_phy_qcaps(bp);
+ 
+-		bnxt_rtnl_lock_sp(bp);
+-		if (test_bit(BNXT_STATE_OPEN, &bp->state))
+-			rc = bnxt_update_link(bp, true);
+-		bnxt_rtnl_unlock_sp(bp);
++		rc = bnxt_update_link(bp, true);
++		mutex_unlock(&bp->link_lock);
+ 		if (rc)
+ 			netdev_err(bp->dev, "SP task can't update link (rc: %x)\n",
+ 				   rc);
+ 	}
+ 	if (test_and_clear_bit(BNXT_HWRM_PORT_MODULE_SP_EVENT, &bp->sp_event)) {
+-		bnxt_rtnl_lock_sp(bp);
+-		if (test_bit(BNXT_STATE_OPEN, &bp->state))
+-			bnxt_get_port_module_status(bp);
+-		bnxt_rtnl_unlock_sp(bp);
++		mutex_lock(&bp->link_lock);
++		bnxt_get_port_module_status(bp);
++		mutex_unlock(&bp->link_lock);
+ 	}
++	/* These functions below will clear BNXT_STATE_IN_SP_TASK.  They
++	 * must be the last functions to be called before exiting.
++	 */
+ 	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event))
+ 		bnxt_reset(bp, false);
+ 
+@@ -7766,6 +7766,7 @@ static int bnxt_probe_phy(struct bnxt *bp)
+ 			   rc);
+ 		return rc;
+ 	}
++	mutex_init(&bp->link_lock);
+ 
+ 	rc = bnxt_update_link(bp, false);
+ 	if (rc) {
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index d2925c0..c911e69 100644
+index 7b888d4..d2925c0 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1362,6 +1362,7 @@ int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
- int bnxt_set_rx_skb_mode(struct bnxt *bp, bool page_mode);
- void bnxt_hwrm_cmd_hdr_init(struct bnxt *, void *, u16, u16, u16);
- int _hwrm_send_message(struct bnxt *, void *, u32, int);
-+int _hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 len, int timeout);
- int hwrm_send_message(struct bnxt *, void *, u32, int);
- int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
- int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
+@@ -1290,6 +1290,10 @@ struct bnxt {
+ 	unsigned long		*ntp_fltr_bmap;
+ 	int			ntp_fltr_count;
+ 
++	/* To protect link related settings during link changes and
++	 * ethtool settings changes.
++	 */
++	struct mutex		link_lock;
+ 	struct bnxt_link_info	link_info;
+ 	struct ethtool_eee	eee;
+ 	u32			lpi_tmr_lo;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index b2cbc97..3cbe771 100644
+index 8eff05a..b2cbc97 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -1809,7 +1809,8 @@ static int bnxt_find_nvram_item(struct net_device *dev, u16 type, u16 ordinal,
- 	req.dir_ordinal = cpu_to_le16(ordinal);
- 	req.dir_ext = cpu_to_le16(ext);
- 	req.opt_ordinal = NVM_FIND_DIR_ENTRY_REQ_OPT_ORDINAL_EQ;
--	rc = hwrm_send_message_silent(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	mutex_lock(&bp->hwrm_cmd_lock);
-+	rc = _hwrm_send_message_silent(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
- 	if (rc == 0) {
- 		if (index)
- 			*index = le16_to_cpu(output->dir_idx);
-@@ -1818,6 +1819,7 @@ static int bnxt_find_nvram_item(struct net_device *dev, u16 type, u16 ordinal,
- 		if (data_length)
- 			*data_length = le32_to_cpu(output->dir_data_length);
+@@ -1052,6 +1052,7 @@ static int bnxt_get_link_ksettings(struct net_device *dev,
+ 	u32 ethtool_speed;
+ 
+ 	ethtool_link_ksettings_zero_link_mode(lk_ksettings, supported);
++	mutex_lock(&bp->link_lock);
+ 	bnxt_fw_to_ethtool_support_spds(link_info, lk_ksettings);
+ 
+ 	ethtool_link_ksettings_zero_link_mode(lk_ksettings, advertising);
+@@ -1099,6 +1100,7 @@ static int bnxt_get_link_ksettings(struct net_device *dev,
+ 			base->port = PORT_FIBRE;
  	}
-+	mutex_unlock(&bp->hwrm_cmd_lock);
+ 	base->phy_address = link_info->phy_addr;
++	mutex_unlock(&bp->link_lock);
+ 
+ 	return 0;
+ }
+@@ -1190,6 +1192,7 @@ static int bnxt_set_link_ksettings(struct net_device *dev,
+ 	if (!BNXT_SINGLE_PF(bp))
+ 		return -EOPNOTSUPP;
+ 
++	mutex_lock(&bp->link_lock);
+ 	if (base->autoneg == AUTONEG_ENABLE) {
+ 		BNXT_ETHTOOL_TO_FW_SPDS(fw_advertising, lk_ksettings,
+ 					advertising);
+@@ -1234,6 +1237,7 @@ static int bnxt_set_link_ksettings(struct net_device *dev,
+ 		rc = bnxt_hwrm_set_link_setting(bp, set_pause, false);
+ 
+ set_setting_exit:
++	mutex_unlock(&bp->link_lock);
  	return rc;
  }
  
