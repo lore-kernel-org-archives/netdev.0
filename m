@@ -1,74 +1,86 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH net-next 1/2] net: move memcpy_to[from]_msg() from skbuff.h to socket.h
-Date: Sat, 14 Oct 2017 10:26:33 +0800
-Message-ID: <1507947993-4728-1-git-send-email-cugyly@163.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC 0/3] Adding config get/set to devlink
+Date: Fri, 13 Oct 2017 21:21:51 -0700
+Message-ID: <CAJieiUivmAzJ2rxaf44HxOJ2u1nXUuFMkGSkjK2zfy3JKyfxFA@mail.gmail.com>
+References: <CAJieiUiFmBr72yYP9VNtm0VBTNjJcA6Lj5nHJNBjDBC4moxE2A@mail.gmail.com>
+ <20171012150419.GI14672@nanopsycho> <24E5DE7C-A401-48BF-BF80-673ACC38FBBE@gmail.com>
+ <20171012.120650.1063812043202847517.davem@davemloft.net> <21ab4a5d-0b6a-7976-7bf0-acd334f2613f@gmail.com>
+ <CAJieiUjK4CsBGT5_YidnEGk7mCVYYO_8S0xcsv+XfaW=amGCaQ@mail.gmail.com> <20171013071121.GF1952@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-12.163.com ([220.181.12.12]:44177 "EHLO m12-12.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751572AbdJNCmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Oct 2017 22:42:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Steve Lin <steven.lin1@broadcom.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        linux-pci@vger.kernel.org,
+        "John W. Linville" <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20171013071121.GF1952@nanopsycho.orion>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+On Fri, Oct 13, 2017 at 12:11 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Thu, Oct 12, 2017 at 11:53:56PM CEST, roopa@cumulusnetworks.com wrote:
+>>On Thu, Oct 12, 2017 at 12:20 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>>> On 10/12/2017 12:06 PM, David Miller wrote:
+>>>> From: Florian Fainelli <f.fainelli@gmail.com>
+>>>> Date: Thu, 12 Oct 2017 08:43:59 -0700
+>>>>
+>>>>> Once we move ethtool (or however we name its successor) over to
+>>>>> netlink there is an opportunity for accessing objects that do and do
+>>>>> not have a netdevice representor today (e.g: management ports on
+>>>>> switches) with the same interface, and devlink could be used for
+>>>>> that.
+>>>>
+>>>> That is an interesting angle for including this in devlink.
+>>>>
+>>>> I'm not so sure what to do about this.
+>>>>
+>>>> One suggestion is that devlink is used for getting ethtool stats for
+>>>> objects lacking netdev representor's, and a new genetlink family is
+>>>> used for netdev based ethtool.
+>>>
+>>> Right, I was also thinking along those lines that we we would have a new
+>>> generic netlink family for ethtool to support ethtool over netlink.
+>>
+>>new api is fine by me. The reason for suggesting devlink was because
+>>some of the devlink
+>>port_* ops are close to ethtool ops that can operate on a port/netdev.
+>>eg split_port could be a netdev operation
+>>unless you want to split before the netdev is created.
+>
+> Let me correct you. The split is always devlink_port operation. In some
+> cases however when there is a mapping between devlink_port and netdev,
+> userspace part could translate netdev->devlink_port.
 
-these two functions used by skb and other places,
-move to socket.h where struct msghdr defined.
+yes, thats what i was trying to hint..that in some cases devlink_port
+can already be mapped to a netdev.
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
----
- include/linux/skbuff.h | 10 ----------
- include/linux/socket.h | 12 +++++++++++-
- 2 files changed, 11 insertions(+), 11 deletions(-)
+>
+>
+>>
+>>There are some ops in devlink which are global hw parameters and not
+>>specific to a port, those fit perfectly with
+>>devlinks original goal.
+>
+> There are 2 handles from the very beginning:
+> 1) devlink - asic-wide handle
+> 2) devlink_port - port handle
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 03634ec2..90868d1 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3294,16 +3294,6 @@ int skb_vlan_push(struct sk_buff *skb, __be16 vlan_proto, u16 vlan_tci);
- struct sk_buff *pskb_extract(struct sk_buff *skb, int off, int to_copy,
- 			     gfp_t gfp);
- 
--static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
--{
--	return copy_from_iter_full(data, len, &msg->msg_iter) ? 0 : -EFAULT;
--}
--
--static inline int memcpy_to_msg(struct msghdr *msg, void *data, int len)
--{
--	return copy_to_iter(data, len, &msg->msg_iter) == len ? 0 : -EFAULT;
--}
--
- struct skb_checksum_ops {
- 	__wsum (*update)(const void *mem, int len, __wsum wsum);
- 	__wsum (*combine)(__wsum csum, __wsum csum2, int offset, int len);
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 8ad963c..c414f1f 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -53,7 +53,17 @@ struct msghdr {
- 	unsigned int	msg_flags;	/* flags on received message */
- 	struct kiocb	*msg_iocb;	/* ptr to iocb for async requests */
- };
-- 
-+
-+static inline int memcpy_from_msg(void *data, struct msghdr *msg, int len)
-+{
-+	return copy_from_iter_full(data, len, &msg->msg_iter) ? 0 : -EFAULT;
-+}
-+
-+static inline int memcpy_to_msg(struct msghdr *msg, void *data, int len)
-+{
-+	return copy_to_iter(data, len, &msg->msg_iter) == len ? 0 : -EFAULT;
-+}
-+
- struct user_msghdr {
- 	void		__user *msg_name;	/* ptr to socket address structure */
- 	int		msg_namelen;		/* size of socket address structure */
--- 
-2.7.4
+yep, i know that...and i was not trying to say that is a bad thing.
+
+I think we will end up with devlink_port operations that could also be
+done on a netdev down the lane. And, we may have to then argue where
+an attribute will go. Hence my suggestion on classifying the api by
+the target (driver in this case vs kernel networking for rtnetlink).
+If you take netdev out of the picture, the port attributes that
+devlink tries to set are similar to the ethtool port attributes today.
+Also, it seemed like the new port attributes set api (proposed in this
+thread) was close to the ethtool attributes set. Having all link hw
+attributes in the same tool/api has  advantages. I have no plans to
+move anything yet...so if the general preference is to keep devlink
+netdev free for now, thats fine.
