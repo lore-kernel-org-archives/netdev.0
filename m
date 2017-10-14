@@ -1,209 +1,46 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 1/6] bnxt_en: Improve VF/PF link change logic.
-Date: Fri, 13 Oct 2017 21:09:29 -0400
-Message-ID: <1507943374-13308-2-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net 3/6] bnxt_en: Fix VF PCIe link speed and width logic.
+Date: Fri, 13 Oct 2017 21:09:31 -0400
+Message-ID: <1507943374-13308-4-git-send-email-michael.chan@broadcom.com>
 References: <1507943374-13308-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+        Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:52498 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753479AbdJNBJr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 21:09:47 -0400
-Received: by mail-qt0-f180.google.com with SMTP id o52so22646828qtc.9
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 18:09:46 -0700 (PDT)
+Received: from mail-qt0-f178.google.com ([209.85.216.178]:49439 "EHLO
+        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753250AbdJNBJt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 21:09:49 -0400
+Received: by mail-qt0-f178.google.com with SMTP id k31so22656691qta.6
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 18:09:48 -0700 (PDT)
 In-Reply-To: <1507943374-13308-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Link status query firmware messages originating from the VFs are forwarded
-to the PF.  The driver handles these interactions in a workqueue for the
-VF and PF.  The VF driver waits for the response from the PF in the
-workqueue.  If the PF and VF driver are running on the same host and the
-work for both PF and VF are queued on the same workqueue, the VF driver
-may not get the response if the PF work item is queued behind it on the
-same workqueue.  This will lead to the VF link query message timing out.
+From: Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 
-To prevent this, we create a private workqueue for PFs instead of using
-the common workqueue.  The VF query and PF response will never be on
-the same workqueue.
+PCIE PCIE_EP_REG_LINK_STATUS_CONTROL register is only defined in PF
+config space, so we must read it from the PF.
 
-Fixes: c0c050c58d84 ("bnxt_en: New Broadcom ethernet driver.")
+Fixes: 90c4f788f6c0 ("bnxt_en: Report PCIe link speed and width during driver load")
+Signed-off-by: Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 66 +++++++++++++++++++++++++------
- 1 file changed, 53 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index aacec8b..7906153 100644
+index 3f596de..4ffa0b1 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -214,6 +214,8 @@ enum board_idx {
- 	ASYNC_EVENT_CMPL_EVENT_ID_LINK_SPEED_CFG_CHANGE,
- };
+@@ -7965,7 +7965,7 @@ static void bnxt_parse_log_pcie_link(struct bnxt *bp)
+ 	enum pcie_link_width width = PCIE_LNK_WIDTH_UNKNOWN;
+ 	enum pci_bus_speed speed = PCI_SPEED_UNKNOWN;
  
-+static struct workqueue_struct *bnxt_pf_wq;
-+
- static bool bnxt_vf_pciid(enum board_idx idx)
- {
- 	return (idx == NETXTREME_C_VF || idx == NETXTREME_E_VF);
-@@ -1024,12 +1026,28 @@ static int bnxt_discard_rx(struct bnxt *bp, struct bnxt_napi *bnapi,
- 	return 0;
- }
- 
-+static void bnxt_queue_sp_work(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp))
-+		queue_work(bnxt_pf_wq, &bp->sp_task);
-+	else
-+		schedule_work(&bp->sp_task);
-+}
-+
-+static void bnxt_cancel_sp_work(struct bnxt *bp)
-+{
-+	if (BNXT_PF(bp))
-+		flush_workqueue(bnxt_pf_wq);
-+	else
-+		cancel_work_sync(&bp->sp_task);
-+}
-+
- static void bnxt_sched_reset(struct bnxt *bp, struct bnxt_rx_ring_info *rxr)
- {
- 	if (!rxr->bnapi->in_reset) {
- 		rxr->bnapi->in_reset = true;
- 		set_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event);
--		schedule_work(&bp->sp_task);
-+		bnxt_queue_sp_work(bp);
- 	}
- 	rxr->rx_next_cons = 0xffff;
- }
-@@ -1717,7 +1735,7 @@ static int bnxt_async_event_process(struct bnxt *bp,
- 	default:
- 		goto async_event_process_exit;
- 	}
--	schedule_work(&bp->sp_task);
-+	bnxt_queue_sp_work(bp);
- async_event_process_exit:
- 	bnxt_ulp_async_events(bp, cmpl);
- 	return 0;
-@@ -1751,7 +1769,7 @@ static int bnxt_hwrm_handler(struct bnxt *bp, struct tx_cmp *txcmp)
- 
- 		set_bit(vf_id - bp->pf.first_vf_id, bp->pf.vf_event_bmap);
- 		set_bit(BNXT_HWRM_EXEC_FWD_REQ_SP_EVENT, &bp->sp_event);
--		schedule_work(&bp->sp_task);
-+		bnxt_queue_sp_work(bp);
- 		break;
- 
- 	case CMPL_BASE_TYPE_HWRM_ASYNC_EVENT:
-@@ -6647,7 +6665,7 @@ static void bnxt_set_rx_mode(struct net_device *dev)
- 		vnic->rx_mask = mask;
- 
- 		set_bit(BNXT_RX_MASK_SP_EVENT, &bp->sp_event);
--		schedule_work(&bp->sp_task);
-+		bnxt_queue_sp_work(bp);
- 	}
- }
- 
-@@ -6920,7 +6938,7 @@ static void bnxt_tx_timeout(struct net_device *dev)
- 
- 	netdev_err(bp->dev,  "TX timeout detected, starting reset task!\n");
- 	set_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event);
--	schedule_work(&bp->sp_task);
-+	bnxt_queue_sp_work(bp);
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -6952,7 +6970,7 @@ static void bnxt_timer(unsigned long data)
- 	if (bp->link_info.link_up && (bp->flags & BNXT_FLAG_PORT_STATS) &&
- 	    bp->stats_coal_ticks) {
- 		set_bit(BNXT_PERIODIC_STATS_SP_EVENT, &bp->sp_event);
--		schedule_work(&bp->sp_task);
-+		bnxt_queue_sp_work(bp);
- 	}
- bnxt_restart_timer:
- 	mod_timer(&bp->timer, jiffies + bp->current_interval);
-@@ -7433,7 +7451,7 @@ static int bnxt_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 	spin_unlock_bh(&bp->ntp_fltr_lock);
- 
- 	set_bit(BNXT_RX_NTP_FLTR_SP_EVENT, &bp->sp_event);
--	schedule_work(&bp->sp_task);
-+	bnxt_queue_sp_work(bp);
- 
- 	return new_fltr->sw_id;
- 
-@@ -7516,7 +7534,7 @@ static void bnxt_udp_tunnel_add(struct net_device *dev,
- 		if (bp->vxlan_port_cnt == 1) {
- 			bp->vxlan_port = ti->port;
- 			set_bit(BNXT_VXLAN_ADD_PORT_SP_EVENT, &bp->sp_event);
--			schedule_work(&bp->sp_task);
-+			bnxt_queue_sp_work(bp);
- 		}
- 		break;
- 	case UDP_TUNNEL_TYPE_GENEVE:
-@@ -7533,7 +7551,7 @@ static void bnxt_udp_tunnel_add(struct net_device *dev,
- 		return;
- 	}
- 
--	schedule_work(&bp->sp_task);
-+	bnxt_queue_sp_work(bp);
- }
- 
- static void bnxt_udp_tunnel_del(struct net_device *dev,
-@@ -7572,7 +7590,7 @@ static void bnxt_udp_tunnel_del(struct net_device *dev,
- 		return;
- 	}
- 
--	schedule_work(&bp->sp_task);
-+	bnxt_queue_sp_work(bp);
- }
- 
- static int bnxt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-@@ -7720,7 +7738,7 @@ static void bnxt_remove_one(struct pci_dev *pdev)
- 	pci_disable_pcie_error_reporting(pdev);
- 	unregister_netdev(dev);
- 	bnxt_shutdown_tc(bp);
--	cancel_work_sync(&bp->sp_task);
-+	bnxt_cancel_sp_work(bp);
- 	bp->sp_event = 0;
- 
- 	bnxt_clear_int_mode(bp);
-@@ -8138,8 +8156,17 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+-	if (pcie_get_minimum_link(bp->pdev, &speed, &width) ||
++	if (pcie_get_minimum_link(pci_physfn(bp->pdev), &speed, &width) ||
+ 	    speed == PCI_SPEED_UNKNOWN || width == PCIE_LNK_WIDTH_UNKNOWN)
+ 		netdev_info(bp->dev, "Failed to determine PCIe Link Info\n");
  	else
- 		device_set_wakeup_capable(&pdev->dev, false);
- 
--	if (BNXT_PF(bp))
-+	if (BNXT_PF(bp)) {
-+		if (!bnxt_pf_wq) {
-+			bnxt_pf_wq =
-+				create_singlethread_workqueue("bnxt_pf_wq");
-+			if (!bnxt_pf_wq) {
-+				dev_err(&pdev->dev, "Unable to create workqueue.\n");
-+				goto init_err_pci_clean;
-+			}
-+		}
- 		bnxt_init_tc(bp);
-+	}
- 
- 	rc = register_netdev(dev);
- 	if (rc)
-@@ -8375,4 +8402,17 @@ static void bnxt_io_resume(struct pci_dev *pdev)
- #endif
- };
- 
--module_pci_driver(bnxt_pci_driver);
-+static int __init bnxt_init(void)
-+{
-+	return pci_register_driver(&bnxt_pci_driver);
-+}
-+
-+static void __exit bnxt_exit(void)
-+{
-+	pci_unregister_driver(&bnxt_pci_driver);
-+	if (bnxt_pf_wq)
-+		destroy_workqueue(bnxt_pf_wq);
-+}
-+
-+module_init(bnxt_init);
-+module_exit(bnxt_exit);
 -- 
 1.8.3.1
