@@ -1,7 +1,7 @@
 From: Natale Patriciello <natale.patriciello@gmail.com>
-Subject: [RFC PATCH v2 4/5] tcp: added segment sent
-Date: Sat, 14 Oct 2017 13:47:13 +0200
-Message-ID: <20171014114714.3694-5-natale.patriciello@gmail.com>
+Subject: [RFC PATCH v2 3/5] tcp: added get_segs_per_round
+Date: Sat, 14 Oct 2017 13:47:12 +0200
+Message-ID: <20171014114714.3694-4-natale.patriciello@gmail.com>
 References: <20171014114714.3694-1-natale.patriciello@gmail.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Ahmed Said <ahmed.said@uniroma2.it>,
@@ -11,74 +11,75 @@ Cc: netdev <netdev@vger.kernel.org>,
 To: "David S . Miller" <davem@davemloft.net>,
         Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33772 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:38289 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753291AbdJNLtw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 07:49:52 -0400
-Received: by mail-wr0-f196.google.com with SMTP id z96so2188019wrb.0
-        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 04:49:52 -0700 (PDT)
+        with ESMTP id S1753178AbdJNLtv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 07:49:51 -0400
+Received: by mail-wr0-f196.google.com with SMTP id v91so1264534wrc.5
+        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 04:49:50 -0700 (PDT)
 In-Reply-To: <20171014114714.3694-1-natale.patriciello@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Inform the congestion control of the number of segment sent in normal
-conditions, it means segments that left the node without involving
-recovery or retransmission procedures.
+Usually, the pacing time is provided per-segment. In some occasion, this
+time refers to the time between a group of segments. With this commit, add
+the possibility for the congestion control module to tell the TCP socket
+how many segments can be sent out before pausing and setting a pacing
+timer.
 
 Signed-off-by: Natale Patriciello <natale.patriciello@gmail.com>
 ---
  include/net/tcp.h     |  2 ++
- net/ipv4/tcp_output.c | 10 +++++++++-
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ net/ipv4/tcp_output.c | 13 +++++++++----
+ 2 files changed, 11 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3561eca5a61f..aebe225ab8b1 100644
+index e817f0669d0e..3561eca5a61f 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1021,6 +1021,8 @@ struct tcp_congestion_ops {
+@@ -1019,6 +1019,8 @@ struct tcp_congestion_ops {
+ 	u64 (*get_pacing_time)(struct sock *sk);
+ 	/* the pacing timer is expired (optional) */
  	void (*pacing_timer_expired)(struct sock *sk);
- 	/* get the # segs to send out when the timer expires (optional) */
- 	u32 (*get_segs_per_round)(struct sock *sk);
-+	/* the TCP has sent some segments (optional) */
-+	void (*segments_sent)(struct sock *sk, u32 sent);
++	/* get the # segs to send out when the timer expires (optional) */
++	u32 (*get_segs_per_round)(struct sock *sk);
  
  	char 		name[TCP_CA_NAME_MAX];
  	struct module 	*owner;
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index e37941e4328b..ef50202659da 100644
+index 25b4cf0802f2..e37941e4328b 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -2250,6 +2250,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+@@ -2249,6 +2249,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	int result;
  	bool is_cwnd_limited = false, is_rwnd_limited = false;
  	u32 max_segs;
- 	u32 pacing_allowed_segs = 0;
-+	bool notify = false;
++	u32 pacing_allowed_segs = 0;
  
  	sent_pkts = 0;
  
-@@ -2268,8 +2269,12 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+@@ -2265,14 +2266,18 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 	max_segs = tcp_tso_segs(sk, mss_now);
+ 	tcp_mstamp_refresh(tp);
  
- 	if (!tcp_pacing_timer_check(sk)) {
- 		pacing_allowed_segs = 1;
--		if (ca_ops && ca_ops->pacing_timer_expired)
-+
-+		if (ca_ops && ca_ops->pacing_timer_expired) {
- 			ca_ops->pacing_timer_expired(sk);
-+			notify = true;
-+		}
-+
- 		if (ca_ops && ca_ops->get_segs_per_round)
- 			pacing_allowed_segs = ca_ops->get_segs_per_round(sk);
- 	}
-@@ -2348,6 +2353,9 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+-	if (!tcp_pacing_timer_check(sk) &&
+-	    ca_ops && ca_ops->pacing_timer_expired)
+-		ca_ops->pacing_timer_expired(sk);
++	if (!tcp_pacing_timer_check(sk)) {
++		pacing_allowed_segs = 1;
++		if (ca_ops && ca_ops->pacing_timer_expired)
++			ca_ops->pacing_timer_expired(sk);
++		if (ca_ops && ca_ops->get_segs_per_round)
++			pacing_allowed_segs = ca_ops->get_segs_per_round(sk);
++	}
+ 
+ 	while ((skb = tcp_send_head(sk))) {
+ 		unsigned int limit;
+ 
+-		if (tcp_pacing_check(sk))
++		if (sent_pkts >= pacing_allowed_segs)
  			break;
- 	}
  
-+	if (ca_ops && notify && ca_ops->segments_sent)
-+		ca_ops->segments_sent(sk, sent_pkts);
-+
- 	if (is_rwnd_limited)
- 		tcp_chrono_start(sk, TCP_CHRONO_RWND_LIMITED);
- 	else
+ 		tso_segs = tcp_init_tso_segs(skb, mss_now);
 -- 
 2.14.2
