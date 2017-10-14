@@ -1,30 +1,33 @@
-From: Parav Pandit <pandit.parav@gmail.com>
-Subject: Re: [pull request][for-next 00/12] Mellanox, mlx5 IPoIB Muli Pkey
- support 2017-10-11
-Date: Sat, 14 Oct 2017 17:51:22 -0500
-Message-ID: <CAG53R5U66Hu8jj11Nbs+CmDkXDTDeVjXj_okriKe+pWdJ4a_tQ@mail.gmail.com>
-References: <20171014184827.18491-1-saeedm@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] Add -target to clang switch while cross compiling.
+Date: Sun, 15 Oct 2017 01:10:25 +0200
+Message-ID: <59E29961.30703@iogearbox.net>
+References: <20171013011359.tyhynrjghe2krxec@ast-mbp> <1507922646-19260-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>, netdev@vger.kernel.org,
-        linux-rdma <linux-rdma@vger.kernel.org>,
-        Leon Romanovsky <leonro@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:52627 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750729AbdJNWvX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 18:51:23 -0400
-In-Reply-To: <20171014184827.18491-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>,
+        ast@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1507922646-19260-1-git-send-email-abhijit.ayarekar@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 14, 2017 at 1:48 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> Hi Dave and Doug,
+On 10/13/2017 09:24 PM, Abhijit Ayarekar wrote:
+> Update to llvm excludes assembly instructions.
+> llvm git revision is below
 >
-> This series includes updates for mlx5 IPoIB offloading driver from Alex
-> and Feras to add the support for Muli Pkey in the mlx5i ipoib offloading netdev,
+> commit 65fad7c26569 ("bpf: add inline-asm support")
+>
+> This change will be part of llvm  release 6.0
+>
+> __ASM_SYSREG_H define is not required for native compile.
+> -target switch includes appropriate target specific files
+> while cross compiling
+>
+> Tested on x86 and arm64.
+>
+> Signed-off-by: Abhijit Ayarekar <abhijit.ayarekar@caviumnetworks.com>
 
-In description and cover letter subject, here
-s/Muli/Multi
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
