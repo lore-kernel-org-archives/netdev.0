@@ -1,1269 +1,187 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [for-next 02/12] net/mlx5: PTP code migration to driver core section
-Date: Sat, 14 Oct 2017 11:48:17 -0700
-Message-ID: <20171014184827.18491-3-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [for-next 08/12] net/mlx5e: IPoIB, Use hash-table to map between QPN to child netdev
+Date: Sat, 14 Oct 2017 11:48:23 -0700
+Message-ID: <20171014184827.18491-9-saeedm@mellanox.com>
 References: <20171014184827.18491-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Feras Daoud <ferasda@mellanox.com>,
-        Eitan Rabin <rabin@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43182 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751348AbdJNSsm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 14:48:42 -0400
-In-Reply-To: <20171014184827.18491-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171014184827.18491-1-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Feras Daoud <ferasda@mellanox.com>
+From: Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-PTP code is moved to core section of mlx5 driver in order to share
-it between ethernet and infiniband. This movement involves the following
-changes:
-- Change mlx5e_ prefix to be mlx5_
-- Add clock structs to Core
-- Add clock object to mlx5_core_dev
-- Call Init/Uninit clock from core init/cleanup
-- Rename mlx5e_tstamp to be mlx5_clock
+This change is needed for PKEY support, since the RQs are shared
+between the child interface and the parent. The parent is responsible
+for NAPI and the precessing of RX completions. Using the dqpn in the
+completion descriptor we set the corresponding child IPoIB netdevice
+on the SKB.
+The mapping between the dqpn and the netdevice is done using a HT,
+each mlx5 IPoIB interface registers its mapping on creation.
 
-Signed-off-by: Feras Daoud <ferasda@mellanox.com>
-Signed-off-by: Eitan Rabin <rabin@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Alex Vesker <valex-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reviewed-by: Erez Shitrit <erezsh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  39 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   7 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  95 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  17 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   6 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   3 +-
- .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  |   3 +-
- .../net/ethernet/mellanox/mlx5/core/lib/clock.c    | 548 +++++++++------------
- .../net/ethernet/mellanox/mlx5/core/lib/clock.h    |  51 ++
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |   4 +
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   1 +
- include/linux/mlx5/driver.h                        |  24 +
- 12 files changed, 416 insertions(+), 382 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/lib/clock.h
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |  20 ++-
+ .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  |  16 +++
+ .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h  |  12 ++
+ .../ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c | 136 +++++++++++++++++++++
+ 5 files changed, 184 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index cc13d3dbd366..2059122eb089 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -267,28 +267,6 @@ struct mlx5e_dcbx {
- };
- #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index d9621b2152d3..100fe4ecad9b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -22,7 +22,7 @@ mlx5_core-$(CONFIG_MLX5_ESWITCH) += eswitch.o eswitch_offloads.o en_rep.o en_tc.
  
--#define MAX_PIN_NUM	8
--struct mlx5e_pps {
--	u8                         pin_caps[MAX_PIN_NUM];
--	struct work_struct         out_work;
--	u64                        start[MAX_PIN_NUM];
--	u8                         enabled;
--};
--
--struct mlx5e_tstamp {
--	rwlock_t                   lock;
--	struct cyclecounter        cycles;
--	struct timecounter         clock;
--	struct hwtstamp_config     hwtstamp_config;
--	u32                        nominal_c_mult;
--	unsigned long              overflow_period;
--	struct delayed_work        overflow_work;
--	struct mlx5_core_dev      *mdev;
--	struct ptp_clock          *ptp;
--	struct ptp_clock_info      ptp_info;
--	struct mlx5e_pps           pps_info;
--};
--
- enum {
- 	MLX5E_RQ_STATE_ENABLED,
- 	MLX5E_RQ_STATE_AM,
-@@ -375,9 +353,10 @@ struct mlx5e_txqsq {
- 	u8                         min_inline_mode;
- 	u16                        edge;
- 	struct device             *pdev;
--	struct mlx5e_tstamp       *tstamp;
- 	__be32                     mkey_be;
- 	unsigned long              state;
-+	struct hwtstamp_config    *tstamp;
-+	struct mlx5_clock         *clock;
+ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
  
- 	/* control path */
- 	struct mlx5_wq_ctrl        wq_ctrl;
-@@ -543,10 +522,11 @@ struct mlx5e_rq {
- 	struct mlx5e_channel  *channel;
- 	struct device         *pdev;
- 	struct net_device     *netdev;
--	struct mlx5e_tstamp   *tstamp;
- 	struct mlx5e_rq_stats  stats;
- 	struct mlx5e_cq        cq;
- 	struct mlx5e_page_cache page_cache;
-+	struct hwtstamp_config *tstamp;
-+	struct mlx5_clock      *clock;
+-mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o
++mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o ipoib/ipoib_vlan.o
  
- 	mlx5e_fp_handle_rx_cqe handle_rx_cqe;
- 	mlx5e_fp_post_rx_wqes  post_wqes;
-@@ -588,7 +568,7 @@ struct mlx5e_channel {
- 	/* control */
- 	struct mlx5e_priv         *priv;
- 	struct mlx5_core_dev      *mdev;
--	struct mlx5e_tstamp       *tstamp;
-+	struct hwtstamp_config    *tstamp;
- 	int                        ix;
- };
- 
-@@ -789,7 +769,7 @@ struct mlx5e_priv {
- 	struct mlx5_core_dev      *mdev;
- 	struct net_device         *netdev;
- 	struct mlx5e_stats         stats;
--	struct mlx5e_tstamp        tstamp;
-+	struct hwtstamp_config     tstamp;
- 	u16 q_counter;
- #ifdef CONFIG_MLX5_CORE_EN_DCB
- 	struct mlx5e_dcbx          dcbx;
-@@ -873,12 +853,6 @@ void mlx5e_ethtool_init_steering(struct mlx5e_priv *priv);
- void mlx5e_ethtool_cleanup_steering(struct mlx5e_priv *priv);
- void mlx5e_set_rx_mode_work(struct work_struct *work);
- 
--void mlx5e_fill_hwstamp(struct mlx5e_tstamp *clock, u64 timestamp,
--			struct skb_shared_hwtstamps *hwts);
--void mlx5e_timestamp_init(struct mlx5e_priv *priv);
--void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv);
--void mlx5e_pps_event_handler(struct mlx5e_priv *priv,
--			     struct ptp_clock_event *event);
- int mlx5e_hwstamp_set(struct mlx5e_priv *priv, struct ifreq *ifr);
- int mlx5e_hwstamp_get(struct mlx5e_priv *priv, struct ifreq *ifr);
- int mlx5e_modify_rx_cqe_compression_locked(struct mlx5e_priv *priv, bool val);
-@@ -889,6 +863,7 @@ int mlx5e_vlan_rx_kill_vid(struct net_device *dev, __always_unused __be16 proto,
- 			   u16 vid);
- void mlx5e_enable_vlan_filter(struct mlx5e_priv *priv);
- void mlx5e_disable_vlan_filter(struct mlx5e_priv *priv);
-+void mlx5e_timestamp_set(struct mlx5e_priv *priv);
- 
- struct mlx5e_redirect_rqt_param {
- 	bool is_rss;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index d12e9fc0d76b..81a112e40fe3 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -1417,14 +1417,15 @@ static int mlx5e_set_pauseparam(struct net_device *netdev,
- int mlx5e_ethtool_get_ts_info(struct mlx5e_priv *priv,
- 			      struct ethtool_ts_info *info)
- {
-+	struct mlx5_core_dev *mdev = priv->mdev;
- 	int ret;
- 
- 	ret = ethtool_op_get_ts_info(priv->netdev, info);
- 	if (ret)
- 		return ret;
- 
--	info->phc_index = priv->tstamp.ptp ?
--			  ptp_clock_index(priv->tstamp.ptp) : -1;
-+	info->phc_index = mdev->clock.ptp ?
-+			  ptp_clock_index(mdev->clock.ptp) : -1;
- 
- 	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
- 		return 0;
-@@ -1754,7 +1755,7 @@ static int set_pflag_rx_cqe_compress(struct net_device *netdev,
- 	if (!MLX5_CAP_GEN(mdev, cqe_compression))
- 		return -EOPNOTSUPP;
- 
--	if (enable && priv->tstamp.hwtstamp_config.rx_filter != HWTSTAMP_FILTER_NONE) {
-+	if (enable && priv->tstamp.rx_filter != HWTSTAMP_FILTER_NONE) {
- 		netdev_err(netdev, "Can't enable cqe compression while timestamping is enabled.\n");
- 		return -EINVAL;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index cc11bbbd0309..6df00dd9745a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -373,8 +373,6 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
- 			      enum mlx5_dev_event event, unsigned long param)
- {
- 	struct mlx5e_priv *priv = vpriv;
--	struct ptp_clock_event ptp_event;
--	struct mlx5_eqe *eqe = NULL;
- 
- 	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state))
- 		return;
-@@ -384,14 +382,6 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
- 	case MLX5_DEV_EVENT_PORT_DOWN:
- 		queue_work(priv->wq, &priv->update_carrier_work);
- 		break;
--	case MLX5_DEV_EVENT_PPS:
--		eqe = (struct mlx5_eqe *)param;
--		ptp_event.index = eqe->data.pps.pin;
--		ptp_event.timestamp =
--			timecounter_cyc2time(&priv->tstamp.clock,
--					     be64_to_cpu(eqe->data.pps.time_stamp));
--		mlx5e_pps_event_handler(vpriv, &ptp_event);
--		break;
- 	default:
- 		break;
- 	}
-@@ -585,6 +575,7 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 	rq->pdev    = c->pdev;
- 	rq->netdev  = c->netdev;
- 	rq->tstamp  = c->tstamp;
-+	rq->clock   = &mdev->clock;
- 	rq->channel = c;
- 	rq->ix      = c->ix;
- 	rq->mdev    = mdev;
-@@ -1123,6 +1114,7 @@ static int mlx5e_alloc_txqsq(struct mlx5e_channel *c,
- 
- 	sq->pdev      = c->pdev;
- 	sq->tstamp    = c->tstamp;
-+	sq->clock     = &mdev->clock;
- 	sq->mkey_be   = c->mkey_be;
- 	sq->channel   = c;
- 	sq->txq_ix    = txq_ix;
-@@ -2678,6 +2670,12 @@ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
- 		netif_carrier_on(netdev);
- }
- 
-+void mlx5e_timestamp_set(struct mlx5e_priv *priv)
-+{
-+	priv->tstamp.tx_type   = HWTSTAMP_TX_OFF;
-+	priv->tstamp.rx_filter = HWTSTAMP_FILTER_NONE;
-+}
-+
- int mlx5e_open_locked(struct net_device *netdev)
- {
- 	struct mlx5e_priv *priv = netdev_priv(netdev);
-@@ -2693,7 +2691,7 @@ int mlx5e_open_locked(struct net_device *netdev)
- 	mlx5e_activate_priv_channels(priv);
- 	if (priv->profile->update_carrier)
- 		priv->profile->update_carrier(priv);
--	mlx5e_timestamp_init(priv);
-+	mlx5e_timestamp_set(priv);
- 
- 	if (priv->profile->update_stats)
- 		queue_delayed_work(priv->wq, &priv->update_stats_work, 0);
-@@ -2731,7 +2729,6 @@ int mlx5e_close_locked(struct net_device *netdev)
- 
- 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
- 
--	mlx5e_timestamp_cleanup(priv);
- 	netif_carrier_off(priv->netdev);
- 	mlx5e_deactivate_priv_channels(priv);
- 	mlx5e_close_channels(&priv->channels);
-@@ -3403,6 +3400,80 @@ static int mlx5e_change_mtu(struct net_device *netdev, int new_mtu)
- 	return err;
- }
- 
-+int mlx5e_hwstamp_set(struct mlx5e_priv *priv, struct ifreq *ifr)
-+{
-+	struct hwtstamp_config config;
-+	int err;
-+
-+	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
-+		return -EFAULT;
-+
-+	/* TX HW timestamp */
-+	switch (config.tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+	case HWTSTAMP_TX_ON:
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	mutex_lock(&priv->state_lock);
-+	/* RX HW timestamp */
-+	switch (config.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		/* Reset CQE compression to Admin default */
-+		mlx5e_modify_rx_cqe_compression_locked(priv, priv->channels.params.rx_cqe_compress_def);
-+		break;
-+	case HWTSTAMP_FILTER_ALL:
-+	case HWTSTAMP_FILTER_SOME:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_NTP_ALL:
-+		/* Disable CQE compression */
-+		netdev_warn(priv->netdev, "Disabling cqe compression");
-+		err = mlx5e_modify_rx_cqe_compression_locked(priv, false);
-+		if (err) {
-+			netdev_err(priv->netdev, "Failed disabling cqe compression err=%d\n", err);
-+			mutex_unlock(&priv->state_lock);
-+			return err;
-+		}
-+		config.rx_filter = HWTSTAMP_FILTER_ALL;
-+		break;
-+	default:
-+		mutex_unlock(&priv->state_lock);
-+		return -ERANGE;
-+	}
-+
-+	memcpy(&priv->tstamp, &config, sizeof(config));
-+	mutex_unlock(&priv->state_lock);
-+
-+	return copy_to_user(ifr->ifr_data, &config,
-+			    sizeof(config)) ? -EFAULT : 0;
-+}
-+
-+int mlx5e_hwstamp_get(struct mlx5e_priv *priv, struct ifreq *ifr)
-+{
-+	struct hwtstamp_config *cfg = &priv->tstamp;
-+
-+	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
-+		return -EOPNOTSUPP;
-+
-+	return copy_to_user(ifr->ifr_data, cfg, sizeof(*cfg)) ? -EFAULT : 0;
-+}
-+
- static int mlx5e_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
+ mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o en_accel/ipsec_rxtx.o \
+ 		en_accel/ipsec_stats.o
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 15a1687483cc..7e3bfe62ef6e 100644
+index 7e3bfe62ef6e..2c3f2e9b6983 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -42,10 +42,11 @@
- #include "en_rep.h"
- #include "ipoib/ipoib.h"
- #include "en_accel/ipsec_rxtx.h"
-+#include "lib/clock.h"
- 
--static inline bool mlx5e_rx_hw_stamp(struct mlx5e_tstamp *tstamp)
-+static inline bool mlx5e_rx_hw_stamp(struct hwtstamp_config *config)
- {
--	return tstamp->hwtstamp_config.rx_filter == HWTSTAMP_FILTER_ALL;
-+	return config->rx_filter == HWTSTAMP_FILTER_ALL;
- }
- 
- static inline void mlx5e_read_cqe_slot(struct mlx5e_cq *cq, u32 cqcc,
-@@ -661,7 +662,6 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 				      struct sk_buff *skb)
- {
- 	struct net_device *netdev = rq->netdev;
--	struct mlx5e_tstamp *tstamp = rq->tstamp;
- 	int lro_num_seg;
- 
- 	lro_num_seg = be32_to_cpu(cqe->srqn) >> 24;
-@@ -676,8 +676,9 @@ static inline void mlx5e_build_rx_skb(struct mlx5_cqe64 *cqe,
- 		rq->stats.lro_bytes += cqe_bcnt;
- 	}
- 
--	if (unlikely(mlx5e_rx_hw_stamp(tstamp)))
--		mlx5e_fill_hwstamp(tstamp, get_cqe_ts(cqe), skb_hwtstamps(skb));
-+	if (unlikely(mlx5e_rx_hw_stamp(rq->tstamp)))
-+		skb_hwtstamps(skb)->hwtstamp =
-+				mlx5_timecounter_cyc2time(rq->clock, get_cqe_ts(cqe));
- 
- 	skb_record_rx_queue(skb, rq->ix);
- 
-@@ -1163,7 +1164,6 @@ static inline void mlx5i_complete_rx_cqe(struct mlx5e_rq *rq,
+@@ -1163,11 +1163,25 @@ static inline void mlx5i_complete_rx_cqe(struct mlx5e_rq *rq,
+ 					 u32 cqe_bcnt,
  					 struct sk_buff *skb)
  {
- 	struct net_device *netdev = rq->netdev;
--	struct mlx5e_tstamp *tstamp = rq->tstamp;
+-	struct net_device *netdev = rq->netdev;
++	struct net_device *netdev;
  	char *pseudo_header;
++	u32 qpn;
  	u8 *dgid;
  	u8 g;
-@@ -1188,8 +1188,9 @@ static inline void mlx5i_complete_rx_cqe(struct mlx5e_rq *rq,
- 	skb->ip_summed = CHECKSUM_COMPLETE;
- 	skb->csum = csum_unfold((__force __sum16)cqe->check_sum);
  
--	if (unlikely(mlx5e_rx_hw_stamp(tstamp)))
--		mlx5e_fill_hwstamp(tstamp, get_cqe_ts(cqe), skb_hwtstamps(skb));
-+	if (unlikely(mlx5e_rx_hw_stamp(rq->tstamp)))
-+		skb_hwtstamps(skb)->hwtstamp =
-+				mlx5_timecounter_cyc2time(rq->clock, get_cqe_ts(cqe));
++	qpn = be32_to_cpu(cqe->sop_drop_qpn) & 0xffffff;
++	netdev = mlx5i_pkey_get_netdev(rq->netdev, qpn);
++
++	/* No mapping present, cannot process SKB. This might happen if a child
++	 * interface is going down while having unprocessed CQEs on parent RQ
++	 */
++	if (unlikely(!netdev)) {
++		/* TODO: add drop counters support */
++		skb->dev = NULL;
++		pr_warn_once("Unable to map QPN %u to dev - dropping skb\n", qpn);
++		return;
++	}
++
+ 	g = (be32_to_cpu(cqe->flags_rqpn) >> 28) & 3;
+ 	dgid = skb->data + MLX5_IB_GRH_DGID_OFFSET;
+ 	if ((!g) || dgid[0] != 0xff)
+@@ -1230,6 +1244,10 @@ void mlx5i_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe)
+ 		goto wq_free_wqe;
  
- 	skb_record_rx_queue(skb, rq->ix);
+ 	mlx5i_complete_rx_cqe(rq, cqe, cqe_bcnt, skb);
++	if (unlikely(!skb->dev)) {
++		dev_kfree_skb_any(skb);
++		goto wq_free_wqe;
++	}
+ 	napi_gro_receive(rq->cq.napi, skb);
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 1d6925d4369a..a7c208a1ad83 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -35,6 +35,7 @@
- #include "en.h"
- #include "ipoib/ipoib.h"
- #include "en_accel/ipsec_rxtx.h"
-+#include "lib/clock.h"
- 
- #define MLX5E_SQ_NOPS_ROOM  MLX5_SEND_WQE_MAX_WQEBBS
- #define MLX5E_SQ_STOP_ROOM (MLX5_SEND_WQE_MAX_WQEBBS +\
-@@ -452,8 +453,9 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
- 				     SKBTX_HW_TSTAMP)) {
- 				struct skb_shared_hwtstamps hwts = {};
- 
--				mlx5e_fill_hwstamp(sq->tstamp,
--						   get_cqe_ts(cqe), &hwts);
-+				hwts.hwtstamp =
-+					mlx5_timecounter_cyc2time(sq->clock,
-+								  get_cqe_ts(cqe));
- 				skb_tstamp_tx(skb, &hwts);
- 			}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index fc606bfd1d6e..60771865c99c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -491,8 +491,7 @@ static irqreturn_t mlx5_eq_int(int irq, void *eq_ptr)
- 			break;
- 
- 		case MLX5_EVENT_TYPE_PPS_EVENT:
--			if (dev->event)
--				dev->event(dev, MLX5_DEV_EVENT_PPS, (unsigned long)eqe);
-+			mlx5_pps_event(dev, eqe);
- 			break;
- 
- 		case MLX5_EVENT_TYPE_FPGA_ERROR:
+ wq_free_wqe:
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-index 145e392ab849..14dfb577691b 100644
+index 679c1f9af642..c479fe54a6ca 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-@@ -404,7 +404,7 @@ static int mlx5i_open(struct net_device *netdev)
+@@ -382,6 +382,9 @@ static int mlx5i_dev_init(struct net_device *dev)
+ 	dev->dev_addr[2] = (ipriv->qp.qpn >>  8) & 0xff;
+ 	dev->dev_addr[3] = (ipriv->qp.qpn) & 0xff;
  
- 	mlx5e_refresh_tirs(priv, false);
- 	mlx5e_activate_priv_channels(priv);
--	mlx5e_timestamp_init(priv);
-+	mlx5e_timestamp_set(priv);
- 
- 	mutex_unlock(&priv->state_lock);
- 	return 0;
-@@ -429,7 +429,6 @@ static int mlx5i_close(struct net_device *netdev)
- 
- 	clear_bit(MLX5E_STATE_OPENED, &priv->state);
- 
--	mlx5e_timestamp_cleanup(priv);
- 	netif_carrier_off(priv->netdev);
- 	mlx5e_deactivate_priv_channels(priv);
- 	mlx5e_close_channels(&priv->channels);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
-index 84dd63e74041..fa8aed62b231 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.c
-@@ -34,250 +34,164 @@
- #include "en.h"
- 
- enum {
--	MLX5E_CYCLES_SHIFT	= 23
-+	MLX5_CYCLES_SHIFT	= 23
- };
- 
- enum {
--	MLX5E_PIN_MODE_IN		= 0x0,
--	MLX5E_PIN_MODE_OUT		= 0x1,
-+	MLX5_PIN_MODE_IN		= 0x0,
-+	MLX5_PIN_MODE_OUT		= 0x1,
- };
- 
- enum {
--	MLX5E_OUT_PATTERN_PULSE		= 0x0,
--	MLX5E_OUT_PATTERN_PERIODIC	= 0x1,
-+	MLX5_OUT_PATTERN_PULSE		= 0x0,
-+	MLX5_OUT_PATTERN_PERIODIC	= 0x1,
- };
- 
- enum {
--	MLX5E_EVENT_MODE_DISABLE	= 0x0,
--	MLX5E_EVENT_MODE_REPETETIVE	= 0x1,
--	MLX5E_EVENT_MODE_ONCE_TILL_ARM	= 0x2,
-+	MLX5_EVENT_MODE_DISABLE	= 0x0,
-+	MLX5_EVENT_MODE_REPETETIVE	= 0x1,
-+	MLX5_EVENT_MODE_ONCE_TILL_ARM	= 0x2,
- };
- 
- enum {
--	MLX5E_MTPPS_FS_ENABLE			= BIT(0x0),
--	MLX5E_MTPPS_FS_PATTERN			= BIT(0x2),
--	MLX5E_MTPPS_FS_PIN_MODE			= BIT(0x3),
--	MLX5E_MTPPS_FS_TIME_STAMP		= BIT(0x4),
--	MLX5E_MTPPS_FS_OUT_PULSE_DURATION	= BIT(0x5),
--	MLX5E_MTPPS_FS_ENH_OUT_PER_ADJ		= BIT(0x7),
-+	MLX5_MTPPS_FS_ENABLE			= BIT(0x0),
-+	MLX5_MTPPS_FS_PATTERN			= BIT(0x2),
-+	MLX5_MTPPS_FS_PIN_MODE			= BIT(0x3),
-+	MLX5_MTPPS_FS_TIME_STAMP		= BIT(0x4),
-+	MLX5_MTPPS_FS_OUT_PULSE_DURATION	= BIT(0x5),
-+	MLX5_MTPPS_FS_ENH_OUT_PER_ADJ		= BIT(0x7),
- };
- 
--void mlx5e_fill_hwstamp(struct mlx5e_tstamp *tstamp, u64 timestamp,
--			struct skb_shared_hwtstamps *hwts)
-+static u64 read_internal_timer(const struct cyclecounter *cc)
- {
--	u64 nsec;
-+	struct mlx5_clock *clock = container_of(cc, struct mlx5_clock, cycles);
-+	struct mlx5_core_dev *mdev = container_of(clock, struct mlx5_core_dev,
-+						  clock);
- 
--	read_lock(&tstamp->lock);
--	nsec = timecounter_cyc2time(&tstamp->clock, timestamp);
--	read_unlock(&tstamp->lock);
--
--	hwts->hwtstamp = ns_to_ktime(nsec);
--}
--
--static u64 mlx5e_read_internal_timer(const struct cyclecounter *cc)
--{
--	struct mlx5e_tstamp *tstamp = container_of(cc, struct mlx5e_tstamp,
--						   cycles);
--
--	return mlx5_read_internal_timer(tstamp->mdev) & cc->mask;
-+	return mlx5_read_internal_timer(mdev) & cc->mask;
- }
- 
--static void mlx5e_pps_out(struct work_struct *work)
-+static void mlx5_pps_out(struct work_struct *work)
- {
--	struct mlx5e_pps *pps_info = container_of(work, struct mlx5e_pps,
--						  out_work);
--	struct mlx5e_tstamp *tstamp = container_of(pps_info, struct mlx5e_tstamp,
--						   pps_info);
-+	struct mlx5_pps *pps_info = container_of(work, struct mlx5_pps,
-+						 out_work);
-+	struct mlx5_clock *clock = container_of(pps_info, struct mlx5_clock,
-+						pps_info);
-+	struct mlx5_core_dev *mdev = container_of(clock, struct mlx5_core_dev,
-+						  clock);
- 	u32 in[MLX5_ST_SZ_DW(mtpps_reg)] = {0};
- 	unsigned long flags;
- 	int i;
- 
--	for (i = 0; i < tstamp->ptp_info.n_pins; i++) {
-+	for (i = 0; i < clock->ptp_info.n_pins; i++) {
- 		u64 tstart;
- 
--		write_lock_irqsave(&tstamp->lock, flags);
--		tstart = tstamp->pps_info.start[i];
--		tstamp->pps_info.start[i] = 0;
--		write_unlock_irqrestore(&tstamp->lock, flags);
-+		write_lock_irqsave(&clock->lock, flags);
-+		tstart = clock->pps_info.start[i];
-+		clock->pps_info.start[i] = 0;
-+		write_unlock_irqrestore(&clock->lock, flags);
- 		if (!tstart)
- 			continue;
- 
- 		MLX5_SET(mtpps_reg, in, pin, i);
- 		MLX5_SET64(mtpps_reg, in, time_stamp, tstart);
--		MLX5_SET(mtpps_reg, in, field_select, MLX5E_MTPPS_FS_TIME_STAMP);
--		mlx5_set_mtpps(tstamp->mdev, in, sizeof(in));
-+		MLX5_SET(mtpps_reg, in, field_select, MLX5_MTPPS_FS_TIME_STAMP);
-+		mlx5_set_mtpps(mdev, in, sizeof(in));
- 	}
- }
- 
--static void mlx5e_timestamp_overflow(struct work_struct *work)
-+static void mlx5_timestamp_overflow(struct work_struct *work)
- {
- 	struct delayed_work *dwork = to_delayed_work(work);
--	struct mlx5e_tstamp *tstamp = container_of(dwork, struct mlx5e_tstamp,
--						   overflow_work);
--	struct mlx5e_priv *priv = container_of(tstamp, struct mlx5e_priv, tstamp);
-+	struct mlx5_clock *clock = container_of(dwork, struct mlx5_clock,
-+						overflow_work);
- 	unsigned long flags;
- 
--	write_lock_irqsave(&tstamp->lock, flags);
--	timecounter_read(&tstamp->clock);
--	write_unlock_irqrestore(&tstamp->lock, flags);
--	queue_delayed_work(priv->wq, &tstamp->overflow_work,
--			   msecs_to_jiffies(tstamp->overflow_period * 1000));
--}
--
--int mlx5e_hwstamp_set(struct mlx5e_priv *priv, struct ifreq *ifr)
--{
--	struct hwtstamp_config config;
--	int err;
--
--	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
--		return -EOPNOTSUPP;
--
--	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
--		return -EFAULT;
--
--	/* TX HW timestamp */
--	switch (config.tx_type) {
--	case HWTSTAMP_TX_OFF:
--	case HWTSTAMP_TX_ON:
--		break;
--	default:
--		return -ERANGE;
--	}
--
--	mutex_lock(&priv->state_lock);
--	/* RX HW timestamp */
--	switch (config.rx_filter) {
--	case HWTSTAMP_FILTER_NONE:
--		/* Reset CQE compression to Admin default */
--		mlx5e_modify_rx_cqe_compression_locked(priv, priv->channels.params.rx_cqe_compress_def);
--		break;
--	case HWTSTAMP_FILTER_ALL:
--	case HWTSTAMP_FILTER_SOME:
--	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
--	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
--	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
--	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
--	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
--	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
--	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
--	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
--	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
--	case HWTSTAMP_FILTER_PTP_V2_EVENT:
--	case HWTSTAMP_FILTER_PTP_V2_SYNC:
--	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
--	case HWTSTAMP_FILTER_NTP_ALL:
--		/* Disable CQE compression */
--		netdev_warn(priv->netdev, "Disabling cqe compression");
--		err = mlx5e_modify_rx_cqe_compression_locked(priv, false);
--		if (err) {
--			netdev_err(priv->netdev, "Failed disabling cqe compression err=%d\n", err);
--			mutex_unlock(&priv->state_lock);
--			return err;
--		}
--		config.rx_filter = HWTSTAMP_FILTER_ALL;
--		break;
--	default:
--		mutex_unlock(&priv->state_lock);
--		return -ERANGE;
--	}
--
--	memcpy(&priv->tstamp.hwtstamp_config, &config, sizeof(config));
--	mutex_unlock(&priv->state_lock);
--
--	return copy_to_user(ifr->ifr_data, &config,
--			    sizeof(config)) ? -EFAULT : 0;
--}
--
--int mlx5e_hwstamp_get(struct mlx5e_priv *priv, struct ifreq *ifr)
--{
--	struct hwtstamp_config *cfg = &priv->tstamp.hwtstamp_config;
--
--	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
--		return -EOPNOTSUPP;
--
--	return copy_to_user(ifr->ifr_data, cfg, sizeof(*cfg)) ? -EFAULT : 0;
-+	write_lock_irqsave(&clock->lock, flags);
-+	timecounter_read(&clock->tc);
-+	write_unlock_irqrestore(&clock->lock, flags);
-+	schedule_delayed_work(&clock->overflow_work, clock->overflow_period);
- }
- 
--static int mlx5e_ptp_settime(struct ptp_clock_info *ptp,
--			     const struct timespec64 *ts)
-+static int mlx5_ptp_settime(struct ptp_clock_info *ptp,
-+			    const struct timespec64 *ts)
- {
--	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
--						   ptp_info);
-+	struct mlx5_clock *clock = container_of(ptp, struct mlx5_clock,
-+						 ptp_info);
- 	u64 ns = timespec64_to_ns(ts);
- 	unsigned long flags;
- 
--	write_lock_irqsave(&tstamp->lock, flags);
--	timecounter_init(&tstamp->clock, &tstamp->cycles, ns);
--	write_unlock_irqrestore(&tstamp->lock, flags);
-+	write_lock_irqsave(&clock->lock, flags);
-+	timecounter_init(&clock->tc, &clock->cycles, ns);
-+	write_unlock_irqrestore(&clock->lock, flags);
- 
- 	return 0;
- }
- 
--static int mlx5e_ptp_gettime(struct ptp_clock_info *ptp,
--			     struct timespec64 *ts)
-+static int mlx5_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
- {
--	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
--						   ptp_info);
-+	struct mlx5_clock *clock = container_of(ptp, struct mlx5_clock,
-+						ptp_info);
- 	u64 ns;
- 	unsigned long flags;
- 
--	write_lock_irqsave(&tstamp->lock, flags);
--	ns = timecounter_read(&tstamp->clock);
--	write_unlock_irqrestore(&tstamp->lock, flags);
-+	write_lock_irqsave(&clock->lock, flags);
-+	ns = timecounter_read(&clock->tc);
-+	write_unlock_irqrestore(&clock->lock, flags);
- 
- 	*ts = ns_to_timespec64(ns);
- 
- 	return 0;
- }
- 
--static int mlx5e_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-+static int mlx5_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
- {
--	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
--						   ptp_info);
-+	struct mlx5_clock *clock = container_of(ptp, struct mlx5_clock,
-+						ptp_info);
- 	unsigned long flags;
- 
--	write_lock_irqsave(&tstamp->lock, flags);
--	timecounter_adjtime(&tstamp->clock, delta);
--	write_unlock_irqrestore(&tstamp->lock, flags);
-+	write_lock_irqsave(&clock->lock, flags);
-+	timecounter_adjtime(&clock->tc, delta);
-+	write_unlock_irqrestore(&clock->lock, flags);
- 
- 	return 0;
- }
- 
--static int mlx5e_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
-+static int mlx5_ptp_adjfreq(struct ptp_clock_info *ptp, s32 delta)
- {
- 	u64 adj;
- 	u32 diff;
- 	unsigned long flags;
- 	int neg_adj = 0;
--	struct mlx5e_tstamp *tstamp = container_of(ptp, struct mlx5e_tstamp,
--						  ptp_info);
-+	struct mlx5_clock *clock = container_of(ptp, struct mlx5_clock,
-+						ptp_info);
- 
- 	if (delta < 0) {
- 		neg_adj = 1;
- 		delta = -delta;
- 	}
- 
--	adj = tstamp->nominal_c_mult;
-+	adj = clock->nominal_c_mult;
- 	adj *= delta;
- 	diff = div_u64(adj, 1000000000ULL);
- 
--	write_lock_irqsave(&tstamp->lock, flags);
--	timecounter_read(&tstamp->clock);
--	tstamp->cycles.mult = neg_adj ? tstamp->nominal_c_mult - diff :
--					tstamp->nominal_c_mult + diff;
--	write_unlock_irqrestore(&tstamp->lock, flags);
-+	write_lock_irqsave(&clock->lock, flags);
-+	timecounter_read(&clock->tc);
-+	clock->cycles.mult = neg_adj ? clock->nominal_c_mult - diff :
-+				       clock->nominal_c_mult + diff;
-+	write_unlock_irqrestore(&clock->lock, flags);
- 
- 	return 0;
- }
- 
--static int mlx5e_extts_configure(struct ptp_clock_info *ptp,
--				 struct ptp_clock_request *rq,
--				 int on)
-+static int mlx5_extts_configure(struct ptp_clock_info *ptp,
-+				struct ptp_clock_request *rq,
-+				int on)
- {
--	struct mlx5e_tstamp *tstamp =
--		container_of(ptp, struct mlx5e_tstamp, ptp_info);
--	struct mlx5e_priv *priv =
--		container_of(tstamp, struct mlx5e_priv, tstamp);
-+	struct mlx5_clock *clock =
-+			container_of(ptp, struct mlx5_clock, ptp_info);
-+	struct mlx5_core_dev *mdev =
-+			container_of(clock, struct mlx5_core_dev, clock);
- 	u32 in[MLX5_ST_SZ_DW(mtpps_reg)] = {0};
- 	u32 field_select = 0;
- 	u8 pin_mode = 0;
-@@ -285,24 +199,24 @@ static int mlx5e_extts_configure(struct ptp_clock_info *ptp,
- 	int pin = -1;
- 	int err = 0;
- 
--	if (!MLX5_PPS_CAP(priv->mdev))
-+	if (!MLX5_PPS_CAP(mdev))
- 		return -EOPNOTSUPP;
- 
--	if (rq->extts.index >= tstamp->ptp_info.n_pins)
-+	if (rq->extts.index >= clock->ptp_info.n_pins)
- 		return -EINVAL;
- 
- 	if (on) {
--		pin = ptp_find_pin(tstamp->ptp, PTP_PF_EXTTS, rq->extts.index);
-+		pin = ptp_find_pin(clock->ptp, PTP_PF_EXTTS, rq->extts.index);
- 		if (pin < 0)
- 			return -EBUSY;
--		pin_mode = MLX5E_PIN_MODE_IN;
-+		pin_mode = MLX5_PIN_MODE_IN;
- 		pattern = !!(rq->extts.flags & PTP_FALLING_EDGE);
--		field_select = MLX5E_MTPPS_FS_PIN_MODE |
--			       MLX5E_MTPPS_FS_PATTERN |
--			       MLX5E_MTPPS_FS_ENABLE;
-+		field_select = MLX5_MTPPS_FS_PIN_MODE |
-+			       MLX5_MTPPS_FS_PATTERN |
-+			       MLX5_MTPPS_FS_ENABLE;
- 	} else {
- 		pin = rq->extts.index;
--		field_select = MLX5E_MTPPS_FS_ENABLE;
-+		field_select = MLX5_MTPPS_FS_ENABLE;
- 	}
- 
- 	MLX5_SET(mtpps_reg, in, pin, pin);
-@@ -311,22 +225,22 @@ static int mlx5e_extts_configure(struct ptp_clock_info *ptp,
- 	MLX5_SET(mtpps_reg, in, enable, on);
- 	MLX5_SET(mtpps_reg, in, field_select, field_select);
- 
--	err = mlx5_set_mtpps(priv->mdev, in, sizeof(in));
-+	err = mlx5_set_mtpps(mdev, in, sizeof(in));
- 	if (err)
- 		return err;
- 
--	return mlx5_set_mtppse(priv->mdev, pin, 0,
--			       MLX5E_EVENT_MODE_REPETETIVE & on);
-+	return mlx5_set_mtppse(mdev, pin, 0,
-+			       MLX5_EVENT_MODE_REPETETIVE & on);
- }
- 
--static int mlx5e_perout_configure(struct ptp_clock_info *ptp,
--				  struct ptp_clock_request *rq,
--				  int on)
-+static int mlx5_perout_configure(struct ptp_clock_info *ptp,
-+				 struct ptp_clock_request *rq,
-+				 int on)
- {
--	struct mlx5e_tstamp *tstamp =
--		container_of(ptp, struct mlx5e_tstamp, ptp_info);
--	struct mlx5e_priv *priv =
--		container_of(tstamp, struct mlx5e_priv, tstamp);
-+	struct mlx5_clock *clock =
-+			container_of(ptp, struct mlx5_clock, ptp_info);
-+	struct mlx5_core_dev *mdev =
-+			container_of(clock, struct mlx5_core_dev, clock);
- 	u32 in[MLX5_ST_SZ_DW(mtpps_reg)] = {0};
- 	u64 nsec_now, nsec_delta, time_stamp = 0;
- 	u64 cycles_now, cycles_delta;
-@@ -339,20 +253,20 @@ static int mlx5e_perout_configure(struct ptp_clock_info *ptp,
- 	int err = 0;
- 	s64 ns;
- 
--	if (!MLX5_PPS_CAP(priv->mdev))
-+	if (!MLX5_PPS_CAP(mdev))
- 		return -EOPNOTSUPP;
- 
--	if (rq->perout.index >= tstamp->ptp_info.n_pins)
-+	if (rq->perout.index >= clock->ptp_info.n_pins)
- 		return -EINVAL;
- 
- 	if (on) {
--		pin = ptp_find_pin(tstamp->ptp, PTP_PF_PEROUT,
-+		pin = ptp_find_pin(clock->ptp, PTP_PF_PEROUT,
- 				   rq->perout.index);
- 		if (pin < 0)
- 			return -EBUSY;
- 
--		pin_mode = MLX5E_PIN_MODE_OUT;
--		pattern = MLX5E_OUT_PATTERN_PERIODIC;
-+		pin_mode = MLX5_PIN_MODE_OUT;
-+		pattern = MLX5_OUT_PATTERN_PERIODIC;
- 		ts.tv_sec = rq->perout.period.sec;
- 		ts.tv_nsec = rq->perout.period.nsec;
- 		ns = timespec64_to_ns(&ts);
-@@ -363,21 +277,21 @@ static int mlx5e_perout_configure(struct ptp_clock_info *ptp,
- 		ts.tv_sec = rq->perout.start.sec;
- 		ts.tv_nsec = rq->perout.start.nsec;
- 		ns = timespec64_to_ns(&ts);
--		cycles_now = mlx5_read_internal_timer(tstamp->mdev);
--		write_lock_irqsave(&tstamp->lock, flags);
--		nsec_now = timecounter_cyc2time(&tstamp->clock, cycles_now);
-+		cycles_now = mlx5_read_internal_timer(mdev);
-+		write_lock_irqsave(&clock->lock, flags);
-+		nsec_now = timecounter_cyc2time(&clock->tc, cycles_now);
- 		nsec_delta = ns - nsec_now;
--		cycles_delta = div64_u64(nsec_delta << tstamp->cycles.shift,
--					 tstamp->cycles.mult);
--		write_unlock_irqrestore(&tstamp->lock, flags);
-+		cycles_delta = div64_u64(nsec_delta << clock->cycles.shift,
-+					 clock->cycles.mult);
-+		write_unlock_irqrestore(&clock->lock, flags);
- 		time_stamp = cycles_now + cycles_delta;
--		field_select = MLX5E_MTPPS_FS_PIN_MODE |
--			       MLX5E_MTPPS_FS_PATTERN |
--			       MLX5E_MTPPS_FS_ENABLE |
--			       MLX5E_MTPPS_FS_TIME_STAMP;
-+		field_select = MLX5_MTPPS_FS_PIN_MODE |
-+			       MLX5_MTPPS_FS_PATTERN |
-+			       MLX5_MTPPS_FS_ENABLE |
-+			       MLX5_MTPPS_FS_TIME_STAMP;
- 	} else {
- 		pin = rq->perout.index;
--		field_select = MLX5E_MTPPS_FS_ENABLE;
-+		field_select = MLX5_MTPPS_FS_ENABLE;
- 	}
- 
- 	MLX5_SET(mtpps_reg, in, pin, pin);
-@@ -387,233 +301,225 @@ static int mlx5e_perout_configure(struct ptp_clock_info *ptp,
- 	MLX5_SET64(mtpps_reg, in, time_stamp, time_stamp);
- 	MLX5_SET(mtpps_reg, in, field_select, field_select);
- 
--	err = mlx5_set_mtpps(priv->mdev, in, sizeof(in));
-+	err = mlx5_set_mtpps(mdev, in, sizeof(in));
- 	if (err)
- 		return err;
- 
--	return mlx5_set_mtppse(priv->mdev, pin, 0,
--			       MLX5E_EVENT_MODE_REPETETIVE & on);
-+	return mlx5_set_mtppse(mdev, pin, 0,
-+			       MLX5_EVENT_MODE_REPETETIVE & on);
- }
- 
--static int mlx5e_pps_configure(struct ptp_clock_info *ptp,
--			       struct ptp_clock_request *rq,
--			       int on)
-+static int mlx5_pps_configure(struct ptp_clock_info *ptp,
-+			      struct ptp_clock_request *rq,
-+			      int on)
- {
--	struct mlx5e_tstamp *tstamp =
--		container_of(ptp, struct mlx5e_tstamp, ptp_info);
-+	struct mlx5_clock *clock =
-+			container_of(ptp, struct mlx5_clock, ptp_info);
- 
--	tstamp->pps_info.enabled = !!on;
-+	clock->pps_info.enabled = !!on;
- 	return 0;
- }
- 
--static int mlx5e_ptp_enable(struct ptp_clock_info *ptp,
--			    struct ptp_clock_request *rq,
--			    int on)
-+static int mlx5_ptp_enable(struct ptp_clock_info *ptp,
-+			   struct ptp_clock_request *rq,
-+			   int on)
- {
- 	switch (rq->type) {
- 	case PTP_CLK_REQ_EXTTS:
--		return mlx5e_extts_configure(ptp, rq, on);
-+		return mlx5_extts_configure(ptp, rq, on);
- 	case PTP_CLK_REQ_PEROUT:
--		return mlx5e_perout_configure(ptp, rq, on);
-+		return mlx5_perout_configure(ptp, rq, on);
- 	case PTP_CLK_REQ_PPS:
--		return mlx5e_pps_configure(ptp, rq, on);
-+		return mlx5_pps_configure(ptp, rq, on);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
- 	return 0;
- }
- 
--static int mlx5e_ptp_verify(struct ptp_clock_info *ptp, unsigned int pin,
--			    enum ptp_pin_function func, unsigned int chan)
-+static int mlx5_ptp_verify(struct ptp_clock_info *ptp, unsigned int pin,
-+			   enum ptp_pin_function func, unsigned int chan)
- {
- 	return (func == PTP_PF_PHYSYNC) ? -EOPNOTSUPP : 0;
- }
- 
--static const struct ptp_clock_info mlx5e_ptp_clock_info = {
-+static const struct ptp_clock_info mlx5_ptp_clock_info = {
- 	.owner		= THIS_MODULE,
-+	.name		= "mlx5_p2p",
- 	.max_adj	= 100000000,
- 	.n_alarm	= 0,
- 	.n_ext_ts	= 0,
- 	.n_per_out	= 0,
- 	.n_pins		= 0,
- 	.pps		= 0,
--	.adjfreq	= mlx5e_ptp_adjfreq,
--	.adjtime	= mlx5e_ptp_adjtime,
--	.gettime64	= mlx5e_ptp_gettime,
--	.settime64	= mlx5e_ptp_settime,
-+	.adjfreq	= mlx5_ptp_adjfreq,
-+	.adjtime	= mlx5_ptp_adjtime,
-+	.gettime64	= mlx5_ptp_gettime,
-+	.settime64	= mlx5_ptp_settime,
- 	.enable		= NULL,
- 	.verify		= NULL,
- };
- 
--static void mlx5e_timestamp_init_config(struct mlx5e_tstamp *tstamp)
--{
--	tstamp->hwtstamp_config.tx_type = HWTSTAMP_TX_OFF;
--	tstamp->hwtstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
--}
--
--static int mlx5e_init_pin_config(struct mlx5e_tstamp *tstamp)
-+static int mlx5_init_pin_config(struct mlx5_clock *clock)
- {
- 	int i;
- 
--	tstamp->ptp_info.pin_config =
--		kzalloc(sizeof(*tstamp->ptp_info.pin_config) *
--			       tstamp->ptp_info.n_pins, GFP_KERNEL);
--	if (!tstamp->ptp_info.pin_config)
-+	clock->ptp_info.pin_config =
-+			kzalloc(sizeof(*clock->ptp_info.pin_config) *
-+				clock->ptp_info.n_pins, GFP_KERNEL);
-+	if (!clock->ptp_info.pin_config)
- 		return -ENOMEM;
--	tstamp->ptp_info.enable = mlx5e_ptp_enable;
--	tstamp->ptp_info.verify = mlx5e_ptp_verify;
--	tstamp->ptp_info.pps = 1;
-+	clock->ptp_info.enable = mlx5_ptp_enable;
-+	clock->ptp_info.verify = mlx5_ptp_verify;
-+	clock->ptp_info.pps = 1;
- 
--	for (i = 0; i < tstamp->ptp_info.n_pins; i++) {
--		snprintf(tstamp->ptp_info.pin_config[i].name,
--			 sizeof(tstamp->ptp_info.pin_config[i].name),
-+	for (i = 0; i < clock->ptp_info.n_pins; i++) {
-+		snprintf(clock->ptp_info.pin_config[i].name,
-+			 sizeof(clock->ptp_info.pin_config[i].name),
- 			 "mlx5_pps%d", i);
--		tstamp->ptp_info.pin_config[i].index = i;
--		tstamp->ptp_info.pin_config[i].func = PTP_PF_NONE;
--		tstamp->ptp_info.pin_config[i].chan = i;
-+		clock->ptp_info.pin_config[i].index = i;
-+		clock->ptp_info.pin_config[i].func = PTP_PF_NONE;
-+		clock->ptp_info.pin_config[i].chan = i;
- 	}
- 
- 	return 0;
- }
- 
--static void mlx5e_get_pps_caps(struct mlx5e_priv *priv,
--			       struct mlx5e_tstamp *tstamp)
-+static void mlx5_get_pps_caps(struct mlx5_core_dev *mdev)
- {
-+	struct mlx5_clock *clock = &mdev->clock;
- 	u32 out[MLX5_ST_SZ_DW(mtpps_reg)] = {0};
- 
--	mlx5_query_mtpps(priv->mdev, out, sizeof(out));
--
--	tstamp->ptp_info.n_pins = MLX5_GET(mtpps_reg, out,
--					   cap_number_of_pps_pins);
--	tstamp->ptp_info.n_ext_ts = MLX5_GET(mtpps_reg, out,
--					     cap_max_num_of_pps_in_pins);
--	tstamp->ptp_info.n_per_out = MLX5_GET(mtpps_reg, out,
--					      cap_max_num_of_pps_out_pins);
--
--	tstamp->pps_info.pin_caps[0] = MLX5_GET(mtpps_reg, out, cap_pin_0_mode);
--	tstamp->pps_info.pin_caps[1] = MLX5_GET(mtpps_reg, out, cap_pin_1_mode);
--	tstamp->pps_info.pin_caps[2] = MLX5_GET(mtpps_reg, out, cap_pin_2_mode);
--	tstamp->pps_info.pin_caps[3] = MLX5_GET(mtpps_reg, out, cap_pin_3_mode);
--	tstamp->pps_info.pin_caps[4] = MLX5_GET(mtpps_reg, out, cap_pin_4_mode);
--	tstamp->pps_info.pin_caps[5] = MLX5_GET(mtpps_reg, out, cap_pin_5_mode);
--	tstamp->pps_info.pin_caps[6] = MLX5_GET(mtpps_reg, out, cap_pin_6_mode);
--	tstamp->pps_info.pin_caps[7] = MLX5_GET(mtpps_reg, out, cap_pin_7_mode);
-+	mlx5_query_mtpps(mdev, out, sizeof(out));
++	/* Add QPN to net-device mapping to HT */
++	mlx5i_pkey_add_qpn(dev ,ipriv->qp.qpn);
 +
-+	clock->ptp_info.n_pins = MLX5_GET(mtpps_reg, out,
-+					  cap_number_of_pps_pins);
-+	clock->ptp_info.n_ext_ts = MLX5_GET(mtpps_reg, out,
-+					    cap_max_num_of_pps_in_pins);
-+	clock->ptp_info.n_per_out = MLX5_GET(mtpps_reg, out,
-+					     cap_max_num_of_pps_out_pins);
-+
-+	clock->pps_info.pin_caps[0] = MLX5_GET(mtpps_reg, out, cap_pin_0_mode);
-+	clock->pps_info.pin_caps[1] = MLX5_GET(mtpps_reg, out, cap_pin_1_mode);
-+	clock->pps_info.pin_caps[2] = MLX5_GET(mtpps_reg, out, cap_pin_2_mode);
-+	clock->pps_info.pin_caps[3] = MLX5_GET(mtpps_reg, out, cap_pin_3_mode);
-+	clock->pps_info.pin_caps[4] = MLX5_GET(mtpps_reg, out, cap_pin_4_mode);
-+	clock->pps_info.pin_caps[5] = MLX5_GET(mtpps_reg, out, cap_pin_5_mode);
-+	clock->pps_info.pin_caps[6] = MLX5_GET(mtpps_reg, out, cap_pin_6_mode);
-+	clock->pps_info.pin_caps[7] = MLX5_GET(mtpps_reg, out, cap_pin_7_mode);
+ 	return 0;
  }
  
--void mlx5e_pps_event_handler(struct mlx5e_priv *priv,
--			     struct ptp_clock_event *event)
-+void mlx5_pps_event(struct mlx5_core_dev *mdev,
-+		    struct mlx5_eqe *eqe)
+@@ -402,8 +405,12 @@ static int mlx5i_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ static void mlx5i_dev_cleanup(struct net_device *dev)
  {
--	struct net_device *netdev = priv->netdev;
--	struct mlx5e_tstamp *tstamp = &priv->tstamp;
-+	struct mlx5_clock *clock = &mdev->clock;
-+	struct ptp_clock_event ptp_event;
- 	struct timespec64 ts;
- 	u64 nsec_now, nsec_delta;
- 	u64 cycles_now, cycles_delta;
--	int pin = event->index;
-+	int pin = eqe->data.pps.pin;
- 	s64 ns;
- 	unsigned long flags;
+ 	struct mlx5e_priv    *priv   = mlx5i_epriv(dev);
++	struct mlx5i_priv    *ipriv = priv->ppriv;
  
--	switch (tstamp->ptp_info.pin_config[pin].func) {
-+	switch (clock->ptp_info.pin_config[pin].func) {
- 	case PTP_PF_EXTTS:
--		if (tstamp->pps_info.enabled) {
--			event->type = PTP_CLOCK_PPSUSR;
--			event->pps_times.ts_real = ns_to_timespec64(event->timestamp);
-+		if (clock->pps_info.enabled) {
-+			ptp_event.type = PTP_CLOCK_PPSUSR;
-+			ptp_event.pps_times.ts_real = ns_to_timespec64(eqe->data.pps.time_stamp);
- 		} else {
--			event->type = PTP_CLOCK_EXTTS;
-+			ptp_event.type = PTP_CLOCK_EXTTS;
- 		}
--		ptp_clock_event(tstamp->ptp, event);
-+		ptp_clock_event(clock->ptp, &ptp_event);
- 		break;
- 	case PTP_PF_PEROUT:
--		mlx5e_ptp_gettime(&tstamp->ptp_info, &ts);
--		cycles_now = mlx5_read_internal_timer(tstamp->mdev);
-+		mlx5_ptp_gettime(&clock->ptp_info, &ts);
-+		cycles_now = mlx5_read_internal_timer(mdev);
- 		ts.tv_sec += 1;
- 		ts.tv_nsec = 0;
- 		ns = timespec64_to_ns(&ts);
--		write_lock_irqsave(&tstamp->lock, flags);
--		nsec_now = timecounter_cyc2time(&tstamp->clock, cycles_now);
-+		write_lock_irqsave(&clock->lock, flags);
-+		nsec_now = timecounter_cyc2time(&clock->tc, cycles_now);
- 		nsec_delta = ns - nsec_now;
--		cycles_delta = div64_u64(nsec_delta << tstamp->cycles.shift,
--					 tstamp->cycles.mult);
--		tstamp->pps_info.start[pin] = cycles_now + cycles_delta;
--		queue_work(priv->wq, &tstamp->pps_info.out_work);
--		write_unlock_irqrestore(&tstamp->lock, flags);
-+		cycles_delta = div64_u64(nsec_delta << clock->cycles.shift,
-+					 clock->cycles.mult);
-+		clock->pps_info.start[pin] = cycles_now + cycles_delta;
-+		schedule_work(&clock->pps_info.out_work);
-+		write_unlock_irqrestore(&clock->lock, flags);
- 		break;
- 	default:
--		netdev_err(netdev, "%s: Unhandled event\n", __func__);
-+		mlx5_core_err(mdev, " Unhandled event\n");
- 	}
- }
- 
--void mlx5e_timestamp_init(struct mlx5e_priv *priv)
-+void mlx5_init_clock(struct mlx5_core_dev *mdev)
- {
--	struct mlx5e_tstamp *tstamp = &priv->tstamp;
-+	struct mlx5_clock *clock = &mdev->clock;
- 	u64 ns;
- 	u64 frac = 0;
- 	u32 dev_freq;
- 
--	mlx5e_timestamp_init_config(tstamp);
--	dev_freq = MLX5_CAP_GEN(priv->mdev, device_frequency_khz);
-+	dev_freq = MLX5_CAP_GEN(mdev, device_frequency_khz);
- 	if (!dev_freq) {
--		mlx5_core_warn(priv->mdev, "invalid device_frequency_khz, aborting HW clock init\n");
-+		mlx5_core_warn(mdev, "invalid device_frequency_khz, aborting HW clock init\n");
- 		return;
- 	}
--	rwlock_init(&tstamp->lock);
--	tstamp->cycles.read = mlx5e_read_internal_timer;
--	tstamp->cycles.shift = MLX5E_CYCLES_SHIFT;
--	tstamp->cycles.mult = clocksource_khz2mult(dev_freq,
--						   tstamp->cycles.shift);
--	tstamp->nominal_c_mult = tstamp->cycles.mult;
--	tstamp->cycles.mask = CLOCKSOURCE_MASK(41);
--	tstamp->mdev = priv->mdev;
--
--	timecounter_init(&tstamp->clock, &tstamp->cycles,
-+	rwlock_init(&clock->lock);
-+	clock->cycles.read = read_internal_timer;
-+	clock->cycles.shift = MLX5_CYCLES_SHIFT;
-+	clock->cycles.mult = clocksource_khz2mult(dev_freq,
-+						  clock->cycles.shift);
-+	clock->nominal_c_mult = clock->cycles.mult;
-+	clock->cycles.mask = CLOCKSOURCE_MASK(41);
+ 	mlx5i_uninit_underlay_qp(priv);
 +
-+	timecounter_init(&clock->tc, &clock->cycles,
- 			 ktime_to_ns(ktime_get_real()));
++	/* Delete QPN to net-device mapping from HT */
++	mlx5i_pkey_del_qpn(dev, ipriv->qp.qpn);
+ }
  
- 	/* Calculate period in seconds to call the overflow watchdog - to make
- 	 * sure counter is checked at least once every wrap around.
- 	 */
--	ns = cyclecounter_cyc2ns(&tstamp->cycles, tstamp->cycles.mask,
-+	ns = cyclecounter_cyc2ns(&clock->cycles, clock->cycles.mask,
- 				 frac, &frac);
- 	do_div(ns, NSEC_PER_SEC / 2 / HZ);
--	tstamp->overflow_period = ns;
-+	clock->overflow_period = ns;
+ static int mlx5i_open(struct net_device *netdev)
+@@ -590,6 +597,12 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
+ 	if (!epriv->wq)
+ 		goto err_free_netdev;
  
--	INIT_WORK(&tstamp->pps_info.out_work, mlx5e_pps_out);
--	INIT_DELAYED_WORK(&tstamp->overflow_work, mlx5e_timestamp_overflow);
--	if (tstamp->overflow_period)
--		queue_delayed_work(priv->wq, &tstamp->overflow_work, 0);
-+	INIT_WORK(&clock->pps_info.out_work, mlx5_pps_out);
-+	INIT_DELAYED_WORK(&clock->overflow_work, mlx5_timestamp_overflow);
-+	if (clock->overflow_period)
-+		schedule_delayed_work(&clock->overflow_work, 0);
- 	else
--		mlx5_core_warn(priv->mdev, "invalid overflow period, overflow_work is not scheduled\n");
-+		mlx5_core_warn(mdev, "invalid overflow period, overflow_work is not scheduled\n");
- 
- 	/* Configure the PHC */
--	tstamp->ptp_info = mlx5e_ptp_clock_info;
--	snprintf(tstamp->ptp_info.name, 16, "mlx5 ptp");
-+	clock->ptp_info = mlx5_ptp_clock_info;
- 
- 	/* Initialize 1PPS data structures */
--	if (MLX5_PPS_CAP(priv->mdev))
--		mlx5e_get_pps_caps(priv, tstamp);
--	if (tstamp->ptp_info.n_pins)
--		mlx5e_init_pin_config(tstamp);
--
--	tstamp->ptp = ptp_clock_register(&tstamp->ptp_info,
--					 &priv->mdev->pdev->dev);
--	if (IS_ERR(tstamp->ptp)) {
--		mlx5_core_warn(priv->mdev, "ptp_clock_register failed %ld\n",
--			       PTR_ERR(tstamp->ptp));
--		tstamp->ptp = NULL;
-+	if (MLX5_PPS_CAP(mdev))
-+		mlx5_get_pps_caps(mdev);
-+	if (clock->ptp_info.n_pins)
-+		mlx5_init_pin_config(clock);
++	err = mlx5i_pkey_qpn_ht_init(netdev);
++	if (err) {
++		mlx5_core_warn(mdev, "allocate qpn_to_netdev ht failed\n");
++		goto destroy_wq;
++	}
 +
-+	clock->ptp = ptp_clock_register(&clock->ptp_info,
-+					&mdev->pdev->dev);
-+	if (IS_ERR(clock->ptp)) {
-+		mlx5_core_warn(mdev, "ptp_clock_register failed %ld\n",
-+			       PTR_ERR(clock->ptp));
-+		clock->ptp = NULL;
- 	}
- }
+ 	profile->init(mdev, netdev, profile, ipriv);
  
--void mlx5e_timestamp_cleanup(struct mlx5e_priv *priv)
-+void mlx5_cleanup_clock(struct mlx5_core_dev *mdev)
- {
--	struct mlx5e_tstamp *tstamp = &priv->tstamp;
-+	struct mlx5_clock *clock = &mdev->clock;
+ 	mlx5e_attach_netdev(epriv);
+@@ -605,6 +618,8 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
  
--	if (!MLX5_CAP_GEN(priv->mdev, device_frequency_khz))
-+	if (!MLX5_CAP_GEN(mdev, device_frequency_khz))
- 		return;
+ 	return netdev;
  
--	if (priv->tstamp.ptp) {
--		ptp_clock_unregister(priv->tstamp.ptp);
--		priv->tstamp.ptp = NULL;
-+	if (clock->ptp) {
-+		ptp_clock_unregister(clock->ptp);
-+		clock->ptp = NULL;
- 	}
++destroy_wq:
++	destroy_workqueue(epriv->wq);
+ err_free_netdev:
+ 	free_netdev(netdev);
+ free_mdev_resources:
+@@ -623,6 +638,7 @@ void mlx5_rdma_netdev_free(struct net_device *netdev)
+ 	mlx5e_detach_netdev(priv);
+ 	profile->cleanup(priv);
+ 	destroy_workqueue(priv->wq);
++	mlx5i_pkey_qpn_ht_cleanup(netdev);
+ 	free_netdev(netdev);
  
--	cancel_work_sync(&tstamp->pps_info.out_work);
--	cancel_delayed_work_sync(&tstamp->overflow_work);
--	kfree(tstamp->ptp_info.pin_config);
-+	cancel_work_sync(&clock->pps_info.out_work);
-+	cancel_delayed_work_sync(&clock->overflow_work);
-+	kfree(clock->ptp_info.pin_config);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.h b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.h
+ 	mlx5e_destroy_mdev_resources(mdev);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+index 9a729883c3b3..e313f6d90729 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
+@@ -51,9 +51,21 @@ struct mlx5i_priv {
+ 	struct mlx5_core_qp qp;
+ 	u32    qkey;
+ 	u16    pkey_index;
++	struct mlx5i_pkey_qpn_ht *qpn_htbl;
+ 	char  *mlx5e_priv[0];
+ };
+ 
++/* Allocate/Free underlay QPN to net-device hash table */
++int mlx5i_pkey_qpn_ht_init(struct net_device *netdev);
++void mlx5i_pkey_qpn_ht_cleanup(struct net_device *netdev);
++
++/* Add/Remove an underlay QPN to net-device mapping to/from the hash table */
++int mlx5i_pkey_add_qpn(struct net_device *netdev, u32 qpn);
++int mlx5i_pkey_del_qpn(struct net_device *netdev, u32 qpn);
++
++/* Get the net-device corresponding to the given underlay QPN */
++struct net_device *mlx5i_pkey_get_netdev(struct net_device *netdev, u32 qpn);
++
+ /* Extract mlx5e_priv from IPoIB netdev */
+ #define mlx5i_epriv(netdev) ((void *)(((struct mlx5i_priv *)netdev_priv(netdev))->mlx5e_priv))
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
 new file mode 100644
-index 000000000000..a8eecedd46c2
+index 000000000000..e4d39aa1f552
 --- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/lib/clock.h
-@@ -0,0 +1,51 @@
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
+@@ -0,0 +1,136 @@
 +/*
-+ * Copyright (c) 2017, Mellanox Technologies, Ltd.  All rights reserved.
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
 + *
 + * This software is available to you under a choice of one of two
 + * licenses.  You may choose to be licensed under the terms of the GNU
@@ -1294,114 +212,114 @@ index 000000000000..a8eecedd46c2
 + * SOFTWARE.
 + */
 +
-+#ifndef __LIB_CLOCK_H__
-+#define __LIB_CLOCK_H__
++#include <linux/hash.h>
++#include "ipoib.h"
 +
-+void mlx5_init_clock(struct mlx5_core_dev *mdev);
-+void mlx5_cleanup_clock(struct mlx5_core_dev *mdev);
++#define MLX5I_MAX_LOG_PKEY_SUP 7
 +
-+static inline ktime_t mlx5_timecounter_cyc2time(struct mlx5_clock *clock,
-+						u64 timestamp)
++struct qpn_to_netdev {
++	struct net_device *netdev;
++	struct hlist_node hlist;
++	u32 underlay_qpn;
++};
++
++struct mlx5i_pkey_qpn_ht {
++	struct hlist_head buckets[1 << MLX5I_MAX_LOG_PKEY_SUP];
++	spinlock_t ht_lock; /* Synchronise with NAPI */
++};
++
++int mlx5i_pkey_qpn_ht_init(struct net_device *netdev)
 +{
-+	u64 nsec;
++	struct mlx5i_priv *ipriv = netdev_priv(netdev);
++	struct mlx5i_pkey_qpn_ht *qpn_htbl;
 +
-+	read_lock(&clock->lock);
-+	nsec = timecounter_cyc2time(&clock->tc, timestamp);
-+	read_unlock(&clock->lock);
++	qpn_htbl = kzalloc(sizeof(*qpn_htbl), GFP_KERNEL);
++	if (!qpn_htbl)
++		return -ENOMEM;
 +
-+	return ns_to_ktime(nsec);
++	ipriv->qpn_htbl = qpn_htbl;
++	spin_lock_init(&qpn_htbl->ht_lock);
++
++	return 0;
 +}
 +
-+#endif
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 0d2c8dcd6eae..ecbe9fad22d8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -59,6 +59,7 @@
- #include "lib/mlx5.h"
- #include "fpga/core.h"
- #include "accel/ipsec.h"
-+#include "lib/clock.h"
- 
- MODULE_AUTHOR("Eli Cohen <eli@mellanox.com>");
- MODULE_DESCRIPTION("Mellanox Connect-IB, ConnectX-4 core driver");
-@@ -889,6 +890,8 @@ static int mlx5_init_once(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 
- 	mlx5_init_reserved_gids(dev);
- 
-+	mlx5_init_clock(dev);
++void mlx5i_pkey_qpn_ht_cleanup(struct net_device *netdev)
++{
++	struct mlx5i_priv *ipriv = netdev_priv(netdev);
 +
- 	err = mlx5_init_rl_table(dev);
- 	if (err) {
- 		dev_err(&pdev->dev, "Failed to init rate limiting\n");
-@@ -949,6 +952,7 @@ static void mlx5_cleanup_once(struct mlx5_core_dev *dev)
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- 	mlx5_mpfs_cleanup(dev);
- 	mlx5_cleanup_rl_table(dev);
-+	mlx5_cleanup_clock(dev);
- 	mlx5_cleanup_reserved_gids(dev);
- 	mlx5_cleanup_mkey_table(dev);
- 	mlx5_cleanup_srq_table(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index b7c2900b75f9..8f00de2fe283 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -93,6 +93,7 @@ void mlx5_core_event(struct mlx5_core_dev *dev, enum mlx5_dev_event event,
- 		     unsigned long param);
- void mlx5_core_page_fault(struct mlx5_core_dev *dev,
- 			  struct mlx5_pagefault *pfault);
-+void mlx5_pps_event(struct mlx5_core_dev *dev, struct mlx5_eqe *eqe);
- void mlx5_port_module_event(struct mlx5_core_dev *dev, struct mlx5_eqe *eqe);
- void mlx5_enter_error_state(struct mlx5_core_dev *dev, bool force);
- void mlx5_disable_device(struct mlx5_core_dev *dev);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 401c8972cc3a..08c77b7e59cb 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -49,6 +49,8 @@
- #include <linux/mlx5/device.h>
- #include <linux/mlx5/doorbell.h>
- #include <linux/mlx5/srq.h>
-+#include <linux/timecounter.h>
-+#include <linux/ptp_clock_kernel.h>
- 
- enum {
- 	MLX5_BOARD_ID_LEN = 64,
-@@ -760,6 +762,27 @@ struct mlx5_rsvd_gids {
- 	struct ida ida;
- };
- 
-+#define MAX_PIN_NUM	8
-+struct mlx5_pps {
-+	u8                         pin_caps[MAX_PIN_NUM];
-+	struct work_struct         out_work;
-+	u64                        start[MAX_PIN_NUM];
-+	u8                         enabled;
-+};
++	kfree(ipriv->qpn_htbl);
++}
 +
-+struct mlx5_clock {
-+	rwlock_t                   lock;
-+	struct cyclecounter        cycles;
-+	struct timecounter         tc;
-+	struct hwtstamp_config     hwtstamp_config;
-+	u32                        nominal_c_mult;
-+	unsigned long              overflow_period;
-+	struct delayed_work        overflow_work;
-+	struct ptp_clock          *ptp;
-+	struct ptp_clock_info      ptp_info;
-+	struct mlx5_pps            pps_info;
-+};
++static struct qpn_to_netdev *mlx5i_find_qpn_to_netdev_node(struct hlist_head *buckets,
++							   u32 qpn)
++{
++	struct hlist_head *h = &buckets[hash_32(qpn, MLX5I_MAX_LOG_PKEY_SUP)];
++	struct qpn_to_netdev *node;
 +
- struct mlx5_core_dev {
- 	struct pci_dev	       *pdev;
- 	/* sync pci state */
-@@ -800,6 +823,7 @@ struct mlx5_core_dev {
- #ifdef CONFIG_RFS_ACCEL
- 	struct cpu_rmap         *rmap;
- #endif
-+	struct mlx5_clock        clock;
- };
- 
- struct mlx5_db {
++	hlist_for_each_entry(node, h, hlist) {
++		if (node->underlay_qpn == qpn)
++			return node;
++	}
++
++	return NULL;
++}
++
++int mlx5i_pkey_add_qpn(struct net_device *netdev, u32 qpn)
++{
++	struct mlx5i_priv *ipriv = netdev_priv(netdev);
++	struct mlx5i_pkey_qpn_ht *ht = ipriv->qpn_htbl;
++	u8 key = hash_32(qpn, MLX5I_MAX_LOG_PKEY_SUP);
++	struct qpn_to_netdev *new_node;
++
++	new_node = kzalloc(sizeof(*new_node), GFP_KERNEL);
++	if (!new_node)
++		return -ENOMEM;
++
++	new_node->netdev = netdev;
++	new_node->underlay_qpn = qpn;
++	spin_lock_bh(&ht->ht_lock);
++	hlist_add_head(&new_node->hlist, &ht->buckets[key]);
++	spin_unlock_bh(&ht->ht_lock);
++
++	return 0;
++}
++
++int mlx5i_pkey_del_qpn(struct net_device *netdev, u32 qpn)
++{
++	struct mlx5e_priv *epriv = mlx5i_epriv(netdev);
++	struct mlx5i_priv *ipriv = epriv->ppriv;
++	struct mlx5i_pkey_qpn_ht *ht = ipriv->qpn_htbl;
++	struct qpn_to_netdev *node;
++
++	node = mlx5i_find_qpn_to_netdev_node(ht->buckets, qpn);
++	if (!node) {
++		mlx5_core_warn(epriv->mdev, "QPN to netdev delete from HT failed\n");
++		return -EINVAL;
++	}
++
++	spin_lock_bh(&ht->ht_lock);
++	hlist_del_init(&node->hlist);
++	spin_unlock_bh(&ht->ht_lock);
++	kfree(node);
++
++	return 0;
++}
++
++struct net_device *mlx5i_pkey_get_netdev(struct net_device *netdev, u32 qpn)
++{
++	struct mlx5i_priv *ipriv = netdev_priv(netdev);
++	struct qpn_to_netdev *node;
++
++	node = mlx5i_find_qpn_to_netdev_node(ipriv->qpn_htbl->buckets, qpn);
++	if (!node)
++		return NULL;
++
++	return node->netdev;
++}
 -- 
 2.14.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
