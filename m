@@ -1,68 +1,89 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 4/6] bnxt_en: Fix VF resource checking.
-Date: Fri, 13 Oct 2017 21:09:32 -0400
-Message-ID: <1507943374-13308-5-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net 5/6] bnxt_en: Fix possible corrupted NVRAM parameters from firmware response.
+Date: Fri, 13 Oct 2017 21:09:33 -0400
+Message-ID: <1507943374-13308-6-git-send-email-michael.chan@broadcom.com>
 References: <1507943374-13308-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f172.google.com ([209.85.216.172]:43744 "EHLO
-        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753479AbdJNBJu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 21:09:50 -0400
-Received: by mail-qt0-f172.google.com with SMTP id j58so11575613qtj.0
-        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 18:09:50 -0700 (PDT)
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:55153 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753508AbdJNBJv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Oct 2017 21:09:51 -0400
+Received: by mail-qk0-f173.google.com with SMTP id n5so7015529qke.11
+        for <netdev@vger.kernel.org>; Fri, 13 Oct 2017 18:09:51 -0700 (PDT)
 In-Reply-To: <1507943374-13308-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In bnxt_sriov_enable(), we calculate to see if we have enough hardware
-resources to enable the requested number of VFs.  The logic to check
-for minimum completion rings and statistics contexts is missing.  Add
-the required checks so that VF configuration won't fail.
+In bnxt_find_nvram_item(), it is copying firmware response data after
+releasing the mutex.  This can cause the firmware response data
+to be corrupted if the next firmware response overwrites the response
+buffer.  The rare problem shows up when running ethtool -i repeatedly.
 
+Fix it by calling the new variant _hwrm_send_message_silent() that requires
+the caller to take the mutex and to release it after the response data has
+been copied.
+
+Fixes: 3ebf6f0a09a2 ("bnxt_en: Add installed-package version reporting via Ethtool GDRVINFO")
+Reported-by: Sarveswara Rao Mygapula <sarveswararao.mygapula@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 6 ++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         | 1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 4 +++-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-index d37925a..5ee1866 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-@@ -502,6 +502,7 @@ static int bnxt_sriov_enable(struct bnxt *bp, int *num_vfs)
- 	int rc = 0, vfs_supported;
- 	int min_rx_rings, min_tx_rings, min_rss_ctxs;
- 	int tx_ok = 0, rx_ok = 0, rss_ok = 0;
-+	int avail_cp, avail_stat;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 4ffa0b1..dc5de27 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -3466,6 +3466,12 @@ int _hwrm_send_message(struct bnxt *bp, void *msg, u32 msg_len, int timeout)
+ 	return bnxt_hwrm_do_send_msg(bp, msg, msg_len, timeout, false);
+ }
  
- 	/* Check if we can enable requested num of vf's. At a mininum
- 	 * we require 1 RX 1 TX rings for each VF. In this minimum conf
-@@ -509,6 +510,10 @@ static int bnxt_sriov_enable(struct bnxt *bp, int *num_vfs)
- 	 */
- 	vfs_supported = *num_vfs;
- 
-+	avail_cp = bp->pf.max_cp_rings - bp->cp_nr_rings;
-+	avail_stat = bp->pf.max_stat_ctxs - bp->num_stat_ctxs;
-+	avail_cp = min_t(int, avail_cp, avail_stat);
++int _hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 msg_len,
++			      int timeout)
++{
++	return bnxt_hwrm_do_send_msg(bp, msg, msg_len, timeout, true);
++}
 +
- 	while (vfs_supported) {
- 		min_rx_rings = vfs_supported;
- 		min_tx_rings = vfs_supported;
-@@ -523,10 +528,12 @@ static int bnxt_sriov_enable(struct bnxt *bp, int *num_vfs)
- 			    min_rx_rings)
- 				rx_ok = 1;
- 		}
--		if (bp->pf.max_vnics - bp->nr_vnics < min_rx_rings)
-+		if (bp->pf.max_vnics - bp->nr_vnics < min_rx_rings ||
-+		    avail_cp < min_rx_rings)
- 			rx_ok = 0;
+ int hwrm_send_message(struct bnxt *bp, void *msg, u32 msg_len, int timeout)
+ {
+ 	int rc;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index d2925c0..c911e69 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -1362,6 +1362,7 @@ int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
+ int bnxt_set_rx_skb_mode(struct bnxt *bp, bool page_mode);
+ void bnxt_hwrm_cmd_hdr_init(struct bnxt *, void *, u16, u16, u16);
+ int _hwrm_send_message(struct bnxt *, void *, u32, int);
++int _hwrm_send_message_silent(struct bnxt *bp, void *msg, u32 len, int timeout);
+ int hwrm_send_message(struct bnxt *, void *, u32, int);
+ int hwrm_send_message_silent(struct bnxt *, void *, u32, int);
+ int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index b2cbc97..3cbe771 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -1809,7 +1809,8 @@ static int bnxt_find_nvram_item(struct net_device *dev, u16 type, u16 ordinal,
+ 	req.dir_ordinal = cpu_to_le16(ordinal);
+ 	req.dir_ext = cpu_to_le16(ext);
+ 	req.opt_ordinal = NVM_FIND_DIR_ENTRY_REQ_OPT_ORDINAL_EQ;
+-	rc = hwrm_send_message_silent(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	mutex_lock(&bp->hwrm_cmd_lock);
++	rc = _hwrm_send_message_silent(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+ 	if (rc == 0) {
+ 		if (index)
+ 			*index = le16_to_cpu(output->dir_idx);
+@@ -1818,6 +1819,7 @@ static int bnxt_find_nvram_item(struct net_device *dev, u16 type, u16 ordinal,
+ 		if (data_length)
+ 			*data_length = le32_to_cpu(output->dir_data_length);
+ 	}
++	mutex_unlock(&bp->hwrm_cmd_lock);
+ 	return rc;
+ }
  
--		if (bp->pf.max_tx_rings - bp->tx_nr_rings >= min_tx_rings)
-+		if (bp->pf.max_tx_rings - bp->tx_nr_rings >= min_tx_rings &&
-+		    avail_cp >= min_tx_rings)
- 			tx_ok = 1;
- 
- 		if (bp->pf.max_rsscos_ctxs - bp->rsscos_nr_ctxs >= min_rss_ctxs)
 -- 
 1.8.3.1
