@@ -1,133 +1,107 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH v2] pch_gbe: Switch to new PCI IRQ allocation API
-Date: Sat, 14 Oct 2017 17:04:40 +0300
-Message-ID: <20171014140440.21439-1-andriy.shevchenko@linux.intel.com>
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Traiano Welcome <traiano@gmail.com>
+Subject: Re: Kernel Performance Tuning for High Volume SCTP traffic
+Date: Sat, 14 Oct 2017 22:29:53 +0800
+Message-ID: <CAFKCRVKScoF+AkBtsgGiFogN3KQP704v8Us9-OABy2BS-w4EVA@mail.gmail.com>
+References: <CAFKCRVL-e03Cn35-Vvtb8+NSAz3Tk2Hje_Hg5K9HfqgokEBPgg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0094F48@AcuExch.aculab.com>
+ <CAFKCRVLTA8Vrz-36rxfUtOf8Zc9mSPZteAgdyeETsqSa-XsOcQ@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD00950DD@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42568 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753570AbdJNOFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 14 Oct 2017 10:05:43 -0400
+Received: from mail-qt0-f179.google.com ([209.85.216.179]:44989 "EHLO
+        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753026AbdJNO3y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 10:29:54 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD00950DD@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This removes custom flag handling.
+I've upped the value of the following sctp and udp related parameters,
+in the hope that this would help:
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  3 +-
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 42 +++++++++-------------
- 2 files changed, 17 insertions(+), 28 deletions(-)
+sysctl -w net.core.rmem_max=900000000
+sysctl -w net.core.wmem_max=900000000
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-index 8d710a3b4db0..697e29dd4bd3 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-@@ -613,7 +613,6 @@ struct pch_gbe_privdata {
-  * @rx_ring:		Pointer of Rx descriptor ring structure
-  * @rx_buffer_len:	Receive buffer length
-  * @tx_queue_len:	Transmit queue length
-- * @have_msi:		PCI MSI mode flag
-  * @pch_gbe_privdata:	PCI Device ID driver_data
-  */
- 
-@@ -623,6 +622,7 @@ struct pch_gbe_adapter {
- 	atomic_t irq_sem;
- 	struct net_device *netdev;
- 	struct pci_dev *pdev;
-+	int irq;
- 	struct net_device *polling_netdev;
- 	struct napi_struct napi;
- 	struct pch_gbe_hw hw;
-@@ -637,7 +637,6 @@ struct pch_gbe_adapter {
- 	struct pch_gbe_rx_ring *rx_ring;
- 	unsigned long rx_buffer_len;
- 	unsigned long tx_queue_len;
--	bool have_msi;
- 	bool rx_stop_flag;
- 	int hwts_tx_en;
- 	int hwts_rx_en;
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index 5ae9681a2da7..457ee80307ea 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -781,11 +781,8 @@ static void pch_gbe_free_irq(struct pch_gbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 
--	free_irq(adapter->pdev->irq, netdev);
--	if (adapter->have_msi) {
--		pci_disable_msi(adapter->pdev);
--		netdev_dbg(netdev, "call pci_disable_msi\n");
--	}
-+	free_irq(adapter->irq, netdev);
-+	pci_free_irq_vectors(adapter->pdev);
- }
- 
- /**
-@@ -799,7 +796,7 @@ static void pch_gbe_irq_disable(struct pch_gbe_adapter *adapter)
- 	atomic_inc(&adapter->irq_sem);
- 	iowrite32(0, &hw->reg->INT_EN);
- 	ioread32(&hw->reg->INT_ST);
--	synchronize_irq(adapter->pdev->irq);
-+	synchronize_irq(adapter->irq);
- 
- 	netdev_dbg(adapter->netdev, "INT_EN reg : 0x%08x\n",
- 		   ioread32(&hw->reg->INT_EN));
-@@ -1903,30 +1900,23 @@ static int pch_gbe_request_irq(struct pch_gbe_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	int err;
--	int flags;
- 
--	flags = IRQF_SHARED;
--	adapter->have_msi = false;
--	err = pci_enable_msi(adapter->pdev);
--	netdev_dbg(netdev, "call pci_enable_msi\n");
--	if (err) {
--		netdev_dbg(netdev, "call pci_enable_msi - Error: %d\n", err);
--	} else {
--		flags = 0;
--		adapter->have_msi = true;
--	}
--	err = request_irq(adapter->pdev->irq, &pch_gbe_intr,
--			  flags, netdev->name, netdev);
-+	err = pci_alloc_irq_vectors(adapter->pdev, 1, 1, PCI_IRQ_ALL_TYPES);
-+	if (err < 0)
-+		return err;
-+
-+	adapter->irq = pci_irq_vector(adapter->pdev, 0);
-+
-+	err = request_irq(adapter->irq, &pch_gbe_intr, IRQF_SHARED,
-+			  netdev->name, netdev);
- 	if (err)
- 		netdev_err(netdev, "Unable to allocate interrupt Error: %d\n",
- 			   err);
--	netdev_dbg(netdev,
--		   "adapter->have_msi : %d  flags : 0x%04x  return : 0x%04x\n",
--		   adapter->have_msi, flags, err);
-+	netdev_dbg(netdev, "have_msi : %d  return : 0x%04x\n",
-+		   pci_dev_msi_enabled(adapter->pdev), err);
- 	return err;
- }
- 
--
- /**
-  * pch_gbe_up - Up GbE network device
-  * @adapter:  Board private structure
-@@ -2399,9 +2389,9 @@ static void pch_gbe_netpoll(struct net_device *netdev)
- {
- 	struct pch_gbe_adapter *adapter = netdev_priv(netdev);
- 
--	disable_irq(adapter->pdev->irq);
--	pch_gbe_intr(adapter->pdev->irq, netdev);
--	enable_irq(adapter->pdev->irq);
-+	disable_irq(adapter->irq);
-+	pch_gbe_intr(adapter->irq, netdev);
-+	enable_irq(adapter->irq);
- }
- #endif
- 
--- 
-2.14.2
+sysctl -w net.sctp.sctp_mem="2100000000 2100000000 2100000000"
+sysctl -w net.sctp.sctp_rmem="2100000000 2100000000 2100000000"
+sysctl -w net.sctp.sctp_wmem="2100000000 2100000000 2100000000"
+
+sysctl -w net.ipv4.udp_mem="5000000000 5000000000 5000000000"
+sysctl -w net.ipv4.udp_mem="10000000000 10000000000 10000000000"
+
+However, I'm still seeing rapidly incrementing rx discards reported on the NIC:
+
+:~# ethtool -S ens4f1 | egrep -i rx_discards
+     [0]: rx_discards: 6390805462
+     [1]: rx_discards: 6659315919
+     [2]: rx_discards: 6542570026
+     [3]: rx_discards: 6431513008
+     [4]: rx_discards: 6436779078
+     [5]: rx_discards: 6665897051
+     [6]: rx_discards: 6167985560
+     [7]: rx_discards: 11340068788
+     rx_discards: 56634934892
+
+Despite the fact that I've set the NIC ring buffer on the Netextreme
+interface to he maximum:
+
+:~# ethtool -g ens4f0
+Ring parameters for ens4f0:
+Pre-set maximums:
+RX:             4078
+RX Mini:        0
+RX Jumbo:       0
+TX:             4078
+Current hardware settings:
+RX:             4078
+RX Mini:        0
+RX Jumbo:       0
+TX:             4078
+
+I see no ip errors at the physical interface:
+
+ethtool -S ens4f0 | egrep phy_ip_err_discard| tail -1
+     rx_phy_ip_err_discards: 0
+
+
+Could anyone suggest alternative approaches I might take to optimising
+the system's handling of SCTP traffic?
+
+
+
+On Sat, Oct 14, 2017 at 12:35 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Traiano Welcome
+>> Sent: 13 October 2017 17:04
+>> On Fri, Oct 13, 2017 at 11:56 PM, David Laight <David.Laight@aculab.com> wrote:
+>> > From: Traiano Welcome
+>> >
+>> > (copied to netdev)
+>> >> Sent: 13 October 2017 07:16
+>> >> To: linux-sctp@vger.kernel.org
+>> >> Subject: Kernel Performance Tuning for High Volume SCTP traffic
+>> >>
+>> >> Hi List
+>> >>
+>> >> I'm running a linux server processing high volumes of SCTP traffic and
+>> >> am seeing large numbers of packet overruns (ifconfig output).
+>> >
+>> > I'd guess that overruns indicate that the ethernet MAC is failing to
+>> > copy the receive frames into kernel memory.
+>> > It is probably running out of receive buffers, but might be
+>> > suffering from a lack of bus bandwidth.
+>> > MAC drivers usually discard receive frames if they can't get
+>> > a replacement buffer - so you shouldn't run out of rx buffers.
+>> >
+>> > This means the errors are probably below SCTP - so changing SCTP parameters
+>> > is unlikely to help.
+>>
+>> Does this mean that tuning UDP performance could help ? Or do you mean
+>> hardware (NIC) performance could be the issue?
+>
+> I'd certainly check UDP performance.
+>
+>         David
+>
