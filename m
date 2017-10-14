@@ -1,71 +1,84 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 1/1] bridge: return error code when deleting
- Vlan
-Date: Sat, 14 Oct 2017 13:52:32 +0300
-Message-ID: <ad6cc6a9-326e-df49-6945-0b010ed07cb2@cumulusnetworks.com>
-References: <1507816314-2896-1-git-send-email-mrv@mojatatu.com>
- <fef6f65d-473c-ee8e-51cc-1382cb6f84b9@gmail.com>
- <CAHvchGnVZaSq+s9953jdbf6-UzDFb36457U6Pk0oQHgVOKwzQg@mail.gmail.com>
- <e4611694-4248-e796-5cca-24f3d07e0e9e@cumulusnetworks.com>
- <85d15rvxze.fsf@mojatatu.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH v3 0/6] staging: Introduce DPAA2 Ethernet Switch driver
+Date: Sat, 14 Oct 2017 13:09:28 +0200
+Message-ID: <CACRpkdazUB_XLv2jYnSiGe9CeVTgjOQ4HfPDL8+CNUVxs-LcLA@mail.gmail.com>
+References: <1507194974-12050-1-git-send-email-razvan.stefanescu@nxp.com>
+ <CACRpkdYJCzu9Ph8XMYXt=SSAX+ZaiwXqUGgWX5UvTabmMxmBNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsahern@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Roman Mashak <mrv@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:43621 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751818AbdJNKwf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 06:52:35 -0400
-Received: by mail-wm0-f49.google.com with SMTP id m72so30687803wmc.0
-        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 03:52:34 -0700 (PDT)
-In-Reply-To: <85d15rvxze.fsf@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+ Arnd Bergmann <arnd@arndb.de>, Greg KH <gregkh@linuxfoundation.org>,
+ alexandru.marginean@nxp.com,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Alexander Graf <agraf@suse.de>, stuyoder@gmail.com, bogdan.purcareata@nxp.com,
+ laurentiu.tudor@nxp.com
+To: Razvan Stefanescu <razvan.stefanescu@nxp.com>,
+ OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CACRpkdYJCzu9Ph8XMYXt=SSAX+ZaiwXqUGgWX5UvTabmMxmBNQ@mail.gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On 13/10/17 19:00, Roman Mashak wrote:
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
-> 
-> 
-> [...]
-> 
->>>> Why do you want to return the error code here? Walking the code paths
->>>> seems like ENOENT or err from switchdev_port_obj_del are the 2 error
->>>> possibilities.
->>>
->>> For example, if you attempt to delete a non-existing vlan on a port,
->>> the current code succeeds and also sends event :
->>>
->>> rtnetlink_rcv_msg
->>>     rtnl_bridge_dellink
->>>        br_dellink
->>>           br_afspec
->>>              br_vlan_info
->>>
->>> int br_dellink(..)
->>> {
->>>   ...
->>>   err = br_afspec()
->>>   if (err == 0)
->>>       br_ifinfo_notify(RTM_NEWLINK, p);
->>> }
->>>
->>> This is misleading, so a proper errcode has to be produced.
->>>
+Top posting and resending since netdev@vger.kernel.org
+is the right mail address for this. Mea culpa.
+
+Linus Walleij
+
+On Sat, Oct 14, 2017 at 11:35 AM, Linus Walleij
+<linus.walleij@linaro.org> wrote:
+> On Thu, Oct 5, 2017 at 11:16 AM, Razvan Stefanescu
+> <razvan.stefanescu@nxp.com> wrote:
+>
+>> This patchset introduces the Ethernet Switch Driver for Freescale/NXP SoCs
+>> with DPAA2 (DataPath Acceleration Architecture v2). The driver manages
+>> switch objects discovered on the fsl-mc bus. A description of the driver
+>> can be found in the associated README file.
 >>
->> True, but you also change the expected behaviour because now a user can
->> clear all vlans with one request (1 - 4094), and after the change that
->> will fail with a partial delete if some vlan was missing.
-> 
-> Nikolay, would you like to have a crack at fixing this?
-> 
-
-Sure, need to finish something and will cook up a patch next week.
-
-Thanks,
- Nik
+>> The patchset consists of:
+>> * A set of libraries containing APIs for configuring and controlling
+>>   Management Complex (MC) switch objects
+>> * The DPAA2 Ethernet Switch driver
+>> * Patch adding ethtool support
+>
+> So it appears that ethernet switches is a class of device that need their own
+> subsystem in Linux, before this driver can move out of staging.
+>
+> I ran into the problem in OpenWRT that has these out-of-tree patches for
+> off-chip ethernet switches, conveniently placed under net/phy:
+> https://github.com/openwrt/openwrt/tree/master/target/linux/generic/files/drivers/net/phy
+>
+> These are some 12 different ethernet switches. It is used in more or
+> less every home router out there.
+>
+> It's not really working to have all of this out-of-tree, there must have been
+> discussions about the requirements for a proper ethernet switch subsystem.
+>
+> I'm not a good net developers, just a grumpy user having to deal with all
+> of this out-of-tree code that's not helpful with changing interfaces like
+> device tree and so on.
+>
+> Can you people who worked on this over the years pit in with your
+> requirements for an ethernet switch subsystem so we can house these
+> drivers in a proper way?
+>
+> What we need AFAICT:
+>
+> - Consensus on userspace ABI
+> - Consensus on ethtool extenstions
+> - Consensus on where in drivers/net this goes
+>
+> You can kick me for not knowing what I'm talking about and how complex the
+> problem is now.
+>
+> Yours,
+> Linus Walleij
