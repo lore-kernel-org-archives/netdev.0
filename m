@@ -1,9 +1,10 @@
 From: Christos Gkekas <chris.gekas@gmail.com>
-Subject: [PATCH] ath10k: spectral: Remove redundant check
-Date: Sat, 14 Oct 2017 10:41:15 +0100
-Message-ID: <1507974075-6987-1-git-send-email-chris.gekas@gmail.com>
+Subject: [PATCH] ath9k: debug: Remove redundant check
+Date: Sat, 14 Oct 2017 10:46:11 +0100
+Message-ID: <1507974371-7419-1-git-send-email-chris.gekas@gmail.com>
 Cc: Christos Gkekas <chris.gekas@gmail.com>
-To: Kalle Valo <kvalo@qca.qualcomm.com>, ath10k@lists.infradead.org,
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,21 +16,21 @@ redundant.
 
 Signed-off-by: Christos Gkekas <chris.gekas@gmail.com>
 ---
- drivers/net/wireless/ath/ath10k/spectral.c | 2 +-
+ drivers/net/wireless/ath/ath9k/debug.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/ath/ath10k/spectral.c b/drivers/net/wireless/ath/ath10k/spectral.c
-index dd9cc09..2048b1e 100644
---- a/drivers/net/wireless/ath/ath10k/spectral.c
-+++ b/drivers/net/wireless/ath/ath10k/spectral.c
-@@ -406,7 +406,7 @@ static ssize_t write_file_spectral_count(struct file *file,
+diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
+index 01fa301..4f5f141 100644
+--- a/drivers/net/wireless/ath/ath9k/debug.c
++++ b/drivers/net/wireless/ath/ath9k/debug.c
+@@ -1167,7 +1167,7 @@ static ssize_t write_file_tpc(struct file *file, const char __user *user_buf,
  	if (kstrtoul(buf, 0, &val))
  		return -EINVAL;
  
--	if (val < 0 || val > 255)
-+	if (val > 255)
+-	if (val < 0 || val > 1)
++	if (val > 1)
  		return -EINVAL;
  
- 	mutex_lock(&ar->conf_mutex);
+ 	tpc_enabled = !!val;
 -- 
 2.7.4
