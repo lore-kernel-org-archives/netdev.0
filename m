@@ -1,7 +1,7 @@
 From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v8 3/6] net/sched: Add select_queue() class_ops for mqprio
-Date: Fri, 13 Oct 2017 17:25:31 -0700
-Message-ID: <20171014002534.19896-4-vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v8 2/6] net/sched: Change behavior of mq select_queue()
+Date: Fri, 13 Oct 2017 17:25:30 -0700
+Message-ID: <20171014002534.19896-3-vinicius.gomes@intel.com>
 References: <20171014002534.19896-1-vinicius.gomes@intel.com>
 Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
         jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
@@ -10,56 +10,51 @@ Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
         henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:23381 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:19951 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753448AbdJNAZp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Oct 2017 20:25:45 -0400
+        id S1753440AbdJNAZo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Oct 2017 20:25:44 -0400
 In-Reply-To: <20171014002534.19896-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-When replacing a child qdisc from mqprio, tc_modify_qdisc() must fetch
-the netdev_queue pointer that the current child qdisc is associated
-with before creating the new qdisc.
+Currently, the class_ops select_queue() implementation on sch_mq
+returns a pointer to netdev_queue #0 when it receives and invalid
+qdisc id. That can be misleading since all of mq's inner qdiscs are
+attached to a valid netdev_queue.
 
-Currently, when using mqprio as root qdisc, the kernel will end up
-getting the queue #0 pointer from the mqprio (root qdisc), which leaves
-any new child qdisc with a possibly wrong netdev_queue pointer.
-
-Implementing the Qdisc_class_ops select_queue() on mqprio fixes this
-issue and avoid an inconsistent state when child qdiscs are replaced.
+Here we fix that by returning NULL when a qdisc id is invalid. This is
+aligned with how select_queue() is implemented for sch_mqprio in the
+next patch on this series, keeping a consistent behavior between these
+two qdiscs.
 
 Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 ---
- net/sched/sch_mqprio.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/sched/sch_mq.c | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
 
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 6bcdfe6e7b63..8c042ae323e3 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -396,6 +396,12 @@ static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
- 	}
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index f3a3e507422b..213b586a06a0 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -130,15 +130,7 @@ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
+ static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
+ 					    struct tcmsg *tcm)
+ {
+-	unsigned int ntx = TC_H_MIN(tcm->tcm_parent);
+-	struct netdev_queue *dev_queue = mq_queue_get(sch, ntx);
+-
+-	if (!dev_queue) {
+-		struct net_device *dev = qdisc_dev(sch);
+-
+-		return netdev_get_tx_queue(dev, 0);
+-	}
+-	return dev_queue;
++	return mq_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
  }
  
-+static struct netdev_queue *mqprio_select_queue(struct Qdisc *sch,
-+						struct tcmsg *tcm)
-+{
-+	return mqprio_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
-+}
-+
- static const struct Qdisc_class_ops mqprio_class_ops = {
- 	.graft		= mqprio_graft,
- 	.leaf		= mqprio_leaf,
-@@ -403,6 +409,7 @@ static const struct Qdisc_class_ops mqprio_class_ops = {
- 	.walk		= mqprio_walk,
- 	.dump		= mqprio_dump_class,
- 	.dump_stats	= mqprio_dump_class_stats,
-+	.select_queue	= mqprio_select_queue,
- };
- 
- static struct Qdisc_ops mqprio_qdisc_ops __read_mostly = {
+ static int mq_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
 -- 
 2.14.2
