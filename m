@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [for-next 07/12] net/mlx5e: IPoIB, Support for setting PKEY index to underlay QP
-Date: Sat, 14 Oct 2017 11:48:22 -0700
-Message-ID: <20171014184827.18491-8-saeedm@mellanox.com>
+Subject: [for-next 10/12] net/mlx5e: IPoIB, Add PKEY child interface ndos
+Date: Sat, 14 Oct 2017 11:48:25 -0700
+Message-ID: <20171014184827.18491-11-saeedm@mellanox.com>
 References: <20171014184827.18491-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>,
@@ -10,73 +10,262 @@ Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43340 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43424 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751680AbdJNSsv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 14:48:51 -0400
+        with ESMTP id S1751729AbdJNStC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 14:49:02 -0400
 In-Reply-To: <20171014184827.18491-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alex Vesker <valex@mellanox.com>
 
-Added a function to set PKEY index to IPoIB device driver using the
-already present set_id function. PKEY index is attached to the QP
-during state modification.
+Child interface ndos will be called to support child interface
+specific behaviour.
+
+ndo_init flow:
+-Acquire shared QPN to net-device HT from parent
+-Continue with the same flow as parent interface
+
+ndo_open flow:
+-Initialize child underlay QP and connect to shared FT
+-Create child send TIS
+-Open child send channels
 
 Signed-off-by: Alex Vesker <valex@mellanox.com>
 Reviewed-by: Erez Shitrit <erezsh@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c | 9 +++++++++
- drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h | 1 +
- 2 files changed, 10 insertions(+)
+ .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c  |  10 +-
+ .../net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h  |   8 ++
+ .../ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c | 133 ++++++++++++++++++++-
+ 3 files changed, 144 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-index 00f0e6a038bb..679c1f9af642 100644
+index 196771cc599e..70706eb70d3e 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.c
-@@ -123,6 +123,7 @@ static int mlx5i_init_underlay_qp(struct mlx5e_priv *priv)
+@@ -40,8 +40,6 @@
  
- 	context->flags = cpu_to_be32(MLX5_QP_PM_MIGRATED << 11);
- 	context->pri_path.port = 1;
-+	context->pri_path.pkey_index = cpu_to_be16(ipriv->pkey_index);
- 	context->qkey = cpu_to_be32(IB_DEFAULT_Q_KEY);
+ static int mlx5i_open(struct net_device *netdev);
+ static int mlx5i_close(struct net_device *netdev);
+-static int  mlx5i_dev_init(struct net_device *dev);
+-static void mlx5i_dev_cleanup(struct net_device *dev);
+ static int mlx5i_change_mtu(struct net_device *netdev, int new_mtu);
+ static int mlx5i_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
  
- 	ret = mlx5_core_qp_modify(mdev, MLX5_CMD_OP_RST2INIT_QP, 0, context, qp);
-@@ -529,6 +530,13 @@ static int mlx5i_xmit(struct net_device *dev, struct sk_buff *skb,
- 	return mlx5i_sq_xmit(sq, skb, &mah->av, dqpn, ipriv->qkey);
+@@ -108,7 +106,7 @@ static void mlx5i_cleanup(struct mlx5e_priv *priv)
+ 	/* Do nothing .. */
  }
  
-+static void mlx5i_set_pkey_index(struct net_device *netdev, int id)
-+{
-+	struct mlx5i_priv *ipriv = netdev_priv(netdev);
-+
-+	ipriv->pkey_index = (u16)id;
-+}
-+
- static int mlx5i_check_required_hca_cap(struct mlx5_core_dev *mdev)
+-static int mlx5i_init_underlay_qp(struct mlx5e_priv *priv)
++int mlx5i_init_underlay_qp(struct mlx5e_priv *priv)
  {
- 	if (MLX5_CAP_GEN(mdev, port_type) != MLX5_CAP_PORT_TYPE_IB)
-@@ -593,6 +601,7 @@ struct net_device *mlx5_rdma_netdev_alloc(struct mlx5_core_dev *mdev,
- 	rn->send = mlx5i_xmit;
- 	rn->attach_mcast = mlx5i_attach_mcast;
- 	rn->detach_mcast = mlx5i_detach_mcast;
-+	rn->set_id = mlx5i_set_pkey_index;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	struct mlx5i_priv *ipriv = priv->ppriv;
+@@ -154,7 +152,7 @@ static int mlx5i_init_underlay_qp(struct mlx5e_priv *priv)
+ 	return ret;
+ }
  
- 	return netdev;
+-static void mlx5i_uninit_underlay_qp(struct mlx5e_priv *priv)
++void mlx5i_uninit_underlay_qp(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5i_priv *ipriv = priv->ppriv;
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -372,7 +370,7 @@ static int mlx5i_change_mtu(struct net_device *netdev, int new_mtu)
+ 	return err;
+ }
  
+-static int mlx5i_dev_init(struct net_device *dev)
++int mlx5i_dev_init(struct net_device *dev)
+ {
+ 	struct mlx5e_priv    *priv   = mlx5i_epriv(dev);
+ 	struct mlx5i_priv    *ipriv  = priv->ppriv;
+@@ -402,7 +400,7 @@ static int mlx5i_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	}
+ }
+ 
+-static void mlx5i_dev_cleanup(struct net_device *dev)
++void mlx5i_dev_cleanup(struct net_device *dev)
+ {
+ 	struct mlx5e_priv    *priv   = mlx5i_epriv(dev);
+ 	struct mlx5i_priv    *ipriv = priv->ppriv;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
-index a0f405f520f7..9a729883c3b3 100644
+index c9895f7a2358..80c0cfee7164 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib.h
-@@ -50,6 +50,7 @@ struct mlx5i_priv {
- 	struct rdma_netdev rn; /* keep this first */
- 	struct mlx5_core_qp qp;
- 	u32    qkey;
-+	u16    pkey_index;
- 	char  *mlx5e_priv[0];
- };
+@@ -59,6 +59,10 @@ struct mlx5i_priv {
+ int mlx5i_create_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core_qp *qp);
+ void mlx5i_destroy_underlay_qp(struct mlx5_core_dev *mdev, struct mlx5_core_qp *qp);
  
++/* Underlay QP state modification init/uninit functions */
++int mlx5i_init_underlay_qp(struct mlx5e_priv *priv);
++void mlx5i_uninit_underlay_qp(struct mlx5e_priv *priv);
++
+ /* Allocate/Free underlay QPN to net-device hash table */
+ int mlx5i_pkey_qpn_ht_init(struct net_device *netdev);
+ void mlx5i_pkey_qpn_ht_cleanup(struct net_device *netdev);
+@@ -70,6 +74,10 @@ int mlx5i_pkey_del_qpn(struct net_device *netdev, u32 qpn);
+ /* Get the net-device corresponding to the given underlay QPN */
+ struct net_device *mlx5i_pkey_get_netdev(struct net_device *netdev, u32 qpn);
+ 
++/* Shared ndo functionts */
++int mlx5i_dev_init(struct net_device *dev);
++void mlx5i_dev_cleanup(struct net_device *dev);
++
+ /* Parent profile functions */
+ void mlx5i_init(struct mlx5_core_dev *mdev,
+ 		struct net_device *netdev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
+index 17c508d98dbb..d99bec6855de 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/ipoib/ipoib_vlan.c
+@@ -135,6 +135,137 @@ struct net_device *mlx5i_pkey_get_netdev(struct net_device *netdev, u32 qpn)
+ 	return node->netdev;
+ }
+ 
++static int mlx5i_pkey_open(struct net_device *netdev);
++static int mlx5i_pkey_close(struct net_device *netdev);
++static int mlx5i_pkey_dev_init(struct net_device *dev);
++static void mlx5i_pkey_dev_cleanup(struct net_device *netdev);
++static int mlx5i_pkey_change_mtu(struct net_device *netdev, int new_mtu);
++
++static const struct net_device_ops mlx5i_pkey_netdev_ops = {
++	.ndo_open                = mlx5i_pkey_open,
++	.ndo_stop                = mlx5i_pkey_close,
++	.ndo_init                = mlx5i_pkey_dev_init,
++	.ndo_uninit              = mlx5i_pkey_dev_cleanup,
++	.ndo_change_mtu          = mlx5i_pkey_change_mtu,
++};
++
++/* Child NDOs */
++static int mlx5i_pkey_dev_init(struct net_device *dev)
++{
++	struct mlx5e_priv *priv = mlx5i_epriv(dev);
++	struct mlx5i_priv *ipriv, *parent_ipriv;
++	struct net_device *parent_dev;
++	int parent_ifindex;
++
++	ipriv = priv->ppriv;
++
++	/* Get QPN to netdevice hash table from parent */
++	parent_ifindex = dev->netdev_ops->ndo_get_iflink(dev);
++	parent_dev = dev_get_by_index(dev_net(dev), parent_ifindex);
++	if (!parent_dev) {
++		mlx5_core_warn(priv->mdev, "failed to get parent device\n");
++		return -EINVAL;
++	}
++
++	parent_ipriv = netdev_priv(parent_dev);
++	ipriv->qpn_htbl = parent_ipriv->qpn_htbl;
++	dev_put(parent_dev);
++
++	return mlx5i_dev_init(dev);
++}
++
++static void mlx5i_pkey_dev_cleanup(struct net_device *netdev)
++{
++	return mlx5i_dev_cleanup(netdev);
++}
++
++static int mlx5i_pkey_open(struct net_device *netdev)
++{
++	struct mlx5e_priv *epriv = mlx5i_epriv(netdev);
++	struct mlx5i_priv *ipriv = epriv->ppriv;
++	struct mlx5_core_dev *mdev = epriv->mdev;
++	int err;
++
++	mutex_lock(&epriv->state_lock);
++
++	set_bit(MLX5E_STATE_OPENED, &epriv->state);
++
++	err = mlx5i_init_underlay_qp(epriv);
++	if (err) {
++		mlx5_core_warn(mdev, "prepare child underlay qp state failed, %d\n", err);
++		goto err_release_lock;
++	}
++
++	err = mlx5_fs_add_rx_underlay_qpn(mdev, ipriv->qp.qpn);
++	if (err) {
++		mlx5_core_warn(mdev, "attach child underlay qp to ft failed, %d\n", err);
++		goto err_unint_underlay_qp;
++	}
++
++	err = mlx5e_create_tis(mdev, 0 /* tc */, ipriv->qp.qpn, &epriv->tisn[0]);
++	if (err) {
++		mlx5_core_warn(mdev, "create child tis failed, %d\n", err);
++		goto err_remove_rx_uderlay_qp;
++	}
++
++	err = mlx5e_open_channels(epriv, &epriv->channels);
++	if (err) {
++		mlx5_core_warn(mdev, "opening child channels failed, %d\n", err);
++		goto err_clear_state_opened_flag;
++	}
++	mlx5e_refresh_tirs(epriv, false);
++	mlx5e_activate_priv_channels(epriv);
++	mutex_unlock(&epriv->state_lock);
++
++	return 0;
++
++err_clear_state_opened_flag:
++	mlx5e_destroy_tis(mdev, epriv->tisn[0]);
++err_remove_rx_uderlay_qp:
++	mlx5_fs_remove_rx_underlay_qpn(mdev, ipriv->qp.qpn);
++err_unint_underlay_qp:
++	mlx5i_uninit_underlay_qp(epriv);
++err_release_lock:
++	clear_bit(MLX5E_STATE_OPENED, &epriv->state);
++	mutex_unlock(&epriv->state_lock);
++	return err;
++}
++
++static int mlx5i_pkey_close(struct net_device *netdev)
++{
++	struct mlx5e_priv *priv = mlx5i_epriv(netdev);
++	struct mlx5i_priv *ipriv = priv->ppriv;
++	struct mlx5_core_dev *mdev = priv->mdev;
++
++	mutex_lock(&priv->state_lock);
++
++	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
++		goto unlock;
++
++	clear_bit(MLX5E_STATE_OPENED, &priv->state);
++
++	netif_carrier_off(priv->netdev);
++	mlx5_fs_remove_rx_underlay_qpn(mdev, ipriv->qp.qpn);
++	mlx5i_uninit_underlay_qp(priv);
++	mlx5e_deactivate_priv_channels(priv);
++	mlx5e_close_channels(&priv->channels);
++	mlx5e_destroy_tis(mdev, priv->tisn[0]);
++unlock:
++	mutex_unlock(&priv->state_lock);
++	return 0;
++}
++
++static int mlx5i_pkey_change_mtu(struct net_device *netdev, int new_mtu)
++{
++	struct mlx5e_priv *priv = mlx5i_epriv(netdev);
++
++	mutex_lock(&priv->state_lock);
++	netdev->mtu = new_mtu;
++	mutex_unlock(&priv->state_lock);
++
++	return 0;
++}
++
+ /* Called directly after IPoIB netdevice was created to initialize SW structs */
+ static void mlx5i_pkey_init(struct mlx5_core_dev *mdev,
+ 			     struct net_device *netdev,
+@@ -146,7 +277,7 @@ static void mlx5i_pkey_init(struct mlx5_core_dev *mdev,
+ 	mlx5i_init(mdev, netdev, profile, ppriv);
+ 
+ 	/* Override parent ndo */
+-	netdev->netdev_ops = NULL;
++	netdev->netdev_ops = &mlx5i_pkey_netdev_ops;
+ 
+ 	/* Currently no ethtool support */
+ 	netdev->ethtool_ops = NULL;
 -- 
 2.14.2
