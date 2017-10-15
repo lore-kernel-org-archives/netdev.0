@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2017-10-13
-Date: Sat, 14 Oct 2017 18:37:14 -0700 (PDT)
-Message-ID: <20171014.183714.696434686883791627.davem@davemloft.net>
-References: <20171013155332.4310-1-johannes@sipsolutions.net>
+Subject: Re: [PATCH][net-next] cxgb4: fix missing break in switch and
+ indent return statements
+Date: Sat, 14 Oct 2017 18:38:31 -0700 (PDT)
+Message-ID: <20171014.183831.2067315477541257966.davem@davemloft.net>
+References: <20171013162900.16911-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38282 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751138AbdJOBhP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:37:15 -0400
-In-Reply-To: <20171013155332.4310-1-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ganeshgr@chelsio.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171013162900.16911-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Fri, 13 Oct 2017 17:53:31 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 13 Oct 2017 17:29:00 +0100
 
-> Sorry for the quick succession - there were a few issues with
-> the last pull request that only got noticed now, so I'm fixing
-> those here.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Please pull and let me know if there's any problem.
+> The break statement for the Macronix case is missing and will
+> fall through to the Winbond case and re-assign the size setting.
+> Fix this by adding the missing break statement.  Also correctly
+> indent the return statements.
+> 
+> Detected by CoverityScan, CID#1458020 ("Missing break in switch")
+> 
+> Fixes: 96ac18f14a5a ("cxgb4: Add support for new flash parts")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-No worries, pulled, thanks Johannes.
+Applied.
