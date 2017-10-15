@@ -1,69 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 00/10] korina cleanups/optimizations
-Date: Sun, 15 Oct 2017 10:36:52 -0700
-Message-ID: <D5237C2A-B301-46E1-B2B6-66DCA637E87F@gmail.com>
-References: <20171015162226.606-1-roman@advem.lv> <0FA80CB3-C0DC-4B30-B638-26B5D46AE69E@gmail.com> <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] xen/9pfs: mark expected switch fall-through in
+ xen_9pfs_front_changed
+Date: Sun, 15 Oct 2017 13:08:40 -0500
+Message-ID: <20171015180840.GA7305@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-To: Roman Yeryomin <roman@advem.lv>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:52085 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751210AbdJOSIe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 14:08:34 -0400
-Received: by mail-oi0-f65.google.com with SMTP id j126so21533152oib.8
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 11:08:34 -0700 (PDT)
-In-Reply-To: <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
+Received: from gateway30.websitewelcome.com ([192.185.198.26]:13640 "EHLO
+        gateway30.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751337AbdJOSIl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 14:08:41 -0400
+Received: from cm14.websitewelcome.com (cm14.websitewelcome.com [100.42.49.7])
+        by gateway30.websitewelcome.com (Postfix) with ESMTP id 79A27F5E
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 13:08:41 -0500 (CDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On October 15, 2017 9:46:02 AM PDT, Roman Yeryomin <roman@advem=2Elv> wrote=
-:
->On 2017-10-15 19:38, Florian Fainelli wrote:
->> On October 15, 2017 9:22:26 AM PDT, Roman Yeryomin <roman@advem=2Elv>=
-=20
->> wrote:
->>> TX optimizations have led to ~15% performance increase (35->40Mbps)
->>> in local tx usecase (tested with iperf v3=2E2)=2E
->>=20
->> Could you avoid empty commit messages and write a paragraph or two
->for
->> each commit that explains what and why are you changing? The changes
->> look fine but they lack any explanation=2E
->
->I thought that short descriptions are already self explanatory and just
->
->didn't know what to write more=2E
->To me they are very obvious=2E
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-You can't assume what is obvious to you will be to the reviewers=2E
+Notice that in this particular case, I placed the "fall through" comment
+on its own line, which is what GCC is expecting to find.
 
->Do you really want me to make up something more?
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only (GCC 7.2.0 was used).
 
-It's up to David as a maintainer to decide, but if this was up to me I wou=
-ld ask you to respin with a least a paragraph for each commit (except the v=
-ersion bump) why you did these changes=2E
+ net/9p/trans_xen.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
->
->>>=20
->>> Roman Yeryomin (10):
->>>  net: korina: optimize korina_send_packet logic
->>>  net: korina: reorder functions
->>>  net: korina: introduce and use interrupt disable/enable helpers
->>>  net: korina: optimize tx/rx interrupt handlers
->>>  net: korina: remove unused korina_private members
->>>  net: korina: optimize tx descriptor flags processing
->>>  net: korina: move tx to napi context
->>>  net: korina: optimize tx_full condition
->>>  net: korina: use dma api instead of dma_cache_* functions
->>>  net: korina: bump version
->>>=20
->>> drivers/net/ethernet/korina=2Ec | 503
->>> +++++++++++++++++-------------------------
->>> 1 file changed, 204 insertions(+), 299 deletions(-)
-
-
---=20
-Florian
+diff --git a/net/9p/trans_xen.c b/net/9p/trans_xen.c
+index 6ad3e04..7ec5df9 100644
+--- a/net/9p/trans_xen.c
++++ b/net/9p/trans_xen.c
+@@ -510,7 +510,8 @@ static void xen_9pfs_front_changed(struct xenbus_device *dev,
+ 	case XenbusStateClosed:
+ 		if (dev->state == XenbusStateClosed)
+ 			break;
+-		/* Missed the backend's CLOSING state -- fallthrough */
++		/* Missed the backend's CLOSING state */
++		/* fall through */
+ 	case XenbusStateClosing:
+ 		xenbus_frontend_closed(dev);
+ 		break;
+-- 
+2.7.4
