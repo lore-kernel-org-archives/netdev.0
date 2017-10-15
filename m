@@ -1,57 +1,37 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] ipv6: only update __use and lastusetime once
- per jiffy at most
-Date: Sun, 15 Oct 2017 15:01:32 +0200
-Message-ID: <1508072492.2847.5.camel@redhat.com>
-References: <20171013220807.90366-1-tracywwnj@gmail.com>
-         <20171014000924.dcfuqxwlalaigqdq@kafai-mbp.dhcp.thefacebook.com>
+From: =?utf-8?B?0JzQuNGF0LDQuNC7INCd0L7QstC+0YHQtdC70L7Qsiwg0KjQrdCcINCU0YPQvNCw0LvQvtCz0LjRjw==?=
+        <mikhailnov@dumalogiya.ru>
+Subject: [REGRESSION] rtl8723bs (r8723bs) WiFi stopped working on 4.14 on Chuwi Hi12 (Intel CherryTrail SoC)
+Date: Sun, 15 Oct 2017 16:37:40 +0300
+Message-ID: <2750281508074660@web27g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38360 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750836AbdJONBf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 15 Oct 2017 09:01:35 -0400
-In-Reply-To: <20171014000924.dcfuqxwlalaigqdq@kafai-mbp.dhcp.thefacebook.com>
+Received: from forward101p.mail.yandex.net ([77.88.28.101]:52140 "EHLO
+        forward101p.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751096AbdJONpX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 09:45:23 -0400
+Received: from mxback4o.mail.yandex.net (mxback4o.mail.yandex.net [IPv6:2a02:6b8:0:1a2d::1e])
+        by forward101p.mail.yandex.net (Yandex) with ESMTP id 06FB86A823C0
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 16:37:41 +0300 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-10-13 at 17:09 -0700, Martin KaFai Lau wrote:
-> On Fri, Oct 13, 2017 at 10:08:07PM +0000, Wei Wang wrote:
-> > From: Wei Wang <weiwan@google.com>
-> > 
-> > In order to not dirty the cacheline too often, we try to only update
-> > dst->__use and dst->lastusetime at most once per jiffy.
-> 
-> 
-> > As dst->lastusetime is only used by ipv6 garbage collector, it should
-> > be good enough time resolution.
-> 
-> Make sense.
-> 
-> > And __use is only used in ipv6_route_seq_show() to show how many times a
-> > dst has been used. And as __use is not atomic_t right now, it does not
-> > show the precise number of usage times anyway. So we think it should be
-> > OK to only update it at most once per jiffy.
-> 
-> If __use is only bumped HZ number of times per second and we can do ~3Mpps now,
-> would __use be way off?
+Hello,
+I've found a regression in kernel 4.14, the last tested kernel was the yesterday daily build http://kernel.ubuntu.com/~kernel-ppa/mainline/daily/ , it worked on 4.12 and 4.13 and now on 4.14 it is able to scan for available networks, but is not able to get an IP adress.
+I reported a bug to the kernel's bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=197137 
+---------------------------------------------------------------------------------
 
+Hardware platform: Chuwi Hi12 (intell cherrytrail tablet)
+On Linux kernels 4.12 and 4.13 the WiFi does work, starting from 4.14 not release builds it does not, including some dily builds of the times somewhere near rc1, the rc3 release and the letest daily build of the code state for 2017-10-04 http://kernel.ubuntu.com/~kernel-ppa/mainline/daily/2017-10-05/ 
+I will provide logs from 4.14 a bit later, bellow are LOGS FROM 4.13.1 with working WiFi
 
-It would, but even nowaday such value could not be trusted, due to the
-cuncurrent non atomic operation used to update it.
+Full information on hardware and logs (including full dmesg) are here: https://linux-hardware.org/index.php?probe=01521aa6cf (kernel 4.13 and working wifi)
 
-This:
+$ dmesg | grep rtl
+[    7.899105] RTL8723BS: rtl8723bs v4.3.5.5_12290.20140916_BTCOEX20140507-4E40
+[    7.899106] RTL8723BS: rtl8723bs BT-Coex version = BTCOEX20140507-4E40
+[   10.570755] rtl8723bs: acquire FW from file:rtlwifi/rtl8723bs_nic.bin
 
-https://marc.info/?l=linux-netdev&m=150653252930953&w=2
-
-was an attempt to preserve a more meaningful value for '__use', but it
-requires an additional cacheline.
-
-I'm fine with either options.
-
-Paolo
+Logs from 4.14 with WiFi not working: https://linux-hardware.org/index.php?probe=5c7b00c4cb
