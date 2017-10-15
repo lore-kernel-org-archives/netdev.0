@@ -1,75 +1,156 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [patch net-next 06/34] net: core: use dev->ingress_queue instead
- of tp->q
-Date: Sun, 15 Oct 2017 01:18:54 +0200
-Message-ID: <59E29B5E.9000304@iogearbox.net>
-References: <20171012171823.1431-1-jiri@resnulli.us> <20171012171823.1431-7-jiri@resnulli.us> <59DFE287.2040400@iogearbox.net> <20171013063019.GC1952@nanopsycho.orion>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virtio_net: implement
+ VIRTIO_CONFIG_S_NEEDS_RESET
+Date: Sun, 15 Oct 2017 03:45:42 +0300
+Message-ID: <20171015034018-mutt-send-email-mst@kernel.org>
+References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, ast@kernel.org,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, edumazet@google.com, dsahern@gmail.com,
-        alexander.h.duyck@intel.com, john.fastabend@gmail.com,
-        willemb@google.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60992 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751092AbdJNXTK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 19:19:10 -0400
-In-Reply-To: <20171013063019.GC1952@nanopsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:40560 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751032AbdJOApo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 14 Oct 2017 20:45:44 -0400
+Content-Disposition: inline
+In-Reply-To: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/13/2017 08:30 AM, Jiri Pirko wrote:
-> Thu, Oct 12, 2017 at 11:45:43PM CEST, daniel@iogearbox.net wrote:
->> On 10/12/2017 07:17 PM, Jiri Pirko wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> In sch_handle_egress and sch_handle_ingress, don't use tp->q and use
->>> dev->ingress_queue which stores the same pointer instead.
->>>
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>> ---
->>>    net/core/dev.c | 21 +++++++++++++++------
->>>    1 file changed, 15 insertions(+), 6 deletions(-)
->>>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index fcddccb..cb9e5e5 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -3273,14 +3273,18 @@ EXPORT_SYMBOL(dev_loopback_xmit);
->>>    static struct sk_buff *
->>>    sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
->>>    {
->>> +	struct netdev_queue *netdev_queue =
->>> +				rcu_dereference_bh(dev->ingress_queue);
->>>    	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
->>>    	struct tcf_result cl_res;
->>> +	struct Qdisc *q;
->>>
->>> -	if (!cl)
->>> +	if (!cl || !netdev_queue)
->>>    		return skb;
->>> +	q = netdev_queue->qdisc;
->>
->> NAK, no additional overhead in the software fast-path of
->> sch_handle_{ingress,egress}() like this. There are users out there
->> that use tc in software only, so performance is critical here.
->
-> Okay, how else do you suggest I can avoid the need to use tp->q?
-> I was thinking about storing q directly to net_device, which would safe
-> one dereference, resulting in the same amount as current cl->q.
+On Fri, Oct 13, 2017 at 11:51:40AM -0400, Willem de Bruijn wrote:
+> From: Willem de Bruijn <willemb@google.com>
+> 
+> Implement the reset communication request defined in the VIRTIO 1.0
+> specification and introduces in Linux in commit c00bbcf862896 ("virtio:
+> add VIRTIO_CONFIG_S_NEEDS_RESET device status bit").
+> 
+> Use the virtnet_reset function introduced in commit 2de2f7f40ef9
+> ("virtio_net: XDP support for adjust_head"). That was removed in
+> commit 4941d472bf95 ("virtio-net: do not reset during XDP set"),
+> because no longer used. Bring it back, minus the xdp specific code.
+> 
+> Before tearing down any state, virtnet_freeze_down quiesces the
+> device with netif_tx_disable. virtnet_reset also ensures that no
+> other config operations can run concurrently.
+> 
+> On successful reset, the host can observe that the flag has been
+> cleared. There is no need for the explicit control flag introduced
+> in the previous RFC of this patch.
+> 
+> Changes
+>   RFC -> v1
+>   - drop VIRTIO_NET_CTRL_RESET_ACK message
+>   - drop VIRTIO_F_CAN_RESET flag to notify guest support
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
+>  drivers/net/virtio_net.c | 48 ++++++++++++++++++++++++++++++++++++++++++++----
+>  1 file changed, 44 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index fc059f193e7d..8e768b54844f 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1903,13 +1903,14 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.set_link_ksettings = virtnet_set_link_ksettings,
+>  };
+>  
+> -static void virtnet_freeze_down(struct virtio_device *vdev)
+> +static void virtnet_freeze_down(struct virtio_device *vdev, bool in_config)
+>  {
+>  	struct virtnet_info *vi = vdev->priv;
+>  	int i;
+>  
+> -	/* Make sure no work handler is accessing the device */
+> -	flush_work(&vi->config_work);
+> +	/* Make sure no other work handler is accessing the device */
+> +	if (!in_config)
+> +		flush_work(&vi->config_work);
+>  
+>  	netif_device_detach(vi->dev);
+>  	netif_tx_disable(vi->dev);
+> @@ -1924,6 +1925,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
+>  }
+>  
+>  static int init_vqs(struct virtnet_info *vi);
+> +static void remove_vq_common(struct virtnet_info *vi);
+>  
+>  static int virtnet_restore_up(struct virtio_device *vdev)
+>  {
+> @@ -1952,6 +1954,40 @@ static int virtnet_restore_up(struct virtio_device *vdev)
+>  	return err;
+>  }
+>  
+> +static int virtnet_reset(struct virtnet_info *vi)
+> +{
+> +	struct virtio_device *dev = vi->vdev;
+> +	int ret;
+> +
+> +	virtio_config_disable(dev);
+> +	dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+> +	virtnet_freeze_down(dev, true);
+> +	remove_vq_common(vi);
+> +
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> +
+> +	ret = virtio_finalize_features(dev);
+> +	if (ret)
+> +		goto err;
+> +
+> +	ret = virtnet_restore_up(dev);
+> +	if (ret)
+> +		goto err;
+> +
+> +	ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
+> +	if (ret)
+> +		goto err;
+> +
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+> +	virtio_config_enable(dev);
+> +	return 0;
+> +
+> +err:
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +	return ret;
+> +}
+> +
+>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
+>  {
+>  	struct scatterlist sg;
 
-Sorry for late reply, mostly off for few days. netdev struct has different
-cachelines which are hot on rx and tx (see also the location of the two
-lists, ingress_cl_list and egress_cl_list), if you add only one qdisc
-pointer there, then you'd at least penalize one of the two w/ potential
-cache miss. Can we leave it in cl?
+I have a question here though. How do things like MAC address
+get restored?
+
+What about the rx mode?
+
+vlans?
+
+Also, it seems that LINK_ANNOUNCE requests will get ignored
+even if they got set before the reset, leading to downtime.
+
+> @@ -2136,6 +2172,10 @@ static void virtnet_config_changed_work(struct work_struct *work)
+>  		virtnet_ack_link_announce(vi);
+>  	}
+>  
+> +	if (vi->vdev->config->get_status(vi->vdev) &
+> +	    VIRTIO_CONFIG_S_NEEDS_RESET)
+> +		virtnet_reset(vi);
+> +
+>  	/* Ignore unknown (future) status bits */
+>  	v &= VIRTIO_NET_S_LINK_UP;
+>  
+> @@ -2756,7 +2796,7 @@ static __maybe_unused int virtnet_freeze(struct virtio_device *vdev)
+>  	struct virtnet_info *vi = vdev->priv;
+>  
+>  	virtnet_cpu_notif_remove(vi);
+> -	virtnet_freeze_down(vdev);
+> +	virtnet_freeze_down(vdev, false);
+>  	remove_vq_common(vi);
+>  
+>  	return 0;
+> -- 
+> 2.15.0.rc0.271.g36b669edcc-goog
