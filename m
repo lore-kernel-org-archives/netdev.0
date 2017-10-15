@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] tc-testing: Test suite updates
-Date: Sat, 14 Oct 2017 18:48:09 -0700 (PDT)
-Message-ID: <20171014.184809.660454619715492196.davem@davemloft.net>
-References: <1507931485-1814-1-git-send-email-lucasb@mojatatu.com>
+Subject: Re: [net-next 0/9][pull request] 40GbE Intel Wired LAN Driver
+ Updates 2017-10-13
+Date: Sat, 14 Oct 2017 18:49:53 -0700 (PDT)
+Message-ID: <20171014.184953.1472216629259479607.davem@davemloft.net>
+References: <20171013215249.61286-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        jhs@mojatatu.com, aring@mojatatu.com, mrv@mojatatu.com
-To: lucasb@mojatatu.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38430 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38446 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751165AbdJOBsK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:48:10 -0400
-In-Reply-To: <1507931485-1814-1-git-send-email-lucasb@mojatatu.com>
+        with ESMTP id S1751165AbdJOBty (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:49:54 -0400
+In-Reply-To: <20171013215249.61286-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Bates <lucasb@mojatatu.com>
-Date: Fri, 13 Oct 2017 17:51:21 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 13 Oct 2017 14:52:40 -0700
 
-> This patch series is a roundup of changes to the tc-testing
-> suite:
-> 
->  - Add test cases for police and mirred modules and some coverage
->    in already-submitted test categories
->  - Break the test case files down into more user-friendly sizes
->  - Bug fix to the tdc.py script's handling of the -l argument
-> 
-> v2: fix the lack of final newlines in two new files (thanks David)
+> This series contains updates to mqprio and i40e.
 
-Series applied, thanks for fixing that up.
+Pulled, thanks Jeff.
