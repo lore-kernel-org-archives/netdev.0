@@ -1,52 +1,92 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: Re: [net-next 3/3] tcp: keep tcp_collapse controllable even after
- processing starts
-Date: Sun, 15 Oct 2017 11:45:49 +0900
-Message-ID: <1508035549.29679.4.camel@klaipeden.com>
-References: <20171014072745.23462-1-den@klaipeden.com>
-         <20171014072745.23462-4-den@klaipeden.com>
-         <1507995970.31614.59.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH net-next 0/2] Add mqprio hardware offload support in hns3
+ driver
+Date: Sun, 15 Oct 2017 05:14:50 +0000
+Message-ID: <AM0PR0502MB368336C6A93618A13ADBB68ABF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1507775912-22402-1-git-send-email-linyunsheng@huawei.com>
+ <AM0PR0502MB36837A27C3EAA2A08590D709BF4B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <5c268e80-3b04-28bd-26fb-d77f2edd69a8@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21366 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751138AbdJOCpx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 22:45:53 -0400
-In-Reply-To: <1507995970.31614.59.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Yunsheng Lin <linyunsheng@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5c268e80-3b04-28bd-26fb-d77f2edd69a8@huawei.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2017-10-14 at 08:46 -0700, Eric Dumazet wrote:
-> On Sat, 2017-10-14 at 16:27 +0900, Koichiro Den wrote:
-> > Combining actual collapsing with reasoning for deciding the starting
-> > point, we can apply its logic in a consistent manner such that we can
-> > avoid costly yet not much useful collapsing. When collapsing to be
-> > triggered, it's not rare that most of the skbs in the receive or ooo
-> > queue are large ones without much metadata overhead. This also
-> > simplifies code and makes it easier to apply logic in a fair manner.
-> > 
-> > Subtle subsidiary changes included:
-> > - When the end_seq of the skb we are trying to collapse was larger than
-> >   the 'end' argument provided, we would end up copying to the 'end'
-> >   even though we couldn't collapse the original one. Current users of
-> >   tcp_collapse does not require such reserves so redefines it as the
-> >   point over which skbs whose seq passes guranteed not to be collapsed.
-> > - Naturally tcp_collapse_ofo_queue shapes up and we no longer need
-> >   'tail' argument.
-> 
-> 
-> I am not inclined to review such a large change, without you providing
-> actual numbers.
-> 
-> We have a problem in TCP right now, that receiver announces a too big
-> window, and that is the main reason we trigger collapsing.
-> 
-> I would rather fix the root cause.
-> 
-> 
-Ok I got it, thank you.
+PiBIaSwgWXV2YWwNCj4gDQo+IE9uIDIwMTcvMTAvMTMgNDoyMSwgWXV2YWwgTWludHogd3JvdGU6
+DQo+ID4+IFRoaXMgcGF0Y2hzZXQgYWRkcyBhIG5ldyBoYXJkd2FyZSBvZmZsb2FkIHR5cGUgaW4g
+bXFwcmlvIGJlZm9yZSBhZGRpbmcNCj4gPj4gbXFwcmlvIGhhcmR3YXJlIG9mZmxvYWQgc3VwcG9y
+dCBpbiBobnMzIGRyaXZlci4NCj4gPg0KPiA+IEkgdGhpbmsgb25lIG9mIHRoZSBiaWdnZXN0IGlz
+c3VlcyBpbiB0eWluZyB0aGlzIHRvIERDQiBjb25maWd1cmF0aW9uIGlzIHRoZQ0KPiA+IG5vbi1p
+bW1lZGlhdGUgW2FuZCBwb3NzaWJseSBub24gcGVyc2lzdGVudF0gY29uZmlndXJhdGlvbi4NCj4g
+Pg0KPiA+IFNjZW5hcmlvICMxOg0KPiA+IFVzZXIgaXMgY29uZmlndXJpbmcgbXFwcmlvIG9mZmxv
+YWRlZCB3aXRoIDMgVENzIHdoaWxlIGRldmljZSBpcyBpbiB3aWxsaW5nDQo+IG1vZGUuDQo+ID4g
+V291bGQgeW91IGV4cGVjdCB0aGUgZHJpdmVyIHRvIGltbWVkaWF0ZWx5IHJlc3BvbmQgd2l0aCBh
+IHN1Y2Nlc3Mgb3INCj4gaW5zdGVhZA0KPiA+IGRlbGF5IHRoZSByZXR1cm4gdW50aWwgdGhlIERD
+QnggbmVnb3RpYXRpb24gaXMgY29tcGxldGUgYW5kIHRoZSBvcGVyYXRpb25hbA0KPiA+IG51bSBv
+ZiBUQ3MgaXMgYWN0dWFsbHkgMz8NCj4gDQo+IFdlbGwsIHdoZW4gdXNlciByZXF1c3RzIHRoZSBt
+cXByaW8gb2ZmbG9hZGVkIGJ5IGEgaGFyZHdhcmUgc2hhcmVkIGJ5IERDQiwNCj4gSSBleHBlY3QN
+Cj4gdGhlIHVzZXIgaXMgbm90IHVzaW5nIHRoZSBkY2IgdG9vbC4NCj4gSWYgdXNlciBpcyBzdGls
+bCB1c2luZyBkY2IgdG9vbCwgdGhlbiByZXN1bHQgaXMgdW5kZWZpbmVkLg0KPiANCj4gVGhlIHNj
+ZW5hcmlvIHlvdSBtZW50aW9uIG1heWJlIGNhbiBiZSBlbmZvcmNlZCBieSBzZXR0aW5nIHdpbGxp
+bmcgdG8gemVybw0KPiB3aGVuIHVzZXINCj4gaXMgcmVxdWVzdGluZyB0aGUgbXFwcmlvIG9mZmxv
+YWQsIGFuZCByZXN0b3JlIHRoZSB3aWxsaW5nIGJpdCB3aGVuIHVubG9hZGVkDQo+IHRoZSBtcXBy
+aW8NCj4gb2ZmbG9hZC4NCg0KU291bmRzIGEgYml0IGhhcnNoIGJ1dCB3b3VsZCBwcm9iYWJseSB3
+b3JrLg0KDQo+IEJ1dCBJIHRoaW5rIHRoZSByZWFsIGlzc3VlIGlzIHRoYXQgZGNiIGFuZCBtcXBy
+aW8gc2hhcmVzIHRoZSB0YyBzeXN0ZW0gaW4gdGhlDQo+IHN0YWNrLA0KPiB0aGUgcHJvYmxlbSBt
+YXkgYmUgYmV0dGVyIHRvIGJlIGZpeGVkIGluIHRoZSBzdGFjayByYXRoZXIgdGhhbiBpbiB0aGUg
+ZHJpdmVyLA0KPiBhcyB5b3UNCj4gc3VnZ2VzdGVkIGluIHRoZSBEQ0IgcGF0Y2hzZXQuIFdoYXQg
+ZG8geW91IHRoaW5rPw0KDQpXaGF0IGRpZCB5b3UgaGF2ZSBpbiBtaW5kPw0KDQo+IA0KPiA+DQo+
+ID4gU2NlbmFyaW8gIzI6DQo+ID4gQXNzdW1lIHVzZXIgZXhwbGljaXRseSBvZmZsb2FkZWQgbXFw
+cmlvIHdpdGggMyBUQ3MsIGJ1dCBub3cgRENCDQo+IGNvbmZpZ3VyYXRpb24NCj4gPiBoYXMgY2hh
+bmdlZCBvbiB0aGUgcGVlciBzaWRlIGFuZCA0IFRDcyBpcyB0aGUgbmV3IG5lZ290aWF0ZWQgb3Bl
+cmF0aW9uYWwNCj4gdmFsdWUuDQo+ID4gWW91ciBjdXJyZW50IGRyaXZlciBsb2dpYyB3b3VsZCBj
+aGFuZ2UgdGhlIG51bWJlciBvZiBUQ3MgdW5kZXJuZWF0aCB0aGUNCj4gdXNlcg0KPiA+IGNvbmZp
+Z3VyYXRpb24gW2FuZCBpdCB3b3VsZCBhY3R1YWxseSBwcm9iYWJseSB3b3JrIGR1ZSB0byBtcXBy
+aW8gYmVpbmcgYQ0KPiBjcmFwcHkNCj4gPiBxZGlzY10uIEJ1dCB3YXMgdGhhdCB0aGUgdXNlciBh
+Y3R1YWwgaW50ZW50aW9uPw0KPiA+IFtJIHRoaW5rIHRoZSBsaWtlbHkgYW5zd2VyIGluIHRoaXMg
+c2NlbmFyaW8gaXMgJ3llcycgc2luY2UgdGhlIGFsdGVybmF0aXZlIGlzIG5vDQo+IGJldHRlci4N
+Cj4gPiBCdXQgSSBzdGlsbCB0aG91Z2h0IGl0IHdhcyB3b3J0aCBtZW50aW9uaW5nXQ0KPiANCj4g
+WW91IGFyZSByaWdodCwgdGhlIHByb2JsZW0gYWxzbyBoYXZlIHNvbWV0aGluZyB0byBkbyB3aXRo
+IG1xcHJpbyBhbmQgZGNiDQo+IHNoYXJpbmcNCj4gdGhlIHRjIGluIHRoZSBzdGFjay4NCj4gDQo+
+IERydWluZyB0ZXN0aW5nLCB3aGVuIHVzZXIgZXhwbGljaXRseSBvZmZsb2FkZWQgbXFwcmlvIHdp
+dGggMyBUQ3MsIGFsbA0KPiBxdWV1ZSBoYXMgYSBkZWZhdWx0IHBmaWZvIG1xcHJpbyBhdHRhY2hl
+ZCwgYWZ0ZXIgRENCIGNoYW5nZXMgdGhlIHRjIG51bSB0bw0KPiA0LA0KPiB1c2luZyB0YyBxZGlz
+YyBzaG93cyBzb21lIHF1ZXVlIGRvZXMgbm90IGhhdmUgYSBkZWZhdWx0IHBmaWZvIG1xcHJpbw0K
+PiBhdHRhY2hlZC4NCg0KUmVhbGx5PyBUaGVuIHdoYXQgZGlkIGl0IHNob3c/IA0KW0kgYXNzdW1l
+IGl0IGhhcyBzb21lIHBmaWZvIGF0dGFjaGVkLCBhbmQgaXQncyBhbiBtcXByaW8gZHVtcCBraW5k
+IG9mIGFuIGlzc3VlXQ0KDQo+IA0KPiBNYXliZSB3ZSBjYW4gYWRkIGEgY2FsbGJhY2sgdG8gbm90
+aWZ5IG1xcHJpbyB0aGUgY29uZmlndXJhdGlvbiBoYXMgY2hhbmdlZC4NCj4gDQoNCldoaWNoIHdv
+dWxkIGRvIHdoYXQ/DQpZb3UgYWxyZWFkeSBoYXZlIHRoZSBub3RpZmljYXRpb25zIGF2YWlsYWJs
+ZSBmb3IgbW9uaXRvcmluZyB1c2luZyBkY2JubCBsb2dpYyBpZiB0aGUNCmNvbmZpZ3VyYXRpb24g
+Y2hhbmdlIFtmb3IgdXNlcl07IFNvIHVzZXIgY2FuIHJlLWNvbmZpZ3VyZSB3aGF0ZXZlciBpdCB3
+YW50cy4NCkJ1dCBvdGhlciB0aGFuIGRyb3BwaW5nIGFsbCB0aGUgcWRpc2MgY29uZmlndXJhdGlv
+bnMgYW5kIGdvaW5nIGJhY2sgdG8gdGhlIGRlZmF1bHQNCnFkaXNjcywgd2hhdCBkZWZhdWx0IGFj
+dGlvbiB3b3VsZCBtcXByaW8gYmUgYWJsZSB0byBkbyB3aGVuIGNvbmZpZ3VyYXRpb24gY2hhbmdl
+cw0KdGhhdCBhY3R1YWxseSBtYWtlcyBzZW5zZT8NCg0KPiBUaGFua3MNCj4gWXVuc2hlbmcgTGlu
+DQo+IA0KPiA+DQo+ID4gQ2hlZXJzLA0KPiA+IFl1dmFsDQo+ID4NCj4gPj4NCj4gPj4gWXVuc2hl
+bmcgTGluICgyKToNCj4gPj4gICBtcXByaW86IEFkZCBhIG5ldyBoYXJkd2FyZSBvZmZsb2FkIHR5
+cGUgaW4gbXFwcmlvDQo+ID4+ICAgbmV0OiBobnMzOiBBZGQgbXFwcmlvIGhhcmR3YXJlIG9mZmxv
+YWQgc3VwcG9ydCBpbiBobnMzIGRyaXZlcg0KPiA+Pg0KPiA+PiAgZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaGlzaWxpY29uL2huczMvaG5hZTMuaCAgICAgICAgfCAgMSArDQo+ID4+ICAuLi4vbmV0L2V0
+aGVybmV0L2hpc2lsaWNvbi9obnMzL2huczNwZi9oY2xnZV9kY2IuYyB8IDIzICsrKysrKysrKysr
+DQo+ID4+ICAuLi4vbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMzL2huczNwZi9obnMzX2VuZXQu
+YyB8IDQ2DQo+ICsrKysrKysrKysrKysrLQ0KPiA+PiAtLS0tLS0tDQo+ID4+ICBpbmNsdWRlL3Vh
+cGkvbGludXgvcGt0X3NjaGVkLmggICAgICAgICAgICAgICAgICAgICB8ICAxICsNCj4gPj4gIDQg
+ZmlsZXMgY2hhbmdlZCwgNTUgaW5zZXJ0aW9ucygrKSwgMTYgZGVsZXRpb25zKC0pDQo+ID4+DQo+
+ID4+IC0tDQo+ID4+IDEuOS4xDQo+ID4NCj4gPg0KPiA+DQoNCg==
