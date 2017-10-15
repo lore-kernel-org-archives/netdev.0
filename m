@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] l2tp: check ps->sock before running
- pppol2tp_session_ioctl()
-Date: Sat, 14 Oct 2017 18:39:29 -0700 (PDT)
-Message-ID: <20171014.183929.1810886243588964625.davem@davemloft.net>
-References: <520e39809f7ca7d8b38282e3a6bf0bbf93219541.1507915312.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH net-next,0/3] Add init of send table and var renames
+Date: Sat, 14 Oct 2017 18:43:10 -0700 (PDT)
+Message-ID: <20171014.184310.1151587743577615370.davem@davemloft.net>
+References: <20171013192805.18183-1-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, tparkin@katalix.com
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38312 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751237AbdJOBja (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:39:30 -0400
-In-Reply-To: <520e39809f7ca7d8b38282e3a6bf0bbf93219541.1507915312.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kys@microsoft.com, sthemmin@microsoft.com,
+        olaf@aepfle.de, vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171013192805.18183-1-haiyangz@exchange.microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 13 Oct 2017 19:22:35 +0200
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Fri, 13 Oct 2017 12:28:02 -0700
 
-> When pppol2tp_session_ioctl() is called by pppol2tp_tunnel_ioctl(),
-> the session may be unconnected. That is, it was created by
-> pppol2tp_session_create() and hasn't been connected with
-> pppol2tp_connect(). In this case, ps->sock is NULL, so we need to check
-> for this case in order to avoid dereferencing a NULL pointer.
+> From: Haiyang Zhang <haiyangz@microsoft.com>
 > 
-> Fixes: 309795f4bec2 ("l2tp: Add netlink control API for L2TP")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> Add initialization of send indirection table. Otherwise it may contain
+> old info of previous device with different number of channels.
+> 
+> Also, did some variable renaming for easier reading.
 
-Applied and queued up for -stable, thanks.
+Series applied, thank you.
