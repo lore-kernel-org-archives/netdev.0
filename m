@@ -1,55 +1,57 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] xen/9pfs: mark expected switch fall-through in
- xen_9pfs_front_changed
-Date: Sun, 15 Oct 2017 13:08:40 -0500
-Message-ID: <20171015180840.GA7305@embeddedor.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next] ipv6: only update __use and lastusetime once
+ per jiffy at most
+Date: Sun, 15 Oct 2017 11:19:49 -0700
+Message-ID: <20171015181918.ri2gjp2ypdm37pwd@kafai-mbp>
+References: <20171013220807.90366-1-tracywwnj@gmail.com>
+ <20171014000924.dcfuqxwlalaigqdq@kafai-mbp.dhcp.thefacebook.com>
+ <CANn89i+09PB1=J8mXO495iOK4oe4hsnRF=YsOQQJAsnw5ydeoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: v9fs-developer@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Eric Van Hensbergen <ericvh@gmail.com>,
-        Ron Minnich <rminnich@sandia.gov>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Wang <weiwan@google.com>, David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Paolo Abeni <pabeni@redhat.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway30.websitewelcome.com ([192.185.198.26]:13640 "EHLO
-        gateway30.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751337AbdJOSIl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 14:08:41 -0400
-Received: from cm14.websitewelcome.com (cm14.websitewelcome.com [100.42.49.7])
-        by gateway30.websitewelcome.com (Postfix) with ESMTP id 79A27F5E
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 13:08:41 -0500 (CDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35470 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750971AbdJOSUB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 14:20:01 -0400
 Content-Disposition: inline
+In-Reply-To: <CANn89i+09PB1=J8mXO495iOK4oe4hsnRF=YsOQQJAsnw5ydeoA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
+On Sat, Oct 14, 2017 at 12:26:28AM +0000, Eric Dumazet wrote:
+> On Fri, Oct 13, 2017 at 5:09 PM, Martin KaFai Lau <kafai@fb.com> wrote:
+> > On Fri, Oct 13, 2017 at 10:08:07PM +0000, Wei Wang wrote:
+> >> From: Wei Wang <weiwan@google.com>
+> >>
+> >> In order to not dirty the cacheline too often, we try to only update
+> >> dst->__use and dst->lastusetime at most once per jiffy.
+> >
+> >
+> >> As dst->lastusetime is only used by ipv6 garbage collector, it should
+> >> be good enough time resolution.
+> > Make sense.
+> >
+> >> And __use is only used in ipv6_route_seq_show() to show how many times a
+> >> dst has been used. And as __use is not atomic_t right now, it does not
+> >> show the precise number of usage times anyway. So we think it should be
+> >> OK to only update it at most once per jiffy.
+> > If __use is only bumped HZ number of times per second and we can do ~3Mpps now,
+> > would __use be way off?
+> 
+> It is not used in the kernel, and is not even reported by user space
+> (iproute2) currently.
+> 
+> With the percpu stuff, we never did the sum anyway.
+The pcpu_rt currently does not track __use.
 
-Notice that in this particular case, I placed the "fall through" comment
-on its own line, which is what GCC is expecting to find.
-
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only (GCC 7.2.0 was used).
-
- net/9p/trans_xen.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/9p/trans_xen.c b/net/9p/trans_xen.c
-index 6ad3e04..7ec5df9 100644
---- a/net/9p/trans_xen.c
-+++ b/net/9p/trans_xen.c
-@@ -510,7 +510,8 @@ static void xen_9pfs_front_changed(struct xenbus_device *dev,
- 	case XenbusStateClosed:
- 		if (dev->state == XenbusStateClosed)
- 			break;
--		/* Missed the backend's CLOSING state -- fallthrough */
-+		/* Missed the backend's CLOSING state */
-+		/* fall through */
- 	case XenbusStateClosing:
- 		xenbus_frontend_closed(dev);
- 		break;
--- 
-2.7.4
+> 
+> I believe we should be fine by being very lazy on this field.
+> 
+> If really someones complain, we will see, but insuring ~one update per
+> HZ seems fine.
+Fair point.  Make sense.
+We currently also don't find the ipv6_route proc-file very useful
+other than debugging purpose.
