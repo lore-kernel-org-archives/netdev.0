@@ -1,191 +1,138 @@
 From: Roman Yeryomin <roman@advem.lv>
-Subject: [PATCH net-next 03/10] net: korina: introduce and use interrupt disable/enable helpers
-Date: Sun, 15 Oct 2017 19:23:07 +0300
-Message-ID: <20171015162307.796-1-roman@advem.lv>
+Subject: [PATCH net-next 01/10] net: korina: optimize korina_send_packet logic
+Date: Sun, 15 Oct 2017 19:22:42 +0300
+Message-ID: <20171015162242.661-1-roman@advem.lv>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s1l1v.rtu.lv ([213.175.92.62]:52615 "EHLO mail.pbx.lv"
+Received: from s1l1v.rtu.lv ([213.175.92.62]:52616 "EHLO mail.pbx.lv"
         rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-        id S1751341AbdJOQ2K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 15 Oct 2017 12:28:10 -0400
+        id S1751386AbdJOQ2J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Oct 2017 12:28:09 -0400
 Received: from ubrain.corp.ubnt.com (unknown [213.175.92.61])
-        by mail.pbx.lv (MailSystem) with ESMTPSA id 26100191887
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 19:22:28 +0300 (EEST)
+        by mail.pbx.lv (MailSystem) with ESMTPSA id 79F6D19187F
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 19:22:04 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Roman Yeryomin <roman@advem.lv>
 ---
- drivers/net/ethernet/korina.c | 83 +++++++++++++++++++++++++------------------
- 1 file changed, 48 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/korina.c | 76 ++++++++++++++-----------------------------
+ 1 file changed, 24 insertions(+), 52 deletions(-)
 
 diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 5545f86aac4a..04c1a3f38a79 100644
+index 7cecd9dbc111..84b2654e2d06 100644
 --- a/drivers/net/ethernet/korina.c
 +++ b/drivers/net/ethernet/korina.c
-@@ -91,6 +91,10 @@
- #define RD_RING_SIZE	(KORINA_NUM_RDS * sizeof(struct dma_desc))
- #define TD_RING_SIZE	(KORINA_NUM_TDS * sizeof(struct dma_desc))
- 
-+#define KORINA_INT_TX	(DMA_STAT_FINI | DMA_STAT_ERR)
-+#define KORINA_INT_RX	(DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR)
-+#define KORINA_INT_TXRX	(KORINA_INT_TX | KORINA_INT_RX)
-+
- #define TX_TIMEOUT	(6000 * HZ / 1000)
- 
- enum chain_status {
-@@ -142,6 +146,38 @@ struct korina_private {
- 
- extern unsigned int idt_cpu_freq;
- 
-+static inline void korina_int_disable(u32 *dmasm, u32 ints)
-+{
-+	u32 tmp = readl(dmasm);
-+	writel(tmp | ints, dmasm);
-+}
-+
-+static inline void korina_int_enable(u32 *dmasm, u32 ints)
-+{
-+	u32 tmp = readl(dmasm);
-+	writel(tmp & ~ints, dmasm);
-+}
-+
-+static inline void korina_int_disable_tx(struct korina_private *kp)
-+{
-+	korina_int_disable(&kp->tx_dma_regs->dmasm, KORINA_INT_TX);
-+}
-+
-+static inline void korina_int_disable_rx(struct korina_private *kp)
-+{
-+	korina_int_disable(&kp->rx_dma_regs->dmasm, KORINA_INT_RX);
-+}
-+
-+static inline void korina_int_enable_tx(struct korina_private *kp)
-+{
-+	korina_int_enable(&kp->tx_dma_regs->dmasm, KORINA_INT_TX);
-+}
-+
-+static inline void korina_int_enable_rx(struct korina_private *kp)
-+{
-+	korina_int_enable(&kp->rx_dma_regs->dmasm, KORINA_INT_RX);
-+}
-+
- static inline void korina_start_dma(struct dma_reg *ch, u32 dma_addr)
+@@ -200,8 +200,7 @@ static int korina_send_packet(struct sk_buff *skb, struct net_device *dev)
  {
- 	writel(0, &ch->dmandptr);
-@@ -369,9 +405,7 @@ static void korina_tx(struct net_device *dev)
- 	dmas = readl(&lp->tx_dma_regs->dmas);
- 	writel(~dmas, &lp->tx_dma_regs->dmas);
+ 	struct korina_private *lp = netdev_priv(dev);
+ 	unsigned long flags;
+-	u32 length;
+-	u32 chain_prev, chain_next;
++	u32 chain_prev, chain_next, dmandptr;
+ 	struct dma_desc *td;
  
--	writel(readl(&lp->tx_dma_regs->dmasm) &
--			~(DMA_STAT_FINI | DMA_STAT_ERR),
--			&lp->tx_dma_regs->dmasm);
-+	korina_int_enable_tx(lp);
+ 	spin_lock_irqsave(&lp->lock, flags);
+@@ -211,10 +210,9 @@ static int korina_send_packet(struct sk_buff *skb, struct net_device *dev)
+ 	/* stop queue when full, drop pkts if queue already full */
+ 	if (lp->tx_count >= (KORINA_NUM_TDS - 2)) {
+ 		lp->tx_full = 1;
++		netif_stop_queue(dev);
  
- 	spin_unlock(&lp->lock);
- }
-@@ -497,10 +531,7 @@ static int korina_poll(struct napi_struct *napi, int budget)
- 	work_done = korina_rx(dev, budget);
- 	if (work_done < budget) {
- 		napi_complete_done(napi, work_done);
--
--		writel(readl(&lp->rx_dma_regs->dmasm) &
--			~(DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR),
--			&lp->rx_dma_regs->dmasm);
-+		korina_int_enable_rx(lp);
+-		if (lp->tx_count == (KORINA_NUM_TDS - 2))
+-			netif_stop_queue(dev);
+-		else {
++		if (lp->tx_count > (KORINA_NUM_TDS - 2)) {
+ 			dev->stats.tx_dropped++;
+ 			dev_kfree_skb_any(skb);
+ 			spin_unlock_irqrestore(&lp->lock, flags);
+@@ -224,66 +222,40 @@ static int korina_send_packet(struct sk_buff *skb, struct net_device *dev)
  	}
- 	return work_done;
- }
-@@ -510,15 +541,13 @@ korina_tx_dma_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = dev_id;
- 	struct korina_private *lp = netdev_priv(dev);
--	u32 dmas, dmasm;
-+	u32 dmas;
- 	irqreturn_t retval;
  
- 	dmas = readl(&lp->tx_dma_regs->dmas);
+ 	lp->tx_count++;
+-
+ 	lp->tx_skb[lp->tx_chain_tail] = skb;
  
- 	if (dmas & (DMA_STAT_FINI | DMA_STAT_ERR)) {
--		dmasm = readl(&lp->tx_dma_regs->dmasm);
--		writel(dmasm | (DMA_STAT_FINI | DMA_STAT_ERR),
--				&lp->tx_dma_regs->dmasm);
-+		korina_int_disable_tx(lp);
+-	length = skb->len;
+ 	dma_cache_wback((u32)skb->data, skb->len);
  
- 		korina_tx(dev);
+ 	/* Setup the transmit descriptor. */
+ 	dma_cache_inv((u32) td, sizeof(*td));
++
+ 	td->ca = CPHYSADDR(skb->data);
+ 	chain_prev = (lp->tx_chain_tail - 1) & KORINA_TDS_MASK;
+ 	chain_next = (lp->tx_chain_tail + 1) & KORINA_TDS_MASK;
  
-@@ -545,15 +574,12 @@ static irqreturn_t korina_rx_dma_interrupt(int irq, void *dev_id)
- {
- 	struct net_device *dev = dev_id;
- 	struct korina_private *lp = netdev_priv(dev);
--	u32 dmas, dmasm;
-+	u32 dmas;
- 	irqreturn_t retval;
+-	if (readl(&(lp->tx_dma_regs->dmandptr)) == 0) {
+-		if (lp->tx_chain_status == desc_empty) {
+-			/* Update tail */
+-			td->control = DMA_COUNT(length) |
+-					DMA_DESC_COF | DMA_DESC_IOF;
+-			/* Move tail */
+-			lp->tx_chain_tail = chain_next;
+-			/* Write to NDPTR */
+-			writel(CPHYSADDR(&lp->td_ring[lp->tx_chain_head]),
++	dmandptr = readl(&(lp->tx_dma_regs->dmandptr));
++	/* Update tail */
++	td->control = DMA_COUNT(skb->len) | DMA_DESC_COF | DMA_DESC_IOF;
++	/* Move tail */
++	lp->tx_chain_tail = chain_next;
++
++	if (lp->tx_chain_status != desc_empty) {
++		/* Link to prev */
++		lp->td_ring[chain_prev].control &= ~DMA_DESC_COF;
++		lp->td_ring[chain_prev].link =  CPHYSADDR(td);
++	}
++
++	if (!dmandptr) {
++		/* Write to NDPTR */
++		writel(CPHYSADDR(&lp->td_ring[lp->tx_chain_head]),
+ 					&lp->tx_dma_regs->dmandptr);
+-			/* Move head to tail */
+-			lp->tx_chain_head = lp->tx_chain_tail;
+-		} else {
+-			/* Update tail */
+-			td->control = DMA_COUNT(length) |
+-					DMA_DESC_COF | DMA_DESC_IOF;
+-			/* Link to prev */
+-			lp->td_ring[chain_prev].control &=
+-					~DMA_DESC_COF;
+-			/* Link to prev */
+-			lp->td_ring[chain_prev].link =  CPHYSADDR(td);
+-			/* Move tail */
+-			lp->tx_chain_tail = chain_next;
+-			/* Write to NDPTR */
+-			writel(CPHYSADDR(&lp->td_ring[lp->tx_chain_head]),
+-					&(lp->tx_dma_regs->dmandptr));
+-			/* Move head to tail */
+-			lp->tx_chain_head = lp->tx_chain_tail;
+-			lp->tx_chain_status = desc_empty;
+-		}
++		/* Move head to tail */
++		lp->tx_chain_head = lp->tx_chain_tail;
++		lp->tx_chain_status = desc_empty;
+ 	} else {
+-		if (lp->tx_chain_status == desc_empty) {
+-			/* Update tail */
+-			td->control = DMA_COUNT(length) |
+-					DMA_DESC_COF | DMA_DESC_IOF;
+-			/* Move tail */
+-			lp->tx_chain_tail = chain_next;
+-			lp->tx_chain_status = desc_filled;
+-		} else {
+-			/* Update tail */
+-			td->control = DMA_COUNT(length) |
+-					DMA_DESC_COF | DMA_DESC_IOF;
+-			lp->td_ring[chain_prev].control &=
+-					~DMA_DESC_COF;
+-			lp->td_ring[chain_prev].link =  CPHYSADDR(td);
+-			lp->tx_chain_tail = chain_next;
+-		}
++		lp->tx_chain_status = desc_filled;
+ 	}
++
+ 	dma_cache_wback((u32) td, sizeof(*td));
  
- 	dmas = readl(&lp->rx_dma_regs->dmas);
- 	if (dmas & (DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR)) {
--		dmasm = readl(&lp->rx_dma_regs->dmasm);
--		writel(dmasm | (DMA_STAT_DONE |
--				DMA_STAT_HALT | DMA_STAT_ERR),
--				&lp->rx_dma_regs->dmasm);
-+		korina_int_disable_rx(lp);
- 
- 		napi_schedule(&lp->napi);
- 
-@@ -803,12 +829,8 @@ static int korina_init(struct net_device *dev)
- 	/* Start Rx DMA */
- 	korina_start_rx(lp, &lp->rd_ring[0]);
- 
--	writel(readl(&lp->tx_dma_regs->dmasm) &
--			~(DMA_STAT_FINI | DMA_STAT_ERR),
--			&lp->tx_dma_regs->dmasm);
--	writel(readl(&lp->rx_dma_regs->dmasm) &
--			~(DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR),
--			&lp->rx_dma_regs->dmasm);
-+	korina_int_enable_tx(lp);
-+	korina_int_enable_rx(lp);
- 
- 	/* Accept only packets destined for this Ethernet device address */
- 	writel(ETH_ARC_AB, &lp->eth_regs->etharc);
-@@ -867,12 +889,8 @@ static void korina_restart_task(struct work_struct *work)
- 	disable_irq(lp->rx_irq);
- 	disable_irq(lp->tx_irq);
- 
--	writel(readl(&lp->tx_dma_regs->dmasm) |
--				DMA_STAT_FINI | DMA_STAT_ERR,
--				&lp->tx_dma_regs->dmasm);
--	writel(readl(&lp->rx_dma_regs->dmasm) |
--				DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR,
--				&lp->rx_dma_regs->dmasm);
-+	korina_int_disable_tx(lp);
-+	korina_int_disable_rx(lp);
- 
- 	napi_disable(&lp->napi);
- 
-@@ -947,7 +965,6 @@ static int korina_open(struct net_device *dev)
- static int korina_close(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
--	u32 tmp;
- 
- 	del_timer(&lp->media_check_timer);
- 
-@@ -956,14 +973,10 @@ static int korina_close(struct net_device *dev)
- 	disable_irq(lp->tx_irq);
- 
- 	korina_abort_tx(dev);
--	tmp = readl(&lp->tx_dma_regs->dmasm);
--	tmp = tmp | DMA_STAT_FINI | DMA_STAT_ERR;
--	writel(tmp, &lp->tx_dma_regs->dmasm);
-+	korina_int_disable_tx(lp);
- 
- 	korina_abort_rx(dev);
--	tmp = readl(&lp->rx_dma_regs->dmasm);
--	tmp = tmp | DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR;
--	writel(tmp, &lp->rx_dma_regs->dmasm);
-+	korina_int_disable_rx(lp);
- 
- 	napi_disable(&lp->napi);
- 
+ 	netif_trans_update(dev);
 -- 
 2.11.0
