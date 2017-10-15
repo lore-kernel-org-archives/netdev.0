@@ -1,34 +1,101 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net-next 4/5] mlxsw: spectrum: router: Add support for
- address validator notifier
-Date: Sun, 15 Oct 2017 11:36:47 +0300
-Message-ID: <20171015083647.GC10604@shredder.mtl.com>
-References: <1507935733-18950-1-git-send-email-dsahern@gmail.com>
- <1507935733-18950-5-git-send-email-dsahern@gmail.com>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH net-next 0/2] Add mqprio hardware offload support in hns3
+ driver
+Date: Sun, 15 Oct 2017 08:51:22 +0000
+Message-ID: <AM0PR0502MB368382B73695B8DA7B360E71BF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1507775912-22402-1-git-send-email-linyunsheng@huawei.com>
+ <AM0PR0502MB36837A27C3EAA2A08590D709BF4B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <5c268e80-3b04-28bd-26fb-d77f2edd69a8@huawei.com>
+ <AM0PR0502MB368336C6A93618A13ADBB68ABF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        kjlx@templeofstupid.com, davem@davemloft.net,
-        yoshfuji@linux-ipv6.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:47127 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751630AbdJOIgu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 04:36:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1507935733-18950-5-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "amritha.nambiar@intel.com" <amritha.nambiar@intel.com>
+To: Yunsheng Lin <linyunsheng@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AM0PR0502MB368336C6A93618A13ADBB68ABF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 13, 2017 at 04:02:12PM -0700, David Ahern wrote:
-> Add support for inetaddr_validator and inet6addr_validator. The
-> notifiers provide a means for validating ipv4 and ipv6 addresses
-> before the addresses are installed and on failure the error
-> is propagated back to the user.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-
-Thanks!
+PiA+ID4+IFRoaXMgcGF0Y2hzZXQgYWRkcyBhIG5ldyBoYXJkd2FyZSBvZmZsb2FkIHR5cGUgaW4g
+bXFwcmlvIGJlZm9yZQ0KPiBhZGRpbmcNCj4gPiA+PiBtcXByaW8gaGFyZHdhcmUgb2ZmbG9hZCBz
+dXBwb3J0IGluIGhuczMgZHJpdmVyLg0KDQpBcHBhcmVudGx5IERhdmUgaGFzIGFscmVhZHkgYWNj
+ZXB0ZWQgCUFtaXJ0aGEncyBjaGFuZ2VzIHRvIG1xcHJpbzoNCmh0dHBzOi8vbWFyYy5pbmZvLz9s
+PWxpbnV4LW5ldGRldiZtPTE1MDgwMzIxOTgyNDA1MyZ3PTIgDQpzbyBJIGd1ZXNzIHlvdSBuZWVk
+IHRvIHJldmlzZSB5b3VyIHBhdGNocyB0byBhbGlnbiB0byB0aGUgbmV3IGNvbnZlbnRpb25zLg0K
+DQo+ID4gPg0KPiA+ID4gSSB0aGluayBvbmUgb2YgdGhlIGJpZ2dlc3QgaXNzdWVzIGluIHR5aW5n
+IHRoaXMgdG8gRENCIGNvbmZpZ3VyYXRpb24gaXMgdGhlDQo+ID4gPiBub24taW1tZWRpYXRlIFth
+bmQgcG9zc2libHkgbm9uIHBlcnNpc3RlbnRdIGNvbmZpZ3VyYXRpb24uDQo+ID4gPg0KPiA+ID4g
+U2NlbmFyaW8gIzE6DQo+ID4gPiBVc2VyIGlzIGNvbmZpZ3VyaW5nIG1xcHJpbyBvZmZsb2FkZWQg
+d2l0aCAzIFRDcyB3aGlsZSBkZXZpY2UgaXMgaW4gd2lsbGluZw0KPiA+IG1vZGUuDQo+ID4gPiBX
+b3VsZCB5b3UgZXhwZWN0IHRoZSBkcml2ZXIgdG8gaW1tZWRpYXRlbHkgcmVzcG9uZCB3aXRoIGEg
+c3VjY2VzcyBvcg0KPiA+IGluc3RlYWQNCj4gPiA+IGRlbGF5IHRoZSByZXR1cm4gdW50aWwgdGhl
+IERDQnggbmVnb3RpYXRpb24gaXMgY29tcGxldGUgYW5kIHRoZQ0KPiBvcGVyYXRpb25hbA0KPiA+
+ID4gbnVtIG9mIFRDcyBpcyBhY3R1YWxseSAzPw0KPiA+DQo+ID4gV2VsbCwgd2hlbiB1c2VyIHJl
+cXVzdHMgdGhlIG1xcHJpbyBvZmZsb2FkZWQgYnkgYSBoYXJkd2FyZSBzaGFyZWQgYnkNCj4gRENC
+LA0KPiA+IEkgZXhwZWN0DQo+ID4gdGhlIHVzZXIgaXMgbm90IHVzaW5nIHRoZSBkY2IgdG9vbC4N
+Cj4gPiBJZiB1c2VyIGlzIHN0aWxsIHVzaW5nIGRjYiB0b29sLCB0aGVuIHJlc3VsdCBpcyB1bmRl
+ZmluZWQuDQo+ID4NCj4gPiBUaGUgc2NlbmFyaW8geW91IG1lbnRpb24gbWF5YmUgY2FuIGJlIGVu
+Zm9yY2VkIGJ5IHNldHRpbmcgd2lsbGluZyB0byB6ZXJvDQo+ID4gd2hlbiB1c2VyDQo+ID4gaXMg
+cmVxdWVzdGluZyB0aGUgbXFwcmlvIG9mZmxvYWQsIGFuZCByZXN0b3JlIHRoZSB3aWxsaW5nIGJp
+dCB3aGVuIHVubG9hZGVkDQo+ID4gdGhlIG1xcHJpbw0KPiA+IG9mZmxvYWQuDQo+IA0KPiBTb3Vu
+ZHMgYSBiaXQgaGFyc2ggYnV0IHdvdWxkIHByb2JhYmx5IHdvcmsuDQo+IA0KPiA+IEJ1dCBJIHRo
+aW5rIHRoZSByZWFsIGlzc3VlIGlzIHRoYXQgZGNiIGFuZCBtcXByaW8gc2hhcmVzIHRoZSB0YyBz
+eXN0ZW0gaW4gdGhlDQo+ID4gc3RhY2ssDQo+ID4gdGhlIHByb2JsZW0gbWF5IGJlIGJldHRlciB0
+byBiZSBmaXhlZCBpbiB0aGUgc3RhY2sgcmF0aGVyIHRoYW4gaW4gdGhlDQo+IGRyaXZlciwNCj4g
+PiBhcyB5b3UNCj4gPiBzdWdnZXN0ZWQgaW4gdGhlIERDQiBwYXRjaHNldC4gV2hhdCBkbyB5b3Ug
+dGhpbms/DQo+IA0KPiBXaGF0IGRpZCB5b3UgaGF2ZSBpbiBtaW5kPw0KPiANCj4gPg0KPiA+ID4N
+Cj4gPiA+IFNjZW5hcmlvICMyOg0KPiA+ID4gQXNzdW1lIHVzZXIgZXhwbGljaXRseSBvZmZsb2Fk
+ZWQgbXFwcmlvIHdpdGggMyBUQ3MsIGJ1dCBub3cgRENCDQo+ID4gY29uZmlndXJhdGlvbg0KPiA+
+ID4gaGFzIGNoYW5nZWQgb24gdGhlIHBlZXIgc2lkZSBhbmQgNCBUQ3MgaXMgdGhlIG5ldyBuZWdv
+dGlhdGVkIG9wZXJhdGlvbmFsDQo+ID4gdmFsdWUuDQo+ID4gPiBZb3VyIGN1cnJlbnQgZHJpdmVy
+IGxvZ2ljIHdvdWxkIGNoYW5nZSB0aGUgbnVtYmVyIG9mIFRDcyB1bmRlcm5lYXRoDQo+IHRoZQ0K
+PiA+IHVzZXINCj4gPiA+IGNvbmZpZ3VyYXRpb24gW2FuZCBpdCB3b3VsZCBhY3R1YWxseSBwcm9i
+YWJseSB3b3JrIGR1ZSB0byBtcXByaW8gYmVpbmcgYQ0KPiA+IGNyYXBweQ0KPiA+ID4gcWRpc2Nd
+LiBCdXQgd2FzIHRoYXQgdGhlIHVzZXIgYWN0dWFsIGludGVudGlvbj8NCj4gPiA+IFtJIHRoaW5r
+IHRoZSBsaWtlbHkgYW5zd2VyIGluIHRoaXMgc2NlbmFyaW8gaXMgJ3llcycgc2luY2UgdGhlIGFs
+dGVybmF0aXZlIGlzIG5vDQo+ID4gYmV0dGVyLg0KPiA+ID4gQnV0IEkgc3RpbGwgdGhvdWdodCBp
+dCB3YXMgd29ydGggbWVudGlvbmluZ10NCj4gPg0KPiA+IFlvdSBhcmUgcmlnaHQsIHRoZSBwcm9i
+bGVtIGFsc28gaGF2ZSBzb21ldGhpbmcgdG8gZG8gd2l0aCBtcXByaW8gYW5kIGRjYg0KPiA+IHNo
+YXJpbmcNCj4gPiB0aGUgdGMgaW4gdGhlIHN0YWNrLg0KPiA+DQo+ID4gRHJ1aW5nIHRlc3Rpbmcs
+IHdoZW4gdXNlciBleHBsaWNpdGx5IG9mZmxvYWRlZCBtcXByaW8gd2l0aCAzIFRDcywgYWxsDQo+
+ID4gcXVldWUgaGFzIGEgZGVmYXVsdCBwZmlmbyBtcXByaW8gYXR0YWNoZWQsIGFmdGVyIERDQiBj
+aGFuZ2VzIHRoZSB0YyBudW0NCj4gdG8NCj4gPiA0LA0KPiA+IHVzaW5nIHRjIHFkaXNjIHNob3dz
+IHNvbWUgcXVldWUgZG9lcyBub3QgaGF2ZSBhIGRlZmF1bHQgcGZpZm8gbXFwcmlvDQo+ID4gYXR0
+YWNoZWQuDQo+IA0KPiBSZWFsbHk/IFRoZW4gd2hhdCBkaWQgaXQgc2hvdz8NCj4gW0kgYXNzdW1l
+IGl0IGhhcyBzb21lIHBmaWZvIGF0dGFjaGVkLCBhbmQgaXQncyBhbiBtcXByaW8gZHVtcCBraW5k
+IG9mIGFuDQo+IGlzc3VlXQ0KPiANCj4gPg0KPiA+IE1heWJlIHdlIGNhbiBhZGQgYSBjYWxsYmFj
+ayB0byBub3RpZnkgbXFwcmlvIHRoZSBjb25maWd1cmF0aW9uIGhhcw0KPiBjaGFuZ2VkLg0KPiA+
+DQo+IA0KPiBXaGljaCB3b3VsZCBkbyB3aGF0Pw0KPiBZb3UgYWxyZWFkeSBoYXZlIHRoZSBub3Rp
+ZmljYXRpb25zIGF2YWlsYWJsZSBmb3IgbW9uaXRvcmluZyB1c2luZyBkY2JubCBsb2dpYyBpZg0K
+PiB0aGUNCj4gY29uZmlndXJhdGlvbiBjaGFuZ2UgW2ZvciB1c2VyXTsgU28gdXNlciBjYW4gcmUt
+Y29uZmlndXJlIHdoYXRldmVyIGl0IHdhbnRzLg0KPiBCdXQgb3RoZXIgdGhhbiBkcm9wcGluZyBh
+bGwgdGhlIHFkaXNjIGNvbmZpZ3VyYXRpb25zIGFuZCBnb2luZyBiYWNrIHRvIHRoZQ0KPiBkZWZh
+dWx0DQo+IHFkaXNjcywgd2hhdCBkZWZhdWx0IGFjdGlvbiB3b3VsZCBtcXByaW8gYmUgYWJsZSB0
+byBkbyB3aGVuIGNvbmZpZ3VyYXRpb24NCj4gY2hhbmdlcw0KPiB0aGF0IGFjdHVhbGx5IG1ha2Vz
+IHNlbnNlPw0KPiANCj4gPiBUaGFua3MNCj4gPiBZdW5zaGVuZyBMaW4NCj4gPg0KPiA+ID4NCj4g
+PiA+IENoZWVycywNCj4gPiA+IFl1dmFsDQo+ID4gPg0KPiA+ID4+DQo+ID4gPj4gWXVuc2hlbmcg
+TGluICgyKToNCj4gPiA+PiAgIG1xcHJpbzogQWRkIGEgbmV3IGhhcmR3YXJlIG9mZmxvYWQgdHlw
+ZSBpbiBtcXByaW8NCj4gPiA+PiAgIG5ldDogaG5zMzogQWRkIG1xcHJpbyBoYXJkd2FyZSBvZmZs
+b2FkIHN1cHBvcnQgaW4gaG5zMyBkcml2ZXINCj4gPiA+Pg0KPiA+ID4+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9oaXNpbGljb24vaG5zMy9obmFlMy5oICAgICAgICB8ICAxICsNCj4gPiA+PiAgLi4u
+L25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zMy9obnMzcGYvaGNsZ2VfZGNiLmMgfCAyMyArKysr
+KysrKysrKw0KPiA+ID4+ICAuLi4vbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMzL2huczNwZi9o
+bnMzX2VuZXQuYyB8IDQ2DQo+ID4gKysrKysrKysrKysrKystDQo+ID4gPj4gLS0tLS0tLQ0KPiA+
+ID4+ICBpbmNsdWRlL3VhcGkvbGludXgvcGt0X3NjaGVkLmggICAgICAgICAgICAgICAgICAgICB8
+ICAxICsNCj4gPiA+PiAgNCBmaWxlcyBjaGFuZ2VkLCA1NSBpbnNlcnRpb25zKCspLCAxNiBkZWxl
+dGlvbnMoLSkNCj4gPiA+Pg0KPiA+ID4+IC0tDQo+ID4gPj4gMS45LjENCj4gPiA+DQo+ID4gPg0K
+PiA+ID4NCg0K
