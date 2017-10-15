@@ -1,81 +1,51 @@
-From: Aleksa Sarai <asarai@suse.de>
-Subject: RFC: making cn_proc work in {pid,user} namespaces
-Date: Sun, 15 Oct 2017 21:05:49 +1100
-Message-ID: <a2fa1602-2280-c5e8-cac9-b718eaea5d22@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-        Christian Brauner <christian.brauner@ubuntu.com>,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        Evgeniy Polyakov <zbr@ioremap.net>,
-        dev <dev@opencontainers.org>,
-        "cyphar@cyphar.com >> Aleksa Sarai" <cyphar@cyphar.com>
-To: Linux Containers <containers@lists.linux-foundation.org>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net 0/6] rtnetlink: a bunch of fixes for userspace notifications in changing dev properties
+Date: Sun, 15 Oct 2017 18:13:40 +0800
+Message-ID: <cover.1508062280.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, David Ahern <dsahern@gmail.com>,
+        hannes@stressinduktion.org
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:57179 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750722AbdJOKNz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 06:13:55 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b85so13630796pfj.13
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 03:13:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Whenever any property of a link, address, route, etc. changes by whatever way,
+kernel should notify the programs that listen for such events in userspace.
 
-At the moment, cn_proc is not usable by containers or container 
-runtimes. In addition, all connectors have an odd relationship with 
-init_net (for example, /proc/net/connectors only exists in init_net). 
-There are two main use-cases that would be perfect for cn_proc, which is 
-the reason for me pushing this:
+The patchet "rtnetlink: Cleanup user notifications for netdev events" tried to
+fix a redundant notifications issue, but it also introduced a side effect.
 
-First, when adding a process to an existing container, in certain modes 
-runc would like to know that process's exit code. But, when joining a 
-PID namespace, it is advisable[1] to always double-fork after doing the 
-setns(2) to reparent the joining process to the init of the container 
-(this causes the SIGCHLD to be received by the container init). It would 
-also be useful to be able to monitor the exit code of the init process 
-in a container without being its parent. At the moment, cn_proc doesn't 
-allow unprivileged users to use it (making it a problem for user 
-namespaces and "rootless containers"). In addition, it also doesn't 
-allow nested containers to use it, because it requires the process to be 
-in init_pid. As a result, runc cannot use cn_proc and relies on SIGCHLD 
-(which can only be used if we don't double-fork, or keep around a 
-long-running process which is something that runc also cannot do).
+After that, user notifications could only be sent when changing dev properties
+via netlink api. As it removed some events process in rtnetlink_event where
+the notifications was sent to users.
 
-Secondly, there are/were some init systems that rely on cn_proc to 
-manage service state. From a "it would be neat" perspective, I think it 
-would be quite nice if such init systems could be used inside 
-containers. But that requires cn_proc to be able to be used as an 
-unprivileged user and in a pid namespace other than init_pid.
+It resulted in no notification generated when dev properties are changed via
+other ways, like ioctl, sysfs, etc. It may cause some user programs doesn't
+work as expected because of the missing notifications.
 
-The /proc/net/connectors thing is quite easily resolved (just make it 
-the connector driver perdev and make some small changes to make sure the 
-interfaces stay sane inside of a container's network namespace). I'm 
-sure that we'll probably have to make some changes to the registration 
-API, so that a connector can specify whether they want to be visible to 
-non-init_net namespaces.
+This patchset will fix it by bringing some of these netdev events back and
+also fix the old redundant notifications issue with a proper way.
 
-However, the cn_proc problem is a bit harder to resolve nicely and there 
-are quite a few interface questions that would need to be agreed upon. 
-The basic idea would be that a process can only get cn_proc events if it 
-has ptrace_may_access rights over said process (effectively a forced 
-filter -- which would ideally be done send-side but it looks like it 
-might have to be done receive-side). This should resolve possible 
-concerns about an unprivileged process being able to inspect (fairly 
-granular) information about the host. And obviously the pids, uids, and 
-gids would all be translated according to the receiving process's user 
-namespaces (if it cannot be translated then the message is not 
-received). I guess that the translation would be done in the same way as 
-SCM_CREDENTIALS (and cgroup.procs files), which is that it's done on the 
-receive side not the send side.
+Xin Long (6):
+  rtnetlink: bring NETDEV_CHANGEMTU event process back in
+    rtnetlink_event
+  rtnetlink: bring NETDEV_CHANGE_TX_QUEUE_LEN event process back in
+    rtnetlink_event
+  rtnetlink: bring NETDEV_POST_TYPE_CHANGE event process back in
+    rtnetlink_event
+  rtnetlink: bring NETDEV_CHANGEUPPER event process back in
+    rtnetlink_event
+  rtnetlink: check DO_SETLINK_NOTIFY correctly in do_setlink
+  rtnetlink: do not set notification for tx_queue_len in do_setlink
 
-My reason for sending this email rather than just writing the patch is 
-to see whether anyone has any solid NACKs against the use-case or 
-whether there is some fundamental issue that I'm not seeing. If nobody 
-objects, I'll be happy to work on this.
-
-[1]: https://lwn.net/Articles/532748/
+ net/core/rtnetlink.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
 -- 
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-https://www.cyphar.com/
+2.1.0
