@@ -1,77 +1,121 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/5] dpaa_eth: move of_phy_connect() to the eth driver
-Date: Sun, 15 Oct 2017 20:33:49 +0200
-Message-ID: <20171015183349.GD6374@lunn.ch>
-References: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
- <1507906212-10076-3-git-send-email-madalin.bucur@nxp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, f.fainelli@gmail.com,
-        vivien.didelot@savoirfairelinux.com, junote@outlook.com,
-        linux-kernel@vger.kernel.org
-To: Madalin Bucur <madalin.bucur@nxp.com>
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] hamradio: baycom_par: use new parport device model
+Date: Sun, 15 Oct 2017 22:00:52 +0100
+Message-ID: <1508101252-14268-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-hams@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Thomas Sailer <t.sailer@alumni.ethz.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1507906212-10076-3-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 13, 2017 at 05:50:09PM +0300, Madalin Bucur wrote:
-> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-> ---
->  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 48 +++++++++++--
->  drivers/net/ethernet/freescale/fman/mac.c      | 97 ++++++--------------------
->  drivers/net/ethernet/freescale/fman/mac.h      |  5 +-
->  3 files changed, 66 insertions(+), 84 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> index 4225806..7cf61d6 100644
-> --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> @@ -2435,6 +2435,48 @@ static void dpaa_eth_napi_disable(struct dpaa_priv *priv)
->  	}
->  }
->  
-> +static void dpaa_adjust_link(struct net_device *net_dev)
-> +{
-> +	struct mac_device *mac_dev;
-> +	struct dpaa_priv *priv;
-> +
-> +	priv = netdev_priv(net_dev);
-> +	mac_dev = priv->mac_dev;
-> +	mac_dev->adjust_link(mac_dev);
-> +}
-> +
-> +static int dpaa_phy_init(struct net_device *net_dev)
-> +{
-> +	struct mac_device *mac_dev;
-> +	struct phy_device *phy_dev;
-> +	struct dpaa_priv *priv;
-> +
-> +	priv = netdev_priv(net_dev);
-> +	mac_dev = priv->mac_dev;
-> +
-> +	phy_dev = of_phy_connect(net_dev, mac_dev->phy_node,
-> +				 &dpaa_adjust_link, 0,
-> +				 mac_dev->phy_if);
-> +	if (!phy_dev) {
-> +		netif_err(priv, ifup, net_dev, "init_phy() failed\n");
-> +		return -ENODEV;
-> +	}
-> +
-> +	/* Remove any features not supported by the controller */
-> +	phy_dev->supported &= mac_dev->if_support;
-> +
-> +	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
-> +	 * as most of the PHY drivers do not enable them by default.
-> +	 */
+Modify baycom driver to use the new parallel port device model.
 
-Hi Madalin
+Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+---
 
-This is just moving code around, so the patch is O.K. However, it
-would be nice to have a followup patch. This comment is wrong. The phy
-driver should never enable symmetric and asymmetric PAUSE frames. The
-MAC needs to, because only the MAC knows if the MAC supports pause
-frames.
+Not tested on real hardware, only tested on kvm with 32 bit guest and
+verified that the device is binding to the driver properly in par96_open
+but then unbinding as the device was not found.
 
-	Andrew
+ drivers/net/hamradio/baycom_par.c | 48 +++++++++++++++++++++++++++++++++++----
+ 1 file changed, 44 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
+index e178383..1f7ceaf 100644
+--- a/drivers/net/hamradio/baycom_par.c
++++ b/drivers/net/hamradio/baycom_par.c
+@@ -311,7 +311,9 @@ static void par96_wakeup(void *handle)
+ static int par96_open(struct net_device *dev)
+ {
+ 	struct baycom_state *bc = netdev_priv(dev);
++	struct pardev_cb par_cb;
+ 	struct parport *pp;
++	int i;
+ 
+ 	if (!dev || !bc)
+ 		return -ENXIO;
+@@ -332,8 +334,21 @@ static int par96_open(struct net_device *dev)
+ 	}
+ 	memset(&bc->modem, 0, sizeof(bc->modem));
+ 	bc->hdrv.par.bitrate = 9600;
+-	bc->pdev = parport_register_device(pp, dev->name, NULL, par96_wakeup, 
+-				 par96_interrupt, PARPORT_DEV_EXCL, dev);
++	memset(&par_cb, 0, sizeof(par_cb));
++	par_cb.wakeup = par96_wakeup;
++	par_cb.irq_func = par96_interrupt;
++	par_cb.private = (void *)dev;
++	par_cb.flags = PARPORT_DEV_EXCL;
++	for (i = 0; i < NR_PORTS; i++)
++		if (baycom_device[i] == dev)
++			break;
++
++	if (i == NR_PORTS) {
++		pr_err("%s: no device found\n", bc_drvname);
++		parport_put_port(pp);
++		return -ENODEV;
++	}
++	bc->pdev = parport_register_dev_model(pp, dev->name, &par_cb, i);
+ 	parport_put_port(pp);
+ 	if (!bc->pdev) {
+ 		printk(KERN_ERR "baycom_par: cannot register parport at 0x%lx\n", dev->base_addr);
+@@ -490,12 +505,34 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
+ 
+ /* --------------------------------------------------------------------- */
+ 
++static int baycom_par_probe(struct pardevice *par_dev)
++{
++	struct device_driver *drv = par_dev->dev.driver;
++	int len = strlen(drv->name);
++
++	if (strncmp(par_dev->name, drv->name, len))
++		return -ENODEV;
++
++	return 0;
++}
++
++static struct parport_driver baycom_par_driver = {
++	.name = "bcp",
++	.probe = baycom_par_probe,
++	.devmodel = true,
++};
++
+ static int __init init_baycompar(void)
+ {
+-	int i, found = 0;
++	int i, found = 0, ret;
+ 	char set_hw = 1;
+ 
+ 	printk(bc_drvinfo);
++
++	ret = parport_register_driver(&baycom_par_driver);
++	if (ret)
++		return ret;
++
+ 	/*
+ 	 * register net devices
+ 	 */
+@@ -524,8 +561,10 @@ static int __init init_baycompar(void)
+ 		baycom_device[i] = dev;
+ 	}
+ 
+-	if (!found)
++	if (!found) {
++		parport_unregister_driver(&baycom_par_driver);
+ 		return -ENXIO;
++	}
+ 	return 0;
+ }
+ 
+@@ -539,6 +578,7 @@ static void __exit cleanup_baycompar(void)
+ 		if (dev)
+ 			hdlcdrv_unregister(dev);
+ 	}
++	parport_unregister_driver(&baycom_par_driver);
+ }
+ 
+ module_init(init_baycompar);
+-- 
+1.9.1
