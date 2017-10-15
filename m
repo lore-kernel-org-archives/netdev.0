@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] nfp: Explicitly include linux/bug.h
-Date: Sat, 14 Oct 2017 18:31:52 -0700 (PDT)
-Message-ID: <20171014.183152.556133969386350823.davem@davemloft.net>
-References: <20171013025035.4450-1-broonie@kernel.org>
+Subject: Re: [PATCH net-next v2 0/8] cxgb4: add support to get hardware
+ debug logs via ethtool
+Date: Sat, 14 Oct 2017 18:35:27 -0700 (PDT)
+Message-ID: <20171014.183527.1703589552940823970.davem@davemloft.net>
+References: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com, simon.horman@netronome.com,
-        oss-drivers@netronome.com, netdev@vger.kernel.org
-To: broonie@kernel.org
+Cc: netdev@vger.kernel.org, ganeshgr@chelsio.com,
+        nirranjan@chelsio.com, indranil@chelsio.com
+To: rahul.lakkireddy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38212 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38246 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751165AbdJOBbx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:31:53 -0400
-In-Reply-To: <20171013025035.4450-1-broonie@kernel.org>
+        with ESMTP id S1751138AbdJOBf2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:35:28 -0400
+In-Reply-To: <cover.1507899723.git.rahul.lakkireddy@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Brown <broonie@kernel.org>
-Date: Fri, 13 Oct 2017 03:50:35 +0100
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Date: Fri, 13 Oct 2017 18:48:12 +0530
 
-> Today's -next build encountered an error due to a missing definition of
-> WARN_ON(), caused by some header reorganization removing an implicit
-> inclusion of linux/bug.h.  Fix this with an explicit inclusion.
-> 
-> Signed-off-by: Mark Brown <broonie@kernel.org>
+> This series of patches add support to collect hardware debug logs
+> via ethtool --get-dump facility.
 
-Applied, thanks Mark.
+Series applied, thank you.
