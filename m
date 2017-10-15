@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
-Date: Sat, 14 Oct 2017 18:30:49 -0700 (PDT)
-Message-ID: <20171014.183049.1984702535102046922.davem@davemloft.net>
-References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] nfp: Explicitly include linux/bug.h
+Date: Sat, 14 Oct 2017 18:31:52 -0700 (PDT)
+Message-ID: <20171014.183152.556133969386350823.davem@davemloft.net>
+References: <20171013025035.4450-1-broonie@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
-        David.Laight@ACULAB.COM
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jakub.kicinski@netronome.com, simon.horman@netronome.com,
+        oss-drivers@netronome.com, netdev@vger.kernel.org
+To: broonie@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38212 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751165AbdJOBbx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Oct 2017 21:31:53 -0400
+In-Reply-To: <20171013025035.4450-1-broonie@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Fri, 13 Oct 2017 14:18:04 -0400
+From: Mark Brown <broonie@kernel.org>
+Date: Fri, 13 Oct 2017 03:50:35 +0100
 
-> An Ethernet switch may support having a MAC address, which can be used
-> as the switch's source address in transmitted full-duplex Pause frames.
+> Today's -next build encountered an error due to a missing definition of
+> WARN_ON(), caused by some header reorganization removing an implicit
+> inclusion of linux/bug.h.  Fix this with an explicit inclusion.
 > 
-> If a DSA switch supports the related .set_addr operation, the DSA core
-> sets the master's MAC address on the switch.
-> 
-> This won't make sense anymore in a multi-CPU ports system, because there
-> won't be a unique master device assigned to a switch tree.
-> 
-> Moreover this operation is confusing because it makes the user think
-> that it could be used to program the switch with the MAC address of the
-> CPU/management port such that MAC address learning can be disabled on
-> said port, but in fact, that's not how it is currently used.
-> 
-> To fix this, assign a random MAC address at setup time in the mv88e6060
-> and mv88e6xxx drivers before removing .set_addr completely from DSA.
-> 
-> Changes in v3:
->   - include fix for mv88e6060 switch MAC address setter.
-> 
-> Changes in v2:
->   - remove .set_addr implementation from drivers and use a random MAC.
+> Signed-off-by: Mark Brown <broonie@kernel.org>
 
-Series applied,thanks Vivien.
+Applied, thanks Mark.
