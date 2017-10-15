@@ -1,121 +1,40 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] hamradio: baycom_par: use new parport device model
-Date: Sun, 15 Oct 2017 22:00:52 +0100
-Message-ID: <1508101252-14268-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-hams@vger.kernel.org,
-        netdev@vger.kernel.org,
-        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Thomas Sailer <t.sailer@alumni.ethz.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/10] korina cleanups/optimizations
+Date: Sun, 15 Oct 2017 14:05:48 -0700 (PDT)
+Message-ID: <20171015.140548.812014928035930297.davem@davemloft.net>
+References: <20171015162226.606-1-roman@advem.lv>
+        <0FA80CB3-C0DC-4B30-B638-26B5D46AE69E@gmail.com>
+        <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: roman@advem.lv
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48996 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750883AbdJOVFy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 17:05:54 -0400
+In-Reply-To: <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Modify baycom driver to use the new parallel port device model.
+From: Roman Yeryomin <roman@advem.lv>
+Date: Sun, 15 Oct 2017 19:46:02 +0300
 
-Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
----
+> On 2017-10-15 19:38, Florian Fainelli wrote:
+>> On October 15, 2017 9:22:26 AM PDT, Roman Yeryomin <roman@advem.lv>
+>> wrote:
+>>> TX optimizations have led to ~15% performance increase (35->40Mbps)
+>>> in local tx usecase (tested with iperf v3.2).
+>> Could you avoid empty commit messages and write a paragraph or two for
+>> each commit that explains what and why are you changing? The changes
+>> look fine but they lack any explanation.
+> 
+> I thought that short descriptions are already self explanatory and
+> just didn't know what to write more.
 
-Not tested on real hardware, only tested on kvm with 32 bit guest and
-verified that the device is binding to the driver properly in par96_open
-but then unbinding as the device was not found.
+"Optimize TX handlers."
 
- drivers/net/hamradio/baycom_par.c | 48 +++++++++++++++++++++++++++++++++++----
- 1 file changed, 44 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
-index e178383..1f7ceaf 100644
---- a/drivers/net/hamradio/baycom_par.c
-+++ b/drivers/net/hamradio/baycom_par.c
-@@ -311,7 +311,9 @@ static void par96_wakeup(void *handle)
- static int par96_open(struct net_device *dev)
- {
- 	struct baycom_state *bc = netdev_priv(dev);
-+	struct pardev_cb par_cb;
- 	struct parport *pp;
-+	int i;
- 
- 	if (!dev || !bc)
- 		return -ENXIO;
-@@ -332,8 +334,21 @@ static int par96_open(struct net_device *dev)
- 	}
- 	memset(&bc->modem, 0, sizeof(bc->modem));
- 	bc->hdrv.par.bitrate = 9600;
--	bc->pdev = parport_register_device(pp, dev->name, NULL, par96_wakeup, 
--				 par96_interrupt, PARPORT_DEV_EXCL, dev);
-+	memset(&par_cb, 0, sizeof(par_cb));
-+	par_cb.wakeup = par96_wakeup;
-+	par_cb.irq_func = par96_interrupt;
-+	par_cb.private = (void *)dev;
-+	par_cb.flags = PARPORT_DEV_EXCL;
-+	for (i = 0; i < NR_PORTS; i++)
-+		if (baycom_device[i] == dev)
-+			break;
-+
-+	if (i == NR_PORTS) {
-+		pr_err("%s: no device found\n", bc_drvname);
-+		parport_put_port(pp);
-+		return -ENODEV;
-+	}
-+	bc->pdev = parport_register_dev_model(pp, dev->name, &par_cb, i);
- 	parport_put_port(pp);
- 	if (!bc->pdev) {
- 		printk(KERN_ERR "baycom_par: cannot register parport at 0x%lx\n", dev->base_addr);
-@@ -490,12 +505,34 @@ static int baycom_ioctl(struct net_device *dev, struct ifreq *ifr,
- 
- /* --------------------------------------------------------------------- */
- 
-+static int baycom_par_probe(struct pardevice *par_dev)
-+{
-+	struct device_driver *drv = par_dev->dev.driver;
-+	int len = strlen(drv->name);
-+
-+	if (strncmp(par_dev->name, drv->name, len))
-+		return -ENODEV;
-+
-+	return 0;
-+}
-+
-+static struct parport_driver baycom_par_driver = {
-+	.name = "bcp",
-+	.probe = baycom_par_probe,
-+	.devmodel = true,
-+};
-+
- static int __init init_baycompar(void)
- {
--	int i, found = 0;
-+	int i, found = 0, ret;
- 	char set_hw = 1;
- 
- 	printk(bc_drvinfo);
-+
-+	ret = parport_register_driver(&baycom_par_driver);
-+	if (ret)
-+		return ret;
-+
- 	/*
- 	 * register net devices
- 	 */
-@@ -524,8 +561,10 @@ static int __init init_baycompar(void)
- 		baycom_device[i] = dev;
- 	}
- 
--	if (!found)
-+	if (!found) {
-+		parport_unregister_driver(&baycom_par_driver);
- 		return -ENXIO;
-+	}
- 	return 0;
- }
- 
-@@ -539,6 +578,7 @@ static void __exit cleanup_baycompar(void)
- 		if (dev)
- 			hdlcdrv_unregister(dev);
- 	}
-+	parport_unregister_driver(&baycom_par_driver);
- }
- 
- module_init(init_baycompar);
--- 
-1.9.1
+In what way?  Why?  How are things improved?  Is it measurable?
+etc.
