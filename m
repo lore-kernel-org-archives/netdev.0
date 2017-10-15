@@ -1,88 +1,57 @@
-From: KUWAZAWA Takuya <albatross0@gmail.com>
-Subject: [PATCH] ipvs: Fix inappropriate output of procfs
-Date: Sun, 15 Oct 2017 20:54:10 +0900
-Message-ID: <20171015115406.GA11429@nuc02.localdomain>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] ipv6: only update __use and lastusetime once
+ per jiffy at most
+Date: Sun, 15 Oct 2017 15:01:32 +0200
+Message-ID: <1508072492.2847.5.camel@redhat.com>
+References: <20171013220807.90366-1-tracywwnj@gmail.com>
+         <20171014000924.dcfuqxwlalaigqdq@kafai-mbp.dhcp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, linux-kernel@vger.kernel.org
-To: Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>
+To: Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38360 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750836AbdJONBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Oct 2017 09:01:35 -0400
+In-Reply-To: <20171014000924.dcfuqxwlalaigqdq@kafai-mbp.dhcp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Information about ipvs in different network namespace can be seen via procfs.
+On Fri, 2017-10-13 at 17:09 -0700, Martin KaFai Lau wrote:
+> On Fri, Oct 13, 2017 at 10:08:07PM +0000, Wei Wang wrote:
+> > From: Wei Wang <weiwan@google.com>
+> > 
+> > In order to not dirty the cacheline too often, we try to only update
+> > dst->__use and dst->lastusetime at most once per jiffy.
+> 
+> 
+> > As dst->lastusetime is only used by ipv6 garbage collector, it should
+> > be good enough time resolution.
+> 
+> Make sense.
+> 
+> > And __use is only used in ipv6_route_seq_show() to show how many times a
+> > dst has been used. And as __use is not atomic_t right now, it does not
+> > show the precise number of usage times anyway. So we think it should be
+> > OK to only update it at most once per jiffy.
+> 
+> If __use is only bumped HZ number of times per second and we can do ~3Mpps now,
+> would __use be way off?
 
-How to reproduce:
 
-  # ip netns add ns01
-  # ip netns add ns02
-  # ip netns exec ns01 ip a add dev lo 127.0.0.1/8
-  # ip netns exec ns02 ip a add dev lo 127.0.0.1/8
-  # ip netns exec ns01 ipvsadm -A -t 10.1.1.1:80
-  # ip netns exec ns02 ipvsadm -A -t 10.1.1.2:80
+It would, but even nowaday such value could not be trusted, due to the
+cuncurrent non atomic operation used to update it.
 
-The ipvsadm displays information about its own network namespace only.
+This:
 
-  # ip netns exec ns01 ipvsadm -Ln
-  IP Virtual Server version 1.2.1 (size=4096)
-  Prot LocalAddress:Port Scheduler Flags
-    -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
-  TCP  10.1.1.1:80 wlc
+https://marc.info/?l=linux-netdev&m=150653252930953&w=2
 
-  # ip netns exec ns02 ipvsadm -Ln
-  IP Virtual Server version 1.2.1 (size=4096)
-  Prot LocalAddress:Port Scheduler Flags
-    -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
-  TCP  10.1.1.2:80 wlc
+was an attempt to preserve a more meaningful value for '__use', but it
+requires an additional cacheline.
 
-But I can see information about other network namespace via procfs.
+I'm fine with either options.
 
-  # ip netns exec ns01 cat /proc/net/ip_vs
-  IP Virtual Server version 1.2.1 (size=4096)
-  Prot LocalAddress:Port Scheduler Flags
-    -> RemoteAddress:Port Forward Weight ActiveConn InActConn
-  TCP  0A010101:0050 wlc
-  TCP  0A010102:0050 wlc
-
-  # ip netns exec ns02 cat /proc/net/ip_vs
-  IP Virtual Server version 1.2.1 (size=4096)
-  Prot LocalAddress:Port Scheduler Flags
-    -> RemoteAddress:Port Forward Weight ActiveConn InActConn
-  TCP  0A010102:0050 wlc
-
-Signed-off-by: KUWAZAWA Takuya <albatross0@gmail.com>
----
- net/netfilter/ipvs/ip_vs_ctl.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 4f940d7..b3245f9 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2034,12 +2034,16 @@ static int ip_vs_info_seq_show(struct seq_file *seq, void *v)
- 		seq_puts(seq,
- 			 "  -> RemoteAddress:Port Forward Weight ActiveConn InActConn\n");
- 	} else {
-+		struct net *net = seq_file_net(seq);
-+		struct netns_ipvs *ipvs = net_ipvs(net);
- 		const struct ip_vs_service *svc = v;
- 		const struct ip_vs_iter *iter = seq->private;
- 		const struct ip_vs_dest *dest;
- 		struct ip_vs_scheduler *sched = rcu_dereference(svc->scheduler);
- 		char *sched_name = sched ? sched->name : "none";
- 
-+		if (svc->ipvs != ipvs)
-+			return 0;
- 		if (iter->table == ip_vs_svc_table) {
- #ifdef CONFIG_IP_VS_IPV6
- 			if (svc->af == AF_INET6)
--- 
-1.8.3.1
-
+Paolo
