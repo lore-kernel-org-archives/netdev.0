@@ -1,86 +1,91 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 06/34] net: core: use dev->ingress_queue instead
- of tp->q
-Date: Sun, 15 Oct 2017 08:45:35 +0200
-Message-ID: <20171015064535.GA1970@nanopsycho.orion>
-References: <20171012171823.1431-1-jiri@resnulli.us>
- <20171012171823.1431-7-jiri@resnulli.us>
- <59DFE287.2040400@iogearbox.net>
- <20171013063019.GC1952@nanopsycho.orion>
- <59E29B5E.9000304@iogearbox.net>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH net-next 1/5] ipv6: addrconf: cleanup locking in
+ ipv6_add_addr
+Date: Sun, 15 Oct 2017 10:50:52 +0300
+Message-ID: <20171015075052.GA10604@shredder.mtl.com>
+References: <1507935733-18950-1-git-send-email-dsahern@gmail.com>
+ <1507935733-18950-2-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, ast@kernel.org,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, edumazet@google.com, dsahern@gmail.com,
-        alexander.h.duyck@intel.com, john.fastabend@gmail.com,
-        willemb@google.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
+        kjlx@templeofstupid.com, davem@davemloft.net,
+        yoshfuji@linux-ipv6.org
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:50438 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750704AbdJOGpi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 02:45:38 -0400
-Received: by mail-wm0-f68.google.com with SMTP id u138so27792198wmu.5
-        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 23:45:37 -0700 (PDT)
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:47399 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751321AbdJOHu4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 03:50:56 -0400
 Content-Disposition: inline
-In-Reply-To: <59E29B5E.9000304@iogearbox.net>
+In-Reply-To: <1507935733-18950-2-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Oct 15, 2017 at 01:18:54AM CEST, daniel@iogearbox.net wrote:
->On 10/13/2017 08:30 AM, Jiri Pirko wrote:
->> Thu, Oct 12, 2017 at 11:45:43PM CEST, daniel@iogearbox.net wrote:
->> > On 10/12/2017 07:17 PM, Jiri Pirko wrote:
->> > > From: Jiri Pirko <jiri@mellanox.com>
->> > > 
->> > > In sch_handle_egress and sch_handle_ingress, don't use tp->q and use
->> > > dev->ingress_queue which stores the same pointer instead.
->> > > 
->> > > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> > > ---
->> > >    net/core/dev.c | 21 +++++++++++++++------
->> > >    1 file changed, 15 insertions(+), 6 deletions(-)
->> > > 
->> > > diff --git a/net/core/dev.c b/net/core/dev.c
->> > > index fcddccb..cb9e5e5 100644
->> > > --- a/net/core/dev.c
->> > > +++ b/net/core/dev.c
->> > > @@ -3273,14 +3273,18 @@ EXPORT_SYMBOL(dev_loopback_xmit);
->> > >    static struct sk_buff *
->> > >    sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
->> > >    {
->> > > +	struct netdev_queue *netdev_queue =
->> > > +				rcu_dereference_bh(dev->ingress_queue);
->> > >    	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
->> > >    	struct tcf_result cl_res;
->> > > +	struct Qdisc *q;
->> > > 
->> > > -	if (!cl)
->> > > +	if (!cl || !netdev_queue)
->> > >    		return skb;
->> > > +	q = netdev_queue->qdisc;
->> > 
->> > NAK, no additional overhead in the software fast-path of
->> > sch_handle_{ingress,egress}() like this. There are users out there
->> > that use tc in software only, so performance is critical here.
->> 
->> Okay, how else do you suggest I can avoid the need to use tp->q?
->> I was thinking about storing q directly to net_device, which would safe
->> one dereference, resulting in the same amount as current cl->q.
->
->Sorry for late reply, mostly off for few days. netdev struct has different
->cachelines which are hot on rx and tx (see also the location of the two
->lists, ingress_cl_list and egress_cl_list), if you add only one qdisc
->pointer there, then you'd at least penalize one of the two w/ potential
->cache miss. Can we leave it in cl?
+On Fri, Oct 13, 2017 at 04:02:09PM -0700, David Ahern wrote:
+> ipv6_add_addr is called in process context with rtnl lock held
+> (e.g., manual config of an address) or during softirq processing
+> (e.g., autoconf and address from a router advertisement).
+> 
+> Currently, ipv6_add_addr calls rcu_read_lock_bh shortly after entry
+> and does not call unlock until exit, minus the call around the address
+> validator notifier. Similarly, addrconf_hash_lock is taken after the
+> validator notifier and held until exit. This forces the allocation of
+> inet6_ifaddr to always be atomic.
+> 
+> Refactor ipv6_add_addr as follows:
+> 1. add an input boolean to discriminate the call path (process context
+>    or softirq). This new flag controls whether the alloc can be done
+>    with GFP_KERNEL or GFP_ATOMIC.
+> 
+> 2. Move the rcu_read_lock_bh and unlock calls only around functions that
+>    do rcu updates.
+> 
+> 3. Remove the in6_dev_hold and put added by 3ad7d2468f79f ("Ipvlan should
+>    return an error when an address is already in use."). This was done
+>    presumably because rcu_read_unlock_bh needs to be called before calling
+>    the validator. Since rcu_read_lock is not needed before the validator
+>    runs revert the hold and put added by 3ad7d2468f79f and only do the
+>    hold when setting ifp->idev.
+> 
+> 4. move duplicate address check and insertion of new address in the global
+>    address hash into a helper. The helper is called after an ifa is
+>    allocated and filled in.
+> 
+> This allows the ifa for manually configured addresses to be done with
+> GFP_KERNEL and reduces the overall amount of time with rcu_read_lock held
+> and hash table spinlock held.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-Well that is the whole point of this excercise, to remove it from cl.
-The thing is, for the shared blocks, cls are shared between multiple
-qdisc instances, so cl->q makes no longer any sense.
+[...]
+
+> @@ -1073,21 +1085,19 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+>  
+>  	in6_ifa_hold(ifa);
+>  	write_unlock(&idev->lock);
+> -out2:
+> +
+>  	rcu_read_unlock_bh();
+>  
+> -	if (likely(err == 0))
+> -		inet6addr_notifier_call_chain(NETDEV_UP, ifa);
+> -	else {
+> +	inet6addr_notifier_call_chain(NETDEV_UP, ifa);
+> +out:
+> +	if (unlikely(err < 0)) {
+> +		if (rt)
+> +			ip6_rt_put(rt);
+
+I believe 'rt' needs to be set to NULL after addrconf_dst_alloc()
+fails.
+
+>  		kfree(ifa);
+> -		in6_dev_put(idev);
+>  		ifa = ERR_PTR(err);
+>  	}
+>  
+>  	return ifa;
+> -out:
+> -	spin_unlock(&addrconf_hash_lock);
+> -	goto out2;
+>  }
