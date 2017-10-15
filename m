@@ -1,113 +1,386 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 1/5] ipv6: addrconf: cleanup locking in
- ipv6_add_addr
-Date: Sun, 15 Oct 2017 10:03:04 -0600
-Message-ID: <8a9af4d0-b06a-17eb-f73f-01c599aa6ad4@gmail.com>
-References: <1507935733-18950-1-git-send-email-dsahern@gmail.com>
- <1507935733-18950-2-git-send-email-dsahern@gmail.com>
- <20171015075052.GA10604@shredder.mtl.com>
- <11052db4-0608-a11b-5d71-896a2154a96c@gmail.com>
- <20171015155938.GA24270@shredder.mtl.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, idosch@mellanox.com,
-        kjlx@templeofstupid.com, davem@davemloft.net,
-        yoshfuji@linux-ipv6.org
-To: Ido Schimmel <idosch@idosch.org>
+From: Roman Yeryomin <roman@advem.lv>
+Subject: [PATCH net-next 02/10] net: korina: reorder functions
+Date: Sun, 15 Oct 2017 19:22:55 +0300
+Message-ID: <20171015162255.727-1-roman@advem.lv>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:44648 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751763AbdJOQDG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 12:03:06 -0400
-Received: by mail-pf0-f196.google.com with SMTP id x7so14014669pfa.1
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 09:03:06 -0700 (PDT)
-In-Reply-To: <20171015155938.GA24270@shredder.mtl.com>
-Content-Language: en-US
+Received: from s1l1v.rtu.lv ([213.175.92.62]:52621 "EHLO mail.pbx.lv"
+        rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+        id S1751854AbdJOQ2L (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Oct 2017 12:28:11 -0400
+Received: from ubrain.corp.ubnt.com (unknown [213.175.92.61])
+        by mail.pbx.lv (MailSystem) with ESMTPSA id DA191191883
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 19:22:16 +0300 (EEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/15/17 9:59 AM, Ido Schimmel wrote:
-> On Sun, Oct 15, 2017 at 09:24:07AM -0600, David Ahern wrote:
->> On 10/15/17 1:50 AM, Ido Schimmel wrote:
->>> On Fri, Oct 13, 2017 at 04:02:09PM -0700, David Ahern wrote:
->>>> ipv6_add_addr is called in process context with rtnl lock held
->>>> (e.g., manual config of an address) or during softirq processing
->>>> (e.g., autoconf and address from a router advertisement).
->>>>
->>>> Currently, ipv6_add_addr calls rcu_read_lock_bh shortly after entry
->>>> and does not call unlock until exit, minus the call around the address
->>>> validator notifier. Similarly, addrconf_hash_lock is taken after the
->>>> validator notifier and held until exit. This forces the allocation of
->>>> inet6_ifaddr to always be atomic.
->>>>
->>>> Refactor ipv6_add_addr as follows:
->>>> 1. add an input boolean to discriminate the call path (process context
->>>>    or softirq). This new flag controls whether the alloc can be done
->>>>    with GFP_KERNEL or GFP_ATOMIC.
->>>>
->>>> 2. Move the rcu_read_lock_bh and unlock calls only around functions that
->>>>    do rcu updates.
->>>>
->>>> 3. Remove the in6_dev_hold and put added by 3ad7d2468f79f ("Ipvlan should
->>>>    return an error when an address is already in use."). This was done
->>>>    presumably because rcu_read_unlock_bh needs to be called before calling
->>>>    the validator. Since rcu_read_lock is not needed before the validator
->>>>    runs revert the hold and put added by 3ad7d2468f79f and only do the
->>>>    hold when setting ifp->idev.
->>>>
->>>> 4. move duplicate address check and insertion of new address in the global
->>>>    address hash into a helper. The helper is called after an ifa is
->>>>    allocated and filled in.
->>>>
->>>> This allows the ifa for manually configured addresses to be done with
->>>> GFP_KERNEL and reduces the overall amount of time with rcu_read_lock held
->>>> and hash table spinlock held.
->>>>
->>>> Signed-off-by: David Ahern <dsahern@gmail.com>
->>>
->>> [...]
->>>
->>>> @@ -1073,21 +1085,19 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
->>>>  
->>>>  	in6_ifa_hold(ifa);
->>>>  	write_unlock(&idev->lock);
->>>> -out2:
->>>> +
->>>>  	rcu_read_unlock_bh();
->>>>  
->>>> -	if (likely(err == 0))
->>>> -		inet6addr_notifier_call_chain(NETDEV_UP, ifa);
->>>> -	else {
->>>> +	inet6addr_notifier_call_chain(NETDEV_UP, ifa);
->>>> +out:
->>>> +	if (unlikely(err < 0)) {
->>>> +		if (rt)
->>>> +			ip6_rt_put(rt);
->>>
->>> I believe 'rt' needs to be set to NULL after addrconf_dst_alloc()
->>> fails.
->>
->> The above frees rt and the line below frees the ifa and resets the value
->> to an error, so after the line above rt is no longer referenced.
-> 
-> Earlier in the code we have:
-> 
-> rt = addrconf_dst_alloc(idev, addr, false);
-> if (IS_ERR(rt)) {
-> 	err = PTR_ERR(rt);
-> 	goto out;
-> }
-> 
-> So we end up calling ip6_rt_put() with an error value. I believe it
-> should be:
-> 
-> rt = addrconf_dst_alloc(idev, addr, false);
-> if (IS_ERR(rt)) {
-> 	err = PTR_ERR(rt);
-> 	rt = NULL;
-> 	goto out;
-> }
-> 
+Signed-off-by: Roman Yeryomin <roman@advem.lv>
+---
+ drivers/net/ethernet/korina.c | 317 +++++++++++++++++++++---------------------
+ 1 file changed, 158 insertions(+), 159 deletions(-)
 
-gotcha. Will fix.
+diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
+index 84b2654e2d06..5545f86aac4a 100644
+--- a/drivers/net/ethernet/korina.c
++++ b/drivers/net/ethernet/korina.c
+@@ -195,6 +195,35 @@ static void korina_chain_rx(struct korina_private *lp,
+ 	korina_chain_dma(lp->rx_dma_regs, CPHYSADDR(rd));
+ }
+ 
++static int mdio_read(struct net_device *dev, int mii_id, int reg)
++{
++	struct korina_private *lp = netdev_priv(dev);
++	int ret;
++
++	mii_id = ((lp->rx_irq == 0x2c ? 1 : 0) << 8);
++
++	writel(0, &lp->eth_regs->miimcfg);
++	writel(0, &lp->eth_regs->miimcmd);
++	writel(mii_id | reg, &lp->eth_regs->miimaddr);
++	writel(ETH_MII_CMD_SCN, &lp->eth_regs->miimcmd);
++
++	ret = (int)(readl(&lp->eth_regs->miimrdd));
++	return ret;
++}
++
++static void mdio_write(struct net_device *dev, int mii_id, int reg, int val)
++{
++	struct korina_private *lp = netdev_priv(dev);
++
++	mii_id = ((lp->rx_irq == 0x2c ? 1 : 0) << 8);
++
++	writel(0, &lp->eth_regs->miimcfg);
++	writel(1, &lp->eth_regs->miimcmd);
++	writel(mii_id | reg, &lp->eth_regs->miimaddr);
++	writel(ETH_MII_CMD_SCN, &lp->eth_regs->miimcmd);
++	writel(val, &lp->eth_regs->miimwtd);
++}
++
+ /* transmit packet */
+ static int korina_send_packet(struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -264,60 +293,87 @@ static int korina_send_packet(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int mdio_read(struct net_device *dev, int mii_id, int reg)
++static void korina_tx(struct net_device *dev)
+ {
+ 	struct korina_private *lp = netdev_priv(dev);
+-	int ret;
++	struct dma_desc *td = &lp->td_ring[lp->tx_next_done];
++	u32 devcs;
++	u32 dmas;
+ 
+-	mii_id = ((lp->rx_irq == 0x2c ? 1 : 0) << 8);
++	spin_lock(&lp->lock);
+ 
+-	writel(0, &lp->eth_regs->miimcfg);
+-	writel(0, &lp->eth_regs->miimcmd);
+-	writel(mii_id | reg, &lp->eth_regs->miimaddr);
+-	writel(ETH_MII_CMD_SCN, &lp->eth_regs->miimcmd);
++	/* Process all desc that are done */
++	while (IS_DMA_FINISHED(td->control)) {
++		if (lp->tx_full == 1) {
++			netif_wake_queue(dev);
++			lp->tx_full = 0;
++		}
+ 
+-	ret = (int)(readl(&lp->eth_regs->miimrdd));
+-	return ret;
+-}
++		devcs = lp->td_ring[lp->tx_next_done].devcs;
++		if ((devcs & (ETH_TX_FD | ETH_TX_LD)) !=
++				(ETH_TX_FD | ETH_TX_LD)) {
++			dev->stats.tx_errors++;
++			dev->stats.tx_dropped++;
+ 
+-static void mdio_write(struct net_device *dev, int mii_id, int reg, int val)
+-{
+-	struct korina_private *lp = netdev_priv(dev);
++			/* Should never happen */
++			printk(KERN_ERR "%s: split tx ignored\n",
++							dev->name);
++		} else if (devcs & ETH_TX_TOK) {
++			dev->stats.tx_packets++;
++			dev->stats.tx_bytes +=
++					lp->tx_skb[lp->tx_next_done]->len;
++		} else {
++			dev->stats.tx_errors++;
++			dev->stats.tx_dropped++;
+ 
+-	mii_id = ((lp->rx_irq == 0x2c ? 1 : 0) << 8);
++			/* Underflow */
++			if (devcs & ETH_TX_UND)
++				dev->stats.tx_fifo_errors++;
+ 
+-	writel(0, &lp->eth_regs->miimcfg);
+-	writel(1, &lp->eth_regs->miimcmd);
+-	writel(mii_id | reg, &lp->eth_regs->miimaddr);
+-	writel(ETH_MII_CMD_SCN, &lp->eth_regs->miimcmd);
+-	writel(val, &lp->eth_regs->miimwtd);
+-}
++			/* Oversized frame */
++			if (devcs & ETH_TX_OF)
++				dev->stats.tx_aborted_errors++;
+ 
+-/* Ethernet Rx DMA interrupt */
+-static irqreturn_t korina_rx_dma_interrupt(int irq, void *dev_id)
+-{
+-	struct net_device *dev = dev_id;
+-	struct korina_private *lp = netdev_priv(dev);
+-	u32 dmas, dmasm;
+-	irqreturn_t retval;
++			/* Excessive deferrals */
++			if (devcs & ETH_TX_ED)
++				dev->stats.tx_carrier_errors++;
+ 
+-	dmas = readl(&lp->rx_dma_regs->dmas);
+-	if (dmas & (DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR)) {
+-		dmasm = readl(&lp->rx_dma_regs->dmasm);
+-		writel(dmasm | (DMA_STAT_DONE |
+-				DMA_STAT_HALT | DMA_STAT_ERR),
+-				&lp->rx_dma_regs->dmasm);
++			/* Collisions: medium busy */
++			if (devcs & ETH_TX_EC)
++				dev->stats.collisions++;
+ 
+-		napi_schedule(&lp->napi);
++			/* Late collision */
++			if (devcs & ETH_TX_LC)
++				dev->stats.tx_window_errors++;
++		}
+ 
+-		if (dmas & DMA_STAT_ERR)
+-			printk(KERN_ERR "%s: DMA error\n", dev->name);
++		/* We must always free the original skb */
++		if (lp->tx_skb[lp->tx_next_done]) {
++			dev_kfree_skb_any(lp->tx_skb[lp->tx_next_done]);
++			lp->tx_skb[lp->tx_next_done] = NULL;
++		}
+ 
+-		retval = IRQ_HANDLED;
+-	} else
+-		retval = IRQ_NONE;
++		lp->td_ring[lp->tx_next_done].control = DMA_DESC_IOF;
++		lp->td_ring[lp->tx_next_done].devcs = ETH_TX_FD | ETH_TX_LD;
++		lp->td_ring[lp->tx_next_done].link = 0;
++		lp->td_ring[lp->tx_next_done].ca = 0;
++		lp->tx_count--;
+ 
+-	return retval;
++		/* Go on to next transmission */
++		lp->tx_next_done = (lp->tx_next_done + 1) & KORINA_TDS_MASK;
++		td = &lp->td_ring[lp->tx_next_done];
++
++	}
++
++	/* Clear the DMA status register */
++	dmas = readl(&lp->tx_dma_regs->dmas);
++	writel(~dmas, &lp->tx_dma_regs->dmas);
++
++	writel(readl(&lp->tx_dma_regs->dmasm) &
++			~(DMA_STAT_FINI | DMA_STAT_ERR),
++			&lp->tx_dma_regs->dmasm);
++
++	spin_unlock(&lp->lock);
+ }
+ 
+ static int korina_rx(struct net_device *dev, int limit)
+@@ -449,6 +505,68 @@ static int korina_poll(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
++static irqreturn_t
++korina_tx_dma_interrupt(int irq, void *dev_id)
++{
++	struct net_device *dev = dev_id;
++	struct korina_private *lp = netdev_priv(dev);
++	u32 dmas, dmasm;
++	irqreturn_t retval;
++
++	dmas = readl(&lp->tx_dma_regs->dmas);
++
++	if (dmas & (DMA_STAT_FINI | DMA_STAT_ERR)) {
++		dmasm = readl(&lp->tx_dma_regs->dmasm);
++		writel(dmasm | (DMA_STAT_FINI | DMA_STAT_ERR),
++				&lp->tx_dma_regs->dmasm);
++
++		korina_tx(dev);
++
++		if (lp->tx_chain_status == desc_filled &&
++			(readl(&(lp->tx_dma_regs->dmandptr)) == 0)) {
++			writel(CPHYSADDR(&lp->td_ring[lp->tx_chain_head]),
++				&(lp->tx_dma_regs->dmandptr));
++			lp->tx_chain_status = desc_empty;
++			lp->tx_chain_head = lp->tx_chain_tail;
++			netif_trans_update(dev);
++		}
++		if (dmas & DMA_STAT_ERR)
++			printk(KERN_ERR "%s: DMA error\n", dev->name);
++
++		retval = IRQ_HANDLED;
++	} else
++		retval = IRQ_NONE;
++
++	return retval;
++}
++
++/* Ethernet Rx DMA interrupt */
++static irqreturn_t korina_rx_dma_interrupt(int irq, void *dev_id)
++{
++	struct net_device *dev = dev_id;
++	struct korina_private *lp = netdev_priv(dev);
++	u32 dmas, dmasm;
++	irqreturn_t retval;
++
++	dmas = readl(&lp->rx_dma_regs->dmas);
++	if (dmas & (DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR)) {
++		dmasm = readl(&lp->rx_dma_regs->dmasm);
++		writel(dmasm | (DMA_STAT_DONE |
++				DMA_STAT_HALT | DMA_STAT_ERR),
++				&lp->rx_dma_regs->dmasm);
++
++		napi_schedule(&lp->napi);
++
++		if (dmas & DMA_STAT_ERR)
++			printk(KERN_ERR "%s: DMA error\n", dev->name);
++
++		retval = IRQ_HANDLED;
++	} else
++		retval = IRQ_NONE;
++
++	return retval;
++}
++
+ /*
+  * Set or clear the multicast filter for this adaptor.
+  */
+@@ -492,125 +610,6 @@ static void korina_multicast_list(struct net_device *dev)
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ }
+ 
+-static void korina_tx(struct net_device *dev)
+-{
+-	struct korina_private *lp = netdev_priv(dev);
+-	struct dma_desc *td = &lp->td_ring[lp->tx_next_done];
+-	u32 devcs;
+-	u32 dmas;
+-
+-	spin_lock(&lp->lock);
+-
+-	/* Process all desc that are done */
+-	while (IS_DMA_FINISHED(td->control)) {
+-		if (lp->tx_full == 1) {
+-			netif_wake_queue(dev);
+-			lp->tx_full = 0;
+-		}
+-
+-		devcs = lp->td_ring[lp->tx_next_done].devcs;
+-		if ((devcs & (ETH_TX_FD | ETH_TX_LD)) !=
+-				(ETH_TX_FD | ETH_TX_LD)) {
+-			dev->stats.tx_errors++;
+-			dev->stats.tx_dropped++;
+-
+-			/* Should never happen */
+-			printk(KERN_ERR "%s: split tx ignored\n",
+-							dev->name);
+-		} else if (devcs & ETH_TX_TOK) {
+-			dev->stats.tx_packets++;
+-			dev->stats.tx_bytes +=
+-					lp->tx_skb[lp->tx_next_done]->len;
+-		} else {
+-			dev->stats.tx_errors++;
+-			dev->stats.tx_dropped++;
+-
+-			/* Underflow */
+-			if (devcs & ETH_TX_UND)
+-				dev->stats.tx_fifo_errors++;
+-
+-			/* Oversized frame */
+-			if (devcs & ETH_TX_OF)
+-				dev->stats.tx_aborted_errors++;
+-
+-			/* Excessive deferrals */
+-			if (devcs & ETH_TX_ED)
+-				dev->stats.tx_carrier_errors++;
+-
+-			/* Collisions: medium busy */
+-			if (devcs & ETH_TX_EC)
+-				dev->stats.collisions++;
+-
+-			/* Late collision */
+-			if (devcs & ETH_TX_LC)
+-				dev->stats.tx_window_errors++;
+-		}
+-
+-		/* We must always free the original skb */
+-		if (lp->tx_skb[lp->tx_next_done]) {
+-			dev_kfree_skb_any(lp->tx_skb[lp->tx_next_done]);
+-			lp->tx_skb[lp->tx_next_done] = NULL;
+-		}
+-
+-		lp->td_ring[lp->tx_next_done].control = DMA_DESC_IOF;
+-		lp->td_ring[lp->tx_next_done].devcs = ETH_TX_FD | ETH_TX_LD;
+-		lp->td_ring[lp->tx_next_done].link = 0;
+-		lp->td_ring[lp->tx_next_done].ca = 0;
+-		lp->tx_count--;
+-
+-		/* Go on to next transmission */
+-		lp->tx_next_done = (lp->tx_next_done + 1) & KORINA_TDS_MASK;
+-		td = &lp->td_ring[lp->tx_next_done];
+-
+-	}
+-
+-	/* Clear the DMA status register */
+-	dmas = readl(&lp->tx_dma_regs->dmas);
+-	writel(~dmas, &lp->tx_dma_regs->dmas);
+-
+-	writel(readl(&lp->tx_dma_regs->dmasm) &
+-			~(DMA_STAT_FINI | DMA_STAT_ERR),
+-			&lp->tx_dma_regs->dmasm);
+-
+-	spin_unlock(&lp->lock);
+-}
+-
+-static irqreturn_t
+-korina_tx_dma_interrupt(int irq, void *dev_id)
+-{
+-	struct net_device *dev = dev_id;
+-	struct korina_private *lp = netdev_priv(dev);
+-	u32 dmas, dmasm;
+-	irqreturn_t retval;
+-
+-	dmas = readl(&lp->tx_dma_regs->dmas);
+-
+-	if (dmas & (DMA_STAT_FINI | DMA_STAT_ERR)) {
+-		dmasm = readl(&lp->tx_dma_regs->dmasm);
+-		writel(dmasm | (DMA_STAT_FINI | DMA_STAT_ERR),
+-				&lp->tx_dma_regs->dmasm);
+-
+-		korina_tx(dev);
+-
+-		if (lp->tx_chain_status == desc_filled &&
+-			(readl(&(lp->tx_dma_regs->dmandptr)) == 0)) {
+-			writel(CPHYSADDR(&lp->td_ring[lp->tx_chain_head]),
+-				&(lp->tx_dma_regs->dmandptr));
+-			lp->tx_chain_status = desc_empty;
+-			lp->tx_chain_head = lp->tx_chain_tail;
+-			netif_trans_update(dev);
+-		}
+-		if (dmas & DMA_STAT_ERR)
+-			printk(KERN_ERR "%s: DMA error\n", dev->name);
+-
+-		retval = IRQ_HANDLED;
+-	} else
+-		retval = IRQ_NONE;
+-
+-	return retval;
+-}
+-
+-
+ static void korina_check_media(struct net_device *dev, unsigned int init_media)
+ {
+ 	struct korina_private *lp = netdev_priv(dev);
+-- 
+2.11.0
