@@ -1,36 +1,44 @@
 From: Petr Vorel <petr.vorel@gmail.com>
-Subject: [PATCH iproute2 1/1] tests: Revert back /bin/sh in shebang
-Date: Sun, 15 Oct 2017 11:59:45 +0200
-Message-ID: <20171015095945.30878-1-petr.vorel@gmail.com>
-Cc: Petr Vorel <petr.vorel@gmail.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH] tests: Remove bashisms (s/source/.)
+Date: Sun, 15 Oct 2017 12:05:49 +0200
+Message-ID: <20171015100548.lp7wocgancidddni@x230>
+References: <20171008143916.21813-1-petr.vorel@gmail.com>
+ <C7ED1FFD-C1B2-4543-9DBD-B633E7D0AA30@intel.com>
+Reply-To: Petr Vorel <petr.vorel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rustad, Mark D" <mark.d.rustad@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:56302 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750753AbdJOJ7x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 05:59:53 -0400
-Received: by mail-wm0-f54.google.com with SMTP id u138so28803778wmu.4
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 02:59:53 -0700 (PDT)
+Received: from mail-wr0-f169.google.com ([209.85.128.169]:47091 "EHLO
+        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750722AbdJOKFw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 06:05:52 -0400
+Received: by mail-wr0-f169.google.com with SMTP id l1so3523713wrc.3
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 03:05:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <C7ED1FFD-C1B2-4543-9DBD-B633E7D0AA30@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was added by mistake in commit ecd44e68
-("tests: Remove bashisms (s/source/.)")
+Hi Mark,
 
-Signed-off-by: Petr Vorel <petr.vorel@gmail.com>
----
- testsuite/tests/ip/route/add_default_route.t | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> > --- a/testsuite/tests/ip/route/add_default_route.t
+> > +++ b/testsuite/tests/ip/route/add_default_route.t
+> > @@ -1,6 +1,6 @@
+> > -#!/bin/sh
+> > +#!/bin/bash
 
-diff --git a/testsuite/tests/ip/route/add_default_route.t b/testsuite/tests/ip/route/add_default_route.t
-index 0b566f1f..569ba1f8 100755
---- a/testsuite/tests/ip/route/add_default_route.t
-+++ b/testsuite/tests/ip/route/add_default_route.t
-@@ -1,4 +1,4 @@
--#!/bin/bash
-+#!/bin/sh
- 
- . lib/generic.sh
- 
--- 
-2.14.2
+> Funny - ^^^ choosing bash explicitly while
+>    vvvv removing the bashism?
+Eh, this is really silly, sorry. I've sent a patch to revert it back as it was unintentional.
+
+
+> I noticed a couple other files already specified /bin/bash, yet you removed the bashisms. But the above struck me as something that would not seem to have been intended.
+I plan to remove all bashisms. Although having explicit dependency on bash (i.e. /bin/bash
+in shebang), it would be nice have posix compliant shell scripts (as Randy Dunlap also
+noted). Or at least don't have bashisms in script with /bin/sh shebang.
+
+
+Kind regards,
+Petr
