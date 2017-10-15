@@ -1,90 +1,86 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [pull request][for-next 00/12] Mellanox, mlx5 IPoIB Muli Pkey
- support 2017-10-11
-Date: Sun, 15 Oct 2017 09:30:12 +0300
-Message-ID: <20171015063012.GW2106@mtr-leonro.local>
-References: <20171014184827.18491-1-saeedm@mellanox.com>
- <af28440c-bb1c-c47b-92dd-60bfbeaa839d@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 06/34] net: core: use dev->ingress_queue instead
+ of tp->q
+Date: Sun, 15 Oct 2017 08:45:35 +0200
+Message-ID: <20171015064535.GA1970@nanopsycho.orion>
+References: <20171012171823.1431-1-jiri@resnulli.us>
+ <20171012171823.1431-7-jiri@resnulli.us>
+ <59DFE287.2040400@iogearbox.net>
+ <20171013063019.GC1952@nanopsycho.orion>
+ <59E29B5E.9000304@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="PoKbPPFu8MuDl6RC"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org
-To: Doug Ledford <dledford@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, ast@kernel.org,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, edumazet@google.com, dsahern@gmail.com,
+        alexander.h.duyck@intel.com, john.fastabend@gmail.com,
+        willemb@google.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0089.outbound.protection.outlook.com ([104.47.0.89]:11072
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750704AbdJOGaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 15 Oct 2017 02:30:20 -0400
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:50438 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750704AbdJOGpi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 02:45:38 -0400
+Received: by mail-wm0-f68.google.com with SMTP id u138so27792198wmu.5
+        for <netdev@vger.kernel.org>; Sat, 14 Oct 2017 23:45:37 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <af28440c-bb1c-c47b-92dd-60bfbeaa839d@redhat.com>
+In-Reply-To: <59E29B5E.9000304@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---PoKbPPFu8MuDl6RC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sat, Oct 14, 2017 at 05:19:34PM -0400, Doug Ledford wrote:
-> On 10/14/2017 2:48 PM, Saeed Mahameed wrote:
-> > Hi Dave and Doug,
-> >
-> > This series includes updates for mlx5 IPoIB offloading driver from Alex
-> > and Feras to add the support for Muli Pkey in the mlx5i ipoib offloading netdev,
-> > to be merged into net-next and rdma-next trees.
+Sun, Oct 15, 2017 at 01:18:54AM CEST, daniel@iogearbox.net wrote:
+>On 10/13/2017 08:30 AM, Jiri Pirko wrote:
+>> Thu, Oct 12, 2017 at 11:45:43PM CEST, daniel@iogearbox.net wrote:
+>> > On 10/12/2017 07:17 PM, Jiri Pirko wrote:
+>> > > From: Jiri Pirko <jiri@mellanox.com>
+>> > > 
+>> > > In sch_handle_egress and sch_handle_ingress, don't use tp->q and use
+>> > > dev->ingress_queue which stores the same pointer instead.
+>> > > 
+>> > > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> > > ---
+>> > >    net/core/dev.c | 21 +++++++++++++++------
+>> > >    1 file changed, 15 insertions(+), 6 deletions(-)
+>> > > 
+>> > > diff --git a/net/core/dev.c b/net/core/dev.c
+>> > > index fcddccb..cb9e5e5 100644
+>> > > --- a/net/core/dev.c
+>> > > +++ b/net/core/dev.c
+>> > > @@ -3273,14 +3273,18 @@ EXPORT_SYMBOL(dev_loopback_xmit);
+>> > >    static struct sk_buff *
+>> > >    sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+>> > >    {
+>> > > +	struct netdev_queue *netdev_queue =
+>> > > +				rcu_dereference_bh(dev->ingress_queue);
+>> > >    	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
+>> > >    	struct tcf_result cl_res;
+>> > > +	struct Qdisc *q;
+>> > > 
+>> > > -	if (!cl)
+>> > > +	if (!cl || !netdev_queue)
+>> > >    		return skb;
+>> > > +	q = netdev_queue->qdisc;
+>> > 
+>> > NAK, no additional overhead in the software fast-path of
+>> > sch_handle_{ingress,egress}() like this. There are users out there
+>> > that use tc in software only, so performance is critical here.
+>> 
+>> Okay, how else do you suggest I can avoid the need to use tp->q?
+>> I was thinking about storing q directly to net_device, which would safe
+>> one dereference, resulting in the same amount as current cl->q.
 >
-> As far as the two IPoIB patches are concerned, they're fine.
->
-> > Doug, I am sorry I couldn't base this on rc2 since the series needs and conflicts
-> > with a fix that was submitted to rc3, so to keep things simple I based it on rc4,
-> > I hope this is ok with you..
->
-> No worries, it just means I have to submit it under another branch.  But
-> I'm already holding one patch series in a stand alone branch, so no big
-> deal.  And, actually, the IPoIB changes are so small they can simply go
-> through Dave's tree if you don't have any dependent code in the IPoIB
-> driver to submit after this but still in this devel cycle.
+>Sorry for late reply, mostly off for few days. netdev struct has different
+>cachelines which are hot on rx and tx (see also the location of the two
+>lists, ingress_cl_list and egress_cl_list), if you add only one qdisc
+>pointer there, then you'd at least penalize one of the two w/ potential
+>cache miss. Can we leave it in cl?
 
-I have IPoIB NAPI implementation waiting for this shared code.
-
-Thanks
-
->
-> > Please pull and let me know if there's any problem.
->
-> Once I hear that Dave is OK with the net changes, I'm ready to pull (if
-> I need to).
->
-> --
-> Doug Ledford <dledford@redhat.com>
->     GPG Key ID: B826A3330E572FDD
->     Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
->
-
-
-
-
---PoKbPPFu8MuDl6RC
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnjAHQACgkQ5GN7iDZy
-WKcgkxAAn+cHgtFq6GlaWX4eost0Kq/KIxuvmvfkRR9/86rTqTA1RJ/355aCT8KE
-VGsq3K811ZnCnfeXOiA+HhmHPiwc6AVqOzH4F5g2CKYFkX7lKMyv7HgBa4hiWS5Y
-alDa1/BkiAH3kLpte1jKgk2xejVGo7+Qr5CzCLp/I6QmIyOlAAX89THC4HrcPhbk
-gKCN59ZMfVh2rgwPRqUaZfFCNjAThROkchuB9bOW3teiRZO9tOy4BSOFnwr6rQMG
-8OBP3y0MxSMmhnFskDhxLkhGhFebXOhP4z+GBQpu6mthb61GS5DhKACstqG245g/
-H6Ii6hjyF8B+rCk7cyonk+lC8Bk538xqcyCi8Kp6+YKYNX/1RTCUOEHkIWVVeMUG
-Lc/Nh0SL6KcwP0S+jVpY+Nn1hkDCBl5SkfCeDkW9wHc+lqY+KHN/AuRR9ZPwW9lU
-dYWzjBao8hrtqYVJbg55qZjF58ogsv57CQ8hHdGOak9j+gXvQrJ7I/wxD/31IN9E
-iitCN8j41vdZs5Klf3WqlwuUBSAJDEgAlSAVmMqndhDFH2hrW1RvJvELIUp15/XW
-wdslTY+wMMyIbwrO6o9WjTPP9KK90fFuR5b6HSW8tEWF9qJkC7At2NNGYF6Rh0Yt
-A4KhmLOuEpu7OMpg9pBQyT+ADuAEKDpt/StvY+HdXmMlahK9FXY=
-=nAVk
------END PGP SIGNATURE-----
-
---PoKbPPFu8MuDl6RC--
+Well that is the whole point of this excercise, to remove it from cl.
+The thing is, for the shared blocks, cls are shared between multiple
+qdisc instances, so cl->q makes no longer any sense.
