@@ -1,120 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] ipv6: addrconf: Use normal debugging style
-Date: Sun, 15 Oct 2017 09:49:10 -0700
-Message-ID: <9b7a23d78aff76a0d1e9078715e9932c9ba57b43.1508085878.git.joe@perches.com>
-References: <1507935733-18950-3-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+From: Alexander Aring <aring@mojatatu.com>
+Subject: routing UAPI mismatch invalid state behavior?
+Date: Sun, 15 Oct 2017 13:02:20 -0400
+Message-ID: <CAOHTApje2ABpRPghhqabD=JkBOzjFjVmc1N67ReDBLHeGGVe1Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0062.hostedemail.com ([216.40.44.62]:53526 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751258AbdJOQtP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 12:49:15 -0400
-In-Reply-To: <1507935733-18950-3-git-send-email-dsahern@gmail.com>
+Received: from mail-ua0-f177.google.com ([209.85.217.177]:43392 "EHLO
+        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751386AbdJORCW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 13:02:22 -0400
+Received: by mail-ua0-f177.google.com with SMTP id u32so8264743uau.0
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 10:02:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove local ADBG macro and use netdev_dbg/pr_debug
+Hi,
 
-Miscellanea:
+I figure out some problem, easy to reproduce:
 
-o Remove unnecessary debug message after allocation failure as there
-  already is a dump_stack() on the failure paths
-o Leave the allocation failure message on snmp6_alloc_dev as there
-  is one code path that does not do a dump_stack()
+# setup dummy
+$ modprobe dummy
+$ ip link set dummy0 up
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
+# issue
+$ ip route replace default via 169.254.65.37 dev dummy0
+RTNETLINK answers: Network is unreachable
 
-o This is on top of David Ahern's proposed patch
-  net: ipv6: Make inet6addr_validator a blocking notifier
+so it will forbid me to do that, but:
 
- net/ipv6/addrconf.c | 28 ++++++++--------------------
- 1 file changed, 8 insertions(+), 20 deletions(-)
+$ ip route replace 169.254.65.37 dev dummy0
+$ ip route replace default via 169.254.65.37 dev dummy0
+$ ip route del 169.254.65.37 dev dummy0
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 31ff12277bcf..c505e84dda1f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -94,15 +94,6 @@
- #include <linux/seq_file.h>
- #include <linux/export.h>
- 
--/* Set to 3 to get tracing... */
--#define ACONF_DEBUG 2
--
--#if ACONF_DEBUG >= 3
--#define ADBG(fmt, ...) printk(fmt, ##__VA_ARGS__)
--#else
--#define ADBG(fmt, ...) do { if (0) printk(fmt, ##__VA_ARGS__); } while (0)
--#endif
--
- #define	INFINITY_LIFE_TIME	0xFFFFFFFF
- 
- #define IPV6_MAX_STRLEN \
-@@ -409,9 +400,8 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- 	dev_hold(dev);
- 
- 	if (snmp6_alloc_dev(ndev) < 0) {
--		ADBG(KERN_WARNING
--			"%s: cannot allocate memory for statistics; dev=%s.\n",
--			__func__, dev->name);
-+		netdev_dbg(dev, "%s: cannot allocate memory for statistics\n",
-+			   __func__);
- 		neigh_parms_release(&nd_tbl, ndev->nd_parms);
- 		dev_put(dev);
- 		kfree(ndev);
-@@ -419,9 +409,8 @@ static struct inet6_dev *ipv6_add_dev(struct net_device *dev)
- 	}
- 
- 	if (snmp6_register_dev(ndev) < 0) {
--		ADBG(KERN_WARNING
--			"%s: cannot create /proc/net/dev_snmp6/%s\n",
--			__func__, dev->name);
-+		netdev_dbg(dev, "%s: cannot create /proc/net/dev_snmp6/%s\n",
-+			   __func__, dev->name);
- 		goto err_release;
- 	}
- 
-@@ -966,7 +955,7 @@ static int ipv6_add_addr_hash(struct net_device *dev, struct inet6_ifaddr *ifa)
- 
- 	/* Ignore adding duplicate addresses on an interface */
- 	if (ipv6_chk_same_addr(dev_net(dev), &ifa->addr, dev)) {
--		ADBG("ipv6_add_addr: already assigned\n");
-+		netdev_dbg(dev, "ipv6_add_addr: already assigned\n");
- 		err = -EEXIST;
- 		goto out;
- 	}
-@@ -1029,7 +1018,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 
- 	ifa = kzalloc(sizeof(*ifa), gfp_flags);
- 	if (!ifa) {
--		ADBG("ipv6_add_addr: malloc failed\n");
- 		err = -ENOBUFS;
- 		goto out;
- 	}
-@@ -2575,7 +2563,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
- 	pinfo = (struct prefix_info *) opt;
- 
- 	if (len < sizeof(struct prefix_info)) {
--		ADBG("addrconf: prefix option too short\n");
-+		netdev_dbg(dev, "addrconf: prefix option too short\n");
- 		return;
- 	}
- 
-@@ -4373,8 +4361,8 @@ static void addrconf_verify_rtnl(void)
- 	if (time_before(next_sched, jiffies + ADDRCONF_TIMER_FUZZ_MAX))
- 		next_sched = jiffies + ADDRCONF_TIMER_FUZZ_MAX;
- 
--	ADBG(KERN_DEBUG "now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
--	      now, next, next_sec, next_sched);
-+	pr_debug("now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
-+		 now, next, next_sec, next_sched);
- 	mod_delayed_work(addrconf_wq, &addr_chk_work, next_sched - now);
- 	rcu_read_unlock_bh();
- }
--- 
-2.10.0.rc2.1.g053435c
+allows me to do that. Is there now a invalid state in my routing table
+or is it an expected behavior?
+
+- Alex
