@@ -1,97 +1,69 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: ceph: mark expected switch fall-throughs
-Date: Sun, 15 Oct 2017 12:55:23 -0500
-Message-ID: <20171015175523.GA4705@embeddedor.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 00/10] korina cleanups/optimizations
+Date: Sun, 15 Oct 2017 10:36:52 -0700
+Message-ID: <D5237C2A-B301-46E1-B2B6-66DCA637E87F@gmail.com>
+References: <20171015162226.606-1-roman@advem.lv> <0FA80CB3-C0DC-4B30-B638-26B5D46AE69E@gmail.com> <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Ilya Dryomov <idryomov@gmail.com>, "Yan, Zheng" <zyan@redhat.com>,
-        Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: Roman Yeryomin <roman@advem.lv>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:52085 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751210AbdJOSIe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 14:08:34 -0400
+Received: by mail-oi0-f65.google.com with SMTP id j126so21533152oib.8
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 11:08:34 -0700 (PDT)
+In-Reply-To: <c3a2f516dcceb7dee9ea4dde634b58ed@advem.lv>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
+On October 15, 2017 9:46:02 AM PDT, Roman Yeryomin <roman@advem=2Elv> wrote=
+:
+>On 2017-10-15 19:38, Florian Fainelli wrote:
+>> On October 15, 2017 9:22:26 AM PDT, Roman Yeryomin <roman@advem=2Elv>=
+=20
+>> wrote:
+>>> TX optimizations have led to ~15% performance increase (35->40Mbps)
+>>> in local tx usecase (tested with iperf v3=2E2)=2E
+>>=20
+>> Could you avoid empty commit messages and write a paragraph or two
+>for
+>> each commit that explains what and why are you changing? The changes
+>> look fine but they lack any explanation=2E
+>
+>I thought that short descriptions are already self explanatory and just
+>
+>didn't know what to write more=2E
+>To me they are very obvious=2E
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
- net/ceph/ceph_hash.c  | 12 +++++++++++-
- net/ceph/messenger.c  |  1 +
- net/ceph/mon_client.c |  1 +
- 3 files changed, 13 insertions(+), 1 deletion(-)
+You can't assume what is obvious to you will be to the reviewers=2E
 
-diff --git a/net/ceph/ceph_hash.c b/net/ceph/ceph_hash.c
-index 67bb1f1..9a5850f2 100644
---- a/net/ceph/ceph_hash.c
-+++ b/net/ceph/ceph_hash.c
-@@ -47,28 +47,38 @@ unsigned int ceph_str_hash_rjenkins(const char *str, unsigned int length)
- 
- 	/* handle the last 11 bytes */
- 	c = c + length;
--	switch (len) {            /* all the case statements fall through */
-+	switch (len) {
- 	case 11:
- 		c = c + ((__u32)k[10] << 24);
-+		/* fall through */
- 	case 10:
- 		c = c + ((__u32)k[9] << 16);
-+		/* fall through */
- 	case 9:
- 		c = c + ((__u32)k[8] << 8);
- 		/* the first byte of c is reserved for the length */
-+		/* fall through */
- 	case 8:
- 		b = b + ((__u32)k[7] << 24);
-+		/* fall through */
- 	case 7:
- 		b = b + ((__u32)k[6] << 16);
-+		/* fall through */
- 	case 6:
- 		b = b + ((__u32)k[5] << 8);
-+		/* fall through */
- 	case 5:
- 		b = b + k[4];
-+		/* fall through */
- 	case 4:
- 		a = a + ((__u32)k[3] << 24);
-+		/* fall through */
- 	case 3:
- 		a = a + ((__u32)k[2] << 16);
-+		/* fall through */
- 	case 2:
- 		a = a + ((__u32)k[1] << 8);
-+		/* fall through */
- 	case 1:
- 		a = a + k[0];
- 		/* case 0: nothing left to add */
-diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-index a67298c..73dac9d 100644
---- a/net/ceph/messenger.c
-+++ b/net/ceph/messenger.c
-@@ -429,6 +429,7 @@ static void ceph_sock_state_change(struct sock *sk)
- 	switch (sk->sk_state) {
- 	case TCP_CLOSE:
- 		dout("%s TCP_CLOSE\n", __func__);
-+		/* fall through */
- 	case TCP_CLOSE_WAIT:
- 		dout("%s TCP_CLOSE_WAIT\n", __func__);
- 		con_sock_state_closing(con);
-diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
-index 63edc6e..b97c047 100644
---- a/net/ceph/mon_client.c
-+++ b/net/ceph/mon_client.c
-@@ -1281,6 +1281,7 @@ static struct ceph_msg *mon_alloc_msg(struct ceph_connection *con,
- 		 * request had a non-zero tid.  Workaround this weirdness
- 		 * by falling through to the allocate case.
- 		 */
-+		/* fall through */
- 	case CEPH_MSG_MON_MAP:
- 	case CEPH_MSG_MDS_MAP:
- 	case CEPH_MSG_OSD_MAP:
--- 
-2.7.4
+>Do you really want me to make up something more?
+
+It's up to David as a maintainer to decide, but if this was up to me I wou=
+ld ask you to respin with a least a paragraph for each commit (except the v=
+ersion bump) why you did these changes=2E
+
+>
+>>>=20
+>>> Roman Yeryomin (10):
+>>>  net: korina: optimize korina_send_packet logic
+>>>  net: korina: reorder functions
+>>>  net: korina: introduce and use interrupt disable/enable helpers
+>>>  net: korina: optimize tx/rx interrupt handlers
+>>>  net: korina: remove unused korina_private members
+>>>  net: korina: optimize tx descriptor flags processing
+>>>  net: korina: move tx to napi context
+>>>  net: korina: optimize tx_full condition
+>>>  net: korina: use dma api instead of dma_cache_* functions
+>>>  net: korina: bump version
+>>>=20
+>>> drivers/net/ethernet/korina=2Ec | 503
+>>> +++++++++++++++++-------------------------
+>>> 1 file changed, 204 insertions(+), 299 deletions(-)
+
+
+--=20
+Florian
