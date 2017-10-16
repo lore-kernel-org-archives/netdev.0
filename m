@@ -1,94 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [next-queue PATCH v7 4/6] net/sched: Introduce Credit Based
- Shaper (CBS) qdisc
-Date: Mon, 16 Oct 2017 09:14:11 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00979BC@AcuExch.aculab.com>
-References: <20171013004005.17416-1-vinicius.gomes@intel.com>
- <20171013004005.17416-5-vinicius.gomes@intel.com>
- <20171013195924.GA19439@khorivan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "andre.guedes@intel.com" <andre.guedes@intel.com>,
-        "ivan.briano@intel.com" <ivan.briano@intel.com>,
-        "jesus.sanchez-palencia@intel.com" <jesus.sanchez-palencia@intel.com>,
-        "boon.leong.ong@intel.com" <boon.leong.ong@intel.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>,
-        "henrik@austad.us" <henrik@austad.us>,
-        "levipearson@gmail.com" <levipearson@gmail.com>,
-        "rodney.cummings@ni.com" <rodney.cummings@ni.com>
-To: 'Ivan Khoronzhuk' <ivan.khoronzhuk@linaro.org>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/sched: cls_flower: Set egress_dev mark when calling into the HW driver
+Date: Mon, 16 Oct 2017 12:19:48 +0300
+Message-ID: <1508145588-29959-1-git-send-email-ogerlitz@mellanox.com>
+Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
+        mlxsw@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:54067 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750914AbdJPJOV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 05:14:21 -0400
-In-Reply-To: <20171013195924.GA19439@khorivan>
-Content-Language: en-US
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35336 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750914AbdJPJUA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 05:20:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Khoronzhuk
-> Sent: 13 October 2017 20:59
-> On Thu, Oct 12, 2017 at 05:40:03PM -0700, Vinicius Costa Gomes wrote:
-> > This queueing discipline implements the shaper algorithm defined by
-> > the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
-> >
-> > It's primary usage is to apply some bandwidth reservation to user
-> > defined traffic classes, which are mapped to different queues via the
-> > mqprio qdisc.
-> >
-> > Only a simple software implementation is added for now.
-> >
-> > Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-> > Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-> > ---
-> >  include/uapi/linux/pkt_sched.h |  18 +++
-> >  net/sched/Kconfig              |  11 ++
-> >  net/sched/Makefile             |   1 +
-> >  net/sched/sch_cbs.c            | 314 +++++++++++++++++++++++++++++++++++++++++
-> >  4 files changed, 344 insertions(+)
-> >  create mode 100644 net/sched/sch_cbs.c
-> >
-> > diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-> > index 099bf5528fed..41e349df4bf4 100644
-> > --- a/include/uapi/linux/pkt_sched.h
-> > +++ b/include/uapi/linux/pkt_sched.h
-> > @@ -871,4 +871,22 @@ struct tc_pie_xstats {
-> >  	__u32 maxq;             /* maximum queue size */
-> >  	__u32 ecn_mark;         /* packets marked with ecn*/
-> >  };
-> > +
-> > +/* CBS */
-> > +struct tc_cbs_qopt {
-> > +	__u8 offload;
+Commit 7091d8c '(net/sched: cls_flower: Add offload support using egress
+Hardware device') made sure (when fl_hw_replace_filter is called) to put
+the egress_dev mark on persisent structure instance. Hence, following calls
+into the HW driver for stats and deletion will note it and act accordingly.
 
-You probably don't want unnamed padding in a uapi structure.
+With commit de4784ca030f this property is lost and hence when called,
+the HW driver failes to operate (stats, delete) on the offloaded flow.
 
-> > +	__s32 hicredit;
-> > +	__s32 locredit;
-> > +	__s32 idleslope;
-> > +	__s32 sendslope;
-> > +};
-> > +
-> > +enum {
-> > +	TCA_CBS_UNSPEC,
-> > +	TCA_CBS_PARMS,
-> > +	__TCA_CBS_MAX,
-> > +};
-> > +
-> > +#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
+Fix it by setting the egress_dev flag whenever the ingress device is
+different from the hw device since this is exactly the condition under
+which we're calling into the HW driver through the egress port net-device.
 
-Why not:
-	TCA_CBS_PARMS,
-	TCA_CBS_NEXT,
-	TCA_CBS_MAX = TCA_CBS_NEXT - 1,
+Fixes: de4784ca030f ('net: sched: get rid of struct tc_to_netdev')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Roi Dayan <roid@mellanox.com>
+---
 
-...
-	David
+Hi Dave, the bug was introduced in 4.14-rc1 but later the related
+code was changed in net-next, hence the fix must not go to net-next, Or.
+
+ net/sched/cls_flower.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index d230cb4..b480d7c 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -234,6 +234,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	tc_cls_common_offload_init(&cls_flower.common, tp);
+ 	cls_flower.command = TC_CLSFLOWER_DESTROY;
+ 	cls_flower.cookie = (unsigned long) f;
++	cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+ 
+ 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, &cls_flower);
+ }
+@@ -289,6 +290,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	cls_flower.command = TC_CLSFLOWER_STATS;
+ 	cls_flower.cookie = (unsigned long) f;
+ 	cls_flower.exts = &f->exts;
++	cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+ 
+ 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 				      &cls_flower);
+-- 
+2.3.7
