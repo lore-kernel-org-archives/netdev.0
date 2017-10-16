@@ -1,45 +1,93 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute2] regression in ss output
-Date: Mon, 16 Oct 2017 12:33:20 +0200
-Message-ID: <20171016103320.GP11332@orbyte.nwl.cc>
-References: <AM4PR0901MB125261BF480B49D2BA2DF46BCC480@AM4PR0901MB1252.eurprd09.prod.outlook.com>
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [net-next 6/9] e1000e: fix buffer overrun while the I219 is
+ processing DMA transactions
+Date: Mon, 16 Oct 2017 13:39:55 +0300
+Message-ID: <2c60b0c2-b257-fa86-c1c8-c8aa1fd40908@intel.com>
+References: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
+ <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Humberto Alves <hjalves@live.com>
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35078 "EHLO orbyte.nwl.cc"
+Received: from mga06.intel.com ([134.134.136.31]:61085 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751901AbdJPKdY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 06:33:24 -0400
-Content-Disposition: inline
-In-Reply-To: <AM4PR0901MB125261BF480B49D2BA2DF46BCC480@AM4PR0901MB1252.eurprd09.prod.outlook.com>
+        id S1750914AbdJPKkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 06:40:00 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 10/11/2017 12:07, David Laight wrote:
+> From: Jeff Kirsher
+>> Sent: 10 October 2017 18:22
+>> Intel 100/200 Series Chipset platforms reduced the round-trip
+>> latency for the LAN Controller DMA accesses, causing in some high
+>> performance cases a buffer overrun while the I219 LAN Connected
+>> Device is processing the DMA transactions. I219LM and I219V devices
+>> can fall into unrecovered Tx hang under very stressfully UDP traffic
+>> and multiple reconnection of Ethernet cable. This Tx hang of the LAN
+>> Controller is only recovered if the system is rebooted. Slightly slow
+>> down DMA access by reducing the number of outstanding requests.
+>> This workaround could have an impact on TCP traffic performance
+>> on the platform. Disabling TSO eliminates performance loss for TCP
+>> traffic without a noticeable impact on CPU performance.
+>>
+>> Please, refer to I218/I219 specification update:
+>> https://www.intel.com/content/www/us/en/embedded/products/networking/
+>> ethernet-connection-i218-family-documentation.html
+>>
+>> Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+>> Reviewed-by: Dima Ruinskiy <dima.ruinskiy@intel.com>
+>> Reviewed-by: Raanan Avargil <raanan.avargil@intel.com>
+>> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+>>   drivers/net/ethernet/intel/e1000e/netdev.c | 8 +++++---
+>>   1 file changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+>> index ee9de3500331..14b096f3d1da 100644
+>> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>> @@ -3021,8 +3021,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+>>
+>>   	hw->mac.ops.config_collision_dist(hw);
+>>
+>> -	/* SPT and CNP Si errata workaround to avoid data corruption */
+>> -	if (hw->mac.type >= e1000_pch_spt) {
+>> +	/* SPT and KBL Si errata workaround to avoid data corruption */
+>> +	if (hw->mac.type == e1000_pch_spt) {
+>>   		u32 reg_val;
+>>
+>>   		reg_val = er32(IOSFPC);
+>> @@ -3030,7 +3030,9 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+>>   		ew32(IOSFPC, reg_val);
+>>
+>>   		reg_val = er32(TARC(0));
+>> -		reg_val |= E1000_TARC0_CB_MULTIQ_3_REQ;
+>> +		/* SPT and KBL Si errata workaround to avoid Tx hang */
+>> +		reg_val &= ~BIT(28);
+>> +		reg_val |= BIT(29);
+> Shouldn't some more of the commit message about what this is doing
+> be in the comment?
+There is provided link on specification update: 
+https://www.intel.com/content/dam/www/public/us/en/documents/specification-updates/i218-i219-ethernet-connection-spec-update.pdf?asset=9561. 
+This is Intel's public release.
+> And shouldn't the 28 and 28 be named constants?
+(28 and 29) - you can easy understand from code that same value has been 
+changed from 3 to 2. There is no point add flag here I thought.
+>
+>>   		ew32(TARC(0), reg_val);
+> 	David
+>
+Thanks,
 
-On Fri, Oct 13, 2017 at 09:57:37AM +0000, Humberto Alves wrote:
-> Hi! With the last iproute2 release, ss command output does not 
-> differentiate between any-address IPv4 sockets from the IPv6 ones.
-> I don't know if this is an expected behaviour, but the old output looks 
-> more useful. Below I pasted the difference between the old behaviour and 
-> the new one.
-
-Although the change is certainly intentional (it was introduced by
-Stephen Hemminger as a side effect of aba9c23a6e1cb ("ss: enclose IPv6
-address in brackets"), I second reverting to the old display of
-in6addr_any as '::'.
-
-> I am happy to send a patch if you want. Thanks
-
-It should be enough to just getting rid of the
-
-| if (!memcmp(a->data, &in6addr_any, sizeof(in6addr_any))) {
-
-case in inet_addr_print(). The else-case which calls format_host()
-should deal with in6addr_any just fine. This way the address also gets
-enclosed in brackets which helps separating it from the ':port' part.
-
-Cheers, Phil
+Sasha
