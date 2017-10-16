@@ -1,40 +1,39 @@
 From: Humberto Alves <hjalves@live.com>
 Subject: Re: [iproute2] regression in ss output
-Date: Mon, 16 Oct 2017 20:34:08 +0000
-Message-ID: <AM4PR0901MB1252E2E42B84DC49651E0C07CC4F0@AM4PR0901MB1252.eurprd09.prod.outlook.com>
+Date: Mon, 16 Oct 2017 20:44:07 +0000
+Message-ID: <AM4PR0901MB12527C55F04814777A0E6849CC4F0@AM4PR0901MB1252.eurprd09.prod.outlook.com>
 References: <AM4PR0901MB125261BF480B49D2BA2DF46BCC480@AM4PR0901MB1252.eurprd09.prod.outlook.com>
- <20171016092058.470f3424@xeon-e3>
+ <20171016103320.GP11332@orbyte.nwl.cc>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-        micalg=sha-256; boundary="------------ms000200030902080605050008"
-To: Stephen Hemminger <stephen@networkplumber.org>,
+        micalg=sha-256; boundary="------------ms070206060004010509080702"
+To: Phil Sutter <phil@nwl.cc>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oln040092066069.outbound.protection.outlook.com ([40.92.66.69]:52784
+Received: from mail-oln040092066022.outbound.protection.outlook.com ([40.92.66.22]:53509
         "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752976AbdJPUeL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 16:34:11 -0400
-In-Reply-To: <20171016092058.470f3424@xeon-e3>
+        id S1753136AbdJPUoK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 16:44:10 -0400
+In-Reply-To: <20171016103320.GP11332@orbyte.nwl.cc>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms000200030902080605050008
+--------------ms070206060004010509080702
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Language: en-US
 Content-Transfer-Encoding: quoted-printable
 
-IMHO that's not ugly.
-How is that a feature? Differentiating IPv4 from IPv6 sockets is a=20
-feature to me!
-If you want to use '*' in IPv4 and IPv6, add another column please.
-Thank you
+Yes, just get rid of this 'if statement'.
+in6addr_any should be represented as '::', not '*'. Otherwise it's=20
+impossible to distinguish IPv4 listening addresses from IPv6. Thank you :=
+)
 
-On 10/16/2017 05:20 PM, Stephen Hemminger wrote:
-> On Fri, 13 Oct 2017 09:57:37 +0000
-> Humberto Alves <hjalves@live.com> wrote:
+On 10/16/2017 11:33 AM, Phil Sutter wrote:
+> Hi,
 >=20
+> On Fri, Oct 13, 2017 at 09:57:37AM +0000, Humberto Alves wrote:
 >> Hi! With the last iproute2 release, ss command output does not
 >> differentiate between any-address IPv4 sockets from the IPv6 ones.
 >> I don't know if this is an expected behaviour, but the old output look=
@@ -42,156 +41,27 @@ s
 >> more useful. Below I pasted the difference between the old behaviour a=
 nd
 >> the new one.
+>=20
+> Although the change is certainly intentional (it was introduced by
+> Stephen Hemminger as a side effect of aba9c23a6e1cb ("ss: enclose IPv6
+> address in brackets"), I second reverting to the old display of
+> in6addr_any as '::'.
+>=20
 >> I am happy to send a patch if you want. Thanks
->>
->>
->> iproute2-4.12
->> -------------
->>
->> $ ss --version
->> ss utility, iproute2-ss170705
->>
->> $ ss -ntl
->> State       Recv-Q Send-Q Local Address:Port               Peer
->> Address:Port
->> LISTEN      0      100            *:587                        *:*
->>
->> LISTEN      0      100            *:110                        *:*
->>
->> LISTEN      0      100            *:143                        *:*
->>
->> LISTEN      0      128            *:80                         *:*
->>
->> LISTEN      0      128            *:2225                       *:*
->>
->> LISTEN      0      10     127.0.0.1:5010                       *:*
->>
->> LISTEN      0      128            *:20                         *:*
->>
->> LISTEN      0      128    127.0.0.1:20150                      *:*
->>
->> LISTEN      0      128            *:61719                      *:*
->>
->> LISTEN      0      100            *:25                         *:*
->>
->> LISTEN      0      3              *:1723                       *:*
->>
->> LISTEN      0      128            *:17500                      *:*
->>
->> LISTEN      0      128    127.0.0.1:17600                      *:*
->>
->> LISTEN      0      128            *:8000                       *:*
->>
->> LISTEN      0      100            *:993                        *:*
->>
->> LISTEN      0      128    127.0.0.1:17603                      *:*
->>
->> LISTEN      0      100            *:995                        *:*
->>
->> LISTEN      0      100           :::587                       :::*
->>
->> LISTEN      0      100           :::110                       :::*
->>
->> LISTEN      0      100           :::143                       :::*
->>
->> LISTEN      0      128           :::22000                     :::*
->>
->> LISTEN      0      128           :::80                        :::*
->>
->> LISTEN      0      128           :::2225                      :::*
->>
->> LISTEN      0      128           :::20                        :::*
->>
->> LISTEN      0      128          ::1:20150                     :::*
->>
->> LISTEN      0      100           :::25                        :::*
->>
->> LISTEN      0      128           :::17500                     :::*
->>
->> LISTEN      0      128           :::8384                      :::*
->>
->> LISTEN      0      100           :::993                       :::*
->>
->> LISTEN      0      100           :::995                       :::*
->>
->> iproute2-4.13
->> -------------
->>
->> $ ss --version
->> ss utility, iproute2-ss170905
->>
->> $ ss -ntl
->> State       Recv-Q Send-Q Local Address:Port               Peer
->> Address:Port
->> LISTEN      0      100            *:587                        *:*
->>
->> LISTEN      0      100            *:110                        *:*
->>
->> LISTEN      0      100            *:143                        *:*
->>
->> LISTEN      0      128            *:80                         *:*
->>
->> LISTEN      0      128            *:2225                       *:*
->>
->> LISTEN      0      10     127.0.0.1:5010                       *:*
->>
->> LISTEN      0      128            *:20                         *:*
->>
->> LISTEN      0      128    127.0.0.1:20150                      *:*
->>
->> LISTEN      0      128            *:61719                      *:*
->>
->> LISTEN      0      100            *:25                         *:*
->>
->> LISTEN      0      3              *:1723                       *:*
->>
->> LISTEN      0      128            *:17500                      *:*
->>
->> LISTEN      0      128    127.0.0.1:17600                      *:*
->>
->> LISTEN      0      128            *:8000                       *:*
->>
->> LISTEN      0      100            *:993                        *:*
->>
->> LISTEN      0      128    127.0.0.1:17603                      *:*
->>
->> LISTEN      0      100            *:995                        *:*
->>
->> LISTEN      0      100            *:587                        *:*
->>
->> LISTEN      0      100            *:110                        *:*
->>
->> LISTEN      0      100            *:143                        *:*
->>
->> LISTEN      0      128            *:22000                      *:*
->>
->> LISTEN      0      128            *:80                         *:*
->>
->> LISTEN      0      128            *:2225                       *:*
->>
->> LISTEN      0      128            *:20                         *:*
->>
->> LISTEN      0      128        [::1]:20150                      *:*
->>
->> LISTEN      0      100            *:25                         *:*
->>
->> LISTEN      0      128            *:17500                      *:*
->>
->> LISTEN      0      128            *:8384                       *:*
->>
->> LISTEN      0      100            *:993                        *:*
->>
->> LISTEN      0      100            *:995                        *:*
 >=20
-> All changes are not regressions.
+> It should be enough to just getting rid of the
 >=20
-> Yes it was intentional because the outputing  [::]:20 looked ugly and u=
-sing * makes IPv4 and IPv6
-> look the same.
+> | if (!memcmp(a->data, &in6addr_any, sizeof(in6addr_any))) {
+>=20
+> case in inet_addr_print(). The else-case which calls format_host()
+> should deal with in6addr_any just fine. This way the address also gets
+> enclosed in brackets which helps separating it from the ':port' part.
+>=20
+> Cheers, Phil
 >=20
 
 
---------------ms000200030902080605050008
+--------------ms070206060004010509080702
 Content-Type: application/pkcs7-signature; name="smime.p7s"
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="smime.p7s"
@@ -255,8 +125,8 @@ MAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2Fs
 Zm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExpbWl0ZWQxPTA7BgNVBAMTNENPTU9ETyBSU0Eg
 Q2xpZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0ECECJ5MKv+GKGPYeBL
 SYK8AogwDQYJYIZIAWUDBAIBBQCgggJZMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJ
-KoZIhvcNAQkFMQ8XDTE3MTAxNjIwMzQwNVowLwYJKoZIhvcNAQkEMSIEIHKrT/pfjEzwmtf7
-otW60lXT+punyRSjSAZ7Wy5LBhE0MGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsG
+KoZIhvcNAQkFMQ8XDTE3MTAxNjIwNDQwNVowLwYJKoZIhvcNAQkEMSIEIKXsHjpIvs/cxKHt
+HDFLCdJVarf+5SI4VAngi/QBltzQMGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsG
 CWCGSAFlAwQBAjAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAw
 BwYFKw4DAgcwDQYIKoZIhvcNAwICASgwgb0GCSsGAQQBgjcQBDGBrzCBrDCBlzELMAkGA1UE
 BhMCR0IxGzAZBgNVBAgTEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEa
@@ -265,11 +135,11 @@ IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0ECECJ5MKv+GKGPYeBLSYK8Aogw
 gb8GCyqGSIb3DQEJEAILMYGvoIGsMIGXMQswCQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRl
 ciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0EgTGlt
 aXRlZDE9MDsGA1UEAxM0Q09NT0RPIFJTQSBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNl
-Y3VyZSBFbWFpbCBDQQIQInkwq/4YoY9h4EtJgrwCiDANBgkqhkiG9w0BAQEFAASCAQBpp3EY
-ZFOIG7DHg4Cjr6Yablzayb4fFnyTeXNx1PI6d6jvL7LIiPQ6lY+3MVhF5ZyuJBexvyfWV63Z
-/wAr9gise0L54nbqDYrfdADxOtthbPPT+rOf8Jcp2eawkrqTNTfm2k6WQSjXTcS7HF4HK7+y
-VswPIKUc4JmNxM/2cqcCZAsEh/I9qJPDzLJvxBxWtAgGMW7CMl3fpo7Jni7dCH7JJ9b4JvtR
-u5O5Uz2wt4xX9tCt2cYjcSO1waoCY/Ray8usjNQcNiCFXUznLSHn5nm27o4qPMNv9Kj2/vFV
-Z7HKDyePRWeHSxv+M72+tVlVmcqWzPbJiSQgSR9xVclVeg/7AAAAAAAA
+Y3VyZSBFbWFpbCBDQQIQInkwq/4YoY9h4EtJgrwCiDANBgkqhkiG9w0BAQEFAASCAQCtHVJr
+ZSe4T/oDr4WoWrFL50USQIvDSvsBRhtTHEvx3Q/VJbZgQlKNjArSy12B9RhxK7RR/mx1RkaP
+0agK7rkwzJeuv6RSNFvM2oWKngsPfqfZgx+2I545TJmMjTBpWn0+8DTVvle5td3bpokMx/Ib
+csgb2CsxsXlMoOGM7HilM+QxPqxQ2zpxgwepwVI++w6zYoySXPUs0ALShqz44baTx5FiWNos
+CVu+SBv4mTPe+mGWk8+Rj/oUEHEwgEzcw+UZS9665Q9Dtz9q44vsHpEw71e5OIT/xAr0kCKA
+tVULs1ssFmjFj5VaV+YNVqCG3UeYNlLfrps7cet4p1wbhAoVAAAAAAAA
 
---------------ms000200030902080605050008--
+--------------ms070206060004010509080702--
