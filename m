@@ -1,57 +1,45 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: usb/net/rt2x00: warning in rt2800_eeprom_word_index
-Date: Mon, 16 Oct 2017 13:27:43 +0300
-Message-ID: <8760bfo09s.fsf@kamboji.qca.qualcomm.com>
-References: <CAAeHK+yUNrrNU3Jqrfs7XAT809eyF4nv673cSL8RppbLrDtWNA@mail.gmail.com>
-        <20171012072529.GB2686@redhat.com>
-        <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute2] regression in ss output
+Date: Mon, 16 Oct 2017 12:33:20 +0200
+Message-ID: <20171016103320.GP11332@orbyte.nwl.cc>
+References: <AM4PR0901MB125261BF480B49D2BA2DF46BCC480@AM4PR0901MB1252.eurprd09.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
-        (Dmitry Vyukov's message of "Sat, 14 Oct 2017 16:38:03 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Humberto Alves <hjalves@live.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:35078 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751901AbdJPKdY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 06:33:24 -0400
+Content-Disposition: inline
+In-Reply-To: <AM4PR0901MB125261BF480B49D2BA2DF46BCC480@AM4PR0901MB1252.eurprd09.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dmitry Vyukov <dvyukov@google.com> writes:
+Hi,
 
-> On Thu, Oct 12, 2017 at 9:25 AM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
->> Hi
->>
->> On Mon, Oct 09, 2017 at 07:50:53PM +0200, Andrey Konovalov wrote:
->>> I've got the following report while fuzzing the kernel with syzkaller.
->>>
->>> On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
->>>
->>> I'm not sure whether this is a bug in the driver, or just a way to
->>> report misbehaving device. In the latter case this shouldn't be a
->>> WARN() call, since WARN() means bug in the kernel.
->>
->> This is about wrong EEPROM, which reported 3 tx streams on
->> non 3 antenna device. I think WARN() is justified and thanks
->> to the call trace I was actually able to to understand what
->> happened.
->>
->> In general I do not think WARN() only means a kernel bug, it
->> can be F/W or H/W bug too.
->
-> Hi Stanislaw,
->
-> Printing messages is fine. Printing stacks is fine. Just please make
-> them distinguishable from kernel bugs and don't kill the whole
-> possibility of automated Linux kernel testing. That's an important
-> capability.
+On Fri, Oct 13, 2017 at 09:57:37AM +0000, Humberto Alves wrote:
+> Hi! With the last iproute2 release, ss command output does not 
+> differentiate between any-address IPv4 sockets from the IPv6 ones.
+> I don't know if this is an expected behaviour, but the old output looks 
+> more useful. Below I pasted the difference between the old behaviour and 
+> the new one.
 
-Not really following you. Are you saying that using WARN() prevents
-automated Linux kernel testing?
+Although the change is certainly intentional (it was introduced by
+Stephen Hemminger as a side effect of aba9c23a6e1cb ("ss: enclose IPv6
+address in brackets"), I second reverting to the old display of
+in6addr_any as '::'.
 
--- 
-Kalle Valo
+> I am happy to send a patch if you want. Thanks
+
+It should be enough to just getting rid of the
+
+| if (!memcmp(a->data, &in6addr_any, sizeof(in6addr_any))) {
+
+case in inet_addr_print(). The else-case which calls format_host()
+should deal with in6addr_any just fine. This way the address also gets
+enclosed in brackets which helps separating it from the ':port' part.
+
+Cheers, Phil
