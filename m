@@ -1,110 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 6/9] e1000e: fix buffer overrun while the I219 is
- processing DMA transactions
-Date: Mon, 16 Oct 2017 13:27:49 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0097D0E@AcuExch.aculab.com>
-References: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
- <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
- <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
- <2c60b0c2-b257-fa86-c1c8-c8aa1fd40908@intel.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] tcp: cdg: make struct tcp_cdg static
+Date: Mon, 16 Oct 2017 14:33:21 +0100
+Message-ID: <20171016133321.15477-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nhorman@redhat.com" <nhorman@redhat.com>,
-        "sassmann@redhat.com" <sassmann@redhat.com>,
-        "jogreene@redhat.com" <jogreene@redhat.com>
-To: "'Neftin, Sasha'" <sasha.neftin@intel.com>,
-        'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.186]:51281 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751389AbdJPN1y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 09:27:54 -0400
-In-Reply-To: <2c60b0c2-b257-fa86-c1c8-c8aa1fd40908@intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTmVmdGluLCBTYXNoYQ0KPiBTZW50OiAxNiBPY3RvYmVyIDIwMTcgMTE6NDANCj4gT24g
-MTAvMTEvMjAxNyAxMjowNywgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+IEZyb206IEplZmYgS2ly
-c2hlcg0KPiA+PiBTZW50OiAxMCBPY3RvYmVyIDIwMTcgMTg6MjINCj4gPj4gSW50ZWwgMTAwLzIw
-MCBTZXJpZXMgQ2hpcHNldCBwbGF0Zm9ybXMgcmVkdWNlZCB0aGUgcm91bmQtdHJpcA0KPiA+PiBs
-YXRlbmN5IGZvciB0aGUgTEFOIENvbnRyb2xsZXIgRE1BIGFjY2Vzc2VzLCBjYXVzaW5nIGluIHNv
-bWUgaGlnaA0KPiA+PiBwZXJmb3JtYW5jZSBjYXNlcyBhIGJ1ZmZlciBvdmVycnVuIHdoaWxlIHRo
-ZSBJMjE5IExBTiBDb25uZWN0ZWQNCj4gPj4gRGV2aWNlIGlzIHByb2Nlc3NpbmcgdGhlIERNQSB0
-cmFuc2FjdGlvbnMuIEkyMTlMTSBhbmQgSTIxOVYgZGV2aWNlcw0KPiA+PiBjYW4gZmFsbCBpbnRv
-IHVucmVjb3ZlcmVkIFR4IGhhbmcgdW5kZXIgdmVyeSBzdHJlc3NmdWxseSBVRFAgdHJhZmZpYw0K
-PiA+PiBhbmQgbXVsdGlwbGUgcmVjb25uZWN0aW9uIG9mIEV0aGVybmV0IGNhYmxlLiBUaGlzIFR4
-IGhhbmcgb2YgdGhlIExBTg0KPiA+PiBDb250cm9sbGVyIGlzIG9ubHkgcmVjb3ZlcmVkIGlmIHRo
-ZSBzeXN0ZW0gaXMgcmVib290ZWQuIFNsaWdodGx5IHNsb3cNCj4gPj4gZG93biBETUEgYWNjZXNz
-IGJ5IHJlZHVjaW5nIHRoZSBudW1iZXIgb2Ygb3V0c3RhbmRpbmcgcmVxdWVzdHMuDQo+ID4+IFRo
-aXMgd29ya2Fyb3VuZCBjb3VsZCBoYXZlIGFuIGltcGFjdCBvbiBUQ1AgdHJhZmZpYyBwZXJmb3Jt
-YW5jZQ0KPiA+PiBvbiB0aGUgcGxhdGZvcm0uIERpc2FibGluZyBUU08gZWxpbWluYXRlcyBwZXJm
-b3JtYW5jZSBsb3NzIGZvciBUQ1ANCj4gPj4gdHJhZmZpYyB3aXRob3V0IGEgbm90aWNlYWJsZSBp
-bXBhY3Qgb24gQ1BVIHBlcmZvcm1hbmNlLg0KPiA+Pg0KPiA+PiBQbGVhc2UsIHJlZmVyIHRvIEky
-MTgvSTIxOSBzcGVjaWZpY2F0aW9uIHVwZGF0ZToNCj4gPj4gaHR0cHM6Ly93d3cuaW50ZWwuY29t
-L2NvbnRlbnQvd3d3L3VzL2VuL2VtYmVkZGVkL3Byb2R1Y3RzL25ldHdvcmtpbmcvDQo+ID4+IGV0
-aGVybmV0LWNvbm5lY3Rpb24taTIxOC1mYW1pbHktZG9jdW1lbnRhdGlvbi5odG1sDQo+ID4+DQo+
-ID4+IFNpZ25lZC1vZmYtYnk6IFNhc2hhIE5lZnRpbiA8c2FzaGEubmVmdGluQGludGVsLmNvbT4N
-Cj4gPj4gUmV2aWV3ZWQtYnk6IERpbWEgUnVpbnNraXkgPGRpbWEucnVpbnNraXlAaW50ZWwuY29t
-Pg0KPiA+PiBSZXZpZXdlZC1ieTogUmFhbmFuIEF2YXJnaWwgPHJhYW5hbi5hdmFyZ2lsQGludGVs
-LmNvbT4NCj4gPj4gVGVzdGVkLWJ5OiBBYXJvbiBCcm93biA8YWFyb24uZi5icm93bkBpbnRlbC5j
-b20+DQo+ID4+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJA
-aW50ZWwuY29tPg0KPiA+PiAtLS0NCj4gPj4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9l
-MTAwMGUvbmV0ZGV2LmMgfCA4ICsrKysrLS0tDQo+ID4+ICAgMSBmaWxlIGNoYW5nZWQsIDUgaW5z
-ZXJ0aW9ucygrKSwgMyBkZWxldGlvbnMoLSkNCj4gPj4NCj4gPj4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYw0KPiBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYw0KPiA+PiBpbmRleCBlZTlkZTM1MDAzMzEuLjE0
-YjA5NmYzZDFkYSAxMDA2NDQNCj4gPj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-ZTEwMDBlL25ldGRldi5jDQo+ID4+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2Ux
-MDAwZS9uZXRkZXYuYw0KPiA+PiBAQCAtMzAyMSw4ICszMDIxLDggQEAgc3RhdGljIHZvaWQgZTEw
-MDBfY29uZmlndXJlX3R4KHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVyKQ0KPiA+Pg0KPiA+
-PiAgIAlody0+bWFjLm9wcy5jb25maWdfY29sbGlzaW9uX2Rpc3QoaHcpOw0KPiA+Pg0KPiA+PiAt
-CS8qIFNQVCBhbmQgQ05QIFNpIGVycmF0YSB3b3JrYXJvdW5kIHRvIGF2b2lkIGRhdGEgY29ycnVw
-dGlvbiAqLw0KPiA+PiAtCWlmIChody0+bWFjLnR5cGUgPj0gZTEwMDBfcGNoX3NwdCkgew0KPiA+
-PiArCS8qIFNQVCBhbmQgS0JMIFNpIGVycmF0YSB3b3JrYXJvdW5kIHRvIGF2b2lkIGRhdGEgY29y
-cnVwdGlvbiAqLw0KPiA+PiArCWlmIChody0+bWFjLnR5cGUgPT0gZTEwMDBfcGNoX3NwdCkgew0K
-PiA+PiAgIAkJdTMyIHJlZ192YWw7DQo+ID4+DQo+ID4+ICAgCQlyZWdfdmFsID0gZXIzMihJT1NG
-UEMpOw0KPiA+PiBAQCAtMzAzMCw3ICszMDMwLDkgQEAgc3RhdGljIHZvaWQgZTEwMDBfY29uZmln
-dXJlX3R4KHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVyKQ0KPiA+PiAgIAkJZXczMihJT1NG
-UEMsIHJlZ192YWwpOw0KPiA+Pg0KPiA+PiAgIAkJcmVnX3ZhbCA9IGVyMzIoVEFSQygwKSk7DQo+
-ID4+IC0JCXJlZ192YWwgfD0gRTEwMDBfVEFSQzBfQ0JfTVVMVElRXzNfUkVROw0KPiA+PiArCQkv
-KiBTUFQgYW5kIEtCTCBTaSBlcnJhdGEgd29ya2Fyb3VuZCB0byBhdm9pZCBUeCBoYW5nICovDQo+
-ID4+ICsJCXJlZ192YWwgJj0gfkJJVCgyOCk7DQo+ID4+ICsJCXJlZ192YWwgfD0gQklUKDI5KTsN
-Cg0KPiA+IFNob3VsZG4ndCBzb21lIG1vcmUgb2YgdGhlIGNvbW1pdCBtZXNzYWdlIGFib3V0IHdo
-YXQgdGhpcyBpcyBkb2luZw0KPiA+IGJlIGluIHRoZSBjb21tZW50Pw0KDQo+IFRoZXJlIGlzIHBy
-b3ZpZGVkIGxpbmsgb24gc3BlY2lmaWNhdGlvbiB1cGRhdGU6DQo+IGh0dHBzOi8vd3d3LmludGVs
-LmNvbS9jb250ZW50L2RhbS93d3cvcHVibGljL3VzL2VuL2RvY3VtZW50cy9zcGVjaWZpY2F0aW9u
-LXVwZGF0ZXMvaTIxOC1pMjE5LWV0aGVybmV0LQ0KPiBjb25uZWN0aW9uLXNwZWMtdXBkYXRlLnBk
-Zj9hc3NldD05NTYxLg0KPiBUaGlzIGlzIEludGVsJ3MgcHVibGljIHJlbGVhc2UuDQoNCkFuZCBz
-b21ldGltZSBuZXh0IHdlZWsgdGhlIG1hcmtldGluZyBwZW9wbGUgd2lsbCBkZWNpZGUgdG8gcmVv
-cmdhbmlzZSB0aGUNCndlYiBzaXRlIGFuZCB0aGUgbGluayB3aWxsIGJlY29tZSBpbnZhbGlkLg0K
-DQo+ID4gQW5kIHNob3VsZG4ndCB0aGUgMjggYW5kIDI4IGJlIG5hbWVkIGNvbnN0YW50cz8NCg0K
-PiAoMjggYW5kIDI5KSAtIHlvdSBjYW4gZWFzeSB1bmRlcnN0YW5kIGZyb20gY29kZSB0aGF0IHNh
-bWUgdmFsdWUgaGFzIGJlZW4NCj4gY2hhbmdlZCBmcm9tIDMgdG8gMi4gVGhlcmUgaXMgbm8gcG9p
-bnQgYWRkIGZsYWcgaGVyZSBJIHRob3VnaHQuDQoNCk9oLCB0aGVyZSBpcy4gVGhlICd3b3JrYXJv
-dW5kIGlzJzoNCiAgU2xpZ2h0bHkgc2xvdyBkb3duIERNQSBhY2Nlc3MgYnkgcmVkdWNpbmcgdGhl
-IG51bWJlciBvZiBvdXRzdGFuZGluZyByZXF1ZXN0cy4NCiAgVGhpcyB3b3JrYXJvdW5kIGNvdWxk
-IGhhdmUgYW4gaW1wYWN0IG9uIFRDUCB0cmFmZmljIHBlcmZvcm1hbmNlIGFuZCBjb3VsZA0KICBy
-ZWR1Y2UgcGVyZm9ybWFuY2UgdXAgdG8gNSB0byAxNSUgKGRlcGVuZGluZykgb24gdGhlIHBsYXRm
-b3JtLg0KICBEaXNhYmxpbmcgVFNPIGVsaW1pbmF0ZXMgcGVyZm9ybWFuY2UgbG9zcyBmb3IgVENQ
-IHRyYWZmaWMgd2l0aG91dCBhIA0KICBub3RpY2VhYmxlIGltcGFjdCBvbiBDUFUgcGVyZm9ybWFu
-Y2UuDQoNCkkgd29uZGVyIHdoYXQgdGVzdHMgdGhleSBkaWQgdG8gc2hvdyB0aGF0IFRTTyBkb2Vz
-bid0IHNhdmUgY3B1IGN5Y2xlcyENCg0KU28gbXkgZ3Vlc3MgaXMgdGhhdCB5b3UgYXJlIGNoYW5n
-aW5nIHRoZSBudW1iZXIgb2Ygb3V0c3RhbmRpbmcgUENJZSByZWFkcw0KKG9yIHJlYWRzIGZvciB0
-eCBidWZmZXJzLCBvciA/Pz8pIGZyb20gMyB0byAyLg0KDQpMZXRzIHJlYWQgYmV0d2VlbiB0aGUg
-bGluZXMgYSBsaXR0bGUgZnVydGhlcg0KKHNpbmNlIHlvdSBhcmUgYXQgSW50ZWwgeW91IGNhbiBw
-cm9iYWJseSBjaGVjayB0aGlzKToNCkFzc3VtaW5nIHRoYXQgVFNPIGlzICdUcmFuc21pdCBTZWdt
-ZW50YXRpb24gT2ZmbG9hZCcgYW5kIHRoYXQgVFNPIHBhY2tldHMNCm1pZ2h0IGJlIDY0aywgdGhl
-biByZWFkaW5nIDMgVFNPIHBhY2tldHMgbWlnaHQgaXNzdWUgUENJZSByZWFkcyBmb3IgMTk2aw0K
-Ynl0ZXMgb2YgZGF0YSAodW5kZXIgNGsgZm9yIG5vbi1UU08pLg0KSWYgdGhlIGludGVybmFsIGJ1
-ZmZlciB0aGF0IHRoaXMgZGF0YSBpcyBzdG9yZWQgaW4gaXNuJ3QgdGhhdCBiaWcgdGhlbg0KdGhh
-dCBpbnRlcm5hbCBidWZmZXIgd291bGQgb3ZlcmZsb3cuDQpJdCBtaWdodCBiZSB0aGF0IGRhdGEg
-aXMgcmVtb3ZlZCBmcm9tIHRoaXMgYnVmZmVyIGFzIHNvb24gYXMgdGhlIGxhc3QNCmNvbXBsZXRp
-b24gVExQIGFycml2ZXMgLSBidXQgdGhleSBjYW4gYmUgaW50ZXJsZWF2ZWQgd2l0aCBvdGhlcg0K
-b3V0c3RhbmRpbmcgUENJZSByZWFkcy4NCkl0IGFsbCByYXRoZXIgZGVwZW5kcyBvbiB0aGUgbmVn
-b3RpYXRlZCBtYXhpbXVtIFRMUCBzaXplIGFuZCBudW1iZXINCm9mIHRhZ3MuDQoNClBlcmhhcHMg
-cmVkdWNpbmcgdGhlIG1heGltdW0gVFNPIHBhY2tldCB0byAzMmsgc3RvcHMgdGhlIG92ZXJmbG93
-DQphcyB3ZWxsLi4uDQoNCglEYXZpZA0KDQo=
+From: Colin Ian King <colin.king@canonical.com>
+
+The structure tcp_cdg is local to the source and
+does not need to be in global scope, so make it static.
+
+Cleans up sparse warning:
+symbol 'tcp_cdg' was not declared. Should it be static?
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/ipv4/tcp_cdg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_cdg.c b/net/ipv4/tcp_cdg.c
+index 66ac69f7bd19..06fbe102a425 100644
+--- a/net/ipv4/tcp_cdg.c
++++ b/net/ipv4/tcp_cdg.c
+@@ -389,7 +389,7 @@ static void tcp_cdg_release(struct sock *sk)
+ 	kfree(ca->gradients);
+ }
+ 
+-struct tcp_congestion_ops tcp_cdg __read_mostly = {
++static struct tcp_congestion_ops tcp_cdg __read_mostly = {
+ 	.cong_avoid = tcp_cdg_cong_avoid,
+ 	.cwnd_event = tcp_cdg_cwnd_event,
+ 	.pkts_acked = tcp_cdg_acked,
+-- 
+2.14.1
