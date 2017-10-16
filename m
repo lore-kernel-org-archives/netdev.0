@@ -1,82 +1,75 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] virtio_net: implement VIRTIO_CONFIG_S_NEEDS_RESET
-Date: Mon, 16 Oct 2017 11:03:18 -0400
-Message-ID: <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
-References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
-	<20171015034018-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>,
-	Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20171015034018-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH] netlink: fix netlink_ack() extack race
+Date: Mon, 16 Oct 2017 17:09:53 +0200
+Message-ID: <20171016150953.17612-1-johannes@sipsolutions.net>
+Cc: Johannes Berg <johannes.berg@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.63.242]:46262 "EHLO
+        sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752824AbdJPPJ6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 11:09:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> +static int virtnet_reset(struct virtnet_info *vi)
->> +{
->> +     struct virtio_device *dev = vi->vdev;
->> +     int ret;
->> +
->> +     virtio_config_disable(dev);
->> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
->> +     virtnet_freeze_down(dev, true);
->> +     remove_vq_common(vi);
->> +
->> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
->> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
->> +
->> +     ret = virtio_finalize_features(dev);
->> +     if (ret)
->> +             goto err;
->> +
->> +     ret = virtnet_restore_up(dev);
->> +     if (ret)
->> +             goto err;
->> +
->> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
->> +     if (ret)
->> +             goto err;
->> +
->> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
->> +     virtio_config_enable(dev);
->> +     return 0;
->> +
->> +err:
->> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
->> +     return ret;
->> +}
->> +
->>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
->>  {
->>       struct scatterlist sg;
->
-> I have a question here though. How do things like MAC address
-> get restored?
->
-> What about the rx mode?
->
-> vlans?
+From: Johannes Berg <johannes.berg@intel.com>
 
-The function as is releases and reinitializes only ring state.
-Device configuration such as mac and vlan persist across
-the reset.
+It seems that it's possible to toggle NETLINK_F_EXT_ACK
+through setsockopt() while another thread/CPU is building
+a message inside netlink_ack(), which could then trigger
+the WARN_ON()s I added since if it goes from being turned
+off to being turned on between allocating and filling the
+message, the skb could end up being too small.
 
-> Also, it seems that LINK_ANNOUNCE requests will get ignored
-> even if they got set before the reset, leading to downtime.
+Avoid this whole situation by storing the value of this
+flag in a separate variable and using that throughout the
+function instead.
 
-Do you mean act on VIRTIO_NET_F_GUEST_ANNOUNCE
-requests? That flag is tested and netdev_notify_peers
-called before resetting virtio ring state.
+Fixes: 2d4bc93368f5 ("netlink: extended ACK reporting")
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+---
+ net/netlink/af_netlink.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 336d9c6dcad9..767c84e10e20 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2307,6 +2307,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
+ 	size_t tlvlen = 0;
+ 	struct netlink_sock *nlk = nlk_sk(NETLINK_CB(in_skb).sk);
+ 	unsigned int flags = 0;
++	bool nlk_has_extack = nlk->flags & NETLINK_F_EXT_ACK;
+ 
+ 	/* Error messages get the original request appened, unless the user
+ 	 * requests to cap the error message, and get extra error data if
+@@ -2317,7 +2318,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
+ 			payload += nlmsg_len(nlh);
+ 		else
+ 			flags |= NLM_F_CAPPED;
+-		if (nlk->flags & NETLINK_F_EXT_ACK && extack) {
++		if (nlk_has_extack && extack) {
+ 			if (extack->_msg)
+ 				tlvlen += nla_total_size(strlen(extack->_msg) + 1);
+ 			if (extack->bad_attr)
+@@ -2326,8 +2327,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
+ 	} else {
+ 		flags |= NLM_F_CAPPED;
+ 
+-		if (nlk->flags & NETLINK_F_EXT_ACK &&
+-		    extack && extack->cookie_len)
++		if (nlk_has_extack && extack && extack->cookie_len)
+ 			tlvlen += nla_total_size(extack->cookie_len);
+ 	}
+ 
+@@ -2347,7 +2347,7 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err,
+ 	errmsg->error = err;
+ 	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
+ 
+-	if (nlk->flags & NETLINK_F_EXT_ACK && extack) {
++	if (nlk_has_extack && extack) {
+ 		if (err) {
+ 			if (extack->_msg)
+ 				WARN_ON(nla_put_string(skb, NLMSGERR_ATTR_MSG,
+-- 
+2.14.2
