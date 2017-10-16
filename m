@@ -1,62 +1,88 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] tcp: Check daddr_cache before use in tracepoint
-Date: Mon, 16 Oct 2017 14:46:57 -0700
-Message-ID: <CAM_iQpUgWJwjaRYw3vX4t20foheOrebU3U2ACZqrAbTYqYc-5A@mail.gmail.com>
-References: <1508189387-27931-1-git-send-email-dsahern@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next V8 PATCH 1/5] bpf: introduce new bpf cpu map type
+ BPF_MAP_TYPE_CPUMAP
+Date: Mon, 16 Oct 2017 14:49:53 -0700
+Message-ID: <20171016214951.bia3esapu5o2niva@ast-mbp.dhcp.thefacebook.com>
+References: <150814913767.1806.3470498528707259987.stgit@firesoul>
+ <150814916887.1806.4443991765779135803.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:47852 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755514AbdJPVrS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 17:47:18 -0400
-Received: by mail-pg0-f66.google.com with SMTP id r25so7877369pgn.4
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 14:47:17 -0700 (PDT)
-In-Reply-To: <1508189387-27931-1-git-send-email-dsahern@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:54164 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755014AbdJPVt5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 17:49:57 -0400
+Received: by mail-pf0-f196.google.com with SMTP id t188so14274067pfd.10
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 14:49:57 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <150814916887.1806.4443991765779135803.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 16, 2017 at 2:29 PM, David Ahern <dsahern@gmail.com> wrote:
-> Running perf in one window to capture tcp_retransmit_skb tracepoint:
->     $ perf record -e tcp:tcp_retransmit_skb -a
->
-> And causing a retransmission on an active TCP session (e.g., dropping
-> packets in the receiver, changing MTU on the interface to 500 and back
-> to 1500) triggers a panic:
->
-> [   58.543144] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-> [   58.545300] IP: perf_trace_tcp_retransmit_skb+0xd0/0x145
-> [   58.546770] PGD 0 P4D 0
-> [   58.547472] Oops: 0000 [#1] SMP
-> [   58.548328] Modules linked in: vrf
-> [   58.549262] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.14.0-rc4+ #26
-> [   58.551004] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-> [   58.554560] task: ffffffff81a0e540 task.stack: ffffffff81a00000
-> [   58.555817] RIP: 0010:perf_trace_tcp_retransmit_skb+0xd0/0x145
-> [   58.557137] RSP: 0018:ffff88003fc03d68 EFLAGS: 00010282
-> [   58.558292] RAX: 0000000000000000 RBX: ffffe8ffffc0ec80 RCX: ffff880038543098
-> [   58.559850] RDX: 0400000000000000 RSI: ffff88003fc03d70 RDI: ffff88003fc14b68
-> [   58.561099] RBP: ffff88003fc03da8 R08: 0000000000000000 R09: ffffea0000d3224a
-> [   58.562005] R10: ffff88003fc03db8 R11: 0000000000000010 R12: ffff8800385428c0
-> [   58.562930] R13: ffffe8ffffc0e478 R14: ffffffff81a93a40 R15: ffff88003d4f0c00
-> [   58.563845] FS:  0000000000000000(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
-> [   58.564873] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   58.565613] CR2: 0000000000000008 CR3: 000000003d68f004 CR4: 00000000000606f0
-> [   58.566538] Call Trace:
-> [   58.566865]  <IRQ>
-> [   58.567140]  __tcp_retransmit_skb+0x4ab/0x4c6
-> [   58.567704]  ? tcp_set_ca_state+0x22/0x3f
-> [   58.568231]  tcp_retransmit_skb+0x14/0xa3
-> [   58.568754]  tcp_retransmit_timer+0x472/0x5e3
-> [   58.569324]  ? tcp_write_timer_handler+0x1e9/0x1e9
-> [   58.569946]  tcp_write_timer_handler+0x95/0x1e9
-> [   58.570548]  tcp_write_timer+0x2a/0x58
->
-> Check that daddr_cache is non-NULL before de-referencing.
+On Mon, Oct 16, 2017 at 12:19:28PM +0200, Jesper Dangaard Brouer wrote:
+> The 'cpumap' is primarily used as a backend map for XDP BPF helper
+> call bpf_redirect_map() and XDP_REDIRECT action, like 'devmap'.
+> 
+> This patch implement the main part of the map.  It is not connected to
+> the XDP redirect system yet, and no SKB allocation are done yet.
+> 
+> The main concern in this patch is to ensure the datapath can run
+> without any locking.  This adds complexity to the setup and tear-down
+> procedure, which assumptions are extra carefully documented in the
+> code comments.
+> 
+> V2:
+>  - make sure array isn't larger than NR_CPUS
+>  - make sure CPUs added is a valid possible CPU
+> 
+> V3: fix nitpicks from Jakub Kicinski <kubakici@wp.pl>
+> 
+> V5:
+>  - Restrict map allocation to root / CAP_SYS_ADMIN
+>  - WARN_ON_ONCE if queue is not empty on tear-down
+>  - Return -EPERM on memlock limit instead of -ENOMEM
+>  - Error code in __cpu_map_entry_alloc() also handle ptr_ring_cleanup()
+>  - Moved cpu_map_enqueue() to next patch
+> 
+> V6: all notice by Daniel Borkmann
+>  - Fix err return code in cpu_map_alloc() introduced in V5
+>  - Move cpu_possible() check after max_entries boundary check
+>  - Forbid usage initially in check_map_func_compatibility()
+> 
+> V7:
+>  - Fix alloc error path spotted by Daniel Borkmann
+>  - Did stress test adding+removing CPUs from the map concurrently
+>  - Fixed refcnt issue on cpu_map_entry, kthread started too soon
+>  - Make sure packets are flushed during tear-down, involved use of
+>    rcu_barrier() and kthread_run only exit after queue is empty
+>  - Fix alloc error path in __cpu_map_entry_alloc() for ptr_ring
+> 
+> V8:
+>  - Nitpicking comments and gramma by Edward Cree
+>  - Fix missing semi-colon introduced in V7 due to rebasing
+>  - Move struct bpf_cpu_map_entry members cpu+map_id to tracepoint patch
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+>  include/linux/bpf_types.h      |    1 
+>  include/uapi/linux/bpf.h       |    1 
+>  kernel/bpf/Makefile            |    1 
+>  kernel/bpf/cpumap.c            |  560 ++++++++++++++++++++++++++++++++++++++++
+>  kernel/bpf/syscall.c           |    8 +
+>  kernel/bpf/verifier.c          |    5 
+>  tools/include/uapi/linux/bpf.h |    1 
+>  7 files changed, 576 insertions(+), 1 deletion(-)
+>  create mode 100644 kernel/bpf/cpumap.c
 
-Well, for NULL case, the entry->saddr_v6 will not be filled with
-your patch.
-
-How about using sk->sk_v6_daddr?
+Looks good to me
+I like the idea of running networking stack from kthread
+and hope adding GRO won't change the api. 
+Acked-by: Alexei Starovoitov <ast@kernel.org>
