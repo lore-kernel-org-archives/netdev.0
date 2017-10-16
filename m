@@ -1,52 +1,152 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/5] mlxsw: GRE: Offload decap without encap
-Date: Mon, 16 Oct 2017 16:27:54 +0200
-Message-ID: <20171016142800.2677-1-jiri@resnulli.us>
+Subject: [patch net] mlxsw: core: Fix possible deadlock
+Date: Mon, 16 Oct 2017 16:27:55 +0200
+Message-ID: <20171016142800.2677-2-jiri@resnulli.us>
+References: <20171016142800.2677-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:49940 "EHLO
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:50648 "EHLO
         mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753139AbdJPO2C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:28:02 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b189so3870861wmd.4
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:28:02 -0700 (PDT)
+        with ESMTP id S1753173AbdJPO2D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:28:03 -0400
+Received: by mail-wm0-f66.google.com with SMTP id u138so3883966wmu.5
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:28:03 -0700 (PDT)
+In-Reply-To: <20171016142800.2677-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-Petr says:
+When an EMAD is transmitted, a timeout work item is scheduled with a
+delay of 200ms, so that another EMAD will be retried until a maximum of
+five retries.
 
-The current code doesn't offload GRE decapsulation unless there's a
-corresponding encapsulation route as well. While not strictly incorrect (when
-encap route is absent, the decap route traps traffic to CPU and the kernel
-handles it), it's a missed optimization opportunity.
+In certain situations, it's possible for the function waiting on the
+EMAD to be associated with a work item that is queued on the same
+workqueue (`mlxsw_core`) as the timeout work item. This results in
+flushing a work item on the same workqueue.
 
-With this patchset, IPIP entries are created as soon as offloadable tunneling
-netdevice is created. This then leads to offloading of decap route, if one
-exists, or is added afterwards, even when no encap route is present.
+According to commit e159489baa71 ("workqueue: relax lockdep annotation
+on flush_work()") the above may lead to a deadlock in case the workqueue
+has only one worker active or if the system in under memory pressure and
+the rescue worker is in use. The latter explains the very rare and
+random nature of the lockdep splats we have been seeing:
 
-In Linux, when there is a decap route, matching IP-in-IP packets are always
-decapsulated. However, with IPv4 overlays in particular, whether the inner
-packet is then forwarded depends on setting of net.ipv4.conf.*.rp_filter. When
-RP filtering is turned on, inner packets aren't forwarded unless there's a
-matching encap route. The mlxsw driver doesn't reflect this behavior in other
-router interfaces, and thus it's not implemented for tunnel types either. A
-better support for this will be subject of follow-up work.
+[   52.730240] ============================================
+[   52.736179] WARNING: possible recursive locking detected
+[   52.742119] 4.14.0-rc3jiri+ #4 Not tainted
+[   52.746697] --------------------------------------------
+[   52.752635] kworker/1:3/599 is trying to acquire lock:
+[   52.758378]  (mlxsw_core_driver_name){+.+.}, at: [<ffffffff811c4fa4>] flush_work+0x3a4/0x5e0
+[   52.767837]
+               but task is already holding lock:
+[   52.774360]  (mlxsw_core_driver_name){+.+.}, at: [<ffffffff811c65c4>] process_one_work+0x7d4/0x12f0
+[   52.784495]
+               other info that might help us debug this:
+[   52.791794]  Possible unsafe locking scenario:
+[   52.798413]        CPU0
+[   52.801144]        ----
+[   52.803875]   lock(mlxsw_core_driver_name);
+[   52.808556]   lock(mlxsw_core_driver_name);
+[   52.813236]
+                *** DEADLOCK ***
+[   52.819857]  May be due to missing lock nesting notation
+[   52.827450] 3 locks held by kworker/1:3/599:
+[   52.832221]  #0:  (mlxsw_core_driver_name){+.+.}, at: [<ffffffff811c65c4>] process_one_work+0x7d4/0x12f0
+[   52.842846]  #1:  ((&(&bridge->fdb_notify.dw)->work)){+.+.}, at: [<ffffffff811c65c4>] process_one_work+0x7d4/0x12f0
+[   52.854537]  #2:  (rtnl_mutex){+.+.}, at: [<ffffffff822ad8e7>] rtnl_lock+0x17/0x20
+[   52.863021]
+               stack backtrace:
+[   52.867890] CPU: 1 PID: 599 Comm: kworker/1:3 Not tainted 4.14.0-rc3jiri+ #4
+[   52.875773] Hardware name: Mellanox Technologies Ltd. "MSN2100-CB2F"/"SA001017", BIOS 5.6.5 06/07/2016
+[   52.886267] Workqueue: mlxsw_core mlxsw_sp_fdb_notify_work [mlxsw_spectrum]
+[   52.894060] Call Trace:
+[   52.909122]  __lock_acquire+0xf6f/0x2a10
+[   53.025412]  lock_acquire+0x158/0x440
+[   53.047557]  flush_work+0x3c4/0x5e0
+[   53.087571]  __cancel_work_timer+0x3ca/0x5e0
+[   53.177051]  cancel_delayed_work_sync+0x13/0x20
+[   53.182142]  mlxsw_reg_trans_bulk_wait+0x12d/0x7a0 [mlxsw_core]
+[   53.194571]  mlxsw_core_reg_access+0x586/0x990 [mlxsw_core]
+[   53.225365]  mlxsw_reg_query+0x10/0x20 [mlxsw_core]
+[   53.230882]  mlxsw_sp_fdb_notify_work+0x2a3/0x9d0 [mlxsw_spectrum]
+[   53.237801]  process_one_work+0x8f1/0x12f0
+[   53.321804]  worker_thread+0x1fd/0x10c0
+[   53.435158]  kthread+0x28e/0x370
+[   53.448703]  ret_from_fork+0x2a/0x40
+[   53.453017] mlxsw_spectrum 0000:01:00.0: EMAD retries (2/5) (tid=bf4549b100000774)
+[   53.453119] mlxsw_spectrum 0000:01:00.0: EMAD retries (5/5) (tid=bf4549b100000770)
+[   53.453132] mlxsw_spectrum 0000:01:00.0: EMAD reg access failed (tid=bf4549b100000770,reg_id=200b(sfn),type=query,status=0(operation performed))
+[   53.453143] mlxsw_spectrum 0000:01:00.0: Failed to get FDB notifications
 
-Petr Machata (5):
-  mlxsw: spectrum: Move netdevice NB to struct mlxsw_sp
-  mlxsw: spectrum_router: Move mlxsw_sp_netdev_ipip_type()
-  mlxsw: spectrum: Support decap-only IP-in-IP tunnels
-  mlxsw: spectrum: Support IPIP overlay VRF migration
-  mlxsw: spectrum: Drop refcounting of IPIP entries
+Fix this by creating another workqueue for EMAD timeouts, thereby
+preventing the situation of a work item trying to flush a work item
+queued on the same workqueue.
 
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  31 ++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   8 +
- .../net/ethernet/mellanox/mlxsw/spectrum_ipip.h    |   1 -
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 233 ++++++++++++++++-----
- 4 files changed, 209 insertions(+), 64 deletions(-)
+Fixes: caf7297e7ab5f ("mlxsw: core: Introduce support for asynchronous EMAD register access")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Reported-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 9d5e7cf..f3315bc 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -96,6 +96,7 @@ struct mlxsw_core {
+ 	const struct mlxsw_bus *bus;
+ 	void *bus_priv;
+ 	const struct mlxsw_bus_info *bus_info;
++	struct workqueue_struct *emad_wq;
+ 	struct list_head rx_listener_list;
+ 	struct list_head event_listener_list;
+ 	struct {
+@@ -465,7 +466,7 @@ static void mlxsw_emad_trans_timeout_schedule(struct mlxsw_reg_trans *trans)
+ {
+ 	unsigned long timeout = msecs_to_jiffies(MLXSW_EMAD_TIMEOUT_MS);
+ 
+-	mlxsw_core_schedule_dw(&trans->timeout_dw, timeout);
++	queue_delayed_work(trans->core->emad_wq, &trans->timeout_dw, timeout);
+ }
+ 
+ static int mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
+@@ -587,12 +588,18 @@ static const struct mlxsw_listener mlxsw_emad_rx_listener =
+ 
+ static int mlxsw_emad_init(struct mlxsw_core *mlxsw_core)
+ {
++	struct workqueue_struct *emad_wq;
+ 	u64 tid;
+ 	int err;
+ 
+ 	if (!(mlxsw_core->bus->features & MLXSW_BUS_F_TXRX))
+ 		return 0;
+ 
++	emad_wq = alloc_workqueue("mlxsw_core_emad", WQ_MEM_RECLAIM, 0);
++	if (!emad_wq)
++		return -ENOMEM;
++	mlxsw_core->emad_wq = emad_wq;
++
+ 	/* Set the upper 32 bits of the transaction ID field to a random
+ 	 * number. This allows us to discard EMADs addressed to other
+ 	 * devices.
+@@ -619,6 +626,7 @@ static int mlxsw_emad_init(struct mlxsw_core *mlxsw_core)
+ err_emad_trap_set:
+ 	mlxsw_core_trap_unregister(mlxsw_core, &mlxsw_emad_rx_listener,
+ 				   mlxsw_core);
++	destroy_workqueue(mlxsw_core->emad_wq);
+ 	return err;
+ }
+ 
+@@ -631,6 +639,7 @@ static void mlxsw_emad_fini(struct mlxsw_core *mlxsw_core)
+ 	mlxsw_core->emad.use_emad = false;
+ 	mlxsw_core_trap_unregister(mlxsw_core, &mlxsw_emad_rx_listener,
+ 				   mlxsw_core);
++	destroy_workqueue(mlxsw_core->emad_wq);
+ }
+ 
+ static struct sk_buff *mlxsw_emad_alloc(const struct mlxsw_core *mlxsw_core,
 -- 
 2.9.5
