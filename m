@@ -1,48 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront, xen-netback: Use correct minimum MTU
- values
-Date: Mon, 16 Oct 2017 21:22:23 +0100 (WEST)
-Message-ID: <20171016.212223.777323721927998324.davem@davemloft.net>
-References: <1508160032-21689-1-git-send-email-mgamal@redhat.com>
-        <20171016150522.nebui653rkjove7r@citrix.com>
-        <3da3d5ae-c2cb-380e-368d-a90432608cf1@oracle.com>
+Subject: Re: [PATCH net] dev_ioctl: add missing NETDEV_CHANGE_TX_QUEUE_LEN
+ event notification
+Date: Mon, 16 Oct 2017 21:24:52 +0100 (WEST)
+Message-ID: <20171016.212452.250697962684157736.davem@davemloft.net>
+References: <c7cb587e601d7e27d126d79b6f06c873af1659bc.1508154195.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, mgamal@redhat.com, netdev@vger.kernel.org,
-        xen-devel@lists.xenproject.org, paul.durrant@citrix.com,
-        linux-kernel@vger.kernel.org, vkuznets@redhat.com,
-        otubo@redhat.com, cavery@redhat.com, cheshi@redhat.com,
-        jgross@suse.com
-To: boris.ostrovsky@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3da3d5ae-c2cb-380e-368d-a90432608cf1@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34732 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753222AbdJPUYy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:24:54 -0400
+In-Reply-To: <c7cb587e601d7e27d126d79b6f06c873af1659bc.1508154195.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Date: Mon, 16 Oct 2017 16:19:07 -0400
+From: Xin Long <lucien.xin@gmail.com>
+Date: Mon, 16 Oct 2017 19:43:15 +0800
 
-> On 10/16/2017 11:05 AM, Wei Liu wrote:
->> On Mon, Oct 16, 2017 at 03:20:32PM +0200, Mohammed Gamal wrote:
->>> RFC791 specifies the minimum MTU to be 68, while xen-net{front|back}
->>> drivers use a minimum value of 0.
->>>
->>> When set MTU to 0~67 with xen_net{front|back} driver, the network
->>> will become unreachable immediately, the guest can no longer be pinged.
->>>
->>> xen_net{front|back} should not allow the user to set this value which causes
->>> network problems.
->>>
->>> Reported-by: Chen Shi <cheshi@redhat.com>
->>> Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
->> Acked-by: Wei Liu <wei.liu2@citrix.com>
->>
->> CC netfront maintainers
+> When changing dev tx_queue_len via netlink or net-sysfs,
+> a NETDEV_CHANGE_TX_QUEUE_LEN event notification will be
+> called.
 > 
+> But dev_ioctl missed this event notification, which could
+> cause no userspace notification would be sent.
 > 
-> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> 
-> I can take it via Xen tree unless there are objections.
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-No problem on my end.
+Applied.
