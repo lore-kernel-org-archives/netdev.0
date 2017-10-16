@@ -1,42 +1,53 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 1/1] tipc: fix rebasing error
-Date: Mon, 16 Oct 2017 16:04:51 +0200
-Message-ID: <1508162691-31392-1-git-send-email-jon.maloy@ericsson.com>
+From: Jeff Layton <jlayton@poochiereds.net>
+Subject: Re: [PATCH] sunrcp: make function _svc_create_xprt static
+Date: Mon, 16 Oct 2017 10:09:33 -0400
+Message-ID: <1508162973.5023.11.camel@poochiereds.net>
+References: <20171016134021.15702-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:47596 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752290AbdJPOE7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:04:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>,
+        "J . Bruce Fields" <bfields@fieldses.org>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171016134021.15702-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 2f487712b893 ("tipc: guarantee that group broadcast doesn't
-bypass group unicast") there was introduced a last-minute rebasing
-error that broke non-group communication.
+On Mon, 2017-10-16 at 14:40 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The function _svc_create_xprt is local to the source and
+> does not need to be in global scope, so make it static.
+> 
+> Cleans up sparse warning:
+> symbol '_svc_create_xprt' was not declared. Should it be static?
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  net/sunrpc/svc_xprt.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+> index d16a8b423c20..18e87791350f 100644
+> --- a/net/sunrpc/svc_xprt.c
+> +++ b/net/sunrpc/svc_xprt.c
+> @@ -250,9 +250,9 @@ void svc_add_new_perm_xprt(struct svc_serv *serv, struct svc_xprt *new)
+>  	svc_xprt_received(new);
+>  }
+>  
+> -int _svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
+> -		    struct net *net, const int family,
+> -		    const unsigned short port, int flags)
+> +static int _svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
+> +			    struct net *net, const int family,
+> +			    const unsigned short port, int flags)
+>  {
+>  	struct svc_xprt_class *xcl;
+>  
 
-We fix this here.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 723dd69..870b9b8 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1052,6 +1052,7 @@ static bool tipc_data_input(struct tipc_link *l, struct sk_buff *skb,
- 			return true;
- 		}
- 	case CONN_MANAGER:
-+		skb_queue_tail(inputq, skb);
- 		return true;
- 	case GROUP_PROTOCOL:
- 		skb_queue_tail(mc_inputq, skb);
--- 
-2.1.4
+Reviewed-by: Jeff Layton <jlayton@poochiereds.net>
