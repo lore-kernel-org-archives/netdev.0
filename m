@@ -1,36 +1,39 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] tools: bpftool: use more common tag format
-Date: Mon, 16 Oct 2017 14:52:48 -0700
-Message-ID: <20171016215246.42p7plrgvfn7x4pn@ast-mbp.dhcp.thefacebook.com>
-References: <20171016171254.26225-1-jakub.kicinski@netronome.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: ipx: mark expected switch fall-through
+Date: Mon, 16 Oct 2017 16:53:16 -0500
+Message-ID: <20171016215316.GA12885@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        daniel@iogearbox.net
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:52616 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752107AbdJPVww (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 17:52:52 -0400
-Received: by mail-pf0-f176.google.com with SMTP id e64so16771366pfk.9
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 14:52:52 -0700 (PDT)
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171016171254.26225-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2017 at 10:12:54AM -0700, Jakub Kicinski wrote:
-> Program tag is usually displayed as string of bytes without
-> any separators (e.g. as "aa5520b1090cfeb6" vs MAC addr-like
-> format bpftool uses currently: "aa:55:20:b1:09:0c:fe:b6").
-> Make bptfool use the more common format both for displaying
-> the tag and selecting the program by tag.
-> 
-> This was pointed out in review but I misunderstood the comment.
-> 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-thanks!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only (GCC 7.2.0 was used).
+Please, verify if the actual intention of the code is to fall through.
+
+ net/ipx/af_ipx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index ac598ec..d21a9d1 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -1867,6 +1867,7 @@ static int ipx_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		rc = -EPERM;
+ 		if (!capable(CAP_NET_ADMIN))
+ 			break;
++		/* fall through */
+ 	case SIOCGIFADDR:
+ 		rc = ipxitf_ioctl(cmd, argp);
+ 		break;
+-- 
+2.7.4
