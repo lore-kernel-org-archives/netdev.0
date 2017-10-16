@@ -1,194 +1,135 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 5/5] mlxsw: spectrum: Drop refcounting of IPIP entries
-Date: Mon, 16 Oct 2017 16:26:39 +0200
-Message-ID: <20171016142639.2453-6-jiri@resnulli.us>
+Subject: [patch net-next 1/5] mlxsw: spectrum: Move netdevice NB to struct mlxsw_sp
+Date: Mon, 16 Oct 2017 16:26:35 +0200
+Message-ID: <20171016142639.2453-2-jiri@resnulli.us>
 References: <20171016142639.2453-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:49521 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753215AbdJPO0r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:26:47 -0400
-Received: by mail-wm0-f66.google.com with SMTP id b189so3858151wmd.4
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:26:46 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:51754 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753199AbdJPO0n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:26:43 -0400
+Received: by mail-wm0-f68.google.com with SMTP id f4so3958031wme.0
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:26:42 -0700 (PDT)
 In-Reply-To: <20171016142639.2453-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-Formerly, IPIP entries were created lazily by next hops that referenced
-an offloadable IP-in-IP netdevice. However now that they are created
-eagerly as a reaction to events on such netdevices, the reference
-counting is useless. Hence drop it.
+So far, all netdevice notifications that the driver cared about were
+related to its own ports, and mlxsw_sp could be retrieved from the
+netdevice's private data. For IP-in-IP offloading however, the driver
+cares about events on foreign netdevices, and getting at mlxsw_sp or
+router data structures from the handler is inconvenient.
 
-The routes whose next hops reference an offloaded IP-in-IP netdevice
-actually linger around a bit after their device is unregistered.
-However, mlxsw_sp_ipip_entry_destroy() also destroys the backing
-loopback, and mlxsw_sp_rif_destroy() transitively (via
-mlxsw_sp_nexthop_rif_gone_sync()) calls mlxsw_sp_nexthop_ipip_fini(),
-which unlinks the IPIP entry from a next hop. Thus no dangling pointers
-are left behind for the brief window after netdevice is gone, but routes
-not yet.
+Therefore move the netdevice notifier blocks from global scope to struct
+mlxsw_sp to allow retrieval from the notifier block pointer itself.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_ipip.h    |  1 -
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 49 +++++++++-------------
- 2 files changed, 20 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 23 ++++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  1 +
+ 2 files changed, 17 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
-index 1c2db83..6fb4912 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
-@@ -47,7 +47,6 @@ struct mlxsw_sp_ipip_entry {
- 	enum mlxsw_sp_ipip_type ipipt;
- 	struct net_device *ol_dev; /* Overlay. */
- 	struct mlxsw_sp_rif_ipip_lb *ol_lb;
--	unsigned int ref_count; /* Number of next hops using the tunnel. */
- 	struct mlxsw_sp_fib_entry *decap_fib_entry;
- 	struct list_head ipip_list_node;
- };
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 082cf00..3330120 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1002,9 +1002,8 @@ mlxsw_sp_ipip_entry_alloc(struct mlxsw_sp *mlxsw_sp,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 321988a..83f9c25 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -3667,6 +3667,9 @@ static int mlxsw_sp_basic_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ 	return mlxsw_reg_write(mlxsw_core, MLXSW_REG(htgt), htgt_pl);
  }
  
- static void
--mlxsw_sp_ipip_entry_destroy(struct mlxsw_sp_ipip_entry *ipip_entry)
-+mlxsw_sp_ipip_entry_dealloc(struct mlxsw_sp_ipip_entry *ipip_entry)
++static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
++				    unsigned long event, void *ptr);
++
+ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 			 const struct mlxsw_bus_info *mlxsw_bus_info)
  {
--	WARN_ON(ipip_entry->ref_count > 0);
- 	mlxsw_sp_rif_destroy(&ipip_entry->ol_lb->common);
- 	kfree(ipip_entry);
- }
-@@ -1200,9 +1199,9 @@ mlxsw_sp_ipip_entry_find_decap(struct mlxsw_sp *mlxsw_sp,
- }
- 
- static struct mlxsw_sp_ipip_entry *
--mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
--			enum mlxsw_sp_ipip_type ipipt,
--			struct net_device *ol_dev)
-+mlxsw_sp_ipip_entry_create(struct mlxsw_sp *mlxsw_sp,
-+			   enum mlxsw_sp_ipip_type ipipt,
-+			   struct net_device *ol_dev)
- {
- 	u32 ul_tb_id = mlxsw_sp_ipip_dev_ul_tb_id(ol_dev);
- 	struct mlxsw_sp_router *router = mlxsw_sp->router;
-@@ -1210,15 +1209,12 @@ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
- 	enum mlxsw_sp_l3proto ul_proto;
- 	union mlxsw_sp_l3addr saddr;
- 
-+	/* The configuration where several tunnels have the same local address
-+	 * in the same underlay table needs special treatment in the HW. That is
-+	 * currently not implemented in the driver.
-+	 */
- 	list_for_each_entry(ipip_entry, &mlxsw_sp->router->ipip_list,
- 			    ipip_list_node) {
--		if (ipip_entry->ol_dev == ol_dev)
--			goto inc_ref_count;
--
--		/* The configuration where several tunnels have the same local
--		 * address in the same underlay table needs special treatment in
--		 * the HW. That is currently not implemented in the driver.
--		 */
- 		ul_proto = router->ipip_ops_arr[ipip_entry->ipipt]->ul_proto;
- 		saddr = mlxsw_sp_ipip_netdev_saddr(ul_proto, ol_dev);
- 		if (mlxsw_sp_ipip_entry_saddr_matches(mlxsw_sp, ul_proto, saddr,
-@@ -1233,19 +1229,15 @@ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
- 	list_add_tail(&ipip_entry->ipip_list_node,
- 		      &mlxsw_sp->router->ipip_list);
- 
--inc_ref_count:
--	++ipip_entry->ref_count;
- 	return ipip_entry;
- }
- 
- static void
--mlxsw_sp_ipip_entry_put(struct mlxsw_sp *mlxsw_sp,
--			struct mlxsw_sp_ipip_entry *ipip_entry)
-+mlxsw_sp_ipip_entry_destroy(struct mlxsw_sp *mlxsw_sp,
-+			    struct mlxsw_sp_ipip_entry *ipip_entry)
- {
--	if (--ipip_entry->ref_count == 0) {
--		list_del(&ipip_entry->ipip_list_node);
--		mlxsw_sp_ipip_entry_destroy(ipip_entry);
--	}
-+	list_del(&ipip_entry->ipip_list_node);
-+	mlxsw_sp_ipip_entry_dealloc(ipip_entry);
- }
- 
- static bool
-@@ -1338,7 +1330,8 @@ static int mlxsw_sp_netdevice_ipip_reg_event(struct mlxsw_sp *mlxsw_sp,
- 						     MLXSW_SP_L3_PROTO_IPV4) ||
- 	    router->ipip_ops_arr[ipipt]->can_offload(mlxsw_sp, ol_dev,
- 						     MLXSW_SP_L3_PROTO_IPV6)) {
--		ipip_entry = mlxsw_sp_ipip_entry_get(mlxsw_sp, ipipt, ol_dev);
-+		ipip_entry = mlxsw_sp_ipip_entry_create(mlxsw_sp, ipipt,
-+							ol_dev);
- 		if (IS_ERR(ipip_entry))
- 			return PTR_ERR(ipip_entry);
+@@ -3736,6 +3739,16 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ 		goto err_router_init;
  	}
-@@ -1353,7 +1346,7 @@ static void mlxsw_sp_netdevice_ipip_unreg_event(struct mlxsw_sp *mlxsw_sp,
  
- 	ipip_entry = mlxsw_sp_ipip_entry_find_by_ol_dev(mlxsw_sp, ol_dev);
- 	if (ipip_entry)
--		mlxsw_sp_ipip_entry_put(mlxsw_sp, ipip_entry);
-+		mlxsw_sp_ipip_entry_destroy(mlxsw_sp, ipip_entry);
++	/* Initialize netdevice notifier after router is initialized, so that
++	 * the event handler can use router structures.
++	 */
++	mlxsw_sp->netdevice_nb.notifier_call = mlxsw_sp_netdevice_event;
++	err = register_netdevice_notifier(&mlxsw_sp->netdevice_nb);
++	if (err) {
++		dev_err(mlxsw_sp->bus_info->dev, "Failed to register netdev notifier\n");
++		goto err_netdev_notifier;
++	}
++
+ 	err = mlxsw_sp_span_init(mlxsw_sp);
+ 	if (err) {
+ 		dev_err(mlxsw_sp->bus_info->dev, "Failed to init span system\n");
+@@ -3769,6 +3782,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
+ err_acl_init:
+ 	mlxsw_sp_span_fini(mlxsw_sp);
+ err_span_init:
++	unregister_netdevice_notifier(&mlxsw_sp->netdevice_nb);
++err_netdev_notifier:
+ 	mlxsw_sp_router_fini(mlxsw_sp);
+ err_router_init:
+ 	mlxsw_sp_afa_fini(mlxsw_sp);
+@@ -3795,6 +3810,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	mlxsw_sp_dpipe_fini(mlxsw_sp);
+ 	mlxsw_sp_acl_fini(mlxsw_sp);
+ 	mlxsw_sp_span_fini(mlxsw_sp);
++	unregister_netdevice_notifier(&mlxsw_sp->netdevice_nb);
+ 	mlxsw_sp_router_fini(mlxsw_sp);
+ 	mlxsw_sp_afa_fini(mlxsw_sp);
+ 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+@@ -4501,10 +4517,6 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 	return notifier_from_errno(err);
  }
  
- static int mlxsw_sp_netdevice_ipip_up_event(struct mlxsw_sp *mlxsw_sp,
-@@ -2939,16 +2932,15 @@ static void mlxsw_sp_nexthop_neigh_fini(struct mlxsw_sp *mlxsw_sp,
- }
- 
- static int mlxsw_sp_nexthop_ipip_init(struct mlxsw_sp *mlxsw_sp,
--				      enum mlxsw_sp_ipip_type ipipt,
- 				      struct mlxsw_sp_nexthop *nh,
- 				      struct net_device *ol_dev)
+-static struct notifier_block mlxsw_sp_netdevice_nb __read_mostly = {
+-	.notifier_call = mlxsw_sp_netdevice_event,
+-};
+-
+ static struct notifier_block mlxsw_sp_inetaddr_nb __read_mostly = {
+ 	.notifier_call = mlxsw_sp_inetaddr_event,
+ 	.priority = 10,	/* Must be called before FIB notifier block */
+@@ -4532,7 +4544,6 @@ static int __init mlxsw_sp_module_init(void)
  {
- 	if (!nh->nh_grp->gateway || nh->ipip_entry)
- 		return 0;
+ 	int err;
  
--	nh->ipip_entry = mlxsw_sp_ipip_entry_get(mlxsw_sp, ipipt, ol_dev);
--	if (IS_ERR(nh->ipip_entry))
--		return PTR_ERR(nh->ipip_entry);
-+	nh->ipip_entry = mlxsw_sp_ipip_entry_find_by_ol_dev(mlxsw_sp, ol_dev);
-+	if (!nh->ipip_entry)
-+		return -ENOENT;
- 
- 	__mlxsw_sp_nexthop_neigh_update(nh, false);
- 	return 0;
-@@ -2963,7 +2955,6 @@ static void mlxsw_sp_nexthop_ipip_fini(struct mlxsw_sp *mlxsw_sp,
- 		return;
- 
- 	__mlxsw_sp_nexthop_neigh_update(nh, true);
--	mlxsw_sp_ipip_entry_put(mlxsw_sp, ipip_entry);
- 	nh->ipip_entry = NULL;
+-	register_netdevice_notifier(&mlxsw_sp_netdevice_nb);
+ 	register_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
+ 	register_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
+ 	register_netevent_notifier(&mlxsw_sp_router_netevent_nb);
+@@ -4553,7 +4564,6 @@ static int __init mlxsw_sp_module_init(void)
+ 	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
+ 	unregister_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
+ 	unregister_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
+-	unregister_netdevice_notifier(&mlxsw_sp_netdevice_nb);
+ 	return err;
  }
  
-@@ -3007,7 +2998,7 @@ static int mlxsw_sp_nexthop4_type_init(struct mlxsw_sp *mlxsw_sp,
- 	    router->ipip_ops_arr[ipipt]->can_offload(mlxsw_sp, dev,
- 						     MLXSW_SP_L3_PROTO_IPV4)) {
- 		nh->type = MLXSW_SP_NEXTHOP_TYPE_IPIP;
--		err = mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
-+		err = mlxsw_sp_nexthop_ipip_init(mlxsw_sp, nh, dev);
- 		if (err)
- 			return err;
- 		mlxsw_sp_nexthop_rif_init(nh, &nh->ipip_entry->ol_lb->common);
-@@ -4269,7 +4260,7 @@ static int mlxsw_sp_nexthop6_type_init(struct mlxsw_sp *mlxsw_sp,
- 	    router->ipip_ops_arr[ipipt]->can_offload(mlxsw_sp, dev,
- 						     MLXSW_SP_L3_PROTO_IPV6)) {
- 		nh->type = MLXSW_SP_NEXTHOP_TYPE_IPIP;
--		err = mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
-+		err = mlxsw_sp_nexthop_ipip_init(mlxsw_sp, nh, dev);
- 		if (err)
- 			return err;
- 		mlxsw_sp_nexthop_rif_init(nh, &nh->ipip_entry->ol_lb->common);
+@@ -4564,7 +4574,6 @@ static void __exit mlxsw_sp_module_exit(void)
+ 	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
+ 	unregister_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
+ 	unregister_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
+-	unregister_netdevice_notifier(&mlxsw_sp_netdevice_nb);
+ }
+ 
+ module_init(mlxsw_sp_module_init);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 8e45183..e1a0157 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -161,6 +161,7 @@ struct mlxsw_sp {
+ 	struct {
+ 		DECLARE_BITMAP(usage, MLXSW_SP_KVD_LINEAR_SIZE);
+ 	} kvdl;
++	struct notifier_block netdevice_nb;
+ 
+ 	struct mlxsw_sp_counter_pool *counter_pool;
+ 	struct {
 -- 
 2.9.5
