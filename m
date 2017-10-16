@@ -1,54 +1,55 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] dev_ioctl: add missing NETDEV_CHANGE_TX_QUEUE_LEN event notification
-Date: Mon, 16 Oct 2017 19:43:15 +0800
-Message-ID: <c7cb587e601d7e27d126d79b6f06c873af1659bc.1508154195.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH net-next v2 0/2] net: add memcpy_to[from]_msg()
+Date: Mon, 16 Oct 2017 20:10:04 +0800
+Message-ID: <1508155804-23638-1-git-send-email-cugyly@163.com>
+Mime-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:47125 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752043AbdJPLnY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 07:43:24 -0400
-Received: by mail-pf0-f194.google.com with SMTP id z11so15629021pfk.4
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 04:43:24 -0700 (PDT)
+Received: from m12-12.163.com ([220.181.12.12]:45885 "EHLO m12-12.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750829AbdJPMLF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 08:11:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When changing dev tx_queue_len via netlink or net-sysfs,
-a NETDEV_CHANGE_TX_QUEUE_LEN event notification will be
-called.
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-But dev_ioctl missed this event notification, which could
-cause no userspace notification would be sent.
+v2:
+  fix kbuild warning
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/core/dev_ioctl.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+yuan linyu (2):
+  net: move memcpy_to[from]_msg() from skbuff.h to socket.h
+  net: add skb_memcpy_to[from]_msg() to optimize skb code
 
-diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
-index 709a4e6..f9c7a88 100644
---- a/net/core/dev_ioctl.c
-+++ b/net/core/dev_ioctl.c
-@@ -303,7 +303,18 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
- 	case SIOCSIFTXQLEN:
- 		if (ifr->ifr_qlen < 0)
- 			return -EINVAL;
--		dev->tx_queue_len = ifr->ifr_qlen;
-+		if (dev->tx_queue_len ^ ifr->ifr_qlen) {
-+			unsigned int orig_len = dev->tx_queue_len;
-+
-+			dev->tx_queue_len = ifr->ifr_qlen;
-+			err = call_netdevice_notifiers(
-+					NETDEV_CHANGE_TX_QUEUE_LEN, dev);
-+			err = notifier_to_errno(err);
-+			if (err) {
-+				dev->tx_queue_len = orig_len;
-+				return err;
-+			}
-+		}
- 		return 0;
- 
- 	case SIOCSIFNAME:
+ drivers/isdn/mISDN/socket.c        |  2 +-
+ drivers/staging/irda/net/af_irda.c |  2 +-
+ include/linux/skbuff.h             |  8 ++++----
+ include/linux/socket.h             | 13 ++++++++++++-
+ net/appletalk/ddp.c                |  2 +-
+ net/ax25/af_ax25.c                 |  2 +-
+ net/bluetooth/hci_sock.c           |  4 ++--
+ net/bluetooth/rfcomm/sock.c        |  2 +-
+ net/bluetooth/sco.c                |  2 +-
+ net/caif/caif_socket.c             |  6 +++---
+ net/can/bcm.c                      |  4 ++--
+ net/can/raw.c                      |  4 ++--
+ net/dccp/proto.c                   |  2 +-
+ net/decnet/af_decnet.c             |  4 ++--
+ net/ieee802154/socket.c            |  4 ++--
+ net/ipx/ipx_route.c                |  2 +-
+ net/key/af_key.c                   |  2 +-
+ net/l2tp/l2tp_ip.c                 |  2 +-
+ net/l2tp/l2tp_ppp.c                |  2 +-
+ net/llc/af_llc.c                   |  2 +-
+ net/netlink/af_netlink.c           |  2 +-
+ net/nfc/rawsock.c                  |  2 +-
+ net/packet/af_packet.c             |  2 +-
+ net/phonet/datagram.c              |  2 +-
+ net/phonet/pep.c                   |  2 +-
+ 25 files changed, 46 insertions(+), 35 deletions(-)
+
 -- 
-2.1.0
+2.7.4
