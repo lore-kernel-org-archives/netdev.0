@@ -1,62 +1,145 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v2 net-next] tcp: Check daddr_cache before use in tracepoint
-Date: Mon, 16 Oct 2017 15:35:00 -0700
-Message-ID: <CAM_iQpVr=ymriLqnf=OuXv97HqEacUJLaag74tANPE-q-_u52g@mail.gmail.com>
-References: <1508193127-17626-1-git-send-email-dsahern@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] virtio_net: implement VIRTIO_CONFIG_S_NEEDS_RESET
+Date: Mon, 16 Oct 2017 18:34:30 -0400
+Message-ID: <CAF=yD-KkUH6=S6Q=Tjtd2Wo=-ebDUt1or-DqjoRV4dTaD8G0WA@mail.gmail.com>
+References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
+ <20171015034018-mutt-send-email-mst@kernel.org> <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
+ <20171016180442-mutt-send-email-mst@kernel.org> <CAF=yD-LW7f30V8Ci1SQUPZ-WBihqr93cWQP2QBFg2oQtytvAPg@mail.gmail.com>
+ <20171016191806-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:55925 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755284AbdJPWfV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 18:35:21 -0400
-Received: by mail-pg0-f67.google.com with SMTP id b11so7959437pgn.12
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 15:35:21 -0700 (PDT)
-In-Reply-To: <1508193127-17626-1-git-send-email-dsahern@gmail.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:55180 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756871AbdJPWfM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 18:35:12 -0400
+Received: by mail-oi0-f67.google.com with SMTP id a132so20517330oih.11
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 15:35:11 -0700 (PDT)
+In-Reply-To: <20171016191806-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 16, 2017 at 3:32 PM, David Ahern <dsahern@gmail.com> wrote:
-> Running perf in one window to capture tcp_retransmit_skb tracepoint:
->     $ perf record -e tcp:tcp_retransmit_skb -a
+On Mon, Oct 16, 2017 at 12:38 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Mon, Oct 16, 2017 at 12:04:57PM -0400, Willem de Bruijn wrote:
+>> On Mon, Oct 16, 2017 at 11:31 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> > On Mon, Oct 16, 2017 at 11:03:18AM -0400, Willem de Bruijn wrote:
+>> >> >> +static int virtnet_reset(struct virtnet_info *vi)
+>> >> >> +{
+>> >> >> +     struct virtio_device *dev = vi->vdev;
+>> >> >> +     int ret;
+>> >> >> +
+>> >> >> +     virtio_config_disable(dev);
+>> >> >> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+>> >> >> +     virtnet_freeze_down(dev, true);
+>> >> >> +     remove_vq_common(vi);
+>> >> >> +
+>> >> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>> >> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>> >> >> +
+>> >> >> +     ret = virtio_finalize_features(dev);
+>> >> >> +     if (ret)
+>> >> >> +             goto err;
+>> >> >> +
+>> >> >> +     ret = virtnet_restore_up(dev);
+>> >> >> +     if (ret)
+>> >> >> +             goto err;
+>> >> >> +
+>> >> >> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
+>> >> >> +     if (ret)
+>> >> >> +             goto err;
+>> >> >> +
+>> >> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+>> >> >> +     virtio_config_enable(dev);
+>> >> >> +     return 0;
+>> >> >> +
+>> >> >> +err:
+>> >> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>> >> >> +     return ret;
+>> >> >> +}
+>> >> >> +
+>> >> >>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
+>> >> >>  {
+>> >> >>       struct scatterlist sg;
+>> >> >
+>> >> > I have a question here though. How do things like MAC address
+>> >> > get restored?
+>> >> >
+>> >> > What about the rx mode?
+>> >> >
+>> >> > vlans?
+>> >>
+>> >> The function as is releases and reinitializes only ring state.
+>> >> Device configuration such as mac and vlan persist across
+>> >> the reset.
+>> >
+>> > What gave you this impression? Take a look at e.g. this
+>> > code in qemu:
+>> >
+>> > static void virtio_net_reset(VirtIODevice *vdev)
+>> > {
+>> >     VirtIONet *n = VIRTIO_NET(vdev);
+>> >
+>> >     /* Reset back to compatibility mode */
+>> >     n->promisc = 1;
+>> >     n->allmulti = 0;
+>> >     n->alluni = 0;
+>> >     n->nomulti = 0;
+>> >     n->nouni = 0;
+>> >     n->nobcast = 0;
+>> >     /* multiqueue is disabled by default */
+>> >     n->curr_queues = 1;
+>> >     timer_del(n->announce_timer);
+>> >     n->announce_counter = 0;
+>> >     n->status &= ~VIRTIO_NET_S_ANNOUNCE;
+>> >
+>> >     /* Flush any MAC and VLAN filter table state */
+>> >     n->mac_table.in_use = 0;
+>> >     n->mac_table.first_multi = 0;
+>> >     n->mac_table.multi_overflow = 0;
+>> >     n->mac_table.uni_overflow = 0;
+>> >     memset(n->mac_table.macs, 0, MAC_TABLE_ENTRIES * ETH_ALEN);
+>> >     memcpy(&n->mac[0], &n->nic->conf->macaddr, sizeof(n->mac));
+>> >     qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
+>> >     memset(n->vlans, 0, MAX_VLAN >> 3);
+>> > }
+>> >
+>> > So device seems to lose all state, you have to re-program it.
+>>
+>> Oh, indeed! The guest does not reset its state, so it might
+>> be out of sync with the host after the operation. Was this not
+>> an issue when previously resetting in the context of xdp?
 >
-> And causing a retransmission on an active TCP session (e.g., dropping
-> packets in the receiver, changing MTU on the interface to 500 and back
-> to 1500) triggers a panic:
->
-> [   58.543144] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-> [   58.545300] IP: perf_trace_tcp_retransmit_skb+0xd0/0x145
-> [   58.546770] PGD 0 P4D 0
-> [   58.547472] Oops: 0000 [#1] SMP
-> [   58.548328] Modules linked in: vrf
-> [   58.549262] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.14.0-rc4+ #26
-> [   58.551004] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-> [   58.554560] task: ffffffff81a0e540 task.stack: ffffffff81a00000
-> [   58.555817] RIP: 0010:perf_trace_tcp_retransmit_skb+0xd0/0x145
-> [   58.557137] RSP: 0018:ffff88003fc03d68 EFLAGS: 00010282
-> [   58.558292] RAX: 0000000000000000 RBX: ffffe8ffffc0ec80 RCX: ffff880038543098
-> [   58.559850] RDX: 0400000000000000 RSI: ffff88003fc03d70 RDI: ffff88003fc14b68
-> [   58.561099] RBP: ffff88003fc03da8 R08: 0000000000000000 R09: ffffea0000d3224a
-> [   58.562005] R10: ffff88003fc03db8 R11: 0000000000000010 R12: ffff8800385428c0
-> [   58.562930] R13: ffffe8ffffc0e478 R14: ffffffff81a93a40 R15: ffff88003d4f0c00
-> [   58.563845] FS:  0000000000000000(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
-> [   58.564873] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   58.565613] CR2: 0000000000000008 CR3: 000000003d68f004 CR4: 00000000000606f0
-> [   58.566538] Call Trace:
-> [   58.566865]  <IRQ>
-> [   58.567140]  __tcp_retransmit_skb+0x4ab/0x4c6
-> [   58.567704]  ? tcp_set_ca_state+0x22/0x3f
-> [   58.568231]  tcp_retransmit_skb+0x14/0xa3
-> [   58.568754]  tcp_retransmit_timer+0x472/0x5e3
-> [   58.569324]  ? tcp_write_timer_handler+0x1e9/0x1e9
-> [   58.569946]  tcp_write_timer_handler+0x95/0x1e9
-> [   58.570548]  tcp_write_timer+0x2a/0x58
->
-> Check that daddr_cache is non-NULL before de-referencing.
->
-> Fixes: e086101b150a ("tcp: add a tracepoint for tcp retransmission")
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> I suspect it was broken back then, too.
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Okay. I guess that in principle this is all programmable through
+virtnet_set_rx_mode, virtnet_vlan_rx_add_vid, etc. But it's a
+lot more complex than just restoring virtnet_reset. Will need to
+be careful about concurrency issues at the least. Similar to the
+ones you point out below.
+
+>
+>> >> > Also, it seems that LINK_ANNOUNCE requests will get ignored
+>> >> > even if they got set before the reset, leading to downtime.
+>> >>
+>> >> Do you mean act on VIRTIO_NET_F_GUEST_ANNOUNCE
+>> >> requests? That flag is tested and netdev_notify_peers
+>> >> called before resetting virtio ring state.
+>> >
+>> > Yes but I wonder if there's a race where announce
+>> > is set after it is read but before NEED_RESET is read.
+>> >
+>> > Re-reading status from the config before reset
+>> > might be necessary.
+>>
+>> Thanks, I'll have a look. Perhaps a host should simply not
+>> request a reset while it is waiting for an announce ack.
+>
+> It's one option though we can't make this change for existing hosts.
+> We also have the reverse condition where announce is requested after
+> NEED_RESET is set.
