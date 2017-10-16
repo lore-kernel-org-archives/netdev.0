@@ -1,14 +1,10 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] rtlwifi: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 16:36:17 -0700
-Message-ID: <20171016233617.GA101536@beast>
+Subject: [PATCH] wireless: iwlegacy: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 16:37:44 -0700
+Message-ID: <20171016233744.GA101655@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Ping-Ke Shih <pkshih@realtek.com>,
-        Arvind Yadav <arvind.yadav.cs@gmail.com>,
-        Souptick Joarder <jrdr.linux@gmail.com>,
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Kalle Valo <kvalo@codeaurora.org>
@@ -21,209 +17,126 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>
 Cc: Kalle Valo <kvalo@codeaurora.org>
-Cc: Ping-Ke Shih <pkshih@realtek.com>
-Cc: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Cc: Souptick Joarder <jrdr.linux@gmail.com>
 Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/wireless/realtek/rtlwifi/base.c         | 21 +++++++++++----------
- drivers/net/wireless/realtek/rtlwifi/base.h         |  4 ++--
- drivers/net/wireless/realtek/rtlwifi/core.c         |  2 +-
- drivers/net/wireless/realtek/rtlwifi/ps.c           |  2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.c |  6 ++++--
- drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.h |  2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.c |  6 ++++--
- drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.h |  2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8188ee/sw.c | 12 ++++--------
- 9 files changed, 29 insertions(+), 28 deletions(-)
+ drivers/net/wireless/intel/iwlegacy/3945-mac.c |  2 +-
+ drivers/net/wireless/intel/iwlegacy/3945-rs.c  | 10 +++-------
+ drivers/net/wireless/intel/iwlegacy/4965-mac.c |  9 ++++-----
+ drivers/net/wireless/intel/iwlegacy/common.c   |  4 ++--
+ drivers/net/wireless/intel/iwlegacy/common.h   |  2 +-
+ 5 files changed, 11 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/base.c b/drivers/net/wireless/realtek/rtlwifi/base.c
-index ea18aa7afecb..ef97a3c36d51 100644
---- a/drivers/net/wireless/realtek/rtlwifi/base.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/base.c
-@@ -461,10 +461,10 @@ static void _rtl_init_deferred_work(struct ieee80211_hw *hw)
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+diff --git a/drivers/net/wireless/intel/iwlegacy/3945-mac.c b/drivers/net/wireless/intel/iwlegacy/3945-mac.c
+index 329f3a63dadd..4b53ebf00c7f 100644
+--- a/drivers/net/wireless/intel/iwlegacy/3945-mac.c
++++ b/drivers/net/wireless/intel/iwlegacy/3945-mac.c
+@@ -3429,7 +3429,7 @@ il3945_setup_deferred_work(struct il_priv *il)
  
- 	/* <1> timer */
--	setup_timer(&rtlpriv->works.watchdog_timer,
--		    rtl_watch_dog_timer_callback, (unsigned long)hw);
--	setup_timer(&rtlpriv->works.dualmac_easyconcurrent_retrytimer,
--		    rtl_easy_concurrent_retrytimer_callback, (unsigned long)hw);
-+	timer_setup(&rtlpriv->works.watchdog_timer,
-+		    rtl_watch_dog_timer_callback, 0);
-+	timer_setup(&rtlpriv->works.dualmac_easyconcurrent_retrytimer,
-+		    rtl_easy_concurrent_retrytimer_callback, 0);
- 	/* <2> work queue */
- 	rtlpriv->works.hw = hw;
- 	rtlpriv->works.rtl_wq = alloc_workqueue("%s", 0, 0, rtlpriv->cfg->name);
-@@ -1975,10 +1975,10 @@ void rtl_watchdog_wq_callback(void *data)
- 	rtl_scan_list_expire(hw);
- }
+ 	il3945_hw_setup_deferred_work(il);
  
--void rtl_watch_dog_timer_callback(unsigned long data)
-+void rtl_watch_dog_timer_callback(struct timer_list *t)
+-	setup_timer(&il->watchdog, il_bg_watchdog, (unsigned long)il);
++	timer_setup(&il->watchdog, il_bg_watchdog, 0);
+ 
+ 	tasklet_init(&il->irq_tasklet,
+ 		     (void (*)(unsigned long))il3945_irq_tasklet,
+diff --git a/drivers/net/wireless/intel/iwlegacy/3945-rs.c b/drivers/net/wireless/intel/iwlegacy/3945-rs.c
+index b2f35dfbc01b..e8983c6a2b7b 100644
+--- a/drivers/net/wireless/intel/iwlegacy/3945-rs.c
++++ b/drivers/net/wireless/intel/iwlegacy/3945-rs.c
+@@ -181,9 +181,9 @@ il3945_rate_scale_flush_wins(struct il3945_rs_sta *rs_sta)
+ #define IL_AVERAGE_PACKETS             1500
+ 
+ static void
+-il3945_bg_rate_scale_flush(unsigned long data)
++il3945_bg_rate_scale_flush(struct timer_list *t)
  {
--	struct ieee80211_hw *hw = (struct ieee80211_hw *)data;
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_priv *rtlpriv = from_timer(rtlpriv, t, works.watchdog_timer);
-+	struct ieee80211_hw *hw = rtlpriv->hw;
+-	struct il3945_rs_sta *rs_sta = (void *)data;
++	struct il3945_rs_sta *rs_sta = from_timer(rs_sta, t, rate_scale_flush);
+ 	struct il_priv *il __maybe_unused = rs_sta->il;
+ 	int unflushed = 0;
+ 	unsigned long flags;
+@@ -360,9 +360,6 @@ il3945_rs_rate_init(struct il_priv *il, struct ieee80211_sta *sta, u8 sta_id)
+ 	rs_sta->flush_time = RATE_FLUSH;
+ 	rs_sta->last_tx_packets = 0;
  
- 	queue_delayed_work(rtlpriv->works.rtl_wq,
- 			   &rtlpriv->works.watchdog_wq, 0);
-@@ -2084,10 +2084,11 @@ void rtl_c2hcmd_wq_callback(void *data)
- 	rtl_c2hcmd_launcher(hw, 1);
- }
+-	rs_sta->rate_scale_flush.data = (unsigned long)rs_sta;
+-	rs_sta->rate_scale_flush.function = il3945_bg_rate_scale_flush;
+-
+ 	for (i = 0; i < RATE_COUNT_3945; i++)
+ 		il3945_clear_win(&rs_sta->win[i]);
  
--void rtl_easy_concurrent_retrytimer_callback(unsigned long data)
-+void rtl_easy_concurrent_retrytimer_callback(struct timer_list *t)
+@@ -415,8 +412,7 @@ il3945_rs_alloc_sta(void *il_priv, struct ieee80211_sta *sta, gfp_t gfp)
+ 	rs_sta = &psta->rs_sta;
+ 
+ 	spin_lock_init(&rs_sta->lock);
+-	init_timer(&rs_sta->rate_scale_flush);
+-
++	timer_setup(&rs_sta->rate_scale_flush, il3945_bg_rate_scale_flush, 0);
+ 	D_RATE("leave\n");
+ 
+ 	return rs_sta;
+diff --git a/drivers/net/wireless/intel/iwlegacy/4965-mac.c b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
+index 65eba2c24292..de63f2518f23 100644
+--- a/drivers/net/wireless/intel/iwlegacy/4965-mac.c
++++ b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
+@@ -4074,9 +4074,9 @@ il4965_hdl_alive(struct il_priv *il, struct il_rx_buf *rxb)
+  * used for calibrating the TXPOWER.
+  */
+ static void
+-il4965_bg_stats_periodic(unsigned long data)
++il4965_bg_stats_periodic(struct timer_list *t)
  {
--	struct ieee80211_hw *hw = (struct ieee80211_hw *)data;
--	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_priv *rtlpriv =
-+		from_timer(rtlpriv, t, works.dualmac_easyconcurrent_retrytimer);
-+	struct ieee80211_hw *hw = rtlpriv->hw;
- 	struct rtl_priv *buddy_priv = rtlpriv->buddy_priv;
+-	struct il_priv *il = (struct il_priv *)data;
++	struct il_priv *il = from_timer(il, t, stats_periodic);
  
- 	if (buddy_priv == NULL)
-diff --git a/drivers/net/wireless/realtek/rtlwifi/base.h b/drivers/net/wireless/realtek/rtlwifi/base.h
-index b56d1b7f5567..23f1564811b8 100644
---- a/drivers/net/wireless/realtek/rtlwifi/base.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/base.h
-@@ -120,7 +120,7 @@ void rtl_init_rx_config(struct ieee80211_hw *hw);
- void rtl_init_rfkill(struct ieee80211_hw *hw);
- void rtl_deinit_rfkill(struct ieee80211_hw *hw);
+ 	if (test_bit(S_EXIT_PENDING, &il->status))
+ 		return;
+@@ -6258,10 +6258,9 @@ il4965_setup_deferred_work(struct il_priv *il)
  
--void rtl_watch_dog_timer_callback(unsigned long data);
-+void rtl_watch_dog_timer_callback(struct timer_list *t);
- void rtl_deinit_deferred_work(struct ieee80211_hw *hw);
+ 	INIT_WORK(&il->txpower_work, il4965_bg_txpower_work);
  
- bool rtl_action_proc(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx);
-@@ -169,7 +169,7 @@ int rtl_send_smps_action(struct ieee80211_hw *hw,
- u8 *rtl_find_ie(u8 *data, unsigned int len, u8 ie);
- void rtl_recognize_peer(struct ieee80211_hw *hw, u8 *data, unsigned int len);
- u8 rtl_tid_to_ac(u8 tid);
--void rtl_easy_concurrent_retrytimer_callback(unsigned long data);
-+void rtl_easy_concurrent_retrytimer_callback(struct timer_list *t);
- extern struct rtl_global_var rtl_global_var;
- void rtl_phy_scan_operation_backup(struct ieee80211_hw *hw, u8 operation);
+-	setup_timer(&il->stats_periodic, il4965_bg_stats_periodic,
+-		    (unsigned long)il);
++	timer_setup(&il->stats_periodic, il4965_bg_stats_periodic, 0);
  
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index 294a6b43d1bc..e025cb06443d 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -160,7 +160,7 @@ static int rtl_op_start(struct ieee80211_hw *hw)
- 	mutex_lock(&rtlpriv->locks.conf_mutex);
- 	err = rtlpriv->intf_ops->adapter_start(hw);
- 	if (!err)
--		rtl_watch_dog_timer_callback((unsigned long)hw);
-+		rtl_watch_dog_timer_callback(&rtlpriv->works.watchdog_timer);
- 	mutex_unlock(&rtlpriv->locks.conf_mutex);
- 	return err;
- }
-diff --git a/drivers/net/wireless/realtek/rtlwifi/ps.c b/drivers/net/wireless/realtek/rtlwifi/ps.c
-index 07ee3096f50e..24c87fae5382 100644
---- a/drivers/net/wireless/realtek/rtlwifi/ps.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/ps.c
-@@ -55,7 +55,7 @@ bool rtl_ps_enable_nic(struct ieee80211_hw *hw)
- 	rtlpriv->cfg->ops->enable_interrupt(hw);
+-	setup_timer(&il->watchdog, il_bg_watchdog, (unsigned long)il);
++	timer_setup(&il->watchdog, il_bg_watchdog, 0);
  
- 	/*<enable timer> */
--	rtl_watch_dog_timer_callback((unsigned long)hw);
-+	rtl_watch_dog_timer_callback(&rtlpriv->works.watchdog_timer);
- 
- 	return true;
- }
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.c
-index f936a491371b..71695639888b 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.c
-@@ -1707,9 +1707,11 @@ static void rtl88e_dm_fast_ant_training(struct ieee80211_hw *hw)
- 	}
- }
- 
--void rtl88e_dm_fast_antenna_training_callback(unsigned long data)
-+void rtl88e_dm_fast_antenna_training_callback(struct timer_list *t)
+ 	tasklet_init(&il->irq_tasklet,
+ 		     (void (*)(unsigned long))il4965_irq_tasklet,
+diff --git a/drivers/net/wireless/intel/iwlegacy/common.c b/drivers/net/wireless/intel/iwlegacy/common.c
+index 8d5acda92a9b..558bb16bfd46 100644
+--- a/drivers/net/wireless/intel/iwlegacy/common.c
++++ b/drivers/net/wireless/intel/iwlegacy/common.c
+@@ -4844,9 +4844,9 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
+  * we reset the firmware. If everything is fine just rearm the timer.
+  */
+ void
+-il_bg_watchdog(unsigned long data)
++il_bg_watchdog(struct timer_list *t)
  {
--	struct ieee80211_hw *hw = (struct ieee80211_hw *)data;
-+	struct rtl_priv *rtlpriv =
-+		from_timer(rtlpriv, t, works.fast_antenna_training_timer);
-+	struct ieee80211_hw *hw = rtlpriv->hw;
+-	struct il_priv *il = (struct il_priv *)data;
++	struct il_priv *il = from_timer(il, t, watchdog);
+ 	int cnt;
+ 	unsigned long timeout;
  
- 	rtl88e_dm_fast_ant_training(hw);
- }
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.h b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.h
-index 0fd2bac14db6..50f26a9a97db 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/dm.h
-@@ -270,7 +270,7 @@ void rtl88e_dm_set_tx_ant_by_tx_info(struct ieee80211_hw *hw,
- void rtl88e_dm_ant_sel_statistics(struct ieee80211_hw *hw,
- 				  u8 antsel_tr_mux, u32 mac_id,
- 				  u32 rx_pwdb_all);
--void rtl88e_dm_fast_antenna_training_callback(unsigned long data);
-+void rtl88e_dm_fast_antenna_training_callback(struct timer_list *t);
- void rtl88e_dm_init(struct ieee80211_hw *hw);
- void rtl88e_dm_watchdog(struct ieee80211_hw *hw);
- void rtl88e_dm_write_dig(struct ieee80211_hw *hw);
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.c
-index 0ba26d27d11c..49f0ac977dcc 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.c
-@@ -252,9 +252,11 @@ static void _rtl88ee_set_fw_ps_rf_off_low_power(struct ieee80211_hw *hw)
- 	rpwm_val |= FW_PS_STATE_RF_OFF_LOW_PWR_88E;
- 	_rtl88ee_set_fw_clock_off(hw, rpwm_val);
- }
--void rtl88ee_fw_clk_off_timer_callback(unsigned long data)
-+void rtl88ee_fw_clk_off_timer_callback(struct timer_list *t)
- {
--	struct ieee80211_hw *hw = (struct ieee80211_hw *)data;
-+	struct rtl_priv *rtlpriv = from_timer(rtlpriv, t,
-+					      works.fw_clockoff_timer);
-+	struct ieee80211_hw *hw = rtlpriv->hw;
+diff --git a/drivers/net/wireless/intel/iwlegacy/common.h b/drivers/net/wireless/intel/iwlegacy/common.h
+index 18c60c92e3a3..dc6a74a05983 100644
+--- a/drivers/net/wireless/intel/iwlegacy/common.h
++++ b/drivers/net/wireless/intel/iwlegacy/common.h
+@@ -1832,7 +1832,7 @@ int il_enqueue_hcmd(struct il_priv *il, struct il_host_cmd *cmd);
+  * PCI						     *
+  *****************************************************/
  
- 	_rtl88ee_set_fw_ps_rf_off_low_power(hw);
- }
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.h b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.h
-index d38dbca3c19e..1c3d7aa64aa3 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/hw.h
-@@ -57,6 +57,6 @@ void rtl8188ee_bt_reg_init(struct ieee80211_hw *hw);
- void rtl8188ee_bt_hw_init(struct ieee80211_hw *hw);
- void rtl88ee_suspend(struct ieee80211_hw *hw);
- void rtl88ee_resume(struct ieee80211_hw *hw);
--void rtl88ee_fw_clk_off_timer_callback(unsigned long data);
-+void rtl88ee_fw_clk_off_timer_callback(struct timer_list *t);
- 
- #endif
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/sw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/sw.c
-index 57e5d5c1d24b..5aa6b5cdc077 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/sw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/sw.c
-@@ -189,16 +189,12 @@ int rtl88e_init_sw_vars(struct ieee80211_hw *hw)
- 	/*low power */
- 	rtlpriv->psc.low_power_enable = false;
- 	if (rtlpriv->psc.low_power_enable) {
--		init_timer(&rtlpriv->works.fw_clockoff_timer);
--		setup_timer(&rtlpriv->works.fw_clockoff_timer,
--			    rtl88ee_fw_clk_off_timer_callback,
--			    (unsigned long)hw);
-+		timer_setup(&rtlpriv->works.fw_clockoff_timer,
-+			    rtl88ee_fw_clk_off_timer_callback, 0);
- 	}
- 
--	init_timer(&rtlpriv->works.fast_antenna_training_timer);
--	setup_timer(&rtlpriv->works.fast_antenna_training_timer,
--		    rtl88e_dm_fast_antenna_training_callback,
--			(unsigned long)hw);
-+	timer_setup(&rtlpriv->works.fast_antenna_training_timer,
-+		    rtl88e_dm_fast_antenna_training_callback, 0);
- 	return err;
- }
- 
+-void il_bg_watchdog(unsigned long data);
++void il_bg_watchdog(struct timer_list *t);
+ u32 il_usecs_to_beacons(struct il_priv *il, u32 usec, u32 beacon_interval);
+ __le32 il_add_beacon_time(struct il_priv *il, u32 base, u32 addon,
+ 			  u32 beacon_interval);
 -- 
 2.7.4
 
