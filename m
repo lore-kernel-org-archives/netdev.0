@@ -1,146 +1,45 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] wireless: iwlegacy: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 16:37:44 -0700
-Message-ID: <20171016233744.GA101655@beast>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/4] bpf: move context info out of the verifier
+Date: Mon, 16 Oct 2017 16:40:52 -0700
+Message-ID: <20171016234056.1964-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:57218 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932483AbdJPXlH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 19:41:07 -0400
+Received: by mail-pg0-f53.google.com with SMTP id m18so8065507pgd.13
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 16:41:07 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+Hi!
 
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Cc: linux-wireless@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/net/wireless/intel/iwlegacy/3945-mac.c |  2 +-
- drivers/net/wireless/intel/iwlegacy/3945-rs.c  | 10 +++-------
- drivers/net/wireless/intel/iwlegacy/4965-mac.c |  9 ++++-----
- drivers/net/wireless/intel/iwlegacy/common.c   |  4 ++--
- drivers/net/wireless/intel/iwlegacy/common.h   |  2 +-
- 5 files changed, 11 insertions(+), 16 deletions(-)
+Daniel pointed out during the review of my previous patchset that
+the knowledge about context doesn't really belong directly in the
+verifier.  This patch set takes a bit of a drastic approach to
+move the info out of there.  I want to be able to use different
+set of verifier_ops for program analysis.  To do that, I have
+to first move the test_run callback to a separate structure.  Then
+verifier ops can be declared in the verifier directly and
+different sets can be picked for verification vs analysis.
 
-diff --git a/drivers/net/wireless/intel/iwlegacy/3945-mac.c b/drivers/net/wireless/intel/iwlegacy/3945-mac.c
-index 329f3a63dadd..4b53ebf00c7f 100644
---- a/drivers/net/wireless/intel/iwlegacy/3945-mac.c
-+++ b/drivers/net/wireless/intel/iwlegacy/3945-mac.c
-@@ -3429,7 +3429,7 @@ il3945_setup_deferred_work(struct il_priv *il)
- 
- 	il3945_hw_setup_deferred_work(il);
- 
--	setup_timer(&il->watchdog, il_bg_watchdog, (unsigned long)il);
-+	timer_setup(&il->watchdog, il_bg_watchdog, 0);
- 
- 	tasklet_init(&il->irq_tasklet,
- 		     (void (*)(unsigned long))il3945_irq_tasklet,
-diff --git a/drivers/net/wireless/intel/iwlegacy/3945-rs.c b/drivers/net/wireless/intel/iwlegacy/3945-rs.c
-index b2f35dfbc01b..e8983c6a2b7b 100644
---- a/drivers/net/wireless/intel/iwlegacy/3945-rs.c
-+++ b/drivers/net/wireless/intel/iwlegacy/3945-rs.c
-@@ -181,9 +181,9 @@ il3945_rate_scale_flush_wins(struct il3945_rs_sta *rs_sta)
- #define IL_AVERAGE_PACKETS             1500
- 
- static void
--il3945_bg_rate_scale_flush(unsigned long data)
-+il3945_bg_rate_scale_flush(struct timer_list *t)
- {
--	struct il3945_rs_sta *rs_sta = (void *)data;
-+	struct il3945_rs_sta *rs_sta = from_timer(rs_sta, t, rate_scale_flush);
- 	struct il_priv *il __maybe_unused = rs_sta->il;
- 	int unflushed = 0;
- 	unsigned long flags;
-@@ -360,9 +360,6 @@ il3945_rs_rate_init(struct il_priv *il, struct ieee80211_sta *sta, u8 sta_id)
- 	rs_sta->flush_time = RATE_FLUSH;
- 	rs_sta->last_tx_packets = 0;
- 
--	rs_sta->rate_scale_flush.data = (unsigned long)rs_sta;
--	rs_sta->rate_scale_flush.function = il3945_bg_rate_scale_flush;
--
- 	for (i = 0; i < RATE_COUNT_3945; i++)
- 		il3945_clear_win(&rs_sta->win[i]);
- 
-@@ -415,8 +412,7 @@ il3945_rs_alloc_sta(void *il_priv, struct ieee80211_sta *sta, gfp_t gfp)
- 	rs_sta = &psta->rs_sta;
- 
- 	spin_lock_init(&rs_sta->lock);
--	init_timer(&rs_sta->rate_scale_flush);
--
-+	timer_setup(&rs_sta->rate_scale_flush, il3945_bg_rate_scale_flush, 0);
- 	D_RATE("leave\n");
- 
- 	return rs_sta;
-diff --git a/drivers/net/wireless/intel/iwlegacy/4965-mac.c b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-index 65eba2c24292..de63f2518f23 100644
---- a/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-+++ b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-@@ -4074,9 +4074,9 @@ il4965_hdl_alive(struct il_priv *il, struct il_rx_buf *rxb)
-  * used for calibrating the TXPOWER.
-  */
- static void
--il4965_bg_stats_periodic(unsigned long data)
-+il4965_bg_stats_periodic(struct timer_list *t)
- {
--	struct il_priv *il = (struct il_priv *)data;
-+	struct il_priv *il = from_timer(il, t, stats_periodic);
- 
- 	if (test_bit(S_EXIT_PENDING, &il->status))
- 		return;
-@@ -6258,10 +6258,9 @@ il4965_setup_deferred_work(struct il_priv *il)
- 
- 	INIT_WORK(&il->txpower_work, il4965_bg_txpower_work);
- 
--	setup_timer(&il->stats_periodic, il4965_bg_stats_periodic,
--		    (unsigned long)il);
-+	timer_setup(&il->stats_periodic, il4965_bg_stats_periodic, 0);
- 
--	setup_timer(&il->watchdog, il_bg_watchdog, (unsigned long)il);
-+	timer_setup(&il->watchdog, il_bg_watchdog, 0);
- 
- 	tasklet_init(&il->irq_tasklet,
- 		     (void (*)(unsigned long))il4965_irq_tasklet,
-diff --git a/drivers/net/wireless/intel/iwlegacy/common.c b/drivers/net/wireless/intel/iwlegacy/common.c
-index 8d5acda92a9b..558bb16bfd46 100644
---- a/drivers/net/wireless/intel/iwlegacy/common.c
-+++ b/drivers/net/wireless/intel/iwlegacy/common.c
-@@ -4844,9 +4844,9 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
-  * we reset the firmware. If everything is fine just rearm the timer.
-  */
- void
--il_bg_watchdog(unsigned long data)
-+il_bg_watchdog(struct timer_list *t)
- {
--	struct il_priv *il = (struct il_priv *)data;
-+	struct il_priv *il = from_timer(il, t, watchdog);
- 	int cnt;
- 	unsigned long timeout;
- 
-diff --git a/drivers/net/wireless/intel/iwlegacy/common.h b/drivers/net/wireless/intel/iwlegacy/common.h
-index 18c60c92e3a3..dc6a74a05983 100644
---- a/drivers/net/wireless/intel/iwlegacy/common.h
-+++ b/drivers/net/wireless/intel/iwlegacy/common.h
-@@ -1832,7 +1832,7 @@ int il_enqueue_hcmd(struct il_priv *il, struct il_host_cmd *cmd);
-  * PCI						     *
-  *****************************************************/
- 
--void il_bg_watchdog(unsigned long data);
-+void il_bg_watchdog(struct timer_list *t);
- u32 il_usecs_to_beacons(struct il_priv *il, u32 usec, u32 beacon_interval);
- __le32 il_add_beacon_time(struct il_priv *il, u32 base, u32 addon,
- 			  u32 beacon_interval);
--- 
-2.7.4
+Jakub Kicinski (4):
+  bpf: split verifier and program ops
+  bpf: remove the verifier ops from program structure
+  bpf: move knowledge about post-translation offsets out of verifier
+  bpf: allow access to skb->len from offloads
 
+ include/linux/bpf.h          | 17 ++++++---
+ include/linux/bpf_types.h    | 28 +++++++-------
+ include/linux/bpf_verifier.h |  1 +
+ kernel/bpf/syscall.c         |  6 +--
+ kernel/bpf/verifier.c        | 70 +++++++++++++++--------------------
+ kernel/trace/bpf_trace.c     | 15 ++++++--
+ net/core/filter.c            | 87 +++++++++++++++++++++++++++++++++++++++-----
+ 7 files changed, 149 insertions(+), 75 deletions(-)
 
 -- 
-Kees Cook
-Pixel Security
+2.14.1
