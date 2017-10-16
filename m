@@ -1,277 +1,221 @@
-From: Andy Zhou <azhou@ovn.org>
-Subject: Re: [net-next RFC 3/4] openvswitch: Add meter infrastructure
-Date: Mon, 16 Oct 2017 00:05:03 -0700
-Message-ID: <CABKoBm2T6-BgecNr4RRkvtW2+Z4dXBrFo=Wn2TpsX=J+HTuXtg@mail.gmail.com>
-References: <1507847923-13612-1-git-send-email-azhou@ovn.org>
- <1507847923-13612-4-git-send-email-azhou@ovn.org> <CAOrHB_Cc1cB7mYbYr+uDqsNusP=xALQAWZo=Mr+X9xzgepGFtw@mail.gmail.com>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH net-next 0/2] Add mqprio hardware offload support in hns3
+ driver
+Date: Mon, 16 Oct 2017 15:05:29 +0800
+Message-ID: <fe902ff3-492f-8871-a96c-b4ebc3e5352e@huawei.com>
+References: <1507775912-22402-1-git-send-email-linyunsheng@huawei.com>
+ <AM0PR0502MB36837A27C3EAA2A08590D709BF4B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <5c268e80-3b04-28bd-26fb-d77f2edd69a8@huawei.com>
+ <AM0PR0502MB368336C6A93618A13ADBB68ABF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <f651e2c2-5233-bcc7-7488-3ec5905b92d4@huawei.com>
+ <AM0PR0502MB3683372D5A1C9DF65431113CBF4F0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Joe Stringer <joe@ovn.org>, Greg Rose <gvrose8192@gmail.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:36406 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750880AbdJPHFs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 03:05:48 -0400
-Received: from mail-pf0-f175.google.com (mail-pf0-f175.google.com [209.85.192.175])
-        (Authenticated sender: azhou@ovn.org)
-        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 538A61720BE
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:05:46 +0200 (CEST)
-Received: by mail-pf0-f175.google.com with SMTP id b79so15157888pfk.5
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 00:05:46 -0700 (PDT)
-In-Reply-To: <CAOrHB_Cc1cB7mYbYr+uDqsNusP=xALQAWZo=Mr+X9xzgepGFtw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
+        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
+        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
+        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
+        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
+        "john.garry@huawei.com" <john.garry@huawei.com>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>,
+        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
+        "lipeng321@huawei.com" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Yuval Mintz <yuvalm@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AM0PR0502MB3683372D5A1C9DF65431113CBF4F0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 13, 2017 at 5:12 PM, Pravin Shelar <pshelar@ovn.org> wrote:
-> On Thu, Oct 12, 2017 at 3:38 PM, Andy Zhou <azhou@ovn.org> wrote:
->> OVS kernel datapath so far does not support Openflow meter action.
->> This is the first stab at adding kernel datapath meter support.
->> This implementation supports only drop band type.
+Hi, Yuval
+
+On 2017/10/16 14:25, Yuval Mintz wrote:
+>> Hi, Yuval
 >>
->> Signed-off-by: Andy Zhou <azhou@ovn.org>
->> ---
->>  net/openvswitch/Makefile   |   1 +
->>  net/openvswitch/datapath.c |  14 +-
->>  net/openvswitch/datapath.h |   3 +
->>  net/openvswitch/meter.c    | 611 +++++++++++++++++++++++++++++++++++++++++++++
->>  net/openvswitch/meter.h    |  54 ++++
->>  5 files changed, 681 insertions(+), 2 deletions(-)
->>  create mode 100644 net/openvswitch/meter.c
->>  create mode 100644 net/openvswitch/meter.h
+>> On 2017/10/15 13:14, Yuval Mintz wrote:
+>>>> Hi, Yuval
+>>>>
+>>>> On 2017/10/13 4:21, Yuval Mintz wrote:
+>>>>>> This patchset adds a new hardware offload type in mqprio before
+>> adding
+>>>>>> mqprio hardware offload support in hns3 driver.
+>>>>>
+>>>>> I think one of the biggest issues in tying this to DCB configuration is the
+>>>>> non-immediate [and possibly non persistent] configuration.
+>>>>>
+>>>>> Scenario #1:
+>>>>> User is configuring mqprio offloaded with 3 TCs while device is in willing
+>>>> mode.
+>>>>> Would you expect the driver to immediately respond with a success or
+>>>> instead
+>>>>> delay the return until the DCBx negotiation is complete and the
+>> operational
+>>>>> num of TCs is actually 3?
+>>>>
+>>>> Well, when user requsts the mqprio offloaded by a hardware shared by
+>> DCB,
+>>>> I expect
+>>>> the user is not using the dcb tool.
+>>>> If user is still using dcb tool, then result is undefined.
+>>>>
+>>>> The scenario you mention maybe can be enforced by setting willing to
+>> zero
+>>>> when user
+>>>> is requesting the mqprio offload, and restore the willing bit when
+>> unloaded
+>>>> the mqprio
+>>>> offload.
+>>>
+>>> Sounds a bit harsh but would probably work.
+>>>
+>>>> But I think the real issue is that dcb and mqprio shares the tc system in the
+>>>> stack,
+>>>> the problem may be better to be fixed in the stack rather than in the
+>> driver,
+>>>> as you
+>>>> suggested in the DCB patchset. What do you think?
+>>>
+>>> What did you have in mind?
 >>
-> ...
->
->> diff --git a/net/openvswitch/meter.c b/net/openvswitch/meter.c
->> new file mode 100644
->> index 000000000000..f24ebb5f7af4
->> --- /dev/null
->> +++ b/net/openvswitch/meter.c
->
-> ....
-> ....
->> +static int ovs_meter_cmd_features(struct sk_buff *skb, struct genl_info *info)
->> +{
->> +       struct datapath *dp;
->> +       struct ovs_header *ovs_header = info->userhdr;
->> +       struct sk_buff *reply;
->> +       struct ovs_header *ovs_reply_header;
->> +       struct nlattr *nla, *band_nla;
->> +       int err;
->> +
->> +       /* Check that the datapath exists */
->> +       ovs_lock();
->> +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
->> +       ovs_unlock();
->> +       if (!dp)
->> +               return -ENODEV;
->> +
-> why dp check is required for this API?
-Is it possible for another core delete the dp, before ovs_lock()
-returns? Then, in theory, get_dp() can
-return NULL, no?
->
->> +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_FEATURES,
->> +                                         &ovs_reply_header);
->> +       if (!reply)
->> +               return PTR_ERR(reply);
->> +
->> +       if (nla_put_u32(reply, OVS_METER_ATTR_MAX_METERS, U32_MAX) ||
->> +           nla_put_u32(reply, OVS_METER_ATTR_MAX_BANDS, DP_MAX_BANDS))
->> +               goto nla_put_failure;
->> +
->> +       nla = nla_nest_start(reply, OVS_METER_ATTR_BANDS);
->> +       if (!nla)
->> +               goto nla_put_failure;
->> +
->> +       band_nla = nla_nest_start(reply, OVS_BAND_ATTR_UNSPEC);
->> +       if (!band_nla)
->> +               goto nla_put_failure;
->> +       /* Currently only DROP band type is supported. */
->> +       if (nla_put_u32(reply, OVS_BAND_ATTR_TYPE, OVS_METER_BAND_TYPE_DROP))
->> +               goto nla_put_failure;
->> +       nla_nest_end(reply, band_nla);
->> +       nla_nest_end(reply, nla);
->> +
->> +       genlmsg_end(reply, ovs_reply_header);
->> +       return genlmsg_reply(reply, info);
->> +
->> +nla_put_failure:
->> +       nlmsg_free(reply);
->> +       err = -EMSGSIZE;
->> +       return err;
->> +}
->> +
-> ....
->
->> +static int ovs_meter_cmd_set(struct sk_buff *skb, struct genl_info *info)
->> +{
->> +       struct nlattr **a = info->attrs;
->> +       struct dp_meter *meter, *old_meter;
->> +       struct sk_buff *reply;
->> +       struct ovs_header *ovs_reply_header;
->> +       struct ovs_header *ovs_header = info->userhdr;
->> +       struct datapath *dp;
->> +       int err;
->> +       u32 meter_id;
->> +       bool failed;
->> +
->> +       meter = dp_meter_create(a);
->> +       if (IS_ERR_OR_NULL(meter))
->> +               return PTR_ERR(meter);
->> +
->> +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_SET,
->> +                                         &ovs_reply_header);
->> +       if (IS_ERR(reply)) {
->> +               err = PTR_ERR(reply);
->> +               goto exit_free_meter;
->> +       }
->> +
->> +       ovs_lock();
->> +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
->> +       if (!dp) {
->> +               err = -ENODEV;
->> +               goto exit_unlock;
->> +       }
->> +
->> +       if (!a[OVS_METER_ATTR_ID]) {
->> +               err = -ENODEV;
->> +               goto exit_unlock;
->> +       }
->> +
->> +       meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
->> +
->> +       /* Cannot fail after this. */
->> +       old_meter = lookup_meter(dp, meter_id);
->> +       attach_meter(dp, meter);
->> +       ovs_unlock();
->> +
-> After the unlock, it is not safe to keep the ref to old_meter. better
-> to release lock at the end. we could optimize it later if required.
+>> I was thinking maybe the tc system can provide a notification to mqprio and
+>> dcb.
+>> mqprio and dcb register a callback to the tc system, when there is some
+>> change of
+>> tc configuration, the tc system call the callback from mqprio and dcb.
+>>
+>>>
+>>>>
+>>>>>
+>>>>> Scenario #2:
+>>>>> Assume user explicitly offloaded mqprio with 3 TCs, but now DCB
+>>>> configuration
+>>>>> has changed on the peer side and 4 TCs is the new negotiated
+>> operational
+>>>> value.
+>>>>> Your current driver logic would change the number of TCs underneath
+>> the
+>>>> user
+>>>>> configuration [and it would actually probably work due to mqprio being a
+>>>> crappy
+>>>>> qdisc]. But was that the user actual intention?
+>>>>> [I think the likely answer in this scenario is 'yes' since the alternative is no
+>>>> better.
+>>>>> But I still thought it was worth mentioning]
+>>>>
+>>>> You are right, the problem also have something to do with mqprio and dcb
+>>>> sharing
+>>>> the tc in the stack.
+>>>>
+>>>> Druing testing, when user explicitly offloaded mqprio with 3 TCs, all
+>>>> queue has a default pfifo mqprio attached, after DCB changes the tc num
+>> to
+>>>> 4,
+>>>> using tc qdisc shows some queue does not have a default pfifo mqprio
+>>>> attached.
+>>>
+>>> Really? Then what did it show?
+>>> [I assume it has some pfifo attached, and it's an mqprio dump kind of an
+>> issue]
+>>
+>> When queue size of the ndev is 16 and tc num is 3, we set the real queue size
+>> to
+>> 15 ( 5 * 3 = 15), mqprio only attach pfifo to the first 15 queue, when tc num
+>> change
+>> to 4 by DCB, we set the real queue size to 16 (4 * 4 = 16).
+>> So tc qdisc shows the last queue has no qdisc attached.
+> 
+> So there is a qdisc attached - mqprio_attach() attches to all transmission
+> queues [num_tx_queues] and not only the active ones.
+> But the flow for mqprio might be lacking the additional qdisc_hash_add()
+> for the additional queue's qdisc.
 
-I see a problem here: the old_meter has not been removed from the list before
-unlock. The code should have been:
+Yes, I think you may be right.
 
-old_meter = lookup_meter(dp, meter_id);
-detch_meter(dp, old_meter);
-attach_meter(dp, meter);
-ovs_unlock();
+static void mqprio_attach(struct Qdisc *sch)
+{
+	struct net_device *dev = qdisc_dev(sch);
+	struct mqprio_sched *priv = qdisc_priv(sch);
+	struct Qdisc *qdisc, *old;
+	unsigned int ntx;
 
-Do you still see a problem w.r.t. unlock() here? Once detch_meter() is called,
-another thread should not have access to 'old_meter' any more. right?
->
->> +       /* Build response with the meter_id and stats from
->> +        * the old meter, if any.
->> +        */
->> +       failed = nla_put_u32(reply, OVS_METER_ATTR_ID, meter_id);
->> +       WARN_ON(failed);
->> +       if (old_meter) {
->> +               spin_lock_bh(&old_meter->lock);
->> +               if (old_meter->keep_stats) {
->> +                       err = ovs_meter_cmd_reply_stats(reply, meter_id,
->> +                                                       old_meter);
->> +                       WARN_ON(err);
->> +               }
->> +               spin_unlock_bh(&old_meter->lock);
->> +               ovs_meter_free(old_meter);
->> +       }
->> +
->> +       genlmsg_end(reply, ovs_reply_header);
->> +       return genlmsg_reply(reply, info);
->> +
->> +exit_unlock:
->> +       ovs_unlock();
->> +       nlmsg_free(reply);
->> +exit_free_meter:
->> +       kfree(meter);
->> +       return err;
->> +}
->> +
-> ....
->
->> +bool ovs_meter_execute(struct datapath *dp, struct sk_buff *skb,
->> +                      struct sw_flow_key *key, u32 meter_id)
->> +{
->> +       struct dp_meter *meter;
->> +       struct dp_meter_band *band;
->> +       long long int now_ms = ktime_get_ns() / 1000 / 1000;
->> +       long long int long_delta_ms;
->> +       u32 delta_ms;
->> +       u32 cost;
->> +       int i, band_exceeded_max = -1;
->> +       u32 band_exceeded_rate = 0;
->> +
->> +       meter = lookup_meter(dp, meter_id);
->> +       /* Do not drop the packet when there is no meter. */
->> +       if (!meter)
->> +               return false;
->> +
->> +       /* Lock the meter while using it. */
->> +       spin_lock(&meter->lock);
->> +
->> +       long_delta_ms = (now_ms - meter->used); /* ms */
->> +
->> +       /* Make sure delta_ms will not be too large, so that bucket will not
->> +        * wrap around below.
->> +        */
->> +       delta_ms = (long_delta_ms > (long long int)meter->max_delta_t)
->> +                  ? meter->max_delta_t : (u32)long_delta_ms;
->> +
->> +       /* Update meter statistics.
->> +        */
->> +       meter->used = now_ms;
->> +       meter->stats.n_packets += 1;
->> +       meter->stats.n_bytes += skb->len;
->> +
->> +       /* Bucket rate is either in kilobits per second, or in packets per
->> +        * second.  We maintain the bucket in the units of either bits or
->> +        * 1/1000th of a packet, correspondingly.
->> +        * Then, when rate is multiplied with milliseconds, we get the
->> +        * bucket units:
->> +        * msec * kbps = bits, and
->> +        * msec * packets/sec = 1/1000 packets.
->> +        *
->> +        * 'cost' is the number of bucket units in this packet.
->> +        */
->> +       cost = (meter->kbps) ? skb->len * 8 : 1000;
->> +
->> +       /* Update all bands and find the one hit with the highest rate. */
->> +       for (i = 0; i < meter->n_bands; ++i) {
->> +               long long int max_bucket_size;
->> +
->> +               band = &meter->bands[i];
->> +               max_bucket_size = (band->burst_size + band->rate) * 1000;
->> +
->> +               band->bucket += delta_ms * band->rate;
->> +               if (band->bucket > max_bucket_size)
->> +                       band->bucket = max_bucket_size;
->> +
->> +               if (band->bucket >= cost) {
->> +                       band->bucket -= cost;
->> +               } else if (band->rate > band_exceeded_rate) {
->> +                       band_exceeded_rate = band->rate;
->> +                       band_exceeded_max = i;
->> +               }
->> +       }
->> +
->> +       spin_unlock(&meter->lock);
->> +
->> +       if (band_exceeded_max >= 0) {
->> +               /* Update band statistics. */
->> +               band = &meter->bands[band_exceeded_max];
->> +               band->stats.n_packets += 1;
->> +               band->stats.n_bytes += skb->len;
->> +
-> Is it safe to do outside of the sipinlock?
+	/* Attach underlying qdisc */
+	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
+		qdisc = priv->qdiscs[ntx];
+		old = dev_graft_qdisc(qdisc->dev_queue, qdisc);
+		if (old)
+			qdisc_destroy(old);
 
-Good catch, those should be covered by the same lock.  Will fix.
->
->> +               /* Drop band triggered, let the caller drop the 'skb'.  */
->> +               if (band->type == OVS_METER_BAND_TYPE_DROP)
->> +                       return true;
->> +       }
->> +
->> +       return false;
->> +}
->> +
+----------Only call qdisc_hash_add when  ntx < dev->real_num_tx_queues---------------
+
+		if (ntx < dev->real_num_tx_queues)
+			qdisc_hash_add(qdisc, false);
+	}
+	kfree(priv->qdiscs);
+	priv->qdiscs = NULL;
+}
+
+
+> 
+>>
+>>>
+>>>>
+>>>> Maybe we can add a callback to notify mqprio the configuration has
+>> changed.
+>>>>
+>>>
+>>> Which would do what?
+>>> You already have the notifications available for monitoring using dcbnl logic
+>> if the
+>>> configuration change [for user]; So user can re-configure whatever it
+>> wants.
+>>
+>> Yes, if user is only using dcb tool.
+>>
+>>> But other than dropping all the qdisc configurations and going back to the
+>> default
+>>> qdiscs, what default action would mqprio be able to do when configuration
+>> changes
+>>> that actually makes sense?
+>>
+>> As explained above, after dcb changing the configuration, some queue may
+>> have no qdisc
+>> attached, so I was thinking maybe we can add pfifo to it if there is no qdsic
+>> attached
+>> to it.
+>>
+>> Thanks,
+>> Yunsheng Lin
+>>
+>>>
+>>>> Thanks
+>>>> Yunsheng Lin
+>>>>
+>>>>>
+>>>>> Cheers,
+>>>>> Yuval
+>>>>>
+>>>>>>
+>>>>>> Yunsheng Lin (2):
+>>>>>>   mqprio: Add a new hardware offload type in mqprio
+>>>>>>   net: hns3: Add mqprio hardware offload support in hns3 driver
+>>>>>>
+>>>>>>  drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  1 +
+>>>>>>  .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c | 23
+>> +++++++++++
+>>>>>>  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 46
+>>>> ++++++++++++++-
+>>>>>> -------
+>>>>>>  include/uapi/linux/pkt_sched.h                     |  1 +
+>>>>>>  4 files changed, 55 insertions(+), 16 deletions(-)
+>>>>>>
+>>>>>> --
+>>>>>> 1.9.1
+>>>>>
+>>>>>
+>>>>>
+>>>
+> 
