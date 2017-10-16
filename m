@@ -1,8 +1,7 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH v2 07/15] usb: gadget: configfs: make
-	config_item_type const
-Date: Mon, 16 Oct 2017 17:18:46 +0200
-Message-ID: <1508167134-6243-8-git-send-email-bhumirks@gmail.com>
+Subject: [PATCH v2 14/15] dlm: make config_item_type const
+Date: Mon, 16 Oct 2017 17:18:53 +0200
+Message-ID: <1508167134-6243-15-git-send-email-bhumirks@gmail.com>
 References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
 To: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
@@ -44,55 +43,65 @@ Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 * Changes in v2- Combine all the followup patches and the constification
 patches into a series.
 
- drivers/usb/gadget/configfs.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ fs/dlm/config.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
-index aeb9f3c..9d18b99 100644
---- a/drivers/usb/gadget/configfs.c
-+++ b/drivers/usb/gadget/configfs.c
-@@ -505,13 +505,13 @@ static ssize_t gadget_config_desc_bmAttributes_store(struct config_item *item,
- 	NULL,
+diff --git a/fs/dlm/config.c b/fs/dlm/config.c
+index 7211e82..1270551 100644
+--- a/fs/dlm/config.c
++++ b/fs/dlm/config.c
+@@ -282,44 +282,44 @@ struct dlm_node {
+ 	.release = release_node,
  };
  
--static struct config_item_type gadget_config_type = {
-+static const struct config_item_type gadget_config_type = {
- 	.ct_item_ops	= &gadget_config_item_ops,
- 	.ct_attrs	= gadget_config_attrs,
- 	.ct_owner	= THIS_MODULE,
+-static struct config_item_type clusters_type = {
++static const struct config_item_type clusters_type = {
+ 	.ct_group_ops = &clusters_ops,
+ 	.ct_owner = THIS_MODULE,
  };
  
--static struct config_item_type gadget_root_type = {
-+static const struct config_item_type gadget_root_type = {
- 	.ct_item_ops	= &gadget_root_item_ops,
- 	.ct_attrs	= gadget_root_attrs,
- 	.ct_owner	= THIS_MODULE,
-@@ -593,7 +593,7 @@ static void function_drop(
- 	.drop_item      = &function_drop,
+-static struct config_item_type cluster_type = {
++static const struct config_item_type cluster_type = {
+ 	.ct_item_ops = &cluster_ops,
+ 	.ct_attrs = cluster_attrs,
+ 	.ct_owner = THIS_MODULE,
  };
  
--static struct config_item_type functions_type = {
-+static const struct config_item_type functions_type = {
- 	.ct_group_ops   = &functions_ops,
- 	.ct_owner       = THIS_MODULE,
- };
-@@ -694,7 +694,7 @@ static void config_desc_drop(
- 	.drop_item      = &config_desc_drop,
+-static struct config_item_type spaces_type = {
++static const struct config_item_type spaces_type = {
+ 	.ct_group_ops = &spaces_ops,
+ 	.ct_owner = THIS_MODULE,
  };
  
--static struct config_item_type config_desc_type = {
-+static const struct config_item_type config_desc_type = {
- 	.ct_group_ops   = &config_desc_ops,
- 	.ct_owner       = THIS_MODULE,
- };
-@@ -1476,7 +1476,7 @@ static void gadgets_drop(struct config_group *group, struct config_item *item)
- 	.drop_item      = &gadgets_drop,
+-static struct config_item_type space_type = {
++static const struct config_item_type space_type = {
+ 	.ct_item_ops = &space_ops,
+ 	.ct_owner = THIS_MODULE,
  };
  
--static struct config_item_type gadgets_type = {
-+static const struct config_item_type gadgets_type = {
- 	.ct_group_ops   = &gadgets_ops,
- 	.ct_owner       = THIS_MODULE,
+-static struct config_item_type comms_type = {
++static const struct config_item_type comms_type = {
+ 	.ct_group_ops = &comms_ops,
+ 	.ct_owner = THIS_MODULE,
  };
+ 
+-static struct config_item_type comm_type = {
++static const struct config_item_type comm_type = {
+ 	.ct_item_ops = &comm_ops,
+ 	.ct_attrs = comm_attrs,
+ 	.ct_owner = THIS_MODULE,
+ };
+ 
+-static struct config_item_type nodes_type = {
++static const struct config_item_type nodes_type = {
+ 	.ct_group_ops = &nodes_ops,
+ 	.ct_owner = THIS_MODULE,
+ };
+ 
+-static struct config_item_type node_type = {
++static const struct config_item_type node_type = {
+ 	.ct_item_ops = &node_ops,
+ 	.ct_attrs = node_attrs,
+ 	.ct_owner = THIS_MODULE,
 -- 
 1.9.1
