@@ -1,22 +1,70 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/5] mlxsw: GRE: Offload decap without encap
-Date: Mon, 16 Oct 2017 16:29:53 +0200
-Message-ID: <20171016142953.GB2112@nanopsycho>
-References: <20171016142800.2677-1-jiri@resnulli.us>
+From: Eduardo Otubo <otubo@redhat.com>
+Subject: Re: [PATCH] xen-netfront, xen-netback: Use correct minimum MTU values
+Date: Mon, 16 Oct 2017 16:43:34 +0200
+Message-ID: <20171016144334.GA2996@vader>
+References: <1508160032-21689-1-git-send-email-mgamal@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:56636 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753138AbdJPO3z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:29:55 -0400
-Received: by mail-wm0-f44.google.com with SMTP id l68so3925444wmd.5
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:29:54 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+        paul.durrant@citrix.com, wei.liu2@citrix.com,
+        linux-kernel@vger.kernel.org, vkuznets@redhat.com,
+        cavery@redhat.com, cheshi@redhat.com
+To: Mohammed Gamal <mgamal@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20171016142800.2677-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1508160032-21689-1-git-send-email-mgamal@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please ignore this thread. I did not clean the format-patch dir :/
+On Mon, Oct 16, 2017 at 03:20:32PM +0200, Mohammed Gamal wrote:
+> RFC791 specifies the minimum MTU to be 68, while xen-net{front|back}
+> drivers use a minimum value of 0.
+> 
+> When set MTU to 0~67 with xen_net{front|back} driver, the network
+> will become unreachable immediately, the guest can no longer be pinged.
+> 
+> xen_net{front|back} should not allow the user to set this value which causes
+> network problems.
+> 
+> Reported-by: Chen Shi <cheshi@redhat.com>
+> Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+> ---
+>  drivers/net/xen-netback/interface.c | 2 +-
+>  drivers/net/xen-netfront.c          | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index ee8ed9da..4491ca5 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -486,7 +486,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>  
+>  	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
+>  
+> -	dev->min_mtu = 0;
+> +	dev->min_mtu = ETH_MIN_MTU;
+>  	dev->max_mtu = ETH_MAX_MTU - VLAN_ETH_HLEN;
+>  
+>  	/*
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 523387e..8b8689c 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1316,7 +1316,7 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+>  	netdev->features |= netdev->hw_features;
+>  
+>  	netdev->ethtool_ops = &xennet_ethtool_ops;
+> -	netdev->min_mtu = 0;
+> +	netdev->min_mtu = ETH_MIN_MTU;
+>  	netdev->max_mtu = XEN_NETIF_MAX_TX_SIZE;
+>  	SET_NETDEV_DEV(netdev, &dev->dev);
+>  
+> -- 
+> 1.8.3.1
+> 
+
+Acked-by: Eduardo Otubo <otubo@redhat.com>
+
+-- 
+Eduardo Otubo
+Senior Software Engineer @ RedHat
