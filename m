@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next V8 PATCH 4/5] bpf: cpumap add tracepoints
-Date: Mon, 16 Oct 2017 12:19:44 +0200
-Message-ID: <150814918414.1806.17472547137468497086.stgit@firesoul>
+Subject: [net-next V8 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion and
+ allocation
+Date: Mon, 16 Oct 2017 12:19:39 +0200
+Message-ID: <150814917905.1806.2745716159653488848.stgit@firesoul>
 References: <150814913767.1806.3470498528707259987.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,203 +18,287 @@ Cc: jakub.kicinski@netronome.com,
         Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43252 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39604 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751814AbdJPKTq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 06:19:46 -0400
+        id S1751814AbdJPKTk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 06:19:40 -0400
 In-Reply-To: <150814913767.1806.3470498528707259987.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds two tracepoint to the cpumap.  One for the enqueue side
-trace_xdp_cpumap_enqueue() and one for the kthread dequeue side
-trace_xdp_cpumap_kthread().
+This patch makes cpumap functional, by adding SKB allocation and
+invoking the network stack on the dequeuing CPU.
 
-To mitigate the tracepoint overhead, these are invoked during the
-enqueue/dequeue bulking phases, thus amortizing the cost.
+For constructing the SKB on the remote CPU, the xdp_buff in converted
+into a struct xdp_pkt, and it mapped into the top headroom of the
+packet, to avoid allocating separate mem.  For now, struct xdp_pkt is
+just a cpumap internal data structure, with info carried between
+enqueue to dequeue.
 
-The obvious use-cases are for debugging and monitoring.  The
-non-intuitive use-case is using these as a feedback loop to know the
-system load.  One can imagine auto-scaling by reducing, adding or
-activating more worker CPUs on demand.
+If a driver doesn't have enough headroom it is simply dropped, with
+return code -EOVERFLOW.  This will be picked up the xdp tracepoint
+infrastructure, to allow users to catch this.
 
-V4: tracepoint remove time_limit info, instead add sched info
+V2: take into account xdp->data_meta
 
-V8: intro struct bpf_cpu_map_entry members cpu+map_id in this patch
+V4:
+ - Drop busypoll tricks, keeping it more simple.
+ - Skip RPS and Generic-XDP-recursive-reinjection, suggested by Alexei
+
+V5: correct RCU read protection around __netif_receive_skb_core.
+
+V6: Setting TASK_RUNNING vs TASK_INTERRUPTIBLE based on talk with Rik van Riel
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- include/trace/events/xdp.h |   70 ++++++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/cpumap.c        |   24 ++++++++++++---
- 2 files changed, 89 insertions(+), 5 deletions(-)
+ include/linux/netdevice.h |    1 
+ kernel/bpf/cpumap.c       |  152 ++++++++++++++++++++++++++++++++++++++-------
+ net/core/dev.c            |   27 ++++++++
+ 3 files changed, 158 insertions(+), 22 deletions(-)
 
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index eb2ece96c1a2..0c8dec61987e 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -150,6 +150,76 @@ DEFINE_EVENT_PRINT(xdp_redirect_template, xdp_redirect_map_err,
- 	 trace_xdp_redirect_map_err(dev, xdp, devmap_ifindex(fwd, map),	\
- 				    err, map, idx)
- 
-+TRACE_EVENT(xdp_cpumap_kthread,
-+
-+	TP_PROTO(int map_id, unsigned int processed,  unsigned int drops,
-+		 int sched),
-+
-+	TP_ARGS(map_id, processed, drops, sched),
-+
-+	TP_STRUCT__entry(
-+		__field(int, map_id)
-+		__field(u32, act)
-+		__field(int, cpu)
-+		__field(unsigned int, drops)
-+		__field(unsigned int, processed)
-+		__field(int, sched)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->map_id		= map_id;
-+		__entry->act		= XDP_REDIRECT;
-+		__entry->cpu		= smp_processor_id();
-+		__entry->drops		= drops;
-+		__entry->processed	= processed;
-+		__entry->sched	= sched;
-+	),
-+
-+	TP_printk("kthread"
-+		  " cpu=%d map_id=%d action=%s"
-+		  " processed=%u drops=%u"
-+		  " sched=%d",
-+		  __entry->cpu, __entry->map_id,
-+		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->processed, __entry->drops,
-+		  __entry->sched)
-+);
-+
-+TRACE_EVENT(xdp_cpumap_enqueue,
-+
-+	TP_PROTO(int map_id, unsigned int processed,  unsigned int drops,
-+		 int to_cpu),
-+
-+	TP_ARGS(map_id, processed, drops, to_cpu),
-+
-+	TP_STRUCT__entry(
-+		__field(int, map_id)
-+		__field(u32, act)
-+		__field(int, cpu)
-+		__field(unsigned int, drops)
-+		__field(unsigned int, processed)
-+		__field(int, to_cpu)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->map_id		= map_id;
-+		__entry->act		= XDP_REDIRECT;
-+		__entry->cpu		= smp_processor_id();
-+		__entry->drops		= drops;
-+		__entry->processed	= processed;
-+		__entry->to_cpu		= to_cpu;
-+	),
-+
-+	TP_printk("enqueue"
-+		  " cpu=%d map_id=%d action=%s"
-+		  " processed=%u drops=%u"
-+		  " to_cpu=%d",
-+		  __entry->cpu, __entry->map_id,
-+		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->processed, __entry->drops,
-+		  __entry->to_cpu)
-+);
-+
- #endif /* _TRACE_XDP_H */
- 
- #include <trace/define_trace.h>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 31bb3010c69b..bf014afcb914 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3260,6 +3260,7 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb);
+ int netif_rx(struct sk_buff *skb);
+ int netif_rx_ni(struct sk_buff *skb);
+ int netif_receive_skb(struct sk_buff *skb);
++int netif_receive_skb_core(struct sk_buff *skb);
+ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
+ void napi_gro_flush(struct napi_struct *napi, bool flush_old);
+ struct sk_buff *napi_get_frags(struct napi_struct *napi);
 diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
-index ee7adf4352dd..b4358d84ddf1 100644
+index 768da6a2c265..ee7adf4352dd 100644
 --- a/kernel/bpf/cpumap.c
 +++ b/kernel/bpf/cpumap.c
-@@ -24,6 +24,7 @@
- #include <linux/workqueue.h>
+@@ -25,6 +25,9 @@
  #include <linux/kthread.h>
  #include <linux/capability.h>
-+#include <trace/events/xdp.h>
  
- #include <linux/netdevice.h>   /* netif_receive_skb_core */
- #include <linux/etherdevice.h> /* eth_type_trans */
-@@ -43,6 +44,8 @@ struct xdp_bulk_queue {
++#include <linux/netdevice.h>   /* netif_receive_skb_core */
++#include <linux/etherdevice.h> /* eth_type_trans */
++
+ /* General idea: XDP packets getting XDP redirected to another CPU,
+  * will maximum be stored/queued for one driver ->poll() call.  It is
+  * guaranteed that setting flush bit and flush operation happen on
+@@ -179,6 +182,92 @@ static void cpu_map_kthread_stop(struct work_struct *work)
+ 	kthread_stop(rcpu->kthread);
+ }
  
- /* Struct for every remote "destination" CPU in map */
- struct bpf_cpu_map_entry {
-+	u32 cpu;    /* kthread CPU and map index */
-+	int map_id; /* Back reference to map */
- 	u32 qsize;  /* Queue size placeholder for map lookup */
- 
- 	/* XDP can run multiple RX-ring queues, need __percpu enqueue store */
-@@ -280,15 +283,16 @@ static int cpu_map_kthread_run(void *data)
++/* For now, xdp_pkt is a cpumap internal data structure, with info
++ * carried between enqueue to dequeue. It is mapped into the top
++ * headroom of the packet, to avoid allocating separate mem.
++ */
++struct xdp_pkt {
++	void *data;
++	u16 len;
++	u16 headroom;
++	u16 metasize;
++	struct net_device *dev_rx;
++};
++
++/* Convert xdp_buff to xdp_pkt */
++static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
++{
++	struct xdp_pkt *xdp_pkt;
++	int metasize;
++	int headroom;
++
++	/* Assure headroom is available for storing info */
++	headroom = xdp->data - xdp->data_hard_start;
++	metasize = xdp->data - xdp->data_meta;
++	metasize = metasize > 0 ? metasize : 0;
++	if ((headroom - metasize) < sizeof(*xdp_pkt))
++		return NULL;
++
++	/* Store info in top of packet */
++	xdp_pkt = xdp->data_hard_start;
++
++	xdp_pkt->data = xdp->data;
++	xdp_pkt->len  = xdp->data_end - xdp->data;
++	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
++	xdp_pkt->metasize = metasize;
++
++	return xdp_pkt;
++}
++
++struct sk_buff *cpu_map_build_skb(struct bpf_cpu_map_entry *rcpu,
++				  struct xdp_pkt *xdp_pkt)
++{
++	unsigned int frame_size;
++	void *pkt_data_start;
++	struct sk_buff *skb;
++
++	/* build_skb need to place skb_shared_info after SKB end, and
++	 * also want to know the memory "truesize".  Thus, need to
++	 * know the memory frame size backing xdp_buff.
++	 *
++	 * XDP was designed to have PAGE_SIZE frames, but this
++	 * assumption is not longer true with ixgbe and i40e.  It
++	 * would be preferred to set frame_size to 2048 or 4096
++	 * depending on the driver.
++	 *   frame_size = 2048;
++	 *   frame_len  = frame_size - sizeof(*xdp_pkt);
++	 *
++	 * Instead, with info avail, skb_shared_info in placed after
++	 * packet len.  This, unfortunately fakes the truesize.
++	 * Another disadvantage of this approach, the skb_shared_info
++	 * is not at a fixed memory location, with mixed length
++	 * packets, which is bad for cache-line hotness.
++	 */
++	frame_size = SKB_DATA_ALIGN(xdp_pkt->len) + xdp_pkt->headroom +
++		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++
++	pkt_data_start = xdp_pkt->data - xdp_pkt->headroom;
++	skb = build_skb(pkt_data_start, frame_size);
++	if (!skb)
++		return NULL;
++
++	skb_reserve(skb, xdp_pkt->headroom);
++	__skb_put(skb, xdp_pkt->len);
++	if (xdp_pkt->metasize)
++		skb_metadata_set(skb, xdp_pkt->metasize);
++
++	/* Essential SKB info: protocol and skb->dev */
++	skb->protocol = eth_type_trans(skb, xdp_pkt->dev_rx);
++
++	/* Optional SKB info, currently missing:
++	 * - HW checksum info		(skb->ip_summed)
++	 * - HW RX hash			(skb_set_hash)
++	 * - RX ring dev queue index	(skb_record_rx_queue)
++	 */
++
++	return skb;
++}
++
+ static int cpu_map_kthread_run(void *data)
+ {
+ 	struct bpf_cpu_map_entry *rcpu = data;
+@@ -191,15 +280,45 @@ static int cpu_map_kthread_run(void *data)
  	 * kthread_stop signal until queue is empty.
  	 */
  	while (!kthread_should_stop() || !__ptr_ring_empty(rcpu->queue)) {
--		unsigned int processed = 0, drops = 0;
-+		unsigned int processed = 0, drops = 0, sched = 0;
++		unsigned int processed = 0, drops = 0;
  		struct xdp_pkt *xdp_pkt;
  
- 		/* Release CPU reschedule checks */
- 		if (__ptr_ring_empty(rcpu->queue)) {
- 			__set_current_state(TASK_INTERRUPTIBLE);
- 			schedule();
-+			sched = 1;
- 		} else {
--			cond_resched();
-+			sched = cond_resched();
- 		}
- 		__set_current_state(TASK_RUNNING);
- 
-@@ -318,6 +322,9 @@ static int cpu_map_kthread_run(void *data)
- 			if (++processed == 8)
- 				break;
- 		}
-+		/* Feedback loop via tracepoint */
-+		trace_xdp_cpumap_kthread(rcpu->map_id, processed, drops, sched);
+-		schedule();
+-		/* Do work */
+-		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
+-			/* For now just "refcnt-free" */
+-			page_frag_free(xdp_pkt);
++		/* Release CPU reschedule checks */
++		if (__ptr_ring_empty(rcpu->queue)) {
++			__set_current_state(TASK_INTERRUPTIBLE);
++			schedule();
++		} else {
++			cond_resched();
++		}
++		__set_current_state(TASK_RUNNING);
 +
- 		local_bh_enable(); /* resched point, may call do_softirq() */
++		/* Process packets in rcpu->queue */
++		local_bh_disable();
++		/*
++		 * The bpf_cpu_map_entry is single consumer, with this
++		 * kthread CPU pinned. Lockless access to ptr_ring
++		 * consume side valid as no-resize allowed of queue.
++		 */
++		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
++			struct sk_buff *skb;
++			int ret;
++
++			skb = cpu_map_build_skb(rcpu, xdp_pkt);
++			if (!skb) {
++				page_frag_free(xdp_pkt);
++				continue;
++			}
++
++			/* Inject into network stack */
++			ret = netif_receive_skb_core(skb);
++			if (ret == NET_RX_DROP)
++				drops++;
++
++			/* Limit BH-disable period */
++			if (++processed == 8)
++				break;
+ 		}
+-		__set_current_state(TASK_INTERRUPTIBLE);
++		local_bh_enable(); /* resched point, may call do_softirq() */
  	}
  	__set_current_state(TASK_RUNNING);
-@@ -354,7 +361,9 @@ struct bpf_cpu_map_entry *__cpu_map_entry_alloc(u32 qsize, u32 cpu, int map_id)
- 	if (err)
- 		goto free_queue;
  
--	rcpu->qsize = qsize;
-+	rcpu->cpu    = cpu;
-+	rcpu->map_id = map_id;
-+	rcpu->qsize  = qsize;
- 
- 	/* Setup kthread */
- 	rcpu->kthread = kthread_create_on_node(cpu_map_kthread_run, rcpu, numa,
-@@ -584,6 +593,8 @@ const struct bpf_map_ops cpu_map_ops = {
- static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
- 			     struct xdp_bulk_queue *bq)
- {
-+	unsigned int processed = 0, drops = 0;
-+	const int to_cpu = rcpu->cpu;
- 	struct ptr_ring *q;
- 	int i;
- 
-@@ -599,13 +610,16 @@ static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
- 
- 		err = __ptr_ring_produce(q, xdp_pkt);
- 		if (err) {
--			/* Free xdp_pkt */
--			page_frag_free(xdp_pkt);
-+			drops++;
-+			page_frag_free(xdp_pkt); /* Free xdp_pkt */
- 		}
-+		processed++;
- 	}
- 	bq->count = 0;
- 	spin_unlock(&q->producer_lock);
- 
-+	/* Feedback loop via tracepoints */
-+	trace_xdp_cpumap_enqueue(rcpu->map_id, processed, drops, to_cpu);
+@@ -490,13 +609,6 @@ static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
  	return 0;
  }
  
+-/* Notice: Will change in later patch */
+-struct xdp_pkt {
+-	void *data;
+-	u16 len;
+-	u16 headroom;
+-};
+-
+ /* Runs under RCU-read-side, plus in softirq under NAPI protection.
+  * Thus, safe percpu variable access.
+  */
+@@ -524,17 +636,13 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
+ 		    struct net_device *dev_rx)
+ {
+ 	struct xdp_pkt *xdp_pkt;
+-	int headroom;
+ 
+-	/* For now this is just used as a void pointer to data_hard_start.
+-	 * Followup patch will generalize this.
+-	 */
+-	xdp_pkt = xdp->data_hard_start;
++	xdp_pkt = convert_to_xdp_pkt(xdp);
++	if (!xdp_pkt)
++		return -EOVERFLOW;
+ 
+-	/* Fake writing into xdp_pkt->data to measure overhead */
+-	headroom = xdp->data - xdp->data_hard_start;
+-	if (headroom < sizeof(*xdp_pkt))
+-		xdp_pkt->data = xdp->data;
++	/* Info needed when constructing SKB on remote CPU */
++	xdp_pkt->dev_rx = dev_rx;
+ 
+ 	bq_enqueue(rcpu, xdp_pkt);
+ 	return 0;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fcddccb6be41..36bb68f3a2c7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4491,6 +4491,33 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ 	return ret;
+ }
+ 
++/**
++ *	netif_receive_skb_core - special purpose version of netif_receive_skb
++ *	@skb: buffer to process
++ *
++ *	More direct receive version of netif_receive_skb().  It should
++ *	only be used by callers that have a need to skip RPS and Generic XDP.
++ *	Caller must also take care of handling if (page_is_)pfmemalloc.
++ *
++ *	This function may only be called from softirq context and interrupts
++ *	should be enabled.
++ *
++ *	Return values (usually ignored):
++ *	NET_RX_SUCCESS: no congestion
++ *	NET_RX_DROP: packet was dropped
++ */
++int netif_receive_skb_core(struct sk_buff *skb)
++{
++	int ret;
++
++	rcu_read_lock();
++	ret = __netif_receive_skb_core(skb, false);
++	rcu_read_unlock();
++
++	return ret;
++}
++EXPORT_SYMBOL(netif_receive_skb_core);
++
+ static int __netif_receive_skb(struct sk_buff *skb)
+ {
+ 	int ret;
