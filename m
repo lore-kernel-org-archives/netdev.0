@@ -1,125 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio_net: implement
- VIRTIO_CONFIG_S_NEEDS_RESET
-Date: Mon, 16 Oct 2017 18:31:23 +0300
-Message-ID: <20171016180442-mutt-send-email-mst@kernel.org>
-References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
- <20171015034018-mutt-send-email-mst@kernel.org>
- <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/2] TCP experimental option for SMC rendezvous
+Date: Mon, 16 Oct 2017 17:42:00 +0200
+Message-ID: <20171016154202.72635-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
+        ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36884 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753810AbdJPPbb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 11:31:31 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:53558 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752477AbdJPPmL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 11:42:11 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9GFdrSf001359
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 11:42:10 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2dmvrst0sd-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 11:42:10 -0400
+Received: from localhost
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Mon, 16 Oct 2017 16:42:08 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 16, 2017 at 11:03:18AM -0400, Willem de Bruijn wrote:
-> >> +static int virtnet_reset(struct virtnet_info *vi)
-> >> +{
-> >> +     struct virtio_device *dev = vi->vdev;
-> >> +     int ret;
-> >> +
-> >> +     virtio_config_disable(dev);
-> >> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
-> >> +     virtnet_freeze_down(dev, true);
-> >> +     remove_vq_common(vi);
-> >> +
-> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
-> >> +
-> >> +     ret = virtio_finalize_features(dev);
-> >> +     if (ret)
-> >> +             goto err;
-> >> +
-> >> +     ret = virtnet_restore_up(dev);
-> >> +     if (ret)
-> >> +             goto err;
-> >> +
-> >> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
-> >> +     if (ret)
-> >> +             goto err;
-> >> +
-> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
-> >> +     virtio_config_enable(dev);
-> >> +     return 0;
-> >> +
-> >> +err:
-> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
-> >> +     return ret;
-> >> +}
-> >> +
-> >>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
-> >>  {
-> >>       struct scatterlist sg;
-> >
-> > I have a question here though. How do things like MAC address
-> > get restored?
-> >
-> > What about the rx mode?
-> >
-> > vlans?
-> 
-> The function as is releases and reinitializes only ring state.
-> Device configuration such as mac and vlan persist across
-> the reset.
+Dave,
 
-What gave you this impression? Take a look at e.g. this
-code in qemu:
+SMC-capability is to be negotiated with a TCP experimental option.
+As requested during code review of our previous approach using
+netfilter hooks, here's a new version. It touches tcp-code in the
+first patch and exploits the new tcp flag in the smc-code.
 
-static void virtio_net_reset(VirtIODevice *vdev)
-{   
-    VirtIONet *n = VIRTIO_NET(vdev);
-    
-    /* Reset back to compatibility mode */
-    n->promisc = 1;
-    n->allmulti = 0;
-    n->alluni = 0;
-    n->nomulti = 0;
-    n->nouni = 0;
-    n->nobcast = 0;
-    /* multiqueue is disabled by default */
-    n->curr_queues = 1;
-    timer_del(n->announce_timer);
-    n->announce_counter = 0;
-    n->status &= ~VIRTIO_NET_S_ANNOUNCE;
-    
-    /* Flush any MAC and VLAN filter table state */
-    n->mac_table.in_use = 0; 
-    n->mac_table.first_multi = 0; 
-    n->mac_table.multi_overflow = 0;
-    n->mac_table.uni_overflow = 0;
-    memset(n->mac_table.macs, 0, MAC_TABLE_ENTRIES * ETH_ALEN);
-    memcpy(&n->mac[0], &n->nic->conf->macaddr, sizeof(n->mac));
-    qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
-    memset(n->vlans, 0, MAX_VLAN >> 3);
-}
+Kind regards, Ursula
 
-So device seems to lose all state, you have to re-program it.
+Ursula Braun (2):
+  tcp: TCP experimental option for SMC
+  smc: add SMC rendezvous protocol
 
-
-> > Also, it seems that LINK_ANNOUNCE requests will get ignored
-> > even if they got set before the reset, leading to downtime.
-> 
-> Do you mean act on VIRTIO_NET_F_GUEST_ANNOUNCE
-> requests? That flag is tested and netdev_notify_peers
-> called before resetting virtio ring state.
-
-Yes but I wonder if there's a race where announce
-is set after it is read but before NEED_RESET is read.
-
-Re-reading status from the config before reset
-might be necessary.
+ include/linux/tcp.h      |  9 ++++--
+ include/net/inet_sock.h  |  3 +-
+ include/net/tcp.h        |  8 ++++++
+ net/ipv4/tcp.c           |  6 ++++
+ net/ipv4/tcp_input.c     | 45 ++++++++++++++++++++++++++++++
+ net/ipv4/tcp_minisocks.c | 20 ++++++++++++++
+ net/ipv4/tcp_output.c    | 71 ++++++++++++++++++++++++++++++++++++++++++++++--
+ net/smc/af_smc.c         | 21 +++++++++++++-
+ 8 files changed, 176 insertions(+), 7 deletions(-)
 
 -- 
-MST
+2.13.5
