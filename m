@@ -1,88 +1,125 @@
-From: Rodney Cummings <rodney.cummings@ni.com>
-Subject: RE: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
-Date: Mon, 16 Oct 2017 15:23:42 +0000
-Message-ID: <CY1PR0401MB1536F870727AFA21BFC31115924F0@CY1PR0401MB1536.namprd04.prod.outlook.com>
-References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virtio_net: implement
+ VIRTIO_CONFIG_S_NEEDS_RESET
+Date: Mon, 16 Oct 2017 18:31:23 +0300
+Message-ID: <20171016180442-mutt-send-email-mst@kernel.org>
+References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
+ <20171015034018-mutt-send-email-mst@kernel.org>
+ <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        David Laight <David.Laight@ACULAB.COM>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36884 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753810AbdJPPbb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 11:31:31 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I am concerned about this proposed change.
+On Mon, Oct 16, 2017 at 11:03:18AM -0400, Willem de Bruijn wrote:
+> >> +static int virtnet_reset(struct virtnet_info *vi)
+> >> +{
+> >> +     struct virtio_device *dev = vi->vdev;
+> >> +     int ret;
+> >> +
+> >> +     virtio_config_disable(dev);
+> >> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+> >> +     virtnet_freeze_down(dev, true);
+> >> +     remove_vq_common(vi);
+> >> +
+> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> >> +
+> >> +     ret = virtio_finalize_features(dev);
+> >> +     if (ret)
+> >> +             goto err;
+> >> +
+> >> +     ret = virtnet_restore_up(dev);
+> >> +     if (ret)
+> >> +             goto err;
+> >> +
+> >> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
+> >> +     if (ret)
+> >> +             goto err;
+> >> +
+> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+> >> +     virtio_config_enable(dev);
+> >> +     return 0;
+> >> +
+> >> +err:
+> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> >> +     return ret;
+> >> +}
+> >> +
+> >>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
+> >>  {
+> >>       struct scatterlist sg;
+> >
+> > I have a question here though. How do things like MAC address
+> > get restored?
+> >
+> > What about the rx mode?
+> >
+> > vlans?
+> 
+> The function as is releases and reinitializes only ring state.
+> Device configuration such as mac and vlan persist across
+> the reset.
 
-According to IEEE Std 802.1Q, a "higher layer entity" (i.e. end station) th=
-at is internal to the bridge (i.e. switch) can use the same individual glob=
-al MAC address that the switch is using. That behavior is common.
+What gave you this impression? Take a look at e.g. this
+code in qemu:
 
-Use of a local semi-random MAC address is dangerous on Ethernet. Local MAC =
-addresses can only be safely used in very narrow use cases, most of which a=
-re Wi-Fi. Generally speaking, local MAC addresses can be duplicated in the =
-network, which causes many Ethernet protocols to break down. Therefore, gen=
-eral-purpose implementations like DSA cannot use a local MAC address in a r=
-eliable manner.
+static void virtio_net_reset(VirtIODevice *vdev)
+{   
+    VirtIONet *n = VIRTIO_NET(vdev);
+    
+    /* Reset back to compatibility mode */
+    n->promisc = 1;
+    n->allmulti = 0;
+    n->alluni = 0;
+    n->nomulti = 0;
+    n->nouni = 0;
+    n->nobcast = 0;
+    /* multiqueue is disabled by default */
+    n->curr_queues = 1;
+    timer_del(n->announce_timer);
+    n->announce_counter = 0;
+    n->status &= ~VIRTIO_NET_S_ANNOUNCE;
+    
+    /* Flush any MAC and VLAN filter table state */
+    n->mac_table.in_use = 0; 
+    n->mac_table.first_multi = 0; 
+    n->mac_table.multi_overflow = 0;
+    n->mac_table.uni_overflow = 0;
+    memset(n->mac_table.macs, 0, MAC_TABLE_ENTRIES * ETH_ALEN);
+    memcpy(&n->mac[0], &n->nic->conf->macaddr, sizeof(n->mac));
+    qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
+    memset(n->vlans, 0, MAX_VLAN >> 3);
+}
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Vivien Didelot
-> Sent: Friday, October 13, 2017 1:18 PM
-> To: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org; kernel@savoirfairelinux.com; David S.
-> Miller <davem@davemloft.net>; Florian Fainelli <f.fainelli@gmail.com>;
-> Andrew Lunn <andrew@lunn.ch>; David Laight <David.Laight@ACULAB.COM>;
-> Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> Subject: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
->=20
-> An Ethernet switch may support having a MAC address, which can be used
-> as the switch's source address in transmitted full-duplex Pause frames.
->=20
-> If a DSA switch supports the related .set_addr operation, the DSA core
-> sets the master's MAC address on the switch.
->=20
-> This won't make sense anymore in a multi-CPU ports system, because there
-> won't be a unique master device assigned to a switch tree.
->=20
-> Moreover this operation is confusing because it makes the user think
-> that it could be used to program the switch with the MAC address of the
-> CPU/management port such that MAC address learning can be disabled on
-> said port, but in fact, that's not how it is currently used.
->=20
-> To fix this, assign a random MAC address at setup time in the mv88e6060
-> and mv88e6xxx drivers before removing .set_addr completely from DSA.
->=20
-> Changes in v3:
->   - include fix for mv88e6060 switch MAC address setter.
->=20
-> Changes in v2:
->   - remove .set_addr implementation from drivers and use a random MAC.
->=20
-> Vivien Didelot (5):
->   net: dsa: mv88e6xxx: setup random mac address
->   net: dsa: mv88e6060: fix switch MAC address
->   net: dsa: mv88e6060: setup random mac address
->   net: dsa: dsa_loop: remove .set_addr
->   net: dsa: remove .set_addr
->=20
->  drivers/net/dsa/dsa_loop.c       |  8 --------
->  drivers/net/dsa/mv88e6060.c      | 37 ++++++++++++++++++++++++++--------=
--
-> --
->  drivers/net/dsa/mv88e6xxx/chip.c | 33 +++++++++++++++++----------------
->  include/net/dsa.h                |  1 -
->  net/dsa/dsa2.c                   |  6 ------
->  net/dsa/legacy.c                 |  6 ------
->  6 files changed, 43 insertions(+), 48 deletions(-)
->=20
-> --
-> 2.14.2
+So device seems to lose all state, you have to re-program it.
+
+
+> > Also, it seems that LINK_ANNOUNCE requests will get ignored
+> > even if they got set before the reset, leading to downtime.
+> 
+> Do you mean act on VIRTIO_NET_F_GUEST_ANNOUNCE
+> requests? That flag is tested and netdev_notify_peers
+> called before resetting virtio ring state.
+
+Yes but I wonder if there's a race where announce
+is set after it is read but before NEED_RESET is read.
+
+Re-reading status from the config before reset
+might be necessary.
+
+-- 
+MST
