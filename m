@@ -1,202 +1,75 @@
-From: Jonathan Cameron <jic23@jic23.retrosnub.co.uk>
-Subject: Re: [PATCH v2 04/15] iio: make function argument and some structures const
-Date: Mon, 16 Oct 2017 19:48:03 +0100
-Message-ID: <7091CB3C-16A9-429D-B684-8141955611A7@jic23.retrosnub.co.uk>
-References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com> <1508167134-6243-5-git-send-email-bhumirks@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: devmap: Check attr->max_entries more carefully
+Date: Mon, 16 Oct 2017 20:52:13 +0200
+Message-ID: <59E4FFDD.7010402@iogearbox.net>
+References: <20171015220020.8157-1-richard@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        rjw@rjwysocki.net, lenb@kernel.org,
-        alexander.shishkin@linux.intel.com, jic23@kernel.org,
-        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
-        dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, hch@lst.de, sagi@grimberg.me,
-        kishon@ti.com, bhelgaas@google.com, nab@linux-iscsi.org,
-        balbi@kernel.org, gregkh@linuxfoundation.org,
-        laurent.pinchart@ideasonboard.com, jlbec@evilplan.org,
-        ccaulfie@redhat.com, teigland@redhat.com, mfasheh@versity.com,
-        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-iio@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-nvme@lists.infradead.org,
-        linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
-        target-devel@vger.kernel.org, linux-usb
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <1508167134-6243-5-git-send-email-bhumirks@gmail.com>
-Sender: target-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, ast@kernel.org, sp3485@columbia.edu,
+        tj@kernel.org, mark.rutland@arm.com, john.fastabend@gmail.com
+To: Richard Weinberger <richard@nod.at>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171015220020.8157-1-richard@nod.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[ +Tejun, Mark, John ]
 
+On 10/16/2017 12:00 AM, Richard Weinberger wrote:
+> max_entries is user controlled and used as input for __alloc_percpu().
+> This function expects that the allocation size is a power of two and
+> less than PCPU_MIN_UNIT_SIZE.
+> Otherwise a WARN() is triggered.
+>
+> Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
+> Reported-by: Shankara Pailoor <sp3485@columbia.edu>
+> Reported-by: syzkaller <syzkaller@googlegroups.com>
+> Signed-off-by: Richard Weinberger <richard@nod.at>
 
-On 16 October 2017 16:18:43 BST, Bhumika Goyal <bhumirks@gmail.com> wrote:
->Make the argument of the functions iio_sw{d/t}_group_init_type_name
->const
->as they are only passed to the function config_group_init_type_name
->having
->the argument as const.
->
->Make the config_item_type structures const as they are either passed to
->the functions having the argument as const or they are
->stored in the const "ci_type" field of a config_item structure.
->
->Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-Acked-by: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
->---
->* Changes in v2- Combine all the followup patches and the
->constification
->patches into a series.
->
-> drivers/iio/dummy/iio_simple_dummy.c   | 2 +-
-> drivers/iio/industrialio-configfs.c    | 2 +-
-> drivers/iio/industrialio-sw-device.c   | 6 +++---
-> drivers/iio/industrialio-sw-trigger.c  | 6 +++---
-> drivers/iio/trigger/iio-trig-hrtimer.c | 2 +-
-> drivers/iio/trigger/iio-trig-loop.c    | 2 +-
-> include/linux/iio/sw_device.h          | 2 +-
-> include/linux/iio/sw_trigger.h         | 2 +-
-> 8 files changed, 12 insertions(+), 12 deletions(-)
->
->diff --git a/drivers/iio/dummy/iio_simple_dummy.c
->b/drivers/iio/dummy/iio_simple_dummy.c
->index a45d01e..6205247 100644
->--- a/drivers/iio/dummy/iio_simple_dummy.c
->+++ b/drivers/iio/dummy/iio_simple_dummy.c
->@@ -26,7 +26,7 @@
-> #include <linux/iio/sw_device.h>
-> #include "iio_simple_dummy.h"
-> 
->-static struct config_item_type iio_dummy_type = {
->+static const struct config_item_type iio_dummy_type = {
-> 	.ct_owner = THIS_MODULE,
-> };
-> 
->diff --git a/drivers/iio/industrialio-configfs.c
->b/drivers/iio/industrialio-configfs.c
->index 45ce2bc..5a0aae1 100644
->--- a/drivers/iio/industrialio-configfs.c
->+++ b/drivers/iio/industrialio-configfs.c
->@@ -17,7 +17,7 @@
-> #include <linux/iio/iio.h>
-> #include <linux/iio/configfs.h>
-> 
->-static struct config_item_type iio_root_group_type = {
->+static const struct config_item_type iio_root_group_type = {
-> 	.ct_owner       = THIS_MODULE,
-> };
-> 
->diff --git a/drivers/iio/industrialio-sw-device.c
->b/drivers/iio/industrialio-sw-device.c
->index 81b49cf..90df97c 100644
->--- a/drivers/iio/industrialio-sw-device.c
->+++ b/drivers/iio/industrialio-sw-device.c
->@@ -19,9 +19,9 @@
-> #include <linux/configfs.h>
-> 
-> static struct config_group *iio_devices_group;
->-static struct config_item_type iio_device_type_group_type;
->+static const struct config_item_type iio_device_type_group_type;
-> 
->-static struct config_item_type iio_devices_group_type = {
->+static const struct config_item_type iio_devices_group_type = {
-> 	.ct_owner = THIS_MODULE,
-> };
-> 
->@@ -156,7 +156,7 @@ static void device_drop_group(struct config_group
->*group,
-> 	.drop_item	= &device_drop_group,
-> };
-> 
->-static struct config_item_type iio_device_type_group_type = {
->+static const struct config_item_type iio_device_type_group_type = {
-> 	.ct_group_ops = &device_ops,
-> 	.ct_owner       = THIS_MODULE,
-> };
->diff --git a/drivers/iio/industrialio-sw-trigger.c
->b/drivers/iio/industrialio-sw-trigger.c
->index 8d24fb1..bc6b7fb 100644
->--- a/drivers/iio/industrialio-sw-trigger.c
->+++ b/drivers/iio/industrialio-sw-trigger.c
->@@ -19,9 +19,9 @@
-> #include <linux/configfs.h>
-> 
-> static struct config_group *iio_triggers_group;
->-static struct config_item_type iio_trigger_type_group_type;
->+static const struct config_item_type iio_trigger_type_group_type;
-> 
->-static struct config_item_type iio_triggers_group_type = {
->+static const struct config_item_type iio_triggers_group_type = {
-> 	.ct_owner = THIS_MODULE,
-> };
-> 
->@@ -156,7 +156,7 @@ static void trigger_drop_group(struct config_group
->*group,
-> 	.drop_item	= &trigger_drop_group,
-> };
-> 
->-static struct config_item_type iio_trigger_type_group_type = {
->+static const struct config_item_type iio_trigger_type_group_type = {
-> 	.ct_group_ops = &trigger_ops,
-> 	.ct_owner       = THIS_MODULE,
-> };
->diff --git a/drivers/iio/trigger/iio-trig-hrtimer.c
->b/drivers/iio/trigger/iio-trig-hrtimer.c
->index 3ee9216..7accd01 100644
->--- a/drivers/iio/trigger/iio-trig-hrtimer.c
->+++ b/drivers/iio/trigger/iio-trig-hrtimer.c
->@@ -30,7 +30,7 @@ struct iio_hrtimer_info {
-> 	ktime_t period;
-> };
-> 
->-static struct config_item_type iio_hrtimer_type = {
->+static const struct config_item_type iio_hrtimer_type = {
-> 	.ct_owner = THIS_MODULE,
-> };
-> 
->diff --git a/drivers/iio/trigger/iio-trig-loop.c
->b/drivers/iio/trigger/iio-trig-loop.c
->index b4b02db..94a90e0 100644
->--- a/drivers/iio/trigger/iio-trig-loop.c
->+++ b/drivers/iio/trigger/iio-trig-loop.c
->@@ -36,7 +36,7 @@ struct iio_loop_info {
-> 	struct task_struct *task;
-> };
-> 
->-static struct config_item_type iio_loop_type = {
->+static const struct config_item_type iio_loop_type = {
-> 	.ct_owner = THIS_MODULE,
-> };
-> 
->diff --git a/include/linux/iio/sw_device.h
->b/include/linux/iio/sw_device.h
->index fa79319..8642b91 100644
->--- a/include/linux/iio/sw_device.h
->+++ b/include/linux/iio/sw_device.h
->@@ -60,7 +60,7 @@ struct iio_sw_device *to_iio_sw_device(struct
->config_item *item)
-> static inline
-> void iio_swd_group_init_type_name(struct iio_sw_device *d,
-> 				  const char *name,
->-				  struct config_item_type *type)
->+				  const struct config_item_type *type)
-> {
-> #if IS_ENABLED(CONFIG_CONFIGFS_FS)
-> 	config_group_init_type_name(&d->group, name, type);
->diff --git a/include/linux/iio/sw_trigger.h
->b/include/linux/iio/sw_trigger.h
->index c97eab6..0c43738 100644
->--- a/include/linux/iio/sw_trigger.h
->+++ b/include/linux/iio/sw_trigger.h
->@@ -60,7 +60,7 @@ struct iio_sw_trigger *to_iio_sw_trigger(struct
->config_item *item)
-> static inline
-> void iio_swt_group_init_type_name(struct iio_sw_trigger *t,
-> 				  const char *name,
->-				  struct config_item_type *type)
->+				  const struct config_item_type *type)
-> {
-> #if IS_ENABLED(CONFIG_CONFIGFS_FS)
-> 	config_group_init_type_name(&t->group, name, type);
+Thanks for the patch, Richard. There was a prior discussion here [1] on
+the same issue, I thought this would have been resolved by now, but looks
+like it's still open and there was never a follow-up, at least I don't see
+it in the percpu tree if I didn't miss anything.
 
+I would suggest, we do the following below and pass __GFP_NOWARN from BPF
+side to the per-cpu allocs. This is kind of a generic 'issue' and we shouldn't
+add more code which bails out anyway just to work around the WARN(). Lets
+handle it properly instead.
+
+If Tejun is fine with the one below, I could cook and official patch and
+cleanup the remaining call-sites from BPF which have similar pattern.
+
+   [1] https://patchwork.kernel.org/patch/9975851/
+
+Thanks,
+Daniel
+
+  mm/percpu.c | 5 +++--
+  1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/mm/percpu.c b/mm/percpu.c
+index 59d44d6..5d9414e 100644
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -1357,7 +1357,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+
+  	if (unlikely(!size || size > PCPU_MIN_UNIT_SIZE || align > PAGE_SIZE ||
+  		     !is_power_of_2(align))) {
+-		WARN(true, "illegal size (%zu) or align (%zu) for percpu allocation\n",
++		WARN(!(gfp & __GFP_NOWARN),
++		     "illegal size (%zu) or align (%zu) for percpu allocation\n",
+  		     size, align);
+  		return NULL;
+  	}
+@@ -1478,7 +1479,7 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+  fail:
+  	trace_percpu_alloc_percpu_fail(reserved, is_atomic, size, align);
+
+-	if (!is_atomic && warn_limit) {
++	if (!is_atomic && warn_limit && !(gfp & __GFP_NOWARN)) {
+  		pr_warn("allocation failed, size=%zu align=%zu atomic=%d, %s\n",
+  			size, align, is_atomic, err);
+  		dump_stack();
 -- 
-Sent from my Android device with K-9 Mail. Please excuse my brevity.
+1.9.3
