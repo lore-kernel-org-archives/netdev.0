@@ -1,65 +1,76 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next] tcp: Check daddr_cache before use in tracepoint
-Date: Mon, 16 Oct 2017 15:55:00 -0600
-Message-ID: <cfd6b39a-41a6-ccf6-80a7-07089a2d6fea@gmail.com>
-References: <1508189387-27931-1-git-send-email-dsahern@gmail.com>
- <CAM_iQpUgWJwjaRYw3vX4t20foheOrebU3U2ACZqrAbTYqYc-5A@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net v2] bpf: disallow arithmetic operations on context
+ pointer
+Date: Mon, 16 Oct 2017 23:56:44 +0200
+Message-ID: <59E52B1C.5060807@iogearbox.net>
+References: <20171016181655.16366-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
+        ecree@solarflare.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:44769 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752471AbdJPVzC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 17:55:02 -0400
-Received: by mail-pf0-f196.google.com with SMTP id x7so16806863pfa.1
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 14:55:01 -0700 (PDT)
-In-Reply-To: <CAM_iQpUgWJwjaRYw3vX4t20foheOrebU3U2ACZqrAbTYqYc-5A@mail.gmail.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:42990 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751776AbdJPV4q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 17:56:46 -0400
+In-Reply-To: <20171016181655.16366-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/16/17 3:46 PM, Cong Wang wrote:
-> Well, for NULL case, the entry->saddr_v6 will not be filled with
-> your patch.
+On 10/16/2017 08:16 PM, Jakub Kicinski wrote:
+> Commit f1174f77b50c ("bpf/verifier: rework value tracking")
+> removed the crafty selection of which pointer types are
+> allowed to be modified.  This is OK for most pointer types
+> since adjust_ptr_min_max_vals() will catch operations on
+> immutable pointers.  One exception is PTR_TO_CTX which is
+> now allowed to be offseted freely.
+>
+> The intent of aforementioned commit was to allow context
+> access via modified registers.  The offset passed to
+> ->is_valid_access() verifier callback has been adjusted
+> by the value of the variable offset.
+>
+> What is missing, however, is taking the variable offset
+> into account when the context register is used.  Or in terms
+> of the code adding the offset to the value passed to the
+> ->convert_ctx_access() callback.  This leads to the following
+> eBPF user code:
+>
+>       r1 += 68
+>       r0 = *(u32 *)(r1 + 8)
+>       exit
+>
+> being translated to this in kernel space:
+>
+>     0: (07) r1 += 68
+>     1: (61) r0 = *(u32 *)(r1 +180)
+>     2: (95) exit
+>
+> Offset 8 is corresponding to 180 in the kernel, but offset
+> 76 is valid too.  Verifier will "accept" access to offset
+> 68+8=76 but then "convert" access to offset 8 as 180.
+> Effective access to offset 248 is beyond the kernel context.
+> (This is a __sk_buff example on a debug-heavy kernel -
+> packet mark is 8 -> 180, 76 would be data.)
+>
+> Dereferencing the modified context pointer is not as easy
+> as dereferencing other types, because we have to translate
+> the access to reading a field in kernel structures which is
+> usually at a different offset and often of a different size.
+> To allow modifying the pointer we would have to make sure
+> that given eBPF instruction will always access the same
+> field or the fields accessed are "compatible" in terms of
+> offset and size...
+>
+> Disallow dereferencing modified context pointers and add
+> to selftests the test case described here.
+>
+> Fixes: f1174f77b50c ("bpf/verifier: rework value tracking")
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-I think you meant daddr_v6 and yes it will not get filled in, but 0 is
-better than a panic ;-)
+Thanks for the fix!
 
-> 
-> How about using sk->sk_v6_daddr?
-> 
-
-That works, but then both addresses should come from sk and not np:
-
-diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
-index 1ffab6d96e94..7989c2dcedf1 100644
---- a/include/trace/events/tcp.h
-+++ b/include/trace/events/tcp.h
-@@ -46,9 +46,9 @@ TRACE_EVENT(tcp_retransmit_skb,
-
-                if (np) {
-                        pin6 = (struct in6_addr *)__entry->saddr_v6;
--                       *pin6 = np->saddr;
-+                       *pin6 = sk->sk_v6_rcv_saddr;
-                        pin6 = (struct in6_addr *)__entry->daddr_v6;
--                       *pin6 = *(np->daddr_cache);
-+                       *pin6 = sk->sk_v6_daddr;
-                } else {
-                        pin6 = (struct in6_addr *)__entry->saddr_v6;
-                        ipv6_addr_set_v4mapped(inet->inet_saddr, pin6);
-
-
-So np is just a trigger for IPv6 versus v4 mapped.
-
-I do have a question about why ipv4 addresses are non-NULL:
-
-$ perf script
-         swapper     0 [000]    25.025102: tcp:tcp_retransmit_skb:
-sport=22 dport=48076 saddr=127.0.0.6 daddr=127.0.0.6
-saddrv6=2001:db8:1::4 daddrv6=2001:db8:1::64
-         swapper     0 [000]    25.231125: tcp:tcp_retransmit_skb:
-sport=22 dport=48076 saddr=127.0.0.6 daddr=127.0.0.6
-saddrv6=2001:db8:1::4 daddrv6=2001:db8:1::64
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
