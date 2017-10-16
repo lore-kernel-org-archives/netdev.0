@@ -1,9 +1,8 @@
 From: Lucas Bates <lucasb@mojatatu.com>
-Subject: Re: [patch net v2 3/4] selftests: Introduce a new script to generate
- tc batch file
-Date: Mon, 16 Oct 2017 12:24:56 -0400
-Message-ID: <CAMDBHY+sCMJOta=5Sn+t2zaRN3C92TD7DrTWO7KY5K+qMp-9AA@mail.gmail.com>
-References: <1508152718-28726-1-git-send-email-chrism@mellanox.com> <1508152718-28726-4-git-send-email-chrism@mellanox.com>
+Subject: Re: [patch net v2 4/4] selftests: Introduce a new test case to tc testsuite
+Date: Mon, 16 Oct 2017 12:25:10 -0400
+Message-ID: <CAMDBHYJ6PyuFFXVj3y2o+qd3CFomjdH_cd05kU+CdHQv4bCRrg@mail.gmail.com>
+References: <1508152718-28726-1-git-send-email-chrism@mellanox.com> <1508152718-28726-5-git-send-email-chrism@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -11,112 +10,167 @@ Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
         Jiri Pirko <jiri@resnulli.us>, davem@davemloft.net
 To: Chris Mi <chrism@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:45314 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754368AbdJPQZR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 12:25:17 -0400
-Received: by mail-wm0-f46.google.com with SMTP id q124so5126199wmb.0
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:25:17 -0700 (PDT)
-In-Reply-To: <1508152718-28726-4-git-send-email-chrism@mellanox.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:55353 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753994AbdJPQZc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 12:25:32 -0400
+Received: by mail-wm0-f67.google.com with SMTP id u138so5137367wmu.4
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:25:31 -0700 (PDT)
+In-Reply-To: <1508152718-28726-5-git-send-email-chrism@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Mon, Oct 16, 2017 at 7:18 AM, Chris Mi <chrism@mellanox.com> wrote:
->   # ./tdc_batch.py -h
->   usage: tdc_batch.py [-h] [-n NUMBER] [-o] [-s] [-p] device file
+> In this patchset, we fixed a tc bug. This patch adds the test case
+> that reproduces the bug. To run this test case, user should specify
+> an existing NIC device:
+>   # sudo ./tdc.py -d enp4s0f0
 >
->   TC batch file generator
+> This test case belongs to category "flower". If user doesn't specify
+> a NIC device, the test cases belong to "flower" will not be run.
 >
->   positional arguments:
->     device                device name
->     file                  batch file name
->
->   optional arguments:
->     -h, --help            show this help message and exit
->     -n NUMBER, --number NUMBER
->                           how many lines in batch file
->     -o, --skip_sw         skip_sw (offload), by default skip_hw
->     -s, --share_action    all filters share the same action
->     -p, --prio            all filters have different prio
+> In this test case, we create 1M filters and all filters share the same
+> action. When destroying all filters, kernel should not panic. It takes
+> about 18s to run it.
 >
 > Signed-off-by: Chris Mi <chrism@mellanox.com>
 > Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
+I'm a little wary about adding changes like these into tdc.py
+directly; I don't think it's going to be sustainable in the long run.
+Even the namespace creation I put in to the original version is too
+specific and limiting.
+
+There are some upcoming changes to tdc to help address these
+particular issues.  I'll ack this for now, thanks.
+
 Acked-by: Lucas Bates <lucasb@mojatatu.com>
 
+
 > ---
->  tools/testing/selftests/tc-testing/tdc_batch.py | 62 +++++++++++++++++++++++++
->  1 file changed, 62 insertions(+)
->  create mode 100755 tools/testing/selftests/tc-testing/tdc_batch.py
+>  .../tc-testing/tc-tests/filters/tests.json         | 23 +++++++++++++++++++++-
+>  tools/testing/selftests/tc-testing/tdc.py          | 20 +++++++++++++++----
+>  tools/testing/selftests/tc-testing/tdc_config.py   |  2 ++
+>  3 files changed, 40 insertions(+), 5 deletions(-)
 >
-> diff --git a/tools/testing/selftests/tc-testing/tdc_batch.py b/tools/testing/selftests/tc-testing/tdc_batch.py
-> new file mode 100755
-> index 0000000..707c6bf
-> --- /dev/null
-> +++ b/tools/testing/selftests/tc-testing/tdc_batch.py
-> @@ -0,0 +1,62 @@
-> +#!/usr/bin/python3
-> +
-> +"""
-> +tdc_batch.py - a script to generate TC batch file
-> +
-> +Copyright (C) 2017 Chris Mi <chrism@mellanox.com>
-> +"""
-> +
-> +import argparse
-> +
-> +parser = argparse.ArgumentParser(description='TC batch file generator')
-> +parser.add_argument("device", help="device name")
-> +parser.add_argument("file", help="batch file name")
-> +parser.add_argument("-n", "--number", type=int,
-> +                    help="how many lines in batch file")
-> +parser.add_argument("-o", "--skip_sw",
-> +                    help="skip_sw (offload), by default skip_hw",
-> +                    action="store_true")
-> +parser.add_argument("-s", "--share_action",
-> +                    help="all filters share the same action",
-> +                    action="store_true")
-> +parser.add_argument("-p", "--prio",
-> +                    help="all filters have different prio",
-> +                    action="store_true")
-> +args = parser.parse_args()
-> +
-> +device = args.device
-> +file = open(args.file, 'w')
-> +
-> +number = 1
-> +if args.number:
-> +    number = args.number
-> +
-> +skip = "skip_hw"
-> +if args.skip_sw:
-> +    skip = "skip_sw"
-> +
-> +share_action = ""
-> +if args.share_action:
-> +    share_action = "index 1"
-> +
-> +prio = "prio 1"
-> +if args.prio:
-> +    prio = ""
-> +    if number > 0x4000:
-> +        number = 0x4000
-> +
-> +index = 0
-> +for i in range(0x100):
-> +    for j in range(0x100):
-> +        for k in range(0x100):
-> +            mac = ("%02x:%02x:%02x" % (i, j, k))
-> +            src_mac = "e4:11:00:" + mac
-> +            dst_mac = "e4:12:00:" + mac
-> +            cmd = ("filter add dev %s %s protocol ip parent ffff: flower %s "
-> +                   "src_mac %s dst_mac %s action drop %s" %
-> +                   (device, prio, skip, src_mac, dst_mac, share_action))
-> +            file.write("%s\n" % cmd)
-> +            index += 1
-> +            if index >= number:
-> +                file.close()
-> +                exit(0)
+> diff --git a/tools/testing/selftests/tc-testing/tc-tests/filters/tests.json b/tools/testing/selftests/tc-testing/tc-tests/filters/tests.json
+> index c727b96..5fa02d8 100644
+> --- a/tools/testing/selftests/tc-testing/tc-tests/filters/tests.json
+> +++ b/tools/testing/selftests/tc-testing/tc-tests/filters/tests.json
+> @@ -17,5 +17,26 @@
+>          "teardown": [
+>              "$TC qdisc del dev $DEV1 ingress"
+>          ]
+> +    },
+> +    {
+> +        "id": "d052",
+> +        "name": "Add 1M filters with the same action",
+> +        "category": [
+> +            "filter",
+> +            "flower"
+> +        ],
+> +        "setup": [
+> +            "$TC qdisc add dev $DEV2 ingress",
+> +            "./tdc_batch.py $DEV2 $BATCH_FILE --share_action -n 1000000"
+> +        ],
+> +        "cmdUnderTest": "$TC -b $BATCH_FILE",
+> +        "expExitCode": "0",
+> +        "verifyCmd": "$TC actions list action gact",
+> +        "matchPattern": "action order 0: gact action drop.*index 1 ref 1000000 bind 1000000",
+> +        "matchCount": "1",
+> +        "teardown": [
+> +            "$TC qdisc del dev $DEV2 ingress",
+> +            "/bin/rm $BATCH_FILE"
+> +        ]
+>      }
+> -]
+> \ No newline at end of file
+> +]
+> diff --git a/tools/testing/selftests/tc-testing/tdc.py b/tools/testing/selftests/tc-testing/tdc.py
+> index cd61b78..5f11f5d 100755
+> --- a/tools/testing/selftests/tc-testing/tdc.py
+> +++ b/tools/testing/selftests/tc-testing/tdc.py
+> @@ -88,7 +88,7 @@ def prepare_env(cmdlist):
+>              exit(1)
+>
+>
+> -def test_runner(filtered_tests):
+> +def test_runner(filtered_tests, args):
+>      """
+>      Driver function for the unit tests.
+>
+> @@ -105,6 +105,8 @@ def test_runner(filtered_tests):
+>      for tidx in testlist:
+>          result = True
+>          tresult = ""
+> +        if "flower" in tidx["category"] and args.device == None:
+> +            continue
+>          print("Test " + tidx["id"] + ": " + tidx["name"])
+>          prepare_env(tidx["setup"])
+>          (p, procout) = exec_cmd(tidx["cmdUnderTest"])
+> @@ -152,6 +154,10 @@ def ns_create():
+>          exec_cmd(cmd, False)
+>          cmd = 'ip -s $NS link set $DEV1 up'
+>          exec_cmd(cmd, False)
+> +        cmd = 'ip link set $DEV2 netns $NS'
+> +        exec_cmd(cmd, False)
+> +        cmd = 'ip -s $NS link set $DEV2 up'
+> +        exec_cmd(cmd, False)
+>
+>
+>  def ns_destroy():
+> @@ -211,7 +217,8 @@ def set_args(parser):
+>                          help='Execute the single test case with specified ID')
+>      parser.add_argument('-i', '--id', action='store_true', dest='gen_id',
+>                          help='Generate ID numbers for new test cases')
+> -    return parser
+> +    parser.add_argument('-d', '--device',
+> +                        help='Execute the test case in flower category')
+>      return parser
+>
+>
+> @@ -225,6 +232,8 @@ def check_default_settings(args):
+>
+>      if args.path != None:
+>           NAMES['TC'] = args.path
+> +    if args.device != None:
+> +         NAMES['DEV2'] = args.device
+>      if not os.path.isfile(NAMES['TC']):
+>          print("The specified tc path " + NAMES['TC'] + " does not exist.")
+>          exit(1)
+> @@ -381,14 +390,17 @@ def set_operation_mode(args):
+>              if (len(alltests) == 0):
+>                  print("Cannot find a test case with ID matching " + target_id)
+>                  exit(1)
+> -        catresults = test_runner(alltests)
+> +        catresults = test_runner(alltests, args)
+>          print("All test results: " + "\n\n" + catresults)
+>      elif (len(target_category) > 0):
+> +        if (target_category == "flower") and args.device == None:
+> +            print("Please specify a NIC device (-d) to run category flower")
+> +            exit(1)
+>          if (target_category not in ucat):
+>              print("Specified category is not present in this file.")
+>              exit(1)
+>          else:
+> -            catresults = test_runner(testcases[target_category])
+> +            catresults = test_runner(testcases[target_category], args)
+>              print("Category " + target_category + "\n\n" + catresults)
+>
+>      ns_destroy()
+> diff --git a/tools/testing/selftests/tc-testing/tdc_config.py b/tools/testing/selftests/tc-testing/tdc_config.py
+> index 0108737..b635251 100644
+> --- a/tools/testing/selftests/tc-testing/tdc_config.py
+> +++ b/tools/testing/selftests/tc-testing/tdc_config.py
+> @@ -12,6 +12,8 @@ NAMES = {
+>            # Name of veth devices to be created for the namespace
+>            'DEV0': 'v0p0',
+>            'DEV1': 'v0p1',
+> +          'DEV2': '',
+> +          'BATCH_FILE': './batch.txt',
+>            # Name of the namespace to use
+>            'NS': 'tcut'
+>          }
 > --
 > 1.8.3.1
 >
