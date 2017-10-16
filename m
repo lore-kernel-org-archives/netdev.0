@@ -1,48 +1,48 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH] tracing: bpf: Hide bpf trace events when they are not
- used
-Date: Mon, 16 Oct 2017 16:21:51 -0400
-Message-ID: <20171016162151.3578ddd5@gandalf.local.home>
-References: <20171012184002.0661a867@gandalf.local.home>
-        <20171016.205434.1066116631088582472.davem@davemloft.net>
-        <20171016160125.2a927a83@gandalf.local.home>
-        <20171016.211106.146432024027343504.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xen-netfront, xen-netback: Use correct minimum MTU
+ values
+Date: Mon, 16 Oct 2017 21:22:23 +0100 (WEST)
+Message-ID: <20171016.212223.777323721927998324.davem@davemloft.net>
+References: <1508160032-21689-1-git-send-email-mgamal@redhat.com>
+        <20171016150522.nebui653rkjove7r@citrix.com>
+        <3da3d5ae-c2cb-380e-368d-a90432608cf1@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: wei.liu2@citrix.com, mgamal@redhat.com, netdev@vger.kernel.org,
+        xen-devel@lists.xenproject.org, paul.durrant@citrix.com,
+        linux-kernel@vger.kernel.org, vkuznets@redhat.com,
+        otubo@redhat.com, cavery@redhat.com, cheshi@redhat.com,
+        jgross@suse.com
+To: boris.ostrovsky@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171016.211106.146432024027343504.davem@davemloft.net>
+In-Reply-To: <3da3d5ae-c2cb-380e-368d-a90432608cf1@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Oct 2017 21:11:06 +0100 (WEST)
-David Miller <davem@davemloft.net> wrote:
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Date: Mon, 16 Oct 2017 16:19:07 -0400
 
-> From: Steven Rostedt <rostedt@goodmis.org>
-> Date: Mon, 16 Oct 2017 16:01:25 -0400
+> On 10/16/2017 11:05 AM, Wei Liu wrote:
+>> On Mon, Oct 16, 2017 at 03:20:32PM +0200, Mohammed Gamal wrote:
+>>> RFC791 specifies the minimum MTU to be 68, while xen-net{front|back}
+>>> drivers use a minimum value of 0.
+>>>
+>>> When set MTU to 0~67 with xen_net{front|back} driver, the network
+>>> will become unreachable immediately, the guest can no longer be pinged.
+>>>
+>>> xen_net{front|back} should not allow the user to set this value which causes
+>>> network problems.
+>>>
+>>> Reported-by: Chen Shi <cheshi@redhat.com>
+>>> Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+>> Acked-by: Wei Liu <wei.liu2@citrix.com>
+>>
+>> CC netfront maintainers
 > 
-> > On Mon, 16 Oct 2017 20:54:34 +0100 (WEST)
-> > David Miller <davem@davemloft.net> wrote:
-> >   
-> >> Steven, I lost track of how this patch is being handled.
-> >> 
-> >> Do you want me to merge it via my net-next tree?  
-> > 
-> > If you want. I could take it too if you give me an ack. It's not
-> > dependent on any other changes so it doesn't matter which way it goes. I
-> > know Alexei was thinking about doing the same for xdp but those appear
-> > to be used even without BPF_SYSCALLS.  
 > 
-> Ok, applied to my net-next tree and if you want to apply it to your's
-> too, here is the ACK:
+> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
 > 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> I can take it via Xen tree unless there are objections.
 
-Thanks! But if you are taking it, I'm fine with that. It may be a while
-before I get my tool applied that detects unused tracepoints at compile
-time. I have it working at runtime, but rather have a compiler warning.
-
--- Steve
+No problem on my end.
