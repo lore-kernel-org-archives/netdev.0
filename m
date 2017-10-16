@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: cdg: make struct tcp_cdg static
-Date: Mon, 16 Oct 2017 21:25:00 +0100 (WEST)
-Message-ID: <20171016.212500.1664833771375901207.davem@davemloft.net>
-References: <20171016133321.15477-1-colin.king@canonical.com>
+Subject: Re: [PATCH net-next 0/2] net: core: rcuify rtnl af_ops
+Date: Mon, 16 Oct 2017 21:26:56 +0100 (WEST)
+Message-ID: <20171016.212656.1943805874831429952.davem@davemloft.net>
+References: <20171016134436.25282-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171016133321.15477-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34782 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754027AbdJPU06 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:26:58 -0400
+In-Reply-To: <20171016134436.25282-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Mon, 16 Oct 2017 14:33:21 +0100
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 16 Oct 2017 15:44:34 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> None of the rtnl af_ops callbacks sleep, so they can be called while
+> holding rcu read lock.
 > 
-> The structure tcp_cdg is local to the source and
-> does not need to be in global scope, so make it static.
+> Switch handling of af_ops to rcu.
 > 
-> Cleans up sparse warning:
-> symbol 'tcp_cdg' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> This would allow to later call af_ops functions without holding
+> the rtnl mutex anymore.
 
-Applied.
+Series applied, thanks.
