@@ -1,394 +1,366 @@
 From: Chris Mi <chrism@mellanox.com>
-Subject: [patch net 2/4] net/sched: Use action array instead of action list as parameter
-Date: Mon, 16 Oct 2017 04:31:40 -0400
-Message-ID: <1508142702-3312-3-git-send-email-chrism@mellanox.com>
+Subject: [patch net 1/4] net/sched: Change tc_action refcnt and bindcnt to atomic
+Date: Mon, 16 Oct 2017 04:31:39 -0400
+Message-ID: <1508142702-3312-2-git-send-email-chrism@mellanox.com>
 References: <1508142702-3312-1-git-send-email-chrism@mellanox.com>
 Cc: jhs@mojatatu.com, lucasb@mojatatu.com, xiyou.wangcong@gmail.com,
         jiri@resnulli.us, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50086 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:50084 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751818AbdJPIbx (ORCPT
+        with ESMTP id S1751780AbdJPIbx (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 04:31:53 -0400
 In-Reply-To: <1508142702-3312-1-git-send-email-chrism@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When destroying filters, actions should be destroyed first.
-The pointers of each action are saved in an array. TC doesn't
-use the array directly, but put all actions in a doubly linked
-list and use that list as parameter.
-
-There is no problem if each filter has its own actions. But if
-some filters share the same action, when these filters are
-destroyed, RCU callback fl_destroy_filter() may be called at the
-same time. That means the same action's 'struct list_head list'
-could be manipulated at the same time. It may point to an invalid
-address so that system will panic.
-
-This patch uses the action array directly to fix this issue.
+If many filters share the same action. That action's refcnt and bindcnt
+could be manipulated by many RCU callbacks at the same time. This patch
+makes these operations atomic.
 
 Fixes commit in pre-git era.
 
 Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
 Signed-off-by: Chris Mi <chrism@mellanox.com>
 ---
- include/net/act_api.h |   7 ++--
- net/sched/act_api.c   | 103 +++++++++++++++++++++++++++++++-------------------
- net/sched/cls_api.c   |  18 +++------
- 3 files changed, 75 insertions(+), 53 deletions(-)
+ include/net/act_api.h      |  4 ++--
+ net/sched/act_api.c        | 21 +++++++++++----------
+ net/sched/act_bpf.c        |  4 ++--
+ net/sched/act_connmark.c   |  4 ++--
+ net/sched/act_csum.c       |  4 ++--
+ net/sched/act_gact.c       |  4 ++--
+ net/sched/act_ife.c        |  4 ++--
+ net/sched/act_ipt.c        |  4 ++--
+ net/sched/act_mirred.c     |  4 ++--
+ net/sched/act_nat.c        |  4 ++--
+ net/sched/act_pedit.c      |  4 ++--
+ net/sched/act_police.c     |  4 ++--
+ net/sched/act_sample.c     |  4 ++--
+ net/sched/act_simple.c     |  4 ++--
+ net/sched/act_skbedit.c    |  4 ++--
+ net/sched/act_skbmod.c     |  4 ++--
+ net/sched/act_tunnel_key.c |  4 ++--
+ net/sched/act_vlan.c       |  4 ++--
+ 18 files changed, 45 insertions(+), 44 deletions(-)
 
 diff --git a/include/net/act_api.h b/include/net/act_api.h
-index a469ab6..081a313 100644
+index b944e0eb..a469ab6 100644
 --- a/include/net/act_api.h
 +++ b/include/net/act_api.h
-@@ -148,16 +148,17 @@ static inline int tcf_idr_release(struct tc_action *a, bool bind)
- int tcf_register_action(struct tc_action_ops *a, struct pernet_operations *ops);
- int tcf_unregister_action(struct tc_action_ops *a,
- 			  struct pernet_operations *ops);
--int tcf_action_destroy(struct list_head *actions, int bind);
-+int tcf_action_destroy(struct tc_action **actions, int nr, int bind);
- int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
- 		    int nr_actions, struct tcf_result *res);
- int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
- 		    struct nlattr *est, char *name, int ovr, int bind,
--		    struct list_head *actions);
-+		    struct tc_action **actions, int *nr);
- struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
- 				    struct nlattr *nla, struct nlattr *est,
- 				    char *name, int ovr, int bind);
--int tcf_action_dump(struct sk_buff *skb, struct list_head *, int, int);
-+int tcf_action_dump(struct sk_buff *skb, struct tc_action **actions, int nr,
-+		    int bind, int ref);
- int tcf_action_dump_old(struct sk_buff *skb, struct tc_action *a, int, int);
- int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int, int);
- int tcf_action_copy_stats(struct sk_buff *, struct tc_action *, int);
+@@ -25,8 +25,8 @@ struct tc_action {
+ 	struct tcf_idrinfo		*idrinfo;
+ 
+ 	u32				tcfa_index;
+-	int				tcfa_refcnt;
+-	int				tcfa_bindcnt;
++	atomic_t			tcfa_refcnt;
++	atomic_t			tcfa_bindcnt;
+ 	u32				tcfa_capab;
+ 	int				tcfa_action;
+ 	struct tcf_t			tcfa_tm;
 diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 9c0224d..391d560 100644
+index da6fa82..9c0224d 100644
 --- a/net/sched/act_api.c
 +++ b/net/sched/act_api.c
-@@ -513,13 +513,15 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
- }
- EXPORT_SYMBOL(tcf_action_exec);
+@@ -88,12 +88,13 @@ int __tcf_idr_release(struct tc_action *p, bool bind, bool strict)
  
--int tcf_action_destroy(struct list_head *actions, int bind)
-+int tcf_action_destroy(struct tc_action **actions, int nr, int bind)
- {
- 	const struct tc_action_ops *ops;
--	struct tc_action *a, *tmp;
-+	struct tc_action *a;
- 	int ret = 0;
-+	int i;
+ 	if (p) {
+ 		if (bind)
+-			p->tcfa_bindcnt--;
+-		else if (strict && p->tcfa_bindcnt > 0)
++			atomic_dec(&p->tcfa_bindcnt);
++		else if (strict && atomic_read(&p->tcfa_bindcnt) > 0)
+ 			return -EPERM;
  
--	list_for_each_entry_safe(a, tmp, actions, list) {
-+	for (i = 0; i < nr; i++) {
-+		a = actions[i];
- 		ops = a->ops;
- 		ret = __tcf_idr_release(a, bind, true);
- 		if (ret == ACT_P_DELETED)
-@@ -568,14 +570,16 @@ int tcf_action_destroy(struct list_head *actions, int bind)
- }
- EXPORT_SYMBOL(tcf_action_dump_1);
+-		p->tcfa_refcnt--;
+-		if (p->tcfa_bindcnt <= 0 && p->tcfa_refcnt <= 0) {
++		atomic_dec(&p->tcfa_refcnt);
++		if (atomic_read(&p->tcfa_bindcnt) == 0 &&
++		    atomic_read(&p->tcfa_refcnt) == 0) {
+ 			if (p->ops->cleanup)
+ 				p->ops->cleanup(p, bind);
+ 			tcf_idr_remove(p->idrinfo, p);
+@@ -245,8 +246,8 @@ bool tcf_idr_check(struct tc_action_net *tn, u32 index, struct tc_action **a,
  
--int tcf_action_dump(struct sk_buff *skb, struct list_head *actions,
-+int tcf_action_dump(struct sk_buff *skb, struct tc_action **actions, int nr,
- 		    int bind, int ref)
- {
- 	struct tc_action *a;
--	int err = -EINVAL;
- 	struct nlattr *nest;
-+	int err = -EINVAL;
-+	int i;
- 
--	list_for_each_entry(a, actions, list) {
-+	for (i = 0; i < nr; i++) {
-+		a = actions[i];
- 		nest = nla_nest_start(skb, a->order);
- 		if (nest == NULL)
- 			goto nla_put_failure;
-@@ -700,10 +704,7 @@ struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
- 	if (TC_ACT_EXT_CMP(a->tcfa_action, TC_ACT_GOTO_CHAIN)) {
- 		err = tcf_action_goto_chain_init(a, tp);
- 		if (err) {
--			LIST_HEAD(actions);
--
--			list_add_tail(&a->list, &actions);
--			tcf_action_destroy(&actions, bind);
-+			tcf_action_destroy(&a, 1, bind);
- 			return ERR_PTR(err);
- 		}
+ 	if (index && p) {
+ 		if (bind)
+-			p->tcfa_bindcnt++;
+-		p->tcfa_refcnt++;
++			atomic_inc(&p->tcfa_bindcnt);
++		atomic_inc(&p->tcfa_refcnt);
+ 		*a = p;
+ 		return true;
  	}
-@@ -720,23 +721,27 @@ struct tc_action *tcf_action_init_1(struct net *net, struct tcf_proto *tp,
- 	return ERR_PTR(err);
- }
+@@ -274,9 +275,9 @@ int tcf_idr_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
  
--static void cleanup_a(struct list_head *actions, int ovr)
-+static void cleanup_a(struct tc_action **actions, int nr, int ovr)
- {
- 	struct tc_action *a;
-+	int i;
+ 	if (unlikely(!p))
+ 		return -ENOMEM;
+-	p->tcfa_refcnt = 1;
++	atomic_set(&p->tcfa_refcnt, 1);
+ 	if (bind)
+-		p->tcfa_bindcnt = 1;
++		atomic_set(&p->tcfa_bindcnt, 1);
  
- 	if (!ovr)
+ 	if (cpustats) {
+ 		p->cpu_bstats = netdev_alloc_pcpu_stats(struct gnet_stats_basic_cpu);
+@@ -727,7 +728,7 @@ static void cleanup_a(struct list_head *actions, int ovr)
  		return;
  
--	list_for_each_entry(a, actions, list)
-+	for (i = 0; i < nr; i++) {
-+		a = actions[i];
- 		atomic_dec(&a->tcfa_refcnt);
-+	}
+ 	list_for_each_entry(a, actions, list)
+-		a->tcfa_refcnt--;
++		atomic_dec(&a->tcfa_refcnt);
  }
  
  int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
- 		    struct nlattr *est, char *name, int ovr, int bind,
--		    struct list_head *actions)
-+		    struct tc_action **actions, int *nr)
- {
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
- 	struct tc_action *act;
-+	int n = 0;
- 	int err;
- 	int i;
- 
-@@ -753,17 +758,19 @@ int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
+@@ -751,7 +752,7 @@ int tcf_action_init(struct net *net, struct tcf_proto *tp, struct nlattr *nla,
+ 		}
  		act->order = i;
  		if (ovr)
- 			atomic_inc(&act->tcfa_refcnt);
--		list_add_tail(&act->list, actions);
-+		actions[n++] = act;
- 	}
-+	*nr = n;
- 
- 	/* Remove the temp refcnt which was necessary to protect against
- 	 * destroying an existing action which was being replaced
- 	 */
--	cleanup_a(actions, ovr);
-+	cleanup_a(actions, n, ovr);
- 	return 0;
- 
- err:
--	tcf_action_destroy(actions, bind);
-+	tcf_action_destroy(actions, n, bind);
-+	*nr = 0;
- 	return err;
- }
- 
-@@ -811,9 +818,9 @@ int tcf_action_copy_stats(struct sk_buff *skb, struct tc_action *p,
- 	return -1;
- }
- 
--static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
--			u32 portid, u32 seq, u16 flags, int event, int bind,
--			int ref)
-+static int tca_get_fill(struct sk_buff *skb, struct tc_action **actions,
-+			int nr, u32 portid, u32 seq, u16 flags, int event,
-+			int bind, int ref)
- {
- 	struct tcamsg *t;
- 	struct nlmsghdr *nlh;
-@@ -832,7 +839,7 @@ static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
- 	if (nest == NULL)
- 		goto out_nlmsg_trim;
- 
--	if (tcf_action_dump(skb, actions, bind, ref) < 0)
-+	if (tcf_action_dump(skb, actions, nr, bind, ref) < 0)
- 		goto out_nlmsg_trim;
- 
- 	nla_nest_end(skb, nest);
-@@ -847,14 +854,14 @@ static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
- 
- static int
- tcf_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
--	       struct list_head *actions, int event)
-+	       struct tc_action **actions, int nr, int event)
- {
- 	struct sk_buff *skb;
- 
- 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOBUFS;
--	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, 0, event,
-+	if (tca_get_fill(skb, actions, nr, portid, n->nlmsg_seq, 0, event,
- 			 0, 0) <= 0) {
- 		kfree_skb(skb);
- 		return -EINVAL;
-@@ -968,7 +975,8 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- }
- 
- static int
--tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
-+tcf_del_notify(struct net *net, struct nlmsghdr *n,
-+	       struct tc_action **actions, int nr,
- 	       u32 portid)
- {
- 	int ret;
-@@ -978,14 +986,14 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 	if (!skb)
- 		return -ENOBUFS;
- 
--	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, 0, RTM_DELACTION,
--			 0, 1) <= 0) {
-+	if (tca_get_fill(skb, actions, nr, portid, n->nlmsg_seq, 0,
-+			 RTM_DELACTION, 0, 1) <= 0) {
- 		kfree_skb(skb);
- 		return -EINVAL;
+-			act->tcfa_refcnt++;
++			atomic_inc(&act->tcfa_refcnt);
+ 		list_add_tail(&act->list, actions);
  	}
  
- 	/* now do the delete */
--	ret = tcf_action_destroy(actions, 0);
-+	ret = tcf_action_destroy(actions, nr, 0);
- 	if (ret < 0) {
- 		kfree_skb(skb);
- 		return ret;
-@@ -1002,10 +1010,11 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
- 	      u32 portid, int event)
- {
--	int i, ret;
- 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
-+	struct tc_action **actions;
- 	struct tc_action *act;
--	LIST_HEAD(actions);
-+	int i, ret;
-+	int nr = 0;
+diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
+index c0c707e..4ddf281 100644
+--- a/net/sched/act_bpf.c
++++ b/net/sched/act_bpf.c
+@@ -141,8 +141,8 @@ static int tcf_bpf_dump(struct sk_buff *skb, struct tc_action *act,
+ 	struct tcf_bpf *prog = to_bpf(act);
+ 	struct tc_act_bpf opt = {
+ 		.index   = prog->tcf_index,
+-		.refcnt  = prog->tcf_refcnt - ref,
+-		.bindcnt = prog->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&prog->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&prog->tcf_bindcnt) - bind,
+ 		.action  = prog->tcf_action,
+ 	};
+ 	struct tcf_t tm;
+diff --git a/net/sched/act_connmark.c b/net/sched/act_connmark.c
+index 10b7a88..d2cf658 100644
+--- a/net/sched/act_connmark.c
++++ b/net/sched/act_connmark.c
+@@ -153,8 +153,8 @@ static inline int tcf_connmark_dump(struct sk_buff *skb, struct tc_action *a,
  
- 	ret = nla_parse_nested(tb, TCA_ACT_MAX_PRIO, nla, NULL, NULL);
- 	if (ret < 0)
-@@ -1018,6 +1027,11 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 			return -EINVAL;
- 	}
+ 	struct tc_connmark opt = {
+ 		.index   = ci->tcf_index,
+-		.refcnt  = ci->tcf_refcnt - ref,
+-		.bindcnt = ci->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&ci->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&ci->tcf_bindcnt) - bind,
+ 		.action  = ci->tcf_action,
+ 		.zone   = ci->zone,
+ 	};
+diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
+index 1c40caa..b9ca424 100644
+--- a/net/sched/act_csum.c
++++ b/net/sched/act_csum.c
+@@ -575,8 +575,8 @@ static int tcf_csum_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+ 		.update_flags = p->update_flags,
+ 		.index   = p->tcf_index,
+ 		.action  = p->tcf_action,
+-		.refcnt  = p->tcf_refcnt - ref,
+-		.bindcnt = p->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&p->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&p->tcf_bindcnt) - bind,
+ 	};
+ 	struct tcf_t t;
  
-+	actions = kcalloc(TCA_ACT_MAX_PRIO, sizeof(struct tc_action *),
-+			  GFP_KERNEL);
-+	if (!actions)
-+		return -ENOMEM;
-+
- 	for (i = 1; i <= TCA_ACT_MAX_PRIO && tb[i]; i++) {
- 		act = tcf_action_get_1(net, tb[i], n, portid);
- 		if (IS_ERR(act)) {
-@@ -1025,25 +1039,28 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 			goto err;
- 		}
- 		act->order = i;
--		list_add_tail(&act->list, &actions);
-+		actions[nr++] = act;
- 	}
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index e29a48e..b1326b7 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -169,8 +169,8 @@ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tcf_gact *gact = to_gact(a);
+ 	struct tc_gact opt = {
+ 		.index   = gact->tcf_index,
+-		.refcnt  = gact->tcf_refcnt - ref,
+-		.bindcnt = gact->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&gact->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&gact->tcf_bindcnt) - bind,
+ 		.action  = gact->tcf_action,
+ 	};
+ 	struct tcf_t t;
+diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
+index 8ccd358..5cdcc87 100644
+--- a/net/sched/act_ife.c
++++ b/net/sched/act_ife.c
+@@ -551,8 +551,8 @@ static int tcf_ife_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+ 	struct tcf_ife_info *ife = to_ife(a);
+ 	struct tc_ife opt = {
+ 		.index = ife->tcf_index,
+-		.refcnt = ife->tcf_refcnt - ref,
+-		.bindcnt = ife->tcf_bindcnt - bind,
++		.refcnt = atomic_read(&ife->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&ife->tcf_bindcnt) - bind,
+ 		.action = ife->tcf_action,
+ 		.flags = ife->flags,
+ 	};
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index d9e399a..02c14dc 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -277,8 +277,8 @@ static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+ 	if (unlikely(!t))
+ 		goto nla_put_failure;
  
- 	if (event == RTM_GETACTION)
--		ret = tcf_get_notify(net, portid, n, &actions, event);
-+		ret = tcf_get_notify(net, portid, n, actions, nr, event);
- 	else { /* delete */
--		ret = tcf_del_notify(net, n, &actions, portid);
-+		ret = tcf_del_notify(net, n, actions, nr, portid);
- 		if (ret)
- 			goto err;
-+		kfree(actions);
- 		return ret;
- 	}
- err:
- 	if (event != RTM_GETACTION)
--		tcf_action_destroy(&actions, 0);
-+		tcf_action_destroy(actions, nr, 0);
-+	kfree(actions);
- 	return ret;
- }
+-	c.bindcnt = ipt->tcf_bindcnt - bind;
+-	c.refcnt = ipt->tcf_refcnt - ref;
++	c.bindcnt = atomic_read(&ipt->tcf_bindcnt) - bind;
++	c.refcnt = atomic_read(&ipt->tcf_refcnt) - ref;
+ 	strcpy(t->u.user.name, ipt->tcfi_t->u.kernel.target->name);
  
- static int
--tcf_add_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
-+tcf_add_notify(struct net *net, struct nlmsghdr *n,
-+	       struct tc_action **actions, int nr,
- 	       u32 portid)
- {
- 	struct sk_buff *skb;
-@@ -1053,7 +1070,7 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- 	if (!skb)
- 		return -ENOBUFS;
+ 	if (nla_put(skb, TCA_IPT_TARG, ipt->tcfi_t->u.user.target_size, t) ||
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 416627c..aeeeb38 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -249,8 +249,8 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
+ 	struct tc_mirred opt = {
+ 		.index   = m->tcf_index,
+ 		.action  = m->tcf_action,
+-		.refcnt  = m->tcf_refcnt - ref,
+-		.bindcnt = m->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&m->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&m->tcf_bindcnt) - bind,
+ 		.eaction = m->tcfm_eaction,
+ 		.ifindex = m->tcfm_ifindex,
+ 	};
+diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
+index c365d01..58fa1ae 100644
+--- a/net/sched/act_nat.c
++++ b/net/sched/act_nat.c
+@@ -256,8 +256,8 @@ static int tcf_nat_dump(struct sk_buff *skb, struct tc_action *a,
  
--	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, n->nlmsg_flags,
-+	if (tca_get_fill(skb, actions, nr, portid, n->nlmsg_seq, n->nlmsg_flags,
- 			 RTM_NEWACTION, 0, 0) <= 0) {
- 		kfree_skb(skb);
- 		return -EINVAL;
-@@ -1069,14 +1086,24 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
- static int tcf_action_add(struct net *net, struct nlattr *nla,
- 			  struct nlmsghdr *n, u32 portid, int ovr)
- {
-+	struct tc_action **actions;
- 	int ret = 0;
--	LIST_HEAD(actions);
-+	int nr;
+ 		.index    = p->tcf_index,
+ 		.action   = p->tcf_action,
+-		.refcnt   = p->tcf_refcnt - ref,
+-		.bindcnt  = p->tcf_bindcnt - bind,
++		.refcnt   = atomic_read(&p->tcf_refcnt) - ref,
++		.bindcnt  = atomic_read(&p->tcf_bindcnt) - bind,
+ 	};
+ 	struct tcf_t t;
  
--	ret = tcf_action_init(net, NULL, nla, NULL, NULL, ovr, 0, &actions);
-+	actions = kcalloc(TCA_ACT_MAX_PRIO, sizeof(struct tc_action *),
-+			  GFP_KERNEL);
-+	if (!actions)
-+		return -ENOMEM;
-+
-+	ret = tcf_action_init(net, NULL, nla, NULL, NULL, ovr, 0,
-+			      actions, &nr);
- 	if (ret)
--		return ret;
-+		goto out;
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index 491fe5de..27b9fea 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -391,8 +391,8 @@ static int tcf_pedit_dump(struct sk_buff *skb, struct tc_action *a,
+ 	opt->nkeys = p->tcfp_nkeys;
+ 	opt->flags = p->tcfp_flags;
+ 	opt->action = p->tcf_action;
+-	opt->refcnt = p->tcf_refcnt - ref;
+-	opt->bindcnt = p->tcf_bindcnt - bind;
++	opt->refcnt = atomic_read(&p->tcf_refcnt) - ref;
++	opt->bindcnt = atomic_read(&p->tcf_bindcnt) - bind;
  
--	return tcf_add_notify(net, n, &actions, portid);
-+	ret = tcf_add_notify(net, n, actions, nr, portid);
-+out:
-+	kfree(actions);
-+	return ret;
- }
+ 	if (p->tcfp_keys_ex) {
+ 		tcf_pedit_key_ex_dump(skb, p->tcfp_keys_ex, p->tcfp_nkeys);
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index 3bb2ebf..d8a1ac6 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -272,8 +272,8 @@ static int tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a,
+ 		.action = police->tcf_action,
+ 		.mtu = police->tcfp_mtu,
+ 		.burst = PSCHED_NS2TICKS(police->tcfp_burst),
+-		.refcnt = police->tcf_refcnt - ref,
+-		.bindcnt = police->tcf_bindcnt - bind,
++		.refcnt = atomic_read(&police->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&police->tcf_bindcnt) - bind,
+ 	};
+ 	struct tcf_t t;
  
- static u32 tcaa_root_flags_allowed = TCA_FLAG_LARGE_DUMP_ON;
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 0b2219a..acaa0c6 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -879,8 +879,7 @@ void tcf_exts_destroy(struct tcf_exts *exts)
- #ifdef CONFIG_NET_CLS_ACT
- 	LIST_HEAD(actions);
+diff --git a/net/sched/act_sample.c b/net/sched/act_sample.c
+index ec986ae..64889a4 100644
+--- a/net/sched/act_sample.c
++++ b/net/sched/act_sample.c
+@@ -179,8 +179,8 @@ static int tcf_sample_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tc_sample opt = {
+ 		.index      = s->tcf_index,
+ 		.action     = s->tcf_action,
+-		.refcnt     = s->tcf_refcnt - ref,
+-		.bindcnt    = s->tcf_bindcnt - bind,
++		.refcnt     = atomic_read(&s->tcf_refcnt) - ref,
++		.bindcnt    = atomic_read(&s->tcf_bindcnt) - bind,
+ 	};
+ 	struct tcf_t t;
  
--	tcf_exts_to_list(exts, &actions);
--	tcf_action_destroy(&actions, TCA_ACT_UNBIND);
-+	tcf_action_destroy(exts->actions, exts->nr_actions, TCA_ACT_UNBIND);
- 	kfree(exts->actions);
- 	exts->nr_actions = 0;
- #endif
-@@ -905,17 +904,14 @@ int tcf_exts_validate(struct net *net, struct tcf_proto *tp, struct nlattr **tb,
- 			exts->actions[0] = act;
- 			exts->nr_actions = 1;
- 		} else if (exts->action && tb[exts->action]) {
--			LIST_HEAD(actions);
--			int err, i = 0;
-+			int err;
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
+index e7b57e5..ec7e397 100644
+--- a/net/sched/act_simple.c
++++ b/net/sched/act_simple.c
+@@ -148,8 +148,8 @@ static int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tcf_defact *d = to_defact(a);
+ 	struct tc_defact opt = {
+ 		.index   = d->tcf_index,
+-		.refcnt  = d->tcf_refcnt - ref,
+-		.bindcnt = d->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&d->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&d->tcf_bindcnt) - bind,
+ 		.action  = d->tcf_action,
+ 	};
+ 	struct tcf_t t;
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index 59949d6..2b05e56 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -172,8 +172,8 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tcf_skbedit *d = to_skbedit(a);
+ 	struct tc_skbedit opt = {
+ 		.index   = d->tcf_index,
+-		.refcnt  = d->tcf_refcnt - ref,
+-		.bindcnt = d->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&d->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&d->tcf_bindcnt) - bind,
+ 		.action  = d->tcf_action,
+ 	};
+ 	struct tcf_t t;
+diff --git a/net/sched/act_skbmod.c b/net/sched/act_skbmod.c
+index b642ad3..ca1ddf9 100644
+--- a/net/sched/act_skbmod.c
++++ b/net/sched/act_skbmod.c
+@@ -201,8 +201,8 @@ static int tcf_skbmod_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tcf_skbmod_params  *p = rtnl_dereference(d->skbmod_p);
+ 	struct tc_skbmod opt = {
+ 		.index   = d->tcf_index,
+-		.refcnt  = d->tcf_refcnt - ref,
+-		.bindcnt = d->tcf_bindcnt - bind,
++		.refcnt  = atomic_read(&d->tcf_refcnt) - ref,
++		.bindcnt = atomic_read(&d->tcf_bindcnt) - bind,
+ 		.action  = d->tcf_action,
+ 	};
+ 	struct tcf_t t;
+diff --git a/net/sched/act_tunnel_key.c b/net/sched/act_tunnel_key.c
+index 30c9627..158d472 100644
+--- a/net/sched/act_tunnel_key.c
++++ b/net/sched/act_tunnel_key.c
+@@ -250,8 +250,8 @@ static int tunnel_key_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tcf_tunnel_key_params *params;
+ 	struct tc_tunnel_key opt = {
+ 		.index    = t->tcf_index,
+-		.refcnt   = t->tcf_refcnt - ref,
+-		.bindcnt  = t->tcf_bindcnt - bind,
++		.refcnt   = atomic_read(&t->tcf_refcnt) - ref,
++		.bindcnt  = atomic_read(&t->tcf_bindcnt) - bind,
+ 	};
+ 	struct tcf_t tm;
  
- 			err = tcf_action_init(net, tp, tb[exts->action],
- 					      rate_tlv, NULL, ovr, TCA_ACT_BIND,
--					      &actions);
-+					      exts->actions,
-+					      &exts->nr_actions);
- 			if (err)
- 				return err;
--			list_for_each_entry(act, &actions, list)
--				exts->actions[i++] = act;
--			exts->nr_actions = i;
- 		}
- 	}
- #else
-@@ -961,14 +957,12 @@ int tcf_exts_dump(struct sk_buff *skb, struct tcf_exts *exts)
- 		 * tc data even if iproute2  was newer - jhs
- 		 */
- 		if (exts->type != TCA_OLD_COMPAT) {
--			LIST_HEAD(actions);
--
- 			nest = nla_nest_start(skb, exts->action);
- 			if (nest == NULL)
- 				goto nla_put_failure;
- 
--			tcf_exts_to_list(exts, &actions);
--			if (tcf_action_dump(skb, &actions, 0, 0) < 0)
-+			if (tcf_action_dump(skb, exts->actions,
-+					    exts->nr_actions, 0, 0) < 0)
- 				goto nla_put_failure;
- 			nla_nest_end(skb, nest);
- 		} else if (exts->police) {
+diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
+index 16eb067..e2d7aab 100644
+--- a/net/sched/act_vlan.c
++++ b/net/sched/act_vlan.c
+@@ -208,8 +208,8 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
+ 	struct tcf_vlan *v = to_vlan(a);
+ 	struct tc_vlan opt = {
+ 		.index    = v->tcf_index,
+-		.refcnt   = v->tcf_refcnt - ref,
+-		.bindcnt  = v->tcf_bindcnt - bind,
++		.refcnt   = atomic_read(&v->tcf_refcnt) - ref,
++		.bindcnt  = atomic_read(&v->tcf_bindcnt) - bind,
+ 		.action   = v->tcf_action,
+ 		.v_action = v->tcfv_action,
+ 	};
 -- 
 1.8.3.1
