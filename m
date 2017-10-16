@@ -1,67 +1,77 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 16 Oct 2017 10:36:35 +0100
-Message-ID: <20171016093635.zxyyq2px4hdewse3@sirena.co.uk>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: usb/net/rt2x00: warning in rt2800_eeprom_word_index
+Date: Mon, 16 Oct 2017 11:40:24 +0200
+Message-ID: <20171016094024.GD2553@redhat.com>
+References: <CAAeHK+yUNrrNU3Jqrfs7XAT809eyF4nv673cSL8RppbLrDtWNA@mail.gmail.com>
+ <20171012072529.GB2686@redhat.com>
+ <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="panwwdpopndhfdyb"
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-next-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-next-owner@vger.kernel.org
+In-Reply-To: <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Dmitry
 
---panwwdpopndhfdyb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Sat, Oct 14, 2017 at 04:38:03PM +0200, Dmitry Vyukov wrote:
+> On Thu, Oct 12, 2017 at 9:25 AM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+> > Hi
+> >
+> > On Mon, Oct 09, 2017 at 07:50:53PM +0200, Andrey Konovalov wrote:
+> >> I've got the following report while fuzzing the kernel with syzkaller.
+> >>
+> >> On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
+> >>
+> >> I'm not sure whether this is a bug in the driver, or just a way to
+> >> report misbehaving device. In the latter case this shouldn't be a
+> >> WARN() call, since WARN() means bug in the kernel.
+> >
+> > This is about wrong EEPROM, which reported 3 tx streams on
+> > non 3 antenna device. I think WARN() is justified and thanks
+> > to the call trace I was actually able to to understand what
+> > happened.
+> >
+> > In general I do not think WARN() only means a kernel bug, it
+> > can be F/W or H/W bug too.
+> 
+> Hi Stanislaw,
+> 
+> Printing messages is fine. Printing stacks is fine. Just please make
+> them distinguishable from kernel bugs and don't kill the whole
+> possibility of automated Linux kernel testing. That's an important
+> capability.
 
-Hi all,
+We do not distinguish between bugs and other problems when WARN() is
+used in (wireless) drivers, what I think is correct, taking comment from
+include/asm-generic/bug.h :
 
-Today's linux-next merge of the net-next tree got a conflict in:
+/*
+ * WARN(), WARN_ON(), WARN_ON_ONCE, and so on can be used to report
+ * significant issues that need prompt attention if they should ever
+ * appear at runtime.  Use the versions with printk format strings
+ * to provide better diagnostics.
+ */
 
-  drivers/net/dsa/mv88e6060.c
+Historically we have BUG() to mark the bugs, but usage if it is not
+recommended as it can kill the system, so for anything that can
+be recovered in runtime - WARN() is recommended.
 
-between commit:
+Perhaps we can introduce another helper like PROBLEM() for marking
+situations when something is wrong, but it is not a bug. However I'm
+not even sure at what extent it can be used, since for many cases
+if not the most, driver author can not tell apriori if the problem
+is a bug in the driver or HW/FW misbehaviour (or maybe particular
+issue can happen because of both).
 
-  3efc93c2bc243 ("net: dsa: mv88e6060: fix switch MAC address")
-
-=66rom the net tree and commit:
-
-  56c3ff9bf23e1 ("net: dsa: mv88e6060: setup random mac address")
-
-=66rom the net-next tree.
-
-I fixed it up (see below, the relevant code was deleted in net-next) and
-can carry the fix as necessary. This is now fixed as far as linux-next
-is concerned, but any non trivial conflicts should be mentioned to your
-upstream maintainer when your tree is submitted for merging.  You may
-also want to consider cooperating with the maintainer of the conflicting
-tree to minimise any particularly complex conflicts.
-
-diff --cc drivers/net/dsa/mv88e6060.c
-index f123ed57630d,6173be889d95..000000000000
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-
---panwwdpopndhfdyb
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlnkfaIACgkQJNaLcl1U
-h9ACvAf8CPT/AykF7gE2NBbdP0+9H78KIRQObHfOkhqurAjBzVFicqECnQSmuZf8
-qQ7CHH7ClCX/5kj/qW2Tc9DVReo27sNVgHuTe9RkjU1hMg94rHBEUByaF3F/Ly/G
-vZleCdGWwqab+oDNvt68Sq2zkm3tmz8axv1pw2404SIQy4RGjKsCyy32jGPCXUmK
-CQ/NTNxCFrTvigxWrJcyI038CNwy4/RSjBEvnoGYBHF3Y+hkL1mr3lcA8adt5TRM
-FFyUh+1tFdxmLMJ3IjZF/mXmO60Nw4j4rx2EgQeP6sVTR3zRkwkQJLzz09U4S9UU
-OzpHLLo/cECYbREAso38o+iSTVVF7A==
-=88Tm
------END PGP SIGNATURE-----
-
---panwwdpopndhfdyb--
+Thanks
+Stanislaw
