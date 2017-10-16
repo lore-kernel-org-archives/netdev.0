@@ -1,37 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tracing: bpf: Hide bpf trace events when they are not
- used
-Date: Mon, 16 Oct 2017 20:54:34 +0100 (WEST)
-Message-ID: <20171016.205434.1066116631088582472.davem@davemloft.net>
-References: <20171012184002.0661a867@gandalf.local.home>
+Subject: Re: [PATCH v3] net: ftgmac100: Request clock and set speed
+Date: Mon, 16 Oct 2017 20:59:39 +0100 (WEST)
+Message-ID: <20171016.205939.1550179556132086666.davem@davemloft.net>
+References: <20171013041638.30763-1-joel@jms.id.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, ast@kernel.org, daniel@iogearbox.net,
-        netdev@vger.kernel.org
-To: rostedt@goodmis.org
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, andrew@aj.id.au
+To: joel@jms.id.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171012184002.0661a867@gandalf.local.home>
+In-Reply-To: <20171013041638.30763-1-joel@jms.id.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Thu, 12 Oct 2017 18:40:02 -0400
+From: Joel Stanley <joel@jms.id.au>
+Date: Fri, 13 Oct 2017 12:16:38 +0800
 
-> From: Steven Rostedt (VMware) <rostedt@goodmis.org>
-> 
-> All the trace events defined in include/trace/events/bpf.h are only
-> used when CONFIG_BPF_SYSCALL is defined. But this file gets included by
-> include/linux/bpf_trace.h which is included by the networking code with
-> CREATE_TRACE_POINTS defined.
-> 
-> If a trace event is created but not used it still has data structures
-> and functions created for its use, even though nothing is using them.
-> To not waste space, do not define the BPF trace events in bpf.h unless
-> CONFIG_BPF_SYSCALL is defined.
-> 
-> Signed-off-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+> Andrew, can you please give this one a spin on hardware?
 
-Steven, I lost track of how this patch is being handled.
-
-Do you want me to merge it via my net-next tree?
+I'm waiting on this...
