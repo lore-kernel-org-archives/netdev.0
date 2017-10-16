@@ -1,55 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 3/3] bpf: Make sure that ->comm does not change under
- us.
-Date: Tue, 17 Oct 2017 00:19:26 +0200
-Message-ID: <59E5306E.8050000@iogearbox.net>
-References: <CAADnVQ+0kTYr2azBW6mDSU6JwWtjWRZVaJQ=ZFmSs3JxCFrrRg@mail.gmail.com>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: Re: [next-queue PATCH v8 0/6] TSN: Add qdisc based config interface for CBS
+Date: Mon, 16 Oct 2017 15:20:05 -0700
+Message-ID: <87zi8qloq2.fsf@intel.com>
+References: <20171014002534.19896-1-vinicius.gomes@intel.com> <20171016.205146.1053238236578937188.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAADnVQ+0kTYr2azBW6mDSU6JwWtjWRZVaJQ=ZFmSs3JxCFrrRg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
+        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
+        rodney.cummings@ni.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:16810 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752519AbdJPWUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 18:20:07 -0400
+In-Reply-To: <20171016.205146.1053238236578937188.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/17/2017 12:10 AM, Alexei Starovoitov wrote:
-> On Mon, Oct 16, 2017 at 2:10 PM, Richard Weinberger <richard@nod.at> wrote:
->> Am Montag, 16. Oktober 2017, 23:02:06 CEST schrieb Daniel Borkmann:
->>> On 10/16/2017 10:55 PM, Richard Weinberger wrote:
->>>> Am Montag, 16. Oktober 2017, 22:50:43 CEST schrieb Daniel Borkmann:
->>>>>>            struct task_struct *task = current;
->>>>>>
->>>>>> + task_lock(task);
->>>>>>
->>>>>>            strncpy(buf, task->comm, size);
->>>>>>
->>>>>> + task_unlock(task);
->>>>>
->>>>> Wouldn't this potentially lead to a deadlock? E.g. you attach yourself
->>>>> to task_lock() / spin_lock() / etc, and then the BPF prog triggers the
->>>>> bpf_get_current_comm() taking the lock again ...
->>>>
->>>> Yes, but doesn't the same apply to the use case when I attach to strncpy()
->>>> and run bpf_get_current_comm()?
->>>
->>> You mean due to recursion? In that case trace_call_bpf() would bail out
->>> due to the bpf_prog_active counter.
->>
->> Ah, that's true.
->> So, when someone wants to use bpf_get_current_comm() while tracing task_lock,
->> we have a problem. I agree.
->> On the other hand, without locking the function may return wrong results.
+Hi David,
+
+David Miller <davem@davemloft.net> writes:
+
+> I'm fine with this patch set.  I see it's against Jeff's next-queue, so
+> where exactly do you want this to be merged?  My net-next tree?
+
+I think it going through Jeff's next-queue makes more sense.
+
+Anyway, I will send a v9 later today fixing the padding issue that David
+Laight pointed out.
+
 >
-> it will surely race with somebody else setting task comm and it's fine.
-> all of bpf tracing is read-only, so locks are only allowed inside bpf core
-> bits like maps. Taking core locks like task_lock() is quite scary.
-> bpf scripts rely on bpf_probe_read() of all sorts of kernel fields
-> so reading comm here w/o lock is fine.
+> Thank you.
 
-Yeah, and perf_event_comm() -> perf_event_comm_event() out of __set_task_comm()
-is having same approach wrt comm read-out.
+Cheers,
