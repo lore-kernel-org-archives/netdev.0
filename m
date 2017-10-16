@@ -1,132 +1,81 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] virtio_net: implement VIRTIO_CONFIG_S_NEEDS_RESET
-Date: Mon, 16 Oct 2017 12:04:57 -0400
-Message-ID: <CAF=yD-LW7f30V8Ci1SQUPZ-WBihqr93cWQP2QBFg2oQtytvAPg@mail.gmail.com>
-References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
-	<20171015034018-mutt-send-email-mst@kernel.org>
-	<CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
-	<20171016180442-mutt-send-email-mst@kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
+Date: Mon, 16 Oct 2017 18:09:41 +0200
+Message-ID: <20171016160941.GA13339@lunn.ch>
+References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
+ <CY1PR0401MB1536F870727AFA21BFC31115924F0@CY1PR0401MB1536.namprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>,
-	Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20171016180442-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        David Laight <David.Laight@ACULAB.COM>
+To: Rodney Cummings <rodney.cummings@ni.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CY1PR0401MB1536F870727AFA21BFC31115924F0@CY1PR0401MB1536.namprd04.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2017 at 11:31 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Mon, Oct 16, 2017 at 11:03:18AM -0400, Willem de Bruijn wrote:
->> >> +static int virtnet_reset(struct virtnet_info *vi)
->> >> +{
->> >> +     struct virtio_device *dev = vi->vdev;
->> >> +     int ret;
->> >> +
->> >> +     virtio_config_disable(dev);
->> >> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
->> >> +     virtnet_freeze_down(dev, true);
->> >> +     remove_vq_common(vi);
->> >> +
->> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
->> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
->> >> +
->> >> +     ret = virtio_finalize_features(dev);
->> >> +     if (ret)
->> >> +             goto err;
->> >> +
->> >> +     ret = virtnet_restore_up(dev);
->> >> +     if (ret)
->> >> +             goto err;
->> >> +
->> >> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
->> >> +     if (ret)
->> >> +             goto err;
->> >> +
->> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
->> >> +     virtio_config_enable(dev);
->> >> +     return 0;
->> >> +
->> >> +err:
->> >> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
->> >> +     return ret;
->> >> +}
->> >> +
->> >>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
->> >>  {
->> >>       struct scatterlist sg;
->> >
->> > I have a question here though. How do things like MAC address
->> > get restored?
->> >
->> > What about the rx mode?
->> >
->> > vlans?
->>
->> The function as is releases and reinitializes only ring state.
->> Device configuration such as mac and vlan persist across
->> the reset.
+On Mon, Oct 16, 2017 at 03:23:42PM +0000, Rodney Cummings wrote:
+> I am concerned about this proposed change.
+> 
+> According to IEEE Std 802.1Q, a "higher layer entity" (i.e. end
+> station) that is internal to the bridge (i.e. switch) can use the
+> same individual global MAC address that the switch is using. That
+> behavior is common.
 >
-> What gave you this impression? Take a look at e.g. this
-> code in qemu:
->
-> static void virtio_net_reset(VirtIODevice *vdev)
-> {
->     VirtIONet *n = VIRTIO_NET(vdev);
->
->     /* Reset back to compatibility mode */
->     n->promisc = 1;
->     n->allmulti = 0;
->     n->alluni = 0;
->     n->nomulti = 0;
->     n->nouni = 0;
->     n->nobcast = 0;
->     /* multiqueue is disabled by default */
->     n->curr_queues = 1;
->     timer_del(n->announce_timer);
->     n->announce_counter = 0;
->     n->status &= ~VIRTIO_NET_S_ANNOUNCE;
->
->     /* Flush any MAC and VLAN filter table state */
->     n->mac_table.in_use = 0;
->     n->mac_table.first_multi = 0;
->     n->mac_table.multi_overflow = 0;
->     n->mac_table.uni_overflow = 0;
->     memset(n->mac_table.macs, 0, MAC_TABLE_ENTRIES * ETH_ALEN);
->     memcpy(&n->mac[0], &n->nic->conf->macaddr, sizeof(n->mac));
->     qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
->     memset(n->vlans, 0, MAX_VLAN >> 3);
-> }
->
-> So device seems to lose all state, you have to re-program it.
+> Use of a local semi-random MAC address is dangerous on
+> Ethernet. Local MAC addresses can only be safely used in very narrow
+> use cases, most of which are Wi-Fi. Generally speaking, local MAC
+> addresses can be duplicated in the network, which causes many
+> Ethernet protocols to break down. Therefore, general-purpose
+> implementations like DSA cannot use a local MAC address in a
+> reliable manner.
 
-Oh, indeed! The guest does not reset its state, so it might
-be out of sync with the host after the operation. Was this not
-an issue when previously resetting in the context of xdp?
+Hi Rodney
 
->> > Also, it seems that LINK_ANNOUNCE requests will get ignored
->> > even if they got set before the reset, leading to downtime.
->>
->> Do you mean act on VIRTIO_NET_F_GUEST_ANNOUNCE
->> requests? That flag is tested and netdev_notify_peers
->> called before resetting virtio ring state.
->
-> Yes but I wonder if there's a race where announce
-> is set after it is read but before NEED_RESET is read.
->
-> Re-reading status from the config before reset
-> might be necessary.
+This is interesting. So i did some research. The Marvell Switch only
+uses this MAC address for Pause frames. Nothing else.
 
-Thanks, I'll have a look. Perhaps a host should simply not
-request a reset while it is waiting for an announce ack.
+802.3-2015 Section 2, Annex 31B says:
+
+  The globally assigned 48-bit multicast address 01-80-C2-00-00-01 has
+  been reserved for use in MAC Control PAUSE frames for inhibiting
+  transmission of data frames from a DTE in a full duplex mode IEEE
+  802.3 LAN. IEEE 802.1D-conformant bridges will not forward frames
+  sent to this multicast destination address, regardless of the state
+  of the bridge’s ports, or whether or not the bridge
+  implements the MAC Control sublayer. To allow generic full duplex
+  flow control, stations implementing the PAUSE operation shall
+  instruct the MAC (e.g., through layer management) to enable
+  reception of frames with destination address equal to this multicast
+  address.
+
+  NOTE—By definition, an IEEE 802.3 LAN operating in full
+  duplex mode comprises exactly two stations, thus there is no
+  ambiguity regarding the destination DTE’s identity. The use
+  of a well-known multicast address relieves the MAC Control sublayer
+  and its client from having to know, and maintain knowledge of, the
+  individual 48-bit address of the other DTE in a full duplex
+  environment.
+
+  When MAC Control PFC operation (see Annex 31D and IEEE Std 802.1Q)
+  has been enabled, MAC Control PAUSE operation shall be disabled.
+
+So, received Pause frames never leave the MAC. They don't get bridged,
+nor do they get passed up for host processing. They are purely point
+to point between two MAC peers. The destination is unambiguous. It is
+simple the other MAC peer. The destination address makes it clear it
+is a pause frame, the the source address seems to be unneeded.
+
+In this context, a random MAC addresses are safe.
+
+In the more general case, i would agree with you. Collisions are
+possible, causing problems.
+
+   Andrew
