@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] dev_ioctl: add missing NETDEV_CHANGE_TX_QUEUE_LEN
- event notification
-Date: Mon, 16 Oct 2017 21:24:52 +0100 (WEST)
-Message-ID: <20171016.212452.250697962684157736.davem@davemloft.net>
-References: <c7cb587e601d7e27d126d79b6f06c873af1659bc.1508154195.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH] tcp: cdg: make struct tcp_cdg static
+Date: Mon, 16 Oct 2017 21:25:00 +0100 (WEST)
+Message-ID: <20171016.212500.1664833771375901207.davem@davemloft.net>
+References: <20171016133321.15477-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34732 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753222AbdJPUYy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:24:54 -0400
-In-Reply-To: <c7cb587e601d7e27d126d79b6f06c873af1659bc.1508154195.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171016133321.15477-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Mon, 16 Oct 2017 19:43:15 +0800
+From: Colin King <colin.king@canonical.com>
+Date: Mon, 16 Oct 2017 14:33:21 +0100
 
-> When changing dev tx_queue_len via netlink or net-sysfs,
-> a NETDEV_CHANGE_TX_QUEUE_LEN event notification will be
-> called.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> But dev_ioctl missed this event notification, which could
-> cause no userspace notification would be sent.
+> The structure tcp_cdg is local to the source and
+> does not need to be in global scope, so make it static.
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Cleans up sparse warning:
+> symbol 'tcp_cdg' was not declared. Should it be static?
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
