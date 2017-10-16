@@ -1,121 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: RFC: making cn_proc work in {pid,user} namespaces
-Date: Sun, 15 Oct 2017 17:40:08 -0500
-Message-ID: <87r2u4nign.fsf@xmission.com>
-References: <a2fa1602-2280-c5e8-cac9-b718eaea5d22@suse.de>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net 2/6] rtnetlink: bring NETDEV_CHANGE_TX_QUEUE_LEN event
+ process back in rtnetlink_event
+Date: Sun, 15 Oct 2017 19:16:09 -0600
+Message-ID: <b20cbe6a-229e-58e1-b862-7d8b7a09dab2@gmail.com>
+References: <cover.1508062280.git.lucien.xin@gmail.com>
+ <d7713874f0ad1c19b640eaae98f0d554d1743a4c.1508062280.git.lucien.xin@gmail.com>
+ <e240a6572c8e495eb2da15bd6178604cdfde08ba.1508062280.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Linux Containers <containers@lists.linux-foundation.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Christian Brauner <christian.brauner@ubuntu.com>,
-        Evgeniy Polyakov <zbr@ioremap.net>,
-        dev <dev@opencontainers.org>,
-        "cyphar\@cyphar.com \>\> Aleksa Sarai" <cyphar@cyphar.com>
-To: Aleksa Sarai <asarai@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a2fa1602-2280-c5e8-cac9-b718eaea5d22@suse.de> (Aleksa Sarai's
-        message of "Sun, 15 Oct 2017 21:05:49 +1100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, hannes@stressinduktion.org
+To: Xin Long <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:57009 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751410AbdJPBQL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 21:16:11 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b85so14559102pfj.13
+        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 18:16:11 -0700 (PDT)
+In-Reply-To: <e240a6572c8e495eb2da15bd6178604cdfde08ba.1508062280.git.lucien.xin@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Aleksa Sarai <asarai@suse.de> writes:
+On 10/15/17 4:13 AM, Xin Long wrote:
+> The same fix for changing mtu in the patch 'rtnetlink: bring
+> NETDEV_CHANGEMTU event process back in rtnetlink_event' is
+> needed for changing tx_queue_len.
+> 
+> Note that the redundant notifications issue for tx_queue_len
+> will be fixed in the later patch 'rtnetlink: do not send
+> notification for tx_queue_len in do_setlink'.
+> 
+> Fixes: 27b3b551d8a7 ("rtnetlink: Do not generate notifications for NETDEV_CHANGE_TX_QUEUE_LEN event")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/core/rtnetlink.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 72053ed..bf47360 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -4287,6 +4287,7 @@ static int rtnetlink_event(struct notifier_block *this, unsigned long event, voi
+>  	case NETDEV_NOTIFY_PEERS:
+>  	case NETDEV_RESEND_IGMP:
+>  	case NETDEV_CHANGEINFODATA:
+> +	case NETDEV_CHANGE_TX_QUEUE_LEN:
+>  		rtmsg_ifinfo_event(RTM_NEWLINK, dev, 0, rtnl_get_event(event),
+>  				   GFP_KERNEL);
+>  		break;
+> 
 
-> Hi all,
->
-> At the moment, cn_proc is not usable by containers or container runtimes. In
-> addition, all connectors have an odd relationship with init_net (for example,
-> /proc/net/connectors only exists in init_net). There are two main use-cases that
-> would be perfect for cn_proc, which is the reason for me pushing this:
->
-> First, when adding a process to an existing container, in certain modes runc
-> would like to know that process's exit code. But, when joining a PID namespace,
-> it is advisable[1] to always double-fork after doing the setns(2) to reparent
-> the joining process to the init of the container (this causes the SIGCHLD to be
-> received by the container init).  It would also be useful to be able to monitor
-> the exit code of the init process in a container without being its parent. At
-> the moment, cn_proc doesn't allow unprivileged users to use it (making it a
-> problem for user namespaces and "rootless containers"). In addition, it also
-> doesn't allow nested containers to use it, because it requires the process to be
-> in init_pid. As a result, runc cannot use cn_proc and relies on SIGCHLD (which
-> can only be used if we don't double-fork, or keep around a long-running process
-> which is something that runc also cannot do).
-
-As far as I know there are no technical issues that require a
-daemonizing double fork when injecting a process into a pid namespaces.
-A fork is required because the pid is changing and that requires another
-process.
-
-Monitoring and acting on the monitored state without keeping around a
-single process to do the monitoring does not make sense to me.  So I am
-just going to ignore that.
-
-So I don't think fixing cn_proc for this issue makes sense.
-
-> Secondly, there are/were some init systems that rely on cn_proc to manage
-> service state. From a "it would be neat" perspective, I think it would be quite
-> nice if such init systems could be used inside containers. But that requires
-> cn_proc to be able to be used as an unprivileged user and in a pid namespace
-> other than init_pid.
-
-Any pointers to these init systems?  In general I agree.  Given how much
-work it takes to go through a subsystem and ensure that it is safe for
-non-root users I am happy to see the work done, but I am not
-volunteering for the work when I have several I have as many tasks as I
-have on my plate right now.
-
-> The /proc/net/connectors thing is quite easily resolved (just make it the
-> connector driver perdev and make some small changes to make sure the interfaces
-> stay sane inside of a container's network namespace). I'm sure that we'll
-> probably have to make some changes to the registration API, so that a connector
-> can specify whether they want to be visible to non-init_net
-> namespaces.
->
-> However, the cn_proc problem is a bit harder to resolve nicely and there are
-> quite a few interface questions that would need to be agreed upon. The basic
-> idea would be that a process can only get cn_proc events if it has
-> ptrace_may_access rights over said process (effectively a forced filter -- which
-> would ideally be done send-side but it looks like it might have to be done
-> receive-side). This should resolve possible concerns about an unprivileged
-> process being able to inspect (fairly granular) information about the host. And
-> obviously the pids, uids, and gids would all be translated according to the
-> receiving process's user namespaces (if it cannot be translated then the message
-> is not received). I guess that the translation would be done in the same way as
-> SCM_CREDENTIALS (and cgroup.procs files), which is that it's done on the receive
-> side not the send side.
-
-Hmm.  We have several of these things such as bsd process accounting
-which appear to be working fine.
-
-The basic logic winds up being:
-for_each_receiver:
-    compose_msg in receivers namespace
-    send_msg.
-
-The tricky bit in my mind is dealing with receivers because of the
-connection with the network namespace.
-
-SCM_CREDENTIALS is an unfortunate case, that really should not be
-followed as a model.  The major challenge there is not knowing
-the receiving socket, or the receiver.  If I had been smarter
-when I coded that originally I would have forced everything into
-the namespace of the opener of the receiving socket.   I may have to
-revisit that one again someday and see if there are improvements that
-can be made.
-
-> My reason for sending this email rather than just writing the patch is to see
-> whether anyone has any solid NACKs against the use-case or whether there is some
-> fundamental issue that I'm not seeing. If nobody objects, I'll be happy to work
-> on this.
-
-If you want a non-crazy (with respect to namespace involvement) model
-please look at kernel/acct.c:acc_process()
-
-If there are use cases that people still care about that use the
-proc connector and want to run in a container it seems sensible to dig
-in and sort things out.  I think I have been hoping it is little enough
-used we won't have to mess with making it work in namespaces.
-
-> [1]: https://lwn.net/Articles/532748/
-
-
-Eric
+Acked-by: David Ahern <dsahern@gmail.com>
