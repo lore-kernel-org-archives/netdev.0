@@ -1,52 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: check fn before doing FIB6_SUBTREE(fn)
-Date: Mon, 16 Oct 2017 21:06:34 +0100 (WEST)
-Message-ID: <20171016.210634.1944938562694750278.davem@davemloft.net>
-References: <20171013220108.88710-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: only update __use and lastusetime once
+ per jiffy at most
+Date: Mon, 16 Oct 2017 21:09:02 +0100 (WEST)
+Message-ID: <20171016.210902.1215255184435565936.davem@davemloft.net>
+References: <20171013220807.90366-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com,
+        pabeni@redhat.com
 To: weiwan@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34440 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34494 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752518AbdJPUGg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:06:36 -0400
-In-Reply-To: <20171013220108.88710-1-tracywwnj@gmail.com>
+        with ESMTP id S1754127AbdJPUJE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:09:04 -0400
+In-Reply-To: <20171013220807.90366-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wei Wang <weiwan@google.com>
-Date: Fri, 13 Oct 2017 15:01:08 -0700
+Date: Fri, 13 Oct 2017 15:08:07 -0700
 
 > From: Wei Wang <weiwan@google.com>
 > 
-> In fib6_locate(), we need to first make sure fn is not NULL before doing
-> FIB6_SUBTREE(fn) to avoid crash.
+> In order to not dirty the cacheline too often, we try to only update
+> dst->__use and dst->lastusetime at most once per jiffy.
+> As dst->lastusetime is only used by ipv6 garbage collector, it should
+> be good enough time resolution.
+> And __use is only used in ipv6_route_seq_show() to show how many times a
+> dst has been used. And as __use is not atomic_t right now, it does not
+> show the precise number of usage times anyway. So we think it should be
+> OK to only update it at most once per jiffy.
 > 
-> This fixes the following static checker warning:
-> net/ipv6/ip6_fib.c:1462 fib6_locate()
->          warn: variable dereferenced before check 'fn' (see line 1459)
+> According to my latest syn flood test on a machine with intel Xeon 6th
+> gen processor and 2 10G mlx nics bonded together, each with 8 rx queues
+> on 2 NUMA nodes:
+> With this patch, the packet process rate increases from ~3.49Mpps to
+> ~3.75Mpps with a 7% increase rate.
 > 
-> net/ipv6/ip6_fib.c
->   1458          if (src_len) {
->   1459                  struct fib6_node *subtree = FIB6_SUBTREE(fn);
->                                                     ^^^^^^^^^^^^^^^^
-> We shifted this dereference
+> Note: dst_use() is being renamed to dst_hold_and_use() to better specify
+> the purpose of the function.
 > 
->   1460
->   1461                  WARN_ON(saddr == NULL);
->   1462                  if (fn && subtree)
->                             ^^
-> before the check for NULL.
-> 
->   1463                          fn = fib6_locate_1(subtree, saddr, src_len,
->   1464                                             offsetof(struct rt6_info, rt6i_src)
-> 
-> Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 > Signed-off-by: Wei Wang <weiwan@google.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Eric Dumazet <edumazet@googl.com>
 
-Applied.
+Also applied, thank you.
