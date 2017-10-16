@@ -1,84 +1,82 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net] ibmvnic: Fix calculation of number of TX header descriptors
-Date: Mon, 16 Oct 2017 10:02:11 -0500
-Message-ID: <1508166131-5141-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
-Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39678 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753139AbdJPPCS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 11:02:18 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9GExw96135447
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 11:02:17 -0400
-Received: from e16.ny.us.ibm.com (e16.ny.us.ibm.com [129.33.205.206])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2dmuqdadgt-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 11:02:17 -0400
-Received: from localhost
-        by e16.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Mon, 16 Oct 2017 11:02:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] virtio_net: implement VIRTIO_CONFIG_S_NEEDS_RESET
+Date: Mon, 16 Oct 2017 11:03:18 -0400
+Message-ID: <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
+References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
+	<20171015034018-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>,
+	Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20171015034018-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch correctly sets the number of additional header descriptors
-that will be sent in an indirect SCRQ entry.
+>> +static int virtnet_reset(struct virtnet_info *vi)
+>> +{
+>> +     struct virtio_device *dev = vi->vdev;
+>> +     int ret;
+>> +
+>> +     virtio_config_disable(dev);
+>> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+>> +     virtnet_freeze_down(dev, true);
+>> +     remove_vq_common(vi);
+>> +
+>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>> +
+>> +     ret = virtio_finalize_features(dev);
+>> +     if (ret)
+>> +             goto err;
+>> +
+>> +     ret = virtnet_restore_up(dev);
+>> +     if (ret)
+>> +             goto err;
+>> +
+>> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
+>> +     if (ret)
+>> +             goto err;
+>> +
+>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+>> +     virtio_config_enable(dev);
+>> +     return 0;
+>> +
+>> +err:
+>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>> +     return ret;
+>> +}
+>> +
+>>  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
+>>  {
+>>       struct scatterlist sg;
+>
+> I have a question here though. How do things like MAC address
+> get restored?
+>
+> What about the rx mode?
+>
+> vlans?
 
-Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+The function as is releases and reinitializes only ring state.
+Device configuration such as mac and vlan persist across
+the reset.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index cb8182f..c66abd4 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -1093,11 +1093,12 @@ static int build_hdr_data(u8 hdr_field, struct sk_buff *skb,
-  * places them in a descriptor array, scrq_arr
-  */
- 
--static void create_hdr_descs(u8 hdr_field, u8 *hdr_data, int len, int *hdr_len,
--			     union sub_crq *scrq_arr)
-+static int create_hdr_descs(u8 hdr_field, u8 *hdr_data, int len, int *hdr_len,
-+			    union sub_crq *scrq_arr)
- {
- 	union sub_crq hdr_desc;
- 	int tmp_len = len;
-+	int num_descs = 0;
- 	u8 *data, *cur;
- 	int tmp;
- 
-@@ -1126,7 +1127,10 @@ static void create_hdr_descs(u8 hdr_field, u8 *hdr_data, int len, int *hdr_len,
- 		tmp_len -= tmp;
- 		*scrq_arr = hdr_desc;
- 		scrq_arr++;
-+		num_descs++;
- 	}
-+
-+	return num_descs;
- }
- 
- /**
-@@ -1144,16 +1148,12 @@ static void build_hdr_descs_arr(struct ibmvnic_tx_buff *txbuff,
- 				int *num_entries, u8 hdr_field)
- {
- 	int hdr_len[3] = {0, 0, 0};
--	int tot_len, len;
-+	int tot_len;
- 	u8 *hdr_data = txbuff->hdr_data;
- 
- 	tot_len = build_hdr_data(hdr_field, txbuff->skb, hdr_len,
- 				 txbuff->hdr_data);
--	len = tot_len;
--	len -= 24;
--	if (len > 0)
--		num_entries += len % 29 ? len / 29 + 1 : len / 29;
--	create_hdr_descs(hdr_field, hdr_data, tot_len, hdr_len,
-+	*num_entries += create_hdr_descs(hdr_field, hdr_data, tot_len, hdr_len,
- 			 txbuff->indir_arr + 1);
- }
- 
--- 
-2.7.4
+> Also, it seems that LINK_ANNOUNCE requests will get ignored
+> even if they got set before the reset, leading to downtime.
+
+Do you mean act on VIRTIO_NET_F_GUEST_ANNOUNCE
+requests? That flag is tested and netdev_notify_peers
+called before resetting virtio ring state.
