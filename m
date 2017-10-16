@@ -1,77 +1,234 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Subject: Re: [PATCH] can: check for null sk before deferencing it via the call
- to sock_net
-Date: Mon, 16 Oct 2017 12:37:07 -0400
-Message-ID: <CA+5PVA7fJfZmN-XLuqARGkWL6eY54HaRAj19K_Und3K7vAVfpg@mail.gmail.com>
-References: <20170908150235.2931-1-colin.king@canonical.com> <f5ce1047-eb37-151a-c7b7-9b47b70789f7@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Colin King <colin.king@canonical.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-can@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org,
-        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f5ce1047-eb37-151a-c7b7-9b47b70789f7@hartkopp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v2 net-next 3/5] net: Add extack to validator_info structs used for address notifier
+Date: Mon, 16 Oct 2017 09:36:52 -0700
+Message-ID: <1508171814-16713-4-git-send-email-dsahern@gmail.com>
+References: <1508171814-16713-1-git-send-email-dsahern@gmail.com>
+Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
+        davem@davemloft.net, yoshfuji@linux-ipv6.org,
+        David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:44291 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754173AbdJPQhF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 12:37:05 -0400
+Received: by mail-pf0-f194.google.com with SMTP id x7so16220181pfa.1
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:37:05 -0700 (PDT)
+In-Reply-To: <1508171814-16713-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 8, 2017 at 1:46 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
->
->
-> On 09/08/2017 05:02 PM, Colin King wrote:
->>
->> From: Colin Ian King <colin.king@canonical.com>
->>
->> The assignment of net via call sock_net will dereference sk. This
->> is performed before a sanity null check on sk, so there could be
->> a potential null dereference on the sock_net call if sk is null.
->> Fix this by assigning net after the sk null check. Also replace
->> the sk == NULL with the more usual !sk idiom.
->>
->> Detected by CoverityScan CID#1431862 ("Dereference before null check")
->>
->> Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM
->> protocol")
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->
->
-> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Add extack to in_validator_info and in6_validator_info. Update the one
+user of each, ipvlan, to return an error message for failures.
 
-I don't see this one queued up in the net or net-next trees.  Did it
-fall through the cracks or did it get queued up elsewhere?  Seems like
-it's a good candidate to get into 4.14?
+Only manual configuration of an address is plumbed in the IPv6 code path.
 
-josh
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ipvlan/ipvlan_main.c | 10 ++++++++--
+ include/linux/inetdevice.h       |  1 +
+ include/net/addrconf.h           |  1 +
+ net/ipv4/devinet.c               |  8 +++++---
+ net/ipv6/addrconf.c              | 22 ++++++++++++----------
+ 5 files changed, 27 insertions(+), 15 deletions(-)
 
->
->
-> Thanks Collin!
->
->
->> ---
->>   net/can/bcm.c | 5 +++--
->>   1 file changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/can/bcm.c b/net/can/bcm.c
->> index 47a8748d953a..a3791674b8ce 100644
->> --- a/net/can/bcm.c
->> +++ b/net/can/bcm.c
->> @@ -1493,13 +1493,14 @@ static int bcm_init(struct sock *sk)
->>   static int bcm_release(struct socket *sock)
->>   {
->>         struct sock *sk = sock->sk;
->> -       struct net *net = sock_net(sk);
->> +       struct net *net;
->>         struct bcm_sock *bo;
->>         struct bcm_op *op, *next;
->>   -     if (sk == NULL)
->> +       if (!sk)
->>                 return 0;
->>   +     net = sock_net(sk);
->>         bo = bcm_sk(sk);
->>         /* remove bcm_ops, timer, rx_unregister(), etc. */
->>
->
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 6842739b6679..f0ab55df57f1 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -847,8 +847,11 @@ static int ipvlan_addr6_validator_event(struct notifier_block *unused,
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
+-		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true))
++		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true)) {
++			NL_SET_ERR_MSG(i6vi->extack,
++				       "Address already assigned to an ipvlan device");
+ 			return notifier_from_errno(-EADDRINUSE);
++		}
+ 		break;
+ 	}
+ 
+@@ -917,8 +920,11 @@ static int ipvlan_addr4_validator_event(struct notifier_block *unused,
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
+-		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false))
++		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false)) {
++			NL_SET_ERR_MSG(ivi->extack,
++				       "Address already assigned to an ipvlan device");
+ 			return notifier_from_errno(-EADDRINUSE);
++		}
+ 		break;
+ 	}
+ 
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 751d051f0bc7..681dff30940b 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -154,6 +154,7 @@ struct in_ifaddr {
+ struct in_validator_info {
+ 	__be32			ivi_addr;
+ 	struct in_device	*ivi_dev;
++	struct netlink_ext_ack	*extack;
+ };
+ 
+ int register_inetaddr_notifier(struct notifier_block *nb);
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 87981cd63180..b8b16437c6d5 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -55,6 +55,7 @@ struct prefix_info {
+ struct in6_validator_info {
+ 	struct in6_addr		i6vi_addr;
+ 	struct inet6_dev	*i6vi_dev;
++	struct netlink_ext_ack	*extack;
+ };
+ 
+ #define IN6_ADDR_HSIZE_SHIFT	4
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 7ce22a2c07ce..93773e5a80c7 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -444,7 +444,7 @@ static void check_lifetime(struct work_struct *work);
+ static DECLARE_DELAYED_WORK(check_lifetime_work, check_lifetime);
+ 
+ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+-			     u32 portid)
++			     u32 portid, struct netlink_ext_ack *extack)
+ {
+ 	struct in_device *in_dev = ifa->ifa_dev;
+ 	struct in_ifaddr *ifa1, **ifap, **last_primary;
+@@ -489,6 +489,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 	 */
+ 	ivi.ivi_addr = ifa->ifa_address;
+ 	ivi.ivi_dev = ifa->ifa_dev;
++	ivi.extack = extack;
+ 	ret = blocking_notifier_call_chain(&inetaddr_validator_chain,
+ 					   NETDEV_UP, &ivi);
+ 	ret = notifier_to_errno(ret);
+@@ -521,7 +522,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 
+ static int inet_insert_ifa(struct in_ifaddr *ifa)
+ {
+-	return __inet_insert_ifa(ifa, NULL, 0);
++	return __inet_insert_ifa(ifa, NULL, 0, NULL);
+ }
+ 
+ static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
+@@ -902,7 +903,8 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 				return ret;
+ 			}
+ 		}
+-		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid);
++		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid,
++					 extack);
+ 	} else {
+ 		inet_free_ifa(ifa);
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index dd9c0c435f71..93f9c0a61911 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -987,7 +987,7 @@ static struct inet6_ifaddr *
+ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	      const struct in6_addr *peer_addr, int pfxlen,
+ 	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft,
+-	      bool can_block)
++	      bool can_block, struct netlink_ext_ack *extack)
+ {
+ 	gfp_t gfp_flags = can_block ? GFP_KERNEL : GFP_ATOMIC;
+ 	struct net *net = dev_net(idev->dev);
+@@ -1019,6 +1019,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		struct in6_validator_info i6vi = {
+ 			.i6vi_addr = *addr,
+ 			.i6vi_dev = idev,
++			.extack = extack,
+ 		};
+ 
+ 		err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
+@@ -1356,7 +1357,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
+ 
+ 	ift = ipv6_add_addr(idev, &addr, NULL, tmp_plen,
+ 			    ipv6_addr_scope(&addr), addr_flags,
+-			    tmp_valid_lft, tmp_prefered_lft, true);
++			    tmp_valid_lft, tmp_prefered_lft, true, NULL);
+ 	if (IS_ERR(ift)) {
+ 		in6_ifa_put(ifp);
+ 		in6_dev_put(idev);
+@@ -2040,7 +2041,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ 
+ 		ifp2 = ipv6_add_addr(idev, &new_addr, NULL, pfxlen,
+ 				     scope, flags, valid_lft,
+-				     preferred_lft, false);
++				     preferred_lft, false, NULL);
+ 		if (IS_ERR(ifp2))
+ 			goto lock_errdad;
+ 
+@@ -2498,7 +2499,7 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
+ 					    pinfo->prefix_len,
+ 					    addr_type&IPV6_ADDR_SCOPE_MASK,
+ 					    addr_flags, valid_lft,
+-					    prefered_lft, false);
++					    prefered_lft, false, NULL);
+ 
+ 		if (IS_ERR_OR_NULL(ifp))
+ 			return -1;
+@@ -2808,7 +2809,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 			  const struct in6_addr *pfx,
+ 			  const struct in6_addr *peer_pfx,
+ 			  unsigned int plen, __u32 ifa_flags,
+-			  __u32 prefered_lft, __u32 valid_lft)
++			  __u32 prefered_lft, __u32 valid_lft,
++			  struct netlink_ext_ack *extack)
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct inet6_dev *idev;
+@@ -2867,7 +2869,7 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 	}
+ 
+ 	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
+-			    valid_lft, prefered_lft, true);
++			    valid_lft, prefered_lft, true, extack);
+ 
+ 	if (!IS_ERR(ifp)) {
+ 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+@@ -2952,7 +2954,7 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
+ 	rtnl_lock();
+ 	err = inet6_addr_add(net, ireq.ifr6_ifindex, &ireq.ifr6_addr, NULL,
+ 			     ireq.ifr6_prefixlen, IFA_F_PERMANENT,
+-			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
++			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, NULL);
+ 	rtnl_unlock();
+ 	return err;
+ }
+@@ -2983,7 +2985,7 @@ static void add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifp = ipv6_add_addr(idev, addr, NULL, plen,
+ 			    scope, IFA_F_PERMANENT,
+ 			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME,
+-			    true);
++			    true, NULL);
+ 	if (!IS_ERR(ifp)) {
+ 		spin_lock_bh(&ifp->lock);
+ 		ifp->flags &= ~IFA_F_TENTATIVE;
+@@ -3083,7 +3085,7 @@ void addrconf_add_linklocal(struct inet6_dev *idev,
+ #endif
+ 
+ 	ifp = ipv6_add_addr(idev, addr, NULL, 64, IFA_LINK, addr_flags,
+-			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, true);
++			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, true, NULL);
+ 	if (!IS_ERR(ifp)) {
+ 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, idev->dev, 0, 0);
+ 		addrconf_dad_start(ifp);
+@@ -4586,7 +4588,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		 */
+ 		return inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
+ 				      ifm->ifa_prefixlen, ifa_flags,
+-				      preferred_lft, valid_lft);
++				      preferred_lft, valid_lft, extack);
+ 	}
+ 
+ 	if (nlh->nlmsg_flags & NLM_F_EXCL ||
+-- 
+2.1.4
