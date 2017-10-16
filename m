@@ -1,55 +1,89 @@
-From: "J . Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH] sunrcp: make function _svc_create_xprt static
-Date: Mon, 16 Oct 2017 14:06:42 -0400
-Message-ID: <20171016180642.GA12608@fieldses.org>
-References: <20171016134021.15702-1-colin.king@canonical.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Ethtool question
+Date: Mon, 16 Oct 2017 11:10:16 -0700
+Message-ID: <fec121f7-67bb-486f-ffc0-59f292614043@candelatech.com>
+References: <492e57b2-ac0a-ff01-2698-e048e97d8e37@candelatech.com>
+ <20171011204406.GC30940@tuxdriver.com>
+ <20171011.134919.321292333200236097.davem@davemloft.net>
+ <59DFE275.3050805@candelatech.com>
+ <CAJieiUhsxPRPBBV1WJR6NRfzDKt-8c=QYRHhwoW33KchSb-gXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Layton <jlayton@poochiereds.net>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171016134021.15702-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:54176 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754365AbdJPSKT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 14:10:19 -0400
+In-Reply-To: <CAJieiUhsxPRPBBV1WJR6NRfzDKt-8c=QYRHhwoW33KchSb-gXg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks, applied for 4.15.--b.
+On 10/12/2017 03:00 PM, Roopa Prabhu wrote:
+> On Thu, Oct 12, 2017 at 2:45 PM, Ben Greear <greearb@candelatech.com> wrote:
+>> On 10/11/2017 01:49 PM, David Miller wrote:
+>>>
+>>> From: "John W. Linville" <linville@tuxdriver.com>
+>>> Date: Wed, 11 Oct 2017 16:44:07 -0400
+>>>
+>>>> On Wed, Oct 11, 2017 at 09:51:56AM -0700, Ben Greear wrote:
+>>>>>
+>>>>> I noticed today that setting some ethtool settings to the same value
+>>>>> returns an error code.  I would think this should silently return
+>>>>> success instead?  Makes it easier to call it from scripts this way:
+>>>>>
+>>>>> [root@lf0313-6477 lanforge]# ethtool -L eth3 combined 1
+>>>>> combined unmodified, ignoring
+>>>>> no channel parameters changed, aborting
+>>>>> current values: tx 0 rx 0 other 1 combined 1
+>>>>> [root@lf0313-6477 lanforge]# echo $?
+>>>>> 1
+>>>>
+>>>>
+>>>> I just had this discussion a couple of months ago with someone. My
+>>>> initial feeling was like you, a no-op is not a failure. But someone
+>>>> convinced me otherwise...I will now endeavour to remember who that
+>>>> was and how they convinced me...
+>>>>
+>>>> Anyone else have input here?
+>>>
+>>>
+>>> I guess this usually happens when drivers don't support changing the
+>>> settings at all.  So they just make their ethtool operation for the
+>>> 'set' always return an error.
+>>>
+>>> We could have a generic ethtool helper that does "get" and then if the
+>>> "set" request is identical just return zero.
+>>>
+>>> But from another perspective, the error returned from the "set" in this
+>>> situation also indicates to the user that the driver does not support
+>>> the "set" operation which has value and meaning in and of itself.  And
+>>> we'd lose that with the given suggestion.
+>>
+>>
+>> In my case, the driver (igb) does support the set, my program just made the
+>> same
+>> ethtool call several times and it fails after the initial change (that
+>> actually
+>> changes something), as best as I can figure.
+>
+>
+> This error is returned by ethtool user-space. It does a get, check and
+> then set if user has requested changes.
+>
 
-On Mon, Oct 16, 2017 at 02:40:21PM +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> The function _svc_create_xprt is local to the source and
-> does not need to be in global scope, so make it static.
-> 
-> Cleans up sparse warning:
-> symbol '_svc_create_xprt' was not declared. Should it be static?
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  net/sunrpc/svc_xprt.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
-> index d16a8b423c20..18e87791350f 100644
-> --- a/net/sunrpc/svc_xprt.c
-> +++ b/net/sunrpc/svc_xprt.c
-> @@ -250,9 +250,9 @@ void svc_add_new_perm_xprt(struct svc_serv *serv, struct svc_xprt *new)
->  	svc_xprt_received(new);
->  }
->  
-> -int _svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
-> -		    struct net *net, const int family,
-> -		    const unsigned short port, int flags)
-> +static int _svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
-> +			    struct net *net, const int family,
-> +			    const unsigned short port, int flags)
->  {
->  	struct svc_xprt_class *xcl;
->  
-> -- 
-> 2.14.1
+So, should we fix ethtool to return 0 in this case instead of an error code?
+
+I think so.  If the driver itself returns an error, then probably return the
+error code and/or fix the driver as seems appropriate.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
