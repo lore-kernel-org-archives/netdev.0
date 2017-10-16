@@ -1,56 +1,57 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] netfilter: ebtables: clean up initialization of buf
-Date: Mon, 16 Oct 2017 11:24:02 +0100
-Message-ID: <20171016102402.10358-1-colin.king@canonical.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: usb/net/rt2x00: warning in rt2800_eeprom_word_index
+Date: Mon, 16 Oct 2017 13:27:43 +0300
+Message-ID: <8760bfo09s.fsf@kamboji.qca.qualcomm.com>
+References: <CAAeHK+yUNrrNU3Jqrfs7XAT809eyF4nv673cSL8RppbLrDtWNA@mail.gmail.com>
+        <20171012072529.GB2686@redhat.com>
+        <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Florian Westphal <fw@strlen.de>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S . Miller" <davem@davemloft.net>, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
+        (Dmitry Vyukov's message of "Sat, 14 Oct 2017 16:38:03 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Dmitry Vyukov <dvyukov@google.com> writes:
 
-buf is initialized to buf_start and then set on the next statement
-to buf_start + offsets[i].  Clean this up to just initialize buf
-to buf_start + offsets[i] to clean up the clang build warning:
-"Value stored to 'buf' during its initialization is never read"
+> On Thu, Oct 12, 2017 at 9:25 AM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+>> Hi
+>>
+>> On Mon, Oct 09, 2017 at 07:50:53PM +0200, Andrey Konovalov wrote:
+>>> I've got the following report while fuzzing the kernel with syzkaller.
+>>>
+>>> On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
+>>>
+>>> I'm not sure whether this is a bug in the driver, or just a way to
+>>> report misbehaving device. In the latter case this shouldn't be a
+>>> WARN() call, since WARN() means bug in the kernel.
+>>
+>> This is about wrong EEPROM, which reported 3 tx streams on
+>> non 3 antenna device. I think WARN() is justified and thanks
+>> to the call trace I was actually able to to understand what
+>> happened.
+>>
+>> In general I do not think WARN() only means a kernel bug, it
+>> can be F/W or H/W bug too.
+>
+> Hi Stanislaw,
+>
+> Printing messages is fine. Printing stacks is fine. Just please make
+> them distinguishable from kernel bugs and don't kill the whole
+> possibility of automated Linux kernel testing. That's an important
+> capability.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/bridge/netfilter/ebtables.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Not really following you. Are you saying that using WARN() prevents
+automated Linux kernel testing?
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 3b3dcf719e07..37817d25b63d 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -2112,9 +2112,8 @@ static int size_entry_mwt(struct ebt_entry *entry, const unsigned char *base,
- 	for (i = 0, j = 1 ; j < 4 ; j++, i++) {
- 		struct compat_ebt_entry_mwt *match32;
- 		unsigned int size;
--		char *buf = buf_start;
-+		char *buf = buf_start + offsets[i];
- 
--		buf = buf_start + offsets[i];
- 		if (offsets[i] > offsets[j])
- 			return -EINVAL;
- 
 -- 
-2.14.1
+Kalle Valo
