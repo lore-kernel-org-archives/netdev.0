@@ -1,436 +1,128 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 1/2] tcp: TCP experimental option for SMC
-Date: Mon, 16 Oct 2017 17:42:01 +0200
-Message-ID: <20171016154202.72635-2-ubraun@linux.vnet.ibm.com>
-References: <20171016154202.72635-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
-        ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net] bpf: disallow arithmetic operations on context pointer
+Date: Mon, 16 Oct 2017 08:45:52 -0700
+Message-ID: <20171016154552.30640-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, ecree@solarflare.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48100 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752477AbdJPPmP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 11:42:15 -0400
-Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9GFgD5d067591
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 11:42:15 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2dmvgdjhg3-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 11:42:14 -0400
-Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Mon, 16 Oct 2017 16:42:09 +0100
-In-Reply-To: <20171016154202.72635-1-ubraun@linux.vnet.ibm.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:47194 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752415AbdJPPqP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 11:46:15 -0400
+Received: by mail-pg0-f42.google.com with SMTP id r25so7126580pgn.4
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 08:46:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SMC protocol [1] relies on the use of a new TCP experimental
-option [2, 3]. With this option, SMC capabilities are exchanged
-between peers during the TCP three way handshake. This patch adds
-support for this experimental option to TCP.
+Commit f1174f77b50c ("bpf/verifier: rework value tracking")
+removed the crafty selection of which pointer types are
+allowed to be modified.  This is OK for most pointer types
+since adjust_ptr_min_max_vals() will catch operations on
+immutable pointers.  One exception is PTR_TO_CTX which is
+now allowed to be offseted freely.
 
-References:
-[1] SMC-R Informational RFC: http://www.rfc-editor.org/info/rfc7609
-[2] Shared Use of TCP Experimental Options RFC 6994:
-    https://tools.ietf.org/rfc/rfc6994.txt
-[3] IANA ExID SMCR:
-http://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml#tcp-exids
+The intent of aforementioned commit was to allow context
+access via modified registers.  The offset passed to
+->is_valid_access() verifier callback has been adjusted
+by the value of the variable offset.
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+What is missing, however, is taking the variable offset
+into account when the context register is used.  Or in terms
+of the code adding the offset to the value passed to the
+->convert_ctx_access() callback.  This leads to the following
+eBPF user code:
+
+     r1 += 68
+     r0 = *(u32 *)(r1 + 8)
+     exit
+
+being translated to this in kernel space:
+
+   0: (07) r1 += 68
+   1: (61) r0 = *(u32 *)(r1 +180)
+   2: (95) exit
+
+Offset 8 is corresponding to 180 in the kernel, but offset
+76 is valid too.  Verifier will "accept" access to offset
+68+8=76 but then "convert" access to offset 8 as 180.
+Effective access to offset 248 is beyond the kernel context.
+(This is a __sk_buff example on a debug-heavy kernel -
+packet mark is 8 -> 180, 76 would be data.)
+
+Dereferencing the modified context pointer is not as easy
+as dereferencing other types, because we have to translate
+the access to reading a field in kernel structures which is
+usually at a different offset and often of a different size.
+To allow modifying the pointer we would have to make sure
+that given eBPF instruction will always access the same
+field or the fields accessed are "compatible" in terms of
+offset and size...
+
+Disallow dereferencing modified context pointers and add
+to selftests the test case described here.
+
+Fixes: f1174f77b50c ("bpf/verifier: rework value tracking")
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- include/linux/tcp.h      |  9 ++++--
- include/net/inet_sock.h  |  3 +-
- include/net/tcp.h        |  8 ++++++
- net/ipv4/tcp.c           |  6 ++++
- net/ipv4/tcp_input.c     | 45 ++++++++++++++++++++++++++++++
- net/ipv4/tcp_minisocks.c | 20 ++++++++++++++
- net/ipv4/tcp_output.c    | 71 ++++++++++++++++++++++++++++++++++++++++++++++--
- 7 files changed, 156 insertions(+), 6 deletions(-)
+Dave, a merge note - in net-next this will need env to be passed 
+to verbose().
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 1d2c44e09e31..3fb28954a1b7 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -98,7 +98,8 @@ struct tcp_options_received {
- 		tstamp_ok : 1,	/* TIMESTAMP seen on SYN packet		*/
- 		dsack : 1,	/* D-SACK is scheduled			*/
- 		wscale_ok : 1,	/* Wscale seen on SYN packet		*/
--		sack_ok : 4,	/* SACK seen on SYN packet		*/
-+		sack_ok : 3,	/* SACK seen on SYN packet		*/
-+		smc_ok : 1,	/* SMC seen on SYN packet		*/
- 		snd_wscale : 4,	/* Window scaling received from sender	*/
- 		rcv_wscale : 4;	/* Window scaling to send to receiver	*/
- 	u8	num_sacks;	/* Number of SACK blocks		*/
-@@ -110,6 +111,9 @@ static inline void tcp_clear_options(struct tcp_options_received *rx_opt)
- {
- 	rx_opt->tstamp_ok = rx_opt->sack_ok = 0;
- 	rx_opt->wscale_ok = rx_opt->snd_wscale = 0;
-+#if IS_ENABLED(CONFIG_SMC)
-+	rx_opt->smc_ok = 0;
-+#endif
- }
- 
- /* This is the max number of SACKS that we'll generate and process. It's safe
-@@ -228,7 +232,8 @@ struct tcp_sock {
- 		syn_fastopen_ch:1, /* Active TFO re-enabling probe */
- 		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
- 		save_syn:1,	/* Save headers of SYN packet */
--		is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
-+		is_cwnd_limited:1,/* forward progress limited by snd_cwnd? */
-+		syn_smc:1;	/* SYN includes SMC */
- 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
- 
- /* RTT measurement */
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index aa95053dfc78..600a7626eba0 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -92,7 +92,8 @@ struct inet_request_sock {
- 				wscale_ok  : 1,
- 				ecn_ok	   : 1,
- 				acked	   : 1,
--				no_srccheck: 1;
-+				no_srccheck: 1,
-+				smc_ok	   : 1;
- 	kmemcheck_bitfield_end(flags);
- 	u32                     ir_mark;
- 	union {
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3b3b9b968e2d..d8a82a35c1b2 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -45,6 +45,7 @@
- 
- #include <linux/seq_file.h>
- #include <linux/memcontrol.h>
-+#include <linux/unaligned/access_ok.h>
- 
- #include <linux/bpf.h>
- #include <linux/filter.h>
-@@ -191,6 +192,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
-  * experimental options. See draft-ietf-tcpm-experimental-options-00.txt
-  */
- #define TCPOPT_FASTOPEN_MAGIC	0xF989
-+#define TCPOPT_SMC_MAGIC	0xE2D4C3D9
- 
- /*
-  *     TCP option lengths
-@@ -203,6 +205,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOLEN_MD5SIG         18
- #define TCPOLEN_FASTOPEN_BASE  2
- #define TCPOLEN_EXP_FASTOPEN_BASE  4
-+#define TCPOLEN_EXP_SMC_BASE   6
- 
- /* But this is what stacks really send out. */
- #define TCPOLEN_TSTAMP_ALIGNED		12
-@@ -213,6 +216,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCPOLEN_SACK_PERBLOCK		8
- #define TCPOLEN_MD5SIG_ALIGNED		20
- #define TCPOLEN_MSS_ALIGNED		4
-+#define TCPOLEN_EXP_SMC_BASE_ALIGNED	8
- 
- /* Flags in tp->nonagle */
- #define TCP_NAGLE_OFF		1	/* Nagle's algo is disabled */
-@@ -2101,4 +2105,8 @@ static inline bool tcp_bpf_ca_needs_ecn(struct sock *sk)
- {
- 	return (tcp_call_bpf(sk, BPF_SOCK_OPS_NEEDS_ECN) == 1);
- }
-+
-+#if IS_ENABLED(CONFIG_SMC)
-+extern struct static_key tcp_have_smc;
-+#endif
- #endif	/* _TCP_H */
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3b34850d361f..d2d7e1ad0897 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -270,6 +270,7 @@
- #include <linux/time.h>
- #include <linux/slab.h>
- #include <linux/errqueue.h>
-+#include <linux/static_key.h>
- 
- #include <net/icmp.h>
- #include <net/inet_common.h>
-@@ -300,6 +301,11 @@ EXPORT_SYMBOL(sysctl_tcp_wmem);
- atomic_long_t tcp_memory_allocated;	/* Current allocated memory. */
- EXPORT_SYMBOL(tcp_memory_allocated);
- 
-+#if IS_ENABLED(CONFIG_SMC)
-+struct static_key tcp_have_smc __read_mostly = STATIC_KEY_INIT_FALSE;
-+EXPORT_SYMBOL(tcp_have_smc);
-+#endif
-+
- /*
-  * Current number of TCP sockets.
-  */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d0682ce2a5d6..28d03af2c7b1 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -75,6 +75,7 @@
- #include <linux/ipsec.h>
- #include <asm/unaligned.h>
- #include <linux/errqueue.h>
-+#include <linux/static_key.h>
- 
- int sysctl_tcp_fack __read_mostly;
- int sysctl_tcp_max_reordering __read_mostly = 300;
-@@ -3735,6 +3736,21 @@ static void tcp_parse_fastopen_option(int len, const unsigned char *cookie,
- 	foc->exp = exp_opt;
- }
- 
-+static void smc_parse_options(const struct tcphdr *th,
-+			      struct tcp_options_received *opt_rx,
-+			      const unsigned char *ptr,
-+			      int opsize)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	if (!static_key_false(&tcp_have_smc))
-+		return;
-+	if (th->syn && !(opsize & 1) &&
-+	    opsize >= TCPOLEN_EXP_SMC_BASE &&
-+	    get_unaligned_be32(ptr) == TCPOPT_SMC_MAGIC)
-+		opt_rx->smc_ok = 1;
-+#endif
-+}
-+
- /* Look for tcp options. Normally only called on SYN and SYNACK packets.
-  * But, this can also be called on packets in the established flow when
-  * the fast version below fails.
-@@ -3842,6 +3858,9 @@ void tcp_parse_options(const struct net *net,
- 					tcp_parse_fastopen_option(opsize -
- 						TCPOLEN_EXP_FASTOPEN_BASE,
- 						ptr + 2, th->syn, foc, true);
-+				else
-+					smc_parse_options(th, opt_rx, ptr,
-+							  opsize);
- 				break;
- 
- 			}
-@@ -5594,6 +5613,15 @@ static bool tcp_rcv_fastopen_synack(struct sock *sk, struct sk_buff *synack,
- 	return false;
- }
- 
-+static void smc_check_reset_syn(struct tcp_sock *tp)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	if (static_key_false(&tcp_have_smc))
-+		if (tp->syn_smc && !tp->rx_opt.smc_ok)
-+			tp->syn_smc = 0;
-+#endif
-+}
-+
- static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 					 const struct tcphdr *th)
- {
-@@ -5700,6 +5728,8 @@ static int tcp_rcv_synsent_state_process(struct sock *sk, struct sk_buff *skb,
- 		 * is initialized. */
- 		tp->copied_seq = tp->rcv_nxt;
- 
-+		smc_check_reset_syn(tp);
-+
- 		smp_mb();
- 
- 		tcp_finish_connect(sk, skb);
-@@ -6129,6 +6159,20 @@ static void tcp_ecn_create_request(struct request_sock *req,
- 		inet_rsk(req)->ecn_ok = 1;
- }
- 
-+static void smc_set_capability(struct inet_request_sock *ireq,
-+			       const struct tcp_options_received *rx_opt)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	if (!static_key_false(&tcp_have_smc))
-+		return;
-+
-+	if (rx_opt->smc_ok)
-+		ireq->smc_ok = 1;
-+	else
-+		ireq->smc_ok = 0;
-+#endif
-+}
-+
- static void tcp_openreq_init(struct request_sock *req,
- 			     const struct tcp_options_received *rx_opt,
- 			     struct sk_buff *skb, const struct sock *sk)
-@@ -6152,6 +6196,7 @@ static void tcp_openreq_init(struct request_sock *req,
- 	ireq->ir_rmt_port = tcp_hdr(skb)->source;
- 	ireq->ir_num = ntohs(tcp_hdr(skb)->dest);
- 	ireq->ir_mark = inet_request_mark(sk, skb);
-+	smc_set_capability(ireq, rx_opt);
- }
- 
- struct request_sock *inet_reqsk_alloc(const struct request_sock_ops *ops,
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 2341b9f857b6..2b1bff09a8c3 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -23,6 +23,7 @@
- #include <linux/slab.h>
- #include <linux/sysctl.h>
- #include <linux/workqueue.h>
-+#include <linux/static_key.h>
- #include <net/tcp.h>
- #include <net/inet_common.h>
- #include <net/xfrm.h>
-@@ -417,6 +418,22 @@ void tcp_ca_openreq_child(struct sock *sk, const struct dst_entry *dst)
- }
- EXPORT_SYMBOL_GPL(tcp_ca_openreq_child);
- 
-+static void smc_check_reset_syn_req(struct tcp_sock *oldtp,
-+				    struct request_sock *req,
-+				    struct tcp_sock *newtp)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	struct inet_request_sock *ireq;
-+
-+	if (!static_key_false(&tcp_have_smc))
-+		return;
-+
-+	ireq = inet_rsk(req);
-+	if (oldtp->syn_smc && !ireq->smc_ok)
-+		newtp->syn_smc = 0;
-+#endif
-+}
-+
- /* This is not only more efficient than what we used to do, it eliminates
-  * a lot of code duplication between IPv4/IPv6 SYN recv processing. -DaveM
-  *
-@@ -434,6 +451,9 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
- 		struct tcp_request_sock *treq = tcp_rsk(req);
- 		struct inet_connection_sock *newicsk = inet_csk(newsk);
- 		struct tcp_sock *newtp = tcp_sk(newsk);
-+		struct tcp_sock *oldtp = tcp_sk(sk);
-+
-+		smc_check_reset_syn_req(oldtp, req, newtp);
- 
- 		/* Now setup tcp_sock */
- 		newtp->pred_flags = 0;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 6c74f2a39778..36b5e45f02ca 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -41,6 +41,7 @@
- #include <linux/compiler.h>
- #include <linux/gfp.h>
- #include <linux/module.h>
-+#include <linux/static_key.h>
- 
- #include <trace/events/tcp.h>
- 
-@@ -422,6 +423,22 @@ static inline bool tcp_urg_mode(const struct tcp_sock *tp)
- #define OPTION_MD5		(1 << 2)
- #define OPTION_WSCALE		(1 << 3)
- #define OPTION_FAST_OPEN_COOKIE	(1 << 8)
-+#define OPTION_SMC		(1 << 9)
-+
-+static void smc_options_write(__be32 *ptr, u16 *options)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	if (!static_key_false(&tcp_have_smc))
-+		return;
-+	if (unlikely(OPTION_SMC & *options)) {
-+		*ptr++ = htonl((TCPOPT_NOP  << 24) |
-+			       (TCPOPT_NOP  << 16) |
-+			       (TCPOPT_EXP <<  8) |
-+			       (TCPOLEN_EXP_SMC_BASE));
-+		*ptr++ = htonl(TCPOPT_SMC_MAGIC);
-+	}
-+#endif
-+}
- 
- struct tcp_out_options {
- 	u16 options;		/* bit field of OPTION_* */
-@@ -540,6 +557,49 @@ static void tcp_options_write(__be32 *ptr, struct tcp_sock *tp,
- 		}
- 		ptr += (len + 3) >> 2;
- 	}
-+
-+	smc_options_write(ptr, &options);
-+}
-+
-+static void smc_set_option(const struct tcp_sock *tp,
-+			   struct tcp_out_options *opts,
-+			   unsigned int *remaining)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	if (!static_key_false(&tcp_have_smc))
-+		return;
-+	if (tp->syn_smc) {
-+		u32 need = TCPOLEN_EXP_SMC_BASE_ALIGNED;
-+
-+		if (*remaining >= need) {
-+			opts->options |= OPTION_SMC;
-+			*remaining -= need;
+ kernel/bpf/verifier.c                       |  8 ++++++--
+ tools/testing/selftests/bpf/test_verifier.c | 14 ++++++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 8b8d6ba39e23..8499759d0c7a 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1116,7 +1116,12 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
+ 		/* ctx accesses must be at a fixed offset, so that we can
+ 		 * determine what type of data were returned.
+ 		 */
+-		if (!tnum_is_const(reg->var_off)) {
++		if (reg->off) {
++			verbose("derefence of modified ctx ptr R%d off=%d+%d, ctx+const is allowed, ctx+const+const is not\n",
++				regno, reg->off, off - reg->off);
++			return -EACCES;
 +		}
-+	}
-+#endif
-+}
-+
-+static void smc_set_option_cond(const struct tcp_sock *tp,
-+				const struct request_sock *req,
-+				struct tcp_out_options *opts,
-+				unsigned int *remaining)
-+{
-+#if IS_ENABLED(CONFIG_SMC)
-+	struct inet_request_sock *ireq;
-+
-+	if (!static_key_false(&tcp_have_smc))
-+		return;
-+
-+	ireq = inet_rsk(req);
-+	if (tp->syn_smc && ireq->smc_ok) {
-+		u32 need = TCPOLEN_EXP_SMC_BASE_ALIGNED;
-+
-+		if (*remaining >= need) {
-+			opts->options |= OPTION_SMC;
-+			*remaining -= need;
-+		}
-+	}
-+#endif
- }
++		if (!tnum_is_const(reg->var_off) || reg->var_off.value) {
+ 			char tn_buf[48];
  
- /* Compute TCP options for SYN packets. This is not the final
-@@ -607,11 +667,14 @@ static unsigned int tcp_syn_options(struct sock *sk, struct sk_buff *skb,
+ 			tnum_strn(tn_buf, sizeof(tn_buf), reg->var_off);
+@@ -1124,7 +1129,6 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
+ 				tn_buf, off, size);
+ 			return -EACCES;
  		}
- 	}
+-		off += reg->var_off.value;
+ 		err = check_ctx_access(env, insn_idx, off, size, t, &reg_type);
+ 		if (!err && t == BPF_READ && value_regno >= 0) {
+ 			/* ctx access returns either a scalar, or a
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 26f3250bdcd2..d41c77e7b39b 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -6645,6 +6645,20 @@ static struct bpf_test tests[] = {
+ 		.errstr = "BPF_END uses reserved fields",
+ 		.result = REJECT,
+ 	},
++	{
++		"arithmetic ops make PTR_TO_CTX unusable",
++		.insns = {
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1,
++				      offsetof(struct __sk_buff, data) -
++				      offsetof(struct __sk_buff, mark)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
++				    offsetof(struct __sk_buff, mark)),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "derefence of modified ctx ptr R1 off=68+8, ctx+const is allowed, ctx+const+const is not",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
++	},
+ };
  
-+	smc_set_option(tp, opts, &remaining);
-+
- 	return MAX_TCP_OPTION_SPACE - remaining;
- }
- 
- /* Set up TCP options for SYN-ACKs. */
--static unsigned int tcp_synack_options(struct request_sock *req,
-+static unsigned int tcp_synack_options(const struct sock *sk,
-+				       struct request_sock *req,
- 				       unsigned int mss, struct sk_buff *skb,
- 				       struct tcp_out_options *opts,
- 				       const struct tcp_md5sig_key *md5,
-@@ -667,6 +730,8 @@ static unsigned int tcp_synack_options(struct request_sock *req,
- 		}
- 	}
- 
-+	smc_set_option_cond(tcp_sk(sk), req, opts, &remaining);
-+
- 	return MAX_TCP_OPTION_SPACE - remaining;
- }
- 
-@@ -3193,8 +3258,8 @@ struct sk_buff *tcp_make_synack(const struct sock *sk, struct dst_entry *dst,
- 	md5 = tcp_rsk(req)->af_specific->req_md5_lookup(sk, req_to_sk(req));
- #endif
- 	skb_set_hash(skb, tcp_rsk(req)->txhash, PKT_HASH_TYPE_L4);
--	tcp_header_size = tcp_synack_options(req, mss, skb, &opts, md5, foc) +
--			  sizeof(*th);
-+	tcp_header_size = tcp_synack_options(sk, req, mss, skb, &opts, md5,
-+					     foc) + sizeof(*th);
- 
- 	skb_push(skb, tcp_header_size);
- 	skb_reset_transport_header(skb);
+ static int probe_filter_length(const struct bpf_insn *fp)
 -- 
-2.13.5
+2.14.1
