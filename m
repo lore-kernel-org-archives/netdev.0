@@ -1,75 +1,67 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next] tools: bpftool: use more common tag format
-Date: Mon, 16 Oct 2017 10:12:54 -0700
-Message-ID: <20171016171254.26225-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net, Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] can: check for null sk before deferencing it via the call
+ to sock_net
+Date: Mon, 16 Oct 2017 19:32:25 +0200
+Message-ID: <c50ebff0-233c-7dcf-1b80-19ac0369803a@hartkopp.net>
+References: <20170908150235.2931-1-colin.king@canonical.com>
+ <f5ce1047-eb37-151a-c7b7-9b47b70789f7@hartkopp.net>
+ <CA+5PVA7fJfZmN-XLuqARGkWL6eY54HaRAj19K_Und3K7vAVfpg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Colin King <colin.king@canonical.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-can@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Josh Boyer <jwboyer@fedoraproject.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:43569 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752141AbdJPRNJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 13:13:09 -0400
-Received: by mail-pg0-f54.google.com with SMTP id s75so6471583pgs.0
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 10:13:09 -0700 (PDT)
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.218]:10172 "EHLO
+        mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753392AbdJPRcr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 13:32:47 -0400
+In-Reply-To: <CA+5PVA7fJfZmN-XLuqARGkWL6eY54HaRAj19K_Und3K7vAVfpg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Program tag is usually displayed as string of bytes without
-any separators (e.g. as "aa5520b1090cfeb6" vs MAC addr-like
-format bpftool uses currently: "aa:55:20:b1:09:0c:fe:b6").
-Make bptfool use the more common format both for displaying
-the tag and selecting the program by tag.
+On 10/16/2017 06:37 PM, Josh Boyer wrote:
+> On Fri, Sep 8, 2017 at 1:46 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+>>
+>>
+>> On 09/08/2017 05:02 PM, Colin King wrote:
+>>>
+>>> From: Colin Ian King <colin.king@canonical.com>
+>>>
+>>> The assignment of net via call sock_net will dereference sk. This
+>>> is performed before a sanity null check on sk, so there could be
+>>> a potential null dereference on the sock_net call if sk is null.
+>>> Fix this by assigning net after the sk null check. Also replace
+>>> the sk == NULL with the more usual !sk idiom.
+>>>
+>>> Detected by CoverityScan CID#1431862 ("Dereference before null check")
+>>>
+>>> Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM
+>>> protocol")
+>>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>>
+>>
+>> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+> 
+> I don't see this one queued up in the net or net-next trees.  Did it
+> fall through the cracks or did it get queued up elsewhere?  Seems like
+> it's a good candidate to get into 4.14?
 
-This was pointed out in review but I misunderstood the comment.
+It definitely is!
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- tools/bpf/bpftool/Documentation/bpftool-prog.rst | 2 +-
- tools/bpf/bpftool/main.h                         | 3 +--
- tools/bpf/bpftool/prog.c                         | 2 +-
- 3 files changed, 3 insertions(+), 4 deletions(-)
+Marc is our responsible guy for CAN related upstreams - but he seems to 
+be busy as I already poked him here:
 
-diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.rst b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
-index 04d12f768f06..3968f0bd37db 100644
---- a/tools/bpf/bpftool/Documentation/bpftool-prog.rst
-+++ b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
-@@ -55,7 +55,7 @@ EXAMPLES
- **# bpftool prog show**
- ::
- 
--  10: xdp  name some_prog  tag 00:5a:3d:21:23:62:0c:8b
-+  10: xdp  name some_prog  tag 005a3d2123620c8b
- 	loaded_at Sep 29/20:11  uid 0
- 	xlated 528B  jited 370B  memlock 4096B  map_ids 10
- 
-diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 8e809b2bb311..844e4ef6db56 100644
---- a/tools/bpf/bpftool/main.h
-+++ b/tools/bpf/bpftool/main.h
-@@ -53,8 +53,7 @@
- #define NEXT_ARGP()	({ (*argc)--; (*argv)++; if (*argc < 0) usage(); })
- #define BAD_ARG()	({ err("what is '%s'?\n", *argv); -1; })
- 
--#define BPF_TAG_FMT	"%02hhx:%02hhx:%02hhx:%02hhx:"	\
--			"%02hhx:%02hhx:%02hhx:%02hhx"
-+#define BPF_TAG_FMT	"%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx"
- 
- #define HELP_SPEC_PROGRAM						\
- 	"PROG := { id PROG_ID | pinned FILE | tag PROG_TAG }"
-diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index 9e2681c83717..d60f5307b6e2 100644
---- a/tools/bpf/bpftool/prog.c
-+++ b/tools/bpf/bpftool/prog.c
-@@ -224,7 +224,7 @@ static int show_prog(int fd)
- 		printf("name %s  ", info.name);
- 
- 	printf("tag ");
--	print_hex(info.tag, BPF_TAG_SIZE, ":");
-+	print_hex(info.tag, BPF_TAG_SIZE, "");
- 	printf("\n");
- 
- 	if (info.load_time) {
--- 
-2.14.1
+https://marc.info/?l=linux-can&m=150771819505097&w=2
+
+If he doesn't send a pull request by beginning of next week, I would ask 
+Dave to grab these patches - to get them into 4.14.
+
+Best regards,
+Oliver
