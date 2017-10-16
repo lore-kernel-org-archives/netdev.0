@@ -1,55 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] net: enable interface alias removal via rtnl
-Date: Mon, 16 Oct 2017 20:52:57 +0100 (WEST)
-Message-ID: <20171016.205257.457189372417045427.davem@davemloft.net>
-References: <66bbef72-90fb-7142-2070-07dc0c2b0ca9@gmail.com>
-        <20171011142448.31707-1-nicolas.dichtel@6wind.com>
+Subject: Re: [net-next PATCH] mqprio: Reserve last 32 classid values for HW
+ traffic classes and misc IDs
+Date: Mon, 16 Oct 2017 20:54:04 +0100 (WEST)
+Message-ID: <20171016.205404.135809744834188625.davem@davemloft.net>
+References: <20171012182658.14632.9010.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dsahern@gmail.com, netdev@vger.kernel.org, oliver@hartkopp.net,
-        stephen@networkplumber.org
-To: nicolas.dichtel@6wind.com
+Cc: jiri@resnulli.us, amritha.nambiar@intel.com,
+        vinicius.gomes@intel.com, netdev@vger.kernel.org, jhs@mojatatu.com,
+        jesus.sanchez-palencia@intel.com
+To: alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34256 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34280 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932311AbdJPTxA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 15:53:00 -0400
-In-Reply-To: <20171011142448.31707-1-nicolas.dichtel@6wind.com>
+        with ESMTP id S932339AbdJPTyI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 15:54:08 -0400
+In-Reply-To: <20171012182658.14632.9010.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 11 Oct 2017 16:24:48 +0200
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Thu, 12 Oct 2017 11:38:45 -0700
 
-> IFLA_IFALIAS is defined as NLA_STRING. It means that the minimal length of
-> the attribute is 1 ("\0"). However, to remove an alias, the attribute
-> length must be 0 (see dev_set_alias()).
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Let's define the type to NLA_BINARY to allow 0-length string, so that the
-> alias can be removed.
+> This patch makes a slight tweak to mqprio in order to bring the
+> classid values used back in line with what is used for mq. The general idea
+> is to reserve values :ffe0 - :ffef to identify hardware traffic classes
+> normally reported via dev->num_tc. By doing this we can maintain a
+> consistent behavior with mq for classid where :1 - :ffdf will represent a
+> physical qdisc mapped onto a Tx queue represented by classid - 1, and the
+> traffic classes will be mapped onto a known subset of classid values
+> reserved for our virtual qdiscs.
 > 
-> Example:
-> $ ip l s dummy0 alias foo
-> $ ip l l dev dummy0
-> 5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->     link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
->     alias foo
+> Note I reserved the range from :fff0 - :ffff since this way we might be
+> able to reuse these classid values with clsact and ingress which would mean
+> that for mq, mqprio, ingress, and clsact we should be able to maintain a
+> similar classid layout.
 > 
-> Before the patch:
-> $ ip l s dummy0 alias ""
-> RTNETLINK answers: Numerical result out of range
-> 
-> After the patch:
-> $ ip l s dummy0 alias ""
-> $ ip l l dev dummy0
-> 5: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
->     link/ether ae:20:30:4f:a7:f3 brd ff:ff:ff:ff:ff:ff
-> 
-> CC: Oliver Hartkopp <oliver@hartkopp.net>
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> Fixes: 96ca4a2cc145 ("net: remove ifalias on empty given alias")
-> Reported-by: Julien FLoret <julien.floret@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Applied, thank you.
+Applied, thanks Alexander.
