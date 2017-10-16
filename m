@@ -1,45 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/5] mlxsw: GRE: Offload decap without encap
-Date: Mon, 16 Oct 2017 21:30:45 +0100 (WEST)
-Message-ID: <20171016.213045.2192579343279686077.davem@davemloft.net>
-References: <20171016142639.2453-1-jiri@resnulli.us>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] decnet: af_decnet: mark expected switch fall-throughs
+Date: Mon, 16 Oct 2017 15:11:22 -0500
+Message-ID: <20171016201122.GA29615@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, petrm@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34840 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753724AbdJPUas (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:30:48 -0400
-In-Reply-To: <20171016142639.2453-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-decnet-user@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 16 Oct 2017 16:26:34 +0200
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Petr says:
-> 
-> The current code doesn't offload GRE decapsulation unless there's a
-> corresponding encapsulation route as well. While not strictly incorrect (when
-> encap route is absent, the decap route traps traffic to CPU and the kernel
-> handles it), it's a missed optimization opportunity.
-> 
-> With this patchset, IPIP entries are created as soon as offloadable tunneling
-> netdevice is created. This then leads to offloading of decap route, if one
-> exists, or is added afterwards, even when no encap route is present.
-> 
-> In Linux, when there is a decap route, matching IP-in-IP packets are always
-> decapsulated. However, with IPv4 overlays in particular, whether the inner
-> packet is then forwarded depends on setting of net.ipv4.conf.*.rp_filter. When
-> RP filtering is turned on, inner packets aren't forwarded unless there's a
-> matching encap route. The mlxsw driver doesn't reflect this behavior in other
-> router interfaces, and thus it's not implemented for tunnel types either. A
-> better support for this will be subject of follow-up work.
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only (GCC 7.2.0 was used).
+Please, verify if the actual intention of the code is to fall through.
 
-Series applied.
+ net/decnet/af_decnet.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index 73a0399..5d52f0c 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -634,10 +634,12 @@ static void dn_destroy_sock(struct sock *sk)
+ 		goto disc_reject;
+ 	case DN_RUN:
+ 		scp->state = DN_DI;
++		/* fall through */
+ 	case DN_DI:
+ 	case DN_DR:
+ disc_reject:
+ 		dn_nsp_send_disc(sk, NSP_DISCINIT, 0, sk->sk_allocation);
++		/* fall through */
+ 	case DN_NC:
+ 	case DN_NR:
+ 	case DN_RJ:
+@@ -651,6 +653,7 @@ static void dn_destroy_sock(struct sock *sk)
+ 		break;
+ 	default:
+ 		printk(KERN_DEBUG "DECnet: dn_destroy_sock passed socket in invalid state\n");
++		/* fall through */
+ 	case DN_O:
+ 		dn_stop_slow_timer(sk);
+ 
+-- 
+2.7.4
