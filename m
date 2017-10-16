@@ -1,120 +1,277 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH net-next 0/2] Add mqprio hardware offload support in hns3
- driver
-Date: Mon, 16 Oct 2017 06:25:53 +0000
-Message-ID: <AM0PR0502MB3683372D5A1C9DF65431113CBF4F0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1507775912-22402-1-git-send-email-linyunsheng@huawei.com>
- <AM0PR0502MB36837A27C3EAA2A08590D709BF4B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <5c268e80-3b04-28bd-26fb-d77f2edd69a8@huawei.com>
- <AM0PR0502MB368336C6A93618A13ADBB68ABF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <f651e2c2-5233-bcc7-7488-3ec5905b92d4@huawei.com>
+From: Andy Zhou <azhou@ovn.org>
+Subject: Re: [net-next RFC 3/4] openvswitch: Add meter infrastructure
+Date: Mon, 16 Oct 2017 00:05:03 -0700
+Message-ID: <CABKoBm2T6-BgecNr4RRkvtW2+Z4dXBrFo=Wn2TpsX=J+HTuXtg@mail.gmail.com>
+References: <1507847923-13612-1-git-send-email-azhou@ovn.org>
+ <1507847923-13612-4-git-send-email-azhou@ovn.org> <CAOrHB_Cc1cB7mYbYr+uDqsNusP=xALQAWZo=Mr+X9xzgepGFtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
-        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "john.garry@huawei.com" <john.garry@huawei.com>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>,
-        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Yunsheng Lin <linyunsheng@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f651e2c2-5233-bcc7-7488-3ec5905b92d4@huawei.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Joe Stringer <joe@ovn.org>, Greg Rose <gvrose8192@gmail.com>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:36406 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750880AbdJPHFs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 03:05:48 -0400
+Received: from mail-pf0-f175.google.com (mail-pf0-f175.google.com [209.85.192.175])
+        (Authenticated sender: azhou@ovn.org)
+        by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 538A61720BE
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:05:46 +0200 (CEST)
+Received: by mail-pf0-f175.google.com with SMTP id b79so15157888pfk.5
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 00:05:46 -0700 (PDT)
+In-Reply-To: <CAOrHB_Cc1cB7mYbYr+uDqsNusP=xALQAWZo=Mr+X9xzgepGFtw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBIaSwgWXV2YWwNCj4gDQo+IE9uIDIwMTcvMTAvMTUgMTM6MTQsIFl1dmFsIE1pbnR6IHdyb3Rl
-Og0KPiA+PiBIaSwgWXV2YWwNCj4gPj4NCj4gPj4gT24gMjAxNy8xMC8xMyA0OjIxLCBZdXZhbCBN
-aW50eiB3cm90ZToNCj4gPj4+PiBUaGlzIHBhdGNoc2V0IGFkZHMgYSBuZXcgaGFyZHdhcmUgb2Zm
-bG9hZCB0eXBlIGluIG1xcHJpbyBiZWZvcmUNCj4gYWRkaW5nDQo+ID4+Pj4gbXFwcmlvIGhhcmR3
-YXJlIG9mZmxvYWQgc3VwcG9ydCBpbiBobnMzIGRyaXZlci4NCj4gPj4+DQo+ID4+PiBJIHRoaW5r
-IG9uZSBvZiB0aGUgYmlnZ2VzdCBpc3N1ZXMgaW4gdHlpbmcgdGhpcyB0byBEQ0IgY29uZmlndXJh
-dGlvbiBpcyB0aGUNCj4gPj4+IG5vbi1pbW1lZGlhdGUgW2FuZCBwb3NzaWJseSBub24gcGVyc2lz
-dGVudF0gY29uZmlndXJhdGlvbi4NCj4gPj4+DQo+ID4+PiBTY2VuYXJpbyAjMToNCj4gPj4+IFVz
-ZXIgaXMgY29uZmlndXJpbmcgbXFwcmlvIG9mZmxvYWRlZCB3aXRoIDMgVENzIHdoaWxlIGRldmlj
-ZSBpcyBpbiB3aWxsaW5nDQo+ID4+IG1vZGUuDQo+ID4+PiBXb3VsZCB5b3UgZXhwZWN0IHRoZSBk
-cml2ZXIgdG8gaW1tZWRpYXRlbHkgcmVzcG9uZCB3aXRoIGEgc3VjY2VzcyBvcg0KPiA+PiBpbnN0
-ZWFkDQo+ID4+PiBkZWxheSB0aGUgcmV0dXJuIHVudGlsIHRoZSBEQ0J4IG5lZ290aWF0aW9uIGlz
-IGNvbXBsZXRlIGFuZCB0aGUNCj4gb3BlcmF0aW9uYWwNCj4gPj4+IG51bSBvZiBUQ3MgaXMgYWN0
-dWFsbHkgMz8NCj4gPj4NCj4gPj4gV2VsbCwgd2hlbiB1c2VyIHJlcXVzdHMgdGhlIG1xcHJpbyBv
-ZmZsb2FkZWQgYnkgYSBoYXJkd2FyZSBzaGFyZWQgYnkNCj4gRENCLA0KPiA+PiBJIGV4cGVjdA0K
-PiA+PiB0aGUgdXNlciBpcyBub3QgdXNpbmcgdGhlIGRjYiB0b29sLg0KPiA+PiBJZiB1c2VyIGlz
-IHN0aWxsIHVzaW5nIGRjYiB0b29sLCB0aGVuIHJlc3VsdCBpcyB1bmRlZmluZWQuDQo+ID4+DQo+
-ID4+IFRoZSBzY2VuYXJpbyB5b3UgbWVudGlvbiBtYXliZSBjYW4gYmUgZW5mb3JjZWQgYnkgc2V0
-dGluZyB3aWxsaW5nIHRvDQo+IHplcm8NCj4gPj4gd2hlbiB1c2VyDQo+ID4+IGlzIHJlcXVlc3Rp
-bmcgdGhlIG1xcHJpbyBvZmZsb2FkLCBhbmQgcmVzdG9yZSB0aGUgd2lsbGluZyBiaXQgd2hlbg0K
-PiB1bmxvYWRlZA0KPiA+PiB0aGUgbXFwcmlvDQo+ID4+IG9mZmxvYWQuDQo+ID4NCj4gPiBTb3Vu
-ZHMgYSBiaXQgaGFyc2ggYnV0IHdvdWxkIHByb2JhYmx5IHdvcmsuDQo+ID4NCj4gPj4gQnV0IEkg
-dGhpbmsgdGhlIHJlYWwgaXNzdWUgaXMgdGhhdCBkY2IgYW5kIG1xcHJpbyBzaGFyZXMgdGhlIHRj
-IHN5c3RlbSBpbiB0aGUNCj4gPj4gc3RhY2ssDQo+ID4+IHRoZSBwcm9ibGVtIG1heSBiZSBiZXR0
-ZXIgdG8gYmUgZml4ZWQgaW4gdGhlIHN0YWNrIHJhdGhlciB0aGFuIGluIHRoZQ0KPiBkcml2ZXIs
-DQo+ID4+IGFzIHlvdQ0KPiA+PiBzdWdnZXN0ZWQgaW4gdGhlIERDQiBwYXRjaHNldC4gV2hhdCBk
-byB5b3UgdGhpbms/DQo+ID4NCj4gPiBXaGF0IGRpZCB5b3UgaGF2ZSBpbiBtaW5kPw0KPiANCj4g
-SSB3YXMgdGhpbmtpbmcgbWF5YmUgdGhlIHRjIHN5c3RlbSBjYW4gcHJvdmlkZSBhIG5vdGlmaWNh
-dGlvbiB0byBtcXByaW8gYW5kDQo+IGRjYi4NCj4gbXFwcmlvIGFuZCBkY2IgcmVnaXN0ZXIgYSBj
-YWxsYmFjayB0byB0aGUgdGMgc3lzdGVtLCB3aGVuIHRoZXJlIGlzIHNvbWUNCj4gY2hhbmdlIG9m
-DQo+IHRjIGNvbmZpZ3VyYXRpb24sIHRoZSB0YyBzeXN0ZW0gY2FsbCB0aGUgY2FsbGJhY2sgZnJv
-bSBtcXByaW8gYW5kIGRjYi4NCj4gDQo+ID4NCj4gPj4NCj4gPj4+DQo+ID4+PiBTY2VuYXJpbyAj
-MjoNCj4gPj4+IEFzc3VtZSB1c2VyIGV4cGxpY2l0bHkgb2ZmbG9hZGVkIG1xcHJpbyB3aXRoIDMg
-VENzLCBidXQgbm93IERDQg0KPiA+PiBjb25maWd1cmF0aW9uDQo+ID4+PiBoYXMgY2hhbmdlZCBv
-biB0aGUgcGVlciBzaWRlIGFuZCA0IFRDcyBpcyB0aGUgbmV3IG5lZ290aWF0ZWQNCj4gb3BlcmF0
-aW9uYWwNCj4gPj4gdmFsdWUuDQo+ID4+PiBZb3VyIGN1cnJlbnQgZHJpdmVyIGxvZ2ljIHdvdWxk
-IGNoYW5nZSB0aGUgbnVtYmVyIG9mIFRDcyB1bmRlcm5lYXRoDQo+IHRoZQ0KPiA+PiB1c2VyDQo+
-ID4+PiBjb25maWd1cmF0aW9uIFthbmQgaXQgd291bGQgYWN0dWFsbHkgcHJvYmFibHkgd29yayBk
-dWUgdG8gbXFwcmlvIGJlaW5nIGENCj4gPj4gY3JhcHB5DQo+ID4+PiBxZGlzY10uIEJ1dCB3YXMg
-dGhhdCB0aGUgdXNlciBhY3R1YWwgaW50ZW50aW9uPw0KPiA+Pj4gW0kgdGhpbmsgdGhlIGxpa2Vs
-eSBhbnN3ZXIgaW4gdGhpcyBzY2VuYXJpbyBpcyAneWVzJyBzaW5jZSB0aGUgYWx0ZXJuYXRpdmUg
-aXMgbm8NCj4gPj4gYmV0dGVyLg0KPiA+Pj4gQnV0IEkgc3RpbGwgdGhvdWdodCBpdCB3YXMgd29y
-dGggbWVudGlvbmluZ10NCj4gPj4NCj4gPj4gWW91IGFyZSByaWdodCwgdGhlIHByb2JsZW0gYWxz
-byBoYXZlIHNvbWV0aGluZyB0byBkbyB3aXRoIG1xcHJpbyBhbmQgZGNiDQo+ID4+IHNoYXJpbmcN
-Cj4gPj4gdGhlIHRjIGluIHRoZSBzdGFjay4NCj4gPj4NCj4gPj4gRHJ1aW5nIHRlc3RpbmcsIHdo
-ZW4gdXNlciBleHBsaWNpdGx5IG9mZmxvYWRlZCBtcXByaW8gd2l0aCAzIFRDcywgYWxsDQo+ID4+
-IHF1ZXVlIGhhcyBhIGRlZmF1bHQgcGZpZm8gbXFwcmlvIGF0dGFjaGVkLCBhZnRlciBEQ0IgY2hh
-bmdlcyB0aGUgdGMgbnVtDQo+IHRvDQo+ID4+IDQsDQo+ID4+IHVzaW5nIHRjIHFkaXNjIHNob3dz
-IHNvbWUgcXVldWUgZG9lcyBub3QgaGF2ZSBhIGRlZmF1bHQgcGZpZm8gbXFwcmlvDQo+ID4+IGF0
-dGFjaGVkLg0KPiA+DQo+ID4gUmVhbGx5PyBUaGVuIHdoYXQgZGlkIGl0IHNob3c/DQo+ID4gW0kg
-YXNzdW1lIGl0IGhhcyBzb21lIHBmaWZvIGF0dGFjaGVkLCBhbmQgaXQncyBhbiBtcXByaW8gZHVt
-cCBraW5kIG9mIGFuDQo+IGlzc3VlXQ0KPiANCj4gV2hlbiBxdWV1ZSBzaXplIG9mIHRoZSBuZGV2
-IGlzIDE2IGFuZCB0YyBudW0gaXMgMywgd2Ugc2V0IHRoZSByZWFsIHF1ZXVlIHNpemUNCj4gdG8N
-Cj4gMTUgKCA1ICogMyA9IDE1KSwgbXFwcmlvIG9ubHkgYXR0YWNoIHBmaWZvIHRvIHRoZSBmaXJz
-dCAxNSBxdWV1ZSwgd2hlbiB0YyBudW0NCj4gY2hhbmdlDQo+IHRvIDQgYnkgRENCLCB3ZSBzZXQg
-dGhlIHJlYWwgcXVldWUgc2l6ZSB0byAxNiAoNCAqIDQgPSAxNikuDQo+IFNvIHRjIHFkaXNjIHNo
-b3dzIHRoZSBsYXN0IHF1ZXVlIGhhcyBubyBxZGlzYyBhdHRhY2hlZC4NCg0KU28gdGhlcmUgaXMg
-YSBxZGlzYyBhdHRhY2hlZCAtIG1xcHJpb19hdHRhY2goKSBhdHRjaGVzIHRvIGFsbCB0cmFuc21p
-c3Npb24NCnF1ZXVlcyBbbnVtX3R4X3F1ZXVlc10gYW5kIG5vdCBvbmx5IHRoZSBhY3RpdmUgb25l
-cy4NCkJ1dCB0aGUgZmxvdyBmb3IgbXFwcmlvIG1pZ2h0IGJlIGxhY2tpbmcgdGhlIGFkZGl0aW9u
-YWwgcWRpc2NfaGFzaF9hZGQoKQ0KZm9yIHRoZSBhZGRpdGlvbmFsIHF1ZXVlJ3MgcWRpc2MuDQoN
-Cj4gDQo+ID4NCj4gPj4NCj4gPj4gTWF5YmUgd2UgY2FuIGFkZCBhIGNhbGxiYWNrIHRvIG5vdGlm
-eSBtcXByaW8gdGhlIGNvbmZpZ3VyYXRpb24gaGFzDQo+IGNoYW5nZWQuDQo+ID4+DQo+ID4NCj4g
-PiBXaGljaCB3b3VsZCBkbyB3aGF0Pw0KPiA+IFlvdSBhbHJlYWR5IGhhdmUgdGhlIG5vdGlmaWNh
-dGlvbnMgYXZhaWxhYmxlIGZvciBtb25pdG9yaW5nIHVzaW5nIGRjYm5sIGxvZ2ljDQo+IGlmIHRo
-ZQ0KPiA+IGNvbmZpZ3VyYXRpb24gY2hhbmdlIFtmb3IgdXNlcl07IFNvIHVzZXIgY2FuIHJlLWNv
-bmZpZ3VyZSB3aGF0ZXZlciBpdA0KPiB3YW50cy4NCj4gDQo+IFllcywgaWYgdXNlciBpcyBvbmx5
-IHVzaW5nIGRjYiB0b29sLg0KPiANCj4gPiBCdXQgb3RoZXIgdGhhbiBkcm9wcGluZyBhbGwgdGhl
-IHFkaXNjIGNvbmZpZ3VyYXRpb25zIGFuZCBnb2luZyBiYWNrIHRvIHRoZQ0KPiBkZWZhdWx0DQo+
-ID4gcWRpc2NzLCB3aGF0IGRlZmF1bHQgYWN0aW9uIHdvdWxkIG1xcHJpbyBiZSBhYmxlIHRvIGRv
-IHdoZW4gY29uZmlndXJhdGlvbg0KPiBjaGFuZ2VzDQo+ID4gdGhhdCBhY3R1YWxseSBtYWtlcyBz
-ZW5zZT8NCj4gDQo+IEFzIGV4cGxhaW5lZCBhYm92ZSwgYWZ0ZXIgZGNiIGNoYW5naW5nIHRoZSBj
-b25maWd1cmF0aW9uLCBzb21lIHF1ZXVlIG1heQ0KPiBoYXZlIG5vIHFkaXNjDQo+IGF0dGFjaGVk
-LCBzbyBJIHdhcyB0aGlua2luZyBtYXliZSB3ZSBjYW4gYWRkIHBmaWZvIHRvIGl0IGlmIHRoZXJl
-IGlzIG5vIHFkc2ljDQo+IGF0dGFjaGVkDQo+IHRvIGl0Lg0KPiANCj4gVGhhbmtzLA0KPiBZdW5z
-aGVuZyBMaW4NCj4gDQo+ID4NCj4gPj4gVGhhbmtzDQo+ID4+IFl1bnNoZW5nIExpbg0KPiA+Pg0K
-PiA+Pj4NCj4gPj4+IENoZWVycywNCj4gPj4+IFl1dmFsDQo+ID4+Pg0KPiA+Pj4+DQo+ID4+Pj4g
-WXVuc2hlbmcgTGluICgyKToNCj4gPj4+PiAgIG1xcHJpbzogQWRkIGEgbmV3IGhhcmR3YXJlIG9m
-ZmxvYWQgdHlwZSBpbiBtcXByaW8NCj4gPj4+PiAgIG5ldDogaG5zMzogQWRkIG1xcHJpbyBoYXJk
-d2FyZSBvZmZsb2FkIHN1cHBvcnQgaW4gaG5zMyBkcml2ZXINCj4gPj4+Pg0KPiA+Pj4+ICBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zMy9obmFlMy5oICAgICAgICB8ICAxICsNCj4g
-Pj4+PiAgLi4uL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zMy9obnMzcGYvaGNsZ2VfZGNiLmMg
-fCAyMw0KPiArKysrKysrKysrKw0KPiA+Pj4+ICAuLi4vbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9o
-bnMzL2huczNwZi9obnMzX2VuZXQuYyB8IDQ2DQo+ID4+ICsrKysrKysrKysrKysrLQ0KPiA+Pj4+
-IC0tLS0tLS0NCj4gPj4+PiAgaW5jbHVkZS91YXBpL2xpbnV4L3BrdF9zY2hlZC5oICAgICAgICAg
-ICAgICAgICAgICAgfCAgMSArDQo+ID4+Pj4gIDQgZmlsZXMgY2hhbmdlZCwgNTUgaW5zZXJ0aW9u
-cygrKSwgMTYgZGVsZXRpb25zKC0pDQo+ID4+Pj4NCj4gPj4+PiAtLQ0KPiA+Pj4+IDEuOS4xDQo+
-ID4+Pg0KPiA+Pj4NCj4gPj4+DQo+ID4NCg0K
+On Fri, Oct 13, 2017 at 5:12 PM, Pravin Shelar <pshelar@ovn.org> wrote:
+> On Thu, Oct 12, 2017 at 3:38 PM, Andy Zhou <azhou@ovn.org> wrote:
+>> OVS kernel datapath so far does not support Openflow meter action.
+>> This is the first stab at adding kernel datapath meter support.
+>> This implementation supports only drop band type.
+>>
+>> Signed-off-by: Andy Zhou <azhou@ovn.org>
+>> ---
+>>  net/openvswitch/Makefile   |   1 +
+>>  net/openvswitch/datapath.c |  14 +-
+>>  net/openvswitch/datapath.h |   3 +
+>>  net/openvswitch/meter.c    | 611 +++++++++++++++++++++++++++++++++++++++++++++
+>>  net/openvswitch/meter.h    |  54 ++++
+>>  5 files changed, 681 insertions(+), 2 deletions(-)
+>>  create mode 100644 net/openvswitch/meter.c
+>>  create mode 100644 net/openvswitch/meter.h
+>>
+> ...
+>
+>> diff --git a/net/openvswitch/meter.c b/net/openvswitch/meter.c
+>> new file mode 100644
+>> index 000000000000..f24ebb5f7af4
+>> --- /dev/null
+>> +++ b/net/openvswitch/meter.c
+>
+> ....
+> ....
+>> +static int ovs_meter_cmd_features(struct sk_buff *skb, struct genl_info *info)
+>> +{
+>> +       struct datapath *dp;
+>> +       struct ovs_header *ovs_header = info->userhdr;
+>> +       struct sk_buff *reply;
+>> +       struct ovs_header *ovs_reply_header;
+>> +       struct nlattr *nla, *band_nla;
+>> +       int err;
+>> +
+>> +       /* Check that the datapath exists */
+>> +       ovs_lock();
+>> +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+>> +       ovs_unlock();
+>> +       if (!dp)
+>> +               return -ENODEV;
+>> +
+> why dp check is required for this API?
+Is it possible for another core delete the dp, before ovs_lock()
+returns? Then, in theory, get_dp() can
+return NULL, no?
+>
+>> +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_FEATURES,
+>> +                                         &ovs_reply_header);
+>> +       if (!reply)
+>> +               return PTR_ERR(reply);
+>> +
+>> +       if (nla_put_u32(reply, OVS_METER_ATTR_MAX_METERS, U32_MAX) ||
+>> +           nla_put_u32(reply, OVS_METER_ATTR_MAX_BANDS, DP_MAX_BANDS))
+>> +               goto nla_put_failure;
+>> +
+>> +       nla = nla_nest_start(reply, OVS_METER_ATTR_BANDS);
+>> +       if (!nla)
+>> +               goto nla_put_failure;
+>> +
+>> +       band_nla = nla_nest_start(reply, OVS_BAND_ATTR_UNSPEC);
+>> +       if (!band_nla)
+>> +               goto nla_put_failure;
+>> +       /* Currently only DROP band type is supported. */
+>> +       if (nla_put_u32(reply, OVS_BAND_ATTR_TYPE, OVS_METER_BAND_TYPE_DROP))
+>> +               goto nla_put_failure;
+>> +       nla_nest_end(reply, band_nla);
+>> +       nla_nest_end(reply, nla);
+>> +
+>> +       genlmsg_end(reply, ovs_reply_header);
+>> +       return genlmsg_reply(reply, info);
+>> +
+>> +nla_put_failure:
+>> +       nlmsg_free(reply);
+>> +       err = -EMSGSIZE;
+>> +       return err;
+>> +}
+>> +
+> ....
+>
+>> +static int ovs_meter_cmd_set(struct sk_buff *skb, struct genl_info *info)
+>> +{
+>> +       struct nlattr **a = info->attrs;
+>> +       struct dp_meter *meter, *old_meter;
+>> +       struct sk_buff *reply;
+>> +       struct ovs_header *ovs_reply_header;
+>> +       struct ovs_header *ovs_header = info->userhdr;
+>> +       struct datapath *dp;
+>> +       int err;
+>> +       u32 meter_id;
+>> +       bool failed;
+>> +
+>> +       meter = dp_meter_create(a);
+>> +       if (IS_ERR_OR_NULL(meter))
+>> +               return PTR_ERR(meter);
+>> +
+>> +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_SET,
+>> +                                         &ovs_reply_header);
+>> +       if (IS_ERR(reply)) {
+>> +               err = PTR_ERR(reply);
+>> +               goto exit_free_meter;
+>> +       }
+>> +
+>> +       ovs_lock();
+>> +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+>> +       if (!dp) {
+>> +               err = -ENODEV;
+>> +               goto exit_unlock;
+>> +       }
+>> +
+>> +       if (!a[OVS_METER_ATTR_ID]) {
+>> +               err = -ENODEV;
+>> +               goto exit_unlock;
+>> +       }
+>> +
+>> +       meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
+>> +
+>> +       /* Cannot fail after this. */
+>> +       old_meter = lookup_meter(dp, meter_id);
+>> +       attach_meter(dp, meter);
+>> +       ovs_unlock();
+>> +
+> After the unlock, it is not safe to keep the ref to old_meter. better
+> to release lock at the end. we could optimize it later if required.
+
+I see a problem here: the old_meter has not been removed from the list before
+unlock. The code should have been:
+
+old_meter = lookup_meter(dp, meter_id);
+detch_meter(dp, old_meter);
+attach_meter(dp, meter);
+ovs_unlock();
+
+Do you still see a problem w.r.t. unlock() here? Once detch_meter() is called,
+another thread should not have access to 'old_meter' any more. right?
+>
+>> +       /* Build response with the meter_id and stats from
+>> +        * the old meter, if any.
+>> +        */
+>> +       failed = nla_put_u32(reply, OVS_METER_ATTR_ID, meter_id);
+>> +       WARN_ON(failed);
+>> +       if (old_meter) {
+>> +               spin_lock_bh(&old_meter->lock);
+>> +               if (old_meter->keep_stats) {
+>> +                       err = ovs_meter_cmd_reply_stats(reply, meter_id,
+>> +                                                       old_meter);
+>> +                       WARN_ON(err);
+>> +               }
+>> +               spin_unlock_bh(&old_meter->lock);
+>> +               ovs_meter_free(old_meter);
+>> +       }
+>> +
+>> +       genlmsg_end(reply, ovs_reply_header);
+>> +       return genlmsg_reply(reply, info);
+>> +
+>> +exit_unlock:
+>> +       ovs_unlock();
+>> +       nlmsg_free(reply);
+>> +exit_free_meter:
+>> +       kfree(meter);
+>> +       return err;
+>> +}
+>> +
+> ....
+>
+>> +bool ovs_meter_execute(struct datapath *dp, struct sk_buff *skb,
+>> +                      struct sw_flow_key *key, u32 meter_id)
+>> +{
+>> +       struct dp_meter *meter;
+>> +       struct dp_meter_band *band;
+>> +       long long int now_ms = ktime_get_ns() / 1000 / 1000;
+>> +       long long int long_delta_ms;
+>> +       u32 delta_ms;
+>> +       u32 cost;
+>> +       int i, band_exceeded_max = -1;
+>> +       u32 band_exceeded_rate = 0;
+>> +
+>> +       meter = lookup_meter(dp, meter_id);
+>> +       /* Do not drop the packet when there is no meter. */
+>> +       if (!meter)
+>> +               return false;
+>> +
+>> +       /* Lock the meter while using it. */
+>> +       spin_lock(&meter->lock);
+>> +
+>> +       long_delta_ms = (now_ms - meter->used); /* ms */
+>> +
+>> +       /* Make sure delta_ms will not be too large, so that bucket will not
+>> +        * wrap around below.
+>> +        */
+>> +       delta_ms = (long_delta_ms > (long long int)meter->max_delta_t)
+>> +                  ? meter->max_delta_t : (u32)long_delta_ms;
+>> +
+>> +       /* Update meter statistics.
+>> +        */
+>> +       meter->used = now_ms;
+>> +       meter->stats.n_packets += 1;
+>> +       meter->stats.n_bytes += skb->len;
+>> +
+>> +       /* Bucket rate is either in kilobits per second, or in packets per
+>> +        * second.  We maintain the bucket in the units of either bits or
+>> +        * 1/1000th of a packet, correspondingly.
+>> +        * Then, when rate is multiplied with milliseconds, we get the
+>> +        * bucket units:
+>> +        * msec * kbps = bits, and
+>> +        * msec * packets/sec = 1/1000 packets.
+>> +        *
+>> +        * 'cost' is the number of bucket units in this packet.
+>> +        */
+>> +       cost = (meter->kbps) ? skb->len * 8 : 1000;
+>> +
+>> +       /* Update all bands and find the one hit with the highest rate. */
+>> +       for (i = 0; i < meter->n_bands; ++i) {
+>> +               long long int max_bucket_size;
+>> +
+>> +               band = &meter->bands[i];
+>> +               max_bucket_size = (band->burst_size + band->rate) * 1000;
+>> +
+>> +               band->bucket += delta_ms * band->rate;
+>> +               if (band->bucket > max_bucket_size)
+>> +                       band->bucket = max_bucket_size;
+>> +
+>> +               if (band->bucket >= cost) {
+>> +                       band->bucket -= cost;
+>> +               } else if (band->rate > band_exceeded_rate) {
+>> +                       band_exceeded_rate = band->rate;
+>> +                       band_exceeded_max = i;
+>> +               }
+>> +       }
+>> +
+>> +       spin_unlock(&meter->lock);
+>> +
+>> +       if (band_exceeded_max >= 0) {
+>> +               /* Update band statistics. */
+>> +               band = &meter->bands[band_exceeded_max];
+>> +               band->stats.n_packets += 1;
+>> +               band->stats.n_bytes += skb->len;
+>> +
+> Is it safe to do outside of the sipinlock?
+
+Good catch, those should be covered by the same lock.  Will fix.
+>
+>> +               /* Drop band triggered, let the caller drop the 'skb'.  */
+>> +               if (band->type == OVS_METER_BAND_TYPE_DROP)
+>> +                       return true;
+>> +       }
+>> +
+>> +       return false;
+>> +}
+>> +
