@@ -1,46 +1,42 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH 2/3] bpf: Remove dead variable
-Date: Mon, 16 Oct 2017 21:22:42 +0200
-Message-ID: <2869131.K5Z6hvSGBl@blindfold>
-References: <20171016181856.12497-1-richard@nod.at> <2297422.9nBBslcvMo@blindfold> <59E50473.7040609@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/6] rtnetlink: a bunch of fixes for userspace
+ notifications in changing dev properties
+Date: Mon, 16 Oct 2017 20:49:54 +0100 (WEST)
+Message-ID: <20171016.204954.567930121040592246.davem@davemloft.net>
+References: <cover.1508062280.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ast@kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <59E50473.7040609@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dsahern@gmail.com,
+        hannes@stressinduktion.org
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34194 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755487AbdJPTt4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 15:49:56 -0400
+In-Reply-To: <cover.1508062280.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 16. Oktober 2017, 21:11:47 CEST schrieb Daniel Borkmann: 
-> > I can squash it into 1/3, I kept it that way because
-> > even without 1/3 this variable is unused.
+From: Xin Long <lucien.xin@gmail.com>
+Date: Sun, 15 Oct 2017 18:13:40 +0800
+
+> Whenever any property of a link, address, route, etc. changes by whatever way,
+> kernel should notify the programs that listen for such events in userspace.
 > 
-> Hmm, the helper looks like the below. In patch 1/3 you removed
-> the 'if (unlikely(!task))' test where the variable was used before,
-> so 2/3 without the 1/3 would result in a compile error.
-
-Why a compile error? It emits a warning.
-
-> BPF_CALL_0(bpf_get_current_uid_gid)
-> {
-> 	struct task_struct *task = current;
-> 	kuid_t uid;
-> 	kgid_t gid;
+> The patchet "rtnetlink: Cleanup user notifications for netdev events" tried to
+> fix a redundant notifications issue, but it also introduced a side effect.
 > 
-> 	if (unlikely(!task))
-> 		return -EINVAL;
+> After that, user notifications could only be sent when changing dev properties
+> via netlink api. As it removed some events process in rtnetlink_event where
+> the notifications was sent to users.
+> 
+> It resulted in no notification generated when dev properties are changed via
+> other ways, like ioctl, sysfs, etc. It may cause some user programs doesn't
+> work as expected because of the missing notifications.
+> 
+> This patchset will fix it by bringing some of these netdev events back and
+> also fix the old redundant notifications issue with a proper way.
 
-Well, this is the only "user". Okay.
-
-> 	current_uid_gid(&uid, &gid);
-
-Here we use current. So, task was always in vain.
-
-So, I can happily squash 2/3 into 1/3 and resent.
-The series just represented the way I've worked on the code... 
-
-Thanks,
-//richard
+Series applied, thank you.
