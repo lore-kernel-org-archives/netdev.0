@@ -1,136 +1,77 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 2/5] net: ipv6: Make inet6addr_validator a blocking notifier
-Date: Mon, 16 Oct 2017 09:36:51 -0700
-Message-ID: <1508171814-16713-3-git-send-email-dsahern@gmail.com>
-References: <1508171814-16713-1-git-send-email-dsahern@gmail.com>
-Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
-        davem@davemloft.net, yoshfuji@linux-ipv6.org,
-        David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:56574 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755320AbdJPQhE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 12:37:04 -0400
-Received: by mail-pg0-f68.google.com with SMTP id m18so7235342pgd.13
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:37:04 -0700 (PDT)
-In-Reply-To: <1508171814-16713-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Subject: Re: [PATCH] can: check for null sk before deferencing it via the call
+ to sock_net
+Date: Mon, 16 Oct 2017 12:37:07 -0400
+Message-ID: <CA+5PVA7fJfZmN-XLuqARGkWL6eY54HaRAj19K_Und3K7vAVfpg@mail.gmail.com>
+References: <20170908150235.2931-1-colin.king@canonical.com> <f5ce1047-eb37-151a-c7b7-9b47b70789f7@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Colin King <colin.king@canonical.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-can@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        "Linux-Kernel@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f5ce1047-eb37-151a-c7b7-9b47b70789f7@hartkopp.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-inet6addr_validator chain was added by commit 3ad7d2468f79f ("Ipvlan
-should return an error when an address is already in use") to allow
-address validation before changes are committed and to be able to
-fail the address change with an error back to the user. The address
-validation is not done for addresses received from router
-advertisements.
+On Fri, Sep 8, 2017 at 1:46 PM, Oliver Hartkopp <socketcan@hartkopp.net> wrote:
+>
+>
+> On 09/08/2017 05:02 PM, Colin King wrote:
+>>
+>> From: Colin Ian King <colin.king@canonical.com>
+>>
+>> The assignment of net via call sock_net will dereference sk. This
+>> is performed before a sanity null check on sk, so there could be
+>> a potential null dereference on the sock_net call if sk is null.
+>> Fix this by assigning net after the sk null check. Also replace
+>> the sk == NULL with the more usual !sk idiom.
+>>
+>> Detected by CoverityScan CID#1431862 ("Dereference before null check")
+>>
+>> Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM
+>> protocol")
+>> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+>
+>
+> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-Handling RAs in softirq context is the only reason for the notifier
-chain to be atomic versus blocking. Since the only current user, ipvlan,
-of the validator chain ignores softirq context, the notifier can be made
-blocking and simply not invoked for softirq path.
+I don't see this one queued up in the net or net-next trees.  Did it
+fall through the cracks or did it get queued up elsewhere?  Seems like
+it's a good candidate to get into 4.14?
 
-The blocking option is needed by spectrum for example to validate
-resources for an adding an address to an interface.
+josh
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ipvlan/ipvlan_main.c |  4 ----
- net/ipv6/addrconf.c              | 21 ++++++++++++++-------
- net/ipv6/addrconf_core.c         |  9 +++++----
- 3 files changed, 19 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 3cf67db513e2..6842739b6679 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -808,10 +808,6 @@ static int ipvlan_addr6_event(struct notifier_block *unused,
- 	struct net_device *dev = (struct net_device *)if6->idev->dev;
- 	struct ipvl_dev *ipvlan = netdev_priv(dev);
- 
--	/* FIXME IPv6 autoconf calls us from bh without RTNL */
--	if (in_softirq())
--		return NOTIFY_DONE;
--
- 	if (!netif_is_ipvlan(dev))
- 		return NOTIFY_DONE;
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index a8d202b1b919..dd9c0c435f71 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -993,7 +993,6 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 	struct net *net = dev_net(idev->dev);
- 	struct inet6_ifaddr *ifa = NULL;
- 	struct rt6_info *rt = NULL;
--	struct in6_validator_info i6vi;
- 	int err = 0;
- 	int addr_type = ipv6_addr_type(addr);
- 
-@@ -1013,12 +1012,20 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
- 		goto out;
- 	}
- 
--	i6vi.i6vi_addr = *addr;
--	i6vi.i6vi_dev = idev;
--	err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
--	err = notifier_to_errno(err);
--	if (err < 0)
--		goto out;
-+	/* validator notifier needs to be blocking;
-+	 * do not call in atomic context
-+	 */
-+	if (can_block) {
-+		struct in6_validator_info i6vi = {
-+			.i6vi_addr = *addr,
-+			.i6vi_dev = idev,
-+		};
-+
-+		err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
-+		err = notifier_to_errno(err);
-+		if (err < 0)
-+			goto out;
-+	}
- 
- 	ifa = kzalloc(sizeof(*ifa), gfp_flags);
- 	if (!ifa) {
-diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
-index 9e3488d50b15..32b564dfd02a 100644
---- a/net/ipv6/addrconf_core.c
-+++ b/net/ipv6/addrconf_core.c
-@@ -88,7 +88,7 @@ int __ipv6_addr_type(const struct in6_addr *addr)
- EXPORT_SYMBOL(__ipv6_addr_type);
- 
- static ATOMIC_NOTIFIER_HEAD(inet6addr_chain);
--static ATOMIC_NOTIFIER_HEAD(inet6addr_validator_chain);
-+static BLOCKING_NOTIFIER_HEAD(inet6addr_validator_chain);
- 
- int register_inet6addr_notifier(struct notifier_block *nb)
- {
-@@ -110,19 +110,20 @@ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
- 
- int register_inet6addr_validator_notifier(struct notifier_block *nb)
- {
--	return atomic_notifier_chain_register(&inet6addr_validator_chain, nb);
-+	return blocking_notifier_chain_register(&inet6addr_validator_chain, nb);
- }
- EXPORT_SYMBOL(register_inet6addr_validator_notifier);
- 
- int unregister_inet6addr_validator_notifier(struct notifier_block *nb)
- {
--	return atomic_notifier_chain_unregister(&inet6addr_validator_chain, nb);
-+	return blocking_notifier_chain_unregister(&inet6addr_validator_chain,
-+						  nb);
- }
- EXPORT_SYMBOL(unregister_inet6addr_validator_notifier);
- 
- int inet6addr_validator_notifier_call_chain(unsigned long val, void *v)
- {
--	return atomic_notifier_call_chain(&inet6addr_validator_chain, val, v);
-+	return blocking_notifier_call_chain(&inet6addr_validator_chain, val, v);
- }
- EXPORT_SYMBOL(inet6addr_validator_notifier_call_chain);
- 
--- 
-2.1.4
+>
+>
+> Thanks Collin!
+>
+>
+>> ---
+>>   net/can/bcm.c | 5 +++--
+>>   1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/can/bcm.c b/net/can/bcm.c
+>> index 47a8748d953a..a3791674b8ce 100644
+>> --- a/net/can/bcm.c
+>> +++ b/net/can/bcm.c
+>> @@ -1493,13 +1493,14 @@ static int bcm_init(struct sock *sk)
+>>   static int bcm_release(struct socket *sock)
+>>   {
+>>         struct sock *sk = sock->sk;
+>> -       struct net *net = sock_net(sk);
+>> +       struct net *net;
+>>         struct bcm_sock *bo;
+>>         struct bcm_op *op, *next;
+>>   -     if (sk == NULL)
+>> +       if (!sk)
+>>                 return 0;
+>>   +     net = sock_net(sk);
+>>         bo = bcm_sk(sk);
+>>         /* remove bcm_ops, timer, rx_unregister(), etc. */
+>>
+>
