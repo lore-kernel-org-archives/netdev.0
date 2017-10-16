@@ -1,76 +1,399 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Tue, 17 Oct 2017 01:34:29 +0200
-Message-ID: <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
-References: <1507121766.30720.4.camel@cohaesio.com>
- <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
- <1507180753.20182.8.camel@cohaesio.com>
- <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
- <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
- <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
- <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
- <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] mac80211: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 16:35:49 -0700
+Message-ID: <20171016233549.GA101496@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
-To: Pavlos Parissis <pavlos.parissis@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp16.iq.pl ([86.111.242.222]:36786 "EHLO smtp16.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932512AbdJPXef (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 19:34:35 -0400
-In-Reply-To: <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
-Content-Language: pl
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
+
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ net/mac80211/ibss.c         |  7 +++----
+ net/mac80211/ieee80211_i.h  |  3 ++-
+ net/mac80211/led.c          | 11 ++++++-----
+ net/mac80211/main.c         |  3 +--
+ net/mac80211/mesh.c         | 27 ++++++++++++---------------
+ net/mac80211/mesh.h         |  2 +-
+ net/mac80211/mesh_hwmp.c    |  4 ++--
+ net/mac80211/mesh_pathtbl.c |  3 +--
+ net/mac80211/mlme.c         | 32 ++++++++++++++------------------
+ net/mac80211/ocb.c          | 10 +++++-----
+ net/mac80211/sta_info.c     |  7 +++----
+ 11 files changed, 50 insertions(+), 59 deletions(-)
+
+diff --git a/net/mac80211/ibss.c b/net/mac80211/ibss.c
+index e9c6aa3ed05b..db07e0de9a03 100644
+--- a/net/mac80211/ibss.c
++++ b/net/mac80211/ibss.c
+@@ -1711,10 +1711,10 @@ void ieee80211_ibss_work(struct ieee80211_sub_if_data *sdata)
+ 	sdata_unlock(sdata);
+ }
+ 
+-static void ieee80211_ibss_timer(unsigned long data)
++static void ieee80211_ibss_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.ibss.timer);
+ 
+ 	ieee80211_queue_work(&sdata->local->hw, &sdata->work);
+ }
+@@ -1723,8 +1723,7 @@ void ieee80211_ibss_setup_sdata(struct ieee80211_sub_if_data *sdata)
+ {
+ 	struct ieee80211_if_ibss *ifibss = &sdata->u.ibss;
+ 
+-	setup_timer(&ifibss->timer, ieee80211_ibss_timer,
+-		    (unsigned long) sdata);
++	timer_setup(&ifibss->timer, ieee80211_ibss_timer, 0);
+ 	INIT_LIST_HEAD(&ifibss->incomplete_stations);
+ 	spin_lock_init(&ifibss->incomplete_lock);
+ 	INIT_WORK(&ifibss->csa_connection_drop_work,
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 68f874e73561..885d00b41911 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -1057,6 +1057,7 @@ struct tpt_led_trigger {
+ 	const struct ieee80211_tpt_blink *blink_table;
+ 	unsigned int blink_table_len;
+ 	struct timer_list timer;
++	struct ieee80211_local *local;
+ 	unsigned long prev_traffic;
+ 	unsigned long tx_bytes, rx_bytes;
+ 	unsigned int active, want;
+@@ -1932,7 +1933,7 @@ static inline int ieee80211_ac_from_tid(int tid)
+ 
+ void ieee80211_dynamic_ps_enable_work(struct work_struct *work);
+ void ieee80211_dynamic_ps_disable_work(struct work_struct *work);
+-void ieee80211_dynamic_ps_timer(unsigned long data);
++void ieee80211_dynamic_ps_timer(struct timer_list *t);
+ void ieee80211_send_nullfunc(struct ieee80211_local *local,
+ 			     struct ieee80211_sub_if_data *sdata,
+ 			     bool powersave);
+diff --git a/net/mac80211/led.c b/net/mac80211/led.c
+index 0505845b7ab8..ba0b507ea691 100644
+--- a/net/mac80211/led.c
++++ b/net/mac80211/led.c
+@@ -248,10 +248,10 @@ static unsigned long tpt_trig_traffic(struct ieee80211_local *local,
+ 	return DIV_ROUND_UP(delta, 1024 / 8);
+ }
+ 
+-static void tpt_trig_timer(unsigned long data)
++static void tpt_trig_timer(struct timer_list *t)
+ {
+-	struct ieee80211_local *local = (void *)data;
+-	struct tpt_led_trigger *tpt_trig = local->tpt_led_trigger;
++	struct tpt_led_trigger *tpt_trig = from_timer(tpt_trig, t, timer);
++	struct ieee80211_local *local = tpt_trig->local;
+ 	struct led_classdev *led_cdev;
+ 	unsigned long on, off, tpt;
+ 	int i;
+@@ -306,8 +306,9 @@ __ieee80211_create_tpt_led_trigger(struct ieee80211_hw *hw,
+ 	tpt_trig->blink_table = blink_table;
+ 	tpt_trig->blink_table_len = blink_table_len;
+ 	tpt_trig->want = flags;
++	tpt_trig->local = local;
+ 
+-	setup_timer(&tpt_trig->timer, tpt_trig_timer, (unsigned long)local);
++	timer_setup(&tpt_trig->timer, tpt_trig_timer, 0);
+ 
+ 	local->tpt_led_trigger = tpt_trig;
+ 
+@@ -326,7 +327,7 @@ static void ieee80211_start_tpt_led_trig(struct ieee80211_local *local)
+ 	tpt_trig_traffic(local, tpt_trig);
+ 	tpt_trig->running = true;
+ 
+-	tpt_trig_timer((unsigned long)local);
++	tpt_trig_timer(&tpt_trig->timer);
+ 	mod_timer(&tpt_trig->timer, round_jiffies(jiffies + HZ));
+ }
+ 
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index 8aa1f5b6a051..e054a2fd8d38 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -633,8 +633,7 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
+ 		  ieee80211_dynamic_ps_enable_work);
+ 	INIT_WORK(&local->dynamic_ps_disable_work,
+ 		  ieee80211_dynamic_ps_disable_work);
+-	setup_timer(&local->dynamic_ps_timer,
+-		    ieee80211_dynamic_ps_timer, (unsigned long) local);
++	timer_setup(&local->dynamic_ps_timer, ieee80211_dynamic_ps_timer, 0);
+ 
+ 	INIT_WORK(&local->sched_scan_stopped_work,
+ 		  ieee80211_sched_scan_stopped_work);
+diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
+index 7a76c4a6df30..5e27364e10ac 100644
+--- a/net/mac80211/mesh.c
++++ b/net/mac80211/mesh.c
+@@ -37,9 +37,10 @@ void ieee80211s_stop(void)
+ 	kmem_cache_destroy(rm_cache);
+ }
+ 
+-static void ieee80211_mesh_housekeeping_timer(unsigned long data)
++static void ieee80211_mesh_housekeeping_timer(struct timer_list *t)
+ {
+-	struct ieee80211_sub_if_data *sdata = (void *) data;
++	struct ieee80211_sub_if_data *sdata =
++		from_timer(sdata, t, u.mesh.housekeeping_timer);
+ 	struct ieee80211_local *local = sdata->local;
+ 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
+ 
+@@ -528,18 +529,18 @@ int mesh_add_vht_oper_ie(struct ieee80211_sub_if_data *sdata,
+ 	return 0;
+ }
+ 
+-static void ieee80211_mesh_path_timer(unsigned long data)
++static void ieee80211_mesh_path_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.mesh.mesh_path_timer);
+ 
+ 	ieee80211_queue_work(&sdata->local->hw, &sdata->work);
+ }
+ 
+-static void ieee80211_mesh_path_root_timer(unsigned long data)
++static void ieee80211_mesh_path_root_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.mesh.mesh_path_root_timer);
+ 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
+ 
+ 	set_bit(MESH_WORK_ROOT, &ifmsh->wrkq_flags);
+@@ -1442,9 +1443,8 @@ void ieee80211_mesh_init_sdata(struct ieee80211_sub_if_data *sdata)
+ 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
+ 	static u8 zero_addr[ETH_ALEN] = {};
+ 
+-	setup_timer(&ifmsh->housekeeping_timer,
+-		    ieee80211_mesh_housekeeping_timer,
+-		    (unsigned long) sdata);
++	timer_setup(&ifmsh->housekeeping_timer,
++		    ieee80211_mesh_housekeeping_timer, 0);
+ 
+ 	ifmsh->accepting_plinks = true;
+ 	atomic_set(&ifmsh->mpaths, 0);
+@@ -1458,12 +1458,9 @@ void ieee80211_mesh_init_sdata(struct ieee80211_sub_if_data *sdata)
+ 
+ 	mesh_pathtbl_init(sdata);
+ 
+-	setup_timer(&ifmsh->mesh_path_timer,
+-		    ieee80211_mesh_path_timer,
+-		    (unsigned long) sdata);
+-	setup_timer(&ifmsh->mesh_path_root_timer,
+-		    ieee80211_mesh_path_root_timer,
+-		    (unsigned long) sdata);
++	timer_setup(&ifmsh->mesh_path_timer, ieee80211_mesh_path_timer, 0);
++	timer_setup(&ifmsh->mesh_path_root_timer,
++		    ieee80211_mesh_path_root_timer, 0);
+ 	INIT_LIST_HEAD(&ifmsh->preq_queue.list);
+ 	skb_queue_head_init(&ifmsh->ps.bc_buf);
+ 	spin_lock_init(&ifmsh->mesh_preq_queue_lock);
+diff --git a/net/mac80211/mesh.h b/net/mac80211/mesh.h
+index 465b7853edc0..ee56f18cad3f 100644
+--- a/net/mac80211/mesh.h
++++ b/net/mac80211/mesh.h
+@@ -296,7 +296,7 @@ void mesh_path_tx_pending(struct mesh_path *mpath);
+ int mesh_pathtbl_init(struct ieee80211_sub_if_data *sdata);
+ void mesh_pathtbl_unregister(struct ieee80211_sub_if_data *sdata);
+ int mesh_path_del(struct ieee80211_sub_if_data *sdata, const u8 *addr);
+-void mesh_path_timer(unsigned long data);
++void mesh_path_timer(struct timer_list *t);
+ void mesh_path_flush_by_nexthop(struct sta_info *sta);
+ void mesh_path_discard_frame(struct ieee80211_sub_if_data *sdata,
+ 			     struct sk_buff *skb);
+diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
+index 146ec6c0f12f..4f7826d7b47c 100644
+--- a/net/mac80211/mesh_hwmp.c
++++ b/net/mac80211/mesh_hwmp.c
+@@ -1194,9 +1194,9 @@ int mesh_nexthop_lookup(struct ieee80211_sub_if_data *sdata,
+ 	return err;
+ }
+ 
+-void mesh_path_timer(unsigned long data)
++void mesh_path_timer(struct timer_list *t)
+ {
+-	struct mesh_path *mpath = (void *) data;
++	struct mesh_path *mpath = from_timer(mpath, t, timer);
+ 	struct ieee80211_sub_if_data *sdata = mpath->sdata;
+ 	int ret;
+ 
+diff --git a/net/mac80211/mesh_pathtbl.c b/net/mac80211/mesh_pathtbl.c
+index 97269caafecd..86c8dfef56a4 100644
+--- a/net/mac80211/mesh_pathtbl.c
++++ b/net/mac80211/mesh_pathtbl.c
+@@ -399,8 +399,7 @@ struct mesh_path *mesh_path_new(struct ieee80211_sub_if_data *sdata,
+ 	skb_queue_head_init(&new_mpath->frame_queue);
+ 	new_mpath->exp_time = jiffies;
+ 	spin_lock_init(&new_mpath->state_lock);
+-	setup_timer(&new_mpath->timer, mesh_path_timer,
+-		    (unsigned long) new_mpath);
++	timer_setup(&new_mpath->timer, mesh_path_timer, 0);
+ 
+ 	return new_mpath;
+ }
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index ee5ca1bc5a20..241b70c2fe0a 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -1074,10 +1074,10 @@ void ieee80211_chswitch_done(struct ieee80211_vif *vif, bool success)
+ }
+ EXPORT_SYMBOL(ieee80211_chswitch_done);
+ 
+-static void ieee80211_chswitch_timer(unsigned long data)
++static void ieee80211_chswitch_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.mgd.chswitch_timer);
+ 
+ 	ieee80211_queue_work(&sdata->local->hw, &sdata->u.mgd.chswitch_work);
+ }
+@@ -1585,9 +1585,9 @@ void ieee80211_dynamic_ps_enable_work(struct work_struct *work)
+ 	}
+ }
+ 
+-void ieee80211_dynamic_ps_timer(unsigned long data)
++void ieee80211_dynamic_ps_timer(struct timer_list *t)
+ {
+-	struct ieee80211_local *local = (void *) data;
++	struct ieee80211_local *local = from_timer(local, t, dynamic_ps_timer);
+ 
+ 	ieee80211_queue_work(&local->hw, &local->dynamic_ps_enable_work);
+ }
+@@ -3719,10 +3719,10 @@ void ieee80211_sta_rx_queued_mgmt(struct ieee80211_sub_if_data *sdata,
+ 	sdata_unlock(sdata);
+ }
+ 
+-static void ieee80211_sta_timer(unsigned long data)
++static void ieee80211_sta_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.mgd.timer);
+ 
+ 	ieee80211_queue_work(&sdata->local->hw, &sdata->work);
+ }
+@@ -3999,10 +3999,10 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
+ 	sdata_unlock(sdata);
+ }
+ 
+-static void ieee80211_sta_bcn_mon_timer(unsigned long data)
++static void ieee80211_sta_bcn_mon_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.mgd.bcn_mon_timer);
+ 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
+ 
+ 	if (sdata->vif.csa_active && !ifmgd->csa_waiting_bcn)
+@@ -4013,10 +4013,10 @@ static void ieee80211_sta_bcn_mon_timer(unsigned long data)
+ 			     &sdata->u.mgd.beacon_connection_loss_work);
+ }
+ 
+-static void ieee80211_sta_conn_mon_timer(unsigned long data)
++static void ieee80211_sta_conn_mon_timer(struct timer_list *t)
+ {
+ 	struct ieee80211_sub_if_data *sdata =
+-		(struct ieee80211_sub_if_data *) data;
++		from_timer(sdata, t, u.mgd.conn_mon_timer);
+ 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
+ 	struct ieee80211_local *local = sdata->local;
+ 
+@@ -4147,14 +4147,10 @@ void ieee80211_sta_setup_sdata(struct ieee80211_sub_if_data *sdata)
+ 	INIT_WORK(&ifmgd->request_smps_work, ieee80211_request_smps_mgd_work);
+ 	INIT_DELAYED_WORK(&ifmgd->tdls_peer_del_work,
+ 			  ieee80211_tdls_peer_del_work);
+-	setup_timer(&ifmgd->timer, ieee80211_sta_timer,
+-		    (unsigned long) sdata);
+-	setup_timer(&ifmgd->bcn_mon_timer, ieee80211_sta_bcn_mon_timer,
+-		    (unsigned long) sdata);
+-	setup_timer(&ifmgd->conn_mon_timer, ieee80211_sta_conn_mon_timer,
+-		    (unsigned long) sdata);
+-	setup_timer(&ifmgd->chswitch_timer, ieee80211_chswitch_timer,
+-		    (unsigned long) sdata);
++	timer_setup(&ifmgd->timer, ieee80211_sta_timer, 0);
++	timer_setup(&ifmgd->bcn_mon_timer, ieee80211_sta_bcn_mon_timer, 0);
++	timer_setup(&ifmgd->conn_mon_timer, ieee80211_sta_conn_mon_timer, 0);
++	timer_setup(&ifmgd->chswitch_timer, ieee80211_chswitch_timer, 0);
+ 	INIT_DELAYED_WORK(&ifmgd->tx_tspec_wk,
+ 			  ieee80211_sta_handle_tspec_ac_params_wk);
+ 
+diff --git a/net/mac80211/ocb.c b/net/mac80211/ocb.c
+index 88e6ebbbe24f..d351dc1162be 100644
+--- a/net/mac80211/ocb.c
++++ b/net/mac80211/ocb.c
+@@ -150,9 +150,10 @@ void ieee80211_ocb_work(struct ieee80211_sub_if_data *sdata)
+ 	sdata_unlock(sdata);
+ }
+ 
+-static void ieee80211_ocb_housekeeping_timer(unsigned long data)
++static void ieee80211_ocb_housekeeping_timer(struct timer_list *t)
+ {
+-	struct ieee80211_sub_if_data *sdata = (void *)data;
++	struct ieee80211_sub_if_data *sdata =
++		from_timer(sdata, t, u.ocb.housekeeping_timer);
+ 	struct ieee80211_local *local = sdata->local;
+ 	struct ieee80211_if_ocb *ifocb = &sdata->u.ocb;
+ 
+@@ -165,9 +166,8 @@ void ieee80211_ocb_setup_sdata(struct ieee80211_sub_if_data *sdata)
+ {
+ 	struct ieee80211_if_ocb *ifocb = &sdata->u.ocb;
+ 
+-	setup_timer(&ifocb->housekeeping_timer,
+-		    ieee80211_ocb_housekeeping_timer,
+-		    (unsigned long)sdata);
++	timer_setup(&ifocb->housekeeping_timer,
++		    ieee80211_ocb_housekeeping_timer, 0);
+ 	INIT_LIST_HEAD(&ifocb->incomplete_stations);
+ 	spin_lock_init(&ifocb->incomplete_lock);
+ }
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 9673e157bf8f..877d35796776 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -1064,9 +1064,9 @@ int sta_info_destroy_addr_bss(struct ieee80211_sub_if_data *sdata,
+ 	return ret;
+ }
+ 
+-static void sta_info_cleanup(unsigned long data)
++static void sta_info_cleanup(struct timer_list *t)
+ {
+-	struct ieee80211_local *local = (struct ieee80211_local *) data;
++	struct ieee80211_local *local = from_timer(local, t, sta_cleanup);
+ 	struct sta_info *sta;
+ 	bool timer_needed = false;
+ 
+@@ -1098,8 +1098,7 @@ int sta_info_init(struct ieee80211_local *local)
+ 	mutex_init(&local->sta_mtx);
+ 	INIT_LIST_HEAD(&local->sta_list);
+ 
+-	setup_timer(&local->sta_cleanup, sta_info_cleanup,
+-		    (unsigned long)local);
++	timer_setup(&local->sta_cleanup, sta_info_cleanup, 0);
+ 	return 0;
+ }
+ 
+-- 
+2.7.4
 
 
-
-W dniu 2017-10-16 o 18:26, Paweł Staszewski pisze:
->
->
-> W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
->> On 15/10/2017 02:58 πμ, Alexander Duyck wrote:
->>> Hi Pawel,
->>>
->>> To clarify is that Dave Miller's tree or Linus's that you are talking
->>> about? If it is Dave's tree how long ago was it you pulled it since I
->>> think the fix was just pushed by Jeff Kirsher a few days ago.
->>>
->>> The issue should be fixed in the following commit:
->>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=2b9478ffc550f17c6cd8c69057234e91150f5972 
->>>
->>>
->>
->> Do you know when it is going to be available on net-next and 
->> linux-stable repos?
->>
->> Cheers,
->> Pavlos
->>
->>
-> I will make some tests today night with "net" git tree where this 
-> patch is included.
-> Starting from 0:00 CET
-> :)
->
->
-Upgraded and looks like problem is not solved with that patch
-Currently running system with
-https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
-kernel
-
-Still about 0.5GB of memory is leaking somewhere
-
-Also can confirm that the latest kernel where memory is not leaking 
-(with use i40e driver intel 710 cards) is 4.11.12
-With kernel 4.11.12 - after hour no change in memory usage.
-
-also checked that with ixgbe instead of i40e with same  net.git kernel 
-there is no memleak - after hour same memory usage - so for 100% this is 
-i40e driver problem.
+-- 
+Kees Cook
+Pixel Security
