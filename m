@@ -1,46 +1,111 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH 3/3][v2] selftests: silence test output by default
-Date: Mon, 16 Oct 2017 14:57:02 +1100
-Message-ID: <87vajflp81.fsf@concordia.ellerman.id.au>
-References: <1505829088-1823-1-git-send-email-jbacik@fb.com> <1505829088-1823-3-git-send-email-jbacik@fb.com> <89b70a11-27d9-9b56-2010-66258618cdb4@kernel.org>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH v2 2/5] dpaa_eth: move of_phy_connect() to the eth driver
+Date: Mon, 16 Oct 2017 04:26:28 +0000
+Message-ID: <DB3PR0402MB3849B210D6DA612C31BA0C5AEC4F0@DB3PR0402MB3849.eurprd04.prod.outlook.com>
+References: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
+ <1507906212-10076-3-git-send-email-madalin.bucur@nxp.com>
+ <20171015183349.GD6374@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Josef Bacik <jbacik@fb.com>, Shuah Khan <shuah@kernel.org>
-To: Shuah Khan <shuah@kernel.org>, josef@toxicpanda.com,
-        davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:50155 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751506AbdJPD5E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 15 Oct 2017 23:57:04 -0400
-In-Reply-To: <89b70a11-27d9-9b56-2010-66258618cdb4@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>,
+        "junote@outlook.com" <junote@outlook.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171015183349.GD6374@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Shuah Khan <shuah@kernel.org> writes:
+> -----Original Message-----
+> From: Andrew Lunn [mailto:andrew@lunn.ch]
+> Sent: Sunday, October 15, 2017 9:34 PM
+> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+> Cc: netdev@vger.kernel.org; davem@davemloft.net; f.fainelli@gmail.com;
+> vivien.didelot@savoirfairelinux.com; junote@outlook.com; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH v2 2/5] dpaa_eth: move of_phy_connect() to the eth
+> driver
+>=20
+> On Fri, Oct 13, 2017 at 05:50:09PM +0300, Madalin Bucur wrote:
+> > Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+> > ---
+> >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 48 +++++++++++--
+> >  drivers/net/ethernet/freescale/fman/mac.c      | 97 ++++++------------=
+-
+> -------
+> >  drivers/net/ethernet/freescale/fman/mac.h      |  5 +-
+> >  3 files changed, 66 insertions(+), 84 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > index 4225806..7cf61d6 100644
+> > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+> > @@ -2435,6 +2435,48 @@ static void dpaa_eth_napi_disable(struct
+> dpaa_priv *priv)
+> >  	}
+> >  }
+> >
+> > +static void dpaa_adjust_link(struct net_device *net_dev)
+> > +{
+> > +	struct mac_device *mac_dev;
+> > +	struct dpaa_priv *priv;
+> > +
+> > +	priv =3D netdev_priv(net_dev);
+> > +	mac_dev =3D priv->mac_dev;
+> > +	mac_dev->adjust_link(mac_dev);
+> > +}
+> > +
+> > +static int dpaa_phy_init(struct net_device *net_dev)
+> > +{
+> > +	struct mac_device *mac_dev;
+> > +	struct phy_device *phy_dev;
+> > +	struct dpaa_priv *priv;
+> > +
+> > +	priv =3D netdev_priv(net_dev);
+> > +	mac_dev =3D priv->mac_dev;
+> > +
+> > +	phy_dev =3D of_phy_connect(net_dev, mac_dev->phy_node,
+> > +				 &dpaa_adjust_link, 0,
+> > +				 mac_dev->phy_if);
+> > +	if (!phy_dev) {
+> > +		netif_err(priv, ifup, net_dev, "init_phy() failed\n");
+> > +		return -ENODEV;
+> > +	}
+> > +
+> > +	/* Remove any features not supported by the controller */
+> > +	phy_dev->supported &=3D mac_dev->if_support;
+> > +
+> > +	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
+> > +	 * as most of the PHY drivers do not enable them by default.
+> > +	 */
+>=20
+> Hi Madalin
+>=20
+> This is just moving code around, so the patch is O.K. However, it
+> would be nice to have a followup patch. This comment is wrong. The phy
+> driver should never enable symmetric and asymmetric PAUSE frames. The
+> MAC needs to, because only the MAC knows if the MAC supports pause
+> frames.
+>=20
+> 	Andrew
 
-> On 09/19/2017 07:51 AM, josef@toxicpanda.com wrote:
->> From: Josef Bacik <jbacik@fb.com>
->> 
->> Some of the networking tests are very noisy and make it impossible to
->> see if we actually passed the tests as they run.  Default to suppressing
->> the output from any tests run in order to make it easier to track what
->> failed.
->> 
->> Signed-off-by: Josef Bacik <jbacik@fb.com>
->> ---
->> v1->v2:
->> - dump output into /tmp/testname instead of /dev/null
->> 
->
-> Thanks for the fix. Applied to linux-kselftest for 4.14-rc2
+Hi Andrew,
 
-Sorry this is not a fix.
+This is obsolete and it will be removed, I'll send a v3. It remained there =
+from
+a time it used to be valid (the original DPAA Ethernet driver was developed
+and maintained out of tree since about 9 years ago). I see this thread on t=
+he
+subject which is relatively recent:
 
-This is a regression, it breaks all my test infrastructure, because we
-use the output of the test case.
+https://www.spinics.net/lists/netdev/msg404288.html
 
-Can we please revert this and fix any tests that are overly verbose.
-
-cheers
+Thanks,
+Madalin
