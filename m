@@ -1,221 +1,80 @@
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: Re: [PATCH net-next 0/2] Add mqprio hardware offload support in hns3
- driver
-Date: Mon, 16 Oct 2017 15:05:29 +0800
-Message-ID: <fe902ff3-492f-8871-a96c-b4ebc3e5352e@huawei.com>
-References: <1507775912-22402-1-git-send-email-linyunsheng@huawei.com>
- <AM0PR0502MB36837A27C3EAA2A08590D709BF4B0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <5c268e80-3b04-28bd-26fb-d77f2edd69a8@huawei.com>
- <AM0PR0502MB368336C6A93618A13ADBB68ABF4E0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <f651e2c2-5233-bcc7-7488-3ec5905b92d4@huawei.com>
- <AM0PR0502MB3683372D5A1C9DF65431113CBF4F0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+From: Andy Zhou <azhou@ovn.org>
+Subject: Re: [net-next RFC 4/4] openvswitch: Add meter action support
+Date: Mon, 16 Oct 2017 00:06:57 -0700
+Message-ID: <CABKoBm38Jn45p8HWYprw9JRHe-m4xaamW=_d25ReakTE7GB0_w@mail.gmail.com>
+References: <1507847923-13612-1-git-send-email-azhou@ovn.org>
+ <1507847923-13612-5-git-send-email-azhou@ovn.org> <CAOrHB_AaUYb_s4Mp9gOBsH26P1CHcnEcLjPW8ZDeJxPCESP3pw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "huangdaode@hisilicon.com" <huangdaode@hisilicon.com>,
-        "xuwei5@hisilicon.com" <xuwei5@hisilicon.com>,
-        "liguozhu@hisilicon.com" <liguozhu@hisilicon.com>,
-        "Yisen.Zhuang@huawei.com" <Yisen.Zhuang@huawei.com>,
-        "gabriele.paoloni@huawei.com" <gabriele.paoloni@huawei.com>,
-        "john.garry@huawei.com" <john.garry@huawei.com>,
-        "linuxarm@huawei.com" <linuxarm@huawei.com>,
-        "salil.mehta@huawei.com" <salil.mehta@huawei.com>,
-        "lipeng321@huawei.com" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Yuval Mintz <yuvalm@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AM0PR0502MB3683372D5A1C9DF65431113CBF4F0@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Joe Stringer <joe@ovn.org>, Greg Rose <gvrose8192@gmail.com>
+To: Pravin Shelar <pshelar@ovn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay6-d.mail.gandi.net ([217.70.183.198]:52691 "EHLO
+        relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751550AbdJPHHl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 03:07:41 -0400
+Received: from mail-pf0-f180.google.com (mail-pf0-f180.google.com [209.85.192.180])
+        (Authenticated sender: azhou@ovn.org)
+        by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id C80F7FB87E
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 09:07:39 +0200 (CEST)
+Received: by mail-pf0-f180.google.com with SMTP id e64so15148815pfk.9
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 00:07:39 -0700 (PDT)
+In-Reply-To: <CAOrHB_AaUYb_s4Mp9gOBsH26P1CHcnEcLjPW8ZDeJxPCESP3pw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Yuval
-
-On 2017/10/16 14:25, Yuval Mintz wrote:
->> Hi, Yuval
+On Fri, Oct 13, 2017 at 5:13 PM, Pravin Shelar <pshelar@ovn.org> wrote:
+> On Thu, Oct 12, 2017 at 3:38 PM, Andy Zhou <azhou@ovn.org> wrote:
+>> Implements OVS kernel meter action support.
 >>
->> On 2017/10/15 13:14, Yuval Mintz wrote:
->>>> Hi, Yuval
->>>>
->>>> On 2017/10/13 4:21, Yuval Mintz wrote:
->>>>>> This patchset adds a new hardware offload type in mqprio before
->> adding
->>>>>> mqprio hardware offload support in hns3 driver.
->>>>>
->>>>> I think one of the biggest issues in tying this to DCB configuration is the
->>>>> non-immediate [and possibly non persistent] configuration.
->>>>>
->>>>> Scenario #1:
->>>>> User is configuring mqprio offloaded with 3 TCs while device is in willing
->>>> mode.
->>>>> Would you expect the driver to immediately respond with a success or
->>>> instead
->>>>> delay the return until the DCBx negotiation is complete and the
->> operational
->>>>> num of TCs is actually 3?
->>>>
->>>> Well, when user requsts the mqprio offloaded by a hardware shared by
->> DCB,
->>>> I expect
->>>> the user is not using the dcb tool.
->>>> If user is still using dcb tool, then result is undefined.
->>>>
->>>> The scenario you mention maybe can be enforced by setting willing to
->> zero
->>>> when user
->>>> is requesting the mqprio offload, and restore the willing bit when
->> unloaded
->>>> the mqprio
->>>> offload.
->>>
->>> Sounds a bit harsh but would probably work.
->>>
->>>> But I think the real issue is that dcb and mqprio shares the tc system in the
->>>> stack,
->>>> the problem may be better to be fixed in the stack rather than in the
->> driver,
->>>> as you
->>>> suggested in the DCB patchset. What do you think?
->>>
->>> What did you have in mind?
+>> Signed-off-by: Andy Zhou <azhou@ovn.org>
+>> ---
+>>  include/uapi/linux/openvswitch.h |  1 +
+>>  net/openvswitch/actions.c        | 12 ++++++++++++
+>>  net/openvswitch/datapath.h       |  1 +
+>>  net/openvswitch/flow_netlink.c   |  6 ++++++
+>>  4 files changed, 20 insertions(+)
 >>
->> I was thinking maybe the tc system can provide a notification to mqprio and
->> dcb.
->> mqprio and dcb register a callback to the tc system, when there is some
->> change of
->> tc configuration, the tc system call the callback from mqprio and dcb.
+>> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+>> index 325049a129e4..11fe1a06cdd6 100644
+>> --- a/include/uapi/linux/openvswitch.h
+>> +++ b/include/uapi/linux/openvswitch.h
+>> @@ -835,6 +835,7 @@ enum ovs_action_attr {
+>>         OVS_ACTION_ATTR_TRUNC,        /* u32 struct ovs_action_trunc. */
+>>         OVS_ACTION_ATTR_PUSH_ETH,     /* struct ovs_action_push_eth. */
+>>         OVS_ACTION_ATTR_POP_ETH,      /* No argument. */
+>> +       OVS_ACTION_ATTR_METER,        /* u32 meter ID. */
 >>
->>>
->>>>
->>>>>
->>>>> Scenario #2:
->>>>> Assume user explicitly offloaded mqprio with 3 TCs, but now DCB
->>>> configuration
->>>>> has changed on the peer side and 4 TCs is the new negotiated
->> operational
->>>> value.
->>>>> Your current driver logic would change the number of TCs underneath
->> the
->>>> user
->>>>> configuration [and it would actually probably work due to mqprio being a
->>>> crappy
->>>>> qdisc]. But was that the user actual intention?
->>>>> [I think the likely answer in this scenario is 'yes' since the alternative is no
->>>> better.
->>>>> But I still thought it was worth mentioning]
->>>>
->>>> You are right, the problem also have something to do with mqprio and dcb
->>>> sharing
->>>> the tc in the stack.
->>>>
->>>> Druing testing, when user explicitly offloaded mqprio with 3 TCs, all
->>>> queue has a default pfifo mqprio attached, after DCB changes the tc num
->> to
->>>> 4,
->>>> using tc qdisc shows some queue does not have a default pfifo mqprio
->>>> attached.
->>>
->>> Really? Then what did it show?
->>> [I assume it has some pfifo attached, and it's an mqprio dump kind of an
->> issue]
+>>         __OVS_ACTION_ATTR_MAX,        /* Nothing past this will be accepted
+>>                                        * from userspace. */
+>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>> index a54a556fcdb5..4eb160ac5a27 100644
+>> --- a/net/openvswitch/actions.c
+>> +++ b/net/openvswitch/actions.c
+>> @@ -1210,6 +1210,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>>                 case OVS_ACTION_ATTR_POP_ETH:
+>>                         err = pop_eth(skb, key);
+>>                         break;
+>> +
+>> +               case OVS_ACTION_ATTR_METER:
+>> +                       if (ovs_meter_execute(dp, skb, key, nla_get_u32(a))) {
+>> +                               consume_skb(skb);
+>> +                               return 0;
+>> +                       }
+>>                 }
 >>
->> When queue size of the ndev is 16 and tc num is 3, we set the real queue size
->> to
->> 15 ( 5 * 3 = 15), mqprio only attach pfifo to the first 15 queue, when tc num
->> change
->> to 4 by DCB, we set the real queue size to 16 (4 * 4 = 16).
->> So tc qdisc shows the last queue has no qdisc attached.
-> 
-> So there is a qdisc attached - mqprio_attach() attches to all transmission
-> queues [num_tx_queues] and not only the active ones.
-> But the flow for mqprio might be lacking the additional qdisc_hash_add()
-> for the additional queue's qdisc.
-
-Yes, I think you may be right.
-
-static void mqprio_attach(struct Qdisc *sch)
-{
-	struct net_device *dev = qdisc_dev(sch);
-	struct mqprio_sched *priv = qdisc_priv(sch);
-	struct Qdisc *qdisc, *old;
-	unsigned int ntx;
-
-	/* Attach underlying qdisc */
-	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
-		qdisc = priv->qdiscs[ntx];
-		old = dev_graft_qdisc(qdisc->dev_queue, qdisc);
-		if (old)
-			qdisc_destroy(old);
-
-----------Only call qdisc_hash_add when  ntx < dev->real_num_tx_queues---------------
-
-		if (ntx < dev->real_num_tx_queues)
-			qdisc_hash_add(qdisc, false);
-	}
-	kfree(priv->qdiscs);
-	priv->qdiscs = NULL;
-}
-
-
-> 
+>>                 if (unlikely(err)) {
+>> @@ -1341,6 +1347,12 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>>         err = do_execute_actions(dp, skb, key,
+>>                                  acts->actions, acts->actions_len);
 >>
->>>
->>>>
->>>> Maybe we can add a callback to notify mqprio the configuration has
->> changed.
->>>>
->>>
->>> Which would do what?
->>> You already have the notifications available for monitoring using dcbnl logic
->> if the
->>> configuration change [for user]; So user can re-configure whatever it
->> wants.
->>
->> Yes, if user is only using dcb tool.
->>
->>> But other than dropping all the qdisc configurations and going back to the
->> default
->>> qdiscs, what default action would mqprio be able to do when configuration
->> changes
->>> that actually makes sense?
->>
->> As explained above, after dcb changing the configuration, some queue may
->> have no qdisc
->> attached, so I was thinking maybe we can add pfifo to it if there is no qdsic
->> attached
->> to it.
->>
->> Thanks,
->> Yunsheng Lin
->>
->>>
->>>> Thanks
->>>> Yunsheng Lin
->>>>
->>>>>
->>>>> Cheers,
->>>>> Yuval
->>>>>
->>>>>>
->>>>>> Yunsheng Lin (2):
->>>>>>   mqprio: Add a new hardware offload type in mqprio
->>>>>>   net: hns3: Add mqprio hardware offload support in hns3 driver
->>>>>>
->>>>>>  drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  1 +
->>>>>>  .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c | 23
->> +++++++++++
->>>>>>  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 46
->>>> ++++++++++++++-
->>>>>> -------
->>>>>>  include/uapi/linux/pkt_sched.h                     |  1 +
->>>>>>  4 files changed, 55 insertions(+), 16 deletions(-)
->>>>>>
->>>>>> --
->>>>>> 1.9.1
->>>>>
->>>>>
->>>>>
->>>
-> 
+>> +       /* OVS action has dropped the packet, do not expose it
+>> +        * to the user.
+>> +        */
+>> +       if (err == -ENODATA)
+>> +               err = 0;
+>> +
+> I am not sure who is returning this error code?
+Ah, this hunk was left over from experimenting with per band actions
+list. Will remove. Thanks for catching this!
