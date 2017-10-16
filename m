@@ -1,63 +1,99 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 2/3] bpf: Remove dead variable
-Date: Mon, 16 Oct 2017 21:11:47 +0200
-Message-ID: <59E50473.7040609@iogearbox.net>
-References: <20171016181856.12497-1-richard@nod.at> <20171016181856.12497-2-richard@nod.at> <59E5006C.4090303@iogearbox.net> <2297422.9nBBslcvMo@blindfold>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ast@kernel.org
-To: Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2297422.9nBBslcvMo@blindfold>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Chenbo Feng <chenbofeng.kernel@gmail.com>
+Subject: [PATCH net-next v6 2/5] bpf: Add tests for eBPF file mode
+Date: Mon, 16 Oct 2017 12:11:32 -0700
+Message-ID: <20171016191135.8046-3-chenbofeng.kernel@gmail.com>
+References: <20171016191135.8046-1-chenbofeng.kernel@gmail.com>
+Cc: Jeffrey Vander Stoep <jeffv@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        lorenzo@google.com, Daniel Borkmann <daniel@iogearbox.net>,
+        Stephen Smalley <sds@tycho.nsa.gov>,
+        James Morris <james.l.morris@oracle.com>,
+        Paul Moore <paul@paul-moore.com>,
+        Chenbo Feng <fengc@google.com>
+To: netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
+        linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20171016191135.8046-1-chenbofeng.kernel@gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/16/2017 08:59 PM, Richard Weinberger wrote:
-> Am Montag, 16. Oktober 2017, 20:54:36 CEST schrieb Daniel Borkmann:
->> On 10/16/2017 08:18 PM, Richard Weinberger wrote:
->>> task is never used in bpf_get_current_uid_gid(), kill it.
->>>
->>> Signed-off-by: Richard Weinberger <richard@nod.at>
->>> ---
->>>
->>>    kernel/bpf/helpers.c | 1 -
->>>    1 file changed, 1 deletion(-)
->>>
->>> diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
->>> index e8845adcd15e..511c9d522cfc 100644
->>> --- a/kernel/bpf/helpers.c
->>> +++ b/kernel/bpf/helpers.c
->>> @@ -131,7 +131,6 @@ const struct bpf_func_proto
->>> bpf_get_current_pid_tgid_proto = {>
->>>    BPF_CALL_0(bpf_get_current_uid_gid)
->>>    {
->>>
->>> -	struct task_struct *task = current;
->>>
->>>    	kuid_t uid;
->>>    	kgid_t gid;
->>
->> Needs to be squashed into patch 1/3?
->
-> I can squash it into 1/3, I kept it that way because
-> even without 1/3 this variable is unused.
+From: Chenbo Feng <fengc@google.com>
 
-Hmm, the helper looks like the below. In patch 1/3 you removed
-the 'if (unlikely(!task))' test where the variable was used before,
-so 2/3 without the 1/3 would result in a compile error.
+Two related tests are added into bpf selftest to test read only map and
+write only map. The tests verified the read only and write only flags
+are working on hash maps.
 
-BPF_CALL_0(bpf_get_current_uid_gid)
-{
-	struct task_struct *task = current;
-	kuid_t uid;
-	kgid_t gid;
+Signed-off-by: Chenbo Feng <fengc@google.com>
+---
+ tools/testing/selftests/bpf/test_maps.c | 48 +++++++++++++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
 
-	if (unlikely(!task))
-		return -EINVAL;
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index fe3a443a1102..896f23cfe918 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -1033,6 +1033,51 @@ static void test_map_parallel(void)
+ 	assert(bpf_map_get_next_key(fd, &key, &key) == -1 && errno == ENOENT);
+ }
+ 
++static void test_map_rdonly(void)
++{
++	int i, fd, key = 0, value = 0;
++
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    MAP_SIZE, map_flags | BPF_F_RDONLY);
++	if (fd < 0) {
++		printf("Failed to create map for read only test '%s'!\n",
++		       strerror(errno));
++		exit(1);
++	}
++
++	key = 1;
++	value = 1234;
++	/* Insert key=1 element. */
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == -1 &&
++	       errno == EPERM);
++
++	/* Check that key=2 is not found. */
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == ENOENT);
++	assert(bpf_map_get_next_key(fd, &key, &value) == -1 && errno == ENOENT);
++}
++
++static void test_map_wronly(void)
++{
++	int i, fd, key = 0, value = 0;
++
++	fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(key), sizeof(value),
++			    MAP_SIZE, map_flags | BPF_F_WRONLY);
++	if (fd < 0) {
++		printf("Failed to create map for read only test '%s'!\n",
++		       strerror(errno));
++		exit(1);
++	}
++
++	key = 1;
++	value = 1234;
++	/* Insert key=1 element. */
++	assert(bpf_map_update_elem(fd, &key, &value, BPF_ANY) == 0)
++
++	/* Check that key=2 is not found. */
++	assert(bpf_map_lookup_elem(fd, &key, &value) == -1 && errno == EPERM);
++	assert(bpf_map_get_next_key(fd, &key, &value) == -1 && errno == EPERM);
++}
++
+ static void run_all_tests(void)
+ {
+ 	test_hashmap(0, NULL);
+@@ -1050,6 +1095,9 @@ static void run_all_tests(void)
+ 	test_map_large();
+ 	test_map_parallel();
+ 	test_map_stress();
++
++	test_map_rdonly();
++	test_map_wronly();
+ }
+ 
+ int main(void)
+-- 
+2.15.0.rc0.271.g36b669edcc-goog
 
-	current_uid_gid(&uid, &gid);
-	return (u64) from_kgid(&init_user_ns, gid) << 32 |
-		     from_kuid(&init_user_ns, uid);
-}
