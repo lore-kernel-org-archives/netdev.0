@@ -1,67 +1,94 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v3 3/5] net: dsa: mv88e6060: setup random mac
- address
-Date: Mon, 16 Oct 2017 09:05:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0097993@AcuExch.aculab.com>
-References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
- <20171013181809.14627-4-vivien.didelot@savoirfairelinux.com>
+Subject: RE: [next-queue PATCH v7 4/6] net/sched: Introduce Credit Based
+ Shaper (CBS) qdisc
+Date: Mon, 16 Oct 2017 09:14:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00979BC@AcuExch.aculab.com>
+References: <20171013004005.17416-1-vinicius.gomes@intel.com>
+ <20171013004005.17416-5-vinicius.gomes@intel.com>
+ <20171013195924.GA19439@khorivan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171013181809.14627-4-vivien.didelot@savoirfairelinux.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        "andre.guedes@intel.com" <andre.guedes@intel.com>,
+        "ivan.briano@intel.com" <ivan.briano@intel.com>,
+        "jesus.sanchez-palencia@intel.com" <jesus.sanchez-palencia@intel.com>,
+        "boon.leong.ong@intel.com" <boon.leong.ong@intel.com>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>,
+        "henrik@austad.us" <henrik@austad.us>,
+        "levipearson@gmail.com" <levipearson@gmail.com>,
+        "rodney.cummings@ni.com" <rodney.cummings@ni.com>
+To: 'Ivan Khoronzhuk' <ivan.khoronzhuk@linaro.org>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.195]:54067 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750914AbdJPJOV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 05:14:21 -0400
+In-Reply-To: <20171013195924.GA19439@khorivan>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot
-> Sent: 13 October 2017 19:18
-> As for mv88e6xxx, setup the switch from within the mv88e6060 driver with
-> a random MAC address, and remove the .set_addr implementation.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
->  drivers/net/dsa/mv88e6060.c | 43 ++++++++++++++++++++++++++-----------------
->  1 file changed, 26 insertions(+), 17 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-> index d64be2b83d3c..6173be889d95 100644
-> --- a/drivers/net/dsa/mv88e6060.c
-> +++ b/drivers/net/dsa/mv88e6060.c
-> @@ -9,6 +9,7 @@
->   */
-> 
->  #include <linux/delay.h>
-> +#include <linux/etherdevice.h>
->  #include <linux/jiffies.h>
->  #include <linux/list.h>
->  #include <linux/module.h>
-> @@ -188,6 +189,27 @@ static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
->  	return 0;
->  }
-> 
-> +static int mv88e6060_setup_addr(struct dsa_switch *ds)
-> +{
-> +	u8 addr[ETH_ALEN];
-> +	u16 val;
-> +
-> +	eth_random_addr(addr);
-> +
-> +	val = addr[0] << 8 | addr[1];
-> +
-> +	/* The multicast bit is always transmitted as a zero, so the switch uses
-> +	 * bit 8 for "DiffAddr", where 0 means all ports transmit the same SA.
-> +	 */
-> +	val &= 0xfeff;
+From: Ivan Khoronzhuk
+> Sent: 13 October 2017 20:59
+> On Thu, Oct 12, 2017 at 05:40:03PM -0700, Vinicius Costa Gomes wrote:
+> > This queueing discipline implements the shaper algorithm defined by
+> > the 802.1Q-2014 Section 8.6.8.2 and detailed in Annex L.
+> >
+> > It's primary usage is to apply some bandwidth reservation to user
+> > defined traffic classes, which are mapped to different queues via the
+> > mqprio qdisc.
+> >
+> > Only a simple software implementation is added for now.
+> >
+> > Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+> > Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+> > ---
+> >  include/uapi/linux/pkt_sched.h |  18 +++
+> >  net/sched/Kconfig              |  11 ++
+> >  net/sched/Makefile             |   1 +
+> >  net/sched/sch_cbs.c            | 314 +++++++++++++++++++++++++++++++++++++++++
+> >  4 files changed, 344 insertions(+)
+> >  create mode 100644 net/sched/sch_cbs.c
+> >
+> > diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
+> > index 099bf5528fed..41e349df4bf4 100644
+> > --- a/include/uapi/linux/pkt_sched.h
+> > +++ b/include/uapi/linux/pkt_sched.h
+> > @@ -871,4 +871,22 @@ struct tc_pie_xstats {
+> >  	__u32 maxq;             /* maximum queue size */
+> >  	__u32 ecn_mark;         /* packets marked with ecn*/
+> >  };
+> > +
+> > +/* CBS */
+> > +struct tc_cbs_qopt {
+> > +	__u8 offload;
 
-The comment is probably ok, but the mask isn't needed.
-eth_randmon_addr() won't return and address with the multicast bit set.
+You probably don't want unnamed padding in a uapi structure.
 
+> > +	__s32 hicredit;
+> > +	__s32 locredit;
+> > +	__s32 idleslope;
+> > +	__s32 sendslope;
+> > +};
+> > +
+> > +enum {
+> > +	TCA_CBS_UNSPEC,
+> > +	TCA_CBS_PARMS,
+> > +	__TCA_CBS_MAX,
+> > +};
+> > +
+> > +#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
+
+Why not:
+	TCA_CBS_PARMS,
+	TCA_CBS_NEXT,
+	TCA_CBS_MAX = TCA_CBS_NEXT - 1,
+
+...
 	David
