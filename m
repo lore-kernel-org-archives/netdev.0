@@ -1,40 +1,88 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netfront,
-	xen-netback: Use correct minimum MTU values
-Date: Mon, 16 Oct 2017 16:05:22 +0100
-Message-ID: <20171016150522.nebui653rkjove7r@citrix.com>
-References: <1508160032-21689-1-git-send-email-mgamal@redhat.com>
+From: Rodney Cummings <rodney.cummings@ni.com>
+Subject: RE: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
+Date: Mon, 16 Oct 2017 15:23:42 +0000
+Message-ID: <CY1PR0401MB1536F870727AFA21BFC31115924F0@CY1PR0401MB1536.namprd04.prod.outlook.com>
+References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: otubo@redhat.com, Juergen Gross <jgross@suse.com>, wei.liu2@citrix.com,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org, paul.durrant@citrix.com,
- cheshi@redhat.com, xen-devel@lists.xenproject.org, vkuznets@redhat.com,
- cavery@redhat.com, Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: Mohammed Gamal <mgamal@redhat.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-Content-Disposition: inline
-In-Reply-To: <1508160032-21689-1-git-send-email-mgamal@redhat.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        David Laight <David.Laight@ACULAB.COM>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBPY3QgMTYsIDIwMTcgYXQgMDM6MjA6MzJQTSArMDIwMCwgTW9oYW1tZWQgR2FtYWwg
-d3JvdGU6Cj4gUkZDNzkxIHNwZWNpZmllcyB0aGUgbWluaW11bSBNVFUgdG8gYmUgNjgsIHdoaWxl
-IHhlbi1uZXR7ZnJvbnR8YmFja30KPiBkcml2ZXJzIHVzZSBhIG1pbmltdW0gdmFsdWUgb2YgMC4K
-PiAKPiBXaGVuIHNldCBNVFUgdG8gMH42NyB3aXRoIHhlbl9uZXR7ZnJvbnR8YmFja30gZHJpdmVy
-LCB0aGUgbmV0d29yawo+IHdpbGwgYmVjb21lIHVucmVhY2hhYmxlIGltbWVkaWF0ZWx5LCB0aGUg
-Z3Vlc3QgY2FuIG5vIGxvbmdlciBiZSBwaW5nZWQuCj4gCj4geGVuX25ldHtmcm9udHxiYWNrfSBz
-aG91bGQgbm90IGFsbG93IHRoZSB1c2VyIHRvIHNldCB0aGlzIHZhbHVlIHdoaWNoIGNhdXNlcwo+
-IG5ldHdvcmsgcHJvYmxlbXMuCj4gCj4gUmVwb3J0ZWQtYnk6IENoZW4gU2hpIDxjaGVzaGlAcmVk
-aGF0LmNvbT4KPiBTaWduZWQtb2ZmLWJ5OiBNb2hhbW1lZCBHYW1hbCA8bWdhbWFsQHJlZGhhdC5j
-b20+CgpBY2tlZC1ieTogV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4KCkNDIG5ldGZyb250
-IG1haW50YWluZXJzCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBz
-Oi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
+I am concerned about this proposed change.
+
+According to IEEE Std 802.1Q, a "higher layer entity" (i.e. end station) th=
+at is internal to the bridge (i.e. switch) can use the same individual glob=
+al MAC address that the switch is using. That behavior is common.
+
+Use of a local semi-random MAC address is dangerous on Ethernet. Local MAC =
+addresses can only be safely used in very narrow use cases, most of which a=
+re Wi-Fi. Generally speaking, local MAC addresses can be duplicated in the =
+network, which causes many Ethernet protocols to break down. Therefore, gen=
+eral-purpose implementations like DSA cannot use a local MAC address in a r=
+eliable manner.
+
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Vivien Didelot
+> Sent: Friday, October 13, 2017 1:18 PM
+> To: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org; kernel@savoirfairelinux.com; David S.
+> Miller <davem@davemloft.net>; Florian Fainelli <f.fainelli@gmail.com>;
+> Andrew Lunn <andrew@lunn.ch>; David Laight <David.Laight@ACULAB.COM>;
+> Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Subject: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
+>=20
+> An Ethernet switch may support having a MAC address, which can be used
+> as the switch's source address in transmitted full-duplex Pause frames.
+>=20
+> If a DSA switch supports the related .set_addr operation, the DSA core
+> sets the master's MAC address on the switch.
+>=20
+> This won't make sense anymore in a multi-CPU ports system, because there
+> won't be a unique master device assigned to a switch tree.
+>=20
+> Moreover this operation is confusing because it makes the user think
+> that it could be used to program the switch with the MAC address of the
+> CPU/management port such that MAC address learning can be disabled on
+> said port, but in fact, that's not how it is currently used.
+>=20
+> To fix this, assign a random MAC address at setup time in the mv88e6060
+> and mv88e6xxx drivers before removing .set_addr completely from DSA.
+>=20
+> Changes in v3:
+>   - include fix for mv88e6060 switch MAC address setter.
+>=20
+> Changes in v2:
+>   - remove .set_addr implementation from drivers and use a random MAC.
+>=20
+> Vivien Didelot (5):
+>   net: dsa: mv88e6xxx: setup random mac address
+>   net: dsa: mv88e6060: fix switch MAC address
+>   net: dsa: mv88e6060: setup random mac address
+>   net: dsa: dsa_loop: remove .set_addr
+>   net: dsa: remove .set_addr
+>=20
+>  drivers/net/dsa/dsa_loop.c       |  8 --------
+>  drivers/net/dsa/mv88e6060.c      | 37 ++++++++++++++++++++++++++--------=
+-
+> --
+>  drivers/net/dsa/mv88e6xxx/chip.c | 33 +++++++++++++++++----------------
+>  include/net/dsa.h                |  1 -
+>  net/dsa/dsa2.c                   |  6 ------
+>  net/dsa/legacy.c                 |  6 ------
+>  6 files changed, 43 insertions(+), 48 deletions(-)
+>=20
+> --
+> 2.14.2
