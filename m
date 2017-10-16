@@ -1,85 +1,55 @@
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: RE: [next-queue PATCH v7 4/6] net/sched: Introduce Credit Based Shaper (CBS) qdisc
-Date: Mon, 16 Oct 2017 15:13:12 -0700
-Message-ID: <87376in3lz.fsf@intel.com>
-References: <20171013004005.17416-1-vinicius.gomes@intel.com> <20171013004005.17416-5-vinicius.gomes@intel.com> <20171013195924.GA19439@khorivan> <063D6719AE5E284EB5DD2968C1650D6DD00979BC@AcuExch.aculab.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 3/3] bpf: Make sure that ->comm does not change under
+ us.
+Date: Tue, 17 Oct 2017 00:19:26 +0200
+Message-ID: <59E5306E.8050000@iogearbox.net>
+References: <CAADnVQ+0kTYr2azBW6mDSU6JwWtjWRZVaJQ=ZFmSs3JxCFrrRg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan\@lists.osuosl.org"
-        <intel-wired-lan@lists.osuosl.org>,
-        "jhs\@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong\@gmail.com" <xiyou.wangcong@gmail.com>,
-        "jiri\@resnulli.us" <jiri@resnulli.us>,
-        "andre.guedes\@intel.com" <andre.guedes@intel.com>,
-        "ivan.briano\@intel.com" <ivan.briano@intel.com>,
-        "jesus.sanchez-palencia\@intel.com"
-        <jesus.sanchez-palencia@intel.com>,
-        "boon.leong.ong\@intel.com" <boon.leong.ong@intel.com>,
-        "richardcochran\@gmail.com" <richardcochran@gmail.com>,
-        "henrik\@austad.us" <henrik@austad.us>,
-        "levipearson\@gmail.com" <levipearson@gmail.com>,
-        "rodney.cummings\@ni.com" <rodney.cummings@ni.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-        'Ivan Khoronzhuk' <ivan.khoronzhuk@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:13655 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755918AbdJPWNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 18:13:13 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD00979BC@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Richard Weinberger <richard@nod.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAADnVQ+0kTYr2azBW6mDSU6JwWtjWRZVaJQ=ZFmSs3JxCFrrRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-David Laight <David.Laight@ACULAB.COM> writes:
-
-[...]
-
->> > index 099bf5528fed..41e349df4bf4 100644
->> > --- a/include/uapi/linux/pkt_sched.h
->> > +++ b/include/uapi/linux/pkt_sched.h
->> > @@ -871,4 +871,22 @@ struct tc_pie_xstats {
->> >  	__u32 maxq;             /* maximum queue size */
->> >  	__u32 ecn_mark;         /* packets marked with ecn*/
->> >  };
->> > +
->> > +/* CBS */
->> > +struct tc_cbs_qopt {
->> > +	__u8 offload;
+On 10/17/2017 12:10 AM, Alexei Starovoitov wrote:
+> On Mon, Oct 16, 2017 at 2:10 PM, Richard Weinberger <richard@nod.at> wrote:
+>> Am Montag, 16. Oktober 2017, 23:02:06 CEST schrieb Daniel Borkmann:
+>>> On 10/16/2017 10:55 PM, Richard Weinberger wrote:
+>>>> Am Montag, 16. Oktober 2017, 22:50:43 CEST schrieb Daniel Borkmann:
+>>>>>>            struct task_struct *task = current;
+>>>>>>
+>>>>>> + task_lock(task);
+>>>>>>
+>>>>>>            strncpy(buf, task->comm, size);
+>>>>>>
+>>>>>> + task_unlock(task);
+>>>>>
+>>>>> Wouldn't this potentially lead to a deadlock? E.g. you attach yourself
+>>>>> to task_lock() / spin_lock() / etc, and then the BPF prog triggers the
+>>>>> bpf_get_current_comm() taking the lock again ...
+>>>>
+>>>> Yes, but doesn't the same apply to the use case when I attach to strncpy()
+>>>> and run bpf_get_current_comm()?
+>>>
+>>> You mean due to recursion? In that case trace_call_bpf() would bail out
+>>> due to the bpf_prog_active counter.
+>>
+>> Ah, that's true.
+>> So, when someone wants to use bpf_get_current_comm() while tracing task_lock,
+>> we have a problem. I agree.
+>> On the other hand, without locking the function may return wrong results.
 >
-> You probably don't want unnamed padding in a uapi structure.
+> it will surely race with somebody else setting task comm and it's fine.
+> all of bpf tracing is read-only, so locks are only allowed inside bpf core
+> bits like maps. Taking core locks like task_lock() is quite scary.
+> bpf scripts rely on bpf_probe_read() of all sorts of kernel fields
+> so reading comm here w/o lock is fine.
 
-Yeah, this needs to be fixed.
-
->
->> > +	__s32 hicredit;
->> > +	__s32 locredit;
->> > +	__s32 idleslope;
->> > +	__s32 sendslope;
->> > +};
->> > +
->> > +enum {
->> > +	TCA_CBS_UNSPEC,
->> > +	TCA_CBS_PARMS,
->> > +	__TCA_CBS_MAX,
->> > +};
->> > +
->> > +#define TCA_CBS_MAX (__TCA_CBS_MAX - 1)
->
-> Why not:
-> 	TCA_CBS_PARMS,
-> 	TCA_CBS_NEXT,
-> 	TCA_CBS_MAX = TCA_CBS_NEXT - 1,
-
-The way it is proposed, at least is consistent with the rest of the
-file. So, if you don't have any stronger reasons, I'd like to keep it
-this way.
-
->
-> ...
-> 	David
-
-
-Cheers,
+Yeah, and perf_event_comm() -> perf_event_comm_event() out of __set_task_comm()
+is having same approach wrt comm read-out.
