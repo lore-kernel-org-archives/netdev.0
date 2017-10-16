@@ -1,66 +1,31 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: routing UAPI mismatch invalid state behavior?
-Date: Sun, 15 Oct 2017 19:56:34 -0600
-Message-ID: <8510da96-d8dc-8248-166a-d3ce22051a98@gmail.com>
-References: <CAOHTApje2ABpRPghhqabD=JkBOzjFjVmc1N67ReDBLHeGGVe1Q@mail.gmail.com>
+From: admin <admin@kcnewton.com>
+Subject: To learn the netdev code, please give me some advice...
+Date: Mon, 16 Oct 2017 10:23:11 +0800
+Message-ID: <404b700e-809f-64f9-3783-7556915d39f8@kcnewton.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-To: Alexander Aring <aring@mojatatu.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:45874 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751779AbdJPB4g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Oct 2017 21:56:36 -0400
-Received: by mail-pf0-f182.google.com with SMTP id d28so14656418pfe.2
-        for <netdev@vger.kernel.org>; Sun, 15 Oct 2017 18:56:36 -0700 (PDT)
-In-Reply-To: <CAOHTApje2ABpRPghhqabD=JkBOzjFjVmc1N67ReDBLHeGGVe1Q@mail.gmail.com>
-Content-Language: en-US
+Received: from p3nlsmtpcp01-03.prod.phx3.secureserver.net ([184.168.200.142]:51262
+        "EHLO p3nlsmtpcp01-03.prod.phx3.secureserver.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751743AbdJPCcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Oct 2017 22:32:04 -0400
+Received: from [124.238.223.129] (port=27377 helo=[192.168.0.103])
+        by p3plcpnl1007.prod.phx3.secureserver.net with esmtpsa (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128)
+        (Exim 4.88)
+        (envelope-from <admin@kcnewton.com>)
+        id 1e3v41-0005q5-8L
+        for netdev@vger.kernel.org; Sun, 15 Oct 2017 19:23:33 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/15/17 11:02 AM, Alexander Aring wrote:
-> Hi,
-> 
-> I figure out some problem, easy to reproduce:
-> 
-> # setup dummy
-> $ modprobe dummy
-> $ ip link set dummy0 up
-> 
-> # issue
-> $ ip route replace default via 169.254.65.37 dev dummy0
-> RTNETLINK answers: Network is unreachable
+Hi, all
 
-This fails in fib_check_nh. Basically the lookup of the address fails
-making it an invalid gateway.
+     I want to learn network programming, and hope to read the kernel 
+code of netdev.
 
-> 
-> so it will forbid me to do that, but:
-> 
-> $ ip route replace 169.254.65.37 dev dummy0
+     Please give me some advice.
 
-This succeeds because iproute2 adds NLM_F_CREATE to flags along with
-REPLACE:
-
-        if (matches(*argv, "replace") == 0)
-                return iproute_modify(RTM_NEWROUTE,
-NLM_F_CREATE|NLM_F_REPLACE,
-                                      argc-1, argv+1);
-
-but your overall intent here of resolving 169.254.65.37 is the key.
-
-> $ ip route replace default via 169.254.65.37 dev dummy0
-
-The existence of the previous route allows the gateway check in
-fib_check_nh to succeed.
-
-> $ ip route del 169.254.65.37 dev dummy0
-> 
-> allows me to do that. Is there now a invalid state in my routing table
-> or is it an expected behavior?
-
-There are no recursive checks to gateway lookups once the routes are
-installed. With the way routes and nexthops are currently created doing
-so would be very expensive in some setups.
+     Thanks!
