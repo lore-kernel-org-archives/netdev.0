@@ -1,45 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] dsa: slave: support phy devices on external MII
- bus
-Date: Mon, 16 Oct 2017 15:39:43 +0200
-Message-ID: <20171016133943.GA7802@lunn.ch>
-References: <20171016104525.26810-1-mnhu@prevas.dk>
- <20171016123233.GD4255@lunn.ch>
- <02997de6-1c8a-d69b-d19b-3a811288e8ed@prevas.dk>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] sunrcp: make function _svc_create_xprt static
+Date: Mon, 16 Oct 2017 14:40:21 +0100
+Message-ID: <20171016134021.15702-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Martin =?iso-8859-1?Q?Hundeb=F8ll?= <mnhu@prevas.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:46406 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751817AbdJPNjs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 09:39:48 -0400
-Content-Disposition: inline
-In-Reply-To: <02997de6-1c8a-d69b-d19b-3a811288e8ed@prevas.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "J . Bruce Fields" <bfields@fieldses.org>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2017 at 03:16:51PM +0200, Martin Hundebøll wrote:
-> On 2017-10-16 14:32, Andrew Lunn wrote:
-> >So this used to work. I have a 10G phy connected to the external MII
-> >bus on a 6390. I wonder when this got broken? Supporting phy-handle is
-> >old code, so when i added the external MII i don't think i needed to
-> >change any generic code.
-> 
-> It could look like commit cd28a1a9baee7 ('net: dsa: fully divert PHY
-> reads/writes if requested') changed the of-case to use the mdio bus
-> associated with struct dsa_switch unconditionally.
+From: Colin Ian King <colin.king@canonical.com>
 
-Hi Martin
+The function _svc_create_xprt is local to the source and
+does not need to be in global scope, so make it static.
 
-I think ds->phys_mii_mask is playing a role here. I need to add some
-debug prints to my setup and see what is happening with my external
-10G PHY.
+Cleans up sparse warning:
+symbol '_svc_create_xprt' was not declared. Should it be static?
 
-This phy code is just too complex :-(
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/sunrpc/svc_xprt.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-     Andrew
+diff --git a/net/sunrpc/svc_xprt.c b/net/sunrpc/svc_xprt.c
+index d16a8b423c20..18e87791350f 100644
+--- a/net/sunrpc/svc_xprt.c
++++ b/net/sunrpc/svc_xprt.c
+@@ -250,9 +250,9 @@ void svc_add_new_perm_xprt(struct svc_serv *serv, struct svc_xprt *new)
+ 	svc_xprt_received(new);
+ }
+ 
+-int _svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
+-		    struct net *net, const int family,
+-		    const unsigned short port, int flags)
++static int _svc_create_xprt(struct svc_serv *serv, const char *xprt_name,
++			    struct net *net, const int family,
++			    const unsigned short port, int flags)
+ {
+ 	struct svc_xprt_class *xcl;
+ 
+-- 
+2.14.1
