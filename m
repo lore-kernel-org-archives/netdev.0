@@ -1,48 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/sched: cls_flower: Set egress_dev mark when
- calling into the HW driver
-Date: Mon, 16 Oct 2017 21:20:32 +0100 (WEST)
-Message-ID: <20171016.212032.2049244038001342016.davem@davemloft.net>
-References: <1508145588-29959-1-git-send-email-ogerlitz@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [patch net-next 06/34] net: core: use dev->ingress_queue instead
+ of tp->q
+Date: Mon, 16 Oct 2017 22:20:04 +0200
+Message-ID: <59E51474.2050708@iogearbox.net>
+References: <20171012171823.1431-1-jiri@resnulli.us> <20171012171823.1431-7-jiri@resnulli.us> <59DFE287.2040400@iogearbox.net> <20171013063019.GC1952@nanopsycho.orion> <59E29B5E.9000304@iogearbox.net> <20171015064535.GA1970@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, netdev@vger.kernel.org, mlxsw@mellanox.com,
-        roid@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, ast@kernel.org,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, edumazet@google.com, dsahern@gmail.com,
+        alexander.h.duyck@intel.com, john.fastabend@gmail.com,
+        willemb@google.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34668 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753257AbdJPUUe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:20:34 -0400
-In-Reply-To: <1508145588-29959-1-git-send-email-ogerlitz@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:59887 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752443AbdJPUUa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 16:20:30 -0400
+In-Reply-To: <20171015064535.GA1970@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Mon, 16 Oct 2017 12:19:48 +0300
+On 10/15/2017 08:45 AM, Jiri Pirko wrote:
+> Sun, Oct 15, 2017 at 01:18:54AM CEST, daniel@iogearbox.net wrote:
+>> On 10/13/2017 08:30 AM, Jiri Pirko wrote:
+>>> Thu, Oct 12, 2017 at 11:45:43PM CEST, daniel@iogearbox.net wrote:
+>>>> On 10/12/2017 07:17 PM, Jiri Pirko wrote:
+>>>>> From: Jiri Pirko <jiri@mellanox.com>
+>>>>>
+>>>>> In sch_handle_egress and sch_handle_ingress, don't use tp->q and use
+>>>>> dev->ingress_queue which stores the same pointer instead.
+>>>>>
+>>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>>> ---
+>>>>>     net/core/dev.c | 21 +++++++++++++++------
+>>>>>     1 file changed, 15 insertions(+), 6 deletions(-)
+>>>>>
+>>>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>>>> index fcddccb..cb9e5e5 100644
+>>>>> --- a/net/core/dev.c
+>>>>> +++ b/net/core/dev.c
+>>>>> @@ -3273,14 +3273,18 @@ EXPORT_SYMBOL(dev_loopback_xmit);
+>>>>>     static struct sk_buff *
+>>>>>     sch_handle_egress(struct sk_buff *skb, int *ret, struct net_device *dev)
+>>>>>     {
+>>>>> +	struct netdev_queue *netdev_queue =
+>>>>> +				rcu_dereference_bh(dev->ingress_queue);
+>>>>>     	struct tcf_proto *cl = rcu_dereference_bh(dev->egress_cl_list);
+>>>>>     	struct tcf_result cl_res;
+>>>>> +	struct Qdisc *q;
+>>>>>
+>>>>> -	if (!cl)
+>>>>> +	if (!cl || !netdev_queue)
+>>>>>     		return skb;
+>>>>> +	q = netdev_queue->qdisc;
+>>>>
+>>>> NAK, no additional overhead in the software fast-path of
+>>>> sch_handle_{ingress,egress}() like this. There are users out there
+>>>> that use tc in software only, so performance is critical here.
+>>>
+>>> Okay, how else do you suggest I can avoid the need to use tp->q?
+>>> I was thinking about storing q directly to net_device, which would safe
+>>> one dereference, resulting in the same amount as current cl->q.
+>>
+>> Sorry for late reply, mostly off for few days. netdev struct has different
+>> cachelines which are hot on rx and tx (see also the location of the two
+>> lists, ingress_cl_list and egress_cl_list), if you add only one qdisc
+>> pointer there, then you'd at least penalize one of the two w/ potential
+>> cache miss. Can we leave it in cl?
+>
+> Well that is the whole point of this excercise, to remove it from cl.
+> The thing is, for the shared blocks, cls are shared between multiple
+> qdisc instances, so cl->q makes no longer any sense.
 
-> Commit 7091d8c '(net/sched: cls_flower: Add offload support using egress
-> Hardware device') made sure (when fl_hw_replace_filter is called) to put
-> the egress_dev mark on persisent structure instance. Hence, following calls
-> into the HW driver for stats and deletion will note it and act accordingly.
-> 
-> With commit de4784ca030f this property is lost and hence when called,
-> the HW driver failes to operate (stats, delete) on the offloaded flow.
-> 
-> Fix it by setting the egress_dev flag whenever the ingress device is
-> different from the hw device since this is exactly the condition under
-> which we're calling into the HW driver through the egress port net-device.
-> 
-> Fixes: de4784ca030f ('net: sched: get rid of struct tc_to_netdev')
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Signed-off-by: Roi Dayan <roid@mellanox.com>
-> ---
-> 
-> Hi Dave, the bug was introduced in 4.14-rc1 but later the related
-> code was changed in net-next, hence the fix must not go to net-next, Or.
+I don't really mind if you want to remove cl->q, but lets do it without
+adding any cost to the fast path. The primary motivation for this set
+is hw offload, but it shouldn't be at the expense to make sw fast path
+slower. cl->q is only used here for updating stats, one possible option
+could be to take them out for the clsact case into dev at the expense
+for two pointers (e.g. getting rid of ingress_queue would reduce it to
+only one pointer), such that you have percpu {ingress,egress}_cl_stats
+that control path can fetch instead when dumping qdiscs. Could be one,
+but there are probably other options as well to explore.
 
-Ok, applied to 'net' and I'll watch out for this next time I merge into
-net-next.
-
-Thanks.
+Thanks,
+Daniel
