@@ -1,108 +1,67 @@
-From: Ilya Dryomov <idryomov@gmail.com>
-Subject: Re: [PATCH] net: ceph: mark expected switch fall-throughs
-Date: Mon, 16 Oct 2017 11:25:03 +0200
-Message-ID: <CAOi1vP9DEiYWFw_uTrj51VfwWtXJ3Kqnsc61zVCEJaJAEFk_7Q@mail.gmail.com>
-References: <20171015175523.GA4705@embeddedor.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 16 Oct 2017 10:36:35 +0100
+Message-ID: <20171016093635.zxyyq2px4hdewse3@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ceph Development <ceph-devel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:44849 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751637AbdJPJZH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 05:25:07 -0400
-In-Reply-To: <20171015175523.GA4705@embeddedor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="panwwdpopndhfdyb"
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 15, 2017 at 7:55 PM, Gustavo A. R. Silva
-<garsilva@embeddedor.com> wrote:
-> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-> where we are expecting to fall through.
->
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
-> ---
->  net/ceph/ceph_hash.c  | 12 +++++++++++-
->  net/ceph/messenger.c  |  1 +
->  net/ceph/mon_client.c |  1 +
->  3 files changed, 13 insertions(+), 1 deletion(-)
->
-> diff --git a/net/ceph/ceph_hash.c b/net/ceph/ceph_hash.c
-> index 67bb1f1..9a5850f2 100644
-> --- a/net/ceph/ceph_hash.c
-> +++ b/net/ceph/ceph_hash.c
-> @@ -47,28 +47,38 @@ unsigned int ceph_str_hash_rjenkins(const char *str, unsigned int length)
->
->         /* handle the last 11 bytes */
->         c = c + length;
-> -       switch (len) {            /* all the case statements fall through */
-> +       switch (len) {
->         case 11:
->                 c = c + ((__u32)k[10] << 24);
-> +               /* fall through */
->         case 10:
->                 c = c + ((__u32)k[9] << 16);
-> +               /* fall through */
->         case 9:
->                 c = c + ((__u32)k[8] << 8);
->                 /* the first byte of c is reserved for the length */
-> +               /* fall through */
->         case 8:
->                 b = b + ((__u32)k[7] << 24);
-> +               /* fall through */
->         case 7:
->                 b = b + ((__u32)k[6] << 16);
-> +               /* fall through */
->         case 6:
->                 b = b + ((__u32)k[5] << 8);
-> +               /* fall through */
->         case 5:
->                 b = b + k[4];
-> +               /* fall through */
->         case 4:
->                 a = a + ((__u32)k[3] << 24);
-> +               /* fall through */
->         case 3:
->                 a = a + ((__u32)k[2] << 16);
-> +               /* fall through */
->         case 2:
->                 a = a + ((__u32)k[1] << 8);
-> +               /* fall through */
->         case 1:
->                 a = a + k[0];
->                 /* case 0: nothing left to add */
-> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
-> index a67298c..73dac9d 100644
-> --- a/net/ceph/messenger.c
-> +++ b/net/ceph/messenger.c
-> @@ -429,6 +429,7 @@ static void ceph_sock_state_change(struct sock *sk)
->         switch (sk->sk_state) {
->         case TCP_CLOSE:
->                 dout("%s TCP_CLOSE\n", __func__);
-> +               /* fall through */
->         case TCP_CLOSE_WAIT:
->                 dout("%s TCP_CLOSE_WAIT\n", __func__);
->                 con_sock_state_closing(con);
-> diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
-> index 63edc6e..b97c047 100644
-> --- a/net/ceph/mon_client.c
-> +++ b/net/ceph/mon_client.c
-> @@ -1281,6 +1281,7 @@ static struct ceph_msg *mon_alloc_msg(struct ceph_connection *con,
->                  * request had a non-zero tid.  Workaround this weirdness
->                  * by falling through to the allocate case.
->                  */
-> +               /* fall through */
->         case CEPH_MSG_MON_MAP:
->         case CEPH_MSG_MDS_MAP:
->         case CEPH_MSG_OSD_MAP:
 
-Applied.
+--panwwdpopndhfdyb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks,
+Hi all,
 
-                Ilya
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  drivers/net/dsa/mv88e6060.c
+
+between commit:
+
+  3efc93c2bc243 ("net: dsa: mv88e6060: fix switch MAC address")
+
+=66rom the net tree and commit:
+
+  56c3ff9bf23e1 ("net: dsa: mv88e6060: setup random mac address")
+
+=66rom the net-next tree.
+
+I fixed it up (see below, the relevant code was deleted in net-next) and
+can carry the fix as necessary. This is now fixed as far as linux-next
+is concerned, but any non trivial conflicts should be mentioned to your
+upstream maintainer when your tree is submitted for merging.  You may
+also want to consider cooperating with the maintainer of the conflicting
+tree to minimise any particularly complex conflicts.
+
+diff --cc drivers/net/dsa/mv88e6060.c
+index f123ed57630d,6173be889d95..000000000000
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+
+--panwwdpopndhfdyb
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlnkfaIACgkQJNaLcl1U
+h9ACvAf8CPT/AykF7gE2NBbdP0+9H78KIRQObHfOkhqurAjBzVFicqECnQSmuZf8
+qQ7CHH7ClCX/5kj/qW2Tc9DVReo27sNVgHuTe9RkjU1hMg94rHBEUByaF3F/Ly/G
+vZleCdGWwqab+oDNvt68Sq2zkm3tmz8axv1pw2404SIQy4RGjKsCyy32jGPCXUmK
+CQ/NTNxCFrTvigxWrJcyI038CNwy4/RSjBEvnoGYBHF3Y+hkL1mr3lcA8adt5TRM
+FFyUh+1tFdxmLMJ3IjZF/mXmO60Nw4j4rx2EgQeP6sVTR3zRkwkQJLzz09U4S9UU
+OzpHLLo/cECYbREAso38o+iSTVVF7A==
+=88Tm
+-----END PGP SIGNATURE-----
+
+--panwwdpopndhfdyb--
