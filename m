@@ -1,77 +1,99 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: usb/net/rt2x00: warning in rt2800_eeprom_word_index
-Date: Mon, 16 Oct 2017 11:40:24 +0200
-Message-ID: <20171016094024.GD2553@redhat.com>
-References: <CAAeHK+yUNrrNU3Jqrfs7XAT809eyF4nv673cSL8RppbLrDtWNA@mail.gmail.com>
- <20171012072529.GB2686@redhat.com>
- <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next V8 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
+Date: Mon, 16 Oct 2017 12:19:23 +0200
+Message-ID: <150814913767.1806.3470498528707259987.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com,
+        Jesper Dangaard Brouer <brouer@redhat.com>, ast@fiberby.dk,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37670 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750914AbdJPKTa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 06:19:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dmitry
+Introducing a new way to redirect XDP frames.  Notice how no driver
+changes are necessary given the design of XDP_REDIRECT.
 
-On Sat, Oct 14, 2017 at 04:38:03PM +0200, Dmitry Vyukov wrote:
-> On Thu, Oct 12, 2017 at 9:25 AM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
-> > Hi
-> >
-> > On Mon, Oct 09, 2017 at 07:50:53PM +0200, Andrey Konovalov wrote:
-> >> I've got the following report while fuzzing the kernel with syzkaller.
-> >>
-> >> On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
-> >>
-> >> I'm not sure whether this is a bug in the driver, or just a way to
-> >> report misbehaving device. In the latter case this shouldn't be a
-> >> WARN() call, since WARN() means bug in the kernel.
-> >
-> > This is about wrong EEPROM, which reported 3 tx streams on
-> > non 3 antenna device. I think WARN() is justified and thanks
-> > to the call trace I was actually able to to understand what
-> > happened.
-> >
-> > In general I do not think WARN() only means a kernel bug, it
-> > can be F/W or H/W bug too.
-> 
-> Hi Stanislaw,
-> 
-> Printing messages is fine. Printing stacks is fine. Just please make
-> them distinguishable from kernel bugs and don't kill the whole
-> possibility of automated Linux kernel testing. That's an important
-> capability.
+This redirect map type is called 'cpumap', as it allows redirection
+XDP frames to remote CPUs.  The remote CPU will do the SKB allocation
+and start the network stack invocation on that CPU.
 
-We do not distinguish between bugs and other problems when WARN() is
-used in (wireless) drivers, what I think is correct, taking comment from
-include/asm-generic/bug.h :
+This is a scalability and isolation mechanism, that allow separating
+the early driver network XDP layer, from the rest of the netstack, and
+assigning dedicated CPUs for this stage.  The sysadm control/configure
+the RX-CPU to NIC-RX queue (as usual) via procfs smp_affinity and how
+many queues are configured via ethtool --set-channels.  Benchmarks
+show that a single CPU can handle approx 11Mpps.  Thus, only assigning
+two NIC RX-queues (and two CPUs) is sufficient for handling 10Gbit/s
+wirespeed smallest packet 14.88Mpps.  Reducing the number of queues
+have the advantage that more packets being "bulk" available per hard
+interrupt[1].
 
-/*
- * WARN(), WARN_ON(), WARN_ON_ONCE, and so on can be used to report
- * significant issues that need prompt attention if they should ever
- * appear at runtime.  Use the versions with printk format strings
- * to provide better diagnostics.
- */
+[1] https://www.netdevconf.org/2.1/papers/BusyPollingNextGen.pdf
 
-Historically we have BUG() to mark the bugs, but usage if it is not
-recommended as it can kill the system, so for anything that can
-be recovered in runtime - WARN() is recommended.
+Use-cases:
 
-Perhaps we can introduce another helper like PROBLEM() for marking
-situations when something is wrong, but it is not a bug. However I'm
-not even sure at what extent it can be used, since for many cases
-if not the most, driver author can not tell apriori if the problem
-is a bug in the driver or HW/FW misbehaviour (or maybe particular
-issue can happen because of both).
+1. End-host based pre-filtering for DDoS mitigation.  This is fast
+   enough to allow software to see and filter all packets wirespeed.
+   Thus, no packets getting silently dropped by hardware.
 
-Thanks
-Stanislaw
+2. Given NIC HW unevenly distributes packets across RX queue, this
+   mechanism can be used for redistribution load across CPUs.  This
+   usually happens when HW is unaware of a new protocol.  This
+   resembles RPS (Receive Packet Steering), just faster, but with more
+   responsibility placed on the BPF program for correct steering.
+
+3. Auto-scaling or power saving via only activating the appropriate
+   number of remote CPUs for handling the current load.  The cpumap
+   tracepoints can function as a feedback loop for this purpose.
+
+In V7, a --stress-mode was implemented for the samples program, which
+between each stats update, adds + removes CPUs from the map
+concurrently with traffic.  I did find and fix some concurrency issues
+in the tear-down path, details in patch desc.  The stress test have
+now been running for 15 hours without any issues, while being
+bombarded with 11.6 Mpps via pktgen_sample04_many_flows.sh.
+
+See individual patches for patchset-version changes.
+
+---
+
+Jesper Dangaard Brouer (5):
+      bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+      bpf: XDP_REDIRECT enable use of cpumap
+      bpf: cpumap xdp_buff to skb conversion and allocation
+      bpf: cpumap add tracepoints
+      samples/bpf: add cpumap sample program xdp_redirect_cpu
+
+
+ include/linux/bpf.h                 |   31 +-
+ include/linux/bpf_types.h           |    1 
+ include/linux/netdevice.h           |    1 
+ include/trace/events/xdp.h          |   80 ++++
+ include/uapi/linux/bpf.h            |    1 
+ kernel/bpf/Makefile                 |    1 
+ kernel/bpf/cpumap.c                 |  702 +++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c                |    8 
+ kernel/bpf/verifier.c               |    8 
+ net/core/dev.c                      |   27 +
+ net/core/filter.c                   |  140 ++++++-
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_redirect_cpu_kern.c |  609 ++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_cpu_user.c |  697 +++++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h      |    1 
+ 15 files changed, 2277 insertions(+), 34 deletions(-)
+ create mode 100644 kernel/bpf/cpumap.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_kern.c
+ create mode 100644 samples/bpf/xdp_redirect_cpu_user.c
