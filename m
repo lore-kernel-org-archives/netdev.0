@@ -1,304 +1,93 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next V8 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion and
- allocation
-Date: Mon, 16 Oct 2017 12:19:39 +0200
-Message-ID: <150814917905.1806.2745716159653488848.stgit@firesoul>
-References: <150814913767.1806.3470498528707259987.stgit@firesoul>
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [net-next 6/9] e1000e: fix buffer overrun while the I219 is
+ processing DMA transactions
+Date: Mon, 16 Oct 2017 13:24:15 +0300
+Message-ID: <b7d05918-8480-b8bf-fe1c-f9b6395e8293@intel.com>
+References: <20171010172139.77914-1-jeffrey.t.kirsher@intel.com>
+ <20171010172139.77914-7-jeffrey.t.kirsher@intel.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com,
-        Jesper Dangaard Brouer <brouer@redhat.com>, ast@fiberby.dk,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+        'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39604 "EHLO mx1.redhat.com"
+Received: from mga01.intel.com ([192.55.52.88]:2172 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751814AbdJPKTk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 06:19:40 -0400
-In-Reply-To: <150814913767.1806.3470498528707259987.stgit@firesoul>
+        id S1751410AbdJPKYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 06:24:19 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0090E17@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes cpumap functional, by adding SKB allocation and
-invoking the network stack on the dequeuing CPU.
+On 10/11/2017 12:07, David Laight wrote:
+> From: Jeff Kirsher
+>> Sent: 10 October 2017 18:22
+>> Intel 100/200 Series Chipset platforms reduced the round-trip
+>> latency for the LAN Controller DMA accesses, causing in some high
+>> performance cases a buffer overrun while the I219 LAN Connected
+>> Device is processing the DMA transactions. I219LM and I219V devices
+>> can fall into unrecovered Tx hang under very stressfully UDP traffic
+>> and multiple reconnection of Ethernet cable. This Tx hang of the LAN
+>> Controller is only recovered if the system is rebooted. Slightly slow
+>> down DMA access by reducing the number of outstanding requests.
+>> This workaround could have an impact on TCP traffic performance
+>> on the platform. Disabling TSO eliminates performance loss for TCP
+>> traffic without a noticeable impact on CPU performance.
+>>
+>> Please, refer to I218/I219 specification update:
+>> https://www.intel.com/content/www/us/en/embedded/products/networking/
+>> ethernet-connection-i218-family-documentation.html
+>>
+>> Signed-off-by: Sasha Neftin <sasha.neftin@intel.com>
+>> Reviewed-by: Dima Ruinskiy <dima.ruinskiy@intel.com>
+>> Reviewed-by: Raanan Avargil <raanan.avargil@intel.com>
+>> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+>>   drivers/net/ethernet/intel/e1000e/netdev.c | 8 +++++---
+>>   1 file changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+>> index ee9de3500331..14b096f3d1da 100644
+>> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+>> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+>> @@ -3021,8 +3021,8 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+>>
+>>   	hw->mac.ops.config_collision_dist(hw);
+>>
+>> -	/* SPT and CNP Si errata workaround to avoid data corruption */
+>> -	if (hw->mac.type >= e1000_pch_spt) {
+>> +	/* SPT and KBL Si errata workaround to avoid data corruption */
+>> +	if (hw->mac.type == e1000_pch_spt) {
+>>   		u32 reg_val;
+>>
+>>   		reg_val = er32(IOSFPC);
+>> @@ -3030,7 +3030,9 @@ static void e1000_configure_tx(struct e1000_adapter *adapter)
+>>   		ew32(IOSFPC, reg_val);
+>>
+>>   		reg_val = er32(TARC(0));
+>> -		reg_val |= E1000_TARC0_CB_MULTIQ_3_REQ;
+>> +		/* SPT and KBL Si errata workaround to avoid Tx hang */
+>> +		reg_val &= ~BIT(28);
+>> +		reg_val |= BIT(29);
+> Shouldn't some more of the commit message about what this is doing
+> be in the comment?
+There is provided link on specification update: 
+https://www.intel.com/content/dam/www/public/us/en/documents/specification-updates/i218-i219-ethernet-connection-spec-update.pdf?asset=9561. 
+This is Intel's public edition.
+> And shouldn't the 28 and 28 be named constants?
+(28 and 29) you can easy understand from the code that value has been 
+changed from 3 to 2. There is no point add flags here I thought.
+>
+>>   		ew32(TARC(0), reg_val);
+> 	David
+>
+Thanks,
 
-For constructing the SKB on the remote CPU, the xdp_buff in converted
-into a struct xdp_pkt, and it mapped into the top headroom of the
-packet, to avoid allocating separate mem.  For now, struct xdp_pkt is
-just a cpumap internal data structure, with info carried between
-enqueue to dequeue.
-
-If a driver doesn't have enough headroom it is simply dropped, with
-return code -EOVERFLOW.  This will be picked up the xdp tracepoint
-infrastructure, to allow users to catch this.
-
-V2: take into account xdp->data_meta
-
-V4:
- - Drop busypoll tricks, keeping it more simple.
- - Skip RPS and Generic-XDP-recursive-reinjection, suggested by Alexei
-
-V5: correct RCU read protection around __netif_receive_skb_core.
-
-V6: Setting TASK_RUNNING vs TASK_INTERRUPTIBLE based on talk with Rik van Riel
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- include/linux/netdevice.h |    1 
- kernel/bpf/cpumap.c       |  152 ++++++++++++++++++++++++++++++++++++++-------
- net/core/dev.c            |   27 ++++++++
- 3 files changed, 158 insertions(+), 22 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 31bb3010c69b..bf014afcb914 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3260,6 +3260,7 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb);
- int netif_rx(struct sk_buff *skb);
- int netif_rx_ni(struct sk_buff *skb);
- int netif_receive_skb(struct sk_buff *skb);
-+int netif_receive_skb_core(struct sk_buff *skb);
- gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb);
- void napi_gro_flush(struct napi_struct *napi, bool flush_old);
- struct sk_buff *napi_get_frags(struct napi_struct *napi);
-diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
-index 768da6a2c265..ee7adf4352dd 100644
---- a/kernel/bpf/cpumap.c
-+++ b/kernel/bpf/cpumap.c
-@@ -25,6 +25,9 @@
- #include <linux/kthread.h>
- #include <linux/capability.h>
- 
-+#include <linux/netdevice.h>   /* netif_receive_skb_core */
-+#include <linux/etherdevice.h> /* eth_type_trans */
-+
- /* General idea: XDP packets getting XDP redirected to another CPU,
-  * will maximum be stored/queued for one driver ->poll() call.  It is
-  * guaranteed that setting flush bit and flush operation happen on
-@@ -179,6 +182,92 @@ static void cpu_map_kthread_stop(struct work_struct *work)
- 	kthread_stop(rcpu->kthread);
- }
- 
-+/* For now, xdp_pkt is a cpumap internal data structure, with info
-+ * carried between enqueue to dequeue. It is mapped into the top
-+ * headroom of the packet, to avoid allocating separate mem.
-+ */
-+struct xdp_pkt {
-+	void *data;
-+	u16 len;
-+	u16 headroom;
-+	u16 metasize;
-+	struct net_device *dev_rx;
-+};
-+
-+/* Convert xdp_buff to xdp_pkt */
-+static struct xdp_pkt *convert_to_xdp_pkt(struct xdp_buff *xdp)
-+{
-+	struct xdp_pkt *xdp_pkt;
-+	int metasize;
-+	int headroom;
-+
-+	/* Assure headroom is available for storing info */
-+	headroom = xdp->data - xdp->data_hard_start;
-+	metasize = xdp->data - xdp->data_meta;
-+	metasize = metasize > 0 ? metasize : 0;
-+	if ((headroom - metasize) < sizeof(*xdp_pkt))
-+		return NULL;
-+
-+	/* Store info in top of packet */
-+	xdp_pkt = xdp->data_hard_start;
-+
-+	xdp_pkt->data = xdp->data;
-+	xdp_pkt->len  = xdp->data_end - xdp->data;
-+	xdp_pkt->headroom = headroom - sizeof(*xdp_pkt);
-+	xdp_pkt->metasize = metasize;
-+
-+	return xdp_pkt;
-+}
-+
-+struct sk_buff *cpu_map_build_skb(struct bpf_cpu_map_entry *rcpu,
-+				  struct xdp_pkt *xdp_pkt)
-+{
-+	unsigned int frame_size;
-+	void *pkt_data_start;
-+	struct sk_buff *skb;
-+
-+	/* build_skb need to place skb_shared_info after SKB end, and
-+	 * also want to know the memory "truesize".  Thus, need to
-+	 * know the memory frame size backing xdp_buff.
-+	 *
-+	 * XDP was designed to have PAGE_SIZE frames, but this
-+	 * assumption is not longer true with ixgbe and i40e.  It
-+	 * would be preferred to set frame_size to 2048 or 4096
-+	 * depending on the driver.
-+	 *   frame_size = 2048;
-+	 *   frame_len  = frame_size - sizeof(*xdp_pkt);
-+	 *
-+	 * Instead, with info avail, skb_shared_info in placed after
-+	 * packet len.  This, unfortunately fakes the truesize.
-+	 * Another disadvantage of this approach, the skb_shared_info
-+	 * is not at a fixed memory location, with mixed length
-+	 * packets, which is bad for cache-line hotness.
-+	 */
-+	frame_size = SKB_DATA_ALIGN(xdp_pkt->len) + xdp_pkt->headroom +
-+		SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+
-+	pkt_data_start = xdp_pkt->data - xdp_pkt->headroom;
-+	skb = build_skb(pkt_data_start, frame_size);
-+	if (!skb)
-+		return NULL;
-+
-+	skb_reserve(skb, xdp_pkt->headroom);
-+	__skb_put(skb, xdp_pkt->len);
-+	if (xdp_pkt->metasize)
-+		skb_metadata_set(skb, xdp_pkt->metasize);
-+
-+	/* Essential SKB info: protocol and skb->dev */
-+	skb->protocol = eth_type_trans(skb, xdp_pkt->dev_rx);
-+
-+	/* Optional SKB info, currently missing:
-+	 * - HW checksum info		(skb->ip_summed)
-+	 * - HW RX hash			(skb_set_hash)
-+	 * - RX ring dev queue index	(skb_record_rx_queue)
-+	 */
-+
-+	return skb;
-+}
-+
- static int cpu_map_kthread_run(void *data)
- {
- 	struct bpf_cpu_map_entry *rcpu = data;
-@@ -191,15 +280,45 @@ static int cpu_map_kthread_run(void *data)
- 	 * kthread_stop signal until queue is empty.
- 	 */
- 	while (!kthread_should_stop() || !__ptr_ring_empty(rcpu->queue)) {
-+		unsigned int processed = 0, drops = 0;
- 		struct xdp_pkt *xdp_pkt;
- 
--		schedule();
--		/* Do work */
--		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
--			/* For now just "refcnt-free" */
--			page_frag_free(xdp_pkt);
-+		/* Release CPU reschedule checks */
-+		if (__ptr_ring_empty(rcpu->queue)) {
-+			__set_current_state(TASK_INTERRUPTIBLE);
-+			schedule();
-+		} else {
-+			cond_resched();
-+		}
-+		__set_current_state(TASK_RUNNING);
-+
-+		/* Process packets in rcpu->queue */
-+		local_bh_disable();
-+		/*
-+		 * The bpf_cpu_map_entry is single consumer, with this
-+		 * kthread CPU pinned. Lockless access to ptr_ring
-+		 * consume side valid as no-resize allowed of queue.
-+		 */
-+		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
-+			struct sk_buff *skb;
-+			int ret;
-+
-+			skb = cpu_map_build_skb(rcpu, xdp_pkt);
-+			if (!skb) {
-+				page_frag_free(xdp_pkt);
-+				continue;
-+			}
-+
-+			/* Inject into network stack */
-+			ret = netif_receive_skb_core(skb);
-+			if (ret == NET_RX_DROP)
-+				drops++;
-+
-+			/* Limit BH-disable period */
-+			if (++processed == 8)
-+				break;
- 		}
--		__set_current_state(TASK_INTERRUPTIBLE);
-+		local_bh_enable(); /* resched point, may call do_softirq() */
- 	}
- 	__set_current_state(TASK_RUNNING);
- 
-@@ -490,13 +609,6 @@ static int bq_flush_to_queue(struct bpf_cpu_map_entry *rcpu,
- 	return 0;
- }
- 
--/* Notice: Will change in later patch */
--struct xdp_pkt {
--	void *data;
--	u16 len;
--	u16 headroom;
--};
--
- /* Runs under RCU-read-side, plus in softirq under NAPI protection.
-  * Thus, safe percpu variable access.
-  */
-@@ -524,17 +636,13 @@ int cpu_map_enqueue(struct bpf_cpu_map_entry *rcpu, struct xdp_buff *xdp,
- 		    struct net_device *dev_rx)
- {
- 	struct xdp_pkt *xdp_pkt;
--	int headroom;
- 
--	/* For now this is just used as a void pointer to data_hard_start.
--	 * Followup patch will generalize this.
--	 */
--	xdp_pkt = xdp->data_hard_start;
-+	xdp_pkt = convert_to_xdp_pkt(xdp);
-+	if (!xdp_pkt)
-+		return -EOVERFLOW;
- 
--	/* Fake writing into xdp_pkt->data to measure overhead */
--	headroom = xdp->data - xdp->data_hard_start;
--	if (headroom < sizeof(*xdp_pkt))
--		xdp_pkt->data = xdp->data;
-+	/* Info needed when constructing SKB on remote CPU */
-+	xdp_pkt->dev_rx = dev_rx;
- 
- 	bq_enqueue(rcpu, xdp_pkt);
- 	return 0;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fcddccb6be41..36bb68f3a2c7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4491,6 +4491,33 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
- 	return ret;
- }
- 
-+/**
-+ *	netif_receive_skb_core - special purpose version of netif_receive_skb
-+ *	@skb: buffer to process
-+ *
-+ *	More direct receive version of netif_receive_skb().  It should
-+ *	only be used by callers that have a need to skip RPS and Generic XDP.
-+ *	Caller must also take care of handling if (page_is_)pfmemalloc.
-+ *
-+ *	This function may only be called from softirq context and interrupts
-+ *	should be enabled.
-+ *
-+ *	Return values (usually ignored):
-+ *	NET_RX_SUCCESS: no congestion
-+ *	NET_RX_DROP: packet was dropped
-+ */
-+int netif_receive_skb_core(struct sk_buff *skb)
-+{
-+	int ret;
-+
-+	rcu_read_lock();
-+	ret = __netif_receive_skb_core(skb, false);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(netif_receive_skb_core);
-+
- static int __netif_receive_skb(struct sk_buff *skb)
- {
- 	int ret;
+Sasha
