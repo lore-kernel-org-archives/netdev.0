@@ -1,61 +1,108 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/sched: cls_flower: Set egress_dev mark when calling into the HW driver
-Date: Mon, 16 Oct 2017 12:19:48 +0300
-Message-ID: <1508145588-29959-1-git-send-email-ogerlitz@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>, netdev@vger.kernel.org,
-        mlxsw@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ilya Dryomov <idryomov@gmail.com>
+Subject: Re: [PATCH] net: ceph: mark expected switch fall-throughs
+Date: Mon, 16 Oct 2017 11:25:03 +0200
+Message-ID: <CAOi1vP9DEiYWFw_uTrj51VfwWtXJ3Kqnsc61zVCEJaJAEFk_7Q@mail.gmail.com>
+References: <20171015175523.GA4705@embeddedor.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "Yan, Zheng" <zyan@redhat.com>, Sage Weil <sage@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ceph Development <ceph-devel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35336 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750914AbdJPJUA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 05:20:00 -0400
+Received: from mail-io0-f196.google.com ([209.85.223.196]:44849 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751637AbdJPJZH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 05:25:07 -0400
+In-Reply-To: <20171015175523.GA4705@embeddedor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7091d8c '(net/sched: cls_flower: Add offload support using egress
-Hardware device') made sure (when fl_hw_replace_filter is called) to put
-the egress_dev mark on persisent structure instance. Hence, following calls
-into the HW driver for stats and deletion will note it and act accordingly.
+On Sun, Oct 15, 2017 at 7:55 PM, Gustavo A. R. Silva
+<garsilva@embeddedor.com> wrote:
+> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+> where we are expecting to fall through.
+>
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> ---
+>  net/ceph/ceph_hash.c  | 12 +++++++++++-
+>  net/ceph/messenger.c  |  1 +
+>  net/ceph/mon_client.c |  1 +
+>  3 files changed, 13 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/ceph/ceph_hash.c b/net/ceph/ceph_hash.c
+> index 67bb1f1..9a5850f2 100644
+> --- a/net/ceph/ceph_hash.c
+> +++ b/net/ceph/ceph_hash.c
+> @@ -47,28 +47,38 @@ unsigned int ceph_str_hash_rjenkins(const char *str, unsigned int length)
+>
+>         /* handle the last 11 bytes */
+>         c = c + length;
+> -       switch (len) {            /* all the case statements fall through */
+> +       switch (len) {
+>         case 11:
+>                 c = c + ((__u32)k[10] << 24);
+> +               /* fall through */
+>         case 10:
+>                 c = c + ((__u32)k[9] << 16);
+> +               /* fall through */
+>         case 9:
+>                 c = c + ((__u32)k[8] << 8);
+>                 /* the first byte of c is reserved for the length */
+> +               /* fall through */
+>         case 8:
+>                 b = b + ((__u32)k[7] << 24);
+> +               /* fall through */
+>         case 7:
+>                 b = b + ((__u32)k[6] << 16);
+> +               /* fall through */
+>         case 6:
+>                 b = b + ((__u32)k[5] << 8);
+> +               /* fall through */
+>         case 5:
+>                 b = b + k[4];
+> +               /* fall through */
+>         case 4:
+>                 a = a + ((__u32)k[3] << 24);
+> +               /* fall through */
+>         case 3:
+>                 a = a + ((__u32)k[2] << 16);
+> +               /* fall through */
+>         case 2:
+>                 a = a + ((__u32)k[1] << 8);
+> +               /* fall through */
+>         case 1:
+>                 a = a + k[0];
+>                 /* case 0: nothing left to add */
+> diff --git a/net/ceph/messenger.c b/net/ceph/messenger.c
+> index a67298c..73dac9d 100644
+> --- a/net/ceph/messenger.c
+> +++ b/net/ceph/messenger.c
+> @@ -429,6 +429,7 @@ static void ceph_sock_state_change(struct sock *sk)
+>         switch (sk->sk_state) {
+>         case TCP_CLOSE:
+>                 dout("%s TCP_CLOSE\n", __func__);
+> +               /* fall through */
+>         case TCP_CLOSE_WAIT:
+>                 dout("%s TCP_CLOSE_WAIT\n", __func__);
+>                 con_sock_state_closing(con);
+> diff --git a/net/ceph/mon_client.c b/net/ceph/mon_client.c
+> index 63edc6e..b97c047 100644
+> --- a/net/ceph/mon_client.c
+> +++ b/net/ceph/mon_client.c
+> @@ -1281,6 +1281,7 @@ static struct ceph_msg *mon_alloc_msg(struct ceph_connection *con,
+>                  * request had a non-zero tid.  Workaround this weirdness
+>                  * by falling through to the allocate case.
+>                  */
+> +               /* fall through */
+>         case CEPH_MSG_MON_MAP:
+>         case CEPH_MSG_MDS_MAP:
+>         case CEPH_MSG_OSD_MAP:
 
-With commit de4784ca030f this property is lost and hence when called,
-the HW driver failes to operate (stats, delete) on the offloaded flow.
+Applied.
 
-Fix it by setting the egress_dev flag whenever the ingress device is
-different from the hw device since this is exactly the condition under
-which we're calling into the HW driver through the egress port net-device.
+Thanks,
 
-Fixes: de4784ca030f ('net: sched: get rid of struct tc_to_netdev')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Roi Dayan <roid@mellanox.com>
----
-
-Hi Dave, the bug was introduced in 4.14-rc1 but later the related
-code was changed in net-next, hence the fix must not go to net-next, Or.
-
- net/sched/cls_flower.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index d230cb4..b480d7c 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -234,6 +234,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	tc_cls_common_offload_init(&cls_flower.common, tp);
- 	cls_flower.command = TC_CLSFLOWER_DESTROY;
- 	cls_flower.cookie = (unsigned long) f;
-+	cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
- 
- 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER, &cls_flower);
- }
-@@ -289,6 +290,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	cls_flower.command = TC_CLSFLOWER_STATS;
- 	cls_flower.cookie = (unsigned long) f;
- 	cls_flower.exts = &f->exts;
-+	cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
- 
- 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
- 				      &cls_flower);
--- 
-2.3.7
+                Ilya
