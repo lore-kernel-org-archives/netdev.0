@@ -1,92 +1,33 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next] tcp: Check daddr_cache before use in tracepoint
-Date: Mon, 16 Oct 2017 15:32:07 -0700
-Message-ID: <1508193127-17626-1-git-send-email-dsahern@gmail.com>
-Cc: xiyou.wangcong@gmail.com, David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] tcp: Use pI6c in tcp tracepoint
+Date: Mon, 16 Oct 2017 15:33:31 -0700
+Message-ID: <20171016223329.intpg2utnzejlnoe@ast-mbp.dhcp.thefacebook.com>
+References: <1508189042-19591-1-git-send-email-dsahern@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:53222 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753321AbdJPWcO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 18:32:14 -0400
-Received: by mail-pf0-f195.google.com with SMTP id e64so16835208pfk.9
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 15:32:14 -0700 (PDT)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:44376 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752381AbdJPWde (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 18:33:34 -0400
+Received: by mail-pg0-f68.google.com with SMTP id j3so7960500pga.1
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 15:33:34 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1508189042-19591-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Running perf in one window to capture tcp_retransmit_skb tracepoint:
-    $ perf record -e tcp:tcp_retransmit_skb -a
+On Mon, Oct 16, 2017 at 02:24:02PM -0700, David Ahern wrote:
+> The compact form for IPv6 addresses is more user friendly than the full
+> version. For example:
+>    compact: 2001:db8:1::1
+>       full: 2001:0db8:0001:0000:0000:0000:0000:0004i
+> 
+> Update the tcp tracepoint to show the compact form.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-And causing a retransmission on an active TCP session (e.g., dropping
-packets in the receiver, changing MTU on the interface to 500 and back
-to 1500) triggers a panic:
-
-[   58.543144] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-[   58.545300] IP: perf_trace_tcp_retransmit_skb+0xd0/0x145
-[   58.546770] PGD 0 P4D 0
-[   58.547472] Oops: 0000 [#1] SMP
-[   58.548328] Modules linked in: vrf
-[   58.549262] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.14.0-rc4+ #26
-[   58.551004] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[   58.554560] task: ffffffff81a0e540 task.stack: ffffffff81a00000
-[   58.555817] RIP: 0010:perf_trace_tcp_retransmit_skb+0xd0/0x145
-[   58.557137] RSP: 0018:ffff88003fc03d68 EFLAGS: 00010282
-[   58.558292] RAX: 0000000000000000 RBX: ffffe8ffffc0ec80 RCX: ffff880038543098
-[   58.559850] RDX: 0400000000000000 RSI: ffff88003fc03d70 RDI: ffff88003fc14b68
-[   58.561099] RBP: ffff88003fc03da8 R08: 0000000000000000 R09: ffffea0000d3224a
-[   58.562005] R10: ffff88003fc03db8 R11: 0000000000000010 R12: ffff8800385428c0
-[   58.562930] R13: ffffe8ffffc0e478 R14: ffffffff81a93a40 R15: ffff88003d4f0c00
-[   58.563845] FS:  0000000000000000(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
-[   58.564873] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   58.565613] CR2: 0000000000000008 CR3: 000000003d68f004 CR4: 00000000000606f0
-[   58.566538] Call Trace:
-[   58.566865]  <IRQ>
-[   58.567140]  __tcp_retransmit_skb+0x4ab/0x4c6
-[   58.567704]  ? tcp_set_ca_state+0x22/0x3f
-[   58.568231]  tcp_retransmit_skb+0x14/0xa3
-[   58.568754]  tcp_retransmit_timer+0x472/0x5e3
-[   58.569324]  ? tcp_write_timer_handler+0x1e9/0x1e9
-[   58.569946]  tcp_write_timer_handler+0x95/0x1e9
-[   58.570548]  tcp_write_timer+0x2a/0x58
-
-Check that daddr_cache is non-NULL before de-referencing.
-
-Fixes: e086101b150a ("tcp: add a tracepoint for tcp retransmission")
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
-v2
-- remove np and get addresses from sock_common
- 
- include/trace/events/tcp.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
-index 1ffab6d96e94..f51c130f1e0f 100644
---- a/include/trace/events/tcp.h
-+++ b/include/trace/events/tcp.h
-@@ -27,7 +27,6 @@ TRACE_EVENT(tcp_retransmit_skb,
- 	),
- 
- 	TP_fast_assign(
--		struct ipv6_pinfo *np = inet6_sk(sk);
- 		struct inet_sock *inet = inet_sk(sk);
- 		struct in6_addr *pin6;
- 		__be32 *p32;
-@@ -44,11 +43,12 @@ TRACE_EVENT(tcp_retransmit_skb,
- 		p32 = (__be32 *) __entry->daddr;
- 		*p32 =  inet->inet_daddr;
- 
--		if (np) {
-+		/* IPv6 socket ? */
-+		if (inet6_sk(sk)) {
- 			pin6 = (struct in6_addr *)__entry->saddr_v6;
--			*pin6 = np->saddr;
-+			*pin6 = sk->sk_v6_rcv_saddr;
- 			pin6 = (struct in6_addr *)__entry->daddr_v6;
--			*pin6 = *(np->daddr_cache);
-+			*pin6 = sk->sk_v6_daddr;
- 		} else {
- 			pin6 = (struct in6_addr *)__entry->saddr_v6;
- 			ipv6_addr_set_v4mapped(inet->inet_saddr, pin6);
--- 
-2.1.4
+nice improvement.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
