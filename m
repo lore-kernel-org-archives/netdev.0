@@ -1,44 +1,134 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] tcp: cdg: make struct tcp_cdg static
-Date: Mon, 16 Oct 2017 14:33:21 +0100
-Message-ID: <20171016133321.15477-1-colin.king@canonical.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: Kernel Performance Tuning for High Volume SCTP traffic
+Date: Mon, 16 Oct 2017 09:34:56 -0400
+Message-ID: <20171016133456.GA19009@hmswarspite.think-freely.org>
+References: <CAFKCRVL-e03Cn35-Vvtb8+NSAz3Tk2Hje_Hg5K9HfqgokEBPgg@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD0094F48@AcuExch.aculab.com>
+ <CAFKCRVLTA8Vrz-36rxfUtOf8Zc9mSPZteAgdyeETsqSa-XsOcQ@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD00950DD@AcuExch.aculab.com>
+ <CAFKCRVKScoF+AkBtsgGiFogN3KQP704v8Us9-OABy2BS-w4EVA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@aculab.com>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Traiano Welcome <traiano@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42177 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751358AbdJPNfU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 09:35:20 -0400
+Content-Disposition: inline
+In-Reply-To: <CAFKCRVKScoF+AkBtsgGiFogN3KQP704v8Us9-OABy2BS-w4EVA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Sat, Oct 14, 2017 at 10:29:53PM +0800, Traiano Welcome wrote:
+> I've upped the value of the following sctp and udp related parameters,
+> in the hope that this would help:
+> 
+> sysctl -w net.core.rmem_max=900000000
+> sysctl -w net.core.wmem_max=900000000
+> 
+> sysctl -w net.sctp.sctp_mem="2100000000 2100000000 2100000000"
+> sysctl -w net.sctp.sctp_rmem="2100000000 2100000000 2100000000"
+> sysctl -w net.sctp.sctp_wmem="2100000000 2100000000 2100000000"
+> 
+> sysctl -w net.ipv4.udp_mem="5000000000 5000000000 5000000000"
+> sysctl -w net.ipv4.udp_mem="10000000000 10000000000 10000000000"
+> 
+> However, I'm still seeing rapidly incrementing rx discards reported on the NIC:
+> 
+> :~# ethtool -S ens4f1 | egrep -i rx_discards
+>      [0]: rx_discards: 6390805462
+>      [1]: rx_discards: 6659315919
+>      [2]: rx_discards: 6542570026
+>      [3]: rx_discards: 6431513008
+>      [4]: rx_discards: 6436779078
+>      [5]: rx_discards: 6665897051
+>      [6]: rx_discards: 6167985560
+>      [7]: rx_discards: 11340068788
+>      rx_discards: 56634934892
+> 
+If you're getting drops in the hardware and nothing in the higher layers is
+overflowing, then your problem is likely due to one of two things:
 
-The structure tcp_cdg is local to the source and
-does not need to be in global scope, so make it static.
+1) The NIC is discarding frames for reasons orthogonal to provisioning.  That is
+to say you are getting a large number of frames in that are being purposely
+discarded. Check the other stats for the nic in ethtool to try give you some
+additional visibilty on what these frames might be.
 
-Cleans up sparse warning:
-symbol 'tcp_cdg' was not declared. Should it be static?
+2) You're not servicing the NIC fast enough to pull frames out prior to its
+internal buffer overflowing.  Check the interrupt mitigation and flow
+director/ntuple settings to make sure that you're seeing proper spreading of
+packets to per-cpu queues, that interrupt mitigation is preventing undue cpu
+load, and that irqbalance is properly distributing that interrupt rate to all
+cpus in the system
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/ipv4/tcp_cdg.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Neil
 
-diff --git a/net/ipv4/tcp_cdg.c b/net/ipv4/tcp_cdg.c
-index 66ac69f7bd19..06fbe102a425 100644
---- a/net/ipv4/tcp_cdg.c
-+++ b/net/ipv4/tcp_cdg.c
-@@ -389,7 +389,7 @@ static void tcp_cdg_release(struct sock *sk)
- 	kfree(ca->gradients);
- }
- 
--struct tcp_congestion_ops tcp_cdg __read_mostly = {
-+static struct tcp_congestion_ops tcp_cdg __read_mostly = {
- 	.cong_avoid = tcp_cdg_cong_avoid,
- 	.cwnd_event = tcp_cdg_cwnd_event,
- 	.pkts_acked = tcp_cdg_acked,
--- 
-2.14.1
+> Despite the fact that I've set the NIC ring buffer on the Netextreme
+> interface to he maximum:
+> 
+> :~# ethtool -g ens4f0
+> Ring parameters for ens4f0:
+> Pre-set maximums:
+> RX:             4078
+> RX Mini:        0
+> RX Jumbo:       0
+> TX:             4078
+> Current hardware settings:
+> RX:             4078
+> RX Mini:        0
+> RX Jumbo:       0
+> TX:             4078
+> 
+> I see no ip errors at the physical interface:
+> 
+> ethtool -S ens4f0 | egrep phy_ip_err_discard| tail -1
+>      rx_phy_ip_err_discards: 0
+> 
+> 
+> Could anyone suggest alternative approaches I might take to optimising
+> the system's handling of SCTP traffic?
+> 
+> 
+> 
+> On Sat, Oct 14, 2017 at 12:35 AM, David Laight <David.Laight@aculab.com> wrote:
+> > From: Traiano Welcome
+> >> Sent: 13 October 2017 17:04
+> >> On Fri, Oct 13, 2017 at 11:56 PM, David Laight <David.Laight@aculab.com> wrote:
+> >> > From: Traiano Welcome
+> >> >
+> >> > (copied to netdev)
+> >> >> Sent: 13 October 2017 07:16
+> >> >> To: linux-sctp@vger.kernel.org
+> >> >> Subject: Kernel Performance Tuning for High Volume SCTP traffic
+> >> >>
+> >> >> Hi List
+> >> >>
+> >> >> I'm running a linux server processing high volumes of SCTP traffic and
+> >> >> am seeing large numbers of packet overruns (ifconfig output).
+> >> >
+> >> > I'd guess that overruns indicate that the ethernet MAC is failing to
+> >> > copy the receive frames into kernel memory.
+> >> > It is probably running out of receive buffers, but might be
+> >> > suffering from a lack of bus bandwidth.
+> >> > MAC drivers usually discard receive frames if they can't get
+> >> > a replacement buffer - so you shouldn't run out of rx buffers.
+> >> >
+> >> > This means the errors are probably below SCTP - so changing SCTP parameters
+> >> > is unlikely to help.
+> >>
+> >> Does this mean that tuning UDP performance could help ? Or do you mean
+> >> hardware (NIC) performance could be the issue?
+> >
+> > I'd certainly check UDP performance.
+> >
+> >         David
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
