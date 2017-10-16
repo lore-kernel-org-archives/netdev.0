@@ -1,99 +1,54 @@
-From: Rodney Cummings <rodney.cummings@ni.com>
+From: David Laight <David.Laight@ACULAB.COM>
 Subject: RE: [PATCH net-next v3 0/5] net: dsa: remove .set_addr
-Date: Mon, 16 Oct 2017 16:28:04 +0000
-Message-ID: <CY1PR0401MB1536097366C596C42A8B225B924F0@CY1PR0401MB1536.namprd04.prod.outlook.com>
+Date: Mon, 16 Oct 2017 16:30:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00980E8@AcuExch.aculab.com>
 References: <20171013181809.14627-1-vivien.didelot@savoirfairelinux.com>
  <CY1PR0401MB1536F870727AFA21BFC31115924F0@CY1PR0401MB1536.namprd04.prod.outlook.com>
  <20171016160941.GA13339@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
 Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
         "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        David Laight <David.Laight@ACULAB.COM>
-To: Andrew Lunn <andrew@lunn.ch>
+        Florian Fainelli <f.fainelli@gmail.com>
+To: 'Andrew Lunn' <andrew@lunn.ch>,
+        Rodney Cummings <rodney.cummings@ni.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00010702.pphosted.com ([148.163.156.75]:39862 "EHLO
-        mx0b-00010702.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753289AbdJPQ3v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 12:29:51 -0400
+Received: from smtp-out6.electric.net ([192.162.217.185]:64034 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756205AbdJPQah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 12:30:37 -0400
 In-Reply-To: <20171016160941.GA13339@lunn.ch>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgQW5kcmV3LA0KDQpJIG1heSBoYXZlIG1pc3VuZGVyc3Rvb2QuDQoNCklmIHRoaXMgTUFDIGFk
-ZHJlc3MgaXMgdGhlIGRlc3RpbmF0aW9uLCBhIGxvY2FsIHJhbmRvbSBNQUMgYWRkcmVzcyBkb2Vz
-bid0IHdvcmsuIFBBVVNFIGlzIHVzaW5nIG9uZSBvZiB0aGUgODAyLjFRIHJlc2VydmVkIGRlc3Rp
-bmF0aW9uIE1BQyBhZGRyZXNzZXMgKGFzIGRvZXMgTExEUCwgTVNUUCwgMTU4OCwgZXRjKS4gUEFV
-U0UgbmVlZHMgdG8gdXNlIHRoYXQgc3BlY2lhbGx5IGFzc2lnbmVkIGFkZHJlc3MgKDAxLTgwLUMy
-LTAwLTAwLTAxKS4NCg0KSSBhc3N1bWVkIHdlIHdlcmUgdGFsa2luZyBhYm91dCB0aGUgc291cmNl
-IE1BQyBhZGRyZXNzLiBGb3IgdGhlIHNvdXJjZSBNQUMgYWRkcmVzcywgSSB3b3VsZCBhZ3JlZSB0
-aGF0IGEgbG9jYWwgcmFuZG9tIE1BQyBhZGRyZXNzIHdvcmtzIGluIHNvbWUgbmFycm93IHNjZW5h
-cmlvcy4NCg0KTXkgY29uY2VybiBpcyB0aGF0IGZvciBhIHNvdXJjZSBNQUMgYWRkcmVzcywgYSBs
-b2NhbCByYW5kb20gTUFDIGFkZHJlc3MgaXMgbm90IHNhZmUgaW4gYWxsIG5ldHdvcmtzLCBiZWNh
-dXNlIGl0IGhhcyB0aGUgcG90ZW50aWFsIGZvciBkdXBsaWNhdGlvbi4gVGhhdCB0b3BpYyBoYXMg
-YmVlbiBkaXNjdXNzZWQgcXVpdGUgYSBiaXQgaW4gSUVFRSA4MDIuDQoNClJvZG5leQ0KDQo+IC0t
-LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFuZHJldyBMdW5uIFttYWlsdG86YW5k
-cmV3QGx1bm4uY2hdDQo+IFNlbnQ6IE1vbmRheSwgT2N0b2JlciAxNiwgMjAxNyAxMToxMCBBTQ0K
-PiBUbzogUm9kbmV5IEN1bW1pbmdzIDxyb2RuZXkuY3VtbWluZ3NAbmkuY29tPg0KPiBDYzogVml2
-aWVuIERpZGVsb3QgPHZpdmllbi5kaWRlbG90QHNhdm9pcmZhaXJlbGludXguY29tPjsNCj4gbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4ga2Vy
-bmVsQHNhdm9pcmZhaXJlbGludXguY29tOyBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9m
-dC5uZXQ+Ow0KPiBGbG9yaWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT47IERhdmlk
-IExhaWdodA0KPiA8RGF2aWQuTGFpZ2h0QEFDVUxBQi5DT00+DQo+IFN1YmplY3Q6IFJlOiBbUEFU
-Q0ggbmV0LW5leHQgdjMgMC81XSBuZXQ6IGRzYTogcmVtb3ZlIC5zZXRfYWRkcg0KPiANCj4gT24g
-TW9uLCBPY3QgMTYsIDIwMTcgYXQgMDM6MjM6NDJQTSArMDAwMCwgUm9kbmV5IEN1bW1pbmdzIHdy
-b3RlOg0KPiA+IEkgYW0gY29uY2VybmVkIGFib3V0IHRoaXMgcHJvcG9zZWQgY2hhbmdlLg0KPiA+
-DQo+ID4gQWNjb3JkaW5nIHRvIElFRUUgU3RkIDgwMi4xUSwgYSAiaGlnaGVyIGxheWVyIGVudGl0
-eSIgKGkuZS4gZW5kDQo+ID4gc3RhdGlvbikgdGhhdCBpcyBpbnRlcm5hbCB0byB0aGUgYnJpZGdl
-IChpLmUuIHN3aXRjaCkgY2FuIHVzZSB0aGUNCj4gPiBzYW1lIGluZGl2aWR1YWwgZ2xvYmFsIE1B
-QyBhZGRyZXNzIHRoYXQgdGhlIHN3aXRjaCBpcyB1c2luZy4gVGhhdA0KPiA+IGJlaGF2aW9yIGlz
-IGNvbW1vbi4NCj4gPg0KPiA+IFVzZSBvZiBhIGxvY2FsIHNlbWktcmFuZG9tIE1BQyBhZGRyZXNz
-IGlzIGRhbmdlcm91cyBvbg0KPiA+IEV0aGVybmV0LiBMb2NhbCBNQUMgYWRkcmVzc2VzIGNhbiBv
-bmx5IGJlIHNhZmVseSB1c2VkIGluIHZlcnkgbmFycm93DQo+ID4gdXNlIGNhc2VzLCBtb3N0IG9m
-IHdoaWNoIGFyZSBXaS1GaS4gR2VuZXJhbGx5IHNwZWFraW5nLCBsb2NhbCBNQUMNCj4gPiBhZGRy
-ZXNzZXMgY2FuIGJlIGR1cGxpY2F0ZWQgaW4gdGhlIG5ldHdvcmssIHdoaWNoIGNhdXNlcyBtYW55
-DQo+ID4gRXRoZXJuZXQgcHJvdG9jb2xzIHRvIGJyZWFrIGRvd24uIFRoZXJlZm9yZSwgZ2VuZXJh
-bC1wdXJwb3NlDQo+ID4gaW1wbGVtZW50YXRpb25zIGxpa2UgRFNBIGNhbm5vdCB1c2UgYSBsb2Nh
-bCBNQUMgYWRkcmVzcyBpbiBhDQo+ID4gcmVsaWFibGUgbWFubmVyLg0KPiANCj4gSGkgUm9kbmV5
-DQo+IA0KPiBUaGlzIGlzIGludGVyZXN0aW5nLiBTbyBpIGRpZCBzb21lIHJlc2VhcmNoLiBUaGUg
-TWFydmVsbCBTd2l0Y2ggb25seQ0KPiB1c2VzIHRoaXMgTUFDIGFkZHJlc3MgZm9yIFBhdXNlIGZy
-YW1lcy4gTm90aGluZyBlbHNlLg0KPiANCj4gODAyLjMtMjAxNSBTZWN0aW9uIDIsIEFubmV4IDMx
-QiBzYXlzOg0KPiANCj4gICBUaGUgZ2xvYmFsbHkgYXNzaWduZWQgNDgtYml0IG11bHRpY2FzdCBh
-ZGRyZXNzIDAxLTgwLUMyLTAwLTAwLTAxIGhhcw0KPiAgIGJlZW4gcmVzZXJ2ZWQgZm9yIHVzZSBp
-biBNQUMgQ29udHJvbCBQQVVTRSBmcmFtZXMgZm9yIGluaGliaXRpbmcNCj4gICB0cmFuc21pc3Np
-b24gb2YgZGF0YSBmcmFtZXMgZnJvbSBhIERURSBpbiBhIGZ1bGwgZHVwbGV4IG1vZGUgSUVFRQ0K
-PiAgIDgwMi4zIExBTi4gSUVFRSA4MDIuMUQtY29uZm9ybWFudCBicmlkZ2VzIHdpbGwgbm90IGZv
-cndhcmQgZnJhbWVzDQo+ICAgc2VudCB0byB0aGlzIG11bHRpY2FzdCBkZXN0aW5hdGlvbiBhZGRy
-ZXNzLCByZWdhcmRsZXNzIG9mIHRoZSBzdGF0ZQ0KPiAgIG9mIHRoZSBicmlkZ2XDouKCrOKEonMg
-cG9ydHMsIG9yIHdoZXRoZXIgb3Igbm90IHRoZSBicmlkZ2UNCj4gICBpbXBsZW1lbnRzIHRoZSBN
-QUMgQ29udHJvbCBzdWJsYXllci4gVG8gYWxsb3cgZ2VuZXJpYyBmdWxsIGR1cGxleA0KPiAgIGZs
-b3cgY29udHJvbCwgc3RhdGlvbnMgaW1wbGVtZW50aW5nIHRoZSBQQVVTRSBvcGVyYXRpb24gc2hh
-bGwNCj4gICBpbnN0cnVjdCB0aGUgTUFDIChlLmcuLCB0aHJvdWdoIGxheWVyIG1hbmFnZW1lbnQp
-IHRvIGVuYWJsZQ0KPiAgIHJlY2VwdGlvbiBvZiBmcmFtZXMgd2l0aCBkZXN0aW5hdGlvbiBhZGRy
-ZXNzIGVxdWFsIHRvIHRoaXMgbXVsdGljYXN0DQo+ICAgYWRkcmVzcy4NCj4gDQo+ICAgTk9URcOi
-4oKs4oCdQnkgZGVmaW5pdGlvbiwgYW4gSUVFRSA4MDIuMyBMQU4gb3BlcmF0aW5nIGluIGZ1bGwN
-Cj4gICBkdXBsZXggbW9kZSBjb21wcmlzZXMgZXhhY3RseSB0d28gc3RhdGlvbnMsIHRodXMgdGhl
-cmUgaXMgbm8NCj4gICBhbWJpZ3VpdHkgcmVnYXJkaW5nIHRoZSBkZXN0aW5hdGlvbiBEVEXDouKC
-rOKEonMgaWRlbnRpdHkuIFRoZSB1c2UNCj4gICBvZiBhIHdlbGwta25vd24gbXVsdGljYXN0IGFk
-ZHJlc3MgcmVsaWV2ZXMgdGhlIE1BQyBDb250cm9sIHN1YmxheWVyDQo+ICAgYW5kIGl0cyBjbGll
-bnQgZnJvbSBoYXZpbmcgdG8ga25vdywgYW5kIG1haW50YWluIGtub3dsZWRnZSBvZiwgdGhlDQo+
-ICAgaW5kaXZpZHVhbCA0OC1iaXQgYWRkcmVzcyBvZiB0aGUgb3RoZXIgRFRFIGluIGEgZnVsbCBk
-dXBsZXgNCj4gICBlbnZpcm9ubWVudC4NCj4gDQo+ICAgV2hlbiBNQUMgQ29udHJvbCBQRkMgb3Bl
-cmF0aW9uIChzZWUgQW5uZXggMzFEIGFuZCBJRUVFIFN0ZCA4MDIuMVEpDQo+ICAgaGFzIGJlZW4g
-ZW5hYmxlZCwgTUFDIENvbnRyb2wgUEFVU0Ugb3BlcmF0aW9uIHNoYWxsIGJlIGRpc2FibGVkLg0K
-PiANCj4gU28sIHJlY2VpdmVkIFBhdXNlIGZyYW1lcyBuZXZlciBsZWF2ZSB0aGUgTUFDLiBUaGV5
-IGRvbid0IGdldCBicmlkZ2VkLA0KPiBub3IgZG8gdGhleSBnZXQgcGFzc2VkIHVwIGZvciBob3N0
-IHByb2Nlc3NpbmcuIFRoZXkgYXJlIHB1cmVseSBwb2ludA0KPiB0byBwb2ludCBiZXR3ZWVuIHR3
-byBNQUMgcGVlcnMuIFRoZSBkZXN0aW5hdGlvbiBpcyB1bmFtYmlndW91cy4gSXQgaXMNCj4gc2lt
-cGxlIHRoZSBvdGhlciBNQUMgcGVlci4gVGhlIGRlc3RpbmF0aW9uIGFkZHJlc3MgbWFrZXMgaXQg
-Y2xlYXIgaXQNCj4gaXMgYSBwYXVzZSBmcmFtZSwgdGhlIHRoZSBzb3VyY2UgYWRkcmVzcyBzZWVt
-cyB0byBiZSB1bm5lZWRlZC4NCj4gDQo+IEluIHRoaXMgY29udGV4dCwgYSByYW5kb20gTUFDIGFk
-ZHJlc3NlcyBhcmUgc2FmZS4NCj4gDQo+IEluIHRoZSBtb3JlIGdlbmVyYWwgY2FzZSwgaSB3b3Vs
-ZCBhZ3JlZSB3aXRoIHlvdS4gQ29sbGlzaW9ucyBhcmUNCj4gcG9zc2libGUsIGNhdXNpbmcgcHJv
-YmxlbXMuDQo+IA0KPiAgICBBbmRyZXcNCg==
+From: Andrew Lunn
+> Sent: 16 October 2017 17:10
+...
+> So, received Pause frames never leave the MAC. They don't get bridged,
+> nor do they get passed up for host processing. They are purely point
+> to point between two MAC peers. The destination is unambiguous. It is
+> simple the other MAC peer. The destination address makes it clear it
+> is a pause frame, the the source address seems to be unneeded.
+> 
+> In this context, a random MAC addresses are safe.
+
+Is there any reason why a fixed value (say 00:00:00:00:00:00)
+can't be used?
+
+> In the more general case, i would agree with you. Collisions are
+> possible, causing problems.
+
+For IP MAC addresses only go as far as the first router.
+So the duplicates would (typically) have to be within the same subnet.
+This makes the chance of a duplicate random address unlikely.
+
+(Unless you have an un-subnetted class A network consisting of
+multiple 1km long coax segments connected by 1km long repeaters
+making a single collision domain.)
+
+	David
