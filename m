@@ -1,8 +1,8 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH v2 05/15] ocfs2/cluster: make
+Subject: [PATCH v2 07/15] usb: gadget: configfs: make
 	config_item_type const
-Date: Mon, 16 Oct 2017 17:18:44 +0200
-Message-ID: <1508167134-6243-6-git-send-email-bhumirks@gmail.com>
+Date: Mon, 16 Oct 2017 17:18:46 +0200
+Message-ID: <1508167134-6243-8-git-send-email-bhumirks@gmail.com>
 References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
 To: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
@@ -33,9 +33,9 @@ Sender: cluster-devel-bounces@redhat.com
 Errors-To: cluster-devel-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-Make these structures const as they are either passed to the functions
-having the argument as const or stored as a reference in the "ci_type"
-const field of a config_item structure.
+Make config_item_type structures const as they are either passed to a
+function having the argument as const or stored in the const "ci_type"
+field of a config_item structure.
 
 Done using Coccinelle.
 
@@ -44,71 +44,55 @@ Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 * Changes in v2- Combine all the followup patches and the constification
 patches into a series.
 
- fs/ocfs2/cluster/heartbeat.c   | 4 ++--
- fs/ocfs2/cluster/nodemanager.c | 8 ++++----
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/usb/gadget/configfs.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/fs/ocfs2/cluster/heartbeat.c b/fs/ocfs2/cluster/heartbeat.c
-index d020604..ea8c551 100644
---- a/fs/ocfs2/cluster/heartbeat.c
-+++ b/fs/ocfs2/cluster/heartbeat.c
-@@ -2025,7 +2025,7 @@ static ssize_t o2hb_region_pid_show(struct config_item *item, char *page)
- 	.release		= o2hb_region_release,
+diff --git a/drivers/usb/gadget/configfs.c b/drivers/usb/gadget/configfs.c
+index aeb9f3c..9d18b99 100644
+--- a/drivers/usb/gadget/configfs.c
++++ b/drivers/usb/gadget/configfs.c
+@@ -505,13 +505,13 @@ static ssize_t gadget_config_desc_bmAttributes_store(struct config_item *item,
+ 	NULL,
  };
  
--static struct config_item_type o2hb_region_type = {
-+static const struct config_item_type o2hb_region_type = {
- 	.ct_item_ops	= &o2hb_region_item_ops,
- 	.ct_attrs	= o2hb_region_attrs,
+-static struct config_item_type gadget_config_type = {
++static const struct config_item_type gadget_config_type = {
+ 	.ct_item_ops	= &gadget_config_item_ops,
+ 	.ct_attrs	= gadget_config_attrs,
  	.ct_owner	= THIS_MODULE,
-@@ -2310,7 +2310,7 @@ static ssize_t o2hb_heartbeat_group_mode_store(struct config_item *item,
- 	.drop_item	= o2hb_heartbeat_group_drop_item,
  };
  
--static struct config_item_type o2hb_heartbeat_group_type = {
-+static const struct config_item_type o2hb_heartbeat_group_type = {
- 	.ct_group_ops	= &o2hb_heartbeat_group_group_ops,
- 	.ct_attrs	= o2hb_heartbeat_group_attrs,
+-static struct config_item_type gadget_root_type = {
++static const struct config_item_type gadget_root_type = {
+ 	.ct_item_ops	= &gadget_root_item_ops,
+ 	.ct_attrs	= gadget_root_attrs,
  	.ct_owner	= THIS_MODULE,
-diff --git a/fs/ocfs2/cluster/nodemanager.c b/fs/ocfs2/cluster/nodemanager.c
-index b17d180..a51200e 100644
---- a/fs/ocfs2/cluster/nodemanager.c
-+++ b/fs/ocfs2/cluster/nodemanager.c
-@@ -378,7 +378,7 @@ static ssize_t o2nm_node_local_store(struct config_item *item, const char *page,
- 	.release		= o2nm_node_release,
+@@ -593,7 +593,7 @@ static void function_drop(
+ 	.drop_item      = &function_drop,
  };
  
--static struct config_item_type o2nm_node_type = {
-+static const struct config_item_type o2nm_node_type = {
- 	.ct_item_ops	= &o2nm_node_item_ops,
- 	.ct_attrs	= o2nm_node_attrs,
- 	.ct_owner	= THIS_MODULE,
-@@ -619,7 +619,7 @@ static void o2nm_node_group_drop_item(struct config_group *group,
- 	.drop_item	= o2nm_node_group_drop_item,
+-static struct config_item_type functions_type = {
++static const struct config_item_type functions_type = {
+ 	.ct_group_ops   = &functions_ops,
+ 	.ct_owner       = THIS_MODULE,
+ };
+@@ -694,7 +694,7 @@ static void config_desc_drop(
+ 	.drop_item      = &config_desc_drop,
  };
  
--static struct config_item_type o2nm_node_group_type = {
-+static const struct config_item_type o2nm_node_group_type = {
- 	.ct_group_ops	= &o2nm_node_group_group_ops,
- 	.ct_owner	= THIS_MODULE,
+-static struct config_item_type config_desc_type = {
++static const struct config_item_type config_desc_type = {
+ 	.ct_group_ops   = &config_desc_ops,
+ 	.ct_owner       = THIS_MODULE,
  };
-@@ -637,7 +637,7 @@ static void o2nm_cluster_release(struct config_item *item)
- 	.release	= o2nm_cluster_release,
- };
- 
--static struct config_item_type o2nm_cluster_type = {
-+static const struct config_item_type o2nm_cluster_type = {
- 	.ct_item_ops	= &o2nm_cluster_item_ops,
- 	.ct_attrs	= o2nm_cluster_attrs,
- 	.ct_owner	= THIS_MODULE,
-@@ -722,7 +722,7 @@ static void o2nm_cluster_group_drop_item(struct config_group *group, struct conf
- 	.drop_item	= o2nm_cluster_group_drop_item,
+@@ -1476,7 +1476,7 @@ static void gadgets_drop(struct config_group *group, struct config_item *item)
+ 	.drop_item      = &gadgets_drop,
  };
  
--static struct config_item_type o2nm_cluster_group_type = {
-+static const struct config_item_type o2nm_cluster_group_type = {
- 	.ct_group_ops	= &o2nm_cluster_group_group_ops,
- 	.ct_owner	= THIS_MODULE,
+-static struct config_item_type gadgets_type = {
++static const struct config_item_type gadgets_type = {
+ 	.ct_group_ops   = &gadgets_ops,
+ 	.ct_owner       = THIS_MODULE,
  };
 -- 
 1.9.1
