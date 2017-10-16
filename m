@@ -1,111 +1,54 @@
-From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH v2 2/5] dpaa_eth: move of_phy_connect() to the eth driver
-Date: Mon, 16 Oct 2017 04:26:28 +0000
-Message-ID: <DB3PR0402MB3849B210D6DA612C31BA0C5AEC4F0@DB3PR0402MB3849.eurprd04.prod.outlook.com>
-References: <1507906212-10076-1-git-send-email-madalin.bucur@nxp.com>
- <1507906212-10076-3-git-send-email-madalin.bucur@nxp.com>
- <20171015183349.GD6374@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [pull request][for-next 00/12] Mellanox, mlx5 IPoIB Muli Pkey
+ support 2017-10-11,Re: [pull request][for-next 00/12] Mellanox, mlx5 IPoIB
+ Muli Pkey support 2017-10-11
+Date: Mon, 16 Oct 2017 05:45:03 +0100 (WEST)
+Message-ID: <20171016.054503.459455425504112937.davem@davemloft.net>
+References: <20171014184827.18491-1-saeedm@mellanox.com>
+        <20171014184827.18491-1-saeedm@mellanox.com>
+        <af28440c-bb1c-c47b-92dd-60bfbeaa839d@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "vivien.didelot@savoirfairelinux.com"
-        <vivien.didelot@savoirfairelinux.com>,
-        "junote@outlook.com" <junote@outlook.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171015183349.GD6374@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: saeedm@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, leonro@mellanox.com
+To: dledford@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52960 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750914AbdJPEpK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 00:45:10 -0400
+In-Reply-To: <af28440c-bb1c-c47b-92dd-60bfbeaa839d@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Sunday, October 15, 2017 9:34 PM
-> To: Madalin-cristian Bucur <madalin.bucur@nxp.com>
-> Cc: netdev@vger.kernel.org; davem@davemloft.net; f.fainelli@gmail.com;
-> vivien.didelot@savoirfairelinux.com; junote@outlook.com; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCH v2 2/5] dpaa_eth: move of_phy_connect() to the eth
-> driver
->=20
-> On Fri, Oct 13, 2017 at 05:50:09PM +0300, Madalin Bucur wrote:
-> > Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-> > ---
-> >  drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 48 +++++++++++--
-> >  drivers/net/ethernet/freescale/fman/mac.c      | 97 ++++++------------=
--
-> -------
-> >  drivers/net/ethernet/freescale/fman/mac.h      |  5 +-
-> >  3 files changed, 66 insertions(+), 84 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > index 4225806..7cf61d6 100644
-> > --- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-> > @@ -2435,6 +2435,48 @@ static void dpaa_eth_napi_disable(struct
-> dpaa_priv *priv)
-> >  	}
-> >  }
-> >
-> > +static void dpaa_adjust_link(struct net_device *net_dev)
-> > +{
-> > +	struct mac_device *mac_dev;
-> > +	struct dpaa_priv *priv;
-> > +
-> > +	priv =3D netdev_priv(net_dev);
-> > +	mac_dev =3D priv->mac_dev;
-> > +	mac_dev->adjust_link(mac_dev);
-> > +}
-> > +
-> > +static int dpaa_phy_init(struct net_device *net_dev)
-> > +{
-> > +	struct mac_device *mac_dev;
-> > +	struct phy_device *phy_dev;
-> > +	struct dpaa_priv *priv;
-> > +
-> > +	priv =3D netdev_priv(net_dev);
-> > +	mac_dev =3D priv->mac_dev;
-> > +
-> > +	phy_dev =3D of_phy_connect(net_dev, mac_dev->phy_node,
-> > +				 &dpaa_adjust_link, 0,
-> > +				 mac_dev->phy_if);
-> > +	if (!phy_dev) {
-> > +		netif_err(priv, ifup, net_dev, "init_phy() failed\n");
-> > +		return -ENODEV;
-> > +	}
-> > +
-> > +	/* Remove any features not supported by the controller */
-> > +	phy_dev->supported &=3D mac_dev->if_support;
-> > +
-> > +	/* Enable the symmetric and asymmetric PAUSE frame advertisements,
-> > +	 * as most of the PHY drivers do not enable them by default.
-> > +	 */
->=20
-> Hi Madalin
->=20
-> This is just moving code around, so the patch is O.K. However, it
-> would be nice to have a followup patch. This comment is wrong. The phy
-> driver should never enable symmetric and asymmetric PAUSE frames. The
-> MAC needs to, because only the MAC knows if the MAC supports pause
-> frames.
->=20
-> 	Andrew
+From: Doug Ledford <dledford@redhat.com>
+Date: Sat, 14 Oct 2017 17:19:34 -0400
 
-Hi Andrew,
+> On 10/14/2017 2:48 PM, Saeed Mahameed wrote:
+>> Hi Dave and Doug,
+>> 
+>> This series includes updates for mlx5 IPoIB offloading driver from Alex
+>> and Feras to add the support for Muli Pkey in the mlx5i ipoib offloading netdev,
+>> to be merged into net-next and rdma-next trees.
+> 
+> As far as the two IPoIB patches are concerned, they're fine.
+> 
+>> Doug, I am sorry I couldn't base this on rc2 since the series needs and conflicts
+>> with a fix that was submitted to rc3, so to keep things simple I based it on rc4,
+>> I hope this is ok with you..
+> 
+> No worries, it just means I have to submit it under another branch.  But
+> I'm already holding one patch series in a stand alone branch, so no big
+> deal.  And, actually, the IPoIB changes are so small they can simply go
+> through Dave's tree if you don't have any dependent code in the IPoIB
+> driver to submit after this but still in this devel cycle.
+> 
+>> Please pull and let me know if there's any problem.
+> 
+> Once I hear that Dave is OK with the net changes, I'm ready to pull (if
+> I need to).
 
-This is obsolete and it will be removed, I'll send a v3. It remained there =
-from
-a time it used to be valid (the original DPAA Ethernet driver was developed
-and maintained out of tree since about 9 years ago). I see this thread on t=
-he
-subject which is relatively recent:
+They look fine and I've pulled this into net-next.
 
-https://www.spinics.net/lists/netdev/msg404288.html
-
-Thanks,
-Madalin
+Thanks.
