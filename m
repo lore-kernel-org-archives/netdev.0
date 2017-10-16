@@ -1,43 +1,33 @@
-From: Anita Cochran <alma.carrizales@ventus.com.mx>
-Subject: Recent payment notice to Anita Cochran
-Date: Mon, 16 Oct 2017 19:48:53 +0100
-Message-ID: <41608071366.20171016174853@vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] tools: bpftool: use more common tag format
+Date: Mon, 16 Oct 2017 20:02:00 +0200
+Message-ID: <59E4F418.5040805@iogearbox.net>
+References: <20171016171254.26225-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-        boundary="----=_NextPart_000_00A3_A4D74A5B.DFB62F90"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hub029-ca-2.exch029.serverdata.net ([64.78.52.45]:10620 "EHLO
-        hub029-CA-2.exch029.serverdata.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751720AbdJPR5O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 13:57:14 -0400
-Received: from 10.0.0.58 (unknown [93.157.115.33])      (using TLSv1.2 with cipher
- ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))    (No client certificate requested)
-        (Authenticated sender: alma.carrizales@ventus.com.mx)   by
- mail029-2.exch029.serverdata.net (Postfix) with ESMTPSA id 522DC5B     for
- <netdev@vger.kernel.org>; Mon, 16 Oct 2017 10:49:08 -0700 (PDT)
+Received: from www62.your-server.de ([213.133.104.62]:39932 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752949AbdJPSCD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 14:02:03 -0400
+In-Reply-To: <20171016171254.26225-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-------=_NextPart_000_00A3_A4D74A5B.DFB62F90
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+On 10/16/2017 07:12 PM, Jakub Kicinski wrote:
+> Program tag is usually displayed as string of bytes without
+> any separators (e.g. as "aa5520b1090cfeb6" vs MAC addr-like
+> format bpftool uses currently: "aa:55:20:b1:09:0c:fe:b6").
+> Make bptfool use the more common format both for displaying
+> the tag and selecting the program by tag.
+>
+> This was pointed out in review but I misunderstood the comment.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
 
-=0DHi ,
-
-=0DYour payment of $2744.29 to Anita Cochran was sent.
-=0DAllow up to 10 minutes for this transaction to appear.
-
-=0DSee your transaction details below:
-http://horseoz.com/7363-RMBK/Payment-Details/
-
-
-=0DRespectfully Yours,
-Anita Cochran
-
-
-
-
-Please do not reply to this email. =0DThis mailbox is for notification purp=
-oses only and you will not receive a reply.
-------=_NextPart_000_00A3_A4D74A5B.DFB62F90--
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
