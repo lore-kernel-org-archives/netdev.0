@@ -1,61 +1,86 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] dsa: slave: support phy devices on external MII bus
-Date: Mon, 16 Oct 2017 07:16:14 -0700
-Message-ID: <94DA9CFF-71F3-4D89-A2F2-342A69AB434E@gmail.com>
-References: <20171016104525.26810-1-mnhu@prevas.dk> <20171016123233.GD4255@lunn.ch> <02997de6-1c8a-d69b-d19b-3a811288e8ed@prevas.dk> <20171016133943.GA7802@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        =?ISO-8859-1?Q?Martin_Hundeb=F8ll?= <mnhu@prevas.dk>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 2/5] mlxsw: spectrum_router: Move mlxsw_sp_netdev_ipip_type()
+Date: Mon, 16 Oct 2017 16:26:36 +0200
+Message-ID: <20171016142639.2453-3-jiri@resnulli.us>
+References: <20171016142639.2453-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f54.google.com ([209.85.218.54]:53167 "EHLO
-        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751776AbdJPOQU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:16:20 -0400
-Received: by mail-oi0-f54.google.com with SMTP id c202so25166896oih.9
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:16:20 -0700 (PDT)
-In-Reply-To: <20171016133943.GA7802@lunn.ch>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:44483 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753198AbdJPO0o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 10:26:44 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 196so5331712wma.1
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 07:26:43 -0700 (PDT)
+In-Reply-To: <20171016142639.2453-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On October 16, 2017 6:39:43 AM PDT, Andrew Lunn <andrew@lunn=2Ech> wrote:
->On Mon, Oct 16, 2017 at 03:16:51PM +0200, Martin Hundeb=C3=B8ll wrote:
->> On 2017-10-16 14:32, Andrew Lunn wrote:
->> >So this used to work=2E I have a 10G phy connected to the external MII
->> >bus on a 6390=2E I wonder when this got broken? Supporting phy-handle
->is
->> >old code, so when i added the external MII i don't think i needed to
->> >change any generic code=2E
->>=20
->> It could look like commit cd28a1a9baee7 ('net: dsa: fully divert PHY
->> reads/writes if requested') changed the of-case to use the mdio bus
->> associated with struct dsa_switch unconditionally=2E
->
->Hi Martin
->
->I think ds->phys_mii_mask is playing a role here=2E I need to add some
->debug prints to my setup and see what is happening with my external
->10G PHY=2E
+From: Petr Machata <petrm@mellanox.com>
 
-FWIW, bcm_sf2 uses a mixture of PHYs referenced by phandle and fixed PHY s=
-o if this did not work, I would have noticed=2E
+Signed-off-by: Petr Machata <petrm@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 38 +++++++++++-----------
+ 1 file changed, 19 insertions(+), 19 deletions(-)
 
-The logic goes like this:
-
-- try to connect to the PHY via phy-handle
-- if we have a PHY we are connecting via phy-handle but we need to divert =
-MDIO reads/writes connect using its address on the diverted bus
-- connect using a fixed PHY
-- finally try using the DSA slave MII bus which would connect to the switc=
-h internal PHYs
-
-If 1) fails then that needs investigating as it really should not=2E Is it=
- somehow possible that your PHY is powered down or something at that time a=
-nd there is a timing/dependency not well handled?
-
---=20
-Florian
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 6a356f4..c5e574b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1295,6 +1295,25 @@ mlxsw_sp_ipip_entry_find_by_decap(struct mlxsw_sp *mlxsw_sp,
+ 	return NULL;
+ }
+ 
++static bool mlxsw_sp_netdev_ipip_type(const struct mlxsw_sp *mlxsw_sp,
++				      const struct net_device *dev,
++				      enum mlxsw_sp_ipip_type *p_type)
++{
++	struct mlxsw_sp_router *router = mlxsw_sp->router;
++	const struct mlxsw_sp_ipip_ops *ipip_ops;
++	enum mlxsw_sp_ipip_type ipipt;
++
++	for (ipipt = 0; ipipt < MLXSW_SP_IPIP_TYPE_MAX; ++ipipt) {
++		ipip_ops = router->ipip_ops_arr[ipipt];
++		if (dev->type == ipip_ops->dev_type) {
++			if (p_type)
++				*p_type = ipipt;
++			return true;
++		}
++	}
++	return false;
++}
++
+ struct mlxsw_sp_neigh_key {
+ 	struct neighbour *n;
+ };
+@@ -2785,25 +2804,6 @@ static void mlxsw_sp_nexthop_neigh_fini(struct mlxsw_sp *mlxsw_sp,
+ 	neigh_release(n);
+ }
+ 
+-static bool mlxsw_sp_netdev_ipip_type(const struct mlxsw_sp *mlxsw_sp,
+-				      const struct net_device *dev,
+-				      enum mlxsw_sp_ipip_type *p_type)
+-{
+-	struct mlxsw_sp_router *router = mlxsw_sp->router;
+-	const struct mlxsw_sp_ipip_ops *ipip_ops;
+-	enum mlxsw_sp_ipip_type ipipt;
+-
+-	for (ipipt = 0; ipipt < MLXSW_SP_IPIP_TYPE_MAX; ++ipipt) {
+-		ipip_ops = router->ipip_ops_arr[ipipt];
+-		if (dev->type == ipip_ops->dev_type) {
+-			if (p_type)
+-				*p_type = ipipt;
+-			return true;
+-		}
+-	}
+-	return false;
+-}
+-
+ static int mlxsw_sp_nexthop_ipip_init(struct mlxsw_sp *mlxsw_sp,
+ 				      enum mlxsw_sp_ipip_type ipipt,
+ 				      struct mlxsw_sp_nexthop *nh,
+-- 
+2.9.5
