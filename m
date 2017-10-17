@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/20] net: sched: cls_matchall: call block callbacks for offload
-Date: Tue, 17 Oct 2017 22:06:00 +0200
-Message-ID: <20171017200615.4530-6-jiri@resnulli.us>
+Subject: [patch net-next 06/20] net: sched: cls_u32: swap u32_remove_hw_knode and u32_remove_hw_hnode
+Date: Tue, 17 Oct 2017 22:06:01 +0200
+Message-ID: <20171017200615.4530-7-jiri@resnulli.us>
 References: <20171017200615.4530-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,148 +14,70 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:54180 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763310AbdJQUGW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:22 -0400
-Received: by mail-wm0-f67.google.com with SMTP id q132so6160196wmd.2
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:21 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:44391 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764008AbdJQUGX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:23 -0400
+Received: by mail-wr0-f196.google.com with SMTP id l24so2914223wre.1
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:22 -0700 (PDT)
 In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use the newly introduced callbacks infrastructure and call block
-callbacks alongside with the existing per-netdev ndo_setup_tc.
-
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_matchall.c | 72 ++++++++++++++++++++++++++++++------------------
- 1 file changed, 45 insertions(+), 27 deletions(-)
+ net/sched/cls_u32.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index eeac606..5278534 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -50,50 +50,73 @@ static void mall_destroy_rcu(struct rcu_head *rcu)
- 	kfree(head);
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index b6d4606..f407f13 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -462,7 +462,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ 	return 0;
  }
  
--static int mall_replace_hw_filter(struct tcf_proto *tp,
--				  struct cls_mall_head *head,
--				  unsigned long cookie)
-+static void mall_destroy_hw_filter(struct tcf_proto *tp,
-+				   struct cls_mall_head *head,
-+				   unsigned long cookie)
+-static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
++static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
  {
  	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_matchall_offload cls_mall = {};
--	int err;
-+	struct tcf_block *block = tp->chain->block;
- 
- 	tc_cls_common_offload_init(&cls_mall.common, tp);
--	cls_mall.command = TC_CLSMATCHALL_REPLACE;
--	cls_mall.exts = &head->exts;
-+	cls_mall.command = TC_CLSMATCHALL_DESTROY;
- 	cls_mall.cookie = cookie;
- 
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
--					    &cls_mall);
--	if (!err)
--		head->flags |= TCA_CLS_FLAGS_IN_HW;
--
--	return err;
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
-+					      &cls_mall);
-+	tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL, &cls_mall, false);
- }
- 
--static void mall_destroy_hw_filter(struct tcf_proto *tp,
--				   struct cls_mall_head *head,
--				   unsigned long cookie)
-+static int mall_replace_hw_filter(struct tcf_proto *tp,
-+				  struct cls_mall_head *head,
-+				  unsigned long cookie)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_matchall_offload cls_mall = {};
-+	struct tcf_block *block = tp->chain->block;
-+	bool skip_sw = tc_skip_sw(head->flags);
-+	int err;
- 
- 	tc_cls_common_offload_init(&cls_mall.common, tp);
--	cls_mall.command = TC_CLSMATCHALL_DESTROY;
-+	cls_mall.command = TC_CLSMATCHALL_REPLACE;
-+	cls_mall.exts = &head->exts;
- 	cls_mall.cookie = cookie;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &cls_mall);
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
-+						    &cls_mall);
-+		if (err) {
-+			if (skip_sw)
-+				return err;
-+		} else {
-+			head->flags |= TCA_CLS_FLAGS_IN_HW;
-+		}
-+	}
-+
-+	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL,
-+			       &cls_mall, skip_sw);
-+	if (err < 0) {
-+		mall_destroy_hw_filter(tp, head, cookie);
-+		return err;
-+	} else if (err > 0) {
-+		head->flags |= TCA_CLS_FLAGS_IN_HW;
-+	}
-+
-+	if (skip_sw && !(head->flags & TCA_CLS_FLAGS_IN_HW))
-+		return -EINVAL;
-+
-+	return 0;
- }
- 
- static void mall_destroy(struct tcf_proto *tp)
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
--	struct net_device *dev = tp->q->dev_queue->dev;
- 
- 	if (!head)
+ 	struct tc_cls_u32_offload cls_u32 = {};
+@@ -471,8 +471,10 @@ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
  		return;
  
--	if (tc_should_offload(dev, head->flags))
-+	if (!tc_skip_hw(head->flags))
- 		mall_destroy_hw_filter(tp, head, (unsigned long) head);
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+-	cls_u32.command = TC_CLSU32_DELETE_KNODE;
+-	cls_u32.knode.handle = handle;
++	cls_u32.command = TC_CLSU32_DELETE_HNODE;
++	cls_u32.hnode.divisor = h->divisor;
++	cls_u32.hnode.handle = h->handle;
++	cls_u32.hnode.prio = h->prio;
  
- 	call_rcu(&head->rcu, mall_destroy_rcu);
-@@ -133,7 +156,6 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 		       void **arg, bool ovr)
+ 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+ }
+@@ -500,7 +502,7 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
+ 	return 0;
+ }
+ 
+-static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
++static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
  {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
--	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
- 	struct cls_mall_head *new;
- 	u32 flags = 0;
-@@ -173,14 +195,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	if (err)
- 		goto err_set_parms;
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_u32_offload cls_u32 = {};
+@@ -509,10 +511,8 @@ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ 		return;
  
--	if (tc_should_offload(dev, flags)) {
-+	if (!tc_skip_hw(new->flags)) {
- 		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
--		if (err) {
--			if (tc_skip_sw(flags))
--				goto err_replace_hw_filter;
--			else
--				err = 0;
--		}
-+		if (err)
-+			goto err_replace_hw_filter;
- 	}
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+-	cls_u32.command = TC_CLSU32_DELETE_HNODE;
+-	cls_u32.hnode.divisor = h->divisor;
+-	cls_u32.hnode.handle = h->handle;
+-	cls_u32.hnode.prio = h->prio;
++	cls_u32.command = TC_CLSU32_DELETE_KNODE;
++	cls_u32.knode.handle = handle;
  
- 	if (!tc_in_hw(new->flags))
+ 	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+ }
 -- 
 2.9.5
