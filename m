@@ -1,75 +1,60 @@
-From: Simo Sorce <simo@redhat.com>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Tue, 17 Oct 2017 08:31:09 -0400
-Message-ID: <1508243469.6230.24.camel@redhat.com>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
-         <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
-         <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
-         <2319693.5l3M4ZINGd@x2>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH 1/2 v2 net-next] thunderbolt: Fix a couple right shifting to
+ zero bugs
+Date: Tue, 17 Oct 2017 15:32:17 +0300
+Message-ID: <20171017123217.p3ctmptbrm75ys46@mwanda>
+References: <20171013112959.sc2pwazrpk7fxbtw@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Richard Guy Briggs <rgb@redhat.com>,
-        Casey Schaufler <casey@schaufler-ca.com>, mszeredi@redhat.com,
-        "Eric W. Biederman" <ebiederm@xmission.com>, jlayton@redhat.com,
-        Carlos O'Donell <carlos@redhat.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        Linux Containers <containers@lists.linux-foundation.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Eric Paris <eparis@parisplace.org>,
-        David Howells <dhowells@redhat.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Andy Lutomirski <luto@kernel.org>,
-        Linux Network Development <netdev@vger.kernel.org>,
-        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-        cgroups@vger.kernel.org, "Serge E. Hallyn" <serge@hallyn.com>,
-        trondmy@primarydata.com
-To: Steve Grubb <sgrubb@redhat.com>, linux-audit@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2319693.5l3M4ZINGd@x2>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Jamet <michael.jamet@intel.com>,
+        Mika Westerberg <mika.westerberg@linux.intel.com>,
+        Yehezkel Bernat <yehezkel.bernat@intel.com>,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Andreas Noever <andreas.noever@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:26967 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752832AbdJQMcf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 08:32:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20171013112959.sc2pwazrpk7fxbtw@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-10-16 at 21:42 -0400, Steve Grubb wrote:
-> On Monday, October 16, 2017 8:33:40 PM EDT Richard Guy Briggs wrote:
+The problematic code looks like this:
 
-> > There is such a thing, but the kernel doesn't know about it
-> > yet.  This same situation exists for loginuid and sessionid which
-> > are userspace concepts that the kernel tracks for the convenience
-> > of userspace.  As for its name, I'm not particularly picky, so if
-> > you don't like CAP_CONTAINER_* then I'm fine with
-> > CAP_AUDIT_CONTAINERID.  It really needs to be distinct from
-> > CAP_AUDIT_WRITE and CAP_AUDIT_CONTROL since we don't want to give
-> > the ability to set a containerID to any process that is able to do
-> > audit logging (such as vsftpd) and similarly we don't want to give
-> > the orchestrator the ability to control the setup of the audit
-> > daemon.
-> 
-> A long time ago, we were debating what should guard against rouge
-> processes from setting the loginuid. Casey argued that the ability to
-> set the loginuid means they have the ability to control the audit
-> trail. That means that it should be guarded by CAP_AUDIT_CONTROL. I
-> think the same logic applies today. 
+	res_seq = res_hdr->xd_hdr.length_sn & TB_XDOMAIN_SN_MASK;
+	res_seq >>= TB_XDOMAIN_SN_SHIFT;
 
-The difference is that with loginuid you needed to give processes able
-to audit also the ability to change it. You do not want to tie the
-ability to change container ids to the ability to audit. You want to be
-able to do audit stuff (within the container) without allowing it to
-change the container id.
-Of course if we made container id a write-once property maybe there is
-no need for controls at all, but I'm pretty sure there will be
-situations where write-once may not be usable in practice.
+TB_XDOMAIN_SN_SHIFT is 27, and right shifting a u8 27 bits is always
+going to result in zero.  The fix is to declare these variables as u32.
 
-> The ability to arbitrarily set a container ID means the process has
-> the ability to indirectly control the audit trail.
+Fixes: d1ff70241a27 ("thunderbolt: Add support for XDomain discovery protocol")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+v2: I accidentally sent this through the wrong list, so I'm resending to
+    netdev.  Also Mika asked me to split it up because the Fixes tags
+    are different for these patches.
 
-The container Id can be used also for authorization purposes (by other
-processes on the host), not just audit, I think this is why a separate
-control has been proposed.
-
-Simo.
-
--- 
-Simo Sorce
-Sr. Principal Software Engineer
-Red Hat, Inc
+diff --git a/drivers/thunderbolt/xdomain.c b/drivers/thunderbolt/xdomain.c
+index 138027537d29..ff8d91189e99 100644
+--- a/drivers/thunderbolt/xdomain.c
++++ b/drivers/thunderbolt/xdomain.c
+@@ -56,7 +56,7 @@ static bool tb_xdomain_match(const struct tb_cfg_request *req,
+ 	case TB_CFG_PKG_XDOMAIN_RESP: {
+ 		const struct tb_xdp_header *res_hdr = pkg->buffer;
+ 		const struct tb_xdp_header *req_hdr = req->request;
+-		u8 req_seq, res_seq;
++		u32 req_seq, res_seq;
+ 
+ 		if (pkg->frame.size < req->response_size / 4)
+ 			return false;
+@@ -476,7 +476,7 @@ static void tb_xdp_handle_request(struct work_struct *work)
+ 	struct tb_ctl *ctl = tb->ctl;
+ 	const uuid_t *uuid;
+ 	int ret = 0;
+-	u8 sequence;
++	u32 sequence;
+ 	u64 route;
+ 
+ 	route = ((u64)xhdr->route_hi << 32 | xhdr->route_lo) & ~BIT_ULL(63);
