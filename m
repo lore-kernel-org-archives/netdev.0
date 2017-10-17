@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/15] i40e: convert i40e_set_link_ksettings to new API
-Date: Tue, 17 Oct 2017 11:21:18 -0700
-Message-ID: <20171017182119.71989-15-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e: fix u64 division usage
+Date: Tue, 17 Oct 2017 11:21:19 -0700
+Message-ID: <20171017182119.71989-16-jeffrey.t.kirsher@intel.com>
 References: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
 Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:41366 "EHLO mga04.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:3560 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S937370AbdJQSVo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S937373AbdJQSVo (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 17 Oct 2017 14:21:44 -0400
 In-Reply-To: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,148 +18,190 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Alan Brady <alan.brady@intel.com>
 
-This finishes off the conversion to the new ethtool API by removing the
-old macros being used in i40e_set_link_ksettings and replacing them with
-shiny new ones.
+Commit 52eb1ff93e98 ("i40e: Add support setting TC max bandwidth rates")
+and commit 1ea6f21ae530 ("i40e: Refactor VF BW rate limiting") add some
+needed functionality for TC bandwidth rate limiting.  Unfortunately they
+introduce several usages of unsigned 64-bit division which needs to be
+handled special by the kernel to support all architectures.
 
-This conversion also allows us to provide link speed support for new 25G
-and 10G macros which is included here as well.
+Fixes: 52eb1ff93e98 ("i40e: Add support setting TC max bandwidth
+rates")
+Fixes: 1ea6f21ae530 ("i40e: Refactor VF BW rate limiting")
 
 Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 93 ++++++++++++++++----------
- 1 file changed, 57 insertions(+), 36 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  3 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 58 ++++++++++++++++++++---------
+ 2 files changed, 42 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 9c70555bf49c..9eb618799a30 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -832,9 +832,7 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
- 	i40e_status status = 0;
- 	int timeout = 50;
- 	int err = 0;
--	u32 autoneg;
--	u32 advertise;
--	u32 tmp;
-+	u8 autoneg;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 266e1dc5e786..eb017763646d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -130,7 +130,8 @@
  
- 	/* Changing port settings is not supported if this isn't the
- 	 * port's controlling PF
-@@ -862,28 +860,34 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
- 	/* copy the ksettings to copy_ks to avoid modifying the origin */
- 	memcpy(&copy_ks, ks, sizeof(struct ethtool_link_ksettings));
+ /* BW rate limiting */
+ #define I40E_BW_CREDIT_DIVISOR		50 /* 50Mbps per BW credit */
+-#define I40E_MAX_BW_INACTIVE_ACCUM	4  /* accumulate 4 credits max */
++#define I40E_BW_MBPS_DIVISOR		125000 /* rate / (1000000 / 8) Mbps */
++#define I40E_MAX_BW_INACTIVE_ACCUM	4 /* accumulate 4 credits max */
  
-+	/* save autoneg out of ksettings */
-+	autoneg = copy_ks.base.autoneg;
-+
-+	memset(&safe_ks, 0, sizeof(safe_ks));
-+	/* Get link modes supported by hardware and check against modes
-+	 * requested by the user.  Return an error if unsupported mode was set.
-+	 */
-+	i40e_phy_type_to_ethtool(pf, &safe_ks);
-+	if (!bitmap_subset(copy_ks.link_modes.advertising,
-+			   safe_ks.link_modes.supported,
-+			   __ETHTOOL_LINK_MODE_MASK_NBITS))
-+		return -EINVAL;
-+
- 	/* get our own copy of the bits to check against */
- 	memset(&safe_ks, 0, sizeof(struct ethtool_link_ksettings));
-+	safe_ks.base.cmd = copy_ks.base.cmd;
-+	safe_ks.base.link_mode_masks_nwords =
-+		copy_ks.base.link_mode_masks_nwords;
- 	i40e_get_link_ksettings(netdev, &safe_ks);
+ /* driver state flags */
+ enum i40e_state_t {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index bb31d53c4923..1252aaf92fd3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5442,6 +5442,7 @@ int i40e_get_link_speed(struct i40e_vsi *vsi)
+ int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
+ {
+ 	struct i40e_pf *pf = vsi->back;
++	u64 credits = 0;
+ 	int speed = 0;
+ 	int ret = 0;
  
--	/* save autoneg and speed out of ksettings */
--	autoneg = ks->base.autoneg;
--	ethtool_convert_link_mode_to_legacy_u32(&advertise,
--						ks->link_modes.advertising);
--
--	/* set autoneg and speed back to what they currently are */
-+	/* set autoneg back to what it currently is */
- 	copy_ks.base.autoneg = safe_ks.base.autoneg;
--	ethtool_convert_link_mode_to_legacy_u32(
--		&tmp, safe_ks.link_modes.advertising);
--	ethtool_convert_legacy_u32_to_link_mode(
--		copy_ks.link_modes.advertising, tmp);
- 
--	copy_ks.base.cmd = safe_ks.base.cmd;
--
--	/* If copy_ks and safe_ks are not the same now, then they are
--	 * trying to set something that we do not support
-+	/* If copy_ks.base and safe_ks.base are not the same now, then they are
-+	 * trying to set something that we do not support.
- 	 */
--	if (memcmp(&copy_ks, &safe_ks, sizeof(struct ethtool_link_ksettings)))
-+	if (memcmp(&copy_ks.base, &safe_ks.base,
-+		   sizeof(struct ethtool_link_settings)))
- 		return -EOPNOTSUPP;
- 
- 	while (test_and_set_bit(__I40E_CONFIG_BUSY, pf->state)) {
-@@ -946,28 +950,45 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
- 		}
+@@ -5459,8 +5460,9 @@ int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
  	}
  
--	ethtool_convert_link_mode_to_legacy_u32(&tmp,
--						safe_ks.link_modes.supported);
--	if (advertise & ~tmp) {
--		err = -EINVAL;
--		goto done;
--	}
--
--	if (advertise & ADVERTISED_100baseT_Full)
-+	if (ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  100baseT_Full))
- 		config.link_speed |= I40E_LINK_SPEED_100MB;
--	if (advertise & ADVERTISED_1000baseT_Full ||
--	    advertise & ADVERTISED_1000baseKX_Full)
-+	if (ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  1000baseT_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  1000baseX_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  1000baseKX_Full))
- 		config.link_speed |= I40E_LINK_SPEED_1GB;
--	if (advertise & ADVERTISED_10000baseT_Full ||
--	    advertise & ADVERTISED_10000baseKX4_Full ||
--	    advertise & ADVERTISED_10000baseKR_Full)
-+	if (ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  10000baseT_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  10000baseKX4_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  10000baseKR_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  10000baseCR_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  10000baseSR_Full))
- 		config.link_speed |= I40E_LINK_SPEED_10GB;
--	if (advertise & ADVERTISED_20000baseKR2_Full)
-+	if (ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  20000baseKR2_Full))
- 		config.link_speed |= I40E_LINK_SPEED_20GB;
--	if (advertise & ADVERTISED_40000baseKR4_Full ||
--	    advertise & ADVERTISED_40000baseCR4_Full ||
--	    advertise & ADVERTISED_40000baseSR4_Full ||
--	    advertise & ADVERTISED_40000baseLR4_Full)
-+	if (ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  25000baseCR_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  25000baseKR_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  25000baseSR_Full))
-+		config.link_speed |= I40E_LINK_SPEED_25GB;
-+	if (ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  40000baseKR4_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  40000baseCR4_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  40000baseSR4_Full) ||
-+	    ethtool_link_ksettings_test_link_mode(ks, advertising,
-+						  40000baseLR4_Full))
- 		config.link_speed |= I40E_LINK_SPEED_40GB;
+ 	/* Tx rate credits are in values of 50Mbps, 0 is disabled */
+-	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid,
+-					  max_tx_rate / I40E_BW_CREDIT_DIVISOR,
++	credits = max_tx_rate;
++	do_div(credits, I40E_BW_CREDIT_DIVISOR);
++	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid, credits,
+ 					  I40E_MAX_BW_INACTIVE_ACCUM, NULL);
+ 	if (ret)
+ 		dev_err(&pf->pdev->dev,
+@@ -6063,13 +6065,17 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
  
- 	/* If speed didn't get set, set it to what it currently is.
+ 	/* configure VSI for BW limit */
+ 	if (ch->max_tx_rate) {
++		u64 credits = ch->max_tx_rate;
++
+ 		if (i40e_set_bw_limit(vsi, ch->seid, ch->max_tx_rate))
+ 			return -EINVAL;
+ 
++		do_div(credits, I40E_BW_CREDIT_DIVISOR);
+ 		dev_dbg(&pf->pdev->dev,
+ 			"Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+ 			ch->max_tx_rate,
+-			ch->max_tx_rate / I40E_BW_CREDIT_DIVISOR, ch->seid);
++			credits,
++			ch->seid);
+ 	}
+ 
+ 	/* in case of VF, this will be main SRIOV VSI */
+@@ -6090,6 +6096,7 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
+ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+ {
+ 	struct i40e_channel *ch;
++	u64 max_rate = 0;
+ 	int ret = 0, i;
+ 
+ 	/* Create app vsi with the TCs. Main VSI with TC0 is already set up */
+@@ -6110,8 +6117,9 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+ 			/* Bandwidth limit through tc interface is in bytes/s,
+ 			 * change to Mbit/s
+ 			 */
+-			ch->max_tx_rate =
+-				vsi->mqprio_qopt.max_rate[i] / (1000000 / 8);
++			max_rate = vsi->mqprio_qopt.max_rate[i];
++			do_div(max_rate, I40E_BW_MBPS_DIVISOR);
++			ch->max_tx_rate = max_rate;
+ 
+ 			list_add_tail(&ch->list, &vsi->ch_list);
+ 
+@@ -6540,6 +6548,7 @@ static int i40e_validate_mqprio_qopt(struct i40e_vsi *vsi,
+ 				     struct tc_mqprio_qopt_offload *mqprio_qopt)
+ {
+ 	u64 sum_max_rate = 0;
++	u64 max_rate = 0;
+ 	int i;
+ 
+ 	if (mqprio_qopt->qopt.offset[0] != 0 ||
+@@ -6554,7 +6563,9 @@ static int i40e_validate_mqprio_qopt(struct i40e_vsi *vsi,
+ 				"Invalid min tx rate (greater than 0) specified\n");
+ 			return -EINVAL;
+ 		}
+-		sum_max_rate += (mqprio_qopt->max_rate[i] / (1000000 / 8));
++		max_rate = mqprio_qopt->max_rate[i];
++		do_div(max_rate, I40E_BW_MBPS_DIVISOR);
++		sum_max_rate += max_rate;
+ 
+ 		if (i >= mqprio_qopt->qopt.num_tc - 1)
+ 			break;
+@@ -6698,14 +6709,18 @@ static int i40e_setup_tc(struct net_device *netdev, void *type_data)
+ 
+ 	if (pf->flags & I40E_FLAG_TC_MQPRIO) {
+ 		if (vsi->mqprio_qopt.max_rate[0]) {
+-			u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0] /
+-								(1000000 / 8);
++			u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
++
++			do_div(max_tx_rate, I40E_BW_MBPS_DIVISOR);
+ 			ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
+ 			if (!ret) {
++				u64 credits = max_tx_rate;
++
++				do_div(credits, I40E_BW_CREDIT_DIVISOR);
+ 				dev_dbg(&vsi->back->pdev->dev,
+ 					"Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+ 					max_tx_rate,
+-					max_tx_rate / I40E_BW_CREDIT_DIVISOR,
++					credits,
+ 					vsi->seid);
+ 			} else {
+ 				need_reset = true;
+@@ -8166,14 +8181,17 @@ static int i40e_rebuild_channels(struct i40e_vsi *vsi)
+ 			return ret;
+ 		}
+ 		if (ch->max_tx_rate) {
++			u64 credits = ch->max_tx_rate;
++
+ 			if (i40e_set_bw_limit(vsi, ch->seid,
+ 					      ch->max_tx_rate))
+ 				return -EINVAL;
+ 
++			do_div(credits, I40E_BW_CREDIT_DIVISOR);
+ 			dev_dbg(&vsi->back->pdev->dev,
+ 				"Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+ 				ch->max_tx_rate,
+-				ch->max_tx_rate / I40E_BW_CREDIT_DIVISOR,
++				credits,
+ 				ch->seid);
+ 		}
+ 	}
+@@ -8446,17 +8464,21 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
+ 	}
+ 
+ 	if (vsi->mqprio_qopt.max_rate[0]) {
+-		u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0] / (1000000 / 8);
++		u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
++		u64 credits = 0;
+ 
++		do_div(max_tx_rate, I40E_BW_MBPS_DIVISOR);
+ 		ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
+-		if (!ret)
+-			dev_dbg(&vsi->back->pdev->dev,
+-				"Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+-				max_tx_rate,
+-				max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+-				vsi->seid);
+-		else
++		if (ret)
+ 			goto end_unlock;
++
++		credits = max_tx_rate;
++		do_div(credits, I40E_BW_CREDIT_DIVISOR);
++		dev_dbg(&vsi->back->pdev->dev,
++			"Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
++			max_tx_rate,
++			credits,
++			vsi->seid);
+ 	}
+ 
+ 	/* PF Main VSI is rebuild by now, go ahead and rebuild channel VSIs
 -- 
 2.14.2
