@@ -1,7 +1,7 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net 3/3] bpf: do not test for PCPU_MIN_UNIT_SIZE before percpu allocations
-Date: Tue, 17 Oct 2017 16:55:54 +0200
-Message-ID: <a11e92b8ba4f5270437caa629307c300bca37976.1508251210.git.daniel@iogearbox.net>
+Subject: [PATCH net 2/3] bpf: fix splat for illegal devmap percpu allocation
+Date: Tue, 17 Oct 2017 16:55:53 +0200
+Message-ID: <dd091b1fec763d74185a156ecd2f972810bdd1ce.1508251210.git.daniel@iogearbox.net>
 References: <cover.1508251210.git.daniel@iogearbox.net>
 Cc: tj@kernel.org, ast@kernel.org, john.fastabend@gmail.com,
         mark.rutland@arm.com, richard@nod.at, sp3485@columbia.edu,
@@ -15,46 +15,52 @@ References: <cover.1508251210.git.daniel@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PCPU_MIN_UNIT_SIZE is an implementation detail of the percpu
-allocator. Given we support __GFP_NOWARN now, lets just let
-the allocation request fail naturally instead. The two call
-sites from BPF mistakenly assumed __GFP_NOWARN would work, so
-no changes needed to their actual __alloc_percpu_gfp() calls
-which use the flag already.
+It was reported that syzkaller was able to trigger a splat on
+devmap percpu allocation due to illegal/unsupported allocation
+request size passed to __alloc_percpu():
 
+  [   70.094249] illegal size (32776) or align (8) for percpu allocation
+  [   70.094256] ------------[ cut here ]------------
+  [   70.094259] WARNING: CPU: 3 PID: 3451 at mm/percpu.c:1365 pcpu_alloc+0x96/0x630
+  [...]
+  [   70.094325] Call Trace:
+  [   70.094328]  __alloc_percpu_gfp+0x12/0x20
+  [   70.094330]  dev_map_alloc+0x134/0x1e0
+  [   70.094331]  SyS_bpf+0x9bc/0x1610
+  [   70.094333]  ? selinux_task_setrlimit+0x5a/0x60
+  [   70.094334]  ? security_task_setrlimit+0x43/0x60
+  [   70.094336]  entry_SYSCALL_64_fastpath+0x1a/0xa5
+
+This was due to too large max_entries for the map such that we
+surpassed the upper limit of PCPU_MIN_UNIT_SIZE. It's fine to
+fail naturally here, so switch to __alloc_percpu_gfp() and pass
+__GFP_NOWARN instead.
+
+Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
+Reported-by: Mark Rutland <mark.rutland@arm.com>
+Reported-by: Shankara Pailoor <sp3485@columbia.edu>
+Reported-by: Richard Weinberger <richard@nod.at>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Cc: John Fastabend <john.fastabend@gmail.com>
 ---
- kernel/bpf/arraymap.c | 2 +-
- kernel/bpf/hashtab.c  | 4 ----
- 2 files changed, 1 insertion(+), 5 deletions(-)
+ kernel/bpf/devmap.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index 98c0f00..e263673 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -98,7 +98,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
- 	array_size += (u64) attr->max_entries * elem_size * num_possible_cpus();
+diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
+index e093d9a..920428d 100644
+--- a/kernel/bpf/devmap.c
++++ b/kernel/bpf/devmap.c
+@@ -111,8 +111,9 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 	err = -ENOMEM;
  
- 	if (array_size >= U32_MAX - PAGE_SIZE ||
--	    elem_size > PCPU_MIN_UNIT_SIZE || bpf_array_alloc_percpu(array)) {
-+	    bpf_array_alloc_percpu(array)) {
- 		bpf_map_area_free(array);
- 		return ERR_PTR(-ENOMEM);
- 	}
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 431126f..6533f08 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -317,10 +317,6 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
- 		 */
- 		goto free_htab;
+ 	/* A per cpu bitfield with a bit per possible net device */
+-	dtab->flush_needed = __alloc_percpu(dev_map_bitmap_size(attr),
+-					    __alignof__(unsigned long));
++	dtab->flush_needed = __alloc_percpu_gfp(dev_map_bitmap_size(attr),
++						__alignof__(unsigned long),
++						GFP_KERNEL | __GFP_NOWARN);
+ 	if (!dtab->flush_needed)
+ 		goto free_dtab;
  
--	if (percpu && round_up(htab->map.value_size, 8) > PCPU_MIN_UNIT_SIZE)
--		/* make sure the size for pcpu_alloc() is reasonable */
--		goto free_htab;
--
- 	htab->elem_size = sizeof(struct htab_elem) +
- 			  round_up(htab->map.key_size, 8);
- 	if (percpu)
 -- 
 1.9.3
