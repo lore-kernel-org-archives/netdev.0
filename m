@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/20] net: sched: cls_bpf: call block callbacks for offload
-Date: Tue, 17 Oct 2017 22:06:03 +0200
-Message-ID: <20171017200615.4530-9-jiri@resnulli.us>
+Subject: [patch net-next 20/20] net: sched: remove unused is_classid_clsact_ingress/egress helpers
+Date: Tue, 17 Oct 2017 22:06:15 +0200
+Message-ID: <20171017200615.4530-21-jiri@resnulli.us>
 References: <20171017200615.4530-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,110 +14,48 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:47458 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764045AbdJQUGY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:24 -0400
-Received: by mail-wr0-f195.google.com with SMTP id y39so2906628wrd.4
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:23 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:48920 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764075AbdJQUGe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:34 -0400
+Received: by mail-wm0-f66.google.com with SMTP id i124so6018127wmf.3
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:34 -0700 (PDT)
 In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use the newly introduced callbacks infrastructure and call block
-callbacks alongside with the existing per-netdev ndo_setup_tc.
+These helpers are no longer in use by drivers, so remove them.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_bpf.c | 40 ++++++++++++++++++++++++++++++++--------
- 1 file changed, 32 insertions(+), 8 deletions(-)
+ include/net/pkt_sched.h | 13 -------------
+ 1 file changed, 13 deletions(-)
 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 6c6b21f..e379fdf 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -147,7 +147,10 @@ static bool cls_bpf_is_ebpf(const struct cls_bpf_prog *prog)
- static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 			       enum tc_clsbpf_command cmd)
- {
-+	bool addorrep = cmd == TC_CLSBPF_ADD || cmd == TC_CLSBPF_REPLACE;
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
-+	bool skip_sw = tc_skip_sw(prog->gen_flags);
- 	struct tc_cls_bpf_offload cls_bpf = {};
- 	int err;
- 
-@@ -159,17 +162,38 @@ static int cls_bpf_offload_cmd(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 	cls_bpf.exts_integrated = prog->exts_integrated;
- 	cls_bpf.gen_flags = prog->gen_flags;
- 
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF, &cls_bpf);
--	if (!err && (cmd == TC_CLSBPF_ADD || cmd == TC_CLSBPF_REPLACE))
--		prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSBPF,
-+						    &cls_bpf);
-+		if (addorrep) {
-+			if (err) {
-+				if (skip_sw)
-+					return err;
-+			} else {
-+				prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
-+			}
-+		}
-+	}
-+
-+	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSBPF, &cls_bpf, skip_sw);
-+	if (addorrep) {
-+		if (err < 0) {
-+			cls_bpf_offload_cmd(tp, prog, TC_CLSBPF_DESTROY);
-+			return err;
-+		} else if (err > 0) {
-+			prog->gen_flags |= TCA_CLS_FLAGS_IN_HW;
-+		}
-+	}
- 
--	return err;
-+	if (addorrep && skip_sw && !(prog->gen_flags && TCA_CLS_FLAGS_IN_HW))
-+		return -EINVAL;
-+
-+	return 0;
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 2d234af..b8ecafc 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -135,19 +135,6 @@ static inline unsigned int psched_mtu(const struct net_device *dev)
+ 	return dev->mtu + dev->hard_header_len;
  }
  
- static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 			   struct cls_bpf_prog *oldprog)
+-static inline bool is_classid_clsact_ingress(u32 classid)
+-{
+-	/* This also returns true for ingress qdisc */
+-	return TC_H_MAJ(classid) == TC_H_MAJ(TC_H_CLSACT) &&
+-	       TC_H_MIN(classid) != TC_H_MIN(TC_H_MIN_EGRESS);
+-}
+-
+-static inline bool is_classid_clsact_egress(u32 classid)
+-{
+-	return TC_H_MAJ(classid) == TC_H_MAJ(TC_H_CLSACT) &&
+-	       TC_H_MIN(classid) == TC_H_MIN(TC_H_MIN_EGRESS);
+-}
+-
+ static inline struct net *qdisc_net(struct Qdisc *q)
  {
--	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct cls_bpf_prog *obj = prog;
- 	enum tc_clsbpf_command cmd;
- 	bool skip_sw;
-@@ -179,7 +203,7 @@ static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 		(oldprog && tc_skip_sw(oldprog->gen_flags));
- 
- 	if (oldprog && oldprog->offloaded) {
--		if (tc_should_offload(dev, prog->gen_flags)) {
-+		if (!tc_skip_hw(prog->gen_flags)) {
- 			cmd = TC_CLSBPF_REPLACE;
- 		} else if (!tc_skip_sw(prog->gen_flags)) {
- 			obj = oldprog;
-@@ -188,14 +212,14 @@ static int cls_bpf_offload(struct tcf_proto *tp, struct cls_bpf_prog *prog,
- 			return -EINVAL;
- 		}
- 	} else {
--		if (!tc_should_offload(dev, prog->gen_flags))
-+		if (tc_skip_hw(prog->gen_flags))
- 			return skip_sw ? -EINVAL : 0;
- 		cmd = TC_CLSBPF_ADD;
- 	}
- 
- 	ret = cls_bpf_offload_cmd(tp, obj, cmd);
- 	if (ret)
--		return skip_sw ? ret : 0;
-+		return ret;
- 
- 	obj->offloaded = true;
- 	if (oldprog)
+ 	return dev_net(q->dev_queue->dev);
 -- 
 2.9.5
