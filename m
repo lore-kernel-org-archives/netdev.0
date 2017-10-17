@@ -1,8 +1,9 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH 1/2] liquidio: remove unnecessary NULL check before kfree in
- delete_glists
-Date: Tue, 17 Oct 2017 13:59:20 -0500
-Message-ID: <20171017185920.GA16976@embeddedor.com>
+Subject: [PATCH 2/2] liquidio: mark expected switch fall-through in
+ octeon_destroy_resources
+Date: Tue, 17 Oct 2017 14:01:45 -0500
+Message-ID: <20171017190145.GA17015@embeddedor.com>
+References: <20171017185920.GA16976@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -13,33 +14,33 @@ To: Derek Chickles <derek.chickles@caviumnetworks.com>,
         Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <20171017185920.GA16976@embeddedor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-NULL check before freeing functions like kfree is not needed.
-
-This issue was detected with the help of Coccinelle.
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
 Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
-This code was tested by compilation only.
+This code was tested by compilation only (GCC 7.2.0 was used).
+Please, verify if the actual intention of the code is to fall through.
 
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 2e993ce..e4a112c 100644
+index e4a112c..4c3b568 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -435,8 +435,7 @@ static void delete_glists(struct lio *lio)
- 		do {
- 			g = (struct octnic_gather *)
- 			    list_delete_head(&lio->glist[i]);
--			if (g)
--				kfree(g);
-+			kfree(g);
- 		} while (g);
+@@ -747,7 +747,7 @@ static void octeon_destroy_resources(struct octeon_device *oct)
  
- 		if (lio->glists_virt_base && lio->glists_virt_base[i] &&
+ 		if (lio_wait_for_oq_pkts(oct))
+ 			dev_err(&oct->pci_dev->dev, "OQ had pending packets\n");
+-
++		/* fall through */
+ 	case OCT_DEV_INTR_SET_DONE:
+ 		/* Disable interrupts  */
+ 		oct->fn_list.disable_interrupt(oct, OCTEON_ALL_INTR);
 -- 
 2.7.4
