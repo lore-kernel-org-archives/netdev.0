@@ -1,68 +1,85 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH 0/7] Adding permanent config get/set to devlink
-Date: Tue, 17 Oct 2017 18:58:31 -0400
-Message-ID: <CA+Jmh7ECVdB87fTbiByMjCgyU7JgmaDbe52HSz2QM2ft2-0EFQ@mail.gmail.com>
-References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH next 2/2] i40e: add support for
+ macvlan hardware offload
+Date: Tue, 17 Oct 2017 16:12:22 -0700
+Message-ID: <c74d6f52-dc7f-eeed-e916-ee7ffacc39f8@oracle.com>
+References: <1508275089-430113-1-git-send-email-shannon.nelson@oracle.com>
+ <1508275089-430113-3-git-send-email-shannon.nelson@oracle.com>
+ <CAKgT0Uft_kCyct==am7W0TGUo-YzUhSVkJir83uGx_XwMuxsHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        John Linville <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>,
-        Steven Lin <steven.lin1@broadcom.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:46921 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753624AbdJQW6x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 18:58:53 -0400
-Received: by mail-qk0-f177.google.com with SMTP id k123so4132153qke.3
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 15:58:52 -0700 (PDT)
-In-Reply-To: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:43825 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753475AbdJQXMb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 19:12:31 -0400
+In-Reply-To: <CAKgT0Uft_kCyct==am7W0TGUo-YzUhSVkJir83uGx_XwMuxsHg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My apologies - this patchset was intended for net-next; I forgot to
-add that to the subject line, though.
+On 10/17/2017 2:32 PM, Alexander Duyck wrote:
+> 
+> So the select_queue function being needed is the deal breaker on all
+> of this as far as I am concerned. We aren't allowed to use it under
+> other cases so why should macvlan be an exception to the rule?
 
-Steve
+I realize that the stack is pretty good at chosing the "right" queue, 
+which is my understanding as to why we shouldn't use select_queue(), but 
+it doesn't know how to use the accel_priv context associated with the 
+macvlan offload.
 
-On Tue, Oct 17, 2017 at 4:44 PM, Steve Lin <steven.lin1@broadcom.com> wrote:
-> DIFFERENCES FROM RFC:
-> Implemented most of the changes suggested by Jiri and others.
-> Thanks for the valuable feedback!
->
-> Adds a devlink command for getting & setting permanent
-> (persistent / NVRAM) device configuration parameters, and
-> enumerates the parameters as nested devlink attributes.
->
-> bnxt driver patches make use of these new devlink cmds/
-> attributes.
->
-> Steve Lin (7):
->   devlink: Add permanent config parameter get/set operations
->   devlink: Adding NPAR permanent config parameters
->   devlink: Adding high level dev perm config params
->   devlink: Adding perm config of link settings
->   devlink: Adding pre-boot permanent config parameters
->   bnxt: Move generic devlink code to new file
->   bnxt: Add devlink support for config get/set
->
->  drivers/net/ethernet/broadcom/bnxt/Makefile       |   2 +-
->  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   1 +
->  drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 363 ++++++++++++++++++++++
->  drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  56 ++++
->  drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 100 ++++++
->  drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c     |  53 +---
->  drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h     |  37 +--
->  include/net/devlink.h                             |   4 +
->  include/uapi/linux/devlink.h                      | 113 +++++++
->  net/core/devlink.c                                | 300 ++++++++++++++++++
->  10 files changed, 944 insertions(+), 85 deletions(-)
->  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
->  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
->
-> --
-> 2.7.4
->
+I saw DaveM's guidance to the HiNIC folks when they tried to add 
+select_queue(): "do not implement this function unless you absolutely 
+need to do something custom in your driver".  I can see where this might 
+be the exception.
+
+When originally thinking about how to do this, I wanted to use the 
+accel_priv as a pointer to the VSI to be used for the offload, then we 
+could have multiple queues and use all the VSI specific tuning 
+operations that XL710 has available.  It can work when selecting the 
+queue, but by the time you get to start_xmit(), you no longer have that 
+context and only have the queue number.  You can't do any fancy encoding 
+in the queue number because the value has to be within 
+dev->num_tx_queues.  Maybe we can add accel_priv to the start_xmit 
+interface?  (I can hear the groans already...)
+
+However... for our case, you might be right anyway.  If the stack is 
+doing its job at keeping the conversation on the one queue/irq/cpu 
+combination, any Tx following the offloaded Rx might already be headed 
+for the right Tx queue.  I'll check on that.
+> I think we should probably look at a different approach for this. For
+> example why is it we need to use a different transmit path for a
+> macvlan packet vs any other packet? On the Rx side we get the
+> advantage of avoiding the software hashing and demux. What do we get
+> for reserving queues for transmit?
+
+There are a couple of reasons I can think of to keep the Tx on the 
+specific queue pair:
+
+- Keep the Tx traffic on the same CPU and irq as the Rx traffic
+
+- Don't let the flow get interrupted, slowed, or otherwise perturbed by 
+other traffic flows.
+
+- Allow for adding hardware assisted bandwidth constraints to the 
+offloaded flow without bothering the rest of the NIC's traffic
+
+Are these enough to want to guarantee the Tx queue?
+
+> My plan for this is to go back and "fix" ixgbe so we can get it away
+> from having to use the select_queue call for the macvlan offload and
+> then maybe look at proving a few select NDO operations for allowing
+> macvlans that are being offloaded to make specific calls into the
+> hardware to perform tasks as needed.
+
+The ixgbe implementation can certainly be improved.  I think its biggest 
+failing is that the rest of the general traffic gets constrained to a 
+single queue - no more RSS for load balancing.
+
+sln
