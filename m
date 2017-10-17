@@ -1,41 +1,86 @@
-From: Mohammed Gamal <mgamal@redhat.com>
-Subject: [PATCH] vmxnet3: Use correct minimum MTU value
-Date: Tue, 17 Oct 2017 16:33:43 +0200
-Message-ID: <1508250823-1954-1-git-send-email-mgamal@redhat.com>
-Cc: linux-kernel@vger.kernel.org, cavery@redhat.com, otubo@redhat.com,
-        vkuznets@redhat.com, Mohammed Gamal <mgamal@redhat.com>
-To: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [patch net-next 27/34] nfp: bpf: Convert ndo_setup_tc offloads
+ to block callbacks
+Date: Tue, 17 Oct 2017 07:39:59 -0700
+Message-ID: <20171017073959.2b0553fd@cakuba.netronome.com>
+References: <20171012171823.1431-1-jiri@resnulli.us>
+        <20171012171823.1431-28-jiri@resnulli.us>
+        <20171012180824.1e76eac1@cakuba.netronome.com>
+        <20171017124812.GH2112@nanopsycho>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:51736 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935985AbdJQOkD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 10:40:03 -0400
+Received: by mail-qt0-f174.google.com with SMTP id h4so3972563qtk.8
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 07:40:02 -0700 (PDT)
+In-Reply-To: <20171017124812.GH2112@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently the vmxnet3 driver has a minimum MTU value of 60. Which
-goes against the RFC791 spec which specifies it at 68.
+On Tue, 17 Oct 2017 14:48:12 +0200, Jiri Pirko wrote:
+> Fri, Oct 13, 2017 at 03:08:24AM CEST, jakub.kicinski@netronome.com wrote:
+> >On Thu, 12 Oct 2017 19:18:16 +0200, Jiri Pirko wrote:  
+> >> diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+> >> index a88bb5b..9e9af88 100644
+> >> --- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+> >> +++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+> >> @@ -246,6 +246,10 @@ int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
+> >>  	void *code;
+> >>  	int err;
+> >>  
+> >> +	if (cls_bpf->common.protocol != htons(ETH_P_ALL) ||
+> >> +	    cls_bpf->common.chain_index)
+> >> +		return -EOPNOTSUPP;
+> >> +
+> >>  	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
+> >>  
+> >>  	switch (cls_bpf->command) {  
+> >
+> >It is certainly very ugly but I send a fake struct tc_cls_bpf_offload
+> >here for XDP.  Refactoring this mess is pretty high on my priority list
+> >but one way or the other this function will be called from XDP so TC
+> >checks must stay in the TC handler... :(  
+> 
+> Okay. But currently, why is it a problem? You don't need the checks for
+> xdp path.
+> 
 
-Setting MTU to values between 60 <= MTU <= 67 causes the network
-interface to lose its IP, and it fails to restart.
+static int
+nfp_bpf_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
+		    struct bpf_prog *prog)
+{
+	struct tc_cls_bpf_offload cmd = {
+		.prog = prog,
+	};
+	int ret;
 
-This sets the minimum value to ETH_MIN_MTU (68) which is compatible
-with is according to spec.
+	if (!nfp_net_ebpf_capable(nn))
+		return -EINVAL;
 
-Reported-by: Bo Yang <boyang@redhat.com>
-Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
----
- drivers/net/vmxnet3/vmxnet3_defs.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+	if (nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF) {
+		if (!nn->dp.bpf_offload_xdp)
+			return prog ? -EBUSY : 0;
+		cmd.command = prog ? TC_CLSBPF_REPLACE : TC_CLSBPF_DESTROY;
+	} else {
+		if (!prog)
+			return 0;
+		cmd.command = TC_CLSBPF_ADD;
+	}
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index c3a3164..4ad905a 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -749,7 +749,7 @@ struct Vmxnet3_DriverShared {
- 	((vfTable[vid >> 5] & (1 << (vid & 31))) != 0)
- 
- #define VMXNET3_MAX_MTU     9000
--#define VMXNET3_MIN_MTU     60
-+#define VMXNET3_MIN_MTU     ETH_MIN_MTU
- 
- #define VMXNET3_LINK_UP         (10000 << 16 | 1)    /* 10 Gbps, up */
- #define VMXNET3_LINK_DOWN       0
--- 
-1.8.3.1
+	ret = nfp_net_bpf_offload(nn, &cmd);
+	/* Stop offload if replace not possible */
+	if (ret && cmd.command == TC_CLSBPF_REPLACE)
+		nfp_bpf_xdp_offload(app, nn, NULL);
+	nn->dp.bpf_offload_xdp = prog && !ret;
+	return ret;
+}
+
+The fake offload struct is at the top of this function.  Dereferencing
+cls_bpf->common in nfp_net_bpf_offload() will crash the kernel.  Or am
+I missing something?
