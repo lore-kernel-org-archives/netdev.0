@@ -1,74 +1,49 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 2/3] ipv6: start fib6 gc on RTF_CACHE dst
- creation
-Date: Tue, 17 Oct 2017 14:53:52 -0700
-Message-ID: <20171017215352.bdwlrp7htglkwr3v@kafai-mbp.dhcp.thefacebook.com>
-References: <cover.1508261949.git.pabeni@redhat.com>
- <013c220c347b63c0458332898709edc0b469361d.1508261949.git.pabeni@redhat.com>
- <CAEA6p_CKWdf0ZYm-n3kECnLMipEU3v+VVD4JFzHyPtxdBkvxSQ@mail.gmail.com>
+From: Greg Elmassian <gelmassian@aimdigitalpros.com>
+Subject: Cycling Enthusiasts List
+Date: Tue, 17 Oct 2017 18:02:20 -0400
+Message-ID: <14edabf8-8fb2-cc71-b393-b88a4af2215e@aimdigitalpros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Wei Wang <weiwan@google.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:42166 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933438AbdJQVyE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 17:54:04 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEA6p_CKWdf0ZYm-n3kECnLMipEU3v+VVD4JFzHyPtxdBkvxSQ@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:54407 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761255AbdJQWWj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 18:22:39 -0400
+Received: by mail-pf0-f195.google.com with SMTP id n89so2372819pfk.11
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 15:22:39 -0700 (PDT)
+Received: from [192.168.0.19] ([103.6.157.159])
+        by smtp.gmail.com with ESMTPSA id a1sm18181856pgu.47.2017.10.17.15.22.37
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 17 Oct 2017 15:22:37 -0700 (PDT)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 06:35:13PM +0000, Wei Wang wrote:
-> On Tue, Oct 17, 2017 at 10:40 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > After the commit Fixes: 2b760fcf5cfb ("ipv6: hook up exception
-> > table to store dst cache"), the fib6 gc is not started after
-> > the creation of a RTF_CACHE via a redirect or pmtu update, since
-> > fib6_add() isn't invoked anymore for such dsts.
-Nice catch!
 
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+Hi,
 
-> >
-> > We need the fib6 gc to run periodically to clean the RTF_CACHE,
-> > or the dst will stay there forever.
-> >
-> > Fix it by explicitly calling fib6_force_start_gc() on successful
-> > exception creation. gc_args->more accounting will ensure that
-> > the gc timer will run for whatever time needed to properly
-> > clean the table.
-> >
-> > Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> Acked-by: Wei Wang <weiwan@google.com>
-> 
-> Totally true. Thanks for catching this.
-> 
-> >  net/ipv6/route.c | 4 +++-
-> >  1 file changed, 3 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> > index 5bb53dbd4fd3..8b25a31b6b03 100644
-> > --- a/net/ipv6/route.c
-> > +++ b/net/ipv6/route.c
-> > @@ -1340,8 +1340,10 @@ static int rt6_insert_exception(struct rt6_info *nrt,
-> >         spin_unlock_bh(&rt6_exception_lock);
-> >
-> >         /* Update fn->fn_sernum to invalidate all cached dst */
-> > -       if (!err)
-> > +       if (!err) {
-> >                 fib6_update_sernum(ort);
-> > +               fib6_force_start_gc(net);
-> > +       }
-> >
-> >         return err;
-> >  }
-> > --
-> > 2.13.6
-> >
+Hope all's well,
+
+Would you be interested in acquiring an email list of “ Cycling Enthusiasts List ” from USA?
+
+Each record in the list contains Contact Name (First, Middle and Last Name), Mailing Address, List type and Opt-in email address.
+
+All the contacts are opt-in verified, 100% permission based and can be used for unlimited multi-channel marketing.
+
+We also have data for:
+
+(1)Motorcycle Owners List  (2)RV/Boat Owners List
+(3)Camping Enthusiasts     (4)Spa and Resort Visitors List
+(5)Skiers List             (6)Harley Davidson Owners List
+(7)Travelers List          (8)Health and Fitness Enthusiasts
+(9)Sports Enthusiasts List (10)Outdoor /Hiking Enthusiasts List
+
+Let me know if you'd be interested in hearing more about it.
+
+Waiting for your valuable and sincere reply.
+
+Best Regards,
+Greg Elmassian
