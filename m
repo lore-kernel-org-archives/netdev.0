@@ -1,17 +1,17 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 34/58] netfilter: ipset: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:18 -0700
-Message-ID: <1508200182-104605-35-git-send-email-keescook@chromium.org>
+Subject: [PATCH 44/58] net: ethernet: sun: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:28 -0700
+Message-ID: <1508200182-104605-45-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        simran singhal <singhalsimran0@gmail.com>,
-        Muhammad Falak R Wani <falakreyaz@gmail.com>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Shannon Nelson <shannon.nelson@oracle.com>,
+        Rob Herring <robh@kernel.org>,
+        chris hyser <chris.hyser@oracle.com>,
+        Tushar Dave <tushar.n.dave@oracle.com>,
+        Tobias Klauser <tklauser@distanz.ch>, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -21,216 +21,260 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This introduces a pointer back to the
-struct ip_set, which is used instead of the struct timer_list .data field.
+to pass the timer pointer explicitly.
 
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: Florian Westphal <fw@strlen.de>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: simran singhal <singhalsimran0@gmail.com>
-Cc: Muhammad Falak R Wani <falakreyaz@gmail.com>
-Cc: netfilter-devel@vger.kernel.org
-Cc: coreteam@netfilter.org
+Cc: Philippe Reynes <tremyfr@gmail.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Shannon Nelson <shannon.nelson@oracle.com>
+Cc: Rob Herring <robh@kernel.org>
+Cc: chris hyser <chris.hyser@oracle.com>
+Cc: Tushar Dave <tushar.n.dave@oracle.com>
+Cc: Tobias Klauser <tklauser@distanz.ch>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- net/netfilter/ipset/ip_set_bitmap_gen.h   | 10 +++++-----
- net/netfilter/ipset/ip_set_bitmap_ip.c    |  2 ++
- net/netfilter/ipset/ip_set_bitmap_ipmac.c |  2 ++
- net/netfilter/ipset/ip_set_bitmap_port.c  |  2 ++
- net/netfilter/ipset/ip_set_hash_gen.h     | 12 +++++++-----
- net/netfilter/ipset/ip_set_list_set.c     | 12 +++++++-----
- 6 files changed, 25 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/sun/cassini.c        |  7 ++++---
+ drivers/net/ethernet/sun/ldmvsw.c         |  3 +--
+ drivers/net/ethernet/sun/niu.c            | 10 ++++------
+ drivers/net/ethernet/sun/sunbmac.c        | 10 ++++------
+ drivers/net/ethernet/sun/sungem.c         |  6 +++---
+ drivers/net/ethernet/sun/sunhme.c         | 10 ++++------
+ drivers/net/ethernet/sun/sunvnet.c        |  3 +--
+ drivers/net/ethernet/sun/sunvnet_common.c |  4 ++--
+ drivers/net/ethernet/sun/sunvnet_common.h |  2 +-
+ 9 files changed, 24 insertions(+), 31 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-index 8ad2b52a0b32..5ca18f07683b 100644
---- a/net/netfilter/ipset/ip_set_bitmap_gen.h
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -37,11 +37,11 @@
- #define get_ext(set, map, id)	((map)->extensions + ((set)->dsize * (id)))
- 
- static void
--mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
-+mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
- {
- 	struct mtype *map = set->data;
- 
--	setup_timer(&map->gc, gc, (unsigned long)set);
-+	timer_setup(&map->gc, gc, 0);
- 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/cassini.c
+index a74d78f64af9..113bd57e2ea0 100644
+--- a/drivers/net/ethernet/sun/cassini.c
++++ b/drivers/net/ethernet/sun/cassini.c
+@@ -4079,9 +4079,9 @@ static void cas_reset_task(struct work_struct *work)
+ #endif
  }
  
-@@ -272,10 +272,10 @@ mtype_list(const struct ip_set *set,
+-static void cas_link_timer(unsigned long data)
++static void cas_link_timer(struct timer_list *t)
+ {
+-	struct cas *cp = (struct cas *) data;
++	struct cas *cp = from_timer(cp, t, link_timer);
+ 	int mask, pending = 0, reset = 0;
+ 	unsigned long flags;
+ 
+@@ -5039,7 +5039,8 @@ static int cas_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	spin_lock_init(&cp->stat_lock[N_TX_RINGS]);
+ 	mutex_init(&cp->pm_mutex);
+ 
+-	setup_timer(&cp->link_timer, cas_link_timer, (unsigned long)cp);
++	timer_setup(&cp->link_timer, cas_link_timer, 0);
++
+ #if 1
+ 	/* Just in case the implementation of atomic operations
+ 	 * change so that an explicit initialization is necessary.
+diff --git a/drivers/net/ethernet/sun/ldmvsw.c b/drivers/net/ethernet/sun/ldmvsw.c
+index 5feeaa9f0a9e..5ea037672e6f 100644
+--- a/drivers/net/ethernet/sun/ldmvsw.c
++++ b/drivers/net/ethernet/sun/ldmvsw.c
+@@ -363,8 +363,7 @@ static int vsw_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	list_add_rcu(&port->list, &vp->port_list);
+ 	spin_unlock_irqrestore(&vp->lock, flags);
+ 
+-	setup_timer(&port->clean_timer, sunvnet_clean_timer_expire_common,
+-		    (unsigned long)port);
++	timer_setup(&port->clean_timer, sunvnet_clean_timer_expire_common, 0);
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index bde19b307d0d..ab502ee35fb2 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -2221,9 +2221,9 @@ static int niu_link_status(struct niu *np, int *link_up_p)
+ 	return err;
  }
  
- static void
--mtype_gc(unsigned long ul_set)
-+mtype_gc(struct timer_list *t)
+-static void niu_timer(unsigned long __opaque)
++static void niu_timer(struct timer_list *t)
  {
--	struct ip_set *set = (struct ip_set *)ul_set;
--	struct mtype *map = set->data;
-+	struct mtype *map = from_timer(map, t, gc);
-+	struct ip_set *set = map->set;
- 	void *x;
- 	u32 id;
+-	struct niu *np = (struct niu *) __opaque;
++	struct niu *np = from_timer(np, t, timer);
+ 	unsigned long off;
+ 	int err, link_up;
  
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
-index 4783efff0bde..d8975a0b4282 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ip.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
-@@ -48,6 +48,7 @@ struct bitmap_ip {
- 	size_t memsize;		/* members size */
- 	u8 netmask;		/* subnet netmask */
- 	struct timer_list gc;	/* garbage collection */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	unsigned char extensions[0]	/* data extensions */
- 		__aligned(__alignof__(u64));
- };
-@@ -232,6 +233,7 @@ init_map_ip(struct ip_set *set, struct bitmap_ip *map,
- 	map->netmask = netmask;
- 	set->timeout = IPSET_NO_TIMEOUT;
+@@ -6123,7 +6123,7 @@ static int niu_open(struct net_device *dev)
  
-+	map->set = set;
- 	set->data = map;
- 	set->family = NFPROTO_IPV4;
+ 	err = niu_init_hw(np);
+ 	if (!err) {
+-		setup_timer(&np->timer, niu_timer, (unsigned long)np);
++		timer_setup(&np->timer, niu_timer, 0);
+ 		np->timer.expires = jiffies + HZ;
  
-diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-index 9a065f672d3a..4c279fbd2d5d 100644
---- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
-@@ -52,6 +52,7 @@ struct bitmap_ipmac {
- 	u32 elements;		/* number of max elements in the set */
- 	size_t memsize;		/* members size */
- 	struct timer_list gc;	/* garbage collector */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	unsigned char extensions[0]	/* MAC + data extensions */
- 		__aligned(__alignof__(u64));
- };
-@@ -307,6 +308,7 @@ init_map_ipmac(struct ip_set *set, struct bitmap_ipmac *map,
- 	map->elements = elements;
- 	set->timeout = IPSET_NO_TIMEOUT;
+ 		err = niu_enable_interrupts(np, 1);
+@@ -6773,10 +6773,8 @@ static int niu_change_mtu(struct net_device *dev, int new_mtu)
  
-+	map->set = set;
- 	set->data = map;
- 	set->family = NFPROTO_IPV4;
+ 	err = niu_init_hw(np);
+ 	if (!err) {
+-		init_timer(&np->timer);
++		timer_setup(&np->timer, niu_timer, 0);
+ 		np->timer.expires = jiffies + HZ;
+-		np->timer.data = (unsigned long) np;
+-		np->timer.function = niu_timer;
  
-diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
-index 7f0c733358a4..7f9bbd7c98b5 100644
---- a/net/netfilter/ipset/ip_set_bitmap_port.c
-+++ b/net/netfilter/ipset/ip_set_bitmap_port.c
-@@ -40,6 +40,7 @@ struct bitmap_port {
- 	u32 elements;		/* number of max elements in the set */
- 	size_t memsize;		/* members size */
- 	struct timer_list gc;	/* garbage collection */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	unsigned char extensions[0]	/* data extensions */
- 		__aligned(__alignof__(u64));
- };
-@@ -214,6 +215,7 @@ init_map_port(struct ip_set *set, struct bitmap_port *map,
- 	map->last_port = last_port;
- 	set->timeout = IPSET_NO_TIMEOUT;
- 
-+	map->set = set;
- 	set->data = map;
- 	set->family = NFPROTO_UNSPEC;
- 
-diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-index 51063d9ed0f7..efffc8eabafe 100644
---- a/net/netfilter/ipset/ip_set_hash_gen.h
-+++ b/net/netfilter/ipset/ip_set_hash_gen.h
-@@ -280,6 +280,7 @@ htable_bits(u32 hashsize)
- struct htype {
- 	struct htable __rcu *table; /* the hash table */
- 	struct timer_list gc;	/* garbage collection when timeout enabled */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	u32 maxelem;		/* max elements in the hash */
- 	u32 initval;		/* random jhash init value */
- #ifdef IP_SET_HASH_WITH_MARKMASK
-@@ -429,11 +430,11 @@ mtype_destroy(struct ip_set *set)
+ 		err = niu_enable_interrupts(np, 1);
+ 		if (err)
+diff --git a/drivers/net/ethernet/sun/sunbmac.c b/drivers/net/ethernet/sun/sunbmac.c
+index 3189722110c2..0b1f41f6bceb 100644
+--- a/drivers/net/ethernet/sun/sunbmac.c
++++ b/drivers/net/ethernet/sun/sunbmac.c
+@@ -523,9 +523,9 @@ static int try_next_permutation(struct bigmac *bp, void __iomem *tregs)
+ 	return -1;
  }
  
- static void
--mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
-+mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+-static void bigmac_timer(unsigned long data)
++static void bigmac_timer(struct timer_list *t)
  {
- 	struct htype *h = set->data;
+-	struct bigmac *bp = (struct bigmac *) data;
++	struct bigmac *bp = from_timer(bp, t, bigmac_timer);
+ 	void __iomem *tregs = bp->tregs;
+ 	int restart_timer = 0;
  
--	setup_timer(&h->gc, gc, (unsigned long)set);
-+	timer_setup(&h->gc, gc, 0);
- 	mod_timer(&h->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
- 	pr_debug("gc initialized, run in every %u\n",
- 		 IPSET_GC_PERIOD(set->timeout));
-@@ -526,10 +527,10 @@ mtype_expire(struct ip_set *set, struct htype *h)
+@@ -613,8 +613,6 @@ static void bigmac_begin_auto_negotiation(struct bigmac *bp)
+ 	bp->timer_state = ltrywait;
+ 	bp->timer_ticks = 0;
+ 	bp->bigmac_timer.expires = jiffies + (12 * HZ) / 10;
+-	bp->bigmac_timer.data = (unsigned long) bp;
+-	bp->bigmac_timer.function = bigmac_timer;
+ 	add_timer(&bp->bigmac_timer);
  }
  
- static void
--mtype_gc(unsigned long ul_set)
-+mtype_gc(struct timer_list *t)
- {
--	struct ip_set *set = (struct ip_set *)ul_set;
--	struct htype *h = set->data;
-+	struct htype *h = from_timer(h, t, gc);
-+	struct ip_set *set = h->set;
+@@ -921,7 +919,7 @@ static int bigmac_open(struct net_device *dev)
+ 		printk(KERN_ERR "BIGMAC: Can't order irq %d to go.\n", dev->irq);
+ 		return ret;
+ 	}
+-	init_timer(&bp->bigmac_timer);
++	timer_setup(&bp->bigmac_timer, bigmac_timer, 0);
+ 	ret = bigmac_init_hw(bp, 0);
+ 	if (ret)
+ 		free_irq(dev->irq, bp);
+@@ -1172,7 +1170,7 @@ static int bigmac_ether_init(struct platform_device *op,
+ 					      "board-version", 1);
  
- 	pr_debug("called\n");
- 	spin_lock_bh(&set->lock);
-@@ -1314,6 +1315,7 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
- 	t->htable_bits = hbits;
- 	RCU_INIT_POINTER(h->table, t);
+ 	/* Init auto-negotiation timer state. */
+-	init_timer(&bp->bigmac_timer);
++	timer_setup(&bp->bigmac_timer, bigmac_timer, 0);
+ 	bp->timer_state = asleep;
+ 	bp->timer_ticks = 0;
  
-+	h->set = set;
- 	set->data = h;
- #ifndef IP_SET_PROTO_UNDEF
- 	if (set->family == NFPROTO_IPV4) {
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 2fff6b5dc6f0..e864681b8dc5 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -44,6 +44,7 @@ struct set_adt_elem {
- struct list_set {
- 	u32 size;		/* size of set list array */
- 	struct timer_list gc;	/* garbage collection */
-+	struct ip_set *set;	/* attached to this ip_set */
- 	struct net *net;	/* namespace */
- 	struct list_head members; /* the set members */
- };
-@@ -568,10 +569,10 @@ static const struct ip_set_type_variant set_variant = {
- };
- 
- static void
--list_set_gc(unsigned long ul_set)
-+list_set_gc(struct timer_list *t)
- {
--	struct ip_set *set = (struct ip_set *)ul_set;
--	struct list_set *map = set->data;
-+	struct list_set *map = from_timer(map, t, gc);
-+	struct ip_set *set = map->set;
- 
- 	spin_lock_bh(&set->lock);
- 	set_cleanup_entries(set);
-@@ -582,11 +583,11 @@ list_set_gc(unsigned long ul_set)
+diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
+index b75ab8f44968..a7afcee3c5ae 100644
+--- a/drivers/net/ethernet/sun/sungem.c
++++ b/drivers/net/ethernet/sun/sungem.c
+@@ -1496,9 +1496,9 @@ static int gem_mdio_link_not_up(struct gem *gp)
+ 	}
  }
  
- static void
--list_set_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
-+list_set_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+-static void gem_link_timer(unsigned long data)
++static void gem_link_timer(struct timer_list *t)
  {
- 	struct list_set *map = set->data;
+-	struct gem *gp = (struct gem *) data;
++	struct gem *gp = from_timer(gp, t, link_timer);
+ 	struct net_device *dev = gp->dev;
+ 	int restart_aneg = 0;
  
--	setup_timer(&map->gc, gc, (unsigned long)set);
-+	timer_setup(&map->gc, gc, 0);
- 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+@@ -2910,7 +2910,7 @@ static int gem_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	gp->msg_enable = DEFAULT_MSG;
+ 
+-	setup_timer(&gp->link_timer, gem_link_timer, (unsigned long)gp);
++	timer_setup(&gp->link_timer, gem_link_timer, 0);
+ 
+ 	INIT_WORK(&gp->reset_task, gem_reset_task);
+ 
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index 9e983e1d8249..0431f1e5f511 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -685,9 +685,9 @@ static int is_lucent_phy(struct happy_meal *hp)
+ 	return ret;
  }
  
-@@ -603,6 +604,7 @@ init_list_set(struct net *net, struct ip_set *set, u32 size)
+-static void happy_meal_timer(unsigned long data)
++static void happy_meal_timer(struct timer_list *t)
+ {
+-	struct happy_meal *hp = (struct happy_meal *) data;
++	struct happy_meal *hp = from_timer(hp, t, happy_timer);
+ 	void __iomem *tregs = hp->tcvregs;
+ 	int restart_timer = 0;
  
- 	map->size = size;
- 	map->net = net;
-+	map->set = set;
- 	INIT_LIST_HEAD(&map->members);
- 	set->data = map;
+@@ -1413,8 +1413,6 @@ happy_meal_begin_auto_negotiation(struct happy_meal *hp,
  
+ 	hp->timer_ticks = 0;
+ 	hp->happy_timer.expires = jiffies + (12 * HZ)/10;  /* 1.2 sec. */
+-	hp->happy_timer.data = (unsigned long) hp;
+-	hp->happy_timer.function = happy_meal_timer;
+ 	add_timer(&hp->happy_timer);
+ }
+ 
+@@ -2819,7 +2817,7 @@ static int happy_meal_sbus_probe_one(struct platform_device *op, int is_qfe)
+ 	hp->timer_state = asleep;
+ 	hp->timer_ticks = 0;
+ 
+-	init_timer(&hp->happy_timer);
++	timer_setup(&hp->happy_timer, happy_meal_timer, 0);
+ 
+ 	hp->dev = dev;
+ 	dev->netdev_ops = &hme_netdev_ops;
+@@ -3133,7 +3131,7 @@ static int happy_meal_pci_probe(struct pci_dev *pdev,
+ 	hp->timer_state = asleep;
+ 	hp->timer_ticks = 0;
+ 
+-	init_timer(&hp->happy_timer);
++	timer_setup(&hp->happy_timer, happy_meal_timer, 0);
+ 
+ 	hp->irq = pdev->irq;
+ 	hp->dev = dev;
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 0b95105f7060..27fb22638885 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -492,8 +492,7 @@ static int vnet_port_probe(struct vio_dev *vdev, const struct vio_device_id *id)
+ 	pr_info("%s: PORT ( remote-mac %pM%s )\n",
+ 		vp->dev->name, port->raddr, switch_port ? " switch-port" : "");
+ 
+-	setup_timer(&port->clean_timer, sunvnet_clean_timer_expire_common,
+-		    (unsigned long)port);
++	timer_setup(&port->clean_timer, sunvnet_clean_timer_expire_common, 0);
+ 
+ 	napi_enable(&port->napi);
+ 	vio_port_up(&port->vio);
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.c b/drivers/net/ethernet/sun/sunvnet_common.c
+index ecf456c7b6d1..8aa3ce46bb81 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.c
++++ b/drivers/net/ethernet/sun/sunvnet_common.c
+@@ -1040,9 +1040,9 @@ static inline void vnet_free_skbs(struct sk_buff *skb)
+ 	}
+ }
+ 
+-void sunvnet_clean_timer_expire_common(unsigned long port0)
++void sunvnet_clean_timer_expire_common(struct timer_list *t)
+ {
+-	struct vnet_port *port = (struct vnet_port *)port0;
++	struct vnet_port *port = from_timer(port, t, clean_timer);
+ 	struct sk_buff *freeskbs;
+ 	unsigned pending;
+ 
+diff --git a/drivers/net/ethernet/sun/sunvnet_common.h b/drivers/net/ethernet/sun/sunvnet_common.h
+index b20d6fa7ef25..656673c31066 100644
+--- a/drivers/net/ethernet/sun/sunvnet_common.h
++++ b/drivers/net/ethernet/sun/sunvnet_common.h
+@@ -129,7 +129,7 @@ struct vnet {
+ 	((__port)->vsw ? (__port)->dev : (__port)->vp->dev)
+ 
+ /* Common funcs */
+-void sunvnet_clean_timer_expire_common(unsigned long port0);
++void sunvnet_clean_timer_expire_common(struct timer_list *t);
+ int sunvnet_open_common(struct net_device *dev);
+ int sunvnet_close_common(struct net_device *dev);
+ void sunvnet_set_rx_mode_common(struct net_device *dev, struct vnet *vp);
 -- 
 2.7.4
