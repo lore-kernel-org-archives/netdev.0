@@ -1,140 +1,92 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Mon, 16 Oct 2017 20:33:40 -0400
-Message-ID: <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
- <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cgroups@vger.kernel.org,
-        Linux Containers <containers@lists.linux-foundation.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Linux Audit <linux-audit@redhat.com>,
-        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Linux Network Development <netdev@vger.kernel.org>,
-        mszeredi@redhat.com, Andy Lutomirski <luto@kernel.org>,
-        jlayton@redhat.com, Carlos O'Donell <carlos@redhat.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        David Howells <dhowells@redhat.com>,
-        Simo Sorce <simo@redhat.com>, trondmy@primarydata.com,
-        Eric Paris <eparis@parisplace.org>,
-        "Serge E. Hallyn" <serge@hallyn.com>,
-        "Eric W. Biederman" <ebiederm@xmission.com>
-To: Casey Schaufler <casey@schaufler-ca.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH 14/58] net: tulip: de2104x: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:28:58 -0700
+Message-ID: <1508200182-104605-15-git-send-email-keescook@chromium.org>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Jarod Wilson <jarod@redhat.com>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-parisc@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-10-12 16:33, Casey Schaufler wrote:
-> On 10/12/2017 7:14 AM, Richard Guy Briggs wrote:
-> > Containers are a userspace concept.  The kernel knows nothing of them.
-> >
-> > The Linux audit system needs a way to be able to track the container
-> > provenance of events and actions.  Audit needs the kernel's help to do
-> > this.
-> >
-> > Since the concept of a container is entirely a userspace concept, a
-> > registration from the userspace container orchestration system initiates
-> > this.  This will define a point in time and a set of resources
-> > associated with a particular container with an audit container ID.
-> >
-> > The registration is a pseudo filesystem (proc, since PID tree already
-> > exists) write of a u8[16] UUID representing the container ID to a file
-> > representing a process that will become the first process in a new
-> > container.  This write might place restrictions on mount namespaces
-> > required to define a container, or at least careful checking of
-> > namespaces in the kernel to verify permissions of the orchestrator so it
-> > can't change its own container ID.  A bind mount of nsfs may be
-> > necessary in the container orchestrator's mntNS.
-> > Note: Use a 128-bit scalar rather than a string to make compares faster
-> > and simpler.
-> >
-> > Require a new CAP_CONTAINER_ADMIN to be able to carry out the
-> > registration.
-> 
-> Hang on. If containers are a user space concept, how can
-> you want CAP_CONTAINER_ANYTHING? If there's not such thing as
-> a container, how can you be asking for a capability to manage
-> them?
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-There is such a thing, but the kernel doesn't know about it yet.  This
-same situation exists for loginuid and sessionid which are userspace
-concepts that the kernel tracks for the convenience of userspace.  As
-for its name, I'm not particularly picky, so if you don't like
-CAP_CONTAINER_* then I'm fine with CAP_AUDIT_CONTAINERID.  It really
-needs to be distinct from CAP_AUDIT_WRITE and CAP_AUDIT_CONTROL since we
-don't want to give the ability to set a containerID to any process that
-is able to do audit logging (such as vsftpd) and similarly we don't want
-to give the orchestrator the ability to control the setup of the audit
-daemon.
-> 
-> >   At that time, record the target container's user-supplied
-> > container identifier along with the target container's first process
-> > (which may become the target container's "init" process) process ID
-> > (referenced from the initial PID namespace), all namespace IDs (in the
-> > form of a nsfs device number and inode number tuple) in a new auxilliary
-> > record AUDIT_CONTAINER with a qualifying op=$action field.
-> >
-> > Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
-> > container ID present on an auditable action or event.
-> >
-> > Forked and cloned processes inherit their parent's container ID,
-> > referenced in the process' task_struct.
-> >
-> > Mimic setns(2) and return an error if the process has already initiated
-> > threading or forked since this registration should happen before the
-> > process execution is started by the orchestrator and hence should not
-> > yet have any threads or children.  If this is deemed overly restrictive,
-> > switch all threads and children to the new containerID.
-> >
-> > Trust the orchestrator to judiciously use and restrict CAP_CONTAINER_ADMIN.
-> >
-> > Log the creation of every namespace, inheriting/adding its spawning
-> > process' containerID(s), if applicable.  Include the spawning and
-> > spawned namespace IDs (device and inode number tuples).
-> > [AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
-> > Note: At this point it appears only network namespaces may need to track
-> > container IDs apart from processes since incoming packets may cause an
-> > auditable event before being associated with a process.
-> >
-> > Log the destruction of every namespace when it is no longer used by any
-> > process, include the namespace IDs (device and inode number tuples).
-> > [AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
-> >
-> > Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
-> > the parent and child namespace IDs for any changes to a process'
-> > namespaces. [setns(2)]
-> > Note: It may be possible to combine AUDIT_NS_* record formats and
-> > distinguish them with an op=$action field depending on the fields
-> > required for each message type.
-> >
-> > When a container ceases to exist because the last process in that
-> > container has exited and hence the last namespace has been destroyed and
-> > its refcount dropping to zero, log the fact.
-> > (This latter is likely needed for certification accountability.)  A
-> > container object may need a list of processes and/or namespaces.
-> >
-> > A namespace cannot directly migrate from one container to another but
-> > could be assigned to a newly spawned container.  A namespace can be
-> > moved from one container to another indirectly by having that namespace
-> > used in a second process in another container and then ending all the
-> > processes in the first container.
-> >
-> > (v2)
-> > - switch from u64 to u128 UUID
-> > - switch from "signal" and "trigger" to "register"
-> > - restrict registration to single process or force all threads and children into same container
-> >
-> > - RGB
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: "yuval.shaia@oracle.com" <yuval.shaia@oracle.com>
+Cc: Tobias Klauser <tklauser@distanz.ch>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Reviewed-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ drivers/net/ethernet/dec/tulip/de2104x.c | 21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
 
-- RGB
-
---
-Richard Guy Briggs <rgb@redhat.com>
-Sr. S/W Engineer, Kernel Security, Base Operating Systems
-Remote, Ottawa, Red Hat Canada
-IRC: rgb, SunRaycer
-Voice: +1.647.777.2635, Internal: (81) 32635
+diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+index c87b8cc42963..13430f75496c 100644
+--- a/drivers/net/ethernet/dec/tulip/de2104x.c
++++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+@@ -333,8 +333,8 @@ static void de_set_rx_mode (struct net_device *dev);
+ static void de_tx (struct de_private *de);
+ static void de_clean_rings (struct de_private *de);
+ static void de_media_interrupt (struct de_private *de, u32 status);
+-static void de21040_media_timer (unsigned long data);
+-static void de21041_media_timer (unsigned long data);
++static void de21040_media_timer (struct timer_list *t);
++static void de21041_media_timer (struct timer_list *t);
+ static unsigned int de_ok_to_advertise (struct de_private *de, u32 new_media);
+ 
+ 
+@@ -959,9 +959,9 @@ static void de_next_media (struct de_private *de, const u32 *media,
+ 	}
+ }
+ 
+-static void de21040_media_timer (unsigned long data)
++static void de21040_media_timer (struct timer_list *t)
+ {
+-	struct de_private *de = (struct de_private *) data;
++	struct de_private *de = from_timer(de, t, media_timer);
+ 	struct net_device *dev = de->dev;
+ 	u32 status = dr32(SIAStatus);
+ 	unsigned int carrier;
+@@ -1040,9 +1040,9 @@ static unsigned int de_ok_to_advertise (struct de_private *de, u32 new_media)
+ 	return 1;
+ }
+ 
+-static void de21041_media_timer (unsigned long data)
++static void de21041_media_timer (struct timer_list *t)
+ {
+-	struct de_private *de = (struct de_private *) data;
++	struct de_private *de = from_timer(de, t, media_timer);
+ 	struct net_device *dev = de->dev;
+ 	u32 status = dr32(SIAStatus);
+ 	unsigned int carrier;
+@@ -1999,12 +1999,9 @@ static int de_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	de->msg_enable = (debug < 0 ? DE_DEF_MSG_ENABLE : debug);
+ 	de->board_idx = board_idx;
+ 	spin_lock_init (&de->lock);
+-	init_timer(&de->media_timer);
+-	if (de->de21040)
+-		de->media_timer.function = de21040_media_timer;
+-	else
+-		de->media_timer.function = de21041_media_timer;
+-	de->media_timer.data = (unsigned long) de;
++	timer_setup(&de->media_timer,
++		    de->de21040 ? de21040_media_timer : de21041_media_timer,
++		    0);
+ 
+ 	netif_carrier_off(dev);
+ 
+-- 
+2.7.4
