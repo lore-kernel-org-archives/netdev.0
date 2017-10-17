@@ -1,49 +1,42 @@
-From: Greg Elmassian <gelmassian@aimdigitalpros.com>
-Subject: Cycling Enthusiasts List
-Date: Tue, 17 Oct 2017 18:02:20 -0400
-Message-ID: <14edabf8-8fb2-cc71-b393-b88a4af2215e@aimdigitalpros.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: l2tp: mark expected switch fall-through
+Date: Tue, 17 Oct 2017 17:42:53 -0500
+Message-ID: <20171017224253.GA5877@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:54407 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761255AbdJQWWj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 18:22:39 -0400
-Received: by mail-pf0-f195.google.com with SMTP id n89so2372819pfk.11
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 15:22:39 -0700 (PDT)
-Received: from [192.168.0.19] ([103.6.157.159])
-        by smtp.gmail.com with ESMTPSA id a1sm18181856pgu.47.2017.10.17.15.22.37
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 17 Oct 2017 15:22:37 -0700 (PDT)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-Hi,
+Notice that in this particular case I replaced the "NOBREAK" comment with
+a "fall through" comment, which is what GCC is expecting to find.
 
-Hope all's well,
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only (GCC 7.2.0 was used).
 
-Would you be interested in acquiring an email list of “ Cycling Enthusiasts List ” from USA?
+ net/l2tp/l2tp_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Each record in the list contains Contact Name (First, Middle and Last Name), Mailing Address, List type and Opt-in email address.
-
-All the contacts are opt-in verified, 100% permission based and can be used for unlimited multi-channel marketing.
-
-We also have data for:
-
-(1)Motorcycle Owners List  (2)RV/Boat Owners List
-(3)Camping Enthusiasts     (4)Spa and Resort Visitors List
-(5)Skiers List             (6)Harley Davidson Owners List
-(7)Travelers List          (8)Health and Fitness Enthusiasts
-(9)Sports Enthusiasts List (10)Outdoor /Hiking Enthusiasts List
-
-Let me know if you'd be interested in hearing more about it.
-
-Waiting for your valuable and sincere reply.
-
-Best Regards,
-Greg Elmassian
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 7135f46..f517942 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -406,7 +406,7 @@ static int l2tp_nl_tunnel_send(struct sk_buff *skb, u32 portid, u32 seq, int fla
+ 		if (nla_put_u16(skb, L2TP_ATTR_UDP_SPORT, ntohs(inet->inet_sport)) ||
+ 		    nla_put_u16(skb, L2TP_ATTR_UDP_DPORT, ntohs(inet->inet_dport)))
+ 			goto nla_put_failure;
+-		/* NOBREAK */
++		/* fall through  */
+ 	case L2TP_ENCAPTYPE_IP:
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		if (np) {
+-- 
+2.7.4
