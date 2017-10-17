@@ -1,14 +1,17 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 35/58] inet/connection_sock: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:19 -0700
-Message-ID: <1508200182-104605-36-git-send-email-keescook@chromium.org>
+Subject: [PATCH 34/58] netfilter: ipset: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:18 -0700
+Message-ID: <1508200182-104605-35-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, dccp@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        simran singhal <singhalsimran0@gmail.com>,
+        Muhammad Falak R Wani <falakreyaz@gmail.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -18,184 +21,216 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+to pass the timer pointer explicitly. This introduces a pointer back to the
+struct ip_set, which is used instead of the struct timer_list .data field.
 
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Florian Westphal <fw@strlen.de>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: simran singhal <singhalsimran0@gmail.com>
+Cc: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Cc: netfilter-devel@vger.kernel.org
+Cc: coreteam@netfilter.org
 Cc: netdev@vger.kernel.org
-Cc: dccp@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- include/net/inet_connection_sock.h |  6 +++---
- net/dccp/timer.c                   | 18 ++++++++++--------
- net/ipv4/inet_connection_sock.c    | 21 +++++++++------------
- net/ipv4/tcp_timer.c               | 18 +++++++++++-------
- 4 files changed, 33 insertions(+), 30 deletions(-)
+ net/netfilter/ipset/ip_set_bitmap_gen.h   | 10 +++++-----
+ net/netfilter/ipset/ip_set_bitmap_ip.c    |  2 ++
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c |  2 ++
+ net/netfilter/ipset/ip_set_bitmap_port.c  |  2 ++
+ net/netfilter/ipset/ip_set_hash_gen.h     | 12 +++++++-----
+ net/netfilter/ipset/ip_set_list_set.c     | 12 +++++++-----
+ 6 files changed, 25 insertions(+), 15 deletions(-)
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 13e4c89a8231..0358745ea059 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -169,9 +169,9 @@ enum inet_csk_ack_state_t {
+diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
+index 8ad2b52a0b32..5ca18f07683b 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_gen.h
++++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+@@ -37,11 +37,11 @@
+ #define get_ext(set, map, id)	((map)->extensions + ((set)->dsize * (id)))
+ 
+ static void
+-mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+ {
+ 	struct mtype *map = set->data;
+ 
+-	setup_timer(&map->gc, gc, (unsigned long)set);
++	timer_setup(&map->gc, gc, 0);
+ 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ }
+ 
+@@ -272,10 +272,10 @@ mtype_list(const struct ip_set *set,
+ }
+ 
+ static void
+-mtype_gc(unsigned long ul_set)
++mtype_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct mtype *map = set->data;
++	struct mtype *map = from_timer(map, t, gc);
++	struct ip_set *set = map->set;
+ 	void *x;
+ 	u32 id;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ip.c b/net/netfilter/ipset/ip_set_bitmap_ip.c
+index 4783efff0bde..d8975a0b4282 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ip.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ip.c
+@@ -48,6 +48,7 @@ struct bitmap_ip {
+ 	size_t memsize;		/* members size */
+ 	u8 netmask;		/* subnet netmask */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -232,6 +233,7 @@ init_map_ip(struct ip_set *set, struct bitmap_ip *map,
+ 	map->netmask = netmask;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_IPV4;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_ipmac.c b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+index 9a065f672d3a..4c279fbd2d5d 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_ipmac.c
++++ b/net/netfilter/ipset/ip_set_bitmap_ipmac.c
+@@ -52,6 +52,7 @@ struct bitmap_ipmac {
+ 	u32 elements;		/* number of max elements in the set */
+ 	size_t memsize;		/* members size */
+ 	struct timer_list gc;	/* garbage collector */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* MAC + data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -307,6 +308,7 @@ init_map_ipmac(struct ip_set *set, struct bitmap_ipmac *map,
+ 	map->elements = elements;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_IPV4;
+ 
+diff --git a/net/netfilter/ipset/ip_set_bitmap_port.c b/net/netfilter/ipset/ip_set_bitmap_port.c
+index 7f0c733358a4..7f9bbd7c98b5 100644
+--- a/net/netfilter/ipset/ip_set_bitmap_port.c
++++ b/net/netfilter/ipset/ip_set_bitmap_port.c
+@@ -40,6 +40,7 @@ struct bitmap_port {
+ 	u32 elements;		/* number of max elements in the set */
+ 	size_t memsize;		/* members size */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	unsigned char extensions[0]	/* data extensions */
+ 		__aligned(__alignof__(u64));
+ };
+@@ -214,6 +215,7 @@ init_map_port(struct ip_set *set, struct bitmap_port *map,
+ 	map->last_port = last_port;
+ 	set->timeout = IPSET_NO_TIMEOUT;
+ 
++	map->set = set;
+ 	set->data = map;
+ 	set->family = NFPROTO_UNSPEC;
+ 
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 51063d9ed0f7..efffc8eabafe 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -280,6 +280,7 @@ htable_bits(u32 hashsize)
+ struct htype {
+ 	struct htable __rcu *table; /* the hash table */
+ 	struct timer_list gc;	/* garbage collection when timeout enabled */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	u32 maxelem;		/* max elements in the hash */
+ 	u32 initval;		/* random jhash init value */
+ #ifdef IP_SET_HASH_WITH_MARKMASK
+@@ -429,11 +430,11 @@ mtype_destroy(struct ip_set *set)
+ }
+ 
+ static void
+-mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++mtype_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
+ {
+ 	struct htype *h = set->data;
+ 
+-	setup_timer(&h->gc, gc, (unsigned long)set);
++	timer_setup(&h->gc, gc, 0);
+ 	mod_timer(&h->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
+ 	pr_debug("gc initialized, run in every %u\n",
+ 		 IPSET_GC_PERIOD(set->timeout));
+@@ -526,10 +527,10 @@ mtype_expire(struct ip_set *set, struct htype *h)
+ }
+ 
+ static void
+-mtype_gc(unsigned long ul_set)
++mtype_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct htype *h = set->data;
++	struct htype *h = from_timer(h, t, gc);
++	struct ip_set *set = h->set;
+ 
+ 	pr_debug("called\n");
+ 	spin_lock_bh(&set->lock);
+@@ -1314,6 +1315,7 @@ IPSET_TOKEN(HTYPE, _create)(struct net *net, struct ip_set *set,
+ 	t->htable_bits = hbits;
+ 	RCU_INIT_POINTER(h->table, t);
+ 
++	h->set = set;
+ 	set->data = h;
+ #ifndef IP_SET_PROTO_UNDEF
+ 	if (set->family == NFPROTO_IPV4) {
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index 2fff6b5dc6f0..e864681b8dc5 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -44,6 +44,7 @@ struct set_adt_elem {
+ struct list_set {
+ 	u32 size;		/* size of set list array */
+ 	struct timer_list gc;	/* garbage collection */
++	struct ip_set *set;	/* attached to this ip_set */
+ 	struct net *net;	/* namespace */
+ 	struct list_head members; /* the set members */
+ };
+@@ -568,10 +569,10 @@ static const struct ip_set_type_variant set_variant = {
  };
  
- void inet_csk_init_xmit_timers(struct sock *sk,
--			       void (*retransmit_handler)(unsigned long),
--			       void (*delack_handler)(unsigned long),
--			       void (*keepalive_handler)(unsigned long));
-+			       void (*retransmit_handler)(struct timer_list *),
-+			       void (*delack_handler)(struct timer_list *),
-+			       void (*keepalive_handler)(struct timer_list *));
- void inet_csk_clear_xmit_timers(struct sock *sk);
+ static void
+-list_set_gc(unsigned long ul_set)
++list_set_gc(struct timer_list *t)
+ {
+-	struct ip_set *set = (struct ip_set *)ul_set;
+-	struct list_set *map = set->data;
++	struct list_set *map = from_timer(map, t, gc);
++	struct ip_set *set = map->set;
  
- static inline void inet_csk_schedule_ack(struct sock *sk)
-diff --git a/net/dccp/timer.c b/net/dccp/timer.c
-index 3a2c34027758..1e35526bf436 100644
---- a/net/dccp/timer.c
-+++ b/net/dccp/timer.c
-@@ -125,10 +125,11 @@ static void dccp_retransmit_timer(struct sock *sk)
- 		__sk_dst_reset(sk);
+ 	spin_lock_bh(&set->lock);
+ 	set_cleanup_entries(set);
+@@ -582,11 +583,11 @@ list_set_gc(unsigned long ul_set)
  }
  
--static void dccp_write_timer(unsigned long data)
-+static void dccp_write_timer(struct timer_list *t)
+ static void
+-list_set_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
++list_set_gc_init(struct ip_set *set, void (*gc)(struct timer_list *t))
  {
--	struct sock *sk = (struct sock *)data;
--	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_retransmit_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
- 	int event = 0;
+ 	struct list_set *map = set->data;
  
- 	bh_lock_sock(sk);
-@@ -161,19 +162,20 @@ static void dccp_write_timer(unsigned long data)
- 	sock_put(sk);
+-	setup_timer(&map->gc, gc, (unsigned long)set);
++	timer_setup(&map->gc, gc, 0);
+ 	mod_timer(&map->gc, jiffies + IPSET_GC_PERIOD(set->timeout) * HZ);
  }
  
--static void dccp_keepalive_timer(unsigned long data)
-+static void dccp_keepalive_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
-+	struct sock *sk = from_timer(sk, t, sk_timer);
+@@ -603,6 +604,7 @@ init_list_set(struct net *net, struct ip_set *set, u32 size)
  
- 	pr_err("dccp should not use a keepalive timer !\n");
- 	sock_put(sk);
- }
+ 	map->size = size;
+ 	map->net = net;
++	map->set = set;
+ 	INIT_LIST_HEAD(&map->members);
+ 	set->data = map;
  
- /* This is the same as tcp_delack_timer, sans prequeue & mem_reclaim stuff */
--static void dccp_delack_timer(unsigned long data)
-+static void dccp_delack_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
--	struct inet_connection_sock *icsk = inet_csk(sk);
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_delack_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
- 
- 	bh_lock_sock(sk);
- 	if (sock_owned_by_user(sk)) {
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 4158c38916b2..1d54b20906cc 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -495,17 +495,15 @@ EXPORT_SYMBOL(inet_csk_accept);
-  * to optimize.
-  */
- void inet_csk_init_xmit_timers(struct sock *sk,
--			       void (*retransmit_handler)(unsigned long),
--			       void (*delack_handler)(unsigned long),
--			       void (*keepalive_handler)(unsigned long))
-+			       void (*retransmit_handler)(struct timer_list *t),
-+			       void (*delack_handler)(struct timer_list *t),
-+			       void (*keepalive_handler)(struct timer_list *t))
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
--	setup_timer(&icsk->icsk_retransmit_timer, retransmit_handler,
--			(unsigned long)sk);
--	setup_timer(&icsk->icsk_delack_timer, delack_handler,
--			(unsigned long)sk);
--	setup_timer(&sk->sk_timer, keepalive_handler, (unsigned long)sk);
-+	timer_setup(&icsk->icsk_retransmit_timer, retransmit_handler, 0);
-+	timer_setup(&icsk->icsk_delack_timer, delack_handler, 0);
-+	timer_setup(&sk->sk_timer, keepalive_handler, 0);
- 	icsk->icsk_pending = icsk->icsk_ack.pending = 0;
- }
- EXPORT_SYMBOL(inet_csk_init_xmit_timers);
-@@ -677,9 +675,9 @@ void inet_csk_reqsk_queue_drop_and_put(struct sock *sk, struct request_sock *req
- }
- EXPORT_SYMBOL(inet_csk_reqsk_queue_drop_and_put);
- 
--static void reqsk_timer_handler(unsigned long data)
-+static void reqsk_timer_handler(struct timer_list *t)
- {
--	struct request_sock *req = (struct request_sock *)data;
-+	struct request_sock *req = from_timer(req, t, rsk_timer);
- 	struct sock *sk_listener = req->rsk_listener;
- 	struct net *net = sock_net(sk_listener);
- 	struct inet_connection_sock *icsk = inet_csk(sk_listener);
-@@ -750,8 +748,7 @@ static void reqsk_queue_hash_req(struct request_sock *req,
- 	req->num_timeout = 0;
- 	req->sk = NULL;
- 
--	setup_pinned_timer(&req->rsk_timer, reqsk_timer_handler,
--			    (unsigned long)req);
-+	timer_setup(&req->rsk_timer, reqsk_timer_handler, TIMER_PINNED);
- 	mod_timer(&req->rsk_timer, jiffies + timeout);
- 
- 	inet_ehash_insert(req_to_sk(req), NULL);
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 7014cc00c74c..804a8d34ce86 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -288,15 +288,17 @@ void tcp_delack_timer_handler(struct sock *sk)
-  *
-  *  Returns: Nothing (void)
-  */
--static void tcp_delack_timer(unsigned long data)
-+static void tcp_delack_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_delack_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
- 
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk)) {
- 		tcp_delack_timer_handler(sk);
- 	} else {
--		inet_csk(sk)->icsk_ack.blocked = 1;
-+		icsk->icsk_ack.blocked = 1;
- 		__NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOCKED);
- 		/* deleguate our work to tcp_release_cb() */
- 		if (!test_and_set_bit(TCP_DELACK_TIMER_DEFERRED, &sk->sk_tsq_flags))
-@@ -576,9 +578,11 @@ void tcp_write_timer_handler(struct sock *sk)
- 	sk_mem_reclaim(sk);
- }
- 
--static void tcp_write_timer(unsigned long data)
-+static void tcp_write_timer(struct timer_list *t)
- {
--	struct sock *sk = (struct sock *)data;
-+	struct inet_connection_sock *icsk =
-+			from_timer(icsk, t, icsk_retransmit_timer);
-+	struct sock *sk = &icsk->icsk_inet.sk;
- 
- 	bh_lock_sock(sk);
- 	if (!sock_owned_by_user(sk)) {
-@@ -613,9 +617,9 @@ void tcp_set_keepalive(struct sock *sk, int val)
- EXPORT_SYMBOL_GPL(tcp_set_keepalive);
- 
- 
--static void tcp_keepalive_timer (unsigned long data)
-+static void tcp_keepalive_timer (struct timer_list *t)
- {
--	struct sock *sk = (struct sock *) data;
-+	struct sock *sk = from_timer(sk, t, sk_timer);
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 elapsed;
 -- 
 2.7.4
