@@ -1,85 +1,250 @@
-From: Vitezslav Samel <vitezslav@samel.cz>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Tue, 17 Oct 2017 07:51:55 +0200
-Message-ID: <20171017055155.GA19944@pc11.op.pod.cz>
-References: <1507121766.30720.4.camel@cohaesio.com>
- <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
- <1507180753.20182.8.camel@cohaesio.com>
- <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
- <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
- <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
- <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
- <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
- <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: [PATCH v2 net-next] net: hns3: Add mqprio hardware offload support in hns3 driver
+Date: Tue, 17 Oct 2017 14:51:30 +0800
+Message-ID: <1508223090-37907-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Pavlos Parissis <pavlos.parissis@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
-To: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.pod.cz ([213.155.227.146]:55802 "EHLO mail.pod.cz"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751485AbdJQF6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 01:58:16 -0400
-Content-Disposition: inline
-In-Reply-To: <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
+        <liguozhu@hisilicon.com>, <Yisen.Zhuang@huawei.com>,
+        <gabriele.paoloni@huawei.com>, <john.garry@huawei.com>,
+        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 01:34:29AM +0200, Paweł Staszewski wrote:
-> W dniu 2017-10-16 o 18:26, Paweł Staszewski pisze:
-> > W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
-> > > On 15/10/2017 02:58 πμ, Alexander Duyck wrote:
-> > > > Hi Pawel,
-> > > > 
-> > > > To clarify is that Dave Miller's tree or Linus's that you are talking
-> > > > about? If it is Dave's tree how long ago was it you pulled it since I
-> > > > think the fix was just pushed by Jeff Kirsher a few days ago.
-> > > > 
-> > > > The issue should be fixed in the following commit:
-> > > > https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=2b9478ffc550f17c6cd8c69057234e91150f5972
-> > > 
-> > > Do you know when it is going to be available on net-next and
-> > > linux-stable repos?
-> > > 
-> > > Cheers,
-> > > Pavlos
-> > > 
-> > > 
-> > I will make some tests today night with "net" git tree where this patch
-> > is included.
-> > Starting from 0:00 CET
-> > :)
-> > 
-> > 
-> Upgraded and looks like problem is not solved with that patch
-> Currently running system with
-> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
-> kernel
-> 
-> Still about 0.5GB of memory is leaking somewhere
-> 
-> Also can confirm that the latest kernel where memory is not leaking (with
-> use i40e driver intel 710 cards) is 4.11.12
-> With kernel 4.11.12 - after hour no change in memory usage.
-> 
-> also checked that with ixgbe instead of i40e with same  net.git kernel there
-> is no memleak - after hour same memory usage - so for 100% this is i40e
-> driver problem.
+When using tc qdisc, dcb_ops->setup_tc is used to tell hclge_dcb
+module to do the tm related setup. Only TC_MQPRIO_MODE_CHANNEL
+offload mode is supported.
 
-  I have (probably) the same problem here but with X520 cards: booting
-4.12.x gives me oops after circa 20 minutes of our workload. Booting
-4.9.y is OK. This machine is in production so any testing is very
-limited.
+Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
+---
+V2:
+	1. Add HCLGE_FLAG_MQPRIO_ENABLE to indicate offlaoding the
+	mqprio.
+	2. Change to support TC_MQPRIO_MODE_CHANNEL mode.
+---
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  1 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c | 47 +++++++++++++++++-
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  1 +
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 56 +++++++++++++++-------
+ 4 files changed, 86 insertions(+), 19 deletions(-)
 
-  Machine was stable for >2 months (on the desk before got to
-production) with 4.12.8 but with no traffic on X520 cards.
-
-	Cheers,
-
-		Vita
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+index 575f50d..3acd8db 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hnae3.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+@@ -381,6 +381,7 @@ struct hnae3_dcb_ops {
+ 	u8   (*setdcbx)(struct hnae3_handle *, u8);
+ 
+ 	int (*map_update)(struct hnae3_handle *);
++	int (*setup_tc)(struct hnae3_handle *, u8, u8 *);
+ };
+ 
+ struct hnae3_ae_algo {
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
+index 1b30a6f..5018d66 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_dcb.c
+@@ -178,7 +178,8 @@ static int hclge_ieee_setets(struct hnae3_handle *h, struct ieee_ets *ets)
+ 	u8 num_tc = 0;
+ 	int ret;
+ 
+-	if (!(hdev->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
++	if (!(hdev->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
++	    hdev->flag & HCLGE_FLAG_MQPRIO_ENABLE)
+ 		return -EINVAL;
+ 
+ 	ret = hclge_ets_validate(hdev, ets, &num_tc, &map_changed);
+@@ -228,7 +229,8 @@ static int hclge_ieee_setpfc(struct hnae3_handle *h, struct ieee_pfc *pfc)
+ 	struct hclge_dev *hdev = vport->back;
+ 	u8 i, j, pfc_map, *prio_tc;
+ 
+-	if (!(hdev->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
++	if (!(hdev->dcbx_cap & DCB_CAP_DCBX_VER_IEEE) ||
++	    hdev->flag & HCLGE_FLAG_MQPRIO_ENABLE)
+ 		return -EINVAL;
+ 
+ 	prio_tc = hdev->tm_info.prio_tc;
+@@ -257,6 +259,9 @@ static u8 hclge_getdcbx(struct hnae3_handle *h)
+ 	struct hclge_vport *vport = hclge_get_vport(h);
+ 	struct hclge_dev *hdev = vport->back;
+ 
++	if (hdev->flag & HCLGE_FLAG_MQPRIO_ENABLE)
++		return 0;
++
+ 	return hdev->dcbx_cap;
+ }
+ 
+@@ -276,6 +281,43 @@ static u8 hclge_setdcbx(struct hnae3_handle *h, u8 mode)
+ 	return 0;
+ }
+ 
++/* Set up TC for hardware offloaded mqprio in channel mode */
++static int hclge_setup_tc(struct hnae3_handle *h, u8 tc, u8 *prio_tc)
++{
++	struct hclge_vport *vport = hclge_get_vport(h);
++	struct hclge_dev *hdev = vport->back;
++	int ret;
++
++	if (hdev->flag & HCLGE_FLAG_DCB_ENABLE)
++		return -EINVAL;
++
++	if (tc > hdev->tc_max) {
++		dev_err(&hdev->pdev->dev,
++			"setup tc failed, tc(%u) > tc_max(%u)\n",
++			tc, hdev->tc_max);
++		return -EINVAL;
++	}
++
++	hclge_tm_schd_info_update(hdev, tc);
++
++	ret = hclge_tm_prio_tc_info_update(hdev, prio_tc);
++	if (ret)
++		return ret;
++
++	ret = hclge_tm_init_hw(hdev);
++	if (ret)
++		return ret;
++
++	hdev->flag &= ~HCLGE_FLAG_DCB_ENABLE;
++
++	if (tc > 1)
++		hdev->flag |= HCLGE_FLAG_MQPRIO_ENABLE;
++	else
++		hdev->flag &= ~HCLGE_FLAG_MQPRIO_ENABLE;
++
++	return 0;
++}
++
+ static const struct hnae3_dcb_ops hns3_dcb_ops = {
+ 	.ieee_getets	= hclge_ieee_getets,
+ 	.ieee_setets	= hclge_ieee_setets,
+@@ -284,6 +326,7 @@ static u8 hclge_setdcbx(struct hnae3_handle *h, u8 mode)
+ 	.getdcbx	= hclge_getdcbx,
+ 	.setdcbx	= hclge_setdcbx,
+ 	.map_update	= hclge_map_update,
++	.setup_tc	= hclge_setup_tc,
+ };
+ 
+ void hclge_dcb_ops_set(struct hclge_dev *hdev)
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+index a7c018c..bca4430 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+@@ -470,6 +470,7 @@ struct hclge_dev {
+ #define HCLGE_FLAG_MAIN		0x00000004
+ #define HCLGE_FLAG_DCB_CAPABLE	0x00000008
+ #define HCLGE_FLAG_DCB_ENABLE	0x00000010
++#define HCLGE_FLAG_MQPRIO_ENABLE	0x00000020
+ 	u32 flag;
+ 
+ 	u32 pkt_buf_size; /* Total pf buf size for tx/rx */
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index ba550c1..8fa4e65 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -19,6 +19,7 @@
+ #include <linux/sctp.h>
+ #include <linux/vermagic.h>
+ #include <net/gre.h>
++#include <net/pkt_cls.h>
+ #include <net/vxlan.h>
+ 
+ #include "hnae3.h"
+@@ -1186,53 +1187,74 @@ static void hns3_nic_udp_tunnel_del(struct net_device *netdev,
+ 	}
+ }
+ 
+-static int hns3_setup_tc(struct net_device *netdev, u8 tc)
++static int hns3_setup_tc(struct net_device *netdev, void *type_data)
+ {
++	struct tc_mqprio_qopt_offload *mqprio_qopt = type_data;
+ 	struct hnae3_handle *h = hns3_get_handle(netdev);
+ 	struct hnae3_knic_private_info *kinfo = &h->kinfo;
++	u8 *prio_tc = mqprio_qopt->qopt.prio_tc_map;
++	u8 tc = mqprio_qopt->qopt.num_tc;
++	u16 mode = mqprio_qopt->mode;
++	u8 hw = mqprio_qopt->qopt.hw;
++	bool if_running;
+ 	unsigned int i;
+ 	int ret;
+ 
++	if (!((hw == TC_MQPRIO_HW_OFFLOAD_TCS &&
++	       mode == TC_MQPRIO_MODE_CHANNEL) || (!hw && tc == 0)))
++		return -EOPNOTSUPP;
++
+ 	if (tc > HNAE3_MAX_TC)
+ 		return -EINVAL;
+ 
+-	if (kinfo->num_tc == tc)
+-		return 0;
+-
+ 	if (!netdev)
+ 		return -EINVAL;
+ 
+-	if (!tc) {
+-		netdev_reset_tc(netdev);
+-		return 0;
++	if_running = netif_running(netdev);
++	if (if_running) {
++		hns3_nic_net_stop(netdev);
++		msleep(100);
+ 	}
+ 
+-	/* Set num_tc for netdev */
+-	ret = netdev_set_num_tc(netdev, tc);
++	ret = (kinfo->dcb_ops && kinfo->dcb_ops->setup_tc) ?
++		kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : -EOPNOTSUPP;
+ 	if (ret)
+-		return ret;
++		goto out;
++
++	if (tc <= 1) {
++		netdev_reset_tc(netdev);
++	} else {
++		ret = netdev_set_num_tc(netdev, tc);
++		if (ret)
++			goto out;
++
++		for (i = 0; i < HNAE3_MAX_TC; i++) {
++			if (!kinfo->tc_info[i].enable)
++				continue;
+ 
+-	/* Set per TC queues for the VSI */
+-	for (i = 0; i < HNAE3_MAX_TC; i++) {
+-		if (kinfo->tc_info[i].enable)
+ 			netdev_set_tc_queue(netdev,
+ 					    kinfo->tc_info[i].tc,
+ 					    kinfo->tc_info[i].tqp_count,
+ 					    kinfo->tc_info[i].tqp_offset);
++		}
+ 	}
+ 
+-	return 0;
++	ret = hns3_nic_set_real_num_queue(netdev);
++
++out:
++	if (if_running)
++		hns3_nic_net_open(netdev);
++
++	return ret;
+ }
+ 
+ static int hns3_nic_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 			     void *type_data)
+ {
+-	struct tc_mqprio_qopt *mqprio = type_data;
+-
+ 	if (type != TC_SETUP_MQPRIO)
+ 		return -EOPNOTSUPP;
+ 
+-	return hns3_setup_tc(dev, mqprio->num_tc);
++	return hns3_setup_tc(dev, type_data);
+ }
+ 
+ static int hns3_vlan_rx_add_vid(struct net_device *netdev,
+-- 
+1.9.1
