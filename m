@@ -1,7 +1,7 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next 4/6] net: ena: add statistics for missed tx packets
-Date: Tue, 17 Oct 2017 07:33:59 +0000
-Message-ID: <1508225641-106366-5-git-send-email-netanel@amazon.com>
+Subject: [PATCH net-next 5/6] net: ena: add new admin define for future support of IPv6 RSS
+Date: Tue, 17 Oct 2017 07:34:00 +0000
+Message-ID: <1508225641-106366-6-git-send-email-netanel@amazon.com>
 References: <1508225641-106366-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,100 +11,37 @@ Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <evgenys@amazon.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-6001.amazon.com ([52.95.48.154]:58059 "EHLO
-        smtp-fw-6001.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933053AbdJQHep (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 03:34:45 -0400
+Received: from smtp-fw-6002.amazon.com ([52.95.49.90]:48655 "EHLO
+        smtp-fw-6002.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933111AbdJQHer (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 03:34:47 -0400
 In-Reply-To: <1508225641-106366-1-git-send-email-netanel@amazon.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-Add a new statistic to ethtool stats that show the number of packets
-without transmit acknowledgement from ENA device.
-
 Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 ---
- drivers/net/ethernet/amazon/ena/ena_ethtool.c |  1 +
- drivers/net/ethernet/amazon/ena/ena_netdev.c  | 30 +++++++++++++++------------
- drivers/net/ethernet/amazon/ena/ena_netdev.h  |  1 +
- 3 files changed, 19 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_admin_defs.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/amazon/ena/ena_ethtool.c b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-index 2aa1fd0e15ec..060cb18fa659 100644
---- a/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_ethtool.c
-@@ -81,6 +81,7 @@ struct ena_stats {
- 	ENA_STAT_TX_ENTRY(doorbells),
- 	ENA_STAT_TX_ENTRY(prepare_ctx_err),
- 	ENA_STAT_TX_ENTRY(bad_req_id),
-+	ENA_STAT_TX_ENTRY(missed_tx),
+diff --git a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+index 305dc1996b4e..4532e574ebcd 100644
+--- a/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
++++ b/drivers/net/ethernet/amazon/ena/ena_admin_defs.h
+@@ -627,6 +627,12 @@ enum ena_admin_flow_hash_proto {
+ 
+ 	ENA_ADMIN_RSS_NOT_IP	= 7,
+ 
++	/* TCPv6 with extension header */
++	ENA_ADMIN_RSS_TCP6_EX	= 8,
++
++	/* IPv6 with extension header */
++	ENA_ADMIN_RSS_IP6_EX	= 9,
++
+ 	ENA_ADMIN_RSS_PROTO_NUM	= 16,
  };
  
- static const struct ena_stats ena_stats_rx_strings[] = {
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.c b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-index 0aa56707d7cc..5417e4da64ca 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.c
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.c
-@@ -2648,7 +2648,7 @@ static int check_missing_comp_in_queue(struct ena_adapter *adapter,
- 	struct ena_tx_buffer *tx_buf;
- 	unsigned long last_jiffies;
- 	u32 missed_tx = 0;
--	int i;
-+	int i, rc = 0;
- 
- 	for (i = 0; i < tx_ring->ring_size; i++) {
- 		tx_buf = &tx_ring->tx_buffer_info[i];
-@@ -2662,21 +2662,25 @@ static int check_missing_comp_in_queue(struct ena_adapter *adapter,
- 
- 			tx_buf->print_once = 1;
- 			missed_tx++;
--
--			if (unlikely(missed_tx > adapter->missing_tx_completion_threshold)) {
--				netif_err(adapter, tx_err, adapter->netdev,
--					  "The number of lost tx completions is above the threshold (%d > %d). Reset the device\n",
--					  missed_tx,
--					  adapter->missing_tx_completion_threshold);
--				adapter->reset_reason =
--					ENA_REGS_RESET_MISS_TX_CMPL;
--				set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
--				return -EIO;
--			}
- 		}
- 	}
- 
--	return 0;
-+	if (unlikely(missed_tx > adapter->missing_tx_completion_threshold)) {
-+		netif_err(adapter, tx_err, adapter->netdev,
-+			  "The number of lost tx completions is above the threshold (%d > %d). Reset the device\n",
-+			  missed_tx,
-+			  adapter->missing_tx_completion_threshold);
-+		adapter->reset_reason =
-+			ENA_REGS_RESET_MISS_TX_CMPL;
-+		set_bit(ENA_FLAG_TRIGGER_RESET, &adapter->flags);
-+		rc = -EIO;
-+	}
-+
-+	u64_stats_update_begin(&tx_ring->syncp);
-+	tx_ring->tx_stats.missed_tx = missed_tx;
-+	u64_stats_update_end(&tx_ring->syncp);
-+
-+	return rc;
- }
- 
- static void check_for_missing_tx_completions(struct ena_adapter *adapter)
-diff --git a/drivers/net/ethernet/amazon/ena/ena_netdev.h b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-index 7b07bfbf0fe4..eafc5774dd49 100644
---- a/drivers/net/ethernet/amazon/ena/ena_netdev.h
-+++ b/drivers/net/ethernet/amazon/ena/ena_netdev.h
-@@ -185,6 +185,7 @@ struct ena_stats_tx {
- 	u64 tx_poll;
- 	u64 doorbells;
- 	u64 bad_req_id;
-+	u64 missed_tx;
- };
- 
- struct ena_stats_rx {
 -- 
 1.8.3.1
