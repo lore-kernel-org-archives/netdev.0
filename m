@@ -1,52 +1,53 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC] sctp: suspicious rcu_read_lock() in sctp_packet_config()
-Date: Tue, 17 Oct 2017 14:28:26 -0200
-Message-ID: <20171017162826.GB5357@localhost.localdomain>
-References: <1508247956.31614.103.camel@edumazet-glaptop3.roam.corp.google.com>
- <CADvbK_dRBaOLzrXWS2ndHu3sz9LB87rJsyGog2BjishapiMhxw@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 2/3] bpf: fix splat for illegal devmap percpu
+ allocation
+Date: Tue, 17 Oct 2017 09:28:34 -0700
+Message-ID: <6171eefe-6cbe-c67d-b023-fa531ce170d1@gmail.com>
+References: <cover.1508251210.git.daniel@iogearbox.net>
+ <dd091b1fec763d74185a156ecd2f972810bdd1ce.1508251210.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
-        Eric Dumazet <edumazet@google.com>, linux-sctp@vger.kernel.org
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54096 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753306AbdJQQ23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 12:28:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CADvbK_dRBaOLzrXWS2ndHu3sz9LB87rJsyGog2BjishapiMhxw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: tj@kernel.org, ast@kernel.org, mark.rutland@arm.com,
+        richard@nod.at, sp3485@columbia.edu, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <dd091b1fec763d74185a156ecd2f972810bdd1ce.1508251210.git.daniel@iogearbox.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 11:31:30PM +0800, Xin Long wrote:
-> On Tue, Oct 17, 2017 at 9:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > SCTP experts.
-> >
-> > syszkaller reported a few crashes in sctp_packet_config() with invalid
-> > access to a deleted dst.
-> >
-> > The rcu_read_lock() in sctp_packet_config() is suspect.
-> >
-> > It does not protect anything at the moment.
-> >
-> > If we expect tp->dst to be manipulated/changed by another cpu/thread,
-> > then we need proper rcu protection.
-> >
-> > Following patch to show what would be a minimal change (but obviously
-> > bigger changes are needed, like sctp_transport_pmtu_check() and
-> > sctp_transport_dst_check(), and proper sparse annotations)
-> will check all places accessing tp->dst in sctp.
+On 10/17/2017 07:55 AM, Daniel Borkmann wrote:
+> It was reported that syzkaller was able to trigger a splat on
+> devmap percpu allocation due to illegal/unsupported allocation
+> request size passed to __alloc_percpu():
+> 
+>   [   70.094249] illegal size (32776) or align (8) for percpu allocation
+>   [   70.094256] ------------[ cut here ]------------
+>   [   70.094259] WARNING: CPU: 3 PID: 3451 at mm/percpu.c:1365 pcpu_alloc+0x96/0x630
+>   [...]
+>   [   70.094325] Call Trace:
+>   [   70.094328]  __alloc_percpu_gfp+0x12/0x20
+>   [   70.094330]  dev_map_alloc+0x134/0x1e0
+>   [   70.094331]  SyS_bpf+0x9bc/0x1610
+>   [   70.094333]  ? selinux_task_setrlimit+0x5a/0x60
+>   [   70.094334]  ? security_task_setrlimit+0x43/0x60
+>   [   70.094336]  entry_SYSCALL_64_fastpath+0x1a/0xa5
+> 
+> This was due to too large max_entries for the map such that we
+> surpassed the upper limit of PCPU_MIN_UNIT_SIZE. It's fine to
+> fail naturally here, so switch to __alloc_percpu_gfp() and pass
+> __GFP_NOWARN instead.
+> 
+> Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
+> Reported-by: Mark Rutland <mark.rutland@arm.com>
+> Reported-by: Shankara Pailoor <sp3485@columbia.edu>
+> Reported-by: Richard Weinberger <richard@nod.at>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: John Fastabend <john.fastabend@gmail.com>
+> ---
 
-I checked some and sctp_transport_dst_check() should be fine because
-by then we are holding a reference on dst. Same goes to
-sctp_transport_pmtu_check().  It's not possible that these would trip
-on the update going on on sctp_packet_config() because the socket is
-locked. We may not need (much) more than the example patch, I think.
+Thanks!
 
-A more thorough check is certainly welcomed, indeed.
-
-  Marcelo
+Acked-by: John Fastabend <john.fastabend@gmail.com>
