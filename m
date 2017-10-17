@@ -1,105 +1,90 @@
-From: Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Tue, 17 Oct 2017 11:28:40 -0400
-Message-ID: <1508254120.6230.34.camel@redhat.com>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
-	<75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
-	<20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
-	<2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
-	<a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [RFC] sctp: suspicious rcu_read_lock() in sctp_packet_config()
+Date: Tue, 17 Oct 2017 23:31:30 +0800
+Message-ID: <CADvbK_dRBaOLzrXWS2ndHu3sz9LB87rJsyGog2BjishapiMhxw@mail.gmail.com>
+References: <1508247956.31614.103.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Eric W.
-	Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-To: Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>, Steve Grubb
-	<sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,  linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <a07968f6-fef1-f49d-01f1-6c660c0ada20-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
+        Eric Dumazet <edumazet@google.com>, linux-sctp@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:46125 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754667AbdJQPbc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 11:31:32 -0400
+In-Reply-To: <1508247956.31614.103.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE3LTEwLTE3IGF0IDA3OjU5IC0wNzAwLCBDYXNleSBTY2hhdWZsZXIgd3JvdGU6
-Cj4gT24gMTAvMTcvMjAxNyA1OjMxIEFNLCBTaW1vIFNvcmNlIHdyb3RlOgo+ID4gT24gTW9uLCAy
-MDE3LTEwLTE2IGF0IDIxOjQyIC0wNDAwLCBTdGV2ZSBHcnViYiB3cm90ZToKPiA+ID4gT24gTW9u
-ZGF5LCBPY3RvYmVyIDE2LCAyMDE3IDg6MzM6NDAgUE0gRURUIFJpY2hhcmQgR3V5IEJyaWdncwo+
-ID4gPiB3cm90ZToKPiA+ID4gPiBUaGVyZSBpcyBzdWNoIGEgdGhpbmcsIGJ1dCB0aGUga2VybmVs
-IGRvZXNuJ3Qga25vdyBhYm91dCBpdAo+ID4gPiA+IHlldC7CoMKgVGhpcyBzYW1lIHNpdHVhdGlv
-biBleGlzdHMgZm9yIGxvZ2ludWlkIGFuZCBzZXNzaW9uaWQKPiA+ID4gPiB3aGljaAo+ID4gPiA+
-IGFyZSB1c2Vyc3BhY2UgY29uY2VwdHMgdGhhdCB0aGUga2VybmVsIHRyYWNrcyBmb3IgdGhlCj4g
-PiA+ID4gY29udmVuaWVuY2UKPiA+ID4gPiBvZiB1c2Vyc3BhY2UuwqDCoEFzIGZvciBpdHMgbmFt
-ZSwgSSdtIG5vdCBwYXJ0aWN1bGFybHkgcGlja3ksIHNvCj4gPiA+ID4gaWYKPiA+ID4gPiB5b3Ug
-ZG9uJ3QgbGlrZSBDQVBfQ09OVEFJTkVSXyogdGhlbiBJJ20gZmluZSB3aXRoCj4gPiA+ID4gQ0FQ
-X0FVRElUX0NPTlRBSU5FUklELsKgwqBJdCByZWFsbHkgbmVlZHMgdG8gYmUgZGlzdGluY3QgZnJv
-bQo+ID4gPiA+IENBUF9BVURJVF9XUklURSBhbmQgQ0FQX0FVRElUX0NPTlRST0wgc2luY2Ugd2Ug
-ZG9uJ3Qgd2FudCB0bwo+ID4gPiA+IGdpdmUKPiA+ID4gPiB0aGUgYWJpbGl0eSB0byBzZXQgYSBj
-b250YWluZXJJRCB0byBhbnkgcHJvY2VzcyB0aGF0IGlzIGFibGUgdG8KPiA+ID4gPiBkbwo+ID4g
-PiA+IGF1ZGl0IGxvZ2dpbmcgKHN1Y2ggYXMgdnNmdHBkKSBhbmQgc2ltaWxhcmx5IHdlIGRvbid0
-IHdhbnQgdG8KPiA+ID4gPiBnaXZlCj4gPiA+ID4gdGhlIG9yY2hlc3RyYXRvciB0aGUgYWJpbGl0
-eSB0byBjb250cm9sIHRoZSBzZXR1cCBvZiB0aGUgYXVkaXQKPiA+ID4gPiBkYWVtb24uCj4gPiA+
-IAo+ID4gPiBBIGxvbmcgdGltZSBhZ28sIHdlIHdlcmUgZGViYXRpbmcgd2hhdCBzaG91bGQgZ3Vh
-cmQgYWdhaW5zdCByb3VnZQo+ID4gPiBwcm9jZXNzZXPCoGZyb20gc2V0dGluZyB0aGUgbG9naW51
-aWQuIENhc2V5IGFyZ3VlZCB0aGF0IHRoZQo+ID4gPiBhYmlsaXR5IHRvCj4gPiA+IHNldCB0aGUg
-bG9naW51aWTCoG1lYW5zIHRoZXkgaGF2ZSB0aGUgYWJpbGl0eSB0byBjb250cm9sIHRoZSBhdWRp
-dAo+ID4gPiB0cmFpbC4gVGhhdCBtZWFucyB0aGF0IGl0wqBzaG91bGQgYmUgZ3VhcmRlZCBieSBD
-QVBfQVVESVRfQ09OVFJPTC4KPiA+ID4gSQo+ID4gPiB0aGluayB0aGUgc2FtZSBsb2dpYyBhcHBs
-aWVzIHRvZGF5LsKgCj4gPiAKPiA+IFRoZSBkaWZmZXJlbmNlIGlzIHRoYXQgd2l0aCBsb2dpbnVp
-ZCB5b3UgbmVlZGVkIHRvIGdpdmUgcHJvY2Vzc2VzCj4gPiBhYmxlCj4gPiB0byBhdWRpdCBhbHNv
-IHRoZSBhYmlsaXR5IHRvIGNoYW5nZSBpdC4gWW91IGRvIG5vdCB3YW50IHRvIHRpZSB0aGUKPiA+
-IGFiaWxpdHkgdG8gY2hhbmdlIGNvbnRhaW5lciBpZHMgdG8gdGhlIGFiaWxpdHkgdG8gYXVkaXQu
-IFlvdSB3YW50Cj4gPiB0byBiZQo+ID4gYWJsZSB0byBkbyBhdWRpdCBzdHVmZiAod2l0aGluIHRo
-ZSBjb250YWluZXIpIHdpdGhvdXQgYWxsb3dpbmcgaXQKPiA+IHRvCj4gPiBjaGFuZ2UgdGhlIGNv
-bnRhaW5lciBpZC4KPiAKPiBXaXRob3V0IGEgKmtlcm5lbCogcG9saWN5IG9uIGNvbnRhaW5lcklE
-cyB5b3UgY2FuJ3Qgc2F5IHdoYXQKPiBzZWN1cml0eSBwb2xpY3kgaXMgYmVpbmcgZXhlbXB0ZWQu
-CgpUaGUgcG9saWN5IGhhcyBiZWVuIGJhc2ljYWxseSBzdGF0ZWQgZWFybGllci4KCkEgd2F5IHRv
-IHRyYWNrIGEgc2V0IG9mIHByb2Nlc3NlcyBmcm9tIGEgc3BlY2lmaWMgcG9pbnQgaW4gdGltZQpm
-b3J3YXJkLiBUaGUgbmFtZSB1c2VkIGlzICJjb250YWluZXIgaWQiLCBidXQgaXQgY291bGQgYmUg
-YW55dGhpbmcuClRoaXMgbWFya2VyIGlzIG1vc3RseSB1c2VkIGJ5IHVzZXIgc3BhY2UgdG8gdHJh
-Y2sgcHJvY2VzcyBoaWVyYXJjaGllcwp3aXRob3V0IHJhY2VzLCB0aGVzZSBwcm9jZXNzZXMgY2Fu
-IGJlIHZlcnkgcHJpdmlsZWdlZCwgYW5kIG11c3Qgbm90IGJlCmFsbG93ZWQgdG8gY2hhbmdlIHRo
-ZSBtYXJrZXIgdGhlbXNlbHZlcyB3aGVuIGdyYW50ZWQgdGhlIGN1cnJlbnQgY29tbW9uCmNhcGFi
-aWxpdGllcy4KCklzIHRoaXMgYSBnb29kIGVub3VnaCBkZXNjcmlwdGlvbiA/IElmIG5vdCBjYW4g
-eW91IGNsYXJpZnkgeW91cgpleHBlY3RhdGlvbnMgPwoKPiAgV2l0aG91dCB0aGF0IHlvdSBjYW4n
-dCBzYXkgd2hhdCBjYXBhYmlsaXR5IGlzIChvciBpc24ndCkKPiBhcHByb3ByaWF0ZS4KClNlZSBp
-ZiB0aGUgYWJvdmUgaXMgc3VmZmljaWVudCBwbGVhc2UuCgo+IFlvdSBuZWVkIGEgcmVhc29uIHRv
-IGhhdmUgYSBjYXBhYmlsaXR5IGNoZWNrIHRoYXQgbWFrZXMgc2Vuc2UgaW4gdGhlCj4gY29udGV4
-dCBvZiB0aGUga2VybmVsIHNlY3VyaXR5IHBvbGljeS4KCkkgdGhpbmsgdGhlIHByb3Bvc2FsIGhh
-ZCBhIHJlYXNvbiwgd2UgbWF5IGRlYmF0ZSBvbiB3aGV0aGVyIHRoYXQgcmVhc29uCmlzIGdvb2Qg
-ZW5vdWdoLgoKPiBTaW5jZSB3ZSBkb24ndCBrbm93IHdoYXQgYSBjb250YWluZXIgaXMgaW4gdGhl
-IGtlcm5lbCwKClBsZWFzZSBkbyBub3QgZml4YXRlIG9uIHRoZSB3b3JkIGNvbnRhaW5lci4KCj4g
-IHRoYXQncyBwcmV0dHkgaGFyZC4gV2UgZG9uJ3QgY3JlYXRlICJmdXp6eSIgY2FwYWJpbGl0aWVz
-Cj4gYmFzZWQgb24gdGhlIHRyZW5keSBhcHBsaWNhdGlvbiBiZWhhdmlvciBvZiB0aGUgbW9tZW50
-LiBJZiB0aGUKPiBiZWhhdmlvciBpcyBub3QgcmVsYXRlZCBpdCBhdWRpdCwgdGhlcmUncyBubyBy
-ZWFzb24gZm9yIGl0LCBhbmQKPiBpZiBpdCBpcywgQ0FQX0FVRElUX0NPTlRST0wgd29ya3MganVz
-dCBmaW5lLiBJZiB0aGlzIGRvZXNuJ3Qgd29yawo+IGluIHlvdXIgYXBwbGljYXRpb24gc2VjdXJp
-dHkgbW9kZWwgSSBzdWdnZXN0IHRoYXQgaXMgd2hlcmUgeW91Cj4gbmVlZCB0byBtYWtlIGNoYW5n
-ZXMuCgpUaGUgYXV0aG9ycyBvZiB0aGUgcHJvcG9zYWwgY2FtZSB0byB0aGUgY29uY2x1c2lvbiB0
-aGF0IGtlcm5lbAphc3Npc3RhbmNlIGlzIG5lZWRlZC4gSXQgd291bGQgYmUgbmljZSB0byBkaXNj
-dXNzIHRoZSBtZXJpdHMgb2YgaXQuCklmIHlvdSBkbyBub3QgdW5kZXJzdGFuZCB3aHkgdGhlIHJl
-cXVlc3QgaGFzIGJlZW4gbWFkZSBpdCB3b3VsZCBiZSBtb3JlCnVzZWZ1bCB0byBhc2sgc3BlY2lm
-aWMgcXVlc3Rpb25zIHRvIHVuZGVyc3RhbmQgd2hhdCBhbmQgd2h5IGlzIHRoZSBhc2suCgpQdXNo
-aW5nIGJhY2sgaXMgZmluZSwgaWYgeW91IGhhdmUgdW5kZXJzdG9vZCB0aGUgcHJvYmxlbSBhbmQg
-aGF2ZSB2YWxpZAphcmd1bWVudHMgYWdhaW5zdCBhIGtlcm5lbCBsZXZlbCBzb2x1dGlvbiAoYW5k
-IHBvc3NpYmx5IHN1Z2dlc3Rpb25zIGZvcgphIHdvcmtpbmcgdXNlciBzcGFjZSBzb2x1dGlvbiks
-IG90aGVyd2lzZSB5b3UgYXJlIG5vdCBhZGRpbmcgdmFsdWUgdG8KdGhlIGRpc2N1c3Npb24uIAoK
-U2ltby4KCi0tIApTaW1vIFNvcmNlClNyLiBQcmluY2lwYWwgU29mdHdhcmUgRW5naW5lZXIKUmVk
-IEhhdCwgSW5jCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRp
-b24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZv
-L2NvbnRhaW5lcnM=
+On Tue, Oct 17, 2017 at 9:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> SCTP experts.
+>
+> syszkaller reported a few crashes in sctp_packet_config() with invalid
+> access to a deleted dst.
+>
+> The rcu_read_lock() in sctp_packet_config() is suspect.
+>
+> It does not protect anything at the moment.
+>
+> If we expect tp->dst to be manipulated/changed by another cpu/thread,
+> then we need proper rcu protection.
+>
+> Following patch to show what would be a minimal change (but obviously
+> bigger changes are needed, like sctp_transport_pmtu_check() and
+> sctp_transport_dst_check(), and proper sparse annotations)
+will check all places accessing tp->dst in sctp.
+
+>
+>
+> BTW, sparse throws a lot of errors, any volunteer to clean this mess ?
+will do it.
+
+Thanks for reporting this.
+
+>
+> make C=2 M=net/sctp
+>
+> Thanks.
+>
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 4a865cd06d76cd5b2aa417de618da3203f7b53e4..d7f320f5acc271189ec9474795b6ececed7ad2b9 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -86,6 +86,7 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
+>  {
+>         struct sctp_transport *tp = packet->transport;
+>         struct sctp_association *asoc = tp->asoc;
+> +       struct dst_entry *dst;
+>         struct sock *sk;
+>
+>         pr_debug("%s: packet:%p vtag:0x%x\n", __func__, packet, vtag);
+> @@ -121,17 +122,15 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
+>                         sctp_packet_append_chunk(packet, chunk);
+>         }
+>
+> -       if (!tp->dst)
+> -               return;
+> -
+>         /* set packet max_size with gso_max_size if gso is enabled*/
+>         rcu_read_lock();
+> -       if (__sk_dst_get(sk) != tp->dst) {
+> -               dst_hold(tp->dst);
+> -               sk_setup_caps(sk, tp->dst);
+> +       dst = rcu_dereference(tp->dst);
+> +       if (dst) {
+> +               if (__sk_dst_get(sk) != dst && dst_hold_safe(dst))
+> +                       sk_setup_caps(sk, dst);
+> +               packet->max_size = sk_can_gso(sk) ? dst->dev->gso_max_size
+> +                                                 : asoc->pathmtu;
+>         }
+> -       packet->max_size = sk_can_gso(sk) ? tp->dst->dev->gso_max_size
+> -                                         : asoc->pathmtu;
+>         rcu_read_unlock();
+>  }
+>
+>
+>
