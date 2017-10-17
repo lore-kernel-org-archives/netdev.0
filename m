@@ -1,7 +1,7 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 4/4] SUNRPC: make cache_detail structures const
-Date: Tue, 17 Oct 2017 18:14:26 +0200
-Message-ID: <1508256866-12798-5-git-send-email-bhumirks@gmail.com>
+Subject: [PATCH 2/4] NFS: make cache_detail structure const
+Date: Tue, 17 Oct 2017 18:14:24 +0200
+Message-ID: <1508256866-12798-3-git-send-email-bhumirks@gmail.com>
 References: <1508256866-12798-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
 To: julia.lawall@lip6.fr, trond.myklebust@primarydata.com,
@@ -9,63 +9,35 @@ To: julia.lawall@lip6.fr, trond.myklebust@primarydata.com,
         jlayton@poochiereds.net, davem@davemloft.net,
         linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:48728 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763275AbdJQQOh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 12:14:37 -0400
 In-Reply-To: <1508256866-12798-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make these const as they are only getting passed to the function
+Make it const as it is only getting passed to the function
 cache_create_net having the argument as const.
 
 Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
- net/sunrpc/auth_gss/svcauth_gss.c | 4 ++--
- net/sunrpc/svcauth_unix.c         | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ fs/nfs/dns_resolve.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-index 7b1ee5a..e242cb4 100644
---- a/net/sunrpc/auth_gss/svcauth_gss.c
-+++ b/net/sunrpc/auth_gss/svcauth_gss.c
-@@ -264,7 +264,7 @@ static int rsi_parse(struct cache_detail *cd,
- 	return status;
+diff --git a/fs/nfs/dns_resolve.c b/fs/nfs/dns_resolve.c
+index d25f10f..477934a 100644
+--- a/fs/nfs/dns_resolve.c
++++ b/fs/nfs/dns_resolve.c
+@@ -353,7 +353,7 @@ ssize_t nfs_dns_resolve_name(struct net *net, char *name,
+ 	return ret;
  }
  
--static struct cache_detail rsi_cache_template = {
-+static const struct cache_detail rsi_cache_template = {
+-static struct cache_detail nfs_dns_resolve_template = {
++static const struct cache_detail nfs_dns_resolve_template = {
  	.owner		= THIS_MODULE,
- 	.hash_size	= RSI_HASHMAX,
- 	.name           = "auth.rpcsec.init",
-@@ -524,7 +524,7 @@ static int rsc_parse(struct cache_detail *cd,
- 	return status;
- }
- 
--static struct cache_detail rsc_cache_template = {
-+static const struct cache_detail rsc_cache_template = {
- 	.owner		= THIS_MODULE,
- 	.hash_size	= RSC_HASHMAX,
- 	.name		= "auth.rpcsec.context",
-diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
-index f81eaa8..740b67d 100644
---- a/net/sunrpc/svcauth_unix.c
-+++ b/net/sunrpc/svcauth_unix.c
-@@ -569,7 +569,7 @@ static int unix_gid_show(struct seq_file *m,
- 	return 0;
- }
- 
--static struct cache_detail unix_gid_cache_template = {
-+static const struct cache_detail unix_gid_cache_template = {
- 	.owner		= THIS_MODULE,
- 	.hash_size	= GID_HASHMAX,
- 	.name		= "auth.unix.gid",
-@@ -862,7 +862,7 @@ struct auth_ops svcauth_unix = {
- 	.set_client	= svcauth_unix_set_client,
- };
- 
--static struct cache_detail ip_map_cache_template = {
-+static const struct cache_detail ip_map_cache_template = {
- 	.owner		= THIS_MODULE,
- 	.hash_size	= IP_HASHMAX,
- 	.name		= "auth.unix.ip",
+ 	.hash_size	= NFS_DNS_HASHTBL_SIZE,
+ 	.name		= "dns_resolve",
 -- 
 1.9.1
