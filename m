@@ -1,75 +1,59 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 19/58] drivers/atm/suni: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:03 -0700
-Message-ID: <1508200182-104605-20-git-send-email-keescook@chromium.org>
+Subject: [PATCH 25/58] net: amd8111e: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:09 -0700
+Message-ID: <1508200182-104605-26-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Chas Williams <3chas3@gmail.com>,
-        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        Eric Dumazet <edumazet@google.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:48699 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757277AbdJQArh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 20:47:37 -0400
-Received: by mail-pg0-f52.google.com with SMTP id v78so75527pgb.5
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 17:47:37 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. Passes NULL timer when doing non-
-timer call.
+to pass the timer pointer explicitly.
 
-Cc: Chas Williams <3chas3@gmail.com>
-Cc: linux-atm-general@lists.sourceforge.net
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: Philippe Reynes <tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/atm/suni.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/amd/amd8111e.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/atm/suni.c b/drivers/atm/suni.c
-index b0363149b2fd..b8825f2d79e0 100644
---- a/drivers/atm/suni.c
-+++ b/drivers/atm/suni.c
-@@ -53,7 +53,7 @@ static DEFINE_SPINLOCK(sunis_lock);
-     if (atomic_read(&stats->s) < 0) atomic_set(&stats->s,INT_MAX);
- 
- 
--static void suni_hz(unsigned long from_timer)
-+static void suni_hz(struct timer_list *timer)
- {
- 	struct suni_priv *walk;
- 	struct atm_dev *dev;
-@@ -85,7 +85,7 @@ static void suni_hz(unsigned long from_timer)
- 		    ((GET(TACP_TCC) & 0xff) << 8) |
- 		    ((GET(TACP_TCCM) & 7) << 16));
- 	}
--	if (from_timer) mod_timer(&poll_timer,jiffies+HZ);
-+	if (timer) mod_timer(&poll_timer,jiffies+HZ);
+diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
+index 7f22af6e37e0..358f7ab77c70 100644
+--- a/drivers/net/ethernet/amd/amd8111e.c
++++ b/drivers/net/ethernet/amd/amd8111e.c
+@@ -1669,9 +1669,9 @@ static int amd8111e_resume(struct pci_dev *pci_dev)
+ 	return 0;
  }
  
+-static void amd8111e_config_ipg(struct net_device *dev)
++static void amd8111e_config_ipg(struct timer_list *t)
+ {
+-	struct amd8111e_priv *lp = netdev_priv(dev);
++	struct amd8111e_priv *lp = from_timer(lp, t, ipg_data.ipg_timer);
+ 	struct ipg_info *ipg_data = &lp->ipg_data;
+ 	void __iomem *mmio = lp->mmio;
+ 	unsigned int prev_col_cnt = ipg_data->col_cnt;
+@@ -1883,8 +1883,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
  
-@@ -322,13 +322,11 @@ static int suni_start(struct atm_dev *dev)
- 		printk(KERN_WARNING "%s(itf %d): no signal\n",dev->type,
- 		    dev->number);
- 	PRIV(dev)->loop_mode = ATM_LM_NONE;
--	suni_hz(0); /* clear SUNI counters */
-+	suni_hz(NULL); /* clear SUNI counters */
- 	(void) fetch_stats(dev,NULL,1); /* clear kernel counters */
- 	if (first) {
--		init_timer(&poll_timer);
-+		timer_setup(&poll_timer, suni_hz, 0);
- 		poll_timer.expires = jiffies+HZ;
--		poll_timer.function = suni_hz;
--		poll_timer.data = 1;
- #if 0
- printk(KERN_DEBUG "[u] p=0x%lx,n=0x%lx\n",(unsigned long) poll_timer.list.prev,
-     (unsigned long) poll_timer.list.next);
+ 	/* Initialize software ipg timer */
+ 	if(lp->options & OPTION_DYN_IPG_ENABLE){
+-		setup_timer(&lp->ipg_data.ipg_timer,
+-			    (void *)&amd8111e_config_ipg, (unsigned long)dev);
++		timer_setup(&lp->ipg_data.ipg_timer, amd8111e_config_ipg, 0);
+ 		lp->ipg_data.ipg_timer.expires = jiffies +
+ 						 IPG_CONVERGE_JIFFIES;
+ 		lp->ipg_data.ipg = DEFAULT_IPG;
 -- 
 2.7.4
