@@ -1,64 +1,392 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 00/58] networking: Convert timers to use timer_setup()
-Date: Tue, 17 Oct 2017 12:47:26 -0700
-Message-ID: <CAGXu5j+fcARk=yWh9Bbkn0C-4PHd+pKSPGV+5qPx88H6prvUoA@mail.gmail.com>
-References: <1508200182-104605-1-git-send-email-keescook@chromium.org> <87mv4pvowa.fsf@purkki.adurom.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] dccp/tcp: fix ireq->opt races
+Date: Tue, 17 Oct 2017 12:50:54 -0700
+Message-ID: <1508269854.31614.114.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1508269526.31614.113.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87mv4pvowa.fsf@purkki.adurom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, edumazet@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:53239 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763892AbdJQTu4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 15:50:56 -0400
+Received: by mail-io0-f194.google.com with SMTP id f20so3554206ioj.9
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 12:50:56 -0700 (PDT)
+In-Reply-To: <1508269526.31614.113.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 7:18 AM, Kalle Valo <kvalo@codeaurora.org> wrote:
-> + linux-wireless
->
-> Hi Kees,
->
-> Kees Cook <keescook@chromium.org> writes:
->
->> This is the current set of outstanding networking patches to perform
->> conversions to the new timer interface (rebased to -next). This is not
->> all expected conversions, but it contains everything needed in networking
->> to eliminate init_timer(), and all the non-standard setup_*_timer() uses.
->
-> So this also includes patches which I had queued for
-> wireless-drivers-next:
->
-> https://patchwork.kernel.org/patch/9986253/
-> https://patchwork.kernel.org/patch/9986245/
->
-> And looking at patchwork[1] I have even more timer_setup() related
-> patches from you. It would be really helpful if you could clearly
-> document to which tree you want the patches to be applied. I don't care
+From: Eric Dumazet <edumazet@google.com>
 
-Hi! Sorry about that. It's been a bit tricky to juggle everything.
+syzkaller found another bug in DCCP/TCP stacks [1]
 
-> if it's net-next or wireless-drivers-next as long as it's not the both
-> (meaning that both Dave and me apply the same patch, which would be
-> bad). The thing is that I really do not have time to figure out for
-> every patch via which tree it's supposed to go.
+For the reasons explained in commit ce1050089c96 ("tcp/dccp: fix
+ireq->pktopts race"), we need to make sure we do not access
+ireq->opt unless we own the request sock.
 
-Which split is preferred? I had been trying to separate wireless from
-the rest of net (but missed some cases).
+[1]
+BUG: KASAN: use-after-free in ip_queue_xmit+0x1687/0x18e0 net/ipv4/ip_output.c:474
+Read of size 1 at addr ffff8801c951039c by task syz-executor5/3295
 
-> For now I'll just drop all your timer_setup() related patches from my
-> queue and I'll assume Dave will take those. Ok?
->
-> [1] https://patchwork.kernel.org/project/linux-wireless/list/
+CPU: 1 PID: 3295 Comm: syz-executor5 Not tainted 4.14.0-rc4+ #80
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ print_address_description+0x73/0x250 mm/kasan/report.c:252
+ kasan_report_error mm/kasan/report.c:351 [inline]
+ kasan_report+0x25b/0x340 mm/kasan/report.c:409
+ __asan_report_load1_noabort+0x14/0x20 mm/kasan/report.c:427
+ ip_queue_xmit+0x1687/0x18e0 net/ipv4/ip_output.c:474
+ tcp_transmit_skb+0x1ab7/0x3840 net/ipv4/tcp_output.c:1135
+ tcp_send_ack.part.37+0x3bb/0x650 net/ipv4/tcp_output.c:3587
+ tcp_send_ack+0x49/0x60 net/ipv4/tcp_output.c:3557
+ __tcp_ack_snd_check+0x2c6/0x4b0 net/ipv4/tcp_input.c:5072
+ tcp_ack_snd_check net/ipv4/tcp_input.c:5085 [inline]
+ tcp_rcv_state_process+0x2eff/0x4850 net/ipv4/tcp_input.c:6071
+ tcp_child_process+0x342/0x990 net/ipv4/tcp_minisocks.c:816
+ tcp_v4_rcv+0x1827/0x2f80 net/ipv4/tcp_ipv4.c:1682
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_local_deliver+0x1ce/0x6e0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:464 [inline]
+ ip_rcv_finish+0x887/0x19a0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_rcv+0xc3f/0x1820 net/ipv4/ip_input.c:493
+ __netif_receive_skb_core+0x1a3e/0x34b0 net/core/dev.c:4476
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4514
+ netif_receive_skb_internal+0x10b/0x670 net/core/dev.c:4587
+ netif_receive_skb+0xae/0x390 net/core/dev.c:4611
+ tun_rx_batched.isra.50+0x5ed/0x860 drivers/net/tun.c:1372
+ tun_get_user+0x249c/0x36d0 drivers/net/tun.c:1766
+ tun_chr_write_iter+0xbf/0x160 drivers/net/tun.c:1792
+ call_write_iter include/linux/fs.h:1770 [inline]
+ new_sync_write fs/read_write.c:468 [inline]
+ __vfs_write+0x68a/0x970 fs/read_write.c:481
+ vfs_write+0x18f/0x510 fs/read_write.c:543
+ SYSC_write fs/read_write.c:588 [inline]
+ SyS_write+0xef/0x220 fs/read_write.c:580
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x40c341
+RSP: 002b:00007f469523ec10 EFLAGS: 00000293 ORIG_RAX: 0000000000000001
+RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 000000000040c341
+RDX: 0000000000000037 RSI: 0000000020004000 RDI: 0000000000000015
+RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+R10: 00000000000f4240 R11: 0000000000000293 R12: 00000000004b7fd1
+R13: 00000000ffffffff R14: 0000000020000000 R15: 0000000000025000
 
-I guess I'll wait to see what Dave says.
+Allocated by task 3295:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
+ __do_kmalloc mm/slab.c:3725 [inline]
+ __kmalloc+0x162/0x760 mm/slab.c:3734
+ kmalloc include/linux/slab.h:498 [inline]
+ tcp_v4_save_options include/net/tcp.h:1962 [inline]
+ tcp_v4_init_req+0x2d3/0x3e0 net/ipv4/tcp_ipv4.c:1271
+ tcp_conn_request+0xf6d/0x3410 net/ipv4/tcp_input.c:6283
+ tcp_v4_conn_request+0x157/0x210 net/ipv4/tcp_ipv4.c:1313
+ tcp_rcv_state_process+0x8ea/0x4850 net/ipv4/tcp_input.c:5857
+ tcp_v4_do_rcv+0x55c/0x7d0 net/ipv4/tcp_ipv4.c:1482
+ tcp_v4_rcv+0x2d10/0x2f80 net/ipv4/tcp_ipv4.c:1711
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_local_deliver+0x1ce/0x6e0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:464 [inline]
+ ip_rcv_finish+0x887/0x19a0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_rcv+0xc3f/0x1820 net/ipv4/ip_input.c:493
+ __netif_receive_skb_core+0x1a3e/0x34b0 net/core/dev.c:4476
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4514
+ netif_receive_skb_internal+0x10b/0x670 net/core/dev.c:4587
+ netif_receive_skb+0xae/0x390 net/core/dev.c:4611
+ tun_rx_batched.isra.50+0x5ed/0x860 drivers/net/tun.c:1372
+ tun_get_user+0x249c/0x36d0 drivers/net/tun.c:1766
+ tun_chr_write_iter+0xbf/0x160 drivers/net/tun.c:1792
+ call_write_iter include/linux/fs.h:1770 [inline]
+ new_sync_write fs/read_write.c:468 [inline]
+ __vfs_write+0x68a/0x970 fs/read_write.c:481
+ vfs_write+0x18f/0x510 fs/read_write.c:543
+ SYSC_write fs/read_write.c:588 [inline]
+ SyS_write+0xef/0x220 fs/read_write.c:580
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
 
-Thanks!
+Freed by task 3306:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_slab_free+0x71/0xc0 mm/kasan/kasan.c:524
+ __cache_free mm/slab.c:3503 [inline]
+ kfree+0xca/0x250 mm/slab.c:3820
+ inet_sock_destruct+0x59d/0x950 net/ipv4/af_inet.c:157
+ __sk_destruct+0xfd/0x910 net/core/sock.c:1560
+ sk_destruct+0x47/0x80 net/core/sock.c:1595
+ __sk_free+0x57/0x230 net/core/sock.c:1603
+ sk_free+0x2a/0x40 net/core/sock.c:1614
+ sock_put include/net/sock.h:1652 [inline]
+ inet_csk_complete_hashdance+0xd5/0xf0 net/ipv4/inet_connection_sock.c:959
+ tcp_check_req+0xf4d/0x1620 net/ipv4/tcp_minisocks.c:765
+ tcp_v4_rcv+0x17f6/0x2f80 net/ipv4/tcp_ipv4.c:1675
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_local_deliver+0x1ce/0x6e0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:464 [inline]
+ ip_rcv_finish+0x887/0x19a0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_rcv+0xc3f/0x1820 net/ipv4/ip_input.c:493
+ __netif_receive_skb_core+0x1a3e/0x34b0 net/core/dev.c:4476
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4514
+ netif_receive_skb_internal+0x10b/0x670 net/core/dev.c:4587
+ netif_receive_skb+0xae/0x390 net/core/dev.c:4611
+ tun_rx_batched.isra.50+0x5ed/0x860 drivers/net/tun.c:1372
+ tun_get_user+0x249c/0x36d0 drivers/net/tun.c:1766
+ tun_chr_write_iter+0xbf/0x160 drivers/net/tun.c:1792
+ call_write_iter include/linux/fs.h:1770 [inline]
+ new_sync_write fs/read_write.c:468 [inline]
+ __vfs_write+0x68a/0x970 fs/read_write.c:481
+ vfs_write+0x18f/0x510 fs/read_write.c:543
+ SYSC_write fs/read_write.c:588 [inline]
+ SyS_write+0xef/0x220 fs/read_write.c:580
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
 
--Kees
+The buggy address belongs to the object at ffff8801c9510380
+ which belongs to the cache kmalloc-64 of size 64
+The buggy address is located 28 bytes inside of
+ 64-byte region [ffff8801c9510380, ffff8801c95103c0)
+The buggy address belongs to the page:
+page:ffffea0007254400 count:1 mapcount:0 mapping:ffff8801c9510000 index:0x0
+flags: 0x200000000000100(slab)
+raw: 0200000000000100 ffff8801c9510000 0000000000000000 0000000100000020
+raw: ffffea0007264f60 ffffea00072e2ae0 ffff8801dac00340 0000000000000000
+page dumped because: kasan: bad access detected
 
--- 
-Kees Cook
-Pixel Security
+Memory state around the buggy address:
+ ffff8801c9510280: fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+ ffff8801c9510300: fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+>ffff8801c9510380: fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+                            ^
+ ffff8801c9510400: 00 00 00 00 00 fc fc fc fc fc fc fc fc fc fc fc
+ ffff8801c9510480: 00 00 00 00 00 00 fc fc fc fc fc fc fc fc fc fc
+==================================================================
+
+Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
+Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/inet_sock.h         |    2 +-
+ net/dccp/ipv4.c                 |   13 ++++++++-----
+ net/ipv4/inet_connection_sock.c |    8 +++-----
+ net/ipv4/syncookies.c           |    2 +-
+ net/ipv4/tcp_input.c            |    2 +-
+ net/ipv4/tcp_ipv4.c             |   22 +++++++++++++---------
+ 6 files changed, 27 insertions(+), 22 deletions(-)
+
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index aa95053dfc78d35d04aef276e2a5dce7343f72a0..425752f768d2f1a0efb13964204e07f27609e9db 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -96,7 +96,7 @@ struct inet_request_sock {
+ 	kmemcheck_bitfield_end(flags);
+ 	u32                     ir_mark;
+ 	union {
+-		struct ip_options_rcu	*opt;
++		struct ip_options_rcu __rcu	*ireq_opt;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		struct {
+ 			struct ipv6_txoptions	*ipv6_opt;
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 001c08696334bba0ceb896c116e595b814af0667..0490916864f93d5466e87f5b97dc524b3ee57a2e 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -414,8 +414,7 @@ struct sock *dccp_v4_request_recv_sock(const struct sock *sk,
+ 	sk_daddr_set(newsk, ireq->ir_rmt_addr);
+ 	sk_rcv_saddr_set(newsk, ireq->ir_loc_addr);
+ 	newinet->inet_saddr	= ireq->ir_loc_addr;
+-	newinet->inet_opt	= ireq->opt;
+-	ireq->opt	   = NULL;
++	RCU_INIT_POINTER(newinet->inet_opt, rcu_dereference(ireq->ireq_opt));
+ 	newinet->mc_index  = inet_iif(skb);
+ 	newinet->mc_ttl	   = ip_hdr(skb)->ttl;
+ 	newinet->inet_id   = jiffies;
+@@ -430,7 +429,10 @@ struct sock *dccp_v4_request_recv_sock(const struct sock *sk,
+ 	if (__inet_inherit_port(sk, newsk) < 0)
+ 		goto put_and_exit;
+ 	*own_req = inet_ehash_nolisten(newsk, req_to_sk(req_unhash));
+-
++	if (*own_req)
++		ireq->ireq_opt = NULL;
++	else
++		newinet->inet_opt = NULL;
+ 	return newsk;
+ 
+ exit_overflow:
+@@ -441,6 +443,7 @@ struct sock *dccp_v4_request_recv_sock(const struct sock *sk,
+ 	__NET_INC_STATS(sock_net(sk), LINUX_MIB_LISTENDROPS);
+ 	return NULL;
+ put_and_exit:
++	newinet->inet_opt = NULL;
+ 	inet_csk_prepare_forced_close(newsk);
+ 	dccp_done(newsk);
+ 	goto exit;
+@@ -492,7 +495,7 @@ static int dccp_v4_send_response(const struct sock *sk, struct request_sock *req
+ 							      ireq->ir_rmt_addr);
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->ir_loc_addr,
+ 					    ireq->ir_rmt_addr,
+-					    ireq->opt);
++					    rcu_dereference(ireq->ireq_opt));
+ 		err = net_xmit_eval(err);
+ 	}
+ 
+@@ -548,7 +551,7 @@ static void dccp_v4_ctl_send_reset(const struct sock *sk, struct sk_buff *rxskb)
+ static void dccp_v4_reqsk_destructor(struct request_sock *req)
+ {
+ 	dccp_feat_list_purge(&dccp_rsk(req)->dreq_featneg);
+-	kfree(inet_rsk(req)->opt);
++	kfree(rcu_dereference_protected(inet_rsk(req)->ireq_opt, 1));
+ }
+ 
+ void dccp_syn_ack_timeout(const struct request_sock *req)
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 67aec7a106860b26c929fea1624d652c87972f04..5ec9136a7c36933cb36e5cd50058eb6cf189a7c3 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -540,9 +540,10 @@ struct dst_entry *inet_csk_route_req(const struct sock *sk,
+ {
+ 	const struct inet_request_sock *ireq = inet_rsk(req);
+ 	struct net *net = read_pnet(&ireq->ireq_net);
+-	struct ip_options_rcu *opt = ireq->opt;
++	struct ip_options_rcu *opt;
+ 	struct rtable *rt;
+ 
++	opt = rcu_dereference(ireq->ireq_opt);
+ 	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
+ 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+ 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
+@@ -576,10 +577,9 @@ struct dst_entry *inet_csk_route_child_sock(const struct sock *sk,
+ 	struct flowi4 *fl4;
+ 	struct rtable *rt;
+ 
++	opt = rcu_dereference(ireq->ireq_opt);
+ 	fl4 = &newinet->cork.fl.u.ip4;
+ 
+-	rcu_read_lock();
+-	opt = rcu_dereference(newinet->inet_opt);
+ 	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
+ 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+ 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
+@@ -592,13 +592,11 @@ struct dst_entry *inet_csk_route_child_sock(const struct sock *sk,
+ 		goto no_route;
+ 	if (opt && opt->opt.is_strictroute && rt->rt_uses_gateway)
+ 		goto route_err;
+-	rcu_read_unlock();
+ 	return &rt->dst;
+ 
+ route_err:
+ 	ip_rt_put(rt);
+ no_route:
+-	rcu_read_unlock();
+ 	__IP_INC_STATS(net, IPSTATS_MIB_OUTNOROUTES);
+ 	return NULL;
+ }
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index b1bb1b3a108232d56aa82383422d68b5ff9da3ed..77cf32a80952fcf3ceff4ada946cc2d0df2411d9 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -355,7 +355,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb)
+ 	/* We throwed the options of the initial SYN away, so we hope
+ 	 * the ACK carries the same options again (see RFC1122 4.2.3.8)
+ 	 */
+-	ireq->opt = tcp_v4_save_options(sock_net(sk), skb);
++	RCU_INIT_POINTER(ireq->ireq_opt, tcp_v4_save_options(sock_net(sk), skb));
+ 
+ 	if (security_inet_conn_request(sk, skb, req)) {
+ 		reqsk_free(req);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c5d7656beeee29b3c92e1c8824dbf00d3fa32d28..7eec3383702bbab497a12095b55d255532ad5f60 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6196,7 +6196,7 @@ struct request_sock *inet_reqsk_alloc(const struct request_sock_ops *ops,
+ 		struct inet_request_sock *ireq = inet_rsk(req);
+ 
+ 		kmemcheck_annotate_bitfield(ireq, flags);
+-		ireq->opt = NULL;
++		ireq->ireq_opt = NULL;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		ireq->pktopts = NULL;
+ #endif
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 85164d4d3e537537c87d74c00172592c860d4dfb..4c43365c374c8bf868fc0b862333244ca26d5016 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -877,7 +877,7 @@ static int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
+ 
+ 		err = ip_build_and_send_pkt(skb, sk, ireq->ir_loc_addr,
+ 					    ireq->ir_rmt_addr,
+-					    ireq->opt);
++					    rcu_dereference(ireq->ireq_opt));
+ 		err = net_xmit_eval(err);
+ 	}
+ 
+@@ -889,7 +889,7 @@ static int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
+  */
+ static void tcp_v4_reqsk_destructor(struct request_sock *req)
+ {
+-	kfree(inet_rsk(req)->opt);
++	kfree(rcu_dereference_protected(inet_rsk(req)->ireq_opt, 1));
+ }
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -1265,10 +1265,11 @@ static void tcp_v4_init_req(struct request_sock *req,
+ 			    struct sk_buff *skb)
+ {
+ 	struct inet_request_sock *ireq = inet_rsk(req);
++	struct net *net = sock_net(sk_listener);
+ 
+ 	sk_rcv_saddr_set(req_to_sk(req), ip_hdr(skb)->daddr);
+ 	sk_daddr_set(req_to_sk(req), ip_hdr(skb)->saddr);
+-	ireq->opt = tcp_v4_save_options(sock_net(sk_listener), skb);
++	RCU_INIT_POINTER(ireq->ireq_opt, tcp_v4_save_options(net, skb));
+ }
+ 
+ static struct dst_entry *tcp_v4_route_req(const struct sock *sk,
+@@ -1355,10 +1356,9 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
+ 	sk_daddr_set(newsk, ireq->ir_rmt_addr);
+ 	sk_rcv_saddr_set(newsk, ireq->ir_loc_addr);
+ 	newsk->sk_bound_dev_if = ireq->ir_iif;
+-	newinet->inet_saddr	      = ireq->ir_loc_addr;
+-	inet_opt	      = ireq->opt;
+-	rcu_assign_pointer(newinet->inet_opt, inet_opt);
+-	ireq->opt	      = NULL;
++	newinet->inet_saddr   = ireq->ir_loc_addr;
++	inet_opt	      = rcu_dereference(ireq->ireq_opt);
++	RCU_INIT_POINTER(newinet->inet_opt, inet_opt);
+ 	newinet->mc_index     = inet_iif(skb);
+ 	newinet->mc_ttl	      = ip_hdr(skb)->ttl;
+ 	newinet->rcv_tos      = ip_hdr(skb)->tos;
+@@ -1403,9 +1403,12 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
+ 	if (__inet_inherit_port(sk, newsk) < 0)
+ 		goto put_and_exit;
+ 	*own_req = inet_ehash_nolisten(newsk, req_to_sk(req_unhash));
+-	if (*own_req)
++	if (likely(*own_req)) {
+ 		tcp_move_syn(newtp, req);
+-
++		ireq->ireq_opt = NULL;
++	} else {
++		newinet->inet_opt = NULL;
++	}
+ 	return newsk;
+ 
+ exit_overflow:
+@@ -1416,6 +1419,7 @@ struct sock *tcp_v4_syn_recv_sock(const struct sock *sk, struct sk_buff *skb,
+ 	tcp_listendrop(sk);
+ 	return NULL;
+ put_and_exit:
++	newinet->inet_opt = NULL;
+ 	inet_csk_prepare_forced_close(newsk);
+ 	tcp_done(newsk);
+ 	goto exit;
