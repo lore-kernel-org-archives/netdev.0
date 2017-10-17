@@ -1,11 +1,11 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 05/58] net/irda/bfin_sir: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:28:49 -0700
-Message-ID: <1508200182-104605-6-git-send-email-keescook@chromium.org>
+Subject: [PATCH 07/58] net/usb/usbnet: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:28:51 -0700
+Message-ID: <1508200182-104605-8-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
+        Oliver Neukum <oneukum@suse.com>, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,60 +15,52 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+to pass the timer pointer explicitly. Since the callback is called from
+both a timer and a tasklet, adjust the tasklet to pass the timer address
+too. When tasklets have their .data field removed, this can be refactored
+to call a central function after resolving the correct container_of() for a
+separate callback function for timer and tasklet.
 
-Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: Oliver Neukum <oneukum@suse.com>
 Cc: netdev@vger.kernel.org
+Cc: linux-usb@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/staging/irda/drivers/bfin_sir.c | 12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ drivers/net/usb/usbnet.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/staging/irda/drivers/bfin_sir.c b/drivers/staging/irda/drivers/bfin_sir.c
-index 3151b580dbd6..59e409b68349 100644
---- a/drivers/staging/irda/drivers/bfin_sir.c
-+++ b/drivers/staging/irda/drivers/bfin_sir.c
-@@ -22,6 +22,8 @@ static int max_rate = 57600;
- static int max_rate = 115200;
- #endif
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 6510e5cc1817..80348b6a8646 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1509,9 +1509,9 @@ static int rx_alloc_submit(struct usbnet *dev, gfp_t flags)
  
-+static void bfin_sir_rx_dma_timeout(struct timer_list *t);
-+
- static void turnaround_delay(int mtt)
+ // tasklet (work deferred from completions, in_irq) or timer
+ 
+-static void usbnet_bh (unsigned long param)
++static void usbnet_bh (struct timer_list *t)
  {
- 	long ticks;
-@@ -57,7 +59,7 @@ static void bfin_sir_init_ports(struct bfin_sir_port *sp, struct platform_device
- 	sp->clk = get_sclk();
- #ifdef CONFIG_SIR_BFIN_DMA
- 	sp->tx_done        = 1;
--	init_timer(&(sp->rx_dma_timer));
-+	timer_setup(&sp->rx_dma_timer, bfin_sir_rx_dma_timeout, 0);
- #endif
- }
+-	struct usbnet		*dev = (struct usbnet *) param;
++	struct usbnet		*dev = from_timer(dev, t, delay);
+ 	struct sk_buff		*skb;
+ 	struct skb_data		*entry;
  
-@@ -317,10 +319,12 @@ static void bfin_sir_dma_rx_chars(struct net_device *dev)
- 		async_unwrap_char(dev, &self->stats, &self->rx_buff, port->rx_dma_buf.buf[i]);
- }
- 
--void bfin_sir_rx_dma_timeout(struct net_device *dev)
-+static void bfin_sir_rx_dma_timeout(struct timer_list *t)
- {
-+	struct bfin_sir_port *port = from_timer(port, t, rx_dma_timer);
-+	struct net_device *dev = port->dev;
- 	struct bfin_sir_self *self = netdev_priv(dev);
--	struct bfin_sir_port *port = self->sir_port;
-+
- 	int x_pos, pos;
- 	unsigned long flags;
- 
-@@ -405,8 +409,6 @@ static int bfin_sir_startup(struct bfin_sir_port *port, struct net_device *dev)
- 	set_dma_start_addr(port->rx_dma_channel, (unsigned long)port->rx_dma_buf.buf);
- 	enable_dma(port->rx_dma_channel);
- 
--	port->rx_dma_timer.data = (unsigned long)(dev);
--	port->rx_dma_timer.function = (void *)bfin_sir_rx_dma_timeout;
- 
- #else
- 
+@@ -1694,13 +1694,11 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	skb_queue_head_init (&dev->txq);
+ 	skb_queue_head_init (&dev->done);
+ 	skb_queue_head_init(&dev->rxq_pause);
+-	dev->bh.func = usbnet_bh;
+-	dev->bh.data = (unsigned long) dev;
++	dev->bh.func = (void (*)(unsigned long))usbnet_bh;
++	dev->bh.data = (unsigned long)&dev->delay;
+ 	INIT_WORK (&dev->kevent, usbnet_deferred_kevent);
+ 	init_usb_anchor(&dev->deferred);
+-	dev->delay.function = usbnet_bh;
+-	dev->delay.data = (unsigned long) dev;
+-	init_timer (&dev->delay);
++	timer_setup(&dev->delay, usbnet_bh, 0);
+ 	mutex_init (&dev->phy_mutex);
+ 	mutex_init(&dev->interrupt_mutex);
+ 	dev->interrupt_count = 0;
 -- 
 2.7.4
