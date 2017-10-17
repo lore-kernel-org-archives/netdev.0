@@ -1,47 +1,60 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: WARNING in tcp_update_reordering
-Date: Mon, 16 Oct 2017 19:00:39 -0600
-Message-ID: <7a626cf6-e1c4-ea17-c790-a6901383b1b1@gmail.com>
-References: <5cd139e4-5a50-ba99-d54a-cfe06ccee3e9@gmail.com>
- <CAK6E8=ejn5GoscPBh5PdhQTzcU1wZ66=8ZS806Tox_S9CvnZaA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Andrei Vagin <avagin@gmail.com>
-To: Yuchung Cheng <ycheng@google.com>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v9 1/6] net/sched: Check for null dev_queue on create flow
+Date: Mon, 16 Oct 2017 18:01:23 -0700
+Message-ID: <20171017010128.22141-2-vinicius.gomes@intel.com>
+References: <20171017010128.22141-1-vinicius.gomes@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:47058 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752981AbdJQBAl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 21:00:41 -0400
-Received: by mail-pf0-f195.google.com with SMTP id p87so98035pfj.3
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 18:00:41 -0700 (PDT)
-In-Reply-To: <CAK6E8=ejn5GoscPBh5PdhQTzcU1wZ66=8ZS806Tox_S9CvnZaA@mail.gmail.com>
-Content-Language: en-US
+Received: from mga11.intel.com ([192.55.52.93]:20204 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753094AbdJQBBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 21:01:44 -0400
+In-Reply-To: <20171017010128.22141-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ cc Andrei who reported a similar trace ]
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 
-On 10/16/17 6:50 PM, Yuchung Cheng wrote:
-> On Mon, Oct 16, 2017 at 3:38 PM, David Ahern <dsahern@gmail.com> wrote:
->> I need to throw this one over the fence. I triggered the trace below
->> testing changes to the tcp tracepoint. It is not readily reproducible
->> and does not appear to be correlated to the perf session.
-> We're seeing this internally at Google a lot as well. The culprit is
-> because TCP tries to measure/track reordering in precise packet
-> distance (tp->reordering). That's difficult but also fairly useless to
-> get right because that highly depends on the instantaneous
-> traffic load and L2/pathing behavior. In other words the previous
-> reordering degree has little bearing for my next reordering based on
-> our analysis. The
-> warning itself has minor to no impact on TCP performance or
-> reliability.
-> 
-> I am testing a patch to replace that approach (and remove the
-> warning). Should be ready soon.
-> 
+In qdisc_alloc() the dev_queue pointer was used without any checks
+being performed. If qdisc_create() gets a null dev_queue pointer, it
+just passes it along to qdisc_alloc(), leading to a crash. That
+happens if a root qdisc implements select_queue() and returns a null
+dev_queue pointer for an "invalid handle", for example, or if the
+dev_queue associated with the parent qdisc is null.
 
-Thanks for the update.
+This patch is in preparation for the next in this series, where
+select_queue() is being added to mqprio and as it may return a null
+dev_queue.
+
+Signed-off-by: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+---
+ net/sched/sch_generic.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index a0a198768aad..de2408f1ccd3 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -603,8 +603,14 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 	struct Qdisc *sch;
+ 	unsigned int size = QDISC_ALIGN(sizeof(*sch)) + ops->priv_size;
+ 	int err = -ENOBUFS;
+-	struct net_device *dev = dev_queue->dev;
++	struct net_device *dev;
++
++	if (!dev_queue) {
++		err = -EINVAL;
++		goto errout;
++	}
+ 
++	dev = dev_queue->dev;
+ 	p = kzalloc_node(size, GFP_KERNEL,
+ 			 netdev_queue_numa_node_read(dev_queue));
+ 
+-- 
+2.14.2
