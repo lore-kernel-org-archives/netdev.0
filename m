@@ -1,58 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: linux-next: net/sched/cls_flower.c
-Date: Tue, 17 Oct 2017 12:21:07 +0200
-Message-ID: <20171017102107.GF2112@nanopsycho>
-References: <20171017101509.soy55d4ipx3dusbo@sirena.co.uk>
+From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH v2 00/15] make structure field, function arguments and
+ structures const
+Date: Tue, 17 Oct 2017 12:23:50 +0200
+Message-ID: <20171017102350.GA25786@kroah.com>
+References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
+ <20171017101245.GA4646@kroah.com>
+ <alpine.DEB.2.20.1710171216060.5035@hadrien>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Mark Brown <broonie@kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
+Cc: Bhumika Goyal <bhumirks-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org,
+        lenb-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, knaack.h-Mmb7MZpHnFY@public.gmane.org, lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org,
+        pmeerw-jW+XmwGofnusTnJN9+BGXg@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, hch-jcswGhMUV9g@public.gmane.org, sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org,
+        kishon-l0cyMroinI0@public.gmane.org, bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org,
+        balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org,
+        jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        mfasheh-rOS7oXVqrJRBDgjK7y7TUQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-iio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, target-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        ocfs2-
+To: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+Return-path: <linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20171017101509.soy55d4ipx3dusbo@sirena.co.uk>
-Sender: linux-next-owner@vger.kernel.org
+In-Reply-To: <alpine.DEB.2.20.1710171216060.5035@hadrien>
+Sender: linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Oct 17, 2017 at 12:15:09PM CEST, broonie@kernel.org wrote:
->Hi all,
->
->After merging the net-next tree, today's linux-next build
->(x86_allmodconfig) failed like this:
->
->/home/broonie/tmpfs/next/net/sched/cls_flower.c: In function 'fl_hw_destroy_filter':
->/home/broonie/tmpfs/next/net/sched/cls_flower.c:208:12: error: 'struct tc_cls_flower_offload' has no member named 'egress_dev'
->  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
->            ^
->/home/broonie/tmpfs/next/net/sched/cls_flower.c:208:27: error: 'struct cls_fl_filter' has no member named 'hw_dev'
->  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
->                           ^
->/home/broonie/tmpfs/next/net/sched/cls_flower.c: In function 'fl_hw_update_stats':
->/home/broonie/tmpfs/next/net/sched/cls_flower.c:270:12: error: 'struct tc_cls_flower_offload' has no member named 'egress_dev'
->  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
->            ^
->/home/broonie/tmpfs/next/net/sched/cls_flower.c:270:27: error: 'struct cls_fl_filter' has no member named 'hw_dev'
->  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+On Tue, Oct 17, 2017 at 12:16:18PM +0200, Julia Lawall wrote:
+> 
+> 
+> On Tue, 17 Oct 2017, Greg KH wrote:
+> 
+> > On Mon, Oct 16, 2017 at 05:18:39PM +0200, Bhumika Goyal wrote:
+> > > Make the ci_type field and some function arguments as const. After this
+> > > change, make config_item_type structures as const.
+> > >
+> > > * Changes in v2- Combine all the followup patches and the constification
+> > > patches into a series.
+> >
+> > Who do you want to take these patches?  If you want, I can take them
+> > through my driver-core tree, which has done other configfs stuff like
+> > this in the past.
+> 
+> Christoph Hellwig proposed to take care of it.
 
-This fix ("net/sched: cls_flower: Set egress_dev mark when calling into the HW driver")
-went to -net tree, should not go to -next. Apparently there is some mixup.
-DaveM?
+Great!  I'll go ack the individual ones that I might need to...
 
+thanks,
 
->                           ^
->/home/broonie/tmpfs/next/scripts/Makefile.build:319: recipe for target 'net/sched/cls_flower.o' failed
->
->Caused by commit
->
->  7578d7b45ed870b13a8ace57e32feaed623c2a94 ("net/sched: cls_flower: Set egress_dev mark when calling into the HW driver")
->
->interacting with 
->
->  7578d7b45ed870b1 ("net: sched: remove unused tcf_exts_get_dev helper and cls_flower->egress_dev")
->
->both in the net-next tree.  Falling back to previous net-next trees
->introduced other issues so I reverted that commit for today.
+greg k-h
