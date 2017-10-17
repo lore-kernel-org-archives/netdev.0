@@ -1,127 +1,57 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: WARNING in tcp_update_reordering
-Date: Mon, 16 Oct 2017 17:50:50 -0700
-Message-ID: <CAK6E8=ejn5GoscPBh5PdhQTzcU1wZ66=8ZS806Tox_S9CvnZaA@mail.gmail.com>
-References: <5cd139e4-5a50-ba99-d54a-cfe06ccee3e9@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:48096 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754608AbdJQAvc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 20:51:32 -0400
-Received: by mail-wm0-f44.google.com with SMTP id t69so590252wmt.2
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 17:51:32 -0700 (PDT)
-In-Reply-To: <5cd139e4-5a50-ba99-d54a-cfe06ccee3e9@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH 57/58] ipv4: timewait: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:41 -0700
+Message-ID: <1508200182-104605-58-git-send-email-keescook@chromium.org>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+        linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 16, 2017 at 3:38 PM, David Ahern <dsahern@gmail.com> wrote:
->
-> I need to throw this one over the fence. I triggered the trace below
-> testing changes to the tcp tracepoint. It is not readily reproducible
-> and does not appear to be correlated to the perf session.
-We're seeing this internally at Google a lot as well. The culprit is
-because TCP tries to measure/track reordering in precise packet
-distance (tp->reordering). That's difficult but also fairly useless to
-get right because that highly depends on the instantaneous
-traffic load and L2/pathing behavior. In other words the previous
-reordering degree has little bearing for my next reordering based on
-our analysis. The
-warning itself has minor to no impact on TCP performance or
-reliability.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-I am testing a patch to replace that approach (and remove the
-warning). Should be ready soon.
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ net/ipv4/inet_timewait_sock.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
->
-> Triggered by the following:
->   ssh into VM and run 'top -d1'
->   in host, drop tcp packets:
->     $ sudo iptables -I INPUT -i br1 -p tcp -j DROP
->   and then 5 - 7 seconds later remove the rule:
->     $ sudo iptables -D INPUT -i br1 -p tcp -j DROP
->
-> [   73.695849] ------------[ cut here ]------------
-> [   73.697258] WARNING: CPU: 1 PID: 0 at
-> /home/dsa/kernel-2.git/net/ipv4/tcp_input.c:889
-> tcp_update_reordering+0x4/0x72
-> [   73.700306] Modules linked in: vrf
-> [   73.701316] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.14.0-rc4+ #43
-> [   73.703170] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-> BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-> [   73.706040] task: ffff88003e132180 task.stack: ffffc90000078000
-> [   73.707769] RIP: 0010:tcp_update_reordering+0x4/0x72
-> [   73.709209] RSP: 0018:ffff88003fd039c0 EFLAGS: 00010282
-> [   73.710702] RAX: 0000000000000004 RBX: ffff88003c7be800 RCX:
-> 0000000000000004
-> [   73.711797] RDX: 0000000000000000 RSI: 00000000fffffffb RDI:
-> ffff88003c7be800
-> [   73.712809] RBP: ffff88003fd03a38 R08: 0000000000000000 R09:
-> 0000000000000000
-> [   73.713831] R10: ffff88003fd03a90 R11: 0000000000000000 R12:
-> ffff88003fd03a90
-> [   73.714846] R13: 0000000000000000 R14: ffff88003c7bef40 R15:
-> ffff88003c7bef48
-> [   73.715871] FS:  0000000000000000(0000) GS:ffff88003fd00000(0000)
-> knlGS:0000000000000000
-> [   73.717016] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   73.717823] CR2: 000056441f284000 CR3: 000000003d7ba002 CR4:
-> 00000000000606e0
-> [   73.718834] Call Trace:
-> [   73.719193]  <IRQ>
-> [   73.719497]  ? tcp_sacktag_write_queue+0x533/0x5ab
-> [   73.720180]  ? tcp_mtu_to_mss+0xd/0x1c
-> [   73.720718]  tcp_ack+0x320/0xd21
-> [   73.721189]  tcp_rcv_established+0x251/0x2c2
-> [   73.721799]  tcp_v4_do_rcv+0x9a/0x169
-> [   73.722328]  tcp_v4_rcv+0x55c/0x7bb
-> [   73.722841]  ip_local_deliver_finish+0xc0/0x141
-> [   73.723486]  ip_local_deliver+0xa5/0xae
-> [   73.724038]  ? xfrm4_policy_check.constprop.10+0x52/0x52
-> [   73.724787]  ip_rcv_finish+0x2de/0x35c
-> [   73.725326]  ip_rcv+0x271/0x2ea
-> [   73.725787]  ? deliver_ptype_list_skb+0x48/0x69
-> [   73.726430]  __netif_receive_skb_core+0x326/0x54a
-> [   73.727112]  ? kvm_clock_read+0x1e/0x20
-> [   73.727664]  ? kvm_clock_get_cycles+0x9/0xb
-> [   73.728257]  __netif_receive_skb+0x16/0x6d
-> [   73.728837]  ? __netif_receive_skb+0x16/0x6d
-> [   73.729446]  netif_receive_skb_internal+0x4d/0xa3
-> [   73.730116]  napi_gro_receive+0x75/0xcc
-> [   73.730667]  receive_buf+0xa05/0xa16
-> [   73.731192]  ? vring_unmap_one+0x1a/0x68
-> [   73.731754]  virtnet_poll+0x103/0x1b1
-> [   73.732284]  net_rx_action+0xdb/0x249
-> [   73.732814]  __do_softirq+0xfc/0x26b
-> [   73.733332]  irq_exit+0x51/0x92
-> [   73.733788]  do_IRQ+0x98/0xb0
-> [   73.734225]  common_interrupt+0x93/0x93
-> [   73.734779]  </IRQ>
-> [   73.735095] RIP: 0010:native_safe_halt+0x6/0x8
-> [   73.735726] RSP: 0018:ffffc9000007bea8 EFLAGS: 00000246 ORIG_RAX:
-> ffffffffffffff6e
-> [   73.736784] RAX: 0000000000000000 RBX: 0000000000000000 RCX:
-> ffff88003fd10ca0
-> [   73.737776] RDX: 00000000000101ba RSI: 0000000000000001 RDI:
-> 0000000000000001
-> [   73.738780] RBP: ffffc9000007bea8 R08: ffff88003d48a900 R09:
-> 0000000000000200
-> [   73.739777] R10: 0000000000000003 R11: 0000000000000001 R12:
-> 0000000000000000
-> [   73.740779] R13: ffff88003e132180 R14: ffff88003e132180 R15:
-> ffff88003e132180
-> [   73.741781]  default_idle+0x1a/0x2d
-> [   73.742285]  arch_cpu_idle+0xa/0xc
-> [   73.742784]  default_idle_call+0x19/0x1b
-> [   73.743352]  do_idle+0xd7/0x1a9
-> [   73.743807]  cpu_startup_entry+0x1a/0x1c
-> [   73.744371]  start_secondary+0x11e/0x120
-> [   73.744930]  secondary_startup_64+0xa5/0xa5
-> [   73.745526] Code: 02 74 0b 48 c7 87 e0 06 00 00 00 00 00 00 8a 97 2c
-> 06 00 00 83 e0 0d c1 e0 04 5d 83 e2 0f 09 d0 88 87 2c 06 00 00 c3 85 f6
-> 79 03 <0f> ff c3 3b b7 10 06 00 00 55 48 89 e5 41 54 41 89 d4 53 48 89
-> [   73.748142] ---[ end trace 730e0fcd13f383bc ]---
+diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
+index 5b039159e67a..a4bab81f1462 100644
+--- a/net/ipv4/inet_timewait_sock.c
++++ b/net/ipv4/inet_timewait_sock.c
+@@ -142,9 +142,9 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
+ }
+ EXPORT_SYMBOL_GPL(__inet_twsk_hashdance);
+ 
+-static void tw_timer_handler(unsigned long data)
++static void tw_timer_handler(struct timer_list *t)
+ {
+-	struct inet_timewait_sock *tw = (struct inet_timewait_sock *)data;
++	struct inet_timewait_sock *tw = from_timer(tw, t, tw_timer);
+ 
+ 	if (tw->tw_kill)
+ 		__NET_INC_STATS(twsk_net(tw), LINUX_MIB_TIMEWAITKILLED);
+@@ -188,8 +188,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
+ 		tw->tw_prot	    = sk->sk_prot_creator;
+ 		atomic64_set(&tw->tw_cookie, atomic64_read(&sk->sk_cookie));
+ 		twsk_net_set(tw, sock_net(sk));
+-		setup_pinned_timer(&tw->tw_timer, tw_timer_handler,
+-				   (unsigned long)tw);
++		timer_setup(&tw->tw_timer, tw_timer_handler, TIMER_PINNED);
+ 		/*
+ 		 * Because we use RCU lookups, we should not set tw_refcnt
+ 		 * to a non null value before everything is setup for this
+-- 
+2.7.4
