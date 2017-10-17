@@ -1,54 +1,44 @@
-From: Henrik Austad <henrik@austad.us>
-Subject: [PATCH] net: export netdev_txq_to_tc to allow sch_mqprio to compile as module
-Date: Tue, 17 Oct 2017 12:10:10 +0200
-Message-ID: <1508235010-4056-1-git-send-email-haustad@cisco.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsahern@gmail.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Willem de Bruijn <willemb@google.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        tcharding <me@tobin.cc>, linux-kernel@vger.kernel.org,
-        Henrik Austad <haustad@cisco.com>,
-        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 00/15] make structure field, function arguments and
+ structures const
+Date: Tue, 17 Oct 2017 12:12:45 +0200
+Message-ID: <20171017101245.GA4646@kroah.com>
+References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
+        alexander.shishkin@linux.intel.com, jic23@kernel.org,
+        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
+        dledford@redhat.com, sean.hefty@intel.com,
+        hal.rosenstock@gmail.com, hch@lst.de, sagi@grimberg.me,
+        kishon@ti.com, bhelgaas@google.com, nab@linux-iscsi.org,
+        balbi@kernel.org, laurent.pinchart@ideasonboard.com,
+        jlbec@evilplan.org, ccaulfie@redhat.com, teigland@redhat.com,
+        mfasheh@versity.com, linux-acpi@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-iio@vger.kernel.org,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-nvme@lists.infradead.org, linux-pci@vger.kernel.org,
+        linux-scsi@vger.kernel.org, target-devel@vger.kernel.org,
+        linux-usb@vger.kernel.org, cluster-devel@redhat.com,
+        ocfs2-devel@oss.orac
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <target-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In commit 32302902ff09 ("mqprio: Reserve last 32 classid values for HW
-traffic classes and misc IDs") sch_mqprio started using netdev_txq_to_tc
-to find the correct tc instead of dev->tc_to_txq[]
+On Mon, Oct 16, 2017 at 05:18:39PM +0200, Bhumika Goyal wrote:
+> Make the ci_type field and some function arguments as const. After this
+> change, make config_item_type structures as const.
+> 
+> * Changes in v2- Combine all the followup patches and the constification
+> patches into a series.
 
-However, when mqprio is compiled as a module, it cannot resolve the
-symbol, leading to this error:
+Who do you want to take these patches?  If you want, I can take them
+through my driver-core tree, which has done other configfs stuff like
+this in the past.
 
-     ERROR: "netdev_txq_to_tc" [net/sched/sch_mqprio.ko] undefined!
+thanks,
 
-This adds an EXPORT_SYMBOL() since the other user in the kernel
-(netif_set_xps_queue) is also EXPORT_SYMBOL() (and not _GPL) or in a
-sysfs-callback.
-
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Henrik Austad <haustad@cisco.com>
----
- net/core/dev.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fcddccb..d2b20e7 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2040,6 +2040,7 @@ int netdev_txq_to_tc(struct net_device *dev, unsigned int txq)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(netdev_txq_to_tc);
- 
- #ifdef CONFIG_XPS
- static DEFINE_MUTEX(xps_map_mutex);
--- 
-2.7.4
+greg k-h
