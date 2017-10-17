@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/20] bnxt: Convert ndo_setup_tc offloads to block callbacks
-Date: Tue, 17 Oct 2017 22:06:06 +0200
-Message-ID: <20171017200615.4530-12-jiri@resnulli.us>
+Subject: [patch net-next 10/20] mlx5e: Convert ndo_setup_tc offloads to block callbacks
+Date: Tue, 17 Oct 2017 22:06:05 +0200
+Message-ID: <20171017200615.4530-11-jiri@resnulli.us>
 References: <20171017200615.4530-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,12 +14,12 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:43794 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764053AbdJQUG0 (ORCPT
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:47459 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764052AbdJQUG0 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:26 -0400
-Received: by mail-wr0-f193.google.com with SMTP id p46so2908176wrb.0
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:26 -0700 (PDT)
+Received: by mail-wr0-f194.google.com with SMTP id y39so2906688wrd.4
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:25 -0700 (PDT)
 In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -31,146 +31,162 @@ convert ndo_setup_tc calls for flower offloads to block callbacks.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 37 +++++++++++++++++++----
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c  |  3 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 43 +++++++++++++++++++++++++--
- 3 files changed, 73 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 45 ++++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c  | 24 +++++-------
+ 3 files changed, 51 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 5ba4993..4dde2b8 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7295,15 +7295,40 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index ca8845b..e613ce0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -1056,8 +1056,8 @@ int mlx5e_ethtool_get_ts_info(struct mlx5e_priv *priv,
+ int mlx5e_ethtool_flash_device(struct mlx5e_priv *priv,
+ 			       struct ethtool_flash *flash);
+ 
+-int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-		   void *type_data);
++int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
++			    void *cb_priv);
+ 
+ /* mlx5e generic netdev management API */
+ struct net_device*
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 3a1969a..e810868 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3083,13 +3083,10 @@ static int mlx5e_setup_tc_mqprio(struct net_device *netdev,
  }
  
--static int bnxt_setup_flower(struct net_device *dev,
--			     struct tc_cls_flower_offload *cls_flower)
-+static int bnxt_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+				  void *cb_priv)
+ #ifdef CONFIG_MLX5_ESWITCH
+-static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
++static int mlx5e_setup_tc_cls_flower(struct mlx5e_priv *priv,
+ 				     struct tc_cls_flower_offload *cls_flower)
  {
--	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt *bp = cb_priv;
- 
- 	if (BNXT_VF(bp))
- 		return -EOPNOTSUPP;
- 
--	return bnxt_tc_setup_flower(bp, bp->pf.fw_fid, cls_flower);
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return bnxt_tc_setup_flower(bp, bp->pf.fw_fid, type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int bnxt_setup_tc_block(struct net_device *dev,
-+			       struct tc_block_offload *f)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block, bnxt_setup_tc_block_cb,
-+					     bp, bp);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block, bnxt_setup_tc_block_cb, bp);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
- }
- 
- static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
-@@ -7311,7 +7336,9 @@ static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
- {
- 	switch (type) {
- 	case TC_SETUP_CLSFLOWER:
--		return bnxt_setup_flower(dev, type_data);
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return bnxt_setup_tc_block(dev, type_data);
- 	case TC_SETUP_MQPRIO: {
- 		struct tc_mqprio_qopt *mqprio = type_data;
- 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-index 4730c04..a9cb653 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-@@ -748,8 +748,7 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
- {
- 	int rc = 0;
- 
+-	struct mlx5e_priv *priv = netdev_priv(dev);
+-
 -	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
 -	    cls_flower->common.chain_index)
 +	if (cls_flower->common.chain_index)
  		return -EOPNOTSUPP;
  
  	switch (cls_flower->command) {
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-index e75db04..cc278d7 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-@@ -115,10 +115,11 @@ bnxt_vf_rep_get_stats64(struct net_device *dev,
- 	stats->tx_bytes = vf_rep->tx_stats.bytes;
- }
- 
--static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
--				void *type_data)
-+static int bnxt_vf_rep_setup_tc_block_cb(enum tc_setup_type type,
-+					 void *type_data,
-+					 void *cb_priv)
- {
--	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
-+	struct bnxt_vf_rep *vf_rep = cb_priv;
- 	struct bnxt *bp = vf_rep->bp;
- 	int vf_fid = bp->pf.vf[vf_rep->vf_idx].fw_fid;
- 
-@@ -130,6 +131,42 @@ static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
+@@ -3103,6 +3100,40 @@ static int mlx5e_setup_tc_cls_flower(struct net_device *dev,
+ 		return -EOPNOTSUPP;
  	}
  }
- 
-+static int bnxt_vf_rep_setup_tc_block(struct net_device *dev,
-+				      struct tc_block_offload *f)
++
++int mlx5e_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
++			    void *cb_priv)
 +{
-+	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
++	struct mlx5e_priv *priv = cb_priv;
++
++	switch (type) {
++	case TC_SETUP_CLSFLOWER:
++		return mlx5e_setup_tc_cls_flower(priv, type_data);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static int mlx5e_setup_tc_block(struct net_device *dev,
++				struct tc_block_offload *f)
++{
++	struct mlx5e_priv *priv = netdev_priv(dev);
 +
 +	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
 +		return -EOPNOTSUPP;
 +
 +	switch (f->command) {
 +	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block,
-+					     bnxt_vf_rep_setup_tc_block_cb,
-+					     vf_rep, vf_rep);
-+		return 0;
++		return tcf_block_cb_register(f->block, mlx5e_setup_tc_block_cb,
++					     priv, priv);
 +	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block,
-+					bnxt_vf_rep_setup_tc_block_cb, vf_rep);
++		tcf_block_cb_unregister(f->block, mlx5e_setup_tc_block_cb,
++					priv);
 +		return 0;
 +	default:
 +		return -EOPNOTSUPP;
 +	}
 +}
-+
-+static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+				void *type_data)
-+{
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
+ #endif
+ 
+ int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
+@@ -3111,7 +3142,9 @@ int mlx5e_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 	switch (type) {
+ #ifdef CONFIG_MLX5_ESWITCH
+ 	case TC_SETUP_CLSFLOWER:
+-		return mlx5e_setup_tc_cls_flower(dev, type_data);
 +		return 0; /* will be removed after conversion from ndo */
 +	case TC_SETUP_BLOCK:
-+		return bnxt_vf_rep_setup_tc_block(dev, type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- struct net_device *bnxt_get_vf_rep(struct bnxt *bp, u16 cfa_code)
++		return mlx5e_setup_tc_block(dev, type_data);
+ #endif
+ 	case TC_SETUP_MQPRIO:
+ 		return mlx5e_setup_tc_mqprio(dev, type_data);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+index 765fc74..4edd92d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+@@ -691,14 +691,6 @@ static int mlx5e_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 	}
+ }
+ 
+-static int mlx5e_rep_setup_tc_cb(enum tc_setup_type type, void *type_data,
+-				 void *cb_priv)
+-{
+-	struct net_device *dev = cb_priv;
+-
+-	return mlx5e_setup_tc(dev, type, type_data);
+-}
+-
+ bool mlx5e_is_uplink_rep(struct mlx5e_priv *priv)
  {
- 	u16 vf_idx;
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+@@ -987,6 +979,7 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ {
+ 	struct mlx5e_rep_priv *rpriv;
+ 	struct net_device *netdev;
++	struct mlx5e_priv *upriv;
+ 	int err;
+ 
+ 	rpriv = kzalloc(sizeof(*rpriv), GFP_KERNEL);
+@@ -1018,8 +1011,9 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ 		goto err_detach_netdev;
+ 	}
+ 
+-	err = tc_setup_cb_egdev_register(netdev, mlx5e_rep_setup_tc_cb,
+-					 mlx5_eswitch_get_uplink_netdev(esw));
++	upriv = netdev_priv(mlx5_eswitch_get_uplink_netdev(esw));
++	err = tc_setup_cb_egdev_register(netdev, mlx5e_setup_tc_block_cb,
++					 upriv);
+ 	if (err)
+ 		goto err_neigh_cleanup;
+ 
+@@ -1033,8 +1027,8 @@ mlx5e_vport_rep_load(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ 	return 0;
+ 
+ err_egdev_cleanup:
+-	tc_setup_cb_egdev_unregister(netdev, mlx5e_rep_setup_tc_cb,
+-				     mlx5_eswitch_get_uplink_netdev(esw));
++	tc_setup_cb_egdev_unregister(netdev, mlx5e_setup_tc_block_cb,
++				     upriv);
+ 
+ err_neigh_cleanup:
+ 	mlx5e_rep_neigh_cleanup(rpriv);
+@@ -1055,10 +1049,12 @@ mlx5e_vport_rep_unload(struct mlx5_eswitch *esw, struct mlx5_eswitch_rep *rep)
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	struct mlx5e_rep_priv *rpriv = priv->ppriv;
+ 	void *ppriv = priv->ppriv;
++	struct mlx5e_priv *upriv;
+ 
+ 	unregister_netdev(rep->netdev);
+-	tc_setup_cb_egdev_unregister(netdev, mlx5e_rep_setup_tc_cb,
+-				     mlx5_eswitch_get_uplink_netdev(esw));
++	upriv = netdev_priv(mlx5_eswitch_get_uplink_netdev(esw));
++	tc_setup_cb_egdev_unregister(netdev, mlx5e_setup_tc_block_cb,
++				     upriv);
+ 	mlx5e_rep_neigh_cleanup(rpriv);
+ 	mlx5e_detach_netdev(priv);
+ 	mlx5e_destroy_netdev(priv);
 -- 
 2.9.5
