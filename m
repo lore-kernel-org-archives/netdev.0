@@ -1,50 +1,169 @@
-From: =?UTF-8?B?c2hpcmlzaCDgpLbgpL/gpLDgpYDgpLc=?=
-        <shirishag75@gmail.com>
-Subject: homepage of iptuils-tracepth ?
-Date: Tue, 17 Oct 2017 01:09:54 +0000
-Message-ID: <CADdDZRkeghfMLc6+6jNh1mP+m8jxy6FMOqZhZMPHcmvMCWJGeg@mail.gmail.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Mon, 16 Oct 2017 18:10:42 -0700
+Message-ID: <81c15928-c445-fb8e-251c-bee566fbbf58@schaufler-ca.com>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+ <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+ <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:51307 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752214AbdJQBJz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 21:09:55 -0400
-Received: by mail-qk0-f182.google.com with SMTP id 17so132881qkq.8
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 18:09:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: cgroups@vger.kernel.org,
+        Linux Containers <containers@lists.linux-foundation.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        Linux Audit <linux-audit@redhat.com>,
+        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Linux Network Development <netdev@vger.kernel.org>,
+        mszeredi@redhat.com, Andy Lutomirski <luto@kernel.org>,
+        jlayton@redhat.com, Carlos O'Donell <carlos@redhat.com>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        David Howells <dhowells@redhat.com>,
+        Simo Sorce <simo@redhat.com>, trondmy@primarydata.com,
+        Eric Paris <eparis@parisplace.org>,
+        "Serge E. Hallyn" <serge@hallyn.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear all,
+On 10/16/2017 5:33 PM, Richard Guy Briggs wrote:
+> On 2017-10-12 16:33, Casey Schaufler wrote:
+>> On 10/12/2017 7:14 AM, Richard Guy Briggs wrote:
+>>> Containers are a userspace concept.  The kernel knows nothing of them.
+>>>
+>>> The Linux audit system needs a way to be able to track the container
+>>> provenance of events and actions.  Audit needs the kernel's help to do
+>>> this.
+>>>
+>>> Since the concept of a container is entirely a userspace concept, a
+>>> registration from the userspace container orchestration system initiates
+>>> this.  This will define a point in time and a set of resources
+>>> associated with a particular container with an audit container ID.
+>>>
+>>> The registration is a pseudo filesystem (proc, since PID tree already
+>>> exists) write of a u8[16] UUID representing the container ID to a file
+>>> representing a process that will become the first process in a new
+>>> container.  This write might place restrictions on mount namespaces
+>>> required to define a container, or at least careful checking of
+>>> namespaces in the kernel to verify permissions of the orchestrator so it
+>>> can't change its own container ID.  A bind mount of nsfs may be
+>>> necessary in the container orchestrator's mntNS.
+>>> Note: Use a 128-bit scalar rather than a string to make compares faster
+>>> and simpler.
+>>>
+>>> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
+>>> registration.
+>> Hang on. If containers are a user space concept, how can
+>> you want CAP_CONTAINER_ANYTHING? If there's not such thing as
+>> a container, how can you be asking for a capability to manage
+>> them?
+> There is such a thing, but the kernel doesn't know about it yet.
 
-Please CC me as I'm not subscribed to the list. I recently came across
-iptuils-tracepath . I tried to find the upstream homepage for it and
-saw http://www.skbuff.net/iputils/ but it shows an older version while
-Debian seems to have the later/latest
+Then how can it be the kernel's place to control access to a
+container resource, that is, the containerID.
 
-[$] apt-cache policy iputils-tracepath
-iputils-tracepath:
-  Installed: 3:20161105-1
-  Candidate: 3:20161105-1
-  Version table:
- *** 3:20161105-1 600
-        600 http://httpredir.debian.org/debian buster/main amd64 Packages
-          1 http://httpredir.debian.org/debian unstable/main amd64 Packages
-        100 /var/lib/dpkg/status
+>   This
+> same situation exists for loginuid and sessionid which are userspace
+> concepts that the kernel tracks for the convenience of userspace.
 
-while the one shown on the skbuff.net shows one from 2015 only. It
-would be nice to see a better home. Also there doesn't seem to be a
-mirror on github.com
+Ah, no. Loginuid identifies a user, which is a kernel concept in
+that a user is defined by the uid. The session ID has well defined
+kernel semantics. You're trying to say that the containerID is an
+opaque value that is meaningless to the kernel, but you still want
+the kernel to protect it. How can the kernel know if it is protecting
+it correctly?
 
-Look forward to know more.
+>   As
+> for its name, I'm not particularly picky, so if you don't like
+> CAP_CONTAINER_* then I'm fine with CAP_AUDIT_CONTAINERID.  It really
+> needs to be distinct from CAP_AUDIT_WRITE and CAP_AUDIT_CONTROL since we
+> don't want to give the ability to set a containerID to any process that
+> is able to do audit logging (such as vsftpd) and similarly we don't want
+> to give the orchestrator the ability to control the setup of the audit
+> daemon.
 
---=20
-          Regards,
-          Shirish Agarwal  =E0=A4=B6=E0=A4=BF=E0=A4=B0=E0=A5=80=E0=A4=B7 =
-=E0=A4=85=E0=A4=97=E0=A5=8D=E0=A4=B0=E0=A4=B5=E0=A4=BE=E0=A4=B2
-  My quotes in this email licensed under CC 3.0
-http://creativecommons.org/licenses/by-nc/3.0/
-http://flossexperiences.wordpress.com
-EB80 462B 08E1 A0DE A73A  2C2F 9F3D C7A4 E1C4 D2D8
+Sorry, but what aspect of the kernel security policy is this
+capability supposed to protect? That's what capabilities are
+for, not the undefined support of undefined user-space behavior.
+
+If it's audit behavior, you want CAP_AUDIT_CONTROL. If it's
+more than audit behavior you have to define what system security
+policy you're dealing with in order to pick the right capability.
+
+We get this request pretty regularly. "I need my own capability
+because I have a niche thing that isn't part of the system security
+policy but that is important!" Fit the containerID into the
+system security policy, and if that results in using CAP_SYS_ADMIN,
+oh well.
+
+>>>   At that time, record the target container's user-supplied
+>>> container identifier along with the target container's first process
+>>> (which may become the target container's "init" process) process ID
+>>> (referenced from the initial PID namespace), all namespace IDs (in the
+>>> form of a nsfs device number and inode number tuple) in a new auxilliary
+>>> record AUDIT_CONTAINER with a qualifying op=$action field.
+>>>
+>>> Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
+>>> container ID present on an auditable action or event.
+>>>
+>>> Forked and cloned processes inherit their parent's container ID,
+>>> referenced in the process' task_struct.
+>>>
+>>> Mimic setns(2) and return an error if the process has already initiated
+>>> threading or forked since this registration should happen before the
+>>> process execution is started by the orchestrator and hence should not
+>>> yet have any threads or children.  If this is deemed overly restrictive,
+>>> switch all threads and children to the new containerID.
+>>>
+>>> Trust the orchestrator to judiciously use and restrict CAP_CONTAINER_ADMIN.
+>>>
+>>> Log the creation of every namespace, inheriting/adding its spawning
+>>> process' containerID(s), if applicable.  Include the spawning and
+>>> spawned namespace IDs (device and inode number tuples).
+>>> [AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
+>>> Note: At this point it appears only network namespaces may need to track
+>>> container IDs apart from processes since incoming packets may cause an
+>>> auditable event before being associated with a process.
+>>>
+>>> Log the destruction of every namespace when it is no longer used by any
+>>> process, include the namespace IDs (device and inode number tuples).
+>>> [AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
+>>>
+>>> Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
+>>> the parent and child namespace IDs for any changes to a process'
+>>> namespaces. [setns(2)]
+>>> Note: It may be possible to combine AUDIT_NS_* record formats and
+>>> distinguish them with an op=$action field depending on the fields
+>>> required for each message type.
+>>>
+>>> When a container ceases to exist because the last process in that
+>>> container has exited and hence the last namespace has been destroyed and
+>>> its refcount dropping to zero, log the fact.
+>>> (This latter is likely needed for certification accountability.)  A
+>>> container object may need a list of processes and/or namespaces.
+>>>
+>>> A namespace cannot directly migrate from one container to another but
+>>> could be assigned to a newly spawned container.  A namespace can be
+>>> moved from one container to another indirectly by having that namespace
+>>> used in a second process in another container and then ending all the
+>>> processes in the first container.
+>>>
+>>> (v2)
+>>> - switch from u64 to u128 UUID
+>>> - switch from "signal" and "trigger" to "register"
+>>> - restrict registration to single process or force all threads and children into same container
+>>>
+>>> - RGB
+> - RGB
+>
+> --
+> Richard Guy Briggs <rgb@redhat.com>
+> Sr. S/W Engineer, Kernel Security, Base Operating Systems
+> Remote, Ottawa, Red Hat Canada
+> IRC: rgb, SunRaycer
+> Voice: +1.647.777.2635, Internal: (81) 32635
+>
