@@ -1,41 +1,82 @@
-From: "Bernat, Yehezkel" <yehezkel.bernat@intel.com>
-Subject: Re: [PATCH 2/2 net-next] thunderbolt: Right shifting to zero bug in
- tbnet_handle_packet()
-Date: Tue, 17 Oct 2017 13:17:30 +0000
-Message-ID: <1508246223.3477.28.camel@intel.com>
-References: <20171017123301.z6heqexdlo6lc52b@mwanda>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] sctp: suspicious rcu_read_lock() in sctp_packet_config()
+Date: Tue, 17 Oct 2017 06:45:56 -0700
+Message-ID: <1508247956.31614.103.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "mika.westerberg@linux.intel.com" <mika.westerberg@linux.intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
-        "Jamet, Michael" <michael.jamet@intel.com>,
-        "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20171017123301.z6heqexdlo6lc52b@mwanda>
-Content-Language: en-US
-Content-ID: <9174B1DF670B1C43BBBEDC8064AFDB9F@namprd11.prod.outlook.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
+        edumazet@google.com
+To: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Xin Long <lucien.xin@gmail.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:50968 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752540AbdJQNp6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 09:45:58 -0400
+Received: by mail-pg0-f44.google.com with SMTP id y7so1459017pgb.7
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 06:45:58 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE3LTEwLTE3IGF0IDE1OjMzICswMzAwLCBEYW4gQ2FycGVudGVyIHdyb3RlOg0K
-PiBUaGVyZSBpcyBhIHByb2JsZW0gd2hlbiB3ZSBkbzoNCj4gDQo+IAlzZXF1ZW5jZSA9IHBrZy0+
-aGRyLmxlbmd0aF9zbiAmIFRCSVBfSERSX1NOX01BU0s7DQo+IAlzZXF1ZW5jZSA+Pj0gVEJJUF9I
-RFJfU05fU0hJRlQ7DQo+IA0KPiBUQklQX0hEUl9TTl9TSElGVCBpcyAyNywgYW5kIHJpZ2h0IHNo
-aWZ0aW5nIGEgdTggMjcgYml0cyBpcyBhbHdheXMNCj4gZ29pbmcgdG8gcmVzdWx0IGluIHplcm8u
-wqDCoFRoZSBmaXggaXMgdG8gZGVjbGFyZSB0aGVzZSB2YXJpYWJsZXMgYXMNCj4gdTMyLg0KPiAN
-Cj4gRml4ZXM6IGU2OWI2YzAyYjRjMyAoIm5ldDogQWRkIHN1cHBvcnQgZm9yIG5ldHdvcmtpbmcg
-b3Zlcg0KPiBUaHVuZGVyYm9sdCBjYWJsZSIpDQo+IFNpZ25lZC1vZmYtYnk6IERhbiBDYXJwZW50
-ZXIgPGRhbi5jYXJwZW50ZXJAb3JhY2xlLmNvbT4NCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC90aHVuZGVyYm9sdC5jIGIvZHJpdmVycy9uZXQvdGh1bmRlcmJvbHQuYw0KPiBpbmRleCAx
-YTdiYzBiZjQ1OTguLjQzNTg1NDY4OGE3YSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvdGh1
-bmRlcmJvbHQuYw0KPiArKysgYi9kcml2ZXJzL25ldC90aHVuZGVyYm9sdC5jDQo+IEBAIC0zOTQs
-NyArMzk0LDcgQEAgc3RhdGljIGludCB0Ym5ldF9oYW5kbGVfcGFja2V0KGNvbnN0IHZvaWQgKmJ1
-ZiwNCj4gc2l6ZV90IHNpemUsIHZvaWQgKmRhdGEpDQo+IMKgCXN0cnVjdCB0Ym5ldCAqbmV0ID0g
-ZGF0YTsNCj4gwqAJdTMyIGNvbW1hbmRfaWQ7DQo+IMKgCWludCByZXQgPSAwOw0KPiAtCXU4IHNl
-cXVlbmNlOw0KPiArCXUzMiBzZXF1ZW5jZTsNCj4gwqAJdTY0IHJvdXRlOw0KPiDCoA0KPiDCoAkv
-KiBNYWtlIHN1cmUgdGhlIHBhY2tldCBpcyBmb3IgdXMgKi8NCg0KQWNrZWQtYnk6IFllaGV6a2Vs
-IEJlcm5hdCA8eWVoZXprZWwuYmVybmF0QGludGVsLmNvbT4NCg0KVGhhbmtzIQ0K
+SCTP experts.
+
+syszkaller reported a few crashes in sctp_packet_config() with invalid
+access to a deleted dst.
+
+The rcu_read_lock() in sctp_packet_config() is suspect.
+
+It does not protect anything at the moment.
+
+If we expect tp->dst to be manipulated/changed by another cpu/thread,
+then we need proper rcu protection.
+
+Following patch to show what would be a minimal change (but obviously
+bigger changes are needed, like sctp_transport_pmtu_check() and
+sctp_transport_dst_check(), and proper sparse annotations)
+
+
+BTW, sparse throws a lot of errors, any volunteer to clean this mess ?
+
+make C=2 M=net/sctp
+
+Thanks.
+
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 4a865cd06d76cd5b2aa417de618da3203f7b53e4..d7f320f5acc271189ec9474795b6ececed7ad2b9 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -86,6 +86,7 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
+ {
+ 	struct sctp_transport *tp = packet->transport;
+ 	struct sctp_association *asoc = tp->asoc;
++	struct dst_entry *dst;
+ 	struct sock *sk;
+ 
+ 	pr_debug("%s: packet:%p vtag:0x%x\n", __func__, packet, vtag);
+@@ -121,17 +122,15 @@ void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
+ 			sctp_packet_append_chunk(packet, chunk);
+ 	}
+ 
+-	if (!tp->dst)
+-		return;
+-
+ 	/* set packet max_size with gso_max_size if gso is enabled*/
+ 	rcu_read_lock();
+-	if (__sk_dst_get(sk) != tp->dst) {
+-		dst_hold(tp->dst);
+-		sk_setup_caps(sk, tp->dst);
++	dst = rcu_dereference(tp->dst);
++	if (dst) {
++		if (__sk_dst_get(sk) != dst && dst_hold_safe(dst))
++			sk_setup_caps(sk, dst);
++		packet->max_size = sk_can_gso(sk) ? dst->dev->gso_max_size
++						  : asoc->pathmtu;
+ 	}
+-	packet->max_size = sk_can_gso(sk) ? tp->dst->dev->gso_max_size
+-					  : asoc->pathmtu;
+ 	rcu_read_unlock();
+ }
+ 
