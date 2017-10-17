@@ -1,15 +1,12 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 42/58] isdnloop: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:26 -0700
-Message-ID: <1508200182-104605-43-git-send-email-keescook@chromium.org>
+Subject: [PATCH 20/58] atm: idt77252: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:04 -0700
+Message-ID: <1508200182-104605-21-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Karsten Keil <isdn@linux-pingi.de>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Johannes Berg <johannes.berg@intel.com>,
-        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+        Chas Williams <3chas3@gmail.com>,
+        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,112 +16,104 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. Added missing initialization for
-rb_timer.
+to pass the timer pointer explicitly. This required adding a pointer back
+to vc_map, and adjusting the locking around removal a bit.
 
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: Chas Williams <3chas3@gmail.com>
+Cc: linux-atm-general@lists.sourceforge.net
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/isdn/isdnloop/isdnloop.c | 33 ++++++++++++++-------------------
- 1 file changed, 14 insertions(+), 19 deletions(-)
+ drivers/atm/idt77252.c | 21 ++++++++++++---------
+ drivers/atm/idt77252.h |  3 +++
+ 2 files changed, 15 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
-index e97232646ba1..a4597e96c916 100644
---- a/drivers/isdn/isdnloop/isdnloop.c
-+++ b/drivers/isdn/isdnloop/isdnloop.c
-@@ -90,9 +90,9 @@ isdnloop_bchan_send(isdnloop_card *card, int ch)
-  *   data = pointer to card struct, set by kernel timer.data
-  */
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index 47f3c4ae0594..0e3b9c44c808 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -2073,21 +2073,19 @@ idt77252_rate_logindex(struct idt77252_dev *card, int pcr)
+ }
+ 
  static void
--isdnloop_pollbchan(unsigned long data)
-+isdnloop_pollbchan(struct timer_list *t)
+-idt77252_est_timer(unsigned long data)
++idt77252_est_timer(struct timer_list *t)
  {
--	isdnloop_card *card = (isdnloop_card *) data;
-+	isdnloop_card *card = from_timer(card, t, rb_timer);
+-	struct vc_map *vc = (struct vc_map *)data;
++	struct rate_estimator *est = from_timer(est, t, timer);
++	struct vc_map *vc = est->vc;
+ 	struct idt77252_dev *card = vc->card;
+-	struct rate_estimator *est;
  	unsigned long flags;
+ 	u32 rate, cps;
+ 	u64 ncells;
+ 	u8 lacr;
  
- 	if (card->flags & ISDNLOOP_FLAGS_B1ACTIVE)
-@@ -305,9 +305,9 @@ isdnloop_putmsg(isdnloop_card *card, unsigned char c)
-  *   data = pointer to card struct
-  */
- static void
--isdnloop_polldchan(unsigned long data)
-+isdnloop_polldchan(struct timer_list *t)
- {
--	isdnloop_card *card = (isdnloop_card *) data;
-+	isdnloop_card *card = from_timer(card, t, st_timer);
- 	struct sk_buff *skb;
- 	int avail;
- 	int left;
-@@ -373,8 +373,6 @@ isdnloop_polldchan(unsigned long data)
- 			card->flags |= ISDNLOOP_FLAGS_RBTIMER;
- 			spin_lock_irqsave(&card->isdnloop_lock, flags);
- 			del_timer(&card->rb_timer);
--			card->rb_timer.function = isdnloop_pollbchan;
--			card->rb_timer.data = (unsigned long) card;
- 			card->rb_timer.expires = jiffies + ISDNLOOP_TIMER_BCREAD;
- 			add_timer(&card->rb_timer);
- 			spin_unlock_irqrestore(&card->isdnloop_lock, flags);
-@@ -588,9 +586,10 @@ isdnloop_atimeout(isdnloop_card *card, int ch)
-  * Wrapper for isdnloop_atimeout().
-  */
- static void
--isdnloop_atimeout0(unsigned long data)
-+isdnloop_atimeout0(struct timer_list *t)
- {
--	isdnloop_card *card = (isdnloop_card *) data;
-+	isdnloop_card *card = from_timer(card, t, c_timer[0]);
-+
- 	isdnloop_atimeout(card, 0);
- }
+ 	spin_lock_irqsave(&vc->lock, flags);
+-	est = vc->estimator;
+-	if (!est)
++	if (!vc->estimator)
+ 		goto out;
+-
+ 	ncells = est->cells;
  
-@@ -598,9 +597,10 @@ isdnloop_atimeout0(unsigned long data)
-  * Wrapper for isdnloop_atimeout().
-  */
- static void
--isdnloop_atimeout1(unsigned long data)
-+isdnloop_atimeout1(struct timer_list *t)
- {
--	isdnloop_card *card = (isdnloop_card *) data;
-+	isdnloop_card *card = from_timer(card, t, c_timer[1]);
-+
- 	isdnloop_atimeout(card, 1);
- }
+ 	rate = ((u32)(ncells - est->last_cells)) << (7 - est->interval);
+@@ -2126,10 +2124,11 @@ idt77252_init_est(struct vc_map *vc, int pcr)
+ 	est->maxcps = pcr < 0 ? -pcr : pcr;
+ 	est->cps = est->maxcps;
+ 	est->avcps = est->cps << 5;
++	est->vc = vc;
  
-@@ -617,13 +617,9 @@ isdnloop_start_ctimer(isdnloop_card *card, int ch)
+ 	est->interval = 2;		/* XXX: make this configurable */
+ 	est->ewma_log = 2;		/* XXX: make this configurable */
+-	setup_timer(&est->timer, idt77252_est_timer, (unsigned long)vc);
++	timer_setup(&est->timer, idt77252_est_timer, 0);
+ 	mod_timer(&est->timer, jiffies + ((HZ / 4) << est->interval));
+ 
+ 	return est;
+@@ -2209,16 +2208,20 @@ static int
+ idt77252_init_ubr(struct idt77252_dev *card, struct vc_map *vc,
+ 		  struct atm_vcc *vcc, struct atm_qos *qos)
+ {
++	struct rate_estimator *est = NULL;
  	unsigned long flags;
+ 	int tcr;
  
- 	spin_lock_irqsave(&card->isdnloop_lock, flags);
--	init_timer(&card->c_timer[ch]);
-+	timer_setup(&card->c_timer[ch], ch ? isdnloop_atimeout1
-+					   : isdnloop_atimeout0, 0);
- 	card->c_timer[ch].expires = jiffies + ISDNLOOP_TIMER_ALERTWAIT;
--	if (ch)
--		card->c_timer[ch].function = isdnloop_atimeout1;
--	else
--		card->c_timer[ch].function = isdnloop_atimeout0;
--	card->c_timer[ch].data = (unsigned long) card;
- 	add_timer(&card->c_timer[ch]);
- 	spin_unlock_irqrestore(&card->isdnloop_lock, flags);
- }
-@@ -1113,10 +1109,9 @@ isdnloop_start(isdnloop_card *card, isdnloop_sdef *sdefp)
- 		       sdef.ptype);
- 		return -EINVAL;
+ 	spin_lock_irqsave(&vc->lock, flags);
+ 	if (vc->estimator) {
+-		del_timer(&vc->estimator->timer);
+-		kfree(vc->estimator);
++		est = vc->estimator;
+ 		vc->estimator = NULL;
  	}
--	init_timer(&card->st_timer);
-+	timer_setup(&card->rb_timer, isdnloop_pollbchan, 0);
-+	timer_setup(&card->st_timer, isdnloop_polldchan, 0);
- 	card->st_timer.expires = jiffies + ISDNLOOP_TIMER_DCREAD;
--	card->st_timer.function = isdnloop_polldchan;
--	card->st_timer.data = (unsigned long) card;
- 	add_timer(&card->st_timer);
- 	card->flags |= ISDNLOOP_FLAGS_RUNNING;
- 	spin_unlock_irqrestore(&card->isdnloop_lock, flags);
+ 	spin_unlock_irqrestore(&vc->lock, flags);
++	if (est) {
++		del_timer_sync(&est->timer);
++		kfree(est);
++	}
+ 
+ 	tcr = atm_pcr_goal(&qos->txtp);
+ 	if (tcr == 0)
+diff --git a/drivers/atm/idt77252.h b/drivers/atm/idt77252.h
+index 3a82cc23a053..9339197d701c 100644
+--- a/drivers/atm/idt77252.h
++++ b/drivers/atm/idt77252.h
+@@ -184,6 +184,8 @@ struct aal1 {
+ 	unsigned char		sequence;
+ };
+ 
++struct vc_map;
++
+ struct rate_estimator {
+ 	struct timer_list	timer;
+ 	unsigned int		interval;
+@@ -193,6 +195,7 @@ struct rate_estimator {
+ 	long			avcps;
+ 	u32			cps;
+ 	u32			maxcps;
++	struct vc_map		*vc;
+ };
+ 
+ struct vc_map {
 -- 
 2.7.4
