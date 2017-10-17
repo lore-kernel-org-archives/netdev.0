@@ -1,271 +1,276 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [RFC PATCH next 2/2] i40e: add support for
- macvlan hardware offload
-Date: Tue, 17 Oct 2017 14:32:33 -0700
-Message-ID: <CAKgT0Uft_kCyct==am7W0TGUo-YzUhSVkJir83uGx_XwMuxsHg@mail.gmail.com>
-References: <1508275089-430113-1-git-send-email-shannon.nelson@oracle.com> <1508275089-430113-3-git-send-email-shannon.nelson@oracle.com>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: [PATCH net v2 2/2] net: fec: Let fec_ptp have its own interrupt
+ routine
+Date: Tue, 17 Oct 2017 14:33:40 -0700
+Message-ID: <542a126c-d7ff-7232-9dde-e5c6f1e1f55f@boundarydevices.com>
+References: <20171014020940.32736-1-troy.kisky@boundarydevices.com>
+ <20171014020940.32736-2-troy.kisky@boundarydevices.com>
+ <AM4PR0401MB226019650A8FB767B11B8B91FF4F0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Netdev <netdev@vger.kernel.org>
-To: Shannon Nelson <shannon.nelson@oracle.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Fabio Estevam <fabio.estevam@nxp.com>,
+        "lznuaa@gmail.com" <lznuaa@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>
+To: Andy Duan <fugang.duan@nxp.com>,
+        "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:52675 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934833AbdJQVcf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 17:32:35 -0400
-Received: by mail-qt0-f193.google.com with SMTP id 31so6716363qtz.9
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 14:32:34 -0700 (PDT)
-In-Reply-To: <1508275089-430113-3-git-send-email-shannon.nelson@oracle.com>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:45931 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966268AbdJQVdm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 17:33:42 -0400
+Received: by mail-oi0-f49.google.com with SMTP id f66so5610493oib.2
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 14:33:42 -0700 (PDT)
+In-Reply-To: <AM4PR0401MB226019650A8FB767B11B8B91FF4F0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 2:18 PM, Shannon Nelson
-<shannon.nelson@oracle.com> wrote:
-> This patch adds support for macvlan hardware offload (l2-fwd-offload)
-> feature using the XL710's macvlan-to-queue filtering machanism.  These
-> are most useful for supporting separate mac addresses for Container
-> virtualization using Docker and similar configurations.
->
-> The basic design is to partition off some of the PF's general LAN queues
-> outside of the standard RSS pool and use them as the offload queues.
-> This especially makes sense on machines with more than 64 CPUs: since
-> the RSS pool is limited to a maximum of 64, the queues assigned to the
-> remaining CPUs essentially go unused.  When on a machine with fewer than
-> 64 CPUs, we shrink the RSS pool and use the upper queues for the offload.
->
-> If the user has added Flow Director filters, enabling of macvlan offload
-> is disallowed.
->
-> To use this feature, use ethtool to enable l2-fwd-offload
->         ethtool -K ethX l2-fwd-offload on
-> When the next macvlan devices are created on ethX, the macvlan driver
-> will automatically attempt to setup the hardweare offload.
->
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> ---
->  drivers/net/ethernet/intel/i40e/i40e.h         |   10 +
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c |   15 ++
->  drivers/net/ethernet/intel/i40e/i40e_main.c    |  239 +++++++++++++++++++++++-
->  drivers/net/ethernet/intel/i40e/i40e_txrx.h    |    1 +
->  4 files changed, 264 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-> index a187f53..4868ae2 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e.h
-> +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-> @@ -365,6 +365,10 @@ struct i40e_pf {
->         u8 atr_sample_rate;
->         bool wol_en;
->
-> +       u16 macvlan_hint;
-> +       u16 macvlan_used;
-> +       u16 macvlan_num;
-> +
->         struct hlist_head fdir_filter_list;
->         u16 fdir_pf_active_filters;
->         unsigned long fd_flush_timestamp;
-> @@ -712,6 +716,12 @@ struct i40e_netdev_priv {
->         struct i40e_vsi *vsi;
->  };
->
-> +struct i40e_fwd {
-> +       struct net_device *vdev;
-> +       u16 tx_base_queue;
-> +       /* future expansion here might include number of queues */
-> +};
-> +
->  /* struct that defines an interrupt vector */
->  struct i40e_q_vector {
->         struct i40e_vsi *vsi;
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> index afd3ca8..e1628c1 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-> @@ -3817,6 +3817,13 @@ static int i40e_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
->         struct i40e_pf *pf = vsi->back;
->         int ret = -EOPNOTSUPP;
->
-> +       if (pf->macvlan_num) {
-> +               dev_warn(&pf->pdev->dev,
-> +                        "Remove %d remaining macvlan offloads to change filter options\n",
-> +                        pf->macvlan_used);
-> +               return -EBUSY;
-> +       }
-> +
->         switch (cmd->cmd) {
->         case ETHTOOL_SRXFH:
->                 ret = i40e_set_rss_hash_opt(pf, cmd);
-> @@ -3909,6 +3916,14 @@ static int i40e_set_channels(struct net_device *dev,
->         if (count > i40e_max_channels(vsi))
->                 return -EINVAL;
->
-> +       /* verify that macvlan offloads are not in use */
-> +       if (pf->macvlan_num) {
-> +               dev_warn(&pf->pdev->dev,
-> +                        "Remove %d remaining macvlan offloads to change channel count\n",
-> +                        pf->macvlan_used);
-> +               return -EBUSY;
-> +       }
-> +
->         /* verify that the number of channels does not invalidate any current
->          * flow director rules
->          */
-> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> index e4b8a4b..7b26c6f 100644
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -9221,6 +9221,66 @@ static void i40e_clear_rss_lut(struct i40e_vsi *vsi)
->  }
->
->  /**
-> + * i40e_fix_features - fix the proposed netdev feature flags
-> + * @netdev: ptr to the netdev being adjusted
-> + * @features: the feature set that the stack is suggesting
-> + * Note: expects to be called while under rtnl_lock()
-> + **/
-> +static netdev_features_t i40e_fix_features(struct net_device *netdev,
-> +                                          netdev_features_t features)
-> +{
-> +       struct i40e_netdev_priv *np = netdev_priv(netdev);
-> +       struct i40e_pf *pf = np->vsi->back;
-> +       struct i40e_vsi *vsi = np->vsi;
-> +
-> +       /* make sure there are queues to be used for macvlan offload */
-> +       if (features & NETIF_F_HW_L2FW_DOFFLOAD &&
-> +           !(netdev->features & NETIF_F_HW_L2FW_DOFFLOAD)) {
-> +               const u8 drop = I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET;
-> +               struct i40e_fdir_filter *rule;
-> +               struct hlist_node *node2;
-> +               u16 rss, unused;
-> +
-> +               /* Find a set of queues to be used for macvlan offload.
-> +                * If there aren't many queues outside of the RSS set
-> +                * that could be used for macvlan, try shrinking the
-> +                * set to free up some queues, after checking if there
-> +                * are any Flow Director rules we might break.
-> +                */
-> +
-> +               rss = vsi->rss_size;
-> +               unused = vsi->num_queue_pairs - rss;
-> +               if (unused < (vsi->rss_size / 2)) {
-> +                       rss = vsi->rss_size / 2;
-> +                       unused = vsi->num_q_vectors - rss;
-> +               }
-> +               pf->macvlan_num = unused;
-> +
-> +               /* check the flow director rules */
-> +               hlist_for_each_entry_safe(rule, node2,
-> +                                         &pf->fdir_filter_list, fdir_node) {
-> +                       if (rule->dest_ctl != drop && rss <= rule->q_index) {
-> +                               dev_warn(&pf->pdev->dev,
-> +                                        "Remove user defined filter %d to enable macvlan offload\n",
-> +                                        rule->fd_id);
-> +                               features &= ~NETIF_F_HW_L2FW_DOFFLOAD;
-> +                               pf->macvlan_num = 0;
-> +                       }
-> +               }
-> +       } else if (!(features & NETIF_F_HW_L2FW_DOFFLOAD) &&
-> +                   netdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
-> +               if (pf->macvlan_used) {
-> +                       dev_warn(&pf->pdev->dev,
-> +                                "Remove %d remaining macvlan offloads to disable macvlan offload\n",
-> +                                pf->macvlan_used);
-> +                       features |= NETIF_F_HW_L2FW_DOFFLOAD;
-> +               }
-> +       }
-> +
-> +       return features;
-> +}
-> +
-> +/**
->   * i40e_set_features - set the netdev feature flags
->   * @netdev: ptr to the netdev being adjusted
->   * @features: the feature set that the stack is suggesting
-> @@ -9247,6 +9307,45 @@ static int i40e_set_features(struct net_device *netdev,
->
->         need_reset = i40e_set_ntuple(pf, features);
->
-> +       /* keep this section last in this function as it
-> +        * might take care of the need_reset for the others
-> +        */
-> +       if (features & NETIF_F_HW_L2FW_DOFFLOAD &&
-> +           !(netdev->features & NETIF_F_HW_L2FW_DOFFLOAD)) {
-> +               /* reserve queues for macvlan use */
-> +               u16 rss = vsi->num_q_vectors - pf->macvlan_num;
-> +
-> +               if (rss != vsi->rss_size) {
-> +                       if (i40e_reconfig_rss_queues(pf, rss))
-> +                               need_reset = false;
-> +               }
-> +
-> +               pf->macvlan_hint = rss;
-> +               pf->macvlan_used = 0;
-> +
-> +       } else if (!(features & NETIF_F_HW_L2FW_DOFFLOAD) &&
-> +                   netdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
-> +               /* return macvlan queues to general use */
-> +               int num_qs = vsi->rss_size + pf->macvlan_num;
-> +               int i;
-> +
-> +               /* stop the upperdev queues if not already stopped */
-> +               for (i = vsi->rss_size; i < num_qs; i++) {
-> +                       struct i40e_fwd *fwd = vsi->tx_rings[i]->fwd;
-> +
-> +                       if (fwd)
-> +                               netif_tx_stop_all_queues(fwd->vdev);
-> +               }
-> +
-> +               /* rebuild the rss layout with the restored queues */
-> +               if (i40e_reconfig_rss_queues(pf, num_qs))
-> +                       need_reset = false;
-> +
-> +               pf->macvlan_hint = 0;
-> +               pf->macvlan_used = 0;
-> +               pf->macvlan_num = 0;
-> +       }
-> +
->         if (need_reset)
->                 i40e_do_reset(pf, BIT_ULL(__I40E_PF_RESET_REQUESTED), true);
->
-> @@ -9674,6 +9773,137 @@ static int i40e_xdp(struct net_device *dev,
->         }
->  }
->
-> +/**
-> + * i40e_select_queue - select the Tx queue, watching for macvlan offloads
-> + * @dev: netdevice
-> + * @skb: packet to be sent
-> + * @accel_priv: hint for offloading macvlan
-> + * @fallback: alternative function to use if we don't care which Tx
-> + **/
-> +static u16 i40e_select_queue(struct net_device *dev, struct sk_buff *skb,
-> +                            void *accel_priv, select_queue_fallback_t fallback)
-> +{
-> +       struct i40e_fwd *fwd = accel_priv;
-> +
-> +       if (fwd)
-> +               return fwd->tx_base_queue;
-> +
-> +       return fallback(dev, skb);
-> +}
-> +
+On 10/15/2017 8:41 PM, Andy Duan wrote:
+> From: Troy Kisky <troy.kisky@boundarydevices.com> Sent: Saturday, October 14, 2017 10:10 AM
+>> This is better for code locality and should slightly speed up normal interrupts.
+>>
+>> This also allows PPS clock output to start working for i.mx7. This is because
+>> i.mx7 was already using the limit of 3 interrupts, and needed another.
+>>
+>> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
+>>
+>> ---
+>>
+>> v2: made this change independent of any devicetree change so that old dtbs
+>> continue to work.
+>>
+>> Continue to register ptp clock if interrupt is not found.
+>> ---
+>> drivers/net/ethernet/freescale/fec.h      |  3 +-
+>> drivers/net/ethernet/freescale/fec_main.c | 25 ++++++----
+>> drivers/net/ethernet/freescale/fec_ptp.c  | 82 ++++++++++++++++++--------
+>> -----
+>> 3 files changed, 65 insertions(+), 45 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/fec.h
+>> b/drivers/net/ethernet/freescale/fec.h
+>> index ede1876a9a19..be56ac1f1ac4 100644
+>> --- a/drivers/net/ethernet/freescale/fec.h
+>> +++ b/drivers/net/ethernet/freescale/fec.h
+>> @@ -582,12 +582,11 @@ struct fec_enet_private {
+>> 	u64 ethtool_stats[0];
+>> };
+>>
+>> -void fec_ptp_init(struct platform_device *pdev);
+>> +void fec_ptp_init(struct platform_device *pdev, int irq_index);
+>> void fec_ptp_stop(struct platform_device *pdev);  void
+>> fec_ptp_start_cyclecounter(struct net_device *ndev);  int fec_ptp_set(struct
+>> net_device *ndev, struct ifreq *ifr);  int fec_ptp_get(struct net_device *ndev,
+>> struct ifreq *ifr); -uint fec_ptp_check_pps_event(struct fec_enet_private
+>> *fep);
+>>
+>>
+>> /**********************************************************
+>> ******************/
+>> #endif /* FEC_H */
+>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>> b/drivers/net/ethernet/freescale/fec_main.c
+>> index 3dc2d771a222..21afabbc560f 100644
+>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>> @@ -1602,10 +1602,6 @@ fec_enet_interrupt(int irq, void *dev_id)
+>> 		ret = IRQ_HANDLED;
+>> 		complete(&fep->mdio_done);
+>> 	}
+>> -
+>> -	if (fep->ptp_clock)
+>> -		if (fec_ptp_check_pps_event(fep))
+>> -			ret = IRQ_HANDLED;
+>> 	return ret;
+>> }
+>>
+>> @@ -3325,6 +3321,8 @@ fec_probe(struct platform_device *pdev)
+>> 	struct device_node *np = pdev->dev.of_node, *phy_node;
+>> 	int num_tx_qs;
+>> 	int num_rx_qs;
+>> +	char irq_name[8];
+>> +	int irq_cnt;
+>>
+>> 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
+>>
+>> @@ -3465,18 +3463,27 @@ fec_probe(struct platform_device *pdev)
+>> 	if (ret)
+>> 		goto failed_reset;
+>>
+>> +	irq_cnt = platform_irq_count(pdev);
+>> +	if (irq_cnt > FEC_IRQ_NUM)
+>> +		irq_cnt = FEC_IRQ_NUM;	/* last for ptp */
+>> +	else if (irq_cnt == 2)
+>> +		irq_cnt = 1;	/* last for ptp */
+>> +	else if (irq_cnt <= 0)
+>> +		irq_cnt = 1;	/* Let the for loop fail */
+> 
+> Don't do like this. Don't suppose pps interrupt is the last one.
 
-So the select_queue function being needed is the deal breaker on all
-of this as far as I am concerned. We aren't allowed to use it under
-other cases so why should macvlan be an exception to the rule?
 
-I think we should probably look at a different approach for this. For
-example why is it we need to use a different transmit path for a
-macvlan packet vs any other packet? On the Rx side we get the
-advantage of avoiding the software hashing and demux. What do we get
-for reserving queues for transmit?
+I don't. If the pps interrupt is named, the named interrupt will be used. If it is NOT
+named, the last interrupt is used, if 2 interrupts, or >3 interrupt are provided.
+Otherwise, no pps interrupt is assumed.
+Fortunately this seems to be true currently.
 
-My plan for this is to go back and "fix" ixgbe so we can get it away
-from having to use the select_queue call for the macvlan offload and
-then maybe look at proving a few select NDO operations for allowing
-macvlans that are being offloaded to make specific calls into the
-hardware to perform tasks as needed.
 
-- Alex
+> And if irq_cnt is 1 like imx28/imx5x,  the patch will break fec interrupt function.
+
+How ?  fec_ptp_init will not be called as bufdesc_ex is 0.
+
+
+Also, if only 1 interrupt is provided, it is assumed there is no unnamed pps interrupt.
+
+
+> 
+> I suggest to use .platform_get_irq_byname() to get pps(ptp) interrupt like your v1 logic check.
+> 
+>> +
+>> 	if (fep->bufdesc_ex)
+>> -		fec_ptp_init(pdev);
+>> +		fec_ptp_init(pdev, irq_cnt);
+>>
+>> 	ret = fec_enet_init(ndev);
+>> 	if (ret)
+>> 		goto failed_init;
+>>
+>> -	for (i = 0; i < FEC_IRQ_NUM; i++) {
+>> -		irq = platform_get_irq(pdev, i);
+>> +	for (i = 0; i < irq_cnt; i++) {
+>> +		sprintf(irq_name, "int%d", i);
+>> +		irq = platform_get_irq_byname(pdev, irq_name);
+>> +		if (irq < 0)
+>> +			irq = platform_get_irq(pdev, i);
+>> 		if (irq < 0) {
+>> -			if (i)
+>> -				break;
+>> 			ret = irq;
+>> 			goto failed_irq;
+>> 		}
+>> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c
+>> b/drivers/net/ethernet/freescale/fec_ptp.c
+>> index 6ebad3fac81d..3abeee0d16dd 100644
+>> --- a/drivers/net/ethernet/freescale/fec_ptp.c
+>> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+>> @@ -549,6 +549,37 @@ static void fec_time_keep(struct work_struct *work)
+>> 	schedule_delayed_work(&fep->time_keep, HZ);  }
+>>
+>> +/* This function checks the pps event and reloads the timer compare
+>> +counter. */ static irqreturn_t fec_ptp_interrupt(int irq, void *dev_id)
+>> +{
+>> +	struct net_device *ndev = dev_id;
+>> +	struct fec_enet_private *fep = netdev_priv(ndev);
+>> +	u32 val;
+>> +	u8 channel = fep->pps_channel;
+>> +	struct ptp_clock_event event;
+>> +
+>> +	val = readl(fep->hwp + FEC_TCSR(channel));
+>> +	if (val & FEC_T_TF_MASK) {
+>> +		/* Write the next next compare(not the next according the
+>> spec)
+>> +		 * value to the register
+>> +		 */
+>> +		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
+>> +		do {
+>> +			writel(val, fep->hwp + FEC_TCSR(channel));
+>> +		} while (readl(fep->hwp + FEC_TCSR(channel)) &
+>> FEC_T_TF_MASK);
+>> +
+>> +		/* Update the counter; */
+>> +		fep->next_counter = (fep->next_counter + fep-
+>>> reload_period) &
+>> +				fep->cc.mask;
+>> +
+>> +		event.type = PTP_CLOCK_PPS;
+>> +		ptp_clock_event(fep->ptp_clock, &event);
+>> +		return IRQ_HANDLED;
+>> +	}
+>> +
+>> +	return IRQ_NONE;
+>> +}
+>> +
+>> /**
+>>  * fec_ptp_init
+>>  * @ndev: The FEC network adapter
+>> @@ -558,10 +589,12 @@ static void fec_time_keep(struct work_struct *work)
+>>  * cyclecounter init routine and exits.
+>>  */
+>>
+>> -void fec_ptp_init(struct platform_device *pdev)
+>> +void fec_ptp_init(struct platform_device *pdev, int irq_index)
+>> {
+>> 	struct net_device *ndev = platform_get_drvdata(pdev);
+>> 	struct fec_enet_private *fep = netdev_priv(ndev);
+>> +	int irq;
+>> +	int ret;
+>>
+>> 	fep->ptp_caps.owner = THIS_MODULE;
+>> 	snprintf(fep->ptp_caps.name, 16, "fec ptp"); @@ -587,6 +620,20 @@
+>> void fec_ptp_init(struct platform_device *pdev)
+>>
+>> 	INIT_DELAYED_WORK(&fep->time_keep, fec_time_keep);
+>>
+>> +	irq = platform_get_irq_byname(pdev, "ptp");
+>> +	if (irq < 0)
+>> +		irq = platform_get_irq(pdev, irq_index);
+>> +	/* Failure to get an irq is not fatal,
+>> +	 * only the PTP_CLOCK_PPS clock events should stop
+>> +	 */
+>> +	if (irq >= 0) {
+>> +		ret = devm_request_irq(&pdev->dev, irq, fec_ptp_interrupt,
+>> +				       0, pdev->name, ndev);
+>> +		if (ret < 0)
+>> +			dev_warn(&pdev->dev, "request for ptp irq
+>> failed(%d)\n",
+>> +				 ret);
+>> +	}
+>> +
+>> 	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
+>> 	if (IS_ERR(fep->ptp_clock)) {
+>> 		fep->ptp_clock = NULL;
+>> @@ -605,36 +652,3 @@ void fec_ptp_stop(struct platform_device *pdev)
+>> 	if (fep->ptp_clock)
+>> 		ptp_clock_unregister(fep->ptp_clock);
+>> }
+>> -
+>> -/**
+>> - * fec_ptp_check_pps_event
+>> - * @fep: the fec_enet_private structure handle
+>> - *
+>> - * This function check the pps event and reload the timer compare counter.
+>> - */
+>> -uint fec_ptp_check_pps_event(struct fec_enet_private *fep) -{
+>> -	u32 val;
+>> -	u8 channel = fep->pps_channel;
+>> -	struct ptp_clock_event event;
+>> -
+>> -	val = readl(fep->hwp + FEC_TCSR(channel));
+>> -	if (val & FEC_T_TF_MASK) {
+>> -		/* Write the next next compare(not the next according the
+>> spec)
+>> -		 * value to the register
+>> -		 */
+>> -		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
+>> -		do {
+>> -			writel(val, fep->hwp + FEC_TCSR(channel));
+>> -		} while (readl(fep->hwp + FEC_TCSR(channel)) &
+>> FEC_T_TF_MASK);
+>> -
+>> -		/* Update the counter; */
+>> -		fep->next_counter = (fep->next_counter + fep-
+>>> reload_period) & fep->cc.mask;
+>> -
+>> -		event.type = PTP_CLOCK_PPS;
+>> -		ptp_clock_event(fep->ptp_clock, &event);
+>> -		return 1;
+>> -	}
+>> -
+>> -	return 0;
+>> -}
+>> --
+>> 2.11.0
+> 
+> 
