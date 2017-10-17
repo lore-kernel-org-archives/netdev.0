@@ -1,79 +1,68 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: using verifier to ensure a BPF program uses certain metadata?
-Date: Tue, 17 Oct 2017 15:58:08 -0700
-Message-ID: <20171017225806.b5xubolkyocfgnjc@ast-mbp>
-References: <1508139524.10607.25.camel@sipsolutions.net>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: Re: [PATCH 0/7] Adding permanent config get/set to devlink
+Date: Tue, 17 Oct 2017 18:58:31 -0400
+Message-ID: <CA+Jmh7ECVdB87fTbiByMjCgyU7JgmaDbe52HSz2QM2ft2-0EFQ@mail.gmail.com>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        linux-wireless <linux-wireless@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Linville <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>,
+        Steven Lin <steven.lin1@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:51712 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932782AbdJQW6L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 18:58:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1508139524.10607.25.camel@sipsolutions.net>
+Received: from mail-qk0-f177.google.com ([209.85.220.177]:46921 "EHLO
+        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753624AbdJQW6x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 18:58:53 -0400
+Received: by mail-qk0-f177.google.com with SMTP id k123so4132153qke.3
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 15:58:52 -0700 (PDT)
+In-Reply-To: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 16, 2017 at 09:38:44AM +0200, Johannes Berg wrote:
-> Hi,
-> 
-> As we discussed in April already (it's really been that long...), I'd
-> wanted to allow using BPF to filter wireless monitor frames, to enable
-> new use cases and higher performance in monitoring. I have some code,
-> at
-> 
-> https://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211-next.git/log/?h=bpf
+My apologies - this patchset was intended for net-next; I forgot to
+add that to the subject line, though.
 
-bpf bits looks pretty straightforward.
-attach looks fine too. I'm assuming there is some rtnl or other lock,
-so multiple assigns cannot race?
-It's missing query interface though.
-Please add support to return prog_id.
+Steve
 
-> which implements parts of this. It's still missing the TX status path
-> and perhaps associated metadata, but that part is easy.
-> 
-> The bigger "problem" is that we're going to be adding support for
-> devices that have 802.11->Ethernet conversion already in hardware, and
-> in that case the notion that the filter program will get an 802.11
-> header to look at is no longer right.
-> 
-> Now, most likely for the actual in-service monitoring we'll actually
-> have to reconstitute the 802.11 header on the fly (in pure monitoring
-> where nothing else is active, we can just disable the conversion), but
-> the filtering shouldn't really be reliant on that, since that's not the
-> cheapest thing to do.
-> 
-> The obvious idea around this is to add a metadata field (just a bit
-> really), something like "is_data_ethernet", saying that it was both a
-> data frame and is already converted to have an Ethernet header.
-> However, since these devices don't really exist yet for the vast
-> majority of people, I'm a bit afraid that we'll find later a lot of
-> code simply ignoring this field and looking at the "802.11" header,
-> which is then broken if it encounters an Ethernet header instead.
-> 
-> Are there lies my question: If we added a new callback to
-> bpf_verifier_ops (e.g. "post_verifier_check"), to be called after the
-> normal verification, and also added a context argument to
-> "is_valid_access" (*), we could easily track that this new metadata
-> field is accessed, and reject programs that don't access it at all.
-> 
-> Now, I realize that people could trivially just work around this in
-> their program if they wanted, but I think most will take the reminder
-> and just implement
-> 
->     if (ctx->is_data_ethernet)
->         return DROP_FRAME;
-> 
-> instead, since mostly data frames will not be very relevant to them.
-> 
-> What do you think?
-
-sounds fine and considering new verifier ops after Jakub refactoring
-a check that is_data_ethernet was accessed would fit nicely.
-Without void** hack.
+On Tue, Oct 17, 2017 at 4:44 PM, Steve Lin <steven.lin1@broadcom.com> wrote:
+> DIFFERENCES FROM RFC:
+> Implemented most of the changes suggested by Jiri and others.
+> Thanks for the valuable feedback!
+>
+> Adds a devlink command for getting & setting permanent
+> (persistent / NVRAM) device configuration parameters, and
+> enumerates the parameters as nested devlink attributes.
+>
+> bnxt driver patches make use of these new devlink cmds/
+> attributes.
+>
+> Steve Lin (7):
+>   devlink: Add permanent config parameter get/set operations
+>   devlink: Adding NPAR permanent config parameters
+>   devlink: Adding high level dev perm config params
+>   devlink: Adding perm config of link settings
+>   devlink: Adding pre-boot permanent config parameters
+>   bnxt: Move generic devlink code to new file
+>   bnxt: Add devlink support for config get/set
+>
+>  drivers/net/ethernet/broadcom/bnxt/Makefile       |   2 +-
+>  drivers/net/ethernet/broadcom/bnxt/bnxt.c         |   1 +
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 363 ++++++++++++++++++++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  56 ++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 100 ++++++
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c     |  53 +---
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h     |  37 +--
+>  include/net/devlink.h                             |   4 +
+>  include/uapi/linux/devlink.h                      | 113 +++++++
+>  net/core/devlink.c                                | 300 ++++++++++++++++++
+>  10 files changed, 944 insertions(+), 85 deletions(-)
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+>  create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+>
+> --
+> 2.7.4
+>
