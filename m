@@ -1,108 +1,295 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 16/58] net: ethernet: stmmac: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:00 -0700
-Message-ID: <1508200182-104605-17-git-send-email-keescook@chromium.org>
+Subject: [PATCH 03/58] net/rose: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:28:47 -0700
+Message-ID: <1508200182-104605-4-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
+        Ralf Baechle <ralf@linux-mips.org>, linux-hams@vger.kernel.org,
         netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:49739 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757944AbdJQAh1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 20:37:27 -0400
-Received: by mail-pf0-f174.google.com with SMTP id i5so54553pfe.6
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 17:37:27 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Alexandre Torgue <alexandre.torgue@st.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-hams@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by:  Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 22 ++++++++++------------
- 1 file changed, 10 insertions(+), 12 deletions(-)
+ net/rose/af_rose.c       | 17 +++++++++--------
+ net/rose/rose_link.c     | 16 +++++++---------
+ net/rose/rose_loopback.c |  9 +++------
+ net/rose/rose_route.c    |  8 ++++----
+ net/rose/rose_timer.c    | 30 +++++++++++++-----------------
+ 5 files changed, 36 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-index 6a9c954492f2..8b50afcdb52d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
-@@ -118,10 +118,9 @@ int tse_pcs_init(void __iomem *base, struct tse_pcs *pcs)
- 	return ret;
- }
- 
--static void pcs_link_timer_callback(unsigned long data)
-+static void pcs_link_timer_callback(struct tse_pcs *pcs)
+diff --git a/net/rose/af_rose.c b/net/rose/af_rose.c
+index 4a9729257023..6a5c4992cf61 100644
+--- a/net/rose/af_rose.c
++++ b/net/rose/af_rose.c
+@@ -318,9 +318,11 @@ void rose_destroy_socket(struct sock *);
+ /*
+  *	Handler for deferred kills.
+  */
+-static void rose_destroy_timer(unsigned long data)
++static void rose_destroy_timer(struct timer_list *t)
  {
- 	u16 val = 0;
--	struct tse_pcs *pcs = (struct tse_pcs *)data;
- 	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
- 	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
- 
-@@ -138,12 +137,11 @@ static void pcs_link_timer_callback(unsigned long data)
- 	}
+-	rose_destroy_socket((struct sock *)data);
++	struct sock *sk = from_timer(sk, t, sk_timer);
++
++	rose_destroy_socket(sk);
  }
  
--static void auto_nego_timer_callback(unsigned long data)
-+static void auto_nego_timer_callback(struct tse_pcs *pcs)
+ /*
+@@ -353,8 +355,7 @@ void rose_destroy_socket(struct sock *sk)
+ 
+ 	if (sk_has_allocations(sk)) {
+ 		/* Defer: outstanding buffers */
+-		setup_timer(&sk->sk_timer, rose_destroy_timer,
+-				(unsigned long)sk);
++		timer_setup(&sk->sk_timer, rose_destroy_timer, 0);
+ 		sk->sk_timer.expires  = jiffies + 10 * HZ;
+ 		add_timer(&sk->sk_timer);
+ 	} else
+@@ -538,8 +539,8 @@ static int rose_create(struct net *net, struct socket *sock, int protocol,
+ 	sock->ops    = &rose_proto_ops;
+ 	sk->sk_protocol = protocol;
+ 
+-	init_timer(&rose->timer);
+-	init_timer(&rose->idletimer);
++	timer_setup(&rose->timer, NULL, 0);
++	timer_setup(&rose->idletimer, NULL, 0);
+ 
+ 	rose->t1   = msecs_to_jiffies(sysctl_rose_call_request_timeout);
+ 	rose->t2   = msecs_to_jiffies(sysctl_rose_reset_request_timeout);
+@@ -582,8 +583,8 @@ static struct sock *rose_make_new(struct sock *osk)
+ 	sk->sk_state    = TCP_ESTABLISHED;
+ 	sock_copy_flags(sk, osk);
+ 
+-	init_timer(&rose->timer);
+-	init_timer(&rose->idletimer);
++	timer_setup(&rose->timer, NULL, 0);
++	timer_setup(&rose->idletimer, NULL, 0);
+ 
+ 	orose		= rose_sk(osk);
+ 	rose->t1	= orose->t1;
+diff --git a/net/rose/rose_link.c b/net/rose/rose_link.c
+index c76638cc2cd5..cda4c6678ef1 100644
+--- a/net/rose/rose_link.c
++++ b/net/rose/rose_link.c
+@@ -27,8 +27,8 @@
+ #include <linux/interrupt.h>
+ #include <net/rose.h>
+ 
+-static void rose_ftimer_expiry(unsigned long);
+-static void rose_t0timer_expiry(unsigned long);
++static void rose_ftimer_expiry(struct timer_list *);
++static void rose_t0timer_expiry(struct timer_list *);
+ 
+ static void rose_transmit_restart_confirmation(struct rose_neigh *neigh);
+ static void rose_transmit_restart_request(struct rose_neigh *neigh);
+@@ -37,8 +37,7 @@ void rose_start_ftimer(struct rose_neigh *neigh)
  {
- 	u16 val = 0;
- 	u16 speed = 0;
- 	u16 duplex = 0;
--	struct tse_pcs *pcs = (struct tse_pcs *)data;
- 	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
- 	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
+ 	del_timer(&neigh->ftimer);
  
-@@ -201,14 +199,14 @@ static void auto_nego_timer_callback(unsigned long data)
- 	}
- }
+-	neigh->ftimer.data     = (unsigned long)neigh;
+-	neigh->ftimer.function = &rose_ftimer_expiry;
++	neigh->ftimer.function = (TIMER_FUNC_TYPE)rose_ftimer_expiry;
+ 	neigh->ftimer.expires  =
+ 		jiffies + msecs_to_jiffies(sysctl_rose_link_fail_timeout);
  
--static void aneg_link_timer_callback(unsigned long data)
-+static void aneg_link_timer_callback(struct timer_list *t)
+@@ -49,8 +48,7 @@ static void rose_start_t0timer(struct rose_neigh *neigh)
  {
--	struct tse_pcs *pcs = (struct tse_pcs *)data;
-+	struct tse_pcs *pcs = from_timer(pcs, t, aneg_link_timer);
+ 	del_timer(&neigh->t0timer);
  
- 	if (pcs->autoneg == AUTONEG_ENABLE)
--		auto_nego_timer_callback(data);
-+		auto_nego_timer_callback(pcs);
- 	else if (pcs->autoneg == AUTONEG_DISABLE)
--		pcs_link_timer_callback(data);
-+		pcs_link_timer_callback(pcs);
+-	neigh->t0timer.data     = (unsigned long)neigh;
+-	neigh->t0timer.function = &rose_t0timer_expiry;
++	neigh->t0timer.function = (TIMER_FUNC_TYPE)rose_t0timer_expiry;
+ 	neigh->t0timer.expires  =
+ 		jiffies + msecs_to_jiffies(sysctl_rose_restart_request_timeout);
+ 
+@@ -77,13 +75,13 @@ static int rose_t0timer_running(struct rose_neigh *neigh)
+ 	return timer_pending(&neigh->t0timer);
  }
  
- void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
-@@ -237,8 +235,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+-static void rose_ftimer_expiry(unsigned long param)
++static void rose_ftimer_expiry(struct timer_list *t)
+ {
+ }
  
- 		tse_pcs_reset(tse_pcs_base, pcs);
+-static void rose_t0timer_expiry(unsigned long param)
++static void rose_t0timer_expiry(struct timer_list *t)
+ {
+-	struct rose_neigh *neigh = (struct rose_neigh *)param;
++	struct rose_neigh *neigh = from_timer(neigh, t, t0timer);
  
--		setup_timer(&pcs->aneg_link_timer,
--			    aneg_link_timer_callback, (unsigned long)pcs);
-+		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
-+			    0);
- 		mod_timer(&pcs->aneg_link_timer, jiffies +
- 			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
- 	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
-@@ -270,8 +268,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+ 	rose_transmit_restart_request(neigh);
  
- 		tse_pcs_reset(tse_pcs_base, pcs);
+diff --git a/net/rose/rose_loopback.c b/net/rose/rose_loopback.c
+index 344456206b70..7af4f99c4a93 100644
+--- a/net/rose/rose_loopback.c
++++ b/net/rose/rose_loopback.c
+@@ -19,12 +19,13 @@ static struct sk_buff_head loopback_queue;
+ static struct timer_list loopback_timer;
  
--		setup_timer(&pcs->aneg_link_timer,
--			    aneg_link_timer_callback, (unsigned long)pcs);
-+		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
-+			    0);
- 		mod_timer(&pcs->aneg_link_timer, jiffies +
- 			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
- 	}
+ static void rose_set_loopback_timer(void);
++static void rose_loopback_timer(struct timer_list *unused);
+ 
+ void rose_loopback_init(void)
+ {
+ 	skb_queue_head_init(&loopback_queue);
+ 
+-	init_timer(&loopback_timer);
++	timer_setup(&loopback_timer, rose_loopback_timer, 0);
+ }
+ 
+ static int rose_loopback_running(void)
+@@ -50,20 +51,16 @@ int rose_loopback_queue(struct sk_buff *skb, struct rose_neigh *neigh)
+ 	return 1;
+ }
+ 
+-static void rose_loopback_timer(unsigned long);
+ 
+ static void rose_set_loopback_timer(void)
+ {
+ 	del_timer(&loopback_timer);
+ 
+-	loopback_timer.data     = 0;
+-	loopback_timer.function = &rose_loopback_timer;
+ 	loopback_timer.expires  = jiffies + 10;
+-
+ 	add_timer(&loopback_timer);
+ }
+ 
+-static void rose_loopback_timer(unsigned long param)
++static void rose_loopback_timer(struct timer_list *unused)
+ {
+ 	struct sk_buff *skb;
+ 	struct net_device *dev;
+diff --git a/net/rose/rose_route.c b/net/rose/rose_route.c
+index 452bbb38d943..65921cd10323 100644
+--- a/net/rose/rose_route.c
++++ b/net/rose/rose_route.c
+@@ -104,8 +104,8 @@ static int __must_check rose_add_node(struct rose_route_struct *rose_route,
+ 
+ 		skb_queue_head_init(&rose_neigh->queue);
+ 
+-		init_timer(&rose_neigh->ftimer);
+-		init_timer(&rose_neigh->t0timer);
++		timer_setup(&rose_neigh->ftimer, NULL, 0);
++		timer_setup(&rose_neigh->t0timer, NULL, 0);
+ 
+ 		if (rose_route->ndigis != 0) {
+ 			rose_neigh->digipeat =
+@@ -390,8 +390,8 @@ void rose_add_loopback_neigh(void)
+ 
+ 	skb_queue_head_init(&sn->queue);
+ 
+-	init_timer(&sn->ftimer);
+-	init_timer(&sn->t0timer);
++	timer_setup(&sn->ftimer, NULL, 0);
++	timer_setup(&sn->t0timer, NULL, 0);
+ 
+ 	spin_lock_bh(&rose_neigh_list_lock);
+ 	sn->next = rose_neigh_list;
+diff --git a/net/rose/rose_timer.c b/net/rose/rose_timer.c
+index bc5469d6d9cb..3b89d66f15bb 100644
+--- a/net/rose/rose_timer.c
++++ b/net/rose/rose_timer.c
+@@ -29,8 +29,8 @@
+ #include <net/rose.h>
+ 
+ static void rose_heartbeat_expiry(unsigned long);
+-static void rose_timer_expiry(unsigned long);
+-static void rose_idletimer_expiry(unsigned long);
++static void rose_timer_expiry(struct timer_list *);
++static void rose_idletimer_expiry(struct timer_list *);
+ 
+ void rose_start_heartbeat(struct sock *sk)
+ {
+@@ -49,8 +49,7 @@ void rose_start_t1timer(struct sock *sk)
+ 
+ 	del_timer(&rose->timer);
+ 
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
++	rose->timer.function = (TIMER_FUNC_TYPE)rose_timer_expiry;
+ 	rose->timer.expires  = jiffies + rose->t1;
+ 
+ 	add_timer(&rose->timer);
+@@ -62,8 +61,7 @@ void rose_start_t2timer(struct sock *sk)
+ 
+ 	del_timer(&rose->timer);
+ 
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
++	rose->timer.function = (TIMER_FUNC_TYPE)rose_timer_expiry;
+ 	rose->timer.expires  = jiffies + rose->t2;
+ 
+ 	add_timer(&rose->timer);
+@@ -75,8 +73,7 @@ void rose_start_t3timer(struct sock *sk)
+ 
+ 	del_timer(&rose->timer);
+ 
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
++	rose->timer.function = (TIMER_FUNC_TYPE)rose_timer_expiry;
+ 	rose->timer.expires  = jiffies + rose->t3;
+ 
+ 	add_timer(&rose->timer);
+@@ -88,8 +85,7 @@ void rose_start_hbtimer(struct sock *sk)
+ 
+ 	del_timer(&rose->timer);
+ 
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
++	rose->timer.function = (TIMER_FUNC_TYPE)rose_timer_expiry;
+ 	rose->timer.expires  = jiffies + rose->hb;
+ 
+ 	add_timer(&rose->timer);
+@@ -102,8 +98,7 @@ void rose_start_idletimer(struct sock *sk)
+ 	del_timer(&rose->idletimer);
+ 
+ 	if (rose->idle > 0) {
+-		rose->idletimer.data     = (unsigned long)sk;
+-		rose->idletimer.function = &rose_idletimer_expiry;
++		rose->idletimer.function = (TIMER_FUNC_TYPE)rose_idletimer_expiry;
+ 		rose->idletimer.expires  = jiffies + rose->idle;
+ 
+ 		add_timer(&rose->idletimer);
+@@ -163,10 +158,10 @@ static void rose_heartbeat_expiry(unsigned long param)
+ 	bh_unlock_sock(sk);
+ }
+ 
+-static void rose_timer_expiry(unsigned long param)
++static void rose_timer_expiry(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)param;
+-	struct rose_sock *rose = rose_sk(sk);
++	struct rose_sock *rose = from_timer(rose, t, timer);
++	struct sock *sk = &rose->sock;
+ 
+ 	bh_lock_sock(sk);
+ 	switch (rose->state) {
+@@ -192,9 +187,10 @@ static void rose_timer_expiry(unsigned long param)
+ 	bh_unlock_sock(sk);
+ }
+ 
+-static void rose_idletimer_expiry(unsigned long param)
++static void rose_idletimer_expiry(struct timer_list *t)
+ {
+-	struct sock *sk = (struct sock *)param;
++	struct rose_sock *rose = from_timer(rose, t, idletimer);
++	struct sock *sk = &rose->sock;
+ 
+ 	bh_lock_sock(sk);
+ 	rose_clear_queues(sk);
 -- 
 2.7.4
