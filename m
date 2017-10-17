@@ -1,50 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net 0/3] bonding: void calling rtmsg_ifinfo for netlink
- notifications
-Date: Tue, 17 Oct 2017 11:59:43 +0200
-Message-ID: <20171017095943.GE2112@nanopsycho>
-References: <cover.1508233044.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:48419 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933334AbdJQJ7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 05:59:45 -0400
-Received: by mail-wr0-f193.google.com with SMTP id u5so1024508wrc.5
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 02:59:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <cover.1508233044.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Henrik Austad <henrik@austad.us>
+Subject: [PATCH] net: export netdev_txq_to_tc to allow sch_mqprio to compile as module
+Date: Tue, 17 Oct 2017 12:10:10 +0200
+Message-ID: <1508235010-4056-1-git-send-email-haustad@cisco.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsahern@gmail.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Willem de Bruijn <willemb@google.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        tcharding <me@tobin.cc>, linux-kernel@vger.kernel.org,
+        Henrik Austad <haustad@cisco.com>,
+        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 17, 2017 at 11:39:38AM CEST, lucien.xin@gmail.com wrote:
->It's better to send notifications to userspace by the events
->in rtnetlink_event, instead of calling rtmsg_ifinfo directly.
->
->This patcheset is to remove rtmsg_ifinfo called in bonding,
->the notifications can be handled by NETDEV_CHANGEUPPER and
->NETDEV_CHANGELOWERSTATE events in rtnetlink_event.
->
->It could also fix some redundant notifications from bonding.
+In commit 32302902ff09 ("mqprio: Reserve last 32 classid values for HW
+traffic classes and misc IDs") sch_mqprio started using netdev_txq_to_tc
+to find the correct tc instead of dev->tc_to_txq[]
 
-This should go to net-next.
+However, when mqprio is compiled as a module, it cannot resolve the
+symbol, leading to this error:
 
+     ERROR: "netdev_txq_to_tc" [net/sched/sch_mqprio.ko] undefined!
 
->
->Xin Long (3):
->  bonding: remove rtmsg_ifinfo called in bond_master_upper_dev_link
->  rtnetlink: bring NETDEV_CHANGELOWERSTATE event process back to
->    rtnetlink_event
->  bonding: remove rtmsg_ifinfo called after bond_lower_state_changed
->
-> drivers/net/bonding/bond_main.c | 11 +++--------
-> include/net/bonding.h           |  4 ----
-> net/core/rtnetlink.c            |  2 +-
-> 3 files changed, 4 insertions(+), 13 deletions(-)
->
->-- 
->2.1.0
->
+This adds an EXPORT_SYMBOL() since the other user in the kernel
+(netif_set_xps_queue) is also EXPORT_SYMBOL() (and not _GPL) or in a
+sysfs-callback.
+
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Henrik Austad <haustad@cisco.com>
+---
+ net/core/dev.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fcddccb..d2b20e7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2040,6 +2040,7 @@ int netdev_txq_to_tc(struct net_device *dev, unsigned int txq)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(netdev_txq_to_tc);
+ 
+ #ifdef CONFIG_XPS
+ static DEFINE_MUTEX(xps_map_mutex);
+-- 
+2.7.4
