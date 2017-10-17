@@ -1,69 +1,62 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 27/58] net: dl2k: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:11 -0700
-Message-ID: <1508200182-104605-28-git-send-email-keescook@chromium.org>
+Subject: [PATCH 55/58] net: fs_enet: Remove unused timer
+Date: Mon, 16 Oct 2017 17:29:39 -0700
+Message-ID: <1508200182-104605-56-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>, Jarod Wilson <jarod@redhat.com>,
-        Tobias Klauser <tklauser@distanz.ch>,
-        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
-        linux-kernel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Vitaly Bordug <vbordug@ru.mvista.com>,
+ Thomas Gleixner <tglx@linutronix.de>, linuxppc-dev@lists.ozlabs.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+Removes unused timer and its old initialization call.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jarod Wilson <jarod@redhat.com>
-Cc: Tobias Klauser <tklauser@distanz.ch>
-Cc: Philippe Reynes <tremyfr@gmail.com>
+Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
+Cc: Vitaly Bordug <vbordug@ru.mvista.com>
+Cc: linuxppc-dev@lists.ozlabs.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Reviewed-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- drivers/net/ethernet/dlink/dl2k.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 2 --
+ drivers/net/ethernet/freescale/fs_enet/fs_enet.h      | 1 -
+ 2 files changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index 778f974e2928..a2f6758d38dd 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -68,7 +68,7 @@ static const int max_intrloop = 50;
- static const int multicast_filter_limit = 0x40;
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index 753259091b22..7892f2f0c6b5 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -1023,8 +1023,6 @@ static int fs_enet_probe(struct platform_device *ofdev)
  
- static int rio_open (struct net_device *dev);
--static void rio_timer (unsigned long data);
-+static void rio_timer (struct timer_list *t);
- static void rio_tx_timeout (struct net_device *dev);
- static netdev_tx_t start_xmit (struct sk_buff *skb, struct net_device *dev);
- static irqreturn_t rio_interrupt (int irq, void *dev_instance);
-@@ -644,7 +644,7 @@ static int rio_open(struct net_device *dev)
- 		return i;
- 	}
+ 	ndev->ethtool_ops = &fs_ethtool_ops;
  
--	setup_timer(&np->timer, rio_timer, (unsigned long)dev);
-+	timer_setup(&np->timer, rio_timer, 0);
- 	np->timer.expires = jiffies + 1 * HZ;
- 	add_timer(&np->timer);
+-	init_timer(&fep->phy_timer_list);
+-
+ 	netif_carrier_off(ndev);
  
-@@ -655,10 +655,10 @@ static int rio_open(struct net_device *dev)
- }
- 
- static void
--rio_timer (unsigned long data)
-+rio_timer (struct timer_list *t)
- {
--	struct net_device *dev = (struct net_device *)data;
--	struct netdev_private *np = netdev_priv(dev);
-+	struct netdev_private *np = from_timer(np, t, timer);
-+	struct net_device *dev = pci_get_drvdata(np->pdev);
- 	unsigned int entry;
- 	int next_tick = 1*HZ;
- 	unsigned long flags;
+ 	ndev->features |= NETIF_F_SG;
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet.h b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
+index 5ce516c8a62a..dd306deb7cf1 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
+@@ -137,7 +137,6 @@ struct fs_enet_private {
+ 	cbd_t __iomem *cur_rx;
+ 	cbd_t __iomem *cur_tx;
+ 	int tx_free;
+-	struct timer_list phy_timer_list;
+ 	const struct phy_info *phy;
+ 	u32 msg_enable;
+ 	struct mii_if_info mii_if;
 -- 
 2.7.4
