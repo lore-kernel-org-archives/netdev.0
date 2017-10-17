@@ -1,11 +1,10 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 11/58] net/hamradio/6pack: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:28:55 -0700
-Message-ID: <1508200182-104605-12-git-send-email-keescook@chromium.org>
+Subject: [PATCH 39/58] appletalk: Remove unneeded synchronization
+Date: Mon, 16 Oct 2017 17:29:23 -0700
+Message-ID: <1508200182-104605-40-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Andreas Koensgen <ajk@comnets.uni-bremen.de>,
-        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+        David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
@@ -14,93 +13,46 @@ In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+The use of del_timer_sync() will make sure a timer is not rescheduled.
+As such, there is no need to add external signals to kill timers. In
+preparation for switching the timer callback argument to the timer
+pointer, this drops the .data argument since it doesn't serve a meaningful
+purpose here.
 
-Cc: Andreas Koensgen <ajk@comnets.uni-bremen.de>
-Cc: linux-hams@vger.kernel.org
+Cc: David Howells <dhowells@redhat.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/hamradio/6pack.c | 20 +++++++-------------
- 1 file changed, 7 insertions(+), 13 deletions(-)
+ drivers/net/appletalk/ltpc.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
-index 97fe8dfb602d..bbc7b7808a31 100644
---- a/drivers/net/hamradio/6pack.c
-+++ b/drivers/net/hamradio/6pack.c
-@@ -136,9 +136,9 @@ static int encode_sixpack(unsigned char *, unsigned char *, int, unsigned char);
-  * Note that in case of DAMA operation, the data is not sent here.
-  */
- 
--static void sp_xmit_on_air(unsigned long channel)
-+static void sp_xmit_on_air(struct timer_list *t)
- {
--	struct sixpack *sp = (struct sixpack *) channel;
-+	struct sixpack *sp = from_timer(sp, t, tx_t);
- 	int actual, when = sp->slottime;
- 	static unsigned char random;
- 
-@@ -229,7 +229,7 @@ static void sp_encaps(struct sixpack *sp, unsigned char *icp, int len)
- 		sp->xleft = count;
- 		sp->xhead = sp->xbuff;
- 		sp->status2 = count;
--		sp_xmit_on_air((unsigned long)sp);
-+		sp_xmit_on_air(&sp->tx_t);
+diff --git a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
+index e4aa374caa4d..cc3dc9337eae 100644
+--- a/drivers/net/appletalk/ltpc.c
++++ b/drivers/net/appletalk/ltpc.c
+@@ -880,14 +880,10 @@ static void ltpc_poll(unsigned long l)
+ 		}
+ 		ltpc_poll_counter--;
  	}
+-  
+-	if (!dev)
+-		return;  /* we've been downed */
  
- 	return;
-@@ -500,9 +500,9 @@ static inline void tnc_set_sync_state(struct sixpack *sp, int new_tnc_state)
- 		__tnc_set_sync_state(sp, new_tnc_state);
+ 	/* poll 20 times per second */
+ 	idle(dev);
+ 	ltpc_timer.expires = jiffies + HZ/20;
+-	
+ 	add_timer(&ltpc_timer);
  }
  
--static void resync_tnc(unsigned long channel)
-+static void resync_tnc(struct timer_list *t)
- {
--	struct sixpack *sp = (struct sixpack *) channel;
-+	struct sixpack *sp = from_timer(sp, t, resync_t);
- 	static char resync_cmd = 0xe8;
+@@ -1252,8 +1248,6 @@ static void __exit ltpc_cleanup(void)
+ 	if(debug & DEBUG_VERBOSE) printk("unregister_netdev\n");
+ 	unregister_netdev(dev_ltpc);
  
- 	/* clear any data that might have been received */
-@@ -526,8 +526,6 @@ static void resync_tnc(unsigned long channel)
- 	/* Start resync timer again -- the TNC might be still absent */
+-	ltpc_timer.data = 0;  /* signal the poll routine that we're done */
+-
+ 	del_timer_sync(&ltpc_timer);
  
- 	del_timer(&sp->resync_t);
--	sp->resync_t.data	= (unsigned long) sp;
--	sp->resync_t.function	= resync_tnc;
- 	sp->resync_t.expires	= jiffies + SIXP_RESYNC_TIMEOUT;
- 	add_timer(&sp->resync_t);
- }
-@@ -541,8 +539,6 @@ static inline int tnc_init(struct sixpack *sp)
- 	sp->tty->ops->write(sp->tty, &inbyte, 1);
- 
- 	del_timer(&sp->resync_t);
--	sp->resync_t.data = (unsigned long) sp;
--	sp->resync_t.function = resync_tnc;
- 	sp->resync_t.expires = jiffies + SIXP_RESYNC_TIMEOUT;
- 	add_timer(&sp->resync_t);
- 
-@@ -623,9 +619,9 @@ static int sixpack_open(struct tty_struct *tty)
- 
- 	netif_start_queue(dev);
- 
--	setup_timer(&sp->tx_t, sp_xmit_on_air, (unsigned long)sp);
-+	timer_setup(&sp->tx_t, sp_xmit_on_air, 0);
- 
--	init_timer(&sp->resync_t);
-+	timer_setup(&sp->resync_t, resync_tnc, 0);
- 
- 	spin_unlock_bh(&sp->lock);
- 
-@@ -926,8 +922,6 @@ static void decode_prio_command(struct sixpack *sp, unsigned char cmd)
- 
- 	if (sp->tnc_state == TNC_IN_SYNC) {
- 		del_timer(&sp->resync_t);
--		sp->resync_t.data	= (unsigned long) sp;
--		sp->resync_t.function	= resync_tnc;
- 		sp->resync_t.expires	= jiffies + SIXP_INIT_RESYNC_TIMEOUT;
- 		add_timer(&sp->resync_t);
- 	}
+ 	if(debug & DEBUG_VERBOSE) printk("freeing irq\n");
 -- 
 2.7.4
