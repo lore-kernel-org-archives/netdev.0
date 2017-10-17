@@ -1,86 +1,181 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [patch net-next 27/34] nfp: bpf: Convert ndo_setup_tc offloads
- to block callbacks
-Date: Tue, 17 Oct 2017 07:39:59 -0700
-Message-ID: <20171017073959.2b0553fd@cakuba.netronome.com>
-References: <20171012171823.1431-1-jiri@resnulli.us>
-        <20171012171823.1431-28-jiri@resnulli.us>
-        <20171012180824.1e76eac1@cakuba.netronome.com>
-        <20171017124812.GH2112@nanopsycho>
+From: David Howells <dhowells@redhat.com>
+Subject: [RFC] Can I use MSG_WAITALL with sendmsg() for AF_RXRPC?
+Date: Tue, 17 Oct 2017 15:55:07 +0100
+Message-ID: <14816.1508252107@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: dhowells@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:51736 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935985AbdJQOkD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 10:40:03 -0400
-Received: by mail-qt0-f174.google.com with SMTP id h4so3972563qtk.8
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 07:40:02 -0700 (PDT)
-In-Reply-To: <20171017124812.GH2112@nanopsycho>
+Received: from mx1.redhat.com ([209.132.183.28]:58904 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753794AbdJQOzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Oct 2017 10:55:08 -0400
+Received: from smtp.corp.redhat.com (int-mx06.intmail.prod.int.phx2.redhat.com [10.5.11.16])
+        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 971334E334
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 14:55:08 +0000 (UTC)
+Content-ID: <14815.1508252107.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Oct 2017 14:48:12 +0200, Jiri Pirko wrote:
-> Fri, Oct 13, 2017 at 03:08:24AM CEST, jakub.kicinski@netronome.com wrote:
-> >On Thu, 12 Oct 2017 19:18:16 +0200, Jiri Pirko wrote:  
-> >> diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
-> >> index a88bb5b..9e9af88 100644
-> >> --- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
-> >> +++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
-> >> @@ -246,6 +246,10 @@ int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
-> >>  	void *code;
-> >>  	int err;
-> >>  
-> >> +	if (cls_bpf->common.protocol != htons(ETH_P_ALL) ||
-> >> +	    cls_bpf->common.chain_index)
-> >> +		return -EOPNOTSUPP;
-> >> +
-> >>  	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
-> >>  
-> >>  	switch (cls_bpf->command) {  
-> >
-> >It is certainly very ugly but I send a fake struct tc_cls_bpf_offload
-> >here for XDP.  Refactoring this mess is pretty high on my priority list
-> >but one way or the other this function will be called from XDP so TC
-> >checks must stay in the TC handler... :(  
-> 
-> Okay. But currently, why is it a problem? You don't need the checks for
-> xdp path.
-> 
+Can I MSG_WAITALL with sendmsg() when sending data through an AF_RXRPC socket
+to say:
 
-static int
-nfp_bpf_xdp_offload(struct nfp_app *app, struct nfp_net *nn,
-		    struct bpf_prog *prog)
-{
-	struct tc_cls_bpf_offload cmd = {
-		.prog = prog,
-	};
-	int ret;
+	Ignore signals until all the given data is queued, provided that
+	progress is reasonably made.
 
-	if (!nfp_net_ebpf_capable(nn))
-		return -EINVAL;
+where "progress" is defined as:
 
-	if (nn->dp.ctrl & NFP_NET_CFG_CTRL_BPF) {
-		if (!nn->dp.bpf_offload_xdp)
-			return prog ? -EBUSY : 0;
-		cmd.command = prog ? TC_CLSBPF_REPLACE : TC_CLSBPF_DESTROY;
-	} else {
-		if (!prog)
-			return 0;
-		cmd.command = TC_CLSBPF_ADD;
-	}
+	Within a 2*RTT timeout since the last time we checked, at least one
+	DATA packet has been consumed on the other side.
 
-	ret = nfp_net_bpf_offload(nn, &cmd);
-	/* Stop offload if replace not possible */
-	if (ret && cmd.command == TC_CLSBPF_REPLACE)
-		nfp_bpf_xdp_offload(app, nn, NULL);
-	nn->dp.bpf_offload_xdp = prog && !ret;
-	return ret;
-}
+Note that consumption by the other side doesn't guarantee space in the Tx
+queue on this side if the other side shrinks its Rx window on us.
 
-The fake offload struct is at the top of this function.  Dereferencing
-cls_bpf->common in nfp_net_bpf_offload() will crash the kernel.  Or am
-I missing something?
+Or should I use a sockopt or sendmsg cmsg for this?
+
+(Example change attached)
+
+Thanks,
+David
+---
+diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
+index 9ea6f972767e..2d9edc656ca3 100644
+--- a/net/rxrpc/sendmsg.c
++++ b/net/rxrpc/sendmsg.c
+@@ -38,12 +38,86 @@ struct rxrpc_send_params {
+ };
+ 
+ /*
++ * Wait for space to appear in the Tx queue or a signal to occur.
++ */
++static int rxrpc_wait_for_tx_window_intr(struct rxrpc_sock *rx,
++					 struct rxrpc_call *call,
++					 long *timeo)
++{
++	for (;;) {
++		set_current_state(TASK_INTERRUPTIBLE);
++		if (call->tx_top - call->tx_hard_ack <
++		    min_t(unsigned int, call->tx_winsize,
++			  call->cong_cwnd + call->cong_extra))
++			return 0;
++
++		if (call->state >= RXRPC_CALL_COMPLETE)
++			return call->error;
++
++		if (signal_pending(current))
++			return sock_intr_errno(*timeo);
++
++		trace_rxrpc_transmit(call, rxrpc_transmit_wait);
++		mutex_unlock(&call->user_mutex);
++		*timeo = schedule_timeout(*timeo);
++		if (mutex_lock_interruptible(&call->user_mutex) < 0)
++			return sock_intr_errno(*timeo);
++	}
++}
++
++/*
++ * Wait for space to appear in the Tx queue uninterruptibly, but with
++ * a timeout of 2*RTT if no progress was made and a signal occurred.
++ */
++static int rxrpc_wait_for_tx_window_nonintr(struct rxrpc_sock *rx,
++					    struct rxrpc_call *call)
++{
++	rxrpc_seq_t tx_start, tx_win;
++	signed long rtt2, timeout;
++	u64 rtt;
++
++	rtt = READ_ONCE(call->peer->rtt);
++	rtt2 = nsecs_to_jiffies64(rtt) * 2;
++	if (rtt2 < 1)
++		rtt2 = 1;
++
++	timeout = rtt2;
++	tx_start = READ_ONCE(call->tx_hard_ack);
++
++	for (;;) {
++		set_current_state(TASK_UNINTERRUPTIBLE);
++
++		tx_win = READ_ONCE(call->tx_hard_ack);
++		if (call->tx_top - tx_win <
++		    min_t(unsigned int, call->tx_winsize,
++			  call->cong_cwnd + call->cong_extra))
++			return 0;
++
++		if (call->state >= RXRPC_CALL_COMPLETE)
++			return call->error;
++
++		if (timeout == 0 &&
++		    tx_win == tx_start && signal_pending(current))
++			return -EINTR;
++
++		if (tx_win != tx_start) {
++			timeout = rtt2;
++			tx_start = tx_win;
++		}
++
++		trace_rxrpc_transmit(call, rxrpc_transmit_wait);
++		timeout = schedule_timeout(timeout);
++	}
++}
++
++/*
+  * wait for space to appear in the transmit/ACK window
+  * - caller holds the socket locked
+  */
+ static int rxrpc_wait_for_tx_window(struct rxrpc_sock *rx,
+ 				    struct rxrpc_call *call,
+-				    long *timeo)
++				    long *timeo,
++				    bool waitall)
+ {
+ 	DECLARE_WAITQUEUE(myself, current);
+ 	int ret;
+@@ -53,30 +127,10 @@ static int rxrpc_wait_for_tx_window(struct rxrpc_sock *rx,
+ 
+ 	add_wait_queue(&call->waitq, &myself);
+ 
+-	for (;;) {
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		ret = 0;
+-		if (call->tx_top - call->tx_hard_ack <
+-		    min_t(unsigned int, call->tx_winsize,
+-			  call->cong_cwnd + call->cong_extra))
+-			break;
+-		if (call->state >= RXRPC_CALL_COMPLETE) {
+-			ret = call->error;
+-			break;
+-		}
+-		if (signal_pending(current)) {
+-			ret = sock_intr_errno(*timeo);
+-			break;
+-		}
+-
+-		trace_rxrpc_transmit(call, rxrpc_transmit_wait);
+-		mutex_unlock(&call->user_mutex);
+-		*timeo = schedule_timeout(*timeo);
+-		if (mutex_lock_interruptible(&call->user_mutex) < 0) {
+-			ret = sock_intr_errno(*timeo);
+-			break;
+-		}
+-	}
++	if (waitall)
++		ret = rxrpc_wait_for_tx_window_nonintr(rx, call);
++	else
++		ret = rxrpc_wait_for_tx_window_intr(rx, call, timeo);
+ 
+ 	remove_wait_queue(&call->waitq, &myself);
+ 	set_current_state(TASK_RUNNING);
+@@ -254,7 +308,8 @@ static int rxrpc_send_data(struct rxrpc_sock *rx,
+ 				if (msg->msg_flags & MSG_DONTWAIT)
+ 					goto maybe_error;
+ 				ret = rxrpc_wait_for_tx_window(rx, call,
+-							       &timeo);
++							       &timeo,
++							       msg->msg_flags & MSG_WAITALL);
+ 				if (ret < 0)
+ 					goto maybe_error;
+ 			}
