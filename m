@@ -1,43 +1,76 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 2/4] NFS: make cache_detail structure const
-Date: Tue, 17 Oct 2017 18:14:24 +0200
-Message-ID: <1508256866-12798-3-git-send-email-bhumirks@gmail.com>
+From: Bhumika Goyal <bhumirks-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 3/4] NFSD: make cache_detail structures const
+Date: Tue, 17 Oct 2017 18:14:25 +0200
+Message-ID: <1508256866-12798-4-git-send-email-bhumirks@gmail.com>
 References: <1508256866-12798-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, trond.myklebust@primarydata.com,
-        anna.schumaker@netapp.com, bfields@fieldses.org,
-        jlayton@poochiereds.net, davem@davemloft.net,
-        linux-nfs@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:48728 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763275AbdJQQOh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 12:14:37 -0400
-In-Reply-To: <1508256866-12798-1-git-send-email-bhumirks@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Bhumika Goyal <bhumirks-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: julia.lawall-L2FTfq7BK8M@public.gmane.org, trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+        anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+        jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1508256866-12798-1-git-send-email-bhumirks-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Make it const as it is only getting passed to the function
+Make these const as they are only getting passed to the function
 cache_create_net having the argument as const.
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Signed-off-by: Bhumika Goyal <bhumirks-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- fs/nfs/dns_resolve.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ fs/nfsd/export.c    | 4 ++--
+ fs/nfsd/nfs4idmap.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/fs/nfs/dns_resolve.c b/fs/nfs/dns_resolve.c
-index d25f10f..477934a 100644
---- a/fs/nfs/dns_resolve.c
-+++ b/fs/nfs/dns_resolve.c
-@@ -353,7 +353,7 @@ ssize_t nfs_dns_resolve_name(struct net *net, char *name,
- 	return ret;
+diff --git a/fs/nfsd/export.c b/fs/nfsd/export.c
+index 3bc08c3..06bb39c 100644
+--- a/fs/nfsd/export.c
++++ b/fs/nfsd/export.c
+@@ -231,7 +231,7 @@ static struct cache_head *expkey_alloc(void)
+ 		return NULL;
  }
  
--static struct cache_detail nfs_dns_resolve_template = {
-+static const struct cache_detail nfs_dns_resolve_template = {
+-static struct cache_detail svc_expkey_cache_template = {
++static const struct cache_detail svc_expkey_cache_template = {
  	.owner		= THIS_MODULE,
- 	.hash_size	= NFS_DNS_HASHTBL_SIZE,
- 	.name		= "dns_resolve",
+ 	.hash_size	= EXPKEY_HASHMAX,
+ 	.name		= "nfsd.fh",
+@@ -747,7 +747,7 @@ static struct cache_head *svc_export_alloc(void)
+ 		return NULL;
+ }
+ 
+-static struct cache_detail svc_export_cache_template = {
++static const struct cache_detail svc_export_cache_template = {
+ 	.owner		= THIS_MODULE,
+ 	.hash_size	= EXPORT_HASHMAX,
+ 	.name		= "nfsd.export",
+diff --git a/fs/nfsd/nfs4idmap.c b/fs/nfsd/nfs4idmap.c
+index 6b9b6cc..a5bb765 100644
+--- a/fs/nfsd/nfs4idmap.c
++++ b/fs/nfsd/nfs4idmap.c
+@@ -178,7 +178,7 @@ struct ent {
+ static struct ent *idtoname_update(struct cache_detail *, struct ent *,
+ 				   struct ent *);
+ 
+-static struct cache_detail idtoname_cache_template = {
++static const struct cache_detail idtoname_cache_template = {
+ 	.owner		= THIS_MODULE,
+ 	.hash_size	= ENT_HASHMAX,
+ 	.name		= "nfs4.idtoname",
+@@ -341,7 +341,7 @@ static struct ent *nametoid_update(struct cache_detail *, struct ent *,
+ 				   struct ent *);
+ static int         nametoid_parse(struct cache_detail *, char *, int);
+ 
+-static struct cache_detail nametoid_cache_template = {
++static const struct cache_detail nametoid_cache_template = {
+ 	.owner		= THIS_MODULE,
+ 	.hash_size	= ENT_HASHMAX,
+ 	.name		= "nfs4.nametoid",
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
