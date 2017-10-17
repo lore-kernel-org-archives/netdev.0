@@ -1,74 +1,176 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2017-10-17
-Date: Tue, 17 Oct 2017 11:21:04 -0700
-Message-ID: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 07/15] i40e: fix whitespace issues in i40e_ethtool.c
+Date: Tue, 17 Oct 2017 11:21:11 -0700
+Message-ID: <20171017182119.71989-8-jeffrey.t.kirsher@intel.com>
+References: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39952 "EHLO mga11.intel.com"
+Received: from mga04.intel.com ([192.55.52.120]:48881 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934563AbdJQSVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 14:21:41 -0400
+        id S934578AbdJQSVn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Oct 2017 14:21:43 -0400
+In-Reply-To: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and ethtool.
+From: Alan Brady <alan.brady@intel.com>
 
-Alan provides most of the changes in this series which are mainly fixes
-and cleanups.  Renamed the ethtool "cmd" variable to "ks", since the new
-ethtool API passes us ksettings structs instead of command structs.
-Cleaned up an ifdef that was not accomplishing anything.  Added function
-header comments to provide better documentation.  Fixed two issues in
-i40e_get_link_ksettings(), by calling
-ethtool_link_ksettings_zero_link_mode() to ensure the advertising and
-link masks are cleared before we start setting bits.  Cleaned up and fixed
-code comments which were incorrect.  Separated the setting of autoneg in
-i40e_phy_types_to_ethtool() into its own conditional to clarify what PHYs
-support and advertise autoneg, and makes it easier to add new PHY types in
-the future.  Added ethtool functionality to intersect two link masks
-together to find the common ground between them.  Overhauled i40e to
-ensure that the new ethtool API macros are being used, instead of the
-old ones.  Fixed the usage of unsigned 64-bit division which is not
-supported on all architectures.
+There's a number of minor incidental whitespace issues in this file.
+This addresses most of the ones I could find.
 
-Sudheer adds support for 25G Active Optical Cables (AOC) and Active Copper
-Cables (ACC) PHY types.
+Signed-off-by: Alan Brady <alan.brady@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 44 +++++++++++---------------
+ 1 file changed, 18 insertions(+), 26 deletions(-)
 
-The following are changes since commit 8a5f2166a6288ee4b5a393f1ebc8cfb26b0510f0:
-  net: export netdev_txq_to_tc to allow sch_mqprio to compile as module
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Alan Brady (14):
-  i40e: rename 'cmd' variables in ethtool interface
-  i40e: remove ifdef SPEED_25000
-  i40e: add function header for i40e_get_rxfh
-  i40e: fix clearing link masks in i40e_get_link_ksettings
-  i40e: fix i40e_phy_type_to_ethtool function header
-  i40e: fix comment typo
-  i40e: fix whitespace issues in i40e_ethtool.c
-  i40e: group autoneg PHY types together
-  ethtool: add ethtool_intersect_link_masks
-  i40e: convert i40e_phy_type_to_ethtool to new API
-  i40e: convert i40e_get_settings_link_up to new API
-  i40e: rename 'change' variable to 'autoneg_changed'
-  i40e: convert i40e_set_link_ksettings to new API
-  i40e: fix u64 division usage
-
-Sudheer Mogilappagari (1):
-  i40e: Add new PHY types for 25G AOC and ACC support
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |   4 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   2 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 721 +++++++++++++--------
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  58 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   4 +
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |   4 +
- include/linux/ethtool.h                            |  10 +
- net/core/ethtool.c                                 |  16 +
- 9 files changed, 521 insertions(+), 301 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index e40fb559dacb..89ab398a7d30 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -511,7 +511,8 @@ static void i40e_get_settings_link_up(struct i40e_hw *hw,
+ 		break;
+ 	default:
+ 		/* if we got here and link is up something bad is afoot */
+-		netdev_info(netdev, "WARNING: Link is up but PHY type 0x%x is not recognized.\n",
++		netdev_info(netdev,
++			    "WARNING: Link is up but PHY type 0x%x is not recognized.\n",
+ 			    hw_link_info->phy_type);
+ 	}
+ 
+@@ -614,14 +615,12 @@ static int i40e_get_link_ksettings(struct net_device *netdev,
+ 	ks->base.autoneg = ((hw_link_info->an_info & I40E_AQ_AN_COMPLETED) ?
+ 			    AUTONEG_ENABLE : AUTONEG_DISABLE);
+ 
++	/* Set media type settings */
+ 	switch (hw->phy.media_type) {
+ 	case I40E_MEDIA_TYPE_BACKPLANE:
+-		ethtool_link_ksettings_add_link_mode(ks, supported,
+-						     Autoneg);
+-		ethtool_link_ksettings_add_link_mode(ks, supported,
+-						     Backplane);
+-		ethtool_link_ksettings_add_link_mode(ks, advertising,
+-						     Autoneg);
++		ethtool_link_ksettings_add_link_mode(ks, supported, Autoneg);
++		ethtool_link_ksettings_add_link_mode(ks, supported, Backplane);
++		ethtool_link_ksettings_add_link_mode(ks, advertising, Autoneg);
+ 		ethtool_link_ksettings_add_link_mode(ks, advertising,
+ 						     Backplane);
+ 		ks->base.port = PORT_NONE;
+@@ -652,16 +651,14 @@ static int i40e_get_link_ksettings(struct net_device *netdev,
+ 
+ 	switch (hw->fc.requested_mode) {
+ 	case I40E_FC_FULL:
+-		ethtool_link_ksettings_add_link_mode(ks, advertising,
+-						     Pause);
++		ethtool_link_ksettings_add_link_mode(ks, advertising, Pause);
+ 		break;
+ 	case I40E_FC_TX_PAUSE:
+ 		ethtool_link_ksettings_add_link_mode(ks, advertising,
+ 						     Asym_Pause);
+ 		break;
+ 	case I40E_FC_RX_PAUSE:
+-		ethtool_link_ksettings_add_link_mode(ks, advertising,
+-						     Pause);
++		ethtool_link_ksettings_add_link_mode(ks, advertising, Pause);
+ 		ethtool_link_ksettings_add_link_mode(ks, advertising,
+ 						     Asym_Pause);
+ 		break;
+@@ -708,17 +705,14 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
+ 		i40e_partition_setting_complaint(pf);
+ 		return -EOPNOTSUPP;
+ 	}
+-
+ 	if (vsi != pf->vsi[pf->lan_vsi])
+ 		return -EOPNOTSUPP;
+-
+ 	if (hw->phy.media_type != I40E_MEDIA_TYPE_BASET &&
+ 	    hw->phy.media_type != I40E_MEDIA_TYPE_FIBER &&
+ 	    hw->phy.media_type != I40E_MEDIA_TYPE_BACKPLANE &&
+ 	    hw->phy.media_type != I40E_MEDIA_TYPE_DA &&
+ 	    hw->phy.link_info.link_info & I40E_AQ_LINK_UP)
+ 		return -EOPNOTSUPP;
+-
+ 	if (hw->device_id == I40E_DEV_ID_KX_B ||
+ 	    hw->device_id == I40E_DEV_ID_KX_C ||
+ 	    hw->device_id == I40E_DEV_ID_20G_KR2 ||
+@@ -844,7 +838,6 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
+ 	 */
+ 	if (!config.link_speed)
+ 		config.link_speed = abilities.link_speed;
+-
+ 	if (change || (abilities.link_speed != config.link_speed)) {
+ 		/* copy over the rest of the abilities */
+ 		config.phy_type = abilities.phy_type;
+@@ -872,7 +865,8 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
+ 		/* make the aq call */
+ 		status = i40e_aq_set_phy_config(hw, &config, NULL);
+ 		if (status) {
+-			netdev_info(netdev, "Set phy config failed, err %s aq_err %s\n",
++			netdev_info(netdev,
++				    "Set phy config failed, err %s aq_err %s\n",
+ 				    i40e_stat_str(hw, status),
+ 				    i40e_aq_str(hw, hw->aq.asq_last_status));
+ 			err = -EAGAIN;
+@@ -881,7 +875,8 @@ static int i40e_set_link_ksettings(struct net_device *netdev,
+ 
+ 		status = i40e_update_link_info(hw);
+ 		if (status)
+-			netdev_dbg(netdev, "Updating link info failed with err %s aq_err %s\n",
++			netdev_dbg(netdev,
++				   "Updating link info failed with err %s aq_err %s\n",
+ 				   i40e_stat_str(hw, status),
+ 				   i40e_aq_str(hw, hw->aq.asq_last_status));
+ 
+@@ -2072,14 +2067,13 @@ static int __i40e_get_coalesce(struct net_device *netdev,
+ 	ec->tx_max_coalesced_frames_irq = vsi->work_limit;
+ 	ec->rx_max_coalesced_frames_irq = vsi->work_limit;
+ 
+-	/* rx and tx usecs has per queue value. If user doesn't specify the queue,
+-	 * return queue 0's value to represent.
++	/* rx and tx usecs has per queue value. If user doesn't specify the
++	 * queue, return queue 0's value to represent.
+ 	 */
+-	if (queue < 0) {
++	if (queue < 0)
+ 		queue = 0;
+-	} else if (queue >= vsi->num_queue_pairs) {
++	else if (queue >= vsi->num_queue_pairs)
+ 		return -EINVAL;
+-	}
+ 
+ 	rx_ring = vsi->rx_rings[queue];
+ 	tx_ring = vsi->tx_rings[queue];
+@@ -2093,7 +2087,6 @@ static int __i40e_get_coalesce(struct net_device *netdev,
+ 	ec->rx_coalesce_usecs = rx_ring->rx_itr_setting & ~I40E_ITR_DYNAMIC;
+ 	ec->tx_coalesce_usecs = tx_ring->tx_itr_setting & ~I40E_ITR_DYNAMIC;
+ 
+-
+ 	/* we use the _usecs_high to store/set the interrupt rate limit
+ 	 * that the hardware supports, that almost but not quite
+ 	 * fits the original intent of the ethtool variable,
+@@ -2143,7 +2136,6 @@ static int i40e_get_per_queue_coalesce(struct net_device *netdev, u32 queue,
+  *
+  * Change the ITR settings for a specific queue.
+  **/
+-
+ static void i40e_set_itr_per_queue(struct i40e_vsi *vsi,
+ 				   struct ethtool_coalesce *ec,
+ 				   int queue)
+@@ -2265,8 +2257,8 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 			   vsi->int_rate_limit);
+ 	}
+ 
+-	/* rx and tx usecs has per queue value. If user doesn't specify the queue,
+-	 * apply to all queues.
++	/* rx and tx usecs has per queue value. If user doesn't specify the
++	 * queue, apply to all queues.
+ 	 */
+ 	if (queue < 0) {
+ 		for (i = 0; i < vsi->num_queue_pairs; i++)
 -- 
 2.14.2
