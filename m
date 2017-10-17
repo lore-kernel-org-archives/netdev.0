@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/20] net: sched: cls_u32: call block callbacks for offload
-Date: Tue, 17 Oct 2017 22:06:02 +0200
-Message-ID: <20171017200615.4530-8-jiri@resnulli.us>
+Subject: [patch net-next 03/20] net: sched: introduce per-block callbacks
+Date: Tue, 17 Oct 2017 22:05:58 +0200
+Message-ID: <20171017200615.4530-4-jiri@resnulli.us>
 References: <20171017200615.4530-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,164 +14,268 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:46135 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764044AbdJQUGY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:24 -0400
-Received: by mail-wr0-f196.google.com with SMTP id l1so2907923wrc.3
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:23 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:54177 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764037AbdJQUGU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:20 -0400
+Received: by mail-wm0-f66.google.com with SMTP id q132so6160095wmd.2
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:19 -0700 (PDT)
 In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use the newly introduced callbacks infrastructure and call block
-callbacks alongside with the existing per-netdev ndo_setup_tc.
+Introduce infrastructure that allows drivers to register callbacks that
+are called whenever tc would offload inserted rule for a specific block.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/sched/cls_u32.c | 72 ++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 52 insertions(+), 20 deletions(-)
+ include/net/pkt_cls.h     |  81 +++++++++++++++++++++++++++++++++++
+ include/net/sch_generic.h |   1 +
+ net/sched/cls_api.c       | 105 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 187 insertions(+)
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index f407f13..24cc429 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -465,39 +465,57 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
- static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
- 	struct tc_cls_u32_offload cls_u32 = {};
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 5c50af8..4bc6b1c 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -27,6 +27,8 @@ struct tcf_block_ext_info {
+ 	enum tcf_block_binder_type binder_type;
+ };
  
--	if (!tc_should_offload(dev, 0))
--		return;
--
- 	tc_cls_common_offload_init(&cls_u32.common, tp);
- 	cls_u32.command = TC_CLSU32_DELETE_HNODE;
- 	cls_u32.hnode.divisor = h->divisor;
- 	cls_u32.hnode.handle = h->handle;
- 	cls_u32.hnode.prio = h->prio;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
-+	tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, false);
++struct tcf_block_cb;
++
+ #ifdef CONFIG_NET_CLS
+ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
+ 				bool create);
+@@ -51,6 +53,21 @@ static inline struct net_device *tcf_block_dev(struct tcf_block *block)
+ 	return tcf_block_q(block)->dev_queue->dev;
  }
  
- static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
- 				u32 flags)
++void *tcf_block_cb_priv(struct tcf_block_cb *block_cb);
++struct tcf_block_cb *tcf_block_cb_lookup(struct tcf_block *block,
++					 tc_setup_cb_t *cb, void *cb_ident);
++void tcf_block_cb_incref(struct tcf_block_cb *block_cb);
++unsigned int tcf_block_cb_decref(struct tcf_block_cb *block_cb);
++struct tcf_block_cb *__tcf_block_cb_register(struct tcf_block *block,
++					     tc_setup_cb_t *cb, void *cb_ident,
++					     void *cb_priv);
++int tcf_block_cb_register(struct tcf_block *block,
++			  tc_setup_cb_t *cb, void *cb_ident,
++			  void *cb_priv);
++void __tcf_block_cb_unregister(struct tcf_block_cb *block_cb);
++void tcf_block_cb_unregister(struct tcf_block *block,
++			     tc_setup_cb_t *cb, void *cb_ident);
++
+ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		 struct tcf_result *res, bool compat_mode);
+ 
+@@ -91,6 +108,70 @@ static inline struct net_device *tcf_block_dev(struct tcf_block *block)
+ 	return NULL;
+ }
+ 
++static inline
++int tc_setup_cb_block_register(struct tcf_block *block, tc_setup_cb_t *cb,
++			       void *cb_priv)
++{
++	return 0;
++}
++
++static inline
++void tc_setup_cb_block_unregister(struct tcf_block *block, tc_setup_cb_t *cb,
++				  void *cb_priv)
++{
++}
++
++static inline
++void *tcf_block_cb_priv(struct tcf_block_cb *block_cb)
++{
++	return NULL;
++}
++
++static inline
++struct tcf_block_cb *tcf_block_cb_lookup(struct tcf_block *block,
++					 tc_setup_cb_t *cb, void *cb_ident)
++{
++	return NULL;
++}
++
++static inline
++void tcf_block_cb_incref(struct tcf_block_cb *block_cb)
++{
++}
++
++static inline
++unsigned int tcf_block_cb_decref(struct tcf_block_cb *block_cb)
++{
++	return 0;
++}
++
++static inline
++struct tcf_block_cb *__tcf_block_cb_register(struct tcf_block *block,
++					     tc_setup_cb_t *cb, void *cb_ident,
++					     void *cb_priv)
++{
++	return NULL;
++}
++
++static inline
++int tcf_block_cb_register(struct tcf_block *block,
++			  tc_setup_cb_t *cb, void *cb_ident,
++			  void *cb_priv)
++{
++	return 0;
++}
++
++static inline
++void __tcf_block_cb_unregister(struct tcf_block_cb *block_cb)
++{
++}
++
++static inline
++void tcf_block_cb_unregister(struct tcf_block *block,
++			     tc_setup_cb_t *cb, void *cb_ident)
++{
++}
++
+ static inline int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			       struct tcf_result *res, bool compat_mode)
  {
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
- 	struct tc_cls_u32_offload cls_u32 = {};
-+	bool skip_sw = tc_skip_sw(flags);
-+	bool offloaded = false;
- 	int err;
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 0aea9e2..031dffd 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -272,6 +272,7 @@ struct tcf_block {
+ 	struct list_head chain_list;
+ 	struct net *net;
+ 	struct Qdisc *q;
++	struct list_head cb_list;
+ };
  
--	if (!tc_should_offload(dev, flags))
--		return tc_skip_sw(flags) ? -EINVAL : 0;
--
- 	tc_cls_common_offload_init(&cls_u32.common, tp);
- 	cls_u32.command = TC_CLSU32_NEW_HNODE;
- 	cls_u32.hnode.divisor = h->divisor;
- 	cls_u32.hnode.handle = h->handle;
- 	cls_u32.hnode.prio = h->prio;
+ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 92dce26..b16c79c 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -278,6 +278,8 @@ int tcf_block_get_ext(struct tcf_block **p_block,
+ 	if (!block)
+ 		return -ENOMEM;
+ 	INIT_LIST_HEAD(&block->chain_list);
++	INIT_LIST_HEAD(&block->cb_list);
++
+ 	/* Create chain 0 by default, it has to be always present. */
+ 	chain = tcf_chain_create(block, 0);
+ 	if (!chain) {
+@@ -354,6 +356,109 @@ void tcf_block_put(struct tcf_block *block)
+ }
+ EXPORT_SYMBOL(tcf_block_put);
  
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
--	if (tc_skip_sw(flags))
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
-+						    &cls_u32);
++struct tcf_block_cb {
++	struct list_head list;
++	tc_setup_cb_t *cb;
++	void *cb_ident;
++	void *cb_priv;
++	unsigned int refcnt;
++};
++
++void *tcf_block_cb_priv(struct tcf_block_cb *block_cb)
++{
++	return block_cb->cb_priv;
++}
++EXPORT_SYMBOL(tcf_block_cb_priv);
++
++struct tcf_block_cb *tcf_block_cb_lookup(struct tcf_block *block,
++					 tc_setup_cb_t *cb, void *cb_ident)
++{	struct tcf_block_cb *block_cb;
++
++	list_for_each_entry(block_cb, &block->cb_list, list)
++		if (block_cb->cb == cb && block_cb->cb_ident == cb_ident)
++			return block_cb;
++	return NULL;
++}
++EXPORT_SYMBOL(tcf_block_cb_lookup);
++
++void tcf_block_cb_incref(struct tcf_block_cb *block_cb)
++{
++	block_cb->refcnt++;
++}
++EXPORT_SYMBOL(tcf_block_cb_incref);
++
++unsigned int tcf_block_cb_decref(struct tcf_block_cb *block_cb)
++{
++	return --block_cb->refcnt;
++}
++EXPORT_SYMBOL(tcf_block_cb_decref);
++
++struct tcf_block_cb *__tcf_block_cb_register(struct tcf_block *block,
++					     tc_setup_cb_t *cb, void *cb_ident,
++					     void *cb_priv)
++{
++	struct tcf_block_cb *block_cb;
++
++	block_cb = kzalloc(sizeof(*block_cb), GFP_KERNEL);
++	if (!block_cb)
++		return NULL;
++	block_cb->cb = cb;
++	block_cb->cb_ident = cb_ident;
++	block_cb->cb_priv = cb_priv;
++	list_add(&block_cb->list, &block->cb_list);
++	return block_cb;
++}
++EXPORT_SYMBOL(__tcf_block_cb_register);
++
++int tcf_block_cb_register(struct tcf_block *block,
++			  tc_setup_cb_t *cb, void *cb_ident,
++			  void *cb_priv)
++{
++	struct tcf_block_cb *block_cb;
++
++	block_cb = __tcf_block_cb_register(block, cb, cb_ident, cb_priv);
++	return block_cb ? 0 : -ENOMEM;
++}
++EXPORT_SYMBOL(tcf_block_cb_register);
++
++void __tcf_block_cb_unregister(struct tcf_block_cb *block_cb)
++{
++	list_del(&block_cb->list);
++	kfree(block_cb);
++}
++EXPORT_SYMBOL(__tcf_block_cb_unregister);
++
++void tcf_block_cb_unregister(struct tcf_block *block,
++			     tc_setup_cb_t *cb, void *cb_ident)
++{
++	struct tcf_block_cb *block_cb;
++
++	block_cb = tcf_block_cb_lookup(block, cb, cb_ident);
++	if (!block_cb)
++		return;
++	__tcf_block_cb_unregister(block_cb);
++}
++EXPORT_SYMBOL(tcf_block_cb_unregister);
++
++static int tcf_block_cb_call(struct tcf_block *block, enum tc_setup_type type,
++			     void *type_data, bool err_stop)
++{
++	struct tcf_block_cb *block_cb;
++	int ok_count = 0;
++	int err;
++
++	list_for_each_entry(block_cb, &block->cb_list, list) {
++		err = block_cb->cb(type, type_data, block_cb->cb_priv);
 +		if (err) {
-+			if (skip_sw)
++			if (err_stop)
 +				return err;
 +		} else {
-+			offloaded = true;
++			ok_count++;
 +		}
 +	}
++	return ok_count;
++}
 +
-+	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, skip_sw);
-+	if (err < 0) {
-+		u32_clear_hw_hnode(tp, h);
- 		return err;
-+	} else if (err > 0) {
-+		offloaded = true;
-+	}
-+
-+	if (skip_sw && !offloaded)
-+		return -EINVAL;
- 
- 	return 0;
- }
-@@ -505,28 +523,27 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
- static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
- 	struct tc_cls_u32_offload cls_u32 = {};
- 
--	if (!tc_should_offload(dev, 0))
--		return;
--
- 	tc_cls_common_offload_init(&cls_u32.common, tp);
- 	cls_u32.command = TC_CLSU32_DELETE_KNODE;
- 	cls_u32.knode.handle = handle;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
-+	tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, false);
- }
- 
- static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
- 				u32 flags)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
- 	struct tc_cls_u32_offload cls_u32 = {};
-+	bool skip_sw = tc_skip_sw(flags);
- 	int err;
- 
--	if (!tc_should_offload(dev, flags))
--		return tc_skip_sw(flags) ? -EINVAL : 0;
--
- 	tc_cls_common_offload_init(&cls_u32.common, tp);
- 	cls_u32.command = TC_CLSU32_REPLACE_KNODE;
- 	cls_u32.knode.handle = n->handle;
-@@ -543,13 +560,28 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
- 	if (n->ht_down)
- 		cls_u32.knode.link_handle = n->ht_down->handle;
- 
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
- 
--	if (!err)
--		n->flags |= TCA_CLS_FLAGS_IN_HW;
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
-+						    &cls_u32);
-+		if (err) {
-+			if (skip_sw)
-+				return err;
-+		} else {
-+			n->flags |= TCA_CLS_FLAGS_IN_HW;
-+		}
-+	}
- 
--	if (tc_skip_sw(flags))
-+	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, skip_sw);
-+	if (err < 0) {
-+		u32_remove_hw_knode(tp, n->handle);
- 		return err;
-+	} else if (err > 0) {
-+		n->flags |= TCA_CLS_FLAGS_IN_HW;
-+	}
-+
-+	if (skip_sw && !(n->flags && TCA_CLS_FLAGS_IN_HW))
-+		return -EINVAL;
- 
- 	return 0;
- }
+ /* Main classifier routine: scans classifier chain attached
+  * to this qdisc, (optionally) tests for protocol and asks
+  * specific classifiers.
 -- 
 2.9.5
