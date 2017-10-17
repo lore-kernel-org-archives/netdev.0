@@ -1,49 +1,34 @@
 From: <netanel@amazon.com>
-Subject: [PATCH net-next] MAINTAINERS: change ENA driver maintainers email domain
-Date: Tue, 17 Oct 2017 07:30:34 +0000
-Message-ID: <1508225434-105787-1-git-send-email-netanel@amazon.com>
+Subject: [PATCH net 0/3] ENA ethernet driver bug fixes
+Date: Tue, 17 Oct 2017 07:33:02 +0000
+Message-ID: <1508225585-106167-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Netanel Belgazal <netanel@amazon.com>, <dwmw@amazon.com>,
         <zorik@amazon.com>, <matua@amazon.com>, <saeedb@amazon.com>,
         <msw@amazon.com>, <aliguori@amazon.com>, <nafea@amazon.com>,
         <evgenys@amazon.com>
-To: <linux-kernel@vger.kernel.org>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-fw-9101.amazon.com ([207.171.184.25]:22684 "EHLO
+        smtp-fw-9101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752721AbdJQHdN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 03:33:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Netanel Belgazal <netanel@amazon.com>
 
-ENA driver was developed by developers from Annapurna Labs.
-Annapurna Labs was acquired by Amazon and the company's domain
-(@annapurnalabs.com) will become deprecated soon.
+Some fixes for ENA ethernet driver
 
-Update the email addresses of the maintainers to the alternative amazon
-emails (@amazon.com)
+Netanel Belgazal (3):
+  net: ena: reduce the severity of some printouts
+  net: ena: fix rare kernel crash when bar memory remap fails
+  net: ena: fix wrong max Tx/Rx queues on ethtool
 
-Signed-off-by: Netanel Belgazal <netanel@amazon.com>
----
- MAINTAINERS | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/amazon/ena/ena_ethtool.c | 4 ++--
+ drivers/net/ethernet/amazon/ena/ena_netdev.c  | 7 ++++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3944f1626911..f218fe1e43fe 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -700,9 +700,9 @@ F:	include/linux/altera_uart.h
- F:	include/linux/altera_jtaguart.h
- 
- AMAZON ETHERNET DRIVERS
--M:	Netanel Belgazal <netanel@annapurnalabs.com>
--R:	Saeed Bishara <saeed@annapurnalabs.com>
--R:	Zorik Machulsky <zorik@annapurnalabs.com>
-+M:	Netanel Belgazal <netanel@amazon.com>
-+R:	Saeed Bishara <saeedb@amazon.com>
-+R:	Zorik Machulsky <zorik@amazon.com>
- L:	netdev@vger.kernel.org
- S:	Supported
- F:	Documentation/networking/ena.txt
 -- 
 1.8.3.1
