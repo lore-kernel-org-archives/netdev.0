@@ -1,105 +1,94 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH net-next 2/3] net: sh_eth: rename name structures as rcar_gen[12]_*
-Date: Tue, 17 Oct 2017 09:47:46 +0200
-Message-ID: <20171017074747.24159-3-horms+renesas@verge.net.au>
-References: <20171017074747.24159-1-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Simon Horman <horms+renesas@verge.net.au>
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Gal Pressman <galp@mellanox.com>
+Subject: Re: Ethtool question
+Date: Tue, 17 Oct 2017 10:49:18 +0300
+Message-ID: <9962714b-d34c-0139-0776-7e8ee3760c6d@mellanox.com>
+References: <492e57b2-ac0a-ff01-2698-e048e97d8e37@candelatech.com>
+ <20171011204406.GC30940@tuxdriver.com>
+ <20171011.134919.321292333200236097.davem@davemloft.net>
+ <59DFE275.3050805@candelatech.com>
+ <CAJieiUhsxPRPBBV1WJR6NRfzDKt-8c=QYRHhwoW33KchSb-gXg@mail.gmail.com>
+ <fec121f7-67bb-486f-ffc0-59f292614043@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>,
+        "John W. Linville" <linville@tuxdriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41349 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759100AbdJQHsI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 03:48:08 -0400
-In-Reply-To: <20171017074747.24159-1-horms+renesas@verge.net.au>
+Received: from mail-db5eur01on0065.outbound.protection.outlook.com ([104.47.2.65]:57472
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753011AbdJQHtc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Oct 2017 03:49:32 -0400
+In-Reply-To: <fec121f7-67bb-486f-ffc0-59f292614043@candelatech.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rename structures describing R-Car SoCs as rcar_gen[12]_*
-rather than r8a77[79]x_*. This seems a little easier on the
-eyes will make things slightly cleaner in a follow-up
-patch that adds fallback-compatibility strings for these SoCs.
+On 16-Oct-17 21:10, Ben Greear wrote:
+> On 10/12/2017 03:00 PM, Roopa Prabhu wrote:
+>> On Thu, Oct 12, 2017 at 2:45 PM, Ben Greear <greearb@candelatech.com> wrote:
+>>> On 10/11/2017 01:49 PM, David Miller wrote:
+>>>>
+>>>> From: "John W. Linville" <linville@tuxdriver.com>
+>>>> Date: Wed, 11 Oct 2017 16:44:07 -0400
+>>>>
+>>>>> On Wed, Oct 11, 2017 at 09:51:56AM -0700, Ben Greear wrote:
+>>>>>>
+>>>>>> I noticed today that setting some ethtool settings to the same value
+>>>>>> returns an error code.  I would think this should silently return
+>>>>>> success instead?  Makes it easier to call it from scripts this way:
+>>>>>>
+>>>>>> [root@lf0313-6477 lanforge]# ethtool -L eth3 combined 1
+>>>>>> combined unmodified, ignoring
+>>>>>> no channel parameters changed, aborting
+>>>>>> current values: tx 0 rx 0 other 1 combined 1
+>>>>>> [root@lf0313-6477 lanforge]# echo $?
+>>>>>> 1
+>>>>>
+>>>>>
+>>>>> I just had this discussion a couple of months ago with someone. My
+>>>>> initial feeling was like you, a no-op is not a failure. But someone
+>>>>> convinced me otherwise...I will now endeavour to remember who that
+>>>>> was and how they convinced me...
+>>>>>
+>>>>> Anyone else have input here?
+>>>>
+>>>>
+>>>> I guess this usually happens when drivers don't support changing the
+>>>> settings at all.  So they just make their ethtool operation for the
+>>>> 'set' always return an error.
+>>>>
+>>>> We could have a generic ethtool helper that does "get" and then if the
+>>>> "set" request is identical just return zero.
+>>>>
+>>>> But from another perspective, the error returned from the "set" in this
+>>>> situation also indicates to the user that the driver does not support
+>>>> the "set" operation which has value and meaning in and of itself.  And
+>>>> we'd lose that with the given suggestion.
+>>>
+>>>
+>>> In my case, the driver (igb) does support the set, my program just made the
+>>> same
+>>> ethtool call several times and it fails after the initial change (that
+>>> actually
+>>> changes something), as best as I can figure.
+>>
+>>
+>> This error is returned by ethtool user-space. It does a get, check and
+>> then set if user has requested changes.
+>>
+>
+> So, should we fix ethtool to return 0 in this case instead of an error code?
+>
+> I think so.  If the driver itself returns an error, then probably return the
+> error code and/or fix the driver as seems appropriate.
+>
+> Thanks,
+> Ben
+>
 
-Note that R-Car Gen2 and RZ/G1 have many compatible IP blocks.  The
-approach that has been consistently taken for other IP blocks is to name
-common code, compatibility strings and so on after Rcar Gen2.
-
-Also rename sh_eth_set_rate_r8a777x as sh_eth_set_rate_rcar as
-it it is used by the R-Car generations supported by the driver.
-
-This patch should have no run-time effect and
-is compile-tested only.
-
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
----
- drivers/net/ethernet/renesas/sh_eth.c | 30 +++++++++++++++---------------
- 1 file changed, 15 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index d2e88a30f57b..c9f92fc8555e 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -594,7 +594,7 @@ static struct sh_eth_cpu_data r8a7740_data = {
- };
- 
- /* There is CPU dependent code */
--static void sh_eth_set_rate_r8a777x(struct net_device *ndev)
-+static void sh_eth_set_rate_rcar(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
-@@ -608,10 +608,10 @@ static void sh_eth_set_rate_r8a777x(struct net_device *ndev)
- 	}
- }
- 
--/* R8A7778/9 */
--static struct sh_eth_cpu_data r8a777x_data = {
-+/* R-Car Gen1 */
-+static struct sh_eth_cpu_data rcar_gen1_data = {
- 	.set_duplex	= sh_eth_set_duplex,
--	.set_rate	= sh_eth_set_rate_r8a777x,
-+	.set_rate	= sh_eth_set_rate_rcar,
- 
- 	.register_type	= SH_ETH_REG_FAST_RCAR,
- 
-@@ -635,10 +635,10 @@ static struct sh_eth_cpu_data r8a777x_data = {
- 	.hw_swap	= 1,
- };
- 
--/* R8A7790/1 */
--static struct sh_eth_cpu_data r8a779x_data = {
-+/* R-Car Gen2 and RZ/G1 */
-+static struct sh_eth_cpu_data rcar_gen2_data = {
- 	.set_duplex	= sh_eth_set_duplex,
--	.set_rate	= sh_eth_set_rate_r8a777x,
-+	.set_rate	= sh_eth_set_rate_rcar,
- 
- 	.register_type	= SH_ETH_REG_FAST_RCAR,
- 
-@@ -3086,14 +3086,14 @@ static struct sh_eth_plat_data *sh_eth_parse_dt(struct device *dev)
- 
- static const struct of_device_id sh_eth_match_table[] = {
- 	{ .compatible = "renesas,gether-r8a7740", .data = &r8a7740_data },
--	{ .compatible = "renesas,ether-r8a7743", .data = &r8a779x_data },
--	{ .compatible = "renesas,ether-r8a7745", .data = &r8a779x_data },
--	{ .compatible = "renesas,ether-r8a7778", .data = &r8a777x_data },
--	{ .compatible = "renesas,ether-r8a7779", .data = &r8a777x_data },
--	{ .compatible = "renesas,ether-r8a7790", .data = &r8a779x_data },
--	{ .compatible = "renesas,ether-r8a7791", .data = &r8a779x_data },
--	{ .compatible = "renesas,ether-r8a7793", .data = &r8a779x_data },
--	{ .compatible = "renesas,ether-r8a7794", .data = &r8a779x_data },
-+	{ .compatible = "renesas,ether-r8a7743", .data = &rcar_gen2_data },
-+	{ .compatible = "renesas,ether-r8a7745", .data = &rcar_gen2_data },
-+	{ .compatible = "renesas,ether-r8a7778", .data = &rcar_gen1_data },
-+	{ .compatible = "renesas,ether-r8a7779", .data = &rcar_gen1_data },
-+	{ .compatible = "renesas,ether-r8a7790", .data = &rcar_gen2_data },
-+	{ .compatible = "renesas,ether-r8a7791", .data = &rcar_gen2_data },
-+	{ .compatible = "renesas,ether-r8a7793", .data = &rcar_gen2_data },
-+	{ .compatible = "renesas,ether-r8a7794", .data = &rcar_gen2_data },
- 	{ .compatible = "renesas,ether-r7s72100", .data = &r7s72100_data },
- 	{ }
- };
--- 
-2.11.0
+FWIW, seems like the code isn't consistent in this matter.
+Setting pause/channels/coalescing with the same values will return an error code, but setting EEE will return success.
