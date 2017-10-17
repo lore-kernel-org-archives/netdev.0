@@ -1,7 +1,7 @@
 From: Steve Lin <steven.lin1@broadcom.com>
-Subject: [PATCH 5/7] devlink: Adding pre-boot permanent config parameters
-Date: Tue, 17 Oct 2017 16:44:27 -0400
-Message-ID: <1508273069-40461-6-git-send-email-steven.lin1@broadcom.com>
+Subject: [PATCH 7/7] bnxt: Add devlink support for config get/set
+Date: Tue, 17 Oct 2017 16:44:29 -0400
+Message-ID: <1508273069-40461-8-git-send-email-steven.lin1@broadcom.com>
 References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
 Cc: jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
         linville@tuxdriver.com, gospo@broadcom.com,
@@ -10,134 +10,494 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:49943 "EHLO
         rnd-relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1760635AbdJQUor (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:44:47 -0400
+        by vger.kernel.org with ESMTP id S1760623AbdJQUos (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:44:48 -0400
 In-Reply-To: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extending DEVLINK_ATTR_PERM_CFG (permanent/NVRAM device configuration)
-to include some pre-boot device configuration settings:
-
-DEVLINK_ATTR_PERM_CFG_MBA_ENABLED: 1 to enable Multiple Boot
-Agent (BMA), 0 to disable.
-
-DEVLINK_ATTR_PERM_CFG_MBA_BOOT_TYPE: Controls mechanism MBA will
-use to insert itself into the list of devices recognized by the
-BIOS; use enum devlink_mba_boot_type.
-
-DEVLINK_ATTR_PERM_CFG_MBA_DELAY_TIME: Controls how long MBA
-banner display and ability to enter MBA setup will persist
-during initialization, in seconds.
-
-DEVLINK_ATTR_PERM_CFG_MBA_SETUP_HOT_KEY: Configures which hot-key
-will be used to enter MBA setup; use enum devlink_mba_setup_hot_key.
-
-DEVLINK_ATTR_PERM_CFG_MBA_HIDE_SETUP_PROMPT: 1 to enable hiding
-of 'enter setup' prompt during initialization, 0 to disable.
-
-DEVLINK_ATTR_PERM_CFG_MBA_BOOT_RETRY_COUNT: MBA retries booting
-this number of times, if it fails initially.
-
-DEVLINK_ATTR_PERM_CFG_MBA_VLAN_ENABLED: 1 to enable using VLAN
-when executing MBA host software (PXE/iSCSI), 0 to disable.
-
-DEVLINK_ATTR_PERM_CFG_MBA_VLAN_TAG: The 16 bit VLAN tag to use
-if MBA_VLAN_ENABLED is set.
-
-DEVLINK_ATTR_PERM_CFG_MBA_BOOT_PROTOCOL: Selects MBA boot
-protocol; use enum devlink_mba_boot_protocol.
-
-DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED: Configured link speed
-while executing MBA host software (PXI/iSCSI); use enum
-devlink_mba_link_speed.
+Implements get and set of configuration parameters using new devlink
+config get/set API.
 
 Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
 Acked-by: Andy Gospodarek <gospo@broadcom.com>
 ---
- include/uapi/linux/devlink.h | 39 ++++++++++++++++++++++++++++++++++++++-
- net/core/devlink.c           | 10 ++++++++++
- 2 files changed, 48 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 310 +++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  17 ++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 100 +++++++
+ 3 files changed, 421 insertions(+), 6 deletions(-)
 
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index 2e1c006..609784a 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -162,6 +162,33 @@ enum devlink_pre_os_link_speed {
- 	DEVLINK_PRE_OS_LINK_SPEED_100M = 0xf,
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+index f3f6aa8..e247cae 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+@@ -14,11 +14,309 @@
+ #include "bnxt_vfr.h"
+ #include "bnxt_devlink.h"
+ 
+-static const struct devlink_ops bnxt_dl_ops = {
++struct bnxt_drv_cfgparam bnxt_drv_cfgparam_list[] = {
++	{DEVLINK_ATTR_PERM_CFG_MAX_NUM_PF_MSIX_VECT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 10, 108},
++	{DEVLINK_ATTR_PERM_CFG_IGNORE_ARI_CAPABILITY, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 164},
++	{DEVLINK_ATTR_PERM_CFG_PME_CAPABILITY_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 166},
++	{DEVLINK_ATTR_PERM_CFG_LLDP_NEAREST_BRIDGE_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 269},
++	{DEVLINK_ATTR_PERM_CFG_LLDP_NEAREST_NONTPMR_BRIDGE_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 270},
++	{DEVLINK_ATTR_PERM_CFG_SECURE_NIC_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 162},
++	{DEVLINK_ATTR_PERM_CFG_PHY_SELECT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 329},
++	{DEVLINK_ATTR_PERM_CFG_SRIOV_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 1, 401},
++
++	{DEVLINK_ATTR_PERM_CFG_MBA_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 351},
++	{DEVLINK_ATTR_PERM_CFG_MBA_BOOT_TYPE, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 2, 352},
++	{DEVLINK_ATTR_PERM_CFG_MBA_DELAY_TIME, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 4, 353},
++	{DEVLINK_ATTR_PERM_CFG_MBA_SETUP_HOT_KEY, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 354},
++	{DEVLINK_ATTR_PERM_CFG_MBA_HIDE_SETUP_PROMPT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 355},
++	{DEVLINK_ATTR_PERM_CFG_MBA_VLAN_TAG, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 16, 357},
++	{DEVLINK_ATTR_PERM_CFG_MBA_VLAN_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 358},
++	{DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 4, 359},
++	{DEVLINK_ATTR_PERM_CFG_MBA_BOOT_RETRY_COUNT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 3, 360},
++	{DEVLINK_ATTR_PERM_CFG_MBA_BOOT_PROTOCOL, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 3, 361},
++	{DEVLINK_ATTR_PERM_CFG_NUM_VF_PER_PF, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 8, 404},
++	{DEVLINK_ATTR_PERM_CFG_MSIX_VECTORS_PER_VF, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 10, 406},
++	{DEVLINK_ATTR_PERM_CFG_NPAR_BW_RESERVATION, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 10, 501},
++	{DEVLINK_ATTR_PERM_CFG_NPAR_BW_LIMIT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 10, 502},
++	{DEVLINK_ATTR_PERM_CFG_RDMA_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 506},
++	{DEVLINK_ATTR_PERM_CFG_NPAR_BW_IN_PERCENT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 507},
++	{DEVLINK_ATTR_PERM_CFG_NPAR_BW_RESERVATION_VALID, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 508},
++	{DEVLINK_ATTR_PERM_CFG_NPAR_BW_LIMIT_VALID, BNXT_DRV_PF,
++		BNXT_DRV_APPL_FUNCTION, 1, 509},
++
++	{DEVLINK_ATTR_PERM_CFG_MAGIC_PACKET_WOL_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 1, 152},
++	{DEVLINK_ATTR_PERM_CFG_DCBX_MODE, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 4, 155},
++	{DEVLINK_ATTR_PERM_CFG_MULTIFUNC_MODE, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 5, 157},
++	{DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 4, 205},
++	{DEVLINK_ATTR_PERM_CFG_EEE_PWR_SAVE_ENABLED, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 1, 208},
++	{DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 4, 210},
++	{DEVLINK_ATTR_PERM_CFG_MEDIA_AUTO_DETECT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 1, 213},
++	{DEVLINK_ATTR_PERM_CFG_AUTONEG_PROTOCOL, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 8, 312},
++	{DEVLINK_ATTR_PERM_CFG_NPAR_NUM_PARTITIONS_PER_PORT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_PORT, 8, 503},
++};
++
++#define BNXT_NUM_DRV_CFGPARAM ARRAY_SIZE(bnxt_drv_cfgparam_list)
++
++static int bnxt_nvm_read(struct bnxt *bp, int nvm_param, int idx,
++			 void *buf, int size)
++{
++	struct hwrm_nvm_get_variable_input req = {0};
++	void *dest_data_addr = NULL;
++	dma_addr_t dest_data_dma_addr;
++	int rc;
++	int bytesize;
++
++	bytesize = (size + 7) / 8;
++	dest_data_addr = dma_alloc_coherent(&bp->pdev->dev, bytesize,
++					    &dest_data_dma_addr, GFP_KERNEL);
++	if (!dest_data_addr) {
++		netdev_err(bp->dev, "dma_alloc_coherent failure\n");
++		return -ENOMEM;
++	}
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_NVM_GET_VARIABLE, -1, -1);
++	req.dest_data_addr = cpu_to_le64(dest_data_dma_addr);
++	req.data_len = cpu_to_le16(size);
++	req.option_num = cpu_to_le16(nvm_param);
++	req.index_0 = cpu_to_le16(idx);
++	if (idx != 0)
++		req.dimensions = cpu_to_le16(1);
++
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++
++	memcpy(buf, dest_data_addr, bytesize);
++
++	dma_free_coherent(&bp->pdev->dev, bytesize, dest_data_addr,
++			  dest_data_dma_addr);
++
++	return rc;
++}
++
++static int bnxt_nvm_write(struct bnxt *bp, int nvm_param, int idx,
++			  const void *buf, int size)
++{
++	struct hwrm_nvm_set_variable_input req = {0};
++	void *src_data_addr = NULL;
++	dma_addr_t src_data_dma_addr;
++	int rc;
++	int bytesize;
++
++	bytesize = (size + 7) / 8;
++
++	src_data_addr = dma_alloc_coherent(&bp->pdev->dev, bytesize,
++					   &src_data_dma_addr, GFP_KERNEL);
++	if (!src_data_addr) {
++		netdev_err(bp->dev, "dma_alloc_coherent failure\n");
++		return -ENOMEM;
++	}
++
++	memcpy(src_data_addr, buf, bytesize);
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_NVM_SET_VARIABLE, -1, -1);
++	req.src_data_addr = cpu_to_le64(src_data_dma_addr);
++	req.data_len = cpu_to_le16(size);
++	req.option_num = cpu_to_le16(nvm_param);
++	req.index_0 = cpu_to_le16(idx);
++	if (idx != 0)
++		req.dimensions = cpu_to_le16(1);
++
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++
++	dma_free_coherent(&bp->pdev->dev, bytesize, src_data_addr,
++			  src_data_dma_addr);
++
++	return 0;
++}
++
++static int bnxt_dl_config_set(struct devlink *devlink,
++			      enum devlink_attr attr, u32 value,
++			      u8 *restart_reqd)
++{
++	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
++	int i;
++	int idx = 0;
++	void *data;
++	int ret = 0;
++	u32 bytesize;
++	struct bnxt_drv_cfgparam *entry;
++
++	*restart_reqd = 0;
++
++	/* Find parameter in table */
++	for (i = 0; i < BNXT_NUM_DRV_CFGPARAM; i++) {
++		if (attr == bnxt_drv_cfgparam_list[i].attr) {
++			entry = &bnxt_drv_cfgparam_list[i];
++			break;
++		}
++	}
++
++	/* Not found */
++	if (i == BNXT_NUM_DRV_CFGPARAM)
++		return -EINVAL;
++
++	/* Check to see if this func type can access variable */
++	if (BNXT_PF(bp) && !(entry->func & BNXT_DRV_PF))
++		return -EOPNOTSUPP;
++	if (BNXT_VF(bp) && !(entry->func & BNXT_DRV_VF))
++		return -EOPNOTSUPP;
++
++	/* If parameter is per port or function, compute index */
++	if (entry->appl == BNXT_DRV_APPL_PORT) {
++		idx = bp->pf.port_id;
++	} else if (entry->appl == BNXT_DRV_APPL_FUNCTION) {
++		if (BNXT_PF(bp))
++			idx = bp->pf.fw_fid - BNXT_FIRST_PF_FID;
++#ifdef CONFIG_BNXT_SRIOV
++		else
++			idx = bp->vf.fw_fid - BNXT_FIRST_VF_FID;
++#endif /* CONFIG_BNXT_SRIOV */
++	}
++
++	bytesize = (entry->bitlength + 7) / 8;
++	data = kmalloc(bytesize, GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	if (bytesize == 1) {
++		u8 val8 = (value & 0xff);
++
++		memcpy(data, &val8, sizeof(u8));
++	} else if (bytesize == 2) {
++		u16 val16 = (value & 0xffff);
++
++		memcpy(data, &val16, sizeof(u16));
++	} else {
++		memcpy(data, &value, sizeof(u32));
++	}
++
++	ret = bnxt_nvm_write(bp, entry->nvm_param, idx, data,
++			     entry->bitlength);
++
++	/* Restart required for all nvm parameter writes */
++	*restart_reqd = 1;
++
++	kfree(data);
++
++	return ret;
++}
++
++static int bnxt_dl_config_get(struct devlink *devlink,
++			      enum devlink_attr attr, u32 *value)
++{
++	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
++
++	int i;
++	int idx = 0;
++	void *data;
++	int ret = 0;
++	u32 bytesize;
++	struct bnxt_drv_cfgparam *entry;
++
++	/* Find parameter in table */
++	for (i = 0; i < BNXT_NUM_DRV_CFGPARAM; i++) {
++		if (attr == bnxt_drv_cfgparam_list[i].attr) {
++			entry = &bnxt_drv_cfgparam_list[i];
++			break;
++		}
++	}
++
++	/* Not found */
++	if (i == BNXT_NUM_DRV_CFGPARAM)
++		return -EINVAL;
++
++	/* Check to see if this func type can access variable */
++	if (BNXT_PF(bp) && !(entry->func & BNXT_DRV_PF))
++		return -EOPNOTSUPP;
++	if (BNXT_VF(bp) && !(entry->func & BNXT_DRV_VF))
++		return -EOPNOTSUPP;
++
++	/* If parameter is per port or function, compute index */
++	if (entry->appl == BNXT_DRV_APPL_PORT) {
++		idx = bp->pf.port_id;
++	} else if (entry->appl == BNXT_DRV_APPL_FUNCTION) {
++		if (BNXT_PF(bp))
++			idx = bp->pf.fw_fid - BNXT_FIRST_PF_FID;
++#ifdef CONFIG_BNXT_SRIOV
++		else
++			idx = bp->vf.fw_fid - BNXT_FIRST_VF_FID;
++#endif /* CONFIG_BNXT_SRIOV */
++	}
++
++	/* Allocate space, retrieve value, and copy to result */
++	bytesize = (entry->bitlength + 7) / 8;
++	data = kmalloc(bytesize, GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++	ret = bnxt_nvm_read(bp, entry->nvm_param, idx, data, entry->bitlength);
++
++	if (ret) {
++		kfree(data);
++		return ret;
++	}
++
++	if (bytesize == 1) {
++		u8 val;
++
++		memcpy(&val, data, sizeof(u8));
++		*value = val;
++	} else if (bytesize == 2) {
++		u16 val;
++
++		memcpy(&val, data, sizeof(u16));
++		*value = val;
++	} else {
++		u32 val;
++
++		memcpy(&val, data, sizeof(u32));
++		*value = val;
++	}
++
++	kfree(data);
++
++	return 0;
++}
++
++static struct devlink_ops bnxt_dl_ops = {
+ #ifdef CONFIG_BNXT_SRIOV
+ 	.eswitch_mode_set = bnxt_dl_eswitch_mode_set,
+ 	.eswitch_mode_get = bnxt_dl_eswitch_mode_get,
+ #endif /* CONFIG_BNXT_SRIOV */
++	.config_get = bnxt_dl_config_get,
++	.config_set = bnxt_dl_config_set,
  };
  
-+enum devlink_mba_boot_type {
-+	DEVLINK_MBA_BOOT_TYPE_AUTO_DETECT,
-+	DEVLINK_MBA_BOOT_TYPE_BBS,		/* BIOS Boot Specification */
-+	DEVLINK_MBA_BOOT_TYPE_INTR18,		/* Hook interrupt 0x18 */
-+	DEVLINK_MBA_BOOT_TYPE_INTR19,		/* Hook interrupt 0x19 */
-+};
-+
-+enum devlink_mba_setup_hot_key {
-+	DEVLINK_MBA_SETUP_HOT_KEY_CTRL_S,
-+	DEVLINK_MBA_SETUP_HOT_KEY_CTRL_B,
-+};
-+
-+enum devlink_mba_boot_protocol {
-+	DEVLINK_MBA_BOOT_PROTOCOL_PXE,
-+	DEVLINK_MBA_BOOT_PROTOCOL_ISCSI,
-+	DEVLINK_MBA_BOOT_PROTOCOL_NONE = 0x7,
-+};
-+
-+enum devlink_mba_link_speed {
-+	DEVLINK_MBA_LINK_SPEED_AUTONEG,
-+	DEVLINK_MBA_LINK_SPEED_1G,
-+	DEVLINK_MBA_LINK_SPEED_10G,
-+	DEVLINK_MBA_LINK_SPEED_25G,
-+	DEVLINK_MBA_LINK_SPEED_40G,
-+	DEVLINK_MBA_LINK_SPEED_50G,
-+};
-+
- enum devlink_attr {
- 	/* don't change the order or add anything between, this is ABI! */
- 	DEVLINK_ATTR_UNSPEC,
-@@ -274,9 +301,19 @@ enum devlink_attr {
- 	DEVLINK_ATTR_PERM_CFG_PHY_SELECT,		/* u8 */
- 	DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0,	/* u32 */
- 	DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3,	/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_ENABLED,		/* u8 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_BOOT_TYPE,		/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_DELAY_TIME,		/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_SETUP_HOT_KEY,	/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_HIDE_SETUP_PROMPT,	/* u8 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_BOOT_RETRY_COUNT,	/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_VLAN_ENABLED,		/* u8 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_VLAN_TAG,		/* u16 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_BOOT_PROTOCOL,	/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED,		/* u32 */
+ int bnxt_dl_register(struct bnxt *bp)
+@@ -26,12 +324,12 @@ int bnxt_dl_register(struct bnxt *bp)
+ 	struct devlink *dl;
+ 	int rc;
  
- 	/* Add new permanent config parameters above here */
--	DEVLINK_ATTR_PERM_CFG_LAST = DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3,
-+	DEVLINK_ATTR_PERM_CFG_LAST = DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED,
+-	if (!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
+-		return 0;
+-
+-	if (bp->hwrm_spec_code < 0x10800) {
++	if ((!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV)) ||
++	    bp->hwrm_spec_code < 0x10800) {
++		/* eswitch switchdev mode not supported */
++		bnxt_dl_ops.eswitch_mode_set = NULL;
++		bnxt_dl_ops.eswitch_mode_get = NULL;
+ 		netdev_warn(bp->dev, "Firmware does not support SR-IOV E-Switch SWITCHDEV mode.\n");
+-		return -ENOTSUPP;
+ 	}
  
- 	/* add new attributes above here, update the policy in devlink.c */
+ 	dl = devlink_alloc(&bnxt_dl_ops, sizeof(struct bnxt_dl));
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+index e92a35d..ee28890 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+@@ -10,6 +10,23 @@
+ #ifndef BNXT_DEVLINK_H
+ #define BNXT_DEVLINK_H
  
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 80a2a50..2eaa566 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -2567,6 +2567,16 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
- 	[DEVLINK_ATTR_PERM_CFG_PHY_SELECT] = { .type = NLA_U8 },
- 	[DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0] = { .type = NLA_U32 },
- 	[DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_ENABLED] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_BOOT_TYPE] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_DELAY_TIME] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_SETUP_HOT_KEY] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_HIDE_SETUP_PROMPT] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_BOOT_RETRY_COUNT] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_VLAN_ENABLED] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_VLAN_TAG] = { .type = NLA_U16 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_BOOT_PROTOCOL] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED] = { .type = NLA_U32 },
++#define BNXT_DRV_PF 1
++#define BNXT_DRV_VF 2
++
++enum bnxt_drv_appl {
++	BNXT_DRV_APPL_SHARED,
++	BNXT_DRV_APPL_PORT,
++	BNXT_DRV_APPL_FUNCTION
++};
++
++struct bnxt_drv_cfgparam {
++	enum devlink_attr	attr;
++	u8			func; /* BNXT_DRV_PF | BNXT_DRV_VF */
++	enum bnxt_drv_appl	appl; /* applicability (shared, func, port) */
++	u32			bitlength; /* length, in bits */
++	u32			nvm_param;
++};
++
+ /* Struct to hold housekeeping info needed by devlink interface */
+ struct bnxt_dl {
+ 	struct bnxt *bp;	/* back ptr to the controlling dev */
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+index cb04cc7..8c25731 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
+@@ -5676,6 +5676,106 @@ struct hwrm_nvm_install_update_cmd_err {
+ 	u8 unused_0[7];
  };
  
- static const struct genl_ops devlink_nl_ops[] = {
++/* hwrm_nvm_get_variable */
++/* Input (40 bytes) */
++struct hwrm_nvm_get_variable_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le64 dest_data_addr;
++	__le16 data_len;
++	__le16 option_num;
++	#define NVM_GET_VARIABLE_REQ_OPTION_NUM_RSVD_0		   0x0UL
++	#define NVM_GET_VARIABLE_REQ_OPTION_NUM_RSVD_FFFF	   0xffffUL
++	__le16 dimensions;
++	__le16 index_0;
++	__le16 index_1;
++	__le16 index_2;
++	__le16 index_3;
++	u8 flags;
++	#define NVM_GET_VARIABLE_REQ_FLAGS_FACTORY_DFLT	    0x1UL
++	u8 unused_0;
++};
++
++/* Output (16 bytes) */
++struct hwrm_nvm_get_variable_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	__le16 data_len;
++	__le16 option_num;
++	#define NVM_GET_VARIABLE_RESP_OPTION_NUM_RSVD_0	   0x0UL
++	#define NVM_GET_VARIABLE_RESP_OPTION_NUM_RSVD_FFFF	   0xffffUL
++	u8 unused_0;
++	u8 unused_1;
++	u8 unused_2;
++	u8 valid;
++};
++
++/* Command specific Error Codes (8 bytes) */
++struct hwrm_nvm_get_variable_cmd_err {
++	u8 code;
++	#define NVM_GET_VARIABLE_CMD_ERR_CODE_UNKNOWN		   0x0UL
++	#define NVM_GET_VARIABLE_CMD_ERR_CODE_VAR_NOT_EXIST       0x1UL
++	#define NVM_GET_VARIABLE_CMD_ERR_CODE_CORRUPT_VAR	   0x2UL
++	#define NVM_GET_VARIABLE_CMD_ERR_CODE_LEN_TOO_SHORT       0x3UL
++	u8 unused_0[7];
++};
++
++/* hwrm_nvm_set_variable */
++/* Input (40 bytes) */
++struct hwrm_nvm_set_variable_input {
++	__le16 req_type;
++	__le16 cmpl_ring;
++	__le16 seq_id;
++	__le16 target_id;
++	__le64 resp_addr;
++	__le64 src_data_addr;
++	__le16 data_len;
++	__le16 option_num;
++	#define NVM_SET_VARIABLE_REQ_OPTION_NUM_RSVD_0		   0x0UL
++	#define NVM_SET_VARIABLE_REQ_OPTION_NUM_RSVD_FFFF	   0xffffUL
++	__le16 dimensions;
++	__le16 index_0;
++	__le16 index_1;
++	__le16 index_2;
++	__le16 index_3;
++	u8 flags;
++	#define NVM_SET_VARIABLE_REQ_FLAGS_FORCE_FLUSH		    0x1UL
++	#define NVM_SET_VARIABLE_REQ_FLAGS_ENCRYPT_MODE_MASK       0xeUL
++	#define NVM_SET_VARIABLE_REQ_FLAGS_ENCRYPT_MODE_SFT	    1
++	#define NVM_SET_VARIABLE_REQ_FLAGS_ENCRYPT_MODE_NONE      (0x0UL << 1)
++	#define NVM_SET_VARIABLE_REQ_FLAGS_ENCRYPT_MODE_HMAC_SHA1 (0x1UL << 1)
++	#define NVM_SET_VARIABLE_REQ_FLAGS_ENCRYPT_MODE_LAST \
++		NVM_SET_VARIABLE_REQ_FLAGS_ENCRYPT_MODE_HMAC_SHA1
++	u8 unused_0;
++};
++
++/* Output (16 bytes) */
++struct hwrm_nvm_set_variable_output {
++	__le16 error_code;
++	__le16 req_type;
++	__le16 seq_id;
++	__le16 resp_len;
++	__le32 unused_0;
++	u8 unused_1;
++	u8 unused_2;
++	u8 unused_3;
++	u8 valid;
++};
++
++/* Command specific Error Codes (8 bytes) */
++struct hwrm_nvm_set_variable_cmd_err {
++	u8 code;
++	#define NVM_SET_VARIABLE_CMD_ERR_CODE_UNKNOWN		   0x0UL
++	#define NVM_SET_VARIABLE_CMD_ERR_CODE_VAR_NOT_EXIST       0x1UL
++	#define NVM_SET_VARIABLE_CMD_ERR_CODE_CORRUPT_VAR	   0x2UL
++	u8 unused_0[7];
++};
++
+ /* hwrm_selftest_qlist */
+ /* Input (16 bytes) */
+ struct hwrm_selftest_qlist_input {
 -- 
 2.7.4
