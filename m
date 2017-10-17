@@ -1,45 +1,37 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH] net: export netdev_txq_to_tc to allow sch_mqprio to
- compile as module
-Date: Tue, 17 Oct 2017 04:21:24 -0700
-Message-ID: <CANn89iJPRjokxHmj4dYnBQkJ=A4Z-7cMpZ34L+i949tJwUXd2g@mail.gmail.com>
-References: <1508235010-4056-1-git-send-email-haustad@cisco.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] sock_diag: request _diag module only when the
+ family or proto has been registered
+Date: Tue, 17 Oct 2017 04:24:29 -0700
+Message-ID: <1508239469.31614.92.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <69c0824505548e733f2f7be3ff288f2c4e461afa.1508217236.git.lucien.xin@gmail.com>
+         <1508238974.31614.91.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsahern@gmail.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Willem de Bruijn <willemb@google.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        tcharding <me@tobin.cc>, LKML <linux-kernel@vger.kernel.org>,
-        Henrik Austad <haustad@cisco.com>,
-        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-To: Henrik Austad <henrik@austad.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1508235010-4056-1-git-send-email-haustad@cisco.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: network dev <netdev@vger.kernel.org>, davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:54698 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752209AbdJQLYb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 07:24:31 -0400
+Received: by mail-pg0-f67.google.com with SMTP id l24so1161360pgu.11
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 04:24:31 -0700 (PDT)
+In-Reply-To: <1508238974.31614.91.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 3:10 AM, Henrik Austad <henrik@austad.us> wrote:
-> In commit 32302902ff09 ("mqprio: Reserve last 32 classid values for HW
-> traffic classes and misc IDs") sch_mqprio started using netdev_txq_to_tc
-> to find the correct tc instead of dev->tc_to_txq[]
->
-> However, when mqprio is compiled as a module, it cannot resolve the
-> symbol, leading to this error:
->
->      ERROR: "netdev_txq_to_tc" [net/sched/sch_mqprio.ko] undefined!
->
-> This adds an EXPORT_SYMBOL() since the other user in the kernel
-> (netif_set_xps_queue) is also EXPORT_SYMBOL() (and not _GPL) or in a
-> sysfs-callback.
->
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> Cc: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Henrik Austad <haustad@cisco.com>
+On Tue, 2017-10-17 at 04:16 -0700, Eric Dumazet wrote:
+> On Tue, 2017-10-17 at 13:13 +0800, Xin Long wrote:
+> 
+> > +bool sock_is_registered(int family)
+> > +{
+> > +	return family < NPROTO && rcu_access_pointer(net_families[family]);
+> > +}
+> 
+> EXPORT_SYMBOL() ?
+> 
 
-
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Or move it in net/core/sock_diag.c so that it can be static.
