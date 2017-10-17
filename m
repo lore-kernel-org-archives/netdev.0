@@ -1,18 +1,11 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 36/58] inet: frags: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:20 -0700
-Message-ID: <1508200182-104605-37-git-send-email-keescook@chromium.org>
+Subject: [PATCH 38/58] hdlc: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:22 -0700
+Message-ID: <1508200182-104605-39-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Alexander Aring <alex.aring@gmail.com>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>, linux-wpan@vger.kernel.org,
-        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, Thomas Gleixner <tglx@linutronix.de>,
+        Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -22,145 +15,109 @@ List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly.
+to pass the timer pointer explicitly. This adds a pointer back to the
+net_device, and drops needless open-coded resetting of the .function and
+.data fields.
 
-Cc: Alexander Aring <alex.aring@gmail.com>
-Cc: Stefan Schmidt <stefan@osg.samsung.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: linux-wpan@vger.kernel.org
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>
 Cc: netdev@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org
-Cc: coreteam@netfilter.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Stefan Schmidt <stefan@osg.samsung.com> # for ieee802154
 ---
- include/net/inet_frag.h                 | 2 +-
- net/ieee802154/6lowpan/reassembly.c     | 5 +++--
- net/ipv4/inet_fragment.c                | 4 ++--
- net/ipv4/ip_fragment.c                  | 5 +++--
- net/ipv6/netfilter/nf_conntrack_reasm.c | 5 +++--
- net/ipv6/reassembly.c                   | 5 +++--
- 6 files changed, 15 insertions(+), 11 deletions(-)
+ drivers/net/wan/hdlc_cisco.c | 13 ++++++-------
+ drivers/net/wan/hdlc_fr.c    | 12 ++++++------
+ 2 files changed, 12 insertions(+), 13 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index fc59e0775e00..c695807ca707 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -95,7 +95,7 @@ struct inet_frags {
- 	void			(*constructor)(struct inet_frag_queue *q,
- 					       const void *arg);
- 	void			(*destructor)(struct inet_frag_queue *);
--	void			(*frag_expire)(unsigned long data);
-+	void			(*frag_expire)(struct timer_list *t);
- 	struct kmem_cache	*frags_cachep;
- 	const char		*frags_cache_name;
- };
-diff --git a/net/ieee802154/6lowpan/reassembly.c b/net/ieee802154/6lowpan/reassembly.c
-index f85b08baff16..85bf86ad6b18 100644
---- a/net/ieee802154/6lowpan/reassembly.c
-+++ b/net/ieee802154/6lowpan/reassembly.c
-@@ -80,12 +80,13 @@ static void lowpan_frag_init(struct inet_frag_queue *q, const void *a)
- 	fq->daddr = *arg->dst;
+diff --git a/drivers/net/wan/hdlc_cisco.c b/drivers/net/wan/hdlc_cisco.c
+index c696d42f4502..320039d329c7 100644
+--- a/drivers/net/wan/hdlc_cisco.c
++++ b/drivers/net/wan/hdlc_cisco.c
+@@ -54,6 +54,7 @@ struct cisco_state {
+ 	cisco_proto settings;
+ 
+ 	struct timer_list timer;
++	struct net_device *dev;
+ 	spinlock_t lock;
+ 	unsigned long last_poll;
+ 	int up;
+@@ -257,11 +258,10 @@ static int cisco_rx(struct sk_buff *skb)
+ 
+ 
+ 
+-static void cisco_timer(unsigned long arg)
++static void cisco_timer(struct timer_list *t)
+ {
+-	struct net_device *dev = (struct net_device *)arg;
+-	hdlc_device *hdlc = dev_to_hdlc(dev);
+-	struct cisco_state *st = state(hdlc);
++	struct cisco_state *st = from_timer(st, t, timer);
++	struct net_device *dev = st->dev;
+ 
+ 	spin_lock(&st->lock);
+ 	if (st->up &&
+@@ -276,8 +276,6 @@ static void cisco_timer(unsigned long arg)
+ 	spin_unlock(&st->lock);
+ 
+ 	st->timer.expires = jiffies + st->settings.interval * HZ;
+-	st->timer.function = cisco_timer;
+-	st->timer.data = arg;
+ 	add_timer(&st->timer);
  }
  
--static void lowpan_frag_expire(unsigned long data)
-+static void lowpan_frag_expire(struct timer_list *t)
- {
-+	struct inet_frag_queue *frag = from_timer(frag, t, timer);
- 	struct frag_queue *fq;
- 	struct net *net;
+@@ -293,7 +291,8 @@ static void cisco_start(struct net_device *dev)
+ 	st->up = st->txseq = st->rxseq = 0;
+ 	spin_unlock_irqrestore(&st->lock, flags);
  
--	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
-+	fq = container_of(frag, struct frag_queue, q);
- 	net = container_of(fq->q.net, struct net, ieee802154_lowpan.frags);
- 
- 	spin_lock(&fq->q.lock);
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index af74d0433453..7f3ef5c287a1 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -147,7 +147,7 @@ inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
- 	spin_unlock(&hb->chain_lock);
- 
- 	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
--		f->frag_expire((unsigned long) fq);
-+		f->frag_expire(&fq->timer);
- 
- 	return evicted;
+-	setup_timer(&st->timer, cisco_timer, (unsigned long)dev);
++	st->dev = dev;
++	timer_setup(&st->timer, cisco_timer, 0);
+ 	st->timer.expires = jiffies + HZ; /* First poll after 1 s */
+ 	add_timer(&st->timer);
  }
-@@ -366,7 +366,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 	f->constructor(q, arg);
- 	add_frag_mem_limit(nf, f->qsize);
+diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+index 425a47ffed25..038236a9c60e 100644
+--- a/drivers/net/wan/hdlc_fr.c
++++ b/drivers/net/wan/hdlc_fr.c
+@@ -140,6 +140,7 @@ struct frad_state {
+ 	int dce_pvc_count;
  
--	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
-+	timer_setup(&q->timer, f->frag_expire, 0);
- 	spin_lock_init(&q->lock);
- 	refcount_set(&q->refcnt, 1);
- 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 46408c220d9d..9215654a401f 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -190,12 +190,13 @@ static bool frag_expire_skip_icmp(u32 user)
- /*
-  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
-  */
--static void ip_expire(unsigned long arg)
-+static void ip_expire(struct timer_list *t)
- {
-+	struct inet_frag_queue *frag = from_timer(frag, t, timer);
- 	struct ipq *qp;
- 	struct net *net;
- 
--	qp = container_of((struct inet_frag_queue *) arg, struct ipq, q);
-+	qp = container_of(frag, struct ipq, q);
- 	net = container_of(qp->q.net, struct net, ipv4.frags);
- 
- 	rcu_read_lock();
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index b263bf3a19f7..977d8900cfd1 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -169,12 +169,13 @@ static unsigned int nf_hashfn(const struct inet_frag_queue *q)
- 	return nf_hash_frag(nq->id, &nq->saddr, &nq->daddr);
+ 	struct timer_list timer;
++	struct net_device *dev;
+ 	unsigned long last_poll;
+ 	int reliable;
+ 	int dce_changed;
+@@ -597,9 +598,10 @@ static void fr_set_link_state(int reliable, struct net_device *dev)
  }
  
--static void nf_ct_frag6_expire(unsigned long data)
-+static void nf_ct_frag6_expire(struct timer_list *t)
+ 
+-static void fr_timer(unsigned long arg)
++static void fr_timer(struct timer_list *t)
  {
-+	struct inet_frag_queue *frag = from_timer(frag, t, timer);
- 	struct frag_queue *fq;
- 	struct net *net;
+-	struct net_device *dev = (struct net_device *)arg;
++	struct frad_state *st = from_timer(st, t, timer);
++	struct net_device *dev = st->dev;
+ 	hdlc_device *hdlc = dev_to_hdlc(dev);
+ 	int i, cnt = 0, reliable;
+ 	u32 list;
+@@ -644,8 +646,6 @@ static void fr_timer(unsigned long arg)
+ 			state(hdlc)->settings.t391 * HZ;
+ 	}
  
--	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
-+	fq = container_of(frag, struct frag_queue, q);
- 	net = container_of(fq->q.net, struct net, nf_frag.frags);
- 
- 	ip6_expire_frag_queue(net, fq, &nf_frags);
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 846012eae526..afbc000ad4f2 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -170,12 +170,13 @@ void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
+-	state(hdlc)->timer.function = fr_timer;
+-	state(hdlc)->timer.data = arg;
+ 	add_timer(&state(hdlc)->timer);
  }
- EXPORT_SYMBOL(ip6_expire_frag_queue);
  
--static void ip6_frag_expire(unsigned long data)
-+static void ip6_frag_expire(struct timer_list *t)
- {
-+	struct inet_frag_queue *frag = from_timer(frag, t, timer);
- 	struct frag_queue *fq;
- 	struct net *net;
+@@ -1003,8 +1003,8 @@ static void fr_start(struct net_device *dev)
+ 		state(hdlc)->n391cnt = 0;
+ 		state(hdlc)->txseq = state(hdlc)->rxseq = 0;
  
--	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
-+	fq = container_of(frag, struct frag_queue, q);
- 	net = container_of(fq->q.net, struct net, ipv6.frags);
- 
- 	ip6_expire_frag_queue(net, fq, &ip6_frags);
+-		setup_timer(&state(hdlc)->timer, fr_timer,
+-			    (unsigned long)dev);
++		state(hdlc)->dev = dev;
++		timer_setup(&state(hdlc)->timer, fr_timer, 0);
+ 		/* First poll after 1 s */
+ 		state(hdlc)->timer.expires = jiffies + HZ;
+ 		add_timer(&state(hdlc)->timer);
 -- 
 2.7.4
