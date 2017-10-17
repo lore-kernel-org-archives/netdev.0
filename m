@@ -1,62 +1,41 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [PATCH] net: export netdev_txq_to_tc to allow sch_mqprio to
- compile as module
-Date: Tue, 17 Oct 2017 14:31:59 +0000
-Message-ID: <B1C1DF2ACD01FD4881736AA51731BAB217BB9B0F@ORSMSX114.amr.corp.intel.com>
-References: <1508235010-4056-1-git-send-email-haustad@cisco.com>
- <CANn89iJPRjokxHmj4dYnBQkJ=A4Z-7cMpZ34L+i949tJwUXd2g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsahern@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        tcharding <me@tobin.cc>, LKML <linux-kernel@vger.kernel.org>,
-        Henrik Austad <haustad@cisco.com>,
-        "Sanchez-Palencia, Jesus" <jesus.sanchez-palencia@intel.com>
-To: Eric Dumazet <edumazet@google.com>,
-        Henrik Austad <henrik@austad.us>
+From: Mohammed Gamal <mgamal@redhat.com>
+Subject: [PATCH] vmxnet3: Use correct minimum MTU value
+Date: Tue, 17 Oct 2017 16:33:43 +0200
+Message-ID: <1508250823-1954-1-git-send-email-mgamal@redhat.com>
+Cc: linux-kernel@vger.kernel.org, cavery@redhat.com, otubo@redhat.com,
+        vkuznets@redhat.com, Mohammed Gamal <mgamal@redhat.com>
+To: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iJPRjokxHmj4dYnBQkJ=A4Z-7cMpZ34L+i949tJwUXd2g@mail.gmail.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplZHVtYXpldEBnb29nbGUuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDE3LCAyMDE3
-IDQ6MjEgQU0NCj4gVG86IEhlbnJpayBBdXN0YWQgPGhlbnJpa0BhdXN0YWQudXM+DQo+IENjOiBu
-ZXRkZXYgPG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc+OyBEYXZpZCBTIC4gTWlsbGVyDQo+IDxkYXZl
-bUBkYXZlbWxvZnQubmV0PjsgRGFuaWVsIEJvcmttYW5uIDxkYW5pZWxAaW9nZWFyYm94Lm5ldD47
-IERhdmlkDQo+IEFoZXJuIDxkc2FoZXJuQGdtYWlsLmNvbT47IER1eWNrLCBBbGV4YW5kZXIgSA0K
-PiA8YWxleGFuZGVyLmguZHV5Y2tAaW50ZWwuY29tPjsgV2lsbGVtIGRlIEJydWlqbiA8d2lsbGVt
-YkBnb29nbGUuY29tPjsNCj4gSm9obiBGYXN0YWJlbmQgPGpvaG4uZmFzdGFiZW5kQGdtYWlsLmNv
-bT47IHRjaGFyZGluZyA8bWVAdG9iaW4uY2M+OyBMS01MDQo+IDxsaW51eC1rZXJuZWxAdmdlci5r
-ZXJuZWwub3JnPjsgSGVucmlrIEF1c3RhZCA8aGF1c3RhZEBjaXNjby5jb20+OyBTYW5jaGV6LQ0K
-PiBQYWxlbmNpYSwgSmVzdXMgPGplc3VzLnNhbmNoZXotcGFsZW5jaWFAaW50ZWwuY29tPg0KPiBT
-dWJqZWN0OiBSZTogW1BBVENIXSBuZXQ6IGV4cG9ydCBuZXRkZXZfdHhxX3RvX3RjIHRvIGFsbG93
-IHNjaF9tcXByaW8gdG8NCj4gY29tcGlsZSBhcyBtb2R1bGUNCj4gDQo+IE9uIFR1ZSwgT2N0IDE3
-LCAyMDE3IGF0IDM6MTAgQU0sIEhlbnJpayBBdXN0YWQgPGhlbnJpa0BhdXN0YWQudXM+IHdyb3Rl
-Og0KPiA+IEluIGNvbW1pdCAzMjMwMjkwMmZmMDkgKCJtcXByaW86IFJlc2VydmUgbGFzdCAzMiBj
-bGFzc2lkIHZhbHVlcyBmb3IgSFcNCj4gPiB0cmFmZmljIGNsYXNzZXMgYW5kIG1pc2MgSURzIikg
-c2NoX21xcHJpbyBzdGFydGVkIHVzaW5nDQo+ID4gbmV0ZGV2X3R4cV90b190YyB0byBmaW5kIHRo
-ZSBjb3JyZWN0IHRjIGluc3RlYWQgb2YgZGV2LT50Y190b190eHFbXQ0KPiA+DQo+ID4gSG93ZXZl
-ciwgd2hlbiBtcXByaW8gaXMgY29tcGlsZWQgYXMgYSBtb2R1bGUsIGl0IGNhbm5vdCByZXNvbHZl
-IHRoZQ0KPiA+IHN5bWJvbCwgbGVhZGluZyB0byB0aGlzIGVycm9yOg0KPiA+DQo+ID4gICAgICBF
-UlJPUjogIm5ldGRldl90eHFfdG9fdGMiIFtuZXQvc2NoZWQvc2NoX21xcHJpby5rb10gdW5kZWZp
-bmVkIQ0KPiA+DQo+ID4gVGhpcyBhZGRzIGFuIEVYUE9SVF9TWU1CT0woKSBzaW5jZSB0aGUgb3Ro
-ZXIgdXNlciBpbiB0aGUga2VybmVsDQo+ID4gKG5ldGlmX3NldF94cHNfcXVldWUpIGlzIGFsc28g
-RVhQT1JUX1NZTUJPTCgpIChhbmQgbm90IF9HUEwpIG9yIGluIGENCj4gPiBzeXNmcy1jYWxsYmFj
-ay4NCj4gPg0KPiA+IENjOiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQGludGVs
-LmNvbT4NCj4gPiBDYzogSmVzdXMgU2FuY2hlei1QYWxlbmNpYSA8amVzdXMuc2FuY2hlei1wYWxl
-bmNpYUBpbnRlbC5jb20+DQo+ID4gQ2M6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0
-Lm5ldD4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBIZW5yaWsgQXVzdGFkIDxoYXVzdGFkQGNpc2NvLmNv
-bT4NCj4gDQo+IA0KPiBSZXZpZXdlZC1ieTogRXJpYyBEdW1hemV0IDxlZHVtYXpldEBnb29nbGUu
-Y29tPg0KDQpUaGlzIGlzIGlkZW50aWNhbCB0byBhIHBhdGNoIEkgc3VibWl0dGVkIHllc3RlcmRh
-eSB3aGVuIEkgZ290IHRoZSByZXBvcnQgZnJvbSB0aGUga2J1aWxkIHJvYm90LiBJIHdvdWxkIHNh
-eSB5b3VyIGRlc2NyaXB0aW9uIGxvb2tzIG11Y2ggYmV0dGVyIHRoYW4gbWluZSB0aG91Z2ggc28g
-SSB3b3VsZCBiZSBnb29kIHdpdGggZHJvcHBpbmcgbXkgcGF0Y2ggaW4gZmF2b3Igb2YgdGhpcyBv
-bmUuDQoNCkFja2VkLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1eWNrQGludGVs
-LmNvbT4NCg==
+Currently the vmxnet3 driver has a minimum MTU value of 60. Which
+goes against the RFC791 spec which specifies it at 68.
+
+Setting MTU to values between 60 <= MTU <= 67 causes the network
+interface to lose its IP, and it fails to restart.
+
+This sets the minimum value to ETH_MIN_MTU (68) which is compatible
+with is according to spec.
+
+Reported-by: Bo Yang <boyang@redhat.com>
+Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+---
+ drivers/net/vmxnet3/vmxnet3_defs.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index c3a3164..4ad905a 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -749,7 +749,7 @@ struct Vmxnet3_DriverShared {
+ 	((vfTable[vid >> 5] & (1 << (vid & 31))) != 0)
+ 
+ #define VMXNET3_MAX_MTU     9000
+-#define VMXNET3_MIN_MTU     60
++#define VMXNET3_MIN_MTU     ETH_MIN_MTU
+ 
+ #define VMXNET3_LINK_UP         (10000 << 16 | 1)    /* 10 Gbps, up */
+ #define VMXNET3_LINK_DOWN       0
+-- 
+1.8.3.1
