@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 09/20] mlxsw: spectrum: Convert ndo_setup_tc offloads to block callbacks
-Date: Tue, 17 Oct 2017 22:06:04 +0200
-Message-ID: <20171017200615.4530-10-jiri@resnulli.us>
+Subject: [patch net-next 05/20] net: sched: cls_matchall: call block callbacks for offload
+Date: Tue, 17 Oct 2017 22:06:00 +0200
+Message-ID: <20171017200615.4530-6-jiri@resnulli.us>
 References: <20171017200615.4530-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,143 +14,148 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:53314 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764037AbdJQUGZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:25 -0400
-Received: by mail-wr0-f196.google.com with SMTP id y44so2897720wry.10
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:24 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:54180 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763310AbdJQUGW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:22 -0400
+Received: by mail-wm0-f67.google.com with SMTP id q132so6160196wmd.2
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:21 -0700 (PDT)
 In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for matchall and flower offloads to block
-callbacks.
+Use the newly introduced callbacks infrastructure and call block
+callbacks alongside with the existing per-netdev ndo_setup_tc.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 82 +++++++++++++++++++-------
- 1 file changed, 60 insertions(+), 22 deletions(-)
+ net/sched/cls_matchall.c | 72 ++++++++++++++++++++++++++++++------------------
+ 1 file changed, 45 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e1e11c7..08e321a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -1697,17 +1697,9 @@ static void mlxsw_sp_port_del_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index eeac606..5278534 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -50,50 +50,73 @@ static void mall_destroy_rcu(struct rcu_head *rcu)
+ 	kfree(head);
  }
  
- static int mlxsw_sp_setup_tc_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
--					  struct tc_cls_matchall_offload *f)
-+					  struct tc_cls_matchall_offload *f,
-+					  bool ingress)
+-static int mall_replace_hw_filter(struct tcf_proto *tp,
+-				  struct cls_mall_head *head,
+-				  unsigned long cookie)
++static void mall_destroy_hw_filter(struct tcf_proto *tp,
++				   struct cls_mall_head *head,
++				   unsigned long cookie)
  {
--	bool ingress;
--
--	if (is_classid_clsact_ingress(f->common.classid))
--		ingress = true;
--	else if (is_classid_clsact_egress(f->common.classid))
--		ingress = false;
--	else
--		return -EOPNOTSUPP;
--
- 	if (f->common.chain_index)
- 		return -EOPNOTSUPP;
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_matchall_offload cls_mall = {};
+-	int err;
++	struct tcf_block *block = tp->chain->block;
  
-@@ -1725,17 +1717,9 @@ static int mlxsw_sp_setup_tc_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	tc_cls_common_offload_init(&cls_mall.common, tp);
+-	cls_mall.command = TC_CLSMATCHALL_REPLACE;
+-	cls_mall.exts = &head->exts;
++	cls_mall.command = TC_CLSMATCHALL_DESTROY;
+ 	cls_mall.cookie = cookie;
  
- static int
- mlxsw_sp_setup_tc_cls_flower(struct mlxsw_sp_port *mlxsw_sp_port,
--			     struct tc_cls_flower_offload *f)
-+			     struct tc_cls_flower_offload *f,
-+			     bool ingress)
- {
--	bool ingress;
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
+-					    &cls_mall);
+-	if (!err)
+-		head->flags |= TCA_CLS_FLAGS_IN_HW;
 -
--	if (is_classid_clsact_ingress(f->common.classid))
--		ingress = true;
--	else if (is_classid_clsact_egress(f->common.classid))
--		ingress = false;
--	else
--		return -EOPNOTSUPP;
--
- 	switch (f->command) {
- 	case TC_CLSFLOWER_REPLACE:
- 		return mlxsw_sp_flower_replace(mlxsw_sp_port, ingress, f);
-@@ -1749,6 +1733,59 @@ mlxsw_sp_setup_tc_cls_flower(struct mlxsw_sp_port *mlxsw_sp_port,
- 	}
+-	return err;
++	if (tc_can_offload(dev))
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
++					      &cls_mall);
++	tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL, &cls_mall, false);
  }
  
-+static int mlxsw_sp_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+				      void *cb_priv, bool ingress)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port = cb_priv;
-+
-+	switch (type) {
-+	case TC_SETUP_CLSMATCHALL:
-+		return mlxsw_sp_setup_tc_cls_matchall(mlxsw_sp_port, type_data,
-+						      ingress);
-+	case TC_SETUP_CLSFLOWER:
-+		return mlxsw_sp_setup_tc_cls_flower(mlxsw_sp_port, type_data,
-+						    ingress);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int mlxsw_sp_setup_tc_block_cb_ig(enum tc_setup_type type,
-+					 void *type_data, void *cb_priv)
-+{
-+	return mlxsw_sp_setup_tc_block_cb(type, type_data, cb_priv, true);
-+}
-+
-+static int mlxsw_sp_setup_tc_block_cb_eg(enum tc_setup_type type,
-+					 void *type_data, void *cb_priv)
-+{
-+	return mlxsw_sp_setup_tc_block_cb(type, type_data, cb_priv, false);
-+}
-+
-+static int mlxsw_sp_setup_tc_block(struct mlxsw_sp_port *mlxsw_sp_port,
-+				   struct tc_block_offload *f)
-+{
-+	tc_setup_cb_t *cb;
-+
-+	if (f->binder_type == TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		cb = mlxsw_sp_setup_tc_block_cb_ig;
-+	else if (f->binder_type == TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS)
-+		cb = mlxsw_sp_setup_tc_block_cb_eg;
-+	else
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block, cb, mlxsw_sp_port,
-+					     mlxsw_sp_port);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block, cb, mlxsw_sp_port);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int mlxsw_sp_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 			     void *type_data)
+-static void mall_destroy_hw_filter(struct tcf_proto *tp,
+-				   struct cls_mall_head *head,
+-				   unsigned long cookie)
++static int mall_replace_hw_filter(struct tcf_proto *tp,
++				  struct cls_mall_head *head,
++				  unsigned long cookie)
  {
-@@ -1756,9 +1793,10 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_matchall_offload cls_mall = {};
++	struct tcf_block *block = tp->chain->block;
++	bool skip_sw = tc_skip_sw(head->flags);
++	int err;
  
- 	switch (type) {
- 	case TC_SETUP_CLSMATCHALL:
--		return mlxsw_sp_setup_tc_cls_matchall(mlxsw_sp_port, type_data);
- 	case TC_SETUP_CLSFLOWER:
--		return mlxsw_sp_setup_tc_cls_flower(mlxsw_sp_port, type_data);
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return mlxsw_sp_setup_tc_block(mlxsw_sp_port, type_data);
- 	default:
- 		return -EOPNOTSUPP;
+ 	tc_cls_common_offload_init(&cls_mall.common, tp);
+-	cls_mall.command = TC_CLSMATCHALL_DESTROY;
++	cls_mall.command = TC_CLSMATCHALL_REPLACE;
++	cls_mall.exts = &head->exts;
+ 	cls_mall.cookie = cookie;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &cls_mall);
++	if (tc_can_offload(dev)) {
++		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
++						    &cls_mall);
++		if (err) {
++			if (skip_sw)
++				return err;
++		} else {
++			head->flags |= TCA_CLS_FLAGS_IN_HW;
++		}
++	}
++
++	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL,
++			       &cls_mall, skip_sw);
++	if (err < 0) {
++		mall_destroy_hw_filter(tp, head, cookie);
++		return err;
++	} else if (err > 0) {
++		head->flags |= TCA_CLS_FLAGS_IN_HW;
++	}
++
++	if (skip_sw && !(head->flags & TCA_CLS_FLAGS_IN_HW))
++		return -EINVAL;
++
++	return 0;
+ }
+ 
+ static void mall_destroy(struct tcf_proto *tp)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+-	struct net_device *dev = tp->q->dev_queue->dev;
+ 
+ 	if (!head)
+ 		return;
+ 
+-	if (tc_should_offload(dev, head->flags))
++	if (!tc_skip_hw(head->flags))
+ 		mall_destroy_hw_filter(tp, head, (unsigned long) head);
+ 
+ 	call_rcu(&head->rcu, mall_destroy_rcu);
+@@ -133,7 +156,6 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 		       void **arg, bool ovr)
+ {
+ 	struct cls_mall_head *head = rtnl_dereference(tp->root);
+-	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
+ 	struct cls_mall_head *new;
+ 	u32 flags = 0;
+@@ -173,14 +195,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 	if (err)
+ 		goto err_set_parms;
+ 
+-	if (tc_should_offload(dev, flags)) {
++	if (!tc_skip_hw(new->flags)) {
+ 		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
+-		if (err) {
+-			if (tc_skip_sw(flags))
+-				goto err_replace_hw_filter;
+-			else
+-				err = 0;
+-		}
++		if (err)
++			goto err_replace_hw_filter;
  	}
+ 
+ 	if (!tc_in_hw(new->flags))
 -- 
 2.9.5
