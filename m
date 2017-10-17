@@ -1,536 +1,248 @@
 From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: [next-queue PATCH v9 6/6] igb: Add support for CBS offload
-Date: Mon, 16 Oct 2017 18:01:28 -0700
-Message-ID: <20171017010128.22141-7-vinicius.gomes@intel.com>
+Subject: [next-queue PATCH v9 5/6] net/sched: Add support for HW offloading for CBS
+Date: Mon, 16 Oct 2017 18:01:27 -0700
+Message-ID: <20171017010128.22141-6-vinicius.gomes@intel.com>
 References: <20171017010128.22141-1-vinicius.gomes@intel.com>
-Cc: Andre Guedes <andre.guedes@intel.com>, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, jiri@resnulli.us, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        richardcochran@gmail.com, henrik@austad.us, levipearson@gmail.com,
-        rodney.cummings@ni.com
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, jiri@resnulli.us, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, richardcochran@gmail.com,
+        henrik@austad.us, levipearson@gmail.com, rodney.cummings@ni.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:6787 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:20204 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752981AbdJQBBp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753989AbdJQBBp (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 16 Oct 2017 21:01:45 -0400
 In-Reply-To: <20171017010128.22141-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andre Guedes <andre.guedes@intel.com>
+This adds support for offloading the CBS algorithm to the controller,
+if supported. Drivers wanting to support CBS offload must implement
+the .ndo_setup_tc callback and handle the TC_SETUP_CBS (introduced
+here) type.
 
-This patch adds support for Credit-Based Shaper (CBS) qdisc offload
-from Traffic Control system. This support enable us to leverage the
-Forwarding and Queuing for Time-Sensitive Streams (FQTSS) features
-from Intel i210 Ethernet Controller. FQTSS is the former 802.1Qav
-standard which was merged into 802.1Q in 2014. It enables traffic
-prioritization and bandwidth reservation via the Credit-Based Shaper
-which is implemented in hardware by i210 controller.
-
-The patch introduces the igb_setup_tc() function which implements the
-support for CBS qdisc hardware offload in the IGB driver. CBS offload
-is the only traffic control offload supported by the driver at the
-moment.
-
-FQTSS transmission mode from i210 controller is automatically enabled
-by the IGB driver when the CBS is enabled for the first hardware
-queue. Likewise, FQTSS mode is automatically disabled when CBS is
-disabled for the last hardware queue. Changing FQTSS mode requires NIC
-reset.
-
-FQTSS feature is supported by i210 controller only.
-
-Signed-off-by: Andre Guedes <andre.guedes@intel.com>
+Signed-off-by: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |  23 ++
- drivers/net/ethernet/intel/igb/e1000_regs.h    |   8 +
- drivers/net/ethernet/intel/igb/igb.h           |   6 +
- drivers/net/ethernet/intel/igb/igb_main.c      | 347 +++++++++++++++++++++++++
- 4 files changed, 384 insertions(+)
+ include/linux/netdevice.h |   1 +
+ include/net/pkt_sched.h   |   9 ++++
+ net/sched/sch_cbs.c       | 104 ++++++++++++++++++++++++++++++++++++++++------
+ 3 files changed, 102 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 1de82f247312..83cabff1e0ab 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -353,7 +353,18 @@
- #define E1000_RXPBS_CFG_TS_EN           0x80000000
- 
- #define I210_RXPBSIZE_DEFAULT		0x000000A2 /* RXPBSIZE default */
-+#define I210_RXPBSIZE_MASK		0x0000003F
-+#define I210_RXPBSIZE_PB_32KB		0x00000020
- #define I210_TXPBSIZE_DEFAULT		0x04000014 /* TXPBSIZE default */
-+#define I210_TXPBSIZE_MASK		0xC0FFFFFF
-+#define I210_TXPBSIZE_PB0_8KB		(8 << 0)
-+#define I210_TXPBSIZE_PB1_8KB		(8 << 6)
-+#define I210_TXPBSIZE_PB2_4KB		(4 << 12)
-+#define I210_TXPBSIZE_PB3_4KB		(4 << 18)
-+
-+#define I210_DTXMXPKTSZ_DEFAULT		0x00000098
-+
-+#define I210_SR_QUEUES_NUM		2
- 
- /* SerDes Control */
- #define E1000_SCTL_DISABLE_SERDES_LOOPBACK 0x0400
-@@ -1051,4 +1062,16 @@
- #define E1000_VLAPQF_P_VALID(_n)	(0x1 << (3 + (_n) * 4))
- #define E1000_VLAPQF_QUEUE_MASK	0x03
- 
-+/* TX Qav Control fields */
-+#define E1000_TQAVCTRL_XMIT_MODE	BIT(0)
-+#define E1000_TQAVCTRL_DATAFETCHARB	BIT(4)
-+#define E1000_TQAVCTRL_DATATRANARB	BIT(8)
-+
-+/* TX Qav Credit Control fields */
-+#define E1000_TQAVCC_IDLESLOPE_MASK	0xFFFF
-+#define E1000_TQAVCC_QUEUEMODE		BIT(31)
-+
-+/* Transmit Descriptor Control fields */
-+#define E1000_TXDCTL_PRIORITY		BIT(27)
-+
- #endif
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index 58adbf234e07..8eee081d395f 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -421,6 +421,14 @@ do { \
- 
- #define E1000_I210_FLA		0x1201C
- 
-+#define E1000_I210_DTXMXPKTSZ	0x355C
-+
-+#define E1000_I210_TXDCTL(_n)	(0x0E028 + ((_n) * 0x40))
-+
-+#define E1000_I210_TQAVCTRL	0x3570
-+#define E1000_I210_TQAVCC(_n)	(0x3004 + ((_n) * 0x40))
-+#define E1000_I210_TQAVHC(_n)	(0x300C + ((_n) * 0x40))
-+
- #define E1000_INVM_DATA_REG(_n)	(0x12120 + 4*(_n))
- #define E1000_INVM_SIZE		64 /* Number of INVM Data Registers */
- 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 06ffb2bc713e..92845692087a 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -281,6 +281,11 @@ struct igb_ring {
- 	u16 count;			/* number of desc. in the ring */
- 	u8 queue_index;			/* logical index of the ring*/
- 	u8 reg_idx;			/* physical index of the ring */
-+	bool cbs_enable;		/* indicates if CBS is enabled */
-+	s32 idleslope;			/* idleSlope in kbps */
-+	s32 sendslope;			/* sendSlope in kbps */
-+	s32 hicredit;			/* hiCredit in bytes */
-+	s32 locredit;			/* loCredit in bytes */
- 
- 	/* everything past this point are written often */
- 	u16 next_to_clean;
-@@ -621,6 +626,7 @@ struct igb_adapter {
- #define IGB_FLAG_EEE			BIT(14)
- #define IGB_FLAG_VLAN_PROMISC		BIT(15)
- #define IGB_FLAG_RX_LEGACY		BIT(16)
-+#define IGB_FLAG_FQTSS			BIT(17)
- 
- /* Media Auto Sense */
- #define IGB_MAS_ENABLE_0		0X0001
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 837d9b46a390..be2cf263efa9 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -34,6 +34,7 @@
- #include <linux/slab.h>
- #include <net/checksum.h>
- #include <net/ip6_checksum.h>
-+#include <net/pkt_sched.h>
- #include <linux/net_tstamp.h>
- #include <linux/mii.h>
- #include <linux/ethtool.h>
-@@ -62,6 +63,17 @@
- #define BUILD 0
- #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
- __stringify(BUILD) "-k"
-+
-+enum queue_mode {
-+	QUEUE_MODE_STRICT_PRIORITY,
-+	QUEUE_MODE_STREAM_RESERVATION,
-+};
-+
-+enum tx_queue_prio {
-+	TX_QUEUE_PRIO_HIGH,
-+	TX_QUEUE_PRIO_LOW,
-+};
-+
- char igb_driver_name[] = "igb";
- char igb_driver_version[] = DRV_VERSION;
- static const char igb_driver_string[] =
-@@ -1271,6 +1283,12 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
- 		ring->count = adapter->tx_ring_count;
- 		ring->queue_index = txr_idx;
- 
-+		ring->cbs_enable = false;
-+		ring->idleslope = 0;
-+		ring->sendslope = 0;
-+		ring->hicredit = 0;
-+		ring->locredit = 0;
-+
- 		u64_stats_init(&ring->tx_syncp);
- 		u64_stats_init(&ring->tx_syncp2);
- 
-@@ -1598,6 +1616,284 @@ static void igb_get_hw_control(struct igb_adapter *adapter)
- 			ctrl_ext | E1000_CTRL_EXT_DRV_LOAD);
- }
- 
-+static void enable_fqtss(struct igb_adapter *adapter, bool enable)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+
-+	if (enable)
-+		adapter->flags |= IGB_FLAG_FQTSS;
-+	else
-+		adapter->flags &= ~IGB_FLAG_FQTSS;
-+
-+	if (netif_running(netdev))
-+		schedule_work(&adapter->reset_task);
-+}
-+
-+static bool is_fqtss_enabled(struct igb_adapter *adapter)
-+{
-+	return (adapter->flags & IGB_FLAG_FQTSS) ? true : false;
-+}
-+
-+static void set_tx_desc_fetch_prio(struct e1000_hw *hw, int queue,
-+				   enum tx_queue_prio prio)
-+{
-+	u32 val;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+	WARN_ON(queue < 0 || queue > 4);
-+
-+	val = rd32(E1000_I210_TXDCTL(queue));
-+
-+	if (prio == TX_QUEUE_PRIO_HIGH)
-+		val |= E1000_TXDCTL_PRIORITY;
-+	else
-+		val &= ~E1000_TXDCTL_PRIORITY;
-+
-+	wr32(E1000_I210_TXDCTL(queue), val);
-+}
-+
-+static void set_queue_mode(struct e1000_hw *hw, int queue, enum queue_mode mode)
-+{
-+	u32 val;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+	WARN_ON(queue < 0 || queue > 1);
-+
-+	val = rd32(E1000_I210_TQAVCC(queue));
-+
-+	if (mode == QUEUE_MODE_STREAM_RESERVATION)
-+		val |= E1000_TQAVCC_QUEUEMODE;
-+	else
-+		val &= ~E1000_TQAVCC_QUEUEMODE;
-+
-+	wr32(E1000_I210_TQAVCC(queue), val);
-+}
-+
-+/**
-+ *  igb_configure_cbs - Configure Credit-Based Shaper (CBS)
-+ *  @adapter: pointer to adapter struct
-+ *  @queue: queue number
-+ *  @enable: true = enable CBS, false = disable CBS
-+ *  @idleslope: idleSlope in kbps
-+ *  @sendslope: sendSlope in kbps
-+ *  @hicredit: hiCredit in bytes
-+ *  @locredit: loCredit in bytes
-+ *
-+ *  Configure CBS for a given hardware queue. When disabling, idleslope,
-+ *  sendslope, hicredit, locredit arguments are ignored. Returns 0 if
-+ *  success. Negative otherwise.
-+ **/
-+static void igb_configure_cbs(struct igb_adapter *adapter, int queue,
-+			      bool enable, int idleslope, int sendslope,
-+			      int hicredit, int locredit)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 tqavcc;
-+	u16 value;
-+
-+	WARN_ON(hw->mac.type != e1000_i210);
-+	WARN_ON(queue < 0 || queue > 1);
-+
-+	if (enable) {
-+		set_tx_desc_fetch_prio(hw, queue, TX_QUEUE_PRIO_HIGH);
-+		set_queue_mode(hw, queue, QUEUE_MODE_STREAM_RESERVATION);
-+
-+		/* According to i210 datasheet section 7.2.7.7, we should set
-+		 * the 'idleSlope' field from TQAVCC register following the
-+		 * equation:
-+		 *
-+		 * For 100 Mbps link speed:
-+		 *
-+		 *     value = BW * 0x7735 * 0.2                          (E1)
-+		 *
-+		 * For 1000Mbps link speed:
-+		 *
-+		 *     value = BW * 0x7735 * 2                            (E2)
-+		 *
-+		 * E1 and E2 can be merged into one equation as shown below.
-+		 * Note that 'link-speed' is in Mbps.
-+		 *
-+		 *     value = BW * 0x7735 * 2 * link-speed
-+		 *                           --------------               (E3)
-+		 *                                1000
-+		 *
-+		 * 'BW' is the percentage bandwidth out of full link speed
-+		 * which can be found with the following equation. Note that
-+		 * idleSlope here is the parameter from this function which
-+		 * is in kbps.
-+		 *
-+		 *     BW =     idleSlope
-+		 *          -----------------                             (E4)
-+		 *          link-speed * 1000
-+		 *
-+		 * That said, we can come up with a generic equation to
-+		 * calculate the value we should set it TQAVCC register by
-+		 * replacing 'BW' in E3 by E4. The resulting equation is:
-+		 *
-+		 * value =     idleSlope     * 0x7735 * 2 * link-speed
-+		 *         -----------------            --------------    (E5)
-+		 *         link-speed * 1000                 1000
-+		 *
-+		 * 'link-speed' is present in both sides of the fraction so
-+		 * it is canceled out. The final equation is the following:
-+		 *
-+		 *     value = idleSlope * 61034
-+		 *             -----------------                          (E6)
-+		 *                  1000000
-+		 */
-+		value = DIV_ROUND_UP_ULL(idleslope * 61034ULL, 1000000);
-+
-+		tqavcc = rd32(E1000_I210_TQAVCC(queue));
-+		tqavcc &= ~E1000_TQAVCC_IDLESLOPE_MASK;
-+		tqavcc |= value;
-+		wr32(E1000_I210_TQAVCC(queue), tqavcc);
-+
-+		wr32(E1000_I210_TQAVHC(queue), 0x80000000 + hicredit * 0x7735);
-+	} else {
-+		set_tx_desc_fetch_prio(hw, queue, TX_QUEUE_PRIO_LOW);
-+		set_queue_mode(hw, queue, QUEUE_MODE_STRICT_PRIORITY);
-+
-+		/* Set idleSlope to zero. */
-+		tqavcc = rd32(E1000_I210_TQAVCC(queue));
-+		tqavcc &= ~E1000_TQAVCC_IDLESLOPE_MASK;
-+		wr32(E1000_I210_TQAVCC(queue), tqavcc);
-+
-+		/* Set hiCredit to zero. */
-+		wr32(E1000_I210_TQAVHC(queue), 0);
-+	}
-+
-+	/* XXX: In i210 controller the sendSlope and loCredit parameters from
-+	 * CBS are not configurable by software so we don't do any 'controller
-+	 * configuration' in respect to these parameters.
-+	 */
-+
-+	netdev_dbg(netdev, "CBS %s: queue %d idleslope %d sendslope %d hiCredit %d locredit %d\n",
-+		   (enable) ? "enabled" : "disabled", queue,
-+		   idleslope, sendslope, hicredit, locredit);
-+}
-+
-+static int igb_save_cbs_params(struct igb_adapter *adapter, int queue,
-+			       bool enable, int idleslope, int sendslope,
-+			       int hicredit, int locredit)
-+{
-+	struct igb_ring *ring;
-+
-+	if (queue < 0 || queue > adapter->num_tx_queues)
-+		return -EINVAL;
-+
-+	ring = adapter->tx_ring[queue];
-+
-+	ring->cbs_enable = enable;
-+	ring->idleslope = idleslope;
-+	ring->sendslope = sendslope;
-+	ring->hicredit = hicredit;
-+	ring->locredit = locredit;
-+
-+	return 0;
-+}
-+
-+static bool is_any_cbs_enabled(struct igb_adapter *adapter)
-+{
-+	struct igb_ring *ring;
-+	int i;
-+
-+	for (i = 0; i < adapter->num_tx_queues; i++) {
-+		ring = adapter->tx_ring[i];
-+
-+		if (ring->cbs_enable)
-+			return true;
-+	}
-+
-+	return false;
-+}
-+
-+static void igb_setup_tx_mode(struct igb_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 val;
-+
-+	/* Only i210 controller supports changing the transmission mode. */
-+	if (hw->mac.type != e1000_i210)
-+		return;
-+
-+	if (is_fqtss_enabled(adapter)) {
-+		int i, max_queue;
-+
-+		/* Configure TQAVCTRL register: set transmit mode to 'Qav',
-+		 * set data fetch arbitration to 'round robin' and set data
-+		 * transfer arbitration to 'credit shaper algorithm.
-+		 */
-+		val = rd32(E1000_I210_TQAVCTRL);
-+		val |= E1000_TQAVCTRL_XMIT_MODE | E1000_TQAVCTRL_DATATRANARB;
-+		val &= ~E1000_TQAVCTRL_DATAFETCHARB;
-+		wr32(E1000_I210_TQAVCTRL, val);
-+
-+		/* Configure Tx and Rx packet buffers sizes as described in
-+		 * i210 datasheet section 7.2.7.7.
-+		 */
-+		val = rd32(E1000_TXPBS);
-+		val &= ~I210_TXPBSIZE_MASK;
-+		val |= I210_TXPBSIZE_PB0_8KB | I210_TXPBSIZE_PB1_8KB |
-+			I210_TXPBSIZE_PB2_4KB | I210_TXPBSIZE_PB3_4KB;
-+		wr32(E1000_TXPBS, val);
-+
-+		val = rd32(E1000_RXPBS);
-+		val &= ~I210_RXPBSIZE_MASK;
-+		val |= I210_RXPBSIZE_PB_32KB;
-+		wr32(E1000_RXPBS, val);
-+
-+		/* Section 8.12.9 states that MAX_TPKT_SIZE from DTXMXPKTSZ
-+		 * register should not exceed the buffer size programmed in
-+		 * TXPBS. The smallest buffer size programmed in TXPBS is 4kB
-+		 * so according to the datasheet we should set MAX_TPKT_SIZE to
-+		 * 4kB / 64.
-+		 *
-+		 * However, when we do so, no frame from queue 2 and 3 are
-+		 * transmitted.  It seems the MAX_TPKT_SIZE should not be great
-+		 * or _equal_ to the buffer size programmed in TXPBS. For this
-+		 * reason, we set set MAX_ TPKT_SIZE to (4kB - 1) / 64.
-+		 */
-+		val = (4096 - 1) / 64;
-+		wr32(E1000_I210_DTXMXPKTSZ, val);
-+
-+		/* Since FQTSS mode is enabled, apply any CBS configuration
-+		 * previously set. If no previous CBS configuration has been
-+		 * done, then the initial configuration is applied, which means
-+		 * CBS is disabled.
-+		 */
-+		max_queue = (adapter->num_tx_queues < I210_SR_QUEUES_NUM) ?
-+			    adapter->num_tx_queues : I210_SR_QUEUES_NUM;
-+
-+		for (i = 0; i < max_queue; i++) {
-+			struct igb_ring *ring = adapter->tx_ring[i];
-+
-+			igb_configure_cbs(adapter, i, ring->cbs_enable,
-+					  ring->idleslope, ring->sendslope,
-+					  ring->hicredit, ring->locredit);
-+		}
-+	} else {
-+		wr32(E1000_RXPBS, I210_RXPBSIZE_DEFAULT);
-+		wr32(E1000_TXPBS, I210_TXPBSIZE_DEFAULT);
-+		wr32(E1000_I210_DTXMXPKTSZ, I210_DTXMXPKTSZ_DEFAULT);
-+
-+		val = rd32(E1000_I210_TQAVCTRL);
-+		/* According to Section 8.12.21, the other flags we've set when
-+		 * enabling FQTSS are not relevant when disabling FQTSS so we
-+		 * don't set they here.
-+		 */
-+		val &= ~E1000_TQAVCTRL_XMIT_MODE;
-+		wr32(E1000_I210_TQAVCTRL, val);
-+	}
-+
-+	netdev_dbg(netdev, "FQTSS %s\n", (is_fqtss_enabled(adapter)) ?
-+		   "enabled" : "disabled");
-+}
-+
- /**
-  *  igb_configure - configure the hardware for RX and TX
-  *  @adapter: private board structure
-@@ -1609,6 +1905,7 @@ static void igb_configure(struct igb_adapter *adapter)
- 
- 	igb_get_hw_control(adapter);
- 	igb_set_rx_mode(netdev);
-+	igb_setup_tx_mode(adapter);
- 
- 	igb_restore_vlan(adapter);
- 
-@@ -2150,6 +2447,55 @@ igb_features_check(struct sk_buff *skb, struct net_device *dev,
- 	return features;
- }
- 
-+static int igb_offload_cbs(struct igb_adapter *adapter,
-+			   struct tc_cbs_qopt_offload *qopt)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	int err;
-+
-+	/* CBS offloading is only supported by i210 controller. */
-+	if (hw->mac.type != e1000_i210)
-+		return -EOPNOTSUPP;
-+
-+	/* CBS offloading is only supported by queue 0 and queue 1. */
-+	if (qopt->queue < 0 || qopt->queue > 1)
-+		return -EINVAL;
-+
-+	err = igb_save_cbs_params(adapter, qopt->queue, qopt->enable,
-+				  qopt->idleslope, qopt->sendslope,
-+				  qopt->hicredit, qopt->locredit);
-+	if (err)
-+		return err;
-+
-+	if (is_fqtss_enabled(adapter)) {
-+		igb_configure_cbs(adapter, qopt->queue, qopt->enable,
-+				  qopt->idleslope, qopt->sendslope,
-+				  qopt->hicredit, qopt->locredit);
-+
-+		if (!is_any_cbs_enabled(adapter))
-+			enable_fqtss(adapter, false);
-+
-+	} else {
-+		enable_fqtss(adapter, true);
-+	}
-+
-+	return 0;
-+}
-+
-+static int igb_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+			void *type_data)
-+{
-+	struct igb_adapter *adapter = netdev_priv(dev);
-+
-+	switch (type) {
-+	case TC_SETUP_CBS:
-+		return igb_offload_cbs(adapter, type_data);
-+
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_open		= igb_open,
- 	.ndo_stop		= igb_close,
-@@ -2175,6 +2521,7 @@ static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_set_features	= igb_set_features,
- 	.ndo_fdb_add		= igb_ndo_fdb_add,
- 	.ndo_features_check	= igb_features_check,
-+	.ndo_setup_tc		= igb_setup_tc,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 31bb3010c69b..1f6c44ef5b21 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -775,6 +775,7 @@ enum tc_setup_type {
+ 	TC_SETUP_CLSFLOWER,
+ 	TC_SETUP_CLSMATCHALL,
+ 	TC_SETUP_CLSBPF,
++	TC_SETUP_CBS,
  };
  
- /**
+ /* These structures hold the attributes of xdp state that are being passed
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 259bc191ba59..7c597b050b36 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -146,4 +146,13 @@ static inline bool is_classid_clsact_egress(u32 classid)
+ 	       TC_H_MIN(classid) == TC_H_MIN(TC_H_MIN_EGRESS);
+ }
+ 
++struct tc_cbs_qopt_offload {
++	u8 enable;
++	s32 queue;
++	s32 hicredit;
++	s32 locredit;
++	s32 idleslope;
++	s32 sendslope;
++};
++
+ #endif
+diff --git a/net/sched/sch_cbs.c b/net/sched/sch_cbs.c
+index c0102b589494..cae021c642e5 100644
+--- a/net/sched/sch_cbs.c
++++ b/net/sched/sch_cbs.c
+@@ -68,6 +68,8 @@
+ #define BYTES_PER_KBIT (1000LL / 8)
+ 
+ struct cbs_sched_data {
++	bool offload;
++	int queue;
+ 	s64 port_rate; /* in bytes/s */
+ 	s64 last; /* timestamp in ns */
+ 	s64 credits; /* in bytes */
+@@ -80,6 +82,11 @@ struct cbs_sched_data {
+ 	struct sk_buff *(*dequeue)(struct Qdisc *sch);
+ };
+ 
++static int cbs_enqueue_offload(struct sk_buff *skb, struct Qdisc *sch)
++{
++	return qdisc_enqueue_tail(skb, sch);
++}
++
+ static int cbs_enqueue_soft(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
+@@ -169,6 +176,11 @@ static struct sk_buff *cbs_dequeue_soft(struct Qdisc *sch)
+ 	return skb;
+ }
+ 
++static struct sk_buff *cbs_dequeue_offload(struct Qdisc *sch)
++{
++	return qdisc_dequeue_head(sch);
++}
++
+ static struct sk_buff *cbs_dequeue(struct Qdisc *sch)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
+@@ -180,14 +192,66 @@ static const struct nla_policy cbs_policy[TCA_CBS_MAX + 1] = {
+ 	[TCA_CBS_PARMS]	= { .len = sizeof(struct tc_cbs_qopt) },
+ };
+ 
++static void cbs_disable_offload(struct net_device *dev,
++				struct cbs_sched_data *q)
++{
++	struct tc_cbs_qopt_offload cbs = { };
++	const struct net_device_ops *ops;
++	int err;
++
++	if (!q->offload)
++		return;
++
++	q->enqueue = cbs_enqueue_soft;
++	q->dequeue = cbs_dequeue_soft;
++
++	ops = dev->netdev_ops;
++	if (!ops->ndo_setup_tc)
++		return;
++
++	cbs.queue = q->queue;
++	cbs.enable = 0;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		pr_warn("Couldn't disable CBS offload for queue %d\n",
++			cbs.queue);
++}
++
++static int cbs_enable_offload(struct net_device *dev, struct cbs_sched_data *q,
++			      const struct tc_cbs_qopt *opt)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++	struct tc_cbs_qopt_offload cbs = { };
++	int err;
++
++	if (!ops->ndo_setup_tc)
++		return -EOPNOTSUPP;
++
++	cbs.queue = q->queue;
++
++	cbs.enable = 1;
++	cbs.hicredit = opt->hicredit;
++	cbs.locredit = opt->locredit;
++	cbs.idleslope = opt->idleslope;
++	cbs.sendslope = opt->sendslope;
++
++	err = ops->ndo_setup_tc(dev, TC_SETUP_CBS, &cbs);
++	if (err < 0)
++		return err;
++
++	q->enqueue = cbs_enqueue_offload;
++	q->dequeue = cbs_dequeue_offload;
++
++	return 0;
++}
++
+ static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
+ 	struct net_device *dev = qdisc_dev(sch);
+ 	struct nlattr *tb[TCA_CBS_MAX + 1];
+-	struct ethtool_link_ksettings ecmd;
+ 	struct tc_cbs_qopt *qopt;
+-	s64 link_speed;
+ 	int err;
+ 
+ 	err = nla_parse_nested(tb, TCA_CBS_MAX, opt, cbs_policy, NULL);
+@@ -199,23 +263,30 @@ static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	qopt = nla_data(tb[TCA_CBS_PARMS]);
+ 
+-	if (qopt->offload)
+-		return -EOPNOTSUPP;
++	if (!qopt->offload) {
++		struct ethtool_link_ksettings ecmd;
++		s64 link_speed;
+ 
+-	if (!__ethtool_get_link_ksettings(dev, &ecmd))
+-		link_speed = ecmd.base.speed;
+-	else
+-		link_speed = SPEED_1000;
++		if (!__ethtool_get_link_ksettings(dev, &ecmd))
++			link_speed = ecmd.base.speed;
++		else
++			link_speed = SPEED_1000;
+ 
+-	q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
++		q->port_rate = link_speed * 1000 * BYTES_PER_KBIT;
+ 
+-	q->enqueue = cbs_enqueue_soft;
+-	q->dequeue = cbs_dequeue_soft;
++		cbs_disable_offload(dev, q);
++	} else {
++		err = cbs_enable_offload(dev, q, qopt);
++		if (err < 0)
++			return err;
++	}
+ 
++	/* Everything went OK, save the parameters used. */
+ 	q->hicredit = qopt->hicredit;
+ 	q->locredit = qopt->locredit;
+ 	q->idleslope = qopt->idleslope * BYTES_PER_KBIT;
+ 	q->sendslope = qopt->sendslope * BYTES_PER_KBIT;
++	q->offload = qopt->offload;
+ 
+ 	return 0;
+ }
+@@ -223,10 +294,16 @@ static int cbs_change(struct Qdisc *sch, struct nlattr *opt)
+ static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
+ 
+ 	if (!opt)
+ 		return -EINVAL;
+ 
++	q->queue = sch->dev_queue - netdev_get_tx_queue(dev, 0);
++
++	q->enqueue = cbs_enqueue_soft;
++	q->dequeue = cbs_dequeue_soft;
++
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 
+ 	return cbs_change(sch, opt);
+@@ -235,8 +312,11 @@ static int cbs_init(struct Qdisc *sch, struct nlattr *opt)
+ static void cbs_destroy(struct Qdisc *sch)
+ {
+ 	struct cbs_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
+ 
+ 	qdisc_watchdog_cancel(&q->watchdog);
++
++	cbs_disable_offload(dev, q);
+ }
+ 
+ static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
+@@ -253,7 +333,7 @@ static int cbs_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	opt.locredit = q->locredit;
+ 	opt.sendslope = q->sendslope / BYTES_PER_KBIT;
+ 	opt.idleslope = q->idleslope / BYTES_PER_KBIT;
+-	opt.offload = 0;
++	opt.offload = q->offload;
+ 
+ 	if (nla_put(skb, TCA_CBS_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
 -- 
 2.14.2
