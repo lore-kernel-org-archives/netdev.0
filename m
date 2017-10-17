@@ -1,119 +1,168 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: [PATCH net-next] tcp: Enable TFO without a cookie on a per-socket basis
-Date: Mon, 16 Oct 2017 23:37:14 -0700
-Message-ID: <20171017063714.17346-1-cpaasch@apple.com>
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out2.apple.com ([17.151.62.25]:53339 "EHLO
-        mail-in2.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S933685AbdJQGiG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 02:38:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next] qed: Fix iWARP out of order flow
+Date: Tue, 17 Oct 2017 10:23:25 +0300
+Message-ID: <1508225005-3572-1-git-send-email-Michal.Kalderon@cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        "Manish Rangankar" <Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-We already allow to enable TFO without a cookie by using the
-fastopen-sysctl and setting it to TFO_SERVER_COOKIE_NOT_REQD (0x200).
-This is safe to do in certain environments where we know that there
-isn't a malicous host (aka., data-centers).
+Out of order flow is not working for iWARP.
+This patch got cut out from initial series that added out
+of order support for iWARP.
 
-A server however might be talking to both sides (public Internet and
-data-center). So, this server would want to enable cookie-less TFO for
-the connections that go to the data-center while enforcing cookies for
-the traffic from the Internet.
+Make out of order code common for iWARP and iSCSI.
+Add new configuration option CONFIG_QED_OOO. Set by
+qedr and qedi Kconfigs.
 
-This patch exposes a socket-option to enable this (protected by
-CAP_NET_ADMIN).
+Fixes: d1abfd0b4ee2 ("qed: Add iWARP out of order support")
 
-Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Manish Rangankar <Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+
 ---
- include/linux/tcp.h      |  1 +
- include/uapi/linux/tcp.h |  1 +
- net/ipv4/tcp.c           | 14 ++++++++++++++
- net/ipv4/tcp_fastopen.c  |  6 ++++--
- 4 files changed, 20 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/qedr/Kconfig          |  1 +
+ drivers/net/ethernet/qlogic/Kconfig         |  3 +++
+ drivers/net/ethernet/qlogic/qed/Makefile    |  3 ++-
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c |  7 ++++++-
+ drivers/net/ethernet/qlogic/qed/qed_ooo.c   | 16 +++++++++++++---
+ drivers/net/ethernet/qlogic/qed/qed_ooo.h   |  2 +-
+ drivers/scsi/qedi/Kconfig                   |  1 +
+ 7 files changed, 27 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 1d2c44e09e31..cda5d4dc8d70 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -228,6 +228,7 @@ struct tcp_sock {
- 		syn_fastopen_ch:1, /* Active TFO re-enabling probe */
- 		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
- 		save_syn:1,	/* Save headers of SYN packet */
-+		no_tfo_cookie:1, /* Allow send/recv SYN+data without a cookie */
- 		is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
- 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP retransmit. */
+diff --git a/drivers/infiniband/hw/qedr/Kconfig b/drivers/infiniband/hw/qedr/Kconfig
+index 6c9f392..60e867d 100644
+--- a/drivers/infiniband/hw/qedr/Kconfig
++++ b/drivers/infiniband/hw/qedr/Kconfig
+@@ -2,6 +2,7 @@ config INFINIBAND_QEDR
+ 	tristate "QLogic RoCE driver"
+ 	depends on 64BIT && QEDE
+ 	select QED_LL2
++	select QED_OOO
+ 	select QED_RDMA
+ 	---help---
+ 	  This driver provides low-level InfiniBand over Ethernet
+diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
+index c2e24af..26ddf09 100644
+--- a/drivers/net/ethernet/qlogic/Kconfig
++++ b/drivers/net/ethernet/qlogic/Kconfig
+@@ -117,4 +117,7 @@ config QED_ISCSI
+ config QED_FCOE
+ 	bool
  
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 15c25eccab2b..d44f4bef056c 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -119,6 +119,7 @@ enum {
- #define TCP_FASTOPEN_CONNECT	30	/* Attempt FastOpen with connect */
- #define TCP_ULP			31	/* Attach a ULP to a TCP connection */
- #define TCP_MD5SIG_EXT		32	/* TCP MD5 Signature with extensions */
-+#define TCP_NO_TFO_COOKIE	33	/* Enable TFO without a TFO cookie */
- 
- struct tcp_repair_opt {
- 	__u32	opt_code;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 3b34850d361f..88c90be12d9f 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2821,6 +2821,16 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 			err = -EOPNOTSUPP;
- 		}
- 		break;
-+	case TCP_NO_TFO_COOKIE:
-+		if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
-+			err = -EPERM;
-+		else if (val > 1 || val < 0)
-+			err = -EINVAL;
-+		else if (!((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)))
-+			err = -EINVAL;
-+		else
-+			tp->no_tfo_cookie = 1;
-+		break;
- 	case TCP_TIMESTAMP:
- 		if (!tp->repair)
- 			err = -EPERM;
-@@ -3219,6 +3229,10 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 		val = tp->fastopen_connect;
- 		break;
- 
-+	case TCP_NO_TFO_COOKIE:
-+		val = tp->no_tfo_cookie;
-+		break;
++config QED_OOO
++	bool
 +
- 	case TCP_TIMESTAMP:
- 		val = tcp_time_stamp_raw() + tp->tsoffset;
- 		break;
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 7ee4aadcdd71..c1b00b666b43 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -309,7 +309,8 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
- 		return NULL;
+ endif # NET_VENDOR_QLOGIC
+diff --git a/drivers/net/ethernet/qlogic/qed/Makefile b/drivers/net/ethernet/qlogic/qed/Makefile
+index 82dd470..c3c5999 100644
+--- a/drivers/net/ethernet/qlogic/qed/Makefile
++++ b/drivers/net/ethernet/qlogic/qed/Makefile
+@@ -6,5 +6,6 @@ qed-y := qed_cxt.o qed_dev.o qed_hw.o qed_init_fw_funcs.o qed_init_ops.o \
+ qed-$(CONFIG_QED_SRIOV) += qed_sriov.o qed_vf.o
+ qed-$(CONFIG_QED_LL2) += qed_ll2.o
+ qed-$(CONFIG_QED_RDMA) += qed_roce.o qed_rdma.o qed_iwarp.o
+-qed-$(CONFIG_QED_ISCSI) += qed_iscsi.o qed_ooo.o
++qed-$(CONFIG_QED_ISCSI) += qed_iscsi.o
+ qed-$(CONFIG_QED_FCOE) += qed_fcoe.o
++qed-$(CONFIG_QED_OOO) += qed_ooo.o
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+index b2b1f87..409041e 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+@@ -1410,13 +1410,18 @@ int qed_iwarp_alloc(struct qed_hwfn *p_hwfn)
+ 	INIT_LIST_HEAD(&p_hwfn->p_rdma_info->iwarp.ep_free_list);
+ 	spin_lock_init(&p_hwfn->p_rdma_info->iwarp.iw_lock);
+ 
+-	return qed_iwarp_prealloc_ep(p_hwfn, true);
++	rc = qed_iwarp_prealloc_ep(p_hwfn, true);
++	if (rc)
++		return rc;
++
++	return qed_ooo_alloc(p_hwfn);
+ }
+ 
+ void qed_iwarp_resc_free(struct qed_hwfn *p_hwfn)
+ {
+ 	struct qed_iwarp_info *iwarp_info = &p_hwfn->p_rdma_info->iwarp;
+ 
++	qed_ooo_free(p_hwfn);
+ 	qed_rdma_bmap_free(p_hwfn, &p_hwfn->p_rdma_info->tcp_cid_map, 1);
+ 	kfree(iwarp_info->mpa_bufs);
+ 	kfree(iwarp_info->partial_fpdus);
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.c b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
+index 0006365..6172354 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ooo.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
+@@ -103,18 +103,28 @@ int qed_ooo_alloc(struct qed_hwfn *p_hwfn)
+ {
+ 	u16 max_num_archipelagos = 0, cid_base;
+ 	struct qed_ooo_info *p_ooo_info;
++	enum protocol_type proto;
+ 	u16 max_num_isles = 0;
+ 	u32 i;
+ 
+-	if (p_hwfn->hw_info.personality != QED_PCI_ISCSI) {
++	switch (p_hwfn->hw_info.personality) {
++	case QED_PCI_ISCSI:
++		proto = PROTOCOLID_ISCSI;
++		break;
++	case QED_PCI_ETH_RDMA:
++	case QED_PCI_ETH_IWARP:
++		proto = PROTOCOLID_IWARP;
++		break;
++	default:
+ 		DP_NOTICE(p_hwfn,
+ 			  "Failed to allocate qed_ooo_info: unknown personality\n");
+ 		return -EINVAL;
  	}
  
--	if (syn_data && (tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
-+	if (syn_data && ((tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD) ||
-+			 tcp_sk(sk)->no_tfo_cookie))
- 		goto fastopen;
+-	max_num_archipelagos = p_hwfn->pf_params.iscsi_pf_params.num_cons;
++	max_num_archipelagos = (u16)qed_cxt_get_proto_cid_count(p_hwfn, proto,
++								NULL);
+ 	max_num_isles = QED_MAX_NUM_ISLES + max_num_archipelagos;
+-	cid_base = (u16)qed_cxt_get_proto_cid_start(p_hwfn, PROTOCOLID_ISCSI);
++	cid_base = (u16)qed_cxt_get_proto_cid_start(p_hwfn, proto);
  
- 	if (foc->len >= 0 &&  /* Client presents or requests a cookie */
-@@ -363,7 +364,8 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
- 		return false;
- 	}
+ 	if (!max_num_archipelagos) {
+ 		DP_NOTICE(p_hwfn,
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.h b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
+index e8ed40b..49c4e75 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_ooo.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
+@@ -83,7 +83,7 @@ struct qed_ooo_info {
+ 	u16 cid_base;
+ };
  
--	if (sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
-+	if ((sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) ||
-+	    tcp_sk(sk)->no_tfo_cookie) {
- 		cookie->len = -1;
- 		return true;
- 	}
+-#if IS_ENABLED(CONFIG_QED_ISCSI)
++#if IS_ENABLED(CONFIG_QED_OOO)
+ void qed_ooo_save_history_entry(struct qed_hwfn *p_hwfn,
+ 				struct qed_ooo_info *p_ooo_info,
+ 				struct ooo_opaque *p_cqe);
+diff --git a/drivers/scsi/qedi/Kconfig b/drivers/scsi/qedi/Kconfig
+index 2ff753c..d1db92d 100644
+--- a/drivers/scsi/qedi/Kconfig
++++ b/drivers/scsi/qedi/Kconfig
+@@ -4,6 +4,7 @@ config QEDI
+ 	depends on QED
+ 	select SCSI_ISCSI_ATTRS
+ 	select QED_LL2
++	select QED_OOO
+ 	select QED_ISCSI
+ 	select ISCSI_BOOT_SYSFS
+ 	---help---
 -- 
-2.14.1
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
