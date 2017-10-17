@@ -1,57 +1,132 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next PATCH] macvlan/macvtap: Add support for L2 forwarding
- offloads with macvtap
-Date: Mon, 16 Oct 2017 22:44:44 -0400
-Message-ID: <20171017024428.28589.73728.stgit@ahduyck-green-test.jf.intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio_net: implement
+ VIRTIO_CONFIG_S_NEEDS_RESET
+Date: Tue, 17 Oct 2017 11:05:07 +0800
+Message-ID: <ecf3dde0-d4e6-23d5-22a7-05ce45bdafc9@redhat.com>
+References: <20171013155140.124530-1-willemdebruijn.kernel@gmail.com>
+ <20171015034018-mutt-send-email-mst@kernel.org>
+ <CAF=yD-LdGiKuf=k2FDgFWbhvExVX8t+VVgTQetKTegjMeQ598g@mail.gmail.com>
+ <20171016180442-mutt-send-email-mst@kernel.org>
+ <CAF=yD-LW7f30V8Ci1SQUPZ-WBihqr93cWQP2QBFg2oQtytvAPg@mail.gmail.com>
+ <20171016191806-mutt-send-email-mst@kernel.org>
+ <CAF=yD-KkUH6=S6Q=Tjtd2Wo=-ebDUt1or-DqjoRV4dTaD8G0WA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:9601 "EHLO mga05.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:47516 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754194AbdJQCsA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 22:48:00 -0400
+        id S1755309AbdJQDFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 23:05:14 -0400
+In-Reply-To: <CAF=yD-KkUH6=S6Q=Tjtd2Wo=-ebDUt1or-DqjoRV4dTaD8G0WA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch reverts earlier commit b13ba1b83f52 ("macvlan: forbid L2
-fowarding offload for macvtap"). The reason for reverting this is because
-the original patch no longer fixes what it previously did as the
-underlying structure has changed for macvtap. Specifically macvtap
-originally pulled packets directly off of the lowerdev. However in commit
-6acf54f1cf0a ("macvtap: Add support of packet capture on macvtap device.")
-that code was changed and instead macvtap would listen directly on the
-macvtap device itself instead of the lower device. As such, the L2
-forwarding offload should now be able to provide a performance advantage of
-skipping the checks on the lower dev while not introducing any sort of
-regression.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/macvlan.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 858bd66..cfeb0ee 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -596,8 +596,6 @@ static int macvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
- 	.cache_update	= eth_header_cache_update,
- };
- 
--static struct rtnl_link_ops macvlan_link_ops;
--
- static int macvlan_open(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
-@@ -613,8 +611,7 @@ static int macvlan_open(struct net_device *dev)
- 		goto hash_add;
- 	}
- 
--	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
--	    dev->rtnl_link_ops == &macvlan_link_ops) {
-+	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
- 		vlan->fwd_priv =
- 		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
- 
+On 2017年10月17日 06:34, Willem de Bruijn wrote:
+> On Mon, Oct 16, 2017 at 12:38 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> On Mon, Oct 16, 2017 at 12:04:57PM -0400, Willem de Bruijn wrote:
+>>> On Mon, Oct 16, 2017 at 11:31 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>>>> On Mon, Oct 16, 2017 at 11:03:18AM -0400, Willem de Bruijn wrote:
+>>>>>>> +static int virtnet_reset(struct virtnet_info *vi)
+>>>>>>> +{
+>>>>>>> +     struct virtio_device *dev = vi->vdev;
+>>>>>>> +     int ret;
+>>>>>>> +
+>>>>>>> +     virtio_config_disable(dev);
+>>>>>>> +     dev->failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
+>>>>>>> +     virtnet_freeze_down(dev, true);
+>>>>>>> +     remove_vq_common(vi);
+>>>>>>> +
+>>>>>>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>>>>>>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>>>>>>> +
+>>>>>>> +     ret = virtio_finalize_features(dev);
+>>>>>>> +     if (ret)
+>>>>>>> +             goto err;
+>>>>>>> +
+>>>>>>> +     ret = virtnet_restore_up(dev);
+>>>>>>> +     if (ret)
+>>>>>>> +             goto err;
+>>>>>>> +
+>>>>>>> +     ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
+>>>>>>> +     if (ret)
+>>>>>>> +             goto err;
+>>>>>>> +
+>>>>>>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+>>>>>>> +     virtio_config_enable(dev);
+>>>>>>> +     return 0;
+>>>>>>> +
+>>>>>>> +err:
+>>>>>>> +     virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>>>>>>> +     return ret;
+>>>>>>> +}
+>>>>>>> +
+>>>>>>>   static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
+>>>>>>>   {
+>>>>>>>        struct scatterlist sg;
+>>>>>> I have a question here though. How do things like MAC address
+>>>>>> get restored?
+>>>>>>
+>>>>>> What about the rx mode?
+>>>>>>
+>>>>>> vlans?
+>>>>> The function as is releases and reinitializes only ring state.
+>>>>> Device configuration such as mac and vlan persist across
+>>>>> the reset.
+>>>> What gave you this impression? Take a look at e.g. this
+>>>> code in qemu:
+>>>>
+>>>> static void virtio_net_reset(VirtIODevice *vdev)
+>>>> {
+>>>>      VirtIONet *n = VIRTIO_NET(vdev);
+>>>>
+>>>>      /* Reset back to compatibility mode */
+>>>>      n->promisc = 1;
+>>>>      n->allmulti = 0;
+>>>>      n->alluni = 0;
+>>>>      n->nomulti = 0;
+>>>>      n->nouni = 0;
+>>>>      n->nobcast = 0;
+>>>>      /* multiqueue is disabled by default */
+>>>>      n->curr_queues = 1;
+>>>>      timer_del(n->announce_timer);
+>>>>      n->announce_counter = 0;
+>>>>      n->status &= ~VIRTIO_NET_S_ANNOUNCE;
+>>>>
+>>>>      /* Flush any MAC and VLAN filter table state */
+>>>>      n->mac_table.in_use = 0;
+>>>>      n->mac_table.first_multi = 0;
+>>>>      n->mac_table.multi_overflow = 0;
+>>>>      n->mac_table.uni_overflow = 0;
+>>>>      memset(n->mac_table.macs, 0, MAC_TABLE_ENTRIES * ETH_ALEN);
+>>>>      memcpy(&n->mac[0], &n->nic->conf->macaddr, sizeof(n->mac));
+>>>>      qemu_format_nic_info_str(qemu_get_queue(n->nic), n->mac);
+>>>>      memset(n->vlans, 0, MAX_VLAN >> 3);
+>>>> }
+>>>>
+>>>> So device seems to lose all state, you have to re-program it.
+>>> Oh, indeed! The guest does not reset its state, so it might
+>>> be out of sync with the host after the operation. Was this not
+>>> an issue when previously resetting in the context of xdp?
+>> I suspect it was broken back then, too.
+> Okay. I guess that in principle this is all programmable through
+> virtnet_set_rx_mode, virtnet_vlan_rx_add_vid, etc. But it's a
+> lot more complex than just restoring virtnet_reset. Will need to
+> be careful about concurrency issues at the least. Similar to the
+> ones you point out below.
+>
+
+The problem has been pointed out during developing virtio-net XDP. But 
+it may not be a big issue since vhost_net ignores all kinds of the 
+filters now.
+
+Thanks
