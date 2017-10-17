@@ -1,98 +1,98 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 04/58] net/irda-usb: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:28:48 -0700
-Message-ID: <1508200182-104605-5-git-send-email-keescook@chromium.org>
-References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-        Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
+Date: Tue, 17 Oct 2017 02:44:59 +0200
+Message-ID: <310ce203-0d65-bdf4-d9e4-897a349b3277@itcare.pl>
+References: <1507121766.30720.4.camel@cohaesio.com>
+ <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
+ <1507180753.20182.8.camel@cohaesio.com>
+ <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
+ <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
+ <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
+ <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
+ <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
+ <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
+ <CAKgT0Uf=0yasidUfyadNSxzkhKvtxH2t83fjb-SU7OaAnrMReA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Pavlos Parissis <pavlos.parissis@gmail.com>,
+        "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp16.iq.pl ([86.111.242.222]:58081 "EHLO smtp16.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755063AbdJQApC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 20:45:02 -0400
+In-Reply-To: <CAKgT0Uf=0yasidUfyadNSxzkhKvtxH2t83fjb-SU7OaAnrMReA@mail.gmail.com>
+Content-Language: pl
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for unconditionally passing the struct timer_list pointer to
-all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This requires adding a pointer to
-hold the timer's target URB, as there won't be a way to pass this in the
-future.
 
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/staging/irda/drivers/irda-usb.c | 20 ++++++--------------
- drivers/staging/irda/drivers/irda-usb.h |  1 +
- 2 files changed, 7 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/staging/irda/drivers/irda-usb.c b/drivers/staging/irda/drivers/irda-usb.c
-index 82bfc051e1de..bda6bdc6c70b 100644
---- a/drivers/staging/irda/drivers/irda-usb.c
-+++ b/drivers/staging/irda/drivers/irda-usb.c
-@@ -117,7 +117,7 @@ static void irda_usb_close(struct irda_usb_cb *self);
- static void speed_bulk_callback(struct urb *urb);
- static void write_bulk_callback(struct urb *urb);
- static void irda_usb_receive(struct urb *urb);
--static void irda_usb_rx_defer_expired(unsigned long data);
-+static void irda_usb_rx_defer_expired(struct timer_list *t);
- static int irda_usb_net_open(struct net_device *dev);
- static int irda_usb_net_close(struct net_device *dev);
- static int irda_usb_net_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-@@ -846,8 +846,7 @@ static void irda_usb_receive(struct urb *urb)
- 		 * hot unplug of the dongle...
- 		 * Lowest effective timer is 10ms...
- 		 * Jean II */
--		self->rx_defer_timer.function = irda_usb_rx_defer_expired;
--		self->rx_defer_timer.data = (unsigned long) urb;
-+		self->rx_defer_timer_urb = urb;
- 		mod_timer(&self->rx_defer_timer,
- 			  jiffies + msecs_to_jiffies(10));
- 
-@@ -953,20 +952,13 @@ static void irda_usb_receive(struct urb *urb)
-  * In case of errors, we want the USB layer to have time to recover.
-  * Now, it is time to resubmit ouur Rx URB...
-  */
--static void irda_usb_rx_defer_expired(unsigned long data)
-+static void irda_usb_rx_defer_expired(struct timer_list *t)
- {
--	struct urb *urb = (struct urb *) data;
-+	struct irda_usb_cb *self = from_timer(self, t, rx_defer_timer);
-+	struct urb *urb = self->rx_defer_timer_urb;
- 	struct sk_buff *skb = (struct sk_buff *) urb->context;
--	struct irda_usb_cb *self; 
--	struct irda_skb_cb *cb;
- 	struct urb *next_urb;
- 
--	/* Find ourselves */
--	cb = (struct irda_skb_cb *) skb->cb;
--	IRDA_ASSERT(cb != NULL, return;);
--	self = (struct irda_usb_cb *) cb->context;
--	IRDA_ASSERT(self != NULL, return;);
--
- 	/* Same stuff as when Rx is done, see above... */
- 	next_urb = self->idle_rx_urb;
- 	urb->context = NULL;
-@@ -1622,7 +1614,7 @@ static int irda_usb_probe(struct usb_interface *intf,
- 	self = netdev_priv(net);
- 	self->netdev = net;
- 	spin_lock_init(&self->lock);
--	init_timer(&self->rx_defer_timer);
-+	timer_setup(&self->rx_defer_timer, irda_usb_rx_defer_expired, 0);
- 
- 	self->capability = id->driver_info;
- 	self->needspatch = ((self->capability & IUC_STIR421X) != 0);
-diff --git a/drivers/staging/irda/drivers/irda-usb.h b/drivers/staging/irda/drivers/irda-usb.h
-index 8ac389fa9348..56ee8c16c5e2 100644
---- a/drivers/staging/irda/drivers/irda-usb.h
-+++ b/drivers/staging/irda/drivers/irda-usb.h
-@@ -170,5 +170,6 @@ struct irda_usb_cb {
- 	int needspatch;        		/* device needs firmware patch */
- 
- 	struct timer_list rx_defer_timer;	/* Wait for Rx error to clear */
-+	struct urb *rx_defer_timer_urb;	/* URB attached to rx_defer_timer */
- };
- 
--- 
-2.7.4
+W dniu 2017-10-17 o 01:56, Alexander Duyck pisze:
+> On Mon, Oct 16, 2017 at 4:34 PM, Paweł Staszewski <pstaszewski@itcare.pl> wrote:
+>>
+>> W dniu 2017-10-16 o 18:26, Paweł Staszewski pisze:
+>>
+>>>
+>>> W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
+>>>> On 15/10/2017 02:58 πμ, Alexander Duyck wrote:
+>>>>> Hi Pawel,
+>>>>>
+>>>>> To clarify is that Dave Miller's tree or Linus's that you are talking
+>>>>> about? If it is Dave's tree how long ago was it you pulled it since I
+>>>>> think the fix was just pushed by Jeff Kirsher a few days ago.
+>>>>>
+>>>>> The issue should be fixed in the following commit:
+>>>>>
+>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=2b9478ffc550f17c6cd8c69057234e91150f5972
+>>>>>
+>>>> Do you know when it is going to be available on net-next and linux-stable
+>>>> repos?
+>>>>
+>>>> Cheers,
+>>>> Pavlos
+>>>>
+>>>>
+>>> I will make some tests today night with "net" git tree where this patch is
+>>> included.
+>>> Starting from 0:00 CET
+>>> :)
+>>>
+>>>
+>> Upgraded and looks like problem is not solved with that patch
+>> Currently running system with
+>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
+>> kernel
+>>
+>> Still about 0.5GB of memory is leaking somewhere
+>>
+>> Also can confirm that the latest kernel where memory is not leaking (with
+>> use i40e driver intel 710 cards) is 4.11.12
+>> With kernel 4.11.12 - after hour no change in memory usage.
+>>
+>> also checked that with ixgbe instead of i40e with same  net.git kernel there
+>> is no memleak - after hour same memory usage - so for 100% this is i40e
+>> driver problem.
+> So how long was the run to get the .5GB of memory leaking?
+1 hour
+
+>
+> Also is there any chance of you being able to bisect to determine
+> where the memory leak was introduced since as you pointed out it
+> didn't exist in 4.11.12 so odds are it was introduced somewhere
+> between 4.11 and the latest kernel release.
+Can be hard cause currently need to back to 4.11.12 - this is production 
+host/router
+Will try to find some free/test router for tests/bicects with i40e 
+driver (intel 710 cards)
+
+>
+> Thanks.
+>
+> - Alex
+>
