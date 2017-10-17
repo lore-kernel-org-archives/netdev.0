@@ -1,147 +1,102 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/20] net: sched: use extended variants of block_get/put in ingress and clsact qdiscs
-Date: Tue, 17 Oct 2017 22:05:57 +0200
-Message-ID: <20171017200615.4530-3-jiri@resnulli.us>
-References: <20171017200615.4530-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, alexander.h.duyck@intel.com
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v3 net-next] tcp: Remove use of daddr_cache in tracepoint
+Date: Tue, 17 Oct 2017 13:09:33 -0700
+Message-ID: <1508270973-23789-1-git-send-email-dsahern@gmail.com>
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+        David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:56587 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764036AbdJQUGT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:19 -0400
-Received: by mail-wr0-f193.google.com with SMTP id r79so2900701wrb.13
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:18 -0700 (PDT)
-In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:48877 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755964AbdJQUJj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:09:39 -0400
+Received: by mail-pf0-f196.google.com with SMTP id b79so2147175pfk.5
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:09:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+Running perf in one window to capture tcp_retransmit_skb tracepoint:
+    $ perf record -e tcp:tcp_retransmit_skb -a
 
-Use previously introduced extended variants of block get and put
-functions. This allows to specify a binder types specific to clsact
-ingress/egress which is useful for drivers to distinguish who actually
-got the block.
+And causing a retransmission on an active TCP session (e.g., dropping
+packets in the receiver, changing MTU on the interface to 500 and back
+to 1500) triggers a panic:
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+[   58.543144] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+[   58.545300] IP: perf_trace_tcp_retransmit_skb+0xd0/0x145
+[   58.546770] PGD 0 P4D 0
+[   58.547472] Oops: 0000 [#1] SMP
+[   58.548328] Modules linked in: vrf
+[   58.549262] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.14.0-rc4+ #26
+[   58.551004] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+[   58.554560] task: ffffffff81a0e540 task.stack: ffffffff81a00000
+[   58.555817] RIP: 0010:perf_trace_tcp_retransmit_skb+0xd0/0x145
+[   58.557137] RSP: 0018:ffff88003fc03d68 EFLAGS: 00010282
+[   58.558292] RAX: 0000000000000000 RBX: ffffe8ffffc0ec80 RCX: ffff880038543098
+[   58.559850] RDX: 0400000000000000 RSI: ffff88003fc03d70 RDI: ffff88003fc14b68
+[   58.561099] RBP: ffff88003fc03da8 R08: 0000000000000000 R09: ffffea0000d3224a
+[   58.562005] R10: ffff88003fc03db8 R11: 0000000000000010 R12: ffff8800385428c0
+[   58.562930] R13: ffffe8ffffc0e478 R14: ffffffff81a93a40 R15: ffff88003d4f0c00
+[   58.563845] FS:  0000000000000000(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
+[   58.564873] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   58.565613] CR2: 0000000000000008 CR3: 000000003d68f004 CR4: 00000000000606f0
+[   58.566538] Call Trace:
+[   58.566865]  <IRQ>
+[   58.567140]  __tcp_retransmit_skb+0x4ab/0x4c6
+[   58.567704]  ? tcp_set_ca_state+0x22/0x3f
+[   58.568231]  tcp_retransmit_skb+0x14/0xa3
+[   58.568754]  tcp_retransmit_timer+0x472/0x5e3
+[   58.569324]  ? tcp_write_timer_handler+0x1e9/0x1e9
+[   58.569946]  tcp_write_timer_handler+0x95/0x1e9
+[   58.570548]  tcp_write_timer+0x2a/0x58
+
+Remove use of ipv6_pinfo in favor of data in sock_common.
+
+Fixes: e086101b150a ("tcp: add a tracepoint for tcp retransmission")
+Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- include/net/pkt_cls.h   |  2 ++
- net/sched/sch_ingress.c | 36 +++++++++++++++++++++++++++++-------
- 2 files changed, 31 insertions(+), 7 deletions(-)
+v3
+- remove use of inet6_sk and check sk_family (requested by Eric)
+- Add IS_ENABLED(CONFIG_IPV6) around use of sk_v6_rcv_saddr and
+  sk_v6_daddr as done in sock_common (noted by Cong)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 41bc7d7..5c50af8 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -19,6 +19,8 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+v2
+- remove np and get addresses from sock_common
+
+ include/trace/events/tcp.h | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
+index 3d1cbd072b7e..271812216ce3 100644
+--- a/include/trace/events/tcp.h
++++ b/include/trace/events/tcp.h
+@@ -27,7 +27,6 @@ TRACE_EVENT(tcp_retransmit_skb,
+ 	),
  
- enum tcf_block_binder_type {
- 	TCF_BLOCK_BINDER_TYPE_UNSPEC,
-+	TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS,
-+	TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS,
- };
+ 	TP_fast_assign(
+-		struct ipv6_pinfo *np = inet6_sk(sk);
+ 		struct inet_sock *inet = inet_sk(sk);
+ 		struct in6_addr *pin6;
+ 		__be32 *p32;
+@@ -44,12 +43,15 @@ TRACE_EVENT(tcp_retransmit_skb,
+ 		p32 = (__be32 *) __entry->daddr;
+ 		*p32 =  inet->inet_daddr;
  
- struct tcf_block_ext_info {
-diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index 9ccc1b8..b599db2 100644
---- a/net/sched/sch_ingress.c
-+++ b/net/sched/sch_ingress.c
-@@ -20,6 +20,7 @@
- 
- struct ingress_sched_data {
- 	struct tcf_block *block;
-+	struct tcf_block_ext_info block_info;
- };
- 
- static struct Qdisc *ingress_leaf(struct Qdisc *sch, unsigned long arg)
-@@ -59,7 +60,10 @@ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct net_device *dev = qdisc_dev(sch);
- 	int err;
- 
--	err = tcf_block_get(&q->block, &dev->ingress_cl_list, sch);
-+	q->block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS;
-+
-+	err = tcf_block_get_ext(&q->block, &dev->ingress_cl_list,
-+				sch, &q->block_info);
- 	if (err)
- 		return err;
- 
-@@ -72,8 +76,10 @@ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
- static void ingress_destroy(struct Qdisc *sch)
- {
- 	struct ingress_sched_data *q = qdisc_priv(sch);
-+	struct net_device *dev = qdisc_dev(sch);
- 
--	tcf_block_put(q->block);
-+	tcf_block_put_ext(q->block, &dev->ingress_cl_list,
-+			  sch, &q->block_info);
- 	net_dec_ingress_queue();
- }
- 
-@@ -114,6 +120,8 @@ static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
- struct clsact_sched_data {
- 	struct tcf_block *ingress_block;
- 	struct tcf_block *egress_block;
-+	struct tcf_block_ext_info ingress_block_info;
-+	struct tcf_block_ext_info egress_block_info;
- };
- 
- static unsigned long clsact_find(struct Qdisc *sch, u32 classid)
-@@ -153,13 +161,19 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct net_device *dev = qdisc_dev(sch);
- 	int err;
- 
--	err = tcf_block_get(&q->ingress_block, &dev->ingress_cl_list, sch);
-+	q->ingress_block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS;
-+
-+	err = tcf_block_get_ext(&q->ingress_block, &dev->ingress_cl_list,
-+				sch, &q->ingress_block_info);
- 	if (err)
- 		return err;
- 
--	err = tcf_block_get(&q->egress_block, &dev->egress_cl_list, sch);
-+	q->egress_block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS;
-+
-+	err = tcf_block_get_ext(&q->egress_block, &dev->egress_cl_list,
-+				sch, &q->egress_block_info);
- 	if (err)
--		return err;
-+		goto err_egress_block_get;
- 
- 	net_inc_ingress_queue();
- 	net_inc_egress_queue();
-@@ -167,14 +181,22 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
- 	sch->flags |= TCQ_F_CPUSTATS;
- 
- 	return 0;
-+
-+err_egress_block_get:
-+	tcf_block_put_ext(q->ingress_block, &dev->ingress_cl_list,
-+			  sch, &q->ingress_block_info);
-+	return err;
- }
- 
- static void clsact_destroy(struct Qdisc *sch)
- {
- 	struct clsact_sched_data *q = qdisc_priv(sch);
-+	struct net_device *dev = qdisc_dev(sch);
- 
--	tcf_block_put(q->egress_block);
--	tcf_block_put(q->ingress_block);
-+	tcf_block_put_ext(q->egress_block, &dev->egress_cl_list,
-+			  sch, &q->egress_block_info);
-+	tcf_block_put_ext(q->ingress_block, &dev->ingress_cl_list,
-+			  sch, &q->ingress_block_info);
- 
- 	net_dec_ingress_queue();
- 	net_dec_egress_queue();
+-		if (np) {
++#if IS_ENABLED(CONFIG_IPV6)
++		if (sk->sk_family == AF_INET6) {
+ 			pin6 = (struct in6_addr *)__entry->saddr_v6;
+-			*pin6 = np->saddr;
++			*pin6 = sk->sk_v6_rcv_saddr;
+ 			pin6 = (struct in6_addr *)__entry->daddr_v6;
+-			*pin6 = *(np->daddr_cache);
+-		} else {
++			*pin6 = sk->sk_v6_daddr;
++		} else
++#endif
++		{
+ 			pin6 = (struct in6_addr *)__entry->saddr_v6;
+ 			ipv6_addr_set_v4mapped(inet->inet_saddr, pin6);
+ 			pin6 = (struct in6_addr *)__entry->daddr_v6;
 -- 
-2.9.5
+2.1.4
