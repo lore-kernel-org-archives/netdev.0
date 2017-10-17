@@ -1,59 +1,51 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: Re: [PATCH net-next] tcp: Enable TFO without a cookie on a per-socket
- basis
-Date: Tue, 17 Oct 2017 09:49:50 -0700
-Message-ID: <20171017164950.GH73751@Chimay.local>
-References: <20171017063714.17346-1-cpaasch@apple.com>
- <CANn89i+50uOGyyNKd8HMsPuZpmxFpsj28gHc7LAV_0BL9NpkEQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [patch net v3 2/4] net/sched: Use action array instead of action
+ list as parameter
+Date: Tue, 17 Oct 2017 09:55:38 -0700
+Message-ID: <CAM_iQpUz4bKhb2uUiBBeXL6f6BfdAND7sW+az5MjbjbifRnmhw@mail.gmail.com>
+References: <1508203218-17998-1-git-send-email-chrism@mellanox.com> <1508203218-17998-3-git-send-email-chrism@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; CHARSET=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Lucas Bates <lucasb@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>
+To: Chris Mi <chrism@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out5.apple.com ([17.151.62.27]:49027 "EHLO
-        mail-in5.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932689AbdJQQto (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 12:49:44 -0400
-Content-disposition: inline
-In-reply-to: <CANn89i+50uOGyyNKd8HMsPuZpmxFpsj28gHc7LAV_0BL9NpkEQ@mail.gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:43627 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934082AbdJQQz7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 12:55:59 -0400
+Received: by mail-pg0-f67.google.com with SMTP id s75so1891255pgs.0
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 09:55:59 -0700 (PDT)
+In-Reply-To: <1508203218-17998-3-git-send-email-chrism@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/10/17 - 04:00:01, Eric Dumazet wrote:
-> On Mon, Oct 16, 2017 at 11:37 PM, Christoph Paasch <cpaasch@apple.com> wrote:
-> > We already allow to enable TFO without a cookie by using the
-> > fastopen-sysctl and setting it to TFO_SERVER_COOKIE_NOT_REQD (0x200).
-> > This is safe to do in certain environments where we know that there
-> > isn't a malicous host (aka., data-centers).
-> >
-> > A server however might be talking to both sides (public Internet and
-> > data-center). So, this server would want to enable cookie-less TFO for
-> > the connections that go to the data-center while enforcing cookies for
-> > the traffic from the Internet.
-> >
-> > This patch exposes a socket-option to enable this (protected by
-> > CAP_NET_ADMIN).
-> 
-> Have you thought instead of a route attribute ?
+On Mon, Oct 16, 2017 at 6:20 PM, Chris Mi <chrism@mellanox.com> wrote:
+> When destroying filters, actions should be destroyed first.
+> The pointers of each action are saved in an array. TC doesn't
+> use the array directly, but put all actions in a doubly linked
+> list and use that list as parameter.
+>
+> There is no problem if each filter has its own actions. But if
+> some filters share the same action, when these filters are
+> destroyed, RCU callback fl_destroy_filter() may be called at the
+> same time. That means the same action's 'struct list_head list'
+> could be manipulated at the same time. It may point to an invalid
+> address so that system will panic.
 
-Another use-case for per-socket configuration is where the application-level
-protocol already provides an authentication mechanism in the first flight of
-data so that the cookie basically becomes redundant. In that case, it is
-useful to configure it on a per-socket basis if other services are running
-on this server as well.
-
-I can of course add the route attribute in the v2, but I think the sockopt has
-its use-case as well.
-
-> CAP_NET_ADMIN restriction is not really practical IMO.
-
-I'm fine with removing it.
-
-I added it because an unpreviliged user could more easily mount an
-amplification attack. But that is probably quite a stretch :)
+So if we remove these RCU callbacks (by adding a sychronize_rcu)
+this is not a problem, right? Or is there any other races than RCU
+callbacks??
 
 
-Christoph
+>
+> This patch uses the action array directly to fix this issue.
+>
+> Fixes commit in pre-git era.
+>
+> Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+
+This is wrong too. RCU callbacks were introduced very late.
