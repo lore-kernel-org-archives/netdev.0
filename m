@@ -1,65 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: fix tcp_xmit_retransmit_queue() after rbtree
- introduction
-Date: Mon, 16 Oct 2017 19:38:35 -0700
-Message-ID: <1508207915.31614.87.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [net-next PATCH] macvlan/macvtap: Add support for L2 forwarding
+ offloads with macvtap
+Date: Mon, 16 Oct 2017 22:44:44 -0400
+Message-ID: <20171017024428.28589.73728.stgit@ahduyck-green-test.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:47714 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932328AbdJQCih (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 22:38:37 -0400
-Received: by mail-pf0-f193.google.com with SMTP id z11so258589pfk.4
-        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 19:38:37 -0700 (PDT)
+Received: from mga05.intel.com ([192.55.52.43]:9601 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754194AbdJQCsA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 22:48:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+This patch reverts earlier commit b13ba1b83f52 ("macvlan: forbid L2
+fowarding offload for macvtap"). The reason for reverting this is because
+the original patch no longer fixes what it previously did as the
+underlying structure has changed for macvtap. Specifically macvtap
+originally pulled packets directly off of the lowerdev. However in commit
+6acf54f1cf0a ("macvtap: Add support of packet capture on macvtap device.")
+that code was changed and instead macvtap would listen directly on the
+macvtap device itself instead of the lower device. As such, the L2
+forwarding offload should now be able to provide a performance advantage of
+skipping the checks on the lower dev while not introducing any sort of
+regression.
 
-I tried to hard avoiding a call to rb_first() (via tcp_rtx_queue_head)
-in tcp_xmit_retransmit_queue(). But this was probably too bold.
-
-Quoting Yuchung :
-
-We might miss re-arming the RTO if tp->retransmit_skb_hint is not NULL.
-This can happen when RACK marks the first packet lost again and resets
-tp->retransmit_skb_hint for example (tcp_rack_mark_skb_lost())
-
-Fixes: 75c119afe14f ("tcp: implement rb-tree based retransmit queue")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- net/ipv4/tcp_output.c |    9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/macvlan.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 6c74f2a3977876e691e7355045d4a84a98af1e30..53dc1267c85e668d9a6d5d60d24e6101f7a9c56b 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2921,7 +2921,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- void tcp_xmit_retransmit_queue(struct sock *sk)
- {
- 	const struct inet_connection_sock *icsk = inet_csk(sk);
--	struct sk_buff *skb, *rtx_head = NULL, *hole = NULL;
-+	struct sk_buff *skb, *rtx_head, *hole = NULL;
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 max_segs;
- 	int mib_idx;
-@@ -2929,11 +2929,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 	if (!tp->packets_out)
- 		return;
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 858bd66..cfeb0ee 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -596,8 +596,6 @@ static int macvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 	.cache_update	= eth_header_cache_update,
+ };
  
--	skb = tp->retransmit_skb_hint;
--	if (!skb) {
--		rtx_head = tcp_rtx_queue_head(sk);
--		skb = rtx_head;
--	}
-+	rtx_head = tcp_rtx_queue_head(sk);
-+	skb = tp->retransmit_skb_hint ?: rtx_head;
- 	max_segs = tcp_tso_segs(sk, tcp_current_mss(sk));
- 	skb_rbtree_walk_from(skb) {
- 		__u8 sacked;
+-static struct rtnl_link_ops macvlan_link_ops;
+-
+ static int macvlan_open(struct net_device *dev)
+ {
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+@@ -613,8 +611,7 @@ static int macvlan_open(struct net_device *dev)
+ 		goto hash_add;
+ 	}
+ 
+-	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD &&
+-	    dev->rtnl_link_ops == &macvlan_link_ops) {
++	if (lowerdev->features & NETIF_F_HW_L2FW_DOFFLOAD) {
+ 		vlan->fwd_priv =
+ 		      lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev, dev);
+ 
