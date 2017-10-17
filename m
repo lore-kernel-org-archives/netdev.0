@@ -1,47 +1,31 @@
-From: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
-Subject: Re: [PATCH] wireless: qtnfmac: Convert timers to use timer_setup()
-Date: Tue, 17 Oct 2017 11:39:53 +0300
-Message-ID: <20171017083951.c56333pxizupnvym@bars>
-References: <20171016233622.GA101550@beast>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/4] bpf: split verifier and program ops
+Date: Tue, 17 Oct 2017 11:37:56 +0200
+Message-ID: <59E5CF74.3020907@iogearbox.net>
+References: <20171016234056.1964-1-jakub.kicinski@netronome.com> <20171016234056.1964-2-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-        Igor Mitsyanko <imitsyanko@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>,
-        Sergey Matyukevich <smatyukevich@quantenna.com>,
-        Kamlesh Rath <krath@quantenna.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0078.outbound.protection.outlook.com ([104.47.36.78]:52000
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754234AbdJQIkG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 04:40:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20171016233622.GA101550@beast>
+Received: from www62.your-server.de ([213.133.104.62]:41240 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753108AbdJQJh7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 05:37:59 -0400
+In-Reply-To: <20171016234056.1964-2-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> In preparation for unconditionally passing the struct timer_list pointer to
-> all timer callbacks, switch to using the new timer_setup() and from_timer()
-> to pass the timer pointer explicitly.
-> 
-> Cc: Igor Mitsyanko <imitsyanko@quantenna.com>
-> Cc: Avinash Patil <avinashp@quantenna.com>
-> Cc: Sergey Matyukevich <smatyukevich@quantenna.com>
-> Cc: Kalle Valo <kvalo@codeaurora.org>
-> Cc: Kamlesh Rath <krath@quantenna.com>
-> Cc: linux-wireless@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
->  drivers/net/wireless/quantenna/qtnfmac/cfg80211.c | 7 +++----
->  drivers/net/wireless/quantenna/qtnfmac/core.c     | 2 +-
->  2 files changed, 4 insertions(+), 5 deletions(-)
+On 10/17/2017 01:40 AM, Jakub Kicinski wrote:
+> struct bpf_verifier_ops contains both verifier ops and operations
+> used later during program's lifetime (test_run).  Split the runtime
+> ops into a different structure.
+>
+> BPF_PROG_TYPE() will now append ## _prog_ops or ## _verifier_ops
+> to the names.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Reviewed-by: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
-
-Thanks!
-Sergey
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
