@@ -1,94 +1,74 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next 3/3] ipv6: obsolete cached dst when removing
- them from fib tree
-Date: Tue, 17 Oct 2017 14:52:34 -0700
-Message-ID: <20171017215234.fnmkdro7wnbdnpfu@kafai-mbp.dhcp.thefacebook.com>
+Subject: Re: [PATCH net-next 2/3] ipv6: start fib6 gc on RTF_CACHE dst
+ creation
+Date: Tue, 17 Oct 2017 14:53:52 -0700
+Message-ID: <20171017215352.bdwlrp7htglkwr3v@kafai-mbp.dhcp.thefacebook.com>
 References: <cover.1508261949.git.pabeni@redhat.com>
- <59304478d82e52c817c92d183ef2105f35c17266.1508261949.git.pabeni@redhat.com>
- <CAEA6p_CMZu-ooO4sKXD3=wg8_wcAB+oZbTujJ4hEDQnjPZRNwg@mail.gmail.com>
+ <013c220c347b63c0458332898709edc0b469361d.1508261949.git.pabeni@redhat.com>
+ <CAEA6p_CKWdf0ZYm-n3kECnLMipEU3v+VVD4JFzHyPtxdBkvxSQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Wang <weiwan@google.com>,
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        Eric Dumazet <edumazet@google.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
         "David S. Miller" <davem@davemloft.net>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>
+To: Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:36878 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753015AbdJQVwq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 17:52:46 -0400
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:42166 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S933438AbdJQVyE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 17:54:04 -0400
 Content-Disposition: inline
-In-Reply-To: <CAEA6p_CMZu-ooO4sKXD3=wg8_wcAB+oZbTujJ4hEDQnjPZRNwg@mail.gmail.com>
+In-Reply-To: <CAEA6p_CKWdf0ZYm-n3kECnLMipEU3v+VVD4JFzHyPtxdBkvxSQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 06:58:23PM +0000, Wei Wang wrote:
+On Tue, Oct 17, 2017 at 06:35:13PM +0000, Wei Wang wrote:
 > On Tue, Oct 17, 2017 at 10:40 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > The commit 2b760fcf5cfb ("ipv6: hook up exception table to store
-> > dst cache") partially reverted 1e2ea8ad37be ("ipv6: set
-> > dst.obsolete when a cached route has expired").
+> > After the commit Fixes: 2b760fcf5cfb ("ipv6: hook up exception
+> > table to store dst cache"), the fib6 gc is not started after
+> > the creation of a RTF_CACHE via a redirect or pmtu update, since
+> > fib6_add() isn't invoked anymore for such dsts.
+Nice catch!
+
+Acked-by: Martin KaFai Lau <kafai@fb.com>
+
 > >
-> > This change brings back the dst obsoleting and push it a step
-> > farther: cached dst are always obsoleted when removed from the
-> > fib tree, and removal by time expiration is now performed
-> > regardless of dst->__refcnt, to be consistent with what we
-> > already do for RTF_GATEWAY dst.
+> > We need the fib6 gc to run periodically to clean the RTF_CACHE,
+> > or the dst will stay there forever.
+> >
+> > Fix it by explicitly calling fib6_force_start_gc() on successful
+> > exception creation. gc_args->more accounting will ensure that
+> > the gc timer will run for whatever time needed to properly
+> > clean the table.
 > >
 > > Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
 > > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > > ---
-> >  net/ipv6/route.c | 13 +++++++++++--
-> >  1 file changed, 11 insertions(+), 2 deletions(-)
+> Acked-by: Wei Wang <weiwan@google.com>
+> 
+> Totally true. Thanks for catching this.
+> 
+> >  net/ipv6/route.c | 4 +++-
+> >  1 file changed, 3 insertions(+), 1 deletion(-)
 > >
 > > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> > index 8b25a31b6b03..fce740049e3e 100644
+> > index 5bb53dbd4fd3..8b25a31b6b03 100644
 > > --- a/net/ipv6/route.c
 > > +++ b/net/ipv6/route.c
-> > @@ -1147,6 +1147,12 @@ static void rt6_remove_exception(struct rt6_exception_bucket *bucket,
-> >         if (!bucket || !rt6_ex)
-> >                 return;
+> > @@ -1340,8 +1340,10 @@ static int rt6_insert_exception(struct rt6_info *nrt,
+> >         spin_unlock_bh(&rt6_exception_lock);
 > >
-> > +       /* sockets, flow cache, etc. can hold a refence to this dst, be sure
-> > +        * they will drop it.
-> > +        */
-> > +       if (rt6_ex->rt6i)
-> > +               rt6_ex->rt6i->dst.obsolete = DST_OBSOLETE_FORCE_CHK;
-> > +
-> 
-> Hmm... I don't really think it is needed. rt6 is created with
-> rt6->dst.obsolete set to DST_OBSOLETE_FORCE_CHK. And by the time the
-> above function is called, it should still be that value.
-> Furthermore, the later call rt6_release() calls dst_dev_put() which
-> sets rt6->dst.obsolete to DST_OBSOLETE_DEAD to indicate this route has
-> been removed from the tree.
-> 
-> >         net = dev_net(rt6_ex->rt6i->dst.dev);
-> >         rt6_ex->rt6i->rt6i_node = NULL;
-> >         hlist_del_rcu(&rt6_ex->hlist);
-> > @@ -1575,8 +1581,11 @@ static void rt6_age_examine_exception(struct rt6_exception_bucket *bucket,
-> >  {
-> >         struct rt6_info *rt = rt6_ex->rt6i;
+> >         /* Update fn->fn_sernum to invalidate all cached dst */
+> > -       if (!err)
+> > +       if (!err) {
+> >                 fib6_update_sernum(ort);
+> > +               fib6_force_start_gc(net);
+> > +       }
 > >
-> > -       if (atomic_read(&rt->dst.__refcnt) == 1 &&
-> > -           time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-> > +       /* we are pruning and obsoleting the exception route even if others
-> > +        * have still reference to it, so that on next dst_check() such
-> > +        * reference can be dropped
-> > +        */
-> > +       if (time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-> 
-> Why do we want to change this behavior? Before my patch series, cached
-> routes were only deleted from the tree in fib6_age() when
-> rt->dst.__refcnt == 1, isn't it?
-In the commit 1e2ea8ad37be ("ipv6: set dst.obsolete when a cached route has expired"),
-if obsolete is set to DST_OBSOLETE_KILL, why it is not removed from
-the tree together?
-
-> 
-> >                 RT6_TRACE("aging clone %p\n", rt);
-> >                 rt6_remove_exception(bucket, rt6_ex);
-> >                 return;
+> >         return err;
+> >  }
 > > --
 > > 2.13.6
 > >
