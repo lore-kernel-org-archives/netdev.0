@@ -1,111 +1,313 @@
 From: Steve Lin <steven.lin1@broadcom.com>
-Subject: [PATCH 4/7] devlink: Adding perm config of link settings
-Date: Tue, 17 Oct 2017 16:44:26 -0400
-Message-ID: <1508273069-40461-5-git-send-email-steven.lin1@broadcom.com>
+Subject: [PATCH 6/7] bnxt: Move generic devlink code to new file
+Date: Tue, 17 Oct 2017 16:44:28 -0400
+Message-ID: <1508273069-40461-7-git-send-email-steven.lin1@broadcom.com>
 References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
 Cc: jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
         linville@tuxdriver.com, gospo@broadcom.com,
         steven.lin1@broadcom.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:49935 "EHLO
+Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:49952 "EHLO
         rnd-relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1760630AbdJQUoq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:44:46 -0400
+        by vger.kernel.org with ESMTP id S1760640AbdJQUos (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:44:48 -0400
 In-Reply-To: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extending DEVLINK_ATTR_PERM_CFG (permanent/NVRAM device configuration)
-to include persistent configuration of device link settings:
-
-DEVLINK_ATTR_PERM_CFG_AUTONEG_PROTOCOL: Configure default autoneg
-protocol; use enum devlink_autoneg_protocol.
-
-DEVLINK_ATTR_PERM_CFG_MEDIA_AUTO_DETECT: Configure default
-auto-detection of attached media connector (1 = enable, 0 =
-disable).
-
-DEVLINK_ATTR_PERM_CFG_PHY_SELECT: Configure default external PHY
-selection (0 = PHY 0, 1 = PHY 1).
-
-DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0: Configure default
-pre-OS link speed in full power (D0) state; use enum
-devlink_pre_os_link_speed.
-
-DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3: Configure default
-pre-OS link speed in sleep (D3) state; use enum
-devlink_pre_os_link_speed.
+Moving generic devlink code (registration) out of VR-R code
+into new bnxt_devlink file.
 
 Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
 Acked-by: Andy Gospodarek <gospo@broadcom.com>
 ---
- include/uapi/linux/devlink.h | 27 ++++++++++++++++++++++++++-
- net/core/devlink.c           |  5 +++++
- 2 files changed, 31 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/broadcom/bnxt/Makefile       |  2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         |  1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 65 +++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h | 39 ++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c     | 53 ++----------------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h     | 37 ++-----------
+ 6 files changed, 112 insertions(+), 85 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
 
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index 4a9eafd..2e1c006 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -142,6 +142,26 @@ enum devlink_multifunc_mode {
- 	DEVLINK_MULTIFUNC_MODE_NPAR20,		/* NPAR 2.0 */
- };
+diff --git a/drivers/net/ethernet/broadcom/bnxt/Makefile b/drivers/net/ethernet/broadcom/bnxt/Makefile
+index 457201f..59c8ec9 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/Makefile
++++ b/drivers/net/ethernet/broadcom/bnxt/Makefile
+@@ -1,4 +1,4 @@
+ obj-$(CONFIG_BNXT) += bnxt_en.o
  
-+enum devlink_autoneg_protocol {
-+	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_BAM,
-+	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_CONSORTIUM,
-+	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY,
-+	DEVLINK_AUTONEG_PROTOCOL_BAM,		/* Broadcom Autoneg Mode */
-+	DEVLINK_AUTONEG_PROTOCOL_CONSORTIUM,	/* Consortium Autoneg Mode */
+-bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o bnxt_vfr.o
++bnxt_en-y := bnxt.o bnxt_sriov.o bnxt_ethtool.o bnxt_dcb.o bnxt_ulp.o bnxt_xdp.o bnxt_vfr.o bnxt_devlink.o
+ bnxt_en-$(CONFIG_BNXT_FLOWER_OFFLOAD) += bnxt_tc.o
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 5ba4993..52cc38d 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -61,6 +61,7 @@
+ #include "bnxt_xdp.h"
+ #include "bnxt_vfr.h"
+ #include "bnxt_tc.h"
++#include "bnxt_devlink.h"
+ 
+ #define BNXT_TX_TIMEOUT		(5 * HZ)
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+new file mode 100644
+index 0000000..f3f6aa8
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+@@ -0,0 +1,65 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2017 Broadcom Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++
++#include <linux/pci.h>
++#include <linux/netdevice.h>
++#include "bnxt_hsi.h"
++#include "bnxt.h"
++#include "bnxt_vfr.h"
++#include "bnxt_devlink.h"
++
++static const struct devlink_ops bnxt_dl_ops = {
++#ifdef CONFIG_BNXT_SRIOV
++	.eswitch_mode_set = bnxt_dl_eswitch_mode_set,
++	.eswitch_mode_get = bnxt_dl_eswitch_mode_get,
++#endif /* CONFIG_BNXT_SRIOV */
 +};
 +
-+enum devlink_pre_os_link_speed {
-+	DEVLINK_PRE_OS_LINK_SPEED_AUTONEG,
-+	DEVLINK_PRE_OS_LINK_SPEED_1G,
-+	DEVLINK_PRE_OS_LINK_SPEED_10G,
-+	DEVLINK_PRE_OS_LINK_SPEED_25G,
-+	DEVLINK_PRE_OS_LINK_SPEED_40G,
-+	DEVLINK_PRE_OS_LINK_SPEED_50G,
-+	DEVLINK_PRE_OS_LINK_SPEED_100G,
-+	DEVLINK_PRE_OS_LINK_SPEED_5G = 0xe,
-+	DEVLINK_PRE_OS_LINK_SPEED_100M = 0xf,
++int bnxt_dl_register(struct bnxt *bp)
++{
++	struct devlink *dl;
++	int rc;
++
++	if (!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
++		return 0;
++
++	if (bp->hwrm_spec_code < 0x10800) {
++		netdev_warn(bp->dev, "Firmware does not support SR-IOV E-Switch SWITCHDEV mode.\n");
++		return -ENOTSUPP;
++	}
++
++	dl = devlink_alloc(&bnxt_dl_ops, sizeof(struct bnxt_dl));
++	if (!dl) {
++		netdev_warn(bp->dev, "devlink_alloc failed");
++		return -ENOMEM;
++	}
++
++	bnxt_link_bp_to_dl(bp, dl);
++	bp->eswitch_mode = DEVLINK_ESWITCH_MODE_LEGACY;
++	rc = devlink_register(dl, &bp->pdev->dev);
++	if (rc) {
++		bnxt_link_bp_to_dl(bp, NULL);
++		devlink_free(dl);
++		netdev_warn(bp->dev, "devlink_register failed. rc=%d", rc);
++		return rc;
++	}
++
++	return 0;
++}
++
++void bnxt_dl_unregister(struct bnxt *bp)
++{
++	struct devlink *dl = bp->dl;
++
++	if (!dl)
++		return;
++
++	devlink_unregister(dl);
++	devlink_free(dl);
++}
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+new file mode 100644
+index 0000000..e92a35d
+--- /dev/null
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h
+@@ -0,0 +1,39 @@
++/* Broadcom NetXtreme-C/E network driver.
++ *
++ * Copyright (c) 2017 Broadcom Limited
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation.
++ */
++
++#ifndef BNXT_DEVLINK_H
++#define BNXT_DEVLINK_H
++
++/* Struct to hold housekeeping info needed by devlink interface */
++struct bnxt_dl {
++	struct bnxt *bp;	/* back ptr to the controlling dev */
 +};
 +
- enum devlink_attr {
- 	/* don't change the order or add anything between, this is ABI! */
- 	DEVLINK_ATTR_UNSPEC,
-@@ -249,9 +269,14 @@ enum devlink_attr {
- 	DEVLINK_ATTR_PERM_CFG_PME_CAPABILITY_ENABLED,	/* u8 */
- 	DEVLINK_ATTR_PERM_CFG_MAGIC_PACKET_WOL_ENABLED,	/* u8 */
- 	DEVLINK_ATTR_PERM_CFG_EEE_PWR_SAVE_ENABLED,	/* u8 */
-+	DEVLINK_ATTR_PERM_CFG_AUTONEG_PROTOCOL,		/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_MEDIA_AUTO_DETECT,	/* u8 */
-+	DEVLINK_ATTR_PERM_CFG_PHY_SELECT,		/* u8 */
-+	DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0,	/* u32 */
-+	DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3,	/* u32 */
++static inline struct bnxt *bnxt_get_bp_from_dl(struct devlink *dl)
++{
++	return ((struct bnxt_dl *)devlink_priv(dl))->bp;
++}
++
++/* To clear devlink pointer from bp, pass NULL dl */
++static inline void bnxt_link_bp_to_dl(struct bnxt *bp, struct devlink *dl)
++{
++	bp->dl = dl;
++
++	/* add a back pointer in dl to bp */
++	if (dl) {
++		struct bnxt_dl *bp_dl = devlink_priv(dl);
++
++		bp_dl->bp = bp;
++	}
++}
++
++int bnxt_dl_register(struct bnxt *bp);
++void bnxt_dl_unregister(struct bnxt *bp);
++
++#endif /* BNXT_DEVLINK_H */
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+index e75db04..b76849f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
+@@ -16,6 +16,7 @@
+ #include "bnxt_hsi.h"
+ #include "bnxt.h"
+ #include "bnxt_vfr.h"
++#include "bnxt_devlink.h"
+ #include "bnxt_tc.h"
  
- 	/* Add new permanent config parameters above here */
--	DEVLINK_ATTR_PERM_CFG_LAST = DEVLINK_ATTR_PERM_CFG_EEE_PWR_SAVE_ENABLED,
-+	DEVLINK_ATTR_PERM_CFG_LAST = DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3,
+ #ifdef CONFIG_BNXT_SRIOV
+@@ -416,7 +417,7 @@ static int bnxt_vf_reps_create(struct bnxt *bp)
+ }
  
- 	/* add new attributes above here, update the policy in devlink.c */
+ /* Devlink related routines */
+-static int bnxt_dl_eswitch_mode_get(struct devlink *devlink, u16 *mode)
++int bnxt_dl_eswitch_mode_get(struct devlink *devlink, u16 *mode)
+ {
+ 	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
  
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index d611154..80a2a50 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -2562,6 +2562,11 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
- 	[DEVLINK_ATTR_PERM_CFG_PME_CAPABILITY_ENABLED] = { .type = NLA_U8 },
- 	[DEVLINK_ATTR_PERM_CFG_MAGIC_PACKET_WOL_ENABLED] = { .type = NLA_U8 },
- 	[DEVLINK_ATTR_PERM_CFG_EEE_PWR_SAVE_ENABLED] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CFG_AUTONEG_PROTOCOL] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_MEDIA_AUTO_DETECT] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CFG_PHY_SELECT] = { .type = NLA_U8 },
-+	[DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0] = { .type = NLA_U32 },
-+	[DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3] = { .type = NLA_U32 },
- };
+@@ -424,7 +425,7 @@ static int bnxt_dl_eswitch_mode_get(struct devlink *devlink, u16 *mode)
+ 	return 0;
+ }
  
- static const struct genl_ops devlink_nl_ops[] = {
+-static int bnxt_dl_eswitch_mode_set(struct devlink *devlink, u16 mode)
++int bnxt_dl_eswitch_mode_set(struct devlink *devlink, u16 mode)
+ {
+ 	struct bnxt *bp = bnxt_get_bp_from_dl(devlink);
+ 	int rc = 0;
+@@ -462,52 +463,4 @@ static int bnxt_dl_eswitch_mode_set(struct devlink *devlink, u16 mode)
+ 	return rc;
+ }
+ 
+-static const struct devlink_ops bnxt_dl_ops = {
+-	.eswitch_mode_set = bnxt_dl_eswitch_mode_set,
+-	.eswitch_mode_get = bnxt_dl_eswitch_mode_get
+-};
+-
+-int bnxt_dl_register(struct bnxt *bp)
+-{
+-	struct devlink *dl;
+-	int rc;
+-
+-	if (!pci_find_ext_capability(bp->pdev, PCI_EXT_CAP_ID_SRIOV))
+-		return 0;
+-
+-	if (bp->hwrm_spec_code < 0x10800) {
+-		netdev_warn(bp->dev, "Firmware does not support SR-IOV E-Switch SWITCHDEV mode.\n");
+-		return -ENOTSUPP;
+-	}
+-
+-	dl = devlink_alloc(&bnxt_dl_ops, sizeof(struct bnxt_dl));
+-	if (!dl) {
+-		netdev_warn(bp->dev, "devlink_alloc failed");
+-		return -ENOMEM;
+-	}
+-
+-	bnxt_link_bp_to_dl(bp, dl);
+-	bp->eswitch_mode = DEVLINK_ESWITCH_MODE_LEGACY;
+-	rc = devlink_register(dl, &bp->pdev->dev);
+-	if (rc) {
+-		bnxt_link_bp_to_dl(bp, NULL);
+-		devlink_free(dl);
+-		netdev_warn(bp->dev, "devlink_register failed. rc=%d", rc);
+-		return rc;
+-	}
+-
+-	return 0;
+-}
+-
+-void bnxt_dl_unregister(struct bnxt *bp)
+-{
+-	struct devlink *dl = bp->dl;
+-
+-	if (!dl)
+-		return;
+-
+-	devlink_unregister(dl);
+-	devlink_free(dl);
+-}
+-
+ #endif
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
+index 7787cd24..fb06bbe 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
+@@ -14,31 +14,6 @@
+ 
+ #define	MAX_CFA_CODE			65536
+ 
+-/* Struct to hold housekeeping info needed by devlink interface */
+-struct bnxt_dl {
+-	struct bnxt *bp;	/* back ptr to the controlling dev */
+-};
+-
+-static inline struct bnxt *bnxt_get_bp_from_dl(struct devlink *dl)
+-{
+-	return ((struct bnxt_dl *)devlink_priv(dl))->bp;
+-}
+-
+-/* To clear devlink pointer from bp, pass NULL dl */
+-static inline void bnxt_link_bp_to_dl(struct bnxt *bp, struct devlink *dl)
+-{
+-	bp->dl = dl;
+-
+-	/* add a back pointer in dl to bp */
+-	if (dl) {
+-		struct bnxt_dl *bp_dl = devlink_priv(dl);
+-
+-		bp_dl->bp = bp;
+-	}
+-}
+-
+-int bnxt_dl_register(struct bnxt *bp);
+-void bnxt_dl_unregister(struct bnxt *bp);
+ void bnxt_vf_reps_destroy(struct bnxt *bp);
+ void bnxt_vf_reps_close(struct bnxt *bp);
+ void bnxt_vf_reps_open(struct bnxt *bp);
+@@ -53,16 +28,10 @@ static inline u16 bnxt_vf_rep_get_fid(struct net_device *dev)
+ 	return bp->pf.vf[vf_rep->vf_idx].fw_fid;
+ }
+ 
+-#else
+-
+-static inline int bnxt_dl_register(struct bnxt *bp)
+-{
+-	return 0;
+-}
++int bnxt_dl_eswitch_mode_get(struct devlink *devlink, u16 *mode);
++int bnxt_dl_eswitch_mode_set(struct devlink *devlink, u16 mode);
+ 
+-static inline void bnxt_dl_unregister(struct bnxt *bp)
+-{
+-}
++#else
+ 
+ static inline void bnxt_vf_reps_close(struct bnxt *bp)
+ {
 -- 
 2.7.4
