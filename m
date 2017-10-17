@@ -1,117 +1,84 @@
-From: Wei Wang <weiwan@google.com>
-Subject: Re: [PATCH net-next 1/3] ipv6: fix route cache dump
-Date: Tue, 17 Oct 2017 11:26:46 -0700
-Message-ID: <CAEA6p_DRZA4aHW-Rxb7kJnwhPAy9HqDzY1nQgFGjCwNeVmTfJA@mail.gmail.com>
-References: <cover.1508261949.git.pabeni@redhat.com> <e54ccbb0c97570a8c1a9c97a3c7bc8a910f02083.1508261949.git.pabeni@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] ethtool: add ethtool_intersect_link_masks
+Date: Tue, 17 Oct 2017 11:21:14 -0700
+Message-ID: <20171017182119.71989-11-jeffrey.t.kirsher@intel.com>
+References: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:44134 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S937367AbdJQS0s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 14:26:48 -0400
-Received: by mail-ua0-f175.google.com with SMTP id f46so1849312uae.1
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 11:26:48 -0700 (PDT)
-In-Reply-To: <e54ccbb0c97570a8c1a9c97a3c7bc8a910f02083.1508261949.git.pabeni@redhat.com>
+Received: from mga11.intel.com ([192.55.52.93]:17770 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934563AbdJQSVn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Oct 2017 14:21:43 -0400
+In-Reply-To: <20171017182119.71989-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 10:40 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> After the commit 2b760fcf5cfb ("ipv6: hook up exception table to
-> store dst cache"), entries in the routing cache are not shown by:
->
-> ip route show cache
->
-> because the per route exception table containing such routes is not
-> traversed by rt6_dump_route().
-> Fix it by explicitly dumping all routes present into the
-> rt6i_exception_bucket.
->
-> Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
->  net/ipv6/route.c | 30 ++++++++++++++++++++++++++----
->  1 file changed, 26 insertions(+), 4 deletions(-)
->
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 01a103c23a6c..5bb53dbd4fd3 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -4190,10 +4190,14 @@ static int rt6_fill_node(struct net *net,
->         return -EMSGSIZE;
->  }
->
-> +/* this is called under the RCU lock */
->  int rt6_dump_route(struct rt6_info *rt, void *p_arg)
->  {
->         struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
-> +       struct rt6_exception_bucket *bucket;
-> +       struct rt6_exception *rt6_ex;
->         struct net *net = arg->net;
-> +       int err, port_id, seq, i;
->
->         if (rt == net->ipv6.ip6_null_entry)
->                 return 0;
-> @@ -4209,10 +4213,28 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
->                 }
->         }
->
-> -       return rt6_fill_node(net,
-> -                    arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
-> -                    NETLINK_CB(arg->cb->skb).portid, arg->cb->nlh->nlmsg_seq,
-> -                    NLM_F_MULTI);
-> +       /* dump execeptions table, if available */
-> +       port_id = NETLINK_CB(arg->cb->skb).portid;
-> +       seq = arg->cb->nlh->nlmsg_seq;
-> +       bucket = rcu_dereference(rt->rt6i_exception_bucket);
-> +       if (!bucket)
-> +               goto no_exceptions;
-> +
-> +       for (i = 0; i < FIB6_EXCEPTION_BUCKET_SIZE; i++) {
-> +               hlist_for_each_entry_rcu(rt6_ex, &bucket->chain, hlist) {
-> +                       err = rt6_fill_node(net, arg->skb, rt6_ex->rt6i, NULL,
-> +                                           NULL, 0, RTM_NEWROUTE, port_id, seq,
-> +                                           NLM_F_MULTI);
-> +                       if (err)
-> +                               return err;
-> +               }
-> +
-> +               bucket++;
-> +       }
-> +
-> +no_exceptions:
-> +       return rt6_fill_node(net, arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
-> +                            port_id, seq, NLM_F_MULTI);
->  }
->
+From: Alan Brady <alan.brady@intel.com>
 
-Hi Paolo,
+This function provides a way to intersect two link masks together to
+find the common ground between them.  For example in i40e, the driver
+first generates link masks for what is supported by the PHY type.  The
+driver then gets the link masks for what the NVM supports.  The
+resulting intersection between them yields what can truly be supported.
 
-Thanks for doing this.
-But I think your patch does not take care of the case where there are
-a lot of cached routes in the exception table and 1 skb is just not
-enough to dump the main route + all cached routes in the exception
-table.
-In this case, your patch will keep dumping the same main route.
+Signed-off-by: Alan Brady <alan.brady@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ include/linux/ethtool.h | 10 ++++++++++
+ net/core/ethtool.c      | 16 ++++++++++++++++
+ 2 files changed, 26 insertions(+)
 
-I think some logic needs to be incorporated into the fib6_walk() so
-that it can also remember the last dumped cached route if necessary in
-the exception table and start from there for the next dump.
-I do have a patch for that and that patch tries to keep a linked list
-of all cached routes from the exception table in the walker struct and
-remove any routes that are already dumped.
-It is a bit complicated and might not be the best solution. And as
-IPv4 already does not support dumping cached routes, I did not send
-that out in the previous patch series.
-
-
->  static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh,
-> --
-> 2.13.6
->
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 4587a4c36923..c77fa3529e15 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -163,6 +163,16 @@ extern int
+ __ethtool_get_link_ksettings(struct net_device *dev,
+ 			     struct ethtool_link_ksettings *link_ksettings);
+ 
++/**
++ * ethtool_intersect_link_masks - Given two link masks, AND them together
++ * @dst: first mask and where result is stored
++ * @src: second mask to intersect with
++ *
++ * Given two link mode masks, AND them together and save the result in dst.
++ */
++void ethtool_intersect_link_masks(struct ethtool_link_ksettings *dst,
++				  struct ethtool_link_ksettings *src);
++
+ void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
+ 					     u32 legacy_u32);
+ 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 3228411ada0f..0c406306792a 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -403,6 +403,22 @@ static int __ethtool_set_flags(struct net_device *dev, u32 data)
+ 	return 0;
+ }
+ 
++/* Given two link masks, AND them together and save the result in dst. */
++void ethtool_intersect_link_masks(struct ethtool_link_ksettings *dst,
++				  struct ethtool_link_ksettings *src)
++{
++	unsigned int size = BITS_TO_LONGS(__ETHTOOL_LINK_MODE_MASK_NBITS);
++	unsigned int idx = 0;
++
++	for (; idx < size; idx++) {
++		dst->link_modes.supported[idx] &=
++			src->link_modes.supported[idx];
++		dst->link_modes.advertising[idx] &=
++			src->link_modes.advertising[idx];
++	}
++}
++EXPORT_SYMBOL(ethtool_intersect_link_masks);
++
+ void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
+ 					     u32 legacy_u32)
+ {
+-- 
+2.14.2
