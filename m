@@ -1,56 +1,90 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net 0/3] bonding: void calling rtmsg_ifinfo for netlink notifications
-Date: Tue, 17 Oct 2017 18:28:45 +0800
-Message-ID: <CADvbK_c7R2OJNq=DyXOCSNVzD2aU2qxBO6UiitGbCYS=icwxTQ@mail.gmail.com>
-References: <cover.1508233044.git.lucien.xin@gmail.com> <20171017095943.GE2112@nanopsycho>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH] bpf: devmap: Check attr->max_entries more carefully
+Date: Tue, 17 Oct 2017 11:29:35 +0100
+Message-ID: <20171017102935.5i4dqa7h44v4acft@lakrids.cambridge.arm.com>
+References: <20171015220020.8157-1-richard@nod.at>
+ <59E4FFDD.7010402@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:49392 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761125AbdJQK2q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 06:28:46 -0400
-Received: by mail-qt0-f196.google.com with SMTP id k31so2366088qta.6
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 03:28:46 -0700 (PDT)
-In-Reply-To: <20171017095943.GE2112@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Weinberger <richard@nod.at>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, ast@kernel.org, sp3485@columbia.edu,
+        tj@kernel.org, john.fastabend@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <59E4FFDD.7010402@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 5:59 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Oct 17, 2017 at 11:39:38AM CEST, lucien.xin@gmail.com wrote:
->>It's better to send notifications to userspace by the events
->>in rtnetlink_event, instead of calling rtmsg_ifinfo directly.
->>
->>This patcheset is to remove rtmsg_ifinfo called in bonding,
->>the notifications can be handled by NETDEV_CHANGEUPPER and
->>NETDEV_CHANGELOWERSTATE events in rtnetlink_event.
->>
->>It could also fix some redundant notifications from bonding.
->
-> This should go to net-next.
+On Mon, Oct 16, 2017 at 08:52:13PM +0200, Daniel Borkmann wrote:
+> [ +Tejun, Mark, John ]
+> 
+> On 10/16/2017 12:00 AM, Richard Weinberger wrote:
+> > max_entries is user controlled and used as input for __alloc_percpu().
+> > This function expects that the allocation size is a power of two and
+> > less than PCPU_MIN_UNIT_SIZE.
+> > Otherwise a WARN() is triggered.
+> > 
+> > Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
+> > Reported-by: Shankara Pailoor <sp3485@columbia.edu>
+> > Reported-by: syzkaller <syzkaller@googlegroups.com>
+> > Signed-off-by: Richard Weinberger <richard@nod.at>
+> 
+> Thanks for the patch, Richard. There was a prior discussion here [1] on
+> the same issue, I thought this would have been resolved by now, but looks
+> like it's still open and there was never a follow-up, at least I don't see
+> it in the percpu tree if I didn't miss anything.
 
-NETDEV_CHANGEUPPER is not yet in rtnetlink_event in net-next tree.
-patches can only work on net tree by now.
+Sorry, this was on my todo list, but I've been bogged down with some
+other work.
 
-Hi, David, you want me to hold them until the patches for NETDEV_CHANGEUPPER
-are copied to net-next, or you would apply them to net ?
+> I would suggest, we do the following below and pass __GFP_NOWARN from BPF
+> side to the per-cpu allocs. This is kind of a generic 'issue' and we shouldn't
+> add more code which bails out anyway just to work around the WARN(). Lets
+> handle it properly instead.
 
->
->
->>
->>Xin Long (3):
->>  bonding: remove rtmsg_ifinfo called in bond_master_upper_dev_link
->>  rtnetlink: bring NETDEV_CHANGELOWERSTATE event process back to
->>    rtnetlink_event
->>  bonding: remove rtmsg_ifinfo called after bond_lower_state_changed
->>
->> drivers/net/bonding/bond_main.c | 11 +++--------
->> include/net/bonding.h           |  4 ----
->> net/core/rtnetlink.c            |  2 +-
->> 3 files changed, 4 insertions(+), 13 deletions(-)
->>
->>--
->>2.1.0
->>
+Agreed. The below patch looks good to me, (with the suggested change to
+the BPF side).
+
+> If Tejun is fine with the one below, I could cook and official patch and
+> cleanup the remaining call-sites from BPF which have similar pattern.
+
+That would be great; thanks for taking this on.
+
+Thanks,
+Mark.
+
+> 
+>   [1] https://patchwork.kernel.org/patch/9975851/
+> 
+> Thanks,
+> Daniel
+> 
+>  mm/percpu.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/mm/percpu.c b/mm/percpu.c
+> index 59d44d6..5d9414e 100644
+> --- a/mm/percpu.c
+> +++ b/mm/percpu.c
+> @@ -1357,7 +1357,8 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+> 
+>  	if (unlikely(!size || size > PCPU_MIN_UNIT_SIZE || align > PAGE_SIZE ||
+>  		     !is_power_of_2(align))) {
+> -		WARN(true, "illegal size (%zu) or align (%zu) for percpu allocation\n",
+> +		WARN(!(gfp & __GFP_NOWARN),
+> +		     "illegal size (%zu) or align (%zu) for percpu allocation\n",
+>  		     size, align);
+>  		return NULL;
+>  	}
+> @@ -1478,7 +1479,7 @@ static void __percpu *pcpu_alloc(size_t size, size_t align, bool reserved,
+>  fail:
+>  	trace_percpu_alloc_percpu_fail(reserved, is_atomic, size, align);
+> 
+> -	if (!is_atomic && warn_limit) {
+> +	if (!is_atomic && warn_limit && !(gfp & __GFP_NOWARN)) {
+>  		pr_warn("allocation failed, size=%zu align=%zu atomic=%d, %s\n",
+>  			size, align, is_atomic, err);
+>  		dump_stack();
+> -- 
+> 1.9.3
