@@ -1,151 +1,1173 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: Re: [PATCH net-next] tcp: Enable TFO without a cookie on a per-socket
- basis
-Date: Tue, 17 Oct 2017 10:42:58 -0700
-Message-ID: <20171017174258.GK73751@Chimay.local>
-References: <20171017063714.17346-1-cpaasch@apple.com>
- <CAK6E8=dV_tGikBEVX1QFTo37sMEjd1W1HJsJv=mUaDe-8RAvKA@mail.gmail.com>
+From: Joshua Kinard <kumba@gentoo.org>
+Subject: [PATCH] net/ethernet/sgi: Code cleanup
+Date: Tue, 17 Oct 2017 13:54:30 -0400
+Message-ID: <53f0ad54-514a-b572-5801-7bd237055f86@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; CHARSET=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out22.apple.com ([17.171.2.32]:46798 "EHLO
-        mail-in22.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753775AbdJQR6B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 13:58:01 -0400
-Content-disposition: inline
-In-reply-to: <CAK6E8=dV_tGikBEVX1QFTo37sMEjd1W1HJsJv=mUaDe-8RAvKA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Ralf Baechle <ralf@linux-mips.org>,
+        Linux/MIPS <linux-mips@linux-mips.org>, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
+        LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Language: en-US
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On 17/10/17 - 10:26:58, Yuchung Cheng wrote:
-> On Mon, Oct 16, 2017 at 11:37 PM, Christoph Paasch <cpaasch@apple.com> wrote:
-> > We already allow to enable TFO without a cookie by using the
-> > fastopen-sysctl and setting it to TFO_SERVER_COOKIE_NOT_REQD (0x200).
-> > This is safe to do in certain environments where we know that there
-> > isn't a malicous host (aka., data-centers).
-> >
-> > A server however might be talking to both sides (public Internet and
-> > data-center). So, this server would want to enable cookie-less TFO for
-> > the connections that go to the data-center while enforcing cookies for
-> > the traffic from the Internet.
-> >
-> > This patch exposes a socket-option to enable this (protected by
-> > CAP_NET_ADMIN).
-> >
-> > Signed-off-by: Christoph Paasch <cpaasch@apple.com>
-> > ---
-> >  include/linux/tcp.h      |  1 +
-> >  include/uapi/linux/tcp.h |  1 +
-> >  net/ipv4/tcp.c           | 14 ++++++++++++++
-> >  net/ipv4/tcp_fastopen.c  |  6 ++++--
-> >  4 files changed, 20 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> > index 1d2c44e09e31..cda5d4dc8d70 100644
-> > --- a/include/linux/tcp.h
-> > +++ b/include/linux/tcp.h
-> > @@ -228,6 +228,7 @@ struct tcp_sock {
-> >                 syn_fastopen_ch:1, /* Active TFO re-enabling probe */
-> >                 syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
-> >                 save_syn:1,     /* Save headers of SYN packet */
-> > +               no_tfo_cookie:1, /* Allow send/recv SYN+data without a cookie */
-> can we rename to fastopen_no_cookie and move one line above so TFO
-> stuff is together with similar naming.
+From: Joshua Kinard <kumba@gentoo.org>
 
-Sure, will rename & move.
+The below patch attempts to clean up the code for the in-tree driver
+for IOC3 ethernet and serial console support, primarily used by SGI
+MIPS platforms.  Notable changes include:
 
-> 
-> >                 is_cwnd_limited:1;/* forward progress limited by snd_cwnd? */
-> >         u32     tlp_high_seq;   /* snd_nxt at the time of TLP retransmit. */
-> >
-> > diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> > index 15c25eccab2b..d44f4bef056c 100644
-> > --- a/include/uapi/linux/tcp.h
-> > +++ b/include/uapi/linux/tcp.h
-> > @@ -119,6 +119,7 @@ enum {
-> >  #define TCP_FASTOPEN_CONNECT   30      /* Attempt FastOpen with connect */
-> >  #define TCP_ULP                        31      /* Attach a ULP to a TCP connection */
-> >  #define TCP_MD5SIG_EXT         32      /* TCP MD5 Signature with extensions */
-> > +#define TCP_NO_TFO_COOKIE      33      /* Enable TFO without a TFO cookie */
-> >
-> >  struct tcp_repair_opt {
-> >         __u32   opt_code;
-> > diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> > index 3b34850d361f..88c90be12d9f 100644
-> > --- a/net/ipv4/tcp.c
-> > +++ b/net/ipv4/tcp.c
-> > @@ -2821,6 +2821,16 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
-> >                         err = -EOPNOTSUPP;
-> >                 }
-> >                 break;
-> > +       case TCP_NO_TFO_COOKIE:
-> rename to TCP_FASTOPEN_NO_COOKIE for better consistency on TFO
-> options?
+  - Lots of whitespace cleanup
+  - Using shorthand integer types (u16, u32, etc) where appropriate
+  - Moving the function name to the next line after type declarations
+  - Using the multiline comment syntax preferred by the networking
+    subsystem
+  - Wrapping some long lines to ~80 chars
+  - Spelling/grammar fixes in comments
+  - Other minor cleanups
 
-Yes, I will rename.
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: linux-mips@linux-mips.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Joshua Kinard <kumba@gentoo.org>
+---
+ drivers/net/ethernet/sgi/ioc3-eth.c |  425 ++++++++++++++------------
+ 1 file changed, 240 insertions(+), 185 deletions(-)
 
-> I am also cooking a TCP_FASTOPEN_KEY option patch to allow
-> listener to update the key.
-
-I see - nice!
-
-
-Thanks,
-Christoph
-
-> 
-> > +               if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
-> > +                       err = -EPERM;
-> > +               else if (val > 1 || val < 0)
-> > +                       err = -EINVAL;
-> > +               else if (!((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)))
-> > +                       err = -EINVAL;
-> > +               else
-> > +                       tp->no_tfo_cookie = 1;
-> > +               break;
-> >         case TCP_TIMESTAMP:
-> >                 if (!tp->repair)
-> >                         err = -EPERM;
-> > @@ -3219,6 +3229,10 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
-> >                 val = tp->fastopen_connect;
-> >                 break;
-> >
-> > +       case TCP_NO_TFO_COOKIE:
-> > +               val = tp->no_tfo_cookie;
-> > +               break;
-> > +
-> >         case TCP_TIMESTAMP:
-> >                 val = tcp_time_stamp_raw() + tp->tsoffset;
-> >                 break;
-> > diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-> > index 7ee4aadcdd71..c1b00b666b43 100644
-> > --- a/net/ipv4/tcp_fastopen.c
-> > +++ b/net/ipv4/tcp_fastopen.c
-> > @@ -309,7 +309,8 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
-> >                 return NULL;
-> >         }
-> >
-> > -       if (syn_data && (tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
-> > +       if (syn_data && ((tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD) ||
-> > +                        tcp_sk(sk)->no_tfo_cookie))
-> >                 goto fastopen;
-> >
-> >         if (foc->len >= 0 &&  /* Client presents or requests a cookie */
-> > @@ -363,7 +364,8 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
-> >                 return false;
-> >         }
-> >
-> > -       if (sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
-> > +       if ((sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) ||
-> > +           tcp_sk(sk)->no_tfo_cookie) {
-> >                 cookie->len = -1;
-> >                 return true;
-> >         }
-> > --
-> > 2.14.1
-> >
+diff --git a/drivers/net/ethernet/sgi/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
+index 9c0488e0f08e..ad014551923a 100644
+--- a/drivers/net/ethernet/sgi/ioc3-eth.c
++++ b/drivers/net/ethernet/sgi/ioc3-eth.c
+@@ -66,13 +66,13 @@
+ #include <asm/pci/bridge.h>
+ 
+ /*
+- * 64 RX buffers.  This is tunable in the range of 16 <= x < 512.  The
+- * value must be a power of two.
++ * 64 RX buffers.  This is tunable in the range of 16 <= x < 512.
++ * The value must be a power of two.
+  */
+ #define RX_BUFFS 64
+ 
+-#define ETCSR_FD	((17<<ETCSR_IPGR2_SHIFT) | (11<<ETCSR_IPGR1_SHIFT) | 21)
+-#define ETCSR_HD	((21<<ETCSR_IPGR2_SHIFT) | (21<<ETCSR_IPGR1_SHIFT) | 21)
++#define ETCSR_FD ((17 << ETCSR_IPGR2_SHIFT) | (11 << ETCSR_IPGR1_SHIFT) | 21)
++#define ETCSR_HD ((21 << ETCSR_IPGR2_SHIFT) | (21 << ETCSR_IPGR1_SHIFT) | 21)
+ 
+ /* Private per NIC data of the driver.  */
+ struct ioc3_private {
+@@ -101,7 +101,7 @@ static int ioc3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static void ioc3_set_multicast_list(struct net_device *dev);
+ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static void ioc3_timeout(struct net_device *dev);
+-static inline unsigned int ioc3_hash(const unsigned char *addr);
++static inline u32 ioc3_hash(const u8 *addr);
+ static inline void ioc3_stop(struct ioc3_private *ip);
+ static void ioc3_init(struct net_device *dev);
+ 
+@@ -112,13 +112,14 @@ static const struct ethtool_ops ioc3_ethtool_ops;
+ 
+ #define IOC3_CACHELINE	128UL
+ 
+-static inline unsigned long aligned_rx_skb_addr(unsigned long addr)
++static inline unsigned long
++aligned_rx_skb_addr(unsigned long addr)
+ {
+ 	return (~addr + 1) & (IOC3_CACHELINE - 1UL);
+ }
+ 
+-static inline struct sk_buff * ioc3_alloc_skb(unsigned long length,
+-	unsigned int gfp_mask)
++static inline struct sk_buff *
++ioc3_alloc_skb(unsigned long length, u32 gfp_mask)
+ {
+ 	struct sk_buff *skb;
+ 
+@@ -132,7 +133,8 @@ static inline struct sk_buff * ioc3_alloc_skb(unsigned long length,
+ 	return skb;
+ }
+ 
+-static inline unsigned long ioc3_map(void *ptr, unsigned long vdev)
++static inline unsigned long
++ioc3_map(void *ptr, unsigned long vdev)
+ {
+ #ifdef CONFIG_SGI_IP27
+ 	vdev <<= 57;   /* Shift to PCI64_ATTR_VIRTUAL */
+@@ -145,7 +147,8 @@ static inline unsigned long ioc3_map(void *ptr, unsigned long vdev)
+ }
+ 
+ /* BEWARE: The IOC3 documentation documents the size of rx buffers as
+-   1644 while it's actually 1664.  This one was nasty to track down ...  */
++ * 1644 while it's actually 1664.  This one was nasty to track down...
++ */
+ #define RX_OFFSET		10
+ #define RX_BUF_ALLOC_SIZE	(1664 + RX_OFFSET + IOC3_CACHELINE)
+ 
+@@ -156,8 +159,7 @@ static inline unsigned long ioc3_map(void *ptr, unsigned long vdev)
+ 
+ #define IOC3_SIZE 0x100000
+ 
+-/*
+- * IOC3 is a big endian device
++/* IOC3 is a big endian device
+  *
+  * Unorthodox but makes the users of these macros more readable - the pointer
+  * to the IOC3's memory mapped registers is expected as struct ioc3 * ioc3
+@@ -217,25 +219,28 @@ static inline unsigned long ioc3_map(void *ptr, unsigned long vdev)
+ #define ioc3_r_midr_w()		be32_to_cpu(ioc3->midr_w)
+ #define ioc3_w_midr_w(v)	do { ioc3->midr_w = cpu_to_be32(v); } while (0)
+ 
+-static inline u32 mcr_pack(u32 pulse, u32 sample)
++static inline u32
++mcr_pack(u32 pulse, u32 sample)
+ {
+ 	return (pulse << 10) | (sample << 2);
+ }
+ 
+-static int nic_wait(struct ioc3 *ioc3)
++static int
++nic_wait(struct ioc3 *ioc3)
+ {
+ 	u32 mcr;
+ 
+-        do {
+-                mcr = ioc3_r_mcr();
+-        } while (!(mcr & 2));
++	do {
++		mcr = ioc3_r_mcr();
++	} while (!(mcr & 2));
+ 
+-        return mcr & 1;
++	return mcr & 1;
+ }
+ 
+-static int nic_reset(struct ioc3 *ioc3)
++static int
++nic_reset(struct ioc3 *ioc3)
+ {
+-        int presence;
++	int presence;
+ 
+ 	ioc3_w_mcr(mcr_pack(500, 65));
+ 	presence = nic_wait(ioc3);
+@@ -243,10 +248,11 @@ static int nic_reset(struct ioc3 *ioc3)
+ 	ioc3_w_mcr(mcr_pack(0, 500));
+ 	nic_wait(ioc3);
+ 
+-        return presence;
++	return presence;
+ }
+ 
+-static inline int nic_read_bit(struct ioc3 *ioc3)
++static inline
++int nic_read_bit(struct ioc3 *ioc3)
+ {
+ 	int result;
+ 
+@@ -258,7 +264,8 @@ static inline int nic_read_bit(struct ioc3 *ioc3)
+ 	return result;
+ }
+ 
+-static inline void nic_write_bit(struct ioc3 *ioc3, int bit)
++static inline void
++nic_write_bit(struct ioc3 *ioc3, int bit)
+ {
+ 	if (bit)
+ 		ioc3_w_mcr(mcr_pack(6, 110));
+@@ -271,7 +278,8 @@ static inline void nic_write_bit(struct ioc3 *ioc3, int bit)
+ /*
+  * Read a byte from an iButton device
+  */
+-static u32 nic_read_byte(struct ioc3 *ioc3)
++static u32
++nic_read_byte(struct ioc3 *ioc3)
+ {
+ 	u32 result = 0;
+ 	int i;
+@@ -285,7 +293,8 @@ static u32 nic_read_byte(struct ioc3 *ioc3)
+ /*
+  * Write a byte to an iButton device
+  */
+-static void nic_write_byte(struct ioc3 *ioc3, int byte)
++static void
++nic_write_byte(struct ioc3 *ioc3, int byte)
+ {
+ 	int i, bit;
+ 
+@@ -297,7 +306,8 @@ static void nic_write_byte(struct ioc3 *ioc3, int byte)
+ 	}
+ }
+ 
+-static u64 nic_find(struct ioc3 *ioc3, int *last)
++static u64
++nic_find(struct ioc3 *ioc3, int *last)
+ {
+ 	int a, b, index, disc;
+ 	u64 address = 0;
+@@ -342,7 +352,8 @@ static u64 nic_find(struct ioc3 *ioc3, int *last)
+ 	return address;
+ }
+ 
+-static int nic_init(struct ioc3 *ioc3)
++static int
++nic_init(struct ioc3 *ioc3)
+ {
+ 	const char *unknown = "unknown";
+ 	const char *type = unknown;
+@@ -360,7 +371,7 @@ static int nic_init(struct ioc3 *ioc3)
+ 			break;
+ 		default:
+ 			if (save == 0) {
+-				/* Let the caller try again.  */
++				/* Let the caller try again. */
+ 				return -1;
+ 			}
+ 			continue;
+@@ -394,7 +405,8 @@ static int nic_init(struct ioc3 *ioc3)
+  * Read the NIC (Number-In-a-Can) device used to store the MAC address on
+  * SN0 / SN00 nodeboards and PCI cards.
+  */
+-static void ioc3_get_eaddr_nic(struct ioc3_private *ip)
++static void
++ioc3_get_eaddr_nic(struct ioc3_private *ip)
+ {
+ 	struct ioc3 *ioc3 = ip->regs;
+ 	u8 nic[14];
+@@ -431,24 +443,27 @@ static void ioc3_get_eaddr_nic(struct ioc3_private *ip)
+  * NIC is in in order to know how to read the NIC address.  We also have
+  * to know if it's a PCI card or a NIC in on the node board ...
+  */
+-static void ioc3_get_eaddr(struct ioc3_private *ip)
++static void
++ioc3_get_eaddr(struct ioc3_private *ip)
+ {
+ 	ioc3_get_eaddr_nic(ip);
+ 
+ 	printk("Ethernet address is %pM.\n", ip->dev->dev_addr);
+ }
+ 
+-static void __ioc3_set_mac_address(struct net_device *dev)
++static void
++__ioc3_set_mac_address(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+ 
+ 	ioc3_w_emar_h((dev->dev_addr[5] <<  8) | dev->dev_addr[4]);
+ 	ioc3_w_emar_l((dev->dev_addr[3] << 24) | (dev->dev_addr[2] << 16) |
+-	              (dev->dev_addr[1] <<  8) | dev->dev_addr[0]);
++		      (dev->dev_addr[1] <<  8) | dev->dev_addr[0]);
+ }
+ 
+-static int ioc3_set_mac_address(struct net_device *dev, void *addr)
++static int
++ioc3_set_mac_address(struct net_device *dev, void *addr)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct sockaddr *sa = addr;
+@@ -462,11 +477,11 @@ static int ioc3_set_mac_address(struct net_device *dev, void *addr)
+ 	return 0;
+ }
+ 
+-/*
+- * Caller must hold the ioc3_lock ever for MII readers.  This is also
++/* Caller must hold the ioc3_lock ever for MII readers.  This is also
+  * used to protect the transmitter side but it's low contention.
+  */
+-static int ioc3_mdio_read(struct net_device *dev, int phy, int reg)
++static int
++ioc3_mdio_read(struct net_device *dev, int phy, int reg)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+@@ -478,7 +493,8 @@ static int ioc3_mdio_read(struct net_device *dev, int phy, int reg)
+ 	return ioc3_r_midr_r() & MIDR_DATA_MASK;
+ }
+ 
+-static void ioc3_mdio_write(struct net_device *dev, int phy, int reg, int data)
++static void
++ioc3_mdio_write(struct net_device *dev, int phy, int reg, int data)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+@@ -489,9 +505,11 @@ static void ioc3_mdio_write(struct net_device *dev, int phy, int reg, int data)
+ 	while (ioc3_r_micr() & MICR_BUSY);
+ }
+ 
+-static int ioc3_mii_init(struct ioc3_private *ip);
++static int
++ioc3_mii_init(struct ioc3_private *ip);
+ 
+-static struct net_device_stats *ioc3_get_stats(struct net_device *dev)
++static struct net_device_stats *
++ioc3_get_stats(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+@@ -500,14 +518,14 @@ static struct net_device_stats *ioc3_get_stats(struct net_device *dev)
+ 	return &dev->stats;
+ }
+ 
+-static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
++static void
++ioc3_tcpudp_checksum(struct sk_buff *skb, u32 hwsum, int len)
+ {
+ 	struct ethhdr *eh = eth_hdr(skb);
+-	uint32_t csum, ehsum;
+-	unsigned int proto;
++	u32 csum, ehsum, proto;
+ 	struct iphdr *ih;
+-	uint16_t *ew;
+-	unsigned char *cp;
++	u16 *ew;
++	u8 *cp;
+ 
+ 	/*
+ 	 * Did hardware handle the checksum at all?  The cases we can handle
+@@ -537,12 +555,12 @@ static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
+ 	/* Same as tx - compute csum of pseudo header  */
+ 	csum = hwsum +
+ 	       (ih->tot_len - (ih->ihl << 2)) +
+-	       htons((uint16_t)ih->protocol) +
++	       htons((u16)ih->protocol) +
+ 	       (ih->saddr >> 16) + (ih->saddr & 0xffff) +
+ 	       (ih->daddr >> 16) + (ih->daddr & 0xffff);
+ 
+ 	/* Sum up ethernet dest addr, src addr and protocol  */
+-	ew = (uint16_t *) eh;
++	ew = (u16 *)eh;
+ 	ehsum = ew[0] + ew[1] + ew[2] + ew[3] + ew[4] + ew[5] + ew[6];
+ 
+ 	ehsum = (ehsum & 0xffff) + (ehsum >> 16);
+@@ -554,11 +572,11 @@ static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
+ 	   checksum of the trailing ethernet CRC.  */
+ 	cp = (char *)eh + len;	/* points at trailing CRC */
+ 	if (len & 1) {
+-		csum += 0xffff ^ (uint16_t) ((cp[1] << 8) | cp[0]);
+-		csum += 0xffff ^ (uint16_t) ((cp[3] << 8) | cp[2]);
++		csum += 0xffff ^ (u16)((cp[1] << 8) | cp[0]);
++		csum += 0xffff ^ (u16)((cp[3] << 8) | cp[2]);
+ 	} else {
+-		csum += 0xffff ^ (uint16_t) ((cp[0] << 8) | cp[1]);
+-		csum += 0xffff ^ (uint16_t) ((cp[2] << 8) | cp[3]);
++		csum += 0xffff ^ (u16)((cp[0] << 8) | cp[1]);
++		csum += 0xffff ^ (u16)((cp[2] << 8) | cp[3]);
+ 	}
+ 
+ 	csum = (csum & 0xffff) + (csum >> 16);
+@@ -568,7 +586,8 @@ static void ioc3_tcpudp_checksum(struct sk_buff *skb, uint32_t hwsum, int len)
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ }
+ 
+-static inline void ioc3_rx(struct net_device *dev)
++static inline void
++ioc3_rx(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct sk_buff *skb, *new_skb;
+@@ -578,8 +597,8 @@ static inline void ioc3_rx(struct net_device *dev)
+ 	unsigned long *rxr;
+ 	u32 w0, err;
+ 
+-	rxr = ip->rxr;		/* Ring base */
+-	rx_entry = ip->rx_ci;				/* RX consume index */
++	rxr = ip->rxr;  /* Ring base */
++	rx_entry = ip->rx_ci;  /* RX consume index */
+ 	n_entry = ip->rx_pi;
+ 
+ 	skb = ip->rx_skbs[rx_entry];
+@@ -587,7 +606,7 @@ static inline void ioc3_rx(struct net_device *dev)
+ 	w0 = be32_to_cpu(rxb->w0);
+ 
+ 	while (w0 & ERXBUF_V) {
+-		err = be32_to_cpu(rxb->err);		/* It's valid ...  */
++		err = be32_to_cpu(rxb->err);  /* It's valid */
+ 		if (err & ERXBUF_GOODPKT) {
+ 			len = ((w0 >> ERXBUF_BYTECNT_SHIFT) & 0x7ff) - 4;
+ 			skb_trim(skb, len);
+@@ -596,7 +615,8 @@ static inline void ioc3_rx(struct net_device *dev)
+ 			new_skb = ioc3_alloc_skb(RX_BUF_ALLOC_SIZE, GFP_ATOMIC);
+ 			if (!new_skb) {
+ 				/* Ouch, drop packet and just recycle packet
+-				   to keep the ring filled.  */
++				 * to keep the ring filled.
++				 */
+ 				dev->stats.rx_dropped++;
+ 				new_skb = skb;
+ 				goto next;
+@@ -612,19 +632,21 @@ static inline void ioc3_rx(struct net_device *dev)
+ 
+ 			/* Because we reserve afterwards. */
+ 			skb_put(new_skb, (1664 + RX_OFFSET));
+-			rxb = (struct ioc3_erxbuf *) new_skb->data;
++			rxb = (struct ioc3_erxbuf *)new_skb->data;
+ 			skb_reserve(new_skb, RX_OFFSET);
+ 
+-			dev->stats.rx_packets++;		/* Statistics */
++			dev->stats.rx_packets++;	/* Statistics */
+ 			dev->stats.rx_bytes += len;
+ 		} else {
+-			/* The frame is invalid and the skb never
+-			   reached the network layer so we can just
+-			   recycle it.  */
++			/* The frame is invalid and the skb never reached the
++			 * network layer so we can just recycle it.
++			 */
+ 			new_skb = skb;
+ 			dev->stats.rx_errors++;
+ 		}
+-		if (err & ERXBUF_CRCERR)	/* Statistics */
++
++		/* Statistics */
++		if (err & ERXBUF_CRCERR)
+ 			dev->stats.rx_crc_errors++;
+ 		if (err & ERXBUF_FRAMERR)
+ 			dev->stats.rx_frame_errors++;
+@@ -632,10 +654,10 @@ static inline void ioc3_rx(struct net_device *dev)
+ 		ip->rx_skbs[n_entry] = new_skb;
+ 		rxr[n_entry] = cpu_to_be64(ioc3_map(rxb, 1));
+ 		rxb->w0 = 0;				/* Clear valid flag */
+-		n_entry = (n_entry + 1) & 511;		/* Update erpir */
++		n_entry = (n_entry + 1) & 0x1ff;	/* Update erpir */
+ 
+-		/* Now go on to the next ring entry.  */
+-		rx_entry = (rx_entry + 1) & 511;
++		/* Now go on to the next ring entry. */
++		rx_entry = (rx_entry + 1) & 0x1ff;
+ 		skb = ip->rx_skbs[rx_entry];
+ 		rxb = (struct ioc3_erxbuf *) (skb->data - RX_OFFSET);
+ 		w0 = be32_to_cpu(rxb->w0);
+@@ -645,7 +667,8 @@ static inline void ioc3_rx(struct net_device *dev)
+ 	ip->rx_ci = rx_entry;
+ }
+ 
+-static inline void ioc3_tx(struct net_device *dev)
++static inline void
++ioc3_tx(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	unsigned long packets, bytes;
+@@ -657,7 +680,7 @@ static inline void ioc3_tx(struct net_device *dev)
+ 	spin_lock(&ip->ioc3_lock);
+ 	etcir = ioc3_r_etcir();
+ 
+-	tx_entry = (etcir >> 7) & 127;
++	tx_entry = (etcir >> 7) & 0x7f;
+ 	o_entry = ip->tx_ci;
+ 	packets = 0;
+ 	bytes = 0;
+@@ -669,10 +692,10 @@ static inline void ioc3_tx(struct net_device *dev)
+ 		dev_kfree_skb_irq(skb);
+ 		ip->tx_skbs[o_entry] = NULL;
+ 
+-		o_entry = (o_entry + 1) & 127;		/* Next */
++		o_entry = (o_entry + 1) & 0x7f;		/* Next */
+ 
+ 		etcir = ioc3_r_etcir();			/* More pkts sent?  */
+-		tx_entry = (etcir >> 7) & 127;
++		tx_entry = (etcir >> 7) & 0x7f;
+ 	}
+ 
+ 	dev->stats.tx_packets += packets;
+@@ -693,10 +716,11 @@ static inline void ioc3_tx(struct net_device *dev)
+  * with such error interrupts if something really goes wrong, so we might
+  * also consider to take the interface down.
+  */
+-static void ioc3_error(struct net_device *dev, u32 eisr)
++static void
++ioc3_error(struct net_device *dev, u32 eisr)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+-	unsigned char *iface = dev->name;
++	u8 *iface = dev->name;
+ 
+ 	spin_lock(&ip->ioc3_lock);
+ 
+@@ -722,25 +746,27 @@ static void ioc3_error(struct net_device *dev, u32 eisr)
+ 	spin_unlock(&ip->ioc3_lock);
+ }
+ 
+-/* The interrupt handler does all of the Rx thread work and cleans up
+-   after the Tx thread.  */
+-static irqreturn_t ioc3_interrupt(int irq, void *_dev)
++/* The interrupt handler does all of the Rx thread work and cleans up after
++ * the Tx thread.
++ */
++static irqreturn_t
++ioc3_interrupt(int irq, void *_dev)
+ {
+ 	struct net_device *dev = (struct net_device *)_dev;
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+ 	const u32 enabled = EISR_RXTIMERINT | EISR_RXOFLO | EISR_RXBUFOFLO |
+-	                    EISR_RXMEMERR | EISR_RXPARERR | EISR_TXBUFUFLO |
+-	                    EISR_TXEXPLICIT | EISR_TXMEMERR;
++			    EISR_RXMEMERR | EISR_RXPARERR | EISR_TXBUFUFLO |
++			    EISR_TXEXPLICIT | EISR_TXMEMERR;
+ 	u32 eisr;
+ 
+ 	eisr = ioc3_r_eisr() & enabled;
+ 
+ 	ioc3_w_eisr(eisr);
+-	(void) ioc3_r_eisr();				/* Flush */
++	(void)ioc3_r_eisr();  /* Flush */
+ 
+ 	if (eisr & (EISR_RXOFLO | EISR_RXBUFOFLO | EISR_RXMEMERR |
+-	            EISR_RXPARERR | EISR_TXBUFUFLO | EISR_TXMEMERR))
++		    EISR_RXPARERR | EISR_TXBUFUFLO | EISR_TXMEMERR))
+ 		ioc3_error(dev, eisr);
+ 	if (eisr & EISR_RXTIMERINT)
+ 		ioc3_rx(dev);
+@@ -750,7 +776,8 @@ static irqreturn_t ioc3_interrupt(int irq, void *_dev)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static inline void ioc3_setup_duplex(struct ioc3_private *ip)
++static inline void
++ioc3_setup_duplex(struct ioc3_private *ip)
+ {
+ 	struct ioc3 *ioc3 = ip->regs;
+ 
+@@ -764,7 +791,8 @@ static inline void ioc3_setup_duplex(struct ioc3_private *ip)
+ 	ioc3_w_emcr(ip->emcr);
+ }
+ 
+-static void ioc3_timer(unsigned long data)
++static void
++ioc3_timer(unsigned long data)
+ {
+ 	struct ioc3_private *ip = (struct ioc3_private *) data;
+ 
+@@ -772,7 +800,7 @@ static void ioc3_timer(unsigned long data)
+ 	mii_check_media(&ip->mii, 1, 0);
+ 	ioc3_setup_duplex(ip);
+ 
+-	ip->ioc3_timer.expires = jiffies + ((12 * HZ)/10); /* 1.2s */
++	ip->ioc3_timer.expires = jiffies + ((12 * HZ) / 10);  /* 1.2s */
+ 	add_timer(&ip->ioc3_timer);
+ }
+ 
+@@ -784,7 +812,8 @@ static void ioc3_timer(unsigned long data)
+  * yet the interface seems to work fine, so if probing fails we for now will
+  * simply default to PHY 31 instead of bailing out.
+  */
+-static int ioc3_mii_init(struct ioc3_private *ip)
++static int
++ioc3_mii_init(struct ioc3_private *ip)
+ {
+ 	int i, found = 0, res = 0;
+ 	int ioc3_phy_workaround = 1;
+@@ -795,7 +824,7 @@ static int ioc3_mii_init(struct ioc3_private *ip)
+ 
+ 		if (word != 0xffff && word != 0x0000) {
+ 			found = 1;
+-			break;			/* Found a PHY		*/
++			break;  /* Found a PHY */
+ 		}
+ 	}
+ 
+@@ -815,15 +844,17 @@ static int ioc3_mii_init(struct ioc3_private *ip)
+ 	return res;
+ }
+ 
+-static void ioc3_mii_start(struct ioc3_private *ip)
++static void
++ioc3_mii_start(struct ioc3_private *ip)
+ {
+-	ip->ioc3_timer.expires = jiffies + (12 * HZ)/10;  /* 1.2 sec. */
++	ip->ioc3_timer.expires = jiffies + (12 * HZ) / 10;  /* 1.2 sec. */
+ 	ip->ioc3_timer.data = (unsigned long) ip;
+ 	ip->ioc3_timer.function = ioc3_timer;
+ 	add_timer(&ip->ioc3_timer);
+ }
+ 
+-static inline void ioc3_clean_rx_ring(struct ioc3_private *ip)
++static inline void
++ioc3_clean_rx_ring(struct ioc3_private *ip)
+ {
+ 	struct sk_buff *skb;
+ 	int i;
+@@ -832,10 +863,10 @@ static inline void ioc3_clean_rx_ring(struct ioc3_private *ip)
+ 		ip->rx_skbs[ip->rx_pi] = ip->rx_skbs[ip->rx_ci];
+ 		ip->rxr[ip->rx_pi++] = ip->rxr[ip->rx_ci++];
+ 	}
+-	ip->rx_pi &= 511;
+-	ip->rx_ci &= 511;
++	ip->rx_pi &= 0x1ff;
++	ip->rx_ci &= 0x1ff;
+ 
+-	for (i = ip->rx_ci; i != ip->rx_pi; i = (i+1) & 511) {
++	for (i = ip->rx_ci; i != ip->rx_pi; i = (i + 1) & 0x1ff) {
+ 		struct ioc3_erxbuf *rxb;
+ 		skb = ip->rx_skbs[i];
+ 		rxb = (struct ioc3_erxbuf *) (skb->data - RX_OFFSET);
+@@ -843,7 +874,8 @@ static inline void ioc3_clean_rx_ring(struct ioc3_private *ip)
+ 	}
+ }
+ 
+-static inline void ioc3_clean_tx_ring(struct ioc3_private *ip)
++static inline void
++ioc3_clean_tx_ring(struct ioc3_private *ip)
+ {
+ 	struct sk_buff *skb;
+ 	int i;
+@@ -860,7 +892,8 @@ static inline void ioc3_clean_tx_ring(struct ioc3_private *ip)
+ 	ip->tx_ci = 0;
+ }
+ 
+-static void ioc3_free_rings(struct ioc3_private *ip)
++static void
++ioc3_free_rings(struct ioc3_private *ip)
+ {
+ 	struct sk_buff *skb;
+ 	int rx_entry, n_entry;
+@@ -880,14 +913,15 @@ static void ioc3_free_rings(struct ioc3_private *ip)
+ 			if (skb)
+ 				dev_kfree_skb_any(skb);
+ 
+-			n_entry = (n_entry + 1) & 511;
++			n_entry = (n_entry + 1) & 0x1ff;
+ 		}
+ 		free_page((unsigned long)ip->rxr);
+ 		ip->rxr = NULL;
+ 	}
+ }
+ 
+-static void ioc3_alloc_rings(struct net_device *dev)
++static void
++ioc3_alloc_rings(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3_erxbuf *rxb;
+@@ -901,9 +935,10 @@ static void ioc3_alloc_rings(struct net_device *dev)
+ 		if (!rxr)
+ 			printk("ioc3_alloc_rings(): get_zeroed_page() failed!\n");
+ 
+-		/* Now the rx buffers.  The RX ring may be larger but
+-		   we only allocate 16 buffers for now.  Need to tune
+-		   this for performance and memory later.  */
++		/* Now the rx buffers.  The RX ring may be larger but we only
++		 * allocate 16 buffers for now.  Need to tune this for
++		 * performance and memory later.
++		 */
+ 		for (i = 0; i < RX_BUFFS; i++) {
+ 			struct sk_buff *skb;
+ 
+@@ -935,7 +970,8 @@ static void ioc3_alloc_rings(struct net_device *dev)
+ 	}
+ }
+ 
+-static void ioc3_init_rings(struct net_device *dev)
++static void
++ioc3_init_rings(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+@@ -956,22 +992,23 @@ static void ioc3_init_rings(struct net_device *dev)
+ 
+ 	ring = ioc3_map(ip->txr, 0);
+ 
+-	ip->txqlen = 0;					/* nothing queued  */
++	ip->txqlen = 0;  /* nothing queued  */
+ 
+ 	/* Now the tx ring base, consume & produce registers.  */
+ 	ioc3_w_etbr_h(ring >> 32);
+ 	ioc3_w_etbr_l(ring & 0xffffffff);
+ 	ioc3_w_etpir(ip->tx_pi << 7);
+ 	ioc3_w_etcir(ip->tx_ci << 7);
+-	(void) ioc3_r_etcir();				/* Flush */
++	(void)ioc3_r_etcir();  /* Flush */
+ }
+ 
+-static inline void ioc3_ssram_disc(struct ioc3_private *ip)
++static inline void
++ioc3_ssram_disc(struct ioc3_private *ip)
+ {
+ 	struct ioc3 *ioc3 = ip->regs;
+ 	volatile u32 *ssram0 = &ioc3->ssram[0x0000];
+ 	volatile u32 *ssram1 = &ioc3->ssram[0x4000];
+-	unsigned int pattern = 0x5555;
++	u32 pattern = 0x5555;
+ 
+ 	/* Assume the larger size SSRAM and enable parity checking */
+ 	ioc3_w_emcr(ioc3_r_emcr() | (EMCR_BUFSIZ | EMCR_RAMPAR));
+@@ -988,18 +1025,19 @@ static inline void ioc3_ssram_disc(struct ioc3_private *ip)
+ 		ip->emcr = EMCR_BUFSIZ | EMCR_RAMPAR;
+ }
+ 
+-static void ioc3_init(struct net_device *dev)
++static void
++ioc3_init(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+ 
+-	del_timer_sync(&ip->ioc3_timer);	/* Kill if running	*/
++	del_timer_sync(&ip->ioc3_timer);	/* Kill if running */
+ 
+-	ioc3_w_emcr(EMCR_RST);			/* Reset		*/
+-	(void) ioc3_r_emcr();			/* Flush WB		*/
+-	udelay(4);				/* Give it time ...	*/
++	ioc3_w_emcr(EMCR_RST);			/* Reset */
++	(void)ioc3_r_emcr();			/* Flush WB */
++	udelay(4);				/* Give it time... */
+ 	ioc3_w_emcr(0);
+-	(void) ioc3_r_emcr();
++	(void)ioc3_r_emcr();
+ 
+ 	/* Misc registers  */
+ #ifdef CONFIG_SGI_IP27
+@@ -1007,7 +1045,7 @@ static void ioc3_init(struct net_device *dev)
+ #else
+ 	ioc3_w_erbar(0);			/* Let PCI API get it right */
+ #endif
+-	(void) ioc3_r_etcdc();			/* Clear on read */
++	(void)ioc3_r_etcdc();			/* Clear on read */
+ 	ioc3_w_ercsr(15);			/* RX low watermark  */
+ 	ioc3_w_ertr(0);				/* Interrupt immediately */
+ 	__ioc3_set_mac_address(dev);
+@@ -1017,25 +1055,27 @@ static void ioc3_init(struct net_device *dev)
+ 
+ 	ioc3_init_rings(dev);
+ 
+-	ip->emcr |= ((RX_OFFSET / 2) << EMCR_RXOFF_SHIFT) | EMCR_TXDMAEN |
+-	             EMCR_TXEN | EMCR_RXDMAEN | EMCR_RXEN | EMCR_PADEN;
++	ip->emcr |= (((RX_OFFSET / 2) << EMCR_RXOFF_SHIFT) | EMCR_TXDMAEN |
++		     EMCR_TXEN | EMCR_RXDMAEN | EMCR_RXEN | EMCR_PADEN);
+ 	ioc3_w_emcr(ip->emcr);
+ 	ioc3_w_eier(EISR_RXTIMERINT | EISR_RXOFLO | EISR_RXBUFOFLO |
+-	            EISR_RXMEMERR | EISR_RXPARERR | EISR_TXBUFUFLO |
+-	            EISR_TXEXPLICIT | EISR_TXMEMERR);
++		    EISR_RXMEMERR | EISR_RXPARERR | EISR_TXBUFUFLO |
++		    EISR_TXEXPLICIT | EISR_TXMEMERR);
+ 	(void) ioc3_r_eier();
+ }
+ 
+-static inline void ioc3_stop(struct ioc3_private *ip)
++static inline void
++ioc3_stop(struct ioc3_private *ip)
+ {
+ 	struct ioc3 *ioc3 = ip->regs;
+ 
+-	ioc3_w_emcr(0);				/* Shutup */
+-	ioc3_w_eier(0);				/* Disable interrupts */
+-	(void) ioc3_r_eier();			/* Flush */
++	ioc3_w_emcr(0);		/* Shutup */
++	ioc3_w_eier(0);		/* Disable interrupts */
++	(void)ioc3_r_eier();	/* Flush */
+ }
+ 
+-static int ioc3_open(struct net_device *dev)
++static int
++ioc3_open(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 
+@@ -1054,18 +1094,17 @@ static int ioc3_open(struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static int ioc3_close(struct net_device *dev)
++static int
++ioc3_close(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 
+ 	del_timer_sync(&ip->ioc3_timer);
+-
+ 	netif_stop_queue(dev);
+-
+ 	ioc3_stop(ip);
+ 	free_irq(dev->irq, dev);
+-
+ 	ioc3_free_rings(ip);
++
+ 	return 0;
+ }
+ 
+@@ -1079,15 +1118,15 @@ static int ioc3_close(struct net_device *dev)
+  * MiniDINs; all other subdevices are left swinging in the wind, leave
+  * them disabled.
+  */
+-
+-static int ioc3_adjacent_is_ioc3(struct pci_dev *pdev, int slot)
++static int
++ioc3_adjacent_is_ioc3(struct pci_dev *pdev, int slot)
+ {
+ 	struct pci_dev *dev = pci_get_slot(pdev->bus, PCI_DEVFN(slot, 0));
+ 	int ret = 0;
+ 
+ 	if (dev) {
+-		if (dev->vendor == PCI_VENDOR_ID_SGI &&
+-			dev->device == PCI_DEVICE_ID_SGI_IOC3)
++		if ((dev->vendor == PCI_VENDOR_ID_SGI) &&
++		    (dev->device == PCI_DEVICE_ID_SGI_IOC3))
+ 			ret = 1;
+ 		pci_dev_put(dev);
+ 	}
+@@ -1095,7 +1134,8 @@ static int ioc3_adjacent_is_ioc3(struct pci_dev *pdev, int slot)
+ 	return ret;
+ }
+ 
+-static int ioc3_is_menet(struct pci_dev *pdev)
++static int
++ioc3_is_menet(struct pci_dev *pdev)
+ {
+ 	return pdev->bus->parent == NULL &&
+ 	       ioc3_adjacent_is_ioc3(pdev, 0) &&
+@@ -1137,23 +1177,23 @@ static int ioc3_is_menet(struct pci_dev *pdev)
+  * Can't use UPF_IOREMAP as the whole of IOC3 resources have already been
+  * registered.
+  */
+-static void ioc3_8250_register(struct ioc3_uartregs __iomem *uart)
++static void
++ioc3_8250_register(struct ioc3_uartregs __iomem *uart)
+ {
+ #define COSMISC_CONSTANT 6
+ 
+ 	struct uart_8250_port port = {
+-	        .port = {
++		.port = {
+ 			.irq		= 0,
+ 			.flags		= UPF_SKIP_TEST | UPF_BOOT_AUTOCONF,
+ 			.iotype		= UPIO_MEM,
+ 			.regshift	= 0,
+ 			.uartclk	= (22000000 << 1) / COSMISC_CONSTANT,
+-
+-			.membase	= (unsigned char __iomem *) uart,
+-			.mapbase	= (unsigned long) uart,
+-                }
++			.membase	= (u8 __iomem *)uart,
++			.mapbase	= (unsigned long)uart,
++		}
+ 	};
+-	unsigned char lcr;
++	u8 lcr;
+ 
+ 	lcr = uart->iu_lcr;
+ 	uart->iu_lcr = lcr | UART_LCR_DLAB;
+@@ -1163,10 +1203,10 @@ static void ioc3_8250_register(struct ioc3_uartregs __iomem *uart)
+ 	serial8250_register_8250_port(&port);
+ }
+ 
+-static void ioc3_serial_probe(struct pci_dev *pdev, struct ioc3 *ioc3)
++static void
++ioc3_serial_probe(struct pci_dev *pdev, struct ioc3 *ioc3)
+ {
+-	/*
+-	 * We need to recognice and treat the fourth MENET serial as it
++	/* We need to recognice and treat the fourth MENET serial as it
+ 	 * does not have an SuperIO chip attached to it, therefore attempting
+ 	 * to access it will result in bus errors.  We call something an
+ 	 * MENET if PCI slot 0, 1, 2 and 3 of a master PCI bus all have an IOC3
+@@ -1177,8 +1217,7 @@ static void ioc3_serial_probe(struct pci_dev *pdev, struct ioc3 *ioc3)
+ 	if (ioc3_is_menet(pdev) && PCI_SLOT(pdev->devfn) == 3)
+ 		return;
+ 
+-	/*
+-	 * Switch IOC3 to PIO mode.  It probably already was but let's be
++	/* Switch IOC3 to PIO mode.  It probably already was but let's be
+ 	 * paranoid
+ 	 */
+ 	ioc3->gpcr_s = GPCR_UARTA_MODESEL | GPCR_UARTB_MODESEL;
+@@ -1210,7 +1249,8 @@ static void ioc3_serial_probe(struct pci_dev *pdev, struct ioc3 *ioc3)
+ }
+ #endif
+ 
+-static const struct net_device_ops ioc3_netdev_ops = {
++static const struct net_device_ops
++ioc3_netdev_ops = {
+ 	.ndo_open		= ioc3_open,
+ 	.ndo_stop		= ioc3_close,
+ 	.ndo_start_xmit		= ioc3_start_xmit,
+@@ -1222,9 +1262,10 @@ static const struct net_device_ops ioc3_netdev_ops = {
+ 	.ndo_set_mac_address	= ioc3_set_mac_address,
+ };
+ 
+-static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++static int
++ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+-	unsigned int sw_physid1, sw_physid2;
++	u32 sw_physid1, sw_physid2;
+ 	struct net_device *dev = NULL;
+ 	struct ioc3_private *ip;
+ 	struct ioc3 *ioc3;
+@@ -1361,7 +1402,8 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return err;
+ }
+ 
+-static void ioc3_remove_one(struct pci_dev *pdev)
++static void
++ioc3_remove_one(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct ioc3_private *ip = netdev_priv(dev);
+@@ -1379,27 +1421,29 @@ static void ioc3_remove_one(struct pci_dev *pdev)
+ 	 */
+ }
+ 
+-static const struct pci_device_id ioc3_pci_tbl[] = {
++static const struct pci_device_id
++ioc3_pci_tbl[] = {
+ 	{ PCI_VENDOR_ID_SGI, PCI_DEVICE_ID_SGI_IOC3, PCI_ANY_ID, PCI_ANY_ID },
+ 	{ 0 }
+ };
+ MODULE_DEVICE_TABLE(pci, ioc3_pci_tbl);
+ 
+-static struct pci_driver ioc3_driver = {
++static struct pci_driver
++ioc3_driver = {
+ 	.name		= "ioc3-eth",
+ 	.id_table	= ioc3_pci_tbl,
+ 	.probe		= ioc3_probe,
+ 	.remove		= ioc3_remove_one,
+ };
+ 
+-static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static int
++ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	unsigned long data;
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+-	unsigned int len;
+ 	struct ioc3_etxd *desc;
+-	uint32_t w0 = 0;
++	unsigned long data;
++	u32 len, w0 = 0;
+ 	int produce;
+ 
+ 	/*
+@@ -1412,14 +1456,14 @@ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		const struct iphdr *ih = ip_hdr(skb);
+-		const int proto = ntohs(ih->protocol);
+-		unsigned int csoff;
+-		uint32_t csum, ehsum;
+-		uint16_t *eh;
++		const u32 proto = ntohs(ih->protocol);
++		u32 csoff, csum, ehsum;
++		u16 *eh;
+ 
+-		/* The MAC header.  skb->mac seem the logic approach
+-		   to find the MAC header - except it's a NULL pointer ...  */
+-		eh = (uint16_t *) skb->data;
++		/* The MAC header.  skb->mac seems the logical approach
++		 * to find the MAC header.  Except if it's a NULL pointer...
++		 */
++		eh = (u16 *)skb->data;
+ 
+ 		/* Sum up dest addr, src addr and protocol  */
+ 		ehsum = eh[0] + eh[1] + eh[2] + eh[3] + eh[4] + eh[5] + eh[6];
+@@ -1428,13 +1472,14 @@ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		ehsum = (ehsum & 0xffff) + (ehsum >> 16);
+ 		ehsum = (ehsum & 0xffff) + (ehsum >> 16);
+ 
+-		/* Skip IP header; it's sum is always zero and was
+-		   already filled in by ip_output.c */
++		/* Skip IP header; its sum is always zero and was already
++		 * filled in by ip_output.c
++		 */
+ 		csum = csum_tcpudp_nofold(ih->saddr, ih->daddr,
+-		                          ih->tot_len - (ih->ihl << 2),
+-		                          proto, 0xffff ^ ehsum);
++					  ih->tot_len - (ih->ihl << 2),
++					  proto, csum_fold(ehsum));
+ 
+-		csum = (csum & 0xffff) + (csum >> 16);	/* Fold again */
++		csum = (csum & 0xffff) + (csum >> 16); /* Fold again */
+ 		csum = (csum & 0xffff) + (csum >> 16);
+ 
+ 		csoff = ETH_HLEN + (ih->ihl << 2);
+@@ -1474,9 +1519,9 @@ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		unsigned long s2 = data + len - b2;
+ 
+ 		desc->cmd    = cpu_to_be32(len | ETXD_INTWHENDONE |
+-		                           ETXD_B1V | ETXD_B2V | w0);
++					   ETXD_B1V | ETXD_B2V | w0);
+ 		desc->bufcnt = cpu_to_be32((s1 << ETXD_B1CNT_SHIFT) |
+-		                           (s2 << ETXD_B2CNT_SHIFT));
++					   (s2 << ETXD_B2CNT_SHIFT));
+ 		desc->p1     = cpu_to_be64(ioc3_map(skb->data, 1));
+ 		desc->p2     = cpu_to_be64(ioc3_map((void *) b2, 1));
+ 	} else {
+@@ -1488,10 +1533,10 @@ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	BARRIER();
+ 
+-	ip->tx_skbs[produce] = skb;			/* Remember skb */
+-	produce = (produce + 1) & 127;
++	ip->tx_skbs[produce] = skb;		/* Remember skb */
++	produce = (produce + 1) & 0x7f;
+ 	ip->tx_pi = produce;
+-	ioc3_w_etpir(produce << 7);			/* Fire ... */
++	ioc3_w_etpir(produce << 7);		/* Fire! */
+ 
+ 	ip->txqlen++;
+ 
+@@ -1503,7 +1548,8 @@ static int ioc3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static void ioc3_timeout(struct net_device *dev)
++static void
++ioc3_timeout(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 
+@@ -1526,15 +1572,16 @@ static void ioc3_timeout(struct net_device *dev)
+  * address's bit index in the logical address filter mask
+  */
+ 
+-static inline unsigned int ioc3_hash(const unsigned char *addr)
++static inline u32
++ioc3_hash(const u8 *addr)
+ {
+-	unsigned int temp = 0;
++	u32 temp = 0;
+ 	u32 crc;
+ 	int bits;
+ 
+ 	crc = ether_crc_le(ETH_ALEN, addr);
+ 
+-	crc &= 0x3f;    /* bit reverse lowest 6 bits for hash index */
++	crc &= 0x3f;  /* bit reverse lowest 6 bits for hash index */
+ 	for (bits = 6; --bits >= 0; ) {
+ 		temp <<= 1;
+ 		temp |= (crc & 0x1);
+@@ -1544,8 +1591,8 @@ static inline unsigned int ioc3_hash(const unsigned char *addr)
+ 	return temp;
+ }
+ 
+-static void ioc3_get_drvinfo (struct net_device *dev,
+-	struct ethtool_drvinfo *info)
++static void
++ioc3_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 
+@@ -1554,8 +1601,9 @@ static void ioc3_get_drvinfo (struct net_device *dev,
+ 	strlcpy(info->bus_info, pci_name(ip->pdev), sizeof(info->bus_info));
+ }
+ 
+-static int ioc3_get_link_ksettings(struct net_device *dev,
+-				   struct ethtool_link_ksettings *cmd)
++static int
++ioc3_get_link_ksettings(struct net_device *dev,
++			struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 
+@@ -1566,8 +1614,9 @@ static int ioc3_get_link_ksettings(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static int ioc3_set_link_ksettings(struct net_device *dev,
+-				   const struct ethtool_link_ksettings *cmd)
++static int
++ioc3_set_link_ksettings(struct net_device *dev,
++			const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	int rc;
+@@ -1579,7 +1628,8 @@ static int ioc3_set_link_ksettings(struct net_device *dev,
+ 	return rc;
+ }
+ 
+-static int ioc3_nway_reset(struct net_device *dev)
++static int
++ioc3_nway_reset(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	int rc;
+@@ -1591,7 +1641,8 @@ static int ioc3_nway_reset(struct net_device *dev)
+ 	return rc;
+ }
+ 
+-static u32 ioc3_get_link(struct net_device *dev)
++static u32
++ioc3_get_link(struct net_device *dev)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	int rc;
+@@ -1603,7 +1654,8 @@ static u32 ioc3_get_link(struct net_device *dev)
+ 	return rc;
+ }
+ 
+-static const struct ethtool_ops ioc3_ethtool_ops = {
++static const struct ethtool_ops
++ioc3_ethtool_ops = {
+ 	.get_drvinfo		= ioc3_get_drvinfo,
+ 	.nway_reset		= ioc3_nway_reset,
+ 	.get_link		= ioc3_get_link,
+@@ -1611,7 +1663,8 @@ static const struct ethtool_ops ioc3_ethtool_ops = {
+ 	.set_link_ksettings	= ioc3_set_link_ksettings,
+ };
+ 
+-static int ioc3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
++static int
++ioc3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	int rc;
+@@ -1623,29 +1676,31 @@ static int ioc3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	return rc;
+ }
+ 
+-static void ioc3_set_multicast_list(struct net_device *dev)
++static void
++ioc3_set_multicast_list(struct net_device *dev)
+ {
+ 	struct netdev_hw_addr *ha;
+ 	struct ioc3_private *ip = netdev_priv(dev);
+ 	struct ioc3 *ioc3 = ip->regs;
+ 	u64 ehar = 0;
+ 
+-	netif_stop_queue(dev);				/* Lock out others. */
++	netif_stop_queue(dev);			/* Lock out others. */
+ 
+-	if (dev->flags & IFF_PROMISC) {			/* Set promiscuous.  */
++	if (dev->flags & IFF_PROMISC) {		/* Set promiscuous.  */
+ 		ip->emcr |= EMCR_PROMISC;
+ 		ioc3_w_emcr(ip->emcr);
+ 		(void) ioc3_r_emcr();
+ 	} else {
+ 		ip->emcr &= ~EMCR_PROMISC;
+-		ioc3_w_emcr(ip->emcr);			/* Clear promiscuous. */
++		ioc3_w_emcr(ip->emcr);		/* Clear promiscuous. */
+ 		(void) ioc3_r_emcr();
+ 
+ 		if ((dev->flags & IFF_ALLMULTI) ||
+ 		    (netdev_mc_count(dev) > 64)) {
+ 			/* Too many for hashing to make sense or we want all
+-			   multicast packets anyway,  so skip computing all the
+-			   hashes and just accept all packets.  */
++			 * multicast packets anyway,  so skip computing all
++			 * the hashes and just accept all packets.
++			 */
+ 			ip->ehar_h = 0xffffffff;
+ 			ip->ehar_l = 0xffffffff;
+ 		} else {
+@@ -1659,7 +1714,7 @@ static void ioc3_set_multicast_list(struct net_device *dev)
+ 		ioc3_w_ehar_l(ip->ehar_l);
+ 	}
+ 
+-	netif_wake_queue(dev);			/* Let us get going again. */
++	netif_wake_queue(dev);		/* Let us get going again. */
+ }
+ 
+ module_pci_driver(ioc3_driver);
