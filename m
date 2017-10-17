@@ -1,67 +1,125 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net 0/3] bonding: void calling rtmsg_ifinfo for netlink notifications
-Date: Tue, 17 Oct 2017 18:48:27 +0800
-Message-ID: <CADvbK_c0qfwOmGtVaWtHdRv_v-MQSSEn7-ziKJkSB=emsjFX4Q@mail.gmail.com>
-References: <cover.1508233044.git.lucien.xin@gmail.com> <20171017095943.GE2112@nanopsycho>
- <CADvbK_c7R2OJNq=DyXOCSNVzD2aU2qxBO6UiitGbCYS=icwxTQ@mail.gmail.com> <20171017103806.GG2112@nanopsycho>
+From: Christophe LEROY <christophe.leroy@c-s.fr>
+Subject: Re: [PATCH v9 17/20] crypto: talitos: move to generic async
+ completion
+Date: Tue, 17 Oct 2017 12:50:41 +0200
+Message-ID: <b75d3b02-2aba-124c-ccf5-7241775c004c@c-s.fr>
+References: <1508059209-25529-1-git-send-email-gilad@benyossef.com>
+ <1508059209-25529-18-git-send-email-gilad@benyossef.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:49043 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935225AbdJQKs2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 06:48:28 -0400
-Received: by mail-qt0-f196.google.com with SMTP id f8so2466840qta.5
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 03:48:28 -0700 (PDT)
-In-Reply-To: <20171017103806.GG2112@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Ofir Drang <ofir.drang@arm.com>, linux-crypto@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        keyrings@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-cifs@vger.kernel.org,
+        samba-technical@lists.samba.org, linux-fscrypt@vger.kernel.org,
+        netdev@vger.kernel.org, linux-ima-devel@lists.sourceforge.net,
+        linux-ima-user@lists.sourceforge.net,
+        linux-security-module@vger.kernel.org
+To: Gilad Ben-Yossef <gilad@benyossef.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        David Howells <dhowells@redhat.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Gary Hook <gary.hook@amd.com>,
+        Boris Brezillon <boris.brezillon@free-electrons.com>,
+        Arnaud Ebalard <arno@natisbad.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Alasdair Kergon <agk@redhat.com>,
+        Mike Snitzer <snitzer@redhat.com>, dm-devel@redhat.com,
+        Steve French <sfrench@samba.org>,
+        "Theodore Y. Ts'o" <tytso@mit.edu>,
+        Jaegeuk Kim <jaegeuk@kernel.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Mimi Zohar <zohar@linux.v
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1508059209-25529-18-git-send-email-gilad@benyossef.com>
+Content-Language: fr
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 6:38 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Tue, Oct 17, 2017 at 12:28:45PM CEST, lucien.xin@gmail.com wrote:
->>On Tue, Oct 17, 2017 at 5:59 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Tue, Oct 17, 2017 at 11:39:38AM CEST, lucien.xin@gmail.com wrote:
->>>>It's better to send notifications to userspace by the events
->>>>in rtnetlink_event, instead of calling rtmsg_ifinfo directly.
->>>>
->>>>This patcheset is to remove rtmsg_ifinfo called in bonding,
->>>>the notifications can be handled by NETDEV_CHANGEUPPER and
->>>>NETDEV_CHANGELOWERSTATE events in rtnetlink_event.
->>>>
->>>>It could also fix some redundant notifications from bonding.
->>>
->>> This should go to net-next.
->>
->>NETDEV_CHANGEUPPER is not yet in rtnetlink_event in net-next tree.
->>patches can only work on net tree by now.
->>
->>Hi, David, you want me to hold them until the patches for NETDEV_CHANGEUPPER
->>are copied to net-next, or you would apply them to net ?
->
-> This patchset is not fix right? I see no "Fixes" line. You should wait
-> until the dependency is merged to net-next, rebase, post for net-next.
-Copy, thanks Jiri.
+Le 15/10/2017 à 11:20, Gilad Ben-Yossef a écrit :
+> The talitos driver starts several async crypto ops and  waits for their
+> completions. Move it over to generic code doing the same.
+> 
+> Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
 
->
->
->
->>
->>>
->>>
->>>>
->>>>Xin Long (3):
->>>>  bonding: remove rtmsg_ifinfo called in bond_master_upper_dev_link
->>>>  rtnetlink: bring NETDEV_CHANGELOWERSTATE event process back to
->>>>    rtnetlink_event
->>>>  bonding: remove rtmsg_ifinfo called after bond_lower_state_changed
->>>>
->>>> drivers/net/bonding/bond_main.c | 11 +++--------
->>>> include/net/bonding.h           |  4 ----
->>>> net/core/rtnetlink.c            |  2 +-
->>>> 3 files changed, 4 insertions(+), 13 deletions(-)
->>>>
->>>>--
->>>>2.1.0
->>>>
+Tested-by: Christophe Leroy <christophe.leroy@c-s.fr>
+
+> ---
+>   drivers/crypto/talitos.c | 38 +++++---------------------------------
+>   1 file changed, 5 insertions(+), 33 deletions(-)
+> 
+> diff --git a/drivers/crypto/talitos.c b/drivers/crypto/talitos.c
+> index 5bd8191..9c80e0c 100644
+> --- a/drivers/crypto/talitos.c
+> +++ b/drivers/crypto/talitos.c
+> @@ -2160,22 +2160,6 @@ static int ahash_import(struct ahash_request *areq, const void *in)
+>   	return 0;
+>   }
+>   
+> -struct keyhash_result {
+> -	struct completion completion;
+> -	int err;
+> -};
+> -
+> -static void keyhash_complete(struct crypto_async_request *req, int err)
+> -{
+> -	struct keyhash_result *res = req->data;
+> -
+> -	if (err == -EINPROGRESS)
+> -		return;
+> -
+> -	res->err = err;
+> -	complete(&res->completion);
+> -}
+> -
+>   static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+>   		   u8 *hash)
+>   {
+> @@ -2183,10 +2167,10 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+>   
+>   	struct scatterlist sg[1];
+>   	struct ahash_request *req;
+> -	struct keyhash_result hresult;
+> +	struct crypto_wait wait;
+>   	int ret;
+>   
+> -	init_completion(&hresult.completion);
+> +	crypto_init_wait(&wait);
+>   
+>   	req = ahash_request_alloc(tfm, GFP_KERNEL);
+>   	if (!req)
+> @@ -2195,25 +2179,13 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+>   	/* Keep tfm keylen == 0 during hash of the long key */
+>   	ctx->keylen = 0;
+>   	ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+> -				   keyhash_complete, &hresult);
+> +				   crypto_req_done, &wait);
+>   
+>   	sg_init_one(&sg[0], key, keylen);
+>   
+>   	ahash_request_set_crypt(req, sg, hash, keylen);
+> -	ret = crypto_ahash_digest(req);
+> -	switch (ret) {
+> -	case 0:
+> -		break;
+> -	case -EINPROGRESS:
+> -	case -EBUSY:
+> -		ret = wait_for_completion_interruptible(
+> -			&hresult.completion);
+> -		if (!ret)
+> -			ret = hresult.err;
+> -		break;
+> -	default:
+> -		break;
+> -	}
+> +	ret = crypto_wait_req(crypto_ahash_digest(req), &wait);
+> +
+>   	ahash_request_free(req);
+>   
+>   	return ret;
+> 
