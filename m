@@ -1,71 +1,46 @@
-From: Gilad Ben-Yossef <gilad-6S/DczAoZh3WXxRugSxzZg@public.gmane.org>
-Subject: Re: [PATCH v9 00/20] simplify crypto wait for async op
-Date: Tue, 17 Oct 2017 14:55:21 +0300
-Message-ID: <CAOtvUMeESbKKaEvpW_MKrRaCxwQWnBa00m4v4F1jNZ_+Xq7pWA@mail.gmail.com>
-References: <1508059209-25529-1-git-send-email-gilad@benyossef.com> <20171015153831.GA22867@gondor.apana.org.au>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] netfilter: ip6_tables: remove redundant assignment to e
+Date: Tue, 17 Oct 2017 13:02:00 +0100
+Message-ID: <20171017120200.19994-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Tom Lendacky <thomas.lendacky-5C7GfCeVMHo@public.gmane.org>,
-        Gary Hook <gary.hook-5C7GfCeVMHo@public.gmane.org>,
-        Boris Brezillon <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Arnaud Ebalard <arno-LkuqDEemtHBg9hUCZPvPmw@public.gmane.org>,
-        Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Alasdair Kergon <agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Mike Snitzer <snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        device-mapper development <dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Steve French <sfrench-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-        "Theodore Y. Ts'o" <tytso-3s7WtUTddSA@public.gmane.org>,
-        Jaegeuk Kim <jaegeuk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Steffen Klassert <steffen.klassert-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>,
-        Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-        Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-        Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-        Dmitry Kasatkin <dmitry.kasatkin@gmail.c
-To: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171015153831.GA22867-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 15, 2017 at 6:38 PM, Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org> wrote:
->
-> On Sun, Oct 15, 2017 at 10:19:45AM +0100, Gilad Ben-Yossef wrote:
-> >
-> > Changes from v8:
-> > - Remove the translation of EAGAIN return code to the
-> >   previous return code of EBUSY for the user space
-> >   interface of algif as no one seems to rely on it as
-> >   requested by Herbert Xu.
->
-> Sorry, but I forgot to mention that EAGAIN is not a good value
-> to use because it's used by the network system calls for other
-> meanings (interrupted by a signal).
->
-> So if we stop doing the translation then we also need to pick
-> a different value, perhaps E2BIG or something similar that have
-> no current use within the crypto API or network API.
+From: Colin Ian King <colin.king@canonical.com>
 
-Yes, I see what you mean. With a netlink based interface this can
-be confusing to debug.
+The assignment to variable e is redundant since the same assignment
+occurs just a few lines later, hence it can be removed.  Cleans up
+clang warning: warning: Value stored to 'e' is never read
 
-Would you mind if we used ENOSPC instead of E2BIG?
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/ipv6/netfilter/ip6_tables.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-"No space left on device" seems more appropriate than
-"Argument list too long".
-
-Thanks,
-Gilad
-
-
-
-
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 01bd3ee5ebc6..702e483d38b0 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -458,7 +458,6 @@ mark_source_chains(const struct xt_table_info *newinfo,
+ 					if (!xt_find_jump_offset(offsets, newpos,
+ 								 newinfo->number))
+ 						return 0;
+-					e = entry0 + newpos;
+ 				} else {
+ 					/* ... this is a fallthru */
+ 					newpos = pos + e->next_offset;
 -- 
-Gilad Ben-Yossef
-Chief Coffee Drinker
+2.14.1
 
-"If you take a class in large-scale robotics, can you end up in a
-situation where the homework eats your dog?"
- -- Jean-Baptiste Queru
