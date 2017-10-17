@@ -1,19 +1,18 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 37/58] net/core: Collapse redundant sk_timer callback data assignments
-Date: Mon, 16 Oct 2017 17:29:21 -0700
-Message-ID: <1508200182-104605-38-git-send-email-keescook@chromium.org>
+Subject: [PATCH 36/58] inet: frags: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:20 -0700
+Message-ID: <1508200182-104605-37-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Andrew Hendry <andrew.hendry@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Paolo Abeni <pabeni@redhat.com>,
-        David Howells <dhowells@redhat.com>,
-        Colin Ian King <colin.king@canonical.com>,
-        Ingo Molnar <mingo@kernel.org>,
-        linzhang <xiaolou4617@gmail.com>, netdev@vger.kernel.org,
-        linux-hams@vger.kernel.org, linux-x25@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
+        Alexander Aring <alex.aring@gmail.com>,
+        Stefan Schmidt <stefan@osg.samsung.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>, linux-wpan@vger.kernel.org,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -21,90 +20,147 @@ In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The core sk_timer initializer can provide the common .data assignment
-instead of it being set separately in users.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
+Cc: Alexander Aring <alex.aring@gmail.com>
+Cc: Stefan Schmidt <stefan@osg.samsung.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Paolo Abeni <pabeni@redhat.com>
-Cc: David Howells <dhowells@redhat.com>
-Cc: Colin Ian King <colin.king@canonical.com>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: linzhang <xiaolou4617@gmail.com>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: linux-wpan@vger.kernel.org
 Cc: netdev@vger.kernel.org
-Cc: linux-hams@vger.kernel.org
-Cc: linux-x25@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org
+Cc: coreteam@netfilter.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
+Acked-by: Stefan Schmidt <stefan@osg.samsung.com> # for ieee802154
 ---
- net/core/sock.c       | 2 +-
- net/netrom/nr_timer.c | 1 -
- net/rose/rose_timer.c | 1 -
- net/x25/af_x25.c      | 1 -
- net/x25/x25_timer.c   | 1 -
- 5 files changed, 1 insertion(+), 5 deletions(-)
+ include/net/inet_frag.h                 | 2 +-
+ net/ieee802154/6lowpan/reassembly.c     | 5 +++--
+ net/ipv4/inet_fragment.c                | 4 ++--
+ net/ipv4/ip_fragment.c                  | 5 +++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 5 +++--
+ net/ipv6/reassembly.c                   | 5 +++--
+ 6 files changed, 15 insertions(+), 11 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index aeb1cd59763c..57113b42b2c8 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2685,7 +2685,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 	sk_init_common(sk);
- 	sk->sk_send_head	=	NULL;
- 
--	init_timer(&sk->sk_timer);
-+	setup_timer(&sk->sk_timer, NULL, (unsigned long)sk);
- 
- 	sk->sk_allocation	=	GFP_KERNEL;
- 	sk->sk_rcvbuf		=	sysctl_rmem_default;
-diff --git a/net/netrom/nr_timer.c b/net/netrom/nr_timer.c
-index 94d05806a9a2..f84ce71f1f5f 100644
---- a/net/netrom/nr_timer.c
-+++ b/net/netrom/nr_timer.c
-@@ -45,7 +45,6 @@ void nr_init_timers(struct sock *sk)
- 	setup_timer(&nr->idletimer, nr_idletimer_expiry, (unsigned long)sk);
- 
- 	/* initialized by sock_init_data */
--	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &nr_heartbeat_expiry;
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index fc59e0775e00..c695807ca707 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -95,7 +95,7 @@ struct inet_frags {
+ 	void			(*constructor)(struct inet_frag_queue *q,
+ 					       const void *arg);
+ 	void			(*destructor)(struct inet_frag_queue *);
+-	void			(*frag_expire)(unsigned long data);
++	void			(*frag_expire)(struct timer_list *t);
+ 	struct kmem_cache	*frags_cachep;
+ 	const char		*frags_cache_name;
+ };
+diff --git a/net/ieee802154/6lowpan/reassembly.c b/net/ieee802154/6lowpan/reassembly.c
+index f85b08baff16..85bf86ad6b18 100644
+--- a/net/ieee802154/6lowpan/reassembly.c
++++ b/net/ieee802154/6lowpan/reassembly.c
+@@ -80,12 +80,13 @@ static void lowpan_frag_init(struct inet_frag_queue *q, const void *a)
+ 	fq->daddr = *arg->dst;
  }
  
-diff --git a/net/rose/rose_timer.c b/net/rose/rose_timer.c
-index 3b89d66f15bb..e08201185214 100644
---- a/net/rose/rose_timer.c
-+++ b/net/rose/rose_timer.c
-@@ -36,7 +36,6 @@ void rose_start_heartbeat(struct sock *sk)
+-static void lowpan_frag_expire(unsigned long data)
++static void lowpan_frag_expire(struct timer_list *t)
  {
- 	del_timer(&sk->sk_timer);
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct frag_queue *fq;
+ 	struct net *net;
  
--	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &rose_heartbeat_expiry;
- 	sk->sk_timer.expires  = jiffies + 5 * HZ;
+-	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	fq = container_of(frag, struct frag_queue, q);
+ 	net = container_of(fq->q.net, struct net, ieee802154_lowpan.frags);
  
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index ac095936552d..c590c0bd1393 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -414,7 +414,6 @@ static void __x25_destroy_socket(struct sock *sk)
- 		/* Defer: outstanding buffers */
- 		sk->sk_timer.expires  = jiffies + 10 * HZ;
- 		sk->sk_timer.function = x25_destroy_timer;
--		sk->sk_timer.data = (unsigned long)sk;
- 		add_timer(&sk->sk_timer);
- 	} else {
- 		/* drop last reference so sock_put will free */
-diff --git a/net/x25/x25_timer.c b/net/x25/x25_timer.c
-index 5c5db1a36399..de5cec41d100 100644
---- a/net/x25/x25_timer.c
-+++ b/net/x25/x25_timer.c
-@@ -36,7 +36,6 @@ void x25_init_timers(struct sock *sk)
- 	setup_timer(&x25->timer, x25_timer_expiry, (unsigned long)sk);
+ 	spin_lock(&fq->q.lock);
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index af74d0433453..7f3ef5c287a1 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -147,7 +147,7 @@ inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
+ 	spin_unlock(&hb->chain_lock);
  
- 	/* initialized by sock_init_data */
--	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &x25_heartbeat_expiry;
+ 	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
+-		f->frag_expire((unsigned long) fq);
++		f->frag_expire(&fq->timer);
+ 
+ 	return evicted;
+ }
+@@ -366,7 +366,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 	f->constructor(q, arg);
+ 	add_frag_mem_limit(nf, f->qsize);
+ 
+-	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
++	timer_setup(&q->timer, f->frag_expire, 0);
+ 	spin_lock_init(&q->lock);
+ 	refcount_set(&q->refcnt, 1);
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 46408c220d9d..9215654a401f 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -190,12 +190,13 @@ static bool frag_expire_skip_icmp(u32 user)
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+-static void ip_expire(unsigned long arg)
++static void ip_expire(struct timer_list *t)
+ {
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct ipq *qp;
+ 	struct net *net;
+ 
+-	qp = container_of((struct inet_frag_queue *) arg, struct ipq, q);
++	qp = container_of(frag, struct ipq, q);
+ 	net = container_of(qp->q.net, struct net, ipv4.frags);
+ 
+ 	rcu_read_lock();
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index b263bf3a19f7..977d8900cfd1 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -169,12 +169,13 @@ static unsigned int nf_hashfn(const struct inet_frag_queue *q)
+ 	return nf_hash_frag(nq->id, &nq->saddr, &nq->daddr);
  }
  
+-static void nf_ct_frag6_expire(unsigned long data)
++static void nf_ct_frag6_expire(struct timer_list *t)
+ {
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct frag_queue *fq;
+ 	struct net *net;
+ 
+-	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	fq = container_of(frag, struct frag_queue, q);
+ 	net = container_of(fq->q.net, struct net, nf_frag.frags);
+ 
+ 	ip6_expire_frag_queue(net, fq, &nf_frags);
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 846012eae526..afbc000ad4f2 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -170,12 +170,13 @@ void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
+ }
+ EXPORT_SYMBOL(ip6_expire_frag_queue);
+ 
+-static void ip6_frag_expire(unsigned long data)
++static void ip6_frag_expire(struct timer_list *t)
+ {
++	struct inet_frag_queue *frag = from_timer(frag, t, timer);
+ 	struct frag_queue *fq;
+ 	struct net *net;
+ 
+-	fq = container_of((struct inet_frag_queue *)data, struct frag_queue, q);
++	fq = container_of(frag, struct frag_queue, q);
+ 	net = container_of(fq->q.net, struct net, ipv6.frags);
+ 
+ 	ip6_expire_frag_queue(net, fq, &ip6_frags);
 -- 
 2.7.4
