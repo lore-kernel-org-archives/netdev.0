@@ -1,96 +1,40 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [RFC] sctp: suspicious rcu_read_lock() in sctp_packet_config()
-Date: Tue, 17 Oct 2017 15:01:32 -0200
-Message-ID: <20171017170132.GC5357@localhost.localdomain>
-References: <1508247956.31614.103.camel@edumazet-glaptop3.roam.corp.google.com>
- <CADvbK_dRBaOLzrXWS2ndHu3sz9LB87rJsyGog2BjishapiMhxw@mail.gmail.com>
- <20171017162826.GB5357@localhost.localdomain>
- <CANn89iKMBKJyLpdnUEER=9ot89P8yr4F0DGJABh1O=DCixdR8g@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] tcp: Check daddr_cache before use in tracepoint
+Date: Tue, 17 Oct 2017 10:05:02 -0700
+Message-ID: <CAM_iQpW=K0UkdB__WPvNPviz_syn-DKWum=Z9cam_EV4eqaTFQ@mail.gmail.com>
+References: <1508189387-27931-1-git-send-email-dsahern@gmail.com>
+ <1508211908.31614.90.camel@edumazet-glaptop3.roam.corp.google.com> <f0320a62-708b-6b7c-bf58-23b9e8df6cdc@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xin Long <lucien.xin@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
-        linux-sctp@vger.kernel.org
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40168 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934156AbdJQRBf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 13:01:35 -0400
-Content-Disposition: inline
-In-Reply-To: <CANn89iKMBKJyLpdnUEER=9ot89P8yr4F0DGJABh1O=DCixdR8g@mail.gmail.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:52756 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934225AbdJQRFX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 13:05:23 -0400
+Received: by mail-pg0-f53.google.com with SMTP id a192so1899393pge.9
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 10:05:23 -0700 (PDT)
+In-Reply-To: <f0320a62-708b-6b7c-bf58-23b9e8df6cdc@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 09:44:10AM -0700, Eric Dumazet wrote:
-> On Tue, Oct 17, 2017 at 9:28 AM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
-> > On Tue, Oct 17, 2017 at 11:31:30PM +0800, Xin Long wrote:
-> >> On Tue, Oct 17, 2017 at 9:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >> > SCTP experts.
-> >> >
-> >> > syszkaller reported a few crashes in sctp_packet_config() with invalid
-> >> > access to a deleted dst.
-> >> >
-> >> > The rcu_read_lock() in sctp_packet_config() is suspect.
-> >> >
-> >> > It does not protect anything at the moment.
-> >> >
-> >> > If we expect tp->dst to be manipulated/changed by another cpu/thread,
-> >> > then we need proper rcu protection.
-> >> >
-> >> > Following patch to show what would be a minimal change (but obviously
-> >> > bigger changes are needed, like sctp_transport_pmtu_check() and
-> >> > sctp_transport_dst_check(), and proper sparse annotations)
-> >> will check all places accessing tp->dst in sctp.
-> >
-> > I checked some and sctp_transport_dst_check() should be fine because
-> > by then we are holding a reference on dst. Same goes to
-> > sctp_transport_pmtu_check().
-> 
-> Really ?
-> 
+On Tue, Oct 17, 2017 at 8:32 AM, David Ahern <dsahern@gmail.com> wrote:
+> On 10/16/17 9:45 PM, Eric Dumazet wrote:
+>> IPV6 TCP uses sk->sk_v6_daddr and sk->->sk_v6_rcv_saddr
+>
+> I moved v2 to those.
+>
+>> So I would rather remove the need to fetch np = inet6_sk(sk) in the
+>> first place, and look at sk->sk_family instead.
+>
+> I'll spin a v3 with that change.
 
-Yes,
+Note, with CONFIG_IPV6=n, inet6_sk() is just NULL and compiler
+could eliminate the if(NULL) branch, I doubt compiler could do same
+for sk->sk_family.
 
-> What about sctp_v4_err() -> sctp_icmp_redirect() -> sctp_transport_dst_check()
-> 
-> It seems quite possible that the BH handler can access it, while
-> socket is owned by user.
-
-hidden here:
-sctp_v4_err() {
-...
-        sk = sctp_err_lookup(net, AF_INET, skb, sctp_hdr(skb), &asoc,
-	&transport);
-...
-out_unlock:
-        sctp_err_finish(sk, transport);
-}
-
-sctp_err_lookup() {
-...
-        bh_lock_sock(sk);
-
-        /* If too many ICMPs get dropped on busy
-         * servers this needs to be solved differently.
-         */
-        if (sock_owned_by_user(sk))            [A]
-                __NET_INC_STATS(net, LINUX_MIB_LOCKDROPPEDICMPS);
-
-        *app = asoc;
-        *tpp = transport;
-        return sk;
-...
-}
-
-Though that if() on [A] should be bailing out without returning
-nothing. That's a bug. More like:
-
-        if (sock_owned_by_user(sk)) {
-                __NET_INC_STATS(net, LINUX_MIB_LOCKDROPPEDICMPS);
-		goto out;
-	}
+Oh, BTW, I thought it is okay to use sk_v6_daddr in if (NULL)
+case (aka CONFIG_IPV6=n), but a quick test shows compiler still
+complains... so probably need #if IS_ENABLED(CONFIG_IPV6).
