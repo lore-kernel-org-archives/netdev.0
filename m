@@ -1,51 +1,96 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net v3 2/4] net/sched: Use action array instead of action
- list as parameter
-Date: Tue, 17 Oct 2017 09:55:38 -0700
-Message-ID: <CAM_iQpUz4bKhb2uUiBBeXL6f6BfdAND7sW+az5MjbjbifRnmhw@mail.gmail.com>
-References: <1508203218-17998-1-git-send-email-chrism@mellanox.com> <1508203218-17998-3-git-send-email-chrism@mellanox.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [RFC] sctp: suspicious rcu_read_lock() in sctp_packet_config()
+Date: Tue, 17 Oct 2017 15:01:32 -0200
+Message-ID: <20171017170132.GC5357@localhost.localdomain>
+References: <1508247956.31614.103.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CADvbK_dRBaOLzrXWS2ndHu3sz9LB87rJsyGog2BjishapiMhxw@mail.gmail.com>
+ <20171017162826.GB5357@localhost.localdomain>
+ <CANn89iKMBKJyLpdnUEER=9ot89P8yr4F0DGJABh1O=DCixdR8g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Lucas Bates <lucasb@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>
-To: Chris Mi <chrism@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Xin Long <lucien.xin@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        netdev <netdev@vger.kernel.org>, Wei Wang <weiwan@google.com>,
+        linux-sctp@vger.kernel.org
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:43627 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934082AbdJQQz7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 12:55:59 -0400
-Received: by mail-pg0-f67.google.com with SMTP id s75so1891255pgs.0
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 09:55:59 -0700 (PDT)
-In-Reply-To: <1508203218-17998-3-git-send-email-chrism@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40168 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934156AbdJQRBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Oct 2017 13:01:35 -0400
+Content-Disposition: inline
+In-Reply-To: <CANn89iKMBKJyLpdnUEER=9ot89P8yr4F0DGJABh1O=DCixdR8g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 16, 2017 at 6:20 PM, Chris Mi <chrism@mellanox.com> wrote:
-> When destroying filters, actions should be destroyed first.
-> The pointers of each action are saved in an array. TC doesn't
-> use the array directly, but put all actions in a doubly linked
-> list and use that list as parameter.
->
-> There is no problem if each filter has its own actions. But if
-> some filters share the same action, when these filters are
-> destroyed, RCU callback fl_destroy_filter() may be called at the
-> same time. That means the same action's 'struct list_head list'
-> could be manipulated at the same time. It may point to an invalid
-> address so that system will panic.
+On Tue, Oct 17, 2017 at 09:44:10AM -0700, Eric Dumazet wrote:
+> On Tue, Oct 17, 2017 at 9:28 AM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+> > On Tue, Oct 17, 2017 at 11:31:30PM +0800, Xin Long wrote:
+> >> On Tue, Oct 17, 2017 at 9:45 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> > SCTP experts.
+> >> >
+> >> > syszkaller reported a few crashes in sctp_packet_config() with invalid
+> >> > access to a deleted dst.
+> >> >
+> >> > The rcu_read_lock() in sctp_packet_config() is suspect.
+> >> >
+> >> > It does not protect anything at the moment.
+> >> >
+> >> > If we expect tp->dst to be manipulated/changed by another cpu/thread,
+> >> > then we need proper rcu protection.
+> >> >
+> >> > Following patch to show what would be a minimal change (but obviously
+> >> > bigger changes are needed, like sctp_transport_pmtu_check() and
+> >> > sctp_transport_dst_check(), and proper sparse annotations)
+> >> will check all places accessing tp->dst in sctp.
+> >
+> > I checked some and sctp_transport_dst_check() should be fine because
+> > by then we are holding a reference on dst. Same goes to
+> > sctp_transport_pmtu_check().
+> 
+> Really ?
+> 
 
-So if we remove these RCU callbacks (by adding a sychronize_rcu)
-this is not a problem, right? Or is there any other races than RCU
-callbacks??
+Yes,
 
+> What about sctp_v4_err() -> sctp_icmp_redirect() -> sctp_transport_dst_check()
+> 
+> It seems quite possible that the BH handler can access it, while
+> socket is owned by user.
 
->
-> This patch uses the action array directly to fix this issue.
->
-> Fixes commit in pre-git era.
->
-> Fixes: 1da177e4c3f4 ("Linux-2.6.12-rc2")
+hidden here:
+sctp_v4_err() {
+...
+        sk = sctp_err_lookup(net, AF_INET, skb, sctp_hdr(skb), &asoc,
+	&transport);
+...
+out_unlock:
+        sctp_err_finish(sk, transport);
+}
 
-This is wrong too. RCU callbacks were introduced very late.
+sctp_err_lookup() {
+...
+        bh_lock_sock(sk);
+
+        /* If too many ICMPs get dropped on busy
+         * servers this needs to be solved differently.
+         */
+        if (sock_owned_by_user(sk))            [A]
+                __NET_INC_STATS(net, LINUX_MIB_LOCKDROPPEDICMPS);
+
+        *app = asoc;
+        *tpp = transport;
+        return sk;
+...
+}
+
+Though that if() on [A] should be bailing out without returning
+nothing. That's a bug. More like:
+
+        if (sock_owned_by_user(sk)) {
+                __NET_INC_STATS(net, LINUX_MIB_LOCKDROPPEDICMPS);
+		goto out;
+	}
