@@ -1,58 +1,40 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][next] mqprio: fix potential null pointer dereference on opt
-Date: Tue, 17 Oct 2017 16:01:30 +0100
-Message-ID: <20171017150130.23606-1-colin.king@canonical.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 0/3] Fix for BPF devmap percpu allocation splat
+Date: Tue, 17 Oct 2017 15:03:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD009980D@AcuExch.aculab.com>
+References: <cover.1508251210.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:46334 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932893AbdJQPBe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 11:01:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "tj@kernel.org" <tj@kernel.org>, "ast@kernel.org" <ast@kernel.org>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "mark.rutland@arm.com" <mark.rutland@arm.com>,
+        "richard@nod.at" <richard@nod.at>,
+        "sp3485@columbia.edu" <sp3485@columbia.edu>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Daniel Borkmann' <daniel@iogearbox.net>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1508251210.git.daniel@iogearbox.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Daniel Borkmann
+> Sent: 17 October 2017 15:56
+> 
+> The set fixes a splat in devmap percpu allocation when we alloc
+> the flush bitmap. Patch 1 is a prerequisite for the fix in patch 2,
+> patch 1 is rather small, so if this could be routed via -net, for
+> example, with Tejun's Ack that would be good. Patch 3 gets rid of
+> remaining PCPU_MIN_UNIT_SIZE checks, which are percpu allocator
+> internals and should not be used.
 
-The pointer opt has a null check however before for this check opt is
-dereferenced when len is initialized, hence we potentially have a null
-pointer deference on opt.  Avoid this by checking for a null opt before
-dereferencing it.
+Does it make sense to allow the user program to try to allocate ever
+smaller very large maps until it finds one that succeeds - thus
+using up all the percpu space?
 
-Detected by CoverityScan, CID#1458234 ("Dereference before null check")
+Or is this a 'root only' 'shoot self in foot' job?
 
-Fixes: 4e8b86c06269 ("mqprio: Introduce new hardware offload mode and shaper in mqprio")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/sched/sch_mqprio.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index f1ae9be83934..37d5fd9b617c 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -142,7 +142,7 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct nlattr *tb[TCA_MQPRIO_MAX + 1];
- 	struct nlattr *attr;
- 	int rem;
--	int len = nla_len(opt) - NLA_ALIGN(sizeof(*qopt));
-+	int len;
- 
- 	BUILD_BUG_ON(TC_MAX_QUEUE != TC_QOPT_MAX_QUEUE);
- 	BUILD_BUG_ON(TC_BITMASK != TC_QOPT_BITMASK);
-@@ -160,6 +160,7 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (mqprio_parse_opt(dev, qopt))
- 		return -EINVAL;
- 
-+	len = nla_len(opt) - NLA_ALIGN(sizeof(*qopt));
- 	if (len > 0) {
- 		err = parse_attr(tb, TCA_MQPRIO_MAX, opt, mqprio_policy,
- 				 sizeof(*qopt));
--- 
-2.14.1
+	David
