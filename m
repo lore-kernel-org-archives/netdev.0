@@ -1,59 +1,57 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH v2 00/15] make structure field, function arguments and
- structures const
-Date: Tue, 17 Oct 2017 12:16:18 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1710171216060.5035@hadrien>
-References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com> <20171017101245.GA4646@kroah.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/3] net: sh_eth: rename name structures as
+ rcar_gen[12]_*
+Date: Tue, 17 Oct 2017 13:17:54 +0300
+Message-ID: <efe31736-9dda-ae2c-98c1-39073c64fdc7@cogentembedded.com>
+References: <20171017074747.24159-1-horms+renesas@verge.net.au>
+ <20171017074747.24159-3-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        rjw@rjwysocki.net, lenb@kernel.org,
-        alexander.shishkin@linux.intel.com, jic23@kernel.org,
-        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
-        dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, hch@lst.de, sagi@grimberg.me,
-        kishon@ti.com, bhelgaas@google.com, nab@linux-iscsi.org,
-        balbi@kernel.org, laurent.pinchart@ideasonboard.com,
-        jlbec@evilplan.org, ccaulfie@redhat.com, teigland@redhat.com,
-        mfasheh@versity.com, linux-acpi@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-iio@vger.kernel.org,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-nvme@lists.infradead.org, linux-pci@vger.kernel.org,
-        linux-scsi@vger.kernel.org, target-devel@vger.kernel.org,
-        linux-usb@vger.kernel.org, cluster-de
-To: Greg KH <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:14880 "EHLO
-        mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1756552AbdJQKQY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 06:16:24 -0400
-In-Reply-To: <20171017101245.GA4646@kroah.com>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:52879 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760797AbdJQKR4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 06:17:56 -0400
+Received: by mail-lf0-f43.google.com with SMTP id b190so1366864lfg.9
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 03:17:55 -0700 (PDT)
+In-Reply-To: <20171017074747.24159-3-horms+renesas@verge.net.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello!
 
+On 10/17/2017 10:47 AM, Simon Horman wrote:
 
-On Tue, 17 Oct 2017, Greg KH wrote:
+> Rename structures describing R-Car SoCs as rcar_gen[12]_*
+> rather than r8a77[79]x_*. This seems a little easier on the
+> eyes will make things slightly cleaner in a follow-up
+       ^
+    "And" missing here?
 
-> On Mon, Oct 16, 2017 at 05:18:39PM +0200, Bhumika Goyal wrote:
-> > Make the ci_type field and some function arguments as const. After this
-> > change, make config_item_type structures as const.
-> >
-> > * Changes in v2- Combine all the followup patches and the constification
-> > patches into a series.
->
-> Who do you want to take these patches?  If you want, I can take them
-> through my driver-core tree, which has done other configfs stuff like
-> this in the past.
+> patch that adds fallback-compatibility strings for these SoCs.
+> 
+> Note that R-Car Gen2 and RZ/G1 have many compatible IP blocks.  The
+> approach that has been consistently taken for other IP blocks is to name
+> common code, compatibility strings and so on after Rcar Gen2.
 
-Christoph Hellwig proposed to take care of it.
+    R-Car.
 
-julia
+> Also rename sh_eth_set_rate_r8a777x as sh_eth_set_rate_rcar as
+> it it is used by the R-Car generations supported by the driver.
+> 
+> This patch should have no run-time effect and
+> is compile-tested only.
+> 
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 
+[...]
 
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
->
-> thanks,
->
-> greg k-h
->
+MBR, Sergei
