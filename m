@@ -1,49 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 3/3] net: sh_eth: implement R-Car Gen[12]
- fallback compatibility strings
-Date: Tue, 17 Oct 2017 13:20:47 +0300
-Message-ID: <2874aea5-c012-82cd-2fc6-74ee63ac3d11@cogentembedded.com>
-References: <20171017074747.24159-1-horms+renesas@verge.net.au>
- <20171017074747.24159-4-horms+renesas@verge.net.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: linux-next: net/sched/cls_flower.c
+Date: Tue, 17 Oct 2017 12:21:07 +0200
+Message-ID: <20171017102107.GF2112@nanopsycho>
+References: <20171017101509.soy55d4ipx3dusbo@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20171017074747.24159-4-horms+renesas@verge.net.au>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Mark Brown <broonie@kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171017101509.soy55d4ipx3dusbo@sirena.co.uk>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/17/2017 10:47 AM, Simon Horman wrote:
+Tue, Oct 17, 2017 at 12:15:09PM CEST, broonie@kernel.org wrote:
+>Hi all,
+>
+>After merging the net-next tree, today's linux-next build
+>(x86_allmodconfig) failed like this:
+>
+>/home/broonie/tmpfs/next/net/sched/cls_flower.c: In function 'fl_hw_destroy_filter':
+>/home/broonie/tmpfs/next/net/sched/cls_flower.c:208:12: error: 'struct tc_cls_flower_offload' has no member named 'egress_dev'
+>  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+>            ^
+>/home/broonie/tmpfs/next/net/sched/cls_flower.c:208:27: error: 'struct cls_fl_filter' has no member named 'hw_dev'
+>  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+>                           ^
+>/home/broonie/tmpfs/next/net/sched/cls_flower.c: In function 'fl_hw_update_stats':
+>/home/broonie/tmpfs/next/net/sched/cls_flower.c:270:12: error: 'struct tc_cls_flower_offload' has no member named 'egress_dev'
+>  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+>            ^
+>/home/broonie/tmpfs/next/net/sched/cls_flower.c:270:27: error: 'struct cls_fl_filter' has no member named 'hw_dev'
+>  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
 
-> Implement fallback compatibility strings for R-Car Gen 1 and 2.
-> 
-> In the case of Renesas R-Car hardware we know that there are generations of
-> SoCs, f.e. Gen 1 and 2. But beyond that its not clear what the relationship
-> between IP blocks might be. For example, I believe that r8a7790 is older
-> than r8a7791 but that doesn't imply that the latter is a descendant of the
-> former or vice versa.
-> 
-> We can, however, by examining the documentation and behaviour of the
-> hardware at run-time observe that the current driver implementation appears
-> to be compatible with the IP blocks on SoCs within a given generation.
-> 
-> For the above reasons and convenience when enabling new SoCs a
-> per-generation fallback compatibility string scheme being adopted for
-> drivers for Renesas SoCs.
-> 
-> Note that R-Car Gen2 and RZ/G1 have many compatible IP blocks.  The
-> approach that has been consistently taken for other IP blocks is to name
-> common code, compatibility strings and so on after Rcar Gen2.
+This fix ("net/sched: cls_flower: Set egress_dev mark when calling into the HW driver")
+went to -net tree, should not go to -next. Apparently there is some mixup.
+DaveM?
 
-     R-Car again. :-)
 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-MBR, Sergei
+>                           ^
+>/home/broonie/tmpfs/next/scripts/Makefile.build:319: recipe for target 'net/sched/cls_flower.o' failed
+>
+>Caused by commit
+>
+>  7578d7b45ed870b13a8ace57e32feaed623c2a94 ("net/sched: cls_flower: Set egress_dev mark when calling into the HW driver")
+>
+>interacting with 
+>
+>  7578d7b45ed870b1 ("net: sched: remove unused tcf_exts_get_dev helper and cls_flower->egress_dev")
+>
+>both in the net-next tree.  Falling back to previous net-next trees
+>introduced other issues so I reverted that commit for today.
