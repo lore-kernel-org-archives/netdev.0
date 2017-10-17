@@ -1,11 +1,13 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 47/58] net/ethernet/sgi: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:31 -0700
-Message-ID: <1508200182-104605-48-git-send-email-keescook@chromium.org>
+Subject: [PATCH 22/58] net: can: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:06 -0700
+Message-ID: <1508200182-104605-23-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org,
-        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
+        Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -17,47 +19,78 @@ In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: linux-mips@linux-mips.org
+Cc: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-can@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/sgi/ioc3-eth.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ net/can/af_can.c | 4 ++--
+ net/can/af_can.h | 2 +-
+ net/can/proc.c   | 8 ++++----
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/sgi/ioc3-eth.c b/drivers/net/ethernet/sgi/ioc3-eth.c
-index 9c0488e0f08e..18d533fdf14c 100644
---- a/drivers/net/ethernet/sgi/ioc3-eth.c
-+++ b/drivers/net/ethernet/sgi/ioc3-eth.c
-@@ -764,9 +764,9 @@ static inline void ioc3_setup_duplex(struct ioc3_private *ip)
- 	ioc3_w_emcr(ip->emcr);
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 88edac0f3e36..1f75e11ac35a 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -882,8 +882,8 @@ static int can_pernet_init(struct net *net)
+ 	if (IS_ENABLED(CONFIG_PROC_FS)) {
+ 		/* the statistics are updated every second (timer triggered) */
+ 		if (stats_timer) {
+-			setup_timer(&net->can.can_stattimer, can_stat_update,
+-				    (unsigned long)net);
++			timer_setup(&net->can.can_stattimer, can_stat_update,
++				    0);
+ 			mod_timer(&net->can.can_stattimer,
+ 				  round_jiffies(jiffies + HZ));
+ 		}
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index d0ef45bb2a72..eca6463c6213 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -113,6 +113,6 @@ struct s_pstats {
+ /* function prototypes for the CAN networklayer procfs (proc.c) */
+ void can_init_proc(struct net *net);
+ void can_remove_proc(struct net *net);
+-void can_stat_update(unsigned long data);
++void can_stat_update(struct timer_list *t);
+ 
+ #endif /* AF_CAN_H */
+diff --git a/net/can/proc.c b/net/can/proc.c
+index 83045f00c63c..d979b3dc49a6 100644
+--- a/net/can/proc.c
++++ b/net/can/proc.c
+@@ -115,9 +115,9 @@ static unsigned long calc_rate(unsigned long oldjif, unsigned long newjif,
+ 	return rate;
  }
  
--static void ioc3_timer(unsigned long data)
-+static void ioc3_timer(struct timer_list *t)
+-void can_stat_update(unsigned long data)
++void can_stat_update(struct timer_list *t)
  {
--	struct ioc3_private *ip = (struct ioc3_private *) data;
-+	struct ioc3_private *ip = from_timer(ip, t, ioc3_timer);
+-	struct net *net = (struct net *)data;
++	struct net *net = from_timer(net, t, can.can_stattimer);
+ 	struct s_stats *can_stats = net->can.can_stats;
+ 	unsigned long j = jiffies; /* snapshot */
  
- 	/* Print the link status if it has changed */
- 	mii_check_media(&ip->mii, 1, 0);
-@@ -818,8 +818,6 @@ static int ioc3_mii_init(struct ioc3_private *ip)
- static void ioc3_mii_start(struct ioc3_private *ip)
- {
- 	ip->ioc3_timer.expires = jiffies + (12 * HZ)/10;  /* 1.2 sec. */
--	ip->ioc3_timer.data = (unsigned long) ip;
--	ip->ioc3_timer.function = ioc3_timer;
- 	add_timer(&ip->ioc3_timer);
- }
+@@ -221,7 +221,7 @@ static int can_stats_proc_show(struct seq_file *m, void *v)
  
-@@ -1291,7 +1289,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- #endif
+ 	seq_putc(m, '\n');
  
- 	spin_lock_init(&ip->ioc3_lock);
--	init_timer(&ip->ioc3_timer);
-+	timer_setup(&ip->ioc3_timer, ioc3_timer, 0);
+-	if (net->can.can_stattimer.function == can_stat_update) {
++	if (net->can.can_stattimer.function == (TIMER_FUNC_TYPE)can_stat_update) {
+ 		seq_printf(m, " %8ld %% total match ratio (RXMR)\n",
+ 				can_stats->total_rx_match_ratio);
  
- 	ioc3_stop(ip);
- 	ioc3_init(dev);
+@@ -291,7 +291,7 @@ static int can_reset_stats_proc_show(struct seq_file *m, void *v)
+ 
+ 	user_reset = 1;
+ 
+-	if (net->can.can_stattimer.function == can_stat_update) {
++	if (net->can.can_stattimer.function == (TIMER_FUNC_TYPE)can_stat_update) {
+ 		seq_printf(m, "Scheduled statistic reset #%ld.\n",
+ 				can_pstats->stats_reset + 1);
+ 	} else {
 -- 
 2.7.4
