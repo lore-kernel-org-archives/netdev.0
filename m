@@ -1,9 +1,10 @@
 From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net 1/3] mm, percpu: add support for __GFP_NOWARN flag
-Date: Tue, 17 Oct 2017 08:53:50 -0700
-Message-ID: <20171017155349.k5cfpirons56w2ox@ast-mbp.dhcp.thefacebook.com>
+Subject: Re: [PATCH net 2/3] bpf: fix splat for illegal devmap percpu
+ allocation
+Date: Tue, 17 Oct 2017 08:54:13 -0700
+Message-ID: <20171017155411.bwadbz7zlrfo7wf3@ast-mbp.dhcp.thefacebook.com>
 References: <cover.1508251210.git.daniel@iogearbox.net>
- <beeeab23cda20c0b0ee3e4ccb30b91518de6c075.1508251210.git.daniel@iogearbox.net>
+ <dd091b1fec763d74185a156ecd2f972810bdd1ce.1508251210.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, tj@kernel.org, ast@kernel.org,
@@ -13,45 +14,37 @@ Cc: davem@davemloft.net, tj@kernel.org, ast@kernel.org,
 To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <beeeab23cda20c0b0ee3e4ccb30b91518de6c075.1508251210.git.daniel@iogearbox.net>
+In-Reply-To: <dd091b1fec763d74185a156ecd2f972810bdd1ce.1508251210.git.daniel@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 04:55:52PM +0200, Daniel Borkmann wrote:
-> Add an option for pcpu_alloc() to support __GFP_NOWARN flag.
-> Currently, we always throw a warning when size or alignment
-> is unsupported (and also dump stack on failed allocation
-> requests). The warning itself is harmless since we return
-> NULL anyway for any failed request, which callers are
-> required to handle anyway. However, it becomes harmful when
-> panic_on_warn is set.
+On Tue, Oct 17, 2017 at 04:55:53PM +0200, Daniel Borkmann wrote:
+> It was reported that syzkaller was able to trigger a splat on
+> devmap percpu allocation due to illegal/unsupported allocation
+> request size passed to __alloc_percpu():
 > 
-> The rationale for the WARN() in pcpu_alloc() is that it can
-> be tracked when larger than supported allocation requests are
-> made such that allocations limits can be tweaked if warranted.
-> This makes sense for in-kernel users, however, there are users
-> of pcpu allocator where allocation size is derived from user
-> space requests, e.g. when creating BPF maps. In these cases,
-> the requests should fail gracefully without throwing a splat.
+>   [   70.094249] illegal size (32776) or align (8) for percpu allocation
+>   [   70.094256] ------------[ cut here ]------------
+>   [   70.094259] WARNING: CPU: 3 PID: 3451 at mm/percpu.c:1365 pcpu_alloc+0x96/0x630
+>   [...]
+>   [   70.094325] Call Trace:
+>   [   70.094328]  __alloc_percpu_gfp+0x12/0x20
+>   [   70.094330]  dev_map_alloc+0x134/0x1e0
+>   [   70.094331]  SyS_bpf+0x9bc/0x1610
+>   [   70.094333]  ? selinux_task_setrlimit+0x5a/0x60
+>   [   70.094334]  ? security_task_setrlimit+0x43/0x60
+>   [   70.094336]  entry_SYSCALL_64_fastpath+0x1a/0xa5
 > 
-> The current work-around was to check allocation size against
-> the upper limit of PCPU_MIN_UNIT_SIZE from call-sites for
-> bailing out prior to a call to pcpu_alloc() in order to
-> avoid throwing the WARN(). This is bad in multiple ways since
-> PCPU_MIN_UNIT_SIZE is an implementation detail, and having
-> the checks on call-sites only complicates the code for no
-> good reason. Thus, lets fix it generically by supporting the
-> __GFP_NOWARN flag that users can then use with calling the
-> __alloc_percpu_gfp() helper instead.
+> This was due to too large max_entries for the map such that we
+> surpassed the upper limit of PCPU_MIN_UNIT_SIZE. It's fine to
+> fail naturally here, so switch to __alloc_percpu_gfp() and pass
+> __GFP_NOWARN instead.
 > 
+> Fixes: 11393cc9b9be ("xdp: Add batching support to redirect map")
+> Reported-by: Mark Rutland <mark.rutland@arm.com>
+> Reported-by: Shankara Pailoor <sp3485@columbia.edu>
+> Reported-by: Richard Weinberger <richard@nod.at>
 > Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Tejun Heo <tj@kernel.org>
-> Cc: Mark Rutland <mark.rutland@arm.com>
-
-The approach looks great to me. We've been doing this dance around
-allocator warning for long time. It's really not a job of bpf code
-to guess into valid parameters of pcpu alloc.
-Adding support for __GFP_NOWARN and using it in bpf is much cleaner
-fix that avoids layering violations.
+> Cc: John Fastabend <john.fastabend@gmail.com>
 
 Acked-by: Alexei Starovoitov <ast@kernel.org>
