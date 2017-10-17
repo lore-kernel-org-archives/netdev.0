@@ -1,73 +1,184 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 1/3] ipv6: fix route cache dump
-Date: Tue, 17 Oct 2017 21:35:17 +0200
-Message-ID: <1508268917.2548.6.camel@redhat.com>
-References: <cover.1508261949.git.pabeni@redhat.com>
-         <e54ccbb0c97570a8c1a9c97a3c7bc8a910f02083.1508261949.git.pabeni@redhat.com>
-         <CAEA6p_DRZA4aHW-Rxb7kJnwhPAy9HqDzY1nQgFGjCwNeVmTfJA@mail.gmail.com>
-         <CANn89iK867x7NSoLbDC55CnZg2DHhLc-=pvNQAD3W6hRqiu+Fw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] dccp/tcp: fix ireq->opt races
+Date: Tue, 17 Oct 2017 12:45:26 -0700
+Message-ID: <1508269526.31614.113.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Martin KaFai Lau <kafai@fb.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Eric Dumazet <edumazet@google.com>, Wei Wang <weiwan@google.com>
+Cc: netdev <netdev@vger.kernel.org>, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57111 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965952AbdJQTfU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 15:35:20 -0400
-In-Reply-To: <CANn89iK867x7NSoLbDC55CnZg2DHhLc-=pvNQAD3W6hRqiu+Fw@mail.gmail.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:53402 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753174AbdJQTpa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 15:45:30 -0400
+Received: by mail-it0-f65.google.com with SMTP id n195so3744778itg.2
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 12:45:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <edumazet@google.com>
 
-On Tue, 2017-10-17 at 11:41 -0700, Eric Dumazet wrote:
-> On Tue, Oct 17, 2017 at 11:26 AM, Wei Wang <weiwan@google.com> wrote:
-> > On Tue, Oct 17, 2017 at 10:40 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > > After the commit 2b760fcf5cfb ("ipv6: hook up exception table to
-> > > store dst cache"), entries in the routing cache are not shown by:
-> > > 
-> > > ip route show cache
-> > 
-> > Hi Paolo,
-> > 
-> > Thanks for doing this.
-> > But I think your patch does not take care of the case where there are
-> > a lot of cached routes in the exception table and 1 skb is just not
-> > enough to dump the main route + all cached routes in the exception
-> > table.
-> > In this case, your patch will keep dumping the same main route.
-> > 
-> > I think some logic needs to be incorporated into the fib6_walk() so
-> > that it can also remember the last dumped cached route if necessary in
-> > the exception table and start from there for the next dump.
-> > I do have a patch for that and that patch tries to keep a linked list
-> > of all cached routes from the exception table in the walker struct and
-> > remove any routes that are already dumped.
-> > It is a bit complicated and might not be the best solution. And as
-> > IPv4 already does not support dumping cached routes, I did not send
-> > that out in the previous patch series.
+syzkaller found another bug in DCCP/TCP stacks [1]
 
-Thanks for the feedback.
+For the reasons explained in commit ce1050089c96 ("tcp/dccp: fix
+ireq->pktopts race"), we need to make sure we do not access
+ireq->opt unless we own the request sock.
 
-You are right, I was too hasty with this.
+[1]
+BUG: KASAN: use-after-free in ip_queue_xmit+0x1687/0x18e0 net/ipv4/ip_output.c:474
+Read of size 1 at addr ffff8801c951039c by task syz-executor5/3295
 
-> Yes, since we no longer dump IPV4 cached routes, I doubt anyone
-> depends on IPv6 cached routes, but not on IPv4 ones.
-> 
-> Paolo, do you have a concrete use case for this ?
+CPU: 1 PID: 3295 Comm: syz-executor5 Not tainted 4.14.0-rc4+ #80
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ print_address_description+0x73/0x250 mm/kasan/report.c:252
+ kasan_report_error mm/kasan/report.c:351 [inline]
+ kasan_report+0x25b/0x340 mm/kasan/report.c:409
+ __asan_report_load1_noabort+0x14/0x20 mm/kasan/report.c:427
+ ip_queue_xmit+0x1687/0x18e0 net/ipv4/ip_output.c:474
+ tcp_transmit_skb+0x1ab7/0x3840 net/ipv4/tcp_output.c:1135
+ tcp_send_ack.part.37+0x3bb/0x650 net/ipv4/tcp_output.c:3587
+ tcp_send_ack+0x49/0x60 net/ipv4/tcp_output.c:3557
+ __tcp_ack_snd_check+0x2c6/0x4b0 net/ipv4/tcp_input.c:5072
+ tcp_ack_snd_check net/ipv4/tcp_input.c:5085 [inline]
+ tcp_rcv_state_process+0x2eff/0x4850 net/ipv4/tcp_input.c:6071
+ tcp_child_process+0x342/0x990 net/ipv4/tcp_minisocks.c:816
+ tcp_v4_rcv+0x1827/0x2f80 net/ipv4/tcp_ipv4.c:1682
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_local_deliver+0x1ce/0x6e0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:464 [inline]
+ ip_rcv_finish+0x887/0x19a0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_rcv+0xc3f/0x1820 net/ipv4/ip_input.c:493
+ __netif_receive_skb_core+0x1a3e/0x34b0 net/core/dev.c:4476
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4514
+ netif_receive_skb_internal+0x10b/0x670 net/core/dev.c:4587
+ netif_receive_skb+0xae/0x390 net/core/dev.c:4611
+ tun_rx_batched.isra.50+0x5ed/0x860 drivers/net/tun.c:1372
+ tun_get_user+0x249c/0x36d0 drivers/net/tun.c:1766
+ tun_chr_write_iter+0xbf/0x160 drivers/net/tun.c:1792
+ call_write_iter include/linux/fs.h:1770 [inline]
+ new_sync_write fs/read_write.c:468 [inline]
+ __vfs_write+0x68a/0x970 fs/read_write.c:481
+ vfs_write+0x18f/0x510 fs/read_write.c:543
+ SYSC_write fs/read_write.c:588 [inline]
+ SyS_write+0xef/0x220 fs/read_write.c:580
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x40c341
+RSP: 002b:00007f469523ec10 EFLAGS: 00000293 ORIG_RAX: 0000000000000001
+RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 000000000040c341
+RDX: 0000000000000037 RSI: 0000000020004000 RDI: 0000000000000015
+RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+R10: 00000000000f4240 R11: 0000000000000293 R12: 00000000004b7fd1
+R13: 00000000ffffffff R14: 0000000020000000 R15: 0000000000025000
 
-I have a testing script looking for that, but I guess I can adapt it.
+Allocated by task 3295:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:551
+ __do_kmalloc mm/slab.c:3725 [inline]
+ __kmalloc+0x162/0x760 mm/slab.c:3734
+ kmalloc include/linux/slab.h:498 [inline]
+ tcp_v4_save_options include/net/tcp.h:1962 [inline]
+ tcp_v4_init_req+0x2d3/0x3e0 net/ipv4/tcp_ipv4.c:1271
+ tcp_conn_request+0xf6d/0x3410 net/ipv4/tcp_input.c:6283
+ tcp_v4_conn_request+0x157/0x210 net/ipv4/tcp_ipv4.c:1313
+ tcp_rcv_state_process+0x8ea/0x4850 net/ipv4/tcp_input.c:5857
+ tcp_v4_do_rcv+0x55c/0x7d0 net/ipv4/tcp_ipv4.c:1482
+ tcp_v4_rcv+0x2d10/0x2f80 net/ipv4/tcp_ipv4.c:1711
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_local_deliver+0x1ce/0x6e0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:464 [inline]
+ ip_rcv_finish+0x887/0x19a0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_rcv+0xc3f/0x1820 net/ipv4/ip_input.c:493
+ __netif_receive_skb_core+0x1a3e/0x34b0 net/core/dev.c:4476
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4514
+ netif_receive_skb_internal+0x10b/0x670 net/core/dev.c:4587
+ netif_receive_skb+0xae/0x390 net/core/dev.c:4611
+ tun_rx_batched.isra.50+0x5ed/0x860 drivers/net/tun.c:1372
+ tun_get_user+0x249c/0x36d0 drivers/net/tun.c:1766
+ tun_chr_write_iter+0xbf/0x160 drivers/net/tun.c:1792
+ call_write_iter include/linux/fs.h:1770 [inline]
+ new_sync_write fs/read_write.c:468 [inline]
+ __vfs_write+0x68a/0x970 fs/read_write.c:481
+ vfs_write+0x18f/0x510 fs/read_write.c:543
+ SYSC_write fs/read_write.c:588 [inline]
+ SyS_write+0xef/0x220 fs/read_write.c:580
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
 
-I'm fine with dropping cached routes dumping support if there is
-agreement on that.
+Freed by task 3306:
+ save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:59
+ save_stack+0x43/0xd0 mm/kasan/kasan.c:447
+ set_track mm/kasan/kasan.c:459 [inline]
+ kasan_slab_free+0x71/0xc0 mm/kasan/kasan.c:524
+ __cache_free mm/slab.c:3503 [inline]
+ kfree+0xca/0x250 mm/slab.c:3820
+ inet_sock_destruct+0x59d/0x950 net/ipv4/af_inet.c:157
+ __sk_destruct+0xfd/0x910 net/core/sock.c:1560
+ sk_destruct+0x47/0x80 net/core/sock.c:1595
+ __sk_free+0x57/0x230 net/core/sock.c:1603
+ sk_free+0x2a/0x40 net/core/sock.c:1614
+ sock_put include/net/sock.h:1652 [inline]
+ inet_csk_complete_hashdance+0xd5/0xf0 net/ipv4/inet_connection_sock.c:959
+ tcp_check_req+0xf4d/0x1620 net/ipv4/tcp_minisocks.c:765
+ tcp_v4_rcv+0x17f6/0x2f80 net/ipv4/tcp_ipv4.c:1675
+ ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_local_deliver+0x1ce/0x6e0 net/ipv4/ip_input.c:257
+ dst_input include/net/dst.h:464 [inline]
+ ip_rcv_finish+0x887/0x19a0 net/ipv4/ip_input.c:397
+ NF_HOOK include/linux/netfilter.h:249 [inline]
+ ip_rcv+0xc3f/0x1820 net/ipv4/ip_input.c:493
+ __netif_receive_skb_core+0x1a3e/0x34b0 net/core/dev.c:4476
+ __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4514
+ netif_receive_skb_internal+0x10b/0x670 net/core/dev.c:4587
+ netif_receive_skb+0xae/0x390 net/core/dev.c:4611
+ tun_rx_batched.isra.50+0x5ed/0x860 drivers/net/tun.c:1372
+ tun_get_user+0x249c/0x36d0 drivers/net/tun.c:1766
+ tun_chr_write_iter+0xbf/0x160 drivers/net/tun.c:1792
+ call_write_iter include/linux/fs.h:1770 [inline]
+ new_sync_write fs/read_write.c:468 [inline]
+ __vfs_write+0x68a/0x970 fs/read_write.c:481
+ vfs_write+0x18f/0x510 fs/read_write.c:543
+ SYSC_write fs/read_write.c:588 [inline]
+ SyS_write+0xef/0x220 fs/read_write.c:580
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
 
-I haven't understood that such change was intentional.
+The buggy address belongs to the object at ffff8801c9510380
+ which belongs to the cache kmalloc-64 of size 64
+The buggy address is located 28 bytes inside of
+ 64-byte region [ffff8801c9510380, ffff8801c95103c0)
+The buggy address belongs to the page:
+page:ffffea0007254400 count:1 mapcount:0 mapping:ffff8801c9510000 index:0x0
+flags: 0x200000000000100(slab)
+raw: 0200000000000100 ffff8801c9510000 0000000000000000 0000000100000020
+raw: ffffea0007264f60 ffffea00072e2ae0 ffff8801dac00340 0000000000000000
+page dumped because: kasan: bad access detected
 
-Cheers,
+Memory state around the buggy address:
+ ffff8801c9510280: fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+ ffff8801c9510300: fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+>ffff8801c9510380: fb fb fb fb fb fb fb fb fc fc fc fc fc fc fc fc
+                            ^
+ ffff8801c9510400: 00 00 00 00 00 fc fc fc fc fc fc fc fc fc fc fc
+ ffff8801c9510480: 00 00 00 00 00 00 fc fc fc fc fc fc fc fc fc fc
+==================================================================
 
-Paolo
+Fixes: e994b2f0fb92 ("tcp: do not lock listener to process SYN packets")
+Fixes: 079096f103fa ("tcp/dccp: install syn_recv requests into ehash table")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ include/net/inet_sock.h         |    2 +-
+ net/dccp/ipv4.c                 |   13 ++++++++-----
+ net/ipv4/inet_connection_sock.c |    8 +++-----
+ net/ipv4/syncookies.c           |    2 +-
+ net/ipv4/tcp_input.c            |    2 +-
+ net/ipv4/tcp_ipv4.c             |   22 +++++++++++++---------
+ 6 files changed, 27 insertions(+), 22 deletions(-)
