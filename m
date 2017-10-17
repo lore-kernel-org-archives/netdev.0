@@ -1,105 +1,177 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 3/3] ipv6: obsolete cached dst when removing
- them from fib tree
-Date: Tue, 17 Oct 2017 22:02:58 +0200
-Message-ID: <1508270578.2548.22.camel@redhat.com>
-References: <cover.1508261949.git.pabeni@redhat.com>
-         <59304478d82e52c817c92d183ef2105f35c17266.1508261949.git.pabeni@redhat.com>
-         <CAEA6p_CMZu-ooO4sKXD3=wg8_wcAB+oZbTujJ4hEDQnjPZRNwg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Wei Wang <weiwan@google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 07/20] net: sched: cls_u32: call block callbacks for offload
+Date: Tue, 17 Oct 2017 22:06:02 +0200
+Message-ID: <20171017200615.4530-8-jiri@resnulli.us>
+References: <20171017200615.4530-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, ast@kernel.org, daniel@iogearbox.net,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, alexander.h.duyck@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35838 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754805AbdJQUDB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 16:03:01 -0400
-In-Reply-To: <CAEA6p_CMZu-ooO4sKXD3=wg8_wcAB+oZbTujJ4hEDQnjPZRNwg@mail.gmail.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:46135 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1764044AbdJQUGY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 16:06:24 -0400
+Received: by mail-wr0-f196.google.com with SMTP id l1so2907923wrc.3
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:06:23 -0700 (PDT)
+In-Reply-To: <20171017200615.4530-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-10-17 at 11:58 -0700, Wei Wang wrote:
-> On Tue, Oct 17, 2017 at 10:40 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > The commit 2b760fcf5cfb ("ipv6: hook up exception table to store
-> > dst cache") partially reverted 1e2ea8ad37be ("ipv6: set
-> > dst.obsolete when a cached route has expired").
-> > 
-> > This change brings back the dst obsoleting and push it a step
-> > farther: cached dst are always obsoleted when removed from the
-> > fib tree, and removal by time expiration is now performed
-> > regardless of dst->__refcnt, to be consistent with what we
-> > already do for RTF_GATEWAY dst.
-> > 
-> > Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> >  net/ipv6/route.c | 13 +++++++++++--
-> >  1 file changed, 11 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> > index 8b25a31b6b03..fce740049e3e 100644
-> > --- a/net/ipv6/route.c
-> > +++ b/net/ipv6/route.c
-> > @@ -1147,6 +1147,12 @@ static void rt6_remove_exception(struct rt6_exception_bucket *bucket,
-> >         if (!bucket || !rt6_ex)
-> >                 return;
-> > 
-> > +       /* sockets, flow cache, etc. can hold a refence to this dst, be sure
-> > +        * they will drop it.
-> > +        */
-> > +       if (rt6_ex->rt6i)
-> > +               rt6_ex->rt6i->dst.obsolete = DST_OBSOLETE_FORCE_CHK;
-> > +
-> 
-> Hmm... I don't really think it is needed. rt6 is created with
-> rt6->dst.obsolete set to DST_OBSOLETE_FORCE_CHK. And by the time the
-> above function is called, it should still be that value.
-> Furthermore, the later call rt6_release() calls dst_dev_put() which
-> sets rt6->dst.obsolete to DST_OBSOLETE_DEAD to indicate this route has
-> been removed from the tree.
+From: Jiri Pirko <jiri@mellanox.com>
 
-You are right, this looks as not needed, if we keep the chunck below.
+Use the newly introduced callbacks infrastructure and call block
+callbacks alongside with the existing per-netdev ndo_setup_tc.
 
-> >         net = dev_net(rt6_ex->rt6i->dst.dev);
-> >         rt6_ex->rt6i->rt6i_node = NULL;
-> >         hlist_del_rcu(&rt6_ex->hlist);
-> > @@ -1575,8 +1581,11 @@ static void rt6_age_examine_exception(struct rt6_exception_bucket *bucket,
-> >  {
-> >         struct rt6_info *rt = rt6_ex->rt6i;
-> > 
-> > -       if (atomic_read(&rt->dst.__refcnt) == 1 &&
-> > -           time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-> > +       /* we are pruning and obsoleting the exception route even if others
-> > +        * have still reference to it, so that on next dst_check() such
-> > +        * reference can be dropped
-> > +        */
-> > +       if (time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-> 
-> Why do we want to change this behavior? Before my patch series, cached
-> routes were only deleted from the tree in fib6_age() when
-> rt->dst.__refcnt == 1, isn't it?
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/cls_u32.c | 72 ++++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 52 insertions(+), 20 deletions(-)
 
-yes, but that really looks like a relic from ancient past more than
-something really needed. We already remove from the dst from fib tree
-regardless of the refcnt if the gateway validation fails - a few lines
-below in the same function.
-
-Waiting for __refcnt going down will let the kernel keep the exception
-entry around for much longer - potentially forever, if e.g. we have a
-reference in a socket dst cache and the application stops processing
-packets. 
-
-Meanwhile others sockets may grab more references to (and use) the same
-aged-out dst.
-
-The commit 1e2ea8ad37be ("ipv6: set dst.obsolete when a cached route
-has expired") was the solution to the above issue prior to the recent
-refactor.
-
-Cheers,
-
-Paolo
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index f407f13..24cc429 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -465,39 +465,57 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
+ 
+-	if (!tc_should_offload(dev, 0))
+-		return;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_DELETE_HNODE;
+ 	cls_u32.hnode.divisor = h->divisor;
+ 	cls_u32.hnode.handle = h->handle;
+ 	cls_u32.hnode.prio = h->prio;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	if (tc_can_offload(dev))
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, false);
+ }
+ 
+ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
+ 				u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
++	bool skip_sw = tc_skip_sw(flags);
++	bool offloaded = false;
+ 	int err;
+ 
+-	if (!tc_should_offload(dev, flags))
+-		return tc_skip_sw(flags) ? -EINVAL : 0;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_NEW_HNODE;
+ 	cls_u32.hnode.divisor = h->divisor;
+ 	cls_u32.hnode.handle = h->handle;
+ 	cls_u32.hnode.prio = h->prio;
+ 
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+-	if (tc_skip_sw(flags))
++	if (tc_can_offload(dev)) {
++		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
++						    &cls_u32);
++		if (err) {
++			if (skip_sw)
++				return err;
++		} else {
++			offloaded = true;
++		}
++	}
++
++	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, skip_sw);
++	if (err < 0) {
++		u32_clear_hw_hnode(tp, h);
+ 		return err;
++	} else if (err > 0) {
++		offloaded = true;
++	}
++
++	if (skip_sw && !offloaded)
++		return -EINVAL;
+ 
+ 	return 0;
+ }
+@@ -505,28 +523,27 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
+ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
+ 
+-	if (!tc_should_offload(dev, 0))
+-		return;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_DELETE_KNODE;
+ 	cls_u32.knode.handle = handle;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	if (tc_can_offload(dev))
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, false);
+ }
+ 
+ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+ 				u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
++	bool skip_sw = tc_skip_sw(flags);
+ 	int err;
+ 
+-	if (!tc_should_offload(dev, flags))
+-		return tc_skip_sw(flags) ? -EINVAL : 0;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_REPLACE_KNODE;
+ 	cls_u32.knode.handle = n->handle;
+@@ -543,13 +560,28 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+ 	if (n->ht_down)
+ 		cls_u32.knode.link_handle = n->ht_down->handle;
+ 
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+ 
+-	if (!err)
+-		n->flags |= TCA_CLS_FLAGS_IN_HW;
++	if (tc_can_offload(dev)) {
++		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
++						    &cls_u32);
++		if (err) {
++			if (skip_sw)
++				return err;
++		} else {
++			n->flags |= TCA_CLS_FLAGS_IN_HW;
++		}
++	}
+ 
+-	if (tc_skip_sw(flags))
++	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, skip_sw);
++	if (err < 0) {
++		u32_remove_hw_knode(tp, n->handle);
+ 		return err;
++	} else if (err > 0) {
++		n->flags |= TCA_CLS_FLAGS_IN_HW;
++	}
++
++	if (skip_sw && !(n->flags && TCA_CLS_FLAGS_IN_HW))
++		return -EINVAL;
+ 
+ 	return 0;
+ }
+-- 
+2.9.5
