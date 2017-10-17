@@ -1,84 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: do not peel off an assoc from one netns to
- another one
-Date: Tue, 17 Oct 2017 13:33:25 -0400
-Message-ID: <20171017173325.GA23530@hmswarspite.think-freely.org>
-References: <e637d68ce6f4f94dce8cb30c647e672ebb1f0b7b.1508253970.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        chunwang@redhat.com, syzkaller@googlegroups.com
-To: Xin Long <lucien.xin@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/3] ibmvnic: Enable SG and TSO feature support
+Date: Tue, 17 Oct 2017 12:36:53 -0500
+Message-ID: <1508261816-3145-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37178 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763517AbdJQReD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 13:34:03 -0400
-Content-Disposition: inline
-In-Reply-To: <e637d68ce6f4f94dce8cb30c647e672ebb1f0b7b.1508253970.git.lucien.xin@gmail.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:41744 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753310AbdJQRhK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 13:37:10 -0400
+Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9HHan8v063579
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:37:10 -0400
+Received: from e35.co.us.ibm.com (e35.co.us.ibm.com [32.97.110.153])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2dnk981vd9-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 13:37:09 -0400
+Received: from localhost
+        by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+        Tue, 17 Oct 2017 11:37:08 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 11:26:10PM +0800, Xin Long wrote:
-> Now when peeling off an association to the sock in another netns, all
-> transports in this assoc are not to be rehashed and keep use the old
-> key in hashtable.
-> 
-> As a transport uses sk->net as the hash key to insert into hashtable,
-> it would miss removing these transports from hashtable due to the new
-> netns when closing the sock and all transports are being freeed, then
-> later an use-after-free issue could be caused when looking up an asoc
-> and dereferencing those transports.
-> 
-> This is a very old issue since very beginning, ChunYu found it with
-> syzkaller fuzz testing with this series:
-> 
->   socket$inet6_sctp()
->   bind$inet6()
->   sendto$inet6()
->   unshare(0x40000000)
->   getsockopt$inet_sctp6_SCTP_GET_ASSOC_ID_LIST()
->   getsockopt$inet_sctp6_SCTP_SOCKOPT_PEELOFF()
-> 
-> This patch is to block this call when peeling one assoc off from one
-> netns to another one, so that the netns of all transport would not
-> go out-sync with the key in hashtable.
-> 
-> Note that this patch didn't fix it by rehashing transports, as it's
-> difficult to handle the situation when the tuple is already in use
-> in the new netns. Besides, no one would like to peel off one assoc
-> to another netns, considering ipaddrs, ifaces, etc. are usually
-> different.
-> 
-> Reported-by: ChunYu Wang <chunwang@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/socket.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index d4730ad..17841ab 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4906,6 +4906,10 @@ int sctp_do_peeloff(struct sock *sk, sctp_assoc_t id, struct socket **sockp)
->  	struct socket *sock;
->  	int err = 0;
->  
-> +	/* Do not peel off from one netns to another one. */
-> +	if (!net_eq(current->nsproxy->net_ns, sock_net(sk)))
-> +		return -EINVAL;
-> +
->  	if (!asoc)
->  		return -EINVAL;
->  
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+This patch set is fairly straightforward. The first patch enables
+scatter-gather support in the ibmvnic driver. The following patch
+then enables the TCP Segmentation offload feature. The final patch 
+allows users to enable or disable net device features using ethtool.
+
+Enabling SG and TSO grants a large increase in throughput with TX
+speed increasing from 1Gb/s to 9Gb/s in our initial test runs.
+
+Thomas Falcon (3):
+  ibmvnic: Enable scatter-gather support
+  ibmvnic: Enable TSO support
+  ibmvnic: Let users change net device features
+
+ drivers/net/ethernet/ibm/ibmvnic.c | 81 +++++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/ibm/ibmvnic.h |  5 +++
+ 2 files changed, 76 insertions(+), 10 deletions(-)
+
+-- 
+1.8.3.1
