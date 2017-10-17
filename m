@@ -1,47 +1,49 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH 2/2 net-next] thunderbolt: Right shifting to zero bug in
- tbnet_handle_packet()
-Date: Tue, 17 Oct 2017 15:33:01 +0300
-Message-ID: <20171017123301.z6heqexdlo6lc52b@mwanda>
-References: <20171013112959.sc2pwazrpk7fxbtw@mwanda>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 27/34] nfp: bpf: Convert ndo_setup_tc offloads
+ to block callbacks
+Date: Tue, 17 Oct 2017 14:48:12 +0200
+Message-ID: <20171017124812.GH2112@nanopsycho>
+References: <20171012171823.1431-1-jiri@resnulli.us>
+ <20171012171823.1431-28-jiri@resnulli.us>
+ <20171012180824.1e76eac1@cakuba.netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mika Westerberg <mika.westerberg@linux.intel.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Michael Jamet <michael.jamet@intel.com>,
-        Amir Levy <amir.jer.levy@intel.com>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26500 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752634AbdJQMdO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 08:33:14 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:47115 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761883AbdJQMsO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 08:48:14 -0400
+Received: by mail-wm0-f66.google.com with SMTP id t69so3664571wmt.2
+        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 05:48:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20171013112959.sc2pwazrpk7fxbtw@mwanda>
+In-Reply-To: <20171012180824.1e76eac1@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a problem when we do:
+Fri, Oct 13, 2017 at 03:08:24AM CEST, jakub.kicinski@netronome.com wrote:
+>On Thu, 12 Oct 2017 19:18:16 +0200, Jiri Pirko wrote:
+>> diff --git a/drivers/net/ethernet/netronome/nfp/bpf/offload.c b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+>> index a88bb5b..9e9af88 100644
+>> --- a/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+>> +++ b/drivers/net/ethernet/netronome/nfp/bpf/offload.c
+>> @@ -246,6 +246,10 @@ int nfp_net_bpf_offload(struct nfp_net *nn, struct tc_cls_bpf_offload *cls_bpf)
+>>  	void *code;
+>>  	int err;
+>>  
+>> +	if (cls_bpf->common.protocol != htons(ETH_P_ALL) ||
+>> +	    cls_bpf->common.chain_index)
+>> +		return -EOPNOTSUPP;
+>> +
+>>  	max_instr = nn_readw(nn, NFP_NET_CFG_BPF_MAX_LEN);
+>>  
+>>  	switch (cls_bpf->command) {
+>
+>It is certainly very ugly but I send a fake struct tc_cls_bpf_offload
+>here for XDP.  Refactoring this mess is pretty high on my priority list
+>but one way or the other this function will be called from XDP so TC
+>checks must stay in the TC handler... :(
 
-	sequence = pkg->hdr.length_sn & TBIP_HDR_SN_MASK;
-	sequence >>= TBIP_HDR_SN_SHIFT;
-
-TBIP_HDR_SN_SHIFT is 27, and right shifting a u8 27 bits is always
-going to result in zero.  The fix is to declare these variables as u32.
-
-Fixes: e69b6c02b4c3 ("net: Add support for networking over Thunderbolt cable")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/thunderbolt.c b/drivers/net/thunderbolt.c
-index 1a7bc0bf4598..435854688a7a 100644
---- a/drivers/net/thunderbolt.c
-+++ b/drivers/net/thunderbolt.c
-@@ -394,7 +394,7 @@ static int tbnet_handle_packet(const void *buf, size_t size, void *data)
- 	struct tbnet *net = data;
- 	u32 command_id;
- 	int ret = 0;
--	u8 sequence;
-+	u32 sequence;
- 	u64 route;
- 
- 	/* Make sure the packet is for us */
+Okay. But currently, why is it a problem? You don't need the checks for
+xdp path.
