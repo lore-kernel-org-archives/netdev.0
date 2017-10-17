@@ -1,62 +1,148 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 55/58] net: fs_enet: Remove unused timer
-Date: Mon, 16 Oct 2017 17:29:39 -0700
-Message-ID: <1508200182-104605-56-git-send-email-keescook@chromium.org>
+Subject: [PATCH 26/58] bna: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:10 -0700
+Message-ID: <1508200182-104605-27-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Vitaly Bordug <vbordug@ru.mvista.com>,
- Thomas Gleixner <tglx@linutronix.de>, linuxppc-dev@lists.ozlabs.org
+Cc: Kees Cook <keescook@chromium.org>,
+        Rasesh Mody <rasesh.mody@cavium.com>,
+        Sudarsana Kalluru <sudarsana.kalluru@cavium.com>,
+        Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
+        linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Removes unused timer and its old initialization call.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-Cc: Pantelis Antoniou <pantelis.antoniou@gmail.com>
-Cc: Vitaly Bordug <vbordug@ru.mvista.com>
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: Rasesh Mody <rasesh.mody@cavium.com>
+Cc: Sudarsana Kalluru <sudarsana.kalluru@cavium.com>
+Cc: Dept-GELinuxNICDev@cavium.com
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 2 --
- drivers/net/ethernet/freescale/fs_enet/fs_enet.h      | 1 -
- 2 files changed, 3 deletions(-)
+ drivers/net/ethernet/brocade/bna/bnad.c | 43 +++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index 753259091b22..7892f2f0c6b5 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -1023,8 +1023,6 @@ static int fs_enet_probe(struct platform_device *ofdev)
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index 6e13c937d715..a843076597ec 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -1693,9 +1693,9 @@ bnad_rx_res_alloc(struct bnad *bnad, struct bna_res_info *res_info,
+ /* Timer callbacks */
+ /* a) IOC timer */
+ static void
+-bnad_ioc_timeout(unsigned long data)
++bnad_ioc_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.ioc_timer);
+ 	unsigned long flags;
  
- 	ndev->ethtool_ops = &fs_ethtool_ops;
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1704,9 +1704,9 @@ bnad_ioc_timeout(unsigned long data)
+ }
  
--	init_timer(&fep->phy_timer_list);
--
- 	netif_carrier_off(ndev);
+ static void
+-bnad_ioc_hb_check(unsigned long data)
++bnad_ioc_hb_check(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.hb_timer);
+ 	unsigned long flags;
  
- 	ndev->features |= NETIF_F_SG;
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet.h b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
-index 5ce516c8a62a..dd306deb7cf1 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet.h
-@@ -137,7 +137,6 @@ struct fs_enet_private {
- 	cbd_t __iomem *cur_rx;
- 	cbd_t __iomem *cur_tx;
- 	int tx_free;
--	struct timer_list phy_timer_list;
- 	const struct phy_info *phy;
- 	u32 msg_enable;
- 	struct mii_if_info mii_if;
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1715,9 +1715,9 @@ bnad_ioc_hb_check(unsigned long data)
+ }
+ 
+ static void
+-bnad_iocpf_timeout(unsigned long data)
++bnad_iocpf_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.iocpf_timer);
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1726,9 +1726,9 @@ bnad_iocpf_timeout(unsigned long data)
+ }
+ 
+ static void
+-bnad_iocpf_sem_timeout(unsigned long data)
++bnad_iocpf_sem_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, bna.ioceth.ioc.sem_timer);
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+@@ -1748,9 +1748,9 @@ bnad_iocpf_sem_timeout(unsigned long data)
+ 
+ /* b) Dynamic Interrupt Moderation Timer */
+ static void
+-bnad_dim_timeout(unsigned long data)
++bnad_dim_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, dim_timer);
+ 	struct bnad_rx_info *rx_info;
+ 	struct bnad_rx_ctrl *rx_ctrl;
+ 	int i, j;
+@@ -1781,9 +1781,9 @@ bnad_dim_timeout(unsigned long data)
+ 
+ /* c)  Statistics Timer */
+ static void
+-bnad_stats_timeout(unsigned long data)
++bnad_stats_timeout(struct timer_list *t)
+ {
+-	struct bnad *bnad = (struct bnad *)data;
++	struct bnad *bnad = from_timer(bnad, t, stats_timer);
+ 	unsigned long flags;
+ 
+ 	if (!netif_running(bnad->netdev) ||
+@@ -1804,8 +1804,7 @@ bnad_dim_timer_start(struct bnad *bnad)
+ {
+ 	if (bnad->cfg_flags & BNAD_CF_DIM_ENABLED &&
+ 	    !test_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags)) {
+-		setup_timer(&bnad->dim_timer, bnad_dim_timeout,
+-			    (unsigned long)bnad);
++		timer_setup(&bnad->dim_timer, bnad_dim_timeout, 0);
+ 		set_bit(BNAD_RF_DIM_TIMER_RUNNING, &bnad->run_flags);
+ 		mod_timer(&bnad->dim_timer,
+ 			  jiffies + msecs_to_jiffies(BNAD_DIM_TIMER_FREQ));
+@@ -1823,8 +1822,7 @@ bnad_stats_timer_start(struct bnad *bnad)
+ 
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	if (!test_and_set_bit(BNAD_RF_STATS_TIMER_RUNNING, &bnad->run_flags)) {
+-		setup_timer(&bnad->stats_timer, bnad_stats_timeout,
+-			    (unsigned long)bnad);
++		timer_setup(&bnad->stats_timer, bnad_stats_timeout, 0);
+ 		mod_timer(&bnad->stats_timer,
+ 			  jiffies + msecs_to_jiffies(BNAD_STATS_TIMER_FREQ));
+ 	}
+@@ -3692,14 +3690,11 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 		goto res_free;
+ 
+ 	/* Set up timers */
+-	setup_timer(&bnad->bna.ioceth.ioc.ioc_timer, bnad_ioc_timeout,
+-		    (unsigned long)bnad);
+-	setup_timer(&bnad->bna.ioceth.ioc.hb_timer, bnad_ioc_hb_check,
+-		    (unsigned long)bnad);
+-	setup_timer(&bnad->bna.ioceth.ioc.iocpf_timer, bnad_iocpf_timeout,
+-		    (unsigned long)bnad);
+-	setup_timer(&bnad->bna.ioceth.ioc.sem_timer, bnad_iocpf_sem_timeout,
+-		    (unsigned long)bnad);
++	timer_setup(&bnad->bna.ioceth.ioc.ioc_timer, bnad_ioc_timeout, 0);
++	timer_setup(&bnad->bna.ioceth.ioc.hb_timer, bnad_ioc_hb_check, 0);
++	timer_setup(&bnad->bna.ioceth.ioc.iocpf_timer, bnad_iocpf_timeout, 0);
++	timer_setup(&bnad->bna.ioceth.ioc.sem_timer, bnad_iocpf_sem_timeout,
++		    0);
+ 
+ 	/*
+ 	 * Start the chip
 -- 
 2.7.4
