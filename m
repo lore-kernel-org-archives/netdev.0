@@ -1,169 +1,67 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Mon, 16 Oct 2017 18:10:42 -0700
-Message-ID: <81c15928-c445-fb8e-251c-bee566fbbf58@schaufler-ca.com>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
- <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
- <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+From: Chris Mi <chrism@mellanox.com>
+Subject: RE: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
+ to atomic
+Date: Tue, 17 Oct 2017 01:14:32 +0000
+Message-ID: <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
+ <1508152718-28726-2-git-send-email-chrism@mellanox.com>
+ <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: cgroups@vger.kernel.org,
-        Linux Containers <containers@lists.linux-foundation.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Linux Audit <linux-audit@redhat.com>,
-        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Linux Network Development <netdev@vger.kernel.org>,
-        mszeredi@redhat.com, Andy Lutomirski <luto@kernel.org>,
-        jlayton@redhat.com, Carlos O'Donell <carlos@redhat.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        David Howells <dhowells@redhat.com>,
-        Simo Sorce <simo@redhat.com>, trondmy@primarydata.com,
-        Eric Paris <eparis@parisplace.org>,
-        "Serge E. Hallyn" <serge@hallyn.com>,
-        "Eric W. Biederman" <ebiederm@xmission.com>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Lucas Bates <lucasb@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0068.outbound.protection.outlook.com ([104.47.1.68]:53216
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753983AbdJQBOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Oct 2017 21:14:36 -0400
+In-Reply-To: <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/16/2017 5:33 PM, Richard Guy Briggs wrote:
-> On 2017-10-12 16:33, Casey Schaufler wrote:
->> On 10/12/2017 7:14 AM, Richard Guy Briggs wrote:
->>> Containers are a userspace concept.  The kernel knows nothing of them.
->>>
->>> The Linux audit system needs a way to be able to track the container
->>> provenance of events and actions.  Audit needs the kernel's help to do
->>> this.
->>>
->>> Since the concept of a container is entirely a userspace concept, a
->>> registration from the userspace container orchestration system initiates
->>> this.  This will define a point in time and a set of resources
->>> associated with a particular container with an audit container ID.
->>>
->>> The registration is a pseudo filesystem (proc, since PID tree already
->>> exists) write of a u8[16] UUID representing the container ID to a file
->>> representing a process that will become the first process in a new
->>> container.  This write might place restrictions on mount namespaces
->>> required to define a container, or at least careful checking of
->>> namespaces in the kernel to verify permissions of the orchestrator so it
->>> can't change its own container ID.  A bind mount of nsfs may be
->>> necessary in the container orchestrator's mntNS.
->>> Note: Use a 128-bit scalar rather than a string to make compares faster
->>> and simpler.
->>>
->>> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
->>> registration.
->> Hang on. If containers are a user space concept, how can
->> you want CAP_CONTAINER_ANYTHING? If there's not such thing as
->> a container, how can you be asking for a capability to manage
->> them?
-> There is such a thing, but the kernel doesn't know about it yet.
-
-Then how can it be the kernel's place to control access to a
-container resource, that is, the containerID.
-
->   This
-> same situation exists for loginuid and sessionid which are userspace
-> concepts that the kernel tracks for the convenience of userspace.
-
-Ah, no. Loginuid identifies a user, which is a kernel concept in
-that a user is defined by the uid. The session ID has well defined
-kernel semantics. You're trying to say that the containerID is an
-opaque value that is meaningless to the kernel, but you still want
-the kernel to protect it. How can the kernel know if it is protecting
-it correctly?
-
->   As
-> for its name, I'm not particularly picky, so if you don't like
-> CAP_CONTAINER_* then I'm fine with CAP_AUDIT_CONTAINERID.  It really
-> needs to be distinct from CAP_AUDIT_WRITE and CAP_AUDIT_CONTROL since we
-> don't want to give the ability to set a containerID to any process that
-> is able to do audit logging (such as vsftpd) and similarly we don't want
-> to give the orchestrator the ability to control the setup of the audit
-> daemon.
-
-Sorry, but what aspect of the kernel security policy is this
-capability supposed to protect? That's what capabilities are
-for, not the undefined support of undefined user-space behavior.
-
-If it's audit behavior, you want CAP_AUDIT_CONTROL. If it's
-more than audit behavior you have to define what system security
-policy you're dealing with in order to pick the right capability.
-
-We get this request pretty regularly. "I need my own capability
-because I have a niche thing that isn't part of the system security
-policy but that is important!" Fit the containerID into the
-system security policy, and if that results in using CAP_SYS_ADMIN,
-oh well.
-
->>>   At that time, record the target container's user-supplied
->>> container identifier along with the target container's first process
->>> (which may become the target container's "init" process) process ID
->>> (referenced from the initial PID namespace), all namespace IDs (in the
->>> form of a nsfs device number and inode number tuple) in a new auxilliary
->>> record AUDIT_CONTAINER with a qualifying op=$action field.
->>>
->>> Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
->>> container ID present on an auditable action or event.
->>>
->>> Forked and cloned processes inherit their parent's container ID,
->>> referenced in the process' task_struct.
->>>
->>> Mimic setns(2) and return an error if the process has already initiated
->>> threading or forked since this registration should happen before the
->>> process execution is started by the orchestrator and hence should not
->>> yet have any threads or children.  If this is deemed overly restrictive,
->>> switch all threads and children to the new containerID.
->>>
->>> Trust the orchestrator to judiciously use and restrict CAP_CONTAINER_ADMIN.
->>>
->>> Log the creation of every namespace, inheriting/adding its spawning
->>> process' containerID(s), if applicable.  Include the spawning and
->>> spawned namespace IDs (device and inode number tuples).
->>> [AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
->>> Note: At this point it appears only network namespaces may need to track
->>> container IDs apart from processes since incoming packets may cause an
->>> auditable event before being associated with a process.
->>>
->>> Log the destruction of every namespace when it is no longer used by any
->>> process, include the namespace IDs (device and inode number tuples).
->>> [AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
->>>
->>> Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
->>> the parent and child namespace IDs for any changes to a process'
->>> namespaces. [setns(2)]
->>> Note: It may be possible to combine AUDIT_NS_* record formats and
->>> distinguish them with an op=$action field depending on the fields
->>> required for each message type.
->>>
->>> When a container ceases to exist because the last process in that
->>> container has exited and hence the last namespace has been destroyed and
->>> its refcount dropping to zero, log the fact.
->>> (This latter is likely needed for certification accountability.)  A
->>> container object may need a list of processes and/or namespaces.
->>>
->>> A namespace cannot directly migrate from one container to another but
->>> could be assigned to a newly spawned container.  A namespace can be
->>> moved from one container to another indirectly by having that namespace
->>> used in a second process in another container and then ending all the
->>> processes in the first container.
->>>
->>> (v2)
->>> - switch from u64 to u128 UUID
->>> - switch from "signal" and "trigger" to "register"
->>> - restrict registration to single process or force all threads and children into same container
->>>
->>> - RGB
-> - RGB
->
-> --
-> Richard Guy Briggs <rgb@redhat.com>
-> Sr. S/W Engineer, Kernel Security, Base Operating Systems
-> Remote, Ottawa, Red Hat Canada
-> IRC: rgb, SunRaycer
-> Voice: +1.647.777.2635, Internal: (81) 32635
->
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29uZyBXYW5nIFttYWls
+dG86eGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDE3
+LCAyMDE3IDE6MDYgQU0NCj4gVG86IENocmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPg0KPiBD
+YzogTGludXggS2VybmVsIE5ldHdvcmsgRGV2ZWxvcGVycyA8bmV0ZGV2QHZnZXIua2VybmVsLm9y
+Zz47IEphbWFsIEhhZGkNCj4gU2FsaW0gPGpoc0Btb2phdGF0dS5jb20+OyBMdWNhcyBCYXRlcyA8
+bHVjYXNiQG1vamF0YXR1LmNvbT47IEppcmkgUGlya28NCj4gPGppcmlAcmVzbnVsbGkudXM+OyBE
+YXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+IFN1YmplY3Q6IFJlOiBbcGF0Y2gg
+bmV0IHYyIDEvNF0gbmV0L3NjaGVkOiBDaGFuZ2UgdGNfYWN0aW9uIHJlZmNudCBhbmQNCj4gYmlu
+ZGNudCB0byBhdG9taWMNCj4gDQo+IE9uIE1vbiwgT2N0IDE2LCAyMDE3IGF0IDQ6MTggQU0sIENo
+cmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPiB3cm90ZToNCj4gPiBJZiBtYW55IGZpbHRlcnMg
+c2hhcmUgdGhlIHNhbWUgYWN0aW9uLiBUaGF0IGFjdGlvbidzIHJlZmNudCBhbmQNCj4gPiBiaW5k
+Y250IGNvdWxkIGJlIG1hbmlwdWxhdGVkIGJ5IG1hbnkgUkNVIGNhbGxiYWNrcyBhdCB0aGUgc2Ft
+ZSB0aW1lLg0KPiA+IFRoaXMgcGF0Y2ggbWFrZXMgdGhlc2Ugb3BlcmF0aW9ucyBhdG9taWMuDQo+
+IA0KPiBBY3R1YWxseSBJIGhhdmUgYmVlbiB0aGlua2luZyBhYm91dCByZW1vdmluZyB0aGVzZSBS
+Q1UgY2FsbGJhY2tzLCB0aGV5IGFyZQ0KPiBub3QgbmVjZXNzYXJ5IEFGQUlLLCBjYWxsZXJzIGhv
+bGQgUlROTCBsb2NrIHNvIHRoZXkgYXJlIGFsbG93ZWQgdG8gYmxvY2suIFRoZQ0KPiBvbmx5IGRy
+YXdiYWNrIGlzIHRoYXQgYWRkaW5nIGEgc3luY2hyb25pemVfcmN1KCksIGJ1dCB0aGVzZSBhcmUg
+c2xvdyBwYXRocw0KPiBhbnl3YXkuLi4NCj4gDQo+IEkgYW0gbm90IHN1cmUsIGl0IGlzIGFyZ3Vh
+YmxlIGFueXdheSwgZXNzZW50aWFsbHkgaXQgaXM6DQo+IA0KPiBzeW5jaHJvbml6ZV9yY3UoKSBp
+biBzbG93IHBhdGggdnMuICBtdWx0aXBsZSBSQ1UgY2FsbGJhY2sgcmFjZXMNCj4gDQo+IA0KPiA+
+DQo+ID4gRml4ZXMgY29tbWl0IGluIHByZS1naXQgZXJhLg0KPiA+DQo+ID4gRml4ZXM6IDFkYTE3
+N2U0YzNmNCAoIkxpbnV4LTIuNi4xMi1yYzIiKQ0KPiANCj4gVGhpcyBpcyBub3QgdHJ1ZSwgdGhl
+IGFjdGlvbiBSQ1UgY2FsbGJhY2tzIHdlcmUgaW50cm9kdWNlZA0KPiBieToNCj4gDQo+IGNvbW1p
+dCBjN2RlMmNmMDUzNDIwZDYzYmFjODUxMzM0NjljOTY1ZDRiMTA4M2UxDQo+IEF1dGhvcjogRXJp
+YyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPiBEYXRlOiAgIFdlZCBKdW4gOSAw
+MjowOToyMyAyMDEwICswMDAwDQo+IA0KPiAgICAgcGt0X3NjaGVkOiBnZW5fa2lsbF9lc3RpbWF0
+b3IoKSByY3UgZml4ZXMNCj4gDQo+IA0KPiBhbmQgdGhlIGZpbHRlciBSQ1UgY2FsbGJhY2tzIHdl
+cmUgaW50cm9kdWNlZCBieSB0aGUgcGF0Y2hzZXQgbGlrZSB0aGlzIG9uZToNCj4gDQo+IA0KPiBj
+b21taXQgMWNlODc3MjBkNDU2ZTQ3MWRlMGZiZDgxNGRjNWQxZmUxMGZjMWM0NA0KPiBBdXRob3I6
+IEpvaG4gRmFzdGFiZW5kIDxqb2huLmZhc3RhYmVuZEBnbWFpbC5jb20+DQo+IERhdGU6ICAgRnJp
+IFNlcCAxMiAyMDowOToxNiAyMDE0IC0wNzAwDQo+IA0KPiAgICAgbmV0OiBzY2hlZDogbWFrZSBj
+bHNfdTMyIGxvY2tsZXNzDQpJIGRvbid0IHRoaW5rIHRoaXMgYnVnIHdlcmUgaW50cm9kdWNlZCBi
+eSBhYm92ZSB0d28gY29tbWl0cyBvbmx5Lg0KQWN0dWFsbHksIHRoaXMgYnVnIHdlcmUgaW50cm9k
+dWNlZCBieSBzZXZlcmFsIGNvbW1pdHMsIGF0IGxlYXN0IHRoZSBmb2xsb3dpbmc6DQoxLiByZWZj
+bnQgYW5kIGJpbmRjbnQgYXJlIG5vdCBhdG9taWMNCjIuIHBhc3NpbmcgYWN0aW9ucyB1c2luZyBs
+aXN0IGluc3RlYWQgb2YgYXJyYXlzIChJIHRoaW5rIGluaXRpYWxseSB3ZSBhcmUgdXNpbmcgYXJy
+YXlzKQ0KMy4gdXNpbmcgUkNVIGNhbGxiYWNrcw0KU28gaW5zdGVhZCBvZiBibGFtaW5nIHRoZSBs
+YXRlc3QgY29tbWl0LCBpdCBpcyBiZXR0ZXIgdG8gc2F5IGl0IGlzIGEgcHJlLWdpdCBlcnJvci4N
+Cg==
