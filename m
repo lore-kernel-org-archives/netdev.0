@@ -1,67 +1,66 @@
 From: Chris Mi <chrism@mellanox.com>
-Subject: RE: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
- to atomic
-Date: Tue, 17 Oct 2017 01:14:32 +0000
-Message-ID: <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
-References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
- <1508152718-28726-2-git-send-email-chrism@mellanox.com>
- <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Lucas Bates <lucasb@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [patch net v3 0/4] net/sched: Fix a system panic when deleting filters
+Date: Mon, 16 Oct 2017 21:20:14 -0400
+Message-ID: <1508203218-17998-1-git-send-email-chrism@mellanox.com>
+Cc: jhs@mojatatu.com, lucasb@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0068.outbound.protection.outlook.com ([104.47.1.68]:53216
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753983AbdJQBOg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Oct 2017 21:14:36 -0400
-In-Reply-To: <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40114 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1755552AbdJQBU2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 21:20:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29uZyBXYW5nIFttYWls
-dG86eGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBPY3RvYmVyIDE3
-LCAyMDE3IDE6MDYgQU0NCj4gVG86IENocmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPg0KPiBD
-YzogTGludXggS2VybmVsIE5ldHdvcmsgRGV2ZWxvcGVycyA8bmV0ZGV2QHZnZXIua2VybmVsLm9y
-Zz47IEphbWFsIEhhZGkNCj4gU2FsaW0gPGpoc0Btb2phdGF0dS5jb20+OyBMdWNhcyBCYXRlcyA8
-bHVjYXNiQG1vamF0YXR1LmNvbT47IEppcmkgUGlya28NCj4gPGppcmlAcmVzbnVsbGkudXM+OyBE
-YXZpZCBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQo+IFN1YmplY3Q6IFJlOiBbcGF0Y2gg
-bmV0IHYyIDEvNF0gbmV0L3NjaGVkOiBDaGFuZ2UgdGNfYWN0aW9uIHJlZmNudCBhbmQNCj4gYmlu
-ZGNudCB0byBhdG9taWMNCj4gDQo+IE9uIE1vbiwgT2N0IDE2LCAyMDE3IGF0IDQ6MTggQU0sIENo
-cmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPiB3cm90ZToNCj4gPiBJZiBtYW55IGZpbHRlcnMg
-c2hhcmUgdGhlIHNhbWUgYWN0aW9uLiBUaGF0IGFjdGlvbidzIHJlZmNudCBhbmQNCj4gPiBiaW5k
-Y250IGNvdWxkIGJlIG1hbmlwdWxhdGVkIGJ5IG1hbnkgUkNVIGNhbGxiYWNrcyBhdCB0aGUgc2Ft
-ZSB0aW1lLg0KPiA+IFRoaXMgcGF0Y2ggbWFrZXMgdGhlc2Ugb3BlcmF0aW9ucyBhdG9taWMuDQo+
-IA0KPiBBY3R1YWxseSBJIGhhdmUgYmVlbiB0aGlua2luZyBhYm91dCByZW1vdmluZyB0aGVzZSBS
-Q1UgY2FsbGJhY2tzLCB0aGV5IGFyZQ0KPiBub3QgbmVjZXNzYXJ5IEFGQUlLLCBjYWxsZXJzIGhv
-bGQgUlROTCBsb2NrIHNvIHRoZXkgYXJlIGFsbG93ZWQgdG8gYmxvY2suIFRoZQ0KPiBvbmx5IGRy
-YXdiYWNrIGlzIHRoYXQgYWRkaW5nIGEgc3luY2hyb25pemVfcmN1KCksIGJ1dCB0aGVzZSBhcmUg
-c2xvdyBwYXRocw0KPiBhbnl3YXkuLi4NCj4gDQo+IEkgYW0gbm90IHN1cmUsIGl0IGlzIGFyZ3Vh
-YmxlIGFueXdheSwgZXNzZW50aWFsbHkgaXQgaXM6DQo+IA0KPiBzeW5jaHJvbml6ZV9yY3UoKSBp
-biBzbG93IHBhdGggdnMuICBtdWx0aXBsZSBSQ1UgY2FsbGJhY2sgcmFjZXMNCj4gDQo+IA0KPiA+
-DQo+ID4gRml4ZXMgY29tbWl0IGluIHByZS1naXQgZXJhLg0KPiA+DQo+ID4gRml4ZXM6IDFkYTE3
-N2U0YzNmNCAoIkxpbnV4LTIuNi4xMi1yYzIiKQ0KPiANCj4gVGhpcyBpcyBub3QgdHJ1ZSwgdGhl
-IGFjdGlvbiBSQ1UgY2FsbGJhY2tzIHdlcmUgaW50cm9kdWNlZA0KPiBieToNCj4gDQo+IGNvbW1p
-dCBjN2RlMmNmMDUzNDIwZDYzYmFjODUxMzM0NjljOTY1ZDRiMTA4M2UxDQo+IEF1dGhvcjogRXJp
-YyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KPiBEYXRlOiAgIFdlZCBKdW4gOSAw
-MjowOToyMyAyMDEwICswMDAwDQo+IA0KPiAgICAgcGt0X3NjaGVkOiBnZW5fa2lsbF9lc3RpbWF0
-b3IoKSByY3UgZml4ZXMNCj4gDQo+IA0KPiBhbmQgdGhlIGZpbHRlciBSQ1UgY2FsbGJhY2tzIHdl
-cmUgaW50cm9kdWNlZCBieSB0aGUgcGF0Y2hzZXQgbGlrZSB0aGlzIG9uZToNCj4gDQo+IA0KPiBj
-b21taXQgMWNlODc3MjBkNDU2ZTQ3MWRlMGZiZDgxNGRjNWQxZmUxMGZjMWM0NA0KPiBBdXRob3I6
-IEpvaG4gRmFzdGFiZW5kIDxqb2huLmZhc3RhYmVuZEBnbWFpbC5jb20+DQo+IERhdGU6ICAgRnJp
-IFNlcCAxMiAyMDowOToxNiAyMDE0IC0wNzAwDQo+IA0KPiAgICAgbmV0OiBzY2hlZDogbWFrZSBj
-bHNfdTMyIGxvY2tsZXNzDQpJIGRvbid0IHRoaW5rIHRoaXMgYnVnIHdlcmUgaW50cm9kdWNlZCBi
-eSBhYm92ZSB0d28gY29tbWl0cyBvbmx5Lg0KQWN0dWFsbHksIHRoaXMgYnVnIHdlcmUgaW50cm9k
-dWNlZCBieSBzZXZlcmFsIGNvbW1pdHMsIGF0IGxlYXN0IHRoZSBmb2xsb3dpbmc6DQoxLiByZWZj
-bnQgYW5kIGJpbmRjbnQgYXJlIG5vdCBhdG9taWMNCjIuIHBhc3NpbmcgYWN0aW9ucyB1c2luZyBs
-aXN0IGluc3RlYWQgb2YgYXJyYXlzIChJIHRoaW5rIGluaXRpYWxseSB3ZSBhcmUgdXNpbmcgYXJy
-YXlzKQ0KMy4gdXNpbmcgUkNVIGNhbGxiYWNrcw0KU28gaW5zdGVhZCBvZiBibGFtaW5nIHRoZSBs
-YXRlc3QgY29tbWl0LCBpdCBpcyBiZXR0ZXIgdG8gc2F5IGl0IGlzIGEgcHJlLWdpdCBlcnJvci4N
-Cg==
+If some filters share the same action, when deleting these filters,
+it is possible to create a system panic. This is because deletions
+could be manipulated by many RCU callbacks at the same time.
+
+This patch set fixes these issues. To reproduce the issue run selftests
+in patch 3 and 4. To test if the issue was fixed, apply patches 1 and 2
+and then repeat the tests.
+
+v2 changelog
+============
+
+Revise the comment and add Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+v3 changelog
+============
+Add Acked-by: Lucas Bates <lucasb@mojatatu.com> for patch 3 and 4
+
+Chris Mi (4):
+  net/sched: Change tc_action refcnt and bindcnt to atomic
+  net/sched: Use action array instead of action list as parameter
+  selftests: Introduce a new script to generate tc batch file
+  selftests: Introduce a new test case to tc testsuite
+
+ include/net/act_api.h                              |  11 +-
+ net/sched/act_api.c                                | 124 +++++++++++++--------
+ net/sched/act_bpf.c                                |   4 +-
+ net/sched/act_connmark.c                           |   4 +-
+ net/sched/act_csum.c                               |   4 +-
+ net/sched/act_gact.c                               |   4 +-
+ net/sched/act_ife.c                                |   4 +-
+ net/sched/act_ipt.c                                |   4 +-
+ net/sched/act_mirred.c                             |   4 +-
+ net/sched/act_nat.c                                |   4 +-
+ net/sched/act_pedit.c                              |   4 +-
+ net/sched/act_police.c                             |   4 +-
+ net/sched/act_sample.c                             |   4 +-
+ net/sched/act_simple.c                             |   4 +-
+ net/sched/act_skbedit.c                            |   4 +-
+ net/sched/act_skbmod.c                             |   4 +-
+ net/sched/act_tunnel_key.c                         |   4 +-
+ net/sched/act_vlan.c                               |   4 +-
+ net/sched/cls_api.c                                |  18 +--
+ .../tc-testing/tc-tests/filters/tests.json         |  23 +++-
+ tools/testing/selftests/tc-testing/tdc.py          |  20 +++-
+ tools/testing/selftests/tc-testing/tdc_batch.py    |  62 +++++++++++
+ tools/testing/selftests/tc-testing/tdc_config.py   |   2 +
+ 23 files changed, 222 insertions(+), 102 deletions(-)
+ create mode 100755 tools/testing/selftests/tc-testing/tdc_batch.py
+
+-- 
+1.8.3.1
