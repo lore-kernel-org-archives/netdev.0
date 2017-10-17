@@ -1,53 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v9 00/20] simplify crypto wait for async op
-Date: Tue, 17 Oct 2017 21:09:10 +0800
-Message-ID: <20171017130910.GA28534@gondor.apana.org.au>
-References: <1508059209-25529-1-git-send-email-gilad@benyossef.com>
- <20171015153831.GA22867@gondor.apana.org.au>
- <CAOtvUMeESbKKaEvpW_MKrRaCxwQWnBa00m4v4F1jNZ_+Xq7pWA@mail.gmail.com>
+From: "Bernat, Yehezkel" <yehezkel.bernat@intel.com>
+Subject: Re: [PATCH 2/2 net-next] thunderbolt: Right shifting to zero bug in
+ tbnet_handle_packet()
+Date: Tue, 17 Oct 2017 13:17:30 +0000
+Message-ID: <1508246223.3477.28.camel@intel.com>
+References: <20171017123301.z6heqexdlo6lc52b@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        David Howells <dhowells@redhat.com>,
-        Tom Lendacky <thomas.lendacky@amd.com>,
-        Gary Hook <gary.hook@amd.com>,
-        Boris Brezillon <boris.brezillon@free-electrons.com>,
-        Arnaud Ebalard <arno@natisbad.org>,
-        Matthias Brugger <matthias.bgg@gmail.com>,
-        Alasdair Kergon <agk@redhat.com>,
-        Mike Snitzer <snitzer@redhat.com>,
-        device-mapper development <dm-devel@redhat.com>,
-        Steve French <sfrench@samba.org>,
-        "Theodore Y. Ts'o" <tytso@mit.edu>,
-        Jaegeuk Kim <jaegeuk@kernel.org>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Mimi Zohar <zohar@linux.vnet.ibm.com>,
-        Dmitry Kasatkin <dmitry.kasatkin@gmail.c
-To: Gilad Ben-Yossef <gilad@benyossef.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:38282 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932145AbdJQNLn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 09:11:43 -0400
-Content-Disposition: inline
-In-Reply-To: <CAOtvUMeESbKKaEvpW_MKrRaCxwQWnBa00m4v4F1jNZ_+Xq7pWA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "mika.westerberg@linux.intel.com" <mika.westerberg@linux.intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: "dan.carpenter@oracle.com" <dan.carpenter@oracle.com>,
+        "Jamet, Michael" <michael.jamet@intel.com>,
+        "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20171017123301.z6heqexdlo6lc52b@mwanda>
+Content-Language: en-US
+Content-ID: <9174B1DF670B1C43BBBEDC8064AFDB9F@namprd11.prod.outlook.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 02:55:21PM +0300, Gilad Ben-Yossef wrote:
->
-> Would you mind if we used ENOSPC instead of E2BIG?
-> 
-> "No space left on device" seems more appropriate than
-> "Argument list too long".
-
-It's fine by me.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+T24gVHVlLCAyMDE3LTEwLTE3IGF0IDE1OjMzICswMzAwLCBEYW4gQ2FycGVudGVyIHdyb3RlOg0K
+PiBUaGVyZSBpcyBhIHByb2JsZW0gd2hlbiB3ZSBkbzoNCj4gDQo+IAlzZXF1ZW5jZSA9IHBrZy0+
+aGRyLmxlbmd0aF9zbiAmIFRCSVBfSERSX1NOX01BU0s7DQo+IAlzZXF1ZW5jZSA+Pj0gVEJJUF9I
+RFJfU05fU0hJRlQ7DQo+IA0KPiBUQklQX0hEUl9TTl9TSElGVCBpcyAyNywgYW5kIHJpZ2h0IHNo
+aWZ0aW5nIGEgdTggMjcgYml0cyBpcyBhbHdheXMNCj4gZ29pbmcgdG8gcmVzdWx0IGluIHplcm8u
+wqDCoFRoZSBmaXggaXMgdG8gZGVjbGFyZSB0aGVzZSB2YXJpYWJsZXMgYXMNCj4gdTMyLg0KPiAN
+Cj4gRml4ZXM6IGU2OWI2YzAyYjRjMyAoIm5ldDogQWRkIHN1cHBvcnQgZm9yIG5ldHdvcmtpbmcg
+b3Zlcg0KPiBUaHVuZGVyYm9sdCBjYWJsZSIpDQo+IFNpZ25lZC1vZmYtYnk6IERhbiBDYXJwZW50
+ZXIgPGRhbi5jYXJwZW50ZXJAb3JhY2xlLmNvbT4NCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC90aHVuZGVyYm9sdC5jIGIvZHJpdmVycy9uZXQvdGh1bmRlcmJvbHQuYw0KPiBpbmRleCAx
+YTdiYzBiZjQ1OTguLjQzNTg1NDY4OGE3YSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvdGh1
+bmRlcmJvbHQuYw0KPiArKysgYi9kcml2ZXJzL25ldC90aHVuZGVyYm9sdC5jDQo+IEBAIC0zOTQs
+NyArMzk0LDcgQEAgc3RhdGljIGludCB0Ym5ldF9oYW5kbGVfcGFja2V0KGNvbnN0IHZvaWQgKmJ1
+ZiwNCj4gc2l6ZV90IHNpemUsIHZvaWQgKmRhdGEpDQo+IMKgCXN0cnVjdCB0Ym5ldCAqbmV0ID0g
+ZGF0YTsNCj4gwqAJdTMyIGNvbW1hbmRfaWQ7DQo+IMKgCWludCByZXQgPSAwOw0KPiAtCXU4IHNl
+cXVlbmNlOw0KPiArCXUzMiBzZXF1ZW5jZTsNCj4gwqAJdTY0IHJvdXRlOw0KPiDCoA0KPiDCoAkv
+KiBNYWtlIHN1cmUgdGhlIHBhY2tldCBpcyBmb3IgdXMgKi8NCg0KQWNrZWQtYnk6IFllaGV6a2Vs
+IEJlcm5hdCA8eWVoZXprZWwuYmVybmF0QGludGVsLmNvbT4NCg0KVGhhbmtzIQ0K
