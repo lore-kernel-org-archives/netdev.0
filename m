@@ -1,106 +1,160 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [net-next V8 PATCH 1/5] bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
-Date: Tue, 17 Oct 2017 16:00:31 +0200
-Message-ID: <59E60CFF.5010203@iogearbox.net>
-References: <150814913767.1806.3470498528707259987.stgit@firesoul>        <150814916887.1806.4443991765779135803.stgit@firesoul>        <20171016214951.bia3esapu5o2niva@ast-mbp.dhcp.thefacebook.com> <20171017124729.59e45c74@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56580 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758740AbdJQOAj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 10:00:39 -0400
-In-Reply-To: <20171017124729.59e45c74@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Haines <richard_c_haines@btinternet.com>
+Subject: [RFC PATCH 4/5] netlabel: Add SCTP support
+Date: Tue, 17 Oct 2017 14:58:54 +0100
+Message-ID: <20171017135854.4343-1-richard_c_haines@btinternet.com>
+Cc: paul@paul-moore.com, vyasevich@gmail.com, nhorman@tuxdriver.com,
+        sds@tycho.nsa.gov, eparis@parisplace.org,
+        marcelo.leitner@gmail.com,
+        Richard Haines <richard_c_haines@btinternet.com>
+To: selinux@tycho.nsa.gov, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/17/2017 12:47 PM, Jesper Dangaard Brouer wrote:
-> On Mon, 16 Oct 2017 14:49:53 -0700
-> Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
->
->> On Mon, Oct 16, 2017 at 12:19:28PM +0200, Jesper Dangaard Brouer wrote:
->>> The 'cpumap' is primarily used as a backend map for XDP BPF helper
->>> call bpf_redirect_map() and XDP_REDIRECT action, like 'devmap'.
->>>
->>> This patch implement the main part of the map.  It is not connected to
->>> the XDP redirect system yet, and no SKB allocation are done yet.
->>>
->>> The main concern in this patch is to ensure the datapath can run
->>> without any locking.  This adds complexity to the setup and tear-down
->>> procedure, which assumptions are extra carefully documented in the
->>> code comments.
->>>
->>> V2:
->>>   - make sure array isn't larger than NR_CPUS
->>>   - make sure CPUs added is a valid possible CPU
->>>
->>> V3: fix nitpicks from Jakub Kicinski <kubakici@wp.pl>
->>>
->>> V5:
->>>   - Restrict map allocation to root / CAP_SYS_ADMIN
->>>   - WARN_ON_ONCE if queue is not empty on tear-down
->>>   - Return -EPERM on memlock limit instead of -ENOMEM
->>>   - Error code in __cpu_map_entry_alloc() also handle ptr_ring_cleanup()
->>>   - Moved cpu_map_enqueue() to next patch
->>>
->>> V6: all notice by Daniel Borkmann
->>>   - Fix err return code in cpu_map_alloc() introduced in V5
->>>   - Move cpu_possible() check after max_entries boundary check
->>>   - Forbid usage initially in check_map_func_compatibility()
->>>
->>> V7:
->>>   - Fix alloc error path spotted by Daniel Borkmann
->>>   - Did stress test adding+removing CPUs from the map concurrently
->>>   - Fixed refcnt issue on cpu_map_entry, kthread started too soon
->>>   - Make sure packets are flushed during tear-down, involved use of
->>>     rcu_barrier() and kthread_run only exit after queue is empty
->>>   - Fix alloc error path in __cpu_map_entry_alloc() for ptr_ring
->>>
->>> V8:
->>>   - Nitpicking comments and gramma by Edward Cree
->>>   - Fix missing semi-colon introduced in V7 due to rebasing
->>>   - Move struct bpf_cpu_map_entry members cpu+map_id to tracepoint patch
->>>
->>> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->>> ---
->>>   include/linux/bpf_types.h      |    1
->>>   include/uapi/linux/bpf.h       |    1
->>>   kernel/bpf/Makefile            |    1
->>>   kernel/bpf/cpumap.c            |  560 ++++++++++++++++++++++++++++++++++++++++
->>>   kernel/bpf/syscall.c           |    8 +
->>>   kernel/bpf/verifier.c          |    5
->>>   tools/include/uapi/linux/bpf.h |    1
->>>   7 files changed, 576 insertions(+), 1 deletion(-)
->>>   create mode 100644 kernel/bpf/cpumap.c
->>
->> Looks good to me
->> I like the idea of running networking stack from kthread
->> and hope adding GRO won't change the api.
->> Acked-by: Alexei Starovoitov <ast@kernel.org>
->
-> Thanks!
->
-> I think adding GRO is still safe API-wise after this patchset.  I
-> imagine that the GRO API will be tied to how we implement/expose the
-> RX-hash to the eBPF program.  Thus, the API will be the eBPF prog can
-> change the RX-hash, to influence the GRO aggregation/partial-sort. If
-> the map need to behave differently for GRO then we have the map_flags
-> to adjust this behavior (but I assume this would not be needed).
+Add support to label SCTP associations and cater for a situation where
+family = PF_INET6 with an ip_hdr(skb)->version = 4.
 
-+1, this should happen transparent to the user. But would it mean that
-the cpumap threads get a fake napi_struct for napi_gro_receive() or
-would it require larger refactoring/splitting of gro engine internals?
-Would be good to have a clearer picture on that before uapi freezes.
+Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
+---
+ include/net/netlabel.h            |  3 ++
+ net/netlabel/netlabel_kapi.c      | 80 +++++++++++++++++++++++++++++++++++++++
+ net/netlabel/netlabel_unlabeled.c | 10 +++++
+ 3 files changed, 93 insertions(+)
 
-Thanks,
-Daniel
+diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+index 72d6435..7348966 100644
+--- a/include/net/netlabel.h
++++ b/include/net/netlabel.h
+@@ -494,6 +494,9 @@ int netlbl_conn_setattr(struct sock *sk,
+ 			const struct netlbl_lsm_secattr *secattr);
+ int netlbl_req_setattr(struct request_sock *req,
+ 		       const struct netlbl_lsm_secattr *secattr);
++int netlbl_sctp_setattr(struct sock *sk,
++			struct sk_buff *skb,
++			const struct netlbl_lsm_secattr *secattr);
+ void netlbl_req_delattr(struct request_sock *req);
+ int netlbl_skbuff_setattr(struct sk_buff *skb,
+ 			  u16 family,
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index ea7c670..1c82bbe 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -1121,6 +1121,7 @@ int netlbl_conn_setattr(struct sock *sk,
+ 	switch (addr->sa_family) {
+ 	case AF_INET:
+ 		addr4 = (struct sockaddr_in *)addr;
++
+ 		entry = netlbl_domhsh_getentry_af4(secattr->domain,
+ 						   addr4->sin_addr.s_addr);
+ 		if (entry == NULL) {
+@@ -1177,6 +1178,85 @@ int netlbl_conn_setattr(struct sock *sk,
+ }
+ 
+ /**
++ * netlbl_sctp_setattr - Label an incoming sctp association socket using
++ * the correct protocol
++ * @sk: the socket to label
++ * @skb: the packet
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Attach the correct label to the given socket using the security attributes
++ * specified in @secattr.  Returns zero on success, negative values on failure.
++ *
++ */
++int netlbl_sctp_setattr(struct sock *sk,
++			struct sk_buff *skb,
++			const struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -EINVAL;
++	struct netlbl_dommap_def *entry;
++	struct iphdr *hdr4;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct ipv6hdr *hdr6;
++#endif
++
++	rcu_read_lock();
++	switch (sk->sk_family) {
++	case AF_INET:
++		hdr4 = ip_hdr(skb);
++
++		entry = netlbl_domhsh_getentry_af4(secattr->domain,
++						   hdr4->saddr);
++		if (entry == NULL) {
++			ret_val = -ENOENT;
++			goto sctp_setattr_return;
++		}
++		switch (entry->type) {
++		case NETLBL_NLTYPE_CIPSOV4:
++			ret_val = cipso_v4_sock_setattr(sk, entry->cipso,
++							secattr);
++			break;
++		case NETLBL_NLTYPE_UNLABELED:
++			netlbl_sock_delattr(sk);
++			ret_val = 0;
++			break;
++		default:
++			ret_val = -ENOENT;
++		}
++		break;
++#if IS_ENABLED(CONFIG_IPV6)
++	case AF_INET6:
++		hdr6 = ipv6_hdr(skb);
++		entry = netlbl_domhsh_getentry_af6(secattr->domain,
++						   &hdr6->saddr);
++		if (entry == NULL) {
++			ret_val = -ENOENT;
++			goto sctp_setattr_return;
++		}
++		switch (entry->type) {
++		case NETLBL_NLTYPE_CALIPSO:
++			ret_val = calipso_sock_setattr(sk, entry->calipso,
++						       secattr);
++			break;
++		case NETLBL_NLTYPE_UNLABELED:
++			netlbl_sock_delattr(sk);
++			ret_val = 0;
++			break;
++		default:
++			ret_val = -ENOENT;
++		}
++		break;
++#endif /* IPv6 */
++	default:
++		ret_val = -EPROTONOSUPPORT;
++	}
++
++sctp_setattr_return:
++	rcu_read_unlock();
++	return ret_val;
++}
++
++/**
+  * netlbl_req_setattr - Label a request socket using the correct protocol
+  * @req: the request socket to label
+  * @secattr: the security attributes
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index 22dc1b9..c070dfc 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -1472,6 +1472,16 @@ int netlbl_unlabel_getattr(const struct sk_buff *skb,
+ 		iface = rcu_dereference(netlbl_unlhsh_def);
+ 	if (iface == NULL || !iface->valid)
+ 		goto unlabel_getattr_nolabel;
++
++#if IS_ENABLED(CONFIG_IPV6)
++	/* When resolving a fallback label, check the sk_buff version as
++	 * it is possible (e.g. SCTP) to have family = PF_INET6 while
++	 * receiving ip_hdr(skb)->version = 4.
++	 */
++	if (family == PF_INET6 && ip_hdr(skb)->version == 4)
++		family = PF_INET;
++#endif /* IPv6 */
++
+ 	switch (family) {
+ 	case PF_INET: {
+ 		struct iphdr *hdr4;
+-- 
+2.13.6
+
