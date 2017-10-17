@@ -1,89 +1,142 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net 3/3] bonding: remove rtmsg_ifinfo called after bond_lower_state_changed
-Date: Tue, 17 Oct 2017 17:39:41 +0800
-Message-ID: <171b4df490deff34566d747eb2daf9c103ab1b11.1508233044.git.lucien.xin@gmail.com>
-References: <cover.1508233044.git.lucien.xin@gmail.com>
- <54188a4761376d409cde7bf746edc877b4c3f0ae.1508233044.git.lucien.xin@gmail.com>
- <954c1166464c4f08118d80063395a905d9b20912.1508233044.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Jiri Pirko <jiri@resnulli.us>
-To: network dev <netdev@vger.kernel.org>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
+Date: Tue, 17 Oct 2017 11:48:28 +0200
+Message-ID: <f6e2208a-4cdf-3303-5999-92186b437b62@itcare.pl>
+References: <1507121766.30720.4.camel@cohaesio.com>
+ <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
+ <1507180753.20182.8.camel@cohaesio.com>
+ <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
+ <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
+ <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
+ <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
+ <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
+ <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
+ <CAKgT0Uf=0yasidUfyadNSxzkhKvtxH2t83fjb-SU7OaAnrMReA@mail.gmail.com>
+ <310ce203-0d65-bdf4-d9e4-897a349b3277@itcare.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Pavlos Parissis <pavlos.parissis@gmail.com>,
+        "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:47142 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934809AbdJQJkO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Oct 2017 05:40:14 -0400
-Received: by mail-pg0-f65.google.com with SMTP id r25so984706pgn.4
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 02:40:14 -0700 (PDT)
-In-Reply-To: <954c1166464c4f08118d80063395a905d9b20912.1508233044.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1508233044.git.lucien.xin@gmail.com>
-References: <cover.1508233044.git.lucien.xin@gmail.com>
+Received: from smtp16.iq.pl ([86.111.242.222]:60116 "EHLO smtp16.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1760511AbdJQJsf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Oct 2017 05:48:35 -0400
+In-Reply-To: <310ce203-0d65-bdf4-d9e4-897a349b3277@itcare.pl>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the patch 'rtnetlink: bring NETDEV_CHANGELOWERSTATE event
-process back to rtnetlink_event', bond_lower_state_changed would
-generate NETDEV_CHANGEUPPER event which would send a notification
-to userspace in rtnetlink_event.
 
-There's no need to call rtmsg_ifinfo to send the notification
-any more. So this patch is to remove it from these places after
-bond_lower_state_changed.
 
-Besides, after this, rtmsg_ifinfo is not needed to be exported.
+W dniu 2017-10-17 o 02:44, Paweł Staszewski pisze:
+>
+>
+> W dniu 2017-10-17 o 01:56, Alexander Duyck pisze:
+>> On Mon, Oct 16, 2017 at 4:34 PM, Paweł Staszewski 
+>> <pstaszewski@itcare.pl> wrote:
+>>>
+>>> W dniu 2017-10-16 o 18:26, Paweł Staszewski pisze:
+>>>
+>>>>
+>>>> W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
+>>>>> On 15/10/2017 02:58 πμ, Alexander Duyck wrote:
+>>>>>> Hi Pawel,
+>>>>>>
+>>>>>> To clarify is that Dave Miller's tree or Linus's that you are 
+>>>>>> talking
+>>>>>> about? If it is Dave's tree how long ago was it you pulled it 
+>>>>>> since I
+>>>>>> think the fix was just pushed by Jeff Kirsher a few days ago.
+>>>>>>
+>>>>>> The issue should be fixed in the following commit:
+>>>>>>
+>>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=2b9478ffc550f17c6cd8c69057234e91150f5972 
+>>>>>>
+>>>>>>
+>>>>> Do you know when it is going to be available on net-next and 
+>>>>> linux-stable
+>>>>> repos?
+>>>>>
+>>>>> Cheers,
+>>>>> Pavlos
+>>>>>
+>>>>>
+>>>> I will make some tests today night with "net" git tree where this 
+>>>> patch is
+>>>> included.
+>>>> Starting from 0:00 CET
+>>>> :)
+>>>>
+>>>>
+>>> Upgraded and looks like problem is not solved with that patch
+>>> Currently running system with
+>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
+>>> kernel
+>>>
+>>> Still about 0.5GB of memory is leaking somewhere
+>>>
+>>> Also can confirm that the latest kernel where memory is not leaking 
+>>> (with
+>>> use i40e driver intel 710 cards) is 4.11.12
+>>> With kernel 4.11.12 - after hour no change in memory usage.
+>>>
+>>> also checked that with ixgbe instead of i40e with same net.git 
+>>> kernel there
+>>> is no memleak - after hour same memory usage - so for 100% this is i40e
+>>> driver problem.
+>> So how long was the run to get the .5GB of memory leaking?
+> 1 hour
+>
+>>
+>> Also is there any chance of you being able to bisect to determine
+>> where the memory leak was introduced since as you pointed out it
+>> didn't exist in 4.11.12 so odds are it was introduced somewhere
+>> between 4.11 and the latest kernel release.
+> Can be hard cause currently need to back to 4.11.12 - this is 
+> production host/router
+> Will try to find some free/test router for tests/bicects with i40e 
+> driver (intel 710 cards)
+>
+>>
+>> Thanks.
+>>
+>> - Alex
+>>
+>
+>
+Also forgoto to add errors for i40e when driver initialize:
+[   15.760569] i40e 0000:02:00.1: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.365587] i40e 0000:03:00.3: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.367686] i40e 0000:02:00.2: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.368816] i40e 0000:03:00.0: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.369877] i40e 0000:03:00.2: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.370941] i40e 0000:02:00.3: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.372005] i40e 0000:02:00.0: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
+[   16.373029] i40e 0000:03:00.1: Error I40E_AQ_RC_ENOSPC adding RX 
+filters on PF, promiscuous mode forced on
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/bonding.h | 4 ----
- net/core/rtnetlink.c  | 1 -
- 2 files changed, 5 deletions(-)
-
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index b2e6865..1b7631c 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -330,7 +330,6 @@ static inline void bond_set_active_slave(struct slave *slave)
- 		slave->backup = 0;
- 		bond_queue_slave_event(slave);
- 		bond_lower_state_changed(slave);
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
- 
-@@ -340,7 +339,6 @@ static inline void bond_set_backup_slave(struct slave *slave)
- 		slave->backup = 1;
- 		bond_queue_slave_event(slave);
- 		bond_lower_state_changed(slave);
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 	}
- }
- 
-@@ -353,7 +351,6 @@ static inline void bond_set_slave_state(struct slave *slave,
- 	slave->backup = slave_state;
- 	if (notify) {
- 		bond_lower_state_changed(slave);
--		rtmsg_ifinfo(RTM_NEWLINK, slave->dev, 0, GFP_ATOMIC);
- 		bond_queue_slave_event(slave);
- 		slave->should_notify = 0;
- 	} else {
-@@ -385,7 +382,6 @@ static inline void bond_slave_state_notify(struct bonding *bond)
- 	bond_for_each_slave(bond, tmp, iter) {
- 		if (tmp->should_notify) {
- 			bond_lower_state_changed(tmp);
--			rtmsg_ifinfo(RTM_NEWLINK, tmp->dev, 0, GFP_ATOMIC);
- 			tmp->should_notify = 0;
- 		}
- 	}
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 24cb403..1574ab5 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2910,7 +2910,6 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
- {
- 	rtmsg_ifinfo_event(type, dev, change, rtnl_get_event(0), flags);
- }
--EXPORT_SYMBOL(rtmsg_ifinfo);
- 
- static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
- 				   struct net_device *dev,
--- 
-2.1.0
+some params that are set for this nic's
+         ip link set up dev $i
+         ethtool -A $i autoneg off rx off tx off
+         ethtool -G $i rx 1024 tx 2048
+         ip link set $i txqueuelen 1000
+         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 512 
+tx-usecs 128
+         ethtool -L $i combined 6
+         #ethtool -N $i rx-flow-hash udp4 sdfn
+         ethtool -K $i ntuple on
+         ethtool -K $i gro off
+         ethtool -K $i tso off
