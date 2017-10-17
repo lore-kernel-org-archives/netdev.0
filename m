@@ -1,123 +1,108 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 38/58] hdlc: Convert timers to use timer_setup()
-Date: Mon, 16 Oct 2017 17:29:22 -0700
-Message-ID: <1508200182-104605-39-git-send-email-keescook@chromium.org>
+Subject: [PATCH 16/58] net: ethernet: stmmac: Convert timers to use timer_setup()
+Date: Mon, 16 Oct 2017 17:29:00 -0700
+Message-ID: <1508200182-104605-17-git-send-email-keescook@chromium.org>
 References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>,
         linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:49739 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757944AbdJQAh1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Oct 2017 20:37:27 -0400
+Received: by mail-pf0-f174.google.com with SMTP id i5so54553pfe.6
+        for <netdev@vger.kernel.org>; Mon, 16 Oct 2017 17:37:27 -0700 (PDT)
 In-Reply-To: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
-to pass the timer pointer explicitly. This adds a pointer back to the
-net_device, and drops needless open-coded resetting of the .function and
-.data fields.
+to pass the timer pointer explicitly.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Krzysztof Halasa <khc@pm.waw.pl>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Alexandre Torgue <alexandre.torgue@st.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
+Acked-by:  Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/wan/hdlc_cisco.c | 13 ++++++-------
- drivers/net/wan/hdlc_fr.c    | 12 ++++++------
- 2 files changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 22 ++++++++++------------
+ 1 file changed, 10 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wan/hdlc_cisco.c b/drivers/net/wan/hdlc_cisco.c
-index c696d42f4502..320039d329c7 100644
---- a/drivers/net/wan/hdlc_cisco.c
-+++ b/drivers/net/wan/hdlc_cisco.c
-@@ -54,6 +54,7 @@ struct cisco_state {
- 	cisco_proto settings;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
+index 6a9c954492f2..8b50afcdb52d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
++++ b/drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
+@@ -118,10 +118,9 @@ int tse_pcs_init(void __iomem *base, struct tse_pcs *pcs)
+ 	return ret;
+ }
  
- 	struct timer_list timer;
-+	struct net_device *dev;
- 	spinlock_t lock;
- 	unsigned long last_poll;
- 	int up;
-@@ -257,11 +258,10 @@ static int cisco_rx(struct sk_buff *skb)
- 
- 
- 
--static void cisco_timer(unsigned long arg)
-+static void cisco_timer(struct timer_list *t)
+-static void pcs_link_timer_callback(unsigned long data)
++static void pcs_link_timer_callback(struct tse_pcs *pcs)
  {
--	struct net_device *dev = (struct net_device *)arg;
--	hdlc_device *hdlc = dev_to_hdlc(dev);
--	struct cisco_state *st = state(hdlc);
-+	struct cisco_state *st = from_timer(st, t, timer);
-+	struct net_device *dev = st->dev;
+ 	u16 val = 0;
+-	struct tse_pcs *pcs = (struct tse_pcs *)data;
+ 	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
+ 	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
  
- 	spin_lock(&st->lock);
- 	if (st->up &&
-@@ -276,8 +276,6 @@ static void cisco_timer(unsigned long arg)
- 	spin_unlock(&st->lock);
- 
- 	st->timer.expires = jiffies + st->settings.interval * HZ;
--	st->timer.function = cisco_timer;
--	st->timer.data = arg;
- 	add_timer(&st->timer);
- }
- 
-@@ -293,7 +291,8 @@ static void cisco_start(struct net_device *dev)
- 	st->up = st->txseq = st->rxseq = 0;
- 	spin_unlock_irqrestore(&st->lock, flags);
- 
--	setup_timer(&st->timer, cisco_timer, (unsigned long)dev);
-+	st->dev = dev;
-+	timer_setup(&st->timer, cisco_timer, 0);
- 	st->timer.expires = jiffies + HZ; /* First poll after 1 s */
- 	add_timer(&st->timer);
- }
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index 425a47ffed25..038236a9c60e 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -140,6 +140,7 @@ struct frad_state {
- 	int dce_pvc_count;
- 
- 	struct timer_list timer;
-+	struct net_device *dev;
- 	unsigned long last_poll;
- 	int reliable;
- 	int dce_changed;
-@@ -597,9 +598,10 @@ static void fr_set_link_state(int reliable, struct net_device *dev)
- }
- 
- 
--static void fr_timer(unsigned long arg)
-+static void fr_timer(struct timer_list *t)
- {
--	struct net_device *dev = (struct net_device *)arg;
-+	struct frad_state *st = from_timer(st, t, timer);
-+	struct net_device *dev = st->dev;
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
- 	int i, cnt = 0, reliable;
- 	u32 list;
-@@ -644,8 +646,6 @@ static void fr_timer(unsigned long arg)
- 			state(hdlc)->settings.t391 * HZ;
+@@ -138,12 +137,11 @@ static void pcs_link_timer_callback(unsigned long data)
  	}
- 
--	state(hdlc)->timer.function = fr_timer;
--	state(hdlc)->timer.data = arg;
- 	add_timer(&state(hdlc)->timer);
  }
  
-@@ -1003,8 +1003,8 @@ static void fr_start(struct net_device *dev)
- 		state(hdlc)->n391cnt = 0;
- 		state(hdlc)->txseq = state(hdlc)->rxseq = 0;
+-static void auto_nego_timer_callback(unsigned long data)
++static void auto_nego_timer_callback(struct tse_pcs *pcs)
+ {
+ 	u16 val = 0;
+ 	u16 speed = 0;
+ 	u16 duplex = 0;
+-	struct tse_pcs *pcs = (struct tse_pcs *)data;
+ 	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
+ 	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
  
--		setup_timer(&state(hdlc)->timer, fr_timer,
--			    (unsigned long)dev);
-+		state(hdlc)->dev = dev;
-+		timer_setup(&state(hdlc)->timer, fr_timer, 0);
- 		/* First poll after 1 s */
- 		state(hdlc)->timer.expires = jiffies + HZ;
- 		add_timer(&state(hdlc)->timer);
+@@ -201,14 +199,14 @@ static void auto_nego_timer_callback(unsigned long data)
+ 	}
+ }
+ 
+-static void aneg_link_timer_callback(unsigned long data)
++static void aneg_link_timer_callback(struct timer_list *t)
+ {
+-	struct tse_pcs *pcs = (struct tse_pcs *)data;
++	struct tse_pcs *pcs = from_timer(pcs, t, aneg_link_timer);
+ 
+ 	if (pcs->autoneg == AUTONEG_ENABLE)
+-		auto_nego_timer_callback(data);
++		auto_nego_timer_callback(pcs);
+ 	else if (pcs->autoneg == AUTONEG_DISABLE)
+-		pcs_link_timer_callback(data);
++		pcs_link_timer_callback(pcs);
+ }
+ 
+ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+@@ -237,8 +235,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+ 
+ 		tse_pcs_reset(tse_pcs_base, pcs);
+ 
+-		setup_timer(&pcs->aneg_link_timer,
+-			    aneg_link_timer_callback, (unsigned long)pcs);
++		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
++			    0);
+ 		mod_timer(&pcs->aneg_link_timer, jiffies +
+ 			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
+ 	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
+@@ -270,8 +268,8 @@ void tse_pcs_fix_mac_speed(struct tse_pcs *pcs, struct phy_device *phy_dev,
+ 
+ 		tse_pcs_reset(tse_pcs_base, pcs);
+ 
+-		setup_timer(&pcs->aneg_link_timer,
+-			    aneg_link_timer_callback, (unsigned long)pcs);
++		timer_setup(&pcs->aneg_link_timer, aneg_link_timer_callback,
++			    0);
+ 		mod_timer(&pcs->aneg_link_timer, jiffies +
+ 			  msecs_to_jiffies(AUTONEGO_LINK_TIMER));
+ 	}
 -- 
 2.7.4
