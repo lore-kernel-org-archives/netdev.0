@@ -1,64 +1,88 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: linux-next: net/sched/cls_flower.c
-Date: Tue, 17 Oct 2017 11:27:51 +0100
-Message-ID: <20171017102751.wpwiyh72daobyicj@sirena.co.uk>
-References: <20171017101509.soy55d4ipx3dusbo@sirena.co.uk>
- <20171017102107.GF2112@nanopsycho>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: check for null sk before deferencing it via the call
+ to sock_net
+Date: Tue, 17 Oct 2017 07:49:58 +0200
+Message-ID: <8fdd94bd-da4e-784e-3832-6c1bb5e1f432@pengutronix.de>
+References: <20170908150235.2931-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="zfplr4y6xiwnwtyq"
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171017102107.GF2112@nanopsycho>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="kLkPTC453FQOl0tOSLf9lQ8J0w18CI4wj"
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>,
+        Oliver Hartkopp <socketcan@hartkopp.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170908150235.2931-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--kLkPTC453FQOl0tOSLf9lQ8J0w18CI4wj
+Content-Type: multipart/mixed; boundary="DTmUVp86E7IrRQu3rUON4iV83LvAcU0Tu";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Colin King <colin.king@canonical.com>,
+ Oliver Hartkopp <socketcan@hartkopp.net>,
+ "David S . Miller" <davem@davemloft.net>, linux-can@vger.kernel.org,
+ netdev@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+Message-ID: <8fdd94bd-da4e-784e-3832-6c1bb5e1f432@pengutronix.de>
+Subject: Re: [PATCH] can: check for null sk before deferencing it via the call
+ to sock_net
+References: <20170908150235.2931-1-colin.king@canonical.com>
+In-Reply-To: <20170908150235.2931-1-colin.king@canonical.com>
 
---zfplr4y6xiwnwtyq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--DTmUVp86E7IrRQu3rUON4iV83LvAcU0Tu
+Content-Type: text/plain; charset=utf-8
+Content-Language: de-DE
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, Oct 17, 2017 at 12:21:07PM +0200, Jiri Pirko wrote:
-> Tue, Oct 17, 2017 at 12:15:09PM CEST, broonie@kernel.org wrote:
+On 09/08/2017 05:02 PM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>=20
+> The assignment of net via call sock_net will dereference sk. This
+> is performed before a sanity null check on sk, so there could be
+> a potential null dereference on the sock_net call if sk is null.
+> Fix this by assigning net after the sk null check. Also replace
+> the sk =3D=3D NULL with the more usual !sk idiom.
+>=20
+> Detected by CoverityScan CID#1431862 ("Dereference before null check")
+>=20
+> Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM protoc=
+ol")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-> >/home/broonie/tmpfs/next/net/sched/cls_flower.c:270:27: error: 'struct cls_fl_filter' has no member named 'hw_dev'
-> >  cls_flower.egress_dev = f->hw_dev != tp->q->dev_queue->dev;
+Applied to can.
 
-> This fix ("net/sched: cls_flower: Set egress_dev mark when calling into the HW driver")
-> went to -net tree, should not go to -next. Apparently there is some mixup.
-> DaveM?
+Tnx,
+Marc
 
-The issue is that:
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-> >  7578d7b45ed870b1 ("net: sched: remove unused tcf_exts_get_dev helper and cls_flower->egress_dev")
 
-> >both in the net-next tree.  Falling back to previous net-next trees
-> >introduced other issues so I reverted that commit for today.
+--DTmUVp86E7IrRQu3rUON4iV83LvAcU0Tu--
 
-the removal happened in the net-next tree, breaking the commit that was
-previously introduced in the net tree (sorry, didn't notice that the
-immediate commit was in there not net-next).
-
---zfplr4y6xiwnwtyq
+--kLkPTC453FQOl0tOSLf9lQ8J0w18CI4wj
 Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlnl2yYACgkQJNaLcl1U
-h9BCpwf/bQ3tV8Z9pFFXIhXKWnPDGYYS2WmW0dBJOVWexIHWdacBSSZVZFdCPt2l
-Zh3K3Ij0qUGrAWTAxgH74+98b/dTi88YAEGsx5KCoayvljrN4ycI27bAinOdamQ/
-rxuW4XliRU4XVRTPa5p1b9H8oxtGAYp1t/e+/iRQPHL8BiPnYFtXfLpXBJY5uZeI
-KWTGKQYpSVctMWh2nFTuAEbcK4xfNxCzMc+Xccv0jsT2PT/V1u8Zt6kGDdGYFCXI
-zn48+SyyMJI93KuxwBw8bI0T1CUEjCZ74R2SjTANkBw5G/doQoEe71kQp70/aiF4
-YESMDI/jpjsVUFOFo1/733ThhXbobw==
-=asou
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlnlmgYACgkQHv7KIOw4
+HPaRYAf+JpN6F+2pNi5nsnzqsjCdyc2Y6/tYqy+mACthmqkjAeETg3XsTRC4lq8b
+Lk1llWrAY1CkgqJEZfP5YxUkPv/SKL00AoyCRYX3mfXCuLnsLRLSa42/A23as/rA
++A/+ULdyLn+bs+6sNmRJoNuNJzxdgBR50Mbm0QKa9NcJDgGt83EY8PhUwj7j3Lp9
+MfLnKxPqe7e4EZP1zF1RaJ91s5pFXafZyExHLXRGaiiSDHJOQ8aiEPgE0V9e3pwa
+XXpISOyxQOxE/jdo+MAwxvbQ4mHO0fYbT4I+3sLj4cxlfZp7qATPIePa9rU1pf4g
+1+ZhNYPCPx/AJ4CKggtMx6Ob3QyKLg==
+=uA+7
 -----END PGP SIGNATURE-----
 
---zfplr4y6xiwnwtyq--
+--kLkPTC453FQOl0tOSLf9lQ8J0w18CI4wj--
