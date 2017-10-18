@@ -1,175 +1,161 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v2] of_mdio: Fix broken PHY IRQ in case of probe deferral
-Date: Wed, 18 Oct 2017 13:54:03 +0200
-Message-ID: <1508327643-3579-1-git-send-email-geert+renesas@glider.be>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Frank Rowand <frowand.list@gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 2/3] rxrpc: Provide functions for allowing cleaner
+ handling of signals
+Date: Wed, 18 Oct 2017 12:56:03 +0100
+Message-ID: <150832776375.7695.8788105655004966283.stgit@warthog.procyon.org.uk>
+References: <150832775000.7695.7720685597577836060.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <150832775000.7695.7720685597577836060.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If an Ethernet PHY is initialized before the interrupt controller it is
-connected to, a message like the following is printed:
+Provide a couple of functions to allow cleaner handling of signals in a
+kernel service.  They are:
 
-    irq: no irq domain found for /interrupt-controller@e61c0000 !
+ (1) rxrpc_kernel_get_rtt()
 
-However, the actual error is ignored, leading to a non-functional (POLL)
-PHY interrupt later:
+     This allows the kernel service to find out the RTT time for a call, so
+     as to better judge how large a timeout to employ.
 
-    Micrel KSZ8041RNLI ee700000.ethernet-ffffffff:01: attached PHY driver [Micrel KSZ8041RNLI] (mii_bus:phy_addr=ee700000.ethernet-ffffffff:01, irq=POLL)
+     Note, though, that whilst this returns a value in nanoseconds, the
+     timeouts can only actually be in jiffies.
 
-Depending on whether the PHY driver will fall back to polling, Ethernet
-may or may not work.
+ (2) rxrpc_kernel_check_life()
 
-To fix this:
-  1. Switch of_mdiobus_register_phy() from irq_of_parse_and_map() to
-     of_irq_get().
-     Unlike the former, the latter returns -EPROBE_DEFER if the
-     interrupt controller is not yet available, so this condition can be
-     detected.
-     Other errors are handled the same as before, i.e. use the passed
-     mdio->irq[addr] as interrupt.
-  2. Propagate and handle errors from of_mdiobus_register_phy() and
-     of_mdiobus_register_device().
+     This returns a number that is updated when ACKs are received from the
+     peer (notably including PING RESPONSE ACKs which we can elicit by
+     sending PING ACKs to see if the call still exists on the server).
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+     The caller should compare the numbers of two calls to see if the call
+     is still alive.
+
+These can be used to provide an extending timeout rather than returning
+immediately in the case that a signal occurs that would otherwise abort an
+RPC operation.  The timeout would be extended if the server is still
+responsive and the call is still apparently alive on the server.
+
+For most operations this isn't that necessary - but for FS.StoreData it is:
+OpenAFS writes the data to storage as it comes in without making a backup,
+so if we immediately abort it when partially complete on a CTRL+C, say, we
+have no idea of the state of the file after the abort.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
-Seen on e.g. r8a7791/koelsch when using the new CPG/MSSR clock driver,
-which will hit upstream in v4.15.  I assume it always happened on RZ/G1
-in mainline.
 
-The actual patch is unchanged since v1, sent on May 18.  Obviously I
-still cannot test it on a system with multiple PHYs, just like v1.
+ Documentation/networking/rxrpc.txt |   24 ++++++++++++++++++++++++
+ include/net/af_rxrpc.h             |    2 ++
+ net/rxrpc/af_rxrpc.c               |   19 +++++++++++++++++++
+ net/rxrpc/peer_object.c            |   13 +++++++++++++
+ 4 files changed, 58 insertions(+)
 
-How can we proceed?
-
-Note that if you are worried about the MDIO subsystem not handling
-(partial) teardown and reprobe correctly in the presence of multiple
-PHYs, that can already be triggered since commit a5597008dbc23087 ("phy:
-fixed_phy: Add gpio to determine link up/down."), which handles
-EPROBE_DEFER for GPIOs.
-
-Thanks!
-
-v2:
-  - Update for non-functional interrupts being printed as "POLL" instead
-    of "-1" since commit 5e369aefdce4818c ("net: stmmac: Delete dead
-    code for MDIO registration").
----
- drivers/of/of_mdio.c | 39 +++++++++++++++++++++++++++------------
- 1 file changed, 27 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index d94dd8b77abd5140..98258583abb0b405 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -44,7 +44,7 @@ static int of_get_phy_id(struct device_node *device, u32 *phy_id)
- 	return -EINVAL;
- }
+diff --git a/Documentation/networking/rxrpc.txt b/Documentation/networking/rxrpc.txt
+index 9fb61a6bc7cf..1fb5c553aedd 100644
+--- a/Documentation/networking/rxrpc.txt
++++ b/Documentation/networking/rxrpc.txt
+@@ -1033,6 +1033,30 @@ The kernel interface functions are as follows:
  
--static void of_mdiobus_register_phy(struct mii_bus *mdio,
-+static int of_mdiobus_register_phy(struct mii_bus *mdio,
- 				    struct device_node *child, u32 addr)
- {
- 	struct phy_device *phy;
-@@ -60,9 +60,13 @@ static void of_mdiobus_register_phy(struct mii_bus *mdio,
- 	else
- 		phy = get_phy_device(mdio, addr, is_c45);
- 	if (IS_ERR(phy))
--		return;
-+		return PTR_ERR(phy);
+      It returns 0 if the call was requeued and an error otherwise.
  
--	rc = irq_of_parse_and_map(child, 0);
-+	rc = of_irq_get(child, 0);
-+	if (rc == -EPROBE_DEFER) {
-+		phy_device_free(phy);
-+		return rc;
-+	}
- 	if (rc > 0) {
- 		phy->irq = rc;
- 		mdio->irq[addr] = rc;
-@@ -84,22 +88,23 @@ static void of_mdiobus_register_phy(struct mii_bus *mdio,
- 	if (rc) {
- 		phy_device_free(phy);
- 		of_node_put(child);
--		return;
-+		return rc;
- 	}
- 
- 	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
- 		child->name, addr);
-+	return 0;
- }
- 
--static void of_mdiobus_register_device(struct mii_bus *mdio,
--				       struct device_node *child, u32 addr)
-+static int of_mdiobus_register_device(struct mii_bus *mdio,
-+				      struct device_node *child, u32 addr)
- {
- 	struct mdio_device *mdiodev;
- 	int rc;
- 
- 	mdiodev = mdio_device_create(mdio, addr);
- 	if (IS_ERR(mdiodev))
--		return;
-+		return PTR_ERR(mdiodev);
- 
- 	/* Associate the OF node with the device structure so it
- 	 * can be looked up later.
-@@ -112,11 +117,12 @@ static void of_mdiobus_register_device(struct mii_bus *mdio,
- 	if (rc) {
- 		mdio_device_free(mdiodev);
- 		of_node_put(child);
--		return;
-+		return rc;
- 	}
- 
- 	dev_dbg(&mdio->dev, "registered mdio device %s at address %i\n",
- 		child->name, addr);
-+	return 0;
- }
- 
- /* The following is a list of PHY compatible strings which appear in
-@@ -219,9 +225,11 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 		}
- 
- 		if (of_mdiobus_child_is_phy(child))
--			of_mdiobus_register_phy(mdio, child, addr);
-+			rc = of_mdiobus_register_phy(mdio, child, addr);
- 		else
--			of_mdiobus_register_device(mdio, child, addr);
-+			rc = of_mdiobus_register_device(mdio, child, addr);
-+		if (rc)
-+			goto unregister;
- 	}
- 
- 	if (!scanphys)
-@@ -242,12 +250,19 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 			dev_info(&mdio->dev, "scan phy %s at address %i\n",
- 				 child->name, addr);
- 
--			if (of_mdiobus_child_is_phy(child))
--				of_mdiobus_register_phy(mdio, child, addr);
-+			if (of_mdiobus_child_is_phy(child)) {
-+				rc = of_mdiobus_register_phy(mdio, child, addr);
-+				if (rc)
-+					goto unregister;
-+			}
- 		}
- 	}
- 
- 	return 0;
++ (*) Get call RTT.
 +
-+unregister:
-+	mdiobus_unregister(mdio);
-+	return rc;
- }
- EXPORT_SYMBOL(of_mdiobus_register);
++	u64 rxrpc_kernel_get_rtt(struct socket *sock, struct rxrpc_call *call);
++
++     Get the RTT time to the peer in use by a call.  The value returned is in
++     nanoseconds.
++
++ (*) Check call still alive.
++
++	u32 rxrpc_kernel_check_life(struct socket *sock,
++				    struct rxrpc_call *call);
++
++     This returns a number that is updated when ACKs are received from the peer
++     (notably including PING RESPONSE ACKs which we can elicit by sending PING
++     ACKs to see if the call still exists on the server).  The caller should
++     compare the numbers of two calls to see if the call is still alive after
++     waiting for a suitable interval.
++
++     This allows the caller to work out if the server is still contactable and
++     if the call is still alive on the server whilst waiting for the server to
++     process a client operation.
++
++     This function may transmit a PING ACK.
++
  
--- 
-2.7.4
+ =======================
+ CONFIGURABLE PARAMETERS
+diff --git a/include/net/af_rxrpc.h b/include/net/af_rxrpc.h
+index 820dd365a08e..2b3a6eec4570 100644
+--- a/include/net/af_rxrpc.h
++++ b/include/net/af_rxrpc.h
+@@ -61,6 +61,7 @@ bool rxrpc_kernel_abort_call(struct socket *, struct rxrpc_call *,
+ void rxrpc_kernel_end_call(struct socket *, struct rxrpc_call *);
+ void rxrpc_kernel_get_peer(struct socket *, struct rxrpc_call *,
+ 			   struct sockaddr_rxrpc *);
++u64 rxrpc_kernel_get_rtt(struct socket *, struct rxrpc_call *);
+ int rxrpc_kernel_charge_accept(struct socket *, rxrpc_notify_rx_t,
+ 			       rxrpc_user_attach_call_t, unsigned long, gfp_t);
+ void rxrpc_kernel_set_tx_length(struct socket *, struct rxrpc_call *, s64);
+@@ -68,5 +69,6 @@ int rxrpc_kernel_retry_call(struct socket *, struct rxrpc_call *,
+ 			    struct sockaddr_rxrpc *, struct key *);
+ int rxrpc_kernel_check_call(struct socket *, struct rxrpc_call *,
+ 			    enum rxrpc_call_completion *, u32 *);
++u32 rxrpc_kernel_check_life(struct socket *, struct rxrpc_call *);
+ 
+ #endif /* _NET_RXRPC_H */
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 481f7dc90ba2..73c980e26581 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -340,6 +340,25 @@ void rxrpc_kernel_end_call(struct socket *sock, struct rxrpc_call *call)
+ EXPORT_SYMBOL(rxrpc_kernel_end_call);
+ 
+ /**
++ * rxrpc_kernel_check_life - Check to see whether a call is still alive
++ * @sock: The socket the call is on
++ * @call: The call to check
++ *
++ * Allow a kernel service to find out whether a call is still alive - ie. we're
++ * getting ACKs from the server.  Returns a number representing the life state
++ * which can be compared to that returned by a previous call.
++ *
++ * If this is a client call, ping ACKs will be sent to the server to find out
++ * whether it's still responsive and whether the call is still alive on the
++ * server.
++ */
++u32 rxrpc_kernel_check_life(struct socket *sock, struct rxrpc_call *call)
++{
++	return call->acks_latest;
++}
++EXPORT_SYMBOL(rxrpc_kernel_check_life);
++
++/**
+  * rxrpc_kernel_check_call - Check a call's state
+  * @sock: The socket the call is on
+  * @call: The call to check
+diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
+index 5787f97f5330..d02a99f37f5f 100644
+--- a/net/rxrpc/peer_object.c
++++ b/net/rxrpc/peer_object.c
+@@ -411,3 +411,16 @@ void rxrpc_kernel_get_peer(struct socket *sock, struct rxrpc_call *call,
+ 	*_srx = call->peer->srx;
+ }
+ EXPORT_SYMBOL(rxrpc_kernel_get_peer);
++
++/**
++ * rxrpc_kernel_get_rtt - Get a call's peer RTT
++ * @sock: The socket on which the call is in progress.
++ * @call: The call to query
++ *
++ * Get the call's peer RTT.
++ */
++u64 rxrpc_kernel_get_rtt(struct socket *sock, struct rxrpc_call *call)
++{
++	return call->peer->rtt;
++}
++EXPORT_SYMBOL(rxrpc_kernel_get_rtt);
