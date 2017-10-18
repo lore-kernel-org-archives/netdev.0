@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next V8 PATCH 0/5] New bpf cpumap type for XDP_REDIRECT
-Date: Wed, 18 Oct 2017 12:12:38 +0100 (WEST)
-Message-ID: <20171018.121238.1803733682298228804.davem@davemloft.net>
-References: <150814913767.1806.3470498528707259987.stgit@firesoul>
+Subject: Re: [PATCH net-next v2 2/2] net: add skb_memcpy_to[from]_msg() to
+ optimize skb code
+Date: Wed, 18 Oct 2017 12:18:34 +0100 (WEST)
+Message-ID: <20171018.121834.1670470800745081134.davem@davemloft.net>
+References: <1508155873-23752-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        mst@redhat.com, pavel.odintsov@gmail.com, jasowang@redhat.com,
-        mchan@broadcom.com, john.fastabend@gmail.com,
-        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
-        borkmann@iogearbox.net, alexei.starovoitov@gmail.com,
-        andy@greyhouse.net
-To: brouer@redhat.com
+Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
+To: cugyly@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59664 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59752 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752467AbdJRLMt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:12:49 -0400
-In-Reply-To: <150814913767.1806.3470498528707259987.stgit@firesoul>
+        with ESMTP id S1752819AbdJRLSl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:18:41 -0400
+In-Reply-To: <1508155873-23752-1-git-send-email-cugyly@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 16 Oct 2017 12:19:23 +0200
+From: yuan linyu <cugyly@163.com>
+Date: Mon, 16 Oct 2017 20:11:13 +0800
 
-> Introducing a new way to redirect XDP frames.  Notice how no driver
-> changes are necessary given the design of XDP_REDIRECT.
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> 
+> add these two wrappers in skbuff.h which is better named
+> than previous and only used for skb.
+> 
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-Series applied, thanks Jesper.
+Doing the skb_put() inside of the helper function makes code less
+intuitive.
+
+If someone is auditing code it's easier to see the skb_put() and
+understand what is happening when it's at the call site rather than
+buried in some helper.
+
+Sorry, I don't see these changes as an improvement and will not apply
+them.
+
+Thank you.
