@@ -1,52 +1,37 @@
-From: Adam Borowski <kilobyte@angband.pl>
-Subject: Re: [PATCH] wanxl: use m68k-linux-gnu-as if available
-Date: Wed, 18 Oct 2017 13:33:26 +0200
-Message-ID: <20171018113326.2rkpe7wrlzihwdyb@angband.pl>
-References: <20171012232434.15890-1-kilobyte@angband.pl>
- <20171018.120812.879877583327430024.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: aggregation: Convert timers to use
+ timer_setup()
+Date: Wed, 18 Oct 2017 13:37:35 +0200
+Message-ID: <1508326655.2674.22.camel@sipsolutions.net>
+References: <20171017202545.GA115810@beast>
+         (sfid-20171017_222550_315925_34B26DDB) <1508322566.2674.17.camel@sipsolutions.net>
+         (sfid-20171018_122945_123971_5A96CA64) <1508326291.2674.21.camel@sipsolutions.net>
+         (sfid-20171018_133153_823764_C25288EB)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tartarus.angband.pl ([89.206.35.136]:35348 "EHLO
-        tartarus.angband.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753562AbdJRLd3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:33:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20171018.120812.879877583327430024.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>, linux-wireless@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508326291.2674.21.camel@sipsolutions.net> (sfid-20171018_133153_823764_C25288EB)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2017 at 12:08:12PM +0100, David Miller wrote:
-> From: Adam Borowski <kilobyte@angband.pl>
-> Date: Fri, 13 Oct 2017 01:24:34 +0200
+On Wed, 2017-10-18 at 13:31 +0200, Johannes Berg wrote:
+> On Wed, 2017-10-18 at 12:29 +0200, Johannes Berg wrote:
 > 
-> > This fixes build failure on Debian based systems: GNU as is the only m68k
-> > assembler available in the archive (package binutils-m68k-linux-gnu).
-> > 
-> > Signed-off-by: Adam Borowski <kilobyte@angband.pl>
+> > Anyway, the change here looks correct to me, so I'll apply it and then
+> > perhaps clean up more. I've only changed "u16 tid" to "u8 tid" since
+> > the valid range is 0-15 (in theory, in practice 0-7).
 > 
-> The Kconfig help text for the config option controlling the build
-> firmware is extremely clear what the requirements are for enabling
-> that option.
+> Well, I guess I'm clearly wrong - it's crashing our test suite left and
+> right.
 > 
-> And that is: "It requires as68k, ld68k and hexdump programs."
+> I'll dig a little bit, but I don't have much time today, and will be
+> out for a few days starting tomorrow.
 
-Yeah, but as far as I know, as68k is a name of "GNU as"; Debian calls the
-same m68k-linux-gnu-as (and in general, $(GNU_TRIPLET)-as for all usual
-cross toolchains shipped).  And as Debian derivatives make the majority of
-distro installs these days, supporting its naming scheme would be
-convenient.
+Ok, it's pretty obvious - you never initialize the new fields in tid_tx
+(sta and tid), only in tid_rx. Let's see if it passes with that fixed.
 
-Or, if you believe no one should try to build this firmware from source,
-it might be better to annotate it to be excluded from randconfig builds.
-
-
-Meow!
--- 
-⢀⣴⠾⠻⢶⣦⠀ 
-⣾⠁⢰⠒⠀⣿⡁ Imagine there are bandits in your house, your kid is bleeding out,
-⢿⡄⠘⠷⠚⠋⠀ the house is on fire, and seven big-ass trumpets are playing in the
-⠈⠳⣄⠀⠀⠀⠀ sky.  Your cat demands food.  The priority should be obvious...
+johannes
