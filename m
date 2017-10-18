@@ -1,181 +1,234 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v3 net-next 4/5] mlxsw: spectrum: router: Add support for address validator notifier
-Date: Wed, 18 Oct 2017 09:56:55 -0700
-Message-ID: <1508345816-25678-5-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v3 net-next 3/5] net: Add extack to validator_info structs used for address notifier
+Date: Wed, 18 Oct 2017 09:56:54 -0700
+Message-ID: <1508345816-25678-4-git-send-email-dsahern@gmail.com>
 References: <1508345816-25678-1-git-send-email-dsahern@gmail.com>
 Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
         davem@davemloft.net, yoshfuji@linux-ipv6.org,
         David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:54051 "EHLO
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:56891 "EHLO
         mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751091AbdJRQ5H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:57:07 -0400
-Received: by mail-pf0-f195.google.com with SMTP id t188so4387460pfd.10
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 09:57:07 -0700 (PDT)
+        with ESMTP id S1751046AbdJRQ5G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:57:06 -0400
+Received: by mail-pf0-f195.google.com with SMTP id b85so4377195pfj.13
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 09:57:06 -0700 (PDT)
 In-Reply-To: <1508345816-25678-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for inetaddr_validator and inet6addr_validator. The
-notifiers provide a means for validating ipv4 and ipv6 addresses
-before the addresses are installed and on failure the error
-is propagated back to the user.
+Add extack to in_validator_info and in6_validator_info. Update the one
+user of each, ipvlan, to return an error message for failures.
+
+Only manual configuration of an address is plumbed in the IPv6 code path.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 15 ++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  4 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 52 ++++++++++++++++++++++
- 3 files changed, 70 insertions(+), 1 deletion(-)
+ drivers/net/ipvlan/ipvlan_main.c | 10 ++++++++--
+ include/linux/inetdevice.h       |  1 +
+ include/net/addrconf.h           |  1 +
+ net/ipv4/devinet.c               |  8 +++++---
+ net/ipv6/addrconf.c              | 22 ++++++++++++----------
+ 5 files changed, 27 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e1e11c726c16..e6519f2906a4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -4521,9 +4521,16 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *nb,
- 	return notifier_from_errno(err);
- }
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 6842739b6679..f0ab55df57f1 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -847,8 +847,11 @@ static int ipvlan_addr6_validator_event(struct notifier_block *unused,
  
-+static struct notifier_block mlxsw_sp_inetaddr_valid_nb __read_mostly = {
-+	.notifier_call = mlxsw_sp_inetaddr_valid_event,
-+};
-+
- static struct notifier_block mlxsw_sp_inetaddr_nb __read_mostly = {
- 	.notifier_call = mlxsw_sp_inetaddr_event,
--	.priority = 10,	/* Must be called before FIB notifier block */
-+};
-+
-+static struct notifier_block mlxsw_sp_inet6addr_valid_nb __read_mostly = {
-+	.notifier_call = mlxsw_sp_inet6addr_valid_event,
+ 	switch (event) {
+ 	case NETDEV_UP:
+-		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true))
++		if (ipvlan_addr_busy(ipvlan->port, &i6vi->i6vi_addr, true)) {
++			NL_SET_ERR_MSG(i6vi->extack,
++				       "Address already assigned to an ipvlan device");
+ 			return notifier_from_errno(-EADDRINUSE);
++		}
+ 		break;
+ 	}
+ 
+@@ -917,8 +920,11 @@ static int ipvlan_addr4_validator_event(struct notifier_block *unused,
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
+-		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false))
++		if (ipvlan_addr_busy(ipvlan->port, &ivi->ivi_addr, false)) {
++			NL_SET_ERR_MSG(ivi->extack,
++				       "Address already assigned to an ipvlan device");
+ 			return notifier_from_errno(-EADDRINUSE);
++		}
+ 		break;
+ 	}
+ 
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index 751d051f0bc7..681dff30940b 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -154,6 +154,7 @@ struct in_ifaddr {
+ struct in_validator_info {
+ 	__be32			ivi_addr;
+ 	struct in_device	*ivi_dev;
++	struct netlink_ext_ack	*extack;
  };
  
- static struct notifier_block mlxsw_sp_inet6addr_nb __read_mostly = {
-@@ -4548,7 +4555,9 @@ static int __init mlxsw_sp_module_init(void)
+ int register_inetaddr_notifier(struct notifier_block *nb);
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 87981cd63180..b8b16437c6d5 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -55,6 +55,7 @@ struct prefix_info {
+ struct in6_validator_info {
+ 	struct in6_addr		i6vi_addr;
+ 	struct inet6_dev	*i6vi_dev;
++	struct netlink_ext_ack	*extack;
+ };
+ 
+ #define IN6_ADDR_HSIZE_SHIFT	4
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index e1e2ec0525e6..a4573bccd6da 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -444,7 +444,7 @@ static void check_lifetime(struct work_struct *work);
+ static DECLARE_DELAYED_WORK(check_lifetime_work, check_lifetime);
+ 
+ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+-			     u32 portid)
++			     u32 portid, struct netlink_ext_ack *extack)
  {
- 	int err;
+ 	struct in_device *in_dev = ifa->ifa_dev;
+ 	struct in_ifaddr *ifa1, **ifap, **last_primary;
+@@ -489,6 +489,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 	 */
+ 	ivi.ivi_addr = ifa->ifa_address;
+ 	ivi.ivi_dev = ifa->ifa_dev;
++	ivi.extack = extack;
+ 	ret = blocking_notifier_call_chain(&inetaddr_validator_chain,
+ 					   NETDEV_UP, &ivi);
+ 	ret = notifier_to_errno(ret);
+@@ -521,7 +522,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
  
-+	register_inetaddr_validator_notifier(&mlxsw_sp_inetaddr_valid_nb);
- 	register_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
-+	register_inet6addr_validator_notifier(&mlxsw_sp_inet6addr_valid_nb);
- 	register_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
- 	register_netevent_notifier(&mlxsw_sp_router_netevent_nb);
+ static int inet_insert_ifa(struct in_ifaddr *ifa)
+ {
+-	return __inet_insert_ifa(ifa, NULL, 0);
++	return __inet_insert_ifa(ifa, NULL, 0, NULL);
+ }
  
-@@ -4567,7 +4576,9 @@ static int __init mlxsw_sp_module_init(void)
- err_core_driver_register:
- 	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
- 	unregister_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
-+	unregister_inet6addr_validator_notifier(&mlxsw_sp_inet6addr_valid_nb);
- 	unregister_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
-+	unregister_inetaddr_validator_notifier(&mlxsw_sp_inetaddr_valid_nb);
+ static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
+@@ -902,7 +903,8 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 				return ret;
+ 			}
+ 		}
+-		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid);
++		return __inet_insert_ifa(ifa, nlh, NETLINK_CB(skb).portid,
++					 extack);
+ 	} else {
+ 		inet_free_ifa(ifa);
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index dd9c0c435f71..93f9c0a61911 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -987,7 +987,7 @@ static struct inet6_ifaddr *
+ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	      const struct in6_addr *peer_addr, int pfxlen,
+ 	      int scope, u32 flags, u32 valid_lft, u32 prefered_lft,
+-	      bool can_block)
++	      bool can_block, struct netlink_ext_ack *extack)
+ {
+ 	gfp_t gfp_flags = can_block ? GFP_KERNEL : GFP_ATOMIC;
+ 	struct net *net = dev_net(idev->dev);
+@@ -1019,6 +1019,7 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 		struct in6_validator_info i6vi = {
+ 			.i6vi_addr = *addr,
+ 			.i6vi_dev = idev,
++			.extack = extack,
+ 		};
+ 
+ 		err = inet6addr_validator_notifier_call_chain(NETDEV_UP, &i6vi);
+@@ -1356,7 +1357,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
+ 
+ 	ift = ipv6_add_addr(idev, &addr, NULL, tmp_plen,
+ 			    ipv6_addr_scope(&addr), addr_flags,
+-			    tmp_valid_lft, tmp_prefered_lft, true);
++			    tmp_valid_lft, tmp_prefered_lft, true, NULL);
+ 	if (IS_ERR(ift)) {
+ 		in6_ifa_put(ifp);
+ 		in6_dev_put(idev);
+@@ -2040,7 +2041,7 @@ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ 
+ 		ifp2 = ipv6_add_addr(idev, &new_addr, NULL, pfxlen,
+ 				     scope, flags, valid_lft,
+-				     preferred_lft, false);
++				     preferred_lft, false, NULL);
+ 		if (IS_ERR(ifp2))
+ 			goto lock_errdad;
+ 
+@@ -2498,7 +2499,7 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
+ 					    pinfo->prefix_len,
+ 					    addr_type&IPV6_ADDR_SCOPE_MASK,
+ 					    addr_flags, valid_lft,
+-					    prefered_lft, false);
++					    prefered_lft, false, NULL);
+ 
+ 		if (IS_ERR_OR_NULL(ifp))
+ 			return -1;
+@@ -2808,7 +2809,8 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 			  const struct in6_addr *pfx,
+ 			  const struct in6_addr *peer_pfx,
+ 			  unsigned int plen, __u32 ifa_flags,
+-			  __u32 prefered_lft, __u32 valid_lft)
++			  __u32 prefered_lft, __u32 valid_lft,
++			  struct netlink_ext_ack *extack)
+ {
+ 	struct inet6_ifaddr *ifp;
+ 	struct inet6_dev *idev;
+@@ -2867,7 +2869,7 @@ static int inet6_addr_add(struct net *net, int ifindex,
+ 	}
+ 
+ 	ifp = ipv6_add_addr(idev, pfx, peer_pfx, plen, scope, ifa_flags,
+-			    valid_lft, prefered_lft, true);
++			    valid_lft, prefered_lft, true, extack);
+ 
+ 	if (!IS_ERR(ifp)) {
+ 		if (!(ifa_flags & IFA_F_NOPREFIXROUTE)) {
+@@ -2952,7 +2954,7 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
+ 	rtnl_lock();
+ 	err = inet6_addr_add(net, ireq.ifr6_ifindex, &ireq.ifr6_addr, NULL,
+ 			     ireq.ifr6_prefixlen, IFA_F_PERMANENT,
+-			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME);
++			     INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, NULL);
+ 	rtnl_unlock();
  	return err;
  }
+@@ -2983,7 +2985,7 @@ static void add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+ 	ifp = ipv6_add_addr(idev, addr, NULL, plen,
+ 			    scope, IFA_F_PERMANENT,
+ 			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME,
+-			    true);
++			    true, NULL);
+ 	if (!IS_ERR(ifp)) {
+ 		spin_lock_bh(&ifp->lock);
+ 		ifp->flags &= ~IFA_F_TENTATIVE;
+@@ -3083,7 +3085,7 @@ void addrconf_add_linklocal(struct inet6_dev *idev,
+ #endif
  
-@@ -4577,7 +4588,9 @@ static void __exit mlxsw_sp_module_exit(void)
- 	mlxsw_core_driver_unregister(&mlxsw_sp_driver);
- 	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
- 	unregister_inet6addr_notifier(&mlxsw_sp_inet6addr_nb);
-+	unregister_inet6addr_validator_notifier(&mlxsw_sp_inet6addr_valid_nb);
- 	unregister_inetaddr_notifier(&mlxsw_sp_inetaddr_nb);
-+	unregister_inetaddr_validator_notifier(&mlxsw_sp_inetaddr_valid_nb);
- }
+ 	ifp = ipv6_add_addr(idev, addr, NULL, 64, IFA_LINK, addr_flags,
+-			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, true);
++			    INFINITY_LIFE_TIME, INFINITY_LIFE_TIME, true, NULL);
+ 	if (!IS_ERR(ifp)) {
+ 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, idev->dev, 0, 0);
+ 		addrconf_dad_start(ifp);
+@@ -4586,7 +4588,7 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		 */
+ 		return inet6_addr_add(net, ifm->ifa_index, pfx, peer_pfx,
+ 				      ifm->ifa_prefixlen, ifa_flags,
+-				      preferred_lft, valid_lft);
++				      preferred_lft, valid_lft, extack);
+ 	}
  
- module_init(mlxsw_sp_module_init);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 28feb745a38a..2a2472a09d8c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -391,8 +391,12 @@ int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
- int mlxsw_sp_netdevice_router_port_event(struct net_device *dev);
- int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
- 			    unsigned long event, void *ptr);
-+int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
-+				  unsigned long event, void *ptr);
- int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
- 			     unsigned long event, void *ptr);
-+int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
-+				   unsigned long event, void *ptr);
- int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
- 				 struct netdev_notifier_changeupper_info *info);
- bool mlxsw_sp_netdev_is_ipip(const struct mlxsw_sp *mlxsw_sp,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 3330120f2f8e..66bab9ce2881 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -5781,6 +5781,32 @@ int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
- 	struct mlxsw_sp_rif *rif;
- 	int err = 0;
- 
-+	/* NETDEV_UP event is handled by mlxsw_sp_inetaddr_valid_event */
-+	if (event == NETDEV_UP)
-+		goto out;
-+
-+	mlxsw_sp = mlxsw_sp_lower_get(dev);
-+	if (!mlxsw_sp)
-+		goto out;
-+
-+	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
-+	if (!mlxsw_sp_rif_should_config(rif, dev, event))
-+		goto out;
-+
-+	err = __mlxsw_sp_inetaddr_event(dev, event);
-+out:
-+	return notifier_from_errno(err);
-+}
-+
-+int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
-+				  unsigned long event, void *ptr)
-+{
-+	struct in_validator_info *ivi = (struct in_validator_info *) ptr;
-+	struct net_device *dev = ivi->ivi_dev->dev;
-+	struct mlxsw_sp *mlxsw_sp;
-+	struct mlxsw_sp_rif *rif;
-+	int err = 0;
-+
- 	mlxsw_sp = mlxsw_sp_lower_get(dev);
- 	if (!mlxsw_sp)
- 		goto out;
-@@ -5833,6 +5859,10 @@ int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
- 	struct mlxsw_sp_inet6addr_event_work *inet6addr_work;
- 	struct net_device *dev = if6->idev->dev;
- 
-+	/* NETDEV_UP event is handled by mlxsw_sp_inet6addr_valid_event */
-+	if (event == NETDEV_UP)
-+		return NOTIFY_DONE;
-+
- 	if (!mlxsw_sp_port_dev_lower_find_rcu(dev))
- 		return NOTIFY_DONE;
- 
-@@ -5849,6 +5879,28 @@ int mlxsw_sp_inet6addr_event(struct notifier_block *unused,
- 	return NOTIFY_DONE;
- }
- 
-+int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
-+				   unsigned long event, void *ptr)
-+{
-+	struct in6_validator_info *i6vi = (struct in6_validator_info *) ptr;
-+	struct net_device *dev = i6vi->i6vi_dev->dev;
-+	struct mlxsw_sp *mlxsw_sp;
-+	struct mlxsw_sp_rif *rif;
-+	int err = 0;
-+
-+	mlxsw_sp = mlxsw_sp_lower_get(dev);
-+	if (!mlxsw_sp)
-+		goto out;
-+
-+	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
-+	if (!mlxsw_sp_rif_should_config(rif, dev, event))
-+		goto out;
-+
-+	err = __mlxsw_sp_inetaddr_event(dev, event);
-+out:
-+	return notifier_from_errno(err);
-+}
-+
- static int mlxsw_sp_rif_edit(struct mlxsw_sp *mlxsw_sp, u16 rif_index,
- 			     const char *mac, int mtu)
- {
+ 	if (nlh->nlmsg_flags & NLM_F_EXCL ||
 -- 
 2.1.4
