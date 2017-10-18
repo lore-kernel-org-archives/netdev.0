@@ -1,54 +1,54 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net] sock_diag: request _diag module only when the family
- or proto has been registered
-Date: Wed, 18 Oct 2017 21:33:58 +0800
-Message-ID: <CADvbK_cuu+CZ8cN6oB8zichfw=1M7+cz-=zV-aJERvL=CuZGGg@mail.gmail.com>
-References: <69c0824505548e733f2f7be3ff288f2c4e461afa.1508217236.git.lucien.xin@gmail.com>
- <201710181738.Tq0zphPS%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: kbuild-all@01.org, network dev <netdev@vger.kernel.org>,
-        davem <davem@davemloft.net>,
+Subject: [PATCH net] sctp: add the missing sock_owned_by_user check in sctp_icmp_redirect
+Date: Wed, 18 Oct 2017 21:37:49 +0800
+Message-ID: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Sabrina Dubroca <sd@queasysnail.net>,
-        Eric Dumazet <edumazet@google.com>
-To: kbuild test robot <lkp@intel.com>
+        Neil Horman <nhorman@tuxdriver.com>
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:52083 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753809AbdJRNeA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:34:00 -0400
-Received: by mail-qk0-f195.google.com with SMTP id 17so6186560qkq.8
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 06:33:59 -0700 (PDT)
-In-Reply-To: <201710181738.Tq0zphPS%fengguang.wu@intel.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:55584 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754786AbdJRNh6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:37:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 5:38 PM, kbuild test robot <lkp@intel.com> wrote:
-> Hi Xin,
->
-> [auto build test ERROR on net/master]
->
-> url:    https://github.com/0day-ci/linux/commits/Xin-Long/sock_diag-request-_diag-module-only-when-the-family-or-proto-has-been-registered/20171018-152434
-> config: x86_64-randconfig-a0-10181611 (attached as .config)
-> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64
->
-> All errors (new ones prefixed by >>):
->
->    net/core/sock_diag.o: In function `sock_diag_request_module':
->>> (.text+0x685): undefined reference to `inet_protos'
-Huh,
-# CONFIG_INET is not set
-Cool, I will move the check for inet_protos to net_diag.ko
-and repost.
+Now sctp processes icmp redirect packet in sctp_icmp_redirect where
+it calls sctp_transport_dst_check in which tp->dst can be released.
 
-Thanks.
+The problem is before calling sctp_transport_dst_check, it doesn't
+check sock_owned_by_user, which means tp->dst could be freed while
+a process is accessing it with owning the socket.
 
+An use-after-free issue could be triggered by this.
 
->
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+This patch is to fix it by checking sock_owned_by_user before calling
+sctp_transport_dst_check in sctp_icmp_redirect, so that it would not
+release tp->dst if users still hold sock lock.
+
+Besides, the same issue fixed in commit 45caeaa5ac0b ("dccp/tcp: fix
+routing redirect race") on sctp also needs this check.
+
+Fixes: 55be7a9c6074 ("ipv4: Add redirect support to all protocol icmp error handlers")
+Reported-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 92a0714..34f10e7 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -421,7 +421,7 @@ void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
+ {
+ 	struct dst_entry *dst;
+ 
+-	if (!t)
++	if (sock_owned_by_user(sk) || !t)
+ 		return;
+ 	dst = sctp_transport_dst_check(t);
+ 	if (dst)
+-- 
+2.1.0
