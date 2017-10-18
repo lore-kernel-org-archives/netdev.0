@@ -1,186 +1,287 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net v2 2/2] net: fec: Let fec_ptp have its own interrupt
- routine
-Date: Wed, 18 Oct 2017 02:30:42 +0000
-Message-ID: <AM4PR0401MB226072C7D7775F16C533316FFF4D0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20171014020940.32736-1-troy.kisky@boundarydevices.com>
- <20171014020940.32736-2-troy.kisky@boundarydevices.com>
- <AM4PR0401MB226019650A8FB767B11B8B91FF4F0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <542a126c-d7ff-7232-9dde-e5c6f1e1f55f@boundarydevices.com>
+From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] [v2] i40e: avoid 64-bit division where
+ possible
+Date: Tue, 17 Oct 2017 22:37:40 -0700
+Message-ID: <ae467f28-a972-dc2d-1bc8-e8ce4c7d9d68@intel.com>
+References: <20171017155001.318184-1-arnd@arndb.de>
+ <CAKgT0UfeDJomnen_2PhgnHSi27YROjTAtT=OYEj0JNVD8fzcOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-        "lznuaa@gmail.com" <lznuaa@gmail.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-        "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0043.outbound.protection.outlook.com ([104.47.0.43]:6400
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753040AbdJRCaw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Oct 2017 22:30:52 -0400
-In-Reply-To: <542a126c-d7ff-7232-9dde-e5c6f1e1f55f@boundarydevices.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+        Mitch Williams <mitch.a.williams@intel.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
+        Filip Sadowski <filip.sadowski@intel.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UfeDJomnen_2PhgnHSi27YROjTAtT=OYEj0JNVD8fzcOw@mail.gmail.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogVHJveSBLaXNreSA8dHJveS5raXNreUBib3VuZGFyeWRldmljZXMuY29tPiBTZW50OiBX
-ZWRuZXNkYXksIE9jdG9iZXIgMTgsIDIwMTcgNTozNCBBTQ0KPj4+IFRoaXMgaXMgYmV0dGVyIGZv
-ciBjb2RlIGxvY2FsaXR5IGFuZCBzaG91bGQgc2xpZ2h0bHkgc3BlZWQgdXAgbm9ybWFsDQo+aW50
-ZXJydXB0cy4NCj4+Pg0KPj4+IFRoaXMgYWxzbyBhbGxvd3MgUFBTIGNsb2NrIG91dHB1dCB0byBz
-dGFydCB3b3JraW5nIGZvciBpLm14Ny4gVGhpcyBpcw0KPj4+IGJlY2F1c2UNCj4+PiBpLm14NyB3
-YXMgYWxyZWFkeSB1c2luZyB0aGUgbGltaXQgb2YgMyBpbnRlcnJ1cHRzLCBhbmQgbmVlZGVkIGFu
-b3RoZXIuDQo+Pj4NCj4+PiBTaWduZWQtb2ZmLWJ5OiBUcm95IEtpc2t5IDx0cm95Lmtpc2t5QGJv
-dW5kYXJ5ZGV2aWNlcy5jb20+DQo+Pj4NCj4+PiAtLS0NCj4+Pg0KPj4+IHYyOiBtYWRlIHRoaXMg
-Y2hhbmdlIGluZGVwZW5kZW50IG9mIGFueSBkZXZpY2V0cmVlIGNoYW5nZSBzbyB0aGF0IG9sZA0K
-Pj4+IGR0YnMgY29udGludWUgdG8gd29yay4NCj4+Pg0KPj4+IENvbnRpbnVlIHRvIHJlZ2lzdGVy
-IHB0cCBjbG9jayBpZiBpbnRlcnJ1cHQgaXMgbm90IGZvdW5kLg0KPj4+IC0tLQ0KPj4+IGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuaCAgICAgIHwgIDMgKy0NCj4+PiBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4uYyB8IDI1ICsrKysrKy0tLS0NCj4+PiBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX3B0cC5jICB8IDgyDQo+Pj4gKysrKysr
-KysrKysrKysrKysrLS0tLS0tLS0NCj4+PiAtLS0tLQ0KPj4+IDMgZmlsZXMgY2hhbmdlZCwgNjUg
-aW5zZXJ0aW9ucygrKSwgNDUgZGVsZXRpb25zKC0pDQo+Pj4NCj4+PiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlYy5oDQo+Pj4gYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+PiBpbmRleCBlZGUxODc2YTlhMTkuLmJlNTZhYzFmMWFj
-NCAxMDA2NDQNCj4+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgN
-Cj4+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+PiBAQCAt
-NTgyLDEyICs1ODIsMTEgQEAgc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgew0KPj4+IAl1NjQgZXRo
-dG9vbF9zdGF0c1swXTsNCj4+PiB9Ow0KPj4+DQo+Pj4gLXZvaWQgZmVjX3B0cF9pbml0KHN0cnVj
-dCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpOw0KPj4+ICt2b2lkIGZlY19wdHBfaW5pdChzdHJ1Y3Qg
-cGxhdGZvcm1fZGV2aWNlICpwZGV2LCBpbnQgaXJxX2luZGV4KTsNCj4+PiB2b2lkIGZlY19wdHBf
-c3RvcChzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KTsgIHZvaWQNCj4+PiBmZWNfcHRwX3N0
-YXJ0X2N5Y2xlY291bnRlcihzdHJ1Y3QgbmV0X2RldmljZSAqbmRldik7ICBpbnQNCj4+PiBmZWNf
-cHRwX3NldChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwgc3RydWN0IGlmcmVxICppZnIpOyAgaW50
-DQo+Pj4gZmVjX3B0cF9nZXQoc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYsIHN0cnVjdCBpZnJlcSAq
-aWZyKTsgLXVpbnQNCj4+PiBmZWNfcHRwX2NoZWNrX3Bwc19ldmVudChzdHJ1Y3QgZmVjX2VuZXRf
-cHJpdmF0ZSAqZmVwKTsNCj4+Pg0KPj4+DQo+Pj4NCj4vKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KPj4+ICoqKioqKioqKioqKioqKioq
-Ki8NCj4+PiAjZW5kaWYgLyogRkVDX0ggKi8NCj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+Pj4gaW5kZXggM2RjMmQ3NzFhMjIyLi4yMWFmYWJiYzU2
-MGYgMTAwNjQ0DQo+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2ZlY19t
-YWluLmMNCj4+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4u
-Yw0KPj4+IEBAIC0xNjAyLDEwICsxNjAyLDYgQEAgZmVjX2VuZXRfaW50ZXJydXB0KGludCBpcnEs
-IHZvaWQgKmRldl9pZCkNCj4+PiAJCXJldCA9IElSUV9IQU5ETEVEOw0KPj4+IAkJY29tcGxldGUo
-JmZlcC0+bWRpb19kb25lKTsNCj4+PiAJfQ0KPj4+IC0NCj4+PiAtCWlmIChmZXAtPnB0cF9jbG9j
-aykNCj4+PiAtCQlpZiAoZmVjX3B0cF9jaGVja19wcHNfZXZlbnQoZmVwKSkNCj4+PiAtCQkJcmV0
-ID0gSVJRX0hBTkRMRUQ7DQo+Pj4gCXJldHVybiByZXQ7DQo+Pj4gfQ0KPj4+DQo+Pj4gQEAgLTMz
-MjUsNiArMzMyMSw4IEBAIGZlY19wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0K
-Pj4+IAlzdHJ1Y3QgZGV2aWNlX25vZGUgKm5wID0gcGRldi0+ZGV2Lm9mX25vZGUsICpwaHlfbm9k
-ZTsNCj4+PiAJaW50IG51bV90eF9xczsNCj4+PiAJaW50IG51bV9yeF9xczsNCj4+PiArCWNoYXIg
-aXJxX25hbWVbOF07DQo+Pj4gKwlpbnQgaXJxX2NudDsNCj4+Pg0KPj4+IAlmZWNfZW5ldF9nZXRf
-cXVldWVfbnVtKHBkZXYsICZudW1fdHhfcXMsICZudW1fcnhfcXMpOw0KPj4+DQo+Pj4gQEAgLTM0
-NjUsMTggKzM0NjMsMjcgQEAgZmVjX3Byb2JlKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYp
-DQo+Pj4gCWlmIChyZXQpDQo+Pj4gCQlnb3RvIGZhaWxlZF9yZXNldDsNCj4+Pg0KPj4+ICsJaXJx
-X2NudCA9IHBsYXRmb3JtX2lycV9jb3VudChwZGV2KTsNCj4+PiArCWlmIChpcnFfY250ID4gRkVD
-X0lSUV9OVU0pDQo+Pj4gKwkJaXJxX2NudCA9IEZFQ19JUlFfTlVNOwkvKiBsYXN0IGZvciBwdHAg
-Ki8NCj4+PiArCWVsc2UgaWYgKGlycV9jbnQgPT0gMikNCj4+PiArCQlpcnFfY250ID0gMTsJLyog
-bGFzdCBmb3IgcHRwICovDQo+Pj4gKwllbHNlIGlmIChpcnFfY250IDw9IDApDQo+Pj4gKwkJaXJx
-X2NudCA9IDE7CS8qIExldCB0aGUgZm9yIGxvb3AgZmFpbCAqLw0KPj4NCj4+IERvbid0IGRvIGxp
-a2UgdGhpcy4gRG9uJ3Qgc3VwcG9zZSBwcHMgaW50ZXJydXB0IGlzIHRoZSBsYXN0IG9uZS4NCj4N
-Cj4NCj5JIGRvbid0LiBJZiB0aGUgcHBzIGludGVycnVwdCBpcyBuYW1lZCwgdGhlIG5hbWVkIGlu
-dGVycnVwdCB3aWxsIGJlIHVzZWQuIElmIGl0IGlzDQo+Tk9UIG5hbWVkLCB0aGUgbGFzdCBpbnRl
-cnJ1cHQgaXMgdXNlZCwgaWYgMiBpbnRlcnJ1cHRzLCBvciA+MyBpbnRlcnJ1cHQgYXJlDQo+cHJv
-dmlkZWQuDQo+T3RoZXJ3aXNlLCBubyBwcHMgaW50ZXJydXB0IGlzIGFzc3VtZWQuDQo+Rm9ydHVu
-YXRlbHkgdGhpcyBzZWVtcyB0byBiZSB0cnVlIGN1cnJlbnRseS4NCj4NCklmIHBwcyBpbnRlcnJ1
-cHQgaXMgbm90IG5hbWVkLCB0aGVuIGl0IGxpbWl0IHRoZSBsYXN0IG9uZSBpcyBwcHMuDQpXZSBj
-YW5ub3QgZ2V0IHRoZSBwcHMgaW50ZXJydXB0IGJhc2VkIG9uIGN1cnJlbnQgY2hpcCBpbnRlcnJ1
-cHQgZGVmaW5lLCB3ZSBuZXZlciBrbm93IHRoZSBmdXR1cmUgY2hpcCBob3cgdG8gZGVmaW5lIGlu
-dGVycnVwdC4NCkFsdGhvdWdoIHlvdXIgY3VycmVudCBpbXBsZW1lbnRhdGlvbiBjYW4gd29yayB3
-aXRoIGN1cnJlbnQgY2hpcHMsIGJ1dCBpdCBpcyBub3QgcmVhbGx5IGdvb2Qgc29sdXRpb24uDQoN
-Cj4NCj4+IEFuZCBpZiBpcnFfY250IGlzIDEgbGlrZSBpbXgyOC9pbXg1eCwgIHRoZSBwYXRjaCB3
-aWxsIGJyZWFrIGZlYyBpbnRlcnJ1cHQNCj5mdW5jdGlvbi4NCj4NCj5Ib3cgPyAgZmVjX3B0cF9p
-bml0IHdpbGwgbm90IGJlIGNhbGxlZCBhcyBidWZkZXNjX2V4IGlzIDAuDQo+DQpJbXgyOCBhbHNv
-IHN1cHBvcnQgZW5oYW5jZWQgYnVmZmVyIGRlc2NyaXB0b3IsICBpZiBkZWZpbmUgdGhlIHB0cCBj
-bG9jayBpbiBkdHMgdGhlbiBidWZkZXNjX2V4IGFsc28gY2FuIGJlIDEuDQoNCkkgc3RpbGwgc3Vn
-Z2VzdCB0byB1c2UgdjEgbG9naWMgY2hlY2sgcHBzIGludGVycnVwdCB0aGF0IG5lZWQgdG8gY2hl
-Y2sgaXJxIG5hbWUuDQoNCj4NCj5BbHNvLCBpZiBvbmx5IDEgaW50ZXJydXB0IGlzIHByb3ZpZGVk
-LCBpdCBpcyBhc3N1bWVkIHRoZXJlIGlzIG5vIHVubmFtZWQgcHBzDQo+aW50ZXJydXB0Lg0KPg0K
-Pg0KPj4NCj4+IEkgc3VnZ2VzdCB0byB1c2UgLnBsYXRmb3JtX2dldF9pcnFfYnluYW1lKCkgdG8g
-Z2V0IHBwcyhwdHApIGludGVycnVwdCBsaWtlDQo+eW91ciB2MSBsb2dpYyBjaGVjay4NCj4+DQo+
-Pj4gKw0KPj4+IAlpZiAoZmVwLT5idWZkZXNjX2V4KQ0KPj4+IC0JCWZlY19wdHBfaW5pdChwZGV2
-KTsNCj4+PiArCQlmZWNfcHRwX2luaXQocGRldiwgaXJxX2NudCk7DQo+Pj4NCj4+PiAJcmV0ID0g
-ZmVjX2VuZXRfaW5pdChuZGV2KTsNCj4+PiAJaWYgKHJldCkNCj4+PiAJCWdvdG8gZmFpbGVkX2lu
-aXQ7DQo+Pj4NCj4+PiAtCWZvciAoaSA9IDA7IGkgPCBGRUNfSVJRX05VTTsgaSsrKSB7DQo+Pj4g
-LQkJaXJxID0gcGxhdGZvcm1fZ2V0X2lycShwZGV2LCBpKTsNCj4+PiArCWZvciAoaSA9IDA7IGkg
-PCBpcnFfY250OyBpKyspIHsNCj4+PiArCQlzcHJpbnRmKGlycV9uYW1lLCAiaW50JWQiLCBpKTsN
-Cj4+PiArCQlpcnEgPSBwbGF0Zm9ybV9nZXRfaXJxX2J5bmFtZShwZGV2LCBpcnFfbmFtZSk7DQo+
-Pj4gKwkJaWYgKGlycSA8IDApDQo+Pj4gKwkJCWlycSA9IHBsYXRmb3JtX2dldF9pcnEocGRldiwg
-aSk7DQo+Pj4gCQlpZiAoaXJxIDwgMCkgew0KPj4+IC0JCQlpZiAoaSkNCj4+PiAtCQkJCWJyZWFr
-Ow0KPj4+IAkJCXJldCA9IGlycTsNCj4+PiAJCQlnb3RvIGZhaWxlZF9pcnE7DQo+Pj4gCQl9DQo+
-Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfcHRwLmMN
-Cj4+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWNfcHRwLmMNCj4+PiBpbmRl
-eCA2ZWJhZDNmYWM4MWQuLjNhYmVlZTBkMTZkZCAxMDA2NDQNCj4+PiAtLS0gYS9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX3B0cC5jDQo+Pj4gKysrIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZlY19wdHAuYw0KPj4+IEBAIC01NDksNiArNTQ5LDM3IEBAIHN0YXRp
-YyB2b2lkIGZlY190aW1lX2tlZXAoc3RydWN0IHdvcmtfc3RydWN0DQo+KndvcmspDQo+Pj4gCXNj
-aGVkdWxlX2RlbGF5ZWRfd29yaygmZmVwLT50aW1lX2tlZXAsIEhaKTsgIH0NCj4+Pg0KPj4+ICsv
-KiBUaGlzIGZ1bmN0aW9uIGNoZWNrcyB0aGUgcHBzIGV2ZW50IGFuZCByZWxvYWRzIHRoZSB0aW1l
-ciBjb21wYXJlDQo+Pj4gK2NvdW50ZXIuICovIHN0YXRpYyBpcnFyZXR1cm5fdCBmZWNfcHRwX2lu
-dGVycnVwdChpbnQgaXJxLCB2b2lkDQo+Pj4gKypkZXZfaWQpIHsNCj4+PiArCXN0cnVjdCBuZXRf
-ZGV2aWNlICpuZGV2ID0gZGV2X2lkOw0KPj4+ICsJc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgKmZl
-cCA9IG5ldGRldl9wcml2KG5kZXYpOw0KPj4+ICsJdTMyIHZhbDsNCj4+PiArCXU4IGNoYW5uZWwg
-PSBmZXAtPnBwc19jaGFubmVsOw0KPj4+ICsJc3RydWN0IHB0cF9jbG9ja19ldmVudCBldmVudDsN
-Cj4+PiArDQo+Pj4gKwl2YWwgPSByZWFkbChmZXAtPmh3cCArIEZFQ19UQ1NSKGNoYW5uZWwpKTsN
-Cj4+PiArCWlmICh2YWwgJiBGRUNfVF9URl9NQVNLKSB7DQo+Pj4gKwkJLyogV3JpdGUgdGhlIG5l
-eHQgbmV4dCBjb21wYXJlKG5vdCB0aGUgbmV4dCBhY2NvcmRpbmcgdGhlDQo+Pj4gc3BlYykNCj4+
-PiArCQkgKiB2YWx1ZSB0byB0aGUgcmVnaXN0ZXINCj4+PiArCQkgKi8NCj4+PiArCQl3cml0ZWwo
-ZmVwLT5uZXh0X2NvdW50ZXIsIGZlcC0+aHdwICsgRkVDX1RDQ1IoY2hhbm5lbCkpOw0KPj4+ICsJ
-CWRvIHsNCj4+PiArCQkJd3JpdGVsKHZhbCwgZmVwLT5od3AgKyBGRUNfVENTUihjaGFubmVsKSk7
-DQo+Pj4gKwkJfSB3aGlsZSAocmVhZGwoZmVwLT5od3AgKyBGRUNfVENTUihjaGFubmVsKSkgJg0K
-Pj4+IEZFQ19UX1RGX01BU0spOw0KPj4+ICsNCj4+PiArCQkvKiBVcGRhdGUgdGhlIGNvdW50ZXI7
-ICovDQo+Pj4gKwkJZmVwLT5uZXh0X2NvdW50ZXIgPSAoZmVwLT5uZXh0X2NvdW50ZXIgKyBmZXAt
-DQo+Pj4+IHJlbG9hZF9wZXJpb2QpICYNCj4+PiArCQkJCWZlcC0+Y2MubWFzazsNCj4+PiArDQo+
-Pj4gKwkJZXZlbnQudHlwZSA9IFBUUF9DTE9DS19QUFM7DQo+Pj4gKwkJcHRwX2Nsb2NrX2V2ZW50
-KGZlcC0+cHRwX2Nsb2NrLCAmZXZlbnQpOw0KPj4+ICsJCXJldHVybiBJUlFfSEFORExFRDsNCj4+
-PiArCX0NCj4+PiArDQo+Pj4gKwlyZXR1cm4gSVJRX05PTkU7DQo+Pj4gK30NCj4+PiArDQo+Pj4g
-LyoqDQo+Pj4gICogZmVjX3B0cF9pbml0DQo+Pj4gICogQG5kZXY6IFRoZSBGRUMgbmV0d29yayBh
-ZGFwdGVyDQo+Pj4gQEAgLTU1OCwxMCArNTg5LDEyIEBAIHN0YXRpYyB2b2lkIGZlY190aW1lX2tl
-ZXAoc3RydWN0IHdvcmtfc3RydWN0DQo+Pj4gKndvcmspDQo+Pj4gICogY3ljbGVjb3VudGVyIGlu
-aXQgcm91dGluZSBhbmQgZXhpdHMuDQo+Pj4gICovDQo+Pj4NCj4+PiAtdm9pZCBmZWNfcHRwX2lu
-aXQoc3RydWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCj4+PiArdm9pZCBmZWNfcHRwX2luaXQo
-c3RydWN0IHBsYXRmb3JtX2RldmljZSAqcGRldiwgaW50IGlycV9pbmRleCkNCj4+PiB7DQo+Pj4g
-CXN0cnVjdCBuZXRfZGV2aWNlICpuZGV2ID0gcGxhdGZvcm1fZ2V0X2RydmRhdGEocGRldik7DQo+
-Pj4gCXN0cnVjdCBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4+
-PiArCWludCBpcnE7DQo+Pj4gKwlpbnQgcmV0Ow0KPj4+DQo+Pj4gCWZlcC0+cHRwX2NhcHMub3du
-ZXIgPSBUSElTX01PRFVMRTsNCj4+PiAJc25wcmludGYoZmVwLT5wdHBfY2Fwcy5uYW1lLCAxNiwg
-ImZlYyBwdHAiKTsgQEAgLTU4Nyw2ICs2MjAsMjAgQEANCj4+PiB2b2lkIGZlY19wdHBfaW5pdChz
-dHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0KPj4+DQo+Pj4gCUlOSVRfREVMQVlFRF9XT1JL
-KCZmZXAtPnRpbWVfa2VlcCwgZmVjX3RpbWVfa2VlcCk7DQo+Pj4NCj4+PiArCWlycSA9IHBsYXRm
-b3JtX2dldF9pcnFfYnluYW1lKHBkZXYsICJwdHAiKTsNCj4+PiArCWlmIChpcnEgPCAwKQ0KPj4+
-ICsJCWlycSA9IHBsYXRmb3JtX2dldF9pcnEocGRldiwgaXJxX2luZGV4KTsNCj4+PiArCS8qIEZh
-aWx1cmUgdG8gZ2V0IGFuIGlycSBpcyBub3QgZmF0YWwsDQo+Pj4gKwkgKiBvbmx5IHRoZSBQVFBf
-Q0xPQ0tfUFBTIGNsb2NrIGV2ZW50cyBzaG91bGQgc3RvcA0KPj4+ICsJICovDQo+Pj4gKwlpZiAo
-aXJxID49IDApIHsNCj4+PiArCQlyZXQgPSBkZXZtX3JlcXVlc3RfaXJxKCZwZGV2LT5kZXYsIGly
-cSwgZmVjX3B0cF9pbnRlcnJ1cHQsDQo+Pj4gKwkJCQkgICAgICAgMCwgcGRldi0+bmFtZSwgbmRl
-dik7DQo+Pj4gKwkJaWYgKHJldCA8IDApDQo+Pj4gKwkJCWRldl93YXJuKCZwZGV2LT5kZXYsICJy
-ZXF1ZXN0IGZvciBwdHAgaXJxDQo+Pj4gZmFpbGVkKCVkKVxuIiwNCj4+PiArCQkJCSByZXQpOw0K
-Pj4+ICsJfQ0KPj4+ICsNCj4+PiAJZmVwLT5wdHBfY2xvY2sgPSBwdHBfY2xvY2tfcmVnaXN0ZXIo
-JmZlcC0+cHRwX2NhcHMsICZwZGV2LT5kZXYpOw0KPj4+IAlpZiAoSVNfRVJSKGZlcC0+cHRwX2Ns
-b2NrKSkgew0KPj4+IAkJZmVwLT5wdHBfY2xvY2sgPSBOVUxMOw0KPj4+IEBAIC02MDUsMzYgKzY1
-MiwzIEBAIHZvaWQgZmVjX3B0cF9zdG9wKHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpDQo+
-Pj4gCWlmIChmZXAtPnB0cF9jbG9jaykNCj4+PiAJCXB0cF9jbG9ja191bnJlZ2lzdGVyKGZlcC0+
-cHRwX2Nsb2NrKTsNCj4+PiB9DQo+Pj4gLQ0KPj4+IC0vKioNCj4+PiAtICogZmVjX3B0cF9jaGVj
-a19wcHNfZXZlbnQNCj4+PiAtICogQGZlcDogdGhlIGZlY19lbmV0X3ByaXZhdGUgc3RydWN0dXJl
-IGhhbmRsZQ0KPj4+IC0gKg0KPj4+IC0gKiBUaGlzIGZ1bmN0aW9uIGNoZWNrIHRoZSBwcHMgZXZl
-bnQgYW5kIHJlbG9hZCB0aGUgdGltZXIgY29tcGFyZQ0KPmNvdW50ZXIuDQo+Pj4gLSAqLw0KPj4+
-IC11aW50IGZlY19wdHBfY2hlY2tfcHBzX2V2ZW50KHN0cnVjdCBmZWNfZW5ldF9wcml2YXRlICpm
-ZXApIC17DQo+Pj4gLQl1MzIgdmFsOw0KPj4+IC0JdTggY2hhbm5lbCA9IGZlcC0+cHBzX2NoYW5u
-ZWw7DQo+Pj4gLQlzdHJ1Y3QgcHRwX2Nsb2NrX2V2ZW50IGV2ZW50Ow0KPj4+IC0NCj4+PiAtCXZh
-bCA9IHJlYWRsKGZlcC0+aHdwICsgRkVDX1RDU1IoY2hhbm5lbCkpOw0KPj4+IC0JaWYgKHZhbCAm
-IEZFQ19UX1RGX01BU0spIHsNCj4+PiAtCQkvKiBXcml0ZSB0aGUgbmV4dCBuZXh0IGNvbXBhcmUo
-bm90IHRoZSBuZXh0IGFjY29yZGluZyB0aGUNCj4+PiBzcGVjKQ0KPj4+IC0JCSAqIHZhbHVlIHRv
-IHRoZSByZWdpc3Rlcg0KPj4+IC0JCSAqLw0KPj4+IC0JCXdyaXRlbChmZXAtPm5leHRfY291bnRl
-ciwgZmVwLT5od3AgKyBGRUNfVENDUihjaGFubmVsKSk7DQo+Pj4gLQkJZG8gew0KPj4+IC0JCQl3
-cml0ZWwodmFsLCBmZXAtPmh3cCArIEZFQ19UQ1NSKGNoYW5uZWwpKTsNCj4+PiAtCQl9IHdoaWxl
-IChyZWFkbChmZXAtPmh3cCArIEZFQ19UQ1NSKGNoYW5uZWwpKSAmDQo+Pj4gRkVDX1RfVEZfTUFT
-Syk7DQo+Pj4gLQ0KPj4+IC0JCS8qIFVwZGF0ZSB0aGUgY291bnRlcjsgKi8NCj4+PiAtCQlmZXAt
-Pm5leHRfY291bnRlciA9IChmZXAtPm5leHRfY291bnRlciArIGZlcC0NCj4+Pj4gcmVsb2FkX3Bl
-cmlvZCkgJiBmZXAtPmNjLm1hc2s7DQo+Pj4gLQ0KPj4+IC0JCWV2ZW50LnR5cGUgPSBQVFBfQ0xP
-Q0tfUFBTOw0KPj4+IC0JCXB0cF9jbG9ja19ldmVudChmZXAtPnB0cF9jbG9jaywgJmV2ZW50KTsN
-Cj4+PiAtCQlyZXR1cm4gMTsNCj4+PiAtCX0NCj4+PiAtDQo+Pj4gLQlyZXR1cm4gMDsNCj4+PiAt
-fQ0KPj4+IC0tDQo+Pj4gMi4xMS4wDQo+Pg0KPj4NCg==
+On 10/17/2017 10:33 AM, Alexander Duyck wrote:
+> On Tue, Oct 17, 2017 at 8:49 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+>> The new bandwidth calculation caused a link error on 32-bit
+>> architectures, like
+>>
+>> ERROR: "__aeabi_uldivmod" [drivers/net/ethernet/intel/i40e/i40e.ko] undefined!
+>>
+>> The problem is the max_tx_rate calculation that uses 64-bit integers.
+>> This is not really necessary since the numbers are in MBit/s so
+>> they won't be higher than 40000 for the highest support rate, and
+>> are guaranteed to not exceed 2^32 in future generations either.
+>>
+>> Another patch from Alan Brady fixed the link error by adding
+>> many calls to do_div(), which makes the code less efficent and
+>> less readable than necessary.
+>>
+>> This changes the representation to 'u32' when dealing with MBit/s
+>> and uses div_u64() to convert from u64 numbers in byte/s, reverting
+>> parts of Alan's earlier fix that have become obsolete now.
+>>
+
+This patch breaks the functionality while converting the rates in
+bytes/s provided by tc-layer into the Mbit/s in the driver.
+I40E_BW_MBPS_DIVISOR defined in Alan's patch should be used for the
+conversion, and not I40E_BW_CREDIT_DIVISOR which does the incorrect
+math. I40E_BW_CREDIT_DIVISOR is in place because the device uses credit
+rates in values of 50Mbps.
+
+>> Fixes: 2027d4deacb1 ("i40e: Add support setting TC max bandwidth rates")
+>> Fixes: 73983b5ae011 ("i40e: fix u64 division usage")
+>> Cc: Alan Brady <alan.brady@intel.com>
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> So this patch looks good to me, we just need to test it to verify it
+> doesn't break existing functionality. In the meantime if Alan's patch
+> has gone through testing we should probably push "i40e: fix u64
+> division usage" to Dave so that we can at least fix the linking issues
+> on ARM and i386.
+> 
+> Reviewed-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> 
+>> ---
+>>  drivers/net/ethernet/intel/i40e/i40e.h      |  4 +-
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c | 70 +++++++++++------------------
+>>  2 files changed, 27 insertions(+), 47 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+>> index c3f13120f3ce..c7aa0c982273 100644
+>> --- a/drivers/net/ethernet/intel/i40e/i40e.h
+>> +++ b/drivers/net/ethernet/intel/i40e/i40e.h
+>> @@ -407,7 +407,7 @@ struct i40e_channel {
+>>         u8 enabled_tc;
+>>         struct i40e_aqc_vsi_properties_data info;
+>>
+>> -       u64 max_tx_rate;
+>> +       u32 max_tx_rate; /* in Mbits/s */
+>>
+>>         /* track this channel belongs to which VSI */
+>>         struct i40e_vsi *parent_vsi;
+>> @@ -1101,5 +1101,5 @@ static inline bool i40e_enabled_xdp_vsi(struct i40e_vsi *vsi)
+>>  }
+>>
+>>  int i40e_create_queue_channel(struct i40e_vsi *vsi, struct i40e_channel *ch);
+>> -int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate);
+>> +int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u32 max_tx_rate);
+>>  #endif /* _I40E_H_ */
+>> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> index 3ceda140170d..57682cc78508 100644
+>> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>> @@ -5448,17 +5448,16 @@ int i40e_get_link_speed(struct i40e_vsi *vsi)
+>>   *
+>>   * Helper function to set BW limit for a given VSI
+>>   **/
+>> -int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
+>> +int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u32 max_tx_rate)
+>>  {
+>>         struct i40e_pf *pf = vsi->back;
+>> -       u64 credits = 0;
+>>         int speed = 0;
+>>         int ret = 0;
+>>
+>>         speed = i40e_get_link_speed(vsi);
+>>         if (max_tx_rate > speed) {
+>>                 dev_err(&pf->pdev->dev,
+>> -                       "Invalid max tx rate %llu specified for VSI seid %d.",
+>> +                       "Invalid max tx rate %u specified for VSI seid %d.",
+>>                         max_tx_rate, seid);
+>>                 return -EINVAL;
+>>         }
+>> @@ -5469,13 +5468,12 @@ int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
+>>         }
+>>
+>>         /* Tx rate credits are in values of 50Mbps, 0 is disabled */
+>> -       credits = max_tx_rate;
+>> -       do_div(credits, I40E_BW_CREDIT_DIVISOR);
+>> -       ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid, credits,
+>> +       ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid,
+>> +                                         max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+>>                                           I40E_MAX_BW_INACTIVE_ACCUM, NULL);
+>>         if (ret)
+>>                 dev_err(&pf->pdev->dev,
+>> -                       "Failed set tx rate (%llu Mbps) for vsi->seid %u, err %s aq_err %s\n",
+>> +                       "Failed set tx rate (%u Mbps) for vsi->seid %u, err %s aq_err %s\n",
+>>                         max_tx_rate, seid, i40e_stat_str(&pf->hw, ret),
+>>                         i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
+>>         return ret;
+>> @@ -6158,17 +6156,13 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
+>>
+>>         /* configure VSI for BW limit */
+>>         if (ch->max_tx_rate) {
+>> -               u64 credits = ch->max_tx_rate;
+>> -
+>>                 if (i40e_set_bw_limit(vsi, ch->seid, ch->max_tx_rate))
+>>                         return -EINVAL;
+>>
+>> -               do_div(credits, I40E_BW_CREDIT_DIVISOR);
+>>                 dev_dbg(&pf->pdev->dev,
+>> -                       "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+>> +                       "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
+>>                         ch->max_tx_rate,
+>> -                       credits,
+>> -                       ch->seid);
+>> +                       ch->max_tx_rate / I40E_BW_CREDIT_DIVISOR, ch->seid);
+>>         }
+>>
+>>         /* in case of VF, this will be main SRIOV VSI */
+>> @@ -6189,7 +6183,6 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
+>>  static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+>>  {
+>>         struct i40e_channel *ch;
+>> -       u64 max_rate = 0;
+>>         int ret = 0, i;
+>>
+>>         /* Create app vsi with the TCs. Main VSI with TC0 is already set up */
+>> @@ -6211,9 +6204,8 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
+>>                         /* Bandwidth limit through tc interface is in bytes/s,
+>>                          * change to Mbit/s
+>>                          */
+>> -                       max_rate = vsi->mqprio_qopt.max_rate[i];
+>> -                       do_div(max_rate, I40E_BW_MBPS_DIVISOR);
+>> -                       ch->max_tx_rate = max_rate;
+>> +                       ch->max_tx_rate = div_u64(vsi->mqprio_qopt.max_rate[i],
+>> +                                                 I40E_BW_CREDIT_DIVISOR);
+>>
+
+Use I40E_BW_MBPS_DIVISOR for the conversion math here.
+
+>>                         list_add_tail(&ch->list, &vsi->ch_list);
+>>
+>> @@ -6643,7 +6635,6 @@ static int i40e_validate_mqprio_qopt(struct i40e_vsi *vsi,
+>>                                      struct tc_mqprio_qopt_offload *mqprio_qopt)
+>>  {
+>>         u64 sum_max_rate = 0;
+>> -       u64 max_rate = 0;
+>>         int i;
+>>
+>>         if (mqprio_qopt->qopt.offset[0] != 0 ||
+>> @@ -6658,9 +6649,8 @@ static int i40e_validate_mqprio_qopt(struct i40e_vsi *vsi,
+>>                                 "Invalid min tx rate (greater than 0) specified\n");
+>>                         return -EINVAL;
+>>                 }
+>> -               max_rate = mqprio_qopt->max_rate[i];
+>> -               do_div(max_rate, I40E_BW_MBPS_DIVISOR);
+>> -               sum_max_rate += max_rate;
+>> +               sum_max_rate += div_u64(mqprio_qopt->max_rate[i],
+>> +                                       I40E_BW_CREDIT_DIVISOR);
+
+Use I40E_BW_MBPS_DIVISOR here.
+
+>>
+>>                 if (i >= mqprio_qopt->qopt.num_tc - 1)
+>>                         break;
+>> @@ -6804,18 +6794,14 @@ static int i40e_setup_tc(struct net_device *netdev, void *type_data)
+>>
+>>         if (pf->flags & I40E_FLAG_TC_MQPRIO) {
+>>                 if (vsi->mqprio_qopt.max_rate[0]) {
+>> -                       u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
+>> -
+>> -                       do_div(max_tx_rate, I40E_BW_MBPS_DIVISOR);
+>> +                       u32 max_tx_rate = div_u64(vsi->mqprio_qopt.max_rate[0],
+>> +                                                 I40E_BW_CREDIT_DIVISOR);
+
+Use I40E_BW_MBPS_DIVISOR here.
+
+>>                         ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
+>>                         if (!ret) {
+>> -                               u64 credits = max_tx_rate;
+>> -
+>> -                               do_div(credits, I40E_BW_CREDIT_DIVISOR);
+>>                                 dev_dbg(&vsi->back->pdev->dev,
+>> -                                       "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+>> +                                       "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
+>>                                         max_tx_rate,
+>> -                                       credits,
+>> +                                       max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+>>                                         vsi->seid);
+>>                         } else {
+>>                                 need_reset = true;
+>> @@ -9024,15 +9010,12 @@ static int i40e_rebuild_channels(struct i40e_vsi *vsi)
+>>                         return ret;
+>>                 }
+>>                 if (ch->max_tx_rate) {
+>> -                       u64 credits = ch->max_tx_rate;
+>> -
+>>                         if (i40e_set_bw_limit(vsi, ch->seid,
+>>                                               ch->max_tx_rate))
+>>                                 return -EINVAL;
+>>
+>> -                       do_div(credits, I40E_BW_CREDIT_DIVISOR);
+>>                         dev_dbg(&vsi->back->pdev->dev,
+>> -                               "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+>> +                               "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
+>>                                 ch->max_tx_rate,
+>>                                 ch->max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+>>                                 ch->seid);
+>> @@ -9314,21 +9297,18 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
+>>         }
+>>
+>>         if (vsi->mqprio_qopt.max_rate[0]) {
+>> -               u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
+>> -               u64 credits = 0;
+>> +               u32 max_tx_rate = div_u64(vsi->mqprio_qopt.max_rate[0],
+>> +                                         I40E_BW_CREDIT_DIVISOR);
+
+Use I40E_BW_MBPS_DIVISOR here.
+
+>>
+>> -               do_div(max_tx_rate, I40E_BW_MBPS_DIVISOR);
+>>                 ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
+>> -               if (ret)
+>> +               if (!ret)
+>> +                       dev_dbg(&vsi->back->pdev->dev,
+>> +                               "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
+>> +                               max_tx_rate,
+>> +                               max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+>> +                               vsi->seid);
+>> +               else
+>>                         goto end_unlock;
+>> -
+>> -               credits = max_tx_rate;
+>> -               do_div(credits, I40E_BW_CREDIT_DIVISOR);
+>> -               dev_dbg(&vsi->back->pdev->dev,
+>> -                       "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
+>> -                       max_tx_rate,
+>> -                       credits,
+>> -                       vsi->seid);
+>>         }
+>>
+>>         ret = i40e_rebuild_cloud_filters(vsi, vsi->seid);
+>> --
+>> 2.9.0
+>>
+>> _______________________________________________
+>> Intel-wired-lan mailing list
+>> Intel-wired-lan@osuosl.org
+>> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+> _______________________________________________
+> Intel-wired-lan mailing list
+> Intel-wired-lan@osuosl.org
+> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+> 
