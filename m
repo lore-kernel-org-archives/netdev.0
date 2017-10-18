@@ -1,63 +1,55 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next v2 2/2] ipv6: remove from fib tree aged out RTF_CACHE dst
-Date: Wed, 18 Oct 2017 22:23:32 +0200
-Message-ID: <12138554b307c66d0de7afd582ba83e027c383a2.1508358132.git.pabeni@redhat.com>
-References: <cover.1508358132.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Wei Wang <weiwan@google.com>, Martin KaFai Lau <kafai@fb.com>,
-        Eric Dumazet <edumazet@google.com>,
+Subject: Re: [PATCH net-next 3/3] ipv6: obsolete cached dst when removing
+ them from fib tree
+Date: Wed, 18 Oct 2017 22:30:29 +0200
+Message-ID: <1508358629.2599.6.camel@redhat.com>
+References: <cover.1508261949.git.pabeni@redhat.com>
+         <59304478d82e52c817c92d183ef2105f35c17266.1508261949.git.pabeni@redhat.com>
+         <CAEA6p_CMZu-ooO4sKXD3=wg8_wcAB+oZbTujJ4hEDQnjPZRNwg@mail.gmail.com>
+         <1508270578.2548.22.camel@redhat.com>
+         <CAEA6p_AS9c6pOym4t6FGW-bWfU=YmmL96Fc4vMcnDMCc8ywVqg@mail.gmail.com>
+         <1508331782.2559.5.camel@redhat.com>
+         <CAEA6p_DC7gZnaiKdQv7q3P6DcH31c1ioCzVk5HrapAjQG7hRKg@mail.gmail.com>
+         <20171018190513.dtoqpzjfyapo2iie@kafai-mbp.dhcp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        Xin Long <lucien.xin@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+To: Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45862 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37176 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751801AbdJRUXr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 16:23:47 -0400
-In-Reply-To: <cover.1508358132.git.pabeni@redhat.com>
+        id S1751411AbdJRUad (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Oct 2017 16:30:33 -0400
+In-Reply-To: <20171018190513.dtoqpzjfyapo2iie@kafai-mbp.dhcp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit 2b760fcf5cfb ("ipv6: hook up exception table to store
-dst cache") partially reverted 1e2ea8ad37be ("ipv6: set
-dst.obsolete when a cached route has expired").
+On Wed, 2017-10-18 at 12:05 -0700, Martin KaFai Lau wrote:
+> Another thing (not limited to this case),
+> 
+> Considering we have a limited size in the exception table now and
+> the oldest one will get removed when the table is full,
+> do we still need to purge this periodically in gc?
 
-As a result, RTF_CACHE dst referenced outside the fib tree will
-not be removed until the next sernum change; dst_check() does not
-fail on aged-out dst, and dst->__refcnt can't decrease: the aged
-out dst will stay valid for a potentially unlimited time after the
-timeout expiration.
+At least in some scenarios we have only a few entries in the exception
+table.
 
-This change explicitly removes RTF_CACHE dst from the fib tree when
-aged out. The rt6_remove_exception() logic will then obsolete the
-dst and other entities will drop the related reference on next
-dst_check().
+> I would like to see the IPv6's gc eventually goes away.
+> 
+> If we need to expire the pmtu value of a RTF_CACHE rt,
+> can dst.expires be checked during the lookup (like what
+> ipv4 is doing) and then remove it from the exception table?
 
-v1 -> v2:
-  - do not touch dst.obsolete in rt6_remove_exception(), not needed
+Currently the gc also performs validation vs the related neigh for
+GATEWAY dst. That looks potentially quite expensive, as we currently
+have a per neighbour atomic refcount (e.g. if the same dst is cached on
+different CPUs)
 
-Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv6/route.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Cheers,
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5c27313803d2..a4a7f199120e 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1575,8 +1575,11 @@ static void rt6_age_examine_exception(struct rt6_exception_bucket *bucket,
- {
- 	struct rt6_info *rt = rt6_ex->rt6i;
- 
--	if (atomic_read(&rt->dst.__refcnt) == 1 &&
--	    time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-+	/* we are pruning and obsoleting the exception route even if others
-+	 * have still reference to it, so that on next dst_check() such
-+	 * reference can be dropped
-+	 */
-+	if (time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
- 		RT6_TRACE("aging clone %p\n", rt);
- 		rt6_remove_exception(bucket, rt6_ex);
- 		return;
--- 
-2.13.6
+Paolo
