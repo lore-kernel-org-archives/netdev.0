@@ -1,33 +1,34 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net-next] net: ipv4: Change fib notifiers to take a
- fib_alias
-Date: Wed, 18 Oct 2017 22:26:56 +0300
-Message-ID: <20171018192656.GA4520@splinter>
-References: <1508351953-26442-1-git-send-email-dsahern@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [net-next] dsa: slave: support phy devices on external MII bus
+Date: Wed, 18 Oct 2017 21:31:45 +0200
+Message-ID: <20171018193145.GK15371@lunn.ch>
+References: <20171018162138.GA15371@lunn.ch>
+ <ad992ed8-37b8-9c52-848c-78fa0368de8f@gmail.com>
+ <8994adaa-6223-20f1-9221-49e9b644d03f@prevas.dk>
+ <3b972ab8-3d3e-7666-5c26-f111f5cdd61a@gmail.com>
+ <20171018190905.GH15371@lunn.ch>
+ <2e120f66-eb0b-7bfe-450c-db061defca09@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com
-To: David Ahern <dsahern@gmail.com>
+Cc: Martin =?iso-8859-1?Q?Hundeb=F8ll?= <mnhu@prevas.dk>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0059.outbound.protection.outlook.com ([104.47.2.59]:63493
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751126AbdJRT1E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 15:27:04 -0400
+Received: from vps0.lunn.ch ([185.16.172.187]:50372 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751110AbdJRTbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Oct 2017 15:31:47 -0400
 Content-Disposition: inline
-In-Reply-To: <1508351953-26442-1-git-send-email-dsahern@gmail.com>
+In-Reply-To: <2e120f66-eb0b-7bfe-450c-db061defca09@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 11:39:13AM -0700, David Ahern wrote:
-> All of the notifier data (fib_info, tos, type and table id) are
-> contained in the fib_alias. Pass it to the notifier instead of
-> each data separately shortening the argument list by 3.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+> I guess, thanks for making me post this example and realize this is
+> probably no longer necessary :)
 
-LGTM.
+Hi Florian
 
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+You are welcome. Please test and report back. This code is complex, so
+removing part of it would be great.
 
-Thanks!
+   Andrew
