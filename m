@@ -1,46 +1,76 @@
-From: John Fastabend <john.r.fastabend@gmail.com>
-Subject: [net PATCH 5/5] bpf: require CAP_NET_ADMIN when using devmap
-Date: Wed, 18 Oct 2017 07:11:44 -0700
-Message-ID: <150833590435.3588.5261586304462625374.stgit@john-XPS-13-9360>
-References: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] staging: irda: resolve sparse errors due to implicit
+ pci_power_t casts
+Date: Wed, 18 Oct 2017 16:12:16 +0200
+Message-ID: <20171018141216.GA6207@kroah.com>
+References: <1507246703-1736-1-git-send-email-matthew@giassa.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, borkmann@iogearbox.net
-To: alexei.starovoitov@gmail.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:50088 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751504AbdJROL7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:11:59 -0400
-Received: by mail-pg0-f65.google.com with SMTP id g6so4378168pgn.6
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 07:11:59 -0700 (PDT)
-In-Reply-To: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: samuel@sortiz.org, devel@driverdev.osuosl.org,
+        georgiana.chelu93@gmail.com, johannes.berg@intel.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        davem@davemloft.net, khoroshilov@ispras.ru
+To: Matthew Giassa <matthew@giassa.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1507246703-1736-1-git-send-email-matthew@giassa.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
+On Thu, Oct 05, 2017 at 04:38:23PM -0700, Matthew Giassa wrote:
+> Explicitly casting pci_power_t types to resolve sparse warnings (shown
+> below).
+> 
+> Also fixing a related logging bug where pci_power_t is cast to unsigned
+> (can be negative, i.e. PCI_POWER_ERROR).
+> 
+> Original sparse report:
+> 
+> drivers/staging/irda/drivers//vlsi_ir.c:170:51: warning: cast from
+> restricted pci_power_t
+> drivers/staging/irda/drivers//vlsi_ir.c:1726:39: warning: restricted
+> pci_power_t degrades to integer
+> drivers/staging/irda/drivers//vlsi_ir.c:1728:45: warning: incorrect type
+> in assignment (different base types)
+> drivers/staging/irda/drivers//vlsi_ir.c:1728:45:    expected restricted
+> pci_power_t [usertype] current_state
+> drivers/staging/irda/drivers//vlsi_ir.c:1728:45:    got int [signed]
+> [usertype] event
+> drivers/staging/irda/drivers//vlsi_ir.c:1748:29: warning: incorrect type
+> in assignment (different base types)
+> drivers/staging/irda/drivers//vlsi_ir.c:1748:29:    expected restricted
+> pci_power_t [usertype] current_state
+> drivers/staging/irda/drivers//vlsi_ir.c:1748:29:    got int [signed]
+> [usertype] event
 
-Devmap is used with XDP which requires CAP_NET_ADMIN so lets also
-make CAP_NET_ADMIN required to use the map.
+Please do not line-wrap lines like this, it makes them harder to
+understand.
 
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/devmap.c |    3 +++
- 1 file changed, 3 insertions(+)
+> 
+> Warnings no longer present.
+> 
+> Signed-off-by: Matthew Giassa <matthew@giassa.net>
+> ---
+>  drivers/staging/irda/drivers/vlsi_ir.c | 10 ++++++----
+>  1 file changed, 6 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/staging/irda/drivers/vlsi_ir.c b/drivers/staging/irda/drivers/vlsi_ir.c
+> index 3dff3c5..20ce4d8 100644
+> --- a/drivers/staging/irda/drivers/vlsi_ir.c
+> +++ b/drivers/staging/irda/drivers/vlsi_ir.c
+> @@ -167,7 +167,8 @@ static void vlsi_proc_pdev(struct seq_file *seq, struct pci_dev *pdev)
+>  
+>  	seq_printf(seq, "\n%s (vid/did: [%04x:%04x])\n",
+>  		   pci_name(pdev), (int)pdev->vendor, (int)pdev->device);
+> -	seq_printf(seq, "pci-power-state: %u\n", (unsigned) pdev->current_state);
+> +	seq_printf(seq, "pci-power-state: %d\n",
+> +		   (int __force)pdev->current_state);
 
-diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-index e093d9a..7d9f32f 100644
---- a/kernel/bpf/devmap.c
-+++ b/kernel/bpf/devmap.c
-@@ -78,6 +78,9 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
- 	int err = -EINVAL;
- 	u64 cost;
- 
-+	if (!capable(CAP_NET_ADMIN))
-+		return ERR_PTR(-EPERM);
-+
- 	/* check sanity of attributes */
- 	if (attr->max_entries == 0 || attr->key_size != 4 ||
- 	    attr->value_size != 4 || attr->map_flags & ~BPF_F_NUMA_NODE)
+Ick, using __force is almost always a huge sign that something is wrong
+here.  This patch does not look correct because of this.
+
+You did read drivers/staging/irda/TODO, right?
+
+thanks,
+
+greg k-h
