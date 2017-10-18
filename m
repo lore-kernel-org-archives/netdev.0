@@ -1,96 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v12] openvswitch: enable NSH support
-Date: Wed, 18 Oct 2017 23:19:55 +0200
-Message-ID: <20171018231955.058ec5c8@griffin>
-References: <1508162009-30359-1-git-send-email-yi.y.yang@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: fix tcp_send_syn_data()
+Date: Wed, 18 Oct 2017 14:20:30 -0700
+Message-ID: <1508361630.31614.142.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org, e@erig.me,
-        pshelar@ovn.org, davem@davemloft.net
-To: Yi Yang <yi.y.yang@intel.com>
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47550 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750926AbdJRVT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 17:19:59 -0400
-In-Reply-To: <1508162009-30359-1-git-send-email-yi.y.yang@intel.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:44850 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750853AbdJRVUe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 17:20:34 -0400
+Received: by mail-io0-f194.google.com with SMTP id m16so7779577iod.1
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 14:20:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Oct 2017 21:53:29 +0800, Yi Yang wrote:
-> +static int set_nsh(struct sk_buff *skb, struct sw_flow_key *flow_key,
-> +		   const struct nlattr *a)
-> +{
-> +	struct nshhdr *nh;
-> +	size_t length;
-> +	int err;
-> +	u8 flags;
-> +	u8 ttl;
-> +	int i;
-> +
-> +	struct ovs_key_nsh key;
-> +	struct ovs_key_nsh mask;
-> +
-> +	err = nsh_key_from_nlattr(a, &key, &mask);
-> +	if (err)
-> +		return err;
-> +
-> +	/* Make sure the NSH base header is there */
-> +	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-> +				       NSH_BASE_HDR_LEN);
-> +	if (unlikely(err))
-> +		return err;
-> +
-> +	nh = nsh_hdr(skb);
-> +	length = nsh_hdr_len(nh);
-> +
-> +	/* Make sure the whole NSH header is there */
-> +	err = skb_ensure_writable(skb, skb_network_offset(skb) +
-> +				       length);
+From: Eric Dumazet <edumazet@google.com>
 
-Calling skb_ensure_writable twice is an unnecessary waste in the fast
-path. If anything, the first call should be changed to pskb_may_pull.
+syn_data was allocated by sk_stream_alloc_skb(), meaning
+its destructor and _skb_refdst fields are mangled.
 
-But what we really should do here is to move the header only once. We
-know how much data we're going to write, we have everything stored in
-the key and can calculate it from there.
+We need to call tcp_skb_tsorted_anchor_cleanup() before
+calling kfree_skb() or kernel crashes.
 
-	length = NSH_BASE_HDR_LEN;
-	switch (flow_key->nsh.base.mdtype) {
-	case NSH_MD_TYPE1:
-		length += sizeof(struct ovs_nsh_key_md1);
-		break;
-	case NSH_MD_TYPE2:
-		length += whatever_way_we_store_the_tlvs_in_flow_key;
-		break;
-	}
-	err = skb_ensure_writable(skb, skb_network_offset(skb) + length);
+Bug was reported by syzkaller bot.
 
-However, set_nsh does not support MD type 2, thus the second case is a
-dead code. In both switches in this function. As such, it should be
-removed and added only when MD type 2 is introduced. I'd still keep the
-overall logic to ease the future addition, though. This boils down to:
+Fixes: e2080072ed2d ("tcp: new list for sent but unacked skbs for RACK recovery")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+---
+ net/ipv4/tcp_output.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-	length = NSH_BASE_HDR_LEN;
-	/* Assume MD type 1. This function cannot be called for anything
-	 * else currently. When MD type 2 is added, the line below will
-	 * have to be turned into a switch on flow_key->nsh.base.mdtype.
-	 */
-	length += sizeof(struct ovs_nsh_key_md1);
-	err = skb_ensure_writable(skb, skb_network_offset(skb) + length);
-	...
-	flow_key->nsh.base.path_hdr = nh->path_hdr;
-	/* Only MD type 1, see the comment above. */
-	for (i = 0; i < NSH_MD1_CONTEXT_SIZE; i++) {
-		...
-
-Please verify I'm not missing something.
-
-It seems we also rely on the user space checking first whether the
-packet is indeed compatible with the pushed key/mask. Most importantly,
-that it's of the same mdtype and (in the future) that the MD type 2
-TLVs being written actually fit. Seems this is done the same way in the
-other set_* actions, thus fine with me.
-
- Jiri
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 53dc1267c85e668d9a6d5d60d24e6101f7a9c56b..988733f289c8c43f3ed88a9ae1b7f272ab8de1a2 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -3383,6 +3383,7 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+ 		int copied = copy_from_iter(skb_put(syn_data, space), space,
+ 					    &fo->data->msg_iter);
+ 		if (unlikely(!copied)) {
++			tcp_skb_tsorted_anchor_cleanup(syn_data);
+ 			kfree_skb(syn_data);
+ 			goto fallback;
+ 		}
