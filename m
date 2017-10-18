@@ -1,287 +1,125 @@
-From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] [v2] i40e: avoid 64-bit division where
- possible
-Date: Tue, 17 Oct 2017 22:37:40 -0700
-Message-ID: <ae467f28-a972-dc2d-1bc8-e8ce4c7d9d68@intel.com>
-References: <20171017155001.318184-1-arnd@arndb.de>
- <CAKgT0UfeDJomnen_2PhgnHSi27YROjTAtT=OYEj0JNVD8fzcOw@mail.gmail.com>
+From: Gilad Ben-Yossef <gilad@benyossef.com>
+Subject: Re: [PATCH v9 00/20] simplify crypto wait for async op
+Date: Wed, 18 Oct 2017 08:44:31 +0300
+Message-ID: <CAOtvUMfOSo4KSBX3UKtYj1sgmReAdhmmi1MhZGq0aFk-vptahg@mail.gmail.com>
+References: <1508059209-25529-1-git-send-email-gilad@benyossef.com> <20171017140629.GO20805@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
-        Filip Sadowski <filip.sadowski@intel.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UfeDJomnen_2PhgnHSi27YROjTAtT=OYEj0JNVD8fzcOw@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        David Howells <dhowells@redhat.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Gary Hook <gary.hook@amd.com>,
+        Boris Brezillon <boris.brezillon@free-electrons.com>,
+        Arnaud Ebalard <arno@natisbad.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Alasdair Kergon <agk@redhat.com>,
+        Mike Snitzer <snitzer@redhat.com>,
+        device-mapper development <dm-devel@redhat.com>,
+        Steve French <sfrench@samba.org>,
+        "Theodore Y. Ts'o" <tytso@mit.edu>,
+        Jaegeuk Kim <jaegeuk@kernel.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20171017140629.GO20805@n2100.armlinux.org.uk>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/17/2017 10:33 AM, Alexander Duyck wrote:
-> On Tue, Oct 17, 2017 at 8:49 AM, Arnd Bergmann <arnd@arndb.de> wrote:
->> The new bandwidth calculation caused a link error on 32-bit
->> architectures, like
+On Tue, Oct 17, 2017 at 5:06 PM, Russell King - ARM Linux
+<linux@armlinux.org.uk> wrote:
+> On Sun, Oct 15, 2017 at 10:19:45AM +0100, Gilad Ben-Yossef wrote:
+>> Many users of kernel async. crypto services have a pattern of
+>> starting an async. crypto op and than using a completion
+>> to wait for it to end.
 >>
->> ERROR: "__aeabi_uldivmod" [drivers/net/ethernet/intel/i40e/i40e.ko] undefined!
+>> This patch set simplifies this common use case in two ways:
 >>
->> The problem is the max_tx_rate calculation that uses 64-bit integers.
->> This is not really necessary since the numbers are in MBit/s so
->> they won't be higher than 40000 for the highest support rate, and
->> are guaranteed to not exceed 2^32 in future generations either.
+>> First, by separating the return codes of the case where a
+>> request is queued to a backlog due to the provider being
+>> busy (-EBUSY) from the case the request has failed due
+>> to the provider being busy and backlogging is not enabled
+>> (-EAGAIN).
 >>
->> Another patch from Alan Brady fixed the link error by adding
->> many calls to do_div(), which makes the code less efficent and
->> less readable than necessary.
+>> Next, this change is than built on to create a generic API
+>> to wait for a async. crypto operation to complete.
 >>
->> This changes the representation to 'u32' when dealing with MBit/s
->> and uses div_u64() to convert from u64 numbers in byte/s, reverting
->> parts of Alan's earlier fix that have become obsolete now.
+>> The end result is a smaller code base and an API that is
+>> easier to use and more difficult to get wrong.
 >>
+>> The patch set was boot tested on x86_64 and arm64 which
+>> at the very least tests the crypto users via testmgr and
+>> tcrypt but I do note that I do not have access to some
+>> of the HW whose drivers are modified nor do I claim I was
+>> able to test all of the corner cases.
+>>
+>> The patch set is based upon linux-next release tagged
+>> next-20171013.
+>
+> Has there been any performance impact analysis of these changes?  I
+> ended up with patches for one of the crypto drivers which converted
+> its interrupt handling to threaded interrupts being reverted because
+> it caused a performance degredation.
+>
+> Moving code to latest APIs to simplify it is not always beneficial.
 
-This patch breaks the functionality while converting the rates in
-bytes/s provided by tc-layer into the Mbit/s in the driver.
-I40E_BW_MBPS_DIVISOR defined in Alan's patch should be used for the
-conversion, and not I40E_BW_CREDIT_DIVISOR which does the incorrect
-math. I40E_BW_CREDIT_DIVISOR is in place because the device uses credit
-rates in values of 50Mbps.
+I agree with the sentiment but I believe this one is justified.
 
->> Fixes: 2027d4deacb1 ("i40e: Add support setting TC max bandwidth rates")
->> Fixes: 73983b5ae011 ("i40e: fix u64 division usage")
->> Cc: Alan Brady <alan.brady@intel.com>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> 
-> So this patch looks good to me, we just need to test it to verify it
-> doesn't break existing functionality. In the meantime if Alan's patch
-> has gone through testing we should probably push "i40e: fix u64
-> division usage" to Dave so that we can at least fix the linking issues
-> on ARM and i386.
-> 
-> Reviewed-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
->> ---
->>  drivers/net/ethernet/intel/i40e/i40e.h      |  4 +-
->>  drivers/net/ethernet/intel/i40e/i40e_main.c | 70 +++++++++++------------------
->>  2 files changed, 27 insertions(+), 47 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
->> index c3f13120f3ce..c7aa0c982273 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e.h
->> +++ b/drivers/net/ethernet/intel/i40e/i40e.h
->> @@ -407,7 +407,7 @@ struct i40e_channel {
->>         u8 enabled_tc;
->>         struct i40e_aqc_vsi_properties_data info;
->>
->> -       u64 max_tx_rate;
->> +       u32 max_tx_rate; /* in Mbits/s */
->>
->>         /* track this channel belongs to which VSI */
->>         struct i40e_vsi *parent_vsi;
->> @@ -1101,5 +1101,5 @@ static inline bool i40e_enabled_xdp_vsi(struct i40e_vsi *vsi)
->>  }
->>
->>  int i40e_create_queue_channel(struct i40e_vsi *vsi, struct i40e_channel *ch);
->> -int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate);
->> +int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u32 max_tx_rate);
->>  #endif /* _I40E_H_ */
->> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> index 3ceda140170d..57682cc78508 100644
->> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
->> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
->> @@ -5448,17 +5448,16 @@ int i40e_get_link_speed(struct i40e_vsi *vsi)
->>   *
->>   * Helper function to set BW limit for a given VSI
->>   **/
->> -int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
->> +int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u32 max_tx_rate)
->>  {
->>         struct i40e_pf *pf = vsi->back;
->> -       u64 credits = 0;
->>         int speed = 0;
->>         int ret = 0;
->>
->>         speed = i40e_get_link_speed(vsi);
->>         if (max_tx_rate > speed) {
->>                 dev_err(&pf->pdev->dev,
->> -                       "Invalid max tx rate %llu specified for VSI seid %d.",
->> +                       "Invalid max tx rate %u specified for VSI seid %d.",
->>                         max_tx_rate, seid);
->>                 return -EINVAL;
->>         }
->> @@ -5469,13 +5468,12 @@ int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
->>         }
->>
->>         /* Tx rate credits are in values of 50Mbps, 0 is disabled */
->> -       credits = max_tx_rate;
->> -       do_div(credits, I40E_BW_CREDIT_DIVISOR);
->> -       ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid, credits,
->> +       ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid,
->> +                                         max_tx_rate / I40E_BW_CREDIT_DIVISOR,
->>                                           I40E_MAX_BW_INACTIVE_ACCUM, NULL);
->>         if (ret)
->>                 dev_err(&pf->pdev->dev,
->> -                       "Failed set tx rate (%llu Mbps) for vsi->seid %u, err %s aq_err %s\n",
->> +                       "Failed set tx rate (%u Mbps) for vsi->seid %u, err %s aq_err %s\n",
->>                         max_tx_rate, seid, i40e_stat_str(&pf->hw, ret),
->>                         i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
->>         return ret;
->> @@ -6158,17 +6156,13 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
->>
->>         /* configure VSI for BW limit */
->>         if (ch->max_tx_rate) {
->> -               u64 credits = ch->max_tx_rate;
->> -
->>                 if (i40e_set_bw_limit(vsi, ch->seid, ch->max_tx_rate))
->>                         return -EINVAL;
->>
->> -               do_div(credits, I40E_BW_CREDIT_DIVISOR);
->>                 dev_dbg(&pf->pdev->dev,
->> -                       "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
->> +                       "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
->>                         ch->max_tx_rate,
->> -                       credits,
->> -                       ch->seid);
->> +                       ch->max_tx_rate / I40E_BW_CREDIT_DIVISOR, ch->seid);
->>         }
->>
->>         /* in case of VF, this will be main SRIOV VSI */
->> @@ -6189,7 +6183,6 @@ int i40e_create_queue_channel(struct i40e_vsi *vsi,
->>  static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
->>  {
->>         struct i40e_channel *ch;
->> -       u64 max_rate = 0;
->>         int ret = 0, i;
->>
->>         /* Create app vsi with the TCs. Main VSI with TC0 is already set up */
->> @@ -6211,9 +6204,8 @@ static int i40e_configure_queue_channels(struct i40e_vsi *vsi)
->>                         /* Bandwidth limit through tc interface is in bytes/s,
->>                          * change to Mbit/s
->>                          */
->> -                       max_rate = vsi->mqprio_qopt.max_rate[i];
->> -                       do_div(max_rate, I40E_BW_MBPS_DIVISOR);
->> -                       ch->max_tx_rate = max_rate;
->> +                       ch->max_tx_rate = div_u64(vsi->mqprio_qopt.max_rate[i],
->> +                                                 I40E_BW_CREDIT_DIVISOR);
->>
+This patch set basically does 3 things:
 
-Use I40E_BW_MBPS_DIVISOR for the conversion math here.
+1.  Replace one immediate value (-EBUSY) by another (-EAGAIN). Mostly it's just
+s/EBUSY/EAGAIN/g. In very few places this resulted very trivial code
+changes. I don't
+foresee this having any effect on performance.
 
->>                         list_add_tail(&ch->list, &vsi->ch_list);
->>
->> @@ -6643,7 +6635,6 @@ static int i40e_validate_mqprio_qopt(struct i40e_vsi *vsi,
->>                                      struct tc_mqprio_qopt_offload *mqprio_qopt)
->>  {
->>         u64 sum_max_rate = 0;
->> -       u64 max_rate = 0;
->>         int i;
->>
->>         if (mqprio_qopt->qopt.offset[0] != 0 ||
->> @@ -6658,9 +6649,8 @@ static int i40e_validate_mqprio_qopt(struct i40e_vsi *vsi,
->>                                 "Invalid min tx rate (greater than 0) specified\n");
->>                         return -EINVAL;
->>                 }
->> -               max_rate = mqprio_qopt->max_rate[i];
->> -               do_div(max_rate, I40E_BW_MBPS_DIVISOR);
->> -               sum_max_rate += max_rate;
->> +               sum_max_rate += div_u64(mqprio_qopt->max_rate[i],
->> +                                       I40E_BW_CREDIT_DIVISOR);
+2. Removal of some conditions and/or conditional jumps that were used to discern
+between two different cases which are now now easily tested for by the
+different return
+value. If at all, this will be an increase in performance, although I
+don't expect it to be
+noticeable.
 
-Use I40E_BW_MBPS_DIVISOR here.
+3. Replacing a whole bunch of open coded code and data structures
+which were pretty much
+cut and pasted from the Documentation and therefore identical, with a
+single copy thereof.
 
->>
->>                 if (i >= mqprio_qopt->qopt.num_tc - 1)
->>                         break;
->> @@ -6804,18 +6794,14 @@ static int i40e_setup_tc(struct net_device *netdev, void *type_data)
->>
->>         if (pf->flags & I40E_FLAG_TC_MQPRIO) {
->>                 if (vsi->mqprio_qopt.max_rate[0]) {
->> -                       u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
->> -
->> -                       do_div(max_tx_rate, I40E_BW_MBPS_DIVISOR);
->> +                       u32 max_tx_rate = div_u64(vsi->mqprio_qopt.max_rate[0],
->> +                                                 I40E_BW_CREDIT_DIVISOR);
+Every place that I found that deviated slightly from the identical
+pattern, it turned out to be
+a bug of some sorts and patches for those were sent and accepted already.
 
-Use I40E_BW_MBPS_DIVISOR here.
+So, we might be losing a few inline optimization opportunities but
+we're gaining better
+cache utilization. Again, I don't expect any of this to have a
+noticeable effect to either
+direction.
 
->>                         ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
->>                         if (!ret) {
->> -                               u64 credits = max_tx_rate;
->> -
->> -                               do_div(credits, I40E_BW_CREDIT_DIVISOR);
->>                                 dev_dbg(&vsi->back->pdev->dev,
->> -                                       "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
->> +                                       "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
->>                                         max_tx_rate,
->> -                                       credits,
->> +                                       max_tx_rate / I40E_BW_CREDIT_DIVISOR,
->>                                         vsi->seid);
->>                         } else {
->>                                 need_reset = true;
->> @@ -9024,15 +9010,12 @@ static int i40e_rebuild_channels(struct i40e_vsi *vsi)
->>                         return ret;
->>                 }
->>                 if (ch->max_tx_rate) {
->> -                       u64 credits = ch->max_tx_rate;
->> -
->>                         if (i40e_set_bw_limit(vsi, ch->seid,
->>                                               ch->max_tx_rate))
->>                                 return -EINVAL;
->>
->> -                       do_div(credits, I40E_BW_CREDIT_DIVISOR);
->>                         dev_dbg(&vsi->back->pdev->dev,
->> -                               "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
->> +                               "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
->>                                 ch->max_tx_rate,
->>                                 ch->max_tx_rate / I40E_BW_CREDIT_DIVISOR,
->>                                 ch->seid);
->> @@ -9314,21 +9297,18 @@ static void i40e_rebuild(struct i40e_pf *pf, bool reinit, bool lock_acquired)
->>         }
->>
->>         if (vsi->mqprio_qopt.max_rate[0]) {
->> -               u64 max_tx_rate = vsi->mqprio_qopt.max_rate[0];
->> -               u64 credits = 0;
->> +               u32 max_tx_rate = div_u64(vsi->mqprio_qopt.max_rate[0],
->> +                                         I40E_BW_CREDIT_DIVISOR);
+I did run the changed code as best I could and did not notice any
+performance changes and
+none of the testers and maintainers that ACKed mentioned any.
 
-Use I40E_BW_MBPS_DIVISOR here.
+Having said that, it's a big change that touches many places,
+sub-systems and drivers. I do
+not claim to have thoroughly tested for performance all the changes in
+person. In some cases,
+I don't even have access to the specialized hardware. I did get a
+reasonable amount of review
+and testers I believe - would always love to see more :-)
 
->>
->> -               do_div(max_tx_rate, I40E_BW_MBPS_DIVISOR);
->>                 ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
->> -               if (ret)
->> +               if (!ret)
->> +                       dev_dbg(&vsi->back->pdev->dev,
->> +                               "Set tx rate of %u Mbps (count of 50Mbps %u) for vsi->seid %u\n",
->> +                               max_tx_rate,
->> +                               max_tx_rate / I40E_BW_CREDIT_DIVISOR,
->> +                               vsi->seid);
->> +               else
->>                         goto end_unlock;
->> -
->> -               credits = max_tx_rate;
->> -               do_div(credits, I40E_BW_CREDIT_DIVISOR);
->> -               dev_dbg(&vsi->back->pdev->dev,
->> -                       "Set tx rate of %llu Mbps (count of 50Mbps %llu) for vsi->seid %u\n",
->> -                       max_tx_rate,
->> -                       credits,
->> -                       vsi->seid);
->>         }
->>
->>         ret = i40e_rebuild_cloud_filters(vsi, vsi->seid);
->> --
->> 2.9.0
->>
->> _______________________________________________
->> Intel-wired-lan mailing list
->> Intel-wired-lan@osuosl.org
->> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@osuosl.org
-> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
-> 
+Many thanks,
+Gilad
+
+
+
+
+-- 
+Gilad Ben-Yossef
+Chief Coffee Drinker
+
+"If you take a class in large-scale robotics, can you end up in a
+situation where the homework eats your dog?"
+ -- Jean-Baptiste Queru
