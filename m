@@ -1,132 +1,79 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH v1 RFC 1/1] Add Microchip KSZ8795 DSA driver
-Date: Wed, 18 Oct 2017 17:55:17 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41131990@CHN-SV-EXMX02.mchp-main.com>
-References: <1507322023-15182-1-git-send-email-Tristram.Ha@microchip.com>
- <1507322023-15182-2-git-send-email-Tristram.Ha@microchip.com>
- <20171011205916.GC31288@amd>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: [PATCH net-next 3/3] ipv6: obsolete cached dst when removing them
+ from fib tree
+Date: Wed, 18 Oct 2017 10:56:39 -0700
+Message-ID: <CAEA6p_DC7gZnaiKdQv7q3P6DcH31c1ioCzVk5HrapAjQG7hRKg@mail.gmail.com>
+References: <cover.1508261949.git.pabeni@redhat.com> <59304478d82e52c817c92d183ef2105f35c17266.1508261949.git.pabeni@redhat.com>
+ <CAEA6p_CMZu-ooO4sKXD3=wg8_wcAB+oZbTujJ4hEDQnjPZRNwg@mail.gmail.com>
+ <1508270578.2548.22.camel@redhat.com> <CAEA6p_AS9c6pOym4t6FGW-bWfU=YmmL96Fc4vMcnDMCc8ywVqg@mail.gmail.com>
+ <1508331782.2559.5.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <ruediger.schmitt@philips.com>, <muvarov@gmail.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>,
-        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171011205916.GC31288@amd>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>,
+        Xin Long <lucien.xin@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f68.google.com ([209.85.213.68]:44435 "EHLO
+        mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750807AbdJRR4l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 13:56:41 -0400
+Received: by mail-vk0-f68.google.com with SMTP id d12so3833889vkf.1
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:56:41 -0700 (PDT)
+In-Reply-To: <1508331782.2559.5.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +static void ksz8795_r_mib_cnt(struct ksz_device *dev, int port, u16 addr,
-> > +			      u64 *cnt)
-> > +{
-> > +	u32 data;
-> > +	u16 ctrl_addr;
-> > +	u8 check;
-> > +	int loop;
-> > +
-> > +	ctrl_addr = addr + SWITCH_COUNTER_NUM * port;
-> > +	ctrl_addr |= IND_ACC_TABLE(TABLE_MIB | TABLE_READ);
-> > +
-> > +	mutex_lock(&dev->alu_mutex);
-> > +	ksz_write16(dev, REG_IND_CTRL_0, ctrl_addr);
-> > +
-> > +	/* It is almost guaranteed to always read the valid bit because of
-> > +	 * slow SPI speed.
-> > +	 */
-> > +	for (loop = 2; loop > 0; loop--) {
-> > +		ksz_read8(dev, REG_IND_MIB_CHECK, &check);
-> > +
-> > +		if (check & MIB_COUNTER_VALID) {
-> > +			ksz_read32(dev, REG_IND_DATA_LO, &data);
-> > +			if (check & MIB_COUNTER_OVERFLOW)
-> > +				*cnt += MIB_COUNTER_VALUE + 1;
-> > +			*cnt += data & MIB_COUNTER_VALUE;
-> > +			break;
-> > +		}
-> > +	}
-> 
-> Hmm. Maybe, but should not this at least warn if if it can not get
-> valid counter?
+On Wed, Oct 18, 2017 at 6:03 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Tue, 2017-10-17 at 13:48 -0700, Wei Wang wrote:
+>> On Tue, Oct 17, 2017 at 1:02 PM, Paolo Abeni <pabeni@redhat.com> wrote:
+>> > Meanwhile others sockets may grab more references to (and use) the same
+>> > aged-out dst.
+>> >
+>>
+>> I don't think other sockets could grab more reference to this dst
+>> because this dst should already be removed from the fib6 tree.
+>
+> With the current net-next code, the dst is not removed from the fib
+> tree while someone else is holding it and dst_check() does not fail
+> after that the cached dst is aged out. If a socket cache grab a
+> reference to the CACHE dst, it will not release it untill the next
+> sernum change, regardless of the dst aging.
+>
+>> > The commit 1e2ea8ad37be ("ipv6: set dst.obsolete when a cached route
+>> > has expired") was the solution to the above issue prior to the recent
+>> > refactor.
+>> >
+>>
+>> I don't really understand how this commit is solving the above issue.
+>> This commit still only ages out cached route if &rt->dst.__refcnt ==
+>> 1. So if socket is holding refcnt to this dst and dst_check() is not
+>> getting called,  this cached route still won't get deleted.
+>
+> Setting obsolete to DST_OBSOLETE_KILL forced whoever was holding the
+> dst reference to drop it on the next dst_check(), so that refcnt could
+> go down.
 >
 
-The checking of valid bit is implemented because of the chip datasheet.
-But in my experience it never happens.   A warning will be added, although I
-do not see any benefit of it.  It this warning ever comes up it just means
-somehow the SPI access is completely broken down.
- 
-> > +	/* It is almost guaranteed to always read the valid bit because of
-> > +	 * slow SPI speed.
-> > +	 */
-> > +	for (loop = 2; loop > 0; loop--) {
-> > +		ksz_read8(dev, REG_IND_MIB_CHECK, &check);
-> > +
-> > +		if (check & MIB_COUNTER_VALID) {
-> > +			ksz_read32(dev, REG_IND_DATA_LO, &data);
-> > +			if (addr < 2) {
-> > +				u64 total;
-> > +
-> > +				total = check & MIB_TOTAL_BYTES_H;
-> > +				total <<= 32;
-> > +				*cnt += total;
-> > +				*cnt += data;
-> > +				if (check & MIB_COUNTER_OVERFLOW) {
-> > +					total = MIB_TOTAL_BYTES_H + 1;
-> > +					total <<= 32;
-> > +					*cnt += total;
-> > +				}
-> > +			} else {
-> > +				if (check & MIB_COUNTER_OVERFLOW)
-> > +					*cnt += MIB_PACKET_DROPPED + 1;
-> > +				*cnt += data & MIB_PACKET_DROPPED;
-> > +			}
-> > +			break;
-> > +		}
-> > +	}
-> 
-> Same here. Plus, is overflow handling correct? There may be more than
-> MIB_PACKET_DROPPED + 1 packets dropped between the checks.
-> 
+Yes. Understood.
+Martin and I had a discussion yesterday. We both think it is not a
+good idea to set obolete to DST_OBSOLETE_KILL but not to remove it
+from the fib6 tree.
+It is because others who do a route lookup later might potentially
+find this route and tries to use this route. However, dst_check() will
+show this route is invalid. So the user will redo the route lookup.
+But as this route is not yet deleted from the tree, it will find this
+route again. This seems like a bad situation.
+And again, setting obsolete to DST_OBSOLETE_KILL does not prevent some
+idle socket holding on to this dst for a long time...
 
-MIB_PACKET_DROPPED is the maximum count like 0xffff.  Plus 1 means 0x10000.
-It is assumed the checking should be done fast enough  to avoid overflow.  This is
-just assuming one overflow has been missed.  To tell you the truth this code is
-never checked for correctness.
+With the above said, I am now convinced what you have in your patch is
+the correct thing to do. Just remove the cached route without checking
+the refcnt when it is aged.
 
-> > +static void ksz8795_r_table(struct ksz_device *dev, int table, u16 addr,
-> > +			    u64 *data)
-> > +{
-> > +	u16 ctrl_addr;
-> > +
-> > +	ctrl_addr = IND_ACC_TABLE(table | TABLE_READ) | addr;
-> > +
-> > +	mutex_lock(&dev->alu_mutex);
-> > +	ksz_write16(dev, REG_IND_CTRL_0, ctrl_addr);
-> > +	ksz_get(dev, REG_IND_DATA_HI, data, sizeof(u64));
-> > +	mutex_unlock(&dev->alu_mutex);
-> > +	*data = be64_to_cpu(*data);
-> > +}
-> 
-> It would be a tiny bit nicer to have be64 temporary variable and use
-> it; having *data change endianness at runtime is "interesting".
-
-> > +	/* At least one valid entry in the table. */
-> > +	} else {
-> > +		u64 buf;
-> > +		int cnt;
-> > +
-> > +		ksz_get(dev, REG_IND_DATA_HI, &buf, sizeof(buf));
-> > +		buf = be64_to_cpu(buf);
-> 
-> Would it make sense to convert endianness inside ksz_get?
-
-The ksz_get function utilizes the chip's capability to automatically
-increase the register index so that their values can be retrieved in
-one SPI transfer.  It is mostly used for debugging for dumping chip
-registers or programming MAC address (6 bytes).  Here it is also used for
-reading 8 bytes.  If you do not want to see the conversion then another
-access functions like ksz_read64 and ksz_write64 will need to be implemented.
+> Cheers,
+>
+> Paolo
