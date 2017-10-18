@@ -1,121 +1,90 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Thu, 19 Oct 2017 01:40:58 +0200
-Message-ID: <57579746-77e1-4603-12ed-7d999fdfeabf@itcare.pl>
-References: <1507121766.30720.4.camel@cohaesio.com>
- <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
- <1507180753.20182.8.camel@cohaesio.com>
- <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
- <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
- <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
- <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
- <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
- <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
- <20171017055155.GA19944@pc11.op.pod.cz>
- <CAKgT0Udb5DVu6CB5U7rGNERZwMCKZUTii=qxn6hFzc=5zEZc1w@mail.gmail.com>
+From: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Thu, 19 Oct 2017 10:46:18 +1100
+Message-ID: <49752b6f-8a77-d1e5-8acb-5a1eed0a992c@suse.de>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+	<75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+	<20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+	<2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
+	<a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com>
+	<1508254120.6230.34.camel@redhat.com>
+	<1508255091.3129.27.camel@HansenPartnership.com>
+	<CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Pavlos Parissis <pavlos.parissis@gmail.com>,
-        "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp52.iq.pl ([86.111.240.252]:54036 "EHLO smtp52.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750946AbdJRXk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 19:40:59 -0400
-In-Reply-To: <CAKgT0Udb5DVu6CB5U7rGNERZwMCKZUTii=qxn6hFzc=5zEZc1w@mail.gmail.com>
-Content-Language: pl
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+>> The security implications are that anything that can change the label
+>> could also hide itself and its doings from the audit system and thus
+>> would be used as a means to evade detection.  I actually think this
+>> means the label should be write once (once you've set it, you can't
+>> change it) ...
+> 
+> Richard and I have talked about a write once approach, but the
+> thinking was that you may want to allow a nested container
+> orchestrator (Why? I don't know, but people always want to do the
+> craziest things.) and a write-once policy makes that impossible.  If
+> we punt on the nested orchestrator, I believe we can seriously think
+> about a write-once policy to simplify things.
 
+Nested containers are a very widely used use-case (see LXC system 
+containers, inside of which people run other container runtimes). So I 
+would definitely consider it something that "needs to be supported in 
+some way". While the LXC guys might be a *tad* crazy, the use-case isn't. :P
 
-W dniu 2017-10-19 o 01:29, Alexander Duyck pisze:
-> On Mon, Oct 16, 2017 at 10:51 PM, Vitezslav Samel <vitezslav@samel.cz> wrote:
->> On Tue, Oct 17, 2017 at 01:34:29AM +0200, Paweł Staszewski wrote:
->>> W dniu 2017-10-16 o 18:26, Paweł Staszewski pisze:
->>>> W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
->>>>> On 15/10/2017 02:58 πμ, Alexander Duyck wrote:
->>>>>> Hi Pawel,
->>>>>>
->>>>>> To clarify is that Dave Miller's tree or Linus's that you are talking
->>>>>> about? If it is Dave's tree how long ago was it you pulled it since I
->>>>>> think the fix was just pushed by Jeff Kirsher a few days ago.
->>>>>>
->>>>>> The issue should be fixed in the following commit:
->>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=2b9478ffc550f17c6cd8c69057234e91150f5972
->>>>> Do you know when it is going to be available on net-next and
->>>>> linux-stable repos?
->>>>>
->>>>> Cheers,
->>>>> Pavlos
->>>>>
->>>>>
->>>> I will make some tests today night with "net" git tree where this patch
->>>> is included.
->>>> Starting from 0:00 CET
->>>> :)
->>>>
->>>>
->>> Upgraded and looks like problem is not solved with that patch
->>> Currently running system with
->>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
->>> kernel
->>>
->>> Still about 0.5GB of memory is leaking somewhere
->>>
->>> Also can confirm that the latest kernel where memory is not leaking (with
->>> use i40e driver intel 710 cards) is 4.11.12
->>> With kernel 4.11.12 - after hour no change in memory usage.
->>>
->>> also checked that with ixgbe instead of i40e with same  net.git kernel there
->>> is no memleak - after hour same memory usage - so for 100% this is i40e
->>> driver problem.
->>    I have (probably) the same problem here but with X520 cards: booting
->> 4.12.x gives me oops after circa 20 minutes of our workload. Booting
->> 4.9.y is OK. This machine is in production so any testing is very
->> limited.
->>
->>    Machine was stable for >2 months (on the desk before got to
->> production) with 4.12.8 but with no traffic on X520 cards.
->>
->>          Cheers,
->>
->>                  Vita
-> Sorry but it can't be the same issue since we are discussing a
-> different driver (i40e) running different hardware (X710 or XL170).
-> You might want to start a new thread for your issue, and/or if
-> possible file a bug on e1000.sf.net.
->
-> Thanks.
->
-> - Alex
->
-sorry but bugs reported on e1000.sf.net are delayed - some after about 6 
-or more months - when i reported first bug there iv got reply after a 
-year about no activity :):) haha - and reported there bug is still 
-actrive :)
-better for me is now to change nics (for sure cheaper from  the 
-perspective of clients :) ) to mellanox or just to replace and use ixgbe 
-- that have no this bug (mellanox and ixgbe have no such bug - have many 
-servers with them with same conf - and only one with i40e where is same 
-conf and memleak)
+>> ... and orchestration systems should begin as unlabelled
+>> processes allowing them to do arbitrary forks.
+> 
+> My current thinking is that the default state is to start unlabeled (I
+> just vomited a little into my SELinux hat); in other words
+> init/systemd/PID-1 in the host system starts with an "unset" audit
+> container ID.  This not only helps define the host system (anything
+> that has an unset audit container ID) but provides a blank slate for
+> the orchestrator(s).
+> 
+>> For nested containers, I actually think the label should be
+>> hierarchical, so you can add a label for the new nested container but
+>> it still also contains its parents label as well.
+> 
+> I haven't made up my mind on this completely just yet, but I'm
+> currently of the mindset that supporting multiple audit container IDs
+> on a given process is not a good idea.
 
-If nobody from Intel wants to reproduce this - qool - this is not my 
-problem but intels :) - there is now many good nics to use - like 
-mellanox or just stick with many 10G based on ixgbe that is really good 
-driver - but really ? intel guys have no XL710 cards ? i dont want to 
-buy another buggy cards to do only kernel bisects .... sorry ....
-To do good bisects with this bug You need to spend maybee 200/300 
-bisects - and to confirm each - You need maybee 30minutes so count how 
-much time You need - more that 100 cards in price from mellanox maybee :)
+As long as creating a new "container" (that is, changing a process's 
+"audit container ID") is an audit event then I think that having a 
+hierarchy be explicit is not necessary (userspace audit can figure out 
+the hierarchy quite easily -- but also there are cases where thinking of 
+it as being hierarchical isn't necessarily correct).
 
-so imagine what i will do :)
-
-
-Thanks
-Paweł
+-- 
+Aleksa Sarai
+Senior Software Engineer (Containers)
+SUSE Linux GmbH
+https://www.cyphar.com/
