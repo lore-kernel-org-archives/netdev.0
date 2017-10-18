@@ -1,420 +1,179 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Thu, 19 Oct 2017 00:20:33 +0200
-Message-ID: <16c9fa34-252f-e5a3-8b15-e5a8c4d8a46f@itcare.pl>
-References: <1507121766.30720.4.camel@cohaesio.com>
- <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
- <1507180753.20182.8.camel@cohaesio.com>
- <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
- <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
- <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
- <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
- <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
- <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
- <CAKgT0Uf=0yasidUfyadNSxzkhKvtxH2t83fjb-SU7OaAnrMReA@mail.gmail.com>
- <310ce203-0d65-bdf4-d9e4-897a349b3277@itcare.pl>
- <f6e2208a-4cdf-3303-5999-92186b437b62@itcare.pl>
- <1704eb26-c4c5-b196-ca7a-5265e92ae4e6@itcare.pl>
- <bd82f85a-f9b8-a09a-beab-67667b58f36a@itcare.pl>
- <7fd828d7-c586-2c32-3ba6-e0575bf9958c@itcare.pl>
- <99eba19f-327e-e01f-4f4a-87540b176e40@itcare.pl>
- <efcc51b4-f911-11ec-1c56-fcf31081f9d5@itcare.pl>
- <d79df7f2-5de4-cc37-baf0-5603f025155e@itcare.pl>
- <748b6d9d-4a3f-4eaa-ad24-27060c2e2642@itcare.pl>
+From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
+Subject: Re: [PATCH RFC V1 net-next 0/6] Time based packet transmission
+Date: Wed, 18 Oct 2017 15:18:55 -0700
+Message-ID: <743a4550-7344-5e73-bf6d-6ec368263ad9@intel.com>
+References: <cover.1505719061.git.rcochran@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Pavlos Parissis <pavlos.parissis@gmail.com>,
-        "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp52.iq.pl ([86.111.240.252]:35987 "EHLO smtp52.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750920AbdJRWUf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 18:20:35 -0400
-In-Reply-To: <748b6d9d-4a3f-4eaa-ad24-27060c2e2642@itcare.pl>
-Content-Language: pl
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org,
+        Andre Guedes <andre.guedes@intel.com>,
+        Anna-Maria Gleixner <anna-maria@linutronix.de>,
+        David Miller <davem@davemloft.net>,
+        Henrik Austad <henrik@austad.us>,
+        John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        "Briano, Ivan" <ivan.briano@intel.com>,
+        Levi Pearson <levipearson@gmail.com>
+To: Richard Cochran <rcochran@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1505719061.git.rcochran@linutronix.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Hi Richard,
+
+
+On 09/18/2017 12:41 AM, Richard Cochran wrote:
+> This series is an early RFC that introduces a new socket option
+> allowing time based transmission of packets.  This option will be
+> useful in implementing various real time protocols over Ethernet,
+> including but not limited to P802.1Qbv, which is currently finding
+> its way into 802.1Q.
+> 
+> * Open questions about SO_TXTIME semantics
+> 
+>   - What should the kernel do if the dialed Tx time is in the past?
+>     Should the packet be sent ASAP, or should we throw an error?
+> 
+>   - Should the kernel inform the user if it detects a missed deadline,
+>     via the error queue for example?
+> 
+>   - What should the timescale be for the dialed Tx time?  Should the
+>     kernel select UTC when using the SW Qdisc and the HW time
+>     otherwise?  Or should the socket option include a clockid_t?
+> 
+> * Things todo
+> 
+>   - Design a Qdisc for purpose of configuring SO_TXTIME.  There should
+>     be one option to dial HW offloading or SW best effort.
+> 
+>   - Implement the SW best effort variant.  Here is my back of the
+>     napkin sketch.  Each interface has its own timerqueue keeping the
+>     TXTIME packets in order and a FIFO for all other traffic.  A guard
+>     window starts at the earliest deadline minus the maximum MTU minus
+>     a configurable fudge factor.  The Qdisc uses a hrtimer to transmit
+>     the next packet in the timerqueue.  During the guard window, all
+>     other traffic is defered unless the next packet can be transmitted
+>     before the guard window expires.
+
+
+Even for HW offloading this timerqueue could be used for enforcing that packets
+are always sorted by their launch time when they get enqueued into the
+netdevice. Of course, assuming that this would be something that we'd like to
+provide from within the kernel.
 
 
 
-W dniu 2017-10-18 o 17:44, Paweł Staszewski pisze:
->
->
-> W dniu 2017-10-17 o 16:08, Paweł Staszewski pisze:
->>
->>
->> W dniu 2017-10-17 o 13:52, Paweł Staszewski pisze:
->>>
->>>
->>> W dniu 2017-10-17 o 13:05, Paweł Staszewski pisze:
->>>>
->>>>
->>>> W dniu 2017-10-17 o 12:59, Paweł Staszewski pisze:
->>>>>
->>>>>
->>>>> W dniu 2017-10-17 o 12:51, Paweł Staszewski pisze:
->>>>>>
->>>>>>
->>>>>> W dniu 2017-10-17 o 12:20, Paweł Staszewski pisze:
->>>>>>>
->>>>>>>
->>>>>>> W dniu 2017-10-17 o 11:48, Paweł Staszewski pisze:
->>>>>>>>
->>>>>>>>
->>>>>>>> W dniu 2017-10-17 o 02:44, Paweł Staszewski pisze:
->>>>>>>>>
->>>>>>>>>
->>>>>>>>> W dniu 2017-10-17 o 01:56, Alexander Duyck pisze:
->>>>>>>>>> On Mon, Oct 16, 2017 at 4:34 PM, Paweł Staszewski 
->>>>>>>>>> <pstaszewski@itcare.pl> wrote:
->>>>>>>>>>>
->>>>>>>>>>> W dniu 2017-10-16 o 18:26, Paweł Staszewski pisze:
->>>>>>>>>>>
->>>>>>>>>>>>
->>>>>>>>>>>> W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
->>>>>>>>>>>>> On 15/10/2017 02:58 πμ, Alexander Duyck wrote:
->>>>>>>>>>>>>> Hi Pawel,
->>>>>>>>>>>>>>
->>>>>>>>>>>>>> To clarify is that Dave Miller's tree or Linus's that you 
->>>>>>>>>>>>>> are talking
->>>>>>>>>>>>>> about? If it is Dave's tree how long ago was it you 
->>>>>>>>>>>>>> pulled it since I
->>>>>>>>>>>>>> think the fix was just pushed by Jeff Kirsher a few days 
->>>>>>>>>>>>>> ago.
->>>>>>>>>>>>>>
->>>>>>>>>>>>>> The issue should be fixed in the following commit:
->>>>>>>>>>>>>>
->>>>>>>>>>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=2b9478ffc550f17c6cd8c69057234e91150f5972 
->>>>>>>>>>>>>>
->>>>>>>>>>>>>>
->>>>>>>>>>>>> Do you know when it is going to be available on net-next 
->>>>>>>>>>>>> and linux-stable
->>>>>>>>>>>>> repos?
->>>>>>>>>>>>>
->>>>>>>>>>>>> Cheers,
->>>>>>>>>>>>> Pavlos
->>>>>>>>>>>>>
->>>>>>>>>>>>>
->>>>>>>>>>>> I will make some tests today night with "net" git tree 
->>>>>>>>>>>> where this patch is
->>>>>>>>>>>> included.
->>>>>>>>>>>> Starting from 0:00 CET
->>>>>>>>>>>> :)
->>>>>>>>>>>>
->>>>>>>>>>>>
->>>>>>>>>>> Upgraded and looks like problem is not solved with that patch
->>>>>>>>>>> Currently running system with
->>>>>>>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
->>>>>>>>>>> kernel
->>>>>>>>>>>
->>>>>>>>>>> Still about 0.5GB of memory is leaking somewhere
->>>>>>>>>>>
->>>>>>>>>>> Also can confirm that the latest kernel where memory is not 
->>>>>>>>>>> leaking (with
->>>>>>>>>>> use i40e driver intel 710 cards) is 4.11.12
->>>>>>>>>>> With kernel 4.11.12 - after hour no change in memory usage.
->>>>>>>>>>>
->>>>>>>>>>> also checked that with ixgbe instead of i40e with same 
->>>>>>>>>>> net.git kernel there
->>>>>>>>>>> is no memleak - after hour same memory usage - so for 100% 
->>>>>>>>>>> this is i40e
->>>>>>>>>>> driver problem.
->>>>>>>>>> So how long was the run to get the .5GB of memory leaking?
->>>>>>>>> 1 hour
->>>>>>>>>
->>>>>>>>>>
->>>>>>>>>> Also is there any chance of you being able to bisect to 
->>>>>>>>>> determine
->>>>>>>>>> where the memory leak was introduced since as you pointed out it
->>>>>>>>>> didn't exist in 4.11.12 so odds are it was introduced somewhere
->>>>>>>>>> between 4.11 and the latest kernel release.
->>>>>>>>> Can be hard cause currently need to back to 4.11.12 - this is 
->>>>>>>>> production host/router
->>>>>>>>> Will try to find some free/test router for tests/bicects with 
->>>>>>>>> i40e driver (intel 710 cards)
->>>>>>>>>
->>>>>>>>>>
->>>>>>>>>> Thanks.
->>>>>>>>>>
->>>>>>>>>> - Alex
->>>>>>>>>>
->>>>>>>>>
->>>>>>>>>
->>>>>>>> Also forgoto to add errors for i40e when driver initialize:
->>>>>>>> [   15.760569] i40e 0000:02:00.1: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.365587] i40e 0000:03:00.3: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.367686] i40e 0000:02:00.2: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.368816] i40e 0000:03:00.0: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.369877] i40e 0000:03:00.2: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.370941] i40e 0000:02:00.3: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.372005] i40e 0000:02:00.0: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>> [   16.373029] i40e 0000:03:00.1: Error I40E_AQ_RC_ENOSPC 
->>>>>>>> adding RX filters on PF, promiscuous mode forced on
->>>>>>>>
->>>>>>>> some params that are set for this nic's
->>>>>>>>         ip link set up dev $i
->>>>>>>>         ethtool -A $i autoneg off rx off tx off
->>>>>>>>         ethtool -G $i rx 1024 tx 2048
->>>>>>>>         ip link set $i txqueuelen 1000
->>>>>>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 
->>>>>>>> 512 tx-usecs 128
->>>>>>>>         ethtool -L $i combined 6
->>>>>>>>         #ethtool -N $i rx-flow-hash udp4 sdfn
->>>>>>>>         ethtool -K $i ntuple on
->>>>>>>>         ethtool -K $i gro off
->>>>>>>>         ethtool -K $i tso off
->>>>>>>>
->>>>>>>>
->>>>>>>>
->>>>>>>>
->>>>>>> Also after TSO/GRO on there is memory usage change - and leaking 
->>>>>>> faster
->>>>>>> Below image from memory usage before change with TSO/GRO OFF and 
->>>>>>> after enabling TSO/GRO
->>>>>>>
->>>>>>> https://ibb.co/dTqBY6
->>>>>>>
->>>>>>>
->>>>>>> Thanks
->>>>>>> Pawel
->>>>>>>
->>>>>>>
->>>>>>>
->>>>>> With settings like this:
->>>>>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 
->>>>>> enp3s0f2 enp3s0f3'
->>>>>> for i in $ifc
->>>>>>         do
->>>>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 
->>>>>> 512 tx-usecs 128
->>>>>>         ethtool -K $i gro on
->>>>>>         ethtool -K $i tso on
->>>>>>
->>>>>>         done
->>>>>>
->>>>>> Server is leaking about 4-6MB per each 10 seconds
->>>>>> MEMLEAK:
->>>>>> 5  MB/10sec
->>>>>> 6  MB/10sec
->>>>>> 4  MB/10sec
->>>>>> 4  MB/10sec
->>>>>>
->>>>>>
->>>>>> Other settings TSO/GRO off
->>>>>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 
->>>>>> enp3s0f2 enp3s0f3'
->>>>>> for i in $ifc
->>>>>>         do
->>>>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 
->>>>>> 512 tx-usecs 128
->>>>>>         ethtool -K $i gro off
->>>>>>         ethtool -K $i tso off
->>>>>>
->>>>>>         done
->>>>>>
->>>>>> Same leak about 5MB per 10 seconds
->>>>>> MEMLEAK:
->>>>>> 5  MB/10sec
->>>>>> 5  MB/10sec
->>>>>> 5  MB/10sec
->>>>>>
->>>>>>
->>>>>> Other settings rx-usecs change from 512 to 1024:
->>>>>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 
->>>>>> enp3s0f2 enp3s0f3'
->>>>>> for i in $ifc
->>>>>>         do
->>>>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 
->>>>>> 1024 tx-usecs 128
->>>>>>         ethtool -K $i gro off
->>>>>>         ethtool -K $i tso off
->>>>>>
->>>>>>         done
->>>>>>
->>>>>> MEMLEAK:
->>>>>> 4  MB/10sec
->>>>>> 3  MB/10sec
->>>>>> 4  MB/10sec
->>>>>> 4  MB/10sec
->>>>>>
->>>>>>
->>>>>> So memleak have something to do with rx-usecs (less interrupts 
->>>>>> but bigger latency for traffic)
->>>>>>
->>>>>>
->>>>>> But also enabling TSO/GRO making leak about 1MB bigger for each 
->>>>>> 10 seconds
->>>>>>
->>>>>>
->>>>>>
->>>>> So far best config is:
->>>>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 
->>>>> enp3s0f2 enp3s0f3'
->>>>> for i in $ifc
->>>>>         do
->>>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 64 
->>>>> tx-usecs 512
->>>>>         ethtool -K $i gro off
->>>>>         ethtool -K $i tso on
->>>>>
->>>>>         done
->>>>>
->>>>> MEMLEAK - about 2MB/10secs
->>>>> 2  MB/10sec
->>>>> 2  MB/10sec
->>>>> 2  MB/10sec
->>>>>
->>>>>
->>>>> With - rx-usecs set to 256 (about 7-9MB/10secs memleak)
->>>>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 
->>>>> enp3s0f2 enp3s0f3'
->>>>> for i in $ifc
->>>>>         do
->>>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 256 
->>>>> tx-usecs 512
->>>>>         ethtool -K $i gro off
->>>>>         ethtool -K $i tso on
->>>>>
->>>>>         done
->>>>>
->>>>> MEMLEAK:
->>>>> 7  MB/10sec
->>>>> 7  MB/10sec
->>>>> 8  MB/10sec
->>>>> 9  MB/10sec
->>>>>
->>>>>
->>>>
->>>> And even less memleak with rx-usecs set to 32
->>>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 enp3s0f2 
->>>> enp3s0f3'
->>>> for i in $ifc
->>>>         do
->>>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 32 
->>>> tx-usecs 512
->>>>         ethtool -K $i gro off
->>>>         ethtool -K $i tso on
->>>>
->>>>         done
->>>>
->>>>
->>>> MEMLEAK - about 0-2MB for each 10 seconds
->>>> 0  MB/10sec
->>>> 1  MB/10sec
->>>> 0  MB/10sec
->>>> 2  MB/10sec
->>>> 1  MB/10sec
->>>>
->>>>
->>>>
->>>
->>>
->>> So best settings - to have as less leak as possible for now 
->>> (rx-usecs set to 16):
->>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 enp3s0f2 
->>> enp3s0f3'
->>> for i in $ifc
->>>         do
->>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 16 
->>> tx-usecs 768
->>>         ethtool -K $i gro on
->>>         ethtool -K $i tso on
->>>
->>>         done
->>>
->>>
->>> MEMLEAK: (0-1MB/10seconds)
->>> 0  MB/10sec
->>> 0  MB/10sec
->>> 0  MB/10sec
->>> 1  MB/10sec
->>> 1  MB/10sec
->>> -1  MB/10sec
->>> 1  MB/10sec
->>> 1  MB/10sec
->>> 0  MB/10sec
->>>
->>> (there are some memory recycles - so this is good :) )
->>>
->>>
->>>
->>> Compared to(rx-usecs 512):
->>>
->>> ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 enp3s0f2 
->>> enp3s0f3'
->>> for i in $ifc
->>>         do
->>>         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 512 
->>> tx-usecs 128
->>>         ethtool -K $i gro on
->>>         ethtool -K $i tso on
->>>
->>>         done
->>>
->>> Server is leaking about 4-6MB per each 10 seconds
->>> MEMLEAK:
->>> 5  MB/10sec
->>> 6  MB/10sec
->>> 4  MB/10sec
->>> 4  MB/10sec
->>>
->>>
->>
->> And  graph where all changes for rx-usecs was done over some time:
->> https://ibb.co/nrRfbR
->>
->>
->>
->>
->>
-> Cant eliminate the problem with settings - memleak is bigger or less 
-> visible with rx-usecs set to low values - but then have 100% cpu load 
-> - cant have rx-usecs set to 16
->
-> Cant find also other host with same cards or that are using i40e 
-> driver for tests with bisecting
-> So will just replace to mellanox :)
->
->
-Also after fresh reboot with i40e
-startup settings:
-ifc='enp2s0f0 enp2s0f1 enp2s0f2 enp2s0f3 enp3s0f0 enp3s0f1 enp3s0f2 
-enp3s0f3'
-for i in $ifc
-         do
-         ip link set up dev $i
-         ethtool -A $i autoneg off rx off tx off
-         ethtool -G $i rx 2048 tx 2048
-         ip link set $i txqueuelen 1000
-         #ethtool -C $i rx-usecs 256
-         ethtool -C $i adaptive-rx off adaptive-tx off rx-usecs 17 
-tx-usecs 125
-         ethtool -L $i combined 6
-         #ethtool -N $i rx-flow-hash udp4 sdfn
-         #ethtool -K $i ntuple on
-         #ethtool -K $i gro off
-         #ethtool -K $i tso off
-         done
+> 
+> * Current limitations
+> 
+>   - The driver does not handle out of order packets.  If user space
+>     sends a packet with an earlier Tx time, then the code should stop
+>     the queue, reshuffle the descriptors accordingly, and then
+>     restart the queue.
 
 
-After issuing:
-
-  ethtool -K enp2s0f0 gro on tso on
-
-dmesg shows
-[35764.338259] i40e 0000:02:00.0: PF reset failed, -15
+Wouldn't be an issue if the above was provided.
 
 
-and no traffic on the card :)
+
+> 
+>   - The driver does not correctly queue up packets in the distant
+>     future.  The i210 has a limited time window of +/- 0.5 seconds.
+>     Packets with a Tx time greater than that should be deferred in
+>     order to enqueue them later on.
+> 
+> * Performance measurements
+> 
+>   1. Prepared a PC and the Device Under Test (DUT) each with an Intel
+>      i210 card connected with a crossover cable.
+>   2. The DUT was a Pentium(R) D CPU 2.80GHz running PREEMPT_RT
+>      4.9.40-rt30 with about 50 usec maximum latency under cyclictest.
+>   3. Synchronized the DUT's PHC to the PC's PHC using ptp4l.
+>   4. Synchronized the DUT's system clock to its PHC using phc2sys.
+>   5. Started netperf to produce some network load.
+>   6. Measured the arrival time of the packets at the PC's PHC using
+>      hardware time stamping.
+> 
+>   I ran ten minute tests both with and without using the so_txtime
+>   option, with a period was 1 millisecond.  I then repeated the
+>   so_txtime case but with a 250 microsecond period.  The measured
+>   offset from the expected period (in nanoseconds) is shown in the
+>   following table.
+> 
+>   |         | plain preempt_rt |     so_txtime | txtime @ 250 us |
+>   |---------+------------------+---------------+-----------------|
+>   | min:    |    +1.940800e+04 | +4.720000e+02 |   +4.720000e+02 |
+>   | max:    |    +7.556000e+04 | +5.680000e+02 |   +5.760000e+02 |
+>   | pk-pk:  |    +5.615200e+04 | +9.600000e+01 |   +1.040000e+02 |
+>   | mean:   |    +3.292776e+04 | +5.072274e+02 |   +5.073602e+02 |
+>   | stddev: |    +6.514709e+03 | +1.310849e+01 |   +1.507144e+01 |
+>   | count:  |           600000 |        600000 |         2400000 |
+> 
+>   Using so_txtime, the peak to peak jitter is about 100 nanoseconds,
+>   independent of the period.  In contrast, plain preempt_rt shows a
+>   jitter of of 56 microseconds.  The average delay of 507 nanoseconds
+>   when using so_txtime is explained by the documented input and output
+>   delays on the i210 cards.
+
+
+This is great. Just out of curiosity, were you using vlans on your tests?
+
+
+> 
+>   The test program is appended, below.  If anyone is interested in
+>   reproducing this test, I can provide helper scripts.
+
+
+I might try to reproduce them soon. I would appreciate if you could provide me
+with the scripts, please.
+
+
+Thanks,
+Jesus
+
+
+
+
+> 
+> Thanks,
+> Richard
+> 
+> 
+> Richard Cochran (6):
+>   net: Add a new socket option for a future transmit time.
+>   net: skbuff: Add a field to support time based transmission.
+>   net: ipv4: raw: Hook into time based transmission.
+>   net: ipv4: udp: Hook into time based transmission.
+>   net: packet: Hook into time based transmission.
+>   net: igb: Implement time based transmission.
+> 
+>  arch/alpha/include/uapi/asm/socket.h           |  3 ++
+>  arch/frv/include/uapi/asm/socket.h             |  3 ++
+>  arch/ia64/include/uapi/asm/socket.h            |  3 ++
+>  arch/m32r/include/uapi/asm/socket.h            |  3 ++
+>  arch/mips/include/uapi/asm/socket.h            |  3 ++
+>  arch/mn10300/include/uapi/asm/socket.h         |  3 ++
+>  arch/parisc/include/uapi/asm/socket.h          |  3 ++
+>  arch/powerpc/include/uapi/asm/socket.h         |  3 ++
+>  arch/s390/include/uapi/asm/socket.h            |  3 ++
+>  arch/sparc/include/uapi/asm/socket.h           |  3 ++
+>  arch/xtensa/include/uapi/asm/socket.h          |  3 ++
+>  drivers/net/ethernet/intel/igb/e1000_82575.h   |  1 +
+>  drivers/net/ethernet/intel/igb/e1000_defines.h | 68 +++++++++++++++++++++++++-
+>  drivers/net/ethernet/intel/igb/e1000_regs.h    |  5 ++
+>  drivers/net/ethernet/intel/igb/igb.h           |  3 +-
+>  drivers/net/ethernet/intel/igb/igb_main.c      | 68 +++++++++++++++++++++++---
+>  include/linux/skbuff.h                         |  2 +
+>  include/net/sock.h                             |  2 +
+>  include/uapi/asm-generic/socket.h              |  3 ++
+>  net/core/sock.c                                | 12 +++++
+>  net/ipv4/raw.c                                 |  2 +
+>  net/ipv4/udp.c                                 |  5 +-
+>  net/packet/af_packet.c                         |  6 +++
+>  23 files changed, 200 insertions(+), 10 deletions(-)
+> 
