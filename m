@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 3/8] cxgb4: add tc flower support for action PASS
-Date: Wed, 18 Oct 2017 20:49:09 +0530
-Message-ID: <09dc5b7efacdbcf8e59a85c63c3e7c36c28089e2.1508312071.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 7/8] cxgb4: introduce fw_filter2_wr to prepare for L3/L4 rewrite support
+Date: Wed, 18 Oct 2017 20:49:13 +0530
+Message-ID: <5c7501ff6ef3ef3fe2563ab9e7b6d46172751ef1.1508312071.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:35802 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:34762 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdJRPUh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:37 -0400
+        with ESMTP id S1750751AbdJRPUw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:52 -0400
 In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
@@ -20,40 +20,223 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Add support for tc flower action PASS.
+Update driver to use new fw_filter2_wr in order to support rewrite of
+L3/L4 header fields via filters. Query FW_PARAMS_PARAM_DEV_FILTER2_WR
+to check whether FW supports this new wr.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        | 10 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c | 19 +++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   | 10 +++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h     | 75 ++++++++++++++++++++++-
+ 4 files changed, 111 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index f7554b768e9d..4d4f3af20496 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -263,7 +263,9 @@ static void cxgb4_process_flow_actions(struct net_device *in,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index f7aa3516bf12..6a1c0b1fe8d0 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -367,6 +367,7 @@ struct adapter_params {
+ 	unsigned int max_ird_adapter;     /* Max read depth per adapter */
+ 	bool fr_nsmr_tpte_wr_support;	  /* FW support for FR_NSMR_TPTE_WR */
+ 	u8 fw_caps_support;		/* 32-bit Port Capabilities */
++	bool filter2_wr_support;	/* FW support for FILTER2_WR */
  
- 	tcf_exts_to_list(cls->exts, &actions);
- 	list_for_each_entry(a, &actions, list) {
--		if (is_tcf_gact_shot(a)) {
-+		if (is_tcf_gact_ok(a)) {
-+			fs->action = FILTER_PASS;
-+		} else if (is_tcf_gact_shot(a)) {
- 			fs->action = FILTER_DROP;
- 		} else if (is_tcf_mirred_egress_redirect(a)) {
- 			int ifindex = tcf_mirred_ifindex(a);
-@@ -306,7 +308,9 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
+ 	/* MPS Buffer Group Map[per Port].  Bit i is set if buffer group i is
+ 	 * used by the Port
+@@ -1064,10 +1065,19 @@ struct ch_filter_specification {
+ 	uint32_t newdmac:1;     /* rewrite destination MAC address */
+ 	uint32_t newsmac:1;     /* rewrite source MAC address */
+ 	uint32_t newvlan:2;     /* rewrite VLAN Tag */
++	uint32_t nat_mode:3;    /* specify NAT operation mode */
+ 	uint8_t dmac[ETH_ALEN]; /* new destination MAC address */
+ 	uint8_t smac[ETH_ALEN]; /* new source MAC address */
+ 	uint16_t vlan;          /* VLAN Tag to insert */
  
- 	tcf_exts_to_list(cls->exts, &actions);
- 	list_for_each_entry(a, &actions, list) {
--		if (is_tcf_gact_shot(a)) {
-+		if (is_tcf_gact_ok(a)) {
-+			/* Do nothing */
-+		} else if (is_tcf_gact_shot(a)) {
- 			/* Do nothing */
- 		} else if (is_tcf_mirred_egress_redirect(a)) {
- 			struct adapter *adap = netdev2adap(dev);
++	u8 nat_lip[16];		/* local IP to use after NAT'ing */
++	u8 nat_fip[16];		/* foreign IP to use after NAT'ing */
++	u16 nat_lport;		/* local port to use after NAT'ing */
++	u16 nat_fport;		/* foreign port to use after NAT'ing */
++
++	/* reservation for future additions */
++	u8 rsvd[24];
++
+ 	/* Filter rule value/mask pairs.
+ 	 */
+ 	struct ch_filter_tuple val;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+index a8084be5e13b..89272f29f807 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+@@ -313,7 +313,7 @@ static int del_filter_wr(struct adapter *adapter, int fidx)
+ int set_filter_wr(struct adapter *adapter, int fidx)
+ {
+ 	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
+-	struct fw_filter_wr *fwr;
++	struct fw_filter2_wr *fwr;
+ 	struct sk_buff *skb;
+ 
+ 	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
+@@ -359,7 +359,10 @@ int set_filter_wr(struct adapter *adapter, int fidx)
+ 	 * filter specification structure but for now it's easiest to simply
+ 	 * put this fairly direct code in line ...
+ 	 */
+-	fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
++	if (adapter->params.filter2_wr_support)
++		fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER2_WR));
++	else
++		fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
+ 	fwr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*fwr) / 16));
+ 	fwr->tid_to_iq =
+ 		htonl(FW_FILTER_WR_TID_V(f->tid) |
+@@ -421,6 +424,18 @@ int set_filter_wr(struct adapter *adapter, int fidx)
+ 	fwr->fp = htons(f->fs.val.fport);
+ 	fwr->fpm = htons(f->fs.mask.fport);
+ 
++	if (adapter->params.filter2_wr_support) {
++		fwr->natmode_to_ulp_type =
++			FW_FILTER2_WR_ULP_TYPE_V(f->fs.nat_mode ?
++						 ULP_MODE_TCPDDP :
++						 ULP_MODE_NONE) |
++			FW_FILTER2_WR_NATMODE_V(f->fs.nat_mode);
++		memcpy(fwr->newlip, f->fs.nat_lip, sizeof(fwr->newlip));
++		memcpy(fwr->newfip, f->fs.nat_fip, sizeof(fwr->newfip));
++		fwr->newlport = htons(f->fs.nat_lport);
++		fwr->newfport = htons(f->fs.nat_fport);
++	}
++
+ 	/* Mark the filter as "pending" and ship off the Filter Work Request.
+ 	 * When we get the Work Request Reply we'll clear the pending status.
+ 	 */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 796b37de464f..c478291db93f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3910,6 +3910,16 @@ static int adap_init0(struct adapter *adap)
+ 			      1, params, val);
+ 	adap->params.fr_nsmr_tpte_wr_support = (ret == 0 && val[0] != 0);
+ 
++	/* See if FW supports FW_FILTER2 work request */
++	if (is_t4(adap->params.chip)) {
++		adap->params.filter2_wr_support = 0;
++	} else {
++		params[0] = FW_PARAM_DEV(FILTER2_WR);
++		ret = t4_query_params(adap, adap->mbox, adap->pf, 0,
++				      1, params, val);
++		adap->params.filter2_wr_support = (ret == 0 && val[0] != 0);
++	}
++
+ 	/*
+ 	 * Get device capabilities so we can determine what resources we need
+ 	 * to manage.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index ca2756dcefc5..875d4a72b3ef 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -105,7 +105,8 @@ enum fw_wr_opcodes {
+ 	FW_ISCSI_TX_DATA_WR	       = 0x45,
+ 	FW_PTP_TX_PKT_WR               = 0x46,
+ 	FW_CRYPTO_LOOKASIDE_WR         = 0X6d,
+-	FW_LASTC2E_WR                  = 0x70
++	FW_LASTC2E_WR                  = 0x70,
++	FW_FILTER2_WR		       = 0x77
+ };
+ 
+ struct fw_wr_hdr {
+@@ -201,6 +202,51 @@ struct fw_filter_wr {
+ 	__u8   sma[6];
+ };
+ 
++struct fw_filter2_wr {
++	__be32 op_pkd;
++	__be32 len16_pkd;
++	__be64 r3;
++	__be32 tid_to_iq;
++	__be32 del_filter_to_l2tix;
++	__be16 ethtype;
++	__be16 ethtypem;
++	__u8   frag_to_ovlan_vldm;
++	__u8   smac_sel;
++	__be16 rx_chan_rx_rpl_iq;
++	__be32 maci_to_matchtypem;
++	__u8   ptcl;
++	__u8   ptclm;
++	__u8   ttyp;
++	__u8   ttypm;
++	__be16 ivlan;
++	__be16 ivlanm;
++	__be16 ovlan;
++	__be16 ovlanm;
++	__u8   lip[16];
++	__u8   lipm[16];
++	__u8   fip[16];
++	__u8   fipm[16];
++	__be16 lp;
++	__be16 lpm;
++	__be16 fp;
++	__be16 fpm;
++	__be16 r7;
++	__u8   sma[6];
++	__be16 r8;
++	__u8   filter_type_swapmac;
++	__u8   natmode_to_ulp_type;
++	__be16 newlport;
++	__be16 newfport;
++	__u8   newlip[16];
++	__u8   newfip[16];
++	__be32 natseqcheck;
++	__be32 r9;
++	__be64 r10;
++	__be64 r11;
++	__be64 r12;
++	__be64 r13;
++};
++
+ #define FW_FILTER_WR_TID_S      12
+ #define FW_FILTER_WR_TID_M      0xfffff
+ #define FW_FILTER_WR_TID_V(x)   ((x) << FW_FILTER_WR_TID_S)
+@@ -385,6 +431,32 @@ struct fw_filter_wr {
+ #define FW_FILTER_WR_RX_RPL_IQ_G(x)     \
+ 	(((x) >> FW_FILTER_WR_RX_RPL_IQ_S) & FW_FILTER_WR_RX_RPL_IQ_M)
+ 
++#define FW_FILTER2_WR_FILTER_TYPE_S	1
++#define FW_FILTER2_WR_FILTER_TYPE_M	0x1
++#define FW_FILTER2_WR_FILTER_TYPE_V(x)	((x) << FW_FILTER2_WR_FILTER_TYPE_S)
++#define FW_FILTER2_WR_FILTER_TYPE_G(x)  \
++	(((x) >> FW_FILTER2_WR_FILTER_TYPE_S) & FW_FILTER2_WR_FILTER_TYPE_M)
++#define FW_FILTER2_WR_FILTER_TYPE_F	FW_FILTER2_WR_FILTER_TYPE_V(1U)
++
++#define FW_FILTER2_WR_NATMODE_S		5
++#define FW_FILTER2_WR_NATMODE_M		0x7
++#define FW_FILTER2_WR_NATMODE_V(x)	((x) << FW_FILTER2_WR_NATMODE_S)
++#define FW_FILTER2_WR_NATMODE_G(x)      \
++	(((x) >> FW_FILTER2_WR_NATMODE_S) & FW_FILTER2_WR_NATMODE_M)
++
++#define FW_FILTER2_WR_NATFLAGCHECK_S	4
++#define FW_FILTER2_WR_NATFLAGCHECK_M	0x1
++#define FW_FILTER2_WR_NATFLAGCHECK_V(x)	((x) << FW_FILTER2_WR_NATFLAGCHECK_S)
++#define FW_FILTER2_WR_NATFLAGCHECK_G(x) \
++	(((x) >> FW_FILTER2_WR_NATFLAGCHECK_S) & FW_FILTER2_WR_NATFLAGCHECK_M)
++#define FW_FILTER2_WR_NATFLAGCHECK_F	FW_FILTER2_WR_NATFLAGCHECK_V(1U)
++
++#define FW_FILTER2_WR_ULP_TYPE_S	0
++#define FW_FILTER2_WR_ULP_TYPE_M	0xf
++#define FW_FILTER2_WR_ULP_TYPE_V(x)	((x) << FW_FILTER2_WR_ULP_TYPE_S)
++#define FW_FILTER2_WR_ULP_TYPE_G(x)     \
++	(((x) >> FW_FILTER2_WR_ULP_TYPE_S) & FW_FILTER2_WR_ULP_TYPE_M)
++
+ #define FW_FILTER_WR_MACI_S     23
+ #define FW_FILTER_WR_MACI_M     0x1ff
+ #define FW_FILTER_WR_MACI_V(x)  ((x) << FW_FILTER_WR_MACI_S)
+@@ -1127,6 +1199,7 @@ enum fw_params_param_dev {
+ 	FW_PARAMS_PARAM_DEV_SCFGREV = 0x1A,
+ 	FW_PARAMS_PARAM_DEV_VPDREV = 0x1B,
+ 	FW_PARAMS_PARAM_DEV_RI_FR_NSMR_TPTE_WR	= 0x1C,
++	FW_PARAMS_PARAM_DEV_FILTER2_WR  = 0x1D,
+ 	FW_PARAMS_PARAM_DEV_MPSBGMAP	= 0x1E,
+ };
+ 
 -- 
 2.14.1
