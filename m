@@ -1,63 +1,83 @@
 From: John Fastabend <john.r.fastabend@gmail.com>
-Subject: [net PATCH 0/5] sockmap fixes for net
-Date: Wed, 18 Oct 2017 07:09:48 -0700
-Message-ID: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
+Subject: [net PATCH 1/5] bpf: enforce TCP only support for sockmap
+Date: Wed, 18 Oct 2017 07:10:15 -0700
+Message-ID: <150833581505.3588.4222223777453171460.stgit@john-XPS-13-9360>
+References: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, borkmann@iogearbox.net
 To: alexei.starovoitov@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:43771 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdJROKK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:10:10 -0400
-Received: by mail-pf0-f195.google.com with SMTP id a8so4053833pfc.0
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 07:10:09 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:48411 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751420AbdJROKa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:10:30 -0400
+Received: by mail-pf0-f196.google.com with SMTP id b79so4054459pfk.5
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 07:10:30 -0700 (PDT)
+In-Reply-To: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following implements a set of fixes for sockmap and changes the
-API slightly in a few places to reduce preempt_disable/enable scope.
-We do this here in net because it requires an API change and this
-avoids getting stuck with legacy API going forward.
+From: John Fastabend <john.fastabend@gmail.com>
 
-The short description:
+Only TCP sockets have been tested and at the moment the state change
+callback only handles TCP sockets. This adds a check to ensure that
+sockets actually being added are TCP sockets.
 
-Access to skb mark is removed, it is problematic when we add
-features in the future because mark is a union and used by the
-TCP/socket code internally. We don't want to expose this to the
-BPF programs or let programs change the values.
+For net-next we can consider UDP support.
 
-The other change is caching metadata in the skb itself between
-when the BPF program returns a redirect code and the core code
-implements the redirect. This avoids having per cpu metadata.
-
-Finally, tighten restriction on using sockmap to CAP_NET_ADMIN and
-only SOCK_STREAM sockets.
-
-Thanks,
-John
-
+Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
+ kernel/bpf/sockmap.c                    |    6 ++++++
+ tools/testing/selftests/bpf/test_maps.c |   12 +++++++++++-
+ 2 files changed, 17 insertions(+), 1 deletion(-)
 
-John Fastabend (5):
-      bpf: enforce TCP only support for sockmap
-      bpf: avoid preempt enable/disable in sockmap using tcp_skb_cb region
-      bpf: remove mark access for SK_SKB program types
-      bpf: require CAP_NET_ADMIN when using sockmap maps
-      bpf: require CAP_NET_ADMIN when using devmap
-
-
- include/linux/filter.h                             |    2 +
- include/net/tcp.h                                  |    5 +++
- kernel/bpf/devmap.c                                |    3 ++
- kernel/bpf/sockmap.c                               |   28 ++++++++++++------
- net/core/filter.c                                  |   31 ++++++++++----------
- samples/sockmap/sockmap_kern.c                     |    2 +
- tools/include/uapi/linux/bpf.h                     |    3 +-
- tools/testing/selftests/bpf/bpf_helpers.h          |    2 +
- tools/testing/selftests/bpf/sockmap_verdict_prog.c |    4 +--
- tools/testing/selftests/bpf/test_maps.c            |   12 +++++++-
- tools/testing/selftests/bpf/test_verifier.c        |   16 +++++++++-
- 11 files changed, 74 insertions(+), 34 deletions(-)
+diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+index 6424ce0..c68899d 100644
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+@@ -840,6 +840,12 @@ static int sock_map_update_elem(struct bpf_map *map,
+ 		return -EINVAL;
+ 	}
+ 
++	if (skops.sk->sk_type != SOCK_STREAM ||
++	    skops.sk->sk_protocol != IPPROTO_TCP) {
++		fput(socket->file);
++		return -EOPNOTSUPP;
++	}
++
+ 	err = sock_map_ctx_update_elem(&skops, map, key, flags);
+ 	fput(socket->file);
+ 	return err;
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index fe3a443..50ce52d 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -466,7 +466,7 @@ static void test_sockmap(int tasks, void *data)
+ 	int one = 1, map_fd_rx, map_fd_tx, map_fd_break, s, sc, rc;
+ 	struct bpf_map *bpf_map_rx, *bpf_map_tx, *bpf_map_break;
+ 	int ports[] = {50200, 50201, 50202, 50204};
+-	int err, i, fd, sfd[6] = {0xdeadbeef};
++	int err, i, fd, udp, sfd[6] = {0xdeadbeef};
+ 	u8 buf[20] = {0x0, 0x5, 0x3, 0x2, 0x1, 0x0};
+ 	int parse_prog, verdict_prog;
+ 	struct sockaddr_in addr;
+@@ -548,6 +548,16 @@ static void test_sockmap(int tasks, void *data)
+ 		goto out_sockmap;
+ 	}
+ 
++	/* Test update with unsupported UDP socket */
++	udp = socket(AF_INET, SOCK_DGRAM, 0);
++	i = 0;
++	err = bpf_map_update_elem(fd, &i, &udp, BPF_ANY);
++	if (!err) {
++		printf("Failed socket SOCK_DGRAM allowed '%i:%i'\n",
++		       i, udp);
++		goto out_sockmap;
++	}
++
+ 	/* Test update without programs */
+ 	for (i = 0; i < 6; i++) {
+ 		err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_ANY);
