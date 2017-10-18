@@ -1,97 +1,397 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [net-next] dsa: slave: support phy devices on external MII bus
-Date: Wed, 18 Oct 2017 09:51:47 -0700
-Message-ID: <ad992ed8-37b8-9c52-848c-78fa0368de8f@gmail.com>
-References: <20171018162138.GA15371@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>, mnhu@prevas.dk
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH v3 net-next 5/5] mlxsw: spectrum_router: Add extack message for RIF and VRF overflow
+Date: Wed, 18 Oct 2017 09:56:56 -0700
+Message-ID: <1508345816-25678-6-git-send-email-dsahern@gmail.com>
+References: <1508345816-25678-1-git-send-email-dsahern@gmail.com>
+Cc: jiri@mellanox.com, idosch@mellanox.com, kjlx@templeofstupid.com,
+        davem@davemloft.net, yoshfuji@linux-ipv6.org,
+        David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:54155 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750914AbdJRQvw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:51:52 -0400
-Received: by mail-wm0-f49.google.com with SMTP id q132so11335149wmd.2
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 09:51:51 -0700 (PDT)
-In-Reply-To: <20171018162138.GA15371@lunn.ch>
-Content-Language: en-US
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:54428 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751572AbdJRQ5I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:57:08 -0400
+Received: by mail-pg0-f65.google.com with SMTP id l24so4746767pgu.11
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 09:57:08 -0700 (PDT)
+In-Reply-To: <1508345816-25678-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2017 09:21 AM, Andrew Lunn wrote:
-> Hi Martin
-> 
-> Sorry for starting a new thread. I deleted the patchset from my mailbox.
-> 
-> Florian said:
-> 
->> The logic goes like this:
->>
->> - try to connect to the PHY via phy-handle
->> - if we have a PHY we are connecting via phy-handle but we need to
->>   divert MDIO reads/writes connect using its address on the diverted
->>   bus
->> - connect using a fixed PHY
->> - finally try using the DSA slave MII bus which would connect to the switch internal PHYs
-> 
-> This is not quite correct. Looking at the code:
-> 
->         phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
->  ...
-> 
->         if (phy_dn) {
->                 int phy_id = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
-> 
->                 /* If this PHY address is part of phys_mii_mask, which means
->                  * that we need to divert reads and writes to/from it, then we
->                  * want to bind this device using the slave MII bus created by
->                  * DSA to make that happen.
->                  */
->                 if (!phy_is_fixed && phy_id >= 0 &&
->                     (ds->phys_mii_mask & (1 << phy_id))) {
->                         ret = dsa_slave_phy_connect(p, slave_dev, phy_id);
->                         if (ret) {
->                                 netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
->                                 of_node_put(phy_dn);
->                                 return ret;
->                         }
->                 } else {
->                         p->phy = of_phy_connect(slave_dev, phy_dn,
-> 
-> The first point really is:
-> 
-> - try to connect to the PHY via phy-handle, if the phy_id is not
-> valid, or if the phy_id does not map to a phy that the switch says
-> does not exist.
-> 
-> In your case, all these points are true, so it uses
-> dsa_slave_phy_connect().  But we actually want it to use
-> of_phy_connect(), which will use the correct bus.
-> 
-> For some Marvell chips, you cannot actually go on ds->phys_mii_mask.
-> These devices can have in built PHYs and SERDES interfaces which can
-> be assigned to ports. These SERDES interfaces could have external PHYs
-> connected to them, and be on the external MDIO bus. So
-> ds->phys_mii_mask indicates there is a PHY, but the phy-handle points
-> to a different phy.
-> 
-> So i think this code block needs to change. If we have a phy-handle,
-> use it.  i.e. what Florian _thinks_ it should be doing. If not, then
-> use dsa_slave_phy_connect().
+Add extack argument down to mlxsw_sp_rif_create and mlxsw_sp_vr_create
+to set an error message on RIF or VR overflow. Now on overflow of
+either resource the user gets an informative message as opposed to
+failing with EBUSY.
 
-I see what you mean now, the logic above gets defeated because it does
-not concern itself with the MDIO controller parent of the PHY node
-pointed to by phy-handle. So if like Martin you have two MDIO busses,
-but both happen to have MDIO addresses that are valid for both busses,
-the logic above gets defeated and we wrongly try to attach to the switch
-internal MDIO bus under ds->slave_mii_bus.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 114 +++++++++++++--------
+ 1 file changed, 69 insertions(+), 45 deletions(-)
 
-The easiest fix would certainly to lookup the parent MDIO bus and do
-that only if ds->slave_mii_bus->of_node and the parent of the node
-pointed to 'phy-handle' match.
-
-Does that work for you?
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 66bab9ce2881..2420f69797a9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -731,14 +731,17 @@ static struct mlxsw_sp_fib *mlxsw_sp_vr_fib(const struct mlxsw_sp_vr *vr,
+ }
+ 
+ static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+-					      u32 tb_id)
++					      u32 tb_id,
++					      struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_vr *vr;
+ 	int err;
+ 
+ 	vr = mlxsw_sp_vr_find_unused(mlxsw_sp);
+-	if (!vr)
++	if (!vr) {
++		NL_SET_ERR_MSG(extack, "spectrum: Exceeded number of supported virtual routers");
+ 		return ERR_PTR(-EBUSY);
++	}
+ 	vr->fib4 = mlxsw_sp_fib_create(vr, MLXSW_SP_L3_PROTO_IPV4);
+ 	if (IS_ERR(vr->fib4))
+ 		return ERR_CAST(vr->fib4);
+@@ -775,14 +778,15 @@ static void mlxsw_sp_vr_destroy(struct mlxsw_sp_vr *vr)
+ 	vr->fib4 = NULL;
+ }
+ 
+-static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id)
++static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id,
++					   struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_vr *vr;
+ 
+ 	tb_id = mlxsw_sp_fix_tb_id(tb_id);
+ 	vr = mlxsw_sp_vr_find(mlxsw_sp, tb_id);
+ 	if (!vr)
+-		vr = mlxsw_sp_vr_create(mlxsw_sp, tb_id);
++		vr = mlxsw_sp_vr_create(mlxsw_sp, tb_id, extack);
+ 	return vr;
+ }
+ 
+@@ -948,7 +952,8 @@ static u32 mlxsw_sp_ipip_dev_ul_tb_id(const struct net_device *ol_dev)
+ 
+ static struct mlxsw_sp_rif *
+ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+-		    const struct mlxsw_sp_rif_params *params);
++		    const struct mlxsw_sp_rif_params *params,
++		    struct netlink_ext_ack *extack);
+ 
+ static struct mlxsw_sp_rif_ipip_lb *
+ mlxsw_sp_ipip_ol_ipip_lb_create(struct mlxsw_sp *mlxsw_sp,
+@@ -966,7 +971,7 @@ mlxsw_sp_ipip_ol_ipip_lb_create(struct mlxsw_sp *mlxsw_sp,
+ 		.lb_config = ipip_ops->ol_loopback_config(mlxsw_sp, ol_dev),
+ 	};
+ 
+-	rif = mlxsw_sp_rif_create(mlxsw_sp, &lb_params.common);
++	rif = mlxsw_sp_rif_create(mlxsw_sp, &lb_params.common, NULL);
+ 	if (IS_ERR(rif))
+ 		return ERR_CAST(rif);
+ 	return container_of(rif, struct mlxsw_sp_rif_ipip_lb, common);
+@@ -3836,7 +3841,7 @@ mlxsw_sp_fib_node_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id, const void *addr,
+ 	struct mlxsw_sp_vr *vr;
+ 	int err;
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id, NULL);
+ 	if (IS_ERR(vr))
+ 		return ERR_CAST(vr);
+ 	fib = mlxsw_sp_vr_fib(vr, proto);
+@@ -4875,7 +4880,7 @@ static int mlxsw_sp_router_fibmr_add(struct mlxsw_sp *mlxsw_sp,
+ 	if (mlxsw_sp->router->aborted)
+ 		return 0;
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, men_info->tb_id);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, men_info->tb_id, NULL);
+ 	if (IS_ERR(vr))
+ 		return PTR_ERR(vr);
+ 
+@@ -4908,7 +4913,7 @@ mlxsw_sp_router_fibmr_vif_add(struct mlxsw_sp *mlxsw_sp,
+ 	if (mlxsw_sp->router->aborted)
+ 		return 0;
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, ven_info->tb_id);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, ven_info->tb_id, NULL);
+ 	if (IS_ERR(vr))
+ 		return PTR_ERR(vr);
+ 
+@@ -5471,7 +5476,8 @@ const struct net_device *mlxsw_sp_rif_dev(const struct mlxsw_sp_rif *rif)
+ 
+ static struct mlxsw_sp_rif *
+ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+-		    const struct mlxsw_sp_rif_params *params)
++		    const struct mlxsw_sp_rif_params *params,
++		    struct netlink_ext_ack *extack)
+ {
+ 	u32 tb_id = l3mdev_fib_table(params->dev);
+ 	const struct mlxsw_sp_rif_ops *ops;
+@@ -5485,14 +5491,16 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+ 	type = mlxsw_sp_dev_rif_type(mlxsw_sp, params->dev);
+ 	ops = mlxsw_sp->router->rif_ops_arr[type];
+ 
+-	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id ? : RT_TABLE_MAIN);
++	vr = mlxsw_sp_vr_get(mlxsw_sp, tb_id ? : RT_TABLE_MAIN, extack);
+ 	if (IS_ERR(vr))
+ 		return ERR_CAST(vr);
+ 	vr->rif_count++;
+ 
+ 	err = mlxsw_sp_rif_index_alloc(mlxsw_sp, &rif_index);
+-	if (err)
++	if (err) {
++		NL_SET_ERR_MSG(extack, "spectrum: Exceeded number of supported router interfaces");
+ 		goto err_rif_index_alloc;
++	}
+ 
+ 	rif = mlxsw_sp_rif_alloc(ops->rif_size, rif_index, vr->id, params->dev);
+ 	if (!rif) {
+@@ -5579,7 +5587,8 @@ mlxsw_sp_rif_subport_params_init(struct mlxsw_sp_rif_params *params,
+ 
+ static int
+ mlxsw_sp_port_vlan_router_join(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan,
+-			       struct net_device *l3_dev)
++			       struct net_device *l3_dev,
++			       struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp_port_vlan->mlxsw_sp_port;
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+@@ -5595,7 +5604,7 @@ mlxsw_sp_port_vlan_router_join(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan,
+ 		};
+ 
+ 		mlxsw_sp_rif_subport_params_init(&params, mlxsw_sp_port_vlan);
+-		rif = mlxsw_sp_rif_create(mlxsw_sp, &params);
++		rif = mlxsw_sp_rif_create(mlxsw_sp, &params, extack);
+ 		if (IS_ERR(rif))
+ 			return PTR_ERR(rif);
+ 	}
+@@ -5650,7 +5659,8 @@ mlxsw_sp_port_vlan_router_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
+ 
+ static int mlxsw_sp_inetaddr_port_vlan_event(struct net_device *l3_dev,
+ 					     struct net_device *port_dev,
+-					     unsigned long event, u16 vid)
++					     unsigned long event, u16 vid,
++					     struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(port_dev);
+ 	struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan;
+@@ -5662,7 +5672,7 @@ static int mlxsw_sp_inetaddr_port_vlan_event(struct net_device *l3_dev,
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		return mlxsw_sp_port_vlan_router_join(mlxsw_sp_port_vlan,
+-						      l3_dev);
++						      l3_dev, extack);
+ 	case NETDEV_DOWN:
+ 		mlxsw_sp_port_vlan_router_leave(mlxsw_sp_port_vlan);
+ 		break;
+@@ -5672,19 +5682,22 @@ static int mlxsw_sp_inetaddr_port_vlan_event(struct net_device *l3_dev,
+ }
+ 
+ static int mlxsw_sp_inetaddr_port_event(struct net_device *port_dev,
+-					unsigned long event)
++					unsigned long event,
++					struct netlink_ext_ack *extack)
+ {
+ 	if (netif_is_bridge_port(port_dev) ||
+ 	    netif_is_lag_port(port_dev) ||
+ 	    netif_is_ovs_port(port_dev))
+ 		return 0;
+ 
+-	return mlxsw_sp_inetaddr_port_vlan_event(port_dev, port_dev, event, 1);
++	return mlxsw_sp_inetaddr_port_vlan_event(port_dev, port_dev, event, 1,
++						 extack);
+ }
+ 
+ static int __mlxsw_sp_inetaddr_lag_event(struct net_device *l3_dev,
+ 					 struct net_device *lag_dev,
+-					 unsigned long event, u16 vid)
++					 unsigned long event, u16 vid,
++					 struct netlink_ext_ack *extack)
+ {
+ 	struct net_device *port_dev;
+ 	struct list_head *iter;
+@@ -5694,7 +5707,8 @@ static int __mlxsw_sp_inetaddr_lag_event(struct net_device *l3_dev,
+ 		if (mlxsw_sp_port_dev_check(port_dev)) {
+ 			err = mlxsw_sp_inetaddr_port_vlan_event(l3_dev,
+ 								port_dev,
+-								event, vid);
++								event, vid,
++								extack);
+ 			if (err)
+ 				return err;
+ 		}
+@@ -5704,16 +5718,19 @@ static int __mlxsw_sp_inetaddr_lag_event(struct net_device *l3_dev,
+ }
+ 
+ static int mlxsw_sp_inetaddr_lag_event(struct net_device *lag_dev,
+-				       unsigned long event)
++				       unsigned long event,
++				       struct netlink_ext_ack *extack)
+ {
+ 	if (netif_is_bridge_port(lag_dev))
+ 		return 0;
+ 
+-	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1);
++	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1,
++					     extack);
+ }
+ 
+ static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
+-					  unsigned long event)
++					  unsigned long event,
++					  struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(l3_dev);
+ 	struct mlxsw_sp_rif_params params = {
+@@ -5723,7 +5740,7 @@ static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
+ 
+ 	switch (event) {
+ 	case NETDEV_UP:
+-		rif = mlxsw_sp_rif_create(mlxsw_sp, &params);
++		rif = mlxsw_sp_rif_create(mlxsw_sp, &params, extack);
+ 		if (IS_ERR(rif))
+ 			return PTR_ERR(rif);
+ 		break;
+@@ -5737,7 +5754,8 @@ static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
+ }
+ 
+ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+-					unsigned long event)
++					unsigned long event,
++					struct netlink_ext_ack *extack)
+ {
+ 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
+ 	u16 vid = vlan_dev_vlan_id(vlan_dev);
+@@ -5747,27 +5765,28 @@ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+ 
+ 	if (mlxsw_sp_port_dev_check(real_dev))
+ 		return mlxsw_sp_inetaddr_port_vlan_event(vlan_dev, real_dev,
+-							 event, vid);
++							 event, vid, extack);
+ 	else if (netif_is_lag_master(real_dev))
+ 		return __mlxsw_sp_inetaddr_lag_event(vlan_dev, real_dev, event,
+-						     vid);
++						     vid, extack);
+ 	else if (netif_is_bridge_master(real_dev) && br_vlan_enabled(real_dev))
+-		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, event);
++		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, event, extack);
+ 
+ 	return 0;
+ }
+ 
+ static int __mlxsw_sp_inetaddr_event(struct net_device *dev,
+-				     unsigned long event)
++				     unsigned long event,
++				     struct netlink_ext_ack *extack)
+ {
+ 	if (mlxsw_sp_port_dev_check(dev))
+-		return mlxsw_sp_inetaddr_port_event(dev, event);
++		return mlxsw_sp_inetaddr_port_event(dev, event, extack);
+ 	else if (netif_is_lag_master(dev))
+-		return mlxsw_sp_inetaddr_lag_event(dev, event);
++		return mlxsw_sp_inetaddr_lag_event(dev, event, extack);
+ 	else if (netif_is_bridge_master(dev))
+-		return mlxsw_sp_inetaddr_bridge_event(dev, event);
++		return mlxsw_sp_inetaddr_bridge_event(dev, event, extack);
+ 	else if (is_vlan_dev(dev))
+-		return mlxsw_sp_inetaddr_vlan_event(dev, event);
++		return mlxsw_sp_inetaddr_vlan_event(dev, event, extack);
+ 	else
+ 		return 0;
+ }
+@@ -5793,7 +5812,7 @@ int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	err = __mlxsw_sp_inetaddr_event(dev, event);
++	err = __mlxsw_sp_inetaddr_event(dev, event, NULL);
+ out:
+ 	return notifier_from_errno(err);
+ }
+@@ -5815,7 +5834,7 @@ int mlxsw_sp_inetaddr_valid_event(struct notifier_block *unused,
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	err = __mlxsw_sp_inetaddr_event(dev, event);
++	err = __mlxsw_sp_inetaddr_event(dev, event, ivi->extack);
+ out:
+ 	return notifier_from_errno(err);
+ }
+@@ -5844,7 +5863,7 @@ static void mlxsw_sp_inet6addr_event_work(struct work_struct *work)
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	__mlxsw_sp_inetaddr_event(dev, event);
++	__mlxsw_sp_inetaddr_event(dev, event, NULL);
+ out:
+ 	rtnl_unlock();
+ 	dev_put(dev);
+@@ -5896,7 +5915,7 @@ int mlxsw_sp_inet6addr_valid_event(struct notifier_block *unused,
+ 	if (!mlxsw_sp_rif_should_config(rif, dev, event))
+ 		goto out;
+ 
+-	err = __mlxsw_sp_inetaddr_event(dev, event);
++	err = __mlxsw_sp_inetaddr_event(dev, event, i6vi->extack);
+ out:
+ 	return notifier_from_errno(err);
+ }
+@@ -5973,7 +5992,8 @@ int mlxsw_sp_netdevice_router_port_event(struct net_device *dev)
+ }
+ 
+ static int mlxsw_sp_port_vrf_join(struct mlxsw_sp *mlxsw_sp,
+-				  struct net_device *l3_dev)
++				  struct net_device *l3_dev,
++				  struct netlink_ext_ack *extack)
+ {
+ 	struct mlxsw_sp_rif *rif;
+ 
+@@ -5982,9 +6002,9 @@ static int mlxsw_sp_port_vrf_join(struct mlxsw_sp *mlxsw_sp,
+ 	 */
+ 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, l3_dev);
+ 	if (rif)
+-		__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN);
++		__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN, extack);
+ 
+-	return __mlxsw_sp_inetaddr_event(l3_dev, NETDEV_UP);
++	return __mlxsw_sp_inetaddr_event(l3_dev, NETDEV_UP, extack);
+ }
+ 
+ static void mlxsw_sp_port_vrf_leave(struct mlxsw_sp *mlxsw_sp,
+@@ -5995,7 +6015,7 @@ static void mlxsw_sp_port_vrf_leave(struct mlxsw_sp *mlxsw_sp,
+ 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, l3_dev);
+ 	if (!rif)
+ 		return;
+-	__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN);
++	__mlxsw_sp_inetaddr_event(l3_dev, NETDEV_DOWN, NULL);
+ }
+ 
+ int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
+@@ -6011,10 +6031,14 @@ int mlxsw_sp_netdevice_vrf_event(struct net_device *l3_dev, unsigned long event,
+ 	case NETDEV_PRECHANGEUPPER:
+ 		return 0;
+ 	case NETDEV_CHANGEUPPER:
+-		if (info->linking)
+-			err = mlxsw_sp_port_vrf_join(mlxsw_sp, l3_dev);
+-		else
++		if (info->linking) {
++			struct netlink_ext_ack *extack;
++
++			extack = netdev_notifier_info_to_extack(&info->info);
++			err = mlxsw_sp_port_vrf_join(mlxsw_sp, l3_dev, extack);
++		} else {
+ 			mlxsw_sp_port_vrf_leave(mlxsw_sp, l3_dev);
++		}
+ 		break;
+ 	}
+ 
+@@ -6321,7 +6345,7 @@ mlxsw_sp_rif_ipip_lb_configure(struct mlxsw_sp_rif *rif)
+ 	struct mlxsw_sp_vr *ul_vr;
+ 	int err;
+ 
+-	ul_vr = mlxsw_sp_vr_get(mlxsw_sp, ul_tb_id);
++	ul_vr = mlxsw_sp_vr_get(mlxsw_sp, ul_tb_id, NULL);
+ 	if (IS_ERR(ul_vr))
+ 		return PTR_ERR(ul_vr);
+ 
 -- 
-Florian
+2.1.4
