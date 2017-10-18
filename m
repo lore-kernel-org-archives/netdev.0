@@ -1,7 +1,8 @@
 From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v7 03/10] arm64: dts: allwinner: Restore EMAC changes
-Date: Wed, 18 Oct 2017 13:44:51 +0200
-Message-ID: <20171018114458.17891-4-clabbe.montjoie@gmail.com>
+Subject: [PATCH v7 09/10] net: stmmac: dwmac-sun8i: Handle
+ integrated/external MDIOs
+Date: Wed, 18 Oct 2017 13:44:57 +0200
+Message-ID: <20171018114458.17891-10-clabbe.montjoie@gmail.com>
 References: <20171018114458.17891-1-clabbe.montjoie@gmail.com>
 Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
@@ -24,7 +25,7 @@ To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
 	andrew-g2DYL2Zd6BY@public.gmane.org,
 	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
 	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBQ76TTHQKGQE57KBU7I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBD7YLCN32UNBBSX6TTHQKGQE6QFI47I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20171018114458.17891-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -35,300 +36,508 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-The original dwmac-sun8i DT bindings have some issue on how to handle
-integrated PHY and was reverted in last RC of 4.13.
-But now we have a solution so we need to get back that was reverted.
+The Allwinner H3 SoC have two distinct MDIO bus, only one could be
+active at the same time.
+The selection of the active MDIO bus are done via some bits in the EMAC
+register of the system controller.
 
-This patch restore arm64 DT about dwmac-sun8i
-This reverts commit 87e1f5e8bb4b ("arm64: dts: allwinner: Revert EMAC changes")
+This patch implement this MDIO switch via a custom MDIO-mux.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts   | 16 ++++++++++++++++
- .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts    | 15 +++++++++++++++
- arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts  | 17 +++++++++++++++++
- .../dts/allwinner/sun50i-a64-sopine-baseboard.dts    | 16 ++++++++++++++++
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi        | 20 ++++++++++++++++++++
- .../boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts     | 17 +++++++++++++++++
- .../boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts    | 17 +++++++++++++++++
- .../boot/dts/allwinner/sun50i-h5-orangepi-prime.dts  | 17 +++++++++++++++++
- 8 files changed, 135 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/Kconfig       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 353 ++++++++++++++--------
+ 2 files changed, 224 insertions(+), 130 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
-index d347f52e27f6..45bdbfb96126 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dts
-@@ -51,6 +51,7 @@
- 	compatible = "sinovoip,bananapi-m64", "allwinner,sun50i-a64";
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 97035766c291..e28c0d2c58e9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -159,6 +159,7 @@ config DWMAC_SUN8I
+ 	tristate "Allwinner sun8i GMAC support"
+ 	default ARCH_SUNXI
+ 	depends on OF && (ARCH_SUNXI || COMPILE_TEST)
++	select MDIO_BUS_MUX
+ 	---help---
+ 	  Support for Allwinner H3 A83T A64 EMAC ethernet controllers.
  
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 	};
-@@ -69,6 +70,14 @@
- 	status = "okay";
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index fffd6d5fc907..7741235093b9 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -17,6 +17,7 @@
+ #include <linux/clk.h>
+ #include <linux/io.h>
+ #include <linux/iopoll.h>
++#include <linux/mdio-mux.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of_device.h>
+@@ -41,14 +42,14 @@
+  *				This value is used for disabling properly EMAC
+  *				and used as a good starting value in case of the
+  *				boot process(uboot) leave some stuff.
+- * @internal_phy:		Does the MAC embed an internal PHY
++ * @soc_has_internal_phy:	Does the MAC embed an internal PHY
+  * @support_mii:		Does the MAC handle MII
+  * @support_rmii:		Does the MAC handle RMII
+  * @support_rgmii:		Does the MAC handle RGMII
+  */
+ struct emac_variant {
+ 	u32 default_syscon_value;
+-	int internal_phy;
++	bool soc_has_internal_phy;
+ 	bool support_mii;
+ 	bool support_rmii;
+ 	bool support_rgmii;
+@@ -61,7 +62,8 @@ struct emac_variant {
+  * @rst_ephy:	reference to the optional EPHY reset for the internal PHY
+  * @variant:	reference to the current board variant
+  * @regmap:	regmap for using the syscon
+- * @use_internal_phy: Does the current PHY choice imply using the internal PHY
++ * @internal_phy_powered: Does the internal PHY is enabled
++ * @mux_handle:	Internal pointer used by mdio-mux lib
+  */
+ struct sunxi_priv_data {
+ 	struct clk *tx_clk;
+@@ -70,12 +72,13 @@ struct sunxi_priv_data {
+ 	struct reset_control *rst_ephy;
+ 	const struct emac_variant *variant;
+ 	struct regmap *regmap;
+-	bool use_internal_phy;
++	bool internal_phy_powered;
++	void *mux_handle;
  };
  
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
-+
- &i2c1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&i2c1_pins>;
-@@ -79,6 +88,13 @@
- 	bias-pull-up;
+ static const struct emac_variant emac_variant_h3 = {
+ 	.default_syscon_value = 0x58000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -83,20 +86,20 @@ static const struct emac_variant emac_variant_h3 = {
+ 
+ static const struct emac_variant emac_variant_v3s = {
+ 	.default_syscon_value = 0x38000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true
  };
  
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-index f82ccf332c0f..24f1aac366d6 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-plus.dts
-@@ -48,3 +48,18 @@
- 
- 	/* TODO: Camera, touchscreen, etc. */
- };
-+
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-index d06e34b5d192..806442d3e846 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-pine64.dts
-@@ -51,6 +51,7 @@
- 	compatible = "pine64,pine64", "allwinner,sun50i-a64";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 		serial2 = &uart2;
-@@ -71,6 +72,15 @@
- 	status = "okay";
+ static const struct emac_variant emac_variant_a83t = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rgmii = true
  };
  
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rmii_pins>;
-+	phy-mode = "rmii";
-+	phy-handle = <&ext_rmii_phy1>;
-+	status = "okay";
+ static const struct emac_variant emac_variant_a64 = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -195,6 +198,9 @@ static const struct emac_variant emac_variant_a64 = {
+ #define H3_EPHY_LED_POL		BIT(17) /* 1: active low, 0: active high */
+ #define H3_EPHY_SHUTDOWN	BIT(16) /* 1: shutdown, 0: power up */
+ #define H3_EPHY_SELECT		BIT(15) /* 1: internal PHY, 0: external PHY */
++#define H3_EPHY_MUX_MASK	(H3_EPHY_SHUTDOWN | H3_EPHY_SELECT)
++#define DWMAC_SUN8I_MDIO_MUX_INTERNAL_ID	1
++#define DWMAC_SUN8I_MDIO_MUX_EXTERNAL_ID	2
+ 
+ /* H3/A64 specific bits */
+ #define SYSCON_RMII_EN		BIT(13) /* 1: enable RMII (overrides EPIT) */
+@@ -634,6 +640,159 @@ static int sun8i_dwmac_reset(struct stmmac_priv *priv)
+ 	return 0;
+ }
+ 
++/* Search in mdio-mux node for internal PHY node and get its clk/reset */
++static int get_ephy_nodes(struct stmmac_priv *priv)
++{
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++	struct device_node *mdio_mux, *iphynode;
++	struct device_node *mdio_internal;
++	int ret;
 +
-+};
++	mdio_mux = of_get_child_by_name(priv->plat->mdio_node, "mdio-mux");
++	if (!mdio_mux) {
++		dev_err(priv->device, "Cannot get mdio-mux node\n");
++		return -ENODEV;
++	}
 +
- &i2c1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&i2c1_pins>;
-@@ -81,6 +91,13 @@
- 	bias-pull-up;
- };
- 
-+&mdio {
-+	ext_rmii_phy1: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
++	mdio_internal = of_find_compatible_node(mdio_mux, NULL,
++						"allwinner,sun8i-h3-mdio-internal");
++	if (!mdio_internal) {
++		dev_err(priv->device, "Cannot get internal_mdio node\n");
++		return -ENODEV;
++	}
 +
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts b/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts
-index 17ccc12b58df..0eb2acedf8c3 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64-sopine-baseboard.dts
-@@ -53,6 +53,7 @@
- 		     "allwinner,sun50i-a64";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -76,6 +77,21 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&rgmii_pins>;
-+	phy-mode = "rgmii";
-+	phy-handle = <&ext_rgmii_phy>;
-+	status = "okay";
-+};
++	/* Seek for internal PHY */
++	for_each_child_of_node(mdio_internal, iphynode) {
++		gmac->ephy_clk = of_clk_get(iphynode, 0);
++		if (IS_ERR(gmac->ephy_clk))
++			continue;
++		gmac->rst_ephy = of_reset_control_get_exclusive(iphynode, NULL);
++		if (IS_ERR(gmac->rst_ephy)) {
++			ret = PTR_ERR(gmac->rst_ephy);
++			if (ret == -EPROBE_DEFER)
++				return ret;
++			continue;
++		}
++		dev_info(priv->device, "Found internal PHY node\n");
++		return 0;
++	}
++	return -ENODEV;
++}
 +
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
++static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
++{
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++	int ret;
 +
- &mmc2 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc2_pins>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-index 905af406dbd3..0650a1cda107 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi
-@@ -517,6 +517,26 @@
- 			#size-cells = <0>;
- 		};
- 
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun50i-a64-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x10000>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			status = "disabled";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
++	if (gmac->internal_phy_powered) {
++		dev_warn(priv->device, "Internal PHY already powered\n");
++		return 0;
++	}
 +
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+			};
-+		};
++	dev_info(priv->device, "Powering internal PHY\n");
++	ret = clk_prepare_enable(gmac->ephy_clk);
++	if (ret) {
++		dev_err(priv->device, "Cannot enable internal PHY\n");
++		return ret;
++	}
 +
- 		gic: interrupt-controller@1c81000 {
- 			compatible = "arm,gic-400";
- 			reg = <0x01c81000 0x1000>,
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts b/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts
-index 1c2387bd5df6..6eb8092d8e57 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts
-@@ -50,6 +50,7 @@
- 	compatible = "friendlyarm,nanopi-neo2", "allwinner,sun50i-h5";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -108,6 +109,22 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+	status = "okay";
-+};
++	/* Make sure the EPHY is properly reseted, as U-Boot may leave
++	 * it at deasserted state, and thus it may fail to reset EMAC.
++	 */
++	reset_control_assert(gmac->rst_ephy);
 +
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@7 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <7>;
-+	};
-+};
++	ret = reset_control_deassert(gmac->rst_ephy);
++	if (ret) {
++		dev_err(priv->device, "Cannot deassert internal phy\n");
++		clk_disable_unprepare(gmac->ephy_clk);
++		return ret;
++	}
 +
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts b/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts
-index 4f77c8470f6c..a0ca925175aa 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts
-@@ -59,6 +59,7 @@
- 	};
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -136,6 +137,22 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+	status = "okay";
-+};
++	gmac->internal_phy_powered = true;
 +
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
++	return 0;
++}
 +
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-prime.dts b/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-prime.dts
-index 6be06873e5af..b47790650144 100644
---- a/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-prime.dts
-+++ b/arch/arm64/boot/dts/allwinner/sun50i-h5-orangepi-prime.dts
-@@ -54,6 +54,7 @@
- 	compatible = "xunlong,orangepi-prime", "allwinner,sun50i-h5";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -143,6 +144,22 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+	status = "okay";
-+};
++static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
++{
++	if (!gmac->internal_phy_powered)
++		return 0;
 +
-+&external_mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
++	clk_disable_unprepare(gmac->ephy_clk);
++	reset_control_assert(gmac->rst_ephy);
++	gmac->internal_phy_powered = false;
++	return 0;
++}
 +
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
++/* MDIO multiplexing switch function
++ * This function is called by the mdio-mux layer when it thinks the mdio bus
++ * multiplexer needs to switch.
++ * 'current_child' is the current value of the mux register
++ * 'desired_child' is the value of the 'reg' property of the target child MDIO
++ * node.
++ * The first time this function is called, current_child == -1.
++ * If current_child == desired_child, then the mux is already set to the
++ * correct bus.
++ */
++static int mdio_mux_syscon_switch_fn(int current_child, int desired_child,
++				     void *data)
++{
++	struct stmmac_priv *priv = data;
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++	u32 reg, val;
++	int ret = 0;
++	bool need_power_ephy = false;
++
++	if (current_child ^ desired_child) {
++		regmap_read(gmac->regmap, SYSCON_EMAC_REG, &reg);
++		switch (desired_child) {
++		case DWMAC_SUN8I_MDIO_MUX_INTERNAL_ID:
++			dev_info(priv->device, "Switch mux to internal PHY");
++			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SELECT;
++
++			need_power_ephy = true;
++			break;
++		case DWMAC_SUN8I_MDIO_MUX_EXTERNAL_ID:
++			dev_info(priv->device, "Switch mux to external PHY");
++			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SHUTDOWN;
++			need_power_ephy = false;
++			break;
++		default:
++			dev_err(priv->device, "Invalid child ID %x\n",
++				desired_child);
++			return -EINVAL;
++		}
++		regmap_write(gmac->regmap, SYSCON_EMAC_REG, val);
++		if (need_power_ephy) {
++			ret = sun8i_dwmac_power_internal_phy(priv);
++			if (ret)
++				return ret;
++		} else {
++			sun8i_dwmac_unpower_internal_phy(gmac);
++		}
++		/* After changing syscon value, the MAC need reset or it will
++		 * use the last value (and so the last PHY set).
++		 */
++		ret = sun8i_dwmac_reset(priv);
++	}
++	return ret;
++}
++
++static int sun8i_dwmac_register_mdio_mux(struct stmmac_priv *priv)
++{
++	int ret;
++	struct device_node *mdio_mux;
++	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++
++	mdio_mux = of_get_child_by_name(priv->plat->mdio_node, "mdio-mux");
++	if (!mdio_mux)
++		return -ENODEV;
++
++	ret = mdio_mux_init(priv->device, mdio_mux, mdio_mux_syscon_switch_fn,
++			    &gmac->mux_handle, priv, priv->mii);
++	return ret;
++}
++
+ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ {
+ 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
+@@ -648,35 +807,25 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ 			 "Current syscon value is not the default %x (expect %x)\n",
+ 			 val, reg);
+ 
+-	if (gmac->variant->internal_phy) {
+-		if (!gmac->use_internal_phy) {
+-			/* switch to external PHY interface */
+-			reg &= ~H3_EPHY_SELECT;
+-		} else {
+-			reg |= H3_EPHY_SELECT;
+-			reg &= ~H3_EPHY_SHUTDOWN;
+-			dev_dbg(priv->device, "Select internal_phy %x\n", reg);
+-
+-			if (of_property_read_bool(priv->plat->phy_node,
+-						  "allwinner,leds-active-low"))
+-				reg |= H3_EPHY_LED_POL;
+-			else
+-				reg &= ~H3_EPHY_LED_POL;
+-
+-			/* Force EPHY xtal frequency to 24MHz. */
+-			reg |= H3_EPHY_CLK_SEL;
+-
+-			ret = of_mdio_parse_addr(priv->device,
+-						 priv->plat->phy_node);
+-			if (ret < 0) {
+-				dev_err(priv->device, "Could not parse MDIO addr\n");
+-				return ret;
+-			}
+-			/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
+-			 * address. No need to mask it again.
+-			 */
+-			reg |= ret << H3_EPHY_ADDR_SHIFT;
++	if (gmac->variant->soc_has_internal_phy) {
++		if (of_property_read_bool(priv->plat->phy_node,
++					  "allwinner,leds-active-low"))
++			reg |= H3_EPHY_LED_POL;
++		else
++			reg &= ~H3_EPHY_LED_POL;
++
++		/* Force EPHY xtal frequency to 24MHz. */
++		reg |= H3_EPHY_CLK_SEL;
++
++		ret = of_mdio_parse_addr(priv->device, priv->plat->phy_node);
++		if (ret < 0) {
++			dev_err(priv->device, "Could not parse MDIO addr\n");
++			return ret;
+ 		}
++		/* of_mdio_parse_addr returns a valid (0 ~ 31) PHY
++		 * address. No need to mask it again.
++		 */
++		reg |= 1 << H3_EPHY_ADDR_SHIFT;
+ 	}
+ 
+ 	if (!of_property_read_u32(node, "allwinner,tx-delay-ps", &val)) {
+@@ -746,81 +895,21 @@ static void sun8i_dwmac_unset_syscon(struct sunxi_priv_data *gmac)
+ 	regmap_write(gmac->regmap, SYSCON_EMAC_REG, reg);
+ }
+ 
+-static int sun8i_dwmac_power_internal_phy(struct stmmac_priv *priv)
++static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+ {
+-	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
+-	int ret;
+-
+-	if (!gmac->use_internal_phy)
+-		return 0;
+-
+-	ret = clk_prepare_enable(gmac->ephy_clk);
+-	if (ret) {
+-		dev_err(priv->device, "Cannot enable ephy\n");
+-		return ret;
+-	}
+-
+-	/* Make sure the EPHY is properly reseted, as U-Boot may leave
+-	 * it at deasserted state, and thus it may fail to reset EMAC.
+-	 */
+-	reset_control_assert(gmac->rst_ephy);
++	struct sunxi_priv_data *gmac = priv;
+ 
+-	ret = reset_control_deassert(gmac->rst_ephy);
+-	if (ret) {
+-		dev_err(priv->device, "Cannot deassert ephy\n");
+-		clk_disable_unprepare(gmac->ephy_clk);
+-		return ret;
++	if (gmac->variant->soc_has_internal_phy) {
++		/* sun8i_dwmac_exit could be called with mdiomux uninit */
++		if (gmac->mux_handle)
++			mdio_mux_uninit(gmac->mux_handle);
++		if (gmac->internal_phy_powered)
++			sun8i_dwmac_unpower_internal_phy(gmac);
+ 	}
+ 
+-	return 0;
+-}
+-
+-static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
+-{
+-	if (!gmac->use_internal_phy)
+-		return 0;
+-
+-	clk_disable_unprepare(gmac->ephy_clk);
+-	reset_control_assert(gmac->rst_ephy);
+-	return 0;
+-}
+-
+-/* sun8i_power_phy() - Activate the PHY:
+- * In case of error, no need to call sun8i_unpower_phy(),
+- * it will be called anyway by sun8i_dwmac_exit()
+- */
+-static int sun8i_power_phy(struct stmmac_priv *priv)
+-{
+-	int ret;
+-
+-	ret = sun8i_dwmac_power_internal_phy(priv);
+-	if (ret)
+-		return ret;
+-
+-	ret = sun8i_dwmac_set_syscon(priv);
+-	if (ret)
+-		return ret;
+-
+-	/* After changing syscon value, the MAC need reset or it will use
+-	 * the last value (and so the last PHY set.
+-	 */
+-	ret = sun8i_dwmac_reset(priv);
+-	if (ret)
+-		return ret;
+-	return 0;
+-}
+-
+-static void sun8i_unpower_phy(struct sunxi_priv_data *gmac)
+-{
+ 	sun8i_dwmac_unset_syscon(gmac);
+-	sun8i_dwmac_unpower_internal_phy(gmac);
+-}
+-
+-static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
+-{
+-	struct sunxi_priv_data *gmac = priv;
+ 
+-	sun8i_unpower_phy(gmac);
++	reset_control_put(gmac->rst_ephy);
+ 
+ 	clk_disable_unprepare(gmac->tx_clk);
+ 
+@@ -849,7 +938,7 @@ static struct mac_device_info *sun8i_dwmac_setup(void *ppriv)
+ 	if (!mac)
+ 		return NULL;
+ 
+-	ret = sun8i_power_phy(priv);
++	ret = sun8i_dwmac_set_syscon(priv);
+ 	if (ret)
+ 		return NULL;
+ 
+@@ -889,6 +978,8 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	struct sunxi_priv_data *gmac;
+ 	struct device *dev = &pdev->dev;
+ 	int ret;
++	struct stmmac_priv *priv;
++	struct net_device *ndev;
+ 
+ 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
+ 	if (ret)
+@@ -932,29 +1023,6 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	plat_dat->interface = of_get_phy_mode(dev->of_node);
+-	if (plat_dat->interface == gmac->variant->internal_phy) {
+-		dev_info(&pdev->dev, "Will use internal PHY\n");
+-		gmac->use_internal_phy = true;
+-		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
+-		if (IS_ERR(gmac->ephy_clk)) {
+-			ret = PTR_ERR(gmac->ephy_clk);
+-			dev_err(&pdev->dev, "Cannot get EPHY clock: %d\n", ret);
+-			return -EINVAL;
+-		}
+-
+-		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
+-		if (IS_ERR(gmac->rst_ephy)) {
+-			ret = PTR_ERR(gmac->rst_ephy);
+-			if (ret == -EPROBE_DEFER)
+-				return ret;
+-			dev_err(&pdev->dev, "No EPHY reset control found %d\n",
+-				ret);
+-			return -EINVAL;
+-		}
+-	} else {
+-		dev_info(&pdev->dev, "Will use external PHY\n");
+-		gmac->use_internal_phy = false;
+-	}
+ 
+ 	/* platform data specifying hardware features and callbacks.
+ 	 * hardware features were copied from Allwinner drivers.
+@@ -973,9 +1041,34 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 
+ 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+ 	if (ret)
+-		sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
++		goto dwmac_exit;
++
++	ndev = dev_get_drvdata(&pdev->dev);
++	priv = netdev_priv(ndev);
++	/* The mux must be registered after parent MDIO
++	 * so after stmmac_dvr_probe()
++	 */
++	if (gmac->variant->soc_has_internal_phy) {
++		ret = get_ephy_nodes(priv);
++		if (ret)
++			return ret;
++		ret = sun8i_dwmac_register_mdio_mux(priv);
++		if (ret) {
++			dev_err(&pdev->dev, "Failed to register mux\n");
++			goto dwmac_mux;
++		}
++	} else {
++		ret = sun8i_dwmac_reset(priv);
++		if (ret)
++			goto dwmac_exit;
++	}
+ 
+ 	return ret;
++dwmac_mux:
++	sun8i_dwmac_unset_syscon(gmac);
++dwmac_exit:
++	sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
++return ret;
+ }
+ 
+ static const struct of_device_id sun8i_dwmac_match[] = {
 -- 
 2.13.6
