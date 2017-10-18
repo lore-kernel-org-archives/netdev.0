@@ -1,66 +1,82 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: aggregation: Convert timers to use
- timer_setup()
-Date: Wed, 18 Oct 2017 12:29:26 +0200
-Message-ID: <1508322566.2674.17.camel@sipsolutions.net>
-References: <20171017202545.GA115810@beast>
-         (sfid-20171017_222550_315925_34B26DDB)
+From: Yann Ylavic <ylavic.dev@gmail.com>
+Subject: Re: [net-next V8 PATCH 1/5] bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+Date: Wed, 18 Oct 2017 12:47:40 +0200
+Message-ID: <CAKQ1sVOuWerM7HrjR-0Yac+LtfBKb25QiQgmwMo-V_3OjAOyww@mail.gmail.com>
+References: <150814913767.1806.3470498528707259987.stgit@firesoul>
+ <150814916887.1806.4443991765779135803.stgit@firesoul> <CAKQ1sVMH-h36UWwuKhcVC=ZN+L=y3y3apayye_yKYKXTbqMGTQ@mail.gmail.com>
+ <20171018103807.367e91ee@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>, linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171017202545.GA115810@beast> (sfid-20171017_222550_315925_34B26DDB)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:52019 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934166AbdJRKrm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 06:47:42 -0400
+Received: by mail-qt0-f194.google.com with SMTP id h4so9583221qtk.8
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 03:47:41 -0700 (PDT)
+In-Reply-To: <20171018103807.367e91ee@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Oct 18, 2017 at 10:38 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+>
+> On Wed, 18 Oct 2017 09:45:59 +0200 Yann Ylavic <ylavic.dev@gmail.com> wrote:
+>
+>> On Mon, Oct 16, 2017 at 12:19 PM, Jesper Dangaard Brouer
+>> <brouer@redhat.com> wrote:
+>> > +
+>> > +       /* Notice returns -EPERM on if map size is larger than memlock limit */
+>> > +       ret = bpf_map_precharge_memlock(cmap->map.pages);
+>> > +       if (ret) {
+>> > +               err = ret;
+>> > +               goto free_cmap;
+>> > +       }
+>> > +
+>> > +       /* A per cpu bitfield with a bit per possible CPU in map  */
+>> > +       cmap->flush_needed = __alloc_percpu(cpu_map_bitmap_size(attr),
+>> > +                                           __alignof__(unsigned long));
+>> > +       if (!cmap->flush_needed)
+>> > +               goto free_cmap;
+>> > +
+>> > +       /* Alloc array for possible remote "destination" CPUs */
+>> > +       cmap->cpu_map = bpf_map_area_alloc(cmap->map.max_entries *
+>> > +                                          sizeof(struct bpf_cpu_map_entry *),
+>> > +                                          cmap->map.numa_node);
+>> > +       if (!cmap->cpu_map)
+>>
+>> ret = -ENOMEM; ?
+>
+> Did you notice that "err" already is = -ENOMEM at this point?
 
-[quoting your other email:]
+My bad, I was confused by the use of "ret"...
 
-> This has been the least trivial timer conversion yet. Given the use of
-> RCU and other things I may not even know about, I'd love to get a close
-> look at this. I *think* this is correct, as it will re-lookup the tid
-> entries when firing the timer.
+>
+>
+>> > +               goto free_percpu;
+>> > +
+>> > +       return &cmap->map;
+>> > +free_percpu:
+>> > +       free_percpu(cmap->flush_needed);
+>> > +free_cmap:
+>> > +       kfree(cmap);
+>> > +       return ERR_PTR(err);
 
-I'm not really sure why you're doing the lookup again? That seems
-pointless, since you already have the right structure, and already rely
-on it being valid. You can't really get a new struct assigned to the
-same TID without the old one being destroyed.
+.. while actually "err" is returned.
+Sorry for wasting your time.
 
-> -static void sta_rx_agg_session_timer_expired(unsigned long data)
-> +static void sta_rx_agg_session_timer_expired(struct timer_list *t)
->  {
-> -	/* not an elegant detour, but there is no choice as the timer passes
-> -	 * only one argument, and various sta_info are needed here, so init
-> -	 * flow in sta_info_create gives the TID as data, while the timer_to_id
-> -	 * array gives the sta through container_of */
-> -	u8 *ptid = (u8 *)data;
-> -	u8 *timer_to_id = ptid - *ptid;
-> -	struct sta_info *sta = container_of(timer_to_id, struct sta_info,
-> -					 timer_to_tid[0]);
-> +	struct tid_ampdu_rx *tid_rx_timer =
-> +		from_timer(tid_rx_timer, t, session_timer);
-> +	struct sta_info *sta = tid_rx_timer->sta;
-> +	u16 tid = tid_rx_timer->tid;
->  	struct tid_ampdu_rx *tid_rx;
->  	unsigned long timeout;
->  
->  	rcu_read_lock();
-> -	tid_rx = rcu_dereference(sta->ampdu_mlme.tid_rx[*ptid]);
-> +	tid_rx = rcu_dereference(sta->ampdu_mlme.tid_rx[tid]);
->  	if (!tid_rx) {
->  		rcu_read_unlock();
-
-So through all of this, I'm pretty sure we can just use tid_rx_timer
-instead of tid_rx.
-
-(Same for TX)
-
-Anyway, the change here looks correct to me, so I'll apply it and then
-perhaps clean up more. I've only changed "u16 tid" to "u8 tid" since
-the valid range is 0-15 (in theory, in practice 0-7).
-
-johannes
+>> > +}
+>>
+>>
+>> Regards,
+>> Yann.
