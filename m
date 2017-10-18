@@ -1,38 +1,74 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] mac80211: aggregation: Convert timers to use timer_setup()
-Date: Wed, 18 Oct 2017 07:19:01 -0700
-Message-ID: <CAGXu5jKY5rTuR_w=zj5Bz06f9OrW35eD4sYfkai2Gac_edG4ag@mail.gmail.com>
-References: <20171017202545.GA115810@beast> <1508322566.2674.17.camel@sipsolutions.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net 0/3] Fix for BPF devmap percpu allocation splat
+Date: Wed, 18 Oct 2017 16:22:18 +0200
+Message-ID: <59E7639A.4060604@iogearbox.net>
+References: <cover.1508251210.git.daniel@iogearbox.net> <20171018132526.GC1302522@devbig577.frc2.facebook.com> <59E75F4F.7070706@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@kernel.org, john.fastabend@gmail.com,
+        mark.rutland@arm.com, richard@nod.at, sp3485@columbia.edu,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Dennis Zhou <dennisszhou@gmail.com>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1508322566.2674.17.camel@sipsolutions.net>
+In-Reply-To: <59E75F4F.7070706@iogearbox.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2017 at 3:29 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
->> This has been the least trivial timer conversion yet. Given the use of
->> RCU and other things I may not even know about, I'd love to get a close
->> look at this. I *think* this is correct, as it will re-lookup the tid
->> entries when firing the timer.
+On 10/18/2017 04:03 PM, Daniel Borkmann wrote:
+> On 10/18/2017 03:25 PM, Tejun Heo wrote:
+>> Hello, Daniel.
+>>
+>> (cc'ing Dennis)
+>>
+>> On Tue, Oct 17, 2017 at 04:55:51PM +0200, Daniel Borkmann wrote:
+>>> The set fixes a splat in devmap percpu allocation when we alloc
+>>> the flush bitmap. Patch 1 is a prerequisite for the fix in patch 2,
+>>> patch 1 is rather small, so if this could be routed via -net, for
+>>> example, with Tejun's Ack that would be good. Patch 3 gets rid of
+>>> remaining PCPU_MIN_UNIT_SIZE checks, which are percpu allocator
+>>> internals and should not be used.
+>>>
+>>> Thanks!
+>>>
+>>> Daniel Borkmann (3):
+>>>    mm, percpu: add support for __GFP_NOWARN flag
+>>
+>> This looks fine.
 >
-> I'm not really sure why you're doing the lookup again? That seems
-> pointless, since you already have the right structure, and already rely
-> on it being valid. You can't really get a new struct assigned to the
-> same TID without the old one being destroyed.
+> Great, thanks!
+>
+>>>    bpf: fix splat for illegal devmap percpu allocation
+>>>    bpf: do not test for PCPU_MIN_UNIT_SIZE before percpu allocations
+>>
+>> These look okay too but if it helps percpu allocator can expose the
+>> maximum size / alignment supported to take out the guessing game too.
+>
+> At least from BPF side there's right now no infra for exposing
+> max possible alloc sizes for maps to e.g. user space as indication.
+> There are few users left in the tree, where it would make sense for
+> having some helpers though:
+>
+>    arch/tile/kernel/setup.c:729:   if (size < PCPU_MIN_UNIT_SIZE)
+>    arch/tile/kernel/setup.c:730:           size = PCPU_MIN_UNIT_SIZE;
+>    drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c:346: unsigned int max = (PCPU_MIN_UNIT_SIZE - sizeof(*pools)) << 3;
+>    drivers/net/ethernet/chelsio/libcxgb/libcxgb_ppm.c:352: /* make sure per cpu pool fits into PCPU_MIN_UNIT_SIZE */
+>    drivers/scsi/libfc/fc_exch.c:2488:       /* reduce range so per cpu pool fits into PCPU_MIN_UNIT_SIZE pool */
+>    drivers/scsi/libfc/fc_exch.c:2489:      pool_exch_range = (PCPU_MIN_UNIT_SIZE - sizeof(*pool)) /
+>
+>> Also, the reason why PCPU_MIN_UNIT_SIZE is what it is is because
+>> nobody needed anything bigger.  Increasing the size doesn't really
+>> cost much at least on 64bit archs.  Is that something we want to be
+>> considering?
+>
+> For devmap (and cpumap) itself it wouldn't make sense. For per-cpu
+> hashtable we could indeed consider it in the future.
 
-I couldn't tell what the lifetime expectation was, so I left the
-re-lookup. I assumed it was possible to have a timer fire after the
-structure had been removed from the station structure.
+Higher prio imo would be to make the allocation itself faster
+though, I remember we talked about this back in May wrt hashtable,
+but I kind of lost track whether there was an update on this in
+the mean time. ;-)
 
--Kees
-
--- 
-Kees Cook
-Pixel Security
+Cheers,
+Daniel
