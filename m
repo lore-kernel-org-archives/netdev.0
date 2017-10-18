@@ -1,223 +1,292 @@
 From: Gilad Ben-Yossef <gilad@benyossef.com>
-Subject: [PATCH v10 04/20] crypto: remove redundant backlog
-	checks on EBUSY
-Date: Wed, 18 Oct 2017 08:00:36 +0100
-Message-ID: <1508310057-25369-5-git-send-email-gilad@benyossef.com>
+Subject: [PATCH v10 07/20] crypto: move algif to generic async completion
+Date: Wed, 18 Oct 2017 08:00:39 +0100
+Message-ID: <1508310057-25369-8-git-send-email-gilad@benyossef.com>
 References: <1508310057-25369-1-git-send-email-gilad@benyossef.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-cifs@vger.kernel.org, linux-doc@vger.kernel.org,
-	linux-ima-user@lists.sourceforge.net, netdev@vger.kernel.org,
-	samba-technical@lists.samba.org, linux-kernel@vger.kernel.org,
-	linux-fscrypt@vger.kernel.org, keyrings@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-crypto@vger.kernel.org,
-	linux-security-module@vger.kernel.org,
-	linux-ima-devel@lists.sourceforge.net,
-	linux-arm-kernel@lists.infradead.org, Ofir Drang <ofir.drang@arm.com>
+Cc: Ofir Drang <ofir.drang@arm.com>, linux-crypto@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        keyrings@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-cifs@vger.kernel.org,
+        samba-technical@lists.samba.org, linux-fscrypt@vger.kernel.org,
+        netdev@vger.kernel.org, linux-ima-devel@lists.sourceforge.net,
+        linux-ima-user@lists.sourceforge.net,
+        linux-security-module@vger.kernel.org
 To: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jonathan Corbet <corbet@lwn.net>, David Howells <dhowells@redhat.com>,
-	Tom Lendacky <thomas.lendacky@amd.com>, Gary Hook <gary.hook@amd.com>,
-	Boris Brezillon <boris.brezillon@free-electrons.com>,
-	Arnaud Ebalard <arno@natisbad.org>,
-	Matthias Brugger <matthias.bgg@gmail.com>,
-	Alasdair Kergon <agk@redhat.com>, Mike Snitzer <snitzer@redhat.com>,
-	dm-devel@redhat.com, Steve French <sfrench@samba.org>,
-	"Theodore Y. Ts'o" <tytso@mit.edu>, Jaegeuk Kim <jaegeuk@kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Mimi Zohar <zohar@linux.vnet.ibm.com>,
-	Dmitry Kasatkin <dmitry.kasatkin@gmail.com>,
-	James Morris <james.l.morris@oracle.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>
-Return-path: <dm-devel-bounces@redhat.com>
+        "David S. Miller" <davem@davemloft.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        David Howells <dhowells@redhat.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Gary Hook <gary.hook@amd.com>,
+        Boris Brezillon <boris.brezillon@free-electrons.com>,
+        Arnaud Ebalard <arno@natisbad.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Alasdair Kergon <agk@redhat.com>,
+        Mike Snitzer <snitzer@redhat.com>, dm-devel@redhat.com,
+        Steve French <sfrench@samba.org>,
+        "Theodore Y. Ts'o" <tytso@mit.edu>,
+        Jaegeuk Kim <jaegeuk@kernel.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Dmitry Kasatkin <dmitry.ka
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1508310057-25369-1-git-send-email-gilad@benyossef.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/dm-devel>,
-	<mailto:dm-devel-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/dm-devel>
-List-Post: <mailto:dm-devel@redhat.com>
-List-Help: <mailto:dm-devel-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/dm-devel>,
-	<mailto:dm-devel-request@redhat.com?subject=subscribe>
-Sender: dm-devel-bounces@redhat.com
-Errors-To: dm-devel-bounces@redhat.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now that -EBUSY return code only indicates backlog queueing
-we can safely remove the now redundant check for the
-CRYPTO_TFM_REQ_MAY_BACKLOG flag when -EBUSY is returned.
+algif starts several async crypto ops and waits for their completion.
+Move it over to generic code doing the same.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
 ---
- crypto/ahash.c        | 12 +++---------
- crypto/cts.c          |  6 ++----
- crypto/lrw.c          |  8 ++------
- crypto/rsa-pkcs1pad.c | 16 ++++------------
- crypto/xts.c          |  8 ++------
- 5 files changed, 13 insertions(+), 37 deletions(-)
+ crypto/af_alg.c         | 27 ---------------------------
+ crypto/algif_aead.c     |  8 ++++----
+ crypto/algif_hash.c     | 30 ++++++++++++++----------------
+ crypto/algif_skcipher.c |  9 ++++-----
+ include/crypto/if_alg.h | 15 +--------------
+ 5 files changed, 23 insertions(+), 66 deletions(-)
 
-diff --git a/crypto/ahash.c b/crypto/ahash.c
-index 5e8666e..3a35d67 100644
---- a/crypto/ahash.c
-+++ b/crypto/ahash.c
-@@ -334,9 +334,7 @@ static int ahash_op_unaligned(struct ahash_request *req,
- 		return err;
+diff --git a/crypto/af_alg.c b/crypto/af_alg.c
+index 337cf38..85cea9d 100644
+--- a/crypto/af_alg.c
++++ b/crypto/af_alg.c
+@@ -481,33 +481,6 @@ int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con)
+ }
+ EXPORT_SYMBOL_GPL(af_alg_cmsg_send);
  
- 	err = op(req);
--	if (err == -EINPROGRESS ||
--	    (err == -EBUSY && (ahash_request_flags(req) &
--			       CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err == -EINPROGRESS || err == -EBUSY)
- 		return err;
- 
- 	ahash_restore_req(req, err);
-@@ -394,9 +392,7 @@ static int ahash_def_finup_finish1(struct ahash_request *req, int err)
- 	req->base.complete = ahash_def_finup_done2;
- 
- 	err = crypto_ahash_reqtfm(req)->final(req);
--	if (err == -EINPROGRESS ||
--	    (err == -EBUSY && (ahash_request_flags(req) &
--			       CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err == -EINPROGRESS || err == -EBUSY)
- 		return err;
- 
- out:
-@@ -432,9 +428,7 @@ static int ahash_def_finup(struct ahash_request *req)
- 		return err;
- 
- 	err = tfm->update(req);
--	if (err == -EINPROGRESS ||
--	    (err == -EBUSY && (ahash_request_flags(req) &
--			       CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err == -EINPROGRESS || err == -EBUSY)
- 		return err;
- 
- 	return ahash_def_finup_finish1(req, err);
-diff --git a/crypto/cts.c b/crypto/cts.c
-index 243f591..4773c18 100644
---- a/crypto/cts.c
-+++ b/crypto/cts.c
-@@ -136,8 +136,7 @@ static void crypto_cts_encrypt_done(struct crypto_async_request *areq, int err)
- 		goto out;
- 
- 	err = cts_cbc_encrypt(req);
--	if (err == -EINPROGRESS ||
--	    (err == -EBUSY && req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+	if (err == -EINPROGRESS || err == -EBUSY)
- 		return;
- 
- out:
-@@ -229,8 +228,7 @@ static void crypto_cts_decrypt_done(struct crypto_async_request *areq, int err)
- 		goto out;
- 
- 	err = cts_cbc_decrypt(req);
--	if (err == -EINPROGRESS ||
--	    (err == -EBUSY && req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+	if (err == -EINPROGRESS || err == -EBUSY)
- 		return;
- 
- out:
-diff --git a/crypto/lrw.c b/crypto/lrw.c
-index 92df312..cbbd7c5 100644
---- a/crypto/lrw.c
-+++ b/crypto/lrw.c
-@@ -328,9 +328,7 @@ static int do_encrypt(struct skcipher_request *req, int err)
- 		      crypto_skcipher_encrypt(subreq) ?:
- 		      post_crypt(req);
- 
--		if (err == -EINPROGRESS ||
--		    (err == -EBUSY &&
--		     req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+		if (err == -EINPROGRESS || err == -EBUSY)
- 			return err;
+-int af_alg_wait_for_completion(int err, struct af_alg_completion *completion)
+-{
+-	switch (err) {
+-	case -EINPROGRESS:
+-	case -EBUSY:
+-		wait_for_completion(&completion->completion);
+-		reinit_completion(&completion->completion);
+-		err = completion->err;
+-		break;
+-	};
+-
+-	return err;
+-}
+-EXPORT_SYMBOL_GPL(af_alg_wait_for_completion);
+-
+-void af_alg_complete(struct crypto_async_request *req, int err)
+-{
+-	struct af_alg_completion *completion = req->data;
+-
+-	if (err == -EINPROGRESS)
+-		return;
+-
+-	completion->err = err;
+-	complete(&completion->completion);
+-}
+-EXPORT_SYMBOL_GPL(af_alg_complete);
+-
+ /**
+  * af_alg_alloc_tsgl - allocate the TX SGL
+  *
+diff --git a/crypto/algif_aead.c b/crypto/algif_aead.c
+index 516b38c..aacae08 100644
+--- a/crypto/algif_aead.c
++++ b/crypto/algif_aead.c
+@@ -278,11 +278,11 @@ static int _aead_recvmsg(struct socket *sock, struct msghdr *msg,
+ 		/* Synchronous operation */
+ 		aead_request_set_callback(&areq->cra_u.aead_req,
+ 					  CRYPTO_TFM_REQ_MAY_BACKLOG,
+-					  af_alg_complete, &ctx->completion);
+-		err = af_alg_wait_for_completion(ctx->enc ?
++					  crypto_req_done, &ctx->wait);
++		err = crypto_wait_req(ctx->enc ?
+ 				crypto_aead_encrypt(&areq->cra_u.aead_req) :
+ 				crypto_aead_decrypt(&areq->cra_u.aead_req),
+-						 &ctx->completion);
++				&ctx->wait);
  	}
  
-@@ -380,9 +378,7 @@ static int do_decrypt(struct skcipher_request *req, int err)
- 		      crypto_skcipher_decrypt(subreq) ?:
- 		      post_crypt(req);
+ 	/* AIO operation in progress */
+@@ -554,7 +554,7 @@ static int aead_accept_parent_nokey(void *private, struct sock *sk)
+ 	ctx->merge = 0;
+ 	ctx->enc = 0;
+ 	ctx->aead_assoclen = 0;
+-	af_alg_init_completion(&ctx->completion);
++	crypto_init_wait(&ctx->wait);
  
--		if (err == -EINPROGRESS ||
--		    (err == -EBUSY &&
--		     req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+		if (err == -EINPROGRESS || err == -EBUSY)
- 			return err;
+ 	ask->private = ctx;
+ 
+diff --git a/crypto/algif_hash.c b/crypto/algif_hash.c
+index 5e92bd2..76d2e71 100644
+--- a/crypto/algif_hash.c
++++ b/crypto/algif_hash.c
+@@ -26,7 +26,7 @@ struct hash_ctx {
+ 
+ 	u8 *result;
+ 
+-	struct af_alg_completion completion;
++	struct crypto_wait wait;
+ 
+ 	unsigned int len;
+ 	bool more;
+@@ -88,8 +88,7 @@ static int hash_sendmsg(struct socket *sock, struct msghdr *msg,
+ 		if ((msg->msg_flags & MSG_MORE))
+ 			hash_free_result(sk, ctx);
+ 
+-		err = af_alg_wait_for_completion(crypto_ahash_init(&ctx->req),
+-						&ctx->completion);
++		err = crypto_wait_req(crypto_ahash_init(&ctx->req), &ctx->wait);
+ 		if (err)
+ 			goto unlock;
+ 	}
+@@ -110,8 +109,8 @@ static int hash_sendmsg(struct socket *sock, struct msghdr *msg,
+ 
+ 		ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL, len);
+ 
+-		err = af_alg_wait_for_completion(crypto_ahash_update(&ctx->req),
+-						 &ctx->completion);
++		err = crypto_wait_req(crypto_ahash_update(&ctx->req),
++				      &ctx->wait);
+ 		af_alg_free_sg(&ctx->sgl);
+ 		if (err)
+ 			goto unlock;
+@@ -129,8 +128,8 @@ static int hash_sendmsg(struct socket *sock, struct msghdr *msg,
+ 			goto unlock;
+ 
+ 		ahash_request_set_crypt(&ctx->req, NULL, ctx->result, 0);
+-		err = af_alg_wait_for_completion(crypto_ahash_final(&ctx->req),
+-						 &ctx->completion);
++		err = crypto_wait_req(crypto_ahash_final(&ctx->req),
++				      &ctx->wait);
  	}
  
-diff --git a/crypto/rsa-pkcs1pad.c b/crypto/rsa-pkcs1pad.c
-index 407c64b..2908f93 100644
---- a/crypto/rsa-pkcs1pad.c
-+++ b/crypto/rsa-pkcs1pad.c
-@@ -279,9 +279,7 @@ static int pkcs1pad_encrypt(struct akcipher_request *req)
- 				   req->dst, ctx->key_size - 1, req->dst_len);
- 
- 	err = crypto_akcipher_encrypt(&req_ctx->child_req);
--	if (err != -EINPROGRESS &&
--			(err != -EBUSY ||
--			 !(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err != -EINPROGRESS && err != -EBUSY)
- 		return pkcs1pad_encrypt_sign_complete(req, err);
- 
- 	return err;
-@@ -383,9 +381,7 @@ static int pkcs1pad_decrypt(struct akcipher_request *req)
- 				   ctx->key_size);
- 
- 	err = crypto_akcipher_decrypt(&req_ctx->child_req);
--	if (err != -EINPROGRESS &&
--			(err != -EBUSY ||
--			 !(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err != -EINPROGRESS && err != -EBUSY)
- 		return pkcs1pad_decrypt_complete(req, err);
- 
- 	return err;
-@@ -440,9 +436,7 @@ static int pkcs1pad_sign(struct akcipher_request *req)
- 				   req->dst, ctx->key_size - 1, req->dst_len);
- 
- 	err = crypto_akcipher_sign(&req_ctx->child_req);
--	if (err != -EINPROGRESS &&
--			(err != -EBUSY ||
--			 !(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err != -EINPROGRESS && err != -EBUSY)
- 		return pkcs1pad_encrypt_sign_complete(req, err);
- 
- 	return err;
-@@ -561,9 +555,7 @@ static int pkcs1pad_verify(struct akcipher_request *req)
- 				   ctx->key_size);
- 
- 	err = crypto_akcipher_verify(&req_ctx->child_req);
--	if (err != -EINPROGRESS &&
--			(err != -EBUSY ||
--			 !(req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG)))
-+	if (err != -EINPROGRESS && err != -EBUSY)
- 		return pkcs1pad_verify_complete(req, err);
- 
- 	return err;
-diff --git a/crypto/xts.c b/crypto/xts.c
-index e31828e..f317c48 100644
---- a/crypto/xts.c
-+++ b/crypto/xts.c
-@@ -269,9 +269,7 @@ static int do_encrypt(struct skcipher_request *req, int err)
- 		      crypto_skcipher_encrypt(subreq) ?:
- 		      post_crypt(req);
- 
--		if (err == -EINPROGRESS ||
--		    (err == -EBUSY &&
--		     req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+		if (err == -EINPROGRESS || err == -EBUSY)
- 			return err;
+ unlock:
+@@ -171,7 +170,7 @@ static ssize_t hash_sendpage(struct socket *sock, struct page *page,
+ 	} else {
+ 		if (!ctx->more) {
+ 			err = crypto_ahash_init(&ctx->req);
+-			err = af_alg_wait_for_completion(err, &ctx->completion);
++			err = crypto_wait_req(err, &ctx->wait);
+ 			if (err)
+ 				goto unlock;
+ 		}
+@@ -179,7 +178,7 @@ static ssize_t hash_sendpage(struct socket *sock, struct page *page,
+ 		err = crypto_ahash_update(&ctx->req);
  	}
  
-@@ -321,9 +319,7 @@ static int do_decrypt(struct skcipher_request *req, int err)
- 		      crypto_skcipher_decrypt(subreq) ?:
- 		      post_crypt(req);
+-	err = af_alg_wait_for_completion(err, &ctx->completion);
++	err = crypto_wait_req(err, &ctx->wait);
+ 	if (err)
+ 		goto unlock;
  
--		if (err == -EINPROGRESS ||
--		    (err == -EBUSY &&
--		     req->base.flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
-+		if (err == -EINPROGRESS || err == -EBUSY)
- 			return err;
+@@ -215,17 +214,16 @@ static int hash_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	ahash_request_set_crypt(&ctx->req, NULL, ctx->result, 0);
+ 
+ 	if (!result && !ctx->more) {
+-		err = af_alg_wait_for_completion(
+-				crypto_ahash_init(&ctx->req),
+-				&ctx->completion);
++		err = crypto_wait_req(crypto_ahash_init(&ctx->req),
++				      &ctx->wait);
+ 		if (err)
+ 			goto unlock;
  	}
  
+ 	if (!result || ctx->more) {
+ 		ctx->more = 0;
+-		err = af_alg_wait_for_completion(crypto_ahash_final(&ctx->req),
+-						 &ctx->completion);
++		err = crypto_wait_req(crypto_ahash_final(&ctx->req),
++				      &ctx->wait);
+ 		if (err)
+ 			goto unlock;
+ 	}
+@@ -476,13 +474,13 @@ static int hash_accept_parent_nokey(void *private, struct sock *sk)
+ 	ctx->result = NULL;
+ 	ctx->len = len;
+ 	ctx->more = 0;
+-	af_alg_init_completion(&ctx->completion);
++	crypto_init_wait(&ctx->wait);
+ 
+ 	ask->private = ctx;
+ 
+ 	ahash_request_set_tfm(&ctx->req, hash);
+ 	ahash_request_set_callback(&ctx->req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+-				   af_alg_complete, &ctx->completion);
++				   crypto_req_done, &ctx->wait);
+ 
+ 	sk->sk_destruct = hash_sock_destruct;
+ 
+diff --git a/crypto/algif_skcipher.c b/crypto/algif_skcipher.c
+index 8ae4170..9954b07 100644
+--- a/crypto/algif_skcipher.c
++++ b/crypto/algif_skcipher.c
+@@ -129,12 +129,11 @@ static int _skcipher_recvmsg(struct socket *sock, struct msghdr *msg,
+ 		skcipher_request_set_callback(&areq->cra_u.skcipher_req,
+ 					      CRYPTO_TFM_REQ_MAY_SLEEP |
+ 					      CRYPTO_TFM_REQ_MAY_BACKLOG,
+-					      af_alg_complete,
+-					      &ctx->completion);
+-		err = af_alg_wait_for_completion(ctx->enc ?
++					      crypto_req_done, &ctx->wait);
++		err = crypto_wait_req(ctx->enc ?
+ 			crypto_skcipher_encrypt(&areq->cra_u.skcipher_req) :
+ 			crypto_skcipher_decrypt(&areq->cra_u.skcipher_req),
+-						 &ctx->completion);
++						 &ctx->wait);
+ 	}
+ 
+ 	/* AIO operation in progress */
+@@ -388,7 +387,7 @@ static int skcipher_accept_parent_nokey(void *private, struct sock *sk)
+ 	ctx->more = 0;
+ 	ctx->merge = 0;
+ 	ctx->enc = 0;
+-	af_alg_init_completion(&ctx->completion);
++	crypto_init_wait(&ctx->wait);
+ 
+ 	ask->private = ctx;
+ 
+diff --git a/include/crypto/if_alg.h b/include/crypto/if_alg.h
+index 75ec9c6..6abf0a3 100644
+--- a/include/crypto/if_alg.h
++++ b/include/crypto/if_alg.h
+@@ -40,11 +40,6 @@ struct alg_sock {
+ 	void *private;
+ };
+ 
+-struct af_alg_completion {
+-	struct completion completion;
+-	int err;
+-};
+-
+ struct af_alg_control {
+ 	struct af_alg_iv *iv;
+ 	int op;
+@@ -152,7 +147,7 @@ struct af_alg_ctx {
+ 	void *iv;
+ 	size_t aead_assoclen;
+ 
+-	struct af_alg_completion completion;
++	struct crypto_wait wait;
+ 
+ 	size_t used;
+ 	size_t rcvused;
+@@ -177,19 +172,11 @@ void af_alg_link_sg(struct af_alg_sgl *sgl_prev, struct af_alg_sgl *sgl_new);
+ 
+ int af_alg_cmsg_send(struct msghdr *msg, struct af_alg_control *con);
+ 
+-int af_alg_wait_for_completion(int err, struct af_alg_completion *completion);
+-void af_alg_complete(struct crypto_async_request *req, int err);
+-
+ static inline struct alg_sock *alg_sk(struct sock *sk)
+ {
+ 	return (struct alg_sock *)sk;
+ }
+ 
+-static inline void af_alg_init_completion(struct af_alg_completion *completion)
+-{
+-	init_completion(&completion->completion);
+-}
+-
+ /**
+  * Size of available buffer for sending data from user space to kernel.
+  *
 -- 
 2.7.4
