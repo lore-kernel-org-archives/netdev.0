@@ -1,103 +1,138 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v5 net-next 00/12] gtp: Additional feature support - Part I
-Date: Wed, 18 Oct 2017 13:10:06 -0700
-Message-ID: <20171018201018.5692-1-tom@quantonium.net>
+Subject: [PATCH v5 net-next 02/12] vxlan: Call common functions to get tunnel routes
+Date: Wed, 18 Oct 2017 13:10:08 -0700
+Message-ID: <20171018201018.5692-3-tom@quantonium.net>
+References: <20171018201018.5692-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:47467 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751465AbdJRUKy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 16:10:54 -0400
-Received: by mail-pg0-f65.google.com with SMTP id r25so5161837pgn.4
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 13:10:53 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:48103 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751664AbdJRULB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 16:11:01 -0400
+Received: by mail-pf0-f194.google.com with SMTP id z11so4755431pfk.4
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 13:11:01 -0700 (PDT)
+In-Reply-To: <20171018201018.5692-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set builds upon the initial GTP implementation to make
-support closer to that enjoyed by other encapsulation protocols.
+Call ip_tunnel_get_route and ip6_tnl_get_route to handle getting a route
+and dealing with the dst_cache.
 
-The major items are:
+Signed-off-by: Tom Herbert <tom@quantonium.net>
+---
+ drivers/net/vxlan.c | 84 ++++-------------------------------------------------
+ 1 file changed, 5 insertions(+), 79 deletions(-)
 
-  - Experimental IPv6 support
-  - Configurable networking interfaces so that GTP kernel can be
-    used and tested without needing GSN network emulation (i.e. no user
-    space daemon needed).
-  - Addition of a dst_cache in the GTP structure and other cleanup
-
-Additionally, this patch set also includes:
-
-  - Common functions to get a route fo for an IP tunnel
-
-For IPv6 support, the mobile subscriber needs to allow IPv6 addresses,
-and the remote endpoint can be IPv6.
-
-For configurable interfaces, configuration is added to allow an
-alternate means to configure a GTP and device. This follows the
-typical UDP encapsulation model of specifying a listener port for
-receive, and a remote address and port for transmit.
-
-Configuration is performed by iproute2/ip. I will post that
-in a subsequent patch set.
-
-Tested:
-
-Configured the matrix of IPv4/IPv6 mobile subscriber, IPv4/IPv6 remote
-peer, and GTP version 0 and 1 (eight combinations). Observed
-connectivity and functional netperf. Also, tested VXLAN for
-regression.
-
-Test using openggs with ggsn and kernel module on one side and
-emulated sgsn on the other. Observed connectivity and
-functional netperf.
-
-v2:
-  - Split the original patch to post in parts in order to make
-    review more manageable
-  - Make IPv6 support experimental with a configuration option for it
-  - Prepend hash functions with gtp
-  - Generalize iptunnel update path MTU function and call it from gtp
-    instead using custom code
-  - Split original patch cleaning up udp_recv into several for easier
-    review
-
-v3: Properly include netdev on cc
-
-v4:
-  - Move __ip6_tnl_get_route to ipv6/route.c to avoid creting dependency
-    on ip6_tunnel
-  - Add "select GRO_CELLS" fo Kconfig for GTP
-
-v5:
-  - Rebase to current next-net and repost
-
-
-Tom Herbert (12):
-  iptunnel: Add common functions to get a tunnel route
-  vxlan: Call common functions to get tunnel routes
-  gtp: Call common functions to get tunnel routes and add dst_cache
-  iptunnel: Generalize tunnel update pmtu
-  gtp: Change to use gro_cells
-  gtp: Use goto for exceptions in gtp_udp_encap_recv funcs
-  gtp: udp recv clean up
-  gtp: Call function to update path mtu
-  gtp: Eliminate pktinfo and add port configuration
-  gtp: Experimental encapsulation of IPv6 packets
-  gtp: Experimental support encpasulating over IPv6
-  gtp: Allow configuring GTP interface as standalone
-
- drivers/net/Kconfig          |   13 +-
- drivers/net/gtp.c            | 1043 ++++++++++++++++++++++++++++++------------
- drivers/net/vxlan.c          |   84 +---
- include/net/ip6_tunnel.h     |   33 ++
- include/net/ip_tunnels.h     |   36 ++
- include/uapi/linux/gtp.h     |    8 +
- include/uapi/linux/if_link.h |    3 +
- net/ipv4/ip_tunnel.c         |   70 ++-
- net/ipv6/route.c             |   42 ++
- 9 files changed, 945 insertions(+), 387 deletions(-)
-
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index d7c49cf1d5e9..810caa9adf37 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1867,47 +1867,11 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan, struct net_device
+ 				      struct dst_cache *dst_cache,
+ 				      const struct ip_tunnel_info *info)
+ {
+-	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
+-	struct rtable *rt = NULL;
+-	struct flowi4 fl4;
+-
+ 	if (!sock4)
+ 		return ERR_PTR(-EIO);
+ 
+-	if (tos && !info)
+-		use_cache = false;
+-	if (use_cache) {
+-		rt = dst_cache_get_ip4(dst_cache, saddr);
+-		if (rt)
+-			return rt;
+-	}
+-
+-	memset(&fl4, 0, sizeof(fl4));
+-	fl4.flowi4_oif = oif;
+-	fl4.flowi4_tos = RT_TOS(tos);
+-	fl4.flowi4_mark = skb->mark;
+-	fl4.flowi4_proto = IPPROTO_UDP;
+-	fl4.daddr = daddr;
+-	fl4.saddr = *saddr;
+-	fl4.fl4_dport = dport;
+-	fl4.fl4_sport = sport;
+-
+-	rt = ip_route_output_key(vxlan->net, &fl4);
+-	if (likely(!IS_ERR(rt))) {
+-		if (rt->dst.dev == dev) {
+-			netdev_dbg(dev, "circular route to %pI4\n", &daddr);
+-			ip_rt_put(rt);
+-			return ERR_PTR(-ELOOP);
+-		}
+-
+-		*saddr = fl4.saddr;
+-		if (use_cache)
+-			dst_cache_set_ip4(dst_cache, &rt->dst, fl4.saddr);
+-	} else {
+-		netdev_dbg(dev, "no route to %pI4\n", &daddr);
+-		return ERR_PTR(-ENETUNREACH);
+-	}
+-	return rt;
++	return ip_tunnel_get_route(dev, skb, IPPROTO_UDP, oif, tos, daddr,
++				   saddr, dport, sport, dst_cache, info);
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -1922,50 +1886,12 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
+ 					  struct dst_cache *dst_cache,
+ 					  const struct ip_tunnel_info *info)
+ {
+-	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
+-	struct dst_entry *ndst;
+-	struct flowi6 fl6;
+-	int err;
+-
+ 	if (!sock6)
+ 		return ERR_PTR(-EIO);
+ 
+-	if (tos && !info)
+-		use_cache = false;
+-	if (use_cache) {
+-		ndst = dst_cache_get_ip6(dst_cache, saddr);
+-		if (ndst)
+-			return ndst;
+-	}
+-
+-	memset(&fl6, 0, sizeof(fl6));
+-	fl6.flowi6_oif = oif;
+-	fl6.daddr = *daddr;
+-	fl6.saddr = *saddr;
+-	fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
+-	fl6.flowi6_mark = skb->mark;
+-	fl6.flowi6_proto = IPPROTO_UDP;
+-	fl6.fl6_dport = dport;
+-	fl6.fl6_sport = sport;
+-
+-	err = ipv6_stub->ipv6_dst_lookup(vxlan->net,
+-					 sock6->sock->sk,
+-					 &ndst, &fl6);
+-	if (unlikely(err < 0)) {
+-		netdev_dbg(dev, "no route to %pI6\n", daddr);
+-		return ERR_PTR(-ENETUNREACH);
+-	}
+-
+-	if (unlikely(ndst->dev == dev)) {
+-		netdev_dbg(dev, "circular route to %pI6\n", daddr);
+-		dst_release(ndst);
+-		return ERR_PTR(-ELOOP);
+-	}
+-
+-	*saddr = fl6.saddr;
+-	if (use_cache)
+-		dst_cache_set_ip6(dst_cache, ndst, saddr);
+-	return ndst;
++	return ip6_tnl_get_route(dev, skb, sock6->sock->sk, IPPROTO_UDP, oif,
++				   tos, label, daddr, saddr, dport, sport,
++				   dst_cache, info);
+ }
+ #endif
+ 
 -- 
 2.11.0
