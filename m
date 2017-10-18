@@ -1,79 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [net-next] dsa: slave: support phy devices on external MII bus
-Date: Wed, 18 Oct 2017 18:21:38 +0200
-Message-ID: <20171018162138.GA15371@lunn.ch>
+From: Song Liu <songliubraving@fb.com>
+Subject: Re: [PATCH net-next] tcp: Remove use of inet6_sk and add IPv6 checks
+ to tracepoint
+Date: Wed, 18 Oct 2017 16:27:52 +0000
+Message-ID: <B63D9FF8-2BA1-43FC-B8A5-D3565EF545B6@fb.com>
+References: <1508339849-19527-1-git-send-email-dsahern@gmail.com>
+ <1508340503.31614.120.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: mnhu@prevas.dk
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Ahern <dsahern@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:50040 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751712AbdJRQVk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 12:21:40 -0400
-Content-Disposition: inline
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:57608 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751866AbdJRQ2a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:28:30 -0400
+In-Reply-To: <1508340503.31614.120.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Content-ID: <63076AF7D1CB8044A7D1EBC49F661CAA@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Martin
 
-Sorry for starting a new thread. I deleted the patchset from my mailbox.
+> On Oct 18, 2017, at 8:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+> On Wed, 2017-10-18 at 08:17 -0700, David Ahern wrote:
+>> 386fd5da401d ("tcp: Check daddr_cache before use in tracepoint") was the
+>> second version of the tracepoint fixup patch. This patch is the delta
+>> between v2 and v3.  Specifically, remove the use of inet6_sk and check
+>> sk_family as requested by Eric and add IS_ENABLED(CONFIG_IPV6) around
+>> the use of sk_v6_rcv_saddr and sk_v6_daddr as done in sock_common (noted
+>> by Cong).
+>>=20
+>> Signed-off-by: David Ahern <dsahern@gmail.com>
+>> ---
+>=20
+> Reviewed-by: Eric Dumazet <edumazet@google.com>
+>=20
+> Thanks !
+>=20
 
-Florian said:
-
-> The logic goes like this:
-> 
-> - try to connect to the PHY via phy-handle
-> - if we have a PHY we are connecting via phy-handle but we need to
->   divert MDIO reads/writes connect using its address on the diverted
->   bus
-> - connect using a fixed PHY
-> - finally try using the DSA slave MII bus which would connect to the switch internal PHYs
-
-This is not quite correct. Looking at the code:
-
-        phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
- ...
-
-        if (phy_dn) {
-                int phy_id = of_mdio_parse_addr(&slave_dev->dev, phy_dn);
-
-                /* If this PHY address is part of phys_mii_mask, which means
-                 * that we need to divert reads and writes to/from it, then we
-                 * want to bind this device using the slave MII bus created by
-                 * DSA to make that happen.
-                 */
-                if (!phy_is_fixed && phy_id >= 0 &&
-                    (ds->phys_mii_mask & (1 << phy_id))) {
-                        ret = dsa_slave_phy_connect(p, slave_dev, phy_id);
-                        if (ret) {
-                                netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
-                                of_node_put(phy_dn);
-                                return ret;
-                        }
-                } else {
-                        p->phy = of_phy_connect(slave_dev, phy_dn,
-
-The first point really is:
-
-- try to connect to the PHY via phy-handle, if the phy_id is not
-valid, or if the phy_id does not map to a phy that the switch says
-does not exist.
-
-In your case, all these points are true, so it uses
-dsa_slave_phy_connect().  But we actually want it to use
-of_phy_connect(), which will use the correct bus.
-
-For some Marvell chips, you cannot actually go on ds->phys_mii_mask.
-These devices can have in built PHYs and SERDES interfaces which can
-be assigned to ports. These SERDES interfaces could have external PHYs
-connected to them, and be on the external MDIO bus. So
-ds->phys_mii_mask indicates there is a PHY, but the phy-handle points
-to a different phy.
-
-So i think this code block needs to change. If we have a phy-handle,
-use it.  i.e. what Florian _thinks_ it should be doing. If not, then
-use dsa_slave_phy_connect().
-
-    Andrew
+Tested-by: Song Liu <songliubraving@fb.com>
