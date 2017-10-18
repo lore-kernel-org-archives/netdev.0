@@ -1,39 +1,45 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next] tcp: socket option to set TCP fast open key
-Date: Wed, 18 Oct 2017 13:37:27 -0700
-Message-ID: <CANn89iK-dzwehweSZxVJ1z9YEYnhFMM3URYpARbxr4bUa1Nskg@mail.gmail.com>
-References: <20171018182251.5486-1-ycheng@google.com> <20171018201344.GQ73751@Chimay.local>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: aggregation: Convert timers to use
+ timer_setup()
+Date: Wed, 18 Oct 2017 22:50:11 +0200
+Message-ID: <1508359811.2674.56.camel@sipsolutions.net>
+References: <20171017202545.GA115810@beast>
+         <1508322566.2674.17.camel@sipsolutions.net>
+         <CAGXu5jKY5rTuR_w=zj5Bz06f9OrW35eD4sYfkai2Gac_edG4ag@mail.gmail.com>
+         (sfid-20171018_161904_357172_FABB3367)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Yuchung Cheng <ycheng@google.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Neal Cardwell <ncardwell@google.com>,
-        "maheshb@google.com" <maheshb@google.com>
-To: Christoph Paasch <cpaasch@apple.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f170.google.com ([209.85.161.170]:49243 "EHLO
-        mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750992AbdJRUh3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 16:37:29 -0400
-Received: by mail-yw0-f170.google.com with SMTP id n189so1696983ywd.6
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 13:37:29 -0700 (PDT)
-In-Reply-To: <20171018201344.GQ73751@Chimay.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jKY5rTuR_w=zj5Bz06f9OrW35eD4sYfkai2Gac_edG4ag@mail.gmail.com> (sfid-20171018_161904_357172_FABB3367)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2017 at 1:13 PM, Christoph Paasch <cpaasch@apple.com> wrote:
->
-> Hello Yuchung,
->
-> On 18/10/17 - 11:22:51, Yuchung Cheng wrote:
-> > New socket option TCP_FASTOPEN_KEY to allow different keys per
-> > listener.  The listener by default uses the global key until the
-> > socket option is set.  The key is a 16 bytes long binary data. This
-> > option has no effect on regular non-listener TCP sockets.
->
-> can you explain what the use-case is to have per-listener TFO keys?
->
+On Wed, 2017-10-18 at 07:19 -0700, Kees Cook wrote:
+> On Wed, Oct 18, 2017 at 3:29 AM, Johannes Berg
+> <johannes@sipsolutions.net> wrote:
+> > > This has been the least trivial timer conversion yet. Given the use of
+> > > RCU and other things I may not even know about, I'd love to get a close
+> > > look at this. I *think* this is correct, as it will re-lookup the tid
+> > > entries when firing the timer.
+> > 
+> > I'm not really sure why you're doing the lookup again? That seems
+> > pointless, since you already have the right structure, and already rely
+> > on it being valid. You can't really get a new struct assigned to the
+> > same TID without the old one being destroyed.
+> 
+> I couldn't tell what the lifetime expectation was, so I left the
+> re-lookup. I assumed it was possible to have a timer fire after the
+> structure had been removed from the station structure.
 
-Security aspects. You want to be able to change keys whenever you
-want, on an application basis.
+Oh, right, I guess that would've been possible in theory. It's not
+actually possible though since the aggregation sessions can't live on
+without a station, so I've already made a follow-up patch to remove the
+indirection.
+
+johannes
