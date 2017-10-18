@@ -1,62 +1,39 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 00/58] networking: Convert timers to use timer_setup()
-Date: Wed, 18 Oct 2017 12:42:16 -0700
-Message-ID: <CAGXu5jK7PhuYD5Zr7dOBax3VPsvKzFSpv2b4_mNRP-AiUJ0Kcg@mail.gmail.com>
-References: <1508200182-104605-1-git-send-email-keescook@chromium.org> <20171018.124219.174286495547300072.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171018.124219.174286495547300072.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: [PATCH iproute2 1/1] ss: initialize 'fackets' member of tcpstat structure
+Date: Wed, 18 Oct 2017 15:44:01 -0400
+Message-ID: <1508355841-24131-1-git-send-email-mrv@mojatatu.com>
+Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
+        Roman Mashak <mrv@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:43472 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbdJRToK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 15:44:10 -0400
+Received: by mail-io0-f194.google.com with SMTP id 134so7493497ioo.0
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 12:44:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 4:42 AM, David Miller <davem@davemloft.net> wrote:
-> From: Kees Cook <keescook@chromium.org>
-> Date: Mon, 16 Oct 2017 17:28:44 -0700
->
->> This is the current set of outstanding networking patches to perform
->> conversions to the new timer interface (rebased to -next). This is not
->> all expected conversions, but it contains everything needed in networking
->> to eliminate init_timer(), and all the non-standard setup_*_timer() uses.
->
-> I've applied this except:
->
-> 1) the IRDA stuff, it's staging and needs to go via Greg KH
+'fackets' has never been initialized with kernel extracted information, thus
+never really printed.
 
-Ah yes, thanks. I didn't update the Subject when I followed the path
-change into staging. I'll redirect this to Greg.
+Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+---
+ misc/ss.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> 2) the MPC ATM didn't apply at all to net-next
-
-Okay, I will respin it again and collect more conversions before
-sending the next batch.
-
-> Such a huge patch series like this is a huge burdon upon
-> a subsystem maintainer.
-
-Agreed, and I'm very thankful you've made time to dig through this
-pile. I've tried to minimize the number of separate patches, since
-many cases can be mechanically updated with Coccinelle (which we'll do
-at the tail end of this conversion).
-
-> Split this kind of stuff up into manageable chunks next time,
-> maybe a dozen patches at a time.  Do not submit multiple
-> series at once to get around this size limit.  Submit one
-> at a time, wait for it to get applied, and then after that
-> you can submit the next one.
-
-Okay, I'll limit postings to a dozen. I think I'll need to maintain
-separate trees for each subsystem's batches. I've been splitting them
-up manually out of one single giant tree, which has been ... insane.
-
-Thanks again!
-
--Kees
-
+diff --git a/misc/ss.c b/misc/ss.c
+index 09bff8a..465e867 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2226,6 +2226,7 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 		s.retrans_total  = info->tcpi_total_retrans;
+ 		s.lost		 = info->tcpi_lost;
+ 		s.sacked	 = info->tcpi_sacked;
++		s.fackets	 = info->tcpi_fackets;
+ 		s.reordering	 = info->tcpi_reordering;
+ 		s.rcv_space	 = info->tcpi_rcv_space;
+ 		s.cwnd		 = info->tcpi_snd_cwnd;
 -- 
-Kees Cook
-Pixel Security
+1.9.1
