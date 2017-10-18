@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: fix netlink_ack() extack race
-Date: Wed, 18 Oct 2017 12:23:31 +0100 (WEST)
-Message-ID: <20171018.122331.1844401861159598600.davem@davemloft.net>
-References: <20171016150953.17612-1-johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next v2 0/7] net: dsa: master and slave helpers
+Date: Wed, 18 Oct 2017 12:24:53 +0100 (WEST)
+Message-ID: <20171018.122453.2063474159565652979.davem@davemloft.net>
+References: <20171016151219.22023-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        johannes.berg@intel.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59830 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753016AbdJRLXh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:23:37 -0400
-In-Reply-To: <20171016150953.17612-1-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171016151219.22023-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 16 Oct 2017 17:09:53 +0200
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon, 16 Oct 2017 11:12:12 -0400
 
-> From: Johannes Berg <johannes.berg@intel.com>
+> This patch series adds a few helpers to DSA core for clarity and
+> readability but brings no functional changes.
 > 
-> It seems that it's possible to toggle NETLINK_F_EXT_ACK
-> through setsockopt() while another thread/CPU is building
-> a message inside netlink_ack(), which could then trigger
-> the WARN_ON()s I added since if it goes from being turned
-> off to being turned on between allocating and filling the
-> message, the skb could end up being too small.
+> A dsa_slave_notify helper calls the DSA notifiers when (un)registering a
+> slave device.
 > 
-> Avoid this whole situation by storing the value of this
-> flag in a separate variable and using that throughout the
-> function instead.
+> Most of the DSA slave code only needs to access the dsa_port structure,
+> not the dsa_slave_priv (which only contains a few PHY-specific members).
+> Thus a dsa_slave_to_port helper returns a dsa_port structure of a slave
+> device.
 > 
-> Fixes: 2d4bc93368f5 ("netlink: extended ACK reporting")
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+> A dsa_slave_to_master returns the master device of a slave device.
+> 
+> After that the netdev member of the dsa_port structure is split into two
+> explicit master and slave members to avoid confusion, and a dsa_to_port
+> helper is added for switch drivers to get a const reference to a port.
+> 
+> Changes in v2:
+>   - prefer dsa_slave_to_master instead of dsa_slave_get_master
+>   - rename dsa_master_get_slave to dsa_master_find_slave
+>   - pack master and slave net devices into an anonymous union
+>   - add dsa_to_port public helper for switch drivers
+>   - add Reviewed-by tags from Florian
 
-Applied and queued up for -stable.
+Series applied.
