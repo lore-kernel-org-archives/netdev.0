@@ -1,82 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] bpf: disallow arithmetic operations on context
- pointer
-Date: Wed, 18 Oct 2017 13:21:37 +0100 (WEST)
-Message-ID: <20171018.132137.556352005997756075.davem@davemloft.net>
-References: <20171016181655.16366-1-jakub.kicinski@netronome.com>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: Re: [PATCH 1/7] devlink: Add permanent config parameter get/set operations
+Date: Wed, 18 Oct 2017 08:39:09 -0400
+Message-ID: <CA+Jmh7FRAAYyQv=qecU6RHFc_yj5P6Kp=8nB41i0driu9gycOQ@mail.gmail.com>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+ <1508273069-40461-2-git-send-email-steven.lin1@broadcom.com> <20171018071140.GB2028@nanopsycho>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        ecree@solarflare.com
-To: jakub.kicinski@netronome.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Linville <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60560 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965078AbdJRMVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 08:21:45 -0400
-In-Reply-To: <20171016181655.16366-1-jakub.kicinski@netronome.com>
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:51390 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934046AbdJRMja (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 08:39:30 -0400
+Received: by mail-qt0-f172.google.com with SMTP id h4so9963290qtk.8
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 05:39:29 -0700 (PDT)
+In-Reply-To: <20171018071140.GB2028@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Mon, 16 Oct 2017 11:16:55 -0700
+On Wed, Oct 18, 2017 at 3:11 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Oct 17, 2017 at 10:44:23PM CEST, steven.lin1@broadcom.com wrote:
+> Steve. As I originally requested, could you please split this to:
+> 1) single patch adding config get/set commands, without any config attributes
+> 2) single patch per config attribute - please don't add them in bulk.
+>    We also need very strict description for every single attribute so
+>    other vendors know what it is and can re-use it. There is need to
+>    avoid duplication here. Also, please send just few attribites in the
+>    first run, not like 40 you are sending now. Impossible to review.
 
-> Commit f1174f77b50c ("bpf/verifier: rework value tracking")
-> removed the crafty selection of which pointer types are
-> allowed to be modified.  This is OK for most pointer types
-> since adjust_ptr_min_max_vals() will catch operations on
-> immutable pointers.  One exception is PTR_TO_CTX which is
-> now allowed to be offseted freely.
-> 
-> The intent of aforementioned commit was to allow context
-> access via modified registers.  The offset passed to
-> ->is_valid_access() verifier callback has been adjusted
-> by the value of the variable offset.
-> 
-> What is missing, however, is taking the variable offset
-> into account when the context register is used.  Or in terms
-> of the code adding the offset to the value passed to the
-> ->convert_ctx_access() callback.  This leads to the following
-> eBPF user code:
-> 
->      r1 += 68
->      r0 = *(u32 *)(r1 + 8)
->      exit
-> 
-> being translated to this in kernel space:
-> 
->    0: (07) r1 += 68
->    1: (61) r0 = *(u32 *)(r1 +180)
->    2: (95) exit
-> 
-> Offset 8 is corresponding to 180 in the kernel, but offset
-> 76 is valid too.  Verifier will "accept" access to offset
-> 68+8=76 but then "convert" access to offset 8 as 180.
-> Effective access to offset 248 is beyond the kernel context.
-> (This is a __sk_buff example on a debug-heavy kernel -
-> packet mark is 8 -> 180, 76 would be data.)
-> 
-> Dereferencing the modified context pointer is not as easy
-> as dereferencing other types, because we have to translate
-> the access to reading a field in kernel structures which is
-> usually at a different offset and often of a different size.
-> To allow modifying the pointer we would have to make sure
-> that given eBPF instruction will always access the same
-> field or the fields accessed are "compatible" in terms of
-> offset and size...
-> 
-> Disallow dereferencing modified context pointers and add
-> to selftests the test case described here.
-> 
-> Fixes: f1174f77b50c ("bpf/verifier: rework value tracking")
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+I broke the patch set up into functional blocks of attributes, in
+order to avoid having ~40 patches of just a couple lines each.  But, I
+will split further for each individual attribute, and just submit a
+few initially, per your request.
 
-Applied.
+>
+> Also, why didn't you put it into nested attribute we were discussing?
+>
 
-> ---
-> Dave, a merge note - in net-next this will need env to be passed
-> to verbose().
+I thought I did :) , using the DPIPE_HEADERS nested attribute as an
+example.  I'll reach out to you off-list to understand what I'm
+missing.
 
-Thanks for the note.
+>>
+>>+static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
+>>+
+>>+static int devlink_nl_sing_param_get(struct sk_buff *msg,
+>
+> I was wondering what song it will sing :) Just add "le", it's just 2
+> chars :)
+>
+
+Will do, thanks. ;)
+
+Steve
