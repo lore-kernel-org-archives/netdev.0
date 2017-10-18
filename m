@@ -1,30 +1,35 @@
-From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
-Subject: Re: [PATCH] dql: make dql_init return void
-Date: Wed, 18 Oct 2017 21:15:22 +0900
-Message-ID: <20171018211522.7527ee9adacb0e7f6af8e7d2@gmail.com>
-References: <20171018001652.23740-1-sthemmin@microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tools: bpftool: use more common tag format
+Date: Wed, 18 Oct 2017 13:20:00 +0100 (WEST)
+Message-ID: <20171018.132000.1743823734744390065.davem@davemloft.net>
+References: <20171016171254.26225-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom@herbertland.com, davem@davemloft.net, netdev@vger.kernel.org,
-        sthemmin@microsoft.com
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:49103 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753816AbdJRMP0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 08:15:26 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v78so4133045pgb.5
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 05:15:26 -0700 (PDT)
-In-Reply-To: <20171018001652.23740-1-sthemmin@microsoft.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60508 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935346AbdJRMUH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 08:20:07 -0400
+In-Reply-To: <20171016171254.26225-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Oct 2017 17:16:52 -0700
-Stephen Hemminger <stephen@networkplumber.org> wrote:
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Mon, 16 Oct 2017 10:12:54 -0700
 
-> dql_init always returned 0, and the only place that uses it
-> in network core code didn't care about the return value anyway.
+> Program tag is usually displayed as string of bytes without
+> any separators (e.g. as "aa5520b1090cfeb6" vs MAC addr-like
+> format bpftool uses currently: "aa:55:20:b1:09:0c:fe:b6").
+> Make bptfool use the more common format both for displaying
+> the tag and selecting the program by tag.
 > 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-Acked-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+> This was pointed out in review but I misunderstood the comment.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Simon Horman <simon.horman@netronome.com>
+
+Applied.
