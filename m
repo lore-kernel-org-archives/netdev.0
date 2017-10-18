@@ -1,56 +1,60 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH net 0/3] Fix for BPF devmap percpu allocation splat
-Date: Wed, 18 Oct 2017 06:25:26 -0700
-Message-ID: <20171018132526.GC1302522@devbig577.frc2.facebook.com>
-References: <cover.1508251210.git.daniel@iogearbox.net>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: Re: [PATCH 4/7] devlink: Adding perm config of link settings
+Date: Wed, 18 Oct 2017 09:22:03 -0400
+Message-ID: <CA+Jmh7HnZG+7xP=02K3BMKxODbfP=Mq=9o5iC2fS4LXw0+djMg@mail.gmail.com>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+ <1508273069-40461-5-git-send-email-steven.lin1@broadcom.com>
+ <20171018073151.GC2028@nanopsycho> <CA+Jmh7Eit_BBvkJNUdF4QYwCuP5T7WCkR4O_X9DK8O0CEzAjTA@mail.gmail.com>
+ <20171018130108.GC1975@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ast@kernel.org, john.fastabend@gmail.com,
-        mark.rutland@arm.com, richard@nod.at, sp3485@columbia.edu,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Dennis Zhou <dennisszhou@gmail.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Linville <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:47264 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753821AbdJRNZb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:25:31 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1508251210.git.daniel@iogearbox.net>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:45776 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750751AbdJRNW0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:22:26 -0400
+Received: by mail-qk0-f196.google.com with SMTP id f199so6167987qke.2
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 06:22:25 -0700 (PDT)
+In-Reply-To: <20171018130108.GC1975@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Daniel.
+On Wed, Oct 18, 2017 at 9:01 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Wed, Oct 18, 2017 at 02:39:42PM CEST, steven.lin1@broadcom.com wrote:
+>>On Wed, Oct 18, 2017 at 3:31 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>
+>>> You need to split the config option to those that are per-port and to
+>>> those that are per-asic. For each family, you have to use ither
+>>> devlink_port of devlink handle. Also, you need to split into those that are
+>>> permanent and to those who are teporary (until reset). I think you might
+>>> need some flags for that.
+>>>
+>>
+>>All these are permanent; none are temporary - that's (partially) why
+>>we consider these to be devlink/device parameters rather than a
+>>netdev/ethtool thing, since they take effect after the next reset and
+>>before any drivers are loaded (i.e. the card uses these parameters for
+>>its default/startup configuration).
+>
+> Understood. But I think that this iface should be capable to serve the
+> options of non-permanent as well. Or this could be 2 separate interfaces
+> with 2 separate cmd pair. Thoughts?
+>
 
-(cc'ing Dennis)
+I would prefer to keep this command for permanent config only, and use
+a separate command for transient configuration.  I think that
+transient device configuration should be tackled in the separate
+discussion that was started in the RFC version of this patchset,
+related to moving ethtool ops to devlink/netlink.
 
-On Tue, Oct 17, 2017 at 04:55:51PM +0200, Daniel Borkmann wrote:
-> The set fixes a splat in devmap percpu allocation when we alloc
-> the flush bitmap. Patch 1 is a prerequisite for the fix in patch 2,
-> patch 1 is rather small, so if this could be routed via -net, for
-> example, with Tejun's Ack that would be good. Patch 3 gets rid of
-> remaining PCPU_MIN_UNIT_SIZE checks, which are percpu allocator
-> internals and should not be used.
-> 
-> Thanks!
-> 
-> Daniel Borkmann (3):
->   mm, percpu: add support for __GFP_NOWARN flag
+I think that's a separate topic that requires a little more thought
+and discussion, but really isn't that related to this current patchset
+for permanent device configuration.  What do you think?
 
-This looks fine.
-
->   bpf: fix splat for illegal devmap percpu allocation
->   bpf: do not test for PCPU_MIN_UNIT_SIZE before percpu allocations
-
-These look okay too but if it helps percpu allocator can expose the
-maximum size / alignment supported to take out the guessing game too.
-
-Also, the reason why PCPU_MIN_UNIT_SIZE is what it is is because
-nobody needed anything bigger.  Increasing the size doesn't really
-cost much at least on 64bit archs.  Is that something we want to be
-considering?
-
-Thanks.
-
--- 
-tejun
+Steve
