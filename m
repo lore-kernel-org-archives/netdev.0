@@ -1,44 +1,81 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [PATCH v2 12/15] RDMA/cma: make config_item_type const
-Date: Wed, 18 Oct 2017 10:33:31 -0400
-Message-ID: <1508337211.46071.67.camel@redhat.com>
-References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
-         <1508167134-6243-13-git-send-email-bhumirks@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add fdb/mdb manipulation
+Date: Wed, 18 Oct 2017 10:38:08 -0400
+Message-ID: <87mv4o4j3j.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20171018105935.12489-1-privat@egil-hjelmeland.no> <20171018105935.12489-3-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        rjw@rjwysocki.net, lenb@kernel.org,
-        alexander.shishkin@linux.intel.com, jic23@kernel.org,
-        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
-        sean.hefty@intel.com, hal.rosenstock@gmail.com, hch@lst.de,
-        sagi@grimberg.me, kishon@ti.com, bhelgaas@google.com,
-        nab@linux-iscsi.org, balbi@kernel.org, gregkh@linuxfoundation.org,
-        laurent.pinchart@ideasonboard.com, jlbec@evilplan.org,
-        ccaulfie@redhat.com, teigland@redhat.com, mfasheh@versity.com,
-        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-iio@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-nvme@lists.infradead.org,
-        linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
-        target-devel@vger.kernel.org, linux-usb@vger.kernel.org,
-        clu
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1508167134-6243-13-git-send-email-bhumirks@gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171018105935.12489-3-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-10-16 at 17:18 +0200, Bhumika Goyal wrote:
-> Make these structures const as they are either passed to the
-> functions
-> having the argument as const or stored as a reference in the
-> "ci_type"
-> const field of a config_item structure.
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Hi Egil,
 
-Acked-by: Doug Ledford <dledford@redhat.com>
+Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
 
--- 
-Doug Ledford <dledford@redhat.com>
-    GPG KeyID: B826A3330E572FDD
-    Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
+> +/* Delete static port from ALR entry, delete entry if last port */
+> +static int lan9303_alr_del_port(struct lan9303 *chip, const u8 *mac,
+> +				int port)
+> +{
+> +	struct lan9303_alr_cache_entry *entr;
+> +
+> +	entr = lan9303_alr_cache_find_mac(chip, mac);
+> +	if (!entr)
+> +		return 0;  /* no static entry found */
+> +		/* Question: Should we delete any learned entry?
+> +		 * { lan9303_alr_set_entry(chip, mac, 0, false); return 0; }
+
+.port_fdb_del is meant to remove the association between a port and a
+MAC address in a given forwarding database. Deleting any learned entry
+is therefore out of scope of this function.
+
+Please mark such patchset as RFC next time so that the maintainer knows
+that it is not meant to be applied.
+
+> +		 */
+> +
+> +	entr->port_map &= ~BIT(port);
+> +	if (entr->port_map == 0) /* zero means its free again */
+> +		eth_zero_addr(&entr->port_map);
+> +	lan9303_alr_set_entry(chip, mac, entr->port_map, entr->stp_override);
+> +	return 0;
+> +}
+
+...
+
+> +static int lan9303_port_fdb_add(struct dsa_switch *ds, int port,
+> +				const unsigned char *addr, u16 vid)
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, addr, vid);
+> +	if (vid)
+> +		return -EOPNOTSUPP;
+> +	return lan9303_alr_add_port(chip, addr, port, false);
+> +}
+> +
+> +static int lan9303_port_fdb_del(struct dsa_switch *ds, int port,
+> +				const unsigned char *addr, u16 vid)
+> +
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, addr, vid);
+> +	if (vid)
+> +		return -EOPNOTSUPP;
+> +	lan9303_alr_del_port(chip, addr, port);
+> +	return 0;
+> +}
+
+I don't remember, this chip has a single forwarding database for the
+whole switch, is that correct?
+
+
+Thanks,
+
+        Vivien
