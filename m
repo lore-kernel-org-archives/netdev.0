@@ -1,56 +1,36 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH v1 RFC 7/7] Modify tag_ksz.c so that tail tag code can
- be used by other KSZ switch drivers
-Date: Wed, 18 Oct 2017 18:02:16 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD411319AD@CHN-SV-EXMX02.mchp-main.com>
-References: <1507321985-15097-1-git-send-email-Tristram.Ha@microchip.com>
- <1507321985-15097-8-git-send-email-Tristram.Ha@microchip.com>
- <20171011204528.GA31288@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <f.fainelli@gmail.com>,
-        <ruediger.schmitt@philips.com>, <muvarov@gmail.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>,
-        <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171011204528.GA31288@amd>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] ss: Detect IPPROTO_ICMPV6 sockets
+Date: Wed, 18 Oct 2017 20:08:26 +0200
+Message-ID: <20171018180826.7236-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:47600 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750782AbdJRSIi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Oct 2017 14:08:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +#define KSZ9477_INGRESS_TAG_LEN		2
-> > +#define KSZ9477_PTP_TAG_LEN		4
-> > +#define KSZ9477_PTP_TAG_INDICATION	0x80
-> > +
-> > +#define KSZ9477_TAIL_TAG_OVERRIDE	BIT(9)
-> > +#define KSZ9477_TAIL_TAG_LOOKUP		BIT(10)
-> > +
-> > +static int ksz9477_get_tag(u8 *tag, int *port)
-> > +{
-> > +	int len = KSZ_EGRESS_TAG_LEN;
-> > +
-> > +	/* Extra 4-bytes PTP timestamp */
-> > +	if (tag[0] & KSZ9477_PTP_TAG_INDICATION)
-> > +		len += KSZ9477_PTP_TAG_LEN;
-> > +	*port = tag[0] & 7;
-> > +	return len;
-> > +}
-> > +
-> > +static void ksz9477_set_tag(void *ptr, u8 *addr, int p)
-> > +{
-> > +	u16 *tag = (u16 *)ptr;
-> > +
-> > +	*tag = 1 << p;
-> > +	if (!memcmp(addr, special_mult_addr, ETH_ALEN))
-> > +		*tag |= KSZ9477_TAIL_TAG_OVERRIDE;
-> > +	*tag = cpu_to_be16(*tag);
-> > +}
-> 
-> These are new features that were not there before, right?
+Prefix IPPROTO_ICMPV6 sockets with 'icmp6' instead of '???'.
 
-Although it is the correct procedure, they will be removed until
-this tail tag code has access to the main switch driver.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ misc/ss.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index e37aba6022eb4..b5c6bbc05766e 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -784,6 +784,8 @@ static const char *proto_name(int protocol)
+ 		return "sctp";
+ 	case IPPROTO_DCCP:
+ 		return "dccp";
++	case IPPROTO_ICMPV6:
++		return "icmp6";
+ 	}
+ 
+ 	return "???";
+-- 
+2.13.1
