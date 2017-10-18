@@ -1,30 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 6/7] bnxt: Move generic devlink code to new file
-Date: Wed, 18 Oct 2017 09:33:48 +0200
-Message-ID: <20171018073348.GD2028@nanopsycho>
-References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
- <1508273069-40461-7-git-send-email-steven.lin1@broadcom.com>
+From: Yann Ylavic <ylavic.dev@gmail.com>
+Subject: Re: [net-next V8 PATCH 1/5] bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
+Date: Wed, 18 Oct 2017 09:45:59 +0200
+Message-ID: <CAKQ1sVMH-h36UWwuKhcVC=ZN+L=y3y3apayye_yKYKXTbqMGTQ@mail.gmail.com>
+References: <150814913767.1806.3470498528707259987.stgit@firesoul> <150814916887.1806.4443991765779135803.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
-        michael.chan@broadcom.com, linville@tuxdriver.com,
-        gospo@broadcom.com
-To: Steve Lin <steven.lin1@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        jakub.kicinski@netronome.com,
+        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
+        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
+        John Fastabend <john.fastabend@gmail.com>,
+        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:51065 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762647AbdJRHdu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 03:33:50 -0400
-Received: by mail-wm0-f45.google.com with SMTP id u138so8083484wmu.5
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 00:33:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1508273069-40461-7-git-send-email-steven.lin1@broadcom.com>
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:46560 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932533AbdJRHqB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 03:46:01 -0400
+Received: by mail-qt0-f171.google.com with SMTP id 1so8922190qtn.3
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 00:46:00 -0700 (PDT)
+In-Reply-To: <150814916887.1806.4443991765779135803.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Oct 17, 2017 at 10:44:28PM CEST, steven.lin1@broadcom.com wrote:
->Moving generic devlink code (registration) out of VR-R code
->into new bnxt_devlink file.
+On Mon, Oct 16, 2017 at 12:19 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> +
+> +       /* Notice returns -EPERM on if map size is larger than memlock limit */
+> +       ret = bpf_map_precharge_memlock(cmap->map.pages);
+> +       if (ret) {
+> +               err = ret;
+> +               goto free_cmap;
+> +       }
+> +
+> +       /* A per cpu bitfield with a bit per possible CPU in map  */
+> +       cmap->flush_needed = __alloc_percpu(cpu_map_bitmap_size(attr),
+> +                                           __alignof__(unsigned long));
+> +       if (!cmap->flush_needed)
+> +               goto free_cmap;
+> +
+> +       /* Alloc array for possible remote "destination" CPUs */
+> +       cmap->cpu_map = bpf_map_area_alloc(cmap->map.max_entries *
+> +                                          sizeof(struct bpf_cpu_map_entry *),
+> +                                          cmap->map.numa_node);
+> +       if (!cmap->cpu_map)
 
-You can send this patch separatelly and let it be applied before the
-patchset.
+ret = -ENOMEM; ?
+
+> +               goto free_percpu;
+> +
+> +       return &cmap->map;
+> +free_percpu:
+> +       free_percpu(cmap->flush_needed);
+> +free_cmap:
+> +       kfree(cmap);
+> +       return ERR_PTR(err);
+> +}
+
+
+Regards,
+Yann.
