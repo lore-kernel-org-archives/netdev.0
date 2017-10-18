@@ -1,37 +1,39 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net 0/3] Fix for BPF devmap percpu allocation splat
-Date: Wed, 18 Oct 2017 17:31:40 +0200
-Message-ID: <59E773DC.5090206@iogearbox.net>
-References: <cover.1508251210.git.daniel@iogearbox.net> <20171018132526.GC1302522@devbig577.frc2.facebook.com> <59E75F4F.7070706@iogearbox.net> <59E7639A.4060604@iogearbox.net> <CAADnVQLk2gu1j3PXjDCfF1hh09-5Ak_8Xd5hq48xTAJNR0Xb=Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Richard Weinberger <richard@nod.at>, sp3485@columbia.edu,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Dennis Zhou <dennisszhou@gmail.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next] net/sched: Set the net-device for egress device instance
+Date: Wed, 18 Oct 2017 18:38:08 +0300
+Message-ID: <1508341088-20043-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
+        Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43856 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750751AbdJRPbq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:31:46 -0400
-In-Reply-To: <CAADnVQLk2gu1j3PXjDCfF1hh09-5Ak_8Xd5hq48xTAJNR0Xb=Q@mail.gmail.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:35326 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751358AbdJRPiP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:38:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/18/2017 05:28 PM, Alexei Starovoitov wrote:
-> On Wed, Oct 18, 2017 at 7:22 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>
->> Higher prio imo would be to make the allocation itself faster
->> though, I remember we talked about this back in May wrt hashtable,
->> but I kind of lost track whether there was an update on this in
->> the mean time. ;-)
->
-> new percpu allocator by Dennis fixed those issues. It's in 4.14
+Currently the netdevice field is not set and the egdev instance
+is not functional, fix that.
 
-Ah, perfect!
+Fixes: 3f55bdda8df ('net: sched: introduce per-egress action device callbacks')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/act_api.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index ac97db9..c67b820 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -1300,6 +1300,7 @@ tcf_action_egdev_get(const struct net_device *dev)
+ 	if (!egdev)
+ 		return NULL;
+ 	INIT_LIST_HEAD(&egdev->cb_list);
++	egdev->dev = dev;
+ 	tan = net_generic(dev_net(dev), tcf_action_net_id);
+ 	rhashtable_insert_fast(&tan->egdev_ht, &egdev->ht_node,
+ 			       tcf_action_egdev_ht_params);
+-- 
+2.3.7
