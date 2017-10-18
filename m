@@ -1,41 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/2] net: add skb_memcpy_to[from]_msg() to
- optimize skb code
-Date: Wed, 18 Oct 2017 12:18:34 +0100 (WEST)
-Message-ID: <20171018.121834.1670470800745081134.davem@davemloft.net>
-References: <1508155873-23752-1-git-send-email-cugyly@163.com>
+Subject: Re: [patch net] mlxsw: core: Fix possible deadlock
+Date: Wed, 18 Oct 2017 12:21:13 +0100 (WEST)
+Message-ID: <20171018.122113.2048778528438796236.davem@davemloft.net>
+References: <20171016142828.2742-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
-To: cugyly@163.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59752 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59776 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752819AbdJRLSl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:18:41 -0400
-In-Reply-To: <1508155873-23752-1-git-send-email-cugyly@163.com>
+        with ESMTP id S1752029AbdJRLVT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:21:19 -0400
+In-Reply-To: <20171016142828.2742-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yuan linyu <cugyly@163.com>
-Date: Mon, 16 Oct 2017 20:11:13 +0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 16 Oct 2017 16:28:28 +0200
 
-> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> From: Ido Schimmel <idosch@mellanox.com>
 > 
-> add these two wrappers in skbuff.h which is better named
-> than previous and only used for skb.
+> When an EMAD is transmitted, a timeout work item is scheduled with a
+> delay of 200ms, so that another EMAD will be retried until a maximum of
+> five retries.
 > 
-> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> In certain situations, it's possible for the function waiting on the
+> EMAD to be associated with a work item that is queued on the same
+> workqueue (`mlxsw_core`) as the timeout work item. This results in
+> flushing a work item on the same workqueue.
+> 
+> According to commit e159489baa71 ("workqueue: relax lockdep annotation
+> on flush_work()") the above may lead to a deadlock in case the workqueue
+> has only one worker active or if the system in under memory pressure and
+> the rescue worker is in use. The latter explains the very rare and
+> random nature of the lockdep splats we have been seeing:
+ ...
+> Fix this by creating another workqueue for EMAD timeouts, thereby
+> preventing the situation of a work item trying to flush a work item
+> queued on the same workqueue.
+> 
+> Fixes: caf7297e7ab5f ("mlxsw: core: Introduce support for asynchronous EMAD register access")
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Reported-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Doing the skb_put() inside of the helper function makes code less
-intuitive.
-
-If someone is auditing code it's easier to see the skb_put() and
-understand what is happening when it's at the call site rather than
-buried in some helper.
-
-Sorry, I don't see these changes as an improvement and will not apply
-them.
-
-Thank you.
+Applied.
