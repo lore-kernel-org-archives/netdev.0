@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 7/8] cxgb4: introduce fw_filter2_wr to prepare for L3/L4 rewrite support
-Date: Wed, 18 Oct 2017 20:49:13 +0530
-Message-ID: <5c7501ff6ef3ef3fe2563ab9e7b6d46172751ef1.1508312071.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 8/8] cxgb4: add tc flower support for L3/L4 rewrite
+Date: Wed, 18 Oct 2017 20:49:14 +0530
+Message-ID: <0a7077162953a856f9732e2cdb55ede828be5732.1508312071.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:34762 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:53989 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750751AbdJRPUw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:52 -0400
+        with ESMTP id S1751276AbdJRPUy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:54 -0400
 In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
@@ -20,223 +20,398 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Update driver to use new fw_filter2_wr in order to support rewrite of
-L3/L4 header fields via filters. Query FW_PARAMS_PARAM_DEV_FILTER2_WR
-to check whether FW supports this new wr.
+Adds support to rewrite L3/L4 fields via TC-PEDIT action.
+Supported fields for rewrite are:
+IPv4 src/dst address, IPv6 src/dst address, TCP/UDP sport/dport.
+
+Also, process match fields first and then process the action items.
+
+Refactor pedit action validation to separate function to avoid
+excessive code indentation.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h        | 10 +++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c | 19 +++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c   | 10 +++
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h     | 75 ++++++++++++++++++++++-
- 4 files changed, 111 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   4 +
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 245 +++++++++++++++++----
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   |  32 +++
+ 3 files changed, 244 insertions(+), 37 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index f7aa3516bf12..6a1c0b1fe8d0 100644
+index 6a1c0b1fe8d0..92a0b022687e 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -367,6 +367,7 @@ struct adapter_params {
- 	unsigned int max_ird_adapter;     /* Max read depth per adapter */
- 	bool fr_nsmr_tpte_wr_support;	  /* FW support for FR_NSMR_TPTE_WR */
- 	u8 fw_caps_support;		/* 32-bit Port Capabilities */
-+	bool filter2_wr_support;	/* FW support for FILTER2_WR */
- 
- 	/* MPS Buffer Group Map[per Port].  Bit i is set if buffer group i is
- 	 * used by the Port
-@@ -1064,10 +1065,19 @@ struct ch_filter_specification {
- 	uint32_t newdmac:1;     /* rewrite destination MAC address */
- 	uint32_t newsmac:1;     /* rewrite source MAC address */
- 	uint32_t newvlan:2;     /* rewrite VLAN Tag */
-+	uint32_t nat_mode:3;    /* specify NAT operation mode */
- 	uint8_t dmac[ETH_ALEN]; /* new destination MAC address */
- 	uint8_t smac[ETH_ALEN]; /* new source MAC address */
- 	uint16_t vlan;          /* VLAN Tag to insert */
- 
-+	u8 nat_lip[16];		/* local IP to use after NAT'ing */
-+	u8 nat_fip[16];		/* foreign IP to use after NAT'ing */
-+	u16 nat_lport;		/* local port to use after NAT'ing */
-+	u16 nat_fport;		/* foreign port to use after NAT'ing */
-+
-+	/* reservation for future additions */
-+	u8 rsvd[24];
-+
- 	/* Filter rule value/mask pairs.
- 	 */
- 	struct ch_filter_tuple val;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-index a8084be5e13b..89272f29f807 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
-@@ -313,7 +313,7 @@ static int del_filter_wr(struct adapter *adapter, int fidx)
- int set_filter_wr(struct adapter *adapter, int fidx)
- {
- 	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
--	struct fw_filter_wr *fwr;
-+	struct fw_filter2_wr *fwr;
- 	struct sk_buff *skb;
- 
- 	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL);
-@@ -359,7 +359,10 @@ int set_filter_wr(struct adapter *adapter, int fidx)
- 	 * filter specification structure but for now it's easiest to simply
- 	 * put this fairly direct code in line ...
- 	 */
--	fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
-+	if (adapter->params.filter2_wr_support)
-+		fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER2_WR));
-+	else
-+		fwr->op_pkd = htonl(FW_WR_OP_V(FW_FILTER_WR));
- 	fwr->len16_pkd = htonl(FW_WR_LEN16_V(sizeof(*fwr) / 16));
- 	fwr->tid_to_iq =
- 		htonl(FW_FILTER_WR_TID_V(f->tid) |
-@@ -421,6 +424,18 @@ int set_filter_wr(struct adapter *adapter, int fidx)
- 	fwr->fp = htons(f->fs.val.fport);
- 	fwr->fpm = htons(f->fs.mask.fport);
- 
-+	if (adapter->params.filter2_wr_support) {
-+		fwr->natmode_to_ulp_type =
-+			FW_FILTER2_WR_ULP_TYPE_V(f->fs.nat_mode ?
-+						 ULP_MODE_TCPDDP :
-+						 ULP_MODE_NONE) |
-+			FW_FILTER2_WR_NATMODE_V(f->fs.nat_mode);
-+		memcpy(fwr->newlip, f->fs.nat_lip, sizeof(fwr->newlip));
-+		memcpy(fwr->newfip, f->fs.nat_fip, sizeof(fwr->newfip));
-+		fwr->newlport = htons(f->fs.nat_lport);
-+		fwr->newfport = htons(f->fs.nat_fport);
-+	}
-+
- 	/* Mark the filter as "pending" and ship off the Filter Work Request.
- 	 * When we get the Work Request Reply we'll clear the pending status.
- 	 */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 796b37de464f..c478291db93f 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3910,6 +3910,16 @@ static int adap_init0(struct adapter *adap)
- 			      1, params, val);
- 	adap->params.fr_nsmr_tpte_wr_support = (ret == 0 && val[0] != 0);
- 
-+	/* See if FW supports FW_FILTER2 work request */
-+	if (is_t4(adap->params.chip)) {
-+		adap->params.filter2_wr_support = 0;
-+	} else {
-+		params[0] = FW_PARAM_DEV(FILTER2_WR);
-+		ret = t4_query_params(adap, adap->mbox, adap->pf, 0,
-+				      1, params, val);
-+		adap->params.filter2_wr_support = (ret == 0 && val[0] != 0);
-+	}
-+
- 	/*
- 	 * Get device capabilities so we can determine what resources we need
- 	 * to manage.
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index ca2756dcefc5..875d4a72b3ef 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -105,7 +105,8 @@ enum fw_wr_opcodes {
- 	FW_ISCSI_TX_DATA_WR	       = 0x45,
- 	FW_PTP_TX_PKT_WR               = 0x46,
- 	FW_CRYPTO_LOOKASIDE_WR         = 0X6d,
--	FW_LASTC2E_WR                  = 0x70
-+	FW_LASTC2E_WR                  = 0x70,
-+	FW_FILTER2_WR		       = 0x77
+@@ -1097,6 +1097,10 @@ enum {
+ 	VLAN_REWRITE
  };
  
- struct fw_wr_hdr {
-@@ -201,6 +202,51 @@ struct fw_filter_wr {
- 	__u8   sma[6];
- };
- 
-+struct fw_filter2_wr {
-+	__be32 op_pkd;
-+	__be32 len16_pkd;
-+	__be64 r3;
-+	__be32 tid_to_iq;
-+	__be32 del_filter_to_l2tix;
-+	__be16 ethtype;
-+	__be16 ethtypem;
-+	__u8   frag_to_ovlan_vldm;
-+	__u8   smac_sel;
-+	__be16 rx_chan_rx_rpl_iq;
-+	__be32 maci_to_matchtypem;
-+	__u8   ptcl;
-+	__u8   ptclm;
-+	__u8   ttyp;
-+	__u8   ttypm;
-+	__be16 ivlan;
-+	__be16 ivlanm;
-+	__be16 ovlan;
-+	__be16 ovlanm;
-+	__u8   lip[16];
-+	__u8   lipm[16];
-+	__u8   fip[16];
-+	__u8   fipm[16];
-+	__be16 lp;
-+	__be16 lpm;
-+	__be16 fp;
-+	__be16 fpm;
-+	__be16 r7;
-+	__u8   sma[6];
-+	__be16 r8;
-+	__u8   filter_type_swapmac;
-+	__u8   natmode_to_ulp_type;
-+	__be16 newlport;
-+	__be16 newfport;
-+	__u8   newlip[16];
-+	__u8   newfip[16];
-+	__be32 natseqcheck;
-+	__be32 r9;
-+	__be64 r10;
-+	__be64 r11;
-+	__be64 r12;
-+	__be64 r13;
++enum {
++	NAT_MODE_ALL = 7,	/* NAT on entire 4-tuple */
 +};
 +
- #define FW_FILTER_WR_TID_S      12
- #define FW_FILTER_WR_TID_M      0xfffff
- #define FW_FILTER_WR_TID_V(x)   ((x) << FW_FILTER_WR_TID_S)
-@@ -385,6 +431,32 @@ struct fw_filter_wr {
- #define FW_FILTER_WR_RX_RPL_IQ_G(x)     \
- 	(((x) >> FW_FILTER_WR_RX_RPL_IQ_S) & FW_FILTER_WR_RX_RPL_IQ_M)
- 
-+#define FW_FILTER2_WR_FILTER_TYPE_S	1
-+#define FW_FILTER2_WR_FILTER_TYPE_M	0x1
-+#define FW_FILTER2_WR_FILTER_TYPE_V(x)	((x) << FW_FILTER2_WR_FILTER_TYPE_S)
-+#define FW_FILTER2_WR_FILTER_TYPE_G(x)  \
-+	(((x) >> FW_FILTER2_WR_FILTER_TYPE_S) & FW_FILTER2_WR_FILTER_TYPE_M)
-+#define FW_FILTER2_WR_FILTER_TYPE_F	FW_FILTER2_WR_FILTER_TYPE_V(1U)
-+
-+#define FW_FILTER2_WR_NATMODE_S		5
-+#define FW_FILTER2_WR_NATMODE_M		0x7
-+#define FW_FILTER2_WR_NATMODE_V(x)	((x) << FW_FILTER2_WR_NATMODE_S)
-+#define FW_FILTER2_WR_NATMODE_G(x)      \
-+	(((x) >> FW_FILTER2_WR_NATMODE_S) & FW_FILTER2_WR_NATMODE_M)
-+
-+#define FW_FILTER2_WR_NATFLAGCHECK_S	4
-+#define FW_FILTER2_WR_NATFLAGCHECK_M	0x1
-+#define FW_FILTER2_WR_NATFLAGCHECK_V(x)	((x) << FW_FILTER2_WR_NATFLAGCHECK_S)
-+#define FW_FILTER2_WR_NATFLAGCHECK_G(x) \
-+	(((x) >> FW_FILTER2_WR_NATFLAGCHECK_S) & FW_FILTER2_WR_NATFLAGCHECK_M)
-+#define FW_FILTER2_WR_NATFLAGCHECK_F	FW_FILTER2_WR_NATFLAGCHECK_V(1U)
-+
-+#define FW_FILTER2_WR_ULP_TYPE_S	0
-+#define FW_FILTER2_WR_ULP_TYPE_M	0xf
-+#define FW_FILTER2_WR_ULP_TYPE_V(x)	((x) << FW_FILTER2_WR_ULP_TYPE_S)
-+#define FW_FILTER2_WR_ULP_TYPE_G(x)     \
-+	(((x) >> FW_FILTER2_WR_ULP_TYPE_S) & FW_FILTER2_WR_ULP_TYPE_M)
-+
- #define FW_FILTER_WR_MACI_S     23
- #define FW_FILTER_WR_MACI_M     0x1ff
- #define FW_FILTER_WR_MACI_V(x)  ((x) << FW_FILTER_WR_MACI_S)
-@@ -1127,6 +1199,7 @@ enum fw_params_param_dev {
- 	FW_PARAMS_PARAM_DEV_SCFGREV = 0x1A,
- 	FW_PARAMS_PARAM_DEV_VPDREV = 0x1B,
- 	FW_PARAMS_PARAM_DEV_RI_FR_NSMR_TPTE_WR	= 0x1C,
-+	FW_PARAMS_PARAM_DEV_FILTER2_WR  = 0x1D,
- 	FW_PARAMS_PARAM_DEV_MPSBGMAP	= 0x1E,
+ /* Host shadow copy of ingress filter entry.  This is in host native format
+  * and doesn't match the ordering or bit order, etc. of the hardware of the
+  * firmware command.  The use of bit-field structure elements is purely to
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+index 34d67a2a86f4..892dfce1fa63 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+@@ -47,6 +47,20 @@ struct ch_tc_pedit_fields pedits[] = {
+ 	PEDIT_FIELDS(ETH_, DMAC_47_32, 2, dmac, 4),
+ 	PEDIT_FIELDS(ETH_, SMAC_15_0, 2, smac, 0),
+ 	PEDIT_FIELDS(ETH_, SMAC_47_16, 4, smac, 2),
++	PEDIT_FIELDS(IP4_, SRC, 4, nat_fip, 0),
++	PEDIT_FIELDS(IP4_, DST, 4, nat_lip, 0),
++	PEDIT_FIELDS(IP6_, SRC_31_0, 4, nat_fip, 0),
++	PEDIT_FIELDS(IP6_, SRC_63_32, 4, nat_fip, 4),
++	PEDIT_FIELDS(IP6_, SRC_95_64, 4, nat_fip, 8),
++	PEDIT_FIELDS(IP6_, SRC_127_96, 4, nat_fip, 12),
++	PEDIT_FIELDS(IP6_, DST_31_0, 4, nat_lip, 0),
++	PEDIT_FIELDS(IP6_, DST_63_32, 4, nat_lip, 4),
++	PEDIT_FIELDS(IP6_, DST_95_64, 4, nat_lip, 8),
++	PEDIT_FIELDS(IP6_, DST_127_96, 4, nat_lip, 12),
++	PEDIT_FIELDS(TCP_, SPORT, 2, nat_fport, 0),
++	PEDIT_FIELDS(TCP_, DPORT, 2, nat_lport, 0),
++	PEDIT_FIELDS(UDP_, SPORT, 2, nat_fport, 0),
++	PEDIT_FIELDS(UDP_, DPORT, 2, nat_lport, 0),
  };
  
+ static struct ch_tc_flower_entry *allocate_flower_entry(void)
+@@ -121,6 +135,11 @@ static void cxgb4_process_flow_match(struct net_device *dev,
+ 		memcpy(&fs->val.fip[0], &key->src, sizeof(key->src));
+ 		memcpy(&fs->mask.lip[0], &mask->dst, sizeof(mask->dst));
+ 		memcpy(&fs->mask.fip[0], &mask->src, sizeof(mask->src));
++
++		/* also initialize nat_lip/fip to same values */
++		memcpy(&fs->nat_lip[0], &key->dst, sizeof(key->dst));
++		memcpy(&fs->nat_fip[0], &key->src, sizeof(key->src));
++
+ 	}
+ 
+ 	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
+@@ -138,6 +157,10 @@ static void cxgb4_process_flow_match(struct net_device *dev,
+ 		memcpy(&fs->val.fip[0], key->src.s6_addr, sizeof(key->src));
+ 		memcpy(&fs->mask.lip[0], mask->dst.s6_addr, sizeof(mask->dst));
+ 		memcpy(&fs->mask.fip[0], mask->src.s6_addr, sizeof(mask->src));
++
++		/* also initialize nat_lip/fip to same values */
++		memcpy(&fs->nat_lip[0], key->dst.s6_addr, sizeof(key->dst));
++		memcpy(&fs->nat_fip[0], key->src.s6_addr, sizeof(key->src));
+ 	}
+ 
+ 	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
+@@ -153,6 +176,10 @@ static void cxgb4_process_flow_match(struct net_device *dev,
+ 		fs->mask.lport = cpu_to_be16(mask->dst);
+ 		fs->val.fport = cpu_to_be16(key->src);
+ 		fs->mask.fport = cpu_to_be16(mask->src);
++
++		/* also initialize nat_lport/fport to same values */
++		fs->nat_lport = cpu_to_be16(key->dst);
++		fs->nat_fport = cpu_to_be16(key->src);
+ 	}
+ 
+ 	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
+@@ -301,6 +328,70 @@ static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
+ 			fs->newsmac = 1;
+ 			offload_pedit(fs, val, mask, ETH_SMAC_47_16);
+ 		}
++		break;
++	case TCA_PEDIT_KEY_EX_HDR_TYPE_IP4:
++		switch (offset) {
++		case PEDIT_IP4_SRC:
++			offload_pedit(fs, val, mask, IP4_SRC);
++			break;
++		case PEDIT_IP4_DST:
++			offload_pedit(fs, val, mask, IP4_DST);
++		}
++		fs->nat_mode = NAT_MODE_ALL;
++		break;
++	case TCA_PEDIT_KEY_EX_HDR_TYPE_IP6:
++		switch (offset) {
++		case PEDIT_IP6_SRC_31_0:
++			offload_pedit(fs, val, mask, IP6_SRC_31_0);
++			break;
++		case PEDIT_IP6_SRC_63_32:
++			offload_pedit(fs, val, mask, IP6_SRC_63_32);
++			break;
++		case PEDIT_IP6_SRC_95_64:
++			offload_pedit(fs, val, mask, IP6_SRC_95_64);
++			break;
++		case PEDIT_IP6_SRC_127_96:
++			offload_pedit(fs, val, mask, IP6_SRC_127_96);
++			break;
++		case PEDIT_IP6_DST_31_0:
++			offload_pedit(fs, val, mask, IP6_DST_31_0);
++			break;
++		case PEDIT_IP6_DST_63_32:
++			offload_pedit(fs, val, mask, IP6_DST_63_32);
++			break;
++		case PEDIT_IP6_DST_95_64:
++			offload_pedit(fs, val, mask, IP6_DST_95_64);
++			break;
++		case PEDIT_IP6_DST_127_96:
++			offload_pedit(fs, val, mask, IP6_DST_127_96);
++		}
++		fs->nat_mode = NAT_MODE_ALL;
++		break;
++	case TCA_PEDIT_KEY_EX_HDR_TYPE_TCP:
++		switch (offset) {
++		case PEDIT_TCP_SPORT_DPORT:
++			if (~mask & PEDIT_TCP_UDP_SPORT_MASK)
++				offload_pedit(fs, cpu_to_be32(val) >> 16,
++					      cpu_to_be32(mask) >> 16,
++					      TCP_SPORT);
++			else
++				offload_pedit(fs, cpu_to_be32(val),
++					      cpu_to_be32(mask), TCP_DPORT);
++		}
++		fs->nat_mode = NAT_MODE_ALL;
++		break;
++	case TCA_PEDIT_KEY_EX_HDR_TYPE_UDP:
++		switch (offset) {
++		case PEDIT_UDP_SPORT_DPORT:
++			if (~mask & PEDIT_TCP_UDP_SPORT_MASK)
++				offload_pedit(fs, cpu_to_be32(val) >> 16,
++					      cpu_to_be32(mask) >> 16,
++					      UDP_SPORT);
++			else
++				offload_pedit(fs, cpu_to_be32(val),
++					      cpu_to_be32(mask), UDP_DPORT);
++		}
++		fs->nat_mode = NAT_MODE_ALL;
+ 	}
+ }
+ 
+@@ -365,6 +456,119 @@ static void cxgb4_process_flow_actions(struct net_device *in,
+ 	}
+ }
+ 
++static bool valid_l4_mask(u32 mask)
++{
++	u16 hi, lo;
++
++	/* Either the upper 16-bits (SPORT) OR the lower
++	 * 16-bits (DPORT) can be set, but NOT BOTH.
++	 */
++	hi = (mask >> 16) & 0xFFFF;
++	lo = mask & 0xFFFF;
++
++	return hi && lo ? false : true;
++}
++
++static bool valid_pedit_action(struct net_device *dev,
++			       const struct tc_action *a)
++{
++	u32 mask, offset;
++	u8 cmd, htype;
++	int nkeys, i;
++
++	nkeys = tcf_pedit_nkeys(a);
++	for (i = 0; i < nkeys; i++) {
++		htype = tcf_pedit_htype(a, i);
++		cmd = tcf_pedit_cmd(a, i);
++		mask = tcf_pedit_mask(a, i);
++		offset = tcf_pedit_offset(a, i);
++
++		if (cmd != TCA_PEDIT_KEY_EX_CMD_SET) {
++			netdev_err(dev, "%s: Unsupported pedit cmd\n",
++				   __func__);
++			return false;
++		}
++
++		switch (htype) {
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
++			switch (offset) {
++			case PEDIT_ETH_DMAC_31_0:
++			case PEDIT_ETH_DMAC_47_32_SMAC_15_0:
++			case PEDIT_ETH_SMAC_47_16:
++				break;
++			default:
++				netdev_err(dev, "%s: Unsupported pedit field\n",
++					   __func__);
++				return false;
++			}
++			break;
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_IP4:
++			switch (offset) {
++			case PEDIT_IP4_SRC:
++			case PEDIT_IP4_DST:
++				break;
++			default:
++				netdev_err(dev, "%s: Unsupported pedit field\n",
++					   __func__);
++				return false;
++			}
++			break;
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_IP6:
++			switch (offset) {
++			case PEDIT_IP6_SRC_31_0:
++			case PEDIT_IP6_SRC_63_32:
++			case PEDIT_IP6_SRC_95_64:
++			case PEDIT_IP6_SRC_127_96:
++			case PEDIT_IP6_DST_31_0:
++			case PEDIT_IP6_DST_63_32:
++			case PEDIT_IP6_DST_95_64:
++			case PEDIT_IP6_DST_127_96:
++				break;
++			default:
++				netdev_err(dev, "%s: Unsupported pedit field\n",
++					   __func__);
++				return false;
++			}
++			break;
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_TCP:
++			switch (offset) {
++			case PEDIT_TCP_SPORT_DPORT:
++				if (!valid_l4_mask(~mask)) {
++					netdev_err(dev, "%s: Unsupported mask for TCP L4 ports\n",
++						   __func__);
++					return false;
++				}
++				break;
++			default:
++				netdev_err(dev, "%s: Unsupported pedit field\n",
++					   __func__);
++				return false;
++			}
++			break;
++		case TCA_PEDIT_KEY_EX_HDR_TYPE_UDP:
++			switch (offset) {
++			case PEDIT_UDP_SPORT_DPORT:
++				if (!valid_l4_mask(~mask)) {
++					netdev_err(dev, "%s: Unsupported mask for UDP L4 ports\n",
++						   __func__);
++					return false;
++				}
++				break;
++			default:
++				netdev_err(dev, "%s: Unsupported pedit field\n",
++					   __func__);
++				return false;
++			}
++			break;
++		default:
++			netdev_err(dev, "%s: Unsupported pedit type\n",
++				   __func__);
++			return false;
++		}
++	}
++	return true;
++}
++
+ static int cxgb4_validate_flow_actions(struct net_device *dev,
+ 				       struct tc_cls_flower_offload *cls)
+ {
+@@ -426,43 +630,10 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
+ 			}
+ 			act_vlan = true;
+ 		} else if (is_tcf_pedit(a)) {
+-			u32 mask, val, offset;
+-			u8 cmd, htype;
+-			int nkeys, i;
++			bool pedit_valid = valid_pedit_action(dev, a);
+ 
+-			nkeys = tcf_pedit_nkeys(a);
+-			for (i = 0; i < nkeys; i++) {
+-				htype = tcf_pedit_htype(a, i);
+-				cmd = tcf_pedit_cmd(a, i);
+-				mask = tcf_pedit_mask(a, i);
+-				val = tcf_pedit_val(a, i);
+-				offset = tcf_pedit_offset(a, i);
+-
+-				if (cmd != TCA_PEDIT_KEY_EX_CMD_SET) {
+-					netdev_err(dev, "%s: Unsupported pedit cmd\n",
+-						   __func__);
+-					return -EOPNOTSUPP;
+-				}
+-
+-				switch (htype) {
+-				case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
+-					switch (offset) {
+-					case PEDIT_ETH_DMAC_31_0:
+-					case PEDIT_ETH_DMAC_47_32_SMAC_15_0:
+-					case PEDIT_ETH_SMAC_47_16:
+-						break;
+-					default:
+-						netdev_err(dev, "%s: Unsupported pedit field\n",
+-							   __func__);
+-						return -EOPNOTSUPP;
+-					}
+-					break;
+-				default:
+-					netdev_err(dev, "%s: Unsupported pedit type\n",
+-						   __func__);
+-					return -EOPNOTSUPP;
+-				}
+-			}
++			if (!pedit_valid)
++				return -EOPNOTSUPP;
+ 			act_pedit = true;
+ 		} else {
+ 			netdev_err(dev, "%s: Unsupported action\n", __func__);
+@@ -503,8 +674,8 @@ int cxgb4_tc_flower_replace(struct net_device *dev,
+ 
+ 	fs = &ch_flower->fs;
+ 	fs->hitcnts = 1;
+-	cxgb4_process_flow_actions(dev, cls, fs);
+ 	cxgb4_process_flow_match(dev, cls, fs);
++	cxgb4_process_flow_actions(dev, cls, fs);
+ 
+ 	fidx = cxgb4_get_free_ftid(dev, fs->type ? PF_INET6 : PF_INET);
+ 	if (fidx < 0) {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
+index a2acb782918f..202d5c9ec303 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
+@@ -59,6 +59,25 @@ enum {
+ 	ETH_DMAC_47_32,	/* dmac bits 32..47 */
+ 	ETH_SMAC_15_0,	/* smac bits 0.. 15 */
+ 	ETH_SMAC_47_16,	/* smac bits 16..47 */
++
++	IP4_SRC,	/* 32-bit IPv4 src  */
++	IP4_DST,	/* 32-bit IPv4 dst  */
++
++	IP6_SRC_31_0,	/* src bits 0..  31 */
++	IP6_SRC_63_32,	/* src bits 63.. 32 */
++	IP6_SRC_95_64,	/* src bits 95.. 64 */
++	IP6_SRC_127_96,	/* src bits 127..96 */
++
++	IP6_DST_31_0,	/* dst bits 0..  31 */
++	IP6_DST_63_32,	/* dst bits 63.. 32 */
++	IP6_DST_95_64,	/* dst bits 95.. 64 */
++	IP6_DST_127_96,	/* dst bits 127..96 */
++
++	TCP_SPORT,	/* 16-bit TCP sport */
++	TCP_DPORT,	/* 16-bit TCP dport */
++
++	UDP_SPORT,	/* 16-bit UDP sport */
++	UDP_DPORT,	/* 16-bit UDP dport */
+ };
+ 
+ struct ch_tc_pedit_fields {
+@@ -72,9 +91,22 @@ struct ch_tc_pedit_fields {
+ 		offsetof(struct ch_filter_specification, fs_field) + (offset) }
+ 
+ #define PEDIT_ETH_DMAC_MASK		0xffff
++#define PEDIT_TCP_UDP_SPORT_MASK	0xffff
+ #define PEDIT_ETH_DMAC_31_0		0x0
+ #define PEDIT_ETH_DMAC_47_32_SMAC_15_0	0x4
+ #define PEDIT_ETH_SMAC_47_16		0x8
++#define PEDIT_IP4_SRC			0xC
++#define PEDIT_IP4_DST			0x10
++#define PEDIT_IP6_SRC_31_0		0x8
++#define PEDIT_IP6_SRC_63_32		0xC
++#define PEDIT_IP6_SRC_95_64		0x10
++#define PEDIT_IP6_SRC_127_96		0x14
++#define PEDIT_IP6_DST_31_0		0x18
++#define PEDIT_IP6_DST_63_32		0x1C
++#define PEDIT_IP6_DST_95_64		0x20
++#define PEDIT_IP6_DST_127_96		0x24
++#define PEDIT_TCP_SPORT_DPORT		0x0
++#define PEDIT_UDP_SPORT_DPORT		0x0
+ 
+ int cxgb4_tc_flower_replace(struct net_device *dev,
+ 			    struct tc_cls_flower_offload *cls);
 -- 
 2.14.1
