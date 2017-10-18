@@ -1,61 +1,53 @@
 From: Scott Branden <scott.branden@broadcom.com>
-Subject: Re: [PATCH 0/1] net: ethtool: add SmartNIC reset support
-Date: Wed, 18 Oct 2017 14:59:28 -0700
-Message-ID: <5d583bb0-1886-fe56-26c7-a80ba370ef2c@broadcom.com>
+Subject: Re: [PATCH 1/1] net: ethtool: add support for reset of AP inside NIC
+ interface.
+Date: Wed, 18 Oct 2017 14:59:57 -0700
+Message-ID: <5a0da7ea-0ac0-5cac-ab15-a5de9a58922f@broadcom.com>
 References: <1508342496-5047-1-git-send-email-scott.branden@broadcom.com>
- <20171018162823.GB15371@lunn.ch>
- <b9f6864a-e746-bb0d-ec8f-b85924276266@broadcom.com>
- <20171018191639.GI15371@lunn.ch>
- <e8f5b581-2613-0dda-d9cc-e826a14ee394@broadcom.com>
- <20171018213058.GD2847@C02RW35GFVH8.dhcp.broadcom.net>
+ <1508342496-5047-2-git-send-email-scott.branden@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Allan W. Nielsen" <allan.nielsen@microsemi.com>,
-        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+Cc: BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
         linux-kernel@vger.kernel.org, Steve Lin <steven.lin1@broadcom.com>,
-        netdev <netdev@vger.kernel.org>
-To: Andy Gospodarek <andrew.gospodarek@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171018213058.GD2847@C02RW35GFVH8.dhcp.broadcom.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+        "Allan W. Nielsen" <allan.nielsen@microsemi.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Raju Lakkaraju <Raju.Lakkaraju@microsemi.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:49550 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751544AbdJRWAC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 18:00:02 -0400
+Received: by mail-qk0-f194.google.com with SMTP id q83so8137509qke.6
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 15:00:01 -0700 (PDT)
+In-Reply-To: <1508342496-5047-2-git-send-email-scott.branden@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 +netdev@vger.kernel.org
 
 
-On 17-10-18 02:30 PM, Andy Gospodarek wrote:
-> On Wed, Oct 18, 2017 at 12:31:28PM -0700, Scott Branden wrote:
->> Hi Andrew,
->>
->>
->> On 17-10-18 12:16 PM, Andrew Lunn wrote:
->>>> Yes, there is also a management processor.
->>> O.K.
->>>
->>> Maybe it would be nice to add some more text to the commit message to
->>> make this clear. Define what an application processor is, and how it
->>> differs from a management processor. But othersize:
->> OK -will add more description to differentiate management processor vs.
->> application processor(s).
->>> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
->>>
->>> I assume you have another kernel patch to actually make use of this?
->>> It is normal to post the user of a new API in the same series as the
->>> API.
->> I actually wanted to get agreement that the bit define could be added to
->> ethtool before implementing it in driver.
->> If this direction approved we'll implement in driver and submit with this
->> patch series.
-> I just noticed that you did not also post this to netdev@vger.kernel.org.  I
-> suspect you are more likely to get review and acceptance if that list is cc'd.
+On 17-10-18 09:01 AM, Scott Branden wrote:
+> Add ETH_RESET_AP to reset the application processor inside the NIC
+> interface.
 >
-> I'm not positive that Linus will take networking patches off this list.
+> Signed-off-by: Scott Branden <scott.branden@broadcom.com>
+> ---
+>   include/uapi/linux/ethtool.h | 1 +
+>   1 file changed, 1 insertion(+)
 >
->>>       Andrew
->> Thanks,
->>   Scott
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 5bd1b1d..f927ab7 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -1685,6 +1685,7 @@ enum ethtool_reset_flags {
+>   	ETH_RESET_PHY		= 1 << 6,	/* Transceiver/PHY */
+>   	ETH_RESET_RAM		= 1 << 7,	/* RAM shared between
+>   						 * multiple components */
+> +	ETH_RESET_AP		= 1 << 8,	/* Application processor */
+>   
+>   	ETH_RESET_DEDICATED	= 0x0000ffff,	/* All components dedicated to
+>   						 * this interface */
