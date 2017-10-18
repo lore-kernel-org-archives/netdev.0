@@ -1,58 +1,52 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 00/58] networking: Convert timers to use timer_setup()
-Date: Wed, 18 Oct 2017 12:45:08 -0700
-Message-ID: <CAGXu5jLFJt5m5j59fA81F6HPHYyy31BJFzsSvN9hoHc6CbmrCg@mail.gmail.com>
-References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
- <87mv4pvowa.fsf@purkki.adurom.net> <CAGXu5j+fcARk=yWh9Bbkn0C-4PHd+pKSPGV+5qPx88H6prvUoA@mail.gmail.com>
- <87h8ux2ena.fsf@codeaurora.org>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Wed, 18 Oct 2017 15:58:13 -0400
+Message-ID: <CAHC9VhTBd1pNqavFpQqDHwhW=j7AX8gDL0H_c_VBD07SMMLZmQ@mail.gmail.com>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+ <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com> <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+ <2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
+Cc: Steve Grubb <sgrubb@redhat.com>, linux-audit@redhat.com,
+        mszeredi@redhat.com, cgroups@vger.kernel.org, jlayton@redhat.com,
+        Richard Guy Briggs <rgb@redhat.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        Containers <containers@lists.linux-foundation.org>,
+        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Howells <dhowells@redhat.com>,
+        "Carlos O'Donell" <carlos@redhat.com>,
+        Linux Network Development <netdev@vger.kernel.org>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Lutomirski <luto@kernel.org>, Eric Paris <eparis@parisplace.org>,
+        "Serge E. Hallyn" <serge@hallyn.com>, trondmy@primarydata.com,
+        Al Viro <viro@zeniv.linux.org.uk>
+To: Simo Sorce <simo@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87h8ux2ena.fsf@codeaurora.org>
+In-Reply-To: <1508243469.6230.24.camel@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 10:44 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Kees Cook <keescook@chromium.org> writes:
->> Which split is preferred? I had been trying to separate wireless from
->> the rest of net (but missed some cases).
->
-> So what we try to follow is that I apply all patches for
-> drivers/net/wireless to my wireless-drivers trees, with exception of
-> Johannes taking mac80211_hwsim.c patches to his mac80211 trees. And
-> Johannes of course takes all patches for net/wireless and net/mac80211.
->
-> So in general I prefer that I take all drivers/net/wireless patches and
-> make it obvious for Dave that he can ignore those patches (not mix
-> wireless-drivers and net patches into same set etc). But like I said,
-> it's ok to push API changes like these via Dave's net trees as well if
-> you want (and if Dave is ok with that). The chances of conflicts is low,
-> and if there are be any those would be easy to fix either by me or Dave.
+On Tue, Oct 17, 2017 at 8:31 AM, Simo Sorce <simo@redhat.com> wrote:
+> The container Id can be used also for authorization purposes (by other
+> processes on the host), not just audit, I think this is why a separate
+> control has been proposed.
 
-Okay, great. That'll help. I'll wait for the dust to settle and rebase
-against -next, and then I'll see what's outstanding and double-check
-where they need to be sent (and I'll queue new conversions up
-accordingly too).
+Apologies, but I'm just now getting a chance to work my way through
+this thread, and I wanted to make a quick comment on this point ...
 
->>> For now I'll just drop all your timer_setup() related patches from my
->>> queue and I'll assume Dave will take those. Ok?
->>>
->>> [1] https://patchwork.kernel.org/project/linux-wireless/list/
->>
->> I guess I'll wait to see what Dave says.
->
-> Ok, I don't drop the patches from my queue quite yet then.
-
-Alright, thanks very much!
-
--Kees
+The audit container ID (note I said "audit container ID" not
+"container ID") is intended strictly for use by the audit subsystem at
+this point.  Allowing other uses opens the door to a larger set of
+problems we are trying to avoid (e.g. handling migration across
+hosts).  We would love to have a generic kernel facility that the
+audit subsystem could use to identify containers, but we don't, and
+previous attempts have failed, so we have to create our own.  We are
+intentionally trying to limit its scope in an attempt to limit
+problems.  If a more general solution appears in the future I think we
+would make every effect to migrate to that; keeping this initial
+effort small should make that easier.
 
 -- 
-Kees Cook
-Pixel Security
+paul moore
+www.paul-moore.com
