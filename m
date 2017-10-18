@@ -1,24 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipx: mark expected switch fall-through
-Date: Wed, 18 Oct 2017 14:14:07 +0100 (WEST)
-Message-ID: <20171018.141407.220466660962114393.davem@davemloft.net>
-References: <20171016215316.GA12885@embeddedor.com>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: Re: [PATCH 1/7] devlink: Add permanent config parameter get/set operations
+Date: Wed, 18 Oct 2017 09:14:35 -0400
+Message-ID: <CA+Jmh7Etbr_E-E35fY79s4ss+nsgH4+wN=RQiK4WCcP-XXe1Vw@mail.gmail.com>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+ <1508273069-40461-2-git-send-email-steven.lin1@broadcom.com>
+ <20171018071140.GB2028@nanopsycho> <CA+Jmh7FRAAYyQv=qecU6RHFc_yj5P6Kp=8nB41i0driu9gycOQ@mail.gmail.com>
+ <20171018125825.GA1975@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: garsilva@embeddedor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171016215316.GA12885@embeddedor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Linville <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:56578 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753586AbdJRNO4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:14:56 -0400
+Received: by mail-qt0-f195.google.com with SMTP id z28so10106526qtz.13
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 06:14:56 -0700 (PDT)
+In-Reply-To: <20171018125825.GA1975@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Date: Mon, 16 Oct 2017 16:53:16 -0500
+On Wed, Oct 18, 2017 at 8:58 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Wed, Oct 18, 2017 at 02:39:09PM CEST, steven.lin1@broadcom.com wrote:
+>>On Wed, Oct 18, 2017 at 3:11 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Tue, Oct 17, 2017 at 10:44:23PM CEST, steven.lin1@broadcom.com wrote:
+>>> Steve. As I originally requested, could you please split this to:
+>>> 1) single patch adding config get/set commands, without any config attributes
+>>> 2) single patch per config attribute - please don't add them in bulk.
+>>>    We also need very strict description for every single attribute so
+>>>    other vendors know what it is and can re-use it. There is need to
+>>>    avoid duplication here. Also, please send just few attribites in the
+>>>    first run, not like 40 you are sending now. Impossible to review.
+>>
+>>I broke the patch set up into functional blocks of attributes, in
+>>order to avoid having ~40 patches of just a couple lines each.  But, I
+>>will split further for each individual attribute, and just submit a
+>>few initially, per your request.
+>>
+>>>
+>>> Also, why didn't you put it into nested attribute we were discussing?
+>>>
+>>
+>>I thought I did :) , using the DPIPE_HEADERS nested attribute as an
+>>example.  I'll reach out to you off-list to understand what I'm
+>>missing.
+>
+> I missed that. But you need a separate attr enum as well.
+>
 
-> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-> where we are expecting to fall through.
-> 
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+I did have this as the nested attr enum in the original patch:
 
-Applied.
+        /* Permanent Configuration Parameters */
+        DEVLINK_ATTR_PERM_CFG,                          /* nested */
+
+However, I only used the nested construct in the response from kernel
+to userspace, not in the request from userspace to kernel.  (This was
+based on looking at the various DPIPE_* nested attributes as
+examples.)
+
+Thinking about it after seeing your comment, I'm thinking I should
+also use the nested attribute construct in the original request from
+userspace to kernel as well, although I didn't see any previous
+examples of this in devlink.
+
+So I'll plan to use nesting in that direction as well.
+
+Thanks,
+Steve
