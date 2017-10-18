@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 4/8] cxgb4: add tc flower support for ETH-DMAC rewrite
-Date: Wed, 18 Oct 2017 20:49:10 +0530
-Message-ID: <7f784b8c25f9ae57ad836074fafd200ffdd4059f.1508312071.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 1/8] cxgb4: add tc flower match support for TOS
+Date: Wed, 18 Oct 2017 20:49:07 +0530
+Message-ID: <e80bab531e4cc5f5161050dd65d1078d925f221e.1508312071.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:35414 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:64481 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdJRPUk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:40 -0400
+        with ESMTP id S1751161AbdJRPUc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:32 -0400
 In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
@@ -20,214 +20,93 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Add support for ETH-DMAC Rewrite via TC-PEDIT action. Also, add
-check to assert that vlan/eth-dmac rewrite actions are valid only
-in combination with action egress redirect.
+Add support for matching on IP TOS.  Also check on ethtype value
+to be either IPv4 or IPv6.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 108 ++++++++++++++++++++-
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   |  19 ++++
- 2 files changed, 126 insertions(+), 1 deletion(-)
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 51 +++++++++++++++++++++-
+ 1 file changed, 50 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index 4d4f3af20496..7c8b0c65934c 100644
+index 92a311767381..647c86ae343d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -32,8 +32,9 @@
-  * SOFTWARE.
-  */
- 
--#include <net/tc_act/tc_gact.h>
- #include <net/tc_act/tc_mirred.h>
-+#include <net/tc_act/tc_pedit.h>
-+#include <net/tc_act/tc_gact.h>
- #include <net/tc_act/tc_vlan.h>
- 
- #include "cxgb4.h"
-@@ -41,6 +42,11 @@
- 
- #define STATS_CHECK_PERIOD (HZ / 2)
- 
-+struct ch_tc_pedit_fields pedits[] = {
-+	PEDIT_FIELDS(ETH_, DMAC_31_0, 4, dmac, 0),
-+	PEDIT_FIELDS(ETH_, DMAC_47_32, 2, dmac, 4),
-+};
-+
- static struct ch_tc_flower_entry *allocate_flower_entry(void)
- {
- 	struct ch_tc_flower_entry *new = kzalloc(sizeof(*new), GFP_KERNEL);
-@@ -254,6 +260,41 @@ static int cxgb4_validate_flow_match(struct net_device *dev,
- 	return 0;
- }
- 
-+static void offload_pedit(struct ch_filter_specification *fs, u32 val, u32 mask,
-+			  u8 field)
-+{
-+	u32 set_val = val & ~mask;
-+	u32 offset;
-+	u8 size;
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(pedits); i++) {
-+		if (pedits[i].field == field) {
-+			offset = pedits[i].offset;
-+			size = pedits[i].size;
-+			break;
-+		}
-+	}
-+	memcpy((u8 *)fs + offset, &set_val, size);
-+}
-+
-+static void process_pedit_field(struct ch_filter_specification *fs, u32 val,
-+				u32 mask, u32 offset, u8 htype)
-+{
-+	switch (htype) {
-+	case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
-+		switch (offset) {
-+		case PEDIT_ETH_DMAC_31_0:
-+			fs->newdmac = 1;
-+			offload_pedit(fs, val, mask, ETH_DMAC_31_0);
-+			break;
-+		case PEDIT_ETH_DMAC_47_32_SMAC_15_0:
-+			if (~mask & PEDIT_ETH_DMAC_MASK)
-+				offload_pedit(fs, val, mask, ETH_DMAC_47_32);
-+		}
-+	}
-+}
-+
- static void cxgb4_process_flow_actions(struct net_device *in,
- 				       struct tc_cls_flower_offload *cls,
- 				       struct ch_filter_specification *fs)
-@@ -296,6 +337,21 @@ static void cxgb4_process_flow_actions(struct net_device *in,
- 			default:
- 				break;
- 			}
-+		} else if (is_tcf_pedit(a)) {
-+			u32 mask, val, offset;
-+			int nkeys, i;
-+			u8 htype;
-+
-+			nkeys = tcf_pedit_nkeys(a);
-+			for (i = 0; i < nkeys; i++) {
-+				htype = tcf_pedit_htype(a, i);
-+				mask = tcf_pedit_mask(a, i);
-+				val = tcf_pedit_val(a, i);
-+				offset = tcf_pedit_offset(a, i);
-+
-+				process_pedit_field(fs, val, mask, offset,
-+						    htype);
-+			}
- 		}
+@@ -147,6 +147,19 @@ static void cxgb4_process_flow_match(struct net_device *dev,
+ 		fs->mask.fport = cpu_to_be16(mask->src);
  	}
- }
-@@ -304,6 +360,9 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
- 				       struct tc_cls_flower_offload *cls)
- {
- 	const struct tc_action *a;
-+	bool act_redir = false;
-+	bool act_pedit = false;
-+	bool act_vlan = false;
- 	LIST_HEAD(actions);
  
- 	tcf_exts_to_list(cls->exts, &actions);
-@@ -335,6 +394,7 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
- 					   __func__);
- 				return -EINVAL;
- 			}
-+			act_redir = true;
- 		} else if (is_tcf_vlan(a)) {
- 			u16 proto = be16_to_cpu(tcf_vlan_push_proto(a));
- 			u32 vlan_action = tcf_vlan_action(a);
-@@ -355,11 +415,57 @@ static int cxgb4_validate_flow_actions(struct net_device *dev,
- 					   __func__);
- 				return -EOPNOTSUPP;
- 			}
-+			act_vlan = true;
-+		} else if (is_tcf_pedit(a)) {
-+			u32 mask, val, offset;
-+			u8 cmd, htype;
-+			int nkeys, i;
++	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
++		struct flow_dissector_key_ip *key, *mask;
 +
-+			nkeys = tcf_pedit_nkeys(a);
-+			for (i = 0; i < nkeys; i++) {
-+				htype = tcf_pedit_htype(a, i);
-+				cmd = tcf_pedit_cmd(a, i);
-+				mask = tcf_pedit_mask(a, i);
-+				val = tcf_pedit_val(a, i);
-+				offset = tcf_pedit_offset(a, i);
++		key = skb_flow_dissector_target(cls->dissector,
++						FLOW_DISSECTOR_KEY_IP,
++						cls->key);
++		mask = skb_flow_dissector_target(cls->dissector,
++						 FLOW_DISSECTOR_KEY_IP,
++						 cls->mask);
++		fs->val.tos = key->tos;
++		fs->mask.tos = mask->tos;
++	}
 +
-+				if (cmd != TCA_PEDIT_KEY_EX_CMD_SET) {
-+					netdev_err(dev, "%s: Unsupported pedit cmd\n",
-+						   __func__);
-+					return -EOPNOTSUPP;
-+				}
+ 	/* Match only packets coming from the ingress port where this
+ 	 * filter will be created.
+ 	 */
+@@ -157,16 +170,52 @@ static void cxgb4_process_flow_match(struct net_device *dev,
+ static int cxgb4_validate_flow_match(struct net_device *dev,
+ 				     struct tc_cls_flower_offload *cls)
+ {
++	u16 ethtype_mask = 0;
++	u16 ethtype_key = 0;
 +
-+				switch (htype) {
-+				case TCA_PEDIT_KEY_EX_HDR_TYPE_ETH:
-+					switch (offset) {
-+					case PEDIT_ETH_DMAC_31_0:
-+					case PEDIT_ETH_DMAC_47_32_SMAC_15_0:
-+						break;
-+					default:
-+						netdev_err(dev, "%s: Unsupported pedit field\n",
-+							   __func__);
-+						return -EOPNOTSUPP;
-+					}
-+					break;
-+				default:
-+					netdev_err(dev, "%s: Unsupported pedit type\n",
-+						   __func__);
-+					return -EOPNOTSUPP;
-+				}
-+			}
-+			act_pedit = true;
- 		} else {
- 			netdev_err(dev, "%s: Unsupported action\n", __func__);
- 			return -EOPNOTSUPP;
- 		}
+ 	if (cls->dissector->used_keys &
+ 	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
+ 	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
+ 	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
+ 	      BIT(FLOW_DISSECTOR_KEY_IPV6_ADDRS) |
+-	      BIT(FLOW_DISSECTOR_KEY_PORTS))) {
++	      BIT(FLOW_DISSECTOR_KEY_PORTS) |
++	      BIT(FLOW_DISSECTOR_KEY_IP))) {
+ 		netdev_warn(dev, "Unsupported key used: 0x%x\n",
+ 			    cls->dissector->used_keys);
+ 		return -EOPNOTSUPP;
  	}
 +
-+	if ((act_pedit || act_vlan) && !act_redir) {
-+		netdev_err(dev, "%s: pedit/vlan rewrite invalid without egress redirect\n",
-+			   __func__);
-+		return -EINVAL;
++	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
++		struct flow_dissector_key_basic *key =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_BASIC,
++						  cls->key);
++		struct flow_dissector_key_basic *mask =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_BASIC,
++						  cls->mask);
++		ethtype_key = ntohs(key->n_proto);
++		ethtype_mask = ntohs(mask->n_proto);
++	}
++
++	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
++		u16 eth_ip_type = ethtype_key & ethtype_mask;
++		struct flow_dissector_key_ip *mask;
++
++		if (eth_ip_type != ETH_P_IP && eth_ip_type != ETH_P_IPV6) {
++			netdev_err(dev, "IP Key supported only with IPv4/v6");
++			return -EINVAL;
++		}
++
++		mask = skb_flow_dissector_target(cls->dissector,
++						 FLOW_DISSECTOR_KEY_IP,
++						 cls->mask);
++		if (mask->ttl) {
++			netdev_warn(dev, "ttl match unsupported for offload");
++			return -EOPNOTSUPP;
++		}
 +	}
 +
  	return 0;
  }
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
-index 604feffc752e..7bf6cfa892aa 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
-@@ -54,6 +54,25 @@ struct ch_tc_flower_entry {
- 	u32 filter_id;
- };
- 
-+enum {
-+	ETH_DMAC_31_0,	/* dmac bits 0.. 31 */
-+	ETH_DMAC_47_32,	/* dmac bits 32..47 */
-+};
-+
-+struct ch_tc_pedit_fields {
-+	u8 field;
-+	u8 size;
-+	u32 offset;
-+};
-+
-+#define PEDIT_FIELDS(type, field, size, fs_field, offset) \
-+	{ type## field, size, \
-+		offsetof(struct ch_filter_specification, fs_field) + (offset) }
-+
-+#define PEDIT_ETH_DMAC_MASK		0xffff
-+#define PEDIT_ETH_DMAC_31_0		0x0
-+#define PEDIT_ETH_DMAC_47_32_SMAC_15_0	0x4
-+
- int cxgb4_tc_flower_replace(struct net_device *dev,
- 			    struct tc_cls_flower_offload *cls);
- int cxgb4_tc_flower_destroy(struct net_device *dev,
 -- 
 2.14.1
