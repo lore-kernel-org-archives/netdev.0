@@ -1,7 +1,7 @@
 From: Gilad Ben-Yossef <gilad@benyossef.com>
-Subject: [PATCH v10 19/20] crypto: mediatek: move to generic async completion
-Date: Wed, 18 Oct 2017 08:00:51 +0100
-Message-ID: <1508310057-25369-20-git-send-email-gilad@benyossef.com>
+Subject: [PATCH v10 20/20] crypto: adapt api sample to use async. op wait
+Date: Wed, 18 Oct 2017 08:00:52 +0100
+Message-ID: <1508310057-25369-21-git-send-email-gilad@benyossef.com>
 References: <1508310057-25369-1-git-send-email-gilad@benyossef.com>
 Cc: Ofir Drang <ofir.drang@arm.com>, linux-crypto@vger.kernel.org,
         linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -35,84 +35,109 @@ In-Reply-To: <1508310057-25369-1-git-send-email-gilad@benyossef.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The mediatek driver starts several async crypto ops and waits for their
-completions. Move it over to generic code doing the same.
+The code sample is waiting for an async. crypto op completion.
+Adapt sample to use the new generic infrastructure to do the same.
+
+This also fixes a possible data coruption bug created by the
+use of wait_for_completion_interruptible() without dealing
+correctly with an interrupt aborting the wait prior to the
+async op finishing.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
-Acked-by: Ryder Lee <ryder.lee@mediatek.com>
 ---
- drivers/crypto/mediatek/mtk-aes.c | 31 +++++--------------------------
- 1 file changed, 5 insertions(+), 26 deletions(-)
+ Documentation/crypto/api-samples.rst | 52 +++++++-----------------------------
+ 1 file changed, 10 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/crypto/mediatek/mtk-aes.c b/drivers/crypto/mediatek/mtk-aes.c
-index 32aa587..c2058cf 100644
---- a/drivers/crypto/mediatek/mtk-aes.c
-+++ b/drivers/crypto/mediatek/mtk-aes.c
-@@ -138,11 +138,6 @@ struct mtk_aes_gcm_ctx {
- 	struct crypto_skcipher *ctr;
- };
+diff --git a/Documentation/crypto/api-samples.rst b/Documentation/crypto/api-samples.rst
+index 2531948..006827e 100644
+--- a/Documentation/crypto/api-samples.rst
++++ b/Documentation/crypto/api-samples.rst
+@@ -7,59 +7,27 @@ Code Example For Symmetric Key Cipher Operation
+ ::
  
--struct mtk_aes_gcm_setkey_result {
--	int err;
--	struct completion completion;
--};
+ 
+-    struct tcrypt_result {
+-        struct completion completion;
+-        int err;
+-    };
 -
- struct mtk_aes_drv {
- 	struct list_head dev_list;
- 	/* Device list lock */
-@@ -942,17 +937,6 @@ static int mtk_aes_gcm_crypt(struct aead_request *req, u64 mode)
- 				    &req->base);
- }
+     /* tie all data structures together */
+     struct skcipher_def {
+         struct scatterlist sg;
+         struct crypto_skcipher *tfm;
+         struct skcipher_request *req;
+-        struct tcrypt_result result;
++        struct crypto_wait wait;
+     };
  
--static void mtk_gcm_setkey_done(struct crypto_async_request *req, int err)
--{
--	struct mtk_aes_gcm_setkey_result *result = req->data;
+-    /* Callback function */
+-    static void test_skcipher_cb(struct crypto_async_request *req, int error)
+-    {
+-        struct tcrypt_result *result = req->data;
 -
--	if (err == -EINPROGRESS)
--		return;
+-        if (error == -EINPROGRESS)
+-            return;
+-        result->err = error;
+-        complete(&result->completion);
+-        pr_info("Encryption finished successfully\n");
+-    }
 -
--	result->err = err;
--	complete(&result->completion);
--}
+     /* Perform cipher operation */
+     static unsigned int test_skcipher_encdec(struct skcipher_def *sk,
+                          int enc)
+     {
+-        int rc = 0;
++        int rc;
+ 
+         if (enc)
+-            rc = crypto_skcipher_encrypt(sk->req);
++            rc = crypto_wait_req(crypto_skcipher_encrypt(sk->req), &sk->wait);
+         else
+-            rc = crypto_skcipher_decrypt(sk->req);
 -
- /*
-  * Because of the hardware limitation, we need to pre-calculate key(H)
-  * for the GHASH operation. The result of the encryption operation
-@@ -968,7 +952,7 @@ static int mtk_aes_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 		u32 hash[4];
- 		u8 iv[8];
+-        switch (rc) {
+-        case 0:
+-            break;
+-        case -EINPROGRESS:
+-        case -EBUSY:
+-            rc = wait_for_completion_interruptible(
+-                &sk->result.completion);
+-            if (!rc && !sk->result.err) {
+-                reinit_completion(&sk->result.completion);
+-                break;
+-            }
+-        default:
+-            pr_info("skcipher encrypt returned with %d result %d\n",
+-                rc, sk->result.err);
+-            break;
+-        }
+-        init_completion(&sk->result.completion);
++            rc = crypto_wait_req(crypto_skcipher_decrypt(sk->req), &sk->wait);
++
++	if (rc)
++		pr_info("skcipher encrypt returned with result %d\n", rc);
  
--		struct mtk_aes_gcm_setkey_result result;
-+		struct crypto_wait wait;
+         return rc;
+     }
+@@ -89,8 +57,8 @@ Code Example For Symmetric Key Cipher Operation
+         }
  
- 		struct scatterlist sg[1];
- 		struct skcipher_request req;
-@@ -1008,22 +992,17 @@ static int mtk_aes_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 	if (!data)
- 		return -ENOMEM;
+         skcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+-                          test_skcipher_cb,
+-                          &sk.result);
++                          crypto_req_done,
++                          &sk.wait);
  
--	init_completion(&data->result.completion);
-+	crypto_init_wait(&data->wait);
- 	sg_init_one(data->sg, &data->hash, AES_BLOCK_SIZE);
- 	skcipher_request_set_tfm(&data->req, ctr);
- 	skcipher_request_set_callback(&data->req, CRYPTO_TFM_REQ_MAY_SLEEP |
- 				      CRYPTO_TFM_REQ_MAY_BACKLOG,
--				      mtk_gcm_setkey_done, &data->result);
-+				      crypto_req_done, &data->wait);
- 	skcipher_request_set_crypt(&data->req, data->sg, data->sg,
- 				   AES_BLOCK_SIZE, data->iv);
+         /* AES 256 with random key */
+         get_random_bytes(&key, 32);
+@@ -122,7 +90,7 @@ Code Example For Symmetric Key Cipher Operation
+         /* We encrypt one block */
+         sg_init_one(&sk.sg, scratchpad, 16);
+         skcipher_request_set_crypt(req, &sk.sg, &sk.sg, 16, ivdata);
+-        init_completion(&sk.result.completion);
++        crypto_init_wait(&sk.wait);
  
--	err = crypto_skcipher_encrypt(&data->req);
--	if (err == -EINPROGRESS || err == -EBUSY) {
--		err = wait_for_completion_interruptible(
--			&data->result.completion);
--		if (!err)
--			err = data->result.err;
--	}
-+	err = crypto_wait_req(crypto_skcipher_encrypt(&data->req),
-+			      &data->wait);
- 	if (err)
- 		goto out;
- 
+         /* encrypt data */
+         ret = test_skcipher_encdec(&sk, 1);
 -- 
 2.7.4
