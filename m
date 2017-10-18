@@ -1,91 +1,104 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 01/20] net: sched: add block bind/unbind notif.
- and extended block_get/put
-Date: Wed, 18 Oct 2017 08:59:25 +0200
-Message-ID: <20171018065925.GA2028@nanopsycho>
-References: <20171017200615.4530-1-jiri@resnulli.us>
- <20171017200615.4530-2-jiri@resnulli.us>
- <1508271733.11655.3.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "leonro@mellanox.com" <leonro@mellanox.com>,
-        "idosch@mellanox.com" <idosch@mellanox.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "ast@kernel.org" <ast@kernel.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "saeedm@mellanox.com" <saeedm@mellanox.com>,
-        "mlxsw@mellanox.com" <mlxsw@mellanox.com>,
-        "john.hurley@netronome.com" <john.hurley@netronome.com>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "jakub.kicinski@netronome.com" <jakub.kicinski@netronome.com>,
-        "ganeshgr@chelsio.com" <ganeshgr@chelsio.com>,
-        "simon.horman@netronome.com" <simon.horman@netronome.com>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-To: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:48965 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761219AbdJRG72 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 02:59:28 -0400
-Received: by mail-wr0-f194.google.com with SMTP id u5so3915398wrc.5
-        for <netdev@vger.kernel.org>; Tue, 17 Oct 2017 23:59:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1508271733.11655.3.camel@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Gilad Ben-Yossef <gilad@benyossef.com>
+Subject: [PATCH v10 01/20] crypto: change transient busy return code to -ENOSPC
+Date: Wed, 18 Oct 2017 08:00:33 +0100
+Message-ID: <1508310057-25369-2-git-send-email-gilad@benyossef.com>
+References: <1508310057-25369-1-git-send-email-gilad@benyossef.com>
+Cc: Ofir Drang <ofir.drang@arm.com>, linux-crypto@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        keyrings@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-cifs@vger.kernel.org,
+        samba-technical@lists.samba.org, linux-fscrypt@vger.kernel.org,
+        netdev@vger.kernel.org, linux-ima-devel@lists.sourceforge.net,
+        linux-ima-user@lists.sourceforge.net,
+        linux-security-module@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        David Howells <dhowells@redhat.com>,
+        Tom Lendacky <thomas.lendacky@amd.com>,
+        Gary Hook <gary.hook@amd.com>,
+        Boris Brezillon <boris.brezillon@free-electrons.com>,
+        Arnaud Ebalard <arno@natisbad.org>,
+        Matthias Brugger <matthias.bgg@gmail.com>,
+        Alasdair Kergon <agk@redhat.com>,
+        Mike Snitzer <snitzer@redhat.com>, dm-devel@redhat.com,
+        Steve French <sfrench@samba.org>,
+        "Theodore Y. Ts'o" <tytso@mit.edu>,
+        Jaegeuk Kim <jaegeuk@kernel.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Dmitry Kasatkin <dmitry.ka
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508310057-25369-1-git-send-email-gilad@benyossef.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Oct 17, 2017 at 10:22:16PM CEST, alexander.h.duyck@intel.com wrote:
->On Tue, 2017-10-17 at 22:05 +0200, Jiri Pirko wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->> 
->> Introduce new type of ndo_setup_tc message to propage binding/unbinding
->> of a block to driver. Call this ndo whenever qdisc gets/puts a block.
->> Alongside with this, there's need to propagate binder type from qdisc
->> code down to the notifier. So introduce extended variants of
->> block_get/put in order to pass this info.
->> 
->> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->> ---
->>  include/linux/netdevice.h |  1 +
->>  include/net/pkt_cls.h     | 40 +++++++++++++++++++++++++++++++++
->>  net/sched/cls_api.c       | 56 ++++++++++++++++++++++++++++++++++++++++++++---
->>  3 files changed, 94 insertions(+), 3 deletions(-)
->> 
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 31bb301..062a4f5 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -771,6 +771,7 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
->>  
->>  enum tc_setup_type {
->>  	TC_SETUP_MQPRIO,
->> +	TC_SETUP_BLOCK,
->>  	TC_SETUP_CLSU32,
->>  	TC_SETUP_CLSFLOWER,
->>  	TC_SETUP_CLSMATCHALL,
->
->I'm not a big fan of adding this to the middle of the enum. It will
->make it harder for people that have to backport changes and such since
->it is reordering values that are passed as a part of the kabi between
->drivers and the kernel.
+The crypto API was using the -EBUSY return value to indicate
+both a hard failure to submit a crypto operation into a
+transformation provider when the latter was busy and the backlog
+mechanism was not enabled as well as a notification that the
+operation was queued into the backlog when the backlog mechanism
+was enabled.
 
-I put it where I think it fits. I never think about backport while
-working on upstream kernel. I believe it is a bad practise if you do so.
-But in this case, the backport is trivial, I don't see any problem with
-that.
+Having the same return code indicate two very different conditions
+depending on a flag is both error prone and requires extra runtime
+check like the following to discern between the cases:
 
+	if (err == -EINPROGRESS ||
+	    (err == -EBUSY && (ahash_request_flags(req) &
+			       CRYPTO_TFM_REQ_MAY_BACKLOG)))
 
->
->Also does this patch set really need to be 20 patches long? Seems like
->you could have done this as a set of 8 and another of 12 since you need
->about 8 patches to get to the point where you start pulling the code
->out of the drivers.
+This patch changes the return code used to indicate a crypto op
+failed due to the transformation provider being transiently busy
+to -ENOSPC.
 
-Yeah, basically I can cut the patchset in any place. But I wanted to
-show the whole change. If there was more drivers using this, I would
-have to add patches. Cutting it in half just because of the amount feels
-wrong, it's half way through there :/ If you insist, I can cut it. I can
-even squash multiple patches to one. But that also feels wrong :/
+Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+---
+ crypto/algapi.c | 6 ++++--
+ crypto/cryptd.c | 4 +---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/crypto/algapi.c b/crypto/algapi.c
+index aa699ff..60d7366 100644
+--- a/crypto/algapi.c
++++ b/crypto/algapi.c
+@@ -897,9 +897,11 @@ int crypto_enqueue_request(struct crypto_queue *queue,
+ 	int err = -EINPROGRESS;
+ 
+ 	if (unlikely(queue->qlen >= queue->max_qlen)) {
+-		err = -EBUSY;
+-		if (!(request->flags & CRYPTO_TFM_REQ_MAY_BACKLOG))
++		if (!(request->flags & CRYPTO_TFM_REQ_MAY_BACKLOG)) {
++			err = -ENOSPC;
+ 			goto out;
++		}
++		err = -EBUSY;
+ 		if (queue->backlog == &queue->list)
+ 			queue->backlog = &request->list;
+ 	}
+diff --git a/crypto/cryptd.c b/crypto/cryptd.c
+index 0508c48..bd43cf5 100644
+--- a/crypto/cryptd.c
++++ b/crypto/cryptd.c
+@@ -137,16 +137,14 @@ static int cryptd_enqueue_request(struct cryptd_queue *queue,
+ 	int cpu, err;
+ 	struct cryptd_cpu_queue *cpu_queue;
+ 	atomic_t *refcnt;
+-	bool may_backlog;
+ 
+ 	cpu = get_cpu();
+ 	cpu_queue = this_cpu_ptr(queue->cpu_queue);
+ 	err = crypto_enqueue_request(&cpu_queue->queue, request);
+ 
+ 	refcnt = crypto_tfm_ctx(request->tfm);
+-	may_backlog = request->flags & CRYPTO_TFM_REQ_MAY_BACKLOG;
+ 
+-	if (err == -EBUSY && !may_backlog)
++	if (err == -ENOSPC)
+ 		goto out_put_cpu;
+ 
+ 	queue_work_on(cpu, kcrypto_wq, &cpu_queue->work);
+-- 
+2.7.4
