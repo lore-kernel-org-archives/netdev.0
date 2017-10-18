@@ -1,112 +1,72 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next 1/8] cxgb4: add tc flower match support for TOS
-Date: Wed, 18 Oct 2017 20:49:07 +0530
-Message-ID: <e80bab531e4cc5f5161050dd65d1078d925f221e.1508312071.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 0/8] cxgb4: enable more tc flower offload matches and actions
+Date: Wed, 18 Oct 2017 20:49:06 +0530
+Message-ID: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:64481 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:18875 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdJRPUc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:32 -0400
-In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
-In-Reply-To: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
-References: <cover.1508312071.git.rahul.lakkireddy@chelsio.com>
+        with ESMTP id S1751161AbdJRPUa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:20:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Sanghvi <kumaras@chelsio.com>
+This patch series enable more matches and actions for TC Flower
+Offload support on Chelsio adapters.
 
-Add support for matching on IP TOS.  Also check on ethtype value
-to be either IPv4 or IPv6.
+Patch 1 enables matching on IP TOS.
 
-Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
-Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 51 +++++++++++++++++++++-
- 1 file changed, 50 insertions(+), 1 deletion(-)
+Patch 2 enables matching on VLAN TCI.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-index 92a311767381..647c86ae343d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -147,6 +147,19 @@ static void cxgb4_process_flow_match(struct net_device *dev,
- 		fs->mask.fport = cpu_to_be16(mask->src);
- 	}
- 
-+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
-+		struct flow_dissector_key_ip *key, *mask;
-+
-+		key = skb_flow_dissector_target(cls->dissector,
-+						FLOW_DISSECTOR_KEY_IP,
-+						cls->key);
-+		mask = skb_flow_dissector_target(cls->dissector,
-+						 FLOW_DISSECTOR_KEY_IP,
-+						 cls->mask);
-+		fs->val.tos = key->tos;
-+		fs->mask.tos = mask->tos;
-+	}
-+
- 	/* Match only packets coming from the ingress port where this
- 	 * filter will be created.
- 	 */
-@@ -157,16 +170,52 @@ static void cxgb4_process_flow_match(struct net_device *dev,
- static int cxgb4_validate_flow_match(struct net_device *dev,
- 				     struct tc_cls_flower_offload *cls)
- {
-+	u16 ethtype_mask = 0;
-+	u16 ethtype_key = 0;
-+
- 	if (cls->dissector->used_keys &
- 	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
- 	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
- 	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
- 	      BIT(FLOW_DISSECTOR_KEY_IPV6_ADDRS) |
--	      BIT(FLOW_DISSECTOR_KEY_PORTS))) {
-+	      BIT(FLOW_DISSECTOR_KEY_PORTS) |
-+	      BIT(FLOW_DISSECTOR_KEY_IP))) {
- 		netdev_warn(dev, "Unsupported key used: 0x%x\n",
- 			    cls->dissector->used_keys);
- 		return -EOPNOTSUPP;
- 	}
-+
-+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
-+		struct flow_dissector_key_basic *key =
-+			skb_flow_dissector_target(cls->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  cls->key);
-+		struct flow_dissector_key_basic *mask =
-+			skb_flow_dissector_target(cls->dissector,
-+						  FLOW_DISSECTOR_KEY_BASIC,
-+						  cls->mask);
-+		ethtype_key = ntohs(key->n_proto);
-+		ethtype_mask = ntohs(mask->n_proto);
-+	}
-+
-+	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_IP)) {
-+		u16 eth_ip_type = ethtype_key & ethtype_mask;
-+		struct flow_dissector_key_ip *mask;
-+
-+		if (eth_ip_type != ETH_P_IP && eth_ip_type != ETH_P_IPV6) {
-+			netdev_err(dev, "IP Key supported only with IPv4/v6");
-+			return -EINVAL;
-+		}
-+
-+		mask = skb_flow_dissector_target(cls->dissector,
-+						 FLOW_DISSECTOR_KEY_IP,
-+						 cls->mask);
-+		if (mask->ttl) {
-+			netdev_warn(dev, "ttl match unsupported for offload");
-+			return -EOPNOTSUPP;
-+		}
-+	}
-+
- 	return 0;
- }
- 
+Patch 3 adds support for action PASS.
+
+Patch 4 adds support for ETH-DMAC rewrite via TC-PEDIT action. Also,
+adds a check to assert that vlan/eth-dmac rewrite actions are valid
+only in combination with action egress redirect.
+
+Patch 5 introduces SMT ops for adding/removing entries from SMAC Table
+in HW in preparation for patch 6.
+
+Patch 6 adds support for ETH-SMAC rewrite via TC-PEDIT action.
+
+Patch 7 introduces fw_filter2_wr to support L3/L4 header rewrites
+in preparation for patch 8.
+
+Patch 8 adds support for rewrite on L3/L4 header fields via TC-PEDIT
+action. Supported fields for rewrite are:
+IPv4 src/dst address, IPv6 src/dst address, TCP/UDP sport/dport.
+
+Thanks,
+Rahul
+
+Kumar Sanghvi (8):
+  cxgb4: add tc flower match support for TOS
+  cxgb4: add tc flower match support for vlan
+  cxgb4: add tc flower support for action PASS
+  cxgb4: add tc flower support for ETH-DMAC rewrite
+  cxgb4: introduce SMT ops to prepare for SMAC rewrite support
+  cxgb4: add tc flower support for ETH-SMAC rewrite
+  cxgb4: introduce fw_filter2_wr to prepare for L3/L4 rewrite support
+  cxgb4: add tc flower support for L3/L4 rewrite
+
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |  17 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 126 ++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  22 ++
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 385 ++++++++++++++++++++-
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   |  54 +++
+ drivers/net/ethernet/chelsio/cxgb4/smt.c           | 247 +++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/smt.h           |  76 ++++
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |  44 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h        |  47 +++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h      |  75 +++-
+ 11 files changed, 1068 insertions(+), 27 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/smt.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/smt.h
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/t4_tcb.h
+
 -- 
 2.14.1
