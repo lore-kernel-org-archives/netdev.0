@@ -1,92 +1,121 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
- to atomic
-Date: Wed, 18 Oct 2017 09:43:12 -0700
-Message-ID: <CAM_iQpVA2SQ4eFWEQxjQwmoxwQnQiLgREETKdQLoADWt_xD4Bg@mail.gmail.com>
-References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
- <1508152718-28726-2-git-send-email-chrism@mellanox.com> <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
- <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
- <CAM_iQpWbfjCH0EFb8RYnOuZQtVtg-Mw-Kzv3GWq81qTVErN6hA@mail.gmail.com> <VI1PR0501MB21437552565B68DC71A7DEE1AB4D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v7 02/10] arm: dts: sunxi: Restore EMAC changes
+Date: Wed, 18 Oct 2017 18:44:50 +0200
+Message-ID: <20171018164450.GE15371@lunn.ch>
+References: <20171018114458.17891-1-clabbe.montjoie@gmail.com>
+ <20171018114458.17891-3-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Lucas Bates <lucasb@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>
-To: Chris Mi <chrism@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:47944 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750920AbdJRQne (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:43:34 -0400
-Received: by mail-pf0-f177.google.com with SMTP id z11so4363982pfk.4
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 09:43:33 -0700 (PDT)
-In-Reply-To: <VI1PR0501MB21437552565B68DC71A7DEE1AB4D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20171018114458.17891-3-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 6:03 PM, Chris Mi <chrism@mellanox.com> wrote:
->> -----Original Message-----
->> From: Cong Wang [mailto:xiyou.wangcong@gmail.com]
->> Sent: Tuesday, October 17, 2017 11:53 PM
->> To: Chris Mi <chrism@mellanox.com>
->> Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>; Jamal Hadi
->> Salim <jhs@mojatatu.com>; Lucas Bates <lucasb@mojatatu.com>; Jiri Pirko
->> <jiri@resnulli.us>; David Miller <davem@davemloft.net>
->> Subject: Re: [patch net v2 1/4] net/sched: Change tc_action refcnt and
->> bindcnt to atomic
->>
->> On Mon, Oct 16, 2017 at 6:14 PM, Chris Mi <chrism@mellanox.com> wrote:
->> > I don't think this bug were introduced by above two commits only.
->> > Actually, this bug were introduced by several commits, at least the
->> following:
->> > 1. refcnt and bindcnt are not atomic
->>
->> Nope, it is perfectly okay with non-atomic as long as no parallel, and without
->> RCU callback they are perfectly serialized by RTNL.
-> Agree.
->>
->>
->> > 2. passing actions using list instead of arrays (I think initially we
->> > are using arrays)
->>
->> We are discussing patch 1/4, this is patch 2/4, so irrelevant.
-> Agree.
->>
->>
->> > 3. using RCU callbacks
->>
->> This introduces problem 1.
-> I think this patch set only fixes one problem, that's the race and the panic.
-> What do you mean by problem 1.
+On Wed, Oct 18, 2017 at 01:44:50PM +0200, Corentin Labbe wrote:
+> The original dwmac-sun8i DT bindings have some issue on how to handle
+> integrated PHY and was reverted in last RC of 4.13.
+> But now we have a solution so we need to get back that was reverted.
+> 
+> This patch restore arm DT about dwmac-sun8i
+> This reverts commit fe45174b72ae ("arm: dts: sunxi: Revert EMAC changes")
+> 
+> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts |  9 ++++++++
+>  arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts   | 19 +++++++++++++++++
+>  arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts     | 19 +++++++++++++++++
+>  arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  7 ++++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  8 +++++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  8 +++++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts   |  5 +++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  8 +++++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts      | 22 +++++++++++++++++++
+>  arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts    | 16 ++++++++++++++
+>  arch/arm/boot/dts/sunxi-h3-h5.dtsi                | 26 +++++++++++++++++++++++
+>  11 files changed, 147 insertions(+)
+> 
+> diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+> index b1502df7b509..6713d0f2b3f4 100644
+> --- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+> +++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+> @@ -56,6 +56,8 @@
+>  
+>  	aliases {
+>  		serial0 = &uart0;
+> +		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
+> +		ethernet0 = &emac;
+>  		ethernet1 = &xr819;
+>  	};
+>  
+> @@ -102,6 +104,13 @@
+>  	status = "okay";
+>  };
+>  
+> +&emac {
+> +	phy-handle = <&int_mii_phy>;
+> +	phy-mode = "mii";
+> +	allwinner,leds-active-low;
+> +	status = "okay";
+> +};
+> +
+>  &mmc0 {
+>  	pinctrl-names = "default";
+>  	pinctrl-0 = <&mmc0_pins_a>;
+> diff --git a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+> index e1dba9ffa94b..f2292deaa590 100644
+> --- a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+> +++ b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+> @@ -52,6 +52,7 @@
+>  	compatible = "sinovoip,bpi-m2-plus", "allwinner,sun8i-h3";
+>  
+>  	aliases {
+> +		ethernet0 = &emac;
+>  		serial0 = &uart0;
+>  		serial1 = &uart1;
+>  	};
+> @@ -111,6 +112,24 @@
+>  	status = "okay";
+>  };
+>  
+> +&emac {
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&emac_rgmii_pins>;
+> +	phy-supply = <&reg_gmac_3v3>;
+> +	phy-handle = <&ext_rgmii_phy>;
+> +	phy-mode = "rgmii";
+> +
+> +	allwinner,leds-active-low;
+> +	status = "okay";
+> +};
+> +
 
 
-You listed 3 problems, and you think they are 3 different ones, here
-I argue problem 3 (using RCU callbacks) is the cause of problem 1
-(refcnt not atomic). This is why I mentioned I have been thinking about
-removing RCU callbacks, because it probably could fix all of them.
+> +&external_mdio {
+> +	ext_rgmii_phy: ethernet-phy@1 {
+> +		compatible = "ethernet-phy-ieee802.3-c22";
+> +		reg = <0>;
+> +	};
+> +};
+> +
 
+Hi Corentin
 
->>
->>
->> > So instead of blaming the latest commit, it is better to say it is a pre-git error.
->>
->> You are wrong.
-> OK, you are right. But could I know what's your suggestion for this patch set?
-> 1. reject it?
-> 2. change the "Fixes" as you suggested?
-> 3. something else?
+I'm wondering about the order of the patches. Does the external_mdio
+node actually exist at this point? Or only later when other patches
+are applied?
 
-In my opinion we need to think about removing RCU callbacks
-rather than fixing all bugs they introduce, because it is really hard
-to prove we can fix all of them. In your patchset, you fix 2 bugs.
-Before, we fixed 2 bugs (I already list them in the other reply to you).
-In total, we have 4 bugs... Are we totally race-free even after
-your patches? It seems not at all without a lock, but as I said locking
-itself is hard...
-
-I will start a new thread to discuss this and keep you Cc'ed. So
-please hold your patches until we have a conclusion.
-
-Thanks.
+    Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
