@@ -1,74 +1,83 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: add the missing sock_owned_by_user check in
- sctp_icmp_redirect
-Date: Wed, 18 Oct 2017 11:56:45 -0200
-Message-ID: <20171018135645.GF5357@localhost.localdomain>
-References: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 1/7] devlink: Add permanent config parameter get/set
+ operations
+Date: Wed, 18 Oct 2017 16:01:03 +0200
+Message-ID: <20171018140103.GD1975@nanopsycho.orion>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+ <1508273069-40461-2-git-send-email-steven.lin1@broadcom.com>
+ <20171018071140.GB2028@nanopsycho>
+ <CA+Jmh7FRAAYyQv=qecU6RHFc_yj5P6Kp=8nB41i0driu9gycOQ@mail.gmail.com>
+ <20171018125825.GA1975@nanopsycho.orion>
+ <CA+Jmh7Etbr_E-E35fY79s4ss+nsgH4+wN=RQiK4WCcP-XXe1Vw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
-        Neil Horman <nhorman@tuxdriver.com>
-To: Xin Long <lucien.xin@gmail.com>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Linville <linville@tuxdriver.com>,
+        Andy Gospodarek <gospo@broadcom.com>
+To: Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41280 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750775AbdJRN4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Oct 2017 09:56:50 -0400
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:49691 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753647AbdJROBF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:01:05 -0400
+Received: by mail-wr0-f194.google.com with SMTP id g90so5139919wrd.6
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 07:01:05 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+In-Reply-To: <CA+Jmh7Etbr_E-E35fY79s4ss+nsgH4+wN=RQiK4WCcP-XXe1Vw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 09:37:49PM +0800, Xin Long wrote:
-> Now sctp processes icmp redirect packet in sctp_icmp_redirect where
-> it calls sctp_transport_dst_check in which tp->dst can be released.
-> 
-> The problem is before calling sctp_transport_dst_check, it doesn't
-> check sock_owned_by_user, which means tp->dst could be freed while
-> a process is accessing it with owning the socket.
-> 
-> An use-after-free issue could be triggered by this.
-> 
-> This patch is to fix it by checking sock_owned_by_user before calling
-> sctp_transport_dst_check in sctp_icmp_redirect, so that it would not
-> release tp->dst if users still hold sock lock.
-> 
-> Besides, the same issue fixed in commit 45caeaa5ac0b ("dccp/tcp: fix
-> routing redirect race") on sctp also needs this check.
-> 
-> Fixes: 55be7a9c6074 ("ipv4: Add redirect support to all protocol icmp error handlers")
-> Reported-by: Eric Dumazet <edumazet@google.com>
+Wed, Oct 18, 2017 at 03:14:35PM CEST, steven.lin1@broadcom.com wrote:
+>On Wed, Oct 18, 2017 at 8:58 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Wed, Oct 18, 2017 at 02:39:09PM CEST, steven.lin1@broadcom.com wrote:
+>>>On Wed, Oct 18, 2017 at 3:11 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>> Tue, Oct 17, 2017 at 10:44:23PM CEST, steven.lin1@broadcom.com wrote:
+>>>> Steve. As I originally requested, could you please split this to:
+>>>> 1) single patch adding config get/set commands, without any config attributes
+>>>> 2) single patch per config attribute - please don't add them in bulk.
+>>>>    We also need very strict description for every single attribute so
+>>>>    other vendors know what it is and can re-use it. There is need to
+>>>>    avoid duplication here. Also, please send just few attribites in the
+>>>>    first run, not like 40 you are sending now. Impossible to review.
+>>>
+>>>I broke the patch set up into functional blocks of attributes, in
+>>>order to avoid having ~40 patches of just a couple lines each.  But, I
+>>>will split further for each individual attribute, and just submit a
+>>>few initially, per your request.
+>>>
+>>>>
+>>>> Also, why didn't you put it into nested attribute we were discussing?
+>>>>
+>>>
+>>>I thought I did :) , using the DPIPE_HEADERS nested attribute as an
+>>>example.  I'll reach out to you off-list to understand what I'm
+>>>missing.
+>>
+>> I missed that. But you need a separate attr enum as well.
+>>
+>
+>I did have this as the nested attr enum in the original patch:
 
-Nice catch, btw.
+No, I mean separate "enum your_new_enum"
 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Thanks
-
-> ---
->  net/sctp/input.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 92a0714..34f10e7 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -421,7 +421,7 @@ void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
->  {
->  	struct dst_entry *dst;
->  
-> -	if (!t)
-> +	if (sock_owned_by_user(sk) || !t)
->  		return;
->  	dst = sctp_transport_dst_check(t);
->  	if (dst)
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>
+>        /* Permanent Configuration Parameters */
+>        DEVLINK_ATTR_PERM_CFG,                          /* nested */
+>
+>However, I only used the nested construct in the response from kernel
+>to userspace, not in the request from userspace to kernel.  (This was
+>based on looking at the various DPIPE_* nested attributes as
+>examples.)
+>
+>Thinking about it after seeing your comment, I'm thinking I should
+>also use the nested attribute construct in the original request from
+>userspace to kernel as well, although I didn't see any previous
+>examples of this in devlink.
+>
+>So I'll plan to use nesting in that direction as well.
+>
+>Thanks,
+>Steve
