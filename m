@@ -1,138 +1,115 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v5 net-next 02/12] vxlan: Call common functions to get tunnel routes
-Date: Wed, 18 Oct 2017 13:10:08 -0700
-Message-ID: <20171018201018.5692-3-tom@quantonium.net>
+Subject: [PATCH v5 net-next 04/12] iptunnel: Generalize tunnel update pmtu
+Date: Wed, 18 Oct 2017 13:10:10 -0700
+Message-ID: <20171018201018.5692-5-tom@quantonium.net>
 References: <20171018201018.5692-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:48103 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751664AbdJRULB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 16:11:01 -0400
-Received: by mail-pf0-f194.google.com with SMTP id z11so4755431pfk.4
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 13:11:01 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:52263 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751358AbdJRULG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 16:11:06 -0400
+Received: by mail-pf0-f196.google.com with SMTP id e64so4746760pfk.9
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 13:11:06 -0700 (PDT)
 In-Reply-To: <20171018201018.5692-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call ip_tunnel_get_route and ip6_tnl_get_route to handle getting a route
-and dealing with the dst_cache.
+Add __iptunnel_update_pmtu exported function which does not take
+an iptunnel argument but instead includes the fields from the
+iptunnel structure as arguments which are needed in the function.
+
+iptunnel_update_pmtu was modified to call __iptunnel_update_pmtu.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/vxlan.c | 84 ++++-------------------------------------------------
- 1 file changed, 5 insertions(+), 79 deletions(-)
+ include/net/ip_tunnels.h |  4 ++++
+ net/ipv4/ip_tunnel.c     | 30 ++++++++++++++++++++----------
+ 2 files changed, 24 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d7c49cf1d5e9..810caa9adf37 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1867,47 +1867,11 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan, struct net_device
- 				      struct dst_cache *dst_cache,
- 				      const struct ip_tunnel_info *info)
- {
--	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
--	struct rtable *rt = NULL;
--	struct flowi4 fl4;
--
- 	if (!sock4)
- 		return ERR_PTR(-EIO);
- 
--	if (tos && !info)
--		use_cache = false;
--	if (use_cache) {
--		rt = dst_cache_get_ip4(dst_cache, saddr);
--		if (rt)
--			return rt;
--	}
--
--	memset(&fl4, 0, sizeof(fl4));
--	fl4.flowi4_oif = oif;
--	fl4.flowi4_tos = RT_TOS(tos);
--	fl4.flowi4_mark = skb->mark;
--	fl4.flowi4_proto = IPPROTO_UDP;
--	fl4.daddr = daddr;
--	fl4.saddr = *saddr;
--	fl4.fl4_dport = dport;
--	fl4.fl4_sport = sport;
--
--	rt = ip_route_output_key(vxlan->net, &fl4);
--	if (likely(!IS_ERR(rt))) {
--		if (rt->dst.dev == dev) {
--			netdev_dbg(dev, "circular route to %pI4\n", &daddr);
--			ip_rt_put(rt);
--			return ERR_PTR(-ELOOP);
--		}
--
--		*saddr = fl4.saddr;
--		if (use_cache)
--			dst_cache_set_ip4(dst_cache, &rt->dst, fl4.saddr);
--	} else {
--		netdev_dbg(dev, "no route to %pI4\n", &daddr);
--		return ERR_PTR(-ENETUNREACH);
--	}
--	return rt;
-+	return ip_tunnel_get_route(dev, skb, IPPROTO_UDP, oif, tos, daddr,
-+				   saddr, dport, sport, dst_cache, info);
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 2b05ae24f4f6..be675836d35a 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -317,6 +317,10 @@ static inline struct rtable *ip_tunnel_get_route(struct net_device *dev,
+ 				     dst_cache, use_cache);
  }
  
- #if IS_ENABLED(CONFIG_IPV6)
-@@ -1922,50 +1886,12 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 					  struct dst_cache *dst_cache,
- 					  const struct ip_tunnel_info *info)
- {
--	bool use_cache = ip_tunnel_dst_cache_usable(skb, info);
--	struct dst_entry *ndst;
--	struct flowi6 fl6;
--	int err;
--
- 	if (!sock6)
- 		return ERR_PTR(-EIO);
- 
--	if (tos && !info)
--		use_cache = false;
--	if (use_cache) {
--		ndst = dst_cache_get_ip6(dst_cache, saddr);
--		if (ndst)
--			return ndst;
--	}
--
--	memset(&fl6, 0, sizeof(fl6));
--	fl6.flowi6_oif = oif;
--	fl6.daddr = *daddr;
--	fl6.saddr = *saddr;
--	fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
--	fl6.flowi6_mark = skb->mark;
--	fl6.flowi6_proto = IPPROTO_UDP;
--	fl6.fl6_dport = dport;
--	fl6.fl6_sport = sport;
--
--	err = ipv6_stub->ipv6_dst_lookup(vxlan->net,
--					 sock6->sock->sk,
--					 &ndst, &fl6);
--	if (unlikely(err < 0)) {
--		netdev_dbg(dev, "no route to %pI6\n", daddr);
--		return ERR_PTR(-ENETUNREACH);
--	}
--
--	if (unlikely(ndst->dev == dev)) {
--		netdev_dbg(dev, "circular route to %pI6\n", daddr);
--		dst_release(ndst);
--		return ERR_PTR(-ELOOP);
--	}
--
--	*saddr = fl6.saddr;
--	if (use_cache)
--		dst_cache_set_ip6(dst_cache, ndst, saddr);
--	return ndst;
-+	return ip6_tnl_get_route(dev, skb, sock6->sock->sk, IPPROTO_UDP, oif,
-+				   tos, label, daddr, saddr, dport, sport,
-+				   dst_cache, info);
++int __iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			   struct dst_entry *dst, __be16 df,
++			   const struct iphdr *inner_iph, int hlen, u32 daddr);
++
+ struct ip_tunnel_encap_ops {
+ 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
+ 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index c97525d8dff9..0ee84ca76e0f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -506,17 +506,16 @@ int ip_tunnel_encap_setup(struct ip_tunnel *t,
  }
+ EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
+ 
+-static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+-			    struct rtable *rt, __be16 df,
+-			    const struct iphdr *inner_iph)
++int __iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			   struct dst_entry *dst, __be16 df,
++			   const struct iphdr *inner_iph, int hlen, u32 daddr)
+ {
+-	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	int pkt_size = skb->len - tunnel->hlen - dev->hard_header_len;
++	int pkt_size = skb->len - hlen - dev->hard_header_len;
+ 	int mtu;
+ 
+ 	if (df)
+-		mtu = dst_mtu(&rt->dst) - dev->hard_header_len
+-					- sizeof(struct iphdr) - tunnel->hlen;
++		mtu = dst_mtu(dst) - dev->hard_header_len
++				   - sizeof(struct iphdr) - hlen;
+ 	else
+ 		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
+ 
+@@ -538,8 +537,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ 
+ 		if (rt6 && mtu < dst_mtu(skb_dst(skb)) &&
+ 			   mtu >= IPV6_MIN_MTU) {
+-			if ((tunnel->parms.iph.daddr &&
+-			    !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
++			if ((daddr && !ipv4_is_multicast(daddr)) ||
+ 			    rt6->rt6i_dst.plen == 128) {
+ 				rt6->rt6i_flags |= RTF_MODIFIED;
+ 				dst_metric_set(skb_dst(skb), RTAX_MTU, mtu);
+@@ -555,6 +553,17 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
  #endif
+ 	return 0;
+ }
++EXPORT_SYMBOL(__iptunnel_update_pmtu);
++
++static int iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++				struct rtable *rt, __be16 df,
++				const struct iphdr *inner_iph)
++{
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++
++	return __iptunnel_update_pmtu(dev, skb, &rt->dst, df, inner_iph,
++				      tunnel->hlen, tunnel->parms.iph.daddr);
++}
  
+ void ip_md_tunnel_xmit(struct sk_buff *skb, struct net_device *dev, u8 proto)
+ {
+@@ -739,7 +748,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		goto tx_error;
+ 	}
+ 
+-	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off, inner_iph)) {
++	if (iptunnel_update_pmtu(dev, skb, rt, tnl_params->frag_off,
++				 inner_iph)) {
+ 		ip_rt_put(rt);
+ 		goto tx_error;
+ 	}
 -- 
 2.11.0
