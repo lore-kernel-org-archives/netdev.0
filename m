@@ -1,55 +1,65 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net] net/sched: cls_flower: Set egress_dev mark when
- calling into the HW driver
-Date: Wed, 18 Oct 2017 10:14:48 +0300
-Message-ID: <CAJ3xEMjWCL3kSvfenCaLYnbvmGfyS2-zig7MhVMa1+oUMCLpbA@mail.gmail.com>
-References: <1508145588-29959-1-git-send-email-ogerlitz@mellanox.com> <1a523077-3c05-ba97-8a65-1967765b8d5a@cogentembedded.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] vmxnet3: Use correct minimum MTU value
+Date: Wed, 18 Oct 2017 09:15:49 +0200
+Message-ID: <20171018071549.GB30059@lunn.ch>
+References: <1508250823-1954-1-git-send-email-mgamal@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, skhare@vmware.com, pv-drivers@vmware.com,
+        linux-kernel@vger.kernel.org, cavery@redhat.com, otubo@redhat.com,
+        vkuznets@redhat.com
+To: Mohammed Gamal <mgamal@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:54733 "EHLO
-        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762063AbdJRHOt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 03:14:49 -0400
-Received: by mail-oi0-f44.google.com with SMTP id a132so7308938oih.11
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 00:14:49 -0700 (PDT)
-In-Reply-To: <1a523077-3c05-ba97-8a65-1967765b8d5a@cogentembedded.com>
+Received: from vps0.lunn.ch ([185.16.172.187]:49121 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1761186AbdJRHPv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Oct 2017 03:15:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1508250823-1954-1-git-send-email-mgamal@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 17, 2017 at 2:29 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello!
->
-> On 10/16/2017 12:19 PM, Or Gerlitz wrote:
->
->> Commit 7091d8c '(net/sched: cls_flower: Add offload support using egress
->
->
->    At least 12 digits are needed.
+On Tue, Oct 17, 2017 at 04:33:43PM +0200, Mohammed Gamal wrote:
+> Currently the vmxnet3 driver has a minimum MTU value of 60. Which
+> goes against the RFC791 spec which specifies it at 68.
+> 
+> Setting MTU to values between 60 <= MTU <= 67 causes the network
+> interface to lose its IP, and it fails to restart.
+> 
+> This sets the minimum value to ETH_MIN_MTU (68) which is compatible
+> with is according to spec.
 
-Also on such a spot (e.g not on the Fixes line)?
+Hi Mohammed
 
->
->> Hardware device') made sure (when fl_hw_replace_filter is called) to put
->> the egress_dev mark on persisent structure instance. Hence, following
->> calls
+I'm not sure this is actually correct. Yes, IP sets a minimum of 68,
+and the IP address will be removed if you set a smaller MTU. But the
+interface should still usable for other protocols. It can still send
+and receive frames.
 
->    Persistent.
+Is the hardware happy to send 60 byte frames?
 
-right
+       Andrew
 
-
->> into the HW driver for stats and deletion will note it and act
->> accordingly.
-
->> With commit de4784ca030f this property is lost and hence when called,
->> the HW driver failes to operate (stats, delete) on the offloaded flow.
-
->    Fails.
-
-correct
-
-This is applied, will take more care next time
+> 
+> Reported-by: Bo Yang <boyang@redhat.com>
+> Signed-off-by: Mohammed Gamal <mgamal@redhat.com>
+> ---
+>  drivers/net/vmxnet3/vmxnet3_defs.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+> index c3a3164..4ad905a 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_defs.h
+> +++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+> @@ -749,7 +749,7 @@ struct Vmxnet3_DriverShared {
+>  	((vfTable[vid >> 5] & (1 << (vid & 31))) != 0)
+>  
+>  #define VMXNET3_MAX_MTU     9000
+> -#define VMXNET3_MIN_MTU     60
+> +#define VMXNET3_MIN_MTU     ETH_MIN_MTU
+>  
+>  #define VMXNET3_LINK_UP         (10000 << 16 | 1)    /* 10 Gbps, up */
+>  #define VMXNET3_LINK_DOWN       0
+> -- 
+> 1.8.3.1
+> 
