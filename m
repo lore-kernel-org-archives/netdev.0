@@ -1,35 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 12/13] s390/qeth: support GRO flush timer
-Date: Wed, 18 Oct 2017 09:08:30 -0700
-Message-ID: <1508342910.31614.121.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171018154025.73630-1-jwi@linux.vnet.ibm.com>
-         <20171018154025.73630-13-jwi@linux.vnet.ibm.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] lib/dynamic_queue_limits.c: relax BUG_ON to WARN_ON in
+ dql_complete()
+Date: Wed, 18 Oct 2017 16:11:25 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD009B348@AcuExch.aculab.com>
+References: <20171018154515.16751-1-ard.biesheuvel@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-s390@vger.kernel.org,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Stefan Raspl <raspl@linux.vnet.ibm.com>,
-        Ursula Braun <ubraun@linux.vnet.ibm.com>
-To: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:46033 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750910AbdJRQIc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 12:08:32 -0400
-In-Reply-To: <20171018154025.73630-13-jwi@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Ard Biesheuvel' <ard.biesheuvel@linaro.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171018154515.16751-1-ard.biesheuvel@linaro.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-10-18 at 17:40 +0200, Julian Wiedmann wrote:
-> Switch to napi_complete_done(), and thus enable delayed GRO flushing.
-> The timeout is configured via /sys/class/net/<if>/gro_flush_timeout.
+From: Ard Biesheuvel
+> Sent: 18 October 2017 16:45
+> Even though calling dql_completed() with a count that exceeds the
+> queued count is a serious error, it still does not justify bringing
+> down the entire kernel with a BUG_ON(). So relax it to a WARN_ON()
+> instead.
 > 
-> Default timeout is 0, so no change in behaviour.
-> 
-> Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 > ---
+>  lib/dynamic_queue_limits.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/lib/dynamic_queue_limits.c b/lib/dynamic_queue_limits.c
+> index f346715e2255..24ce495d78f3 100644
+> --- a/lib/dynamic_queue_limits.c
+> +++ b/lib/dynamic_queue_limits.c
+> @@ -23,7 +23,7 @@ void dql_completed(struct dql *dql, unsigned int count)
+>  	num_queued = ACCESS_ONCE(dql->num_queued);
+> 
+>  	/* Can't complete more than what's in queue */
+> -	BUG_ON(count > num_queued - dql->num_completed);
+> +	WARN_ON(count > num_queued - dql->num_completed);
+> 
+>  	completed = dql->num_completed + count;
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Don't you need to bound 'count' so that horrid things don't
+happen further down the code?
+
+	David
