@@ -1,7 +1,7 @@
 From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Subject: [PATCH net-next 02/13] s390/drivers: use setup_timer
-Date: Wed, 18 Oct 2017 17:40:14 +0200
-Message-ID: <20171018154025.73630-3-jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 05/13] s390/qeth: fix early exit from error path
+Date: Wed, 18 Oct 2017 17:40:17 +0200
+Message-ID: <20171018154025.73630-6-jwi@linux.vnet.ibm.com>
 References: <20171018154025.73630-1-jwi@linux.vnet.ibm.com>
 Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Martin Schwidefsky <schwidefsky@de.ibm.com>,
@@ -11,61 +11,70 @@ Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
         Julian Wiedmann <jwi@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:58578 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:40598 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751603AbdJRPkl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:40:41 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9IFdZ8h043675
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 11:40:41 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2dp769hb5v-1
+        by vger.kernel.org with ESMTP id S1751873AbdJRPkp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 11:40:45 -0400
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9IFdZEC000630
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 11:40:45 -0400
+Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2dp6squ75k-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 11:40:41 -0400
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 11:40:44 -0400
 Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
-        Wed, 18 Oct 2017 16:40:39 +0100
+        Wed, 18 Oct 2017 16:40:43 +0100
 In-Reply-To: <20171018154025.73630-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Allen Pais <allen.lkml@gmail.com>
+When the allocation of the addr buffer fails, we need to free
+our refcount on the inetdevice before returning.
 
-Use setup_timer function instead of initializing timer with the
-function and data fields.
-
-Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 ---
- drivers/s390/net/fsm.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/s390/net/qeth_l3_main.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/s390/net/fsm.c b/drivers/s390/net/fsm.c
-index e5dea67f902e..8c14c6c3ad3d 100644
---- a/drivers/s390/net/fsm.c
-+++ b/drivers/s390/net/fsm.c
-@@ -170,9 +170,7 @@ fsm_addtimer(fsm_timer *this, int millisec, int event, void *arg)
- 	       this->fi->name, this, millisec);
- #endif
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 270ac9515f6b..aadd384316a3 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1553,7 +1553,7 @@ static void qeth_l3_free_vlan_addresses4(struct qeth_card *card,
  
--	init_timer(&this->tl);
--	this->tl.function = (void *)fsm_expire_timer;
--	this->tl.data = (long)this;
-+	setup_timer(&this->tl, (void *)fsm_expire_timer, (long)this);
- 	this->expire_event = event;
- 	this->event_arg = arg;
- 	this->tl.expires = jiffies + (millisec * HZ) / 1000;
-@@ -191,9 +189,7 @@ fsm_modtimer(fsm_timer *this, int millisec, int event, void *arg)
- #endif
+ 	addr = qeth_l3_get_addr_buffer(QETH_PROT_IPV4);
+ 	if (!addr)
+-		return;
++		goto out;
  
- 	del_timer(&this->tl);
--	init_timer(&this->tl);
--	this->tl.function = (void *)fsm_expire_timer;
--	this->tl.data = (long)this;
-+	setup_timer(&this->tl, (void *)fsm_expire_timer, (long)this);
- 	this->expire_event = event;
- 	this->event_arg = arg;
- 	this->tl.expires = jiffies + (millisec * HZ) / 1000;
+ 	spin_lock_bh(&card->ip_lock);
+ 
+@@ -1567,6 +1567,7 @@ static void qeth_l3_free_vlan_addresses4(struct qeth_card *card,
+ 	spin_unlock_bh(&card->ip_lock);
+ 
+ 	kfree(addr);
++out:
+ 	in_dev_put(in_dev);
+ }
+ 
+@@ -1591,7 +1592,7 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
+ 
+ 	addr = qeth_l3_get_addr_buffer(QETH_PROT_IPV6);
+ 	if (!addr)
+-		return;
++		goto out;
+ 
+ 	spin_lock_bh(&card->ip_lock);
+ 
+@@ -1606,6 +1607,7 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
+ 	spin_unlock_bh(&card->ip_lock);
+ 
+ 	kfree(addr);
++out:
+ 	in6_dev_put(in6_dev);
+ #endif /* CONFIG_QETH_IPV6 */
+ }
 -- 
 2.13.5
