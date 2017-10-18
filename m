@@ -1,92 +1,190 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Get rid of RCU callbacks in TC filters?
-Date: Wed, 18 Oct 2017 10:36:28 -0700
-Message-ID: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net PATCH 2/5] bpf: avoid preempt enable/disable in sockmap
+ using tcp_skb_cb region
+Date: Wed, 18 Oct 2017 10:36:52 -0700
+Message-ID: <20171018173650.wjzuqhckabelxv65@ast-mbp>
+References: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
+ <150833583655.3588.17390274249900913369.stgit@john-XPS-13-9360>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Chris Mi <chrism@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        borkmann@iogearbox.net, Eric Dumazet <edumazet@google.com>
+To: John Fastabend <john.r.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:46976 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750926AbdJRRgt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 13:36:49 -0400
-Received: by mail-pf0-f174.google.com with SMTP id p87so4470434pfj.3
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:36:49 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:52807 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751287AbdJRRgz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 13:36:55 -0400
+Received: by mail-pg0-f65.google.com with SMTP id a192so4831575pge.9
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:36:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <150833583655.3588.17390274249900913369.stgit@john-XPS-13-9360>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, all
+On Wed, Oct 18, 2017 at 07:10:36AM -0700, John Fastabend wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> 
+> SK_SKB BPF programs are run from the socket/tcp context but early in
+> the stack before much of the TCP metadata is needed in tcp_skb_cb. So
+> we can use some unused fields to place BPF metadata needed for SK_SKB
+> programs when implementing the redirect function.
+> 
+> This allows us to drop the preempt disable logic. It does however
+> require an API change so sk_redirect_map() has been updated to
+> additionally provide ctx_ptr to skb. Note, we do however continue to
+> disable/enable preemption around actual BPF program running to account
+> for map updates.
+> 
+> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Recently, the RCU callbacks used in TC filters and TC actions keep
-drawing my attention, they introduce at least 4 race condition bugs:
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-1. A simple one fixed by Daniel:
+> ---
+>  include/linux/filter.h                             |    2 +
+>  include/net/tcp.h                                  |    5 +++
+>  kernel/bpf/sockmap.c                               |   19 ++++++-------
+>  net/core/filter.c                                  |   29 ++++++++++----------
+>  samples/sockmap/sockmap_kern.c                     |    2 +
+>  tools/include/uapi/linux/bpf.h                     |    3 +-
+>  tools/testing/selftests/bpf/bpf_helpers.h          |    2 +
+>  tools/testing/selftests/bpf/sockmap_verdict_prog.c |    4 +--
+>  8 files changed, 36 insertions(+), 30 deletions(-)
+> 
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index d29e58f..818a0b2 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -728,7 +728,7 @@ void xdp_do_flush_map(void);
+>  void bpf_warn_invalid_xdp_action(u32 act);
+>  void bpf_warn_invalid_xdp_redirect(u32 ifindex);
+>  
+> -struct sock *do_sk_redirect_map(void);
+> +struct sock *do_sk_redirect_map(struct sk_buff *skb);
+>  
+>  #ifdef CONFIG_BPF_JIT
+>  extern int bpf_jit_enable;
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 89974c5..b1ef98e 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -840,6 +840,11 @@ struct tcp_skb_cb {
+>  			struct inet6_skb_parm	h6;
+>  #endif
+>  		} header;	/* For incoming skbs */
+> +		struct {
+> +			__u32 key;
+> +			__u32 flags;
+> +			struct bpf_map *map;
+> +		} bpf;
 
-commit c78e1746d3ad7d548bdf3fe491898cc453911a49
-Author: Daniel Borkmann <daniel@iogearbox.net>
-Date:   Wed May 20 17:13:33 2015 +0200
+I think it should be ok. cc Eric for visibility.
 
-    net: sched: fix call_rcu() race on classifier module unloads
-
-2. A very nasty one fixed by me:
-
-commit 1697c4bb5245649a23f06a144cc38c06715e1b65
-Author: Cong Wang <xiyou.wangcong@gmail.com>
-Date:   Mon Sep 11 16:33:32 2017 -0700
-
-    net_sched: carefully handle tcf_block_put()
-
-3. Two more bugs found by Chris:
-https://patchwork.ozlabs.org/patch/826696/
-https://patchwork.ozlabs.org/patch/826695/
-
-
-Usually RCU callbacks are simple, however for TC filters and actions,
-they are complex because at least TC actions could be destroyed
-together with the TC filter in one callback. And RCU callbacks are
-invoked in BH context, without locking they are parallel too. All of
-these contribute to the cause of these nasty bugs. It looks like they
-bring us more problems than benefits.
-
-Therefore, I have been thinking about getting rid of these callbacks,
-because they are not strictly necessary, callers of these call_rcu()
-are all on slow path and have RTNL lock, so blocking is permitted in
-their contexts, and _I think_ it does not harm to use
-synchronize_rcu() on slow paths, at least I can argue RTNL lock is
-already there and is a bottleneck if we really care. :)
-
-There are 3 solutions here:
-
-1) Get rid of these RCU callbacks and use synchronize_rcu(). The
-downside is this could hurt the performance of deleting TC filters,
-but again it is slow path comparing to skb classification path. Note,
-it is _not_ merely replacing call_rcu() with synchronize_rcu(),
-because many call_rcu()'s are actually in list iterations, we have to
-use a local list and call list_del_rcu()+list_add() before
-synchronize_rcu() (Or is there any other API I am not aware of?). If
-people really hate synchronize_rcu() because of performance, we could
-also defer the work to a workqueue and callers could keep their
-performance as they are.
-
-2) Introduce a spinlock to serialize these RCU callbacks. But as I
-said in commit 1697c4bb5245 ("net_sched: carefully handle
-tcf_block_put()"), it is very hard to do because of tcf_chain_dump().
-Potentially we need to do a lot of work to make it possible, if not
-impossible.
-
-3) Keep these RCU callbacks and fix all race conditions. Like what
-Chris tries to do in his patchset, but my argument is that we can not
-prove we are really race-free even with Chris' patches and his patches
-are already large enough.
-
-
-What do you think? Any other ideas?
-
-Thanks.
+>  	};
+>  };
+>  
+> diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+> index c68899d..beaabb2 100644
+> --- a/kernel/bpf/sockmap.c
+> +++ b/kernel/bpf/sockmap.c
+> @@ -39,6 +39,7 @@
+>  #include <linux/workqueue.h>
+>  #include <linux/list.h>
+>  #include <net/strparser.h>
+> +#include <net/tcp.h>
+>  
+>  struct bpf_stab {
+>  	struct bpf_map map;
+> @@ -101,9 +102,16 @@ static int smap_verdict_func(struct smap_psock *psock, struct sk_buff *skb)
+>  		return SK_DROP;
+>  
+>  	skb_orphan(skb);
+> +	/* We need to ensure that BPF metadata for maps is also cleared
+> +	 * when we orphan the skb so that we don't have the possibility
+> +	 * to reference a stale map.
+> +	 */
+> +	TCP_SKB_CB(skb)->bpf.map = NULL;
+>  	skb->sk = psock->sock;
+>  	bpf_compute_data_end(skb);
+> +	preempt_disable();
+>  	rc = (*prog->bpf_func)(skb, prog->insnsi);
+> +	preempt_enable();
+>  	skb->sk = NULL;
+>  
+>  	return rc;
+> @@ -114,17 +122,10 @@ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+>  	struct sock *sk;
+>  	int rc;
+>  
+> -	/* Because we use per cpu values to feed input from sock redirect
+> -	 * in BPF program to do_sk_redirect_map() call we need to ensure we
+> -	 * are not preempted. RCU read lock is not sufficient in this case
+> -	 * with CONFIG_PREEMPT_RCU enabled so we must be explicit here.
+> -	 */
+> -	preempt_disable();
+>  	rc = smap_verdict_func(psock, skb);
+>  	switch (rc) {
+>  	case SK_REDIRECT:
+> -		sk = do_sk_redirect_map();
+> -		preempt_enable();
+> +		sk = do_sk_redirect_map(skb);
+>  		if (likely(sk)) {
+>  			struct smap_psock *peer = smap_psock_sk(sk);
+>  
+> @@ -141,8 +142,6 @@ static void smap_do_verdict(struct smap_psock *psock, struct sk_buff *skb)
+>  	/* Fall through and free skb otherwise */
+>  	case SK_DROP:
+>  	default:
+> -		if (rc != SK_REDIRECT)
+> -			preempt_enable();
+>  		kfree_skb(skb);
+>  	}
+>  }
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 74b8c91..ca1ba0b 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -1839,31 +1839,31 @@ static const struct bpf_func_proto bpf_redirect_proto = {
+>  	.arg2_type      = ARG_ANYTHING,
+>  };
+>  
+> -BPF_CALL_3(bpf_sk_redirect_map, struct bpf_map *, map, u32, key, u64, flags)
+> +BPF_CALL_4(bpf_sk_redirect_map, struct sk_buff *, skb,
+> +	   struct bpf_map *, map, u32, key, u64, flags)
+>  {
+> -	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> +	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
+>  
+>  	if (unlikely(flags))
+>  		return SK_ABORTED;
+>  
+> -	ri->ifindex = key;
+> -	ri->flags = flags;
+> -	ri->map = map;
+> +	tcb->bpf.key = key;
+> +	tcb->bpf.flags = flags;
+> +	tcb->bpf.map = map;
+>  
+>  	return SK_REDIRECT;
+>  }
+>  
+> -struct sock *do_sk_redirect_map(void)
+> +struct sock *do_sk_redirect_map(struct sk_buff *skb)
+>  {
+> -	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> +	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
+>  	struct sock *sk = NULL;
+>  
+> -	if (ri->map) {
+> -		sk = __sock_map_lookup_elem(ri->map, ri->ifindex);
+> +	if (tcb->bpf.map) {
+> +		sk = __sock_map_lookup_elem(tcb->bpf.map, tcb->bpf.key);
+>  
+> -		ri->ifindex = 0;
+> -		ri->map = NULL;
+> -		/* we do not clear flags for future lookup */
+> +		tcb->bpf.key = 0;
+> +		tcb->bpf.map = NULL;
+>  	}
+>  
