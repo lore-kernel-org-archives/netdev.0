@@ -1,39 +1,58 @@
-From: Roman Mashak <mrv@mojatatu.com>
-Subject: [PATCH iproute2 1/1] ss: initialize 'fackets' member of tcpstat structure
-Date: Wed, 18 Oct 2017 15:44:01 -0400
-Message-ID: <1508355841-24131-1-git-send-email-mrv@mojatatu.com>
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
-        Roman Mashak <mrv@mojatatu.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:43472 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750839AbdJRToK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 15:44:10 -0400
-Received: by mail-io0-f194.google.com with SMTP id 134so7493497ioo.0
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 12:44:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 00/58] networking: Convert timers to use timer_setup()
+Date: Wed, 18 Oct 2017 12:45:08 -0700
+Message-ID: <CAGXu5jLFJt5m5j59fA81F6HPHYyy31BJFzsSvN9hoHc6CbmrCg@mail.gmail.com>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+ <87mv4pvowa.fsf@purkki.adurom.net> <CAGXu5j+fcARk=yWh9Bbkn0C-4PHd+pKSPGV+5qPx88H6prvUoA@mail.gmail.com>
+ <87h8ux2ena.fsf@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-wireless <linux-wireless@vger.kernel.org>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87h8ux2ena.fsf@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-'fackets' has never been initialized with kernel extracted information, thus
-never really printed.
+On Tue, Oct 17, 2017 at 10:44 PM, Kalle Valo <kvalo@codeaurora.org> wrote:
+> Kees Cook <keescook@chromium.org> writes:
+>> Which split is preferred? I had been trying to separate wireless from
+>> the rest of net (but missed some cases).
+>
+> So what we try to follow is that I apply all patches for
+> drivers/net/wireless to my wireless-drivers trees, with exception of
+> Johannes taking mac80211_hwsim.c patches to his mac80211 trees. And
+> Johannes of course takes all patches for net/wireless and net/mac80211.
+>
+> So in general I prefer that I take all drivers/net/wireless patches and
+> make it obvious for Dave that he can ignore those patches (not mix
+> wireless-drivers and net patches into same set etc). But like I said,
+> it's ok to push API changes like these via Dave's net trees as well if
+> you want (and if Dave is ok with that). The chances of conflicts is low,
+> and if there are be any those would be easy to fix either by me or Dave.
 
-Signed-off-by: Roman Mashak <mrv@mojatatu.com>
----
- misc/ss.c | 1 +
- 1 file changed, 1 insertion(+)
+Okay, great. That'll help. I'll wait for the dust to settle and rebase
+against -next, and then I'll see what's outstanding and double-check
+where they need to be sent (and I'll queue new conversions up
+accordingly too).
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 09bff8a..465e867 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2226,6 +2226,7 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 		s.retrans_total  = info->tcpi_total_retrans;
- 		s.lost		 = info->tcpi_lost;
- 		s.sacked	 = info->tcpi_sacked;
-+		s.fackets	 = info->tcpi_fackets;
- 		s.reordering	 = info->tcpi_reordering;
- 		s.rcv_space	 = info->tcpi_rcv_space;
- 		s.cwnd		 = info->tcpi_snd_cwnd;
+>>> For now I'll just drop all your timer_setup() related patches from my
+>>> queue and I'll assume Dave will take those. Ok?
+>>>
+>>> [1] https://patchwork.kernel.org/project/linux-wireless/list/
+>>
+>> I guess I'll wait to see what Dave says.
+>
+> Ok, I don't drop the patches from my queue quite yet then.
+
+Alright, thanks very much!
+
+-Kees
+
 -- 
-1.9.1
+Kees Cook
+Pixel Security
