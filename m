@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wanxl: use m68k-linux-gnu-as if available
-Date: Wed, 18 Oct 2017 12:08:12 +0100 (WEST)
-Message-ID: <20171018.120812.879877583327430024.davem@davemloft.net>
-References: <20171012232434.15890-1-kilobyte@angband.pl>
+Subject: Re: [PATCH v3] net: ftgmac100: Request clock and set speed
+Date: Wed, 18 Oct 2017 12:09:29 +0100 (WEST)
+Message-ID: <20171018.120929.1774171348326334992.davem@davemloft.net>
+References: <20171013041638.30763-1-joel@jms.id.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khc@pm.waw.pl, netdev@vger.kernel.org
-To: kilobyte@angband.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59550 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751509AbdJRLIo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 07:08:44 -0400
-In-Reply-To: <20171012232434.15890-1-kilobyte@angband.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: benh@kernel.crashing.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, andrew@aj.id.au
+To: joel@jms.id.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171013041638.30763-1-joel@jms.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Adam Borowski <kilobyte@angband.pl>
-Date: Fri, 13 Oct 2017 01:24:34 +0200
+From: Joel Stanley <joel@jms.id.au>
+Date: Fri, 13 Oct 2017 12:16:38 +0800
 
-> This fixes build failure on Debian based systems: GNU as is the only m68k
-> assembler available in the archive (package binutils-m68k-linux-gnu).
+> According to the ASPEED datasheet, gigabit speeds require a clock of
+> 100MHz or higher. Other speeds require 25MHz or higher. This patch
+> configures a 100MHz clock if the system has a direct-attached
+> PHY, or 25MHz if the system is running NC-SI which is limited to 100MHz.
 > 
-> Signed-off-by: Adam Borowski <kilobyte@angband.pl>
+> There appear to be no other upstream users of the FTGMAC100 driver it is
+> hard to know the clocking requirements of other platforms. Therefore a
+> conservative approach was taken with enabling clocks. If the platform is
+> not ASPEED, both requesting the clock and configuring the speed is
+> skipped.
+> 
+> Signed-off-by: Joel Stanley <joel@jms.id.au>
 
-The Kconfig help text for the config option controlling the build
-firmware is extremely clear what the requirements are for enabling
-that option.
-
-And that is: "It requires as68k, ld68k and hexdump programs."
+Applied to net-next, thanks.
