@@ -1,36 +1,64 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH] doc: Update VRF documentation metric
-Date: Wed, 18 Oct 2017 08:25:54 -0600
-Message-ID: <c8b254bb-ee60-64e2-bab6-e6d0c894c06f@cumulusnetworks.com>
-References: <20171018142428.26398-1-sharpd@cumulusnetworks.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] sctp: add the missing sock_owned_by_user check in
+ sctp_icmp_redirect
+Date: Wed, 18 Oct 2017 10:27:25 -0400
+Message-ID: <20171018142725.GA14778@hmswarspite.think-freely.org>
+References: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Donald Sharp <sharpd@cumulusnetworks.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:46038 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750935AbdJROZw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:25:52 -0400
-Received: by mail-pg0-f66.google.com with SMTP id b192so4411742pga.2
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 07:25:52 -0700 (PDT)
-In-Reply-To: <20171018142428.26398-1-sharpd@cumulusnetworks.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33759 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751039AbdJRO1v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:27:51 -0400
+Content-Disposition: inline
+In-Reply-To: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/18/17 8:24 AM, Donald Sharp wrote:
-> Two things:
+On Wed, Oct 18, 2017 at 09:37:49PM +0800, Xin Long wrote:
+> Now sctp processes icmp redirect packet in sctp_icmp_redirect where
+> it calls sctp_transport_dst_check in which tp->dst can be released.
 > 
-> 1) Update examples to show usage of metric
-> 2) Discuss reasoning for using such a high metric.
+> The problem is before calling sctp_transport_dst_check, it doesn't
+> check sock_owned_by_user, which means tp->dst could be freed while
+> a process is accessing it with owning the socket.
 > 
-> Signed-off-by: Donald Sharp <sharpd@cumulusnetworks.com>
+> An use-after-free issue could be triggered by this.
+> 
+> This patch is to fix it by checking sock_owned_by_user before calling
+> sctp_transport_dst_check in sctp_icmp_redirect, so that it would not
+> release tp->dst if users still hold sock lock.
+> 
+> Besides, the same issue fixed in commit 45caeaa5ac0b ("dccp/tcp: fix
+> routing redirect race") on sctp also needs this check.
+> 
+> Fixes: 55be7a9c6074 ("ipv4: Add redirect support to all protocol icmp error handlers")
+> Reported-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 > ---
->  Documentation/networking/vrf.txt | 13 +++++++++----
->  1 file changed, 9 insertions(+), 4 deletions(-)
+>  net/sctp/input.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-
-For net-next.
-
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 92a0714..34f10e7 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -421,7 +421,7 @@ void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
+>  {
+>  	struct dst_entry *dst;
+>  
+> -	if (!t)
+> +	if (sock_owned_by_user(sk) || !t)
+>  		return;
+>  	dst = sctp_transport_dst_check(t);
+>  	if (dst)
+> -- 
+> 2.1.0
+> 
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
