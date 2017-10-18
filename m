@@ -1,124 +1,62 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Get rid of RCU callbacks in TC filters?
-Date: Wed, 18 Oct 2017 12:35:48 -0700
-Message-ID: <20171018193548.GM3521@linux.vnet.ibm.com>
-References: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 00/58] networking: Convert timers to use timer_setup()
+Date: Wed, 18 Oct 2017 12:42:16 -0700
+Message-ID: <CAGXu5jK7PhuYD5Zr7dOBax3VPsvKzFSpv2b4_mNRP-AiUJ0Kcg@mail.gmail.com>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org> <20171018.124219.174286495547300072.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Chris Mi <chrism@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:44764 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750730AbdJRTfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 15:35:54 -0400
-Received: from pps.filterd (m0098409.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9IJXpQU142918
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 15:35:54 -0400
-Received: from e17.ny.us.ibm.com (e17.ny.us.ibm.com [129.33.205.207])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2dp9p4vb77-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 15:35:53 -0400
-Received: from localhost
-        by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-        Wed, 18 Oct 2017 15:35:52 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171018.124219.174286495547300072.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 18, 2017 at 10:36:28AM -0700, Cong Wang wrote:
-> Hi, all
-> 
-> Recently, the RCU callbacks used in TC filters and TC actions keep
-> drawing my attention, they introduce at least 4 race condition bugs:
-> 
-> 1. A simple one fixed by Daniel:
-> 
-> commit c78e1746d3ad7d548bdf3fe491898cc453911a49
-> Author: Daniel Borkmann <daniel@iogearbox.net>
-> Date:   Wed May 20 17:13:33 2015 +0200
-> 
->     net: sched: fix call_rcu() race on classifier module unloads
-> 
-> 2. A very nasty one fixed by me:
-> 
-> commit 1697c4bb5245649a23f06a144cc38c06715e1b65
-> Author: Cong Wang <xiyou.wangcong@gmail.com>
-> Date:   Mon Sep 11 16:33:32 2017 -0700
-> 
->     net_sched: carefully handle tcf_block_put()
-> 
-> 3. Two more bugs found by Chris:
-> https://patchwork.ozlabs.org/patch/826696/
-> https://patchwork.ozlabs.org/patch/826695/
-> 
-> 
-> Usually RCU callbacks are simple, however for TC filters and actions,
-> they are complex because at least TC actions could be destroyed
-> together with the TC filter in one callback. And RCU callbacks are
-> invoked in BH context, without locking they are parallel too. All of
-> these contribute to the cause of these nasty bugs. It looks like they
-> bring us more problems than benefits.
-> 
-> Therefore, I have been thinking about getting rid of these callbacks,
-> because they are not strictly necessary, callers of these call_rcu()
-> are all on slow path and have RTNL lock, so blocking is permitted in
-> their contexts, and _I think_ it does not harm to use
-> synchronize_rcu() on slow paths, at least I can argue RTNL lock is
-> already there and is a bottleneck if we really care. :)
-> 
-> There are 3 solutions here:
-> 
-> 1) Get rid of these RCU callbacks and use synchronize_rcu(). The
-> downside is this could hurt the performance of deleting TC filters,
-> but again it is slow path comparing to skb classification path. Note,
-> it is _not_ merely replacing call_rcu() with synchronize_rcu(),
-> because many call_rcu()'s are actually in list iterations, we have to
-> use a local list and call list_del_rcu()+list_add() before
-> synchronize_rcu() (Or is there any other API I am not aware of?). If
-> people really hate synchronize_rcu() because of performance, we could
-> also defer the work to a workqueue and callers could keep their
-> performance as they are.
-> 
-> 2) Introduce a spinlock to serialize these RCU callbacks. But as I
-> said in commit 1697c4bb5245 ("net_sched: carefully handle
-> tcf_block_put()"), it is very hard to do because of tcf_chain_dump().
-> Potentially we need to do a lot of work to make it possible, if not
-> impossible.
-> 
-> 3) Keep these RCU callbacks and fix all race conditions. Like what
-> Chris tries to do in his patchset, but my argument is that we can not
-> prove we are really race-free even with Chris' patches and his patches
-> are already large enough.
-> 
-> 
-> What do you think? Any other ideas?
+On Wed, Oct 18, 2017 at 4:42 AM, David Miller <davem@davemloft.net> wrote:
+> From: Kees Cook <keescook@chromium.org>
+> Date: Mon, 16 Oct 2017 17:28:44 -0700
+>
+>> This is the current set of outstanding networking patches to perform
+>> conversions to the new timer interface (rebased to -next). This is not
+>> all expected conversions, but it contains everything needed in networking
+>> to eliminate init_timer(), and all the non-standard setup_*_timer() uses.
+>
+> I've applied this except:
+>
+> 1) the IRDA stuff, it's staging and needs to go via Greg KH
 
-4) Move from call_rcu() to synchronize_rcu(), but if feasible use one
-synchronize_rcu() for multiple deletions/iterations.
+Ah yes, thanks. I didn't update the Subject when I followed the path
+change into staging. I'll redirect this to Greg.
 
-5) Keep call_rcu(), but have the RCU callback schedule a workqueue.
-The workqueue could then use blocking primitives, for example, acquiring
-RTNL.
+> 2) the MPC ATM didn't apply at all to net-next
 
-6) As with #5, have the RCU callback schedule a workqueue, but aggregate
-workqueue scheduling using a timer.  This would reduce the number of
-RTNL acquisitions.
+Okay, I will respin it again and collect more conversions before
+sending the next batch.
 
-7) As with #5, have the RCU callback schedule a workqueue, but have each
-iterator accumulate a list of things removed and do call_rcu() on the
-list.  This is an alternative way of aggregating to reduce the number
-of RTNL acquisitions.
+> Such a huge patch series like this is a huge burdon upon
+> a subsystem maintainer.
 
-There are many other ways to skin this cat.
+Agreed, and I'm very thankful you've made time to dig through this
+pile. I've tried to minimize the number of separate patches, since
+many cases can be mechanically updated with Coccinelle (which we'll do
+at the tail end of this conversion).
 
-							Thanx, Paul
+> Split this kind of stuff up into manageable chunks next time,
+> maybe a dozen patches at a time.  Do not submit multiple
+> series at once to get around this size limit.  Submit one
+> at a time, wait for it to get applied, and then after that
+> you can submit the next one.
+
+Okay, I'll limit postings to a dozen. I think I'll need to maintain
+separate trees for each subsystem's batches. I've been splitting them
+up manually out of one single giant tree, which has been ... insane.
+
+Thanks again!
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
