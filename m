@@ -1,64 +1,65 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: add the missing sock_owned_by_user check in
- sctp_icmp_redirect
-Date: Wed, 18 Oct 2017 10:27:25 -0400
-Message-ID: <20171018142725.GA14778@hmswarspite.think-freely.org>
-References: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net, Eric Dumazet <edumazet@google.com>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V2 net-next 0/3] TCP experimental option for SMC rendezvous
+Date: Wed, 18 Oct 2017 16:29:57 +0200
+Message-ID: <20171018143000.23884-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
+        ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33759 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751039AbdJRO1v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:27:51 -0400
-Content-Disposition: inline
-In-Reply-To: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:35530 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751048AbdJROaI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:30:08 -0400
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9IETHUa078354
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:30:07 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2dp5h5xdtq-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:30:07 -0400
+Received: from localhost
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Wed, 18 Oct 2017 15:30:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 09:37:49PM +0800, Xin Long wrote:
-> Now sctp processes icmp redirect packet in sctp_icmp_redirect where
-> it calls sctp_transport_dst_check in which tp->dst can be released.
-> 
-> The problem is before calling sctp_transport_dst_check, it doesn't
-> check sock_owned_by_user, which means tp->dst could be freed while
-> a process is accessing it with owning the socket.
-> 
-> An use-after-free issue could be triggered by this.
-> 
-> This patch is to fix it by checking sock_owned_by_user before calling
-> sctp_transport_dst_check in sctp_icmp_redirect, so that it would not
-> release tp->dst if users still hold sock lock.
-> 
-> Besides, the same issue fixed in commit 45caeaa5ac0b ("dccp/tcp: fix
-> routing redirect race") on sctp also needs this check.
-> 
-> Fixes: 55be7a9c6074 ("ipv4: Add redirect support to all protocol icmp error handlers")
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/input.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 92a0714..34f10e7 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -421,7 +421,7 @@ void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
->  {
->  	struct dst_entry *dst;
->  
-> -	if (!t)
-> +	if (sock_owned_by_user(sk) || !t)
->  		return;
->  	dst = sctp_transport_dst_check(t);
->  	if (dst)
-> -- 
-> 2.1.0
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Dave,
+
+SMC-capability is to be negotiated with a TCP experimental option.
+As requested during code review of our previous approach using
+netfilter hooks, here's a new version. It touches tcp-code in the
+first patch and exploits the new tcp flag in the smc-code.
+
+Kind regards, Ursula
+
+Changelog:
+
+V2:
+* switch to current jump labels API
+* remove static key checking in smc_set_capability()
+  (comment from Eric Dumazet)
+* use inet_request_sock parameter for smc_set_option_cond()
+* smc_listen_work(): replace local variable lgr_lock_taken by new labels
+                     and separate this change into a prerequisite first
+                     patch
+
+Ursula Braun (3):
+  smc: fix mutex unlocks during link group creation 
+  tcp: TCP experimental option for SMC
+  smc: add SMC rendezvous protocol
+
+ include/linux/tcp.h      |  9 +++++--
+ include/net/inet_sock.h  |  3 ++-
+ include/net/tcp.h        |  8 ++++++
+ net/ipv4/tcp.c           |  6 +++++
+ net/ipv4/tcp_input.c     | 34 +++++++++++++++++++++++++
+ net/ipv4/tcp_minisocks.c | 19 ++++++++++++++
+ net/ipv4/tcp_output.c    | 66 +++++++++++++++++++++++++++++++++++++++++++++---
+ net/smc/af_smc.c         | 42 ++++++++++++++++++++++--------
+ 8 files changed, 170 insertions(+), 17 deletions(-)
+
+-- 
+2.13.5
