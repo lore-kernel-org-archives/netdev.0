@@ -1,65 +1,39 @@
-From: Yann Ylavic <ylavic.dev@gmail.com>
-Subject: Re: [net-next V8 PATCH 1/5] bpf: introduce new bpf cpu map type BPF_MAP_TYPE_CPUMAP
-Date: Wed, 18 Oct 2017 09:45:59 +0200
-Message-ID: <CAKQ1sVMH-h36UWwuKhcVC=ZN+L=y3y3apayye_yKYKXTbqMGTQ@mail.gmail.com>
-References: <150814913767.1806.3470498528707259987.stgit@firesoul> <150814916887.1806.4443991765779135803.stgit@firesoul>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net-next] tipc: checking for NULL instead of IS_ERR()
+Date: Wed, 18 Oct 2017 10:48:25 +0300
+Message-ID: <20171018074825.2bi42vewrqhdbte3@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        jakub.kicinski@netronome.com,
-        "Michael S. Tsirkin" <mst@redhat.com>, pavel.odintsov@gmail.com,
-        Jason Wang <jasowang@redhat.com>, mchan@broadcom.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ying Xue <ying.xue@windriver.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        tipc-discussion@lists.sourceforge.net,
+        kernel-janitors@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f171.google.com ([209.85.216.171]:46560 "EHLO
-        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932533AbdJRHqB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 03:46:01 -0400
-Received: by mail-qt0-f171.google.com with SMTP id 1so8922190qtn.3
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 00:46:00 -0700 (PDT)
-In-Reply-To: <150814916887.1806.4443991765779135803.stgit@firesoul>
+Received: from userp1040.oracle.com ([156.151.31.81]:42168 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932533AbdJRHst (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 03:48:49 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 16, 2017 at 12:19 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> +
-> +       /* Notice returns -EPERM on if map size is larger than memlock limit */
-> +       ret = bpf_map_precharge_memlock(cmap->map.pages);
-> +       if (ret) {
-> +               err = ret;
-> +               goto free_cmap;
-> +       }
-> +
-> +       /* A per cpu bitfield with a bit per possible CPU in map  */
-> +       cmap->flush_needed = __alloc_percpu(cpu_map_bitmap_size(attr),
-> +                                           __alignof__(unsigned long));
-> +       if (!cmap->flush_needed)
-> +               goto free_cmap;
-> +
-> +       /* Alloc array for possible remote "destination" CPUs */
-> +       cmap->cpu_map = bpf_map_area_alloc(cmap->map.max_entries *
-> +                                          sizeof(struct bpf_cpu_map_entry *),
-> +                                          cmap->map.numa_node);
-> +       if (!cmap->cpu_map)
+The tipc_alloc_conn() function never returns NULL, it returns error
+pointers, so I have fixed the check.
 
-ret = -ENOMEM; ?
+Fixes: 14c04493cb77 ("tipc: add ability to order and receive topology events in driver")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> +               goto free_percpu;
-> +
-> +       return &cmap->map;
-> +free_percpu:
-> +       free_percpu(cmap->flush_needed);
-> +free_cmap:
-> +       kfree(cmap);
-> +       return ERR_PTR(err);
-> +}
-
-
-Regards,
-Yann.
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+index 713077536d0c..acaef80fb88c 100644
+--- a/net/tipc/server.c
++++ b/net/tipc/server.c
+@@ -504,7 +504,7 @@ bool tipc_topsrv_kern_subscr(struct net *net, u32 port, u32 type,
+ 	*(u32 *)&sub.usr_handle = port;
+ 
+ 	con = tipc_alloc_conn(tipc_topsrv(net));
+-	if (!con)
++	if (IS_ERR(con))
+ 		return false;
+ 
+ 	*conid = con->conid;
