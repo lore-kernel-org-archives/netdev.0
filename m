@@ -1,45 +1,39 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] i40e/virtchnl: fix application of sizeof to pointer
-Date: Wed, 18 Oct 2017 15:34:25 -0500
-Message-ID: <20171018203425.GA983@embeddedor.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next] tcp: socket option to set TCP fast open key
+Date: Wed, 18 Oct 2017 13:37:27 -0700
+Message-ID: <CANn89iK-dzwehweSZxVJ1z9YEYnhFMM3URYpARbxr4bUa1Nskg@mail.gmail.com>
+References: <20171018182251.5486-1-ycheng@google.com> <20171018201344.GQ73751@Chimay.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Yuchung Cheng <ycheng@google.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        "maheshb@google.com" <maheshb@google.com>
+To: Christoph Paasch <cpaasch@apple.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f170.google.com ([209.85.161.170]:49243 "EHLO
+        mail-yw0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750992AbdJRUh3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 16:37:29 -0400
+Received: by mail-yw0-f170.google.com with SMTP id n189so1696983ywd.6
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 13:37:29 -0700 (PDT)
+In-Reply-To: <20171018201344.GQ73751@Chimay.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sizeof when applied to a pointer typed expression gives the size of
-the pointer.
+On Wed, Oct 18, 2017 at 1:13 PM, Christoph Paasch <cpaasch@apple.com> wrote:
+>
+> Hello Yuchung,
+>
+> On 18/10/17 - 11:22:51, Yuchung Cheng wrote:
+> > New socket option TCP_FASTOPEN_KEY to allow different keys per
+> > listener.  The listener by default uses the global key until the
+> > socket option is set.  The key is a 16 bytes long binary data. This
+> > option has no effect on regular non-listener TCP sockets.
+>
+> can you explain what the use-case is to have per-listener TFO keys?
+>
 
-The proper fix in this particular case is to code sizeof(*vfres)
-instead of sizeof(vfres).
-
-This issue was detected with the help of Coccinelle.
-
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only.
-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index f8a794b..56dd1e8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2086,7 +2086,7 @@ static int i40e_vc_request_queues_msg(struct i40e_vf *vf, u8 *msg, int msglen)
- 	}
- 
- 	return i40e_vc_send_msg_to_vf(vf, VIRTCHNL_OP_REQUEST_QUEUES, 0,
--				      (u8 *)vfres, sizeof(vfres));
-+				      (u8 *)vfres, sizeof(*vfres));
- }
- 
- /**
--- 
-2.7.4
+Security aspects. You want to be able to change keys whenever you
+want, on an application basis.
