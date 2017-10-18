@@ -1,109 +1,44 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V2 net-next 3/3] smc: add SMC rendezvous protocol
-Date: Wed, 18 Oct 2017 16:30:00 +0200
-Message-ID: <20171018143000.23884-4-ubraun@linux.vnet.ibm.com>
-References: <20171018143000.23884-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com,
-        ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:51484 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751108AbdJROaM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 10:30:12 -0400
-Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9IETKUm044523
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:30:11 -0400
-Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 2dp4ukhd2u-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 10:30:11 -0400
-Received: from localhost
-        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Wed, 18 Oct 2017 15:30:10 +0100
-In-Reply-To: <20171018143000.23884-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [PATCH v2 12/15] RDMA/cma: make config_item_type const
+Date: Wed, 18 Oct 2017 10:33:31 -0400
+Message-ID: <1508337211.46071.67.camel@redhat.com>
+References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
+         <1508167134-6243-13-git-send-email-bhumirks@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
+        rjw@rjwysocki.net, lenb@kernel.org,
+        alexander.shishkin@linux.intel.com, jic23@kernel.org,
+        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
+        sean.hefty@intel.com, hal.rosenstock@gmail.com, hch@lst.de,
+        sagi@grimberg.me, kishon@ti.com, bhelgaas@google.com,
+        nab@linux-iscsi.org, balbi@kernel.org, gregkh@linuxfoundation.org,
+        laurent.pinchart@ideasonboard.com, jlbec@evilplan.org,
+        ccaulfie@redhat.com, teigland@redhat.com, mfasheh@versity.com,
+        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-iio@vger.kernel.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-nvme@lists.infradead.org,
+        linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
+        target-devel@vger.kernel.org, linux-usb@vger.kernel.org,
+        clu
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1508167134-6243-13-git-send-email-bhumirks@gmail.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The SMC protocol [1] uses a rendezvous protocol to negotiate SMC
-capability between peers. The current Linux implementation does not yet
-use this rendezvous protocol and, thus, is not compliant to RFC7609 and
-incompatible with other SMC implementations like in zOS.
-This patch adds support for the SMC rendezvous protocol. It uses a new
-TCP experimental option. With this option, SMC capabilities are
-exchanged between the peers during the TCP three way handshake.
+On Mon, 2017-10-16 at 17:18 +0200, Bhumika Goyal wrote:
+> Make these structures const as they are either passed to the
+> functions
+> having the argument as const or stored as a reference in the
+> "ci_type"
+> const field of a config_item structure.
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-[1] SMC-R Informational RFC: http://www.rfc-editor.org/info/rfc7609
+Acked-by: Doug Ledford <dledford@redhat.com>
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- net/smc/af_smc.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
-
-diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 70f7640f5090..6451c5013e06 100644
---- a/net/smc/af_smc.c
-+++ b/net/smc/af_smc.c
-@@ -390,6 +390,12 @@ static int smc_connect_rdma(struct smc_sock *smc)
- 	int rc = 0;
- 	u8 ibport;
- 
-+	if (!tcp_sk(smc->clcsock->sk)->syn_smc) {
-+		/* peer has not signalled SMC-capability */
-+		smc->use_fallback = true;
-+		goto out_connected;
-+	}
-+
- 	/* IPSec connections opt out of SMC-R optimizations */
- 	if (using_ipsec(smc)) {
- 		reason_code = SMC_CLC_DECL_IPSEC;
-@@ -555,6 +561,7 @@ static int smc_connect(struct socket *sock, struct sockaddr *addr,
- 	}
- 
- 	smc_copy_sock_settings_to_clc(smc);
-+	tcp_sk(smc->clcsock->sk)->syn_smc = 1;
- 	rc = kernel_connect(smc->clcsock, addr, alen, flags);
- 	if (rc)
- 		goto out;
-@@ -759,6 +766,12 @@ static void smc_listen_work(struct work_struct *work)
- 	u8 prefix_len;
- 	u8 ibport;
- 
-+	/* check if peer is smc capable */
-+	if (!tcp_sk(newclcsock->sk)->syn_smc) {
-+		new_smc->use_fallback = true;
-+		goto out_connected;
-+	}
-+
- 	/* do inband token exchange -
- 	 *wait for and receive SMC Proposal CLC message
- 	 */
-@@ -967,6 +980,7 @@ static int smc_listen(struct socket *sock, int backlog)
- 	 * them to the clc socket -- copy smc socket options to clc socket
- 	 */
- 	smc_copy_sock_settings_to_clc(smc);
-+	tcp_sk(smc->clcsock->sk)->syn_smc = 1;
- 
- 	rc = kernel_listen(smc->clcsock, backlog);
- 	if (rc)
-@@ -1409,6 +1423,7 @@ static int __init smc_init(void)
- 		goto out_sock;
- 	}
- 
-+	static_branch_enable(&tcp_have_smc);
- 	return 0;
- 
- out_sock:
-@@ -1433,6 +1448,7 @@ static void __exit smc_exit(void)
- 		list_del_init(&lgr->list);
- 		smc_lgr_free(lgr); /* free link group */
- 	}
-+	static_branch_disable(&tcp_have_smc);
- 	smc_ib_unregister_client();
- 	sock_unregister(PF_SMC);
- 	proto_unregister(&smc_proto);
 -- 
-2.13.5
+Doug Ledford <dledford@redhat.com>
+    GPG KeyID: B826A3330E572FDD
+    Key fingerprint = AE6B 1BDA 122B 23B4 265B  1274 B826 A333 0E57 2FDD
