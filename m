@@ -1,122 +1,53 @@
-From: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Wed, 18 Oct 2017 16:56:06 -0400
-Message-ID: <CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg@mail.gmail.com>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
-	<75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
-	<20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
-	<2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
-	<a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com>
-	<1508254120.6230.34.camel@redhat.com>
-	<1508255091.3129.27.camel@HansenPartnership.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH] mac80211: aggregation: Convert timers to use timer_setup()
+Date: Wed, 18 Oct 2017 14:02:15 -0700
+Message-ID: <CAGXu5jLC4FAXvHxn+N1d_6nSz-MnBAPMeNFKbt4W+fERAxTHZg@mail.gmail.com>
+References: <20171017202545.GA115810@beast> <1508322566.2674.17.camel@sipsolutions.net>
+ <CAGXu5jKY5rTuR_w=zj5Bz06f9OrW35eD4sYfkai2Gac_edG4ag@mail.gmail.com> <1508359811.2674.56.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
-	Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
-	Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
-To: James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1508255091.3129.27.camel-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508359811.2674.56.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 17, 2017 at 11:44 AM, James Bottomley
-<James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org> wrote:
-> On Tue, 2017-10-17 at 11:28 -0400, Simo Sorce wrote:
->> > Without a *kernel* policy on containerIDs you can't say what
->> > security policy is being exempted.
+On Wed, Oct 18, 2017 at 1:50 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Wed, 2017-10-18 at 07:19 -0700, Kees Cook wrote:
+>> On Wed, Oct 18, 2017 at 3:29 AM, Johannes Berg
+>> <johannes@sipsolutions.net> wrote:
+>> > > This has been the least trivial timer conversion yet. Given the use of
+>> > > RCU and other things I may not even know about, I'd love to get a close
+>> > > look at this. I *think* this is correct, as it will re-lookup the tid
+>> > > entries when firing the timer.
+>> >
+>> > I'm not really sure why you're doing the lookup again? That seems
+>> > pointless, since you already have the right structure, and already rely
+>> > on it being valid. You can't really get a new struct assigned to the
+>> > same TID without the old one being destroyed.
 >>
->> The policy has been basically stated earlier.
->>
->> A way to track a set of processes from a specific point in time
->> forward. The name used is "container id", but it could be anything.
->> This marker is mostly used by user space to track process hierarchies
->> without races, these processes can be very privileged, and must not
->> be allowed to change the marker themselves when granted the current
->> common capabilities.
->>
->> Is this a good enough description ? If not can you clarify your
->> expectations ?
+>> I couldn't tell what the lifetime expectation was, so I left the
+>> re-lookup. I assumed it was possible to have a timer fire after the
+>> structure had been removed from the station structure.
 >
-> I think you mean you want to be able to apply a label to a process
-> which is inherited across forks.  The label should only be susceptible
-> to modification by something possessing a capability (which one TBD).
-> The idea is that processes spawned into a container would be labelled
-> by the container orchestration system.  It's unclear what should happen
-> to processes using nsenter after the fact, but policy for that should
-> be up to the orchestration system.
->
-> The label will be used as a tag for audit information.
->
-> I think you were missing label inheritance above.
+> Oh, right, I guess that would've been possible in theory. It's not
+> actually possible though since the aggregation sessions can't live on
+> without a station, so I've already made a follow-up patch to remove the
+> indirection.
 
-That is a pretty good summary of what we want to do, and what Richard
-and I have discussed while brainstorming this offline.  The details
-may not have translated well into those initial emails from Richard,
-but I think you've got the idea, even if some of the smaller details
-are still TBD.  FWIW, right now I'm not as worried about the exact
-capability or the size of the audit container ID, I think those things
-will sort themselves out as we progress through the implementation,
-especially once we get to the next stage when we start to allow copies
-of the audit records to be routed to audit daemons running inside
-containers (note well that I said "copies", the host system still sees
-all).
+Okay, cool, thanks.
 
-> The security implications are that anything that can change the label
-> could also hide itself and its doings from the audit system and thus
-> would be used as a means to evade detection.  I actually think this
-> means the label should be write once (once you've set it, you can't
-> change it) ...
+It seems like I have a similar case in the iwlwifi driver too, but
+it's different enough that I'm not sure about that one either. I'll
+send that when I've got it ready.
 
-Richard and I have talked about a write once approach, but the
-thinking was that you may want to allow a nested container
-orchestrator (Why? I don't know, but people always want to do the
-craziest things.) and a write-once policy makes that impossible.  If
-we punt on the nested orchestrator, I believe we can seriously think
-about a write-once policy to simplify things.
-
-A bit off topic, but I've also wondered about not even implementing
-read access, just to help ensure the audit container ID wouldn't be
-abused, but I'm not sure how practical that will be.  Something else
-to sort out during the RFC phase of the implementation with the
-container orchestrators.
-
-> ... and orchestration systems should begin as unlabelled
-> processes allowing them to do arbitrary forks.
-
-My current thinking is that the default state is to start unlabeled (I
-just vomited a little into my SELinux hat); in other words
-init/systemd/PID-1 in the host system starts with an "unset" audit
-container ID.  This not only helps define the host system (anything
-that has an unset audit container ID) but provides a blank slate for
-the orchestrator(s).
-
-> For nested containers, I actually think the label should be
-> hierarchical, so you can add a label for the new nested container but
-> it still also contains its parents label as well.
-
-I haven't made up my mind on this completely just yet, but I'm
-currently of the mindset that supporting multiple audit container IDs
-on a given process is not a good idea.
+-Kees
 
 -- 
-paul moore
-www.paul-moore.com
+Kees Cook
+Pixel Security
