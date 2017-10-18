@@ -1,60 +1,54 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH 4/7] devlink: Adding perm config of link settings
-Date: Wed, 18 Oct 2017 09:22:03 -0400
-Message-ID: <CA+Jmh7HnZG+7xP=02K3BMKxODbfP=Mq=9o5iC2fS4LXw0+djMg@mail.gmail.com>
-References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
- <1508273069-40461-5-git-send-email-steven.lin1@broadcom.com>
- <20171018073151.GC2028@nanopsycho> <CA+Jmh7Eit_BBvkJNUdF4QYwCuP5T7WCkR4O_X9DK8O0CEzAjTA@mail.gmail.com>
- <20171018130108.GC1975@nanopsycho.orion>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sock_diag: request _diag module only when the family
+ or proto has been registered
+Date: Wed, 18 Oct 2017 21:33:58 +0800
+Message-ID: <CADvbK_cuu+CZ8cN6oB8zichfw=1M7+cz-=zV-aJERvL=CuZGGg@mail.gmail.com>
+References: <69c0824505548e733f2f7be3ff288f2c4e461afa.1508217236.git.lucien.xin@gmail.com>
+ <201710181738.Tq0zphPS%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        John Linville <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: kbuild-all@01.org, network dev <netdev@vger.kernel.org>,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Sabrina Dubroca <sd@queasysnail.net>,
+        Eric Dumazet <edumazet@google.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:45776 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750751AbdJRNW0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:22:26 -0400
-Received: by mail-qk0-f196.google.com with SMTP id f199so6167987qke.2
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 06:22:25 -0700 (PDT)
-In-Reply-To: <20171018130108.GC1975@nanopsycho.orion>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:52083 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753809AbdJRNeA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 09:34:00 -0400
+Received: by mail-qk0-f195.google.com with SMTP id 17so6186560qkq.8
+        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 06:33:59 -0700 (PDT)
+In-Reply-To: <201710181738.Tq0zphPS%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 9:01 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, Oct 18, 2017 at 02:39:42PM CEST, steven.lin1@broadcom.com wrote:
->>On Wed, Oct 18, 2017 at 3:31 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>
->>> You need to split the config option to those that are per-port and to
->>> those that are per-asic. For each family, you have to use ither
->>> devlink_port of devlink handle. Also, you need to split into those that are
->>> permanent and to those who are teporary (until reset). I think you might
->>> need some flags for that.
->>>
->>
->>All these are permanent; none are temporary - that's (partially) why
->>we consider these to be devlink/device parameters rather than a
->>netdev/ethtool thing, since they take effect after the next reset and
->>before any drivers are loaded (i.e. the card uses these parameters for
->>its default/startup configuration).
+On Wed, Oct 18, 2017 at 5:38 PM, kbuild test robot <lkp@intel.com> wrote:
+> Hi Xin,
 >
-> Understood. But I think that this iface should be capable to serve the
-> options of non-permanent as well. Or this could be 2 separate interfaces
-> with 2 separate cmd pair. Thoughts?
+> [auto build test ERROR on net/master]
 >
+> url:    https://github.com/0day-ci/linux/commits/Xin-Long/sock_diag-request-_diag-module-only-when-the-family-or-proto-has-been-registered/20171018-152434
+> config: x86_64-randconfig-a0-10181611 (attached as .config)
+> compiler: gcc-6 (Debian 6.2.0-3) 6.2.0 20160901
+> reproduce:
+>         # save the attached .config to linux build tree
+>         make ARCH=x86_64
+>
+> All errors (new ones prefixed by >>):
+>
+>    net/core/sock_diag.o: In function `sock_diag_request_module':
+>>> (.text+0x685): undefined reference to `inet_protos'
+Huh,
+# CONFIG_INET is not set
+Cool, I will move the check for inet_protos to net_diag.ko
+and repost.
 
-I would prefer to keep this command for permanent config only, and use
-a separate command for transient configuration.  I think that
-transient device configuration should be tackled in the separate
-discussion that was started in the RFC version of this patchset,
-related to moving ethtool ops to devlink/netlink.
+Thanks.
 
-I think that's a separate topic that requires a little more thought
-and discussion, but really isn't that related to this current patchset
-for permanent device configuration.  What do you think?
 
-Steve
+>
+> ---
+> 0-DAY kernel test infrastructure                Open Source Technology Center
+> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
