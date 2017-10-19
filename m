@@ -1,34 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: hns3: Add mqprio hardware offload
- support in hns3 driver
-Date: Thu, 19 Oct 2017 12:45:58 +0100 (WEST)
-Message-ID: <20171019.124558.2262148691294867391.davem@davemloft.net>
-References: <1508223090-37907-1-git-send-email-linyunsheng@huawei.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] qed: Fix iWARP out of order flow
+Date: Thu, 19 Oct 2017 12:47:01 +0100 (WEST)
+Message-ID: <20171019.124701.29421527567072533.davem@davemloft.net>
+References: <1508225005-3572-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
-        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
-        gabriele.paoloni@huawei.com, john.garry@huawei.com,
-        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linyunsheng@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48458 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752728AbdJSLqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:46:16 -0400
-In-Reply-To: <1508223090-37907-1-git-send-email-linyunsheng@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
+        Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
+To: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1508225005-3572-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yunsheng Lin <linyunsheng@huawei.com>
-Date: Tue, 17 Oct 2017 14:51:30 +0800
+From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Date: Tue, 17 Oct 2017 10:23:25 +0300
 
-> When using tc qdisc, dcb_ops->setup_tc is used to tell hclge_dcb
-> module to do the tm related setup. Only TC_MQPRIO_MODE_CHANNEL
-> offload mode is supported.
+> Out of order flow is not working for iWARP.
+> This patch got cut out from initial series that added out
+> of order support for iWARP.
 > 
-> Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
+> Make out of order code common for iWARP and iSCSI.
+> Add new configuration option CONFIG_QED_OOO. Set by
+> qedr and qedi Kconfigs.
+> 
+> Fixes: d1abfd0b4ee2 ("qed: Add iWARP out of order support")
+> 
+> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Manish Rangankar <Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
