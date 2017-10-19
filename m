@@ -1,176 +1,50 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 1/8] tools: bpftool: add pointer to file argument to print_hex()
-Date: Thu, 19 Oct 2017 15:46:19 -0700
-Message-ID: <20171019224626.31608-2-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 2/8] tools: bpftool: fix return value when all eBPF programs have been shown
+Date: Thu, 19 Oct 2017 15:46:20 -0700
+Message-ID: <20171019224626.31608-3-jakub.kicinski@netronome.com>
 References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Quentin Monnet <quentin.monnet@netronome.com>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:48357 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752092AbdJSWrE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 18:47:04 -0400
-Received: by mail-pf0-f193.google.com with SMTP id b79so8111485pfk.5
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 15:47:04 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:50668 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752976AbdJSWrF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 18:47:05 -0400
+Received: by mail-pf0-f194.google.com with SMTP id b6so8104968pfh.7
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 15:47:05 -0700 (PDT)
 In-Reply-To: <20171019224626.31608-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Quentin Monnet <quentin.monnet@netronome.com>
 
-Make print_hex() able to print to any file instead of standard output
-only, and rename it to fprint_hex(). The function can now be called with
-the info() macro, for example, without splitting the output between
-standard and error outputs.
+Change the program to have a more consistent return code. Specifically,
+do not make bpftool return an error code simply because it reaches the
+end of the list of the eBPF programs to show.
 
 Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- tools/bpf/bpftool/main.c |  8 ++++----
- tools/bpf/bpftool/main.h |  2 +-
- tools/bpf/bpftool/map.c  | 20 ++++++++++----------
- tools/bpf/bpftool/prog.c |  4 ++--
- 4 files changed, 17 insertions(+), 17 deletions(-)
+ tools/bpf/bpftool/prog.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
-index e02d00d6e00b..8662199ee050 100644
---- a/tools/bpf/bpftool/main.c
-+++ b/tools/bpf/bpftool/main.c
-@@ -100,7 +100,7 @@ bool is_prefix(const char *pfx, const char *str)
- 	return !memcmp(str, pfx, strlen(pfx));
- }
- 
--void print_hex(void *arg, unsigned int n, const char *sep)
-+void fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep)
- {
- 	unsigned char *data = arg;
- 	unsigned int i;
-@@ -111,13 +111,13 @@ void print_hex(void *arg, unsigned int n, const char *sep)
- 		if (!i)
- 			/* nothing */;
- 		else if (!(i % 16))
--			printf("\n");
-+			fprintf(f, "\n");
- 		else if (!(i % 8))
--			printf("  ");
-+			fprintf(f, "  ");
- 		else
- 			pfx = sep;
- 
--		printf("%s%02hhx", i ? pfx : "", data[i]);
-+		fprintf(f, "%s%02hhx", i ? pfx : "", data[i]);
- 	}
- }
- 
-diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 844e4ef6db56..41e6c7d3fcad 100644
---- a/tools/bpf/bpftool/main.h
-+++ b/tools/bpf/bpftool/main.h
-@@ -67,7 +67,7 @@ enum bpf_obj_type {
- extern const char *bin_name;
- 
- bool is_prefix(const char *pfx, const char *str);
--void print_hex(void *arg, unsigned int n, const char *sep);
-+void fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep);
- void usage(void) __attribute__((noreturn));
- 
- struct cmd {
-diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
-index 0528a5379e6c..b1dad76215ed 100644
---- a/tools/bpf/bpftool/map.c
-+++ b/tools/bpf/bpftool/map.c
-@@ -216,12 +216,12 @@ static void print_entry(struct bpf_map_info *info, unsigned char *key,
- 			!break_names;
- 
- 		printf("key:%c", break_names ? '\n' : ' ');
--		print_hex(key, info->key_size, " ");
-+		fprint_hex(stdout, key, info->key_size, " ");
- 
- 		printf(single_line ? "  " : "\n");
- 
- 		printf("value:%c", break_names ? '\n' : ' ');
--		print_hex(value, info->value_size, " ");
-+		fprint_hex(stdout, value, info->value_size, " ");
- 
- 		printf("\n");
- 	} else {
-@@ -230,13 +230,13 @@ static void print_entry(struct bpf_map_info *info, unsigned char *key,
- 		n = get_possible_cpus();
- 
- 		printf("key:\n");
--		print_hex(key, info->key_size, " ");
-+		fprint_hex(stdout, key, info->key_size, " ");
- 		printf("\n");
- 		for (i = 0; i < n; i++) {
- 			printf("value (CPU %02d):%c",
- 			       i, info->value_size > 16 ? '\n' : ' ');
--			print_hex(value + i * info->value_size,
--				  info->value_size, " ");
-+			fprint_hex(stdout, value + i * info->value_size,
-+				   info->value_size, " ");
- 			printf("\n");
- 		}
- 	}
-@@ -492,8 +492,8 @@ static int do_dump(int argc, char **argv)
- 			print_entry(&info, key, value);
- 		} else {
- 			info("can't lookup element with key: ");
--			print_hex(key, info.key_size, " ");
--			printf("\n");
-+			fprint_hex(stderr, key, info.key_size, " ");
-+			fprintf(stderr, "\n");
- 		}
- 
- 		prev_key = key;
-@@ -587,7 +587,7 @@ static int do_lookup(int argc, char **argv)
- 		print_entry(&info, key, value);
- 	} else if (errno == ENOENT) {
- 		printf("key:\n");
--		print_hex(key, info.key_size, " ");
-+		fprint_hex(stdout, key, info.key_size, " ");
- 		printf("\n\nNot found\n");
- 	} else {
- 		err("lookup failed: %s\n", strerror(errno));
-@@ -642,14 +642,14 @@ static int do_getnext(int argc, char **argv)
- 
- 	if (key) {
- 		printf("key:\n");
--		print_hex(key, info.key_size, " ");
-+		fprint_hex(stdout, key, info.key_size, " ");
- 		printf("\n");
- 	} else {
- 		printf("key: None\n");
- 	}
- 
- 	printf("next key:\n");
--	print_hex(nextkey, info.key_size, " ");
-+	fprint_hex(stdout, nextkey, info.key_size, " ");
- 	printf("\n");
- 
- exit_free:
 diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index d60f5307b6e2..aa6d72ea3807 100644
+index aa6d72ea3807..ede7957adcd9 100644
 --- a/tools/bpf/bpftool/prog.c
 +++ b/tools/bpf/bpftool/prog.c
-@@ -224,7 +224,7 @@ static int show_prog(int fd)
- 		printf("name %s  ", info.name);
- 
- 	printf("tag ");
--	print_hex(info.tag, BPF_TAG_SIZE, "");
-+	fprint_hex(stdout, info.tag, BPF_TAG_SIZE, "");
- 	printf("\n");
- 
- 	if (info.load_time) {
-@@ -319,7 +319,7 @@ static void dump_xlated(void *buf, unsigned int len, bool opcodes)
- 
- 		if (opcodes) {
- 			printf("       ");
--			print_hex(insn + i, 8, " ");
-+			fprint_hex(stdout, insn + i, 8, " ");
- 			printf("\n");
- 		}
- 
+@@ -275,8 +275,10 @@ static int do_show(int argc, char **argv)
+ 	while (true) {
+ 		err = bpf_prog_get_next_id(id, &id);
+ 		if (err) {
+-			if (errno == ENOENT)
++			if (errno == ENOENT) {
++				err = 0;
+ 				break;
++			}
+ 			err("can't get next program: %s\n", strerror(errno));
+ 			if (errno == EINVAL)
+ 				err("kernel too old?\n");
 -- 
 2.14.1
