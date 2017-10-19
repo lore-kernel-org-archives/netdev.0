@@ -1,90 +1,101 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [kernel-hardening] [PATCH 0/2] capability controlled user-namespaces
-Date: Thu, 19 Oct 2017 09:15:06 -0700
-Message-ID: <CAF2d9jgkKtKUnO6vH1QNLynQs5rh3rhHOFSA9gVNo4KRnBdECg@mail.gmail.com>
-References: <20170929230952.29673-1-mahesh@bandewar.net> <20171002171410.GA19611@mail.hallyn.com>
- <CAF2d9jjc6z_cO7co_C7L7xPujqA2npa2nXpUHZbE-Le6BSGFNg@mail.gmail.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Thu, 19 Oct 2017 11:25:10 -0500
+Message-ID: <87y3o7gl5l.fsf@xmission.com>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+        <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+        <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+        <2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
+        <a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com>
+        <1508254120.6230.34.camel@redhat.com>
+        <1508255091.3129.27.camel@HansenPartnership.com>
+        <CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg@mail.gmail.com>
+        <49752b6f-8a77-d1e5-8acb-5a1eed0a992c@suse.de>
+        <871sm0j7bm.fsf@xmission.com>
+        <CAHC9VhTYF-MJm3ejWXE1H-eeXKaNBkeWKwdiKdj093xATYn7nQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mahesh Bandewar <mahesh-bmGAjcP2qsnk1uMJSBkQmQ@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Kernel-hardening <kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-        Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAF2d9jjc6z_cO7co_C7L7xPujqA2npa2nXpUHZbE-Le6BSGFNg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>,
+        James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        "Carlos O'Donell" <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
+        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
+To: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHC9VhTYF-MJm3ejWXE1H-eeXKaNBkeWKwdiKdj093xATYn7nQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+        (Paul Moore's message of "Thu, 19 Oct 2017 11:36:39 -0400")
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 2, 2017 at 11:12 AM, Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=
-=87=E0=A4=B6 =E0=A4=AC=E0=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=
-=B0)
-<maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
-> On Mon, Oct 2, 2017 at 10:14 AM, Serge E. Hallyn <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org> wrote=
-:
->> Quoting Mahesh Bandewar (mahesh-bmGAjcP2qsnk1uMJSBkQmQ@public.gmane.org):
->>> From: Mahesh Bandewar <maheshb-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->>>
->>> [Same as the previous RFC series sent on 9/21]
->>>
->>> TL;DR version
->>> -------------
->>> Creating a sandbox environment with namespaces is challenging
->>> considering what these sandboxed processes can engage into. e.g.
->>> CVE-2017-6074, CVE-2017-7184, CVE-2017-7308 etc. just to name few.
->>> Current form of user-namespaces, however, if changed a bit can allow
->>> us to create a sandbox environment without locking down user-
->>> namespaces.
->>>
->>> Detailed version
->>> ----------------
->>
->> Hi,
->>
->> still struggling with how I feel about the idea in general.
->>
->> So is the intent mainly that if/when there comes an 0-day which allows
->> users with CAP_NET_ADMIN in any namespace to gain privilege on the host,
->> then this can be used as a stop-gap measure until there is a proper fix?
->>
-> Thank for looking at this Serge.
->
-> Yes, but at the same time it's not just limited to NET_ADMIN but could
-> be any of the current capabilities.
->
->> Otherwise, do you have any guidance for how people should use this?
->>
->> IMO it should be heavily discouraged to use this tool as a regular
->> day to day configuration, as I'm not sure there is any "educated"
->> decision to be made, even by those who are in the know, about what
->> to put in this set.
->>
-> I think that really depends on the environment. e.g. in certain
-> sandboxes third-part / semi-trusted workload is executed where network
-> resource is not used. In that environment I can easily take off
-> NET_ADMIN and NET_RAW without affecting anything there. At the same
-> time I wont have to worry about 0-day related to these two
-> capabilities. I would say the Admins at these places are in the best
-> place to decide what they can take-off safely and what they cannot.
-> Even if they decide not to take-off anything, having a tool at hand to
-> gain control is important when the next 0-day strikes us that can be
-> exploited using any of the currently used capabilities.
->
-> However, you are absolutely right in terms of using it as a stop-gap
-> measure to protect environment until it's fixed and the capability in
-> question can not be safely taken off permanently without hampering
-> operations.
->
-> thanks,
-> --mahesh..
->
-> [...]
+Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org> writes:
 
-friendly ping.
+> On Wed, Oct 18, 2017 at 8:43 PM, Eric W. Biederman
+> <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
+>> Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org> writes:
+>>>>> The security implications are that anything that can change the label
+>>>>> could also hide itself and its doings from the audit system and thus
+>>>>> would be used as a means to evade detection.  I actually think this
+>>>>> means the label should be write once (once you've set it, you can't
+>>>>> change it) ...
+>>>>
+>>>> Richard and I have talked about a write once approach, but the
+>>>> thinking was that you may want to allow a nested container
+>>>> orchestrator (Why? I don't know, but people always want to do the
+>>>> craziest things.) and a write-once policy makes that impossible.  If
+>>>> we punt on the nested orchestrator, I believe we can seriously think
+>>>> about a write-once policy to simplify things.
+>>>
+>>> Nested containers are a very widely used use-case (see LXC system containers,
+>>> inside of which people run other container runtimes). So I would definitely
+>>> consider it something that "needs to be supported in some way". While the LXC
+>>> guys might be a *tad* crazy, the use-case isn't. :P
+>
+> No worries, we're all a little crazy in our own special ways ;)
+>
+> Kidding aside, thanks for explaining the use case.
+>
+>> Of course some of that gets to running auditd inside a container which
+>> we don't have yet either.
+>>
+>> So I think to start it is perfectly fine to figure out the non-nested
+>> case first and what makes sense there.  Then to sort out the nested
+>> container case.
+>>
+>> The solution might be that a process gets at most one id per ``audit
+>> namespace''.
+>
+> In an attempt to stay on-topic, let's try to stick with "audit
+> container ID" or "container ID" if you must.  I really want to avoid
+> the term "audit namespace" simply because the term "namespace" implies
+> some things which we aren't planning on doing.
+
+This is 100% on topic.  I am saying that unless we are planing to have
+auditd running in a container with it's own set of rules you probably
+don't care about nested containers.  Last time I heard a discussion
+about that the term in use was audit namespace.   So I was referring to
+that support when I said audit namespace, even if the end result only
+loosely fits the term namespace.
+
+I could be wrong of course.  I don't fully understand what is driving
+the desire to connect audit and containers.  But my naive guess is that
+one from an audit perspective you don't care about nested containers
+unless there is also a nested auditd who is looking at it from a nested
+perspective.
+
+So far we have established with the term container that we are talking
+about a running instance of processes, not a filesystem instance that
+Docker and friends ship around.   Beyond that I am not certain what you
+care about.
+
+Eric
