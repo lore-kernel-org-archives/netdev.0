@@ -1,48 +1,78 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net] sock: correct sk_wmem_queued accounting on efault in
- tcp zerocopy
-Date: Thu, 19 Oct 2017 09:45:14 -0700
-Message-ID: <CANn89iJjEG1iVHTKEg3xMpaj6Q1jEE7VMxsKhao-TCrJF8+nSQ@mail.gmail.com>
-References: <20171019164039.20927-1-willemdebruijn.kernel@gmail.com>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH v2 net-next 1/2] net: dsa: lan9303: Add port_fast_age and
+ port_fdb_dump methods
+Date: Thu, 19 Oct 2017 18:52:38 +0200
+Message-ID: <e3017724-b555-a021-c4b3-49a754201861@egil-hjelmeland.no>
+References: <20171019121015.7395-1-privat@egil-hjelmeland.no>
+ <20171019121015.7395-2-privat@egil-hjelmeland.no>
+ <87mv4nw869.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20171019141505.GA14840@lunn.ch>
+ <063D6719AE5E284EB5DD2968C1650D6DD009C922@AcuExch.aculab.com>
+ <35825cd2-0b47-3f8a-813e-1e7db2f7dcde@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:43391 "EHLO
-        mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754587AbdJSQpP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 12:45:15 -0400
-Received: by mail-yw0-f196.google.com with SMTP id y75so4042263ywg.0
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 09:45:15 -0700 (PDT)
-In-Reply-To: <20171019164039.20927-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+        'Andrew Lunn' <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <35825cd2-0b47-3f8a-813e-1e7db2f7dcde@egil-hjelmeland.no>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 9:40 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> From: Willem de Bruijn <willemb@google.com>
->
-> Syzkaller hits WARN_ON(sk->sk_wmem_queued) in sk_stream_kill_queues
-> after triggering an EFAULT in __zerocopy_sg_from_iter.
->
-> On this error, skb_zerocopy_stream_iter resets the skb to its state
-> before the operation with __pskb_trim. It cannot kfree_skb like
-> datagram callers, as the skb may have data from a previous send call.
->
-> __pskb_trim calls skb_condense for unowned skbs, which adjusts their
-> truesize. These tcp skbuffs are owned and their truesize must add up
-> to sk_wmem_queued. But they match because their skb->sk is NULL until
-> tcp_transmit_skb.
->
-> Temporarily set skb->sk when calling __pskb_trim to signal that the
-> skbuffs are owned and avoid the skb_condense path.
->
-> Fixes: 52267790ef52 ("sock: add MSG_ZEROCOPY")
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
 
-Thanks a lot Willem.
+Den 19. okt. 2017 17:42, skrev Egil Hjelmeland:
+> On 19. okt. 2017 17:15, David Laight wrote:
+>> From: Andrew Lunn
+>>> Sent: 19 October 2017 15:15
+>>>>> +/* Clear learned (non-static) entry on given port */
+>>>>> +static void alr_loop_cb_del_port_learned(struct lan9303 *chip, u32 
+>>>>> dat0,
+>>>>> +                     u32 dat1, int portmap, void *ctx)
+>>>>> +{
+>>>>> +    int *port = ctx;
+>>>>
+>>>> You can get the value directly to make the line below more readable:
+>>>>
+>>>>      int port = *(int *)ctx;
+>>>
+>>> You have to be a bit careful with this. You often see people
+>>> submitting patches taking away casts for void * pointers.
+>>> If they do that here, it should at least not compile...
+>>>
+>>> So maybe do it in two steps?
+>>>
+>>>     int * pport = ctx;
+>>>     int port = *pport;
+>>
+>> IMHO it is best to define a struct for the 'ctx and then do:
+>>     ..., void *v_ctx)
+>> {
+>>     foo_ctx *ctx = v_ctx;
+>>     int port = ctx->port;
+>>
+>> That stops anyone having to double-check that the *(int *)
+>> is operating on a pointer to an integer of the correct size.
+>>
+> 
+> Does casting to a struct pointer require less manual double-check than
+> to a int-pointer? In neither cases the compiler can protect us, IFAIK.
+> But on the other hand, a the text "foo_ctx" can searched in the editor.
+> So in that respect it can somewhat aid to the double-checking.
+> 
+> So I can do that.
+> 
+> 
+
+I understand now that the caller side (lan9303_port_fast_age) is
+vulnerable. Say somebody has the idea to change the "port" param
+of .port_fast_age from int to u8, then my code is a trap.
+
+Thanks for the education.
+
+Egil
