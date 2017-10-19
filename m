@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 04/20] net: sched: use tc_setup_cb_call to call per-block callbacks
-Date: Thu, 19 Oct 2017 15:50:32 +0200
-Message-ID: <20171019135048.4306-5-jiri@resnulli.us>
+Subject: [patch net-next v2 02/20] net: sched: use extended variants of block_get/put in ingress and clsact qdiscs
+Date: Thu, 19 Oct 2017 15:50:30 +0200
+Message-ID: <20171019135048.4306-3-jiri@resnulli.us>
 References: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,130 +14,134 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:48973 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753749AbdJSNuy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:54 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i124so16048535wmf.3
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:53 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:56032 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753748AbdJSNuw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:52 -0400
+Received: by mail-wm0-f66.google.com with SMTP id u138so16691535wmu.4
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:52 -0700 (PDT)
 In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Extend the tc_setup_cb_call entrypoint function originally used only for
-action egress devices callbacks to call per-block callbacks as well.
+Use previously introduced extended variants of block get and put
+functions. This allows to specify a binder types specific to clsact
+ingress/egress which is useful for drivers to distinguish who actually
+got the block.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h  |  4 ++--
- net/sched/cls_api.c    | 21 ++++++++++++++++++---
- net/sched/cls_flower.c |  9 ++++++---
- 3 files changed, 26 insertions(+), 8 deletions(-)
+ include/net/pkt_cls.h   |  2 ++
+ net/sched/sch_ingress.c | 36 +++++++++++++++++++++++++++++-------
+ 2 files changed, 31 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 4bc6b1c..fcca5a9 100644
+index 41bc7d7..5c50af8 100644
 --- a/include/net/pkt_cls.h
 +++ b/include/net/pkt_cls.h
-@@ -543,8 +543,8 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
- }
- #endif /* CONFIG_NET_CLS_IND */
+@@ -19,6 +19,8 @@ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
  
--int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
--		     void *type_data, bool err_stop);
-+int tc_setup_cb_call(struct tcf_block *block, struct tcf_exts *exts,
-+		     enum tc_setup_type type, void *type_data, bool err_stop);
+ enum tcf_block_binder_type {
+ 	TCF_BLOCK_BINDER_TYPE_UNSPEC,
++	TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS,
++	TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS,
+ };
  
- enum tc_block_command {
- 	TC_BLOCK_BIND,
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index b16c79c..cdfdc24 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -1206,10 +1206,25 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
- 	return ok_count;
- }
+ struct tcf_block_ext_info {
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index 9ccc1b8..b599db2 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -20,6 +20,7 @@
  
--int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
--		     void *type_data, bool err_stop)
-+int tc_setup_cb_call(struct tcf_block *block, struct tcf_exts *exts,
-+		     enum tc_setup_type type, void *type_data, bool err_stop)
- {
--	return tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
-+	int ok_count;
-+	int ret;
-+
-+	ret = tcf_block_cb_call(block, type, type_data, err_stop);
-+	if (ret < 0)
-+		return ret;
-+	ok_count = ret;
-+
-+	if (!exts)
-+		return ok_count;
-+	ret = tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
-+	if (ret < 0)
-+		return ret;
-+	ok_count += ret;
-+
-+	return ok_count;
- }
- EXPORT_SYMBOL(tc_setup_cb_call);
+ struct ingress_sched_data {
+ 	struct tcf_block *block;
++	struct tcf_block_ext_info block_info;
+ };
  
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 5b7bb96..76b4e0a 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -201,6 +201,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
- 	struct tc_cls_flower_offload cls_flower = {};
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
- 
- 	tc_cls_common_offload_init(&cls_flower.common, tp);
- 	cls_flower.command = TC_CLSFLOWER_DESTROY;
-@@ -209,7 +210,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	if (tc_can_offload(dev))
- 		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
- 					      &cls_flower);
--	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
-+	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
- 			 &cls_flower, false);
- }
- 
-@@ -220,6 +221,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_flower_offload cls_flower = {};
-+	struct tcf_block *block = tp->chain->block;
- 	bool skip_sw = tc_skip_sw(f->flags);
+ static struct Qdisc *ingress_leaf(struct Qdisc *sch, unsigned long arg)
+@@ -59,7 +60,10 @@ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
+ 	struct net_device *dev = qdisc_dev(sch);
  	int err;
  
-@@ -242,7 +244,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
- 		}
- 	}
+-	err = tcf_block_get(&q->block, &dev->ingress_cl_list, sch);
++	q->block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS;
++
++	err = tcf_block_get_ext(&q->block, &dev->ingress_cl_list,
++				sch, &q->block_info);
+ 	if (err)
+ 		return err;
  
--	err = tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
-+	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
- 			       &cls_flower, skip_sw);
- 	if (err < 0) {
- 		fl_hw_destroy_filter(tp, f);
-@@ -261,6 +263,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+@@ -72,8 +76,10 @@ static int ingress_init(struct Qdisc *sch, struct nlattr *opt)
+ static void ingress_destroy(struct Qdisc *sch)
  {
- 	struct tc_cls_flower_offload cls_flower = {};
- 	struct net_device *dev = tp->q->dev_queue->dev;
-+	struct tcf_block *block = tp->chain->block;
+ 	struct ingress_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
  
- 	tc_cls_common_offload_init(&cls_flower.common, tp);
- 	cls_flower.command = TC_CLSFLOWER_STATS;
-@@ -270,7 +273,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	if (tc_can_offload(dev))
- 		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
- 					      &cls_flower);
--	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
-+	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
- 			 &cls_flower, false);
+-	tcf_block_put(q->block);
++	tcf_block_put_ext(q->block, &dev->ingress_cl_list,
++			  sch, &q->block_info);
+ 	net_dec_ingress_queue();
  }
  
+@@ -114,6 +120,8 @@ static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
+ struct clsact_sched_data {
+ 	struct tcf_block *ingress_block;
+ 	struct tcf_block *egress_block;
++	struct tcf_block_ext_info ingress_block_info;
++	struct tcf_block_ext_info egress_block_info;
+ };
+ 
+ static unsigned long clsact_find(struct Qdisc *sch, u32 classid)
+@@ -153,13 +161,19 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
+ 	struct net_device *dev = qdisc_dev(sch);
+ 	int err;
+ 
+-	err = tcf_block_get(&q->ingress_block, &dev->ingress_cl_list, sch);
++	q->ingress_block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS;
++
++	err = tcf_block_get_ext(&q->ingress_block, &dev->ingress_cl_list,
++				sch, &q->ingress_block_info);
+ 	if (err)
+ 		return err;
+ 
+-	err = tcf_block_get(&q->egress_block, &dev->egress_cl_list, sch);
++	q->egress_block_info.binder_type = TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS;
++
++	err = tcf_block_get_ext(&q->egress_block, &dev->egress_cl_list,
++				sch, &q->egress_block_info);
+ 	if (err)
+-		return err;
++		goto err_egress_block_get;
+ 
+ 	net_inc_ingress_queue();
+ 	net_inc_egress_queue();
+@@ -167,14 +181,22 @@ static int clsact_init(struct Qdisc *sch, struct nlattr *opt)
+ 	sch->flags |= TCQ_F_CPUSTATS;
+ 
+ 	return 0;
++
++err_egress_block_get:
++	tcf_block_put_ext(q->ingress_block, &dev->ingress_cl_list,
++			  sch, &q->ingress_block_info);
++	return err;
+ }
+ 
+ static void clsact_destroy(struct Qdisc *sch)
+ {
+ 	struct clsact_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = qdisc_dev(sch);
+ 
+-	tcf_block_put(q->egress_block);
+-	tcf_block_put(q->ingress_block);
++	tcf_block_put_ext(q->egress_block, &dev->egress_cl_list,
++			  sch, &q->egress_block_info);
++	tcf_block_put_ext(q->ingress_block, &dev->ingress_cl_list,
++			  sch, &q->ingress_block_info);
+ 
+ 	net_dec_ingress_queue();
+ 	net_dec_egress_queue();
 -- 
 2.9.5
