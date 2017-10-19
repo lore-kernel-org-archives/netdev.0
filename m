@@ -1,42 +1,55 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH 5/7] devlink: Adding pre-boot permanent config parameters
-Date: Thu, 19 Oct 2017 10:30:28 +0000
-Message-ID: <AM0PR0502MB3683667E768C35276522780EBF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
- <1508273069-40461-6-git-send-email-steven.lin1@broadcom.com>
+From: Kunihiko Hayashi <hayashi.kunihiko-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/2] net: ethernet: socionext: add AVE ethernet driver
+Date: Thu, 19 Oct 2017 19:35:40 +0900
+Message-ID: <20171019193540.0F35.4A936039@socionext.com>
+References: <20171018192359.243C.4A936039@socionext.com> <CAK7LNARuoK-M9iKyP7JxRgH7naA+teikqZMOHm3f2wykEieqLw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0040.outbound.protection.outlook.com ([104.47.0.40]:12992
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751426AbdJSKab (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 06:30:31 -0400
-In-Reply-To: <1508273069-40461-6-git-send-email-steven.lin1@broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Masami Hiramatsu <masami.hiramatsu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAK7LNARuoK-M9iKyP7JxRgH7naA+teikqZMOHm3f2wykEieqLw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED: Configured link speed
-> while executing MBA host software (PXI/iSCSI); use enum
-> devlink_mba_link_speed.
+On Thu, 19 Oct 2017 09:29:03 +0900 <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org> wrote:
 
-#4 introduces:
+> 2017-10-18 19:23 GMT+09:00 Kunihiko Hayashi <hayashi.kunihiko-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>:
+> > On Mon, 16 Oct 2017 00:08:21 +0900 <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org> wrote:
+> 
+> >> priv->rst = devm_reset_control_get_optional_shared(dev, NULL);
+> >> if (IS_ERR(priv->rst))
+> >>           return PTR_ERR(priv->rst);
+> >
+> > The clk and reset are optional in the driver.
+> > Referring to your suggested method, I'll fix the part of clk and reset.
+> >
+> 
+> 
+> Why is clk optional?
 
-> DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0: Configure default
-> pre-OS link speed in full power (D0) state; use enum
-> devlink_pre_os_link_speed.
+Indeed. My check point was wrong.
+This clk property should be treated as "required".
 
-> DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3: Configure default
-> pre-OS link speed in sleep (D3) state; use enum
-> devlink_pre_os_link_speed.
+In v2, the clock enabling code moved to ndo_init().
+Although probing the driver succeeds without clk,
+enabling the driver fails clearly.
 
-Why would user need an additional value for the MBA speed?
+---
+Best Regards,
+Kunihiko Hayashi
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
