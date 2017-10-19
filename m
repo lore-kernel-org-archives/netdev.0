@@ -1,61 +1,50 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 09/11] can: af_can: can_pernet_init(): add missing error handling for kzalloc returning NULL
-Date: Thu, 19 Oct 2017 13:19:43 +0200
-Message-ID: <20171019111945.13580-10-mkl@pengutronix.de>
+Subject: [PATCH 06/11] can: flexcan: fix p1010 state transition issue
+Date: Thu, 19 Oct 2017 13:19:40 +0200
+Message-ID: <20171019111945.13580-7-mkl@pengutronix.de>
 References: <20171019111945.13580-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
-        linux-stable <stable@vger.kernel.org>
+        kernel@pengutronix.de,
+        "ZHU Yi (ST-FIR/ENG1-Zhu)" <Yi.Zhu5@cn.bosch.com>,
+        Zhu Yi <yi.zhu5@cn.bosch.com>,
+        Mark Jonas <mark.jonas@de.bosch.com>,
+        linux-stable <stable@vger.kernel.org>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the missing check and error handling for out-of-memory
-situations, when kzalloc cannot allocate memory.
+From: "ZHU Yi (ST-FIR/ENG1-Zhu)" <Yi.Zhu5@cn.bosch.com>
 
-Fixes: cb5635a36776 ("can: complete initial namespace support")
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: linux-stable <stable@vger.kernel.org>
+Enable FLEXCAN_QUIRK_BROKEN_WERR_STATE and
+FLEXCAN_QUIRK_BROKEN_PERR_STATE for p1010 to report correct state
+transitions.
+
+Signed-off-by: Zhu Yi <yi.zhu5@cn.bosch.com>
+Signed-off-by: Mark Jonas <mark.jonas@de.bosch.com>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+Cc: linux-stable <stable@vger.kernel.org> # >= v4.11
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- net/can/af_can.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ drivers/net/can/flexcan.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/can/af_can.c b/net/can/af_can.c
-index eb1ad74b40f4..ecd5c703d11e 100644
---- a/net/can/af_can.c
-+++ b/net/can/af_can.c
-@@ -875,9 +875,14 @@ static int can_pernet_init(struct net *net)
- 	spin_lock_init(&net->can.can_rcvlists_lock);
- 	net->can.can_rx_alldev_list =
- 		kzalloc(sizeof(struct dev_rcv_lists), GFP_KERNEL);
--
-+	if (!net->can.can_rx_alldev_list)
-+		goto out;
- 	net->can.can_stats = kzalloc(sizeof(struct s_stats), GFP_KERNEL);
-+	if (!net->can.can_stats)
-+		goto out_free_alldev_list;
- 	net->can.can_pstats = kzalloc(sizeof(struct s_pstats), GFP_KERNEL);
-+	if (!net->can.can_pstats)
-+		goto out_free_can_stats;
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index ed544c44848f..a13a4896a8bd 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -282,7 +282,8 @@ struct flexcan_priv {
+ };
  
- 	if (IS_ENABLED(CONFIG_PROC_FS)) {
- 		/* the statistics are updated every second (timer triggered) */
-@@ -892,6 +897,13 @@ static int can_pernet_init(struct net *net)
- 	}
+ static const struct flexcan_devtype_data fsl_p1010_devtype_data = {
+-	.quirks = FLEXCAN_QUIRK_BROKEN_WERR_STATE,
++	.quirks = FLEXCAN_QUIRK_BROKEN_WERR_STATE |
++		FLEXCAN_QUIRK_BROKEN_PERR_STATE,
+ };
  
- 	return 0;
-+
-+ out_free_can_stats:
-+	kfree(net->can.can_stats);
-+ out_free_alldev_list:
-+	kfree(net->can.can_rx_alldev_list);
-+ out:
-+	return -ENOMEM;
- }
- 
- static void can_pernet_exit(struct net *net)
+ static const struct flexcan_devtype_data fsl_imx28_devtype_data = {
 -- 
 2.14.2
+
