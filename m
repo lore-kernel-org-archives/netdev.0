@@ -1,92 +1,55 @@
 From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: [PATCH net 2/5] net/ncsi: Stop monitor if channel times out or is inactive
-Date: Thu, 19 Oct 2017 13:43:06 +1100
-Message-ID: <20171019024309.13628-2-sam@mendozajonas.com>
+Subject: [PATCH net 5/5] net/ncsi: Fix length of GVI response packet
+Date: Thu, 19 Oct 2017 13:43:09 +1100
+Message-ID: <20171019024309.13628-5-sam@mendozajonas.com>
 References: <20171019024309.13628-1-sam@mendozajonas.com>
-Cc: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
         "David S . Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org
+        linux-kernel@vger.kernel.org,
+        Samuel Mendoza-Jonas <sam@mendozajonas.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20171019024309.13628-1-sam@mendozajonas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ncsi_channel_monitor() misses stopping the channel monitor in several
-places that it should, causing a WARN_ON_ONCE() to trigger when the
-monitor is re-started later, eg:
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
 
-[  459.040000] WARNING: CPU: 0 PID: 1093 at net/ncsi/ncsi-manage.c:269 ncsi_start_channel_monitor+0x7c/0x90
-[  459.040000] CPU: 0 PID: 1093 Comm: kworker/0:3 Not tainted 4.10.17-gaca2fdd #140
-[  459.040000] Hardware name: ASpeed SoC
-[  459.040000] Workqueue: events ncsi_dev_work
-[  459.040000] [<80010094>] (unwind_backtrace) from [<8000d950>] (show_stack+0x20/0x24)
-[  459.040000] [<8000d950>] (show_stack) from [<801dbf70>] (dump_stack+0x20/0x28)
-[  459.040000] [<801dbf70>] (dump_stack) from [<80018d7c>] (__warn+0xe0/0x108)
-[  459.040000] [<80018d7c>] (__warn) from [<80018e70>] (warn_slowpath_null+0x30/0x38)
-[  459.040000] [<80018e70>] (warn_slowpath_null) from [<803f6a08>] (ncsi_start_channel_monitor+0x7c/0x90)
-[  459.040000] [<803f6a08>] (ncsi_start_channel_monitor) from [<803f7664>] (ncsi_configure_channel+0xdc/0x5fc)
-[  459.040000] [<803f7664>] (ncsi_configure_channel) from [<803f8160>] (ncsi_dev_work+0xac/0x474)
-[  459.040000] [<803f8160>] (ncsi_dev_work) from [<8002d244>] (process_one_work+0x1e0/0x450)
-[  459.040000] [<8002d244>] (process_one_work) from [<8002d510>] (worker_thread+0x5c/0x570)
-[  459.040000] [<8002d510>] (worker_thread) from [<80033614>] (kthread+0x124/0x164)
-[  459.040000] [<80033614>] (kthread) from [<8000a5e8>] (ret_from_fork+0x14/0x2c)
+The length of GVI (GetVersionInfo) response packet should be 40 instead
+of 36. This issue was found from /sys/kernel/debug/ncsi/eth0/stats.
 
-This also updates the monitor instead of just returning if
-ncsi_xmit_cmd() fails to send the get-link-status command so that the
-monitor properly times out.
+ # ethtool --ncsi eth0 swstats
+     :
+ RESPONSE     OK       TIMEOUT  ERROR
+ =======================================
+ GVI          0        0        2
 
-Fixes: e6f44ed6d04d3 "net/ncsi: Package and channel management"
+With this applied, no error reported on GVI response packets:
 
+ # ethtool --ncsi eth0 swstats
+     :
+ RESPONSE     OK       TIMEOUT  ERROR
+ =======================================
+ GVI          2        0        0
+
+Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 ---
- net/ncsi/ncsi-manage.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ net/ncsi/ncsi-rsp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index b6a449aa9d4b..b022deb39d31 100644
---- a/net/ncsi/ncsi-manage.c
-+++ b/net/ncsi/ncsi-manage.c
-@@ -202,11 +202,15 @@ static void ncsi_channel_monitor(unsigned long data)
- 	monitor_state = nc->monitor.state;
- 	spin_unlock_irqrestore(&nc->lock, flags);
- 
--	if (!enabled || chained)
-+	if (!enabled || chained) {
-+		ncsi_stop_channel_monitor(nc);
- 		return;
-+	}
- 	if (state != NCSI_CHANNEL_INACTIVE &&
--	    state != NCSI_CHANNEL_ACTIVE)
-+	    state != NCSI_CHANNEL_ACTIVE) {
-+		ncsi_stop_channel_monitor(nc);
- 		return;
-+	}
- 
- 	switch (monitor_state) {
- 	case NCSI_CHANNEL_MONITOR_START:
-@@ -217,12 +221,9 @@ static void ncsi_channel_monitor(unsigned long data)
- 		nca.type = NCSI_PKT_CMD_GLS;
- 		nca.req_flags = 0;
- 		ret = ncsi_xmit_cmd(&nca);
--		if (ret) {
-+		if (ret)
- 			netdev_err(ndp->ndev.dev, "Error %d sending GLS\n",
- 				   ret);
--			return;
--		}
--
- 		break;
- 	case NCSI_CHANNEL_MONITOR_WAIT ... NCSI_CHANNEL_MONITOR_WAIT_MAX:
- 		break;
-@@ -233,6 +234,8 @@ static void ncsi_channel_monitor(unsigned long data)
- 			ndp->flags |= NCSI_DEV_RESHUFFLE;
- 		}
- 
-+		ncsi_stop_channel_monitor(nc);
-+
- 		spin_lock_irqsave(&nc->lock, flags);
- 		nc->state = NCSI_CHANNEL_INVISIBLE;
- 		spin_unlock_irqrestore(&nc->lock, flags);
+diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
+index 265b9a892d41..927dad4759d1 100644
+--- a/net/ncsi/ncsi-rsp.c
++++ b/net/ncsi/ncsi-rsp.c
+@@ -959,7 +959,7 @@ static struct ncsi_rsp_handler {
+ 	{ NCSI_PKT_RSP_EGMF,    4, ncsi_rsp_handler_egmf    },
+ 	{ NCSI_PKT_RSP_DGMF,    4, ncsi_rsp_handler_dgmf    },
+ 	{ NCSI_PKT_RSP_SNFC,    4, ncsi_rsp_handler_snfc    },
+-	{ NCSI_PKT_RSP_GVI,    36, ncsi_rsp_handler_gvi     },
++	{ NCSI_PKT_RSP_GVI,    40, ncsi_rsp_handler_gvi     },
+ 	{ NCSI_PKT_RSP_GC,     32, ncsi_rsp_handler_gc      },
+ 	{ NCSI_PKT_RSP_GP,     -1, ncsi_rsp_handler_gp      },
+ 	{ NCSI_PKT_RSP_GCPS,  172, ncsi_rsp_handler_gcps    },
 -- 
 2.14.2
