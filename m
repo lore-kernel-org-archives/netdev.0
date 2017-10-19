@@ -1,43 +1,213 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: ipv4_default_advmss() should use route mtu
-Date: Wed, 18 Oct 2017 17:02:03 -0700
-Message-ID: <1508371323.31614.156.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Wed, 18 Oct 2017 20:05:27 -0400
+Message-ID: <20171019000527.eio6dfsmujmtioyt@madcap2.tricolour.ca>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+ <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+ <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+ <81c15928-c445-fb8e-251c-bee566fbbf58@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:48384 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750975AbdJSACF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 20:02:05 -0400
-Received: by mail-pf0-f194.google.com with SMTP id b79so5152968pfk.5
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 17:02:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
+        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <81c15928-c445-fb8e-251c-bee566fbbf58-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 2017-10-17 01:10, Casey Schaufler wrote:
+> On 10/16/2017 5:33 PM, Richard Guy Briggs wrote:
+> > On 2017-10-12 16:33, Casey Schaufler wrote:
+> >> On 10/12/2017 7:14 AM, Richard Guy Briggs wrote:
+> >>> Containers are a userspace concept.  The kernel knows nothing of them.
+> >>>
+> >>> The Linux audit system needs a way to be able to track the container
+> >>> provenance of events and actions.  Audit needs the kernel's help to do
+> >>> this.
+> >>>
+> >>> Since the concept of a container is entirely a userspace concept, a
+> >>> registration from the userspace container orchestration system initiates
+> >>> this.  This will define a point in time and a set of resources
+> >>> associated with a particular container with an audit container ID.
+> >>>
+> >>> The registration is a pseudo filesystem (proc, since PID tree already
+> >>> exists) write of a u8[16] UUID representing the container ID to a file
+> >>> representing a process that will become the first process in a new
+> >>> container.  This write might place restrictions on mount namespaces
+> >>> required to define a container, or at least careful checking of
+> >>> namespaces in the kernel to verify permissions of the orchestrator so it
+> >>> can't change its own container ID.  A bind mount of nsfs may be
+> >>> necessary in the container orchestrator's mntNS.
+> >>> Note: Use a 128-bit scalar rather than a string to make compares faster
+> >>> and simpler.
+> >>>
+> >>> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
+> >>> registration.
+> >> Hang on. If containers are a user space concept, how can
+> >> you want CAP_CONTAINER_ANYTHING? If there's not such thing as
+> >> a container, how can you be asking for a capability to manage
+> >> them?
+> > There is such a thing, but the kernel doesn't know about it yet.
+> 
+> Then how can it be the kernel's place to control access to a
+> container resource, that is, the containerID.
 
-ipv4_default_advmss() incorrectly uses the device MTU instead
-of the route provided one. IPv6 has the proper behavior,
-lets harmonize the two protocols.
+Ok, let me try to address your objections.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/route.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The kernel can know enough that if it is already set to not allow it to
+be set again.  Or if the user doesn't have permission to set it that the
+user be denied this action.  How is this different from loginuid and
+sessionid?
+> 
+> >   This
+> > same situation exists for loginuid and sessionid which are userspace
+> > concepts that the kernel tracks for the convenience of userspace.
+> 
+> Ah, no. Loginuid identifies a user, which is a kernel concept in
+> that a user is defined by the uid.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 4306db8273742f5e845635419c296823301c4a8b..bc40bd4111969f640603dd7c5b04fdb7fdcd4afd 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1250,7 +1250,7 @@ static void set_class_tag(struct rtable *rt, u32 tag)
- static unsigned int ipv4_default_advmss(const struct dst_entry *dst)
- {
- 	unsigned int header_size = sizeof(struct tcphdr) + sizeof(struct iphdr);
--	unsigned int advmss = max_t(unsigned int, dst->dev->mtu - header_size,
-+	unsigned int advmss = max_t(unsigned int, ipv4_mtu(dst) - header_size,
- 				    ip_rt_min_advmss);
- 
- 	return min(advmss, IPV4_MAX_PMTU - header_size);
+This simple explanation doesn't help me.  What makes that a kernel
+concept?  The fact that it is stored and compared in more than one
+place?
+
+> The session ID has well defined kernel semantics. You're trying to say
+> that the containerID is an opaque value that is meaningless to the
+> kernel, but you still want the kernel to protect it. How can the
+> kernel know if it is protecting it correctly?
+
+How so?  A userspace process triggers this.  Does the kernel know what
+these values mean?  Does it do anything with them other than report
+them or allow audit to filter them?  It is given some instructions on
+how to treat it.
+
+This is what we're trying to do with the containerID.
+
+> >   As
+> > for its name, I'm not particularly picky, so if you don't like
+> > CAP_CONTAINER_* then I'm fine with CAP_AUDIT_CONTAINERID.  It really
+> > needs to be distinct from CAP_AUDIT_WRITE and CAP_AUDIT_CONTROL since we
+> > don't want to give the ability to set a containerID to any process that
+> > is able to do audit logging (such as vsftpd) and similarly we don't want
+> > to give the orchestrator the ability to control the setup of the audit
+> > daemon.
+> 
+> Sorry, but what aspect of the kernel security policy is this
+> capability supposed to protect? That's what capabilities are
+> for, not the undefined support of undefined user-space behavior.
+
+Similarly, loginuids and sessionIDs are only used for audit tracking and
+filtering.
+
+> If it's audit behavior, you want CAP_AUDIT_CONTROL. If it's
+> more than audit behavior you have to define what system security
+> policy you're dealing with in order to pick the right capability.
+
+It isn't audit behaviour (yet), it is audit reporting information, a
+level above simply writing logs and a level below controlling daemon
+behaviour.
+
+> We get this request pretty regularly. "I need my own capability
+> because I have a niche thing that isn't part of the system security
+> policy but that is important!" Fit the containerID into the
+> system security policy, and if that results in using CAP_SYS_ADMIN,
+> oh well.
+
+There's far too much piled in to CAP_SYS_ADMIN already, which is making
+capabilites less and less useful.  I realize that capabilities are
+limited compared with netlink message types, but this falls in between
+the abilities needed by CAP_AUDIT_CONTROL and CAP_AUDIT_WRITE.
+
+I'll continue on Steve Grubb's comment...
+
+> >>>   At that time, record the target container's user-supplied
+> >>> container identifier along with the target container's first process
+> >>> (which may become the target container's "init" process) process ID
+> >>> (referenced from the initial PID namespace), all namespace IDs (in the
+> >>> form of a nsfs device number and inode number tuple) in a new auxilliary
+> >>> record AUDIT_CONTAINER with a qualifying op=$action field.
+> >>>
+> >>> Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
+> >>> container ID present on an auditable action or event.
+> >>>
+> >>> Forked and cloned processes inherit their parent's container ID,
+> >>> referenced in the process' task_struct.
+> >>>
+> >>> Mimic setns(2) and return an error if the process has already initiated
+> >>> threading or forked since this registration should happen before the
+> >>> process execution is started by the orchestrator and hence should not
+> >>> yet have any threads or children.  If this is deemed overly restrictive,
+> >>> switch all threads and children to the new containerID.
+> >>>
+> >>> Trust the orchestrator to judiciously use and restrict CAP_CONTAINER_ADMIN.
+> >>>
+> >>> Log the creation of every namespace, inheriting/adding its spawning
+> >>> process' containerID(s), if applicable.  Include the spawning and
+> >>> spawned namespace IDs (device and inode number tuples).
+> >>> [AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
+> >>> Note: At this point it appears only network namespaces may need to track
+> >>> container IDs apart from processes since incoming packets may cause an
+> >>> auditable event before being associated with a process.
+> >>>
+> >>> Log the destruction of every namespace when it is no longer used by any
+> >>> process, include the namespace IDs (device and inode number tuples).
+> >>> [AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
+> >>>
+> >>> Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
+> >>> the parent and child namespace IDs for any changes to a process'
+> >>> namespaces. [setns(2)]
+> >>> Note: It may be possible to combine AUDIT_NS_* record formats and
+> >>> distinguish them with an op=$action field depending on the fields
+> >>> required for each message type.
+> >>>
+> >>> When a container ceases to exist because the last process in that
+> >>> container has exited and hence the last namespace has been destroyed and
+> >>> its refcount dropping to zero, log the fact.
+> >>> (This latter is likely needed for certification accountability.)  A
+> >>> container object may need a list of processes and/or namespaces.
+> >>>
+> >>> A namespace cannot directly migrate from one container to another but
+> >>> could be assigned to a newly spawned container.  A namespace can be
+> >>> moved from one container to another indirectly by having that namespace
+> >>> used in a second process in another container and then ending all the
+> >>> processes in the first container.
+> >>>
+> >>> (v2)
+> >>> - switch from u64 to u128 UUID
+> >>> - switch from "signal" and "trigger" to "register"
+> >>> - restrict registration to single process or force all threads and children into same container
+> >>>
+> >>> - RGB
+> > - RGB
+> >
+> > --
+> > Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > Sr. S/W Engineer, Kernel Security, Base Operating Systems
+> > Remote, Ottawa, Red Hat Canada
+> > IRC: rgb, SunRaycer
+> > Voice: +1.647.777.2635, Internal: (81) 32635
+> >
+> 
+
+- RGB
+
+--
+Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sr. S/W Engineer, Kernel Security, Base Operating Systems
+Remote, Ottawa, Red Hat Canada
+IRC: rgb, SunRaycer
+Voice: +1.647.777.2635, Internal: (81) 32635
