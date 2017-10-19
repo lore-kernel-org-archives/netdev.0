@@ -1,49 +1,58 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH 2/7] devlink: Adding NPAR permanent config parameters
-Date: Thu, 19 Oct 2017 11:12:57 -0400
-Message-ID: <CA+Jmh7FEcXij7AEQmWmU8mz_=DW-SYpoyKiSESPW7aeuJuV4fw@mail.gmail.com>
-References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
- <1508273069-40461-3-git-send-email-steven.lin1@broadcom.com> <AM0PR0502MB36839C516E78EF0C2C1E4B46BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next 1/2] net: dsa: lan9303: Add port_fast_age
+ and port_fdb_dump methods
+Date: Thu, 19 Oct 2017 15:15:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD009C922@AcuExch.aculab.com>
+References: <20171019121015.7395-1-privat@egil-hjelmeland.no>
+ <20171019121015.7395-2-privat@egil-hjelmeland.no>
+ <87mv4nw869.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20171019141505.GA14840@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Yuval Mintz <yuvalm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f173.google.com ([209.85.216.173]:46590 "EHLO
-        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752852AbdJSPNS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 11:13:18 -0400
-Received: by mail-qt0-f173.google.com with SMTP id 1so14854489qtn.3
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 08:13:18 -0700 (PDT)
-In-Reply-To: <AM0PR0502MB36839C516E78EF0C2C1E4B46BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Andrew Lunn' <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171019141505.GA14840@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 6:39 AM, Yuval Mintz <yuvalm@mellanox.com> wrote:
->> DEVLINK_ATTR_PERM_CFG_NPAR_BW_RESERVATION_VALID: 1 to use
->> BW_RESERVATION setting, 0 to ignore.
->>
-> ...
->> DEVLINK_ATTR_PERM_CFG_NPAR_BW_LIMIT_VALID: 1 to use BW_LIMIT
->> setting, 0 to ignore.
->
-> While it probably ties to different fields in your NVM layout why would the user
-> require specific attributes for these? Why not have values in the actual
-> attributes indicating of this status?
+From: Andrew Lunn
+> Sent: 19 October 2017 15:15
+> > > +/* Clear learned (non-static) entry on given port */
+> > > +static void alr_loop_cb_del_port_learned(struct lan9303 *chip, u32 dat0,
+> > > +					 u32 dat1, int portmap, void *ctx)
+> > > +{
+> > > +	int *port = ctx;
+> >
+> > You can get the value directly to make the line below more readable:
+> >
+> >     int port = *(int *)ctx;
+> 
+> You have to be a bit careful with this. You often see people
+> submitting patches taking away casts for void * pointers.
+> If they do that here, it should at least not compile...
+> 
+> So maybe do it in two steps?
+> 
+>    int * pport = ctx;
+>    int port = *pport;
 
-Hi Yuval,
+IMHO it is best to define a struct for the 'ctx and then do:
+	..., void *v_ctx)
+{
+	foo_ctx *ctx = v_ctx;
+	int port = ctx->port;
 
-Does having the separate valid flag present any difficulties?  There
-are lots of implementation options here (a limit or reservation value
-of 0 could mean invalid, or we could define (1 << 31) to be a valid
-flag when setting the value, etc.), and I'm not necessarily tied to
-doing it this way, but it seemed a straightforward way to represent
-the validity of the other field.
+That stops anyone having to double-check that the *(int *)
+is operating on a pointer to an integer of the correct size.
 
-Thanks again,
-Steve
+One of the syntax checkers probably ought to generate a warning
+for *(integer_type *)foo since it is often a bug.
+
+	David
