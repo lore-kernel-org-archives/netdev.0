@@ -1,57 +1,35 @@
-From: Caleb Raitto <caraitto@google.com>
-Subject: RE: [PATCH 1/5] net: virtio dynamically disable/enable LRO
-Date: Wed, 18 Oct 2017 19:18:31 -0700
-Message-ID: <CA+7y87rYzKSDLb-wq9ok8TqgD_41u8oqZvfWLELYgDqQ4wCrKg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: tgraf@suug.ch, shm@cumulusnetworks.com,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-        davem@davemloft.net, netdev@vger.kernel.org, bblanco@plumgrid.com,
-        brouer@redhat.com, Catherine Sullivan <csully@google.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:54645 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750926AbdJSCSd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 22:18:33 -0400
-Received: by mail-wm0-f65.google.com with SMTP id i124so13391713wmf.3
-        for <netdev@vger.kernel.org>; Wed, 18 Oct 2017 19:18:33 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Subject: [PATCH net 1/5] net/ncsi: Fix AEN HNCDSC packet length
+Date: Thu, 19 Oct 2017 13:43:05 +1100
+Message-ID: <20171019024309.13628-1-sam@mendozajonas.com>
+Cc: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 18, 2016 at 11:00 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
->
-> From: John Fastabend <john.fastabend@gmail.com>
-> Date: Fri, Nov 18, 2016 at 11:00 AM
-> Subject: [PATCH 1/5] net: virtio dynamically disable/enable LRO
-> To: <tgraf@suug.ch>, <shm@cumulusnetworks.com>, <alexei.starovoitov@gmail.com>, <daniel@iogearbox.net>, <davem@davemloft.net>
-> Cc: <john.r.fastabend@intel.com>, <netdev@vger.kernel.org>, <bblanco@plumgrid.com>, <john.fastabend@gmail.com>, <brouer@redhat.com>
->
-> This adds support for dynamically setting the LRO feature flag. The
-> message to control guest features in the backend uses the
-> CTRL_GUEST_OFFLOADS msg type.
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  drivers/net/virtio_net.c |   43 +++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 43 insertions(+)
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 2cafd12..0758cae 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1419,6 +1419,41 @@ static void virtnet_init_settings(struct net_device *dev)
+Correct the value of the HNCDSC AEN packet.
+Fixes: 7a82ecf4cfb85 "net/ncsi: NCSI AEN packet handler"
 
-Hi,
+Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+---
+ net/ncsi/ncsi-aen.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I work on Google Compute Engine, and I noticed that you had this
-unmerged patch that allows controlling offloads using ethtool for
-virtionet.
-
-We are interested in merging this patch as it will be useful in
-debugging customer issues related to offloads and MTU.
-
-If work remains to get the patch merged, I'm willing to help out.
-
-Thanks,
--Caleb
+diff --git a/net/ncsi/ncsi-aen.c b/net/ncsi/ncsi-aen.c
+index 6898e7229285..f135938bf781 100644
+--- a/net/ncsi/ncsi-aen.c
++++ b/net/ncsi/ncsi-aen.c
+@@ -187,7 +187,7 @@ static struct ncsi_aen_handler {
+ } ncsi_aen_handlers[] = {
+ 	{ NCSI_PKT_AEN_LSC,    12, ncsi_aen_handler_lsc    },
+ 	{ NCSI_PKT_AEN_CR,      4, ncsi_aen_handler_cr     },
+-	{ NCSI_PKT_AEN_HNCDSC,  4, ncsi_aen_handler_hncdsc }
++	{ NCSI_PKT_AEN_HNCDSC,  8, ncsi_aen_handler_hncdsc }
+ };
+ 
+ int ncsi_aen_handler(struct ncsi_dev_priv *ndp, struct sk_buff *skb)
+-- 
+2.14.2
