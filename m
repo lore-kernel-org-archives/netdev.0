@@ -1,49 +1,68 @@
-From: John Fastabend <john.r.fastabend@gmail.com>
-Subject: [net PATCH] bpf: devmap fix arithmetic overflow in bitmap_size
- calculation
-Date: Thu, 19 Oct 2017 09:03:52 -0700
-Message-ID: <150842903200.12537.10765604428561566031.stgit@john-XPS-13-9360>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 0/2] bridge: make setlink/dellink notifications
+ more accurate
+Date: Thu, 19 Oct 2017 19:10:11 +0300
+Message-ID: <01c5bff2-cb5d-2b52-b11b-d6c2e1ab52a8@cumulusnetworks.com>
+References: <1508428499-32355-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, borkmann@iogearbox.net
-To: richard@nod.at, alexei.starovoitov@gmail.com, davem@davemloft.net
+Cc: roopa@cumulusnetworks.com, dsa@cumulusnetworks.com,
+        mrv@mojatatu.com, stephen@networkplumber.org,
+        bridge@lists.linux-foundation.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:54743 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752579AbdJSQEQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 12:04:16 -0400
-Received: by mail-pf0-f193.google.com with SMTP id n89so6878140pfk.11
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 09:04:16 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:55882 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752662AbdJSQKP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 12:10:15 -0400
+Received: by mail-wm0-f65.google.com with SMTP id u138so17556400wmu.4
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 09:10:14 -0700 (PDT)
+In-Reply-To: <1508428499-32355-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An integer overflow is possible in dev_map_bitmap_size() when
-calculating the BITS_TO_LONG logic which becomes, after macro
-replacement,
+On 19/10/17 18:54, Nikolay Aleksandrov wrote:
+> Hi,
+> Before this set the bridge would generate a notification on vlan add or del
+> even if they didn't actually do any changes, which confuses listeners and
+> is generally not preferred. We could also lose notifications on actual
+> changes if one adds a range of vlans and there's an error in the middle.
+> The problem with just breaking and returning an error is that we could
+> break existing user-space scripts which rely on the vlan delete to clear
+> all existing entries in the specified range and ignore the non-existing
+> errors (typically used to clear the current vlan config).
+> So in order to make the notifications more accurate while keeping backwards
+> compatibility we add a boolean that tracks if anything actually changed
+> during the config calls.
+> 
+> The vlan add is more difficult to fix because it always returns 0 even if
+> nothing changed, so we use EEXIST to signal that and in order not to break
+> overlapping vlan range add or script return expectations we clear it on
+> return, the functions used by vlan add are not expected to return EEXIST.
+> 
+> Thanks,
+>  Nik
+> 
+> Nikolay Aleksandrov (2):
+>   bridge: netlink: make setlink/dellink notifications more accurate
+>   bridge: vlan: return EEXIST on add if nothing changed
+> 
+>  net/bridge/br_netlink.c        | 49 ++++++++++++++++++++++++++----------------
+>  net/bridge/br_netlink_tunnel.c | 14 +++++++-----
+>  net/bridge/br_private_tunnel.h |  3 ++-
+>  net/bridge/br_vlan.c           | 38 +++++++++++++++++++++-----------
+>  4 files changed, 68 insertions(+), 36 deletions(-)
+> 
 
-	(((n) + (d) - 1)/ (d))
+Self-NAK
+Dave, please ignore this set and apologies for the noise.
 
-where 'n' is a __u32 and 'd' is (8 * sizeof(long)). To avoid
-overflow cast to u64 before arithmetic.
+I'd actually prefer to send "changed" down to vlan_add and vlan_del
+to be set there instead of overloading EEXIST like that. It will be safer.
 
-Reported-by: Richard Weinberger <richard@nod.at>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
----
- kernel/bpf/devmap.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I'll wait for some comments about the rest of the change and will send
+a v2.
 
-diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
-index 7d9f32f..6d3ec97 100644
---- a/kernel/bpf/devmap.c
-+++ b/kernel/bpf/devmap.c
-@@ -69,7 +69,7 @@ static LIST_HEAD(dev_map_list);
- 
- static u64 dev_map_bitmap_size(const union bpf_attr *attr)
- {
--	return BITS_TO_LONGS(attr->max_entries) * sizeof(unsigned long);
-+	return BITS_TO_LONGS((u64) attr->max_entries) * sizeof(unsigned long);
- }
- 
- static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+Thanks,
+ Nik
