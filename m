@@ -1,39 +1,36 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH RFC V1 net-next 0/6] Time based packet transmission
-Date: Thu, 19 Oct 2017 13:44:09 -0700
-Message-ID: <20171019204409.vmkhii2vocum43l6@localhost>
-References: <cover.1505719061.git.rcochran@linutronix.de>
- <743a4550-7344-5e73-bf6d-6ec368263ad9@intel.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 31/58] isdn/gigaset: Use kzalloc instead of open-coded
+ field zeroing
+Date: Thu, 19 Oct 2017 22:46:31 +0200
+Message-ID: <1508445991.2274.1.camel@tiscali.nl>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+         <1508200182-104605-32-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <rcochran@linutronix.de>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        Andre Guedes <andre.guedes@intel.com>,
-        Anna-Maria Gleixner <anna-maria@linutronix.de>,
-        David Miller <davem@davemloft.net>,
-        Henrik Austad <henrik@austad.us>,
-        John Stultz <john.stultz@linaro.org>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
         Thomas Gleixner <tglx@linutronix.de>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        "Briano, Ivan" <ivan.briano@intel.com>,
-        Levi Pearson <levipearson@gmail.com>
-To: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <743a4550-7344-5e73-bf6d-6ec368263ad9@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lb2-smtp-cloud8.xs4all.net ([194.109.24.25]:42255 "EHLO
+        lb2-smtp-cloud8.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752036AbdJSUqh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:46:37 -0400
+In-Reply-To: <1508200182-104605-32-git-send-email-keescook@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 03:18:55PM -0700, Jesus Sanchez-Palencia wrote:
-> This is great. Just out of curiosity, were you using vlans on your tests?
+On Mon, 2017-10-16 at 17:29 -0700, Kees Cook wrote:
+> This replaces a kmalloc followed by a bunch of per-field zeroing with a
+> single kzalloc call, reducing the lines of code.
 
-No, just raw packets.  VLAN tags could be added trivially (in the
-program), but that naturally avoids the kernel's VLAN code.
-
-> I might try to reproduce them soon. I would appreciate if you could provide me
-> with the scripts, please.
-
-Ok, will do.
+Acked-by: Paul Bolle <pebolle@tiscali.nl>
 
 Thanks,
-Richard
+
+
+Paul Bolle
