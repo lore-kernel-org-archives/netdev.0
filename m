@@ -1,49 +1,69 @@
-From: Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-Subject: Re: [PATCH net-next v2 2/2] net: ethernet: socionext: add AVE
- ethernet driver
-Date: Thu, 19 Oct 2017 09:29:03 +0900
-Message-ID: <CAK7LNARuoK-M9iKyP7JxRgH7naA+teikqZMOHm3f2wykEieqLw@mail.gmail.com>
-References: <1507854928-4357-3-git-send-email-hayashi.kunihiko@socionext.com>
- <CAK7LNAR0Dy0aUjQKw7YxSbXZkpjn=1B7_knkSed6=EDVzL6v9w@mail.gmail.com> <20171018192359.243C.4A936039@socionext.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Wed, 18 Oct 2017 19:43:25 -0500
+Message-ID: <871sm0j7bm.fsf@xmission.com>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+        <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com>
+        <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+        <2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
+        <a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com>
+        <1508254120.6230.34.camel@redhat.com>
+        <1508255091.3129.27.camel@HansenPartnership.com>
+        <CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg@mail.gmail.com>
+        <49752b6f-8a77-d1e5-8acb-5a1eed0a992c@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Masami Hiramatsu <masami.hiramatsu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Kunihiko Hayashi <hayashi.kunihiko-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171018192359.243C.4A936039-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain
+Cc: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+        James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
+        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
+To: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <49752b6f-8a77-d1e5-8acb-5a1eed0a992c-l3A5Bk7waGM@public.gmane.org> (Aleksa Sarai's
+        message of "Thu, 19 Oct 2017 10:46:18 +1100")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-2017-10-18 19:23 GMT+09:00 Kunihiko Hayashi <hayashi.kunihiko-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>:
-> On Mon, 16 Oct 2017 00:08:21 +0900 <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org> wrote:
+Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org> writes:
 
->> priv->rst = devm_reset_control_get_optional_shared(dev, NULL);
->> if (IS_ERR(priv->rst))
->>           return PTR_ERR(priv->rst);
+>>> The security implications are that anything that can change the label
+>>> could also hide itself and its doings from the audit system and thus
+>>> would be used as a means to evade detection.  I actually think this
+>>> means the label should be write once (once you've set it, you can't
+>>> change it) ...
+>>
+>> Richard and I have talked about a write once approach, but the
+>> thinking was that you may want to allow a nested container
+>> orchestrator (Why? I don't know, but people always want to do the
+>> craziest things.) and a write-once policy makes that impossible.  If
+>> we punt on the nested orchestrator, I believe we can seriously think
+>> about a write-once policy to simplify things.
 >
-> The clk and reset are optional in the driver.
-> Referring to your suggested method, I'll fix the part of clk and reset.
->
+> Nested containers are a very widely used use-case (see LXC system containers,
+> inside of which people run other container runtimes). So I would definitely
+> consider it something that "needs to be supported in some way". While the LXC
+> guys might be a *tad* crazy, the use-case isn't. :P
 
+Of course some of that gets to running auditd inside a container which
+we don't have yet either.
 
-Why is clk optional?
+So I think to start it is perfectly fine to figure out the non-nested
+case first and what makes sense there.  Then to sort out the nested
+container case.
 
+The solution might be that a process gets at most one id per ``audit
+namespace''.
 
-
-
-
--- 
-Best Regards
-Masahiro Yamada
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Eric
