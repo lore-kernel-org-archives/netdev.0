@@ -1,176 +1,164 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 03/11] can: flexcan: implement error passive state quirk
-Date: Thu, 19 Oct 2017 13:19:37 +0200
-Message-ID: <20171019111945.13580-4-mkl@pengutronix.de>
-References: <20171019111945.13580-1-mkl@pengutronix.de>
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de,
-        "ZHU Yi (ST-FIR/ENG1-Zhu)" <Yi.Zhu5@cn.bosch.com>,
-        Zhu Yi <yi.zhu5@cn.bosch.com>,
-        Mark Jonas <mark.jonas@de.bosch.com>,
-        linux-stable <stable@vger.kernel.org>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
+Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+Date: Thu, 19 Oct 2017 13:26:55 +0200
+Message-ID: <0099eefa-32c8-a818-761c-667239d9ec3b@pengutronix.de>
+References: <20170818193947.27862-1-fcooper@ti.com>
+ <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
+ <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
+ <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
+ <88d4ddc4-b786-0205-6852-56e93182a1c9@ti.com>
+ <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
+ <ed19ead3-d8f6-c027-74cf-8aee131c8a59@ti.com>
+ <08432016-e733-b827-b9aa-bc359dd837f5@pengutronix.de>
+ <7ba515d9-7710-c152-a55a-f995b7f3d49a@ti.com>
+ <848e965d-e6a1-8930-9064-0317563326c0@ti.com>
+ <93c6d531-c38b-6f88-510f-59eb3e733b78@ti.com>
+ <545ac690-10c8-b206-76dd-dbbe602eb6af@pengutronix.de>
+ <a972cec1-3386-3ca3-ace3-175e1cabd286@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="RlbSnx2VD649caxfc10AqDuAdFdPWaGJK"
+Cc: Wenyou Yang <wenyou.yang@atmel.com>,
+        Dong Aisheng <b29396@freescale.com>,
+        "Quadros, Roger" <rogerq@ti.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+        Sekhar Nori <nsekhar@ti.com>,
+        Franklin S Cooper Jr <fcooper@ti.com>,
+        =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
+        "Yang, Wenyou" <Wenyou.Yang@Microchip.com>, wg@grandegger.com,
+        quentin.schulz@free-electrons.com, edumazet@google.com,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a972cec1-3386-3ca3-ace3-175e1cabd286@hartkopp.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "ZHU Yi (ST-FIR/ENG1-Zhu)" <Yi.Zhu5@cn.bosch.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--RlbSnx2VD649caxfc10AqDuAdFdPWaGJK
+Content-Type: multipart/mixed; boundary="scGCN2bGVAdnC6wLLugoqHABEJRHeOfFt";
+ protected-headers="v1"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: Oliver Hartkopp <socketcan@hartkopp.net>, Sekhar Nori <nsekhar@ti.com>,
+ Franklin S Cooper Jr <fcooper@ti.com>, =?UTF-8?Q?Mario_H=c3=bcttel?=
+ <mario.huettel@gmx.net>, "Yang, Wenyou" <Wenyou.Yang@Microchip.com>,
+ wg@grandegger.com, quentin.schulz@free-electrons.com, edumazet@google.com,
+ linux-can@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+Cc: Wenyou Yang <wenyou.yang@atmel.com>, Dong Aisheng <b29396@freescale.com>,
+ "Quadros, Roger" <rogerq@ti.com>
+Message-ID: <0099eefa-32c8-a818-761c-667239d9ec3b@pengutronix.de>
+Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+References: <20170818193947.27862-1-fcooper@ti.com>
+ <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
+ <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
+ <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
+ <88d4ddc4-b786-0205-6852-56e93182a1c9@ti.com>
+ <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
+ <ed19ead3-d8f6-c027-74cf-8aee131c8a59@ti.com>
+ <08432016-e733-b827-b9aa-bc359dd837f5@pengutronix.de>
+ <7ba515d9-7710-c152-a55a-f995b7f3d49a@ti.com>
+ <848e965d-e6a1-8930-9064-0317563326c0@ti.com>
+ <93c6d531-c38b-6f88-510f-59eb3e733b78@ti.com>
+ <545ac690-10c8-b206-76dd-dbbe602eb6af@pengutronix.de>
+ <a972cec1-3386-3ca3-ace3-175e1cabd286@hartkopp.net>
+In-Reply-To: <a972cec1-3386-3ca3-ace3-175e1cabd286@hartkopp.net>
 
-Add FLEXCAN_QUIRK_BROKEN_PERR_STATE for better description of the
-missing error passive interrupt quirk.
+--scGCN2bGVAdnC6wLLugoqHABEJRHeOfFt
+Content-Type: text/plain; charset=utf-8
+Content-Language: en-GB
+Content-Transfer-Encoding: quoted-printable
 
-Error interrupt flooding may happen if the broken error state quirk fix
-is enabled. For example, in case there is singled out node on the bus
-and the node sends a frame, then error interrupt flooding happens and
-will not stop because the node cannot go to bus off. The flooding will
-stop after another node connected to the bus again.
+On 10/19/2017 01:14 PM, Oliver Hartkopp wrote:
+>>>>> Since we have a netlink socket interface to configure sample point,=
+ I
+>>>>> wonder if that should be extended to configure SSP too (or at least=
+ the
+>>>>> offset part of SSP)?
+>=20
+> +1 too
 
-If high bitrate configured on the low end system, then the flooding
-may causes performance issue, hence, this patch mitigates this by:
-1. disable error interrupt upon error passive state transition
-2. re-enable error interrupt upon error warning state transition
-3. disable/enable error interrupt upon error active state transition
-   depends on FLEXCAN_QUIRK_BROKEN_WERR_STATE
+The struct can_bittiming in defined in uapi, so we have to keep ABI
+compatibility in mind.
 
-In this way, the driver is still able to report correct state
-transitions without additional latency. When there are bus problems,
-flooding of error interrupts is limited to the number of frames required
-to change state from error warning to error passive if the core has
-[TR]WRN_INT connected (FLEXCAN_QUIRK_BROKEN_WERR_STATE is not enabled),
-otherwise, the flooding is limited to the number of frames required to
-change state from error active to error passive.
+>>>> Sekhar is right that ideally the user should be able to set the SSP =
+at
+>>>> runtime. However, my issue is that based on my experience CAN users
+>>>> expect the driver to just work the majority of times. For unique use=
 
-Signed-off-by: Zhu Yi <yi.zhu5@cn.bosch.com>
-Signed-off-by: Mark Jonas <mark.jonas@de.bosch.com>
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>
-Cc: linux-stable <stable@vger.kernel.org> # >= v4.11
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/flexcan.c | 75 +++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 66 insertions(+), 9 deletions(-)
+>>>> cases where the driver calculated values don't work then the user sh=
+ould
+>>>> be able to override it. This should only be done for a very small
+>>>> percentage of CAN users. Unless you allow DT to provide a default SS=
+P
+>>>> many users of MCAN may find that the default SSP doesn't work and mu=
+st
+>>>> always use runtime overrides to get anything to work. I don't think =
+that
+>>>> is a good user experience which is why I don't like the idea.
+>>>
+>>> Fair enough. But not quite sure if CAN users expect CAN-FD to "just
+>>> work" without doing any bittiming related setup.
+>>
+>>  From my point of view I'd rather buy a board from a HW vendor where
+>> CAN-FD works, rather than a board where I have to tweak the bit-timing=
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index e163c55e737b..c83a09fa4166 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -182,14 +182,14 @@
- /* FLEXCAN hardware feature flags
-  *
-  * Below is some version info we got:
-- *    SOC   Version   IP-Version  Glitch- [TR]WRN_INT Memory err RTR re-
-- *                                Filter? connected?  detection  ception in MB
-- *   MX25  FlexCAN2  03.00.00.00     no        no         no        no
-- *   MX28  FlexCAN2  03.00.04.00    yes       yes         no        no
-- *   MX35  FlexCAN2  03.00.00.00     no        no         no        no
-- *   MX53  FlexCAN2  03.00.00.00    yes        no         no        no
-- *   MX6s  FlexCAN3  10.00.12.00    yes       yes         no       yes
-- *   VF610 FlexCAN3  ?               no       yes        yes       yes?
-+ *    SOC   Version   IP-Version  Glitch- [TR]WRN_INT IRQ Err Memory err RTR re-
-+ *                                Filter? connected?  Passive detection  ception in MB
-+ *   MX25  FlexCAN2  03.00.00.00     no        no         ?       no        no
-+ *   MX28  FlexCAN2  03.00.04.00    yes       yes        no       no        no
-+ *   MX35  FlexCAN2  03.00.00.00     no        no         ?       no        no
-+ *   MX53  FlexCAN2  03.00.00.00    yes        no        no       no        no
-+ *   MX6s  FlexCAN3  10.00.12.00    yes       yes        no       no       yes
-+ *   VF610 FlexCAN3  ?               no       yes         ?      yes       yes?
-  *
-  * Some SOCs do not have the RX_WARN & TX_WARN interrupt line connected.
-  */
-@@ -198,6 +198,7 @@
- #define FLEXCAN_QUIRK_ENABLE_EACEN_RRS	BIT(3) /* Enable EACEN and RRS bit in ctrl2 */
- #define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disable Memory error detection */
- #define FLEXCAN_QUIRK_USE_OFF_TIMESTAMP	BIT(5) /* Use timestamp based offloading */
-+#define FLEXCAN_QUIRK_BROKEN_PERR_STATE	BIT(6) /* No interrupt for error passive */
- 
- /* Structure of the message buffer */
- struct flexcan_mb {
-@@ -335,6 +336,22 @@ static inline void flexcan_write(u32 val, void __iomem *addr)
- }
- #endif
- 
-+static inline void flexcan_error_irq_enable(const struct flexcan_priv *priv)
-+{
-+	struct flexcan_regs __iomem *regs = priv->regs;
-+	u32 reg_ctrl = (priv->reg_ctrl_default | FLEXCAN_CTRL_ERR_MSK);
-+
-+	flexcan_write(reg_ctrl, &regs->ctrl);
-+}
-+
-+static inline void flexcan_error_irq_disable(const struct flexcan_priv *priv)
-+{
-+	struct flexcan_regs __iomem *regs = priv->regs;
-+	u32 reg_ctrl = (priv->reg_ctrl_default & ~FLEXCAN_CTRL_ERR_MSK);
-+
-+	flexcan_write(reg_ctrl, &regs->ctrl);
-+}
-+
- static inline int flexcan_transceiver_enable(const struct flexcan_priv *priv)
- {
- 	if (!priv->reg_xceiver)
-@@ -713,6 +730,7 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
- 	struct flexcan_regs __iomem *regs = priv->regs;
- 	irqreturn_t handled = IRQ_NONE;
- 	u32 reg_iflag1, reg_esr;
-+	enum can_state last_state = priv->can.state;
- 
- 	reg_iflag1 = flexcan_read(&regs->iflag1);
- 
-@@ -767,7 +785,8 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
- 
- 	/* state change interrupt or broken error state quirk fix is enabled */
- 	if ((reg_esr & FLEXCAN_ESR_ERR_STATE) ||
--	    (priv->devtype_data->quirks & FLEXCAN_QUIRK_BROKEN_WERR_STATE))
-+	    (priv->devtype_data->quirks & (FLEXCAN_QUIRK_BROKEN_WERR_STATE |
-+	                                   FLEXCAN_QUIRK_BROKEN_PERR_STATE)))
- 		flexcan_irq_state(dev, reg_esr);
- 
- 	/* bus error IRQ - handle if bus error reporting is activated */
-@@ -775,6 +794,44 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
- 	    (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING))
- 		flexcan_irq_bus_err(dev, reg_esr);
- 
-+	/* availability of error interrupt among state transitions in case
-+	 * bus error reporting is de-activated and
-+	 * FLEXCAN_QUIRK_BROKEN_PERR_STATE is enabled:
-+	 *  +--------------------------------------------------------------+
-+	 *  | +----------------------------------------------+ [stopped /  |
-+	 *  | |                                              |  sleeping] -+
-+	 *  +-+-> active <-> warning <-> passive -> bus off -+
-+	 *        ___________^^^^^^^^^^^^_______________________________
-+	 *        disabled(1)  enabled             disabled
-+	 *
-+	 * (1): enabled if FLEXCAN_QUIRK_BROKEN_WERR_STATE is enabled
-+	 */
-+	if ((last_state != priv->can.state) &&
-+	    (priv->devtype_data->quirks & FLEXCAN_QUIRK_BROKEN_PERR_STATE) &&
-+	    !(priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)) {
-+		switch (priv->can.state) {
-+		case CAN_STATE_ERROR_ACTIVE:
-+			if (priv->devtype_data->quirks &
-+			    FLEXCAN_QUIRK_BROKEN_WERR_STATE)
-+				flexcan_error_irq_enable(priv);
-+			else
-+				flexcan_error_irq_disable(priv);
-+			break;
-+
-+		case CAN_STATE_ERROR_WARNING:
-+			flexcan_error_irq_enable(priv);
-+			break;
-+
-+		case CAN_STATE_ERROR_PASSIVE:
-+		case CAN_STATE_BUS_OFF:
-+			flexcan_error_irq_disable(priv);
-+			break;
-+
-+		default:
-+			break;
-+		}
-+	}
-+
- 	return handled;
- }
- 
--- 
-2.14.2
+>> for a simple CAN-FD test setup.
+>>
+>> As far as I see for the m_can driver it's a single tuple: "bitrate > 2=
+=2E5
+>> MBit/s -> 50%". Do we need an array of tuples in general?
+>>
+>> If good default values are transceiver and board specific, they can go=
+
+>> into the DT. We need a generic (this means driver agnostic) binding fo=
+r
+>> this. If this table needs to be tweaked for special purpose, then we c=
+an
+>> add a netlink interface for this as well. >
+>> Comments?
+>=20
+> By now we calculate reasonable default values (e.g. for SP and SJW), yo=
+u=20
+> can override by setting alternative values via netlink configuration.
+>=20
+> I would tend to stay on this approach and not hide these things in DTs =
+-=20
+> just because of someone wants to initialize his specific interface 'eas=
+ier'.
+
+If the values are not board specific, then it makes no sense to put them
+into the DT.
+
+> One tool, one place is IMHO still the best option.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--scGCN2bGVAdnC6wLLugoqHABEJRHeOfFt--
+
+--RlbSnx2VD649caxfc10AqDuAdFdPWaGJK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEE4bay/IylYqM/npjQHv7KIOw4HPYFAlnoi/8ACgkQHv7KIOw4
+HPaEhAf+NAKyq74B5+59H7qlQQwXg+Z+s2/zvUOYbuMnBYSoukpAxMFm7557BJad
+2eyc1RR6KPGDwbdhRbg7364J/pH8JOzJMm7z8gQHDXDiOVp+gZ3VAxOyKjSqdYgl
+cAY5TcZJ2PApXSi/SeUtHgxEm4nlYAJTsBS8BLJjpADVQoC/U4lYgMfDjKQxpBAf
+G72MCwFe7YjTkLptcVf8uoI98jgHnf4q30zpHcawPgCydOOK/Mj0kEni6EoOcvaI
++ve46v0VqeQaAvOY93qO7+lc4FihDaqnK6H5hHWfs1/BucwFB+gLtr/VLKamVCSe
+s6uSuzq6QhaFW7A/oFoEqs8jYdPuHg==
+=sdv2
+-----END PGP SIGNATURE-----
+
+--RlbSnx2VD649caxfc10AqDuAdFdPWaGJK--
