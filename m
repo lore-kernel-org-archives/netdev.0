@@ -1,58 +1,176 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 32/58] isdn/gigaset: Convert timers to use
- timer_setup()
-Date: Fri, 20 Oct 2017 00:28:39 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1710200025470.2054@nanos>
-References: <1508200182-104605-1-git-send-email-keescook@chromium.org>          <1508200182-104605-33-git-send-email-keescook@chromium.org>          <1508447002.2274.14.camel@tiscali.nl>  <1508448028.2274.21.camel@tiscali.nl>  <alpine.DEB.2.20.1710192328110.2054@nanos>
- <1508449907.2274.28.camel@tiscali.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Kees Cook <keescook@chromium.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Karsten Keil <isdn@linux-pingi.de>,
-        Johan Hovold <johan@kernel.org>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1508449907.2274.28.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 1/8] tools: bpftool: add pointer to file argument to print_hex()
+Date: Thu, 19 Oct 2017 15:46:19 -0700
+Message-ID: <20171019224626.31608-2-jakub.kicinski@netronome.com>
+References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Quentin Monnet <quentin.monnet@netronome.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:48357 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752092AbdJSWrE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 18:47:04 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b79so8111485pfk.5
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 15:47:04 -0700 (PDT)
+In-Reply-To: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 19 Oct 2017, Paul Bolle wrote:
+From: Quentin Monnet <quentin.monnet@netronome.com>
 
-> On Thu, 2017-10-19 at 23:31 +0200, Thomas Gleixner wrote:
-> > bas_gigaset_exit()
-> > {
-> >         for (i = 0; i < driver->minors; i++) {
-> >                 if (gigaset_shutdown(driver->cs + i) < 0)
-> > 
-> > gigaset_shutdown(cs)
-> > {
-> > 	mutex_lock(&cs->mutex); <-------- Explodes here
-> > 
-> > So driver->cs + i is invalid. No idea how that might be related to that
-> > timer conversion patch, but ....
-> 
-> Thanks for peeking into this!
-> 
-> Please note that driver->minors is one of the more embarrassing warts of the
-> gigaset code. It's basically hardcoded to 1 for all three drivers (including
-> bas_gigaset). So driver->cs itself is invalid here.
-> 
-> And since the patch uses
->     struct cardstate *cs = urb->context;
-> 
-> in a few places my guess is that it's really the patch that triggers this.
+Make print_hex() able to print to any file instead of standard output
+only, and rename it to fprint_hex(). The function can now be called with
+the info() macro, for example, without splitting the output between
+standard and error outputs.
 
-Well, that does not explain why
+Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ tools/bpf/bpftool/main.c |  8 ++++----
+ tools/bpf/bpftool/main.h |  2 +-
+ tools/bpf/bpftool/map.c  | 20 ++++++++++----------
+ tools/bpf/bpftool/prog.c |  4 ++--
+ 4 files changed, 17 insertions(+), 17 deletions(-)
 
-      drivers->cs + i
-
-would be corrupted. That would require that this cs -> urb link points at
-driver magically and then wreckages that driver data structure. Might be
-the case, but if so then there are dragons burried somehwere
-
-Thanks,
-
-	tglx
+diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
+index e02d00d6e00b..8662199ee050 100644
+--- a/tools/bpf/bpftool/main.c
++++ b/tools/bpf/bpftool/main.c
+@@ -100,7 +100,7 @@ bool is_prefix(const char *pfx, const char *str)
+ 	return !memcmp(str, pfx, strlen(pfx));
+ }
+ 
+-void print_hex(void *arg, unsigned int n, const char *sep)
++void fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep)
+ {
+ 	unsigned char *data = arg;
+ 	unsigned int i;
+@@ -111,13 +111,13 @@ void print_hex(void *arg, unsigned int n, const char *sep)
+ 		if (!i)
+ 			/* nothing */;
+ 		else if (!(i % 16))
+-			printf("\n");
++			fprintf(f, "\n");
+ 		else if (!(i % 8))
+-			printf("  ");
++			fprintf(f, "  ");
+ 		else
+ 			pfx = sep;
+ 
+-		printf("%s%02hhx", i ? pfx : "", data[i]);
++		fprintf(f, "%s%02hhx", i ? pfx : "", data[i]);
+ 	}
+ }
+ 
+diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
+index 844e4ef6db56..41e6c7d3fcad 100644
+--- a/tools/bpf/bpftool/main.h
++++ b/tools/bpf/bpftool/main.h
+@@ -67,7 +67,7 @@ enum bpf_obj_type {
+ extern const char *bin_name;
+ 
+ bool is_prefix(const char *pfx, const char *str);
+-void print_hex(void *arg, unsigned int n, const char *sep);
++void fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep);
+ void usage(void) __attribute__((noreturn));
+ 
+ struct cmd {
+diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
+index 0528a5379e6c..b1dad76215ed 100644
+--- a/tools/bpf/bpftool/map.c
++++ b/tools/bpf/bpftool/map.c
+@@ -216,12 +216,12 @@ static void print_entry(struct bpf_map_info *info, unsigned char *key,
+ 			!break_names;
+ 
+ 		printf("key:%c", break_names ? '\n' : ' ');
+-		print_hex(key, info->key_size, " ");
++		fprint_hex(stdout, key, info->key_size, " ");
+ 
+ 		printf(single_line ? "  " : "\n");
+ 
+ 		printf("value:%c", break_names ? '\n' : ' ');
+-		print_hex(value, info->value_size, " ");
++		fprint_hex(stdout, value, info->value_size, " ");
+ 
+ 		printf("\n");
+ 	} else {
+@@ -230,13 +230,13 @@ static void print_entry(struct bpf_map_info *info, unsigned char *key,
+ 		n = get_possible_cpus();
+ 
+ 		printf("key:\n");
+-		print_hex(key, info->key_size, " ");
++		fprint_hex(stdout, key, info->key_size, " ");
+ 		printf("\n");
+ 		for (i = 0; i < n; i++) {
+ 			printf("value (CPU %02d):%c",
+ 			       i, info->value_size > 16 ? '\n' : ' ');
+-			print_hex(value + i * info->value_size,
+-				  info->value_size, " ");
++			fprint_hex(stdout, value + i * info->value_size,
++				   info->value_size, " ");
+ 			printf("\n");
+ 		}
+ 	}
+@@ -492,8 +492,8 @@ static int do_dump(int argc, char **argv)
+ 			print_entry(&info, key, value);
+ 		} else {
+ 			info("can't lookup element with key: ");
+-			print_hex(key, info.key_size, " ");
+-			printf("\n");
++			fprint_hex(stderr, key, info.key_size, " ");
++			fprintf(stderr, "\n");
+ 		}
+ 
+ 		prev_key = key;
+@@ -587,7 +587,7 @@ static int do_lookup(int argc, char **argv)
+ 		print_entry(&info, key, value);
+ 	} else if (errno == ENOENT) {
+ 		printf("key:\n");
+-		print_hex(key, info.key_size, " ");
++		fprint_hex(stdout, key, info.key_size, " ");
+ 		printf("\n\nNot found\n");
+ 	} else {
+ 		err("lookup failed: %s\n", strerror(errno));
+@@ -642,14 +642,14 @@ static int do_getnext(int argc, char **argv)
+ 
+ 	if (key) {
+ 		printf("key:\n");
+-		print_hex(key, info.key_size, " ");
++		fprint_hex(stdout, key, info.key_size, " ");
+ 		printf("\n");
+ 	} else {
+ 		printf("key: None\n");
+ 	}
+ 
+ 	printf("next key:\n");
+-	print_hex(nextkey, info.key_size, " ");
++	fprint_hex(stdout, nextkey, info.key_size, " ");
+ 	printf("\n");
+ 
+ exit_free:
+diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
+index d60f5307b6e2..aa6d72ea3807 100644
+--- a/tools/bpf/bpftool/prog.c
++++ b/tools/bpf/bpftool/prog.c
+@@ -224,7 +224,7 @@ static int show_prog(int fd)
+ 		printf("name %s  ", info.name);
+ 
+ 	printf("tag ");
+-	print_hex(info.tag, BPF_TAG_SIZE, "");
++	fprint_hex(stdout, info.tag, BPF_TAG_SIZE, "");
+ 	printf("\n");
+ 
+ 	if (info.load_time) {
+@@ -319,7 +319,7 @@ static void dump_xlated(void *buf, unsigned int len, bool opcodes)
+ 
+ 		if (opcodes) {
+ 			printf("       ");
+-			print_hex(insn + i, 8, " ");
++			fprint_hex(stdout, insn + i, 8, " ");
+ 			printf("\n");
+ 		}
+ 
+-- 
+2.14.1
