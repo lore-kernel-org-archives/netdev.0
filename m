@@ -1,38 +1,76 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net PATCH] bpf: devmap fix arithmetic overflow in bitmap_size
- calculation
-Date: Thu, 19 Oct 2017 15:12:46 -0700
-Message-ID: <20171019221245.a7grq3csbpixjgpn@ast-mbp>
-References: <150842903200.12537.10765604428561566031.stgit@john-XPS-13-9360>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 32/58] isdn/gigaset: Convert timers to use timer_setup()
+Date: Fri, 20 Oct 2017 00:16:34 +0200
+Message-ID: <1508451394.2274.49.camel@tiscali.nl>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+         <1508200182-104605-33-git-send-email-keescook@chromium.org>
+         <1508447002.2274.14.camel@tiscali.nl> <1508448028.2274.21.camel@tiscali.nl>
+         <CAGXu5j+TLfGAaHb8QLD0faaq6njuPUxStorxFSG7t_8gY-Jymw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: richard@nod.at, davem@davemloft.net, netdev@vger.kernel.org,
-        borkmann@iogearbox.net
-To: John Fastabend <john.r.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:47974 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753342AbdJSWMt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 18:12:49 -0400
-Received: by mail-pf0-f195.google.com with SMTP id z11so7994246pfk.4
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 15:12:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <150842903200.12537.10765604428561566031.stgit@john-XPS-13-9360>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net,
+        Network Development <netdev@vger.kernel.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5j+TLfGAaHb8QLD0faaq6njuPUxStorxFSG7t_8gY-Jymw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 09:03:52AM -0700, John Fastabend wrote:
-> An integer overflow is possible in dev_map_bitmap_size() when
-> calculating the BITS_TO_LONG logic which becomes, after macro
-> replacement,
+On Thu, 2017-10-19 at 14:31 -0700, Kees Cook wrote:
+> What I did in many other non-trivial conversions was just add an
+> explicit pointer back, since that's operationally identical to what
+> struct timer_list was storing in its .data field.
 > 
-> 	(((n) + (d) - 1)/ (d))
+> i.e.
 > 
-> where 'n' is a __u32 and 'd' is (8 * sizeof(long)). To avoid
-> overflow cast to u64 before arithmetic.
+> add:
 > 
-> Reported-by: Richard Weinberger <richard@nod.at>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+>   struct cardstate *cs;
+> 
+> to struct bas_cardstate, and then use this on timer entry:
+> 
+>        struct bas_cardstate *ucs = from_timer(ucs, t, $timer...);
+>        struct cardstate *cs = ucs->cs;
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+That crossed my mind too. (Honestly!) It _feels_ a bit dirty, as I have this
+idea that structures having references to each other is some sort of an anti-
+pattern. On the other hand: the various structures used here are, well, not
+that clean already so I might as well ignore my feelings.
+
+> and this at init:
+> 
+>         spin_lock_init(&ucs->lock);
+> +      ucs->cs = cs;
+> -       setup_timer(&ucs->timer_ctrl, req_timeout, (unsigned long) cs);
+> -       setup_timer(&ucs->timer_atrdy, atrdy_timeout, (unsigned long) cs);
+> -       setup_timer(&ucs->timer_cmd_in, cmd_in_timeout, (unsigned long) cs);
+> -       setup_timer(&ucs->timer_int_in, int_in_resubmit, (unsigned long) cs);
+> +       timer_setup(&ucs->timer_ctrl, req_timeout, 0);
+> +       timer_setup(&ucs->timer_atrdy, atrdy_timeout, 0);
+> +       timer_setup(&ucs->timer_cmd_in, cmd_in_timeout, 0);
+> +       timer_setup(&ucs->timer_int_in, int_in_resubmit, 0);
+> 
+> which will avoid the urb entirely.
+> 
+> Do you want me to send an alternative patch?
+
+That would be nice! Please allow a few days for testing.
+
+That testing is beyond silly, though. It requires me getting a laptop very
+close to the awkward place where my ISDN setup lives. I'll spare you the
+details. But that silliness again shows, I'd say, that the gigaset code mainly
+exists to see if there's still a pulse in mainline ISDN. Is that enough to
+bother? Or should mainline ISDN go the way of, say, IRDA?
+
+But I digress. An alternative patch would be much appreciated.
+
+Thanks,
+
+
+Paul Bolle
