@@ -1,47 +1,49 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 4/8] tools: bpftool: add `bpftool prog help` as real command i.r.t exit code
-Date: Thu, 19 Oct 2017 15:46:22 -0700
-Message-ID: <20171019224626.31608-5-jakub.kicinski@netronome.com>
-References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/8] tools: bpftool: add a "version" command, and fix several items
+Date: Thu, 19 Oct 2017 15:46:18 -0700
+Message-ID: <20171019224626.31608-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
-        Quentin Monnet <quentin.monnet@netronome.com>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:48373 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753115AbdJSWrJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 18:47:09 -0400
-Received: by mail-pf0-f195.google.com with SMTP id b79so8111760pfk.5
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 15:47:09 -0700 (PDT)
-In-Reply-To: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:53659 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752268AbdJSWrC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 18:47:02 -0400
+Received: by mail-pf0-f196.google.com with SMTP id t188so8113100pfd.10
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 15:47:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Quentin Monnet <quentin.monnet@netronome.com>
+Quentin says:
 
-Make error messages and return codes more consistent. Specifically, make
-`bpftool prog help` a real command, instead of printing usage by default
-for a non-recognized "help" command. Output is the same, but this makes
-bpftool return with a success value instead of an error.
+The first seven patches of this series bring several minor fixes to
+bpftool. Please see individual commit logs for details.
 
-Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- tools/bpf/bpftool/prog.c | 1 +
- 1 file changed, 1 insertion(+)
+Last patch adds a "version" commands to bpftool, which is in fact the
+version of the kernel from which it was compiled.
 
-diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index 6c03d2ea3f79..355c14325622 100644
---- a/tools/bpf/bpftool/prog.c
-+++ b/tools/bpf/bpftool/prog.c
-@@ -475,6 +475,7 @@ static int do_help(int argc, char **argv)
- 
- static const struct cmd cmds[] = {
- 	{ "show",	do_show },
-+	{ "help",	do_help },
- 	{ "dump",	do_dump },
- 	{ "pin",	do_pin },
- 	{ 0 }
+
+Quentin Monnet (8):
+  tools: bpftool: add pointer to file argument to print_hex()
+  tools: bpftool: fix return value when all eBPF programs have been
+    shown
+  tools: bpftool: use err() instead of info() if there are too many
+    insns
+  tools: bpftool: add `bpftool prog help` as real command i.r.t exit
+    code
+  tools: bpftool: print only one error message on byte parsing failure
+  tools: bpftool: print all relevant byte opcodes for "load double word"
+  tools: bpftool: show that `opcodes` or `file FILE` should be exclusive
+  tools: bpftool: add a command to display bpftool version
+
+ tools/bpf/bpftool/Documentation/bpftool-prog.rst |  8 +++----
+ tools/bpf/bpftool/Documentation/bpftool.rst      |  2 ++
+ tools/bpf/bpftool/main.c                         | 22 +++++++++++++----
+ tools/bpf/bpftool/main.h                         |  2 +-
+ tools/bpf/bpftool/map.c                          | 22 ++++++++---------
+ tools/bpf/bpftool/prog.c                         | 30 +++++++++++++++++-------
+ 6 files changed, 56 insertions(+), 30 deletions(-)
+
 -- 
 2.14.1
