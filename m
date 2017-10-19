@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net-next] thunderbolt: Right shifting to zero bug
- in tbnet_handle_packet()
-Date: Thu, 19 Oct 2017 13:05:07 +0100 (WEST)
-Message-ID: <20171019.130507.171332903320471229.davem@davemloft.net>
-References: <20171013112959.sc2pwazrpk7fxbtw@mwanda>
-        <20171017123301.z6heqexdlo6lc52b@mwanda>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH net] geneve: Fix function matching VNI and tunnel ID on
+ big-endian
+Date: Thu, 19 Oct 2017 14:08:21 +0200
+Message-ID: <20171019140821.0aefacb9@beetle>
+References: <7fb32cd5779c5c0133754194aa6914fa8689853e.1508412016.git.sbrivio@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: michael.jamet@intel.com, amir.jer.levy@intel.com,
-        mika.westerberg@linux.intel.com, yehezkel.bernat@intel.com,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        pravin shelar <pshelar@ovn.org>,
+        Girish Moodalbail <girish.moodalbail@oracle.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: Stefano Brivio <sbrivio@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48686 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752890AbdJSMFU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 08:05:20 -0400
-In-Reply-To: <20171017123301.z6heqexdlo6lc52b@mwanda>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:54555 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751579AbdJSMIY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 08:08:24 -0400
+Received: by mail-wr0-f194.google.com with SMTP id o44so8064487wrf.11
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 05:08:24 -0700 (PDT)
+In-Reply-To: <7fb32cd5779c5c0133754194aa6914fa8689853e.1508412016.git.sbrivio@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Tue, 17 Oct 2017 15:33:01 +0300
+On Thu, 19 Oct 2017 13:31:28 +0200
+Stefano Brivio <sbrivio@redhat.com> wrote:
 
-> There is a problem when we do:
+> On big-endian machines, functions converting between tunnel ID
+> and VNI use the three LSBs of tunnel ID storage to map VNI.
 > 
-> 	sequence = pkg->hdr.length_sn & TBIP_HDR_SN_MASK;
-> 	sequence >>= TBIP_HDR_SN_SHIFT;
+> The comparison function eq_tun_id_and_vni(), on the other hand,
+> attempted to map the VNI from the three MSBs. Fix it by using
+> the same check implemented on LE, which maps VNI from the three
+> LSBs of tunnel ID.
 > 
-> TBIP_HDR_SN_SHIFT is 27, and right shifting a u8 27 bits is always
-> going to result in zero.  The fix is to declare these variables as u32.
-> 
-> Fixes: e69b6c02b4c3 ("net: Add support for networking over Thunderbolt cable")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Fixes: 2e0b26e10352 ("geneve: Optimize geneve device lookup.")
+> Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
 
-Applied.
+Thanks, Stefano.
+
+Reviewed-by: Jakub Sitnicki <jkbs@redhat.com>
