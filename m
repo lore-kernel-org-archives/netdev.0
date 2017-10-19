@@ -1,39 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] qed: Fix iWARP out of order flow
-Date: Thu, 19 Oct 2017 12:47:01 +0100 (WEST)
-Message-ID: <20171019.124701.29421527567072533.davem@davemloft.net>
-References: <1508225005-3572-1-git-send-email-Michal.Kalderon@cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] MAINTAINERS: change ENA driver maintainers
+ email domain
+Date: Thu, 19 Oct 2017 12:47:49 +0100 (WEST)
+Message-ID: <20171019.124749.756957066699664337.davem@davemloft.net>
+References: <1508225434-105787-1-git-send-email-netanel@amazon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
-        Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-To: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1508225005-3572-1-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        dwmw@amazon.com, zorik@amazon.com, matua@amazon.com,
+        saeedb@amazon.com, msw@amazon.com, aliguori@amazon.com,
+        nafea@amazon.com, evgenys@amazon.com
+To: netanel@amazon.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48486 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752462AbdJSLr6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:47:58 -0400
+In-Reply-To: <1508225434-105787-1-git-send-email-netanel@amazon.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Date: Tue, 17 Oct 2017 10:23:25 +0300
+From: <netanel@amazon.com>
+Date: Tue, 17 Oct 2017 07:30:34 +0000
 
-> Out of order flow is not working for iWARP.
-> This patch got cut out from initial series that added out
-> of order support for iWARP.
+> From: Netanel Belgazal <netanel@amazon.com>
 > 
-> Make out of order code common for iWARP and iSCSI.
-> Add new configuration option CONFIG_QED_OOO. Set by
-> qedr and qedi Kconfigs.
+> ENA driver was developed by developers from Annapurna Labs.
+> Annapurna Labs was acquired by Amazon and the company's domain
+> (@annapurnalabs.com) will become deprecated soon.
 > 
-> Fixes: d1abfd0b4ee2 ("qed: Add iWARP out of order support")
+> Update the email addresses of the maintainers to the alternative amazon
+> emails (@amazon.com)
 > 
-> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Manish Rangankar <Manish.Rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Netanel Belgazal <netanel@amazon.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
