@@ -1,67 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] strparser: Generalize strparser
-Date: Thu, 19 Oct 2017 10:42:17 -0700
-Message-ID: <1508434937.30291.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170728232243.3040-1-tom@quantonium.net>
-         <20170728232243.3040-4-tom@quantonium.net>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: netrom: nr_in: mark expected switch fall-through
+Date: Thu, 19 Oct 2017 12:43:08 -0500
+Message-ID: <20171019174308.GA21742@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rohit@quantonium.net,
-        john.fastabend@gmail.com
-To: Tom Herbert <tom@quantonium.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Ralf Baechle <ralf@linux-mips.org>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:46423 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752830AbdJSRmT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 13:42:19 -0400
-Received: by mail-io0-f196.google.com with SMTP id 101so10668585ioj.3
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 10:42:19 -0700 (PDT)
-In-Reply-To: <20170728232243.3040-4-tom@quantonium.net>
+Received: from gateway24.websitewelcome.com ([192.185.50.93]:30455 "EHLO
+        gateway24.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752805AbdJSRnJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 13:43:09 -0400
+Received: from cm13.websitewelcome.com (cm13.websitewelcome.com [100.42.49.6])
+        by gateway24.websitewelcome.com (Postfix) with ESMTP id 49B86665E33
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 12:43:09 -0500 (CDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-07-28 at 16:22 -0700, Tom Herbert wrote:
-> Generalize strparser from more than just being used in conjunction
-> with read_sock. strparser will also be used in the send path with
-> zero proxy. The primary change is to create strp_process function
-> that performs the critical processing on skbs. The documentation
-> is also updated to reflect the new uses.
-> 
-> Signed-off-by: Tom Herbert <tom@quantonium.net>
-> ---
->  Documentation/networking/strparser.txt | 207 +++++++++++++++-------
->  include/net/strparser.h                | 119 +++++++------
->  net/kcm/kcmproc.c                      |  34 ++--
->  net/kcm/kcmsock.c                      |  38 ++--
->  net/strparser/strparser.c              | 313 ++++++++++++++++++++-------------
->  5 files changed, 424 insertions(+), 287 deletions(-)
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-Just found this gem :
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only (GCC 7.2.0 was used).
+Please, verify if the actual intention of the code is to fall through.
 
-static void strp_msg_timeout(unsigned long arg)
-{
-        struct strparser *strp = (struct strparser *)arg;
+ net/netrom/nr_in.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-        /* Message assembly timed out */
-        STRP_STATS_INCR(strp->stats.msg_timeouts);
-        strp->cb.lock(strp);
-        strp->cb.abort_parser(strp, ETIMEDOUT);
-        strp->cb.unlock(strp);
-}
-
-static void strp_sock_lock(struct strparser *strp)
-{
-        lock_sock(strp->sk);
-}
-
-static void strp_sock_unlock(struct strparser *strp)
-{
-        release_sock(strp->sk);
-}
-
-
-A timer runs from BH, and from this interrupt context it is absolutely
-illegal to call lock_sock() ( and release_sock() )
-
-Please fix, thanks !
+diff --git a/net/netrom/nr_in.c b/net/netrom/nr_in.c
+index 80dbd0b..fbfdae4 100644
+--- a/net/netrom/nr_in.c
++++ b/net/netrom/nr_in.c
+@@ -125,7 +125,7 @@ static int nr_state2_machine(struct sock *sk, struct sk_buff *skb,
+ 
+ 	case NR_DISCREQ:
+ 		nr_write_internal(sk, NR_DISCACK);
+-
++		/* fall through */
+ 	case NR_DISCACK:
+ 		nr_disconnect(sk, 0);
+ 		break;
+-- 
+2.7.4
