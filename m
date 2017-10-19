@@ -1,52 +1,40 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next v3 2/2] ipv6: remove from fib tree aged out
- RTF_CACHE dst
-Date: Thu, 19 Oct 2017 14:02:21 -0700
-Message-ID: <20171019210221.kucy67evij65nctx@kafai-mbp.dhcp.thefacebook.com>
-References: <cover.1508421311.git.pabeni@redhat.com>
- <6440bf87fe967880ff90c1eb732081769f81f4a0.1508421311.git.pabeni@redhat.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 32/58] isdn/gigaset: Convert timers to use timer_setup()
+Date: Thu, 19 Oct 2017 23:03:22 +0200
+Message-ID: <1508447002.2274.14.camel@tiscali.nl>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+         <1508200182-104605-33-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-        Wei Wang <weiwan@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54174 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753283AbdJSVCb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 17:02:31 -0400
-Content-Disposition: inline
-In-Reply-To: <6440bf87fe967880ff90c1eb732081769f81f4a0.1508421311.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        Thomas Gleixner <tglx@linutronix.de>,
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508200182-104605-33-git-send-email-keescook@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 02:07:11PM +0000, Paolo Abeni wrote:
-> The commit 2b760fcf5cfb ("ipv6: hook up exception table to store
-> dst cache") partially reverted the commit 1e2ea8ad37be ("ipv6: set
-> dst.obsolete when a cached route has expired").
-> 
-> As a result, RTF_CACHE dst referenced outside the fib tree will
-> not be removed until the next sernum change; dst_check() does not
-> fail on aged-out dst, and dst->__refcnt can't decrease: the aged
-> out dst will stay valid for a potentially unlimited time after the
-> timeout expiration.
-> 
-> This change explicitly removes RTF_CACHE dst from the fib tree when
-> aged out. The rt6_remove_exception() logic will then obsolete the
-> dst and other entities will drop the related reference on next
-> dst_check().
-> 
-> pMTU exceptions are not aged-out, and are removed from the exception
-> table only when the - usually considerably longer - ip6_rt_mtu_expires
-> timeout expires.
-> 
-> v1 -> v2:
->   - do not touch dst.obsolete in rt6_remove_exception(), not needed
-> v2 -> v3:
->   - take care of pMTU exceptions, too
-> 
-> Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+On Mon, 2017-10-16 at 17:29 -0700, Kees Cook wrote:
+> In preparation for unconditionally passing the struct timer_list pointer to
+> all timer callbacks, switch to using the new timer_setup() and from_timer()
+> to pass the timer pointer explicitly.
+
+Acked-by: Paul Bolle <pebolle@tiscali.nl>
+
+For the record: this patch made me nervous but survived the rigorous testing I
+threw at it. (Ie, dialing up using bas_gigaset and downloading almost 20 MB in
+just over an hour. Whoot! That's more than good enough to ack this patch.)
+
+There was some cleanup I had in mind to make this patch more straightforward.
+But that can wait until someone finds a way to hit an issue with this patch.
+We'll see.
+
+Thanks,
+
+
+Paul Bolle
