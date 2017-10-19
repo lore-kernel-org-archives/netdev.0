@@ -1,126 +1,70 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 17/20] dsa: Convert ndo_setup_tc offloads to block callbacks
-Date: Thu, 19 Oct 2017 15:50:45 +0200
-Message-ID: <20171019135048.4306-18-jiri@resnulli.us>
-References: <20171019135048.4306-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, alexander.h.duyck@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:47753 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753229AbdJSNvF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:05 -0400
-Received: by mail-wm0-f68.google.com with SMTP id t69so16207411wmt.2
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:51:04 -0700 (PDT)
-In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: linux-next: /home/broonie/tmpfs/next/kernel/bpf/verifier.c:
+Date: Thu, 19 Oct 2017 14:55:23 +0100
+Message-ID: <20171019135523.w7ljx34hyx7422nb@sirena.co.uk>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="ydfqm7w4u4mvny7o"
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Edward Cree <ecree@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for matchall offloads to block callbacks.
+--ydfqm7w4u4mvny7o
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- net/dsa/slave.c | 64 +++++++++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 53 insertions(+), 11 deletions(-)
+Hi all,
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 6906de0..8014291 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -777,17 +777,9 @@ static void dsa_slave_del_cls_matchall(struct net_device *dev,
- }
- 
- static int dsa_slave_setup_tc_cls_matchall(struct net_device *dev,
--					   struct tc_cls_matchall_offload *cls)
-+					   struct tc_cls_matchall_offload *cls,
-+					   bool ingress)
- {
--	bool ingress;
--
--	if (is_classid_clsact_ingress(cls->common.classid))
--		ingress = true;
--	else if (is_classid_clsact_egress(cls->common.classid))
--		ingress = false;
--	else
--		return -EOPNOTSUPP;
--
- 	if (cls->common.chain_index)
- 		return -EOPNOTSUPP;
- 
-@@ -802,12 +794,62 @@ static int dsa_slave_setup_tc_cls_matchall(struct net_device *dev,
- 	}
- }
- 
-+static int dsa_slave_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+				       void *cb_priv, bool ingress)
-+{
-+	struct net_device *dev = cb_priv;
-+
-+	switch (type) {
-+	case TC_SETUP_CLSMATCHALL:
-+		return dsa_slave_setup_tc_cls_matchall(dev, type_data, ingress);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int dsa_slave_setup_tc_block_cb_ig(enum tc_setup_type type,
-+					  void *type_data, void *cb_priv)
-+{
-+	return dsa_slave_setup_tc_block_cb(type, type_data, cb_priv, true);
-+}
-+
-+static int dsa_slave_setup_tc_block_cb_eg(enum tc_setup_type type,
-+					  void *type_data, void *cb_priv)
-+{
-+	return dsa_slave_setup_tc_block_cb(type, type_data, cb_priv, false);
-+}
-+
-+static int dsa_slave_setup_tc_block(struct net_device *dev,
-+				    struct tc_block_offload *f)
-+{
-+	tc_setup_cb_t *cb;
-+
-+	if (f->binder_type == TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		cb = dsa_slave_setup_tc_block_cb_ig;
-+	else if (f->binder_type == TCF_BLOCK_BINDER_TYPE_CLSACT_EGRESS)
-+		cb = dsa_slave_setup_tc_block_cb_eg;
-+	else
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block, cb, dev, dev);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block, cb, dev);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
- static int dsa_slave_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 			      void *type_data)
- {
- 	switch (type) {
- 	case TC_SETUP_CLSMATCHALL:
--		return dsa_slave_setup_tc_cls_matchall(dev, type_data);
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return dsa_slave_setup_tc_block(dev, type_data);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
--- 
-2.9.5
+After merging the net-next tree, today's linux-next build (x86allmodconfig)
+failed like this:
+
+/home/broonie/tmpfs/next/kernel/bpf/verifier.c: In function 'check_mem_access':
+/home/broonie/tmpfs/next/kernel/bpf/verifier.c:1010:12: error: passing argument 1 of 'verbose' from incompatible pointer type [-Werror=incompatible-pointer-types]
+    verbose("dereference of modified ctx ptr R%d off=%d+%d, ctx+const is allowed, ctx+const+const is not\n",
+            ^
+/home/broonie/tmpfs/next/kernel/bpf/verifier.c:173:28: note: expected 'struct bpf_verifier_env *' but argument is of type 'char *'
+ static __printf(2, 3) void verbose(struct bpf_verifier_env *env,
+                            ^
+/home/broonie/tmpfs/next/kernel/bpf/verifier.c:1011:5: warning: passing argument 2 of 'verbose' makes pointer from integer without a cast [-Wint-conversion]
+     regno, reg->off, off - reg->off);
+     ^
+/home/broonie/tmpfs/next/kernel/bpf/verifier.c:173:28: note: expected 'const char *' but argument is of type 'u32 {aka unsigned int}'
+ static __printf(2, 3) void verbose(struct bpf_verifier_env *env,
+                            ^
+cc1: some warnings being treated as errors
+/home/broonie/tmpfs/next/scripts/Makefile.build:313: recipe for target 'kernel/bpf/verifier.o' failed
+
+Caused by commit
+
+  28e33f9d78eef ("bpf: disallow arithmetic operations on context pointer")
+
+interacting with
+
+  61bd5218eef34 ("bpf: move global verifier log into verifier environment")
+
+--ydfqm7w4u4mvny7o
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlnorsoACgkQJNaLcl1U
+h9DmYwf/X/Qb4HKfx1/Ka8FbiUZp1s/A94AYaIhf2iTa1x7FFUympE5iCeeSHt05
+faZ+IpZSohRdkHPiml/GC3bNc9UsZFLXXSFamIYBeNgXdySiJr1eMt8910t2SXiz
++txcpYD5tgbegNPF6M+FrUdnlhUQWcLKn8/TTM6gnVOnhAzd3pGlw6zmlhKtuu5r
+cC20YPYkbOfKxKCwvqj5BQQplSr4a+RoTy3919b2ljOaWB1GaUq4dCUCAy7LT55y
+kHq7Fxy1KyWuhYD6zkHP7on/pbxf1oaIosAUzh5j+lgfU1qZJK04zdJgdmlkT9/G
+44EB9iKOmgQW8I7q32uA7+itpa9hJQ==
+=Tq7L
+-----END PGP SIGNATURE-----
+
+--ydfqm7w4u4mvny7o--
