@@ -1,33 +1,67 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] wanxl: use m68k-linux-gnu-as if available
-Date: Thu, 19 Oct 2017 19:25:17 +0200
-Message-ID: <m3y3o7nj7m.fsf@pm.waw.pl>
-References: <20171012232434.15890-1-kilobyte@angband.pl>
-        <20171018.120812.879877583327430024.davem@davemloft.net>
-        <20171018113326.2rkpe7wrlzihwdyb@angband.pl>
-        <20171018.130721.1208428223967129203.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] strparser: Generalize strparser
+Date: Thu, 19 Oct 2017 10:42:17 -0700
+Message-ID: <1508434937.30291.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170728232243.3040-1-tom@quantonium.net>
+         <20170728232243.3040-4-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: kilobyte@angband.pl, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rohit@quantonium.net,
+        john.fastabend@gmail.com
+To: Tom Herbert <tom@quantonium.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from inx.pm.waw.pl ([91.202.125.194]:33449 "EHLO inx.pm.waw.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751974AbdJSRep (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 13:34:45 -0400
-In-Reply-To: <20171018.130721.1208428223967129203.davem@davemloft.net> (David
-        Miller's message of "Wed, 18 Oct 2017 13:07:21 +0100 (WEST)")
+Received: from mail-io0-f196.google.com ([209.85.223.196]:46423 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752830AbdJSRmT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 13:42:19 -0400
+Received: by mail-io0-f196.google.com with SMTP id 101so10668585ioj.3
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 10:42:19 -0700 (PDT)
+In-Reply-To: <20170728232243.3040-4-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Fri, 2017-07-28 at 16:22 -0700, Tom Herbert wrote:
+> Generalize strparser from more than just being used in conjunction
+> with read_sock. strparser will also be used in the send path with
+> zero proxy. The primary change is to create strp_process function
+> that performs the critical processing on skbs. The documentation
+> is also updated to reflect the new uses.
+> 
+> Signed-off-by: Tom Herbert <tom@quantonium.net>
+> ---
+>  Documentation/networking/strparser.txt | 207 +++++++++++++++-------
+>  include/net/strparser.h                | 119 +++++++------
+>  net/kcm/kcmproc.c                      |  34 ++--
+>  net/kcm/kcmsock.c                      |  38 ++--
+>  net/strparser/strparser.c              | 313 ++++++++++++++++++++-------------
+>  5 files changed, 424 insertions(+), 287 deletions(-)
 
-> We don't even know if whatever "as68k" is would be the same thing
-> as GNU as and generate the same binaries.
+Just found this gem :
 
-It's GNU as, likewise ld68k, though I have no idea if recent versions
-would compile/link the firmware (correctly). This is 15+ years old.
+static void strp_msg_timeout(unsigned long arg)
+{
+        struct strparser *strp = (struct strparser *)arg;
 
-I don't have opinion on the patch.
--- 
-Krzysztof Halasa
+        /* Message assembly timed out */
+        STRP_STATS_INCR(strp->stats.msg_timeouts);
+        strp->cb.lock(strp);
+        strp->cb.abort_parser(strp, ETIMEDOUT);
+        strp->cb.unlock(strp);
+}
+
+static void strp_sock_lock(struct strparser *strp)
+{
+        lock_sock(strp->sk);
+}
+
+static void strp_sock_unlock(struct strparser *strp)
+{
+        release_sock(strp->sk);
+}
+
+
+A timer runs from BH, and from this interrupt context it is absolutely
+illegal to call lock_sock() ( and release_sock() )
+
+Please fix, thanks !
