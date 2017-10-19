@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/20] net: sched: add block bind/unbind notif. and extended block_get/put
-Date: Thu, 19 Oct 2017 15:50:29 +0200
-Message-ID: <20171019135048.4306-2-jiri@resnulli.us>
+Subject: [patch net-next v2 03/20] net: sched: introduce per-block callbacks
+Date: Thu, 19 Oct 2017 15:50:31 +0200
+Message-ID: <20171019135048.4306-4-jiri@resnulli.us>
 References: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,217 +14,268 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:51781 "EHLO
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:52301 "EHLO
         mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753726AbdJSNuv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:51 -0400
-Received: by mail-wr0-f195.google.com with SMTP id j14so8417460wre.8
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:51 -0700 (PDT)
+        with ESMTP id S1752855AbdJSNux (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:53 -0400
+Received: by mail-wr0-f195.google.com with SMTP id k62so8407899wrc.9
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:52 -0700 (PDT)
 In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Introduce new type of ndo_setup_tc message to propage binding/unbinding
-of a block to driver. Call this ndo whenever qdisc gets/puts a block.
-Alongside with this, there's need to propagate binder type from qdisc
-code down to the notifier. So introduce extended variants of
-block_get/put in order to pass this info.
+Introduce infrastructure that allows drivers to register callbacks that
+are called whenever tc would offload inserted rule for a specific block.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
-- move new enum value to the end
----
- include/linux/netdevice.h |  1 +
- include/net/pkt_cls.h     | 40 +++++++++++++++++++++++++++++++++
- net/sched/cls_api.c       | 56 ++++++++++++++++++++++++++++++++++++++++++++---
- 3 files changed, 94 insertions(+), 3 deletions(-)
+ include/net/pkt_cls.h     |  81 +++++++++++++++++++++++++++++++++++
+ include/net/sch_generic.h |   1 +
+ net/sched/cls_api.c       | 105 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 187 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index bf014af..4de5b08 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -775,6 +775,7 @@ enum tc_setup_type {
- 	TC_SETUP_CLSFLOWER,
- 	TC_SETUP_CLSMATCHALL,
- 	TC_SETUP_CLSBPF,
-+	TC_SETUP_BLOCK,
- };
- 
- /* These structures hold the attributes of xdp state that are being passed
 diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index 49a143e..41bc7d7 100644
+index 5c50af8..4bc6b1c 100644
 --- a/include/net/pkt_cls.h
 +++ b/include/net/pkt_cls.h
-@@ -17,13 +17,27 @@ struct tcf_walker {
- int register_tcf_proto_ops(struct tcf_proto_ops *ops);
- int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+@@ -27,6 +27,8 @@ struct tcf_block_ext_info {
+ 	enum tcf_block_binder_type binder_type;
+ };
  
-+enum tcf_block_binder_type {
-+	TCF_BLOCK_BINDER_TYPE_UNSPEC,
-+};
-+
-+struct tcf_block_ext_info {
-+	enum tcf_block_binder_type binder_type;
-+};
++struct tcf_block_cb;
 +
  #ifdef CONFIG_NET_CLS
  struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
  				bool create);
- void tcf_chain_put(struct tcf_chain *chain);
- int tcf_block_get(struct tcf_block **p_block,
- 		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q);
-+int tcf_block_get_ext(struct tcf_block **p_block,
-+		      struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+		      struct tcf_block_ext_info *ei);
- void tcf_block_put(struct tcf_block *block);
-+void tcf_block_put_ext(struct tcf_block *block,
-+		       struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+		       struct tcf_block_ext_info *ei);
+@@ -51,6 +53,21 @@ static inline struct net_device *tcf_block_dev(struct tcf_block *block)
+ 	return tcf_block_q(block)->dev_queue->dev;
+ }
  
- static inline struct Qdisc *tcf_block_q(struct tcf_block *block)
- {
-@@ -46,10 +60,25 @@ int tcf_block_get(struct tcf_block **p_block,
- 	return 0;
++void *tcf_block_cb_priv(struct tcf_block_cb *block_cb);
++struct tcf_block_cb *tcf_block_cb_lookup(struct tcf_block *block,
++					 tc_setup_cb_t *cb, void *cb_ident);
++void tcf_block_cb_incref(struct tcf_block_cb *block_cb);
++unsigned int tcf_block_cb_decref(struct tcf_block_cb *block_cb);
++struct tcf_block_cb *__tcf_block_cb_register(struct tcf_block *block,
++					     tc_setup_cb_t *cb, void *cb_ident,
++					     void *cb_priv);
++int tcf_block_cb_register(struct tcf_block *block,
++			  tc_setup_cb_t *cb, void *cb_ident,
++			  void *cb_priv);
++void __tcf_block_cb_unregister(struct tcf_block_cb *block_cb);
++void tcf_block_cb_unregister(struct tcf_block *block,
++			     tc_setup_cb_t *cb, void *cb_ident);
++
+ int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 		 struct tcf_result *res, bool compat_mode);
+ 
+@@ -91,6 +108,70 @@ static inline struct net_device *tcf_block_dev(struct tcf_block *block)
+ 	return NULL;
  }
  
 +static inline
-+int tcf_block_get_ext(struct tcf_block **p_block,
-+		      struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+		      struct tcf_block_ext_info *ei)
++int tc_setup_cb_block_register(struct tcf_block *block, tc_setup_cb_t *cb,
++			       void *cb_priv)
 +{
 +	return 0;
 +}
 +
- static inline void tcf_block_put(struct tcf_block *block)
- {
- }
- 
 +static inline
-+void tcf_block_put_ext(struct tcf_block *block,
-+		       struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+		       struct tcf_block_ext_info *ei)
++void tc_setup_cb_block_unregister(struct tcf_block *block, tc_setup_cb_t *cb,
++				  void *cb_priv)
 +{
 +}
 +
- static inline struct Qdisc *tcf_block_q(struct tcf_block *block)
++static inline
++void *tcf_block_cb_priv(struct tcf_block_cb *block_cb)
++{
++	return NULL;
++}
++
++static inline
++struct tcf_block_cb *tcf_block_cb_lookup(struct tcf_block *block,
++					 tc_setup_cb_t *cb, void *cb_ident)
++{
++	return NULL;
++}
++
++static inline
++void tcf_block_cb_incref(struct tcf_block_cb *block_cb)
++{
++}
++
++static inline
++unsigned int tcf_block_cb_decref(struct tcf_block_cb *block_cb)
++{
++	return 0;
++}
++
++static inline
++struct tcf_block_cb *__tcf_block_cb_register(struct tcf_block *block,
++					     tc_setup_cb_t *cb, void *cb_ident,
++					     void *cb_priv)
++{
++	return NULL;
++}
++
++static inline
++int tcf_block_cb_register(struct tcf_block *block,
++			  tc_setup_cb_t *cb, void *cb_ident,
++			  void *cb_priv)
++{
++	return 0;
++}
++
++static inline
++void __tcf_block_cb_unregister(struct tcf_block_cb *block_cb)
++{
++}
++
++static inline
++void tcf_block_cb_unregister(struct tcf_block *block,
++			     tc_setup_cb_t *cb, void *cb_ident)
++{
++}
++
+ static inline int tcf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 			       struct tcf_result *res, bool compat_mode)
  {
- 	return NULL;
-@@ -434,6 +463,17 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
- int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
- 		     void *type_data, bool err_stop);
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 0aea9e2..031dffd 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -272,6 +272,7 @@ struct tcf_block {
+ 	struct list_head chain_list;
+ 	struct net *net;
+ 	struct Qdisc *q;
++	struct list_head cb_list;
+ };
  
-+enum tc_block_command {
-+	TC_BLOCK_BIND,
-+	TC_BLOCK_UNBIND,
-+};
-+
-+struct tc_block_offload {
-+	enum tc_block_command command;
-+	enum tcf_block_binder_type binder_type;
-+	struct tcf_block *block;
-+};
-+
- struct tc_cls_common_offload {
- 	u32 chain_index;
- 	__be16 protocol;
+ static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
 diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 2e8e87f..92dce26 100644
+index 92dce26..b16c79c 100644
 --- a/net/sched/cls_api.c
 +++ b/net/sched/cls_api.c
-@@ -240,8 +240,36 @@ tcf_chain_filter_chain_ptr_set(struct tcf_chain *chain,
- 	chain->p_filter_chain = p_filter_chain;
- }
- 
--int tcf_block_get(struct tcf_block **p_block,
--		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q)
-+static void tcf_block_offload_cmd(struct tcf_block *block, struct Qdisc *q,
-+				  struct tcf_block_ext_info *ei,
-+				  enum tc_block_command command)
-+{
-+	struct net_device *dev = q->dev_queue->dev;
-+	struct tc_block_offload bo = {};
-+
-+	if (!tc_can_offload(dev))
-+		return;
-+	bo.command = command;
-+	bo.binder_type = ei->binder_type;
-+	bo.block = block;
-+	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_BLOCK, &bo);
-+}
-+
-+static void tcf_block_offload_bind(struct tcf_block *block, struct Qdisc *q,
-+				   struct tcf_block_ext_info *ei)
-+{
-+	tcf_block_offload_cmd(block, q, ei, TC_BLOCK_BIND);
-+}
-+
-+static void tcf_block_offload_unbind(struct tcf_block *block, struct Qdisc *q,
-+				     struct tcf_block_ext_info *ei)
-+{
-+	tcf_block_offload_cmd(block, q, ei, TC_BLOCK_UNBIND);
-+}
-+
-+int tcf_block_get_ext(struct tcf_block **p_block,
-+		      struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+		      struct tcf_block_ext_info *ei)
- {
- 	struct tcf_block *block = kzalloc(sizeof(*block), GFP_KERNEL);
- 	struct tcf_chain *chain;
-@@ -259,6 +287,7 @@ int tcf_block_get(struct tcf_block **p_block,
- 	tcf_chain_filter_chain_ptr_set(chain, p_filter_chain);
- 	block->net = qdisc_net(q);
- 	block->q = q;
-+	tcf_block_offload_bind(block, q, ei);
- 	*p_block = block;
- 	return 0;
- 
-@@ -266,15 +295,28 @@ int tcf_block_get(struct tcf_block **p_block,
- 	kfree(block);
- 	return err;
- }
-+EXPORT_SYMBOL(tcf_block_get_ext);
-+
-+int tcf_block_get(struct tcf_block **p_block,
-+		  struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q)
-+{
-+	struct tcf_block_ext_info ei = {0, };
-+
-+	return tcf_block_get_ext(p_block, p_filter_chain, q, &ei);
-+}
- EXPORT_SYMBOL(tcf_block_get);
- 
--void tcf_block_put(struct tcf_block *block)
-+void tcf_block_put_ext(struct tcf_block *block,
-+		       struct tcf_proto __rcu **p_filter_chain, struct Qdisc *q,
-+		       struct tcf_block_ext_info *ei)
- {
- 	struct tcf_chain *chain, *tmp;
- 
+@@ -278,6 +278,8 @@ int tcf_block_get_ext(struct tcf_block **p_block,
  	if (!block)
- 		return;
- 
-+	tcf_block_offload_unbind(block, q, ei);
+ 		return -ENOMEM;
+ 	INIT_LIST_HEAD(&block->chain_list);
++	INIT_LIST_HEAD(&block->cb_list);
 +
- 	/* XXX: Standalone actions are not allowed to jump to any chain, and
- 	 * bound actions should be all removed after flushing. However,
- 	 * filters are destroyed in RCU callbacks, we have to hold the chains
-@@ -302,6 +344,14 @@ void tcf_block_put(struct tcf_block *block)
- 		tcf_chain_put(chain);
- 	kfree(block);
+ 	/* Create chain 0 by default, it has to be always present. */
+ 	chain = tcf_chain_create(block, 0);
+ 	if (!chain) {
+@@ -354,6 +356,109 @@ void tcf_block_put(struct tcf_block *block)
  }
-+EXPORT_SYMBOL(tcf_block_put_ext);
-+
-+void tcf_block_put(struct tcf_block *block)
-+{
-+	struct tcf_block_ext_info ei = {0, };
-+
-+	tcf_block_put_ext(block, NULL, block->q, &ei);
-+}
  EXPORT_SYMBOL(tcf_block_put);
  
++struct tcf_block_cb {
++	struct list_head list;
++	tc_setup_cb_t *cb;
++	void *cb_ident;
++	void *cb_priv;
++	unsigned int refcnt;
++};
++
++void *tcf_block_cb_priv(struct tcf_block_cb *block_cb)
++{
++	return block_cb->cb_priv;
++}
++EXPORT_SYMBOL(tcf_block_cb_priv);
++
++struct tcf_block_cb *tcf_block_cb_lookup(struct tcf_block *block,
++					 tc_setup_cb_t *cb, void *cb_ident)
++{	struct tcf_block_cb *block_cb;
++
++	list_for_each_entry(block_cb, &block->cb_list, list)
++		if (block_cb->cb == cb && block_cb->cb_ident == cb_ident)
++			return block_cb;
++	return NULL;
++}
++EXPORT_SYMBOL(tcf_block_cb_lookup);
++
++void tcf_block_cb_incref(struct tcf_block_cb *block_cb)
++{
++	block_cb->refcnt++;
++}
++EXPORT_SYMBOL(tcf_block_cb_incref);
++
++unsigned int tcf_block_cb_decref(struct tcf_block_cb *block_cb)
++{
++	return --block_cb->refcnt;
++}
++EXPORT_SYMBOL(tcf_block_cb_decref);
++
++struct tcf_block_cb *__tcf_block_cb_register(struct tcf_block *block,
++					     tc_setup_cb_t *cb, void *cb_ident,
++					     void *cb_priv)
++{
++	struct tcf_block_cb *block_cb;
++
++	block_cb = kzalloc(sizeof(*block_cb), GFP_KERNEL);
++	if (!block_cb)
++		return NULL;
++	block_cb->cb = cb;
++	block_cb->cb_ident = cb_ident;
++	block_cb->cb_priv = cb_priv;
++	list_add(&block_cb->list, &block->cb_list);
++	return block_cb;
++}
++EXPORT_SYMBOL(__tcf_block_cb_register);
++
++int tcf_block_cb_register(struct tcf_block *block,
++			  tc_setup_cb_t *cb, void *cb_ident,
++			  void *cb_priv)
++{
++	struct tcf_block_cb *block_cb;
++
++	block_cb = __tcf_block_cb_register(block, cb, cb_ident, cb_priv);
++	return block_cb ? 0 : -ENOMEM;
++}
++EXPORT_SYMBOL(tcf_block_cb_register);
++
++void __tcf_block_cb_unregister(struct tcf_block_cb *block_cb)
++{
++	list_del(&block_cb->list);
++	kfree(block_cb);
++}
++EXPORT_SYMBOL(__tcf_block_cb_unregister);
++
++void tcf_block_cb_unregister(struct tcf_block *block,
++			     tc_setup_cb_t *cb, void *cb_ident)
++{
++	struct tcf_block_cb *block_cb;
++
++	block_cb = tcf_block_cb_lookup(block, cb, cb_ident);
++	if (!block_cb)
++		return;
++	__tcf_block_cb_unregister(block_cb);
++}
++EXPORT_SYMBOL(tcf_block_cb_unregister);
++
++static int tcf_block_cb_call(struct tcf_block *block, enum tc_setup_type type,
++			     void *type_data, bool err_stop)
++{
++	struct tcf_block_cb *block_cb;
++	int ok_count = 0;
++	int err;
++
++	list_for_each_entry(block_cb, &block->cb_list, list) {
++		err = block_cb->cb(type, type_data, block_cb->cb_priv);
++		if (err) {
++			if (err_stop)
++				return err;
++		} else {
++			ok_count++;
++		}
++	}
++	return ok_count;
++}
++
  /* Main classifier routine: scans classifier chain attached
+  * to this qdisc, (optionally) tests for protocol and asks
+  * specific classifiers.
 -- 
 2.9.5
