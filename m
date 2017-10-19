@@ -1,74 +1,70 @@
 From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: [PATCH net 4/5] net/ncsi: Enforce failover on link monitor timeout
-Date: Thu, 19 Oct 2017 13:43:08 +1100
-Message-ID: <20171019024309.13628-4-sam@mendozajonas.com>
+Subject: [PATCH net 3/5] net/ncsi: Disable HWA mode when no channels are found
+Date: Thu, 19 Oct 2017 13:43:07 +1100
+Message-ID: <20171019024309.13628-3-sam@mendozajonas.com>
 References: <20171019024309.13628-1-sam@mendozajonas.com>
 Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
         "David S . Miller" <davem@davemloft.net>,
         linux-kernel@vger.kernel.org,
         Samuel Mendoza-Jonas <sam@mendozajonas.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:36915 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751091AbdJSCnV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 22:43:21 -0400
 In-Reply-To: <20171019024309.13628-1-sam@mendozajonas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
 
-The NCSI channel has been configured to provide service if its link
-monitor timer is enabled, regardless of its state (inactive or active).
-So the timeout event on the link monitor indicates the out-of-service
-on that channel, for which a failover is needed.
-
-This sets NCSI_DEV_RESHUFFLE flag to enforce failover on link monitor
-timeout, regardless the channel's original state (inactive or active).
-Also, the link is put into "down" state to give the failing channel
-lowest priority when selecting for the active channel. The state of
-failing channel should be set to active in order for deinitialization
-and failover to be done.
+When there are no NCSI channels probed, HWA (Hardware Arbitration)
+mode is enabled. It's not correct because HWA depends on the fact:
+NCSI channels exist and all of them support HWA mode. This disables
+HWA when no channels are probed.
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 ---
- net/ncsi/ncsi-manage.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ net/ncsi/ncsi-manage.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index 0966eff48ce7..28c42b22b748 100644
+index b022deb39d31..0966eff48ce7 100644
 --- a/net/ncsi/ncsi-manage.c
 +++ b/net/ncsi/ncsi-manage.c
-@@ -189,6 +189,7 @@ static void ncsi_channel_monitor(unsigned long data)
- 	struct ncsi_channel *nc = (struct ncsi_channel *)data;
- 	struct ncsi_package *np = nc->package;
- 	struct ncsi_dev_priv *ndp = np->ndp;
-+	struct ncsi_channel_mode *ncm;
- 	struct ncsi_cmd_arg nca;
- 	bool enabled, chained;
- 	unsigned int monitor_state;
-@@ -228,20 +229,21 @@ static void ncsi_channel_monitor(unsigned long data)
- 	case NCSI_CHANNEL_MONITOR_WAIT ... NCSI_CHANNEL_MONITOR_WAIT_MAX:
- 		break;
- 	default:
--		if (!(ndp->flags & NCSI_DEV_HWA) &&
--		    state == NCSI_CHANNEL_ACTIVE) {
-+		if (!(ndp->flags & NCSI_DEV_HWA)) {
- 			ncsi_report_link(ndp, true);
- 			ndp->flags |= NCSI_DEV_RESHUFFLE;
+@@ -1005,12 +1005,15 @@ static bool ncsi_check_hwa(struct ncsi_dev_priv *ndp)
+ 	struct ncsi_package *np;
+ 	struct ncsi_channel *nc;
+ 	unsigned int cap;
++	bool has_channel = false;
+ 
+ 	/* The hardware arbitration is disabled if any one channel
+ 	 * doesn't support explicitly.
+ 	 */
+ 	NCSI_FOR_EACH_PACKAGE(ndp, np) {
+ 		NCSI_FOR_EACH_CHANNEL(np, nc) {
++			has_channel = true;
++
+ 			cap = nc->caps[NCSI_CAP_GENERIC].cap;
+ 			if (!(cap & NCSI_CAP_GENERIC_HWA) ||
+ 			    (cap & NCSI_CAP_GENERIC_HWA_MASK) !=
+@@ -1021,8 +1024,13 @@ static bool ncsi_check_hwa(struct ncsi_dev_priv *ndp)
  		}
+ 	}
  
- 		ncsi_stop_channel_monitor(nc);
+-	ndp->flags |= NCSI_DEV_HWA;
+-	return true;
++	if (has_channel) {
++		ndp->flags |= NCSI_DEV_HWA;
++		return true;
++	}
++
++	ndp->flags &= ~NCSI_DEV_HWA;
++	return false;
+ }
  
-+		ncm = &nc->modes[NCSI_MODE_LINK];
- 		spin_lock_irqsave(&nc->lock, flags);
- 		nc->state = NCSI_CHANNEL_INVISIBLE;
-+		ncm->data[2] &= ~0x1;
- 		spin_unlock_irqrestore(&nc->lock, flags);
- 
- 		spin_lock_irqsave(&ndp->lock, flags);
--		nc->state = NCSI_CHANNEL_INACTIVE;
-+		nc->state = NCSI_CHANNEL_ACTIVE;
- 		list_add_tail_rcu(&nc->link, &ndp->channel_queue);
- 		spin_unlock_irqrestore(&ndp->lock, flags);
- 		ncsi_process_next_channel(ndp);
+ static int ncsi_enable_hwa(struct ncsi_dev_priv *ndp)
 -- 
 2.14.2
