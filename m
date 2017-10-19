@@ -1,8 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 05/20] net: sched: cls_matchall: call block callbacks for offload
-Date: Thu, 19 Oct 2017 15:50:33 +0200
-Message-ID: <20171019135048.4306-6-jiri@resnulli.us>
-References: <20171019135048.4306-1-jiri@resnulli.us>
+Subject: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc offload calls to per-block callbacks
+Date: Thu, 19 Oct 2017 15:50:28 +0200
+Message-ID: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -14,148 +13,87 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:46259 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753754AbdJSNuz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:55 -0400
-Received: by mail-wr0-f196.google.com with SMTP id l1so8417343wrc.3
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:54 -0700 (PDT)
-In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:48958 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753741AbdJSNuv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:51 -0400
+Received: by mail-wm0-f67.google.com with SMTP id i124so16048175wmf.3
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Use the newly introduced callbacks infrastructure and call block
-callbacks alongside with the existing per-netdev ndo_setup_tc.
+This patchset is a bit bigger, but most of the patches are doing the
+same changes in multiple classifiers and drivers. I could do some
+squashes, but I think it is better split.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+This is another dependency on the way to shared block implementation.
+The goal is to remove use of tp->q in classifiers code.
+
+Also, this provides drivers possibility to track binding of blocks to
+qdiscs. Legacy drivers which do not support shared block offloading.
+register one callback per binding. That maintains the current
+functionality we have with ndo_setup_tc. Drivers which support block
+sharing offload register one callback per block which safes overhead.
+
+Patches 1-4 introduce the binding notifications and per-block callbacks
+Patches 5-8 add block callbacks calls to classifiers
+Patches 9-17 do convert from ndo_setup_tc calls to block callbacks for
+             classifier offloads in drivers
+Patches 18-20 do cleanup
+
 ---
- net/sched/cls_matchall.c | 72 ++++++++++++++++++++++++++++++------------------
- 1 file changed, 45 insertions(+), 27 deletions(-)
+v1->v2:
+- patch1:
+  - move new enum value to the end
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index eeac606..5278534 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -50,50 +50,73 @@ static void mall_destroy_rcu(struct rcu_head *rcu)
- 	kfree(head);
- }
- 
--static int mall_replace_hw_filter(struct tcf_proto *tp,
--				  struct cls_mall_head *head,
--				  unsigned long cookie)
-+static void mall_destroy_hw_filter(struct tcf_proto *tp,
-+				   struct cls_mall_head *head,
-+				   unsigned long cookie)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_matchall_offload cls_mall = {};
--	int err;
-+	struct tcf_block *block = tp->chain->block;
- 
- 	tc_cls_common_offload_init(&cls_mall.common, tp);
--	cls_mall.command = TC_CLSMATCHALL_REPLACE;
--	cls_mall.exts = &head->exts;
-+	cls_mall.command = TC_CLSMATCHALL_DESTROY;
- 	cls_mall.cookie = cookie;
- 
--	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
--					    &cls_mall);
--	if (!err)
--		head->flags |= TCA_CLS_FLAGS_IN_HW;
--
--	return err;
-+	if (tc_can_offload(dev))
-+		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
-+					      &cls_mall);
-+	tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL, &cls_mall, false);
- }
- 
--static void mall_destroy_hw_filter(struct tcf_proto *tp,
--				   struct cls_mall_head *head,
--				   unsigned long cookie)
-+static int mall_replace_hw_filter(struct tcf_proto *tp,
-+				  struct cls_mall_head *head,
-+				  unsigned long cookie)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_matchall_offload cls_mall = {};
-+	struct tcf_block *block = tp->chain->block;
-+	bool skip_sw = tc_skip_sw(head->flags);
-+	int err;
- 
- 	tc_cls_common_offload_init(&cls_mall.common, tp);
--	cls_mall.command = TC_CLSMATCHALL_DESTROY;
-+	cls_mall.command = TC_CLSMATCHALL_REPLACE;
-+	cls_mall.exts = &head->exts;
- 	cls_mall.cookie = cookie;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL, &cls_mall);
-+	if (tc_can_offload(dev)) {
-+		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSMATCHALL,
-+						    &cls_mall);
-+		if (err) {
-+			if (skip_sw)
-+				return err;
-+		} else {
-+			head->flags |= TCA_CLS_FLAGS_IN_HW;
-+		}
-+	}
-+
-+	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSMATCHALL,
-+			       &cls_mall, skip_sw);
-+	if (err < 0) {
-+		mall_destroy_hw_filter(tp, head, cookie);
-+		return err;
-+	} else if (err > 0) {
-+		head->flags |= TCA_CLS_FLAGS_IN_HW;
-+	}
-+
-+	if (skip_sw && !(head->flags & TCA_CLS_FLAGS_IN_HW))
-+		return -EINVAL;
-+
-+	return 0;
- }
- 
- static void mall_destroy(struct tcf_proto *tp)
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
--	struct net_device *dev = tp->q->dev_queue->dev;
- 
- 	if (!head)
- 		return;
- 
--	if (tc_should_offload(dev, head->flags))
-+	if (!tc_skip_hw(head->flags))
- 		mall_destroy_hw_filter(tp, head, (unsigned long) head);
- 
- 	call_rcu(&head->rcu, mall_destroy_rcu);
-@@ -133,7 +156,6 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 		       void **arg, bool ovr)
- {
- 	struct cls_mall_head *head = rtnl_dereference(tp->root);
--	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct nlattr *tb[TCA_MATCHALL_MAX + 1];
- 	struct cls_mall_head *new;
- 	u32 flags = 0;
-@@ -173,14 +195,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	if (err)
- 		goto err_set_parms;
- 
--	if (tc_should_offload(dev, flags)) {
-+	if (!tc_skip_hw(new->flags)) {
- 		err = mall_replace_hw_filter(tp, new, (unsigned long) new);
--		if (err) {
--			if (tc_skip_sw(flags))
--				goto err_replace_hw_filter;
--			else
--				err = 0;
--		}
-+		if (err)
-+			goto err_replace_hw_filter;
- 	}
- 
- 	if (!tc_in_hw(new->flags))
+Jiri Pirko (20):
+  net: sched: add block bind/unbind notif. and extended block_get/put
+  net: sched: use extended variants of block_get/put in ingress and
+    clsact qdiscs
+  net: sched: introduce per-block callbacks
+  net: sched: use tc_setup_cb_call to call per-block callbacks
+  net: sched: cls_matchall: call block callbacks for offload
+  net: sched: cls_u32: swap u32_remove_hw_knode and u32_remove_hw_hnode
+  net: sched: cls_u32: call block callbacks for offload
+  net: sched: cls_bpf: call block callbacks for offload
+  mlxsw: spectrum: Convert ndo_setup_tc offloads to block callbacks
+  mlx5e: Convert ndo_setup_tc offloads to block callbacks
+  bnxt: Convert ndo_setup_tc offloads to block callbacks
+  cxgb4: Convert ndo_setup_tc offloads to block callbacks
+  ixgbe: Convert ndo_setup_tc offloads to block callbacks
+  mlx5e_rep: Convert ndo_setup_tc offloads to block callbacks
+  nfp: flower: Convert ndo_setup_tc offloads to block callbacks
+  nfp: bpf: Convert ndo_setup_tc offloads to block callbacks
+  dsa: Convert ndo_setup_tc offloads to block callbacks
+  net: sched: avoid ndo_setup_tc calls for TC_SETUP_CLS*
+  net: sched: remove unused classid field from tc_cls_common_offload
+  net: sched: remove unused is_classid_clsact_ingress/egress helpers
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  37 ++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c       |   3 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c      |  41 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  42 ++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  45 ++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  45 ++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  62 +++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  83 +++++++---
+ drivers/net/ethernet/netronome/nfp/bpf/main.c      |  52 +++++-
+ .../net/ethernet/netronome/nfp/flower/offload.c    |  54 +++++-
+ include/linux/netdevice.h                          |   1 +
+ include/net/pkt_cls.h                              | 129 ++++++++++++++-
+ include/net/pkt_sched.h                            |  13 --
+ include/net/sch_generic.h                          |   1 +
+ net/dsa/slave.c                                    |  64 ++++++--
+ net/sched/cls_api.c                                | 182 ++++++++++++++++++++-
+ net/sched/cls_bpf.c                                |  28 +++-
+ net/sched/cls_flower.c                             |  29 +---
+ net/sched/cls_matchall.c                           |  58 +++----
+ net/sched/cls_u32.c                                |  67 ++++----
+ net/sched/sch_ingress.c                            |  36 +++-
+ 22 files changed, 849 insertions(+), 227 deletions(-)
+
 -- 
 2.9.5
