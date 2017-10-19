@@ -1,180 +1,280 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
-Date: Thu, 19 Oct 2017 08:54:34 -0500
-Message-ID: <74482aa8-7b65-bd3d-7160-0d515b8c7b27@ti.com>
-References: <20170818193947.27862-1-fcooper@ti.com>
- <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
- <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
- <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
- <88d4ddc4-b786-0205-6852-56e93182a1c9@ti.com>
- <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
- <ed19ead3-d8f6-c027-74cf-8aee131c8a59@ti.com>
- <08432016-e733-b827-b9aa-bc359dd837f5@pengutronix.de>
- <7ba515d9-7710-c152-a55a-f995b7f3d49a@ti.com>
- <848e965d-e6a1-8930-9064-0317563326c0@ti.com>
- <93c6d531-c38b-6f88-510f-59eb3e733b78@ti.com>
- <545ac690-10c8-b206-76dd-dbbe602eb6af@pengutronix.de>
- <4c5b5e9f-44dc-0bf5-5131-b3caf54f390e@ti.com>
- <da663b5a-5459-2e99-79a2-3fdc3daef70b@pengutronix.de>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 net-next 1/2] net: dsa: lan9303: Add port_fast_age and port_fdb_dump methods
+Date: Thu, 19 Oct 2017 09:58:54 -0400
+Message-ID: <87mv4nw869.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20171019121015.7395-1-privat@egil-hjelmeland.no> <20171019121015.7395-2-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Wenyou Yang <wenyou.yang@atmel.com>,
-        Dong Aisheng <b29396@freescale.com>,
-        "Quadros, Roger" <rogerq@ti.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-        Sekhar Nori <nsekhar@ti.com>,
-        =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
-        "Yang, Wenyou" <Wenyou.Yang@Microchip.com>, <wg@grandegger.com>,
-        <socketcan@hartkopp.net>, <quentin.schulz@free-electrons.com>,
-        <edumazet@google.com>, <linux-can@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx193.ext.ti.com ([198.47.27.77]:16567 "EHLO
-        lelnx193.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754801AbdJSNzU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:55:20 -0400
-In-Reply-To: <da663b5a-5459-2e99-79a2-3fdc3daef70b@pengutronix.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171019121015.7395-2-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Egil,
 
+Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
 
-On 10/19/2017 06:32 AM, Marc Kleine-Budde wrote:
-> On 10/19/2017 01:09 PM, Sekhar Nori wrote:
->> On Thursday 19 October 2017 02:43 PM, Marc Kleine-Budde wrote:
->>> On 10/19/2017 07:07 AM, Sekhar Nori wrote:
->>>>>>> Sounds reasonable. What's the status of this series?
->>>>>>
->>>>>> I have had some offline discussions with Franklin on this, and I am not
->>>>>> fully convinced that DT is the way to go here (although I don't have the
->>>>>> agreement with Franklin there).
->>>>>
->>>>> Probably the fundamental area where we disagree is what "default" SSP
->>>>> value should be used. Based on a short (< 1 ft) point to point test
->>>>> using a SSP of 50% worked fine. However, I'm not convinced that this
->>>>> default value of 50% will work in a more "traditional" CAN bus at higher
->>>>> speeds. Nor am I convinced that a SSP of 50% will work on every MCAN
->>>>> board in even the simplest test cases.
->>>>>
->>>>> I believe that this default SSP should be a DT property that allows any
->>>>> board to determine what default value works best in general.
->>>>
->>>> With that, I think, we are taking DT from describing board/hardware
->>>> characteristics to providing default values that software should use.
->>>
->>> If the default value is board specific and cannot be calculated in
->>> general or from other values present in the DT, then it's from my point
->>> of view describing the hardware.
->>>
->>>> In any case, if Marc and/or Wolfgang are okay with it, binding
->>>> documentation for such a property should be sent to DT maintainers for
->>>> review.
->>>>
->>>>>>
->>>>>> There are two components in configuring the secondary sample point. It
->>>>>> is the transceiver loopback delay and an offset (example half of the bit
->>>>>> time in data phase).
->>>>>>
->>>>>> While the transceiver loopback delay is pretty board dependent (and thus
->>>>>> amenable to DT encoding), I am not quite sure the offset can be
->>>>>> configured in DT because its not really board dependent.
->>>>>>
->>>>>> Unfortunately, offset calculation does not seem to be an exact science.
->>>>>> There are recommendations ranging from using 50% of bit time to making
->>>>>> it same as the sample point configured. This means users who need to
->>>>>> change the SSP due to offset variations need to change  their DT even
->>>>>> without anything changing on their board.
->>>>>>
->>>>>> Since we have a netlink socket interface to configure sample point, I
->>>>>> wonder if that should be extended to configure SSP too (or at least the
->>>>>> offset part of SSP)?
->>>>>
->>>>> Sekhar is right that ideally the user should be able to set the SSP at
->>>>> runtime. However, my issue is that based on my experience CAN users
->>>>> expect the driver to just work the majority of times. For unique use
->>>>> cases where the driver calculated values don't work then the user should
->>>>> be able to override it. This should only be done for a very small
->>>>> percentage of CAN users. Unless you allow DT to provide a default SSP
->>>>> many users of MCAN may find that the default SSP doesn't work and must
->>>>> always use runtime overrides to get anything to work. I don't think that
->>>>> is a good user experience which is why I don't like the idea.
->>>>
->>>> Fair enough. But not quite sure if CAN users expect CAN-FD to "just
->>>> work" without doing any bittiming related setup.
->>>
->>> From my point of view I'd rather buy a board from a HW vendor where
->>> CAN-FD works, rather than a board where I have to tweak the bit-timing
->>> for a simple CAN-FD test setup.
->>>
->>> As far as I see for the m_can driver it's a single tuple: "bitrate > 2.5
->>> MBit/s -> 50%". Do we need an array of tuples in general?
+> Add DSA method port_fast_age as a step to STP support.
+>
+> Add low level functions for accessing the lan9303 ALR (Address Logic
+> Resolution).
+>
+> Added DSA method port_fdb_dump
+>
+> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 
-Internally what I proposed was a binding that allowed you to pass in an
-array of a range of baud rates and then a SSP for that baud rate range.
-Therefore, if the baud rate being used impacted what SSP worked then it
-allows someone to provide a range of defaults. Of course a person also
-has the ability to use a single large range thus implementing a single
-default SSP value.
+The patch looks good overall, a few nitpicks though.
 
-> 
-> Do we need more than one tuple here?
-> 
->>> If good default values are transceiver and board specific, they can go
->>> into the DT. We need a generic (this means driver agnostic) binding for
->>> this. If this table needs to be tweaked for special purpose, then we can
->>> add a netlink interface for this as well.
->>>
->>> Comments?
->>
->> I dont know how a good default (other than 50% as the starting point)
->> can be arrived at without doing any actual measurements on the actual
->> network. Since we do know that the value has to be tweaked, agree that
->> netlink interface has to be provided.
+> ---
+>  drivers/net/dsa/lan9303-core.c | 159 +++++++++++++++++++++++++++++++++++++++++
+>  drivers/net/dsa/lan9303.h      |   2 +
+>  2 files changed, 161 insertions(+)
+>
+> diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+> index 09a748327fc6..ae904242b001 100644
+> --- a/drivers/net/dsa/lan9303-core.c
+> +++ b/drivers/net/dsa/lan9303-core.c
+> @@ -124,6 +124,21 @@
+>  #define LAN9303_MAC_RX_CFG_2 0x0c01
+>  #define LAN9303_MAC_TX_CFG_2 0x0c40
+>  #define LAN9303_SWE_ALR_CMD 0x1800
+> +# define ALR_CMD_MAKE_ENTRY    BIT(2)
+> +# define ALR_CMD_GET_FIRST     BIT(1)
+> +# define ALR_CMD_GET_NEXT      BIT(0)
+> +#define LAN9303_SWE_ALR_WR_DAT_0 0x1801
+> +#define LAN9303_SWE_ALR_WR_DAT_1 0x1802
+> +# define ALR_DAT1_VALID        BIT(26)
+> +# define ALR_DAT1_END_OF_TABL  BIT(25)
+> +# define ALR_DAT1_AGE_OVERRID  BIT(25)
+> +# define ALR_DAT1_STATIC       BIT(24)
+> +# define ALR_DAT1_PORT_BITOFFS  16
+> +# define ALR_DAT1_PORT_MASK    (7 << ALR_DAT1_PORT_BITOFFS)
+> +#define LAN9303_SWE_ALR_RD_DAT_0 0x1805
+> +#define LAN9303_SWE_ALR_RD_DAT_1 0x1806
+> +#define LAN9303_SWE_ALR_CMD_STS 0x1808
+> +# define ALR_STS_MAKE_PEND     BIT(0)
 
-Now I have seen in non public documentations that setting SP to SSP also
-works. This makes a bit more sense to me and I'm alot more comfortable
-going with this. However, since its based on non public information I
-can't justify it beyond that "it works for me". But I'm alot more
-comfortable going with then saying "hey this default value works for
-TI's dra76 evm. Therefore, every MCAN board will be stuck by default for
-a value that works for us". So if there is no push back with going with
-SSP = db SP with no documentation to back up why that is being used then
-I will try that out and send patches.
+Why is there different spacing and prefix with these defines?
 
->>
->> I wonder whether even if a DT binding for default is provided, everyone
->> will end up setting it to 50% (since there is no way for them to predict
->> any better). In effect, I am suggesting using a hardcoded value of 50%
->> instead of introducing a binding without a clear need for it.
+>  #define LAN9303_SWE_VLAN_CMD 0x180b
+>  # define LAN9303_SWE_VLAN_CMD_RNW BIT(5)
+>  # define LAN9303_SWE_VLAN_CMD_PVIDNVLAN BIT(4)
+> @@ -478,6 +493,125 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+>  	return 0;
+>  }
+>  
+> +/* ----------------- Address Logic Resolution (ALR)------------------*/
+> +
+> +/* Map ALR-port bits to port bitmap, and back*/
 
-The big assumption here is that 50% works for everyone. Its not about
-predicting its about atleast based on your testing do you have a value
-that works. Our evm is used for evaluation purposes we expect people to
-generally do a bit more simplified testing and thus 50% may be fine.
-Another board that is meant for an automobile that wants the fastest
-rate possible may feel like a default value of 70% is better.
-> 
-> Ok, if the value is network and not board specific it doesn't belong
-> into the DT.
+The (leading and trailing) spacing in your comments is often
+inconsistent. You can use simple inline or block comments, no need for
+fancy rules. Please refer to Documentation/networking/netdev-FAQ.txt for
+block comment style in netdev though, they are a bit different.
 
-I believe its a bit of both but honestly its not clear. Wenyou whose
-board also includes the MCAN ip performed a similar point to point test
-and found that it worked without the TDC feature. When I performed the
-test without TDC the ip threw an error and went into initialization
-mode. So likely the network has an impact (not exactly sure how much),
-baud rate may have an impact (again not sure how much it does) but for
-sure the board does as well.
+> +static const int alrport_2_portmap[] = {1, 2, 4, 0, 3, 5, 6, 7 };
+> +static const int portmap_2_alrport[] = {3, 0, 1, 4, 2, 5, 6, 7 };
+> +
+> +/* ALR: Actual register access functions */
+> +
+> +/* This function will wait a while until mask & reg == value */
+> +/* Otherwise, return timeout */
 
+Same, a single block comment will do the job.
 
-> 
->> Note that I am only talking about there "offset" part of SSP here. The
->> transceiver loopback delay is calculated automatically by Bosch's MCAN
->> IP. But if there are other IPs which don't do that, then yes, that
->> should be a DT property IMO.
-> 
-> Ok, but let's wait for such an IP core to show up here :)
-> 
-> Marc
-> 
+> +static int lan9303_csr_reg_wait(struct lan9303 *chip, int regno,
+> +				int mask, char value)
+> +{
+> +	int i;
+> +
+> +	for (i = 0; i < 0x1000; i++) {
+> +		u32 reg;
+> +
+> +		lan9303_read_switch_reg(chip, regno, &reg);
+> +		if ((reg & mask) == value)
+> +			return 0;
+> +		usleep_range(1000, 2000);
+> +	}
+> +	return -ETIMEDOUT;
+> +}
+> +
+> +static int lan9303_alr_make_entry_raw(struct lan9303 *chip, u32 dat0, u32 dat1)
+> +{
+> +	lan9303_write_switch_reg(
+> +		chip, LAN9303_SWE_ALR_WR_DAT_0, dat0);
+> +	lan9303_write_switch_reg(
+> +		chip, LAN9303_SWE_ALR_WR_DAT_1, dat1);
+> +	lan9303_write_switch_reg(
+> +		chip, LAN9303_SWE_ALR_CMD, ALR_CMD_MAKE_ENTRY);
+> +	lan9303_csr_reg_wait(
+> +		chip, LAN9303_SWE_ALR_CMD_STS, ALR_STS_MAKE_PEND, 0);
+
+As I said in a previous series, please don't do this. Function arguments
+must be vertically aligned with the opening parenthesis.
+
+> +	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, 0);
+> +	return 0;
+
+A newline before a return statement is appreciated.
+
+> +}
+> +
+> +typedef void alr_loop_cb_t(struct lan9303 *chip, u32 dat0, u32 dat1,
+> +			   int portmap, void *ctx);
+> +
+> +static void lan9303_alr_loop(struct lan9303 *chip, alr_loop_cb_t *cb, void *ctx)
+> +{
+> +	int i;
+> +
+> +	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, ALR_CMD_GET_FIRST);
+> +	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, 0);
+> +
+> +	for (i = 1; i < LAN9303_NUM_ALR_RECORDS; i++) {
+> +		u32 dat0, dat1;
+> +		int alrport, portmap;
+> +
+> +		lan9303_read_switch_reg(chip, LAN9303_SWE_ALR_RD_DAT_0, &dat0);
+> +		lan9303_read_switch_reg(chip, LAN9303_SWE_ALR_RD_DAT_1, &dat1);
+> +		if (dat1 & ALR_DAT1_END_OF_TABL)
+> +			break;
+> +
+> +		alrport = (dat1 & ALR_DAT1_PORT_MASK) >> ALR_DAT1_PORT_BITOFFS;
+> +		portmap = alrport_2_portmap[alrport];
+> +
+> +		cb(chip, dat0, dat1, portmap, ctx);
+> +
+> +		lan9303_write_switch_reg(
+> +			chip, LAN9303_SWE_ALR_CMD, ALR_CMD_GET_NEXT);
+
+Please align arguments with the opening parenthesis.
+
+> +		lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, 0);
+> +	}
+> +}
+> +
+> +/* ALR: lan9303_alr_loop callback functions */
+> +
+
+No need for an extra newline if your comment refers directly to the
+function below. It will also be consistent with the rest of your patch.
+
+> +static void alr_reg_to_mac(u32 dat0, u32 dat1, u8 mac[6])
+> +{
+> +	mac[0] = (dat0 >>  0) & 0xff;
+> +	mac[1] = (dat0 >>  8) & 0xff;
+> +	mac[2] = (dat0 >> 16) & 0xff;
+> +	mac[3] = (dat0 >> 24) & 0xff;
+> +	mac[4] = (dat1 >>  0) & 0xff;
+> +	mac[5] = (dat1 >>  8) & 0xff;
+> +}
+> +
+> +/* Clear learned (non-static) entry on given port */
+> +static void alr_loop_cb_del_port_learned(struct lan9303 *chip, u32 dat0,
+> +					 u32 dat1, int portmap, void *ctx)
+> +{
+> +	int *port = ctx;
+
+You can get the value directly to make the line below more readable:
+
+    int port = *(int *)ctx;
+
+> +
+> +	if (((BIT(*port) & portmap) == 0) || (dat1 & ALR_DAT1_STATIC))
+> +		return;
+> +
+> +	/* learned entries has only one port, we can just delete */
+> +	dat1 &= ~ALR_DAT1_VALID; /* delete entry */
+> +	lan9303_alr_make_entry_raw(chip, dat0, dat1);
+> +}
+> +
+> +struct port_fdb_dump_ctx {
+> +	int port;
+> +	void *data;
+> +	dsa_fdb_dump_cb_t *cb;
+> +};
+> +
+> +static void alr_loop_cb_fdb_port_dump(struct lan9303 *chip, u32 dat0,
+> +				      u32 dat1, int portmap, void *ctx)
+> +{
+> +	struct port_fdb_dump_ctx *dump_ctx = ctx;
+> +	u8 mac[ETH_ALEN];
+> +	bool is_static;
+> +
+> +	if ((BIT(dump_ctx->port) & portmap) == 0)
+> +		return;
+> +
+> +	alr_reg_to_mac(dat0, dat1, mac);
+> +	is_static = !!(dat1 & ALR_DAT1_STATIC);
+> +	dump_ctx->cb(mac, 0, is_static, dump_ctx->data);
+> +}
+> +
+> +/* --------------------- Various chip setup ----------------------*/
+> +
+
+This isn't a very useful comment, at least use an inline or block
+comment if you want to keep it.
+
+>  static int lan9303_disable_processing_port(struct lan9303 *chip,
+>  					   unsigned int port)
+>  {
+> @@ -923,6 +1057,29 @@ static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
+>  	/* else: touching SWE_PORT_STATE would break port separation */
+>  }
+>  
+> +static void lan9303_port_fast_age(struct dsa_switch *ds, int port)
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	dev_dbg(chip->dev, "%s(%d)\n", __func__, port);
+> +	lan9303_alr_loop(chip, alr_loop_cb_del_port_learned, &port);
+> +}
+> +
+> +static int lan9303_port_fdb_dump(struct dsa_switch *ds, int port,
+> +				 dsa_fdb_dump_cb_t *cb, void *data)
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +	struct port_fdb_dump_ctx dump_ctx = {
+> +		.port = port,
+> +		.data = data,
+> +		.cb   = cb,
+> +	};
+> +
+> +	dev_dbg(chip->dev, "%s(%d)\n", __func__, port);
+> +	lan9303_alr_loop(chip, alr_loop_cb_fdb_port_dump, &dump_ctx);
+> +	return 0;
+
+A newline before the return statement is welcome.
+
+> +}
+> +
+>  static const struct dsa_switch_ops lan9303_switch_ops = {
+>  	.get_tag_protocol = lan9303_get_tag_protocol,
+>  	.setup = lan9303_setup,
+> @@ -937,6 +1094,8 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
+>  	.port_bridge_join       = lan9303_port_bridge_join,
+>  	.port_bridge_leave      = lan9303_port_bridge_leave,
+>  	.port_stp_state_set     = lan9303_port_stp_state_set,
+> +	.port_fast_age          = lan9303_port_fast_age,
+> +	.port_fdb_dump          = lan9303_port_fdb_dump,
+>  };
+>  
+>  static int lan9303_register_switch(struct lan9303 *chip)
+> diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
+> index 68ecd544b658..4db323d65741 100644
+> --- a/drivers/net/dsa/lan9303.h
+> +++ b/drivers/net/dsa/lan9303.h
+> @@ -11,6 +11,8 @@ struct lan9303_phy_ops {
+>  			     int regnum, u16 val);
+>  };
+>  
+> +#define LAN9303_NUM_ALR_RECORDS 512
+> +
+>  struct lan9303 {
+>  	struct device *dev;
+>  	struct regmap *regmap;
+> -- 
+> 2.11.0
