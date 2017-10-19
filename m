@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: l2tp: mark expected switch fall-through
-Date: Thu, 19 Oct 2017 13:34:10 +0100 (WEST)
-Message-ID: <20171019.133410.1724417856668534994.davem@davemloft.net>
-References: <20171017224253.GA5877@embeddedor.com>
+Subject: Re: [PATCH] dql: make dql_init return void
+Date: Thu, 19 Oct 2017 13:34:24 +0100 (WEST)
+Message-ID: <20171019.133424.1017702196231164468.davem@davemloft.net>
+References: <20171018001652.23740-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: garsilva@embeddedor.com
+Cc: tom@herbertland.com, shimoda.hiroaki@gmail.com,
+        netdev@vger.kernel.org, sthemmin@microsoft.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49198 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49204 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752089AbdJSMeU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 08:34:20 -0400
-In-Reply-To: <20171017224253.GA5877@embeddedor.com>
+        with ESMTP id S1752384AbdJSMeb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 08:34:31 -0400
+In-Reply-To: <20171018001652.23740-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Date: Tue, 17 Oct 2017 17:42:53 -0500
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 17 Oct 2017 17:16:52 -0700
 
-> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-> where we are expecting to fall through.
+> dql_init always returned 0, and the only place that uses it
+> in network core code didn't care about the return value anyway.
 > 
-> Notice that in this particular case I replaced the "NOBREAK" comment with
-> a "fall through" comment, which is what GCC is expecting to find.
-> 
-> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
 Applied to net-next.
