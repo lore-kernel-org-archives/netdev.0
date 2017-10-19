@@ -1,82 +1,87 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
-Date: Thu, 19 Oct 2017 22:17:11 +0200
-Message-ID: <6f916786-7a91-9265-7b43-635d022c61ab@hartkopp.net>
-References: <20170818193947.27862-1-fcooper@ti.com>
- <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
- <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
- <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
- <88d4ddc4-b786-0205-6852-56e93182a1c9@ti.com>
- <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
- <ed19ead3-d8f6-c027-74cf-8aee131c8a59@ti.com>
- <08432016-e733-b827-b9aa-bc359dd837f5@pengutronix.de>
- <7ba515d9-7710-c152-a55a-f995b7f3d49a@ti.com>
- <848e965d-e6a1-8930-9064-0317563326c0@ti.com>
- <93c6d531-c38b-6f88-510f-59eb3e733b78@ti.com>
- <545ac690-10c8-b206-76dd-dbbe602eb6af@pengutronix.de>
- <a972cec1-3386-3ca3-ace3-175e1cabd286@hartkopp.net>
- <0099eefa-32c8-a818-761c-667239d9ec3b@pengutronix.de>
- <f651ffd4-826c-ee20-aebf-e3c2c1b89ecf@hartkopp.net>
- <4b53c9ff-395f-670f-b55c-38ccfb37ac30@gmx.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 3/3] strparser: Generalize strparser
+Date: Thu, 19 Oct 2017 13:18:20 -0700
+Message-ID: <78776143-0442-f1ce-745c-8371f20124e4@gmail.com>
+References: <20170728232243.3040-1-tom@quantonium.net>
+ <20170728232243.3040-4-tom@quantonium.net>
+ <1508434937.30291.1.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S3765-5oT6UtSQVts4KwWz3F3ub2vhDWO7YemYZPPM0EjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Wenyou Yang <wenyou.yang@atmel.com>,
-        Dong Aisheng <b29396@freescale.com>,
-        "Quadros, Roger" <rogerq@ti.com>
-To: =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Sekhar Nori <nsekhar@ti.com>,
-        Franklin S Cooper Jr <fcooper@ti.com>,
-        "Yang, Wenyou" <Wenyou.Yang@Microchip.com>, wg@grandegger.com,
-        quentin.schulz@free-electrons.com, edumazet@google.com,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4b53c9ff-395f-670f-b55c-38ccfb37ac30@gmx.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@quantonium.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:47268 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751628AbdJSUSi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:18:38 -0400
+Received: by mail-pf0-f193.google.com with SMTP id z11so7595665pfk.4
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 13:18:38 -0700 (PDT)
+In-Reply-To: <CALx6S3765-5oT6UtSQVts4KwWz3F3ub2vhDWO7YemYZPPM0EjA@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/19/2017 09:54 PM, Mario Hüttel wrote:
-> On 10/19/2017 08:35 PM, Oliver Hartkopp wrote:
-
->> We already have this 'dsample-point' implemented in the ip tool:
+On 10/19/2017 12:51 PM, Tom Herbert wrote:
+> On Thu, Oct 19, 2017 at 10:42 AM, Eric Dumazet <eric.dumazet@gmail.com>
+> wrote:
+> 
+>> On Fri, 2017-07-28 at 16:22 -0700, Tom Herbert wrote:
+>>> Generalize strparser from more than just being used in conjunction
+>>> with read_sock. strparser will also be used in the send path with
+>>> zero proxy. The primary change is to create strp_process function
+>>> that performs the critical processing on skbs. The documentation
+>>> is also updated to reflect the new uses.
+>>>
+>>> Signed-off-by: Tom Herbert <tom@quantonium.net>
+>>> ---
+>>>  Documentation/networking/strparser.txt | 207 +++++++++++++++-------
+>>>  include/net/strparser.h                | 119 +++++++------
+>>>  net/kcm/kcmproc.c                      |  34 ++--
+>>>  net/kcm/kcmsock.c                      |  38 ++--
+>>>  net/strparser/strparser.c              | 313
+>> ++++++++++++++++++++-------------
+>>>  5 files changed, 424 insertions(+), 287 deletions(-)
 >>
->> $ ip link set vcan0 type can help
->> Usage: ip link set DEVICE type can
->>      [ bitrate BITRATE [ sample-point SAMPLE-POINT] ] |
->>      [ tq TQ prop-seg PROP_SEG phase-seg1 PHASE-SEG1
->>         phase-seg2 PHASE-SEG2 [ sjw SJW ] ]
+>> Just found this gem :
 >>
->>      [ dbitrate BITRATE [ dsample-point SAMPLE-POINT] ] |  <<-- here!
->>      [ dtq TQ dprop-seg PROP_SEG dphase-seg1 PHASE-SEG1
->>         dphase-seg2 PHASE-SEG2 [ dsjw SJW ] ]
+>> static void strp_msg_timeout(unsigned long arg)
+>> {
+>>         struct strparser *strp = (struct strparser *)arg;
 >>
->> But AFAIK m_can is not using that value in m_can_set_bittiming().
+>>         /* Message assembly timed out */
+>>         STRP_STATS_INCR(strp->stats.msg_timeouts);
+>>         strp->cb.lock(strp);
+>>         strp->cb.abort_parser(strp, ETIMEDOUT);
+>>         strp->cb.unlock(strp);
+>> }
 >>
-> Actually I need some clarification. The sample point of the can core is
-> between the two time segments.
-> I always thought that the "sample point" options of the ip tool are used
-> in the internal
-> calculation of the two timing segments and is therefore no individual value.
+>> static void strp_sock_lock(struct strparser *strp)
+>> {
+>>         lock_sock(strp->sk);
+>> }
+>>
+>> static void strp_sock_unlock(struct strparser *strp)
+>> {
+>>         release_sock(strp->sk);
+>> }
+>>
+>>
+>> A timer runs from BH, and from this interrupt context it is absolutely
+>> illegal to call lock_sock() ( and release_sock() )
+>>
+>> Please fix, thanks !
+>>
+> 
+> Nice catch! I'll fix it.
+> 
+Can the lock/release be removed and the strp stopped bit can use atomics?
 
-You are right.
+It looks like sk_error_report can be called without sock lock.
 
-See picture at http://www.bittiming.can-wiki.info/
-
-Usually you can give the bitrate and the sample point (which is at 75% 
-aka 0.750 by default) and then the kernel-internal bitrate calculating 
-algorithm calculates the tq prop-seg phase-seg1 phase-seg2 stuff.
-
-Alternatively you can provide the tq prop-seg phase-seg1 phase-seg2 
-stuff on your own which is set to the CAN controller registers then.
-
-For that reason my remark "m_can is not using that value" was wrong as 
-m_can just uses the tq prop-seg phase-seg1 phase-seg2 stuff - either 
-from the bitrate calculation or provided by the user.
-
-Thanks for the question ;-)
-
-Best,
-Oliver
+Thanks,
+John
