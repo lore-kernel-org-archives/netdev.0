@@ -1,7 +1,7 @@
 From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: [PATCH net 5/5] net/ncsi: Fix length of GVI response packet
-Date: Thu, 19 Oct 2017 13:43:09 +1100
-Message-ID: <20171019024309.13628-5-sam@mendozajonas.com>
+Subject: [PATCH net 4/5] net/ncsi: Enforce failover on link monitor timeout
+Date: Thu, 19 Oct 2017 13:43:08 +1100
+Message-ID: <20171019024309.13628-4-sam@mendozajonas.com>
 References: <20171019024309.13628-1-sam@mendozajonas.com>
 Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
         "David S . Miller" <davem@davemloft.net>,
@@ -15,41 +15,60 @@ List-Id: netdev.vger.kernel.org
 
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
 
-The length of GVI (GetVersionInfo) response packet should be 40 instead
-of 36. This issue was found from /sys/kernel/debug/ncsi/eth0/stats.
+The NCSI channel has been configured to provide service if its link
+monitor timer is enabled, regardless of its state (inactive or active).
+So the timeout event on the link monitor indicates the out-of-service
+on that channel, for which a failover is needed.
 
- # ethtool --ncsi eth0 swstats
-     :
- RESPONSE     OK       TIMEOUT  ERROR
- =======================================
- GVI          0        0        2
-
-With this applied, no error reported on GVI response packets:
-
- # ethtool --ncsi eth0 swstats
-     :
- RESPONSE     OK       TIMEOUT  ERROR
- =======================================
- GVI          2        0        0
+This sets NCSI_DEV_RESHUFFLE flag to enforce failover on link monitor
+timeout, regardless the channel's original state (inactive or active).
+Also, the link is put into "down" state to give the failing channel
+lowest priority when selecting for the active channel. The state of
+failing channel should be set to active in order for deinitialization
+and failover to be done.
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 ---
- net/ncsi/ncsi-rsp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ncsi/ncsi-manage.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/ncsi/ncsi-rsp.c b/net/ncsi/ncsi-rsp.c
-index 265b9a892d41..927dad4759d1 100644
---- a/net/ncsi/ncsi-rsp.c
-+++ b/net/ncsi/ncsi-rsp.c
-@@ -959,7 +959,7 @@ static struct ncsi_rsp_handler {
- 	{ NCSI_PKT_RSP_EGMF,    4, ncsi_rsp_handler_egmf    },
- 	{ NCSI_PKT_RSP_DGMF,    4, ncsi_rsp_handler_dgmf    },
- 	{ NCSI_PKT_RSP_SNFC,    4, ncsi_rsp_handler_snfc    },
--	{ NCSI_PKT_RSP_GVI,    36, ncsi_rsp_handler_gvi     },
-+	{ NCSI_PKT_RSP_GVI,    40, ncsi_rsp_handler_gvi     },
- 	{ NCSI_PKT_RSP_GC,     32, ncsi_rsp_handler_gc      },
- 	{ NCSI_PKT_RSP_GP,     -1, ncsi_rsp_handler_gp      },
- 	{ NCSI_PKT_RSP_GCPS,  172, ncsi_rsp_handler_gcps    },
+diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+index 0966eff48ce7..28c42b22b748 100644
+--- a/net/ncsi/ncsi-manage.c
++++ b/net/ncsi/ncsi-manage.c
+@@ -189,6 +189,7 @@ static void ncsi_channel_monitor(unsigned long data)
+ 	struct ncsi_channel *nc = (struct ncsi_channel *)data;
+ 	struct ncsi_package *np = nc->package;
+ 	struct ncsi_dev_priv *ndp = np->ndp;
++	struct ncsi_channel_mode *ncm;
+ 	struct ncsi_cmd_arg nca;
+ 	bool enabled, chained;
+ 	unsigned int monitor_state;
+@@ -228,20 +229,21 @@ static void ncsi_channel_monitor(unsigned long data)
+ 	case NCSI_CHANNEL_MONITOR_WAIT ... NCSI_CHANNEL_MONITOR_WAIT_MAX:
+ 		break;
+ 	default:
+-		if (!(ndp->flags & NCSI_DEV_HWA) &&
+-		    state == NCSI_CHANNEL_ACTIVE) {
++		if (!(ndp->flags & NCSI_DEV_HWA)) {
+ 			ncsi_report_link(ndp, true);
+ 			ndp->flags |= NCSI_DEV_RESHUFFLE;
+ 		}
+ 
+ 		ncsi_stop_channel_monitor(nc);
+ 
++		ncm = &nc->modes[NCSI_MODE_LINK];
+ 		spin_lock_irqsave(&nc->lock, flags);
+ 		nc->state = NCSI_CHANNEL_INVISIBLE;
++		ncm->data[2] &= ~0x1;
+ 		spin_unlock_irqrestore(&nc->lock, flags);
+ 
+ 		spin_lock_irqsave(&ndp->lock, flags);
+-		nc->state = NCSI_CHANNEL_INACTIVE;
++		nc->state = NCSI_CHANNEL_ACTIVE;
+ 		list_add_tail_rcu(&nc->link, &ndp->channel_queue);
+ 		spin_unlock_irqrestore(&ndp->lock, flags);
+ 		ncsi_process_next_channel(ndp);
 -- 
 2.14.2
