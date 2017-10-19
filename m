@@ -1,52 +1,114 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
- to atomic
-Date: Thu, 19 Oct 2017 10:21:18 -0400
-Message-ID: <b9444485-8e34-48ac-2b4f-abbd9c6d455f@mojatatu.com>
-References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
- <1508152718-28726-2-git-send-email-chrism@mellanox.com>
- <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
- <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
- <CAM_iQpWbfjCH0EFb8RYnOuZQtVtg-Mw-Kzv3GWq81qTVErN6hA@mail.gmail.com>
- <VI1PR0501MB21437552565B68DC71A7DEE1AB4D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
- <CAM_iQpVA2SQ4eFWEQxjQwmoxwQnQiLgREETKdQLoADWt_xD4Bg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Lucas Bates <lucasb@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Chris Mi <chrism@mellanox.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 15/20] nfp: flower: Convert ndo_setup_tc offloads to block callbacks
+Date: Thu, 19 Oct 2017 15:50:43 +0200
+Message-ID: <20171019135048.4306-16-jiri@resnulli.us>
+References: <20171019135048.4306-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        mlxsw@mellanox.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        michael.chan@broadcom.com, ganeshgr@chelsio.com,
+        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
+        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
+        jakub.kicinski@netronome.com, ast@kernel.org, daniel@iogearbox.net,
+        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
+        john.hurley@netronome.com, alexander.h.duyck@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:47245 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753720AbdJSOVY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 10:21:24 -0400
-Received: by mail-io0-f195.google.com with SMTP id h70so9987076ioi.4
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 07:21:24 -0700 (PDT)
-In-Reply-To: <CAM_iQpVA2SQ4eFWEQxjQwmoxwQnQiLgREETKdQLoADWt_xD4Bg@mail.gmail.com>
-Content-Language: en-GB
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:50546 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753776AbdJSNvD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:03 -0400
+Received: by mail-wr0-f194.google.com with SMTP id q42so8414401wrb.7
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:51:03 -0700 (PDT)
+In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-10-18 12:43 PM, Cong Wang wrote:
-> On Tue, Oct 17, 2017 at 6:03 PM, Chris Mi <chrism@mellanox.com> wrote:
->>> -----Original Message-----
+From: Jiri Pirko <jiri@mellanox.com>
 
-> 
-> You listed 3 problems, and you think they are 3 different ones, here
-> I argue problem 3 (using RCU callbacks) is the cause of problem 1
-> (refcnt not atomic). This is why I mentioned I have been thinking about
-> removing RCU callbacks, because it probably could fix all of them.
-> 
+Benefit from the newly introduced block callback infrastructure and
+convert ndo_setup_tc calls for flower offloads to block callbacks.
 
-Cong,
-Given this is a known bug (the test case Chris presented crashes the
-kernel) - would it make sense to have a patch that goes to -net
-to fix this while your approach and discussion outcome goes into
-net-next?
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../net/ethernet/netronome/nfp/flower/offload.c    | 56 ++++++++++++++++++----
+ 1 file changed, 48 insertions(+), 8 deletions(-)
 
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+index 6f239c2..f8523df 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+@@ -449,6 +449,10 @@ static int
+ nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
+ 			struct tc_cls_flower_offload *flower)
+ {
++	if (!eth_proto_is_802_3(flower->common.protocol) ||
++	    flower->common.chain_index)
++		return -EOPNOTSUPP;
++
+ 	switch (flower->command) {
+ 	case TC_CLSFLOWER_REPLACE:
+ 		return nfp_flower_add_offload(app, netdev, flower);
+@@ -461,16 +465,52 @@ nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
+ 	return -EOPNOTSUPP;
+ }
+ 
+-int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
+-			enum tc_setup_type type, void *type_data)
++static int nfp_flower_setup_tc_block_cb(enum tc_setup_type type,
++					void *type_data, void *cb_priv)
++{
++	struct nfp_net *nn = cb_priv;
++
++	switch (type) {
++	case TC_SETUP_CLSFLOWER:
++		return nfp_flower_repr_offload(nn->app, nn->port->netdev,
++					       type_data);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static int nfp_flower_setup_tc_block(struct net_device *netdev,
++				     struct tc_block_offload *f)
+ {
+-	struct tc_cls_flower_offload *cls_flower = type_data;
++	struct nfp_net *nn = netdev_priv(netdev);
+ 
+-	if (type != TC_SETUP_CLSFLOWER ||
+-	    !is_classid_clsact_ingress(cls_flower->common.classid) ||
+-	    !eth_proto_is_802_3(cls_flower->common.protocol) ||
+-	    cls_flower->common.chain_index)
++	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
+ 		return -EOPNOTSUPP;
+ 
+-	return nfp_flower_repr_offload(app, netdev, cls_flower);
++	switch (f->command) {
++	case TC_BLOCK_BIND:
++		return tcf_block_cb_register(f->block,
++					     nfp_flower_setup_tc_block_cb,
++					     nn, nn);
++	case TC_BLOCK_UNBIND:
++		tcf_block_cb_unregister(f->block,
++					nfp_flower_setup_tc_block_cb,
++					nn);
++		return 0;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
++			enum tc_setup_type type, void *type_data)
++{
++	switch (type) {
++	case TC_SETUP_CLSFLOWER:
++		return 0; /* will be removed after conversion from ndo */
++	case TC_SETUP_BLOCK:
++		return nfp_flower_setup_tc_block(netdev, type_data);
++	default:
++		return -EOPNOTSUPP;
++	}
+ }
+-- 
+2.9.5
