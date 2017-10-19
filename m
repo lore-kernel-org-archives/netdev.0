@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH] macvlan/macvtap: Add support for L2
- forwarding offloads with macvtap
-Date: Thu, 19 Oct 2017 12:44:24 +0100 (WEST)
-Message-ID: <20171019.124424.463288330485082808.davem@davemloft.net>
-References: <20171017024428.28589.73728.stgit@ahduyck-green-test.jf.intel.com>
+Subject: Re: [PATCH v2 net-next] net: hns3: Add mqprio hardware offload
+ support in hns3 driver
+Date: Thu, 19 Oct 2017 12:45:58 +0100 (WEST)
+Message-ID: <20171019.124558.2262148691294867391.davem@davemloft.net>
+References: <1508223090-37907-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: alexander.h.duyck@intel.com
+Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linyunsheng@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48440 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48458 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752132AbdJSLpj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:45:39 -0400
-In-Reply-To: <20171017024428.28589.73728.stgit@ahduyck-green-test.jf.intel.com>
+        with ESMTP id S1752728AbdJSLqQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:46:16 -0400
+In-Reply-To: <1508223090-37907-1-git-send-email-linyunsheng@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Mon, 16 Oct 2017 22:44:44 -0400
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Date: Tue, 17 Oct 2017 14:51:30 +0800
 
-> This patch reverts earlier commit b13ba1b83f52 ("macvlan: forbid L2
-> fowarding offload for macvtap"). The reason for reverting this is because
-> the original patch no longer fixes what it previously did as the
-> underlying structure has changed for macvtap. Specifically macvtap
-> originally pulled packets directly off of the lowerdev. However in commit
-> 6acf54f1cf0a ("macvtap: Add support of packet capture on macvtap device.")
-> that code was changed and instead macvtap would listen directly on the
-> macvtap device itself instead of the lower device. As such, the L2
-> forwarding offload should now be able to provide a performance advantage of
-> skipping the checks on the lower dev while not introducing any sort of
-> regression.
+> When using tc qdisc, dcb_ops->setup_tc is used to tell hclge_dcb
+> module to do the tm related setup. Only TC_MQPRIO_MODE_CHANNEL
+> offload mode is supported.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 
 Applied.
