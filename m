@@ -1,148 +1,186 @@
-From: Johan Hedberg <johan.hedberg@gmail.com>
-Subject: pull request: bluetooth-next 2017-10-19
-Date: Thu, 19 Oct 2017 09:29:14 +0300
-Message-ID: <20171019062914.GA9702@x1c.lan>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v7 02/10] arm: dts: sunxi: Restore EMAC changes
+Date: Thu, 19 Oct 2017 08:57:46 +0200
+Message-ID: <20171019065745.pzurfghdvfnpxeuc@flea.lan>
+References: <20171018114458.17891-1-clabbe.montjoie@gmail.com>
+ <20171018114458.17891-3-clabbe.montjoie@gmail.com>
+ <20171018164450.GE15371@lunn.ch>
+ <20171018185049.GA24584@Red>
+Reply-To: maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="UugvWAfsgieZRqgk"
-Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:52240 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750777AbdJSG3V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 02:29:21 -0400
+	protocol="application/pgp-signature"; boundary="uku2j2u53sbdnskz"
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+	will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-sunxi+bncBDSJBYGBRIMBB3EZUHHQKGQEA7RDERQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20171018185049.GA24584@Red>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
 
---UugvWAfsgieZRqgk
-Content-Type: text/plain; charset=us-ascii
+--uku2j2u53sbdnskz
+Content-Type: text/plain; charset="UTF-8"
 Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Hi Dave,
+On Wed, Oct 18, 2017 at 08:50:49PM +0200, Corentin Labbe wrote:
+> On Wed, Oct 18, 2017 at 06:44:50PM +0200, Andrew Lunn wrote:
+> > On Wed, Oct 18, 2017 at 01:44:50PM +0200, Corentin Labbe wrote:
+> > > The original dwmac-sun8i DT bindings have some issue on how to handle
+> > > integrated PHY and was reverted in last RC of 4.13.
+> > > But now we have a solution so we need to get back that was reverted.
+> > >=20
+> > > This patch restore arm DT about dwmac-sun8i
+> > > This reverts commit fe45174b72ae ("arm: dts: sunxi: Revert EMAC chang=
+es")
+> > >=20
+> > > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > ---
+> > >  arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts |  9 ++++++++
+> > >  arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts   | 19 +++++++++++++=
+++++
+> > >  arch/arm/boot/dts/sun8i-h3-nanopi-m1-plus.dts     | 19 +++++++++++++=
+++++
+> > >  arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  7 ++++++
+> > >  arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  8 +++++++
+> > >  arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  8 +++++++
+> > >  arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts   |  5 +++++
+> > >  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  8 +++++++
+> > >  arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts      | 22 +++++++++++++=
+++++++
+> > >  arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts    | 16 +++++++++++++=
++
+> > >  arch/arm/boot/dts/sunxi-h3-h5.dtsi                | 26 +++++++++++++=
+++++++++++
+> > >  11 files changed, 147 insertions(+)
+> > >=20
+> > > diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch=
+/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+> > > index b1502df7b509..6713d0f2b3f4 100644
+> > > --- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+> > > +++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+> > > @@ -56,6 +56,8 @@
+> > > =20
+> > >  	aliases {
+> > >  		serial0 =3D &uart0;
+> > > +		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
+> > > +		ethernet0 =3D &emac;
+> > >  		ethernet1 =3D &xr819;
+> > >  	};
+> > > =20
+> > > @@ -102,6 +104,13 @@
+> > >  	status =3D "okay";
+> > >  };
+> > > =20
+> > > +&emac {
+> > > +	phy-handle =3D <&int_mii_phy>;
+> > > +	phy-mode =3D "mii";
+> > > +	allwinner,leds-active-low;
+> > > +	status =3D "okay";
+> > > +};
+> > > +
+> > >  &mmc0 {
+> > >  	pinctrl-names =3D "default";
+> > >  	pinctrl-0 =3D <&mmc0_pins_a>;
+> > > diff --git a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts b/arch/a=
+rm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+> > > index e1dba9ffa94b..f2292deaa590 100644
+> > > --- a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+> > > +++ b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+> > > @@ -52,6 +52,7 @@
+> > >  	compatible =3D "sinovoip,bpi-m2-plus", "allwinner,sun8i-h3";
+> > > =20
+> > >  	aliases {
+> > > +		ethernet0 =3D &emac;
+> > >  		serial0 =3D &uart0;
+> > >  		serial1 =3D &uart1;
+> > >  	};
+> > > @@ -111,6 +112,24 @@
+> > >  	status =3D "okay";
+> > >  };
+> > > =20
+> > > +&emac {
+> > > +	pinctrl-names =3D "default";
+> > > +	pinctrl-0 =3D <&emac_rgmii_pins>;
+> > > +	phy-supply =3D <&reg_gmac_3v3>;
+> > > +	phy-handle =3D <&ext_rgmii_phy>;
+> > > +	phy-mode =3D "rgmii";
+> > > +
+> > > +	allwinner,leds-active-low;
+> > > +	status =3D "okay";
+> > > +};
+> > > +
+> >=20
+> >=20
+> > > +&external_mdio {
+> > > +	ext_rgmii_phy: ethernet-phy@1 {
+> > > +		compatible =3D "ethernet-phy-ieee802.3-c22";
+> > > +		reg =3D <0>;
+> > > +	};
+> > > +};
+> > > +
+> >=20
+> > Hi Corentin
+> >=20
+> > I'm wondering about the order of the patches. Does the external_mdio
+> > node actually exist at this point? Or only later when other patches
+> > are applied?
+> >=20
+>=20
+> You are right order of patch are wrong, I need to cut this one in two.
+> "Revert=C2=B2" sunxi-h3-h5.dtsi
+> apply mdiomux
+> "Revert=C2=B2" all board nodes
 
-Here's the first bluetooth-next pull request targeting the 4.15 kernel
-release.
+I'm not even sure why you're actually adding them that way. Can't you
+just create the new binding file, support it in the driver, and add
+the matching DT nodes ?
 
- - Multiple fixes & improvements to the hci_bcm driver
- - DT improvements, e.g. new local-bd-address property
- - Fixes & improvements to ECDH usage. Private key is now generated by
-   the crypto subsystem.
- - gcc-4.9 warning fixes
+Maxime
 
-Please let me know if there are any issues pulling. Thanks.
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
 
-Johan
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
 
----
-The following changes since commit 4bc4e64c2cfdafa6b8ecdcc5edf10cc1a147587f:
-
-  Merge tag 'batadv-next-for-davem-20171006' of git://git.open-mesh.org/linux-merge (2017-10-06 10:12:52 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
-
-for you to fetch changes up to fac72b243cc789bb209e6eca824919b42d98cfe2:
-
-  Bluetooth: mark expected switch fall-throughs (2017-10-14 09:25:51 +0200)
-
-----------------------------------------------------------------
-Arnd Bergmann (3):
-      ieee802154: fix gcc-4.9 warnings
-      Bluetooth: hci_bcm: fix build error without CONFIG_PM
-      Bluetooth: BT_HCIUART now depends on SERIAL_DEV_BUS
-
-Arvind Yadav (1):
-      Bluetooth: btmrvl: *_err() and *_info() strings should end with newlines
-
-Gustavo A. R. Silva (1):
-      Bluetooth: mark expected switch fall-throughs
-
-Hans de Goede (12):
-      Bluetooth: hci_uart_set_flow_control: Fix NULL deref when using serdev
-      Bluetooth: hci_bcm: Fix setting of irq trigger type
-      Bluetooth: hci_bcm: Move bcm_platform_probe call out of bcm_acpi_probe
-      Bluetooth: hci_bcm: Move platform_get_irq call to bcm_probe
-      Bluetooth: hci_bcm: Store device pointer instead of platform_device pointer
-      Bluetooth: hci_bcm: Rename bcm_platform_probe to bcm_get_resources
-      Bluetooth: hci_bcm: Make acpi_probe get irq from ACPI resources
-      Bluetooth: hci_bcm: Make suspend/resume functions platform_dev independent
-      Bluetooth: hci_bcm: Add (runtime)pm support to the serdev driver
-      Bluetooth: btbcm: Add entry for BCM4356A2 UART bluetooth
-      Bluetooth: hci_bcm: Add support for BCM2E7E
-      Revert "Bluetooth: btusb: Add workaround for Broadcom devices without product id"
-
-Ian W MORRISON (3):
-      Bluetooth: hci_bcm: Correct context of IRQ polarity message
-      Bluetooth: hci_bcm: Add support for MINIX Z83-4 based devices
-      Bluetooth: btbcm: Add support for MINIX Z83-4 based devices
-
-Johan Hovold (1):
-      Bluetooth: avoid silent hci_bcm ACPI PM regression
-
-Kees Cook (1):
-      Bluetooth: Convert timers to use timer_setup()
-
-Loic Poulain (4):
-      Bluetooth: btqcomsmd: Add support for BD address setup
-      dt-bindings: net: document Bluetooth bindings in one place
-      dt-bindings: soc: qcom: Add local-bd-address property to WCNSS-BT
-      Bluetooth: btqcomsmd: retrieve BD address from DT property
-
-Marcel Holtmann (1):
-      Bluetooth: Fix compiler warning with selftest duration calculation
-
-Tudor Ambarus (5):
-      Bluetooth: move ecdh allocation outside of ecdh_helper
-      Bluetooth: ecdh_helper - reveal error codes
-      Bluetooth: selftest - check for errors when computing ZZ
-      Bluetooth: ecdh_helper - fix leak of private key
-      Bluetooth: let the crypto subsystem generate the ecc privkey
-
- .../devicetree/bindings/net/bluetooth.txt          |   5 +
- .../devicetree/bindings/soc/qcom/qcom,wcnss.txt    |   8 +
- drivers/bluetooth/Kconfig                          |   3 +-
- drivers/bluetooth/bcm203x.c                        |   2 +-
- drivers/bluetooth/bluecard_cs.c                    |   7 +-
- drivers/bluetooth/btbcm.c                          |   3 +
- drivers/bluetooth/btmrvl_sdio.c                    |   6 +-
- drivers/bluetooth/btqcomsmd.c                      |  45 ++++
- drivers/bluetooth/btusb.c                          |  18 --
- drivers/bluetooth/hci_bcm.c                        | 263 ++++++++++++---------
- drivers/bluetooth/hci_bcsp.c                       |  10 +-
- drivers/bluetooth/hci_h5.c                         |  10 +-
- drivers/bluetooth/hci_ldisc.c                      |   7 +
- drivers/bluetooth/hci_ll.c                         |   2 +-
- drivers/bluetooth/hci_qca.c                        |  17 +-
- drivers/net/ieee802154/ca8210.c                    |   2 +-
- net/bluetooth/ecdh_helper.c                        | 228 +++++++++---------
- net/bluetooth/ecdh_helper.h                        |   9 +-
- net/bluetooth/selftest.c                           |  48 +++-
- net/bluetooth/smp.c                                | 127 ++++++----
- 20 files changed, 487 insertions(+), 333 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/bluetooth.txt
-
---UugvWAfsgieZRqgk
+--uku2j2u53sbdnskz
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIcBAEBAgAGBQJZ6EY6AAoJECQj9vv5qNQSf2oP/RJ9MwV/Hhl+6VqlK2Vfs3N+
-0WIxT2G+US8xNI/j8aNH3+6ipX1e5fY9n43EVWGYya+YXvsU+fxexCKYh+fiXvM7
-TSENg9dBXybnIUt5kHTfDPh1g9l5IGWx5DwD5vR8uUxuffqP+l17kYJoM3yIargu
-aWfxOu6p3XHQayLpCmnGHpzPa9lFf5U1VrKU99VG6RdKNWRPCdtJOKiUogh2dDQ6
-DrdAqKufBEnl8M/8P6eO4UwKCzwyHvicWaW4x5Cl+MQDJcz7ayveez7Di9Cgk31P
-svMtmXNuHHR9irLLdney7IKUGBAffYkPqsBiF8WJCFc01tBYzZSDiMb5f0byWI7B
-Jb+r96DiW+YdHVOqxRmt6Mho22/Kdq3zyBqTu7NvHT32EBRcNpY2qCztrA/i4c7r
-iKhERunzq5kEyM+TjIW389ACHfJbDKfZKIFT8cnK0DsTlppZhKL9INiFSy1GYlA1
-cKWUWtnlUGAAkJbNL6BurPJQacnbHR+lQCD6KkGWe9vuSH8YXilG0l0JMiOXB/ni
-FEgRtJ8iMMSxYeiSIBFGyEUqxkOm+NZROI0nc1cpbouL1MuF4qaBCeIqjB207/r5
-+Mz4YYvJBp/veUXrHeem1XiJJVGUxPJBIopWKYmSd8F4YWqouOdngclKStWwBhGM
-Th60FhOY/xQ9KjZZX+yM
-=hSzD
+iQIcBAEBAgAGBQJZ6EzpAAoJEBx+YmzsjxAgytgP/1KB1p5cfdrLxWEVJrDcNKY3
+rDUarR5FW8KDKx6sVF+7lhQy1ymawbixa7Uj7t54TUQE13UvvVsfrab96rt4wIda
+QOpppy0pPEV7kkU1zrSbhMSALBVwsVmX+ONKoDS0EKfj2rqbE6QBwNbj4VFVjEMv
+x3m+/oqKydq5cocN8YPzdsyCDr9QlfIymtD6c35hOjeyrGSulvUZWQke9wqj1oIc
+pZ8byA19fUxU+D/A0tPB2H7Q+huFjzQu3g0qiBm1G28lR4rke1lE0wenCPPfyNQr
+jXknXj3F5LuYxk3BXXZhl35sxObNYTIu7+RJBwQf076ZpJspt55RlzSxzt2sdUAf
+BvsG5zLo6Mo8whwdjXQIe+lfiomRANJW/SGRf9029bpGZinPQ8DlCIihK6vdoKAm
+RcD2gHptAhQ7YBzpBqiIsLqiUBwNFcQzrKu2AdbjjqTGJFVFJWoJABvLkNbpnYvE
+K4w1RBssr8x/XjfsgLlL9ViGT4VYBjJVYJgzmnSLbpf3dQ3I+SwEHzgb5lrnVz0z
+EGg8vKJS7EWuiCvZ/KUhCukQghS3SevrYnpft9N7+iTrWPqNjhVG8RS2+GXa4EXl
+Ir4mpxddKPHuIe8SD6VN3IMnoTzHS743ZBPcIEO4NbQbwq7h8LMmxlUltwCYvxio
+xCvpDsj5iDGNFM1XJ9l0
+=CKnu
 -----END PGP SIGNATURE-----
 
---UugvWAfsgieZRqgk--
+--uku2j2u53sbdnskz--
