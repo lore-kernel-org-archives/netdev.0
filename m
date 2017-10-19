@@ -1,61 +1,82 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH iproute2] ip maddr: fix filtering by device
-Date: Thu, 19 Oct 2017 10:21:08 +0200 (CEST)
-Message-ID: <20171019082108.40D7AA0EDF@unicorn.suse.cz>
-Cc: netdev@vger.kernel.org, Petr Vorel <pvorel@suse.cz>,
-        Phil Sutter <phil@nwl.cc>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:52747 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752249AbdJSIVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 04:21:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: usb/net/rt2x00: warning in rt2800_eeprom_word_index
+Date: Thu, 19 Oct 2017 10:25:46 +0200
+Message-ID: <CACT4Y+b4axLm++jwFnUgABvqE7DUN_sD-HG2dVC7_LfptKVgYg@mail.gmail.com>
+References: <CAAeHK+yUNrrNU3Jqrfs7XAT809eyF4nv673cSL8RppbLrDtWNA@mail.gmail.com>
+ <20171012072529.GB2686@redhat.com> <CACT4Y+YLM-u7bMfRB=eu_pz1M9iDrY-Qmnho7Hw_Lh3M=LSeMQ@mail.gmail.com>
+ <20171016094024.GD2553@redhat.com> <CACT4Y+YB7PTCFCjeqwJeGpSxxAh_U6F6UsDKaN4XAx6uL8+pZw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        Helmut Schaa <helmut.schaa@googlemail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACT4Y+YB7PTCFCjeqwJeGpSxxAh_U6F6UsDKaN4XAx6uL8+pZw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 530903dd9003 ("ip: fix igmp parsing when iface is long") uses
-variable len to keep trailing colon from interface name comparison.  This
-variable is local to loop body but we set it in one pass and use it in
-following one(s) so that we are actually using (pseudo)random length for
-comparison. This became apparent since commit b48a1161f5f9 ("ipmaddr: Avoid
-accessing uninitialized data") always initializes len to zero so that the
-name comparison is always true. As a result, "ip maddr show dev eth0" shows
-IPv4 multicast addresses for all interfaces.
+On Mon, Oct 16, 2017 at 2:19 PM, Dmitry Vyukov <dvyukov@google.com> wrote:
+> On Mon, Oct 16, 2017 at 11:40 AM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+>> Hi Dmitry
+>>
+>> On Sat, Oct 14, 2017 at 04:38:03PM +0200, Dmitry Vyukov wrote:
+>>> On Thu, Oct 12, 2017 at 9:25 AM, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+>>> > Hi
+>>> >
+>>> > On Mon, Oct 09, 2017 at 07:50:53PM +0200, Andrey Konovalov wrote:
+>>> >> I've got the following report while fuzzing the kernel with syzkaller.
+>>> >>
+>>> >> On commit 8a5776a5f49812d29fe4b2d0a2d71675c3facf3f (4.14-rc4).
+>>> >>
+>>> >> I'm not sure whether this is a bug in the driver, or just a way to
+>>> >> report misbehaving device. In the latter case this shouldn't be a
+>>> >> WARN() call, since WARN() means bug in the kernel.
+>>> >
+>>> > This is about wrong EEPROM, which reported 3 tx streams on
+>>> > non 3 antenna device. I think WARN() is justified and thanks
+>>> > to the call trace I was actually able to to understand what
+>>> > happened.
+>>> >
+>>> > In general I do not think WARN() only means a kernel bug, it
+>>> > can be F/W or H/W bug too.
+>>>
+>>> Hi Stanislaw,
+>>>
+>>> Printing messages is fine. Printing stacks is fine. Just please make
+>>> them distinguishable from kernel bugs and don't kill the whole
+>>> possibility of automated Linux kernel testing. That's an important
+>>> capability.
+>>
+>> We do not distinguish between bugs and other problems when WARN() is
+>> used in (wireless) drivers, what I think is correct, taking comment from
+>> include/asm-generic/bug.h :
+>>
+>> /*
+>>  * WARN(), WARN_ON(), WARN_ON_ONCE, and so on can be used to report
+>>  * significant issues that need prompt attention if they should ever
+>>  * appear at runtime.  Use the versions with printk format strings
+>>  * to provide better diagnostics.
+>>  */
+>>
+>> Historically we have BUG() to mark the bugs, but usage if it is not
+>> recommended as it can kill the system, so for anything that can
+>> be recovered in runtime - WARN() is recommended.
+>>
+>> Perhaps we can introduce another helper like PROBLEM() for marking
+>> situations when something is wrong, but it is not a bug. However I'm
+>> not even sure at what extent it can be used, since for many cases
+>> if not the most, driver author can not tell apriori if the problem
+>> is a bug in the driver or HW/FW misbehaviour (or maybe particular
+>> issue can happen because of both).
+>
+> I will write a separate email to LKML.
 
-Instead of keeping the length, let's simply replace the trailing colon with
-a null byte. The bonus is that we get correct interface name in ma.name.
 
-Fixes: 530903dd9003 ("ip: fix igmp parsing when iface is long")
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- ip/ipmaddr.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/ip/ipmaddr.c b/ip/ipmaddr.c
-index 5683f6fa830c..46b86a3a7723 100644
---- a/ip/ipmaddr.c
-+++ b/ip/ipmaddr.c
-@@ -136,17 +136,18 @@ static void read_igmp(struct ma_info **result_p)
- 
- 	while (fgets(buf, sizeof(buf), fp)) {
- 		struct ma_info *ma;
--		size_t len = 0;
- 
- 		if (buf[0] != '\t') {
-+			size_t len;
-+
- 			sscanf(buf, "%d%s", &m.index, m.name);
- 			len = strlen(m.name);
- 			if (m.name[len - 1] == ':')
--				len--;
-+				m.name[len - 1] = '\0';
- 			continue;
- 		}
- 
--		if (filter.dev && strncmp(filter.dev, m.name, len))
-+		if (filter.dev && strcmp(filter.dev, m.name))
- 			continue;
- 
- 		sscanf(buf, "%08x%d", (__u32 *)&m.addr.data, &m.users);
--- 
-2.14.2
+Sent a mail titled "Distinguishing kernel bugs from invalid inputs" to
+LKML. Here is a copy:
+https://groups.google.com/forum/#!topic/syzkaller/dGh7qtbu14Q
