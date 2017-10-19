@@ -1,66 +1,44 @@
-From: greearb@candelatech.com
-Subject: [PATCH v2] ethtool:  Do not return error code if no changes were attempted.
-Date: Thu, 19 Oct 2017 14:01:19 -0700
-Message-ID: <1508446879-17056-1-git-send-email-greearb@candelatech.com>
-Cc: linville@tuxdriver.com, Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next v3 1/2] ipv6: start fib6 gc on RTF_CACHE dst
+ creation
+Date: Thu, 19 Oct 2017 14:01:47 -0700
+Message-ID: <20171019210147.mbmtyhk55b4jpk6q@kafai-mbp.dhcp.thefacebook.com>
+References: <cover.1508421311.git.pabeni@redhat.com>
+ <f699f29b3fb7675fdfe5d85ab39e153c147c12f8.1508421311.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+        Wei Wang <weiwan@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:40846 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752036AbdJSVBZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 17:01:25 -0400
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:60834 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752467AbdJSVB5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 17:01:57 -0400
+Content-Disposition: inline
+In-Reply-To: <f699f29b3fb7675fdfe5d85ab39e153c147c12f8.1508421311.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
-
-This makes it easier to properly handle errors when calling this
-from scripts, etc.
-
-Old behaviour:
-
-$ ethtool -L eth3 combined 1
-combined unmodified, ignoring
-no channel parameters changed, aborting
-current values: tx 0 rx 0 other 1 combined 1
-[root@lf0313-6477 ethtool]# echo $?
-1
-
-New behaviour:
-
-$ ./ethtool -L eth3 combined 1
-combined unmodified, ignoring
-no channel parameters changed.
-current values: tx 0 rx 0 other 1 combined 1
-[root@lf0313-6477 ethtool]# echo $?
-0
-
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-
-v2:  Fix comments, the # ./ethtool .... was removed by git of course.
-
- ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/ethtool.c b/ethtool.c
-index ad18704..224efdb 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -1994,12 +1994,12 @@ static int do_schannels(struct cmd_context *ctx)
- 			&changed);
- 
- 	if (!changed) {
--		fprintf(stderr, "no channel parameters changed, aborting\n");
-+		fprintf(stderr, "no channel parameters changed.\n");
- 		fprintf(stderr, "current values: tx %u rx %u other %u"
- 			" combined %u\n", echannels.rx_count,
- 			echannels.tx_count, echannels.other_count,
- 			echannels.combined_count);
--		return 1;
-+		return 0;
- 	}
- 
- 	echannels.cmd = ETHTOOL_SCHANNELS;
--- 
-2.7.5
+On Thu, Oct 19, 2017 at 02:07:10PM +0000, Paolo Abeni wrote:
+> After the commit 2b760fcf5cfb ("ipv6: hook up exception table
+> to store dst cache"), the fib6 gc is not started after the
+> creation of a RTF_CACHE via a redirect or pmtu update, since
+> fib6_add() isn't invoked anymore for such dsts.
+> 
+> We need the fib6 gc to run periodically to clean the RTF_CACHE,
+> or the dst will stay there forever.
+> 
+> Fix it by explicitly calling fib6_force_start_gc() on successful
+> exception creation. gc_args->more accounting will ensure that
+> the gc timer will run for whatever time needed to properly
+> clean the table.
+> 
+> v2 -> v3:
+>  - clarified the commit message
+> 
+> Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
