@@ -1,73 +1,35 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH 1/2] net: netrom: mark expected switch fall-throughs
-Date: Thu, 19 Oct 2017 12:21:23 -0500
-Message-ID: <20171019172123.GA15219@embeddedor.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next] ipv6: let trace_fib6_table_lookup() dereference
+ the fib table
+Date: Thu, 19 Oct 2017 10:26:13 -0700
+Message-ID: <20171019172613.cewlo6ctggzmauyi@kafai-mbp.dhcp.thefacebook.com>
+References: <48235df8fdf787356070d8baa1ac9816ef5736d4.1508398120.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Ralf Baechle <ralf@linux-mips.org>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        David Ahern <dsa@cumulusnetworks.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway32.websitewelcome.com ([192.185.145.12]:21064 "EHLO
-        gateway32.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754762AbdJSRV1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 13:21:27 -0400
-Received: from cm16.websitewelcome.com (cm16.websitewelcome.com [100.42.49.19])
-        by gateway32.websitewelcome.com (Postfix) with ESMTP id 953CE22CE23
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 12:21:26 -0500 (CDT)
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:39798 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751087AbdJSR0Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 13:26:24 -0400
 Content-Disposition: inline
+In-Reply-To: <48235df8fdf787356070d8baa1ac9816ef5736d4.1508398120.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
-
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only (GCC 7.2.0 was used).
-Please, verify if the actual intention of the code is to fall through.
-
- net/netrom/nr_route.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index 0c59354..fc9cadc 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -279,6 +279,7 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
- 			nr_node->routes[1] = nr_node->routes[2];
- 			nr_node->routes[2] = nr_route;
- 		}
-+		/* fall through */
- 	case 2:
- 		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
- 			switch (nr_node->which) {
-@@ -384,6 +385,7 @@ static int nr_del_node(ax25_address *callsign, ax25_address *neighbour, struct n
- 				switch (i) {
- 				case 0:
- 					nr_node->routes[0] = nr_node->routes[1];
-+					/* fall through */
- 				case 1:
- 					nr_node->routes[1] = nr_node->routes[2];
- 				case 2:
-@@ -506,7 +508,7 @@ static int nr_dec_obs(void)
- 				switch (i) {
- 				case 0:
- 					s->routes[0] = s->routes[1];
--					/* Fallthrough */
-+					/* fall through */
- 				case 1:
- 					s->routes[1] = s->routes[2];
- 				case 2:
-@@ -553,6 +555,7 @@ void nr_rt_device_down(struct net_device *dev)
- 						switch (i) {
- 						case 0:
- 							t->routes[0] = t->routes[1];
-+							/* fall through */
- 						case 1:
- 							t->routes[1] = t->routes[2];
- 						case 2:
--- 
-2.7.4
+On Thu, Oct 19, 2017 at 07:31:43AM +0000, Paolo Abeni wrote:
+> The perf traces for ipv6 routing code show a relevant cost around
+> trace_fib6_table_lookup(), even if no trace is enabled. This is
+> due to the fib6_table de-referencing currently performed by the
+> caller.
+> 
+> Let's the tracing code pay this overhead, passing to the trace
+> helper the table pointer. This gives small but measurable
+> performance improvement under UDP flood.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
