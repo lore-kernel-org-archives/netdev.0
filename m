@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc offload calls to per-block callbacks
-Date: Thu, 19 Oct 2017 15:50:28 +0200
-Message-ID: <20171019135048.4306-1-jiri@resnulli.us>
+Subject: [patch net-next v2 04/20] net: sched: use tc_setup_cb_call to call per-block callbacks
+Date: Thu, 19 Oct 2017 15:50:32 +0200
+Message-ID: <20171019135048.4306-5-jiri@resnulli.us>
+References: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
@@ -13,87 +14,130 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:48958 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753741AbdJSNuv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:51 -0400
-Received: by mail-wm0-f67.google.com with SMTP id i124so16048175wmf.3
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:50 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:48973 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753749AbdJSNuy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:54 -0400
+Received: by mail-wm0-f65.google.com with SMTP id i124so16048535wmf.3
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:53 -0700 (PDT)
+In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-This patchset is a bit bigger, but most of the patches are doing the
-same changes in multiple classifiers and drivers. I could do some
-squashes, but I think it is better split.
+Extend the tc_setup_cb_call entrypoint function originally used only for
+action egress devices callbacks to call per-block callbacks as well.
 
-This is another dependency on the way to shared block implementation.
-The goal is to remove use of tp->q in classifiers code.
-
-Also, this provides drivers possibility to track binding of blocks to
-qdiscs. Legacy drivers which do not support shared block offloading.
-register one callback per binding. That maintains the current
-functionality we have with ndo_setup_tc. Drivers which support block
-sharing offload register one callback per block which safes overhead.
-
-Patches 1-4 introduce the binding notifications and per-block callbacks
-Patches 5-8 add block callbacks calls to classifiers
-Patches 9-17 do convert from ndo_setup_tc calls to block callbacks for
-             classifier offloads in drivers
-Patches 18-20 do cleanup
-
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
-- patch1:
-  - move new enum value to the end
+ include/net/pkt_cls.h  |  4 ++--
+ net/sched/cls_api.c    | 21 ++++++++++++++++++---
+ net/sched/cls_flower.c |  9 ++++++---
+ 3 files changed, 26 insertions(+), 8 deletions(-)
 
-Jiri Pirko (20):
-  net: sched: add block bind/unbind notif. and extended block_get/put
-  net: sched: use extended variants of block_get/put in ingress and
-    clsact qdiscs
-  net: sched: introduce per-block callbacks
-  net: sched: use tc_setup_cb_call to call per-block callbacks
-  net: sched: cls_matchall: call block callbacks for offload
-  net: sched: cls_u32: swap u32_remove_hw_knode and u32_remove_hw_hnode
-  net: sched: cls_u32: call block callbacks for offload
-  net: sched: cls_bpf: call block callbacks for offload
-  mlxsw: spectrum: Convert ndo_setup_tc offloads to block callbacks
-  mlx5e: Convert ndo_setup_tc offloads to block callbacks
-  bnxt: Convert ndo_setup_tc offloads to block callbacks
-  cxgb4: Convert ndo_setup_tc offloads to block callbacks
-  ixgbe: Convert ndo_setup_tc offloads to block callbacks
-  mlx5e_rep: Convert ndo_setup_tc offloads to block callbacks
-  nfp: flower: Convert ndo_setup_tc offloads to block callbacks
-  nfp: bpf: Convert ndo_setup_tc offloads to block callbacks
-  dsa: Convert ndo_setup_tc offloads to block callbacks
-  net: sched: avoid ndo_setup_tc calls for TC_SETUP_CLS*
-  net: sched: remove unused classid field from tc_cls_common_offload
-  net: sched: remove unused is_classid_clsact_ingress/egress helpers
-
- drivers/net/ethernet/broadcom/bnxt/bnxt.c          |  37 ++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c       |   3 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c      |  41 ++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  42 ++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  45 ++++-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  45 ++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   |  62 +++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  83 +++++++---
- drivers/net/ethernet/netronome/nfp/bpf/main.c      |  52 +++++-
- .../net/ethernet/netronome/nfp/flower/offload.c    |  54 +++++-
- include/linux/netdevice.h                          |   1 +
- include/net/pkt_cls.h                              | 129 ++++++++++++++-
- include/net/pkt_sched.h                            |  13 --
- include/net/sch_generic.h                          |   1 +
- net/dsa/slave.c                                    |  64 ++++++--
- net/sched/cls_api.c                                | 182 ++++++++++++++++++++-
- net/sched/cls_bpf.c                                |  28 +++-
- net/sched/cls_flower.c                             |  29 +---
- net/sched/cls_matchall.c                           |  58 +++----
- net/sched/cls_u32.c                                |  67 ++++----
- net/sched/sch_ingress.c                            |  36 +++-
- 22 files changed, 849 insertions(+), 227 deletions(-)
-
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index 4bc6b1c..fcca5a9 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -543,8 +543,8 @@ tcf_match_indev(struct sk_buff *skb, int ifindex)
+ }
+ #endif /* CONFIG_NET_CLS_IND */
+ 
+-int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
+-		     void *type_data, bool err_stop);
++int tc_setup_cb_call(struct tcf_block *block, struct tcf_exts *exts,
++		     enum tc_setup_type type, void *type_data, bool err_stop);
+ 
+ enum tc_block_command {
+ 	TC_BLOCK_BIND,
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index b16c79c..cdfdc24 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -1206,10 +1206,25 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
+ 	return ok_count;
+ }
+ 
+-int tc_setup_cb_call(struct tcf_exts *exts, enum tc_setup_type type,
+-		     void *type_data, bool err_stop)
++int tc_setup_cb_call(struct tcf_block *block, struct tcf_exts *exts,
++		     enum tc_setup_type type, void *type_data, bool err_stop)
+ {
+-	return tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
++	int ok_count;
++	int ret;
++
++	ret = tcf_block_cb_call(block, type, type_data, err_stop);
++	if (ret < 0)
++		return ret;
++	ok_count = ret;
++
++	if (!exts)
++		return ok_count;
++	ret = tc_exts_setup_cb_egdev_call(exts, type, type_data, err_stop);
++	if (ret < 0)
++		return ret;
++	ok_count += ret;
++
++	return ok_count;
+ }
+ EXPORT_SYMBOL(tc_setup_cb_call);
+ 
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 5b7bb96..76b4e0a 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -201,6 +201,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
+ 	struct tc_cls_flower_offload cls_flower = {};
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 
+ 	tc_cls_common_offload_init(&cls_flower.common, tp);
+ 	cls_flower.command = TC_CLSFLOWER_DESTROY;
+@@ -209,7 +210,7 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	if (tc_can_offload(dev))
+ 		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 					      &cls_flower);
+-	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
++	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			 &cls_flower, false);
+ }
+ 
+@@ -220,6 +221,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
+ 	struct tc_cls_flower_offload cls_flower = {};
++	struct tcf_block *block = tp->chain->block;
+ 	bool skip_sw = tc_skip_sw(f->flags);
+ 	int err;
+ 
+@@ -242,7 +244,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+ 		}
+ 	}
+ 
+-	err = tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
++	err = tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			       &cls_flower, skip_sw);
+ 	if (err < 0) {
+ 		fl_hw_destroy_filter(tp, f);
+@@ -261,6 +263,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
+ 	struct tc_cls_flower_offload cls_flower = {};
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 
+ 	tc_cls_common_offload_init(&cls_flower.common, tp);
+ 	cls_flower.command = TC_CLSFLOWER_STATS;
+@@ -270,7 +273,7 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 	if (tc_can_offload(dev))
+ 		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSFLOWER,
+ 					      &cls_flower);
+-	tc_setup_cb_call(&f->exts, TC_SETUP_CLSFLOWER,
++	tc_setup_cb_call(block, &f->exts, TC_SETUP_CLSFLOWER,
+ 			 &cls_flower, false);
+ }
+ 
 -- 
 2.9.5
