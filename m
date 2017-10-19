@@ -1,54 +1,59 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 10/11] can: esd_usb2: Fix can_dlc value for received RTR, frames
-Date: Thu, 19 Oct 2017 13:19:44 +0200
-Message-ID: <20171019111945.13580-11-mkl@pengutronix.de>
+Subject: [PATCH 07/11] can: bcm: check for null sk before deferencing it via the call to sock_net
+Date: Thu, 19 Oct 2017 13:19:41 +0200
+Message-ID: <20171019111945.13580-8-mkl@pengutronix.de>
 References: <20171019111945.13580-1-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de,
-        =?UTF-8?q?Stefan=20M=C3=A4tje?= <Stefan.Maetje@esd.eu>,
-        =?UTF-8?q?Stefan=20M=C3=A4tje?= <stefan.maetje@esd.eu>,
-        linux-stable <stable@vger.kernel.org>,
+        kernel@pengutronix.de, Colin Ian King <colin.king@canonical.com>,
         Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:58543 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:52597 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752088AbdJSLT5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:19:57 -0400
+        by vger.kernel.org with ESMTP id S1752964AbdJSLT4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:19:56 -0400
 In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Mätje <Stefan.Maetje@esd.eu>
+From: Colin Ian King <colin.king@canonical.com>
 
-The dlc member of the struct rx_msg contains also the ESD_RTR flag to
-mark received RTR frames. Without the fix the can_dlc value for received
-RTR frames would always be set to 8 by get_can_dlc() instead of the
-received value.
+The assignment of net via call sock_net will dereference sk. This
+is performed before a sanity null check on sk, so there could be
+a potential null dereference on the sock_net call if sk is null.
+Fix this by assigning net after the sk null check. Also replace
+the sk == NULL with the more usual !sk idiom.
 
-Fixes: 96d8e90382dc ("can: Add driver for esd CAN-USB/2 device")
-Signed-off-by: Stefan Mätje <stefan.maetje@esd.eu>
-Cc: linux-stable <stable@vger.kernel.org>
+Detected by CoverityScan CID#1431862 ("Dereference before null check")
+
+Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM protocol")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/esd_usb2.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/can/bcm.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
-index be928ce62d32..9fdb0f0bfa06 100644
---- a/drivers/net/can/usb/esd_usb2.c
-+++ b/drivers/net/can/usb/esd_usb2.c
-@@ -333,7 +333,7 @@ static void esd_usb2_rx_can_msg(struct esd_usb2_net_priv *priv,
- 		}
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 47a8748d953a..13690334efa3 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1493,13 +1493,14 @@ static int bcm_init(struct sock *sk)
+ static int bcm_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct net *net = sock_net(sk);
++	struct net *net;
+ 	struct bcm_sock *bo;
+ 	struct bcm_op *op, *next;
  
- 		cf->can_id = id & ESD_IDMASK;
--		cf->can_dlc = get_can_dlc(msg->msg.rx.dlc);
-+		cf->can_dlc = get_can_dlc(msg->msg.rx.dlc & ~ESD_RTR);
+-	if (sk == NULL)
++	if (!sk)
+ 		return 0;
  
- 		if (id & ESD_EXTID)
- 			cf->can_id |= CAN_EFF_FLAG;
++	net = sock_net(sk);
+ 	bo = bcm_sk(sk);
+ 
+ 	/* remove bcm_ops, timer, rx_unregister(), etc. */
 -- 
 2.14.2
