@@ -1,140 +1,416 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH v2] ipsec: Fix aborted xfrm policy dump crash
-Date: Thu, 19 Oct 2017 20:51:10 +0800
-Message-ID: <20171019125109.GA13775@gondor.apana.org.au>
-References: <CAHqykcSO0vQvh0uXwDNgXr0ZpP8m4AGZ=ks9FNshJZw0=GWHpw@mail.gmail.com>
- <CANn89iLBO2RzqMzb61Qn=HFncsfYLnXLcUfSqFsDTPakQ2o4FQ@mail.gmail.com>
- <20171017061832.GA3323@secunet.com>
- <CANn89iJmtPQ=HV6xLjTaLS6WnVmiN+PgaObmWWnevcEzLitRTQ@mail.gmail.com>
- <20171018151159.GA5188@gondor.apana.org.au>
- <CANn89iL_QRZUTDXdci+Nsn=oM471N4r6im0zLgHkJANx_X6wbQ@mail.gmail.com>
- <20171019092625.GA12863@gondor.apana.org.au>
- <20171019095704.GA13459@gondor.apana.org.au>
- <20171019143320.00f787bd@vostro.util.wtbts.net>
+From: Mark Brown <broonie@kernel.org>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 19 Oct 2017 14:05:30 +0100
+Message-ID: <20171019130530.ipxwriotybk3ofbd@sirena.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <edumazet@google.com>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="fnkulj3de4kcda5w"
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:48762 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752275AbdJSMvo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 08:51:44 -0400
+Received: from heliosphere.sirena.org.uk ([172.104.155.198]:52996 "EHLO
+        heliosphere.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752099AbdJSNFy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:05:54 -0400
 Content-Disposition: inline
-In-Reply-To: <20171019143320.00f787bd@vostro.util.wtbts.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 19, 2017 at 02:33:20PM +0300, Timo Teras wrote:
->
-> > Fixes: 4c563f7669c1 ("[XFRM]: Speed up xfrm_policy and xfrm_state...")
-> 
-> This is not correct. The original commit works just fine.
 
-OK, I'll change it.
+--fnkulj3de4kcda5w
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> At that time there was no .start which got added just few years ago. I
-> suggest to do the same fix for SA side since it had same issue fixed on
-> the other commit. Your approach with defining the .start is cleaner.
+Hi all,
 
-No we can't use the start on the SA side because as it is start
-is not allowed to fail.
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Thanks,
+  tools/testing/selftests/bpf/test_verifier.c
 
----8<---
-An independent security researcher, Mohamed Ghannam, has reported
-this vulnerability to Beyond Security's SecuriTeam Secure Disclosure
-program.
+between commit:
 
-The xfrm_dump_policy_done function expects xfrm_dump_policy to
-have been called at least once or it will crash.  This can be
-triggered if a dump fails because the target socket's receive
-buffer is full.
+  28e33f9d78eef ("bpf: disallow arithmetic operations on context pointer")
 
-This patch fixes it by using the cb->start mechanism to ensure that
-the initialisation is always done regardless of the buffer situation.
+=66rom the net tree and commit:
 
-Fixes: 12a169e7d8f4 ("ipsec: Put dumpers on the dump list")
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+  22c8852624fc9 ("bpf: improve selftests and add tests for meta pointer")
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 2bfbd91..98a6d65 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1692,32 +1692,34 @@ static int dump_one_policy(struct xfrm_policy *xp, int dir, int count, void *ptr
- 
- static int xfrm_dump_policy_done(struct netlink_callback *cb)
- {
--	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *) &cb->args[1];
-+	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
- 	struct net *net = sock_net(cb->skb->sk);
- 
- 	xfrm_policy_walk_done(walk, net);
- 	return 0;
- }
- 
-+static int xfrm_dump_policy_start(struct netlink_callback *cb)
-+{
-+	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
-+
-+	BUILD_BUG_ON(sizeof(*walk) > sizeof(cb->args));
-+
-+	xfrm_policy_walk_init(walk, XFRM_POLICY_TYPE_ANY);
-+	return 0;
-+}
-+
- static int xfrm_dump_policy(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *) &cb->args[1];
-+	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
- 	struct xfrm_dump_info info;
- 
--	BUILD_BUG_ON(sizeof(struct xfrm_policy_walk) >
--		     sizeof(cb->args) - sizeof(cb->args[0]));
--
- 	info.in_skb = cb->skb;
- 	info.out_skb = skb;
- 	info.nlmsg_seq = cb->nlh->nlmsg_seq;
- 	info.nlmsg_flags = NLM_F_MULTI;
- 
--	if (!cb->args[0]) {
--		cb->args[0] = 1;
--		xfrm_policy_walk_init(walk, XFRM_POLICY_TYPE_ANY);
--	}
--
- 	(void) xfrm_policy_walk(net, walk, dump_one_policy, &info);
- 
- 	return skb->len;
-@@ -2473,6 +2475,7 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 
- static const struct xfrm_link {
- 	int (*doit)(struct sk_buff *, struct nlmsghdr *, struct nlattr **);
-+	int (*start)(struct netlink_callback *);
- 	int (*dump)(struct sk_buff *, struct netlink_callback *);
- 	int (*done)(struct netlink_callback *);
- 	const struct nla_policy *nla_pol;
-@@ -2486,6 +2489,7 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_add_policy    },
- 	[XFRM_MSG_DELPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy    },
- 	[XFRM_MSG_GETPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy,
-+						   .start = xfrm_dump_policy_start,
- 						   .dump = xfrm_dump_policy,
- 						   .done = xfrm_dump_policy_done },
- 	[XFRM_MSG_ALLOCSPI    - XFRM_MSG_BASE] = { .doit = xfrm_alloc_userspi },
-@@ -2538,6 +2542,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- 		{
- 			struct netlink_dump_control c = {
-+				.start = link->start,
- 				.dump = link->dump,
- 				.done = link->done,
- 			};
+=66rom the net-next tree.
 
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+diff --cc tools/testing/selftests/bpf/test_verifier.c
+index 3c7d3a45a3c5,cc91d0159f43..000000000000
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@@ -6645,20 -6645,325 +6645,339 @@@ static struct bpf_test tests[] =3D=20
+  		.errstr =3D "BPF_END uses reserved fields",
+  		.result =3D REJECT,
+  	},
+ +	{
+ +		"arithmetic ops make PTR_TO_CTX unusable",
+ +		.insns =3D {
+ +			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1,
+ +				      offsetof(struct __sk_buff, data) -
+ +				      offsetof(struct __sk_buff, mark)),
+ +			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1,
+ +				    offsetof(struct __sk_buff, mark)),
+ +			BPF_EXIT_INSN(),
+ +		},
+ +		.errstr =3D "dereference of modified ctx ptr R1 off=3D68+8, ctx+const i=
+s allowed, ctx+const+const is not",
+ +		.result =3D REJECT,
+ +		.prog_type =3D BPF_PROG_TYPE_SCHED_CLS,
+ +	},
++ 	{
++ 		"meta access, test1",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test2",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_SUB, BPF_REG_0, 8),
++ 			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_0, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "invalid access to packet, off=3D-8",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test3",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_end)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "invalid access to packet",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test4",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_end)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_4),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "invalid access to packet",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test5",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_3),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_0, BPF_REG_4, 3),
++ 			BPF_MOV64_IMM(BPF_REG_2, -8),
++ 			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
++ 				     BPF_FUNC_xdp_adjust_meta),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_3, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "R3 !read_ok",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test6",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_3),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++ 			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_0, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "invalid access to packet",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test7",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_3),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_0, 8),
++ 			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test8",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 0xFFFF),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test9",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_REG(BPF_REG_4, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 0xFFFF),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 1),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "invalid access to packet",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test10",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_end)),
++ 			BPF_MOV64_IMM(BPF_REG_5, 42),
++ 			BPF_MOV64_IMM(BPF_REG_6, 24),
++ 			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_5, -8),
++ 			BPF_STX_XADD(BPF_DW, BPF_REG_10, BPF_REG_6, -8),
++ 			BPF_LDX_MEM(BPF_DW, BPF_REG_5, BPF_REG_10, -8),
++ 			BPF_JMP_IMM(BPF_JGT, BPF_REG_5, 100, 6),
++ 			BPF_ALU64_REG(BPF_ADD, BPF_REG_3, BPF_REG_5),
++ 			BPF_MOV64_REG(BPF_REG_5, BPF_REG_3),
++ 			BPF_MOV64_REG(BPF_REG_6, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_6, BPF_REG_5, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_2, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D REJECT,
++ 		.errstr =3D "invalid access to packet",
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test11",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_MOV64_IMM(BPF_REG_5, 42),
++ 			BPF_MOV64_IMM(BPF_REG_6, 24),
++ 			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_5, -8),
++ 			BPF_STX_XADD(BPF_DW, BPF_REG_10, BPF_REG_6, -8),
++ 			BPF_LDX_MEM(BPF_DW, BPF_REG_5, BPF_REG_10, -8),
++ 			BPF_JMP_IMM(BPF_JGT, BPF_REG_5, 100, 6),
++ 			BPF_ALU64_REG(BPF_ADD, BPF_REG_2, BPF_REG_5),
++ 			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
++ 			BPF_MOV64_REG(BPF_REG_6, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_6, 8),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_6, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_5, BPF_REG_5, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"meta access, test12",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_meta)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data)),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_4, BPF_REG_1,
++ 				    offsetof(struct xdp_md, data_end)),
++ 			BPF_MOV64_REG(BPF_REG_5, BPF_REG_3),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 16),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_5, BPF_REG_4, 5),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_3, 0),
++ 			BPF_MOV64_REG(BPF_REG_5, BPF_REG_2),
++ 			BPF_ALU64_IMM(BPF_ADD, BPF_REG_5, 16),
++ 			BPF_JMP_REG(BPF_JGT, BPF_REG_5, BPF_REG_3, 1),
++ 			BPF_LDX_MEM(BPF_B, BPF_REG_0, BPF_REG_2, 0),
++ 			BPF_MOV64_IMM(BPF_REG_0, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_XDP,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test1",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.errstr =3D "R0 has value (0x0; 0xffffffff)",
++ 		.result =3D REJECT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test2",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++ 			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 1),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test3",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++ 			BPF_ALU64_IMM(BPF_AND, BPF_REG_0, 3),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.errstr =3D "R0 has value (0x0; 0x3)",
++ 		.result =3D REJECT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test4",
++ 		.insns =3D {
++ 			BPF_MOV64_IMM(BPF_REG_0, 1),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.result =3D ACCEPT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test5",
++ 		.insns =3D {
++ 			BPF_MOV64_IMM(BPF_REG_0, 2),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.errstr =3D "R0 has value (0x2; 0x0)",
++ 		.result =3D REJECT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test6",
++ 		.insns =3D {
++ 			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.errstr =3D "R0 is not a known value (ctx)",
++ 		.result =3D REJECT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
++ 	{
++ 		"bpf_exit with invalid return code. test7",
++ 		.insns =3D {
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, 0),
++ 			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 4),
++ 			BPF_ALU64_REG(BPF_MUL, BPF_REG_0, BPF_REG_2),
++ 			BPF_EXIT_INSN(),
++ 		},
++ 		.errstr =3D "R0 has unknown scalar value",
++ 		.result =3D REJECT,
++ 		.prog_type =3D BPF_PROG_TYPE_CGROUP_SOCK,
++ 	},
+  };
+ =20
+  static int probe_filter_length(const struct bpf_insn *fp)
+
+--fnkulj3de4kcda5w
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlnooxoACgkQJNaLcl1U
+h9BwDQf/S4sDok9QxdzhqGQfb0Kuv1p+5gTBDRNWSUSmI1Fy9z98C2IaivQjpUWS
+fT6AJLcN3go4onhy/1cj82jnayvl6ZDWJeb5I2ROySFtaBSOse3rQfIhGR7DBsfJ
+Pn7eeguKdPknpnNPWe/JbADXatWZxlOPQMDpJqSVNknwDi3qpeMJNWD+oDu3SSte
+Z90kwrNMua7N5/ATdVbDZZy5DVtZ3Gael+W18CNYkYkXcomRCtGbSETsayUcDO1q
+stu1btvxSzBTfvR/rOsbGXmSMx6fgwhWR2x06+IXT5HD2BdANGj0eO1oT2Bacqma
+zoz8uqt4f6vh1and9WL5/N6L3uy6MQ==
+=MYE/
+-----END PGP SIGNATURE-----
+
+--fnkulj3de4kcda5w--
