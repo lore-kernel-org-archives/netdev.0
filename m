@@ -1,49 +1,72 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when
- the kernel is locked down
-Date: Thu, 19 Oct 2017 16:31:08 -0700
-Message-ID: <20171019233105.5ladqpdf2me36j7q@ast-mbp>
-References: <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
- <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk>
- <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk>
- <482.1508453314@warthog.procyon.org.uk>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 32/58] isdn/gigaset: Convert timers to use timer_setup()
+Date: Fri, 20 Oct 2017 01:31:39 +0200
+Message-ID: <1508455899.2274.73.camel@tiscali.nl>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+                  <1508200182-104605-33-git-send-email-keescook@chromium.org>
+                  <1508447002.2274.14.camel@tiscali.nl>
+          <1508448028.2274.21.camel@tiscali.nl>
+          <alpine.DEB.2.20.1710192328110.2054@nanos>
+         <1508449907.2274.28.camel@tiscali.nl>
+         <alpine.DEB.2.20.1710200025470.2054@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jlee-IBi9RG/b67k@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <482.1508453314-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
-Sender: linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.20.1710200025470.2054@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 11:48:34PM +0100, David Howells wrote:
-> Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> 
-> > > @@ -65,6 +65,11 @@ BPF_CALL_3(bpf_probe_read, void *, dst, u32, size, const void *, unsafe_ptr)
-> > >  {
-> > >  	int ret;
-> > >  
-> > > +	if (kernel_is_locked_down("BPF")) {
-> > > +		memset(dst, 0, size);
-> > > +		return -EPERM;
-> > > +	}
-> >
-> > That doesn't help the lockdown purpose.
-> > If you don't trust the root the only way to prevent bpf read
-> > memory is to disable the whole thing.
-> > Have a single check in sys_bpf() to disallow everything if kernel_is_locked_down()
-> > and don't add overhead to critical path like bpf_probe_read().
-> 
-> TBH, I've no idea how bpf does anything, so I can't say whether this is
-> better, overkill or insufficient.
+[CC-ing Linus because I quote him.]
 
-ok. To make it clear:
-Nacked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-For the current patch.
-Unnecessary checks for no good reason in performance critical
-functions are not acceptable.
+On Fri, 2017-10-20 at 00:28 +0200, Thomas Gleixner wrote:
+> Well, that does not explain why
+> 
+>       drivers->cs + i
+> 
+> would be corrupted. That would require that this cs -> urb link points at
+> driver magically and then wreckages that driver data structure. Might be
+> the case, but if so then there are dragons burried somehwere
+
+Let's assume dragons are buried somewhere.
+
+We need users to show us that they met a dragon, right? (I care little about
+dragons no-one ever stumbles upon.)
+
+In the explanation of commit 9f5af546e6ac ("isdn/i4l: fix buffer overflow")
+Linus added:
+    [ ISDN seems to be effectively unmaintained, and the I4L driver in
+      particular is long deprecated, but in case somebody uses this..
+        - Linus ]
+
+ISDN is pretty niche. So it's no surprise that in mainline it's divided into
+three parts: I4L, CAPI, and mISDN.
+
+Arnd Bergmann has suggested more than once to move I4L to staging. (As far as
+I know, moving drivers to staging effectively means removing those drivers,
+but anyhow.) I'd say we'd just should do that. The stuff has been deemed
+deprecated since basically forever.
+
+I never cared about mISDN, but as far as I can see mISDN has quietly left
+mainline.
+
+The only actively maintained CAPI drivers are gigaset's drivers. But I'm
+afraid maintaining gigaset basically means seeing treewide cleanups fly by and
+  keeping the various fuzzers happy. I don't mind, and I could keep on doing
+that for years. But still, I'd love to hear someone say: yes, I still care
+about mainline ISDN.
+
+Does that person still exists?
+
+Thanks,
+
+
+Paul Bolle
