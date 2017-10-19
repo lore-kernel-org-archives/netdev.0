@@ -1,62 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] ip: introduce IFA_F_DHCP flag
-Date: Thu, 19 Oct 2017 12:13:35 +0100 (WEST)
-Message-ID: <20171019.121335.550725279635656330.davem@davemloft.net>
-References: <1508350606-21218-1-git-send-email-girish.moodalbail@oracle.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Subject: Re: [PATCH] lib/dynamic_queue_limits.c: relax BUG_ON to WARN_ON in dql_complete()
+Date: Thu, 19 Oct 2017 12:14:26 +0100
+Message-ID: <CAKv+Gu_Eg-WD-ej7_KpDTWjYm4KrrJkELTxkNkBdE8a1A2Ht3A@mail.gmail.com>
+References: <20171018154515.16751-1-ard.biesheuvel@linaro.org> <20171019.115756.1156159427863267036.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: girish.moodalbail@oracle.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "<netdev@vger.kernel.org>" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47850 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751529AbdJSLNn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:13:43 -0400
-In-Reply-To: <1508350606-21218-1-git-send-email-girish.moodalbail@oracle.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:55489 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752108AbdJSLO1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 07:14:27 -0400
+Received: by mail-it0-f66.google.com with SMTP id l196so9310570itl.4
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 04:14:27 -0700 (PDT)
+In-Reply-To: <20171019.115756.1156159427863267036.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Girish Moodalbail <girish.moodalbail@oracle.com>
-Date: Wed, 18 Oct 2017 11:16:46 -0700
+On 19 October 2017 at 11:57, David Miller <davem@davemloft.net> wrote:
+> From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+> Date: Wed, 18 Oct 2017 16:45:15 +0100
+>
+>> Even though calling dql_completed() with a count that exceeds the
+>> queued count is a serious error, it still does not justify bringing
+>> down the entire kernel with a BUG_ON(). So relax it to a WARN_ON()
+>> instead.
+>>
+>> Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+>
+> This is bogus.
+>
+> Unless you are going to do all of the work necessary to fix
+> the out-of-bounds condition here, you cannot safely continue
+> into the rest of this function.
+>
+> Things are going to explode in many places if you don't, at
+> a minimum, fix the 'count' value to be in range.
+>
+> But like others I don't like this, the driver needs to be fixed
+> urgently if this condition triggers.
+>
+> Sorry I'm not applying this.
 
-> This flag identifies that the address was obtained through DHCP.
-> 
-> Today there is no easy way to find out whether an address on an
-> interface is DHCP controlled or is static. Either you will need to
-> grep for 'dhclient' process (or something else in case one is using a
-> different DHCP client) or if you are using NetworkManager (or some
-> such), then you will need to query through their interface to find out
-> if an address is DHCP or not.
-> 
-> This flag will be set by the DHCP clients in the userspace when it
-> brings up the DHCP address on an interface. For example: ISC DHCP
-> client (aka dhclient) today brings up the address on an interface by
-> running ip-address(8) command (in dhclient-script). This command can
-> be extended to include 'dhcp' keyword in its 'add' or 'replace'
-> subcommand. Once this flag is set, the show subcommand can display the
-> keyword 'dhcp' against the address to indicate that the address was
-> obtained through DHCP.
-> 
-> This flag can also be set and obtained programmatically using
-> AF_NETLINK. Besides providing observability, this flag will be useful
-> for applications that need to prevent/allow certain settings on
-> addresses based on whether they are DHCP or not.
-> 
-> Signed-off-by: Girish Moodalbail <girish.moodalbail@oracle.com>
-
-Well, two things.
-
-if nobody has asked for this for 25+ years, I have serious doubts that
-there is something fundamental you cannot do without this piece of
-information.
-
-Second, a lack of this flag being set won't mean "is static", it will
-mean "might be STATIC, might be DHCP" and frankly that is completely
-useless.  It is this way because you cannot have every dhcp agent on
-every Linux system changed immediately.
-
-I think it will give a false sense of accuracy, even on tightly
-controlled sets of userspace components.
-
-I'm not applying this, sorry.
+Fair enough.
