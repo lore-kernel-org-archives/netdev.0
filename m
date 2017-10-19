@@ -1,105 +1,66 @@
-From: Pavlos Parissis <pavlos.parissis@gmail.com>
-Subject: Instability of i40e driver on 4.9 kernel
-Date: Fri, 20 Oct 2017 01:02:59 +0200
-Message-ID: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
+From: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Fri, 20 Oct 2017 10:11:33 +1100
+Message-ID: <8f495870-dd6c-23b9-b82b-4228a441c729@suse.de>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+ <2307769.VGpzlLa4Dp@x2>
+ <20171019195747.4ssujtaj3f5ipsoh@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="WJpVl5oo2SOq6of6t5w9Qg9mnefG94DIK"
-Cc: Alexander Duyck <alexander.duyck@gmail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:53457 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750968AbdJSXDD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 19:03:03 -0400
-Received: by mail-wr0-f176.google.com with SMTP id u40so3937871wrf.10
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 16:03:02 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---WJpVl5oo2SOq6of6t5w9Qg9mnefG94DIK
-Content-Type: multipart/mixed; boundary="oBvB1weDc5E2jfcUsmRXmVQqV5McCBMjM";
- protected-headers="v1"
-From: Pavlos Parissis <pavlos.parissis@gmail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Cc: Alexander Duyck <alexander.duyck@gmail.com>
-Message-ID: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
-Subject: Instability of i40e driver on 4.9 kernel
-
---oBvB1weDc5E2jfcUsmRXmVQqV5McCBMjM
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
+        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171019195747.4ssujtaj3f5ipsoh-bcJWsdo4jJjeVoXN4CMphl7TgLCtbB0G@public.gmane.org>
 Content-Language: en-US
-Content-Transfer-Encoding: quoted-printable
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+>>> The registration is a pseudo filesystem (proc, since PID tree already
+>>> exists) write of a u8[16] UUID representing the container ID to a file
+>>> representing a process that will become the first process in a new
+>>> container.  This write might place restrictions on mount namespaces
+>>> required to define a container, or at least careful checking of
+>>> namespaces in the kernel to verify permissions of the orchestrator so it
+>>> can't change its own container ID.  A bind mount of nsfs may be
+>>> necessary in the container orchestrator's mntNS.
+>>> Note: Use a 128-bit scalar rather than a string to make compares faster
+>>> and simpler.
+>>>
+>>> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
+>>> registration.
+>>
+>> Wouldn't CAP_AUDIT_WRITE be sufficient? After all, this is for auditing.
+> 
+> No, because then any process with that capability (vsftpd) could change
+> its own container ID.  This is discussed more in other parts of the
+> thread...
 
-We have been running 4.9 kernels for several months on CentOS 7.3 and for=
- few weeks on CentOS 7.4,
-and, after we replaced 10GbE cobber cards(X540-AT2 with ixgbe driver) wit=
-h X710 10GbE SFP cards
-using i40e driver, we noticed sever instabilities on our servers.
+Not if we make the container ID append-only (to support nesting), or 
+write-once (the other idea thrown around). In that case, you can't move 
+"out" from a particular container ID, you can only go "deeper". These 
+semantics don't make sense for generic containers, but since the point 
+of this facility is *specifically* for audit I imagine that not being 
+able to move a process from a sub-container's ID is a benefit.
 
-On several servers the links were marked down and up again, without any o=
-bvious reasons expect a lot
-of errors on kernel.log. We run Bird Internet daemon on our servers in or=
-der to establish BGP
-peerings with routers and we have observed flapping on BGP peerings. At t=
-he same time we had BGP
-peering stabilities issues we had kernel errors. We decided to go back to=
- 3.10 kernel from CentOS,
-but that process wasn't smooth as latest firmware gave us problems with s=
-peed detection. We rolled
-back to two version old and speed detection issue was resolved. We have b=
-een running 3.10 several
-weeks without any problems. Even we want certain functionality from kerne=
-l 4.9, we decided to switch
-back to 3.10 as stability of our systems has higher priority.
-
-I need to mention that in all occurrences of the issue we didn't see any =
-anomalies, such DDOS
-attacks and etc.
-
-I have opened https://communities.intel.com/message/501682#501682 and the=
-re you can find all the
-error messages and other information.
-
-Since we noticed the issues, I have been following netdev ML and I know t=
-hat there are a lot of
-improvements/patched queued up for 4.14 and I am hoping those patches fix=
- our issue and most
-importantly are sent to linux-stable for inclusion in 4.9 kernel.
-
-Cheers,
-Pavlos
-
-
-
---oBvB1weDc5E2jfcUsmRXmVQqV5McCBMjM--
-
---WJpVl5oo2SOq6of6t5w9Qg9mnefG94DIK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEHZDZK6DBu+YUj6+dg/yS2h9xdrkFAlnpLyMACgkQg/yS2h9x
-drnQcRAAqupM6SMaj9TzGuYUZu+Eq63n+WrbOTKfNXFyzOa+WSPSHZBYu7efjI3Q
-1mG1p5NJIW/2KbLIdcHpe3Y/9U7DIXDVTF2EpYVPaRn1radtoSnRyEMmbkW/ps0+
-kqpiP3HVNIZ9eZInQXjT7XhXZ68+KqPHmrrk+bl3ksfYTO1YHOmsBlAYQXnleLwl
-byalZiQ6PhcDRL/7YveH582TVdefnInQmDFDWUC0BZErltxbj53FLH/Zk0vLvmEh
-7P5kSXdH+5wONi/O6mcCZoer0IzdEAUCQ1/ojlG6HVZEyp7FeUGTQ2uU5pWezOfv
-/WcS4KsmFFuRakP+hA0UhN9slYv8PT3kNB3cLzubomhXMTg5f/8a2rOzI3cA4HRN
-iJNUrW+o6VpOxgjNzMZV3/3Z1LR03yv4cL9xqVM68v1FjM9BJsmaZa1y6jOpXE6j
-fhJ4puyvhYwORq2EPWUzsqW/RplF8ThLzNiAoPMjrJgZMSfDf76pTuSfvltL/Sec
-D79MbhA99s6IOl0AsUlOcsTejODeRw+x24aOtj94P+pc0V7P0Cc7wWwWrroqTOIE
-0B653NzJxmd1OS94x8twDdchiB5lf1fQExg4bnmEgRIHJvrRlD88pdexr9HjPppq
-hsAdKgcXCiM/TCRniWQUkzAumoUNX1Breg00etFm91yeAFuAeVQ=
-=HS5P
------END PGP SIGNATURE-----
-
---WJpVl5oo2SOq6of6t5w9Qg9mnefG94DIK--
+-- 
+Aleksa Sarai
+Senior Software Engineer (Containers)
+SUSE Linux GmbH
+https://www.cyphar.com/
