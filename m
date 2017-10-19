@@ -1,36 +1,61 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 31/58] isdn/gigaset: Use kzalloc instead of open-coded
- field zeroing
-Date: Thu, 19 Oct 2017 22:46:31 +0200
-Message-ID: <1508445991.2274.1.camel@tiscali.nl>
-References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
-         <1508200182-104605-32-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-        Johan Hovold <johan@kernel.org>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-        Thomas Gleixner <tglx@linutronix.de>,
-        linux-kernel@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>,
-        "David S. Miller" <davem@davemloft.net>
+From: greearb@candelatech.com
+Subject: [PATCH] ethtool:  Do not return error code if no changes were attempted.
+Date: Thu, 19 Oct 2017 13:58:09 -0700
+Message-ID: <1508446689-16851-1-git-send-email-greearb@candelatech.com>
+Cc: linville@tuxdriver.com, Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb2-smtp-cloud8.xs4all.net ([194.109.24.25]:42255 "EHLO
-        lb2-smtp-cloud8.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752036AbdJSUqh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:46:37 -0400
-In-Reply-To: <1508200182-104605-32-git-send-email-keescook@chromium.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:40698 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752220AbdJSU6V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:58:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-10-16 at 17:29 -0700, Kees Cook wrote:
-> This replaces a kmalloc followed by a bunch of per-field zeroing with a
-> single kzalloc call, reducing the lines of code.
+From: Ben Greear <greearb@candelatech.com>
 
-Acked-by: Paul Bolle <pebolle@tiscali.nl>
+This makes it easier to properly handle errors when calling this
+from scripts, etc.
 
-Thanks,
+Old behaviour:
 
+combined unmodified, ignoring
+no channel parameters changed, aborting
+current values: tx 0 rx 0 other 1 combined 1
+[root@lf0313-6477 ethtool]# echo $?
+1
 
-Paul Bolle
+New behaviour:
+
+combined unmodified, ignoring
+no channel parameters changed.
+current values: tx 0 rx 0 other 1 combined 1
+[root@lf0313-6477 ethtool]# echo $?
+0
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ ethtool.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ethtool.c b/ethtool.c
+index ad18704..224efdb 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -1994,12 +1994,12 @@ static int do_schannels(struct cmd_context *ctx)
+ 			&changed);
+ 
+ 	if (!changed) {
+-		fprintf(stderr, "no channel parameters changed, aborting\n");
++		fprintf(stderr, "no channel parameters changed.\n");
+ 		fprintf(stderr, "current values: tx %u rx %u other %u"
+ 			" combined %u\n", echannels.rx_count,
+ 			echannels.tx_count, echannels.other_count,
+ 			echannels.combined_count);
+-		return 1;
++		return 0;
+ 	}
+ 
+ 	echannels.cmd = ETHTOOL_SCHANNELS;
+-- 
+2.7.5
