@@ -1,166 +1,63 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: sched: mark expected switch fall-throughs
-Date: Thu, 19 Oct 2017 16:28:24 -0500
-Message-ID: <20171019212824.GA7885@embeddedor.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 32/58] isdn/gigaset: Convert timers to use
+ timer_setup()
+Date: Thu, 19 Oct 2017 23:31:20 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1710192328110.2054@nanos>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>         <1508200182-104605-33-git-send-email-keescook@chromium.org>         <1508447002.2274.14.camel@tiscali.nl> <1508448028.2274.21.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway32.websitewelcome.com ([192.185.145.125]:40539 "EHLO
-        gateway32.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751346AbdJSV20 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 17:28:26 -0400
-Received: from cm14.websitewelcome.com (cm14.websitewelcome.com [100.42.49.7])
-        by gateway32.websitewelcome.com (Postfix) with ESMTP id D26494EDA10
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 16:28:25 -0500 (CDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508448028.2274.21.camel@tiscali.nl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
+On Thu, 19 Oct 2017, Paul Bolle wrote:
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only (GCC 7.2.0 was used).
-Please, verify if the actual intention of the code is to fall through.
+> On Thu, 2017-10-19 at 23:03 +0200, Paul Bolle wrote:
+> > On Mon, 2017-10-16 at 17:29 -0700, Kees Cook wrote:
+> > > In preparation for unconditionally passing the struct timer_list pointer to
+> > > all timer callbacks, switch to using the new timer_setup() and from_timer()
+> > > to pass the timer pointer explicitly.
+> > 
+> > Acked-by: Paul Bolle <pebolle@tiscali.nl>
+> 
+> I have to take this back, sorry!
+> 
+> > For the record: this patch made me nervous but survived the rigorous testing I
+> > threw at it. (Ie, dialing up using bas_gigaset and downloading almost 20 MB in
+> > just over an hour. Whoot! That's more than good enough to ack this patch.)
+> > 
+> > There was some cleanup I had in mind to make this patch more straightforward.
+> > But that can wait until someone finds a way to hit an issue with this patch.
+> > We'll see.
+> 
+> That someone turns out to be me, doing "modprobe -r bas_gigaset":
+> 
+> <1>[30143.538135] BUG: unable to handle kernel NULL pointer dereference at 000001e9
+> <1>[30143.538154] IP: mutex_lock+0x19/0x30
+> <0>[30143.538300]  gigaset_shutdown+0x28/0x130 [gigaset]
+> <0>[30143.538307]  ? find_module_all+0x62/0x80
+> <0>[30143.538314]  bas_gigaset_exit+0x31/0x1077 [bas_gigaset]
 
- net/sched/sch_cbq.c      | 1 +
- net/sched/sch_drr.c      | 1 +
- net/sched/sch_fq_codel.c | 1 +
- net/sched/sch_hfsc.c     | 1 +
- net/sched/sch_htb.c      | 1 +
- net/sched/sch_multiq.c   | 1 +
- net/sched/sch_prio.c     | 1 +
- net/sched/sch_qfq.c      | 1 +
- net/sched/sch_sfb.c      | 1 +
- net/sched/sch_sfq.c      | 1 +
- 10 files changed, 10 insertions(+)
+bas_gigaset_exit()
+{
+        for (i = 0; i < driver->minors; i++) {
+                if (gigaset_shutdown(driver->cs + i) < 0)
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index c3b92d6..6361be7 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -255,6 +255,7 @@ cbq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		case TC_ACT_RECLASSIFY:
-diff --git a/net/sched/sch_drr.c b/net/sched/sch_drr.c
-index 753dc7a..5bbcef3 100644
---- a/net/sched/sch_drr.c
-+++ b/net/sched/sch_drr.c
-@@ -321,6 +321,7 @@ static struct drr_class *drr_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 3c40ede..0305d79 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -105,6 +105,7 @@ static unsigned int fq_codel_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return 0;
- 		}
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index a692184..d04068a 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1144,6 +1144,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 57be73c..fa03807 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -244,6 +244,7 @@ static struct htb_class *htb_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-index 31e0a28..0122163 100644
---- a/net/sched/sch_multiq.c
-+++ b/net/sched/sch_multiq.c
-@@ -54,6 +54,7 @@ multiq_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 	case TC_ACT_QUEUED:
- 	case TC_ACT_TRAP:
- 		*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+		/* fall through */
- 	case TC_ACT_SHOT:
- 		return NULL;
- 	}
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 95fad34..2c79559 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -50,6 +50,7 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 8694c7b..6962b37 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -709,6 +709,7 @@ static struct qfq_class *qfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		case TC_ACT_STOLEN:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return NULL;
- 		}
-diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
-index 487d375..0678deb 100644
---- a/net/sched/sch_sfb.c
-+++ b/net/sched/sch_sfb.c
-@@ -268,6 +268,7 @@ static bool sfb_classify(struct sk_buff *skb, struct tcf_proto *fl,
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return false;
- 		}
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 123a53a..6d4b59d 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -189,6 +189,7 @@ static unsigned int sfq_classify(struct sk_buff *skb, struct Qdisc *sch,
- 		case TC_ACT_QUEUED:
- 		case TC_ACT_TRAP:
- 			*qerr = NET_XMIT_SUCCESS | __NET_XMIT_STOLEN;
-+			/* fall through */
- 		case TC_ACT_SHOT:
- 			return 0;
- 		}
--- 
-2.7.4
+gigaset_shutdown(cs)
+{
+	mutex_lock(&cs->mutex); <-------- Explodes here
+
+So driver->cs + i is invalid. No idea how that might be related to that
+timer conversion patch, but ....
+
+Thanks,
+
+	tglx
