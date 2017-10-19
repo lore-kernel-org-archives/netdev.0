@@ -1,14 +1,14 @@
 From: greearb@candelatech.com
-Subject: [PATCH] ethtool:  Do not return error code if no changes were attempted.
-Date: Thu, 19 Oct 2017 13:58:09 -0700
-Message-ID: <1508446689-16851-1-git-send-email-greearb@candelatech.com>
+Subject: [PATCH v2] ethtool:  Do not return error code if no changes were attempted.
+Date: Thu, 19 Oct 2017 14:01:19 -0700
+Message-ID: <1508446879-17056-1-git-send-email-greearb@candelatech.com>
 Cc: linville@tuxdriver.com, Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:40698 "EHLO
+Received: from mail2.candelatech.com ([208.74.158.173]:40846 "EHLO
         mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752220AbdJSU6V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:58:21 -0400
+        with ESMTP id S1752036AbdJSVBZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 17:01:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -19,6 +19,7 @@ from scripts, etc.
 
 Old behaviour:
 
+$ ethtool -L eth3 combined 1
 combined unmodified, ignoring
 no channel parameters changed, aborting
 current values: tx 0 rx 0 other 1 combined 1
@@ -27,6 +28,7 @@ current values: tx 0 rx 0 other 1 combined 1
 
 New behaviour:
 
+$ ./ethtool -L eth3 combined 1
 combined unmodified, ignoring
 no channel parameters changed.
 current values: tx 0 rx 0 other 1 combined 1
@@ -35,6 +37,9 @@ current values: tx 0 rx 0 other 1 combined 1
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
+
+v2:  Fix comments, the # ./ethtool .... was removed by git of course.
+
  ethtool.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
