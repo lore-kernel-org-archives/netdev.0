@@ -1,75 +1,63 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 02/11] can: flexcan: rename legacy error state quirk
-Date: Thu, 19 Oct 2017 13:19:36 +0200
-Message-ID: <20171019111945.13580-3-mkl@pengutronix.de>
+Subject: [PATCH 11/11] can: gs_usb: fix busy loop if no more TX context is available
+Date: Thu, 19 Oct 2017 13:19:45 +0200
+Message-ID: <20171019111945.13580-12-mkl@pengutronix.de>
 References: <20171019111945.13580-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de,
-        "ZHU Yi (ST-FIR/ENG1-Zhu)" <Yi.Zhu5@cn.bosch.com>,
-        Zhu Yi <yi.zhu5@cn.bosch.com>,
-        Mark Jonas <mark.jonas@de.bosch.com>,
+        kernel@pengutronix.de, Wolfgang Grandegger <wg@grandegger.com>,
         linux-stable <stable@vger.kernel.org>,
         Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "ZHU Yi (ST-FIR/ENG1-Zhu)" <Yi.Zhu5@cn.bosch.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
 
-Rename FLEXCAN_QUIRK_BROKEN_ERR_STATE to FLEXCAN_QUIRK_BROKEN_WERR_STATE
-for better description of the missing [TR]WRN_INT quirk.
+If sending messages with no cable connected, it quickly happens that
+there is no more TX context available. Then "gs_can_start_xmit()"
+returns with "NETDEV_TX_BUSY" and the upper layer does retry
+immediately keeping the CPU busy. To fix that issue, I moved
+"atomic_dec(&dev->active_tx_urbs)" from "gs_usb_xmit_callback()" to
+the TX done handling in "gs_usb_receive_bulk_callback()". Renaming
+"active_tx_urbs" to "active_tx_contexts" and moving it into
+"gs_[alloc|free]_tx_context()" would also make sense.
 
-Signed-off-by: Zhu Yi <yi.zhu5@cn.bosch.com>
-Signed-off-by: Mark Jonas <mark.jonas@de.bosch.com>
-Acked-by: Wolfgang Grandegger <wg@grandegger.com>
-Cc: linux-stable <stable@vger.kernel.org> # >= v4.11
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/flexcan.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/can/usb/gs_usb.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index df4bfb83024c..e163c55e737b 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -193,7 +193,7 @@
-  *
-  * Some SOCs do not have the RX_WARN & TX_WARN interrupt line connected.
-  */
--#define FLEXCAN_QUIRK_BROKEN_ERR_STATE	BIT(1) /* [TR]WRN_INT not connected */
-+#define FLEXCAN_QUIRK_BROKEN_WERR_STATE	BIT(1) /* [TR]WRN_INT not connected */
- #define FLEXCAN_QUIRK_DISABLE_RXFG	BIT(2) /* Disable RX FIFO Global mask */
- #define FLEXCAN_QUIRK_ENABLE_EACEN_RRS	BIT(3) /* Enable EACEN and RRS bit in ctrl2 */
- #define FLEXCAN_QUIRK_DISABLE_MECR	BIT(4) /* Disable Memory error detection */
-@@ -281,7 +281,7 @@ struct flexcan_priv {
- };
+diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
+index afcc1312dbaf..68ac3e88a8ce 100644
+--- a/drivers/net/can/usb/gs_usb.c
++++ b/drivers/net/can/usb/gs_usb.c
+@@ -375,6 +375,8 @@ static void gs_usb_receive_bulk_callback(struct urb *urb)
  
- static const struct flexcan_devtype_data fsl_p1010_devtype_data = {
--	.quirks = FLEXCAN_QUIRK_BROKEN_ERR_STATE,
-+	.quirks = FLEXCAN_QUIRK_BROKEN_WERR_STATE,
- };
+ 		gs_free_tx_context(txc);
  
- static const struct flexcan_devtype_data fsl_imx28_devtype_data;
-@@ -767,7 +767,7 @@ static irqreturn_t flexcan_irq(int irq, void *dev_id)
++		atomic_dec(&dev->active_tx_urbs);
++
+ 		netif_wake_queue(netdev);
+ 	}
  
- 	/* state change interrupt or broken error state quirk fix is enabled */
- 	if ((reg_esr & FLEXCAN_ESR_ERR_STATE) ||
--	    (priv->devtype_data->quirks & FLEXCAN_QUIRK_BROKEN_ERR_STATE))
-+	    (priv->devtype_data->quirks & FLEXCAN_QUIRK_BROKEN_WERR_STATE))
- 		flexcan_irq_state(dev, reg_esr);
+@@ -463,14 +465,6 @@ static void gs_usb_xmit_callback(struct urb *urb)
+ 			  urb->transfer_buffer_length,
+ 			  urb->transfer_buffer,
+ 			  urb->transfer_dma);
+-
+-	atomic_dec(&dev->active_tx_urbs);
+-
+-	if (!netif_device_present(netdev))
+-		return;
+-
+-	if (netif_queue_stopped(netdev))
+-		netif_wake_queue(netdev);
+ }
  
- 	/* bus error IRQ - handle if bus error reporting is activated */
-@@ -888,7 +888,7 @@ static int flexcan_chip_start(struct net_device *dev)
- 	 * on most Flexcan cores, too. Otherwise we don't get
- 	 * any error warning or passive interrupts.
- 	 */
--	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_BROKEN_ERR_STATE ||
-+	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_BROKEN_WERR_STATE ||
- 	    priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)
- 		reg_ctrl |= FLEXCAN_CTRL_ERR_MSK;
- 	else
+ static netdev_tx_t gs_can_start_xmit(struct sk_buff *skb,
 -- 
 2.14.2
-
