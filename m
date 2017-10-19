@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 15/20] nfp: flower: Convert ndo_setup_tc offloads to block callbacks
-Date: Thu, 19 Oct 2017 15:50:43 +0200
-Message-ID: <20171019135048.4306-16-jiri@resnulli.us>
+Subject: [patch net-next v2 12/20] cxgb4: Convert ndo_setup_tc offloads to block callbacks
+Date: Thu, 19 Oct 2017 15:50:40 +0200
+Message-ID: <20171019135048.4306-13-jiri@resnulli.us>
 References: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,12 +14,12 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:50546 "EHLO
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:46271 "EHLO
         mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753776AbdJSNvD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:03 -0400
-Received: by mail-wr0-f194.google.com with SMTP id q42so8414401wrb.7
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:51:03 -0700 (PDT)
+        with ESMTP id S1753793AbdJSNvB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:01 -0400
+Received: by mail-wr0-f194.google.com with SMTP id l1so8417638wrc.3
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:51:00 -0700 (PDT)
 In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,88 +27,90 @@ List-ID: <netdev.vger.kernel.org>
 From: Jiri Pirko <jiri@mellanox.com>
 
 Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for flower offloads to block callbacks.
+convert ndo_setup_tc calls for flower and u32 offloads to block callbacks.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/netronome/nfp/flower/offload.c    | 56 ++++++++++++++++++----
- 1 file changed, 48 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 45 +++++++++++++++++++++----
+ 1 file changed, 39 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 6f239c2..f8523df 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -449,6 +449,10 @@ static int
- nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
- 			struct tc_cls_flower_offload *flower)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 8d97ae6..ca0b96b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2884,8 +2884,7 @@ static int cxgb_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
+ static int cxgb_setup_tc_flower(struct net_device *dev,
+ 				struct tc_cls_flower_offload *cls_flower)
  {
-+	if (!eth_proto_is_802_3(flower->common.protocol) ||
-+	    flower->common.chain_index)
-+		return -EOPNOTSUPP;
-+
- 	switch (flower->command) {
- 	case TC_CLSFLOWER_REPLACE:
- 		return nfp_flower_add_offload(app, netdev, flower);
-@@ -461,16 +465,52 @@ nfp_flower_repr_offload(struct nfp_app *app, struct net_device *netdev,
- 	return -EOPNOTSUPP;
- }
- 
--int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
--			enum tc_setup_type type, void *type_data)
-+static int nfp_flower_setup_tc_block_cb(enum tc_setup_type type,
-+					void *type_data, void *cb_priv)
-+{
-+	struct nfp_net *nn = cb_priv;
-+
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return nfp_flower_repr_offload(nn->app, nn->port->netdev,
-+					       type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int nfp_flower_setup_tc_block(struct net_device *netdev,
-+				     struct tc_block_offload *f)
- {
--	struct tc_cls_flower_offload *cls_flower = type_data;
-+	struct nfp_net *nn = netdev_priv(netdev);
- 
--	if (type != TC_SETUP_CLSFLOWER ||
--	    !is_classid_clsact_ingress(cls_flower->common.classid) ||
--	    !eth_proto_is_802_3(cls_flower->common.protocol) ||
+-	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
 -	    cls_flower->common.chain_index)
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
++	if (cls_flower->common.chain_index)
  		return -EOPNOTSUPP;
  
--	return nfp_flower_repr_offload(app, netdev, cls_flower);
+ 	switch (cls_flower->command) {
+@@ -2903,8 +2902,7 @@ static int cxgb_setup_tc_flower(struct net_device *dev,
+ static int cxgb_setup_tc_cls_u32(struct net_device *dev,
+ 				 struct tc_cls_u32_offload *cls_u32)
+ {
+-	if (!is_classid_clsact_ingress(cls_u32->common.classid) ||
+-	    cls_u32->common.chain_index)
++	if (cls_u32->common.chain_index)
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (cls_u32->command) {
+@@ -2918,9 +2916,10 @@ static int cxgb_setup_tc_cls_u32(struct net_device *dev,
+ 	}
+ }
+ 
+-static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
+-			 void *type_data)
++static int cxgb_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
++				  void *cb_priv)
+ {
++	struct net_device *dev = cb_priv;
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 	struct adapter *adap = netdev2adap(dev);
+ 
+@@ -2941,6 +2940,40 @@ static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ 	}
+ }
+ 
++static int cxgb_setup_tc_block(struct net_device *dev,
++			       struct tc_block_offload *f)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
++		return -EOPNOTSUPP;
++
 +	switch (f->command) {
 +	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block,
-+					     nfp_flower_setup_tc_block_cb,
-+					     nn, nn);
++		return tcf_block_cb_register(f->block, cxgb_setup_tc_block_cb,
++					     pi, dev);
 +	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block,
-+					nfp_flower_setup_tc_block_cb,
-+					nn);
++		tcf_block_cb_unregister(f->block, cxgb_setup_tc_block_cb, pi);
 +		return 0;
 +	default:
 +		return -EOPNOTSUPP;
 +	}
 +}
 +
-+int nfp_flower_setup_tc(struct nfp_app *app, struct net_device *netdev,
-+			enum tc_setup_type type, void *type_data)
++static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
++			 void *type_data)
 +{
 +	switch (type) {
++	case TC_SETUP_CLSU32:
 +	case TC_SETUP_CLSFLOWER:
 +		return 0; /* will be removed after conversion from ndo */
 +	case TC_SETUP_BLOCK:
-+		return nfp_flower_setup_tc_block(netdev, type_data);
++		return cxgb_setup_tc_block(dev, type_data);
 +	default:
 +		return -EOPNOTSUPP;
 +	}
- }
++}
++
+ static netdev_features_t cxgb_fix_features(struct net_device *dev,
+ 					   netdev_features_t features)
+ {
 -- 
 2.9.5
