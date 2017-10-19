@@ -1,125 +1,58 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] timer: Provide wrappers safe for use with LOCKDEP
-Date: Thu, 19 Oct 2017 13:28:38 -0700
-Message-ID: <20171019202838.GA43223@beast>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
+ NVRAM config param
+Date: Thu, 19 Oct 2017 20:32:21 +0000
+Message-ID: <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
+ <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Craig Gallek <cgallek@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "linville@tuxdriver.com" <linville@tuxdriver.com>,
+        "gospo@broadcom.com" <gospo@broadcom.com>
+To: Steve Lin <steven.lin1@broadcom.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr20048.outbound.protection.outlook.com ([40.107.2.48]:31472
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753370AbdJSUcZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Oct 2017 16:32:25 -0400
+In-Reply-To: <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Under LOCKDEP, the timer lock_class_key (set up in __setup_timer) needs
-to be tied to the caller's context, so an inline for timer_setup()
-won't work. We do, however, want to keep the inline version around for
-argument type checking, though, so this provides macro wrappers in the
-LOCKDEP case.
+> Adding DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF permanent
+> config
+> parameter.  Defines number of MSI-X vectors allocated per VF.
+> Value is permanent (stored in NVRAM), so becomes the new default
+> value for this device.
 
-This fixes the case of different timers sharing the same LOCKDEP instance,
-and producing a false positive warning:
+Sounds like you're having this enforce the same configuration for all child=
+ VFs.
 
-[  580.840858] ======================================================
-[  580.842299] WARNING: possible circular locking dependency detected
-[  580.843684] 4.14.0-rc4+ #17 Not tainted
-[  580.844554] ------------------------------------------------------
-[  580.845945] swapper/9/0 is trying to acquire lock:
-[  580.847024]  (slock-AF_INET){+.-.}, at: [<ffffffff84ea4c34>] tcp_write_timer+0x24/0xd0
-[  580.848834]
-               but task is already holding lock:
-[  580.850107]  ((timer)#2){+.-.}, at: [<ffffffff846df7c0>] call_timer_fn+0x0/0x300
-[  580.851663]
-               which lock already depends on the new lock.
-
-[  580.853439]
-               the existing dependency chain (in reverse order) is:
-[  580.855311]
-               -> #1 ((timer)#2){+.-.}:
-[  580.856538]        __lock_acquire+0x114d/0x11a0
-[  580.857506]        lock_acquire+0xb0/0x1d0
-[  580.858373]        del_timer_sync+0x3c/0xb0
-[  580.859260]        inet_csk_reqsk_queue_drop+0x7f/0x1b0
-...
-               -> #0 (slock-AF_INET){+.-.}:
-[  580.884980]        check_prev_add+0x666/0x700
-[  580.885790]        __lock_acquire+0x114d/0x11a0
-[  580.886575]        lock_acquire+0xb0/0x1d0
-[  580.887289]        _raw_spin_lock+0x2c/0x40
-[  580.888021]        tcp_write_timer+0x24/0xd0
-...
-[  580.900055]  Possible unsafe locking scenario:
-
-[  580.901043]        CPU0                    CPU1
-[  580.901797]        ----                    ----
-[  580.902540]   lock((timer)#2);
-[  580.903046]                                lock(slock-AF_INET);
-[  580.904006]                                lock((timer)#2);
-[  580.904915]   lock(slock-AF_INET);
-[  580.905502]
-
-In this report, del_timer_sync() is from:
-
-	inet_csk_reqsk_queue_drop()
-		reqsk_queue_unlink()
-			del_timer_sync(&req->rsk_timer)
-
-but tcp_write_timer()'s timer is attached to icsk_retransmit_timer. Both
-had the same lock_class_key, since they were using timer_setup(). Switching
-to a macro allows for a separate context, avoiding the false positive.
-
-Reported-by: Craig Gallek <cgallek@google.com>
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
-This means that all the trees taking conversions are at risk for harmless
-LOCKDEP warnings until this is landed. Putting this in v4.14 doesn't make
-sense since no one is going to rebase their trees. Also, it depends on
-the timer_setup_on_stack() function that was added in -next in timers/core.
-Any thoughts on the best way to deal with this?
----
- include/linux/timer.h | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
-
-diff --git a/include/linux/timer.h b/include/linux/timer.h
-index 10685c33e679..09950482309b 100644
---- a/include/linux/timer.h
-+++ b/include/linux/timer.h
-@@ -150,6 +150,7 @@ static inline void init_timer_on_stack_key(struct timer_list *timer,
- #define TIMER_DATA_TYPE		unsigned long
- #define TIMER_FUNC_TYPE		void (*)(TIMER_DATA_TYPE)
- 
-+#ifndef CONFIG_LOCKDEP
- static inline void timer_setup(struct timer_list *timer,
- 			       void (*callback)(struct timer_list *),
- 			       unsigned int flags)
-@@ -165,6 +166,19 @@ static inline void timer_setup_on_stack(struct timer_list *timer,
- 	__setup_timer_on_stack(timer, (TIMER_FUNC_TYPE)callback,
- 			       (TIMER_DATA_TYPE)timer, flags);
- }
-+#else
-+/*
-+ * Under LOCKDEP, the timer lock_class_key (set up in __init_timer) needs
-+ * to be tied to the caller's context, so an inline (above) won't work. We
-+ * do want to keep the inline for argument type checking, though.
-+ */
-+# define timer_setup(timer, callback, flags)				\
-+		__setup_timer(timer, (TIMER_FUNC_TYPE)callback,		\
-+			      (TIMER_DATA_TYPE)timer, flags)
-+# define timer_setup_on_stack(timer, callback, flags)			\
-+		__setup_timer_on_stack(timer, (TIMER_FUNC_TYPE)callback,\
-+				       (TIMER_DATA_TYPE)timer, flags)
-+#endif
- 
- #define from_timer(var, callback_timer, timer_fieldname) \
- 	container_of(callback_timer, typeof(*var), timer_fieldname)
--- 
-2.7.4
-
-
--- 
-Kees Cook
-Pixel Security
+>=20
+> Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+> Acked-by: Andy Gospodarek <gospo@broadcom.com>
+> ---
+>  include/uapi/linux/devlink.h | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+> index 8ad6c63..ef163b6 100644
+> --- a/include/uapi/linux/devlink.h
+> +++ b/include/uapi/linux/devlink.h
+> @@ -260,6 +260,7 @@ enum devlink_perm_config_param {
+>  	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
+>  	DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
+>  	DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT,
+> +	DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF,
+>  };
+>=20
+>  #endif /* _UAPI_LINUX_DEVLINK_H_ */
+> --
+> 2.7.4
