@@ -1,70 +1,68 @@
-From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Subject: [PATCH net 3/5] net/ncsi: Disable HWA mode when no channels are found
-Date: Thu, 19 Oct 2017 13:43:07 +1100
-Message-ID: <20171019024309.13628-3-sam@mendozajonas.com>
-References: <20171019024309.13628-1-sam@mendozajonas.com>
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org,
-        Samuel Mendoza-Jonas <sam@mendozajonas.com>
-To: netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/5] net: virtio dynamically disable/enable LRO
+Date: Thu, 19 Oct 2017 05:47:30 +0300
+Message-ID: <20171019054432-mutt-send-email-mst@kernel.org>
+References: <CA+7y87rYzKSDLb-wq9ok8TqgD_41u8oqZvfWLELYgDqQ4wCrKg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.fastabend@gmail.com>, tgraf@suug.ch,
+        shm@cumulusnetworks.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, davem@davemloft.net, netdev@vger.kernel.org,
+        bblanco@plumgrid.com, brouer@redhat.com,
+        Catherine Sullivan <csully@google.com>,
+        Jason Wang <jasowang@redhat.com>
+To: Caleb Raitto <caraitto@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:36915 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751091AbdJSCnV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Oct 2017 22:43:21 -0400
-In-Reply-To: <20171019024309.13628-1-sam@mendozajonas.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42930 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751264AbdJSCrg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Oct 2017 22:47:36 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+7y87rYzKSDLb-wq9ok8TqgD_41u8oqZvfWLELYgDqQ4wCrKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+On Wed, Oct 18, 2017 at 07:18:31PM -0700, Caleb Raitto wrote:
+> On Fri, Nov 18, 2016 at 11:00 AM, John Fastabend
+> <john.fastabend@gmail.com> wrote:
+> >
+> > From: John Fastabend <john.fastabend@gmail.com>
+> > Date: Fri, Nov 18, 2016 at 11:00 AM
+> > Subject: [PATCH 1/5] net: virtio dynamically disable/enable LRO
+> > To: <tgraf@suug.ch>, <shm@cumulusnetworks.com>, <alexei.starovoitov@gmail.com>, <daniel@iogearbox.net>, <davem@davemloft.net>
+> > Cc: <john.r.fastabend@intel.com>, <netdev@vger.kernel.org>, <bblanco@plumgrid.com>, <john.fastabend@gmail.com>, <brouer@redhat.com>
+> >
+> > This adds support for dynamically setting the LRO feature flag. The
+> > message to control guest features in the backend uses the
+> > CTRL_GUEST_OFFLOADS msg type.
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> > ---
+> >  drivers/net/virtio_net.c |   43 +++++++++++++++++++++++++++++++++++++++++++
+> >  1 file changed, 43 insertions(+)
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 2cafd12..0758cae 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -1419,6 +1419,41 @@ static void virtnet_init_settings(struct net_device *dev)
+> 
+> Hi,
+> 
+> I work on Google Compute Engine, and I noticed that you had this
+> unmerged patch that allows controlling offloads using ethtool for
+> virtionet.
+> 
+> We are interested in merging this patch as it will be useful in
+> debugging customer issues related to offloads and MTU.
+> 
+> If work remains to get the patch merged, I'm willing to help out.
+> 
+> Thanks,
+> -Caleb
 
-When there are no NCSI channels probed, HWA (Hardware Arbitration)
-mode is enabled. It's not correct because HWA depends on the fact:
-NCSI channels exist and all of them support HWA mode. This disables
-HWA when no channels are probed.
+This patch needs to be rebased on top of latest patches by Jason.
+In particular, there's code to disable/enable offloads automatically.
+That either needs to go away if user configured them manually,
+or the conflict resolved.
 
-Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
----
- net/ncsi/ncsi-manage.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index b022deb39d31..0966eff48ce7 100644
---- a/net/ncsi/ncsi-manage.c
-+++ b/net/ncsi/ncsi-manage.c
-@@ -1005,12 +1005,15 @@ static bool ncsi_check_hwa(struct ncsi_dev_priv *ndp)
- 	struct ncsi_package *np;
- 	struct ncsi_channel *nc;
- 	unsigned int cap;
-+	bool has_channel = false;
- 
- 	/* The hardware arbitration is disabled if any one channel
- 	 * doesn't support explicitly.
- 	 */
- 	NCSI_FOR_EACH_PACKAGE(ndp, np) {
- 		NCSI_FOR_EACH_CHANNEL(np, nc) {
-+			has_channel = true;
-+
- 			cap = nc->caps[NCSI_CAP_GENERIC].cap;
- 			if (!(cap & NCSI_CAP_GENERIC_HWA) ||
- 			    (cap & NCSI_CAP_GENERIC_HWA_MASK) !=
-@@ -1021,8 +1024,13 @@ static bool ncsi_check_hwa(struct ncsi_dev_priv *ndp)
- 		}
- 	}
- 
--	ndp->flags |= NCSI_DEV_HWA;
--	return true;
-+	if (has_channel) {
-+		ndp->flags |= NCSI_DEV_HWA;
-+		return true;
-+	}
-+
-+	ndp->flags &= ~NCSI_DEV_HWA;
-+	return false;
- }
- 
- static int ncsi_enable_hwa(struct ncsi_dev_priv *ndp)
 -- 
-2.14.2
+MST
