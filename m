@@ -1,120 +1,33 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH 2/2] net: netrom: refactor code in nr_add_node
-Date: Thu, 19 Oct 2017 12:27:46 -0500
-Message-ID: <20171019172746.GA15332@embeddedor.com>
-References: <20171019172123.GA15219@embeddedor.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] wanxl: use m68k-linux-gnu-as if available
+Date: Thu, 19 Oct 2017 19:25:17 +0200
+Message-ID: <m3y3o7nj7m.fsf@pm.waw.pl>
+References: <20171012232434.15890-1-kilobyte@angband.pl>
+        <20171018.120812.879877583327430024.davem@davemloft.net>
+        <20171018113326.2rkpe7wrlzihwdyb@angband.pl>
+        <20171018.130721.1208428223967129203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Ralf Baechle <ralf@linux-mips.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171019172123.GA15219@embeddedor.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: kilobyte@angband.pl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from inx.pm.waw.pl ([91.202.125.194]:33449 "EHLO inx.pm.waw.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751974AbdJSRep (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Oct 2017 13:34:45 -0400
+In-Reply-To: <20171018.130721.1208428223967129203.davem@davemloft.net> (David
+        Miller's message of "Wed, 18 Oct 2017 13:07:21 +0100 (WEST)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Code refactoring in order to make the code easier to read and maintain.
+David Miller <davem@davemloft.net> writes:
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only (GCC 7.2.0 was used).
+> We don't even know if whatever "as68k" is would be the same thing
+> as GNU as and generate the same binaries.
 
- net/netrom/nr_route.c | 63 ++++++++++++++++-----------------------------------
- 1 file changed, 20 insertions(+), 43 deletions(-)
+It's GNU as, likewise ld68k, though I have no idea if recent versions
+would compile/link the firmware (correctly). This is 15+ years old.
 
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index fc9cadc..1e5165f 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -80,6 +80,23 @@ static struct nr_neigh *nr_neigh_get_dev(ax25_address *callsign,
- 
- static void nr_remove_neigh(struct nr_neigh *);
- 
-+/*      re-sort the routes in quality order.    */
-+static inline void re_sort_routes(struct nr_node *nr_node, int ix_x, int ix_y)
-+{
-+	struct nr_route nr_route;
-+
-+	if (nr_node->routes[ix_y].quality > nr_node->routes[ix_x].quality) {
-+		if (nr_node->which == ix_x)
-+			nr_node->which = ix_y;
-+		else if (nr_node->which == ix_y)
-+			nr_node->which = ix_x;
-+
-+		nr_route              = nr_node->routes[ix_x];
-+		nr_node->routes[ix_x] = nr_node->routes[ix_y];
-+		nr_node->routes[ix_y] = nr_route;
-+	}
-+}
-+
- /*
-  *	Add a new route to a node, and in the process add the node and the
-  *	neighbour if it is new.
-@@ -90,7 +107,6 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
- {
- 	struct nr_node  *nr_node;
- 	struct nr_neigh *nr_neigh;
--	struct nr_route nr_route;
- 	int i, found;
- 	struct net_device *odev;
- 
-@@ -251,50 +267,11 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
- 	/* Now re-sort the routes in quality order */
- 	switch (nr_node->count) {
- 	case 3:
--		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
--			switch (nr_node->which) {
--			case 0:
--				nr_node->which = 1;
--				break;
--			case 1:
--				nr_node->which = 0;
--				break;
--			}
--			nr_route           = nr_node->routes[0];
--			nr_node->routes[0] = nr_node->routes[1];
--			nr_node->routes[1] = nr_route;
--		}
--		if (nr_node->routes[2].quality > nr_node->routes[1].quality) {
--			switch (nr_node->which) {
--			case 1:  nr_node->which = 2;
--				break;
--
--			case 2:  nr_node->which = 1;
--				break;
--
--			default:
--				break;
--			}
--			nr_route           = nr_node->routes[1];
--			nr_node->routes[1] = nr_node->routes[2];
--			nr_node->routes[2] = nr_route;
--		}
-+		re_sort_routes(nr_node, 0, 1);
-+		re_sort_routes(nr_node, 1, 2);
- 		/* fall through */
- 	case 2:
--		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
--			switch (nr_node->which) {
--			case 0:  nr_node->which = 1;
--				break;
--
--			case 1:  nr_node->which = 0;
--				break;
--
--			default: break;
--			}
--			nr_route           = nr_node->routes[0];
--			nr_node->routes[0] = nr_node->routes[1];
--			nr_node->routes[1] = nr_route;
--			}
-+		re_sort_routes(nr_node, 0, 1);
- 	case 1:
- 		break;
- 	}
+I don't have opinion on the patch.
 -- 
-2.7.4
-
+Krzysztof Halasa
