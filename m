@@ -1,49 +1,64 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH v2 02/15] usb: gadget: make config_item_type structures const
-Date: Thu, 19 Oct 2017 18:05:29 +0300
-Message-ID: <6348630.r2z9ev4yl2@avalon>
-References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com> <1985905.z83BJQzMUS@avalon> <20171019140657.GA22233@lst.de>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: Re: [PATCH 4/7] devlink: Adding perm config of link settings
+Date: Thu, 19 Oct 2017 11:07:50 -0400
+Message-ID: <CA+Jmh7H+u1-1Ot2TxLXEHk2HW=p+yeT02cexNPC1nW5V_gMVgQ@mail.gmail.com>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+ <1508273069-40461-5-git-send-email-steven.lin1@broadcom.com> <AM0PR0502MB36835F863A3E05376F3562B1BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        rjw@rjwysocki.net, lenb@kernel.org,
-        alexander.shishkin@linux.intel.com, jic23@kernel.org,
-        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
-        dledford@redhat.com, sean.hefty@intel.com,
-        hal.rosenstock@gmail.com, sagi@grimberg.me, kishon@ti.com,
-        bhelgaas@google.com, nab@linux-iscsi.org, balbi@kernel.org,
-        gregkh@linuxfoundation.org, jlbec@evilplan.org,
-        ccaulfie@redhat.com, teigland@redhat.com, mfasheh@versity.com,
-        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-iio@vger.kernel.org, linux-rdma@vger.kernel.org,
-        netdev@vger.kernel.org, linux-nvme@lists.infradead.org,
-        linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
-        target-devel@vger.kernel.org, linux-usb@vger.kernel.org,
-        cluster-devel@redhat.com, ocf
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <20171019140657.GA22233@lst.de>
-Sender: target-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "linville@tuxdriver.com" <linville@tuxdriver.com>,
+        "gospo@broadcom.com" <gospo@broadcom.com>
+To: Yuval Mintz <yuvalm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f169.google.com ([209.85.216.169]:52815 "EHLO
+        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751014AbdJSPIL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 11:08:11 -0400
+Received: by mail-qt0-f169.google.com with SMTP id 31so14797967qtz.9
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 08:08:11 -0700 (PDT)
+In-Reply-To: <AM0PR0502MB36835F863A3E05376F3562B1BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Christoph,
+On Thu, Oct 19, 2017 at 2:07 AM, Yuval Mintz <yuvalm@mellanox.com> wrote:
+>> +enum devlink_autoneg_protocol {
+>> +     DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_BAM,
+>> +     DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_CONSORTIUM,
+>> +     DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY,
+>> +     DEVLINK_AUTONEG_PROTOCOL_BAM,           /* Broadcom
+>> Autoneg Mode */
+>> +     DEVLINK_AUTONEG_PROTOCOL_CONSORTIUM,    /*
+>> Consortium Autoneg Mode */
+>> +};
+>
+> Wouldn't adding BAM as a 'generic' mode of operation be like adding
+> non-consortium speeds to ethtool API?
+> [I profess ignorance in this area; For all I know it can be a widely accepted
+> industry standard]
+>
 
-On Thursday, 19 October 2017 17:06:57 EEST Christoph Hellwig wrote:
-> > Now we have 9 const instances of the config_item_type structure that are
-> > identical, with only the .ct_owner field set. Should they be all merged
-> > into a single structure ?
-> 
-> I think that's a good idea.
-> 
-> But I'm about to slurp up this whole series into my tree, how about making
-> that an incremental patch?
+Yuval, I'm glad to get input from other NIC vendors.  The high-level
+goal of this effort is to allow users of various vendors' NICs to be
+able to configure these types of NVRAM/permanent/default settings
+using an inbox tool, rather than the collection of vendor-specific
+tools that is the status quo.
 
-I'm fine with that.
+In order to provide that functionality, it seems like the
+vendor-specific parameters and also the vendor-specific settings of
+common parameters both need to be supported in this manner.
 
-Bhumika, would you like to submit an incremental patch, or should I do it ?
+Ideally there will be much overlap in both the set of parameters
+available as well as the options for each parameter, but in the real
+world, there will always be differences between vendors and even
+between different devices (drivers) from the same vendor.  Despite
+that reality, I think there is still great benefit in having a common
+inbox tool that users can use for device configuration of this type.
+It just means that not all drivers will support all parameters, nor
+all options for each parameter that they do support.
 
--- 
-Regards,
-
-Laurent Pinchart
+Thanks,
+Steve
