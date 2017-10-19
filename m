@@ -1,58 +1,50 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
- NVRAM config param
-Date: Thu, 19 Oct 2017 20:32:21 +0000
-Message-ID: <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Thu, 19 Oct 2017 13:39:49 -0700
+Message-ID: <20171019203949.pyv44i5sy6lnuavh@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170918080214.yrejz67wwnp2pjzf@localhost>
+ <87k20vip3f.fsf@intel.com>
+ <20170919052244.77umdxuze53t6j22@localhost>
+ <87wp4ufchl.fsf@intel.com>
+ <20170920052558.h6c4lkqmzk2h2pdq@localhost>
+ <62f3eae4-bf6a-1475-936f-5011c9ff381e@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com, Levi Pearson <levipearson@gmail.com>,
+        Henrik Austad <henrik@austad.us>
+To: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20048.outbound.protection.outlook.com ([40.107.2.48]:31472
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753370AbdJSUcZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 16:32:25 -0400
-In-Reply-To: <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
-Content-Language: en-US
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:54229 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751855AbdJSUjx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:39:53 -0400
+Received: by mail-pf0-f182.google.com with SMTP id t188so7677610pfd.10
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 13:39:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <62f3eae4-bf6a-1475-936f-5011c9ff381e@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Adding DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF permanent
-> config
-> parameter.  Defines number of MSI-X vectors allocated per VF.
-> Value is permanent (stored in NVRAM), so becomes the new default
-> value for this device.
+On Wed, Oct 18, 2017 at 03:37:35PM -0700, Jesus Sanchez-Palencia wrote:
+> I also did some tests with when you don't set valid launch times, but here using
+> your idea from above, so with the driver calculating a valid launch time (i.e.
+> current NIC time + X ns, varying X across tests) for packets that didn't have it
+> set by the user, and I wasn't too happy with its reliability. It could
+> definitely be improved, but it has left me wondering: instead, what about
+> documenting that if you enable TXTIME, then you *must* provide a valid Launch
+> time for all packets on traffic classes that are affected?
 
-Sounds like you're having this enforce the same configuration for all child=
- VFs.
+If txtime is enabled, then CBS is pointless because the txtime already
+specifies the bandwidth implicitly.
 
->=20
-> Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
-> Acked-by: Andy Gospodarek <gospo@broadcom.com>
-> ---
->  include/uapi/linux/devlink.h | 1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-> index 8ad6c63..ef163b6 100644
-> --- a/include/uapi/linux/devlink.h
-> +++ b/include/uapi/linux/devlink.h
-> @@ -260,6 +260,7 @@ enum devlink_perm_config_param {
->  	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->  	DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
->  	DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT,
-> +	DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF,
->  };
->=20
->  #endif /* _UAPI_LINUX_DEVLINK_H_ */
-> --
-> 2.7.4
+The problem is when one program uses txtime and another uses CBS, then
+the CBS user will experience really wrong performance.
+
+Thanks,
+Richard
