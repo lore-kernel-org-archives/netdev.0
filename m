@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 19/20] net: sched: remove unused classid field from tc_cls_common_offload
-Date: Thu, 19 Oct 2017 15:50:47 +0200
-Message-ID: <20171019135048.4306-20-jiri@resnulli.us>
+Subject: [patch net-next v2 20/20] net: sched: remove unused is_classid_clsact_ingress/egress helpers
+Date: Thu, 19 Oct 2017 15:50:48 +0200
+Message-ID: <20171019135048.4306-21-jiri@resnulli.us>
 References: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,44 +14,48 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:52374 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753832AbdJSNvH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:07 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k4so16571066wmc.1
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:51:06 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:49021 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753834AbdJSNvI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:08 -0400
+Received: by mail-wm0-f68.google.com with SMTP id i124so16049990wmf.3
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:51:07 -0700 (PDT)
 In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-It is no longer used by the drivers, so remove it.
+These helpers are no longer in use by drivers, so remove them.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/pkt_cls.h | 2 --
- 1 file changed, 2 deletions(-)
+ include/net/pkt_sched.h | 13 -------------
+ 1 file changed, 13 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index fcca5a9..04caa24 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -561,7 +561,6 @@ struct tc_cls_common_offload {
- 	u32 chain_index;
- 	__be16 protocol;
- 	u32 prio;
--	u32 classid;
- };
- 
- static inline void
-@@ -571,7 +570,6 @@ tc_cls_common_offload_init(struct tc_cls_common_offload *cls_common,
- 	cls_common->chain_index = tp->chain->index;
- 	cls_common->protocol = tp->protocol;
- 	cls_common->prio = tp->prio;
--	cls_common->classid = tp->classid;
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index 2d234af..b8ecafc 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -135,19 +135,6 @@ static inline unsigned int psched_mtu(const struct net_device *dev)
+ 	return dev->mtu + dev->hard_header_len;
  }
  
- struct tc_cls_u32_knode {
+-static inline bool is_classid_clsact_ingress(u32 classid)
+-{
+-	/* This also returns true for ingress qdisc */
+-	return TC_H_MAJ(classid) == TC_H_MAJ(TC_H_CLSACT) &&
+-	       TC_H_MIN(classid) != TC_H_MIN(TC_H_MIN_EGRESS);
+-}
+-
+-static inline bool is_classid_clsact_egress(u32 classid)
+-{
+-	return TC_H_MAJ(classid) == TC_H_MAJ(TC_H_CLSACT) &&
+-	       TC_H_MIN(classid) == TC_H_MIN(TC_H_MIN_EGRESS);
+-}
+-
+ static inline struct net *qdisc_net(struct Qdisc *q)
+ {
+ 	return dev_net(q->dev_queue->dev);
 -- 
 2.9.5
