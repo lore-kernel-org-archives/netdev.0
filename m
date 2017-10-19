@@ -1,134 +1,39 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] netfilter: mark expected switch fall-throughs
-Date: Thu, 19 Oct 2017 09:06:16 -0500
-Message-ID: <20171019140616.GA15989@embeddedor.com>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH v2 02/15] usb: gadget: make config_item_type structures
+        const
+Date: Thu, 19 Oct 2017 16:06:57 +0200
+Message-ID: <20171019140657.GA22233@lst.de>
+References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com> <1508167134-6243-3-git-send-email-bhumirks@gmail.com> <1985905.z83BJQzMUS@avalon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        lvs-devel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Wensong Zhang <wensong@linux-vs.org>,
-        Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Cc: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
+        rjw@rjwysocki.net, lenb@kernel.org,
+        alexander.shishkin@linux.intel.com, jic23@kernel.org,
+        knaack.h@gmx.de, lars@metafoo.de, pmeerw@pmeerw.net,
+        dledford@redhat.com, sean.hefty@intel.com,
+        hal.rosenstock@gmail.com, hch@lst.de, sagi@grimberg.me,
+        kishon@ti.com, bhelgaas@google.com, nab@linux-iscsi.org,
+        balbi@kernel.org, gregkh@linuxfoundation.org, jlbec@evilplan.org,
+        ccaulfie@redhat.com, teigland@redhat.com, mfasheh@versity.com,
+        linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-iio@vger.kernel.org, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, linux-nvme@lists.infradead.org,
+        linux-pci@vger.kernel.org, linux-scsi@vger.kernel.org,
+        target-devel@vger.kernel.org, linux-usb@vger.kernel.org,
+        cluster-devel@red
+To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
+In-Reply-To: <1985905.z83BJQzMUS@avalon>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
+> 
+> Now we have 9 const instances of the config_item_type structure that are 
+> identical, with only the .ct_owner field set. Should they be all merged into a 
+> single structure ?
 
-Notice that in some cases I placed the "fall through" comment on its own
-line, which is what GCC is expecting to find.
+I think that's a good idea.
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only (GCC 7.2.0 was used).
-Please, verify if the actual intention of the code is to fall through.
-
- net/netfilter/ipset/ip_set_core.c      | 3 ++-
- net/netfilter/ipvs/ip_vs_proto_tcp.c   | 1 +
- net/netfilter/ipvs/ip_vs_proto_udp.c   | 1 +
- net/netfilter/nf_conntrack_h323_asn1.c | 3 +++
- net/netfilter/nft_cmp.c                | 2 ++
- net/netfilter/x_tables.c               | 3 ++-
- 6 files changed, 11 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index cf84f7b..72f654a 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -1386,7 +1386,8 @@ ip_set_dump_start(struct sk_buff *skb, struct netlink_callback *cb)
- 				goto next_set;
- 			if (set->variant->uref)
- 				set->variant->uref(set, cb, true);
--			/* Fall through and add elements */
-+			/* add elements */
-+			/* fall through */
- 		default:
- 			rcu_read_lock_bh();
- 			ret = set->variant->list(set, skb, cb);
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index 1c6e101..569631d 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -315,6 +315,7 @@ tcp_csum_check(int af, struct sk_buff *skb, struct ip_vs_protocol *pp)
- 	switch (skb->ip_summed) {
- 	case CHECKSUM_NONE:
- 		skb->csum = skb_checksum(skb, tcphoff, skb->len - tcphoff, 0);
-+		/* fall through */
- 	case CHECKSUM_COMPLETE:
- #ifdef CONFIG_IP_VS_IPV6
- 		if (af == AF_INET6) {
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index 30e11cd..c15ef7c 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -319,6 +319,7 @@ udp_csum_check(int af, struct sk_buff *skb, struct ip_vs_protocol *pp)
- 		case CHECKSUM_NONE:
- 			skb->csum = skb_checksum(skb, udphoff,
- 						 skb->len - udphoff, 0);
-+			/* fall through */
- 		case CHECKSUM_COMPLETE:
- #ifdef CONFIG_IP_VS_IPV6
- 			if (af == AF_INET6) {
-diff --git a/net/netfilter/nf_conntrack_h323_asn1.c b/net/netfilter/nf_conntrack_h323_asn1.c
-index 89b2e46..7336e5c 100644
---- a/net/netfilter/nf_conntrack_h323_asn1.c
-+++ b/net/netfilter/nf_conntrack_h323_asn1.c
-@@ -250,12 +250,15 @@ static unsigned int get_uint(bitstr_t *bs, int b)
- 	case 4:
- 		v |= *bs->cur++;
- 		v <<= 8;
-+		/* fall through */
- 	case 3:
- 		v |= *bs->cur++;
- 		v <<= 8;
-+		/* fall through */
- 	case 2:
- 		v |= *bs->cur++;
- 		v <<= 8;
-+		/* fall through */
- 	case 1:
- 		v |= *bs->cur++;
- 		break;
-diff --git a/net/netfilter/nft_cmp.c b/net/netfilter/nft_cmp.c
-index c2945eb..fa90a84 100644
---- a/net/netfilter/nft_cmp.c
-+++ b/net/netfilter/nft_cmp.c
-@@ -44,6 +44,7 @@ static void nft_cmp_eval(const struct nft_expr *expr,
- 	case NFT_CMP_LT:
- 		if (d == 0)
- 			goto mismatch;
-+		/* fall through */
- 	case NFT_CMP_LTE:
- 		if (d > 0)
- 			goto mismatch;
-@@ -51,6 +52,7 @@ static void nft_cmp_eval(const struct nft_expr *expr,
- 	case NFT_CMP_GT:
- 		if (d == 0)
- 			goto mismatch;
-+		/* fall through */
- 	case NFT_CMP_GTE:
- 		if (d < 0)
- 			goto mismatch;
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index d8571f4..fa5cdd0 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -1382,7 +1382,8 @@ static void *xt_mttg_seq_next(struct seq_file *seq, void *v, loff_t *ppos,
- 		trav->curr = trav->curr->next;
- 		if (trav->curr != trav->head)
- 			break;
--		/* fallthru, _stop will unlock */
-+		/* _stop will unlock */
-+		/* fall through */
- 	default:
- 		return NULL;
- 	}
--- 
-2.7.4
+But I'm about to slurp up this whole series into my tree, how about making
+that an incremental patch?  
