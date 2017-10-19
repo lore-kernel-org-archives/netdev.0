@@ -1,138 +1,77 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Get rid of RCU callbacks in TC filters?
-Date: Thu, 19 Oct 2017 08:34:11 -0700
-Message-ID: <52808e54-2f59-49c8-37be-d226e79fe286@gmail.com>
-References: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
- <20171018193548.GM3521@linux.vnet.ibm.com>
+From: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
+Subject: Re: RFC(v2): Audit Kernel Container IDs
+Date: Thu, 19 Oct 2017 11:36:39 -0400
+Message-ID: <CAHC9VhTYF-MJm3ejWXE1H-eeXKaNBkeWKwdiKdj093xATYn7nQ@mail.gmail.com>
+References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
+ <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com> <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
+ <2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
+ <a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com> <1508254120.6230.34.camel@redhat.com>
+ <1508255091.3129.27.camel@HansenPartnership.com> <CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg@mail.gmail.com>
+ <49752b6f-8a77-d1e5-8acb-5a1eed0a992c@suse.de> <871sm0j7bm.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Chris Mi <chrism@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@resnulli.us>
-To: paulmck@linux.vnet.ibm.com, Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:53208 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751760AbdJSPeb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 11:34:31 -0400
-Received: by mail-pf0-f195.google.com with SMTP id e64so6824360pfk.9
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 08:34:31 -0700 (PDT)
-In-Reply-To: <20171018193548.GM3521@linux.vnet.ibm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        "Carlos O'Donell" <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
+        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
+To: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>,
+        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <871sm0j7bm.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/18/2017 12:35 PM, Paul E. McKenney wrote:
-> On Wed, Oct 18, 2017 at 10:36:28AM -0700, Cong Wang wrote:
->> Hi, all
+On Wed, Oct 18, 2017 at 8:43 PM, Eric W. Biederman
+<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
+> Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org> writes:
+>>>> The security implications are that anything that can change the label
+>>>> could also hide itself and its doings from the audit system and thus
+>>>> would be used as a means to evade detection.  I actually think this
+>>>> means the label should be write once (once you've set it, you can't
+>>>> change it) ...
+>>>
+>>> Richard and I have talked about a write once approach, but the
+>>> thinking was that you may want to allow a nested container
+>>> orchestrator (Why? I don't know, but people always want to do the
+>>> craziest things.) and a write-once policy makes that impossible.  If
+>>> we punt on the nested orchestrator, I believe we can seriously think
+>>> about a write-once policy to simplify things.
 >>
->> Recently, the RCU callbacks used in TC filters and TC actions keep
->> drawing my attention, they introduce at least 4 race condition bugs:
->>
->> 1. A simple one fixed by Daniel:
->>
->> commit c78e1746d3ad7d548bdf3fe491898cc453911a49
->> Author: Daniel Borkmann <daniel@iogearbox.net>
->> Date:   Wed May 20 17:13:33 2015 +0200
->>
->>     net: sched: fix call_rcu() race on classifier module unloads
->>
->> 2. A very nasty one fixed by me:
->>
->> commit 1697c4bb5245649a23f06a144cc38c06715e1b65
->> Author: Cong Wang <xiyou.wangcong@gmail.com>
->> Date:   Mon Sep 11 16:33:32 2017 -0700
->>
->>     net_sched: carefully handle tcf_block_put()
->>
->> 3. Two more bugs found by Chris:
->> https://patchwork.ozlabs.org/patch/826696/
->> https://patchwork.ozlabs.org/patch/826695/
->>
->>
->> Usually RCU callbacks are simple, however for TC filters and actions,
->> they are complex because at least TC actions could be destroyed
->> together with the TC filter in one callback. And RCU callbacks are
->> invoked in BH context, without locking they are parallel too. All of
->> these contribute to the cause of these nasty bugs. It looks like they
->> bring us more problems than benefits.
->>
->> Therefore, I have been thinking about getting rid of these callbacks,
->> because they are not strictly necessary, callers of these call_rcu()
->> are all on slow path and have RTNL lock, so blocking is permitted in
->> their contexts, and _I think_ it does not harm to use
->> synchronize_rcu() on slow paths, at least I can argue RTNL lock is
->> already there and is a bottleneck if we really care. :)
->>
->> There are 3 solutions here:
->>
->> 1) Get rid of these RCU callbacks and use synchronize_rcu(). The
->> downside is this could hurt the performance of deleting TC filters,
->> but again it is slow path comparing to skb classification path. Note,
->> it is _not_ merely replacing call_rcu() with synchronize_rcu(),
->> because many call_rcu()'s are actually in list iterations, we have to
->> use a local list and call list_del_rcu()+list_add() before
->> synchronize_rcu() (Or is there any other API I am not aware of?). If
->> people really hate synchronize_rcu() because of performance, we could
->> also defer the work to a workqueue and callers could keep their
->> performance as they are.
->>
->> 2) Introduce a spinlock to serialize these RCU callbacks. But as I
->> said in commit 1697c4bb5245 ("net_sched: carefully handle
->> tcf_block_put()"), it is very hard to do because of tcf_chain_dump().
->> Potentially we need to do a lot of work to make it possible, if not
->> impossible.
->>
->> 3) Keep these RCU callbacks and fix all race conditions. Like what
->> Chris tries to do in his patchset, but my argument is that we can not
->> prove we are really race-free even with Chris' patches and his patches
->> are already large enough.
->>
+>> Nested containers are a very widely used use-case (see LXC system containers,
+>> inside of which people run other container runtimes). So I would definitely
+>> consider it something that "needs to be supported in some way". While the LXC
+>> guys might be a *tad* crazy, the use-case isn't. :P
 
-My take on this would be to stay with the current RCU callbacks and try
-to simplify the implementation. Falling back to sync operations seems
-like a step backwards to me. I know update/delete of filters is currently
-a pain point for some use cases so getting the RTNL out of the way may
-become a requirement to support those (alternatively maybe batching is
-good enough).
+No worries, we're all a little crazy in our own special ways ;)
 
-I guess at a high level with Cris' patches actions are now doing reference
-counting correctly. If shared filters also do reference counting similarly
-we should be OK right? (yes I know simplifying maybe too much to be
-meaningful)
+Kidding aside, thanks for explaining the use case.
 
-Are we aware of any outstanding problem areas?
+> Of course some of that gets to running auditd inside a container which
+> we don't have yet either.
+>
+> So I think to start it is perfectly fine to figure out the non-nested
+> case first and what makes sense there.  Then to sort out the nested
+> container case.
+>
+> The solution might be that a process gets at most one id per ``audit
+> namespace''.
 
->>
->> What do you think? Any other ideas?
-> 
-> 4) Move from call_rcu() to synchronize_rcu(), but if feasible use one
-> synchronize_rcu() for multiple deletions/iterations.
-> 
-> 5) Keep call_rcu(), but have the RCU callback schedule a workqueue.
-> The workqueue could then use blocking primitives, for example, acquiring
-> RTNL.
-> 
-> 6) As with #5, have the RCU callback schedule a workqueue, but aggregate
-> workqueue scheduling using a timer.  This would reduce the number of
-> RTNL acquisitions.
-> 
-> 7) As with #5, have the RCU callback schedule a workqueue, but have each
-> iterator accumulate a list of things removed and do call_rcu() on the
-> list.  This is an alternative way of aggregating to reduce the number
-> of RTNL acquisitions.
-> 
-> There are many other ways to skin this cat.
-> 
-> 							Thanx, Paul
-> 
-Batching will probably be needed soon regardless for the hardware offload
-folks. 
+In an attempt to stay on-topic, let's try to stick with "audit
+container ID" or "container ID" if you must.  I really want to avoid
+the term "audit namespace" simply because the term "namespace" implies
+some things which we aren't planning on doing.
 
-Thanks,
-John
+-- 
+paul moore
+www.paul-moore.com
