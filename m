@@ -1,61 +1,54 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 1/1] tipc: fix broken tipc_poll() function
-Date: Thu, 19 Oct 2017 16:42:04 +0200
-Message-ID: <1508424124-1748-1-git-send-email-jon.maloy@ericsson.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net] dccp/tcp: fix ireq->opt races
+Date: Thu, 19 Oct 2017 07:45:09 -0700
+Message-ID: <CANn89i+=3B-i1Fo=8PWwzXJ-Tn7x8uOL7oQ02Bvx0e-KrdUQFw@mail.gmail.com>
+References: <1508269526.31614.113.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20171019.133138.1755187507720163652.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:61720 "EHLO
-        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbdJSOmL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 10:42:11 -0400
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:51454 "EHLO
+        mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751571AbdJSOpK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 10:45:10 -0400
+Received: by mail-yw0-f179.google.com with SMTP id k3so3693871ywk.8
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 07:45:10 -0700 (PDT)
+In-Reply-To: <20171019.133138.1755187507720163652.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit ae236fb208a6 ("tipc: receive group membership events via
-member socket") we broke the tipc_poll() function by checking the
-state of the receive queue before the call to poll_sock_wait(), while
-relying that state afterwards, when it might have changed.
+On Thu, Oct 19, 2017 at 5:31 AM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 17 Oct 2017 12:45:26 -0700
+>
+>> syzkaller found another bug in DCCP/TCP stacks [1]
+>>
+>> For the reasons explained in commit ce1050089c96 ("tcp/dccp: fix
+>> ireq->pktopts race"), we need to make sure we do not access
+>> ireq->opt unless we own the request sock.
+>
+> This doesn't apply to 'net'.
+>
+> [davem@kkuri net]$ git am --signoff v2-net-dccp-tcp-fix-ireq--opt-races.patch
+> Applying: dccp/tcp: fix ireq->opt races
+> error: patch failed: include/net/inet_sock.h:96
+> error: include/net/inet_sock.h: patch does not apply
+> error: patch failed: net/dccp/ipv4.c:414
+> error: net/dccp/ipv4.c: patch does not apply
+> error: patch failed: net/ipv4/inet_connection_sock.c:540
+> error: net/ipv4/inet_connection_sock.c: patch does not apply
+> error: patch failed: net/ipv4/syncookies.c:355
+> error: net/ipv4/syncookies.c: patch does not apply
+> error: patch failed: net/ipv4/tcp_input.c:6196
+> error: net/ipv4/tcp_input.c: patch does not apply
+> error: patch failed: net/ipv4/tcp_ipv4.c:877
+> error: net/ipv4/tcp_ipv4.c: patch does not apply
 
-We restore this in this commit.
+Can you send me this v2-net-dccp-tcp-fix-ireq--opt-races.patch file ?
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Here the patch applies fine.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 2bbab4f..357954c 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -714,7 +714,6 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 			      poll_table *wait)
- {
- 	struct sock *sk = sock->sk;
--	struct sk_buff *skb = skb_peek(&sk->sk_receive_queue);
- 	struct tipc_sock *tsk = tipc_sk(sk);
- 	struct tipc_group *grp = tsk->group;
- 	u32 revents = 0;
-@@ -733,7 +732,7 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 		/* fall thru' */
- 	case TIPC_LISTEN:
- 	case TIPC_CONNECTING:
--		if (skb)
-+		if (!skb_queue_empty(&sk->sk_receive_queue))
- 			revents |= POLLIN | POLLRDNORM;
- 		break;
- 	case TIPC_OPEN:
-@@ -742,7 +741,7 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 				revents |= POLLOUT;
- 		if (!tipc_sk_type_connectionless(sk))
- 			break;
--		if (!skb)
-+		if (skb_queue_empty(&sk->sk_receive_queue))
- 			break;
- 		revents |= POLLIN | POLLRDNORM;
- 		break;
--- 
-2.1.4
+Thanks !
