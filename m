@@ -1,63 +1,61 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 11/11] can: gs_usb: fix busy loop if no more TX context is available
-Date: Thu, 19 Oct 2017 13:19:45 +0200
-Message-ID: <20171019111945.13580-12-mkl@pengutronix.de>
+Subject: [PATCH 09/11] can: af_can: can_pernet_init(): add missing error handling for kzalloc returning NULL
+Date: Thu, 19 Oct 2017 13:19:43 +0200
+Message-ID: <20171019111945.13580-10-mkl@pengutronix.de>
 References: <20171019111945.13580-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Wolfgang Grandegger <wg@grandegger.com>,
-        linux-stable <stable@vger.kernel.org>,
-        Marc Kleine-Budde <mkl@pengutronix.de>
+        kernel@pengutronix.de, Marc Kleine-Budde <mkl@pengutronix.de>,
+        linux-stable <stable@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Wolfgang Grandegger <wg@grandegger.com>
+This patch adds the missing check and error handling for out-of-memory
+situations, when kzalloc cannot allocate memory.
 
-If sending messages with no cable connected, it quickly happens that
-there is no more TX context available. Then "gs_can_start_xmit()"
-returns with "NETDEV_TX_BUSY" and the upper layer does retry
-immediately keeping the CPU busy. To fix that issue, I moved
-"atomic_dec(&dev->active_tx_urbs)" from "gs_usb_xmit_callback()" to
-the TX done handling in "gs_usb_receive_bulk_callback()". Renaming
-"active_tx_urbs" to "active_tx_contexts" and moving it into
-"gs_[alloc|free]_tx_context()" would also make sense.
-
-Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Fixes: cb5635a36776 ("can: complete initial namespace support")
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/gs_usb.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ net/can/af_can.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/usb/gs_usb.c b/drivers/net/can/usb/gs_usb.c
-index afcc1312dbaf..68ac3e88a8ce 100644
---- a/drivers/net/can/usb/gs_usb.c
-+++ b/drivers/net/can/usb/gs_usb.c
-@@ -375,6 +375,8 @@ static void gs_usb_receive_bulk_callback(struct urb *urb)
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index eb1ad74b40f4..ecd5c703d11e 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -875,9 +875,14 @@ static int can_pernet_init(struct net *net)
+ 	spin_lock_init(&net->can.can_rcvlists_lock);
+ 	net->can.can_rx_alldev_list =
+ 		kzalloc(sizeof(struct dev_rcv_lists), GFP_KERNEL);
+-
++	if (!net->can.can_rx_alldev_list)
++		goto out;
+ 	net->can.can_stats = kzalloc(sizeof(struct s_stats), GFP_KERNEL);
++	if (!net->can.can_stats)
++		goto out_free_alldev_list;
+ 	net->can.can_pstats = kzalloc(sizeof(struct s_pstats), GFP_KERNEL);
++	if (!net->can.can_pstats)
++		goto out_free_can_stats;
  
- 		gs_free_tx_context(txc);
- 
-+		atomic_dec(&dev->active_tx_urbs);
-+
- 		netif_wake_queue(netdev);
+ 	if (IS_ENABLED(CONFIG_PROC_FS)) {
+ 		/* the statistics are updated every second (timer triggered) */
+@@ -892,6 +897,13 @@ static int can_pernet_init(struct net *net)
  	}
  
-@@ -463,14 +465,6 @@ static void gs_usb_xmit_callback(struct urb *urb)
- 			  urb->transfer_buffer_length,
- 			  urb->transfer_buffer,
- 			  urb->transfer_dma);
--
--	atomic_dec(&dev->active_tx_urbs);
--
--	if (!netif_device_present(netdev))
--		return;
--
--	if (netif_queue_stopped(netdev))
--		netif_wake_queue(netdev);
+ 	return 0;
++
++ out_free_can_stats:
++	kfree(net->can.can_stats);
++ out_free_alldev_list:
++	kfree(net->can.can_rx_alldev_list);
++ out:
++	return -ENOMEM;
  }
  
- static netdev_tx_t gs_can_start_xmit(struct sk_buff *skb,
+ static void can_pernet_exit(struct net *net)
 -- 
 2.14.2
