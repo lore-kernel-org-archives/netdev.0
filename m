@@ -1,87 +1,93 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next 3/3] strparser: Generalize strparser
-Date: Thu, 19 Oct 2017 13:18:20 -0700
-Message-ID: <78776143-0442-f1ce-745c-8371f20124e4@gmail.com>
-References: <20170728232243.3040-1-tom@quantonium.net>
- <20170728232243.3040-4-tom@quantonium.net>
- <1508434937.30291.1.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALx6S3765-5oT6UtSQVts4KwWz3F3ub2vhDWO7YemYZPPM0EjA@mail.gmail.com>
+From: Wei Wang <weiwan@google.com>
+Subject: Re: [PATCH net-next v3 2/2] ipv6: remove from fib tree aged out
+ RTF_CACHE dst
+Date: Thu, 19 Oct 2017 13:19:18 -0700
+Message-ID: <CAEA6p_B_wC+_VxpeHnYzSN=0hecEtjiLaStrx7dd-Ji1n6CGTQ@mail.gmail.com>
+References: <cover.1508421311.git.pabeni@redhat.com> <6440bf87fe967880ff90c1eb732081769f81f4a0.1508421311.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@quantonium.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Rohit Seth <rohit@quantonium.net>
-To: Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:47268 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751628AbdJSUSi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:18:38 -0400
-Received: by mail-pf0-f193.google.com with SMTP id z11so7595665pfk.4
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 13:18:38 -0700 (PDT)
-In-Reply-To: <CALx6S3765-5oT6UtSQVts4KwWz3F3ub2vhDWO7YemYZPPM0EjA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-ua0-f193.google.com ([209.85.217.193]:50651 "EHLO
+        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752412AbdJSUTU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 16:19:20 -0400
+Received: by mail-ua0-f193.google.com with SMTP id v27so6865179uav.7
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 13:19:20 -0700 (PDT)
+In-Reply-To: <6440bf87fe967880ff90c1eb732081769f81f4a0.1508421311.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/19/2017 12:51 PM, Tom Herbert wrote:
-> On Thu, Oct 19, 2017 at 10:42 AM, Eric Dumazet <eric.dumazet@gmail.com>
-> wrote:
-> 
->> On Fri, 2017-07-28 at 16:22 -0700, Tom Herbert wrote:
->>> Generalize strparser from more than just being used in conjunction
->>> with read_sock. strparser will also be used in the send path with
->>> zero proxy. The primary change is to create strp_process function
->>> that performs the critical processing on skbs. The documentation
->>> is also updated to reflect the new uses.
->>>
->>> Signed-off-by: Tom Herbert <tom@quantonium.net>
->>> ---
->>>  Documentation/networking/strparser.txt | 207 +++++++++++++++-------
->>>  include/net/strparser.h                | 119 +++++++------
->>>  net/kcm/kcmproc.c                      |  34 ++--
->>>  net/kcm/kcmsock.c                      |  38 ++--
->>>  net/strparser/strparser.c              | 313
->> ++++++++++++++++++++-------------
->>>  5 files changed, 424 insertions(+), 287 deletions(-)
->>
->> Just found this gem :
->>
->> static void strp_msg_timeout(unsigned long arg)
->> {
->>         struct strparser *strp = (struct strparser *)arg;
->>
->>         /* Message assembly timed out */
->>         STRP_STATS_INCR(strp->stats.msg_timeouts);
->>         strp->cb.lock(strp);
->>         strp->cb.abort_parser(strp, ETIMEDOUT);
->>         strp->cb.unlock(strp);
->> }
->>
->> static void strp_sock_lock(struct strparser *strp)
->> {
->>         lock_sock(strp->sk);
->> }
->>
->> static void strp_sock_unlock(struct strparser *strp)
->> {
->>         release_sock(strp->sk);
->> }
->>
->>
->> A timer runs from BH, and from this interrupt context it is absolutely
->> illegal to call lock_sock() ( and release_sock() )
->>
->> Please fix, thanks !
->>
-> 
-> Nice catch! I'll fix it.
-> 
-Can the lock/release be removed and the strp stopped bit can use atomics?
+On Thu, Oct 19, 2017 at 7:07 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> The commit 2b760fcf5cfb ("ipv6: hook up exception table to store
+> dst cache") partially reverted the commit 1e2ea8ad37be ("ipv6: set
+> dst.obsolete when a cached route has expired").
+>
+> As a result, RTF_CACHE dst referenced outside the fib tree will
+> not be removed until the next sernum change; dst_check() does not
+> fail on aged-out dst, and dst->__refcnt can't decrease: the aged
+> out dst will stay valid for a potentially unlimited time after the
+> timeout expiration.
+>
+> This change explicitly removes RTF_CACHE dst from the fib tree when
+> aged out. The rt6_remove_exception() logic will then obsolete the
+> dst and other entities will drop the related reference on next
+> dst_check().
+>
+> pMTU exceptions are not aged-out, and are removed from the exception
+> table only when the - usually considerably longer - ip6_rt_mtu_expires
+> timeout expires.
+>
+> v1 -> v2:
+>   - do not touch dst.obsolete in rt6_remove_exception(), not needed
+> v2 -> v3:
+>   - take care of pMTU exceptions, too
+>
+> Fixes: 2b760fcf5cfb ("ipv6: hook up exception table to store dst cache")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
 
-It looks like sk_error_report can be called without sock lock.
+Acked-by: Wei Wang <weiwan@google.com>
 
-Thanks,
-John
+
+>  net/ipv6/route.c | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 5c27313803d2..87a15cbd0e8b 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1575,7 +1575,13 @@ static void rt6_age_examine_exception(struct rt6_exception_bucket *bucket,
+>  {
+>         struct rt6_info *rt = rt6_ex->rt6i;
+>
+> -       if (atomic_read(&rt->dst.__refcnt) == 1 &&
+> +       /* we are pruning and obsoleting aged-out and non gateway exceptions
+> +        * even if others have still references to them, so that on next
+> +        * dst_check() such references can be dropped.
+> +        * EXPIRES exceptions - e.g. pmtu-generated ones are pruned when
+> +        * expired, independently from their aging, as per RFC 8201 section 4
+> +        */
+> +       if (!(rt->rt6i_flags & RTF_EXPIRES) &&
+>             time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
+>                 RT6_TRACE("aging clone %p\n", rt);
+>                 rt6_remove_exception(bucket, rt6_ex);
+> @@ -1595,6 +1601,10 @@ static void rt6_age_examine_exception(struct rt6_exception_bucket *bucket,
+>                         rt6_remove_exception(bucket, rt6_ex);
+>                         return;
+>                 }
+> +       } else if (__rt6_check_expired(rt)) {
+> +               RT6_TRACE("purging expired route %p\n", rt);
+> +               rt6_remove_exception(bucket, rt6_ex);
+> +               return;
+>         }
+>         gc_args->more++;
+>  }
+> --
+> 2.13.6
+>
