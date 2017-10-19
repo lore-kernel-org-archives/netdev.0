@@ -1,134 +1,175 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Thu, 19 Oct 2017 11:51:13 -0400
-Message-ID: <CAHC9VhTN069L+-ei05EB8csiv1uJvoB-4SNhb9BcxSom=cRVeg@mail.gmail.com>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
- <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com> <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
- <81c15928-c445-fb8e-251c-bee566fbbf58@schaufler-ca.com> <20171019000527.eio6dfsmujmtioyt@madcap2.tricolour.ca>
- <18cb69a5-f998-0e6e-85df-7f4b9b768a6f@schaufler-ca.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
+Date: Thu, 19 Oct 2017 08:53:24 -0700
+Message-ID: <CAKgT0UeHBXw+d-y=4_Ady-T8Uiv0e7igWzWrMQHj_OrYr=XzgQ@mail.gmail.com>
+References: <1507121766.30720.4.camel@cohaesio.com> <CAKgT0UfAqzuEbFA_hs8f4goL2hTMqeJ5no2sAc8NO_KJO120tA@mail.gmail.com>
+ <1507180753.20182.8.camel@cohaesio.com> <227d17ae-b040-07d0-3c57-e9acd1a3b5b4@itcare.pl>
+ <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl> <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
+ <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com> <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
+ <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl> <20171017055155.GA19944@pc11.op.pod.cz>
+ <CAKgT0Udb5DVu6CB5U7rGNERZwMCKZUTii=qxn6hFzc=5zEZc1w@mail.gmail.com>
+ <57579746-77e1-4603-12ed-7d999fdfeabf@itcare.pl> <CABOTfnOtw=XdhPL4n1JM16CS02ekoy6EPugOvtSbO6LGp2XOXA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Richard Guy Briggs <rgb@redhat.com>, mszeredi@redhat.com,
-        "Eric W. Biederman" <ebiederm@xmission.com>,
-        Simo Sorce <simo@redhat.com>, jlayton@redhat.com,
-        "Carlos O'Donell" <carlos@redhat.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        Linux Containers <containers@lists.linux-foundation.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Eric Paris <eparis@parisplace.org>,
-        David Howells <dhowells@redhat.com>,
-        Linux Audit <linux-audit@redhat.com>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Andy Lutomirski <luto@kernel.org>,
-        Linux Network Development <netdev@vger.kernel.org>,
-        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-        cgroups@vger.kernel.org, "Serge E. Hallyn" <serge@hallyn.com>,
-        trondmy@primarydata.com
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <18cb69a5-f998-0e6e-85df-7f4b9b768a6f@schaufler-ca.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?Q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>,
+        "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
+To: Pavlos Parissis <pavlos.parissis@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:43997 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752047AbdJSPxZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 11:53:25 -0400
+Received: by mail-qk0-f178.google.com with SMTP id w134so10933229qkb.0
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 08:53:25 -0700 (PDT)
+In-Reply-To: <CABOTfnOtw=XdhPL4n1JM16CS02ekoy6EPugOvtSbO6LGp2XOXA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 19, 2017 at 9:32 AM, Casey Schaufler <casey@schaufler-ca.com> wrote:
-> On 10/18/2017 5:05 PM, Richard Guy Briggs wrote:
->> On 2017-10-17 01:10, Casey Schaufler wrote:
->>> On 10/16/2017 5:33 PM, Richard Guy Briggs wrote:
->>>> On 2017-10-12 16:33, Casey Schaufler wrote:
->>>>> On 10/12/2017 7:14 AM, Richard Guy Briggs wrote:
->>>>>> Containers are a userspace concept.  The kernel knows nothing of them.
->>>>>>
->>>>>> The Linux audit system needs a way to be able to track the container
->>>>>> provenance of events and actions.  Audit needs the kernel's help to do
->>>>>> this.
->>>>>>
->>>>>> Since the concept of a container is entirely a userspace concept, a
->>>>>> registration from the userspace container orchestration system initiates
->>>>>> this.  This will define a point in time and a set of resources
->>>>>> associated with a particular container with an audit container ID.
->>>>>>
->>>>>> The registration is a pseudo filesystem (proc, since PID tree already
->>>>>> exists) write of a u8[16] UUID representing the container ID to a file
->>>>>> representing a process that will become the first process in a new
->>>>>> container.  This write might place restrictions on mount namespaces
->>>>>> required to define a container, or at least careful checking of
->>>>>> namespaces in the kernel to verify permissions of the orchestrator so it
->>>>>> can't change its own container ID.  A bind mount of nsfs may be
->>>>>> necessary in the container orchestrator's mntNS.
->>>>>> Note: Use a 128-bit scalar rather than a string to make compares faster
->>>>>> and simpler.
->>>>>>
->>>>>> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
->>>>>> registration.
->>>>> Hang on. If containers are a user space concept, how can
->>>>> you want CAP_CONTAINER_ANYTHING? If there's not such thing as
->>>>> a container, how can you be asking for a capability to manage
->>>>> them?
->>>> There is such a thing, but the kernel doesn't know about it yet.
->>> Then how can it be the kernel's place to control access to a
->>> container resource, that is, the containerID.
->> Ok, let me try to address your objections.
+On Thu, Oct 19, 2017 at 4:41 AM, Pavlos Parissis
+<pavlos.parissis@gmail.com> wrote:
+> On 19 October 2017 at 01:40, Pawe=C5=82 Staszewski <pstaszewski@itcare.pl=
+> wrote:
 >>
->> The kernel can know enough that if it is already set to not allow it to
->> be set again.  Or if the user doesn't have permission to set it that the
->> user be denied this action.  How is this different from loginuid and
->> sessionid?
->>>>   This
->>>> same situation exists for loginuid and sessionid which are userspace
->>>> concepts that the kernel tracks for the convenience of userspace.
->>> Ah, no. Loginuid identifies a user, which is a kernel concept in
->>> that a user is defined by the uid.
->> This simple explanation doesn't help me.  What makes that a kernel
->> concept?  The fact that it is stored and compared in more than one
->> place?
 >>
->>> The session ID has well defined kernel semantics. You're trying to say
->>> that the containerID is an opaque value that is meaningless to the
->>> kernel, but you still want the kernel to protect it. How can the
->>> kernel know if it is protecting it correctly?
->> How so?  A userspace process triggers this.  Does the kernel know what
->> these values mean?  Does it do anything with them other than report
->> them or allow audit to filter them?  It is given some instructions on
->> how to treat it.
+>> W dniu 2017-10-19 o 01:29, Alexander Duyck pisze:
 >>
->> This is what we're trying to do with the containerID.
+>>> On Mon, Oct 16, 2017 at 10:51 PM, Vitezslav Samel <vitezslav@samel.cz>
+>>> wrote:
+>>>>
+>>>> On Tue, Oct 17, 2017 at 01:34:29AM +0200, Pawe=C5=82 Staszewski wrote:
+>>>>>
+>>>>> W dniu 2017-10-16 o 18:26, Pawe=C5=82 Staszewski pisze:
+>>>>>>
+>>>>>> W dniu 2017-10-16 o 13:20, Pavlos Parissis pisze:
+>>>>>>>
+>>>>>>> On 15/10/2017 02:58 =CF=80=CE=BC, Alexander Duyck wrote:
+>>>>>>>>
+>>>>>>>> Hi Pawel,
+>>>>>>>>
+>>>>>>>> To clarify is that Dave Miller's tree or Linus's that you are talk=
+ing
+>>>>>>>> about? If it is Dave's tree how long ago was it you pulled it sinc=
+e I
+>>>>>>>> think the fix was just pushed by Jeff Kirsher a few days ago.
+>>>>>>>>
+>>>>>>>> The issue should be fixed in the following commit:
+>>>>>>>>
+>>>>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/comm=
+it/drivers/net/ethernet/intel/i40e/i40e_txrx.c?id=3D2b9478ffc550f17c6cd8c69=
+057234e91150f5972
+>>>>>>>
+>>>>>>> Do you know when it is going to be available on net-next and
+>>>>>>> linux-stable repos?
+>>>>>>>
+>>>>>>> Cheers,
+>>>>>>> Pavlos
+>>>>>>>
+>>>>>>>
+>>>>>> I will make some tests today night with "net" git tree where this pa=
+tch
+>>>>>> is included.
+>>>>>> Starting from 0:00 CET
+>>>>>> :)
+>>>>>>
+>>>>>>
+>>>>> Upgraded and looks like problem is not solved with that patch
+>>>>> Currently running system with
+>>>>> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/
+>>>>> kernel
+>>>>>
+>>>>> Still about 0.5GB of memory is leaking somewhere
+>>>>>
+>>>>> Also can confirm that the latest kernel where memory is not leaking
+>>>>> (with
+>>>>> use i40e driver intel 710 cards) is 4.11.12
+>>>>> With kernel 4.11.12 - after hour no change in memory usage.
+>>>>>
+>>>>> also checked that with ixgbe instead of i40e with same  net.git kerne=
+l
+>>>>> there
+>>>>> is no memleak - after hour same memory usage - so for 100% this is i4=
+0e
+>>>>> driver problem.
+>>>>
+>>>>    I have (probably) the same problem here but with X520 cards: bootin=
+g
+>>>> 4.12.x gives me oops after circa 20 minutes of our workload. Booting
+>>>> 4.9.y is OK. This machine is in production so any testing is very
+>>>> limited.
+>>>>
+>>>>    Machine was stable for >2 months (on the desk before got to
+>>>> production) with 4.12.8 but with no traffic on X520 cards.
+>>>>
+>>>>          Cheers,
+>>>>
+>>>>                  Vita
+>>>
+>>> Sorry but it can't be the same issue since we are discussing a
+>>> different driver (i40e) running different hardware (X710 or XL170).
+>>> You might want to start a new thread for your issue, and/or if
+>>> possible file a bug on e1000.sf.net.
+>>>
+>>> Thanks.
+>>>
+>>> - Alex
+>>>
+>> sorry but bugs reported on e1000.sf.net are delayed - some after about 6=
+ or
+>> more months - when i reported first bug there iv got reply after a year
+>> about no activity :):) haha - and reported there bug is still actrive :)
+>> better for me is now to change nics (for sure cheaper from  the perspect=
+ive
+>> of clients :) ) to mellanox or just to replace and use ixgbe - that have=
+ no
+>> this bug (mellanox and ixgbe have no such bug - have many servers with t=
+hem
+>> with same conf - and only one with i40e where is same conf and memleak)
 >>
->>>>   As
->>>> for its name, I'm not particularly picky, so if you don't like
->>>> CAP_CONTAINER_* then I'm fine with CAP_AUDIT_CONTAINERID.  It really
->>>> needs to be distinct from CAP_AUDIT_WRITE and CAP_AUDIT_CONTROL since we
->>>> don't want to give the ability to set a containerID to any process that
->>>> is able to do audit logging (such as vsftpd) and similarly we don't want
->>>> to give the orchestrator the ability to control the setup of the audit
->>>> daemon.
->>> Sorry, but what aspect of the kernel security policy is this
->>> capability supposed to protect? That's what capabilities are
->>> for, not the undefined support of undefined user-space behavior.
->> Similarly, loginuids and sessionIDs are only used for audit tracking and
->> filtering.
+>> If nobody from Intel wants to reproduce this - qool - this is not my pro=
+blem
+>> but intels :) - there is now many good nics to use - like mellanox or ju=
+st
+>> stick with many 10G based on ixgbe that is really good driver - but real=
+ly ?
+>> intel guys have no XL710 cards ? i dont want to buy another buggy cards =
+to
+>> do only kernel bisects .... sorry ....
+>> To do good bisects with this bug You need to spend maybee 200/300 bisect=
+s -
+>> and to confirm each - You need maybee 30minutes so count how much time Y=
+ou
+>> need - more that 100 cards in price from mellanox maybee :)
+>>
 >
-> Tell me again why you're not reusing either of these?
+> I have similar issues with you in regards to the stability of i40e
+> driver. I will need to open another thread about them, but I would
+> like to mention that you are not the only one who suffers from
+> problems related to i40e driver. In my case I can't simply change
+> NICs..so it is even worse.
+>
+> Cheers,
+> Pavlos
 
-Ah, granularity arguments, welcome back old friend :)
+Hi Pavlos,
 
-Once again, we're still trying to sort all this out so I reserve the
-right to change my mind, but my current thinking is as follows ...
-CAP_AUDIT_WRITE exists to control which applications can submit
-userspace generated audit records to the kernel, CAP_AUDIT_CONTROL
-exists to control which applications can manage the in-kernel audit
-configuration (e.g. filter rules) and the current task's loginuid
-value.  Reusing CAP_AUDIT_WRITE here would allow any application that
-can submit userspace audit records the ability to change the audit
-container ID; this would be bad, we don't allow CAP_AUDIT_WRITE to
-change the loginuid, it would be even worse to allow it to change the
-audit container ID.  Reusing CAP_AUDIT_CONTROL is less worse than than
-CAP_AUDIT_WRITE, but it gets sticky once we get to the part where we
-want to auditd instances in containers, complete with their own
-queues, filtering rules, etc..  Perhaps we could use CAP_AUDIT_CONTROL
-to guard the audit container ID value, but we would always want to do
-that check in the init userns in order to prevent container bound
-processes from manipulating their own audit container ID.
+If you want feel free to Cc either my gmail or my intel.com email
+address when you start the new thread, and I can work with you to try
+to resolve the issues you are experiencing.
 
--- 
-paul moore
-www.paul-moore.com
+I'm just wanting to split up the unrelated issues into separate
+threads as it is easier to track them as single threads. It makes it
+much easier to figure out when an actual issue such as the original
+memory leak was resolved versus trying to work multiple issues on the
+same thread which makes things confusing as you end up losing track of
+what the issue being resolved actually is, and it makes it confusing
+for people who are reviewing the mailing list for issues similar to
+what they are experiencing.
+
+Thanks for your input, and I look forward to working with you to
+resolve the issue you are experiencing.
+
+- Alex
