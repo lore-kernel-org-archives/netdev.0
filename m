@@ -1,32 +1,52 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: rxrpc: mark expected switch fall-throughs
-Date: Thu, 19 Oct 2017 16:50:15 -0500
-Message-ID: <20171019165015.Horde.gFbCP0wQxOy_VCfPCdilo2m@gator4166.hostgator.com>
-References: <20171019162323.Horde.9-ghoep6chyagc5A5TqQ8s8@gator4166.hostgator.com>
- <20171019185016.GA18770@embeddedor.com>
- <32524.1508447816@warthog.procyon.org.uk>
- <3101.1508449499@warthog.procyon.org.uk>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 32/58] isdn/gigaset: Convert timers to use timer_setup()
+Date: Thu, 19 Oct 2017 23:51:47 +0200
+Message-ID: <1508449907.2274.28.camel@tiscali.nl>
+References: <1508200182-104605-1-git-send-email-keescook@chromium.org>
+                 <1508200182-104605-33-git-send-email-keescook@chromium.org>
+                 <1508447002.2274.14.camel@tiscali.nl>
+         <1508448028.2274.21.camel@tiscali.nl>
+         <alpine.DEB.2.20.1710192328110.2054@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: "David S. Miller" <davem@davemloft.net>,
-        linux-afs@lists.infradead.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Karsten Keil <isdn@linux-pingi.de>,
+        Johan Hovold <johan@kernel.org>,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3101.1508449499@warthog.procyon.org.uk>
-Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1710192328110.2054@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2017-10-19 at 23:31 +0200, Thomas Gleixner wrote:
+> bas_gigaset_exit()
+> {
+>         for (i = 0; i < driver->minors; i++) {
+>                 if (gigaset_shutdown(driver->cs + i) < 0)
+> 
+> gigaset_shutdown(cs)
+> {
+> 	mutex_lock(&cs->mutex); <-------- Explodes here
+> 
+> So driver->cs + i is invalid. No idea how that might be related to that
+> timer conversion patch, but ....
 
-Quoting David Howells <dhowells@redhat.com>:
+Thanks for peeking into this!
 
->> What is the reason?
->
-> Visual separation.
->
+Please note that driver->minors is one of the more embarrassing warts of the
+gigaset code. It's basically hardcoded to 1 for all three drivers (including
+bas_gigaset). So driver->cs itself is invalid here.
 
-Thanks for clarifying.
+And since the patch uses
+    struct cardstate *cs = urb->context;
 
---
-Gustavo A. R. Silva
+in a few places my guess is that it's really the patch that triggers this.
+
+Thanks,
+
+
+Paul Bolle
