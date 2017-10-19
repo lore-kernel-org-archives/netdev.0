@@ -1,42 +1,58 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH 4/7] devlink: Adding perm config of link settings
-Date: Thu, 19 Oct 2017 06:07:30 +0000
-Message-ID: <AM0PR0502MB36835F863A3E05376F3562B1BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
- <1508273069-40461-5-git-send-email-steven.lin1@broadcom.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: merge conflict between rdma-next and net-next
+Date: Thu, 19 Oct 2017 09:24:20 +0300
+Message-ID: <20171019062420.GX2106@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10079.outbound.protection.outlook.com ([40.107.1.79]:49312
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750947AbdJSGHd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 02:07:33 -0400
-In-Reply-To: <1508273069-40461-5-git-send-email-steven.lin1@broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="jBGnWEXsPC4kSclK"
+Cc: RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Tariq Toukan <tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> +enum devlink_autoneg_protocol {
-> +	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_BAM,
-> +	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY_CONSORTIUM,
-> +	DEVLINK_AUTONEG_PROTOCOL_IEEE8023BY,
-> +	DEVLINK_AUTONEG_PROTOCOL_BAM,		/* Broadcom
-> Autoneg Mode */
-> +	DEVLINK_AUTONEG_PROTOCOL_CONSORTIUM,	/*
-> Consortium Autoneg Mode */
-> +};
 
-Wouldn't adding BAM as a 'generic' mode of operation be like adding
-non-consortium speeds to ethtool API?
-[I profess ignorance in this area; For all I know it can be a widely accept=
-ed
-industry standard]
+--jBGnWEXsPC4kSclK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Doug and Dave,
+
+In the absence of linux-next, I want to warn you that there is a trivial
+merge conflict between rdma-next and net-next in drivers/net/ethernet/mellanox/mlx4/catas.c
+
+The origin of the merge conflict is the following patch https://patchwork.kernel.org/patch/9986131/
+applied to rdma-next. It is part of tree-wide conversion to timer_setup() interface.
+
+Thanks
+
+--jBGnWEXsPC4kSclK
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnoRRQACgkQ5GN7iDZy
+WKeNNQ//SzAqQXIrvSBogGA3evsnBnW2VXId397W1c4PlTXL7Oc5Tlg1ZZOuxSe2
+xq/yk9eIbCIyi2+5ngIXWQgHS1OlRvOnWIMIEzceDJFCwhkgHI2tybcEGkcq6nVe
+Zzw6W70E0wGkDx6CwUBZf7FaBxd0sQ2nwJFmT+CkMaivF3eXA7v7NCxqjeqvU9Sg
+iXO484ABmXzG2OY4T0DJlvo6yeLeyWHZ9uNu01TdGBQTzoeSfySm8gjqzgtD6bMQ
+K272uVNnd9Cn1ho4P2wxBv99Icrxoh0VC6DNHYPm9zJ/oC6lHJ8TCbi3oBn2F/o3
+yeZuQL+jCw7uO2ghXrzTa+577mPNy606ePUazZVpgMBK6A1291WLB3hw9AmTk6NI
+Zi2WQi2NhhcX1YkNAHWEaA2EJxdhgm1hViCqfVtyxYfzXiGtvoRZDdiy4C1pZEpN
+CenGl+XVRQtLvLUDjOf5tWkz8VW+y8KE/5a5UXBMG1ARYTjLQBGPj1FAQZ/rH5tm
+dtzQ3p/vvBnQ3JGR1X+Ysg3sdc4us9BfgoqJTahDjwZ/BvbKRUoYU/JtiIyOVNYd
+OexR5919SXATZksuQb9gMqGzdlUv5qGh3fIN7fZ9YAKSZ53xks7LE7ivFqtZfrsk
+twHGnfVd4x7uDPhbcHpFddHTEGxkZOp2/UTSmNcokeRaLgIci4w=
+=wUux
+-----END PGP SIGNATURE-----
+
+--jBGnWEXsPC4kSclK--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
