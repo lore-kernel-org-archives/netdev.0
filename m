@@ -1,117 +1,42 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next V8 PATCH 3/5] bpf: cpumap xdp_buff to skb conversion
- and allocation
-Date: Thu, 19 Oct 2017 12:10:51 +0200
-Message-ID: <20171019121051.2117c062@redhat.com>
-References: <150814913767.1806.3470498528707259987.stgit@firesoul>
-        <150814917905.1806.2745716159653488848.stgit@firesoul>
-        <20171018165207-mutt-send-email-mst@kernel.org>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH 5/7] devlink: Adding pre-boot permanent config parameters
+Date: Thu, 19 Oct 2017 10:30:28 +0000
+Message-ID: <AM0PR0502MB3683667E768C35276522780EBF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1508273069-40461-1-git-send-email-steven.lin1@broadcom.com>
+ <1508273069-40461-6-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        pavel.odintsov@gmail.com, Jason Wang <jasowang@redhat.com>,
-        mchan@broadcom.com, John Fastabend <john.fastabend@gmail.com>,
-        peter.waskiewicz.jr@intel.com, ast@fiberby.dk,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "linville@tuxdriver.com" <linville@tuxdriver.com>,
+        "gospo@broadcom.com" <gospo@broadcom.com>
+To: Steve Lin <steven.lin1@broadcom.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54094 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751898AbdJSKLC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 06:11:02 -0400
-In-Reply-To: <20171018165207-mutt-send-email-mst@kernel.org>
+Received: from mail-he1eur01on0040.outbound.protection.outlook.com ([104.47.0.40]:12992
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751426AbdJSKab (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 19 Oct 2017 06:30:31 -0400
+In-Reply-To: <1508273069-40461-6-git-send-email-steven.lin1@broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Oct 2017 17:12:09 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+> DEVLINK_ATTR_PERM_CFG_MBA_LINK_SPEED: Configured link speed
+> while executing MBA host software (PXI/iSCSI); use enum
+> devlink_mba_link_speed.
 
-> On Mon, Oct 16, 2017 at 12:19:39PM +0200, Jesper Dangaard Brouer wrote:
-> > @@ -191,15 +280,45 @@ static int cpu_map_kthread_run(void *data)
-> >  	 * kthread_stop signal until queue is empty.
-> >  	 */
-> >  	while (!kthread_should_stop() || !__ptr_ring_empty(rcpu->queue)) {
-> > +		unsigned int processed = 0, drops = 0;
-> >  		struct xdp_pkt *xdp_pkt;
-> >  
-> > -		schedule();
-> > -		/* Do work */
-> > -		while ((xdp_pkt = ptr_ring_consume(rcpu->queue))) {
-> > -			/* For now just "refcnt-free" */
-> > -			page_frag_free(xdp_pkt);
-> > +		/* Release CPU reschedule checks */
-> > +		if (__ptr_ring_empty(rcpu->queue)) {  
-> 
-> 
-> I suspect this is racy: if ring becomes non empty here and
-> you wake the task, next line will put it to sleep.
-> I think you want to reverse the order:
-> 
-> 			__set_current_state(TASK_INTERRUPTIBLE);
-> 
-> 	then check __ptr_ring_empty.
+#4 introduces:
 
-I'll look into this.
+> DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D0: Configure default
+> pre-OS link speed in full power (D0) state; use enum
+> devlink_pre_os_link_speed.
 
-The window will be minimal, as __cpu_map_flush() after the last packets
-enqueue will call wake_up_process(rcpu->kthread).  But I guess there is
-still small race possible.  Worst case, a packet could be stuck in the
-queue until a new packet arrive.  Thanks for spotting this.
+> DEVLINK_ATTR_PERM_CFG_PRE_OS_LINK_SPEED_D3: Configure default
+> pre-OS link speed in sleep (D3) state; use enum
+> devlink_pre_os_link_speed.
 
-
-> I note using the __ version means you can not resize the ring.
-> Hope you do not need to.
-
-Resize is not supported.  If user change the queue size, a new ptr_ring
-and kthread is created, and logic assured the old ptr_ring and kthread
-flush packets appropriately (this is tested with the --stress-mode).
-
- 
-> > +			__set_current_state(TASK_INTERRUPTIBLE);
-> > +			schedule();
-> > +		} else {
-> > +			cond_resched();
-> > +		}
-> > +		__set_current_state(TASK_RUNNING);
-> > +
-> > +		/* Process packets in rcpu->queue */
-> > +		local_bh_disable();
-> > +		/*
-> > +		 * The bpf_cpu_map_entry is single consumer, with this
-> > +		 * kthread CPU pinned. Lockless access to ptr_ring
-> > +		 * consume side valid as no-resize allowed of queue.
-> > +		 */
-> > +		while ((xdp_pkt = __ptr_ring_consume(rcpu->queue))) {
-> > +			struct sk_buff *skb;
-> > +			int ret;
-> > +
-> > +			skb = cpu_map_build_skb(rcpu, xdp_pkt);
-> > +			if (!skb) {
-> > +				page_frag_free(xdp_pkt);
-> > +				continue;
-> > +			}
-> > +
-> > +			/* Inject into network stack */
-> > +			ret = netif_receive_skb_core(skb);
-> > +			if (ret == NET_RX_DROP)
-> > +				drops++;
-> > +
-> > +			/* Limit BH-disable period */
-> > +			if (++processed == 8)
-> > +				break;
-> >  		}
-> > -		__set_current_state(TASK_INTERRUPTIBLE);
-> > +		local_bh_enable(); /* resched point, may call do_softirq() */
-> >  	}
-> >  	__set_current_state(TASK_RUNNING);
-> >
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Why would user need an additional value for the MBA speed?
