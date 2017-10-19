@@ -1,132 +1,148 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH net v2 2/2] net: fec: Let fec_ptp have its own interrupt
- routine
-Date: Thu, 19 Oct 2017 06:25:39 +0000
-Message-ID: <AM4PR0401MB22606C1B2E8CBF3DDF9F4D88FF420@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20171014020940.32736-1-troy.kisky@boundarydevices.com>
- <20171014020940.32736-2-troy.kisky@boundarydevices.com>
- <AM4PR0401MB226019650A8FB767B11B8B91FF4F0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <542a126c-d7ff-7232-9dde-e5c6f1e1f55f@boundarydevices.com>
- <AM4PR0401MB226072C7D7775F16C533316FFF4D0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
- <677439a7-c225-c231-bbc8-986e2590ebed@boundarydevices.com>
- <006c1086-97c5-2076-de37-c9766f0c499e@boundarydevices.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth-next 2017-10-19
+Date: Thu, 19 Oct 2017 09:29:14 +0300
+Message-ID: <20171019062914.GA9702@x1c.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Fabio Estevam <fabio.estevam@nxp.com>,
-        "lznuaa@gmail.com" <lznuaa@gmail.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-To: Troy Kisky <troy.kisky@boundarydevices.com>,
-        "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="UugvWAfsgieZRqgk"
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20050.outbound.protection.outlook.com ([40.107.2.50]:30944
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751153AbdJSGZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 02:25:44 -0400
-In-Reply-To: <006c1086-97c5-2076-de37-c9766f0c499e@boundarydevices.com>
-Content-Language: en-US
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:52240 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750777AbdJSG3V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 02:29:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVHJveSBLaXNreSA8dHJveS5raXNreUBib3VuZGFyeWRldmljZXMuY29tPiBTZW50OiBU
-aHVyc2RheSwgT2N0b2JlciAxOSwgMjAxNyAyOjMwIEFNDQo+T24gMTAvMTgvMjAxNyAxMToxMCBB
-TSwgVHJveSBLaXNreSB3cm90ZToNCj4+IE9uIDEwLzE3LzIwMTcgNzozMCBQTSwgQW5keSBEdWFu
-IHdyb3RlOg0KPj4+IEZyb206IFRyb3kgS2lza3kgPHRyb3kua2lza3lAYm91bmRhcnlkZXZpY2Vz
-LmNvbT4gU2VudDogV2VkbmVzZGF5LA0KPj4+IE9jdG9iZXIgMTgsIDIwMTcgNTozNCBBTQ0KPj4+
-Pj4+IFRoaXMgaXMgYmV0dGVyIGZvciBjb2RlIGxvY2FsaXR5IGFuZCBzaG91bGQgc2xpZ2h0bHkg
-c3BlZWQgdXANCj4+Pj4+PiBub3JtYWwNCj4+Pj4gaW50ZXJydXB0cy4NCj4+Pj4+Pg0KPj4+Pj4+
-IFRoaXMgYWxzbyBhbGxvd3MgUFBTIGNsb2NrIG91dHB1dCB0byBzdGFydCB3b3JraW5nIGZvciBp
-Lm14Ny4gVGhpcw0KPj4+Pj4+IGlzIGJlY2F1c2UNCj4+Pj4+PiBpLm14NyB3YXMgYWxyZWFkeSB1
-c2luZyB0aGUgbGltaXQgb2YgMyBpbnRlcnJ1cHRzLCBhbmQgbmVlZGVkIGFub3RoZXIuDQo+Pj4+
-Pj4NCj4+Pj4+PiBTaWduZWQtb2ZmLWJ5OiBUcm95IEtpc2t5IDx0cm95Lmtpc2t5QGJvdW5kYXJ5
-ZGV2aWNlcy5jb20+DQo+Pj4+Pj4NCj4+Pj4+PiAtLS0NCj4+Pj4+Pg0KPj4+Pj4+IHYyOiBtYWRl
-IHRoaXMgY2hhbmdlIGluZGVwZW5kZW50IG9mIGFueSBkZXZpY2V0cmVlIGNoYW5nZSBzbyB0aGF0
-DQo+Pj4+Pj4gb2xkIGR0YnMgY29udGludWUgdG8gd29yay4NCj4+Pj4+Pg0KPj4+Pj4+IENvbnRp
-bnVlIHRvIHJlZ2lzdGVyIHB0cCBjbG9jayBpZiBpbnRlcnJ1cHQgaXMgbm90IGZvdW5kLg0KPj4+
-Pj4+IC0tLQ0KPj4+Pj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mZWMuaCAgICAg
-IHwgIDMgKy0NCj4+Pj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjX21haW4u
-YyB8IDI1ICsrKysrKy0tLS0NCj4+Pj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
-ZmVjX3B0cC5jICB8IDgyDQo+Pj4+Pj4gKysrKysrKysrKysrKysrKysrLS0tLS0tLS0NCj4+Pj4+
-PiAtLS0tLQ0KPj4+Pj4+IDMgZmlsZXMgY2hhbmdlZCwgNjUgaW5zZXJ0aW9ucygrKSwgNDUgZGVs
-ZXRpb25zKC0pDQo+Pj4+Pj4NCj4+Pj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZnJlZXNjYWxlL2ZlYy5oDQo+Pj4+Pj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2Nh
-bGUvZmVjLmgNCj4+Pj4+PiBpbmRleCBlZGUxODc2YTlhMTkuLmJlNTZhYzFmMWFjNCAxMDA2NDQN
-Cj4+Pj4+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+Pj4+
-PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZmVjLmgNCj4+Pj4+PiBAQCAt
-NTgyLDEyICs1ODIsMTEgQEAgc3RydWN0IGZlY19lbmV0X3ByaXZhdGUgew0KPj4+Pj4+IAl1NjQg
-ZXRodG9vbF9zdGF0c1swXTsNCj4+Pj4+PiB9Ow0KPj4+Pj4+DQo+Pj4+Pj4gLXZvaWQgZmVjX3B0
-cF9pbml0KHN0cnVjdCBwbGF0Zm9ybV9kZXZpY2UgKnBkZXYpOw0KPj4+Pj4+ICt2b2lkIGZlY19w
-dHBfaW5pdChzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2LCBpbnQgaXJxX2luZGV4KTsNCj4+
-Pj4+PiB2b2lkIGZlY19wdHBfc3RvcChzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KTsgIHZv
-aWQNCj4+Pj4+PiBmZWNfcHRwX3N0YXJ0X2N5Y2xlY291bnRlcihzdHJ1Y3QgbmV0X2RldmljZSAq
-bmRldik7ICBpbnQNCj4+Pj4+PiBmZWNfcHRwX3NldChzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiwg
-c3RydWN0IGlmcmVxICppZnIpOyAgaW50DQo+Pj4+Pj4gZmVjX3B0cF9nZXQoc3RydWN0IG5ldF9k
-ZXZpY2UgKm5kZXYsIHN0cnVjdCBpZnJlcSAqaWZyKTsgLXVpbnQNCj4+Pj4+PiBmZWNfcHRwX2No
-ZWNrX3Bwc19ldmVudChzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwKTsNCj4+Pj4+Pg0KPj4+
-Pj4+DQo+Pj4+Pj4NCj4+Pj4NCj4vKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKg0KPj4+Pj4+ICoqKioqKioqKioqKioqKioqKi8NCj4+Pj4+
-PiAjZW5kaWYgLyogRkVDX0ggKi8NCj4+Pj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvZnJlZXNjYWxlL2ZlY19tYWluLmMNCj4+Pj4+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2ZyZWVzY2FsZS9mZWNfbWFpbi5jDQo+Pj4+Pj4gaW5kZXggM2RjMmQ3NzFhMjIyLi4yMWFmYWJi
-YzU2MGYgMTAwNjQ0DQo+Pj4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxl
-L2ZlY19tYWluLmMNCj4+Pj4+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUv
-ZmVjX21haW4uYw0KPj4+Pj4+IEBAIC0xNjAyLDEwICsxNjAyLDYgQEAgZmVjX2VuZXRfaW50ZXJy
-dXB0KGludCBpcnEsIHZvaWQgKmRldl9pZCkNCj4+Pj4+PiAJCXJldCA9IElSUV9IQU5ETEVEOw0K
-Pj4+Pj4+IAkJY29tcGxldGUoJmZlcC0+bWRpb19kb25lKTsNCj4+Pj4+PiAJfQ0KPj4+Pj4+IC0N
-Cj4+Pj4+PiAtCWlmIChmZXAtPnB0cF9jbG9jaykNCj4+Pj4+PiAtCQlpZiAoZmVjX3B0cF9jaGVj
-a19wcHNfZXZlbnQoZmVwKSkNCj4+Pj4+PiAtCQkJcmV0ID0gSVJRX0hBTkRMRUQ7DQo+Pj4+Pj4g
-CXJldHVybiByZXQ7DQo+Pj4+Pj4gfQ0KPj4+Pj4+DQo+Pj4+Pj4gQEAgLTMzMjUsNiArMzMyMSw4
-IEBAIGZlY19wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQ0KPj4+Pj4+IAlzdHJ1
-Y3QgZGV2aWNlX25vZGUgKm5wID0gcGRldi0+ZGV2Lm9mX25vZGUsICpwaHlfbm9kZTsNCj4+Pj4+
-PiAJaW50IG51bV90eF9xczsNCj4+Pj4+PiAJaW50IG51bV9yeF9xczsNCj4+Pj4+PiArCWNoYXIg
-aXJxX25hbWVbOF07DQo+Pj4+Pj4gKwlpbnQgaXJxX2NudDsNCj4+Pj4+Pg0KPj4+Pj4+IAlmZWNf
-ZW5ldF9nZXRfcXVldWVfbnVtKHBkZXYsICZudW1fdHhfcXMsICZudW1fcnhfcXMpOw0KPj4+Pj4+
-DQo+Pj4+Pj4gQEAgLTM0NjUsMTggKzM0NjMsMjcgQEAgZmVjX3Byb2JlKHN0cnVjdCBwbGF0Zm9y
-bV9kZXZpY2UgKnBkZXYpDQo+Pj4+Pj4gCWlmIChyZXQpDQo+Pj4+Pj4gCQlnb3RvIGZhaWxlZF9y
-ZXNldDsNCj4+Pj4+Pg0KPj4+Pj4+ICsJaXJxX2NudCA9IHBsYXRmb3JtX2lycV9jb3VudChwZGV2
-KTsNCj4+Pj4+PiArCWlmIChpcnFfY250ID4gRkVDX0lSUV9OVU0pDQo+Pj4+Pj4gKwkJaXJxX2Nu
-dCA9IEZFQ19JUlFfTlVNOwkvKiBsYXN0IGZvciBwdHAgKi8NCj4+Pj4+PiArCWVsc2UgaWYgKGly
-cV9jbnQgPT0gMikNCj4+Pj4+PiArCQlpcnFfY250ID0gMTsJLyogbGFzdCBmb3IgcHRwICovDQo+
-Pj4+Pj4gKwllbHNlIGlmIChpcnFfY250IDw9IDApDQo+Pj4+Pj4gKwkJaXJxX2NudCA9IDE7CS8q
-IExldCB0aGUgZm9yIGxvb3AgZmFpbCAqLw0KPj4+Pj4NCj4+Pj4+IERvbid0IGRvIGxpa2UgdGhp
-cy4gRG9uJ3Qgc3VwcG9zZSBwcHMgaW50ZXJydXB0IGlzIHRoZSBsYXN0IG9uZS4NCj4+Pj4NCj4+
-Pj4NCj4+Pj4gSSBkb24ndC4gSWYgdGhlIHBwcyBpbnRlcnJ1cHQgaXMgbmFtZWQsIHRoZSBuYW1l
-ZCBpbnRlcnJ1cHQgd2lsbCBiZQ0KPj4+PiB1c2VkLiBJZiBpdCBpcyBOT1QgbmFtZWQsIHRoZSBs
-YXN0IGludGVycnVwdCBpcyB1c2VkLCBpZiAyDQo+Pj4+IGludGVycnVwdHMsIG9yID4zIGludGVy
-cnVwdCBhcmUgcHJvdmlkZWQuDQo+Pj4+IE90aGVyd2lzZSwgbm8gcHBzIGludGVycnVwdCBpcyBh
-c3N1bWVkLg0KPj4+PiBGb3J0dW5hdGVseSB0aGlzIHNlZW1zIHRvIGJlIHRydWUgY3VycmVudGx5
-Lg0KPj4+Pg0KPj4+IElmIHBwcyBpbnRlcnJ1cHQgaXMgbm90IG5hbWVkLCB0aGVuIGl0IGxpbWl0
-IHRoZSBsYXN0IG9uZSBpcyBwcHMuDQo+Pj4gV2UgY2Fubm90IGdldCB0aGUgcHBzIGludGVycnVw
-dCBiYXNlZCBvbiBjdXJyZW50IGNoaXAgaW50ZXJydXB0IGRlZmluZSwNCj53ZSBuZXZlciBrbm93
-IHRoZSBmdXR1cmUgY2hpcCBob3cgdG8gZGVmaW5lIGludGVycnVwdC4NCj4+PiBBbHRob3VnaCB5
-b3VyIGN1cnJlbnQgaW1wbGVtZW50YXRpb24gY2FuIHdvcmsgd2l0aCBjdXJyZW50IGNoaXBzLCBi
-dXQgaXQgaXMNCj5ub3QgcmVhbGx5IGdvb2Qgc29sdXRpb24uDQo+Pj4NCj4+Pj4NCj4+Pj4+IEFu
-ZCBpZiBpcnFfY250IGlzIDEgbGlrZSBpbXgyOC9pbXg1eCwgIHRoZSBwYXRjaCB3aWxsIGJyZWFr
-IGZlYw0KPj4+Pj4gaW50ZXJydXB0DQo+Pj4+IGZ1bmN0aW9uLg0KPj4+Pg0KPj4+PiBIb3cgPyAg
-ZmVjX3B0cF9pbml0IHdpbGwgbm90IGJlIGNhbGxlZCBhcyBidWZkZXNjX2V4IGlzIDAuDQo+Pj4+
-DQo+Pj4gSW14MjggYWxzbyBzdXBwb3J0IGVuaGFuY2VkIGJ1ZmZlciBkZXNjcmlwdG9yLCAgaWYg
-ZGVmaW5lIHRoZSBwdHAgY2xvY2sgaW4NCj5kdHMgdGhlbiBidWZkZXNjX2V4IGFsc28gY2FuIGJl
-IDEuDQo+Pg0KPj4NCj4+IE9ubHkgaWYgRkVDX1FVSVJLX0hBU19CVUZERVNDX0VYIGlzIHNldCwg
-d2hpY2ggaXQgaXMgbm90LiBIZXJlJ3MgdGhlDQo+PiByZWxldmFudCBjb2RlIHNuaXBwZXRzDQo+
-Pg0KPj4gCX0sIHsNCj4+IAkJLm5hbWUgPSAiaW14MjUtZmVjIiwNCj4+IAkJLmRyaXZlcl9kYXRh
-ID0gRkVDX1FVSVJLX1VTRV9HQVNLRVQgfA0KPkZFQ19RVUlSS19NSUJfQ0xFQVIsDQo+PiAJfSwg
-ew0KPj4gCQkubmFtZSA9ICJpbXgyNy1mZWMiLA0KPj4gCQkuZHJpdmVyX2RhdGEgPSBGRUNfUVVJ
-UktfTUlCX0NMRUFSLA0KPj4gCX0sIHsNCj4+IAkJLm5hbWUgPSAiaW14MjgtZmVjIiwNCj4+IAkJ
-LmRyaXZlcl9kYXRhID0gRkVDX1FVSVJLX0VORVRfTUFDIHwNCj5GRUNfUVVJUktfU1dBUF9GUkFN
-RSB8DQo+PiAJCQkJRkVDX1FVSVJLX1NJTkdMRV9NRElPIHwNCj5GRUNfUVVJUktfSEFTX1JBQ0Ms
-DQo+PiAJfSwgew0KPj4NCj4+IC4uLi4NCj4+IAlmZXAtPmJ1ZmRlc2NfZXggPSBmZXAtPnF1aXJr
-cyAmIEZFQ19RVUlSS19IQVNfQlVGREVTQ19FWDsNCj4+IAlmZXAtPmNsa19wdHAgPSBkZXZtX2Ns
-a19nZXQoJnBkZXYtPmRldiwgInB0cCIpOw0KPj4gCWlmIChJU19FUlIoZmVwLT5jbGtfcHRwKSkg
-ew0KPj4gCQlmZXAtPmNsa19wdHAgPSBOVUxMOw0KPj4gCQlmZXAtPmJ1ZmRlc2NfZXggPSBmYWxz
-ZTsNCj4+IAl9DQo+PiBfX19fX19fX19fX19fXw0KPj4NCj4+IFlvdSBjb3VsZCBtYWtlIHlvdXIg
-d2F5IHdvcmsgdGhvdWdoLCBpZiB5b3UgcmVtb3ZlIHRoZSBwcHMgY2xvY2sgZnJvbQ0KPj4gaW14
-NTAuZHRzaSwgaW14NTEuZHRzaSwgYW5kIGlteDUzLmR0c2kuDQo+DQo+DQo+V2hvb3BzIEkgbWVh
-bnQgInB0cCIgY2xvY2suDQo+DQo+VGhhdCBicmluZ3MgdXAgYSBxdWVzdGlvbiB0aG91Z2guDQo+
-DQo+aW50ZXJydXB0LW5hbWVzID0gImludDAiLCAiaW50MSIsICJpbnQyIiwgInBwcyINCj4NCj5t
-YXkgYmUgbW9yZSBhY2N1cmF0ZS4gSXMgdGhlcmUgYW55IGRlc2lyZSBmb3IgbWUgdG8gdXNlICJw
-cHMiIGluc3RlYWQgPw0KPg0KSSBhZ3JlZSB0aGlzIG5hbWVkIG1ldGhvZC4NClNldCB0aGUgcHJv
-cGVydHkgImludGVycnVwdC1uYW1lcyIgaXMgb3B0aW9uYWwgcHJvcGVydGllcyB0aGF0IGRvbid0
-IGJyZWFrIG90aGVyIHBsYXRmb3Jtcy4NCg==
+
+--UugvWAfsgieZRqgk
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave,
+
+Here's the first bluetooth-next pull request targeting the 4.15 kernel
+release.
+
+ - Multiple fixes & improvements to the hci_bcm driver
+ - DT improvements, e.g. new local-bd-address property
+ - Fixes & improvements to ECDH usage. Private key is now generated by
+   the crypto subsystem.
+ - gcc-4.9 warning fixes
+
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 4bc4e64c2cfdafa6b8ecdcc5edf10cc1a147587f:
+
+  Merge tag 'batadv-next-for-davem-20171006' of git://git.open-mesh.org/linux-merge (2017-10-06 10:12:52 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git for-upstream
+
+for you to fetch changes up to fac72b243cc789bb209e6eca824919b42d98cfe2:
+
+  Bluetooth: mark expected switch fall-throughs (2017-10-14 09:25:51 +0200)
+
+----------------------------------------------------------------
+Arnd Bergmann (3):
+      ieee802154: fix gcc-4.9 warnings
+      Bluetooth: hci_bcm: fix build error without CONFIG_PM
+      Bluetooth: BT_HCIUART now depends on SERIAL_DEV_BUS
+
+Arvind Yadav (1):
+      Bluetooth: btmrvl: *_err() and *_info() strings should end with newlines
+
+Gustavo A. R. Silva (1):
+      Bluetooth: mark expected switch fall-throughs
+
+Hans de Goede (12):
+      Bluetooth: hci_uart_set_flow_control: Fix NULL deref when using serdev
+      Bluetooth: hci_bcm: Fix setting of irq trigger type
+      Bluetooth: hci_bcm: Move bcm_platform_probe call out of bcm_acpi_probe
+      Bluetooth: hci_bcm: Move platform_get_irq call to bcm_probe
+      Bluetooth: hci_bcm: Store device pointer instead of platform_device pointer
+      Bluetooth: hci_bcm: Rename bcm_platform_probe to bcm_get_resources
+      Bluetooth: hci_bcm: Make acpi_probe get irq from ACPI resources
+      Bluetooth: hci_bcm: Make suspend/resume functions platform_dev independent
+      Bluetooth: hci_bcm: Add (runtime)pm support to the serdev driver
+      Bluetooth: btbcm: Add entry for BCM4356A2 UART bluetooth
+      Bluetooth: hci_bcm: Add support for BCM2E7E
+      Revert "Bluetooth: btusb: Add workaround for Broadcom devices without product id"
+
+Ian W MORRISON (3):
+      Bluetooth: hci_bcm: Correct context of IRQ polarity message
+      Bluetooth: hci_bcm: Add support for MINIX Z83-4 based devices
+      Bluetooth: btbcm: Add support for MINIX Z83-4 based devices
+
+Johan Hovold (1):
+      Bluetooth: avoid silent hci_bcm ACPI PM regression
+
+Kees Cook (1):
+      Bluetooth: Convert timers to use timer_setup()
+
+Loic Poulain (4):
+      Bluetooth: btqcomsmd: Add support for BD address setup
+      dt-bindings: net: document Bluetooth bindings in one place
+      dt-bindings: soc: qcom: Add local-bd-address property to WCNSS-BT
+      Bluetooth: btqcomsmd: retrieve BD address from DT property
+
+Marcel Holtmann (1):
+      Bluetooth: Fix compiler warning with selftest duration calculation
+
+Tudor Ambarus (5):
+      Bluetooth: move ecdh allocation outside of ecdh_helper
+      Bluetooth: ecdh_helper - reveal error codes
+      Bluetooth: selftest - check for errors when computing ZZ
+      Bluetooth: ecdh_helper - fix leak of private key
+      Bluetooth: let the crypto subsystem generate the ecc privkey
+
+ .../devicetree/bindings/net/bluetooth.txt          |   5 +
+ .../devicetree/bindings/soc/qcom/qcom,wcnss.txt    |   8 +
+ drivers/bluetooth/Kconfig                          |   3 +-
+ drivers/bluetooth/bcm203x.c                        |   2 +-
+ drivers/bluetooth/bluecard_cs.c                    |   7 +-
+ drivers/bluetooth/btbcm.c                          |   3 +
+ drivers/bluetooth/btmrvl_sdio.c                    |   6 +-
+ drivers/bluetooth/btqcomsmd.c                      |  45 ++++
+ drivers/bluetooth/btusb.c                          |  18 --
+ drivers/bluetooth/hci_bcm.c                        | 263 ++++++++++++---------
+ drivers/bluetooth/hci_bcsp.c                       |  10 +-
+ drivers/bluetooth/hci_h5.c                         |  10 +-
+ drivers/bluetooth/hci_ldisc.c                      |   7 +
+ drivers/bluetooth/hci_ll.c                         |   2 +-
+ drivers/bluetooth/hci_qca.c                        |  17 +-
+ drivers/net/ieee802154/ca8210.c                    |   2 +-
+ net/bluetooth/ecdh_helper.c                        | 228 +++++++++---------
+ net/bluetooth/ecdh_helper.h                        |   9 +-
+ net/bluetooth/selftest.c                           |  48 +++-
+ net/bluetooth/smp.c                                | 127 ++++++----
+ 20 files changed, 487 insertions(+), 333 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/bluetooth.txt
+
+--UugvWAfsgieZRqgk
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZ6EY6AAoJECQj9vv5qNQSf2oP/RJ9MwV/Hhl+6VqlK2Vfs3N+
+0WIxT2G+US8xNI/j8aNH3+6ipX1e5fY9n43EVWGYya+YXvsU+fxexCKYh+fiXvM7
+TSENg9dBXybnIUt5kHTfDPh1g9l5IGWx5DwD5vR8uUxuffqP+l17kYJoM3yIargu
+aWfxOu6p3XHQayLpCmnGHpzPa9lFf5U1VrKU99VG6RdKNWRPCdtJOKiUogh2dDQ6
+DrdAqKufBEnl8M/8P6eO4UwKCzwyHvicWaW4x5Cl+MQDJcz7ayveez7Di9Cgk31P
+svMtmXNuHHR9irLLdney7IKUGBAffYkPqsBiF8WJCFc01tBYzZSDiMb5f0byWI7B
+Jb+r96DiW+YdHVOqxRmt6Mho22/Kdq3zyBqTu7NvHT32EBRcNpY2qCztrA/i4c7r
+iKhERunzq5kEyM+TjIW389ACHfJbDKfZKIFT8cnK0DsTlppZhKL9INiFSy1GYlA1
+cKWUWtnlUGAAkJbNL6BurPJQacnbHR+lQCD6KkGWe9vuSH8YXilG0l0JMiOXB/ni
+FEgRtJ8iMMSxYeiSIBFGyEUqxkOm+NZROI0nc1cpbouL1MuF4qaBCeIqjB207/r5
++Mz4YYvJBp/veUXrHeem1XiJJVGUxPJBIopWKYmSd8F4YWqouOdngclKStWwBhGM
+Th60FhOY/xQ9KjZZX+yM
+=hSzD
+-----END PGP SIGNATURE-----
+
+--UugvWAfsgieZRqgk--
