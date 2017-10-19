@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 11/20] bnxt: Convert ndo_setup_tc offloads to block callbacks
-Date: Thu, 19 Oct 2017 15:50:39 +0200
-Message-ID: <20171019135048.4306-12-jiri@resnulli.us>
+Subject: [patch net-next v2 07/20] net: sched: cls_u32: call block callbacks for offload
+Date: Thu, 19 Oct 2017 15:50:35 +0200
+Message-ID: <20171019135048.4306-8-jiri@resnulli.us>
 References: <20171019135048.4306-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -14,163 +14,164 @@ Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         john.hurley@netronome.com, alexander.h.duyck@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:56988 "EHLO
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:56980 "EHLO
         mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753784AbdJSNvA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:51:00 -0400
-Received: by mail-wr0-f196.google.com with SMTP id r79so8416387wrb.13
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:59 -0700 (PDT)
+        with ESMTP id S1753773AbdJSNu5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 09:50:57 -0400
+Received: by mail-wr0-f196.google.com with SMTP id r79so8416181wrb.13
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 06:50:56 -0700 (PDT)
 In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Benefit from the newly introduced block callback infrastructure and
-convert ndo_setup_tc calls for flower offloads to block callbacks.
+Use the newly introduced callbacks infrastructure and call block
+callbacks alongside with the existing per-netdev ndo_setup_tc.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 37 +++++++++++++++++++----
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c  |  3 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c | 43 +++++++++++++++++++++++++--
- 3 files changed, 73 insertions(+), 10 deletions(-)
+ net/sched/cls_u32.c | 72 ++++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 52 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 5ba4993..4dde2b8 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7295,15 +7295,40 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index f407f13..24cc429 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -465,39 +465,57 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode *key)
+ static void u32_clear_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
+ 
+-	if (!tc_should_offload(dev, 0))
+-		return;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_DELETE_HNODE;
+ 	cls_u32.hnode.divisor = h->divisor;
+ 	cls_u32.hnode.handle = h->handle;
+ 	cls_u32.hnode.prio = h->prio;
+ 
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	if (tc_can_offload(dev))
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, false);
+ }
+ 
+ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
+ 				u32 flags)
+ {
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
++	bool skip_sw = tc_skip_sw(flags);
++	bool offloaded = false;
+ 	int err;
+ 
+-	if (!tc_should_offload(dev, flags))
+-		return tc_skip_sw(flags) ? -EINVAL : 0;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_NEW_HNODE;
+ 	cls_u32.hnode.divisor = h->divisor;
+ 	cls_u32.hnode.handle = h->handle;
+ 	cls_u32.hnode.prio = h->prio;
+ 
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
+-	if (tc_skip_sw(flags))
++	if (tc_can_offload(dev)) {
++		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
++						    &cls_u32);
++		if (err) {
++			if (skip_sw)
++				return err;
++		} else {
++			offloaded = true;
++		}
++	}
++
++	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, skip_sw);
++	if (err < 0) {
++		u32_clear_hw_hnode(tp, h);
+ 		return err;
++	} else if (err > 0) {
++		offloaded = true;
++	}
++
++	if (skip_sw && !offloaded)
++		return -EINVAL;
+ 
  	return 0;
  }
- 
--static int bnxt_setup_flower(struct net_device *dev,
--			     struct tc_cls_flower_offload *cls_flower)
-+static int bnxt_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-+				  void *cb_priv)
+@@ -505,28 +523,27 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp, struct tc_u_hnode *h,
+ static void u32_remove_hw_knode(struct tcf_proto *tp, u32 handle)
  {
--	struct bnxt *bp = netdev_priv(dev);
-+	struct bnxt *bp = cb_priv;
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
  
- 	if (BNXT_VF(bp))
- 		return -EOPNOTSUPP;
+-	if (!tc_should_offload(dev, 0))
+-		return;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_DELETE_KNODE;
+ 	cls_u32.knode.handle = handle;
  
--	return bnxt_tc_setup_flower(bp, bp->pf.fw_fid, cls_flower);
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return bnxt_tc_setup_flower(bp, bp->pf.fw_fid, type_data);
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static int bnxt_setup_tc_block(struct net_device *dev,
-+			       struct tc_block_offload *f)
-+{
-+	struct bnxt *bp = netdev_priv(dev);
-+
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block, bnxt_setup_tc_block_cb,
-+					     bp, bp);
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block, bnxt_setup_tc_block_cb, bp);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
+-	dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	if (tc_can_offload(dev))
++		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
++	tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, false);
  }
  
- static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
-@@ -7311,7 +7336,9 @@ static int bnxt_setup_tc(struct net_device *dev, enum tc_setup_type type,
+ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+ 				u32 flags)
  {
- 	switch (type) {
- 	case TC_SETUP_CLSFLOWER:
--		return bnxt_setup_flower(dev, type_data);
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return bnxt_setup_tc_block(dev, type_data);
- 	case TC_SETUP_MQPRIO: {
- 		struct tc_mqprio_qopt *mqprio = type_data;
+ 	struct net_device *dev = tp->q->dev_queue->dev;
++	struct tcf_block *block = tp->chain->block;
+ 	struct tc_cls_u32_offload cls_u32 = {};
++	bool skip_sw = tc_skip_sw(flags);
+ 	int err;
  
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-index 4730c04..a9cb653 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-@@ -748,8 +748,7 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
- {
- 	int rc = 0;
+-	if (!tc_should_offload(dev, flags))
+-		return tc_skip_sw(flags) ? -EINVAL : 0;
+-
+ 	tc_cls_common_offload_init(&cls_u32.common, tp);
+ 	cls_u32.command = TC_CLSU32_REPLACE_KNODE;
+ 	cls_u32.knode.handle = n->handle;
+@@ -543,13 +560,28 @@ static int u32_replace_hw_knode(struct tcf_proto *tp, struct tc_u_knode *n,
+ 	if (n->ht_down)
+ 		cls_u32.knode.link_handle = n->ht_down->handle;
  
--	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
--	    cls_flower->common.chain_index)
-+	if (cls_flower->common.chain_index)
- 		return -EOPNOTSUPP;
+-	err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32, &cls_u32);
  
- 	switch (cls_flower->command) {
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-index e75db04..cc278d7 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-@@ -115,10 +115,11 @@ bnxt_vf_rep_get_stats64(struct net_device *dev,
- 	stats->tx_bytes = vf_rep->tx_stats.bytes;
- }
- 
--static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
--				void *type_data)
-+static int bnxt_vf_rep_setup_tc_block_cb(enum tc_setup_type type,
-+					 void *type_data,
-+					 void *cb_priv)
- {
--	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
-+	struct bnxt_vf_rep *vf_rep = cb_priv;
- 	struct bnxt *bp = vf_rep->bp;
- 	int vf_fid = bp->pf.vf[vf_rep->vf_idx].fw_fid;
- 
-@@ -130,6 +131,42 @@ static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	}
- }
- 
-+static int bnxt_vf_rep_setup_tc_block(struct net_device *dev,
-+				      struct tc_block_offload *f)
-+{
-+	struct bnxt_vf_rep *vf_rep = netdev_priv(dev);
-+
-+	if (f->binder_type != TCF_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
-+		return -EOPNOTSUPP;
-+
-+	switch (f->command) {
-+	case TC_BLOCK_BIND:
-+		return tcf_block_cb_register(f->block,
-+					     bnxt_vf_rep_setup_tc_block_cb,
-+					     vf_rep, vf_rep);
-+		return 0;
-+	case TC_BLOCK_UNBIND:
-+		tcf_block_cb_unregister(f->block,
-+					bnxt_vf_rep_setup_tc_block_cb, vf_rep);
-+		return 0;
-+	default:
-+		return -EOPNOTSUPP;
+-	if (!err)
+-		n->flags |= TCA_CLS_FLAGS_IN_HW;
++	if (tc_can_offload(dev)) {
++		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_CLSU32,
++						    &cls_u32);
++		if (err) {
++			if (skip_sw)
++				return err;
++		} else {
++			n->flags |= TCA_CLS_FLAGS_IN_HW;
++		}
 +	}
-+}
-+
-+static int bnxt_vf_rep_setup_tc(struct net_device *dev, enum tc_setup_type type,
-+				void *type_data)
-+{
-+	switch (type) {
-+	case TC_SETUP_CLSFLOWER:
-+		return 0; /* will be removed after conversion from ndo */
-+	case TC_SETUP_BLOCK:
-+		return bnxt_vf_rep_setup_tc_block(dev, type_data);
-+	default:
-+		return -EOPNOTSUPP;
+ 
+-	if (tc_skip_sw(flags))
++	err = tc_setup_cb_call(block, NULL, TC_SETUP_CLSU32, &cls_u32, skip_sw);
++	if (err < 0) {
++		u32_remove_hw_knode(tp, n->handle);
+ 		return err;
++	} else if (err > 0) {
++		n->flags |= TCA_CLS_FLAGS_IN_HW;
 +	}
-+}
 +
- struct net_device *bnxt_get_vf_rep(struct bnxt *bp, u16 cfa_code)
- {
- 	u16 vf_idx;
++	if (skip_sw && !(n->flags && TCA_CLS_FLAGS_IN_HW))
++		return -EINVAL;
+ 
+ 	return 0;
+ }
 -- 
 2.9.5
