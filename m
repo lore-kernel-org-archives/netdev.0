@@ -1,77 +1,44 @@
-From: Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Thu, 19 Oct 2017 11:36:39 -0400
-Message-ID: <CAHC9VhTYF-MJm3ejWXE1H-eeXKaNBkeWKwdiKdj093xATYn7nQ@mail.gmail.com>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca>
- <75b7d6a6-42ba-2dff-1836-1091c7c024e7@schaufler-ca.com> <20171017003340.whjdkqmkw4lydwy7@madcap2.tricolour.ca>
- <2319693.5l3M4ZINGd@x2> <1508243469.6230.24.camel@redhat.com>
- <a07968f6-fef1-f49d-01f1-6c660c0ada20@schaufler-ca.com> <1508254120.6230.34.camel@redhat.com>
- <1508255091.3129.27.camel@HansenPartnership.com> <CAHC9VhRV9m6-APj3ofMQc22rL-WUoDzB8-urUxryszjCHHHLTg@mail.gmail.com>
- <49752b6f-8a77-d1e5-8acb-5a1eed0a992c@suse.de> <871sm0j7bm.fsf@xmission.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] ipv6: let trace_fib6_table_lookup() dereference
+ the fib table
+Date: Thu, 19 Oct 2017 09:38:27 -0600
+Message-ID: <5462ed72-5180-3e10-c5d9-37762207653f@cumulusnetworks.com>
+References: <48235df8fdf787356070d8baa1ac9816ef5736d4.1508398120.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
-        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        "Carlos O'Donell" <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
-        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
-        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
-To: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>,
-        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <871sm0j7bm.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Steven Rostedt <rostedt@goodmis.org>,
+        Ingo Molnar <mingo@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:44159 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752586AbdJSPi3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 11:38:29 -0400
+Received: by mail-pf0-f194.google.com with SMTP id x7so6851317pfa.1
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 08:38:29 -0700 (PDT)
+In-Reply-To: <48235df8fdf787356070d8baa1ac9816ef5736d4.1508398120.git.pabeni@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 18, 2017 at 8:43 PM, Eric W. Biederman
-<ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org> wrote:
-> Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org> writes:
->>>> The security implications are that anything that can change the label
->>>> could also hide itself and its doings from the audit system and thus
->>>> would be used as a means to evade detection.  I actually think this
->>>> means the label should be write once (once you've set it, you can't
->>>> change it) ...
->>>
->>> Richard and I have talked about a write once approach, but the
->>> thinking was that you may want to allow a nested container
->>> orchestrator (Why? I don't know, but people always want to do the
->>> craziest things.) and a write-once policy makes that impossible.  If
->>> we punt on the nested orchestrator, I believe we can seriously think
->>> about a write-once policy to simplify things.
->>
->> Nested containers are a very widely used use-case (see LXC system containers,
->> inside of which people run other container runtimes). So I would definitely
->> consider it something that "needs to be supported in some way". While the LXC
->> guys might be a *tad* crazy, the use-case isn't. :P
+On 10/19/17 1:31 AM, Paolo Abeni wrote:
+> The perf traces for ipv6 routing code show a relevant cost around
+> trace_fib6_table_lookup(), even if no trace is enabled. This is
+> due to the fib6_table de-referencing currently performed by the
+> caller.
+> 
+> Let's the tracing code pay this overhead, passing to the trace
+> helper the table pointer. This gives small but measurable
+> performance improvement under UDP flood.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  include/trace/events/fib6.h |  6 +++---
+>  net/ipv6/route.c            | 12 ++++++------
+>  2 files changed, 9 insertions(+), 9 deletions(-)
 
-No worries, we're all a little crazy in our own special ways ;)
+Makes sense.
 
-Kidding aside, thanks for explaining the use case.
-
-> Of course some of that gets to running auditd inside a container which
-> we don't have yet either.
->
-> So I think to start it is perfectly fine to figure out the non-nested
-> case first and what makes sense there.  Then to sort out the nested
-> container case.
->
-> The solution might be that a process gets at most one id per ``audit
-> namespace''.
-
-In an attempt to stay on-topic, let's try to stick with "audit
-container ID" or "container ID" if you must.  I really want to avoid
-the term "audit namespace" simply because the term "namespace" implies
-some things which we aren't planning on doing.
-
--- 
-paul moore
-www.paul-moore.com
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
