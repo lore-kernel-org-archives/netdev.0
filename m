@@ -1,88 +1,171 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next 1/5] bpf: add support for BPF_SOCK_OPS_BASE_RTT
-Date: Fri, 20 Oct 2017 11:05:39 -0700
-Message-ID: <20171020180543.4156833-2-brakmo@fb.com>
+Subject: [PATCH net-next 3/5] bpf: Add BPF_SOCKET_OPS_BASE_RTT support to tcp_nv
+Date: Fri, 20 Oct 2017 11:05:41 -0700
+Message-ID: <20171020180543.4156833-4-brakmo@fb.com>
 References: <20171020180543.4156833-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Kernel Team <kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>,
-        "Daniel Borkmann" <daniel@iogearbox.net>,
+        Daniel Borkmann <daniel@iogearbox.net>,
         Blake Matheny <bmatheny@fb.com>,
-        "Lawrence Brakmo" <brakmo@fb.com>
+        Lawrence Brakmo <brakmo@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58100 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58036 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753220AbdJTSGJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 14:06:09 -0400
+        by vger.kernel.org with ESMTP id S1753200AbdJTSF7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 14:05:59 -0400
 Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9KI4X11005145
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:09 -0700
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9KI4WcI005137
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:05:58 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dqmbgrd3f-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2dqmbgrd2d-5
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:09 -0700
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:05:58 -0700
 In-Reply-To: <20171020180543.4156833-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A congestion control algorithm can make a call to the BPF socket_ops
-program to request the base RTT. The base RTT can be congestion control
-dependent and is meant to represent a congestion threshold such that
-RTTs above it indicate congestion. This is especially useful for flows
-within a DC where the base RTT is easy to obtain.
+TCP_NV will try to get the base RTT from a socket_ops BPF program if one
+is loaded. NV will then use the base RTT to bound its min RTT (its
+notion of the base RTT). It uses the base RTT as an upper bound and 80%
+of the base RTT as its lower bound.
 
-Being provided a base RTT solves a basic problem in RTT based congestion
-avoidance algorithms (such as Vegas, NV and BBR). Although it is easy
-to get the base RTT when the network is not congested, it is very
-diffcult to do when it is very congested. Newer connections get an
-inflated value of the base RTT leading to unfariness (newer flows with a
-larger base RTT get more bandwidth). As a result, RTT based congestion
-avoidance algorithms tend to update their base RTTs to improve fairness.
-In very congested networks this can lead to base RTT inflation, reducing
-the ability of these RTT based congestion control algorithms to prevent
-congestion.
+In other words, NV will consider filtered RTTs larger than base RTT as a
+sign of congestion. As a result, there is no minRTT inflation when there
+is a lot of congestion. For example, in a DC where the RTTs are less
+than 40us when there is no congestion, a base RTT value of 80us improves
+the performance of NV. The difference between the uncongested RTT and
+the base RTT provided represents how much queueing we are willing to
+have (in practice it can be higher).
 
-Note that in my experiments with TCP-NV, the base RTT provided can be
-much larger than the actual hardware RTT. For example, experimenting
-with hosts within a rack where the hardware RTT is 16-20us, I've used
-base RTTs up to 150us. The effect of using a larger base RTT is that the
-congestion avoidance algorithm will allow more queueing. When there are
-only a few flows the main effect is larger measured RTTs and RPC
-latencies due to the increased queueing. When there are a lot of flows,
-a larger base RTT can lead to more congestion and more packet drops.
-For this case, where the hardware RTT is 20us, a base RTT of 80us
-produces good results.
+NV has been tunned to reduce congestion when there are many flows at the
+cost of one flow not achieving full bandwith utilization. When a
+reasonable base RTT is provided, one NV flow can now fully utilize the
+full bandwidth. In addition, the performance is also improved when there
+are many flows.
 
-This patch only introduces BPF_SOCK_OPS_BASE_RTT, a later patch in this
-set adds support for using it in TCP-NV. Further study and testing is
-needed before support can be added to other delay based congestion
-avoidance algorithms.
+In the following examples the NV results are using a kernel with this
+patch set (i.e. both NV results are using the new nv_loss_dec_factor).
+
+With one host sending to another host and only one flow the
+goodputs are:
+  Cubic: 9.3 Gbps, NV: 5.5 Gbps, NV (baseRTT=80us): 9.2 Gbps
+
+With 2 hosts sending to one host (1 flow per host, the goodput per flow
+is:
+  Cubic: 4.6 Gbps, NV: 4.5 Gbps, NV (baseRTT=80us)L 4.6 Gbps
+
+But the RTTs seen by a ping process in the sender is:
+  Cubic: 3.3ms  NV: 97us,  NV (baseRTT=80us): 146us
+
+With a lot of flows things look even better for NV with baseRTT. Here we
+have 3 hosts sending to one host. Each sending host has 6 flows: 1
+stream, 4x1MB RPC, 1x10KB RPC. Cubic, NV and NV with baseRTT all fully
+utilize the full available bandwidth. However, the distribution of
+bandwidth among the flows is very different. For the 10KB RPC flow:
+  Cubic: 27Mbps, NV: 111Mbps, NV (baseRTT=80us): 222Mbps
+
+The 99% latencies for the 10KB flows are:
+  Cubic: 26ms,  NV: 1ms,  NV (baseRTT=80us): 500us
+
+The RTT seen by a ping process at the senders:
+  Cubic: 3.2ms  NV: 720us,  NV (baseRTT=80us): 330us
 
 Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-Acked-by: Alexei Starovoitov <ast@fb.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked_by: Alexei Starovoitov <ast@fb.com>
 ---
- include/uapi/linux/bpf.h | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/ipv4/tcp_nv.c | 40 ++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index d83f95e..1aca744 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -955,6 +955,13 @@ enum {
- 	BPF_SOCK_OPS_NEEDS_ECN,		/* If connection's congestion control
- 					 * needs ECN
- 					 */
-+	BPF_SOCK_OPS_BASE_RTT,		/* Get base RTT. The correct value is
-+					 * based on the path and may be
-+					 * dependent on the congestion control
-+					 * algorithm. In general it indicates
-+					 * a congestion threshold. RTTs above
-+					 * this indicate congestion
-+					 */
- };
+diff --git a/net/ipv4/tcp_nv.c b/net/ipv4/tcp_nv.c
+index 1ff7398..a978e3f 100644
+--- a/net/ipv4/tcp_nv.c
++++ b/net/ipv4/tcp_nv.c
+@@ -39,7 +39,7 @@
+  * nv_cong_dec_mult	Decrease cwnd by X% (30%) of congestion when detected
+  * nv_ssthresh_factor	On congestion set ssthresh to this * <desired cwnd> / 8
+  * nv_rtt_factor	RTT averaging factor
+- * nv_loss_dec_factor	Decrease cwnd by this (50%) when losses occur
++ * nv_loss_dec_factor	Decrease cwnd to this (80%) when losses occur
+  * nv_dec_eval_min_calls	Wait this many RTT measurements before dec cwnd
+  * nv_inc_eval_min_calls	Wait this many RTT measurements before inc cwnd
+  * nv_ssthresh_eval_min_calls	Wait this many RTT measurements before stopping
+@@ -61,7 +61,7 @@ static int nv_min_cwnd __read_mostly = 2;
+ static int nv_cong_dec_mult __read_mostly = 30 * 128 / 100; /* = 30% */
+ static int nv_ssthresh_factor __read_mostly = 8; /* = 1 */
+ static int nv_rtt_factor __read_mostly = 128; /* = 1/2*old + 1/2*new */
+-static int nv_loss_dec_factor __read_mostly = 512; /* => 50% */
++static int nv_loss_dec_factor __read_mostly = 819; /* => 80% */
+ static int nv_cwnd_growth_rate_neg __read_mostly = 8;
+ static int nv_cwnd_growth_rate_pos __read_mostly; /* 0 => fixed like Reno */
+ static int nv_dec_eval_min_calls __read_mostly = 60;
+@@ -101,6 +101,11 @@ struct tcpnv {
+ 	u32 nv_last_rtt;	/* last rtt */
+ 	u32 nv_min_rtt;		/* active min rtt. Used to determine slope */
+ 	u32 nv_min_rtt_new;	/* min rtt for future use */
++	u32 nv_base_rtt;        /* If non-zero it represents the threshold for
++				 * congestion */
++	u32 nv_lower_bound_rtt; /* Used in conjunction with nv_base_rtt. It is
++				 * set to 80% of nv_base_rtt. It helps reduce
++				 * unfairness between flows */
+ 	u32 nv_rtt_max_rate;	/* max rate seen during current RTT */
+ 	u32 nv_rtt_start_seq;	/* current RTT ends when packet arrives
+ 				 * acking beyond nv_rtt_start_seq */
+@@ -132,9 +137,24 @@ static inline void tcpnv_reset(struct tcpnv *ca, struct sock *sk)
+ static void tcpnv_init(struct sock *sk)
+ {
+ 	struct tcpnv *ca = inet_csk_ca(sk);
++	int base_rtt;
  
- #define TCP_BPF_IW		1001	/* Set TCP initial congestion window */
+ 	tcpnv_reset(ca, sk);
+ 
++	/* See if base_rtt is available from socket_ops bpf program.
++	 * It is meant to be used in environments, such as communication
++	 * within a datacenter, where we have reasonable estimates of
++	 * RTTs
++	 */
++	base_rtt = tcp_call_bpf(sk, BPF_SOCK_OPS_BASE_RTT);
++	if (base_rtt > 0) {
++		ca->nv_base_rtt = base_rtt;
++		ca->nv_lower_bound_rtt = (base_rtt * 205) >> 8; /* 80% */
++	} else {
++		ca->nv_base_rtt = 0;
++		ca->nv_lower_bound_rtt = 0;
++	}
++
+ 	ca->nv_allow_cwnd_growth = 1;
+ 	ca->nv_min_rtt_reset_jiffies = jiffies + 2 * HZ;
+ 	ca->nv_min_rtt = NV_INIT_RTT;
+@@ -144,6 +164,19 @@ static void tcpnv_init(struct sock *sk)
+ 	ca->cwnd_growth_factor = 0;
+ }
+ 
++/* If provided, apply upper (base_rtt) and lower (lower_bound_rtt)
++ * bounds to RTT.
++ */
++inline u32 nv_get_bounded_rtt(struct tcpnv *ca, u32 val)
++{
++	if (ca->nv_lower_bound_rtt > 0 && val < ca->nv_lower_bound_rtt)
++		return ca->nv_lower_bound_rtt;
++	else if (ca->nv_base_rtt > 0 && val > ca->nv_base_rtt)
++		return ca->nv_base_rtt;
++	else
++		return val;
++}
++
+ static void tcpnv_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -265,6 +298,9 @@ static void tcpnv_acked(struct sock *sk, const struct ack_sample *sample)
+ 	if (ca->nv_eval_call_cnt < 255)
+ 		ca->nv_eval_call_cnt++;
+ 
++	/* Apply bounds to rtt. Only used to update min_rtt */
++	avg_rtt = nv_get_bounded_rtt(ca, avg_rtt);
++
+ 	/* update min rtt if necessary */
+ 	if (avg_rtt < ca->nv_min_rtt)
+ 		ca->nv_min_rtt = avg_rtt;
 -- 
 2.9.5
