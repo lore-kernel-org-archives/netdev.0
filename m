@@ -1,43 +1,43 @@
-From: jlee@suse.com
-Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when
- the kernel is locked down
-Date: Fri, 20 Oct 2017 23:57:48 +0800
-Message-ID: <20171020155748.kzrvg6565oxh6gmb@linux-rasp2>
-References: <20171020024732.GJ3285@linux-l9pv.suse>
- <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk>
- <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk>
- <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
- <2582.1508486928@warthog.procyon.org.uk>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net] rxrpc: Don't release call mutex on error pointer
+Date: Fri, 20 Oct 2017 17:01:22 +0100
+Message-ID: <150851528227.19340.4842940319829659889.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        linux-security-module@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
-        linux-efi@vger.kernel.org, matthew.garrett@nebula.com,
-        gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-        jforbes@redhat.com, Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Gary Lin <GLin@suse.com>
-To: David Howells <dhowells@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <2582.1508486928@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2017 at 09:08:48AM +0100, David Howells wrote:
-> Hi Joey,
-> 
-> Should I just lock down sys_bpf() entirely for now?  We can always free it up
-> somewhat later.
-> 
-> David
+Don't release call mutex at the end of rxrpc_kernel_begin_call() if the
+call pointer actually holds an error value.
 
-OK~~ Please just remove my patch until we find out a way to
-verify bpf code or protect sensitive data in memory.
+Fixes: 540b1c48c37a ("rxrpc: Fix deadlock between call creation and sendmsg/recvmsg")
+Reported-by: Marc Dionne <marc.dionne@auristor.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-I think that we don't need to lock down sys_bpf() now because
-we didn't lock down other interfaces for reading arbitrary
-address like /dev/mem and /dev/kmem.
+ net/rxrpc/af_rxrpc.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Thanks a lot!
-Joey Lee
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 73c980e26581..054e32872808 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -311,10 +311,11 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 	call = rxrpc_new_client_call(rx, &cp, srx, user_call_ID, tx_total_len,
+ 				     gfp);
+ 	/* The socket has been unlocked. */
+-	if (!IS_ERR(call))
++	if (!IS_ERR(call)) {
+ 		call->notify_rx = notify_rx;
++		mutex_unlock(&call->user_mutex);
++	}
+ 
+-	mutex_unlock(&call->user_mutex);
+ 	_leave(" = %p", call);
+ 	return call;
+ }
