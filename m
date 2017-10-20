@@ -1,288 +1,226 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 7/7] net: dsa: bcm_sf2: Allow matching arbitrary IPv6 masks/lengths
-Date: Fri, 20 Oct 2017 14:39:49 -0700
-Message-ID: <20171020213949.16485-8-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/7] net: dsa: bcm_sf2: Make UDF slices more configurable
+Date: Fri, 20 Oct 2017 14:39:45 -0700
+Message-ID: <20171020213949.16485-4-f.fainelli@gmail.com>
 References: <20171020213949.16485-1-f.fainelli@gmail.com>
 Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:55693 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753007AbdJTVkI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:40:08 -0400
-Received: by mail-qk0-f193.google.com with SMTP id x82so15989924qkb.12
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 14:40:08 -0700 (PDT)
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:53596 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752848AbdJTVkA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:40:00 -0400
+Received: by mail-qt0-f194.google.com with SMTP id n61so20126019qte.10
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 14:40:00 -0700 (PDT)
 In-Reply-To: <20171020213949.16485-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no reason why we should limit ourselves to matching only
-full IPv4 addresses (/32), the same logic applies between the DATA and
-MASK ports, so just make it more configurable to accept both.
+In preparation for introducing IPv6 rules support, make the
+cfp_udf_layout more flexible and match more accurately how the HW is
+designed: we have 3 + 1 slices per protocol, but we may not be using all
+of them and we are relative to a particular base offset (slice A for
+IPv4 for instance). Also populate the slice number that should be used
+(slice 1 for IPv4) based on the lookup function.
+
+Finally, we introduce two helper functions: udf_upper_bits() and
+udf_lower_bits() to help setting the UDF_n_* valid bits based on the
+number of UDFs valid within a slice. Update the IPv4 rule setting to
+make use of it to be more robust wrt. change in number of User Defined
+Fields being programmed.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2_cfp.c | 113 ++++++++++++++++++++++++++++++------------
- 1 file changed, 80 insertions(+), 33 deletions(-)
+ drivers/net/dsa/bcm_sf2_cfp.c  | 105 +++++++++++++++++++++++++++++------------
+ drivers/net/dsa/bcm_sf2_regs.h |   3 +-
+ 2 files changed, 76 insertions(+), 32 deletions(-)
 
 diff --git a/drivers/net/dsa/bcm_sf2_cfp.c b/drivers/net/dsa/bcm_sf2_cfp.c
-index 043fd39793cc..4feb507eeee0 100644
+index 7ba5f92c5552..d033fc6440c4 100644
 --- a/drivers/net/dsa/bcm_sf2_cfp.c
 +++ b/drivers/net/dsa/bcm_sf2_cfp.c
-@@ -441,9 +441,10 @@ static int bcm_sf2_cfp_ipv4_rule_set(struct bcm_sf2_priv *priv, int port,
+@@ -20,37 +20,48 @@
+ #include "bcm_sf2.h"
+ #include "bcm_sf2_regs.h"
  
- static void bcm_sf2_cfp_slice_ipv6(struct bcm_sf2_priv *priv,
- 				   const __be32 *ip6_addr, const __be16 port,
--				   unsigned int slice_num)
-+				   unsigned int slice_num,
-+				   bool mask)
- {
--	u32 reg, tmp, val;
-+	u32 reg, tmp, val, offset;
+-struct cfp_udf_layout {
+-	u8 slices[UDF_NUM_SLICES];
++struct cfp_udf_slice_layout {
++	u8 slices[UDFS_PER_SLICE];
+ 	u32 mask_value;
++	u32 base_offset;
++};
  
- 	/* C-Tag		[31:24]
- 	 * UDF_n_B8		[23:8]	(port)
-@@ -451,7 +452,11 @@ static void bcm_sf2_cfp_slice_ipv6(struct bcm_sf2_priv *priv,
- 	 */
- 	reg = be32_to_cpu(ip6_addr[3]);
- 	val = (u32)be16_to_cpu(port) << 8 | ((reg >> 8) & 0xff);
--	core_writel(priv, val, CORE_CFP_DATA_PORT(4));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(4);
-+	else
-+		offset = CORE_CFP_DATA_PORT(4);
-+	core_writel(priv, val, offset);
++struct cfp_udf_layout {
++	struct cfp_udf_slice_layout udfs[UDF_NUM_SLICES];
+ };
  
- 	/* UDF_n_B7 (lower)	[31:24]	(addr[7:0])
- 	 * UDF_n_B6		[23:8] (addr[31:16])
-@@ -460,7 +465,11 @@ static void bcm_sf2_cfp_slice_ipv6(struct bcm_sf2_priv *priv,
- 	tmp = be32_to_cpu(ip6_addr[2]);
- 	val = (u32)(reg & 0xff) << 24 | (u32)(reg >> 16) << 8 |
- 	      ((tmp >> 8) & 0xff);
--	core_writel(priv, val, CORE_CFP_DATA_PORT(3));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(3);
-+	else
-+		offset = CORE_CFP_DATA_PORT(3);
-+	core_writel(priv, val, offset);
- 
- 	/* UDF_n_B5 (lower)	[31:24] (addr[39:32])
- 	 * UDF_n_B4		[23:8] (addr[63:48])
-@@ -469,7 +478,11 @@ static void bcm_sf2_cfp_slice_ipv6(struct bcm_sf2_priv *priv,
- 	reg = be32_to_cpu(ip6_addr[1]);
- 	val = (u32)(tmp & 0xff) << 24 | (u32)(tmp >> 16) << 8 |
- 	      ((reg >> 8) & 0xff);
--	core_writel(priv, val, CORE_CFP_DATA_PORT(2));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(2);
-+	else
-+		offset = CORE_CFP_DATA_PORT(2);
-+	core_writel(priv, val, offset);
- 
- 	/* UDF_n_B3 (lower)	[31:24] (addr[71:64])
- 	 * UDF_n_B2		[23:8] (addr[95:80])
-@@ -478,7 +491,11 @@ static void bcm_sf2_cfp_slice_ipv6(struct bcm_sf2_priv *priv,
- 	tmp = be32_to_cpu(ip6_addr[0]);
- 	val = (u32)(reg & 0xff) << 24 | (u32)(reg >> 16) << 8 |
- 	      ((tmp >> 8) & 0xff);
--	core_writel(priv, val, CORE_CFP_DATA_PORT(1));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(1);
-+	else
-+		offset = CORE_CFP_DATA_PORT(1);
-+	core_writel(priv, val, offset);
- 
- 	/* UDF_n_B1 (lower)	[31:24] (addr[103:96])
- 	 * UDF_n_B0		[23:8] (addr[127:112])
-@@ -488,14 +505,11 @@ static void bcm_sf2_cfp_slice_ipv6(struct bcm_sf2_priv *priv,
- 	 */
- 	reg = (u32)(tmp & 0xff) << 24 | (u32)(tmp >> 16) << 8 |
- 	       SLICE_NUM(slice_num) | SLICE_VALID;
--	core_writel(priv, reg, CORE_CFP_DATA_PORT(0));
--
--	/* All other UDFs should be matched with the filter */
--	core_writel(priv, 0x00ffffff, CORE_CFP_MASK_PORT(4));
--	core_writel(priv, 0xffffffff, CORE_CFP_MASK_PORT(3));
--	core_writel(priv, 0xffffffff, CORE_CFP_MASK_PORT(2));
--	core_writel(priv, 0xffffffff, CORE_CFP_MASK_PORT(1));
--	core_writel(priv, 0xffffff0f, CORE_CFP_MASK_PORT(0));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(0);
-+	else
-+		offset = CORE_CFP_DATA_PORT(0);
-+	core_writel(priv, reg, offset);
- }
- 
- static int bcm_sf2_cfp_ipv6_rule_set(struct bcm_sf2_priv *priv, int port,
-@@ -503,8 +517,8 @@ static int bcm_sf2_cfp_ipv6_rule_set(struct bcm_sf2_priv *priv, int port,
- 				     unsigned int queue_num,
- 				     struct ethtool_rx_flow_spec *fs)
- {
-+	struct ethtool_tcpip6_spec *v6_spec, *v6_m_spec;
- 	unsigned int slice_num, rule_index[2];
--	struct ethtool_tcpip6_spec *v6_spec;
- 	const struct cfp_udf_layout *layout;
- 	u8 ip_proto, ip_frag;
- 	int ret = 0;
-@@ -515,10 +529,12 @@ static int bcm_sf2_cfp_ipv6_rule_set(struct bcm_sf2_priv *priv, int port,
- 	case TCP_V6_FLOW:
- 		ip_proto = IPPROTO_TCP;
- 		v6_spec = &fs->h_u.tcp_ip6_spec;
-+		v6_m_spec = &fs->m_u.tcp_ip6_spec;
- 		break;
- 	case UDP_V6_FLOW:
- 		ip_proto = IPPROTO_UDP;
- 		v6_spec = &fs->h_u.udp_ip6_spec;
-+		v6_m_spec = &fs->m_u.udp_ip6_spec;
- 		break;
- 	default:
- 		return -EINVAL;
-@@ -606,7 +622,10 @@ static int bcm_sf2_cfp_ipv6_rule_set(struct bcm_sf2_priv *priv, int port,
- 	core_writel(priv, udf_lower_bits(num_udf) << 24, CORE_CFP_MASK_PORT(5));
- 
- 	/* Slice the IPv6 source address and port */
--	bcm_sf2_cfp_slice_ipv6(priv, v6_spec->ip6src, v6_spec->psrc, slice_num);
-+	bcm_sf2_cfp_slice_ipv6(priv, v6_spec->ip6src, v6_spec->psrc,
-+				slice_num, false);
-+	bcm_sf2_cfp_slice_ipv6(priv, v6_m_spec->ip6src, v6_m_spec->psrc,
-+				slice_num, true);
- 
- 	/* Insert into TCAM now because we need to insert a second rule */
- 	bcm_sf2_cfp_rule_addr_set(priv, rule_index[0]);
-@@ -663,7 +682,10 @@ static int bcm_sf2_cfp_ipv6_rule_set(struct bcm_sf2_priv *priv, int port,
- 	/* Mask all */
- 	core_writel(priv, 0, CORE_CFP_MASK_PORT(5));
- 
--	bcm_sf2_cfp_slice_ipv6(priv, v6_spec->ip6dst, v6_spec->pdst, slice_num);
-+	bcm_sf2_cfp_slice_ipv6(priv, v6_spec->ip6dst, v6_spec->pdst, slice_num,
-+			       false);
-+	bcm_sf2_cfp_slice_ipv6(priv, v6_m_spec->ip6dst, v6_m_spec->pdst,
-+			       SLICE_NUM_MASK, true);
- 
- 	/* Insert into TCAM now */
- 	bcm_sf2_cfp_rule_addr_set(priv, rule_index[1]);
-@@ -932,27 +954,33 @@ static int bcm_sf2_cfp_ipv4_rule_get(struct bcm_sf2_priv *priv, int port,
- 
- static int bcm_sf2_cfp_unslice_ipv6(struct bcm_sf2_priv *priv,
- 				     __be32 *ip6_addr, __be16 *port,
--				     __be32 *ip6_mask, __be16 *port_mask)
-+				     bool mask)
- {
--	u32 reg, tmp;
-+	u32 reg, tmp, offset;
- 
- 	/* C-Tag		[31:24]
- 	 * UDF_n_B8		[23:8] (port)
- 	 * UDF_n_B7 (upper)	[7:0] (addr[15:8])
- 	 */
--	reg = core_readl(priv, CORE_CFP_DATA_PORT(4));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(4);
-+	else
-+		offset = CORE_CFP_DATA_PORT(4);
-+	reg = core_readl(priv, offset);
- 	*port = cpu_to_be32(reg) >> 8;
--	*port_mask = cpu_to_be16(~0);
- 	tmp = (u32)(reg & 0xff) << 8;
- 
- 	/* UDF_n_B7 (lower)	[31:24] (addr[7:0])
- 	 * UDF_n_B6		[23:8] (addr[31:16])
- 	 * UDF_n_B5 (upper)	[7:0] (addr[47:40])
- 	 */
--	reg = core_readl(priv, CORE_CFP_DATA_PORT(3));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(3);
-+	else
-+		offset = CORE_CFP_DATA_PORT(3);
-+	reg = core_readl(priv, offset);
- 	tmp |= (reg >> 24) & 0xff;
- 	tmp |= (u32)((reg >> 8) << 16);
--	ip6_mask[3] = cpu_to_be32(~0);
- 	ip6_addr[3] = cpu_to_be32(tmp);
- 	tmp = (u32)(reg & 0xff) << 8;
- 
-@@ -960,10 +988,13 @@ static int bcm_sf2_cfp_unslice_ipv6(struct bcm_sf2_priv *priv,
- 	 * UDF_n_B4		[23:8] (addr[63:48])
- 	 * UDF_n_B3 (upper)	[7:0] (addr[79:72])
- 	 */
--	reg = core_readl(priv, CORE_CFP_DATA_PORT(2));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(2);
-+	else
-+		offset = CORE_CFP_DATA_PORT(2);
-+	reg = core_readl(priv, offset);
- 	tmp |= (reg >> 24) & 0xff;
- 	tmp |= (u32)((reg >> 8) << 16);
--	ip6_mask[2] = cpu_to_be32(~0);
- 	ip6_addr[2] = cpu_to_be32(tmp);
- 	tmp = (u32)(reg & 0xff) << 8;
- 
-@@ -971,10 +1002,13 @@ static int bcm_sf2_cfp_unslice_ipv6(struct bcm_sf2_priv *priv,
- 	 * UDF_n_B2		[23:8] (addr[95:80])
- 	 * UDF_n_B1 (upper)	[7:0] (addr[111:104])
- 	 */
--	reg = core_readl(priv, CORE_CFP_DATA_PORT(1));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(1);
-+	else
-+		offset = CORE_CFP_DATA_PORT(1);
-+	reg = core_readl(priv, offset);
- 	tmp |= (reg >> 24) & 0xff;
- 	tmp |= (u32)((reg >> 8) << 16);
--	ip6_mask[1] = cpu_to_be32(~0);
- 	ip6_addr[1] = cpu_to_be32(tmp);
- 	tmp = (u32)(reg & 0xff) << 8;
- 
-@@ -984,13 +1018,16 @@ static int bcm_sf2_cfp_unslice_ipv6(struct bcm_sf2_priv *priv,
- 	 * Slice ID		[3:2]
- 	 * Slice valid		[1:0]
- 	 */
--	reg = core_readl(priv, CORE_CFP_DATA_PORT(0));
-+	if (mask)
-+		offset = CORE_CFP_MASK_PORT(0);
-+	else
-+		offset = CORE_CFP_DATA_PORT(0);
-+	reg = core_readl(priv, offset);
- 	tmp |= (reg >> 24) & 0xff;
- 	tmp |= (u32)((reg >> 8) << 16);
--	ip6_mask[0] = cpu_to_be32(~0);
- 	ip6_addr[0] = cpu_to_be32(tmp);
- 
--	if (!(reg & SLICE_VALID))
-+	if (!mask && !(reg & SLICE_VALID))
- 		return -EINVAL;
- 
- 	return 0;
-@@ -1012,7 +1049,12 @@ static int bcm_sf2_cfp_ipv6_rule_get(struct bcm_sf2_priv *priv, int port,
- 
- 	/* Read the second half first */
- 	ret = bcm_sf2_cfp_unslice_ipv6(priv, v6_spec->ip6dst, &v6_spec->pdst,
--				       v6_m_spec->ip6dst, &v6_m_spec->pdst);
-+				       false);
-+	if (ret)
-+		return ret;
++static const u8 zero_slice[UDFS_PER_SLICE] = { };
 +
-+	ret = bcm_sf2_cfp_unslice_ipv6(priv, v6_m_spec->ip6dst,
-+				       &v6_m_spec->pdst, true);
- 	if (ret)
- 		return ret;
+ /* UDF slices layout for a TCPv4/UDPv4 specification */
+ static const struct cfp_udf_layout udf_tcpip4_layout = {
+-	.slices = {
+-		/* End of L2, byte offset 12, src IP[0:15] */
+-		CFG_UDF_EOL2 | 6,
+-		/* End of L2, byte offset 14, src IP[16:31] */
+-		CFG_UDF_EOL2 | 7,
+-		/* End of L2, byte offset 16, dst IP[0:15] */
+-		CFG_UDF_EOL2 | 8,
+-		/* End of L2, byte offset 18, dst IP[16:31] */
+-		CFG_UDF_EOL2 | 9,
+-		/* End of L3, byte offset 0, src port */
+-		CFG_UDF_EOL3 | 0,
+-		/* End of L3, byte offset 2, dst port */
+-		CFG_UDF_EOL3 | 1,
+-		0, 0, 0
++	.udfs = {
++		[1] = {
++			.slices = {
++				/* End of L2, byte offset 12, src IP[0:15] */
++				CFG_UDF_EOL2 | 6,
++				/* End of L2, byte offset 14, src IP[16:31] */
++				CFG_UDF_EOL2 | 7,
++				/* End of L2, byte offset 16, dst IP[0:15] */
++				CFG_UDF_EOL2 | 8,
++				/* End of L2, byte offset 18, dst IP[16:31] */
++				CFG_UDF_EOL2 | 9,
++				/* End of L3, byte offset 0, src port */
++				CFG_UDF_EOL3 | 0,
++				/* End of L3, byte offset 2, dst port */
++				CFG_UDF_EOL3 | 1,
++				0, 0, 0
++			},
++			.mask_value = L3_FRAMING_MASK | IPPROTO_MASK | IP_FRAG,
++			.base_offset = CORE_UDF_0_A_0_8_PORT_0 + UDF_SLICE_OFFSET,
++		},
+ 	},
+-	.mask_value = L3_FRAMING_MASK | IPPROTO_MASK | IP_FRAG,
+ };
  
-@@ -1043,8 +1085,13 @@ static int bcm_sf2_cfp_ipv6_rule_get(struct bcm_sf2_priv *priv, int port,
- 		return -EINVAL;
+ static inline unsigned int bcm_sf2_get_num_udf_slices(const u8 *layout)
+ {
+ 	unsigned int i, count = 0;
+ 
+-	for (i = 0; i < UDF_NUM_SLICES; i++) {
++	for (i = 0; i < UDFS_PER_SLICE; i++) {
+ 		if (layout[i] != 0)
+ 			count++;
  	}
- 
--	return bcm_sf2_cfp_unslice_ipv6(priv, v6_spec->ip6src, &v6_spec->psrc,
--					v6_m_spec->ip6src, &v6_m_spec->psrc);
-+	ret = bcm_sf2_cfp_unslice_ipv6(priv, v6_spec->ip6src, &v6_spec->psrc,
-+				       false);
-+	if (ret)
-+		return ret;
-+
-+	return bcm_sf2_cfp_unslice_ipv6(priv, v6_m_spec->ip6src,
-+					&v6_m_spec->psrc, true);
+@@ -58,15 +69,42 @@ static inline unsigned int bcm_sf2_get_num_udf_slices(const u8 *layout)
+ 	return count;
  }
  
- static int bcm_sf2_cfp_rule_get(struct bcm_sf2_priv *priv, int port,
++static inline u32 udf_upper_bits(unsigned int num_udf)
++{
++	return GENMASK(num_udf - 1, 0) >> (UDFS_PER_SLICE - 1);
++}
++
++static inline u32 udf_lower_bits(unsigned int num_udf)
++{
++	return (u8)GENMASK(num_udf - 1, 0);
++}
++
++static unsigned int bcm_sf2_get_slice_number(const struct cfp_udf_layout *l,
++					     unsigned int start)
++{
++	const struct cfp_udf_slice_layout *slice_layout;
++	unsigned int slice_idx;
++
++	for (slice_idx = start; slice_idx < UDF_NUM_SLICES; slice_idx++) {
++		slice_layout = &l->udfs[slice_idx];
++		if (memcmp(slice_layout->slices, zero_slice,
++			   sizeof(zero_slice)))
++			break;
++	}
++
++	return slice_idx;
++}
++
+ static void bcm_sf2_cfp_udf_set(struct bcm_sf2_priv *priv,
+-				unsigned int slice_num,
+-				const u8 *layout)
++				const struct cfp_udf_layout *layout,
++				unsigned int slice_num)
+ {
+-	u32 offset = CORE_UDF_0_A_0_8_PORT_0 + slice_num * UDF_SLICE_OFFSET;
++	u32 offset = layout->udfs[slice_num].base_offset;
+ 	unsigned int i;
+ 
+-	for (i = 0; i < UDF_NUM_SLICES; i++)
+-		core_writel(priv, layout[i], offset + i * 4);
++	for (i = 0; i < UDFS_PER_SLICE; i++)
++		core_writel(priv, layout->udfs[slice_num].slices[i],
++			    offset + i * 4);
+ }
+ 
+ static int bcm_sf2_cfp_op(struct bcm_sf2_priv *priv, unsigned int op)
+@@ -189,13 +227,16 @@ static int bcm_sf2_cfp_ipv4_rule_set(struct bcm_sf2_priv *priv, int port,
+ 	else
+ 		rule_index = fs->location;
+ 
+-	/* We only use one UDF slice for now */
+-	slice_num = 1;
+ 	layout = &udf_tcpip4_layout;
+-	num_udf = bcm_sf2_get_num_udf_slices(layout->slices);
++	/* We only use one UDF slice for now */
++	slice_num = bcm_sf2_get_slice_number(layout, 0);
++	if (slice_num == UDF_NUM_SLICES)
++		return -EINVAL;
++
++	num_udf = bcm_sf2_get_num_udf_slices(layout->udfs[slice_num].slices);
+ 
+ 	/* Apply the UDF layout for this filter */
+-	bcm_sf2_cfp_udf_set(priv, slice_num, layout->slices);
++	bcm_sf2_cfp_udf_set(priv, layout, slice_num);
+ 
+ 	/* Apply to all packets received through this port */
+ 	core_writel(priv, BIT(port), CORE_CFP_DATA_PORT(7));
+@@ -218,14 +259,15 @@ static int bcm_sf2_cfp_ipv4_rule_set(struct bcm_sf2_priv *priv, int port,
+ 	 * UDF_Valid[8]		[0]
+ 	 */
+ 	core_writel(priv, v4_spec->tos << IPTOS_SHIFT |
+-		    ip_proto << IPPROTO_SHIFT | ip_frag << IP_FRAG_SHIFT,
++		    ip_proto << IPPROTO_SHIFT | ip_frag << IP_FRAG_SHIFT |
++		    udf_upper_bits(num_udf),
+ 		    CORE_CFP_DATA_PORT(6));
+ 
+ 	/* UDF_Valid[7:0]	[31:24]
+ 	 * S-Tag		[23:8]
+ 	 * C-Tag		[7:0]
+ 	 */
+-	core_writel(priv, GENMASK(num_udf - 1, 0) << 24, CORE_CFP_DATA_PORT(5));
++	core_writel(priv, udf_lower_bits(num_udf) << 24, CORE_CFP_DATA_PORT(5));
+ 
+ 	/* C-Tag		[31:24]
+ 	 * UDF_n_A8		[23:8]
+@@ -270,10 +312,11 @@ static int bcm_sf2_cfp_ipv4_rule_set(struct bcm_sf2_priv *priv, int port,
+ 	core_writel(priv, reg, CORE_CFP_DATA_PORT(0));
+ 
+ 	/* Mask with the specific layout for IPv4 packets */
+-	core_writel(priv, layout->mask_value, CORE_CFP_MASK_PORT(6));
++	core_writel(priv, layout->udfs[slice_num].mask_value |
++		    udf_upper_bits(num_udf), CORE_CFP_MASK_PORT(6));
+ 
+ 	/* Mask all but valid UDFs */
+-	core_writel(priv, GENMASK(num_udf - 1, 0) << 24, CORE_CFP_MASK_PORT(5));
++	core_writel(priv, udf_lower_bits(num_udf) << 24, CORE_CFP_MASK_PORT(5));
+ 
+ 	/* Mask all */
+ 	core_writel(priv, 0, CORE_CFP_MASK_PORT(4));
+diff --git a/drivers/net/dsa/bcm_sf2_regs.h b/drivers/net/dsa/bcm_sf2_regs.h
+index 61bc9729383f..263e4c758795 100644
+--- a/drivers/net/dsa/bcm_sf2_regs.h
++++ b/drivers/net/dsa/bcm_sf2_regs.h
+@@ -409,7 +409,8 @@ enum bcm_sf2_reg_offs {
+ #define  CFG_UDF_EOL3			(3 << CFG_UDF_OFFSET_BASE_SHIFT)
+ 
+ /* Number of slices for IPv4, IPv6 and non-IP */
+-#define UDF_NUM_SLICES			9
++#define UDF_NUM_SLICES			4
++#define UDFS_PER_SLICE			9
+ 
+ /* Spacing between different slices */
+ #define UDF_SLICE_OFFSET		0x40
 -- 
 2.14.1
