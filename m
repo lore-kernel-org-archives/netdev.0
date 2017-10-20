@@ -1,57 +1,111 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next 1/2] net: dsa: lan9303: Add port_fast_age
- and port_fdb_dump methods
-Date: Fri, 20 Oct 2017 08:59:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD009D4AB@AcuExch.aculab.com>
-References: <20171019121015.7395-1-privat@egil-hjelmeland.no>
- <20171019121015.7395-2-privat@egil-hjelmeland.no>
- <87mv4nw869.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <20171019141505.GA14840@lunn.ch>
- <063D6719AE5E284EB5DD2968C1650D6DD009C922@AcuExch.aculab.com>
- <35825cd2-0b47-3f8a-813e-1e7db2f7dcde@egil-hjelmeland.no>
- <e3017724-b555-a021-c4b3-49a754201861@egil-hjelmeland.no>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v3 0/4] Teach phylib hard-resetting devices
+Date: Fri, 20 Oct 2017 11:05:13 +0200
+Message-ID: <20171020090512.j6fkn2ohbxsuboxm@verge.net.au>
+References: <1508487261-18524-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Egil Hjelmeland' <privat@egil-hjelmeland.no>,
-        'Andrew Lunn' <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e3017724-b555-a021-c4b3-49a754201861@egil-hjelmeland.no>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Nicolas Ferre <nicolas.ferre-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1508487261-18524-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Egil Hjelmeland
-> Sent: 19 October 2017 17:53
-...
-> >> IMHO it is best to define a struct for the 'ctx and then do:
-> >>     ..., void *v_ctx)
-> >> {
-> >>     foo_ctx *ctx = v_ctx;
-> >>     int port = ctx->port;
-> >>
-> >> That stops anyone having to double-check that the *(int *)
-> >> is operating on a pointer to an integer of the correct size.
-> >>
-> >
-> > Does casting to a struct pointer require less manual double-check than
-> > to a int-pointer? In neither cases the compiler can protect us, IFAIK.
-> > But on the other hand, a the text "foo_ctx" can searched in the editor.
-> > So in that respect it can somewhat aid to the double-checking.
-> >
-> > So I can do that.
-> >
-> >
+On Fri, Oct 20, 2017 at 10:14:17AM +0200, Geert Uytterhoeven wrote:
+> 	Hi David, Andrew, Florian, Simon, Magnus,
 > 
-> I understand now that the caller side (lan9303_port_fast_age) is
-> vulnerable. Say somebody has the idea to change the "port" param
-> of .port_fast_age from int to u8, then my code is a trap.
+> This patch series adds optional PHY reset support to phylib.
+> 
+> The first two patches are destined for David's net-next tree. They add
+> core PHY reset code, and update a driver that currently uses its own
+> reset code.  Note that these patches depend on "[PATCH v2] of_mdio: Fix
+> broken PHY IRQ in case of probe deferral"
+> (https://www.spinics.net/lists/linux-renesas-soc/msg19442.html), as v3
+> needs to propagate errors from of_mdiobus_register_phy() and
+> of_mdiobus_register_device() [1].
+> 
+> The last two patches are new (sort of, see [2]), and destined for
+> Simon's renesas tree.  They add properties to describe the EthernetAVB
+> PHY reset topology to the common Salvator-X/XS and ULCB DTS files, which
+> solves two issues:
+>   1. On Salvator-XS, the enable pin of the regulator providing PHY power
+>      is connected to PRESETn, and PSCI powers down the SoC during system
+>      suspend.  Hence a PHY reset is needed to restore network functionality
+>      after resume.
+>   2. Linux should not rely on the boot loader having reset the PHY, but
+>      should reset the PHY during driver probe.
+> 
+> Changes compared to v2, as sent by Sergei Shtylyov:
+>   - Fix fwnode_get_named_gpiod() call due to added parameters (which
+>     allowed to eliminate the gpiod_direction_output() call),
+>   - Rebased, refreshed, reworded,
+>   - Take over from Sergei,
+>   - Add Acked-by,
+>   - Remove unneeded gpiod check, as gpiod_set_value() handles NULL fine,
+>   - Handle fwnode_get_named_gpiod() errors correctly:
+>       - -ENOENT is ignored (the GPIO is optional), and turned into NULL,
+> 	which allowed to remove all later !IS_ERR() checks,
+>       - Other errors (incl. -EPROBE_DEFER) are propagated [1],
+>   - Extract DTS patches from series "[PATCH 0/4] ravb: Add PHY reset
+>     support" (https://www.spinics.net/lists/netdev/msg457308.html), and
+>     incorporate in this series, after moving reset-gpios from the
+>     ethernet to the ethernet-phy node [2].
+> 
+> Thanks for your comments!
+> 
+> Geert Uytterhoeven (2):
+>   arm64: dts: renesas: salvator-common: Add EthernetAVB PHY reset
+>   arm64: dts: renesas: ulcb: Add EthernetAVB PHY reset
 
-Worse, change it to a long and it will work on everything except
-64bit big-endian systems.
+I have marked the above patches as deferred pending acceptance of
+the other patches in this series. Please repost or otherwise ping
+me once that has happened.
 
-	David
+> 
+> Sergei Shtylyov (2):
+>   phylib: Add device reset GPIO support
+>   macb: Kill PHY reset code
+> 
+>  Documentation/devicetree/bindings/net/phy.txt    |  2 ++
+>  arch/arm64/boot/dts/renesas/salvator-common.dtsi |  1 +
+>  arch/arm64/boot/dts/renesas/ulcb.dtsi            |  1 +
+>  drivers/net/ethernet/cadence/macb.h              |  1 -
+>  drivers/net/ethernet/cadence/macb_main.c         | 21 ---------------
+>  drivers/net/phy/at803x.c                         | 18 +++----------
+>  drivers/net/phy/mdio_bus.c                       |  4 +++
+>  drivers/net/phy/mdio_device.c                    | 26 +++++++++++++++++--
+>  drivers/net/phy/phy_device.c                     | 33 ++++++++++++++++++++++--
+>  drivers/of/of_mdio.c                             | 23 +++++++++++++++++
+>  include/linux/mdio.h                             |  3 +++
+>  include/linux/phy.h                              |  5 ++++
+>  12 files changed, 97 insertions(+), 41 deletions(-)
+> 
+> -- 
+> 2.7.4
+> 
+> Gr{oetje,eeting}s,
+> 
+> 						Geert
+> 
+> --
+> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+> 
+> In personal conversations with technical people, I call myself a hacker. But
+> when I'm talking to journalists I just say "programmer" or something like that.
+> 							    -- Linus Torvalds
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
