@@ -1,105 +1,102 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Get rid of RCU callbacks in TC filters?
-Date: Fri, 20 Oct 2017 13:31:43 -0700
-Message-ID: <CAM_iQpUL9xCrZCjCpcaBMyjSWEJ+1DsFMO6dwJVtVvz=zKJDxA@mail.gmail.com>
-References: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
- <20171018193548.GM3521@linux.vnet.ibm.com> <CAM_iQpWwaQuxZMidkVXsjDVwGcW+u-h5rczG2CO0s1RamRVUYQ@mail.gmail.com>
- <20171020165623.GM3521@linux.vnet.ibm.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] isdn/gigaset: Provide cardstate context for bas timer
+ callbacks
+Date: Fri, 20 Oct 2017 13:47:08 -0700
+Message-ID: <20171020204708.GA58150@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Chris Mi <chrism@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@resnulli.us>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:49330 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751498AbdJTUcE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 16:32:04 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i5so12594848pfe.6
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 13:32:04 -0700 (PDT)
-In-Reply-To: <20171020165623.GM3521@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Johan Hovold <johan@kernel.org>, linux-kernel@vger.kernel.org,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2017 at 9:56 AM, Paul E. McKenney
-<paulmck@linux.vnet.ibm.com> wrote:
-> On Thu, Oct 19, 2017 at 08:26:01PM -0700, Cong Wang wrote:
->> On Wed, Oct 18, 2017 at 12:35 PM, Paul E. McKenney
->> <paulmck@linux.vnet.ibm.com> wrote:
->> > 5) Keep call_rcu(), but have the RCU callback schedule a workqueue.
->> > The workqueue could then use blocking primitives, for example, acquiring
->> > RTNL.
->>
->> Yeah, this could work too but we would get one more async...
->>
->> filter delete -> call_rcu() -> schedule_work() -> action destroy
->
-> True, but on the other hand you get to hold RTNL.
+While the work callback uses the urb to find cardstate from bas_cardstate,
+this may not be valid for timer callbacks. Instead, introduce a direct
+pointer back to the cardstate from bas_cardstate for use in timer
+callbacks.
 
-I can get RTNL too with converting call_rcu() to synchronize_rcu().
-;)
+Reported-by: Paul Bolle <pebolle@tiscali.nl>
+Fixes: 4cfea08e6251 ("isdn/gigaset: Convert timers to use timer_setup()")
+Cc: Paul Bolle <pebolle@tiscali.nl>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Johan Hovold <johan@kernel.org>
+Cc: gigaset307x-common@lists.sourceforge.net
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ drivers/isdn/gigaset/bas-gigaset.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
 
-So this turns into the question again: if we mind synchronize_rcu()
-on slow paths or not?
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index c990c6bbffc2..20d0a080a2b0 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -89,6 +89,7 @@ static int start_cbsend(struct cardstate *);
+ 
+ struct bas_cardstate {
+ 	struct usb_device	*udev;		/* USB device pointer */
++	struct cardstate	*cs;
+ 	struct usb_interface	*interface;	/* interface for this device */
+ 	unsigned char		minor;		/* starting minor number */
+ 
+@@ -436,8 +437,7 @@ static void check_pending(struct bas_cardstate *ucs)
+ static void cmd_in_timeout(struct timer_list *t)
+ {
+ 	struct bas_cardstate *ucs = from_timer(ucs, t, timer_cmd_in);
+-	struct urb *urb = ucs->urb_int_in;
+-	struct cardstate *cs = urb->context;
++	struct cardstate *cs = ucs->cs;
+ 	int rc;
+ 
+ 	if (!ucs->rcvbuf_size) {
+@@ -643,8 +643,7 @@ static void int_in_work(struct work_struct *work)
+ static void int_in_resubmit(struct timer_list *t)
+ {
+ 	struct bas_cardstate *ucs = from_timer(ucs, t, timer_int_in);
+-	struct urb *urb = ucs->urb_int_in;
+-	struct cardstate *cs = urb->context;
++	struct cardstate *cs = ucs->cs;
+ 	int rc;
+ 
+ 	if (ucs->retry_int_in++ >= BAS_RETRY) {
+@@ -1446,8 +1445,7 @@ static void read_iso_tasklet(unsigned long data)
+ static void req_timeout(struct timer_list *t)
+ {
+ 	struct bas_cardstate *ucs = from_timer(ucs, t, timer_ctrl);
+-	struct urb *urb = ucs->urb_int_in;
+-	struct cardstate *cs = urb->context;
++	struct cardstate *cs = ucs->cs;
+ 	int pending;
+ 	unsigned long flags;
+ 
+@@ -1843,8 +1841,7 @@ static void write_command_callback(struct urb *urb)
+ static void atrdy_timeout(struct timer_list *t)
+ {
+ 	struct bas_cardstate *ucs = from_timer(ucs, t, timer_atrdy);
+-	struct urb *urb = ucs->urb_int_in;
+-	struct cardstate *cs = urb->context;
++	struct cardstate *cs = ucs->cs;
+ 
+ 	dev_warn(cs->dev, "timeout waiting for HD_READY_SEND_ATDATA\n");
+ 
+@@ -2217,6 +2214,7 @@ static int gigaset_initcshw(struct cardstate *cs)
+ 	}
+ 
+ 	spin_lock_init(&ucs->lock);
++	ucs->cs = cs;
+ 	timer_setup(&ucs->timer_ctrl, req_timeout, 0);
+ 	timer_setup(&ucs->timer_atrdy, atrdy_timeout, 0);
+ 	timer_setup(&ucs->timer_cmd_in, cmd_in_timeout, 0);
+-- 
+2.7.4
 
-Actually, I just tried this approach, this way makes the core tc filter
-code harder to wait for flying callbacks, currently rcu_barrier() is
-enough, with one more schedule_work() added we probably
-need flush_workqueue()... Huh, this also means I can't use the
-global workqueue so should add a new workqueue for tc filters.
 
-Good news is I seem to make it work without adding much code.
-Stay tuned. ;)
-
->
->> > 6) As with #5, have the RCU callback schedule a workqueue, but aggregate
->> > workqueue scheduling using a timer.  This would reduce the number of
->> > RTNL acquisitions.
->>
->> Ouch, sounds like even one more async:
->>
->> filter delete -> call_rcu() -> schedule_work() -> timer -> flush_work()
->> -> action destroy
->>
->> :-(
->
-> Indeed, the price of scalability and performance is often added
-> asynchronous action at a distance.  But sometimes you can have
-> scalability, performance, -and- synchronous action.  Not sure that this
-> is one of those cases, but perhaps someone will come up with some trick
-> that we are not yet seeing.
->
-> And again, one benefit you get from the added asynchrony is the ability
-> to acquire RTNL.  Another is increased batching, allowing the overhead
-> of acquiring RTNL to be amortized over a larger number of updates.
-
-Understood, my point is it might not be worthy to optimize a slow path
-which already has RTNL lock...
-
-
->
->> > 7) As with #5, have the RCU callback schedule a workqueue, but have each
->> > iterator accumulate a list of things removed and do call_rcu() on the
->> > list.  This is an alternative way of aggregating to reduce the number
->> > of RTNL acquisitions.
->>
->> Yeah, this seems working too.
->>
->> > There are many other ways to skin this cat.
->>
->> We still have to pick one. :) Any preference? I want to keep it as simple
->> as possible, otherwise some day I would not understand it either.
->
-> I must defer to the people who actually fully understand this code.
-
-I understand that code, just not sure about which approach I should
-pick.
-
-I will keep you Cc'ed for any further change I make.
-
-Thanks!
+-- 
+Kees Cook
+Pixel Security
