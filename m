@@ -1,52 +1,234 @@
 From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH v3 net-next 0/2] net: dsa: lan9303: Add fdb/mdb methods
-Date: Fri, 20 Oct 2017 12:19:08 +0200
-Message-ID: <20171020101910.2245-1-privat@egil-hjelmeland.no>
+Subject: [PATCH v3 net-next 1/2] net: dsa: lan9303: Add port_fast_age and port_fdb_dump methods
+Date: Fri, 20 Oct 2017 12:19:09 +0200
+Message-ID: <20171020101910.2245-2-privat@egil-hjelmeland.no>
+References: <20171020101910.2245-1-privat@egil-hjelmeland.no>
 Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
 To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         f.fainelli@gmail.com, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:55822 "EHLO aibo.runbox.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752087AbdJTKTu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Oct 2017 06:19:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171020101910.2245-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series add support for accessing and managing the lan9303 ALR 
-(Address Logic Resolution). 
+Add DSA method port_fast_age as a step to STP support.
 
-The first patch add low level functions for accessing the ALR, along
-with port_fast_age and port_fdb_dump methods.
+Add low level functions for accessing the lan9303 ALR (Address Logic
+Resolution).
 
-The second patch add functions for managing ALR entires, along with
-remaining fdb/mdb methods. 
+Added DSA method port_fdb_dump
 
-Note that to complete STP support, a special ALR entry with the STP eth
-address must be added too. This must be addressed later.
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 160 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/lan9303.h      |   2 +
+ 2 files changed, 162 insertions(+)
 
-Comments welcome!
-
-
-Changes v2 -> v3:
- - Whitespace polishing. Removed some "section" comments.
- - Prefixed ALR constants with LAN9303_ for consistency.
- - Patch 2: lan9303_port_fast_age() wrap the "port" into a struct for passing
-   as context to alr_loop_cb_del_port_learned. Safer in event of type change.
- - Patch 2: Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-  
-Changes v1 -> v2:
- - Patch 2: Removed question comment
-
-
-Egil Hjelmeland (2):
-  net: dsa: lan9303: Add port_fast_age and port_fdb_dump methods
-  net: dsa: lan9303: Add fdb/mdb manipulation
-
- drivers/net/dsa/lan9303-core.c | 333 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/lan9303.h      |  11 ++
- 2 files changed, 344 insertions(+)
-
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index 09a748327fc6..48cae87bdcb7 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -124,6 +124,21 @@
+ #define LAN9303_MAC_RX_CFG_2 0x0c01
+ #define LAN9303_MAC_TX_CFG_2 0x0c40
+ #define LAN9303_SWE_ALR_CMD 0x1800
++# define LAN9303_ALR_CMD_MAKE_ENTRY    BIT(2)
++# define LAN9303_ALR_CMD_GET_FIRST     BIT(1)
++# define LAN9303_ALR_CMD_GET_NEXT      BIT(0)
++#define LAN9303_SWE_ALR_WR_DAT_0 0x1801
++#define LAN9303_SWE_ALR_WR_DAT_1 0x1802
++# define LAN9303_ALR_DAT1_VALID        BIT(26)
++# define LAN9303_ALR_DAT1_END_OF_TABL  BIT(25)
++# define LAN9303_ALR_DAT1_AGE_OVERRID  BIT(25)
++# define LAN9303_ALR_DAT1_STATIC       BIT(24)
++# define LAN9303_ALR_DAT1_PORT_BITOFFS  16
++# define LAN9303_ALR_DAT1_PORT_MASK    (7 << LAN9303_ALR_DAT1_PORT_BITOFFS)
++#define LAN9303_SWE_ALR_RD_DAT_0 0x1805
++#define LAN9303_SWE_ALR_RD_DAT_1 0x1806
++#define LAN9303_SWE_ALR_CMD_STS 0x1808
++# define ALR_STS_MAKE_PEND     BIT(0)
+ #define LAN9303_SWE_VLAN_CMD 0x180b
+ # define LAN9303_SWE_VLAN_CMD_RNW BIT(5)
+ # define LAN9303_SWE_VLAN_CMD_PVIDNVLAN BIT(4)
+@@ -478,6 +493,122 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
+ 	return 0;
+ }
+ 
++/* Map ALR-port bits to port bitmap, and back */
++static const int alrport_2_portmap[] = {1, 2, 4, 0, 3, 5, 6, 7 };
++static const int portmap_2_alrport[] = {3, 0, 1, 4, 2, 5, 6, 7 };
++
++/* Wait a while until mask & reg == value. Otherwise return timeout. */
++static int lan9303_csr_reg_wait(struct lan9303 *chip, int regno,
++				int mask, char value)
++{
++	int i;
++
++	for (i = 0; i < 0x1000; i++) {
++		u32 reg;
++
++		lan9303_read_switch_reg(chip, regno, &reg);
++		if ((reg & mask) == value)
++			return 0;
++		usleep_range(1000, 2000);
++	}
++	return -ETIMEDOUT;
++}
++
++static int lan9303_alr_make_entry_raw(struct lan9303 *chip, u32 dat0, u32 dat1)
++{
++	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_WR_DAT_0, dat0);
++	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_WR_DAT_1, dat1);
++	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD,
++				 LAN9303_ALR_CMD_MAKE_ENTRY);
++	lan9303_csr_reg_wait(chip, LAN9303_SWE_ALR_CMD_STS, ALR_STS_MAKE_PEND,
++			     0);
++	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, 0);
++
++	return 0;
++}
++
++typedef void alr_loop_cb_t(struct lan9303 *chip, u32 dat0, u32 dat1,
++			   int portmap, void *ctx);
++
++static void lan9303_alr_loop(struct lan9303 *chip, alr_loop_cb_t *cb, void *ctx)
++{
++	int i;
++
++	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD,
++				 LAN9303_ALR_CMD_GET_FIRST);
++	lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, 0);
++
++	for (i = 1; i < LAN9303_NUM_ALR_RECORDS; i++) {
++		u32 dat0, dat1;
++		int alrport, portmap;
++
++		lan9303_read_switch_reg(chip, LAN9303_SWE_ALR_RD_DAT_0, &dat0);
++		lan9303_read_switch_reg(chip, LAN9303_SWE_ALR_RD_DAT_1, &dat1);
++		if (dat1 & LAN9303_ALR_DAT1_END_OF_TABL)
++			break;
++
++		alrport = (dat1 & LAN9303_ALR_DAT1_PORT_MASK) >>
++						LAN9303_ALR_DAT1_PORT_BITOFFS;
++		portmap = alrport_2_portmap[alrport];
++
++		cb(chip, dat0, dat1, portmap, ctx);
++
++		lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD,
++					 LAN9303_ALR_CMD_GET_NEXT);
++		lan9303_write_switch_reg(chip, LAN9303_SWE_ALR_CMD, 0);
++	}
++}
++
++static void alr_reg_to_mac(u32 dat0, u32 dat1, u8 mac[6])
++{
++	mac[0] = (dat0 >>  0) & 0xff;
++	mac[1] = (dat0 >>  8) & 0xff;
++	mac[2] = (dat0 >> 16) & 0xff;
++	mac[3] = (dat0 >> 24) & 0xff;
++	mac[4] = (dat1 >>  0) & 0xff;
++	mac[5] = (dat1 >>  8) & 0xff;
++}
++
++struct del_port_learned_ctx {
++	int port;
++};
++
++/* Clear learned (non-static) entry on given port */
++static void alr_loop_cb_del_port_learned(struct lan9303 *chip, u32 dat0,
++					 u32 dat1, int portmap, void *ctx)
++{
++	struct del_port_learned_ctx *del_ctx = ctx;
++	int port = del_ctx->port;
++
++	if (((BIT(port) & portmap) == 0) || (dat1 & LAN9303_ALR_DAT1_STATIC))
++		return;
++
++	/* learned entries has only one port, we can just delete */
++	dat1 &= ~LAN9303_ALR_DAT1_VALID; /* delete entry */
++	lan9303_alr_make_entry_raw(chip, dat0, dat1);
++}
++
++struct port_fdb_dump_ctx {
++	int port;
++	void *data;
++	dsa_fdb_dump_cb_t *cb;
++};
++
++static void alr_loop_cb_fdb_port_dump(struct lan9303 *chip, u32 dat0,
++				      u32 dat1, int portmap, void *ctx)
++{
++	struct port_fdb_dump_ctx *dump_ctx = ctx;
++	u8 mac[ETH_ALEN];
++	bool is_static;
++
++	if ((BIT(dump_ctx->port) & portmap) == 0)
++		return;
++
++	alr_reg_to_mac(dat0, dat1, mac);
++	is_static = !!(dat1 & LAN9303_ALR_DAT1_STATIC);
++	dump_ctx->cb(mac, 0, is_static, dump_ctx->data);
++}
++
+ static int lan9303_disable_processing_port(struct lan9303 *chip,
+ 					   unsigned int port)
+ {
+@@ -923,6 +1054,33 @@ static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
+ 	/* else: touching SWE_PORT_STATE would break port separation */
+ }
+ 
++static void lan9303_port_fast_age(struct dsa_switch *ds, int port)
++{
++	struct lan9303 *chip = ds->priv;
++	struct del_port_learned_ctx del_ctx = {
++		.port = port,
++	};
++
++	dev_dbg(chip->dev, "%s(%d)\n", __func__, port);
++	lan9303_alr_loop(chip, alr_loop_cb_del_port_learned, &del_ctx);
++}
++
++static int lan9303_port_fdb_dump(struct dsa_switch *ds, int port,
++				 dsa_fdb_dump_cb_t *cb, void *data)
++{
++	struct lan9303 *chip = ds->priv;
++	struct port_fdb_dump_ctx dump_ctx = {
++		.port = port,
++		.data = data,
++		.cb   = cb,
++	};
++
++	dev_dbg(chip->dev, "%s(%d)\n", __func__, port);
++	lan9303_alr_loop(chip, alr_loop_cb_fdb_port_dump, &dump_ctx);
++
++	return 0;
++}
++
+ static const struct dsa_switch_ops lan9303_switch_ops = {
+ 	.get_tag_protocol = lan9303_get_tag_protocol,
+ 	.setup = lan9303_setup,
+@@ -937,6 +1095,8 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
+ 	.port_bridge_join       = lan9303_port_bridge_join,
+ 	.port_bridge_leave      = lan9303_port_bridge_leave,
+ 	.port_stp_state_set     = lan9303_port_stp_state_set,
++	.port_fast_age          = lan9303_port_fast_age,
++	.port_fdb_dump          = lan9303_port_fdb_dump,
+ };
+ 
+ static int lan9303_register_switch(struct lan9303 *chip)
+diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
+index 68ecd544b658..4db323d65741 100644
+--- a/drivers/net/dsa/lan9303.h
++++ b/drivers/net/dsa/lan9303.h
+@@ -11,6 +11,8 @@ struct lan9303_phy_ops {
+ 			     int regnum, u16 val);
+ };
+ 
++#define LAN9303_NUM_ALR_RECORDS 512
++
+ struct lan9303 {
+ 	struct device *dev;
+ 	struct regmap *regmap;
 -- 
 2.11.0
