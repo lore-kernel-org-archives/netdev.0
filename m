@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tipc: checking for NULL instead of IS_ERR()
-Date: Fri, 20 Oct 2017 08:34:30 +0100 (WEST)
-Message-ID: <20171020.083430.260489693883420009.davem@davemloft.net>
-References: <20171018074825.2bi42vewrqhdbte3@mwanda>
+Subject: Re: [PATCH net-next] net: sched: cls_u32: use hash_ptr() for
+ tc_u_hash
+Date: Fri, 20 Oct 2017 08:36:23 +0100 (WEST)
+Message-ID: <20171020.083623.347659428573746599.davem@davemloft.net>
+References: <20171018083403.3236142-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
-        netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33992 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751783AbdJTHee (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 03:34:34 -0400
-In-Reply-To: <20171018074825.2bi42vewrqhdbte3@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171018083403.3236142-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 18 Oct 2017 10:48:25 +0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 18 Oct 2017 10:33:37 +0200
 
-> The tipc_alloc_conn() function never returns NULL, it returns error
-> pointers, so I have fixed the check.
+> After the change to the tp hash, we now get a build warning
+> on 32-bit architectures:
 > 
-> Fixes: 14c04493cb77 ("tipc: add ability to order and receive topology events in driver")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> net/sched/cls_u32.c: In function 'tc_u_hash':
+> net/sched/cls_u32.c:338:17: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
+>   return hash_64((u64) tp->chain->block, U32_HASH_SHIFT);
+> 
+> Using hash_ptr() instead of hash_64() lets us drop the cast
+> and fixes the warning while still resulting in the same hash
+> value.
+> 
+> Fixes: 7fa9d974f3c2 ("net: sched: cls_u32: use block instead of q in tc_u_common")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks Dan.
+Applied.
