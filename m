@@ -1,65 +1,46 @@
-From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v12] openvswitch: enable NSH support
-Date: Fri, 20 Oct 2017 19:34:40 +0800
-Message-ID: <20171020113440.GA102327@cran64.bj.intel.com>
-References: <1508162009-30359-1-git-send-email-yi.y.yang@intel.com>
-	<20171018231955.058ec5c8@griffin>
-	<20171019114052.GA83037@cran64.bj.intel.com>
-	<20171019144347.421351db@griffin>
-	<20171019131215.GA84551@cran64.bj.intel.com>
-	<20171019154118.16d906e0@griffin>
-	<20171019215312.GA91385@cran64.bj.intel.com>
-	<20171020100535.152fd925@griffin>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sctp: add the missing sock_owned_by_user check in
+ sctp_icmp_redirect
+Date: Fri, 20 Oct 2017 12:54:38 +0100 (WEST)
+Message-ID: <20171020.125438.333321434362467027.davem@davemloft.net>
+References: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20171020100535.152fd925@griffin>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        edumazet@google.com, marcelo.leitner@gmail.com,
+        nhorman@tuxdriver.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37010 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753044AbdJTLyo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 07:54:44 -0400
+In-Reply-To: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 20, 2017 at 04:05:35PM +0800, Jiri Benc wrote:
-> On Fri, 20 Oct 2017 05:53:12 +0800, Yang, Yi wrote:
-> > For push_nsh, my typical use scinario is push_nsh then set then output
-> > to vxlangpe port.
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 18 Oct 2017 21:37:49 +0800
+
+> Now sctp processes icmp redirect packet in sctp_icmp_redirect where
+> it calls sctp_transport_dst_check in which tp->dst can be released.
 > 
-> Okay.
-
-Then I just need to do the below change against v12.
-
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 1ab3c51..a3a663c 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -658,10 +658,8 @@ static int set_nsh(struct sk_buff *skb, struct
-sw_flow_key *flow_key,
-                return err;
-
-        /* Make sure the NSH base header is there */
--       err = skb_ensure_writable(skb, skb_network_offset(skb) +
--                                      NSH_BASE_HDR_LEN);
--       if (unlikely(err))
--               return err;
-+       if (!pskb_may_pull(skb, NSH_BASE_HDR_LEN))
-+               return -ENOMEM;
-
-        nh = nsh_hdr(skb);
-        length = nsh_hdr_len(nh);
-
-I'll send out v13 with this if you're ok.
-
+> The problem is before calling sctp_transport_dst_check, it doesn't
+> check sock_owned_by_user, which means tp->dst could be freed while
+> a process is accessing it with owning the socket.
 > 
->  Jiri
+> An use-after-free issue could be triggered by this.
+> 
+> This patch is to fix it by checking sock_owned_by_user before calling
+> sctp_transport_dst_check in sctp_icmp_redirect, so that it would not
+> release tp->dst if users still hold sock lock.
+> 
+> Besides, the same issue fixed in commit 45caeaa5ac0b ("dccp/tcp: fix
+> routing redirect race") on sctp also needs this check.
+> 
+> Fixes: 55be7a9c6074 ("ipv4: Add redirect support to all protocol icmp error handlers")
+> Reported-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+
+Applied and queued up for -stable.
