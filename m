@@ -1,33 +1,48 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 0/8] tools: bpftool: add a "version" command,
- and fix several items
-Date: Thu, 19 Oct 2017 16:42:24 -0700
-Message-ID: <20171019234222.bdpiucnbqg54looh@ast-mbp>
-References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+From: James Morris <james.l.morris@oracle.com>
+Subject: Re: [PATCH net-next v7 3/5] security: bpf: Add LSM hooks for bpf
+ object related syscall
+Date: Fri, 20 Oct 2017 11:54:20 +1100 (AEDT)
+Message-ID: <alpine.LFD.2.20.1710201153050.11171@t440.gateway.2wire.net>
+References: <20171018200026.146093-1-chenbofeng.kernel@gmail.com> <20171018200026.146093-4-chenbofeng.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
+        linux-security-module@vger.kernel.org,
+        Jeffrey Vander Stoep <jeffv@google.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        lorenzo@google.com, Daniel Borkmann <daniel@iogearbox.net>,
+        Stephen Smalley <sds@tycho.nsa.gov>,
+        Paul Moore <paul@paul-moore.com>,
+        Chenbo Feng <fengc@google.com>
+To: Chenbo Feng <chenbofeng.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:48999 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751601AbdJSXm1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 19:42:27 -0400
-Received: by mail-pf0-f193.google.com with SMTP id b79so8290387pfk.5
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 16:42:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33893 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750993AbdJTAy5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 20:54:57 -0400
+In-Reply-To: <20171018200026.146093-4-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 19, 2017 at 03:46:18PM -0700, Jakub Kicinski wrote:
-> Quentin says:
-> 
-> The first seven patches of this series bring several minor fixes to
-> bpftool. Please see individual commit logs for details.
-> 
-> Last patch adds a "version" commands to bpftool, which is in fact the
-> version of the kernel from which it was compiled.
+On Wed, 18 Oct 2017, Chenbo Feng wrote:
 
-lgtm
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+> From: Chenbo Feng <fengc@google.com>
+> 
+> Introduce several LSM hooks for the syscalls that will allow the
+> userspace to access to eBPF object such as eBPF programs and eBPF maps.
+> The security check is aimed to enforce a per object security protection
+> for eBPF object so only processes with the right priviliges can
+> read/write to a specific map or use a specific eBPF program. Besides
+> that, a general security hook is added before the multiplexer of bpf
+> syscall to check the cmd and the attribute used for the command. The
+> actual security module can decide which command need to be checked and
+> how the cmd should be checked.
+> 
+> Signed-off-by: Chenbo Feng <fengc@google.com>
+
+
+Acked-by: James Morris <james.l.morris@oracle.com>
+
+-- 
+James Morris
+<james.l.morris@oracle.com>
