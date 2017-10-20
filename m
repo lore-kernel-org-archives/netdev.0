@@ -1,111 +1,71 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH v3 0/4] Teach phylib hard-resetting devices
-Date: Fri, 20 Oct 2017 11:05:13 +0200
-Message-ID: <20171020090512.j6fkn2ohbxsuboxm@verge.net.au>
-References: <1508487261-18524-1-git-send-email-geert+renesas@glider.be>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
+Date: Fri, 20 Oct 2017 10:18:23 +0100
+Message-ID: <20171020091823.GA18282@arm.com>
+References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
+ <CANn89iJgoiY_ky4F_1iE_o6moZXp5e6OcNZZe=B8F-OhWJx8nQ@mail.gmail.com>
+ <FF5A6DF1-0E5F-4C7E-A31B-06ED33366039@gmail.com>
+ <CANn89iKj45+zqMt7XqPkCG+8PQwhzjHUBZ0vu-REvZWs1HuqOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Nicolas Ferre <nicolas.ferre-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Wei Wei <dotweiba@gmail.com>,
+        Willem de Bruijn <willemb@google.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>,
+        David Miller <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1508487261-18524-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <CANn89iKj45+zqMt7XqPkCG+8PQwhzjHUBZ0vu-REvZWs1HuqOw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2017 at 10:14:17AM +0200, Geert Uytterhoeven wrote:
-> 	Hi David, Andrew, Florian, Simon, Magnus,
+On Thu, Oct 19, 2017 at 10:34:54PM -0700, Eric Dumazet wrote:
+> On Thu, Oct 19, 2017 at 8:13 PM, Wei Wei <dotweiba@gmail.com> wrote:
+> > Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
+> > All code
+> > ========
+> >    0:   80 66 40 f9             andb   $0xf9,0x40(%rsi)
+> >    4:   00 00                   add    %al,(%rax)
+> >    6:   01 8b 00 90 00 91       add    %ecx,-0x6eff7000(%rbx)
+> >    c:   11 00                   adc    %eax,(%rax)
+> >    e:   80 f9 01                cmp    $0x1,%cl
+> >   11:   7c 5f                   jl     0x72
+> >   13:*  88 00                   mov    %al,(%rax)               <-- trapping instruction
+> >   15:   00 00                   add    %al,(%rax)
+> >         ...
+> >
+> > Code starting with the faulting instruction
+> > ===========================================
+> >    0:   01 7c 5f 88             add    %edi,-0x78(%rdi,%rbx,2)
+> >    4:   00 00                   add    %al,(%rax)
+> >         ...
+> > —[ end trace 261e7ac1458ccc0a ]---
+> >
 > 
-> This patch series adds optional PHY reset support to phylib.
+> I thought it was happening on arm64 ?
 > 
-> The first two patches are destined for David's net-next tree. They add
-> core PHY reset code, and update a driver that currently uses its own
-> reset code.  Note that these patches depend on "[PATCH v2] of_mdio: Fix
-> broken PHY IRQ in case of probe deferral"
-> (https://www.spinics.net/lists/linux-renesas-soc/msg19442.html), as v3
-> needs to propagate errors from of_mdiobus_register_phy() and
-> of_mdiobus_register_device() [1].
-> 
-> The last two patches are new (sort of, see [2]), and destined for
-> Simon's renesas tree.  They add properties to describe the EthernetAVB
-> PHY reset topology to the common Salvator-X/XS and ULCB DTS files, which
-> solves two issues:
->   1. On Salvator-XS, the enable pin of the regulator providing PHY power
->      is connected to PRESETn, and PSCI powers down the SoC during system
->      suspend.  Hence a PHY reset is needed to restore network functionality
->      after resume.
->   2. Linux should not rely on the boot loader having reset the PHY, but
->      should reset the PHY during driver probe.
-> 
-> Changes compared to v2, as sent by Sergei Shtylyov:
->   - Fix fwnode_get_named_gpiod() call due to added parameters (which
->     allowed to eliminate the gpiod_direction_output() call),
->   - Rebased, refreshed, reworded,
->   - Take over from Sergei,
->   - Add Acked-by,
->   - Remove unneeded gpiod check, as gpiod_set_value() handles NULL fine,
->   - Handle fwnode_get_named_gpiod() errors correctly:
->       - -ENOENT is ignored (the GPIO is optional), and turned into NULL,
-> 	which allowed to remove all later !IS_ERR() checks,
->       - Other errors (incl. -EPROBE_DEFER) are propagated [1],
->   - Extract DTS patches from series "[PATCH 0/4] ravb: Add PHY reset
->     support" (https://www.spinics.net/lists/netdev/msg457308.html), and
->     incorporate in this series, after moving reset-gpios from the
->     ethernet to the ethernet-phy node [2].
-> 
-> Thanks for your comments!
-> 
-> Geert Uytterhoeven (2):
->   arm64: dts: renesas: salvator-common: Add EthernetAVB PHY reset
->   arm64: dts: renesas: ulcb: Add EthernetAVB PHY reset
+> This is x86_64 disassembly :/
 
-I have marked the above patches as deferred pending acceptance of
-the other patches in this series. Please repost or otherwise ping
-me once that has happened.
+I guess they forgot the ARCH/CROSS_COMPILE env vars for decodecode. here
+you go:
 
-> 
-> Sergei Shtylyov (2):
->   phylib: Add device reset GPIO support
->   macb: Kill PHY reset code
-> 
->  Documentation/devicetree/bindings/net/phy.txt    |  2 ++
->  arch/arm64/boot/dts/renesas/salvator-common.dtsi |  1 +
->  arch/arm64/boot/dts/renesas/ulcb.dtsi            |  1 +
->  drivers/net/ethernet/cadence/macb.h              |  1 -
->  drivers/net/ethernet/cadence/macb_main.c         | 21 ---------------
->  drivers/net/phy/at803x.c                         | 18 +++----------
->  drivers/net/phy/mdio_bus.c                       |  4 +++
->  drivers/net/phy/mdio_device.c                    | 26 +++++++++++++++++--
->  drivers/net/phy/phy_device.c                     | 33 ++++++++++++++++++++++--
->  drivers/of/of_mdio.c                             | 23 +++++++++++++++++
->  include/linux/mdio.h                             |  3 +++
->  include/linux/phy.h                              |  5 ++++
->  12 files changed, 97 insertions(+), 41 deletions(-)
-> 
-> -- 
-> 2.7.4
-> 
-> Gr{oetje,eeting}s,
-> 
-> 						Geert
-> 
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-> 
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
-> 							    -- Linus Torvalds
-> 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
+All code
+========
+   0:	f9406680 	ldr	x0, [x20,#200]
+   4:	8b010000 	add	x0, x0, x1
+   8:	91009000 	add	x0, x0, #0x24
+   c:	f9800011 	prfm	pstl1strm, [x0]
+  10:*	885f7c01 	ldxr	w1, [x0]		<-- trapping instruction
+
+Code starting with the faulting instruction
+===========================================
+   0:	885f7c01 	ldxr	w1, [x0]
+
+so it's faulting on the load part of an atomic rmw.
+
+Will
