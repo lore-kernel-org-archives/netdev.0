@@ -1,91 +1,45 @@
-From: Song Liu <songliubraving@fb.com>
-Subject: Re: [PATCH net-next 0/6] add a set of tracepoints to tcp stack
-Date: Fri, 20 Oct 2017 21:32:54 +0000
-Message-ID: <38F68953-8C9B-4CB7-AA03-0DF58A24CE0B@fb.com>
-References: <20171020212046.577888-1-songliubraving@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "liu.song.a23@gmail.com" <liu.song.a23@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-        "brendan.d.gregg@gmail.com" <brendan.d.gregg@gmail.com>,
-        "ncardwell@google.com" <ncardwell@google.com>,
-        David Ahern <dsahern@gmail.com>,
-        Kernel Team <Kernel-team@fb.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/7] net: dsa: bcm_sf2: Add support for IPv6 CFP rules
+Date: Fri, 20 Oct 2017 14:34:47 -0700
+Message-ID: <20171020213454.14848-1-f.fainelli@gmail.com>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:56032 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752346AbdJTVdH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:33:07 -0400
-In-Reply-To: <20171020212046.577888-1-songliubraving@fb.com>
-Content-Language: en-US
-Content-ID: <9CEFFA400374AB4DAFCA3F7D02F6A3DC@namprd15.prod.outlook.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:53075 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752346AbdJTVfB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:35:01 -0400
+Received: by mail-qk0-f194.google.com with SMTP id b15so15963058qkg.9
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 14:35:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CCing key audience of these patches.=20
+Hi all,
 
-I am really sorry if I have spammed your inbox multiple times with=20
-the same set of patches. I have been struggling to get git-send-email
-sending email to netdev. The only solution I found is to be reduce CC=20
-list.
+This patch series adds support for matching IPv6 addresses to the existing CFP
+support code. Because IPv6 addresses are four times bigger than IPv4, we can
+fit them anymore in a single slice, so we need to chain two in order to have
+a complete match. This makes us require a second bitmap tracking unique rules
+so we don't over populate the TCAM.
 
-Best Regards,
-Song
+Finally, because the code had to be re-organized, it became a lot easier to
+support arbitrary prefix/mask lengths, so the last two patches do just that.
 
+Florian Fainelli (7):
+  net: dsa: bcm_sf2: Use existing shift/masks
+  net: dsa: bcm_sf2: Move IPv4 CFP processing to specific functions
+  net: dsa: bcm_sf2: Make UDF slices more configurable
+  net: dsa: bcm_sf2: Simplify bcm_sf2_cfp_rule_get_all()
+  net: dsa: bcm_sf2: Add support for IPv6 CFP rules
+  net: dsa: bcm_sf2: Allow matching arbitrary IPv4 mask lengths
+  net: dsa: bcm_sf2: Allow matching arbitrary IPv6 masks/lengths
 
-> On Oct 20, 2017, at 2:20 PM, Song Liu <songliubraving@fb.com> wrote:
->=20
-> Resending the patch set as there were something wrong with my email
-> server.
->=20
-> These patches add the following tracepoints to tcp stack.
->=20
-> tcp_send_reset
-> tcp_receive_reset
-> tcp_destroy_sock
-> tcp_set_state
->=20
-> These tracepoints can be used to track TCP state changes. Such state
-> changes include but are not limited to: connection establish,
-> connection termination, tx and rx of RST, various retransmits.
->=20
-> Currently, we use the following kprobes to trace these events:
->=20
-> int kprobe__tcp_validate_incoming
-> int kprobe__tcp_send_active_reset
-> int kprobe__tcp_v4_send_reset
-> int kprobe__tcp_v6_send_reset
-> int kprobe__tcp_v4_destroy_sock
-> int kprobe__tcp_set_state
-> int kprobe__tcp_retransmit_skb
->=20
-> These tracepoints will help us simplify this work.
->=20
-> Thanks,
-> Song
->=20
-> Song Liu (6):
->  tcp: add trace event class tcp_event_sk_skb
->  tcp: mark trace event arguments sk and skb as const
->  tcp: add tracepoint trace_tcp_send_reset
->  tcp: add tracepoint trace_tcp_receive_reset
->  tcp: add tracepoint trace_tcp_destroy_sock
->  tcp: add tracepoint trace_tcp_set_state()
->=20
-> include/trace/events/tcp.h | 181 ++++++++++++++++++++++++++++++++++++++++=
-++++-
-> net/ipv4/tcp.c             |   4 +
-> net/ipv4/tcp_input.c       |   3 +
-> net/ipv4/tcp_ipv4.c        |   8 +-
-> net/ipv4/tcp_output.c      |   5 ++
-> net/ipv6/tcp_ipv6.c        |  10 ++-
-> 6 files changed, 204 insertions(+), 7 deletions(-)
->=20
-> --
-> 2.9.5
+ drivers/net/dsa/bcm_sf2.c      |    1 +
+ drivers/net/dsa/bcm_sf2.h      |    1 +
+ drivers/net/dsa/bcm_sf2_cfp.c  | 1196 ++++++++++++++++++++++++++++++----------
+ drivers/net/dsa/bcm_sf2_regs.h |   15 +-
+ 4 files changed, 935 insertions(+), 278 deletions(-)
+
+-- 
+2.14.1
