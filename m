@@ -1,44 +1,158 @@
-From: jlee@suse.com
-Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when
- the kernel is locked down
-Date: Sat, 21 Oct 2017 00:43:43 +0800
-Message-ID: <20171020164343.e5mlq7ukskfjmlpp@linux-rasp2>
-References: <20171020155748.kzrvg6565oxh6gmb@linux-rasp2>
- <20171020024732.GJ3285@linux-l9pv.suse>
- <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk>
- <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk>
- <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
- <2582.1508486928@warthog.procyon.org.uk>
- <19424.1508515402@warthog.procyon.org.uk>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: sunrpc: mark expected switch fall-throughs
+Date: Fri, 20 Oct 2017 11:48:30 -0500
+Message-ID: <20171020164830.GA8518@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        linux-security-module@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
-        linux-efi@vger.kernel.org, matthew.garrett@nebula.com,
-        gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-        jforbes@redhat.com, Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Gary Lin <GLin@suse.com>
-To: David Howells <dhowells@redhat.com>
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "J. Bruce Fields" <bfields@fieldses.org>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <19424.1508515402@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 20, 2017 at 05:03:22PM +0100, David Howells wrote:
-> jlee@suse.com wrote:
-> 
-> > I think that we don't need to lock down sys_bpf() now because
-> > we didn't lock down other interfaces for reading arbitrary
-> > address like /dev/mem and /dev/kmem.
-> 
-> Ummm...  See patch 4.  You even gave me a Reviewed-by for it ;-)
-> 
-> David
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-hm... patch 4 only prevents write_mem() but not read_mem().
-Or I missed anything?
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only (GCC 7.2.0 was used).
+Please, verify if the actual intention of the code is to fall through.
 
-Thanks
-Joey Lee
+ net/sunrpc/clnt.c     | 11 +++++++++++
+ net/sunrpc/xprt.c     |  1 +
+ net/sunrpc/xprtsock.c |  4 ++++
+ 3 files changed, 16 insertions(+)
+
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index 2ad827d..d25b077 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -1586,6 +1586,7 @@ call_reserveresult(struct rpc_task *task)
+ 	switch (status) {
+ 	case -ENOMEM:
+ 		rpc_delay(task, HZ >> 2);
++		/* fall through */
+ 	case -EAGAIN:	/* woken up; retry */
+ 		task->tk_action = call_retry_reserve;
+ 		return;
+@@ -1647,10 +1648,13 @@ call_refreshresult(struct rpc_task *task)
+ 		/* Use rate-limiting and a max number of retries if refresh
+ 		 * had status 0 but failed to update the cred.
+ 		 */
++		/* fall through */
+ 	case -ETIMEDOUT:
+ 		rpc_delay(task, 3*HZ);
++		/* fall through */
+ 	case -EAGAIN:
+ 		status = -EACCES;
++		/* fall through */
+ 	case -EKEYEXPIRED:
+ 		if (!task->tk_cred_retry)
+ 			break;
+@@ -1911,6 +1915,7 @@ call_connect_status(struct rpc_task *task)
+ 			task->tk_action = call_bind;
+ 			return;
+ 		}
++		/* fall through */
+ 	case -ECONNRESET:
+ 	case -ECONNABORTED:
+ 	case -ENETUNREACH:
+@@ -1924,6 +1929,7 @@ call_connect_status(struct rpc_task *task)
+ 			break;
+ 		/* retry with existing socket, after a delay */
+ 		rpc_delay(task, 3*HZ);
++		/* fall through */
+ 	case -EAGAIN:
+ 		/* Check for timeouts before looping back to call_bind */
+ 	case -ETIMEDOUT:
+@@ -2025,6 +2031,7 @@ call_transmit_status(struct rpc_task *task)
+ 			rpc_exit(task, task->tk_status);
+ 			break;
+ 		}
++		/* fall through */
+ 	case -ECONNRESET:
+ 	case -ECONNABORTED:
+ 	case -EADDRINUSE:
+@@ -2145,6 +2152,7 @@ call_status(struct rpc_task *task)
+ 		 * were a timeout.
+ 		 */
+ 		rpc_delay(task, 3*HZ);
++		/* fall through */
+ 	case -ETIMEDOUT:
+ 		task->tk_action = call_timeout;
+ 		break;
+@@ -2152,14 +2160,17 @@ call_status(struct rpc_task *task)
+ 	case -ECONNRESET:
+ 	case -ECONNABORTED:
+ 		rpc_force_rebind(clnt);
++		/* fall through */
+ 	case -EADDRINUSE:
+ 		rpc_delay(task, 3*HZ);
++		/* fall through */
+ 	case -EPIPE:
+ 	case -ENOTCONN:
+ 		task->tk_action = call_bind;
+ 		break;
+ 	case -ENOBUFS:
+ 		rpc_delay(task, HZ>>2);
++		/* fall through */
+ 	case -EAGAIN:
+ 		task->tk_action = call_transmit;
+ 		break;
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index 1a39ad1..197883f 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -1139,6 +1139,7 @@ void xprt_alloc_slot(struct rpc_xprt *xprt, struct rpc_task *task)
+ 	case -EAGAIN:
+ 		xprt_add_backlog(xprt, task);
+ 		dprintk("RPC:       waiting for request slot\n");
++		/* fall through */
+ 	default:
+ 		task->tk_status = -EAGAIN;
+ 	}
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index c1841f2..684e356 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -551,6 +551,7 @@ static int xs_local_send_request(struct rpc_task *task)
+ 	default:
+ 		dprintk("RPC:       sendmsg returned unrecognized error %d\n",
+ 			-status);
++		/* fall through */
+ 	case -EPIPE:
+ 		xs_close(xprt);
+ 		status = -ENOTCONN;
+@@ -1610,6 +1611,7 @@ static void xs_tcp_state_change(struct sock *sk)
+ 		xprt->connect_cookie++;
+ 		clear_bit(XPRT_CONNECTED, &xprt->state);
+ 		xs_tcp_force_close(xprt);
++		/* fall through */
+ 	case TCP_CLOSING:
+ 		/*
+ 		 * If the server closed down the connection, make sure that
+@@ -2367,6 +2369,7 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ 	switch (ret) {
+ 	case 0:
+ 		xs_set_srcport(transport, sock);
++		/* fall through */
+ 	case -EINPROGRESS:
+ 		/* SYN_SENT! */
+ 		if (xprt->reestablish_timeout < XS_TCP_INIT_REEST_TO)
+@@ -2418,6 +2421,7 @@ static void xs_tcp_setup_socket(struct work_struct *work)
+ 	default:
+ 		printk("%s: connect returned unhandled error %d\n",
+ 			__func__, status);
++		/* fall through */
+ 	case -EADDRNOTAVAIL:
+ 		/* We're probably in TIME_WAIT. Get rid of existing socket,
+ 		 * and retry
+-- 
+2.7.4
