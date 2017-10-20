@@ -1,71 +1,119 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
-Date: Fri, 20 Oct 2017 10:18:23 +0100
-Message-ID: <20171020091823.GA18282@arm.com>
-References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
- <CANn89iJgoiY_ky4F_1iE_o6moZXp5e6OcNZZe=B8F-OhWJx8nQ@mail.gmail.com>
- <FF5A6DF1-0E5F-4C7E-A31B-06ED33366039@gmail.com>
- <CANn89iKj45+zqMt7XqPkCG+8PQwhzjHUBZ0vu-REvZWs1HuqOw@mail.gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [net-next 1/1] tipc: refactor tipc_sk_timeout() function
+Date: Fri, 20 Oct 2017 11:21:32 +0200
+Message-ID: <1508491292-5333-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Wei Wei <dotweiba@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        David Miller <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CANn89iKj45+zqMt7XqPkCG+8PQwhzjHUBZ0vu-REvZWs1HuqOw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
+        <tipc-discussion@lists.sourceforge.net>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:61428 "EHLO
+        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751076AbdJTJVk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 05:21:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 19, 2017 at 10:34:54PM -0700, Eric Dumazet wrote:
-> On Thu, Oct 19, 2017 at 8:13 PM, Wei Wei <dotweiba@gmail.com> wrote:
-> > Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
-> > All code
-> > ========
-> >    0:   80 66 40 f9             andb   $0xf9,0x40(%rsi)
-> >    4:   00 00                   add    %al,(%rax)
-> >    6:   01 8b 00 90 00 91       add    %ecx,-0x6eff7000(%rbx)
-> >    c:   11 00                   adc    %eax,(%rax)
-> >    e:   80 f9 01                cmp    $0x1,%cl
-> >   11:   7c 5f                   jl     0x72
-> >   13:*  88 00                   mov    %al,(%rax)               <-- trapping instruction
-> >   15:   00 00                   add    %al,(%rax)
-> >         ...
-> >
-> > Code starting with the faulting instruction
-> > ===========================================
-> >    0:   01 7c 5f 88             add    %edi,-0x78(%rdi,%rbx,2)
-> >    4:   00 00                   add    %al,(%rax)
-> >         ...
-> > —[ end trace 261e7ac1458ccc0a ]---
-> >
-> 
-> I thought it was happening on arm64 ?
-> 
-> This is x86_64 disassembly :/
+The function tipc_sk_timeout() is more complex than necessary, and
+even seems to contain an undetected bug. At one of the occurences
+where we renew the timer we just order it with (HZ / 20), instead
+of (jiffies + HZ / 20);
 
-I guess they forgot the ARCH/CROSS_COMPILE env vars for decodecode. here
-you go:
+In this commit we clean up the function.
 
-Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
-All code
-========
-   0:	f9406680 	ldr	x0, [x20,#200]
-   4:	8b010000 	add	x0, x0, x1
-   8:	91009000 	add	x0, x0, #0x24
-   c:	f9800011 	prfm	pstl1strm, [x0]
-  10:*	885f7c01 	ldxr	w1, [x0]		<-- trapping instruction
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/socket.c | 49 +++++++++++++++++++++++--------------------------
+ 1 file changed, 23 insertions(+), 26 deletions(-)
 
-Code starting with the faulting instruction
-===========================================
-   0:	885f7c01 	ldxr	w1, [x0]
-
-so it's faulting on the load part of an atomic rmw.
-
-Will
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 357954c..b3b72d8 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -48,7 +48,7 @@
+ #include "group.h"
+ 
+ #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
+-#define CONN_PROBING_INTERVAL	msecs_to_jiffies(3600000)  /* [ms] => 1 h */
++#define CONN_PROBING_INTV	msecs_to_jiffies(3600000)  /* [ms] => 1 h */
+ #define TIPC_FWD_MSG		1
+ #define TIPC_MAX_PORT		0xffffffff
+ #define TIPC_MIN_PORT		1
+@@ -1472,7 +1472,7 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
+ 	msg_set_lookup_scope(msg, 0);
+ 	msg_set_hdr_sz(msg, SHORT_H_SIZE);
+ 
+-	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTERVAL);
++	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTV);
+ 	tipc_set_sk_state(sk, TIPC_ESTABLISHED);
+ 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
+ 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
+@@ -2533,43 +2533,40 @@ static int tipc_shutdown(struct socket *sock, int how)
+ static void tipc_sk_timeout(unsigned long data)
+ {
+ 	struct tipc_sock *tsk = (struct tipc_sock *)data;
++	u32 peer_port = tsk_peer_port(tsk);
++	u32 peer_node = tsk_peer_node(tsk);
++	u32 own_node = tsk_own_node(tsk);
++	u32 own_port = tsk->portid;
+ 	struct sock *sk = &tsk->sk;
++	struct net *net = sock_net(sk);
+ 	struct sk_buff *skb = NULL;
+-	u32 peer_port, peer_node;
+-	u32 own_node = tsk_own_node(tsk);
+ 
+ 	bh_lock_sock(sk);
+-	if (!tipc_sk_connected(sk)) {
+-		bh_unlock_sock(sk);
++	if (!tipc_sk_connected(sk))
++		goto exit;
++
++	/* Try again later if socket is busy */
++	if (sock_owned_by_user(sk)) {
++		sk_reset_timer(sk, &sk->sk_timer, jiffies + HZ / 20);
+ 		goto exit;
+ 	}
+-	peer_port = tsk_peer_port(tsk);
+-	peer_node = tsk_peer_node(tsk);
+ 
+ 	if (tsk->probe_unacked) {
+-		if (!sock_owned_by_user(sk)) {
+-			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
+-			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
+-					      tsk_peer_port(tsk));
+-			sk->sk_state_change(sk);
+-		} else {
+-			/* Try again later */
+-			sk_reset_timer(sk, &sk->sk_timer, (HZ / 20));
+-		}
+-
+-		bh_unlock_sock(sk);
++		tipc_set_sk_state(sk, TIPC_DISCONNECTING);
++		tipc_node_remove_conn(net, peer_node, peer_port);
++		sk->sk_state_change(sk);
+ 		goto exit;
+ 	}
+-
+-	skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE,
+-			      INT_H_SIZE, 0, peer_node, own_node,
+-			      peer_port, tsk->portid, TIPC_OK);
++	/* Send new probe */
++	skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE, INT_H_SIZE, 0,
++			      peer_node, own_node, peer_port, own_port,
++			      TIPC_OK);
+ 	tsk->probe_unacked = true;
+-	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTERVAL);
++	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTV);
++exit:
+ 	bh_unlock_sock(sk);
+ 	if (skb)
+-		tipc_node_xmit_skb(sock_net(sk), skb, peer_node, tsk->portid);
+-exit:
++		tipc_node_xmit_skb(net, skb, peer_node, own_port);
+ 	sock_put(sk);
+ }
+ 
+-- 
+2.1.4
