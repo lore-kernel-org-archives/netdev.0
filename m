@@ -1,37 +1,50 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 8/8] tools: bpftool: add a command to display
- bpftool version
-Date: Fri, 20 Oct 2017 12:57:00 +0200
-Message-ID: <59E9D67C.8070306@iogearbox.net>
-References: <20171019224626.31608-1-jakub.kicinski@netronome.com> <20171019224626.31608-9-jakub.kicinski@netronome.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
+Date: Fri, 20 Oct 2017 12:14:08 +0100
+Message-ID: <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com>
+References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: oss-drivers@netronome.com,
-        Quentin Monnet <quentin.monnet@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, edumazet@google.com, davem@davemloft.net,
+        willemb@google.com, syzkaller@googlegroups.com
+To: Wei Wei <dotweiba@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50053 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752967AbdJTK5C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 06:57:02 -0400
-In-Reply-To: <20171019224626.31608-9-jakub.kicinski@netronome.com>
+Received: from foss.arm.com ([217.140.101.70]:40782 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752928AbdJTLON (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Oct 2017 07:14:13 -0400
+Content-Disposition: inline
+In-Reply-To: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2017 12:46 AM, Jakub Kicinski wrote:
-> From: Quentin Monnet <quentin.monnet@netronome.com>
->
-> This command can be used to print the version of the tool, which is in
-> fact the version from Linux taken from usr/include/linux/version.h.
->
-> Example usage:
->
->      $ bpftool version
->      bpftool v4.14.0
->
-> Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+On Thu, Oct 19, 2017 at 10:16:08PM -0400, Wei Wei wrote:
+> Hi all,
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Hi,
+
+> I have fuzzed v4.14-rc3 using syzkaller and found a bug similar to that one [1].
+> But the call trace isn’t the same. The atomic_inc() might handle a corrupted 
+> skb_buff.
+> 
+> The logs and config have been uploaded to my github repo [2].
+> 
+> [1] https://lkml.org/lkml/2017/10/2/216
+> [2] https://github.com/dotweiba/skb_clone_atomic_inc_bug
+
+These do look very similar to what I was hitting; all appear to be
+misaligned atomics in the same path.
+
+I see that you have some empty repro files in [2]. If you have any
+reproducers, would you mind sharing them?
+
+If any of those are smaller or more reliable than the one I was able to
+generate [3], it might make it more obvious what's going on, and/or make
+it simpler to come up with a plain C reproducer.
+
+Thanks,
+Mark.
+
+[3] https://www.kernel.org/pub/linux/kernel/people/mark/bugs/20171002-skb_clone-misaligned-atomic/syzkaller.repro
