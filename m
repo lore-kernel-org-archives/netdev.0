@@ -1,50 +1,43 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: [PATCH] textsearch: fix typos in library helpers
-Date: Fri, 20 Oct 2017 12:15:52 -0700
-Message-ID: <8d229510-1022-b6fd-f95a-085dbc545c0a@infradead.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net] packet: avoid panic in packet_getsockopt()
+Date: Fri, 20 Oct 2017 12:25:24 -0700
+Message-ID: <CANn89iKWZ7qrgaWFJbiRRBcx9mCPdpUjhUKitv_VXK5p_yQOjA@mail.gmail.com>
+References: <1508368492.31614.153.camel@edumazet-glaptop3.roam.corp.google.com>
+ <201710210201.6l3IUwxu%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, kbuild-all@01.org,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        John Sperbeck <jsperbeck@google.com>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:47885 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751028AbdJTTPz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 15:15:55 -0400
-Content-Language: en-US
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:56518 "EHLO
+        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751028AbdJTTZ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 15:25:26 -0400
+Received: by mail-yw0-f180.google.com with SMTP id l32so7269143ywh.13
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 12:25:26 -0700 (PDT)
+In-Reply-To: <201710210201.6l3IUwxu%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
+On Fri, Oct 20, 2017 at 12:11 PM, kbuild test robot <lkp@intel.com> wrote:
+> Hi Eric,
+>
+> [auto build test WARNING on net/master]
+>
+> url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/packet-avoid-panic-in-packet_getsockopt/20171021-003615
+> reproduce:
+>         # apt-get install sparse
+>         make ARCH=x86_64 allmodconfig
+>         make C=1 CF=-D__CHECK_ENDIAN__
+>
+>
+> sparse warnings: (new ones prefixed by >>)
+>
 
-Fix spellos (typos) in textsearch library helpers.
+Thanks, this was mentioned in the commit changelog.
 
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
----
- lib/ts_fsm.c |    2 +-
- lib/ts_kmp.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
---- lnx-414-rc5.orig/lib/ts_fsm.c
-+++ lnx-414-rc5/lib/ts_fsm.c
-@@ -11,7 +11,7 @@
-  * ==========================================================================
-  *
-  *   A finite state machine consists of n states (struct ts_fsm_token)
-- *   representing the pattern as a finite automation. The data is read
-+ *   representing the pattern as a finite automaton. The data is read
-  *   sequentially on an octet basis. Every state token specifies the number
-  *   of recurrences and the type of value accepted which can be either a
-  *   specific character or ctype based set of characters. The available
---- lnx-414-rc5.orig/lib/ts_kmp.c
-+++ lnx-414-rc5/lib/ts_kmp.c
-@@ -27,7 +27,7 @@
-  *
-  *   [1] Cormen, Leiserson, Rivest, Stein
-  *       Introdcution to Algorithms, 2nd Edition, MIT Press
-- *   [2] See finite automation theory
-+ *   [2] See finite automaton theory
-  */
- 
- #include <linux/module.h>
+We will add rcu annotations in net-next.
