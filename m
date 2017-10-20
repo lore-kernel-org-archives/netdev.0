@@ -1,52 +1,75 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
-Date: Fri, 20 Oct 2017 11:39:35 -0400
-Message-ID: <CAF=yD-K76TMjHiYRTRAnxM-x4LBcUDY+27WX477HW6kG=L_aZw@mail.gmail.com>
-References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
- <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com>
- <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com> <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
+From: Quentin Monnet <quentin.monnet@netronome.com>
+Subject: Re: [PATCH net-next 6/8] tools: bpftool: print all relevant byte
+ opcodes for "load double word"
+Date: Fri, 20 Oct 2017 16:50:04 +0100
+Message-ID: <CAH3iqT5vPnOCEm6wjavbpSyC4Md922Bts3ynxxVCT-1=MWsgKA@mail.gmail.com>
+References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+ <20171019224626.31608-7-jakub.kicinski@netronome.com> <063D6719AE5E284EB5DD2968C1650D6DD009D515@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-Cc: Wei Wei <dotweiba@gmail.com>, Mark Rutland <mark.rutland@arm.com>,
-        linux-arm-kernel@lists.infradead.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:45772 "EHLO
-        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751694AbdJTPkQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 11:40:16 -0400
-In-Reply-To: <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
+Received: from mail-qt0-f171.google.com ([209.85.216.171]:46762 "EHLO
+        mail-qt0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751018AbdJTPuZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 11:50:25 -0400
+Received: by mail-qt0-f171.google.com with SMTP id 1so18995221qtn.3
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 08:50:25 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD009D515@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 20, 2017 at 11:14 AM, Dmitry Vyukov <dvyukov@google.com> wrote:
-> On Fri, Oct 20, 2017 at 4:40 PM, Wei Wei <dotweiba@gmail.com> wrote:
->> Sadly, the syzkaller characterized it as a non-reproducible bug and ther=
-e were empty
->>  repro files. But if manually executing in VM like this =E2=80=9C./syz-e=
-xecprog -executor=3D
->> ./syz-executor -repeat=3D0 -procs=3D16 -cover=3D0 crash-log=E2=80=9D, it=
- crashed when executing exactly
->> program 1056 using log0 provided.
->>
->> I failed to generate the C reproducer with syz-repro as it said =E2=80=
-=9Cno target compiler=E2=80=9D
->> in the final step. I would appreciate if you could give some hints.
->
-> syzkaller tries to use aarch64-linux-gnu-gcc when cross-compiling to arm6=
-4:
-> https://github.com/google/syzkaller/blob/master/sys/targets/targets.go#L6=
-2
-> Try to install g++-aarch64-linux-gnu.
-> Or how should it be done on your system?
+Hi David,
 
-A core dump would also be helpful to root around in and inspect
-what those registers point to. Thanks for posting the various reports
-on github, btw.
+On 20 October 2017 at 10:59, David Laight <David.Laight@aculab.com> wrote:
+> From: Jakub Kicinski
+>> Sent: 19 October 2017 23:46
+>> The eBPF instruction permitting to load double words (8 bytes) into a
+>> register need 8-byte long "immediate" field, and thus occupy twice the
+>> space of other instructions. bpftool was aware of this and would
+>> increment the instruction counter only once on meeting such instruction,
+>> but it would only print the first four bytes of the immediate value to
+>> load. Make it able to dump the whole 16 byte-long double instruction
+>> instead (as would `llvm-objdump -d <program>`).
+>
+> Guess why most modern instruction sets use a 'load high' instruction
+> to generate big constants...
+>
+> Interestingly, is there anything special in the rest of the
+> second instruction in order to make it an identifiable no-op?
+
+The remaining four bytes are taken from the "immediate" field of the second
+instruction, which leaves the first four fields (offset, source and destina=
+tion
+registers, and in particular opcode) unused. As far as I know, these fields
+remain at zero, and this makes it the only =E2=80=9Cinstruction=E2=80=9D to=
+ have a null code
+(although I am not sure this is a strict requirement, because I did not fin=
+d
+the code in the verifier that would reject a program having a non-null opco=
+de
+right after a "load double word immediate" instruction).
+
+>
+
+[=E2=80=A6]
+
+> Why not just:
+>         for (i =3D 0; i < len / sizeof(*insn); i +=3D 1 + double_insn) {
+>
+> ...
+>
+>         David
+>
+
+Yes, we could use that instead, although I am not sure this makes the code
+more readable. So I do not believe this is worth a respin, tell me if you t=
+hink
+otherwise.
+
+Thanks for the review!
+Quentin
