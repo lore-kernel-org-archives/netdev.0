@@ -1,98 +1,64 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
- NVRAM config param
-Date: Fri, 20 Oct 2017 08:44:47 +0200
-Message-ID: <20171020064447.GA1960@nanopsycho.orion>
-References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
- <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <20171019213955.GG1978@nanopsycho.orion>
- <20171019214339.GH1978@nanopsycho.orion>
- <d9968b08-eeb7-267a-cb55-48e5feeee922@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: Problems with mvneta
+Date: Fri, 20 Oct 2017 09:09:56 +0200
+Message-ID: <20171020090956.2b6cc34b@windsurf.home>
+References: <20171018223425.42ce7a74@gmx.de>
+        <20171018225557.43837338@windsurf.home>
+        <20171020002524.4b4cf122@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yuval Mintz <yuvalm@mellanox.com>,
-        Steve Lin <steven.lin1@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: =?UTF-8?B?R3LDqWdvcnk=?= Clement
+        <gregory.clement@free-electrons.com>,
+        Antoine =?UTF-8?B?VMOpbmFydA==?=
+        <antoine.tenart@free-electrons.com>, netdev@vger.kernel.org,
+        Marcin Wojtas <mw@semihalf.com>
+To: Sven =?UTF-8?B?TcO8bGxlcg==?= <musv@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:55418 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751193AbdJTGot (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 02:44:49 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u138so20511683wmu.4
-        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 23:44:48 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <d9968b08-eeb7-267a-cb55-48e5feeee922@gmail.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:39635 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751895AbdJTHKH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 03:10:07 -0400
+In-Reply-To: <20171020002524.4b4cf122@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Oct 20, 2017 at 03:01:35AM CEST, f.fainelli@gmail.com wrote:
->On 10/19/2017 02:43 PM, Jiri Pirko wrote:
->> Thu, Oct 19, 2017 at 11:39:55PM CEST, jiri@resnulli.us wrote:
->>> Thu, Oct 19, 2017 at 10:32:21PM CEST, yuvalm@mellanox.com wrote:
->>>>> Adding DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF permanent
->>>>> config
->>>>> parameter.  Defines number of MSI-X vectors allocated per VF.
->>>>> Value is permanent (stored in NVRAM), so becomes the new default
->>>>> value for this device.
->>>>
->>>> Sounds like you're having this enforce the same configuration for all child VFs.
->>>
->>> Yeah, this sounds like per-port config.
->> 
->> This opens old but lately silent discussion about introducing new port
->> types for different things. Like VF, dsa CPU port or dsa inter-chip
->> ports.
->
->FWIW, the "issue" with representing VF, DSA CPU port or DSA inter-chip
->port is that you would be representing a pipe, so there is obviously a
->question of whether your represent one end or both ends of that pipe,
->and how do you make sure both stay in sync if you represent those.
->
->For instance, for an inter-switch connection, I could decide to
->configure VLANs 1-3 tagged on one end of the connection, and forget to
->that on the other end of the connection, and that's just one example
->where things can go seriously wrong.
+Hello,
 
-Certainly you have to represent both ends. So in your dsa inter-port
-example, there should be onle devlink port instance for both dsa chips.
+On Fri, 20 Oct 2017 00:25:24 +0200, Sven Müller wrote:
 
+> First of all I'm not familiar with kernel programming at all, so
+> please excuse me, if I don't understand everything at the first
+> glance. 
 
->
->> 
->>>
->>>
->>>>
->>>>>
->>>>> Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->>>>> Acked-by: Andy Gospodarek <gospo@broadcom.com>
->>>>> ---
->>>>>  include/uapi/linux/devlink.h | 1 +
->>>>>  1 file changed, 1 insertion(+)
->>>>>
->>>>> diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->>>>> index 8ad6c63..ef163b6 100644
->>>>> --- a/include/uapi/linux/devlink.h
->>>>> +++ b/include/uapi/linux/devlink.h
->>>>> @@ -260,6 +260,7 @@ enum devlink_perm_config_param {
->>>>>  	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
->>>>>  	DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
->>>>>  	DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT,
->>>>> +	DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF,
->>>>>  };
->>>>>
->>>>>  #endif /* _UAPI_LINUX_DEVLINK_H_ */
->>>>> --
->>>>> 2.7.4
->>>>
->
->
->-- 
->Florian
+No problem. Your bug report and effort to nail down the issue are much
+appreciated!
+
+> It compiles and runs fine. After a couple of hours and testing no
+> issues were found. 
+
+OK, so this really hints at a regression in the mvneta driver itself.
+
+Could you try to revert just:
+
+  6ad20165d376fa07919a70e4f43dfae564601829
+  a29b6235560a1ed10c8e1a73bfc616a66b802b90
+  2a90f7e1d5d04e4f1060268e0b55a2c702bbd67a
+
+first all of them, and then each one by one, so that we can pin-point
+the commit that causes the breakage ?
+
+I looked at all the other changes in mvneta between 4.10 and 4.12, and
+I don't see how any of the other changes can cause a functional
+difference. So let's focus on those 3 commits for the moment.
+
+Assuming you're using Git, to revert a commit just do: "git revert
+<commitid>".
+
+Thanks again!
+
+Thomas
+-- 
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
