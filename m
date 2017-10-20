@@ -1,271 +1,90 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH net-next v2 1/6] devlink: Add permanent config parameter
- get/set operations
-Date: Fri, 20 Oct 2017 11:13:39 -0400
-Message-ID: <CA+Jmh7GptV5EZYWpQzHnT8Q1KDSZ-juQCfOr=VKFt4jyMOqFYw@mail.gmail.com>
-References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-2-git-send-email-steven.lin1@broadcom.com> <20171020143948.GC1994@nanopsycho.orion>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
+Date: Fri, 20 Oct 2017 17:14:55 +0200
+Message-ID: <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
+References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
+ <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com> <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        John Linville <linville@tuxdriver.com>,
-        Andy Gospodarek <gospo@broadcom.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Transfer-Encoding: quoted-printable
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        linux-arm-kernel@lists.infradead.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Wei Wei <dotweiba@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:46181 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751923AbdJTPOA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 11:14:00 -0400
-Received: by mail-qt0-f195.google.com with SMTP id 1so18853602qtn.3
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 08:14:00 -0700 (PDT)
-In-Reply-To: <20171020143948.GC1994@nanopsycho.orion>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:53172 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751618AbdJTPPQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 11:15:16 -0400
+Received: by mail-it0-f65.google.com with SMTP id j140so13793271itj.1
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 08:15:16 -0700 (PDT)
+In-Reply-To: <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 20, 2017 at 10:39 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Oct 19, 2017 at 09:17:05PM CEST, steven.lin1@broadcom.com wrote:
->>Add support for permanent config parameter get/set commands. Used
->>for parameters held in NVRAM, persistent device configuration.
+On Fri, Oct 20, 2017 at 4:40 PM, Wei Wei <dotweiba@gmail.com> wrote:
+> Sadly, the syzkaller characterized it as a non-reproducible bug and there=
+ were empty
+>  repro files. But if manually executing in VM like this =E2=80=9C./syz-ex=
+ecprog -executor=3D
+> ./syz-executor -repeat=3D0 -procs=3D16 -cover=3D0 crash-log=E2=80=9D, it =
+crashed when executing exactly
+> program 1056 using log0 provided.
+>
+> I failed to generate the C reproducer with syz-repro as it said =E2=80=9C=
+no target compiler=E2=80=9D
+> in the final step. I would appreciate if you could give some hints.
+
+syzkaller tries to use aarch64-linux-gnu-gcc when cross-compiling to arm64:
+https://github.com/google/syzkaller/blob/master/sys/targets/targets.go#L62
+Try to install g++-aarch64-linux-gnu.
+Or how should it be done on your system?
+
+
+> Thanks,
+> Wei
+>> On 20 Oct 2017, at 7:14 AM, Mark Rutland <mark.rutland@arm.com> wrote:
 >>
->>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->>Acked-by: Andy Gospodarek <gospo@broadcom.com>
->>---
->> include/net/devlink.h        |   3 +
->> include/uapi/linux/devlink.h |  11 ++
->> net/core/devlink.c           | 234 +++++++++++++++++++++++++++++++++++++++++++
->> 3 files changed, 248 insertions(+)
+>> On Thu, Oct 19, 2017 at 10:16:08PM -0400, Wei Wei wrote:
+>>> Hi all,
 >>
->>diff --git a/include/net/devlink.h b/include/net/devlink.h
->>index b9654e1..bd64623 100644
->>--- a/include/net/devlink.h
->>+++ b/include/net/devlink.h
->>@@ -270,6 +270,9 @@ struct devlink_ops {
->>       int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
->>       int (*eswitch_encap_mode_get)(struct devlink *devlink, u8 *p_encap_mode);
->>       int (*eswitch_encap_mode_set)(struct devlink *devlink, u8 encap_mode);
->>+      int (*perm_config_get)(struct devlink *devlink, u32 param, u32 *value);
->>+      int (*perm_config_set)(struct devlink *devlink, u32 param, u32 value,
->
-> Please use enum instead of "u32 param". Also, what would happen if the
-> value is >u32, like string for example? I believe we need to take it into
-> the consideration for the UAPI sake.
->
->
-
-Using enum instead of u32 param: ok, will do in v3, thanks.
-
-Value > u32:  In the RFC and v1 versions of the patch, each parameter
-was its own attribute, so could have its own type (u32, string,
-whatever).  In v2, trying to move to nested parameters w/ parameter
-being an enum, as requested, it seems to mean that the parameter value
-now must be defined as a specific type, so I went with u32.
-
-If we need to support strings or other types > u32, then the
-perm_config_value attribute will not be a fixed type, so can't be
-policy checked.  Or, I could go back to non-nested as in RFC/v1 case
-and have each parameter with its own type.
-
-> [...]
->
->
->>+
->>+static int devlink_nl_single_param_set(struct sk_buff *msg,
->>+                                     struct devlink *devlink,
->>+                                     u32 param, u32 value)
->>+{
->>+      u32 orig_value;
->>+      u8 need_restart;
->>+      int err;
->>+      const struct devlink_ops *ops = devlink->ops;
->>+      struct nlattr *cfgparam_attr;
->
-> Reverse christmas tree please (this applies to all functions)
-
-Will do in v3, thanks.
-
->
->
->>+
->>+      /* First get current value of parameter */
->>+      err = ops->perm_config_get(devlink, param, &orig_value);
->
-> I'm missing why this is needed.
->
->
->>+      if (err)
->>+              return err;
->>+
->>+      /* Now set parameter */
->>+      err = ops->perm_config_set(devlink, param, value, &need_restart);
->>+      if (err)
->>+              return err;
->>+
->>+      cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
->>+      /* Update restart reqd - if any param needs restart, should be set */
->>+      if (need_restart)
->>+              err = nla_put_u8(msg,
->>+                               DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED, 1);
->>+
->>+      /* Since set was successful, write attr back to msg with orig val */
->>+      err = nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_PARAMETER, param);
->>+      err = nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE, orig_value);
->
-> Why to write it back?
-
-In a response to the "RFC" version of this patch, you wrote:  "Also,
-we need to expose to the user the original value (currently being
-used) and the new one (to be used after driver re-instatiation)".
-
-I understood that to mean that we need to return the current/original
-value of the parameter (and the user knows the new value, since they
-are setting it).
-
-If I mis-interpreted that comment, then I'm happy to remove returning
-the original value to the user; it wasn't in there originally.
-
->
->
->>+
->>+      nla_nest_end(msg, cfgparam_attr);
->>+
->>+      return 0;
->>+}
->>+
->>+static int devlink_nl_cmd_perm_config_set_doit(struct sk_buff *skb,
->>+                                             struct genl_info *info)
->>+{
->>+      struct devlink *devlink = info->user_ptr[0];
->>+      struct sk_buff *msg;
->>+      void *hdr;
->>+      struct nlattr *attr;
->>+      int rem;
->>+      int err;
->>+      u8 restart_reqd = 0;
->>+      struct nlattr *cfgparam_attr;
->>+      struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
->>+      u32 param;
->>+      u32 value;
->>+
->>+      if (!devlink->ops || !devlink->ops->perm_config_get ||
->>+          !devlink->ops->perm_config_set)
->>+              return -EOPNOTSUPP;
->>+
->>+      msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
->>+      if (!msg)
->>+              return -ENOMEM;
->>+
->>+      hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
->>+                        &devlink_nl_family, 0, DEVLINK_CMD_PERM_CONFIG_SET);
->>+      if (!hdr) {
->>+              err = -EMSGSIZE;
->>+              goto nla_msg_failure;
->>+      }
->>+
->>+      err = devlink_nl_put_handle(msg, devlink);
->>+      if (err)
->>+              goto nla_put_failure;
->>+
->>+      cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIGS);
->>+
->>+      nla_for_each_nested(attr, info->attrs[DEVLINK_ATTR_PERM_CONFIGS], rem) {
->>+              err = nla_parse_nested(tb, DEVLINK_ATTR_MAX, attr,
->>+                                     devlink_nl_policy, NULL);
->>+              if (err)
->>+                      goto nla_nest_failure;
->>+
->>+              if (!tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] ||
->>+                  !tb[DEVLINK_ATTR_PERM_CONFIG_VALUE])
->>+                      continue;
->>+
->>+              param = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER]);
->
-> You should check it the "param" value is withing the enum boundary.
-
-Will do in v3, I'll add a DEVLINK_PERM_CONFIG_MAX enum and check against that.
-
->
->
->>+              value = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
->>+              err = devlink_nl_single_param_set(msg, devlink, param,
->>+                                                value);
->>+              if (err)
->>+                      goto nla_nest_failure;
->
-> Wouldn't it make sense to rollback to old values if any of the config
-> parameters set would fail?
-
-Hmmmm....  We could do a rollback on failure of any of the set cmds,
-but I feel like that's more useful when the user doesn't know which
-sets failed. (i.e. if the response was just a boolean ok/not-ok
-response).
-
-If the user knows which sets worked and which didn't, then maybe no
-rollback is necessary.  So perhaps I change the code so that rather
-than falling out on error, it continues to try all the set cmds, but
-just returns the parameters which were successful.
-
-Is there a convention for this?  I'm fine either way.
-
->
->
->>+      }
->>+
->>+      nla_nest_end(msg, cfgparam_attr);
->>+
->>+      if (restart_reqd) {
->>+              err = nla_put_u8(msg, DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED,
->>+                               restart_reqd);
->>+              if (err)
->>+                      goto nla_put_failure;
->>+      }
->>+
->>+      genlmsg_end(msg, hdr);
->>+      return genlmsg_reply(msg, info);
->>+
->>+nla_nest_failure:
->>+      nla_nest_cancel(msg, cfgparam_attr);
->>+nla_put_failure:
->>+      genlmsg_cancel(msg, hdr);
->>+nla_msg_failure:
->>+      return err;
->>+}
->>+
->> int devlink_dpipe_match_put(struct sk_buff *skb,
->>                           struct devlink_dpipe_match *match)
->> {
->>@@ -2291,6 +2509,8 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
->>       [DEVLINK_ATTR_ESWITCH_ENCAP_MODE] = { .type = NLA_U8 },
->>       [DEVLINK_ATTR_DPIPE_TABLE_NAME] = { .type = NLA_NUL_STRING },
->>       [DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED] = { .type = NLA_U8 },
->>+      [DEVLINK_ATTR_PERM_CONFIG_PARAMETER] = { .type = NLA_U32 },
->>+      [DEVLINK_ATTR_PERM_CONFIG_VALUE] = { .type = NLA_U32 },
->> };
+>> Hi,
 >>
->> static const struct genl_ops devlink_nl_ops[] = {
->>@@ -2451,6 +2671,20 @@ static const struct genl_ops devlink_nl_ops[] = {
->>               .flags = GENL_ADMIN_PERM,
->>               .internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
->>       },
->>+      {
->>+              .cmd = DEVLINK_CMD_PERM_CONFIG_GET,
->>+              .doit = devlink_nl_cmd_perm_config_get_doit,
->>+              .policy = devlink_nl_policy,
->>+              .flags = GENL_ADMIN_PERM,
->>+              .internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
->>+      },
->>+      {
->>+              .cmd = DEVLINK_CMD_PERM_CONFIG_SET,
->>+              .doit = devlink_nl_cmd_perm_config_set_doit,
->>+              .policy = devlink_nl_policy,
->>+              .flags = GENL_ADMIN_PERM,
->>+              .internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
->>+      },
->> };
+>>> I have fuzzed v4.14-rc3 using syzkaller and found a bug similar to that=
+ one [1].
+>>> But the call trace isn=E2=80=99t the same. The atomic_inc() might handl=
+e a corrupted
+>>> skb_buff.
+>>>
+>>> The logs and config have been uploaded to my github repo [2].
+>>>
+>>> [1] https://lkml.org/lkml/2017/10/2/216
+>>> [2] https://github.com/dotweiba/skb_clone_atomic_inc_bug
 >>
->> static struct genl_family devlink_nl_family __ro_after_init = {
->>--
->>2.7.4
+>> These do look very similar to what I was hitting; all appear to be
+>> misaligned atomics in the same path.
 >>
+>> I see that you have some empty repro files in [2]. If you have any
+>> reproducers, would you mind sharing them?
+>>
+>> If any of those are smaller or more reliable than the one I was able to
+>> generate [3], it might make it more obvious what's going on, and/or make
+>> it simpler to come up with a plain C reproducer.
+>>
+>> Thanks,
+>> Mark.
+>>
+>> [3] https://www.kernel.org/pub/linux/kernel/people/mark/bugs/20171002-sk=
+b_clone-misaligned-atomic/syzkaller.repro
+>
+> --
+> You received this message because you are subscribed to the Google Groups=
+ "syzkaller" group.
+> To unsubscribe from this group and stop receiving emails from it, send an=
+ email to syzkaller+unsubscribe@googlegroups.com.
+> For more options, visit https://groups.google.com/d/optout.
