@@ -1,259 +1,217 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
-Date: Thu, 19 Oct 2017 22:34:54 -0700
-Message-ID: <CANn89iKj45+zqMt7XqPkCG+8PQwhzjHUBZ0vu-REvZWs1HuqOw@mail.gmail.com>
-References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
- <CANn89iJgoiY_ky4F_1iE_o6moZXp5e6OcNZZe=B8F-OhWJx8nQ@mail.gmail.com> <FF5A6DF1-0E5F-4C7E-A31B-06ED33366039@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: net-next: del_timer_sync(): possible circular locking
+ dependency detected
+Date: Thu, 19 Oct 2017 23:07:53 -0700
+Message-ID: <1508479673.30291.6.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CANaxB-zFCh8wKtZF+xtP=hf+Ze3UXfAkqOmFxX2_h=-QpZc9CQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-arm-kernel@lists.infradead.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Wei Wei <dotweiba@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <FF5A6DF1-0E5F-4C7E-A31B-06ED33366039@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Kees Cook <keescook@chromium.org>
+To: Andrei Vagin <avagin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:47500 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750968AbdJTGHz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 02:07:55 -0400
+Received: by mail-pf0-f182.google.com with SMTP id z11so9548265pfk.4
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 23:07:55 -0700 (PDT)
+In-Reply-To: <CANaxB-zFCh8wKtZF+xtP=hf+Ze3UXfAkqOmFxX2_h=-QpZc9CQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 19, 2017 at 8:13 PM, Wei Wei <dotweiba@gmail.com> wrote:
-> Sry. Here it is.
->
-> Unable to handle kernel paging request at virtual address ffff80005bfb81e=
-d
-> Mem abort info:
-> Exception class =3D DABT (current EL), IL =3D 32 bits
-> SET =3D 0, FnV =3D 0
-> EA =3D 0, S1PTW =3D 0
-> Data abort info:
-> ISV =3D 0, ISS =3D 0x00000033
-> CM =3D 0, WnR =3D 0
-> swapper pgtable: 4k pages, 48-bit VAs, pgd =3D ffff20000b366000
-> [ffff80005bfb81ed] *pgd=3D00000000beff7003, *pud=3D00e8000080000711
-> Internal error: Oops: 96000021 [#1] PREEMPT SMP
-> Modules linked in:
-> CPU: 3 PID: 4725 Comm: syz-executor0 Not tainted 4.14.0-rc3 #3
-> Hardware name: linux,dummy-virt (DT)
-> task: ffff800074409e00 task.stack: ffff800033db0000
-> PC is at __skb_clone (/./arch/arm64/include/asm/atomic_ll_sc.h:113 (discr=
-iminator 4) /net/core/skbuff.c:873 (discriminator 4))
-> LR is at __skb_clone (/net/core/skbuff.c:861 (discriminator 4))
-> pc : lr : pstate: 10000145
->
-> sp : ffff800033db33d0
-> x29: ffff800033db33d0 x28: ffff2000098ac378
-> x27: ffff100006a860e1 x26: 1ffff000067b66b6
-> x25: ffff8000743340a0 x24: ffff800035430708
-> x23: ffff80005bfb80c9 x22: ffff800035430710
-> x21: 0000000000000380 x20: ffff800035430640
-> x19: ffff8000354312c0 x18: 0000000000000000
-> x17: 00000000004af000 x16: ffff20000845e8c8
-> x15: 000000001e518060 x14: 0000ffffd8316070
-> x13: 0000ffffd8316090 x12: ffffffffffffffff
-> x11: 1ffff00006a8626f x10: ffff100006a8626f
-> x9 : dfff200000000000 x8 : 0082009000900608
-> x7 : 0000000000000000 x6 : ffff800035431380
-> x5 : ffff100006a86270 x4 : 0000000000000000
-> x3 : 1ffff00006a86273 x2 : 0000000000000000
-> x1 : 0000000000000100 x0 : ffff80005bfb81ed
-> Process syz-executor0 (pid: 4725, stack limit =3D 0xffff800033db0000)
-> Call trace:
-> Exception stack(0xffff800033db3290 to 0xffff800033db33d0)
-> 3280:                                   ffff80005bfb81ed 0000000000000100
-> 32a0: 0000000000000000 1ffff00006a86273 0000000000000000 ffff100006a86270
-> 32c0: ffff800035431380 0000000000000000 0082009000900608 dfff200000000000
-> 32e0: ffff100006a8626f 1ffff00006a8626f ffffffffffffffff 0000ffffd8316090
-> 3300: 0000ffffd8316070 000000001e518060 ffff20000845e8c8 00000000004af000
-> 3320: 0000000000000000 ffff8000354312c0 ffff800035430640 0000000000000380
-> 3340: ffff800035430710 ffff80005bfb80c9 ffff800035430708 ffff8000743340a0
-> 3360: 1ffff000067b66b6 ffff100006a860e1 ffff2000098ac378 ffff800033db33d0
-> 3380: ffff200009705cfc ffff800033db33d0 ffff200009705f50 0000000010000145
-> 33a0: ffff8000354312c0 ffff800035430640 0001000000000000 ffff800074334000
-> 33c0: ffff800033db33d0 ffff200009705f50
-> __skb_clone (/./arch/arm64/include/asm/atomic_ll_sc.h:113 (discriminator =
-4) /net/core/skbuff.c:873 (discriminator 4))
-> skb_clone (/net/core/skbuff.c:1286)
-> arp_rcv (/./include/linux/skbuff.h:1518 /net/ipv4/arp.c:946)
-> __netif_receive_skb_core (/net/core/dev.c:1859 /net/core/dev.c:1874 /net/=
-core/dev.c:4416)
-> __netif_receive_skb (/net/core/dev.c:4466)
-> netif_receive_skb_internal (/net/core/dev.c:4539)
-> netif_receive_skb (/net/core/dev.c:4564)
-> tun_get_user (/./include/linux/bottom_half.h:31 /drivers/net/tun.c:1219 /=
-drivers/net/tun.c:1553)
-> tun_chr_write_iter (/drivers/net/tun.c:1579)
-> do_iter_readv_writev (/./include/linux/fs.h:1770 /fs/read_write.c:673)
-> do_iter_write (/fs/read_write.c:952)
-> vfs_writev (/fs/read_write.c:997)
-> do_writev (/fs/read_write.c:1032)
-> SyS_writev (/fs/read_write.c:1102)
-> Exception stack(0xffff800033db3ec0 to 0xffff800033db4000)
-> 3ec0: 0000000000000015 0000ffff829985e0 0000000000000001 0000ffff8299851c
-> 3ee0: 0000ffff82999068 0000ffff82998f60 0000ffff82999650 0000000000000000
-> 3f00: 0000000000000042 0000000000000036 0000000000406608 0000ffff82998400
-> 3f20: 0000ffff82998f60 0000ffffd8316090 0000ffffd8316070 000000001e518060
-> 3f40: 0000000000000000 00000000004af000 0000000000000000 0000000000000036
-> 3f60: 0000000020004fca 0000000020000000 000000000046ccf0 0000000000000530
-> 3f80: 000000000046cce8 00000000004ade98 0000000000000000 00000000395fa6f0
-> 3fa0: 0000ffff82998f60 0000ffff82998560 0000000000431448 0000ffff82998520
-> 3fc0: 000000000043145c 0000000080000000 0000000000000015 0000000000000042
-> 3fe0: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-> el0_svc_naked (/arch/arm64/kernel/entry.S:853)
-> Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
-> All code
-> =3D=3D=3D=3D=3D=3D=3D=3D
->    0:   80 66 40 f9             andb   $0xf9,0x40(%rsi)
->    4:   00 00                   add    %al,(%rax)
->    6:   01 8b 00 90 00 91       add    %ecx,-0x6eff7000(%rbx)
->    c:   11 00                   adc    %eax,(%rax)
->    e:   80 f9 01                cmp    $0x1,%cl
->   11:   7c 5f                   jl     0x72
->   13:*  88 00                   mov    %al,(%rax)               <-- trapp=
-ing instruction
->   15:   00 00                   add    %al,(%rax)
->         ...
->
-> Code starting with the faulting instruction
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->    0:   01 7c 5f 88             add    %edi,-0x78(%rdi,%rbx,2)
->    4:   00 00                   add    %al,(%rax)
->         ...
-> =E2=80=94[ end trace 261e7ac1458ccc0a ]---
->
+On Thu, 2017-10-19 at 22:06 -0700, Andrei Vagin wrote:
+> Hi,
+> 
+> We run criu tests on net-next/master regularly, and today tests
+> triggered this warning:
+> 
+> v4.14-rc4-1168-g7a0947e
+> 
+> [   23.922640] ======================================================
+> [   23.922735] WARNING: possible circular locking dependency detected
+> [   23.922823] 4.14.0-rc4+ #1 Not tainted
+> [   23.922910] ------------------------------------------------------
+> [   23.922995] criu/1679 is trying to acquire lock:
+> [   23.923081]  ((timer)){+.-.}, at: [<ffffffff8e12b5d5>]
+> del_timer_sync+0x5/0xc0
+> [   23.923186]
+> [   23.923186] but task is already holding lock:
+> [   23.923280]  (slock-AF_INET){+.-.}, at: [<ffffffff8e93131f>]
+> sk_clone_lock+0x1af/0x580
+> [   23.923380]
+> [   23.923380] which lock already depends on the new lock.
+> [   23.923380]
+> [   23.923482]
+> [   23.923482] the existing dependency chain (in reverse order) is:
+> [   23.923576]
+> [   23.923576] -> #1 (slock-AF_INET){+.-.}:
+> [   23.923678]        __lock_acquire+0x10fc/0x11a0
+> [   23.923775]        lock_acquire+0xed/0x1e0
+> [   23.923865]        _raw_spin_lock+0x2f/0x40
+> [   23.923955]        tcp_write_timer+0x29/0xd0
+> [   23.924042]        call_timer_fn+0x9b/0x330
+> [   23.924131]        run_timer_softirq+0x235/0x5f0
+> [   23.924217]        __do_softirq+0xd1/0x4a8
+> [   23.924311]        irq_exit+0xd4/0xe0
+> [   23.924400]        smp_apic_timer_interrupt+0xa1/0x2c0
+> [   23.924491]        apic_timer_interrupt+0x9d/0xb0
+> [   23.924582]        native_safe_halt+0x6/0x10
+> [   23.924672]        default_idle+0x23/0x1b0
+> [   23.924768]        arch_cpu_idle+0xf/0x20
+> [   23.924858]        default_idle_call+0x23/0x40
+> [   23.924950]        do_idle+0x177/0x200
+> [   23.925040]        cpu_startup_entry+0x1d/0x20
+> [   23.925130]        rest_init+0xc3/0xd0
+> [   23.925222]        start_kernel+0x43b/0x448
+> [   23.925312]        x86_64_start_reservations+0x24/0x26
+> [   23.925403]        x86_64_start_kernel+0x6f/0x72
+> [   23.925493]        verify_cpu+0x0/0xfb
+> [   23.925582]
+> [   23.925582] -> #0 ((timer)){+.-.}:
+> [   23.925687]        check_prev_add+0x401/0x800
+> [   23.925782]        __lock_acquire+0x10fc/0x11a0
+> [   23.925874]        lock_acquire+0xed/0x1e0
+> [   23.925965]        del_timer_sync+0x47/0xc0
+> [   23.926055]        inet_csk_reqsk_queue_drop+0xcc/0x1e0
+> [   23.926146]        inet_csk_complete_hashdance+0x23/0x80
+> [   23.926237]        tcp_check_req+0x3ec/0x510
+> [   23.926326]        tcp_v4_rcv+0x8ec/0xc20
+> [   23.926425]        ip_local_deliver_finish+0xdc/0x380
+> [   23.926517]        ip_local_deliver+0x66/0x200
+> [   23.926605]        ip_rcv_finish+0x1b7/0x530
+> [   23.926688]        ip_rcv+0x26c/0x4c0
+> [   23.926779]        __netif_receive_skb_core+0x74d/0xcc0
+> [   23.926874]        __netif_receive_skb+0x18/0x60
+> [   23.926962]        process_backlog+0x72/0x240
+> [   23.927045]        net_rx_action+0x1cb/0x3e0
+> [   23.927125]        __do_softirq+0xd1/0x4a8
+> [   23.927207]        do_softirq_own_stack+0x2a/0x40
+> [   23.927288]        do_softirq.part.16+0x46/0x70
+> [   23.927370]        __local_bh_enable_ip+0x9a/0xa0
+> [   23.927452]        ip_finish_output2+0x263/0x630
+> [   23.927534]        ip_finish_output+0x1ba/0x2e0
+> [   23.927615]        ip_output+0x73/0x240
+> [   23.927705]        ip_local_out+0x39/0x60
+> [   23.927795]        ip_queue_xmit+0x1ea/0x5c0
+> [   23.927887]        tcp_transmit_skb+0x551/0xaa0
+> [   23.927979]        tcp_send_ack+0xc8/0x130
+> [   23.928071]        tcp_rcv_state_process+0xe3d/0xe90
+> [   23.928162]        tcp_v4_do_rcv+0xbd/0x1d0
+> [   23.928254]        __release_sock+0x6d/0x110
+> [   23.928346]        release_sock+0x30/0xb0
+> [   23.928438]        __inet_stream_connect+0x187/0x320
+> [   23.928531]        inet_stream_connect+0x3b/0x60
+> [   23.928620]        SYSC_connect+0xbe/0xf0
+> [   23.928712]        SyS_connect+0xe/0x10
+> [   23.928799]        entry_SYSCALL_64_fastpath+0x23/0xc2
+> [   23.928886]
+> [   23.928886] other info that might help us debug this:
+> [   23.928886]
+> [   23.928988]  Possible unsafe locking scenario:
+> [   23.928988]
+> [   23.929080]        CPU0                    CPU1
+> [   23.929166]        ----                    ----
+> [   23.929252]   lock(slock-AF_INET);
+> [   23.929342]                                lock((timer));
+> [   23.929430]                                lock(slock-AF_INET);
+> [   23.929517]   lock((timer));
+> [   23.929604]
+> [   23.929604]  *** DEADLOCK ***
+> [   23.929604]
+> [   23.929711] 5 locks held by criu/1679:
+> [   23.929796]  #0:  (sk_lock-AF_INET){+.+.}, at: [<ffffffff8ea04627>]
+> inet_stream_connect+0x27/0x60
+> [   23.929900]  #1:  (rcu_read_lock){....}, at: [<ffffffff8e9c4065>]
+> ip_queue_xmit+0x5/0x5c0
+> [   23.930000]  #2:  (rcu_read_lock){....}, at: [<ffffffff8e94e464>]
+> process_backlog+0xd4/0x240
+> [   23.930098]  #3:  (rcu_read_lock){....}, at: [<ffffffff8e9bd4ff>]
+> ip_local_deliver_finish+0x2f/0x380
+> [   23.930200]  #4:  (slock-AF_INET){+.-.}, at: [<ffffffff8e93131f>]
+> sk_clone_lock+0x1af/0x580
+> [   23.930297]
+> [   23.930297] stack backtrace:
+> [   23.930396] CPU: 1 PID: 1679 Comm: criu Not tainted 4.14.0-rc4+ #1
+> [   23.930483] Hardware name: Google Google Compute Engine/Google
+> Compute Engine, BIOS Google 01/01/2011
+> [   23.930581] Call Trace:
+> [   23.930667]  <IRQ>
+> [   23.930766]  dump_stack+0x85/0xc7
+> [   23.930855]  print_circular_bug+0x226/0x330
+> [   23.930943]  ? copy_trace+0xb0/0xb0
+> [   23.931033]  check_prev_add+0x401/0x800
+> [   23.931122]  ? tcp_v4_rcv+0x8ec/0xc20
+> [   23.931212]  __lock_acquire+0x10fc/0x11a0
+> [   23.931294]  ? __lock_acquire+0x10fc/0x11a0
+> [   23.931381]  ? copy_trace+0xb0/0xb0
+> [   23.931468]  ? inet_ehash_insert+0x14f/0x1d0
+> [   23.931558]  lock_acquire+0xed/0x1e0
+> [   23.931648]  ? del_timer_sync+0x5/0xc0
+> [   23.931743]  del_timer_sync+0x47/0xc0
+> [   23.931829]  ? del_timer_sync+0x5/0xc0
+> [   23.931917]  inet_csk_reqsk_queue_drop+0xcc/0x1e0
+> [   23.932005]  inet_csk_complete_hashdance+0x23/0x80
+> [   23.932095]  tcp_check_req+0x3ec/0x510
+> [   23.932185]  tcp_v4_rcv+0x8ec/0xc20
+> [   23.932275]  ip_local_deliver_finish+0xdc/0x380
+> [   23.932366]  ip_local_deliver+0x66/0x200
+> [   23.932457]  ? inet_del_offload+0x40/0x40
+> [   23.932546]  ip_rcv_finish+0x1b7/0x530
+> [   23.932633]  ip_rcv+0x26c/0x4c0
+> [   23.932726]  ? ip_local_deliver_finish+0x380/0x380
+> [   23.932813]  __netif_receive_skb_core+0x74d/0xcc0
+> [   23.932899]  __netif_receive_skb+0x18/0x60
+> [   23.932985]  ? __netif_receive_skb+0x18/0x60
+> [   23.933070]  process_backlog+0x72/0x240
+> [   23.933157]  net_rx_action+0x1cb/0x3e0
+> [   23.933244]  ? mark_held_locks+0x72/0xa0
+> [   23.933333]  __do_softirq+0xd1/0x4a8
+> [   23.933418]  ? ip_finish_output2+0x23a/0x630
+> [   23.933503]  do_softirq_own_stack+0x2a/0x40
+> [   23.933585]  </IRQ>
+> [   23.933670]  do_softirq.part.16+0x46/0x70
+> [   23.933757]  __local_bh_enable_ip+0x9a/0xa0
+> [   23.933839]  ip_finish_output2+0x263/0x630
+> [   23.933926]  ip_finish_output+0x1ba/0x2e0
+> [   23.934014]  ? ip_finish_output+0x1ba/0x2e0
+> [   23.934101]  ip_output+0x73/0x240
+> [   23.934192]  ? ip_fragment.constprop.54+0x80/0x80
+> [   23.934284]  ip_local_out+0x39/0x60
+> [   23.934373]  ip_queue_xmit+0x1ea/0x5c0
+> [   23.934461]  ? tcp_v4_md5_lookup+0x13/0x20
+> [   23.934550]  tcp_transmit_skb+0x551/0xaa0
+> [   23.934639]  tcp_send_ack+0xc8/0x130
+> [   23.934735]  tcp_rcv_state_process+0xe3d/0xe90
+> [   23.934826]  ? __local_bh_enable_ip+0x70/0xa0
+> [   23.934911]  tcp_v4_do_rcv+0xbd/0x1d0
+> [   23.935000]  ? tcp_v4_do_rcv+0xbd/0x1d0
+> [   23.935089]  __release_sock+0x6d/0x110
+> [   23.935200]  release_sock+0x30/0xb0
+> [   23.935288]  __inet_stream_connect+0x187/0x320
+> [   23.935377]  ? do_wait_intr_irq+0xc0/0xc0
+> [   23.935464]  inet_stream_connect+0x3b/0x60
+> [   23.935557]  SYSC_connect+0xbe/0xf0
+> [   23.935642]  ? sock_alloc_file+0x97/0x110
+> [   23.935733]  ? trace_hardirqs_on_caller+0x11f/0x190
+> [   23.935821]  ? trace_hardirqs_on_thunk+0x1a/0x1c
+> [   23.935911]  SyS_connect+0xe/0x10
+> [   23.935999]  entry_SYSCALL_64_fastpath+0x23/0xc2
+> [   23.936086] RIP: 0033:0x7fb80b838720
+> [   23.936170] RSP: 002b:00007ffc277dac88 EFLAGS: 00000246 ORIG_RAX:
+> 000000000000002a
+> [   23.936266] RAX: ffffffffffffffda RBX: 00007ffc277dac18 RCX: 00007fb80b838720
+> [   23.936353] RDX: 0000000000000010 RSI: 00007ffc277daca0 RDI: 0000000000000005
+> [   23.936442] RBP: 00007ffc277dabf0 R08: 00007ffc277dac43 R09: 0000000000000004
+> [   23.936528] R10: 00007ffc277daa50 R11: 0000000000000246 R12: 00007fb80bc52bc0
+> [   23.936613] R13: 0000000000000001 R14: 0000000000000000 R15: 00007fb80bc6b1c8
+> 
+> Here are all logs https://travis-ci.org/avagin/linux/jobs/290283691
 
-I thought it was happening on arm64 ?
 
-This is x86_64 disassembly :/
+Hi Andrey
 
-Thanks.
+Kees posted a patch for this issue, thanks for the report.
 
-> Thanks,
-> Wei
->
->> On 19 Oct 2017, at 10:53 PM, Eric Dumazet <edumazet@google.com> wrote:
->>
->> On Thu, Oct 19, 2017 at 7:16 PM, Wei Wei <dotweiba@gmail.com> wrote:
->>> Hi all,
->>>
->>> I have fuzzed v4.14-rc3 using syzkaller and found a bug similar to that=
- one [1].
->>> But the call trace isn=E2=80=99t the same. The atomic_inc() might handl=
-e a corrupted
->>> skb_buff.
->>>
->>> The logs and config have been uploaded to my github repo [2].
->>>
->>> [1] https://lkml.org/lkml/2017/10/2/216
->>> [2] https://github.com/dotweiba/skb_clone_atomic_inc_bug
->>>
->>> Thanks,
->>> Wei
->>>
->>> Unable to handle kernel paging request at virtual address ffff80005bfb8=
-1ed
->>> Mem abort info:
->>>   Exception class =3D DABT (current EL), IL =3D 32 bits
->>>   SET =3D 0, FnV =3D 0
->>>   EA =3D 0, S1PTW =3D 0
->>> Data abort info:
->>>   ISV =3D 0, ISS =3D 0x00000033
->>>   CM =3D 0, WnR =3D 0
->>> swapper pgtable: 4k pages, 48-bit VAs, pgd =3D ffff20000b366000
->>> [ffff80005bfb81ed] *pgd=3D00000000beff7003, *pud=3D00e8000080000711
->>> Internal error: Oops: 96000021 [#1] PREEMPT SMP
->>> Modules linked in:
->>> CPU: 3 PID: 4725 Comm: syz-executor0 Not tainted 4.14.0-rc3 #3
->>> Hardware name: linux,dummy-virt (DT)
->>> task: ffff800074409e00 task.stack: ffff800033db0000
->>> PC is at __skb_clone+0x430/0x5b0
->>> LR is at __skb_clone+0x1dc/0x5b0
->>> pc : [<ffff200009705f50>] lr : [<ffff200009705cfc>] pstate: 10000145
->>> sp : ffff800033db33d0
->>> x29: ffff800033db33d0 x28: ffff2000098ac378
->>> x27: ffff100006a860e1 x26: 1ffff000067b66b6
->>> x25: ffff8000743340a0 x24: ffff800035430708
->>> x23: ffff80005bfb80c9 x22: ffff800035430710
->>> x21: 0000000000000380 x20: ffff800035430640
->>> x19: ffff8000354312c0 x18: 0000000000000000
->>> x17: 00000000004af000 x16: ffff20000845e8c8
->>> x15: 000000001e518060 x14: 0000ffffd8316070
->>> x13: 0000ffffd8316090 x12: ffffffffffffffff
->>> x11: 1ffff00006a8626f x10: ffff100006a8626f
->>> x9 : dfff200000000000 x8 : 0082009000900608
->>> x7 : 0000000000000000 x6 : ffff800035431380
->>> x5 : ffff100006a86270 x4 : 0000000000000000
->>> x3 : 1ffff00006a86273 x2 : 0000000000000000
->>> x1 : 0000000000000100 x0 : ffff80005bfb81ed
->>> Process syz-executor0 (pid: 4725, stack limit =3D 0xffff800033db0000)
->>> Call trace:
->>> Exception stack(0xffff800033db3290 to 0xffff800033db33d0)
->>> 3280:                                   ffff80005bfb81ed 00000000000001=
-00
->>> 32a0: 0000000000000000 1ffff00006a86273 0000000000000000 ffff100006a862=
-70
->>> 32c0: ffff800035431380 0000000000000000 0082009000900608 dfff2000000000=
-00
->>> 32e0: ffff100006a8626f 1ffff00006a8626f ffffffffffffffff 0000ffffd83160=
-90
->>> 3300: 0000ffffd8316070 000000001e518060 ffff20000845e8c8 00000000004af0=
-00
->>> 3320: 0000000000000000 ffff8000354312c0 ffff800035430640 00000000000003=
-80
->>> 3340: ffff800035430710 ffff80005bfb80c9 ffff800035430708 ffff8000743340=
-a0
->>> 3360: 1ffff000067b66b6 ffff100006a860e1 ffff2000098ac378 ffff800033db33=
-d0
->>> 3380: ffff200009705cfc ffff800033db33d0 ffff200009705f50 00000000100001=
-45
->>> 33a0: ffff8000354312c0 ffff800035430640 0001000000000000 ffff8000743340=
-00
->>> 33c0: ffff800033db33d0 ffff200009705f50
->>> [<ffff200009705f50>] __skb_clone+0x430/0x5b0
->>> [<ffff20000971520c>] skb_clone+0x164/0x2c8
->>> [<ffff2000098ac498>] arp_rcv+0x120/0x488
->>> [<ffff200009741878>] __netif_receive_skb_core+0x11e8/0x18c8
->>> [<ffff2000097479b0>] __netif_receive_skb+0x30/0x198
->>> [<ffff200009751fd8>] netif_receive_skb_internal+0x98/0x370
->>> [<ffff2000097522cc>] netif_receive_skb+0x1c/0x28
->>> [<ffff2000090730e0>] tun_get_user+0x12f0/0x2e40
->>> [<ffff200009074ddc>] tun_chr_write_iter+0xbc/0x140
->>> [<ffff200008457284>] do_iter_readv_writev+0x2d4/0x468
->>> [<ffff20000845a5a0>] do_iter_write+0x148/0x498
->>> [<ffff20000845aac0>] vfs_writev+0x118/0x250
->>> [<ffff20000845acbc>] do_writev+0xc4/0x1e8
->>> [<ffff20000845e8fc>] SyS_writev+0x34/0x48
->>> Exception stack(0xffff800033db3ec0 to 0xffff800033db4000)
->>> 3ec0: 0000000000000015 0000ffff829985e0 0000000000000001 0000ffff829985=
-1c
->>> 3ee0: 0000ffff82999068 0000ffff82998f60 0000ffff82999650 00000000000000=
-00
->>> 3f00: 0000000000000042 0000000000000036 0000000000406608 0000ffff829984=
-00
->>> 3f20: 0000ffff82998f60 0000ffffd8316090 0000ffffd8316070 000000001e5180=
-60
->>> 3f40: 0000000000000000 00000000004af000 0000000000000000 00000000000000=
-36
->>> 3f60: 0000000020004fca 0000000020000000 000000000046ccf0 00000000000005=
-30
->>> 3f80: 000000000046cce8 00000000004ade98 0000000000000000 00000000395fa6=
-f0
->>> 3fa0: 0000ffff82998f60 0000ffff82998560 0000000000431448 0000ffff829985=
-20
->>> 3fc0: 000000000043145c 0000000080000000 0000000000000015 00000000000000=
-42
->>> 3fe0: 0000000000000000 0000000000000000 0000000000000000 00000000000000=
-00
->>> [<ffff200008083ef0>] el0_svc_naked+0x24/0x28
->>> Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
->>> ---[ end trace 261e7ac1458ccc0a ]---
->>
->> Please provide proper file:line information in this trace.
->>
->> You can use scripts/decode_stacktrace.sh
->>
->> Thanks.
->
+https://patchwork.ozlabs.org/patch/828333/
