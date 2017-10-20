@@ -1,219 +1,273 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH net-next v2 1/6] devlink: Add permanent config parameter
- get/set operations
-Date: Fri, 20 Oct 2017 09:11:24 -0400
-Message-ID: <CA+Jmh7Gdud=T47iK=ZjgoXvXj+frBgP=HcvGDWHzJxUzN9L=tA@mail.gmail.com>
-References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-2-git-send-email-steven.lin1@broadcom.com> <AM0PR0502MB3683FB1536D1A204E5D1369EBF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [RFC PATCH 3/5] sctp: Add LSM hooks
+Date: Fri, 20 Oct 2017 21:14:55 +0800
+Message-ID: <CADvbK_cLGA4PH_c4FB0eSUAMoV0XgtyA++cTFsGDkb=nvtR68g@mail.gmail.com>
+References: <20171017135833.4292-1-richard_c_haines@btinternet.com>
+ <CADvbK_d+LKRQHZXn5LMy+4L0Nq+ZEkvHGk=zn3odUr7FrzvkBQ@mail.gmail.com>
+ <20171020111637.GA14713@neilslaptop.think-freely.org> <1508501095.8370.7.camel@btinternet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Yuval Mintz <yuvalm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:53272 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751798AbdJTNLp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 09:11:45 -0400
-Received: by mail-qt0-f194.google.com with SMTP id n61so18332474qte.10
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 06:11:44 -0700 (PDT)
-In-Reply-To: <AM0PR0502MB3683FB1536D1A204E5D1369EBF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Neil Horman <nhorman@tuxdriver.com>, selinux@tycho.nsa.gov,
+        network dev <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org, linux-security-module@vger.kernel.org
+To: Richard Haines <richard_c_haines@btinternet.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1508501095.8370.7.camel@btinternet.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 4:21 PM, Yuval Mintz <yuvalm@mellanox.com> wrote:
->> Subject: [PATCH net-next v2 1/6] devlink: Add permanent config parameter
->> get/set operations
+On Fri, Oct 20, 2017 at 8:04 PM, Richard Haines
+<richard_c_haines@btinternet.com> wrote:
+> On Fri, 2017-10-20 at 07:16 -0400, Neil Horman wrote:
+>> On Wed, Oct 18, 2017 at 11:05:09PM +0800, Xin Long wrote:
+>> > On Tue, Oct 17, 2017 at 9:58 PM, Richard Haines
+>> > <richard_c_haines@btinternet.com> wrote:
+>> > > Add security hooks to allow security modules to exercise access
+>> > > control
+>> > > over SCTP.
+>> > >
+>> > > Signed-off-by: Richard Haines <richard_c_haines@btinternet.com>
+>> > > ---
+>> > >  include/net/sctp/structs.h | 10 ++++++++
+>> > >  include/uapi/linux/sctp.h  |  1 +
+>> > >  net/sctp/sm_make_chunk.c   | 12 +++++++++
+>> > >  net/sctp/sm_statefuns.c    | 14 ++++++++++-
+>> > >  net/sctp/socket.c          | 61
+>> > > +++++++++++++++++++++++++++++++++++++++++++++-
+>> > >  5 files changed, 96 insertions(+), 2 deletions(-)
+>> > >
+>> > > diff --git a/include/net/sctp/structs.h
+>> > > b/include/net/sctp/structs.h
+>> > > index 7767577..6e72e3e 100644
+>> > > --- a/include/net/sctp/structs.h
+>> > > +++ b/include/net/sctp/structs.h
+>> > > @@ -1270,6 +1270,16 @@ struct sctp_endpoint {
+>> > >               reconf_enable:1;
+>> > >
+>> > >         __u8  strreset_enable;
+>> > > +
+>> > > +       /* Security identifiers from incoming (INIT). These are
+>> > > set by
+>> > > +        * security_sctp_assoc_request(). These will only be used
+>> > > by
+>> > > +        * SCTP TCP type sockets and peeled off connections as
+>> > > they
+>> > > +        * cause a new socket to be generated.
+>> > > security_sctp_sk_clone()
+>> > > +        * will then plug these into the new socket.
+>> > > +        */
+>> > > +
+>> > > +       u32 secid;
+>> > > +       u32 peer_secid;
+>> > >  };
+>> > >
+>> > >  /* Recover the outter endpoint structure. */
+>> > > diff --git a/include/uapi/linux/sctp.h
+>> > > b/include/uapi/linux/sctp.h
+>> > > index 6217ff8..c04812f 100644
+>> > > --- a/include/uapi/linux/sctp.h
+>> > > +++ b/include/uapi/linux/sctp.h
+>> > > @@ -122,6 +122,7 @@ typedef __s32 sctp_assoc_t;
+>> > >  #define SCTP_RESET_ASSOC       120
+>> > >  #define SCTP_ADD_STREAMS       121
+>> > >  #define SCTP_SOCKOPT_PEELOFF_FLAGS 122
+>> > > +#define SCTP_SENDMSG_CONNECT   123
+>> > >
+>> > >  /* PR-SCTP policies */
+>> > >  #define SCTP_PR_SCTP_NONE      0x0000
+>> > > diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+>> > > index 6110447..ca4705b 100644
+>> > > --- a/net/sctp/sm_make_chunk.c
+>> > > +++ b/net/sctp/sm_make_chunk.c
+>> > > @@ -3059,6 +3059,12 @@ static __be16
+>> > > sctp_process_asconf_param(struct sctp_association *asoc,
+>> > >                 if (af->is_any(&addr))
+>> > >                         memcpy(&addr, &asconf->source,
+>> > > sizeof(addr));
+>> > >
+>> > > +               if (security_sctp_bind_connect(asoc->ep->base.sk,
+>> > > +                                              SCTP_PARAM_ADD_IP,
+>> > > +                                              (struct sockaddr
+>> > > *)&addr,
+>> > > +                                              af->sockaddr_len))
+>> > > +                       return SCTP_ERROR_REQ_REFUSED;
+>> > > +
+>> > >                 /* ADDIP 4.3 D9) If an endpoint receives an ADD
+>> > > IP address
+>> > >                  * request and does not have the local resources
+>> > > to add this
+>> > >                  * new address to the association, it MUST return
+>> > > an Error
+>> > > @@ -3125,6 +3131,12 @@ static __be16
+>> > > sctp_process_asconf_param(struct sctp_association *asoc,
+>> > >                 if (af->is_any(&addr))
+>> > >                         memcpy(&addr.v4, sctp_source(asconf),
+>> > > sizeof(addr));
+>> > >
+>> > > +               if (security_sctp_bind_connect(asoc->ep->base.sk,
+>> > > +                                              SCTP_PARAM_SET_PRI
+>> > > MARY,
+>> > > +                                              (struct sockaddr
+>> > > *)&addr,
+>> > > +                                              af->sockaddr_len))
+>> > > +                       return SCTP_ERROR_REQ_REFUSED;
+>> > > +
+>> > >                 peer = sctp_assoc_lookup_paddr(asoc, &addr);
+>> > >                 if (!peer)
+>> > >                         return SCTP_ERROR_DNS_FAILED;
+>> > > diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+>> > > index b2a74c3..4ba5805 100644
+>> > > --- a/net/sctp/sm_statefuns.c
+>> > > +++ b/net/sctp/sm_statefuns.c
+>> > > @@ -314,6 +314,11 @@ sctp_disposition_t
+>> > > sctp_sf_do_5_1B_init(struct net *net,
+>> > >         sctp_unrecognized_param_t *unk_param;
+>> > >         int len;
+>> > >
+>> > > +       /* Update socket peer label if first association. */
+>> > > +       if (security_sctp_assoc_request((struct sctp_endpoint
+>> > > *)ep,
+>> > > +                                       chunk->skb,
+>> > > SCTP_CID_INIT))
+>> > > +               return sctp_sf_pdiscard(net, ep, asoc, type, arg,
+>> > > commands);
+>> > > +
+>> > >         /* 6.10 Bundling
+>> > >          * An endpoint MUST NOT bundle INIT, INIT ACK or
+>> > >          * SHUTDOWN COMPLETE with any other chunks.
+>> > > @@ -446,7 +451,6 @@ sctp_disposition_t
+>> > > sctp_sf_do_5_1B_init(struct net *net,
+>> > >         }
+>> > >
+>> > >         sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC,
+>> > > SCTP_ASOC(new_asoc));
+>> > > -
+>> > >         sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
+>> > > SCTP_CHUNK(repl));
+>> > >
+>> > >         /*
+>> > > @@ -507,6 +511,11 @@ sctp_disposition_t
+>> > > sctp_sf_do_5_1C_ack(struct net *net,
+>> > >         struct sctp_chunk *err_chunk;
+>> > >         struct sctp_packet *packet;
+>> > >
+>> > > +       /* Update socket peer label if first association. */
+>> > > +       if (security_sctp_assoc_request((struct sctp_endpoint
+>> > > *)ep,
+>> > > +                                       chunk->skb,
+>> > > SCTP_CID_INIT_ACK))
+>> > > +               return sctp_sf_pdiscard(net, ep, asoc, type, arg,
+>> > > commands);
+>> > > +
+>> >
+>> > Just thinking security_sctp_assoc_request hook should also be in
+>> > sctp_sf_do_unexpected_init() and sctp_sf_do_5_2_4_dupcook() ?
 >>
->> Add support for permanent config parameter get/set commands. Used
->> for parameters held in NVRAM, persistent device configuration.
+>> I agree, i think if this hook is gating on the creation of a new
+>> association,
+>> they should be in all the locations where that happens
+>> Neil
 >
-> Given some of the attributes aren't Boolean, what about an API that
-> allows the user to learn of supported values per option?
-> Otherwise only way for configuring some of them would be trial & error.
+> Thanks for the comments. I've just added the hook as requested for my
+> next update, however I have not managed to trigger these areas using
+> the lksctp-tools tests. Can you suggest any suitable tools for testing
+> these scenarios.
+It's all a matter of timing:
 
-Interesting suggestion.  There's a couple of places where this could
-be a factor.  (1) When a user wants to know what values are
-defined/available in the API, and (2) When the user wants to know what
-values are supported by a specific driver/device.
+sctp_sf_do_5_2_2_dupinit():
+Case A:
 
-The intention for (1) is to push that into userspace.  The userspace
-devlink tool patches I am working on (not yet submitted) essentially
-mirror the config parameters and their options, with string "keywords"
-associated with each parameter and option, since it's the userspace
-app that will be parsing the command line strings and converting to
-API enums.  So the userspace app can provide the list of
-parameters/options it supports, which could be a subset of what's
-available in the API.
+  Endpoint A                           Endpoint B                ULP
+  (CLOSED)                             (CLOSED)
 
-For (2), currently there is no mechanism other than trial/error as you
-suggest (up to driver to either return an error or else make use of
-the value specified by the user).  We could contemplate adding such a
-mechanism, but it's a little complicated as some options take a range
-(i.e. # of VFs per PF for example), and others may take one of a set
-of enumerated values (pre-boot link speed for example).
+  INIT          ----------------->
 
-To clarify, are you suggesting some mechanism to allow a driver to
-report which parameters and options it supports (case (2))?  Or are
-you suggesting something in the kernel API to handle case (1) above?
+                <-----------------      INIT-ACK
 
->
->>
->> Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
->> Acked-by: Andy Gospodarek <gospo@broadcom.com>
->> ---
->>  include/net/devlink.h        |   3 +
->>  include/uapi/linux/devlink.h |  11 ++
->>  net/core/devlink.c           | 234
->> +++++++++++++++++++++++++++++++++++++++++++
->>  3 files changed, 248 insertions(+)
->>
->> diff --git a/include/net/devlink.h b/include/net/devlink.h
->> index b9654e1..bd64623 100644
->> --- a/include/net/devlink.h
->> +++ b/include/net/devlink.h
->> @@ -270,6 +270,9 @@ struct devlink_ops {
->>       int (*eswitch_inline_mode_set)(struct devlink *devlink, u8
->> inline_mode);
->>       int (*eswitch_encap_mode_get)(struct devlink *devlink, u8
->> *p_encap_mode);
->>       int (*eswitch_encap_mode_set)(struct devlink *devlink, u8
->> encap_mode);
->> +     int (*perm_config_get)(struct devlink *devlink, u32 param, u32
->> *value);
->> +     int (*perm_config_set)(struct devlink *devlink, u32 param, u32
->> value,
->> +                            u8 *restart_reqd);
->>  };
->>
->>  static inline void *devlink_priv(struct devlink *devlink)
->> diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
->> index 0cbca96..47cc584 100644
->> --- a/include/uapi/linux/devlink.h
->> +++ b/include/uapi/linux/devlink.h
->> @@ -70,6 +70,10 @@ enum devlink_command {
->>       DEVLINK_CMD_DPIPE_HEADERS_GET,
->>       DEVLINK_CMD_DPIPE_TABLE_COUNTERS_SET,
->>
->> +     /* Permanent (NVRAM) device config get/set */
->> +     DEVLINK_CMD_PERM_CONFIG_GET,
->> +     DEVLINK_CMD_PERM_CONFIG_SET,
->> +
->>       /* add new commands above here */
->>       __DEVLINK_CMD_MAX,
->>       DEVLINK_CMD_MAX = __DEVLINK_CMD_MAX - 1
->> @@ -202,6 +206,13 @@ enum devlink_attr {
->>
->>       DEVLINK_ATTR_ESWITCH_ENCAP_MODE,        /* u8 */
->>
->> +     /* Permanent Configuration Parameters */
->> +     DEVLINK_ATTR_PERM_CONFIGS,                      /* nested */
->> +     DEVLINK_ATTR_PERM_CONFIG,                       /* nested */
->> +     DEVLINK_ATTR_PERM_CONFIG_PARAMETER,             /* u32 */
->> +     DEVLINK_ATTR_PERM_CONFIG_VALUE,                 /*
->> u32 */
->> +     DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED,      /* u8 */
->> +
->>       /* add new attributes above here, update the policy in devlink.c */
->>
->>       __DEVLINK_ATTR_MAX,
->> diff --git a/net/core/devlink.c b/net/core/devlink.c
->> index 7d430c1..c2cc7c6 100644
->> --- a/net/core/devlink.c
->> +++ b/net/core/devlink.c
->> @@ -1566,6 +1566,224 @@ static int
->> devlink_nl_cmd_eswitch_set_doit(struct sk_buff *skb,
->>       return 0;
->>  }
->>
->> +static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
->> +
->> +static int devlink_nl_single_param_get(struct sk_buff *msg,
->> +                                    struct devlink *devlink,
->> +                                    uint32_t param)
->> +{
->> +     u32 value;
->> +     int err;
->> +     const struct devlink_ops *ops = devlink->ops;
->> +     struct nlattr *param_attr;
->> +
->> +     err = ops->perm_config_get(devlink, param, &value);
->> +     if (err)
->> +             return err;
->> +
->> +     param_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
->> +     nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_PARAMETER,
->> param);
->> +     nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE, value);
->> +     nla_nest_end(msg, param_attr);
->> +
->> +     return 0;
->> +}
->> +
->> +static int devlink_nl_config_get_fill(struct sk_buff *msg,
->> +                                   struct devlink *devlink,
->> +                                   enum devlink_command cmd,
->> +                                   struct genl_info *info)
->> +{
->> +     void *hdr;
->> +     int err;
->> +     struct nlattr *attr;
->> +     int param_count = 0;
->> +     struct nlattr *cfgparam_attr;
->> +     int rem;
->> +     struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
->> +     u32 param;
->> +
->> +     hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
->> +                       &devlink_nl_family, 0, cmd);
->> +     if (!hdr) {
->> +             err = -EMSGSIZE;
->> +             goto nla_msg_failure;
->> +     }
->> +
->> +     err = devlink_nl_put_handle(msg, devlink);
->> +     if (err)
->> +             goto nla_put_failure;
->> +
->> +     if (!info->attrs[DEVLINK_ATTR_PERM_CONFIGS]) {
->> +             /* No configuration parameters */
->> +             goto nla_put_failure;
->> +     }
->> +
->> +     cfgparam_attr = nla_nest_start(msg,
->> DEVLINK_ATTR_PERM_CONFIGS);
->> +
->> +     nla_for_each_nested(attr, info-
->> >attrs[DEVLINK_ATTR_PERM_CONFIGS],
->> +                         rem) {
-> Isn't it possible that a response for a single request for multiple ATTRs
-> wouldn't fit in a single message?
->
+  COOKIE-ECHO   ----------------->
 
-Hmm... Given the small size and relatively small total number of these
-attributes, even when additional drivers add their own, I think it's
-unlikely that a single request would require a multipart message, even
-in the event it's requesting all of the parameters for a given device.
-I guess we could support NLM_F_MULTI type messages, but it didn't seem
-necessary to me for this application?  Thoughts?
+                <-----------------      COOKIE-ACK
+                                         Communication Up ---------->
+  INIT          ----------------->
+  (Different INIT-TAG)
+                <-----------------      INIT-ACK
+
+  COOKIE-ECHO   ----------------->
+
+                <-----------------      COOKIE-ACK
+
+  DATA          ----------------->
+
+                <-----------------      SACK
 
 
->> +             if (err)
->> +                     goto nla_nest_failure;
->> +             param_count++;
->
-> Looks like an unused parameter
->> +
->> +     if (restart_reqd) {
->
-> Doesn't seem like you're ever setting it.
-> A leftover from when this was an attribute of the configs instead
-> of per-config perhaps?
+sctp_sf_do_5_2_1_siminit():
+ Case B:
 
-Thanks for catching these two issues - you're right, they are leftover
-from the v1 implementation; apologies for not catching them in v2.
-Will fix in v3.
+  Endpoint A                           Endpoint B                ULP
+  (CLOSED)                             (CLOSED)
+
+                                                   <-----    Associate
+                <-----------------      INIT
+
+  INIT          ----------------->
+
+                <-----------------      INIT-ACK
+
+  COOKIE-ECHO   ----------------->
+
+                <-----------------      COOKIE-ACK
+                                         Communication Up ---------->
+
+
+sctp_sf_do_5_2_4_dupcook():
+Case D:
+
+  Endpoint A                           Endpoint B                ULP
+  (CLOSED)                             (CLOSED)
+
+                                                   <-----    Associate
+  INIT          ----------------->
+
+                <-----------------      INIT-ACK
+
+  COOKIE-ECHO   ----------------->
+
+                <-----------------      COOKIE-ACK
+                                         Communication Up ---------->
+  COOKIE-ECHO   ----------------->
+
+                <-----------------      COOKIE-ACK
+
+I think scapy could help with 4-shake stuff:
+# iptables -A OUTPUT -p sctp -d 192.0.0.2 --chunk-type only abort -o
+eth1 -j DROP
+and
+something like:
+        def start_assoc(self, target, local):
+                target_host, target_port = target
+                local_host,  local_port  = local
+
+                # init snd
+                self._tsn = 2017
+                self._cnt = 15
+
+                SCTP_HEADER = (IP(dst=target_host, flags="DF") /
+SCTP(sport=local_port, dport=target_port, tag=0))
+                INIT = (SCTP_HEADER / SCTPChunkInit(init_tag=1,
+a_rwnd=106496, n_out_streams=self._cnt, n_in_streams=self._cnt,
+init_tsn=self._tsn,
+
+params=[SCTPParamSupport(types=[64])]))
+                INIT_ACK = sr1(INIT, timeout=3, verbose=0)
+                if INIT_ACK == None or not INIT_ACK.haslayer(SCTPChunkInitAck):
+                        return False
+
+                # cookie echo snd
+                SCTP_HEADER[SCTP].tag = INIT_ACK[SCTPChunkInitAck].init_tag
+                COOKIE_ECHO = (SCTP_HEADER /
+SCTPChunkCookieEcho(cookie=INIT_ACK[SCTPChunkParamStateCookie].cookie))
+                COOKIE_ACK = sr1(COOKIE_ECHO, timeout=3, verbose=0)
+                if COOKIE_ACK == None or not
+COOKIE_ACK.haslayer(SCTPChunkCookieAck):
+                        return False
