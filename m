@@ -1,93 +1,56 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH 2/2] net: netrom: refactor code in nr_add_node
-Date: Fri, 20 Oct 2017 11:06:00 -0500
-Message-ID: <20171020110600.Horde.X15IwxxrG50sNBWbTzaM1pB@gator4166.hostgator.com>
-References: <20171019172746.GA15332@embeddedor.com>
- <59E9BA66.4000707@bfs.de>
+From: Quentin Monnet <quentin.monnet@netronome.com>
+Subject: Re: [PATCH net-next 6/8] tools: bpftool: print all relevant byte
+ opcodes for "load double word"
+Date: Fri, 20 Oct 2017 17:41:55 +0100
+Message-ID: <CAH3iqT6Dj5x7dnz5_k3r-EQai=5ebn=JHEKMN+jJDm6aGQdqdQ@mail.gmail.com>
+References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+ <20171019224626.31608-7-jakub.kicinski@netronome.com> <063D6719AE5E284EB5DD2968C1650D6DD009D515@AcuExch.aculab.com>
+ <CAH3iqT5vPnOCEm6wjavbpSyC4Md922Bts3ynxxVCT-1=MWsgKA@mail.gmail.com> <59EA2077.7000901@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: Ralf Baechle <ralf@linux-mips.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-hams@vger.kernel.org, netdev@vger.kernel.org
-To: walter harms <wharms@bfs.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: David Laight <David.Laight@aculab.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "oss-drivers@netronome.com" <oss-drivers@netronome.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway36.websitewelcome.com ([192.185.197.22]:23611 "EHLO
-        gateway36.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752639AbdJTQ0c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 12:26:32 -0400
-Received: from cm17.websitewelcome.com (cm17.websitewelcome.com [100.42.49.20])
-        by gateway36.websitewelcome.com (Postfix) with ESMTP id DB6B040122171
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:00 -0500 (CDT)
-In-Reply-To: <59E9BA66.4000707@bfs.de>
-Content-Disposition: inline
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:50575 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752300AbdJTQmQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 12:42:16 -0400
+Received: by mail-qk0-f173.google.com with SMTP id o187so15031379qke.7
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 09:42:16 -0700 (PDT)
+In-Reply-To: <59EA2077.7000901@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Walter,
-
-Quoting walter harms <wharms@bfs.de>:
-
-> Am 19.10.2017 19:27, schrieb Gustavo A. R. Silva:
->> Code refactoring in order to make the code easier to read and maintain.
+On 20 October 2017 at 17:12, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 10/20/2017 05:50 PM, Quentin Monnet wrote:
+> [...]
 >>
->> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
->> ---
->> This code was tested by compilation only (GCC 7.2.0 was used).
->>
->>  net/netrom/nr_route.c | 63  
->> ++++++++++++++++-----------------------------------
->>  1 file changed, 20 insertions(+), 43 deletions(-)
->>
->> diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
->> index fc9cadc..1e5165f 100644
->> --- a/net/netrom/nr_route.c
->> +++ b/net/netrom/nr_route.c
->> @@ -80,6 +80,23 @@ static struct nr_neigh  
->> *nr_neigh_get_dev(ax25_address *callsign,
->>
->>  static void nr_remove_neigh(struct nr_neigh *);
->>
->> +/*      re-sort the routes in quality order.    */
->> +static inline void re_sort_routes(struct nr_node *nr_node, int  
->> ix_x, int ix_y)
->> +{
->> +	struct nr_route nr_route;
->> +
->> +	if (nr_node->routes[ix_y].quality > nr_node->routes[ix_x].quality) {
->> +		if (nr_node->which == ix_x)
->> +			nr_node->which = ix_y;
->> +		else if (nr_node->which == ix_y)
->> +			nr_node->which = ix_x;
->> +
->> +		nr_route              = nr_node->routes[ix_x];
->> +		nr_node->routes[ix_x] = nr_node->routes[ix_y];
->> +		nr_node->routes[ix_y] = nr_route;
->> +	}
->> +}
->> +
+>> The remaining four bytes are taken from the "immediate" field of the
+>> second
+>> instruction, which leaves the first four fields (offset, source and
+>> destination
+>> registers, and in particular opcode) unused. As far as I know, these
+>> fields
+>> remain at zero, and this makes it the only =E2=80=9Cinstruction=E2=80=9D=
+ to have a null
+>> code
+>> (although I am not sure this is a strict requirement, because I did not
+>> find
+>> the code in the verifier that would reject a program having a non-null
+>> opcode
+>> right after a "load double word immediate" instruction).
 >
 >
-> Good idea, a bit of nit picking ..
-> does ix_ has a special meaning ? otherwise x,y would be sufficient.
-
-ix typical stands for index, but I think just x and y are fine too.
-
-> From the code below i can see: y=x+1 Perhaps that can be used.
+> It's in replace_map_fd_with_map_ptr(), invalid insns for the 2nd part
+> are rejected there, they have to be otherwise it's not extendable anymore
+> from abi pov; check also 'test1* ld_imm64' in the verifier test cases.
 >
+> Cheers,
+> Daniel
 
-So are you proposing to use two arguments instead of three?
-
-re_sort_routes(nr_node, 0);
-
-
-> kernel.h has a swap() macro. so you can  
-> swap(nr_node->routes[x],nr_node->routes[y]);
->
-
-Nice, I will use that macro.
-
-> hope that helps,
-
-Definitely. I appreciate your comments.
-
-Thanks!
+Indeed, thanks Daniel!
+Quentin
