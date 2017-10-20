@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 15/15] drivers, connector: convert cn_callback_entry.refcnt from atomic_t to refcount_t
-Date: Fri, 20 Oct 2017 10:23:49 +0300
-Message-ID: <1508484229-19706-16-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 12/15] drivers, net, ppp: convert asyncppp.refcnt from atomic_t to refcount_t
+Date: Fri, 20 Oct 2017 10:23:46 +0300
+Message-ID: <1508484229-19706-13-git-send-email-elena.reshetova@intel.com>
 References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org,
@@ -15,9 +15,9 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         peterz@infradead.org, keescook@chromium.org,
         Elena Reshetova <elena.reshetova@intel.com>
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
 In-Reply-To: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 atomic_t variables are currently used to implement reference
@@ -34,7 +34,7 @@ refcount_t type and API that prevents accidental counter overflows
 and underflows. This is important since overflows and underflows
 can lead to use-after-free situation and be exploitable.
 
-The variable cn_callback_entry.refcnt is used as pure reference counter.
+The variable asyncppp.refcnt is used as pure reference counter.
 Convert it to refcount_t and fix up the operations.
 
 Suggested-by: Kees Cook <keescook@chromium.org>
@@ -42,67 +42,57 @@ Reviewed-by: David Windsor <dwindsor@gmail.com>
 Reviewed-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 ---
- drivers/connector/cn_queue.c  | 4 ++--
- drivers/connector/connector.c | 2 +-
- include/linux/connector.h     | 4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ppp/ppp_async.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
-index 1f8bf05..9c54fdf 100644
---- a/drivers/connector/cn_queue.c
-+++ b/drivers/connector/cn_queue.c
-@@ -45,7 +45,7 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
- 		return NULL;
- 	}
+diff --git a/drivers/net/ppp/ppp_async.c b/drivers/net/ppp/ppp_async.c
+index 814fd8f..1b28e6e 100644
+--- a/drivers/net/ppp/ppp_async.c
++++ b/drivers/net/ppp/ppp_async.c
+@@ -69,7 +69,7 @@ struct asyncppp {
  
--	atomic_set(&cbq->refcnt, 1);
-+	refcount_set(&cbq->refcnt, 1);
+ 	struct tasklet_struct tsk;
  
- 	atomic_inc(&dev->refcnt);
- 	cbq->pdev = dev;
-@@ -58,7 +58,7 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
+-	atomic_t	refcnt;
++	refcount_t	refcnt;
+ 	struct semaphore dead_sem;
+ 	struct ppp_channel chan;	/* interface to generic ppp layer */
+ 	unsigned char	obuf[OBUFSIZE];
+@@ -140,14 +140,14 @@ static struct asyncppp *ap_get(struct tty_struct *tty)
+ 	read_lock(&disc_data_lock);
+ 	ap = tty->disc_data;
+ 	if (ap != NULL)
+-		atomic_inc(&ap->refcnt);
++		refcount_inc(&ap->refcnt);
+ 	read_unlock(&disc_data_lock);
+ 	return ap;
+ }
  
- void cn_queue_release_callback(struct cn_callback_entry *cbq)
+ static void ap_put(struct asyncppp *ap)
  {
--	if (!atomic_dec_and_test(&cbq->refcnt))
-+	if (!refcount_dec_and_test(&cbq->refcnt))
- 		return;
+-	if (atomic_dec_and_test(&ap->refcnt))
++	if (refcount_dec_and_test(&ap->refcnt))
+ 		up(&ap->dead_sem);
+ }
  
- 	atomic_dec(&cbq->pdev->refcnt);
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index 25693b0..8615594b 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -157,7 +157,7 @@ static int cn_call_callback(struct sk_buff *skb)
- 	spin_lock_bh(&dev->cbdev->queue_lock);
- 	list_for_each_entry(i, &dev->cbdev->queue_list, callback_entry) {
- 		if (cn_cb_equal(&i->id.id, &msg->id)) {
--			atomic_inc(&i->refcnt);
-+			refcount_inc(&i->refcnt);
- 			cbq = i;
- 			break;
- 		}
-diff --git a/include/linux/connector.h b/include/linux/connector.h
-index f8fe863..032102b 100644
---- a/include/linux/connector.h
-+++ b/include/linux/connector.h
-@@ -22,7 +22,7 @@
- #define __CONNECTOR_H
+@@ -185,7 +185,7 @@ ppp_asynctty_open(struct tty_struct *tty)
+ 	skb_queue_head_init(&ap->rqueue);
+ 	tasklet_init(&ap->tsk, ppp_async_process, (unsigned long) ap);
  
+-	atomic_set(&ap->refcnt, 1);
++	refcount_set(&ap->refcnt, 1);
+ 	sema_init(&ap->dead_sem, 0);
  
--#include <linux/atomic.h>
-+#include <linux/refcount.h>
+ 	ap->chan.private = ap;
+@@ -234,7 +234,7 @@ ppp_asynctty_close(struct tty_struct *tty)
+ 	 * our channel ops (i.e. ppp_async_send/ioctl) are in progress
+ 	 * by the time it returns.
+ 	 */
+-	if (!atomic_dec_and_test(&ap->refcnt))
++	if (!refcount_dec_and_test(&ap->refcnt))
+ 		down(&ap->dead_sem);
+ 	tasklet_kill(&ap->tsk);
  
- #include <linux/list.h>
- #include <linux/workqueue.h>
-@@ -49,7 +49,7 @@ struct cn_callback_id {
- 
- struct cn_callback_entry {
- 	struct list_head callback_entry;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	struct cn_queue_dev *pdev;
- 
- 	struct cn_callback_id id;
 -- 
 2.7.4
+
