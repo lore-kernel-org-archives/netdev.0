@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: add the missing sock_owned_by_user check in
- sctp_icmp_redirect
-Date: Fri, 20 Oct 2017 12:54:38 +0100 (WEST)
-Message-ID: <20171020.125438.333321434362467027.davem@davemloft.net>
-References: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+Subject: Re: [net PATCH 0/5] sockmap fixes for net
+Date: Fri, 20 Oct 2017 13:01:46 +0100 (WEST)
+Message-ID: <20171020.130146.78146147934317055.davem@davemloft.net>
+References: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        edumazet@google.com, marcelo.leitner@gmail.com,
-        nhorman@tuxdriver.com
-To: lucien.xin@gmail.com
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        borkmann@iogearbox.net
+To: john.r.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37010 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37112 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753044AbdJTLyo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 07:54:44 -0400
-In-Reply-To: <7f2a5122d93d4b72115027690e89c0a164097452.1508333869.git.lucien.xin@gmail.com>
+        with ESMTP id S1753114AbdJTMBu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 08:01:50 -0400
+In-Reply-To: <150833522977.3588.14633565129152334098.stgit@john-XPS-13-9360>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Wed, 18 Oct 2017 21:37:49 +0800
+From: John Fastabend <john.r.fastabend@gmail.com>
+Date: Wed, 18 Oct 2017 07:09:48 -0700
 
-> Now sctp processes icmp redirect packet in sctp_icmp_redirect where
-> it calls sctp_transport_dst_check in which tp->dst can be released.
+> The following implements a set of fixes for sockmap and changes the
+> API slightly in a few places to reduce preempt_disable/enable scope.
+> We do this here in net because it requires an API change and this
+> avoids getting stuck with legacy API going forward.
 > 
-> The problem is before calling sctp_transport_dst_check, it doesn't
-> check sock_owned_by_user, which means tp->dst could be freed while
-> a process is accessing it with owning the socket.
+> The short description:
 > 
-> An use-after-free issue could be triggered by this.
+> Access to skb mark is removed, it is problematic when we add
+> features in the future because mark is a union and used by the
+> TCP/socket code internally. We don't want to expose this to the
+> BPF programs or let programs change the values.
 > 
-> This patch is to fix it by checking sock_owned_by_user before calling
-> sctp_transport_dst_check in sctp_icmp_redirect, so that it would not
-> release tp->dst if users still hold sock lock.
+> The other change is caching metadata in the skb itself between
+> when the BPF program returns a redirect code and the core code
+> implements the redirect. This avoids having per cpu metadata.
 > 
-> Besides, the same issue fixed in commit 45caeaa5ac0b ("dccp/tcp: fix
-> routing redirect race") on sctp also needs this check.
-> 
-> Fixes: 55be7a9c6074 ("ipv4: Add redirect support to all protocol icmp error handlers")
-> Reported-by: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Finally, tighten restriction on using sockmap to CAP_NET_ADMIN and
+> only SOCK_STREAM sockets.
 
-Applied and queued up for -stable.
+Series applied, thanks.
