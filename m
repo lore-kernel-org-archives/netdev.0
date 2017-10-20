@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 11/15] drivers, net: convert masces_tx_sa.refcnt from atomic_t to refcount_t
-Date: Fri, 20 Oct 2017 10:23:45 +0300
-Message-ID: <1508484229-19706-12-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 08/15] drivers, net, hamradio: convert sixpack.refcnt from atomic_t to refcount_t
+Date: Fri, 20 Oct 2017 10:23:42 +0300
+Message-ID: <1508484229-19706-9-git-send-email-elena.reshetova@intel.com>
 References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org,
@@ -34,7 +34,7 @@ refcount_t type and API that prevents accidental counter overflows
 and underflows. This is important since overflows and underflows
 can lead to use-after-free situation and be exploitable.
 
-The variable masces_tx_sa.refcnt is used as pure reference counter.
+The variable sixpack.refcnt is used as pure reference counter.
 Convert it to refcount_t and fix up the operations.
 
 Suggested-by: Kees Cook <keescook@chromium.org>
@@ -42,48 +42,66 @@ Reviewed-by: David Windsor <dwindsor@gmail.com>
 Reviewed-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 ---
- drivers/net/macsec.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/hamradio/6pack.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index e0aeb51..8948b6a 100644
---- a/drivers/net/macsec.c
-+++ b/drivers/net/macsec.c
-@@ -188,7 +188,7 @@ struct macsec_tx_sa {
- 	struct macsec_key key;
- 	spinlock_t lock;
- 	u32 next_pn;
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 	bool active;
- 	struct macsec_tx_sa_stats __percpu *stats;
- 	struct rcu_head rcu;
-@@ -362,7 +362,7 @@ static struct macsec_tx_sa *macsec_txsa_get(struct macsec_tx_sa __rcu *ptr)
- 	if (!sa || !sa->active)
- 		return NULL;
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index bbc7b78..32f49c4 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -35,7 +35,7 @@
+ #include <linux/tcp.h>
+ #include <linux/semaphore.h>
+ #include <linux/compat.h>
+-#include <linux/atomic.h>
++#include <linux/refcount.h>
  
--	if (!atomic_inc_not_zero(&sa->refcnt))
-+	if (!refcount_inc_not_zero(&sa->refcnt))
- 		return NULL;
+ #define SIXPACK_VERSION    "Revision: 0.3.0"
  
- 	return sa;
-@@ -379,7 +379,7 @@ static void free_txsa(struct rcu_head *head)
+@@ -120,7 +120,7 @@ struct sixpack {
  
- static void macsec_txsa_put(struct macsec_tx_sa *sa)
+ 	struct timer_list	tx_t;
+ 	struct timer_list	resync_t;
+-	atomic_t		refcnt;
++	refcount_t		refcnt;
+ 	struct semaphore	dead_sem;
+ 	spinlock_t		lock;
+ };
+@@ -381,7 +381,7 @@ static struct sixpack *sp_get(struct tty_struct *tty)
+ 	read_lock(&disc_data_lock);
+ 	sp = tty->disc_data;
+ 	if (sp)
+-		atomic_inc(&sp->refcnt);
++		refcount_inc(&sp->refcnt);
+ 	read_unlock(&disc_data_lock);
+ 
+ 	return sp;
+@@ -389,7 +389,7 @@ static struct sixpack *sp_get(struct tty_struct *tty)
+ 
+ static void sp_put(struct sixpack *sp)
  {
--	if (atomic_dec_and_test(&sa->refcnt))
-+	if (refcount_dec_and_test(&sa->refcnt))
- 		call_rcu(&sa->rcu, free_txsa);
+-	if (atomic_dec_and_test(&sp->refcnt))
++	if (refcount_dec_and_test(&sp->refcnt))
+ 		up(&sp->dead_sem);
  }
  
-@@ -1437,7 +1437,7 @@ static int init_tx_sa(struct macsec_tx_sa *tx_sa, char *sak, int key_len,
- 	}
+@@ -576,7 +576,7 @@ static int sixpack_open(struct tty_struct *tty)
+ 	sp->dev = dev;
  
- 	tx_sa->active = false;
--	atomic_set(&tx_sa->refcnt, 1);
-+	refcount_set(&tx_sa->refcnt, 1);
- 	spin_lock_init(&tx_sa->lock);
+ 	spin_lock_init(&sp->lock);
+-	atomic_set(&sp->refcnt, 1);
++	refcount_set(&sp->refcnt, 1);
+ 	sema_init(&sp->dead_sem, 0);
  
- 	return 0;
+ 	/* !!! length of the buffers. MTU is IP MTU, not PACLEN!  */
+@@ -670,7 +670,7 @@ static void sixpack_close(struct tty_struct *tty)
+ 	 * We have now ensured that nobody can start using ap from now on, but
+ 	 * we have to wait for all existing users to finish.
+ 	 */
+-	if (!atomic_dec_and_test(&sp->refcnt))
++	if (!refcount_dec_and_test(&sp->refcnt))
+ 		down(&sp->dead_sem);
+ 
+ 	/* We must stop the queue to avoid potentially scribbling
 -- 
 2.7.4
