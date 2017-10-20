@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 09/15] drivers, net: convert masces_rx_sa.refcnt from atomic_t to refcount_t
-Date: Fri, 20 Oct 2017 10:23:43 +0300
-Message-ID: <1508484229-19706-10-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 11/15] drivers, net: convert masces_tx_sa.refcnt from atomic_t to refcount_t
+Date: Fri, 20 Oct 2017 10:23:45 +0300
+Message-ID: <1508484229-19706-12-git-send-email-elena.reshetova@intel.com>
 References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org,
@@ -15,9 +15,9 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         peterz@infradead.org, keescook@chromium.org,
         Elena Reshetova <elena.reshetova@intel.com>
 To: davem@davemloft.net
-Return-path: <linux-hams-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-hams-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 atomic_t variables are currently used to implement reference
@@ -34,7 +34,7 @@ refcount_t type and API that prevents accidental counter overflows
 and underflows. This is important since overflows and underflows
 can lead to use-after-free situation and be exploitable.
 
-The variable masces_rx_sa.refcnt is used as pure reference counter.
+The variable masces_tx_sa.refcnt is used as pure reference counter.
 Convert it to refcount_t and fix up the operations.
 
 Suggested-by: Kees Cook <keescook@chromium.org>
@@ -42,31 +42,23 @@ Reviewed-by: David Windsor <dwindsor@gmail.com>
 Reviewed-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 ---
- drivers/net/macsec.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/net/macsec.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
-index ccbe4eaf..733e1c2 100644
+index e0aeb51..8948b6a 100644
 --- a/drivers/net/macsec.c
 +++ b/drivers/net/macsec.c
-@@ -16,6 +16,7 @@
- #include <crypto/aead.h>
- #include <linux/etherdevice.h>
- #include <linux/rtnetlink.h>
-+#include <linux/refcount.h>
- #include <net/genetlink.h>
- #include <net/sock.h>
- #include <net/gro_cells.h>
-@@ -146,7 +147,7 @@ struct macsec_rx_sa {
+@@ -188,7 +188,7 @@ struct macsec_tx_sa {
  	struct macsec_key key;
  	spinlock_t lock;
  	u32 next_pn;
 -	atomic_t refcnt;
 +	refcount_t refcnt;
  	bool active;
- 	struct macsec_rx_sa_stats __percpu *stats;
- 	struct macsec_rx_sc *sc;
-@@ -314,7 +315,7 @@ static struct macsec_rx_sa *macsec_rxsa_get(struct macsec_rx_sa __rcu *ptr)
+ 	struct macsec_tx_sa_stats __percpu *stats;
+ 	struct rcu_head rcu;
+@@ -362,7 +362,7 @@ static struct macsec_tx_sa *macsec_txsa_get(struct macsec_tx_sa __rcu *ptr)
  	if (!sa || !sa->active)
  		return NULL;
  
@@ -75,24 +67,23 @@ index ccbe4eaf..733e1c2 100644
  		return NULL;
  
  	return sa;
-@@ -350,7 +351,7 @@ static void free_rxsa(struct rcu_head *head)
+@@ -379,7 +379,7 @@ static void free_txsa(struct rcu_head *head)
  
- static void macsec_rxsa_put(struct macsec_rx_sa *sa)
+ static void macsec_txsa_put(struct macsec_tx_sa *sa)
  {
 -	if (atomic_dec_and_test(&sa->refcnt))
 +	if (refcount_dec_and_test(&sa->refcnt))
- 		call_rcu(&sa->rcu, free_rxsa);
+ 		call_rcu(&sa->rcu, free_txsa);
  }
  
-@@ -1339,7 +1340,7 @@ static int init_rx_sa(struct macsec_rx_sa *rx_sa, char *sak, int key_len,
+@@ -1437,7 +1437,7 @@ static int init_tx_sa(struct macsec_tx_sa *tx_sa, char *sak, int key_len,
+ 	}
  
- 	rx_sa->active = false;
- 	rx_sa->next_pn = 1;
--	atomic_set(&rx_sa->refcnt, 1);
-+	refcount_set(&rx_sa->refcnt, 1);
- 	spin_lock_init(&rx_sa->lock);
+ 	tx_sa->active = false;
+-	atomic_set(&tx_sa->refcnt, 1);
++	refcount_set(&tx_sa->refcnt, 1);
+ 	spin_lock_init(&tx_sa->lock);
  
  	return 0;
 -- 
 2.7.4
-
