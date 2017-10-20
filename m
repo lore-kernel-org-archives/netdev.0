@@ -1,119 +1,37 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 1/1] tipc: refactor tipc_sk_timeout() function
-Date: Fri, 20 Oct 2017 11:21:32 +0200
-Message-ID: <1508491292-5333-1-git-send-email-jon.maloy@ericsson.com>
+From: Sebastian Huber <sebastian.huber@embedded-brains.de>
+Subject: Re: [PATCH] soc/qbman: Simplify bman_release()
+Date: Fri, 20 Oct 2017 11:35:18 +0200
+Message-ID: <f25ecaec-1a78-7b72-1ed0-45d0a818e9bb@embedded-brains.de>
+References: <20170710072859.2616-1-sebastian.huber@embedded-brains.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
-        <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:61428 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751076AbdJTJVk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 05:21:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org,
+ Madalin Bucur <madalin.bucur@nxp.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170710072859.2616-1-sebastian.huber@embedded-brains.de>
+Content-Language: en-GB
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-The function tipc_sk_timeout() is more complex than necessary, and
-even seems to contain an undetected bug. At one of the occurences
-where we renew the timer we just order it with (HZ / 20), instead
-of (jiffies + HZ / 20);
-
-In this commit we clean up the function.
-
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c | 49 +++++++++++++++++++++++--------------------------
- 1 file changed, 23 insertions(+), 26 deletions(-)
-
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 357954c..b3b72d8 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -48,7 +48,7 @@
- #include "group.h"
- 
- #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
--#define CONN_PROBING_INTERVAL	msecs_to_jiffies(3600000)  /* [ms] => 1 h */
-+#define CONN_PROBING_INTV	msecs_to_jiffies(3600000)  /* [ms] => 1 h */
- #define TIPC_FWD_MSG		1
- #define TIPC_MAX_PORT		0xffffffff
- #define TIPC_MIN_PORT		1
-@@ -1472,7 +1472,7 @@ static void tipc_sk_finish_conn(struct tipc_sock *tsk, u32 peer_port,
- 	msg_set_lookup_scope(msg, 0);
- 	msg_set_hdr_sz(msg, SHORT_H_SIZE);
- 
--	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTERVAL);
-+	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTV);
- 	tipc_set_sk_state(sk, TIPC_ESTABLISHED);
- 	tipc_node_add_conn(net, peer_node, tsk->portid, peer_port);
- 	tsk->max_pkt = tipc_node_get_mtu(net, peer_node, tsk->portid);
-@@ -2533,43 +2533,40 @@ static int tipc_shutdown(struct socket *sock, int how)
- static void tipc_sk_timeout(unsigned long data)
- {
- 	struct tipc_sock *tsk = (struct tipc_sock *)data;
-+	u32 peer_port = tsk_peer_port(tsk);
-+	u32 peer_node = tsk_peer_node(tsk);
-+	u32 own_node = tsk_own_node(tsk);
-+	u32 own_port = tsk->portid;
- 	struct sock *sk = &tsk->sk;
-+	struct net *net = sock_net(sk);
- 	struct sk_buff *skb = NULL;
--	u32 peer_port, peer_node;
--	u32 own_node = tsk_own_node(tsk);
- 
- 	bh_lock_sock(sk);
--	if (!tipc_sk_connected(sk)) {
--		bh_unlock_sock(sk);
-+	if (!tipc_sk_connected(sk))
-+		goto exit;
-+
-+	/* Try again later if socket is busy */
-+	if (sock_owned_by_user(sk)) {
-+		sk_reset_timer(sk, &sk->sk_timer, jiffies + HZ / 20);
- 		goto exit;
- 	}
--	peer_port = tsk_peer_port(tsk);
--	peer_node = tsk_peer_node(tsk);
- 
- 	if (tsk->probe_unacked) {
--		if (!sock_owned_by_user(sk)) {
--			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
--			tipc_node_remove_conn(sock_net(sk), tsk_peer_node(tsk),
--					      tsk_peer_port(tsk));
--			sk->sk_state_change(sk);
--		} else {
--			/* Try again later */
--			sk_reset_timer(sk, &sk->sk_timer, (HZ / 20));
--		}
--
--		bh_unlock_sock(sk);
-+		tipc_set_sk_state(sk, TIPC_DISCONNECTING);
-+		tipc_node_remove_conn(net, peer_node, peer_port);
-+		sk->sk_state_change(sk);
- 		goto exit;
- 	}
--
--	skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE,
--			      INT_H_SIZE, 0, peer_node, own_node,
--			      peer_port, tsk->portid, TIPC_OK);
-+	/* Send new probe */
-+	skb = tipc_msg_create(CONN_MANAGER, CONN_PROBE, INT_H_SIZE, 0,
-+			      peer_node, own_node, peer_port, own_port,
-+			      TIPC_OK);
- 	tsk->probe_unacked = true;
--	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTERVAL);
-+	sk_reset_timer(sk, &sk->sk_timer, jiffies + CONN_PROBING_INTV);
-+exit:
- 	bh_unlock_sock(sk);
- 	if (skb)
--		tipc_node_xmit_skb(sock_net(sk), skb, peer_node, tsk->portid);
--exit:
-+		tipc_node_xmit_skb(net, skb, peer_node, own_port);
- 	sock_put(sk);
- }
- 
--- 
-2.1.4
+UGluZy4KCk9uIDEwLzA3LzE3IDA5OjI4LCBTZWJhc3RpYW4gSHViZXIgd3JvdGU6Cj4gR2V0IHRo
+ZSBhZmZpbmUgcG9ydGFsIG9ubHkgb25jZSBmb3IgdGhlIGNvbXBsZXRlIHRyYW5zYWN0aW9uLgo+
+Cj4gU2lnbmVkLW9mZi1ieTogU2ViYXN0aWFuIEh1YmVyIDxzZWJhc3RpYW4uaHViZXJAZW1iZWRk
+ZWQtYnJhaW5zLmRlPgoKLS0gClNlYmFzdGlhbiBIdWJlciwgZW1iZWRkZWQgYnJhaW5zIEdtYkgK
+CkFkZHJlc3MgOiBEb3JuaWVyc3RyLiA0LCBELTgyMTc4IFB1Y2hoZWltLCBHZXJtYW55ClBob25l
+ICAgOiArNDkgODkgMTg5IDQ3IDQxLTE2CkZheCAgICAgOiArNDkgODkgMTg5IDQ3IDQxLTA5CkUt
+TWFpbCAgOiBzZWJhc3RpYW4uaHViZXJAZW1iZWRkZWQtYnJhaW5zLmRlClBHUCAgICAgOiBQdWJs
+aWMga2V5IGF2YWlsYWJsZSBvbiByZXF1ZXN0LgoKRGllc2UgTmFjaHJpY2h0IGlzdCBrZWluZSBn
+ZXNjaMOkZnRsaWNoZSBNaXR0ZWlsdW5nIGltIFNpbm5lIGRlcyBFSFVHLgoKCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFp
+bGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlz
+dHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
