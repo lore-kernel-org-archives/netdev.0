@@ -1,35 +1,28 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v12] openvswitch: enable NSH support
-Date: Fri, 20 Oct 2017 10:05:35 +0200
-Message-ID: <20171020100535.152fd925@griffin>
-References: <1508162009-30359-1-git-send-email-yi.y.yang@intel.com>
-        <20171018231955.058ec5c8@griffin>
-        <20171019114052.GA83037@cran64.bj.intel.com>
-        <20171019144347.421351db@griffin>
-        <20171019131215.GA84551@cran64.bj.intel.com>
-        <20171019154118.16d906e0@griffin>
-        <20171019215312.GA91385@cran64.bj.intel.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when the kernel is locked down
+Date: Fri, 20 Oct 2017 09:08:48 +0100
+Message-ID: <2582.1508486928@warthog.procyon.org.uk>
+References: <20171020024732.GJ3285@linux-l9pv.suse> <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk> <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk> <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "e@erig.me" <e@erig.me>, "pshelar@ovn.org" <pshelar@ovn.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: "Yang, Yi" <yi.y.yang@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37530 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752164AbdJTIFj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Oct 2017 04:05:39 -0400
-In-Reply-To: <20171019215312.GA91385@cran64.bj.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        linux-security-module@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
+        linux-efi@vger.kernel.org, matthew.garrett@nebula.com,
+        gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+        jforbes@redhat.com, Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Gary Lin <GLin@suse.com>
+To: joeyli <jlee@suse.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20171020024732.GJ3285@linux-l9pv.suse>
+Content-ID: <2581.1508486928.1@warthog.procyon.org.uk>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Oct 2017 05:53:12 +0800, Yang, Yi wrote:
-> For push_nsh, my typical use scinario is push_nsh then set then output
-> to vxlangpe port.
+Hi Joey,
 
-Okay.
+Should I just lock down sys_bpf() entirely for now?  We can always free it up
+somewhat later.
 
- Jiri
+David
