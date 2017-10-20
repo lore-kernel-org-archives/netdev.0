@@ -1,43 +1,31 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net] rxrpc: Don't release call mutex on error pointer
-Date: Fri, 20 Oct 2017 17:01:22 +0100
-Message-ID: <150851528227.19340.4842940319829659889.stgit@warthog.procyon.org.uk>
+From: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when the kernel is locked down
+Date: Fri, 20 Oct 2017 17:03:22 +0100
+Message-ID: <19424.1508515402@warthog.procyon.org.uk>
+References: <20171020155748.kzrvg6565oxh6gmb@linux-rasp2> <20171020024732.GJ3285@linux-l9pv.suse> <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk> <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk> <20171019221829.7m5nczg3ltqmhzom@ast-mbp> <2582.1508486928@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org,
+        linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org,
+        gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        jforbes-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Gary Lin <GLin-IBi9RG/b67k@public.gmane.org>
+To: jlee-IBi9RG/b67k@public.gmane.org
+Return-path: <linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171020155748.kzrvg6565oxh6gmb@linux-rasp2>
+Content-ID: <19423.1508515402.1-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
+Sender: linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Don't release call mutex at the end of rxrpc_kernel_begin_call() if the
-call pointer actually holds an error value.
+jlee-IBi9RG/b67k@public.gmane.org wrote:
 
-Fixes: 540b1c48c37a ("rxrpc: Fix deadlock between call creation and sendmsg/recvmsg")
-Reported-by: Marc Dionne <marc.dionne@auristor.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+> I think that we don't need to lock down sys_bpf() now because
+> we didn't lock down other interfaces for reading arbitrary
+> address like /dev/mem and /dev/kmem.
 
- net/rxrpc/af_rxrpc.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Ummm...  See patch 4.  You even gave me a Reviewed-by for it ;-)
 
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 73c980e26581..054e32872808 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -311,10 +311,11 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
- 	call = rxrpc_new_client_call(rx, &cp, srx, user_call_ID, tx_total_len,
- 				     gfp);
- 	/* The socket has been unlocked. */
--	if (!IS_ERR(call))
-+	if (!IS_ERR(call)) {
- 		call->notify_rx = notify_rx;
-+		mutex_unlock(&call->user_mutex);
-+	}
- 
--	mutex_unlock(&call->user_mutex);
- 	_leave(" = %p", call);
- 	return call;
- }
+David
