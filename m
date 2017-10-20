@@ -1,55 +1,39 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: x25: mark expected switch fall-throughs
-Date: Fri, 20 Oct 2017 12:37:52 -0500
-Message-ID: <20171020173752.GA10123@embeddedor.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] dccp/tcp: fix ireq->opt races
+Date: Fri, 20 Oct 2017 10:38:52 -0700
+Message-ID: <1508521132.30291.16.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <201710210027.nxMZ7dfs%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-x25@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Andrew Hendry <andrew.hendry@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, edumazet@google.com
+To: kbuild test robot <lkp@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:44275 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753316AbdJTRi4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 13:38:56 -0400
+Received: by mail-io0-f182.google.com with SMTP id m16so14038501iod.1
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 10:38:56 -0700 (PDT)
+In-Reply-To: <201710210027.nxMZ7dfs%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation to enabling -Wimplicit-fallthrough, mark switch cases
-where we are expecting to fall through.
+On Sat, 2017-10-21 at 00:53 +0800, kbuild test robot wrote:
+> Hi Eric,
+> 
+> [auto build test WARNING on net/master]
+> 
+> url:    https://github.com/0day-ci/linux/commits/Eric-Dumazet/dccp-tcp-fix-ireq-opt-races/20171021-001234
+> config: ia64-allmodconfig (attached as .config)
+> compiler: ia64-linux-gcc (GCC) 6.2.0
+> reproduce:
+>         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
+>         chmod +x ~/bin/make.cross
+>         # save the attached .config to linux build tree
+>         make.cross ARCH=ia64 
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only (GCC 7.2.0 was used).
-Please, verify if the actual intention of the code is to fall through.
+Thanks, v4 of the patch should fix this.
 
- net/x25/x25_facilities.c | 2 +-
- net/x25/x25_in.c         | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
-index 997ff7b..ad1734d 100644
---- a/net/x25/x25_facilities.c
-+++ b/net/x25/x25_facilities.c
-@@ -103,7 +103,7 @@ int x25_parse_facilities(struct sk_buff *skb, struct x25_facilities *facilities,
- 					*vc_fac_mask |= X25_MASK_REVERSE;
- 					break;
- 				}
--
-+				/*fall through */
- 			case X25_FAC_THROUGHPUT:
- 				facilities->throughput = p[1];
- 				*vc_fac_mask |= X25_MASK_THROUGHPUT;
-diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
-index 7ac5009..3c12cae 100644
---- a/net/x25/x25_in.c
-+++ b/net/x25/x25_in.c
-@@ -345,6 +345,7 @@ static int x25_state4_machine(struct sock *sk, struct sk_buff *skb, int frametyp
- 
- 		case X25_RESET_REQUEST:
- 			x25_write_internal(sk, X25_RESET_CONFIRMATION);
-+			/* fall through */
- 		case X25_RESET_CONFIRMATION: {
- 			x25_stop_timer(sk);
- 			x25->condition = 0x00;
--- 
-2.7.4
+https://patchwork.ozlabs.org/patch/828713/
