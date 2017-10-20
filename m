@@ -1,7 +1,7 @@
 From: Elena Reshetova <elena.reshetova@intel.com>
-Subject: [PATCH 07/15] drivers, net, mlx5: convert fs_node.refcount from atomic_t to refcount_t
-Date: Fri, 20 Oct 2017 10:23:41 +0300
-Message-ID: <1508484229-19706-8-git-send-email-elena.reshetova@intel.com>
+Subject: [PATCH 10/15] drivers, net: convert masces_rx_sc.refcnt from atomic_t to refcount_t
+Date: Fri, 20 Oct 2017 10:23:44 +0300
+Message-ID: <1508484229-19706-11-git-send-email-elena.reshetova@intel.com>
 References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org,
@@ -15,10 +15,14 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         peterz@infradead.org, keescook@chromium.org,
         Elena Reshetova <elena.reshetova@intel.com>
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:15411 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752112AbdJTHZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Oct 2017 03:25:13 -0400
 In-Reply-To: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 atomic_t variables are currently used to implement reference
 counters with the following properties:
@@ -34,7 +38,7 @@ refcount_t type and API that prevents accidental counter overflows
 and underflows. This is important since overflows and underflows
 can lead to use-after-free situation and be exploitable.
 
-The variable fs_node.refcount is used as pure reference counter.
+The variable masces_rx_sc.refcnt is used as pure reference counter.
 Convert it to refcount_t and fix up the operations.
 
 Suggested-by: Kees Cook <keescook@chromium.org>
@@ -42,149 +46,45 @@ Reviewed-by: David Windsor <dwindsor@gmail.com>
 Reviewed-by: Hans Liljestrand <ishkamiel@gmail.com>
 Signed-off-by: Elena Reshetova <elena.reshetova@intel.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 28 +++++++++++------------
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  3 ++-
- 2 files changed, 16 insertions(+), 15 deletions(-)
+ drivers/net/macsec.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index f77e496..c7fa1389 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -188,7 +188,7 @@ static void tree_init_node(struct fs_node *node,
- 			   void (*del_hw_func)(struct fs_node *),
- 			   void (*del_sw_func)(struct fs_node *))
- {
--	atomic_set(&node->refcount, 1);
-+	refcount_set(&node->refcount, 1);
- 	INIT_LIST_HEAD(&node->list);
- 	INIT_LIST_HEAD(&node->children);
- 	init_rwsem(&node->lock);
-@@ -200,7 +200,7 @@ static void tree_init_node(struct fs_node *node,
- static void tree_add_node(struct fs_node *node, struct fs_node *parent)
- {
- 	if (parent)
--		atomic_inc(&parent->refcount);
-+		refcount_inc(&parent->refcount);
- 	node->parent = parent;
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 733e1c2..e0aeb51 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -172,7 +172,7 @@ struct macsec_rx_sc {
+ 	bool active;
+ 	struct macsec_rx_sa __rcu *sa[MACSEC_NUM_AN];
+ 	struct pcpu_rx_sc_stats __percpu *stats;
+-	atomic_t refcnt;
++	refcount_t refcnt;
+ 	struct rcu_head rcu_head;
+ };
  
- 	/* Parent is the root */
-@@ -212,7 +212,7 @@ static void tree_add_node(struct fs_node *node, struct fs_node *parent)
+@@ -331,12 +331,12 @@ static void free_rx_sc_rcu(struct rcu_head *head)
  
- static int tree_get_node(struct fs_node *node)
+ static struct macsec_rx_sc *macsec_rxsc_get(struct macsec_rx_sc *sc)
  {
--	return atomic_add_unless(&node->refcount, 1, 0);
-+	return refcount_inc_not_zero(&node->refcount);
+-	return atomic_inc_not_zero(&sc->refcnt) ? sc : NULL;
++	return refcount_inc_not_zero(&sc->refcnt) ? sc : NULL;
  }
  
- static void nested_down_read_ref_node(struct fs_node *node,
-@@ -220,7 +220,7 @@ static void nested_down_read_ref_node(struct fs_node *node,
+ static void macsec_rxsc_put(struct macsec_rx_sc *sc)
  {
- 	if (node) {
- 		down_read_nested(&node->lock, class);
--		atomic_inc(&node->refcount);
-+		refcount_inc(&node->refcount);
- 	}
+-	if (atomic_dec_and_test(&sc->refcnt))
++	if (refcount_dec_and_test(&sc->refcnt))
+ 		call_rcu(&sc->rcu_head, free_rx_sc_rcu);
  }
  
-@@ -229,7 +229,7 @@ static void nested_down_write_ref_node(struct fs_node *node,
- {
- 	if (node) {
- 		down_write_nested(&node->lock, class);
--		atomic_inc(&node->refcount);
-+		refcount_inc(&node->refcount);
- 	}
- }
+@@ -1411,7 +1411,7 @@ static struct macsec_rx_sc *create_rx_sc(struct net_device *dev, sci_t sci)
  
-@@ -237,19 +237,19 @@ static void down_write_ref_node(struct fs_node *node)
- {
- 	if (node) {
- 		down_write(&node->lock);
--		atomic_inc(&node->refcount);
-+		refcount_inc(&node->refcount);
- 	}
- }
+ 	rx_sc->sci = sci;
+ 	rx_sc->active = true;
+-	atomic_set(&rx_sc->refcnt, 1);
++	refcount_set(&rx_sc->refcnt, 1);
  
- static void up_read_ref_node(struct fs_node *node)
- {
--	atomic_dec(&node->refcount);
-+	refcount_dec(&node->refcount);
- 	up_read(&node->lock);
- }
- 
- static void up_write_ref_node(struct fs_node *node)
- {
--	atomic_dec(&node->refcount);
-+	refcount_dec(&node->refcount);
- 	up_write(&node->lock);
- }
- 
-@@ -257,7 +257,7 @@ static void tree_put_node(struct fs_node *node)
- {
- 	struct fs_node *parent_node = node->parent;
- 
--	if (atomic_dec_and_test(&node->refcount)) {
-+	if (refcount_dec_and_test(&node->refcount)) {
- 		if (node->del_hw_func)
- 			node->del_hw_func(node);
- 		if (parent_node) {
-@@ -280,8 +280,8 @@ static void tree_put_node(struct fs_node *node)
- 
- static int tree_remove_node(struct fs_node *node)
- {
--	if (atomic_read(&node->refcount) > 1) {
--		atomic_dec(&node->refcount);
-+	if (refcount_read(&node->refcount) > 1) {
-+		refcount_dec(&node->refcount);
- 		return -EEXIST;
- 	}
- 	tree_put_node(node);
-@@ -1184,7 +1184,7 @@ static void destroy_flow_handle(struct fs_fte *fte,
- 				int i)
- {
- 	for (; --i >= 0;) {
--		if (atomic_dec_and_test(&handle->rule[i]->node.refcount)) {
-+		if (refcount_dec_and_test(&handle->rule[i]->node.refcount)) {
- 			fte->dests_size--;
- 			list_del(&handle->rule[i]->node.list);
- 			kfree(handle->rule[i]);
-@@ -1215,7 +1215,7 @@ create_flow_handle(struct fs_fte *fte,
- 		if (dest) {
- 			rule = find_flow_rule(fte, dest + i);
- 			if (rule) {
--				atomic_inc(&rule->node.refcount);
-+				refcount_inc(&rule->node.refcount);
- 				goto rule_found;
- 			}
- 		}
-@@ -1466,7 +1466,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
- 	trace_mlx5_fs_set_fte(fte, false);
- 
- 	for (i = 0; i < handle->num_rules; i++) {
--		if (atomic_read(&handle->rule[i]->node.refcount) == 1) {
-+		if (refcount_read(&handle->rule[i]->node.refcount) == 1) {
- 			tree_add_node(&handle->rule[i]->node, &fte->node);
- 			trace_mlx5_fs_add_rule(handle->rule[i]);
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index 80f6f3c7..397d24a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -33,6 +33,7 @@
- #ifndef _MLX5_FS_CORE_
- #define _MLX5_FS_CORE_
- 
-+#include <linux/refcount.h>
- #include <linux/mlx5/fs.h>
- #include <linux/rhashtable.h>
- 
-@@ -84,7 +85,7 @@ struct fs_node {
- 	struct fs_node		*root;
- 	/* lock the node for writing and traversing */
- 	struct rw_semaphore	lock;
--	atomic_t		refcount;
-+	refcount_t		refcount;
- 	bool			active;
- 	void			(*del_hw_func)(struct fs_node *);
- 	void			(*del_sw_func)(struct fs_node *);
+ 	secy = &macsec_priv(dev)->secy;
+ 	rcu_assign_pointer(rx_sc->next, secy->rx_sc);
 -- 
 2.7.4
