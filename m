@@ -1,47 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] rxrpc: Add bits for kernel services
-Date: Fri, 20 Oct 2017 08:43:08 +0100 (WEST)
-Message-ID: <20171020.084308.2182191337868415716.davem@davemloft.net>
-References: <150832775000.7695.7720685597577836060.stgit@warthog.procyon.org.uk>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] timer: Provide wrappers safe for use with LOCKDEP
+Date: Fri, 20 Oct 2017 00:52:30 -0700
+Message-ID: <20171020075230.GA31536@infradead.org>
+References: <20171019202838.GA43223@beast>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Craig Gallek <cgallek@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+To: Kees Cook <keescook@chromium.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <150832775000.7695.7720685597577836060.stgit@warthog.procyon.org.uk>
+Content-Disposition: inline
+In-Reply-To: <20171019202838.GA43223@beast>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Wed, 18 Oct 2017 12:55:50 +0100
+On Thu, Oct 19, 2017 at 01:28:38PM -0700, Kees Cook wrote:
+> Under LOCKDEP, the timer lock_class_key (set up in __setup_timer) needs
+> to be tied to the caller's context, so an inline for timer_setup()
+> won't work. We do, however, want to keep the inline version around for
+> argument type checking, though, so this provides macro wrappers in the
+> LOCKDEP case.
 
-> 
-> Here are some patches that add a few things for kernel services to use:
-> 
->  (1) Allow service upgrade to be requested and allow the resultant actual
->      service ID to be obtained.
-> 
->  (2) Allow the RTT time of a call to be obtained.
-> 
->  (3) Allow a kernel service to find out if a call is still alive on a
->      server between transmitting a request and getting the reply.
-> 
->  (4) Allow data transmission to ignore signals if transmission progress is
->      being made in reasonable time.  This is also usable by userspace by
->      passing MSG_WAITALL to sendmsg()[*].
-> 
-> [*] I'm not sure this is the right interface for this or whether a sockopt
->     should be used instead.
-> 
-> The patches can be found here also:
-> 
-> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-next
-> 
-> Tagged thusly:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-next-20171018
-
-Pulled, thanks David.
+Heh, when I tried to do inline setup_timer Arnd had actually pointed
+that out in the review.. 
