@@ -1,122 +1,83 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] net: ethtool: remove error check for legacy setting
- transceiver type
-Date: Fri, 20 Oct 2017 09:15:50 +0200
-Message-ID: <CAMuHMdUFHP-nmft72q7_ZGqqUzuOoj0q+6+fyfQF-XkfnFpLvA@mail.gmail.com>
-References: <20171019233208.15444-1-niklas.soderlund+renesas@ragnatech.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        Renjith R V <renjith.rv@quest-global.com>
-To: =?UTF-8?Q?Niklas_S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20171019233208.15444-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 1/2] mlxsw: reg: Add Tunneling IPinIP General Configuration Register
+Date: Fri, 20 Oct 2017 09:16:15 +0200
+Message-ID: <20171020071616.1498-2-jiri@resnulli.us>
+References: <20171020071616.1498-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:52286 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751779AbdJTHQT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 03:16:19 -0400
+Received: by mail-wm0-f68.google.com with SMTP id k4so20496520wmc.1
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 00:16:18 -0700 (PDT)
+In-Reply-To: <20171020071616.1498-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Niklas,
+From: Petr Machata <petrm@mellanox.com>
 
-On Fri, Oct 20, 2017 at 1:32 AM, Niklas S=C3=B6derlund
-<niklas.soderlund+renesas@ragnatech.se> wrote:
-> Commit 9cab88726929605 ("net: ethtool: Add back transceiver type")
-> restores the transceiver type to struct ethtool_link_settings and
-> convert_link_ksettings_to_legacy_settings() but forgets to remove the
-> error check for the same in convert_legacy_settings_to_link_ksettings().
-> This prevents older versions of ethtool to change link settings.
->
->     # ethtool --version
->     ethtool version 3.16
->
->     # ethtool -s eth0 autoneg on speed 100 duplex full
->     Cannot set new settings: Invalid argument
->       not setting speed
->       not setting duplex
->       not setting autoneg
->
-> While newer versions of ethtool works.
->
->     # ethtool --version
->     ethtool version 4.10
->
->     # ethtool -s eth0 autoneg on speed 100 duplex full
->     [   57.703268] sh-eth ee700000.ethernet eth0: Link is Down
->     [   59.618227] sh-eth ee700000.ethernet eth0: Link is Up - 100Mbps/Fu=
-ll - flow control rx/tx
->
-> Fixes: 19cab88726929605 ("net: ethtool: Add back transceiver type")
+The TIGCR register is used for setting up the IPinIP Tunnel
+configuration.
 
-Thanks for your patch!
+Fixes: ee954d1a91b2 ("mlxsw: spectrum_router: Support GRE tunnels")
+Signed-off-by: Petr Machata <petrm@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-Reported-by: Renjith R V <renjith.rv@quest-global.com>
-
-> Signed-off-by: Niklas S=C3=B6derlund <niklas.soderlund+renesas@ragnatech.=
-se>
-
-Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
-
-While this fixed ethtool, unfortunately this revealed another issue: severa=
-l
-drivers call phy_ethtool_ksettings_set() while holding a driver-specific
-spinlock, which leads to phy_start_aneg_priv() calling mutex_lock() with
-interrupts disabled.
-
-Backtrace for sh_eth:
-
-BUG: sleeping function called from invalid context at kernel/locking/mutex.=
-c:238
-[  161.636382] in_atomic(): 1, irqs_disabled(): 128, pid: 1684, name: ethto=
-ol
-[  161.643260] CPU: 1 PID: 1684 Comm: ethtool Not tainted
-4.14.0-rc5-koelsch-00441-g8545ae86337930b0 #3649
-[  161.652653] Hardware name: Generic R-Car Gen2 (Flattened Device Tree)
-[  161.659109] [<c020efe4>] (unwind_backtrace) from [<c020aa5c>]
-(show_stack+0x10/0x14)
-[  161.666859] [<c020aa5c>] (show_stack) from [<c0723444>]
-(dump_stack+0x7c/0x9c)
-[  161.674090] [<c0723444>] (dump_stack) from [<c023f760>]
-(___might_sleep+0x128/0x164)
-[  161.681841] [<c023f760>] (___might_sleep) from [<c073894c>]
-(mutex_lock+0x18/0x60)
-[  161.689418] [<c073894c>] (mutex_lock) from [<c0537c60>]
-(phy_start_aneg_priv+0x28/0x120)
-[  161.697513] [<c0537c60>] (phy_start_aneg_priv) from [<c0537ee4>]
-(phy_ethtool_ksettings_set+0xc0/0xcc)
-[  161.706824] [<c0537ee4>] (phy_ethtool_ksettings_set) from
-[<c053fe58>] (sh_eth_set_link_ksettings+0x3c/0xa8)
-[  161.716657] [<c053fe58>] (sh_eth_set_link_ksettings) from
-[<c0676f88>] (ethtool_set_settings+0x100/0x114)
-[  161.726229] [<c0676f88>] (ethtool_set_settings) from [<c0679ea0>]
-(dev_ethtool+0x400/0x2248)
-[  161.734672] [<c0679ea0>] (dev_ethtool) from [<c068f850>]
-(dev_ioctl+0x424/0x774)
-[  161.742074] [<c068f850>] (dev_ioctl) from [<c02f9a24>] (vfs_ioctl+0x20/0=
-x34)
-[  161.749128] [<c02f9a24>] (vfs_ioctl) from [<c02fa1f0>]
-(do_vfs_ioctl+0x6b4/0x7b8)
-[  161.756616] [<c02fa1f0>] (do_vfs_ioctl) from [<c02fa328>]
-(SyS_ioctl+0x34/0x5c)
-[  161.763930] [<c02fa328>] (SyS_ioctl) from [<c0206e60>]
-(ret_fast_syscall+0x0/0x40)
-
-There's a similar dump for ravb.
-
-I quick grep shows that at least the Broadcom B44 driver is also affected.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
-.org
-
-In personal conversations with technical people, I call myself a hacker. Bu=
-t
-when I'm talking to journalists I just say "programmer" or something like t=
-hat.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index cc27c5d..4afc848 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -6401,6 +6401,36 @@ static inline void mlxsw_reg_mgpc_pack(char *payload, u32 counter_index,
+ 	mlxsw_reg_mgpc_opcode_set(payload, opcode);
+ }
+ 
++/* TIGCR - Tunneling IPinIP General Configuration Register
++ * -------------------------------------------------------
++ * The TIGCR register is used for setting up the IPinIP Tunnel configuration.
++ */
++#define MLXSW_REG_TIGCR_ID 0xA801
++#define MLXSW_REG_TIGCR_LEN 0x10
++
++MLXSW_REG_DEFINE(tigcr, MLXSW_REG_TIGCR_ID, MLXSW_REG_TIGCR_LEN);
++
++/* reg_tigcr_ipip_ttlc
++ * For IPinIP Tunnel encapsulation: whether to copy the ttl from the packet
++ * header.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, tigcr, ttlc, 0x04, 8, 1);
++
++/* reg_tigcr_ipip_ttl_uc
++ * The TTL for IPinIP Tunnel encapsulation of unicast packets if
++ * reg_tigcr_ipip_ttlc is unset.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, tigcr, ttl_uc, 0x04, 0, 8);
++
++static inline void mlxsw_reg_tigcr_pack(char *payload, bool ttlc, u8 ttl_uc)
++{
++	MLXSW_REG_ZERO(tigcr, payload);
++	mlxsw_reg_tigcr_ttlc_set(payload, ttlc);
++	mlxsw_reg_tigcr_ttl_uc_set(payload, ttl_uc);
++}
++
+ /* SBPR - Shared Buffer Pools Register
+  * -----------------------------------
+  * The SBPR configures and retrieves the shared buffer pools and configuration.
+@@ -6881,6 +6911,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(mcc),
+ 	MLXSW_REG(mcda),
+ 	MLXSW_REG(mgpc),
++	MLXSW_REG(tigcr),
+ 	MLXSW_REG(sbpr),
+ 	MLXSW_REG(sbcm),
+ 	MLXSW_REG(sbpm),
+-- 
+2.9.5
