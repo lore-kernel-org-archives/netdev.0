@@ -1,52 +1,105 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 0/2] 9p: Fixes for hard-to-hit bugs
-Date: Fri, 20 Oct 2017 21:11:25 +0100
-Message-ID: <20171020201125.GU21978@ZenIV.linux.org.uk>
-References: <20170906145908.8082-1-tuomas@tuxera.com>
- <1506431414.20647.0.camel@tuxera.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Get rid of RCU callbacks in TC filters?
+Date: Fri, 20 Oct 2017 13:31:43 -0700
+Message-ID: <CAM_iQpUL9xCrZCjCpcaBMyjSWEJ+1DsFMO6dwJVtVvz=zKJDxA@mail.gmail.com>
+References: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
+ <20171018193548.GM3521@linux.vnet.ibm.com> <CAM_iQpWwaQuxZMidkVXsjDVwGcW+u-h5rczG2CO0s1RamRVUYQ@mail.gmail.com>
+ <20171020165623.GM3521@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: v9fs-developer@lists.sourceforge.net,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Ron Minnich <rminnich@sandia.gov>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-fsdevel@vger.kernel.org
-To: Tuomas Tynkkynen <tuomas@tuxera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1506431414.20647.0.camel@tuxera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Chris Mi <chrism@mellanox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Jiri Pirko <jiri@resnulli.us>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:49330 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751498AbdJTUcE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 16:32:04 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i5so12594848pfe.6
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 13:32:04 -0700 (PDT)
+In-Reply-To: <20171020165623.GM3521@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 26, 2017 at 04:10:14PM +0300, Tuomas Tynkkynen wrote:
-> Hi Al,
-> 
-> On Wed, 2017-09-06 at 17:59 +0300, Tuomas Tynkkynen wrote:
-> > These two patches fix two hard-to-hit (but really annoying) bugs in
-> > 9p.
-> > The first one was posted earlier in February (with one R-b), the
-> > second
-> > is a new one.
-> > 
-> > Both of these have had soaking in NixOS distribution kernels for
-> > a couple of months with no ill effects.
-> > 
-> > Tuomas Tynkkynen (2):
-> >   fs/9p: Compare qid.path in v9fs_test_inode
-> >   net/9p: Switch to wait_event_killable()
-> > 
-> >  fs/9p/vfs_inode.c      |  3 +++
-> >  fs/9p/vfs_inode_dotl.c |  3 +++
-> >  net/9p/client.c        |  3 +--
-> >  net/9p/trans_virtio.c  | 13 ++++++-------
-> >  net/9p/trans_xen.c     |  4 ++--
-> >  5 files changed, 15 insertions(+), 11 deletions(-)
-> > 
-> 
-> Could you apply these? Thanks!
+On Fri, Oct 20, 2017 at 9:56 AM, Paul E. McKenney
+<paulmck@linux.vnet.ibm.com> wrote:
+> On Thu, Oct 19, 2017 at 08:26:01PM -0700, Cong Wang wrote:
+>> On Wed, Oct 18, 2017 at 12:35 PM, Paul E. McKenney
+>> <paulmck@linux.vnet.ibm.com> wrote:
+>> > 5) Keep call_rcu(), but have the RCU callback schedule a workqueue.
+>> > The workqueue could then use blocking primitives, for example, acquiring
+>> > RTNL.
+>>
+>> Yeah, this could work too but we would get one more async...
+>>
+>> filter delete -> call_rcu() -> schedule_work() -> action destroy
+>
+> True, but on the other hand you get to hold RTNL.
 
-I can pick those, or, if you (or somebody else) are willing to actively
-maintain a 9p tree, you could start sending straight to Linus - up to
-you.
+I can get RTNL too with converting call_rcu() to synchronize_rcu().
+;)
+
+So this turns into the question again: if we mind synchronize_rcu()
+on slow paths or not?
+
+Actually, I just tried this approach, this way makes the core tc filter
+code harder to wait for flying callbacks, currently rcu_barrier() is
+enough, with one more schedule_work() added we probably
+need flush_workqueue()... Huh, this also means I can't use the
+global workqueue so should add a new workqueue for tc filters.
+
+Good news is I seem to make it work without adding much code.
+Stay tuned. ;)
+
+>
+>> > 6) As with #5, have the RCU callback schedule a workqueue, but aggregate
+>> > workqueue scheduling using a timer.  This would reduce the number of
+>> > RTNL acquisitions.
+>>
+>> Ouch, sounds like even one more async:
+>>
+>> filter delete -> call_rcu() -> schedule_work() -> timer -> flush_work()
+>> -> action destroy
+>>
+>> :-(
+>
+> Indeed, the price of scalability and performance is often added
+> asynchronous action at a distance.  But sometimes you can have
+> scalability, performance, -and- synchronous action.  Not sure that this
+> is one of those cases, but perhaps someone will come up with some trick
+> that we are not yet seeing.
+>
+> And again, one benefit you get from the added asynchrony is the ability
+> to acquire RTNL.  Another is increased batching, allowing the overhead
+> of acquiring RTNL to be amortized over a larger number of updates.
+
+Understood, my point is it might not be worthy to optimize a slow path
+which already has RTNL lock...
+
+
+>
+>> > 7) As with #5, have the RCU callback schedule a workqueue, but have each
+>> > iterator accumulate a list of things removed and do call_rcu() on the
+>> > list.  This is an alternative way of aggregating to reduce the number
+>> > of RTNL acquisitions.
+>>
+>> Yeah, this seems working too.
+>>
+>> > There are many other ways to skin this cat.
+>>
+>> We still have to pick one. :) Any preference? I want to keep it as simple
+>> as possible, otherwise some day I would not understand it either.
+>
+> I must defer to the people who actually fully understand this code.
+
+I understand that code, just not sure about which approach I should
+pick.
+
+I will keep you Cc'ed for any further change I make.
+
+Thanks!
