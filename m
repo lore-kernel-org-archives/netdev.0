@@ -1,72 +1,223 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
- NVRAM config param
-Date: Fri, 20 Oct 2017 10:19:31 -0400
-Message-ID: <CA+Jmh7FT789PfH908KK+x1+ehrvbiaaovori1w9yWe7+CFhFTg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 1/6] devlink: Add permanent config parameter
+ get/set operations
+Date: Fri, 20 Oct 2017 16:39:48 +0200
+Message-ID: <20171020143948.GC1994@nanopsycho.orion>
 References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
- <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <20171019213955.GG1978@nanopsycho.orion> <CA+Jmh7HCC-CgU16E8vSm541KnNUKZUgWfT0tPVx73cJxREC0Ag@mail.gmail.com>
- <20171020141010.GB1994@nanopsycho.orion>
+ <1508440630-25830-2-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Yuval Mintz <yuvalm@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, davem@davemloft.net,
+        michael.chan@broadcom.com, linville@tuxdriver.com,
+        gospo@broadcom.com
+To: Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:51466 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751765AbdJTOTw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 10:19:52 -0400
-Received: by mail-qt0-f193.google.com with SMTP id h4so18604630qtk.8
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 07:19:52 -0700 (PDT)
-In-Reply-To: <20171020141010.GB1994@nanopsycho.orion>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:46367 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752084AbdJTOju (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 10:39:50 -0400
+Received: by mail-wr0-f196.google.com with SMTP id l1so11556919wrc.3
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 07:39:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1508440630-25830-2-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 20, 2017 at 10:10 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Oct 20, 2017 at 04:03:55PM CEST, steven.lin1@broadcom.com wrote:
->>On Thu, Oct 19, 2017 at 5:39 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> Thu, Oct 19, 2017 at 10:32:21PM CEST, yuvalm@mellanox.com wrote:
->>>>> Adding DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF permanent
->>>>> config
->>>>> parameter.  Defines number of MSI-X vectors allocated per VF.
->>>>> Value is permanent (stored in NVRAM), so becomes the new default
->>>>> value for this device.
->>>>
->>>>Sounds like you're having this enforce the same configuration for all child VFs.
->>>
->>> Yeah, this sounds like per-port config.
->>>
->>
->>Well, it gets a little tricky here.  I assume some cards handle this
->>per-port.  Other cards might handle this per PF, where PF may not
->>always correspond 1:1 with a port.  And some cards maybe just allow a
->>single value for this parameter for the entire card, covering all
->>ports/PFs.
->>
->>To keep things simple and as general as possible, it made sense to set
->>all parameters on a per-PCI device level.  As I mentioned in my
->>cover-letter, the devices most likely to use these proposed commands
->>do not have a single "whole asic" PCI b/d/f with internal mechanism
->>for accessing ports - most expose each port (and each function on each
->>port) as a separate PCI b/d/f, with no separate "whole asic" PCI
->>b/d/f.  That's how the BCM cards work, and I think that's how the MLNX
->>cards work, and others that would be likely to use these cmds.
->>
->>So, to summarize, you direct the command to the PCI b/d/f you want to
->>target.  Does this make sense?
+Thu, Oct 19, 2017 at 09:17:05PM CEST, steven.lin1@broadcom.com wrote:
+>Add support for permanent config parameter get/set commands. Used
+>for parameters held in NVRAM, persistent device configuration.
 >
-> So you plan to have 1 devlink instance for each vf? Not sure that
-> does sound right to me :/
+>Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+>Acked-by: Andy Gospodarek <gospo@broadcom.com>
+>---
+> include/net/devlink.h        |   3 +
+> include/uapi/linux/devlink.h |  11 ++
+> net/core/devlink.c           | 234 +++++++++++++++++++++++++++++++++++++++++++
+> 3 files changed, 248 insertions(+)
 >
+>diff --git a/include/net/devlink.h b/include/net/devlink.h
+>index b9654e1..bd64623 100644
+>--- a/include/net/devlink.h
+>+++ b/include/net/devlink.h
+>@@ -270,6 +270,9 @@ struct devlink_ops {
+> 	int (*eswitch_inline_mode_set)(struct devlink *devlink, u8 inline_mode);
+> 	int (*eswitch_encap_mode_get)(struct devlink *devlink, u8 *p_encap_mode);
+> 	int (*eswitch_encap_mode_set)(struct devlink *devlink, u8 encap_mode);
+>+	int (*perm_config_get)(struct devlink *devlink, u32 param, u32 *value);
+>+	int (*perm_config_set)(struct devlink *devlink, u32 param, u32 value,
 
-For the commands proposed in this patchset, AFAIK they all apply on a
-per-PF or broader, i.e. per-port or whole-card, granularity, since
-they affect permanent config that applies at boot-up.  So, no, the VFs
-don't really come into play here.
+Please use enum instead of "u32 param". Also, what would happen if the
+value is >u32, like string for example? I believe we need to take it into
+the consideration for the UAPI sake.
+
+
+[...]
+
+
+>+
+>+static int devlink_nl_single_param_set(struct sk_buff *msg,
+>+				       struct devlink *devlink,
+>+				       u32 param, u32 value)
+>+{
+>+	u32 orig_value;
+>+	u8 need_restart;
+>+	int err;
+>+	const struct devlink_ops *ops = devlink->ops;
+>+	struct nlattr *cfgparam_attr;
+
+Reverse christmas tree please (this applies to all functions)
+
+
+>+
+>+	/* First get current value of parameter */
+>+	err = ops->perm_config_get(devlink, param, &orig_value);
+
+I'm missing why this is needed.
+
+
+>+	if (err)
+>+		return err;
+>+
+>+	/* Now set parameter */
+>+	err = ops->perm_config_set(devlink, param, value, &need_restart);
+>+	if (err)
+>+		return err;
+>+
+>+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIG);
+>+	/* Update restart reqd - if any param needs restart, should be set */
+>+	if (need_restart)
+>+		err = nla_put_u8(msg,
+>+				 DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED, 1);
+>+
+>+	/* Since set was successful, write attr back to msg with orig val */
+>+	err = nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_PARAMETER, param);
+>+	err = nla_put_u32(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE, orig_value);
+
+Why to write it back?
+
+
+>+
+>+	nla_nest_end(msg, cfgparam_attr);
+>+
+>+	return 0;
+>+}
+>+
+>+static int devlink_nl_cmd_perm_config_set_doit(struct sk_buff *skb,
+>+					       struct genl_info *info)
+>+{
+>+	struct devlink *devlink = info->user_ptr[0];
+>+	struct sk_buff *msg;
+>+	void *hdr;
+>+	struct nlattr *attr;
+>+	int rem;
+>+	int err;
+>+	u8 restart_reqd = 0;
+>+	struct nlattr *cfgparam_attr;
+>+	struct nlattr *tb[DEVLINK_ATTR_MAX + 1];
+>+	u32 param;
+>+	u32 value;
+>+
+>+	if (!devlink->ops || !devlink->ops->perm_config_get ||
+>+	    !devlink->ops->perm_config_set)
+>+		return -EOPNOTSUPP;
+>+
+>+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+>+	if (!msg)
+>+		return -ENOMEM;
+>+
+>+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
+>+			  &devlink_nl_family, 0, DEVLINK_CMD_PERM_CONFIG_SET);
+>+	if (!hdr) {
+>+		err = -EMSGSIZE;
+>+		goto nla_msg_failure;
+>+	}
+>+
+>+	err = devlink_nl_put_handle(msg, devlink);
+>+	if (err)
+>+		goto nla_put_failure;
+>+
+>+	cfgparam_attr = nla_nest_start(msg, DEVLINK_ATTR_PERM_CONFIGS);
+>+
+>+	nla_for_each_nested(attr, info->attrs[DEVLINK_ATTR_PERM_CONFIGS], rem) {
+>+		err = nla_parse_nested(tb, DEVLINK_ATTR_MAX, attr,
+>+				       devlink_nl_policy, NULL);
+>+		if (err)
+>+			goto nla_nest_failure;
+>+
+>+		if (!tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] ||
+>+		    !tb[DEVLINK_ATTR_PERM_CONFIG_VALUE])
+>+			continue;
+>+
+>+		param = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_PARAMETER]);
+
+You should check it the "param" value is withing the enum boundary.
+
+
+>+		value = nla_get_u32(tb[DEVLINK_ATTR_PERM_CONFIG_VALUE]);
+>+		err = devlink_nl_single_param_set(msg, devlink, param,
+>+						  value);
+>+		if (err)
+>+			goto nla_nest_failure;
+
+Wouldn't it make sense to rollback to old values if any of the config
+parameters set would fail?
+
+
+>+	}
+>+
+>+	nla_nest_end(msg, cfgparam_attr);
+>+
+>+	if (restart_reqd) {
+>+		err = nla_put_u8(msg, DEVLINK_ATTR_PERM_CONFIG_RESTART_REQUIRED,
+>+				 restart_reqd);
+>+		if (err)
+>+			goto nla_put_failure;
+>+	}
+>+
+>+	genlmsg_end(msg, hdr);
+>+	return genlmsg_reply(msg, info);
+>+
+>+nla_nest_failure:
+>+	nla_nest_cancel(msg, cfgparam_attr);
+>+nla_put_failure:
+>+	genlmsg_cancel(msg, hdr);
+>+nla_msg_failure:
+>+	return err;
+>+}
+>+
+> int devlink_dpipe_match_put(struct sk_buff *skb,
+> 			    struct devlink_dpipe_match *match)
+> {
+>@@ -2291,6 +2509,8 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+> 	[DEVLINK_ATTR_ESWITCH_ENCAP_MODE] = { .type = NLA_U8 },
+> 	[DEVLINK_ATTR_DPIPE_TABLE_NAME] = { .type = NLA_NUL_STRING },
+> 	[DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED] = { .type = NLA_U8 },
+>+	[DEVLINK_ATTR_PERM_CONFIG_PARAMETER] = { .type = NLA_U32 },
+>+	[DEVLINK_ATTR_PERM_CONFIG_VALUE] = { .type = NLA_U32 },
+> };
+> 
+> static const struct genl_ops devlink_nl_ops[] = {
+>@@ -2451,6 +2671,20 @@ static const struct genl_ops devlink_nl_ops[] = {
+> 		.flags = GENL_ADMIN_PERM,
+> 		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+> 	},
+>+	{
+>+		.cmd = DEVLINK_CMD_PERM_CONFIG_GET,
+>+		.doit = devlink_nl_cmd_perm_config_get_doit,
+>+		.policy = devlink_nl_policy,
+>+		.flags = GENL_ADMIN_PERM,
+>+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+>+	},
+>+	{
+>+		.cmd = DEVLINK_CMD_PERM_CONFIG_SET,
+>+		.doit = devlink_nl_cmd_perm_config_set_doit,
+>+		.policy = devlink_nl_policy,
+>+		.flags = GENL_ADMIN_PERM,
+>+		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
+>+	},
+> };
+> 
+> static struct genl_family devlink_nl_family __ro_after_init = {
+>-- 
+>2.7.4
+>
