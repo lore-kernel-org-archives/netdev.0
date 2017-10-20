@@ -1,59 +1,28 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/7] net: dsa: bcm_sf2: Add support for IPv6 CFP
- rules
-Date: Fri, 20 Oct 2017 14:35:56 -0700
-Message-ID: <3f9a11b8-e72d-0835-4706-ba32c9c46562@gmail.com>
-References: <20171020213454.14848-1-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net] dccp/tcp: fix ireq->opt races
+Date: Fri, 20 Oct 2017 14:39:35 -0700
+Message-ID: <1508535575.30291.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <201710210526.K9HBOJF7%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: kbuild-all@01.org, David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: kbuild test robot <lkp@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:44049 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752993AbdJTVgA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:36:00 -0400
-Received: by mail-qk0-f193.google.com with SMTP id r64so15992537qkc.1
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 14:36:00 -0700 (PDT)
-In-Reply-To: <20171020213454.14848-1-f.fainelli@gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:53116 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752418AbdJTVjh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:39:37 -0400
+Received: by mail-pf0-f175.google.com with SMTP id e64so12788717pfk.9
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 14:39:36 -0700 (PDT)
+In-Reply-To: <201710210526.K9HBOJF7%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2017 02:34 PM, Florian Fainelli wrote:
-> Hi all,
+On Sat, 2017-10-21 at 05:26 +0800, kbuild test robot wrote:
+> Hi Eric,
 > 
-> This patch series adds support for matching IPv6 addresses to the existing CFP
-> support code. Because IPv6 addresses are four times bigger than IPv4, we can
-> fit them anymore in a single slice, so we need to chain two in order to have
-> a complete match. This makes us require a second bitmap tracking unique rules
-> so we don't over populate the TCAM.
-> 
-> Finally, because the code had to be re-organized, it became a lot easier to
-> support arbitrary prefix/mask lengths, so the last two patches do just that.
+> [auto build test WARNING on net/master]
 
-Grr, of course I forgot to sanitize the patches for upstream inclusion,
-I will resend that in a short while, sorry about that.
-
-> 
-> Florian Fainelli (7):
->   net: dsa: bcm_sf2: Use existing shift/masks
->   net: dsa: bcm_sf2: Move IPv4 CFP processing to specific functions
->   net: dsa: bcm_sf2: Make UDF slices more configurable
->   net: dsa: bcm_sf2: Simplify bcm_sf2_cfp_rule_get_all()
->   net: dsa: bcm_sf2: Add support for IPv6 CFP rules
->   net: dsa: bcm_sf2: Allow matching arbitrary IPv4 mask lengths
->   net: dsa: bcm_sf2: Allow matching arbitrary IPv6 masks/lengths
-> 
->  drivers/net/dsa/bcm_sf2.c      |    1 +
->  drivers/net/dsa/bcm_sf2.h      |    1 +
->  drivers/net/dsa/bcm_sf2_cfp.c  | 1196 ++++++++++++++++++++++++++++++----------
->  drivers/net/dsa/bcm_sf2_regs.h |   15 +-
->  4 files changed, 935 insertions(+), 278 deletions(-)
-> 
-
-
--- 
-Florian
+Obsolete report.  v4 was sent few hours ago ;)
