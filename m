@@ -1,46 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Get rid of RCU callbacks in TC filters?
-Date: Fri, 20 Oct 2017 13:52:05 -0700
-Message-ID: <CAM_iQpUbPro-qauH-R5e6vBVMuOcC+qxSvRwkH69XjVK0Uau5g@mail.gmail.com>
-References: <CAM_iQpU1hF9v1+bek9CQkdbjS_2nctwpaSXyiNLiBHPC6WEYKQ@mail.gmail.com>
- <20171018193548.GM3521@linux.vnet.ibm.com> <CAM_iQpWwaQuxZMidkVXsjDVwGcW+u-h5rczG2CO0s1RamRVUYQ@mail.gmail.com>
- <20171020165623.GM3521@linux.vnet.ibm.com> <CAM_iQpUL9xCrZCjCpcaBMyjSWEJ+1DsFMO6dwJVtVvz=zKJDxA@mail.gmail.com>
+From: John Allen <jallen@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/2] ibmvnic: Tunable parameter support
+Date: Fri, 20 Oct 2017 16:00:54 -0500
+Message-ID: <9bafaca4-75e7-ba82-8eea-35a69c61b6db@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Chris Mi <chrism@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@resnulli.us>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org,
+        Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+        Nathan Fontenot <nfont@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:49890 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751721AbdJTUw0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 16:52:26 -0400
-Received: by mail-pf0-f173.google.com with SMTP id i5so12655646pfe.6
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 13:52:26 -0700 (PDT)
-In-Reply-To: <CAM_iQpUL9xCrZCjCpcaBMyjSWEJ+1DsFMO6dwJVtVvz=zKJDxA@mail.gmail.com>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:41454 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752005AbdJTVA7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 17:00:59 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9KKws3b117344
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 17:00:58 -0400
+Received: from e19.ny.us.ibm.com (e19.ny.us.ibm.com [129.33.205.209])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2dqmaqtrdj-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 17:00:58 -0400
+Received: from localhost
+        by e19.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
+        Fri, 20 Oct 2017 17:00:57 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 20, 2017 at 1:31 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> Actually, I just tried this approach, this way makes the core tc filter
-> code harder to wait for flying callbacks, currently rcu_barrier() is
-> enough, with one more schedule_work() added we probably
-> need flush_workqueue()... Huh, this also means I can't use the
-> global workqueue so should add a new workqueue for tc filters.
->
-> Good news is I seem to make it work without adding much code.
-> Stay tuned. ;)
+This series implements support for changing tunable parameters such as the
+mtu, number of tx/rx queues, and number of buffers per queue via ethtool
+and ifconfig.
 
-Hmm, lockdep already complains I have a deadlock when flushing
-workqueue while hodling RTNL lock, because callbacks need RTNL
-too... See the rcu_barrier() in tcf_block_put().
+John Allen (2):
+  ibmvnic: Update reset infrastructure to support tunable parameters
+  ibmvnic: Fix failover error path for non-fatal resets
 
-So this approach seems to be a dead end. Is there any way out?
+ drivers/net/ethernet/ibm/ibmvnic.c | 222 ++++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/ibm/ibmvnic.h |  24 +++-
+ 2 files changed, 216 insertions(+), 30 deletions(-)
 
-Probably we have to convert call_rcu() to synchronize_rcu(),
-but with batching of course.
+-- 
+1.8.3.1
