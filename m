@@ -1,171 +1,168 @@
 From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next 3/5] bpf: Add BPF_SOCKET_OPS_BASE_RTT support to tcp_nv
-Date: Fri, 20 Oct 2017 11:05:41 -0700
-Message-ID: <20171020180543.4156833-4-brakmo@fb.com>
+Subject: [PATCH net-next 2/5] bpf: Adding helper function bpf_getsockops
+Date: Fri, 20 Oct 2017 11:05:40 -0700
+Message-ID: <20171020180543.4156833-3-brakmo@fb.com>
 References: <20171020180543.4156833-1-brakmo@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Kernel Team <kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
+        "Daniel Borkmann" <daniel@iogearbox.net>,
         Blake Matheny <bmatheny@fb.com>,
-        Lawrence Brakmo <brakmo@fb.com>
+        "Lawrence Brakmo" <brakmo@fb.com>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58036 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41940 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753200AbdJTSF7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 14:05:59 -0400
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9KI4WcI005137
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:05:58 -0700
+        by vger.kernel.org with ESMTP id S1753212AbdJTSGI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 14:06:08 -0400
+Received: from pps.filterd (m0044008.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9KI3wtu020498
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:08 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dqmbgrd2d-5
+        by mx0a-00082601.pphosted.com with ESMTP id 2dqmeh0ckj-2
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:05:58 -0700
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:08 -0700
 In-Reply-To: <20171020180543.4156833-1-brakmo@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TCP_NV will try to get the base RTT from a socket_ops BPF program if one
-is loaded. NV will then use the base RTT to bound its min RTT (its
-notion of the base RTT). It uses the base RTT as an upper bound and 80%
-of the base RTT as its lower bound.
+Adding support for helper function bpf_getsockops to socket_ops BPF
+programs. This patch only supports TCP_CONGESTION.
 
-In other words, NV will consider filtered RTTs larger than base RTT as a
-sign of congestion. As a result, there is no minRTT inflation when there
-is a lot of congestion. For example, in a DC where the RTTs are less
-than 40us when there is no congestion, a base RTT value of 80us improves
-the performance of NV. The difference between the uncongested RTT and
-the base RTT provided represents how much queueing we are willing to
-have (in practice it can be higher).
-
-NV has been tunned to reduce congestion when there are many flows at the
-cost of one flow not achieving full bandwith utilization. When a
-reasonable base RTT is provided, one NV flow can now fully utilize the
-full bandwidth. In addition, the performance is also improved when there
-are many flows.
-
-In the following examples the NV results are using a kernel with this
-patch set (i.e. both NV results are using the new nv_loss_dec_factor).
-
-With one host sending to another host and only one flow the
-goodputs are:
-  Cubic: 9.3 Gbps, NV: 5.5 Gbps, NV (baseRTT=80us): 9.2 Gbps
-
-With 2 hosts sending to one host (1 flow per host, the goodput per flow
-is:
-  Cubic: 4.6 Gbps, NV: 4.5 Gbps, NV (baseRTT=80us)L 4.6 Gbps
-
-But the RTTs seen by a ping process in the sender is:
-  Cubic: 3.3ms  NV: 97us,  NV (baseRTT=80us): 146us
-
-With a lot of flows things look even better for NV with baseRTT. Here we
-have 3 hosts sending to one host. Each sending host has 6 flows: 1
-stream, 4x1MB RPC, 1x10KB RPC. Cubic, NV and NV with baseRTT all fully
-utilize the full available bandwidth. However, the distribution of
-bandwidth among the flows is very different. For the 10KB RPC flow:
-  Cubic: 27Mbps, NV: 111Mbps, NV (baseRTT=80us): 222Mbps
-
-The 99% latencies for the 10KB flows are:
-  Cubic: 26ms,  NV: 1ms,  NV (baseRTT=80us): 500us
-
-The RTT seen by a ping process at the senders:
-  Cubic: 3.2ms  NV: 720us,  NV (baseRTT=80us): 330us
-
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-Acked_by: Alexei Starovoitov <ast@fb.com>
+Signed-off-by: Vlad Vysotsky <vlad@cs.ucla.edu>
+Acked-by: Lawrence Brakmo <brakmo@fb.com>
+Acked-by: Alexei Starovoitov <ast@fb.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- net/ipv4/tcp_nv.c | 40 ++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 38 insertions(+), 2 deletions(-)
+ include/uapi/linux/bpf.h                  | 19 ++++++++++---
+ net/core/filter.c                         | 46 ++++++++++++++++++++++++++++++-
+ tools/testing/selftests/bpf/bpf_helpers.h |  3 ++
+ 3 files changed, 63 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/tcp_nv.c b/net/ipv4/tcp_nv.c
-index 1ff7398..a978e3f 100644
---- a/net/ipv4/tcp_nv.c
-+++ b/net/ipv4/tcp_nv.c
-@@ -39,7 +39,7 @@
-  * nv_cong_dec_mult	Decrease cwnd by X% (30%) of congestion when detected
-  * nv_ssthresh_factor	On congestion set ssthresh to this * <desired cwnd> / 8
-  * nv_rtt_factor	RTT averaging factor
-- * nv_loss_dec_factor	Decrease cwnd by this (50%) when losses occur
-+ * nv_loss_dec_factor	Decrease cwnd to this (80%) when losses occur
-  * nv_dec_eval_min_calls	Wait this many RTT measurements before dec cwnd
-  * nv_inc_eval_min_calls	Wait this many RTT measurements before inc cwnd
-  * nv_ssthresh_eval_min_calls	Wait this many RTT measurements before stopping
-@@ -61,7 +61,7 @@ static int nv_min_cwnd __read_mostly = 2;
- static int nv_cong_dec_mult __read_mostly = 30 * 128 / 100; /* = 30% */
- static int nv_ssthresh_factor __read_mostly = 8; /* = 1 */
- static int nv_rtt_factor __read_mostly = 128; /* = 1/2*old + 1/2*new */
--static int nv_loss_dec_factor __read_mostly = 512; /* => 50% */
-+static int nv_loss_dec_factor __read_mostly = 819; /* => 80% */
- static int nv_cwnd_growth_rate_neg __read_mostly = 8;
- static int nv_cwnd_growth_rate_pos __read_mostly; /* 0 => fixed like Reno */
- static int nv_dec_eval_min_calls __read_mostly = 60;
-@@ -101,6 +101,11 @@ struct tcpnv {
- 	u32 nv_last_rtt;	/* last rtt */
- 	u32 nv_min_rtt;		/* active min rtt. Used to determine slope */
- 	u32 nv_min_rtt_new;	/* min rtt for future use */
-+	u32 nv_base_rtt;        /* If non-zero it represents the threshold for
-+				 * congestion */
-+	u32 nv_lower_bound_rtt; /* Used in conjunction with nv_base_rtt. It is
-+				 * set to 80% of nv_base_rtt. It helps reduce
-+				 * unfairness between flows */
- 	u32 nv_rtt_max_rate;	/* max rate seen during current RTT */
- 	u32 nv_rtt_start_seq;	/* current RTT ends when packet arrives
- 				 * acking beyond nv_rtt_start_seq */
-@@ -132,9 +137,24 @@ static inline void tcpnv_reset(struct tcpnv *ca, struct sock *sk)
- static void tcpnv_init(struct sock *sk)
- {
- 	struct tcpnv *ca = inet_csk_ca(sk);
-+	int base_rtt;
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 1aca744..f650346 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -613,12 +613,22 @@ union bpf_attr {
+  * int bpf_setsockopt(bpf_socket, level, optname, optval, optlen)
+  *     Calls setsockopt. Not all opts are available, only those with
+  *     integer optvals plus TCP_CONGESTION.
+- *     Supported levels: SOL_SOCKET and IPROTO_TCP
++ *     Supported levels: SOL_SOCKET and IPPROTO_TCP
+  *     @bpf_socket: pointer to bpf_socket
+- *     @level: SOL_SOCKET or IPROTO_TCP
++ *     @level: SOL_SOCKET or IPPROTO_TCP
+  *     @optname: option name
+  *     @optval: pointer to option value
+- *     @optlen: length of optval in byes
++ *     @optlen: length of optval in bytes
++ *     Return: 0 or negative error
++ *
++ * int bpf_getsockopt(bpf_socket, level, optname, optval, optlen)
++ *     Calls getsockopt. Not all opts are available.
++ *     Supported levels: IPPROTO_TCP
++ *     @bpf_socket: pointer to bpf_socket
++ *     @level: IPPROTO_TCP
++ *     @optname: option name
++ *     @optval: pointer to option value
++ *     @optlen: length of optval in bytes
+  *     Return: 0 or negative error
+  *
+  * int bpf_skb_adjust_room(skb, len_diff, mode, flags)
+@@ -721,7 +731,8 @@ union bpf_attr {
+ 	FN(sock_map_update),		\
+ 	FN(xdp_adjust_meta),		\
+ 	FN(perf_event_read_value),	\
+-	FN(perf_prog_read_value),
++	FN(perf_prog_read_value),	\
++	FN(getsockopt),
  
- 	tcpnv_reset(ca, sk);
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 09e011f..ccf62f4 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -3273,7 +3273,7 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
  
-+	/* See if base_rtt is available from socket_ops bpf program.
-+	 * It is meant to be used in environments, such as communication
-+	 * within a datacenter, where we have reasonable estimates of
-+	 * RTTs
-+	 */
-+	base_rtt = tcp_call_bpf(sk, BPF_SOCK_OPS_BASE_RTT);
-+	if (base_rtt > 0) {
-+		ca->nv_base_rtt = base_rtt;
-+		ca->nv_lower_bound_rtt = (base_rtt * 205) >> 8; /* 80% */
-+	} else {
-+		ca->nv_base_rtt = 0;
-+		ca->nv_lower_bound_rtt = 0;
-+	}
-+
- 	ca->nv_allow_cwnd_growth = 1;
- 	ca->nv_min_rtt_reset_jiffies = jiffies + 2 * HZ;
- 	ca->nv_min_rtt = NV_INIT_RTT;
-@@ -144,6 +164,19 @@ static void tcpnv_init(struct sock *sk)
- 	ca->cwnd_growth_factor = 0;
- }
+ static const struct bpf_func_proto bpf_setsockopt_proto = {
+ 	.func		= bpf_setsockopt,
+-	.gpl_only	= true,
++	.gpl_only	= false,
+ 	.ret_type	= RET_INTEGER,
+ 	.arg1_type	= ARG_PTR_TO_CTX,
+ 	.arg2_type	= ARG_ANYTHING,
+@@ -3282,6 +3282,48 @@ static const struct bpf_func_proto bpf_setsockopt_proto = {
+ 	.arg5_type	= ARG_CONST_SIZE,
+ };
  
-+/* If provided, apply upper (base_rtt) and lower (lower_bound_rtt)
-+ * bounds to RTT.
-+ */
-+inline u32 nv_get_bounded_rtt(struct tcpnv *ca, u32 val)
++BPF_CALL_5(bpf_getsockopt, struct bpf_sock_ops_kern *, bpf_sock,
++	   int, level, int, optname, char *, optval, int, optlen)
 +{
-+	if (ca->nv_lower_bound_rtt > 0 && val < ca->nv_lower_bound_rtt)
-+		return ca->nv_lower_bound_rtt;
-+	else if (ca->nv_base_rtt > 0 && val > ca->nv_base_rtt)
-+		return ca->nv_base_rtt;
-+	else
-+		return val;
++	struct sock *sk = bpf_sock->sk;
++	int ret = 0;
++
++	if (!sk_fullsock(sk))
++		goto err_clear;
++
++#ifdef CONFIG_INET
++	if (level == SOL_TCP && sk->sk_prot->getsockopt == tcp_getsockopt) {
++		if (optname == TCP_CONGESTION) {
++			struct inet_connection_sock *icsk = inet_csk(sk);
++
++			if (!icsk->icsk_ca_ops || optlen <= 1)
++				goto err_clear;
++			strncpy(optval, icsk->icsk_ca_ops->name, optlen);
++			optval[optlen - 1] = 0;
++		} else {
++			goto err_clear;
++		}
++	} else {
++		goto err_clear;
++	}
++	return ret;
++#endif
++err_clear:
++	memset(optval, 0, optlen);
++	return -EINVAL;
 +}
 +
- static void tcpnv_cong_avoid(struct sock *sk, u32 ack, u32 acked)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
-@@ -265,6 +298,9 @@ static void tcpnv_acked(struct sock *sk, const struct ack_sample *sample)
- 	if (ca->nv_eval_call_cnt < 255)
- 		ca->nv_eval_call_cnt++;
- 
-+	/* Apply bounds to rtt. Only used to update min_rtt */
-+	avg_rtt = nv_get_bounded_rtt(ca, avg_rtt);
++static const struct bpf_func_proto bpf_getsockopt_proto = {
++	.func		= bpf_getsockopt,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_ANYTHING,
++	.arg3_type	= ARG_ANYTHING,
++	.arg4_type	= ARG_PTR_TO_UNINIT_MEM,
++	.arg5_type	= ARG_CONST_SIZE,
++};
 +
- 	/* update min rtt if necessary */
- 	if (avg_rtt < ca->nv_min_rtt)
- 		ca->nv_min_rtt = avg_rtt;
+ static const struct bpf_func_proto *
+ bpf_base_func_proto(enum bpf_func_id func_id)
+ {
+@@ -3460,6 +3502,8 @@ static const struct bpf_func_proto *
+ 	switch (func_id) {
+ 	case BPF_FUNC_setsockopt:
+ 		return &bpf_setsockopt_proto;
++	case BPF_FUNC_getsockopt:
++		return &bpf_getsockopt_proto;
+ 	case BPF_FUNC_sock_map_update:
+ 		return &bpf_sock_map_update_proto;
+ 	default:
+diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
+index e25dbf6..609514f 100644
+--- a/tools/testing/selftests/bpf/bpf_helpers.h
++++ b/tools/testing/selftests/bpf/bpf_helpers.h
+@@ -67,6 +67,9 @@ static int (*bpf_xdp_adjust_meta)(void *ctx, int offset) =
+ static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
+ 			     int optlen) =
+ 	(void *) BPF_FUNC_setsockopt;
++static int (*bpf_getsockopt)(void *ctx, int level, int optname, void *optval,
++			     int optlen) =
++	(void *) BPF_FUNC_getsockopt;
+ static int (*bpf_sk_redirect_map)(void *map, int key, int flags) =
+ 	(void *) BPF_FUNC_sk_redirect_map;
+ static int (*bpf_sock_map_update)(void *map, void *key, void *value,
 -- 
 2.9.5
