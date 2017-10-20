@@ -1,142 +1,79 @@
-From: Lawrence Brakmo <brakmo@fb.com>
-Subject: [PATCH net-next 4/5] bpf: sample BPF_SOCKET_OPS_BASE_RTT program
-Date: Fri, 20 Oct 2017 11:05:42 -0700
-Message-ID: <20171020180543.4156833-5-brakmo@fb.com>
-References: <20171020180543.4156833-1-brakmo@fb.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: removing bridge in vlan_filtering mode requests delete of
+ attached ports main MAC address
+Date: Fri, 20 Oct 2017 18:06:39 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882ACC9A4@ORSMSX115.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Kernel Team <kernel-team@fb.com>, Alexei Starovoitov <ast@fb.com>,
-        "Daniel Borkmann" <daniel@iogearbox.net>,
-        Blake Matheny <bmatheny@fb.com>,
-        "Lawrence Brakmo" <brakmo@fb.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Malek, Patryk" <patryk.malek@intel.com>,
+        Vlad Yasevich <vyasevic@redhat.com>,
+        "Keller, Jacob E" <jacob.e.keller@intel.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:48654 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753206AbdJTSGK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 14:06:10 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9KI4qZI019219
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:10 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dqmuhg9sw-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 11:06:10 -0700
-In-Reply-To: <20171020180543.4156833-1-brakmo@fb.com>
+Received: from mga04.intel.com ([192.55.52.120]:51883 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752727AbdJTSGl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Oct 2017 14:06:41 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sample socket_ops BPF program to test the BPF helper function
-bpf_getsocketops and the new socket_ops op BPF_SOCKET_OPS_BASE_RTT.
+> -----Original Message-----
+> From: Keller, Jacob E
+> Sent: Friday, October 20, 2017 10:23 AM
+> To: netdev@vger.kernel.org
+> Cc: Malek, Patryk <patryk.malek@intel.com>; 'Vlad Yasevich'
+> <vyasevic@redhat.com>
+> Subject: removing bridge in vlan_filtering mode requests delete of attached
+> ports main MAC address
+> 
+> Hi,
+> 
+> We've run into an issue with bridges set in vlan_filtering mode. Basically, if we
+> attach a device to a bridge which has enabled vlan_filtering, and then remove the
+> bridge, we end up requesting the driver of the attached device to remove its
+> own MAC HW address.
+> 
+> In i40e, at least, this causes the driver to actually delete such an address and then
+> it will no longer receive any traffic.
+> 
+> To reproduce this:
+> 
+> a) brctl addbr br0
+> b) brctl addif br0 enp<n>
+> # enable vlan filtering
+> c) echo 1 >/sys/class/net/br0/bridge/vlan_filtering
+> d) brctl delbr br0
+> 
+> Specifically this appears to happen because of how we automatically enter static
+> configuration for routes when vlan_filtering is enabled, and we call
+> br_fdb_unsync_static which will clear all the routes from the fdb table for the
+> device. See commit 2796d0c648c9 ("bridge: Automatically manage port
+> promiscuous mode.", 2014-05-16) for more details.
+> 
+> This happens to include the devices own default address, which results in the
+> bug.
+> 
+> I'm not sure if this is a driver bug, or if it's a bug in the bridging code.
+> 
+> Who would know more about this and what to do about this?
+> 
+> One obvious solution is to hard code the i40e device driver so that it does not
+> actually delete the HW address from the unicast filter list. This could work, but
+> seems to me like its papering over the problem. Is this just a known thing that
+> drivers should be aware of? I don't really know...
+> 
+> An alternative solution would be to possibly ignore any fdb addresses which
+> specifically target that port?
+> 
+> Any ideas?
 
-The program provides a base RTT of 80us when the calling flow is
-within a DC (as determined by the IPV6 prefix) and the congestion
-algorithm is "nv".
+For the record, adding a check to prevent unsync_static from removing addresses which are targetting the specific port does work to resolve this specific issue, but I'm sure it's not the correct solution as I expect that would cause other problems.
 
-Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked_by: Alexei Starovoitov <ast@fb.com>
----
- samples/bpf/Makefile           |  1 +
- samples/bpf/tcp_basertt_kern.c | 78 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 79 insertions(+)
- create mode 100644 samples/bpf/tcp_basertt_kern.c
+Thanks,
+Jake
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 3534ccf..ea2b9e6 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -129,6 +129,7 @@ always += tcp_bufs_kern.o
- always += tcp_cong_kern.o
- always += tcp_iw_kern.o
- always += tcp_clamp_kern.o
-+always += tcp_basertt_kern.o
- always += xdp_redirect_kern.o
- always += xdp_redirect_map_kern.o
- always += xdp_redirect_cpu_kern.o
-diff --git a/samples/bpf/tcp_basertt_kern.c b/samples/bpf/tcp_basertt_kern.c
-new file mode 100644
-index 0000000..4bf4fc5
---- /dev/null
-+++ b/samples/bpf/tcp_basertt_kern.c
-@@ -0,0 +1,78 @@
-+/* Copyright (c) 2017 Facebook
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * BPF program to set base_rtt to 80us when host is running TCP-NV and
-+ * both hosts are in the same datacenter (as determined by IPv6 prefix).
-+ *
-+ * Use load_sock_ops to load this BPF program.
-+ */
-+
-+#include <uapi/linux/bpf.h>
-+#include <uapi/linux/tcp.h>
-+#include <uapi/linux/if_ether.h>
-+#include <uapi/linux/if_packet.h>
-+#include <uapi/linux/ip.h>
-+#include <linux/socket.h>
-+#include "bpf_helpers.h"
-+#include "bpf_endian.h"
-+
-+#define DEBUG 1
-+
-+#define bpf_printk(fmt, ...)					\
-+({								\
-+	       char ____fmt[] = fmt;				\
-+	       bpf_trace_printk(____fmt, sizeof(____fmt),	\
-+				##__VA_ARGS__);			\
-+})
-+
-+SEC("sockops")
-+int bpf_basertt(struct bpf_sock_ops *skops)
-+{
-+	char cong[20];
-+	char nv[] = "nv";
-+	int rv = 0, n;
-+	int op;
-+
-+	op = (int) skops->op;
-+
-+#ifdef DEBUG
-+	bpf_printk("BPF command: %d\n", op);
-+#endif
-+
-+	/* Check if both hosts are in the same datacenter. For this
-+	 * example they are if the 1st 5.5 bytes in the IPv6 address
-+	 * are the same.
-+	 */
-+	if (skops->family == AF_INET6 &&
-+	    skops->local_ip6[0] == skops->remote_ip6[0] &&
-+	    (bpf_ntohl(skops->local_ip6[1]) & 0xfff00000) ==
-+	    (bpf_ntohl(skops->remote_ip6[1]) & 0xfff00000)) {
-+		switch (op) {
-+		case BPF_SOCK_OPS_BASE_RTT:
-+			n = bpf_getsockopt(skops, SOL_TCP, TCP_CONGESTION,
-+					   cong, sizeof(cong));
-+			if (!n && !__builtin_memcmp(cong, nv, sizeof(nv)+1)) {
-+				/* Set base_rtt to 80us */
-+				rv = 80;
-+			} else if (n) {
-+				rv = n;
-+			} else {
-+				rv = -1;
-+			}
-+			break;
-+		default:
-+			rv = -1;
-+		}
-+	} else {
-+		rv = -1;
-+	}
-+#ifdef DEBUG
-+	bpf_printk("Returning %d\n", rv);
-+#endif
-+	skops->reply = rv;
-+	return 1;
-+}
-+char _license[] SEC("license") = "GPL";
--- 
-2.9.5
+> 
+> Regards,
+> Jake
