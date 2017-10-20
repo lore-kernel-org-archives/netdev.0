@@ -1,81 +1,77 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [next-queue PATCH v9 6/6] igb: Add support
- for    CBS offload
-Date: Fri, 20 Oct 2017 01:47:02 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6C507C@ORSMSX101.amr.corp.intel.com>
-References: <20171017010128.22141-1-vinicius.gomes@intel.com>
- <20171017010128.22141-7-vinicius.gomes@intel.com>
+From: Joshua Kinard <kumba@gentoo.org>
+Subject: Re: [PATCH] net/ethernet/sgi: Code cleanup
+Date: Thu, 19 Oct 2017 22:00:46 -0400
+Message-ID: <a7a9232d-e53e-91b9-7cb8-6eccecb8af01@gentoo.org>
+References: <53f0ad54-514a-b572-5801-7bd237055f86@gentoo.org>
+ <20171019.132704.299365871401082792.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "rodney.cummings@ni.com" <rodney.cummings@ni.com>,
-        "Guedes, Andre" <andre.guedes@intel.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "Briano, Ivan" <ivan.briano@intel.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>,
-        "henrik@austad.us" <henrik@austad.us>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "levipearson@gmail.com" <levipearson@gmail.com>,
-        "Ong, Boon Leong" <boon.leong.ong@intel.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "Sanchez-Palencia, Jesus" <jesus.sanchez-palencia@intel.com>
-To: "Gomes, Vinicius" <vinicius.gomes@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:28843 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751620AbdJTBrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 19 Oct 2017 21:47:04 -0400
-In-Reply-To: <20171017010128.22141-7-vinicius.gomes@intel.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, linux-mips@linux-mips.org,
+        netdev@vger.kernel.org, tglx@linutronix.de,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171019.132704.299365871401082792.davem@davemloft.net>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
-> Of Vinicius Costa Gomes
-> Sent: Monday, October 16, 2017 6:01 PM
-> To: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org
-> Cc: rodney.cummings@ni.com; Guedes, Andre <andre.guedes@intel.com>;
-> jiri@resnulli.us; Briano, Ivan <ivan.briano@intel.com>;
-> richardcochran@gmail.com; henrik@austad.us; jhs@mojatatu.com;
-> levipearson@gmail.com; Ong, Boon Leong <boon.leong.ong@intel.com>;
-> xiyou.wangcong@gmail.com; Sanchez-Palencia, Jesus <jesus.sanchez-
-> palencia@intel.com>
-> Subject: [Intel-wired-lan] [next-queue PATCH v9 6/6] igb: Add support for
-> CBS offload
+On 10/19/2017 08:27, David Miller wrote:
+> From: Joshua Kinard <kumba@gentoo.org>
+> Date: Tue, 17 Oct 2017 13:54:30 -0400
 > 
-> From: Andre Guedes <andre.guedes@intel.com>
+>> From: Joshua Kinard <kumba@gentoo.org>
+>>
+>> The below patch attempts to clean up the code for the in-tree driver
+>> for IOC3 ethernet and serial console support, primarily used by SGI
+>> MIPS platforms.  Notable changes include:
+>>
+>>   - Lots of whitespace cleanup
+>>   - Using shorthand integer types (u16, u32, etc) where appropriate
 > 
-> This patch adds support for Credit-Based Shaper (CBS) qdisc offload
-> from Traffic Control system. This support enable us to leverage the
-> Forwarding and Queuing for Time-Sensitive Streams (FQTSS) features
-> from Intel i210 Ethernet Controller. FQTSS is the former 802.1Qav
-> standard which was merged into 802.1Q in 2014. It enables traffic
-> prioritization and bandwidth reservation via the Credit-Based Shaper
-> which is implemented in hardware by i210 controller.
-> 
-> The patch introduces the igb_setup_tc() function which implements the
-> support for CBS qdisc hardware offload in the IGB driver. CBS offload
-> is the only traffic control offload supported by the driver at the
-> moment.
-> 
-> FQTSS transmission mode from i210 controller is automatically enabled
-> by the IGB driver when the CBS is enabled for the first hardware
-> queue. Likewise, FQTSS mode is automatically disabled when CBS is
-> disabled for the last hardware queue. Changing FQTSS mode requires NIC
-> reset.
-> 
-> FQTSS feature is supported by i210 controller only.
-> 
-> Signed-off-by: Andre Guedes <andre.guedes@intel.com>
-> ---
->  drivers/net/ethernet/intel/igb/e1000_defines.h |  23 ++
->  drivers/net/ethernet/intel/igb/e1000_regs.h    |   8 +
->  drivers/net/ethernet/intel/igb/igb.h           |   6 +
->  drivers/net/ethernet/intel/igb/igb_main.c      | 347
-> +++++++++++++++++++++++++
->  4 files changed, 384 insertions(+)
+> These seem to be arbitrary, "unsigned int" is a fine value for a
+> hash computation.
 
->From a regression standpoint:
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+I can back those changes out if you'd like.  I was aiming more for consistency.
+ There is one specific change that is required, where the IP protocol number is
+being parsed into a signed char field when it should be unsigned char.  I can
+send that in as its own patch if you'd like.
+
+
+> You're also making many different kinds of changes in one patch
+> which makes it very difficult to review.
+
+This patch is more of a preparation patch, because I have additional pending
+changes to move towards using the IOC3 "metadriver" (drivers/sn/ioc3.c) on the
+supported MIPS/SGI systems.  That metadriver is only used by IA64 right now.
+The changes in this patch were primarily to reduce the diff size of the
+metadriver patch when I get time to get it cleaned up.
+
+I can either try for a v2 of this patch to split it up, or hold off and make it
+part of the metadriver patch.  I figured since that patch will need to go
+through several subsystem reviewers, better to try sending this one in first.
+
+
+> This driver is also for such ancient hardware, that the risk
+> of potentially breaking the driver far outweighs the value of
+> "cleaning up" the code.
+
+I am familiar with this hardware, actually.  I have several SGI machines
+powered on periodically that use this particular chip, and am familiar with its
+quirks and frustrations.  Although it's been a while since I tested this
+specific batch of changes by itself, the last time I did, the machine booted
+fine.  With the metadriver patch applied on top, I know this driver works
+well-enough.
+
+-- 
+Joshua Kinard
+Gentoo/MIPS
+kumba@gentoo.org
+6144R/F5C6C943 2015-04-27
+177C 1972 1FB8 F254 BAD0 3E72 5C63 F4E3 F5C6 C943
+
+"The past tempts us, the present confuses us, the future frightens us.  And our
+lives slip away, moment by moment, lost in that vast, terrible in-between."
+
+--Emperor Turhan, Centauri Republic
