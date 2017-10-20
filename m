@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/sched: Set the net-device for egress
- device instance
-Date: Fri, 20 Oct 2017 13:09:56 +0100 (WEST)
-Message-ID: <20171020.130956.1734881299113022955.davem@davemloft.net>
-References: <1508341088-20043-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 00/13] s390/net: updates 2017-10-18
+Date: Fri, 20 Oct 2017 13:12:27 +0100 (WEST)
+Message-ID: <20171020.131227.2274169939039862173.davem@davemloft.net>
+References: <20171018154025.73630-1-jwi@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mlxsw@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: jwi@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37198 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37222 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753006AbdJTMKA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 08:10:00 -0400
-In-Reply-To: <1508341088-20043-1-git-send-email-ogerlitz@mellanox.com>
+        with ESMTP id S1752727AbdJTMMf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 08:12:35 -0400
+In-Reply-To: <20171018154025.73630-1-jwi@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 18 Oct 2017 18:38:08 +0300
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Date: Wed, 18 Oct 2017 17:40:12 +0200
 
-> Currently the netdevice field is not set and the egdev instance
-> is not functional, fix that.
-> 
-> Fixes: 3f55bdda8df ('net: sched: introduce per-egress action device callbacks')
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> please apply some additional robustness fixes and cleanups for 4.15.
 
-Applied, thanks.
+Series applied.
