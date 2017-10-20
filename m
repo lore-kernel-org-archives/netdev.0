@@ -1,123 +1,62 @@
-From: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 02/15] drivers, net, ethernet: convert
- mtk_eth.dma_refcnt from atomic_t to refcount_t
-Date: Fri, 20 Oct 2017 16:08:47 +0800
-Message-ID: <1508486927.29850.12.camel@mtkswgap22>
-References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
- <1508484229-19706-3-git-send-email-elena.reshetova@intel.com>
+From: Bhumika Goyal <bhumirks-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 02/15] usb: gadget: make config_item_type structures const
+Date: Fri, 20 Oct 2017 10:13:11 +0200
+Message-ID: <CAOH+1jFxhiF8j6MM9txfcs1SHOAuYihq=GZWmVb+wUR5aUCsnQ@mail.gmail.com>
+References: <1508167134-6243-1-git-send-email-bhumirks@gmail.com>
+ <1985905.z83BJQzMUS@avalon> <20171019140657.GA22233@lst.de> <6348630.r2z9ev4yl2@avalon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org,
- zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ganeshgr-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
- ajk-iz34hMvxm2Hmj42eshorlhS11BummzK+@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org, matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-To: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1508484229-19706-3-git-send-email-elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>,
+        Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+        "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>,
+        Len Brown <lenb-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Alexander Shishkin <alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, knaack.h-Mmb7MZpHnFY@public.gmane.org,
+        Lars-Peter Clausen <lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org>,
+        Peter Meerwald-Stadler <pmeerw-jW+XmwGofnusTnJN9+BGXg@public.gmane.org>,
+        dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, sagi-NQWnxTmZq1alnMjI0IkVqw@public.gmane.org,
+        kishon-l0cyMroinI0@public.gmane.org, Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        nab-IzHhD5pYlfBP7FQvKIMDCQ@public.gmane.org, balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        "gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org" <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Joel Becker <jlbec-aKy9MeLSZ9dg9hUCZPvPmw@public.gmane.org>, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mfasheh-rOS7oXVqrJRBDgjK7y7TUQ@public.gmane.org,
+        ACPI Devel Maling List <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel Mailing List <linux
+To: Laurent Pinchart <laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org>
+Return-path: <linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <6348630.r2z9ev4yl2@avalon>
+Sender: linux-iio-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-10-20 at 10:23 +0300, Elena Reshetova wrote:
-> atomic_t variables are currently used to implement reference
-> counters with the following properties:
->  - counter is initialized to 1 using atomic_set()
->  - a resource is freed upon counter reaching zero
->  - once counter reaches zero, its further
->    increments aren't allowed
->  - counter schema uses basic atomic operations
->    (set, inc, inc_not_zero, dec_and_test, etc.)
-> 
-> Such atomic variables should be converted to a newly provided
-> refcount_t type and API that prevents accidental counter overflows
-> and underflows. This is important since overflows and underflows
-> can lead to use-after-free situation and be exploitable.
-> 
-> The variable mtk_eth.dma_refcnt is used as pure reference counter.
-> Convert it to refcount_t and fix up the operations.
-> 
-> Suggested-by: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-> Reviewed-by: David Windsor <dwindsor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Reviewed-by: Hans Liljestrand <ishkamiel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Elena Reshetova <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.c | 8 +++++---
->  drivers/net/ethernet/mediatek/mtk_eth_soc.h | 4 +++-
->  2 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> index 5e81a72..54adfd9 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-> @@ -1817,7 +1817,7 @@ static int mtk_open(struct net_device *dev)
->  	struct mtk_eth *eth = mac->hw;
->  
->  	/* we run 2 netdevs on the same dma ring so we only bring it up once */
-> -	if (!atomic_read(&eth->dma_refcnt)) {
-> +	if (!refcount_read(&eth->dma_refcnt)) {
->  		int err = mtk_start_dma(eth);
->  
->  		if (err)
-> @@ -1827,8 +1827,10 @@ static int mtk_open(struct net_device *dev)
->  		napi_enable(&eth->rx_napi);
->  		mtk_tx_irq_enable(eth, MTK_TX_DONE_INT);
->  		mtk_rx_irq_enable(eth, MTK_RX_DONE_INT);
-> +		refcount_set(&eth->dma_refcnt, 1);
+On Thu, Oct 19, 2017 at 5:05 PM, Laurent Pinchart
+<laurent.pinchart-ryLnwIuWjnjg/C1BVhZhaw@public.gmane.org> wrote:
+> Hi Christoph,
+>
+> On Thursday, 19 October 2017 17:06:57 EEST Christoph Hellwig wrote:
+>> > Now we have 9 const instances of the config_item_type structure that are
+>> > identical, with only the .ct_owner field set. Should they be all merged
+>> > into a single structure ?
+>>
+>> I think that's a good idea.
+>>
+>> But I'm about to slurp up this whole series into my tree, how about making
+>> that an incremental patch?
+>
+> I'm fine with that.
+>
+> Bhumika, would you like to submit an incremental patch, or should I do it ?
+>
 
-the existing driver seems to have a missing initial atomic_set for the
-eth->dma_refcnt. 
+I will submit a patch for merging these structures.
+But should I make a separate patch for this particular change or send
+a v3 for the whole series?
 
->  	}
-> -	atomic_inc(&eth->dma_refcnt);
-> +	else
-> +		refcount_inc(&eth->dma_refcnt);
->  
+Thanks,
+Bhumika
 
-how about add the initial refcount_set into probe handler, and keep
-logic else unchanged ? 
-
->  	phy_start(dev->phydev);
->  	netif_start_queue(dev);
-> @@ -1868,7 +1870,7 @@ static int mtk_stop(struct net_device *dev)
->  	phy_stop(dev->phydev);
->  
->  	/* only shutdown DMA if this is the last user */
-> -	if (!atomic_dec_and_test(&eth->dma_refcnt))
-> +	if (!refcount_dec_and_test(&eth->dma_refcnt))
->  		return 0;
->  
->  	mtk_tx_irq_disable(eth, MTK_TX_DONE_INT);
-> diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> index 3d3c24a..a3af466 100644
-> --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-> @@ -15,6 +15,8 @@
->  #ifndef MTK_ETH_H
->  #define MTK_ETH_H
->  
-> +#include <linux/refcount.h>
-> +
->  #define MTK_QDMA_PAGE_SIZE	2048
->  #define	MTK_MAX_RX_LENGTH	1536
->  #define MTK_TX_DMA_BUF_LEN	0x3fff
-> @@ -632,7 +634,7 @@ struct mtk_eth {
->  	struct regmap			*pctl;
->  	u32				chip_id;
->  	bool				hwlro;
-> -	atomic_t			dma_refcnt;
-> +	refcount_t			dma_refcnt;
->  	struct mtk_tx_ring		tx_ring;
->  	struct mtk_rx_ring		rx_ring[MTK_MAX_RX_RING_NUM];
->  	struct mtk_rx_ring		rx_ring_qdma;
+> --
+> Regards,
+>
+> Laurent Pinchart
+>
