@@ -1,7 +1,7 @@
 From: Jose Abreu <Jose.Abreu@synopsys.com>
-Subject: [PATCH net-next 1/3] net: stmmac: Add missing call to dev_kfree_skb()
-Date: Fri, 20 Oct 2017 14:37:34 +0100
-Message-ID: <5f6cab10ae28cb66374dcaeb8ba5d169d6fda783.1508506265.git.joabreu@synopsys.com>
+Subject: [PATCH net-next 2/3] net: stmmac: Fix stmmac_get_rx_hwtstamp()
+Date: Fri, 20 Oct 2017 14:37:35 +0100
+Message-ID: <7de5fdcba82b9196be8ffd5e38fe93bdf20a98e8.1508506265.git.joabreu@synopsys.com>
 References: <cover.1508506265.git.joabreu@synopsys.com>
 Cc: Jose Abreu <Jose.Abreu@synopsys.com>,
         "David S. Miller" <davem@davemloft.net>,
@@ -16,11 +16,11 @@ References: <cover.1508506265.git.joabreu@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When RX HW timestamp is enabled and a frame is discarded we are
-not freeing the skb but instead only setting to NULL the entry.
+When using GMAC4 the valid timestamp is from CTX next desc but
+we are passing the previous desc to get_rx_timestamp_status()
+callback.
 
-Add a call to dev_kfree_skb_any() so that skb entry is correctly
-freed.
+Fix this and while at it rework a little bit the function logic.
 
 Signed-off-by: Jose Abreu <joabreu@synopsys.com>
 Cc: David S. Miller <davem@davemloft.net>
@@ -28,20 +28,38 @@ Cc: Joao Pinto <jpinto@synopsys.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Cc: Alexandre Torgue <alexandre.torgue@st.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 0e1b0a3..f7b7906 100644
+index f7b7906..0d3fd3b 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3358,6 +3358,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
- 				 * them in stmmac_rx_refill() function so that
- 				 * device can reuse it.
- 				 */
-+				dev_kfree_skb_any(rx_q->rx_skbuff[entry]);
- 				rx_q->rx_skbuff[entry] = NULL;
- 				dma_unmap_single(priv->device,
- 						 rx_q->rx_skbuff_dma[entry],
+@@ -473,19 +473,18 @@ static void stmmac_get_rx_hwtstamp(struct stmmac_priv *priv, struct dma_desc *p,
+ 				   struct dma_desc *np, struct sk_buff *skb)
+ {
+ 	struct skb_shared_hwtstamps *shhwtstamp = NULL;
++	struct dma_desc *desc = p;
+ 	u64 ns;
+ 
+ 	if (!priv->hwts_rx_en)
+ 		return;
++	/* For GMAC4, the valid timestamp is from CTX next desc. */
++	if (priv->plat->has_gmac4)
++		desc = np;
+ 
+ 	/* Check if timestamp is available */
+-	if (priv->hw->desc->get_rx_timestamp_status(p, priv->adv_ts)) {
+-		/* For GMAC4, the valid timestamp is from CTX next desc. */
+-		if (priv->plat->has_gmac4)
+-			ns = priv->hw->desc->get_timestamp(np, priv->adv_ts);
+-		else
+-			ns = priv->hw->desc->get_timestamp(p, priv->adv_ts);
+-
++	if (priv->hw->desc->get_rx_timestamp_status(desc, priv->adv_ts)) {
++		ns = priv->hw->desc->get_timestamp(desc, priv->adv_ts);
+ 		netdev_dbg(priv->dev, "get valid RX hw timestamp %llu\n", ns);
+ 		shhwtstamp = skb_hwtstamps(skb);
+ 		memset(shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
 -- 
 1.9.1
