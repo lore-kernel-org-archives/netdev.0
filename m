@@ -1,85 +1,86 @@
-From: Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: RFC(v2): Audit Kernel Container IDs
-Date: Thu, 19 Oct 2017 22:25:54 -0400
-Message-ID: <2180320.n4TdndeGoA@x2>
-References: <20171012141359.saqdtnodwmbz33b2@madcap2.tricolour.ca> <20171019195747.4ssujtaj3f5ipsoh@madcap2.tricolour.ca> <8f495870-dd6c-23b9-b82b-4228a441c729@suse.de>
+From: joeyli <jlee@suse.com>
+Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when
+ the kernel is locked down
+Date: Fri, 20 Oct 2017 10:47:32 +0800
+Message-ID: <20171020024732.GJ3285@linux-l9pv.suse>
+References: <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk>
+ <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk>
+ <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Carlos O'Donell <carlos-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>,
-        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Aleksa Sarai <asarai-l3A5Bk7waGM@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8f495870-dd6c-23b9-b82b-4228a441c729-l3A5Bk7waGM@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Howells <dhowells@redhat.com>,
+        linux-security-module@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
+        linux-efi@vger.kernel.org, matthew.garrett@nebula.com,
+        gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+        jforbes@redhat.com, Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Gary Lin <GLin@suse.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.nue.novell.com ([195.135.221.5]:49762 "EHLO
+        smtp.nue.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751708AbdJTCsD (ORCPT
+        <rfc822;groupwise-netdev@vger.kernel.org:0:0>);
+        Thu, 19 Oct 2017 22:48:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, October 19, 2017 7:11:33 PM EDT Aleksa Sarai wrote:
-> >>> The registration is a pseudo filesystem (proc, since PID tree already
-> >>> exists) write of a u8[16] UUID representing the container ID to a file
-> >>> representing a process that will become the first process in a new
-> >>> container.  This write might place restrictions on mount namespaces
-> >>> required to define a container, or at least careful checking of
-> >>> namespaces in the kernel to verify permissions of the orchestrator so it
-> >>> can't change its own container ID.  A bind mount of nsfs may be
-> >>> necessary in the container orchestrator's mntNS.
-> >>> Note: Use a 128-bit scalar rather than a string to make compares faster
-> >>> and simpler.
-> >>> 
-> >>> Require a new CAP_CONTAINER_ADMIN to be able to carry out the
-> >>> registration.
-> >> 
-> >> Wouldn't CAP_AUDIT_WRITE be sufficient? After all, this is for auditing.
+Hi Alexei,
+
+Thanks for your review! 
+
+On Thu, Oct 19, 2017 at 03:18:30PM -0700, Alexei Starovoitov wrote:
+> On Thu, Oct 19, 2017 at 03:52:49PM +0100, David Howells wrote:
+> > From: Chun-Yi Lee <jlee@suse.com>
 > > 
-> > No, because then any process with that capability (vsftpd) could change
-> > its own container ID.  This is discussed more in other parts of the
-> > thread...
+> > There are some bpf functions can be used to read kernel memory:
+> > bpf_probe_read, bpf_probe_write_user and bpf_trace_printk.  These allow
+> > private keys in kernel memory (e.g. the hibernation image signing key) to
+> > be read by an eBPF program.  Prohibit those functions when the kernel is
+> > locked down.
+> > 
+> > Signed-off-by: Chun-Yi Lee <jlee@suse.com>
+> > Signed-off-by: David Howells <dhowells@redhat.com>
+> > cc: netdev@vger.kernel.org
+> > ---
+> > 
+> >  kernel/trace/bpf_trace.c |   11 +++++++++++
+> >  1 file changed, 11 insertions(+)
+> > 
+> > diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+> > index dc498b605d5d..35e85a3fdb37 100644
+> > --- a/kernel/trace/bpf_trace.c
+> > +++ b/kernel/trace/bpf_trace.c
+> > @@ -65,6 +65,11 @@ BPF_CALL_3(bpf_probe_read, void *, dst, u32, size, const void *, unsafe_ptr)
+> >  {
+> >  	int ret;
+> >  
+> > +	if (kernel_is_locked_down("BPF")) {
+> > +		memset(dst, 0, size);
+> > +		return -EPERM;
+> > +	}
+> 
+> That doesn't help the lockdown purpose.
+> If you don't trust the root the only way to prevent bpf read
+> memory is to disable the whole thing.
 
-For the record, I changed my mind. CAP_AUDIT_CONTROL is the correct 
-capability. 
+Not totally untrust root, I don't want that root reads
+arbitrary memory address through bpf.
 
-> Not if we make the container ID append-only (to support nesting), or
-> write-once (the other idea thrown around). 
+Is it not enough to lock down bpf_probe_read, bpf_probe_write_user
+and bpf_trace_printk?
 
-Well...I like to use lessons learned if they can be applied. In the normal 
-world without containers we have uid, auid, and session_id. uid is who you are 
-now, auid is how you got into the system, session_id distinguishes individual 
-auids. We have a default auid of -1 for system objects and a real number for 
-people.
+> Have a single check in sys_bpf() to disallow everything if kernel_is_locked_down()
+> and don't add overhead to critical path like bpf_probe_read().
+>
 
-I think there should be the equivalent of auid and session_id but tailored for 
-containers. Loginuid == container id. It can be set, overridden, or appended 
-to (we'll figure this out later) in very limited circumstances. 
-Container_session == session which is tamper-proof. This way things can enter 
-a container with the same ID but under a different session. And everything 
-else gets to inherit the original ID. This way we can trace actions to 
-something that entered the container rather than normal system activity in the 
-container.
+Yes, it give overhead to bpf_probe_read but it prevents arbitrary
+memory read.
 
-What a security officer wants to know is what did people do inside the 
-system / container. The system objects we typically don't care about. Sure 
-they might get hacked and then work on behalf of someone, but they would 
-almost always pop a shell so that they can have freedom. That should set off 
-an AVC or create other activity that gets picked up.
+Another idea is signing bpf bytecode then verifying signture when
+loading to kernel. 
 
--Steve
-
-> In that case, you can't move "out" from a particular container ID, you can
-> only go "deeper". These semantics don't make sense for generic containers,
-> but since the point of this facility is *specifically* for audit I imagine
-> that not being able to move a process from a sub-container's ID is a
-> benefit.
+Thanks a lot!
+Joey Lee 
