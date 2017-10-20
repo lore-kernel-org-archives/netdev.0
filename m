@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH net-next 2/2] net: hns3: Add mac loopback selftest support in hns3 driver
-Date: Fri, 20 Oct 2017 10:19:22 +0800
-Message-ID: <1508465962-60176-3-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH net-next 1/2] net: hns3: Refactor the skb receiving and transmitting function
+Date: Fri, 20 Oct 2017 10:19:21 +0800
+Message-ID: <1508465962-60176-2-git-send-email-linyunsheng@huawei.com>
 References: <1508465962-60176-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,394 +12,91 @@ Cc: <huangdaode@hisilicon.com>, <xuwei5@hisilicon.com>,
         <salil.mehta@huawei.com>, <lipeng321@huawei.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga05-in.huawei.com ([45.249.212.191]:9000 "EHLO
-        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751497AbdJTBcc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 21:32:32 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1508465962-60176-1-git-send-email-linyunsheng@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds mac loopback selftest support for ethtool cmd
-by checking if a transmitted packet can be received correctly
-when mac loopback is enabled.
+This patch refactors the skb receiving and transmitting functions
+and export them in order to support the ethtool's mac loopback
+selftest.
 
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    |  54 ++++
- .../ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c  | 273 +++++++++++++++++++++
- 2 files changed, 327 insertions(+)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 17 ++++++++++++-----
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  4 ++++
+ 2 files changed, 16 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index c322b45..e5454e0 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -3149,6 +3149,59 @@ static void hclge_cfg_mac_mode(struct hclge_dev *hdev, bool enable)
- 			"mac enable fail, ret =%d.\n", ret);
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index 8fa4e65..8383d67 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -900,8 +900,7 @@ static void hns_nic_dma_unmap(struct hns3_enet_ring *ring, int next_to_use_orig)
+ 	}
  }
  
-+static int hclge_set_loopback(struct hnae3_handle *handle,
-+			      enum hnae3_loop loop_mode, bool en)
-+{
-+	struct hclge_vport *vport = hclge_get_vport(handle);
-+	struct hclge_config_mac_mode_cmd *req;
-+	struct hclge_dev *hdev = vport->back;
-+	struct hclge_desc desc;
-+	u32 loop_en;
-+	int ret;
-+
-+	switch (loop_mode) {
-+	case HNAE3_MAC_INTER_LOOP_MAC:
-+		req = (struct hclge_config_mac_mode_cmd *)&desc.data[0];
-+		/* 1 Read out the MAC mode config at first */
-+		hclge_cmd_setup_basic_desc(&desc,
-+					   HCLGE_OPC_CONFIG_MAC_MODE,
-+					   true);
-+		ret = hclge_cmd_send(&hdev->hw, &desc, 1);
-+		if (ret) {
-+			dev_err(&hdev->pdev->dev,
-+				"mac loopback get fail, ret =%d.\n",
-+				ret);
-+			return ret;
-+		}
-+
-+		/* 2 Then setup the loopback flag */
-+		loop_en = le32_to_cpu(req->txrx_pad_fcs_loop_en);
-+		if (en)
-+			hnae_set_bit(loop_en, HCLGE_MAC_APP_LP_B, 1);
-+		else
-+			hnae_set_bit(loop_en, HCLGE_MAC_APP_LP_B, 0);
-+
-+		req->txrx_pad_fcs_loop_en = cpu_to_le32(loop_en);
-+
-+		/* 3 Config mac work mode with loopback flag
-+		 * and its original configure parameters
-+		 */
-+		hclge_cmd_reuse_desc(&desc, false);
-+		ret = hclge_cmd_send(&hdev->hw, &desc, 1);
-+		if (ret)
-+			dev_err(&hdev->pdev->dev,
-+				"mac loopback set fail, ret =%d.\n", ret);
-+		break;
-+	default:
-+		ret = -ENOTSUPP;
-+		dev_err(&hdev->pdev->dev,
-+			"loop_mode %d is not supported\n", loop_mode);
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- static int hclge_tqp_enable(struct hclge_dev *hdev, int tqp_id,
- 			    int stream_id, bool enable)
+-static netdev_tx_t hns3_nic_net_xmit(struct sk_buff *skb,
+-				     struct net_device *netdev)
++netdev_tx_t hns3_nic_net_xmit(struct sk_buff *skb, struct net_device *netdev)
  {
-@@ -4486,6 +4539,7 @@ static void hclge_uninit_ae_dev(struct hnae3_ae_dev *ae_dev)
- 	.unmap_ring_from_vector = hclge_unmap_ring_from_vector,
- 	.get_vector = hclge_get_vector,
- 	.set_promisc_mode = hclge_set_promisc_mode,
-+	.set_loopback = hclge_set_loopback,
- 	.start = hclge_ae_start,
- 	.stop = hclge_ae_stop,
- 	.get_status = hclge_get_status,
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-index ddbd7f3..6c469e4 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-@@ -59,6 +59,16 @@ struct hns3_stats {
- 
- #define HNS3_TQP_STATS_COUNT (HNS3_TXQ_STATS_COUNT + HNS3_RXQ_STATS_COUNT)
- 
-+#define HNS3_SELF_TEST_TPYE_NUM		1
-+#define HNS3_NIC_LB_TEST_PKT_NUM	1
-+#define HNS3_NIC_LB_TEST_RING_ID	0
-+#define HNS3_NIC_LB_TEST_PACKET_SIZE	128
-+
-+/* Nic loopback test err  */
-+#define HNS3_NIC_LB_TEST_NO_MEM_ERR	1
-+#define HNS3_NIC_LB_TEST_TX_CNT_ERR	2
-+#define HNS3_NIC_LB_TEST_RX_CNT_ERR	3
-+
- struct hns3_link_mode_mapping {
- 	u32 hns3_link_mode;
- 	u32 ethtool_link_mode;
-@@ -77,6 +87,268 @@ struct hns3_link_mode_mapping {
- 	{HNS3_LM_1000BASET_FULL_BIT, ETHTOOL_LINK_MODE_1000baseT_Full_BIT},
- };
- 
-+static int hns3_lp_setup(struct net_device *ndev, enum hnae3_loop loop)
-+{
-+	struct hnae3_handle *h = hns3_get_handle(ndev);
-+	int ret;
-+
-+	if (!h->ae_algo->ops->set_loopback ||
-+	    !h->ae_algo->ops->set_promisc_mode)
-+		return -EOPNOTSUPP;
-+
-+	switch (loop) {
-+	case HNAE3_MAC_INTER_LOOP_MAC:
-+		ret = h->ae_algo->ops->set_loopback(h, loop, true);
-+		break;
-+	case HNAE3_MAC_LOOP_NONE:
-+		ret = h->ae_algo->ops->set_loopback(h,
-+			HNAE3_MAC_INTER_LOOP_MAC, false);
-+		break;
-+	default:
-+		ret = -ENOTSUPP;
-+		break;
-+	}
-+
-+	if (ret)
-+		return ret;
-+
-+	if (loop == HNAE3_MAC_LOOP_NONE)
-+		h->ae_algo->ops->set_promisc_mode(h, ndev->flags & IFF_PROMISC);
-+	else
-+		h->ae_algo->ops->set_promisc_mode(h, 1);
-+
-+	return ret;
-+}
-+
-+static int hns3_lp_up(struct net_device *ndev, enum hnae3_loop loop_mode)
-+{
-+	struct hnae3_handle *h = hns3_get_handle(ndev);
-+	int ret;
-+
-+	if (!h->ae_algo->ops->start)
-+		return -EOPNOTSUPP;
-+
-+	ret = h->ae_algo->ops->start(h);
-+	if (ret) {
-+		netdev_err(ndev,
-+			   "hns3_lb_up ae start return error: %d\n", ret);
-+		return ret;
-+	}
-+
-+	ret = hns3_lp_setup(ndev, loop_mode);
-+	usleep_range(10000, 20000);
-+
-+	return ret;
-+}
-+
-+static int hns3_lp_down(struct net_device *ndev)
-+{
-+	struct hnae3_handle *h = hns3_get_handle(ndev);
-+	int ret;
-+
-+	if (!h->ae_algo->ops->stop)
-+		return -EOPNOTSUPP;
-+
-+	ret = hns3_lp_setup(ndev, HNAE3_MAC_LOOP_NONE);
-+	if (ret) {
-+		netdev_err(ndev, "lb_setup return error: %d\n", ret);
-+		return ret;
-+	}
-+
-+	h->ae_algo->ops->stop(h);
-+	usleep_range(10000, 20000);
-+
-+	return 0;
-+}
-+
-+static void hns3_lp_setup_skb(struct sk_buff *skb)
-+{
-+	struct net_device *ndev = skb->dev;
-+	unsigned char *packet;
-+	struct ethhdr *ethh;
-+	unsigned int i;
-+
-+	skb_reserve(skb, NET_IP_ALIGN);
-+	ethh = skb_put(skb, sizeof(struct ethhdr));
-+	packet = skb_put(skb, HNS3_NIC_LB_TEST_PACKET_SIZE);
-+
-+	memcpy(ethh->h_dest, ndev->dev_addr, ETH_ALEN);
-+	eth_zero_addr(ethh->h_source);
-+	ethh->h_proto = htons(ETH_P_ARP);
-+	skb_reset_mac_header(skb);
-+
-+	for (i = 0; i < HNS3_NIC_LB_TEST_PACKET_SIZE; i++)
-+		packet[i] = (unsigned char)(i & 0xff);
-+}
-+
-+static void hns3_lb_check_skb_data(struct hns3_enet_ring *ring,
-+				   struct sk_buff *skb)
-+{
-+	struct hns3_enet_tqp_vector *tqp_vector = ring->tqp_vector;
-+	unsigned char *packet = skb->data;
-+	u32 i;
-+
-+	for (i = 0; i < skb->len; i++)
-+		if (packet[i] != (unsigned char)(i & 0xff))
-+			break;
-+
-+	/* The packet is correctly received */
-+	if (i == skb->len)
-+		tqp_vector->rx_group.total_packets++;
-+	else
-+		print_hex_dump(KERN_ERR, "selftest:", DUMP_PREFIX_OFFSET, 16, 1,
-+			       skb->data, skb->len, true);
-+
-+	dev_kfree_skb_any(skb);
-+}
-+
-+static u32 hns3_lb_check_rx_ring(struct hns3_nic_priv *priv, u32 budget)
-+{
-+	struct hnae3_handle *h = priv->ae_handle;
-+	struct hnae3_knic_private_info *kinfo;
-+	u32 i, rcv_good_pkt_total = 0;
-+
-+	kinfo = &h->kinfo;
-+	for (i = kinfo->num_tqps; i < kinfo->num_tqps * 2; i++) {
-+		struct hns3_enet_ring *ring = priv->ring_data[i].ring;
-+		struct hns3_enet_ring_group *rx_group;
-+		u64 pre_rx_pkt;
-+
-+		rx_group = &ring->tqp_vector->rx_group;
-+		pre_rx_pkt = rx_group->total_packets;
-+
-+		hns3_clean_rx_ring(ring, budget, hns3_lb_check_skb_data);
-+
-+		rcv_good_pkt_total += (rx_group->total_packets - pre_rx_pkt);
-+		rx_group->total_packets = pre_rx_pkt;
-+	}
-+	return rcv_good_pkt_total;
-+}
-+
-+static void hns3_lb_clear_tx_ring(struct hns3_nic_priv *priv, u32 start_ringid,
-+				  u32 end_ringid, u32 budget)
-+{
-+	u32 i;
-+
-+	for (i = start_ringid; i <= end_ringid; i++) {
-+		struct hns3_enet_ring *ring = priv->ring_data[i].ring;
-+
-+		hns3_clean_tx_ring(ring, budget);
-+	}
-+}
-+
-+/**
-+ * hns3_lp_run_test -  run loopback test
-+ * @ndev: net device
-+ * @mode: loopback type
-+ */
-+static int hns3_lp_run_test(struct net_device *ndev, enum hnae3_loop mode)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct sk_buff *skb;
-+	u32 i, good_cnt;
-+	int ret_val = 0;
-+
-+	skb = alloc_skb(HNS3_NIC_LB_TEST_PACKET_SIZE + ETH_HLEN + NET_IP_ALIGN,
-+			GFP_KERNEL);
-+	if (!skb)
-+		return HNS3_NIC_LB_TEST_NO_MEM_ERR;
-+
-+	skb->dev = ndev;
-+	hns3_lp_setup_skb(skb);
-+	skb->queue_mapping = HNS3_NIC_LB_TEST_RING_ID;
-+
-+	good_cnt = 0;
-+	for (i = 0; i < HNS3_NIC_LB_TEST_PKT_NUM; i++) {
-+		netdev_tx_t tx_ret;
-+
-+		skb_get(skb);
-+		tx_ret = hns3_nic_net_xmit(skb, ndev);
-+		if (tx_ret == NETDEV_TX_OK)
-+			good_cnt++;
-+		else
-+			netdev_err(ndev, "hns3_lb_run_test xmit failed: %d\n",
-+				   tx_ret);
-+	}
-+	if (good_cnt != HNS3_NIC_LB_TEST_PKT_NUM) {
-+		ret_val = HNS3_NIC_LB_TEST_TX_CNT_ERR;
-+		netdev_err(ndev, "mode %d sent fail, cnt=0x%x, budget=0x%x\n",
-+			   mode, good_cnt, HNS3_NIC_LB_TEST_PKT_NUM);
-+		goto out;
-+	}
-+
-+	/* Allow 200 milliseconds for packets to go from Tx to Rx */
-+	msleep(200);
-+
-+	good_cnt = hns3_lb_check_rx_ring(priv, HNS3_NIC_LB_TEST_PKT_NUM);
-+	if (good_cnt != HNS3_NIC_LB_TEST_PKT_NUM) {
-+		ret_val = HNS3_NIC_LB_TEST_RX_CNT_ERR;
-+		netdev_err(ndev, "mode %d recv fail, cnt=0x%x, budget=0x%x\n",
-+			   mode, good_cnt, HNS3_NIC_LB_TEST_PKT_NUM);
-+	}
-+
-+out:
-+	hns3_lb_clear_tx_ring(priv, HNS3_NIC_LB_TEST_RING_ID,
-+			      HNS3_NIC_LB_TEST_RING_ID,
-+			      HNS3_NIC_LB_TEST_PKT_NUM);
-+
-+	kfree_skb(skb);
-+	return ret_val;
-+}
-+
-+/**
-+ * hns3_nic_self_test - self test
-+ * @ndev: net device
-+ * @eth_test: test cmd
-+ * @data: test result
-+ */
-+static void hns3_self_test(struct net_device *ndev,
-+			   struct ethtool_test *eth_test, u64 *data)
-+{
-+	struct hns3_nic_priv *priv = netdev_priv(ndev);
-+	struct hnae3_handle *h = priv->ae_handle;
-+	int st_param[HNS3_SELF_TEST_TPYE_NUM][2];
-+	bool if_running = netif_running(ndev);
-+	int test_index = 0;
-+	u32 i;
-+
-+	/* Only do offline selftest, or pass by default */
-+	if (eth_test->flags != ETH_TEST_FL_OFFLINE)
-+		return;
-+
-+	st_param[HNAE3_MAC_INTER_LOOP_MAC][0] = HNAE3_MAC_INTER_LOOP_MAC;
-+	st_param[HNAE3_MAC_INTER_LOOP_MAC][1] =
-+			h->flags & HNAE3_SUPPORT_MAC_LOOPBACK;
-+
-+	if (if_running)
-+		dev_close(ndev);
-+
-+	set_bit(HNS3_NIC_STATE_TESTING, &priv->state);
-+
-+	for (i = 0; i < HNS3_SELF_TEST_TPYE_NUM; i++) {
-+		enum hnae3_loop loop_type = (enum hnae3_loop)st_param[i][0];
-+
-+		if (!st_param[i][1])
-+			continue;
-+
-+		data[test_index] = hns3_lp_up(ndev, loop_type);
-+		if (!data[test_index]) {
-+			data[test_index] = hns3_lp_run_test(ndev, loop_type);
-+			hns3_lp_down(ndev);
-+		}
-+
-+		if (data[test_index])
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+		test_index++;
-+	}
-+
-+	clear_bit(HNS3_NIC_STATE_TESTING, &priv->state);
-+
-+	if (if_running)
-+		dev_open(ndev);
-+}
-+
- static void hns3_driv_to_eth_caps(u32 caps, struct ethtool_link_ksettings *cmd,
- 				  bool is_advertised)
- {
-@@ -553,6 +825,7 @@ static int hns3_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
+ 	struct hns3_nic_priv *priv = netdev_priv(netdev);
+ 	struct hns3_nic_ring_data *ring_data =
+@@ -1943,6 +1942,11 @@ static void hns3_rx_checksum(struct hns3_enet_ring *ring, struct sk_buff *skb,
+ 	}
  }
  
- static const struct ethtool_ops hns3_ethtool_ops = {
-+	.self_test = hns3_self_test,
- 	.get_drvinfo = hns3_get_drvinfo,
- 	.get_link = hns3_get_link,
- 	.get_ringparam = hns3_get_ringparam,
++static void hns3_rx_skb(struct hns3_enet_ring *ring, struct sk_buff *skb)
++{
++	napi_gro_receive(&ring->tqp_vector->napi, skb);
++}
++
+ static int hns3_handle_rx_bd(struct hns3_enet_ring *ring,
+ 			     struct sk_buff **out_skb, int *out_bnum)
+ {
+@@ -2077,7 +2081,9 @@ static int hns3_handle_rx_bd(struct hns3_enet_ring *ring,
+ 	return 0;
+ }
+ 
+-static int hns3_clean_rx_ring(struct hns3_enet_ring *ring, int budget)
++int hns3_clean_rx_ring(
++		struct hns3_enet_ring *ring, int budget,
++		void (*rx_fn)(struct hns3_enet_ring *, struct sk_buff *))
+ {
+ #define RCB_NOF_ALLOC_RX_BUFF_ONCE 16
+ 	struct net_device *netdev = ring->tqp->handle->kinfo.netdev;
+@@ -2115,7 +2121,7 @@ static int hns3_clean_rx_ring(struct hns3_enet_ring *ring, int budget)
+ 
+ 		/* Do update ip stack process */
+ 		skb->protocol = eth_type_trans(skb, netdev);
+-		(void)napi_gro_receive(&ring->tqp_vector->napi, skb);
++		rx_fn(ring, skb);
+ 
+ 		recv_pkts++;
+ 	}
+@@ -2258,7 +2264,8 @@ static int hns3_nic_common_poll(struct napi_struct *napi, int budget)
+ 	rx_budget = max(budget / tqp_vector->num_tqps, 1);
+ 
+ 	hns3_for_each_ring(ring, tqp_vector->rx_group) {
+-		int rx_cleaned = hns3_clean_rx_ring(ring, rx_budget);
++		int rx_cleaned = hns3_clean_rx_ring(ring, rx_budget,
++						    hns3_rx_skb);
+ 
+ 		if (rx_cleaned >= rx_budget)
+ 			clean_complete = false;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+index 6659989..6228b26 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h
+@@ -597,6 +597,10 @@ static inline void hns3_write_reg(void __iomem *base, u32 reg, u32 value)
+ int hns3_clean_tx_ring(struct hns3_enet_ring *ring, int budget);
+ int hns3_init_all_ring(struct hns3_nic_priv *priv);
+ int hns3_uninit_all_ring(struct hns3_nic_priv *priv);
++netdev_tx_t hns3_nic_net_xmit(struct sk_buff *skb, struct net_device *netdev);
++int hns3_clean_rx_ring(
++		struct hns3_enet_ring *ring, int budget,
++		void (*rx_fn)(struct hns3_enet_ring *, struct sk_buff *));
+ 
+ #ifdef CONFIG_HNS3_DCB
+ void hns3_dcbnl_setup(struct hnae3_handle *handle);
 -- 
 1.9.1
