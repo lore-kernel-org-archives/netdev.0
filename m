@@ -1,278 +1,108 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH v3 net-next 2/2] net: dsa: lan9303: Add fdb/mdb manipulation
-Date: Fri, 20 Oct 2017 12:19:10 +0200
-Message-ID: <20171020101910.2245-3-privat@egil-hjelmeland.no>
-References: <20171020101910.2245-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171020101910.2245-1-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Reshetova, Elena" <elena.reshetova-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH 02/15] drivers, net, ethernet: convert
+ mtk_eth.dma_refcnt from atomic_t to refcount_t
+Date: Fri, 20 Oct 2017 10:37:13 +0000
+Message-ID: <2236FBA76BA1254E88B949DDB74E612B802B37EE@IRSMSX102.ger.corp.intel.com>
+References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
+         <1508484229-19706-3-git-send-email-elena.reshetova@intel.com>
+ <1508486927.29850.12.camel@mtkswgap22>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-hams-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "ganeshgr-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org" <ganeshgr-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+        "nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org" <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+        "john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org" <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>,
+        "matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org" <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "matanb@mell
+To: Sean Wang <sean.wang-NuS5LvNUpcJWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1508486927.29850.12.camel@mtkswgap22>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add functions for managing the lan9303 ALR (Address Logic
-Resolution).
-
-Implement DSA methods: port_fdb_add, port_fdb_del, port_mdb_prepare,
-port_mdb_add and port_mdb_del.
-
-Since the lan9303 do not offer reading specific ALR entry, the driver
-caches all static entries - in a flat table.
-
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- drivers/net/dsa/lan9303-core.c | 173 +++++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/lan9303.h      |   9 +++
- 2 files changed, 182 insertions(+)
-
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index 48cae87bdcb7..87f919f0e641 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -19,6 +19,7 @@
- #include <linux/mii.h>
- #include <linux/phy.h>
- #include <linux/if_bridge.h>
-+#include <linux/etherdevice.h>
- 
- #include "lan9303.h"
- 
-@@ -497,6 +498,37 @@ static int lan9303_detect_phy_setup(struct lan9303 *chip)
- static const int alrport_2_portmap[] = {1, 2, 4, 0, 3, 5, 6, 7 };
- static const int portmap_2_alrport[] = {3, 0, 1, 4, 2, 5, 6, 7 };
- 
-+/* Return pointer to first free ALR cache entry, return NULL if none */
-+static struct lan9303_alr_cache_entry *
-+lan9303_alr_cache_find_free(struct lan9303 *chip)
-+{
-+	int i;
-+	struct lan9303_alr_cache_entry *entr = chip->alr_cache;
-+
-+	for (i = 0; i < LAN9303_NUM_ALR_RECORDS; i++, entr++)
-+		if (entr->port_map == 0)
-+			return entr;
-+
-+	return NULL;
-+}
-+
-+/* Return pointer to ALR cache entry matching MAC address */
-+static struct lan9303_alr_cache_entry *
-+lan9303_alr_cache_find_mac(struct lan9303 *chip, const u8 *mac_addr)
-+{
-+	int i;
-+	struct lan9303_alr_cache_entry *entr = chip->alr_cache;
-+
-+	BUILD_BUG_ON_MSG(sizeof(struct lan9303_alr_cache_entry) & 1,
-+			 "ether_addr_equal require u16 alignment");
-+
-+	for (i = 0; i < LAN9303_NUM_ALR_RECORDS; i++, entr++)
-+		if (ether_addr_equal(entr->mac_addr, mac_addr))
-+			return entr;
-+
-+	return NULL;
-+}
-+
- /* Wait a while until mask & reg == value. Otherwise return timeout. */
- static int lan9303_csr_reg_wait(struct lan9303 *chip, int regno,
- 				int mask, char value)
-@@ -609,6 +641,73 @@ static void alr_loop_cb_fdb_port_dump(struct lan9303 *chip, u32 dat0,
- 	dump_ctx->cb(mac, 0, is_static, dump_ctx->data);
- }
- 
-+/* Set a static ALR entry. Delete entry if port_map is zero */
-+static void lan9303_alr_set_entry(struct lan9303 *chip, const u8 *mac,
-+				  u8 port_map, bool stp_override)
-+{
-+	u32 dat0, dat1, alr_port;
-+
-+	dev_dbg(chip->dev, "%s(%pM, %d)\n", __func__, mac, port_map);
-+	dat1 = LAN9303_ALR_DAT1_STATIC;
-+	if (port_map)
-+		dat1 |= LAN9303_ALR_DAT1_VALID;
-+	/* otherwise no ports: delete entry */
-+	if (stp_override)
-+		dat1 |= LAN9303_ALR_DAT1_AGE_OVERRID;
-+
-+	alr_port = portmap_2_alrport[port_map & 7];
-+	dat1 &= ~LAN9303_ALR_DAT1_PORT_MASK;
-+	dat1 |= alr_port << LAN9303_ALR_DAT1_PORT_BITOFFS;
-+
-+	dat0 = 0;
-+	dat0 |= (mac[0] << 0);
-+	dat0 |= (mac[1] << 8);
-+	dat0 |= (mac[2] << 16);
-+	dat0 |= (mac[3] << 24);
-+
-+	dat1 |= (mac[4] << 0);
-+	dat1 |= (mac[5] << 8);
-+
-+	lan9303_alr_make_entry_raw(chip, dat0, dat1);
-+}
-+
-+/* Add port to static ALR entry, create new static entry if needed */
-+static int lan9303_alr_add_port(struct lan9303 *chip, const u8 *mac, int port,
-+				bool stp_override)
-+{
-+	struct lan9303_alr_cache_entry *entr;
-+
-+	entr = lan9303_alr_cache_find_mac(chip, mac);
-+	if (!entr) { /*New entry */
-+		entr = lan9303_alr_cache_find_free(chip);
-+		if (!entr)
-+			return -ENOSPC;
-+		ether_addr_copy(entr->mac_addr, mac);
-+	}
-+	entr->port_map |= BIT(port);
-+	entr->stp_override = stp_override;
-+	lan9303_alr_set_entry(chip, mac, entr->port_map, stp_override);
-+
-+	return 0;
-+}
-+
-+/* Delete static port from ALR entry, delete entry if last port */
-+static int lan9303_alr_del_port(struct lan9303 *chip, const u8 *mac, int port)
-+{
-+	struct lan9303_alr_cache_entry *entr;
-+
-+	entr = lan9303_alr_cache_find_mac(chip, mac);
-+	if (!entr)
-+		return 0;  /* no static entry found */
-+
-+	entr->port_map &= ~BIT(port);
-+	if (entr->port_map == 0) /* zero means its free again */
-+		eth_zero_addr(&entr->port_map);
-+	lan9303_alr_set_entry(chip, mac, entr->port_map, entr->stp_override);
-+
-+	return 0;
-+}
-+
- static int lan9303_disable_processing_port(struct lan9303 *chip,
- 					   unsigned int port)
- {
-@@ -1065,6 +1164,32 @@ static void lan9303_port_fast_age(struct dsa_switch *ds, int port)
- 	lan9303_alr_loop(chip, alr_loop_cb_del_port_learned, &del_ctx);
- }
- 
-+static int lan9303_port_fdb_add(struct dsa_switch *ds, int port,
-+				const unsigned char *addr, u16 vid)
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, addr, vid);
-+	if (vid)
-+		return -EOPNOTSUPP;
-+
-+	return lan9303_alr_add_port(chip, addr, port, false);
-+}
-+
-+static int lan9303_port_fdb_del(struct dsa_switch *ds, int port,
-+				const unsigned char *addr, u16 vid)
-+
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, addr, vid);
-+	if (vid)
-+		return -EOPNOTSUPP;
-+	lan9303_alr_del_port(chip, addr, port);
-+
-+	return 0;
-+}
-+
- static int lan9303_port_fdb_dump(struct dsa_switch *ds, int port,
- 				 dsa_fdb_dump_cb_t *cb, void *data)
- {
-@@ -1081,6 +1206,49 @@ static int lan9303_port_fdb_dump(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
-+static int lan9303_port_mdb_prepare(struct dsa_switch *ds, int port,
-+				    const struct switchdev_obj_port_mdb *mdb,
-+				    struct switchdev_trans *trans)
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, mdb->addr,
-+		mdb->vid);
-+	if (mdb->vid)
-+		return -EOPNOTSUPP;
-+	if (lan9303_alr_cache_find_mac(chip, mdb->addr))
-+		return 0;
-+	if (!lan9303_alr_cache_find_free(chip))
-+		return -ENOSPC;
-+
-+	return 0;
-+}
-+
-+static void lan9303_port_mdb_add(struct dsa_switch *ds, int port,
-+				 const struct switchdev_obj_port_mdb *mdb,
-+				 struct switchdev_trans *trans)
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, mdb->addr,
-+		mdb->vid);
-+	lan9303_alr_add_port(chip, mdb->addr, port, false);
-+}
-+
-+static int lan9303_port_mdb_del(struct dsa_switch *ds, int port,
-+				const struct switchdev_obj_port_mdb *mdb)
-+{
-+	struct lan9303 *chip = ds->priv;
-+
-+	dev_dbg(chip->dev, "%s(%d, %pM, %d)\n", __func__, port, mdb->addr,
-+		mdb->vid);
-+	if (mdb->vid)
-+		return -EOPNOTSUPP;
-+	lan9303_alr_del_port(chip, mdb->addr, port);
-+
-+	return 0;
-+}
-+
- static const struct dsa_switch_ops lan9303_switch_ops = {
- 	.get_tag_protocol = lan9303_get_tag_protocol,
- 	.setup = lan9303_setup,
-@@ -1096,7 +1264,12 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
- 	.port_bridge_leave      = lan9303_port_bridge_leave,
- 	.port_stp_state_set     = lan9303_port_stp_state_set,
- 	.port_fast_age          = lan9303_port_fast_age,
-+	.port_fdb_add           = lan9303_port_fdb_add,
-+	.port_fdb_del           = lan9303_port_fdb_del,
- 	.port_fdb_dump          = lan9303_port_fdb_dump,
-+	.port_mdb_prepare       = lan9303_port_mdb_prepare,
-+	.port_mdb_add           = lan9303_port_mdb_add,
-+	.port_mdb_del           = lan9303_port_mdb_del,
- };
- 
- static int lan9303_register_switch(struct lan9303 *chip)
-diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
-index 4db323d65741..d807b1be35f2 100644
---- a/drivers/net/dsa/lan9303.h
-+++ b/drivers/net/dsa/lan9303.h
-@@ -12,6 +12,11 @@ struct lan9303_phy_ops {
- };
- 
- #define LAN9303_NUM_ALR_RECORDS 512
-+struct lan9303_alr_cache_entry {
-+	u8  mac_addr[ETH_ALEN];
-+	u8  port_map;           /* Bitmap of ports. Zero if unused entry */
-+	u8  stp_override;       /* non zero if set ALR_DAT1_AGE_OVERRID */
-+};
- 
- struct lan9303 {
- 	struct device *dev;
-@@ -25,6 +30,10 @@ struct lan9303 {
- 	const struct lan9303_phy_ops *ops;
- 	bool is_bridged; /* true if port 1 and 2 are bridged */
- 	u32 swe_port_state; /* remember SWE_PORT_STATE while not bridged */
-+	/* LAN9303 do not offer reading specific ALR entry. Cache all
-+	 * static entries in a flat table
-+	 **/
-+	struct lan9303_alr_cache_entry alr_cache[LAN9303_NUM_ALR_RECORDS];
- };
- 
- extern const struct regmap_access_table lan9303_register_set;
--- 
-2.11.0
+PiBPbiBGcmksIDIwMTctMTAtMjAgYXQgMTA6MjMgKzAzMDAsIEVsZW5hIFJlc2hldG92YSB3cm90
+ZToNCj4gPiBhdG9taWNfdCB2YXJpYWJsZXMgYXJlIGN1cnJlbnRseSB1c2VkIHRvIGltcGxlbWVu
+dCByZWZlcmVuY2UNCj4gPiBjb3VudGVycyB3aXRoIHRoZSBmb2xsb3dpbmcgcHJvcGVydGllczoN
+Cj4gPiAgLSBjb3VudGVyIGlzIGluaXRpYWxpemVkIHRvIDEgdXNpbmcgYXRvbWljX3NldCgpDQo+
+ID4gIC0gYSByZXNvdXJjZSBpcyBmcmVlZCB1cG9uIGNvdW50ZXIgcmVhY2hpbmcgemVybw0KPiA+
+ICAtIG9uY2UgY291bnRlciByZWFjaGVzIHplcm8sIGl0cyBmdXJ0aGVyDQo+ID4gICAgaW5jcmVt
+ZW50cyBhcmVuJ3QgYWxsb3dlZA0KPiA+ICAtIGNvdW50ZXIgc2NoZW1hIHVzZXMgYmFzaWMgYXRv
+bWljIG9wZXJhdGlvbnMNCj4gPiAgICAoc2V0LCBpbmMsIGluY19ub3RfemVybywgZGVjX2FuZF90
+ZXN0LCBldGMuKQ0KPiA+DQo+ID4gU3VjaCBhdG9taWMgdmFyaWFibGVzIHNob3VsZCBiZSBjb252
+ZXJ0ZWQgdG8gYSBuZXdseSBwcm92aWRlZA0KPiA+IHJlZmNvdW50X3QgdHlwZSBhbmQgQVBJIHRo
+YXQgcHJldmVudHMgYWNjaWRlbnRhbCBjb3VudGVyIG92ZXJmbG93cw0KPiA+IGFuZCB1bmRlcmZs
+b3dzLiBUaGlzIGlzIGltcG9ydGFudCBzaW5jZSBvdmVyZmxvd3MgYW5kIHVuZGVyZmxvd3MNCj4g
+PiBjYW4gbGVhZCB0byB1c2UtYWZ0ZXItZnJlZSBzaXR1YXRpb24gYW5kIGJlIGV4cGxvaXRhYmxl
+Lg0KPiA+DQo+ID4gVGhlIHZhcmlhYmxlIG10a19ldGguZG1hX3JlZmNudCBpcyB1c2VkIGFzIHB1
+cmUgcmVmZXJlbmNlIGNvdW50ZXIuDQo+ID4gQ29udmVydCBpdCB0byByZWZjb3VudF90IGFuZCBm
+aXggdXAgdGhlIG9wZXJhdGlvbnMuDQo+ID4NCj4gPiBTdWdnZXN0ZWQtYnk6IEtlZXMgQ29vayA8
+a2Vlc2Nvb2tAY2hyb21pdW0ub3JnPg0KPiA+IFJldmlld2VkLWJ5OiBEYXZpZCBXaW5kc29yIDxk
+d2luZHNvckBnbWFpbC5jb20+DQo+ID4gUmV2aWV3ZWQtYnk6IEhhbnMgTGlsamVzdHJhbmQgPGlz
+aGthbWllbEBnbWFpbC5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogRWxlbmEgUmVzaGV0b3ZhIDxl
+bGVuYS5yZXNoZXRvdmFAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25ldC9ldGhl
+cm5ldC9tZWRpYXRlay9tdGtfZXRoX3NvYy5jIHwgOCArKysrKy0tLQ0KPiA+ICBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9tZWRpYXRlay9tdGtfZXRoX3NvYy5oIHwgNCArKystDQo+ID4gIDIgZmlsZXMg
+Y2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21lZGlhdGVrL210a19ldGhfc29jLmMNCj4gYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9tZWRpYXRlay9tdGtfZXRoX3NvYy5jDQo+ID4gaW5kZXggNWU4
+MWE3Mi4uNTRhZGZkOSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWRp
+YXRlay9tdGtfZXRoX3NvYy5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0
+ZWsvbXRrX2V0aF9zb2MuYw0KPiA+IEBAIC0xODE3LDcgKzE4MTcsNyBAQCBzdGF0aWMgaW50IG10
+a19vcGVuKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQo+ID4gIAlzdHJ1Y3QgbXRrX2V0aCAqZXRo
+ID0gbWFjLT5odzsNCj4gPg0KPiA+ICAJLyogd2UgcnVuIDIgbmV0ZGV2cyBvbiB0aGUgc2FtZSBk
+bWEgcmluZyBzbyB3ZSBvbmx5IGJyaW5nIGl0IHVwIG9uY2UNCj4gKi8NCj4gPiAtCWlmICghYXRv
+bWljX3JlYWQoJmV0aC0+ZG1hX3JlZmNudCkpIHsNCj4gPiArCWlmICghcmVmY291bnRfcmVhZCgm
+ZXRoLT5kbWFfcmVmY250KSkgew0KPiA+ICAJCWludCBlcnIgPSBtdGtfc3RhcnRfZG1hKGV0aCk7
+DQo+ID4NCj4gPiAgCQlpZiAoZXJyKQ0KPiA+IEBAIC0xODI3LDggKzE4MjcsMTAgQEAgc3RhdGlj
+IGludCBtdGtfb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiA+ICAJCW5hcGlfZW5hYmxl
+KCZldGgtPnJ4X25hcGkpOw0KPiA+ICAJCW10a190eF9pcnFfZW5hYmxlKGV0aCwgTVRLX1RYX0RP
+TkVfSU5UKTsNCj4gPiAgCQltdGtfcnhfaXJxX2VuYWJsZShldGgsIE1US19SWF9ET05FX0lOVCk7
+DQo+ID4gKwkJcmVmY291bnRfc2V0KCZldGgtPmRtYV9yZWZjbnQsIDEpOw0KPiANCj4gdGhlIGV4
+aXN0aW5nIGRyaXZlciBzZWVtcyB0byBoYXZlIGEgbWlzc2luZyBpbml0aWFsIGF0b21pY19zZXQg
+Zm9yIHRoZQ0KPiBldGgtPmRtYV9yZWZjbnQuDQo+IA0KPiA+ICAJfQ0KPiA+IC0JYXRvbWljX2lu
+YygmZXRoLT5kbWFfcmVmY250KTsNCj4gPiArCWVsc2UNCj4gPiArCQlyZWZjb3VudF9pbmMoJmV0
+aC0+ZG1hX3JlZmNudCk7DQo+ID4NCj4gDQo+IGhvdyBhYm91dCBhZGQgdGhlIGluaXRpYWwgcmVm
+Y291bnRfc2V0IGludG8gcHJvYmUgaGFuZGxlciwgYW5kIGtlZXANCj4gbG9naWMgZWxzZSB1bmNo
+YW5nZWQgPw0KDQpTdXJlLCBJIGd1ZXNzIHlvdSBtZWFuIG10a19wcm9iZSgpIGZ1bmN0aW9uPyBJ
+IGNhbiBtb3ZlIHRoZSByZWZjb3VudF9zZXQgdG8gYmUgdGhlcmUNCmFuZCByZW1vdmUgdGhpcyBj
+aGFuZ2UuIA0KDQpTaG91bGQgSSByZXNlbmQgdGhlIG1vZGlmaWVkIHBhdGNoIHRvIHlvdSAobWF5
+YmUgdGhlbiB0d28gb2YgdGhlIGV0aGVybmV0IHBhdGNoZXMpPw0KDQpCZXN0IFJlZ2FyZHMsDQpF
+bGVuYS4NCj4gDQo+ID4gIAlwaHlfc3RhcnQoZGV2LT5waHlkZXYpOw0KPiA+ICAJbmV0aWZfc3Rh
+cnRfcXVldWUoZGV2KTsNCj4gPiBAQCAtMTg2OCw3ICsxODcwLDcgQEAgc3RhdGljIGludCBtdGtf
+c3RvcChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiA+ICAJcGh5X3N0b3AoZGV2LT5waHlkZXYp
+Ow0KPiA+DQo+ID4gIAkvKiBvbmx5IHNodXRkb3duIERNQSBpZiB0aGlzIGlzIHRoZSBsYXN0IHVz
+ZXIgKi8NCj4gPiAtCWlmICghYXRvbWljX2RlY19hbmRfdGVzdCgmZXRoLT5kbWFfcmVmY250KSkN
+Cj4gPiArCWlmICghcmVmY291bnRfZGVjX2FuZF90ZXN0KCZldGgtPmRtYV9yZWZjbnQpKQ0KPiA+
+ICAJCXJldHVybiAwOw0KPiA+DQo+ID4gIAltdGtfdHhfaXJxX2Rpc2FibGUoZXRoLCBNVEtfVFhf
+RE9ORV9JTlQpOw0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tZWRpYXRl
+ay9tdGtfZXRoX3NvYy5oDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0
+aF9zb2MuaA0KPiA+IGluZGV4IDNkM2MyNGEuLmEzYWY0NjYgMTAwNjQ0DQo+ID4gLS0tIGEvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvbWVkaWF0ZWsvbXRrX2V0aF9zb2MuaA0KPiA+ICsrKyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L21lZGlhdGVrL210a19ldGhfc29jLmgNCj4gPiBAQCAtMTUsNiArMTUs
+OCBAQA0KPiA+ICAjaWZuZGVmIE1US19FVEhfSA0KPiA+ICAjZGVmaW5lIE1US19FVEhfSA0KPiA+
+DQo+ID4gKyNpbmNsdWRlIDxsaW51eC9yZWZjb3VudC5oPg0KPiA+ICsNCj4gPiAgI2RlZmluZSBN
+VEtfUURNQV9QQUdFX1NJWkUJMjA0OA0KPiA+ICAjZGVmaW5lCU1US19NQVhfUlhfTEVOR1RICTE1
+MzYNCj4gPiAgI2RlZmluZSBNVEtfVFhfRE1BX0JVRl9MRU4JMHgzZmZmDQo+ID4gQEAgLTYzMiw3
+ICs2MzQsNyBAQCBzdHJ1Y3QgbXRrX2V0aCB7DQo+ID4gIAlzdHJ1Y3QgcmVnbWFwCQkJKnBjdGw7
+DQo+ID4gIAl1MzIJCQkJY2hpcF9pZDsNCj4gPiAgCWJvb2wJCQkJaHdscm87DQo+ID4gLQlhdG9t
+aWNfdAkJCWRtYV9yZWZjbnQ7DQo+ID4gKwlyZWZjb3VudF90CQkJZG1hX3JlZmNudDsNCj4gPiAg
+CXN0cnVjdCBtdGtfdHhfcmluZwkJdHhfcmluZzsNCj4gPiAgCXN0cnVjdCBtdGtfcnhfcmluZw0K
+PiAJcnhfcmluZ1tNVEtfTUFYX1JYX1JJTkdfTlVNXTsNCj4gPiAgCXN0cnVjdCBtdGtfcnhfcmlu
+ZwkJcnhfcmluZ19xZG1hOw0KPiANCg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
