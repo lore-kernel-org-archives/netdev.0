@@ -1,86 +1,146 @@
-From: joeyli <jlee@suse.com>
-Subject: Re: [PATCH 18/27] bpf: Restrict kernel image access functions when
- the kernel is locked down
-Date: Fri, 20 Oct 2017 10:47:32 +0800
-Message-ID: <20171020024732.GJ3285@linux-l9pv.suse>
-References: <150842463163.7923.11081723749106843698.stgit@warthog.procyon.org.uk>
- <150842476953.7923.18174368926573855810.stgit@warthog.procyon.org.uk>
- <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
+Date: Thu, 19 Oct 2017 19:53:30 -0700
+Message-ID: <CANn89iJgoiY_ky4F_1iE_o6moZXp5e6OcNZZe=B8F-OhWJx8nQ@mail.gmail.com>
+References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Howells <dhowells@redhat.com>,
-        linux-security-module@vger.kernel.org, gnomes@lxorguk.ukuu.org.uk,
-        linux-efi@vger.kernel.org, matthew.garrett@nebula.com,
-        gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-        jforbes@redhat.com, Daniel Borkmann <daniel@iogearbox.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Gary Lin <GLin@suse.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-arm-kernel@lists.infradead.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Wei Wei <dotweiba@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nue.novell.com ([195.135.221.5]:49762 "EHLO
-        smtp.nue.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751708AbdJTCsD (ORCPT
-        <rfc822;groupwise-netdev@vger.kernel.org:0:0>);
-        Thu, 19 Oct 2017 22:48:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20171019221829.7m5nczg3ltqmhzom@ast-mbp>
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:49398 "EHLO
+        mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751496AbdJTCxc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 19 Oct 2017 22:53:32 -0400
+Received: by mail-yw0-f173.google.com with SMTP id n189so5284276ywd.6
+        for <netdev@vger.kernel.org>; Thu, 19 Oct 2017 19:53:32 -0700 (PDT)
+In-Reply-To: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alexei,
-
-Thanks for your review! 
-
-On Thu, Oct 19, 2017 at 03:18:30PM -0700, Alexei Starovoitov wrote:
-> On Thu, Oct 19, 2017 at 03:52:49PM +0100, David Howells wrote:
-> > From: Chun-Yi Lee <jlee@suse.com>
-> > 
-> > There are some bpf functions can be used to read kernel memory:
-> > bpf_probe_read, bpf_probe_write_user and bpf_trace_printk.  These allow
-> > private keys in kernel memory (e.g. the hibernation image signing key) to
-> > be read by an eBPF program.  Prohibit those functions when the kernel is
-> > locked down.
-> > 
-> > Signed-off-by: Chun-Yi Lee <jlee@suse.com>
-> > Signed-off-by: David Howells <dhowells@redhat.com>
-> > cc: netdev@vger.kernel.org
-> > ---
-> > 
-> >  kernel/trace/bpf_trace.c |   11 +++++++++++
-> >  1 file changed, 11 insertions(+)
-> > 
-> > diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-> > index dc498b605d5d..35e85a3fdb37 100644
-> > --- a/kernel/trace/bpf_trace.c
-> > +++ b/kernel/trace/bpf_trace.c
-> > @@ -65,6 +65,11 @@ BPF_CALL_3(bpf_probe_read, void *, dst, u32, size, const void *, unsafe_ptr)
-> >  {
-> >  	int ret;
-> >  
-> > +	if (kernel_is_locked_down("BPF")) {
-> > +		memset(dst, 0, size);
-> > +		return -EPERM;
-> > +	}
-> 
-> That doesn't help the lockdown purpose.
-> If you don't trust the root the only way to prevent bpf read
-> memory is to disable the whole thing.
-
-Not totally untrust root, I don't want that root reads
-arbitrary memory address through bpf.
-
-Is it not enough to lock down bpf_probe_read, bpf_probe_write_user
-and bpf_trace_printk?
-
-> Have a single check in sys_bpf() to disallow everything if kernel_is_locked_down()
-> and don't add overhead to critical path like bpf_probe_read().
+On Thu, Oct 19, 2017 at 7:16 PM, Wei Wei <dotweiba@gmail.com> wrote:
+> Hi all,
 >
+> I have fuzzed v4.14-rc3 using syzkaller and found a bug similar to that o=
+ne [1].
+> But the call trace isn=E2=80=99t the same. The atomic_inc() might handle =
+a corrupted
+> skb_buff.
+>
+> The logs and config have been uploaded to my github repo [2].
+>
+> [1] https://lkml.org/lkml/2017/10/2/216
+> [2] https://github.com/dotweiba/skb_clone_atomic_inc_bug
+>
+> Thanks,
+> Wei
+>
+>  Unable to handle kernel paging request at virtual address ffff80005bfb81=
+ed
+>  Mem abort info:
+>    Exception class =3D DABT (current EL), IL =3D 32 bits
+>    SET =3D 0, FnV =3D 0
+>    EA =3D 0, S1PTW =3D 0
+>  Data abort info:
+>    ISV =3D 0, ISS =3D 0x00000033
+>    CM =3D 0, WnR =3D 0
+>  swapper pgtable: 4k pages, 48-bit VAs, pgd =3D ffff20000b366000
+>  [ffff80005bfb81ed] *pgd=3D00000000beff7003, *pud=3D00e8000080000711
+>  Internal error: Oops: 96000021 [#1] PREEMPT SMP
+>  Modules linked in:
+>  CPU: 3 PID: 4725 Comm: syz-executor0 Not tainted 4.14.0-rc3 #3
+>  Hardware name: linux,dummy-virt (DT)
+>  task: ffff800074409e00 task.stack: ffff800033db0000
+>  PC is at __skb_clone+0x430/0x5b0
+>  LR is at __skb_clone+0x1dc/0x5b0
+>  pc : [<ffff200009705f50>] lr : [<ffff200009705cfc>] pstate: 10000145
+>  sp : ffff800033db33d0
+>  x29: ffff800033db33d0 x28: ffff2000098ac378
+>  x27: ffff100006a860e1 x26: 1ffff000067b66b6
+>  x25: ffff8000743340a0 x24: ffff800035430708
+>  x23: ffff80005bfb80c9 x22: ffff800035430710
+>  x21: 0000000000000380 x20: ffff800035430640
+>  x19: ffff8000354312c0 x18: 0000000000000000
+>  x17: 00000000004af000 x16: ffff20000845e8c8
+>  x15: 000000001e518060 x14: 0000ffffd8316070
+>  x13: 0000ffffd8316090 x12: ffffffffffffffff
+>  x11: 1ffff00006a8626f x10: ffff100006a8626f
+>  x9 : dfff200000000000 x8 : 0082009000900608
+>  x7 : 0000000000000000 x6 : ffff800035431380
+>  x5 : ffff100006a86270 x4 : 0000000000000000
+>  x3 : 1ffff00006a86273 x2 : 0000000000000000
+>  x1 : 0000000000000100 x0 : ffff80005bfb81ed
+>  Process syz-executor0 (pid: 4725, stack limit =3D 0xffff800033db0000)
+>  Call trace:
+>  Exception stack(0xffff800033db3290 to 0xffff800033db33d0)
+>  3280:                                   ffff80005bfb81ed 000000000000010=
+0
+>  32a0: 0000000000000000 1ffff00006a86273 0000000000000000 ffff100006a8627=
+0
+>  32c0: ffff800035431380 0000000000000000 0082009000900608 dfff20000000000=
+0
+>  32e0: ffff100006a8626f 1ffff00006a8626f ffffffffffffffff 0000ffffd831609=
+0
+>  3300: 0000ffffd8316070 000000001e518060 ffff20000845e8c8 00000000004af00=
+0
+>  3320: 0000000000000000 ffff8000354312c0 ffff800035430640 000000000000038=
+0
+>  3340: ffff800035430710 ffff80005bfb80c9 ffff800035430708 ffff8000743340a=
+0
+>  3360: 1ffff000067b66b6 ffff100006a860e1 ffff2000098ac378 ffff800033db33d=
+0
+>  3380: ffff200009705cfc ffff800033db33d0 ffff200009705f50 000000001000014=
+5
+>  33a0: ffff8000354312c0 ffff800035430640 0001000000000000 ffff80007433400=
+0
+>  33c0: ffff800033db33d0 ffff200009705f50
+>  [<ffff200009705f50>] __skb_clone+0x430/0x5b0
+>  [<ffff20000971520c>] skb_clone+0x164/0x2c8
+>  [<ffff2000098ac498>] arp_rcv+0x120/0x488
+>  [<ffff200009741878>] __netif_receive_skb_core+0x11e8/0x18c8
+>  [<ffff2000097479b0>] __netif_receive_skb+0x30/0x198
+>  [<ffff200009751fd8>] netif_receive_skb_internal+0x98/0x370
+>  [<ffff2000097522cc>] netif_receive_skb+0x1c/0x28
+>  [<ffff2000090730e0>] tun_get_user+0x12f0/0x2e40
+>  [<ffff200009074ddc>] tun_chr_write_iter+0xbc/0x140
+>  [<ffff200008457284>] do_iter_readv_writev+0x2d4/0x468
+>  [<ffff20000845a5a0>] do_iter_write+0x148/0x498
+>  [<ffff20000845aac0>] vfs_writev+0x118/0x250
+>  [<ffff20000845acbc>] do_writev+0xc4/0x1e8
+>  [<ffff20000845e8fc>] SyS_writev+0x34/0x48
+>  Exception stack(0xffff800033db3ec0 to 0xffff800033db4000)
+>  3ec0: 0000000000000015 0000ffff829985e0 0000000000000001 0000ffff8299851=
+c
+>  3ee0: 0000ffff82999068 0000ffff82998f60 0000ffff82999650 000000000000000=
+0
+>  3f00: 0000000000000042 0000000000000036 0000000000406608 0000ffff8299840=
+0
+>  3f20: 0000ffff82998f60 0000ffffd8316090 0000ffffd8316070 000000001e51806=
+0
+>  3f40: 0000000000000000 00000000004af000 0000000000000000 000000000000003=
+6
+>  3f60: 0000000020004fca 0000000020000000 000000000046ccf0 000000000000053=
+0
+>  3f80: 000000000046cce8 00000000004ade98 0000000000000000 00000000395fa6f=
+0
+>  3fa0: 0000ffff82998f60 0000ffff82998560 0000000000431448 0000ffff8299852=
+0
+>  3fc0: 000000000043145c 0000000080000000 0000000000000015 000000000000004=
+2
+>  3fe0: 0000000000000000 0000000000000000 0000000000000000 000000000000000=
+0
+>  [<ffff200008083ef0>] el0_svc_naked+0x24/0x28
+>  Code: f9406680 8b010000 91009000 f9800011 (885f7c01)
+>  ---[ end trace 261e7ac1458ccc0a ]---
 
-Yes, it give overhead to bpf_probe_read but it prevents arbitrary
-memory read.
+Please provide proper file:line information in this trace.
 
-Another idea is signing bpf bytecode then verifying signture when
-loading to kernel. 
+You can use scripts/decode_stacktrace.sh
 
-Thanks a lot!
-Joey Lee 
+Thanks.
