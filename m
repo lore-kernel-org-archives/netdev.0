@@ -1,110 +1,65 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH net-next] strparser: Use delayed work instead of timer for msg timeout
-Date: Fri, 20 Oct 2017 16:40:43 -0700
-Message-ID: <20171020234043.2629-1-tom@quantonium.net>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        john.fastabend@gmail.com, Tom Herbert <tom@quantonium.net>
-To: davem@davemloft.net
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [Intel-wired-lan] Instability of i40e driver on 4.9 kernel
+Date: Sat, 21 Oct 2017 00:07:23 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD697A3FFD1@ORSMSX114.amr.corp.intel.com>
+References: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Pavlos Parissis <pavlos.parissis@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:46402 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752498AbdJTXlE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 19:41:04 -0400
-Received: by mail-pf0-f195.google.com with SMTP id p87so13122479pfj.3
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 16:41:04 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:3147 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752498AbdJUAHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 20 Oct 2017 20:07:24 -0400
+In-Reply-To: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sock lock may be taken in the message timer function which is a
-problem since timers run in BH. Instead of timers use delayed_work.
-
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Fixes: bbb03029a899 ("strparser: Generalize strparser")
-Signed-off-by: Tom Herbert <tom@quantonium.net>
----
- include/net/strparser.h   |  3 +--
- net/strparser/strparser.c | 17 ++++++++---------
- 2 files changed, 9 insertions(+), 11 deletions(-)
-
-diff --git a/include/net/strparser.h b/include/net/strparser.h
-index 7dc131d62ad5..d96b59f45eba 100644
---- a/include/net/strparser.h
-+++ b/include/net/strparser.h
-@@ -74,10 +74,9 @@ struct strparser {
- 	u32 unrecov_intr : 1;
- 
- 	struct sk_buff **skb_nextp;
--	struct timer_list msg_timer;
- 	struct sk_buff *skb_head;
- 	unsigned int need_bytes;
--	struct delayed_work delayed_work;
-+	struct delayed_work msg_timer_work;
- 	struct work_struct work;
- 	struct strp_stats stats;
- 	struct strp_callbacks cb;
-diff --git a/net/strparser/strparser.c b/net/strparser/strparser.c
-index d4ea46a5f233..c5fda15ba319 100644
---- a/net/strparser/strparser.c
-+++ b/net/strparser/strparser.c
-@@ -49,7 +49,7 @@ static void strp_abort_strp(struct strparser *strp, int err)
- {
- 	/* Unrecoverable error in receive */
- 
--	del_timer(&strp->msg_timer);
-+	cancel_delayed_work(&strp->msg_timer_work);
- 
- 	if (strp->stopped)
- 		return;
-@@ -68,7 +68,7 @@ static void strp_abort_strp(struct strparser *strp, int err)
- static void strp_start_timer(struct strparser *strp, long timeo)
- {
- 	if (timeo)
--		mod_timer(&strp->msg_timer, timeo);
-+		mod_delayed_work(strp_wq, &strp->msg_timer_work, timeo);
- }
- 
- /* Lower lock held */
-@@ -319,7 +319,7 @@ static int __strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
- 		eaten += (cand_len - extra);
- 
- 		/* Hurray, we have a new message! */
--		del_timer(&strp->msg_timer);
-+		cancel_delayed_work(&strp->msg_timer_work);
- 		strp->skb_head = NULL;
- 		STRP_STATS_INCR(strp->stats.msgs);
- 
-@@ -450,9 +450,10 @@ static void strp_work(struct work_struct *w)
- 	do_strp_work(container_of(w, struct strparser, work));
- }
- 
--static void strp_msg_timeout(unsigned long arg)
-+static void strp_msg_timeout(struct work_struct *w)
- {
--	struct strparser *strp = (struct strparser *)arg;
-+	struct strparser *strp = container_of(w, struct strparser,
-+					      msg_timer_work.work);
- 
- 	/* Message assembly timed out */
- 	STRP_STATS_INCR(strp->stats.msg_timeouts);
-@@ -505,9 +506,7 @@ int strp_init(struct strparser *strp, struct sock *sk,
- 	strp->cb.read_sock_done = cb->read_sock_done ? : default_read_sock_done;
- 	strp->cb.abort_parser = cb->abort_parser ? : strp_abort_strp;
- 
--	setup_timer(&strp->msg_timer, strp_msg_timeout,
--		    (unsigned long)strp);
--
-+	INIT_DELAYED_WORK(&strp->msg_timer_work, strp_msg_timeout);
- 	INIT_WORK(&strp->work, strp_work);
- 
- 	return 0;
-@@ -532,7 +531,7 @@ void strp_done(struct strparser *strp)
- {
- 	WARN_ON(!strp->stopped);
- 
--	del_timer_sync(&strp->msg_timer);
-+	cancel_delayed_work_sync(&strp->msg_timer_work);
- 	cancel_work_sync(&strp->work);
- 
- 	if (strp->skb_head) {
--- 
-2.11.0
+WW91IHBpY2tlZCBhIGJ1bmNoIG9mIHBsYWNlcyB0byBwb3N0IHRoaXMsIGFuZCB5b3UgcmVhbGx5
+IHNob3VsZCd2ZSB1c2VkIGEgZGlmZmVyZW50IHBsYWNlOiBlMTAwMC1kZXZlbEBsaXN0cy5zb3Vy
+Y2Vmb3JnZS5uZXQNCg0KQWxzbywgc2luY2UgeW91IGZsYWdnZWQgdGhlICJjb21tdW5pdGllcyIg
+cG9zdCBhcyAiYW5zd2VyZWQiLCB5b3UncmUgbm90IGxpa2VseSB0byBnZXQgYW55IGZvbGxvdy11
+cC4gVGhlIEludGVsIGNvbW11bml0aWVzIGFyZSBhbHNvIG5vdCBtb25pdG9yZWQgYXMgbXVjaCBi
+eSB0aGUgd2lyZWQgbmV0d29ya2luZyBwZW9wbGUgYXQgSW50ZWwuDQoNClBsZWFzZSBsZXQgdXMg
+a25vdyBpZiB5b3UgaGF2ZSBhbnkgc3BlY2lmaWMgaXNzdWVzLCBhbmQgcGxlYXNlIHByb3ZpZGUg
+ZXhhY3QgcmVwcm9kdWN0aW9uIHN0ZXBzIHNvIHdlIGNhbiBpbnZlc3RpZ2F0ZSB5b3VyIGlzc3Vl
+cywgYW5kIHBsZWFzZSB1c2UgZTEwMDAtZGV2ZWwuDQoNClRvZGQgRnVqaW5ha2ENClNvZnR3YXJl
+IEFwcGxpY2F0aW9uIEVuZ2luZWVyDQpEYXRhY2VudGVyIEVuZ2luZWVyaW5nIEdyb3VwDQpJbnRl
+bCBDb3Jwb3JhdGlvbg0KdG9kZC5mdWppbmFrYUBpbnRlbC5jb20NCg0KDQotLS0tLU9yaWdpbmFs
+IE1lc3NhZ2UtLS0tLQ0KRnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQt
+bGFuLWJvdW5jZXNAb3N1b3NsLm9yZ10gT24gQmVoYWxmIE9mIFBhdmxvcyBQYXJpc3Npcw0KU2Vu
+dDogVGh1cnNkYXksIE9jdG9iZXIgMTksIDIwMTcgNDowMyBQTQ0KVG86IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQpTdWJqZWN0OiBbSW50
+ZWwtd2lyZWQtbGFuXSBJbnN0YWJpbGl0eSBvZiBpNDBlIGRyaXZlciBvbiA0Ljkga2VybmVsDQoN
+CkhpIGFsbCwNCg0KV2UgaGF2ZSBiZWVuIHJ1bm5pbmcgNC45IGtlcm5lbHMgZm9yIHNldmVyYWwg
+bW9udGhzIG9uIENlbnRPUyA3LjMgYW5kIGZvciBmZXcgd2Vla3Mgb24gQ2VudE9TIDcuNCwgYW5k
+LCBhZnRlciB3ZSByZXBsYWNlZCAxMEdiRSBjb2JiZXIgY2FyZHMoWDU0MC1BVDIgd2l0aCBpeGdi
+ZSBkcml2ZXIpIHdpdGggWDcxMCAxMEdiRSBTRlAgY2FyZHMgdXNpbmcgaTQwZSBkcml2ZXIsIHdl
+IG5vdGljZWQgc2V2ZXIgaW5zdGFiaWxpdGllcyBvbiBvdXIgc2VydmVycy4NCg0KT24gc2V2ZXJh
+bCBzZXJ2ZXJzIHRoZSBsaW5rcyB3ZXJlIG1hcmtlZCBkb3duIGFuZCB1cCBhZ2Fpbiwgd2l0aG91
+dCBhbnkgb2J2aW91cyByZWFzb25zIGV4cGVjdCBhIGxvdCBvZiBlcnJvcnMgb24ga2VybmVsLmxv
+Zy4gV2UgcnVuIEJpcmQgSW50ZXJuZXQgZGFlbW9uIG9uIG91ciBzZXJ2ZXJzIGluIG9yZGVyIHRv
+IGVzdGFibGlzaCBCR1AgcGVlcmluZ3Mgd2l0aCByb3V0ZXJzIGFuZCB3ZSBoYXZlIG9ic2VydmVk
+IGZsYXBwaW5nIG9uIEJHUCBwZWVyaW5ncy4gQXQgdGhlIHNhbWUgdGltZSB3ZSBoYWQgQkdQIHBl
+ZXJpbmcgc3RhYmlsaXRpZXMgaXNzdWVzIHdlIGhhZCBrZXJuZWwgZXJyb3JzLiBXZSBkZWNpZGVk
+IHRvIGdvIGJhY2sgdG8gMy4xMCBrZXJuZWwgZnJvbSBDZW50T1MsIGJ1dCB0aGF0IHByb2Nlc3Mg
+d2Fzbid0IHNtb290aCBhcyBsYXRlc3QgZmlybXdhcmUgZ2F2ZSB1cyBwcm9ibGVtcyB3aXRoIHNw
+ZWVkIGRldGVjdGlvbi4gV2Ugcm9sbGVkIGJhY2sgdG8gdHdvIHZlcnNpb24gb2xkIGFuZCBzcGVl
+ZCBkZXRlY3Rpb24gaXNzdWUgd2FzIHJlc29sdmVkLiBXZSBoYXZlIGJlZW4gcnVubmluZyAzLjEw
+IHNldmVyYWwgd2Vla3Mgd2l0aG91dCBhbnkgcHJvYmxlbXMuIEV2ZW4gd2Ugd2FudCBjZXJ0YWlu
+IGZ1bmN0aW9uYWxpdHkgZnJvbSBrZXJuZWwgNC45LCB3ZSBkZWNpZGVkIHRvIHN3aXRjaCBiYWNr
+IHRvIDMuMTAgYXMgc3RhYmlsaXR5IG9mIG91ciBzeXN0ZW1zIGhhcyBoaWdoZXIgcHJpb3JpdHku
+DQoNCkkgbmVlZCB0byBtZW50aW9uIHRoYXQgaW4gYWxsIG9jY3VycmVuY2VzIG9mIHRoZSBpc3N1
+ZSB3ZSBkaWRuJ3Qgc2VlIGFueSBhbm9tYWxpZXMsIHN1Y2ggRERPUyBhdHRhY2tzIGFuZCBldGMu
+DQoNCkkgaGF2ZSBvcGVuZWQgaHR0cHM6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vbWVzc2FnZS81
+MDE2ODIjNTAxNjgyIGFuZCB0aGVyZSB5b3UgY2FuIGZpbmQgYWxsIHRoZSBlcnJvciBtZXNzYWdl
+cyBhbmQgb3RoZXIgaW5mb3JtYXRpb24uDQoNClNpbmNlIHdlIG5vdGljZWQgdGhlIGlzc3Vlcywg
+SSBoYXZlIGJlZW4gZm9sbG93aW5nIG5ldGRldiBNTCBhbmQgSSBrbm93IHRoYXQgdGhlcmUgYXJl
+IGEgbG90IG9mIGltcHJvdmVtZW50cy9wYXRjaGVkIHF1ZXVlZCB1cCBmb3IgNC4xNCBhbmQgSSBh
+bSBob3BpbmcgdGhvc2UgcGF0Y2hlcyBmaXggb3VyIGlzc3VlIGFuZCBtb3N0IGltcG9ydGFudGx5
+IGFyZSBzZW50IHRvIGxpbnV4LXN0YWJsZSBmb3IgaW5jbHVzaW9uIGluIDQuOSBrZXJuZWwuDQoN
+CkNoZWVycywNClBhdmxvcw0KDQoNCg==
