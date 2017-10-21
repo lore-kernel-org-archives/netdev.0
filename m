@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net: diag: fix a potential security issue
-Date: Sat, 21 Oct 2017 02:27:37 +0100 (WEST)
-Message-ID: <20171021.022737.1906342496133825805.davem@davemloft.net>
-References: <cover.1508398111.git.lucien.xin@gmail.com>
+Subject: Re: pull-request: can 2017-10-19
+Date: Sat, 21 Oct 2017 02:30:53 +0100 (WEST)
+Message-ID: <20171021.023053.2108266801345662025.davem@davemloft.net>
+References: <20171019111945.13580-1-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-        marcelo.leitner@gmail.com, sd@queasysnail.net
-To: lucien.xin@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46306 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46336 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752963AbdJUB1l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 21:27:41 -0400
-In-Reply-To: <cover.1508398111.git.lucien.xin@gmail.com>
+        with ESMTP id S1753016AbdJUBa4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 21:30:56 -0400
+In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 19 Oct 2017 15:32:23 +0800
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 19 Oct 2017 13:19:34 +0200
 
-> This patch is to void the potential security issue that the family
-> or protocol modules are autoloaded when requesting _diag module by
-> not requesting _diag module if the family or protocol is not added
-> or registered in sock_diag and inet_diag.
+> this is a pull request of 11 patches for the upcoming 4.14 release.
 > 
-> As the repost of the patch '[PATCH net] sock_diag: request _diag
-> module only when the family or proto has been registered', this
-> patchset fixes the compiling errors when INET is not set, and
-> also split into two patches to make it clear to review.
+> There are 6 patches by ZHU Yi for the flexcan driver, that work around
+> the CAN error handling state transition problems found in various
+> incarnations of the flexcan IP core.
+> 
+> The patch by Colin Ian King fixes a potential NULL pointer deref in the
+> CAN broad cast manager (bcm). One patch by me replaces a direct deref of a RCU
+> protected pointer by rcu_access_pointer. My second patch adds missing
+> OOM error handling in af_can. A patch by Stefan Mätje for the esd_usb2
+> driver fixes the dlc in received RTR frames. And the last patch is by
+> Wolfgang Grandegger, it fixes a busy loop in the gs_usb driver in case
+> it runs out of TX contexts.
 
-This makes no sense to me.
-
-Any user can just open a socket() in the appropriate protocol
-family to cause the module to be loaded.
-
-If someone wants modules to not be loaded, block them using
-traditional module loading infrastructure mechanisms.  Or
-don't load the module at all.
-
-Sorry I am not applying this.
+Pulled, thanks.
