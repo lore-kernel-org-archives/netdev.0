@@ -1,51 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
- offload calls to per-block callbacks
-Date: Sat, 21 Oct 2017 03:04:46 +0100 (WEST)
-Message-ID: <20171021.030446.967534081159629805.davem@davemloft.net>
-References: <20171019135048.4306-1-jiri@resnulli.us>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [net-next v2 3/4] openvswitch: Add meter infrastructure
+Date: Fri, 20 Oct 2017 20:32:44 -0700
+Message-ID: <CAOrHB_BPKKwGJzRaU1S_hNyQ=z27YV3hyWQc-C=J79dSua=_AQ@mail.gmail.com>
+References: <1508225805-11613-1-git-send-email-azhou@ovn.org>
+ <1508225805-11613-4-git-send-email-azhou@ovn.org> <CAOrHB_DBSxoxncBN1+DqcAPcpLABCA_8=h2af5XN7sVhL8Sezw@mail.gmail.com>
+ <CABKoBm1JdL3K=oG-xn7kc31t_CHM-EtnexQngoyrGQ8PUZitSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        mlxsw@mellanox.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        michael.chan@broadcom.com, ganeshgr@chelsio.com,
-        jeffrey.t.kirsher@intel.com, saeedm@mellanox.com,
-        matanb@mellanox.com, leonro@mellanox.com, idosch@mellanox.com,
-        jakub.kicinski@netronome.com, ast@kernel.org, daniel@iogearbox.net,
-        simon.horman@netronome.com, pieter.jansenvanvuuren@netronome.com,
-        john.hurley@netronome.com, alexander.h.duyck@intel.com
-To: jiri@resnulli.us
+Content-Type: text/plain; charset="UTF-8"
+Cc: Greg Rose <gvrose8192@gmail.com>, Joe Stringer <joe@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Andy Zhou <azhou@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46708 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753222AbdJUCEz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 22:04:55 -0400
-In-Reply-To: <20171019135048.4306-1-jiri@resnulli.us>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:42545 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752664AbdJUDcq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 23:32:46 -0400
+Received: from mail-wr0-f172.google.com (mail-wr0-f172.google.com [209.85.128.172])
+        (Authenticated sender: pshelar@ovn.org)
+        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 2A56AA80C1
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 05:32:45 +0200 (CEST)
+Received: by mail-wr0-f172.google.com with SMTP id g90so12785515wrd.6
+        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 20:32:45 -0700 (PDT)
+In-Reply-To: <CABKoBm1JdL3K=oG-xn7kc31t_CHM-EtnexQngoyrGQ8PUZitSg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 19 Oct 2017 15:50:28 +0200
+On Thu, Oct 19, 2017 at 5:58 PM, Andy Zhou <azhou@ovn.org> wrote:
+>
+> On Thu, Oct 19, 2017 at 02:47 Pravin Shelar <pshelar@ovn.org> wrote:
+>>
+>> On Tue, Oct 17, 2017 at 12:36 AM, Andy Zhou <azhou@ovn.org> wrote:
+>> > OVS kernel datapath so far does not support Openflow meter action.
+>> > This is the first stab at adding kernel datapath meter support.
+>> > This implementation supports only drop band type.
+>> >
+>> > Signed-off-by: Andy Zhou <azhou@ovn.org>
+>> > ---
+>> >  net/openvswitch/Makefile   |   1 +
+>> >  net/openvswitch/datapath.c |  14 +-
+>> >  net/openvswitch/datapath.h |   3 +
+>> >  net/openvswitch/meter.c    | 604
+>> > +++++++++++++++++++++++++++++++++++++++++++++
+>> >  net/openvswitch/meter.h    |  54 ++++
+>> >  5 files changed, 674 insertions(+), 2 deletions(-)
+>> >  create mode 100644 net/openvswitch/meter.c
+>> >  create mode 100644 net/openvswitch/meter.h
+>> >
+>> This patch mostly looks good. I have one comment below.
+>>
+>> > +static int ovs_meter_cmd_set(struct sk_buff *skb, struct genl_info
+>> > *info)
+>> > +{
+>> > +       struct nlattr **a = info->attrs;
+>> > +       struct dp_meter *meter, *old_meter;
+>> > +       struct sk_buff *reply;
+>> > +       struct ovs_header *ovs_reply_header;
+>> > +       struct ovs_header *ovs_header = info->userhdr;
+>> > +       struct datapath *dp;
+>> > +       int err;
+>> > +       u32 meter_id;
+>> > +       bool failed;
+>> > +
+>> > +       meter = dp_meter_create(a);
+>> > +       if (IS_ERR_OR_NULL(meter))
+>> > +               return PTR_ERR(meter);
+>> > +
+>> > +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_SET,
+>> > +                                         &ovs_reply_header);
+>> > +       if (IS_ERR(reply)) {
+>> > +               err = PTR_ERR(reply);
+>> > +               goto exit_free_meter;
+>> > +       }
+>> > +
+>> > +       ovs_lock();
+>> > +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+>> > +       if (!dp) {
+>> > +               err = -ENODEV;
+>> > +               goto exit_unlock;
+>> > +       }
+>> > +
+>> > +       if (!a[OVS_METER_ATTR_ID]) {
+>> > +               err = -ENODEV;
+>> > +               goto exit_unlock;
+>> > +       }
+>> > +
+>> > +       meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
+>> > +
+>> > +       /* Cannot fail after this. */
+>> > +       old_meter = lookup_meter(dp, meter_id);
+>> I do not see RCU read lock taken here. This is not correctness issue
+>> but it could cause RCU checker to spit out warning message. You could
+>> do same trick that is done in get_dp() to avoid this issue.
+>
+> O.K.
+>>
+>>
+>>
+>> Can you also test the code with rcu sparse check config option enabled?
+>
+>
+> Do you mean to sparse compile with CONFIG_PROVE_LOCKING and
+> CONFIG_DENUG_OBJECTS_RCU_HEAD?
 
-> This patchset is a bit bigger, but most of the patches are doing the
-> same changes in multiple classifiers and drivers. I could do some
-> squashes, but I think it is better split.
-> 
-> This is another dependency on the way to shared block implementation.
-> The goal is to remove use of tp->q in classifiers code.
-> 
-> Also, this provides drivers possibility to track binding of blocks to
-> qdiscs. Legacy drivers which do not support shared block offloading.
-> register one callback per binding. That maintains the current
-> functionality we have with ndo_setup_tc. Drivers which support block
-> sharing offload register one callback per block which safes overhead.
-> 
-> Patches 1-4 introduce the binding notifications and per-block callbacks
-> Patches 5-8 add block callbacks calls to classifiers
-> Patches 9-17 do convert from ndo_setup_tc calls to block callbacks for
->              classifier offloads in drivers
-> Patches 18-20 do cleanup
+You could use all following options simultaneously:
+CONFIG_PREEMPT
+CONFIG_DEBUG_PREEMPT
+CONFIG_DEBUG_SPINLOCK
+CONFIG_DEBUG_ATOMIC_SLEEP
+CONFIG_PROVE_RCU
+CONFIG_DEBUG_OBJECTS_RCU_HEAD
 
-Series applied.
+Thanks,
+Pravin.
