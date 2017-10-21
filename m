@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] ipv6: fixes for RTF_CACHE entries
-Date: Sat, 21 Oct 2017 01:40:14 +0100 (WEST)
-Message-ID: <20171021.014014.2065653716893988024.davem@davemloft.net>
-References: <cover.1508421311.git.pabeni@redhat.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: core: rtnetlink: use BUG_ON instead of if condition
+ followed by BUG
+Date: Fri, 20 Oct 2017 19:43:11 -0500
+Message-ID: <20171021004311.GA25170@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, weiwan@google.com, edumazet@google.com,
-        hannes@stressinduktion.org, kafai@fb.com
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45774 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752633AbdJUAkW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 20:40:22 -0400
-In-Reply-To: <cover.1508421311.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Thu, 19 Oct 2017 16:07:09 +0200
+Use BUG_ON instead of if condition followed by BUG in do_setlink.
 
-> This series addresses 2 different but related issues with RTF_CACHE introduced
-> by the recent refactory.
-> 
-> patch 1 restore the gc timer for such routes
-> patch 2 removes the aged out dst from the fib tree, properly coping with pMTU
-> routes
-> 
-> v1 -> v2:
->  - dropped the  for ip route show cache
->  - avoid touching dst.obsolete when the dst is aged out
-> 
-> v2 -> v3:
->  - take care of pMTU exceptions
+This issue was detected with the help of Coccinelle.
 
-Series applied, thank you.
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only.
+
+ net/core/rtnetlink.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 04680a5..df8dba9 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2274,8 +2274,7 @@ static int do_setlink(const struct sk_buff *skb,
+ 
+ 			rcu_read_lock();
+ 
+-			if (!(af_ops = rtnl_af_lookup(nla_type(af))))
+-				BUG();
++			BUG_ON(!(af_ops = rtnl_af_lookup(nla_type(af))));
+ 
+ 			err = af_ops->set_link_af(dev, af);
+ 			if (err < 0) {
+-- 
+2.7.4
