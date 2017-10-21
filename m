@@ -1,40 +1,117 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 3/5] bpf: Add BPF_SOCKET_OPS_BASE_RTT support to
- tcp_nv
-Date: Sat, 21 Oct 2017 12:37:17 -0700
-Message-ID: <20171021193715.5cdwmeuseklqnkyc@ast-mbp>
-References: <20171020180543.4156833-1-brakmo@fb.com>
- <20171020180543.4156833-4-brakmo@fb.com>
+From: Tobias Jakobi <tjakobi@math.uni-bielefeld.de>
+Subject: Re: [RFC PATCH] net: realtek: r8169: implement set_link_ksettings()
+Date: Sat, 21 Oct 2017 21:37:52 +0200
+Message-ID: <3fe5db89-1059-c7af-8e55-54543e0415ae@math.uni-bielefeld.de>
+References: <20171013164424.4480-1-tjakobi@math.uni-bielefeld.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Blake Matheny <bmatheny@fb.com>
-To: Lawrence Brakmo <brakmo@fb.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tremyfr@gmail.com, davem@davemloft.net
+To: nic_swsd@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:44224 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932159AbdJUThV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 15:37:21 -0400
-Received: by mail-pg0-f45.google.com with SMTP id j3so8970745pga.1
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 12:37:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171020180543.4156833-4-brakmo@fb.com>
+Received: from smtp.math.uni-bielefeld.de ([129.70.45.10]:40614 "EHLO
+        smtp.math.uni-bielefeld.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932159AbdJUThz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 15:37:55 -0400
+In-Reply-To: <20171013164424.4480-1-tjakobi@math.uni-bielefeld.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 20, 2017 at 11:05:41AM -0700, Lawrence Brakmo wrote:
-> TCP_NV will try to get the base RTT from a socket_ops BPF program if one
-> is loaded. NV will then use the base RTT to bound its min RTT (its
-> notion of the base RTT). It uses the base RTT as an upper bound and 80%
-> of the base RTT as its lower bound.
-...
-> Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
-> Acked_by: Alexei Starovoitov <ast@fb.com>
-       ^
-just noticed the typo above :)
-fixing it with:
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Any comment on this one? I have been using this in my tree since submission. No
+issues to far.
 
-so patchworks can pick it up automatically.
+I guess I could also put a Fixes-tag?
+
+- Tobias
+
+
+Tobias Jakobi wrote:
+> Commit 6fa1ba61520576cf1346c4ff09a056f2950cb3bf partially
+> implemented the new ethtool API, by replacing get_settings()
+> with get_link_ksettings(). This breaks ethtool, since the
+> userspace tool (according to the new API specs) never tries
+> the legacy set() call, when the new get() call succeeds.
+> 
+> All attempts to chance some setting from userspace result in:
+>> Cannot set new settings: Operation not supported
+> 
+> Implement the missing set() call.
+> 
+> Signed-off-by: Tobias Jakobi <tjakobi@math.uni-bielefeld.de>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 40 +++++++++++++++++++++---------------
+>  1 file changed, 24 insertions(+), 16 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index e03fcf914690..24e8f7133038 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -2025,21 +2025,6 @@ static int rtl8169_set_speed(struct net_device *dev,
+>  	return ret;
+>  }
+>  
+> -static int rtl8169_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+> -{
+> -	struct rtl8169_private *tp = netdev_priv(dev);
+> -	int ret;
+> -
+> -	del_timer_sync(&tp->timer);
+> -
+> -	rtl_lock_work(tp);
+> -	ret = rtl8169_set_speed(dev, cmd->autoneg, ethtool_cmd_speed(cmd),
+> -				cmd->duplex, cmd->advertising);
+> -	rtl_unlock_work(tp);
+> -
+> -	return ret;
+> -}
+> -
+>  static netdev_features_t rtl8169_fix_features(struct net_device *dev,
+>  	netdev_features_t features)
+>  {
+> @@ -2166,6 +2151,29 @@ static int rtl8169_get_link_ksettings(struct net_device *dev,
+>  	return rc;
+>  }
+>  
+> +static int rtl8169_set_link_ksettings(struct net_device *dev,
+> +				      const struct ethtool_link_ksettings *cmd)
+> +{
+> +	struct rtl8169_private *tp = netdev_priv(dev);
+> +	int rc;
+> +	u32 advertising;
+> +
+> +	if (!ethtool_convert_link_mode_to_legacy_u32(&advertising,
+> +	    cmd->link_modes.advertising))
+> +		return -EINVAL;
+> +
+> +	del_timer_sync(&tp->timer);
+> +
+> +	rtl_lock_work(tp);
+> +
+> +	rc = rtl8169_set_speed(dev, cmd->base.autoneg, cmd->base.speed,
+> +			       cmd->base.duplex, advertising);
+> +
+> +	rtl_unlock_work(tp);
+> +
+> +	return rc;
+> +}
+> +
+>  static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+>  			     void *p)
+>  {
+> @@ -2367,7 +2375,6 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
+>  	.get_drvinfo		= rtl8169_get_drvinfo,
+>  	.get_regs_len		= rtl8169_get_regs_len,
+>  	.get_link		= ethtool_op_get_link,
+> -	.set_settings		= rtl8169_set_settings,
+>  	.get_msglevel		= rtl8169_get_msglevel,
+>  	.set_msglevel		= rtl8169_set_msglevel,
+>  	.get_regs		= rtl8169_get_regs,
+> @@ -2379,6 +2386,7 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
+>  	.get_ts_info		= ethtool_op_get_ts_info,
+>  	.nway_reset		= rtl8169_nway_reset,
+>  	.get_link_ksettings	= rtl8169_get_link_ksettings,
+> +	.set_link_ksettings	= rtl8169_set_link_ksettings,
+>  };
+>  
+>  static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+> 
