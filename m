@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 1/1] tipc: fix broken tipc_poll() function
-Date: Sat, 21 Oct 2017 12:27:36 +0100 (WEST)
-Message-ID: <20171021.122736.1424744821329915425.davem@davemloft.net>
-References: <1508424124-1748-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next] bnxt: Move generic devlink code to new file
+Date: Sat, 21 Oct 2017 12:28:51 +0100 (WEST)
+Message-ID: <20171021.122851.738926339314125960.davem@davemloft.net>
+References: <1508424356-24619-1-git-send-email-steven.lin1@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, parthasarathy.bhuvaragan@ericsson.com,
-        ying.xue@windriver.com, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
+        gospo@broadcom.com
+To: steven.lin1@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50574 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50592 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753303AbdJUL1k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 07:27:40 -0400
-In-Reply-To: <1508424124-1748-1-git-send-email-jon.maloy@ericsson.com>
+        with ESMTP id S932076AbdJUL2z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 07:28:55 -0400
+In-Reply-To: <1508424356-24619-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Thu, 19 Oct 2017 16:42:04 +0200
+From: Steve Lin <steven.lin1@broadcom.com>
+Date: Thu, 19 Oct 2017 10:45:56 -0400
 
-> In commit ae236fb208a6 ("tipc: receive group membership events via
-> member socket") we broke the tipc_poll() function by checking the
-> state of the receive queue before the call to poll_sock_wait(), while
-> relying that state afterwards, when it might have changed.
+> Moving generic devlink code (registration) out of VF-R code
+> into new bnxt_devlink file, in preparation for future work
+> to add additional devlink functionality to bnxt.
 > 
-> We restore this in this commit.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+> Acked-by: Andy Gospodarek <gospo@broadcom.com>
 
 Applied.
