@@ -1,65 +1,521 @@
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Subject: RE: [Intel-wired-lan] Instability of i40e driver on 4.9 kernel
-Date: Sat, 21 Oct 2017 00:07:23 +0000
-Message-ID: <9B4A1B1917080E46B64F07F2989DADD697A3FFD1@ORSMSX114.amr.corp.intel.com>
-References: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Pavlos Parissis <pavlos.parissis@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net 3/3] bpf: add test cases to bpf selftests to cover all access tests
+Date: Sat, 21 Oct 2017 02:34:23 +0200
+Message-ID: <3bc01f5985324b0e233e86616f4fe171c0d4ca8b.1508545543.git.daniel@iogearbox.net>
+References: <cover.1508545543.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, john.r.fastabend@gmail.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:3147 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752498AbdJUAHY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 20 Oct 2017 20:07:24 -0400
-In-Reply-To: <92118fc4-8a20-f129-193b-9c8fdf81aa24@gmail.com>
-Content-Language: en-US
+Received: from www62.your-server.de ([213.133.104.62]:47367 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752633AbdJUAey (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 20:34:54 -0400
+In-Reply-To: <cover.1508545543.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1508545543.git.daniel@iogearbox.net>
+References: <cover.1508545543.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WW91IHBpY2tlZCBhIGJ1bmNoIG9mIHBsYWNlcyB0byBwb3N0IHRoaXMsIGFuZCB5b3UgcmVhbGx5
-IHNob3VsZCd2ZSB1c2VkIGEgZGlmZmVyZW50IHBsYWNlOiBlMTAwMC1kZXZlbEBsaXN0cy5zb3Vy
-Y2Vmb3JnZS5uZXQNCg0KQWxzbywgc2luY2UgeW91IGZsYWdnZWQgdGhlICJjb21tdW5pdGllcyIg
-cG9zdCBhcyAiYW5zd2VyZWQiLCB5b3UncmUgbm90IGxpa2VseSB0byBnZXQgYW55IGZvbGxvdy11
-cC4gVGhlIEludGVsIGNvbW11bml0aWVzIGFyZSBhbHNvIG5vdCBtb25pdG9yZWQgYXMgbXVjaCBi
-eSB0aGUgd2lyZWQgbmV0d29ya2luZyBwZW9wbGUgYXQgSW50ZWwuDQoNClBsZWFzZSBsZXQgdXMg
-a25vdyBpZiB5b3UgaGF2ZSBhbnkgc3BlY2lmaWMgaXNzdWVzLCBhbmQgcGxlYXNlIHByb3ZpZGUg
-ZXhhY3QgcmVwcm9kdWN0aW9uIHN0ZXBzIHNvIHdlIGNhbiBpbnZlc3RpZ2F0ZSB5b3VyIGlzc3Vl
-cywgYW5kIHBsZWFzZSB1c2UgZTEwMDAtZGV2ZWwuDQoNClRvZGQgRnVqaW5ha2ENClNvZnR3YXJl
-IEFwcGxpY2F0aW9uIEVuZ2luZWVyDQpEYXRhY2VudGVyIEVuZ2luZWVyaW5nIEdyb3VwDQpJbnRl
-bCBDb3Jwb3JhdGlvbg0KdG9kZC5mdWppbmFrYUBpbnRlbC5jb20NCg0KDQotLS0tLU9yaWdpbmFs
-IE1lc3NhZ2UtLS0tLQ0KRnJvbTogSW50ZWwtd2lyZWQtbGFuIFttYWlsdG86aW50ZWwtd2lyZWQt
-bGFuLWJvdW5jZXNAb3N1b3NsLm9yZ10gT24gQmVoYWxmIE9mIFBhdmxvcyBQYXJpc3Npcw0KU2Vu
-dDogVGh1cnNkYXksIE9jdG9iZXIgMTksIDIwMTcgNDowMyBQTQ0KVG86IG5ldGRldkB2Z2VyLmtl
-cm5lbC5vcmc7IGludGVsLXdpcmVkLWxhbkBsaXN0cy5vc3Vvc2wub3JnDQpTdWJqZWN0OiBbSW50
-ZWwtd2lyZWQtbGFuXSBJbnN0YWJpbGl0eSBvZiBpNDBlIGRyaXZlciBvbiA0Ljkga2VybmVsDQoN
-CkhpIGFsbCwNCg0KV2UgaGF2ZSBiZWVuIHJ1bm5pbmcgNC45IGtlcm5lbHMgZm9yIHNldmVyYWwg
-bW9udGhzIG9uIENlbnRPUyA3LjMgYW5kIGZvciBmZXcgd2Vla3Mgb24gQ2VudE9TIDcuNCwgYW5k
-LCBhZnRlciB3ZSByZXBsYWNlZCAxMEdiRSBjb2JiZXIgY2FyZHMoWDU0MC1BVDIgd2l0aCBpeGdi
-ZSBkcml2ZXIpIHdpdGggWDcxMCAxMEdiRSBTRlAgY2FyZHMgdXNpbmcgaTQwZSBkcml2ZXIsIHdl
-IG5vdGljZWQgc2V2ZXIgaW5zdGFiaWxpdGllcyBvbiBvdXIgc2VydmVycy4NCg0KT24gc2V2ZXJh
-bCBzZXJ2ZXJzIHRoZSBsaW5rcyB3ZXJlIG1hcmtlZCBkb3duIGFuZCB1cCBhZ2Fpbiwgd2l0aG91
-dCBhbnkgb2J2aW91cyByZWFzb25zIGV4cGVjdCBhIGxvdCBvZiBlcnJvcnMgb24ga2VybmVsLmxv
-Zy4gV2UgcnVuIEJpcmQgSW50ZXJuZXQgZGFlbW9uIG9uIG91ciBzZXJ2ZXJzIGluIG9yZGVyIHRv
-IGVzdGFibGlzaCBCR1AgcGVlcmluZ3Mgd2l0aCByb3V0ZXJzIGFuZCB3ZSBoYXZlIG9ic2VydmVk
-IGZsYXBwaW5nIG9uIEJHUCBwZWVyaW5ncy4gQXQgdGhlIHNhbWUgdGltZSB3ZSBoYWQgQkdQIHBl
-ZXJpbmcgc3RhYmlsaXRpZXMgaXNzdWVzIHdlIGhhZCBrZXJuZWwgZXJyb3JzLiBXZSBkZWNpZGVk
-IHRvIGdvIGJhY2sgdG8gMy4xMCBrZXJuZWwgZnJvbSBDZW50T1MsIGJ1dCB0aGF0IHByb2Nlc3Mg
-d2Fzbid0IHNtb290aCBhcyBsYXRlc3QgZmlybXdhcmUgZ2F2ZSB1cyBwcm9ibGVtcyB3aXRoIHNw
-ZWVkIGRldGVjdGlvbi4gV2Ugcm9sbGVkIGJhY2sgdG8gdHdvIHZlcnNpb24gb2xkIGFuZCBzcGVl
-ZCBkZXRlY3Rpb24gaXNzdWUgd2FzIHJlc29sdmVkLiBXZSBoYXZlIGJlZW4gcnVubmluZyAzLjEw
-IHNldmVyYWwgd2Vla3Mgd2l0aG91dCBhbnkgcHJvYmxlbXMuIEV2ZW4gd2Ugd2FudCBjZXJ0YWlu
-IGZ1bmN0aW9uYWxpdHkgZnJvbSBrZXJuZWwgNC45LCB3ZSBkZWNpZGVkIHRvIHN3aXRjaCBiYWNr
-IHRvIDMuMTAgYXMgc3RhYmlsaXR5IG9mIG91ciBzeXN0ZW1zIGhhcyBoaWdoZXIgcHJpb3JpdHku
-DQoNCkkgbmVlZCB0byBtZW50aW9uIHRoYXQgaW4gYWxsIG9jY3VycmVuY2VzIG9mIHRoZSBpc3N1
-ZSB3ZSBkaWRuJ3Qgc2VlIGFueSBhbm9tYWxpZXMsIHN1Y2ggRERPUyBhdHRhY2tzIGFuZCBldGMu
-DQoNCkkgaGF2ZSBvcGVuZWQgaHR0cHM6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vbWVzc2FnZS81
-MDE2ODIjNTAxNjgyIGFuZCB0aGVyZSB5b3UgY2FuIGZpbmQgYWxsIHRoZSBlcnJvciBtZXNzYWdl
-cyBhbmQgb3RoZXIgaW5mb3JtYXRpb24uDQoNClNpbmNlIHdlIG5vdGljZWQgdGhlIGlzc3Vlcywg
-SSBoYXZlIGJlZW4gZm9sbG93aW5nIG5ldGRldiBNTCBhbmQgSSBrbm93IHRoYXQgdGhlcmUgYXJl
-IGEgbG90IG9mIGltcHJvdmVtZW50cy9wYXRjaGVkIHF1ZXVlZCB1cCBmb3IgNC4xNCBhbmQgSSBh
-bSBob3BpbmcgdGhvc2UgcGF0Y2hlcyBmaXggb3VyIGlzc3VlIGFuZCBtb3N0IGltcG9ydGFudGx5
-IGFyZSBzZW50IHRvIGxpbnV4LXN0YWJsZSBmb3IgaW5jbHVzaW9uIGluIDQuOSBrZXJuZWwuDQoN
-CkNoZWVycywNClBhdmxvcw0KDQoNCg==
+Lets add test cases to cover really all possible direct packet
+access tests for good/bad access cases so we keep tracking them.
+
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ tools/testing/selftests/bpf/test_verifier.c | 480 ++++++++++++++++++++++++++++
+ 1 file changed, 480 insertions(+)
+
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 3c7d3a4..2911868 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -6659,6 +6659,486 @@ struct test_val {
+ 		.result = REJECT,
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+ 	},
++	{
++		"XDP pkt read, pkt_end mangling, bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end mangling, bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_ALU64_IMM(BPF_SUB, BPF_REG_3, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' > pkt_end, good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' > pkt_end, bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -4),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_data' > pkt_end, bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_1, BPF_REG_3, 0),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end > pkt_data', good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_3, BPF_REG_1, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -5),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_end > pkt_data', bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_3, BPF_REG_1, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end > pkt_data', bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGT, BPF_REG_3, BPF_REG_1, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' < pkt_end, good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -5),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_data' < pkt_end, bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' < pkt_end, bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end < pkt_data', good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_3, BPF_REG_1, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end < pkt_data', bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_3, BPF_REG_1, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -4),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_end < pkt_data', bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLT, BPF_REG_3, BPF_REG_1, 0),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' >= pkt_end, good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -5),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_data' >= pkt_end, bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' >= pkt_end, bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_1, BPF_REG_3, 0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -5),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_end >= pkt_data', good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_1, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end >= pkt_data', bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_1, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -4),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_end >= pkt_data', bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JGE, BPF_REG_3, BPF_REG_1, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' <= pkt_end, good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_1, BPF_REG_3, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_data' <= pkt_end, bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_1, BPF_REG_3, 1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -4),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_data' <= pkt_end, bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_1, BPF_REG_3, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end <= pkt_data', good access",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_1, 1),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -5),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.result = ACCEPT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
++	{
++		"XDP pkt read, pkt_end <= pkt_data', bad access 1",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_1, 1),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, -8),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++	},
++	{
++		"XDP pkt read, pkt_end <= pkt_data', bad access 2",
++		.insns = {
++			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
++				    offsetof(struct xdp_md, data)),
++			BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1,
++				    offsetof(struct xdp_md, data_end)),
++			BPF_MOV64_REG(BPF_REG_1, BPF_REG_2),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 8),
++			BPF_JMP_REG(BPF_JLE, BPF_REG_3, BPF_REG_1, 0),
++			BPF_LDX_MEM(BPF_W, BPF_REG_0, BPF_REG_1, -5),
++			BPF_MOV64_IMM(BPF_REG_0, 0),
++			BPF_EXIT_INSN(),
++		},
++		.errstr = "R1 offset is outside of the packet",
++		.result = REJECT,
++		.prog_type = BPF_PROG_TYPE_XDP,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
+ };
+ 
+ static int probe_filter_length(const struct bpf_insn *fp)
+-- 
+1.9.3
