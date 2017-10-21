@@ -1,34 +1,120 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net 3/3] bpf: add test cases to bpf selftests to cover all
- access tests
-Date: Sat, 21 Oct 2017 09:40:05 -0700
-Message-ID: <a6992c8f-3ad1-f01d-3d17-7faec0ff44e5@gmail.com>
-References: <cover.1508545543.git.daniel@iogearbox.net>
- <3bc01f5985324b0e233e86616f4fe171c0d4ca8b.1508545543.git.daniel@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipv6: flowlabel: do not leave opt->tot_len with garbage
+Date: Sat, 21 Oct 2017 12:26:23 -0700
+Message-ID: <1508613983.30291.33.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, john.r.fastabend@gmail.com,
-        netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:49249 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932196AbdJUQkW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 12:40:22 -0400
-Received: by mail-pf0-f181.google.com with SMTP id i5so14192514pfe.6
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 09:40:22 -0700 (PDT)
-In-Reply-To: <3bc01f5985324b0e233e86616f4fe171c0d4ca8b.1508545543.git.daniel@iogearbox.net>
-Content-Language: en-US
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:48619 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932159AbdJUT0Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 15:26:25 -0400
+Received: by mail-pg0-f67.google.com with SMTP id v78so8950752pgb.5
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 12:26:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/20/2017 05:34 PM, Daniel Borkmann wrote:
-> Lets add test cases to cover really all possible direct packet
-> access tests for good/bad access cases so we keep tracking them.
-> 
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> ---
+From: Eric Dumazet <edumazet@google.com>
 
-Acked-by: John Fastabend <john.fastabend@gmail.com>
+When syzkaller team brought us a C repro for the crash [1] that
+had been reported many times in the past, I finally could find
+the root cause.
+
+If FlowLabel info is merged by fl6_merge_options(), we leave
+part of the opt_space storage provided by udp/raw/l2tp with random value
+in opt_space.tot_len, unless a control message was provided at sendmsg()
+time.
+
+Then ip6_setup_cork() would use this random value to perform a kzalloc()
+call. Undefined behavior and crashes.
+
+Fix is to properly set tot_len in fl6_merge_options()
+
+At the same time, we can also avoid consuming memory and cpu cycles
+to clear it, if every option is copied via a kmemdup(). This is the
+change in ip6_setup_cork().
+
+
+[1]
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+CPU: 0 PID: 6613 Comm: syz-executor0 Not tainted 4.14.0-rc4+ #127
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+task: ffff8801cb64a100 task.stack: ffff8801cc350000
+RIP: 0010:ip6_setup_cork+0x274/0x15c0 net/ipv6/ip6_output.c:1168
+RSP: 0018:ffff8801cc357550 EFLAGS: 00010203
+RAX: dffffc0000000000 RBX: ffff8801cc357748 RCX: 0000000000000010
+RDX: 0000000000000002 RSI: ffffffff842bd1d9 RDI: 0000000000000014
+RBP: ffff8801cc357620 R08: ffff8801cb17f380 R09: ffff8801cc357b10
+R10: ffff8801cb64a100 R11: 0000000000000000 R12: ffff8801cc357ab0
+R13: ffff8801cc357b10 R14: 0000000000000000 R15: ffff8801c3bbf0c0
+FS:  00007f9c5c459700(0000) GS:ffff8801db200000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020324000 CR3: 00000001d1cf2000 CR4: 00000000001406f0
+DR0: 0000000020001010 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+Call Trace:
+ ip6_make_skb+0x282/0x530 net/ipv6/ip6_output.c:1729
+ udpv6_sendmsg+0x2769/0x3380 net/ipv6/udp.c:1340
+ inet_sendmsg+0x11f/0x5e0 net/ipv4/af_inet.c:762
+ sock_sendmsg_nosec net/socket.c:633 [inline]
+ sock_sendmsg+0xca/0x110 net/socket.c:643
+ SYSC_sendto+0x358/0x5a0 net/socket.c:1750
+ SyS_sendto+0x40/0x50 net/socket.c:1718
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+RIP: 0033:0x4520a9
+RSP: 002b:00007f9c5c458c08 EFLAGS: 00000216 ORIG_RAX: 000000000000002c
+RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 00000000004520a9
+RDX: 0000000000000001 RSI: 0000000020fd1000 RDI: 0000000000000016
+RBP: 0000000000000086 R08: 0000000020e0afe4 R09: 000000000000001c
+R10: 0000000000000000 R11: 0000000000000216 R12: 00000000004bb1ee
+R13: 00000000ffffffff R14: 0000000000000016 R15: 0000000000000029
+Code: e0 07 83 c0 03 38 d0 7c 08 84 d2 0f 85 ea 0f 00 00 48 8d 79 04 48 b8 00 00 00 00 00 fc ff df 45 8b 74 24 04 48 89 fa 48 c1 ea 03 <0f> b6 14 02 48 89 f8 83 e0 07 83 c0 03 38 d0 7c 08 84 d2 0f 85 
+RIP: ip6_setup_cork+0x274/0x15c0 net/ipv6/ip6_output.c:1168 RSP: ffff8801cc357550
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+---
+This is a stable candidate for all stable linux versions.
+
+ net/ipv6/ip6_flowlabel.c |    1 +
+ net/ipv6/ip6_output.c    |    4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 8081bafe441b83f60f414114bfdc3529d6ea0a09..15535ee327c5780e80feb050c2ab4e0d1cc3e99c 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -315,6 +315,7 @@ struct ipv6_txoptions *fl6_merge_options(struct ipv6_txoptions *opt_space,
+ 	}
+ 	opt_space->dst1opt = fopt->dst1opt;
+ 	opt_space->opt_flen = fopt->opt_flen;
++	opt_space->tot_len = fopt->tot_len;
+ 	return opt_space;
+ }
+ EXPORT_SYMBOL_GPL(fl6_merge_options);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 43ca864327c73015f1724879d7ee8268a0de513b..5110a418cc4d0c1040506394460cb482698d8c15 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1161,11 +1161,11 @@ static int ip6_setup_cork(struct sock *sk, struct inet_cork_full *cork,
+ 		if (WARN_ON(v6_cork->opt))
+ 			return -EINVAL;
+ 
+-		v6_cork->opt = kzalloc(opt->tot_len, sk->sk_allocation);
++		v6_cork->opt = kzalloc(sizeof(*opt), sk->sk_allocation);
+ 		if (unlikely(!v6_cork->opt))
+ 			return -ENOBUFS;
+ 
+-		v6_cork->opt->tot_len = opt->tot_len;
++		v6_cork->opt->tot_len = sizeof(*opt);
+ 		v6_cork->opt->opt_flen = opt->opt_flen;
+ 		v6_cork->opt->opt_nflen = opt->opt_nflen;
+ 
