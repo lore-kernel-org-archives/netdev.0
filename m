@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2017-10-19
-Date: Sat, 21 Oct 2017 02:30:53 +0100 (WEST)
-Message-ID: <20171021.023053.2108266801345662025.davem@davemloft.net>
-References: <20171019111945.13580-1-mkl@pengutronix.de>
+Subject: Re: [PATCH net] geneve: Fix function matching VNI and tunnel ID on
+ big-endian
+Date: Sat, 21 Oct 2017 02:51:21 +0100 (WEST)
+Message-ID: <20171021.025121.1181909163959289258.davem@davemloft.net>
+References: <7fb32cd5779c5c0133754194aa6914fa8689853e.1508412016.git.sbrivio@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
-To: mkl@pengutronix.de
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pshelar@ovn.org,
+        girish.moodalbail@oracle.com, sd@queasysnail.net
+To: sbrivio@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46336 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46464 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753016AbdJUBa4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 21:30:56 -0400
-In-Reply-To: <20171019111945.13580-1-mkl@pengutronix.de>
+        with ESMTP id S1753065AbdJUBv0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 21:51:26 -0400
+In-Reply-To: <7fb32cd5779c5c0133754194aa6914fa8689853e.1508412016.git.sbrivio@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 19 Oct 2017 13:19:34 +0200
+From: Stefano Brivio <sbrivio@redhat.com>
+Date: Thu, 19 Oct 2017 13:31:28 +0200
 
-> this is a pull request of 11 patches for the upcoming 4.14 release.
+> On big-endian machines, functions converting between tunnel ID
+> and VNI use the three LSBs of tunnel ID storage to map VNI.
 > 
-> There are 6 patches by ZHU Yi for the flexcan driver, that work around
-> the CAN error handling state transition problems found in various
-> incarnations of the flexcan IP core.
+> The comparison function eq_tun_id_and_vni(), on the other hand,
+> attempted to map the VNI from the three MSBs. Fix it by using
+> the same check implemented on LE, which maps VNI from the three
+> LSBs of tunnel ID.
 > 
-> The patch by Colin Ian King fixes a potential NULL pointer deref in the
-> CAN broad cast manager (bcm). One patch by me replaces a direct deref of a RCU
-> protected pointer by rcu_access_pointer. My second patch adds missing
-> OOM error handling in af_can. A patch by Stefan Mätje for the esd_usb2
-> driver fixes the dlc in received RTR frames. And the last patch is by
-> Wolfgang Grandegger, it fixes a busy loop in the gs_usb driver in case
-> it runs out of TX contexts.
+> Fixes: 2e0b26e10352 ("geneve: Optimize geneve device lookup.")
+> Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
+> ---
+> I guess this should be queued up for -stable, back to 4.10
 
-Pulled, thanks.
+Applied and queued up for -stable, thanks.
