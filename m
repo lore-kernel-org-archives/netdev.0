@@ -1,57 +1,99 @@
-From: Bernd Edlinger <bernd.edlinger@hotmail.de>
-Subject: [PATCH] stmmac: Don't access tx_q->dirty_tx before netif_tx_lock
-Date: Sat, 21 Oct 2017 06:51:30 +0000
-Message-ID: <AM5PR0701MB2657DAF1EEA20231A0FFF50EE4400@AM5PR0701MB2657.eurprd07.prod.outlook.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 0/2] net: diag: fix a potential security issue
+Date: Sat, 21 Oct 2017 00:45:55 -0700
+Message-ID: <1508571955.30291.21.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1508398111.git.lucien.xin@gmail.com>
+         <20171021.022737.1906342496133825805.davem@davemloft.net>
+         <CADvbK_fWmmC3ggpoT--Pxk3GxZ8Gq_rbdFGTuXk-BuTHTO=eXw@mail.gmail.com>
+         <CANn89i+n=MMUDdjDm4SQfEfQvFM+PgSKCrtDzBY=OiwsiyvYMg@mail.gmail.com>
+         <CADvbK_c22nQ628LnxhdQabkbNNiuYxtYEwjTs6ToiWj4sYuBmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: de-DE
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        network dev <netdev@vger.kernel.org>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Sabrina Dubroca <sd@queasysnail.net>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:46723 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751392AbdJUHp6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 03:45:58 -0400
+Received: by mail-pg0-f67.google.com with SMTP id k7so8275291pga.3
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 00:45:58 -0700 (PDT)
+In-Reply-To: <CADvbK_c22nQ628LnxhdQabkbNNiuYxtYEwjTs6ToiWj4sYuBmQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is the possible reason for different hard to reproduce
-problems on my ARMv7-SMP test system.
+On Sat, 2017-10-21 at 14:51 +0800, Xin Long wrote:
+> On Sat, Oct 21, 2017 at 2:18 PM, Eric Dumazet <edumazet@google.com> wrote:
+> > On Fri, Oct 20, 2017 at 11:06 PM, Xin Long <lucien.xin@gmail.com> wrote:
+> >>
+> >>
+> >> On Sat, Oct 21, 2017 at 9:27 AM, David Miller <davem@davemloft.net> wrote:
+> >>>
+> >>> From: Xin Long <lucien.xin@gmail.com>
+> >>> Date: Thu, 19 Oct 2017 15:32:23 +0800
+> >>>
+> >>> > This patch is to void the potential security issue that the family
+> >>> > or protocol modules are autoloaded when requesting _diag module by
+> >>> > not requesting _diag module if the family or protocol is not added
+> >>> > or registered in sock_diag and inet_diag.
+> >>> >
+> >>> > As the repost of the patch '[PATCH net] sock_diag: request _diag
+> >>> > module only when the family or proto has been registered', this
+> >>> > patchset fixes the compiling errors when INET is not set, and
+> >>> > also split into two patches to make it clear to review.
+> >>>
+> >>> This makes no sense to me.
+> >>>
+> >>> Any user can just open a socket() in the appropriate protocol
+> >>> family to cause the module to be loaded.
+> >>>
+> >>> If someone wants modules to not be loaded, block them using
+> >>> traditional module loading infrastructure mechanisms.  Or
+> >>> don't load the module at all.
+> >>>
+> >>> Sorry I am not applying this.
+> >>
+> >> Hi David,
+> >>
+> >> I'm still thinking it's not good after 'ss', sctp, dccp,
+> >> af_packet ... are just loaded, in which case, no one actually
+> >> open any socket with these family or proto.
+> >>
+> >> I talked with Marcelo before, one scenario as he said:
+> >>
+> >> Imagine a customer generates a sosreport on their system, and
+> >> with that, it loads sctp module. From then on, if their firewall
+> >> doesn't block incoming packets for sctp, they may be prone to some
+> >> remotely triggerable issue on sctp code, without even actually using
+> >> sctp.
+> >
+> > For that reason, we have disabled autoloading of SCTP.
+> > ( removing the
+> >  MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-132");
+> >  MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-132");
+> > )
+> > root must modprobe the module before it is accessible.
+> >
+> > However inet_diag is a way to have the module loaded anyway.
+> >
+> > This is why I like your patch Xin.
+> >
+> > David is only saying that your patch alone is not enough to prevent a
+> > user to use socket() to autoload SCTP.
+> Using  socket() to autoload SCTP should be fine, cause users would
+> use SCTP, no ?
+> 
+> "ss" doesn't mean users intend to use SCTP, "ss" may make users
+> not aware that SCTP module would be loaded, unlike socket(SCTP).
 
-The symptoms are in recent kernels imprecise external aborts,
-and in older kernels various kinds of network stalls and
-unexpected page allocation failures.
+Your changelog mentions a security issue.
 
-My testing indicates that the trouble started between v4.5 and v4.6
-and prevails up to v4.14.
+How have you prevented user using socket() to bypass your 'security'
+feature ?
 
-Using the dirty_tx before acquiring the spin lock is clearly
-wrong and was first introduced with v4.6.
-
-Fixes: e3ad57c96715 ("stmmac: review RX/TX ring management")
-
-Signed-off-by: Bernd Edlinger <bernd.edlinger@hotmail.de>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 1763e48..c8e280fa 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1800,12 +1800,13 @@ static void stmmac_tx_clean(struct stmmac_priv *priv, u32 queue)
- {
- 	struct stmmac_tx_queue *tx_q = &priv->tx_queue[queue];
- 	unsigned int bytes_compl = 0, pkts_compl = 0;
--	unsigned int entry = tx_q->dirty_tx;
-+	unsigned int entry;
- 
- 	netif_tx_lock(priv->dev);
- 
- 	priv->xstats.tx_clean++;
- 
-+	entry = tx_q->dirty_tx;
- 	while (entry != tx_q->cur_tx) {
- 		struct sk_buff *skb = tx_q->tx_skbuff[entry];
- 		struct dma_desc *p;
--- 
-1.9.1
+If you have not yet, this security claim is simply false.
