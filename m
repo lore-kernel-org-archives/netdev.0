@@ -1,27 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: ieee802154 2017-10-18
-Date: Sat, 21 Oct 2017 01:47:19 +0100 (WEST)
-Message-ID: <20171021.014719.1977671287590964119.davem@davemloft.net>
-References: <20171018220333.28378-1-stefan@datenfreihafen.org>
+Subject: Re: [PATCH net] packet: avoid panic in packet_getsockopt()
+Date: Sat, 21 Oct 2017 01:50:08 +0100 (WEST)
+Message-ID: <20171021.015008.162706023967923091.davem@davemloft.net>
+References: <1508364504.31614.150.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wpan@vger.kernel.org, alex.aring@gmail.com,
-        marcel@holtmann.org, netdev@vger.kernel.org, stefan@osg.samsung.com
-To: stefan@datenfreihafen.org
+Cc: netdev@vger.kernel.org, willemb@google.com, edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45854 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:45874 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753077AbdJUArX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 20:47:23 -0400
-In-Reply-To: <20171018220333.28378-1-stefan@datenfreihafen.org>
+        with ESMTP id S1752971AbdJUAuM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 20:50:12 -0400
+In-Reply-To: <1508364504.31614.150.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Schmidt <stefan@datenfreihafen.org>
-Date: Thu, 19 Oct 2017 00:03:33 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Oct 2017 15:08:24 -0700
 
-> Please find below a pull request from the ieee802154 subsystem for
-> net-next.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> syzkaller got crashes in packet_getsockopt() processing
+> PACKET_ROLLOVER_STATS command while another thread was managing
+> to change po->rollover
+> 
+> Using RCU will fix this bug. We might later add proper RCU annotations
+> for sparse sake.
+> 
+> Fixes: a9b6391814d5 ("packet: rollover statistics")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Pulled.
+Applied and queued up for -stable, but:
+
+> Willem de Bruijn <willemb@google.com>
+
+I didn't know what kind of tag you intended to use here for Willem
+so just deleted the line.
