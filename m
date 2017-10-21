@@ -1,172 +1,172 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 1/4] phylib: Add device reset GPIO support
-Date: Sat, 21 Oct 2017 13:03:14 +0300
-Message-ID: <44bc181e-6fd2-4868-3c8d-64e66d9c8d6b@cogentembedded.com>
-References: <1508487261-18524-1-git-send-email-geert+renesas@glider.be>
- <1508487261-18524-2-git-send-email-geert+renesas@glider.be>
- <2dacbfaf-ce5e-f113-9ae8-641441d99bbc@gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 2/2] slab, slub, slob: convert slab_flags_t to 32-bit
+Date: Sat, 21 Oct 2017 13:06:35 +0300
+Message-ID: <20171021100635.GA8287@avx2>
+References: <20171021100225.GA22428@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Nicolas Ferre <nicolas.ferre@microchip.com>,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        "David S . Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Simon Horman <horms@verge.net.au>,
-        Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <2dacbfaf-ce5e-f113-9ae8-641441d99bbc@gmail.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, cl@linux.com, penberg@kernel.org,
+        rientjes@google.com, iamjoonsoo.kim@lge.com,
+        ecryptfs@vger.kernel.org, linux-xfs@vger.kernel.org,
+        kasan-dev@googlegroups.com, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <ecryptfs-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171021100225.GA22428@avx2>
+Sender: ecryptfs-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+struct kmem_cache::flags is "unsigned long" which is unnecessary on
+64-bit as no flags are defined in the higher bits.
 
-On 10/20/2017 9:11 PM, Florian Fainelli wrote:
+Switch the field to 32-bit and save some space on x86_64 until such
+flags appear:
 
->> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->>
->> The PHY devices sometimes do have their reset signal (maybe even power
->> supply?) tied to some GPIO and sometimes it also does happen that a boot
->> loader does not leave it deasserted. So far this issue has been attacked
->> from (as I believe) a wrong angle: by teaching the MAC driver to manipulate
->> the GPIO in question; that solution, when applied to the device trees, led
->> to adding the PHY reset GPIO properties to the MAC device node, with one
->> exception: Cadence MACB driver which could handle the "reset-gpios" prop
->> in a PHY device subnode. I believe that the correct approach is to teach
->> the 'phylib' to get the MDIO device reset GPIO from the device tree node
->> corresponding to this device -- which this patch is doing...
->>
->> Note that I had to modify the AT803x PHY driver as it would stop working
->> otherwise -- it made use of the reset GPIO for its own purposes...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->> Acked-by: Rob Herring <robh@kernel.org>
->> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> This is a new patch as far as PHYLIB is concerned, so not quite accurate
+	add/remove: 0/0 grow/shrink: 0/107 up/down: 0/-657 (-657)
+	function                                     old     new   delta
+	sysfs_slab_add                               720     719      -1
+				...
+	check_object                                 699     676     -23
 
-    No, it is not new. No changes in logic since v2.
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+---
 
-> anymore. Thanks for picking that up, this looks good, with a few minor
-> things here and there.
+ include/linux/slab.h  |   44 ++++++++++++++++++++++----------------------
+ include/linux/types.h |    2 +-
+ mm/slab.c             |    4 ++--
+ mm/slub.c             |    4 ++--
+ 4 files changed, 27 insertions(+), 27 deletions(-)
 
->> [geert: Propagate actual errors from fwnode_get_named_gpiod()]
->> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-[...]
->> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
->> index 5f93e6add56394f2..15b4560aeb5de759 100644
->> --- a/drivers/net/phy/at803x.c
->> +++ b/drivers/net/phy/at803x.c
-> 
-> You most certainly want to make the conversion of the at803x.c driver as
-> a separate patch, there is no reason why it should be folded within the
-
-    No, it can't be a separate patch, otherwise I would have posted it 
-separately. We cannot request the same GPIO 2 times.
-
-> patch teaching PHYLIB about PHY reset through GPIOs. More on that below.
-> 
-[...]
->> @@ -254,22 +253,11 @@ static int at803x_probe(struct phy_device *phydev)
->>   {
->>   	struct device *dev = &phydev->mdio.dev;
->>   	struct at803x_priv *priv;
->> -	struct gpio_desc *gpiod_reset;
->>   
->>   	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
->>   	if (!priv)
->>   		return -ENOMEM;
->>   
->> -	if (phydev->drv->phy_id != ATH8030_PHY_ID)
->> -		goto does_not_require_reset_workaround;
-> 
-> We have lost that bit now, see below.
-
-    Hm... I'm still seeing this in net-next.
-
->> -
->> -	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
->> -	if (IS_ERR(gpiod_reset))
->> -		return PTR_ERR(gpiod_reset);
->> -
->> -	priv->gpiod_reset = gpiod_reset;
->> -
->> -does_not_require_reset_workaround:
->>   	phydev->priv = priv;
->>   
->>   	return 0;
->> @@ -343,14 +331,14 @@ static void at803x_link_change_notify(struct phy_device *phydev)
->>   	 * cannot recover from by software.
->>   	 */
->>   	if (phydev->state == PHY_NOLINK) {
->> -		if (priv->gpiod_reset && !priv->phy_reset) {
->> +		if (phydev->mdio.reset && !priv->phy_reset) {
-> 
-> and phydev->drv->phy_id == ATH8030_PHY_ID, the workaround is not
-> applicable to all PHY devices.
-
-    You are clearly looking at an outdated tree -- this check was removed,
-This method is populated only for 8030 instead.
-
-[...]
->> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
->> index 98258583abb0b405..3d044119c032d176 100644
->> --- a/drivers/of/of_mdio.c
->> +++ b/drivers/of/of_mdio.c
-[...]
->> @@ -55,10 +56,22 @@ static int of_mdiobus_register_phy(struct mii_bus *mdio,
->>   	is_c45 = of_device_is_compatible(child,
->>   					 "ethernet-phy-ieee802.3-c45");
->>   
->> +	/* Deassert the optional reset signal */
->> +	gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios", 0,
->> +				       GPIOD_OUT_LOW, "PHY reset");
->> +	if (PTR_ERR(gpiod) == -ENOENT)
->> +		gpiod = NULL;
->> +	else if (IS_ERR(gpiod))
->> +		return PTR_ERR(gpiod);
->> +
->>   	if (!is_c45 && !of_get_phy_id(child, &phy_id))
->>   		phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
->>   	else
->>   		phy = get_phy_device(mdio, addr, is_c45);
->> +
->> +	/* Assert the reset signal again */
->> +	gpiod_set_value(gpiod, 1);
-> 
-> You have a phy_device reference now, so why not call phy_device_reset()
-> directly here?
-
-    Symmetry, perhaps? (There was a gpiod_set_value(gpiod, 0) call above it...
-
-[...]
->> @@ -112,6 +127,14 @@ static int of_mdiobus_register_device(struct mii_bus *mdio,
->>   	of_node_get(child);
->>   	mdiodev->dev.of_node = child;
->>   
->> +	gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios", 0,
->> +				       GPIOD_ASIS, "PHY reset");
->> +	if (PTR_ERR(gpiod) == -ENOENT)
->> +		gpiod = NULL;
->> +	else if (IS_ERR(gpiod))
->> +		return PTR_ERR(gpiod);
->> +	mdiodev->reset = gpiod;
-> 
-> There is some obvious and non desireable duplication of code between
-> "pure" mdio_device and phy_device paths here, can you factor this such
-> that there is a common function storing gpiod into a mdio_device's reset
-> member in both cases?
-> 
-> Also, there is some asymetry being exposed here, the GPIO descriptor is
-> acquired from OF specific code, but is released in the generic MDIO
-> device layer, can we find a way to make that symmetrical?
-
-    Finally move of_mdio.c into drivers/net/phy/? ;-)
-
-MBR, Sergei
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -21,19 +21,19 @@
+  * The ones marked DEBUG are only valid if CONFIG_DEBUG_SLAB is set.
+  */
+ /* DEBUG: Perform (expensive) checks on alloc/free */
+-#define SLAB_CONSISTENCY_CHECKS	((slab_flags_t __force)0x00000100UL)
++#define SLAB_CONSISTENCY_CHECKS	((slab_flags_t __force)0x00000100U)
+ /* DEBUG: Red zone objs in a cache */
+-#define SLAB_RED_ZONE		((slab_flags_t __force)0x00000400UL)
++#define SLAB_RED_ZONE		((slab_flags_t __force)0x00000400U)
+ /* DEBUG: Poison objects */
+-#define SLAB_POISON		((slab_flags_t __force)0x00000800UL)
++#define SLAB_POISON		((slab_flags_t __force)0x00000800U)
+ /* Align objs on cache lines */
+-#define SLAB_HWCACHE_ALIGN	((slab_flags_t __force)0x00002000UL)
++#define SLAB_HWCACHE_ALIGN	((slab_flags_t __force)0x00002000U)
+ /* Use GFP_DMA memory */
+-#define SLAB_CACHE_DMA		((slab_flags_t __force)0x00004000UL)
++#define SLAB_CACHE_DMA		((slab_flags_t __force)0x00004000U)
+ /* DEBUG: Store the last owner for bug hunting */
+-#define SLAB_STORE_USER		((slab_flags_t __force)0x00010000UL)
++#define SLAB_STORE_USER		((slab_flags_t __force)0x00010000U)
+ /* Panic if kmem_cache_create() fails */
+-#define SLAB_PANIC		((slab_flags_t __force)0x00040000UL)
++#define SLAB_PANIC		((slab_flags_t __force)0x00040000U)
+ /*
+  * SLAB_TYPESAFE_BY_RCU - **WARNING** READ THIS!
+  *
+@@ -72,50 +72,50 @@
+  * Note that SLAB_TYPESAFE_BY_RCU was originally named SLAB_DESTROY_BY_RCU.
+  */
+ /* Defer freeing slabs to RCU */
+-#define SLAB_TYPESAFE_BY_RCU	((slab_flags_t __force)0x00080000UL)
++#define SLAB_TYPESAFE_BY_RCU	((slab_flags_t __force)0x00080000U)
+ /* Spread some memory over cpuset */
+-#define SLAB_MEM_SPREAD		((slab_flags_t __force)0x00100000UL)
++#define SLAB_MEM_SPREAD		((slab_flags_t __force)0x00100000U)
+ /* Trace allocations and frees */
+-#define SLAB_TRACE		((slab_flags_t __force)0x00200000UL)
++#define SLAB_TRACE		((slab_flags_t __force)0x00200000U)
+ 
+ /* Flag to prevent checks on free */
+ #ifdef CONFIG_DEBUG_OBJECTS
+-# define SLAB_DEBUG_OBJECTS	((slab_flags_t __force)0x00400000UL)
++# define SLAB_DEBUG_OBJECTS	((slab_flags_t __force)0x00400000U)
+ #else
+-# define SLAB_DEBUG_OBJECTS	((slab_flags_t __force)0x00000000UL)
++# define SLAB_DEBUG_OBJECTS	0
+ #endif
+ 
+ /* Avoid kmemleak tracing */
+-#define SLAB_NOLEAKTRACE	((slab_flags_t __force)0x00800000UL)
++#define SLAB_NOLEAKTRACE	((slab_flags_t __force)0x00800000U)
+ 
+ /* Don't track use of uninitialized memory */
+ #ifdef CONFIG_KMEMCHECK
+-# define SLAB_NOTRACK		((slab_flags_t __force)0x01000000UL)
++# define SLAB_NOTRACK		((slab_flags_t __force)0x01000000U)
+ #else
+-# define SLAB_NOTRACK		((slab_flags_t __force)0x00000000UL)
++# define SLAB_NOTRACK		0
+ #endif
+ /* Fault injection mark */
+ #ifdef CONFIG_FAILSLAB
+-# define SLAB_FAILSLAB		((slab_flags_t __force)0x02000000UL)
++# define SLAB_FAILSLAB		((slab_flags_t __force)0x02000000U)
+ #else
+-# define SLAB_FAILSLAB		((slab_flags_t __force)0x00000000UL)
++# define SLAB_FAILSLAB		0
+ #endif
+ /* Account to memcg */
+ #if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
+-# define SLAB_ACCOUNT		((slab_flags_t __force)0x04000000UL)
++# define SLAB_ACCOUNT		((slab_flags_t __force)0x04000000U)
+ #else
+-# define SLAB_ACCOUNT		((slab_flags_t __force)0x00000000UL)
++# define SLAB_ACCOUNT		0
+ #endif
+ 
+ #ifdef CONFIG_KASAN
+-#define SLAB_KASAN		((slab_flags_t __force)0x08000000UL)
++#define SLAB_KASAN		((slab_flags_t __force)0x08000000U)
+ #else
+-#define SLAB_KASAN		((slab_flags_t __force)0x00000000UL)
++#define SLAB_KASAN		0
+ #endif
+ 
+ /* The following flags affect the page allocator grouping pages by mobility */
+ /* Objects are reclaimable */
+-#define SLAB_RECLAIM_ACCOUNT	((slab_flags_t __force)0x00020000UL)
++#define SLAB_RECLAIM_ACCOUNT	((slab_flags_t __force)0x00020000U)
+ #define SLAB_TEMPORARY		SLAB_RECLAIM_ACCOUNT	/* Objects are short-lived */
+ /*
+  * ZERO_SIZE_PTR will be returned for zero sized kmalloc requests.
+--- a/include/linux/types.h
++++ b/include/linux/types.h
+@@ -155,7 +155,7 @@ typedef u32 dma_addr_t;
+ #endif
+ 
+ typedef unsigned __bitwise gfp_t;
+-typedef unsigned long __bitwise slab_flags_t;
++typedef unsigned __bitwise slab_flags_t;
+ typedef unsigned __bitwise fmode_t;
+ 
+ #ifdef CONFIG_PHYS_ADDR_T_64BIT
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -251,8 +251,8 @@ static void kmem_cache_node_init(struct kmem_cache_node *parent)
+ 	MAKE_LIST((cachep), (&(ptr)->slabs_free), slabs_free, nodeid);	\
+ 	} while (0)
+ 
+-#define CFLGS_OBJFREELIST_SLAB	((slab_flags_t __force)0x40000000UL)
+-#define CFLGS_OFF_SLAB		((slab_flags_t __force)0x80000000UL)
++#define CFLGS_OBJFREELIST_SLAB	((slab_flags_t __force)0x40000000U)
++#define CFLGS_OFF_SLAB		((slab_flags_t __force)0x80000000U)
+ #define	OBJFREELIST_SLAB(x)	((x)->flags & CFLGS_OBJFREELIST_SLAB)
+ #define	OFF_SLAB(x)	((x)->flags & CFLGS_OFF_SLAB)
+ 
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -193,9 +193,9 @@ static inline bool kmem_cache_has_cpu_partial(struct kmem_cache *s)
+ 
+ /* Internal SLUB flags */
+ /* Poison object */
+-#define __OBJECT_POISON		((slab_flags_t __force)0x80000000UL)
++#define __OBJECT_POISON		((slab_flags_t __force)0x80000000U)
+ /* Use cmpxchg_double */
+-#define __CMPXCHG_DOUBLE	((slab_flags_t __force)0x40000000UL)
++#define __CMPXCHG_DOUBLE	((slab_flags_t __force)0x40000000U)
+ 
+ /*
+  * Tracking user of a slab.
