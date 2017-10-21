@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net: diag: fix a potential security issue
-Date: Sat, 21 Oct 2017 12:16:59 +0100 (WEST)
-Message-ID: <20171021.121659.925589637636130294.davem@davemloft.net>
-References: <1508571955.30291.21.camel@edumazet-glaptop3.roam.corp.google.com>
-        <CADvbK_cKxwVxVbJU1uTVN1Goz_Wju1q71a0qUDWXY-zLCYNhhw@mail.gmail.com>
-        <CADvbK_cLxOGpBwdSX+CkE+HLefT4rjz8tbgrkosGg7f+wmQVTA@mail.gmail.com>
+Subject: Re: [net-next 1/1] tipc: fix broken tipc_poll() function
+Date: Sat, 21 Oct 2017 12:27:36 +0100 (WEST)
+Message-ID: <20171021.122736.1424744821329915425.davem@davemloft.net>
+References: <1508424124-1748-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, edumazet@google.com,
-        netdev@vger.kernel.org, marcelo.leitner@gmail.com,
-        sd@queasysnail.net
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, parthasarathy.bhuvaragan@ericsson.com,
+        ying.xue@windriver.com, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50442 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50574 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932067AbdJULRG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 07:17:06 -0400
-In-Reply-To: <CADvbK_cLxOGpBwdSX+CkE+HLefT4rjz8tbgrkosGg7f+wmQVTA@mail.gmail.com>
+        with ESMTP id S1753303AbdJUL1k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 07:27:40 -0400
+In-Reply-To: <1508424124-1748-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Sat, 21 Oct 2017 17:45:09 +0800
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu, 19 Oct 2017 16:42:04 +0200
 
-> Let's just see if David could accept the patches if I will
-> remove the "security claim" from changelog, considering
-> it as an improvement of sock diag.
+> In commit ae236fb208a6 ("tipc: receive group membership events via
+> member socket") we broke the tipc_poll() function by checking the
+> state of the receive queue before the call to poll_sock_wait(), while
+> relying that state afterwards, when it might have changed.
 > 
-> David ?
+> We restore this in this commit.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-No I won't.  See my other response.
-
-Use modules.conf or netfilter rules to block "scary networking
-protocols" if you are so paranoid about this happening.
-
-Thank you.
+Applied.
