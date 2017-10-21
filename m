@@ -1,172 +1,81 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH 2/2] slab, slub, slob: convert slab_flags_t to 32-bit
-Date: Sat, 21 Oct 2017 13:06:35 +0300
-Message-ID: <20171021100635.GA8287@avx2>
-References: <20171021100225.GA22428@avx2>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: Re: [PATCH v3 1/4] phylib: Add device reset GPIO support
+Date: Sat, 21 Oct 2017 12:08:41 +0200
+Message-ID: <CAMuHMdVsbc_+YEuZGXR6UTuwPuBLZRwcKRCmkABpQiJ6vgPkRQ@mail.gmail.com>
+References: <1508487261-18524-1-git-send-email-geert+renesas@glider.be>
+ <1508487261-18524-2-git-send-email-geert+renesas@glider.be>
+ <2dacbfaf-ce5e-f113-9ae8-641441d99bbc@gmail.com> <44bc181e-6fd2-4868-3c8d-64e66d9c8d6b@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, cl@linux.com, penberg@kernel.org,
-        rientjes@google.com, iamjoonsoo.kim@lge.com,
-        ecryptfs@vger.kernel.org, linux-xfs@vger.kernel.org,
-        kasan-dev@googlegroups.com, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <ecryptfs-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171021100225.GA22428@avx2>
-Sender: ecryptfs-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>,
+        Magnus Damm <magnus.damm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Nicolas Ferre <nicolas.ferre-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux-Renesas <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <44bc181e-6fd2-4868-3c8d-64e66d9c8d6b-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-struct kmem_cache::flags is "unsigned long" which is unnecessary on
-64-bit as no flags are defined in the higher bits.
+On Sat, Oct 21, 2017 at 12:03 PM, Sergei Shtylyov
+<sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org> wrote:
+> On 10/20/2017 9:11 PM, Florian Fainelli wrote:
+>>> From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+>>> --- a/drivers/of/of_mdio.c
+>>> +++ b/drivers/of/of_mdio.c
+>
+> [...]
+>>>
+>>> @@ -55,10 +56,22 @@ static int of_mdiobus_register_phy(struct mii_bus
+>>> *mdio,
+>>>         is_c45 = of_device_is_compatible(child,
+>>>                                          "ethernet-phy-ieee802.3-c45");
+>>>   +     /* Deassert the optional reset signal */
+>>> +       gpiod = fwnode_get_named_gpiod(&child->fwnode, "reset-gpios", 0,
+>>> +                                      GPIOD_OUT_LOW, "PHY reset");
+>>> +       if (PTR_ERR(gpiod) == -ENOENT)
+>>> +               gpiod = NULL;
+>>> +       else if (IS_ERR(gpiod))
+>>> +               return PTR_ERR(gpiod);
+>>> +
+>>>         if (!is_c45 && !of_get_phy_id(child, &phy_id))
+>>>                 phy = phy_device_create(mdio, addr, phy_id, 0, NULL);
+>>>         else
+>>>                 phy = get_phy_device(mdio, addr, is_c45);
+>>> +
+>>> +       /* Assert the reset signal again */
+>>> +       gpiod_set_value(gpiod, 1);
+>>
+>> You have a phy_device reference now, so why not call phy_device_reset()
+>> directly here?
+>
+>    Symmetry, perhaps? (There was a gpiod_set_value(gpiod, 0) call above
+> it...
 
-Switch the field to 32-bit and save some space on x86_64 until such
-flags appear:
+Not only because of symmetry: the validity of the phy object hasn't been
+checked yet (that's done immediately below), and phy->mdio.reset hasn't been
+filled in yet.
 
-	add/remove: 0/0 grow/shrink: 0/107 up/down: 0/-657 (-657)
-	function                                     old     new   delta
-	sysfs_slab_add                               720     719      -1
-				...
-	check_object                                 699     676     -23
+Gr{oetje,eeting}s,
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+                        Geert
 
- include/linux/slab.h  |   44 ++++++++++++++++++++++----------------------
- include/linux/types.h |    2 +-
- mm/slab.c             |    4 ++--
- mm/slub.c             |    4 ++--
- 4 files changed, 27 insertions(+), 27 deletions(-)
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
 
---- a/include/linux/slab.h
-+++ b/include/linux/slab.h
-@@ -21,19 +21,19 @@
-  * The ones marked DEBUG are only valid if CONFIG_DEBUG_SLAB is set.
-  */
- /* DEBUG: Perform (expensive) checks on alloc/free */
--#define SLAB_CONSISTENCY_CHECKS	((slab_flags_t __force)0x00000100UL)
-+#define SLAB_CONSISTENCY_CHECKS	((slab_flags_t __force)0x00000100U)
- /* DEBUG: Red zone objs in a cache */
--#define SLAB_RED_ZONE		((slab_flags_t __force)0x00000400UL)
-+#define SLAB_RED_ZONE		((slab_flags_t __force)0x00000400U)
- /* DEBUG: Poison objects */
--#define SLAB_POISON		((slab_flags_t __force)0x00000800UL)
-+#define SLAB_POISON		((slab_flags_t __force)0x00000800U)
- /* Align objs on cache lines */
--#define SLAB_HWCACHE_ALIGN	((slab_flags_t __force)0x00002000UL)
-+#define SLAB_HWCACHE_ALIGN	((slab_flags_t __force)0x00002000U)
- /* Use GFP_DMA memory */
--#define SLAB_CACHE_DMA		((slab_flags_t __force)0x00004000UL)
-+#define SLAB_CACHE_DMA		((slab_flags_t __force)0x00004000U)
- /* DEBUG: Store the last owner for bug hunting */
--#define SLAB_STORE_USER		((slab_flags_t __force)0x00010000UL)
-+#define SLAB_STORE_USER		((slab_flags_t __force)0x00010000U)
- /* Panic if kmem_cache_create() fails */
--#define SLAB_PANIC		((slab_flags_t __force)0x00040000UL)
-+#define SLAB_PANIC		((slab_flags_t __force)0x00040000U)
- /*
-  * SLAB_TYPESAFE_BY_RCU - **WARNING** READ THIS!
-  *
-@@ -72,50 +72,50 @@
-  * Note that SLAB_TYPESAFE_BY_RCU was originally named SLAB_DESTROY_BY_RCU.
-  */
- /* Defer freeing slabs to RCU */
--#define SLAB_TYPESAFE_BY_RCU	((slab_flags_t __force)0x00080000UL)
-+#define SLAB_TYPESAFE_BY_RCU	((slab_flags_t __force)0x00080000U)
- /* Spread some memory over cpuset */
--#define SLAB_MEM_SPREAD		((slab_flags_t __force)0x00100000UL)
-+#define SLAB_MEM_SPREAD		((slab_flags_t __force)0x00100000U)
- /* Trace allocations and frees */
--#define SLAB_TRACE		((slab_flags_t __force)0x00200000UL)
-+#define SLAB_TRACE		((slab_flags_t __force)0x00200000U)
- 
- /* Flag to prevent checks on free */
- #ifdef CONFIG_DEBUG_OBJECTS
--# define SLAB_DEBUG_OBJECTS	((slab_flags_t __force)0x00400000UL)
-+# define SLAB_DEBUG_OBJECTS	((slab_flags_t __force)0x00400000U)
- #else
--# define SLAB_DEBUG_OBJECTS	((slab_flags_t __force)0x00000000UL)
-+# define SLAB_DEBUG_OBJECTS	0
- #endif
- 
- /* Avoid kmemleak tracing */
--#define SLAB_NOLEAKTRACE	((slab_flags_t __force)0x00800000UL)
-+#define SLAB_NOLEAKTRACE	((slab_flags_t __force)0x00800000U)
- 
- /* Don't track use of uninitialized memory */
- #ifdef CONFIG_KMEMCHECK
--# define SLAB_NOTRACK		((slab_flags_t __force)0x01000000UL)
-+# define SLAB_NOTRACK		((slab_flags_t __force)0x01000000U)
- #else
--# define SLAB_NOTRACK		((slab_flags_t __force)0x00000000UL)
-+# define SLAB_NOTRACK		0
- #endif
- /* Fault injection mark */
- #ifdef CONFIG_FAILSLAB
--# define SLAB_FAILSLAB		((slab_flags_t __force)0x02000000UL)
-+# define SLAB_FAILSLAB		((slab_flags_t __force)0x02000000U)
- #else
--# define SLAB_FAILSLAB		((slab_flags_t __force)0x00000000UL)
-+# define SLAB_FAILSLAB		0
- #endif
- /* Account to memcg */
- #if defined(CONFIG_MEMCG) && !defined(CONFIG_SLOB)
--# define SLAB_ACCOUNT		((slab_flags_t __force)0x04000000UL)
-+# define SLAB_ACCOUNT		((slab_flags_t __force)0x04000000U)
- #else
--# define SLAB_ACCOUNT		((slab_flags_t __force)0x00000000UL)
-+# define SLAB_ACCOUNT		0
- #endif
- 
- #ifdef CONFIG_KASAN
--#define SLAB_KASAN		((slab_flags_t __force)0x08000000UL)
-+#define SLAB_KASAN		((slab_flags_t __force)0x08000000U)
- #else
--#define SLAB_KASAN		((slab_flags_t __force)0x00000000UL)
-+#define SLAB_KASAN		0
- #endif
- 
- /* The following flags affect the page allocator grouping pages by mobility */
- /* Objects are reclaimable */
--#define SLAB_RECLAIM_ACCOUNT	((slab_flags_t __force)0x00020000UL)
-+#define SLAB_RECLAIM_ACCOUNT	((slab_flags_t __force)0x00020000U)
- #define SLAB_TEMPORARY		SLAB_RECLAIM_ACCOUNT	/* Objects are short-lived */
- /*
-  * ZERO_SIZE_PTR will be returned for zero sized kmalloc requests.
---- a/include/linux/types.h
-+++ b/include/linux/types.h
-@@ -155,7 +155,7 @@ typedef u32 dma_addr_t;
- #endif
- 
- typedef unsigned __bitwise gfp_t;
--typedef unsigned long __bitwise slab_flags_t;
-+typedef unsigned __bitwise slab_flags_t;
- typedef unsigned __bitwise fmode_t;
- 
- #ifdef CONFIG_PHYS_ADDR_T_64BIT
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -251,8 +251,8 @@ static void kmem_cache_node_init(struct kmem_cache_node *parent)
- 	MAKE_LIST((cachep), (&(ptr)->slabs_free), slabs_free, nodeid);	\
- 	} while (0)
- 
--#define CFLGS_OBJFREELIST_SLAB	((slab_flags_t __force)0x40000000UL)
--#define CFLGS_OFF_SLAB		((slab_flags_t __force)0x80000000UL)
-+#define CFLGS_OBJFREELIST_SLAB	((slab_flags_t __force)0x40000000U)
-+#define CFLGS_OFF_SLAB		((slab_flags_t __force)0x80000000U)
- #define	OBJFREELIST_SLAB(x)	((x)->flags & CFLGS_OBJFREELIST_SLAB)
- #define	OFF_SLAB(x)	((x)->flags & CFLGS_OFF_SLAB)
- 
---- a/mm/slub.c
-+++ b/mm/slub.c
-@@ -193,9 +193,9 @@ static inline bool kmem_cache_has_cpu_partial(struct kmem_cache *s)
- 
- /* Internal SLUB flags */
- /* Poison object */
--#define __OBJECT_POISON		((slab_flags_t __force)0x80000000UL)
-+#define __OBJECT_POISON		((slab_flags_t __force)0x80000000U)
- /* Use cmpxchg_double */
--#define __CMPXCHG_DOUBLE	((slab_flags_t __force)0x40000000UL)
-+#define __CMPXCHG_DOUBLE	((slab_flags_t __force)0x40000000U)
- 
- /*
-  * Tracking user of a slab.
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
