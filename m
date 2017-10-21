@@ -1,28 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/7] net: aquantia: Atlantic driver 10/2017 updates
-Date: Sat, 21 Oct 2017 12:32:41 +0100 (WEST)
-Message-ID: <20171021.123241.303482982869305238.davem@davemloft.net>
-References: <cover.1508159232.git.igor.russkikh@aquantia.com>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
+ NVRAM config param
+Date: Sat, 21 Oct 2017 13:59:59 +0000
+Message-ID: <AM0PR0502MB368337378712D3A48EDEF6C8BF400@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
+ <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
+ <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <20171019213955.GG1978@nanopsycho.orion>
+ <CA+Jmh7HCC-CgU16E8vSm541KnNUKZUgWfT0tPVx73cJxREC0Ag@mail.gmail.com>
+ <20171020141010.GB1994@nanopsycho.orion>
+ <CA+Jmh7FT789PfH908KK+x1+ehrvbiaaovori1w9yWe7+CFhFTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, darcari@redhat.com,
-        pavel.belous@aquantia.com, Nadezhda.Krupnina@aquantia.com,
-        simon.edelhaus@aquantia.com
-To: igor.russkikh@aquantia.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "linville@tuxdriver.com" <linville@tuxdriver.com>,
+        "gospo@broadcom.com" <gospo@broadcom.com>
+To: Steve Lin <steven.lin1@broadcom.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50640 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753303AbdJULcq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 07:32:46 -0400
-In-Reply-To: <cover.1508159232.git.igor.russkikh@aquantia.com>
+Received: from mail-ve1eur01on0045.outbound.protection.outlook.com ([104.47.1.45]:14912
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932089AbdJUOAD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 21 Oct 2017 10:00:03 -0400
+In-Reply-To: <CA+Jmh7FT789PfH908KK+x1+ehrvbiaaovori1w9yWe7+CFhFTg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Russkikh <igor.russkikh@aquantia.com>
-Date: Thu, 19 Oct 2017 18:23:52 +0300
-
-> This patchset fixes various issues in driver,
-> improves parameters for better performance on 10Gbit link
-
-Series applied.
+PiBPbiBGcmksIE9jdCAyMCwgMjAxNyBhdCAxMDoxMCBBTSwgSmlyaSBQaXJrbyA8amlyaUByZXNu
+dWxsaS51cz4gd3JvdGU6DQo+ID4gRnJpLCBPY3QgMjAsIDIwMTcgYXQgMDQ6MDM6NTVQTSBDRVNU
+LCBzdGV2ZW4ubGluMUBicm9hZGNvbS5jb20gd3JvdGU6DQo+ID4+T24gVGh1LCBPY3QgMTksIDIw
+MTcgYXQgNTozOSBQTSwgSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4gd3JvdGU6DQo+ID4+
+PiBUaHUsIE9jdCAxOSwgMjAxNyBhdCAxMDozMjoyMVBNIENFU1QsIHl1dmFsbUBtZWxsYW5veC5j
+b20gd3JvdGU6DQo+ID4+Pj4+IEFkZGluZyBERVZMSU5LX1BFUk1fQ09ORklHX01TSVhfVkVDVE9S
+U19QRVJfVkYNCj4gcGVybWFuZW50DQo+ID4+Pj4+IGNvbmZpZw0KPiA+Pj4+PiBwYXJhbWV0ZXIu
+ICBEZWZpbmVzIG51bWJlciBvZiBNU0ktWCB2ZWN0b3JzIGFsbG9jYXRlZCBwZXIgVkYuDQo+ID4+
+Pj4+IFZhbHVlIGlzIHBlcm1hbmVudCAoc3RvcmVkIGluIE5WUkFNKSwgc28gYmVjb21lcyB0aGUg
+bmV3IGRlZmF1bHQNCj4gPj4+Pj4gdmFsdWUgZm9yIHRoaXMgZGV2aWNlLg0KPiA+Pj4+DQo+ID4+
+Pj5Tb3VuZHMgbGlrZSB5b3UncmUgaGF2aW5nIHRoaXMgZW5mb3JjZSB0aGUgc2FtZSBjb25maWd1
+cmF0aW9uIGZvciBhbGwNCj4gY2hpbGQgVkZzLg0KPiA+Pj4NCj4gPj4+IFllYWgsIHRoaXMgc291
+bmRzIGxpa2UgcGVyLXBvcnQgY29uZmlnLg0KPiA+Pj4NCj4gPj4NCj4gPj5XZWxsLCBpdCBnZXRz
+IGEgbGl0dGxlIHRyaWNreSBoZXJlLiAgSSBhc3N1bWUgc29tZSBjYXJkcyBoYW5kbGUgdGhpcw0K
+PiA+PnBlci1wb3J0LiAgT3RoZXIgY2FyZHMgbWlnaHQgaGFuZGxlIHRoaXMgcGVyIFBGLCB3aGVy
+ZSBQRiBtYXkgbm90DQo+ID4+YWx3YXlzIGNvcnJlc3BvbmQgMToxIHdpdGggYSBwb3J0LiAgQW5k
+IHNvbWUgY2FyZHMgbWF5YmUganVzdCBhbGxvdyBhDQo+ID4+c2luZ2xlIHZhbHVlIGZvciB0aGlz
+IHBhcmFtZXRlciBmb3IgdGhlIGVudGlyZSBjYXJkLCBjb3ZlcmluZyBhbGwNCj4gPj5wb3J0cy9Q
+RnMuDQo+ID4+DQo+ID4+VG8ga2VlcCB0aGluZ3Mgc2ltcGxlIGFuZCBhcyBnZW5lcmFsIGFzIHBv
+c3NpYmxlLCBpdCBtYWRlIHNlbnNlIHRvIHNldA0KPiA+PmFsbCBwYXJhbWV0ZXJzIG9uIGEgcGVy
+LVBDSSBkZXZpY2UgbGV2ZWwuICBBcyBJIG1lbnRpb25lZCBpbiBteQ0KPiA+PmNvdmVyLWxldHRl
+ciwgdGhlIGRldmljZXMgbW9zdCBsaWtlbHkgdG8gdXNlIHRoZXNlIHByb3Bvc2VkIGNvbW1hbmRz
+DQo+ID4+ZG8gbm90IGhhdmUgYSBzaW5nbGUgIndob2xlIGFzaWMiIFBDSSBiL2QvZiB3aXRoIGlu
+dGVybmFsIG1lY2hhbmlzbQ0KPiA+PmZvciBhY2Nlc3NpbmcgcG9ydHMgLSBtb3N0IGV4cG9zZSBl
+YWNoIHBvcnQgKGFuZCBlYWNoIGZ1bmN0aW9uIG9uIGVhY2gNCj4gPj5wb3J0KSBhcyBhIHNlcGFy
+YXRlIFBDSSBiL2QvZiwgd2l0aCBubyBzZXBhcmF0ZSAid2hvbGUgYXNpYyIgUENJDQo+ID4+Yi9k
+L2YuICBUaGF0J3MgaG93IHRoZSBCQ00gY2FyZHMgd29yaywgYW5kIEkgdGhpbmsgdGhhdCdzIGhv
+dyB0aGUgTUxOWA0KPiA+PmNhcmRzIHdvcmssIGFuZCBvdGhlcnMgdGhhdCB3b3VsZCBiZSBsaWtl
+bHkgdG8gdXNlIHRoZXNlIGNtZHMuDQo+ID4+DQo+ID4+U28sIHRvIHN1bW1hcml6ZSwgeW91IGRp
+cmVjdCB0aGUgY29tbWFuZCB0byB0aGUgUENJIGIvZC9mIHlvdSB3YW50IHRvDQo+ID4+dGFyZ2V0
+LiAgRG9lcyB0aGlzIG1ha2Ugc2Vuc2U/DQo+ID4NCj4gPiBTbyB5b3UgcGxhbiB0byBoYXZlIDEg
+ZGV2bGluayBpbnN0YW5jZSBmb3IgZWFjaCB2Zj8gTm90IHN1cmUgdGhhdA0KPiA+IGRvZXMgc291
+bmQgcmlnaHQgdG8gbWUgOi8NCj4gPg0KPiANCj4gRm9yIHRoZSBjb21tYW5kcyBwcm9wb3NlZCBp
+biB0aGlzIHBhdGNoc2V0LCBBRkFJSyB0aGV5IGFsbCBhcHBseSBvbiBhDQo+IHBlci1QRiBvciBi
+cm9hZGVyLCBpLmUuIHBlci1wb3J0IG9yIHdob2xlLWNhcmQsIGdyYW51bGFyaXR5LCBzaW5jZQ0K
+PiB0aGV5IGFmZmVjdCBwZXJtYW5lbnQgY29uZmlnIHRoYXQgYXBwbGllcyBhdCBib290LXVwLiAg
+U28sIG5vLCB0aGUgVkZzDQo+IGRvbid0IHJlYWxseSBjb21lIGludG8gcGxheSBoZXJlLg0KDQpS
+ZWdhcmRsZXNzIG9mIHdoZXRoZXIgeW91J3JlIHBsYW5uaW5nIG9uIGhhdmluZyBWRnMgYXMgZGV2
+bGluayBpbnN0YW5jZXMsDQp0aGUgYWN0dWFsIGF0dHJpYnV0ZSBxdWVzdGlvbiByZW1haW5zIC0N
+CnlvdSdyZSBwcm9wb3NpbmcgYW4gYXR0cmlidXRlIHRoYXQgZm9yY2VzIGFsbCBWRnMgdG8gaGF2
+ZSB0aGUgc2FtZSB2YWx1ZS4NClRoaXMgcHJvYmFibHkgc3VpdHMgeW91ciBQQ0kgY29yZSBsaW1p
+dGF0aW9ucyBidXQgb3RoZXIgdmVuZG9ycyBtaWdodCBoYXZlDQphIGRpZmZlcmVudCBjYXBhYmls
+aXR5IHNldCwgYW5kIGFjY2VwdGluZyB0aGlzIGRlc2lnbiBsaW1pdGF0aW9uIG5vdyB3b3VsZA0K
+bXVjayBhbGwgZnV0dXJlIGV4dGVuc2lvbiBhdHRlbXB0cyBvZiBzdWNoIGF0dHJpYnV0ZXMuDQoN
+CkkgdGhpbmsgVkYgY29uZmlndXJhdGlvbnMgc2hvdWxkIGJlIHBsYW5uZWQgaW4gYWR2YW5jZSBm
+b3Igc3VwcG9ydGluZyBhDQpwZXItVkYgQ29uZmlndXJhdGlvbiB3aGVuZXZlciBpdCdzIHBvc3Np
+YmxlIC0gZXZlbiBpZiBub3QgcmVxdWlyZWQgWy9wb3NzaWJsZV0NCmJ5IHRoZSBvbmUgcHVzaGlu
+ZyB0aGUgbmV3IGF0dHJpYnV0ZS4NCg0K
