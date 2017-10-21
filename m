@@ -1,42 +1,37 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: core: rtnetlink: use BUG_ON instead of if condition
- followed by BUG
-Date: Fri, 20 Oct 2017 19:43:11 -0500
-Message-ID: <20171021004311.GA25170@embeddedor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: fix tcp_send_syn_data()
+Date: Sat, 21 Oct 2017 01:44:34 +0100 (WEST)
+Message-ID: <20171021.014434.726585284125917383.davem@davemloft.net>
+References: <1508361630.31614.142.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ycheng@google.com, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45822 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752925AbdJUAoi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 20:44:38 -0400
+In-Reply-To: <1508361630.31614.142.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use BUG_ON instead of if condition followed by BUG in do_setlink.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 18 Oct 2017 14:20:30 -0700
 
-This issue was detected with the help of Coccinelle.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> syn_data was allocated by sk_stream_alloc_skb(), meaning
+> its destructor and _skb_refdst fields are mangled.
+> 
+> We need to call tcp_skb_tsorted_anchor_cleanup() before
+> calling kfree_skb() or kernel crashes.
+> 
+> Bug was reported by syzkaller bot.
+> 
+> Fixes: e2080072ed2d ("tcp: new list for sent but unacked skbs for RACK recovery")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only.
-
- net/core/rtnetlink.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 04680a5..df8dba9 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2274,8 +2274,7 @@ static int do_setlink(const struct sk_buff *skb,
- 
- 			rcu_read_lock();
- 
--			if (!(af_ops = rtnl_af_lookup(nla_type(af))))
--				BUG();
-+			BUG_ON(!(af_ops = rtnl_af_lookup(nla_type(af))));
- 
- 			err = af_ops->set_link_af(dev, af);
- 			if (err < 0) {
--- 
-2.7.4
+Applied.
