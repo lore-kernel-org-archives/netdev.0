@@ -1,23 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/5] net/ncsi: Fix AEN HNCDSC packet length
-Date: Sat, 21 Oct 2017 01:56:57 +0100 (WEST)
-Message-ID: <20171021.015657.257507348770037328.davem@davemloft.net>
+Subject: Re: [PATCH net 2/5] net/ncsi: Stop monitor if channel times out or
+ is inactive
+Date: Sat, 21 Oct 2017 01:57:03 +0100 (WEST)
+Message-ID: <20171021.015703.687772689628489498.davem@davemloft.net>
 References: <20171019024309.13628-1-sam@mendozajonas.com>
+        <20171019024309.13628-2-sam@mendozajonas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: sam@mendozajonas.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171019024309.13628-1-sam@mendozajonas.com>
+In-Reply-To: <20171019024309.13628-2-sam@mendozajonas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Date: Thu, 19 Oct 2017 13:43:05 +1100
+Date: Thu, 19 Oct 2017 13:43:06 +1100
 
-> Correct the value of the HNCDSC AEN packet.
-> Fixes: 7a82ecf4cfb85 "net/ncsi: NCSI AEN packet handler"
+> ncsi_channel_monitor() misses stopping the channel monitor in several
+> places that it should, causing a WARN_ON_ONCE() to trigger when the
+> monitor is re-started later, eg:
+> 
+> [  459.040000] WARNING: CPU: 0 PID: 1093 at net/ncsi/ncsi-manage.c:269 ncsi_start_channel_monitor+0x7c/0x90
+> [  459.040000] CPU: 0 PID: 1093 Comm: kworker/0:3 Not tainted 4.10.17-gaca2fdd #140
+> [  459.040000] Hardware name: ASpeed SoC
+> [  459.040000] Workqueue: events ncsi_dev_work
+> [  459.040000] [<80010094>] (unwind_backtrace) from [<8000d950>] (show_stack+0x20/0x24)
+> [  459.040000] [<8000d950>] (show_stack) from [<801dbf70>] (dump_stack+0x20/0x28)
+> [  459.040000] [<801dbf70>] (dump_stack) from [<80018d7c>] (__warn+0xe0/0x108)
+> [  459.040000] [<80018d7c>] (__warn) from [<80018e70>] (warn_slowpath_null+0x30/0x38)
+> [  459.040000] [<80018e70>] (warn_slowpath_null) from [<803f6a08>] (ncsi_start_channel_monitor+0x7c/0x90)
+> [  459.040000] [<803f6a08>] (ncsi_start_channel_monitor) from [<803f7664>] (ncsi_configure_channel+0xdc/0x5fc)
+> [  459.040000] [<803f7664>] (ncsi_configure_channel) from [<803f8160>] (ncsi_dev_work+0xac/0x474)
+> [  459.040000] [<803f8160>] (ncsi_dev_work) from [<8002d244>] (process_one_work+0x1e0/0x450)
+> [  459.040000] [<8002d244>] (process_one_work) from [<8002d510>] (worker_thread+0x5c/0x570)
+> [  459.040000] [<8002d510>] (worker_thread) from [<80033614>] (kthread+0x124/0x164)
+> [  459.040000] [<80033614>] (kthread) from [<8000a5e8>] (ret_from_fork+0x14/0x2c)
+> 
+> This also updates the monitor instead of just returning if
+> ncsi_xmit_cmd() fails to send the get-link-status command so that the
+> monitor properly times out.
+> 
+> Fixes: e6f44ed6d04d3 "net/ncsi: Package and channel management"
 > 
 > Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 
