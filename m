@@ -1,114 +1,49 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [net-next v2 3/4] openvswitch: Add meter infrastructure
-Date: Fri, 20 Oct 2017 20:32:44 -0700
-Message-ID: <CAOrHB_BPKKwGJzRaU1S_hNyQ=z27YV3hyWQc-C=J79dSua=_AQ@mail.gmail.com>
-References: <1508225805-11613-1-git-send-email-azhou@ovn.org>
- <1508225805-11613-4-git-send-email-azhou@ovn.org> <CAOrHB_DBSxoxncBN1+DqcAPcpLABCA_8=h2af5XN7sVhL8Sezw@mail.gmail.com>
- <CABKoBm1JdL3K=oG-xn7kc31t_CHM-EtnexQngoyrGQ8PUZitSg@mail.gmail.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH] net: can: dev: remove unused code in can_restart
+Date: Fri, 20 Oct 2017 22:36:52 -0500
+Message-ID: <20171021033652.GA28755@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Greg Rose <gvrose8192@gmail.com>, Joe Stringer <joe@ovn.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:42545 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752664AbdJUDcq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 20 Oct 2017 23:32:46 -0400
-Received: from mail-wr0-f172.google.com (mail-wr0-f172.google.com [209.85.128.172])
-        (Authenticated sender: pshelar@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 2A56AA80C1
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 05:32:45 +0200 (CEST)
-Received: by mail-wr0-f172.google.com with SMTP id g90so12785515wrd.6
-        for <netdev@vger.kernel.org>; Fri, 20 Oct 2017 20:32:45 -0700 (PDT)
-In-Reply-To: <CABKoBm1JdL3K=oG-xn7kc31t_CHM-EtnexQngoyrGQ8PUZitSg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Wolfgang Grandegger <wg@grandegger.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 19, 2017 at 5:58 PM, Andy Zhou <azhou@ovn.org> wrote:
->
-> On Thu, Oct 19, 2017 at 02:47 Pravin Shelar <pshelar@ovn.org> wrote:
->>
->> On Tue, Oct 17, 2017 at 12:36 AM, Andy Zhou <azhou@ovn.org> wrote:
->> > OVS kernel datapath so far does not support Openflow meter action.
->> > This is the first stab at adding kernel datapath meter support.
->> > This implementation supports only drop band type.
->> >
->> > Signed-off-by: Andy Zhou <azhou@ovn.org>
->> > ---
->> >  net/openvswitch/Makefile   |   1 +
->> >  net/openvswitch/datapath.c |  14 +-
->> >  net/openvswitch/datapath.h |   3 +
->> >  net/openvswitch/meter.c    | 604
->> > +++++++++++++++++++++++++++++++++++++++++++++
->> >  net/openvswitch/meter.h    |  54 ++++
->> >  5 files changed, 674 insertions(+), 2 deletions(-)
->> >  create mode 100644 net/openvswitch/meter.c
->> >  create mode 100644 net/openvswitch/meter.h
->> >
->> This patch mostly looks good. I have one comment below.
->>
->> > +static int ovs_meter_cmd_set(struct sk_buff *skb, struct genl_info
->> > *info)
->> > +{
->> > +       struct nlattr **a = info->attrs;
->> > +       struct dp_meter *meter, *old_meter;
->> > +       struct sk_buff *reply;
->> > +       struct ovs_header *ovs_reply_header;
->> > +       struct ovs_header *ovs_header = info->userhdr;
->> > +       struct datapath *dp;
->> > +       int err;
->> > +       u32 meter_id;
->> > +       bool failed;
->> > +
->> > +       meter = dp_meter_create(a);
->> > +       if (IS_ERR_OR_NULL(meter))
->> > +               return PTR_ERR(meter);
->> > +
->> > +       reply = ovs_meter_cmd_reply_start(info, OVS_METER_CMD_SET,
->> > +                                         &ovs_reply_header);
->> > +       if (IS_ERR(reply)) {
->> > +               err = PTR_ERR(reply);
->> > +               goto exit_free_meter;
->> > +       }
->> > +
->> > +       ovs_lock();
->> > +       dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
->> > +       if (!dp) {
->> > +               err = -ENODEV;
->> > +               goto exit_unlock;
->> > +       }
->> > +
->> > +       if (!a[OVS_METER_ATTR_ID]) {
->> > +               err = -ENODEV;
->> > +               goto exit_unlock;
->> > +       }
->> > +
->> > +       meter_id = nla_get_u32(a[OVS_METER_ATTR_ID]);
->> > +
->> > +       /* Cannot fail after this. */
->> > +       old_meter = lookup_meter(dp, meter_id);
->> I do not see RCU read lock taken here. This is not correctness issue
->> but it could cause RCU checker to spit out warning message. You could
->> do same trick that is done in get_dp() to avoid this issue.
->
-> O.K.
->>
->>
->>
->> Can you also test the code with rcu sparse check config option enabled?
->
->
-> Do you mean to sparse compile with CONFIG_PROVE_LOCKING and
-> CONFIG_DENUG_OBJECTS_RCU_HEAD?
+Value assigned to variable err is overwritten at line
+562: err = priv->do_set_mode(dev, CAN_MODE_START); before
+it can be used.
 
-You could use all following options simultaneously:
-CONFIG_PREEMPT
-CONFIG_DEBUG_PREEMPT
-CONFIG_DEBUG_SPINLOCK
-CONFIG_DEBUG_ATOMIC_SLEEP
-CONFIG_PROVE_RCU
-CONFIG_DEBUG_OBJECTS_RCU_HEAD
+Also, notice that this code has been there since 2014.
 
-Thanks,
-Pravin.
+Addresses-Coverity-ID: 1227031
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+This code was tested by compilation only.
+
+ drivers/net/can/dev.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 365a8cc..064d0f6 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -543,10 +543,9 @@ static void can_restart(struct net_device *dev)
+ 
+ 	/* send restart message upstream */
+ 	skb = alloc_can_err_skb(dev, &cf);
+-	if (skb == NULL) {
+-		err = -ENOMEM;
++	if (!skb)
+ 		goto restart;
+-	}
++
+ 	cf->can_id |= CAN_ERR_RESTARTED;
+ 
+ 	netif_rx(skb);
+-- 
+2.7.4
