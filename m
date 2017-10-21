@@ -1,99 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net 0/2] net: diag: fix a potential security issue
-Date: Sat, 21 Oct 2017 00:45:55 -0700
-Message-ID: <1508571955.30291.21.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1508398111.git.lucien.xin@gmail.com>
-         <20171021.022737.1906342496133825805.davem@davemloft.net>
-         <CADvbK_fWmmC3ggpoT--Pxk3GxZ8Gq_rbdFGTuXk-BuTHTO=eXw@mail.gmail.com>
-         <CANn89i+n=MMUDdjDm4SQfEfQvFM+PgSKCrtDzBY=OiwsiyvYMg@mail.gmail.com>
-         <CADvbK_c22nQ628LnxhdQabkbNNiuYxtYEwjTs6ToiWj4sYuBmQ@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] selftests/bpf: fix broken build of test_maps
+Date: Sat, 21 Oct 2017 10:23:08 +0200
+Message-ID: <59EB03EC.9060002@iogearbox.net>
+References: <20171021062533.2090015-1-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        network dev <netdev@vger.kernel.org>,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Sabrina Dubroca <sd@queasysnail.net>
-To: Xin Long <lucien.xin@gmail.com>
+Cc: Chenbo Feng <fengc@google.com>,
+        Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@fb.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:46723 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751392AbdJUHp6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 03:45:58 -0400
-Received: by mail-pg0-f67.google.com with SMTP id k7so8275291pga.3
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 00:45:58 -0700 (PDT)
-In-Reply-To: <CADvbK_c22nQ628LnxhdQabkbNNiuYxtYEwjTs6ToiWj4sYuBmQ@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:42567 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751668AbdJUIXO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 04:23:14 -0400
+In-Reply-To: <20171021062533.2090015-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-10-21 at 14:51 +0800, Xin Long wrote:
-> On Sat, Oct 21, 2017 at 2:18 PM, Eric Dumazet <edumazet@google.com> wrote:
-> > On Fri, Oct 20, 2017 at 11:06 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> >>
-> >>
-> >> On Sat, Oct 21, 2017 at 9:27 AM, David Miller <davem@davemloft.net> wrote:
-> >>>
-> >>> From: Xin Long <lucien.xin@gmail.com>
-> >>> Date: Thu, 19 Oct 2017 15:32:23 +0800
-> >>>
-> >>> > This patch is to void the potential security issue that the family
-> >>> > or protocol modules are autoloaded when requesting _diag module by
-> >>> > not requesting _diag module if the family or protocol is not added
-> >>> > or registered in sock_diag and inet_diag.
-> >>> >
-> >>> > As the repost of the patch '[PATCH net] sock_diag: request _diag
-> >>> > module only when the family or proto has been registered', this
-> >>> > patchset fixes the compiling errors when INET is not set, and
-> >>> > also split into two patches to make it clear to review.
-> >>>
-> >>> This makes no sense to me.
-> >>>
-> >>> Any user can just open a socket() in the appropriate protocol
-> >>> family to cause the module to be loaded.
-> >>>
-> >>> If someone wants modules to not be loaded, block them using
-> >>> traditional module loading infrastructure mechanisms.  Or
-> >>> don't load the module at all.
-> >>>
-> >>> Sorry I am not applying this.
-> >>
-> >> Hi David,
-> >>
-> >> I'm still thinking it's not good after 'ss', sctp, dccp,
-> >> af_packet ... are just loaded, in which case, no one actually
-> >> open any socket with these family or proto.
-> >>
-> >> I talked with Marcelo before, one scenario as he said:
-> >>
-> >> Imagine a customer generates a sosreport on their system, and
-> >> with that, it loads sctp module. From then on, if their firewall
-> >> doesn't block incoming packets for sctp, they may be prone to some
-> >> remotely triggerable issue on sctp code, without even actually using
-> >> sctp.
-> >
-> > For that reason, we have disabled autoloading of SCTP.
-> > ( removing the
-> >  MODULE_ALIAS("net-pf-" __stringify(PF_INET) "-proto-132");
-> >  MODULE_ALIAS("net-pf-" __stringify(PF_INET6) "-proto-132");
-> > )
-> > root must modprobe the module before it is accessible.
-> >
-> > However inet_diag is a way to have the module loaded anyway.
-> >
-> > This is why I like your patch Xin.
-> >
-> > David is only saying that your patch alone is not enough to prevent a
-> > user to use socket() to autoload SCTP.
-> Using  socket() to autoload SCTP should be fine, cause users would
-> use SCTP, no ?
-> 
-> "ss" doesn't mean users intend to use SCTP, "ss" may make users
-> not aware that SCTP module would be loaded, unlike socket(SCTP).
+On 10/21/2017 08:25 AM, Alexei Starovoitov wrote:
+> fix broken tests
+>
+> Fixes: e043325b3087 ("bpf: Add tests for eBPF file mode")
+> Fixes: 6e71b04a8224 ("bpf: Add file mode configuration into bpf maps")
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+> Chenbo,
+>
+> this was very broken patch submission.
+> Please make sure to actually compile your tests before sending patches.
 
-Your changelog mentions a security issue.
+Urks, and still after that many rounds ...
 
-How have you prevented user using socket() to bypass your 'security'
-feature ?
-
-If you have not yet, this security claim is simply false.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
