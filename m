@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: smc_close: mark expected switch fall-throughs
-Date: Sun, 22 Oct 2017 02:08:35 +0100 (WEST)
-Message-ID: <20171022.020835.2065879880300400886.davem@davemloft.net>
-References: <20171019220244.GA22041@embeddedor.com>
+Subject: Re: [PATCH net-next 0/8] tools: bpftool: add a "version" command,
+ and fix several items
+Date: Sun, 22 Oct 2017 02:11:47 +0100 (WEST)
+Message-ID: <20171022.021147.857841842816826083.davem@davemloft.net>
+References: <20171019224626.31608-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ubraun@linux.vnet.ibm.com, linux-s390@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: garsilva@embeddedor.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171019220244.GA22041@embeddedor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56930 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932271AbdJVBLu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:11:50 -0400
+In-Reply-To: <20171019224626.31608-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Date: Thu, 19 Oct 2017 17:02:44 -0500
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 19 Oct 2017 15:46:18 -0700
 
-> @@ -360,7 +360,8 @@ static void smc_close_passive_work(struct work_struct *work)
->  	case SMC_PEERCLOSEWAIT1:
->  		if (rxflags->peer_done_writing)
->  			sk->sk_state = SMC_PEERCLOSEWAIT2;
-> -		/* fall through to check for closing */
-> +		/* to check for closing */
-> +		/* fall through */
+> Quentin says:
+> 
+> The first seven patches of this series bring several minor fixes to
+> bpftool. Please see individual commit logs for details.
+> 
+> Last patch adds a "version" commands to bpftool, which is in fact the
+> version of the kernel from which it was compiled.
 
-Gustavo please look at what you are doing to the code.
-
-This was a nice easy to read sentence in the comment, and now
-you've chopped it up into two pieces and made it awkward and
-more difficult to read.
+Series applied, thank you.
