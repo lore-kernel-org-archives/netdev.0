@@ -1,39 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/2] mlxsw: spectrum: Configure TTL of "inherit"
- for offloaded tunnels
-Date: Sun, 22 Oct 2017 02:19:50 +0100 (WEST)
-Message-ID: <20171022.021950.94283084189078828.davem@davemloft.net>
-References: <20171020071616.1498-1-jiri@resnulli.us>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: Re: [PATCH] net: smc_close: mark expected switch fall-throughs
+Date: Sat, 21 Oct 2017 20:21:00 -0500
+Message-ID: <20171021202100.Horde.z-7P99HVhWm0m3hXj5cOjur@gator4166.hostgator.com>
+References: <20171019220244.GA22041@embeddedor.com>
+ <20171022.020835.2065879880300400886.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, petrm@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
+Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
+Cc: ubraun@linux.vnet.ibm.com, linux-s390@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57024 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932271AbdJVBTz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:19:55 -0400
-In-Reply-To: <20171020071616.1498-1-jiri@resnulli.us>
+Received: from gateway31.websitewelcome.com ([192.185.143.38]:25050 "EHLO
+        gateway31.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932271AbdJVBVC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:21:02 -0400
+Received: from cm10.websitewelcome.com (cm10.websitewelcome.com [100.42.49.4])
+        by gateway31.websitewelcome.com (Postfix) with ESMTP id 519E0DD83C
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 20:21:01 -0500 (CDT)
+In-Reply-To: <20171022.020835.2065879880300400886.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 20 Oct 2017 09:16:14 +0200
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Petr says:
-> 
-> Currently mlxsw only offloads tunnels that are configured with TTL of "inherit"
-> (which is the default). However, Spectrum defaults to 255 and the driver
-> neglects to change the configuration. Thus the tunnel packets from offloaded
-> tunnels always have TTL of 255, even though tunnels with explicit TTL of 255 are
-> never actually offloaded.
-> 
-> To fix this, introduce support for TIGCR, the register that keeps the related
-> bits of global tunnel configuration, and use it on first offload to properly
-> configure inheritance of TTL of tunnel packets from overlay packets.
+Quoting David Miller <davem@davemloft.net>:
 
-Series applied.
+> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+> Date: Thu, 19 Oct 2017 17:02:44 -0500
+>
+>> @@ -360,7 +360,8 @@ static void smc_close_passive_work(struct  
+>> work_struct *work)
+>>  	case SMC_PEERCLOSEWAIT1:
+>>  		if (rxflags->peer_done_writing)
+>>  			sk->sk_state = SMC_PEERCLOSEWAIT2;
+>> -		/* fall through to check for closing */
+>> +		/* to check for closing */
+>> +		/* fall through */
+>
+> Gustavo please look at what you are doing to the code.
+>
+> This was a nice easy to read sentence in the comment, and now
+> you've chopped it up into two pieces and made it awkward and
+> more difficult to read.
+
+You're right.
+
+What about this instead:
+
+/* fall through */
+/* to check for closing */
