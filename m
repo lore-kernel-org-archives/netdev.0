@@ -1,46 +1,49 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: [jkirsher/net-queue PATCH] i40e: Add programming descriptors to
- cleaned_count
-Date: Sat, 21 Oct 2017 18:12:29 -0700
-Message-ID: <20171022011222.12997.53593.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethtool: remove error check for legacy setting
+ transceiver type
+Date: Sun, 22 Oct 2017 02:15:14 +0100 (WEST)
+Message-ID: <20171022.021514.303896603307493322.davem@davemloft.net>
+References: <20171019233208.15444-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        akp@cohaesio.com, pstaszewski@itcare.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:52798 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932271AbdJVBMc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:12:32 -0400
-Received: by mail-it0-f66.google.com with SMTP id j140so2419579itj.1
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 18:12:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, geert@linux-m68k.org,
+        renjith.rv@quest-global.com
+To: niklas.soderlund+renesas@ragnatech.se
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20171019233208.15444-1-niklas.soderlund+renesas@ragnatech.se>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+Date: Fri, 20 Oct 2017 01:32:08 +0200
 
-This patch updates the i40e driver to include programming descriptors in
-the cleaned_count. Without this change it becomes possible for us to leak
-memory as we don't trigger a large enough allocation when the time comes to
-allocate new buffers and we end up overwriting a number of rx_buffers equal
-to the number of programming descriptors we encountered.
+> Commit 9cab88726929605 ("net: ethtool: Add back transceiver type")
+> restores the transceiver type to struct ethtool_link_settings and
+> convert_link_ksettings_to_legacy_settings() but forgets to remove the
+> error check for the same in convert_legacy_settings_to_link_ksettings().
+> This prevents older versions of ethtool to change link settings.
+> 
+>     # ethtool --version
+>     ethtool version 3.16
+> 
+>     # ethtool -s eth0 autoneg on speed 100 duplex full
+>     Cannot set new settings: Invalid argument
+>       not setting speed
+>       not setting duplex
+>       not setting autoneg
+> 
+> While newer versions of ethtool works.
+> 
+>     # ethtool --version
+>     ethtool version 4.10
+> 
+>     # ethtool -s eth0 autoneg on speed 100 duplex full
+>     [   57.703268] sh-eth ee700000.ethernet eth0: Link is Down
+>     [   59.618227] sh-eth ee700000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx/tx
+> 
+> Fixes: 19cab88726929605 ("net: ethtool: Add back transceiver type")
+> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
 
-Fixes: 0e626ff7ccbf ("i40e: Fix support for flow director programming status")
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 368722defacb..d6d352a6e6ea 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2102,6 +2102,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 
- 		if (unlikely(i40e_rx_is_programming_status(qword))) {
- 			i40e_clean_programming_status(rx_ring, rx_desc, qword);
-+			cleaned_count++;
- 			continue;
- 		}
- 		size = (qword & I40E_RXD_QW1_LENGTH_PBUF_MASK) >>
+Applied.
