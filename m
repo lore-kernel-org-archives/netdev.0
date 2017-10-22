@@ -1,56 +1,55 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: [net-next] tcp: do tcp_mstamp_refresh before retransmits on TSQ handler
-Date: Sun, 22 Oct 2017 12:38:08 +0900
-Message-ID: <20171022033808.12641-1-den@klaipeden.com>
-Cc: eric.dumazet@gmail.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next] tcp: do tcp_mstamp_refresh before retransmits on TSQ
+ handler
+Date: Sat, 21 Oct 2017 20:52:14 -0700
+Message-ID: <1508644334.30291.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171022033808.12641-1-den@klaipeden.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Koichiro Den <den@klaipeden.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21373 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750996AbdJVDiZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 23:38:25 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:52211 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751063AbdJVDwQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 23:52:16 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n14so14732167pfh.8
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 20:52:16 -0700 (PDT)
+In-Reply-To: <20171022033808.12641-1-den@klaipeden.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When retransmission on TSQ handler was introduced in the commit
-f9616c35a0d7 ("tcp: implement TSQ for retransmits"), the retransmitted
-skbs' timestamps were updated on the actual transmission. In the later
-commit 385e20706fac ("tcp: use tp->tcp_mstamp in output path"), it stops
-being done so. In the commit, the comment says "We try to refresh
-tp->tcp_mstamp only when necessary", and at present tcp_tsq_handler and
-tcp_v4_mtu_reduced applies to this. About the latter, it's okay since
-it's rare enough.
+On Sun, 2017-10-22 at 12:38 +0900, Koichiro Den wrote:
+> When retransmission on TSQ handler was introduced in the commit
+> f9616c35a0d7 ("tcp: implement TSQ for retransmits"), the retransmitted
+> skbs' timestamps were updated on the actual transmission. In the later
+> commit 385e20706fac ("tcp: use tp->tcp_mstamp in output path"), it stops
+> being done so. In the commit, the comment says "We try to refresh
+> tp->tcp_mstamp only when necessary", and at present tcp_tsq_handler and
+> tcp_v4_mtu_reduced applies to this. About the latter, it's okay since
+> it's rare enough.
+> 
+> About the former, even though possible retransmissions on the tasklet
+> comes just after the destructor run in NET_RX softirq handling, the time
+> between them could be nonnegligibly large to the extent that
+> tcp_rack_advance or rto rearming be affected if other (remaining) RX,
+> BLOCK and (preceding) TASKLET sofirq handlings are unexpectedly heavy.
+> 
+> So in the same way as tcp_write_timer_handler does, doing tcp_mstamp_refresh
+> ensures the accuracy of algorithms relying on it.
+> 
+> Signed-off-by: Koichiro Den <den@klaipeden.com>
+> ---
+>  net/ipv4/tcp_output.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
 
-About the former, even though possible retransmissions on the tasklet
-comes just after the destructor run in NET_RX softirq handling, the time
-between them could be nonnegligibly large to the extent that
-tcp_rack_advance or rto rearming be affected if other (remaining) RX,
-BLOCK and (preceding) TASKLET sofirq handlings are unexpectedly heavy.
+Very nice catch, thanks a lot Koichiro.
 
-So in the same way as tcp_write_timer_handler does, doing tcp_mstamp_refresh
-ensures the accuracy of algorithms relying on it.
+This IMO would target net tree, since it is a bug fix.
 
-Signed-off-by: Koichiro Den <den@klaipeden.com>
----
- net/ipv4/tcp_output.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Fixes: 385e20706fac ("tcp: use tp->tcp_mstamp in output path")
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 988733f289c8..7a4d9b719b47 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -743,8 +743,10 @@ static void tcp_tsq_handler(struct sock *sk)
- 		struct tcp_sock *tp = tcp_sk(sk);
- 
- 		if (tp->lost_out > tp->retrans_out &&
--		    tp->snd_cwnd > tcp_packets_in_flight(tp))
-+		    tp->snd_cwnd > tcp_packets_in_flight(tp)) {
-+			tcp_mstamp_refresh(tp);
- 			tcp_xmit_retransmit_queue(sk);
-+		}
- 
- 		tcp_write_xmit(sk, tcp_current_mss(sk), tp->nonagle,
- 			       0, GFP_ATOMIC);
--- 
-2.9.4
+Thanks !
+
+We should have caught that in our regression packetdrill tests...
