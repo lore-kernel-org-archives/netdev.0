@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Subject: [PATCH v2 32/37] xfrm: Replace hrtimer tasklet with softirq hrtimer
-Date: Sun, 22 Oct 2017 23:40:10 +0200
-Message-ID: <20171022214053.654452552@linutronix.de>
+Subject: [PATCH v2 37/37] net/mvpp2: Replace tasklet with softirq hrtimer
+Date: Sun, 22 Oct 2017 23:40:15 +0200
+Message-ID: <20171022214054.007080900@linutronix.de>
 References: <20171022213938.940451689@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,147 +10,142 @@ Cc: Thomas Gleixner <tglx@linutronix.de>,
         Ingo Molnar <mingo@redhat.com>, keescook@chromium.org,
         Christoph Hellwig <hch@lst.de>,
         John Stultz <john.stultz@linaro.org>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        netdev@vger.kernel.org
 To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:45765 "EHLO
-        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932465AbdJVVnt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 17:43:49 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline;
- filename=xfrm_Replace_hrtimer_tasklet_with_softirq_hrtimer.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+ filename=netmvpp2_Replace_tasklet_with_softirq_hrtimer.patch
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
-Switch the timer to HRTIMER_MODE_SOFT, which executed the timer
-callback in softirq context and remove the hrtimer_tasklet.
+The tx_done_tasklet tasklet is used in invoke the hrtimer
+(mvpp2_hr_timer_cb) in softirq context. This can be also achieved without
+the tasklet but with HRTIMER_MODE_SOFT as hrtimer mode.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
 Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: netdev@vger.kernel.org
-
 ---
- include/net/xfrm.h    |    2 +-
- net/xfrm/xfrm_state.c |   30 ++++++++++++++++++------------
- 2 files changed, 19 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c |   62 ++++++++++++++---------------------
+ 1 file changed, 25 insertions(+), 37 deletions(-)
 
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -216,7 +216,7 @@ struct xfrm_state {
- 	struct xfrm_stats	stats;
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -830,9 +830,8 @@ struct mvpp2_pcpu_stats {
+ /* Per-CPU port control */
+ struct mvpp2_port_pcpu {
+ 	struct hrtimer tx_done_timer;
++	struct net_device *dev;
+ 	bool timer_scheduled;
+-	/* Tasklet for egress finalization */
+-	struct tasklet_struct tx_done_tasklet;
+ };
  
- 	struct xfrm_lifetime_cur curlft;
--	struct tasklet_hrtimer	mtimer;
-+	struct hrtimer		mtimer;
- 
- 	struct xfrm_state_offload xso;
- 
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -426,7 +426,7 @@ static void xfrm_put_mode(struct xfrm_mo
- 
- static void xfrm_state_gc_destroy(struct xfrm_state *x)
- {
--	tasklet_hrtimer_cancel(&x->mtimer);
-+	hrtimer_cancel(&x->mtimer);
- 	del_timer_sync(&x->rtimer);
- 	kfree(x->aead);
- 	kfree(x->aalg);
-@@ -471,8 +471,8 @@ static void xfrm_state_gc_task(struct wo
- 
- static enum hrtimer_restart xfrm_timer_handler(struct hrtimer *me)
- {
--	struct tasklet_hrtimer *thr = container_of(me, struct tasklet_hrtimer, timer);
--	struct xfrm_state *x = container_of(thr, struct xfrm_state, mtimer);
-+	struct xfrm_state *x = container_of(me, struct xfrm_state, mtimer);
-+	enum hrtimer_restart ret = HRTIMER_NORESTART;
- 	unsigned long now = get_seconds();
- 	long next = LONG_MAX;
- 	int warn = 0;
-@@ -536,7 +536,8 @@ static enum hrtimer_restart xfrm_timer_h
- 		km_state_expired(x, 0, 0);
- resched:
- 	if (next != LONG_MAX) {
--		tasklet_hrtimer_start(&x->mtimer, ktime_set(next, 0), HRTIMER_MODE_REL);
-+		hrtimer_forward_now(&x->mtimer, ktime_set(next, 0));
-+		ret = HRTIMER_RESTART;
+ struct mvpp2_queue_vector {
+@@ -5973,46 +5972,34 @@ static void mvpp2_link_event(struct net_
  	}
- 
- 	goto out;
-@@ -553,7 +554,7 @@ static enum hrtimer_restart xfrm_timer_h
- 
- out:
- 	spin_unlock(&x->lock);
--	return HRTIMER_NORESTART;
-+	return ret;
  }
  
- static void xfrm_replay_timer_handler(unsigned long data);
-@@ -572,8 +573,8 @@ struct xfrm_state *xfrm_state_alloc(stru
- 		INIT_HLIST_NODE(&x->bydst);
- 		INIT_HLIST_NODE(&x->bysrc);
- 		INIT_HLIST_NODE(&x->byspi);
--		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler,
--					CLOCK_BOOTTIME, HRTIMER_MODE_ABS);
-+		hrtimer_init(&x->mtimer, CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
-+		x->mtimer.function = xfrm_timer_handler;
- 		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
- 				(unsigned long)x);
- 		x->curlft.add_time = get_seconds();
-@@ -1030,7 +1031,9 @@ xfrm_state_find(const xfrm_address_t *da
- 				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
- 			}
- 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
--			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
-+			hrtimer_start(&x->mtimer,
-+				      ktime_set(net->xfrm.sysctl_acq_expires, 0),
-+				      HRTIMER_MODE_REL_SOFT);
- 			net->xfrm.state_num++;
- 			xfrm_hash_grow_check(net, x->bydst.next != NULL);
- 			spin_unlock_bh(&net->xfrm.xfrm_state_lock);
-@@ -1141,7 +1144,7 @@ static void __xfrm_state_insert(struct x
- 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+-static void mvpp2_timer_set(struct mvpp2_port_pcpu *port_pcpu)
+-{
+-	ktime_t interval;
+-
+-	if (!port_pcpu->timer_scheduled) {
+-		port_pcpu->timer_scheduled = true;
+-		interval = MVPP2_TXDONE_HRTIMER_PERIOD_NS;
+-		hrtimer_start(&port_pcpu->tx_done_timer, interval,
+-			      HRTIMER_MODE_REL_PINNED);
+-	}
+-}
+-
+-static void mvpp2_tx_proc_cb(unsigned long data)
++static enum hrtimer_restart mvpp2_hr_timer_cb(struct hrtimer *timer)
+ {
+-	struct net_device *dev = (struct net_device *)data;
+-	struct mvpp2_port *port = netdev_priv(dev);
+-	struct mvpp2_port_pcpu *port_pcpu = this_cpu_ptr(port->pcpu);
++	struct net_device *dev;
++	struct mvpp2_port *port;
++	struct mvpp2_port_pcpu *port_pcpu;
+ 	unsigned int tx_todo, cause;
+ 
++	port_pcpu = container_of(timer, struct mvpp2_port_pcpu, tx_done_timer);
++	dev = port_pcpu->dev;
++
+ 	if (!netif_running(dev))
+-		return;
++		return HRTIMER_NORESTART;
++
+ 	port_pcpu->timer_scheduled = false;
++	port = netdev_priv(dev);
+ 
+ 	/* Process all the Tx queues */
+ 	cause = (1 << port->ntxqs) - 1;
+ 	tx_todo = mvpp2_tx_done(port, cause, smp_processor_id());
+ 
+ 	/* Set the timer in case not all the packets were processed */
+-	if (tx_todo)
+-		mvpp2_timer_set(port_pcpu);
+-}
+-
+-static enum hrtimer_restart mvpp2_hr_timer_cb(struct hrtimer *timer)
+-{
+-	struct mvpp2_port_pcpu *port_pcpu = container_of(timer,
+-							 struct mvpp2_port_pcpu,
+-							 tx_done_timer);
+-
+-	tasklet_schedule(&port_pcpu->tx_done_tasklet);
++	if (tx_todo && !port_pcpu->timer_scheduled) {
++		port_pcpu->timer_scheduled = true;
++		hrtimer_forward_now(&port_pcpu->tx_done_timer,
++				    MVPP2_TXDONE_HRTIMER_PERIOD_NS);
+ 
++		return HRTIMER_RESTART;
++	}
+ 	return HRTIMER_NORESTART;
+ }
+ 
+@@ -6498,7 +6485,12 @@ static int mvpp2_tx(struct sk_buff *skb,
+ 	    txq_pcpu->count > 0) {
+ 		struct mvpp2_port_pcpu *port_pcpu = this_cpu_ptr(port->pcpu);
+ 
+-		mvpp2_timer_set(port_pcpu);
++		if (!port_pcpu->timer_scheduled) {
++			port_pcpu->timer_scheduled = true;
++			hrtimer_start(&port_pcpu->tx_done_timer,
++				      MVPP2_TXDONE_HRTIMER_PERIOD_NS,
++				      HRTIMER_MODE_REL_PINNED_SOFT);
++		}
  	}
  
--	tasklet_hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
-+	hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL_SOFT);
- 	if (x->replay_maxage)
- 		mod_timer(&x->rtimer, jiffies + x->replay_maxage);
+ 	return NETDEV_TX_OK;
+@@ -6883,7 +6875,6 @@ static int mvpp2_stop(struct net_device
  
-@@ -1245,7 +1248,9 @@ static struct xfrm_state *__find_acq_cor
- 		x->mark.m = m->m;
- 		x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
- 		xfrm_state_hold(x);
--		tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
-+		hrtimer_start(&x->mtimer,
-+			      ktime_set(net->xfrm.sysctl_acq_expires, 0),
-+			      HRTIMER_MODE_REL_SOFT);
- 		list_add(&x->km.all, &net->xfrm.state_all);
- 		hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
- 		h = xfrm_src_hash(net, daddr, saddr, family);
-@@ -1544,7 +1549,8 @@ int xfrm_state_update(struct xfrm_state
- 		memcpy(&x1->lft, &x->lft, sizeof(x1->lft));
- 		x1->km.dying = 0;
+ 			hrtimer_cancel(&port_pcpu->tx_done_timer);
+ 			port_pcpu->timer_scheduled = false;
+-			tasklet_kill(&port_pcpu->tx_done_tasklet);
+ 		}
+ 	}
+ 	mvpp2_cleanup_rxqs(port);
+@@ -7651,13 +7642,10 @@ static int mvpp2_port_probe(struct platf
+ 			port_pcpu = per_cpu_ptr(port->pcpu, cpu);
  
--		tasklet_hrtimer_start(&x1->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
-+		hrtimer_start(&x1->mtimer, ktime_set(1, 0),
-+			      HRTIMER_MODE_REL_SOFT);
- 		if (x1->curlft.use_time)
- 			xfrm_state_check_expire(x1);
- 
-@@ -1568,7 +1574,7 @@ int xfrm_state_check_expire(struct xfrm_
- 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
- 	    x->curlft.packets >= x->lft.hard_packet_limit) {
- 		x->km.state = XFRM_STATE_EXPIRED;
--		tasklet_hrtimer_start(&x->mtimer, 0, HRTIMER_MODE_REL);
-+		hrtimer_start(&x->mtimer, 0, HRTIMER_MODE_REL_SOFT);
- 		return -EINVAL;
+ 			hrtimer_init(&port_pcpu->tx_done_timer, CLOCK_MONOTONIC,
+-				     HRTIMER_MODE_REL_PINNED);
++				     HRTIMER_MODE_REL_PINNED_SOFT);
+ 			port_pcpu->tx_done_timer.function = mvpp2_hr_timer_cb;
+ 			port_pcpu->timer_scheduled = false;
+-
+-			tasklet_init(&port_pcpu->tx_done_tasklet,
+-				     mvpp2_tx_proc_cb,
+-				     (unsigned long)dev);
++			port_pcpu->dev = dev;
+ 		}
  	}
  
