@@ -1,151 +1,166 @@
-From: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Subject: [PATCH v2 37/37] net/mvpp2: Replace tasklet with softirq hrtimer
-Date: Sun, 22 Oct 2017 23:40:15 +0200
-Message-ID: <20171022214054.007080900@linutronix.de>
-References: <20171022213938.940451689@linutronix.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: ethernet: fsl: don't en/disable refclk on open/close
+Date: Sun, 22 Oct 2017 15:48:31 -0700
+Message-ID: <f0bf60b0-b2fb-9ed3-7800-2a5c6bb6ead8@gmail.com>
+References: <20171022131130.8580-1-dev@g0hl1n.net>
+ <6656d8d0-874a-574e-9ea9-37f8238bd155@gmail.com>
+ <1a54f090-be13-a82d-7d5c-1c76f45df4a8@g0hl1n.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>, keescook@chromium.org,
-        Christoph Hellwig <hch@lst.de>,
-        John Stultz <john.stultz@linaro.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline;
- filename=netmvpp2_Replace_tasklet_with_softirq_hrtimer.patch
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Richard Leitner <richard.leitner@skidata.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Richard Leitner <me@g0hl1n.net>, Richard Leitner <dev@g0hl1n.net>,
+        fugang.duan@nxp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:46189 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932118AbdJVWsf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 18:48:35 -0400
+In-Reply-To: <1a54f090-be13-a82d-7d5c-1c76f45df4a8@g0hl1n.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
 
-The tx_done_tasklet tasklet is used in invoke the hrtimer
-(mvpp2_hr_timer_cb) in softirq context. This can be also achieved without
-the tasklet but with HRTIMER_MODE_SOFT as hrtimer mode.
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/marvell/mvpp2.c |   62 ++++++++++++++---------------------
- 1 file changed, 25 insertions(+), 37 deletions(-)
+On 10/22/2017 03:30 PM, Richard Leitner wrote:
+> 
+> On 10/22/2017 08:31 PM, Florian Fainelli wrote:
+>>
+>> On 10/22/2017 06:11 AM, Richard Leitner wrote:
+>>> From: Richard Leitner <richard.leitner@skidata.com>
+>>>
+>>> From: Richard Leitner <richard.leitner@skidata.com>
+>>>
+>>> Some PHYs (for example the LAN8710) doesn't allow turning the ethernet
+>>> ref clocks off and on again without reset (according to their
+>>> datasheet).
+>>> Exactly this behaviour was introduced for power saving reasons by
+>>> commit e8fcfcd5684a ("net: fec: optimize the clock management to
+>>> save...")
+>>
+>> Please don't truncate the commit subject, put it in full length.
+> 
+> Ok. So I can then ignore the checkpatch.pl error complaining about too
+> long lines?
 
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -830,9 +830,8 @@ struct mvpp2_pcpu_stats {
- /* Per-CPU port control */
- struct mvpp2_port_pcpu {
- 	struct hrtimer tx_done_timer;
-+	struct net_device *dev;
- 	bool timer_scheduled;
--	/* Tasklet for egress finalization */
--	struct tasklet_struct tx_done_tasklet;
- };
- 
- struct mvpp2_queue_vector {
-@@ -5973,46 +5972,34 @@ static void mvpp2_link_event(struct net_
- 	}
- }
- 
--static void mvpp2_timer_set(struct mvpp2_port_pcpu *port_pcpu)
--{
--	ktime_t interval;
--
--	if (!port_pcpu->timer_scheduled) {
--		port_pcpu->timer_scheduled = true;
--		interval = MVPP2_TXDONE_HRTIMER_PERIOD_NS;
--		hrtimer_start(&port_pcpu->tx_done_timer, interval,
--			      HRTIMER_MODE_REL_PINNED);
--	}
--}
--
--static void mvpp2_tx_proc_cb(unsigned long data)
-+static enum hrtimer_restart mvpp2_hr_timer_cb(struct hrtimer *timer)
- {
--	struct net_device *dev = (struct net_device *)data;
--	struct mvpp2_port *port = netdev_priv(dev);
--	struct mvpp2_port_pcpu *port_pcpu = this_cpu_ptr(port->pcpu);
-+	struct net_device *dev;
-+	struct mvpp2_port *port;
-+	struct mvpp2_port_pcpu *port_pcpu;
- 	unsigned int tx_todo, cause;
- 
-+	port_pcpu = container_of(timer, struct mvpp2_port_pcpu, tx_done_timer);
-+	dev = port_pcpu->dev;
-+
- 	if (!netif_running(dev))
--		return;
-+		return HRTIMER_NORESTART;
-+
- 	port_pcpu->timer_scheduled = false;
-+	port = netdev_priv(dev);
- 
- 	/* Process all the Tx queues */
- 	cause = (1 << port->ntxqs) - 1;
- 	tx_todo = mvpp2_tx_done(port, cause, smp_processor_id());
- 
- 	/* Set the timer in case not all the packets were processed */
--	if (tx_todo)
--		mvpp2_timer_set(port_pcpu);
--}
--
--static enum hrtimer_restart mvpp2_hr_timer_cb(struct hrtimer *timer)
--{
--	struct mvpp2_port_pcpu *port_pcpu = container_of(timer,
--							 struct mvpp2_port_pcpu,
--							 tx_done_timer);
--
--	tasklet_schedule(&port_pcpu->tx_done_tasklet);
-+	if (tx_todo && !port_pcpu->timer_scheduled) {
-+		port_pcpu->timer_scheduled = true;
-+		hrtimer_forward_now(&port_pcpu->tx_done_timer,
-+				    MVPP2_TXDONE_HRTIMER_PERIOD_NS);
- 
-+		return HRTIMER_RESTART;
-+	}
- 	return HRTIMER_NORESTART;
- }
- 
-@@ -6498,7 +6485,12 @@ static int mvpp2_tx(struct sk_buff *skb,
- 	    txq_pcpu->count > 0) {
- 		struct mvpp2_port_pcpu *port_pcpu = this_cpu_ptr(port->pcpu);
- 
--		mvpp2_timer_set(port_pcpu);
-+		if (!port_pcpu->timer_scheduled) {
-+			port_pcpu->timer_scheduled = true;
-+			hrtimer_start(&port_pcpu->tx_done_timer,
-+				      MVPP2_TXDONE_HRTIMER_PERIOD_NS,
-+				      HRTIMER_MODE_REL_PINNED_SOFT);
-+		}
- 	}
- 
- 	return NETDEV_TX_OK;
-@@ -6883,7 +6875,6 @@ static int mvpp2_stop(struct net_device
- 
- 			hrtimer_cancel(&port_pcpu->tx_done_timer);
- 			port_pcpu->timer_scheduled = false;
--			tasklet_kill(&port_pcpu->tx_done_tasklet);
- 		}
- 	}
- 	mvpp2_cleanup_rxqs(port);
-@@ -7651,13 +7642,10 @@ static int mvpp2_port_probe(struct platf
- 			port_pcpu = per_cpu_ptr(port->pcpu, cpu);
- 
- 			hrtimer_init(&port_pcpu->tx_done_timer, CLOCK_MONOTONIC,
--				     HRTIMER_MODE_REL_PINNED);
-+				     HRTIMER_MODE_REL_PINNED_SOFT);
- 			port_pcpu->tx_done_timer.function = mvpp2_hr_timer_cb;
- 			port_pcpu->timer_scheduled = false;
--
--			tasklet_init(&port_pcpu->tx_done_tasklet,
--				     mvpp2_tx_proc_cb,
--				     (unsigned long)dev);
-+			port_pcpu->dev = dev;
- 		}
- 	}
- 
+Yes absolutely it's just a tool, not the absolute reference.
+
+> 
+>>
+>>> Therefore remove those en/disables of the refclk during probe, open and
+>>> close of the fec.
+>>>
+>>> Generally speaking is this issue only be relevant if the ref clk for
+>>> the PHY is generated by the SoC. In our specific case (PCB) this problem
+>>> does occur at about every 10th to 50th POR of an LAN8710 connected to an
+>>> i.MX6 SoC. The typical symptom of this problem is a "swinging" ethernet
+>>> link. Similar issues were experienced by users of the NXP forum:
+>>>     https://community.nxp.com/thread/389902
+>>>     https://community.nxp.com/message/309354
+>>> With this patch applied the issue didn't occur for at least a few
+>>> thousand PORs of our board.
+>>
+>> FWIW, this is a common problem on most Ethernet systems attached to a
+>> PHY because of the clock dependencies between the MAC and PHY, in either
+>> direction really. We recently stumbled across a similar problem on the
+>> MAC side (using bcmgenet) where after shutting down the PHY in
+>> ndo_stop() we would not get enough clock cycles for the MAC to cleanly
+>> shutdown and upon subsequent ndo_open() we could get the MAC in an
+>> invalid state.
+> 
+> Hmm... So I'm not the only one struggling with this... Was there already
+> discussion/ideas on how to solve this issue once and for all across the
+> kernel?
+
+Not really, there is not unfortunately a one size fits all solution.
+
+> 
+> Andrew Lunn suggested to make the PHY driver a clock driver and let it
+> export the refclk... But IMHO that "feels" a bit strange. Due to the
+> fact in our case the clock is generated by the SoC and the PHY is an
+> external chip which only consumes it.
+
+It depends which *MII mode you use. Unless you are using reverse MII,
+the PHY supplies the RX clock and the MAC supplies the RX clock, so
+solving this for all modes becomes quite tricky. Andrew's suggestion
+makes sense, but considering that the MAC and PHY need to be connected
+to each other, it may be tricky to request the PHY's clock before you
+actually attached to the PHY...
+
+> 
+> But back to this patch: Is it OK the way it fixes the issue?
+
+Fugang and Andrew probably know this hardware a lot better, I would have
+to look at the code path a bit more to understand if an alternative
+solution is possible. It sounds like your patch could create a power
+consumption regression, so maybe add a check for the PHY ID that is
+problematic by doing something like:
+
+if (priv->phydev->drv && priv->phydev->drv->phy_id == XXXX_XXXX) where
+XXXX_XXXX is the LAN870 PHY ID (obtained from MII register 2 & 3).
+
+> 
+>>
+>>>
+>>> Fixes: e8fcfcd5684a ("net: fec: optimize the clock management to sa...")
+>>
+>> Likewise here, not truncation of the commit subject necessary.
+>>
+>>> Cc: stable@vger.kernel.org
+>>
+>> netdev patches are handled directly by David Miller, see netdev-FAQ for
+>> details.
+> 
+> Ok. So I shouldn't post them to stable@vger.kernel.org at all?
+
+Nope.
+
+> 
+>>
+>>> Signed-off-by: Richard Leitner <richard.leitner@skidata.com>
+>>> ---
+>>>   drivers/net/ethernet/freescale/fec_main.c | 7 -------
+>>>   1 file changed, 7 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>>> b/drivers/net/ethernet/freescale/fec_main.c
+>>> index 3dc2d771a222..8f696b53d8b8 100644
+>>> --- a/drivers/net/ethernet/freescale/fec_main.c
+>>> +++ b/drivers/net/ethernet/freescale/fec_main.c
+>>> @@ -2844,9 +2844,6 @@ fec_enet_open(struct net_device *ndev)
+>>>           return ret;
+>>>         pinctrl_pm_select_default_state(&fep->pdev->dev);
+>>> -    ret = fec_enet_clk_enable(ndev, true);
+>>> -    if (ret)
+>>> -        goto clk_enable;
+>>>         /* I should reset the ring buffers here, but I don't yet know
+>>>        * a simple way to do that.
+>>> @@ -2879,8 +2876,6 @@ fec_enet_open(struct net_device *ndev)
+>>>   err_enet_mii_probe:
+>>>       fec_enet_free_buffers(ndev);
+>>>   err_enet_alloc:
+>>> -    fec_enet_clk_enable(ndev, false);
+>>> -clk_enable:
+>>>       pm_runtime_mark_last_busy(&fep->pdev->dev);
+>>>       pm_runtime_put_autosuspend(&fep->pdev->dev);
+>>>       pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+>>> @@ -2907,7 +2902,6 @@ fec_enet_close(struct net_device *ndev)
+>>>         fec_enet_update_ethtool_stats(ndev);
+>>>   -    fec_enet_clk_enable(ndev, false);
+>>>       pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+>>>       pm_runtime_mark_last_busy(&fep->pdev->dev);
+>>>       pm_runtime_put_autosuspend(&fep->pdev->dev);
+>>> @@ -3495,7 +3489,6 @@ fec_probe(struct platform_device *pdev)
+>>>         /* Carrier starts down, phylib will bring it up */
+>>>       netif_carrier_off(ndev);
+>>> -    fec_enet_clk_enable(ndev, false);
+>>>       pinctrl_pm_select_sleep_state(&pdev->dev);
+>>>         ret = register_netdev(ndev);
+>>>
+>>
+
+-- 
+Florian
