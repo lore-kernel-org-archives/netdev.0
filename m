@@ -1,34 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bridge: make setlink/dellink
- notifications more accurate
-Date: Sun, 22 Oct 2017 01:45:18 +0100 (WEST)
-Message-ID: <20171022.014518.1939149563078434380.davem@davemloft.net>
-References: <1508428499-32355-1-git-send-email-nikolay@cumulusnetworks.com>
-	<01c5bff2-cb5d-2b52-b11b-d6c2e1ab52a8@cumulusnetworks.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: [jkirsher/next-queue PATCH] i40e/i40evf: Revert "i40e/i40evf: bump
+ tail only in multiples of 8"
+Date: Sat, 21 Oct 2017 17:51:50 -0700
+Message-ID: <20171022005030.19175.91947.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	bridge@lists.linux-foundation.org, mrv@mojatatu.com,
-	dsa@cumulusnetworks.com
-To: nikolay@cumulusnetworks.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <01c5bff2-cb5d-2b52-b11b-d6c2e1ab52a8@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        akp@cohaesio.com, pstaszewski@itcare.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:55987 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932269AbdJVAvx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 20:51:53 -0400
+Received: by mail-io0-f194.google.com with SMTP id p186so16712239ioe.12
+        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 17:51:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Thu, 19 Oct 2017 19:10:11 +0300
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> Self-NAK
-> Dave, please ignore this set and apologies for the noise.
+This reverts commit 11f29003d6376fb123b7c3779dba49bb56fb0815.
 
-OK
+I am reverting this as I am fairly certain this can result in a memory leak
+when combined with the current page recycling scheme. Specifically we end
+up attempting to allocate fewer buffers than we recycled and this results
+in us rewinding the next to alloc pointer which leads to leaks when we
+overwrite the rx_buffer_info when processing the next frame.
+
+Fixes: 11f29003d637 ("i40e/i40evf: bump tail only in multiples of 8")
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   |    9 ---------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |    9 ---------
+ 2 files changed, 18 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index edbc94c4353d..487e2f483fa1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1407,15 +1407,6 @@ bool i40e_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 	union i40e_rx_desc *rx_desc;
+ 	struct i40e_rx_buffer *bi;
+ 
+-	/* Hardware only fetches new descriptors in cache lines of 8,
+-	 * essentially ignoring the lower 3 bits of the tail register. We want
+-	 * to ensure our tail writes are aligned to avoid unnecessary work. We
+-	 * can't simply round down the cleaned count, since we might fail to
+-	 * allocate some buffers. What we really want is to ensure that
+-	 * next_to_used + cleaned_count produces an aligned value.
+-	 */
+-	cleaned_count -= (ntu + cleaned_count) & 0x7;
+-
+ 	/* do nothing if no valid netdev defined */
+ 	if (!rx_ring->netdev || !cleaned_count)
+ 		return false;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 6806ada11490..fe817e2b6fef 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -711,15 +711,6 @@ bool i40evf_alloc_rx_buffers(struct i40e_ring *rx_ring, u16 cleaned_count)
+ 	union i40e_rx_desc *rx_desc;
+ 	struct i40e_rx_buffer *bi;
+ 
+-	/* Hardware only fetches new descriptors in cache lines of 8,
+-	 * essentially ignoring the lower 3 bits of the tail register. We want
+-	 * to ensure our tail writes are aligned to avoid unnecessary work. We
+-	 * can't simply round down the cleaned count, since we might fail to
+-	 * allocate some buffers. What we really want is to ensure that
+-	 * next_to_used + cleaned_count produces an aligned value.
+-	 */
+-	cleaned_count -= (ntu + cleaned_count) & 0x7;
+-
+ 	/* do nothing if no valid netdev defined */
+ 	if (!rx_ring->netdev || !cleaned_count)
+ 		return false;
