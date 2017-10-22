@@ -1,45 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/15] networking drivers refcount_t conversions
-Date: Sun, 22 Oct 2017 02:31:32 +0100 (WEST)
-Message-ID: <20171022.023132.2040144937883625039.davem@davemloft.net>
-References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Subject: [PATCH v2] net: smc_close: mark expected switch fall-through
+Date: Sat, 21 Oct 2017 20:35:30 -0500
+Message-ID: <20171022013530.GA15859@embeddedor.com>
+References: <20171021202100.Horde.z-7P99HVhWm0m3hXj5cOjur@gator4166.hostgator.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-mediatek@lists.infradead.org, linux-rdma@vger.kernel.org,
-        linux-hams@vger.kernel.org, linux-ppp@vger.kernel.org,
-        ganeshgr@chelsio.com, nbd@openwrt.org, john@phrozen.org,
-        sean.wang@mediatek.com, matthias.bgg@gmail.com,
-        yishaih@mellanox.com, saeedm@mellanox.com, matanb@mellanox.com,
-        tariqt@mellanox.com, leonro@mellanox.com,
-        ajk@comnets.uni-bremen.de, paulus@samba.org, zbr@ioremap.net,
-        peterz@infradead.org, keescook@chromium.org
-To: elena.reshetova@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-s390@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
+Content-Disposition: inline
+In-Reply-To: <20171021202100.Horde.z-7P99HVhWm0m3hXj5cOjur@gator4166.hostgator.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Elena Reshetova <elena.reshetova@intel.com>
-Date: Fri, 20 Oct 2017 10:23:34 +0300
+In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+where we are expecting to fall through.
 
-> Note: these are the last patches related to networking that perform
-> conversion of refcounters from atomic_t to refcount_t.
-> In contrast to the core network refcounter conversions that
-> were merged earlier, these are much more straightforward ones.
-> 
-> This series, for various networking drivers, replaces atomic_t reference
-> counters with the new refcount_t type and API (see include/linux/refcount.h).
-> By doing this we prevent intentional or accidental
-> underflows or overflows that can led to use-after-free vulnerabilities.
-> 
-> The patches are fully independent and can be cherry-picked separately.
-> Patches are based on top of net-next.
-> If there are no objections to the patches, please merge them via respective trees
+Notice that in this particular case I placed the "fall through" comment
+on its own line, which is what GCC is expecting to find.
 
-I've applied this entire series to net-next.  If there are any fixups or
-follow-ups please send them as relative patches.
+Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+---
+Changes in v2:
+ Move the "fall through" comment on its own line
+ above the rest of the sentence.
 
-Thank you.
+ net/smc/smc_close.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
+index f0d16fb..a6c6559 100644
+--- a/net/smc/smc_close.c
++++ b/net/smc/smc_close.c
+@@ -360,7 +360,8 @@ static void smc_close_passive_work(struct work_struct *work)
+ 	case SMC_PEERCLOSEWAIT1:
+ 		if (rxflags->peer_done_writing)
+ 			sk->sk_state = SMC_PEERCLOSEWAIT2;
+-		/* fall through to check for closing */
++		/* fall through */
++		/* to check for closing */
+ 	case SMC_PEERCLOSEWAIT2:
+ 	case SMC_PEERFINCLOSEWAIT:
+ 		if (!smc_cdc_rxed_any_close(&smc->conn))
+-- 
+2.7.4
