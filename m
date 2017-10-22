@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: flowlabel: do not leave opt->tot_len with
- garbage
-Date: Sun, 22 Oct 2017 03:23:44 +0100 (WEST)
-Message-ID: <20171022.032344.624053890646394779.davem@davemloft.net>
-References: <1508613983.30291.33.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] stmmac: Don't access tx_q->dirty_tx before
+ netif_tx_lock
+Date: Sun, 22 Oct 2017 03:25:05 +0100 (WEST)
+Message-ID: <20171022.032505.1139984864002614492.davem@davemloft.net>
+References: <AM5PR0701MB2657DAF1EEA20231A0FFF50EE4400@AM5PR0701MB2657.eurprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57790 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751313AbdJVCXr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 22:23:47 -0400
-In-Reply-To: <1508613983.30291.33.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bernd.edlinger@hotmail.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AM5PR0701MB2657DAF1EEA20231A0FFF50EE4400@AM5PR0701MB2657.eurprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 21 Oct 2017 12:26:23 -0700
+From: Bernd Edlinger <bernd.edlinger@hotmail.de>
+Date: Sat, 21 Oct 2017 06:51:30 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> This is the possible reason for different hard to reproduce
+> problems on my ARMv7-SMP test system.
 > 
-> When syzkaller team brought us a C repro for the crash [1] that
-> had been reported many times in the past, I finally could find
-> the root cause.
+> The symptoms are in recent kernels imprecise external aborts,
+> and in older kernels various kinds of network stalls and
+> unexpected page allocation failures.
 > 
-> If FlowLabel info is merged by fl6_merge_options(), we leave
-> part of the opt_space storage provided by udp/raw/l2tp with random value
-> in opt_space.tot_len, unless a control message was provided at sendmsg()
-> time.
+> My testing indicates that the trouble started between v4.5 and v4.6
+> and prevails up to v4.14.
 > 
-> Then ip6_setup_cork() would use this random value to perform a kzalloc()
-> call. Undefined behavior and crashes.
+> Using the dirty_tx before acquiring the spin lock is clearly
+> wrong and was first introduced with v4.6.
 > 
-> Fix is to properly set tot_len in fl6_merge_options()
+> Fixes: e3ad57c96715 ("stmmac: review RX/TX ring management")
 > 
-> At the same time, we can also avoid consuming memory and cpu cycles
-> to clear it, if every option is copied via a kmemdup(). This is the
-> change in ip6_setup_cork().
+> Signed-off-by: Bernd Edlinger <bernd.edlinger@hotmail.de>
 
-Nice detective work.
-
-Applied and queued up for -stable.
+Applied, thank you.
