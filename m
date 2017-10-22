@@ -1,28 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] ibmvnic: Tunable parameter support
-Date: Sun, 22 Oct 2017 03:16:29 +0100 (WEST)
-Message-ID: <20171022.031629.1461545210725781058.davem@davemloft.net>
-References: <9bafaca4-75e7-ba82-8eea-35a69c61b6db@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net: smc_close: mark expected switch fall-throughs
+Date: Sun, 22 Oct 2017 03:19:01 +0100 (WEST)
+Message-ID: <20171022.031901.1634228228981082397.davem@davemloft.net>
+References: <20171019220244.GA22041@embeddedor.com>
+        <20171022.020835.2065879880300400886.davem@davemloft.net>
+        <20171021202100.Horde.z-7P99HVhWm0m3hXj5cOjur@gator4166.hostgator.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        nfont@linux.vnet.ibm.com
-To: jallen@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57720 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932325AbdJVCQe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 22:16:34 -0400
-In-Reply-To: <9bafaca4-75e7-ba82-8eea-35a69c61b6db@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ubraun@linux.vnet.ibm.com, linux-s390@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: garsilva@embeddedor.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171021202100.Horde.z-7P99HVhWm0m3hXj5cOjur@gator4166.hostgator.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Allen <jallen@linux.vnet.ibm.com>
-Date: Fri, 20 Oct 2017 16:00:54 -0500
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Date: Sat, 21 Oct 2017 20:21:00 -0500
 
-> This series implements support for changing tunable parameters such as the
-> mtu, number of tx/rx queues, and number of buffers per queue via ethtool
-> and ifconfig.
+> 
+> Quoting David Miller <davem@davemloft.net>:
+> 
+>> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+>> Date: Thu, 19 Oct 2017 17:02:44 -0500
+>>
+>>> @@ -360,7 +360,8 @@ static void smc_close_passive_work(struct
+>>> work_struct *work)
+>>>  	case SMC_PEERCLOSEWAIT1:
+>>>  		if (rxflags->peer_done_writing)
+>>>  			sk->sk_state = SMC_PEERCLOSEWAIT2;
+>>> -		/* fall through to check for closing */
+>>> +		/* to check for closing */
+>>> +		/* fall through */
+>>
+>> Gustavo please look at what you are doing to the code.
+>>
+>> This was a nice easy to read sentence in the comment, and now
+>> you've chopped it up into two pieces and made it awkward and
+>> more difficult to read.
+> 
+> You're right.
+> 
+> What about this instead:
+> 
+> /* fall through */
+> /* to check for closing */
 
-These patches do not apply to net-next.
+I'm surprised gcc cares if it's all on one line or not, actually.
