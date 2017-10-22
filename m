@@ -1,32 +1,26 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] of_mdio: Fix broken PHY IRQ in case of probe deferral
-Date: Sat, 21 Oct 2017 19:06:38 -0700
-Message-ID: <92521B8C-6FCF-4F7C-B0D5-BE6A3F5FD021@gmail.com>
-References: <1508327643-3579-1-git-send-email-geert+renesas@glider.be> <20171022.023738.2186250991838185660.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: tipc: mark expected switch fall-throughs
+Date: Sun, 22 Oct 2017 03:07:29 +0100 (WEST)
+Message-ID: <20171022.030729.1569398763946158719.davem@davemloft.net>
+References: <20171020170126.GA16177@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: andrew@lunn.ch, robh+dt@kernel.org, frowand.list@gmail.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, geert+renesas@glider.be
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
+        netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org
+To: garsilva@embeddedor.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171022.023738.2186250991838185660.davem@davemloft.net>
+In-Reply-To: <20171020170126.GA16177@embeddedor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On October 21, 2017 6:37:38 PM PDT, David Miller <davem@davemloft=2Enet> wr=
-ote:
->
->Second ping, this patch needs a review ASAP=2E
->
->Geert's hard-resetting PHY changes depend upon this change=2E
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Date: Fri, 20 Oct 2017 12:01:26 -0500
 
-Done, same concerns as before and we could all improve on trying to get th=
-is tested on a pure SW model (e=2Eg QEMU) but there is only so little time=
-=2E=2E=2E Regarding the other patch series it needs more love before it get=
-s merged, so that hopefully lowers the criticality=2E
+> In preparation to enabling -Wimplicit-fallthrough, mark switch cases
+> where we are expecting to fall through.
+> 
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
---=20
-Florian
+This doesn't apply to net-next.
