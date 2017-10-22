@@ -1,42 +1,67 @@
-From: Pekka Enberg <penberg@iki.fi>
-Subject: Re: [PATCH 2/2] slab, slub, slob: convert slab_flags_t to 32-bit
-Date: Sun, 22 Oct 2017 09:40:27 +0300
-Message-ID: <ed694fcb-c1b8-849f-dc5d-145aa8872ad2@iki.fi>
-References: <20171021100225.GA22428@avx2> <20171021100635.GA8287@avx2>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH RFC] Add Microchip KSZ8895 DSA driver
+Date: Sun, 22 Oct 2017 13:01:31 +0200
+Message-ID: <20171022110130.GA2985@amd>
+References: <1507322033-15222-1-git-send-email-Tristram.Ha@microchip.com>
+ <1507322033-15222-2-git-send-email-Tristram.Ha@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, cl@linux.com, penberg@kernel.org,
- rientjes@google.com, iamjoonsoo.kim@lge.com, ecryptfs@vger.kernel.org,
- linux-xfs@vger.kernel.org, kasan-dev@googlegroups.com, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>, akpm@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20171021100635.GA8287@avx2>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="ZGiS0Q5IWpPtfppv"
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>, muvarov@gmail.com,
+        nathan.leigh.conrad@gmail.com, vivien.didelot@savoirfairelinux.com,
+        UNGLinuxDriver@microchip.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1507322033-15222-2-git-send-email-Tristram.Ha@microchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+--ZGiS0Q5IWpPtfppv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 21/10/2017 13.06, Alexey Dobriyan wrote:
-> struct kmem_cache::flags is "unsigned long" which is unnecessary on
-> 64-bit as no flags are defined in the higher bits.
-> 
-> Switch the field to 32-bit and save some space on x86_64 until such
-> flags appear:
-> 
-> 	add/remove: 0/0 grow/shrink: 0/107 up/down: 0/-657 (-657)
-> 	function                                     old     new   delta
-> 	sysfs_slab_add                               720     719      -1
-> 				...
-> 	check_object                                 699     676     -23
-> 
-> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
+Hi!
 
-Acked-by: Pekka Enberg <penberg@kernel.org>
+> diff --git a/drivers/net/dsa/microchip/Kconfig b/drivers/net/dsa/microchi=
+p/Kconfig
+> index cb95d3d..b854c4b 100644
+> --- a/drivers/net/dsa/microchip/Kconfig
+> +++ b/drivers/net/dsa/microchip/Kconfig
+> @@ -27,3 +27,20 @@ config MICROCHIP_KSZ8795_SPI_DRIVER
+> =20
+>  	  It is required to use the KSZ8795 switch driver as the only access
+>  	  is through SPI.
+> +
+> +menuconfig MICROCHIP_KSZ8895
+> +	tristate "Microchip KSZ8895 series switch support"
+> +	depends on NET_DSA
+> +	select NET_DSA_TAG_KSZ8795
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Aha. So this depends not only on "preparation" series, but also on
+8795 driver. Surprise!
+
+If you had a git tree with series applied, that would be nice.
+
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--ZGiS0Q5IWpPtfppv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlnseooACgkQMOfwapXb+vI2tgCcDJ6kUfarqzdn82u8th3fbk1G
+EYYAni87LSFIBG+DBqZ2GfGv8eL4pyEn
+=ZJRa
+-----END PGP SIGNATURE-----
+
+--ZGiS0Q5IWpPtfppv--
