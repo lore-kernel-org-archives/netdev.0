@@ -1,86 +1,206 @@
-From: Wei Wei <dotweiba@gmail.com>
-Subject: Re: v4.14-rc3/arm64 DABT exception in atomic_inc() / __skb_clone()
-Date: Sat, 21 Oct 2017 21:56:49 -0400
-Message-ID: <D2AD6D5B-3A05-48E7-A999-DECAB18A4649@gmail.com>
-References: <EAA60182-6F08-412E-8F8B-FD4B0309A858@gmail.com>
- <20171020111408.edj24tztxdptte5r@lakrids.cambridge.arm.com>
- <960D71EC-C1E9-4898-ACBE-543FC09483FF@gmail.com>
- <CACT4Y+bjzzCv3LSxK12C1xB8GfR3UYCrX_5phRYJ8fpxh9vcvQ@mail.gmail.com>
- <CAF=yD-K76TMjHiYRTRAnxM-x4LBcUDY+27WX477HW6kG=L_aZw@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] of_mdio: Fix broken PHY IRQ in case of probe deferral
+Date: Sat, 21 Oct 2017 19:01:45 -0700
+Message-ID: <FD695891-F3B8-4388-8887-A9DC997828B4@gmail.com>
+References: <1508327643-3579-1-git-send-email-geert+renesas@glider.be>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: quoted-printable
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-arm-kernel@lists.infradead.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:56788 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932295AbdJVB46 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:56:58 -0400
-In-Reply-To: <CAF=yD-K76TMjHiYRTRAnxM-x4LBcUDY+27WX477HW6kG=L_aZw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Geert Uytterhoeven <geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1508327643-3579-1-git-send-email-geert+renesas-gXvu3+zWzMSzQB+pC5nmwQ@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I have uploaded the VM core dump [1]. And I don=E2=80=99t know if these =
-logs are helpful in the case of=20
-failing to get the C reproducer currently.
+On October 18, 2017 4:54:03 AM PDT, Geert Uytterhoeven <geert+renesas@glide=
+r=2Ebe> wrote:
+>If an Ethernet PHY is initialized before the interrupt controller it is
+>connected to, a message like the following is printed:
+>
+>    irq: no irq domain found for /interrupt-controller@e61c0000 !
+>
+>However, the actual error is ignored, leading to a non-functional
+>(POLL)
+>PHY interrupt later:
+>
+>Micrel KSZ8041RNLI ee700000=2Eethernet-ffffffff:01: attached PHY driver
+>[Micrel KSZ8041RNLI] (mii_bus:phy_addr=3Dee700000=2Eethernet-ffffffff:01,
+>irq=3DPOLL)
+>
+>Depending on whether the PHY driver will fall back to polling, Ethernet
+>may or may not work=2E
+>
+>To fix this:
+>  1=2E Switch of_mdiobus_register_phy() from irq_of_parse_and_map() to
+>     of_irq_get()=2E
+>     Unlike the former, the latter returns -EPROBE_DEFER if the
+>    interrupt controller is not yet available, so this condition can be
+>     detected=2E
+>     Other errors are handled the same as before, i=2Ee=2E use the passed
+>     mdio->irq[addr] as interrupt=2E
+>  2=2E Propagate and handle errors from of_mdiobus_register_phy() and
+>     of_mdiobus_register_device()=2E
+>
+>Signed-off-by: Geert Uytterhoeven <geert+renesas@glider=2Ebe>
 
-[1] =
-https://github.com/dotweiba/skb_clone_atomic_inc_bug/blob/master/vmcore.gz=
+Reviewed-by : Florian Fainelli <f=2Efainelli@gmail=2Ecom>
 
+I still can't make sure this is not a problem for multiple PHYs hanging of=
+f the same bus, but like anything else, we'll deal with problems later if t=
+hey arise=2E
 
-2017/10/21 20:24:32 reproducing crash 'unable to handle kernel paging =
-request in __skb_clone': testing program (duration=3D24s, {Threaded:true =
-Collide:true Repeat:true Procs:8 Sandb
-ox:setuid Fault:false FaultCall:-1 FaultNth:0 EnableTun:true =
-UseTmpDir:true HandleSegv:true WaitRepeat:true Debug:false Repro:true}): =
-mmap-socket$inet_tcp-bind$inet-sendto$inet-se
-ndto$inet-syz_emit_ethernet
-2017/10/21 20:24:49 reproducing crash 'unable to handle kernel paging =
-request in __skb_clone': program crashed: unable to handle kernel paging =
-request in __skb_clone
-2017/10/21 20:24:49 reproducing crash 'unable to handle kernel paging =
-request in __skb_clone': extracting C reproducer
-2017/10/21 20:24:49 reproducing crash 'unable to handle kernel paging =
-request in __skb_clone': reproducing took 1h47m5.070207729s
-2017/10/21 20:24:49 reproduction failed: no target compiler
-
-Thanks,
-Wei
-> On 20 Oct 2017, at 11:39 AM, Willem de Bruijn =
-<willemdebruijn.kernel@gmail.com> wrote:
+>---
+>Seen on e=2Eg=2E r8a7791/koelsch when using the new CPG/MSSR clock driver=
+,
+>which will hit upstream in v4=2E15=2E  I assume it always happened on RZ/=
+G1
+>in mainline=2E
+>
+>The actual patch is unchanged since v1, sent on May 18=2E  Obviously I
+>still cannot test it on a system with multiple PHYs, just like v1=2E
+>
+>How can we proceed?
+>
+>Note that if you are worried about the MDIO subsystem not handling
+>(partial) teardown and reprobe correctly in the presence of multiple
+>PHYs, that can already be triggered since commit a5597008dbc23087
+>("phy:
+>fixed_phy: Add gpio to determine link up/down=2E"), which handles
+>EPROBE_DEFER for GPIOs=2E
+>
+>Thanks!
+>
+>v2:
+> - Update for non-functional interrupts being printed as "POLL" instead
+>    of "-1" since commit 5e369aefdce4818c ("net: stmmac: Delete dead
+>    code for MDIO registration")=2E
+>---
+> drivers/of/of_mdio=2Ec | 39 +++++++++++++++++++++++++++------------
+> 1 file changed, 27 insertions(+), 12 deletions(-)
+>
+>diff --git a/drivers/of/of_mdio=2Ec b/drivers/of/of_mdio=2Ec
+>index d94dd8b77abd5140=2E=2E98258583abb0b405 100644
+>--- a/drivers/of/of_mdio=2Ec
+>+++ b/drivers/of/of_mdio=2Ec
+>@@ -44,7 +44,7 @@ static int of_get_phy_id(struct device_node *device,
+>u32 *phy_id)
+> 	return -EINVAL;
+> }
 >=20
-> On Fri, Oct 20, 2017 at 11:14 AM, Dmitry Vyukov <dvyukov@google.com> =
-wrote:
->> On Fri, Oct 20, 2017 at 4:40 PM, Wei Wei <dotweiba@gmail.com> wrote:
->>> Sadly, the syzkaller characterized it as a non-reproducible bug and =
-there were empty
->>> repro files. But if manually executing in VM like this =
-=E2=80=9C./syz-execprog -executor=3D
->>> ./syz-executor -repeat=3D0 -procs=3D16 -cover=3D0 crash-log=E2=80=9D, =
-it crashed when executing exactly
->>> program 1056 using log0 provided.
->>>=20
->>> I failed to generate the C reproducer with syz-repro as it said =
-=E2=80=9Cno target compiler=E2=80=9D
->>> in the final step. I would appreciate if you could give some hints.
->>=20
->> syzkaller tries to use aarch64-linux-gnu-gcc when cross-compiling to =
-arm64:
->> =
-https://github.com/google/syzkaller/blob/master/sys/targets/targets.go#L62=
-
->> Try to install g++-aarch64-linux-gnu.
->> Or how should it be done on your system?
+>-static void of_mdiobus_register_phy(struct mii_bus *mdio,
+>+static int of_mdiobus_register_phy(struct mii_bus *mdio,
+> 				    struct device_node *child, u32 addr)
+> {
+> 	struct phy_device *phy;
+>@@ -60,9 +60,13 @@ static void of_mdiobus_register_phy(struct mii_bus
+>*mdio,
+> 	else
+> 		phy =3D get_phy_device(mdio, addr, is_c45);
+> 	if (IS_ERR(phy))
+>-		return;
+>+		return PTR_ERR(phy);
 >=20
-> A core dump would also be helpful to root around in and inspect
-> what those registers point to. Thanks for posting the various reports
-> on github, btw.
+>-	rc =3D irq_of_parse_and_map(child, 0);
+>+	rc =3D of_irq_get(child, 0);
+>+	if (rc =3D=3D -EPROBE_DEFER) {
+>+		phy_device_free(phy);
+>+		return rc;
+>+	}
+> 	if (rc > 0) {
+> 		phy->irq =3D rc;
+> 		mdio->irq[addr] =3D rc;
+>@@ -84,22 +88,23 @@ static void of_mdiobus_register_phy(struct mii_bus
+>*mdio,
+> 	if (rc) {
+> 		phy_device_free(phy);
+> 		of_node_put(child);
+>-		return;
+>+		return rc;
+> 	}
+>=20
+> 	dev_dbg(&mdio->dev, "registered phy %s at address %i\n",
+> 		child->name, addr);
+>+	return 0;
+> }
+>=20
+>-static void of_mdiobus_register_device(struct mii_bus *mdio,
+>-				       struct device_node *child, u32 addr)
+>+static int of_mdiobus_register_device(struct mii_bus *mdio,
+>+				      struct device_node *child, u32 addr)
+> {
+> 	struct mdio_device *mdiodev;
+> 	int rc;
+>=20
+> 	mdiodev =3D mdio_device_create(mdio, addr);
+> 	if (IS_ERR(mdiodev))
+>-		return;
+>+		return PTR_ERR(mdiodev);
+>=20
+> 	/* Associate the OF node with the device structure so it
+> 	 * can be looked up later=2E
+>@@ -112,11 +117,12 @@ static void of_mdiobus_register_device(struct
+>mii_bus *mdio,
+> 	if (rc) {
+> 		mdio_device_free(mdiodev);
+> 		of_node_put(child);
+>-		return;
+>+		return rc;
+> 	}
+>=20
+> 	dev_dbg(&mdio->dev, "registered mdio device %s at address %i\n",
+> 		child->name, addr);
+>+	return 0;
+> }
+>=20
+> /* The following is a list of PHY compatible strings which appear in
+>@@ -219,9 +225,11 @@ int of_mdiobus_register(struct mii_bus *mdio,
+>struct device_node *np)
+> 		}
+>=20
+> 		if (of_mdiobus_child_is_phy(child))
+>-			of_mdiobus_register_phy(mdio, child, addr);
+>+			rc =3D of_mdiobus_register_phy(mdio, child, addr);
+> 		else
+>-			of_mdiobus_register_device(mdio, child, addr);
+>+			rc =3D of_mdiobus_register_device(mdio, child, addr);
+>+		if (rc)
+>+			goto unregister;
+> 	}
+>=20
+> 	if (!scanphys)
+>@@ -242,12 +250,19 @@ int of_mdiobus_register(struct mii_bus *mdio,
+>struct device_node *np)
+> 			dev_info(&mdio->dev, "scan phy %s at address %i\n",
+> 				 child->name, addr);
+>=20
+>-			if (of_mdiobus_child_is_phy(child))
+>-				of_mdiobus_register_phy(mdio, child, addr);
+>+			if (of_mdiobus_child_is_phy(child)) {
+>+				rc =3D of_mdiobus_register_phy(mdio, child, addr);
+>+				if (rc)
+>+					goto unregister;
+>+			}
+> 		}
+> 	}
+>=20
+> 	return 0;
+>+
+>+unregister:
+>+	mdiobus_unregister(mdio);
+>+	return rc;
+> }
+> EXPORT_SYMBOL(of_mdiobus_register);
+>=20
+
+
+--=20
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
