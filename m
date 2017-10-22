@@ -1,51 +1,45 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: smc_close: mark expected switch fall-throughs
-Date: Sat, 21 Oct 2017 20:21:00 -0500
-Message-ID: <20171021202100.Horde.z-7P99HVhWm0m3hXj5cOjur@gator4166.hostgator.com>
-References: <20171019220244.GA22041@embeddedor.com>
- <20171022.020835.2065879880300400886.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/15] networking drivers refcount_t conversions
+Date: Sun, 22 Oct 2017 02:31:32 +0100 (WEST)
+Message-ID: <20171022.023132.2040144937883625039.davem@davemloft.net>
+References: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: ubraun@linux.vnet.ibm.com, linux-s390@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway31.websitewelcome.com ([192.185.143.38]:25050 "EHLO
-        gateway31.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932271AbdJVBVC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:21:02 -0400
-Received: from cm10.websitewelcome.com (cm10.websitewelcome.com [100.42.49.4])
-        by gateway31.websitewelcome.com (Postfix) with ESMTP id 519E0DD83C
-        for <netdev@vger.kernel.org>; Sat, 21 Oct 2017 20:21:01 -0500 (CDT)
-In-Reply-To: <20171022.020835.2065879880300400886.davem@davemloft.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-rdma@vger.kernel.org,
+        linux-hams@vger.kernel.org, linux-ppp@vger.kernel.org,
+        ganeshgr@chelsio.com, nbd@openwrt.org, john@phrozen.org,
+        sean.wang@mediatek.com, matthias.bgg@gmail.com,
+        yishaih@mellanox.com, saeedm@mellanox.com, matanb@mellanox.com,
+        tariqt@mellanox.com, leonro@mellanox.com,
+        ajk@comnets.uni-bremen.de, paulus@samba.org, zbr@ioremap.net,
+        peterz@infradead.org, keescook@chromium.org
+To: elena.reshetova@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1508484229-19706-1-git-send-email-elena.reshetova@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Elena Reshetova <elena.reshetova@intel.com>
+Date: Fri, 20 Oct 2017 10:23:34 +0300
 
-Quoting David Miller <davem@davemloft.net>:
+> Note: these are the last patches related to networking that perform
+> conversion of refcounters from atomic_t to refcount_t.
+> In contrast to the core network refcounter conversions that
+> were merged earlier, these are much more straightforward ones.
+> 
+> This series, for various networking drivers, replaces atomic_t reference
+> counters with the new refcount_t type and API (see include/linux/refcount.h).
+> By doing this we prevent intentional or accidental
+> underflows or overflows that can led to use-after-free vulnerabilities.
+> 
+> The patches are fully independent and can be cherry-picked separately.
+> Patches are based on top of net-next.
+> If there are no objections to the patches, please merge them via respective trees
 
-> From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-> Date: Thu, 19 Oct 2017 17:02:44 -0500
->
->> @@ -360,7 +360,8 @@ static void smc_close_passive_work(struct  
->> work_struct *work)
->>  	case SMC_PEERCLOSEWAIT1:
->>  		if (rxflags->peer_done_writing)
->>  			sk->sk_state = SMC_PEERCLOSEWAIT2;
->> -		/* fall through to check for closing */
->> +		/* to check for closing */
->> +		/* fall through */
->
-> Gustavo please look at what you are doing to the code.
->
-> This was a nice easy to read sentence in the comment, and now
-> you've chopped it up into two pieces and made it awkward and
-> more difficult to read.
+I've applied this entire series to net-next.  If there are any fixups or
+follow-ups please send them as relative patches.
 
-You're right.
-
-What about this instead:
-
-/* fall through */
-/* to check for closing */
+Thank you.
