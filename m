@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/2] net: dsa: lan9303: Add fdb/mdb methods
-Date: Sun, 22 Oct 2017 02:41:45 +0100 (WEST)
-Message-ID: <20171022.024145.2295148491915584487.davem@davemloft.net>
-References: <20171020101910.2245-1-privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next v2] geneve: Get rid of is_all_zero(),
+ streamline is_tnl_info_zero()
+Date: Sun, 22 Oct 2017 02:43:17 +0100 (WEST)
+Message-ID: <20171022.024317.2135335081524620628.davem@davemloft.net>
+References: <2f3e906b339869a22c9b7c438c8b854c4bfb885b.1508485663.git.sbrivio@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: privat@egil-hjelmeland.no
+Cc: netdev@vger.kernel.org, pshelar@ovn.org
+To: sbrivio@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57302 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57314 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932311AbdJVBlt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:41:49 -0400
-In-Reply-To: <20171020101910.2245-1-privat@egil-hjelmeland.no>
+        with ESMTP id S932295AbdJVBnU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 21 Oct 2017 21:43:20 -0400
+In-Reply-To: <2f3e906b339869a22c9b7c438c8b854c4bfb885b.1508485663.git.sbrivio@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Date: Fri, 20 Oct 2017 12:19:08 +0200
+From: Stefano Brivio <sbrivio@redhat.com>
+Date: Fri, 20 Oct 2017 13:31:36 +0200
 
-> This series add support for accessing and managing the lan9303 ALR 
-> (Address Logic Resolution). 
+> No need to re-invent memchr_inv() with !is_all_zero(). While at
+> it, replace conditional and return clauses with a single return
+> clause in is_tnl_info_zero().
 > 
-> The first patch add low level functions for accessing the ALR, along
-> with port_fast_age and port_fdb_dump methods.
-> 
-> The second patch add functions for managing ALR entires, along with
-> remaining fdb/mdb methods. 
-> 
-> Note that to complete STP support, a special ALR entry with the STP eth
-> address must be added too. This must be addressed later.
+> Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
 
-Series applied, thank you.
+Applied.
