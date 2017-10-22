@@ -1,400 +1,156 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/8] mlxsw: spectrum: Better represent KVDL partitions
-Date: Sun, 22 Oct 2017 23:11:44 +0200
-Message-ID: <20171022211150.2567-3-jiri@resnulli.us>
-References: <20171022211150.2567-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Subject: [PATCH v2 32/37] xfrm: Replace hrtimer tasklet with softirq hrtimer
+Date: Sun, 22 Oct 2017 23:40:10 +0200
+Message-ID: <20171022214053.654452552@linutronix.de>
+References: <20171022213938.940451689@linutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>, keescook@chromium.org,
+        Christoph Hellwig <hch@lst.de>,
+        John Stultz <john.stultz@linaro.org>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:47872 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932108AbdJVVLy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 17:11:54 -0400
-Received: by mail-wm0-f65.google.com with SMTP id t69so6097290wmt.2
-        for <netdev@vger.kernel.org>; Sun, 22 Oct 2017 14:11:54 -0700 (PDT)
-In-Reply-To: <20171022211150.2567-1-jiri@resnulli.us>
+Received: from Galois.linutronix.de ([146.0.238.70]:45765 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932465AbdJVVnt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 17:43:49 -0400
+Content-Disposition: inline;
+ filename=xfrm_Replace_hrtimer_tasklet_with_softirq_hrtimer.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Thomas Gleixner <tglx@linutronix.de>
 
-The KVD linear (KVDL) allocator currently consists of a very large
-bitmap that reflects the KVDL's usage. The boundaries of each partition
-as well as their allocation size are represented using defines.
+Switch the timer to HRTIMER_MODE_SOFT, which executed the timer
+callback in softirq context and remove the hrtimer_tasklet.
 
-This representation requires us to patch all the functions that act on a
-partition whenever the partitioning scheme is changed. In addition, it
-does not enable the dynamic configuration of the KVDL using the
-up-coming resource manager.
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
 
-Add objects to represent these partitions as well as the accompanying
-code that acts on them to perform allocations and de-allocations.
-
-In the following patches, this will allow us to easily add another
-partition as well as new operations to act on these partitions.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  11 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   7 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_kvdl.c    | 257 ++++++++++++++++++---
- 3 files changed, 238 insertions(+), 37 deletions(-)
+ include/net/xfrm.h    |    2 +-
+ net/xfrm/xfrm_state.c |   30 ++++++++++++++++++------------
+ 2 files changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4d73a6f..1bc3fc3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -3726,10 +3726,16 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 		return err;
- 	}
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -216,7 +216,7 @@ struct xfrm_state {
+ 	struct xfrm_stats	stats;
  
-+	err = mlxsw_sp_kvdl_init(mlxsw_sp);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize KVDL\n");
-+		return err;
-+	}
-+
- 	err = mlxsw_sp_fids_init(mlxsw_sp);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize FIDs\n");
--		return err;
-+		goto err_fids_init;
- 	}
+ 	struct xfrm_lifetime_cur curlft;
+-	struct tasklet_hrtimer	mtimer;
++	struct hrtimer		mtimer;
  
- 	err = mlxsw_sp_traps_init(mlxsw_sp);
-@@ -3834,6 +3840,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 	mlxsw_sp_traps_fini(mlxsw_sp);
- err_traps_init:
- 	mlxsw_sp_fids_fini(mlxsw_sp);
-+err_fids_init:
-+	mlxsw_sp_kvdl_fini(mlxsw_sp);
- 	return err;
- }
+ 	struct xfrm_state_offload xso;
  
-@@ -3854,6 +3862,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sp_buffers_fini(mlxsw_sp);
- 	mlxsw_sp_traps_fini(mlxsw_sp);
- 	mlxsw_sp_fids_fini(mlxsw_sp);
-+	mlxsw_sp_kvdl_fini(mlxsw_sp);
- }
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -426,7 +426,7 @@ static void xfrm_put_mode(struct xfrm_mo
  
- static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 2a2472a..035c753 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -143,6 +143,7 @@ struct mlxsw_sp_mr;
- struct mlxsw_sp_acl;
- struct mlxsw_sp_counter_pool;
- struct mlxsw_sp_fid_core;
-+struct mlxsw_sp_kvdl;
- 
- struct mlxsw_sp {
- 	struct mlxsw_sp_port **ports;
-@@ -158,9 +159,7 @@ struct mlxsw_sp {
- 	struct mlxsw_afa *afa;
- 	struct mlxsw_sp_acl *acl;
- 	struct mlxsw_sp_fid_core *fid_core;
--	struct {
--		DECLARE_BITMAP(usage, MLXSW_SP_KVD_LINEAR_SIZE);
--	} kvdl;
-+	struct mlxsw_sp_kvdl *kvdl;
- 	struct notifier_block netdevice_nb;
- 
- 	struct mlxsw_sp_counter_pool *counter_pool;
-@@ -411,6 +410,8 @@ mlxsw_sp_port_vlan_router_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan);
- void mlxsw_sp_rif_destroy(struct mlxsw_sp_rif *rif);
- 
- /* spectrum_kvdl.c */
-+int mlxsw_sp_kvdl_init(struct mlxsw_sp *mlxsw_sp);
-+void mlxsw_sp_kvdl_fini(struct mlxsw_sp *mlxsw_sp);
- int mlxsw_sp_kvdl_alloc(struct mlxsw_sp *mlxsw_sp, unsigned int entry_count,
- 			u32 *p_entry_index);
- void mlxsw_sp_kvdl_free(struct mlxsw_sp *mlxsw_sp, int entry_index);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_kvdl.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_kvdl.c
-index 26c26cd..5125375 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_kvdl.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_kvdl.c
-@@ -39,55 +39,246 @@
- 
- #define MLXSW_SP_KVDL_SINGLE_BASE 0
- #define MLXSW_SP_KVDL_SINGLE_SIZE 16384
-+#define MLXSW_SP_KVDL_SINGLE_END \
-+	(MLXSW_SP_KVDL_SINGLE_SIZE + MLXSW_SP_KVDL_SINGLE_BASE - 1)
- #define MLXSW_SP_KVDL_CHUNKS_BASE \
- 	(MLXSW_SP_KVDL_SINGLE_BASE + MLXSW_SP_KVDL_SINGLE_SIZE)
- #define MLXSW_SP_KVDL_CHUNKS_SIZE \
- 	(MLXSW_SP_KVD_LINEAR_SIZE - MLXSW_SP_KVDL_CHUNKS_BASE)
-+#define MLXSW_SP_KVDL_CHUNKS_END \
-+	(MLXSW_SP_KVDL_CHUNKS_SIZE + MLXSW_SP_KVDL_CHUNKS_BASE - 1)
- #define MLXSW_SP_CHUNK_MAX 32
- 
-+struct mlxsw_sp_kvdl_part_info {
-+	unsigned int part_index;
-+	unsigned int start_index;
-+	unsigned int end_index;
-+	unsigned int alloc_size;
-+};
-+
-+struct mlxsw_sp_kvdl_part {
-+	struct list_head list;
-+	const struct mlxsw_sp_kvdl_part_info *info;
-+	unsigned long usage[0];	/* Entries */
-+};
-+
-+struct mlxsw_sp_kvdl {
-+	struct list_head parts_list;
-+};
-+
-+static struct mlxsw_sp_kvdl_part *
-+mlxsw_sp_kvdl_alloc_size_part(struct mlxsw_sp_kvdl *kvdl,
-+			      unsigned int alloc_size)
-+{
-+	struct mlxsw_sp_kvdl_part *part, *min_part = NULL;
-+
-+	list_for_each_entry(part, &kvdl->parts_list, list) {
-+		if (alloc_size <= part->info->alloc_size &&
-+		    (!min_part ||
-+		     part->info->alloc_size <= min_part->info->alloc_size))
-+			min_part = part;
-+	}
-+
-+	return min_part ?: ERR_PTR(-ENOBUFS);
-+}
-+
-+static struct mlxsw_sp_kvdl_part *
-+mlxsw_sp_kvdl_index_part(struct mlxsw_sp_kvdl *kvdl, u32 kvdl_index)
-+{
-+	struct mlxsw_sp_kvdl_part *part;
-+
-+	list_for_each_entry(part, &kvdl->parts_list, list) {
-+		if (kvdl_index >= part->info->start_index &&
-+		    kvdl_index <= part->info->end_index)
-+			return part;
-+	}
-+
-+	return ERR_PTR(-EINVAL);
-+}
-+
-+static u32
-+mlxsw_sp_entry_index_kvdl_index(const struct mlxsw_sp_kvdl_part_info *info,
-+				unsigned int entry_index)
-+{
-+	return info->start_index + entry_index * info->alloc_size;
-+}
-+
-+static unsigned int
-+mlxsw_sp_kvdl_index_entry_index(const struct mlxsw_sp_kvdl_part_info *info,
-+				u32 kvdl_index)
-+{
-+	return (kvdl_index - info->start_index) / info->alloc_size;
-+}
-+
-+static int mlxsw_sp_kvdl_part_alloc(struct mlxsw_sp_kvdl_part *part,
-+				    u32 *p_kvdl_index)
-+{
-+	const struct mlxsw_sp_kvdl_part_info *info = part->info;
-+	unsigned int entry_index, nr_entries;
-+
-+	nr_entries = (info->end_index - info->start_index + 1) /
-+		     info->alloc_size;
-+	entry_index = find_first_zero_bit(part->usage, nr_entries);
-+	if (entry_index == nr_entries)
-+		return -ENOBUFS;
-+	__set_bit(entry_index, part->usage);
-+
-+	*p_kvdl_index = mlxsw_sp_entry_index_kvdl_index(part->info,
-+							entry_index);
-+
-+	return 0;
-+}
-+
-+static void mlxsw_sp_kvdl_part_free(struct mlxsw_sp_kvdl_part *part,
-+				    u32 kvdl_index)
-+{
-+	unsigned int entry_index;
-+
-+	entry_index = mlxsw_sp_kvdl_index_entry_index(part->info,
-+						      kvdl_index);
-+	__clear_bit(entry_index, part->usage);
-+}
-+
- int mlxsw_sp_kvdl_alloc(struct mlxsw_sp *mlxsw_sp, unsigned int entry_count,
- 			u32 *p_entry_index)
+ static void xfrm_state_gc_destroy(struct xfrm_state *x)
  {
--	int entry_index;
--	int size;
--	int type_base;
--	int type_size;
--	int type_entries;
--
--	if (entry_count == 0 || entry_count > MLXSW_SP_CHUNK_MAX) {
--		return -EINVAL;
--	} else if (entry_count == 1) {
--		type_base = MLXSW_SP_KVDL_SINGLE_BASE;
--		type_size = MLXSW_SP_KVDL_SINGLE_SIZE;
--		type_entries = 1;
--	} else {
--		type_base = MLXSW_SP_KVDL_CHUNKS_BASE;
--		type_size = MLXSW_SP_KVDL_CHUNKS_SIZE;
--		type_entries = MLXSW_SP_CHUNK_MAX;
-+	struct mlxsw_sp_kvdl_part *part;
-+
-+	/* Find partition with smallest allocation size satisfying the
-+	 * requested size.
-+	 */
-+	part = mlxsw_sp_kvdl_alloc_size_part(mlxsw_sp->kvdl, entry_count);
-+	if (IS_ERR(part))
-+		return PTR_ERR(part);
-+
-+	return mlxsw_sp_kvdl_part_alloc(part, p_entry_index);
-+}
-+
-+void mlxsw_sp_kvdl_free(struct mlxsw_sp *mlxsw_sp, int entry_index)
-+{
-+	struct mlxsw_sp_kvdl_part *part;
-+
-+	part = mlxsw_sp_kvdl_index_part(mlxsw_sp->kvdl, entry_index);
-+	if (IS_ERR(part))
-+		return;
-+	mlxsw_sp_kvdl_part_free(part, entry_index);
-+}
-+
-+static const struct mlxsw_sp_kvdl_part_info kvdl_parts_info[] = {
-+	{
-+		.part_index	= 0,
-+		.start_index	= MLXSW_SP_KVDL_SINGLE_BASE,
-+		.end_index	= MLXSW_SP_KVDL_SINGLE_END,
-+		.alloc_size	= 1,
-+	},
-+	{
-+		.part_index	= 1,
-+		.start_index	= MLXSW_SP_KVDL_CHUNKS_BASE,
-+		.end_index	= MLXSW_SP_KVDL_CHUNKS_END,
-+		.alloc_size	= MLXSW_SP_CHUNK_MAX,
-+	},
-+};
-+
-+static struct mlxsw_sp_kvdl_part *
-+mlxsw_sp_kvdl_part_find(struct mlxsw_sp *mlxsw_sp, unsigned int part_index)
-+{
-+	struct mlxsw_sp_kvdl_part *part;
-+
-+	list_for_each_entry(part, &mlxsw_sp->kvdl->parts_list, list) {
-+		if (part->info->part_index == part_index)
-+			return part;
- 	}
+-	tasklet_hrtimer_cancel(&x->mtimer);
++	hrtimer_cancel(&x->mtimer);
+ 	del_timer_sync(&x->rtimer);
+ 	kfree(x->aead);
+ 	kfree(x->aalg);
+@@ -471,8 +471,8 @@ static void xfrm_state_gc_task(struct wo
  
--	entry_index = type_base;
--	size = type_base + type_size;
--	for_each_clear_bit_from(entry_index, mlxsw_sp->kvdl.usage, size) {
--		int i;
-+	return NULL;
-+}
-+
-+static int mlxsw_sp_kvdl_part_init(struct mlxsw_sp *mlxsw_sp,
-+				   unsigned int part_index)
-+{
-+	const struct mlxsw_sp_kvdl_part_info *info;
-+	struct mlxsw_sp_kvdl_part *part;
-+	unsigned int nr_entries;
-+	size_t usage_size;
-+
-+	info = &kvdl_parts_info[part_index];
-+
-+	nr_entries = (info->end_index - info->start_index + 1) /
-+		     info->alloc_size;
-+	usage_size = BITS_TO_LONGS(nr_entries) * sizeof(unsigned long);
-+	part = kzalloc(sizeof(*part) + usage_size, GFP_KERNEL);
-+	if (!part)
-+		return -ENOMEM;
-+
-+	part->info = info;
-+	list_add(&part->list, &mlxsw_sp->kvdl->parts_list);
-+
-+	return 0;
-+}
-+
-+static void mlxsw_sp_kvdl_part_fini(struct mlxsw_sp *mlxsw_sp,
-+				    unsigned int part_index)
-+{
-+	struct mlxsw_sp_kvdl_part *part;
-+
-+	part = mlxsw_sp_kvdl_part_find(mlxsw_sp, part_index);
-+	if (!part)
-+		return;
- 
--		for (i = 0; i < type_entries; i++)
--			set_bit(entry_index + i, mlxsw_sp->kvdl.usage);
--		*p_entry_index = entry_index;
--		return 0;
-+	list_del(&part->list);
-+	kfree(part);
-+}
-+
-+static int mlxsw_sp_kvdl_parts_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	int err, i;
-+
-+	INIT_LIST_HEAD(&mlxsw_sp->kvdl->parts_list);
-+
-+	for (i = 0; i < ARRAY_SIZE(kvdl_parts_info); i++) {
-+		err = mlxsw_sp_kvdl_part_init(mlxsw_sp, i);
-+		if (err)
-+			goto err_kvdl_part_init;
- 	}
--	return -ENOBUFS;
-+
-+	return 0;
-+
-+err_kvdl_part_init:
-+	for (i--; i >= 0; i--)
-+		mlxsw_sp_kvdl_part_fini(mlxsw_sp, i);
-+	return err;
- }
- 
--void mlxsw_sp_kvdl_free(struct mlxsw_sp *mlxsw_sp, int entry_index)
-+static void mlxsw_sp_kvdl_parts_fini(struct mlxsw_sp *mlxsw_sp)
+ static enum hrtimer_restart xfrm_timer_handler(struct hrtimer *me)
  {
--	int type_entries;
- 	int i;
+-	struct tasklet_hrtimer *thr = container_of(me, struct tasklet_hrtimer, timer);
+-	struct xfrm_state *x = container_of(thr, struct xfrm_state, mtimer);
++	struct xfrm_state *x = container_of(me, struct xfrm_state, mtimer);
++	enum hrtimer_restart ret = HRTIMER_NORESTART;
+ 	unsigned long now = get_seconds();
+ 	long next = LONG_MAX;
+ 	int warn = 0;
+@@ -536,7 +536,8 @@ static enum hrtimer_restart xfrm_timer_h
+ 		km_state_expired(x, 0, 0);
+ resched:
+ 	if (next != LONG_MAX) {
+-		tasklet_hrtimer_start(&x->mtimer, ktime_set(next, 0), HRTIMER_MODE_REL);
++		hrtimer_forward_now(&x->mtimer, ktime_set(next, 0));
++		ret = HRTIMER_RESTART;
+ 	}
  
--	if (entry_index < MLXSW_SP_KVDL_CHUNKS_BASE)
--		type_entries = 1;
--	else
--		type_entries = MLXSW_SP_CHUNK_MAX;
--	for (i = 0; i < type_entries; i++)
--		clear_bit(entry_index + i, mlxsw_sp->kvdl.usage);
-+	for (i = ARRAY_SIZE(kvdl_parts_info) - 1; i >= 0; i--)
-+		mlxsw_sp_kvdl_part_fini(mlxsw_sp, i);
-+}
-+
-+int mlxsw_sp_kvdl_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	struct mlxsw_sp_kvdl *kvdl;
-+	int err;
-+
-+	kvdl = kzalloc(sizeof(*mlxsw_sp->kvdl), GFP_KERNEL);
-+	if (!kvdl)
-+		return -ENOMEM;
-+	mlxsw_sp->kvdl = kvdl;
-+
-+	err = mlxsw_sp_kvdl_parts_init(mlxsw_sp);
-+	if (err)
-+		goto err_kvdl_parts_init;
-+
-+	return 0;
-+
-+err_kvdl_parts_init:
-+	kfree(mlxsw_sp->kvdl);
-+	return err;
-+}
-+
-+void mlxsw_sp_kvdl_fini(struct mlxsw_sp *mlxsw_sp)
-+{
-+	mlxsw_sp_kvdl_parts_fini(mlxsw_sp);
-+	kfree(mlxsw_sp->kvdl);
+ 	goto out;
+@@ -553,7 +554,7 @@ static enum hrtimer_restart xfrm_timer_h
+ 
+ out:
+ 	spin_unlock(&x->lock);
+-	return HRTIMER_NORESTART;
++	return ret;
  }
--- 
-2.9.5
+ 
+ static void xfrm_replay_timer_handler(unsigned long data);
+@@ -572,8 +573,8 @@ struct xfrm_state *xfrm_state_alloc(stru
+ 		INIT_HLIST_NODE(&x->bydst);
+ 		INIT_HLIST_NODE(&x->bysrc);
+ 		INIT_HLIST_NODE(&x->byspi);
+-		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler,
+-					CLOCK_BOOTTIME, HRTIMER_MODE_ABS);
++		hrtimer_init(&x->mtimer, CLOCK_BOOTTIME, HRTIMER_MODE_ABS_SOFT);
++		x->mtimer.function = xfrm_timer_handler;
+ 		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
+ 				(unsigned long)x);
+ 		x->curlft.add_time = get_seconds();
+@@ -1030,7 +1031,9 @@ xfrm_state_find(const xfrm_address_t *da
+ 				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+ 			}
+ 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
+-			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
++			hrtimer_start(&x->mtimer,
++				      ktime_set(net->xfrm.sysctl_acq_expires, 0),
++				      HRTIMER_MODE_REL_SOFT);
+ 			net->xfrm.state_num++;
+ 			xfrm_hash_grow_check(net, x->bydst.next != NULL);
+ 			spin_unlock_bh(&net->xfrm.xfrm_state_lock);
+@@ -1141,7 +1144,7 @@ static void __xfrm_state_insert(struct x
+ 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+ 	}
+ 
+-	tasklet_hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
++	hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL_SOFT);
+ 	if (x->replay_maxage)
+ 		mod_timer(&x->rtimer, jiffies + x->replay_maxage);
+ 
+@@ -1245,7 +1248,9 @@ static struct xfrm_state *__find_acq_cor
+ 		x->mark.m = m->m;
+ 		x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
+ 		xfrm_state_hold(x);
+-		tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
++		hrtimer_start(&x->mtimer,
++			      ktime_set(net->xfrm.sysctl_acq_expires, 0),
++			      HRTIMER_MODE_REL_SOFT);
+ 		list_add(&x->km.all, &net->xfrm.state_all);
+ 		hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
+ 		h = xfrm_src_hash(net, daddr, saddr, family);
+@@ -1544,7 +1549,8 @@ int xfrm_state_update(struct xfrm_state
+ 		memcpy(&x1->lft, &x->lft, sizeof(x1->lft));
+ 		x1->km.dying = 0;
+ 
+-		tasklet_hrtimer_start(&x1->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
++		hrtimer_start(&x1->mtimer, ktime_set(1, 0),
++			      HRTIMER_MODE_REL_SOFT);
+ 		if (x1->curlft.use_time)
+ 			xfrm_state_check_expire(x1);
+ 
+@@ -1568,7 +1574,7 @@ int xfrm_state_check_expire(struct xfrm_
+ 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
+ 	    x->curlft.packets >= x->lft.hard_packet_limit) {
+ 		x->km.state = XFRM_STATE_EXPIRED;
+-		tasklet_hrtimer_start(&x->mtimer, 0, HRTIMER_MODE_REL);
++		hrtimer_start(&x->mtimer, 0, HRTIMER_MODE_REL_SOFT);
+ 		return -EINVAL;
+ 	}
+ 
