@@ -1,108 +1,165 @@
-From: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>
-Subject: Re: Linux 4.12+ memory leak on router with i40e NICs
-Date: Sun, 22 Oct 2017 13:56:40 +0000
-Message-ID: <1508680600.4970.26.camel@cohaesio.com>
-References: <1507121766.30720.4.camel@cohaesio.com>
-         <c49a750f-c47c-9de0-ebf0-148db5e3d3c5@itcare.pl>
-         <CAKgT0UcOWxnrsGEjTopPP-JKyKGTG3j6KNKUbhQRgaCStyzr_A@mail.gmail.com>
-         <b4995fc8-1420-fe96-26f7-ad5d986b7d39@gmail.com>
-         <3d783736-a474-d9e3-2de2-e35c765f8249@itcare.pl>
-         <39696136-2a4a-9c6c-3a63-4485ed2a1bf3@itcare.pl>
-         <CAKgT0Uf=0yasidUfyadNSxzkhKvtxH2t83fjb-SU7OaAnrMReA@mail.gmail.com>
-         <310ce203-0d65-bdf4-d9e4-897a349b3277@itcare.pl>
-         <f6e2208a-4cdf-3303-5999-92186b437b62@itcare.pl>
-         <1704eb26-c4c5-b196-ca7a-5265e92ae4e6@itcare.pl>
-         <bd82f85a-f9b8-a09a-beab-67667b58f36a@itcare.pl>
-         <7fd828d7-c586-2c32-3ba6-e0575bf9958c@itcare.pl>
-         <99eba19f-327e-e01f-4f4a-87540b176e40@itcare.pl>
-         <efcc51b4-f911-11ec-1c56-fcf31081f9d5@itcare.pl>
-         <d79df7f2-5de4-cc37-baf0-5603f025155e@itcare.pl>
-         <748b6d9d-4a3f-4eaa-ad24-27060c2e2642@itcare.pl>
-         <16c9fa34-252f-e5a3-8b15-e5a8c4d8a46f@itcare.pl>
-         <12670bc6-439c-7ef4-109a-fd20384b9ca2@itcare.pl>
-         <bd59ccc3-2af4-6842-8d2f-169229a61470@itcare.pl>
-         <888ec430-1d70-68e6-2ee8-bab53d21bb0f@itcare.pl>
-         <CAKgT0Ud=GRrsNtoM0gOgzsh1uPJ7nuT9S-xbigmbUMi+iz-ufw@mail.gmail.com>
-         <1508415582.1186.49.camel@cohaesio.com>
-         <CAKgT0Ud1ftJ187qz_XBVnx+X_1BQTgWWe4sA307_3VmpMSSVaw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "pavlos.parissis@gmail.com" <pavlos.parissis@gmail.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>
-To: "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH iproute2 1/1] tc/actions: introduce support for jump action
+Date: Sun, 22 Oct 2017 10:48:10 -0400
+Message-ID: <1508683690-3440-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, xiyou.wangcong@gmail.com,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bender.cohaesio.com ([212.97.128.130]:46026 "EHLO
-        mail.cohaesio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750984AbdJVN4o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 09:56:44 -0400
-In-Reply-To: <CAKgT0Ud1ftJ187qz_XBVnx+X_1BQTgWWe4sA307_3VmpMSSVaw@mail.gmail.com>
-Content-Language: en-US
-Content-ID: <B41CE4DB46576848A18357A9415DB126@surftown.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:48706 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751003AbdJVOsW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 10:48:22 -0400
+Received: by mail-io0-f194.google.com with SMTP id j17so17612944iod.5
+        for <netdev@vger.kernel.org>; Sun, 22 Oct 2017 07:48:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gdG9yLCAyMDE3LTEwLTE5IGF0IDA4OjQwIC0wNzAwLCBBbGV4YW5kZXIgRHV5Y2sgd3JvdGU6
-DQo+IE9uIFRodSwgT2N0IDE5LCAyMDE3IGF0IDU6MTkgQU0sIEFuZGVycyBLLiBQZWRlcnNlbiB8
-IENvaGFlc2lvDQo+IDxha3BAY29oYWVzaW8uY29tPiB3cm90ZToNCj4gPiBIaSBBbGV4LA0KPiA+
-IA0KPiA+IE9uIG9ucywgMjAxNy0xMC0xOCBhdCAxNjozNyAtMDcwMCwgQWxleGFuZGVyIER1eWNr
-IHdyb3RlOg0KPiA+ID4gV2hlbiB3ZSBsYXN0IHRhbGtlZCBJIGhhZCBhc2tlZCBpZiB5b3UgY291
-bGQgZG8gYSBnaXQgYmlzZWN0IHRvDQo+ID4gPiBmaW5kDQo+ID4gPiB0aGUgbWVtb3J5IGxlYWsg
-YW5kIHlvdSBzYWlkIHlvdSB3b3VsZCBsb29rIGludG8gaXQuIFRoZSBtb3N0DQo+ID4gPiB1c2Vm
-dWwNCj4gPiA+IHdheSB0byBzb2x2ZSB0aGlzIHdvdWxkIGJlIHRvIGRvIGEgZ2l0IGJpc2VjdCBi
-ZXR3ZWVuIHlvdXINCj4gPiA+IGN1cnJlbnQNCj4gPiA+IGtlcm5lbCBhbmQgdGhlIDQuMTEga2Vy
-bmVsIHRvIGZpbmQgdGhlIHBvaW50IGF0IHdoaWNoIHRoaXMNCj4gPiA+IHN0YXJ0ZWQuDQo+ID4g
-PiBJZg0KPiA+ID4gd2UgY2FuIGRvIHRoYXQgdGhlbiBmaXhpbmcgdGhpcyBiZWNvbWVzIG11Y2gg
-c2ltcGxlciBhcyB3ZSBqdXN0DQo+ID4gPiBoYXZlDQo+ID4gPiB0byBmaXggdGhlIHBhdGNoIHRo
-YXQgaW50cm9kdWNlZCB0aGUgaXNzdWUuDQo+ID4gDQo+ID4gV2UncmUgYWxzbyBzZWVpbmcgYSBz
-bWFsbGVyIG1lbW9yeSBsZWFrIChhYm91dCAxIEdCIHBlciBkYXkpIHRoYW4NCj4gPiB0aGUNCj4g
-PiBvcmlnaW5hbCBvbmUgZXZlbiB3aXRoIHRoZSAiRml4IG1lbW9yeSBsZWFrIHJlbGF0ZWQgZmls
-dGVyDQo+ID4gcHJvZ3JhbW1pbmcNCj4gPiBzdGF0dXMiIGZpeCBhcHBsaWVkLiBTbyBmYXIgSSd2
-ZSBkZXRlcm1pbmVkIHRoYXQgdGhlIGxlYWsgaXMNCj4gPiBwcmVzZW50IG9uDQo+ID4gNC4xMy43
-IGFuZCB3YXMgaW50cm9kdWNlZCBiZXR3ZWVuIDQuMTEgYW5kIDQuMTIsIHNvIEknbGwgZG8gYW5v
-dGhlcg0KPiA+IHJvdW5kIG9mIGJpc2VjdGlvbiB0byBpZGVudGlmeSB0aGUgcGF0Y2ggdGhhdCBp
-bnRyb2R1Y2VkIHRoaXMuDQo+ID4gDQo+ID4gU2luY2UgdGhlIHJvdXRlciBtdXN0IHJ1biBmb3Ig
-YSBjb3VwbGUgb2YgaG91cnMgYmVmb3JlIEkgY2FuIGJlDQo+ID4gc3VyZQ0KPiA+IHdoZXRoZXIg
-YSBrZXJuZWwgaXMgZ29vZCBvciBiYWQsIGFuZCBJIGNhbid0IHJlYm9vdCBpdCBkdXJpbmcNCj4g
-PiB3b3JraW5nDQo+ID4gaG91cnMsIGl0J2xsIHByb2JhYmx5IGJlIGFib3V0IGEgd2VlayBiZWZv
-cmUgSSBoYXZlIGEgcmVzdWx0Lg0KPiA+IA0KPiA+IC0tDQo+ID4gVmVubGlnIGhpbHNlbiAvIEJl
-c3QgUmVnYXJkcw0KPiA+IA0KPiA+IEFuZGVycyBLLiBQZWRlcnNlbg0KPiA+IFNlbmlvciBUZWNo
-bmljYWwgTWFuYWdlcg0KPiANCj4gQW5kZXJzLA0KPiANCj4gSSdsbCBkbyBzb21lIGRpZ2dpbmcg
-b24gbXkgc2lkZSB0byBzZWUgaWYgSSBjYW4gZmluZCBhbnkgb3RoZXIgbWVtb3J5DQo+IGxlYWtz
-IHRoYXQgbWlnaHQgYmUgZmxvYXRpbmcgYXJvdW5kIGluIHRoZSBkcml2ZXIgdGhhdCBjb3VsZCBo
-YXZlDQo+IGJlZW4NCj4gaW50cm9kdWNlZCBkdXJpbmcgdGhhdCB0aW1lLWZyYW1lLg0KPiANCj4g
-T25lIHRoaW5nIHlvdSBtaWdodCB0cnkgdGhhdCB3b3VsZCBoZWxwIHdpdGggeW91ciB0ZXN0aW5n
-IHdvdWxkIGJlIHRvDQo+IGp1c3QgZGlzYWJsZSB0aGUgQVRSIGZ1bmN0aW9uYWxpdHkgaW4gaTQw
-ZS4gWW91IGNhbiBkbyB0aGF0IHdpdGggdGhlDQo+IGV0aHRvb2wgY29tbWFuZCAiZXRodG9vbCAt
-LXNldC1wcml2LWZsYWdzIDxpZmFjZT4gZmxvdy1kaXJlY3Rvci1hdHINCj4gb2ZmIi4gVGhhdCBz
-aG91bGQgYWxsb3cgeW91IHRvIGJpc2VjdCB0aGlzIHdpdGhvdXQgbmVlZGluZyB0byBkZWFsDQo+
-IHdpdGggdGhlICJwcm9ncmFtbWluZyBzdGF0dXMiIHBhdGNoZXMgc2luY2UgeW91IHdvbid0IGJl
-IHByb2dyYW1taW5nDQo+IEFUUiBmaWx0ZXJzIHdoaWNoIGlzIHdoYXQgY2F1c2VkIHRoYXQgbGVh
-ay4NCj4gDQo+IFRoYW5rcyBmb3IgbG9va2luZyBpbnRvIHRoaXMuDQo+IA0KPiAtIEFsZXgNCg0K
-SGkgQWxleCwNCg0KSSBiZWdhbiBiaXNlY3RpbmcsIHdoZXJlIEkgYXBwbGllZCB0aGUga25vd24g
-Zml4IHBhdGNoZXMgdG8gdGhlIHN0ZXBzLA0Kd2hlcmUgdGhleSB3ZXJlIGFwcGxpY2FibGUgKGku
-ZS4gd2l0aG91dCBjaGFuZ2luZyB0aGUgZmxvdy1kaXJlY3Rvci1hdHIgDQpmbGFnKSwgYnV0IHNv
-bWUgb2YgdGhlIHN0ZXBzIGhhZCBhIGhpZ2ggYW1vdW50IG9mIHBhY2tldCBkcm9wcywgd2hpY2gN
-CmNhdXNlZCBwcm9ibGVtcyBmb3Igb3VyIG5ldHdvcmssIHNvIEkgY291bGRuJ3QgbGVhdmUgdGhl
-bSBydW5uaW5nIGZvcg0Kc2V2ZXJhbCBob3Vycywgd2hpY2ggaXMgbmVjZXNzYXJ5IHRvIGRldGVy
-bWluZSBpZiB0aGUgbGVhayBpcyBwcmVzZW50DQpvciBub3QuIFRoZSBwYXJ0IG9mIHRoZSBiaXNl
-Y3Rpb24gSSBnb3QgdGhyb3VnaCBoYWQgdGhlIHNhbWUgb3V0Y29tZSBhcw0KdGhlIGxhc3QgYmlz
-ZWN0aW9uLCB3aGljaCBsZWQgdG8gImk0MGU6IEZpeCBzdXBwb3J0IGZvciBmbG93DQpkaXJlY3Rv
-ciBwcm9ncmFtbWluZyBzdGF0dXMiLg0KDQpBZnRlciB0aGF0IEkgZXhwZXJpbWVudGVkIGEgYml0
-IHdpdGggdGhlIGZsb3ctZGlyZWN0b3ItYXRyIGZsYWcsIGFuZCBpdA0KdHVybnMgb3V0IHRoYXQg
-aWYgSSBkaXNhYmxlIHRoaXMgZmxhZyBvbiBhbGwgdGhlIE5JQ3MsIHRoZW4gdGhlIG1lbW9yeQ0K
-bGVhayBpcyBnb25lLCBzbyBJIHN1c3BlY3RlZCB0aGF0IHRoZSBzbWFsbGVyIG1lbW9yeSBsZWFr
-IHdhcyBhbHNvDQpjYXVzZWQgYnkgImk0MGU6IEZpeCBzdXBwb3J0IGZvciBmbG93IGRpcmVjdG9y
-IHByb2dyYW1taW5nIHN0YXR1cyIuDQoNCkkgdHJpZWQgdG8gcmV2ZXJ0IHRoaXMgcGF0Y2ggZnJv
-bSA0LjEzICh3aXRoIG1hbnVhbCBmaXh1cCBmb3IgdGhlIHRyYWNlDQpwb2ludCB0aGF0IGhhZCBi
-ZWVuIGFkZGVkIGxhdGVyKSwgYnV0IHRoYXQgYnJvdWdodCBiYWNrIHRoZSBwYWNrZXQNCmRyb3Bz
-LCBzbyBJIGNvdWxkbid0IGxldCBpdCBydW4uDQoNClRoaXMgbW9ybmluZyBJIHNhdyB5b3VyICJp
-NDBlOiBBZGQgcHJvZ3JhbW1pbmcgZGVzY3JpcHRvcnMgdG8NCmNsZWFuZWRfY291bnQiIHBhdGNo
-LCBzbyBJIHRyaWVkIDQuMTMuOSB3aXRoIHRoYXQgcGF0Y2ggYW5kIHRoZQ0KcHJldmlvdXMgImk0
-MGU6IEZpeCBtZW1vcnkgbGVhayByZWxhdGVkIGZpbHRlciBwcm9ncmFtbWluZyBzdGF0dXMiDQp3
-aXRob3V0IHR1cm5pbmcgb2ZmIHRoZSBmbG93LWRpcmVjdG9yLWF0ciBmbGFnLiBTbyBmYXIgdGhp
-cyBjb21iaW5hdGlvbg0KaXMgcnVubmluZyBzdGFibGUgd2l0aG91dCBhbnkgbWVtb3J5IGxlYWtz
-Lg0KDQpUaGFua3MgZm9yIGZpeGluZyB0aGlzLg0KDQpSZWdhcmRzLA0KQW5kZXJz
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+
+Seems like my old patches didnt make it into the tree - so here goes
+
+Sample use case:
+
+... add ingress qdisc
+sudo $TC qdisc add dev $ETH ingress
+
+ ... if we exceed rate of 1kbps (burst of 90K), do an absolute jump of 2 actions
+sudo $TC actions add action police rate 1kbit burst 90k conform-exceed jump 2 / pipe
+
+sudo $TC -s actions ls action police
+---
+ action order 0:  police 0x4 rate 1Kbit burst 23440b mtu 2Kb action jump 2/pipe overhead 0b
+ ref 1 bind 0 installed 41 sec used 41 sec
+ Action statistics:
+  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+  backlog 0b 0p requeues 0
+--
+
+... lets add a couple of marks so we can use them to mark exceed/not exceed
+sudo $TC actions add action skbedit mark 11 ok index 11
+sudo $TC actions add action skbedit mark 12 ok index 12
+
+... if we dont exceed our rate we get a mark of 11, else mark of 12
+sudo $TC filter add dev $ETH parent ffff: protocol ip prio 8 u32 \
+match ip dst 127.0.0.8/32 flowid 1:10 \
+action police index 4 \
+action skbedit index 11 \
+action skbedit index 12
+
+Ok, lets keep this thing a little busy..
+sudo ping -f -c 10000 127.0.0.8
+
+... now lets see the filters..
+sudo $TC -s filter ls dev $ETH parent ffff: protocol ip
+
+----
+filter pref 8 u32 chain 0
+filter pref 8 u32 chain 0 fh 800: ht divisor 1
+filter pref 8 u32 chain 0 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:10 not_in_hw  (rule hit 20000 success 10000)
+  match 7f000008/ffffffff at 16 (success 10000 )
+	action order 1:  police 0x4 rate 1Kbit burst 23440b mtu 2Kb action jump 2/pipe overhead 0b
+	ref 2 bind 1 installed 198 sec used 2 sec
+	Action statistics:
+	Sent 840000 bytes 10000 pkt (dropped 0, overlimits 9721 requeues 0)
+	backlog 0b 0p requeues 0
+
+	action order 2:  skbedit mark 11 pass
+	 index 11 ref 2 bind 1 installed 127 sec used 2 sec
+ 	Action statistics:
+	Sent 23436 bytes 279 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+
+	action order 3:  skbedit mark 12 pass
+	 index 12 ref 2 bind 1 installed 127 sec used 2 sec
+ 	Action statistics:
+	Sent 816564 bytes 9721 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+-----
+
+As can be seen 97.21% of the packets were marked as exceeding the allocated
+rate; you could do something clever with the skb mark after this.
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/m_gact.c  |  6 ++++--
+ tc/tc_util.c | 16 ++++++++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/tc/m_gact.c b/tc/m_gact.c
+index df143c9..38949e9 100644
+--- a/tc/m_gact.c
++++ b/tc/m_gact.c
+@@ -46,18 +46,20 @@ explain(void)
+ 	fprintf(stderr, "Usage: ... gact <ACTION> [RAND] [INDEX]\n");
+ 	fprintf(stderr,
+ 		"Where: \tACTION := reclassify | drop | continue | pass | pipe |\n"
+-		"       \t          goto chain <CHAIN_INDEX>\n"
++		"       \t          goto chain <CHAIN_INDEX> | jump <JUMP_COUNT>\n"
+ 			"\tRAND := random <RANDTYPE> <ACTION> <VAL>\n"
+ 			"\tRANDTYPE := netrand | determ\n"
+ 			"\tVAL : = value not exceeding 10000\n"
++			"\tJUMP_COUNT := Absolute jump from start of action list\n"
+ 			"\tINDEX := index value used\n"
+ 			"\n");
+ #else
+ 	fprintf(stderr, "Usage: ... gact <ACTION> [INDEX]\n");
+ 	fprintf(stderr,
+ 		"Where: \tACTION := reclassify | drop | continue | pass | pipe |\n"
+-		"       \t          goto chain <CHAIN_INDEX>\n"
++		"       \t          goto chain <CHAIN_INDEX> | jump <JUMP_COUNT>\n"
+ 		"\tINDEX := index value used\n"
++		"\tJUMP_COUNT := Absolute jump from start of action list\n"
+ 		"\n");
+ #endif
+ }
+diff --git a/tc/tc_util.c b/tc/tc_util.c
+index 50d3550..b39e550 100644
+--- a/tc/tc_util.c
++++ b/tc/tc_util.c
+@@ -417,6 +417,8 @@ static const char *action_n2a(int action)
+ 
+ 	if (TC_ACT_EXT_CMP(action, TC_ACT_GOTO_CHAIN))
+ 		return "goto";
++	if (TC_ACT_EXT_CMP(action, TC_ACT_JUMP))
++		return "jump";
+ 	switch (action) {
+ 	case TC_ACT_UNSPEC:
+ 		return "continue";
+@@ -463,6 +465,7 @@ static int action_a2n(char *arg, int *result, bool allow_num)
+ 		{"reclassify", TC_ACT_RECLASSIFY},
+ 		{"pipe", TC_ACT_PIPE},
+ 		{"goto", TC_ACT_GOTO_CHAIN},
++		{"jump", TC_ACT_JUMP},
+ 		{"trap", TC_ACT_TRAP},
+ 		{ NULL },
+ 	}, *iter;
+@@ -510,6 +513,17 @@ static int __parse_action_control(int *argc_p, char ***argv_p, int *result_p,
+ 		}
+ 		result |= chain_index;
+ 	}
++	if (result == TC_ACT_JUMP) {
++		__u32 jump_cnt = 0;
++
++		NEXT_ARG();
++		if (get_u32(&jump_cnt, *argv, 10) ||
++		    jump_cnt > TC_ACT_EXT_VAL_MASK) {
++			fprintf(stderr, "Invalid \"jump count\" (%s)\n", *argv);
++			return -1;
++		}
++		result |= jump_cnt;
++	}
+ 	NEXT_ARG_FWD();
+ 	*argc_p = argc;
+ 	*argv_p = argv;
+@@ -637,6 +651,8 @@ void print_action_control(FILE *f, const char *prefix,
+ 	fprintf(f, "%s%s", prefix, action_n2a(action));
+ 	if (TC_ACT_EXT_CMP(action, TC_ACT_GOTO_CHAIN))
+ 		fprintf(f, " chain %u", action & TC_ACT_EXT_VAL_MASK);
++	if (TC_ACT_EXT_CMP(action, TC_ACT_JUMP))
++		fprintf(f, " %u", action & TC_ACT_EXT_VAL_MASK);
+ 	fprintf(f, "%s", suffix);
+ }
+ 
+-- 
+1.9.1
