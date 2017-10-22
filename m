@@ -1,65 +1,72 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/8] mlxsw: spectrum_router: Store weight in nexthop struct
-Date: Sun, 22 Oct 2017 23:11:46 +0200
-Message-ID: <20171022211150.2567-5-jiri@resnulli.us>
+Subject: [patch net-next 7/8] mlxsw: spectrum: Increase number of linear entries
+Date: Sun, 22 Oct 2017 23:11:49 +0200
+Message-ID: <20171022211150.2567-8-jiri@resnulli.us>
 References: <20171022211150.2567-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:52404 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932139AbdJVVL4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 17:11:56 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 78so3496989wmb.1
-        for <netdev@vger.kernel.org>; Sun, 22 Oct 2017 14:11:55 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:53528 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932133AbdJVVL6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 17:11:58 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u40so9613909wrf.10
+        for <netdev@vger.kernel.org>; Sun, 22 Oct 2017 14:11:58 -0700 (PDT)
 In-Reply-To: <20171022211150.2567-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-As the first step towards non-equal-cost multi-path support, store each
-nexthop's weight.
+The memory region where adjacency entries (nexthops) are stored is
+called the KVD linear and is configured during initialization with a
+size of 64K.
 
-For IPv6 nexthops always set the weight to 1, as it only supports ECMP.
+Extend this area with 32K more entries, that will be partitioned into 64
+groups of 0.5K entries, thereby allowing us to support weighted nexthops
+with high accuracy.
+
+Change the ratio between both types of hash entries, so as to prevent
+reduction in the number of double hash entries, which are used for IPv6
+neighbours and routes with a prefix length greater than 64.
+
+Note that the user will be able to control all these sizes once the
+devlink resource manager is introduced.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 ++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index cb0d25e..8cd422d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -2203,6 +2203,7 @@ struct mlxsw_sp_nexthop {
- 	struct mlxsw_sp_nexthop_key key;
- 	unsigned char gw_addr[sizeof(struct in6_addr)];
- 	int ifindex;
-+	int nh_weight;
- 	struct mlxsw_sp_rif *rif;
- 	u8 should_offload:1, /* set indicates this neigh is connected and
- 			      * should be put to KVD linear area of this group.
-@@ -3045,6 +3046,11 @@ static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 1bc3fc3..12b6ac4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -3885,8 +3885,8 @@ static const struct mlxsw_config_profile mlxsw_sp_config_profile = {
+ 	.max_pkey			= 0,
+ 	.used_kvd_split_data		= 1,
+ 	.kvd_hash_granularity		= MLXSW_SP_KVD_GRANULARITY,
+-	.kvd_hash_single_parts		= 2,
+-	.kvd_hash_double_parts		= 1,
++	.kvd_hash_single_parts		= 59,
++	.kvd_hash_double_parts		= 41,
+ 	.kvd_linear_size		= MLXSW_SP_KVD_LINEAR_SIZE,
+ 	.swid_config			= {
+ 		{
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 78ff20d..dc1b739 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -62,7 +62,7 @@
  
- 	nh->nh_grp = nh_grp;
- 	nh->key.fib_nh = fib_nh;
-+#ifdef CONFIG_IP_ROUTE_MULTIPATH
-+	nh->nh_weight = fib_nh->nh_weight;
-+#else
-+	nh->nh_weight = 1;
-+#endif
- 	memcpy(&nh->gw_addr, &fib_nh->nh_gw, sizeof(fib_nh->nh_gw));
- 	err = mlxsw_sp_nexthop_insert(mlxsw_sp, nh);
- 	if (err)
-@@ -4304,6 +4310,7 @@ static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
- 	struct net_device *dev = rt->dst.dev;
+ #define MLXSW_SP_PORT_BASE_SPEED 25000	/* Mb/s */
  
- 	nh->nh_grp = nh_grp;
-+	nh->nh_weight = 1;
- 	memcpy(&nh->gw_addr, &rt->rt6i_gateway, sizeof(nh->gw_addr));
- 	mlxsw_sp_nexthop_counter_alloc(mlxsw_sp, nh);
+-#define MLXSW_SP_KVD_LINEAR_SIZE 65536 /* entries */
++#define MLXSW_SP_KVD_LINEAR_SIZE 98304 /* entries */
+ #define MLXSW_SP_KVD_GRANULARITY 128
  
+ struct mlxsw_sp_port;
 -- 
 2.9.5
