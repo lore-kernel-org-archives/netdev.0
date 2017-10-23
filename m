@@ -1,7 +1,7 @@
 From: Song Liu <songliubraving@fb.com>
-Subject: [PATCH v2 net-next 4/6] tcp: add tracepoint trace_tcp_receive_reset
-Date: Mon, 23 Oct 2017 09:20:25 -0700
-Message-ID: <20171023162027.2880430-5-songliubraving@fb.com>
+Subject: [PATCH v2 net-next 5/6] tcp: add tracepoint trace_tcp_destroy_sock
+Date: Mon, 23 Oct 2017 09:20:26 -0700
+Message-ID: <20171023162027.2880430-6-songliubraving@fb.com>
 References: <20171023162027.2880430-1-songliubraving@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,98 +9,38 @@ Cc: <alexei.starovoitov@gmail.com>, <liu.song.a23@gmail.com>,
         Song Liu <songliubraving@fb.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55530 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932180AbdJWQU6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:20:58 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v9NGIpgh017268
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:58 -0700
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:38634 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751280AbdJWQU4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:20:56 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9NGJrVE001389
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:56 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 2ds42422jn-8
+        by mx0a-00082601.pphosted.com with ESMTP id 2dsj8mrdp2-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:58 -0700
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:56 -0700
 In-Reply-To: <20171023162027.2880430-1-songliubraving@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New tracepoint trace_tcp_receive_reset is added and called from
-tcp_reset(). This tracepoint is define with a new class tcp_event_sk.
+This patch adds trace event trace_tcp_destroy_sock.
 
 Signed-off-by: Song Liu <songliubraving@fb.com>
 ---
- include/trace/events/tcp.h | 66 ++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_input.c       |  3 +++
- 2 files changed, 69 insertions(+)
+ include/trace/events/tcp.h | 7 +++++++
+ net/ipv4/tcp_ipv4.c        | 2 ++
+ 2 files changed, 9 insertions(+)
 
 diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
-index 3e57e1a..c83c711 100644
+index c83c711..1724c12 100644
 --- a/include/trace/events/tcp.h
 +++ b/include/trace/events/tcp.h
-@@ -88,6 +88,72 @@ DEFINE_EVENT(tcp_event_sk_skb, tcp_send_reset,
- 	TP_ARGS(sk, skb)
+@@ -154,6 +154,13 @@ DEFINE_EVENT(tcp_event_sk, tcp_receive_reset,
+ 	TP_ARGS(sk)
  );
  
-+/*
-+ * tcp event with arguments sk
-+ *
-+ * Note: this class requires a valid sk pointer.
-+ */
-+DECLARE_EVENT_CLASS(tcp_event_sk,
-+
-+	TP_PROTO(const struct sock *sk),
-+
-+	TP_ARGS(sk),
-+
-+	TP_STRUCT__entry(
-+		__field(const void *, skaddr)
-+		__field(__u16, sport)
-+		__field(__u16, dport)
-+		__array(__u8, saddr, 4)
-+		__array(__u8, daddr, 4)
-+		__array(__u8, saddr_v6, 16)
-+		__array(__u8, daddr_v6, 16)
-+	),
-+
-+	TP_fast_assign(
-+		struct inet_sock *inet = inet_sk(sk);
-+		struct in6_addr *pin6;
-+		__be32 *p32;
-+
-+		__entry->skaddr = sk;
-+
-+		__entry->sport = ntohs(inet->inet_sport);
-+		__entry->dport = ntohs(inet->inet_dport);
-+
-+		p32 = (__be32 *) __entry->saddr;
-+		*p32 = inet->inet_saddr;
-+
-+		p32 = (__be32 *) __entry->daddr;
-+		*p32 =  inet->inet_daddr;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (sk->sk_family == AF_INET6) {
-+			pin6 = (struct in6_addr *)__entry->saddr_v6;
-+			*pin6 = sk->sk_v6_rcv_saddr;
-+			pin6 = (struct in6_addr *)__entry->daddr_v6;
-+			*pin6 = sk->sk_v6_daddr;
-+		} else
-+#endif
-+		{
-+			pin6 = (struct in6_addr *)__entry->saddr_v6;
-+			ipv6_addr_set_v4mapped(inet->inet_saddr, pin6);
-+			pin6 = (struct in6_addr *)__entry->daddr_v6;
-+			ipv6_addr_set_v4mapped(inet->inet_daddr, pin6);
-+		}
-+	),
-+
-+	TP_printk("sport=%hu dport=%hu saddr=%pI4 daddr=%pI4 saddrv6=%pI6c daddrv6=%pI6c",
-+		  __entry->sport, __entry->dport,
-+		  __entry->saddr, __entry->daddr,
-+		  __entry->saddr_v6, __entry->daddr_v6)
-+);
-+
-+DEFINE_EVENT(tcp_event_sk, tcp_receive_reset,
++DEFINE_EVENT(tcp_event_sk, tcp_destroy_sock,
 +
 +	TP_PROTO(const struct sock *sk),
 +
@@ -110,26 +50,18 @@ index 3e57e1a..c83c711 100644
  #endif /* _TRACE_TCP_H */
  
  /* This part must be outside protection */
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ab3f128..c5e64d4 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -75,6 +75,7 @@
- #include <linux/ipsec.h>
- #include <asm/unaligned.h>
- #include <linux/errqueue.h>
-+#include <trace/events/tcp.h>
- 
- int sysctl_tcp_fack __read_mostly;
- int sysctl_tcp_max_reordering __read_mostly = 300;
-@@ -4010,6 +4011,8 @@ static inline bool tcp_sequence(const struct tcp_sock *tp, u32 seq, u32 end_seq)
- /* When we get a reset we do this. */
- void tcp_reset(struct sock *sk)
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index eb3f3b8..23a8100 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1869,6 +1869,8 @@ void tcp_v4_destroy_sock(struct sock *sk)
  {
-+	trace_tcp_receive_reset(sk);
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 
++	trace_tcp_destroy_sock(sk);
 +
- 	/* We want the right error as BSD sees it (and indeed as we do). */
- 	switch (sk->sk_state) {
- 	case TCP_SYN_SENT:
+ 	tcp_clear_xmit_timers(sk);
+ 
+ 	tcp_cleanup_congestion_control(sk);
 -- 
 2.9.5
