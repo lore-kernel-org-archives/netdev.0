@@ -1,465 +1,67 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 01/12] tools: bpftool: copy JSON writer from iproute2 repository
-Date: Mon, 23 Oct 2017 09:24:05 -0700
-Message-ID: <20171023162416.32753-2-jakub.kicinski@netronome.com>
-References: <20171023162416.32753-1-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 00/12] tools: bpftool: Add JSON output to bpftool
+Date: Mon, 23 Oct 2017 09:24:04 -0700
+Message-ID: <20171023162416.32753-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net, Quentin Monnet <quentin.monnet@netronome.com>
+        daniel@iogearbox.net, Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:48568 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751514AbdJWQY4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:24:56 -0400
-Received: by mail-pf0-f195.google.com with SMTP id b79so17490205pfk.5
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:51684 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751277AbdJWQYz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:24:55 -0400
+Received: by mail-pg0-f66.google.com with SMTP id p9so12156221pgc.8
         for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:24:55 -0700 (PDT)
-In-Reply-To: <20171023162416.32753-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Quentin Monnet <quentin.monnet@netronome.com>
+Quentin says:
 
-In prevision of following commits, supposed to add JSON output to the
-tool, two files are copied from the iproute2 repository (taken at commit
-268a9eee985f): lib/json_writer.c and include/json_writer.h.
+This series introduces support for JSON output to all bpftool commands. It
+adds option parsing, and several options are created:
 
-Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
+  * -j, --json     Switch to JSON output.
+  * -p, --pretty   Switch to JSON and print it in a human-friendly fashion.
+  * -h, --help     Print generic help message.
+  * -V, --version  Print version number.
+
+This code uses a "json_writer", which is a copy of the one written by
+Stephen Hemminger in iproute2.
 ---
- tools/bpf/bpftool/json_writer.c | 348 ++++++++++++++++++++++++++++++++++++++++
- tools/bpf/bpftool/json_writer.h |  70 ++++++++
- 2 files changed, 418 insertions(+)
+I don't know if there is an easy way to share the code for json_write
+without copying the file, so I am very open to suggestions on this matter.
+
+
+Quentin Monnet (12):
+  tools: bpftool: copy JSON writer from iproute2 repository
+  tools: bpftool: add option parsing to bpftool, --help and --version
+  tools: bpftool: introduce --json and --pretty options
+  tools: bpftool: add JSON output for `bpftool prog show *` command
+  tools: bpftool: add JSON output for `bpftool prog dump jited *`
+    command
+  tools: bpftool: add JSON output for `bpftool prog dump xlated *`
+    command
+  tools: bpftool: add JSON output for `bpftool map *` commands
+  tools: bpftool: add JSON output for `bpftool batch file FILE` command
+  tools: bpftool: turn err() and info() macros into functions
+  tools: bpftool: provide JSON output for all possible commands
+  tools: bpftool: add cosmetic changes for the manual pages
+  tools: bpftool: update documentation for --json and --pretty usage
+
+ tools/bpf/bpftool/Documentation/bpftool-map.rst  |  44 ++-
+ tools/bpf/bpftool/Documentation/bpftool-prog.rst |  81 +++++-
+ tools/bpf/bpftool/Documentation/bpftool.rst      |  30 +-
+ tools/bpf/bpftool/common.c                       |  36 ++-
+ tools/bpf/bpftool/jit_disasm.c                   |  86 +++++-
+ tools/bpf/bpftool/json_writer.c                  | 356 +++++++++++++++++++++++
+ tools/bpf/bpftool/json_writer.h                  |  72 +++++
+ tools/bpf/bpftool/main.c                         | 121 +++++++-
+ tools/bpf/bpftool/main.h                         |  43 ++-
+ tools/bpf/bpftool/map.c                          | 253 ++++++++++++----
+ tools/bpf/bpftool/prog.c                         | 271 +++++++++++++----
+ 11 files changed, 1209 insertions(+), 184 deletions(-)
  create mode 100644 tools/bpf/bpftool/json_writer.c
  create mode 100644 tools/bpf/bpftool/json_writer.h
 
-diff --git a/tools/bpf/bpftool/json_writer.c b/tools/bpf/bpftool/json_writer.c
-new file mode 100644
-index 000000000000..6b77d288cce2
---- /dev/null
-+++ b/tools/bpf/bpftool/json_writer.c
-@@ -0,0 +1,348 @@
-+/*
-+ * Simple streaming JSON writer
-+ *
-+ * This takes care of the annoying bits of JSON syntax like the commas
-+ * after elements
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Stephen Hemminger <stephen@networkplumber.org>
-+ */
-+
-+#include <stdio.h>
-+#include <stdbool.h>
-+#include <stdarg.h>
-+#include <assert.h>
-+#include <malloc.h>
-+#include <inttypes.h>
-+#include <stdint.h>
-+
-+#include "json_writer.h"
-+
-+struct json_writer {
-+	FILE		*out;	/* output file */
-+	unsigned	depth;  /* nesting */
-+	bool		pretty; /* optional whitepace */
-+	char		sep;	/* either nul or comma */
-+};
-+
-+/* indentation for pretty print */
-+static void jsonw_indent(json_writer_t *self)
-+{
-+	unsigned i;
-+	for (i = 0; i < self->depth; ++i)
-+		fputs("    ", self->out);
-+}
-+
-+/* end current line and indent if pretty printing */
-+static void jsonw_eol(json_writer_t *self)
-+{
-+	if (!self->pretty)
-+		return;
-+
-+	putc('\n', self->out);
-+	jsonw_indent(self);
-+}
-+
-+/* If current object is not empty print a comma */
-+static void jsonw_eor(json_writer_t *self)
-+{
-+	if (self->sep != '\0')
-+		putc(self->sep, self->out);
-+	self->sep = ',';
-+}
-+
-+
-+/* Output JSON encoded string */
-+/* Handles C escapes, does not do Unicode */
-+static void jsonw_puts(json_writer_t *self, const char *str)
-+{
-+	putc('"', self->out);
-+	for (; *str; ++str)
-+		switch (*str) {
-+		case '\t':
-+			fputs("\\t", self->out);
-+			break;
-+		case '\n':
-+			fputs("\\n", self->out);
-+			break;
-+		case '\r':
-+			fputs("\\r", self->out);
-+			break;
-+		case '\f':
-+			fputs("\\f", self->out);
-+			break;
-+		case '\b':
-+			fputs("\\b", self->out);
-+			break;
-+		case '\\':
-+			fputs("\\n", self->out);
-+			break;
-+		case '"':
-+			fputs("\\\"", self->out);
-+			break;
-+		case '\'':
-+			fputs("\\\'", self->out);
-+			break;
-+		default:
-+			putc(*str, self->out);
-+		}
-+	putc('"', self->out);
-+}
-+
-+/* Create a new JSON stream */
-+json_writer_t *jsonw_new(FILE *f)
-+{
-+	json_writer_t *self = malloc(sizeof(*self));
-+	if (self) {
-+		self->out = f;
-+		self->depth = 0;
-+		self->pretty = false;
-+		self->sep = '\0';
-+	}
-+	return self;
-+}
-+
-+/* End output to JSON stream */
-+void jsonw_destroy(json_writer_t **self_p)
-+{
-+	json_writer_t *self = *self_p;
-+
-+	assert(self->depth == 0);
-+	fputs("\n", self->out);
-+	fflush(self->out);
-+	free(self);
-+	*self_p = NULL;
-+}
-+
-+void jsonw_pretty(json_writer_t *self, bool on)
-+{
-+	self->pretty = on;
-+}
-+
-+/* Basic blocks */
-+static void jsonw_begin(json_writer_t *self, int c)
-+{
-+	jsonw_eor(self);
-+	putc(c, self->out);
-+	++self->depth;
-+	self->sep = '\0';
-+}
-+
-+static void jsonw_end(json_writer_t *self, int c)
-+{
-+	assert(self->depth > 0);
-+
-+	--self->depth;
-+	if (self->sep != '\0')
-+		jsonw_eol(self);
-+	putc(c, self->out);
-+	self->sep = ',';
-+}
-+
-+
-+/* Add a JSON property name */
-+void jsonw_name(json_writer_t *self, const char *name)
-+{
-+	jsonw_eor(self);
-+	jsonw_eol(self);
-+	self->sep = '\0';
-+	jsonw_puts(self, name);
-+	putc(':', self->out);
-+	if (self->pretty)
-+		putc(' ', self->out);
-+}
-+
-+void jsonw_printf(json_writer_t *self, const char *fmt, ...)
-+{
-+	va_list ap;
-+
-+	va_start(ap, fmt);
-+	jsonw_eor(self);
-+	vfprintf(self->out, fmt, ap);
-+	va_end(ap);
-+}
-+
-+/* Collections */
-+void jsonw_start_object(json_writer_t *self)
-+{
-+	jsonw_begin(self, '{');
-+}
-+
-+void jsonw_end_object(json_writer_t *self)
-+{
-+	jsonw_end(self, '}');
-+}
-+
-+void jsonw_start_array(json_writer_t *self)
-+{
-+	jsonw_begin(self, '[');
-+}
-+
-+void jsonw_end_array(json_writer_t *self)
-+{
-+	jsonw_end(self, ']');
-+}
-+
-+/* JSON value types */
-+void jsonw_string(json_writer_t *self, const char *value)
-+{
-+	jsonw_eor(self);
-+	jsonw_puts(self, value);
-+}
-+
-+void jsonw_bool(json_writer_t *self, bool val)
-+{
-+	jsonw_printf(self, "%s", val ? "true" : "false");
-+}
-+
-+void jsonw_null(json_writer_t *self)
-+{
-+	jsonw_printf(self, "null");
-+}
-+
-+void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num)
-+{
-+	jsonw_printf(self, fmt, num);
-+}
-+
-+#ifdef notused
-+void jsonw_float(json_writer_t *self, double num)
-+{
-+	jsonw_printf(self, "%g", num);
-+}
-+#endif
-+
-+void jsonw_hu(json_writer_t *self, unsigned short num)
-+{
-+	jsonw_printf(self, "%hu", num);
-+}
-+
-+void jsonw_uint(json_writer_t *self, uint64_t num)
-+{
-+	jsonw_printf(self, "%"PRIu64, num);
-+}
-+
-+void jsonw_lluint(json_writer_t *self, unsigned long long int num)
-+{
-+	jsonw_printf(self, "%llu", num);
-+}
-+
-+void jsonw_int(json_writer_t *self, int64_t num)
-+{
-+	jsonw_printf(self, "%"PRId64, num);
-+}
-+
-+/* Basic name/value objects */
-+void jsonw_string_field(json_writer_t *self, const char *prop, const char *val)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_string(self, val);
-+}
-+
-+void jsonw_bool_field(json_writer_t *self, const char *prop, bool val)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_bool(self, val);
-+}
-+
-+#ifdef notused
-+void jsonw_float_field(json_writer_t *self, const char *prop, double val)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_float(self, val);
-+}
-+#endif
-+
-+void jsonw_float_field_fmt(json_writer_t *self,
-+			   const char *prop,
-+			   const char *fmt,
-+			   double val)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_float_fmt(self, fmt, val);
-+}
-+
-+void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_uint(self, num);
-+}
-+
-+void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_hu(self, num);
-+}
-+
-+void jsonw_lluint_field(json_writer_t *self,
-+			const char *prop,
-+			unsigned long long int num)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_lluint(self, num);
-+}
-+
-+void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_int(self, num);
-+}
-+
-+void jsonw_null_field(json_writer_t *self, const char *prop)
-+{
-+	jsonw_name(self, prop);
-+	jsonw_null(self);
-+}
-+
-+#ifdef TEST
-+int main(int argc, char **argv)
-+{
-+	json_writer_t *wr = jsonw_new(stdout);
-+
-+	jsonw_start_object(wr);
-+	jsonw_pretty(wr, true);
-+	jsonw_name(wr, "Vyatta");
-+	jsonw_start_object(wr);
-+	jsonw_string_field(wr, "url", "http://vyatta.com");
-+	jsonw_uint_field(wr, "downloads", 2000000ul);
-+	jsonw_float_field(wr, "stock", 8.16);
-+
-+	jsonw_name(wr, "ARGV");
-+	jsonw_start_array(wr);
-+	while (--argc)
-+		jsonw_string(wr, *++argv);
-+	jsonw_end_array(wr);
-+
-+	jsonw_name(wr, "empty");
-+	jsonw_start_array(wr);
-+	jsonw_end_array(wr);
-+
-+	jsonw_name(wr, "NIL");
-+	jsonw_start_object(wr);
-+	jsonw_end_object(wr);
-+
-+	jsonw_null_field(wr, "my_null");
-+
-+	jsonw_name(wr, "special chars");
-+	jsonw_start_array(wr);
-+	jsonw_string_field(wr, "slash", "/");
-+	jsonw_string_field(wr, "newline", "\n");
-+	jsonw_string_field(wr, "tab", "\t");
-+	jsonw_string_field(wr, "ff", "\f");
-+	jsonw_string_field(wr, "quote", "\"");
-+	jsonw_string_field(wr, "tick", "\'");
-+	jsonw_string_field(wr, "backslash", "\\");
-+	jsonw_end_array(wr);
-+
-+	jsonw_end_object(wr);
-+
-+	jsonw_end_object(wr);
-+	jsonw_destroy(&wr);
-+	return 0;
-+}
-+
-+#endif
-diff --git a/tools/bpf/bpftool/json_writer.h b/tools/bpf/bpftool/json_writer.h
-new file mode 100644
-index 000000000000..1516aafba59d
---- /dev/null
-+++ b/tools/bpf/bpftool/json_writer.h
-@@ -0,0 +1,70 @@
-+/*
-+ * Simple streaming JSON writer
-+ *
-+ * This takes care of the annoying bits of JSON syntax like the commas
-+ * after elements
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Stephen Hemminger <stephen@networkplumber.org>
-+ */
-+
-+#ifndef _JSON_WRITER_H_
-+#define _JSON_WRITER_H_
-+
-+#include <stdbool.h>
-+#include <stdint.h>
-+
-+/* Opaque class structure */
-+typedef struct json_writer json_writer_t;
-+
-+/* Create a new JSON stream */
-+json_writer_t *jsonw_new(FILE *f);
-+/* End output to JSON stream */
-+void jsonw_destroy(json_writer_t **self_p);
-+
-+/* Cause output to have pretty whitespace */
-+void jsonw_pretty(json_writer_t *self, bool on);
-+
-+/* Add property name */
-+void jsonw_name(json_writer_t *self, const char *name);
-+
-+/* Add value  */
-+void jsonw_printf(json_writer_t *self, const char *fmt, ...);
-+void jsonw_string(json_writer_t *self, const char *value);
-+void jsonw_bool(json_writer_t *self, bool value);
-+void jsonw_float(json_writer_t *self, double number);
-+void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num);
-+void jsonw_uint(json_writer_t *self, uint64_t number);
-+void jsonw_hu(json_writer_t *self, unsigned short number);
-+void jsonw_int(json_writer_t *self, int64_t number);
-+void jsonw_null(json_writer_t *self);
-+void jsonw_lluint(json_writer_t *self, unsigned long long int num);
-+
-+/* Useful Combinations of name and value */
-+void jsonw_string_field(json_writer_t *self, const char *prop, const char *val);
-+void jsonw_bool_field(json_writer_t *self, const char *prop, bool value);
-+void jsonw_float_field(json_writer_t *self, const char *prop, double num);
-+void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num);
-+void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num);
-+void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num);
-+void jsonw_null_field(json_writer_t *self, const char *prop);
-+void jsonw_lluint_field(json_writer_t *self, const char *prop,
-+			unsigned long long int num);
-+void jsonw_float_field_fmt(json_writer_t *self, const char *prop,
-+			   const char *fmt, double val);
-+
-+/* Collections */
-+void jsonw_start_object(json_writer_t *self);
-+void jsonw_end_object(json_writer_t *self);
-+
-+void jsonw_start_array(json_writer_t *self);
-+void jsonw_end_array(json_writer_t *self);
-+
-+/* Override default exception handling */
-+typedef void (jsonw_err_handler_fn)(const char *);
-+
-+#endif /* _JSON_WRITER_H_ */
 -- 
 2.14.1
