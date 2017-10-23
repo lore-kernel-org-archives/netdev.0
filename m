@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/7] net: dsa: bcm_sf2: Add support for
- IPv6 CFP rules
-Date: Mon, 23 Oct 2017 03:11:51 +0100 (WEST)
-Message-ID: <20171023.031151.1099742173523833308.davem@davemloft.net>
-References: <20171020213949.16485-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH] isdn/gigaset: Provide cardstate context for bas timer
+ callbacks
+Date: Mon, 23 Oct 2017 03:12:47 +0100 (WEST)
+Message-ID: <20171023.031247.1142312234606249877.davem@davemloft.net>
+References: <20171020204708.GA58150@beast>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40494 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751019AbdJWCL5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 22:11:57 -0400
-In-Reply-To: <20171020213949.16485-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pebolle@tiscali.nl, isdn@linux-pingi.de, johan@kernel.org,
+        linux-kernel@vger.kernel.org,
+        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org
+To: keescook@chromium.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171020204708.GA58150@beast>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 20 Oct 2017 14:39:42 -0700
+From: Kees Cook <keescook@chromium.org>
+Date: Fri, 20 Oct 2017 13:47:08 -0700
 
-> This patch series adds support for matching IPv6 addresses to the existing CFP
-> support code. Because IPv6 addresses are four times bigger than IPv4, we can
-> fit them anymore in a single slice, so we need to chain two in order to have
-> a complete match. This makes us require a second bitmap tracking unique rules
-> so we don't over populate the TCAM.
+> While the work callback uses the urb to find cardstate from bas_cardstate,
+> this may not be valid for timer callbacks. Instead, introduce a direct
+> pointer back to the cardstate from bas_cardstate for use in timer
+> callbacks.
 > 
-> Finally, because the code had to be re-organized, it became a lot easier to
-> support arbitrary prefix/mask lengths, so the last two patches do just that.
+> Reported-by: Paul Bolle <pebolle@tiscali.nl>
+> Fixes: 4cfea08e6251 ("isdn/gigaset: Convert timers to use timer_setup()")
+> Cc: Paul Bolle <pebolle@tiscali.nl>
+> Cc: Karsten Keil <isdn@linux-pingi.de>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Johan Hovold <johan@kernel.org>
+> Cc: gigaset307x-common@lists.sourceforge.net
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
 
-Series applied, thanks Florian.
+Applied to net-next.
