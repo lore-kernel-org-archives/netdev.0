@@ -1,62 +1,77 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net 1/3] net: mvpp2: fix TSO headers allocation and management
-Date: Mon, 23 Oct 2017 15:24:29 +0200
-Message-ID: <20171023132431.5756-1-antoine.tenart@free-electrons.com>
-Cc: Yan Markman <ymarkman@marvell.com>, andrew@lunn.ch,
+Subject: [PATCH net 2/3] net: mvpp2: do not unmap TSO headers buffers
+Date: Mon, 23 Oct 2017 15:24:30 +0200
+Message-ID: <20171023132431.5756-2-antoine.tenart@free-electrons.com>
+References: <20171023132431.5756-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         thomas.petazzoni@free-electrons.com,
         miquel.raynal@free-electrons.com, nadavh@marvell.com,
         linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org,
-        Antoine Tenart <antoine.tenart@free-electrons.com>
+        netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171023132431.5756-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yan Markman <ymarkman@marvell.com>
-
-TSO headers are managed with txq index and therefore should be aligned
-with the txq size, not with the aggregated txq size.
+The TSO header buffers are coming from a per cpu pool and should not
+be unmapped as they are reused. The PPv2 driver was unmapping all
+descriptors buffers unconditionally. This patch fixes this by checking
+the buffers dma addresses before unmapping them, and by not unmapping
+those who are located in the TSO header pool.
 
 Fixes: 186cd4d4e414 ("net: mvpp2: software tso support")
-Reported-by: Marc Zyngier <marc.zyngier@arm.com>
-Signed-off-by: Yan Markman <ymarkman@marvell.com>
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 1a540c88c974..2898ac70b826 100644
+index 2898ac70b826..037f26dfe31c 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5609,7 +5609,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
+@@ -1167,6 +1167,11 @@ struct mvpp2_bm_pool {
+ 	u32 port_map;
+ };
  
- 		txq_pcpu->tso_headers =
- 			dma_alloc_coherent(port->dev->dev.parent,
--					   MVPP2_AGGR_TXQ_SIZE * TSO_HEADER_SIZE,
-+					   txq_pcpu->size * TSO_HEADER_SIZE,
- 					   &txq_pcpu->tso_headers_dma,
- 					   GFP_KERNEL);
- 		if (!txq_pcpu->tso_headers)
-@@ -5623,7 +5623,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 		kfree(txq_pcpu->buffs);
++#define IS_TSO_HEADER(txq_pcpu, addr) \
++	((addr) >= (txq_pcpu)->tso_headers_dma && \
++	 (addr) < (txq_pcpu)->tso_headers_dma + \
++	 (txq_pcpu)->size * TSO_HEADER_SIZE)
++
+ /* Queue modes */
+ #define MVPP2_QDIST_SINGLE_MODE	0
+ #define MVPP2_QDIST_MULTI_MODE	1
+@@ -5321,8 +5326,9 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
+ 		struct mvpp2_txq_pcpu_buf *tx_buf =
+ 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
  
- 		dma_free_coherent(port->dev->dev.parent,
--				  MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
-+				  txq_pcpu->size * TSO_HEADER_SIZE,
- 				  txq_pcpu->tso_headers,
- 				  txq_pcpu->tso_headers_dma);
- 	}
-@@ -5647,7 +5647,7 @@ static void mvpp2_txq_deinit(struct mvpp2_port *port,
- 		kfree(txq_pcpu->buffs);
+-		dma_unmap_single(port->dev->dev.parent, tx_buf->dma,
+-				 tx_buf->size, DMA_TO_DEVICE);
++		if (!IS_TSO_HEADER(txq_pcpu, tx_buf->dma))
++			dma_unmap_single(port->dev->dev.parent, tx_buf->dma,
++					 tx_buf->size, DMA_TO_DEVICE);
+ 		if (tx_buf->skb)
+ 			dev_kfree_skb_any(tx_buf->skb);
  
- 		dma_free_coherent(port->dev->dev.parent,
--				  MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
-+				  txq_pcpu->size * TSO_HEADER_SIZE,
- 				  txq_pcpu->tso_headers,
- 				  txq_pcpu->tso_headers_dma);
- 	}
+@@ -6212,12 +6218,15 @@ static inline void
+ tx_desc_unmap_put(struct mvpp2_port *port, struct mvpp2_tx_queue *txq,
+ 		  struct mvpp2_tx_desc *desc)
+ {
++	struct mvpp2_txq_pcpu *txq_pcpu = this_cpu_ptr(txq->pcpu);
++
+ 	dma_addr_t buf_dma_addr =
+ 		mvpp2_txdesc_dma_addr_get(port, desc);
+ 	size_t buf_sz =
+ 		mvpp2_txdesc_size_get(port, desc);
+-	dma_unmap_single(port->dev->dev.parent, buf_dma_addr,
+-			 buf_sz, DMA_TO_DEVICE);
++	if (!IS_TSO_HEADER(txq_pcpu, buf_dma_addr))
++		dma_unmap_single(port->dev->dev.parent, buf_dma_addr,
++				 buf_sz, DMA_TO_DEVICE);
+ 	mvpp2_txq_desc_put(txq);
+ }
+ 
 -- 
 2.14.2
