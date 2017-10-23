@@ -1,137 +1,110 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: Re: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
- NVRAM config param
-Date: Mon, 23 Oct 2017 12:35:32 -0400
-Message-ID: <CA+Jmh7F-8JXoHG78W-Pn_XndzDGK3MQ2QSMRkiU3g73zDA=AhQ@mail.gmail.com>
-References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
- <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <20171019213955.GG1978@nanopsycho.orion> <CA+Jmh7HCC-CgU16E8vSm541KnNUKZUgWfT0tPVx73cJxREC0Ag@mail.gmail.com>
- <20171020141010.GB1994@nanopsycho.orion> <CA+Jmh7FT789PfH908KK+x1+ehrvbiaaovori1w9yWe7+CFhFTg@mail.gmail.com>
- <AM0PR0502MB368337378712D3A48EDEF6C8BF400@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <CA+Jmh7H3QD4W6OrVwny7CXVppGZ4R6GeTh30Sm9sTikk7560dQ@mail.gmail.com> <AM0PR0502MB3683E269475F183C7953B8B3BF460@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: problem with rtnetlink 'reference' count
+Date: Mon, 23 Oct 2017 18:37:44 +0200
+Message-ID: <20171023163744.GB12422@breakpoint.cc>
+References: <20171023142555.GF3165@worktop.lehotels.local>
+ <20171023153200.GA12422@breakpoint.cc>
+ <20171023162006.GH3165@worktop.lehotels.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Yuval Mintz <yuvalm@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:43411 "EHLO
-        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751695AbdJWQfy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:35:54 -0400
-Received: by mail-qk0-f171.google.com with SMTP id w134so22743941qkb.0
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:35:53 -0700 (PDT)
-In-Reply-To: <AM0PR0502MB3683E269475F183C7953B8B3BF460@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44292 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751665AbdJWQiD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:38:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20171023162006.GH3165@worktop.lehotels.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 10:37 AM, Yuval Mintz <yuvalm@mellanox.com> wrote:
->> >> On Fri, Oct 20, 2017 at 10:10 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> >> > Fri, Oct 20, 2017 at 04:03:55PM CEST, steven.lin1@broadcom.com wrote:
->> >> >>On Thu, Oct 19, 2017 at 5:39 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> >> >>> Thu, Oct 19, 2017 at 10:32:21PM CEST, yuvalm@mellanox.com wrote:
->> >> >>>>> Adding DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF
->> >> permanent
->> >> >>>>> config
->> >> >>>>> parameter.  Defines number of MSI-X vectors allocated per VF.
->> >> >>>>> Value is permanent (stored in NVRAM), so becomes the new
->> default
->> >> >>>>> value for this device.
->> >> >>>>
->> >> >>>>Sounds like you're having this enforce the same configuration for all
->> >> child VFs.
->> >> >>>
->> >> >>> Yeah, this sounds like per-port config.
->> >> >>>
->> >> >>
->> >> >>Well, it gets a little tricky here.  I assume some cards handle this
->> >> >>per-port.  Other cards might handle this per PF, where PF may not
->> >> >>always correspond 1:1 with a port.  And some cards maybe just allow a
->> >> >>single value for this parameter for the entire card, covering all
->> >> >>ports/PFs.
->> >> >>
->> >> >>To keep things simple and as general as possible, it made sense to set
->> >> >>all parameters on a per-PCI device level.  As I mentioned in my
->> >> >>cover-letter, the devices most likely to use these proposed commands
->> >> >>do not have a single "whole asic" PCI b/d/f with internal mechanism
->> >> >>for accessing ports - most expose each port (and each function on each
->> >> >>port) as a separate PCI b/d/f, with no separate "whole asic" PCI
->> >> >>b/d/f.  That's how the BCM cards work, and I think that's how the
->> MLNX
->> >> >>cards work, and others that would be likely to use these cmds.
->> >> >>
->> >> >>So, to summarize, you direct the command to the PCI b/d/f you want
->> to
->> >> >>target.  Does this make sense?
->> >> >
->> >> > So you plan to have 1 devlink instance for each vf? Not sure that
->> >> > does sound right to me :/
->> >> >
->> >>
->> >> For the commands proposed in this patchset, AFAIK they all apply on a
->> >> per-PF or broader, i.e. per-port or whole-card, granularity, since
->> >> they affect permanent config that applies at boot-up.  So, no, the VFs
->> >> don't really come into play here.
->> >
->> > Regardless of whether you're planning on having VFs as devlink instances,
->> > the actual attribute question remains -
->> > you're proposing an attribute that forces all VFs to have the same value.
->> > This probably suits your PCI core limitations but other vendors might have
->> > a different capability set, and accepting this design limitation now would
->> > muck all future extension attempts of such attributes.
->> >
->> > I think VF configurations should be planned in advance for supporting a
->> > per-VF Configuration whenever it's possible - even if not required
->> [/possible]
->> > by the one pushing the new attribute.
->> >
->>
->> The commands being added in this patch are for permanent (i.e. NVRAM)
->> config - essentially setting the new default values for various
->> features of the device at boot-up.  At that initialization time, no
->> VFs are yet instantiated.
->>
->> So my perspective was, in general (not just for our specific device /
->> design), it doesn't seem like permanent config parameters would be set
->> on individual VFs.  That was what my previous comment was trying to
->> convey.
->
-> That's an odd assumption; Why should you assume there's some device
-> that allows configuring persistent behavior for all VFs but think no other
-> would set the same on a per-VF basis?
->
->> If that assumption is wrong, though, and there is some device that has
->> NVRAM config that is set per-VF, I assume the user would instantiate
->> the VF and then call the devlink API on the pci device corresponding
->> to the VF they with to affect, and I think the model proposed still
->> works.
->
-> What would be the purpose of re-configuring a value reflected in the
-> PCI device for an already instantiated VF?
->
->> Are you suggesting adding a mechanism to set NVRAM parameters on a
->> per-VF basis, without instantiating the VF first?  I would prefer not
->> adding such a mechanism unless/until there's a use case for it.
->
-> The thing is that you're suggesting a new UAPI; We don't have the leisure
-> of pushing a partial implementation and changing it later on.
+Peter Zijlstra <peterz@infradead.org> wrote:
+> On Mon, Oct 23, 2017 at 05:32:00PM +0200, Florian Westphal wrote:
+> 
+> > >  1) it not in fact a refcount, so using refcount_t is silly
+> > 
+> > Your suggestion is...?
+> 
+> Normal atomic_t
 
-I hope we're not talking past each other because I'm not sure we're
-saying the same thing.  But if you have a device which has NVRAM
-config on an individual VF basis, and you want to be able to get/set
-that configuration without instantiating the VF first (i.e. without a
-PCI device to operate on), then one way to handle this is with a new
-attribute, DEVLINK_ATTR_PERM_CONFIG_VF_INDEX, for example.
+Why?  refcount_t gives debug options to catch leaks/underflows,
+atomic_t does not.
 
-It could be sent in the nested DEVLINK_ATTR_PERM_CONFIG attribute,
-along with the existing DEVLINK_ATTR_PERM_CONFIG_PARAMETER and _VALUE,
-to indicate a specific VF within the PF that you are targeting.
+Is refcount_t only supposed to be used with dec_and_test patterns?
 
-That seems like the type of thing that could be added later, if/when
-such a device needed support, without breaking the UAPI, couldn't it?
+> To avoid the problem of te inc being observed late.
+> 
+> > However, this refcount_dec is misplaced anyway as it would need
+> > to occur from nlcb->done() (the handler function gets stored in socket for
+> > use by next recvmsg), so this change is indeed not helpful at all.
+> > 
+> > >  3) waiting with a schedule()/yield() loop is complete crap and subject
+> > >     life-locks, imagine doing that rtnl_unregister_all() from a RT task.
+> 
+> > Alternatively we can of course sleep instead of schedule() but that
+> > doesn't appear too appealing either (albeit it is a lot less intrusive).
+> 
+> That is much better than a yield loop.
+> 
+> > Any other idea?
+> 
+> This rtnetlink_rcv_msg() is called from softirq-context, right? Also,
+> all that stuff happens with rcu_read_lock() held.
+
+No, its called from process context.
+
+I need to run now but plan to test and submit something like this:
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -263,7 +263,7 @@ void rtnl_unregister_all(int protocol)
+ 	synchronize_net();
+ 
+ 	while (refcount_read(&rtnl_msg_handlers_ref[protocol]) > 1)
+-		schedule();
++		msleep(1);
+ 	kfree(handlers);
+ }
+ EXPORT_SYMBOL_GPL(rtnl_unregister_all);
+@@ -4149,6 +4149,16 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
+ }
+ 
++
++static int rtnl_dumper_done(struct netlink_callback *cb)
++{
++	unsigned int family = (unsigned long)cb->data;
++
++	refcount_dec(&rtnl_msg_handlers_ref[family]);
++	smp_mb__after_atomic();
++	return 0;
++}
++
+ /* Process one rtnetlink message. */
+ 
+ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -4207,6 +4217,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		}
+ 
+ 		refcount_inc(&rtnl_msg_handlers_ref[family]);
++		smp_mb__after_atomic();
+ 
+ 		if (type == RTM_GETLINK - RTM_BASE)
+ 			min_dump_alloc = rtnl_calcit(skb, nlh);
+@@ -4217,11 +4228,12 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 		{
+ 			struct netlink_dump_control c = {
+ 				.dump		= dumpit,
++				.done		= rtnl_dumper_done,
+ 				.min_dump_alloc	= min_dump_alloc,
++				.data		= (void *)(unsigned long)family,
+ 			};
+ 			err = netlink_dump_start(rtnl, skb, nlh, &c);
+ 		}
+-		refcount_dec(&rtnl_msg_handlers_ref[family]);
+ 		return err;
+ 	}
+ 
