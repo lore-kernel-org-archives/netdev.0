@@ -1,45 +1,41 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] ss: Distinguish between IPv4 and IPv6 wildcard
- sockets
-Date: Mon, 23 Oct 2017 14:41:42 +0200
-Message-ID: <20171023144142.7496e791@shemminger-XPS-13-9360>
-References: <20171016194958.669625db@xeon-e3>
-        <20171018175813.5387-1-phil@nwl.cc>
+Subject: Re: [PATCH iproute2] ip maddr: fix filtering by device
+Date: Mon, 23 Oct 2017 14:42:24 +0200
+Message-ID: <20171023144224.076200d0@shemminger-XPS-13-9360>
+References: <20171019082108.40D7AA0EDF@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Humberto Alves <hjalves@live.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Phil Sutter <phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Petr Vorel <pvorel@suse.cz>,
+        Phil Sutter <phil@nwl.cc>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:56932 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932176AbdJWMlv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 08:41:51 -0400
-Received: by mail-wr0-f194.google.com with SMTP id r79so17229201wrb.13
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 05:41:51 -0700 (PDT)
-In-Reply-To: <20171018175813.5387-1-phil@nwl.cc>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:55580 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932170AbdJWMme (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 08:42:34 -0400
+Received: by mail-wm0-f65.google.com with SMTP id u138so9569451wmu.4
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 05:42:33 -0700 (PDT)
+In-Reply-To: <20171019082108.40D7AA0EDF@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 18 Oct 2017 19:58:13 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On Thu, 19 Oct 2017 10:21:08 +0200 (CEST)
+Michal Kubecek <mkubecek@suse.cz> wrote:
 
-> Commit aba9c23a6e1cb ("ss: enclose IPv6 address in brackets") unified
-> display of wildcard sockets in IPv4 and IPv6 to print the unspecified
-> address as '*'. Users then complained that they can't distinguish
-> between address families anymore, so change this again to what Stephen
-> Hemminger suggested:
+> Commit 530903dd9003 ("ip: fix igmp parsing when iface is long") uses
+> variable len to keep trailing colon from interface name comparison.  This
+> variable is local to loop body but we set it in one pass and use it in
+> following one(s) so that we are actually using (pseudo)random length for
+> comparison. This became apparent since commit b48a1161f5f9 ("ipmaddr: Avoid
+> accessing uninitialized data") always initializes len to zero so that the
+> name comparison is always true. As a result, "ip maddr show dev eth0" shows
+> IPv4 multicast addresses for all interfaces.
 > 
-> | *:80    << both IPV6 and IPV4
-> | [::]:80 << IPV6_ONLY
-> | 0.0.0.0:80  << IPV4_ONLY
+> Instead of keeping the length, let's simply replace the trailing colon with
+> a null byte. The bonus is that we get correct interface name in ma.name.
 > 
-> Note that on older kernels which don't support INET_DIAG_SKV6ONLY
-> attribute, pure IPv6 sockets will still show as '*'.
-> 
-> Cc: Humberto Alves <hjalves@live.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Fixes: 530903dd9003 ("ip: fix igmp parsing when iface is long")
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 
-Applied both.
+Applied
