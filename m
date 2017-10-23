@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net 2/3] net: mvpp2: do not unmap TSO headers buffers
-Date: Mon, 23 Oct 2017 15:24:30 +0200
-Message-ID: <20171023132431.5756-2-antoine.tenart@free-electrons.com>
+Subject: [PATCH net 3/3] net: mvpp2: do not call txq_done from the Tx path when Tx irqs are used
+Date: Mon, 23 Oct 2017 15:24:31 +0200
+Message-ID: <20171023132431.5756-3-antoine.tenart@free-electrons.com>
 References: <20171023132431.5756-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
@@ -10,68 +10,41 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
         netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:60933 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932184AbdJWNZD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 09:25:03 -0400
 In-Reply-To: <20171023132431.5756-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The TSO header buffers are coming from a per cpu pool and should not
-be unmapped as they are reused. The PPv2 driver was unmapping all
-descriptors buffers unconditionally. This patch fixes this by checking
-the buffers dma addresses before unmapping them, and by not unmapping
-those who are located in the TSO header pool.
+When Tx IRQs are used, txq_bufs_free() can be called from both the Tx
+path and from NAPI poll(). This led to CPU stalls as if these two tasks
+(Tx and Poll) are scheduled on two CPUs at the same time, DMA unmapping
+operations are done on the same txq buffers.
 
-Fixes: 186cd4d4e414 ("net: mvpp2: software tso support")
+This patch adds a check not to call txq_done() from the Tx path if Tx
+interrupts are used as it does not make sense to do so.
+
+Fixes: edc660fa09e2 ("net: mvpp2: replace TX coalescing interrupts with hrtimer")
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 17 +++++++++++++----
- 1 file changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 2898ac70b826..037f26dfe31c 100644
+index 037f26dfe31c..60b4f3d995af 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -1167,6 +1167,11 @@ struct mvpp2_bm_pool {
- 	u32 port_map;
- };
+@@ -6499,7 +6499,7 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
+ 	}
  
-+#define IS_TSO_HEADER(txq_pcpu, addr) \
-+	((addr) >= (txq_pcpu)->tso_headers_dma && \
-+	 (addr) < (txq_pcpu)->tso_headers_dma + \
-+	 (txq_pcpu)->size * TSO_HEADER_SIZE)
-+
- /* Queue modes */
- #define MVPP2_QDIST_SINGLE_MODE	0
- #define MVPP2_QDIST_MULTI_MODE	1
-@@ -5321,8 +5326,9 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
- 		struct mvpp2_txq_pcpu_buf *tx_buf =
- 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
+ 	/* Finalize TX processing */
+-	if (txq_pcpu->count >= txq->done_pkts_coal)
++	if (!port->has_tx_irqs && txq_pcpu->count >= txq->done_pkts_coal)
+ 		mvpp2_txq_done(port, txq, txq_pcpu);
  
--		dma_unmap_single(port->dev->dev.parent, tx_buf->dma,
--				 tx_buf->size, DMA_TO_DEVICE);
-+		if (!IS_TSO_HEADER(txq_pcpu, tx_buf->dma))
-+			dma_unmap_single(port->dev->dev.parent, tx_buf->dma,
-+					 tx_buf->size, DMA_TO_DEVICE);
- 		if (tx_buf->skb)
- 			dev_kfree_skb_any(tx_buf->skb);
- 
-@@ -6212,12 +6218,15 @@ static inline void
- tx_desc_unmap_put(struct mvpp2_port *port, struct mvpp2_tx_queue *txq,
- 		  struct mvpp2_tx_desc *desc)
- {
-+	struct mvpp2_txq_pcpu *txq_pcpu = this_cpu_ptr(txq->pcpu);
-+
- 	dma_addr_t buf_dma_addr =
- 		mvpp2_txdesc_dma_addr_get(port, desc);
- 	size_t buf_sz =
- 		mvpp2_txdesc_size_get(port, desc);
--	dma_unmap_single(port->dev->dev.parent, buf_dma_addr,
--			 buf_sz, DMA_TO_DEVICE);
-+	if (!IS_TSO_HEADER(txq_pcpu, buf_dma_addr))
-+		dma_unmap_single(port->dev->dev.parent, buf_dma_addr,
-+				 buf_sz, DMA_TO_DEVICE);
- 	mvpp2_txq_desc_put(txq);
- }
- 
+ 	/* Set the timer in case not all frags were processed */
 -- 
 2.14.2
