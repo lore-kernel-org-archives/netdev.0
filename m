@@ -1,151 +1,238 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 03/15] net_sched: remove RCU callbacks in flower filter
-Date: Mon, 23 Oct 2017 15:02:52 -0700
-Message-ID: <20171023220304.2268-4-xiyou.wangcong@gmail.com>
-References: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
-Cc: paulmck@linux.vnet.ibm.com, jhs@mojatatu.com,
-        john.fastabend@gmail.com, Chris Mi <chrism@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v8 02/10] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Mon, 23 Oct 2017 17:06:48 -0500
+Message-ID: <20171023220648.u3nlvg7vxz5tupf6@rob-hp-laptop>
+References: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
+ <20171023185626.31793-3-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:55850 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751250AbdJWWDg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:03:36 -0400
-Received: by mail-pg0-f68.google.com with SMTP id 15so8155126pgc.12
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:03:36 -0700 (PDT)
-In-Reply-To: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:45496 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751116AbdJWWGv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:06:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20171023185626.31793-3-clabbe.montjoie@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace call_rcu() with synchronize_rcu(), except
-in fl_destroy() we have to use list_splice_init_rcu().
+On Mon, Oct 23, 2017 at 08:56:18PM +0200, Corentin Labbe wrote:
+> This patch add documentation about the MDIO switch used on sun8i-h3-emac
+> for integrated PHY.
+> 
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+>  .../devicetree/bindings/net/dwmac-sun8i.txt        | 139 +++++++++++++++++++--
+>  1 file changed, 127 insertions(+), 12 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> index 725f3b187886..3e37db10fa02 100644
+> --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> @@ -4,18 +4,18 @@ This device is a platform glue layer for stmmac.
+>  Please see stmmac.txt for the other unchanged properties.
+>  
+>  Required properties:
+> -- compatible: should be one of the following string:
+> +- compatible: must be one of the following string:
+>  		"allwinner,sun8i-a83t-emac"
+>  		"allwinner,sun8i-h3-emac"
+>  		"allwinner,sun8i-v3s-emac"
+>  		"allwinner,sun50i-a64-emac"
+>  - reg: address and length of the register for the device.
+>  - interrupts: interrupt for the device
+> -- interrupt-names: should be "macirq"
+> +- interrupt-names: must be "macirq"
+>  - clocks: A phandle to the reference clock for this device
+> -- clock-names: should be "stmmaceth"
+> +- clock-names: must be "stmmaceth"
+>  - resets: A phandle to the reset control for this device
+> -- reset-names: should be "stmmaceth"
+> +- reset-names: must be "stmmaceth"
+>  - phy-mode: See ethernet.txt
+>  - phy-handle: See ethernet.txt
+>  - #address-cells: shall be 1
+> @@ -39,23 +39,38 @@ Optional properties for the following compatibles:
+>  - allwinner,leds-active-low: EPHY LEDs are active low
+>  
+>  Required child node of emac:
+> -- mdio bus node: should be named mdio
+> +- mdio bus node: with compatible "snps,dwmac-mdio"
+>  
+>  Required properties of the mdio node:
+>  - #address-cells: shall be 1
+>  - #size-cells: shall be 0
+>  
+> -The device node referenced by "phy" or "phy-handle" should be a child node
+> +The device node referenced by "phy" or "phy-handle" must be a child node
+>  of the mdio node. See phy.txt for the generic PHY bindings.
+>  
+> -Required properties of the phy node with the following compatibles:
+> +The following compatibles require that the emac node have a mdio-mux child
+> +node called "mdio-mux":
+> +  - "allwinner,sun8i-h3-emac"
+> +  - "allwinner,sun8i-v3s-emac":
+> +Required properties for the mdio-mux node:
+> +  - compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux"
 
-As a bonus, this also drops the ugly code in commit
-d936377414fa ("net, sched: respect rcu grace period on cls destruction").
+I think you can drop mdio-mux. They are in the wrong order anyway.
 
-Reported-by: Chris Mi <chrism@mellanox.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: John Fastabend <john.fastabend@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_flower.c | 46 ++++++++++++++--------------------------------
- 1 file changed, 14 insertions(+), 32 deletions(-)
+> +  - one child mdio for the integrated mdio with the compatible
+> +    "allwinner,sun8i-h3-mdio-internal"
+> +  - one child mdio for the external mdio if present (V3s have none)
+> +Required properties for the mdio-mux children node:
+> +  - reg: 1 for internal MDIO bus, 2 for external MDIO bus
+> +
+> +The following compatibles require a PHY node representing the integrated
+> +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
+>    - "allwinner,sun8i-h3-emac",
+>    - "allwinner,sun8i-v3s-emac":
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index b480d7c792ba..ad33bd00b4f0 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -61,7 +61,6 @@ struct fl_flow_mask_range {
- struct fl_flow_mask {
- 	struct fl_flow_key key;
- 	struct fl_flow_mask_range range;
--	struct rcu_head	rcu;
- };
- 
- struct cls_fl_head {
-@@ -71,10 +70,6 @@ struct cls_fl_head {
- 	bool mask_assigned;
- 	struct list_head filters;
- 	struct rhashtable_params ht_params;
--	union {
--		struct work_struct work;
--		struct rcu_head	rcu;
--	};
- 	struct idr handle_idr;
- };
- 
-@@ -87,7 +82,6 @@ struct cls_fl_filter {
- 	struct list_head list;
- 	u32 handle;
- 	u32 flags;
--	struct rcu_head	rcu;
- 	struct net_device *hw_dev;
- };
- 
-@@ -215,10 +209,8 @@ static int fl_init(struct tcf_proto *tp)
- 	return 0;
- }
- 
--static void fl_destroy_filter(struct rcu_head *head)
-+static void fl_destroy_filter(struct cls_fl_filter *f)
- {
--	struct cls_fl_filter *f = container_of(head, struct cls_fl_filter, rcu);
--
- 	tcf_exts_destroy(&f->exts);
- 	kfree(f);
- }
-@@ -305,38 +297,25 @@ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
- 	if (!tc_skip_hw(f->flags))
- 		fl_hw_destroy_filter(tp, f);
- 	tcf_unbind_filter(tp, &f->res);
--	call_rcu(&f->rcu, fl_destroy_filter);
--}
--
--static void fl_destroy_sleepable(struct work_struct *work)
--{
--	struct cls_fl_head *head = container_of(work, struct cls_fl_head,
--						work);
--	if (head->mask_assigned)
--		rhashtable_destroy(&head->ht);
--	kfree(head);
--	module_put(THIS_MODULE);
--}
--
--static void fl_destroy_rcu(struct rcu_head *rcu)
--{
--	struct cls_fl_head *head = container_of(rcu, struct cls_fl_head, rcu);
--
--	INIT_WORK(&head->work, fl_destroy_sleepable);
--	schedule_work(&head->work);
- }
- 
- static void fl_destroy(struct tcf_proto *tp)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
- 	struct cls_fl_filter *f, *next;
-+	LIST_HEAD(local);
-+
-+	list_splice_init_rcu(&head->filters, &local, synchronize_rcu);
- 
--	list_for_each_entry_safe(f, next, &head->filters, list)
-+	list_for_each_entry_safe(f, next, &local, list) {
- 		__fl_delete(tp, f);
-+		fl_destroy_filter(f);
-+	}
- 	idr_destroy(&head->handle_idr);
- 
--	__module_get(THIS_MODULE);
--	call_rcu(&head->rcu, fl_destroy_rcu);
-+	if (head->mask_assigned)
-+		rhashtable_destroy(&head->ht);
-+	kfree(head);
- }
- 
- static void *fl_get(struct tcf_proto *tp, u32 handle)
-@@ -975,7 +954,8 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 		idr_replace_ext(&head->handle_idr, fnew, fnew->handle);
- 		list_replace_rcu(&fold->list, &fnew->list);
- 		tcf_unbind_filter(tp, &fold->res);
--		call_rcu(&fold->rcu, fl_destroy_filter);
-+		synchronize_rcu();
-+		fl_destroy_filter(fold);
- 	} else {
- 		list_add_tail_rcu(&fnew->list, &head->filters);
- 	}
-@@ -1003,6 +983,8 @@ static int fl_delete(struct tcf_proto *tp, void *arg, bool *last)
- 		rhashtable_remove_fast(&head->ht, &f->ht_node,
- 				       head->ht_params);
- 	__fl_delete(tp, f);
-+	synchronize_rcu();
-+	fl_destroy_filter(f);
- 	*last = list_empty(&head->filters);
- 	return 0;
- }
--- 
-2.13.0
+Please refer to mdio-mux.txt somewhere in here.
+
+> +
+> +Required properties of the integrated phy node:
+>  - clocks: a phandle to the reference clock for the EPHY
+>  - resets: a phandle to the reset control for the EPHY
+> +- Must be a child of the integrated mdio
+>  
+> -Example:
+> -
+> +Example with integrated PHY:
+>  emac: ethernet@1c0b000 {
+>  	compatible = "allwinner,sun8i-h3-emac";
+>  	syscon = <&syscon>;
+> @@ -72,13 +87,113 @@ emac: ethernet@1c0b000 {
+>  	phy-handle = <&int_mii_phy>;
+>  	phy-mode = "mii";
+>  	allwinner,leds-active-low;
+> +
+> +	mdio0: mdio {
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		compatible = "snps,dwmac-mdio";
+> +	};
+> +
+> +	mdio-mux {
+> +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
+
+To be compliant with the mdio-mux binding, you need a mdio-parent-bus 
+property. Though that property is optional, so maybe the mdio-mux 
+binding just needs to say when it is optional. Presumably when the 
+parent is the mdio bus controller. 
+
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		int_mdio: mdio@1 {
+> +			compatible = "allwinner,sun8i-h3-mdio-internal";
+> +			reg = <1>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			int_mii_phy: ethernet-phy@1 {
+> +				reg = <1>;
+> +				clocks = <&ccu CLK_BUS_EPHY>;
+> +				resets = <&ccu RST_BUS_EPHY>;
+> +				phy-is-integrated;
+> +			};
+> +		};
+> +		ext_mdio: mdio@2 {
+> +			reg = <2>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +		};
+> +	};
+> +};
+> +
+> +Example with external PHY:
+> +emac: ethernet@1c0b000 {
+> +	compatible = "allwinner,sun8i-h3-emac";
+> +	syscon = <&syscon>;
+> +	reg = <0x01c0b000 0x104>;
+> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+> +	interrupt-names = "macirq";
+> +	resets = <&ccu RST_BUS_EMAC>;
+> +	reset-names = "stmmaceth";
+> +	clocks = <&ccu CLK_BUS_EMAC>;
+> +	clock-names = "stmmaceth";
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +
+> +	phy-handle = <&ext_rgmii_phy>;
+> +	phy-mode = "rgmii";
+> +	allwinner,leds-active-low;
+> +
+> +	mdio0: mdio {
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		compatible = "snps,dwmac-mdio";
+> +	};
+> +
+> +	mdio-mux {
+> +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +
+> +		int_mdio: mdio@1 {
+> +			compatible = "allwinner,sun8i-h3-mdio-internal";
+> +			reg = <1>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			int_mii_phy: ethernet-phy@1 {
+> +				reg = <1>;
+> +				clocks = <&ccu CLK_BUS_EPHY>;
+> +				resets = <&ccu RST_BUS_EPHY>;
+> +			};
+> +		};
+> +		ext_mdio: mdio@2 {
+> +			reg = <2>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			ext_rgmii_phy: ethernet-phy@1 {
+> +				reg = <1>;
+> +			};
+> +		}:
+> +	};
+> +};
+> +
+> +Example with SoC without integrated PHY
+> +
+> +emac: ethernet@1c0b000 {
+> +	compatible = "allwinner,sun8i-a83t-emac";
+> +	syscon = <&syscon>;
+> +	reg = <0x01c0b000 0x104>;
+> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+> +	interrupt-names = "macirq";
+> +	resets = <&ccu RST_BUS_EMAC>;
+> +	reset-names = "stmmaceth";
+> +	clocks = <&ccu CLK_BUS_EMAC>;
+> +	clock-names = "stmmaceth";
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +
+> +	phy-handle = <&ext_rgmii_phy>;
+> +	phy-mode = "rgmii";
+> +
+>  	mdio: mdio {
+> +		compatible = "snps,dwmac-mdio";
+>  		#address-cells = <1>;
+>  		#size-cells = <0>;
+> -		int_mii_phy: ethernet-phy@1 {
+> +		ext_rgmii_phy: ethernet-phy@1 {
+>  			reg = <1>;
+> -			clocks = <&ccu CLK_BUS_EPHY>;
+> -			resets = <&ccu RST_BUS_EPHY>;
+>  		};
+>  	};
+>  };
+> -- 
+> 2.13.6
+> 
