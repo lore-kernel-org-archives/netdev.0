@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/2] net: dsa: don't unmask port bitmaps
-Date: Mon, 23 Oct 2017 14:17:31 -0400
-Message-ID: <20171023181731.7977-3-vivien.didelot@savoirfairelinux.com>
-References: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/2] net: dsa: don't unmask port bitmaps
+Date: Mon, 23 Oct 2017 14:17:29 -0400
+Message-ID: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,51 +9,30 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The unapply functions are called on the error path.
+DSA has several bitmaps to store the type of ports: cpu_port_mask,
+dsa_port_mask and enabled_port_mask. But the code is inconsistently
+unmasking them.
 
-As for dsa_port_mask, enabled_port_mask and cpu_port_mask won't be used
-after so there's no need to unmask the corresponding port bit from them.
+The legacy code tries to unmask cpu_port_mask and dsa_port_mask but
+skips enabled_port_mask.
 
-This makes dsa_cpu_port_unapply() and dsa_dsa_port_unapply() identical,
-which can be factorized later.
+The new bindings unmasks cpu_port_mask and enabled_port_mask but skips
+dsa_port_mask.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa2.c | 4 ----
- 1 file changed, 4 deletions(-)
+In fact there is no need to unmask them because we are in the error
+path, and they won't be used after. Instead of fixing the unmasking,
+simply remove them.
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 9e8b8aab049d..62485a57dbfc 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -260,8 +260,6 @@ static void dsa_cpu_port_unapply(struct dsa_port *port)
- {
- 	devlink_port_unregister(&port->devlink_port);
- 	dsa_cpu_dsa_destroy(port);
--	port->ds->cpu_port_mask &= ~BIT(port->index);
--
- }
- 
- static int dsa_user_port_apply(struct dsa_port *port)
-@@ -300,7 +298,6 @@ static void dsa_user_port_unapply(struct dsa_port *port)
- 	if (port->slave) {
- 		dsa_slave_destroy(port->slave);
- 		port->slave = NULL;
--		port->ds->enabled_port_mask &= ~(1 << port->index);
- 	}
- }
- 
-@@ -512,7 +509,6 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	tag_ops = dsa_resolve_tag_protocol(tag_protocol);
- 	if (IS_ERR(tag_ops)) {
- 		dev_warn(ds->dev, "No tagger for this switch\n");
--		ds->cpu_port_mask &= ~BIT(index);
- 		return PTR_ERR(tag_ops);
- 	}
- 
+Vivien Didelot (2):
+  net: dsa: legacy: don't unmask port bitmaps
+  net: dsa: don't unmask port bitmaps
+
+ net/dsa/dsa2.c   | 4 ----
+ net/dsa/legacy.c | 4 ----
+ 2 files changed, 8 deletions(-)
+
 -- 
 2.14.2
