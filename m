@@ -1,46 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4vf: Fix netdev_features flag
-Date: Mon, 23 Oct 2017 13:13:12 +0100 (WEST)
-Message-ID: <20171023.131312.858447244290147199.davem@davemloft.net>
-References: <1508753010-10643-1-git-send-email-ganeshgr@chelsio.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH] ss: Distinguish between IPv4 and IPv6 wildcard
+ sockets
+Date: Mon, 23 Oct 2017 14:41:42 +0200
+Message-ID: <20171023144142.7496e791@shemminger-XPS-13-9360>
+References: <20171016194958.669625db@xeon-e3>
+        <20171018175813.5387-1-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com, arjun@chelsio.com
-To: ganeshgr@chelsio.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Humberto Alves <hjalves@live.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45380 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751116AbdJWMNU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 08:13:20 -0400
-In-Reply-To: <1508753010-10643-1-git-send-email-ganeshgr@chelsio.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:56932 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932176AbdJWMlv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 08:41:51 -0400
+Received: by mail-wr0-f194.google.com with SMTP id r79so17229201wrb.13
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 05:41:51 -0700 (PDT)
+In-Reply-To: <20171018175813.5387-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogR2FuZXNoIEdvdWRhciA8Z2FuZXNoZ3JAY2hlbHNpby5jb20+DQpEYXRlOiBNb24sIDIz
-IE9jdCAyMDE3IDE1OjMzOjMwICswNTMwDQoNCj4gRnJvbTogQXJqdW4gVnluaXBhZGF0aCA8YXJq
-dW5AY2hlbHNpby5jb20+DQo+IA0KPiBHUk8gaXMgbm90IHN1cHBvcnRlZCBieSBDaGVsc2lvIEhX
-IHdoZW4gcnhfY3N1bSBpcyBkaXNhYmxlZC4NCj4gVXBkYXRlIHRoZSBuZXRkZXYgZmVhdHVyZXMg
-ZmxhZyB3aGVuIHJ4X2NzdW0gaXMgbW9kaWZpZWQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBBcmp1
-biBWeW5pcGFkYXRoIDxhcmp1bkBjaGVsc2lvLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogR2FuZXNo
-IEdvdWRhciA8Z2FuZXNoZ3JAY2hlbHNpby5jb20+DQoNClRoaXMgZG9lc24ndCBldmVuIGNvbXBp
-bGU6DQoNCiAgQ0MgW01dICBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaGVsc2lvL2N4Z2I0dmYvY3hn
-YjR2Zl9tYWluLm8NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2NoZWxzaW8vY3hnYjR2Zi9jeGdiNHZm
-X21haW4uYzoyNzY1OjI2OiBlcnJvcjogcmVkZWZpbml0aW9uIG9mIKFjeGdiNHZmX2ZpeF9mZWF0
-dXJlc6INCiBzdGF0aWMgbmV0ZGV2X2ZlYXR1cmVzX3QgY3hnYjR2Zl9maXhfZmVhdHVyZXMoc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldiwNCiAgICAgICAgICAgICAgICAgICAgICAgICAgXn5+fn5+fn5+
-fn5+fn5+fn5+fn4NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2NoZWxzaW8vY3hnYjR2Zi9jeGdiNHZm
-X21haW4uYzoxMTE0OjI2OiBub3RlOiBwcmV2aW91cyBkZWZpbml0aW9uIG9mIKFjeGdiNHZmX2Zp
-eF9mZWF0dXJlc6Igd2FzIGhlcmUNCiBzdGF0aWMgbmV0ZGV2X2ZlYXR1cmVzX3QgY3hnYjR2Zl9m
-aXhfZmVhdHVyZXMoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwNCiAgICAgICAgICAgICAgICAgICAg
-ICAgICAgXn5+fn5+fn5+fn5+fn5+fn5+fn4NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2NoZWxzaW8v
-Y3hnYjR2Zi9jeGdiNHZmX21haW4uYzoxMTE0OjI2OiB3YXJuaW5nOiChY3hnYjR2Zl9maXhfZmVh
-dHVyZXOiIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1mdW5jdGlvbl0NCnNjcmlwdHMv
-TWFrZWZpbGUuYnVpbGQ6MzEzOiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvY2hlbHNpby9jeGdiNHZmL2N4Z2I0dmZfbWFpbi5vJyBmYWlsZWQNCm1ha2VbMV06ICoqKiBb
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNHZmL2N4Z2I0dmZfbWFpbi5vXSBFcnJv
-ciAxDQpNYWtlZmlsZToxNjUzOiByZWNpcGUgZm9yIHRhcmdldCAnZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvY2hlbHNpby9jeGdiNHZmL2N4Z2I0dmZfbWFpbi5vJyBmYWlsZWQNCm1ha2U6ICoqKiBbZHJp
-dmVycy9uZXQvZXRoZXJuZXQvY2hlbHNpby9jeGdiNHZmL2N4Z2I0dmZfbWFpbi5vXSBFcnJvciAy
-DQo=
+On Wed, 18 Oct 2017 19:58:13 +0200
+Phil Sutter <phil@nwl.cc> wrote:
+
+> Commit aba9c23a6e1cb ("ss: enclose IPv6 address in brackets") unified
+> display of wildcard sockets in IPv4 and IPv6 to print the unspecified
+> address as '*'. Users then complained that they can't distinguish
+> between address families anymore, so change this again to what Stephen
+> Hemminger suggested:
+> 
+> | *:80    << both IPV6 and IPV4
+> | [::]:80 << IPV6_ONLY
+> | 0.0.0.0:80  << IPV4_ONLY
+> 
+> Note that on older kernels which don't support INET_DIAG_SKV6ONLY
+> attribute, pure IPv6 sockets will still show as '*'.
+> 
+> Cc: Humberto Alves <hjalves@live.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+
+Applied both.
