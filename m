@@ -1,49 +1,135 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 00/12] tools: bpftool: Add JSON output to bpftool
-Date: Mon, 23 Oct 2017 10:44:18 -0700
-Message-ID: <20171023174416.tjukqbiyune5zrb6@ast-mbp.dhcp.thefacebook.com>
-References: <20171023162416.32753-1-jakub.kicinski@netronome.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH net-next 3/3] bpf: add a test case to test single tp multiple bpf attachment
+Date: Mon, 23 Oct 2017 10:58:05 -0700
+Message-ID: <20171023175805.2898366-4-yhs@fb.com>
+References: <20171023175805.2898366-1-yhs@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        daniel@iogearbox.net
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
+        <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:56344 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932117AbdJWRoW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 13:44:22 -0400
-Received: by mail-pf0-f174.google.com with SMTP id b85so17618150pfj.13
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 10:44:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20171023162416.32753-1-jakub.kicinski@netronome.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36936 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932143AbdJWR6L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 13:58:11 -0400
+Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9NHt6gS009736
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 10:58:10 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2dsepjsc52-8
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 10:58:10 -0700
+In-Reply-To: <20171023175805.2898366-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 09:24:04AM -0700, Jakub Kicinski wrote:
-> Quentin says:
-> 
-> This series introduces support for JSON output to all bpftool commands. It
-> adds option parsing, and several options are created:
-> 
->   * -j, --json     Switch to JSON output.
->   * -p, --pretty   Switch to JSON and print it in a human-friendly fashion.
->   * -h, --help     Print generic help message.
->   * -V, --version  Print version number.
-> 
-> This code uses a "json_writer", which is a copy of the one written by
-> Stephen Hemminger in iproute2.
-> ---
-> I don't know if there is an easy way to share the code for json_write
-> without copying the file, so I am very open to suggestions on this matter.
+The bpf sample program syscall_tp is modified to
+show attachment of more than bpf programs
+for a particular kernel tracepoint.
 
-I think copy-paste is fine in this case.
-If we ever decide to remove it from here and move it into iproute2
-this json.[hc] can be unified, but I think kernel/tools/bpf/ is
-a better place since introspection interface is still evolving a lot
-and bpftool is not networking specific. Like would be great if it
-can show what programs attached to which cgroups, tracepoints, kprobes.
-
-Overall looks like a nice set of improvements.
-
+Signed-off-by: Yonghong Song <yhs@fb.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
+---
+ samples/bpf/syscall_tp_user.c | 66 ++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 53 insertions(+), 13 deletions(-)
+
+diff --git a/samples/bpf/syscall_tp_user.c b/samples/bpf/syscall_tp_user.c
+index a3cb91e..9169d32 100644
+--- a/samples/bpf/syscall_tp_user.c
++++ b/samples/bpf/syscall_tp_user.c
+@@ -23,6 +23,13 @@
+  * This requires kernel CONFIG_FTRACE_SYSCALLS to be set.
+  */
+ 
++static void usage(const char *cmd)
++{
++	printf("USAGE: %s [-i num_progs] [-h]\n", cmd);
++	printf("       -i num_progs      # number of progs of the test\n");
++	printf("       -h                # help\n");
++}
++
+ static void verify_map(int map_id)
+ {
+ 	__u32 key = 0;
+@@ -32,22 +39,29 @@ static void verify_map(int map_id)
+ 		fprintf(stderr, "map_lookup failed: %s\n", strerror(errno));
+ 		return;
+ 	}
+-	if (val == 0)
++	if (val == 0) {
+ 		fprintf(stderr, "failed: map #%d returns value 0\n", map_id);
++		return;
++	}
++	val = 0;
++	if (bpf_map_update_elem(map_id, &key, &val, BPF_ANY) != 0) {
++		fprintf(stderr, "map_update failed: %s\n", strerror(errno));
++		return;
++	}
+ }
+ 
+-int main(int argc, char **argv)
++static int test(char *filename, int num_progs)
+ {
+-	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+-	char filename[256];
+-	int fd;
++	int i, fd, map0_fds[num_progs], map1_fds[num_progs];
+ 
+-	setrlimit(RLIMIT_MEMLOCK, &r);
+-	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
+-
+-	if (load_bpf_file(filename)) {
+-		fprintf(stderr, "%s", bpf_log_buf);
+-		return 1;
++	for (i = 0; i < num_progs; i++) {
++		if (load_bpf_file(filename)) {
++			fprintf(stderr, "%s", bpf_log_buf);
++			return 1;
++		}
++		printf("prog #%d: map ids %d %d\n", i, map_fd[0], map_fd[1]);
++		map0_fds[i] = map_fd[0];
++		map1_fds[i] = map_fd[1];
+ 	}
+ 
+ 	/* current load_bpf_file has perf_event_open default pid = -1
+@@ -64,8 +78,34 @@ int main(int argc, char **argv)
+ 	close(fd);
+ 
+ 	/* verify the map */
+-	verify_map(map_fd[0]);
+-	verify_map(map_fd[1]);
++	for (i = 0; i < num_progs; i++) {
++		verify_map(map0_fds[i]);
++		verify_map(map1_fds[i]);
++	}
+ 
+ 	return 0;
+ }
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	int opt, num_progs = 1;
++	char filename[256];
++
++	while ((opt = getopt(argc, argv, "i:h")) != -1) {
++		switch (opt) {
++		case 'i':
++			num_progs = atoi(optarg);
++			break;
++		case 'h':
++		default:
++			usage(argv[0]);
++			return 0;
++		}
++	}
++
++	setrlimit(RLIMIT_MEMLOCK, &r);
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	return test(filename, num_progs);
++}
+-- 
+2.9.5
