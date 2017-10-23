@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: systemport: Guard against unmapped TX
- ring
-Date: Mon, 23 Oct 2017 05:29:10 +0100 (WEST)
-Message-ID: <20171023.052910.1786112889480690913.davem@davemloft.net>
-References: <20171020225930.11907-1-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next] tcp: do tcp_mstamp_refresh before retransmits on TSQ
+ handler
+Date: Sun, 22 Oct 2017 21:31:03 -0700
+Message-ID: <1508733063.30291.72.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171022033808.12641-1-den@klaipeden.com>
+         <1508644334.30291.38.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1508645419.9317.7.camel@klaipeden.com>
+         <1508649690.30291.44.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1508677159.3011.1.camel@klaipeden.com>
+         <1508690944.30291.48.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1508692270.30291.53.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1508729177.2898.5.camel@klaipeden.com>
+         <1508730005.30291.70.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1508732925.2898.7.camel@klaipeden.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ncardwell@google.com
+To: Koichiro Den <den@klaipeden.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41376 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750745AbdJWE3M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 00:29:12 -0400
-In-Reply-To: <20171020225930.11907-1-f.fainelli@gmail.com>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:43789 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750802AbdJWEbF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 00:31:05 -0400
+Received: by mail-pf0-f171.google.com with SMTP id a8so16177137pfc.0
+        for <netdev@vger.kernel.org>; Sun, 22 Oct 2017 21:31:05 -0700 (PDT)
+In-Reply-To: <1508732925.2898.7.camel@klaipeden.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 20 Oct 2017 15:59:30 -0700
+On Mon, 2017-10-23 at 13:28 +0900, Koichiro Den wrote:
 
-> Because SYSTEMPORT is a (semi) normal network device, the stack may attempt to
-> queue packets on it oustide of the DSA slave transmit path.  When that happens,
-> the DSA layer has not had a chance to tag packets with the appropriate per-port
-> and per-queue information, and if that happens and we don't have a port 0 queue
-> 0 available (e.g: on boards where this does not exist), we will hit a NULL
-> pointer de-reference in bcm_sysport_select_queue().
-> 
-> Guard against such cases by testing for the TX ring validity.
-> 
-> Fixes: 84ff33eeb23d ("net: systemport: Establish DSA network device queue mapping")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Indeed, meaning that tcp_clean_rtx_queue implementation never takes.
+> But for me it seems that there is some possibility RACK algorithm will take it.
 
-Applied, thanks.
+As long as tp->tcp_mstamp is monotonically increasing (and it is ;) ),
+RACK will behave properly.
+
+I am not sure we need to discuss this forever frankly ;)
+ 
