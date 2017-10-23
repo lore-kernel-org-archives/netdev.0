@@ -1,634 +1,221 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v2 2/3] bpf: permit multiple bpf attachments for a single perf event
-Date: Mon, 23 Oct 2017 15:13:30 -0700
-Message-ID: <20171023221331.4131164-3-yhs@fb.com>
-References: <20171023221331.4131164-1-yhs@fb.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v3 net-next] tcp: Configure TFO without cookie per socket
+ and/or per route
+Date: Mon, 23 Oct 2017 15:24:46 -0700
+Message-ID: <CAK6E8=ce0DBHxJ49YF554fq8-K3oWhXi_qpTLiGtie+SbRdgYA@mail.gmail.com>
+References: <20171023202223.42600-1-cpaasch@apple.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Christoph Paasch <cpaasch@apple.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58416 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932234AbdJWWNq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:13:46 -0400
-Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9NMD5tn021358
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:46 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dsjgc9f5h-9
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:46 -0700
-In-Reply-To: <20171023221331.4131164-1-yhs@fb.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:51472 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751200AbdJWWZ3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:25:29 -0400
+Received: by mail-wr0-f196.google.com with SMTP id j15so6718533wre.8
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:25:28 -0700 (PDT)
+In-Reply-To: <20171023202223.42600-1-cpaasch@apple.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables multiple bpf attachments for a
-kprobe/uprobe/tracepoint single trace event.
-Each trace_event keeps a list of attached perf events.
-When an event happens, all attached bpf programs will
-be executed based on the order of attachment.
+On Mon, Oct 23, 2017 at 1:22 PM, Christoph Paasch <cpaasch@apple.com> wrote:
+>
+> We already allow to enable TFO without a cookie by using the
+> fastopen-sysctl and setting it to TFO_SERVER_COOKIE_NOT_REQD (or
+> TFO_CLIENT_NO_COOKIE).
+> This is safe to do in certain environments where we know that there
+> isn't a malicous host (aka., data-centers) or when the
+> application-protocol already provides an authentication mechanism in the
+> first flight of data.
+>
+> A server however might be providing multiple services or talking to both
+> sides (public Internet and data-center). So, this server would want to
+> enable cookie-less TFO for certain services and/or for connections that
+> go to the data-center.
+>
+> This patch exposes a socket-option and a per-route attribute to enable such
+> fine-grained configurations.
+>
+> Signed-off-by: Christoph Paasch <cpaasch@apple.com>
+Reviewed-by: Yuchung Cheng <ycheng@google.com>
 
-A global bpf_event_mutex lock is introduced to protect
-prog_array attaching and detaching. An alternative will
-be introduce a mutex lock in every trace_event_call
-structure, but it takes a lot of extra memory.
-So a global bpf_event_mutex lock is a good compromise.
-
-The bpf prog detachment involves allocation of memory.
-If the allocation fails, a dummy do-nothing program
-will replace to-be-detached program in-place.
-
-Signed-off-by: Yonghong Song <yhs@fb.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
----
- include/linux/bpf.h           | 30 +++++++++++++---
- include/linux/trace_events.h  | 33 ++++++++++++++---
- include/trace/perf.h          |  6 ++--
- kernel/bpf/core.c             | 81 ++++++++++++++++++++++++++++++++++++++++++
- kernel/events/core.c          | 26 +++++---------
- kernel/trace/bpf_trace.c      | 82 ++++++++++++++++++++++++++++++++++++++++---
- kernel/trace/trace_kprobe.c   |  6 ++--
- kernel/trace/trace_syscalls.c | 34 ++++++++++--------
- kernel/trace/trace_uprobe.c   |  3 +-
- 9 files changed, 245 insertions(+), 56 deletions(-)
-
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 1e334b2..172be7f 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -273,18 +273,38 @@ int bpf_prog_array_length(struct bpf_prog_array __rcu *progs);
- int bpf_prog_array_copy_to_user(struct bpf_prog_array __rcu *progs,
- 				__u32 __user *prog_ids, u32 cnt);
- 
--#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
-+void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
-+				struct bpf_prog *old_prog);
-+int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
-+			struct bpf_prog *exclude_prog,
-+			struct bpf_prog *include_prog,
-+			struct bpf_prog_array **new_array);
-+
-+#define __BPF_PROG_RUN_ARRAY(array, ctx, func, check_non_null)	\
- 	({						\
--		struct bpf_prog **_prog;		\
-+		struct bpf_prog **_prog, *__prog;	\
-+		struct bpf_prog_array *_array;		\
- 		u32 _ret = 1;				\
- 		rcu_read_lock();			\
--		_prog = rcu_dereference(array)->progs;	\
--		for (; *_prog; _prog++)			\
--			_ret &= func(*_prog, ctx);	\
-+		_array = rcu_dereference(array);	\
-+		if (unlikely(check_non_null && !_array))\
-+			goto _out;			\
-+		_prog = _array->progs;			\
-+		while ((__prog = READ_ONCE(*_prog))) {	\
-+			_ret &= func(__prog, ctx);	\
-+			_prog++;			\
-+		}					\
-+_out:							\
- 		rcu_read_unlock();			\
- 		_ret;					\
- 	 })
- 
-+#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
-+	__BPF_PROG_RUN_ARRAY(array, ctx, func, false)
-+
-+#define BPF_PROG_RUN_ARRAY_CHECK(array, ctx, func)	\
-+	__BPF_PROG_RUN_ARRAY(array, ctx, func, true)
-+
- #ifdef CONFIG_BPF_SYSCALL
- DECLARE_PER_CPU(int, bpf_prog_active);
- 
-diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
-index 2e0f222..c811464 100644
---- a/include/linux/trace_events.h
-+++ b/include/linux/trace_events.h
-@@ -271,14 +271,37 @@ struct trace_event_call {
- #ifdef CONFIG_PERF_EVENTS
- 	int				perf_refcount;
- 	struct hlist_head __percpu	*perf_events;
--	struct bpf_prog			*prog;
--	struct perf_event		*bpf_prog_owner;
-+	struct bpf_prog_array __rcu	*prog_array;
- 
- 	int	(*perf_perm)(struct trace_event_call *,
- 			     struct perf_event *);
- #endif
- };
- 
-+#ifdef CONFIG_PERF_EVENTS
-+static inline bool bpf_prog_array_valid(struct trace_event_call *call)
-+{
-+	/*
-+	 * This inline function checks whether call->prog_array
-+	 * is valid or not. The function is called in various places,
-+	 * outside rcu_read_lock/unlock, as a heuristic to speed up execution.
-+	 *
-+	 * If this function returns true, and later call->prog_array
-+	 * becomes false inside rcu_read_lock/unlock region,
-+	 * we bail out then. If this function return false,
-+	 * there is a risk that we might miss a few events if the checking
-+	 * were delayed until inside rcu_read_lock/unlock region and
-+	 * call->prog_array happened to become non-NULL then.
-+	 *
-+	 * Here, READ_ONCE() is used instead of rcu_access_pointer().
-+	 * rcu_access_pointer() requires the actual definition of
-+	 * "struct bpf_prog_array" while READ_ONCE() only needs
-+	 * a declaration of the same type.
-+	 */
-+	return !!READ_ONCE(call->prog_array);
-+}
-+#endif
-+
- static inline const char *
- trace_event_name(struct trace_event_call *call)
- {
-@@ -435,9 +458,9 @@ trace_trigger_soft_disabled(struct trace_event_file *file)
- }
- 
- #ifdef CONFIG_BPF_EVENTS
--unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx);
-+unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx);
- #else
--static inline unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
-+static inline unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
- {
- 	return 1;
- }
-@@ -499,6 +522,8 @@ extern void ftrace_profile_free_filter(struct perf_event *event);
- void perf_trace_buf_update(void *record, u16 type);
- void *perf_trace_buf_alloc(int size, struct pt_regs **regs, int *rctxp);
- 
-+int perf_event_attach_bpf_prog(struct perf_event *event, struct bpf_prog *prog);
-+void perf_event_detach_bpf_prog(struct perf_event *event);
- void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
- 			       struct trace_event_call *call, u64 count,
- 			       struct pt_regs *regs, struct hlist_head *head,
-diff --git a/include/trace/perf.h b/include/trace/perf.h
-index 04fe68bb..14f127b6 100644
---- a/include/trace/perf.h
-+++ b/include/trace/perf.h
-@@ -34,7 +34,6 @@ perf_trace_##call(void *__data, proto)					\
- 	struct trace_event_call *event_call = __data;			\
- 	struct trace_event_data_offsets_##call __maybe_unused __data_offsets;\
- 	struct trace_event_raw_##call *entry;				\
--	struct bpf_prog *prog = event_call->prog;			\
- 	struct pt_regs *__regs;						\
- 	u64 __count = 1;						\
- 	struct task_struct *__task = NULL;				\
-@@ -46,8 +45,9 @@ perf_trace_##call(void *__data, proto)					\
- 	__data_size = trace_event_get_offsets_##call(&__data_offsets, args); \
- 									\
- 	head = this_cpu_ptr(event_call->perf_events);			\
--	if (!prog && __builtin_constant_p(!__task) && !__task &&	\
--				hlist_empty(head))			\
-+	if (!bpf_prog_array_valid(event_call) &&			\
-+	    __builtin_constant_p(!__task) && !__task &&			\
-+	    hlist_empty(head))						\
- 		return;							\
- 									\
- 	__entry_size = ALIGN(__data_size + sizeof(*entry) + sizeof(u32),\
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 8e7c8bf..7fe4487 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -1394,6 +1394,20 @@ struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
- }
- EXPORT_SYMBOL_GPL(bpf_prog_select_runtime);
- 
-+static unsigned int __bpf_prog_ret1(const void *ctx,
-+				    const struct bpf_insn *insn)
-+{
-+	return 1;
-+}
-+
-+static struct bpf_prog_dummy {
-+	struct bpf_prog prog;
-+} dummy_bpf_prog = {
-+	.prog = {
-+		.bpf_func = __bpf_prog_ret1,
-+	},
-+};
-+
- /* to avoid allocating empty bpf_prog_array for cgroups that
-  * don't have bpf program attached use one global 'empty_prog_array'
-  * It will not be modified the caller of bpf_prog_array_alloc()
-@@ -1463,6 +1477,73 @@ int bpf_prog_array_copy_to_user(struct bpf_prog_array __rcu *progs,
- 	return 0;
- }
- 
-+void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
-+				struct bpf_prog *old_prog)
-+{
-+	struct bpf_prog **prog = progs->progs;
-+
-+	for (; *prog; prog++)
-+		if (*prog == old_prog) {
-+			WRITE_ONCE(*prog, &dummy_bpf_prog.prog);
-+			break;
-+		}
-+}
-+
-+int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
-+			struct bpf_prog *exclude_prog,
-+			struct bpf_prog *include_prog,
-+			struct bpf_prog_array **new_array)
-+{
-+	int new_prog_cnt, carry_prog_cnt = 0;
-+	struct bpf_prog **existing_prog;
-+	struct bpf_prog_array *array;
-+	int new_prog_idx = 0;
-+
-+	/* Figure out how many existing progs we need to carry over to
-+	 * the new array.
-+	 */
-+	if (old_array) {
-+		existing_prog = old_array->progs;
-+		for (; *existing_prog; existing_prog++) {
-+			if (*existing_prog != exclude_prog &&
-+			    *existing_prog != &dummy_bpf_prog.prog)
-+				carry_prog_cnt++;
-+			if (*existing_prog == include_prog)
-+				return -EEXIST;
-+		}
-+	}
-+
-+	/* How many progs (not NULL) will be in the new array? */
-+	new_prog_cnt = carry_prog_cnt;
-+	if (include_prog)
-+		new_prog_cnt += 1;
-+
-+	/* Do we have any prog (not NULL) in the new array? */
-+	if (!new_prog_cnt) {
-+		*new_array = NULL;
-+		return 0;
-+	}
-+
-+	/* +1 as the end of prog_array is marked with NULL */
-+	array = bpf_prog_array_alloc(new_prog_cnt + 1, GFP_KERNEL);
-+	if (!array)
-+		return -ENOMEM;
-+
-+	/* Fill in the new prog array */
-+	if (carry_prog_cnt) {
-+		existing_prog = old_array->progs;
-+		for (; *existing_prog; existing_prog++)
-+			if (*existing_prog != exclude_prog &&
-+			    *existing_prog != &dummy_bpf_prog.prog)
-+				array->progs[new_prog_idx++] = *existing_prog;
-+	}
-+	if (include_prog)
-+		array->progs[new_prog_idx++] = include_prog;
-+	array->progs[new_prog_idx] = NULL;
-+	*new_array = array;
-+	return 0;
-+}
-+
- static void bpf_prog_free_deferred(struct work_struct *work)
- {
- 	struct bpf_prog_aux *aux;
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 9f78a682..9660ee6 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -7954,11 +7954,9 @@ void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
- 			       struct pt_regs *regs, struct hlist_head *head,
- 			       struct task_struct *task)
- {
--	struct bpf_prog *prog = call->prog;
--
--	if (prog) {
-+	if (bpf_prog_array_valid(call)) {
- 		*(struct pt_regs **)raw_data = regs;
--		if (!trace_call_bpf(prog, raw_data) || hlist_empty(head)) {
-+		if (!trace_call_bpf(call, raw_data) || hlist_empty(head)) {
- 			perf_swevent_put_recursion_context(rctx);
- 			return;
- 		}
-@@ -8147,13 +8145,11 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- {
- 	bool is_kprobe, is_tracepoint, is_syscall_tp;
- 	struct bpf_prog *prog;
-+	int ret;
- 
- 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
- 		return perf_event_set_bpf_handler(event, prog_fd);
- 
--	if (event->tp_event->prog)
--		return -EEXIST;
--
- 	is_kprobe = event->tp_event->flags & TRACE_EVENT_FL_UKPROBE;
- 	is_tracepoint = event->tp_event->flags & TRACE_EVENT_FL_TRACEPOINT;
- 	is_syscall_tp = is_syscall_trace_event(event->tp_event);
-@@ -8181,26 +8177,20 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- 			return -EACCES;
- 		}
- 	}
--	event->tp_event->prog = prog;
--	event->tp_event->bpf_prog_owner = event;
- 
--	return 0;
-+	ret = perf_event_attach_bpf_prog(event, prog);
-+	if (ret)
-+		bpf_prog_put(prog);
-+	return ret;
- }
- 
- static void perf_event_free_bpf_prog(struct perf_event *event)
- {
--	struct bpf_prog *prog;
--
- 	if (event->attr.type != PERF_TYPE_TRACEPOINT) {
- 		perf_event_free_bpf_handler(event);
- 		return;
- 	}
--
--	prog = event->tp_event->prog;
--	if (prog && event->tp_event->bpf_prog_owner == event) {
--		event->tp_event->prog = NULL;
--		bpf_prog_put(prog);
--	}
-+	perf_event_detach_bpf_prog(event);
- }
- 
- #else
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 3126da2..b65011d 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -17,7 +17,7 @@
- 
- /**
-  * trace_call_bpf - invoke BPF program
-- * @prog: BPF program
-+ * @call: tracepoint event
-  * @ctx: opaque context pointer
-  *
-  * kprobe handlers execute BPF programs via this helper.
-@@ -29,7 +29,7 @@
-  * 1 - store kprobe event into ring buffer
-  * Other values are reserved and currently alias to 1
-  */
--unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
-+unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
- {
- 	unsigned int ret;
- 
-@@ -49,9 +49,22 @@ unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
- 		goto out;
- 	}
- 
--	rcu_read_lock();
--	ret = BPF_PROG_RUN(prog, ctx);
--	rcu_read_unlock();
-+	/*
-+	 * Instead of moving rcu_read_lock/rcu_dereference/rcu_read_unlock
-+	 * to all call sites, we did a bpf_prog_array_valid() there to check
-+	 * whether call->prog_array is empty or not, which is
-+	 * a heurisitc to speed up execution.
-+	 *
-+	 * If bpf_prog_array_valid() fetched prog_array was
-+	 * non-NULL, we go into trace_call_bpf() and do the actual
-+	 * proper rcu_dereference() under RCU lock.
-+	 * If it turns out that prog_array is NULL then, we bail out.
-+	 * For the opposite, if the bpf_prog_array_valid() fetched pointer
-+	 * was NULL, you'll skip the prog_array with the risk of missing
-+	 * out of events when it was updated in between this and the
-+	 * rcu_dereference() which is accepted risk.
-+	 */
-+	ret = BPF_PROG_RUN_ARRAY_CHECK(call->prog_array, ctx, BPF_PROG_RUN);
- 
-  out:
- 	__this_cpu_dec(bpf_prog_active);
-@@ -741,3 +754,62 @@ const struct bpf_verifier_ops perf_event_verifier_ops = {
- 
- const struct bpf_prog_ops perf_event_prog_ops = {
- };
-+
-+static DEFINE_MUTEX(bpf_event_mutex);
-+
-+int perf_event_attach_bpf_prog(struct perf_event *event,
-+			       struct bpf_prog *prog)
-+{
-+	struct bpf_prog_array __rcu *old_array;
-+	struct bpf_prog_array *new_array;
-+	int ret = -EEXIST;
-+
-+	mutex_lock(&bpf_event_mutex);
-+
-+	if (event->prog)
-+		goto out;
-+
-+	old_array = rcu_dereference_protected(event->tp_event->prog_array,
-+					      lockdep_is_held(&bpf_event_mutex));
-+	ret = bpf_prog_array_copy(old_array, NULL, prog, &new_array);
-+	if (ret < 0)
-+		goto out;
-+
-+	/* set the new array to event->tp_event and set event->prog */
-+	event->prog = prog;
-+	rcu_assign_pointer(event->tp_event->prog_array, new_array);
-+	bpf_prog_array_free(old_array);
-+
-+out:
-+	mutex_unlock(&bpf_event_mutex);
-+	return ret;
-+}
-+
-+void perf_event_detach_bpf_prog(struct perf_event *event)
-+{
-+	struct bpf_prog_array __rcu *old_array;
-+	struct bpf_prog_array *new_array;
-+	int ret;
-+
-+	mutex_lock(&bpf_event_mutex);
-+
-+	if (!event->prog)
-+		goto out;
-+
-+	old_array = rcu_dereference_protected(event->tp_event->prog_array,
-+					      lockdep_is_held(&bpf_event_mutex));
-+
-+	ret = bpf_prog_array_copy(old_array, event->prog, NULL, &new_array);
-+	if (ret < 0) {
-+		bpf_prog_array_delete_safe(old_array, event->prog);
-+	} else {
-+		rcu_assign_pointer(event->tp_event->prog_array, new_array);
-+		bpf_prog_array_free(old_array);
-+	}
-+
-+	bpf_prog_put(event->prog);
-+	event->prog = NULL;
-+
-+out:
-+	mutex_unlock(&bpf_event_mutex);
-+}
-diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-index 8a907e1..abf92e4 100644
---- a/kernel/trace/trace_kprobe.c
-+++ b/kernel/trace/trace_kprobe.c
-@@ -1174,13 +1174,12 @@ static void
- kprobe_perf_func(struct trace_kprobe *tk, struct pt_regs *regs)
- {
- 	struct trace_event_call *call = &tk->tp.call;
--	struct bpf_prog *prog = call->prog;
- 	struct kprobe_trace_entry_head *entry;
- 	struct hlist_head *head;
- 	int size, __size, dsize;
- 	int rctx;
- 
--	if (prog && !trace_call_bpf(prog, regs))
-+	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
- 		return;
- 
- 	head = this_cpu_ptr(call->perf_events);
-@@ -1210,13 +1209,12 @@ kretprobe_perf_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
- 		    struct pt_regs *regs)
- {
- 	struct trace_event_call *call = &tk->tp.call;
--	struct bpf_prog *prog = call->prog;
- 	struct kretprobe_trace_entry_head *entry;
- 	struct hlist_head *head;
- 	int size, __size, dsize;
- 	int rctx;
- 
--	if (prog && !trace_call_bpf(prog, regs))
-+	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
- 		return;
- 
- 	head = this_cpu_ptr(call->perf_events);
-diff --git a/kernel/trace/trace_syscalls.c b/kernel/trace/trace_syscalls.c
-index 696afe7..71a6af3 100644
---- a/kernel/trace/trace_syscalls.c
-+++ b/kernel/trace/trace_syscalls.c
-@@ -559,9 +559,10 @@ static DECLARE_BITMAP(enabled_perf_exit_syscalls, NR_syscalls);
- static int sys_perf_refcount_enter;
- static int sys_perf_refcount_exit;
- 
--static int perf_call_bpf_enter(struct bpf_prog *prog, struct pt_regs *regs,
--			      struct syscall_metadata *sys_data,
--			      struct syscall_trace_enter *rec) {
-+static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *regs,
-+			       struct syscall_metadata *sys_data,
-+			       struct syscall_trace_enter *rec)
-+{
- 	struct syscall_tp_t {
- 		unsigned long long regs;
- 		unsigned long syscall_nr;
-@@ -573,7 +574,7 @@ static int perf_call_bpf_enter(struct bpf_prog *prog, struct pt_regs *regs,
- 	param.syscall_nr = rec->nr;
- 	for (i = 0; i < sys_data->nb_args; i++)
- 		param.args[i] = rec->args[i];
--	return trace_call_bpf(prog, &param);
-+	return trace_call_bpf(call, &param);
- }
- 
- static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
-@@ -581,7 +582,7 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
- 	struct syscall_metadata *sys_data;
- 	struct syscall_trace_enter *rec;
- 	struct hlist_head *head;
--	struct bpf_prog *prog;
-+	bool valid_prog_array;
- 	int syscall_nr;
- 	int rctx;
- 	int size;
-@@ -596,9 +597,9 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
- 	if (!sys_data)
- 		return;
- 
--	prog = READ_ONCE(sys_data->enter_event->prog);
- 	head = this_cpu_ptr(sys_data->enter_event->perf_events);
--	if (!prog && hlist_empty(head))
-+	valid_prog_array = bpf_prog_array_valid(sys_data->enter_event);
-+	if (!valid_prog_array && hlist_empty(head))
- 		return;
- 
- 	/* get the size after alignment with the u32 buffer size field */
-@@ -614,7 +615,8 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
- 	syscall_get_arguments(current, regs, 0, sys_data->nb_args,
- 			       (unsigned long *)&rec->args);
- 
--	if ((prog && !perf_call_bpf_enter(prog, regs, sys_data, rec)) ||
-+	if ((valid_prog_array &&
-+	     !perf_call_bpf_enter(sys_data->enter_event, regs, sys_data, rec)) ||
- 	    hlist_empty(head)) {
- 		perf_swevent_put_recursion_context(rctx);
- 		return;
-@@ -659,8 +661,9 @@ static void perf_sysenter_disable(struct trace_event_call *call)
- 	mutex_unlock(&syscall_trace_lock);
- }
- 
--static int perf_call_bpf_exit(struct bpf_prog *prog, struct pt_regs *regs,
--			      struct syscall_trace_exit *rec) {
-+static int perf_call_bpf_exit(struct trace_event_call *call, struct pt_regs *regs,
-+			      struct syscall_trace_exit *rec)
-+{
- 	struct syscall_tp_t {
- 		unsigned long long regs;
- 		unsigned long syscall_nr;
-@@ -670,7 +673,7 @@ static int perf_call_bpf_exit(struct bpf_prog *prog, struct pt_regs *regs,
- 	*(struct pt_regs **)&param = regs;
- 	param.syscall_nr = rec->nr;
- 	param.ret = rec->ret;
--	return trace_call_bpf(prog, &param);
-+	return trace_call_bpf(call, &param);
- }
- 
- static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
-@@ -678,7 +681,7 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
- 	struct syscall_metadata *sys_data;
- 	struct syscall_trace_exit *rec;
- 	struct hlist_head *head;
--	struct bpf_prog *prog;
-+	bool valid_prog_array;
- 	int syscall_nr;
- 	int rctx;
- 	int size;
-@@ -693,9 +696,9 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
- 	if (!sys_data)
- 		return;
- 
--	prog = READ_ONCE(sys_data->exit_event->prog);
- 	head = this_cpu_ptr(sys_data->exit_event->perf_events);
--	if (!prog && hlist_empty(head))
-+	valid_prog_array = bpf_prog_array_valid(sys_data->exit_event);
-+	if (!valid_prog_array && hlist_empty(head))
- 		return;
- 
- 	/* We can probably do that at build time */
-@@ -709,7 +712,8 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
- 	rec->nr = syscall_nr;
- 	rec->ret = syscall_get_return_value(current, regs);
- 
--	if ((prog && !perf_call_bpf_exit(prog, regs, rec)) ||
-+	if ((valid_prog_array &&
-+	     !perf_call_bpf_exit(sys_data->exit_event, regs, rec)) ||
- 	    hlist_empty(head)) {
- 		perf_swevent_put_recursion_context(rctx);
- 		return;
-diff --git a/kernel/trace/trace_uprobe.c b/kernel/trace/trace_uprobe.c
-index 4525e02..153c0e4 100644
---- a/kernel/trace/trace_uprobe.c
-+++ b/kernel/trace/trace_uprobe.c
-@@ -1113,13 +1113,12 @@ static void __uprobe_perf_func(struct trace_uprobe *tu,
- {
- 	struct trace_event_call *call = &tu->tp.call;
- 	struct uprobe_trace_entry_head *entry;
--	struct bpf_prog *prog = call->prog;
- 	struct hlist_head *head;
- 	void *data;
- 	int size, esize;
- 	int rctx;
- 
--	if (prog && !trace_call_bpf(prog, regs))
-+	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
- 		return;
- 
- 	esize = SIZEOF_TRACE_ENTRY(is_ret_probe(tu));
--- 
-2.9.5
+nice work thanks.
+> ---
+>
+> Notes:
+>     v3: * Fix/Clarify commit-log
+>         * Add helper function tcp_fastopen_no_cookie()
+>         * Set tp->fastopen_no_cookie to "val", not 1 in do_tcp_setsockopt().
+>     v2: * Rename to fastopen_no_cookie and TCP_FASTOPEN_NO_COOKIE
+>         * Add per-route attribute for fastopen_no_cookie
+>         * Get rid of the capability check
+>
+>  include/linux/tcp.h            |  3 ++-
+>  include/net/tcp.h              |  3 ++-
+>  include/uapi/linux/rtnetlink.h |  2 ++
+>  include/uapi/linux/tcp.h       |  1 +
+>  net/ipv4/tcp.c                 | 12 ++++++++++++
+>  net/ipv4/tcp_fastopen.c        | 20 +++++++++++++++++---
+>  net/ipv4/tcp_input.c           |  2 +-
+>  7 files changed, 37 insertions(+), 6 deletions(-)
+>
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 1d2c44e09e31..173a7c2f9636 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -215,7 +215,8 @@ struct tcp_sock {
+>         u8      chrono_type:2,  /* current chronograph type */
+>                 rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
+>                 fastopen_connect:1, /* FASTOPEN_CONNECT sockopt */
+> -               unused:4;
+> +               fastopen_no_cookie:1, /* Allow send/recv SYN+data without a cookie */
+> +               unused:3;
+>         u8      nonagle     : 4,/* Disable Nagle algorithm?             */
+>                 thin_lto    : 1,/* Use linear timeouts for thin streams */
+>                 unused1     : 1,
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 2c13484704cb..2392f74074e7 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -1567,7 +1567,8 @@ int tcp_fastopen_reset_cipher(struct net *net, struct sock *sk,
+>  void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb);
+>  struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+>                               struct request_sock *req,
+> -                             struct tcp_fastopen_cookie *foc);
+> +                             struct tcp_fastopen_cookie *foc,
+> +                             const struct dst_entry *dst);
+>  void tcp_fastopen_init_key_once(struct net *net);
+>  bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+>                              struct tcp_fastopen_cookie *cookie);
+> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+> index dab7dad9e01a..fe6679268901 100644
+> --- a/include/uapi/linux/rtnetlink.h
+> +++ b/include/uapi/linux/rtnetlink.h
+> @@ -430,6 +430,8 @@ enum {
+>  #define RTAX_QUICKACK RTAX_QUICKACK
+>         RTAX_CC_ALGO,
+>  #define RTAX_CC_ALGO RTAX_CC_ALGO
+> +       RTAX_FASTOPEN_NO_COOKIE,
+> +#define RTAX_FASTOPEN_NO_COOKIE RTAX_FASTOPEN_NO_COOKIE
+>         __RTAX_MAX
+>  };
+>
+> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
+> index 69c7493e42f8..d67e1d40c6d6 100644
+> --- a/include/uapi/linux/tcp.h
+> +++ b/include/uapi/linux/tcp.h
+> @@ -120,6 +120,7 @@ enum {
+>  #define TCP_ULP                        31      /* Attach a ULP to a TCP connection */
+>  #define TCP_MD5SIG_EXT         32      /* TCP MD5 Signature with extensions */
+>  #define TCP_FASTOPEN_KEY       33      /* Set the key for Fast Open (cookie) */
+> +#define TCP_FASTOPEN_NO_COOKIE 34      /* Enable TFO without a TFO cookie */
+>
+>  struct tcp_repair_opt {
+>         __u32   opt_code;
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 8b1fa4dd4538..02eb2f9cce4f 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2832,6 +2832,14 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>                         err = -EOPNOTSUPP;
+>                 }
+>                 break;
+> +       case TCP_FASTOPEN_NO_COOKIE:
+> +               if (val > 1 || val < 0)
+> +                       err = -EINVAL;
+> +               else if (!((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)))
+> +                       err = -EINVAL;
+> +               else
+> +                       tp->fastopen_no_cookie = val;
+> +               break;
+>         case TCP_TIMESTAMP:
+>                 if (!tp->repair)
+>                         err = -EPERM;
+> @@ -3252,6 +3260,10 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+>                 val = tp->fastopen_connect;
+>                 break;
+>
+> +       case TCP_FASTOPEN_NO_COOKIE:
+> +               val = tp->fastopen_no_cookie;
+> +               break;
+> +
+>         case TCP_TIMESTAMP:
+>                 val = tcp_time_stamp_raw() + tp->tsoffset;
+>                 break;
+> diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+> index 21075ce19cb6..e0a4b56644aa 100644
+> --- a/net/ipv4/tcp_fastopen.c
+> +++ b/net/ipv4/tcp_fastopen.c
+> @@ -310,13 +310,23 @@ static bool tcp_fastopen_queue_check(struct sock *sk)
+>         return true;
+>  }
+>
+> +static bool tcp_fastopen_no_cookie(const struct sock *sk,
+> +                                  const struct dst_entry *dst,
+> +                                  int flag)
+> +{
+> +       return (sock_net(sk)->ipv4.sysctl_tcp_fastopen & flag) ||
+> +              tcp_sk(sk)->fastopen_no_cookie ||
+> +              (dst && dst_metric(dst, RTAX_FASTOPEN_NO_COOKIE));
+> +}
+> +
+>  /* Returns true if we should perform Fast Open on the SYN. The cookie (foc)
+>   * may be updated and return the client in the SYN-ACK later. E.g., Fast Open
+>   * cookie request (foc->len == 0).
+>   */
+>  struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+>                               struct request_sock *req,
+> -                             struct tcp_fastopen_cookie *foc)
+> +                             struct tcp_fastopen_cookie *foc,
+> +                             const struct dst_entry *dst)
+>  {
+>         bool syn_data = TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1;
+>         int tcp_fastopen = sock_net(sk)->ipv4.sysctl_tcp_fastopen;
+> @@ -333,7 +343,8 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+>                 return NULL;
+>         }
+>
+> -       if (syn_data && (tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
+> +       if (syn_data &&
+> +           tcp_fastopen_no_cookie(sk, dst, TFO_SERVER_COOKIE_NOT_REQD))
+>                 goto fastopen;
+>
+>         if (foc->len >= 0 &&  /* Client presents or requests a cookie */
+> @@ -370,6 +381,7 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+>                                struct tcp_fastopen_cookie *cookie)
+>  {
+>         unsigned long last_syn_loss = 0;
+> +       const struct dst_entry *dst;
+>         int syn_loss = 0;
+>
+>         tcp_fastopen_cache_get(sk, mss, cookie, &syn_loss, &last_syn_loss);
+> @@ -387,7 +399,9 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+>                 return false;
+>         }
+>
+> -       if (sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
+> +       dst = __sk_dst_get(sk);
+> +
+> +       if (tcp_fastopen_no_cookie(sk, dst, TFO_CLIENT_NO_COOKIE)) {
+>                 cookie->len = -1;
+>                 return true;
+>         }
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index ab3f12898245..714ba553e545 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -6329,7 +6329,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+>         tcp_openreq_init_rwin(req, sk, dst);
+>         if (!want_cookie) {
+>                 tcp_reqsk_record_syn(sk, req, skb);
+> -               fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc);
+> +               fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc, dst);
+>         }
+>         if (fastopen_sk) {
+>                 af_ops->send_synack(fastopen_sk, dst, &fl, req,
+> --
+> 2.14.1
+>
