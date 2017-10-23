@@ -1,123 +1,113 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: xfrm_user: use BUG_ON instead of if condition followed
- by BUG
-Date: Mon, 23 Oct 2017 13:18:57 -0500
-Message-ID: <20171023181857.GA25379@embeddedor.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: problem with rtnetlink 'reference' count
+Date: Mon, 23 Oct 2017 20:31:58 +0200
+Message-ID: <20171023183158.GI3165@worktop.lehotels.local>
+References: <20171023142555.GF3165@worktop.lehotels.local>
+ <20171023153200.GA12422@breakpoint.cc>
+ <20171023162006.GH3165@worktop.lehotels.local>
+ <20171023163744.GB12422@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([65.50.211.133]:48037 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751388AbdJWScF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:32:05 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20171023163744.GB12422@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use BUG_ON instead of if condition followed by BUG.
+On Mon, Oct 23, 2017 at 06:37:44PM +0200, Florian Westphal wrote:
 
-This issue was detected with the help of Coccinelle.
+> Is refcount_t only supposed to be used with dec_and_test patterns?
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+Yes, for reference counting objects.
+
+> > This rtnetlink_rcv_msg() is called from softirq-context, right? Also,
+> > all that stuff happens with rcu_read_lock() held.
+> 
+> No, its called from process context.
+
+OK, so then why not do something like so?
+
+
 ---
- net/xfrm/xfrm_user.c | 28 ++++++++++------------------
- 1 file changed, 10 insertions(+), 18 deletions(-)
+ net/core/rtnetlink.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 465f3ec..9e8851f 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1152,8 +1152,7 @@ static int xfrm_get_spdinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (r_skb == NULL)
- 		return -ENOMEM;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d4bcdcc68e92..473cabd0a551 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -128,7 +128,6 @@ bool lockdep_rtnl_is_held(void)
+ #endif /* #ifdef CONFIG_PROVE_LOCKING */
  
--	if (build_spdinfo(r_skb, net, sportid, seq, *flags) < 0)
--		BUG();
-+	BUG_ON(build_spdinfo(r_skb, net, sportid, seq, *flags) < 0);
+ static struct rtnl_link __rcu *rtnl_msg_handlers[RTNL_FAMILY_MAX + 1];
+-static refcount_t rtnl_msg_handlers_ref[RTNL_FAMILY_MAX + 1];
  
- 	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
- }
-@@ -1210,8 +1209,7 @@ static int xfrm_get_sadinfo(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (r_skb == NULL)
- 		return -ENOMEM;
+ static inline int rtm_msgindex(int msgtype)
+ {
+@@ -260,10 +259,18 @@ void rtnl_unregister_all(int protocol)
+ 	RCU_INIT_POINTER(rtnl_msg_handlers[protocol], NULL);
+ 	rtnl_unlock();
  
--	if (build_sadinfo(r_skb, net, sportid, seq, *flags) < 0)
--		BUG();
-+	BUG_ON(build_sadinfo(r_skb, net, sportid, seq, *flags) < 0);
++	/*
++	 * XXX explain what this is for...
++	 */
+ 	synchronize_net();
  
- 	return nlmsg_unicast(net->xfrm.nlsk, r_skb, sportid);
- }
-@@ -1958,8 +1956,8 @@ static int xfrm_get_ae(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	c.seq = nlh->nlmsg_seq;
- 	c.portid = nlh->nlmsg_pid;
- 
--	if (build_aevent(r_skb, x, &c) < 0)
--		BUG();
-+	BUG_ON(build_aevent(r_skb, x, &c) < 0);
+-	while (refcount_read(&rtnl_msg_handlers_ref[protocol]) > 1)
+-		schedule();
++	/*
++	 * This serializes against the rcu_read_lock() section in
++	 * rtnetlink_rcv_msg() such that after this, all prior instances have
++	 * completed and future instances must observe the NULL written above.
++	 */
++	synchronize_rcu();
 +
- 	err = nlmsg_unicast(net->xfrm.nlsk, r_skb, NETLINK_CB(skb).portid);
- 	spin_unlock_bh(&x->lock);
- 	xfrm_state_put(x);
-@@ -2393,8 +2391,7 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
- 		return -ENOMEM;
- 
- 	/* build migrate */
--	if (build_migrate(skb, m, num_migrate, k, sel, encap, dir, type) < 0)
--		BUG();
-+	BUG_ON(build_migrate(skb, m, num_migrate, k, sel, encap, dir, type) < 0);
- 
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
+ 	kfree(handlers);
  }
-@@ -2623,8 +2620,7 @@ static int xfrm_aevent_state_notify(struct xfrm_state *x, const struct km_event
- 	if (skb == NULL)
- 		return -ENOMEM;
+ EXPORT_SYMBOL_GPL(rtnl_unregister_all);
+@@ -4203,8 +4210,6 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 				goto err_unlock;
+ 		}
  
--	if (build_aevent(skb, x, c) < 0)
--		BUG();
-+	BUG_ON(build_aevent(skb, x, c) < 0);
+-		refcount_inc(&rtnl_msg_handlers_ref[family]);
+-
+ 		if (type == RTM_GETLINK - RTM_BASE)
+ 			min_dump_alloc = rtnl_calcit(skb, nlh);
  
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_AEVENTS);
- }
-@@ -2836,8 +2832,7 @@ static int xfrm_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *xt,
- 	if (skb == NULL)
- 		return -ENOMEM;
+@@ -4218,7 +4223,6 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			};
+ 			err = netlink_dump_start(rtnl, skb, nlh, &c);
+ 		}
+-		refcount_dec(&rtnl_msg_handlers_ref[family]);
+ 		return err;
+ 	}
  
--	if (build_acquire(skb, x, xt, xp) < 0)
--		BUG();
-+	BUG_ON(build_acquire(skb, x, xt, xp) < 0);
+@@ -4230,12 +4234,10 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
  
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_ACQUIRE);
- }
-@@ -2951,8 +2946,7 @@ static int xfrm_exp_policy_notify(struct xfrm_policy *xp, int dir, const struct
- 	if (skb == NULL)
- 		return -ENOMEM;
+ 	flags = READ_ONCE(handlers[type].flags);
+ 	if (flags & RTNL_FLAG_DOIT_UNLOCKED) {
+-		refcount_inc(&rtnl_msg_handlers_ref[family]);
+ 		doit = READ_ONCE(handlers[type].doit);
+ 		rcu_read_unlock();
+ 		if (doit)
+ 			err = doit(skb, nlh, extack);
+-		refcount_dec(&rtnl_msg_handlers_ref[family]);
+ 		return err;
+ 	}
  
--	if (build_polexpire(skb, xp, dir, c) < 0)
--		BUG();
-+	BUG_ON(build_polexpire(skb, xp, dir, c) < 0);
+@@ -4333,9 +4335,6 @@ void __init rtnetlink_init(void)
+ {
+ 	int i;
  
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_EXPIRE);
- }
-@@ -3112,8 +3106,7 @@ static int xfrm_send_report(struct net *net, u8 proto,
- 	if (skb == NULL)
- 		return -ENOMEM;
+-	for (i = 0; i < ARRAY_SIZE(rtnl_msg_handlers_ref); i++)
+-		refcount_set(&rtnl_msg_handlers_ref[i], 1);
+-
+ 	if (register_pernet_subsys(&rtnetlink_net_ops))
+ 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
  
--	if (build_report(skb, proto, sel, addr) < 0)
--		BUG();
-+	BUG_ON(build_report(skb, proto, sel, addr) < 0);
- 
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_REPORT);
- }
-@@ -3165,8 +3158,7 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
- 	if (skb == NULL)
- 		return -ENOMEM;
- 
--	if (build_mapping(skb, x, ipaddr, sport) < 0)
--		BUG();
-+	BUG_ON(build_mapping(skb, x, ipaddr, sport) < 0);
- 
- 	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MAPPING);
- }
--- 
-2.7.4
