@@ -1,58 +1,78 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4vf: Fix netdev_features flag
-Date: Mon, 23 Oct 2017 15:33:30 +0530
-Message-ID: <1508753010-10643-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
-        Arjun Vynipadath <arjun@chelsio.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:27724 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751200AbdJWKDr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 06:03:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ran Wang <ran.wang_1-3arQi8VN3Tc@public.gmane.org>
+Subject: [PATCH] drivers/net/usb: add device id for TP-LINK UE300 USB 3.0 Ethernet
+Date: Mon, 23 Oct 2017 18:10:23 +0800
+Message-ID: <20171023101023.5470-1-ran.wang_1@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        hayeswang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Ran Wang <ran.wang_1-3arQi8VN3Tc@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arjun Vynipadath <arjun@chelsio.com>
+This product is named 'TP-LINK USB 3.0 Gigabit Ethernet Network
+Adapter (Model No.is UE300)'. It uses chip RTL8153 and works with
+driver drivers/net/usb/r8152.c
 
-GRO is not supported by Chelsio HW when rx_csum is disabled.
-Update the netdev features flag when rx_csum is modified.
-
-Signed-off-by: Arjun Vynipadath <arjun@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+Signed-off-by: Ran Wang <ran.wang_1-3arQi8VN3Tc@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/usb/cdc_ether.c | 8 ++++++++
+ drivers/net/usb/r8152.c     | 2 ++
+ 2 files changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 8996ebb..d6d26bf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2762,6 +2762,16 @@ static int enable_msix(struct adapter *adapter)
- 	return 0;
- }
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 52ea80bcd639..5529bd136624 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -561,6 +561,7 @@ static const struct driver_info wwan_info = {
+ #define HP_VENDOR_ID		0x03f0
+ #define MICROSOFT_VENDOR_ID	0x045e
+ #define UBLOX_VENDOR_ID		0x1546
++#define TPLINK_VENDOR_ID	0x2357
  
-+static netdev_features_t cxgb4vf_fix_features(struct net_device *dev,
-+					      netdev_features_t features)
+ static const struct usb_device_id	products[] = {
+ /* BLACKLIST !!
+@@ -813,6 +814,13 @@ static const struct usb_device_id	products[] = {
+ 	.driver_info = 0,
+ },
+ 
++	/* TP-LINK UE300 USB 3.0 Ethernet Adapters (based on Realtek RTL8153) */
 +{
-+	/* Disable GRO, if RX_CSUM is disabled */
-+	if (!(features & NETIF_F_RXCSUM))
-+		features &= ~NETIF_F_GRO;
++	USB_DEVICE_AND_INTERFACE_INFO(TPLINK_VENDOR_ID, 0x0601, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
 +
-+	return features;
-+}
-+
- static const struct net_device_ops cxgb4vf_netdev_ops	= {
- 	.ndo_open		= cxgb4vf_open,
- 	.ndo_stop		= cxgb4vf_stop,
-@@ -2777,6 +2787,7 @@ static const struct net_device_ops cxgb4vf_netdev_ops	= {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= cxgb4vf_poll_controller,
- #endif
-+	.ndo_fix_features	= cxgb4vf_fix_features,
+ /* WHITELIST!!!
+  *
+  * CDC Ether uses two interfaces, not necessarily consecutive.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 941ece08ba78..d51d9abf7986 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -615,6 +615,7 @@ enum rtl8152_flags {
+ #define VENDOR_ID_LENOVO		0x17ef
+ #define VENDOR_ID_LINKSYS		0x13b1
+ #define VENDOR_ID_NVIDIA		0x0955
++#define VENDOR_ID_TPLINK		0x2357
+ 
+ #define MCU_TYPE_PLA			0x0100
+ #define MCU_TYPE_USB			0x0000
+@@ -5319,6 +5320,7 @@ static const struct usb_device_id rtl8152_table[] = {
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LENOVO,  0x7214)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_LINKSYS, 0x0041)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_NVIDIA,  0x09ff)},
++	{REALTEK_USB_DEVICE(VENDOR_ID_TPLINK,  0x0601)},
+ 	{}
  };
  
- /*
 -- 
-2.1.0
+2.14.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
