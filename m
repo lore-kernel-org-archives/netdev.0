@@ -1,102 +1,116 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net-next] ipv6: add ip6_null_entry check in rt6_select()
-Date: Mon, 23 Oct 2017 14:59:35 -0700
-Message-ID: <20171023215935.52136-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net 00/15] net_sched: remove RCU callbacks from TC
+Date: Mon, 23 Oct 2017 15:02:49 -0700
+Message-ID: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
+Cc: paulmck@linux.vnet.ibm.com, jhs@mojatatu.com,
+        john.fastabend@gmail.com, Chris Mi <chrism@mellanox.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:53965 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751299AbdJWV7z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 17:59:55 -0400
-Received: by mail-pf0-f196.google.com with SMTP id t188so18103872pfd.10
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 14:59:55 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:54736 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751113AbdJWWDc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:03:32 -0400
+Received: by mail-pf0-f194.google.com with SMTP id n89so18090687pfk.11
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:03:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+Recently, the RCU callbacks used in TC filters and TC actions keep
+drawing my attention, they introduce at least 4 race condition bugs:
 
-In rt6_select(), fn->leaf could be pointing to net->ipv6.ip6_null_entry.
-In this case, we should directly return instead of trying to carry on
-with the rest of the process.
-If not, we could crash at:
-  spin_lock_bh(&leaf->rt6i_table->rt6_lock);
-because net->ipv6.ip6_null_entry does not have rt6i_table set.
+1. A simple one fixed by Daniel:
 
+commit c78e1746d3ad7d548bdf3fe491898cc453911a49
+Author: Daniel Borkmann <daniel@iogearbox.net>
+Date:   Wed May 20 17:13:33 2015 +0200
 
-Syzkaller recently reported following issue on net-next:
-Use struct sctp_sack_info instead
-kasan: CONFIG_KASAN_INLINE enabled
-kasan: GPF could be caused by NULL-ptr deref or user memory access
-general protection fault: 0000 [#1] SMP KASAN
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Modules linked in:
-sctp: [Deprecated]: syz-executor4 (pid 26496) Use of struct sctp_assoc_value in delayed_ack socket option.
-Use struct sctp_sack_info instead
-CPU: 1 PID: 26523 Comm: syz-executor6 Not tainted 4.14.0-rc4+ #85
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
-task: ffff8801d147e3c0 task.stack: ffff8801a4328000
-RIP: 0010:debug_spin_lock_before kernel/locking/spinlock_debug.c:83 [inline]
-RIP: 0010:do_raw_spin_lock+0x23/0x1e0 kernel/locking/spinlock_debug.c:112
-RSP: 0018:ffff8801a432ed70 EFLAGS: 00010207
-RAX: dffffc0000000000 RBX: 0000000000000018 RCX: 0000000000000000
-RDX: 0000000000000003 RSI: 0000000000000000 RDI: 000000000000001c
-RBP: ffff8801a432ed90 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000000 R11: ffffffff8482b279 R12: ffff8801ce2ff3a0
-sctp: [Deprecated]: syz-executor1 (pid 26546) Use of int in maxseg socket option.
-Use struct sctp_assoc_value instead
-R13: dffffc0000000000 R14: ffff8801d971e000 R15: ffff8801ce2ff0d8
-FS:  00007f56e82f5700(0000) GS:ffff8801db300000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000001ddbc22000 CR3: 00000001a4a04000 CR4: 00000000001406e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-Call Trace:
- __raw_spin_lock_bh include/linux/spinlock_api_smp.h:136 [inline]
- _raw_spin_lock_bh+0x39/0x40 kernel/locking/spinlock.c:175
- spin_lock_bh include/linux/spinlock.h:321 [inline]
- rt6_select net/ipv6/route.c:786 [inline]
- ip6_pol_route+0x1be3/0x3bd0 net/ipv6/route.c:1650
-sctp: [Deprecated]: syz-executor1 (pid 26576) Use of int in maxseg socket option.
-Use struct sctp_assoc_value instead
-TCP: request_sock_TCPv6: Possible SYN flooding on port 20002. Sending cookies.  Check SNMP counters.
- ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1843
- fib6_rule_lookup+0x9e/0x2a0 net/ipv6/ip6_fib.c:309
- ip6_route_output_flags+0x1f1/0x2b0 net/ipv6/route.c:1871
- ip6_route_output include/net/ip6_route.h:80 [inline]
- ip6_dst_lookup_tail+0x4ea/0x970 net/ipv6/ip6_output.c:953
- ip6_dst_lookup_flow+0xc8/0x270 net/ipv6/ip6_output.c:1076
- sctp_v6_get_dst+0x675/0x1c30 net/sctp/ipv6.c:274
- sctp_transport_route+0xa8/0x430 net/sctp/transport.c:287
- sctp_assoc_add_peer+0x4fe/0x1100 net/sctp/associola.c:656
- __sctp_connect+0x251/0xc80 net/sctp/socket.c:1187
- sctp_connect+0xb4/0xf0 net/sctp/socket.c:4209
- inet_dgram_connect+0x16b/0x1f0 net/ipv4/af_inet.c:541
- SYSC_connect+0x20a/0x480 net/socket.c:1642
- SyS_connect+0x24/0x30 net/socket.c:1623
- entry_SYSCALL_64_fastpath+0x1f/0xbe
+    net: sched: fix call_rcu() race on classifier module unloads
 
-Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/route.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+2. A very nasty one fixed by me:
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 46c59a53c53f..605e5dc1c010 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -752,7 +752,7 @@ static struct rt6_info *rt6_select(struct net *net, struct fib6_node *fn,
- 	bool do_rr = false;
- 	int key_plen;
- 
--	if (!leaf)
-+	if (!leaf || leaf == net->ipv6.ip6_null_entry)
- 		return net->ipv6.ip6_null_entry;
- 
- 	rt0 = rcu_dereference(fn->rr_ptr);
+commit 1697c4bb5245649a23f06a144cc38c06715e1b65
+Author: Cong Wang <xiyou.wangcong@gmail.com>
+Date:   Mon Sep 11 16:33:32 2017 -0700
+
+    net_sched: carefully handle tcf_block_put()
+
+3. Two more bugs found by Chris:
+https://patchwork.ozlabs.org/patch/826696/
+https://patchwork.ozlabs.org/patch/826695/
+
+Usually RCU callbacks are simple, however for TC filters and actions,
+they are complex because at least TC actions could be destroyed
+together with the TC filter in one callback. And RCU callbacks are
+invoked in BH context, without locking they are parallel too. All of
+these contribute to the cause of these nasty bugs. It looks like they
+bring us more troubles than benefits.
+
+Alternatively, we could also:
+
+a) Introduce a spinlock to serialize these RCU callbacks. But as I
+said in commit 1697c4bb5245 ("net_sched: carefully handle
+tcf_block_put()"), it is very hard to do because of tcf_chain_dump().
+Potentially we need to do a lot of work to make it possible, if not
+impossible.
+
+b) As suggested by Paul, we could defer the work to a workqueue and
+gain the permission of holding RTNL again without any performance
+impact, however, this seems impossible too, because as lockdep
+complains we have a deadlock when flushing workqueue while hodling
+RTNL lock, see the rcu_barrier() in tcf_block_put().
+
+Therefore, the simplest solution we have is probably just getting
+rid of these RCU callbacks, because they are not necessary at all,
+callers of these call_rcu() are all on slow paths and have RTNL
+lock, so blocking is allowed in their contexts.
+
+The downside is this could hurt the performance of deleting TC
+filters, but again it is not a hot path and I already batch
+synchronize_rcu() whenever needed.
+
+Different filters have different data structures, so please also
+see each patch for details.
+
+Chris Mi (2):
+  selftests: Introduce a new script to generate tc batch file
+  selftests: Introduce a new test case to tc testsuite
+
+Cong Wang (13):
+  net_sched: remove RCU callbacks in basic filter
+  net_sched: remove RCU callbacks in bpf filter
+  net_sched: remove RCU callbacks in flower filter
+  net_sched: remove RCU callbacks in matchall filter
+  net_sched: remove RCU callbacks in cgroup filter
+  net_sched: remove RCU callbacks in rsvp filter
+  net_sched: remove RCU callbacks in flow filter
+  net_sched: remove RCU callbacks in tcindex filter
+  net_sched: remove RCU callbacks in u32 filter
+  net_sched: remove RCU callbacks in fw filter
+  net_sched: remove RCU callbacks in route filter
+  net_sched: remove RCU callbacks in sample action
+  net_sched: add rtnl assertion to tcf_exts_destroy()
+
+ include/net/tc_act/tc_sample.h                     |  1 -
+ net/sched/act_sample.c                             | 12 +---
+ net/sched/cls_api.c                                |  1 +
+ net/sched/cls_basic.c                              | 23 ++++----
+ net/sched/cls_bpf.c                                | 22 ++++----
+ net/sched/cls_cgroup.c                             | 18 +++---
+ net/sched/cls_flow.c                               | 24 ++++----
+ net/sched/cls_flower.c                             | 46 +++++-----------
+ net/sched/cls_fw.c                                 | 18 +++---
+ net/sched/cls_matchall.c                           |  9 +--
+ net/sched/cls_route.c                              | 21 +++----
+ net/sched/cls_rsvp.h                               | 13 +----
+ net/sched/cls_tcindex.c                            | 35 +++++-------
+ net/sched/cls_u32.c                                | 64 ++++++----------------
+ .../tc-testing/tc-tests/filters/tests.json         | 23 +++++++-
+ tools/testing/selftests/tc-testing/tdc.py          | 20 +++++--
+ tools/testing/selftests/tc-testing/tdc_batch.py    | 62 +++++++++++++++++++++
+ tools/testing/selftests/tc-testing/tdc_config.py   |  2 +
+ 18 files changed, 222 insertions(+), 192 deletions(-)
+ create mode 100644 tools/testing/selftests/tc-testing/tdc_batch.py
+
 -- 
-2.15.0.rc0.271.g36b669edcc-goog
+2.13.0
