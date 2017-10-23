@@ -1,57 +1,54 @@
 From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v2 1/3] bpf: use the same condition in perf event set/free bpf handler
-Date: Mon, 23 Oct 2017 15:13:29 -0700
-Message-ID: <20171023221331.4131164-2-yhs@fb.com>
-References: <20171023221331.4131164-1-yhs@fb.com>
+Subject: [PATCH net-next v2 0/3] bpf: permit multiple bpf attachments for a single perf tracepoint event
+Date: Mon, 23 Oct 2017 15:13:28 -0700
+Message-ID: <20171023221331.4131164-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
         <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:33058 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751266AbdJWWNf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:13:35 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v9NM8cIk010331
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:34 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58408 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932195AbdJWWNp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:13:45 -0400
+Received: from pps.filterd (m0109331.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9NMD5tj021358
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:45 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 2dsm3b92n7-2
+        by mx0a-00082601.pphosted.com with ESMTP id 2dsjgc9f5h-5
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:34 -0700
-In-Reply-To: <20171023221331.4131164-1-yhs@fb.com>
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:45 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a cleanup such that doing the same check in
-perf_event_free_bpf_prog as we already do in
-perf_event_set_bpf_prog step.
+This patch set adds support to permit multiple bpf prog attachments
+for a single perf tracepoint event. Patch 1 does some cleanup such
+that perf_event_{set|free}_bpf_handler is called under the
+same condition. Patch 2 has the core implementation, and
+Patch 3 adds a test case.
 
-Signed-off-by: Yonghong Song <yhs@fb.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
----
- kernel/events/core.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Changelogs:
+v1 -> v2:
+  . fix a potential deadlock issue discovered by Daniel.
+  . fix some coding style issues.
 
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 31ee304..9f78a682 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -8191,10 +8191,10 @@ static void perf_event_free_bpf_prog(struct perf_event *event)
- {
- 	struct bpf_prog *prog;
- 
--	perf_event_free_bpf_handler(event);
--
--	if (!event->tp_event)
-+	if (event->attr.type != PERF_TYPE_TRACEPOINT) {
-+		perf_event_free_bpf_handler(event);
- 		return;
-+	}
- 
- 	prog = event->tp_event->prog;
- 	if (prog && event->tp_event->bpf_prog_owner == event) {
+Yonghong Song (3):
+  bpf: use the same condition in perf event set/free bpf handler
+  bpf: permit multiple bpf attachments for a single perf event
+  bpf: add a test case to test single tp multiple bpf attachment
+
+ include/linux/bpf.h           | 30 +++++++++++++---
+ include/linux/trace_events.h  | 33 ++++++++++++++---
+ include/trace/perf.h          |  6 ++--
+ kernel/bpf/core.c             | 81 ++++++++++++++++++++++++++++++++++++++++++
+ kernel/events/core.c          | 30 ++++++----------
+ kernel/trace/bpf_trace.c      | 82 ++++++++++++++++++++++++++++++++++++++++---
+ kernel/trace/trace_kprobe.c   |  6 ++--
+ kernel/trace/trace_syscalls.c | 34 ++++++++++--------
+ kernel/trace/trace_uprobe.c   |  3 +-
+ samples/bpf/syscall_tp_user.c | 66 +++++++++++++++++++++++++++-------
+ 10 files changed, 300 insertions(+), 71 deletions(-)
+
 -- 
 2.9.5
