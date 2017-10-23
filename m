@@ -1,59 +1,70 @@
-From: Tim Hansen <devtimhansen@gmail.com>
-Subject: Re: [PATCH v2] net/sock: Update sk rcu iterator macro.
-Date: Mon, 23 Oct 2017 15:37:04 -0400
-Message-ID: <20171023193704.ekusped6ampujgqv@debian>
-References: <20171023153922.orgvwmuvokv6xbi4@debian>
- <20171023184247.p54glyvdkgaxht2f@sasha-lappy>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: problem with rtnetlink 'reference' count
+Date: Mon, 23 Oct 2017 21:37:03 +0200
+Message-ID: <20171023193703.GA19457@breakpoint.cc>
+References: <20171023142555.GF3165@worktop.lehotels.local>
+ <20171023153200.GA12422@breakpoint.cc>
+ <20171023162006.GH3165@worktop.lehotels.local>
+ <20171023163744.GB12422@breakpoint.cc>
+ <20171023183158.GI3165@worktop.lehotels.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Florian Westphal <fw@strlen.de>,
+        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44954 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751733AbdJWThT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 15:37:19 -0400
 Content-Disposition: inline
-In-Reply-To: <20171023184247.p54glyvdkgaxht2f@sasha-lappy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20171023183158.GI3165@worktop.lehotels.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Oct 23, 2017 at 06:42:50PM +0000, Levin, Alexander (Sasha Levin) wrote:
-> On Mon, Oct 23, 2017 at 11:39:22AM -0400, Tim Hansen wrote:
-> >Mark hlist nodes in sk rcu iterator as protected by the rcu.
-> >hlist_next_rcu accomplishes this and silences the warnings
-> >sparse throws for net/ipv4/udp.c and net/ipv6/udp.c.
-> >
-> >Found with make C=1 net/ipv4/udp.o on linux-next tag
-> >next-20171009.
-> >
-> >Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
-> >---
-> > include/net/sock.h | 4 ++--
-> > 1 file changed, 2 insertions(+), 2 deletions(-)
-> >
-> >diff --git a/include/net/sock.h b/include/net/sock.h
-> >index 64e5ac41b9cf..96cb7b7e4924 100644
-> >--- a/include/net/sock.h
-> >+++ b/include/net/sock.h
-> >@@ -737,10 +737,10 @@ static inline void sk_add_bind_node(struct sock *sk,
-> >  *
-> >  */
-> > #define sk_for_each_entry_offset_rcu(tpos, pos, head, offset)		       \
-> >-	for (pos = rcu_dereference((head)->first);			       \
-> >+	for (pos = rcu_dereference(hlist_next_rcu((head)->first));	       \
+Peter Zijlstra <peterz@infradead.org> wrote:
+> On Mon, Oct 23, 2017 at 06:37:44PM +0200, Florian Westphal wrote:
 > 
-> See below.
+> > Is refcount_t only supposed to be used with dec_and_test patterns?
 > 
-> > 	     pos != NULL &&						       \
-> > 		({ tpos = (typeof(*tpos) *)((void *)pos - offset); 1;});       \
-> >-	     pos = rcu_dereference(pos->next))
-> >+	     pos = rcu_dereference(hlist_next_rcu(pos->next)))
-> 
-> This will return the next-next node instead of just the next one. You
-> probably want just hlist_next_rcu(pos) here.
-> 
-> -- 
-> 
-> Thanks,
-> Sasha
+> Yes, for reference counting objects.
 
-Thanks Sasha, dumb oversight on my part. Sent in v3 of this patch.
+Hmm, I still feel its appropriate, but anyway:
+
+> > > This rtnetlink_rcv_msg() is called from softirq-context, right? Also,
+> > > all that stuff happens with rcu_read_lock() held.
+> > 
+> > No, its called from process context.
+> 
+> OK, so then why not do something like so?
+> @@ -260,10 +259,18 @@ void rtnl_unregister_all(int protocol)
+>  	RCU_INIT_POINTER(rtnl_msg_handlers[protocol], NULL);
+>  	rtnl_unlock();
+>  
+> +	/*
+> +	 * XXX explain what this is for...
+> +	 */
+>  	synchronize_net();
+>  
+> -	while (refcount_read(&rtnl_msg_handlers_ref[protocol]) > 1)
+> -		schedule();
+> +	/*
+> +	 * This serializes against the rcu_read_lock() section in
+> +	 * rtnetlink_rcv_msg() such that after this, all prior instances have
+> +	 * completed and future instances must observe the NULL written above.
+> +	 */
+> +	synchronize_rcu();
+
+Yes, but that won't help with running dumpers, see below.
+
+> @@ -4218,7 +4223,6 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  			};
+>  			err = netlink_dump_start(rtnl, skb, nlh, &c);
+
+This will copy .dumper function address to nlh->cb for later invocation
+when dump gets resumed (its called from netlink_recvmsg()),
+so this can return to userspace and dump can be resumed on next recv().
+
+Because the dumper function was stored in the socket, NULLing the
+rtnl_msg_handlers[] only prevents new dumps from starting but not
+already set-up dumps from resuming.
