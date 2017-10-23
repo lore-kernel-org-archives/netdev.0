@@ -1,35 +1,37 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 12/12] tools: bpftool: update documentation for
- --json and --pretty usage
-Date: Mon, 23 Oct 2017 22:34:14 +0200
-Message-ID: <59EE5246.4040409@iogearbox.net>
-References: <20171023162416.32753-1-jakub.kicinski@netronome.com> <20171023162416.32753-13-jakub.kicinski@netronome.com>
+Subject: Re: [net-next PATCH] bpf: cpumap fix potential lost wake-up problem
+Date: Mon, 23 Oct 2017 22:34:37 +0200
+Message-ID: <59EE525D.6090903@iogearbox.net>
+References: <150878036830.4768.8540758939081367484.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
-        Quentin Monnet <quentin.monnet@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
+Cc: Rik van Riel <riel@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:42080 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:42124 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbdJWUeP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 16:34:15 -0400
-In-Reply-To: <20171023162416.32753-13-jakub.kicinski@netronome.com>
+        with ESMTP id S1751216AbdJWUej (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 16:34:39 -0400
+In-Reply-To: <150878036830.4768.8540758939081367484.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2017 06:24 PM, Jakub Kicinski wrote:
-> From: Quentin Monnet <quentin.monnet@netronome.com>
+On 10/23/2017 07:39 PM, Jesper Dangaard Brouer wrote:
+> As pointed out by Michael, commit 1c601d829ab0 ("bpf: cpumap xdp_buff
+> to skb conversion and allocation") contains a classical example of the
+> potential lost wake-up problem.
 >
-> Update the documentation to provide help about JSON output generation,
-> and add an example in bpftool-prog manual page.
+> We need to recheck the condition __ptr_ring_empty() after changing
+> current->state to TASK_INTERRUPTIBLE, this avoids a race between
+> wake_up_process() and schedule(). After this, a race with
+> wake_up_process() will simply change the state to TASK_RUNNING, and
+> the schedule() call not really put us to sleep.
 >
-> Also reintroduce an example that was left aside when the tool was moved
-> from GitHub to the kernel sources, in order to show how to mount the
-> bpffs file system (to pin programs) inside the bpftool-prog manual page.
->
-> Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
+> Fixes: 1c601d829ab0 ("bpf: cpumap xdp_buff to skb conversion and allocation")
+> Reported-by: "Michael S. Tsirkin" <mst@redhat.com>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+SOB missing ...
