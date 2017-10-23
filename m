@@ -1,119 +1,32 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH v2 2/2] net: netrom: refactor code in nr_add_node
-Date: Sun, 22 Oct 2017 20:08:40 -0500
-Message-ID: <20171023010840.GA32460@embeddedor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 2/2] net: netrom: refactor code in nr_add_node
+Date: Mon, 23 Oct 2017 02:18:13 +0100 (WEST)
+Message-ID: <20171023.021813.1166611788274727571.davem@davemloft.net>
 References: <20171022194136.Horde.CG1baKiAVuDlzYkA6GaU9Xb@gator4166.hostgator.com>
+        <20171023010840.GA32460@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Ralf Baechle <ralf@linux-mips.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        walter harms <wharms@bfs.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ralf@linux-mips.org, wharms@bfs.de, linux-hams@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: garsilva@embeddedor.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20171022194136.Horde.CG1baKiAVuDlzYkA6GaU9Xb@gator4166.hostgator.com>
+In-Reply-To: <20171023010840.GA32460@embeddedor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Code refactoring in order to make it easier to read and maintain.
+From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
+Date: Sun, 22 Oct 2017 20:08:40 -0500
 
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
----
-This code was tested by compilation only.
+> Code refactoring in order to make it easier to read and maintain.
+> 
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-Changes in v2:
- Make use of the swap macro and remove inline keyword.
+Gustavo, always when reposting a new version of a patch that is part of
+a series you must _always_ repost the entire patch series.
 
- net/netrom/nr_route.c | 59 ++++++++++++++-------------------------------------
- 1 file changed, 16 insertions(+), 43 deletions(-)
+Also, a proper patch series must begine with a "[PATCH 0/2] ..."
+header posting explaining at a high level what the patch series
+is doing, how it is doing it, and why it is doing it that way.
 
-diff --git a/net/netrom/nr_route.c b/net/netrom/nr_route.c
-index fc9cadc..505e142 100644
---- a/net/netrom/nr_route.c
-+++ b/net/netrom/nr_route.c
-@@ -80,6 +80,19 @@ static struct nr_neigh *nr_neigh_get_dev(ax25_address *callsign,
- 
- static void nr_remove_neigh(struct nr_neigh *);
- 
-+/*      re-sort the routes in quality order.    */
-+static void re_sort_routes(struct nr_node *nr_node, int x, int y)
-+{
-+	if (nr_node->routes[y].quality > nr_node->routes[x].quality) {
-+		if (nr_node->which == x)
-+			nr_node->which = y;
-+		else if (nr_node->which == y)
-+			nr_node->which = x;
-+
-+		swap(nr_node->routes[x], nr_node->routes[y]);
-+	}
-+}
-+
- /*
-  *	Add a new route to a node, and in the process add the node and the
-  *	neighbour if it is new.
-@@ -90,7 +103,6 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
- {
- 	struct nr_node  *nr_node;
- 	struct nr_neigh *nr_neigh;
--	struct nr_route nr_route;
- 	int i, found;
- 	struct net_device *odev;
- 
-@@ -251,50 +263,11 @@ static int __must_check nr_add_node(ax25_address *nr, const char *mnemonic,
- 	/* Now re-sort the routes in quality order */
- 	switch (nr_node->count) {
- 	case 3:
--		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
--			switch (nr_node->which) {
--			case 0:
--				nr_node->which = 1;
--				break;
--			case 1:
--				nr_node->which = 0;
--				break;
--			}
--			nr_route           = nr_node->routes[0];
--			nr_node->routes[0] = nr_node->routes[1];
--			nr_node->routes[1] = nr_route;
--		}
--		if (nr_node->routes[2].quality > nr_node->routes[1].quality) {
--			switch (nr_node->which) {
--			case 1:  nr_node->which = 2;
--				break;
--
--			case 2:  nr_node->which = 1;
--				break;
--
--			default:
--				break;
--			}
--			nr_route           = nr_node->routes[1];
--			nr_node->routes[1] = nr_node->routes[2];
--			nr_node->routes[2] = nr_route;
--		}
-+		re_sort_routes(nr_node, 0, 1);
-+		re_sort_routes(nr_node, 1, 2);
- 		/* fall through */
- 	case 2:
--		if (nr_node->routes[1].quality > nr_node->routes[0].quality) {
--			switch (nr_node->which) {
--			case 0:  nr_node->which = 1;
--				break;
--
--			case 1:  nr_node->which = 0;
--				break;
--
--			default: break;
--			}
--			nr_route           = nr_node->routes[0];
--			nr_node->routes[0] = nr_node->routes[1];
--			nr_node->routes[1] = nr_route;
--			}
-+		re_sort_routes(nr_node, 0, 1);
- 	case 1:
- 		break;
- 	}
--- 
-2.7.4
+Thank you.
