@@ -1,135 +1,57 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
- NVRAM config param
-Date: Mon, 23 Oct 2017 18:41:15 +0000
-Message-ID: <AM0PR0502MB3683509900B39F641CC08DCBBF460@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
- <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
- <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <20171019213955.GG1978@nanopsycho.orion>
- <CA+Jmh7HCC-CgU16E8vSm541KnNUKZUgWfT0tPVx73cJxREC0Ag@mail.gmail.com>
- <20171020141010.GB1994@nanopsycho.orion>
- <CA+Jmh7FT789PfH908KK+x1+ehrvbiaaovori1w9yWe7+CFhFTg@mail.gmail.com>
- <AM0PR0502MB368337378712D3A48EDEF6C8BF400@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <CA+Jmh7H3QD4W6OrVwny7CXVppGZ4R6GeTh30Sm9sTikk7560dQ@mail.gmail.com>
- <AM0PR0502MB3683E269475F183C7953B8B3BF460@AM0PR0502MB3683.eurprd05.prod.outlook.com>
- <CA+Jmh7F-8JXoHG78W-Pn_XndzDGK3MQ2QSMRkiU3g73zDA=AhQ@mail.gmail.com>
+From: "Levin, Alexander (Sasha Levin)" <alexander.levin@verizon.com>
+Subject: Re: [PATCH v2] net/sock: Update sk rcu iterator macro.
+Date: Mon, 23 Oct 2017 18:42:50 +0000
+Message-ID: <20171023184247.p54glyvdkgaxht2f@sasha-lappy>
+References: <20171023153922.orgvwmuvokv6xbi4@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jiri Pirko <jiri@resnulli.us>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>
-To: Steve Lin <steven.lin1@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0050.outbound.protection.outlook.com ([104.47.0.50]:5968
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751662AbdJWSlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Oct 2017 14:41:20 -0400
-In-Reply-To: <CA+Jmh7F-8JXoHG78W-Pn_XndzDGK3MQ2QSMRkiU3g73zDA=AhQ@mail.gmail.com>
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Tim Hansen <devtimhansen@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171023153922.orgvwmuvokv6xbi4@debian>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-ID: <883DF4C80EEA00428803DCF4B6E2F5B2@vzwcorp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+PiA+PiBPbiBGcmksIE9jdCAyMCwgMjAxNyBhdCAxMDoxMCBBTSwgSmlyaSBQaXJrbyA8amly
-aUByZXNudWxsaS51cz4gd3JvdGU6DQo+ID4+ID4+ID4gRnJpLCBPY3QgMjAsIDIwMTcgYXQgMDQ6
-MDM6NTVQTSBDRVNULCBzdGV2ZW4ubGluMUBicm9hZGNvbS5jb20NCj4gd3JvdGU6DQo+ID4+ID4+
-ID4+T24gVGh1LCBPY3QgMTksIDIwMTcgYXQgNTozOSBQTSwgSmlyaSBQaXJrbyA8amlyaUByZXNu
-dWxsaS51cz4gd3JvdGU6DQo+ID4+ID4+ID4+PiBUaHUsIE9jdCAxOSwgMjAxNyBhdCAxMDozMjoy
-MVBNIENFU1QsIHl1dmFsbUBtZWxsYW5veC5jb20NCj4gd3JvdGU6DQo+ID4+ID4+ID4+Pj4+IEFk
-ZGluZyBERVZMSU5LX1BFUk1fQ09ORklHX01TSVhfVkVDVE9SU19QRVJfVkYNCj4gPj4gPj4gcGVy
-bWFuZW50DQo+ID4+ID4+ID4+Pj4+IGNvbmZpZw0KPiA+PiA+PiA+Pj4+PiBwYXJhbWV0ZXIuICBE
-ZWZpbmVzIG51bWJlciBvZiBNU0ktWCB2ZWN0b3JzIGFsbG9jYXRlZCBwZXIgVkYuDQo+ID4+ID4+
-ID4+Pj4+IFZhbHVlIGlzIHBlcm1hbmVudCAoc3RvcmVkIGluIE5WUkFNKSwgc28gYmVjb21lcyB0
-aGUgbmV3DQo+ID4+IGRlZmF1bHQNCj4gPj4gPj4gPj4+Pj4gdmFsdWUgZm9yIHRoaXMgZGV2aWNl
-Lg0KPiA+PiA+PiA+Pj4+DQo+ID4+ID4+ID4+Pj5Tb3VuZHMgbGlrZSB5b3UncmUgaGF2aW5nIHRo
-aXMgZW5mb3JjZSB0aGUgc2FtZSBjb25maWd1cmF0aW9uIGZvcg0KPiBhbGwNCj4gPj4gPj4gY2hp
-bGQgVkZzLg0KPiA+PiA+PiA+Pj4NCj4gPj4gPj4gPj4+IFllYWgsIHRoaXMgc291bmRzIGxpa2Ug
-cGVyLXBvcnQgY29uZmlnLg0KPiA+PiA+PiA+Pj4NCj4gPj4gPj4gPj4NCj4gPj4gPj4gPj5XZWxs
-LCBpdCBnZXRzIGEgbGl0dGxlIHRyaWNreSBoZXJlLiAgSSBhc3N1bWUgc29tZSBjYXJkcyBoYW5k
-bGUgdGhpcw0KPiA+PiA+PiA+PnBlci1wb3J0LiAgT3RoZXIgY2FyZHMgbWlnaHQgaGFuZGxlIHRo
-aXMgcGVyIFBGLCB3aGVyZSBQRiBtYXkgbm90DQo+ID4+ID4+ID4+YWx3YXlzIGNvcnJlc3BvbmQg
-MToxIHdpdGggYSBwb3J0LiAgQW5kIHNvbWUgY2FyZHMgbWF5YmUganVzdA0KPiBhbGxvdyBhDQo+
-ID4+ID4+ID4+c2luZ2xlIHZhbHVlIGZvciB0aGlzIHBhcmFtZXRlciBmb3IgdGhlIGVudGlyZSBj
-YXJkLCBjb3ZlcmluZyBhbGwNCj4gPj4gPj4gPj5wb3J0cy9QRnMuDQo+ID4+ID4+ID4+DQo+ID4+
-ID4+ID4+VG8ga2VlcCB0aGluZ3Mgc2ltcGxlIGFuZCBhcyBnZW5lcmFsIGFzIHBvc3NpYmxlLCBp
-dCBtYWRlIHNlbnNlIHRvDQo+IHNldA0KPiA+PiA+PiA+PmFsbCBwYXJhbWV0ZXJzIG9uIGEgcGVy
-LVBDSSBkZXZpY2UgbGV2ZWwuICBBcyBJIG1lbnRpb25lZCBpbiBteQ0KPiA+PiA+PiA+PmNvdmVy
-LWxldHRlciwgdGhlIGRldmljZXMgbW9zdCBsaWtlbHkgdG8gdXNlIHRoZXNlIHByb3Bvc2VkDQo+
-IGNvbW1hbmRzDQo+ID4+ID4+ID4+ZG8gbm90IGhhdmUgYSBzaW5nbGUgIndob2xlIGFzaWMiIFBD
-SSBiL2QvZiB3aXRoIGludGVybmFsIG1lY2hhbmlzbQ0KPiA+PiA+PiA+PmZvciBhY2Nlc3Npbmcg
-cG9ydHMgLSBtb3N0IGV4cG9zZSBlYWNoIHBvcnQgKGFuZCBlYWNoIGZ1bmN0aW9uIG9uDQo+IGVh
-Y2gNCj4gPj4gPj4gPj5wb3J0KSBhcyBhIHNlcGFyYXRlIFBDSSBiL2QvZiwgd2l0aCBubyBzZXBh
-cmF0ZSAid2hvbGUgYXNpYyIgUENJDQo+ID4+ID4+ID4+Yi9kL2YuICBUaGF0J3MgaG93IHRoZSBC
-Q00gY2FyZHMgd29yaywgYW5kIEkgdGhpbmsgdGhhdCdzIGhvdyB0aGUNCj4gPj4gTUxOWA0KPiA+
-PiA+PiA+PmNhcmRzIHdvcmssIGFuZCBvdGhlcnMgdGhhdCB3b3VsZCBiZSBsaWtlbHkgdG8gdXNl
-IHRoZXNlIGNtZHMuDQo+ID4+ID4+ID4+DQo+ID4+ID4+ID4+U28sIHRvIHN1bW1hcml6ZSwgeW91
-IGRpcmVjdCB0aGUgY29tbWFuZCB0byB0aGUgUENJIGIvZC9mIHlvdQ0KPiB3YW50DQo+ID4+IHRv
-DQo+ID4+ID4+ID4+dGFyZ2V0LiAgRG9lcyB0aGlzIG1ha2Ugc2Vuc2U/DQo+ID4+ID4+ID4NCj4g
-Pj4gPj4gPiBTbyB5b3UgcGxhbiB0byBoYXZlIDEgZGV2bGluayBpbnN0YW5jZSBmb3IgZWFjaCB2
-Zj8gTm90IHN1cmUgdGhhdA0KPiA+PiA+PiA+IGRvZXMgc291bmQgcmlnaHQgdG8gbWUgOi8NCj4g
-Pj4gPj4gPg0KPiA+PiA+Pg0KPiA+PiA+PiBGb3IgdGhlIGNvbW1hbmRzIHByb3Bvc2VkIGluIHRo
-aXMgcGF0Y2hzZXQsIEFGQUlLIHRoZXkgYWxsIGFwcGx5IG9uIGENCj4gPj4gPj4gcGVyLVBGIG9y
-IGJyb2FkZXIsIGkuZS4gcGVyLXBvcnQgb3Igd2hvbGUtY2FyZCwgZ3JhbnVsYXJpdHksIHNpbmNl
-DQo+ID4+ID4+IHRoZXkgYWZmZWN0IHBlcm1hbmVudCBjb25maWcgdGhhdCBhcHBsaWVzIGF0IGJv
-b3QtdXAuICBTbywgbm8sIHRoZSBWRnMNCj4gPj4gPj4gZG9uJ3QgcmVhbGx5IGNvbWUgaW50byBw
-bGF5IGhlcmUuDQo+ID4+ID4NCj4gPj4gPiBSZWdhcmRsZXNzIG9mIHdoZXRoZXIgeW91J3JlIHBs
-YW5uaW5nIG9uIGhhdmluZyBWRnMgYXMgZGV2bGluaw0KPiBpbnN0YW5jZXMsDQo+ID4+ID4gdGhl
-IGFjdHVhbCBhdHRyaWJ1dGUgcXVlc3Rpb24gcmVtYWlucyAtDQo+ID4+ID4geW91J3JlIHByb3Bv
-c2luZyBhbiBhdHRyaWJ1dGUgdGhhdCBmb3JjZXMgYWxsIFZGcyB0byBoYXZlIHRoZSBzYW1lIHZh
-bHVlLg0KPiA+PiA+IFRoaXMgcHJvYmFibHkgc3VpdHMgeW91ciBQQ0kgY29yZSBsaW1pdGF0aW9u
-cyBidXQgb3RoZXIgdmVuZG9ycyBtaWdodA0KPiBoYXZlDQo+ID4+ID4gYSBkaWZmZXJlbnQgY2Fw
-YWJpbGl0eSBzZXQsIGFuZCBhY2NlcHRpbmcgdGhpcyBkZXNpZ24gbGltaXRhdGlvbiBub3cgd291
-bGQNCj4gPj4gPiBtdWNrIGFsbCBmdXR1cmUgZXh0ZW5zaW9uIGF0dGVtcHRzIG9mIHN1Y2ggYXR0
-cmlidXRlcy4NCj4gPj4gPg0KPiA+PiA+IEkgdGhpbmsgVkYgY29uZmlndXJhdGlvbnMgc2hvdWxk
-IGJlIHBsYW5uZWQgaW4gYWR2YW5jZSBmb3Igc3VwcG9ydGluZyBhDQo+ID4+ID4gcGVyLVZGIENv
-bmZpZ3VyYXRpb24gd2hlbmV2ZXIgaXQncyBwb3NzaWJsZSAtIGV2ZW4gaWYgbm90IHJlcXVpcmVk
-DQo+ID4+IFsvcG9zc2libGVdDQo+ID4+ID4gYnkgdGhlIG9uZSBwdXNoaW5nIHRoZSBuZXcgYXR0
-cmlidXRlLg0KPiA+PiA+DQo+ID4+DQo+ID4+IFRoZSBjb21tYW5kcyBiZWluZyBhZGRlZCBpbiB0
-aGlzIHBhdGNoIGFyZSBmb3IgcGVybWFuZW50IChpLmUuIE5WUkFNKQ0KPiA+PiBjb25maWcgLSBl
-c3NlbnRpYWxseSBzZXR0aW5nIHRoZSBuZXcgZGVmYXVsdCB2YWx1ZXMgZm9yIHZhcmlvdXMNCj4g
-Pj4gZmVhdHVyZXMgb2YgdGhlIGRldmljZSBhdCBib290LXVwLiAgQXQgdGhhdCBpbml0aWFsaXph
-dGlvbiB0aW1lLCBubw0KPiA+PiBWRnMgYXJlIHlldCBpbnN0YW50aWF0ZWQuDQo+ID4+DQo+ID4+
-IFNvIG15IHBlcnNwZWN0aXZlIHdhcywgaW4gZ2VuZXJhbCAobm90IGp1c3QgZm9yIG91ciBzcGVj
-aWZpYyBkZXZpY2UgLw0KPiA+PiBkZXNpZ24pLCBpdCBkb2Vzbid0IHNlZW0gbGlrZSBwZXJtYW5l
-bnQgY29uZmlnIHBhcmFtZXRlcnMgd291bGQgYmUgc2V0DQo+ID4+IG9uIGluZGl2aWR1YWwgVkZz
-LiAgVGhhdCB3YXMgd2hhdCBteSBwcmV2aW91cyBjb21tZW50IHdhcyB0cnlpbmcgdG8NCj4gPj4g
-Y29udmV5Lg0KPiA+DQo+ID4gVGhhdCdzIGFuIG9kZCBhc3N1bXB0aW9uOyBXaHkgc2hvdWxkIHlv
-dSBhc3N1bWUgdGhlcmUncyBzb21lIGRldmljZQ0KPiA+IHRoYXQgYWxsb3dzIGNvbmZpZ3VyaW5n
-IHBlcnNpc3RlbnQgYmVoYXZpb3IgZm9yIGFsbCBWRnMgYnV0IHRoaW5rIG5vIG90aGVyDQo+ID4g
-d291bGQgc2V0IHRoZSBzYW1lIG9uIGEgcGVyLVZGIGJhc2lzPw0KPiA+DQo+ID4+IElmIHRoYXQg
-YXNzdW1wdGlvbiBpcyB3cm9uZywgdGhvdWdoLCBhbmQgdGhlcmUgaXMgc29tZSBkZXZpY2UgdGhh
-dCBoYXMNCj4gPj4gTlZSQU0gY29uZmlnIHRoYXQgaXMgc2V0IHBlci1WRiwgSSBhc3N1bWUgdGhl
-IHVzZXIgd291bGQgaW5zdGFudGlhdGUNCj4gPj4gdGhlIFZGIGFuZCB0aGVuIGNhbGwgdGhlIGRl
-dmxpbmsgQVBJIG9uIHRoZSBwY2kgZGV2aWNlIGNvcnJlc3BvbmRpbmcNCj4gPj4gdG8gdGhlIFZG
-IHRoZXkgd2l0aCB0byBhZmZlY3QsIGFuZCBJIHRoaW5rIHRoZSBtb2RlbCBwcm9wb3NlZCBzdGls
-bA0KPiA+PiB3b3Jrcy4NCj4gPg0KPiA+IFdoYXQgd291bGQgYmUgdGhlIHB1cnBvc2Ugb2YgcmUt
-Y29uZmlndXJpbmcgYSB2YWx1ZSByZWZsZWN0ZWQgaW4gdGhlDQo+ID4gUENJIGRldmljZSBmb3Ig
-YW4gYWxyZWFkeSBpbnN0YW50aWF0ZWQgVkY/DQo+ID4NCj4gPj4gQXJlIHlvdSBzdWdnZXN0aW5n
-IGFkZGluZyBhIG1lY2hhbmlzbSB0byBzZXQgTlZSQU0gcGFyYW1ldGVycyBvbiBhDQo+ID4+IHBl
-ci1WRiBiYXNpcywgd2l0aG91dCBpbnN0YW50aWF0aW5nIHRoZSBWRiBmaXJzdD8gIEkgd291bGQg
-cHJlZmVyIG5vdA0KPiA+PiBhZGRpbmcgc3VjaCBhIG1lY2hhbmlzbSB1bmxlc3MvdW50aWwgdGhl
-cmUncyBhIHVzZSBjYXNlIGZvciBpdC4NCj4gPg0KPiA+IFRoZSB0aGluZyBpcyB0aGF0IHlvdSdy
-ZSBzdWdnZXN0aW5nIGEgbmV3IFVBUEk7IFdlIGRvbid0IGhhdmUgdGhlIGxlaXN1cmUNCj4gPiBv
-ZiBwdXNoaW5nIGEgcGFydGlhbCBpbXBsZW1lbnRhdGlvbiBhbmQgY2hhbmdpbmcgaXQgbGF0ZXIg
-b24uDQo+IA0KPiBJIGhvcGUgd2UncmUgbm90IHRhbGtpbmcgcGFzdCBlYWNoIG90aGVyIGJlY2F1
-c2UgSSdtIG5vdCBzdXJlIHdlJ3JlDQo+IHNheWluZyB0aGUgc2FtZSB0aGluZy4gIEJ1dCBpZiB5
-b3UgaGF2ZSBhIGRldmljZSB3aGljaCBoYXMgTlZSQU0NCj4gY29uZmlnIG9uIGFuIGluZGl2aWR1
-YWwgVkYgYmFzaXMsIGFuZCB5b3Ugd2FudCB0byBiZSBhYmxlIHRvIGdldC9zZXQNCj4gdGhhdCBj
-b25maWd1cmF0aW9uIHdpdGhvdXQgaW5zdGFudGlhdGluZyB0aGUgVkYgZmlyc3QgKGkuZS4gd2l0
-aG91dCBhDQo+IFBDSSBkZXZpY2UgdG8gb3BlcmF0ZSBvbiksIHRoZW4gb25lIHdheSB0byBoYW5k
-bGUgdGhpcyBpcyB3aXRoIGEgbmV3DQo+IGF0dHJpYnV0ZSwgREVWTElOS19BVFRSX1BFUk1fQ09O
-RklHX1ZGX0lOREVYLCBmb3IgZXhhbXBsZS4NCj4gDQo+IEl0IGNvdWxkIGJlIHNlbnQgaW4gdGhl
-IG5lc3RlZCBERVZMSU5LX0FUVFJfUEVSTV9DT05GSUcgYXR0cmlidXRlLA0KPiBhbG9uZyB3aXRo
-IHRoZSBleGlzdGluZyBERVZMSU5LX0FUVFJfUEVSTV9DT05GSUdfUEFSQU1FVEVSIGFuZA0KPiBf
-VkFMVUUsDQo+IHRvIGluZGljYXRlIGEgc3BlY2lmaWMgVkYgd2l0aGluIHRoZSBQRiB0aGF0IHlv
-dSBhcmUgdGFyZ2V0aW5nLg0KPiANCj4gVGhhdCBzZWVtcyBsaWtlIHRoZSB0eXBlIG9mIHRoaW5n
-IHRoYXQgY291bGQgYmUgYWRkZWQgbGF0ZXIsIGlmL3doZW4NCj4gc3VjaCBhIGRldmljZSBuZWVk
-ZWQgc3VwcG9ydCwgd2l0aG91dCBicmVha2luZyB0aGUgVUFQSSwgY291bGRuJ3QgaXQ/DQoNClNv
-dW5kcyBmZWFzaWJsZSB0byBtZSAtIGFzIHdlbGwgYXMgVUFQSS1jb25zZXJ2aW5nIFthbGJlaXQg
-YSBiaXQgdW4tY29uc2VydmF0aXZlXQ0K
+On Mon, Oct 23, 2017 at 11:39:22AM -0400, Tim Hansen wrote:
+>Mark hlist nodes in sk rcu iterator as protected by the rcu.
+>hlist_next_rcu accomplishes this and silences the warnings
+>sparse throws for net/ipv4/udp.c and net/ipv6/udp.c.
+>
+>Found with make C=3D1 net/ipv4/udp.o on linux-next tag
+>next-20171009.
+>
+>Signed-off-by: Tim Hansen <devtimhansen@gmail.com>
+>---
+> include/net/sock.h | 4 ++--
+> 1 file changed, 2 insertions(+), 2 deletions(-)
+>
+>diff --git a/include/net/sock.h b/include/net/sock.h
+>index 64e5ac41b9cf..96cb7b7e4924 100644
+>--- a/include/net/sock.h
+>+++ b/include/net/sock.h
+>@@ -737,10 +737,10 @@ static inline void sk_add_bind_node(struct sock *sk,
+>  *
+>  */
+> #define sk_for_each_entry_offset_rcu(tpos, pos, head, offset)		       \
+>-	for (pos =3D rcu_dereference((head)->first);			       \
+>+	for (pos =3D rcu_dereference(hlist_next_rcu((head)->first));	       \
+
+See below.
+
+> 	     pos !=3D NULL &&						       \
+> 		({ tpos =3D (typeof(*tpos) *)((void *)pos - offset); 1;});       \
+>-	     pos =3D rcu_dereference(pos->next))
+>+	     pos =3D rcu_dereference(hlist_next_rcu(pos->next)))
+
+This will return the next-next node instead of just the next one. You
+probably want just hlist_next_rcu(pos) here.
+
+--=20
+
+Thanks,
+Sasha=
