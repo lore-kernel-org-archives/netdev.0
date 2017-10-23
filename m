@@ -1,110 +1,73 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: problem with rtnetlink 'reference' count
-Date: Mon, 23 Oct 2017 18:37:44 +0200
-Message-ID: <20171023163744.GB12422@breakpoint.cc>
-References: <20171023142555.GF3165@worktop.lehotels.local>
- <20171023153200.GA12422@breakpoint.cc>
- <20171023162006.GH3165@worktop.lehotels.local>
+From: "Steven J. Hill" <steven.hill@cavium.com>
+Subject: [PATCH] ethernet: cavium: octeon: Switch to using netdev_info().
+Date: Mon, 23 Oct 2017 11:43:25 -0500
+Message-ID: <1508777005-20938-1-git-send-email-steven.hill@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain
+Cc: "Steven J. Hill" <Steven.Hill@cavium.com>,
+        David Daney <david.daney@cavium.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44292 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751665AbdJWQiD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:38:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20171023162006.GH3165@worktop.lehotels.local>
+Received: from mail-dm3nam03on0066.outbound.protection.outlook.com ([104.47.41.66]:11040
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751514AbdJWQuW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Oct 2017 12:50:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Peter Zijlstra <peterz@infradead.org> wrote:
-> On Mon, Oct 23, 2017 at 05:32:00PM +0200, Florian Westphal wrote:
-> 
-> > >  1) it not in fact a refcount, so using refcount_t is silly
-> > 
-> > Your suggestion is...?
-> 
-> Normal atomic_t
+Signed-off-by: Steven J. Hill <Steven.Hill@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 25 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-Why?  refcount_t gives debug options to catch leaks/underflows,
-atomic_t does not.
-
-Is refcount_t only supposed to be used with dec_and_test patterns?
-
-> To avoid the problem of te inc being observed late.
-> 
-> > However, this refcount_dec is misplaced anyway as it would need
-> > to occur from nlcb->done() (the handler function gets stored in socket for
-> > use by next recvmsg), so this change is indeed not helpful at all.
-> > 
-> > >  3) waiting with a schedule()/yield() loop is complete crap and subject
-> > >     life-locks, imagine doing that rtnl_unregister_all() from a RT task.
-> 
-> > Alternatively we can of course sleep instead of schedule() but that
-> > doesn't appear too appealing either (albeit it is a lot less intrusive).
-> 
-> That is much better than a yield loop.
-> 
-> > Any other idea?
-> 
-> This rtnetlink_rcv_msg() is called from softirq-context, right? Also,
-> all that stuff happens with rcu_read_lock() held.
-
-No, its called from process context.
-
-I need to run now but plan to test and submit something like this:
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -263,7 +263,7 @@ void rtnl_unregister_all(int protocol)
- 	synchronize_net();
- 
- 	while (refcount_read(&rtnl_msg_handlers_ref[protocol]) > 1)
--		schedule();
-+		msleep(1);
- 	kfree(handlers);
- }
- EXPORT_SYMBOL_GPL(rtnl_unregister_all);
-@@ -4149,6 +4149,16 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
-+
-+static int rtnl_dumper_done(struct netlink_callback *cb)
-+{
-+	unsigned int family = (unsigned long)cb->data;
-+
-+	refcount_dec(&rtnl_msg_handlers_ref[family]);
-+	smp_mb__after_atomic();
-+	return 0;
-+}
-+
- /* Process one rtnetlink message. */
- 
- static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
-@@ -4207,6 +4217,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+index 2887bca..3bb8fbd 100644
+--- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+@@ -705,14 +705,15 @@ static int octeon_mgmt_ioctl_hwtstamp(struct net_device *netdev,
+ 			u64 clock_comp = (NSEC_PER_SEC << 32) /	octeon_get_io_clock_rate();
+ 			if (!ptp.s.ptp_en)
+ 				cvmx_write_csr(CVMX_MIO_PTP_CLOCK_COMP, clock_comp);
+-			pr_info("PTP Clock: Using sclk reference at %lld Hz\n",
++			netdev_info(netdev,
++				"PTP Clock: Using sclk reference at %lld Hz\n",
+ 				(NSEC_PER_SEC << 32) / clock_comp);
+ 		} else {
+ 			/* The clock is already programmed to use a GPIO */
+ 			u64 clock_comp = cvmx_read_csr(CVMX_MIO_PTP_CLOCK_COMP);
+-			pr_info("PTP Clock: Using GPIO %d at %lld Hz\n",
+-				ptp.s.ext_clk_in,
+-				(NSEC_PER_SEC << 32) / clock_comp);
++			netdev_info(netdev,
++				"PTP Clock: Using GPIO %d at %lld Hz\n",
++				ptp.s.ext_clk_in, (NSEC_PER_SEC << 32) / clock_comp);
  		}
  
- 		refcount_inc(&rtnl_msg_handlers_ref[family]);
-+		smp_mb__after_atomic();
+ 		/* Enable the clock if it wasn't done already */
+@@ -925,16 +926,12 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
  
- 		if (type == RTM_GETLINK - RTM_BASE)
- 			min_dump_alloc = rtnl_calcit(skb, nlh);
-@@ -4217,11 +4228,12 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
- 		{
- 			struct netlink_dump_control c = {
- 				.dump		= dumpit,
-+				.done		= rtnl_dumper_done,
- 				.min_dump_alloc	= min_dump_alloc,
-+				.data		= (void *)(unsigned long)family,
- 			};
- 			err = netlink_dump_start(rtnl, skb, nlh, &c);
- 		}
--		refcount_dec(&rtnl_msg_handlers_ref[family]);
- 		return err;
- 	}
+ 	spin_unlock_irqrestore(&p->lock, flags);
  
+-	if (link_changed != 0) {
+-		if (link_changed > 0) {
+-			pr_info("%s: Link is up - %d/%s\n", netdev->name,
+-				phydev->speed,
+-				phydev->duplex == DUPLEX_FULL ?
+-				"Full" : "Half");
+-		} else {
+-			pr_info("%s: Link is down\n", netdev->name);
+-		}
+-	}
++	if (link_changed != 0)
++		if (link_changed > 0)
++			netdev_info(netdev, "Link is up - %d/%s\n",
++				phydev->speed, phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
++		else
++			netdev_info(netdev, "Link is down\n");
+ }
+ 
+ static int octeon_mgmt_init_phy(struct net_device *netdev)
+-- 
+2.1.4
