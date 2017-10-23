@@ -1,238 +1,135 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v8 02/10] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Mon, 23 Oct 2017 17:06:48 -0500
-Message-ID: <20171023220648.u3nlvg7vxz5tupf6@rob-hp-laptop>
-References: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
- <20171023185626.31793-3-clabbe.montjoie@gmail.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH net-next v2 3/3] bpf: add a test case to test single tp multiple bpf attachment
+Date: Mon, 23 Oct 2017 15:13:31 -0700
+Message-ID: <20171023221331.4131164-4-yhs@fb.com>
+References: <20171023221331.4131164-1-yhs@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
-        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
+        <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:45496 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751116AbdJWWGv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:06:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20171023185626.31793-3-clabbe.montjoie@gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55048 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932195AbdJWWNj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 18:13:39 -0400
+Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
+        by mx0b-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9NMBeCu000878
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:38 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0b-00082601.pphosted.com with ESMTP id 2dr22cx004-4
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 15:13:38 -0700
+In-Reply-To: <20171023221331.4131164-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 08:56:18PM +0200, Corentin Labbe wrote:
-> This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> for integrated PHY.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 139 +++++++++++++++++++--
->  1 file changed, 127 insertions(+), 12 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> index 725f3b187886..3e37db10fa02 100644
-> --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> @@ -4,18 +4,18 @@ This device is a platform glue layer for stmmac.
->  Please see stmmac.txt for the other unchanged properties.
->  
->  Required properties:
-> -- compatible: should be one of the following string:
-> +- compatible: must be one of the following string:
->  		"allwinner,sun8i-a83t-emac"
->  		"allwinner,sun8i-h3-emac"
->  		"allwinner,sun8i-v3s-emac"
->  		"allwinner,sun50i-a64-emac"
->  - reg: address and length of the register for the device.
->  - interrupts: interrupt for the device
-> -- interrupt-names: should be "macirq"
-> +- interrupt-names: must be "macirq"
->  - clocks: A phandle to the reference clock for this device
-> -- clock-names: should be "stmmaceth"
-> +- clock-names: must be "stmmaceth"
->  - resets: A phandle to the reset control for this device
-> -- reset-names: should be "stmmaceth"
-> +- reset-names: must be "stmmaceth"
->  - phy-mode: See ethernet.txt
->  - phy-handle: See ethernet.txt
->  - #address-cells: shall be 1
-> @@ -39,23 +39,38 @@ Optional properties for the following compatibles:
->  - allwinner,leds-active-low: EPHY LEDs are active low
->  
->  Required child node of emac:
-> -- mdio bus node: should be named mdio
-> +- mdio bus node: with compatible "snps,dwmac-mdio"
->  
->  Required properties of the mdio node:
->  - #address-cells: shall be 1
->  - #size-cells: shall be 0
->  
-> -The device node referenced by "phy" or "phy-handle" should be a child node
-> +The device node referenced by "phy" or "phy-handle" must be a child node
->  of the mdio node. See phy.txt for the generic PHY bindings.
->  
-> -Required properties of the phy node with the following compatibles:
-> +The following compatibles require that the emac node have a mdio-mux child
-> +node called "mdio-mux":
-> +  - "allwinner,sun8i-h3-emac"
-> +  - "allwinner,sun8i-v3s-emac":
-> +Required properties for the mdio-mux node:
-> +  - compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux"
+The bpf sample program syscall_tp is modified to
+show attachment of more than bpf programs
+for a particular kernel tracepoint.
 
-I think you can drop mdio-mux. They are in the wrong order anyway.
+Signed-off-by: Yonghong Song <yhs@fb.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
+---
+ samples/bpf/syscall_tp_user.c | 66 ++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 53 insertions(+), 13 deletions(-)
 
-> +  - one child mdio for the integrated mdio with the compatible
-> +    "allwinner,sun8i-h3-mdio-internal"
-> +  - one child mdio for the external mdio if present (V3s have none)
-> +Required properties for the mdio-mux children node:
-> +  - reg: 1 for internal MDIO bus, 2 for external MDIO bus
-> +
-> +The following compatibles require a PHY node representing the integrated
-> +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
->    - "allwinner,sun8i-h3-emac",
->    - "allwinner,sun8i-v3s-emac":
-
-Please refer to mdio-mux.txt somewhere in here.
-
-> +
-> +Required properties of the integrated phy node:
->  - clocks: a phandle to the reference clock for the EPHY
->  - resets: a phandle to the reset control for the EPHY
-> +- Must be a child of the integrated mdio
->  
-> -Example:
-> -
-> +Example with integrated PHY:
->  emac: ethernet@1c0b000 {
->  	compatible = "allwinner,sun8i-h3-emac";
->  	syscon = <&syscon>;
-> @@ -72,13 +87,113 @@ emac: ethernet@1c0b000 {
->  	phy-handle = <&int_mii_phy>;
->  	phy-mode = "mii";
->  	allwinner,leds-active-low;
-> +
-> +	mdio0: mdio {
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		compatible = "snps,dwmac-mdio";
-> +	};
-> +
-> +	mdio-mux {
-> +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
-
-To be compliant with the mdio-mux binding, you need a mdio-parent-bus 
-property. Though that property is optional, so maybe the mdio-mux 
-binding just needs to say when it is optional. Presumably when the 
-parent is the mdio bus controller. 
-
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +
-> +		int_mdio: mdio@1 {
-> +			compatible = "allwinner,sun8i-h3-mdio-internal";
-> +			reg = <1>;
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			int_mii_phy: ethernet-phy@1 {
-> +				reg = <1>;
-> +				clocks = <&ccu CLK_BUS_EPHY>;
-> +				resets = <&ccu RST_BUS_EPHY>;
-> +				phy-is-integrated;
-> +			};
-> +		};
-> +		ext_mdio: mdio@2 {
-> +			reg = <2>;
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +		};
-> +	};
-> +};
-> +
-> +Example with external PHY:
-> +emac: ethernet@1c0b000 {
-> +	compatible = "allwinner,sun8i-h3-emac";
-> +	syscon = <&syscon>;
-> +	reg = <0x01c0b000 0x104>;
-> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> +	interrupt-names = "macirq";
-> +	resets = <&ccu RST_BUS_EMAC>;
-> +	reset-names = "stmmaceth";
-> +	clocks = <&ccu CLK_BUS_EMAC>;
-> +	clock-names = "stmmaceth";
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +
-> +	phy-handle = <&ext_rgmii_phy>;
-> +	phy-mode = "rgmii";
-> +	allwinner,leds-active-low;
-> +
-> +	mdio0: mdio {
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		compatible = "snps,dwmac-mdio";
-> +	};
-> +
-> +	mdio-mux {
-> +		compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +
-> +		int_mdio: mdio@1 {
-> +			compatible = "allwinner,sun8i-h3-mdio-internal";
-> +			reg = <1>;
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			int_mii_phy: ethernet-phy@1 {
-> +				reg = <1>;
-> +				clocks = <&ccu CLK_BUS_EPHY>;
-> +				resets = <&ccu RST_BUS_EPHY>;
-> +			};
-> +		};
-> +		ext_mdio: mdio@2 {
-> +			reg = <2>;
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			ext_rgmii_phy: ethernet-phy@1 {
-> +				reg = <1>;
-> +			};
-> +		}:
-> +	};
-> +};
-> +
-> +Example with SoC without integrated PHY
-> +
-> +emac: ethernet@1c0b000 {
-> +	compatible = "allwinner,sun8i-a83t-emac";
-> +	syscon = <&syscon>;
-> +	reg = <0x01c0b000 0x104>;
-> +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> +	interrupt-names = "macirq";
-> +	resets = <&ccu RST_BUS_EMAC>;
-> +	reset-names = "stmmaceth";
-> +	clocks = <&ccu CLK_BUS_EMAC>;
-> +	clock-names = "stmmaceth";
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +
-> +	phy-handle = <&ext_rgmii_phy>;
-> +	phy-mode = "rgmii";
-> +
->  	mdio: mdio {
-> +		compatible = "snps,dwmac-mdio";
->  		#address-cells = <1>;
->  		#size-cells = <0>;
-> -		int_mii_phy: ethernet-phy@1 {
-> +		ext_rgmii_phy: ethernet-phy@1 {
->  			reg = <1>;
-> -			clocks = <&ccu CLK_BUS_EPHY>;
-> -			resets = <&ccu RST_BUS_EPHY>;
->  		};
->  	};
->  };
-> -- 
-> 2.13.6
-> 
+diff --git a/samples/bpf/syscall_tp_user.c b/samples/bpf/syscall_tp_user.c
+index a3cb91e..9169d32 100644
+--- a/samples/bpf/syscall_tp_user.c
++++ b/samples/bpf/syscall_tp_user.c
+@@ -23,6 +23,13 @@
+  * This requires kernel CONFIG_FTRACE_SYSCALLS to be set.
+  */
+ 
++static void usage(const char *cmd)
++{
++	printf("USAGE: %s [-i num_progs] [-h]\n", cmd);
++	printf("       -i num_progs      # number of progs of the test\n");
++	printf("       -h                # help\n");
++}
++
+ static void verify_map(int map_id)
+ {
+ 	__u32 key = 0;
+@@ -32,22 +39,29 @@ static void verify_map(int map_id)
+ 		fprintf(stderr, "map_lookup failed: %s\n", strerror(errno));
+ 		return;
+ 	}
+-	if (val == 0)
++	if (val == 0) {
+ 		fprintf(stderr, "failed: map #%d returns value 0\n", map_id);
++		return;
++	}
++	val = 0;
++	if (bpf_map_update_elem(map_id, &key, &val, BPF_ANY) != 0) {
++		fprintf(stderr, "map_update failed: %s\n", strerror(errno));
++		return;
++	}
+ }
+ 
+-int main(int argc, char **argv)
++static int test(char *filename, int num_progs)
+ {
+-	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+-	char filename[256];
+-	int fd;
++	int i, fd, map0_fds[num_progs], map1_fds[num_progs];
+ 
+-	setrlimit(RLIMIT_MEMLOCK, &r);
+-	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
+-
+-	if (load_bpf_file(filename)) {
+-		fprintf(stderr, "%s", bpf_log_buf);
+-		return 1;
++	for (i = 0; i < num_progs; i++) {
++		if (load_bpf_file(filename)) {
++			fprintf(stderr, "%s", bpf_log_buf);
++			return 1;
++		}
++		printf("prog #%d: map ids %d %d\n", i, map_fd[0], map_fd[1]);
++		map0_fds[i] = map_fd[0];
++		map1_fds[i] = map_fd[1];
+ 	}
+ 
+ 	/* current load_bpf_file has perf_event_open default pid = -1
+@@ -64,8 +78,34 @@ int main(int argc, char **argv)
+ 	close(fd);
+ 
+ 	/* verify the map */
+-	verify_map(map_fd[0]);
+-	verify_map(map_fd[1]);
++	for (i = 0; i < num_progs; i++) {
++		verify_map(map0_fds[i]);
++		verify_map(map1_fds[i]);
++	}
+ 
+ 	return 0;
+ }
++
++int main(int argc, char **argv)
++{
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
++	int opt, num_progs = 1;
++	char filename[256];
++
++	while ((opt = getopt(argc, argv, "i:h")) != -1) {
++		switch (opt) {
++		case 'i':
++			num_progs = atoi(optarg);
++			break;
++		case 'h':
++		default:
++			usage(argv[0]);
++			return 0;
++		}
++	}
++
++	setrlimit(RLIMIT_MEMLOCK, &r);
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	return test(filename, num_progs);
++}
+-- 
+2.9.5
