@@ -1,40 +1,66 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: rxrpc: call_object: use BUG_ON instead of if condition
+Subject: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if condition
  followed by BUG
-Date: Mon, 23 Oct 2017 13:13:39 -0500
-Message-ID: <20171023181339.GA25304@embeddedor.com>
+Date: Mon, 23 Oct 2017 13:16:35 -0500
+Message-ID: <20171023181635.GA25334@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
         "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway34.websitewelcome.com ([192.185.148.204]:11007 "EHLO
+        gateway34.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751388AbdJWSQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:16:36 -0400
+Received: from cm14.websitewelcome.com (cm14.websitewelcome.com [100.42.49.7])
+        by gateway34.websitewelcome.com (Postfix) with ESMTP id ABB7635F65
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 13:16:36 -0500 (CDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use BUG_ON instead of if condition followed by BUG in rxrpc_release_call.
+Use BUG_ON instead of if condition followed by BUG.
 
 This issue was detected with the help of Coccinelle.
 
 Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- net/rxrpc/call_object.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index fcdd655..b4b1a63 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -457,8 +457,7 @@ void rxrpc_release_call(struct rxrpc_sock *rx, struct rxrpc_call *call)
- 	ASSERTCMP(call->state, ==, RXRPC_CALL_COMPLETE);
- 
- 	spin_lock_bh(&call->lock);
--	if (test_and_set_bit(RXRPC_CALL_RELEASED, &call->flags))
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index 7b1ee5a..a10ce43 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -855,11 +855,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
+ 		return stat;
+ 	if (integ_len > buf->len)
+ 		return stat;
+-	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
 -		BUG();
-+	BUG_ON(test_and_set_bit(RXRPC_CALL_RELEASED, &call->flags));
- 	spin_unlock_bh(&call->lock);
- 
- 	del_timer_sync(&call->timer);
++	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
+ 	/* copy out mic... */
+-	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+-		BUG();
++	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
+ 	if (mic.len > RPC_MAX_AUTH_SIZE)
+ 		return stat;
+ 	mic.data = kmalloc(mic.len, GFP_KERNEL);
+@@ -1611,8 +1609,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+ 	BUG_ON(integ_len % 4);
+ 	*p++ = htonl(integ_len);
+ 	*p++ = htonl(gc->gc_seq);
+-	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+-		BUG();
++	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
+ 	if (resbuf->tail[0].iov_base == NULL) {
+ 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+ 			goto out_err;
 -- 
 2.7.4
