@@ -1,135 +1,88 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 03/12] tools: bpftool: introduce --json and --pretty options
-Date: Mon, 23 Oct 2017 09:24:07 -0700
-Message-ID: <20171023162416.32753-4-jakub.kicinski@netronome.com>
-References: <20171023162416.32753-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net, Quentin Monnet <quentin.monnet@netronome.com>
-To: netdev@vger.kernel.org
+From: Song Liu <songliubraving@fb.com>
+Subject: Re: [PATCH v2 net-next 0/6] add a set of tracepoints to tcp stack
+Date: Mon, 23 Oct 2017 16:26:11 +0000
+Message-ID: <1CE9BEAA-1678-47E2-AD6A-038388E3AEB1@fb.com>
+References: <20171023162027.2880430-1-songliubraving@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "liu.song.a23@gmail.com" <liu.song.a23@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+        "brendan.d.gregg@gmail.com" <brendan.d.gregg@gmail.com>,
+        "ncardwell@google.com" <ncardwell@google.com>,
+        David Ahern <dsahern@gmail.com>,
+        Kernel Team <Kernel-team@fb.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:49645 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751548AbdJWQY5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:24:57 -0400
-Received: by mail-pf0-f193.google.com with SMTP id i5so17476716pfe.6
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:24:57 -0700 (PDT)
-In-Reply-To: <20171023162416.32753-1-jakub.kicinski@netronome.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:50936 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751399AbdJWQ0W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:26:22 -0400
+In-Reply-To: <20171023162027.2880430-1-songliubraving@fb.com>
+Content-Language: en-US
+Content-ID: <580A4B4C88E8384EBF2A2A7927CB82D0@namprd15.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Quentin Monnet <quentin.monnet@netronome.com>
+CCing key audience of these patches.
 
-These two options can be used to ask for a JSON output (--j or -json),
-and to make this JSON human-readable (-p or --pretty).
+Thanks,
+Song
 
-A json_writer object is created when JSON is required, and will be used
-in follow-up commits to produce JSON output.
-
-Note that --pretty implies --json.
-
-Update for the manual pages and interactive help messages comes in a
-later patch of the series.
-
-Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
----
- tools/bpf/bpftool/main.c | 33 ++++++++++++++++++++++++++++++---
- tools/bpf/bpftool/main.h |  5 +++++
- 2 files changed, 35 insertions(+), 3 deletions(-)
-
-diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
-index 613e3c75f78a..14bfc17cd4de 100644
---- a/tools/bpf/bpftool/main.c
-+++ b/tools/bpf/bpftool/main.c
-@@ -51,6 +51,9 @@ const char *bin_name;
- static int last_argc;
- static char **last_argv;
- static int (*last_do_help)(int argc, char **argv);
-+json_writer_t *json_wtr;
-+bool pretty_output;
-+bool json_output;
- 
- void usage(void)
- {
-@@ -217,22 +220,32 @@ static int do_batch(int argc, char **argv)
- int main(int argc, char **argv)
- {
- 	static const struct option options[] = {
-+		{ "json",	no_argument,	NULL,	'j' },
- 		{ "help",	no_argument,	NULL,	'h' },
-+		{ "pretty",	no_argument,	NULL,	'p' },
- 		{ "version",	no_argument,	NULL,	'V' },
- 		{ 0 }
- 	};
--	int opt;
-+	int opt, ret;
- 
- 	last_do_help = do_help;
-+	pretty_output = false;
-+	json_output = false;
- 	bin_name = argv[0];
- 
--	while ((opt = getopt_long(argc, argv, "Vh",
-+	while ((opt = getopt_long(argc, argv, "Vhpj",
- 				  options, NULL)) >= 0) {
- 		switch (opt) {
- 		case 'V':
- 			return do_version(argc, argv);
- 		case 'h':
- 			return do_help(argc, argv);
-+		case 'p':
-+			pretty_output = true;
-+			/* fall through */
-+		case 'j':
-+			json_output = true;
-+			break;
- 		default:
- 			usage();
- 		}
-@@ -243,7 +256,21 @@ int main(int argc, char **argv)
- 	if (argc < 0)
- 		usage();
- 
-+	if (json_output) {
-+		json_wtr = jsonw_new(stdout);
-+		if (!json_wtr) {
-+			err("failed to create JSON writer\n");
-+			return -1;
-+		}
-+		jsonw_pretty(json_wtr, pretty_output);
-+	}
-+
- 	bfd_init();
- 
--	return cmd_select(cmds, argc, argv, do_help);
-+	ret = cmd_select(cmds, argc, argv, do_help);
-+
-+	if (json_output)
-+		jsonw_destroy(&json_wtr);
-+
-+	return ret;
- }
-diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 41e6c7d3fcad..15927fc9fb31 100644
---- a/tools/bpf/bpftool/main.h
-+++ b/tools/bpf/bpftool/main.h
-@@ -43,6 +43,8 @@
- #include <linux/bpf.h>
- #include <linux/kernel.h>
- 
-+#include "json_writer.h"
-+
- #define err(msg...)	fprintf(stderr, "Error: " msg)
- #define warn(msg...)	fprintf(stderr, "Warning: " msg)
- #define info(msg...)	fprintf(stderr, msg)
-@@ -66,6 +68,9 @@ enum bpf_obj_type {
- 
- extern const char *bin_name;
- 
-+extern json_writer_t *json_wtr;
-+extern bool json_output;
-+
- bool is_prefix(const char *pfx, const char *str);
- void fprint_hex(FILE *f, void *arg, unsigned int n, const char *sep);
- void usage(void) __attribute__((noreturn));
--- 
-2.14.1
+> On Oct 23, 2017, at 9:20 AM, Song Liu <songliubraving@fb.com> wrote:
+>=20
+> Changes from v1:
+>=20
+> Fix build error (with ipv6 as ko) by adding EXPORT_TRACEPOINT_SYMBOL_GPL
+> for trace_tcp_send_reset.
+>=20
+> These patches add the following tracepoints to tcp stack.
+>=20
+> tcp_send_reset
+> tcp_receive_reset
+> tcp_destroy_sock
+> tcp_set_state
+>=20
+> These tracepoints can be used to track TCP state changes. Such state
+> changes include but are not limited to: connection establish,
+> connection termination, tx and rx of RST, various retransmits.
+>=20
+> Currently, we use the following kprobes to trace these events:
+>=20
+> int kprobe__tcp_validate_incoming
+> int kprobe__tcp_send_active_reset
+> int kprobe__tcp_v4_send_reset
+> int kprobe__tcp_v6_send_reset
+> int kprobe__tcp_v4_destroy_sock
+> int kprobe__tcp_set_state
+> int kprobe__tcp_retransmit_skb
+>=20
+> These tracepoints will help us simplify this work.
+>=20
+> Thanks,
+> Song
+>=20
+> Song Liu (6):
+>  tcp: add trace event class tcp_event_sk_skb
+>  tcp: mark trace event arguments sk and skb as const
+>  tcp: add tracepoint trace_tcp_send_reset
+>  tcp: add tracepoint trace_tcp_receive_reset
+>  tcp: add tracepoint trace_tcp_destroy_sock
+>  tcp: add tracepoint trace_tcp_set_state()
+>=20
+> include/trace/events/tcp.h | 181 ++++++++++++++++++++++++++++++++++++++++=
+++++-
+> net/core/net-traces.c      |   2 +
+> net/ipv4/tcp.c             |   4 +
+> net/ipv4/tcp_input.c       |   3 +
+> net/ipv4/tcp_ipv4.c        |   8 +-
+> net/ipv4/tcp_output.c      |   5 ++
+> net/ipv6/tcp_ipv6.c        |  10 ++-
+> 7 files changed, 206 insertions(+), 7 deletions(-)
+>=20
+> --
+> 2.9.5
