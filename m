@@ -1,37 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] add a set of tracepoints to tcp stack
-Date: Mon, 23 Oct 2017 05:08:36 +0100 (WEST)
-Message-ID: <20171023.050836.1983843564876160779.davem@davemloft.net>
-References: <20171020212046.577888-1-songliubraving@fb.com>
+Subject: Re: [patch net-next 0/8] mlxsw: Add support for non-equal-cost
+ multi-path
+Date: Mon, 23 Oct 2017 05:27:30 +0100 (WEST)
+Message-ID: <20171023.052730.1826275066929092363.davem@davemloft.net>
+References: <20171022211150.2567-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        liu.song.a23@gmail.com
-To: songliubraving@fb.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41258 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41362 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750723AbdJWEIm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 00:08:42 -0400
-In-Reply-To: <20171020212046.577888-1-songliubraving@fb.com>
+        with ESMTP id S1750744AbdJWE1e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 00:27:34 -0400
+In-Reply-To: <20171022211150.2567-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Song Liu <songliubraving@fb.com>
-Date: Fri, 20 Oct 2017 14:20:40 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sun, 22 Oct 2017 23:11:42 +0200
 
-> These patches add the following tracepoints to tcp stack.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> tcp_send_reset
-> tcp_receive_reset
-> tcp_destroy_sock
-> tcp_set_state
+> Ido says:
+> 
+> In the device, nexthops are stored as adjacency entries in an array
+> called the KVD linear (KVDL). When a multi-path route is hit the
+> packet's headers are hashed and then converted to an index into KVDL
+> based on the adjacency group's size and base index.
+> 
+> Up until now the driver ignored the `weight` parameter for multi-path
+> routes and allocated only one adjacency entry for each nexthop with a
+> limit of 32 nexthops in a group. This set makes the driver take the
+> `weight` parameter into account when allocating adjacency entries.
+> 
+> First patch teaches dpipe to show the size of the adjacency group, so
+> that users will be able to determine the actual weight of each nexthop.
+> The second patch refactors the KVDL allocator, making it more receptive
+> towards the addition of another partition later in the set.
+> 
+> Patches 3-5 introduce small changes towards the actual change in the
+> sixth patch that populates the adjacency entries according to their
+> relative weight.
+> 
+> Last two patches finally add another partition to the KVDL, which allows
+> us to allocate more than 32 entries per-group and thus support more
+> nexthops and also provide higher accuracy with regards to the requested
+> weights.
 
-Please fix this build error, it probably happens when IPV6 is built
-modular:
-
-ERROR: "__tracepoint_tcp_send_reset" [net/ipv6/ipv6.ko] undefined!
-scripts/Makefile.modpost:91: recipe for target '__modpost' failed
-
-Thanks.
+Series applied, thank you.
