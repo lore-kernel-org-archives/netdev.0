@@ -1,76 +1,136 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 9/9] nfp: bpf: optimize mov64 a little
-Date: Mon, 23 Oct 2017 11:58:14 -0700
-Message-ID: <20171023185814.4797-10-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 5/9] nfp: bpf: optimize the RMW for stack accesses
+Date: Mon, 23 Oct 2017 11:58:10 -0700
+Message-ID: <20171023185814.4797-6-jakub.kicinski@netronome.com>
 References: <20171023185814.4797-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:44841 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751823AbdJWS6e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:58:34 -0400
-Received: by mail-pf0-f196.google.com with SMTP id x7so17789019pfa.1
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 11:58:34 -0700 (PDT)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:52451 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751802AbdJWS6b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:58:31 -0400
+Received: by mail-pg0-f68.google.com with SMTP id a192so12473940pge.9
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 11:58:30 -0700 (PDT)
 In-Reply-To: <20171023185814.4797-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Loading 64bit constants require up to 4 load immediates, since
-we can only load 16 bits at a time.  If the 32bit halves of
-the 64bit constant are the same, however, we can save a cycle
-by doing a register move instead of two loads of 16 bits.
+When we are performing unaligned stack accesses in the 32-64B window
+we have to do a read-modify-write cycle.  E.g. for reading 8 bytes
+from address 17:
 
-Note that we don't optimize the normal ALU64 load because even
-though it's a 64 bit load the upper half of the register is
-a coming from sign extension so we can load it in one cycle
-anyway.
+0:  tmp    = stack[16]
+1:  gprLo  = tmp >> 8
+2:  tmp    = stack[20]
+3:  gprLo |= tmp << 24
+4:  tmp    = stack[20]
+5:  gprHi  = tmp >> 8
+6:  tmp    = stack[24]
+7:  gprHi |= tmp << 24
+
+The load on line 4 is unnecessary, because tmp already contains data
+from stack[20].
+
+For write we can optimize both loads and writebacks away.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/bpf/jit.c | 21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 33 +++++++++++++++++++++-------
+ 1 file changed, 25 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-index d84f00b80aac..e7eeb7a07f81 100644
+index 094acea35326..6730690cf9d8 100644
 --- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
 +++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
-@@ -1384,19 +1384,28 @@ static int end_reg32(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+@@ -644,11 +644,11 @@ data_st_host_order(struct nfp_prog *nfp_prog, u8 dst_gpr, swreg offset,
  
- static int imm_ld8_part2(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ typedef int
+ (*lmem_step)(struct nfp_prog *nfp_prog, u8 gpr, u8 gpr_byte, s32 off,
+-	     unsigned int size, bool new_gpr);
++	     unsigned int size, bool first, bool new_gpr, bool last);
+ 
+ static int
+ wrp_lmem_load(struct nfp_prog *nfp_prog, u8 dst, u8 dst_byte, s32 off,
+-	      unsigned int size, bool new_gpr)
++	      unsigned int size, bool first, bool new_gpr, bool last)
  {
--	wrp_immed(nfp_prog, reg_both(nfp_meta_prev(meta)->insn.dst_reg * 2 + 1),
--		  meta->insn.imm);
-+	struct nfp_insn_meta *prev = nfp_meta_prev(meta);
-+	u32 imm_lo, imm_hi;
-+	u8 dst;
-+
-+	dst = prev->insn.dst_reg * 2;
-+	imm_lo = prev->insn.imm;
-+	imm_hi = meta->insn.imm;
-+
-+	wrp_immed(nfp_prog, reg_both(dst), imm_lo);
-+
-+	/* mov is always 1 insn, load imm may be two, so try to use mov */
-+	if (imm_hi == imm_lo)
-+		wrp_mov(nfp_prog, reg_both(dst + 1), reg_a(dst));
-+	else
-+		wrp_immed(nfp_prog, reg_both(dst + 1), imm_hi);
+ 	u32 idx, src_byte;
+ 	enum shf_sc sc;
+@@ -692,7 +692,13 @@ wrp_lmem_load(struct nfp_prog *nfp_prog, u8 dst, u8 dst_byte, s32 off,
+ 		reg = reg_lm(0, idx);
+ 	} else {
+ 		reg = imm_a(nfp_prog);
+-		wrp_mov(nfp_prog, reg, reg_lm(0, idx));
++		/* If it's not the first part of the load and we start a new GPR
++		 * that means we are loading a second part of the LMEM word into
++		 * a new GPR.  IOW we've already looked that LMEM word and
++		 * therefore it has been loaded into imm_a().
++		 */
++		if (first || !new_gpr)
++			wrp_mov(nfp_prog, reg, reg_lm(0, idx));
+ 	}
+ 
+ 	emit_ld_field_any(nfp_prog, reg_both(dst), mask, reg, sc, shf, new_gpr);
+@@ -702,7 +708,7 @@ wrp_lmem_load(struct nfp_prog *nfp_prog, u8 dst, u8 dst_byte, s32 off,
+ 
+ static int
+ wrp_lmem_store(struct nfp_prog *nfp_prog, u8 src, u8 src_byte, s32 off,
+-	       unsigned int size, bool new_gpr)
++	       unsigned int size, bool first, bool new_gpr, bool last)
+ {
+ 	u32 idx, dst_byte;
+ 	enum shf_sc sc;
+@@ -746,13 +752,19 @@ wrp_lmem_store(struct nfp_prog *nfp_prog, u8 src, u8 src_byte, s32 off,
+ 		reg = reg_lm(0, idx);
+ 	} else {
+ 		reg = imm_a(nfp_prog);
+-		wrp_mov(nfp_prog, reg, reg_lm(0, idx));
++		/* Only first and last LMEM locations are going to need RMW,
++		 * the middle location will be overwritten fully.
++		 */
++		if (first || last)
++			wrp_mov(nfp_prog, reg, reg_lm(0, idx));
+ 	}
+ 
+ 	emit_ld_field(nfp_prog, reg, mask, reg_b(src), sc, shf);
+ 
+-	if (idx > RE_REG_LM_IDX_MAX)
+-		wrp_mov(nfp_prog, reg_lm(0, idx), reg);
++	if (new_gpr || last) {
++		if (idx > RE_REG_LM_IDX_MAX)
++			wrp_mov(nfp_prog, reg_lm(0, idx), reg);
++	}
  
  	return 0;
  }
- 
- static int imm_ld8(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+@@ -762,6 +774,7 @@ mem_op_stack(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ 	     unsigned int size, u8 gpr, bool clr_gpr, lmem_step step)
  {
--	const struct bpf_insn *insn = &meta->insn;
--
- 	meta->double_cb = imm_ld8_part2;
--	wrp_immed(nfp_prog, reg_both(insn->dst_reg * 2), insn->imm);
--
- 	return 0;
- }
+ 	s32 off = nfp_prog->stack_depth + meta->insn.off;
++	bool first = true, last;
+ 	u8 prev_gpr = 255;
+ 	u32 gpr_byte = 0;
+ 	int ret;
+@@ -777,12 +790,16 @@ mem_op_stack(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ 		slice_end = min(off + slice_size, round_up(off + 1, 4));
+ 		slice_size = slice_end - off;
  
++		last = slice_size == size;
++
+ 		ret = step(nfp_prog, gpr, gpr_byte, off, slice_size,
+-			   gpr != prev_gpr);
++			   first, gpr != prev_gpr, last);
+ 		if (ret)
+ 			return ret;
+ 
+ 		prev_gpr = gpr;
++		first = false;
++
+ 		gpr_byte += slice_size;
+ 		if (gpr_byte >= 4) {
+ 			gpr_byte -= 4;
 -- 
 2.14.1
