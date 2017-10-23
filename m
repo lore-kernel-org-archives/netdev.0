@@ -1,71 +1,66 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: problem with rtnetlink 'reference' count
-Date: Mon, 23 Oct 2017 18:20:06 +0200
-Message-ID: <20171023162006.GH3165@worktop.lehotels.local>
-References: <20171023142555.GF3165@worktop.lehotels.local>
- <20171023153200.GA12422@breakpoint.cc>
+From: Song Liu <songliubraving@fb.com>
+Subject: [PATCH v2 net-next 2/6] tcp: mark trace event arguments sk and skb as const
+Date: Mon, 23 Oct 2017 09:20:23 -0700
+Message-ID: <20171023162027.2880430-3-songliubraving@fb.com>
+References: <20171023162027.2880430-1-songliubraving@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain
+Cc: <alexei.starovoitov@gmail.com>, <liu.song.a23@gmail.com>,
+        Song Liu <songliubraving@fb.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:40249 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751548AbdJWQUK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:20:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20171023153200.GA12422@breakpoint.cc>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55506 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751427AbdJWQU5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:20:57 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v9NGIpgb017268
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:56 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by m0089730.ppops.net with ESMTP id 2ds42422jn-3
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:56 -0700
+In-Reply-To: <20171023162027.2880430-1-songliubraving@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 05:32:00PM +0200, Florian Westphal wrote:
+Some functions that we plan to add trace points require const sk
+and/or skb. So we mark these fields as const in the tracepoint.
 
-> >  1) it not in fact a refcount, so using refcount_t is silly
-> 
-> Your suggestion is...?
+Signed-off-by: Song Liu <songliubraving@fb.com>
+---
+ include/trace/events/tcp.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Normal atomic_t
-
-> >  2) there is a distinct lack of memory barriers, so we can easily
-> >     observe the decrement while the msg_handler is still in progress.
-> 
-> I guess you mean it needs:
-> 
-> +	smp_mb__before_atomic();
-> 	refcount_dec(&rtnl_msg_handlers_ref[family]);
-> ?
-
-Yes, but also:
-
-	atomic_inc();
-	smp_mb__after_atomic();
-
-To avoid the problem of te inc being observed late.
-
-> However, this refcount_dec is misplaced anyway as it would need
-> to occur from nlcb->done() (the handler function gets stored in socket for
-> use by next recvmsg), so this change is indeed not helpful at all.
-> 
-> >  3) waiting with a schedule()/yield() loop is complete crap and subject
-> >     life-locks, imagine doing that rtnl_unregister_all() from a RT task.
-
-> Alternatively we can of course sleep instead of schedule() but that
-> doesn't appear too appealing either (albeit it is a lot less intrusive).
-
-That is much better than a yield loop.
-
-> Any other idea?
-
-This rtnetlink_rcv_msg() is called from softirq-context, right? Also,
-all that stuff happens with rcu_read_lock() held.
-
-So why isn't that synchronize_net() call sufficient? You first clear
-rtnl_msg_handlers[protocol], and then you do synchronize_net() which
-will wait for all concurrent softirq handlers to complete. Which, if
-rtnetlink_rcv_msg() is called from softir, guarantees nobody still uses
-it.
-
-
-Also, if that is all softirq, you should maybe use rcu_read_lock_bh(),
-alternatively you should use synchronize_rcu(), as is its a bit
-inconsistent.
+diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
+index 14b0a708..2b6fe72 100644
+--- a/include/trace/events/tcp.h
++++ b/include/trace/events/tcp.h
+@@ -17,13 +17,13 @@
+  */
+ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
+ 
+-	TP_PROTO(struct sock *sk, struct sk_buff *skb),
++	TP_PROTO(const struct sock *sk, const struct sk_buff *skb),
+ 
+ 	TP_ARGS(sk, skb),
+ 
+ 	TP_STRUCT__entry(
+-		__field(void *, skbaddr)
+-		__field(void *, skaddr)
++		__field(const void *, skbaddr)
++		__field(const void *, skaddr)
+ 		__field(__u16, sport)
+ 		__field(__u16, dport)
+ 		__array(__u8, saddr, 4)
+@@ -72,7 +72,7 @@ DECLARE_EVENT_CLASS(tcp_event_sk_skb,
+ 
+ DEFINE_EVENT(tcp_event_sk_skb, tcp_retransmit_skb,
+ 
+-	TP_PROTO(struct sock *sk, struct sk_buff *skb),
++	TP_PROTO(const struct sock *sk, const struct sk_buff *skb),
+ 
+ 	TP_ARGS(sk, skb)
+ );
+-- 
+2.9.5
