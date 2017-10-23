@@ -1,47 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] tcp: do tcp_mstamp_refresh before retransmits on TSQ
- handler
-Date: Mon, 23 Oct 2017 05:46:12 +0100 (WEST)
-Message-ID: <20171023.054612.413368645235190542.davem@davemloft.net>
-References: <20171022041316.14560-1-den@klaipeden.com>
+Subject: Re: [PATCH net] tcp/dccp: fix lockdep splat in inet_csk_route_req()
+Date: Mon, 23 Oct 2017 05:46:27 +0100 (WEST)
+Message-ID: <20171023.054627.999192892187895351.davem@davemloft.net>
+References: <1508700837.30291.63.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-        kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org
-To: den@klaipeden.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41490 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41500 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750995AbdJWEqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 00:46:16 -0400
-In-Reply-To: <20171022041316.14560-1-den@klaipeden.com>
+        with ESMTP id S1750995AbdJWEq2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 00:46:28 -0400
+In-Reply-To: <1508700837.30291.63.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Koichiro Den <den@klaipeden.com>
-Date: Sun, 22 Oct 2017 13:13:16 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 22 Oct 2017 12:33:57 -0700
 
-> When retransmission on TSQ handler was introduced in the commit
-> f9616c35a0d7 ("tcp: implement TSQ for retransmits"), the retransmitted
-> skbs' timestamps were updated on the actual transmission. In the later
-> commit 385e20706fac ("tcp: use tp->tcp_mstamp in output path"), it stops
-> being done so. In the commit, the comment says "We try to refresh
-> tp->tcp_mstamp only when necessary", and at present tcp_tsq_handler and
-> tcp_v4_mtu_reduced applies to this. About the latter, it's okay since
-> it's rare enough.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> About the former, even though possible retransmissions on the tasklet
-> comes just after the destructor run in NET_RX softirq handling, the time
-> between them could be nonnegligibly large to the extent that
-> tcp_rack_advance or rto rearming be affected if other (remaining) RX,
-> BLOCK and (preceding) TASKLET sofirq handlings are unexpectedly heavy.
+> This patch fixes the following lockdep splat in inet_csk_route_req()
 > 
-> So in the same way as tcp_write_timer_handler does, doing tcp_mstamp_refresh
-> ensures the accuracy of algorithms relying on it.
+>   lockdep_rcu_suspicious
+>   inet_csk_route_req
+>   tcp_v4_send_synack
+>   tcp_rtx_synack
+>   inet_rtx_syn_ack
+>   tcp_fastopen_synack_time
+>   tcp_retransmit_timer
+>   tcp_write_timer_handler
+>   tcp_write_timer
+>   call_timer_fn
 > 
-> Fixes: 385e20706fac ("tcp: use tp->tcp_mstamp in output path")
-> Signed-off-by: Koichiro Den <den@klaipeden.com>
-> Reviewed-by: Eric Dumazet <edumazet@google.com>
+> Thread running inet_csk_route_req() owns a reference on the request
+> socket, so we have the guarantee ireq->ireq_opt wont be changed or
+> freed.
+> 
+> lockdep can enforce this invariant for us.
+> 
+> Fixes: c92e8c02fe66 ("tcp/dccp: fix ireq->opt races")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied and queued up for -stable.
