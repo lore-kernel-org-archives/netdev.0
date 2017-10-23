@@ -1,106 +1,48 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: Re: [PATCH net-next 2/3] bpf: permit multiple bpf attachments for a
- single perf event
-Date: Mon, 23 Oct 2017 14:00:28 -0700
-Message-ID: <21b52a2b-63f9-0a8c-e4e0-f4fe216a0ffe@fb.com>
-References: <20171023175805.2898366-1-yhs@fb.com>
- <20171023175805.2898366-3-yhs@fb.com> <59EE568D.7040204@iogearbox.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/2] net: dsa: don't unmask port bitmaps
+Date: Mon, 23 Oct 2017 23:11:09 +0200
+Message-ID: <20171023211109.GA23689@lunn.ch>
+References: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: <kernel-team@fb.com>
-To: Daniel Borkmann <daniel@iogearbox.net>, <peterz@infradead.org>,
-        <rostedt@goodmis.org>, <ast@fb.com>, <kafai@fb.com>,
-        <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56080 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750835AbdJWVCE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 17:02:04 -0400
-In-Reply-To: <59EE568D.7040204@iogearbox.net>
-Content-Language: en-US
+Received: from vps0.lunn.ch ([185.16.172.187]:55977 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751723AbdJWVLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Oct 2017 17:11:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 10/23/17 1:52 PM, Daniel Borkmann wrote:
-> On 10/23/2017 07:58 PM, Yonghong Song wrote:
-> [...]
->>       __this_cpu_dec(bpf_prog_active);
->> @@ -741,3 +754,63 @@ const struct bpf_verifier_ops 
->> perf_event_verifier_ops = {
->>
->>   const struct bpf_prog_ops perf_event_prog_ops = {
->>   };
->> +
->> +static DEFINE_MUTEX(bpf_event_mutex);
->> +
->> +int perf_event_attach_bpf_prog(struct perf_event *event,
->> +               struct bpf_prog *prog)
->> +{
->> +    struct bpf_prog_array __rcu *old_array;
->> +    struct bpf_prog_array *new_array;
->> +    int ret;
->> +
->> +    mutex_lock(&bpf_event_mutex);
->> +
->> +    if (event->prog)
->> +        return -EEXIST;
+On Mon, Oct 23, 2017 at 02:17:29PM -0400, Vivien Didelot wrote:
+> DSA has several bitmaps to store the type of ports: cpu_port_mask,
+> dsa_port_mask and enabled_port_mask. But the code is inconsistently
+> unmasking them.
 > 
-> Needs to go to out here, otherwise deadlock.
+> The legacy code tries to unmask cpu_port_mask and dsa_port_mask but
+> skips enabled_port_mask.
+> 
+> The new bindings unmasks cpu_port_mask and enabled_port_mask but skips
+> dsa_port_mask.
+> 
+> In fact there is no need to unmask them because we are in the error
+> path, and they won't be used after. Instead of fixing the unmasking,
+> simply remove them.
 
-Thanks for catching this! Will fix this and the below one as well in the 
-new revision.
+Hi Vivien
 
-> 
->> +
->> +    old_array = rcu_dereference_protected(event->tp_event->prog_array,
->> +                          lockdep_is_held(&bpf_event_mutex));
->> +    ret = bpf_prog_array_copy(old_array, NULL, prog, &new_array);
->> +    if (ret < 0)
->> +        goto out;
->> +
->> +    /* set the new array to event->tp_event and set event->prog */
->> +    event->prog = prog;
->> +    rcu_assign_pointer(event->tp_event->prog_array, new_array);
->> +
->> +    if (old_array)
->> +        bpf_prog_array_free(old_array);
->> +
->> +out:
->> +    mutex_unlock(&bpf_event_mutex);
->> +    return ret;
->> +}
->> +
->> +void perf_event_detach_bpf_prog(struct perf_event *event)
->> +{
->> +    struct bpf_prog_array __rcu *old_array;
->> +    struct bpf_prog_array *new_array;
->> +    int ret;
->> +
->> +    mutex_lock(&bpf_event_mutex);
->> +
->> +    if (!event->prog)
->> +        return;
-> 
-> Ditto.
-> 
->> +
->> +    old_array = rcu_dereference_protected(event->tp_event->prog_array,
->> +                          lockdep_is_held(&bpf_event_mutex));
->> +
->> +    ret = bpf_prog_array_copy(old_array, event->prog, NULL, &new_array);
->> +    if (ret < 0) {
->> +        bpf_prog_array_delete_safe(old_array, event->prog);
->> +    } else {
->> +        rcu_assign_pointer(event->tp_event->prog_array, new_array);
->> +        bpf_prog_array_free(old_array);
->> +    }
->> +
->> +    bpf_prog_put(event->prog);
->> +    event->prog = NULL;
->> +
->> +    mutex_unlock(&bpf_event_mutex);
->> +}
-> [...]
+I'm not looked at the code, travelling and don't have time.
+
+What happens if the failure is -PROBE_DEFERRED, and it tried again
+later. Will these masks be set back to 0? Or will they retain the old
+values? I think there is supposed to be symmetry here, so that we undo
+what we did, and so the next time we try again, we start from a good
+state.
+
+	Andrew
