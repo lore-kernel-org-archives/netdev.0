@@ -1,69 +1,62 @@
-From: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
- traffic shapers
-Date: Mon, 23 Oct 2017 10:18:43 -0700
-Message-ID: <df0609c3-d7d9-c592-47cf-de53343ddc6a@intel.com>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com>
- <20170918080214.yrejz67wwnp2pjzf@localhost> <87k20vip3f.fsf@intel.com>
- <20170919052244.77umdxuze53t6j22@localhost> <87wp4ufchl.fsf@intel.com>
- <20170920052558.h6c4lkqmzk2h2pdq@localhost>
- <62f3eae4-bf6a-1475-936f-5011c9ff381e@intel.com>
- <20171019203949.pyv44i5sy6lnuavh@localhost>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH] bpf: cpumap fix potential lost wake-up problem
+Date: Mon, 23 Oct 2017 19:39:28 +0200
+Message-ID: <150878036830.4768.8540758939081367484.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        boon.leong.ong@intel.com, Levi Pearson <levipearson@gmail.com>,
-        Henrik Austad <henrik@austad.us>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: Rik van Riel <riel@redhat.com>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:30047 "EHLO mga05.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35520 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751304AbdJWR0N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Oct 2017 13:26:13 -0400
-In-Reply-To: <20171019203949.pyv44i5sy6lnuavh@localhost>
-Content-Language: en-US
+        id S1751304AbdJWRjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Oct 2017 13:39:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+As pointed out by Michael, commit 1c601d829ab0 ("bpf: cpumap xdp_buff
+to skb conversion and allocation") contains a classical example of the
+potential lost wake-up problem.
 
-On 10/19/2017 01:39 PM, Richard Cochran wrote:
-> On Wed, Oct 18, 2017 at 03:37:35PM -0700, Jesus Sanchez-Palencia wrote:
->> I also did some tests with when you don't set valid launch times, but here using
->> your idea from above, so with the driver calculating a valid launch time (i.e.
->> current NIC time + X ns, varying X across tests) for packets that didn't have it
->> set by the user, and I wasn't too happy with its reliability. It could
->> definitely be improved, but it has left me wondering: instead, what about
->> documenting that if you enable TXTIME, then you *must* provide a valid Launch
->> time for all packets on traffic classes that are affected?
-> 
-> If txtime is enabled, then CBS is pointless because the txtime already
-> specifies the bandwidth implicitly.
+We need to recheck the condition __ptr_ring_empty() after changing
+current->state to TASK_INTERRUPTIBLE, this avoids a race between
+wake_up_process() and schedule(). After this, a race with
+wake_up_process() will simply change the state to TASK_RUNNING, and
+the schedule() call not really put us to sleep.
 
+Fixes: 1c601d829ab0 ("bpf: cpumap xdp_buff to skb conversion and allocation")
+Reported-by: "Michael S. Tsirkin" <mst@redhat.com>
+---
+ kernel/bpf/cpumap.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-Assuming there is no "interfering" traffic on that traffic class, yes.
-Otherwise, CBS could be configured just to avoid that outbound traffic ever goes
-beyond the reserved bandwidth.
-
-
-> 
-> The problem is when one program uses txtime and another uses CBS, then
-> the CBS user will experience really wrong performance.
-
-
-Good point. We'll need to adjust the launch time for controllers that behave
-like the i210 then, imo.
-
-
-Thanks,
-Jesus
-
-
-> 
-> Thanks,
-> Richard
-> 
+diff --git a/kernel/bpf/cpumap.c b/kernel/bpf/cpumap.c
+index b4358d84ddf1..86e29cbf7827 100644
+--- a/kernel/bpf/cpumap.c
++++ b/kernel/bpf/cpumap.c
+@@ -288,13 +288,17 @@ static int cpu_map_kthread_run(void *data)
+ 
+ 		/* Release CPU reschedule checks */
+ 		if (__ptr_ring_empty(rcpu->queue)) {
+-			__set_current_state(TASK_INTERRUPTIBLE);
+-			schedule();
+-			sched = 1;
++			set_current_state(TASK_INTERRUPTIBLE);
++			/* Recheck to avoid lost wake-up */
++			if (__ptr_ring_empty(rcpu->queue)) {
++				schedule();
++				sched = 1;
++			} else {
++				__set_current_state(TASK_RUNNING);
++			}
+ 		} else {
+ 			sched = cond_resched();
+ 		}
+-		__set_current_state(TASK_RUNNING);
+ 
+ 		/* Process packets in rcpu->queue */
+ 		local_bh_disable();
