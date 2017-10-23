@@ -1,69 +1,171 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v8 03/10] arm: dts: sunxi: h3/h5: Restore EMAC changes
-Date: Mon, 23 Oct 2017 20:56:19 +0200
-Message-ID: <20171023185626.31793-4-clabbe.montjoie@gmail.com>
-References: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, catalin.marinas@arm.com,
-        will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 4/9] nfp: bpf: add stack read support
+Date: Mon, 23 Oct 2017 11:58:09 -0700
+Message-ID: <20171023185814.4797-5-jakub.kicinski@netronome.com>
+References: <20171023185814.4797-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:47696 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751809AbdJWS6a (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:58:30 -0400
+Received: by mail-pf0-f196.google.com with SMTP id z11so17762591pfk.4
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 11:58:29 -0700 (PDT)
+In-Reply-To: <20171023185814.4797-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The original dwmac-sun8i DT bindings have some issue on how to handle
-integrated PHY and was reverted in last RC of 4.13.
-But now we have a solution so we need to get back that was reverted.
+Add simple stack read support, similar to write in every aspect,
+but data flowing the other way.  Note that unlike write which can
+be done in smaller than word quantities, if registers are loaded
+with less-than-word of stack contents - the values have to be
+zero extended.
 
-This patch restore sunxi-h3-h5.dtsi
-This reverts partially commit fe45174b72ae ("arm: dts: sunxi: Revert EMAC changes")
-
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Quentin Monnet <quentin.monnet@netronome.com>
 ---
- arch/arm/boot/dts/sunxi-h3-h5.dtsi | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ drivers/net/ethernet/netronome/nfp/bpf/jit.c | 81 ++++++++++++++++++++++++++--
+ 1 file changed, 76 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-index c1bd09dab3da..d762098fc589 100644
---- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-+++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-@@ -408,6 +408,32 @@
- 			clocks = <&osc24M>;
- 		};
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/jit.c b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
+index d2a3e9065dbe..094acea35326 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/jit.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/jit.c
+@@ -644,11 +644,65 @@ data_st_host_order(struct nfp_prog *nfp_prog, u8 dst_gpr, swreg offset,
  
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x10000>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			status = "disabled";
+ typedef int
+ (*lmem_step)(struct nfp_prog *nfp_prog, u8 gpr, u8 gpr_byte, s32 off,
+-	     unsigned int size);
++	     unsigned int size, bool new_gpr);
 +
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				int_mii_phy: ethernet-phy@1 {
-+					compatible = "ethernet-phy-ieee802.3-c22";
-+					reg = <1>;
-+					clocks = <&ccu CLK_BUS_EPHY>;
-+					resets = <&ccu RST_BUS_EPHY>;
-+				};
-+			};
-+		};
++static int
++wrp_lmem_load(struct nfp_prog *nfp_prog, u8 dst, u8 dst_byte, s32 off,
++	      unsigned int size, bool new_gpr)
++{
++	u32 idx, src_byte;
++	enum shf_sc sc;
++	swreg reg;
++	int shf;
++	u8 mask;
 +
- 		spi0: spi@1c68000 {
- 			compatible = "allwinner,sun8i-h3-spi";
- 			reg = <0x01c68000 0x1000>;
++	if (WARN_ON_ONCE(dst_byte + size > 4 || off % 4 + size > 4))
++		return -EOPNOTSUPP;
++
++	idx = off / 4;
++
++	/* Move the entire word */
++	if (size == 4) {
++		wrp_mov(nfp_prog, reg_both(dst), reg_lm(0, idx));
++		return 0;
++	}
++
++	src_byte = off % 4;
++
++	mask = (1 << size) - 1;
++	mask <<= dst_byte;
++
++	if (WARN_ON_ONCE(mask > 0xf))
++		return -EOPNOTSUPP;
++
++	shf = abs(src_byte - dst_byte) * 8;
++	if (src_byte == dst_byte) {
++		sc = SHF_SC_NONE;
++	} else if (src_byte < dst_byte) {
++		shf = 32 - shf;
++		sc = SHF_SC_L_SHF;
++	} else {
++		sc = SHF_SC_R_SHF;
++	}
++
++	/* ld_field can address fewer indexes, if offset too large do RMW.
++	 * Because we RMV twice we waste 2 cycles on unaligned 8 byte writes.
++	 */
++	if (idx <= RE_REG_LM_IDX_MAX) {
++		reg = reg_lm(0, idx);
++	} else {
++		reg = imm_a(nfp_prog);
++		wrp_mov(nfp_prog, reg, reg_lm(0, idx));
++	}
++
++	emit_ld_field_any(nfp_prog, reg_both(dst), mask, reg, sc, shf, new_gpr);
++
++	return 0;
++}
+ 
+ static int
+ wrp_lmem_store(struct nfp_prog *nfp_prog, u8 src, u8 src_byte, s32 off,
+-	       unsigned int size)
++	       unsigned int size, bool new_gpr)
+ {
+ 	u32 idx, dst_byte;
+ 	enum shf_sc sc;
+@@ -705,12 +759,16 @@ wrp_lmem_store(struct nfp_prog *nfp_prog, u8 src, u8 src_byte, s32 off,
+ 
+ static int
+ mem_op_stack(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+-	     unsigned int size, u8 gpr, lmem_step step)
++	     unsigned int size, u8 gpr, bool clr_gpr, lmem_step step)
+ {
+ 	s32 off = nfp_prog->stack_depth + meta->insn.off;
++	u8 prev_gpr = 255;
+ 	u32 gpr_byte = 0;
+ 	int ret;
+ 
++	if (clr_gpr && size < 8)
++		wrp_immed(nfp_prog, reg_both(gpr + 1), 0);
++
+ 	while (size) {
+ 		u32 slice_end;
+ 		u8 slice_size;
+@@ -719,10 +777,12 @@ mem_op_stack(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ 		slice_end = min(off + slice_size, round_up(off + 1, 4));
+ 		slice_size = slice_end - off;
+ 
+-		ret = step(nfp_prog, gpr, gpr_byte, off, slice_size);
++		ret = step(nfp_prog, gpr, gpr_byte, off, slice_size,
++			   gpr != prev_gpr);
+ 		if (ret)
+ 			return ret;
+ 
++		prev_gpr = gpr;
+ 		gpr_byte += slice_size;
+ 		if (gpr_byte >= 4) {
+ 			gpr_byte -= 4;
+@@ -1232,6 +1292,14 @@ static int data_ind_ld4(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta)
+ 				     meta->insn.src_reg * 2, 4);
+ }
+ 
++static int
++mem_ldx_stack(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
++	      unsigned int size)
++{
++	return mem_op_stack(nfp_prog, meta, size, meta->insn.dst_reg * 2, true,
++			    wrp_lmem_load);
++}
++
+ static int mem_ldx_skb(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ 		       u8 size)
+ {
+@@ -1315,6 +1383,9 @@ mem_ldx(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ 	if (meta->ptr.type == PTR_TO_PACKET)
+ 		return mem_ldx_data(nfp_prog, meta, size);
+ 
++	if (meta->ptr.type == PTR_TO_STACK)
++		return mem_ldx_stack(nfp_prog, meta, size);
++
+ 	return -EOPNOTSUPP;
+ }
+ 
+@@ -1396,7 +1467,7 @@ static int
+ mem_stx_stack(struct nfp_prog *nfp_prog, struct nfp_insn_meta *meta,
+ 	      unsigned int size)
+ {
+-	return mem_op_stack(nfp_prog, meta, size, meta->insn.src_reg * 2,
++	return mem_op_stack(nfp_prog, meta, size, meta->insn.src_reg * 2, false,
+ 			    wrp_lmem_store);
+ }
+ 
 -- 
-2.13.6
+2.14.1
