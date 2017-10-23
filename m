@@ -1,8 +1,7 @@
 From: Lipeng <lipeng321@huawei.com>
-Subject: [PATCH net-next 3/7] net: hns3: fix the ops check in hns3_get_rxnfc
-Date: Mon, 23 Oct 2017 19:51:03 +0800
-Message-ID: <1508759467-18397-4-git-send-email-lipeng321@huawei.com>
-References: <1508759467-18397-1-git-send-email-lipeng321@huawei.com>
+Subject: [PATCH net-next 0/7] net: hns3: bug fixes & code improvements
+Date: Mon, 23 Oct 2017 19:51:00 +0800
+Message-ID: <1508759467-18397-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
@@ -10,34 +9,26 @@ Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
         <salil.mehta@huawei.com>, <lipeng321@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1508759467-18397-1-git-send-email-lipeng321@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-1# patch: 07d2995 net: hns3: add support for ETHTOOL_GRXFH.
-2# patch: 5668abd net: hns3: add support for set_ringparam.
+This patchset introduces various HNS3 bug fixes, optimizations and code
+improvements.
 
-1# patch adds ae_algo->ops->get_rss_tuple to hns3_get_rxnfc
-and 2# patch delete ae_algo->ops->get_tc_size
-from hns3_get_rxnfc.This patch fix the ops check in hns3_get_rxnfc.
+Lipeng (7):
+  net: hns3: fix a bug when alloc new buffer
+  net: hns3: fix the bug when map buffer fail
+  net: hns3: fix the ops check in hns3_get_rxnfc
+  net: hns3: get vf count by pci_sriov_get_totalvfs
+  net: hns3: fix the TX/RX ring.queue_index in hns3_ring_get_cfg
+  net: hns3: remove redundant memset when alloc buffer
+  net: hns3: fix a bug about hns3_clean_tx_ring
 
-Signed-off-by: Lipeng <lipeng321@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c  |  3 ++-
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c   | 16 +++++++---------
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h   |  2 +-
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c    |  2 +-
+ 4 files changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-index 6c469e4..5cd163b 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_ethtool.c
-@@ -717,7 +717,7 @@ static int hns3_get_rxnfc(struct net_device *netdev,
- {
- 	struct hnae3_handle *h = hns3_get_handle(netdev);
- 
--	if (!h->ae_algo || !h->ae_algo->ops || !h->ae_algo->ops->get_tc_size)
-+	if (!h->ae_algo || !h->ae_algo->ops || !h->ae_algo->ops->get_rss_tuple)
- 		return -EOPNOTSUPP;
- 
- 	switch (cmd->cmd) {
 -- 
 1.9.1
