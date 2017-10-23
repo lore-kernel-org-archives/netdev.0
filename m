@@ -1,53 +1,85 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v8 08/10] net: stmmac: snps,dwmac-mdio MDIOs are automatically registered
-Date: Mon, 23 Oct 2017 20:56:24 +0200
-Message-ID: <20171023185626.31793-9-clabbe.montjoie@gmail.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v8 04/10] arm: dts: sunxi: h3/h5: represent the mdio switch
+ used by sun8i-h3-emac
+Date: Mon, 23 Oct 2017 20:56:20 +0200
+Message-ID: <20171023185626.31793-5-clabbe.montjoie@gmail.com>
 References: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20171023185626.31793-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ devicetree@vger.kernel.org
+To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+ wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+ will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com,
+ andrew@lunn.ch, f.fainelli@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-stmmac bindings docs said that its mdio node must have
-compatible = "snps,dwmac-mdio";
-Since dwmac-sun8i does not have any good reasons to not doing it, all
-their MDIO node must have it.
+Since dwmac-sun8i could use either an integrated PHY or an external PHY
+(which could be at same MDIO address), we need to represent this selection
+by a MDIO switch.
 
-Since these compatible is automatically registered, dwmac-sun8i compatible
-does not need to be in need_mdio_ids.
-
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 4 ----
- 1 file changed, 4 deletions(-)
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi | 31 ++++++++++++++++++++++++++-----
+ 1 file changed, 26 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 8a280b48e3a9..9e616da0745d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -311,10 +311,6 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
- 	bool mdio = true;
- 	static const struct of_device_id need_mdio_ids[] = {
- 		{ .compatible = "snps,dwc-qos-ethernet-4.10" },
--		{ .compatible = "allwinner,sun8i-a83t-emac" },
--		{ .compatible = "allwinner,sun8i-h3-emac" },
--		{ .compatible = "allwinner,sun8i-v3s-emac" },
--		{ .compatible = "allwinner,sun50i-a64-emac" },
- 		{},
- 	};
+diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+index d762098fc589..aa60b7fd18f2 100644
+--- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
++++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+@@ -422,14 +422,35 @@
+ 			#size-cells = <0>;
+ 			status = "disabled";
  
+-			mdio: mdio {
++			mdio0: mdio {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+-				int_mii_phy: ethernet-phy@1 {
+-					compatible = "ethernet-phy-ieee802.3-c22";
++				compatible = "snps,dwmac-mdio";
++			};
++
++			mdio-mux {
++				compatible = "mdio-mux", "allwinner,sun8i-h3-mdio-mux";
++				#address-cells = <1>;
++				#size-cells = <0>;
++				/* Only one MDIO is usable at the time */
++				internal_mdio: mdio@1 {
++					compatible = "allwinner,sun8i-h3-mdio-internal";
+ 					reg = <1>;
+-					clocks = <&ccu CLK_BUS_EPHY>;
+-					resets = <&ccu RST_BUS_EPHY>;
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					int_mii_phy: ethernet-phy@1 {
++						compatible = "ethernet-phy-ieee802.3-c22";
++						reg = <1>;
++						clocks = <&ccu CLK_BUS_EPHY>;
++						resets = <&ccu RST_BUS_EPHY>;
++					};
++				};
++
++				external_mdio: mdio@2 {
++					reg = <2>;
++					#address-cells = <1>;
++					#size-cells = <0>;
+ 				};
+ 			};
+ 		};
 -- 
 2.13.6
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
