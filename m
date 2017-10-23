@@ -1,633 +1,103 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next 2/3] bpf: permit multiple bpf attachments for a single perf event
-Date: Mon, 23 Oct 2017 10:58:04 -0700
-Message-ID: <20171023175805.2898366-3-yhs@fb.com>
-References: <20171023175805.2898366-1-yhs@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <kafai@fb.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34304 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932306AbdJWR6W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 13:58:22 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v9NHtILU011534
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 10:58:21 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2dsj8mrqy8-4
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 10:58:21 -0700
-In-Reply-To: <20171023175805.2898366-1-yhs@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@gmail.com>
+Subject: [PATCH v14 0/5] Replace PCI pool by DMA pool API
+Date: Mon, 23 Oct 2017 19:59:53 +0200
+Message-ID: <20171023175958.8327-1-romain.perier@gmail.com>
+Cc: dmaengine@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@gmail.com>
+To: Jens Axboe <axboe@kernel.dk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Vinod Koul <vinod.koul@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Aviad Krawczyk <aviad.krawczyk@huawei.com>,
+        Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch enables multiple bpf attachments for a
-kprobe/uprobe/tracepoint single trace event.
-Each trace_event keeps a list of attached perf events.
-When an event happens, all attached bpf programs will
-be executed based on the order of attachment.
+The current PCI pool API are simple macro functions direct expanded to
+the appropriate dma pool functions. The prototypes are almost the same
+and semantically, they are very similar. I propose to use the DMA pool
+API directly and get rid of the old API.
 
-A global bpf_event_mutex lock is introduced to protect
-prog_array attaching and detaching. An alternative will
-be introduce a mutex lock in every trace_event_call
-structure, but it takes a lot of extra memory.
-So a global bpf_event_mutex lock is a good compromise.
+This set of patches, replaces the old API by the dma pool API
+and remove the defines.
 
-The bpf prog detachment involves allocation of memory.
-If the allocation fails, a dummy do-nothing program
-will replace to-be-detached program in-place.
+Changes in v14:
+- Rebased series onto next-20171018
+- Rebased patch 03/05 on latest driver
 
-Signed-off-by: Yonghong Song <yhs@fb.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Martin KaFai Lau <kafai@fb.com>
----
- include/linux/bpf.h           | 30 +++++++++++++---
- include/linux/trace_events.h  | 33 ++++++++++++++---
- include/trace/perf.h          |  6 ++--
- kernel/bpf/core.c             | 80 +++++++++++++++++++++++++++++++++++++++++
- kernel/events/core.c          | 26 +++++---------
- kernel/trace/bpf_trace.c      | 83 ++++++++++++++++++++++++++++++++++++++++---
- kernel/trace/trace_kprobe.c   |  6 ++--
- kernel/trace/trace_syscalls.c | 32 +++++++++--------
- kernel/trace/trace_uprobe.c   |  3 +-
- 9 files changed, 244 insertions(+), 55 deletions(-)
+Changes in v13:
+- Rebased series onto next-20170906
+- Added a new commit for the hinic ethernet driver
+- Remove previously merged patches
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 1e334b2..0d7e4e8 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -273,18 +273,38 @@ int bpf_prog_array_length(struct bpf_prog_array __rcu *progs);
- int bpf_prog_array_copy_to_user(struct bpf_prog_array __rcu *progs,
- 				__u32 __user *prog_ids, u32 cnt);
- 
--#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
-+void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
-+				struct bpf_prog *old_prog);
-+int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
-+			struct bpf_prog *exclude_prog,
-+			struct bpf_prog *include_prog,
-+			struct bpf_prog_array **new_array);
-+
-+#define __BPF_PROG_RUN_ARRAY(array, ctx, func, check_non_null)	\
- 	({						\
--		struct bpf_prog **_prog;		\
-+		struct bpf_prog **_prog, *__prog;	\
-+		struct bpf_prog_array *_array;		\
- 		u32 _ret = 1;				\
- 		rcu_read_lock();			\
--		_prog = rcu_dereference(array)->progs;	\
--		for (; *_prog; _prog++)			\
--			_ret &= func(*_prog, ctx);	\
-+		_array = rcu_dereference(array);	\
-+		if (unlikely(check_non_null && !_array))\
-+			goto _out;			\
-+		_prog = _array->progs;			\
-+		while ((__prog = READ_ONCE(*_prog))) {	\
-+			_ret &= func(__prog, ctx);	\
-+			_prog++;			\
-+		}					\
-+_out:							\
- 		rcu_read_unlock();			\
- 		_ret;					\
- 	 })
- 
-+#define BPF_PROG_RUN_ARRAY(array, ctx, func)		\
-+	__BPF_PROG_RUN_ARRAY(array, ctx, func, false)
-+
-+#define BPF_PROG_RUN_ARRAY_SAFE(array, ctx, func)	\
-+	__BPF_PROG_RUN_ARRAY(array, ctx, func, true)
-+
- #ifdef CONFIG_BPF_SYSCALL
- DECLARE_PER_CPU(int, bpf_prog_active);
- 
-diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
-index 2e0f222..c811464 100644
---- a/include/linux/trace_events.h
-+++ b/include/linux/trace_events.h
-@@ -271,14 +271,37 @@ struct trace_event_call {
- #ifdef CONFIG_PERF_EVENTS
- 	int				perf_refcount;
- 	struct hlist_head __percpu	*perf_events;
--	struct bpf_prog			*prog;
--	struct perf_event		*bpf_prog_owner;
-+	struct bpf_prog_array __rcu	*prog_array;
- 
- 	int	(*perf_perm)(struct trace_event_call *,
- 			     struct perf_event *);
- #endif
- };
- 
-+#ifdef CONFIG_PERF_EVENTS
-+static inline bool bpf_prog_array_valid(struct trace_event_call *call)
-+{
-+	/*
-+	 * This inline function checks whether call->prog_array
-+	 * is valid or not. The function is called in various places,
-+	 * outside rcu_read_lock/unlock, as a heuristic to speed up execution.
-+	 *
-+	 * If this function returns true, and later call->prog_array
-+	 * becomes false inside rcu_read_lock/unlock region,
-+	 * we bail out then. If this function return false,
-+	 * there is a risk that we might miss a few events if the checking
-+	 * were delayed until inside rcu_read_lock/unlock region and
-+	 * call->prog_array happened to become non-NULL then.
-+	 *
-+	 * Here, READ_ONCE() is used instead of rcu_access_pointer().
-+	 * rcu_access_pointer() requires the actual definition of
-+	 * "struct bpf_prog_array" while READ_ONCE() only needs
-+	 * a declaration of the same type.
-+	 */
-+	return !!READ_ONCE(call->prog_array);
-+}
-+#endif
-+
- static inline const char *
- trace_event_name(struct trace_event_call *call)
- {
-@@ -435,9 +458,9 @@ trace_trigger_soft_disabled(struct trace_event_file *file)
- }
- 
- #ifdef CONFIG_BPF_EVENTS
--unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx);
-+unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx);
- #else
--static inline unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
-+static inline unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
- {
- 	return 1;
- }
-@@ -499,6 +522,8 @@ extern void ftrace_profile_free_filter(struct perf_event *event);
- void perf_trace_buf_update(void *record, u16 type);
- void *perf_trace_buf_alloc(int size, struct pt_regs **regs, int *rctxp);
- 
-+int perf_event_attach_bpf_prog(struct perf_event *event, struct bpf_prog *prog);
-+void perf_event_detach_bpf_prog(struct perf_event *event);
- void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
- 			       struct trace_event_call *call, u64 count,
- 			       struct pt_regs *regs, struct hlist_head *head,
-diff --git a/include/trace/perf.h b/include/trace/perf.h
-index 04fe68bb..4ffe57d 100644
---- a/include/trace/perf.h
-+++ b/include/trace/perf.h
-@@ -34,7 +34,6 @@ perf_trace_##call(void *__data, proto)					\
- 	struct trace_event_call *event_call = __data;			\
- 	struct trace_event_data_offsets_##call __maybe_unused __data_offsets;\
- 	struct trace_event_raw_##call *entry;				\
--	struct bpf_prog *prog = event_call->prog;			\
- 	struct pt_regs *__regs;						\
- 	u64 __count = 1;						\
- 	struct task_struct *__task = NULL;				\
-@@ -46,8 +45,9 @@ perf_trace_##call(void *__data, proto)					\
- 	__data_size = trace_event_get_offsets_##call(&__data_offsets, args); \
- 									\
- 	head = this_cpu_ptr(event_call->perf_events);			\
--	if (!prog && __builtin_constant_p(!__task) && !__task &&	\
--				hlist_empty(head))			\
-+	if (!bpf_prog_array_valid(event_call) &&			\
-+			__builtin_constant_p(!__task) && !__task &&	\
-+			hlist_empty(head))				\
- 		return;							\
- 									\
- 	__entry_size = ALIGN(__data_size + sizeof(*entry) + sizeof(u32),\
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 8e7c8bf..bac5307 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -1394,6 +1394,19 @@ struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err)
- }
- EXPORT_SYMBOL_GPL(bpf_prog_select_runtime);
- 
-+static unsigned int __bpf_prog_ret1(const void *ctx,
-+				    const struct bpf_insn *insn)
-+{
-+	return 1;
-+}
-+static struct bpf_prog_dummy {
-+	struct bpf_prog prog;
-+} dummy_bpf_prog = {
-+	.prog = {
-+		.bpf_func = __bpf_prog_ret1,
-+	},
-+};
-+
- /* to avoid allocating empty bpf_prog_array for cgroups that
-  * don't have bpf program attached use one global 'empty_prog_array'
-  * It will not be modified the caller of bpf_prog_array_alloc()
-@@ -1463,6 +1476,73 @@ int bpf_prog_array_copy_to_user(struct bpf_prog_array __rcu *progs,
- 	return 0;
- }
- 
-+void bpf_prog_array_delete_safe(struct bpf_prog_array __rcu *progs,
-+				struct bpf_prog *old_prog)
-+{
-+	struct bpf_prog **prog = progs->progs;
-+
-+	for (; *prog; prog++)
-+		if (*prog == old_prog) {
-+			WRITE_ONCE(*prog, &dummy_bpf_prog.prog);
-+			break;
-+		}
-+}
-+
-+int bpf_prog_array_copy(struct bpf_prog_array __rcu *old_array,
-+			struct bpf_prog *exclude_prog,
-+			struct bpf_prog *include_prog,
-+			struct bpf_prog_array **new_array)
-+{
-+	int new_prog_cnt, carry_prog_cnt = 0;
-+	struct bpf_prog **existing_prog;
-+	struct bpf_prog_array *tarray;
-+	int new_prog_idx = 0;
-+
-+	/* Figure out how many existing progs we need to carry over to
-+	 * the new array.
-+	 */
-+	if (old_array) {
-+		existing_prog = old_array->progs;
-+		for (; *existing_prog; existing_prog++) {
-+			if (*existing_prog != exclude_prog &&
-+			    *existing_prog != &dummy_bpf_prog.prog)
-+				carry_prog_cnt++;
-+			if (*existing_prog == include_prog)
-+				return -EEXIST;
-+		}
-+	}
-+
-+	/* How many progs (not NULL) will be in the new array? */
-+	new_prog_cnt = carry_prog_cnt;
-+	if (include_prog)
-+		new_prog_cnt += 1;
-+
-+	/* Do we have any prog (not NULL) in the new array? */
-+	if (!new_prog_cnt) {
-+		*new_array = NULL;
-+		return 0;
-+	}
-+
-+	/* +1 as the end of prog_array is marked with NULL */
-+	tarray = bpf_prog_array_alloc(new_prog_cnt + 1, GFP_KERNEL);
-+	if (tarray == NULL)
-+		return -ENOMEM;
-+
-+	/* Fill in the new prog array */
-+	if (carry_prog_cnt) {
-+		existing_prog = old_array->progs;
-+		for (; *existing_prog; existing_prog++)
-+			if (*existing_prog != exclude_prog &&
-+			    *existing_prog != &dummy_bpf_prog.prog)
-+				tarray->progs[new_prog_idx++] = *existing_prog;
-+	}
-+	if (include_prog)
-+		tarray->progs[new_prog_idx++] = include_prog;
-+	tarray->progs[new_prog_idx] = NULL;
-+	*new_array = tarray;
-+	return 0;
-+}
-+
- static void bpf_prog_free_deferred(struct work_struct *work)
- {
- 	struct bpf_prog_aux *aux;
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 9f78a682..9660ee6 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -7954,11 +7954,9 @@ void perf_trace_run_bpf_submit(void *raw_data, int size, int rctx,
- 			       struct pt_regs *regs, struct hlist_head *head,
- 			       struct task_struct *task)
- {
--	struct bpf_prog *prog = call->prog;
--
--	if (prog) {
-+	if (bpf_prog_array_valid(call)) {
- 		*(struct pt_regs **)raw_data = regs;
--		if (!trace_call_bpf(prog, raw_data) || hlist_empty(head)) {
-+		if (!trace_call_bpf(call, raw_data) || hlist_empty(head)) {
- 			perf_swevent_put_recursion_context(rctx);
- 			return;
- 		}
-@@ -8147,13 +8145,11 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- {
- 	bool is_kprobe, is_tracepoint, is_syscall_tp;
- 	struct bpf_prog *prog;
-+	int ret;
- 
- 	if (event->attr.type != PERF_TYPE_TRACEPOINT)
- 		return perf_event_set_bpf_handler(event, prog_fd);
- 
--	if (event->tp_event->prog)
--		return -EEXIST;
--
- 	is_kprobe = event->tp_event->flags & TRACE_EVENT_FL_UKPROBE;
- 	is_tracepoint = event->tp_event->flags & TRACE_EVENT_FL_TRACEPOINT;
- 	is_syscall_tp = is_syscall_trace_event(event->tp_event);
-@@ -8181,26 +8177,20 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
- 			return -EACCES;
- 		}
- 	}
--	event->tp_event->prog = prog;
--	event->tp_event->bpf_prog_owner = event;
- 
--	return 0;
-+	ret = perf_event_attach_bpf_prog(event, prog);
-+	if (ret)
-+		bpf_prog_put(prog);
-+	return ret;
- }
- 
- static void perf_event_free_bpf_prog(struct perf_event *event)
- {
--	struct bpf_prog *prog;
--
- 	if (event->attr.type != PERF_TYPE_TRACEPOINT) {
- 		perf_event_free_bpf_handler(event);
- 		return;
- 	}
--
--	prog = event->tp_event->prog;
--	if (prog && event->tp_event->bpf_prog_owner == event) {
--		event->tp_event->prog = NULL;
--		bpf_prog_put(prog);
--	}
-+	perf_event_detach_bpf_prog(event);
- }
- 
- #else
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 3126da2..2e1c4e0 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -17,7 +17,7 @@
- 
- /**
-  * trace_call_bpf - invoke BPF program
-- * @prog: BPF program
-+ * @call: tracepoint event
-  * @ctx: opaque context pointer
-  *
-  * kprobe handlers execute BPF programs via this helper.
-@@ -29,7 +29,7 @@
-  * 1 - store kprobe event into ring buffer
-  * Other values are reserved and currently alias to 1
-  */
--unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
-+unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
- {
- 	unsigned int ret;
- 
-@@ -49,9 +49,22 @@ unsigned int trace_call_bpf(struct bpf_prog *prog, void *ctx)
- 		goto out;
- 	}
- 
--	rcu_read_lock();
--	ret = BPF_PROG_RUN(prog, ctx);
--	rcu_read_unlock();
-+	/*
-+	 * Instead of moving rcu_read_lock/rcu_dereference/rcu_read_unlock
-+	 * to all call sites, we did a bpf_prog_array_valid() there to check
-+	 * whether call->prog_array is empty or not, which is
-+	 * a heurisitc to speed up execution.
-+	 *
-+	 * If bpf_prog_array_valid() fetched prog_array was
-+	 * non-NULL, we go into trace_call_bpf() and do the actual
-+	 * proper rcu_dereference() under RCU lock.
-+	 * If it turns out that prog_array is NULL then, we bail out.
-+	 * For the opposite, if the bpf_prog_array_valid() fetched pointer
-+	 * was NULL, you'll skip the prog_array with the risk of missing
-+	 * out of events when it was updated in between this and the
-+	 * rcu_dereference() which is accepted risk.
-+	 */
-+	ret = BPF_PROG_RUN_ARRAY_SAFE(call->prog_array, ctx, BPF_PROG_RUN);
- 
-  out:
- 	__this_cpu_dec(bpf_prog_active);
-@@ -741,3 +754,63 @@ const struct bpf_verifier_ops perf_event_verifier_ops = {
- 
- const struct bpf_prog_ops perf_event_prog_ops = {
- };
-+
-+static DEFINE_MUTEX(bpf_event_mutex);
-+
-+int perf_event_attach_bpf_prog(struct perf_event *event,
-+			   struct bpf_prog *prog)
-+{
-+	struct bpf_prog_array __rcu *old_array;
-+	struct bpf_prog_array *new_array;
-+	int ret;
-+
-+	mutex_lock(&bpf_event_mutex);
-+
-+	if (event->prog)
-+		return -EEXIST;
-+
-+	old_array = rcu_dereference_protected(event->tp_event->prog_array,
-+					      lockdep_is_held(&bpf_event_mutex));
-+	ret = bpf_prog_array_copy(old_array, NULL, prog, &new_array);
-+	if (ret < 0)
-+		goto out;
-+
-+	/* set the new array to event->tp_event and set event->prog */
-+	event->prog = prog;
-+	rcu_assign_pointer(event->tp_event->prog_array, new_array);
-+
-+	if (old_array)
-+		bpf_prog_array_free(old_array);
-+
-+out:
-+	mutex_unlock(&bpf_event_mutex);
-+	return ret;
-+}
-+
-+void perf_event_detach_bpf_prog(struct perf_event *event)
-+{
-+	struct bpf_prog_array __rcu *old_array;
-+	struct bpf_prog_array *new_array;
-+	int ret;
-+
-+	mutex_lock(&bpf_event_mutex);
-+
-+	if (!event->prog)
-+		return;
-+
-+	old_array = rcu_dereference_protected(event->tp_event->prog_array,
-+					      lockdep_is_held(&bpf_event_mutex));
-+
-+	ret = bpf_prog_array_copy(old_array, event->prog, NULL, &new_array);
-+	if (ret < 0) {
-+		bpf_prog_array_delete_safe(old_array, event->prog);
-+	} else {
-+		rcu_assign_pointer(event->tp_event->prog_array, new_array);
-+		bpf_prog_array_free(old_array);
-+	}
-+
-+	bpf_prog_put(event->prog);
-+	event->prog = NULL;
-+
-+	mutex_unlock(&bpf_event_mutex);
-+}
-diff --git a/kernel/trace/trace_kprobe.c b/kernel/trace/trace_kprobe.c
-index 8a907e1..abf92e4 100644
---- a/kernel/trace/trace_kprobe.c
-+++ b/kernel/trace/trace_kprobe.c
-@@ -1174,13 +1174,12 @@ static void
- kprobe_perf_func(struct trace_kprobe *tk, struct pt_regs *regs)
- {
- 	struct trace_event_call *call = &tk->tp.call;
--	struct bpf_prog *prog = call->prog;
- 	struct kprobe_trace_entry_head *entry;
- 	struct hlist_head *head;
- 	int size, __size, dsize;
- 	int rctx;
- 
--	if (prog && !trace_call_bpf(prog, regs))
-+	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
- 		return;
- 
- 	head = this_cpu_ptr(call->perf_events);
-@@ -1210,13 +1209,12 @@ kretprobe_perf_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
- 		    struct pt_regs *regs)
- {
- 	struct trace_event_call *call = &tk->tp.call;
--	struct bpf_prog *prog = call->prog;
- 	struct kretprobe_trace_entry_head *entry;
- 	struct hlist_head *head;
- 	int size, __size, dsize;
- 	int rctx;
- 
--	if (prog && !trace_call_bpf(prog, regs))
-+	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
- 		return;
- 
- 	head = this_cpu_ptr(call->perf_events);
-diff --git a/kernel/trace/trace_syscalls.c b/kernel/trace/trace_syscalls.c
-index 696afe7..5527030 100644
---- a/kernel/trace/trace_syscalls.c
-+++ b/kernel/trace/trace_syscalls.c
-@@ -559,9 +559,10 @@ static DECLARE_BITMAP(enabled_perf_exit_syscalls, NR_syscalls);
- static int sys_perf_refcount_enter;
- static int sys_perf_refcount_exit;
- 
--static int perf_call_bpf_enter(struct bpf_prog *prog, struct pt_regs *regs,
-+static int perf_call_bpf_enter(struct trace_event_call *call, struct pt_regs *regs,
- 			      struct syscall_metadata *sys_data,
--			      struct syscall_trace_enter *rec) {
-+			      struct syscall_trace_enter *rec)
-+{
- 	struct syscall_tp_t {
- 		unsigned long long regs;
- 		unsigned long syscall_nr;
-@@ -573,7 +574,7 @@ static int perf_call_bpf_enter(struct bpf_prog *prog, struct pt_regs *regs,
- 	param.syscall_nr = rec->nr;
- 	for (i = 0; i < sys_data->nb_args; i++)
- 		param.args[i] = rec->args[i];
--	return trace_call_bpf(prog, &param);
-+	return trace_call_bpf(call, &param);
- }
- 
- static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
-@@ -581,7 +582,7 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
- 	struct syscall_metadata *sys_data;
- 	struct syscall_trace_enter *rec;
- 	struct hlist_head *head;
--	struct bpf_prog *prog;
-+	bool valid_prog_array;
- 	int syscall_nr;
- 	int rctx;
- 	int size;
-@@ -596,9 +597,9 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
- 	if (!sys_data)
- 		return;
- 
--	prog = READ_ONCE(sys_data->enter_event->prog);
- 	head = this_cpu_ptr(sys_data->enter_event->perf_events);
--	if (!prog && hlist_empty(head))
-+	valid_prog_array = bpf_prog_array_valid(sys_data->enter_event);
-+	if (!valid_prog_array && hlist_empty(head))
- 		return;
- 
- 	/* get the size after alignment with the u32 buffer size field */
-@@ -614,7 +615,8 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
- 	syscall_get_arguments(current, regs, 0, sys_data->nb_args,
- 			       (unsigned long *)&rec->args);
- 
--	if ((prog && !perf_call_bpf_enter(prog, regs, sys_data, rec)) ||
-+	if ((valid_prog_array &&
-+	     !perf_call_bpf_enter(sys_data->enter_event, regs, sys_data, rec)) ||
- 	    hlist_empty(head)) {
- 		perf_swevent_put_recursion_context(rctx);
- 		return;
-@@ -659,8 +661,9 @@ static void perf_sysenter_disable(struct trace_event_call *call)
- 	mutex_unlock(&syscall_trace_lock);
- }
- 
--static int perf_call_bpf_exit(struct bpf_prog *prog, struct pt_regs *regs,
--			      struct syscall_trace_exit *rec) {
-+static int perf_call_bpf_exit(struct trace_event_call *call, struct pt_regs *regs,
-+			      struct syscall_trace_exit *rec)
-+{
- 	struct syscall_tp_t {
- 		unsigned long long regs;
- 		unsigned long syscall_nr;
-@@ -670,7 +673,7 @@ static int perf_call_bpf_exit(struct bpf_prog *prog, struct pt_regs *regs,
- 	*(struct pt_regs **)&param = regs;
- 	param.syscall_nr = rec->nr;
- 	param.ret = rec->ret;
--	return trace_call_bpf(prog, &param);
-+	return trace_call_bpf(call, &param);
- }
- 
- static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
-@@ -678,7 +681,7 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
- 	struct syscall_metadata *sys_data;
- 	struct syscall_trace_exit *rec;
- 	struct hlist_head *head;
--	struct bpf_prog *prog;
-+	bool valid_prog_array;
- 	int syscall_nr;
- 	int rctx;
- 	int size;
-@@ -693,9 +696,9 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
- 	if (!sys_data)
- 		return;
- 
--	prog = READ_ONCE(sys_data->exit_event->prog);
- 	head = this_cpu_ptr(sys_data->exit_event->perf_events);
--	if (!prog && hlist_empty(head))
-+	valid_prog_array = bpf_prog_array_valid(sys_data->exit_event);
-+	if (!valid_prog_array && hlist_empty(head))
- 		return;
- 
- 	/* We can probably do that at build time */
-@@ -709,7 +712,8 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
- 	rec->nr = syscall_nr;
- 	rec->ret = syscall_get_return_value(current, regs);
- 
--	if ((prog && !perf_call_bpf_exit(prog, regs, rec)) ||
-+	if ((valid_prog_array &&
-+	     !perf_call_bpf_exit(sys_data->exit_event, regs, rec)) ||
- 	    hlist_empty(head)) {
- 		perf_swevent_put_recursion_context(rctx);
- 		return;
-diff --git a/kernel/trace/trace_uprobe.c b/kernel/trace/trace_uprobe.c
-index 4525e02..153c0e4 100644
---- a/kernel/trace/trace_uprobe.c
-+++ b/kernel/trace/trace_uprobe.c
-@@ -1113,13 +1113,12 @@ static void __uprobe_perf_func(struct trace_uprobe *tu,
- {
- 	struct trace_event_call *call = &tu->tp.call;
- 	struct uprobe_trace_entry_head *entry;
--	struct bpf_prog *prog = call->prog;
- 	struct hlist_head *head;
- 	void *data;
- 	int size, esize;
- 	int rctx;
- 
--	if (prog && !trace_call_bpf(prog, regs))
-+	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
- 		return;
- 
- 	esize = SIZEOF_TRACE_ENTRY(is_ret_probe(tu));
+Changes in v12:
+- Rebased series onto next-20170822
+
+Changes in v11:
+- Rebased series onto next-20170809
+- Removed patches 08-14, these have been merged.
+
+Changes in v10:
+- Rebased series onto next-20170706
+- I have fixed and improved patch "scsi: megaraid: Replace PCI pool old API"
+
+Changes in v9:
+- Rebased series onto next-20170522
+- I have fixed and improved the patch for lpfc driver
+
+Changes in v8:
+- Rebased series onto next-20170428
+
+Changes in v7:
+- Rebased series onto next-20170416
+- Added Acked-by, Tested-by and Reviwed-by tags
+
+Changes in v6:
+- Fixed an issue reported by kbuild test robot about changes in DAC960
+- Removed patches 15/19,16/19,17/19,18/19. They have been merged by Greg
+- Added Acked-by Tags
+
+Changes in v5:
+- Re-worded the cover letter (remove sentence about checkpatch.pl)
+- Rebased series onto next-20170308
+- Fix typos in commit message
+- Added Acked-by Tags
+
+Changes in v4:
+- Rebased series onto next-20170301
+- Removed patch 20/20: checks done by checkpath.pl, no longer required.
+  Thanks to Peter and Joe for their feedbacks.
+- Added Reviewed-by tags
+
+Changes in v3:
+- Rebased series onto next-20170224
+- Fix checkpath.pl reports for patch 11/20 and patch 12/20
+- Remove prefix RFC
+Changes in v2:
+- Introduced patch 18/20
+- Fixed cosmetic changes: spaces before brace, live over 80 characters
+- Removed some of the check for NULL pointers before calling dma_pool_destroy
+- Improved the regexp in checkpatch for pci_pool, thanks to Joe Perches
+- Added Tested-by and Acked-by tags
+
+Romain Perier (5):
+  block: DAC960: Replace PCI pool old API
+  dmaengine: pch_dma: Replace PCI pool old API
+  net: e100: Replace PCI pool old API
+  hinic: Replace PCI pool old API
+  PCI: Remove PCI pool macro functions
+
+ drivers/block/DAC960.c                            | 38 +++++++++++------------
+ drivers/block/DAC960.h                            |  4 +--
+ drivers/dma/pch_dma.c                             | 12 +++----
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c | 10 +++---
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h |  2 +-
+ drivers/net/ethernet/intel/e100.c                 | 12 +++----
+ include/linux/pci.h                               |  9 ------
+ 7 files changed, 38 insertions(+), 49 deletions(-)
+
 -- 
-2.9.5
+2.14.1
