@@ -1,262 +1,265 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 12/12] tools: bpftool: update documentation for --json and --pretty usage
-Date: Mon, 23 Oct 2017 09:24:16 -0700
-Message-ID: <20171023162416.32753-13-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 07/12] tools: bpftool: add JSON output for `bpftool map *` commands
+Date: Mon, 23 Oct 2017 09:24:11 -0700
+Message-ID: <20171023162416.32753-8-jakub.kicinski@netronome.com>
 References: <20171023162416.32753-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
         daniel@iogearbox.net, Quentin Monnet <quentin.monnet@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:47458 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751643AbdJWQZG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:25:06 -0400
-Received: by mail-pg0-f67.google.com with SMTP id r25so12163513pgn.4
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:25:06 -0700 (PDT)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:49101 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751609AbdJWQZB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:25:01 -0400
+Received: by mail-pg0-f65.google.com with SMTP id v78so12162033pgb.5
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:25:01 -0700 (PDT)
 In-Reply-To: <20171023162416.32753-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Quentin Monnet <quentin.monnet@netronome.com>
 
-Update the documentation to provide help about JSON output generation,
-and add an example in bpftool-prog manual page.
+Reuse the json_writer API introduced in an earlier commit to make
+bpftool able to generate JSON output on
+`bpftool map { show | dump | lookup | getnext }` commands. Remaining
+commands produce no output.
 
-Also reintroduce an example that was left aside when the tool was moved
-from GitHub to the kernel sources, in order to show how to mount the
-bpffs file system (to pin programs) inside the bpftool-prog manual page.
+Some functions have been spit into plain-output and JSON versions in
+order to remain readable.
+
+Outputs for sample maps have been successfully tested against a JSON
+validator.
 
 Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
 ---
- tools/bpf/bpftool/Documentation/bpftool-map.rst  | 11 ++++-
- tools/bpf/bpftool/Documentation/bpftool-prog.rst | 61 +++++++++++++++++++++++-
- tools/bpf/bpftool/Documentation/bpftool.rst      | 12 ++++-
- tools/bpf/bpftool/main.c                         |  6 ++-
- tools/bpf/bpftool/main.h                         |  2 +
- tools/bpf/bpftool/map.c                          |  1 +
- tools/bpf/bpftool/prog.c                         |  1 +
- 7 files changed, 88 insertions(+), 6 deletions(-)
+ tools/bpf/bpftool/map.c | 149 +++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 129 insertions(+), 20 deletions(-)
 
-diff --git a/tools/bpf/bpftool/Documentation/bpftool-map.rst b/tools/bpf/bpftool/Documentation/bpftool-map.rst
-index 3954b3ea4f26..abb9ee940b15 100644
---- a/tools/bpf/bpftool/Documentation/bpftool-map.rst
-+++ b/tools/bpf/bpftool/Documentation/bpftool-map.rst
-@@ -10,7 +10,9 @@ tool for inspection and simple manipulation of eBPF maps
- SYNOPSIS
- ========
- 
--	**bpftool** **map** *COMMAND*
-+	**bpftool** [*OPTIONS*] **map** *COMMAND*
-+
-+	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] }
- 
- 	*COMMANDS* :=
- 	{ **show** | **dump** | **update** | **lookup** | **getnext** | **delete**
-@@ -77,6 +79,13 @@ OPTIONS
- 	-v, --version
- 		  Print version number (similar to **bpftool version**).
- 
-+	-j, --json
-+		  Generate JSON output. For commands that cannot produce JSON, this
-+		  option has no effect.
-+
-+	-p, --pretty
-+		  Generate human-readable JSON output. Implies **-j**.
-+
- EXAMPLES
- ========
- **# bpftool map show**
-diff --git a/tools/bpf/bpftool/Documentation/bpftool-prog.rst b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
-index 685a19e71fec..0f25d3c39e05 100644
---- a/tools/bpf/bpftool/Documentation/bpftool-prog.rst
-+++ b/tools/bpf/bpftool/Documentation/bpftool-prog.rst
-@@ -10,6 +10,16 @@ tool for inspection and simple manipulation of eBPF progs
- SYNOPSIS
- ========
- 
-+	**bpftool** [*OPTIONS*] **prog** *COMMAND*
-+
-+	*OPTIONS* := { { **-j** | **--json** } [{ **-p** | **--pretty** }] }
-+
-+	*COMMANDS* :=
-+	{ **show** | **dump xlated** | **dump jited** | **pin** | **help** }
-+
-+MAP COMMANDS
-+=============
-+
- |	**bpftool** **prog show** [*PROG*]
- |	**bpftool** **prog dump xlated** *PROG* [{**file** *FILE* | **opcodes**}]
- |	**bpftool** **prog dump jited**  *PROG* [{**file** *FILE* | **opcodes**}]
-@@ -58,6 +68,13 @@ OPTIONS
- 	-v, --version
- 		  Print version number (similar to **bpftool version**).
- 
-+	-j, --json
-+		  Generate JSON output. For commands that cannot produce JSON, this
-+		  option has no effect.
-+
-+	-p, --pretty
-+		  Generate human-readable JSON output. Implies **-j**.
-+
- EXAMPLES
- ========
- **# bpftool prog show**
-@@ -67,13 +84,33 @@ EXAMPLES
- 	loaded_at Sep 29/20:11  uid 0
- 	xlated 528B  jited 370B  memlock 4096B  map_ids 10
- 
-+**# bpftool --json --pretty prog show**
-+
-+::
-+
-+    {
-+        "programs": [{
-+                "id": 10,
-+                "type": "xdp",
-+                "tag": "005a3d2123620c8b",
-+                "loaded_at": "Sep 29/20:11",
-+                "uid": 0,
-+                "bytes_xlated": 528,
-+                "jited": true,
-+                "bytes_jited": 370,
-+                "bytes_memlock": 4096,
-+                "map_ids": [10
-+                ]
-+            }
-+        ]
-+    }
-+
- |
- | **# bpftool prog dump xlated id 10 file /tmp/t**
- | **# ls -l /tmp/t**
- |   -rw------- 1 root root 560 Jul 22 01:42 /tmp/t
- 
--|
--| **# bpftool prog dum jited pinned /sys/fs/bpf/prog**
-+**# bpftool prog dum jited tag 005a3d2123620c8b**
- 
- ::
- 
-@@ -83,6 +120,26 @@ EXAMPLES
-     sub    $0x28,%rbp
-     mov    %rbx,0x0(%rbp)
- 
-+|
-+| **# mount -t bpf none /sys/fs/bpf/**
-+| **# bpftool prog pin id 10 /sys/fs/bpf/prog**
-+| **# ls -l /sys/fs/bpf/**
-+|   -rw------- 1 root root 0 Jul 22 01:43 prog
-+
-+**# bpftool prog dum jited pinned /sys/fs/bpf/prog opcodes**
-+
-+::
-+
-+    push   %rbp
-+    55
-+    mov    %rsp,%rbp
-+    48 89 e5
-+    sub    $0x228,%rsp
-+    48 81 ec 28 02 00 00
-+    sub    $0x28,%rbp
-+    48 83 ed 28
-+    mov    %rbx,0x0(%rbp)
-+    48 89 5d 00
- 
- 
- SEE ALSO
-diff --git a/tools/bpf/bpftool/Documentation/bpftool.rst b/tools/bpf/bpftool/Documentation/bpftool.rst
-index 44e07799d54d..926c03d5a8da 100644
---- a/tools/bpf/bpftool/Documentation/bpftool.rst
-+++ b/tools/bpf/bpftool/Documentation/bpftool.rst
-@@ -10,7 +10,7 @@ tool for inspection and simple manipulation of eBPF programs and maps
- SYNOPSIS
- ========
- 
--	**bpftool** *OBJECT* { *COMMAND* | **help** }
-+	**bpftool** [*OPTIONS*] *OBJECT* { *COMMAND* | **help** }
- 
- 	**bpftool** **batch file** *FILE*
- 
-@@ -18,6 +18,9 @@ SYNOPSIS
- 
- 	*OBJECT* := { **map** | **program** }
- 
-+	*OPTIONS* := { { **-V** | **--version** } | { **-h** | **--help** }
-+	| { **-j** | **--json** } [{ **-p** | **--pretty** }] }
-+
- 	*MAP-COMMANDS* :=
- 	{ **show** | **dump** | **update** | **lookup** | **getnext** | **delete**
- 	| **pin** | **help** }
-@@ -41,6 +44,13 @@ OPTIONS
- 	-v, --version
- 		  Print version number (similar to **bpftool version**).
- 
-+	-j, --json
-+		  Generate JSON output. For commands that cannot produce JSON, this
-+		  option has no effect.
-+
-+	-p, --pretty
-+		  Generate human-readable JSON output. Implies **-j**.
-+
- SEE ALSO
- ========
- 	**bpftool-map**\ (8), **bpftool-prog**\ (8)
-diff --git a/tools/bpf/bpftool/main.c b/tools/bpf/bpftool/main.c
-index 55ba0a04c102..78d9afb74ef4 100644
---- a/tools/bpf/bpftool/main.c
-+++ b/tools/bpf/bpftool/main.c
-@@ -70,11 +70,13 @@ static int do_help(int argc, char **argv)
- 	}
- 
- 	fprintf(stderr,
--		"Usage: %s OBJECT { COMMAND | help }\n"
-+		"Usage: %s [OPTIONS] OBJECT { COMMAND | help }\n"
- 		"       %s batch file FILE\n"
- 		"       %s version\n"
- 		"\n"
--		"       OBJECT := { prog | map }\n",
-+		"       OBJECT := { prog | map }\n"
-+		"       " HELP_SPEC_OPTIONS "\n"
-+		"",
- 		bin_name, bin_name, bin_name);
- 
- 	return 0;
-diff --git a/tools/bpf/bpftool/main.h b/tools/bpf/bpftool/main.h
-index 04c88b55d8c7..2f94bed03a8d 100644
---- a/tools/bpf/bpftool/main.h
-+++ b/tools/bpf/bpftool/main.h
-@@ -55,6 +55,8 @@
- 
- #define HELP_SPEC_PROGRAM						\
- 	"PROG := { id PROG_ID | pinned FILE | tag PROG_TAG }"
-+#define HELP_SPEC_OPTIONS						\
-+	"OPTIONS := { {-j|--json} [{-p|--pretty}] }"
- 
- enum bpf_obj_type {
- 	BPF_OBJ_UNKNOWN,
 diff --git a/tools/bpf/bpftool/map.c b/tools/bpf/bpftool/map.c
-index a611f31f574f..e978ab23a77f 100644
+index e1004d825392..14d89bfabc66 100644
 --- a/tools/bpf/bpftool/map.c
 +++ b/tools/bpf/bpftool/map.c
-@@ -850,6 +850,7 @@ static int do_help(int argc, char **argv)
- 		"       " HELP_SPEC_PROGRAM "\n"
- 		"       VALUE := { BYTES | MAP | PROG }\n"
- 		"       UPDATE_FLAGS := { any | exist | noexist }\n"
-+		"       " HELP_SPEC_OPTIONS "\n"
- 		"",
- 		bin_name, argv[-2], bin_name, argv[-2], bin_name, argv[-2],
- 		bin_name, argv[-2], bin_name, argv[-2], bin_name, argv[-2],
-diff --git a/tools/bpf/bpftool/prog.c b/tools/bpf/bpftool/prog.c
-index e07f35ff80d1..250f80fd46aa 100644
---- a/tools/bpf/bpftool/prog.c
-+++ b/tools/bpf/bpftool/prog.c
-@@ -625,6 +625,7 @@ static int do_help(int argc, char **argv)
- 		"       %s %s help\n"
- 		"\n"
- 		"       " HELP_SPEC_PROGRAM "\n"
-+		"       " HELP_SPEC_OPTIONS "\n"
- 		"",
- 		bin_name, argv[-2], bin_name, argv[-2], bin_name, argv[-2],
- 		bin_name, argv[-2], bin_name, argv[-2]);
+@@ -205,8 +205,45 @@ map_parse_fd_and_info(int *argc, char ***argv, void *info, __u32 *info_len)
+ 	return fd;
+ }
+ 
+-static void print_entry(struct bpf_map_info *info, unsigned char *key,
+-			unsigned char *value)
++static void print_entry_json(struct bpf_map_info *info, unsigned char *key,
++			     unsigned char *value)
++{
++	jsonw_start_object(json_wtr);
++
++	if (!map_is_per_cpu(info->type)) {
++		jsonw_name(json_wtr, "key");
++		print_hex_data_json(key, info->key_size);
++		jsonw_name(json_wtr, "value");
++		print_hex_data_json(value, info->value_size);
++	} else {
++		unsigned int i, n;
++
++		n = get_possible_cpus();
++
++		jsonw_name(json_wtr, "key");
++		print_hex_data_json(key, info->key_size);
++
++		jsonw_name(json_wtr, "values");
++		jsonw_start_array(json_wtr);
++		for (i = 0; i < n; i++) {
++			jsonw_start_object(json_wtr);
++
++			jsonw_int_field(json_wtr, "cpu", i);
++
++			jsonw_name(json_wtr, "value");
++			print_hex_data_json(value + i * info->value_size,
++					    info->value_size);
++
++			jsonw_end_object(json_wtr);
++		}
++		jsonw_end_array(json_wtr);
++	}
++
++	jsonw_end_object(json_wtr);
++}
++
++static void print_entry_plain(struct bpf_map_info *info, unsigned char *key,
++			      unsigned char *value)
+ {
+ 	if (!map_is_per_cpu(info->type)) {
+ 		bool single_line, break_names;
+@@ -370,7 +407,41 @@ static int parse_elem(char **argv, struct bpf_map_info *info,
+ 	return -1;
+ }
+ 
+-static int show_map_close(int fd, struct bpf_map_info *info)
++static int show_map_close_json(int fd, struct bpf_map_info *info)
++{
++	char *memlock;
++
++	memlock = get_fdinfo(fd, "memlock");
++	close(fd);
++
++	jsonw_start_object(json_wtr);
++
++	jsonw_uint_field(json_wtr, "id", info->id);
++	if (info->type < ARRAY_SIZE(map_type_name))
++		jsonw_string_field(json_wtr, "type",
++				   map_type_name[info->type]);
++	else
++		jsonw_uint_field(json_wtr, "type", info->type);
++
++	if (*info->name)
++		jsonw_string_field(json_wtr, "name", info->name);
++
++	jsonw_name(json_wtr, "flags");
++	jsonw_printf(json_wtr, "%#x", info->map_flags);
++	jsonw_uint_field(json_wtr, "bytes_key", info->key_size);
++	jsonw_uint_field(json_wtr, "bytes_value", info->value_size);
++	jsonw_uint_field(json_wtr, "max_entries", info->max_entries);
++
++	if (memlock)
++		jsonw_int_field(json_wtr, "bytes_memlock", atoi(memlock));
++	free(memlock);
++
++	jsonw_end_object(json_wtr);
++
++	return 0;
++}
++
++static int show_map_close_plain(int fd, struct bpf_map_info *info)
+ {
+ 	char *memlock;
+ 
+@@ -412,12 +483,17 @@ static int do_show(int argc, char **argv)
+ 		if (fd < 0)
+ 			return -1;
+ 
+-		return show_map_close(fd, &info);
++		if (json_output)
++			return show_map_close_json(fd, &info);
++		else
++			return show_map_close_plain(fd, &info);
+ 	}
+ 
+ 	if (argc)
+ 		return BAD_ARG();
+ 
++	if (json_output)
++		jsonw_start_array(json_wtr);
+ 	while (true) {
+ 		err = bpf_map_get_next_id(id, &id);
+ 		if (err) {
+@@ -443,8 +519,13 @@ static int do_show(int argc, char **argv)
+ 			return -1;
+ 		}
+ 
+-		show_map_close(fd, &info);
++		if (json_output)
++			show_map_close_json(fd, &info);
++		else
++			show_map_close_plain(fd, &info);
+ 	}
++	if (json_output)
++		jsonw_end_array(json_wtr);
+ 
+ 	return errno == ENOENT ? 0 : -1;
+ }
+@@ -480,6 +561,8 @@ static int do_dump(int argc, char **argv)
+ 	}
+ 
+ 	prev_key = NULL;
++	if (json_output)
++		jsonw_start_array(json_wtr);
+ 	while (true) {
+ 		err = bpf_map_get_next_key(fd, prev_key, key);
+ 		if (err) {
+@@ -489,7 +572,10 @@ static int do_dump(int argc, char **argv)
+ 		}
+ 
+ 		if (!bpf_map_lookup_elem(fd, key, value)) {
+-			print_entry(&info, key, value);
++			if (json_output)
++				print_entry_json(&info, key, value);
++			else
++				print_entry_plain(&info, key, value);
+ 		} else {
+ 			info("can't lookup element with key: ");
+ 			fprint_hex(stderr, key, info.key_size, " ");
+@@ -500,7 +586,11 @@ static int do_dump(int argc, char **argv)
+ 		num_elems++;
+ 	}
+ 
+-	printf("Found %u element%s\n", num_elems, num_elems != 1 ? "s" : "");
++	if (json_output)
++		jsonw_end_array(json_wtr);
++	else
++		printf("Found %u element%s\n", num_elems,
++		       num_elems != 1 ? "s" : "");
+ 
+ exit_free:
+ 	free(key);
+@@ -584,11 +674,18 @@ static int do_lookup(int argc, char **argv)
+ 
+ 	err = bpf_map_lookup_elem(fd, key, value);
+ 	if (!err) {
+-		print_entry(&info, key, value);
++		if (json_output)
++			print_entry_json(&info, key, value);
++		else
++			print_entry_plain(&info, key, value);
+ 	} else if (errno == ENOENT) {
+-		printf("key:\n");
+-		fprint_hex(stdout, key, info.key_size, " ");
+-		printf("\n\nNot found\n");
++		if (json_output) {
++			jsonw_null(json_wtr);
++		} else {
++			printf("key:\n");
++			fprint_hex(stdout, key, info.key_size, " ");
++			printf("\n\nNot found\n");
++		}
+ 	} else {
+ 		err("lookup failed: %s\n", strerror(errno));
+ 	}
+@@ -640,18 +737,30 @@ static int do_getnext(int argc, char **argv)
+ 		goto exit_free;
+ 	}
+ 
+-	if (key) {
+-		printf("key:\n");
+-		fprint_hex(stdout, key, info.key_size, " ");
+-		printf("\n");
++	if (json_output) {
++		jsonw_start_object(json_wtr);
++		if (key) {
++			jsonw_name(json_wtr, "key");
++			print_hex_data_json(key, info.key_size);
++		} else {
++			jsonw_null_field(json_wtr, "key");
++		}
++		jsonw_name(json_wtr, "next_key");
++		print_hex_data_json(nextkey, info.key_size);
++		jsonw_end_object(json_wtr);
+ 	} else {
+-		printf("key: None\n");
++		if (key) {
++			printf("key:\n");
++			fprint_hex(stdout, key, info.key_size, " ");
++			printf("\n");
++		} else {
++			printf("key: None\n");
++		}
++		printf("next key:\n");
++		fprint_hex(stdout, nextkey, info.key_size, " ");
++		printf("\n");
+ 	}
+ 
+-	printf("next key:\n");
+-	fprint_hex(stdout, nextkey, info.key_size, " ");
+-	printf("\n");
+-
+ exit_free:
+ 	free(nextkey);
+ 	free(key);
 -- 
 2.14.1
