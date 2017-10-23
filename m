@@ -1,60 +1,112 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [RFC net-next] net: dsa: lan9303 Cpu port and ARL
-Date: Mon, 23 Oct 2017 16:27:20 +0200
-Message-ID: <ee8528e2-6a52-9ba0-4c96-bc83868ac6f2@egil-hjelmeland.no>
-References: <20171023113506.13600-1-privat@egil-hjelmeland.no>
- <20171023125849.GE6740@lunn.ch>
+From: Yuval Mintz <yuvalm@mellanox.com>
+Subject: RE: [PATCH net-next v2 5/6] devlink: Adding num MSI-X vectors per VF
+ NVRAM config param
+Date: Mon, 23 Oct 2017 14:37:51 +0000
+Message-ID: <AM0PR0502MB3683E269475F183C7953B8B3BF460@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+References: <1508440630-25830-1-git-send-email-steven.lin1@broadcom.com>
+ <1508440630-25830-6-git-send-email-steven.lin1@broadcom.com>
+ <AM0PR0502MB368347E87E48F7EB04AF1513BF420@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <20171019213955.GG1978@nanopsycho.orion>
+ <CA+Jmh7HCC-CgU16E8vSm541KnNUKZUgWfT0tPVx73cJxREC0Ag@mail.gmail.com>
+ <20171020141010.GB1994@nanopsycho.orion>
+ <CA+Jmh7FT789PfH908KK+x1+ehrvbiaaovori1w9yWe7+CFhFTg@mail.gmail.com>
+ <AM0PR0502MB368337378712D3A48EDEF6C8BF400@AM0PR0502MB3683.eurprd05.prod.outlook.com>
+ <CA+Jmh7H3QD4W6OrVwny7CXVppGZ4R6GeTh30Sm9sTikk7560dQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
+        "linville@tuxdriver.com" <linville@tuxdriver.com>,
+        "gospo@broadcom.com" <gospo@broadcom.com>
+To: Steve Lin <steven.lin1@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aibo.runbox.com ([91.220.196.211]:37708 "EHLO aibo.runbox.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751315AbdJWO1i (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 23 Oct 2017 10:27:38 -0400
-In-Reply-To: <20171023125849.GE6740@lunn.ch>
+Received: from mail-eopbgr30089.outbound.protection.outlook.com ([40.107.3.89]:44225
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932284AbdJWOhz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 23 Oct 2017 10:37:55 -0400
+In-Reply-To: <CA+Jmh7H3QD4W6OrVwny7CXVppGZ4R6GeTh30Sm9sTikk7560dQ@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for the response, Andrew!
-
-On 23. okt. 2017 14:58, Andrew Lunn wrote:
->>   #include "dsa_priv.h"
->> +#include "../../drivers/net/dsa/lan9303.h"
-> 
-> Don't do that. Export the needed parts in an include file in
-> include/linux.
-> 
-
-Do you mean moving struct definitions from drivers/net/dsa/lan9303.h to 
-a include/linux/lan9303.h? That would be like 80% of
-drivers/net/dsa/lan9303.h. I am a bit surprised that is deemed better
-than the slightly ugly include.
-
-Or do you have other suggestions?
-
-One possibility could be to have lan9303_tx_use_arl() in
-drivers/net/dsa/lan9303-core.c. But it has to be exported, and can
-not be inlined.
-
-It is also possible to replace the  chip->is_bridged term with:
-
-   struct dsa_switch *ds = dp->ds;
-   if (!dsa_to_port(ds, 1)->bridge_dev)
-               return false;
-   if (dsa_to_port(ds, 1)->bridge_dev != dsa_to_port(ds,2)->bridge_dev)
-               return false;
-
-But it feels silly to duplicate that calculation in the data path.
-
-
-> Otherwise, i think your approach is O.K.
-> 
-> 	   Andrew
-> 
-
-Egil
+PiA+PiBPbiBGcmksIE9jdCAyMCwgMjAxNyBhdCAxMDoxMCBBTSwgSmlyaSBQaXJrbyA8amlyaUBy
+ZXNudWxsaS51cz4gd3JvdGU6DQo+ID4+ID4gRnJpLCBPY3QgMjAsIDIwMTcgYXQgMDQ6MDM6NTVQ
+TSBDRVNULCBzdGV2ZW4ubGluMUBicm9hZGNvbS5jb20gd3JvdGU6DQo+ID4+ID4+T24gVGh1LCBP
+Y3QgMTksIDIwMTcgYXQgNTozOSBQTSwgSmlyaSBQaXJrbyA8amlyaUByZXNudWxsaS51cz4gd3Jv
+dGU6DQo+ID4+ID4+PiBUaHUsIE9jdCAxOSwgMjAxNyBhdCAxMDozMjoyMVBNIENFU1QsIHl1dmFs
+bUBtZWxsYW5veC5jb20gd3JvdGU6DQo+ID4+ID4+Pj4+IEFkZGluZyBERVZMSU5LX1BFUk1fQ09O
+RklHX01TSVhfVkVDVE9SU19QRVJfVkYNCj4gPj4gcGVybWFuZW50DQo+ID4+ID4+Pj4+IGNvbmZp
+Zw0KPiA+PiA+Pj4+PiBwYXJhbWV0ZXIuICBEZWZpbmVzIG51bWJlciBvZiBNU0ktWCB2ZWN0b3Jz
+IGFsbG9jYXRlZCBwZXIgVkYuDQo+ID4+ID4+Pj4+IFZhbHVlIGlzIHBlcm1hbmVudCAoc3RvcmVk
+IGluIE5WUkFNKSwgc28gYmVjb21lcyB0aGUgbmV3DQo+IGRlZmF1bHQNCj4gPj4gPj4+Pj4gdmFs
+dWUgZm9yIHRoaXMgZGV2aWNlLg0KPiA+PiA+Pj4+DQo+ID4+ID4+Pj5Tb3VuZHMgbGlrZSB5b3Un
+cmUgaGF2aW5nIHRoaXMgZW5mb3JjZSB0aGUgc2FtZSBjb25maWd1cmF0aW9uIGZvciBhbGwNCj4g
+Pj4gY2hpbGQgVkZzLg0KPiA+PiA+Pj4NCj4gPj4gPj4+IFllYWgsIHRoaXMgc291bmRzIGxpa2Ug
+cGVyLXBvcnQgY29uZmlnLg0KPiA+PiA+Pj4NCj4gPj4gPj4NCj4gPj4gPj5XZWxsLCBpdCBnZXRz
+IGEgbGl0dGxlIHRyaWNreSBoZXJlLiAgSSBhc3N1bWUgc29tZSBjYXJkcyBoYW5kbGUgdGhpcw0K
+PiA+PiA+PnBlci1wb3J0LiAgT3RoZXIgY2FyZHMgbWlnaHQgaGFuZGxlIHRoaXMgcGVyIFBGLCB3
+aGVyZSBQRiBtYXkgbm90DQo+ID4+ID4+YWx3YXlzIGNvcnJlc3BvbmQgMToxIHdpdGggYSBwb3J0
+LiAgQW5kIHNvbWUgY2FyZHMgbWF5YmUganVzdCBhbGxvdyBhDQo+ID4+ID4+c2luZ2xlIHZhbHVl
+IGZvciB0aGlzIHBhcmFtZXRlciBmb3IgdGhlIGVudGlyZSBjYXJkLCBjb3ZlcmluZyBhbGwNCj4g
+Pj4gPj5wb3J0cy9QRnMuDQo+ID4+ID4+DQo+ID4+ID4+VG8ga2VlcCB0aGluZ3Mgc2ltcGxlIGFu
+ZCBhcyBnZW5lcmFsIGFzIHBvc3NpYmxlLCBpdCBtYWRlIHNlbnNlIHRvIHNldA0KPiA+PiA+PmFs
+bCBwYXJhbWV0ZXJzIG9uIGEgcGVyLVBDSSBkZXZpY2UgbGV2ZWwuICBBcyBJIG1lbnRpb25lZCBp
+biBteQ0KPiA+PiA+PmNvdmVyLWxldHRlciwgdGhlIGRldmljZXMgbW9zdCBsaWtlbHkgdG8gdXNl
+IHRoZXNlIHByb3Bvc2VkIGNvbW1hbmRzDQo+ID4+ID4+ZG8gbm90IGhhdmUgYSBzaW5nbGUgIndo
+b2xlIGFzaWMiIFBDSSBiL2QvZiB3aXRoIGludGVybmFsIG1lY2hhbmlzbQ0KPiA+PiA+PmZvciBh
+Y2Nlc3NpbmcgcG9ydHMgLSBtb3N0IGV4cG9zZSBlYWNoIHBvcnQgKGFuZCBlYWNoIGZ1bmN0aW9u
+IG9uIGVhY2gNCj4gPj4gPj5wb3J0KSBhcyBhIHNlcGFyYXRlIFBDSSBiL2QvZiwgd2l0aCBubyBz
+ZXBhcmF0ZSAid2hvbGUgYXNpYyIgUENJDQo+ID4+ID4+Yi9kL2YuICBUaGF0J3MgaG93IHRoZSBC
+Q00gY2FyZHMgd29yaywgYW5kIEkgdGhpbmsgdGhhdCdzIGhvdyB0aGUNCj4gTUxOWA0KPiA+PiA+
+PmNhcmRzIHdvcmssIGFuZCBvdGhlcnMgdGhhdCB3b3VsZCBiZSBsaWtlbHkgdG8gdXNlIHRoZXNl
+IGNtZHMuDQo+ID4+ID4+DQo+ID4+ID4+U28sIHRvIHN1bW1hcml6ZSwgeW91IGRpcmVjdCB0aGUg
+Y29tbWFuZCB0byB0aGUgUENJIGIvZC9mIHlvdSB3YW50DQo+IHRvDQo+ID4+ID4+dGFyZ2V0LiAg
+RG9lcyB0aGlzIG1ha2Ugc2Vuc2U/DQo+ID4+ID4NCj4gPj4gPiBTbyB5b3UgcGxhbiB0byBoYXZl
+IDEgZGV2bGluayBpbnN0YW5jZSBmb3IgZWFjaCB2Zj8gTm90IHN1cmUgdGhhdA0KPiA+PiA+IGRv
+ZXMgc291bmQgcmlnaHQgdG8gbWUgOi8NCj4gPj4gPg0KPiA+Pg0KPiA+PiBGb3IgdGhlIGNvbW1h
+bmRzIHByb3Bvc2VkIGluIHRoaXMgcGF0Y2hzZXQsIEFGQUlLIHRoZXkgYWxsIGFwcGx5IG9uIGEN
+Cj4gPj4gcGVyLVBGIG9yIGJyb2FkZXIsIGkuZS4gcGVyLXBvcnQgb3Igd2hvbGUtY2FyZCwgZ3Jh
+bnVsYXJpdHksIHNpbmNlDQo+ID4+IHRoZXkgYWZmZWN0IHBlcm1hbmVudCBjb25maWcgdGhhdCBh
+cHBsaWVzIGF0IGJvb3QtdXAuICBTbywgbm8sIHRoZSBWRnMNCj4gPj4gZG9uJ3QgcmVhbGx5IGNv
+bWUgaW50byBwbGF5IGhlcmUuDQo+ID4NCj4gPiBSZWdhcmRsZXNzIG9mIHdoZXRoZXIgeW91J3Jl
+IHBsYW5uaW5nIG9uIGhhdmluZyBWRnMgYXMgZGV2bGluayBpbnN0YW5jZXMsDQo+ID4gdGhlIGFj
+dHVhbCBhdHRyaWJ1dGUgcXVlc3Rpb24gcmVtYWlucyAtDQo+ID4geW91J3JlIHByb3Bvc2luZyBh
+biBhdHRyaWJ1dGUgdGhhdCBmb3JjZXMgYWxsIFZGcyB0byBoYXZlIHRoZSBzYW1lIHZhbHVlLg0K
+PiA+IFRoaXMgcHJvYmFibHkgc3VpdHMgeW91ciBQQ0kgY29yZSBsaW1pdGF0aW9ucyBidXQgb3Ro
+ZXIgdmVuZG9ycyBtaWdodCBoYXZlDQo+ID4gYSBkaWZmZXJlbnQgY2FwYWJpbGl0eSBzZXQsIGFu
+ZCBhY2NlcHRpbmcgdGhpcyBkZXNpZ24gbGltaXRhdGlvbiBub3cgd291bGQNCj4gPiBtdWNrIGFs
+bCBmdXR1cmUgZXh0ZW5zaW9uIGF0dGVtcHRzIG9mIHN1Y2ggYXR0cmlidXRlcy4NCj4gPg0KPiA+
+IEkgdGhpbmsgVkYgY29uZmlndXJhdGlvbnMgc2hvdWxkIGJlIHBsYW5uZWQgaW4gYWR2YW5jZSBm
+b3Igc3VwcG9ydGluZyBhDQo+ID4gcGVyLVZGIENvbmZpZ3VyYXRpb24gd2hlbmV2ZXIgaXQncyBw
+b3NzaWJsZSAtIGV2ZW4gaWYgbm90IHJlcXVpcmVkDQo+IFsvcG9zc2libGVdDQo+ID4gYnkgdGhl
+IG9uZSBwdXNoaW5nIHRoZSBuZXcgYXR0cmlidXRlLg0KPiA+DQo+IA0KPiBUaGUgY29tbWFuZHMg
+YmVpbmcgYWRkZWQgaW4gdGhpcyBwYXRjaCBhcmUgZm9yIHBlcm1hbmVudCAoaS5lLiBOVlJBTSkN
+Cj4gY29uZmlnIC0gZXNzZW50aWFsbHkgc2V0dGluZyB0aGUgbmV3IGRlZmF1bHQgdmFsdWVzIGZv
+ciB2YXJpb3VzDQo+IGZlYXR1cmVzIG9mIHRoZSBkZXZpY2UgYXQgYm9vdC11cC4gIEF0IHRoYXQg
+aW5pdGlhbGl6YXRpb24gdGltZSwgbm8NCj4gVkZzIGFyZSB5ZXQgaW5zdGFudGlhdGVkLg0KPiAN
+Cj4gU28gbXkgcGVyc3BlY3RpdmUgd2FzLCBpbiBnZW5lcmFsIChub3QganVzdCBmb3Igb3VyIHNw
+ZWNpZmljIGRldmljZSAvDQo+IGRlc2lnbiksIGl0IGRvZXNuJ3Qgc2VlbSBsaWtlIHBlcm1hbmVu
+dCBjb25maWcgcGFyYW1ldGVycyB3b3VsZCBiZSBzZXQNCj4gb24gaW5kaXZpZHVhbCBWRnMuICBU
+aGF0IHdhcyB3aGF0IG15IHByZXZpb3VzIGNvbW1lbnQgd2FzIHRyeWluZyB0bw0KPiBjb252ZXku
+DQoNClRoYXQncyBhbiBvZGQgYXNzdW1wdGlvbjsgV2h5IHNob3VsZCB5b3UgYXNzdW1lIHRoZXJl
+J3Mgc29tZSBkZXZpY2UNCnRoYXQgYWxsb3dzIGNvbmZpZ3VyaW5nIHBlcnNpc3RlbnQgYmVoYXZp
+b3IgZm9yIGFsbCBWRnMgYnV0IHRoaW5rIG5vIG90aGVyDQp3b3VsZCBzZXQgdGhlIHNhbWUgb24g
+YSBwZXItVkYgYmFzaXM/DQoNCj4gSWYgdGhhdCBhc3N1bXB0aW9uIGlzIHdyb25nLCB0aG91Z2gs
+IGFuZCB0aGVyZSBpcyBzb21lIGRldmljZSB0aGF0IGhhcw0KPiBOVlJBTSBjb25maWcgdGhhdCBp
+cyBzZXQgcGVyLVZGLCBJIGFzc3VtZSB0aGUgdXNlciB3b3VsZCBpbnN0YW50aWF0ZQ0KPiB0aGUg
+VkYgYW5kIHRoZW4gY2FsbCB0aGUgZGV2bGluayBBUEkgb24gdGhlIHBjaSBkZXZpY2UgY29ycmVz
+cG9uZGluZw0KPiB0byB0aGUgVkYgdGhleSB3aXRoIHRvIGFmZmVjdCwgYW5kIEkgdGhpbmsgdGhl
+IG1vZGVsIHByb3Bvc2VkIHN0aWxsDQo+IHdvcmtzLg0KDQpXaGF0IHdvdWxkIGJlIHRoZSBwdXJw
+b3NlIG9mIHJlLWNvbmZpZ3VyaW5nIGEgdmFsdWUgcmVmbGVjdGVkIGluIHRoZQ0KUENJIGRldmlj
+ZSBmb3IgYW4gYWxyZWFkeSBpbnN0YW50aWF0ZWQgVkY/DQoNCj4gQXJlIHlvdSBzdWdnZXN0aW5n
+IGFkZGluZyBhIG1lY2hhbmlzbSB0byBzZXQgTlZSQU0gcGFyYW1ldGVycyBvbiBhDQo+IHBlci1W
+RiBiYXNpcywgd2l0aG91dCBpbnN0YW50aWF0aW5nIHRoZSBWRiBmaXJzdD8gIEkgd291bGQgcHJl
+ZmVyIG5vdA0KPiBhZGRpbmcgc3VjaCBhIG1lY2hhbmlzbSB1bmxlc3MvdW50aWwgdGhlcmUncyBh
+IHVzZSBjYXNlIGZvciBpdC4NCg0KVGhlIHRoaW5nIGlzIHRoYXQgeW91J3JlIHN1Z2dlc3Rpbmcg
+YSBuZXcgVUFQSTsgV2UgZG9uJ3QgaGF2ZSB0aGUgbGVpc3VyZQ0Kb2YgcHVzaGluZyBhIHBhcnRp
+YWwgaW1wbGVtZW50YXRpb24gYW5kIGNoYW5naW5nIGl0IGxhdGVyIG9uLg0K
