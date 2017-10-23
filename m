@@ -1,38 +1,72 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 05/12] tools: bpftool: add JSON output for `bpftool
- prog dump jited *` command
-Date: Mon, 23 Oct 2017 22:31:12 +0200
-Message-ID: <59EE5190.7060804@iogearbox.net>
-References: <20171023162416.32753-1-jakub.kicinski@netronome.com> <20171023162416.32753-6-jakub.kicinski@netronome.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
+ condition followed by BUG
+Date: Mon, 23 Oct 2017 16:31:35 -0400
+Message-ID: <20171023203135.GA21106@fieldses.org>
+References: <20171023181635.GA25334@embeddedor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
-        Quentin Monnet <quentin.monnet@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41578 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751113AbdJWUbO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 16:31:14 -0400
-In-Reply-To: <20171023162416.32753-6-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
+        Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+        Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Gustavo A. R. Silva" <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20171023181635.GA25334-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/23/2017 06:24 PM, Jakub Kicinski wrote:
-> From: Quentin Monnet <quentin.monnet@netronome.com>
->
-> Reuse the json_writer API introduced in an earlier commit to make
-> bpftool able to generate JSON output on `bpftool prog show *` commands.
-> A new printing function is created to be passed as an argument to the
-> disassembler.
->
-> Similarly to plain output, opcodes are printed on request.
->
-> Outputs from sample programs have been successfully tested against a
-> JSON validator.
->
-> Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
+In the past we've avoided BUG_ON(X) where X might have side effects, on
+the theory that it should actually be OK just to compile out BUG_ON()s.
+Has that changed?
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+In any case, I don't find that this improves readability; dropping.
+
+--b.
+
+On Mon, Oct 23, 2017 at 01:16:35PM -0500, Gustavo A. R. Silva wrote:
+> Use BUG_ON instead of if condition followed by BUG.
+> 
+> This issue was detected with the help of Coccinelle.
+> 
+> Signed-off-by: Gustavo A. R. Silva <garsilva-L1vi/lXTdts+Va1GwOuvDg@public.gmane.org>
+> ---
+>  net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
+>  1 file changed, 3 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+> index 7b1ee5a..a10ce43 100644
+> --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> @@ -855,11 +855,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
+>  		return stat;
+>  	if (integ_len > buf->len)
+>  		return stat;
+> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+> -		BUG();
+> +	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
+>  	/* copy out mic... */
+> -	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+> -		BUG();
+> +	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
+>  	if (mic.len > RPC_MAX_AUTH_SIZE)
+>  		return stat;
+>  	mic.data = kmalloc(mic.len, GFP_KERNEL);
+> @@ -1611,8 +1609,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+>  	BUG_ON(integ_len % 4);
+>  	*p++ = htonl(integ_len);
+>  	*p++ = htonl(gc->gc_seq);
+> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+> -		BUG();
+> +	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
+>  	if (resbuf->tail[0].iov_base == NULL) {
+>  		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+>  			goto out_err;
+> -- 
+> 2.7.4
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
