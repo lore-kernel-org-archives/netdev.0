@@ -1,133 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] tcp/dccp: fix other lockdep splats accessing ireq_opt
-Date: Mon, 23 Oct 2017 16:15:08 -0700
-Message-ID: <1508800508.30291.104.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20171023095634.lednbqrxtbuooqcx@inn>
-         <1508770960.30291.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [Patch net 00/15] net_sched: remove RCU callbacks from TC
+Date: Mon, 23 Oct 2017 16:16:39 -0700
+Message-ID: <1508800599.30291.106.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: kernel test robot <fengguang.wu@intel.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+        jhs@mojatatu.com, john.fastabend@gmail.com,
+        Chris Mi <chrism@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:50272 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750835AbdJWXPL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 19:15:11 -0400
-Received: by mail-io0-f195.google.com with SMTP id 97so21900238iok.7
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 16:15:11 -0700 (PDT)
-In-Reply-To: <1508770960.30291.83.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:54156 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751116AbdJWXQl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 19:16:41 -0400
+Received: by mail-it0-f66.google.com with SMTP id n195so7911289itg.2
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 16:16:41 -0700 (PDT)
+In-Reply-To: <20171023220304.2268-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, 2017-10-23 at 15:02 -0700, Cong Wang wrote:
 
-In my first attempt to fix the lockdep splat, I forgot we could
-enter inet_csk_route_req() with a freshly allocated request socket,
-for which refcount has not yet been elevated, due to complex
-SLAB_TYPESAFE_BY_RCU rules.
+> b) As suggested by Paul, we could defer the work to a workqueue and
+> gain the permission of holding RTNL again without any performance
+> impact, however, this seems impossible too, because as lockdep
+> complains we have a deadlock when flushing workqueue while hodling
+> RTNL lock, see the rcu_barrier() in tcf_block_put().
+> 
+> Therefore, the simplest solution we have is probably just getting
+> rid of these RCU callbacks, because they are not necessary at all,
+> callers of these call_rcu() are all on slow paths and have RTNL
+> lock, so blocking is allowed in their contexts.
 
-We either are in rcu_read_lock() section _or_ we own a refcount on the
-request.
+I am against these pessimistic changes, sorry for not following past
+discussions last week.
 
-Correct RCU verb to use here is rcu_dereference_check(), although it is
-not possible to prove we actually own a reference on a shared
-refcount :/
+I am asking a talk during upcoming netdev/netconf about this, if we need
+to take a decision.
 
-In v2, I added ireq_opt_deref() helper and use in three places, to fix other
-possible splats.
+RTNL is already a big problem for many of us, adding synchronize_rcu()
+calls while holding RTNL is a no - go, unless we have clear evidence it
+can not be avoided.
 
-[   49.844590]  lockdep_rcu_suspicious+0xea/0xf3
-[   49.846487]  inet_csk_route_req+0x53/0x14d
-[   49.848334]  tcp_v4_route_req+0xe/0x10
-[   49.850174]  tcp_conn_request+0x31c/0x6a0
-[   49.851992]  ? __lock_acquire+0x614/0x822
-[   49.854015]  tcp_v4_conn_request+0x5a/0x79
-[   49.855957]  ? tcp_v4_conn_request+0x5a/0x79
-[   49.858052]  tcp_rcv_state_process+0x98/0xdcc
-[   49.859990]  ? sk_filter_trim_cap+0x2f6/0x307
-[   49.862085]  tcp_v4_do_rcv+0xfc/0x145
-[   49.864055]  ? tcp_v4_do_rcv+0xfc/0x145
-[   49.866173]  tcp_v4_rcv+0x5ab/0xaf9
-[   49.868029]  ip_local_deliver_finish+0x1af/0x2e7
-[   49.870064]  ip_local_deliver+0x1b2/0x1c5
-[   49.871775]  ? inet_del_offload+0x45/0x45
-[   49.873916]  ip_rcv_finish+0x3f7/0x471
-[   49.875476]  ip_rcv+0x3f1/0x42f
-[   49.876991]  ? ip_local_deliver_finish+0x2e7/0x2e7
-[   49.878791]  __netif_receive_skb_core+0x6d3/0x950
-[   49.880701]  ? process_backlog+0x7e/0x216
-[   49.882589]  __netif_receive_skb+0x1d/0x5e
-[   49.884122]  process_backlog+0x10c/0x216
-[   49.885812]  net_rx_action+0x147/0x3df
-
-Fixes: a6ca7abe53633 ("tcp/dccp: fix lockdep splat in inet_csk_route_req()")
-Fixes: c92e8c02fe66 ("tcp/dccp: fix ireq->opt races")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: kernel test robot <fengguang.wu@intel.com>
-Reported-by: Maciej Żenczykowski <maze@google.com>
----
- include/net/inet_sock.h         |    6 ++++++
- net/dccp/ipv4.c                 |    2 +-
- net/ipv4/inet_connection_sock.c |    4 ++--
- net/ipv4/tcp_ipv4.c             |    2 +-
- 4 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 425752f768d2f1a0efb13964204e07f27609e9db..b9d59d93ec8f1e763f53a4df25366d1f1d576563 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -132,6 +132,12 @@ static inline int inet_request_bound_dev_if(const struct sock *sk,
- 	return sk->sk_bound_dev_if;
- }
- 
-+static inline struct ip_options_rcu *ireq_opt_deref(const struct inet_request_sock *ireq)
-+{
-+	return rcu_dereference_check(ireq->ireq_opt,
-+				     refcount_read(&ireq.req->rsk_refcnt) > 0);
-+}
-+
- struct inet_cork {
- 	unsigned int		flags;
- 	__be32			addr;
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 0490916864f93d5466e87f5b97dc524b3ee57a2e..e65fcb45c3f6c1edc70fc9898ebe6404175b102f 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -495,7 +495,7 @@ static int dccp_v4_send_response(const struct sock *sk, struct request_sock *req
- 							      ireq->ir_rmt_addr);
- 		err = ip_build_and_send_pkt(skb, sk, ireq->ir_loc_addr,
- 					    ireq->ir_rmt_addr,
--					    rcu_dereference(ireq->ireq_opt));
-+					    ireq_opt_deref(ireq));
- 		err = net_xmit_eval(err);
- 	}
- 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 18cd2eae758ff1a9d8a736e143417c7007b99067..b47a59cb3573b3b77aa5cbb9c2739a12ef37a237 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -543,8 +543,8 @@ struct dst_entry *inet_csk_route_req(const struct sock *sk,
- 	struct ip_options_rcu *opt;
- 	struct rtable *rt;
- 
--	opt = rcu_dereference_protected(ireq->ireq_opt,
--					refcount_read(&req->rsk_refcnt) > 0);
-+	opt = ireq_opt_deref(ireq);
-+
- 	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
- 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 4c43365c374c8bf868fc0b862333244ca26d5016..5b027c69cbc540d4e933189f9de5baab5472eadb 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -877,7 +877,7 @@ static int tcp_v4_send_synack(const struct sock *sk, struct dst_entry *dst,
- 
- 		err = ip_build_and_send_pkt(skb, sk, ireq->ir_loc_addr,
- 					    ireq->ir_rmt_addr,
--					    rcu_dereference(ireq->ireq_opt));
-+					    ireq_opt_deref(ireq));
- 		err = net_xmit_eval(err);
- 	}
- 
+Thanks !
