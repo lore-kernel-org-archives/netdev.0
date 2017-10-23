@@ -1,44 +1,51 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] ipv4: esp4: use BUG_ON instead of if condition followed by
+Subject: [PATCH] ipv4: icmp: use BUG_ON instead of if condition followed by
  BUG
-Date: Mon, 23 Oct 2017 13:06:09 -0500
-Message-ID: <20171023180608.GA25108@embeddedor.com>
+Date: Mon, 23 Oct 2017 13:08:14 -0500
+Message-ID: <20171023180814.GA25198@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
+To: "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gateway22.websitewelcome.com ([192.185.46.187]:26627 "EHLO
+        gateway22.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751208AbdJWSIP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:08:15 -0400
+Received: from cm15.websitewelcome.com (cm15.websitewelcome.com [100.42.49.9])
+        by gateway22.websitewelcome.com (Postfix) with ESMTP id 0CBD9D093
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 13:08:15 -0500 (CDT)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use BUG_ON instead of if condition followed by BUG in esp_remove_trailer.
+Use BUG_ON instead of if condition followed by BUG in icmp_timestamp.
 
 This issue was detected with the help of Coccinelle.
 
 Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- net/ipv4/esp4.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/ipv4/icmp.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index b00e4a4..89b6c5e 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -521,8 +521,7 @@ static inline int esp_remove_trailer(struct sk_buff *skb)
- 		goto out;
- 	}
- 
--	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 3c1570d..1617604 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -968,8 +968,9 @@ static bool icmp_timestamp(struct sk_buff *skb)
+ 	 */
+ 	icmp_param.data.times[1] = inet_current_timestamp();
+ 	icmp_param.data.times[2] = icmp_param.data.times[1];
+-	if (skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4))
 -		BUG();
-+	BUG_ON(skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2));
- 
- 	ret = -EINVAL;
- 	padlen = nexthdr[0];
++
++	BUG_ON(skb_copy_bits(skb, 0, &icmp_param.data.times[0], 4));
++
+ 	icmp_param.data.icmph	   = *icmp_hdr(skb);
+ 	icmp_param.data.icmph.type = ICMP_TIMESTAMPREPLY;
+ 	icmp_param.data.icmph.code = 0;
 -- 
 2.7.4
