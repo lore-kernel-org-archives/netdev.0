@@ -1,8 +1,8 @@
-From: Koichiro Den <den@klaipeden.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [net-next] tcp: do tcp_mstamp_refresh before retransmits on TSQ
  handler
-Date: Mon, 23 Oct 2017 12:26:17 +0900
-Message-ID: <1508729177.2898.5.camel@klaipeden.com>
+Date: Sun, 22 Oct 2017 20:40:05 -0700
+Message-ID: <1508730005.30291.70.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20171022033808.12641-1-den@klaipeden.com>
          <1508644334.30291.38.camel@edumazet-glaptop3.roam.corp.google.com>
          <1508645419.9317.7.camel@klaipeden.com>
@@ -10,85 +10,46 @@ References: <20171022033808.12641-1-den@klaipeden.com>
          <1508677159.3011.1.camel@klaipeden.com>
          <1508690944.30291.48.camel@edumazet-glaptop3.roam.corp.google.com>
          <1508692270.30291.53.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1508729177.2898.5.camel@klaipeden.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net, ncardwell@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Koichiro Den <den@klaipeden.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21404 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751082AbdJWD0a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 23:26:30 -0400
-In-Reply-To: <1508692270.30291.53.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:55346 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751082AbdJWDkI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 23:40:08 -0400
+Received: by mail-pg0-f43.google.com with SMTP id 15so6047686pgc.12
+        for <netdev@vger.kernel.org>; Sun, 22 Oct 2017 20:40:08 -0700 (PDT)
+In-Reply-To: <1508729177.2898.5.camel@klaipeden.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gU3VuLCAyMDE3LTEwLTIyIGF0IDEwOjExIC0wNzAwLCBFcmljIER1bWF6ZXQgd3JvdGU6Cj4g
-T24gU3VuLCAyMDE3LTEwLTIyIGF0IDA5OjQ5IC0wNzAwLCBFcmljIER1bWF6ZXQgd3JvdGU6Cj4g
-Cj4gPiBIZXJlIGlzIHRoZSB0ZXN0IEkgY29va2VkLgo+ID4gCj4gPiBOb3RlIHRoYXQgaXQgYWN0
-dWFsbHkgcGFzc2VzIGp1c3QgZmluZSwgZG8gSSBhbSB3b25kZXJpbmcgaWYgeW91ciBwYXRjaAo+
-ID4gaXMgbmVlZGVkIGFmdGVyIGFsbC4uCj4gPiAKPiAKPiBPaCB0aGlzIGlzIGJlY2F1c2UgdGNw
-X21zdGFtcF9yZWZyZXNoKCkgaXMgY2FsbGVkIGZyb20gdGNwX3dyaXRlX3htaXQoKQo+IGFuZCB0
-Y3Bfd3JpdGVfeG1pdCgpIGlzIGRpcmVjdGx5IGNhbGxlZCBmcm9tIHRjcF90c3FfaGFuZGxlcigp
-CgpUaGFua3MgZm9yIGFsbCB5b3UgaGVscC4gSSBndWVzcyB3ZSBzaG91bGQgZm9jdXMgb24gcmV0
-cmFuc21pdCBjYWxsIHBhdGgKd2hpY2ggY29tZXMganVzdCBiZWZvcmUgdGhhdCwgb3Igbm90Pwo+
-IAo+IFNvIGl0IGxvb2tzIHlvdXIgcGF0Y2ggaGFzIG5vIG9ic2VydmFibGUgZWZmZWN0Lgo+IAo+
-IChFdmVuIHdpdGggdXNlYyBUUyBhcyB3ZSB1c2UgaGVyZSBhdCBHb29nbGUsIGl0IGhhcyBubyBl
-ZmZlY3Qgc2luY2UgVENQCj4gc3RhY2sgZG9lcyBub3QgY29uc2lkZXIgUlRUIHNhbXBsZXMgYmVp
-bmcgdmFsaWQgaWYgc2tiIHdhcyBldmVyCj4gcmV0cmFuc21pdHRlZCkKPiAKPiAKCklzIHRoZSBw
-b2ludCBhYm91dCB0Y3BfcmFja19hZHZhbmNlIHBhcnQgb3IgaW4gZ2VuZXJhbD8KCkJ0dywgcGVy
-ZiBwcm9iZSBtYWtlcyB0aGUgb3JpZ2luYWwgcG9pbnQgZGVzY3JpYmVkIGluIG15IGNvbW1pdCBt
-ZXNzYWdlIGFwcGFyZW50CmFzIGZvbGxvd3M6CgokIHBlcmYgcHJvYmUgJ1QxPXRjcF93cml0ZV94
-bWl0OjI1IHRtPSsxNDY0KCVieCk6dTY0JwokIHBlcmYgcHJvYmUgJ1QyPXRjcF94bWl0X3JldHJh
-bnNtaXRfcXVldWUrMAogICAgICAgICAgICAgIGxfbz0rMTY2NCglZGkpOnUzMiAgIyB0cC0+bG9z
-dF9vdXQKICAgICAgICAgICAgICByX289KzE1MjAoJWRpKTp1MzIgICMgdHAtPnJldHJhbnNfb3V0
-CiAgICAgICAgICAgICAgdG09KzE0NjQoJWRpKTp1NjQnICAjIHNrYl9tc3RhbXAgd2lsbCBiZSBz
-ZXQgdG8gdGhpcy4KJCBwZXJmIHRyYWNlIC1hVCAtLW5vLXN5c2NhbGxzIC0tY2FsbC1ncmFwaCBk
-d2FyZiBcCsKgIC1lIHByb2JlOlQxL21heC1zdGFjaz00LwrCoCAtZSBwcm9iZTpUMi9tYXgtc3Rh
-Y2s9MS8gfCYgXArCoCBzZWQgJ3MvLi5rZXJuZWwua2FsbHN5bXMuLi8vO3MvcHJvYmU6Ly8nICMg
-dG8gbWFrZSBpdCBhIGJpdCBtb3JlIHJlYWRhYmxlIDpwCgokICMgcnVuIGZxLXBhY2luZy10c3Et
-cnR4LXRzLnBrdCBFcmljIHByb3ZpZGVkOgoKW2JlZm9yZSBwYXRjaCBhcHBsaWVkXQotLS0tLTg8
-LS0tLS0tODwtLS0tLQoyNTYwNTgxLjYwNCBUMjooZmZmZmZmZmY4MTdkYTVlMCkgbF9vPTI1IHJf
-bz0wIHRtPTI1NjA1ODE0MDQpCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHRjcF94bWl0X3JldHJhbnNt
-aXRfcXVldWUucGFydC4zMwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0Y3BfeG1pdF9yZWNvdmVyeS5w
-YXJ0LjUzCjI1NjA1ODEuNjE0IFQxOihmZmZmZmZmZjgxN2Q3ZTc0KSB0bT0yNTYwNTgxNjEyKSAg
-IyA8LS0tICgxKQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0Y3Bfd3JpdGVfeG1pdArCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqBfX3RjcF9wdXNoX3BlbmRpbmdfZnJhbWVzCsKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oHRjcF9yY3ZfZXN0YWJsaXNoZWQKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgdGNwX3Y0X2RvX3JjdgoK
-LyoKICogXgogKiB8IGNvdWxkIGJlIHVuZXhwZWN0ZWRseSBsb25nLCBlLmcuIGR1ZSB0byBCTE9D
-S19TT0ZUSVJRCiAqIHYKICovCjI1NjA1ODIuMjE1IFQyOihmZmZmZmZmZjgxN2RhNWUwKSBsX289
-MjUgcl9vPTUgdG09MjU2MDU4MTYxMikKLyogPC0gc2FtZSBhcyAoMSkgYWJvdmUgKi8KwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgdGNwX3htaXRfcmV0cmFuc21pdF9xdWV1ZS5wYXJ0LjMzCsKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoHRjcF90YXNrbGV0X2Z1bmMKLS0tLS0+OC0tLS0tLS0+OC0tLS0tCgoKW2Fm
-dGVyIHBhdGNoIGFwcGxpZWRdCi0tLS0tODwtLS0tLS04PC0tLS0tCsKgOTc4NDYuMTUwIFQyOihm
-ZmZmZmZmZjgxN2RhNWUwKSBsX289MjUgcl9vPTAgdG09OTc4NDYxMzIpCsKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoHRjcF94bWl0X3JldHJhbnNtaXRfcXVldWUucGFydC4zMwrCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqB0Y3BfeG1pdF9yZWNvdmVyeS5wYXJ0LjUzCsKgOTc4NDYuMTU5IFQxOihmZmZmZmZmZjgx
-N2Q3ZTc0KSB0bT05Nzg0NjE1OCkgICAgIyA8LS0tICgxKQrCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0
-Y3Bfd3JpdGVfeG1pdArCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqBfX3RjcF9wdXNoX3BlbmRpbmdfZnJh
-bWVzCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHRjcF9yY3ZfZXN0YWJsaXNoZWQKwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgdGNwX3Y0X2RvX3JjdgovKgrCoCogXgrCoCogfCBjb3VsZCBiZSB1bmV4cGVjdGVk
-bHkgbG9uZywgZS5nLiBkdWUgdG8gQkxPQ0tfU09GVElSUQrCoCogdgrCoCovCsKgOTc4NDcuMTQ0
-IFQyOihmZmZmZmZmZjgxN2RhNWUwKSBsX289MjUgcl9vPTUgdG09OTc4NDcxMzQpCi8qIDwtIG5v
-dCB0aGUgc2FtZSBhcyAoMSkuCiAqIG5ldmVyIGFmZmVjdGVkIG5vdyB0aGF0IHdlIGVuc3VyZSBp
-dCdzIHJlZnJlc2hlZCAqLwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0Y3BfeG1pdF9yZXRyYW5zbWl0
-X3F1ZXVlLnBhcnQuMzMKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgdGNwX3Rhc2tsZXRfZnVuYwotLS0t
-LT44LS0tLS0tLT44LS0tLS0KCk5vdyBJIHdvbmRlciB0aGlzIGlzIG1vcmUgb2YgYSB0aGVvcmV0
-aWNhbCBvbmUgcmF0aGVyIHRoYW4gYSBwYXRjaCB0byBmaXggb25lCnNwZWNpZmljIGJ1Zy4=
+On Mon, 2017-10-23 at 12:26 +0900, Koichiro Den wrote:
+
+> Now I wonder this is more of a theoretical one rather than a patch to fix one
+> specific bug.
+
+
+Note that I said that your patch was fine and I added a 'Reviewed-by:'
+tag.
+
+
+What I meant is that it has no direct effect on correctness of TCP
+stack. I could not cook a packetdrill test that shows the difference
+before and after your patch.
+
+BTW, in the following sequence :
+
+A)   Fetch high-res timestamp and store in X
+B)   Use X
+
+B) Can use a quite old value of X, depending on scheduling (preempt
+kernels or interrupt handling)
+
+TCP really does not care of how accurate X is, it is a best effort.
+
+For RTX packets, it is even more the case, since TCP does not take RTT
+samples from packets that were retransmitted.
