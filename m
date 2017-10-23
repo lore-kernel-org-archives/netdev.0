@@ -1,44 +1,133 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next] net: dsa: check master device before put
-Date: Mon, 23 Oct 2017 14:58:58 -0400
-Message-ID: <871sltofm5.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20171023180141.3674-1-vivien.didelot@savoirfairelinux.com> <cda226ca-a1c5-107f-d44f-7b6e93459b51@gmail.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v8 01/10] dt-bindings: net: Restore sun8i dwmac binding
+Date: Mon, 23 Oct 2017 20:56:17 +0200
+Message-ID: <20171023185626.31793-2-clabbe.montjoie@gmail.com>
+References: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:54048 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751854AbdJWS67 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:58:59 -0400
-In-Reply-To: <cda226ca-a1c5-107f-d44f-7b6e93459b51@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ devicetree@vger.kernel.org
+To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+ wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+ will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com,
+ andrew@lunn.ch, f.fainelli@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Florian, David,
+The original dwmac-sun8i DT bindings have some issue on how to handle
+integrated PHY and was reverted in last RC of 4.13.
+But now we have a solution so we need to get back that was reverted.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+This patch restore dt-bindings documentation about dwmac-sun8i
+This reverts commit 8aa33ec2f481 ("dt-bindings: net: Revert sun8i dwmac binding")
 
-> On 10/23/2017 11:01 AM, Vivien Didelot wrote:
->> In the case of pdata, the dsa_cpu_parse function calls dev_put() before
->> making sure it isn't NULL. Fix this.
->> 
->> Fixes: 71e0bbde0d88 ("net: dsa: Add support for platform data")
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
->
-> Did not you want to target 'net' for that though?
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+ .../devicetree/bindings/net/dwmac-sun8i.txt        | 84 ++++++++++++++++++++++
+ 1 file changed, 84 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
 
-I wasn't sure if it was a good candidate for it.
-
-If it is, David can you apply this patch on both trees or do you prefer
-me to send a copy to -net?
-
-
-Thanks,
-
-        Vivien
+diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+new file mode 100644
+index 000000000000..725f3b187886
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+@@ -0,0 +1,84 @@
++* Allwinner sun8i GMAC ethernet controller
++
++This device is a platform glue layer for stmmac.
++Please see stmmac.txt for the other unchanged properties.
++
++Required properties:
++- compatible: should be one of the following string:
++		"allwinner,sun8i-a83t-emac"
++		"allwinner,sun8i-h3-emac"
++		"allwinner,sun8i-v3s-emac"
++		"allwinner,sun50i-a64-emac"
++- reg: address and length of the register for the device.
++- interrupts: interrupt for the device
++- interrupt-names: should be "macirq"
++- clocks: A phandle to the reference clock for this device
++- clock-names: should be "stmmaceth"
++- resets: A phandle to the reset control for this device
++- reset-names: should be "stmmaceth"
++- phy-mode: See ethernet.txt
++- phy-handle: See ethernet.txt
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++- syscon: A phandle to the syscon of the SoC with one of the following
++ compatible string:
++  - allwinner,sun8i-h3-system-controller
++  - allwinner,sun8i-v3s-system-controller
++  - allwinner,sun50i-a64-system-controller
++  - allwinner,sun8i-a83t-system-controller
++
++Optional properties:
++- allwinner,tx-delay-ps: TX clock delay chain value in ps. Range value is 0-700. Default is 0)
++- allwinner,rx-delay-ps: RX clock delay chain value in ps. Range value is 0-3100. Default is 0)
++Both delay properties need to be a multiple of 100. They control the delay for
++external PHY.
++
++Optional properties for the following compatibles:
++  - "allwinner,sun8i-h3-emac",
++  - "allwinner,sun8i-v3s-emac":
++- allwinner,leds-active-low: EPHY LEDs are active low
++
++Required child node of emac:
++- mdio bus node: should be named mdio
++
++Required properties of the mdio node:
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++
++The device node referenced by "phy" or "phy-handle" should be a child node
++of the mdio node. See phy.txt for the generic PHY bindings.
++
++Required properties of the phy node with the following compatibles:
++  - "allwinner,sun8i-h3-emac",
++  - "allwinner,sun8i-v3s-emac":
++- clocks: a phandle to the reference clock for the EPHY
++- resets: a phandle to the reset control for the EPHY
++
++Example:
++
++emac: ethernet@1c0b000 {
++	compatible = "allwinner,sun8i-h3-emac";
++	syscon = <&syscon>;
++	reg = <0x01c0b000 0x104>;
++	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "macirq";
++	resets = <&ccu RST_BUS_EMAC>;
++	reset-names = "stmmaceth";
++	clocks = <&ccu CLK_BUS_EMAC>;
++	clock-names = "stmmaceth";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	mdio: mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		int_mii_phy: ethernet-phy@1 {
++			reg = <1>;
++			clocks = <&ccu CLK_BUS_EPHY>;
++			resets = <&ccu RST_BUS_EPHY>;
++		};
++	};
++};
+-- 
+2.13.6
