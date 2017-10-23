@@ -1,209 +1,32 @@
-From: Christoph Paasch <cpaasch@apple.com>
-Subject: [PATCH v3 net-next] tcp: Configure TFO without cookie per socket
- and/or per route
-Date: Mon, 23 Oct 2017 13:22:23 -0700
-Message-ID: <20171023202223.42600-1-cpaasch@apple.com>
-Content-Transfer-Encoding: 7BIT
-Cc: Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 01/12] tools: bpftool: copy JSON writer from
+ iproute2 repository
+Date: Mon, 23 Oct 2017 22:29:57 +0200
+Message-ID: <59EE5145.20205@iogearbox.net>
+References: <20171023162416.32753-1-jakub.kicinski@netronome.com> <20171023162416.32753-2-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
+        Quentin Monnet <quentin.monnet@netronome.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out7.apple.com ([17.151.62.29]:62828 "EHLO
-        mail-in7.apple.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750835AbdJWUW2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 16:22:28 -0400
+Received: from www62.your-server.de ([213.133.104.62]:41382 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750835AbdJWU37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 16:29:59 -0400
+In-Reply-To: <20171023162416.32753-2-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We already allow to enable TFO without a cookie by using the
-fastopen-sysctl and setting it to TFO_SERVER_COOKIE_NOT_REQD (or
-TFO_CLIENT_NO_COOKIE).
-This is safe to do in certain environments where we know that there
-isn't a malicous host (aka., data-centers) or when the
-application-protocol already provides an authentication mechanism in the
-first flight of data.
+On 10/23/2017 06:24 PM, Jakub Kicinski wrote:
+> From: Quentin Monnet <quentin.monnet@netronome.com>
+>
+> In prevision of following commits, supposed to add JSON output to the
+> tool, two files are copied from the iproute2 repository (taken at commit
+> 268a9eee985f): lib/json_writer.c and include/json_writer.h.
+>
+> Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
 
-A server however might be providing multiple services or talking to both
-sides (public Internet and data-center). So, this server would want to
-enable cookie-less TFO for certain services and/or for connections that
-go to the data-center.
-
-This patch exposes a socket-option and a per-route attribute to enable such
-fine-grained configurations.
-
-Signed-off-by: Christoph Paasch <cpaasch@apple.com>
----
-
-Notes:
-    v3: * Fix/Clarify commit-log
-        * Add helper function tcp_fastopen_no_cookie()
-        * Set tp->fastopen_no_cookie to "val", not 1 in do_tcp_setsockopt().
-    v2: * Rename to fastopen_no_cookie and TCP_FASTOPEN_NO_COOKIE
-        * Add per-route attribute for fastopen_no_cookie
-        * Get rid of the capability check
-
- include/linux/tcp.h            |  3 ++-
- include/net/tcp.h              |  3 ++-
- include/uapi/linux/rtnetlink.h |  2 ++
- include/uapi/linux/tcp.h       |  1 +
- net/ipv4/tcp.c                 | 12 ++++++++++++
- net/ipv4/tcp_fastopen.c        | 20 +++++++++++++++++---
- net/ipv4/tcp_input.c           |  2 +-
- 7 files changed, 37 insertions(+), 6 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 1d2c44e09e31..173a7c2f9636 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -215,7 +215,8 @@ struct tcp_sock {
- 	u8	chrono_type:2,	/* current chronograph type */
- 		rate_app_limited:1,  /* rate_{delivered,interval_us} limited? */
- 		fastopen_connect:1, /* FASTOPEN_CONNECT sockopt */
--		unused:4;
-+		fastopen_no_cookie:1, /* Allow send/recv SYN+data without a cookie */
-+		unused:3;
- 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
- 		thin_lto    : 1,/* Use linear timeouts for thin streams */
- 		unused1	    : 1,
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 2c13484704cb..2392f74074e7 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1567,7 +1567,8 @@ int tcp_fastopen_reset_cipher(struct net *net, struct sock *sk,
- void tcp_fastopen_add_skb(struct sock *sk, struct sk_buff *skb);
- struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
- 			      struct request_sock *req,
--			      struct tcp_fastopen_cookie *foc);
-+			      struct tcp_fastopen_cookie *foc,
-+			      const struct dst_entry *dst);
- void tcp_fastopen_init_key_once(struct net *net);
- bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
- 			     struct tcp_fastopen_cookie *cookie);
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index dab7dad9e01a..fe6679268901 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -430,6 +430,8 @@ enum {
- #define RTAX_QUICKACK RTAX_QUICKACK
- 	RTAX_CC_ALGO,
- #define RTAX_CC_ALGO RTAX_CC_ALGO
-+	RTAX_FASTOPEN_NO_COOKIE,
-+#define RTAX_FASTOPEN_NO_COOKIE RTAX_FASTOPEN_NO_COOKIE
- 	__RTAX_MAX
- };
- 
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 69c7493e42f8..d67e1d40c6d6 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -120,6 +120,7 @@ enum {
- #define TCP_ULP			31	/* Attach a ULP to a TCP connection */
- #define TCP_MD5SIG_EXT		32	/* TCP MD5 Signature with extensions */
- #define TCP_FASTOPEN_KEY	33	/* Set the key for Fast Open (cookie) */
-+#define TCP_FASTOPEN_NO_COOKIE	34	/* Enable TFO without a TFO cookie */
- 
- struct tcp_repair_opt {
- 	__u32	opt_code;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 8b1fa4dd4538..02eb2f9cce4f 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2832,6 +2832,14 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 			err = -EOPNOTSUPP;
- 		}
- 		break;
-+	case TCP_FASTOPEN_NO_COOKIE:
-+		if (val > 1 || val < 0)
-+			err = -EINVAL;
-+		else if (!((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)))
-+			err = -EINVAL;
-+		else
-+			tp->fastopen_no_cookie = val;
-+		break;
- 	case TCP_TIMESTAMP:
- 		if (!tp->repair)
- 			err = -EPERM;
-@@ -3252,6 +3260,10 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 		val = tp->fastopen_connect;
- 		break;
- 
-+	case TCP_FASTOPEN_NO_COOKIE:
-+		val = tp->fastopen_no_cookie;
-+		break;
-+
- 	case TCP_TIMESTAMP:
- 		val = tcp_time_stamp_raw() + tp->tsoffset;
- 		break;
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 21075ce19cb6..e0a4b56644aa 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -310,13 +310,23 @@ static bool tcp_fastopen_queue_check(struct sock *sk)
- 	return true;
- }
- 
-+static bool tcp_fastopen_no_cookie(const struct sock *sk,
-+				   const struct dst_entry *dst,
-+				   int flag)
-+{
-+	return (sock_net(sk)->ipv4.sysctl_tcp_fastopen & flag) ||
-+	       tcp_sk(sk)->fastopen_no_cookie ||
-+	       (dst && dst_metric(dst, RTAX_FASTOPEN_NO_COOKIE));
-+}
-+
- /* Returns true if we should perform Fast Open on the SYN. The cookie (foc)
-  * may be updated and return the client in the SYN-ACK later. E.g., Fast Open
-  * cookie request (foc->len == 0).
-  */
- struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
- 			      struct request_sock *req,
--			      struct tcp_fastopen_cookie *foc)
-+			      struct tcp_fastopen_cookie *foc,
-+			      const struct dst_entry *dst)
- {
- 	bool syn_data = TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1;
- 	int tcp_fastopen = sock_net(sk)->ipv4.sysctl_tcp_fastopen;
-@@ -333,7 +343,8 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
- 		return NULL;
- 	}
- 
--	if (syn_data && (tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
-+	if (syn_data &&
-+	    tcp_fastopen_no_cookie(sk, dst, TFO_SERVER_COOKIE_NOT_REQD))
- 		goto fastopen;
- 
- 	if (foc->len >= 0 &&  /* Client presents or requests a cookie */
-@@ -370,6 +381,7 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
- 			       struct tcp_fastopen_cookie *cookie)
- {
- 	unsigned long last_syn_loss = 0;
-+	const struct dst_entry *dst;
- 	int syn_loss = 0;
- 
- 	tcp_fastopen_cache_get(sk, mss, cookie, &syn_loss, &last_syn_loss);
-@@ -387,7 +399,9 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
- 		return false;
- 	}
- 
--	if (sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
-+	dst = __sk_dst_get(sk);
-+
-+	if (tcp_fastopen_no_cookie(sk, dst, TFO_CLIENT_NO_COOKIE)) {
- 		cookie->len = -1;
- 		return true;
- 	}
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ab3f12898245..714ba553e545 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6329,7 +6329,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 	tcp_openreq_init_rwin(req, sk, dst);
- 	if (!want_cookie) {
- 		tcp_reqsk_record_syn(sk, req, skb);
--		fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc);
-+		fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc, dst);
- 	}
- 	if (fastopen_sk) {
- 		af_ops->send_synack(fastopen_sk, dst, &fl, req,
--- 
-2.14.1
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
