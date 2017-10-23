@@ -1,80 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Mon, 23 Oct 2017 05:13:12 +0300
-Message-ID: <20171023051228-mutt-send-email-mst@kernel.org>
-References: <c9d43af9-f095-043a-7d46-acd84a18f75a@redhat.com>
- <7d444584-3854-ace2-008d-0fdef1c9cef4@linux.vnet.ibm.com>
- <1173ab1f-e2b6-26b3-8c3c-bd5ceaa1bd8e@redhat.com>
- <129a01d9-de9b-f3f1-935c-128e73153df6@linux.vnet.ibm.com>
- <3f824b0e-65f9-c69c-5421-2c5f6b349b09@redhat.com>
- <78678f33-c9ba-bf85-7778-b2d0676b78dd@linux.vnet.ibm.com>
- <038445a6-9dd5-30c2-aac0-ab5efbfa7024@linux.vnet.ibm.com>
- <20171012183132.qrbgnmvki6lpgt4a@Wei-Dev>
- <c0b42b27-56f6-c2f9-9476-28d25678808a@linux.vnet.ibm.com>
- <376f8939-1990-abf6-1f5f-57b3822f94fe@redhat.com>
+From: Chris Mi <chrism@mellanox.com>
+Subject: RE: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
+ to atomic
+Date: Mon, 23 Oct 2017 02:47:22 +0000
+Message-ID: <VI1PR0501MB2143994E767A6C7C9BE1754AAB460@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
+ <1508152718-28726-2-git-send-email-chrism@mellanox.com>
+ <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
+ <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+ <CAM_iQpWbfjCH0EFb8RYnOuZQtVtg-Mw-Kzv3GWq81qTVErN6hA@mail.gmail.com>
+ <VI1PR0501MB21437552565B68DC71A7DEE1AB4D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+ <CAM_iQpVA2SQ4eFWEQxjQwmoxwQnQiLgREETKdQLoADWt_xD4Bg@mail.gmail.com>
+ <b9444485-8e34-48ac-2b4f-abbd9c6d455f@mojatatu.com>
+ <CAM_iQpVMLJjyuSgGHZycgzRz6KHusyTODOAMbw2dj7jTb7bbQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
-        Wei Xu <wexu@redhat.com>, netdev@vger.kernel.org,
-        davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Lucas Bates <lucasb@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60416 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751019AbdJWCNN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Oct 2017 22:13:13 -0400
-Content-Disposition: inline
-In-Reply-To: <376f8939-1990-abf6-1f5f-57b3822f94fe@redhat.com>
+Received: from mail-ve1eur01on0073.outbound.protection.outlook.com ([104.47.1.73]:45999
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751096AbdJWCr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 22 Oct 2017 22:47:27 -0400
+In-Reply-To: <CAM_iQpVMLJjyuSgGHZycgzRz6KHusyTODOAMbw2dj7jTb7bbQQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 10:06:36AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年10月19日 04:17, Matthew Rosato wrote:
-> > > 2. It might be useful to short the traffic path as a reference, What I am running
-> > > is briefly like:
-> > >      pktgen(host kernel) -> tap(x) -> guest(DPDK testpmd)
-> > > 
-> > > The bridge driver(br_forward(), etc) might impact performance due to my personal
-> > > experience, so eventually I settled down with this simplified testbed which fully
-> > > isolates the traffic from both userspace and host kernel stack(1 and 50 instances,
-> > > bridge driver, etc), therefore reduces potential interferences.
-> > > 
-> > > The down side of this is that it needs DPDK support in guest, has this ever be
-> > > run on s390x guest? An alternative approach is to directly run XDP drop on
-> > > virtio-net nic in guest, while this requires compiling XDP inside guest which needs
-> > > a newer distro(Fedora 25+ in my case or Ubuntu 16.10, not sure).
-> > > 
-> > I made an attempt at DPDK, but it has not been run on s390x as far as
-> > I'm aware and didn't seem trivial to get working.
-> > 
-> > So instead I took your alternate suggestion & did:
-> > pktgen(host) -> tap(x) -> guest(xdp_drop)
-> > 
-> > When running this setup, I am not able to reproduce the regression.  As
-> > mentioned previously, I am also unable to reproduce when running one end
-> > of the uperf connection from the host - I have only ever been able to
-> > reproduce when both ends of the uperf connection are running within a guest.
-> > 
-> 
-> Thanks for the test. Looking at the code, the only obvious difference when
-> BATCH is 1 is that one spinlock which was previously called by
-> tun_peek_len() was avoided since we can do it locally. I wonder whether or
-> not this speeds up handle_rx() a little more then leads more wakeups during
-> some rates/sizes of TCP stream. To prove this, maybe you can try:
-> 
-> - enable busy polling, using poll-us=1000, and to see if we can still get
-> the regression
-> - measure the pps pktgen(vm1) -> tap1 -> bridge -> tap2 -> vm2
-> 
-> Michael, any another possibility in your mind?
-> 
-> Thanks
-
-Not really. I still suspect since it's s390 only there's
-some kind of race condition where we wake up a task repeatedly.
-
--- 
-MST
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBDb25nIFdhbmcgW21haWx0bzp4
+aXlvdS53YW5nY29uZ0BnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgT2N0b2JlciAyMCwgMjAx
+NyAxMTowMCBBTQ0KPiBUbzogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0YXR1LmNvbT4NCj4g
+Q2M6IENocmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPjsgTGludXggS2VybmVsIE5ldHdvcmsg
+RGV2ZWxvcGVycw0KPiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47IEx1Y2FzIEJhdGVzIDxsdWNh
+c2JAbW9qYXRhdHUuY29tPjsgSmlyaSBQaXJrbw0KPiA8amlyaUByZXNudWxsaS51cz47IERhdmlk
+IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gU3ViamVjdDogUmU6IFtwYXRjaCBuZXQg
+djIgMS80XSBuZXQvc2NoZWQ6IENoYW5nZSB0Y19hY3Rpb24gcmVmY250IGFuZA0KPiBiaW5kY250
+IHRvIGF0b21pYw0KPiANCj4gT24gVGh1LCBPY3QgMTksIDIwMTcgYXQgNzoyMSBBTSwgSmFtYWwg
+SGFkaSBTYWxpbSA8amhzQG1vamF0YXR1LmNvbT4NCj4gd3JvdGU6DQo+ID4gT24gMTctMTAtMTgg
+MTI6NDMgUE0sIENvbmcgV2FuZyB3cm90ZToNCj4gPj4NCj4gPj4gT24gVHVlLCBPY3QgMTcsIDIw
+MTcgYXQgNjowMyBQTSwgQ2hyaXMgTWkgPGNocmlzbUBtZWxsYW5veC5jb20+IHdyb3RlOg0KPiA+
+Pj4+DQo+ID4+Pj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPg0KPiA+DQo+ID4+DQo+
+ID4+IFlvdSBsaXN0ZWQgMyBwcm9ibGVtcywgYW5kIHlvdSB0aGluayB0aGV5IGFyZSAzIGRpZmZl
+cmVudCBvbmVzLCBoZXJlDQo+ID4+IEkgYXJndWUgcHJvYmxlbSAzICh1c2luZyBSQ1UgY2FsbGJh
+Y2tzKSBpcyB0aGUgY2F1c2Ugb2YgcHJvYmxlbSAxDQo+ID4+IChyZWZjbnQgbm90IGF0b21pYyku
+IFRoaXMgaXMgd2h5IEkgbWVudGlvbmVkIEkgaGF2ZSBiZWVuIHRoaW5raW5nDQo+ID4+IGFib3V0
+IHJlbW92aW5nIFJDVSBjYWxsYmFja3MsIGJlY2F1c2UgaXQgcHJvYmFibHkgY291bGQgZml4IGFs
+bCBvZiB0aGVtLg0KPiA+Pg0KPiA+DQo+ID4gQ29uZywNCj4gPiBHaXZlbiB0aGlzIGlzIGEga25v
+d24gYnVnICh0aGUgdGVzdCBjYXNlIENocmlzIHByZXNlbnRlZCBjcmFzaGVzIHRoZQ0KPiA+IGtl
+cm5lbCkgLSB3b3VsZCBpdCBtYWtlIHNlbnNlIHRvIGhhdmUgYSBwYXRjaCB0aGF0IGdvZXMgdG8g
+LW5ldCB0byBmaXgNCj4gPiB0aGlzIHdoaWxlIHlvdXIgYXBwcm9hY2ggYW5kIGRpc2N1c3Npb24g
+b3V0Y29tZSBnb2VzIGludG8gbmV0LW5leHQ/DQo+IA0KPiBJIGFtIG5vdCBzdXJlLiBCZWNhdXNl
+IENocmlzJyBwYXRjaHNldCBpcyBsYXJnZSB0b28gYW5kIEkgZG9uJ3QgdGhpbmsgaXQgY291bGQg
+Zml4DQo+IGFsbCBjcmFzaGVzLCBzbyBpdCBoYXMgbGl0dGxlIHZhbHVlIHRvIGp1c3QgYXBwbHkg
+dGhlbSBmb3IgLW5ldC4NCg0KSXQgc2VlbXMgaXQgaXMgbm90IGVhc3kgdG8gZGlzY2FyZCBjYWxs
+X3JjdSgpLiAgSSdtIGFmcmFpZCBldmVuIGlmIHdlIGhhdmUgYSBmaW5hbCBzb2x1dGlvbg0Kd2l0
+aG91dCBjYWxsX3JjdSgpLCBpdCBpcyBub3QgbWF0dXJlIGF0IHRoZSBiZWdpbm5pbmcgYXMgd2Vs
+bC4gSSBtZWFuIHdlIGFsc28gbmVlZCB0aW1lDQp0byBmaXggdGhlIHBvc3NpYmxlIGJ1Z3Mgb2Yg
+dGhlIG5ldyBkZXNpZ24uIEFuZCBtYXliZSB0byBkZXN0cm95IHRoZSBmaWx0ZXJzIGluIHBhcmFs
+bGVsDQppcyB0aGUgcmlnaHQgZGlyZWN0aW9uLiBJZiB0aGlzIGJ1ZyBpcyB0aGUgbGFzdCBidWcg
+YnJvdWdodCBieSBjYWxsX3JjdSgpLCB0aGVuIGNoYW5naW5nIGl0DQptYXkgbm90IGJlIGEgZ29v
+ZCBpZGVhLg0KIA0KUGF0Y2ggMSBpcyBzdHJhaWdodGZvcndhcmQgdG8gdXNlIGF0b21pYy4gUGF0
+Y2ggMiBpcyB0byBjb252ZXJ0IHRoZSBsaXN0IHRvIGFycmF5Lg0KSSB0aGluayB0aGVyZSBpcyBu
+byBoYXJtIHRvIHRoZSBuZXcgZGVzaWduLiAgUGF0Y2ggMyBhbmQgNCBhcmUgdXNlZnVsIHRlc3Qg
+Y2FzZS4NCldlIGFsc28gbmVlZCBpdCB3aXRoIG5ldyBkZXNpZ24gdG8gbWFrZSBzdXJlIHRoZXJl
+IGlzIG5vIHJlZ3Jlc3Npb24uDQoNClNvIEkgdGhpbmsgbXkgcGF0Y2ggc2V0IHNob3VsZCBub3Qg
+YmUgaGVsZCBzbyBsb25nIHRpbWUuDQoNCk15IHR3byBjZW50cy4NCg==
