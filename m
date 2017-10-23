@@ -1,148 +1,465 @@
-From: Song Liu <songliubraving@fb.com>
-Subject: [PATCH v2 net-next 3/6] tcp: add tracepoint trace_tcp_send_reset
-Date: Mon, 23 Oct 2017 09:20:24 -0700
-Message-ID: <20171023162027.2880430-4-songliubraving@fb.com>
-References: <20171023162027.2880430-1-songliubraving@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <alexei.starovoitov@gmail.com>, <liu.song.a23@gmail.com>,
-        Song Liu <songliubraving@fb.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 01/12] tools: bpftool: copy JSON writer from iproute2 repository
+Date: Mon, 23 Oct 2017 09:24:05 -0700
+Message-ID: <20171023162416.32753-2-jakub.kicinski@netronome.com>
+References: <20171023162416.32753-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net, Quentin Monnet <quentin.monnet@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:55510 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751429AbdJWQU5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:20:57 -0400
-Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
-        by m0089730.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v9NGIqvx017307
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:56 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by m0089730.ppops.net with ESMTP id 2ds42422jp-4
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:20:56 -0700
-In-Reply-To: <20171023162027.2880430-1-songliubraving@fb.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:48568 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751514AbdJWQY4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 12:24:56 -0400
+Received: by mail-pf0-f195.google.com with SMTP id b79so17490205pfk.5
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 09:24:55 -0700 (PDT)
+In-Reply-To: <20171023162416.32753-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New tracepoint trace_tcp_send_reset is added and called from
-tcp_v4_send_reset(), tcp_v6_send_reset() and tcp_send_active_reset().
+From: Quentin Monnet <quentin.monnet@netronome.com>
 
-Signed-off-by: Song Liu <songliubraving@fb.com>
+In prevision of following commits, supposed to add JSON output to the
+tool, two files are copied from the iproute2 repository (taken at commit
+268a9eee985f): lib/json_writer.c and include/json_writer.h.
+
+Signed-off-by: Quentin Monnet <quentin.monnet@netronome.com>
 ---
- include/trace/events/tcp.h | 11 +++++++++++
- net/core/net-traces.c      |  2 ++
- net/ipv4/tcp_ipv4.c        |  6 +++++-
- net/ipv4/tcp_output.c      |  5 +++++
- net/ipv6/tcp_ipv6.c        | 10 ++++++++--
- 5 files changed, 31 insertions(+), 3 deletions(-)
+ tools/bpf/bpftool/json_writer.c | 348 ++++++++++++++++++++++++++++++++++++++++
+ tools/bpf/bpftool/json_writer.h |  70 ++++++++
+ 2 files changed, 418 insertions(+)
+ create mode 100644 tools/bpf/bpftool/json_writer.c
+ create mode 100644 tools/bpf/bpftool/json_writer.h
 
-diff --git a/include/trace/events/tcp.h b/include/trace/events/tcp.h
-index 2b6fe72..3e57e1a 100644
---- a/include/trace/events/tcp.h
-+++ b/include/trace/events/tcp.h
-@@ -77,6 +77,17 @@ DEFINE_EVENT(tcp_event_sk_skb, tcp_retransmit_skb,
- 	TP_ARGS(sk, skb)
- );
- 
+diff --git a/tools/bpf/bpftool/json_writer.c b/tools/bpf/bpftool/json_writer.c
+new file mode 100644
+index 000000000000..6b77d288cce2
+--- /dev/null
++++ b/tools/bpf/bpftool/json_writer.c
+@@ -0,0 +1,348 @@
 +/*
-+ * skb of trace_tcp_send_reset is the skb that caused RST. In case of
-+ * active reset, skb should be NULL
++ * Simple streaming JSON writer
++ *
++ * This takes care of the annoying bits of JSON syntax like the commas
++ * after elements
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Stephen Hemminger <stephen@networkplumber.org>
 + */
-+DEFINE_EVENT(tcp_event_sk_skb, tcp_send_reset,
 +
-+	TP_PROTO(const struct sock *sk, const struct sk_buff *skb),
++#include <stdio.h>
++#include <stdbool.h>
++#include <stdarg.h>
++#include <assert.h>
++#include <malloc.h>
++#include <inttypes.h>
++#include <stdint.h>
 +
-+	TP_ARGS(sk, skb)
-+);
++#include "json_writer.h"
 +
- #endif /* _TRACE_TCP_H */
- 
- /* This part must be outside protection */
-diff --git a/net/core/net-traces.c b/net/core/net-traces.c
-index f4e4fa2..8dcd9b0 100644
---- a/net/core/net-traces.c
-+++ b/net/core/net-traces.c
-@@ -49,3 +49,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_update);
- EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
- 
- EXPORT_TRACEPOINT_SYMBOL_GPL(napi_poll);
++struct json_writer {
++	FILE		*out;	/* output file */
++	unsigned	depth;  /* nesting */
++	bool		pretty; /* optional whitepace */
++	char		sep;	/* either nul or comma */
++};
 +
-+EXPORT_TRACEPOINT_SYMBOL_GPL(tcp_send_reset);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index e22439f..eb3f3b8 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -85,6 +85,8 @@
- #include <crypto/hash.h>
- #include <linux/scatterlist.h>
- 
-+#include <trace/events/tcp.h>
++/* indentation for pretty print */
++static void jsonw_indent(json_writer_t *self)
++{
++	unsigned i;
++	for (i = 0; i < self->depth; ++i)
++		fputs("    ", self->out);
++}
 +
- #ifdef CONFIG_TCP_MD5SIG
- static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
- 			       __be32 daddr, __be32 saddr, const struct tcphdr *th);
-@@ -701,8 +703,10 @@ static void tcp_v4_send_reset(const struct sock *sk, struct sk_buff *skb)
- 	 * routing might fail in this case. No choice here, if we choose to force
- 	 * input interface, we will misroute in case of asymmetric route.
- 	 */
--	if (sk)
-+	if (sk) {
- 		arg.bound_dev_if = sk->sk_bound_dev_if;
-+		trace_tcp_send_reset(sk, skb);
++/* end current line and indent if pretty printing */
++static void jsonw_eol(json_writer_t *self)
++{
++	if (!self->pretty)
++		return;
++
++	putc('\n', self->out);
++	jsonw_indent(self);
++}
++
++/* If current object is not empty print a comma */
++static void jsonw_eor(json_writer_t *self)
++{
++	if (self->sep != '\0')
++		putc(self->sep, self->out);
++	self->sep = ',';
++}
++
++
++/* Output JSON encoded string */
++/* Handles C escapes, does not do Unicode */
++static void jsonw_puts(json_writer_t *self, const char *str)
++{
++	putc('"', self->out);
++	for (; *str; ++str)
++		switch (*str) {
++		case '\t':
++			fputs("\\t", self->out);
++			break;
++		case '\n':
++			fputs("\\n", self->out);
++			break;
++		case '\r':
++			fputs("\\r", self->out);
++			break;
++		case '\f':
++			fputs("\\f", self->out);
++			break;
++		case '\b':
++			fputs("\\b", self->out);
++			break;
++		case '\\':
++			fputs("\\n", self->out);
++			break;
++		case '"':
++			fputs("\\\"", self->out);
++			break;
++		case '\'':
++			fputs("\\\'", self->out);
++			break;
++		default:
++			putc(*str, self->out);
++		}
++	putc('"', self->out);
++}
++
++/* Create a new JSON stream */
++json_writer_t *jsonw_new(FILE *f)
++{
++	json_writer_t *self = malloc(sizeof(*self));
++	if (self) {
++		self->out = f;
++		self->depth = 0;
++		self->pretty = false;
++		self->sep = '\0';
 +	}
- 
- 	BUILD_BUG_ON(offsetof(struct sock, sk_bound_dev_if) !=
- 		     offsetof(struct inet_timewait_sock, tw_bound_dev_if));
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 988733f..1f01f4c 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3084,6 +3084,11 @@ void tcp_send_active_reset(struct sock *sk, gfp_t priority)
- 	/* Send it off. */
- 	if (tcp_transmit_skb(sk, skb, 0, priority))
- 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPABORTFAILED);
++	return self;
++}
 +
-+	/* skb of trace_tcp_send_reset() keeps the skb that caused RST,
-+	 * skb here is different to the troublesome skb, so use NULL
-+	 */
-+	trace_tcp_send_reset(sk, NULL);
- }
- 
- /* Send a crossed SYN-ACK during socket establishment.
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index ae83615..0e25299 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -69,6 +69,8 @@
- #include <crypto/hash.h>
- #include <linux/scatterlist.h>
- 
-+#include <trace/events/tcp.h>
++/* End output to JSON stream */
++void jsonw_destroy(json_writer_t **self_p)
++{
++	json_writer_t *self = *self_p;
 +
- static void	tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb);
- static void	tcp_v6_reqsk_send_ack(const struct sock *sk, struct sk_buff *skb,
- 				      struct request_sock *req);
-@@ -890,7 +892,7 @@ static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)
- 	int genhash;
- 	struct sock *sk1 = NULL;
- #endif
--	int oif;
-+	int oif = 0;
- 
- 	if (th->rst)
- 		return;
-@@ -939,7 +941,11 @@ static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb)
- 		ack_seq = ntohl(th->seq) + th->syn + th->fin + skb->len -
- 			  (th->doff << 2);
- 
--	oif = sk ? sk->sk_bound_dev_if : 0;
-+	if (sk) {
-+		oif = sk->sk_bound_dev_if;
-+		trace_tcp_send_reset(sk, skb);
-+	}
++	assert(self->depth == 0);
++	fputs("\n", self->out);
++	fflush(self->out);
++	free(self);
++	*self_p = NULL;
++}
 +
- 	tcp_v6_send_response(sk, skb, seq, ack_seq, 0, 0, 0, oif, key, 1, 0, 0);
- 
- #ifdef CONFIG_TCP_MD5SIG
++void jsonw_pretty(json_writer_t *self, bool on)
++{
++	self->pretty = on;
++}
++
++/* Basic blocks */
++static void jsonw_begin(json_writer_t *self, int c)
++{
++	jsonw_eor(self);
++	putc(c, self->out);
++	++self->depth;
++	self->sep = '\0';
++}
++
++static void jsonw_end(json_writer_t *self, int c)
++{
++	assert(self->depth > 0);
++
++	--self->depth;
++	if (self->sep != '\0')
++		jsonw_eol(self);
++	putc(c, self->out);
++	self->sep = ',';
++}
++
++
++/* Add a JSON property name */
++void jsonw_name(json_writer_t *self, const char *name)
++{
++	jsonw_eor(self);
++	jsonw_eol(self);
++	self->sep = '\0';
++	jsonw_puts(self, name);
++	putc(':', self->out);
++	if (self->pretty)
++		putc(' ', self->out);
++}
++
++void jsonw_printf(json_writer_t *self, const char *fmt, ...)
++{
++	va_list ap;
++
++	va_start(ap, fmt);
++	jsonw_eor(self);
++	vfprintf(self->out, fmt, ap);
++	va_end(ap);
++}
++
++/* Collections */
++void jsonw_start_object(json_writer_t *self)
++{
++	jsonw_begin(self, '{');
++}
++
++void jsonw_end_object(json_writer_t *self)
++{
++	jsonw_end(self, '}');
++}
++
++void jsonw_start_array(json_writer_t *self)
++{
++	jsonw_begin(self, '[');
++}
++
++void jsonw_end_array(json_writer_t *self)
++{
++	jsonw_end(self, ']');
++}
++
++/* JSON value types */
++void jsonw_string(json_writer_t *self, const char *value)
++{
++	jsonw_eor(self);
++	jsonw_puts(self, value);
++}
++
++void jsonw_bool(json_writer_t *self, bool val)
++{
++	jsonw_printf(self, "%s", val ? "true" : "false");
++}
++
++void jsonw_null(json_writer_t *self)
++{
++	jsonw_printf(self, "null");
++}
++
++void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num)
++{
++	jsonw_printf(self, fmt, num);
++}
++
++#ifdef notused
++void jsonw_float(json_writer_t *self, double num)
++{
++	jsonw_printf(self, "%g", num);
++}
++#endif
++
++void jsonw_hu(json_writer_t *self, unsigned short num)
++{
++	jsonw_printf(self, "%hu", num);
++}
++
++void jsonw_uint(json_writer_t *self, uint64_t num)
++{
++	jsonw_printf(self, "%"PRIu64, num);
++}
++
++void jsonw_lluint(json_writer_t *self, unsigned long long int num)
++{
++	jsonw_printf(self, "%llu", num);
++}
++
++void jsonw_int(json_writer_t *self, int64_t num)
++{
++	jsonw_printf(self, "%"PRId64, num);
++}
++
++/* Basic name/value objects */
++void jsonw_string_field(json_writer_t *self, const char *prop, const char *val)
++{
++	jsonw_name(self, prop);
++	jsonw_string(self, val);
++}
++
++void jsonw_bool_field(json_writer_t *self, const char *prop, bool val)
++{
++	jsonw_name(self, prop);
++	jsonw_bool(self, val);
++}
++
++#ifdef notused
++void jsonw_float_field(json_writer_t *self, const char *prop, double val)
++{
++	jsonw_name(self, prop);
++	jsonw_float(self, val);
++}
++#endif
++
++void jsonw_float_field_fmt(json_writer_t *self,
++			   const char *prop,
++			   const char *fmt,
++			   double val)
++{
++	jsonw_name(self, prop);
++	jsonw_float_fmt(self, fmt, val);
++}
++
++void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num)
++{
++	jsonw_name(self, prop);
++	jsonw_uint(self, num);
++}
++
++void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num)
++{
++	jsonw_name(self, prop);
++	jsonw_hu(self, num);
++}
++
++void jsonw_lluint_field(json_writer_t *self,
++			const char *prop,
++			unsigned long long int num)
++{
++	jsonw_name(self, prop);
++	jsonw_lluint(self, num);
++}
++
++void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num)
++{
++	jsonw_name(self, prop);
++	jsonw_int(self, num);
++}
++
++void jsonw_null_field(json_writer_t *self, const char *prop)
++{
++	jsonw_name(self, prop);
++	jsonw_null(self);
++}
++
++#ifdef TEST
++int main(int argc, char **argv)
++{
++	json_writer_t *wr = jsonw_new(stdout);
++
++	jsonw_start_object(wr);
++	jsonw_pretty(wr, true);
++	jsonw_name(wr, "Vyatta");
++	jsonw_start_object(wr);
++	jsonw_string_field(wr, "url", "http://vyatta.com");
++	jsonw_uint_field(wr, "downloads", 2000000ul);
++	jsonw_float_field(wr, "stock", 8.16);
++
++	jsonw_name(wr, "ARGV");
++	jsonw_start_array(wr);
++	while (--argc)
++		jsonw_string(wr, *++argv);
++	jsonw_end_array(wr);
++
++	jsonw_name(wr, "empty");
++	jsonw_start_array(wr);
++	jsonw_end_array(wr);
++
++	jsonw_name(wr, "NIL");
++	jsonw_start_object(wr);
++	jsonw_end_object(wr);
++
++	jsonw_null_field(wr, "my_null");
++
++	jsonw_name(wr, "special chars");
++	jsonw_start_array(wr);
++	jsonw_string_field(wr, "slash", "/");
++	jsonw_string_field(wr, "newline", "\n");
++	jsonw_string_field(wr, "tab", "\t");
++	jsonw_string_field(wr, "ff", "\f");
++	jsonw_string_field(wr, "quote", "\"");
++	jsonw_string_field(wr, "tick", "\'");
++	jsonw_string_field(wr, "backslash", "\\");
++	jsonw_end_array(wr);
++
++	jsonw_end_object(wr);
++
++	jsonw_end_object(wr);
++	jsonw_destroy(&wr);
++	return 0;
++}
++
++#endif
+diff --git a/tools/bpf/bpftool/json_writer.h b/tools/bpf/bpftool/json_writer.h
+new file mode 100644
+index 000000000000..1516aafba59d
+--- /dev/null
++++ b/tools/bpf/bpftool/json_writer.h
+@@ -0,0 +1,70 @@
++/*
++ * Simple streaming JSON writer
++ *
++ * This takes care of the annoying bits of JSON syntax like the commas
++ * after elements
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Stephen Hemminger <stephen@networkplumber.org>
++ */
++
++#ifndef _JSON_WRITER_H_
++#define _JSON_WRITER_H_
++
++#include <stdbool.h>
++#include <stdint.h>
++
++/* Opaque class structure */
++typedef struct json_writer json_writer_t;
++
++/* Create a new JSON stream */
++json_writer_t *jsonw_new(FILE *f);
++/* End output to JSON stream */
++void jsonw_destroy(json_writer_t **self_p);
++
++/* Cause output to have pretty whitespace */
++void jsonw_pretty(json_writer_t *self, bool on);
++
++/* Add property name */
++void jsonw_name(json_writer_t *self, const char *name);
++
++/* Add value  */
++void jsonw_printf(json_writer_t *self, const char *fmt, ...);
++void jsonw_string(json_writer_t *self, const char *value);
++void jsonw_bool(json_writer_t *self, bool value);
++void jsonw_float(json_writer_t *self, double number);
++void jsonw_float_fmt(json_writer_t *self, const char *fmt, double num);
++void jsonw_uint(json_writer_t *self, uint64_t number);
++void jsonw_hu(json_writer_t *self, unsigned short number);
++void jsonw_int(json_writer_t *self, int64_t number);
++void jsonw_null(json_writer_t *self);
++void jsonw_lluint(json_writer_t *self, unsigned long long int num);
++
++/* Useful Combinations of name and value */
++void jsonw_string_field(json_writer_t *self, const char *prop, const char *val);
++void jsonw_bool_field(json_writer_t *self, const char *prop, bool value);
++void jsonw_float_field(json_writer_t *self, const char *prop, double num);
++void jsonw_uint_field(json_writer_t *self, const char *prop, uint64_t num);
++void jsonw_hu_field(json_writer_t *self, const char *prop, unsigned short num);
++void jsonw_int_field(json_writer_t *self, const char *prop, int64_t num);
++void jsonw_null_field(json_writer_t *self, const char *prop);
++void jsonw_lluint_field(json_writer_t *self, const char *prop,
++			unsigned long long int num);
++void jsonw_float_field_fmt(json_writer_t *self, const char *prop,
++			   const char *fmt, double val);
++
++/* Collections */
++void jsonw_start_object(json_writer_t *self);
++void jsonw_end_object(json_writer_t *self);
++
++void jsonw_start_array(json_writer_t *self);
++void jsonw_end_array(json_writer_t *self);
++
++/* Override default exception handling */
++typedef void (jsonw_err_handler_fn)(const char *);
++
++#endif /* _JSON_WRITER_H_ */
 -- 
-2.9.5
+2.14.1
