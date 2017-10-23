@@ -1,57 +1,39 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: [jkirsher/net-queue PATCH] i40e: Add programming descriptors to
- cleaned_count
-Date: Mon, 23 Oct 2017 01:15:00 +0200
-Message-ID: <003ecf6b-bd50-51fa-79a7-eab2b100257b@itcare.pl>
-References: <20171022011222.12997.53593.stgit@localhost.localdomain>
- <1508695307.4970.32.camel@cohaesio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] selftests/bpf: fix broken build of
+ test_maps
+Date: Mon, 23 Oct 2017 01:06:46 +0100 (WEST)
+Message-ID: <20171023.010646.1411430473371443955.davem@davemloft.net>
+References: <20171022172906.3131400-1-ast@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: "Anders K. Pedersen | Cohaesio" <akp@cohaesio.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: daniel@iogearbox.net, brakmo@fb.com, netdev@vger.kernel.org
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp12.iq.pl ([86.111.240.243]:52574 "EHLO smtp12.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932120AbdJVXPA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 22 Oct 2017 19:15:00 -0400
-In-Reply-To: <1508695307.4970.32.camel@cohaesio.com>
-Content-Language: pl
+Received: from shards.monkeyblade.net ([184.105.139.130]:39362 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932139AbdJWAGt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 22 Oct 2017 20:06:49 -0400
+In-Reply-To: <20171022172906.3131400-1-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes can confirm that after adding patch:
-
-[jkirsher/net-queue PATCH] i40e: Add programming descriptors to 
-cleaned_count
-
-
-There is no memleak.
-
-
-
-W dniu 2017-10-22 o 20:01, Anders K. Pedersen | Cohaesio pisze:
-> On lør, 2017-10-21 at 18:12 -0700, Alexander Duyck wrote:
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>
->> This patch updates the i40e driver to include programming descriptors
->> in
->> the cleaned_count. Without this change it becomes possible for us to
->> leak
->> memory as we don't trigger a large enough allocation when the time
->> comes to
->> allocate new buffers and we end up overwriting a number of rx_buffers
->> equal
->> to the number of programming descriptors we encountered.
->>
->> Fixes: 0e626ff7ccbf ("i40e: Fix support for flow director programming
->> status")
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> This patch solves the remaining memory leak we've seen, so
->
-> Tested-by: Anders K. Pedersen <akp@cohaesio.com>
->
-> Regards,
-> Anders
+RnJvbTogQWxleGVpIFN0YXJvdm9pdG92IDxhc3RAZmIuY29tPg0KRGF0ZTogU3VuLCAyMiBPY3Qg
+MjAxNyAxMDoyOTowNiAtMDcwMA0KDQo+IGZpeCBtdWx0aXBsZSBidWlsZCBlcnJvcnMgYW5kIHdh
+cm5pbmdzDQo+IA0KPiAxLg0KPiB0ZXN0X21hcHMuYzogSW4gZnVuY3Rpb24goXRlc3RfbWFwX3Jk
+b25seaI6DQo+IHRlc3RfbWFwcy5jOjEwNTE6MzA6IGVycm9yOiChQlBGX0ZfUkRPTkxZoiB1bmRl
+Y2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCj4gICAgICAgICBNQVBfU0laRSwg
+bWFwX2ZsYWdzIHwgQlBGX0ZfUkRPTkxZKTsNCj4gDQo+IDIuDQo+IHRlc3RfbWFwcy5jOjEwNDg6
+Njogd2FybmluZzogdW51c2VkIHZhcmlhYmxlIKFpoiBbLVd1bnVzZWQtdmFyaWFibGVdDQo+ICAg
+aW50IGksIGZkLCBrZXkgPSAwLCB2YWx1ZSA9IDA7DQo+IA0KPiAzLg0KPiB0ZXN0X21hcHMuYzox
+MDg3OjI6IGVycm9yOiBjYWxsZWQgb2JqZWN0IGlzIG5vdCBhIGZ1bmN0aW9uIG9yIGZ1bmN0aW9u
+IHBvaW50ZXINCj4gICBhc3NlcnQoYnBmX21hcF9sb29rdXBfZWxlbShmZCwgJmtleSwgJnZhbHVl
+KSA9PSAtMSAmJiBlcnJubyA9PSBFUEVSTSk7DQo+IA0KPiA0Lg0KPiAuL2JwZl9oZWxwZXJzLmg6
+NzI6MTE6IGVycm9yOiB1c2Ugb2YgdW5kZWNsYXJlZCBpZGVudGlmaWVyICdCUEZfRlVOQ19nZXRz
+b2Nrb3B0Jw0KPiAgICAgICAgICh2b2lkICopIEJQRl9GVU5DX2dldHNvY2tvcHQ7DQo+IA0KPiBG
+aXhlczogZTA0MzMyNWIzMDg3ICgiYnBmOiBBZGQgdGVzdHMgZm9yIGVCUEYgZmlsZSBtb2RlIikN
+Cj4gRml4ZXM6IDZlNzFiMDRhODIyNCAoImJwZjogQWRkIGZpbGUgbW9kZSBjb25maWd1cmF0aW9u
+IGludG8gYnBmIG1hcHMiKQ0KPiBGaXhlczogY2Q4NmQxZmQyMTAyICgiYnBmOiBBZGRpbmcgaGVs
+cGVyIGZ1bmN0aW9uIGJwZl9nZXRzb2Nrb3BzIikNCj4gU2lnbmVkLW9mZi1ieTogQWxleGVpIFN0
+YXJvdm9pdG92IDxhc3RAa2VybmVsLm9yZz4NCj4gQWNrZWQtYnk6IERhbmllbCBCb3JrbWFubiA8
+ZGFuaWVsQGlvZ2VhcmJveC5uZXQ+DQoNCkFwcGxpZWQsIHRoYW5rcyBBbGV4ZWkuDQo=
