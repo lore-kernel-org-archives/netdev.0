@@ -1,95 +1,60 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 6/7] ipv6: addrconf: do not block BH in /proc/net/if_inet6 handling
-Date: Mon, 23 Oct 2017 16:17:50 -0700
-Message-ID: <20171023231751.29530-7-edumazet@google.com>
-References: <20171023231751.29530-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net 00/15] net_sched: remove RCU callbacks from TC
+Date: Mon, 23 Oct 2017 16:23:28 -0700
+Message-ID: <CAM_iQpUXr-3rAkBiVFvZ5YSRG=ZrPEWzQwQYZ0Yx_YP_BQNGoA@mail.gmail.com>
+References: <20171023220304.2268-1-xiyou.wangcong@gmail.com> <1508800599.30291.106.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Chris Mi <chrism@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:43754 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751250AbdJWXSJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 19:18:09 -0400
-Received: by mail-io0-f194.google.com with SMTP id 134so21913657ioo.0
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 16:18:09 -0700 (PDT)
-In-Reply-To: <20171023231751.29530-1-edumazet@google.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:56685 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751116AbdJWXXt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 19:23:49 -0400
+Received: by mail-pf0-f193.google.com with SMTP id b85so18225334pfj.13
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 16:23:48 -0700 (PDT)
+In-Reply-To: <1508800599.30291.106.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Table is really RCU protected, no need to block BH
+On Mon, Oct 23, 2017 at 4:16 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2017-10-23 at 15:02 -0700, Cong Wang wrote:
+>
+>> b) As suggested by Paul, we could defer the work to a workqueue and
+>> gain the permission of holding RTNL again without any performance
+>> impact, however, this seems impossible too, because as lockdep
+>> complains we have a deadlock when flushing workqueue while hodling
+>> RTNL lock, see the rcu_barrier() in tcf_block_put().
+>>
+>> Therefore, the simplest solution we have is probably just getting
+>> rid of these RCU callbacks, because they are not necessary at all,
+>> callers of these call_rcu() are all on slow paths and have RTNL
+>> lock, so blocking is allowed in their contexts.
+>
+> I am against these pessimistic changes, sorry for not following past
+> discussions last week.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/addrconf.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+So even Cc'ing you doesn't work. :-D
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6c1e7ffb62ff2333d63b3c7639d99649d43b32fc..9232e9537082ea44f5e0af4e4b0d052d780395fd 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4097,9 +4097,9 @@ struct if6_iter_state {
- 
- static struct inet6_ifaddr *if6_get_first(struct seq_file *seq, loff_t pos)
- {
--	struct inet6_ifaddr *ifa = NULL;
- 	struct if6_iter_state *state = seq->private;
- 	struct net *net = seq_file_net(seq);
-+	struct inet6_ifaddr *ifa = NULL;
- 	int p = 0;
- 
- 	/* initial bucket if pos is 0 */
-@@ -4109,7 +4109,7 @@ static struct inet6_ifaddr *if6_get_first(struct seq_file *seq, loff_t pos)
- 	}
- 
- 	for (; state->bucket < IN6_ADDR_HSIZE; ++state->bucket) {
--		hlist_for_each_entry_rcu_bh(ifa, &inet6_addr_lst[state->bucket],
-+		hlist_for_each_entry_rcu(ifa, &inet6_addr_lst[state->bucket],
- 					 addr_lst) {
- 			if (!net_eq(dev_net(ifa->idev->dev), net))
- 				continue;
-@@ -4135,7 +4135,7 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
- 	struct if6_iter_state *state = seq->private;
- 	struct net *net = seq_file_net(seq);
- 
--	hlist_for_each_entry_continue_rcu_bh(ifa, addr_lst) {
-+	hlist_for_each_entry_continue_rcu(ifa, addr_lst) {
- 		if (!net_eq(dev_net(ifa->idev->dev), net))
- 			continue;
- 		state->offset++;
-@@ -4144,7 +4144,7 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
- 
- 	while (++state->bucket < IN6_ADDR_HSIZE) {
- 		state->offset = 0;
--		hlist_for_each_entry_rcu_bh(ifa,
-+		hlist_for_each_entry_rcu(ifa,
- 				     &inet6_addr_lst[state->bucket], addr_lst) {
- 			if (!net_eq(dev_net(ifa->idev->dev), net))
- 				continue;
-@@ -4157,9 +4157,9 @@ static struct inet6_ifaddr *if6_get_next(struct seq_file *seq,
- }
- 
- static void *if6_seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(rcu_bh)
-+	__acquires(rcu)
- {
--	rcu_read_lock_bh();
-+	rcu_read_lock();
- 	return if6_get_first(seq, *pos);
- }
- 
-@@ -4173,9 +4173,9 @@ static void *if6_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- }
- 
- static void if6_seq_stop(struct seq_file *seq, void *v)
--	__releases(rcu_bh)
-+	__releases(rcu)
- {
--	rcu_read_unlock_bh();
-+	rcu_read_unlock();
- }
- 
- static int if6_seq_show(struct seq_file *seq, void *v)
--- 
-2.15.0.rc0.271.g36b669edcc-goog
+>
+> I am asking a talk during upcoming netdev/netconf about this, if we need
+> to take a decision.
+
+I won't be able to make it.
+
+>
+> RTNL is already a big problem for many of us, adding synchronize_rcu()
+> calls while holding RTNL is a no - go, unless we have clear evidence it
+> can not be avoided.
+
+You omitted too much, including the evidence I provide. In short it is very
+hard to do, otherwise I should have already done it. I am very open to
+any simple solution to avoid it, but so far none...
+
+Saying no but without giving a possible solution does not help anything
+here.
