@@ -1,44 +1,102 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v8 01/10] dt-bindings: net: Restore sun8i dwmac binding
-Date: Mon, 23 Oct 2017 16:58:39 -0500
-Message-ID: <20171023215839.3brzm4nhptkkdbwq@rob-hp-laptop>
-References: <20171023185626.31793-1-clabbe.montjoie@gmail.com>
- <20171023185626.31793-2-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
-        wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20171023185626.31793-2-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net-next] ipv6: add ip6_null_entry check in rt6_select()
+Date: Mon, 23 Oct 2017 14:59:35 -0700
+Message-ID: <20171023215935.52136-1-tracywwnj@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:53965 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751299AbdJWV7z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 17:59:55 -0400
+Received: by mail-pf0-f196.google.com with SMTP id t188so18103872pfd.10
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 14:59:55 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 23, 2017 at 08:56:17PM +0200, Corentin Labbe wrote:
-> The original dwmac-sun8i DT bindings have some issue on how to handle
-> integrated PHY and was reverted in last RC of 4.13.
-> But now we have a solution so we need to get back that was reverted.
-> 
-> This patch restore dt-bindings documentation about dwmac-sun8i
-> This reverts commit 8aa33ec2f481 ("dt-bindings: net: Revert sun8i dwmac binding")
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/dwmac-sun8i.txt        | 84 ++++++++++++++++++++++
->  1 file changed, 84 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+From: Wei Wang <weiwan@google.com>
 
-Please add acks when posting new versions.
+In rt6_select(), fn->leaf could be pointing to net->ipv6.ip6_null_entry.
+In this case, we should directly return instead of trying to carry on
+with the rest of the process.
+If not, we could crash at:
+  spin_lock_bh(&leaf->rt6i_table->rt6_lock);
+because net->ipv6.ip6_null_entry does not have rt6i_table set.
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> 
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Syzkaller recently reported following issue on net-next:
+Use struct sctp_sack_info instead
+kasan: CONFIG_KASAN_INLINE enabled
+kasan: GPF could be caused by NULL-ptr deref or user memory access
+general protection fault: 0000 [#1] SMP KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+sctp: [Deprecated]: syz-executor4 (pid 26496) Use of struct sctp_assoc_value in delayed_ack socket option.
+Use struct sctp_sack_info instead
+CPU: 1 PID: 26523 Comm: syz-executor6 Not tainted 4.14.0-rc4+ #85
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+task: ffff8801d147e3c0 task.stack: ffff8801a4328000
+RIP: 0010:debug_spin_lock_before kernel/locking/spinlock_debug.c:83 [inline]
+RIP: 0010:do_raw_spin_lock+0x23/0x1e0 kernel/locking/spinlock_debug.c:112
+RSP: 0018:ffff8801a432ed70 EFLAGS: 00010207
+RAX: dffffc0000000000 RBX: 0000000000000018 RCX: 0000000000000000
+RDX: 0000000000000003 RSI: 0000000000000000 RDI: 000000000000001c
+RBP: ffff8801a432ed90 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: ffffffff8482b279 R12: ffff8801ce2ff3a0
+sctp: [Deprecated]: syz-executor1 (pid 26546) Use of int in maxseg socket option.
+Use struct sctp_assoc_value instead
+R13: dffffc0000000000 R14: ffff8801d971e000 R15: ffff8801ce2ff0d8
+FS:  00007f56e82f5700(0000) GS:ffff8801db300000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000001ddbc22000 CR3: 00000001a4a04000 CR4: 00000000001406e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+Call Trace:
+ __raw_spin_lock_bh include/linux/spinlock_api_smp.h:136 [inline]
+ _raw_spin_lock_bh+0x39/0x40 kernel/locking/spinlock.c:175
+ spin_lock_bh include/linux/spinlock.h:321 [inline]
+ rt6_select net/ipv6/route.c:786 [inline]
+ ip6_pol_route+0x1be3/0x3bd0 net/ipv6/route.c:1650
+sctp: [Deprecated]: syz-executor1 (pid 26576) Use of int in maxseg socket option.
+Use struct sctp_assoc_value instead
+TCP: request_sock_TCPv6: Possible SYN flooding on port 20002. Sending cookies.  Check SNMP counters.
+ ip6_pol_route_output+0x4c/0x60 net/ipv6/route.c:1843
+ fib6_rule_lookup+0x9e/0x2a0 net/ipv6/ip6_fib.c:309
+ ip6_route_output_flags+0x1f1/0x2b0 net/ipv6/route.c:1871
+ ip6_route_output include/net/ip6_route.h:80 [inline]
+ ip6_dst_lookup_tail+0x4ea/0x970 net/ipv6/ip6_output.c:953
+ ip6_dst_lookup_flow+0xc8/0x270 net/ipv6/ip6_output.c:1076
+ sctp_v6_get_dst+0x675/0x1c30 net/sctp/ipv6.c:274
+ sctp_transport_route+0xa8/0x430 net/sctp/transport.c:287
+ sctp_assoc_add_peer+0x4fe/0x1100 net/sctp/associola.c:656
+ __sctp_connect+0x251/0xc80 net/sctp/socket.c:1187
+ sctp_connect+0xb4/0xf0 net/sctp/socket.c:4209
+ inet_dgram_connect+0x16b/0x1f0 net/ipv4/af_inet.c:541
+ SYSC_connect+0x20a/0x480 net/socket.c:1642
+ SyS_connect+0x24/0x30 net/socket.c:1623
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+
+Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 46c59a53c53f..605e5dc1c010 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -752,7 +752,7 @@ static struct rt6_info *rt6_select(struct net *net, struct fib6_node *fn,
+ 	bool do_rr = false;
+ 	int key_plen;
+ 
+-	if (!leaf)
++	if (!leaf || leaf == net->ipv6.ip6_null_entry)
+ 		return net->ipv6.ip6_null_entry;
+ 
+ 	rt0 = rcu_dereference(fn->rr_ptr);
+-- 
+2.15.0.rc0.271.g36b669edcc-goog
