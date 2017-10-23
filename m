@@ -1,66 +1,43 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if condition
- followed by BUG
-Date: Mon, 23 Oct 2017 13:16:35 -0500
-Message-ID: <20171023181635.GA25334@embeddedor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-To: "J. Bruce Fields" <bfields@fieldses.org>,
-        Jeff Layton <jlayton@poochiereds.net>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway34.websitewelcome.com ([192.185.148.204]:11007 "EHLO
-        gateway34.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751388AbdJWSQg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 14:16:36 -0400
-Received: from cm14.websitewelcome.com (cm14.websitewelcome.com [100.42.49.7])
-        by gateway34.websitewelcome.com (Postfix) with ESMTP id ABB7635F65
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 13:16:36 -0500 (CDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/2] net: dsa: legacy: don't unmask port bitmaps
+Date: Mon, 23 Oct 2017 14:17:30 -0400
+Message-ID: <20171023181731.7977-2-vivien.didelot@savoirfairelinux.com>
+References: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171023181731.7977-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use BUG_ON instead of if condition followed by BUG.
+The legacy code does not unmask the cpu_port_mask and dsa_port_mask as
+stated. But this is done on the error path and those masks won't be used
+after that. So instead of fixing the bit operation, simply remove it.
 
-This issue was detected with the help of Coccinelle.
-
-Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+Fixes: 83c0afaec7b7 ("net: dsa: Add new binding implementation")
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ net/dsa/legacy.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-index 7b1ee5a..a10ce43 100644
---- a/net/sunrpc/auth_gss/svcauth_gss.c
-+++ b/net/sunrpc/auth_gss/svcauth_gss.c
-@@ -855,11 +855,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
- 		return stat;
- 	if (integ_len > buf->len)
- 		return stat;
--	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
--		BUG();
-+	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
- 	/* copy out mic... */
--	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
--		BUG();
-+	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
- 	if (mic.len > RPC_MAX_AUTH_SIZE)
- 		return stat;
- 	mic.data = kmalloc(mic.len, GFP_KERNEL);
-@@ -1611,8 +1609,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
- 	BUG_ON(integ_len % 4);
- 	*p++ = htonl(integ_len);
- 	*p++ = htonl(gc->gc_seq);
--	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
--		BUG();
-+	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len));
- 	if (resbuf->tail[0].iov_base == NULL) {
- 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
- 			goto out_err;
+diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
+index b6c88fd33d4f..93c1c43bcc58 100644
+--- a/net/dsa/legacy.c
++++ b/net/dsa/legacy.c
+@@ -272,10 +272,6 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
+ 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
+ 			continue;
+ 		dsa_cpu_dsa_destroy(&ds->ports[port]);
+-
+-		/* Clearing a bit which is not set does no harm */
+-		ds->cpu_port_mask |= ~(1 << port);
+-		ds->dsa_port_mask |= ~(1 << port);
+ 	}
+ 
+ 	if (ds->slave_mii_bus && ds->ops->phy_read)
 -- 
-2.7.4
+2.14.2
