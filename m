@@ -1,310 +1,175 @@
-From: avivh@mellanox.com
-Subject: [PATCH net-next 2/3] xfrm: Fix offload dev state addition to occur after insertion
-Date: Tue, 24 Oct 2017 18:10:30 +0300
-Message-ID: <1508857831-55824-2-git-send-email-avivh@mellanox.com>
-References: <1508857831-55824-1-git-send-email-avivh@mellanox.com>
+From: Andrey Konovalov <andreyknvl@google.com>
+Subject: Re: usb/net/asix: kernel hang in asix_phy_reset
+Date: Tue, 24 Oct 2017 17:11:52 +0200
+Message-ID: <CAAeHK+w7BRqLG_+34KKDU_gS_dowPU86VNzOXwJj-MbHnK_+1w@mail.gmail.com>
+References: <CAAeHK+x3ZvRpn3dxk6KmeJoWqLOAu26YmEpczC2LGZxB7u-U4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Boris Pismenny <borisp@mellanox.com>,
-        Yossi Kuperman <yossiku@mellanox.com>,
-        Yevgeny Kliteynik <kliteyn@mellanox.com>,
-        netdev@vger.kernel.org, Aviv Heller <avivh@mellanox.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: "David S. Miller" <davem@davemloft.net>, allan <allan@asix.com.tw>,
+        Peter Chen <peter.chen@nxp.com>,
+        Greg Ungerer <gerg@linux-m68k.org>,
+        Colin Ian King <colin.king@canonical.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Dean Jenkins <Dean_Jenkins@mentor.com>,
+        USB list <linux-usb@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0069.outbound.protection.outlook.com ([104.47.1.69]:35072
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751772AbdJXPK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 11:10:56 -0400
-In-Reply-To: <1508857831-55824-1-git-send-email-avivh@mellanox.com>
+Received: from mail-oi0-f42.google.com ([209.85.218.42]:48267 "EHLO
+        mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932156AbdJXPLy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 11:11:54 -0400
+Received: by mail-oi0-f42.google.com with SMTP id m198so37420965oig.5
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 08:11:53 -0700 (PDT)
+In-Reply-To: <CAAeHK+x3ZvRpn3dxk6KmeJoWqLOAu26YmEpczC2LGZxB7u-U4g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aviv Heller <avivh@mellanox.com>
+On Tue, Oct 24, 2017 at 4:59 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
+> Hi!
+>
+> While fuzzing the kernel with syzkaller I've been getting kernel hangs
+> within the asix driver.
+>
+> On commit 6cff0a118f23b98c604a3604ea9de11338e24fbe (4.14-rc6+).
+>
+> As far as I can tell the issue is that asix_phy_reset() doesn't
+> enforce proper timeout.
+>
+> asix_phy_reset() calls asix_mdio_read() in a loop 5000 times with 100
+> us delay, which gives 500 ms of sleeping time, but it doesn't account
+> for the time while asix_mdio_read() executes. asix_mdio_read() in
+> turns contains another loop for 30 iterations with a sleep for 1 ms
+> (and does a bunch of stuff besides that). As a result asix_mdio_read()
+> takes ~80 ms in my setup. This results in at least 5000 * 80 ms = 400
+> seconds of delay in addition to those insignificant 500 ms.
+>
+> Hang stack trace:
+>
+> [<ffffffff8297c34e>] usb_start_wait_urb+0xfe/0x220 drivers/usb/core/message.c:61
+> [<     inline     >] usb_internal_control_msg drivers/usb/core/message.c:100
+> [<ffffffff8297c735>] usb_control_msg+0x2c5/0x3a0 drivers/usb/core/message.c:151
+> [<ffffffff8290efad>] __usbnet_read_cmd+0xcd/0x180 drivers/net/usb/usbnet.c:1986
+> [<ffffffff8290f0df>] usbnet_read_cmd+0x7f/0xe0 drivers/net/usb/usbnet.c:2044
+> [<ffffffff82900465>] asix_read_cmd+0x75/0xe0 drivers/net/usb/asix_common.c:37
+> [<ffffffff8290252b>] asix_mdio_read+0xbb/0x150 drivers/net/usb/asix_common.c:471
+> [<ffffffff828fe64a>] asix_phy_reset.isra.9+0xfa/0x1d0
+> drivers/net/usb/asix_devices.c:227
+> [<ffffffff828ff6c7>] ax88172_bind+0x397/0x4e0 drivers/net/usb/asix_devices.c:284
+> [<ffffffff829134b6>] usbnet_probe+0xb06/0x2600 drivers/net/usb/usbnet.c:1726
+> [<ffffffff82989f58>] usb_probe_interface+0x358/0x880
+> drivers/usb/core/driver.c:361
+> [<     inline     >] really_probe drivers/base/dd.c:413
+> [<ffffffff824bd780>] driver_probe_device+0x490/0x800 drivers/base/dd.c:557
+> [<ffffffff824bdedb>] __device_attach_driver+0x22b/0x290 drivers/base/dd.c:653
+> [<ffffffff824b7e4a>] bus_for_each_drv+0xfa/0x170 drivers/base/bus.c:463
+> [<ffffffff824bd10b>] __device_attach+0x1ab/0x290 drivers/base/dd.c:710
+> [<ffffffff824bdfda>] device_initial_probe+0x1a/0x20 drivers/base/dd.c:757
+> [<ffffffff824bb086>] bus_probe_device+0x1e6/0x290 drivers/base/bus.c:523
+> [<ffffffff824b53ff>] device_add+0xb2f/0x1340 drivers/base/core.c:1835
+> [<ffffffff829836ad>] usb_set_configuration+0xe9d/0x1660
+> drivers/usb/core/message.c:1932
+> [<ffffffff829a314e>] generic_probe+0x6e/0xe0 drivers/usb/core/generic.c:174
+> [<ffffffff82989bca>] usb_probe_device+0xaa/0xe0 drivers/usb/core/driver.c:266
+> [<     inline     >] really_probe drivers/base/dd.c:413
+> [<ffffffff824bd780>] driver_probe_device+0x490/0x800 drivers/base/dd.c:557
+> [<ffffffff824bdedb>] __device_attach_driver+0x22b/0x290 drivers/base/dd.c:653
+> [<ffffffff824b7e4a>] bus_for_each_drv+0xfa/0x170 drivers/base/bus.c:463
+> [<ffffffff824bd10b>] __device_attach+0x1ab/0x290 drivers/base/dd.c:710
+> [<ffffffff824bdfda>] device_initial_probe+0x1a/0x20 drivers/base/dd.c:757
+> [<ffffffff824bb086>] bus_probe_device+0x1e6/0x290 drivers/base/bus.c:523
+> [<ffffffff824b53ff>] device_add+0xb2f/0x1340 drivers/base/core.c:1835
+> [<ffffffff82966d53>] usb_new_device+0x7b3/0xff0 drivers/usb/core/hub.c:2457
+> [<     inline     >] hub_port_connect drivers/usb/core/hub.c:4906
+> [<     inline     >] hub_port_connect_change drivers/usb/core/hub.c:5012
+> [<     inline     >] port_event drivers/usb/core/hub.c:5118
+> [<ffffffff8296a69a>] hub_event+0x133a/0x2d90 drivers/usb/core/hub.c:5198
+> [<ffffffff8115d7ab>] process_one_work+0x78b/0x1540 kernel/workqueue.c:2113
+> [<ffffffff8115e647>] worker_thread+0xe7/0xff0 kernel/workqueue.c:2247
+> [<ffffffff8116d63c>] kthread+0x33c/0x410 kernel/kthread.c:231
+> [<ffffffff838d45da>] ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
+> [<ffffffffffffffff>] 0xffffffffffffffff
 
-Adding the state to the offload device prior to replay init in
-xfrm_state_construct() will result in NULL dereference if a matching
-ESP packet is received in between.
+And another hang stack, this time in mdiobus_scan():
 
-Adding it after insertion also has the benefit of the driver not having
-to check whether a state with the same match criteria already exists,
-but forces us to use an atomic type for the offload_handle, to make
-certain a stack-read/driver-write race won't result in reading corrupt
-data.
+[<ffffffff8297cbce>] usb_start_wait_urb+0xfe/0x220 drivers/usb/core/message.c:61
+[<     inline     >] usb_internal_control_msg drivers/usb/core/message.c:100
+[<ffffffff8297cfb5>] usb_control_msg+0x2c5/0x3a0 drivers/usb/core/message.c:151
+[<ffffffff829127d4>] __usbnet_write_cmd+0xd4/0x170 drivers/net/usb/usbnet.c:2024
+[<ffffffff829128ef>] usbnet_write_cmd+0x7f/0xe0 drivers/net/usb/usbnet.c:2062
+[<ffffffff82900545>] asix_write_cmd+0x75/0xe0 drivers/net/usb/asix_common.c:60
+[<ffffffff82901a99>] asix_set_sw_mii+0x29/0x90 drivers/net/usb/asix_common.c:288
+[<ffffffff829024e5>] asix_mdio_read+0x75/0x150 drivers/net/usb/asix_common.c:467
+[<ffffffff82903ad6>] asix_mdio_bus_read+0x66/0x80 drivers/net/usb/ax88172a.c:43
+[<ffffffff82759b8f>] mdiobus_read+0x6f/0x2f0 drivers/net/phy/mdio_bus.c:541
+[<     inline     >] get_phy_id drivers/net/phy/phy_device.c:537
+[<ffffffff827578b4>] get_phy_device+0x74/0x2f0 drivers/net/phy/phy_device.c:569
+[<ffffffff827587df>] mdiobus_scan+0x1f/0x60 drivers/net/phy/mdio_bus.c:475
+[<ffffffff82758ae6>] __mdiobus_register+0x2c6/0x560
+drivers/net/phy/mdio_bus.c:377
+[<     inline     >] ax88172a_init_mdio drivers/net/usb/ax88172a.c:117
+[<ffffffff829045f5>] ax88172a_bind+0x515/0x8e0 drivers/net/usb/ax88172a.c:255
+[<ffffffff829134b6>] usbnet_probe+0xb06/0x2600 drivers/net/usb/usbnet.c:1726
+[<ffffffff8298a8f8>] usb_probe_interface+0x358/0x880
+drivers/usb/core/driver.c:361
+[<     inline     >] really_probe drivers/base/dd.c:413
+[<ffffffff824bd780>] driver_probe_device+0x490/0x800 drivers/base/dd.c:557
+[<ffffffff824bdedb>] __device_attach_driver+0x22b/0x290 drivers/base/dd.c:653
+[<ffffffff824b7e4a>] bus_for_each_drv+0xfa/0x170 drivers/base/bus.c:463
+[<ffffffff824bd10b>] __device_attach+0x1ab/0x290 drivers/base/dd.c:710
+[<ffffffff824bdfda>] device_initial_probe+0x1a/0x20 drivers/base/dd.c:757
+[<ffffffff824bb086>] bus_probe_device+0x1e6/0x290 drivers/base/bus.c:523
+[<ffffffff824b53ff>] device_add+0xb2f/0x1340 drivers/base/core.c:1835
+[<ffffffff82983f2d>] usb_set_configuration+0xe9d/0x1660
+drivers/usb/core/message.c:1932
+[<ffffffff829a3aee>] generic_probe+0x6e/0xe0 drivers/usb/core/generic.c:174
+[<ffffffff8298a56a>] usb_probe_device+0xaa/0xe0 drivers/usb/core/driver.c:266
 
-Fixes: d77e38e612a0 ("xfrm: Add an IPsec hardware offloading API")
-Signed-off-by: Aviv Heller <avivh@mellanox.com>
-Signed-off-by: Yevgeny Kliteynik <kliteyn@mellanox.com>
----
- .../ethernet/mellanox/mlx5/core/en_accel/ipsec.c   | 12 +++++------
- .../mellanox/mlx5/core/en_accel/ipsec_rxtx.c       |  4 ++--
- include/net/xfrm.h                                 | 25 ++++++++++++++++++++--
- net/ipv4/esp4.c                                    |  4 ++--
- net/ipv4/esp4_offload.c                            |  2 +-
- net/ipv6/esp6.c                                    |  4 ++--
- net/ipv6/esp6_offload.c                            |  2 +-
- net/xfrm/xfrm_device.c                             |  2 +-
- net/xfrm/xfrm_user.c                               | 21 +++++++++---------
- 9 files changed, 48 insertions(+), 28 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-index bac5103..07846fe 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec.c
-@@ -304,7 +304,7 @@ static int mlx5e_xfrm_add_state(struct xfrm_state *x)
- 	if (err)
- 		goto err_sadb_rx;
- 
--	x->xso.offload_handle = (unsigned long)sa_entry;
-+	xfrm_dev_set_offload_handle(x, (u64)sa_entry);
- 	goto out;
- 
- err_sadb_rx:
-@@ -320,14 +320,13 @@ static int mlx5e_xfrm_add_state(struct xfrm_state *x)
- 
- static void mlx5e_xfrm_del_state(struct xfrm_state *x)
- {
--	struct mlx5e_ipsec_sa_entry *sa_entry;
-+	struct mlx5e_ipsec_sa_entry *sa_entry = (void *)xfrm_dev_offload_handle(x);
- 	struct mlx5_accel_ipsec_sa hw_sa;
- 	void *context;
- 
--	if (!x->xso.offload_handle)
-+	if (!sa_entry)
- 		return;
- 
--	sa_entry = (struct mlx5e_ipsec_sa_entry *)x->xso.offload_handle;
- 	WARN_ON(sa_entry->x != x);
- 
- 	if (x->xso.flags & XFRM_OFFLOAD_INBOUND)
-@@ -343,13 +342,12 @@ static void mlx5e_xfrm_del_state(struct xfrm_state *x)
- 
- static void mlx5e_xfrm_free_state(struct xfrm_state *x)
- {
--	struct mlx5e_ipsec_sa_entry *sa_entry;
-+	struct mlx5e_ipsec_sa_entry *sa_entry = (void *)xfrm_dev_offload_handle(x);
- 	int res;
- 
--	if (!x->xso.offload_handle)
-+	if (!sa_entry)
- 		return;
- 
--	sa_entry = (struct mlx5e_ipsec_sa_entry *)x->xso.offload_handle;
- 	WARN_ON(sa_entry->x != x);
- 
- 	res = mlx5_accel_ipsec_sa_cmd_wait(sa_entry->context);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-index 4614ddf..c5d4e8f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_accel/ipsec_rxtx.c
-@@ -243,7 +243,7 @@ struct sk_buff *mlx5e_ipsec_handle_tx_skb(struct net_device *netdev,
- 		goto drop;
- 	}
- 
--	if (unlikely(!x->xso.offload_handle ||
-+	if (unlikely(!xfrm_dev_offload_handle(x) ||
- 		     (skb->protocol != htons(ETH_P_IP) &&
- 		      skb->protocol != htons(ETH_P_IPV6)))) {
- 		atomic64_inc(&priv->ipsec->sw_stats.ipsec_tx_drop_not_ip);
-@@ -353,7 +353,7 @@ bool mlx5e_ipsec_feature_check(struct sk_buff *skb, struct net_device *netdev,
- 
- 	if (skb->sp && skb->sp->len) {
- 		x = skb->sp->xvec[0];
--		if (x && x->xso.offload_handle)
-+		if (x && xfrm_dev_offload_handle(x))
- 			return true;
- 	}
- 	return false;
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 3cb618b..41a1afc 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -125,7 +125,7 @@ struct xfrm_state_walk {
- 
- struct xfrm_state_offload {
- 	struct net_device	*dev;
--	unsigned long		offload_handle;
-+	atomic64_t		offload_handle;
- 	unsigned int		num_exthdrs;
- 	u8			flags;
- };
-@@ -1862,6 +1862,17 @@ int xfrm_dev_state_add(struct net *net, struct xfrm_state *x,
- 		       struct xfrm_user_offload *xuo);
- bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x);
- 
-+static inline void xfrm_dev_set_offload_handle(struct xfrm_state *x,
-+					       u64 offload_handle)
-+{
-+	atomic64_set(&x->xso.offload_handle, offload_handle);
-+}
-+
-+static inline u64 xfrm_dev_offload_handle(struct xfrm_state *x)
-+{
-+	return atomic64_read(&x->xso.offload_handle);
-+}
-+
- static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
- {
- 	struct xfrm_state *x = dst->xfrm;
-@@ -1869,7 +1880,7 @@ static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
- 	if (!x || !x->type_offload)
- 		return false;
- 
--	if (x->xso.offload_handle && (x->xso.dev == dst->path->dev) &&
-+	if (xfrm_dev_offload_handle(x) && (x->xso.dev == dst->path->dev) &&
- 	    !dst->child->xfrm)
- 		return true;
- 
-@@ -1919,6 +1930,16 @@ static inline bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x
- 	return false;
- }
- 
-+static inline void xfrm_dev_set_offload_handle(struct xfrm_state *x,
-+					       u64 offload_handle)
-+{
-+}
-+
-+static inline u64 xfrm_dev_offload_handle(struct xfrm_state *x)
-+{
-+	return 0;
-+}
-+
- static inline bool xfrm_dst_offload_ok(struct dst_entry *dst)
- {
- 	return false;
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index b00e4a4..250796f 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -832,7 +832,7 @@ static int esp_init_aead(struct xfrm_state *x)
- 		     x->geniv, x->aead->alg_name) >= CRYPTO_MAX_ALG_NAME)
- 		goto error;
- 
--	if (x->xso.offload_handle)
-+	if (xfrm_dev_offload_handle(x))
- 		mask |= CRYPTO_ALG_ASYNC;
- 
- 	aead = crypto_alloc_aead(aead_name, 0, mask);
-@@ -891,7 +891,7 @@ static int esp_init_authenc(struct xfrm_state *x)
- 			goto error;
- 	}
- 
--	if (x->xso.offload_handle)
-+	if (xfrm_dev_offload_handle(x))
- 		mask |= CRYPTO_ALG_ASYNC;
- 
- 	aead = crypto_alloc_aead(authenc_name, 0, mask);
-diff --git a/net/ipv4/esp4_offload.c b/net/ipv4/esp4_offload.c
-index f8b918c..ddeb5c1 100644
---- a/net/ipv4/esp4_offload.c
-+++ b/net/ipv4/esp4_offload.c
-@@ -211,7 +211,7 @@ static int esp_xmit(struct xfrm_state *x, struct sk_buff *skb,  netdev_features_
- 	if (!xo)
- 		return -EINVAL;
- 
--	if (!(features & NETIF_F_HW_ESP) || !x->xso.offload_handle ||
-+	if (!(features & NETIF_F_HW_ESP) || !xfrm_dev_offload_handle(x) ||
- 	    (x->xso.dev != skb->dev)) {
- 		xo->flags |= CRYPTO_FALLBACK;
- 		hw_offload = false;
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 1696401..fd9daac 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -741,7 +741,7 @@ static int esp_init_aead(struct xfrm_state *x)
- 		     x->geniv, x->aead->alg_name) >= CRYPTO_MAX_ALG_NAME)
- 		goto error;
- 
--	if (x->xso.offload_handle)
-+	if (xfrm_dev_offload_handle(x))
- 		mask |= CRYPTO_ALG_ASYNC;
- 
- 	aead = crypto_alloc_aead(aead_name, 0, mask);
-@@ -800,7 +800,7 @@ static int esp_init_authenc(struct xfrm_state *x)
- 			goto error;
- 	}
- 
--	if (x->xso.offload_handle)
-+	if (xfrm_dev_offload_handle(x))
- 		mask |= CRYPTO_ALG_ASYNC;
- 
- 	aead = crypto_alloc_aead(authenc_name, 0, mask);
-diff --git a/net/ipv6/esp6_offload.c b/net/ipv6/esp6_offload.c
-index 333a478..5103efd 100644
---- a/net/ipv6/esp6_offload.c
-+++ b/net/ipv6/esp6_offload.c
-@@ -238,7 +238,7 @@ static int esp6_xmit(struct xfrm_state *x, struct sk_buff *skb,  netdev_features
- 	if (!xo)
- 		return -EINVAL;
- 
--	if (!(features & NETIF_F_HW_ESP) || !x->xso.offload_handle ||
-+	if (!(features & NETIF_F_HW_ESP) || !xfrm_dev_offload_handle(x) ||
- 	    (x->xso.dev != skb->dev)) {
- 		xo->flags |= CRYPTO_FALLBACK;
- 		hw_offload = false;
-diff --git a/net/xfrm/xfrm_device.c b/net/xfrm/xfrm_device.c
-index acf0010..0e7b6a4 100644
---- a/net/xfrm/xfrm_device.c
-+++ b/net/xfrm/xfrm_device.c
-@@ -119,7 +119,7 @@ bool xfrm_dev_offload_ok(struct sk_buff *skb, struct xfrm_state *x)
- 	if (!x->type_offload || x->encap)
- 		return false;
- 
--	if ((x->xso.offload_handle && (dev == dst->path->dev)) &&
-+	if ((xfrm_dev_offload_handle(x) && (dev == dst->path->dev)) &&
- 	     !dst->child->xfrm && x->type->get_mtu) {
- 		mtu = x->type->get_mtu(x, xdst->child_mtu_cached);
- 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index f7a12aa..a80ccfb 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -598,13 +598,6 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 			goto error;
- 	}
- 
--	if (attrs[XFRMA_OFFLOAD_DEV]) {
--		err = xfrm_dev_state_add(net, x,
--					 nla_data(attrs[XFRMA_OFFLOAD_DEV]));
--		if (err)
--			goto error;
--	}
--
- 	if ((err = xfrm_alloc_replay_state_esn(&x->replay_esn, &x->preplay_esn,
- 					       attrs[XFRMA_REPLAY_ESN_VAL])))
- 		goto error;
-@@ -653,20 +646,28 @@ static int xfrm_add_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	else
- 		err = xfrm_state_update(x);
- 
--	xfrm_audit_state_add(x, err ? 0 : 1, true);
--
--	if (err < 0) {
-+	if (err) {
- 		x->km.state = XFRM_STATE_DEAD;
- 		__xfrm_state_put(x);
- 		goto out;
- 	}
- 
-+	if (attrs[XFRMA_OFFLOAD_DEV])
-+		err = xfrm_dev_state_add(net, x,
-+					 nla_data(attrs[XFRMA_OFFLOAD_DEV]));
-+
-+	if (err) {
-+		xfrm_state_delete(x);
-+		goto out;
-+	}
-+
- 	c.seq = nlh->nlmsg_seq;
- 	c.portid = nlh->nlmsg_pid;
- 	c.event = nlh->nlmsg_type;
- 
- 	km_state_notify(x, &c);
- out:
-+	xfrm_audit_state_add(x, err ? 0 : 1, true);
- 	xfrm_state_put(x);
- 	return err;
- }
--- 
-1.8.3.1
+>
+> Messages printed to kernel log:
+>
+> [  244.451821] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable software MII access
+> [  244.470152] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.490199] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.510193] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to write reg index 0x0000: -71
+> [  244.511992] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable hardware MII access
+> [  244.530191] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to write reg index 0x0000: -71
+> [  244.532024] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable software MII access
+> [  244.550197] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.570198] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.590194] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to write reg index 0x0000: -71
+> [  244.591960] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable hardware MII access
+> [  244.610193] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to write reg index 0x0000: -71
+> [  244.611978] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable software MII access
+> [  244.630224] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.650197] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.670193] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to write reg index 0x0000: -71
+> [  244.671991] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable hardware MII access
+> [  244.690170] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to write reg index 0x0000: -71
+> [  244.691907] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to enable software MII access
+> [  244.710201] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
+> [  244.730205] asix 1-1:0.0 (unnamed net_device) (uninitialized):
+> Failed to read reg index 0x0000: -71
