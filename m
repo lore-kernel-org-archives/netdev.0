@@ -1,103 +1,58 @@
-From: =?UTF-8?B?Sm9uYXRoYW4gQmFzc2VyaSDwn5i2?= <misterikkit@google.com>
-Subject: Re: [PATCH net] xfrm: Clear sk_dst_cache when applying per-socket policy.
-Date: Mon, 23 Oct 2017 18:30:39 -0700
-Message-ID: <CABcqWgLsD-KJ7XVOPG1=xjb6WbeSTdVKkZtJMQNN2-yuhxxNnw@mail.gmail.com>
+From: Tuomas Tynkkynen <tuomas@tuxera.com>
+Subject: Re: [PATCH 0/2] 9p: Fixes for hard-to-hit bugs
+Date: Tue, 24 Oct 2017 04:41:08 +0300
+Message-ID: <1508809268.9653.13.camel@tuxera.com>
+References: <20170906145908.8082-1-tuomas@tuxera.com>
+         <1506431414.20647.0.camel@tuxera.com>
+         <20171020201125.GU21978@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Jakub Sitnicki <jkbs@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Jonathan Basseri <misterikkit@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:48927 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751250AbdJXBbB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 23 Oct 2017 21:31:01 -0400
-Received: by mail-io0-f194.google.com with SMTP id j17so22153250iod.5
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 18:31:01 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: <v9fs-developer@lists.sourceforge.net>,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        Latchesar Ionkov <lucho@ionkov.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-fsdevel@vger.kernel.org>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171020201125.GU21978@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 23, 2017 at 6:18 PM, Jonathan Basseri
-<misterikkit@google.com> wrote:
-> If a socket has a valid dst cache, then xfrm_lookup_route will get
-> skipped. However, the cache is not invalidated when applying policy to a
-> socket (i.e. IPV6_XFRM_POLICY). The result is that new policies are
-> sometimes ignored on those sockets. (Note: This was broken for IPv4 and
-> IPv6 at different times.)
->
-> This can be demonstrated like so,
-> 1. Create UDP socket.
-> 2. connect() the socket.
-> 3. Apply an outbound XFRM policy to the socket.
-> 4. send() data on the socket.
->
-> Packets will continue to be sent in the clear instead of matching an
-> xfrm or returning a no-match error (EAGAIN). This affects calls to
-> send() and not sendto().
->
-> Invalidating the sk_dst_cache is necessary to correctly apply xfrm
-> policies. Since we do this in xfrm_user_policy(), the sk_lock was
-> already acquired in either do_ip_setsockopt() or do_ipv6_setsockopt(),
-> and we may call __sk_dst_reset().
->
-> Performance impact should be negligible, since this code is only called
-> when changing xfrm policy, and only affects the socket in question.
->
-> Note: Creating normal XFRM policies should have a similar effect on
-> sk_dst_cache entries that match the policy, but that is not fixed in
-> this patch.
->
-> Fixes: 00bc0ef5880d ("ipv6: Skip XFRM lookup if dst_entry in socket cache is valid")
-> Tested: https://android-review.googlesource.com/517555
-> Tested: https://android-review.googlesource.com/418659
-> Signed-off-by: Jonathan Basseri <misterikkit@google.com>
->
-> diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-> index 12213477cd3a..1f5cee2269af 100644
-> --- a/net/xfrm/xfrm_state.c
-> +++ b/net/xfrm/xfrm_state.c
-> @@ -2045,33 +2045,34 @@ EXPORT_SYMBOL(km_is_alive);
->  int xfrm_user_policy(struct sock *sk, int optname, u8 __user *optval, int optlen)
->  {
->         int err;
->         u8 *data;
->         struct xfrm_mgr *km;
->         struct xfrm_policy *pol = NULL;
->
->         if (optlen <= 0 || optlen > PAGE_SIZE)
->                 return -EMSGSIZE;
->
->         data = memdup_user(optval, optlen);
->         if (IS_ERR(data))
->                 return PTR_ERR(data);
->
->         err = -EINVAL;
->         rcu_read_lock();
->         list_for_each_entry_rcu(km, &xfrm_km_list, list) {
->                 pol = km->compile_policy(sk, optname, data,
->                                          optlen, &err);
->                 if (err >= 0)
->                         break;
->         }
->         rcu_read_unlock();
->
->         if (err >= 0) {
->                 xfrm_sk_policy_insert(sk, err, pol);
->                 xfrm_pol_put(pol);
-> +               __sk_dst_reset(sk);
->                 err = 0;
->         }
->
->         kfree(data);
->         return err;
->  }
-> --
-> 2.15.0.rc0.271.g36b669edcc-goog
->
+Hi Al,
 
-I discussed the concerns with Eric and I believe this addresses them.
-(http://www.spinics.net/lists/netdev/msg449652.html)
+On Fri, 2017-10-20 at 21:11 +0100, Al Viro wrote:
+> On Tue, Sep 26, 2017 at 04:10:14PM +0300, Tuomas Tynkkynen wrote:
+> > Hi Al,
+> > 
+> > On Wed, 2017-09-06 at 17:59 +0300, Tuomas Tynkkynen wrote:
+> > > These two patches fix two hard-to-hit (but really annoying) bugs
+> > > in
+> > > 9p.
+> > > The first one was posted earlier in February (with one R-b), the
+> > > second
+> > > is a new one.
+> > > 
+...
+> > > 
+> > 
+> > Could you apply these? Thanks!
+> 
+> I can pick those, or, if you (or somebody else) are willing to
+> actively
+> maintain a 9p tree, you could start sending straight to Linus - up to
+> you.
+
+You can pick these up, I don't have plans for more patches right now
+(unless we hit some new bugs that affect our workloads).
+
+(FWIW there do lurk dragons there, at least 1) setxattr() with zero-
+length value turns into a removexattr(), and 2) creat("foo", 0444)
+fails due to the R/O perms when opening the writeback_fid. Fixes to
+either didn't seem too easy...)
+
+Thanks!
+
+- Tuomas
