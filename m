@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: add ip6_null_entry check in rt6_select()
-Date: Tue, 24 Oct 2017 18:52:07 +0900 (KST)
-Message-ID: <20171024.185207.1157240336408066887.davem@davemloft.net>
-References: <20171023215935.52136-1-tracywwnj@gmail.com>
+Subject: Re: [PATCH v2 net] tcp/dccp: fix other lockdep splats accessing
+ ireq_opt
+Date: Tue, 24 Oct 2017 18:56:16 +0900 (KST)
+Message-ID: <20171024.185616.1718355795918406578.davem@davemloft.net>
+References: <20171023095634.lednbqrxtbuooqcx@inn>
+        <1508770960.30291.83.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1508800508.30291.104.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com
-To: weiwan@google.com
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58412 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58450 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751921AbdJXJwL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:52:11 -0400
-In-Reply-To: <20171023215935.52136-1-tracywwnj@gmail.com>
+        with ESMTP id S1751876AbdJXJ4U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:56:20 -0400
+In-Reply-To: <1508800508.30291.104.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
-Date: Mon, 23 Oct 2017 14:59:35 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 23 Oct 2017 16:15:08 -0700
 
-> From: Wei Wang <weiwan@google.com>
-> 
-> In rt6_select(), fn->leaf could be pointing to net->ipv6.ip6_null_entry.
-> In this case, we should directly return instead of trying to carry on
-> with the rest of the process.
-> If not, we could crash at:
->   spin_lock_bh(&leaf->rt6i_table->rt6_lock);
-> because net->ipv6.ip6_null_entry does not have rt6i_table set.
- ...
-> Fixes: 66f5d6ce53e6 ("ipv6: replace rwlock with rcu and spinlock in fib6_table")
-> Signed-off-by: Wei Wang <weiwan@google.com>
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> +static inline struct ip_options_rcu *ireq_opt_deref(const struct inet_request_sock *ireq)
+> +{
+> +	return rcu_dereference_check(ireq->ireq_opt,
+> +				     refcount_read(&ireq.req->rsk_refcnt) > 0);
+                                                    ^^^^^^^^^
 
-Applied, thanks.
+Eric, _please_ build test your changes properly.
