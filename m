@@ -1,35 +1,36 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH 0/2] 9p: Fixes for hard-to-hit bugs
-Date: Tue, 24 Oct 2017 03:11:06 +0100
-Message-ID: <20171024021106.GY21978@ZenIV.linux.org.uk>
-References: <20170906145908.8082-1-tuomas@tuxera.com>
- <1506431414.20647.0.camel@tuxera.com>
- <20171020201125.GU21978@ZenIV.linux.org.uk>
- <1508809268.9653.13.camel@tuxera.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] net: xfrm_user: use BUG_ON instead of if condition
+ followed by BUG
+Date: Tue, 24 Oct 2017 11:25:08 +0800
+Message-ID: <20171024032508.GC28462@gondor.apana.org.au>
+References: <20171023181857.GA25379@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: v9fs-developer@lists.sourceforge.net,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Ron Minnich <rminnich@sandia.gov>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-fsdevel@vger.kernel.org
-To: Tuomas Tynkkynen <tuomas@tuxera.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1508809268.9653.13.camel@tuxera.com>
+In-Reply-To: <20171023181857.GA25379@embeddedor.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 24, 2017 at 04:41:08AM +0300, Tuomas Tynkkynen wrote:
-
-> > I can pick those, or, if you (or somebody else) are willing to
-> > actively
-> > maintain a 9p tree, you could start sending straight to Linus - up to
-> > you.
+On Mon, Oct 23, 2017 at 01:18:57PM -0500, Gustavo A. R. Silva wrote:
+> Use BUG_ON instead of if condition followed by BUG.
 > 
-> You can pick these up, I don't have plans for more patches right now
-> (unless we hit some new bugs that affect our workloads).
+> This issue was detected with the help of Coccinelle.
+> 
+> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 
-Done.
+I think this patch is terrible.  Why on earth is Coccinelle even
+warning about this?
+
+If anything we should be converting these constructs to not use
+BUG.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
