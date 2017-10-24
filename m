@@ -1,58 +1,130 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] rds: Fix inaccurate accounting of unsignaled wrs
-Date: Tue, 24 Oct 2017 09:36:22 -0700
-Message-ID: <770ae898-346c-5932-04cb-68abd73b2625@oracle.com>
-References: <20171024141628.14637-1-Haakon.Bugge@oracle.com>
- <e97ce8a5-4ad4-791b-2dd4-b3101999cca0@oracle.com>
- <663DF75A-36AC-4589-83B2-D664672CF374@oracle.com>
+From: Matthias Kaehlcke <mka@chromium.org>
+Subject: Re: [PATCH] nfp: convert nfp_eth_set_bit_config() into a macro
+Date: Tue, 24 Oct 2017 09:56:03 -0700
+Message-ID: <20171024165603.GA96615@google.com>
+References: <20171003200546.165731-1-mka@chromium.org>
+ <20171003145000.53683e21@cakuba>
+ <CAAMbb05G=HBQweiWqYva_9zTnQqAcwMhJ0yYBUi26T04YA4CxQ@mail.gmail.com>
+ <20171004111724.29a4d7ff@cakuba.netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        OFED mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?UTF-8?Q?H=c3=a5kon_Bugge?= <haakon.bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <663DF75A-36AC-4589-83B2-D664672CF374-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Manoj Gupta <manojgupta@chromium.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Horman <simon.horman@netronome.com>,
+        Dirk van der Merwe <dirk.vandermerwe@netronome.com>,
+        oss-drivers@netronome.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Renato Golin <renato.golin@linaro.org>,
+        Guenter Roeck <groeck@chromium.org>,
+        Doug Anderson <dianders@chromium.org>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:47977 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751442AbdJXQ4F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 12:56:05 -0400
+Received: by mail-io0-f195.google.com with SMTP id h70so24583790ioi.4
+        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 09:56:05 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20171004111724.29a4d7ff@cakuba.netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2017 9:15 AM, Håkon Bugge wrote:
-> 
->> On 24 Oct 2017, at 18:05, Santosh Shilimkar 
->> <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org <mailto:santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>> 
->> wrote:
->>
+Hi Jakub,
 
-[...]
->> Instead of partially doing changes inside/outside helper,
->> can also add inline helper for solicited state like
->> rds_ib_set_wr_solicited_state() and use that along
->> with this change.
-> 
-> Why? There is no book-keeping associated with setting send-solicited. 
-> Its set on the last fragment of a message and on the last fragment sent 
-> before throttling due to flow-control.
->
-> Creating a function to perform:
-> 
->          FOO |= BAR;
-> 
-> seems like an overkill to me.
->
-Its just inline helper and keep code consistent for flag
-manipulation. Compiler output will be like "FOO =| BAR;" :-)
+El Wed, Oct 04, 2017 at 11:17:24AM -0700 Jakub Kicinski ha dit:
 
-> That being said, in my opinion the fragments of a (large) send should be 
-> scattered with send-solicited. But that is another commit. But with such 
-> a commit, I agree with you, a helper function is required.
+> On Wed, 4 Oct 2017 10:42:42 -0700, Manoj Gupta wrote:
+> > Hi Jakub,
+> > 
+> > I had discussed about supporting this code with some clang developers.
+> > However, the consensus was this code relies on a specific GCC optimizer
+> > behavior and Clang does not share the same behavior by design.
 > 
-We already talked about it so lets leave it there.
+> Hm.  I find surprising that constant propagation to inlined functions
+> is considered something GCC-specific rather than obvious/basic.
+> 
+> > Note that even GCC can't compile this code at -O0.
+> 
+> Yes, that makes me feel uncomfortable...  Could you try this?
+> 
+> -------8<-------
+> 
+> diff --git a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+> index f6f7c085f8e0..47251396fcae 100644
+> --- a/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+> +++ b/drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp_eth.c
+> @@ -469,10 +469,10 @@ int nfp_eth_set_configured(struct nfp_cpp *cpp, unsigned int idx, bool configed)
+>  	return nfp_eth_config_commit_end(nsp);
+>  }
+>  
+> -/* Force inline, FIELD_* macroes require masks to be compilation-time known */
+> -static __always_inline int
+> +static int
+>  nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
+> -		       const u64 mask, unsigned int val, const u64 ctrl_bit)
+> +		       const u64 mask, const unsigned int shift,
+> +		       unsigned int val, const u64 ctrl_bit)
+>  {
+>  	union eth_table_entry *entries = nfp_nsp_config_entries(nsp);
+>  	unsigned int idx = nfp_nsp_config_idx(nsp);
+> @@ -489,11 +489,11 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
+>  
+>  	/* Check if we are already in requested state */
+>  	reg = le64_to_cpu(entries[idx].raw[raw_idx]);
+> -	if (val == FIELD_GET(mask, reg))
+> +	if (val == (reg & mask) >> shift)
+>  		return 0;
+>  
+>  	reg &= ~mask;
+> -	reg |= FIELD_PREP(mask, val);
+> +	reg |= (val << shift) & mask;
+>  	entries[idx].raw[raw_idx] = cpu_to_le64(reg);
+>  
+>  	entries[idx].control |= cpu_to_le64(ctrl_bit);
+> @@ -503,6 +503,13 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
+>  	return 0;
+>  }
+>  
+> +#define NFP_ETH_SET_BIT_CONFIG(nsp, raw_idx, mask, val, ctrl_bit)	\
+> +	({								\
+> +		__BF_FIELD_CHECK(mask, 0ULL, val, "NFP_ETH_SET_BIT_CONFIG: "); \
+> +		nfp_eth_set_bit_config(nsp, raw_idx, mask, __bf_shf(mask), \
+> +				       val, ctrl_bit);			\
+> +	})
+> +
+>  /**
+>   * __nfp_eth_set_aneg() - set PHY autonegotiation control bit
+>   * @nsp:	NFP NSP handle returned from nfp_eth_config_start()
+> @@ -515,7 +522,7 @@ nfp_eth_set_bit_config(struct nfp_nsp *nsp, unsigned int raw_idx,
+>   */
+>  int __nfp_eth_set_aneg(struct nfp_nsp *nsp, enum nfp_eth_aneg mode)
+>  {
+> -	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_STATE,
+> +	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_STATE,
+>  				      NSP_ETH_STATE_ANEG, mode,
+>  				      NSP_ETH_CTRL_SET_ANEG);
+>  }
+> @@ -544,7 +551,7 @@ int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed)
+>  		return -EINVAL;
+>  	}
+>  
+> -	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_STATE,
+> +	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_STATE,
+>  				      NSP_ETH_STATE_RATE, rate,
+>  				      NSP_ETH_CTRL_SET_RATE);
+>  }
+> @@ -561,6 +568,6 @@ int __nfp_eth_set_speed(struct nfp_nsp *nsp, unsigned int speed)
+>   */
+>  int __nfp_eth_set_split(struct nfp_nsp *nsp, unsigned int lanes)
+>  {
+> -	return nfp_eth_set_bit_config(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
+> +	return NFP_ETH_SET_BIT_CONFIG(nsp, NSP_ETH_RAW_PORT, NSP_ETH_PORT_LANES,
+>  				      lanes, NSP_ETH_CTRL_SET_LANES);
+>  }
 
-Regards,
-Santosh
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do you plan to send this as an official patch?
+
+Thanks
+
+Matthias
