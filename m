@@ -1,61 +1,75 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next] net/sched: Fix actions list corruption when adding offloaded tc flows
-Date: Tue, 24 Oct 2017 08:58:02 +0300
-Message-ID: <1508824682-5088-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
-        Roi Dayan <roid@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Chris Mi <chrism@mellanox.com>
+Subject: RE: [patch net v2 1/4] net/sched: Change tc_action refcnt and bindcnt
+ to atomic
+Date: Tue, 24 Oct 2017 06:17:14 +0000
+Message-ID: <VI1PR0501MB21435FFC6DA3D72DF79C1E26AB470@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+References: <1508152718-28726-1-git-send-email-chrism@mellanox.com>
+ <1508152718-28726-2-git-send-email-chrism@mellanox.com>
+ <CAM_iQpXA5y8nqCRAxy-9VJTSf3Z7g-6pL1PL1omcwkZn1apFUw@mail.gmail.com>
+ <VI1PR0501MB21439CB952C540F903969648AB4C0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+ <CAM_iQpWbfjCH0EFb8RYnOuZQtVtg-Mw-Kzv3GWq81qTVErN6hA@mail.gmail.com>
+ <VI1PR0501MB21437552565B68DC71A7DEE1AB4D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+ <CAM_iQpVA2SQ4eFWEQxjQwmoxwQnQiLgREETKdQLoADWt_xD4Bg@mail.gmail.com>
+ <b9444485-8e34-48ac-2b4f-abbd9c6d455f@mojatatu.com>
+ <CAM_iQpVMLJjyuSgGHZycgzRz6KHusyTODOAMbw2dj7jTb7bbQQ@mail.gmail.com>
+ <VI1PR0501MB2143994E767A6C7C9BE1754AAB460@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+ <CAM_iQpVqhwwyb+9-7Y6po0fAaNhzdjLpSAT1FS7dLm8TuhVcZQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Lucas Bates <lucasb@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40550 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751363AbdJXF6P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 01:58:15 -0400
+Received: from mail-db5eur01on0045.outbound.protection.outlook.com ([104.47.2.45]:15136
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750791AbdJXGRR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 02:17:17 -0400
+In-Reply-To: <CAM_iQpVqhwwyb+9-7Y6po0fAaNhzdjLpSAT1FS7dLm8TuhVcZQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prior to commit b3f55bdda8df, the networking core doesn't wire an in-place
-actions list the when the low level driver is called to offload the flow,
-but all low level drivers do that (call tcf_exts_to_list()) in their
-offloading "add" logic.
-
-Now, the in-place list is set in the core which goes over the list in a loop,
-but also by the hw driver when their offloading code is invoked indirectly:
-
-	cls_xxx add flow -> tc_setup_cb_call -> tc_exts_setup_cb_egdev_call -> hw driver
-
-which messes up the core list instance upon driver return. Fix that by avoiding
-in-place list on the net core code that deals with adding flows.
-
-Fixes: b3f55bdda8df ('net: sched: introduce per-egress action device callbacks')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_api.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index cdfdc24..0e96cda 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -1184,14 +1184,13 @@ static int tc_exts_setup_cb_egdev_call(struct tcf_exts *exts,
- #ifdef CONFIG_NET_CLS_ACT
- 	const struct tc_action *a;
- 	struct net_device *dev;
--	LIST_HEAD(actions);
--	int ret;
-+	int i, ret;
- 
- 	if (!tcf_exts_has_actions(exts))
- 		return 0;
- 
--	tcf_exts_to_list(exts, &actions);
--	list_for_each_entry(a, &actions, list) {
-+	for (i = 0; i < exts->nr_actions; i++) {
-+		a = exts->actions[i];
- 		if (!a->ops->get_dev)
- 			continue;
- 		dev = a->ops->get_dev(a);
--- 
-2.3.7
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBDb25nIFdhbmcgW21haWx0bzp4
+aXlvdS53YW5nY29uZ0BnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgT2N0b2JlciAyMywgMjAx
+NyAxMTo0MCBQTQ0KPiBUbzogQ2hyaXMgTWkgPGNocmlzbUBtZWxsYW5veC5jb20+DQo+IENjOiBK
+YW1hbCBIYWRpIFNhbGltIDxqaHNAbW9qYXRhdHUuY29tPjsgTGludXggS2VybmVsIE5ldHdvcmsg
+RGV2ZWxvcGVycw0KPiA8bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47IEx1Y2FzIEJhdGVzIDxsdWNh
+c2JAbW9qYXRhdHUuY29tPjsgSmlyaSBQaXJrbw0KPiA8amlyaUByZXNudWxsaS51cz47IERhdmlk
+IE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4gU3ViamVjdDogUmU6IFtwYXRjaCBuZXQg
+djIgMS80XSBuZXQvc2NoZWQ6IENoYW5nZSB0Y19hY3Rpb24gcmVmY250IGFuZA0KPiBiaW5kY250
+IHRvIGF0b21pYw0KPiANCj4gT24gU3VuLCBPY3QgMjIsIDIwMTcgYXQgNzo0NyBQTSwgQ2hyaXMg
+TWkgPGNocmlzbUBtZWxsYW5veC5jb20+IHdyb3RlOg0KPiA+DQo+ID4gSXQgc2VlbXMgaXQgaXMg
+bm90IGVhc3kgdG8gZGlzY2FyZCBjYWxsX3JjdSgpLiAgSSdtIGFmcmFpZCBldmVuIGlmIHdlDQo+
+ID4gaGF2ZSBhIGZpbmFsIHNvbHV0aW9uIHdpdGhvdXQgY2FsbF9yY3UoKSwgaXQgaXMgbm90IG1h
+dHVyZSBhdCB0aGUNCj4gPiBiZWdpbm5pbmcgYXMgd2VsbC4gSSBtZWFuIHdlIGFsc28gbmVlZCB0
+aW1lDQo+IA0KPiBXaHkgZG8geW91IGJlbGlldmUgaXQgaXMgbm90IGVhc3k/IFJUTkwgbG9jayBp
+cyBhbHJlYWR5IHRoZXJlLA0KPiBsaXN0X3NwbGljZV9pbml0X3JjdSgpIGlzIHRoZXJlIHRvby4g
+SSBjYW4gbmF0dXJhbGx5IGRpdmlkZSBteSBwYXRjaGVzIGZvciBlYWNoDQo+IG1vZHVsZSBzbyB0
+aGF0IHRoZXkgYXJlIG11Y2ggZWFzaWVyIHRvIGJhY2twb3J0IHRoYW4geW91cnMuDQpJIHRlc3Rl
+ZCB5b3VyIHBhdGNoZXMuIEl0IHRha2VzIGFib3V0IDE3IHNlY29uZHMgdG8gcnVuIHRoZSBzYW1l
+IHRlc3QuDQpJIGJlbGlldmUgeW91ciBjb2RlIGlzIHNpbXBsZXIgYW5kIGVhc3kgdG8gbWFpbnRh
+aW4uIElmIGl0IGlzIHN0YWJsZSwNCndlIHdpbGwgYWxzbyBnZXQgYmVuZWZpdC4gVGhhbmtzIQ0K
+PiANCj4gDQo+ID4gdG8gZml4IHRoZSBwb3NzaWJsZSBidWdzIG9mIHRoZSBuZXcgZGVzaWduLiBB
+bmQgbWF5YmUgdG8gZGVzdHJveSB0aGUNCj4gPiBmaWx0ZXJzIGluIHBhcmFsbGVsIGlzIHRoZSBy
+aWdodCBkaXJlY3Rpb24uIElmIHRoaXMgYnVnIGlzIHRoZSBsYXN0DQo+ID4gYnVnIGJyb3VnaHQg
+YnkgY2FsbF9yY3UoKSwgdGhlbiBjaGFuZ2luZyBpdCBtYXkgbm90IGJlIGEgZ29vZCBpZGVhLg0K
+PiANCj4gQWdhaW4sIHlvdSBoYXZlIHRvIHByb3ZlIHRoaXMgaXMgdGhlIGxhc3QgYnVnLCBJIHNl
+cmlvdXNseSBkb3VidCBpdCBpcy4NCj4gDQo+IA0KPiA+DQo+ID4gUGF0Y2ggMSBpcyBzdHJhaWdo
+dGZvcndhcmQgdG8gdXNlIGF0b21pYy4gUGF0Y2ggMiBpcyB0byBjb252ZXJ0IHRoZSBsaXN0IHRv
+DQo+IGFycmF5Lg0KPiANCj4gQm90aCBhcmUgYmlnIGluIHNpemUuDQo+IA0KPiANCj4gPiBJIHRo
+aW5rIHRoZXJlIGlzIG5vIGhhcm0gdG8gdGhlIG5ldyBkZXNpZ24uICBQYXRjaCAzIGFuZCA0IGFy
+ZSB1c2VmdWwgdGVzdA0KPiBjYXNlLg0KPiANCj4gSXQgZGVmaW5pdGVseSBkb2Vzbid0IGhhcm0s
+IGJ1dCB3aHkgZG8gd2Ugd2FzdGUgdGltZSBvbiBpdCB3aGVuIHdlIGtub3cNCj4gdGhlcmUgaXMg
+YSBiZXR0ZXIgd2F5PyBJdCBpcyBjbGVhcmx5IG5vdCBlYXN5IGZvciBiYWNrcG9ydCBlaXRoZXIs
+IGluIGZhY3QgaXQgaXMNCj4gaGFyZGVyIHcuci50LiBzaXplLg0KPiANCj4gDQo+ID4gV2UgYWxz
+byBuZWVkIGl0IHdpdGggbmV3IGRlc2lnbiB0byBtYWtlIHN1cmUgdGhlcmUgaXMgbm8gcmVncmVz
+c2lvbi4NCj4gPg0KPiANCj4gQXJlIHlvdSBzYXlpbmcgSSBjYW4ndCB0cnVzdCB5b3VyIHRlc3Qg
+Y2FzZXM/IDspDQo+IA0KPiANCj4gPiBTbyBJIHRoaW5rIG15IHBhdGNoIHNldCBzaG91bGQgbm90
+IGJlIGhlbGQgc28gbG9uZyB0aW1lLg0KPiANCj4gSSB0aGluayB5b3VyIHBhdGNoZXMgc2hvdWxk
+IGJlIGRyb3BwZWQgZXhjZXB0IHRoZSBsYXN0IHR3bywgSSB3aWxsIHRha2UgdGhlDQo+IGxhc3Qg
+dHdvIGZvciB5b3UuDQo+IA0KPiBUaGFua3MhDQo=
