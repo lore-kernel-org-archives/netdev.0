@@ -1,30 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/3] mlxsw: Various fixes
-Date: Tue, 24 Oct 2017 19:07:31 +0900 (KST)
-Message-ID: <20171024.190731.1936794199680009352.davem@davemloft.net>
-References: <20171024091717.1180-1-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 1/2] net: updating dst lastusage is an unlikely event.
+Date: Tue, 24 Oct 2017 12:37:18 +0200
+Message-ID: <cb6e9e39bdcdaebba87e331d7b18392bdeefebc3.1508841315.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Wei Wang <weiwan@google.com>, Martin KaFai Lau <kafai@fb.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58572 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752026AbdJXKHf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 06:07:35 -0400
-In-Reply-To: <20171024091717.1180-1-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:55602 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751888AbdJXKh2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 06:37:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 24 Oct 2017 11:17:14 +0200
+Since commit 0da4af00b2ed ("ipv6: only update __use and lastusetime
+once per jiffy at most"), updating the dst lastuse field is an
+unlikely action: it happens at most once per jiffy, out of
+potentially millions of calls per second.
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Yotam says:
-> 
-> Cleanup some issues reported by sparse.
+Mark explicitly the code as such, and let the compiler generate
+better code.
 
-Series applied.
+Note: gcc 7.2 and several older versions do actually generate
+different - better - code when the unlikely() hint is in place,
+avoid jump in the fast path and keeping better code locality.
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/net/dst.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index d70b33dc2332..0744a9630eed 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -257,7 +257,7 @@ static inline void dst_hold(struct dst_entry *dst)
+ 
+ static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
+ {
+-	if (time != dst->lastuse) {
++	if (unlikely(time != dst->lastuse)) {
+ 		dst->__use++;
+ 		dst->lastuse = time;
+ 	}
+-- 
+2.13.6
