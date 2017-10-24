@@ -1,49 +1,113 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v7 10/10] of: mdio: Prevent
- of_mdiobus_register from scanning mdio-mux nodes
-Date: Tue, 24 Oct 2017 21:02:26 +0200
-Message-ID: <20171024190226.GA23866@Red>
-References: <20171018114458.17891-1-clabbe.montjoie@gmail.com>
- <20171018114458.17891-11-clabbe.montjoie@gmail.com>
- <20171024184654.ggfrsrjd3nobku5n@rob-hp-laptop>
-Reply-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
+ condition followed by BUG
+Date: Tue, 24 Oct 2017 15:07:23 -0400
+Message-ID: <20171024190723.GD27853@fieldses.org>
+References: <20171023181635.GA25334@embeddedor.com>
+ <20171023203135.GA21106@fieldses.org>
+ <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
+ <20171024175342.GA27853@fieldses.org>
+ <1508869132.4780.14.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-sunxi+bncBD7YLCN32UNBBRU4X3HQKGQE5JDFV3Q-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Weston Andros Adamson <dros@monkey.org>,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-nfs list <linux-nfs@vger.kernel.org>,
+        netdev@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jeff Layton <jlayton@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fieldses.org ([173.255.197.46]:50382 "EHLO fieldses.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751280AbdJXTHY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 24 Oct 2017 15:07:24 -0400
 Content-Disposition: inline
-In-Reply-To: <20171024184654.ggfrsrjd3nobku5n@rob-hp-laptop>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1508869132.4780.14.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 24, 2017 at 01:46:54PM -0500, Rob Herring wrote:
-> On Wed, Oct 18, 2017 at 01:44:58PM +0200, Corentin Labbe wrote:
-> > Each child node of an MDIO node is scanned as a PHY when calling
-> > of_mdiobus_register() givint the following result:
-> > [   18.175379] mdio_bus stmmac-0: /soc/ethernet@1c30000/mdio/mdio-mux has invalid PHY address
-> > [   18.175408] mdio_bus stmmac-0: scan phy mdio-mux at address 0
-> > [   18.175450] mdio_bus stmmac-0: scan phy mdio-mux at address 1
-> > [...]
-> > [   18.176420] mdio_bus stmmac-0: scan phy mdio-mux at address 30
-> > [   18.176452] mdio_bus stmmac-0: scan phy mdio-mux at address 31
+On Tue, Oct 24, 2017 at 02:18:52PM -0400, Jeff Layton wrote:
+> On Tue, 2017-10-24 at 13:53 -0400, J. Bruce Fields wrote:
+> > On Tue, Oct 24, 2017 at 01:26:49PM -0400, Weston Andros Adamson wrote:
+> > > Is there a reason to BUG() in these places? Couldn't we WARN_ON_ONCE and return an error?
 > > 
-> > Since mdio-mux nodes are not PHY, this patch a way to to not scan
-> > them.
+> > I think the BUG() will just kill an nfsd thread that isn't holding any
+> > interesting locks.
+> > 
 > 
-> This can be dropped now, right?
+> Not necessarily. If panic_on_oops is set (and it usually is in
+> "production" setups), it'll crash the box there.
 
-Yes and it is dropped in my two last serie.
-Forgot to said it in changelog
+Maybe they're getting what they asked for?
+
+> > The failures look unlikely.  (Except for that read_u32... return, I
+> > wonder if we're missing a check there.)
+> 
+> Agreed, looks like you only hit an error if the read attempts to go out
+> of bounds. In principle that shouldn't ever happen (and I haven't seen
+> any reports of it).
+> 
+> Still...I agree with Dros that it's better to handle this without
+> oopsing if we can. We can return an error from either of those
+> functions. A sane error and a WARN_ONCE would be better here.
+
+OK, OK, OK.
+
+There are also some more BUGs that could use looking into if anyone
+wants to.
+
+--b.
+
+commit eb754930662f
+Author: J. Bruce Fields <bfields@redhat.com>
+Date:   Tue Oct 24 14:58:11 2017 -0400
+
+    rpc: remove some BUG()s
+    
+    It would be kinder to WARN() and recover in several spots here instead
+    of BUG()ing.
+    
+    Also, it looks like the read_u32_from_xdr_buf() call could actually
+    fail, though it might require a broken (or malicious) client, so convert
+    that to just an error return.
+    
+    Reported-by: Weston Andros Adamson <dros@monkey.org>
+    Signed-off-by: J. Bruce Fields <bfields@redhat.com>
+
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index 7b1ee5a0b03c..73165e9ca5bf 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -855,11 +855,13 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct g
+ 		return stat;
+ 	if (integ_len > buf->len)
+ 		return stat;
+-	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+-		BUG();
++	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len)) {
++		WARN_ON_ONCE(1);
++		return stat;
++	}
+ 	/* copy out mic... */
+ 	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+-		BUG();
++		return stat;
+ 	if (mic.len > RPC_MAX_AUTH_SIZE)
+ 		return stat;
+ 	mic.data = kmalloc(mic.len, GFP_KERNEL);
+@@ -1611,8 +1613,10 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
+ 	BUG_ON(integ_len % 4);
+ 	*p++ = htonl(integ_len);
+ 	*p++ = htonl(gc->gc_seq);
+-	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
+-		BUG();
++	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len)) {
++		WARN_ON_ONCE(1);
++		goto out_err;
++	}
+ 	if (resbuf->tail[0].iov_base == NULL) {
+ 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
+ 			goto out_err;
