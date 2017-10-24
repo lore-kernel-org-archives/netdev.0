@@ -1,257 +1,116 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/2] bridge: netlink: make
-	setlink/dellink notifications more accurate
-Date: Tue, 24 Oct 2017 15:32:41 +0300
-Message-ID: <1508848362-13750-2-git-send-email-nikolay@cumulusnetworks.com>
-References: <1508848362-13750-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	roopa@cumulusnetworks.com, bridge@lists.linux-foundation.org,
-	mrv@mojatatu.com, dsa@cumulusnetworks.com
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: [4.14rc6] __tcp_select_window divide by zero.
+Date: Tue, 24 Oct 2017 09:00:30 -0400
+Message-ID: <20171024130030.7t7j7tmfiyrlepmm@codemonkey.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1508848362-13750-1-git-send-email-nikolay@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from scorn.kernelslacker.org ([45.56.101.199]:60060 "EHLO
+        scorn.kernelslacker.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932991AbdJXNAc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 09:00:32 -0400
+Received: from [2601:196:4600:5b90:ae9e:17ff:feb7:72ca] (helo=wopr.kernelslacker.org)
+        by scorn.kernelslacker.org with esmtp (Exim 4.89)
+        (envelope-from <davej@codemonkey.org.uk>)
+        id 1e6yop-0008E9-7c
+        for netdev@vger.kernel.org; Tue, 24 Oct 2017 09:00:31 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Before this patch we had cases that either sent notifications when there
-were in fact no changes (e.g. non-existent vlan delete) or didn't send
-notifications when there were changes (e.g. vlan add range with an error in
-the middle, port flags change + vlan update error). This patch sends down
-a boolean to the functions setlink/dellink use and if there is even a
-single configuration change (port flag, vlan add/del, port state) then
-we always send a notification. This is all done to keep backwards
-compatibility with the opportunistic vlan delete, where one could
-specify a vlan range that has missing vlans inside and still everything
-in that range will be cleared, this is mostly used to clear the whole
-vlan config with a single call, i.e. range 1-4094.
+divide error: 0000 [#1] SMP KASAN
+CPU: 0 PID: 31140 Comm: trinity-c12 Not tainted 4.14.0-rc6-think+ #1 
+task: ffff8803c0d08040 task.stack: ffff8803df548000
+RIP: 0010:__tcp_select_window+0x21f/0x400
+RSP: 0018:ffff8803df54f418 EFLAGS: 00010246
+RAX: 0000000000000000 RBX: ffff880458fd3140 RCX: ffffffff82120ea5
+RDX: 0000000000000000 RSI: dffffc0000000000 RDI: ffff880458fd3a88
+RBP: 0000000000000000 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000098968
+R13: 1ffff1007bea9e87 R14: 0000000000000000 R15: 0000000000000000
+FS:  00007f76da1db700(0000) GS:ffff88046ae00000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000000 CR3: 00000003f67cd002 CR4: 00000000001606f0
+DR0: 00007f76d819f000 DR1: 00007f75a29f5000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
+Call Trace:
+ ? tcp_schedule_loss_probe+0x270/0x270
+ ? lock_acquire+0x12e/0x350
+ ? tcp_recvmsg+0x124/0x1430
+ ? lock_release+0x890/0x890
+ ? do_raw_spin_trylock+0x100/0x100
+ ? do_raw_spin_trylock+0x40/0x100
+ tcp_cleanup_rbuf+0x27d/0x2a0
+ ? tcp_recv_skb+0x180/0x180
+ ? mark_held_locks+0x70/0xa0
+ ? __local_bh_enable_ip+0x60/0x90
+ tcp_recvmsg+0x7a9/0x1430
+ ? tcp_recv_timestamp+0x250/0x250
+ ? __free_insn_slot+0x390/0x390
+ ? rcu_is_watching+0x88/0xd0
+ ? entry_SYSCALL64_slow_path+0x25/0x25
+ ? is_bpf_text_address+0x86/0xf0
+ ? kernel_text_address+0xec/0x100
+ ? __kernel_text_address+0xe/0x30
+ ? unwind_get_return_address+0x2f/0x50
+ ? __save_stack_trace+0x92/0x100
+ ? memcmp+0x45/0x70
+ ? match_held_lock+0x93/0x410
+ ? save_trace+0x1c0/0x1c0
+ ? save_stack+0x89/0xb0
+ ? save_stack+0x32/0xb0
+ ? kasan_kmalloc+0xa0/0xd0
+ ? native_sched_clock+0xf9/0x1a0
+ ? rw_copy_check_uvector+0x15e/0x180
+ inet_recvmsg+0x10b/0x360
+ ? inet_create+0x770/0x770
+ ? sched_clock_cpu+0x14/0xf0
+ ? sched_clock_cpu+0x14/0xf0
+ sock_read_iter+0x19d/0x240
+ ? sock_recvmsg+0x60/0x60
+ do_iter_readv_writev+0x2e4/0x320
+ ? vfs_dedupe_file_range+0x3e0/0x3e0
+ do_iter_read+0x149/0x280
+ vfs_readv+0x107/0x180
+ ? compat_rw_copy_check_uvector+0x1d0/0x1d0
+ ? fget_raw+0x10/0x10
+ ? __lock_is_held+0x2e/0xd0
+ ? do_preadv+0xf0/0xf0
+ ? __fdget_pos+0x82/0x110
+ ? __fdget_raw+0x10/0x10
+ ? do_readv+0xc0/0x1b0
+ do_readv+0xc0/0x1b0
+ ? vfs_readv+0x180/0x180
+ ? mark_held_locks+0x1b/0xa0
+ ? do_syscall_64+0xae/0x400
+ ? do_preadv+0xf0/0xf0
+ do_syscall_64+0x182/0x400
+ ? syscall_return_slowpath+0x270/0x270
+ ? rcu_read_lock_sched_held+0x90/0xa0
+ ? __context_tracking_exit.part.4+0x223/0x290
+ ? mark_held_locks+0x1b/0xa0
+ ? return_from_SYSCALL_64+0x2d/0x7a
+ ? trace_hardirqs_on_caller+0x17a/0x250
+ ? trace_hardirqs_on_thunk+0x1a/0x1c
+ entry_SYSCALL64_slow_path+0x25/0x25
+RIP: 0033:0x7f76d9b05219
+RSP: 002b:00007ffd41fd30d8 EFLAGS: 00000246  ORIG_RAX: 0000000000000013
+RAX: ffffffffffffffda RBX: 0000000000000013 RCX: 00007f76d9b05219
+RDX: 0000000000000016 RSI: 00005611ca731c70 RDI: 0000000000000179
+RBP: 00007ffd41fd3180 R08: 0000000000a07395 R09: 0000000a10d65a68
+R10: 0000000000000001 R11: 0000000000000246 R12: 0000000000000002
+R13: 00007f76da180058 R14: 00007f76da1db698 R15: 00007f76da180000
+Code: 41 5e 41 5f c3 48 8d bb 48 09 00 00 e8 4b 2b 30 ff 8b 83 48 09 00 00 89 ea 44 29 f2 39 c2 7d 08 39 c5 0f 8d 86 01 00 00 89 e8 99 <41> f7 fe 89 e8 29 d0 eb 8c 41 f7 df 48 89 c7 44 89 f9 d3 fd e8 
+RIP: __tcp_select_window+0x21f/0x400 RSP: ffff8803df54f418
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/bridge/br_netlink.c        | 44 +++++++++++++++++++++++++-----------------
- net/bridge/br_netlink_tunnel.c | 14 +++++++++-----
- net/bridge/br_private_tunnel.h |  3 ++-
- 3 files changed, 37 insertions(+), 24 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index fb61b6c79235..d0290ede9342 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -506,7 +506,7 @@ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- }
- 
- static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
--			int cmd, struct bridge_vlan_info *vinfo)
-+			int cmd, struct bridge_vlan_info *vinfo, bool *changed)
- {
- 	int err = 0;
- 
-@@ -517,21 +517,24 @@ static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
- 			 * per-VLAN entry as well
- 			 */
- 			err = nbp_vlan_add(p, vinfo->vid, vinfo->flags);
--			if (err)
--				break;
- 		} else {
- 			vinfo->flags |= BRIDGE_VLAN_INFO_BRENTRY;
- 			err = br_vlan_add(br, vinfo->vid, vinfo->flags);
- 		}
-+		if (!err)
-+			*changed = true;
- 		break;
- 
- 	case RTM_DELLINK:
- 		if (p) {
--			nbp_vlan_delete(p, vinfo->vid);
--			if (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)
--				br_vlan_delete(p->br, vinfo->vid);
--		} else {
--			br_vlan_delete(br, vinfo->vid);
-+			if (!nbp_vlan_delete(p, vinfo->vid))
-+				*changed = true;
-+
-+			if ((vinfo->flags & BRIDGE_VLAN_INFO_MASTER) &&
-+			    !br_vlan_delete(p->br, vinfo->vid))
-+				*changed = true;
-+		} else if (!br_vlan_delete(br, vinfo->vid)) {
-+			*changed = true;
- 		}
- 		break;
- 	}
-@@ -542,7 +545,8 @@ static int br_vlan_info(struct net_bridge *br, struct net_bridge_port *p,
- static int br_process_vlan_info(struct net_bridge *br,
- 				struct net_bridge_port *p, int cmd,
- 				struct bridge_vlan_info *vinfo_curr,
--				struct bridge_vlan_info **vinfo_last)
-+				struct bridge_vlan_info **vinfo_last,
-+				bool *changed)
- {
- 	if (!vinfo_curr->vid || vinfo_curr->vid >= VLAN_VID_MASK)
- 		return -EINVAL;
-@@ -572,7 +576,7 @@ static int br_process_vlan_info(struct net_bridge *br,
- 		       sizeof(struct bridge_vlan_info));
- 		for (v = (*vinfo_last)->vid; v <= vinfo_curr->vid; v++) {
- 			tmp_vinfo.vid = v;
--			err = br_vlan_info(br, p, cmd, &tmp_vinfo);
-+			err = br_vlan_info(br, p, cmd, &tmp_vinfo, changed);
- 			if (err)
- 				break;
- 		}
-@@ -581,13 +585,13 @@ static int br_process_vlan_info(struct net_bridge *br,
- 		return err;
- 	}
- 
--	return br_vlan_info(br, p, cmd, vinfo_curr);
-+	return br_vlan_info(br, p, cmd, vinfo_curr, changed);
- }
- 
- static int br_afspec(struct net_bridge *br,
- 		     struct net_bridge_port *p,
- 		     struct nlattr *af_spec,
--		     int cmd)
-+		     int cmd, bool *changed)
- {
- 	struct bridge_vlan_info *vinfo_curr = NULL;
- 	struct bridge_vlan_info *vinfo_last = NULL;
-@@ -607,7 +611,8 @@ static int br_afspec(struct net_bridge *br,
- 				return err;
- 			err = br_process_vlan_tunnel_info(br, p, cmd,
- 							  &tinfo_curr,
--							  &tinfo_last);
-+							  &tinfo_last,
-+							  changed);
- 			if (err)
- 				return err;
- 			break;
-@@ -616,7 +621,7 @@ static int br_afspec(struct net_bridge *br,
- 				return -EINVAL;
- 			vinfo_curr = nla_data(attr);
- 			err = br_process_vlan_info(br, p, cmd, vinfo_curr,
--						   &vinfo_last);
-+						   &vinfo_last, changed);
- 			if (err)
- 				return err;
- 			break;
-@@ -804,6 +809,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
- 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
-+	bool changed = false;
- 	int err = 0;
- 
- 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
-@@ -839,14 +845,15 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 		}
- 		if (err)
- 			goto out;
-+		changed = true;
- 	}
- 
- 	if (afspec) {
- 		err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
--				afspec, RTM_SETLINK);
-+				afspec, RTM_SETLINK, &changed);
- 	}
- 
--	if (err == 0)
-+	if (changed)
- 		br_ifinfo_notify(RTM_NEWLINK, p);
- out:
- 	return err;
-@@ -857,6 +864,7 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- {
- 	struct nlattr *afspec;
- 	struct net_bridge_port *p;
-+	bool changed = false;
- 	int err = 0;
- 
- 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-@@ -869,8 +877,8 @@ int br_dellink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
- 		return -EINVAL;
- 
- 	err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
--			afspec, RTM_DELLINK);
--	if (err == 0)
-+			afspec, RTM_DELLINK, &changed);
-+	if (changed)
- 		/* Send RTM_NEWLINK because userspace
- 		 * expects RTM_NEWLINK for vlan dels
- 		 */
-diff --git a/net/bridge/br_netlink_tunnel.c b/net/bridge/br_netlink_tunnel.c
-index 3712c7f0e00c..da8cb99fd259 100644
---- a/net/bridge/br_netlink_tunnel.c
-+++ b/net/bridge/br_netlink_tunnel.c
-@@ -198,7 +198,7 @@ static const struct nla_policy vlan_tunnel_policy[IFLA_BRIDGE_VLAN_TUNNEL_MAX +
- };
- 
- static int br_vlan_tunnel_info(struct net_bridge_port *p, int cmd,
--			       u16 vid, u32 tun_id)
-+			       u16 vid, u32 tun_id, bool *changed)
- {
- 	int err = 0;
- 
-@@ -208,9 +208,12 @@ static int br_vlan_tunnel_info(struct net_bridge_port *p, int cmd,
- 	switch (cmd) {
- 	case RTM_SETLINK:
- 		err = nbp_vlan_tunnel_info_add(p, vid, tun_id);
-+		if (!err)
-+			*changed = true;
- 		break;
- 	case RTM_DELLINK:
--		nbp_vlan_tunnel_info_delete(p, vid);
-+		if (!nbp_vlan_tunnel_info_delete(p, vid))
-+			*changed = true;
- 		break;
- 	}
- 
-@@ -254,7 +257,8 @@ int br_parse_vlan_tunnel_info(struct nlattr *attr,
- int br_process_vlan_tunnel_info(struct net_bridge *br,
- 				struct net_bridge_port *p, int cmd,
- 				struct vtunnel_info *tinfo_curr,
--				struct vtunnel_info *tinfo_last)
-+				struct vtunnel_info *tinfo_last,
-+				bool *changed)
- {
- 	int err;
- 
-@@ -272,7 +276,7 @@ int br_process_vlan_tunnel_info(struct net_bridge *br,
- 			return -EINVAL;
- 		t = tinfo_last->tunid;
- 		for (v = tinfo_last->vid; v <= tinfo_curr->vid; v++) {
--			err = br_vlan_tunnel_info(p, cmd, v, t);
-+			err = br_vlan_tunnel_info(p, cmd, v, t, changed);
- 			if (err)
- 				return err;
- 			t++;
-@@ -283,7 +287,7 @@ int br_process_vlan_tunnel_info(struct net_bridge *br,
- 		if (tinfo_last->flags)
- 			return -EINVAL;
- 		err = br_vlan_tunnel_info(p, cmd, tinfo_curr->vid,
--					  tinfo_curr->tunid);
-+					  tinfo_curr->tunid, changed);
- 		if (err)
- 			return err;
- 		memset(tinfo_last, 0, sizeof(struct vtunnel_info));
-diff --git a/net/bridge/br_private_tunnel.h b/net/bridge/br_private_tunnel.h
-index 4a447a378ab3..a259471bfd78 100644
---- a/net/bridge/br_private_tunnel.h
-+++ b/net/bridge/br_private_tunnel.h
-@@ -26,7 +26,8 @@ int br_process_vlan_tunnel_info(struct net_bridge *br,
- 				struct net_bridge_port *p,
- 				int cmd,
- 				struct vtunnel_info *tinfo_curr,
--				struct vtunnel_info *tinfo_last);
-+				struct vtunnel_info *tinfo_last,
-+				bool *changed);
- int br_get_vlan_tunnel_info_size(struct net_bridge_vlan_group *vg);
- int br_fill_vlan_tunnel_info(struct sk_buff *skb,
- 			     struct net_bridge_vlan_group *vg);
--- 
-2.1.4
+
+                        window = rounddown(free_space, mss);
+    45ec:       89 e8                   mov    %ebp,%eax
+    45ee:       99                      cltd   
+    45ef:       41 f7 fe                idiv   %r14d
+    45f2:       89 e8                   mov    %ebp,%eax
+    45f4:       29 d0                   sub    %edx,%eax
+    45f6:       eb 8c                   jmp    4584 <__tcp_select_window+0x1b4>
+    45f8:       41 f7 df                neg    %r15d
