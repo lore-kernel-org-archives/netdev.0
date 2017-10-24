@@ -1,48 +1,53 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net-next 0/4] net: remove rtmsg_ifinfo used in bridge and bonding
-Date: Tue, 24 Oct 2017 13:54:16 +0800
-Message-ID: <cover.1508824093.git.lucien.xin@gmail.com>
+Subject: [PATCHv3 net-next 1/4] bridge: remove rtmsg_ifinfo called in add_del_if
+Date: Tue, 24 Oct 2017 13:54:17 +0800
+Message-ID: <7e91d225f138a96c791574d050c95679c08c80d8.1508824093.git.lucien.xin@gmail.com>
+References: <cover.1508824093.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net, David Ahern <dsahern@gmail.com>,
         Jiri Pirko <jiri@resnulli.us>
 To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:44880 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750989AbdJXFy3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 01:54:29 -0400
-Received: by mail-pf0-f193.google.com with SMTP id x7so18903360pfa.1
-        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 22:54:29 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:55366 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750989AbdJXFyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 01:54:37 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 17so18892288pfn.12
+        for <netdev@vger.kernel.org>; Mon, 23 Oct 2017 22:54:37 -0700 (PDT)
+In-Reply-To: <cover.1508824093.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1508824093.git.lucien.xin@gmail.com>
+References: <cover.1508824093.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's better to send notifications to userspace by the events in
-rtnetlink_event, instead of calling rtmsg_ifinfo directly.
+Since commit dc709f375743 ("rtnetlink: bring NETDEV_CHANGEUPPER event
+process back in rtnetlink_event"), rtnetlink_event would process the
+NETDEV_CHANGEUPPER event and send a notification to userspace.
 
-This patcheset is to remove rtmsg_ifinfo called in bonding and
-bridge, the notifications can be handled by NETDEV_CHANGEUPPER
-and NETDEV_CHANGELOWERSTATE events in rtnetlink_event.
+In add_del_if, it would generate NETDEV_CHANGEUPPER event by whether
+netdev_master_upper_dev_link or netdev_upper_dev_unlink. There's
+no need to call rtmsg_ifinfo to send the notification any more.
 
-It could also fix some redundant notifications from bonding and
-bridge.
+So this patch is to remove it from add_del_if also to avoid redundant
+notifications.
 
-v1->v2:
-  - post to net-next.git instead of net.git, for it's more like an
-    improvement for bonding
-v2->v3:
-  - add patch 1/4 to remove rtmsg_ifinfo called in add_del_if
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/bridge/br_ioctl.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Xin Long (4):
-  bridge: remove rtmsg_ifinfo called in add_del_if
-  bonding: remove rtmsg_ifinfo called in bond_master_upper_dev_link
-  rtnetlink: bring NETDEV_CHANGELOWERSTATE event process back to
-    rtnetlink_event
-  bonding: remove rtmsg_ifinfo called after bond_lower_state_changed
-
- drivers/net/bonding/bond_main.c | 11 +++--------
- include/net/bonding.h           |  4 ----
- net/bridge/br_ioctl.c           |  3 ---
- net/core/rtnetlink.c            |  2 +-
- 4 files changed, 4 insertions(+), 16 deletions(-)
-
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 8f29103..16d01a3 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -102,9 +102,6 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
+ 	else
+ 		ret = br_del_if(br, dev);
+ 
+-	if (!ret)
+-		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_MASTER, GFP_KERNEL);
+-
+ 	return ret;
+ }
+ 
 -- 
 2.1.0
