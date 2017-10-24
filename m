@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/2] ipsec: Fix dst leak in xfrm_bundle_create().
-Date: Tue, 24 Oct 2017 12:37:39 +0200
-Message-ID: <1508841460-26369-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/2] ipsec: Fix aborted xfrm policy dump crash
+Date: Tue, 24 Oct 2017 12:37:40 +0200
+Message-ID: <1508841460-26369-3-git-send-email-steffen.klassert@secunet.com>
 References: <1508841460-26369-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,61 +10,107 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:39116 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:39120 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751912AbdJXKht (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751975AbdJXKht (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 24 Oct 2017 06:37:49 -0400
 In-Reply-To: <1508841460-26369-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 
-If we cannot find a suitable inner_mode value, we will leak
-the currently allocated 'xdst'.
+An independent security researcher, Mohamed Ghannam, has reported
+this vulnerability to Beyond Security's SecuriTeam Secure Disclosure
+program.
 
-The fix is to make sure it is linked into the chain before
-erroring out.
+The xfrm_dump_policy_done function expects xfrm_dump_policy to
+have been called at least once or it will crash.  This can be
+triggered if a dump fails because the target socket's receive
+buffer is full.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+This patch fixes it by using the cb->start mechanism to ensure that
+the initialisation is always done regardless of the buffer situation.
+
+Fixes: 12a169e7d8f4 ("ipsec: Put dumpers on the dump list")
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_policy.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ net/xfrm/xfrm_user.c | 25 +++++++++++++++----------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index f062539..2746b62 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1573,6 +1573,14 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 			goto put_states;
- 		}
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index b997f13..e44a0fe 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1693,32 +1693,34 @@ static int dump_one_policy(struct xfrm_policy *xp, int dir, int count, void *ptr
  
-+		if (!dst_prev)
-+			dst0 = dst1;
-+		else
-+			/* Ref count is taken during xfrm_alloc_dst()
-+			 * No need to do dst_clone() on dst1
-+			 */
-+			dst_prev->child = dst1;
+ static int xfrm_dump_policy_done(struct netlink_callback *cb)
+ {
+-	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *) &cb->args[1];
++	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
+ 	struct net *net = sock_net(cb->skb->sk);
+ 
+ 	xfrm_policy_walk_done(walk, net);
+ 	return 0;
+ }
+ 
++static int xfrm_dump_policy_start(struct netlink_callback *cb)
++{
++	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
 +
- 		if (xfrm[i]->sel.family == AF_UNSPEC) {
- 			inner_mode = xfrm_ip2inner_mode(xfrm[i],
- 							xfrm_af2proto(family));
-@@ -1584,14 +1592,6 @@ static struct dst_entry *xfrm_bundle_create(struct xfrm_policy *policy,
- 		} else
- 			inner_mode = xfrm[i]->inner_mode;
++	BUILD_BUG_ON(sizeof(*walk) > sizeof(cb->args));
++
++	xfrm_policy_walk_init(walk, XFRM_POLICY_TYPE_ANY);
++	return 0;
++}
++
+ static int xfrm_dump_policy(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *) &cb->args[1];
++	struct xfrm_policy_walk *walk = (struct xfrm_policy_walk *)cb->args;
+ 	struct xfrm_dump_info info;
  
--		if (!dst_prev)
--			dst0 = dst1;
--		else
--			/* Ref count is taken during xfrm_alloc_dst()
--			 * No need to do dst_clone() on dst1
--			 */
--			dst_prev->child = dst1;
+-	BUILD_BUG_ON(sizeof(struct xfrm_policy_walk) >
+-		     sizeof(cb->args) - sizeof(cb->args[0]));
 -
- 		xdst->route = dst;
- 		dst_copy_metrics(dst1, dst);
+ 	info.in_skb = cb->skb;
+ 	info.out_skb = skb;
+ 	info.nlmsg_seq = cb->nlh->nlmsg_seq;
+ 	info.nlmsg_flags = NLM_F_MULTI;
  
+-	if (!cb->args[0]) {
+-		cb->args[0] = 1;
+-		xfrm_policy_walk_init(walk, XFRM_POLICY_TYPE_ANY);
+-	}
+-
+ 	(void) xfrm_policy_walk(net, walk, dump_one_policy, &info);
+ 
+ 	return skb->len;
+@@ -2474,6 +2476,7 @@ static const struct nla_policy xfrma_spd_policy[XFRMA_SPD_MAX+1] = {
+ 
+ static const struct xfrm_link {
+ 	int (*doit)(struct sk_buff *, struct nlmsghdr *, struct nlattr **);
++	int (*start)(struct netlink_callback *);
+ 	int (*dump)(struct sk_buff *, struct netlink_callback *);
+ 	int (*done)(struct netlink_callback *);
+ 	const struct nla_policy *nla_pol;
+@@ -2487,6 +2490,7 @@ static const struct xfrm_link {
+ 	[XFRM_MSG_NEWPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_add_policy    },
+ 	[XFRM_MSG_DELPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy    },
+ 	[XFRM_MSG_GETPOLICY   - XFRM_MSG_BASE] = { .doit = xfrm_get_policy,
++						   .start = xfrm_dump_policy_start,
+ 						   .dump = xfrm_dump_policy,
+ 						   .done = xfrm_dump_policy_done },
+ 	[XFRM_MSG_ALLOCSPI    - XFRM_MSG_BASE] = { .doit = xfrm_alloc_userspi },
+@@ -2539,6 +2543,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 
+ 		{
+ 			struct netlink_dump_control c = {
++				.start = link->start,
+ 				.dump = link->dump,
+ 				.done = link->done,
+ 			};
 -- 
 2.7.4
