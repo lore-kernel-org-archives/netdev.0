@@ -1,90 +1,47 @@
-From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
-Subject: Re: [patch net-next v2 00/20] net: sched: convert cls ndo_setup_tc
- offload calls to per-block callbacks
-Date: Tue, 24 Oct 2017 10:22:16 -0700
-Message-ID: <b73dbeb5-7095-f1a2-ccbc-d5c4ee382996@intel.com>
-References: <20171019135048.4306-1-jiri@resnulli.us>
- <20171021.030446.967534081159629805.davem@davemloft.net>
- <CAKgT0Ud0RJLZ6mz9Ysb9A7PdkcwBYt2+ASvLZQxMGPK2BwvqKw@mail.gmail.com>
- <CAKgT0UeR8t3C82cQo9er4zkQy7PH36H4r84WA7V7HLOavY7RGg@mail.gmail.com>
- <CAJ3xEMgdRBEuv0hb_G43zJXXRy=PWgY2tdHuwDN0Opc2NVF35g@mail.gmail.com>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [5/5] e1000e: Avoid receiver overrun interrupt bursts
+Date: Tue, 24 Oct 2017 13:20:27 -0400
+Message-ID: <20171024172027.onfcusdcicxqnfjp@csclub.uwaterloo.ca>
+References: <20170721183627.13373-5-bpoirier@suse.com>
+ <DDD41C67-CDF2-4443-9F49-0DC5489D9243@redfish-solutions.com>
+ <20170919194102.h2nu72evbqhpu765@f1.synalogic.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@resnulli.us>,
-        Netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        mlxsw <mlxsw@mellanox.com>, Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
+Cc: Philip Prindeville <philipp_subx@redfish-solutions.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Simon Horman <simon.horman@netronome
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
+        netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        linux-kernel@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:27479 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751501AbdJXRWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 13:22:25 -0400
-In-Reply-To: <CAJ3xEMgdRBEuv0hb_G43zJXXRy=PWgY2tdHuwDN0Opc2NVF35g@mail.gmail.com>
-Content-Language: en-US
+Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:42941 "EHLO
+        caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751378AbdJXR0E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 13:26:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20170919194102.h2nu72evbqhpu765@f1.synalogic.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2017 10:02 AM, Or Gerlitz wrote:
-> On Tue, Oct 24, 2017 at 7:24 PM, Alexander Duyck
-> <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> wrote:
+On Tue, Sep 19, 2017 at 09:41:02PM +0200, Benjamin Poirier wrote:
+> On 2017/09/19 12:38, Philip Prindeville wrote:
+> > Hi.
+> > 
+> > We’ve been running this patchset (all 5) for about as long as they’ve been under review… about 2 months.  And in a burn-in lab with heavy traffic.
+> > 
+> > We’ve not seen a single link-flap in hundreds of ours of saturated traffic.
+> > 
+> > Would love to see some resolution soon on this as we don’t want to ship a release with unsanctioned patches.
+> > 
+> > Is there an estimate on when that might be?
 > 
->     On Tue, Oct 24, 2017 at 9:01 AM, Alexander Duyck
->     <alexander.duyck@gmail.com <mailto:alexander.duyck@gmail.com>> wrote:
-> 
->  
-> 
->     > We are getting internal reports of regressions being seen with this
->     > patch set applied. Specifically the issues below have been pointed out
->     > to me. My understanding is that these issues are all being reported on
->     > ixgbe:
->     >
->     > 1.       To offload filter into HW, the hw-tc-offload feature flag has
->     > to be turned on before creating the ingress qdisc.
-> 
->  
-> 
->     > 2.       Deleting the ingress qdisc fails to remove filters added in
->     > HW. Filters in SW gets deleted.
-> 
-> 
-> 
-> FWIW, I don't think this is what you're hitting, but please note there
-> are two  fixes 
-> to the series in net-next 
-> 
-> 9d452ce net/sched: Fix actions list corruption when adding offloaded tc
-> flows
+> The patches have been added to Jeff Kirsher's next-queue tree. I guess
+> they will be submitted for v4.15 which might be released in early
+> 2018...
+> http://phb-crystal-ball.org/
 
-It looks like this patch just got applied, this fix wasn't included
-during our testing.
+And then they will be submitted to linux-stable so this long standing
+regression can be fixed, right?
 
-> 0843c09 net/sched: Set the net-device for egress device instance
-
-This fix was already in place during our testing. Also, the filters
-added were matching on IPv4 addresses with action drop.
-
-> I had to looked on other stuff today, but I will keep stressing see
-> if/what is broken w.r.t mlx5 
-> and help to get things to work later this and next week so by netdev
-> we'll be fine
-> 
-> Or.
-> 
-> 
+-- 
+Len Sorensen
