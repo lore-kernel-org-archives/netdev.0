@@ -1,8 +1,8 @@
 From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: [PATCH] net: rxrpc: rxkad: use BUG_ON instead of if condition
- followed by BUG
-Date: Tue, 24 Oct 2017 11:18:09 -0500
-Message-ID: <20171024161809.GA29118@embeddedor.com>
+Subject: [PATCH] rxrpc: recvmsg: use BUG_ON instead of if condition followed
+ by BUG
+Date: Tue, 24 Oct 2017 11:20:04 -0500
+Message-ID: <20171024162004.GA29376@embeddedor.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -19,67 +19,32 @@ This issue was detected with the help of Coccinelle.
 
 Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
 ---
- net/rxrpc/rxkad.c | 20 ++++++++------------
- 1 file changed, 8 insertions(+), 12 deletions(-)
+ net/rxrpc/recvmsg.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index c38b3a1..80bad60 100644
---- a/net/rxrpc/rxkad.c
-+++ b/net/rxrpc/rxkad.c
-@@ -70,9 +70,8 @@ static int rxkad_init_connection_security(struct rxrpc_connection *conn)
- 		goto error;
+diff --git a/net/rxrpc/recvmsg.c b/net/rxrpc/recvmsg.c
+index bdece21..9598b92 100644
+--- a/net/rxrpc/recvmsg.c
++++ b/net/rxrpc/recvmsg.c
+@@ -243,8 +243,7 @@ static int rxrpc_verify_packet(struct rxrpc_call *call, struct sk_buff *skb,
+ 	 */
+ 	if ((annotation & RXRPC_RX_ANNO_JUMBO) > 1) {
+ 		__be16 tmp;
+-		if (skb_copy_bits(skb, offset - 2, &tmp, 2) < 0)
+-			BUG();
++		BUG_ON(skb_copy_bits(skb, offset - 2, &tmp, 2) < 0);
+ 		cksum = ntohs(tmp);
+ 		seq += (annotation & RXRPC_RX_ANNO_JUMBO) - 1;
  	}
+@@ -503,8 +502,7 @@ int rxrpc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
  
--	if (crypto_skcipher_setkey(ci, token->kad->session_key,
--				   sizeof(token->kad->session_key)) < 0)
+ 	release_sock(&rx->sk);
+ 
+-	if (test_bit(RXRPC_CALL_RELEASED, &call->flags))
 -		BUG();
-+	BUG_ON(crypto_skcipher_setkey(ci, token->kad->session_key,
-+				   sizeof(token->kad->session_key)) < 0);
++	BUG_ON(test_bit(RXRPC_CALL_RELEASED, &call->flags));
  
- 	switch (conn->params.security_level) {
- 	case RXRPC_SECURITY_PLAIN:
-@@ -570,8 +569,7 @@ static void rxkad_locate_data_1(struct rxrpc_call *call, struct sk_buff *skb,
- {
- 	struct rxkad_level1_hdr sechdr;
- 
--	if (skb_copy_bits(skb, *_offset, &sechdr, sizeof(sechdr)) < 0)
--		BUG();
-+	BUG_ON(skb_copy_bits(skb, *_offset, &sechdr, sizeof(sechdr)) < 0);
- 	*_offset += sizeof(sechdr);
- 	*_len = ntohl(sechdr.data_size) & 0xffff;
- }
-@@ -584,8 +582,7 @@ static void rxkad_locate_data_2(struct rxrpc_call *call, struct sk_buff *skb,
- {
- 	struct rxkad_level2_hdr sechdr;
- 
--	if (skb_copy_bits(skb, *_offset, &sechdr, sizeof(sechdr)) < 0)
--		BUG();
-+	BUG_ON(skb_copy_bits(skb, *_offset, &sechdr, sizeof(sechdr)) < 0);
- 	*_offset += sizeof(sechdr);
- 	*_len = ntohl(sechdr.data_size) & 0xffff;
- }
-@@ -1022,9 +1019,8 @@ static void rxkad_decrypt_response(struct rxrpc_connection *conn,
- 	ASSERT(rxkad_ci != NULL);
- 
- 	mutex_lock(&rxkad_ci_mutex);
--	if (crypto_skcipher_setkey(rxkad_ci, session_key->x,
--				   sizeof(*session_key)) < 0)
--		BUG();
-+	BUG_ON(crypto_skcipher_setkey(rxkad_ci, session_key->x,
-+				   sizeof(*session_key)) < 0);
- 
- 	memcpy(&iv, session_key, sizeof(iv));
- 
-@@ -1066,8 +1062,8 @@ static int rxkad_verify_response(struct rxrpc_connection *conn,
- 	if (skb_copy_bits(skb, sizeof(struct rxrpc_wire_header),
- 			  &response, sizeof(response)) < 0)
- 		goto protocol_error;
--	if (!pskb_pull(skb, sizeof(response)))
--		BUG();
-+
-+	BUG_ON(!pskb_pull(skb, sizeof(response)));
- 
- 	version = ntohl(response.version);
- 	ticket_len = ntohl(response.ticket_len);
+ 	if (test_bit(RXRPC_CALL_HAS_USERID, &call->flags)) {
+ 		if (flags & MSG_CMSG_COMPAT) {
 -- 
 2.7.4
