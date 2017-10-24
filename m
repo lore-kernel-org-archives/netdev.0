@@ -1,119 +1,117 @@
-From: Yuval Mintz <yuvalm@mellanox.com>
-Subject: RE: [PATCH net-next v3 01/10] devlink: Add permanent config parameter
- get/set operations
-Date: Tue, 24 Oct 2017 21:22:27 +0000
-Message-ID: <AM0PR0502MB368378B824556ED230AF10C7BF470@AM0PR0502MB3683.eurprd05.prod.outlook.com>
-References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
- <1508875962-39233-2-git-send-email-steven.lin1@broadcom.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: [RFC] net/unix_diag: Provide UDIAG_SHOW_VFS2 attribute to fetch
+ complete inode number
+Date: Wed, 25 Oct 2017 00:48:14 +0300
+Message-ID: <20171024214814.GO5343@uranus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "michael.chan@broadcom.com" <michael.chan@broadcom.com>,
-        "linville@tuxdriver.com" <linville@tuxdriver.com>,
-        "gospo@broadcom.com" <gospo@broadcom.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steve Lin <steven.lin1@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0075.outbound.protection.outlook.com ([104.47.0.75]:59776
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751536AbdJXVWc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 24 Oct 2017 17:22:32 -0400
-In-Reply-To: <1508875962-39233-2-git-send-email-steven.lin1@broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Andrey Vagin <avagin@openvz.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Pavel Emelyanov <xemul@virtuozzo.com>
+To: NETDEV <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Add support for permanent config parameter get/set commands. Used
-> for persistent device configuration parameters.
->=20
-...
-> +	int (*perm_config_get)(struct devlink *devlink,
-> +			       enum devlink_perm_config_param param, u8
-> type,
-> +			       void *value);
-> +	int (*perm_config_set)(struct devlink *devlink,
-> +			       enum devlink_perm_config_param param, u8
-> type,
-> +			       void *value, u8 *restart_reqd);
->  };
-> +static int devlink_nl_single_param_get(struct sk_buff *msg,
-> +				       struct devlink *devlink,
-> +				       u32 param, u8 type)
-> +{
-> +	const struct devlink_ops *ops =3D devlink->ops;
-> +	struct nlattr *param_attr;
-> +	void *value;
-> +	u32 val;
-> +	int err;
-> +
-> +	/* Allocate buffer for parameter value */
-> +	switch (type) {
-> +	case NLA_U8:
-> +		value =3D kmalloc(sizeof(u8), GFP_KERNEL);
-> +		break;
-> +	case NLA_U16:
-> +		value =3D kmalloc(sizeof(u16), GFP_KERNEL);
-> +		break;
-> +	case NLA_U32:
-> +		value =3D kmalloc(sizeof(u32), GFP_KERNEL);
-> +		break;
-> +	default:
-> +		return -EINVAL; /* Unsupported Type */
-> +	}
-> +
-> +	if (!value)
-> +		return -ENOMEM;
-> +
-> +	err =3D ops->perm_config_get(devlink, param, type, value);
-> +	if (err)
-> +		return err;
+Currently unix_diag_vfs structure reports unix socket inode
+as u32 value which of course doesn't fit to ino_t type and
+the number may be trimmed. Lets rather deprecate old UDIAG_SHOW_VFS
+interface and provide UDIAG_SHOW_VFS2 (with one field "__zero" reserved
+which we could extend in future).
 
-I suspect this logic might be risky - its dependent on the driver to cast t=
-he
-'value' into the proper type or else, E.g., the following switch might brea=
-k
-for BE platforms.
-Is there any reason to have the devlink <-> driver API be based on void*
-and not on some typed data [of sufficient size]?
-...
-> +	switch (type) {
-> +	case NLA_U8:
-> +		val =3D *((u8 *)value);
-> +		if (nla_put_u8(msg, DEVLINK_ATTR_PERM_CONFIG_VALUE,
-> val))
-> +			goto nest_err;
-> +		break;
-> +	case NLA_U16:
-> +		val =3D *((u16 *)value);
-> +		if (nla_put_u16(msg,
-> DEVLINK_ATTR_PERM_CONFIG_VALUE, val))
-> +			goto nest_err;
-> +		break;
-> +	case NLA_U32:
-> +		val =3D *((u32 *)value);
-> +		if (nla_put_u32(msg,
-> DEVLINK_ATTR_PERM_CONFIG_VALUE, val))
-> +			goto nest_err;
-> +		break;
-> +	}
+CC: Andrey Vagin <avagin@openvz.org>
+CC: David S. Miller <davem@davemloft.net>
+CC: Pavel Emelyanov <xemul@virtuozzo.com>
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+---
 
-...
-> +static int devlink_nl_single_param_set(struct sk_buff *msg,
-> +				       struct devlink *devlink,
-> +				       u32 param, u8 type, void *value)
-> +{
-> +	const struct devlink_ops *ops =3D devlink->ops;
-> +	struct nlattr *cfgparam_attr;
-> +	u8 need_restart;
-> +	int err;
-> +
-> +	/* Now set parameter */
-> +	err =3D ops->perm_config_set(devlink, param, type, value,
-> &need_restart);
-> +	if (err)
-> +		return err;
+I build-tested it only thus not for inclusion yet, but rather
+to discuss if there some better way to handle this potential
+problem.
 
-Likewise
+ include/uapi/linux/unix_diag.h |    8 ++++++++
+ net/unix/diag.c                |   25 ++++++++++++++++---------
+ 2 files changed, 24 insertions(+), 9 deletions(-)
+
+Index: linux-ml.git/include/uapi/linux/unix_diag.h
+===================================================================
+--- linux-ml.git.orig/include/uapi/linux/unix_diag.h
++++ linux-ml.git/include/uapi/linux/unix_diag.h
+@@ -19,6 +19,7 @@ struct unix_diag_req {
+ #define UDIAG_SHOW_ICONS	0x00000008	/* show pending connections */
+ #define UDIAG_SHOW_RQLEN	0x00000010	/* show skb receive queue len */
+ #define UDIAG_SHOW_MEMINFO	0x00000020	/* show memory info of a socket */
++#define UDIAG_SHOW_VFS2		0x00000040	/* show VFS inode info v2 */
+ 
+ struct unix_diag_msg {
+ 	__u8	udiag_family;
+@@ -39,6 +40,7 @@ enum {
+ 	UNIX_DIAG_RQLEN,
+ 	UNIX_DIAG_MEMINFO,
+ 	UNIX_DIAG_SHUTDOWN,
++	UNIX_DIAG_VFS2,
+ 
+ 	__UNIX_DIAG_MAX,
+ };
+@@ -50,6 +52,12 @@ struct unix_diag_vfs {
+ 	__u32	udiag_vfs_dev;
+ };
+ 
++struct unix_diag_vfs2 {
++	__u64	udiag_vfs_ino;
++	__u32	udiag_vfs_dev;
++	__u32	__zero;		/* Reserve for future use */
++};
++
+ struct unix_diag_rqlen {
+ 	__u32	udiag_rqueue;
+ 	__u32	udiag_wqueue;
+Index: linux-ml.git/net/unix/diag.c
+===================================================================
+--- linux-ml.git.orig/net/unix/diag.c
++++ linux-ml.git/net/unix/diag.c
+@@ -19,17 +19,24 @@ static int sk_diag_dump_name(struct sock
+ 		       addr->name->sun_path);
+ }
+ 
+-static int sk_diag_dump_vfs(struct sock *sk, struct sk_buff *nlskb)
++static int sk_diag_dump_vfs(struct sock *sk, struct sk_buff *nlskb, unsigned int flags)
+ {
+ 	struct dentry *dentry = unix_sk(sk)->path.dentry;
+ 
+ 	if (dentry) {
+-		struct unix_diag_vfs uv = {
+-			.udiag_vfs_ino = d_backing_inode(dentry)->i_ino,
+-			.udiag_vfs_dev = dentry->d_sb->s_dev,
+-		};
+-
+-		return nla_put(nlskb, UNIX_DIAG_VFS, sizeof(uv), &uv);
++		if (flags & UDIAG_SHOW_VFS2) {
++			struct unix_diag_vfs uv = {
++				.udiag_vfs_ino = d_backing_inode(dentry)->i_ino,
++				.udiag_vfs_dev = dentry->d_sb->s_dev,
++			};
++			return nla_put(nlskb, UNIX_DIAG_VFS, sizeof(uv), &uv);
++		} else {
++			struct unix_diag_vfs2 uv = {
++				.udiag_vfs_ino = d_backing_inode(dentry)->i_ino,
++				.udiag_vfs_dev = dentry->d_sb->s_dev,
++			};
++			return nla_put(nlskb, UDIAG_SHOW_VFS2, sizeof(uv), &uv);
++		}
+ 	}
+ 
+ 	return 0;
+@@ -132,8 +139,8 @@ static int sk_diag_fill(struct sock *sk,
+ 	    sk_diag_dump_name(sk, skb))
+ 		goto out_nlmsg_trim;
+ 
+-	if ((req->udiag_show & UDIAG_SHOW_VFS) &&
+-	    sk_diag_dump_vfs(sk, skb))
++	if ((req->udiag_show & (UDIAG_SHOW_VFS | UDIAG_SHOW_VFS2)) &&
++	    sk_diag_dump_vfs(sk, skb, req->udiag_show))
+ 		goto out_nlmsg_trim;
+ 
+ 	if ((req->udiag_show & UDIAG_SHOW_PEER) &&
