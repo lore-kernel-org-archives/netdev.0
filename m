@@ -1,7 +1,7 @@
 From: Lipeng <lipeng321@huawei.com>
-Subject: [PATCH net-next 2/4] net: hns3: add nic_client check when initialize roce base information
-Date: Tue, 24 Oct 2017 21:02:10 +0800
-Message-ID: <1508850132-106101-3-git-send-email-lipeng321@huawei.com>
+Subject: [PATCH net-next 4/4] net: hns3: fix the bug when reuse command description in hclge_add_mac_vlan_tbl
+Date: Tue, 24 Oct 2017 21:02:12 +0800
+Message-ID: <1508850132-106101-5-git-send-email-lipeng321@huawei.com>
 References: <1508850132-106101-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,29 +14,39 @@ In-Reply-To: <1508850132-106101-1-git-send-email-lipeng321@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Roce driver works base on HNS3 driver.If insmod Roce driver before
-NIC driver there is a error because do not check nic_client. This patch
-adds nic_client check when initialize roce base information.
+When reusing a command description read from HW, driver should set
+IN_VLD bit, WR bit and NO_INTR bit. If IN_VLD bit and NO_INTR bit
+are not set, the command fails and driver prints error message:
 
+[  135.261284] hns3 0000:7d:00.0: cmdq execute failed for get_mac_vlan_cmd_status,status=2.
+[  135.270983] hns3 0000:7d:00.0: add mac addr failed for cmd_send, ret =-5.
+
+This patch fixes the bug.
 Fixes: 46a3df9 (net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support)
 
 Signed-off-by: Lipeng <lipeng321@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index 4431241..2c22d3c 100644
+index d11a9a5..0b95fbe 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -4285,7 +4285,7 @@ static int hclge_init_client_instance(struct hnae3_client *client,
- 				vport->roce.client = client;
- 			}
- 
--			if (hdev->roce_client) {
-+			if (hdev->roce_client && hdev->nic_client) {
- 				ret = hclge_init_roce_base_info(vport);
- 				if (ret)
- 					goto err;
+@@ -3600,11 +3600,11 @@ static int hclge_add_mac_vlan_tbl(struct hclge_vport *vport,
+ 							   resp_code,
+ 							   HCLGE_MAC_VLAN_ADD);
+ 	} else {
+-		mc_desc[0].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++		hclge_cmd_reuse_desc(&mc_desc[0], false);
+ 		mc_desc[0].flag |= cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
+-		mc_desc[1].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++		hclge_cmd_reuse_desc(&mc_desc[1], false);
+ 		mc_desc[1].flag |= cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
+-		mc_desc[2].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++		hclge_cmd_reuse_desc(&mc_desc[2], false);
+ 		mc_desc[2].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_NEXT);
+ 		memcpy(mc_desc[0].data, req,
+ 		       sizeof(struct hclge_mac_vlan_tbl_entry_cmd));
 -- 
 1.9.1
