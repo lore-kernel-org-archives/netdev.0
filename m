@@ -1,109 +1,107 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] drivers/wireless: cw1200: Convert timers to use timer_setup()
-Date: Tue, 24 Oct 2017 02:29:00 -0700
-Message-ID: <20171024092900.GA47129@beast>
+Subject: [PATCH] drivers/wireless: rsi: Convert timers to use timer_setup()
+Date: Tue, 24 Oct 2017 02:29:09 -0700
+Message-ID: <20171024092909.GA47160@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Solomon Peachy <pizza@shaftnet.org>,
+Cc: Amitkumar Karwar <amit.karwar@redpinesignals.com>,
+        Prameela Rani Garnepudi <prameela.j04cs@gmail.com>,
+        Pavani Muthyala <pavani.muthyala@redpinesignals.com>,
+        Karun Eagalapati <karun256@gmail.com>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:53757 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751769AbdJXJ3D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:29:03 -0400
-Received: by mail-pf0-f195.google.com with SMTP id t188so19256884pfd.10
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 02:29:02 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 In preparation for unconditionally passing the struct timer_list pointer to
 all timer callbacks, switch to using the new timer_setup() and from_timer()
 to pass the timer pointer explicitly.
 
-Cc: Solomon Peachy <pizza@shaftnet.org>
 Cc: Kalle Valo <kvalo@codeaurora.org>
+Cc: Amitkumar Karwar <amit.karwar@redpinesignals.com>
+Cc: Prameela Rani Garnepudi <prameela.j04cs@gmail.com>
+Cc: Pavani Muthyala <pavani.muthyala@redpinesignals.com>
+Cc: Karun Eagalapati <karun256@gmail.com>
 Cc: linux-wireless@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/wireless/st/cw1200/main.c  | 3 +--
- drivers/net/wireless/st/cw1200/queue.c | 6 +++---
- drivers/net/wireless/st/cw1200/sta.c   | 5 ++---
- drivers/net/wireless/st/cw1200/sta.h   | 2 +-
- 4 files changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/wireless/rsi/rsi_91x_hal.c      | 7 +++----
+ drivers/net/wireless/rsi/rsi_91x_mac80211.c | 4 ++--
+ drivers/net/wireless/rsi/rsi_91x_main.c     | 4 +---
+ drivers/net/wireless/rsi/rsi_common.h       | 2 +-
+ 4 files changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/wireless/st/cw1200/main.c b/drivers/net/wireless/st/cw1200/main.c
-index dc478cedbde0..a186d1df1f29 100644
---- a/drivers/net/wireless/st/cw1200/main.c
-+++ b/drivers/net/wireless/st/cw1200/main.c
-@@ -373,8 +373,7 @@ static struct ieee80211_hw *cw1200_init_common(const u8 *macaddr,
- 	INIT_WORK(&priv->update_filtering_work, cw1200_update_filtering_work);
- 	INIT_WORK(&priv->set_beacon_wakeup_period_work,
- 		  cw1200_set_beacon_wakeup_period_work);
--	setup_timer(&priv->mcast_timeout, cw1200_mcast_timeout,
--		    (unsigned long)priv);
-+	timer_setup(&priv->mcast_timeout, cw1200_mcast_timeout, 0);
+diff --git a/drivers/net/wireless/rsi/rsi_91x_hal.c b/drivers/net/wireless/rsi/rsi_91x_hal.c
+index 689527d7007a..1176de646942 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_hal.c
++++ b/drivers/net/wireless/rsi/rsi_91x_hal.c
+@@ -418,9 +418,9 @@ int rsi_prepare_beacon(struct rsi_common *common, struct sk_buff *skb)
+ 	return 0;
+ }
  
- 	if (cw1200_queue_stats_init(&priv->tx_queue_stats,
- 				    CW1200_LINK_ID_MAX,
-diff --git a/drivers/net/wireless/st/cw1200/queue.c b/drivers/net/wireless/st/cw1200/queue.c
-index 0ba5ef9b3e7b..5153d2cfd991 100644
---- a/drivers/net/wireless/st/cw1200/queue.c
-+++ b/drivers/net/wireless/st/cw1200/queue.c
-@@ -130,11 +130,11 @@ static void __cw1200_queue_gc(struct cw1200_queue *queue,
+-static void bl_cmd_timeout(unsigned long priv)
++static void bl_cmd_timeout(struct timer_list *t)
+ {
+-	struct rsi_hw *adapter = (struct rsi_hw *)priv;
++	struct rsi_hw *adapter = from_timer(adapter, t, bl_cmd_timer);
+ 
+ 	adapter->blcmd_timer_expired = true;
+ 	del_timer(&adapter->bl_cmd_timer);
+@@ -428,8 +428,7 @@ static void bl_cmd_timeout(unsigned long priv)
+ 
+ static int bl_start_cmd_timer(struct rsi_hw *adapter, u32 timeout)
+ {
+-	setup_timer(&adapter->bl_cmd_timer, (void *)&bl_cmd_timeout,
+-		    (unsigned long)adapter);
++	timer_setup(&adapter->bl_cmd_timer, bl_cmd_timeout, 0);
+ 	adapter->bl_cmd_timer.expires = (msecs_to_jiffies(timeout) + jiffies);
+ 
+ 	adapter->blcmd_timer_expired = false;
+diff --git a/drivers/net/wireless/rsi/rsi_91x_mac80211.c b/drivers/net/wireless/rsi/rsi_91x_mac80211.c
+index b1f5dbbde3cb..9427c9d7c9c7 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_mac80211.c
++++ b/drivers/net/wireless/rsi/rsi_91x_mac80211.c
+@@ -1663,9 +1663,9 @@ static void rsi_resume_conn_channel(struct rsi_common *common)
  	}
  }
  
--static void cw1200_queue_gc(unsigned long arg)
-+static void cw1200_queue_gc(struct timer_list *t)
+-void rsi_roc_timeout(unsigned long data)
++void rsi_roc_timeout(struct timer_list *t)
  {
- 	LIST_HEAD(list);
- 	struct cw1200_queue *queue =
--		(struct cw1200_queue *)arg;
-+		from_timer(queue, t, gc);
+-	struct rsi_common *common = (struct rsi_common *)data;
++	struct rsi_common *common = from_timer(common, t, roc_timer);
  
- 	spin_lock_bh(&queue->lock);
- 	__cw1200_queue_gc(queue, &list, true);
-@@ -179,7 +179,7 @@ int cw1200_queue_init(struct cw1200_queue *queue,
- 	INIT_LIST_HEAD(&queue->pending);
- 	INIT_LIST_HEAD(&queue->free_pool);
- 	spin_lock_init(&queue->lock);
--	setup_timer(&queue->gc, cw1200_queue_gc, (unsigned long)queue);
-+	timer_setup(&queue->gc, cw1200_queue_gc, 0);
+ 	rsi_dbg(INFO_ZONE, "Remain on channel expired\n");
  
- 	queue->pool = kzalloc(sizeof(struct cw1200_queue_item) * capacity,
- 			GFP_KERNEL);
-diff --git a/drivers/net/wireless/st/cw1200/sta.c b/drivers/net/wireless/st/cw1200/sta.c
-index a52224836a2b..03687a80d6e9 100644
---- a/drivers/net/wireless/st/cw1200/sta.c
-+++ b/drivers/net/wireless/st/cw1200/sta.c
-@@ -2112,10 +2112,9 @@ void cw1200_multicast_stop_work(struct work_struct *work)
- 	}
- }
+diff --git a/drivers/net/wireless/rsi/rsi_91x_main.c b/drivers/net/wireless/rsi/rsi_91x_main.c
+index 71b8cfb8252e..2a1fbb7db6c4 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_main.c
++++ b/drivers/net/wireless/rsi/rsi_91x_main.c
+@@ -262,9 +262,7 @@ struct rsi_hw *rsi_91x_init(void)
  
--void cw1200_mcast_timeout(unsigned long arg)
-+void cw1200_mcast_timeout(struct timer_list *t)
- {
--	struct cw1200_common *priv =
--		(struct cw1200_common *)arg;
-+	struct cw1200_common *priv = from_timer(priv, t, mcast_timeout);
+ 	rsi_default_ps_params(adapter);
+ 	spin_lock_init(&adapter->ps_lock);
+-	common->roc_timer.data = (unsigned long)common;
+-	common->roc_timer.function = (void *)&rsi_roc_timeout;
+-	init_timer(&common->roc_timer);
++	timer_setup(&common->roc_timer, rsi_roc_timeout, 0);
+ 	common->init_done = true;
+ 	return adapter;
  
- 	wiphy_warn(priv->hw->wiphy,
- 		   "Multicast delivery timeout.\n");
-diff --git a/drivers/net/wireless/st/cw1200/sta.h b/drivers/net/wireless/st/cw1200/sta.h
-index a0bacaa39b31..719de34dcbfe 100644
---- a/drivers/net/wireless/st/cw1200/sta.h
-+++ b/drivers/net/wireless/st/cw1200/sta.h
-@@ -117,6 +117,6 @@ void cw1200_set_tim_work(struct work_struct *work);
- void cw1200_set_cts_work(struct work_struct *work);
- void cw1200_multicast_start_work(struct work_struct *work);
- void cw1200_multicast_stop_work(struct work_struct *work);
--void cw1200_mcast_timeout(unsigned long arg);
-+void cw1200_mcast_timeout(struct timer_list *t);
- 
+diff --git a/drivers/net/wireless/rsi/rsi_common.h b/drivers/net/wireless/rsi/rsi_common.h
+index 272e18d750ff..29acaea3636d 100644
+--- a/drivers/net/wireless/rsi/rsi_common.h
++++ b/drivers/net/wireless/rsi/rsi_common.h
+@@ -85,5 +85,5 @@ void rsi_91x_deinit(struct rsi_hw *adapter);
+ int rsi_read_pkt(struct rsi_common *common, s32 rcv_pkt_len);
+ struct rsi_sta *rsi_find_sta(struct rsi_common *common, u8 *mac_addr);
+ struct ieee80211_vif *rsi_get_vif(struct rsi_hw *adapter, u8 *mac);
+-void rsi_roc_timeout(unsigned long data);
++void rsi_roc_timeout(struct timer_list *t);
  #endif
 -- 
 2.7.4
