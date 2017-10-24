@@ -1,47 +1,94 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: [5/5] e1000e: Avoid receiver overrun interrupt bursts
-Date: Tue, 24 Oct 2017 13:20:27 -0400
-Message-ID: <20171024172027.onfcusdcicxqnfjp@csclub.uwaterloo.ca>
-References: <20170721183627.13373-5-bpoirier@suse.com>
- <DDD41C67-CDF2-4443-9F49-0DC5489D9243@redfish-solutions.com>
- <20170919194102.h2nu72evbqhpu765@f1.synalogic.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Philip Prindeville <philipp_subx@redfish-solutions.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        linux-kernel@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caffeine.csclub.uwaterloo.ca ([129.97.134.17]:42941 "EHLO
-        caffeine.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751378AbdJXR0E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 13:26:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20170919194102.h2nu72evbqhpu765@f1.synalogic.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Weston Andros Adamson <dros@monkey.org>
+Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
+ condition followed by BUG
+Date: Tue, 24 Oct 2017 13:26:49 -0400
+Message-ID: <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
+References: <20171023181635.GA25334@embeddedor.com>
+ <20171023203135.GA21106@fieldses.org>
+Mime-Version: 1.0 (Mac OS X Mail 11.0 \(3445.1.7\))
+Content-Type: text/plain;
+        charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Jeff Layton <jlayton@poochiereds.net>,
+        Trond Myklebust <trond.myklebust@primarydata.com>,
+        Anna Schumaker <anna.schumaker@netapp.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-nfs list <linux-nfs@vger.kernel.org>,
+        netdev@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20171023203135.GA21106@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 19, 2017 at 09:41:02PM +0200, Benjamin Poirier wrote:
-> On 2017/09/19 12:38, Philip Prindeville wrote:
-> > Hi.
-> > 
-> > We’ve been running this patchset (all 5) for about as long as they’ve been under review… about 2 months.  And in a burn-in lab with heavy traffic.
-> > 
-> > We’ve not seen a single link-flap in hundreds of ours of saturated traffic.
-> > 
-> > Would love to see some resolution soon on this as we don’t want to ship a release with unsanctioned patches.
-> > 
-> > Is there an estimate on when that might be?
-> 
-> The patches have been added to Jeff Kirsher's next-queue tree. I guess
-> they will be submitted for v4.15 which might be released in early
-> 2018...
-> http://phb-crystal-ball.org/
+Is there a reason to BUG() in these places? Couldn't we WARN_ON_ONCE and =
+return an error?
 
-And then they will be submitted to linux-stable so this long standing
-regression can be fixed, right?
+-dros
 
--- 
-Len Sorensen
+> On Oct 23, 2017, at 4:31 PM, J. Bruce Fields <bfields@fieldses.org> =
+wrote:
+>=20
+> In the past we've avoided BUG_ON(X) where X might have side effects, =
+on
+> the theory that it should actually be OK just to compile out =
+BUG_ON()s.
+> Has that changed?
+>=20
+> In any case, I don't find that this improves readability; dropping.
+>=20
+> --b.
+>=20
+> On Mon, Oct 23, 2017 at 01:16:35PM -0500, Gustavo A. R. Silva wrote:
+>> Use BUG_ON instead of if condition followed by BUG.
+>>=20
+>> This issue was detected with the help of Coccinelle.
+>>=20
+>> Signed-off-by: Gustavo A. R. Silva <garsilva@embeddedor.com>
+>> ---
+>> net/sunrpc/auth_gss/svcauth_gss.c | 9 +++------
+>> 1 file changed, 3 insertions(+), 6 deletions(-)
+>>=20
+>> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c =
+b/net/sunrpc/auth_gss/svcauth_gss.c
+>> index 7b1ee5a..a10ce43 100644
+>> --- a/net/sunrpc/auth_gss/svcauth_gss.c
+>> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+>> @@ -855,11 +855,9 @@ unwrap_integ_data(struct svc_rqst *rqstp, struct =
+xdr_buf *buf, u32 seq, struct g
+>> 		return stat;
+>> 	if (integ_len > buf->len)
+>> 		return stat;
+>> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
+>> -		BUG();
+>> +	BUG_ON(xdr_buf_subsegment(buf, &integ_buf, 0, integ_len));
+>> 	/* copy out mic... */
+>> -	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
+>> -		BUG();
+>> +	BUG_ON(read_u32_from_xdr_buf(buf, integ_len, &mic.len));
+>> 	if (mic.len > RPC_MAX_AUTH_SIZE)
+>> 		return stat;
+>> 	mic.data =3D kmalloc(mic.len, GFP_KERNEL);
+>> @@ -1611,8 +1609,7 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst =
+*rqstp)
+>> 	BUG_ON(integ_len % 4);
+>> 	*p++ =3D htonl(integ_len);
+>> 	*p++ =3D htonl(gc->gc_seq);
+>> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, =
+integ_len))
+>> -		BUG();
+>> +	BUG_ON(xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, =
+integ_len));
+>> 	if (resbuf->tail[0].iov_base =3D=3D NULL) {
+>> 		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > =
+PAGE_SIZE)
+>> 			goto out_err;
+>> --=20
+>> 2.7.4
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
+in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
