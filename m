@@ -1,64 +1,67 @@
-From: Steve Lin <steven.lin1@broadcom.com>
-Subject: [PATCH net-next v3 05/10] devlink: Adding num MSI-X vectors per VF perm config param
-Date: Tue, 24 Oct 2017 16:12:37 -0400
-Message-ID: <1508875962-39233-6-git-send-email-steven.lin1@broadcom.com>
-References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
-Cc: jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
-        linville@tuxdriver.com, gospo@broadcom.com,
-        steven.lin1@broadcom.com, yuvalm@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:58379 "EHLO
-        rnd-relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751837AbdJXUNr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 16:13:47 -0400
-In-Reply-To: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v14 5/5] PCI: Remove PCI pool macro functions
+Date: Tue, 24 Oct 2017 15:18:13 -0500
+Message-ID: <20171024201813.GH21840@bhelgaas-glaptop.roam.corp.google.com>
+References: <20171023175958.8327-1-romain.perier@gmail.com>
+ <20171023175958.8327-6-romain.perier@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jens Axboe <axboe@kernel.dk>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Dan Williams <dan.j.williams@intel.com>,
+        Vinod Koul <vinod.koul@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Aviad Krawczyk <aviad.krawczyk@huawei.com>,
+        Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
+        dmaengine@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Romain Perier <romain.perier@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20171023175958.8327-6-romain.perier@gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Adding DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF permanent config
-parameter.  Value is permanent, so becomes the new default value
-for this device.
+On Mon, Oct 23, 2017 at 07:59:58PM +0200, Romain Perier wrote:
+> From: Romain Perier <romain.perier@collabora.com>
+> 
+> Now that all the drivers use dma pool API, we can remove the macro
+> functions for PCI pool.
+> 
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
 
-Value defines number of MSI-X vectors allocated per VF.
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 
-Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
-Acked-by: Andy Gospodarek <gospo@broadcom.com>
----
- include/uapi/linux/devlink.h | 3 +++
- net/core/devlink.c           | 1 +
- 2 files changed, 4 insertions(+)
+Since this barely touches drivers/pci and linux-pci wasn't copied
+until v14, I assume you're planning to merge this via some other tree.
+Let me know if you need anything else from me.
 
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index 5877ff9..1b76e8f 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -264,11 +264,14 @@ enum devlink_dpipe_header_id {
-  *   # of VFs per PF in SR-IOV mode
-  * DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT:
-  *   Max # of MSI-X vectors per PF
-+ * DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF:
-+ *   # of MSI-X vectors per VF
-  */
- enum devlink_perm_config_param {
- 	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
- 	DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
- 	DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT,
-+	DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF,
- 
- 	__DEVLINK_PERM_CONFIG_MAX,
- 	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 284e167..07d64da 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -1572,6 +1572,7 @@ static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
- 	[DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
- 	[DEVLINK_PERM_CONFIG_NUM_VF_PER_PF] = NLA_U32,
- 	[DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT] = NLA_U32,
-+	[DEVLINK_PERM_CONFIG_MSIX_VECTORS_PER_VF] = NLA_U32,
- };
- 
- static int devlink_nl_single_param_get(struct sk_buff *msg,
--- 
-2.7.4
+> ---
+>  include/linux/pci.h | 9 ---------
+>  1 file changed, 9 deletions(-)
+> 
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 80eaa2dbe3e9..a827f6eb54db 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -1325,15 +1325,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
+>  #include <linux/pci-dma.h>
+>  #include <linux/dmapool.h>
+>  
+> -#define	pci_pool dma_pool
+> -#define pci_pool_create(name, pdev, size, align, allocation) \
+> -		dma_pool_create(name, &pdev->dev, size, align, allocation)
+> -#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
+> -#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
+> -#define	pci_pool_zalloc(pool, flags, handle) \
+> -		dma_pool_zalloc(pool, flags, handle)
+> -#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
+> -
+>  struct msix_entry {
+>  	u32	vector;	/* kernel uses to write allocated vector */
+>  	u16	entry;	/* driver uses to specify entry, OS writes */
+> -- 
+> 2.14.1
+> 
