@@ -1,34 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2017-10-24
-Date: Tue, 24 Oct 2017 20:18:32 +0900 (KST)
-Message-ID: <20171024.201832.1079896012824825450.davem@davemloft.net>
-References: <1508841460-26369-1-git-send-email-steffen.klassert@secunet.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2017-10-24
+Date: Tue, 24 Oct 2017 13:27:22 +0200
+Message-ID: <20171024112725.13203-1-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+        kernel@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59536 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932148AbdJXLSj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 07:18:39 -0400
-In-Reply-To: <1508841460-26369-1-git-send-email-steffen.klassert@secunet.com>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:44105 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932196AbdJXL1e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 07:27:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 24 Oct 2017 12:37:38 +0200
+Hello David,
 
-> 1) Fix a memleak when we don't find a inner_mode
->    during bundle creation. From David Miller.
-> 
-> 2) Fix a xfrm policy dump crash. We may crash
->    on error when dumping policies via netlink.
->    Fix this by initializing the policy walk
->    with the cb->start method. This fix is a
->    serious stable candidate. From Herbert Xu.
-> 
-> Please pull or let me know if there are problems.
+here's another pull request for net/master.
 
-Pulled, please submit #2 to -stable indeed!
+The patch by Gerhard Bertelsmann fixes the CAN_CTRLMODE_LOOPBACK in the
+sun4i driver. Two patches by Jimmy Assarsson for the kvaser_usb driver
+fix a print in the error path of the kvaser_usb_close() and remove a
+wrong warning message with the Leaf v2 firmware version v4.1.844.
+
+regards,
+Marc
+
+---
+
+The following changes since commit b71d21c274eff20a9db8158882b545b141b73ab8:
+
+  sctp: full support for ipv6 ip_nonlocal_bind & IP_FREEBIND (2017-10-24 18:39:46 +0900)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.14-20171024
+
+for you to fetch changes up to e1d2d1329a5722dbecc9c278303fcc4aa01f8790:
+
+  can: kvaser_usb: Ignore CMD_FLUSH_QUEUE_REPLY messages (2017-10-24 13:00:36 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-4.14-20171024
+
+----------------------------------------------------------------
+Gerhard Bertelsmann (1):
+      can: sun4i: fix loopback mode
+
+Jimmy Assarsson (2):
+      can: kvaser_usb: Correct return value in printout
+      can: kvaser_usb: Ignore CMD_FLUSH_QUEUE_REPLY messages
+
+ drivers/net/can/sun4i_can.c      | 3 +--
+ drivers/net/can/usb/kvaser_usb.c | 9 ++++++++-
+ 2 files changed, 9 insertions(+), 3 deletions(-)
