@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/3] can: kvaser_usb: Ignore CMD_FLUSH_QUEUE_REPLY messages
-Date: Tue, 24 Oct 2017 13:27:25 +0200
-Message-ID: <20171024112725.13203-4-mkl@pengutronix.de>
+Subject: [PATCH 2/3] can: kvaser_usb: Correct return value in printout
+Date: Tue, 24 Oct 2017 13:27:24 +0200
+Message-ID: <20171024112725.13203-3-mkl@pengutronix.de>
 References: <20171024112725.13203-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
         kernel@pengutronix.de, Jimmy Assarsson <jimmyassarsson@gmail.com>,
@@ -9,57 +9,40 @@ Cc: davem@davemloft.net, linux-can@vger.kernel.org,
         Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57491 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:48243 "EHLO
         metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932409AbdJXL1g (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 07:27:36 -0400
+        by vger.kernel.org with ESMTP id S932352AbdJXL1f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 07:27:35 -0400
 In-Reply-To: <20171024112725.13203-1-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jimmy Assarsson <jimmyassarsson@gmail.com>
 
-To avoid kernel warning "Unhandled message (68)", ignore the
-CMD_FLUSH_QUEUE_REPLY message for now.
-
-As of Leaf v2 firmware version v4.1.844 (2017-02-15), flush tx queue is
-synchronous. There is a capability bit indicating whether flushing tx
-queue is synchronous or asynchronous.
-
-A proper solution would be to query the device for capabilities. If the
-synchronous tx flush capability bit is set, we should wait for
-CMD_FLUSH_QUEUE_REPLY message, while flushing the tx queue.
+If the return value from kvaser_usb_send_simple_msg() was non-zero, the
+return value from kvaser_usb_flush_queue() was printed in the kernel
+warning.
 
 Signed-off-by: Jimmy Assarsson <jimmyassarsson@gmail.com>
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/kvaser_usb.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/can/usb/kvaser_usb.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 861e90efab86..9b18d96ef526 100644
+index 18cc529fb807..861e90efab86 100644
 --- a/drivers/net/can/usb/kvaser_usb.c
 +++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -137,6 +137,7 @@ static inline bool kvaser_is_usbcan(const struct usb_device_id *id)
- #define CMD_RESET_ERROR_COUNTER		49
- #define CMD_TX_ACKNOWLEDGE		50
- #define CMD_CAN_ERROR_EVENT		51
-+#define CMD_FLUSH_QUEUE_REPLY		68
+@@ -1609,7 +1609,8 @@ static int kvaser_usb_close(struct net_device *netdev)
+ 	if (err)
+ 		netdev_warn(netdev, "Cannot flush queue, error %d\n", err);
  
- #define CMD_LEAF_USB_THROTTLE		77
- #define CMD_LEAF_LOG_MESSAGE		106
-@@ -1301,6 +1302,11 @@ static void kvaser_usb_handle_message(const struct kvaser_usb *dev,
- 			goto warn;
- 		break;
+-	if (kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, priv->channel))
++	err = kvaser_usb_send_simple_msg(dev, CMD_RESET_CHIP, priv->channel);
++	if (err)
+ 		netdev_warn(netdev, "Cannot reset card, error %d\n", err);
  
-+	case CMD_FLUSH_QUEUE_REPLY:
-+		if (dev->family != KVASER_LEAF)
-+			goto warn;
-+		break;
-+
- 	default:
- warn:		dev_warn(dev->udev->dev.parent,
- 			 "Unhandled message (%d)\n", msg->id);
+ 	err = kvaser_usb_stop_chip(priv);
 -- 
 2.14.2
