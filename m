@@ -1,81 +1,50 @@
 From: Steve Lin <steven.lin1@broadcom.com>
-Subject: [PATCH net-next v3 00/10] Adding permanent config get/set to devlink
-Date: Tue, 24 Oct 2017 16:12:32 -0400
-Message-ID: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
+Subject: [PATCH net-next v3 09/10] bnxt: Adding max PF MSI-X vectors perm config param
+Date: Tue, 24 Oct 2017 16:12:41 -0400
+Message-ID: <1508875962-39233-10-git-send-email-steven.lin1@broadcom.com>
+References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
 Cc: jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
         linville@tuxdriver.com, gospo@broadcom.com,
         steven.lin1@broadcom.com, yuvalm@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:58352 "EHLO
+Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:58384 "EHLO
         rnd-relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751536AbdJXUNq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 16:13:46 -0400
+        by vger.kernel.org with ESMTP id S1751856AbdJXUNr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 16:13:47 -0400
+In-Reply-To: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes since v2:
+Adding permanent config parameter for maximum number of PF
+MSI-X vectors.
 
-* Removed references to "NVRAM" in comments / commits.
-* Add parameter descriptions to header file.
-* Split bnxt patch into infrastructure, then one patch
-  for each new parameter.
-* Cleaned up goofs (unused parameters leftover from v1)
-* Used enum rather than u32 in prototype for perm_config_get()
-  and _set().
-* Defined DEVLINK_ATTR_PERM_CONFIG_TYPE so future parameters
-  can use arbitrary types (not just U32 and smaller).
-* Reverse Christmas tree local variable definitions.
-* No longer return original/previous value of parameter in
-  response to set.
-* Check parameter within enum limits before using it as array
-  index.
+Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+Acked-by: Andy Gospodarek <gospo@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-I have NOT implemented the following suggested changes:
-
-* Have driver report what parameters and parameter options it
-  supports.  Could be done in future patch by defining new
-  devlink op.
-* Support parameters spread across multi-part netlink messages.
-  See discussion on list - this doesn't seem necessary even
-  for devices with large number of parameters.
-* Support specifying per-VF config, if the VFs don't have
-  pci b/d/f associated with them.  See discussion on list;
-  if/when this support is required, could add
-  DEVLINK_ATTR_PERM_CONFIG_VF_INDEX to describe, without
-  breaking UAPI.
-* Rolling back previously set parameters in a collection of
-  sets, when one fails.  Instead, we report back to user
-  which sets were successful, so they know which were set
-  and which weren't, and can decide how to proceed.
-
---
-
-Adds a devlink command for getting & setting permanent /
-persistent device configuration parameters, and enumerates
-the parameters as nested devlink attributes.
-
-bnxt driver patches makes use of these new devlink cmds.
-
-Steve Lin (10):
-  devlink: Add permanent config parameter get/set operations
-  devlink: Adding SR-IOV enablement perm config param
-  devlink: Adding num VFs per PF permanent config param
-  devlink: Adding max PF MSI-X vectors perm config param
-  devlink: Adding num MSI-X vectors per VF perm config param
-  bnxt: Add devlink support for config get/set
-  bnxt: Adding SR-IOV enablement permanent cfg param
-  bnxt: Adding num VFs per PF perm config param
-  bnxt: Adding max PF MSI-X vectors perm config param
-  bnxt: Adding num MSI-X vectors per VF perm config param
-
- drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c | 281 +++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.h |  17 ++
- drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 100 ++++++++
- include/net/devlink.h                             |   6 +
- include/uapi/linux/devlink.h                      |  33 +++
- net/core/devlink.c                                | 299 ++++++++++++++++++++++
- 6 files changed, 730 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+index 55913c4..c6e670c 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_devlink.c
+@@ -20,12 +20,16 @@
+  *   1 = enable SR-IOV
+  * DEVLINK_PERM_CONFIG_NUM_VF_PER_PF:
+  *   # of VFs per PF in SR-IOV mode
++ * DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT:
++ *   Max # of MSI-X vectors per PF
+  */
+ struct bnxt_drv_cfgparam bnxt_drv_cfgparam_list[] = {
+ 	{DEVLINK_PERM_CONFIG_SRIOV_ENABLED, BNXT_DRV_PF,
+ 		BNXT_DRV_APPL_SHARED, 1, 401},
+ 	{DEVLINK_PERM_CONFIG_NUM_VF_PER_PF, BNXT_DRV_PF,
+ 		BNXT_DRV_APPL_FUNCTION, 8, 404},
++	{DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT, BNXT_DRV_PF,
++		BNXT_DRV_APPL_SHARED, 10, 108},
+ };
+ 
+ #define BNXT_NUM_DRV_CFGPARAM ARRAY_SIZE(bnxt_drv_cfgparam_list)
 -- 
 2.7.4
