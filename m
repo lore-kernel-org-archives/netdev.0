@@ -1,159 +1,63 @@
-From: "Gustavo A. R. Silva" <garsilva@embeddedor.com>
-Subject: Re: [PATCH] net: sunrpc: svcauth_gss: use BUG_ON instead of if
- condition followed by BUG
-Date: Tue, 24 Oct 2017 15:12:42 -0500
-Message-ID: <20171024151242.Horde.9xuLnnVxPJHwTDEYl2gMQ60@gator4166.hostgator.com>
-References: <20171023181635.GA25334@embeddedor.com>
- <20171023203135.GA21106@fieldses.org>
- <496D700A-E9D1-4745-B5DE-24BB9231A449@monkey.org>
- <20171024175342.GA27853@fieldses.org> <1508869132.4780.14.camel@redhat.com>
- <20171024190723.GD27853@fieldses.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed; DelSp=Yes
-Cc: Jeff Layton <jlayton@redhat.com>,
-        Weston Andros Adamson <dros@monkey.org>,
-        Trond Myklebust <trond.myklebust@primarydata.com>,
-        Anna Schumaker <anna.schumaker@netapp.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-nfs list <linux-nfs@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>
+From: Steve Lin <steven.lin1@broadcom.com>
+Subject: [PATCH net-next v3 04/10] devlink: Adding max PF MSI-X vectors perm config param
+Date: Tue, 24 Oct 2017 16:12:36 -0400
+Message-ID: <1508875962-39233-5-git-send-email-steven.lin1@broadcom.com>
+References: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
+Cc: jiri@mellanox.com, davem@davemloft.net, michael.chan@broadcom.com,
+        linville@tuxdriver.com, gospo@broadcom.com,
+        steven.lin1@broadcom.com, yuvalm@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gateway22.websitewelcome.com ([192.185.47.144]:41986 "EHLO
-        gateway22.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751529AbdJXUMo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 16:12:44 -0400
-Received: from cm16.websitewelcome.com (cm16.websitewelcome.com [100.42.49.19])
-        by gateway22.websitewelcome.com (Postfix) with ESMTP id B53EB1AAAA
-        for <netdev@vger.kernel.org>; Tue, 24 Oct 2017 15:12:43 -0500 (CDT)
-In-Reply-To: <20171024190723.GD27853@fieldses.org>
-Content-Disposition: inline
+Received: from rnd-relay.smtp.broadcom.com ([192.19.229.170]:58356 "EHLO
+        rnd-relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751661AbdJXUNq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 16:13:46 -0400
+In-Reply-To: <1508875962-39233-1-git-send-email-steven.lin1@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Adding DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT permanent config
+parameter.  Value is permanent, so becomes the new default value
+for this device.
 
-Quoting "J. Bruce Fields" <bfields@fieldses.org>:
+Value sets the maximum number of PF MSI-X vectors.
 
-> On Tue, Oct 24, 2017 at 02:18:52PM -0400, Jeff Layton wrote:
->> On Tue, 2017-10-24 at 13:53 -0400, J. Bruce Fields wrote:
->> > On Tue, Oct 24, 2017 at 01:26:49PM -0400, Weston Andros Adamson wrote:
->> > > Is there a reason to BUG() in these places? Couldn't we  
->> WARN_ON_ONCE and return an error?
->> >
->> > I think the BUG() will just kill an nfsd thread that isn't holding any
->> > interesting locks.
->> >
->>
->> Not necessarily. If panic_on_oops is set (and it usually is in
->> "production" setups), it'll crash the box there.
->
-> Maybe they're getting what they asked for?
->
->> > The failures look unlikely.  (Except for that read_u32... return, I
->> > wonder if we're missing a check there.)
->>
->> Agreed, looks like you only hit an error if the read attempts to go out
->> of bounds. In principle that shouldn't ever happen (and I haven't seen
->> any reports of it).
->>
->> Still...I agree with Dros that it's better to handle this without
->> oopsing if we can. We can return an error from either of those
->> functions. A sane error and a WARN_ONCE would be better here.
->
-> OK, OK, OK.
->
-> There are also some more BUGs that could use looking into if anyone
-> wants to.
->
-> --b.
->
-> commit eb754930662f
-> Author: J. Bruce Fields <bfields@redhat.com>
-> Date:   Tue Oct 24 14:58:11 2017 -0400
->
->     rpc: remove some BUG()s
->
->     It would be kinder to WARN() and recover in several spots here instead
->     of BUG()ing.
->
->     Also, it looks like the read_u32_from_xdr_buf() call could actually
->     fail, though it might require a broken (or malicious) client, so convert
->     that to just an error return.
->
->     Reported-by: Weston Andros Adamson <dros@monkey.org>
->     Signed-off-by: J. Bruce Fields <bfields@redhat.com>
->
-> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c  
-> b/net/sunrpc/auth_gss/svcauth_gss.c
-> index 7b1ee5a0b03c..73165e9ca5bf 100644
-> --- a/net/sunrpc/auth_gss/svcauth_gss.c
-> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
-> @@ -855,11 +855,13 @@ unwrap_integ_data(struct svc_rqst *rqstp,  
-> struct xdr_buf *buf, u32 seq, struct g
->  		return stat;
->  	if (integ_len > buf->len)
->  		return stat;
-> -	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len))
-> -		BUG();
-> +	if (xdr_buf_subsegment(buf, &integ_buf, 0, integ_len)) {
-> +		WARN_ON_ONCE(1);
-> +		return stat;
-> +	}
->  	/* copy out mic... */
->  	if (read_u32_from_xdr_buf(buf, integ_len, &mic.len))
-> -		BUG();
-> +		return stat;
->  	if (mic.len > RPC_MAX_AUTH_SIZE)
->  		return stat;
->  	mic.data = kmalloc(mic.len, GFP_KERNEL);
-> @@ -1611,8 +1613,10 @@ svcauth_gss_wrap_resp_integ(struct svc_rqst *rqstp)
->  	BUG_ON(integ_len % 4);
->  	*p++ = htonl(integ_len);
->  	*p++ = htonl(gc->gc_seq);
-> -	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len))
-> -		BUG();
-> +	if (xdr_buf_subsegment(resbuf, &integ_buf, integ_offset, integ_len)) {
-> +		WARN_ON_ONCE(1);
-> +		goto out_err;
-> +	}
->  	if (resbuf->tail[0].iov_base == NULL) {
->  		if (resbuf->head[0].iov_len + RPC_MAX_AUTH_SIZE > PAGE_SIZE)
->  			goto out_err;
+Signed-off-by: Steve Lin <steven.lin1@broadcom.com>
+Acked-by: Andy Gospodarek <gospo@broadcom.com>
+---
+ include/uapi/linux/devlink.h | 3 +++
+ net/core/devlink.c           | 1 +
+ 2 files changed, 4 insertions(+)
 
-What about the following BUG() at net/sunrpc/svc_xprt.c:1058:
-
-/*
-  * Remove a dead transport
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index db512c5..5877ff9 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -262,10 +262,13 @@ enum devlink_dpipe_header_id {
+  *   1 = enable SR-IOV
+  * DEVLINK_PERM_CONFIG_NUM_VF_PER_PF:
+  *   # of VFs per PF in SR-IOV mode
++ * DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT:
++ *   Max # of MSI-X vectors per PF
   */
-static void svc_delete_xprt(struct svc_xprt *xprt)
-{
-         struct svc_serv *serv = xprt->xpt_server;
-         struct svc_deferred_req *dr;
-
-         /* Only do this once */
-         if (test_and_set_bit(XPT_DEAD, &xprt->xpt_flags))
-                 BUG();
-
-         dprintk("svc: svc_delete_xprt(%p)\n", xprt);
-         xprt->xpt_ops->xpo_detach(xprt);
-
-         spin_lock_bh(&serv->sv_lock);
-         list_del_init(&xprt->xpt_list);
-         WARN_ON_ONCE(!list_empty(&xprt->xpt_ready));
-         if (test_bit(XPT_TEMP, &xprt->xpt_flags))
-                 serv->sv_tmpcnt--;
-         spin_unlock_bh(&serv->sv_lock);
-
-         while ((dr = svc_deferred_dequeue(xprt)) != NULL)
-                 kfree(dr);
-
-         call_xpt_users(xprt);
-         svc_xprt_put(xprt);
-}
-
-I'm suspicious about that comment above the _if_ condition: /* Only do  
-this once */
-
-Would it help to replace that BUG with a WARN_ON_ONCE?
-
-Thanks
+ enum devlink_perm_config_param {
+ 	DEVLINK_PERM_CONFIG_SRIOV_ENABLED,
+ 	DEVLINK_PERM_CONFIG_NUM_VF_PER_PF,
++	DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT,
+ 
+ 	__DEVLINK_PERM_CONFIG_MAX,
+ 	DEVLINK_PERM_CONFIG_MAX = __DEVLINK_PERM_CONFIG_MAX - 1
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 18f2600..284e167 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -1571,6 +1571,7 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1];
+ static const u8 devlink_perm_cfg_param_types[DEVLINK_PERM_CONFIG_MAX + 1] = {
+ 	[DEVLINK_PERM_CONFIG_SRIOV_ENABLED] = NLA_U8,
+ 	[DEVLINK_PERM_CONFIG_NUM_VF_PER_PF] = NLA_U32,
++	[DEVLINK_PERM_CONFIG_MAX_NUM_PF_MSIX_VECT] = NLA_U32,
+ };
+ 
+ static int devlink_nl_single_param_get(struct sk_buff *msg,
+-- 
+2.7.4
