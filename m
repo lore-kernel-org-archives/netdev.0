@@ -1,134 +1,53 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v9 01/10] dt-bindings: net: Restore sun8i dwmac binding
-Date: Tue, 24 Oct 2017 19:57:05 +0200
-Message-ID: <20171024175714.15840-2-clabbe.montjoie@gmail.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v9 08/10] net: stmmac: snps,dwmac-mdio MDIOs are automatically registered
+Date: Tue, 24 Oct 2017 19:57:12 +0200
+Message-ID: <20171024175714.15840-9-clabbe.montjoie@gmail.com>
 References: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- devicetree@vger.kernel.org
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
- will.deacon@arm.com, peppe.cavallaro@st.com, alexandre.torgue@st.com,
- andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20171024175714.15840-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20171024175714.15840-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The original dwmac-sun8i DT bindings have some issue on how to handle
-integrated PHY and was reverted in last RC of 4.13.
-But now we have a solution so we need to get back that was reverted.
+stmmac bindings docs said that its mdio node must have
+compatible = "snps,dwmac-mdio";
+Since dwmac-sun8i does not have any good reasons to not doing it, all
+their MDIO node must have it.
 
-This patch restore dt-bindings documentation about dwmac-sun8i
-This reverts commit 8aa33ec2f481 ("dt-bindings: net: Revert sun8i dwmac binding")
+Since these compatible is automatically registered, dwmac-sun8i compatible
+does not need to be in need_mdio_ids.
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-Acked-by: Rob Herring <robh@kernel.org>
+Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- .../devicetree/bindings/net/dwmac-sun8i.txt        | 84 ++++++++++++++++++++++
- 1 file changed, 84 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-new file mode 100644
-index 000000000000..725f3b187886
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-@@ -0,0 +1,84 @@
-+* Allwinner sun8i GMAC ethernet controller
-+
-+This device is a platform glue layer for stmmac.
-+Please see stmmac.txt for the other unchanged properties.
-+
-+Required properties:
-+- compatible: should be one of the following string:
-+		"allwinner,sun8i-a83t-emac"
-+		"allwinner,sun8i-h3-emac"
-+		"allwinner,sun8i-v3s-emac"
-+		"allwinner,sun50i-a64-emac"
-+- reg: address and length of the register for the device.
-+- interrupts: interrupt for the device
-+- interrupt-names: should be "macirq"
-+- clocks: A phandle to the reference clock for this device
-+- clock-names: should be "stmmaceth"
-+- resets: A phandle to the reset control for this device
-+- reset-names: should be "stmmaceth"
-+- phy-mode: See ethernet.txt
-+- phy-handle: See ethernet.txt
-+- #address-cells: shall be 1
-+- #size-cells: shall be 0
-+- syscon: A phandle to the syscon of the SoC with one of the following
-+ compatible string:
-+  - allwinner,sun8i-h3-system-controller
-+  - allwinner,sun8i-v3s-system-controller
-+  - allwinner,sun50i-a64-system-controller
-+  - allwinner,sun8i-a83t-system-controller
-+
-+Optional properties:
-+- allwinner,tx-delay-ps: TX clock delay chain value in ps. Range value is 0-700. Default is 0)
-+- allwinner,rx-delay-ps: RX clock delay chain value in ps. Range value is 0-3100. Default is 0)
-+Both delay properties need to be a multiple of 100. They control the delay for
-+external PHY.
-+
-+Optional properties for the following compatibles:
-+  - "allwinner,sun8i-h3-emac",
-+  - "allwinner,sun8i-v3s-emac":
-+- allwinner,leds-active-low: EPHY LEDs are active low
-+
-+Required child node of emac:
-+- mdio bus node: should be named mdio
-+
-+Required properties of the mdio node:
-+- #address-cells: shall be 1
-+- #size-cells: shall be 0
-+
-+The device node referenced by "phy" or "phy-handle" should be a child node
-+of the mdio node. See phy.txt for the generic PHY bindings.
-+
-+Required properties of the phy node with the following compatibles:
-+  - "allwinner,sun8i-h3-emac",
-+  - "allwinner,sun8i-v3s-emac":
-+- clocks: a phandle to the reference clock for the EPHY
-+- resets: a phandle to the reset control for the EPHY
-+
-+Example:
-+
-+emac: ethernet@1c0b000 {
-+	compatible = "allwinner,sun8i-h3-emac";
-+	syscon = <&syscon>;
-+	reg = <0x01c0b000 0x104>;
-+	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+	interrupt-names = "macirq";
-+	resets = <&ccu RST_BUS_EMAC>;
-+	reset-names = "stmmaceth";
-+	clocks = <&ccu CLK_BUS_EMAC>;
-+	clock-names = "stmmaceth";
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	mdio: mdio {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		int_mii_phy: ethernet-phy@1 {
-+			reg = <1>;
-+			clocks = <&ccu CLK_BUS_EPHY>;
-+			resets = <&ccu RST_BUS_EPHY>;
-+		};
-+	};
-+};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 8a280b48e3a9..9e616da0745d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -311,10 +311,6 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ 	bool mdio = true;
+ 	static const struct of_device_id need_mdio_ids[] = {
+ 		{ .compatible = "snps,dwc-qos-ethernet-4.10" },
+-		{ .compatible = "allwinner,sun8i-a83t-emac" },
+-		{ .compatible = "allwinner,sun8i-h3-emac" },
+-		{ .compatible = "allwinner,sun8i-v3s-emac" },
+-		{ .compatible = "allwinner,sun50i-a64-emac" },
+ 		{},
+ 	};
+ 
 -- 
 2.13.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
