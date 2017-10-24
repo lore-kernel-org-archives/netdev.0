@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] tcp/dccp: fix other lockdep splats accessing
- ireq_opt
-Date: Tue, 24 Oct 2017 18:56:16 +0900 (KST)
-Message-ID: <20171024.185616.1718355795918406578.davem@davemloft.net>
-References: <20171023095634.lednbqrxtbuooqcx@inn>
-        <1508770960.30291.83.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1508800508.30291.104.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH V3 net-next] liquidio: pass date and time info to NIC
+ firmware
+Date: Tue, 24 Oct 2017 18:57:32 +0900 (KST)
+Message-ID: <20171024.185732.249303077547012231.davem@davemloft.net>
+References: <20171024033325.GA17455@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        veerasenareddy.burru@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58450 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58462 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751876AbdJXJ4U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:56:20 -0400
-In-Reply-To: <1508800508.30291.104.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1751998AbdJXJ5g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 24 Oct 2017 05:57:36 -0400
+In-Reply-To: <20171024033325.GA17455@felix-thinkpad.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 23 Oct 2017 16:15:08 -0700
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 23 Oct 2017 20:33:25 -0700
 
-> +static inline struct ip_options_rcu *ireq_opt_deref(const struct inet_request_sock *ireq)
-> +{
-> +	return rcu_dereference_check(ireq->ireq_opt,
-> +				     refcount_read(&ireq.req->rsk_refcnt) > 0);
-                                                    ^^^^^^^^^
+> From: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+> 
+> Pass date and time information to NIC at the time of loading
+> firmware and periodically update the host time to NIC firmware.
+> This is to make NIC firmware use the same time reference as Host,
+> so that it is easy to correlate logs from firmware and host for debugging.
+> 
+> Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
 
-Eric, _please_ build test your changes properly.
+Applied.
